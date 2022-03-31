@@ -1,0 +1,8 @@
+load("//py:defs.bzl", "py_binary")
+
+py_library(
+    name = "foo",
+    srcs = ["__init__.py"],
+    imports = [".."],
+    visibility = ["//:__subpackages__"],
+)

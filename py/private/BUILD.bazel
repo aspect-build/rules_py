@@ -1,0 +1,38 @@
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+
+exports_files(
+    [
+        "entry.tmpl.sh",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+bzl_library(
+    name = "py_binary",
+    srcs = ["py_binary.bzl"],
+    visibility = ["//py:__subpackages__"],
+    deps = [
+        ":py_library",
+        ":utils",
+        "@aspect_bazel_lib//lib:paths",
+    ],
+)
+
+bzl_library(
+    name = "py_library",
+    srcs = ["py_library.bzl"],
+    visibility = ["//py:__subpackages__"],
+    deps = ["@bazel_skylib//lib:paths"],
+)
+
+bzl_library(
+    name = "providers",
+    srcs = ["providers.bzl"],
+    visibility = ["//py:__subpackages__"],
+)
+
+bzl_library(
+    name = "utils",
+    srcs = ["utils.bzl"],
+    visibility = ["//py:__subpackages__"],
+)

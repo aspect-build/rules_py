@@ -28,17 +28,15 @@ def rules_py_dependencies():
     maybe(
         http_archive,
         name = "aspect_bazel_lib",
-        sha256 = "5f5f1237601d41d61608ad0b9541614935839232940010f9e62163c3e53dc1b7",
-        strip_prefix = "bazel-lib-0.5.0",
-        url = "https://github.com/aspect-build/bazel-lib/archive/refs/tags/v0.5.0.tar.gz",
+        sha256 = "b3de6702d48904e8dbe9b45d29e5f07d3258d826981fda87424462b36f16b35f",
+        strip_prefix = "bazel-lib-0.8.3",
+        url = "https://github.com/aspect-build/bazel-lib/archive/refs/tags/v0.8.3.tar.gz",
     )
 
     maybe(
         http_archive,
         name = "rules_python",
-        sha256 = "6c719f2981f47c5d9d0fe9ffe5d4a1cf4dbdc4c3f248d5631a3fc05af563e88e",
-        strip_prefix = "651ce7f4e620a8419cd051f6a7ebc11a67adc556",
-        # This is the HEAD of https://github.com/bazelbuild/rules_python/pull/618 as of 2022 March 4
-        # TODO: replace with rules_python 0.7.0 when released
-        url = "https://github.com/bazelbuild/rules_python/archive/651ce7f4e620a8419cd051f6a7ebc11a67adc556.zip",
+        sha256 = "9fcf91dbcc31fde6d1edb15f117246d912c33c36f44cf681976bd886538deba6",
+        strip_prefix = "rules_python-0.8.0",
+        url = "https://github.com/bazelbuild/rules_python/archive/refs/tags/0.8.0.tar.gz",
     )
