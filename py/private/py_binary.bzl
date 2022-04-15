@@ -1,4 +1,4 @@
-""
+"Implementation for the py_binary and py_test rules."
 
 load("@aspect_bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_manifest_path")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")

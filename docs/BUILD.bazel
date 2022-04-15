@@ -7,4 +7,14 @@ stardoc_with_diff_test(
     bzl_library_target = "//py:defs",
 )
 
+stardoc_with_diff_test(
+    name = "py_library",
+    bzl_library_target = "//py/private:py_library",
+)
+
+stardoc_with_diff_test(
+    name = "py_binary",
+    bzl_library_target = "//py/private:py_binary",
+)
+
 update_docs(name = "update")
