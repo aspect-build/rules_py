@@ -24,7 +24,7 @@ you can `bazel run [name].venv` to produce this, then use it in the editor.
 | <a id="py_binary-name"></a>name |  name of the rule   |  none |
 | <a id="py_binary-srcs"></a>srcs |  python source files   |  <code>[]</code> |
 | <a id="py_binary-main"></a>main |  the entry point. If absent, then the first entry in srcs is used.   |  <code>None</code> |
-| <a id="py_binary-kwargs"></a>kwargs |  see [py_binary attributes](./py_binary)   |  none |
+| <a id="py_binary-kwargs"></a>kwargs |  see [py_binary attributes](./py_binary.md)   |  none |
 
 
 <a id="#py_library"></a>
@@ -43,7 +43,7 @@ Wrapper macro for the py_library rule, setting a default for imports
 | Name  | Description | Default Value |
 | :------------- | :------------- | :------------- |
 | <a id="py_library-name"></a>name |  name of the rule   |  none |
-| <a id="py_library-kwargs"></a>kwargs |  see [py_library attributes](./py_library)   |  none |
+| <a id="py_library-kwargs"></a>kwargs |  see [py_library attributes](./py_library.md)   |  none |
 
 
 <a id="#py_test"></a>
