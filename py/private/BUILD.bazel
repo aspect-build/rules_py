@@ -30,13 +30,23 @@ bzl_library(
     name = "py_library",
     srcs = ["py_library.bzl"],
     visibility = ["//:__subpackages__"],
-    deps = ["@bazel_skylib//lib:paths"],
+    deps = [
+        ":providers",
+        "@bazel_skylib//lib:paths",
+    ],
 )
 
 bzl_library(
     name = "providers",
     srcs = ["providers.bzl"],
     visibility = ["//py:__subpackages__"],
+)
+
+bzl_library(
+    name = "py_wheel",
+    srcs = ["py_wheel.bzl"],
+    visibility = ["//py:__subpackages__"],
+    deps = [":providers"],
 )
 
 bzl_library(

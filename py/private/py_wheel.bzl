@@ -1,4 +1,12 @@
+"Represent a python wheel file"
+
 load("//py/private:providers.bzl", "PyWheelInfo")
+
+_ATTRS = {
+    "src": attr.label(
+        allow_files = [".whl"],
+    ),
+}
 
 def _make_py_wheel_info_from_filegroup(wheel_filegroup):
     files_depsets = []
@@ -16,14 +24,8 @@ def _py_wheel_impl(ctx):
         py_wheel_info,
     ]
 
-py_wheel = rule(
+py_wheel_lib = struct(
     implementation = _py_wheel_impl,
-    attrs = {
-        "src": attr.label(
-            allow_files = [".whl"],
-        ),
-    },
-    provides = [
-        PyWheelInfo,
-    ],
+    attrs = _ATTRS,
+    provides = [PyWheelInfo],
 )
