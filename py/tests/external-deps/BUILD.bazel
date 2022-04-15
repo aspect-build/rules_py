@@ -1,5 +1,7 @@
 load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirements")
 load("//py:defs.bzl", "py_binary", "py_library", "py_wheel")
+load("@python_toolchain//:defs.bzl", "host_platform")
+load("@aspect_bazel_lib//lib:write_source_files.bzl", "write_source_files")
 
 compile_pip_requirements(
     name = "requirements",
@@ -24,4 +26,22 @@ py_binary(
         ":django",
         ":lib",
     ],
+)
+
+genrule(
+    name = "run_main",
+    outs = ["out"],
+    cmd = "|".join([
+        "$(execpath main)",
+        """sed "s#$$(pwd)#(pwd)#" """,
+        "sed 's#^.*execroot/aspect_rules_py/external/python_toolchain_%s#(py_toolchain)#'" % host_platform,
+    ]) + "> $(execpath out)",
+    tools = ["main"],
+)
+
+write_source_files(
+    name = "test",
+    files = {
+        "expected": "out",
+    },
 )

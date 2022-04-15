@@ -1,4 +1,4 @@
-load("//py:defs.bzl", "py_binary")
+load("//py:defs.bzl", "py_library")
 
 py_library(
     name = "foo",
