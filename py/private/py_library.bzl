@@ -1,3 +1,5 @@
+"Implementation for the py_library rule"
+
 load("@bazel_skylib//lib:paths.bzl", "paths")
 
 def _make_srcs_depset(ctx):
@@ -69,18 +71,18 @@ def _py_library_impl(ctx):
     ]
 
 _attrs = dict({
-   "srcs": attr.label_list(
-       allow_files = True,
-   ),
-   "deps": attr.label_list(
-       allow_files = True,
-       # Ideally we'd have a PyWheelInfo provider here so we can restrict the dependency set
-       providers = [[PyInfo], []],
-   ),
-   "data": attr.label_list(
-       allow_files = True,
-   ),
-   "imports": attr.string_list(),
+    "srcs": attr.label_list(
+        allow_files = True,
+    ),
+    "deps": attr.label_list(
+        allow_files = True,
+        # Ideally we'd have a PyWheelInfo provider here so we can restrict the dependency set
+        providers = [[PyInfo], []],
+    ),
+    "data": attr.label_list(
+        allow_files = True,
+    ),
+    "imports": attr.string_list(),
 })
 
 _providers = [
@@ -88,23 +90,17 @@ _providers = [
     PyInfo,
 ]
 
-_py_library = rule(
-    implementation = _py_library_impl,
-    attrs = _attrs,
-    provides = _providers,
-)
-
-def py_library(name, **kwargs):
-    _py_library(
-        name = name,
-        imports = kwargs.pop("imports", []) + ["."],
-        **kwargs
-    )
-
 py_library_utils = struct(
     make_srcs_depset = _make_srcs_depset,
     make_imports_depset = _make_imports_depset,
     make_merged_runfiles = _make_merged_runfiles,
+    implementation = _py_library_impl,
     attrs = _attrs,
     py_library_providers = _providers,
+)
+
+py_library = rule(
+    implementation = py_library_utils.implementation,
+    attrs = py_library_utils.attrs,
+    provides = py_library_utils.py_library_providers,
 )

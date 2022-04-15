@@ -1,7 +1,6 @@
 ""
 
 load("@aspect_bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_manifest_path")
-
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:utils.bzl", "dict_to_exports")
 
@@ -32,7 +31,7 @@ def _resolve_toolchain(ctx):
         fail("Unable to resolve a path to the Python interperter")
 
     return struct(
-        toolchain =  py3_toolchain,
+        toolchain = py3_toolchain,
         path = interpreter_path,
         flags = ["-B", "-s", "-I"],
     )
@@ -70,6 +69,7 @@ def _py_binary_rule_imp(ctx):
     runfiles_files.append(pip_find_links_sh)
 
     find_links_lines = ctx.actions.args()
+
     # Note the format here is set to multiline so that each line isn't shell quoted
     find_links_lines.set_param_file_format(format = "multiline")
 
@@ -159,7 +159,7 @@ def _py_binary_rule_imp(ctx):
         extra_runfiles_depsets = [
             target[DefaultInfo].default_runfiles
             for target in ctx.attr.wheels
-        ]
+        ],
     )
 
     return [
@@ -174,7 +174,8 @@ def _py_binary_rule_imp(ctx):
         # Return PyInfo?
     ]
 
-_py_base = struct(
+py_base = struct(
+    implementation = _py_binary_rule_imp,
     attrs = dict({
         "env": attr.string_dict(
             default = {},
@@ -191,7 +192,7 @@ _py_base = struct(
             default = "//py/private:entry.tmpl.sh",
         ),
         "_runfiles_lib": attr.label(
-            default = "@bazel_tools//tools/bash/runfiles"
+            default = "@bazel_tools//tools/bash/runfiles",
         ),
     }, **_py_library.attrs),
     toolchains = [
@@ -200,47 +201,16 @@ _py_base = struct(
     ],
 )
 
-_py_binary = rule(
-    implementation = _py_binary_rule_imp,
-    attrs = _py_base.attrs,
-    toolchains = _py_base.toolchains,
+py_binary = rule(
+    implementation = py_base.implementation,
+    attrs = py_base.attrs,
+    toolchains = py_base.toolchains,
     executable = True,
 )
 
-_py_test = rule(
-    implementation = _py_binary_rule_imp,
-    attrs = _py_base.attrs,
-    toolchains = _py_base.toolchains,
+py_test = rule(
+    implementation = py_base.implementation,
+    attrs = py_base.attrs,
+    toolchains = py_base.toolchains,
     test = True,
 )
-
-def py_binary(name, srcs = [], main = None, **kwargs):
-    _py_binary(
-        name = name,
-        srcs = srcs,
-        main = main if main != None else srcs[0],
-        imports = kwargs.pop("imports", []) + ["."],
-        **kwargs
-    )
-
-    native.filegroup(
-        name = "%s_create_venv_files" % name,
-        srcs = [name],
-        tags = ["manual"],
-        output_group = "create_venv",
-    )
-
-    native.sh_binary(
-        name = "%s.venv" % name,
-        tags = ["manual"],
-        srcs = [":%s_create_venv_files" % name],
-    )
-
-def py_test(name, main = None, srcs = [], **kwargs):
-    _py_test(
-        name = name,
-        srcs = srcs,
-        main = main if main != None else srcs[0],
-        imports = kwargs.pop("imports", []) + ["."],
-        **kwargs
-    )
