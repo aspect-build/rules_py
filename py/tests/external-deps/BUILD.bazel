@@ -1,10 +1,15 @@
 load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirements")
-load("//py:defs.bzl", "py_binary", "py_library")
+load("//py:defs.bzl", "py_binary", "py_library", "py_wheel")
 
 compile_pip_requirements(
     name = "requirements",
     requirements_in = "requirements.in",
     requirements_txt = "requirements.txt",
+)
+
+py_wheel(
+    name = "django",
+    src = "@pypi_django//:whl",
 )
 
 py_library(
@@ -15,11 +20,8 @@ py_library(
 py_binary(
     name = "main",
     srcs = ["__main__.py"],
-    wheels = [
-        "@pypi_django//:whl",
-    ],
     deps = [
+        ":django",
         ":lib",
-        "//examples/foo",
     ],
 )

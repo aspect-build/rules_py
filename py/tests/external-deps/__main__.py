@@ -20,6 +20,3 @@ print(f'Django version: {django.__version__}')
 
 from lib import greet
 print(greet("Matt"))
-
-from foo import get_branding
-print(get_branding())

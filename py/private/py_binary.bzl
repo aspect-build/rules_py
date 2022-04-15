@@ -2,6 +2,7 @@
 
 load("@aspect_bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_manifest_path")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
+load("//py/private:providers.bzl", "PyWheelInfo")
 load("//py/private:utils.bzl", "dict_to_exports")
 
 PY_TOOLCHAIN = "@bazel_tools//tools/python:toolchain_type"
@@ -53,11 +54,11 @@ def _py_binary_rule_imp(ctx):
     # Get each path to every wheel we need, this includes the transitive wheels
     # As these are just filegroups, then we need to dig into the default_runfiles to get the transitive files
     # Create a depset for all these
-    wheels_depsets = []
-    for target in ctx.attr.wheels:
-        wheels_depsets.append(target[DefaultInfo].files)
-        wheels_depsets.append(target[DefaultInfo].default_runfiles.files)
-
+    wheels_depsets = [
+        target[PyWheelInfo].files
+        for target in ctx.attr.deps
+        if PyWheelInfo in target
+    ]
     wheels_depset = depset(
         transitive = wheels_depsets,
     )
@@ -114,7 +115,7 @@ def _py_binary_rule_imp(ctx):
         "{{BINARY_ENTRY_POINT}}": to_manifest_path(ctx, main),
         "{{INTERPRETER_FLAGS}}": " ".join(interpreter.flags),
         "{{INTERPRETER_FLAGS_PARTS}}": " ".join(['"%s", ' % f for f in interpreter.flags]),
-        "{{INSTALL_WHEELS}}": str(len(ctx.attr.wheels) > 0).lower(),
+        "{{INSTALL_WHEELS}}": str(len(wheels_depsets) > 0).lower(),
         "{{PIP_FIND_LINKS_SH}}": to_manifest_path(ctx, pip_find_links_sh),
         "{{PTH_FILE}}": to_manifest_path(ctx, pth),
         "{{PYTHON_INTERPRETER_PATH}}": interpreter.path,
@@ -157,8 +158,9 @@ def _py_binary_rule_imp(ctx):
         ],
         extra_runfiles = runfiles_files,
         extra_runfiles_depsets = [
-            target[DefaultInfo].default_runfiles
-            for target in ctx.attr.wheels
+            target[PyWheelInfo].default_runfiles
+            for target in ctx.attr.deps
+            if PyWheelInfo in target
         ],
     )
 
@@ -179,9 +181,6 @@ py_base = struct(
     attrs = dict({
         "env": attr.string_dict(
             default = {},
-        ),
-        "wheels": attr.label_list(
-            allow_files = [".whl"],
         ),
         "main": attr.label(
             allow_single_file = True,

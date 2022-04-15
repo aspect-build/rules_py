@@ -1,6 +1,7 @@
 "Implementation for the py_library rule"
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
+load("//py/private:providers.bzl", "PyWheelInfo")
 
 def _make_srcs_depset(ctx):
     return depset(
@@ -77,7 +78,7 @@ _attrs = dict({
     "deps": attr.label_list(
         allow_files = True,
         # Ideally we'd have a PyWheelInfo provider here so we can restrict the dependency set
-        providers = [[PyInfo], []],
+        providers = [[PyInfo], [PyWheelInfo]],
     ),
     "data": attr.label_list(
         allow_files = True,
