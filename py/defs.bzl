@@ -8,7 +8,7 @@ def py_library(name, **kwargs):
 
     Args:
         name: name of the rule
-        **kwargs: see [py_library attributes](./py_library.md)
+        **kwargs: see [py_library attributes](./py_library)
     """
     _py_library(
         name = name,
@@ -26,7 +26,7 @@ def py_binary(name, srcs = [], main = None, **kwargs):
         name: name of the rule
         srcs: python source files
         main: the entry point. If absent, then the first entry in srcs is used.
-        **kwargs: see [py_binary attributes](./py_binary.md)
+        **kwargs: see [py_binary attributes](./py_binary)
     """
     _py_binary(
         name = name,
