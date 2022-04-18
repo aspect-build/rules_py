@@ -15,8 +15,22 @@ load("@rules_python//python:repositories.bzl", "python_register_toolchains")
 
 python_register_toolchains(
     name = "python_toolchain",
-    python_version = "3.10",
+    python_version = "3.9",
 )
+
+############################################
+# Development dependencies from pypi
+load("@python_toolchain//:defs.bzl", "interpreter")
+
+load(":internal_python_deps.bzl", "rules_py_internal_pypi_deps")
+
+rules_py_internal_pypi_deps(
+    interpreter = interpreter
+)
+
+load("@pypi//:requirements.bzl", "install_deps")
+
+install_deps()
 
 # For running our own unit tests
 load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")

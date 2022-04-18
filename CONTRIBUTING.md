@@ -31,9 +31,7 @@ directory:
 
 ```sh
 OVERRIDE="--override_repository=rules_py=$(pwd)/rules_py"
-echo "build $OVERRIDE" >> ~/.bazelrc
-echo "fetch $OVERRIDE" >> ~/.bazelrc
-echo "query $OVERRIDE" >> ~/.bazelrc
+echo "common $OVERRIDE" >> ~/.bazelrc
 ```
 
 This means that any usage of `@rules_py` on your system will point to this folder.
