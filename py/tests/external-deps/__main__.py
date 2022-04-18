@@ -2,6 +2,7 @@ import os
 import site
 import sys
 import django
+import inspect
 
 print(f'Python: {sys.executable}')
 print(f'version: {sys.version}')
@@ -19,4 +20,5 @@ print(f'\nDjango location: {django.__file__}')
 print(f'Django version: {django.__version__}')
 
 from lib import greet
-print(greet("Matt"))
+print(f'\nFrom lib with wheel dependency: {greet("Matt")}')
+print(f'lib filepath: {inspect.getsourcefile(greet)}')

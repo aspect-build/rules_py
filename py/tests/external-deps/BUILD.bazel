@@ -1,5 +1,5 @@
 load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirements")
-load("//py:defs.bzl", "py_binary", "py_library", "py_wheel")
+load("//py:defs.bzl", "py_binary", "py_library")
 load("@python_toolchain//:defs.bzl", "host_platform")
 load("@aspect_bazel_lib//lib:write_source_files.bzl", "write_source_files")
 
@@ -9,22 +9,20 @@ compile_pip_requirements(
     requirements_txt = "requirements.txt",
 )
 
-py_wheel(
-    name = "django",
-    src = "@pypi_django//:whl",
-)
-
 py_library(
     name = "lib",
     srcs = ["lib.py"],
+    deps = [
+        "@pypi_colorama//:wheel",
+    ],
 )
 
 py_binary(
     name = "main",
     srcs = ["__main__.py"],
     deps = [
-        ":django",
         ":lib",
+        "@pypi_django//:wheel",
     ],
 )
 
@@ -35,6 +33,7 @@ genrule(
         "$(execpath main)",
         """sed "s#$$(pwd)#(pwd)#" """,
         "sed 's#^.*execroot/aspect_rules_py/external/python_toolchain_%s#(py_toolchain)#'" % host_platform,
+        "sed 's#(main, .*)#(main, REDACTED)#'",
     ]) + "> $(execpath out)",
     tools = ["main"],
 )
