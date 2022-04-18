@@ -1,5 +1,5 @@
 Python: (pwd)/bazel-out/host/bin/py/tests/external-deps/main.runfiles/.main.venv/bin/python3
-version: 3.9.10 (main, Feb 27 2022, 23:39:20) 
+version: 3.9.10 (main, REDACTED) 
 [Clang 13.0.1 ]
 version info: sys.version_info(major=3, minor=9, micro=10, releaselevel='final', serial=0)
 cwd: (pwd)
@@ -16,4 +16,6 @@ Entrypoint Path: (pwd)/bazel-out/host/bin/py/tests/external-deps/main.runfiles/a
 
 Django location: (pwd)/bazel-out/host/bin/py/tests/external-deps/main.runfiles/.main.venv/lib/python3.9/site-packages/django/__init__.py
 Django version: 4.0.2
-Hello Matt
+
+From lib with wheel dependency: [32mHello Matt[0m
+lib filepath: (pwd)/bazel-out/host/bin/py/tests/external-deps/main.runfiles/aspect_rules_py/py/tests/external-deps/lib.py

@@ -2,6 +2,7 @@
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("//py/private:providers.bzl", "PyWheelInfo")
+load("//py/private:py_wheel.bzl", py_wheel = "py_wheel_lib")
 
 def _make_srcs_depset(ctx):
     return depset(
@@ -56,6 +57,7 @@ def _py_library_impl(ctx):
     transitive_srcs = _make_srcs_depset(ctx)
     imports = _make_imports_depset(ctx)
     runfiles = _make_merged_runfiles(ctx)
+    py_wheel_info = py_wheel.make_py_wheel_info(ctx, ctx.attr.deps)
 
     return [
         DefaultInfo(
@@ -69,6 +71,7 @@ def _py_library_impl(ctx):
             has_py3_only_sources = True,
             uses_shared_libraries = False,
         ),
+        py_wheel_info,
     ]
 
 _attrs = dict({
