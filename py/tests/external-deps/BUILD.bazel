@@ -22,6 +22,7 @@ py_binary(
     srcs = ["__main__.py"],
     deps = [
         ":lib",
+        "//examples/foo",
         "@pypi_django//:wheel",
     ],
 )

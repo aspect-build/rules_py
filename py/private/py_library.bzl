@@ -80,7 +80,6 @@ _attrs = dict({
     ),
     "deps": attr.label_list(
         allow_files = True,
-        # Ideally we'd have a PyWheelInfo provider here so we can restrict the dependency set
         providers = [[PyInfo], [PyWheelInfo]],
     ),
     "data": attr.label_list(

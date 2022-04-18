@@ -1,5 +1,6 @@
 "Public API re-exports"
 
+load("//py/private/venv:venv.bzl", _py_venv = "py_venv")
 load("//py/private:py_binary.bzl", _py_binary = "py_binary", _py_test = "py_test")
 load("//py/private:py_library.bzl", _py_library = "py_library")
 load("//py/private:py_wheel.bzl", "py_wheel_lib")
@@ -33,21 +34,16 @@ def py_binary(name, srcs = [], main = None, **kwargs):
         name = name,
         srcs = srcs,
         main = main if main != None else srcs[0],
-        imports = kwargs.pop("imports", []) + ["."],
+        imports = kwargs.pop("imports", ["."]),
         **kwargs
     )
 
-    native.filegroup(
-        name = "%s_create_venv_files" % name,
-        srcs = [name],
-        tags = ["manual"],
-        output_group = "create_venv",
-    )
-
-    native.sh_binary(
+    _py_venv(
         name = "%s.venv" % name,
         tags = ["manual"],
-        srcs = [":%s_create_venv_files" % name],
+        srcs = srcs,
+        imports = kwargs.pop("imports", ["."]),
+        **kwargs
     )
 
 def py_test(name, main = None, srcs = [], **kwargs):
@@ -56,21 +52,16 @@ def py_test(name, main = None, srcs = [], **kwargs):
         name = name,
         srcs = srcs,
         main = main if main != None else srcs[0],
-        imports = kwargs.pop("imports", []) + ["."],
+        imports = kwargs.pop("imports", ["."]),
         **kwargs
     )
 
-    native.filegroup(
-        name = "%s_create_venv_files" % name,
-        srcs = [name],
-        tags = ["manual"],
-        output_group = "create_venv",
-    )
-
-    native.sh_binary(
+    _py_venv(
         name = "%s.venv" % name,
         tags = ["manual"],
-        srcs = [":%s_create_venv_files" % name],
+        srcs = srcs,
+        imports = kwargs.pop("imports", ["."]),
+        **kwargs
     )
 
 py_wheel = rule(
