@@ -41,6 +41,8 @@ Improvements planned:
 - Support `--only_binary=:all:` by always building wheels from source using a hermetic Bazel cc toolchain.
 - `dep` on wheels directly, rather than on a `py_library` that wraps it. Then we don't have to append to the `.pth` file to locate them.
 
+_Need help?_ This ruleset has support provided by https://aspect.dev.
+
 ## Installation
 
 From the release you wish to use:
