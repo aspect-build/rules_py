@@ -3,7 +3,7 @@
 load("@bazel_skylib//lib:types.bzl", "types")
 load("//py/private:providers.bzl", "PyWheelInfo")
 
-_ATTRS = {
+_attrs = {
     "src": attr.label(
         allow_files = [".whl"],
     ),
@@ -43,7 +43,7 @@ def _py_wheel_impl(ctx):
 
 py_wheel_lib = struct(
     implementation = _py_wheel_impl,
-    attrs = _ATTRS,
+    attrs = _attrs,
     provides = [PyWheelInfo],
     make_py_wheel_info = _make_py_wheel_info,
 )

@@ -8,6 +8,45 @@ set -o errexit -o nounset -o pipefail
 
 PWD=$(pwd)
 
+forget_past_and_set_path () {
+    # This should detect bash and zsh, which have a hash command that must
+    # be called to get it to forget past commands.  Without forgetting
+    # past commands the $PATH changes we made may not be respected
+    if [ -n "${BASH:-}" -o -n "${ZSH_VERSION:-}" ] ; then
+        hash -r 2> /dev/null
+    fi
+}
+
+activate_venv () {
+  local VENV_LOC=$1
+
+  # Unset the VIRTUAL_ENV env var if one is set
+  unset VIRTUAL_ENV
+  VIRTUAL_ENV="${VENV_LOC}"
+  export VIRTUAL_ENV
+
+  _OLD_PATH="$PATH"
+  PATH="${VBIN_LOCATION}:$PATH"
+  export PATH
+
+  forget_past_and_set_path
+}
+
+deactivate_venv () {
+    # reset old environment variables
+    if [ -n "${_OLD_PATH:-}" ] ; then
+        PATH="${_OLD_PATH:-}"
+        export PATH
+        unset _OLD_PATH
+    fi
+
+    forget_past_and_set_path
+
+    unset VIRTUAL_ENV
+}
+
+# Returns an absolute path to the given location if the path is relative, otherwise return
+# the path unchanged.
 function alocation {
   local P=$1
   if [[ "${P:0:1}" == "/" ]]; then
@@ -17,108 +56,32 @@ function alocation {
   fi
 }
 
-export BAZEL_WORKSPACE_NAME="{{BAZEL_WORKSPACE_NAME}}"
-
-function wheel_location {
-  local P=$1
-  if [[ "${P:0:3}" == "../" ]]; then
-    echo $(rlocation "${P:3}")
-  else
-    echo $(rlocation "${BAZEL_WORKSPACE_NAME}/${P}")
-  fi
-}
-
-export -f wheel_location
-
-# Resolved from the py_interpreter via PyInterpreterInfo.
-PYTHON_LOCATION="$(rlocation {{PYTHON_INTERPRETER_PATH}})"
+PYTHON_LOCATION="$(alocation $(rlocation {{PYTHON_INTERPRETER_PATH}}))"
 PYTHON="${PYTHON_LOCATION} {{INTERPRETER_FLAGS}}"
-PYTHON_BIN_DIR=$(dirname "${PYTHON}")
+PYTHON_VERSION=$(${PYTHON} -c 'import platform; print(platform.python_version())')
+PYTHON_BIN_DIR=$(dirname "${PYTHON_LOCATION}")
 PIP_LOCATION="${PYTHON_BIN_DIR}/pip"
-PYTHON_SITE_PACKAGES=$(${PYTHON} -c 'import site; print(site.getsitepackages()[0])')
-PTH_FILE="$(alocation "$(rlocation {{PTH_FILE}})")"
-PIP_FIND_LINKS_SH=$(rlocation {{PIP_FIND_LINKS_SH}})
-PIP_FIND_LINKS=$("${PIP_FIND_LINKS_SH}" | tr '\n' ' ')
 ENTRYPOINT="$(rlocation {{BINARY_ENTRY_POINT}})"
 
 # Convenience vars for the Python virtual env that's created.
-RUNFILES_VENV_LOCATION=$(alocation "${RUNFILES_DIR}/{{VENV_NAME}}")
-VENV_LOCATION="{{VENV_LOCATION}}"
+VENV_SOURCE="$(alocation $(rlocation {{VENV_SOURCE}}))"
+VENV_LOCATION="$(alocation ${RUNFILES_DIR}/{{VENV_NAME}})"
 VBIN_LOCATION="${VENV_LOCATION}/bin"
-VPIP_LOCATION="${VBIN_LOCATION}/pip"
 VPYTHON="${VBIN_LOCATION}/python3 {{INTERPRETER_FLAGS}}"
-VPIP="${VPYTHON} -m pip"
 
-# Create a virtual env to run inside. This allows us to not have to manipulate the PYTHON_PATH to find external
-# dependencies.
-# We can also now specify the `-I` (isolated) flag to Python, stopping Python from adding the script path to sys.path[0]
-# which we have no control over otherwise.
-# This does however have some side effects as now all other PYTHON* env vars are ignored.
+mkdir "${VENV_LOCATION}" 2>/dev/null || true
+ln -snf "${VENV_SOURCE}/include" "${VENV_LOCATION}/include"
+ln -snf "${VENV_SOURCE}/lib" "${VENV_LOCATION}/lib"
 
-# The venv is intentionally created without pip, as when the venv is created with pip, `ensurepip` is used which will
-# use the bundled version of pip, which does not match the version of pip bundled with the interpreter distro.
-# So we symlink in this ourselves.
-VENV_FLAGS=(
-  "--without-pip"
-  "--clear"
-)
-${PYTHON} -m venv "${VENV_LOCATION}" "${VENV_FLAGS[@]}"
+mkdir "${VBIN_LOCATION}" 2>/dev/null || true
+ln -snf ${VENV_SOURCE}/bin/* "${VBIN_LOCATION}/"
+ln -snf "${PYTHON_LOCATION}" "${VBIN_LOCATION}/python3"
 
-# Activate the venv, disable changing the prompt
-export VIRTUAL_ENV_DISABLE_PROMPT=1
-. "${VBIN_LOCATION}/activate"
-unset VIRTUAL_ENV_DISABLE_PROMPT
+echo "home = ${VBIN_LOCATION}" > "${VENV_LOCATION}/pyvenv.cfg"
+echo "include-system-site-packages = false" >> "${VENV_LOCATION}/pyvenv.cfg"
+echo "version = ${PYTHON_VERSION}" >> "${VENV_LOCATION}/pyvenv.cfg"
 
-# Now symlink in pip from the toolchain
-# Also link to `pip` as well as `pip3`. Python venv will also link `pip3.x`, but this seems unnecessary for this use
-ln -snf "${PIP_LOCATION}" "${VPIP_LOCATION}"
-ln -snf "${VPIP_LOCATION}" "${VBIN_LOCATION}/pip3"
-
-# Need to symlink in the pip site-packages folder not just the binary.
-# Ask Python where the site-packages folder is and symlink the pip package in from the toolchain
-VENV_SITE_PACKAGES=$(${VPYTHON} -c 'import site; print(site.getsitepackages()[0])')
-ln -snf "${PYTHON_SITE_PACKAGES}/pip" "${VENV_SITE_PACKAGES}/pip"
-ln -snf "${PYTHON_SITE_PACKAGES}/_distutils_hack" "${VENV_SITE_PACKAGES}/_distutils_hack"
-ln -snf "${PYTHON_SITE_PACKAGES}/setuptools" "${VENV_SITE_PACKAGES}/setuptools"
-
-INSTALL_WHEELS={{INSTALL_WHEELS}}
-if [ "$INSTALL_WHEELS" = true ]; then
-  # Call to pip to "install" our dependencies. The `find-links` section in the config points to the external downloaded wheels,
-  # while `--no-index` ensures we don't reach out to PyPi
-  # We may hit command line length limits if passing a large number of find-links flags, so set them on the PIP_FIND_LINKS env var
-  export PIP_FIND_LINKS
-
-  # TODO: This can likely be generated by an action up front, but this is fine for now
-  read -r -a WHEELS <<< "${PIP_FIND_LINKS}"
-  REQUIREMENTS_FILE="$(mktemp)"
-  printf "%s\n" "${WHEELS[@]}" > "${REQUIREMENTS_FILE}"
-
-  PIP_FLAGS=(
-    "--quiet"
-    "--no-compile"
-    "--require-virtualenv"
-    "--no-input"
-    "--no-cache-dir"
-    "--disable-pip-version-check"
-    "--no-python-version-warning"
-    "--only-binary=:all:"
-    "--no-dependencies"
-    "--no-index"
-  )
-
-  ${VPIP} install "${PIP_FLAGS[@]}" -r "${REQUIREMENTS_FILE}"
-  rm "${REQUIREMENTS_FILE}"
-
-  unset PIP_FIND_LINKS
-fi
-
-# Create the site-packages pth file containing all our first party dependency paths. These are from all direct and transitive
-# py_library rules.
-# The .pth file adds to the interpreters sys.path, without having to set `PYTHONPATH`. This allows us to still
-# run with the interpreter with the `-I` flag. This stops some import mechanisms breaking out the sandbox by using
-# relative imports.
-# This is cat'd in so we don't have to have more fun with runfiles symlink paths.
-cat "${PTH_FILE}" > "${VENV_SITE_PACKAGES}/first_party.pth"
+activate_venv "${VBIN_LOCATION}"
 
 # Set all the env vars here, just before we launch
 {{PYTHON_ENV}}
@@ -131,9 +94,7 @@ if [ "$RUN_BINARY_ENTRY_POINT" = true ]; then
   ${VPYTHON} "${ENTRYPOINT}" -- "$@"
 fi
 
-# Deactivate the venv
-deactivate
+deactivate_venv
 
 # Unset any set env vars
 {{PYTHON_ENV_UNSET}}
-unset BAZEL_WORKSPACE_NAME

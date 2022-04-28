@@ -1,7 +1,6 @@
 import os
 import site
 import sys
-import django
 import inspect
 
 print(f'Python: {sys.executable}')
@@ -16,9 +15,14 @@ for entry in sys.path:
 
 print(f'\nEntrypoint Path: {__file__}')
 
+import django
 print(f'\nDjango location: {django.__file__}')
 print(f'Django version: {django.__version__}')
 
 from lib import greet
 print(f'\nFrom lib with wheel dependency: {greet("Matt")}')
 print(f'lib filepath: {inspect.getsourcefile(greet)}')
+
+from foo import get_branding
+print(f"From lib in another package: {get_branding()}")
+print(f'lib filepath: {inspect.getsourcefile(get_branding)}')

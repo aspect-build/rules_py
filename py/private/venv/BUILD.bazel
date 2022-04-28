@@ -1,0 +1,15 @@
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+
+exports_files(["venv.tmpl.sh"])
+
+bzl_library(
+    name = "venv",
+    srcs = ["venv.bzl"],
+    visibility = ["//py:__subpackages__"],
+    deps = [
+        "//py/private:providers",
+        "//py/private:py_library",
+        "//py/private:utils",
+        "@aspect_bazel_lib//lib:paths",
+    ],
+)

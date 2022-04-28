@@ -22,6 +22,7 @@ bzl_library(
     deps = [
         ":py_library",
         ":utils",
+        "//py/private/venv",
         "@aspect_bazel_lib//lib:paths",
     ],
 )
