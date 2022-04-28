@@ -1,4 +1,4 @@
-#!{{BASH_BIN}}
+#!/usr/bin/env bash
 
 {{BASH_RLOCATION_FN}}
 

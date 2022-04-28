@@ -7,7 +7,6 @@ load("//py/private:utils.bzl", "PY_TOOLCHAIN", "SH_TOOLCHAIN", "dict_to_exports"
 load("//py/private/venv:venv.bzl", _py_venv = "py_venv_utils")
 
 def _py_binary_rule_imp(ctx):
-    bash_bin = ctx.toolchains[SH_TOOLCHAIN].path
     interpreter = resolve_toolchain(ctx)
     main = ctx.file.main
 
@@ -24,7 +23,6 @@ def _py_binary_rule_imp(ctx):
     }, **ctx.attr.env)
 
     common_substitutions = {
-        "{{BASH_BIN}}": bash_bin,
         "{{BASH_RLOCATION_FN}}": BASH_RLOCATION_FUNCTION,
         "{{BINARY_ENTRY_POINT}}": to_manifest_path(ctx, main),
         "{{INTERPRETER_FLAGS}}": " ".join(interpreter.flags),
@@ -96,8 +94,8 @@ py_base = struct(
     implementation = _py_binary_rule_imp,
     attrs = _attrs,
     toolchains = [
-        SH_TOOLCHAIN,
         PY_TOOLCHAIN,
+        SH_TOOLCHAIN,
     ],
 )
 

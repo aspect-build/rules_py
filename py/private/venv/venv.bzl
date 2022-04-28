@@ -17,7 +17,6 @@ def _get_attr(ctx, attr, override):
         return override
 
 def _make_venv(ctx, name = None, main = None, strip_pth_workspace_root = None):
-    bash_bin = ctx.toolchains[SH_TOOLCHAIN].path
     interpreter = resolve_toolchain(ctx)
 
     name = _get_attr(ctx.attr, "name", name)
@@ -96,7 +95,6 @@ def _make_venv(ctx, name = None, main = None, strip_pth_workspace_root = None):
     venv_directory = ctx.actions.declare_directory("%s.source" % name, sibling = venv_sibling)
 
     common_substitutions = {
-        "{{BASH_BIN}}": bash_bin,
         "{{BASH_RLOCATION_FN}}": BASH_RLOCATION_FUNCTION,
         "{{BAZEL_WORKSPACE_NAME}}": ctx.workspace_name,
         "{{INTERPRETER_FLAGS}}": " ".join(interpreter.flags),

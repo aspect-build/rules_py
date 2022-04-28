@@ -1,4 +1,4 @@
-#!{{BASH_BIN}}
+#!/usr/bin/env bash
 
 USE_MANIFEST_PATH={{USE_MANIFEST_PATH}}
 
