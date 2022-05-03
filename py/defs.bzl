@@ -40,10 +40,10 @@ def py_binary(name, srcs = [], main = None, **kwargs):
 
     _py_venv(
         name = "%s.venv" % name,
-        tags = ["manual"],
-        srcs = srcs,
+        deps = kwargs.pop("deps", []),
         imports = kwargs.pop("imports", ["."]),
-        **kwargs
+        srcs = srcs,
+        tags = ["manual"],
     )
 
 def py_test(name, main = None, srcs = [], **kwargs):
@@ -58,10 +58,10 @@ def py_test(name, main = None, srcs = [], **kwargs):
 
     _py_venv(
         name = "%s.venv" % name,
-        tags = ["manual"],
-        srcs = srcs,
+        deps = kwargs.pop("deps", []),
         imports = kwargs.pop("imports", ["."]),
-        **kwargs
+        srcs = srcs,
+        tags = ["manual"],
     )
 
 py_wheel = rule(
