@@ -135,7 +135,7 @@ def _make_venv(ctx, name = None, main = None, strip_pth_workspace_root = None):
 
     venv_creation_depset = depset(
         direct = [make_venv_for_action_sh, pth, whl_requirements],
-        transitive = [wheels_depset, interpreter.toolchain.files],
+        transitive = [wheels_depset, interpreter.files],
     )
 
     ctx.actions.run_shell(
@@ -164,7 +164,7 @@ def _py_venv_impl(ctx):
         ctx,
         extra_depsets = [
             venv_info.venv_creation_depset,
-            interpreter.toolchain.files,
+            interpreter.files,
         ],
         extra_runfiles = ctx.files._runfiles_lib,
         extra_runfiles_depsets = [
