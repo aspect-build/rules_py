@@ -15,8 +15,14 @@ def resolve_toolchain(ctx):
 
     py3_toolchain = toolchain_info.py3_runtime
 
+    if py3_toolchain.interpreter != None:
+        files = depset([py3_toolchain.interpreter], transitive = [py3_toolchain.files])
+    else:
+        files = py3_toolchain.files
+
     return struct(
         toolchain = py3_toolchain,
+        files = files,
         python = py3_toolchain.interpreter,
         flags = ["-B", "-s", "-I"],
     )

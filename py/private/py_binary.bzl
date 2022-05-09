@@ -50,7 +50,7 @@ def _py_binary_rule_imp(ctx):
         ctx,
         extra_depsets = [
             venv_info.venv_creation_depset,
-            interpreter.toolchain.files,
+            interpreter.files,
             srcs_depset,
         ],
         extra_runfiles = [
