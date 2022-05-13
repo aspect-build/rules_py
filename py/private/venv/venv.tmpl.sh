@@ -89,11 +89,20 @@ VENV_SITE_PACKAGES=$(${VPYTHON} -c 'import site; print(site.getsitepackages()[0]
 ln -snf "${PYTHON_SITE_PACKAGES}/pip" "${VENV_SITE_PACKAGES}/pip"
 SYMLINKS+=("${VENV_SITE_PACKAGES}/pip")
 
-ln -snf "${PYTHON_SITE_PACKAGES}/_distutils_hack" "${VENV_SITE_PACKAGES}/_distutils_hack"
-SYMLINKS+=( "${VENV_SITE_PACKAGES}/_distutils_hack")
+# If the incoming requirements file has setuptools the skip creating a symlink to our own as they will cause
+# error when installing.
+set +o errexit
+$(grep --quiet "setuptools-[0-9]*.*.whl" "${WHL_REQUIREMENTS_FILE}")
+HAS_SETUPTOOLS=$?
+set -o errexit
 
-ln -snf "${PYTHON_SITE_PACKAGES}/setuptools" "${VENV_SITE_PACKAGES}/setuptools"
-SYMLINKS+=( "${VENV_SITE_PACKAGES}/setuptools")
+if [ ${HAS_SETUPTOOLS} -gt 0 ]; then
+  ln -snf "${PYTHON_SITE_PACKAGES}/_distutils_hack" "${VENV_SITE_PACKAGES}/_distutils_hack"
+  SYMLINKS+=( "${VENV_SITE_PACKAGES}/_distutils_hack")
+
+  ln -snf "${PYTHON_SITE_PACKAGES}/setuptools" "${VENV_SITE_PACKAGES}/setuptools"
+  SYMLINKS+=( "${VENV_SITE_PACKAGES}/setuptools")
+fi
 
 INSTALL_WHEELS={{INSTALL_WHEELS}}
 if [ "$INSTALL_WHEELS" = true ]; then
