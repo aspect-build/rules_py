@@ -26,8 +26,16 @@ activate_venv () {
   export VIRTUAL_ENV
 
   _OLD_PATH="$PATH"
-  PATH="${VBIN_LOCATION}:$PATH"
+  PATH="${VIRTUAL_ENV}/bin:$PATH"
   export PATH
+
+  # unset PYTHONHOME if set
+  # this will fail if PYTHONHOME is set to the empty string (which is bad anyway)
+  # could use `if (set -u; : $PYTHONHOME) ;` in bash
+  if [ -n "${PYTHONHOME:-}" ] ; then
+      _OLD_PYTHONHOME="${PYTHONHOME:-}"
+      unset PYTHONHOME
+  fi
 
   forget_past_and_set_path
 }
@@ -38,6 +46,12 @@ deactivate_venv () {
         PATH="${_OLD_PATH:-}"
         export PATH
         unset _OLD_PATH
+    fi
+
+    if [ -n "${_OLD_PYTHONHOME:-}" ] ; then
+        PYTHONHOME="${_OLD_PYTHONHOME:-}"
+        export PYTHONHOME
+        unset _OLD_PYTHONHOME
     fi
 
     forget_past_and_set_path
@@ -81,7 +95,7 @@ echo "home = ${VBIN_LOCATION}" > "${VENV_LOCATION}/pyvenv.cfg"
 echo "include-system-site-packages = false" >> "${VENV_LOCATION}/pyvenv.cfg"
 echo "version = ${PYTHON_VERSION}" >> "${VENV_LOCATION}/pyvenv.cfg"
 
-activate_venv "${VBIN_LOCATION}"
+activate_venv "${VENV_LOCATION}"
 
 # Set all the env vars here, just before we launch
 {{PYTHON_ENV}}
