@@ -23,12 +23,14 @@ def _py_binary_rule_imp(ctx):
         "BAZEL_TARGET_NAME": ctx.attr.name,
     }, **ctx.attr.env)
 
+    python_interpreter_path = interpreter.python.path if interpreter.uses_interpreter_path else to_manifest_path(ctx, interpreter.python)
+
     common_substitutions = {
         "{{BASH_BIN}}": bash_bin,
         "{{BASH_RLOCATION_FN}}": BASH_RLOCATION_FUNCTION,
         "{{BINARY_ENTRY_POINT}}": to_manifest_path(ctx, main),
         "{{INTERPRETER_FLAGS}}": " ".join(interpreter.flags),
-        "{{PYTHON_INTERPRETER_PATH}}": to_manifest_path(ctx, interpreter.python),
+        "{{PYTHON_INTERPRETER_PATH}}": python_interpreter_path,
         "{{RUN_BINARY_ENTRY_POINT}}": "true",
         "{{VENV_SOURCE}}": to_manifest_path(ctx, venv_info.venv_directory),
         "{{VENV_NAME}}": "%s.venv" % ctx.attr.name,

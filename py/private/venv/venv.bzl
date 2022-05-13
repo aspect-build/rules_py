@@ -125,7 +125,6 @@ def _make_venv(ctx, name = None, main = None, strip_pth_workspace_root = None):
             **{
                 "{{WHL_REQUIREMENTS_FILE}}": to_manifest_path(ctx, whl_requirements),
                 "{{PTH_FILE}}": to_manifest_path(ctx, pth),
-                "{{PYTHON_INTERPRETER_PATH}}": interpreter.python.path,
                 "{{VENV_LOCATION}}": "${BUILD_WORKSPACE_DIRECTORY}/.%s" % name,
                 "{{USE_MANIFEST_PATH}}": "true",
             }
@@ -143,7 +142,7 @@ def _make_venv(ctx, name = None, main = None, strip_pth_workspace_root = None):
         inputs = venv_creation_depset,
         command = make_venv_for_action_sh.path,
         tools = [
-            interpreter.toolchain.files,
+            interpreter.files,
         ],
         progress_message = "Creating virtual environment for %{label}",
         mnemonic = "CreateVenv",
