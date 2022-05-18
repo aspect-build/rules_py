@@ -30,9 +30,6 @@ def resolve_toolchain(ctx):
         files = depset([])
         uses_interpreter_path = True
 
-    if interpreter == None:
-        fail("Unable to resolve interpreter to a path or file. Ensure `interpreter` or `interpreter_file` is defined on the py3_runtime")
-
     return struct(
         toolchain = py3_toolchain,
         files = files,
