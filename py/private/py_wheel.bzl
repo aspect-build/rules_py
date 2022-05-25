@@ -18,14 +18,16 @@ def _make_py_wheel_info(ctx, wheel_filegroups):
     files_depsets = []
     runfiles = []
     for filegroup in filegroups:
-        if DefaultInfo in filegroup:
-            files_depsets.append(filegroup[DefaultInfo].files)
-            files_depsets.append(filegroup[DefaultInfo].default_runfiles.files)
-            runfiles.append(filegroup[DefaultInfo].default_runfiles)
-
+        # The ordering is important here as we want to ensure we use the PyWheelInfo from transitive
+        # py_library dependencies, and only fall back to DefaultInfo when translating from the wheel
+        # filegroup to py_wheel_library
         if PyWheelInfo in filegroup:
             files_depsets.append(filegroup[PyWheelInfo].files)
             runfiles.append(filegroup[PyWheelInfo].default_runfiles)
+        elif DefaultInfo in filegroup:
+            files_depsets.append(filegroup[DefaultInfo].files)
+            files_depsets.append(filegroup[DefaultInfo].default_runfiles.files)
+            runfiles.append(filegroup[DefaultInfo].default_runfiles)
 
     py_info_runfiles = ctx.runfiles()
     py_info_runfiles = py_info_runfiles.merge_all(runfiles)
