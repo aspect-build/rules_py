@@ -11,8 +11,6 @@ sys path:
 (py_toolchain)/lib/python3.9/lib-dynload
 (pwd)/bazel-out/host/bin/py/tests/external-deps/main.runfiles/main.venv/lib/python3.9/site-packages
 (pwd)/bazel-out/host/bin/py/tests/external-deps/main.runfiles/aspect_rules_py/py/tests/external-deps
-(pwd)/bazel-out/host/bin/py/tests/external-deps/main.runfiles/aspect_rules_py/examples
-(pwd)/bazel-out/host/bin/py/tests/external-deps/main.runfiles/aspect_rules_py/examples/foo
 
 Entrypoint Path: (pwd)/bazel-out/host/bin/py/tests/external-deps/main.runfiles/aspect_rules_py/py/tests/external-deps/__main__.py
 
@@ -21,5 +19,3 @@ Django version: 4.0.2
 
 From lib with wheel dependency: [32mHello Matt[0m
 lib filepath: (pwd)/bazel-out/host/bin/py/tests/external-deps/main.runfiles/aspect_rules_py/py/tests/external-deps/lib.py
-From lib in another package: rules_py
-lib filepath: (pwd)/bazel-out/host/bin/py/tests/external-deps/main.runfiles/aspect_rules_py/examples/foo/__init__.py
