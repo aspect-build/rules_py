@@ -22,7 +22,3 @@ print(f'Django version: {django.__version__}')
 from lib import greet
 print(f'\nFrom lib with wheel dependency: {greet("Matt")}')
 print(f'lib filepath: {inspect.getsourcefile(greet)}')
-
-from foo import get_branding
-print(f"From lib in another package: {get_branding()}")
-print(f'lib filepath: {inspect.getsourcefile(get_branding)}')

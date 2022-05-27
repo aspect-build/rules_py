@@ -1,0 +1,10 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary")
+
+py_binary(
+    name = "django",
+    srcs = ["manage.py"],
+    deps = [
+        "//examples/django/mysite",
+        "@pypi_django//:wheel",
+    ],
+)

@@ -106,7 +106,7 @@ activate_venv "${VENV_LOCATION}"
 RUN_BINARY_ENTRY_POINT={{RUN_BINARY_ENTRY_POINT}}
 if [ "$RUN_BINARY_ENTRY_POINT" = true ]; then
   # Finally, launch the entrypoint
-  ${VPYTHON} "${ENTRYPOINT}" -- "$@"
+  ${VPYTHON} "${ENTRYPOINT}" "$@"
 fi
 
 deactivate_venv

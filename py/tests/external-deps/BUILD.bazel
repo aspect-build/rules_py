@@ -1,13 +1,6 @@
-load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirements")
 load("//py:defs.bzl", "py_binary", "py_library")
 load("@python_toolchain//:defs.bzl", "host_platform")
 load("@aspect_bazel_lib//lib:write_source_files.bzl", "write_source_files")
-
-compile_pip_requirements(
-    name = "requirements",
-    requirements_in = "requirements.in",
-    requirements_txt = "requirements.txt",
-)
 
 py_library(
     name = "lib",
@@ -22,7 +15,6 @@ py_binary(
     srcs = ["__main__.py"],
     deps = [
         ":lib",
-        "//examples/foo",
         "@pypi_django//:wheel",
     ],
 )

@@ -1,3 +1,4 @@
+load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirements")
 load("@bazel_gazelle//:def.bzl", "gazelle", "gazelle_binary")
 
 # gazelle:exclude internal_python_deps.bzl
@@ -11,4 +12,11 @@ gazelle_binary(
 gazelle(
     name = "gazelle",
     gazelle = "gazelle_bin",
+)
+
+compile_pip_requirements(
+    name = "requirements",
+    extra_args = ["--allow-unsafe"],
+    requirements_in = "requirements.in",
+    requirements_txt = "requirements.txt",
 )

@@ -21,7 +21,7 @@ def rules_py_internal_pypi_deps(interpreter):
     # package. For details on `package_annotation` and it's uses, see the
     # docs at @rules_python//docs:pip.md`.
 
-    PACKAGES = ["django", "colorama"]
+    PACKAGES = ["django", "colorama", "django"]
     ANNOTATIONS = {
         pkg: package_annotation(additive_build_content = PY_WHEEL_RULE_CONTENT)
         for pkg in PACKAGES
@@ -31,5 +31,5 @@ def rules_py_internal_pypi_deps(interpreter):
         name = "pypi",
         annotations = ANNOTATIONS,
         python_interpreter_target = interpreter,
-        requirements_lock = "//py/tests/external-deps:requirements.txt",
+        requirements_lock = "//:requirements.txt",
     )
