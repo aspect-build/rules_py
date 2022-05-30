@@ -16,7 +16,7 @@ def _autodetecting_py_wrapper_impl(rctx):
 load("@rules_python//python:defs.bzl", "py_runtime", "py_runtime_pair")
 
 py_runtime(
-    name = "autodecting_python3_runtime",
+    name = "autodetecting_python3_runtime",
     interpreter = "@{name}//:python.sh",
     python_version = "PY3",
 )
@@ -24,7 +24,7 @@ py_runtime(
 py_runtime_pair(
     name = "autodetecting_py_runtime_pair",
     py2_runtime = None,
-    py3_runtime = ":autodecting_python3_runtime",
+    py3_runtime = ":autodetecting_python3_runtime",
 )
 
 toolchain(
