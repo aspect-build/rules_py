@@ -1,0 +1,10 @@
+load(":tests.bzl", "py_library_import_pathing_test_suite")
+
+# This is used in the py_library import pathing tests
+py_library(
+    name = "__native_rule_import_list_for_test",
+    imports = ["baz"],
+    tags = ["manual"],
+)
+
+py_library_import_pathing_test_suite()

@@ -15,16 +15,45 @@ def _make_srcs_depset(ctx):
         ],
     )
 
-def _make_import_path(workspace, base, imp):
+def _make_import_path(label, workspace, base, imp):
+    if imp.startswith("/"):
+        fail(
+            "Import path '{imp}' on target {target} is invalid. Absolute paths are not supported.".format(
+                imp = imp,
+                target = str(label),
+            ),
+        )
+
+    base_segments = base.split("/")
+    path_segments = imp.split("/")
+
+    relative_segments = 0
+    for segment in path_segments:
+        if segment == "..":
+            relative_segments += 1
+        else:
+            break
+
+    # Check if the relative segments that the import path starts with match the number of segments in the base path
+    # that would break use out of the workspace root.
+    # The +1 is base_segments would take the path to the root, then one more to escape.
+    if relative_segments == (len(base_segments) + 1):
+        fail(
+            "Import path '{imp}' on target {target} is invalid. Import paths must not escape the workspace root".format(
+                imp = imp,
+                target = str(label),
+            ),
+        )
+
     if imp.startswith(".."):
-        return paths.normalize(paths.join(workspace, *base.split("/")[0:-len(imp.split("/"))]))
+        return paths.normalize(paths.join(workspace, *(base_segments[0:-relative_segments] + path_segments[relative_segments:])))
     else:
         return paths.normalize(paths.join(workspace, base, imp))
 
 def _make_imports_depset(ctx):
     base = paths.dirname(ctx.build_file_path)
     import_paths = [
-        _make_import_path(ctx.workspace_name, base, im)
+        _make_import_path(ctx.label, ctx.workspace_name, base, im)
         for im in ctx.attr.imports
     ]
 
