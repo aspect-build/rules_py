@@ -19,13 +19,25 @@ python_register_toolchains(
 )
 
 ############################################
+# Aspect gcc toolchain
+load("@aspect_gcc_toolchain//toolchain:repositories.bzl", "gcc_toolchain_dependencies")
+
+gcc_toolchain_dependencies()
+
+load("@aspect_gcc_toolchain//toolchain:defs.bzl", "ARCHS", "gcc_register_toolchain")
+
+gcc_register_toolchain(
+    name = "gcc_toolchain_x86_64",
+    target_arch = ARCHS.x86_64,
+)
+
+############################################
 # Development dependencies from pypi
 load("@python_toolchain//:defs.bzl", "interpreter")
-
 load(":internal_python_deps.bzl", "rules_py_internal_pypi_deps")
 
 rules_py_internal_pypi_deps(
-    interpreter = interpreter
+    interpreter = interpreter,
 )
 
 load("@pypi//:requirements.bzl", "install_deps")
