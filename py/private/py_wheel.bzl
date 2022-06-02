@@ -24,7 +24,11 @@ def _make_py_wheel_info(ctx, wheel_filegroups):
         if PyWheelInfo in filegroup:
             files_depsets.append(filegroup[PyWheelInfo].files)
             runfiles.append(filegroup[PyWheelInfo].default_runfiles)
-        elif DefaultInfo in filegroup:
+        elif DefaultInfo in filegroup and not PyInfo in filegroup:
+            # This is slightly incorrect, but we don't yet have a better way of knowing if the dependency is a filegroup
+            # that we should consume a wheel from.
+            # What we do know though is we must ignore other py_library dependencies from rules_python, so exclude anything
+            # that provides the PyInfo provider.
             files_depsets.append(filegroup[DefaultInfo].files)
             files_depsets.append(filegroup[DefaultInfo].default_runfiles.files)
             runfiles.append(filegroup[DefaultInfo].default_runfiles)
