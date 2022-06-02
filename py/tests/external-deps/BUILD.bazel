@@ -1,4 +1,4 @@
-load("//py:defs.bzl", "py_binary", "py_library")
+load("//py:defs.bzl", "py_binary", "py_library", "py_test")
 load("@python_toolchain//:defs.bzl", "host_platform")
 load("@aspect_bazel_lib//lib:write_source_files.bzl", "write_source_files")
 
@@ -53,4 +53,12 @@ write_source_files(
         "expected_pathing": "pathing_out",
         "expected_click": "click_out",
     },
+)
+
+py_test(
+    name = "test_can_import_runfiles_helper",
+    srcs = ["test_can_import_runfiles_helper.py"],
+    deps = [
+        "@bazel_tools//tools/python/runfiles",
+    ],
 )
