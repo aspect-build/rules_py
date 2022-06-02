@@ -5,7 +5,7 @@ load("//py/private:py_binary.bzl", _py_binary = "py_binary", _py_test = "py_test
 load("//py/private:py_library.bzl", _py_library = "py_library")
 load("//py/private:py_wheel.bzl", "py_wheel_lib")
 
-def py_library(name, **kwargs):
+def py_library(name, imports = ["."], **kwargs):
     """Wrapper macro for the py_library rule, setting a default for imports
 
     Args:
@@ -14,11 +14,11 @@ def py_library(name, **kwargs):
     """
     _py_library(
         name = name,
-        imports = kwargs.pop("imports", []) + ["."],
+        imports = imports,
         **kwargs
     )
 
-def py_binary(name, srcs = [], main = None, **kwargs):
+def py_binary(name, srcs = [], main = None, imports = ["."], **kwargs):
     """Wrapper macro for the py_binary rule, setting a default for imports.
 
     It also creates a virtualenv to constrain the interpreter and packages used at runtime,
@@ -34,32 +34,32 @@ def py_binary(name, srcs = [], main = None, **kwargs):
         name = name,
         srcs = srcs,
         main = main if main != None else srcs[0],
-        imports = kwargs.pop("imports", ["."]),
+        imports = imports,
         **kwargs
     )
 
     _py_venv(
         name = "%s.venv" % name,
         deps = kwargs.pop("deps", []),
-        imports = kwargs.pop("imports", ["."]),
+        imports = imports,
         srcs = srcs,
         tags = ["manual"],
     )
 
-def py_test(name, main = None, srcs = [], **kwargs):
+def py_test(name, main = None, srcs = [], imports = ["."], **kwargs):
     "Identical to py_binary, but produces a target that can be used with `bazel test`."
     _py_test(
         name = name,
         srcs = srcs,
         main = main if main != None else srcs[0],
-        imports = kwargs.pop("imports", ["."]),
+        imports = imports,
         **kwargs
     )
 
     _py_venv(
         name = "%s.venv" % name,
         deps = kwargs.pop("deps", []),
-        imports = kwargs.pop("imports", ["."]),
+        imports = imports,
         srcs = srcs,
         tags = ["manual"],
     )
