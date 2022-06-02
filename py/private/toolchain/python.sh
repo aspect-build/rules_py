@@ -9,7 +9,7 @@ PYTHON_BIN="{{PYTHON_BIN}}"
 if [ -z "${VIRTUAL_ENV:-}" ]; then
   exec "${PYTHON_BIN}" "$@"
 else
-  PYTHON_REAL="${VIRTUAL_ENV}/bin/python_real"
+  PYTHON_REAL="${VIRTUAL_ENV}/bin/python3"
   ln -snf "${PYTHON_BIN}" "${PYTHON_REAL}"
   exec "${PYTHON_REAL}" "$@"
 fi

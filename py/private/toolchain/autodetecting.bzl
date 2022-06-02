@@ -1,7 +1,19 @@
+load("//py/private:utils.bzl", "INTERPRETER_FLAGS")
+
 def _autodetecting_py_wrapper_impl(rctx):
     which_python = rctx.which("python3")
     if which_python == None:
         fail("Unable to locate 'python3' on the path")
+
+    # Check if `which_python` ends up being the final binary, or it's actually a wrapper itself.
+    exec_result = rctx.execute(
+        [which_python] + INTERPRETER_FLAGS + ["-c", "import sys; import os; print(os.path.realpath(sys.executable))"],
+    )
+
+    if exec_result.return_code == 0:
+        which_python = exec_result.stdout.strip()
+    else:
+        fail("Unable to verify Python executable at '%s'" % which_python, exec_result.stderr)
 
     rctx.template(
         "python.sh",

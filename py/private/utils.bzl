@@ -1,6 +1,8 @@
 PY_TOOLCHAIN = "@bazel_tools//tools/python:toolchain_type"
 SH_TOOLCHAIN = "@bazel_tools//tools/sh:toolchain_type"
 
+INTERPRETER_FLAGS = ["-B", "-s", "-I"]
+
 def dict_to_exports(env):
     return [
         "export %s=\"%s\"" % (k, v)
@@ -35,5 +37,5 @@ def resolve_toolchain(ctx):
         files = files,
         python = interpreter,
         uses_interpreter_path = uses_interpreter_path,
-        flags = ["-B", "-s", "-I"],
+        flags = INTERPRETER_FLAGS,
     )

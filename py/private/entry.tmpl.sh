@@ -81,7 +81,7 @@ ENTRYPOINT="$(rlocation {{BINARY_ENTRY_POINT}})"
 VENV_SOURCE="$(alocation $(rlocation {{VENV_SOURCE}}))"
 VENV_LOCATION="$(alocation ${RUNFILES_DIR}/{{VENV_NAME}})"
 VBIN_LOCATION="${VENV_LOCATION}/bin"
-VPYTHON="${VBIN_LOCATION}/python3 {{INTERPRETER_FLAGS}}"
+VPYTHON="${VBIN_LOCATION}/python {{INTERPRETER_FLAGS}}"
 
 mkdir "${VENV_LOCATION}" 2>/dev/null || true
 ln -snf "${VENV_SOURCE}/include" "${VENV_LOCATION}/include"
@@ -89,8 +89,7 @@ ln -snf "${VENV_SOURCE}/lib" "${VENV_LOCATION}/lib"
 
 mkdir "${VBIN_LOCATION}" 2>/dev/null || true
 ln -snf ${VENV_SOURCE}/bin/* "${VBIN_LOCATION}/"
-ln -snf "${PYTHON_LOCATION}" "${VBIN_LOCATION}/python3"
-ln -snf "${VBIN_LOCATION}/python3" "${VBIN_LOCATION}/python"
+ln -snf "${PYTHON_LOCATION}" "${VBIN_LOCATION}/python"
 
 echo "home = ${VBIN_LOCATION}" > "${VENV_LOCATION}/pyvenv.cfg"
 echo "include-system-site-packages = false" >> "${VENV_LOCATION}/pyvenv.cfg"
