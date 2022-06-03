@@ -1,6 +1,7 @@
 "Implementation for the py_binary and py_test rules."
 
 load("@aspect_bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_manifest_path")
+load("@aspect_bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:providers.bzl", "PyWheelInfo")
 load("//py/private:utils.bzl", "PY_TOOLCHAIN", "SH_TOOLCHAIN", "dict_to_exports", "resolve_toolchain")
@@ -18,10 +19,17 @@ def _py_binary_rule_imp(ctx):
     )
 
     env = dict({
-        "BAZEL_TARGET": ctx.label,
+        "BAZEL_TARGET": str(ctx.label),
         "BAZEL_WORKSPACE": ctx.workspace_name,
         "BAZEL_TARGET_NAME": ctx.attr.name,
     }, **ctx.attr.env)
+
+    for k, v in env.items():
+        env[k] = expand_variables(
+            ctx,
+            expand_locations(ctx, v, ctx.attr.data),
+            attribute_name = "env",
+        )
 
     python_interpreter_path = interpreter.python.path if interpreter.uses_interpreter_path else to_manifest_path(ctx, interpreter.python)
 

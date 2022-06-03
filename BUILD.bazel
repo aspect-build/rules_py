@@ -3,6 +3,7 @@ load("@bazel_gazelle//:def.bzl", "gazelle", "gazelle_binary")
 
 # gazelle:exclude internal_python_deps.bzl
 # gazelle:exclude internal_deps.bzl
+# gazelle:exclude py/tests/
 
 gazelle_binary(
     name = "gazelle_bin",
