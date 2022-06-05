@@ -31,9 +31,9 @@ def rules_py_dependencies():
     maybe(
         http_archive,
         name = "aspect_bazel_lib",
-        sha256 = "b3de6702d48904e8dbe9b45d29e5f07d3258d826981fda87424462b36f16b35f",
-        strip_prefix = "bazel-lib-0.8.3",
-        url = "https://github.com/aspect-build/bazel-lib/archive/refs/tags/v0.8.3.tar.gz",
+        sha256 = "91aa7356b22ecdb87dcf5f1cc8a6a147e23a1ef425221bab75e5f857cd6b2716",
+        strip_prefix = "bazel-lib-0.12.1",
+        url = "https://github.com/aspect-build/bazel-lib/archive/refs/tags/v0.12.1.tar.gz",
     )
 
     maybe(
