@@ -10,6 +10,7 @@ sys path:
 (py_toolchain)/lib/python3.9
 (py_toolchain)/lib/python3.9/lib-dynload
 (pwd)/bazel-out/host/bin/py/tests/external-deps/pathing.runfiles/pathing.venv/lib/python3.9/site-packages
+(pwd)/bazel-out/host/bin/py/tests/external-deps/pathing.runfiles
 (pwd)/bazel-out/host/bin/py/tests/external-deps/pathing.runfiles/aspect_rules_py/py/tests/external-deps
 
 Entrypoint Path: (pwd)/bazel-out/host/bin/py/tests/external-deps/pathing.runfiles/aspect_rules_py/py/tests/external-deps/pathing.py

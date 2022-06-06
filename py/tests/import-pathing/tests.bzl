@@ -20,6 +20,16 @@ def _can_resolve_path_in_workspace_test_impl(ctx):
     imports = py_library.make_imports_depset(fake_ctx).to_list()
     asserts.equals(env, "aspect_rules_py/foo/bar", imports[0])
 
+    # Empty string import is semantically equal to "."
+    fake_ctx = _ctx_with_imports([""])
+    imports = py_library.make_imports_depset(fake_ctx).to_list()
+    asserts.equals(env, "aspect_rules_py/foo/bar", imports[0])
+
+    # Empty imports array results in no imports
+    fake_ctx = _ctx_with_imports([])
+    imports = py_library.make_imports_depset(fake_ctx).to_list()
+    asserts.equals(env, 0, len(imports))
+
     # The import path is the parent package
     fake_ctx = _ctx_with_imports([".."])
     imports = py_library.make_imports_depset(fake_ctx).to_list()

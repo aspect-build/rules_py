@@ -69,9 +69,9 @@ def _make_venv(ctx, name = None, main = None, strip_pth_workspace_root = None):
     # each segment from site-packages in the venv to the root of the runfiles tree.
     # Four .. will get us back to the root of the venv:
     # {name}.runfiles/.{name}.venv/lib/python{version}/site-packages/first_party.pth
-    escape = ([".."] * 4)
+    escape = "/".join(([".."] * 4))
     pth_add_all_kwargs = dict({
-        "format_each": "/".join(escape) + "/%s",
+        "format_each": escape + "/%s",
     })
 
     # If we are creating a venv for an IDE we likely don't have a workspace folder at with everything inside, so strip
@@ -81,6 +81,13 @@ def _make_venv(ctx, name = None, main = None, strip_pth_workspace_root = None):
         pth_add_all_kwargs.update({
             "map_each": _pth_import_line_map,
         })
+
+    # A few imports rely on being able to reference the root of the runfiles tree as a Python module,
+    # the common case here being the @rules_python//python/runfiles target that adds the runfiles helper,
+    # which ends up in bazel_tools/tools/python/runfiles/runfiles.py, but there are no imports attrs that hint we
+    # should be adding the root to the PYTHONPATH
+    # Maybe in the future we can opt out of this?
+    pth_lines.add(escape)
 
     pth_lines.add_all(
         imports_depset,
