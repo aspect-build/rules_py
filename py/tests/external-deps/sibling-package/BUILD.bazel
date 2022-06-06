@@ -1,0 +1,20 @@
+load("//py/tests/external-deps/custom-macro:macro.bzl", "click_cli_binary")
+load("@aspect_bazel_lib//lib:write_source_files.bzl", "write_source_files")
+
+click_cli_binary(
+    name = "click_sibling_binary",
+)
+
+genrule(
+    name = "run_click_cli_binary",
+    outs = ["click_sibling_cli_binary_out"],
+    cmd = "$(execpath click_sibling_binary) --count 628 > $@",
+    tools = ["click_sibling_binary"],
+)
+
+write_source_files(
+    name = "test",
+    files = {
+        "expected_click_sibling_cli_binary": "click_sibling_cli_binary_out",
+    },
+)

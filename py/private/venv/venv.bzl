@@ -92,8 +92,7 @@ def _make_venv(ctx, name = None, main = None, strip_pth_workspace_root = None):
         content = pth_lines,
     )
 
-    venv_sibling = _get_attr(ctx.file, "main", main)
-    venv_directory = ctx.actions.declare_directory("%s.source" % name, sibling = venv_sibling)
+    venv_directory = ctx.actions.declare_directory("%s.source" % name)
 
     common_substitutions = {
         "{{BASH_BIN}}": bash_bin,
