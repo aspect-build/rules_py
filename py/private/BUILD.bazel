@@ -23,6 +23,7 @@ bzl_library(
         ":py_library",
         ":utils",
         "//py/private/venv",
+        "@aspect_bazel_lib//lib:expand_make_vars",
         "@aspect_bazel_lib//lib:paths",
     ],
 )
