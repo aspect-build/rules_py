@@ -28,31 +28,42 @@ def py_binary(name, srcs = [], main = None, imports = ["."], **kwargs):
         name: name of the rule
         srcs: python source files
         main: the entry point. If absent, then the first entry in srcs is used.
+        imports: list of paths that this rule should contribute to the Python path.
         **kwargs: see [py_binary attributes](./py_binary)
     """
-    _py_binary(
+
+    _py_base(
         name = name,
         srcs = srcs,
-        main = main if main != None else srcs[0],
+        main = main,
         imports = imports,
+        rule = _py_binary,
         **kwargs
-    )
-
-    _py_venv(
-        name = "%s.venv" % name,
-        deps = kwargs.pop("deps", []),
-        imports = imports,
-        srcs = srcs,
-        tags = ["manual"],
     )
 
 def py_test(name, main = None, srcs = [], imports = ["."], **kwargs):
     "Identical to py_binary, but produces a target that can be used with `bazel test`."
-    _py_test(
+
+    _py_base(
+        name = name,
+        srcs = srcs,
+        main = main,
+        imports = imports,
+        rule = _py_test,
+        **kwargs
+    )
+
+def _py_base(name, main, srcs, imports, rule, **kwargs):
+    if (not srcs or len(srcs) == 0) and not main:
+        fail("Must provide either 'main' or at least one src in '//{pkg}:{name}'".format(
+            pkg = native.package_name(),
+            name = name,
+        ))
+
+    rule(
         name = name,
         srcs = srcs,
         main = main if main != None else srcs[0],
-        imports = imports,
         **kwargs
     )
 
