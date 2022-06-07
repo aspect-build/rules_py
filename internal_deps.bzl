@@ -73,3 +73,11 @@ def rules_py_internal_deps():
         ],
         strip_prefix = "gcc-toolchain-9128134f01cc5e77f8394414ba76293ed22ffc77",
     )
+
+    maybe(
+        http_archive,
+        name = "io_bazel_rules_docker",
+        sha256 = "bb4b7defb8e39e3fda5ca5b1535c9885a68d7dc22e48653baa8956fb101cba04",
+        strip_prefix = "rules_docker-7281c051b7071c065b8ac5b6210301c5f5504663",
+        urls = ["https://github.com/bazelbuild/rules_docker/archive/7281c051b7071c065b8ac5b6210301c5f5504663.zip"],
+    )

@@ -1,0 +1,14 @@
+schemaVersion: 2.0.0
+
+fileExistenceTests:
+  - name: __main__ is present
+    path: /app/py/tests/containers/py_image.binary.runfiles/aspect_rules_py/py/tests/containers/__main__.py
+  - name: runfiles dependencies are present
+    path: /app/py/tests/containers/py_image.binary.runfiles/pypi_colorama/colorama/__init__.py
+commandTests:
+  - name: can run binary
+    exitCode: 0
+    command: /usr/bin/python
+    args:
+      - /app/py/tests/containers/py_image.binary
+    expectedOutput: ["Hello rules_py"]

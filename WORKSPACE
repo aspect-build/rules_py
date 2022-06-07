@@ -11,6 +11,9 @@ load("//py:repositories.bzl", "rules_py_dependencies")
 # Fetch dependencies which users need as well
 rules_py_dependencies()
 
+# Load the Python toolchain for rules_docker
+register_toolchains("//:container_py_toolchain")
+
 load("@rules_python//python:repositories.bzl", "python_register_toolchains")
 
 python_register_toolchains(
@@ -59,3 +62,19 @@ go_rules_dependencies()
 go_register_toolchains(version = "1.17.2")
 
 gazelle_dependencies()
+
+############################################
+# rules_docker dependencies for containers
+load(
+    "@io_bazel_rules_docker//repositories:repositories.bzl",
+    container_repositories = "repositories",
+)
+
+container_repositories()
+
+load(
+    "@io_bazel_rules_docker//python3:image.bzl",
+    _py_image_repos = "repositories",
+)
+
+_py_image_repos()

@@ -1,0 +1,24 @@
+load("@io_bazel_rules_docker//contrib:test.bzl", "container_test")
+load("@io_bazel_rules_docker//python3:image.bzl", "py3_image")
+load("//py:defs.bzl", "py_binary")
+
+py_binary(
+    name = "main_bin",
+    srcs = ["__main__.py"],
+    deps = [
+        "@pypi_colorama//:pkg",
+    ],
+)
+
+py3_image(
+    name = "py_image",
+    srcs = ["__main__.py"],
+    main = "__main__.py",
+    deps = [":main_bin"],
+)
+
+container_test(
+    name = "py_image_test",
+    configs = ["py_image_test.yaml"],
+    image = ":py_image",
+)
