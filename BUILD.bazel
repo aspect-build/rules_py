@@ -1,4 +1,5 @@
 load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirements")
+load("@rules_python//python:defs.bzl", "py_runtime", "py_runtime_pair")
 load("@bazel_gazelle//:def.bzl", "gazelle", "gazelle_binary")
 
 # gazelle:exclude internal_python_deps.bzl
@@ -20,4 +21,25 @@ compile_pip_requirements(
     extra_args = ["--allow-unsafe"],
     requirements_in = "requirements.in",
     requirements_txt = "requirements.txt",
+)
+
+py_runtime(
+    name = "container_py3_runtime",
+    interpreter_path = "/usr/bin/python",
+    python_version = "PY3",
+)
+
+py_runtime_pair(
+    name = "container_py_runtime_pair",
+    py2_runtime = None,
+    py3_runtime = ":container_py3_runtime",
+)
+
+toolchain(
+    name = "container_py_toolchain",
+    exec_compatible_with = [
+        "@io_bazel_rules_docker//platforms:run_in_container",
+    ],
+    toolchain = ":container_py_runtime_pair",
+    toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )

@@ -73,13 +73,21 @@ def _py_binary_rule_imp(ctx):
         ],
     )
 
+    imports = _py_library.make_imports_depset(ctx)
+
     return [
         DefaultInfo(
             files = depset([entry, main]),
             runfiles = runfiles,
             executable = entry,
         ),
-        # Return PyInfo?
+        PyInfo(
+            imports = imports,
+            transitive_sources = srcs_depset,
+            has_py2_only_sources = False,
+            has_py3_only_sources = True,
+            uses_shared_libraries = False,
+        ),
     ]
 
 _attrs = dict({
