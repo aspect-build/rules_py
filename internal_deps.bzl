@@ -62,3 +62,14 @@ def rules_py_internal_deps():
             "https://github.com/bazelbuild/stardoc/releases/download/0.5.0/stardoc-0.5.0.tar.gz",
         ],
     )
+
+    # Aspect gcc toolchain for RBE
+    maybe(
+        http_archive,
+        name = "aspect_gcc_toolchain",
+        sha256 = "2610f573f62031c381814ed6dc9f21bf7338b6615ba53d5fe2b4e028a0d0cf2a",
+        urls = [
+            "https://github.com/aspect-build/gcc-toolchain/archive/9128134f01cc5e77f8394414ba76293ed22ffc77.zip",
+        ],
+        strip_prefix = "gcc-toolchain-9128134f01cc5e77f8394414ba76293ed22ffc77",
+    )
