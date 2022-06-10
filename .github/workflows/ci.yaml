@@ -32,7 +32,7 @@ jobs:
       # previously built artifacts to minimize build time. The more precise you are with
       # hashFiles sources the less work bazel will have to do.
       - name: Mount bazel caches
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: |
             "~/.cache/bazel"
