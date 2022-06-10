@@ -9,16 +9,6 @@ rules_py_py_library(
 )
 
 rules_py_py_library(
-    name = "add",
-    srcs = [
-        "add.py",
-    ],
-    deps = [
-        ":init",
-    ],
-)
-
-rules_py_py_library(
     name = "sub",
     srcs = [
         "sub.py",
@@ -44,9 +34,9 @@ py_binary(
         "__main__.py",
     ],
     deps = [
-        ":add",
         ":pi",
         ":sub",
+        "//py/tests/internal-deps/adder",
     ],
 )
 
@@ -56,8 +46,8 @@ py_test(
         "__main__.py",
     ],
     deps = [
-        ":add",
         ":pi",
         ":sub",
+        "//py/tests/internal-deps/adder",
     ],
 )
