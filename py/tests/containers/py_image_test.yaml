@@ -11,4 +11,4 @@ commandTests:
     command: /usr/bin/python
     args:
       - /app/py/tests/containers/py_image.binary
-    expectedOutput: ["Hello rules_py"]
+    expectedOutput: ["Hello rules_py - 3.14"]

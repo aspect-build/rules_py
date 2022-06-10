@@ -1,0 +1,16 @@
+load("//py:defs.bzl", "py_library")
+
+py_library(
+    name = "adder",
+    srcs = [
+        "__init__.py",
+        "add.py",
+    ],
+    imports = [".."],
+    # This library contributes to the container test, testing we can pull in and use a library from another
+    # package in the repo.
+    visibility = [
+        "//py/tests/containers:__pkg__",
+        "//py/tests/internal-deps:__pkg__",
+    ],
+)

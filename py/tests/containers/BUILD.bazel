@@ -6,10 +6,21 @@ py_binary(
     name = "main_bin",
     srcs = ["__main__.py"],
     deps = [
+        "//py/tests/containers/branding",
+        "//py/tests/internal-deps/adder",
         "@pypi_colorama//:pkg",
     ],
 )
 
+# py3_image container support reverts us back to the rules_python way of invoking the binary,
+# (as really there is a py_binary in the py3_image).
+# This test ensures that rules_py can still run in that mode, but there are a few notable exceptions:
+#   * There is no longer a virtual env to run in
+#   * The rules_py launcher isn't invoked
+#   * There is no pip
+#   * Dependencies that were consumed via wheel targets are lost
+# Perhaps rules_container can provide a suitable alternative here, or rules_py provides a thin wrapper around the
+# rules_docker container_image that produces the expected output, but it would be limited in terms of customisation.
 py3_image(
     name = "py_image",
     srcs = ["__main__.py"],
