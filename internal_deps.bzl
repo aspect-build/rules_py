@@ -64,11 +64,11 @@ def rules_py_internal_deps():
     # Aspect gcc toolchain for RBE
     http_archive(
         name = "aspect_gcc_toolchain",
-        sha256 = "03358d11499d3248f2e5811d24997637ba3f9a67fa1349fb8814926f0ca01625",
+        sha256 = "b03d17798cacd97163fadd1e729ba7d6e59159afd8c5178ac930170e3b9239b8",
         urls = [
-            "https://github.com/aspect-build/gcc-toolchain/archive/b15575da0a9bb49de49ab5d227aba342003f6aad.zip",
+            "https://github.com/aspect-build/gcc-toolchain/archive/efc23c5a2ea1dab405831ade823799c989646e08.zip",
         ],
-        strip_prefix = "gcc-toolchain-b15575da0a9bb49de49ab5d227aba342003f6aad",
+        strip_prefix = "gcc-toolchain-efc23c5a2ea1dab405831ade823799c989646e08",
     )
 
     http_archive(
