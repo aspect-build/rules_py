@@ -24,7 +24,6 @@ def _make_venv(ctx, name = None, main = None, strip_pth_workspace_root = None):
     strip_pth_workspace_root = _get_attr(ctx.attr, "strip_pth_workspace_root", strip_pth_workspace_root)
 
     # Get each path to every wheel we need, this includes the transitive wheels
-    # Get each path to every wheel we need, this includes the transitive wheels
     # As these are just filegroups, then we need to dig into the default_runfiles to get the transitive files
     # Create a depset for all these
     wheels_depsets = [
