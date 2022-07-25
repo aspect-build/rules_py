@@ -43,7 +43,7 @@ you can `bazel run [name].venv` to produce this, then use it in the editor.
 | <a id="py_binary-name"></a>name |  name of the rule   |  none |
 | <a id="py_binary-srcs"></a>srcs |  python source files   |  <code>[]</code> |
 | <a id="py_binary-main"></a>main |  the entry point. If absent, then the first entry in srcs is used.   |  <code>None</code> |
-| <a id="py_binary-imports"></a>imports |  <p align="center"> - </p>   |  <code>["."]</code> |
+| <a id="py_binary-imports"></a>imports |  list of paths that this rule should contribute to the Python path.   |  <code>["."]</code> |
 | <a id="py_binary-kwargs"></a>kwargs |  see [py_binary attributes](./py_binary)   |  none |
 
 
