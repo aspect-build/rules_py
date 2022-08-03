@@ -2,7 +2,7 @@
 
 Public API re-exports
 
-<a id="#py_wheel"></a>
+<a id="py_wheel"></a>
 
 ## py_wheel
 
@@ -17,11 +17,11 @@ py_wheel(<a href="#py_wheel-name">name</a>, <a href="#py_wheel-src">src</a>)
 
 | Name  | Description | Type | Mandatory | Default |
 | :------------- | :------------- | :------------- | :------------- | :------------- |
-| <a id="py_wheel-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/docs/build-ref.html#name">Name</a> | required |  |
-| <a id="py_wheel-src"></a>src |  -   | <a href="https://bazel.build/docs/build-ref.html#labels">Label</a> | optional | None |
+| <a id="py_wheel-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
+| <a id="py_wheel-src"></a>src |  -   | <a href="https://bazel.build/concepts/labels">Label</a> | optional | None |
 
 
-<a id="#py_binary"></a>
+<a id="py_binary"></a>
 
 ## py_binary
 
@@ -47,7 +47,7 @@ you can `bazel run [name].venv` to produce this, then use it in the editor.
 | <a id="py_binary-kwargs"></a>kwargs |  see [py_binary attributes](./py_binary)   |  none |
 
 
-<a id="#py_library"></a>
+<a id="py_library"></a>
 
 ## py_library
 
@@ -67,7 +67,7 @@ Wrapper macro for the py_library rule, setting a default for imports
 | <a id="py_library-kwargs"></a>kwargs |  see [py_library attributes](./py_library)   |  none |
 
 
-<a id="#py_test"></a>
+<a id="py_test"></a>
 
 ## py_test
 
