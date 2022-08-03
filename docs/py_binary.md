@@ -2,7 +2,7 @@
 
 Implementation for the py_binary and py_test rules.
 
-<a id="#py_binary"></a>
+<a id="py_binary"></a>
 
 ## py_binary
 
@@ -17,16 +17,16 @@ py_binary(<a href="#py_binary-name">name</a>, <a href="#py_binary-data">data</a>
 
 | Name  | Description | Type | Mandatory | Default |
 | :------------- | :------------- | :------------- | :------------- | :------------- |
-| <a id="py_binary-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/docs/build-ref.html#name">Name</a> | required |  |
-| <a id="py_binary-data"></a>data |  -   | <a href="https://bazel.build/docs/build-ref.html#labels">List of labels</a> | optional | [] |
-| <a id="py_binary-deps"></a>deps |  -   | <a href="https://bazel.build/docs/build-ref.html#labels">List of labels</a> | optional | [] |
-| <a id="py_binary-env"></a>env |  -   | <a href="https://bazel.build/docs/skylark/lib/dict.html">Dictionary: String -> String</a> | optional | {} |
+| <a id="py_binary-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
+| <a id="py_binary-data"></a>data |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | [] |
+| <a id="py_binary-deps"></a>deps |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | [] |
+| <a id="py_binary-env"></a>env |  -   | <a href="https://bazel.build/rules/lib/dict">Dictionary: String -> String</a> | optional | {} |
 | <a id="py_binary-imports"></a>imports |  -   | List of strings | optional | [] |
-| <a id="py_binary-main"></a>main |  -   | <a href="https://bazel.build/docs/build-ref.html#labels">Label</a> | required |  |
-| <a id="py_binary-srcs"></a>srcs |  -   | <a href="https://bazel.build/docs/build-ref.html#labels">List of labels</a> | optional | [] |
+| <a id="py_binary-main"></a>main |  -   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
+| <a id="py_binary-srcs"></a>srcs |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | [] |
 
 
-<a id="#py_test"></a>
+<a id="py_test"></a>
 
 ## py_test
 
@@ -41,16 +41,16 @@ py_test(<a href="#py_test-name">name</a>, <a href="#py_test-data">data</a>, <a h
 
 | Name  | Description | Type | Mandatory | Default |
 | :------------- | :------------- | :------------- | :------------- | :------------- |
-| <a id="py_test-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/docs/build-ref.html#name">Name</a> | required |  |
-| <a id="py_test-data"></a>data |  -   | <a href="https://bazel.build/docs/build-ref.html#labels">List of labels</a> | optional | [] |
-| <a id="py_test-deps"></a>deps |  -   | <a href="https://bazel.build/docs/build-ref.html#labels">List of labels</a> | optional | [] |
-| <a id="py_test-env"></a>env |  -   | <a href="https://bazel.build/docs/skylark/lib/dict.html">Dictionary: String -> String</a> | optional | {} |
+| <a id="py_test-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
+| <a id="py_test-data"></a>data |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | [] |
+| <a id="py_test-deps"></a>deps |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | [] |
+| <a id="py_test-env"></a>env |  -   | <a href="https://bazel.build/rules/lib/dict">Dictionary: String -> String</a> | optional | {} |
 | <a id="py_test-imports"></a>imports |  -   | List of strings | optional | [] |
-| <a id="py_test-main"></a>main |  -   | <a href="https://bazel.build/docs/build-ref.html#labels">Label</a> | required |  |
-| <a id="py_test-srcs"></a>srcs |  -   | <a href="https://bazel.build/docs/build-ref.html#labels">List of labels</a> | optional | [] |
+| <a id="py_test-main"></a>main |  -   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
+| <a id="py_test-srcs"></a>srcs |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | [] |
 
 
-<a id="#py_base.implementation"></a>
+<a id="py_base.implementation"></a>
 
 ## py_base.implementation
 
