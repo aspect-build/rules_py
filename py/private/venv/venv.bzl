@@ -31,6 +31,13 @@ def _make_venv(ctx, name = None, main = None, strip_pth_workspace_root = None):
         for target in ctx.attr.deps
         if PyWheelInfo in target
     ]
+
+    resolutions = dict(zip(ctx.attr.resolution_names, ctx.attr.resolutions))
+
+    virtuals = _py_library.make_virtuals_depset(ctx).to_list()
+    for v in virtuals:
+        wheels_depsets.append(resolutions[v][PyWheelInfo].files)
+
     wheels_depset = depset(
         transitive = wheels_depsets,
     )

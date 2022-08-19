@@ -98,6 +98,12 @@ _attrs = dict({
         allow_single_file = True,
         mandatory = True,
     ),
+    # Workaround for lack of label_dict
+    # https://github.com/bazelbuild/bazel/issues/1232#issuecomment-225372787
+    "resolution_names": attr.string_list(
+    ),
+    "resolutions": attr.label_list(
+    ),
     "_entry": attr.label(
         allow_single_file = True,
         default = "//py/private:entry.tmpl.sh",

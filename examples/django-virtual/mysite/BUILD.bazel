@@ -1,0 +1,14 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library")
+
+py_library(
+    name = "mysite",
+    srcs = [
+        "__init__.py",
+        "asgi.py",
+        "settings.py",
+        "urls.py",
+        "wsgi.py",
+    ],
+    visibility = ["//examples/django-virtual:__pkg__"],
+    virtuals = ["django", "six"],
+)

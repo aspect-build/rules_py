@@ -1,6 +1,7 @@
 "Implementation for the py_library rule"
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
+load("//py/private:providers.bzl", "PyVirtualInfo")
 load("//py/private:providers.bzl", "PyWheelInfo")
 load("//py/private:py_wheel.bzl", py_wheel = "py_wheel_lib")
 
@@ -82,9 +83,21 @@ def _make_merged_runfiles(ctx, extra_depsets = [], extra_runfiles = [], extra_ru
 
     return runfiles
 
+def _make_virtuals_depset(ctx):
+    return depset(
+        order = "postorder",
+        direct = ctx.attr.virtuals,
+        transitive = [
+            target[PyVirtualInfo].dependencies
+            for target in ctx.attr.deps
+            if PyVirtualInfo in target
+        ],
+    )
+
 def _py_library_impl(ctx):
     transitive_srcs = _make_srcs_depset(ctx)
     imports = _make_imports_depset(ctx)
+    virtuals = _make_virtuals_depset(ctx)
     runfiles = _make_merged_runfiles(ctx)
     py_wheel_info = py_wheel.make_py_wheel_info(ctx, ctx.attr.deps)
 
@@ -100,6 +113,9 @@ def _py_library_impl(ctx):
             has_py3_only_sources = True,
             uses_shared_libraries = False,
         ),
+        PyVirtualInfo(
+            dependencies = virtuals,
+        ),
         py_wheel_info,
     ]
 
@@ -109,12 +125,13 @@ _attrs = dict({
     ),
     "deps": attr.label_list(
         allow_files = True,
-        providers = [[PyInfo], [PyWheelInfo]],
+        providers = [[PyInfo], [PyWheelInfo], [PyVirtualInfo]],
     ),
     "data": attr.label_list(
         allow_files = True,
     ),
     "imports": attr.string_list(),
+    "virtuals": attr.string_list(),
 })
 
 _providers = [
@@ -125,6 +142,7 @@ _providers = [
 py_library_utils = struct(
     make_srcs_depset = _make_srcs_depset,
     make_imports_depset = _make_imports_depset,
+    make_virtuals_depset = _make_virtuals_depset,
     make_merged_runfiles = _make_merged_runfiles,
     implementation = _py_library_impl,
     attrs = _attrs,

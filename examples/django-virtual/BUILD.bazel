@@ -1,0 +1,19 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary")
+
+py_binary(
+    name = "django-virtual",
+    srcs = ["manage.py"],
+    deps = [
+        "//examples/django-virtual/mysite",
+    ],
+    # TODO: represent resolutions as a dict, and perform the splitting in a
+    # macro
+    resolutions = [
+        "@pypi_django//:wheel",
+        "@pypi_six//:wheel",
+    ],
+    resolution_names = [
+        "django",
+        "six",
+    ]
+)
