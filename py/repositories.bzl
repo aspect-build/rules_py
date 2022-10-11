@@ -33,9 +33,9 @@ def rules_py_dependencies():
 
     http_archive(
         name = "aspect_bazel_lib",
-        sha256 = "b381ac4dca544ecc5515916f38066e9793628477e2577edb7b2ab04e8c210738",
-        strip_prefix = "bazel-lib-1.0.0",
-        url = "https://github.com/aspect-build/bazel-lib/archive/refs/tags/v1.0.0.tar.gz",
+        sha256 = "0154b46f350c7941919eaa30a4f2284a0128ac13c706901a5c768a829af49e11",
+        strip_prefix = "bazel-lib-1.13.0",
+        url = "https://github.com/aspect-build/bazel-lib/archive/refs/tags/v1.13.0.tar.gz",
     )
 
     http_archive(
