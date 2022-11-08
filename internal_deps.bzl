@@ -46,10 +46,7 @@ def rules_py_internal_deps():
         name = "bazel_skylib",
         sha256 = "3b620033ca48fcd6f5ef2ac85e0f6ec5639605fa2f627968490e52fc91a9932f",
         strip_prefix = "bazel-skylib-1.3.0",
-        urls = [
-            "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/archive/1.3.0.tar.gz",
-            "https://github.com/bazelbuild/bazel-skylib/archive/refs/tags/1.3.0.tar.gz",
-        ],
+        url = "https://github.com/bazelbuild/bazel-skylib/archive/refs/tags/1.3.0.tar.gz",
     )
 
     http_archive(
