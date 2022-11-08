@@ -67,6 +67,26 @@ Wrapper macro for the py_library rule, setting a default for imports
 | <a id="py_library-kwargs"></a>kwargs |  see [py_library attributes](./py_library)   |  none |
 
 
+<a id="py_pytest_main"></a>
+
+## py_pytest_main
+
+<pre>
+py_pytest_main(<a href="#py_pytest_main-name">name</a>, <a href="#py_pytest_main-py_library">py_library</a>, <a href="#py_pytest_main-kwargs">kwargs</a>)
+</pre>
+
+py_pytest_main wraps the template rendering target and the final py_library.
+
+**PARAMETERS**
+
+
+| Name  | Description | Default Value |
+| :------------- | :------------- | :------------- |
+| <a id="py_pytest_main-name"></a>name |  The name of the runable target that updates the test entry file.   |  none |
+| <a id="py_pytest_main-py_library"></a>py_library |  Use this attribute to override the default py_library rule.   |  <code><function py_library></code> |
+| <a id="py_pytest_main-kwargs"></a>kwargs |  The extra arguments passed to the template rendering target.   |  none |
+
+
 <a id="py_test"></a>
 
 ## py_test

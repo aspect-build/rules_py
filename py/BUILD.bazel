@@ -21,6 +21,7 @@ bzl_library(
     deps = [
         "//py/private:py_binary",
         "//py/private:py_library",
+        "//py/private:py_pytest_main",
         "//py/private:py_wheel",
     ],
 )

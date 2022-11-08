@@ -1,9 +1,10 @@
 "Public API re-exports"
 
-load("//py/private/venv:venv.bzl", _py_venv = "py_venv")
 load("//py/private:py_binary.bzl", _py_binary = "py_binary", _py_test = "py_test")
 load("//py/private:py_library.bzl", _py_library = "py_library")
+load("//py/private:py_pytest_main.bzl", _py_pytest_main = "py_pytest_main")
 load("//py/private:py_wheel.bzl", "py_wheel_lib")
+load("//py/private/venv:venv.bzl", _py_venv = "py_venv")
 
 def py_library(name, imports = ["."], **kwargs):
     """Wrapper macro for the py_library rule, setting a default for imports
@@ -69,3 +70,5 @@ py_wheel = rule(
     attrs = py_wheel_lib.attrs,
     provides = py_wheel_lib.provides,
 )
+
+py_pytest_main = _py_pytest_main

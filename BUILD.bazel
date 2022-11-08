@@ -1,19 +1,36 @@
-load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirements")
-load("@rules_python//python:defs.bzl", "py_runtime", "py_runtime_pair")
 load("@bazel_gazelle//:def.bzl", "gazelle", "gazelle_binary")
+load("@pypi//:requirements.bzl", "all_whl_requirements")
+load("@rules_python//gazelle:def.bzl", "GAZELLE_PYTHON_RUNTIME_DEPS")
+load("@rules_python//gazelle/manifest:defs.bzl", "gazelle_python_manifest")
+load("@rules_python//gazelle/modules_mapping:def.bzl", "modules_mapping")
+load("@rules_python//python:defs.bzl", "py_runtime", "py_runtime_pair")
+load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirements")
 
 # gazelle:exclude internal_python_deps.bzl
 # gazelle:exclude internal_deps.bzl
 # gazelle:exclude py/tests/
+# gazelle:exclude examples/django
+
+gazelle_python_manifest(
+    name = "gazelle_python_manifest",
+    modules_mapping = ":modules_map",
+    pip_repository_incremental = True,
+    pip_repository_name = "pypi",
+    requirements = "requirements.txt",
+)
 
 gazelle_binary(
     name = "gazelle_bin",
-    languages = ["@bazel_skylib//gazelle/bzl"],
+    languages = [
+        "@bazel_skylib//gazelle/bzl",
+        "@rules_python//gazelle",
+    ],
 )
 
 gazelle(
     name = "gazelle",
-    gazelle = "gazelle_bin",
+    data = GAZELLE_PYTHON_RUNTIME_DEPS,
+    gazelle = ":gazelle_bin",
 )
 
 compile_pip_requirements(
@@ -21,6 +38,11 @@ compile_pip_requirements(
     extra_args = ["--allow-unsafe"],
     requirements_in = "requirements.in",
     requirements_txt = "requirements.txt",
+)
+
+modules_mapping(
+    name = "modules_map",
+    wheels = all_whl_requirements,
 )
 
 py_runtime(
