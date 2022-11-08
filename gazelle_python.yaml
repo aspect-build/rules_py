@@ -396,10 +396,10 @@ manifest:
     django.contrib.admin.forms: Django
     django.contrib.admin.helpers: Django
     django.contrib.admin.migrations: Django
-    django.contrib.admin.migrations.__init__: Django
     django.contrib.admin.migrations.0001_initial: Django
     django.contrib.admin.migrations.0002_logentry_remove_auto_add: Django
     django.contrib.admin.migrations.0003_logentry_add_action_flag_choices: Django
+    django.contrib.admin.migrations.__init__: Django
     django.contrib.admin.models: Django
     django.contrib.admin.options: Django
     django.contrib.admin.sites: Django
@@ -447,7 +447,6 @@ manifest:
     django.contrib.auth.management.commands.createsuperuser: Django
     django.contrib.auth.middleware: Django
     django.contrib.auth.migrations: Django
-    django.contrib.auth.migrations.__init__: Django
     django.contrib.auth.migrations.0001_initial: Django
     django.contrib.auth.migrations.0002_alter_permission_name_max_length: Django
     django.contrib.auth.migrations.0003_alter_user_email_max_length: Django
@@ -460,6 +459,7 @@ manifest:
     django.contrib.auth.migrations.0010_alter_group_name_max_length: Django
     django.contrib.auth.migrations.0011_update_proxy_permissions: Django
     django.contrib.auth.migrations.0012_alter_user_first_name_max_length: Django
+    django.contrib.auth.migrations.__init__: Django
     django.contrib.auth.mixins: Django
     django.contrib.auth.models: Django
     django.contrib.auth.password_validation: Django
@@ -481,9 +481,9 @@ manifest:
     django.contrib.contenttypes.management.commands.__init__: Django
     django.contrib.contenttypes.management.commands.remove_stale_contenttypes: Django
     django.contrib.contenttypes.migrations: Django
-    django.contrib.contenttypes.migrations.__init__: Django
     django.contrib.contenttypes.migrations.0001_initial: Django
     django.contrib.contenttypes.migrations.0002_remove_content_type_name: Django
+    django.contrib.contenttypes.migrations.__init__: Django
     django.contrib.contenttypes.models: Django
     django.contrib.contenttypes.views: Django
     django.contrib.flatpages: Django
@@ -493,8 +493,8 @@ manifest:
     django.contrib.flatpages.forms: Django
     django.contrib.flatpages.middleware: Django
     django.contrib.flatpages.migrations: Django
-    django.contrib.flatpages.migrations.__init__: Django
     django.contrib.flatpages.migrations.0001_initial: Django
+    django.contrib.flatpages.migrations.__init__: Django
     django.contrib.flatpages.models: Django
     django.contrib.flatpages.sitemaps: Django
     django.contrib.flatpages.templatetags: Django
@@ -713,9 +713,9 @@ manifest:
     django.contrib.redirects.apps: Django
     django.contrib.redirects.middleware: Django
     django.contrib.redirects.migrations: Django
-    django.contrib.redirects.migrations.__init__: Django
     django.contrib.redirects.migrations.0001_initial: Django
     django.contrib.redirects.migrations.0002_alter_redirect_new_path_help_text: Django
+    django.contrib.redirects.migrations.__init__: Django
     django.contrib.redirects.models: Django
     django.contrib.sessions: Django
     django.contrib.sessions.__init__: Django
@@ -737,8 +737,8 @@ manifest:
     django.contrib.sessions.management.commands.clearsessions: Django
     django.contrib.sessions.middleware: Django
     django.contrib.sessions.migrations: Django
-    django.contrib.sessions.migrations.__init__: Django
     django.contrib.sessions.migrations.0001_initial: Django
+    django.contrib.sessions.migrations.__init__: Django
     django.contrib.sessions.models: Django
     django.contrib.sessions.serializers: Django
     django.contrib.sitemaps: Django
@@ -759,9 +759,9 @@ manifest:
     django.contrib.sites.managers: Django
     django.contrib.sites.middleware: Django
     django.contrib.sites.migrations: Django
-    django.contrib.sites.migrations.__init__: Django
     django.contrib.sites.migrations.0001_initial: Django
     django.contrib.sites.migrations.0002_alter_domain_unique: Django
+    django.contrib.sites.migrations.__init__: Django
     django.contrib.sites.models: Django
     django.contrib.sites.requests: Django
     django.contrib.sites.shortcuts: Django
@@ -1265,4 +1265,4 @@ manifest:
   pip_repository:
     name: pypi
     incremental: true
-integrity: 51217bb7f6d0438a7e54c2526127bd972656bf8580e0dfc0af685561fccd4f46
+integrity: 18ace45bc5c693f3675cf6cef31a53dfdc36bc326d61822a673f31b0ebbe900e
