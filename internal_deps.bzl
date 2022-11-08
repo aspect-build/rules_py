@@ -70,7 +70,7 @@ def rules_py_internal_deps():
 
     http_archive(
         name = "io_bazel_rules_docker",
-        sha256 = "ff3647e5c9dd570e06a2ef9854800ea7fd665e4189005c130f1ae7554337a7e8",
-        strip_prefix = "rules_docker-a8aff4076f75c4dfb39bd768dd9870b5d263e70d",
-        urls = ["https://github.com/bazelbuild/rules_docker/archive/a8aff4076f75c4dfb39bd768dd9870b5d263e70d.zip"],
+        sha256 = "04f49ba7240264ec945af4e663d4fb0eb72ea548094ffd353387cc9488747c05",
+        strip_prefix = "rules_docker-88fb10b2e61e858fb42fcf7e48e53cd87c4d3cdc",
+        urls = ["https://github.com/bazelbuild/rules_docker/archive/88fb10b2e61e858fb42fcf7e48e53cd87c4d3cdc.zip"],
     )
