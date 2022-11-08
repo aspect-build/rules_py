@@ -18,12 +18,12 @@ py_binary(<a href="#py_binary-name">name</a>, <a href="#py_binary-data">data</a>
 | Name  | Description | Type | Mandatory | Default |
 | :------------- | :------------- | :------------- | :------------- | :------------- |
 | <a id="py_binary-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
-| <a id="py_binary-data"></a>data |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | [] |
-| <a id="py_binary-deps"></a>deps |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | [] |
-| <a id="py_binary-env"></a>env |  -   | <a href="https://bazel.build/rules/lib/dict">Dictionary: String -> String</a> | optional | {} |
-| <a id="py_binary-imports"></a>imports |  -   | List of strings | optional | [] |
+| <a id="py_binary-data"></a>data |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
+| <a id="py_binary-deps"></a>deps |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
+| <a id="py_binary-env"></a>env |  -   | <a href="https://bazel.build/rules/lib/dict">Dictionary: String -> String</a> | optional | <code>{}</code> |
+| <a id="py_binary-imports"></a>imports |  -   | List of strings | optional | <code>[]</code> |
 | <a id="py_binary-main"></a>main |  -   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
-| <a id="py_binary-srcs"></a>srcs |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | [] |
+| <a id="py_binary-srcs"></a>srcs |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
 
 
 <a id="py_test"></a>
@@ -42,12 +42,12 @@ py_test(<a href="#py_test-name">name</a>, <a href="#py_test-data">data</a>, <a h
 | Name  | Description | Type | Mandatory | Default |
 | :------------- | :------------- | :------------- | :------------- | :------------- |
 | <a id="py_test-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
-| <a id="py_test-data"></a>data |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | [] |
-| <a id="py_test-deps"></a>deps |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | [] |
-| <a id="py_test-env"></a>env |  -   | <a href="https://bazel.build/rules/lib/dict">Dictionary: String -> String</a> | optional | {} |
-| <a id="py_test-imports"></a>imports |  -   | List of strings | optional | [] |
+| <a id="py_test-data"></a>data |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
+| <a id="py_test-deps"></a>deps |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
+| <a id="py_test-env"></a>env |  -   | <a href="https://bazel.build/rules/lib/dict">Dictionary: String -> String</a> | optional | <code>{}</code> |
+| <a id="py_test-imports"></a>imports |  -   | List of strings | optional | <code>[]</code> |
 | <a id="py_test-main"></a>main |  -   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
-| <a id="py_test-srcs"></a>srcs |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | [] |
+| <a id="py_test-srcs"></a>srcs |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
 
 
 <a id="py_base.implementation"></a>
