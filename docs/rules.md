@@ -18,7 +18,7 @@ py_wheel(<a href="#py_wheel-name">name</a>, <a href="#py_wheel-src">src</a>)
 | Name  | Description | Type | Mandatory | Default |
 | :------------- | :------------- | :------------- | :------------- | :------------- |
 | <a id="py_wheel-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
-| <a id="py_wheel-src"></a>src |  -   | <a href="https://bazel.build/concepts/labels">Label</a> | optional | None |
+| <a id="py_wheel-src"></a>src |  -   | <a href="https://bazel.build/concepts/labels">Label</a> | optional | <code>None</code> |
 
 
 <a id="py_binary"></a>
@@ -83,7 +83,7 @@ py_pytest_main wraps the template rendering target and the final py_library.
 | Name  | Description | Default Value |
 | :------------- | :------------- | :------------- |
 | <a id="py_pytest_main-name"></a>name |  The name of the runable target that updates the test entry file.   |  none |
-| <a id="py_pytest_main-py_library"></a>py_library |  Use this attribute to override the default py_library rule.   |  <code><function py_library></code> |
+| <a id="py_pytest_main-py_library"></a>py_library |  Use this attribute to override the default py_library rule.   |  <code>&lt;function py_library&gt;</code> |
 | <a id="py_pytest_main-kwargs"></a>kwargs |  The extra arguments passed to the template rendering target.   |  none |
 
 

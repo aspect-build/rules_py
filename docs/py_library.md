@@ -18,10 +18,10 @@ py_library(<a href="#py_library-name">name</a>, <a href="#py_library-data">data<
 | Name  | Description | Type | Mandatory | Default |
 | :------------- | :------------- | :------------- | :------------- | :------------- |
 | <a id="py_library-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
-| <a id="py_library-data"></a>data |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | [] |
-| <a id="py_library-deps"></a>deps |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | [] |
-| <a id="py_library-imports"></a>imports |  -   | List of strings | optional | [] |
-| <a id="py_library-srcs"></a>srcs |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | [] |
+| <a id="py_library-data"></a>data |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
+| <a id="py_library-deps"></a>deps |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
+| <a id="py_library-imports"></a>imports |  -   | List of strings | optional | <code>[]</code> |
+| <a id="py_library-srcs"></a>srcs |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
 
 
 <a id="py_library_utils.make_srcs_depset"></a>
