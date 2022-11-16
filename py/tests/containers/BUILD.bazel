@@ -10,6 +10,7 @@ py_binary(
         "//py/tests/internal-deps/adder",
         "@pypi_colorama//:pkg",
     ],
+    tags = ["manual"],
 )
 
 # py3_image container support reverts us back to the rules_python way of invoking the binary,
@@ -26,10 +27,12 @@ py3_image(
     srcs = ["__main__.py"],
     main = "__main__.py",
     deps = [":main_bin"],
+    tags = ["manual"],
 )
 
 container_test(
     name = "py_image_test",
     configs = ["py_image_test.yaml"],
     image = ":py_image",
+    tags = ["manual"],
 )
