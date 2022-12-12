@@ -125,10 +125,7 @@ rm  "${PYVENV_CFG}"
 
 if [ "$USE_MANIFEST_PATH" = false ]; then
   # Tear down the symlinks created above as these won't be able to be resolved by bazel when validating the TreeArtifact.
-  VENV_SYMLINKS=($(find "${VENV_LOCATION}" -type l))
-  for symlink in "${VENV_SYMLINKS[@]}"; do
-    rm "${symlink}"
-  done
+  find "${VENV_LOCATION}" -type l -exec rm {} +
 fi
 
 if [ "$USE_MANIFEST_PATH" = true ]; then
