@@ -56,6 +56,11 @@ def _make_venv(ctx, name = None, main = None, strip_pth_workspace_root = None):
     # We also need to collect our own "imports" attr.
     # Can reuse the helper from py_library, as it's the same process
     imports_depset = _py_library.make_imports_depset(ctx)
+    # Add the workspace name in the imports such that repo-relative imports work.
+    imports_depset = depset(
+        direct = [ctx.workspace_name],
+        transitive = [imports_depset],
+    )
 
     pth = ctx.actions.declare_file("%s.pth" % name)
 
