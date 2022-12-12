@@ -1,0 +1,7 @@
+load("//py:defs.bzl", "py_test")
+
+py_test(
+    name = "test",
+    srcs = ["test.py"],
+    deps = ["//py/tests/repo_relative_imports/lib"],
+)

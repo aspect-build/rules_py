@@ -1,0 +1,7 @@
+load("//py:defs.bzl", "py_library")
+
+py_library(
+    name = "lib",
+    srcs = ["adder.py"],
+    visibility = ["//visibility:public"],
+)
