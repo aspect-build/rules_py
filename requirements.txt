@@ -20,9 +20,9 @@ colorama==0.4.5 \
     --hash=sha256:854bf444933e37f5824ae7bfc1e98d5bce2ebe4160d46b5edf346a89358e99da \
     --hash=sha256:e6c6b4334fc50988a639d9b98aa429a0b57da6e17b9a44f0451f930b6967b7a4
     # via -r ./requirements.in
-django==4.0.8 \
-    --hash=sha256:07e6433f263c3839939cfabeb6d7557841e0419e47759a7b7d37f6d44d40adcb \
-    --hash=sha256:27cb08fa6458c1eff8b97c4c2d03774646fb26feeaa4587dca10c49e6d4fc6a3
+Django==4.1.5 \
+    --hash=sha256:4b214a05fe4c99476e99e2445c8b978c8369c18d4dea8e22ec412862715ad763 \
+    --hash=sha256:ff56ebd7ead0fd5dbe06fe157b0024a7aaea2e0593bb3785fb594cf94dad58ef
     # via -r ./requirements.in
 exceptiongroup==1.0.1 \
     --hash=sha256:4d6c0aa6dd825810941c792f53d7b8d71da26f5e5f84f20f9508e8f2d33b140a \
