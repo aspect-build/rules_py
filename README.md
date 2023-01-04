@@ -2,8 +2,7 @@
 
 `aspect_rules_py` is a layer on top of `rules_python`, the standard Python ruleset hosted at
 https://github.com/bazelbuild/rules_python.
-It is currently EXPERIMENTAL and pre-release. No support is promised. There may be breaking changes,
-or we may archive and abandon the repository.
+It is currently in pre-release, but we are committed to more development towards a 1.0 stable release.
 
 Some parts of `rules_python` are reused:
 
