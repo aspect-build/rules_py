@@ -9,18 +9,7 @@ fi
 
 set -o errexit -o nounset -o pipefail
 
-PWD=$(pwd)
-
 export BAZEL_WORKSPACE_NAME="{{BAZEL_WORKSPACE_NAME}}"
-
-function alocation {
-  local P=$1
-  if [[ "${P:0:1}" == "/" ]]; then
-    echo "${P}"
-  else
-    echo "${PWD}/${P}"
-  fi
-}
 
 function maybe_rlocation() {
   local P=$1
@@ -73,21 +62,14 @@ export VIRTUAL_ENV_DISABLE_PROMPT=1
 . "${VBIN_LOCATION}/activate"
 unset VIRTUAL_ENV_DISABLE_PROMPT
 
-# Need to keep track of symlinks created inside the venv that are from outside and remove them after.
-# Bazel will fail to validate the tree artifact created otherwise.
-VENV_BIN_SYMLINKS=$(find "${VBIN_LOCATION}" -type l)
-SYMLINKS=(${VENV_BIN_SYMLINKS})
-
 # Now symlink in pip from the toolchain
 # Python venv will also link `pip3.x`, but this seems unnecessary for this use
 ln -snf "${PIP_LOCATION}" "${VPIP_LOCATION}"
-SYMLINKS+=("${VPIP_LOCATION}")
 
 # Need to symlink in the pip site-packages folder not just the binary.
 # Ask Python where the site-packages folder is and symlink the pip package in from the toolchain
 VENV_SITE_PACKAGES=$(${VPYTHON} -c 'import site; print(site.getsitepackages()[0])')
 ln -snf "${PYTHON_SITE_PACKAGES}/pip" "${VENV_SITE_PACKAGES}/pip"
-SYMLINKS+=("${VENV_SITE_PACKAGES}/pip")
 
 # If the incoming requirements file has setuptools the skip creating a symlink to our own as they will cause
 # error when installing.
@@ -98,10 +80,8 @@ set -o errexit
 
 if [ ${HAS_SETUPTOOLS} -gt 0 ]; then
   ln -snf "${PYTHON_SITE_PACKAGES}/_distutils_hack" "${VENV_SITE_PACKAGES}/_distutils_hack"
-  SYMLINKS+=( "${VENV_SITE_PACKAGES}/_distutils_hack")
 
   ln -snf "${PYTHON_SITE_PACKAGES}/setuptools" "${VENV_SITE_PACKAGES}/setuptools"
-  SYMLINKS+=( "${VENV_SITE_PACKAGES}/setuptools")
 fi
 
 INSTALL_WHEELS={{INSTALL_WHEELS}}
@@ -144,10 +124,8 @@ PYVENV_CFG="${VENV_LOCATION}/pyvenv.cfg"
 rm  "${PYVENV_CFG}"
 
 if [ "$USE_MANIFEST_PATH" = false ]; then
-  # Tear down the symlinks created above as these won't be able to be resolved by bazel when validating the TreeArtifact
-  for symlink in "${SYMLINKS[@]}"; do
-       rm "${symlink}"
-  done
+  # Tear down the symlinks created above as these won't be able to be resolved by bazel when validating the TreeArtifact.
+  find "${VENV_LOCATION}" -type l -exec rm {} +
 fi
 
 if [ "$USE_MANIFEST_PATH" = true ]; then
