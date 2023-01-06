@@ -134,6 +134,14 @@ manifest:
     colorama.ansi: colorama
     colorama.ansitowin32: colorama
     colorama.initialise: colorama
+    colorama.tests: colorama
+    colorama.tests.__init__: colorama
+    colorama.tests.ansi_test: colorama
+    colorama.tests.ansitowin32_test: colorama
+    colorama.tests.initialise_test: colorama
+    colorama.tests.isatty_test: colorama
+    colorama.tests.utils: colorama
+    colorama.tests.winterm_test: colorama
     colorama.win32: colorama
     colorama.winterm: colorama
     django: Django
@@ -1198,9 +1206,12 @@ manifest:
     packaging: packaging
     packaging.__about__: packaging
     packaging.__init__: packaging
+    packaging._elffile: packaging
     packaging._manylinux: packaging
     packaging._musllinux: packaging
+    packaging._parser: packaging
     packaging._structures: packaging
+    packaging._tokenizer: packaging
     packaging.markers: packaging
     packaging.requirements: packaging
     packaging.specifiers: packaging
@@ -1216,19 +1227,6 @@ manifest:
     pluggy._tracing: pluggy
     pluggy._version: pluggy
     py: pytest
-    pyparsing: pyparsing
-    pyparsing.__init__: pyparsing
-    pyparsing.actions: pyparsing
-    pyparsing.common: pyparsing
-    pyparsing.core: pyparsing
-    pyparsing.diagram: pyparsing
-    pyparsing.diagram.__init__: pyparsing
-    pyparsing.exceptions: pyparsing
-    pyparsing.helpers: pyparsing
-    pyparsing.results: pyparsing
-    pyparsing.testing: pyparsing
-    pyparsing.unicode: pyparsing
-    pyparsing.util: pyparsing
     pytest: pytest
     pytest.__init__: pytest
     pytest.__main__: pytest
@@ -1265,4 +1263,4 @@ manifest:
   pip_repository:
     name: pypi
     incremental: true
-integrity: 18ace45bc5c693f3675cf6cef31a53dfdc36bc326d61822a673f31b0ebbe900e
+integrity: e00cc19c8b285d25d4eb23ad1e1b4eee08dfa699fe75bf3890a205b4769065e5
