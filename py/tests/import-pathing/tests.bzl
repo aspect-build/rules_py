@@ -25,10 +25,11 @@ def _can_resolve_path_in_workspace_test_impl(ctx):
     imports = py_library.make_imports_depset(fake_ctx).to_list()
     asserts.equals(env, "aspect_rules_py/foo/bar", imports[0])
 
-    # Empty imports array results in no imports
+    # Empty imports array results in just the workspace root import
     fake_ctx = _ctx_with_imports([])
     imports = py_library.make_imports_depset(fake_ctx).to_list()
-    asserts.equals(env, 0, len(imports))
+    asserts.equals(env, 1, len(imports))
+    asserts.equals(env, "aspect_rules_py", imports[0])
 
     # The import path is the parent package
     fake_ctx = _ctx_with_imports([".."])

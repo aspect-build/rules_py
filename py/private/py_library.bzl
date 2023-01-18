@@ -55,6 +55,9 @@ def _make_imports_depset(ctx):
     import_paths = [
         _make_import_path(ctx.label, ctx.workspace_name, base, im)
         for im in ctx.attr.imports
+    ] + [
+        # Add the workspace name in the imports such that repo-relative imports work.
+        ctx.workspace_name
     ]
 
     return depset(
