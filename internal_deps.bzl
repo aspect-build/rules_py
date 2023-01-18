@@ -23,10 +23,10 @@ def rules_py_internal_deps():
 
     http_archive(
         name = "io_bazel_rules_go",
-        sha256 = "099a9fb96a376ccbbb7d291ed4ecbdfd42f6bc822ab77ae6f1b5cb9e914e94fa",
+        sha256 = "ae013bf35bd23234d1dea46b079f1e05ba74ac0321423830119d3e787ec73483",
         urls = [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.35.0/rules_go-v0.35.0.zip",
-            "https://github.com/bazelbuild/rules_go/releases/download/v0.35.0/rules_go-v0.35.0.zip",
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.36.0/rules_go-v0.36.0.zip",
+            "https://github.com/bazelbuild/rules_go/releases/download/v0.36.0/rules_go-v0.36.0.zip",
         ],
     )
 
@@ -61,16 +61,16 @@ def rules_py_internal_deps():
     # Aspect gcc toolchain for RBE
     http_archive(
         name = "aspect_gcc_toolchain",
-        sha256 = "79c99023146b52935255f09479395135db1dc3f6236a8d78f4e425518562d40d",
+        sha256 = "7393082a7717d284aa51998b57f5846ae9a9b607d220972df1356e46a35f4ecc",
         urls = [
-            "https://github.com/aspect-build/gcc-toolchain/archive/0e000705bb61614903ba2b28964a93ec0177b5ee.zip",
+            "https://github.com/aspect-build/gcc-toolchain/archive/ac745d4685e2095cc4f057862800f3f0a473c201.zip",
         ],
-        strip_prefix = "gcc-toolchain-0e000705bb61614903ba2b28964a93ec0177b5ee",
+        strip_prefix = "gcc-toolchain-ac745d4685e2095cc4f057862800f3f0a473c201",
     )
 
     http_archive(
         name = "io_bazel_rules_docker",
-        sha256 = "8e7348594beee537fabbcc051a715fe1ab885d5ab2fed99aa9021c1c6d3368db",
-        strip_prefix = "rules_docker-64827560cbbe9359294b9a14e8ac417224f6fdd2",
-        urls = ["https://github.com/bazelbuild/rules_docker/archive/64827560cbbe9359294b9a14e8ac417224f6fdd2.zip"],
+        sha256 = "4e23180ad67c3ebda7fb167856577e73f5e7a761c255580ea07f769911b94d38",
+        strip_prefix = "rules_docker-def5c9644be8eddb2637c8619198152d3c2f0c33",
+        urls = ["https://github.com/bazelbuild/rules_docker/archive/def5c9644be8eddb2637c8619198152d3c2f0c33.zip"],
     )
