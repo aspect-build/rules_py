@@ -39,13 +39,13 @@ def rules_py_dependencies():
     http_archive(
         name = "rules_python",
         patch_cmds = ["""\
-cat >> python/BUILD <<EOF
+cat >> python/BUILD.bazel <<EOF
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 
 bzl_library(
     name = "defs",
-    srcs = [":bzl"],
-    deps = [
+    srcs = [
+        ":bzl",
         "@bazel_tools//tools/python:srcs_version.bzl",
         "@bazel_tools//tools/python:utils.bzl",
         "@bazel_tools//tools/python:private/defs.bzl",
