@@ -947,5 +947,4 @@ manifest:
     tomli: tomli
   pip_repository:
     name: pypi
-    incremental: true
-integrity: 90e6880a4d14b010e935cfc6eb5933bf7ea8b1e59eee41f5d037c098628f9d31
+integrity: b403c528c18524aaef6f123ecbdf260d35d434f878a52002ae1cf7a6e5d9de63

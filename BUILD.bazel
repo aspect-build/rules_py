@@ -14,7 +14,6 @@ load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirem
 gazelle_python_manifest(
     name = "gazelle_python_manifest",
     modules_mapping = ":modules_map",
-    pip_repository_incremental = True,
     pip_repository_name = "pypi",
     requirements = "requirements.txt",
 )
