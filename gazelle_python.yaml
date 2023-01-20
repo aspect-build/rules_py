@@ -913,6 +913,7 @@ manifest:
     django.views.static: Django
     exceptiongroup: exceptiongroup
     iniconfig: iniconfig
+    iniconfig.exceptions: iniconfig
     packaging: packaging
     packaging.markers: packaging
     packaging.requirements: packaging
@@ -947,4 +948,4 @@ manifest:
     tomli: tomli
   pip_repository:
     name: pypi
-integrity: 1632c91d586cb16481a3fca278d6985dd99cdb0ed97355d2e7d3ac980d5b80bf
+integrity: 59f784e6a14a9d19c0b0f3e66dececc6980ba8ea906f37121d32ba5fde40dbcf
