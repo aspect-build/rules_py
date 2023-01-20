@@ -947,4 +947,4 @@ manifest:
     tomli: tomli
   pip_repository:
     name: pypi
-integrity: 6786d8a417b75a4106b2437308abd831d982969f4e8c56bbdabd5c00728e1881
+integrity: 1632c91d586cb16481a3fca278d6985dd99cdb0ed97355d2e7d3ac980d5b80bf
