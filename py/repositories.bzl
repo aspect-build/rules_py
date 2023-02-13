@@ -55,7 +55,7 @@ bzl_library(
 )
 EOF
 """],
-        sha256 = "48a838a6e1983e4884b26812b2c748a35ad284fd339eb8e2a6f3adf95307fbcd",
-        strip_prefix = "rules_python-0.16.2",
-        url = "https://github.com/bazelbuild/rules_python/archive/refs/tags/0.16.2.tar.gz",
+        sha256 = "36362b4d54fcb17342f9071e4c38d63ce83e2e57d7d5599ebdde4670b9760664",
+        strip_prefix = "rules_python-0.18.0",
+        url = "https://github.com/bazelbuild/rules_python/archive/refs/tags/0.18.0.tar.gz",
     )
