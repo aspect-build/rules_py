@@ -12,6 +12,7 @@ sys path:
 (pwd)/bazel-out/host/bin/py/tests/external-deps/pathing.runfiles/pathing.venv/lib/python3.9/site-packages
 (pwd)/bazel-out/host/bin/py/tests/external-deps/pathing.runfiles
 (pwd)/bazel-out/host/bin/py/tests/external-deps/pathing.runfiles/aspect_rules_py/py/tests/external-deps
+(pwd)/bazel-out/host/bin/py/tests/external-deps/pathing.runfiles/aspect_rules_py
 
 Entrypoint Path: (pwd)/bazel-out/host/bin/py/tests/external-deps/pathing.runfiles/aspect_rules_py/py/tests/external-deps/pathing.py
 
