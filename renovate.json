@@ -1,5 +1,16 @@
 {
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+
   "extends": [
-    "config:base"
-  ]
+    "config:base",
+    ":preserveSemverRanges",
+    ":rebaseStalePrs",
+    "schedule:weekly",
+    "group:recommended",
+    "group:monorepos",
+    "workarounds:all"
+  ],
+
+  "labels": ["deps"],
+  "dependencyDashboard": true
 }
