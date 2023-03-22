@@ -1,14 +1,16 @@
+"""
+Bazel rules to handle building virtualenvs for py_binary/py_test scripts.
+Uses .pth files to allow linking each virtualenv to already installed external
+repos from bazelbuild/rules_python (or any other py_library rule, really)
+"""
+
 load("@aspect_bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_manifest_path")
 load("//py/private:providers.bzl", "PyWheelInfo")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
-load("//py/private:utils.bzl", "PY_TOOLCHAIN", "SH_TOOLCHAIN", "dict_to_exports", "resolve_toolchain")
+load("//py/private:utils.bzl", "PY_TOOLCHAIN", "SH_TOOLCHAIN", "resolve_toolchain")
 
 def _wheel_path_map(file):
     return file.path
-
-def _pth_import_line_map(line):
-    # Strip the leading workspace name off the import
-    return "/".join(line.split("/")[1:])
 
 def _get_attr(ctx, attr, override):
     if override == None and hasattr(ctx, attr):
@@ -16,12 +18,11 @@ def _get_attr(ctx, attr, override):
     else:
         return override
 
-def _make_venv(ctx, name = None, main = None, strip_pth_workspace_root = None):
+def _make_venv(ctx, name = None, main = None):
     bash_bin = ctx.toolchains[SH_TOOLCHAIN].path
     interpreter = resolve_toolchain(ctx)
 
     name = _get_attr(ctx.attr, "name", name)
-    strip_pth_workspace_root = _get_attr(ctx.attr, "strip_pth_workspace_root", strip_pth_workspace_root)
 
     # Get each path to every wheel we need, this includes the transitive wheels
     # As these are just filegroups, then we need to dig into the default_runfiles to get the transitive files
@@ -61,37 +62,7 @@ def _make_venv(ctx, name = None, main = None, strip_pth_workspace_root = None):
 
     pth_lines = ctx.actions.args()
 
-    # The venv is created at the root of the runfiles tree, in 'VENV_NAME', the full path is "${RUNFILES_DIR}/${VENV_NAME}",
-    # but depending on if we are running as the top level binary or a tool, then $RUNFILES_DIR may be absolute or relative.
-    # Paths in the .pth are relative to the site-packages folder where they reside.
-    # All "import" paths from `py_library` start with the workspace name, so we need to go back up the tree for
-    # each segment from site-packages in the venv to the root of the runfiles tree.
-    # Four .. will get us back to the root of the venv:
-    # {name}.runfiles/.{name}.venv/lib/python{version}/site-packages/first_party.pth
-    escape = "/".join(([".."] * 4))
-    pth_add_all_kwargs = dict({
-        "format_each": escape + "/%s",
-    })
-
-    # If we are creating a venv for an IDE we likely don't have a workspace folder at with everything inside, so strip
-    # this from the import paths.
-    # We can't pass variables to the map_each functions, so conditionally add it instead.
-    if strip_pth_workspace_root:
-        pth_add_all_kwargs.update({
-            "map_each": _pth_import_line_map,
-        })
-
-    # A few imports rely on being able to reference the root of the runfiles tree as a Python module,
-    # the common case here being the @rules_python//python/runfiles target that adds the runfiles helper,
-    # which ends up in bazel_tools/tools/python/runfiles/runfiles.py, but there are no imports attrs that hint we
-    # should be adding the root to the PYTHONPATH
-    # Maybe in the future we can opt out of this?
-    pth_lines.add(escape)
-
-    pth_lines.add_all(
-        imports_depset,
-        **pth_add_all_kwargs
-    )
+    pth_lines.add_all(imports_depset)
 
     ctx.actions.write(
         output = pth,
@@ -203,13 +174,7 @@ _toolchains = [
     PY_TOOLCHAIN,
 ]
 
-_attrs = dict({
-    "strip_pth_workspace_root": attr.bool(
-        default = True,
-    ),
-})
-
-_attrs.update(**_common_attrs)
+_attrs = dict(**_common_attrs)
 _attrs.update(**_py_library.attrs)
 
 py_venv = rule(

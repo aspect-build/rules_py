@@ -28,6 +28,7 @@ genrule(
         """sed "s#$$(pwd)#(pwd)#" """,
         "sed 's#^.*execroot/aspect_rules_py/external/python_toolchain_%s#(py_toolchain)#'" % host_platform,
         "sed 's#(main, .*)#(main, REDACTED)#'",
+        "sed 's#bazel-out/.*/bin/py#bazel-out/(platform)/bin/py#'",
     ]) + "> $@",
     tools = ["pathing"],
 )

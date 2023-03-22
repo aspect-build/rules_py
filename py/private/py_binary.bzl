@@ -15,7 +15,6 @@ def _py_binary_rule_imp(ctx):
     venv_info = _py_venv.make_venv(
         ctx,
         name = "%s.venv" % ctx.attr.name,
-        strip_pth_workspace_root = False,
     )
 
     env = dict({

@@ -3,6 +3,8 @@
 USE_MANIFEST_PATH={{USE_MANIFEST_PATH}}
 
 if [ "$USE_MANIFEST_PATH" = true ]; then
+  # if USE_MANIFEST_PATH is false, this script is getting executed during the build
+  # phase, so accessing runfiles wouldn't make any sense.
   {{BASH_RLOCATION_FN}}
   runfiles_export_envvars
 fi
@@ -110,12 +112,42 @@ if [ "$INSTALL_WHEELS" = true ]; then
   unset PIP_FIND_LINKS
 fi
 
-# Create the site-packages pth file containing all our first party dependency paths. These are from all direct and transitive
-# py_library rules.
-# The .pth file adds to the interpreters sys.path, without having to set `PYTHONPATH`. This allows us to still
-# run with the interpreter with the `-I` flag. This stops some import mechanisms breaking out the sandbox by using
-# relative imports.
-cat "${PTH_FILE}" > "${VENV_SITE_PACKAGES}/first_party.pth"
+# Create the site-packages pth file containing all our first party dependency paths.
+# These are from all direct and transitive py_library rules. The .pth file adds to the
+# interpreters sys.path, without having to set `PYTHONPATH`. This allows us to still
+# run with the interpreter with the `-I` flag. This stops some import mechanisms
+# breaking out the sandbox by using relative imports. There are two possible cases- to
+# create a standalone virtualenv, we expect this script to be executed by `bazel run`,
+# and it will need to use runfiles (USE_MANIFEST_PATH) to figure out where the
+# packages will live. The other is for an action virtualenv, in which case this .pth
+# file will live in the runfiles tree already, and can use relative paths to find
+# them (and using runfiles wouldn't make sense, since this script runs at build time)
+#
+if [ "$USE_MANIFEST_PATH" = true ]; then
+  # A few imports rely on being able to reference the root of the runfiles tree as a Python module,
+  # the common case here being the @rules_python//python/runfiles target that adds the runfiles helper,
+  # which ends up in bazel_tools/tools/python/runfiles/runfiles.py, but there are no imports attrs that hint we
+  # should be adding the root to the PYTHONPATH
+  # Maybe in the future we can opt out of this?
+  echo "${RUNFILES_DIR:-}" > "${VENV_SITE_PACKAGES}/first_party.pth"
+  for line in $(cat "${PTH_FILE}")
+  do
+    echo $(maybe_rlocation "$line") >> "${VENV_SITE_PACKAGES}/first_party.pth"
+  done
+else
+  # The venv is created at the root of the runfiles tree, in 'VENV_NAME', the full path is "${RUNFILES_DIR}/${VENV_NAME}",
+  # but depending on if we are running as the top level binary or a tool, then $RUNFILES_DIR may be absolute or relative.
+  # Paths in the .pth are relative to the site-packages folder where they reside.
+  # All "import" paths from `py_library` start with the workspace name, so we need to go back up the tree for
+  # each segment from site-packages in the venv to the root of the runfiles tree.
+  # Four .. will get us back to the root of the venv:
+  # {name}.runfiles/.{name}.venv/lib/python{version}/site-packages/first_party.pth
+  echo "../../../.." > "${VENV_SITE_PACKAGES}/first_party.pth"
+  for line in $(cat "${PTH_FILE}")
+  do
+    echo "../../../../$line" >> "${VENV_SITE_PACKAGES}/first_party.pth"
+  done
+fi
 
 # Remove the cfg file as it contains absolute paths.
 # The entrypoint script for py_binary and py_test will create a new one.
