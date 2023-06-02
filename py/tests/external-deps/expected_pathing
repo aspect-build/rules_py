@@ -1,23 +1,23 @@
-Python: (pwd)/bazel-out/host/bin/py/tests/external-deps/pathing.runfiles/pathing.venv/bin/python
+Python: (pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles/pathing.venv/bin/python
 version: 3.9.15 (main, REDACTED) 
 [Clang 14.0.3 ]
 version info: sys.version_info(major=3, minor=9, micro=15, releaselevel='final', serial=0)
 cwd: (pwd)
-site-packages folder: ['(pwd)/bazel-out/host/bin/py/tests/external-deps/pathing.runfiles/pathing.venv/lib/python3.9/site-packages']
+site-packages folder: ['(pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles/pathing.venv/lib/python3.9/site-packages']
 
 sys path:
 (py_toolchain)/lib/python39.zip
 (py_toolchain)/lib/python3.9
 (py_toolchain)/lib/python3.9/lib-dynload
-(pwd)/bazel-out/host/bin/py/tests/external-deps/pathing.runfiles/pathing.venv/lib/python3.9/site-packages
-(pwd)/bazel-out/host/bin/py/tests/external-deps/pathing.runfiles
-(pwd)/bazel-out/host/bin/py/tests/external-deps/pathing.runfiles/aspect_rules_py/py/tests/external-deps
-(pwd)/bazel-out/host/bin/py/tests/external-deps/pathing.runfiles/aspect_rules_py
+(pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles/pathing.venv/lib/python3.9/site-packages
+(pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles
+(pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles/aspect_rules_py/py/tests/external-deps
+(pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles/aspect_rules_py
 
-Entrypoint Path: (pwd)/bazel-out/host/bin/py/tests/external-deps/pathing.runfiles/aspect_rules_py/py/tests/external-deps/pathing.py
+Entrypoint Path: (pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles/aspect_rules_py/py/tests/external-deps/pathing.py
 
-Django location: (pwd)/bazel-out/host/bin/py/tests/external-deps/pathing.runfiles/pathing.venv/lib/python3.9/site-packages/django/__init__.py
+Django location: (pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles/pathing.venv/lib/python3.9/site-packages/django/__init__.py
 Django version: 4.0.10
 
 From lib with wheel dependency: [32mHello Matt[0m
-lib filepath: (pwd)/bazel-out/host/bin/py/tests/external-deps/pathing.runfiles/aspect_rules_py/py/tests/external-deps/lib.py
+lib filepath: (pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles/aspect_rules_py/py/tests/external-deps/lib.py

@@ -1,0 +1,14 @@
+# Override http_archive for local testing
+local_repository(
+    name = "aspect_rules_py",
+    path = "../..",
+)
+
+#---SNIP--- Below here is re-used in the snippet published on releases
+# Fetches the rules_py dependencies.
+# If you want to have a different version of some dependency,
+# you should fetch it *before* calling this.
+# Alternatively, you can skip calling this function, so long as you've
+# already fetched all the dependencies.
+load("@aspect_rules_py//py:repositories.bzl", "rules_py_dependencies")
+rules_py_dependencies()

@@ -1,0 +1,6 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+py_test(
+    name = "bin",
+    srcs = ["__main__.py"],
+)

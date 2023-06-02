@@ -44,6 +44,5 @@ _Need help?_ This ruleset has support provided by https://aspect.dev.
 
 ## Installation
 
-From the release you wish to use:
+Follow instructions from the release you wish to use:
 <https://github.com/aspect-build/rules_py/releases>
-copy the WORKSPACE snippet into your `WORKSPACE` file.
