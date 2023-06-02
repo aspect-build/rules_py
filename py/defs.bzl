@@ -31,6 +31,8 @@ def py_binary(name, srcs = [], main = None, imports = ["."], **kwargs):
         main: the entry point. If absent, then the first entry in srcs is used.
         **kwargs: see [py_binary attributes](./py_binary)
     """
+    if not main and not len(srcs):
+        fail("When 'main' is not specified, 'srcs' must be non-empty")
     _py_binary(
         name = name,
         srcs = srcs,

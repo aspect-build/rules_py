@@ -12,7 +12,28 @@ git archive --format=tar --prefix=${PREFIX}/ ${TAG} | gzip > $ARCHIVE
 SHA=$(shasum -a 256 $ARCHIVE | awk '{print $1}')
 
 cat << EOF
-WORKSPACE snippet:
+## Using [Bzlmod] with Bazel 6:
+
+Add to your \`MODULE.bazel\` file:
+
+\`\`\`starlark
+bazel_dep(name = "aspect_rules_py", version = "${TAG:1}")
+\`\`\`
+
+And also register a Python toolchain, see rules_python. For example:
+
+\`\`\`starlark
+EOF
+
+awk 'f;/--SNIP--/{f=1}' e2e/smoke/MODULE.bazel
+
+cat << EOF
+\`\`\`
+
+[Bzlmod]: https://bazel.build/build/bzlmod
+
+## Using WORKSPACE
+
 \`\`\`starlark
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
@@ -21,14 +42,7 @@ http_archive(
     strip_prefix = "${PREFIX}",
     url = "https://github.com/aspect-build/rules_py/releases/download/${TAG}/${ARCHIVE}",
 )
-
-# Fetches the rules_py dependencies.
-# If you want to have a different version of some dependency,
-# you should fetch it *before* calling this.
-# Alternatively, you can skip calling this function, so long as you've
-# already fetched all the dependencies.
-load("@aspect_rules_py//py:repositories.bzl", "rules_py_dependencies")
-rules_py_dependencies()
-
-\`\`\`
 EOF
+
+awk 'f;/--SNIP--/{f=1}' e2e/smoke/WORKSPACE.bazel
+echo "\`\`\`"
