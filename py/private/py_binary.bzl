@@ -19,7 +19,7 @@ def _py_binary_rule_imp(ctx):
     )
 
     env = dict({
-        "BAZEL_TARGET": str(ctx.label),
+        "BAZEL_TARGET": str(ctx.label).lstrip("@"),
         "BAZEL_WORKSPACE": ctx.workspace_name,
         "BAZEL_TARGET_NAME": ctx.attr.name,
     }, **ctx.attr.env)
