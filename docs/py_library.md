@@ -24,12 +24,12 @@ py_library(<a href="#py_library-name">name</a>, <a href="#py_library-data">data<
 | <a id="py_library-srcs"></a>srcs |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
 
 
-<a id="py_library_utils.make_srcs_depset"></a>
+<a id="py_library_utils.implementation"></a>
 
-## py_library_utils.make_srcs_depset
+## py_library_utils.implementation
 
 <pre>
-py_library_utils.make_srcs_depset(<a href="#py_library_utils.make_srcs_depset-ctx">ctx</a>)
+py_library_utils.implementation(<a href="#py_library_utils.implementation-ctx">ctx</a>)
 </pre>
 
 
@@ -39,7 +39,7 @@ py_library_utils.make_srcs_depset(<a href="#py_library_utils.make_srcs_depset-ct
 
 | Name  | Description | Default Value |
 | :------------- | :------------- | :------------- |
-| <a id="py_library_utils.make_srcs_depset-ctx"></a>ctx |  <p align="center"> - </p>   |  none |
+| <a id="py_library_utils.implementation-ctx"></a>ctx |  <p align="center"> - </p>   |  none |
 
 
 <a id="py_library_utils.make_imports_depset"></a>
@@ -58,6 +58,27 @@ py_library_utils.make_imports_depset(<a href="#py_library_utils.make_imports_dep
 | Name  | Description | Default Value |
 | :------------- | :------------- | :------------- |
 | <a id="py_library_utils.make_imports_depset-ctx"></a>ctx |  <p align="center"> - </p>   |  none |
+
+
+<a id="py_library_utils.make_instrumented_files_info"></a>
+
+## py_library_utils.make_instrumented_files_info
+
+<pre>
+py_library_utils.make_instrumented_files_info(<a href="#py_library_utils.make_instrumented_files_info-ctx">ctx</a>, <a href="#py_library_utils.make_instrumented_files_info-extra_source_attributes">extra_source_attributes</a>,
+                                              <a href="#py_library_utils.make_instrumented_files_info-extra_dependency_attributes">extra_dependency_attributes</a>)
+</pre>
+
+
+
+**PARAMETERS**
+
+
+| Name  | Description | Default Value |
+| :------------- | :------------- | :------------- |
+| <a id="py_library_utils.make_instrumented_files_info-ctx"></a>ctx |  <p align="center"> - </p>   |  none |
+| <a id="py_library_utils.make_instrumented_files_info-extra_source_attributes"></a>extra_source_attributes |  <p align="center"> - </p>   |  <code>[]</code> |
+| <a id="py_library_utils.make_instrumented_files_info-extra_dependency_attributes"></a>extra_dependency_attributes |  <p align="center"> - </p>   |  <code>[]</code> |
 
 
 <a id="py_library_utils.make_merged_runfiles"></a>
@@ -81,12 +102,12 @@ py_library_utils.make_merged_runfiles(<a href="#py_library_utils.make_merged_run
 | <a id="py_library_utils.make_merged_runfiles-extra_runfiles_depsets"></a>extra_runfiles_depsets |  <p align="center"> - </p>   |  <code>[]</code> |
 
 
-<a id="py_library_utils.implementation"></a>
+<a id="py_library_utils.make_srcs_depset"></a>
 
-## py_library_utils.implementation
+## py_library_utils.make_srcs_depset
 
 <pre>
-py_library_utils.implementation(<a href="#py_library_utils.implementation-ctx">ctx</a>)
+py_library_utils.make_srcs_depset(<a href="#py_library_utils.make_srcs_depset-ctx">ctx</a>)
 </pre>
 
 
@@ -96,6 +117,6 @@ py_library_utils.implementation(<a href="#py_library_utils.implementation-ctx">c
 
 | Name  | Description | Default Value |
 | :------------- | :------------- | :------------- |
-| <a id="py_library_utils.implementation-ctx"></a>ctx |  <p align="center"> - </p>   |  none |
+| <a id="py_library_utils.make_srcs_depset-ctx"></a>ctx |  <p align="center"> - </p>   |  none |
 
 

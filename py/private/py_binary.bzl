@@ -74,6 +74,10 @@ def _py_binary_rule_imp(ctx):
     )
 
     imports = _py_library.make_imports_depset(ctx)
+    instrumented_files_info = _py_library.make_instrumented_files_info(
+        ctx, 
+        extra_source_attributes = ["main"]
+    )
 
     return [
         DefaultInfo(
@@ -88,6 +92,7 @@ def _py_binary_rule_imp(ctx):
             has_py3_only_sources = True,
             uses_shared_libraries = False,
         ),
+        instrumented_files_info,
     ]
 
 _attrs = dict({
