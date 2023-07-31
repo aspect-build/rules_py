@@ -4,6 +4,14 @@ load("@bazel_skylib//lib:paths.bzl", "paths")
 load("//py/private:providers.bzl", "PyWheelInfo")
 load("//py/private:py_wheel.bzl", py_wheel = "py_wheel_lib")
 
+def _make_instrumented_files_info(ctx, extra_source_attributes = [], extra_dependency_attributes = []):
+    return coverage_common.instrumented_files_info(
+        ctx,
+        source_attributes = ["srcs"] + extra_source_attributes,
+        dependency_attributes = ["data", "deps"] + extra_dependency_attributes,
+        extensions = ["py"],
+    )
+
 def _make_srcs_depset(ctx):
     return depset(
         order = "postorder",
@@ -89,6 +97,7 @@ def _py_library_impl(ctx):
     transitive_srcs = _make_srcs_depset(ctx)
     imports = _make_imports_depset(ctx)
     runfiles = _make_merged_runfiles(ctx)
+    instrumented_files_info = _make_instrumented_files_info(ctx)
     py_wheel_info = py_wheel.make_py_wheel_info(ctx, ctx.attr.deps)
 
     return [
@@ -104,6 +113,7 @@ def _py_library_impl(ctx):
             uses_shared_libraries = False,
         ),
         py_wheel_info,
+        instrumented_files_info,
     ]
 
 _attrs = dict({
@@ -126,11 +136,13 @@ _providers = [
 ]
 
 py_library_utils = struct(
-    make_srcs_depset = _make_srcs_depset,
-    make_imports_depset = _make_imports_depset,
-    make_merged_runfiles = _make_merged_runfiles,
-    implementation = _py_library_impl,
+    # keep-sorted
     attrs = _attrs,
+    implementation = _py_library_impl,
+    make_imports_depset = _make_imports_depset,
+    make_instrumented_files_info = _make_instrumented_files_info,
+    make_merged_runfiles = _make_merged_runfiles,
+    make_srcs_depset = _make_srcs_depset,
     py_library_providers = _providers,
 )
 
