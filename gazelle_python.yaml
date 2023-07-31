@@ -927,7 +927,6 @@ manifest:
     pytest: pytest
     sqlparse: sqlparse
     sqlparse.cli: sqlparse
-    sqlparse.compat: sqlparse
     sqlparse.engine: sqlparse
     sqlparse.engine.filter_stack: sqlparse
     sqlparse.engine.grouping: sqlparse
@@ -949,4 +948,4 @@ manifest:
     tomli: tomli
   pip_repository:
     name: pypi
-integrity: 9e7683295d991a76c6334cf941d9513d96ed1440bde94f55e386b33dc61f0744
+integrity: 96cfc547ea1fbcaa1475f4d19aa40e3116c802ef2416adc30f3f005e94846d54
