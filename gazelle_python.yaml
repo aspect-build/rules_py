@@ -626,6 +626,7 @@ manifest:
     django.core.management.commands.makemessages: Django
     django.core.management.commands.makemigrations: Django
     django.core.management.commands.migrate: Django
+    django.core.management.commands.optimizemigration: Django
     django.core.management.commands.runserver: Django
     django.core.management.commands.sendtestemail: Django
     django.core.management.commands.shell: Django
@@ -948,4 +949,4 @@ manifest:
     tomli: tomli
   pip_repository:
     name: pypi
-integrity: f4a6e3b8bcb040b22c92ea9eacec892756f1160a2a13f05f33696a607a73e44d
+integrity: 9e7683295d991a76c6334cf941d9513d96ed1440bde94f55e386b33dc61f0744
