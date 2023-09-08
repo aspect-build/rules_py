@@ -4,6 +4,7 @@ load("@aspect_bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_manifest
 load("@aspect_bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:providers.bzl", "PyWheelInfo")
+load("//py/private:py_wheel.bzl", py_wheel = "py_wheel_lib")
 load("//py/private:utils.bzl", "PY_TOOLCHAIN", "SH_TOOLCHAIN", "dict_to_exports", "resolve_toolchain")
 load("//py/private/venv:venv.bzl", _py_venv = "py_venv_utils")
 
@@ -78,6 +79,7 @@ def _py_binary_rule_imp(ctx):
         ctx, 
         extra_source_attributes = ["main"]
     )
+    py_wheel_info = py_wheel.make_py_wheel_info(ctx, ctx.attr.deps)
 
     return [
         DefaultInfo(
@@ -93,6 +95,7 @@ def _py_binary_rule_imp(ctx):
             uses_shared_libraries = False,
         ),
         instrumented_files_info,
+        py_wheel_info,
     ]
 
 _attrs = dict({

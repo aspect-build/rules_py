@@ -2,6 +2,29 @@
 
 Public API re-exports
 
+<a id="py_venv"></a>
+
+## py_venv
+
+<pre>
+py_venv(<a href="#py_venv-name">name</a>, <a href="#py_venv-data">data</a>, <a href="#py_venv-deps">deps</a>, <a href="#py_venv-imports">imports</a>, <a href="#py_venv-srcs">srcs</a>, <a href="#py_venv-strip_pth_workspace_root">strip_pth_workspace_root</a>)
+</pre>
+
+
+
+**ATTRIBUTES**
+
+
+| Name  | Description | Type | Mandatory | Default |
+| :------------- | :------------- | :------------- | :------------- | :------------- |
+| <a id="py_venv-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
+| <a id="py_venv-data"></a>data |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
+| <a id="py_venv-deps"></a>deps |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
+| <a id="py_venv-imports"></a>imports |  -   | List of strings | optional | <code>[]</code> |
+| <a id="py_venv-srcs"></a>srcs |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
+| <a id="py_venv-strip_pth_workspace_root"></a>strip_pth_workspace_root |  -   | Boolean | optional | <code>True</code> |
+
+
 <a id="py_wheel"></a>
 
 ## py_wheel
@@ -43,7 +66,7 @@ you can `bazel run [name].venv` to produce this, then use it in the editor.
 | <a id="py_binary-name"></a>name |  name of the rule   |  none |
 | <a id="py_binary-srcs"></a>srcs |  python source files   |  <code>[]</code> |
 | <a id="py_binary-main"></a>main |  the entry point. If absent, then the first entry in srcs is used.   |  <code>None</code> |
-| <a id="py_binary-imports"></a>imports |  <p align="center"> - </p>   |  <code>["."]</code> |
+| <a id="py_binary-imports"></a>imports |  List of import paths to add for this binary.   |  <code>["."]</code> |
 | <a id="py_binary-kwargs"></a>kwargs |  see [py_binary attributes](./py_binary)   |  none |
 
 
@@ -52,7 +75,7 @@ you can `bazel run [name].venv` to produce this, then use it in the editor.
 ## py_library
 
 <pre>
-py_library(<a href="#py_library-name">name</a>, <a href="#py_library-imports">imports</a>, <a href="#py_library-kwargs">kwargs</a>)
+py_library(<a href="#py_library-name">name</a>, <a href="#py_library-kwargs">kwargs</a>)
 </pre>
 
 Wrapper macro for the py_library rule, setting a default for imports
@@ -63,7 +86,6 @@ Wrapper macro for the py_library rule, setting a default for imports
 | Name  | Description | Default Value |
 | :------------- | :------------- | :------------- |
 | <a id="py_library-name"></a>name |  name of the rule   |  none |
-| <a id="py_library-imports"></a>imports |  <p align="center"> - </p>   |  <code>["."]</code> |
 | <a id="py_library-kwargs"></a>kwargs |  see [py_library attributes](./py_library)   |  none |
 
 

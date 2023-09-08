@@ -1,7 +1,7 @@
 load("@aspect_bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_manifest_path")
 load("//py/private:providers.bzl", "PyWheelInfo")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
-load("//py/private:utils.bzl", "PY_TOOLCHAIN", "SH_TOOLCHAIN", "dict_to_exports", "resolve_toolchain")
+load("//py/private:utils.bzl", "PY_TOOLCHAIN", "SH_TOOLCHAIN", "resolve_toolchain")
 
 def _wheel_path_map(file):
     return file.path
@@ -16,7 +16,7 @@ def _get_attr(ctx, attr, override):
     else:
         return override
 
-def _make_venv(ctx, name = None, main = None, strip_pth_workspace_root = None):
+def _make_venv(ctx, name = None, strip_pth_workspace_root = None):
     bash_bin = ctx.toolchains[SH_TOOLCHAIN].path
     interpreter = resolve_toolchain(ctx)
 

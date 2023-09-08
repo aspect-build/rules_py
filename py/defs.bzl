@@ -6,16 +6,16 @@ load("//py/private:py_pytest_main.bzl", _py_pytest_main = "py_pytest_main")
 load("//py/private:py_wheel.bzl", "py_wheel_lib")
 load("//py/private/venv:venv.bzl", _py_venv = "py_venv")
 
-def py_library(name, imports = ["."], **kwargs):
+def py_library(name, **kwargs):
     """Wrapper macro for the py_library rule, setting a default for imports
 
     Args:
         name: name of the rule
         **kwargs: see [py_library attributes](./py_library)
     """
+
     _py_library(
         name = name,
-        imports = imports,
         **kwargs
     )
 
@@ -29,8 +29,10 @@ def py_binary(name, srcs = [], main = None, imports = ["."], **kwargs):
         name: name of the rule
         srcs: python source files
         main: the entry point. If absent, then the first entry in srcs is used.
+        imports: List of import paths to add for this binary.
         **kwargs: see [py_binary attributes](./py_binary)
     """
+
     if not main and not len(srcs):
         fail("When 'main' is not specified, 'srcs' must be non-empty")
     _py_binary(
@@ -51,6 +53,7 @@ def py_binary(name, srcs = [], main = None, imports = ["."], **kwargs):
 
 def py_test(name, main = None, srcs = [], imports = ["."], **kwargs):
     "Identical to py_binary, but produces a target that can be used with `bazel test`."
+
     _py_test(
         name = name,
         srcs = srcs,
@@ -74,3 +77,4 @@ py_wheel = rule(
 )
 
 py_pytest_main = _py_pytest_main
+py_venv = _py_venv
