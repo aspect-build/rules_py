@@ -23,7 +23,7 @@ function maybe_rlocation() {
 }
 
 # Resolved from the py_interpreter via PyInterpreterInfo.
-PYTHON_LOCATION="{{PYTHON_INTERPRETER_PATH}}"
+PYTHON_LOCATION="$(maybe_rlocation "{{PYTHON_INTERPRETER_PATH}}")"
 PYTHON="${PYTHON_LOCATION} {{INTERPRETER_FLAGS}}"
 REAL_PYTHON_LOCATION=$(${PYTHON} -c 'import sys; import os; print(os.path.realpath(sys.executable))')
 PYTHON_SITE_PACKAGES=$(${PYTHON} -c 'import site; print(site.getsitepackages()[0])')
