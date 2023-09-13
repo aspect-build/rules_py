@@ -128,6 +128,7 @@ def _make_venv(ctx, name = None, main = None, strip_pth_workspace_root = None):
         substitutions = dict(
             common_substitutions,
             **{
+                "{{PYTHON_INTERPRETER_PATH}}": to_manifest_path(ctx, interpreter.python),
                 "{{WHL_REQUIREMENTS_FILE}}": to_manifest_path(ctx, whl_requirements),
                 "{{PTH_FILE}}": to_manifest_path(ctx, pth),
                 "{{VENV_LOCATION}}": "${BUILD_WORKSPACE_DIRECTORY}/.%s" % name,
