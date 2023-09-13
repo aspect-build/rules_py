@@ -17,7 +17,7 @@ sys path:
 Entrypoint Path: (pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles/aspect_rules_py/py/tests/external-deps/pathing.py
 
 Django location: (pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles/pathing.venv/lib/python3.9/site-packages/django/__init__.py
-Django version: 4.1.10
+Django version: 4.2.5
 
 From lib with wheel dependency: [32mHello Matt[0m
 lib filepath: (pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles/aspect_rules_py/py/tests/external-deps/lib.py

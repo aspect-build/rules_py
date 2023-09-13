@@ -15,18 +15,6 @@ manifest:
     asgiref.timeout: asgiref
     asgiref.typing: asgiref
     asgiref.wsgi: asgiref
-    attr: attrs
-    attr.converters: attrs
-    attr.exceptions: attrs
-    attr.filters: attrs
-    attr.setters: attrs
-    attr.validators: attrs
-    attrs: attrs
-    attrs.converters: attrs
-    attrs.exceptions: attrs
-    attrs.filters: attrs
-    attrs.setters: attrs
-    attrs.validators: attrs
     click: click
     click.core: click
     click.decorators: click
@@ -73,6 +61,8 @@ manifest:
     django.conf.locale.bs.formats: Django
     django.conf.locale.ca: Django
     django.conf.locale.ca.formats: Django
+    django.conf.locale.ckb: Django
+    django.conf.locale.ckb.formats: Django
     django.conf.locale.cs: Django
     django.conf.locale.cs.formats: Django
     django.conf.locale.cy: Django
@@ -591,6 +581,11 @@ manifest:
     django.core.files.locks: Django
     django.core.files.move: Django
     django.core.files.storage: Django
+    django.core.files.storage.base: Django
+    django.core.files.storage.filesystem: Django
+    django.core.files.storage.handler: Django
+    django.core.files.storage.memory: Django
+    django.core.files.storage.mixins: Django
     django.core.files.temp: Django
     django.core.files.uploadedfile: Django
     django.core.files.uploadhandler: Django
@@ -699,6 +694,7 @@ manifest:
     django.db.backends.postgresql.features: Django
     django.db.backends.postgresql.introspection: Django
     django.db.backends.postgresql.operations: Django
+    django.db.backends.postgresql.psycopg_any: Django
     django.db.backends.postgresql.schema: Django
     django.db.backends.signals: Django
     django.db.backends.sqlite3: Django
@@ -917,6 +913,7 @@ manifest:
     iniconfig.exceptions: iniconfig
     packaging: packaging
     packaging.markers: packaging
+    packaging.metadata: packaging
     packaging.requirements: packaging
     packaging.specifiers: packaging
     packaging.tags: packaging
@@ -946,6 +943,7 @@ manifest:
     sqlparse.tokens: sqlparse
     sqlparse.utils: sqlparse
     tomli: tomli
+    typing_extensions: typing_extensions
   pip_repository:
     name: pypi
-integrity: 344699ff59f4dcbff73cf7e91bbc51efcfe6ab9bf1e3d98a152f7d156640ce33
+integrity: c4090bb6190b056b1a8ca958acebef5c5484f7b08584ec7223c9a35806f16d4c
