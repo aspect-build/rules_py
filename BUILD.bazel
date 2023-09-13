@@ -21,7 +21,7 @@ gazelle_python_manifest(
 gazelle_binary(
     name = "gazelle_bin",
     languages = [
-        "@bazel_skylib//gazelle/bzl",
+        "@bazel_skylib_gazelle_plugin//bzl",
         "@rules_python_gazelle_plugin//python",
     ],
 )

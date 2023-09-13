@@ -47,6 +47,7 @@ load("@pypi//:requirements.bzl", "install_deps")
 
 install_deps()
 
+################################
 # For running our own unit tests
 load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
 
@@ -66,6 +67,14 @@ gazelle_dependencies()
 load("@rules_python//gazelle:deps.bzl", _py_gazelle_deps = "gazelle_deps")
 
 _py_gazelle_deps()
+
+load("@bazel_skylib_gazelle_plugin//:workspace.bzl", "bazel_skylib_gazelle_plugin_workspace")
+
+bazel_skylib_gazelle_plugin_workspace()
+
+load("@bazel_skylib_gazelle_plugin//:setup.bzl", "bazel_skylib_gazelle_plugin_setup")
+
+bazel_skylib_gazelle_plugin_setup(register_go_toolchains = False)
 
 ############################################
 # rules_docker dependencies for containers

@@ -50,6 +50,15 @@ def rules_py_internal_deps():
     )
 
     http_archive(
+        name = "bazel_skylib_gazelle_plugin",
+        sha256 = "3327005dbc9e49cc39602fb46572525984f7119a9c6ffe5ed69fbe23db7c1560",
+        urls = [
+            "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.4.2/bazel-skylib-gazelle-plugin-1.4.2.tar.gz",
+            "https://github.com/bazelbuild/bazel-skylib/releases/download/1.4.2/bazel-skylib-gazelle-plugin-1.4.2.tar.gz",
+        ],
+    )
+
+    http_archive(
         name = "io_bazel_stardoc",
         sha256 = "3fd8fec4ddec3c670bd810904e2e33170bedfe12f90adf943508184be458c8bb",
         urls = [
