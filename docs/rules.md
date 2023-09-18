@@ -108,7 +108,7 @@ py_pytest_main wraps the template rendering target and the final py_library.
 | <a id="py_pytest_main-py_library"></a>py_library |  Use this attribute to override the default py_library rule.   |  <code>&lt;function py_library&gt;</code> |
 | <a id="py_pytest_main-deps"></a>deps |  A list containing the pytest library target, e.g., @pypi_pytest//:pkg.   |  <code>[]</code> |
 | <a id="py_pytest_main-data"></a>data |  A list of data dependencies to pass to the py_library target.   |  <code>[]</code> |
-| <a id="py_pytest_main-testonly"></a>testonly |  A boolean indicating if the py_library target is testonly.   |  <code>False</code> |
+| <a id="py_pytest_main-testonly"></a>testonly |  A boolean indicating if the py_library target is testonly.   |  <code>True</code> |
 | <a id="py_pytest_main-kwargs"></a>kwargs |  The extra arguments passed to the template rendering target.   |  none |
 
 

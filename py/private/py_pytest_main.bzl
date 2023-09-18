@@ -53,7 +53,7 @@ _py_pytest_main = rule(
     },
 )
 
-def py_pytest_main(name, py_library = default_py_library, deps = [], data = [], testonly = False, **kwargs):
+def py_pytest_main(name, py_library = default_py_library, deps = [], data = [], testonly = True, **kwargs):
     """py_pytest_main wraps the template rendering target and the final py_library.
 
     Args:
