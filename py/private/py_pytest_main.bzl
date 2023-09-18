@@ -53,13 +53,15 @@ _py_pytest_main = rule(
     },
 )
 
-def py_pytest_main(name, py_library = default_py_library, deps = [], **kwargs):
+def py_pytest_main(name, py_library = default_py_library, deps = [], data = [], testonly = False, **kwargs):
     """py_pytest_main wraps the template rendering target and the final py_library.
 
     Args:
         name: The name of the runable target that updates the test entry file.
         py_library: Use this attribute to override the default py_library rule.
         deps: A list containing the pytest library target, e.g., @pypi_pytest//:pkg.
+        data: A list of data dependencies to pass to the py_library target.
+        testonly: A boolean indicating if the py_library target is testonly.
         **kwargs: The extra arguments passed to the template rendering target.
     """
 
@@ -77,8 +79,10 @@ def py_pytest_main(name, py_library = default_py_library, deps = [], **kwargs):
 
     py_library(
         name = name,
+        testonly = testonly,
         srcs = [test_main],
         tags = tags,
         visibility = visibility,
         deps = deps,
+        data = data,
     )
