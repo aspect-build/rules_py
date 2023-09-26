@@ -1,4 +1,10 @@
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load(":current_toolchain.bzl", "current_py_toolchain")
+
+current_py_toolchain(
+    name = "current_py_toolchain",
+    visibility = ["//visibility:public"]
+)
 
 exports_files(
     [

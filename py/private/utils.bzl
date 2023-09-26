@@ -9,10 +9,15 @@ def dict_to_exports(env):
         "export %s=\"%s\"" % (k, v)
         for (k, v) in env.items()
     ]
-
+    
 # buildifier: disable=function-docstring
-def resolve_toolchain(ctx):
+def resolve_toolchain(ctx, exec = False):
     toolchain_info = ctx.toolchains[PY_TOOLCHAIN]
+
+    # A workaround for getting the py toolchain for exec configuration even if the target
+    # is transitioned on target platform. 
+    if getattr(ctx.attr, "_exec_python") and exec:
+        toolchain_info = ctx.attr._exec_python[platform_common.ToolchainInfo]
 
     if not toolchain_info.py3_runtime:
         fail("A py3_runtime must be set on the Python toolchain")

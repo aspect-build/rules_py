@@ -21,7 +21,9 @@ def _get_attr(ctx, attr, override):
 
 def _make_venv(ctx, name = None, strip_pth_workspace_root = None):
     bash_bin = ctx.toolchains[SH_TOOLCHAIN].path
-    interpreter = resolve_toolchain(ctx)
+    # We need the toolchain for the exec platform where this action will run.
+    # Unfortunately bazel does not allow a rule to be part of toolchain resolution for different configurations.
+    interpreter = resolve_toolchain(ctx, exec = True)
 
     name = _get_attr(ctx.attr, "name", name)
     strip_pth_workspace_root = _get_attr(ctx.attr, "strip_pth_workspace_root", strip_pth_workspace_root)
@@ -222,6 +224,17 @@ _common_attrs = dict({
     "_runfiles_lib": attr.label(
         default = "@bazel_tools//tools/bash/runfiles",
     ),
+    # When the target is transitioned on a platform different than exec platform
+    # bazel will give us the toolchain for the target platform which fails to run
+    # if exec != target. 
+    # This workarounds that issue by creating a side toolchain resolution that is
+    # forced for exec configuration thanks to `cfg = exec` below.
+    # See https://bazelbuild.slack.com/archives/CA31HN1T3/p1690176577746239 for more.
+    "_exec_python": attr.label(
+        default = "@aspect_rules_py//py/private:current_py_toolchain",
+        cfg = "exec",
+        executable = True,
+    )
 })
 
 _toolchains = [
