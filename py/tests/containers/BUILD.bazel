@@ -5,12 +5,12 @@ load("//py:defs.bzl", "py_binary")
 py_binary(
     name = "main_bin",
     srcs = ["__main__.py"],
+    tags = ["manual"],
     deps = [
         "//py/tests/containers/branding",
         "//py/tests/internal-deps/adder",
         "@pypi_colorama//:pkg",
     ],
-    tags = ["manual"],
 )
 
 # py3_image container support reverts us back to the rules_python way of invoking the binary,
@@ -26,8 +26,8 @@ py3_image(
     name = "py_image",
     srcs = ["__main__.py"],
     main = "__main__.py",
-    deps = [":main_bin"],
     tags = ["manual"],
+    deps = [":main_bin"],
 )
 
 container_test(

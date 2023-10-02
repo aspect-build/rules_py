@@ -1,15 +1,13 @@
 {
-    "homepage": "https://docs.aspect.build/rules/aspect_rules_py",
-    "maintainers": [
-      {
-        "email": "hello@aspect.dev",
-        "github": "aspect-build",
-        "name": "Aspect team"
-      }
-    ],
-    "repository": [
-      "github:aspect-build/rules_py"
-    ],
-    "versions": [],
-    "yanked_versions": {}
+  "homepage": "https://docs.aspect.build/rules/aspect_rules_py",
+  "maintainers": [
+    {
+      "email": "hello@aspect.dev",
+      "github": "aspect-build",
+      "name": "Aspect team"
+    }
+  ],
+  "repository": ["github:aspect-build/rules_py"],
+  "versions": [],
+  "yanked_versions": {}
 }

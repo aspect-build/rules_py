@@ -76,8 +76,8 @@ def _py_binary_rule_imp(ctx):
 
     imports = _py_library.make_imports_depset(ctx)
     instrumented_files_info = _py_library.make_instrumented_files_info(
-        ctx, 
-        extra_source_attributes = ["main"]
+        ctx,
+        extra_source_attributes = ["main"],
     )
     py_wheel_info = py_wheel.make_py_wheel_info(ctx, ctx.attr.deps)
 

@@ -1,3 +1,5 @@
+"Implementations for the py_venv rule."
+
 load("@aspect_bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_manifest_path")
 load("//py/private:providers.bzl", "PyWheelInfo")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")

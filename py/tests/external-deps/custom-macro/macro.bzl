@@ -1,3 +1,4 @@
+# buildifier: disable=module-docstring
 load("//py:defs.bzl", "py_binary", "py_library")
 
 def click_cli_binary(name, deps = [], **kwargs):

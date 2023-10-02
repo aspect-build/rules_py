@@ -1,3 +1,4 @@
+# buildifier: disable=module-docstring
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts", "unittest")
 load("//py/private:py_library.bzl", _py_library = "py_library", py_library = "py_library_utils")
 
@@ -99,6 +100,8 @@ _fails_on_absolute_imp_test = analysistest.make(
     expect_failure = True,
 )
 
+# buildifier: disable=function-docstring
+# buildifier: disable=unnamed-macro
 def py_library_import_pathing_test_suite():
     unittest.suite(
         "py_library_import_pathing_test_suite",
