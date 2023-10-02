@@ -118,16 +118,26 @@ def _py_library_impl(ctx):
 
 _attrs = dict({
     "srcs": attr.label_list(
+        doc = "Python source files.",
         allow_files = True,
     ),
     "deps": attr.label_list(
+        doc = "Targets that produce Python code, commonly `py_library` rules.",
         allow_files = True,
         providers = [[PyInfo], [PyWheelInfo]],
     ),
     "data": attr.label_list(
+        doc = """Runtime dependencies of the program.
+
+        The transitive closure of the `data` dependencies will be available in the `.runfiles`
+        folder for this binary/test. The program may optionally use the Runfiles lookup library to
+        locate the data files, see https://pypi.org/project/bazel-runfiles/.
+        """,
         allow_files = True,
     ),
-    "imports": attr.string_list(),
+    "imports": attr.string_list(
+        doc = "List of import directories to be added to the PYTHONPATH.",
+    ),
 })
 
 _providers = [

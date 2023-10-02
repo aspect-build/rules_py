@@ -5,7 +5,8 @@ load("//py/private:providers.bzl", "PyWheelInfo")
 
 _attrs = {
     "src": attr.label(
-        allow_files = [".whl"],
+        doc = "The Wheel file, as defined by https://packaging.python.org/en/latest/specifications/binary-distribution-format/#binary-distribution-format",
+        allow_single_file = [".whl"],
     ),
 }
 

@@ -100,9 +100,11 @@ def _py_binary_rule_imp(ctx):
 
 _attrs = dict({
     "env": attr.string_dict(
+        doc = "Environment variables to set when running the binary.",
         default = {},
     ),
     "main": attr.label(
+        doc = "Script to execute with the Python interpreter.",
         allow_single_file = True,
         mandatory = True,
     ),
@@ -128,6 +130,7 @@ py_base = struct(
 )
 
 py_binary = rule(
+    doc = "Run a Python program under Bazel. Most users should use the [py_binary macro](#py_binary) instead of loading this directly.",
     implementation = py_base.implementation,
     attrs = py_base.attrs,
     toolchains = py_base.toolchains,
@@ -135,6 +138,7 @@ py_binary = rule(
 )
 
 py_test = rule(
+    doc = "Run a Python program under Bazel. Most users should use the [py_test macro](#py_test) instead of loading this directly.",
     implementation = py_base.implementation,
     attrs = py_base.attrs,
     toolchains = py_base.toolchains,
