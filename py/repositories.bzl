@@ -38,24 +38,7 @@ def rules_py_dependencies():
 
     http_archive(
         name = "rules_python",
-        patch_cmds = ["""\
-cat >> python/BUILD.bazel <<EOF
-load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
-
-bzl_library(
-    name = "defs",
-    srcs = [
-        ":bzl",
-        "@bazel_tools//tools/python:srcs_version.bzl",
-        "@bazel_tools//tools/python:utils.bzl",
-        "@bazel_tools//tools/python:private/defs.bzl",
-        "@bazel_tools//tools/python:toolchain.bzl",
-    ],
-    visibility = ["//visibility:public"],
-)
-EOF
-"""],
-        sha256 = "36362b4d54fcb17342f9071e4c38d63ce83e2e57d7d5599ebdde4670b9760664",
-        strip_prefix = "rules_python-0.18.0",
-        url = "https://github.com/bazelbuild/rules_python/archive/refs/tags/0.18.0.tar.gz",
+        sha256 = "5868e73107a8e85d8f323806e60cad7283f34b32163ea6ff1020cf27abef6036",
+        strip_prefix = "rules_python-0.25.0",
+        url = "https://github.com/bazelbuild/rules_python/archive/refs/tags/0.25.0.tar.gz",
     )
