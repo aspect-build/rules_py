@@ -47,6 +47,11 @@ _py_pytest_main = rule(
             mandatory = True,
         ),
         "template": attr.label(
+            doc = """INTERNAL USE ONLY. 
+            A python script to be called as the pytest main.
+            Variables such as `$$CHDIR$$` and `$$FLAGS$$` are replaced before executing the script.
+            This is not considered a Public API. Variable replacements may change without warning.
+            """,
             allow_single_file = True,
             default = Label("//py/private:pytest.py.tmpl"),
         ),

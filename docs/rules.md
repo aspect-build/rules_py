@@ -2,6 +2,76 @@
 
 Public API re-exports
 
+<a id="py_binary_rule"></a>
+
+## py_binary_rule
+
+<pre>
+py_binary_rule(<a href="#py_binary_rule-name">name</a>, <a href="#py_binary_rule-data">data</a>, <a href="#py_binary_rule-deps">deps</a>, <a href="#py_binary_rule-env">env</a>, <a href="#py_binary_rule-imports">imports</a>, <a href="#py_binary_rule-main">main</a>, <a href="#py_binary_rule-srcs">srcs</a>)
+</pre>
+
+Run a Python program under Bazel. Most users should use the [py_binary macro](#py_binary) instead of loading this directly.
+
+**ATTRIBUTES**
+
+
+| Name  | Description | Type | Mandatory | Default |
+| :------------- | :------------- | :------------- | :------------- | :------------- |
+| <a id="py_binary_rule-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
+| <a id="py_binary_rule-data"></a>data |  Runtime dependencies of the program.<br><br>        The transitive closure of the <code>data</code> dependencies will be available in the <code>.runfiles</code>         folder for this binary/test. The program may optionally use the Runfiles lookup library to         locate the data files, see https://pypi.org/project/bazel-runfiles/.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
+| <a id="py_binary_rule-deps"></a>deps |  Targets that produce Python code, commonly <code>py_library</code> rules.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
+| <a id="py_binary_rule-env"></a>env |  Environment variables to set when running the binary.   | <a href="https://bazel.build/rules/lib/dict">Dictionary: String -> String</a> | optional | <code>{}</code> |
+| <a id="py_binary_rule-imports"></a>imports |  List of import directories to be added to the PYTHONPATH.   | List of strings | optional | <code>[]</code> |
+| <a id="py_binary_rule-main"></a>main |  Script to execute with the Python interpreter.   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
+| <a id="py_binary_rule-srcs"></a>srcs |  Python source files.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
+
+
+<a id="py_library"></a>
+
+## py_library
+
+<pre>
+py_library(<a href="#py_library-name">name</a>, <a href="#py_library-data">data</a>, <a href="#py_library-deps">deps</a>, <a href="#py_library-imports">imports</a>, <a href="#py_library-srcs">srcs</a>)
+</pre>
+
+
+
+**ATTRIBUTES**
+
+
+| Name  | Description | Type | Mandatory | Default |
+| :------------- | :------------- | :------------- | :------------- | :------------- |
+| <a id="py_library-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
+| <a id="py_library-data"></a>data |  Runtime dependencies of the program.<br><br>        The transitive closure of the <code>data</code> dependencies will be available in the <code>.runfiles</code>         folder for this binary/test. The program may optionally use the Runfiles lookup library to         locate the data files, see https://pypi.org/project/bazel-runfiles/.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
+| <a id="py_library-deps"></a>deps |  Targets that produce Python code, commonly <code>py_library</code> rules.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
+| <a id="py_library-imports"></a>imports |  List of import directories to be added to the PYTHONPATH.   | List of strings | optional | <code>[]</code> |
+| <a id="py_library-srcs"></a>srcs |  Python source files.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
+
+
+<a id="py_test_rule"></a>
+
+## py_test_rule
+
+<pre>
+py_test_rule(<a href="#py_test_rule-name">name</a>, <a href="#py_test_rule-data">data</a>, <a href="#py_test_rule-deps">deps</a>, <a href="#py_test_rule-env">env</a>, <a href="#py_test_rule-imports">imports</a>, <a href="#py_test_rule-main">main</a>, <a href="#py_test_rule-srcs">srcs</a>)
+</pre>
+
+Run a Python program under Bazel. Most users should use the [py_test macro](#py_test) instead of loading this directly.
+
+**ATTRIBUTES**
+
+
+| Name  | Description | Type | Mandatory | Default |
+| :------------- | :------------- | :------------- | :------------- | :------------- |
+| <a id="py_test_rule-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
+| <a id="py_test_rule-data"></a>data |  Runtime dependencies of the program.<br><br>        The transitive closure of the <code>data</code> dependencies will be available in the <code>.runfiles</code>         folder for this binary/test. The program may optionally use the Runfiles lookup library to         locate the data files, see https://pypi.org/project/bazel-runfiles/.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
+| <a id="py_test_rule-deps"></a>deps |  Targets that produce Python code, commonly <code>py_library</code> rules.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
+| <a id="py_test_rule-env"></a>env |  Environment variables to set when running the binary.   | <a href="https://bazel.build/rules/lib/dict">Dictionary: String -> String</a> | optional | <code>{}</code> |
+| <a id="py_test_rule-imports"></a>imports |  List of import directories to be added to the PYTHONPATH.   | List of strings | optional | <code>[]</code> |
+| <a id="py_test_rule-main"></a>main |  Script to execute with the Python interpreter.   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
+| <a id="py_test_rule-srcs"></a>srcs |  Python source files.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
+
+
 <a id="py_venv"></a>
 
 ## py_venv
@@ -18,10 +88,10 @@ py_venv(<a href="#py_venv-name">name</a>, <a href="#py_venv-data">data</a>, <a h
 | Name  | Description | Type | Mandatory | Default |
 | :------------- | :------------- | :------------- | :------------- | :------------- |
 | <a id="py_venv-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
-| <a id="py_venv-data"></a>data |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
-| <a id="py_venv-deps"></a>deps |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
-| <a id="py_venv-imports"></a>imports |  -   | List of strings | optional | <code>[]</code> |
-| <a id="py_venv-srcs"></a>srcs |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
+| <a id="py_venv-data"></a>data |  Runtime dependencies of the program.<br><br>        The transitive closure of the <code>data</code> dependencies will be available in the <code>.runfiles</code>         folder for this binary/test. The program may optionally use the Runfiles lookup library to         locate the data files, see https://pypi.org/project/bazel-runfiles/.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
+| <a id="py_venv-deps"></a>deps |  Targets that produce Python code, commonly <code>py_library</code> rules.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
+| <a id="py_venv-imports"></a>imports |  List of import directories to be added to the PYTHONPATH.   | List of strings | optional | <code>[]</code> |
+| <a id="py_venv-srcs"></a>srcs |  Python source files.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
 | <a id="py_venv-strip_pth_workspace_root"></a>strip_pth_workspace_root |  -   | Boolean | optional | <code>True</code> |
 
 
@@ -41,7 +111,7 @@ py_wheel(<a href="#py_wheel-name">name</a>, <a href="#py_wheel-src">src</a>)
 | Name  | Description | Type | Mandatory | Default |
 | :------------- | :------------- | :------------- | :------------- | :------------- |
 | <a id="py_wheel-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
-| <a id="py_wheel-src"></a>src |  -   | <a href="https://bazel.build/concepts/labels">Label</a> | optional | <code>None</code> |
+| <a id="py_wheel-src"></a>src |  The Wheel file, as defined by https://packaging.python.org/en/latest/specifications/binary-distribution-format/#binary-distribution-format   | <a href="https://bazel.build/concepts/labels">Label</a> | optional | <code>None</code> |
 
 
 <a id="py_binary"></a>
@@ -52,7 +122,7 @@ py_wheel(<a href="#py_wheel-name">name</a>, <a href="#py_wheel-src">src</a>)
 py_binary(<a href="#py_binary-name">name</a>, <a href="#py_binary-srcs">srcs</a>, <a href="#py_binary-main">main</a>, <a href="#py_binary-imports">imports</a>, <a href="#py_binary-kwargs">kwargs</a>)
 </pre>
 
-Wrapper macro for the py_binary rule, setting a default for imports.
+Wrapper macro for [`py_binary_rule`](#py_binary_rule), setting a default for imports.
 
 It also creates a virtualenv to constrain the interpreter and packages used at runtime,
 you can `bazel run [name].venv` to produce this, then use it in the editor.
@@ -67,26 +137,7 @@ you can `bazel run [name].venv` to produce this, then use it in the editor.
 | <a id="py_binary-srcs"></a>srcs |  python source files   |  <code>[]</code> |
 | <a id="py_binary-main"></a>main |  the entry point. If absent, then the first entry in srcs is used.   |  <code>None</code> |
 | <a id="py_binary-imports"></a>imports |  List of import paths to add for this binary.   |  <code>["."]</code> |
-| <a id="py_binary-kwargs"></a>kwargs |  see [py_binary attributes](./py_binary)   |  none |
-
-
-<a id="py_library"></a>
-
-## py_library
-
-<pre>
-py_library(<a href="#py_library-name">name</a>, <a href="#py_library-kwargs">kwargs</a>)
-</pre>
-
-Wrapper macro for the py_library rule, setting a default for imports
-
-**PARAMETERS**
-
-
-| Name  | Description | Default Value |
-| :------------- | :------------- | :------------- |
-| <a id="py_library-name"></a>name |  name of the rule   |  none |
-| <a id="py_library-kwargs"></a>kwargs |  see [py_library attributes](./py_library)   |  none |
+| <a id="py_binary-kwargs"></a>kwargs |  additional named parameters to the py_binary_rule   |  none |
 
 
 <a id="py_pytest_main"></a>

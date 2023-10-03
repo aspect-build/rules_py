@@ -1,4 +1,5 @@
-# buildifier: disable=module-docstring
+"Providers to share information between targets in the graph."
+
 PyWheelInfo = provider(
     doc = "Provides information about a Python Wheel",
     fields = {
