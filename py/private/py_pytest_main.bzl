@@ -15,7 +15,7 @@
 """py_test entrypoint generation.
 """
 
-load("@rules_python//python:defs.bzl", default_py_library = "py_library")
+load(":py_library.bzl", default_py_library = "py_library")
 
 def _py_pytest_main_impl(ctx):
     substitutions = {
