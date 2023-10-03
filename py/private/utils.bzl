@@ -1,3 +1,4 @@
+"General utilities for building python rules."
 PY_TOOLCHAIN = "@bazel_tools//tools/python:toolchain_type"
 SH_TOOLCHAIN = "@bazel_tools//tools/sh:toolchain_type"
 
@@ -9,6 +10,7 @@ def dict_to_exports(env):
         for (k, v) in env.items()
     ]
 
+# buildifier: disable=function-docstring
 def resolve_toolchain(ctx):
     toolchain_info = ctx.toolchains[PY_TOOLCHAIN]
 

@@ -1,3 +1,4 @@
+# buildifier: disable=module-docstring
 PyWheelInfo = provider(
     doc = "Provides information about a Python Wheel",
     fields = {

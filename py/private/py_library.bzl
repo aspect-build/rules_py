@@ -65,7 +65,7 @@ def _make_imports_depset(ctx):
         for im in ctx.attr.imports
     ] + [
         # Add the workspace name in the imports such that repo-relative imports work.
-        ctx.workspace_name
+        ctx.workspace_name,
     ]
 
     return depset(

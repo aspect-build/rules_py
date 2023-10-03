@@ -1,3 +1,4 @@
+# buildifier: disable=module-docstring
 load("//py/private:utils.bzl", "INTERPRETER_FLAGS")
 
 def _autodetecting_py_wrapper_impl(rctx):
