@@ -1,7 +1,7 @@
 Python: (pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles/pathing.venv/bin/python
-version: 3.9.16 (main, REDACTED) 
-[Clang 15.0.7 ]
-version info: sys.version_info(major=3, minor=9, micro=16, releaselevel='final', serial=0)
+version: 3.9.17 (main, REDACTED) 
+[Clang 16.0.3 ]
+version info: sys.version_info(major=3, minor=9, micro=17, releaselevel='final', serial=0)
 cwd: (pwd)
 site-packages folder: ['(pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles/pathing.venv/lib/python3.9/site-packages']
 
