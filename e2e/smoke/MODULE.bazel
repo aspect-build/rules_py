@@ -7,7 +7,7 @@ local_path_override(
 )
 
 #---SNIP--- Below here is re-used in the snippet published on releases
-bazel_dep(name = "rules_python", dev_dependency = True, version = "0.22.0")
+bazel_dep(name = "rules_python", dev_dependency = True, version = "0.25.0")
 
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(
