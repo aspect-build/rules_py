@@ -62,14 +62,16 @@ export VIRTUAL_ENV_DISABLE_PROMPT=1
 . "${VBIN_LOCATION}/activate"
 unset VIRTUAL_ENV_DISABLE_PROMPT
 
+COREUTILS_BIN="{{COREUTILS_BIN}}"
+
 # Now symlink in pip from the toolchain
 # Python venv will also link `pip3.x`, but this seems unnecessary for this use
-ln -snf "${PIP_LOCATION}" "${VPIP_LOCATION}"
+${COREUTILS_BIN} ln -snf "${PIP_LOCATION}" "${VPIP_LOCATION}"
 
 # Need to symlink in the pip site-packages folder not just the binary.
 # Ask Python where the site-packages folder is and symlink the pip package in from the toolchain
 VENV_SITE_PACKAGES=$(${VPYTHON} -c 'import site; print(site.getsitepackages()[0])')
-ln -snf "${PYTHON_SITE_PACKAGES}/pip" "${VENV_SITE_PACKAGES}/pip"
+${COREUTILS_BIN} ln -snf "${PYTHON_SITE_PACKAGES}/pip" "${VENV_SITE_PACKAGES}/pip"
 
 # If the incoming requirements file has setuptools the skip creating a symlink to our own as they will cause
 # error when installing.
@@ -79,9 +81,9 @@ HAS_SETUPTOOLS=$?
 set -o errexit
 
 if [ ${HAS_SETUPTOOLS} -gt 0 ]; then
-  ln -snf "${PYTHON_SITE_PACKAGES}/_distutils_hack" "${VENV_SITE_PACKAGES}/_distutils_hack"
+  ${COREUTILS_BIN} ln -snf "${PYTHON_SITE_PACKAGES}/_distutils_hack" "${VENV_SITE_PACKAGES}/_distutils_hack"
 
-  ln -snf "${PYTHON_SITE_PACKAGES}/setuptools" "${VENV_SITE_PACKAGES}/setuptools"
+  ${COREUTILS_BIN} ln -snf "${PYTHON_SITE_PACKAGES}/setuptools" "${VENV_SITE_PACKAGES}/setuptools"
 fi
 
 INSTALL_WHEELS={{INSTALL_WHEELS}}
@@ -115,28 +117,28 @@ fi
 # The .pth file adds to the interpreters sys.path, without having to set `PYTHONPATH`. This allows us to still
 # run with the interpreter with the `-I` flag. This stops some import mechanisms breaking out the sandbox by using
 # relative imports.
-cat "${PTH_FILE}" > "${VENV_SITE_PACKAGES}/first_party.pth"
+${COREUTILS_BIN} cat "${PTH_FILE}" > "${VENV_SITE_PACKAGES}/first_party.pth"
 
 # Remove the cfg file as it contains absolute paths.
 # The entrypoint script for py_binary and py_test will create a new one.
 # For local venvs, we'll create a new one below.
 PYVENV_CFG="${VENV_LOCATION}/pyvenv.cfg"
-rm  "${PYVENV_CFG}"
+${COREUTILS_BIN} rm  "${PYVENV_CFG}"
 
 if [ "$USE_MANIFEST_PATH" = false ]; then
   # Tear down the symlinks created above as these won't be able to be resolved by bazel when validating the TreeArtifact.
-  find "${VENV_LOCATION}" -type l -exec rm {} +
+  ${COREUTILS_BIN} find "${VENV_LOCATION}" -type l -exec ${COREUTILS_BIN} rm {} +
 fi
 
 if [ "$USE_MANIFEST_PATH" = true ]; then
   # If we are in a 'bazel run' then remove the symlinks to the execroot Python and replace them with a link to external
-  rm ${VBIN_LOCATION}/python*
+  ${COREUTILS_BIN} rm ${VBIN_LOCATION}/python*
 
-  ln -snf "${REAL_PYTHON_LOCATION}" "${VBIN_LOCATION}/python"
-  ln -snf "${VBIN_LOCATION}/python" "${VBIN_LOCATION}/python3"
+  ${COREUTILS_BIN} ln -snf "${REAL_PYTHON_LOCATION}" "${VBIN_LOCATION}/python"
+  ${COREUTILS_BIN} ln -snf "${VBIN_LOCATION}/python" "${VBIN_LOCATION}/python3"
 
   PYTHON_SYMLINK_VERSION_SUFFIX=$(${PYTHON} -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
-  ln -snf "${VBIN_LOCATION}/python" "${VBIN_LOCATION}/python${PYTHON_SYMLINK_VERSION_SUFFIX}"
+  ${COREUTILS_BIN} ln -snf "${VBIN_LOCATION}/python" "${VBIN_LOCATION}/python${PYTHON_SYMLINK_VERSION_SUFFIX}"
 
   PYTHON_VERSION=$(${PYTHON} -c 'import platform; print(platform.python_version())')
   echo "home = ${VBIN_LOCATION}" > "${PYVENV_CFG}"

@@ -3,7 +3,7 @@
 load("@aspect_bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_manifest_path")
 load("//py/private:providers.bzl", "PyWheelInfo")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
-load("//py/private:utils.bzl", "PY_TOOLCHAIN", "SH_TOOLCHAIN", "resolve_toolchain")
+load("//py/private:utils.bzl", "COREUTILS_TOOLCHAIN", "PY_TOOLCHAIN", "SH_TOOLCHAIN", "resolve_toolchain")
 
 def _wheel_path_map(file):
     return file.path
@@ -100,6 +100,7 @@ def _make_venv(ctx, name = None, strip_pth_workspace_root = None):
         content = pth_lines,
     )
 
+    coreutils = ctx.toolchains[COREUTILS_TOOLCHAIN]
     venv_directory = ctx.actions.declare_directory("%s.source" % name)
 
     common_substitutions = {
@@ -113,6 +114,7 @@ def _make_venv(ctx, name = None, strip_pth_workspace_root = None):
         "{{PYTHON_INTERPRETER_PATH}}": interpreter.python.path,
         "{{VENV_LOCATION}}": venv_directory.path,
         "{{USE_MANIFEST_PATH}}": "false",
+        "{{COREUTILS_BIN}}": coreutils.coreutils_info.bin.path,
     }
 
     make_venv_for_action_sh = ctx.actions.declare_file(name + "_venv.sh")
@@ -150,6 +152,7 @@ def _make_venv(ctx, name = None, strip_pth_workspace_root = None):
         inputs = venv_creation_depset,
         command = make_venv_for_action_sh.path,
         tools = [
+            ctx.attr._coreutils_toolchain.files_to_run,
             interpreter.files,
         ],
         progress_message = "Creating virtual environment for %{label}",
@@ -202,8 +205,9 @@ _common_attrs = dict({
 })
 
 _toolchains = [
-    SH_TOOLCHAIN,
+    COREUTILS_TOOLCHAIN,
     PY_TOOLCHAIN,
+    SH_TOOLCHAIN,
 ]
 
 _attrs = dict({

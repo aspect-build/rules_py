@@ -1,4 +1,5 @@
 "General utilities for building python rules."
+COREUTILS_TOOLCHAIN = "@aspect_bazel_lib//lib:coreutils_toolchain_type"
 PY_TOOLCHAIN = "@bazel_tools//tools/python:toolchain_type"
 SH_TOOLCHAIN = "@bazel_tools//tools/sh:toolchain_type"
 

@@ -5,10 +5,10 @@ load("@aspect_bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:providers.bzl", "PyWheelInfo")
 load("//py/private:py_wheel.bzl", py_wheel = "py_wheel_lib")
-load("//py/private:utils.bzl", "PY_TOOLCHAIN", "SH_TOOLCHAIN", "dict_to_exports", "resolve_toolchain")
+load("//py/private:utils.bzl", "COREUTILS_TOOLCHAIN", "PY_TOOLCHAIN", "SH_TOOLCHAIN", "dict_to_exports", "resolve_toolchain")
 load("//py/private/venv:venv.bzl", _py_venv = "py_venv_utils")
 
-def _py_binary_rule_imp(ctx):
+def _py_binary_rule_impl(ctx):
     bash_bin = ctx.toolchains[SH_TOOLCHAIN].path
     interpreter = resolve_toolchain(ctx)
     main = ctx.file.main
@@ -115,17 +115,21 @@ _attrs = dict({
     "_runfiles_lib": attr.label(
         default = "@bazel_tools//tools/bash/runfiles",
     ),
+    "_coreutils_toolchain": attr.label(
+        default = "@coreutils_toolchains//:resolved_toolchain",
+    ),
 })
 
 _attrs.update(**_py_venv.attrs)
 _attrs.update(**_py_library.attrs)
 
 py_base = struct(
-    implementation = _py_binary_rule_imp,
+    implementation = _py_binary_rule_impl,
     attrs = _attrs,
     toolchains = [
-        SH_TOOLCHAIN,
+        COREUTILS_TOOLCHAIN,
         PY_TOOLCHAIN,
+        SH_TOOLCHAIN,
     ],
 )
 
