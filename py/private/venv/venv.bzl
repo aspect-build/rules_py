@@ -1,6 +1,6 @@
 "Implementations for the py_venv rule."
 
-load("@aspect_bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_manifest_path")
+load("@aspect_bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
 load("//py/private:providers.bzl", "PyWheelInfo")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:utils.bzl", "PY_TOOLCHAIN", "SH_TOOLCHAIN", "resolve_toolchain")
@@ -130,9 +130,9 @@ def _make_venv(ctx, name = None, strip_pth_workspace_root = None):
         substitutions = dict(
             common_substitutions,
             **{
-                "{{PYTHON_INTERPRETER_PATH}}": to_manifest_path(ctx, interpreter.python),
-                "{{WHL_REQUIREMENTS_FILE}}": to_manifest_path(ctx, whl_requirements),
-                "{{PTH_FILE}}": to_manifest_path(ctx, pth),
+                "{{PYTHON_INTERPRETER_PATH}}": to_rlocation_path(ctx, interpreter.python),
+                "{{WHL_REQUIREMENTS_FILE}}": to_rlocation_path(ctx, whl_requirements),
+                "{{PTH_FILE}}": to_rlocation_path(ctx, pth),
                 "{{VENV_LOCATION}}": "${BUILD_WORKSPACE_DIRECTORY}/.%s" % name,
                 "{{USE_MANIFEST_PATH}}": "true",
             }
