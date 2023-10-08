@@ -1,6 +1,6 @@
 "Implementation for the py_binary and py_test rules."
 
-load("@aspect_bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_manifest_path")
+load("@aspect_bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
 load("@aspect_bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:providers.bzl", "PyWheelInfo")
@@ -32,16 +32,16 @@ def _py_binary_rule_imp(ctx):
             attribute_name = "env",
         )
 
-    python_interpreter_path = interpreter.python.path if interpreter.uses_interpreter_path else to_manifest_path(ctx, interpreter.python)
+    python_interpreter_path = interpreter.python.path if interpreter.uses_interpreter_path else to_rlocation_path(ctx, interpreter.python)
 
     common_substitutions = {
         "{{BASH_BIN}}": bash_bin,
         "{{BASH_RLOCATION_FN}}": BASH_RLOCATION_FUNCTION,
-        "{{BINARY_ENTRY_POINT}}": to_manifest_path(ctx, main),
+        "{{BINARY_ENTRY_POINT}}": to_rlocation_path(ctx, main),
         "{{INTERPRETER_FLAGS}}": " ".join(interpreter.flags),
         "{{PYTHON_INTERPRETER_PATH}}": python_interpreter_path,
         "{{RUN_BINARY_ENTRY_POINT}}": "true",
-        "{{VENV_SOURCE}}": to_manifest_path(ctx, venv_info.venv_directory),
+        "{{VENV_SOURCE}}": to_rlocation_path(ctx, venv_info.venv_directory),
         "{{VENV_NAME}}": "%s.venv" % ctx.attr.name,
         "{{PYTHON_ENV}}": "\n".join(dict_to_exports(env)).strip(),
         "{{PYTHON_ENV_UNSET}}": "\n".join(["unset %s" % k for k in env.keys()]).strip(),
