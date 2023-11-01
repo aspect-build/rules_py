@@ -1,6 +1,8 @@
-load("@io_bazel_rules_docker//contrib:test.bzl", "container_test")
-load("@io_bazel_rules_docker//python3:image.bzl", "py3_image")
 load("//py:defs.bzl", "py_binary")
+load("@aspect_bazel_lib//lib:tar.bzl", "tar")
+load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
+load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@container_structure_test//:defs.bzl", "container_structure_test")
 
 py_binary(
     name = "main_bin",
@@ -13,26 +15,45 @@ py_binary(
     ],
 )
 
-# py3_image container support reverts us back to the rules_python way of invoking the binary,
-# (as really there is a py_binary in the py3_image).
-# This test ensures that rules_py can still run in that mode, but there are a few notable exceptions:
-#   * There is no longer a virtual env to run in
-#   * The rules_py launcher isn't invoked
-#   * There is no pip
-#   * Dependencies that were consumed via wheel targets are lost
-# Perhaps rules_container can provide a suitable alternative here, or rules_py provides a thin wrapper around the
-# rules_docker container_image that produces the expected output, but it would be limited in terms of customisation.
-py3_image(
-    name = "py_image",
-    srcs = ["__main__.py"],
-    main = "__main__.py",
-    tags = ["manual"],
-    deps = [":main_bin"],
+tar(
+    name = "py_layer",
+    srcs = [":main_bin"],
 )
 
-container_test(
-    name = "py_image_test",
+oci_image(
+    name = "image",
+    base = "@ubuntu",
+    entrypoint = ["/py/tests/containers/main_bin"],
+    tars = [":py_layer"],
+)
+
+platform(
+    name = "aarch64_linux",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:aarch64",
+    ],
+)
+
+platform(
+    name = "x86_64_linux",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+platform_transition_filegroup(
+    name = "platform_image",
+    srcs = [":image"],
+    target_platform = select({
+        "@platforms//cpu:arm64": ":aarch64_linux",
+        "@platforms//cpu:x86_64": ":x86_64_linux",
+    }),
+)
+
+container_structure_test(
+    name = "test",
     configs = ["py_image_test.yaml"],
-    image = ":py_image",
-    tags = ["manual"],
+    image = ":platform_image",
 )

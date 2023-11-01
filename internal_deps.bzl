@@ -78,15 +78,22 @@ def rules_py_internal_deps():
     )
 
     http_archive(
-        name = "io_bazel_rules_docker",
-        sha256 = "cd42f44e219a4f1fc5c18a0702330505b94e3abd64c3e21d38ea25a6ab42dad6",
-        strip_prefix = "rules_docker-8e70c6bcb584a15a8fd061ea489b933c0ff344ca",
-        urls = ["https://github.com/bazelbuild/rules_docker/archive/8e70c6bcb584a15a8fd061ea489b933c0ff344ca.zip"],
-    )
-
-    http_archive(
         name = "rules_python_gazelle_plugin",
         sha256 = "36362b4d54fcb17342f9071e4c38d63ce83e2e57d7d5599ebdde4670b9760664",
         strip_prefix = "rules_python-0.18.0/gazelle",
         url = "https://github.com/bazelbuild/rules_python/releases/download/0.18.0/rules_python-0.18.0.tar.gz",
+    )
+
+    http_archive(
+        name = "rules_oci",
+        sha256 = "21a7d14f6ddfcb8ca7c5fc9ffa667c937ce4622c7d2b3e17aea1ffbc90c96bed",
+        strip_prefix = "rules_oci-1.4.0",
+        url = "https://github.com/bazel-contrib/rules_oci/releases/download/v1.4.0/rules_oci-v1.4.0.tar.gz",
+    )
+
+    http_archive(
+        name = "container_structure_test",
+        sha256 = "e70fb8a7513f0d37ca773176b4f20c7edbecc8502eccb68fc9fffad35e33e254",
+        strip_prefix = "container-structure-test-0db4700c3bd3bc8e35ff1d1316749fb741fe3d7a",
+        url = "https://github.com/GoogleContainerTools/container-structure-test/archive/0db4700c3bd3bc8e35ff1d1316749fb741fe3d7a.zip",
     )
