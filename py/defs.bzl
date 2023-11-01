@@ -10,6 +10,10 @@ py_pytest_main = _py_pytest_main
 py_venv = _py_venv
 py_binary_rule = _py_binary
 py_test_rule = _py_test
+py_library_rule = _py_library
+
+_a_struct_type = type(struct())
+_a_string_type = type("")
 
 def _py_binary_or_test(name, rule, srcs, main, imports, deps = [], resolutions = {}, **kwargs):
     if not main and not len(srcs):
@@ -52,20 +56,23 @@ def py_binary(name, srcs = [], main = None, imports = ["."], resolutions = {}, *
     concrete = []
 
     # For a clearer DX when updating resolutions, the resolutions dict is "string" -> "label",
-    # where the input to the rule is "label" -> "string", switch them here.
+    # where the rule attribute is a label-typed-dict, so reverse them here.
     resolutions = {v: k for k, v in resolutions.items()}
 
     for dep in deps:
-        if type(struct()) == type(dep):
+        if type(dep) == _a_struct_type:
             if dep.virtual:
-                fail("no virtuals at terminal")
+                fail("only non-virtual deps are allowed at a py_binary or py_test rule")
             else:
                 # constraint here must be concrete, ie == or no specifier
                 resolutions.update([["@{}_{}//:wheel".format(dep.prefix, "foo"), dep.name]])
-                pass
-        else:
-            # assume it's a string
+        elif type(dep) == _a_string_type:
             concrete.append(dep)
+        else:
+            fail("dep element {} is of type {} but should be a struct or a string".format(
+                dep,
+                type(dep),
+            ))
 
     _py_binary_or_test(name = name, rule = _py_binary, srcs = srcs, main = main, imports = imports, resolutions = resolutions, deps = concrete, **kwargs)
 
@@ -112,8 +119,6 @@ def dep(name, *, virtual = False, constraint = None, prefix = "pypi", default = 
         from_label = from_label,
     )
 
-py_library_rule = _py_library
-
 def py_library(name, imports = ["."], deps = [], **kwargs):
     """Wrapper macro for the [py_library_rule](./py_library_rule), supporting virtual deps.
 
@@ -131,21 +136,26 @@ def py_library(name, imports = ["."], deps = [], **kwargs):
     virtual.extend(kwargs.pop("virtual", []))
 
     for dep in deps:
-        if type(struct()) == type(dep):
+        if type(dep) == _a_struct_type:
             # { name: "requests", virtual = True | False, constraint = "" }
             if dep.virtual:
                 # deal with constraint
                 virtual.append(dep.name)
             else:
                 if dep.constraint:
-                    fail("constaint on a concrete dep")
+                    fail("Illegal constraint on a non-virtual dependency")
                 if dep.from_label:
                     concrete.append(dep.from_label)
                 else:
+                    # FIXME: looks like this may not work with bzlmod where the naming convention is different?
                     concrete.append("@{}_{}//:wheel".format(dep.prefix, dep.name))
-        else:
-            # assume it's a string
+        elif type(dep) == _a_string_type:
             concrete.append(dep)
+        else:
+            fail("dep element {} is of type {} but should be a struct or a string".format(
+                dep,
+                type(dep),
+            ))
 
     py_library_rule(
         name = name,
