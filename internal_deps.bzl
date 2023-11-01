@@ -4,7 +4,7 @@ Users should *not* need to install these. If users see a load()
 statement from these, that's a bug in our distribution.
 """
 
-load("@bazel_tools//tools/build_defs/repo:http.bzl", _http_archive = "http_archive")
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file", _http_archive = "http_archive")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 
 def http_archive(name, **kwargs):
@@ -89,4 +89,25 @@ def rules_py_internal_deps():
         sha256 = "36362b4d54fcb17342f9071e4c38d63ce83e2e57d7d5599ebdde4670b9760664",
         strip_prefix = "rules_python-0.18.0/gazelle",
         url = "https://github.com/bazelbuild/rules_python/releases/download/0.18.0/rules_python-0.18.0.tar.gz",
+    )
+
+    http_file(
+        name = "django_4_2_4",
+        urls = ["https://files.pythonhosted.org/packages/7f/9e/fc6bab255ae10bc57fa2f65646eace3d5405fbb7f5678b90140052d1db0f/Django-4.2.4-py3-none-any.whl"],
+        sha256 = "860ae6a138a238fc4f22c99b52f3ead982bb4b1aad8c0122bcd8c8a3a02e409d",
+        downloaded_file_path = "Django-4.2.4-py3-none-any.whl",
+    )
+
+    http_file(
+        name = "django_4_1_10",
+        urls = ["https://files.pythonhosted.org/packages/34/25/8a218de57fc9853297a1a8e4927688eff8107d5bc6dcf6c964c59801f036/Django-4.1.10-py3-none-any.whl"],
+        sha256 = "26d0260c2fb8121009e62ffc548b2398dea2522b6454208a852fb0ef264c206c",
+        downloaded_file_path = "Django-4.1.10-py3-none-any.whl",
+    )
+
+    http_file(
+        name = "sqlparse_0_4_0",
+        urls = ["https://files.pythonhosted.org/packages/10/96/36c136013c4a6ecb8c6aa3eed66e6dcea838f85fd80e1446499f1dabfac7/sqlparse-0.4.0-py3-none-any.whl"],
+        sha256 = "0523026398aea9c8b5f7a4a6d5c0829c285b4fbd960c17b5967a369342e21e01",
+        downloaded_file_path = "sqlparse-0.4.0-py3-none-any.whl",
     )

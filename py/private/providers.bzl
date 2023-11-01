@@ -7,3 +7,11 @@ PyWheelInfo = provider(
         "default_runfiles": "Runfiles of all files including deps for this wheel",
     },
 )
+
+PyVirtualInfo = provider(
+    doc = "FIXME",
+    fields = {
+        "dependencies": "Depset of required virtual dependencies, independant of their resolution status",
+        "resolutions": "FIXME",
+    },
+)

@@ -1,7 +1,7 @@
 "Implementation for the py_library rule"
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
-load("//py/private:providers.bzl", "PyWheelInfo")
+load("//py/private:providers.bzl", "PyVirtualInfo", "PyWheelInfo")
 load("//py/private:py_wheel.bzl", py_wheel = "py_wheel_lib")
 
 def _make_instrumented_files_info(ctx, extra_source_attributes = [], extra_dependency_attributes = []):
@@ -20,6 +20,31 @@ def _make_srcs_depset(ctx):
             target[PyInfo].transitive_sources
             for target in ctx.attr.deps
             if PyInfo in target
+        ],
+    )
+
+def _make_virtual_depset(ctx):
+    return depset(
+        order = "postorder",
+        direct = getattr(ctx.attr, "virtual", []),
+        transitive = [
+            target[PyVirtualInfo].dependencies
+            for target in ctx.attr.deps
+            if PyVirtualInfo in target
+        ],
+    )
+
+def _make_virtual_resolutions_depset(ctx):
+    return depset(
+        order = "postorder",
+        direct = [
+            struct(virtual = v, target = k)
+            for k, v in ctx.attr.resolutions.items()
+        ],
+        transitive = [
+            target[PyVirtualInfo].resolutions
+            for target in ctx.attr.deps
+            if PyVirtualInfo in target
         ],
     )
 
@@ -96,6 +121,8 @@ def _make_merged_runfiles(ctx, extra_depsets = [], extra_runfiles = [], extra_ru
 def _py_library_impl(ctx):
     transitive_srcs = _make_srcs_depset(ctx)
     imports = _make_imports_depset(ctx)
+    virtuals = _make_virtual_depset(ctx)
+    resolutions = _make_virtual_resolutions_depset(ctx)
     runfiles = _make_merged_runfiles(ctx)
     instrumented_files_info = _make_instrumented_files_info(ctx)
     py_wheel_info = py_wheel.make_py_wheel_info(ctx, ctx.attr.deps)
@@ -112,6 +139,10 @@ def _py_library_impl(ctx):
             has_py3_only_sources = True,
             uses_shared_libraries = False,
         ),
+        PyVirtualInfo(
+            dependencies = virtuals,
+            resolutions = resolutions,
+        ),
         py_wheel_info,
         instrumented_files_info,
     ]
@@ -124,7 +155,7 @@ _attrs = dict({
     "deps": attr.label_list(
         doc = "Targets that produce Python code, commonly `py_library` rules.",
         allow_files = True,
-        providers = [[PyInfo], [PyWheelInfo]],
+        providers = [[PyInfo], [PyWheelInfo], [PyVirtualInfo]],
     ),
     "data": attr.label_list(
         doc = """Runtime dependencies of the program.
@@ -137,6 +168,9 @@ _attrs = dict({
     ),
     "imports": attr.string_list(
         doc = "List of import directories to be added to the PYTHONPATH.",
+    ),
+    "resolutions": attr.label_keyed_string_dict(
+        doc = "FIXME",
     ),
 })
 
@@ -153,11 +187,15 @@ py_library_utils = struct(
     make_instrumented_files_info = _make_instrumented_files_info,
     make_merged_runfiles = _make_merged_runfiles,
     make_srcs_depset = _make_srcs_depset,
+    make_virtual_depset = _make_virtual_depset,
+    make_virtual_resolutions_depset = _make_virtual_resolutions_depset,
     py_library_providers = _providers,
 )
 
 py_library = rule(
     implementation = py_library_utils.implementation,
-    attrs = py_library_utils.attrs,
+    attrs = dict({
+        "virtual": attr.string_list(allow_empty = True, default = []),
+    }, **py_library_utils.attrs),
     provides = py_library_utils.py_library_providers,
 )

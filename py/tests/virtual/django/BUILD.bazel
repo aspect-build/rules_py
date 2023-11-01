@@ -1,0 +1,32 @@
+load("//py:defs.bzl", "py_binary", "py_library", "resolutions")
+load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirements")
+load("@django//:requirements.bzl", django_resolutions = "all_whl_only_requirements")
+
+compile_pip_requirements(
+    name = "requirements",
+    requirements_in = "requirements.in",
+    requirements_txt = "requirements.txt",
+)
+
+py_library(
+    name = "proj",
+    srcs = glob(["proj/**/*.py"]),
+    imports = ["./proj"],
+    virtual = [
+        "django",
+    ],
+)
+
+py_binary(
+    name = "manage",
+    srcs = [
+        "proj/manage.py",
+    ],
+    resolutions = resolutions(
+        django_resolutions,
+        {"django": "@django_4_2_4//file"},
+    ),
+    deps = [
+        ":proj",
+    ],
+)

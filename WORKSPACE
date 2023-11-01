@@ -14,12 +14,14 @@ rules_py_dependencies()
 # Load the Python toolchain for rules_docker
 register_toolchains("//:container_py_toolchain")
 
-load("@rules_python//python:repositories.bzl", "python_register_toolchains")
+load("@rules_python//python:repositories.bzl", "py_repositories", "python_register_toolchains")
 
 python_register_toolchains(
     name = "python_toolchain",
     python_version = "3.9",
 )
+
+py_repositories()
 
 ############################################
 # Aspect gcc toolchain
@@ -46,6 +48,10 @@ rules_py_internal_pypi_deps(
 load("@pypi//:requirements.bzl", "install_deps")
 
 install_deps()
+
+load("@django//:requirements.bzl", install_django_deps = "install_deps")
+
+install_django_deps()
 
 ################################
 # For running our own unit tests

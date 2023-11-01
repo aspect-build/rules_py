@@ -1,6 +1,7 @@
 "Implementations for the py_venv rule."
 
 load("@aspect_bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
+load("@bazel_skylib//lib:new_sets.bzl", "sets")
 load("//py/private:providers.bzl", "PyWheelInfo")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:utils.bzl", "PY_TOOLCHAIN", "SH_TOOLCHAIN", "resolve_toolchain")
@@ -33,8 +34,30 @@ def _make_venv(ctx, name = None, strip_pth_workspace_root = None):
         for target in ctx.attr.deps
         if PyWheelInfo in target
     ]
+
+    virtual = _py_library.make_virtual_depset(ctx).to_list()
+    resolutions = _py_library.make_virtual_resolutions_depset(ctx).to_list()
+
+    # Check for duplicate virtual dependency names. Those that map to the same resolution target would have been merged by the depset for us.
+    seen = {}
+    wheels = []
+    for i, resolution in enumerate(resolutions):
+        if resolution.virtual in seen:
+            conflicts_with = resolutions[seen[resolution.virtual]].target
+            fail("Conflict in virtual dependency resolutions while resolving '{}'. Dependency is resolved by {} and {}".format(resolution.virtual, str(resolution.target), str(conflicts_with)))
+        seen.update([[resolution.virtual, i]])
+        wheels.append(resolution.target[DefaultInfo].files)
+
+        if PyWheelInfo in resolution.target:
+            wheels.append(resolution.target[PyWheelInfo].files)
+
+    missing = sets.to_list(sets.difference(sets.make(virtual), sets.make(seen.keys())))
+    if len(missing) > 0:
+        fail("The following dependencies were marked as virtual, but no concrete label providing them was given: {}".format(", ".join(missing)))
+
     wheels_depset = depset(
-        transitive = wheels_depsets,
+        direct = ctx.files.resolutions,
+        transitive = wheels_depsets + wheels,
     )
 
     # To avoid calling to_list, and then either creating a lot of extra symlinks or adding a large number
