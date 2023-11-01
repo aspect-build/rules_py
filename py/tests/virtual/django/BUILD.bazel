@@ -1,6 +1,6 @@
 load("//py:defs.bzl", "py_binary", "py_library", "resolutions")
 load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirements")
-load("@django//:requirements.bzl", django_resolutions = "all_whl_only_requirements")
+load("@django//:requirements.bzl", django_resolutions = "all_whl_requirements_by_package")
 
 compile_pip_requirements(
     name = "requirements",

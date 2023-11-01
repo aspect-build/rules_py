@@ -1,53 +1,33 @@
 diff --git a/python/pip_install/pip_repository.bzl b/python/pip_install/pip_repository.bzl
-index ea8b9eb..24bd1ef 100644
+index 87c7f6b..6e0963b 100644
 --- a/python/pip_install/pip_repository.bzl
 +++ b/python/pip_install/pip_repository.bzl
-@@ -391,6 +391,9 @@ def _pip_repository_impl(rctx):
-             "@{}//{}:whl".format(rctx.attr.name, p) if rctx.attr.incompatible_generate_aliases else "@{}_{}//:whl".format(rctx.attr.name, p)
+@@ -430,10 +430,10 @@ def _pip_repository_impl(rctx):
+             "@{}//{}".format(rctx.attr.name, p) if rctx.attr.incompatible_generate_aliases else "@{}_{}//:pkg".format(rctx.attr.name, p)
              for p in bzl_packages
          ]),
-+        "%%ALL_WHL_ONLY_REQUIREMENTS%%": _format_dict(
-+            {"{}".format(p): "\"{}:whl_only\"".format(_format_pypi_repo(rctx, p)) for p in bzl_packages}
-+        ),
+-        "%%ALL_WHL_REQUIREMENTS%%": _format_repr_list([
+-            "@{}//{}:whl".format(rctx.attr.name, p) if rctx.attr.incompatible_generate_aliases else "@{}_{}//:whl".format(rctx.attr.name, p)
++        "%%ALL_WHL_REQUIREMENTS_BY_PACKAGE%%": _format_dict(_repr_dict({
++            p: ("@{}//{}:whl".format(rctx.attr.name, p) if rctx.attr.incompatible_generate_aliases else "@{}_{}//:whl".format(rctx.attr.name, p))
+             for p in bzl_packages
+-        ]),
++        })),
          "%%ANNOTATIONS%%": _format_dict(_repr_dict(annotations)),
          "%%CONFIG%%": _format_dict(_repr_dict(config)),
          "%%EXTRA_PIP_ARGS%%": json.encode(options),
-@@ -739,6 +742,9 @@ def package_annotation(
- 
- # pip_repository implementation
- 
-+def _format_pypi_repo(rctx, p):
-+    return "@{}//{}".format(rctx.attr.name, p) if rctx.attr.incompatible_generate_aliases else "@{}_{}//".format(rctx.attr.name, p)
-+
- def _format_list(items):
-     return "[{}]".format(", ".join(items))
- 
 diff --git a/python/pip_install/pip_repository_requirements.bzl.tmpl b/python/pip_install/pip_repository_requirements.bzl.tmpl
-index 411f334..9acfa83 100644
+index 411f334..9f4c89a 100644
 --- a/python/pip_install/pip_repository_requirements.bzl.tmpl
 +++ b/python/pip_install/pip_repository_requirements.bzl.tmpl
-@@ -10,6 +10,8 @@ all_requirements = %%ALL_REQUIREMENTS%%
+@@ -8,7 +8,9 @@ from %%REQUIREMENTS_LOCK%%
  
- all_whl_requirements = %%ALL_WHL_REQUIREMENTS%%
+ all_requirements = %%ALL_REQUIREMENTS%%
  
-+all_whl_only_requirements = %%ALL_WHL_ONLY_REQUIREMENTS%%
+-all_whl_requirements = %%ALL_WHL_REQUIREMENTS%%
++all_whl_requirements_by_package = %%ALL_WHL_REQUIREMENTS_BY_PACKAGE%%
 +
++all_whl_requirements = all_whl_requirements_by_package.values()
+ 
  all_data_requirements = %%ALL_DATA_REQUIREMENTS%%
  
- _packages = %%PACKAGES%%
-diff --git a/python/pip_install/private/generate_whl_library_build_bazel.bzl b/python/pip_install/private/generate_whl_library_build_bazel.bzl
-index 229a917..5472442 100644
---- a/python/pip_install/private/generate_whl_library_build_bazel.bzl
-+++ b/python/pip_install/private/generate_whl_library_build_bazel.bzl
-@@ -64,6 +64,11 @@ filegroup(
-     data = {whl_file_deps},
- )
- 
-+filegroup(
-+    name = "{whl_file_label}_only",
-+    srcs = glob(["*.whl"], allow_empty = True),
-+)
-+
- py_library(
-     name = "{name}",
-     srcs = glob(
