@@ -12,9 +12,10 @@ py_library(
     name = "proj",
     srcs = glob(["proj/**/*.py"]),
     imports = ["./proj"],
-    virtual = [
-        "django",
-    ],
+    # Depend on django, but not at a particular version, any binary/test rules that
+    # depend on this (directly or transitively) will need to resolve it to a version
+    # of their choosing.
+    virtual_deps = ["django"],
 )
 
 py_binary(
@@ -23,10 +24,10 @@ py_binary(
         "proj/manage.py",
     ],
     resolutions = resolutions(
+        # Use the wheels that the pip_parse rule defined as defaults...
         django_resolutions,
+        # ...but replace the resolution of django with a specific wheel fetched by http_file.
         {"django": "@django_4_2_4//file"},
     ),
-    deps = [
-        ":proj",
-    ],
+    deps = [":proj"],
 )

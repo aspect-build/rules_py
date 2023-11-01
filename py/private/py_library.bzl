@@ -195,7 +195,7 @@ py_library_utils = struct(
 py_library = rule(
     implementation = py_library_utils.implementation,
     attrs = dict({
-        "virtual": attr.string_list(allow_empty = True, default = []),
+        "virtual_deps": attr.string_list(allow_empty = True, default = []),
     }, **py_library_utils.attrs),
     provides = py_library_utils.py_library_providers,
 )

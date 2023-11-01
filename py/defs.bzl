@@ -133,7 +133,7 @@ def py_library(name, imports = ["."], deps = [], **kwargs):
     virtual = []
 
     # Allow users to pass a list of virtual dependencies via the virtual attr.
-    virtual.extend(kwargs.pop("virtual", []))
+    virtual.extend(kwargs.pop("virtual_deps", []))
 
     for dep in deps:
         if type(dep) == _a_struct_type:
@@ -160,7 +160,7 @@ def py_library(name, imports = ["."], deps = [], **kwargs):
     py_library_rule(
         name = name,
         deps = concrete,
-        virtual = virtual,
+        virtual_deps = virtual,
         imports = imports,
         **kwargs
     )

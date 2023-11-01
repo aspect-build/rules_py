@@ -32,7 +32,7 @@ Run a Python program under Bazel. Most users should use the [py_binary macro](#p
 ## py_library_rule
 
 <pre>
-py_library_rule(<a href="#py_library_rule-name">name</a>, <a href="#py_library_rule-data">data</a>, <a href="#py_library_rule-deps">deps</a>, <a href="#py_library_rule-imports">imports</a>, <a href="#py_library_rule-resolutions">resolutions</a>, <a href="#py_library_rule-srcs">srcs</a>, <a href="#py_library_rule-virtual">virtual</a>)
+py_library_rule(<a href="#py_library_rule-name">name</a>, <a href="#py_library_rule-data">data</a>, <a href="#py_library_rule-deps">deps</a>, <a href="#py_library_rule-imports">imports</a>, <a href="#py_library_rule-resolutions">resolutions</a>, <a href="#py_library_rule-srcs">srcs</a>, <a href="#py_library_rule-virtual_deps">virtual_deps</a>)
 </pre>
 
 
@@ -48,7 +48,7 @@ py_library_rule(<a href="#py_library_rule-name">name</a>, <a href="#py_library_r
 | <a id="py_library_rule-imports"></a>imports |  List of import directories to be added to the PYTHONPATH.   | List of strings | optional | <code>[]</code> |
 | <a id="py_library_rule-resolutions"></a>resolutions |  FIXME   | <a href="https://bazel.build/rules/lib/dict">Dictionary: Label -> String</a> | optional | <code>{}</code> |
 | <a id="py_library_rule-srcs"></a>srcs |  Python source files.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
-| <a id="py_library_rule-virtual"></a>virtual |  -   | List of strings | optional | <code>[]</code> |
+| <a id="py_library_rule-virtual_deps"></a>virtual_deps |  -   | List of strings | optional | <code>[]</code> |
 
 
 <a id="py_test_rule"></a>
