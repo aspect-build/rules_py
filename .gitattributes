@@ -1,1 +1,6 @@
 docs/*.md linguist-generated=true
+
+# Configuration for 'git archive'
+# see https://git-scm.com/docs/git-archive/2.40.0#ATTRIBUTES
+# Don't include examples in the distribution artifact, just to reduce size
+examples export-ignore
