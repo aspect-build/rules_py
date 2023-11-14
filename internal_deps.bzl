@@ -86,9 +86,9 @@ def rules_py_internal_deps():
 
     http_archive(
         name = "rules_python_gazelle_plugin",
-        sha256 = "36362b4d54fcb17342f9071e4c38d63ce83e2e57d7d5599ebdde4670b9760664",
-        strip_prefix = "rules_python-0.18.0/gazelle",
-        url = "https://github.com/bazelbuild/rules_python/releases/download/0.18.0/rules_python-0.18.0.tar.gz",
+        sha256 = "9d04041ac92a0985e344235f5d946f71ac543f1b1565f2cdbc9a2aaee8adf55b",
+        strip_prefix = "rules_python-0.26.0/gazelle",
+        url = "https://github.com/bazelbuild/rules_python/releases/download/0.26.0/rules_python-0.26.0.tar.gz",
     )
 
     http_file(
