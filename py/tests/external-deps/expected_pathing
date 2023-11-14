@@ -1,7 +1,7 @@
 Python: (pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles/pathing.venv/bin/python
-version: 3.9.17 (main, REDACTED) 
-[Clang 16.0.3 ]
-version info: sys.version_info(major=3, minor=9, micro=17, releaselevel='final', serial=0)
+version: 3.9.18 (main, REDACTED) 
+[Clang 17.0.1 ]
+version info: sys.version_info(major=3, minor=9, micro=18, releaselevel='final', serial=0)
 cwd: (pwd)
 site-packages folder: ['(pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles/pathing.venv/lib/python3.9/site-packages']
 
@@ -11,8 +11,8 @@ sys path:
 (py_toolchain)/lib/python3.9/lib-dynload
 (pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles/pathing.venv/lib/python3.9/site-packages
 (pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles
-(pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles/aspect_rules_py
 (pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles/aspect_rules_py/py/tests/external-deps
+(pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles/aspect_rules_py
 
 Entrypoint Path: (pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles/aspect_rules_py/py/tests/external-deps/pathing.py
 

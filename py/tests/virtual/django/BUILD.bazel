@@ -1,0 +1,33 @@
+load("//py:defs.bzl", "py_binary", "py_library", "resolutions")
+load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirements")
+load("@django//:requirements.bzl", django_resolutions = "all_whl_requirements_by_package")
+
+compile_pip_requirements(
+    name = "requirements",
+    requirements_in = "requirements.in",
+    requirements_txt = "requirements.txt",
+)
+
+py_library(
+    name = "proj",
+    srcs = glob(["proj/**/*.py"]),
+    imports = ["./proj"],
+    # Depend on django, but not at a particular version, any binary/test rules that
+    # depend on this (directly or transitively) will need to resolve it to a version
+    # of their choosing.
+    virtual_deps = ["django"],
+)
+
+py_binary(
+    name = "manage",
+    srcs = [
+        "proj/manage.py",
+    ],
+    resolutions = resolutions(
+        # Use the wheels that the pip_parse rule defined as defaults...
+        django_resolutions,
+        # ...but replace the resolution of django with a specific wheel fetched by http_file.
+        {"django": "@django_4_2_4//file"},
+    ),
+    deps = [":proj"],
+)
