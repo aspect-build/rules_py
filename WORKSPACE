@@ -11,6 +11,13 @@ load("//py:repositories.bzl", "rules_py_dependencies")
 # Fetch dependencies which users need as well
 rules_py_dependencies()
 
+load("//pip:lockfile.bzl", "pip_translate_lock")
+
+pip_translate_lock(
+    name = "pip",
+    pdm_lock = "//:pdm.lock",
+)
+
 # Load the Python toolchain for rules_docker
 register_toolchains("//:container_py_toolchain")
 
