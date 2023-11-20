@@ -91,7 +91,7 @@ mkdir "${VBIN_LOCATION}" 2>/dev/null || true
 ln -snf ${VENV_SOURCE}/bin/* "${VBIN_LOCATION}/"
 ln -snf "${PYTHON_LOCATION}" "${VBIN_LOCATION}/python"
 
-echo "home = ${VBIN_LOCATION}" > "${VENV_LOCATION}/pyvenv.cfg"
+echo "home = ${PYTHON_BIN_DIR}" > "${VENV_LOCATION}/pyvenv.cfg"
 echo "include-system-site-packages = false" >> "${VENV_LOCATION}/pyvenv.cfg"
 echo "version = ${PYTHON_VERSION}" >> "${VENV_LOCATION}/pyvenv.cfg"
 
