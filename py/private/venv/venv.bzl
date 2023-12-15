@@ -47,6 +47,7 @@ def _make_venv(ctx, name = None, strip_pth_workspace_root = None):
             fail("Conflict in virtual dependency resolutions while resolving '{}'. Dependency is resolved by {} and {}".format(resolution.virtual, str(resolution.target), str(conflicts_with)))
         seen.update([[resolution.virtual, i]])
         wheels.append(resolution.target[DefaultInfo].files)
+        wheels_depsets.append(resolution.target[DefaultInfo].default_runfiles.files)
 
         if PyWheelInfo in resolution.target:
             wheels.append(resolution.target[PyWheelInfo].files)
