@@ -20,11 +20,17 @@ py_library(
 
 py_binary(
     name = "manage",
-    srcs = [
-        "proj/manage.py",
-    ],
+    srcs = ["proj/manage.py"],
+    # Resolve django to the "standard" one from our requirements.txt
+    resolutions = {"django": "@django//django:whl"},
+    deps = [":proj"],
+)
+
+py_binary(
+    name = "manage.override_django",
+    srcs = ["proj/manage.py"],
     resolutions = resolutions(
-        # Use the wheels that the pip_parse rule defined as defaults...
+        # Install ALL the wheels that the pip_parse rule defined as defaults...
         django_resolutions,
         # ...but replace the resolution of django with a specific wheel fetched by http_file.
         {"django": "@django_4_2_4//file"},
