@@ -139,7 +139,7 @@ if [ "$USE_MANIFEST_PATH" = true ]; then
   ln -snf "${VBIN_LOCATION}/python" "${VBIN_LOCATION}/python${PYTHON_SYMLINK_VERSION_SUFFIX}"
 
   PYTHON_VERSION=$(${PYTHON} -c 'import platform; print(platform.python_version())')
-  echo "home = ${VBIN_LOCATION}" > "${PYVENV_CFG}"
+  echo "home = ${PYTHON_BIN_DIR}" > "${PYVENV_CFG}"
   echo "include-system-site-packages = false" >> "${PYVENV_CFG}"
   echo "version = ${PYTHON_VERSION}" >> "${PYVENV_CFG}"
 
