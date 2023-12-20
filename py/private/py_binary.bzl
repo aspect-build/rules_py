@@ -1,22 +1,52 @@
-"Implementation for the py_binary and py_test rules."
+"""Implementation for the py_binary and py_test rules."""
 
 load("@aspect_bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
 load("@aspect_bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
-load("//py/private:providers.bzl", "PyWheelInfo")
-load("//py/private:py_wheel.bzl", py_wheel = "py_wheel_lib")
-load("//py/private:utils.bzl", "PY_TOOLCHAIN", "SH_TOOLCHAIN", "dict_to_exports", "resolve_toolchain")
-load("//py/private/venv:venv.bzl", _py_venv = "py_venv_utils")
+load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
+load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "SH_TOOLCHAIN", "VENV_TOOLCHAIN")
 
-def _py_binary_rule_imp(ctx):
-    bash_bin = ctx.toolchains[SH_TOOLCHAIN].path
-    interpreter = resolve_toolchain(ctx)
-    main = ctx.file.main
+def _dict_to_exports(env):
+    return [
+        "export %s=\"%s\"" % (k, v)
+        for (k, v) in env.items()
+    ]
 
-    venv_info = _py_venv.make_venv(
-        ctx,
-        name = "%s.venv" % ctx.attr.name,
-        strip_pth_workspace_root = False,
+def _py_binary_rule_impl(ctx):
+    sh_toolchain = ctx.toolchains[SH_TOOLCHAIN]
+    venv_toolchain = ctx.toolchains[VENV_TOOLCHAIN]
+    py_toolchain = _py_semantics.resolve_toolchain(ctx)
+
+    # Check for duplicate virtual dependency names. Those that map to the same resolution target would have been merged by the depset for us.
+    virtual_resolution = _py_library.resolve_virtuals(ctx)
+    imports_depset = _py_library.make_imports_depset(ctx, extra_imports_depsets = virtual_resolution.imports)
+
+    pth_lines = ctx.actions.args()
+    pth_lines.use_param_file("%s", use_always = True)
+    pth_lines.set_param_file_format("multiline")
+
+    # The venv is created at the root in the runfiles tree, in 'VENV_NAME', the full path is "${RUNFILES_DIR}/${VENV_NAME}",
+    # but depending on if we are running as the top level binary or a tool, then $RUNFILES_DIR may be absolute or relative.
+    # Paths in the .pth are relative to the site-packages folder where they reside.
+    # All "import" paths from `py_library` start with the workspace name, so we need to go back up the tree for
+    # each segment from site-packages in the venv to the root of the runfiles tree.
+    # Five .. will get us back to the root of the venv:
+    # {name}.runfiles/.{name}.venv/lib/python{version}/site-packages/first_party.pth
+    escape = "/".join(([".."] * 4))
+
+    # A few imports rely on being able to reference the root of the runfiles tree as a Python module,
+    # the common case here being the @rules_python//python/runfiles target that adds the runfiles helper,
+    # which ends up in bazel_tools/tools/python/runfiles/runfiles.py, but there are no imports attrs that hint we
+    # should be adding the root to the PYTHONPATH
+    # Maybe in the future we can opt out of this?
+    pth_lines.add(escape)
+
+    pth_lines.add_all(imports_depset, format_each = "{}/%s".format(escape))
+
+    site_packages_pth_file = ctx.actions.declare_file("{}.venv.pth".format(ctx.attr.name))
+    ctx.actions.write(
+        output = site_packages_pth_file,
+        content = pth_lines,
     )
 
     env = dict({
@@ -32,26 +62,29 @@ def _py_binary_rule_imp(ctx):
             attribute_name = "env",
         )
 
-    python_interpreter_path = interpreter.python.path if interpreter.uses_interpreter_path else to_rlocation_path(ctx, interpreter.python)
-
-    common_substitutions = {
-        "{{BASH_BIN}}": bash_bin,
-        "{{BASH_RLOCATION_FN}}": BASH_RLOCATION_FUNCTION,
-        "{{BINARY_ENTRY_POINT}}": to_rlocation_path(ctx, main),
-        "{{INTERPRETER_FLAGS}}": " ".join(interpreter.flags),
-        "{{PYTHON_INTERPRETER_PATH}}": python_interpreter_path,
-        "{{RUN_BINARY_ENTRY_POINT}}": "true",
-        "{{VENV_SOURCE}}": to_rlocation_path(ctx, venv_info.venv_directory),
-        "{{VENV_NAME}}": "%s.venv" % ctx.attr.name,
-        "{{PYTHON_ENV}}": "\n".join(dict_to_exports(env)).strip(),
-        "{{PYTHON_ENV_UNSET}}": "\n".join(["unset %s" % k for k in env.keys()]).strip(),
-    }
-
-    entry = ctx.actions.declare_file(ctx.attr.name)
+    executable_launcher = ctx.actions.declare_file(ctx.attr.name)
     ctx.actions.expand_template(
-        template = ctx.file._entry,
-        output = entry,
-        substitutions = common_substitutions,
+        template = ctx.file._run_tmpl,
+        output = executable_launcher,
+        substitutions = {
+            "{{SHELL_BIN}}": sh_toolchain.path,
+            "{{BASH_RLOCATION_FN}}": BASH_RLOCATION_FUNCTION,
+            "{{INTERPRETER_FLAGS}}": " ".join(py_toolchain.flags),
+            "{{VENV_TOOL}}": to_rlocation_path(ctx, venv_toolchain.bin),
+            "{{ARG_PYTHON}}": to_rlocation_path(ctx, py_toolchain.python),
+            "{{ARG_VENV_NAME}}": ".{}.venv".format(ctx.attr.name),
+            "{{ARG_VENV_PYTHON_VERSION}}": "{}.{}.{}".format(
+                py_toolchain.toolchain.interpreter_version_info.major,
+                py_toolchain.toolchain.interpreter_version_info.minor,
+                py_toolchain.toolchain.interpreter_version_info.micro,
+            ),
+            "{{ARG_PTH_FILE}}": to_rlocation_path(ctx, site_packages_pth_file),
+            "{{ENTRYPOINT}}": to_rlocation_path(ctx, ctx.file.main),
+            "{{PYTHON_ENV}}": "\n".join(_dict_to_exports(env)).strip(),
+            "{{EXEC_PYTHON_BIN}}": "python{}".format(
+                py_toolchain.toolchain.interpreter_version_info.major,
+            ),
+        },
         is_executable = True,
     )
 
@@ -60,42 +93,40 @@ def _py_binary_rule_imp(ctx):
     runfiles = _py_library.make_merged_runfiles(
         ctx,
         extra_depsets = [
-            venv_info.venv_creation_depset,
-            interpreter.files,
+            py_toolchain.files,
             srcs_depset,
-        ],
+        ] + virtual_resolution.srcs + virtual_resolution.runfiles,
         extra_runfiles = [
-            venv_info.venv_directory,
+            site_packages_pth_file,
         ] + ctx.files._runfiles_lib,
         extra_runfiles_depsets = [
-            target[PyWheelInfo].default_runfiles
-            for target in ctx.attr.deps
-            if PyWheelInfo in target
+            venv_toolchain.default_info.default_runfiles,
         ],
     )
 
-    imports = _py_library.make_imports_depset(ctx)
     instrumented_files_info = _py_library.make_instrumented_files_info(
         ctx,
         extra_source_attributes = ["main"],
     )
-    py_wheel_info = py_wheel.make_py_wheel_info(ctx, ctx.attr.deps)
 
     return [
         DefaultInfo(
-            files = depset([entry, main]),
+            files = depset([
+                executable_launcher,
+                ctx.file.main,
+                site_packages_pth_file,
+            ]),
+            executable = executable_launcher,
             runfiles = runfiles,
-            executable = entry,
         ),
         PyInfo(
-            imports = imports,
+            imports = imports_depset,
             transitive_sources = srcs_depset,
             has_py2_only_sources = False,
             has_py3_only_sources = True,
             uses_shared_libraries = False,
         ),
         instrumented_files_info,
-        py_wheel_info,
     ]
 
 _attrs = dict({
@@ -108,24 +139,24 @@ _attrs = dict({
         allow_single_file = True,
         mandatory = True,
     ),
-    "_entry": attr.label(
+    "_run_tmpl": attr.label(
         allow_single_file = True,
-        default = "//py/private:entry.tmpl.sh",
+        default = "//py/private:run.tmpl.sh",
     ),
     "_runfiles_lib": attr.label(
         default = "@bazel_tools//tools/bash/runfiles",
     ),
 })
 
-_attrs.update(**_py_venv.attrs)
 _attrs.update(**_py_library.attrs)
 
 py_base = struct(
-    implementation = _py_binary_rule_imp,
+    implementation = _py_binary_rule_impl,
     attrs = _attrs,
     toolchains = [
         SH_TOOLCHAIN,
         PY_TOOLCHAIN,
+        VENV_TOOLCHAIN,
     ],
 )
 

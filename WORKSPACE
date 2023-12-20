@@ -24,6 +24,12 @@ python_register_toolchains(
 py_repositories()
 
 ############################################
+# Aspect bazel-lib
+load("@aspect_bazel_lib//lib:repositories.bzl", "register_coreutils_toolchains")
+
+register_coreutils_toolchains()
+
+############################################
 # Aspect gcc toolchain
 load("@aspect_gcc_toolchain//toolchain:repositories.bzl", "gcc_toolchain_dependencies")
 
@@ -97,3 +103,38 @@ load(
 )
 
 _py_image_repos()
+
+############################################
+# rules_rust dependencies for building tools
+load("@rules_rust//rust:repositories.bzl", "rules_rust_dependencies", "rust_register_toolchains")
+
+rules_rust_dependencies()
+
+rust_register_toolchains(
+    edition = "2021",
+    versions = [
+        "1.74.1",
+    ],
+)
+
+load("@rules_rust//crate_universe:repositories.bzl", "crate_universe_dependencies")
+
+crate_universe_dependencies()
+
+load("@rules_rust//crate_universe:defs.bzl", "crates_repository")
+
+crates_repository(
+    name = "crate_index",
+    cargo_lockfile = "//:Cargo.lock",
+    lockfile = "//:Cargo.Bazel.lock",
+    manifests = [
+        "//:Cargo.toml",
+        "//py/tools/py:Cargo.toml",
+        "//py/tools/venv_bin:Cargo.toml",
+        "//py/tools/unpack_bin:Cargo.toml",
+    ],
+)
+
+load("@crate_index//:defs.bzl", "crate_repositories")
+
+crate_repositories()

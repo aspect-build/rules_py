@@ -1,0 +1,21 @@
+[workspace]
+resolver = "2"
+members = [
+    "py/tools/py",
+    "py/tools/venv_bin",
+    "py/tools/unpack_bin",
+]
+
+
+[workspace.package]
+version = "0.1.0"
+categories = ["development-tools"]
+homepage = "https://github.com/aspect-build/rules_py"
+repository = "https://github.com/aspect-build/rules_py"
+license = "Apache 2"
+edition = "2021"
+readme = "README.md"
+rust-version = "1.74.1"
+
+[profile.release]
+strip = true

@@ -23,7 +23,10 @@ bzl_library(
         "//py/private:py_executable",
         "//py/private:py_library",
         "//py/private:py_pytest_main",
+        "//py/private:py_unpacked_wheel",
+        "//py/private:py_venv",
         "//py/private:py_wheel",
+        "//py/private:virtual",
         "@aspect_bazel_lib//lib:utils",
     ],
 )

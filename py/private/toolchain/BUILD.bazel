@@ -9,5 +9,17 @@ bzl_library(
     name = "autodetecting",
     srcs = ["autodetecting.bzl"],
     visibility = ["//py:__subpackages__"],
-    deps = ["//py/private:utils"],
+    deps = ["//py/private:py_semantics"],
+)
+
+bzl_library(
+    name = "tools",
+    srcs = ["tools.bzl"],
+    visibility = ["//py:__subpackages__"],
+)
+
+bzl_library(
+    name = "types",
+    srcs = ["types.bzl"],
+    visibility = ["//py:__subpackages__"],
 )

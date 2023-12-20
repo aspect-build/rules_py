@@ -1,0 +1,21 @@
+[package]
+name = "unpack_bin"
+version.workspace = true
+categories.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+edition.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[[bin]]
+name = "unpack"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4.1.11", features = ["derive"] }
+miette = { version = "5.10", features = ["fancy"] }
+py = { path = "../py" }
