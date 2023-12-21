@@ -26,8 +26,10 @@ genrule(
     cmd = "|".join([
         "$(execpath pathing)",
         """sed "s#$$(pwd)#(pwd)#" """,
-        "sed 's#^.*execroot/aspect_rules_py/external/python_toolchain_%s#(py_toolchain)#'" % host_platform,
-        "sed 's#bazel-out/[_a-z0-9-]*-exec-[A-Z0-9]*/bin/#bazel-out/[exec]/bin/#'",
+        # scrub various platform-specific paths, so our expected_pathing file is portable
+        "sed 's#^.*execroot/_main/external/rules_python~[0-9.]*~python~python_3_9_%s#(py_toolchain)#'" % host_platform,
+        "sed 's#^/tmp/bazel-source-roots/[0-9]#(py_toolchain)#'",
+        "sed 's#bazel-out/[_a-z0-9-]*-exec-[A-Za-f0-9-]*/bin/#bazel-out/[exec]/bin/#'",
         "sed 's#(main, .*)#(main, REDACTED)#'",
     ]) + "> $@",
     tools = ["pathing"],
