@@ -19,6 +19,7 @@ bzl_library(
     srcs = ["defs.bzl"],
     visibility = ["//visibility:public"],
     deps = [
+        "//py/private:mypy",
         "//py/private:py_binary",
         "//py/private:py_library",
         "//py/private:py_pytest_main",

@@ -1,4 +1,5 @@
 load("@aspect_rules_py//py:defs.bzl", "py_library")
+load("@pypi//:requirements.bzl", "requirement")
 
 py_library(
     name = "mysite",
@@ -12,5 +13,6 @@ py_library(
     visibility = ["//examples/django:__pkg__"],
     deps = [
         "@pypi_django//:wheel",
+        requirement("django-types"),
     ],
 )

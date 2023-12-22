@@ -66,7 +66,7 @@ def _can_resolve_path_in_workspace_test_impl(ctx):
     # Transitive imports are included in depset
     fake_ctx = _ctx_with_imports([".."], [ctx.attr.import_dep])
     imports = py_library.make_imports_depset(fake_ctx).to_list()
-    asserts.equals(env, "aspect_rules_py/py/tests/import-pathing/baz", imports[0])
+    asserts.equals(env, "_main/py/tests/import-pathing/baz", imports[0])
     asserts.equals(env, "aspect_rules_py/foo", imports[1])
 
     return unittest.end(env)

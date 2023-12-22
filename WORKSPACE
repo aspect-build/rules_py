@@ -1,5 +1,4 @@
-# Declare the local Bazel workspace.
-workspace(name = "aspect_rules_py")
+# Marker that this folder is the root of a Bazel workspace.
 
 load(":internal_deps.bzl", "rules_py_internal_deps")
 

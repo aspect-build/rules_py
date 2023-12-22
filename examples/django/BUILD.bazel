@@ -1,4 +1,5 @@
 load("@aspect_rules_py//py:defs.bzl", "py_binary")
+load("@pypi//:requirements.bzl", "requirement")
 
 py_binary(
     name = "django",
@@ -6,5 +7,6 @@ py_binary(
     deps = [
         "//examples/django/mysite",
         "@pypi_django//:wheel",
+        requirement("django-types"),
     ],
 )
