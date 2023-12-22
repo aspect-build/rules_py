@@ -1,11 +1,13 @@
 load("//py:defs.bzl", "py_binary", "py_library", "resolutions")
 load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirements")
 load("@django//:requirements.bzl", django_resolutions = "all_whl_requirements_by_package")
+load("@pypi//:requirements.bzl", "requirement")
 
 compile_pip_requirements(
     name = "requirements",
     requirements_in = "requirements.in",
     requirements_txt = "requirements.txt",
+    tags = ["skip-typecheck"],
 )
 
 py_library(
@@ -16,6 +18,7 @@ py_library(
     # depend on this (directly or transitively) will need to resolve it to a version
     # of their choosing.
     virtual_deps = ["django"],
+    deps = [requirement("django-types")],
 )
 
 py_binary(
@@ -23,7 +26,10 @@ py_binary(
     srcs = ["proj/manage.py"],
     # Resolve django to the "standard" one from our requirements.txt
     resolutions = {"django": "@django//django:whl"},
-    deps = [":proj"],
+    deps = [
+        ":proj",
+        requirement("django-types"),
+    ],
 )
 
 py_binary(
@@ -35,5 +41,8 @@ py_binary(
         # ...but replace the resolution of django with a specific wheel fetched by http_file.
         {"django": "@django_4_2_4//file"},
     ),
-    deps = [":proj"],
+    deps = [
+        ":proj",
+        requirement("django-types"),
+    ],
 )

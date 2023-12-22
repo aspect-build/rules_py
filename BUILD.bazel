@@ -6,6 +6,8 @@ load("@rules_python_gazelle_plugin//modules_mapping:def.bzl", "modules_mapping")
 load("@rules_python//python:defs.bzl", "py_runtime", "py_runtime_pair")
 load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirements")
 
+exports_files(["mypy.ini"])
+
 # gazelle:exclude internal_python_deps.bzl
 # gazelle:exclude internal_deps.bzl
 # gazelle:exclude py/tests/
@@ -37,6 +39,7 @@ compile_pip_requirements(
     extra_args = ["--allow-unsafe"],
     requirements_in = "requirements.in",
     requirements_txt = "requirements.txt",
+    tags = ["skip-typecheck"],
 )
 
 modules_mapping(

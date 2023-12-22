@@ -1,6 +1,7 @@
 load("//py:defs.bzl", "py_binary", "py_library", "py_test")
 load("@python_toolchain//:defs.bzl", "host_platform")
 load("@aspect_bazel_lib//lib:write_source_files.bzl", "write_source_files")
+load("@pypi//:requirements.bzl", "requirement")
 load("//py/tests/external-deps/custom-macro:macro.bzl", "click_cli_binary")
 
 py_library(
@@ -8,6 +9,7 @@ py_library(
     srcs = ["lib.py"],
     deps = [
         "@pypi_colorama//:wheel",
+        requirement("types-colorama"),
     ],
 )
 
@@ -17,6 +19,9 @@ py_binary(
     deps = [
         ":lib",
         "@pypi_django//:wheel",
+        requirement("django-types"),
+        # TODO(alex): shouldn't need to repeat this, as :lib depends on it
+        requirement("types-colorama"),
     ],
 )
 
@@ -74,6 +79,7 @@ write_source_files(
 py_test(
     name = "test_can_import_runfiles_helper",
     srcs = ["test_can_import_runfiles_helper.py"],
+    tags = ["skip-typecheck"],
     deps = [
         "@bazel_tools//tools/python/runfiles",
     ],

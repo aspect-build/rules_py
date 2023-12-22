@@ -1,0 +1,18 @@
+load(":mypy_tests.bzl", "mypy_test_suite")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
+
+write_file(
+    name = "mypy_fake_sh",
+    out = "mypy_fake.sh",
+    content = [
+        "#!/usr/bin/env bash",
+        "echo SUCCESS",
+    ],
+)
+
+sh_binary(
+    name = "mypy_fake",
+    srcs = ["mypy_fake.sh"],
+)
+
+mypy_test_suite(name = "mypy_test_suite")

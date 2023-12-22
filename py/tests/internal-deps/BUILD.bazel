@@ -5,6 +5,7 @@ rules_py_py_library(
     srcs = [
         "__init__.py",
     ],
+    tags = ["skip-typecheck"],
 )
 
 rules_py_py_library(
@@ -12,6 +13,7 @@ rules_py_py_library(
     srcs = [
         "sub.py",
     ],
+    tags = ["skip-typecheck"],
     deps = [
         ":init",
     ],
@@ -22,6 +24,7 @@ py_library(
     srcs = [
         "pi.py",
     ],
+    tags = ["skip-typecheck"],
     deps = [
         ":init",
     ],
@@ -32,6 +35,7 @@ py_binary(
     srcs = [
         "__main__.py",
     ],
+    tags = ["skip-typecheck"],
     deps = [
         ":pi",
         ":sub",
@@ -44,6 +48,7 @@ py_test(
     srcs = [
         "__main__.py",
     ],
+    tags = ["skip-typecheck"],
     deps = [
         ":pi",
         ":sub",

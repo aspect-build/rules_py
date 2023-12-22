@@ -5,12 +5,14 @@ load("//py/private:py_library.bzl", _py_library = "py_library")
 load("//py/private:py_pytest_main.bzl", _py_pytest_main = "py_pytest_main")
 load("//py/private:py_wheel.bzl", "py_wheel_lib")
 load("//py/private/venv:venv.bzl", _py_venv = "py_venv")
+load("//py/private:mypy.bzl", _mypy_aspect = "mypy_aspect")
 
 py_pytest_main = _py_pytest_main
 py_venv = _py_venv
 py_binary_rule = _py_binary
 py_test_rule = _py_test
 py_library_rule = _py_library
+mypy_aspect = _mypy_aspect
 
 _a_struct_type = type(struct())
 _a_string_type = type("")

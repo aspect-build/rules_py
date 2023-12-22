@@ -160,6 +160,30 @@ Returns a function that assists in making dependency references when using virtu
 | <a id="make_dep_helper-prefix"></a>prefix |  The prefix to attach to all dependency labels, representing the external repository that the external dependency is defined in.   |  <code>"pypi"</code> |
 
 
+<a id="mypy_aspect"></a>
+
+## mypy_aspect
+
+<pre>
+mypy_aspect(<a href="#mypy_aspect-binary">binary</a>, <a href="#mypy_aspect-configs">configs</a>)
+</pre>
+
+A factory function to create a linter aspect.
+
+Attrs:
+    binary: a mypy executable
+    configs: mypy config file(s) such as mypy.ini or pyproject.toml, see
+        https://mypy.readthedocs.io/en/stable/config_file.html#config-file
+
+**PARAMETERS**
+
+
+| Name  | Description | Default Value |
+| :------------- | :------------- | :------------- |
+| <a id="mypy_aspect-binary"></a>binary |  <p align="center"> - </p>   |  none |
+| <a id="mypy_aspect-configs"></a>configs |  <p align="center"> - </p>   |  none |
+
+
 <a id="py_binary"></a>
 
 ## py_binary

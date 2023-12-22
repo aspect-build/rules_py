@@ -4,6 +4,10 @@
 
 test --test_output=errors
 
+# Add mypy type-check validation actions to py_library targets.
+# Disable for a particular build with --norun_validations
+build --aspects=//tools:lint.bzl%mypy
+
 # Define value used by tests
 build --define=SOME_VAR=SOME_VALUE
 

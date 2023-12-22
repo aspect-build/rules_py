@@ -59,6 +59,13 @@ bzl_library(
 )
 
 bzl_library(
+    name = "mypy",
+    srcs = ["mypy.bzl"],
+    visibility = ["//py:__subpackages__"],
+    deps = ["@bazel_skylib//lib:paths"],
+)
+
+bzl_library(
     name = "providers",
     srcs = ["providers.bzl"],
     visibility = ["//py:__subpackages__"],
