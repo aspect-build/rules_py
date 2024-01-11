@@ -4,6 +4,9 @@
 
 test --test_output=errors
 
+# TODO(alex): enable
+common --noenable_bzlmod
+
 # Define value used by tests
 build --define=SOME_VAR=SOME_VALUE
 
