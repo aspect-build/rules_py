@@ -1,5 +1,6 @@
 "Public API re-exports"
 
+load("@aspect_bazel_lib//lib:utils.bzl", "to_label")
 load("//py/private:py_binary.bzl", _py_binary = "py_binary", _py_test = "py_test")
 load("//py/private:py_library.bzl", _py_library = "py_library")
 load("//py/private:py_pytest_main.bzl", _py_pytest_main = "py_pytest_main")
@@ -37,6 +38,32 @@ def _py_binary_or_test(name, rule, srcs, main, imports, deps = [], resolutions =
         tags = ["manual"],
     )
 
+def _find_main_impl(ctx):
+    found = None
+    for s in ctx.files.srcs:
+        if s.path.endswith(ctx.attr.main):
+            found = s
+    if not found:
+        fail("Could not find a main named {} within src files {}".format(ctx.attr.main, ctx.files.srcs))
+    return DefaultInfo(files = depset([found]))
+
+find_main = rule(
+    doc = """rules_python compatibility shim: find a main file with the given name among the srcs.
+
+    From rules_python:
+    https://github.com/bazelbuild/rules_python/blob/4fe0db3cdcc063d5bdeab756e948640f3f16ae33/python/private/common/py_executable.bzl#L73
+    # TODO(b/203567235): In the Java impl, any file is allowed. While marked
+    # label, it is more treated as a string, and doesn't have to refer to
+    # anything that exists because it gets treated as suffix-search string
+    # over `srcs`.
+    """,
+    implementation = _find_main_impl,
+    attrs = {
+        "main": attr.string(),
+        "srcs": attr.label_list(allow_files = True),
+    },
+)
+
 def py_binary(name, srcs = [], main = None, imports = ["."], resolutions = {}, **kwargs):
     """Wrapper macro for [`py_binary_rule`](#py_binary_rule), setting a default for imports.
 
@@ -46,7 +73,8 @@ def py_binary(name, srcs = [], main = None, imports = ["."], resolutions = {}, *
     Args:
         name: name of the rule
         srcs: python source files
-        main: the entry point. If absent, then the first entry in srcs is used.
+        main: the entry point. If absent, then the first entry in srcs is used. If srcs is non-empty,
+            then this is treated as a suffix of a file that should appear among the srcs.
         imports: List of import paths to add for this binary.
         resolutions: FIXME
         **kwargs: additional named parameters to the py_binary_rule
@@ -58,6 +86,16 @@ def py_binary(name, srcs = [], main = None, imports = ["."], resolutions = {}, *
     # For a clearer DX when updating resolutions, the resolutions dict is "string" -> "label",
     # where the rule attribute is a label-typed-dict, so reverse them here.
     resolutions = {v: k for k, v in resolutions.items()}
+
+    # Compatibility with rules_python, see docs on find_main
+    if main and str(to_label(main)) != "@" + main and srcs:
+        main_target = "_{}.find_main".format(name)
+        find_main(
+            name = main_target,
+            main = main,
+            srcs = srcs,
+        )
+        main = main_target
 
     for dep in deps:
         if type(dep) == _a_struct_type:
