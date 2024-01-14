@@ -2,34 +2,6 @@
 
 Public API re-exports
 
-<a id="find_main"></a>
-
-## find_main
-
-<pre>
-find_main(<a href="#find_main-name">name</a>, <a href="#find_main-main">main</a>, <a href="#find_main-srcs">srcs</a>)
-</pre>
-
-rules_python compatibility shim: find a main file with the given name among the srcs.
-
-    From rules_python:
-    https://github.com/bazelbuild/rules_python/blob/4fe0db3cdcc063d5bdeab756e948640f3f16ae33/python/private/common/py_executable.bzl#L73
-    # TODO(b/203567235): In the Java impl, any file is allowed. While marked
-    # label, it is more treated as a string, and doesn't have to refer to
-    # anything that exists because it gets treated as suffix-search string
-    # over `srcs`.
-    
-
-**ATTRIBUTES**
-
-
-| Name  | Description | Type | Mandatory | Default |
-| :------------- | :------------- | :------------- | :------------- | :------------- |
-| <a id="find_main-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
-| <a id="find_main-main"></a>main |  -   | String | optional | <code>""</code> |
-| <a id="find_main-srcs"></a>srcs |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
-
-
 <a id="py_binary_rule"></a>
 
 ## py_binary_rule

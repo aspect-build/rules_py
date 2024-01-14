@@ -65,6 +65,12 @@ bzl_library(
 )
 
 bzl_library(
+    name = "py_executable",
+    srcs = ["py_executable.bzl"],
+    visibility = ["//py:__subpackages__"],
+)
+
+bzl_library(
     name = "utils",
     srcs = ["utils.bzl"],
     visibility = ["//py:__subpackages__"],
