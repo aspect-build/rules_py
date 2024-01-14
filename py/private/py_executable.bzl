@@ -36,13 +36,10 @@ def _determine_main(ctx):
 
     main_files = [src for src in ctx.files.srcs if _path_endswith(src.short_path, proposed_main)]
 
-    ###
     # Deviation from logic in rules_python: rules_py is a bit more permissive.
-    # Allow a srcs of length one to determine the main, if the target name didn't
+    # Allow a srcs of length one to determine the main, if the target name didn't match anything.
     if not main_files and len(ctx.files.srcs) == 1:
         main_files = ctx.files.srcs
-
-    ### End deviations
 
     if not main_files:
         if ctx.attr.main:
@@ -70,7 +67,8 @@ def _determine_main(ctx):
 
 # Adapts the function above, which we copied from rules_python, to be a standalone rule so we can
 # use it from a macro.
-# (We want our underlying py_binary rule to be simple: 'main' is a mandatory label)
+# This is because we want our underlying py_binary rule to be simple: 'main' is a mandatory label.
+# The default output of this rule will be used as that label.
 def _determine_main_impl(ctx):
     return DefaultInfo(files = depset([_determine_main(ctx)]))
 
@@ -89,7 +87,7 @@ determine_main = rule(
     implementation = _determine_main_impl,
     attrs = {
         "target_name": attr.string(mandatory = True, doc = "The name of the py_binary or py_test we are finding a main for"),
-        "main": attr.string("Hint the user supplied as the main"),
+        "main": attr.string(doc = "Hint the user supplied as the main"),
         "srcs": attr.label_list(allow_files = True),
     },
 )

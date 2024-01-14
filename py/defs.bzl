@@ -18,7 +18,7 @@ _a_struct_type = type(struct())
 _a_string_type = type("")
 
 def _py_binary_or_test(name, rule, srcs, main, imports, deps = [], resolutions = {}, **kwargs):
-    # Compatibility with rules_python, see docs on find_main
+    # Compatibility with rules_python, see docs in py_executable.bzl
     main_target = "_{}.find_main".format(name)
     determine_main(
         name = main_target,
@@ -56,8 +56,10 @@ def py_binary(name, srcs = [], main = None, imports = ["."], resolutions = {}, *
     Args:
         name: name of the rule
         srcs: python source files
-        main: the entry point. If absent, then the first entry in srcs is used. If srcs is non-empty,
-            then this is treated as a suffix of a file that should appear among the srcs.
+        main: the entry point.
+            Like rules_python, this is treated as a suffix of a file that should appear among the srcs.
+            If absent, then "[name].py" is tried. As a final fallback, if the srcs has a single file,
+            that is used as the main.
         imports: List of import paths to add for this binary.
         resolutions: FIXME
         **kwargs: additional named parameters to the py_binary_rule
@@ -89,6 +91,8 @@ def py_binary(name, srcs = [], main = None, imports = ["."], resolutions = {}, *
 
 def py_test(name, main = None, srcs = [], imports = ["."], **kwargs):
     "Identical to py_binary, but produces a target that can be used with `bazel test`."
+
+    # Ensure that any other targets we write will be testonly like the py_test target
     kwargs["testonly"] = True
     _py_binary_or_test(name = name, rule = _py_test, srcs = srcs, main = main, imports = imports, **kwargs)
 
