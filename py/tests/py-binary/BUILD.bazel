@@ -1,8 +1,12 @@
+load("@aspect_bazel_lib//lib:testing.bzl", "assert_contains")
+load("@aspect_bazel_lib//lib:run_binary.bzl", "run_binary")
 load("//py:defs.bzl", "py_binary")
 
+#################
+# Case 1: main can be a string referencing some source file
 # Inline the syntax-sugar produced by the entry_point() helper in rules_python,
 # declaring our own binary that directly invokes a third-party entry point.
-# We happen to use pytest here only for convenience, as it's a program already in our requirements.in.
+# We happen to use pytest here only for convenience; it's a program already in our requirements.in.
 py_binary(
     name = "py_test_bin",
     srcs = ["@pypi_pytest//:rules_python_wheel_entry_point_pytest"],
@@ -16,4 +20,31 @@ genrule(
     outs = ["help.txt"],
     cmd = "$(execpath py_test_bin) --help >$@",
     tools = ["py_test_bin"],
+)
+
+assert_contains(
+    name = "test__run_py_test_help",
+    actual = "help.txt",
+    expected = "junit_logging (string):",
+)
+
+#################
+# Case 2:
+# The main property can be inferred from the target name.
+py_binary(
+    name = "main_from_name",
+    srcs = ["main_from_name.py"],
+)
+
+run_binary(
+    name = "run_main_from_name",
+    outs = ["main_from_name.out"],
+    args = ["$(execpath main_from_name.out)"],
+    tool = "main_from_name",
+)
+
+assert_contains(
+    name = "test__main_from_name",
+    actual = "main_from_name.out",
+    expected = "running main_from_name",
 )

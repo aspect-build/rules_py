@@ -25,15 +25,25 @@ def _determine_main(ctx):
         Artifact; the main file. If one can't be found, an error is raised.
     """
     if ctx.attr.main:
-        proposed_main = ctx.attr.main
+        # Deviation from rules_python: allow a leading colon, e.g. `main = ":my_target"`
+        proposed_main = ctx.attr.main.removeprefix(":")
         if not proposed_main.endswith(".py"):
             fail("main must end in '.py'")
     else:
-        if ctx.label.name.endswith(".py"):
+        if ctx.attr.target_name.endswith(".py"):
             fail("name must not end in '.py'")
-        proposed_main = ctx.label.name + ".py"
+        proposed_main = ctx.attr.target_name + ".py"
 
     main_files = [src for src in ctx.files.srcs if _path_endswith(src.short_path, proposed_main)]
+
+    ###
+    # Deviation from logic in rules_python: rules_py is a bit more permissive.
+    # Allow a srcs of length one to determine the main, if the target name didn't
+    if not main_files and len(ctx.files.srcs) == 1:
+        main_files = ctx.files.srcs
+
+    ### End deviations
+
     if not main_files:
         if ctx.attr.main:
             fail("could not find '{}' as specified by 'main' attribute".format(proposed_main))
@@ -73,10 +83,13 @@ determine_main = rule(
     # label, it is more treated as a string, and doesn't have to refer to
     # anything that exists because it gets treated as suffix-search string
     # over `srcs`.
+
+    We think these are lame semantics, however we want rules_py to be a drop-in replacement for rules_python.
     """,
     implementation = _determine_main_impl,
     attrs = {
-        "main": attr.string(mandatory = True),
+        "target_name": attr.string(mandatory = True, doc = "The name of the py_binary or py_test we are finding a main for"),
+        "main": attr.string("Hint the user supplied as the main"),
         "srcs": attr.label_list(allow_files = True),
     },
 )

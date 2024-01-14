@@ -24,5 +24,6 @@ bzl_library(
         "//py/private:py_library",
         "//py/private:py_pytest_main",
         "//py/private:py_wheel",
+        "@aspect_bazel_lib//lib:utils",
     ],
 )

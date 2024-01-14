@@ -1,5 +1,6 @@
 "Public API re-exports"
 
+load("@aspect_bazel_lib//lib:utils.bzl", "propagate_common_rule_attributes")
 load("//py/private:py_binary.bzl", _py_binary = "py_binary", _py_test = "py_test")
 load("//py/private:py_executable.bzl", "determine_main")
 load("//py/private:py_library.bzl", _py_library = "py_library")
@@ -17,12 +18,20 @@ _a_struct_type = type(struct())
 _a_string_type = type("")
 
 def _py_binary_or_test(name, rule, srcs, main, imports, deps = [], resolutions = {}, **kwargs):
-    if not main and not len(srcs):
-        fail("When 'main' is not specified, 'srcs' must be non-empty")
+    # Compatibility with rules_python, see docs on find_main
+    main_target = "_{}.find_main".format(name)
+    determine_main(
+        name = main_target,
+        target_name = name,
+        main = main,
+        srcs = srcs,
+        **propagate_common_rule_attributes(kwargs)
+    )
+
     rule(
         name = name,
         srcs = srcs,
-        main = main if main != None else srcs[0],
+        main = main_target,
         imports = imports,
         deps = deps,
         resolutions = resolutions,
@@ -61,16 +70,6 @@ def py_binary(name, srcs = [], main = None, imports = ["."], resolutions = {}, *
     # where the rule attribute is a label-typed-dict, so reverse them here.
     resolutions = {v: k for k, v in resolutions.items()}
 
-    # Compatibility with rules_python, see docs on find_main
-    if not main or main and srcs:
-        main_target = "_{}.find_main".format(name)
-        determine_main(
-            name = main_target,
-            main = main,
-            srcs = srcs,
-        )
-        main = main_target
-
     for dep in deps:
         if type(dep) == _a_struct_type:
             if dep.virtual:
@@ -90,6 +89,7 @@ def py_binary(name, srcs = [], main = None, imports = ["."], resolutions = {}, *
 
 def py_test(name, main = None, srcs = [], imports = ["."], **kwargs):
     "Identical to py_binary, but produces a target that can be used with `bazel test`."
+    kwargs["testonly"] = True
     _py_binary_or_test(name = name, rule = _py_test, srcs = srcs, main = main, imports = imports, **kwargs)
 
 py_wheel = rule(
