@@ -28,10 +28,10 @@ def _determine_main(ctx):
         # Deviation from rules_python: allow a leading colon, e.g. `main = ":my_target"`
         proposed_main = ctx.attr.main.removeprefix(":")
         if not proposed_main.endswith(".py"):
-            fail("main must end in '.py'")
+            fail("main {} must end in '.py'".format(proposed_main))
     else:
         if ctx.attr.target_name.endswith(".py"):
-            fail("name must not end in '.py'")
+            fail("name {} must not end in '.py'".format(ctx.attr.target_name))
         proposed_main = ctx.attr.target_name + ".py"
 
     main_files = [src for src in ctx.files.srcs if _path_endswith(src.short_path, proposed_main)]
