@@ -20,8 +20,10 @@ bzl_library(
     visibility = ["//visibility:public"],
     deps = [
         "//py/private:py_binary",
+        "//py/private:py_executable",
         "//py/private:py_library",
         "//py/private:py_pytest_main",
         "//py/private:py_wheel",
+        "@aspect_bazel_lib//lib:utils",
     ],
 )

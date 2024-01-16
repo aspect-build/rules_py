@@ -181,7 +181,7 @@ you can `bazel run [name].venv` to produce this, then use it in the editor.
 | :------------- | :------------- | :------------- |
 | <a id="py_binary-name"></a>name |  name of the rule   |  none |
 | <a id="py_binary-srcs"></a>srcs |  python source files   |  <code>[]</code> |
-| <a id="py_binary-main"></a>main |  the entry point. If absent, then the first entry in srcs is used.   |  <code>None</code> |
+| <a id="py_binary-main"></a>main |  the entry point. Like rules_python, this is treated as a suffix of a file that should appear among the srcs. If absent, then "[name].py" is tried. As a final fallback, if the srcs has a single file, that is used as the main.   |  <code>None</code> |
 | <a id="py_binary-imports"></a>imports |  List of import paths to add for this binary.   |  <code>["."]</code> |
 | <a id="py_binary-resolutions"></a>resolutions |  FIXME   |  <code>{}</code> |
 | <a id="py_binary-kwargs"></a>kwargs |  additional named parameters to the py_binary_rule   |  none |
