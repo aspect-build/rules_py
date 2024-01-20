@@ -16,6 +16,9 @@ register_toolchains("//:container_py_toolchain")
 
 load("@rules_python//python:repositories.bzl", "py_repositories", "python_register_toolchains")
 
+# TODO(alexeagle): this is redundant with the python.toolchain call in MODULE.bazel
+# Either figure out how the python_versions and pythons_hub repo are wired upstream, or just
+# clear out this file and use only bzlmod for everything python-related.
 python_register_toolchains(
     name = "python_toolchain",
     python_version = "3.9",

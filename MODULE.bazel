@@ -18,3 +18,7 @@ archive_override(
     integrity = "sha256-pYfEFNWqygSEElDYgJsuIeDYn9oll/rZB0GcR+6rirA=",
     strip_prefix = "rules_python-52381415be9d3618130f02a821aef50de1e3af09",
 )
+
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+
+python.toolchain(python_version = "3.9")
