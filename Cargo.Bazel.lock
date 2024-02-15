@@ -1,5 +1,5 @@
 {
-  "checksum": "37b8b1c702a7fd82366ee6878d2c1fe37bf863e9c52f08861da28840cd9515cf",
+  "checksum": "88c79aa26eaaa8fee21a307a77fefc5a2d7ea674532ab829d43caadf5d50075c",
   "crates": {
     "addr2line 0.21.0": {
       "name": "addr2line",
@@ -4636,6 +4636,58 @@
       },
       "license": "MIT"
     },
+    "getrandom 0.2.12": {
+      "name": "getrandom",
+      "version": "0.2.12",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/getrandom/0.2.12/download",
+          "sha256": "190092ea657667030ac6a35e305e62fc4dd69fd98ac98631e5d3a2b1575a12b5"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "getrandom",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "getrandom",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "cfg-if 1.0.0",
+              "target": "cfg_if"
+            }
+          ],
+          "selects": {
+            "cfg(target_os = \"wasi\")": [
+              {
+                "id": "wasi 0.11.0+wasi-snapshot-preview1",
+                "target": "wasi"
+              }
+            ],
+            "cfg(unix)": [
+              {
+                "id": "libc 0.2.153",
+                "target": "libc"
+              }
+            ]
+          }
+        },
+        "edition": "2018",
+        "version": "0.2.12"
+      },
+      "license": "MIT OR Apache-2.0"
+    },
     "gimli 0.28.1": {
       "name": "gimli",
       "version": "0.28.1",
@@ -5488,6 +5540,65 @@
         "version": "0.14.28"
       },
       "license": "MIT"
+    },
+    "hyper-rustls 0.24.2": {
+      "name": "hyper-rustls",
+      "version": "0.24.2",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/hyper-rustls/0.24.2/download",
+          "sha256": "ec3efd23720e2049821a693cbc7e65ea87c72f1c58ff2f9522ff332b1491e590"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "hyper_rustls",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "hyper_rustls",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "futures-util 0.3.30",
+              "target": "futures_util"
+            },
+            {
+              "id": "http 0.2.11",
+              "target": "http"
+            },
+            {
+              "id": "hyper 0.14.28",
+              "target": "hyper"
+            },
+            {
+              "id": "rustls 0.21.10",
+              "target": "rustls"
+            },
+            {
+              "id": "tokio 1.36.0",
+              "target": "tokio"
+            },
+            {
+              "id": "tokio-rustls 0.24.1",
+              "target": "tokio_rustls"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2021",
+        "version": "0.24.2"
+      },
+      "license": "Apache-2.0 OR ISC OR MIT"
     },
     "hyper-tls 0.5.0": {
       "name": "hyper-tls",
@@ -9125,7 +9236,8 @@
         "crate_features": {
           "common": [
             "default",
-            "native-tls"
+            "native-tls",
+            "rustls-tls"
           ],
           "selects": {}
         },
@@ -9662,19 +9774,26 @@
         ],
         "crate_features": {
           "common": [
+            "__rustls",
             "__tls",
             "default-tls",
+            "hyper-rustls",
             "hyper-tls",
             "json",
             "mime_guess",
             "multipart",
             "native-tls",
             "native-tls-crate",
+            "rustls",
+            "rustls-tls",
+            "rustls-tls-webpki-roots",
             "serde_json",
             "stream",
             "tokio-native-tls",
+            "tokio-rustls",
             "tokio-util",
-            "wasm-streams"
+            "wasm-streams",
+            "webpki-roots"
           ],
           "selects": {}
         },
@@ -9748,6 +9867,10 @@
                 "target": "hyper"
               },
               {
+                "id": "hyper-rustls 0.24.2",
+                "target": "hyper_rustls"
+              },
+              {
                 "id": "hyper-tls 0.5.0",
                 "target": "hyper_tls"
               },
@@ -9781,6 +9904,10 @@
                 "target": "pin_project_lite"
               },
               {
+                "id": "rustls 0.21.10",
+                "target": "rustls"
+              },
+              {
                 "id": "rustls-pemfile 1.0.4",
                 "target": "rustls_pemfile"
               },
@@ -9793,8 +9920,16 @@
                 "target": "tokio_native_tls"
               },
               {
+                "id": "tokio-rustls 0.24.1",
+                "target": "tokio_rustls"
+              },
+              {
                 "id": "tokio-util 0.7.10",
                 "target": "tokio_util"
+              },
+              {
+                "id": "webpki-roots 0.25.4",
+                "target": "webpki_roots"
               }
             ],
             "cfg(target_arch = \"wasm32\")": [
@@ -9960,6 +10095,104 @@
         "version": "0.3.0"
       },
       "license": "BSD-3-Clause"
+    },
+    "ring 0.17.7": {
+      "name": "ring",
+      "version": "0.17.7",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/ring/0.17.7/download",
+          "sha256": "688c63d65483050968b2a8937f7995f443e27041a0f7700aa59b0822aedebb74"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "ring",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        },
+        {
+          "BuildScript": {
+            "crate_name": "build_script_build",
+            "crate_root": "build.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "ring",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": {
+          "common": [
+            "alloc",
+            "default",
+            "dev_urandom_fallback"
+          ],
+          "selects": {}
+        },
+        "deps": {
+          "common": [
+            {
+              "id": "getrandom 0.2.12",
+              "target": "getrandom"
+            },
+            {
+              "id": "ring 0.17.7",
+              "target": "build_script_build"
+            },
+            {
+              "id": "untrusted 0.9.0",
+              "target": "untrusted"
+            }
+          ],
+          "selects": {
+            "cfg(all(any(target_os = \"android\", target_os = \"linux\"), any(target_arch = \"aarch64\", target_arch = \"arm\")))": [
+              {
+                "id": "libc 0.2.153",
+                "target": "libc"
+              }
+            ],
+            "cfg(all(target_arch = \"aarch64\", target_os = \"windows\"))": [
+              {
+                "id": "windows-sys 0.48.0",
+                "target": "windows_sys"
+              }
+            ],
+            "cfg(any(target_arch = \"aarch64\", target_arch = \"arm\", target_arch = \"x86\", target_arch = \"x86_64\"))": [
+              {
+                "id": "spin 0.9.8",
+                "target": "spin"
+              }
+            ]
+          }
+        },
+        "edition": "2021",
+        "version": "0.17.7"
+      },
+      "build_script_attrs": {
+        "data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "cc 1.0.83",
+              "target": "cc"
+            }
+          ],
+          "selects": {}
+        },
+        "links": "ring_core_0_17_7"
+      },
+      "license": null
     },
     "rustc-demangle 0.1.23": {
       "name": "rustc-demangle",
@@ -10184,6 +10417,94 @@
       },
       "license": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT"
     },
+    "rustls 0.21.10": {
+      "name": "rustls",
+      "version": "0.21.10",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/rustls/0.21.10/download",
+          "sha256": "f9d5a6813c0759e4609cd494e8e725babae6a2ca7b62a5536a13daaec6fcb7ba"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "rustls",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        },
+        {
+          "BuildScript": {
+            "crate_name": "build_script_build",
+            "crate_root": "build.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "rustls",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": {
+          "common": [
+            "dangerous_configuration",
+            "default",
+            "log",
+            "logging",
+            "tls12"
+          ],
+          "selects": {}
+        },
+        "deps": {
+          "common": [
+            {
+              "id": "log 0.4.20",
+              "target": "log"
+            },
+            {
+              "id": "ring 0.17.7",
+              "target": "ring"
+            },
+            {
+              "id": "rustls 0.21.10",
+              "target": "build_script_build"
+            },
+            {
+              "id": "rustls-webpki 0.101.7",
+              "target": "webpki"
+            },
+            {
+              "id": "sct 0.7.1",
+              "target": "sct"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2021",
+        "version": "0.21.10"
+      },
+      "build_script_attrs": {
+        "data_glob": [
+          "**"
+        ],
+        "link_deps": {
+          "common": [
+            {
+              "id": "ring 0.17.7",
+              "target": "ring"
+            }
+          ],
+          "selects": {}
+        }
+      },
+      "license": "Apache-2.0 OR ISC OR MIT"
+    },
     "rustls-pemfile 1.0.4": {
       "name": "rustls-pemfile",
       "version": "1.0.4",
@@ -10222,6 +10543,57 @@
         "version": "1.0.4"
       },
       "license": "Apache-2.0 OR ISC OR MIT"
+    },
+    "rustls-webpki 0.101.7": {
+      "name": "rustls-webpki",
+      "version": "0.101.7",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/rustls-webpki/0.101.7/download",
+          "sha256": "8b6275d1ee7a1cd780b64aca7726599a1dbc893b1e64144529e55c3c2f745765"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "webpki",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "webpki",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": {
+          "common": [
+            "alloc",
+            "default",
+            "std"
+          ],
+          "selects": {}
+        },
+        "deps": {
+          "common": [
+            {
+              "id": "ring 0.17.7",
+              "target": "ring"
+            },
+            {
+              "id": "untrusted 0.9.0",
+              "target": "untrusted"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2021",
+        "version": "0.101.7"
+      },
+      "license": "ISC"
     },
     "ryu 1.0.16": {
       "name": "ryu",
@@ -10362,6 +10734,49 @@
         "version": "1.2.0"
       },
       "license": "MIT OR Apache-2.0"
+    },
+    "sct 0.7.1": {
+      "name": "sct",
+      "version": "0.7.1",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/sct/0.7.1/download",
+          "sha256": "da046153aa2352493d6cb7da4b6e5c0c057d8a1d0a9aa8560baffdd945acd414"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "sct",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "sct",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "ring 0.17.7",
+              "target": "ring"
+            },
+            {
+              "id": "untrusted 0.9.0",
+              "target": "untrusted"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2021",
+        "version": "0.7.1"
+      },
+      "license": "Apache-2.0 OR ISC OR MIT"
     },
     "security-framework 2.9.2": {
       "name": "security-framework",
@@ -11274,6 +11689,42 @@
         "version": "0.5.5"
       },
       "license": "MIT OR Apache-2.0"
+    },
+    "spin 0.9.8": {
+      "name": "spin",
+      "version": "0.9.8",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/spin/0.9.8/download",
+          "sha256": "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "spin",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "spin",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": {
+          "common": [
+            "once"
+          ],
+          "selects": {}
+        },
+        "edition": "2015",
+        "version": "0.9.8"
+      },
+      "license": "MIT"
     },
     "ssri 9.2.0": {
       "name": "ssri",
@@ -12753,6 +13204,57 @@
       },
       "license": "MIT"
     },
+    "tokio-rustls 0.24.1": {
+      "name": "tokio-rustls",
+      "version": "0.24.1",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/tokio-rustls/0.24.1/download",
+          "sha256": "c28327cf380ac148141087fbfb9de9d7bd4e84ab5d2c28fbc911d753de8a7081"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "tokio_rustls",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "tokio_rustls",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": {
+          "common": [
+            "default",
+            "logging",
+            "tls12"
+          ],
+          "selects": {}
+        },
+        "deps": {
+          "common": [
+            {
+              "id": "rustls 0.21.10",
+              "target": "rustls"
+            },
+            {
+              "id": "tokio 1.36.0",
+              "target": "tokio"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "version": "0.24.1"
+      },
+      "license": "MIT/Apache-2.0"
+    },
     "tokio-stream 0.1.14": {
       "name": "tokio-stream",
       "version": "0.1.14",
@@ -13750,6 +14252,36 @@
       },
       "license": "Apache 2"
     },
+    "untrusted 0.9.0": {
+      "name": "untrusted",
+      "version": "0.9.0",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/untrusted/0.9.0/download",
+          "sha256": "8ecb6da28b8a351d773b68d5825ac39017e680750f980f3a1a85cd8dd28a47c1"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "untrusted",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "untrusted",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "edition": "2018",
+        "version": "0.9.0"
+      },
+      "license": "ISC"
+    },
     "url 2.5.0": {
       "name": "url",
       "version": "2.5.0",
@@ -14584,6 +15116,36 @@
         "version": "0.3.68"
       },
       "license": "MIT OR Apache-2.0"
+    },
+    "webpki-roots 0.25.4": {
+      "name": "webpki-roots",
+      "version": "0.25.4",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/webpki-roots/0.25.4/download",
+          "sha256": "5f20c57d8d7db6d3b86154206ae5d8fba62dd39573114de97c2cb0578251f8e1"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "webpki_roots",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "webpki_roots",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "edition": "2018",
+        "version": "0.25.4"
+      },
+      "license": "MPL-2.0"
     },
     "winapi 0.3.9": {
       "name": "winapi",
@@ -16503,6 +17065,14 @@
       "s390x-unknown-linux-gnu",
       "x86_64-linux-android"
     ],
+    "cfg(all(any(target_os = \"android\", target_os = \"linux\"), any(target_arch = \"aarch64\", target_arch = \"arm\")))": [
+      "aarch64-linux-android",
+      "aarch64-unknown-linux-gnu",
+      "aarch64-unknown-nixos-gnu",
+      "arm-unknown-linux-gnueabi",
+      "armv7-linux-androideabi",
+      "armv7-unknown-linux-gnueabi"
+    ],
     "cfg(all(not(rustix_use_libc), not(miri), target_os = \"linux\", target_endian = \"little\", any(target_arch = \"arm\", all(target_arch = \"aarch64\", target_pointer_width = \"64\"), target_arch = \"riscv64\", all(rustix_use_experimental_asm, target_arch = \"powerpc64\"), all(rustix_use_experimental_asm, target_arch = \"mips\"), all(rustix_use_experimental_asm, target_arch = \"mips32r6\"), all(rustix_use_experimental_asm, target_arch = \"mips64\"), all(rustix_use_experimental_asm, target_arch = \"mips64r6\"), target_arch = \"x86\", all(target_arch = \"x86_64\", target_pointer_width = \"64\"))))": [
       "aarch64-unknown-linux-gnu",
       "aarch64-unknown-nixos-gnu",
@@ -16545,6 +17115,9 @@
       "aarch64-unknown-linux-gnu",
       "aarch64-unknown-nixos-gnu"
     ],
+    "cfg(all(target_arch = \"aarch64\", target_os = \"windows\"))": [
+      "aarch64-pc-windows-msvc"
+    ],
     "cfg(all(target_arch = \"aarch64\", target_vendor = \"apple\"))": [
       "aarch64-apple-darwin",
       "aarch64-apple-ios",
@@ -16571,6 +17144,36 @@
       "powerpc-unknown-linux-gnu",
       "thumbv7em-none-eabi",
       "thumbv8m.main-none-eabi"
+    ],
+    "cfg(any(target_arch = \"aarch64\", target_arch = \"arm\", target_arch = \"x86\", target_arch = \"x86_64\"))": [
+      "aarch64-apple-darwin",
+      "aarch64-apple-ios",
+      "aarch64-apple-ios-sim",
+      "aarch64-fuchsia",
+      "aarch64-linux-android",
+      "aarch64-pc-windows-msvc",
+      "aarch64-unknown-linux-gnu",
+      "aarch64-unknown-nixos-gnu",
+      "aarch64-unknown-nto-qnx710",
+      "arm-unknown-linux-gnueabi",
+      "armv7-linux-androideabi",
+      "armv7-unknown-linux-gnueabi",
+      "i686-apple-darwin",
+      "i686-linux-android",
+      "i686-pc-windows-msvc",
+      "i686-unknown-freebsd",
+      "i686-unknown-linux-gnu",
+      "thumbv7em-none-eabi",
+      "thumbv8m.main-none-eabi",
+      "x86_64-apple-darwin",
+      "x86_64-apple-ios",
+      "x86_64-fuchsia",
+      "x86_64-linux-android",
+      "x86_64-pc-windows-msvc",
+      "x86_64-unknown-freebsd",
+      "x86_64-unknown-linux-gnu",
+      "x86_64-unknown-nixos-gnu",
+      "x86_64-unknown-none"
     ],
     "cfg(any(target_arch = \"aarch64\", target_arch = \"x86\", target_arch = \"x86_64\"))": [
       "aarch64-apple-darwin",

@@ -4,3 +4,6 @@ docs/*.md linguist-generated=true
 # see https://git-scm.com/docs/git-archive/2.40.0#ATTRIBUTES
 # Don't include examples in the distribution artifact, just to reduce size
 examples export-ignore
+
+# Substitution for the _VERSION_PRIVATE placeholder
+tools/version.bzl export-subst

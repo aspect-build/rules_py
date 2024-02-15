@@ -106,7 +106,7 @@ _py_image_repos()
 
 ############################################
 # rules_rust dependencies for building tools
-load("@rules_rust//rust:repositories.bzl", "rules_rust_dependencies", "rust_register_toolchains")
+load("@rules_rust//rust:repositories.bzl", "rules_rust_dependencies", "rust_register_toolchains", "rust_repository_set")
 
 rules_rust_dependencies()
 
@@ -115,6 +115,36 @@ rust_register_toolchains(
     versions = [
         "1.74.1",
     ],
+)
+
+rust_repository_set(
+    name = "macos_aarch64",
+    edition = "2021",
+    exec_triple = "aarch64-apple-darwin",
+    extra_target_triples = [
+        "aarch64-unknown-linux-gnu",
+        "x86_64-unknown-linux-gnu",
+    ],
+    versions = ["1.74.1"],
+)
+
+rust_repository_set(
+    name = "macos_x86_64",
+    edition = "2021",
+    exec_triple = "x86_64-apple-darwin",
+    extra_target_triples = [
+        "aarch64-unknown-linux-gnu",
+        "x86_64-unknown-linux-gnu",
+    ],
+    versions = ["1.74.1"],
+)
+
+rust_repository_set(
+    name = "linux_x86_64",
+    edition = "2021",
+    exec_triple = "x86_64-unknown-linux-gnu",
+    extra_target_triples = ["aarch64-unknown-linux-gnu"],
+    versions = ["1.74.1"],
 )
 
 load("@rules_rust//crate_universe:repositories.bzl", "crate_universe_dependencies")
