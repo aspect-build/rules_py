@@ -23,10 +23,10 @@ def rules_py_internal_deps():
 
     http_archive(
         name = "io_bazel_rules_go",
-        sha256 = "91585017debb61982f7054c9688857a2ad1fd823fc3f9cb05048b0025c47d023",
+        sha256 = "80a98277ad1311dacd837f9b16db62887702e9f1d1c4c9f796d0121a46c8e184",
         urls = [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.42.0/rules_go-v0.42.0.zip",
-            "https://github.com/bazelbuild/rules_go/releases/download/v0.42.0/rules_go-v0.42.0.zip",
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.46.0/rules_go-v0.46.0.zip",
+            "https://github.com/bazelbuild/rules_go/releases/download/v0.46.0/rules_go-v0.46.0.zip",
         ],
     )
 
@@ -44,9 +44,9 @@ def rules_py_internal_deps():
     # see https://github.com/bazelbuild/bazel-skylib/issues/250
     http_archive(
         name = "bazel_skylib",
-        sha256 = "de9d2cedea7103d20c93a5cc7763099728206bd5088342d0009315913a592cc0",
-        strip_prefix = "bazel-skylib-1.4.2",
-        url = "https://github.com/bazelbuild/bazel-skylib/archive/refs/tags/1.4.2.tar.gz",
+        sha256 = "118e313990135890ee4cc8504e32929844f9578804a1b2f571d69b1dd080cfb8",
+        strip_prefix = "bazel-skylib-1.5.0",
+        url = "https://github.com/bazelbuild/bazel-skylib/archive/refs/tags/1.5.0.tar.gz",
     )
 
     http_archive(
@@ -72,18 +72,18 @@ def rules_py_internal_deps():
         name = "aspect_gcc_toolchain",
         patch_args = ["-p1"],
         patches = ["//tools:gcc_toolchain.patch"],
-        sha256 = "b843608fccbbd163071be0463c82e18f3b96ba220fafe4b46e5ffe8579664390",
+        sha256 = "80ae2a95b88f88909d4ab934cfc6c65e17db23f9da3ded24695cdb40dc616cc8",
         urls = [
-            "https://github.com/aspect-build/gcc-toolchain/archive/70a8c93b7f84077b1d952647ef967d8ae55554c8.zip",
+            "https://github.com/aspect-build/gcc-toolchain/archive/ff3298d1efd8849601d96c912f022ae4ee92dd4d.zip",
         ],
-        strip_prefix = "gcc-toolchain-70a8c93b7f84077b1d952647ef967d8ae55554c8",
+        strip_prefix = "gcc-toolchain-ff3298d1efd8849601d96c912f022ae4ee92dd4d",
     )
 
     http_archive(
         name = "io_bazel_rules_docker",
-        sha256 = "cd42f44e219a4f1fc5c18a0702330505b94e3abd64c3e21d38ea25a6ab42dad6",
-        strip_prefix = "rules_docker-8e70c6bcb584a15a8fd061ea489b933c0ff344ca",
-        urls = ["https://github.com/bazelbuild/rules_docker/archive/8e70c6bcb584a15a8fd061ea489b933c0ff344ca.zip"],
+        sha256 = "9d41cbe09688d4de137b19091f162de05be9a629a4355bfc1a993f378231730a",
+        strip_prefix = "rules_docker-3040e1fd74659a52d1cdaff81359f57ee0e2bb41",
+        urls = ["https://github.com/bazelbuild/rules_docker/archive/3040e1fd74659a52d1cdaff81359f57ee0e2bb41.zip"],
     )
 
     http_archive(
