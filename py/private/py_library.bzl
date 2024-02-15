@@ -1,8 +1,8 @@
-"Implementation for the py_library rule"
+"""Implementation for the py_library rule"""
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
-load("//py/private:providers.bzl", "PyVirtualInfo", "PyWheelInfo")
-load("//py/private:py_wheel.bzl", py_wheel = "py_wheel_lib")
+load("@bazel_skylib//lib:new_sets.bzl", "sets")
+load("//py/private:providers.bzl", "PyVirtualInfo")
 
 def _make_instrumented_files_info(ctx, extra_source_attributes = [], extra_dependency_attributes = []):
     return coverage_common.instrumented_files_info(
@@ -26,12 +26,22 @@ def _make_srcs_depset(ctx):
 def _make_virtual_depset(ctx):
     return depset(
         order = "postorder",
-        direct = getattr(ctx.attr, "virtual", []),
+        direct = getattr(ctx.attr, "virtual_deps", []),
         transitive = [
             target[PyVirtualInfo].dependencies
             for target in ctx.attr.deps
             if PyVirtualInfo in target
         ],
+    )
+
+def _make_resolved_virtual_depset(target):
+    transitive = [target[DefaultInfo].files]
+    if PyInfo in target:
+        transitive.append(target[PyInfo].transitive_sources)
+
+    return depset(
+        order = "postorder",
+        transitive = transitive,
     )
 
 def _make_virtual_resolutions_depset(ctx):
@@ -46,6 +56,40 @@ def _make_virtual_resolutions_depset(ctx):
             for target in ctx.attr.deps
             if PyVirtualInfo in target
         ],
+    )
+
+def _resolve_virtuals(ctx, ignore_missing = False):
+    virtual = _make_virtual_depset(ctx).to_list()
+    resolutions = _make_virtual_resolutions_depset(ctx).to_list()
+
+    # Check for duplicate virtual dependency names. Those that map to the same resolution target would have been merged by the depset for us.
+    seen = {}
+    v_srcs = []
+    v_runfiles = []
+    v_imports = []
+
+    for i, resolution in enumerate(resolutions):
+        if resolution.virtual in seen:
+            conflicts_with = resolutions[seen[resolution.virtual]].target
+            fail("Conflict in virtual dependency resolutions while resolving '{}'. Dependency is resolved by {} and {}".format(resolution.virtual, str(resolution.target), str(conflicts_with)))
+
+        seen.update([[resolution.virtual, i]])
+
+        v_srcs.append(_make_resolved_virtual_depset(resolution.target))
+        v_runfiles.append(resolution.target[DefaultInfo].default_runfiles.files)
+
+        if PyInfo in resolution.target:
+            v_imports.append(resolution.target[PyInfo].imports)
+
+    missing = sets.to_list(sets.difference(sets.make(virtual), sets.make(seen.keys())))
+    if len(missing) > 0 and not ignore_missing:
+        fail("The following dependencies were marked as virtual, but no concrete label providing them was given: {}".format(", ".join(missing)))
+
+    return struct(
+        srcs = v_srcs,
+        runfiles = v_runfiles,
+        imports = v_imports,
+        missing = missing,
     )
 
 def _make_import_path(label, workspace, base, imp):
@@ -83,11 +127,11 @@ def _make_import_path(label, workspace, base, imp):
     else:
         return paths.normalize(paths.join(workspace, base, imp))
 
-def _make_imports_depset(ctx):
+def _make_imports_depset(ctx, imports = [], extra_imports_depsets = []):
     base = paths.dirname(ctx.build_file_path)
     import_paths = [
         _make_import_path(ctx.label, ctx.workspace_name, base, im)
-        for im in ctx.attr.imports
+        for im in getattr(ctx.attr, "imports", imports)
     ] + [
         # Add the workspace name in the imports such that repo-relative imports work.
         ctx.workspace_name,
@@ -97,15 +141,15 @@ def _make_imports_depset(ctx):
         direct = import_paths,
         transitive = [
             target[PyInfo].imports
-            for target in ctx.attr.deps
+            for target in getattr(ctx.attr, "deps", [])
             if PyInfo in target
-        ],
+        ] + extra_imports_depsets,
     )
 
 def _make_merged_runfiles(ctx, extra_depsets = [], extra_runfiles = [], extra_runfiles_depsets = []):
-    runfiles_targets = ctx.attr.deps + ctx.attr.data
+    runfiles_targets = getattr(ctx.attr, "deps", []) + getattr(ctx.attr, "data", [])
     runfiles = ctx.runfiles(
-        files = ctx.files.data + extra_runfiles,
+        files = getattr(ctx.files, "data", []) + extra_runfiles,
         transitive_files = depset(
             transitive = extra_depsets,
         ),
@@ -125,7 +169,6 @@ def _py_library_impl(ctx):
     resolutions = _make_virtual_resolutions_depset(ctx)
     runfiles = _make_merged_runfiles(ctx, extra_runfiles = ctx.files.srcs)
     instrumented_files_info = _make_instrumented_files_info(ctx)
-    py_wheel_info = py_wheel.make_py_wheel_info(ctx, ctx.attr.deps)
 
     return [
         DefaultInfo(
@@ -143,7 +186,6 @@ def _py_library_impl(ctx):
             dependencies = virtuals,
             resolutions = resolutions,
         ),
-        py_wheel_info,
         instrumented_files_info,
     ]
 
@@ -155,7 +197,7 @@ _attrs = dict({
     "deps": attr.label_list(
         doc = "Targets that produce Python code, commonly `py_library` rules.",
         allow_files = True,
-        providers = [[PyInfo], [PyWheelInfo], [PyVirtualInfo]],
+        providers = [[PyInfo], [PyVirtualInfo]],
     ),
     "data": attr.label_list(
         doc = """Runtime dependencies of the program.
@@ -187,9 +229,8 @@ py_library_utils = struct(
     make_instrumented_files_info = _make_instrumented_files_info,
     make_merged_runfiles = _make_merged_runfiles,
     make_srcs_depset = _make_srcs_depset,
-    make_virtual_depset = _make_virtual_depset,
-    make_virtual_resolutions_depset = _make_virtual_resolutions_depset,
     py_library_providers = _providers,
+    resolve_virtuals = _resolve_virtuals,
 )
 
 py_library = rule(

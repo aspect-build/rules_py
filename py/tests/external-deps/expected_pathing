@@ -1,22 +1,27 @@
-Python: (pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles/pathing.venv/bin/python
+Python: (pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles/.pathing.venv/bin/python3
 version: 3.9.18 (main, REDACTED) 
-[Clang 17.0.1 ]
+[Clang 16.0.3 ]
 version info: sys.version_info(major=3, minor=9, micro=18, releaselevel='final', serial=0)
 cwd: (pwd)
-site-packages folder: ['(pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles/pathing.venv/lib/python3.9/site-packages']
+site-packages folder: ['(pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles/.pathing.venv/lib/python3.9/site-packages']
 
 sys path:
-(py_toolchain)/lib/python39.zip
-(py_toolchain)/lib/python3.9
-(py_toolchain)/lib/python3.9/lib-dynload
-(pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles/pathing.venv/lib/python3.9/site-packages
+(py_toolchain)/python39.zip
+(py_toolchain)/python3.9
+(py_toolchain)/lib-dynload
+(pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles/.pathing.venv/lib/python3.9/site-packages
 (pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles
+(pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles/pypi_colorama/site-packages
 (pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles/aspect_rules_py/py/tests/external-deps
 (pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles/aspect_rules_py
+(pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles/pypi_typing_extensions/site-packages
+(pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles/pypi_asgiref/site-packages
+(pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles/pypi_sqlparse/site-packages
+(pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles/pypi_django/site-packages
 
 Entrypoint Path: (pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles/aspect_rules_py/py/tests/external-deps/pathing.py
 
-Django location: (pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles/pathing.venv/lib/python3.9/site-packages/django/__init__.py
+Django location: (pwd)/bazel-out/[exec]/bin/py/tests/external-deps/pathing.runfiles/pypi_django/site-packages/django/__init__.py
 Django version: 4.2.7
 
 From lib with wheel dependency: [32mHello Matt[0m

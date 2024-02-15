@@ -1,0 +1,23 @@
+load("@rules_rust//rust:defs.bzl", "rust_library")
+
+rust_library(
+    name = "py",
+    srcs = [
+        "src/interpreter.rs",
+        "src/lib.rs",
+        "src/pth.rs",
+        "src/unpack.rs",
+        "src/venv.rs",
+    ],
+    target_compatible_with = [
+        "@platforms//os:osx",
+    ],
+    visibility = [
+        "//py/tools/unpack_bin:__pkg__",
+        "//py/tools/venv_bin:__pkg__",
+    ],
+    deps = [
+        "@crate_index//:miette",
+        "@crate_index//:rattler_installs_packages",
+    ],
+)

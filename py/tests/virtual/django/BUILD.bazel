@@ -1,6 +1,14 @@
-load("//py:defs.bzl", "py_binary", "py_library", "resolutions")
 load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirements")
-load("@django//:requirements.bzl", django_resolutions = "all_whl_requirements_by_package")
+load("@django//:requirements.bzl", "all_whl_requirements_by_package", "requirement")
+load("//py:defs.bzl", "py_binary", "py_library", "py_unpacked_wheel", "resolutions")
+
+django_resolutions = resolutions.from_requirements(all_whl_requirements_by_package, requirement)
+
+py_unpacked_wheel(
+    name = "django_wheel",
+    src = "@django_4_2_4//file",
+    py_package_name = "Django",
+)
 
 compile_pip_requirements(
     name = "requirements",
@@ -22,18 +30,19 @@ py_binary(
     name = "manage",
     srcs = ["proj/manage.py"],
     # Resolve django to the "standard" one from our requirements.txt
-    resolutions = {"django": "@django//django:whl"},
-    deps = [":proj"],
+    resolutions = django_resolutions,
+    deps = [
+        ":proj",
+    ],
 )
 
 py_binary(
     name = "manage.override_django",
     srcs = ["proj/manage.py"],
-    resolutions = resolutions(
-        # Install ALL the wheels that the pip_parse rule defined as defaults...
-        django_resolutions,
+    # Install the dependencies that the pip_parse rule defined as defaults...
+    resolutions = django_resolutions.override({
         # ...but replace the resolution of django with a specific wheel fetched by http_file.
-        {"django": "@django_4_2_4//file"},
-    ),
+        "django": "//py/tests/virtual/django:django_wheel",
+    }),
     deps = [":proj"],
 )

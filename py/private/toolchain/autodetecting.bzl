@@ -1,5 +1,5 @@
 # buildifier: disable=module-docstring
-load("//py/private:utils.bzl", "INTERPRETER_FLAGS")
+load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 
 def _autodetecting_py_wrapper_impl(rctx):
     which_python = rctx.which("python3")
@@ -8,7 +8,7 @@ def _autodetecting_py_wrapper_impl(rctx):
 
     # Check if `which_python` ends up being the final binary, or it's actually a wrapper itself.
     exec_result = rctx.execute(
-        [which_python] + INTERPRETER_FLAGS + ["-c", "import sys; import os; print(os.path.realpath(sys.executable))"],
+        [which_python] + _py_semantics.interpreter_flags + ["-c", "import sys; import os; print(os.path.realpath(sys.executable))"],
     )
 
     if exec_result.return_code == 0:
@@ -54,7 +54,7 @@ _autodetecting_py_toolchain = repository_rule(
     implementation = _autodetecting_py_wrapper_impl,
     attrs = {
         "_python_wrapper_tmpl": attr.label(
-            default = "@rules_py//py/private/toolchain:python.sh",
+            default = "@aspect_rules_py//py/private/toolchain:python.sh",
         ),
     },
 )

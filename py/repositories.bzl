@@ -19,8 +19,15 @@ register_autodetecting_python_toolchain = _register_autodetecting_python_toolcha
 # ours took precedence. Such breakages are challenging for users, so any
 # changes in this function should be marked as BREAKING in the commit message
 # and released only in semver majors.
-# buildifier: disable=function-docstring
-def rules_py_dependencies():
+
+# buildifier: disable=unnamed-macro
+def rules_py_dependencies(register_py_toolchains = True):
+    """Fetch rules_py's dependencies, and optionally register toolchains.
+
+    Args:
+        register_py_toolchains: When true, rules_py's toolchains are automatically registered.
+    """
+
     # The minimal version of bazel_skylib we require
     http_archive(
         name = "bazel_skylib",
@@ -43,3 +50,6 @@ def rules_py_dependencies():
         strip_prefix = "rules_python-52381415be9d3618130f02a821aef50de1e3af09",
         url = "https://github.com/bazelbuild/rules_python/archive/52381415be9d3618130f02a821aef50de1e3af09.tar.gz",
     )
+
+    if register_py_toolchains:
+        native.register_toolchains("@aspect_rules_py//py/tools/...")

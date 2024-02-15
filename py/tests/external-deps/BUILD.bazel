@@ -1,5 +1,4 @@
 load("//py:defs.bzl", "py_binary", "py_library", "py_test")
-load("@python_toolchain//:defs.bzl", "host_platform")
 load("@aspect_bazel_lib//lib:write_source_files.bzl", "write_source_files")
 load("//py/tests/external-deps/custom-macro:macro.bzl", "click_cli_binary")
 
@@ -7,31 +6,8 @@ py_library(
     name = "lib",
     srcs = ["lib.py"],
     deps = [
-        "@pypi_colorama//:wheel",
+        "@pypi_colorama//:pkg",
     ],
-)
-
-py_binary(
-    name = "pathing",
-    srcs = ["pathing.py"],
-    deps = [
-        ":lib",
-        "@pypi_django//:wheel",
-    ],
-)
-
-genrule(
-    name = "run_pathing",
-    outs = ["pathing_out"],
-    cmd = "|".join([
-        "$(execpath pathing)",
-        """sed "s#$$(pwd)#(pwd)#" """,
-        "sed 's#^.*execroot/aspect_rules_py/external/python_toolchain_%s#(py_toolchain)#'" % host_platform,
-        "sed 's#bazel-out/[_a-z0-9-]*-exec-[A-Za-f0-9-]*/bin/#bazel-out/[exec]/bin/#'",
-        "sed 's#^/tmp/bazel-source-roots/[0-9]#(py_toolchain)#'",
-        "sed 's#(main, .*)#(main, REDACTED)#'",
-    ]) + "> $@",
-    tools = ["pathing"],
 )
 
 py_binary(
@@ -64,7 +40,6 @@ genrule(
 write_source_files(
     name = "test",
     files = {
-        "expected_pathing": "pathing_out",
         "expected_click": "click_out",
         "expected_click_cli_binary": "click_cli_binary_out",
     },

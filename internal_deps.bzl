@@ -91,6 +91,12 @@ def rules_py_internal_deps():
         url = "https://github.com/bazelbuild/rules_python/releases/download/0.26.0/rules_python-0.26.0.tar.gz",
     )
 
+    http_archive(
+        name = "rules_rust",
+        sha256 = "75177226380b771be36d7efc538da842c433f14cd6c36d7660976efb53defe86",
+        urls = ["https://github.com/bazelbuild/rules_rust/releases/download/0.34.1/rules_rust-v0.34.1.tar.gz"],
+    )
+
     http_file(
         name = "django_4_2_4",
         urls = ["https://files.pythonhosted.org/packages/7f/9e/fc6bab255ae10bc57fa2f65646eace3d5405fbb7f5678b90140052d1db0f/Django-4.2.4-py3-none-any.whl"],
