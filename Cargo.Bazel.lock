@@ -1,5 +1,5 @@
 {
-  "checksum": "88c79aa26eaaa8fee21a307a77fefc5a2d7ea674532ab829d43caadf5d50075c",
+  "checksum": "8398488a4128df7d5b7206455ff2816425ca330b7f08ad10575daae810165bc8",
   "crates": {
     "addr2line 0.21.0": {
       "name": "addr2line",
@@ -1224,102 +1224,10 @@
           "**"
         ],
         "crate_features": {
-          "common": [],
-          "selects": {
-            "aarch64-apple-darwin": [
-              "std"
-            ],
-            "aarch64-apple-ios": [
-              "std"
-            ],
-            "aarch64-apple-ios-sim": [
-              "std"
-            ],
-            "aarch64-fuchsia": [
-              "std"
-            ],
-            "aarch64-linux-android": [
-              "std"
-            ],
-            "aarch64-unknown-linux-gnu": [
-              "std"
-            ],
-            "aarch64-unknown-nixos-gnu": [
-              "std"
-            ],
-            "aarch64-unknown-nto-qnx710": [
-              "std"
-            ],
-            "arm-unknown-linux-gnueabi": [
-              "std"
-            ],
-            "armv7-linux-androideabi": [
-              "std"
-            ],
-            "armv7-unknown-linux-gnueabi": [
-              "std"
-            ],
-            "i686-apple-darwin": [
-              "std"
-            ],
-            "i686-linux-android": [
-              "std"
-            ],
-            "i686-unknown-freebsd": [
-              "std"
-            ],
-            "i686-unknown-linux-gnu": [
-              "std"
-            ],
-            "powerpc-unknown-linux-gnu": [
-              "std"
-            ],
-            "riscv32imc-unknown-none-elf": [
-              "std"
-            ],
-            "riscv64gc-unknown-none-elf": [
-              "std"
-            ],
-            "s390x-unknown-linux-gnu": [
-              "std"
-            ],
-            "thumbv7em-none-eabi": [
-              "std"
-            ],
-            "thumbv8m.main-none-eabi": [
-              "std"
-            ],
-            "wasm32-unknown-unknown": [
-              "std"
-            ],
-            "wasm32-wasi": [
-              "std"
-            ],
-            "x86_64-apple-darwin": [
-              "std"
-            ],
-            "x86_64-apple-ios": [
-              "std"
-            ],
-            "x86_64-fuchsia": [
-              "std"
-            ],
-            "x86_64-linux-android": [
-              "std"
-            ],
-            "x86_64-unknown-freebsd": [
-              "std"
-            ],
-            "x86_64-unknown-linux-gnu": [
-              "std"
-            ],
-            "x86_64-unknown-nixos-gnu": [
-              "std"
-            ],
-            "x86_64-unknown-none": [
-              "std"
-            ]
-          }
+          "common": [
+            "std"
+          ],
+          "selects": {}
         },
         "edition": "2021",
         "version": "2.4.2"
@@ -7701,8 +7609,7 @@
         ],
         "crate_features": {
           "common": [
-            "default",
-            "vendored"
+            "default"
           ],
           "selects": {}
         },
@@ -7846,52 +7753,6 @@
       },
       "license": "MIT/Apache-2.0"
     },
-    "openssl-src 300.2.2+3.2.1": {
-      "name": "openssl-src",
-      "version": "300.2.2+3.2.1",
-      "repository": {
-        "Http": {
-          "url": "https://crates.io/api/v1/crates/openssl-src/300.2.2+3.2.1/download",
-          "sha256": "8bbfad0063610ac26ee79f7484739e2b07555a75c42453b89263830b5c8103bc"
-        }
-      },
-      "targets": [
-        {
-          "Library": {
-            "crate_name": "openssl_src",
-            "crate_root": "src/lib.rs",
-            "srcs": [
-              "**/*.rs"
-            ]
-          }
-        }
-      ],
-      "library_target_name": "openssl_src",
-      "common_attrs": {
-        "compile_data_glob": [
-          "**"
-        ],
-        "crate_features": {
-          "common": [
-            "default",
-            "legacy"
-          ],
-          "selects": {}
-        },
-        "deps": {
-          "common": [
-            {
-              "id": "cc 1.0.83",
-              "target": "cc"
-            }
-          ],
-          "selects": {}
-        },
-        "edition": "2021",
-        "version": "300.2.2+3.2.1"
-      },
-      "license": "MIT/Apache-2.0"
-    },
     "openssl-sys 0.9.99": {
       "name": "openssl-sys",
       "version": "0.9.99",
@@ -7926,13 +7787,6 @@
         "compile_data_glob": [
           "**"
         ],
-        "crate_features": {
-          "common": [
-            "openssl-src",
-            "vendored"
-          ],
-          "selects": {}
-        },
         "deps": {
           "common": [
             {
@@ -7958,10 +7812,6 @@
             {
               "id": "cc 1.0.83",
               "target": "cc"
-            },
-            {
-              "id": "openssl-src 300.2.2+3.2.1",
-              "target": "openssl_src"
             },
             {
               "id": "pkg-config 0.3.29",
@@ -8935,10 +8785,6 @@
             {
               "id": "miette 5.10.0",
               "target": "miette"
-            },
-            {
-              "id": "openssl 0.10.63",
-              "target": "openssl"
             },
             {
               "id": "rattler_installs_packages 0.6.0",
@@ -17614,7 +17460,6 @@
   "direct_deps": [
     "clap 4.4.18",
     "miette 5.10.0",
-    "openssl 0.10.63",
     "rattler_installs_packages 0.6.0"
   ],
   "direct_dev_deps": []
