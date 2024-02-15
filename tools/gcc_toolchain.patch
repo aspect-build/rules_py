@@ -1,0 +1,13 @@
+diff --git a/toolchain/wrapper.sh.tpl b/toolchain/wrapper.sh.tpl
+index d102047..8e36a2b 100644
+--- a/toolchain/wrapper.sh.tpl
++++ b/toolchain/wrapper.sh.tpl
+@@ -21,7 +21,7 @@ set -o errexit -o nounset -o pipefail
+ # symlinks of the BASH_SOURCE[0] is more reliable than navigating to the
+ # execroot from $PWD. This is due to the fact that the Bazel C++ toolchain can
+ # be called from different working directories (e.g. rules_foreign_cc rules).
+-EXECROOT="${EXECROOT:-"$(realpath "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/../../..")"}"
++EXECROOT="${EXECROOT:-"$(/bin/realpath "$(/usr/bin/dirname "$(/bin/realpath "${BASH_SOURCE[0]}")")/../../..")"}"
+ export EXECROOT
+ export PATH="__PATH__"
+ args=("$@")
