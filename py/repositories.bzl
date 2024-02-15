@@ -31,9 +31,9 @@ def rules_py_dependencies(register_py_toolchains = True):
     # The minimal version of bazel_skylib we require
     http_archive(
         name = "bazel_skylib",
-        sha256 = "de9d2cedea7103d20c93a5cc7763099728206bd5088342d0009315913a592cc0",
-        strip_prefix = "bazel-skylib-1.4.2",
-        url = "https://github.com/bazelbuild/bazel-skylib/archive/refs/tags/1.4.2.tar.gz",
+        sha256 = "118e313990135890ee4cc8504e32929844f9578804a1b2f571d69b1dd080cfb8",
+        strip_prefix = "bazel-skylib-1.5.0",
+        url = "https://github.com/bazelbuild/bazel-skylib/archive/refs/tags/1.5.0.tar.gz",
     )
 
     http_archive(
