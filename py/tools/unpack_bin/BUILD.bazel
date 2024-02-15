@@ -22,9 +22,6 @@ rust_binary(
     srcs = [
         "src/main.rs",
     ],
-    target_compatible_with = [
-        "@platforms//os:osx",
-    ],
     deps = [
         "//py/tools/py",
         "@crate_index//:clap",
