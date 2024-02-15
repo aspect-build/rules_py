@@ -67,16 +67,15 @@ def rules_py_internal_deps():
         ],
     )
 
-    # Aspect gcc toolchain for RBE
+    HERMETIC_CC_TOOLCHAIN_VERSION = "v2.2.1"
+
     http_archive(
-        name = "aspect_gcc_toolchain",
-        patch_args = ["-p1"],
-        patches = ["//tools:gcc_toolchain.patch"],
-        sha256 = "80ae2a95b88f88909d4ab934cfc6c65e17db23f9da3ded24695cdb40dc616cc8",
+        name = "hermetic_cc_toolchain",
+        sha256 = "3b8107de0d017fe32e6434086a9568f97c60a111b49dc34fc7001e139c30fdea",
         urls = [
-            "https://github.com/aspect-build/gcc-toolchain/archive/ff3298d1efd8849601d96c912f022ae4ee92dd4d.zip",
+            "https://mirror.bazel.build/github.com/uber/hermetic_cc_toolchain/releases/download/{0}/hermetic_cc_toolchain-{0}.tar.gz".format(HERMETIC_CC_TOOLCHAIN_VERSION),
+            "https://github.com/uber/hermetic_cc_toolchain/releases/download/{0}/hermetic_cc_toolchain-{0}.tar.gz".format(HERMETIC_CC_TOOLCHAIN_VERSION),
         ],
-        strip_prefix = "gcc-toolchain-ff3298d1efd8849601d96c912f022ae4ee92dd4d",
     )
 
     http_archive(

@@ -30,17 +30,13 @@ load("@aspect_bazel_lib//lib:repositories.bzl", "register_coreutils_toolchains")
 register_coreutils_toolchains()
 
 ############################################
-# Aspect gcc toolchain
-load("@aspect_gcc_toolchain//toolchain:repositories.bzl", "gcc_toolchain_dependencies")
+## CC toolchain using zig
+load("@hermetic_cc_toolchain//toolchain:defs.bzl", zig_toolchains = "toolchains")
 
-gcc_toolchain_dependencies()
-
-load("@aspect_gcc_toolchain//toolchain:defs.bzl", "ARCHS", "gcc_register_toolchain")
-
-gcc_register_toolchain(
-    name = "gcc_toolchain_x86_64",
-    target_arch = ARCHS.x86_64,
-)
+# Plain zig_toolchains() will pick reasonable defaults. See
+# toolchain/defs.bzl:toolchains on how to change the Zig SDK version and
+# download URL.
+zig_toolchains()
 
 ############################################
 # Development dependencies from pypi
