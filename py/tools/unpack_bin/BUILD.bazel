@@ -9,6 +9,7 @@ make_toolchain(
     name = "unpack",
     toolchain_type = ":toolchain_type",
     tools = {
+        "from-source": ":unpack_bin",
         "macos-amd64": "@aspect_rules_py//py/tools/unpack_bin/bins:unpack-x86_64-apple-darwin",
         "macos-arm64": "@aspect_rules_py//py/tools/unpack_bin/bins:unpack-aarch64-apple-darwin",
         "linux-amd64": "@aspect_rules_py//py/tools/unpack_bin/bins:unpack-x86_64-unknown-linux-musl",
@@ -20,9 +21,6 @@ rust_binary(
     name = "unpack_bin",
     srcs = [
         "src/main.rs",
-    ],
-    target_compatible_with = [
-        "@platforms//os:osx",
     ],
     deps = [
         "//py/tools/py",

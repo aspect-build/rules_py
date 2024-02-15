@@ -10,6 +10,7 @@ make_toolchain(
     cfg = "target",
     toolchain_type = ":toolchain_type",
     tools = {
+        "from-source": ":venv_bin",
         "macos-amd64": "@aspect_rules_py//py/tools/venv_bin/bins:venv-x86_64-apple-darwin",
         "macos-arm64": "@aspect_rules_py//py/tools/venv_bin/bins:venv-aarch64-apple-darwin",
         "linux-amd64": "@aspect_rules_py//py/tools/venv_bin/bins:venv-x86_64-unknown-linux-musl",
@@ -21,9 +22,6 @@ rust_binary(
     name = "venv_bin",
     srcs = [
         "src/main.rs",
-    ],
-    target_compatible_with = [
-        "@platforms//os:osx",
     ],
     deps = [
         "//py/tools/py",

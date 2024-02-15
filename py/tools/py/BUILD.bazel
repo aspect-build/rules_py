@@ -9,9 +9,6 @@ rust_library(
         "src/unpack.rs",
         "src/venv.rs",
     ],
-    target_compatible_with = [
-        "@platforms//os:osx",
-    ],
     visibility = [
         "//py/tools/unpack_bin:__pkg__",
         "//py/tools/venv_bin:__pkg__",

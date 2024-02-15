@@ -1,5 +1,7 @@
 """Toolchain for making toolchains"""
 
+load("//tools:version.bzl", "IS_PRERELEASE")
+
 TOOLCHAIN_PLATFORMS = {
     "darwin_amd64": struct(
         release_platform = "macos-amd64",
@@ -79,6 +81,20 @@ def make_toolchain(name, toolchain_type, tools, cfg = "exec"):
         tools: Mapping of tool binary to platform.
         cfg: Generate a toolchain for the target or exec config.
     """
+
+    if IS_PRERELEASE:
+        toolchain_rule = "{}_toolchain_source".format(name)
+        _toolchain(
+            name = toolchain_rule,
+            bin = tools["from-source"],
+            template_var = "{}_BIN".format(name.upper()),
+        )
+        native.toolchain(
+            name = _make_toolchain_name(name, "source"),
+            toolchain = toolchain_rule,
+            toolchain_type = toolchain_type,
+        )
+        return
 
     for [platform, meta] in TOOLCHAIN_PLATFORMS.items():
         toolchain_rule = "{}_toolchain_{}".format(name, platform)
