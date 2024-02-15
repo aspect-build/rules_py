@@ -946,4 +946,4 @@ manifest:
     typing_extensions: typing_extensions
   pip_repository:
     name: pypi
-integrity: 3fba7670a1aa4e8b67b6acc6a9e4fb6bd4cfdda6c25e4bf27a49a2ea89916a32
+integrity: 3a1eb666182a04273ef2e274e2f5fb2a6a0cdcb19c99917651e7f67ad2e6bdd2
