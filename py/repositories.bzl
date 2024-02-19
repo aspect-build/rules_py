@@ -38,9 +38,9 @@ def rules_py_dependencies(register_py_toolchains = True):
 
     http_archive(
         name = "aspect_bazel_lib",
-        sha256 = "40bbabf754d1cb538be53f7c74821cc4a2f1002fa1d4608d85c75fff3ccce78c",
-        strip_prefix = "bazel-lib-1.40.0",
-        url = "https://github.com/aspect-build/bazel-lib/archive/refs/tags/v1.40.0.tar.gz",
+        sha256 = "a7e356f8a5cb8bf1e9be38c2c617ad22f5a1606792e839fc040971bdfbecf971",
+        strip_prefix = "bazel-lib-1.40.2",
+        url = "https://github.com/aspect-build/bazel-lib/archive/refs/tags/v1.40.2.tar.gz",
     )
 
     # We require #1671 which isn't in a release as of 19 Jan 2024
