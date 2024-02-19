@@ -46,9 +46,9 @@ def rules_py_dependencies(register_py_toolchains = True):
     # We require #1671 which isn't in a release as of 19 Jan 2024
     http_archive(
         name = "rules_python",
-        sha256 = "b4e41e7cd1e953c7d49b1027fa66cb8e949eee14babd40ea4d6dc4a27e6a3707",
-        strip_prefix = "rules_python-c6941a8dad4c7a221125fbad7c8bfaac377e00ba",
-        url = "https://github.com/bazelbuild/rules_python/archive/c6941a8dad4c7a221125fbad7c8bfaac377e00ba.tar.gz",
+        sha256 = "8844347f050932fb339f8bce78ac3bd0f0dc118d347ce4d2dcc39490f2954941",
+        strip_prefix = "rules_python-76f1c76f60ccb536d3b3e2c9f023d8063f40bcd5",
+        url = "https://github.com/bazelbuild/rules_python/archive/76f1c76f60ccb536d3b3e2c9f023d8063f40bcd5.tar.gz",
     )
 
     if register_py_toolchains:
