@@ -82,19 +82,20 @@ def make_toolchain(name, toolchain_type, tools, cfg = "exec"):
         cfg: Generate a toolchain for the target or exec config.
     """
 
-    if IS_PRERELEASE:
-        toolchain_rule = "{}_toolchain_source".format(name)
-        _toolchain(
-            name = toolchain_rule,
-            bin = tools["from-source"],
-            template_var = "{}_BIN".format(name.upper()),
-        )
-        native.toolchain(
-            name = _make_toolchain_name(name, "source"),
-            toolchain = toolchain_rule,
-            toolchain_type = toolchain_type,
-        )
-        return
+    # TODO(alex): setup prerelease toolchain when we have rust binaries shipped to GH releases
+    # if IS_PRERELEASE:
+    #     toolchain_rule = "{}_toolchain_source".format(name)
+    #     _toolchain(
+    #         name = toolchain_rule,
+    #         bin = tools["from-source"],
+    #         template_var = "{}_BIN".format(name.upper()),
+    #     )
+    #     native.toolchain(
+    #         name = _make_toolchain_name(name, "source"),
+    #         toolchain = toolchain_rule,
+    #         toolchain_type = toolchain_type,
+    #     )
+    #     return
 
     for [platform, meta] in TOOLCHAIN_PLATFORMS.items():
         toolchain_rule = "{}_toolchain_{}".format(name, platform)

@@ -8,3 +8,6 @@
 **/target/
 **/*.whl
 .venv/
+
+# TODO: enable when it is more stable, maybe Bazel 7.1
+MODULE.bazel.lock

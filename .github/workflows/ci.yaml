@@ -21,3 +21,4 @@ jobs:
     uses: bazel-contrib/.github/.github/workflows/bazel.yaml@e76b9e5a1d91256e06b097c4470a22263969600b
     with:
       folders: '[".", "e2e/smoke"]'
+      exclude: '[{"bazelversion": "6.4.0"}]'
