@@ -52,4 +52,7 @@ def rules_py_dependencies(register_py_toolchains = True):
     )
 
     if register_py_toolchains:
-        native.register_toolchains("@aspect_rules_py//py/tools/...")
+        native.register_toolchains(
+            "@aspect_rules_py//py/private/toolchain/venv/...",
+            "@aspect_rules_py//py/private/toolchain/unpack/...",
+        )
