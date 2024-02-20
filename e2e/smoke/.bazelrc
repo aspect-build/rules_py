@@ -1,0 +1,2 @@
+# Under Bazel 7 or later, this flag is ignored as the PyRuntimeInfo gives this information.
+common --@aspect_rules_py//py:interpreter_version=3.9.18
