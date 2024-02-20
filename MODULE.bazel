@@ -21,5 +21,6 @@ archive_override(
 )
 
 register_toolchains(
-    "@aspect_rules_py//py/tools/...",
+    "@aspect_rules_py//py/private/toolchain/venv/...",
+    "@aspect_rules_py//py/private/toolchain/unpack/...",
 )
