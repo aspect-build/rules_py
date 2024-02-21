@@ -48,13 +48,13 @@ def _py_venv_rule_imp(ctx):
             "{{ARG_PYTHON}}": to_rlocation_path(ctx, py_toolchain.python),
             "{{ARG_VENV_LOCATION}}": paths.join(ctx.attr.location, ctx.attr.venv_name),
             "{{ARG_VENV_PYTHON_VERSION}}": "{}.{}.{}".format(
-                py_toolchain.toolchain.interpreter_version_info.major,
-                py_toolchain.toolchain.interpreter_version_info.minor,
-                py_toolchain.toolchain.interpreter_version_info.micro,
+                py_toolchain.interpreter_version_info.major,
+                py_toolchain.interpreter_version_info.minor,
+                py_toolchain.interpreter_version_info.micro,
             ),
             "{{ARG_PTH_FILE}}": to_rlocation_path(ctx, site_packages_pth_file),
             "{{EXEC_PYTHON_BIN}}": "python{}".format(
-                py_toolchain.toolchain.interpreter_version_info.major,
+                py_toolchain.interpreter_version_info.major,
             ),
         },
         is_executable = True,
@@ -114,6 +114,10 @@ _py_venv = rule(
         ),
         "_runfiles_lib": attr.label(
             default = "@bazel_tools//tools/bash/runfiles",
+        ),
+        # NB: this is read by _resolve_toolchain in py_semantics.
+        "_interpreter_version_flag": attr.label(
+            default = "//py:interpreter_version",
         ),
     },
     toolchains = [

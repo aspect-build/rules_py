@@ -1,5 +1,4 @@
 # buildifier: disable=module-docstring
-load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 
 def _autodetecting_py_wrapper_impl(rctx):
     which_python = rctx.which("python3")
@@ -8,7 +7,7 @@ def _autodetecting_py_wrapper_impl(rctx):
 
     # Check if `which_python` ends up being the final binary, or it's actually a wrapper itself.
     exec_result = rctx.execute(
-        [which_python] + _py_semantics.interpreter_flags + ["-c", "import sys; import os; print(os.path.realpath(sys.executable))"],
+        [which_python] + ["-B", "-I", "-c", "import sys; import os; print(os.path.realpath(sys.executable))"],
     )
 
     if exec_result.return_code == 0:

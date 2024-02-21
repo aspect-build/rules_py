@@ -62,7 +62,10 @@ bzl_library(
     name = "py_semantics",
     srcs = ["py_semantics.bzl"],
     visibility = ["//py:__subpackages__"],
-    deps = ["//py/private/toolchain:types"],
+    deps = [
+        "//py/private/toolchain:types",
+        "@bazel_skylib//rules:common_settings",
+    ],
 )
 
 bzl_library(

@@ -74,15 +74,15 @@ def _py_binary_rule_impl(ctx):
             "{{ARG_PYTHON}}": to_rlocation_path(ctx, py_toolchain.python),
             "{{ARG_VENV_NAME}}": ".{}.venv".format(ctx.attr.name),
             "{{ARG_VENV_PYTHON_VERSION}}": "{}.{}.{}".format(
-                py_toolchain.toolchain.interpreter_version_info.major,
-                py_toolchain.toolchain.interpreter_version_info.minor,
-                py_toolchain.toolchain.interpreter_version_info.micro,
+                py_toolchain.interpreter_version_info.major,
+                py_toolchain.interpreter_version_info.minor,
+                py_toolchain.interpreter_version_info.micro,
             ),
             "{{ARG_PTH_FILE}}": to_rlocation_path(ctx, site_packages_pth_file),
             "{{ENTRYPOINT}}": to_rlocation_path(ctx, ctx.file.main),
             "{{PYTHON_ENV}}": "\n".join(_dict_to_exports(env)).strip(),
             "{{EXEC_PYTHON_BIN}}": "python{}".format(
-                py_toolchain.toolchain.interpreter_version_info.major,
+                py_toolchain.interpreter_version_info.major,
             ),
         },
         is_executable = True,
@@ -145,6 +145,10 @@ _attrs = dict({
     ),
     "_runfiles_lib": attr.label(
         default = "@bazel_tools//tools/bash/runfiles",
+    ),
+    # NB: this is read by _resolve_toolchain in py_semantics.
+    "_interpreter_version_flag": attr.label(
+        default = "//py:interpreter_version",
     ),
 })
 

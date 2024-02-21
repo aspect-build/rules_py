@@ -1,7 +1,17 @@
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
 
 # For stardoc to reference the files
 exports_files(["defs.bzl"])
+
+# For Bazel 6.x compatibility, since 
+# PyRuntimeInfo shipped only with Bazel 7
+# Users can set, e.g. --@aspect_rules_py//py:interpreter_version=3.9.18
+string_flag(
+    name = "interpreter_version",
+    build_setting_default = "",
+    visibility = ["//visibility:public"],
+)
 
 bzl_library(
     name = "repositories",
