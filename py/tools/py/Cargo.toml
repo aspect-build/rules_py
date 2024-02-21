@@ -13,4 +13,4 @@ rust-version.workspace = true
 
 [dependencies]
 miette = { version = "5.10", features = ["fancy"] }
-rattler_installs_packages = { git = "https://github.com/prefix-dev/rip", rev = "b047c9ec0b42125a67d35346f08b7e7848ac24f4", features = ["rustls-tls"] }
+rattler_installs_packages = { git = "https://github.com/prefix-dev/rip", rev = "b047c9ec0b42125a67d35346f08b7e7848ac24f4", default-features = false, features = ["rustls-tls"] }

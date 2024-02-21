@@ -12,6 +12,7 @@ bazel_dep(name = "aspect_bazel_lib", version = "1.40.0")
 bazel_dep(name = "bazel_skylib", version = "1.4.2")
 bazel_dep(name = "rules_python", version = "0.29.0")
 bazel_dep(name = "platforms", version = "0.0.7")
+bazel_dep(name = "rules_rust", version = "0.35.0")
 
 archive_override(
     module_name = "rules_python",
@@ -19,6 +20,19 @@ archive_override(
     integrity = "sha256-pYfEFNWqygSEElDYgJsuIeDYn9oll/rZB0GcR+6rirA=",
     strip_prefix = "rules_python-52381415be9d3618130f02a821aef50de1e3af09",
 )
+
+crate = use_extension("@rules_rust//crate_universe:extension.bzl", "crate")
+crate.from_cargo(
+    name = "crate_index",
+    cargo_lockfile = "//:Cargo.lock",
+    manifests = [
+        "//:Cargo.toml",
+        "//py/tools/py:Cargo.toml",
+        "//py/tools/venv_bin:Cargo.toml",
+        "//py/tools/unpack_bin:Cargo.toml",
+    ],
+)
+use_repo(crate, "crate_index")
 
 register_toolchains(
     "@aspect_rules_py//py/private/toolchain/venv/...",
