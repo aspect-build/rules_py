@@ -2,25 +2,9 @@
 
 load("@aspect_bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
 load("@aspect_bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
-load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "SH_TOOLCHAIN", "VENV_TOOLCHAIN")
-
-_MUST_SET_INTERPRETER_VERSION_FLAG = """\
-ERROR: Prior to Bazel 7.x, the python interpreter version must be explicitly provided.
-
-For example in `.bazelrc` with Bazel 6.4, add
-        
-    common --@aspect_rules_py//py:interpreter_version=3.9.18
-
-Bazel 6.3 and earlier didn't handle the `common` verb for custom flags.
-Repeat the flag to avoid discarding the analysis cache:
-
-    build --@aspect_rules_py//py:interpreter_version=3.9.18
-    fetch --@aspect_rules_py//py:interpreter_version=3.9.18
-    query --@aspect_rules_py//py:interpreter_version=3.9.18
-"""
 
 def _dict_to_exports(env):
     return [
@@ -78,17 +62,6 @@ def _py_binary_rule_impl(ctx):
             attribute_name = "env",
         )
 
-    if "interpreter_version_info" in dir(py_toolchain.toolchain):
-        major = py_toolchain.toolchain.interpreter_version_info.major
-        minor = py_toolchain.toolchain.interpreter_version_info.minor
-        micro = py_toolchain.toolchain.interpreter_version_info.micro
-    elif ctx.attr._interpreter_version_flag[BuildSettingInfo].value:
-        # Same code as rules_python:
-        # https://github.com/bazelbuild/rules_python/blob/76f1c76f60ccb536d3b3e2c9f023d8063f40bcd5/python/repositories.bzl#L109
-        major, minor, micro = ctx.attr._interpreter_version_flag[BuildSettingInfo].value.split(".")
-    else:
-        fail(_MUST_SET_INTERPRETER_VERSION_FLAG)
-
     executable_launcher = ctx.actions.declare_file(ctx.attr.name)
     ctx.actions.expand_template(
         template = ctx.file._run_tmpl,
@@ -101,14 +74,16 @@ def _py_binary_rule_impl(ctx):
             "{{ARG_PYTHON}}": to_rlocation_path(ctx, py_toolchain.python),
             "{{ARG_VENV_NAME}}": ".{}.venv".format(ctx.attr.name),
             "{{ARG_VENV_PYTHON_VERSION}}": "{}.{}.{}".format(
-                major,
-                minor,
-                micro,
+                py_toolchain.interpreter_version_info.major,
+                py_toolchain.interpreter_version_info.minor,
+                py_toolchain.interpreter_version_info.micro,
             ),
             "{{ARG_PTH_FILE}}": to_rlocation_path(ctx, site_packages_pth_file),
             "{{ENTRYPOINT}}": to_rlocation_path(ctx, ctx.file.main),
             "{{PYTHON_ENV}}": "\n".join(_dict_to_exports(env)).strip(),
-            "{{EXEC_PYTHON_BIN}}": "python{}".format(major),
+            "{{EXEC_PYTHON_BIN}}": "python{}".format(
+                py_toolchain.interpreter_version_info.major,
+            ),
         },
         is_executable = True,
     )
@@ -171,6 +146,7 @@ _attrs = dict({
     "_runfiles_lib": attr.label(
         default = "@bazel_tools//tools/bash/runfiles",
     ),
+    # NB: this is read by _resolve_toolchain in py_semantics.
     "_interpreter_version_flag": attr.label(
         default = "//py:interpreter_version",
     ),

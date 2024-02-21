@@ -25,7 +25,6 @@ bzl_library(
         ":py_library",
         "@aspect_bazel_lib//lib:expand_make_vars",
         "@aspect_bazel_lib//lib:paths",
-        "@bazel_skylib//rules:common_settings",
     ],
 )
 
@@ -63,7 +62,10 @@ bzl_library(
     name = "py_semantics",
     srcs = ["py_semantics.bzl"],
     visibility = ["//py:__subpackages__"],
-    deps = ["//py/private/toolchain:types"],
+    deps = [
+        "//py/private/toolchain:types",
+        "@bazel_skylib//rules:common_settings",
+    ],
 )
 
 bzl_library(

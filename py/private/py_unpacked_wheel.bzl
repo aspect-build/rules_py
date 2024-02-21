@@ -21,9 +21,9 @@ def _py_unpacked_wheel_impl(ctx):
         py_toolchain.python,
         "--python-version",
         "{}.{}.{}".format(
-            py_toolchain.toolchain.interpreter_version_info.major,
-            py_toolchain.toolchain.interpreter_version_info.minor,
-            py_toolchain.toolchain.interpreter_version_info.micro,
+            py_toolchain.interpreter_version_info.major,
+            py_toolchain.interpreter_version_info.minor,
+            py_toolchain.interpreter_version_info.micro,
         ),
         "--package-name",
         ctx.attr.py_package_name,
@@ -44,8 +44,8 @@ def _py_unpacked_wheel_impl(ctx):
         unpack_directory.basename,
         "lib",
         "python{}.{}".format(
-            py_toolchain.toolchain.interpreter_version_info.major,
-            py_toolchain.toolchain.interpreter_version_info.minor,
+            py_toolchain.interpreter_version_info.major,
+            py_toolchain.interpreter_version_info.minor,
         ),
         "site-packages",
     )
@@ -73,6 +73,10 @@ _attrs = {
     ),
     "py_package_name": attr.string(
         mandatory = True,
+    ),
+    # NB: this is read by _resolve_toolchain in py_semantics.
+    "_interpreter_version_flag": attr.label(
+        default = "//py:interpreter_version",
     ),
 }
 
