@@ -94,8 +94,8 @@ def rules_py_internal_deps():
 
     http_archive(
         name = "rules_rust",
-        sha256 = "75177226380b771be36d7efc538da842c433f14cd6c36d7660976efb53defe86",
-        urls = ["https://github.com/bazelbuild/rules_rust/releases/download/0.34.1/rules_rust-v0.34.1.tar.gz"],
+        sha256 = "1ae45a413d0b9433987320df2ad410db6a15fafb6c88cf0fd1bf3baacbe826db",
+        urls = ["https://github.com/bazelbuild/rules_rust/releases/download/0.39.0/rules_rust-v0.39.0.tar.gz"],
     )
 
     http_file(
