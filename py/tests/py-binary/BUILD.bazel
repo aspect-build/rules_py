@@ -48,3 +48,17 @@ assert_contains(
     actual = "main_from_name.out",
     expected = "running main_from_name",
 )
+
+###################
+# Case 3: runfiles
+
+# Manually verify with
+# 1. bazel run py/tests/py-binary:runfiles
+# 2. bazel run py/tests/py-binary:runfiles --script_path=/tmp/py_binary && /tmp/py_binary
+# TODO: make an automated test out of this.
+py_binary(
+    name = "runfiles",
+    srcs = ["runfiles.py"],
+    data = ["runfile.txt"],
+    deps = ["@bazel_tools//tools/python/runfiles"],
+)
