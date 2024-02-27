@@ -13,6 +13,7 @@ build --define=SOME_VAR=SOME_VALUE
 # Use local rules_python
 # Enable with --config=dev
 common:dev --override_repository=rules_python=~/workspace/rules_python
+build --incompatible_enable_cc_toolchain_resolution
 
 # Load any settings specific to the current user.
 # .bazelrc.user should appear in .gitignore so that settings are not shared with team members

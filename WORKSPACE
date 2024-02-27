@@ -1,10 +1,12 @@
 # Declare the local Bazel workspace.
 workspace(name = "aspect_rules_py")
 
+load("//tools/release:fetch.bzl", _release_deps = "fetch_deps")
 load(":internal_deps.bzl", "rules_py_internal_deps")
 
 # Fetch deps needed only locally for development
 rules_py_internal_deps()
+_release_deps()
 
 load("//py:repositories.bzl", "rules_py_dependencies")
 
@@ -29,14 +31,34 @@ load("@aspect_bazel_lib//lib:repositories.bzl", "register_coreutils_toolchains")
 
 register_coreutils_toolchains()
 
-############################################
-## CC toolchain using zig
-load("@hermetic_cc_toolchain//toolchain:defs.bzl", zig_toolchains = "toolchains")
+load("@toolchains_llvm//toolchain:rules.bzl", "llvm_toolchain")
 
-# Plain zig_toolchains() will pick reasonable defaults. See
-# toolchain/defs.bzl:toolchains on how to change the Zig SDK version and
-# download URL.
-zig_toolchains()
+llvm_toolchain(
+    name = "llvm_toolchain",
+    llvm_version = "14.0.0",
+    sha256 = {
+        "darwin-aarch64": "1b8975db6b638b308c1ee437291f44cf8f67a2fb926eb2e6464efd180e843368",
+        "linux-x86_64": "564fcbd79c991e93fdf75f262fa7ac6553ec1dd04622f5d7db2a764c5dc7fac6",
+    },
+    strip_prefix = {
+        "darwin-aarch64": "clang+llvm-14.0.0-arm64-apple-darwin",
+        "linux-x86_64": "clang+llvm-14.0.0-x86_64-linux-gnu",
+    },
+    sysroot = {
+        "linux-aarch64": "@org_chromium_sysroot_linux_arm64//:sysroot",
+        "linux-x86_64": "@org_chromium_sysroot_linux_x86_64//:sysroot",
+        "darwin-aarch64": "@sysroot_darwin_universal//:sysroot",
+        "darwin-x86_64": "@sysroot_darwin_universal//:sysroot",
+    },
+    urls = {
+        "darwin-aarch64": ["https://github.com/aspect-forks/llvm-project/releases/download/aspect-release-14.0.0/clang+llvm-14.0.0-arm64-apple-darwin.tar.xz"],
+        "linux-x86_64": ["https://github.com/aspect-forks/llvm-project/releases/download/aspect-release-14.0.0/clang+llvm-14.0.0-x86_64-linux-gnu.tar.xz"],
+    },
+)
+
+load("@llvm_toolchain//:toolchains.bzl", "llvm_register_toolchains")
+
+llvm_register_toolchains()
 
 ############################################
 # Development dependencies from pypi
@@ -102,7 +124,7 @@ _py_image_repos()
 
 ############################################
 # rules_rust dependencies for building tools
-load("@rules_rust//rust:repositories.bzl", "rules_rust_dependencies", "rust_register_toolchains")
+load("@rules_rust//rust:repositories.bzl", "rules_rust_dependencies", "rust_register_toolchains", "rust_repository_set")
 
 rules_rust_dependencies()
 
@@ -111,6 +133,21 @@ rust_register_toolchains(
     versions = [
         "1.74.1",
     ],
+)
+
+# Declare cross-compilation toolchains
+rust_repository_set(
+    name = "linux_x86_64",
+    edition = "2021",
+    # release builds take place on GitHub actions: linux x86
+    exec_triple = "x86_64-unknown-linux-gnu",
+    # and cross-compile to these platforms:
+    extra_target_triples = [
+        "aarch64-unknown-linux-gnu",
+        "x86_64-apple-darwin",
+        "aarch64-apple-darwin",
+    ],
+    versions = ["1.74.1"],
 )
 
 load("@rules_rust//crate_universe:repositories.bzl", "crate_universe_dependencies")

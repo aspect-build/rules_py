@@ -1,0 +1,24 @@
+load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
+
+[
+    platform(
+        name = "{}_{}".format(os, cpu),
+        constraint_values = [
+            "@platforms//os:" + os,
+            "@platforms//cpu:" + cpu,
+        ],
+    )
+    for os in ["linux", "macos"]
+    for cpu in ["aarch64", "x86_64"]
+]
+
+[
+    platform_transition_filegroup(
+        name = "{}_{}_{}_build".format(bin, os, cpu),
+        srcs = ["//py/tools/{}_bin".format(bin)],
+        target_platform = "{}_{}".format(os, cpu),
+    )
+    for os in ["linux", "macos"]
+    for cpu in ["aarch64", "x86_64"]
+    for bin in ["unpack", "venv"]
+]

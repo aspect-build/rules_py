@@ -3,13 +3,16 @@
 # and put the release notes into the commit message for the tag.
 name: Release
 
+permissions:
+  contents: write
+
 on:
   push:
     tags:
-      - "v*.*.*"
+      - "v[0-9]+.*"
 
 jobs:
-  build:
+  create-release:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -38,3 +41,30 @@ jobs:
           body_path: release_notes.txt
           files: rules_py-*.tar.gz
           fail_on_unmatched_files: true
+
+  upload-assets:
+    needs: create-release
+    strategy:
+      matrix:
+        include:
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: aarch64-apple-darwin
+            os: macos-latest
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: x86_64-apple-darwin
+            os: macos-latest
+          # Universal macOS binary is supported as universal-apple-darwin.
+          - target: universal-apple-darwin
+            os: macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/upload-rust-binary-action@v1
+        with:
+          # (required) Comma-separated list of binary names (non-extension portion of filename) to build and upload.
+          # Note that glob pattern is not supported yet.
+          bin: unpack,
+          target: ${{ matrix.target }}
+          token: ${{ secrets.GITHUB_TOKEN }}
