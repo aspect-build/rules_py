@@ -11,7 +11,10 @@ on:
 jobs:
   create-release:
     # See https://github.com/actions/runner-images?tab=readme-ov-file#available-images
-    runs-on: macos-13-xlarge
+    # But our billing plan doesn't allow
+    # runs-on: macos-13-xlarge
+    # which would give us ARM64 mac runner
+    runs-on: macos-latest
 
     steps:
       - name: Checkout

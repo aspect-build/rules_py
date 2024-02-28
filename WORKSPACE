@@ -140,7 +140,8 @@ rust_register_toolchains(
 rust_repository_set(
     name = "linux_x86_64",
     edition = "2021",
-    exec_triple = "aarch64-apple-darwin",
+    # The runner we chose in .github/workflows/release.yml
+    exec_triple = "x86_64-apple-darwin",
     # and cross-compile to these platforms:
     extra_target_triples = [
         "aarch64-apple-darwin",
