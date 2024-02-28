@@ -13,12 +13,12 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
   { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
 # --- end runfiles.bash initialization v3 ---
 
-if [[ -z "${DEST:-}" ]]; then
+if [[ -z "${DESTDIR:-}" ]]; then
     >&2 echo "ERROR: specify DEST environment variable"
     exit 1
 fi
 
 cd $BUILD_WORKSPACE_DIRECTORY
 for arg in "$@"
-do cp -pv "$(rlocation $arg)" $DEST
+do cp -pv "$(rlocation $arg)" $DESTDIR
 done
