@@ -3,9 +3,6 @@
 # and put the release notes into the commit message for the tag.
 name: Release
 
-permissions:
-  contents: write
-
 on:
   push:
     tags:
@@ -13,7 +10,9 @@ on:
 
 jobs:
   create-release:
-    runs-on: ubuntu-latest
+    # See https://github.com/actions/runner-images?tab=readme-ov-file#available-images
+    runs-on: macos-13-xlarge
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,13 +24,22 @@ jobs:
             "~/.cache/bazel-repo"
           key: bazel-cache-${{ hashFiles('**/BUILD.bazel', '**/*.bzl', 'WORKSPACE') }}
           restore-keys: bazel-cache-
-      - name: bazel test //...
+
+      - name: Build release artifacts
         env:
-          # Bazelisk will download bazel to here
-          XDG_CACHE_HOME: ~/.cache/bazel-repo
-        run: bazel --bazelrc=.github/workflows/ci.bazelrc --bazelrc=.bazelrc test //...
+          DESTDIR: /tmp/aspect/release
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            >&2 echo "ERROR: the git state is not clean, aborting build..."
+            exit 1
+          fi
+          rm -rf ${{ env.DESTDIR }}
+          bazel --bazelrc=.github/workflows/ci.bazelrc \
+            run //tools/release:copy_release_artifacts
+
       - name: Prepare release
         run: .github/workflows/release_prep.sh ${{ env.GITHUB_REF_NAME }} > release_notes.txt
+
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
@@ -39,32 +47,7 @@ jobs:
           # Use GH feature to populate the changelog automatically
           generate_release_notes: true
           body_path: release_notes.txt
-          files: rules_py-*.tar.gz
+          files: |
+            /tmp/aspect/release/*
+            rules_py-*.tar.gz
           fail_on_unmatched_files: true
-
-  upload-assets:
-    needs: create-release
-    strategy:
-      matrix:
-        include:
-          - target: aarch64-unknown-linux-gnu
-            os: ubuntu-latest
-          - target: aarch64-apple-darwin
-            os: macos-latest
-          - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
-          - target: x86_64-apple-darwin
-            os: macos-latest
-          # Universal macOS binary is supported as universal-apple-darwin.
-          - target: universal-apple-darwin
-            os: macos-latest
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: taiki-e/upload-rust-binary-action@v1
-        with:
-          # (required) Comma-separated list of binary names (non-extension portion of filename) to build and upload.
-          # Note that glob pattern is not supported yet.
-          bin: unpack,
-          target: ${{ matrix.target }}
-          token: ${{ secrets.GITHUB_TOKEN }}

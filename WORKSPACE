@@ -6,6 +6,7 @@ load(":internal_deps.bzl", "rules_py_internal_deps")
 
 # Fetch deps needed only locally for development
 rules_py_internal_deps()
+
 _release_deps()
 
 load("//py:repositories.bzl", "rules_py_dependencies")
@@ -139,13 +140,13 @@ rust_register_toolchains(
 rust_repository_set(
     name = "linux_x86_64",
     edition = "2021",
-    # release builds take place on GitHub actions: linux x86
-    exec_triple = "x86_64-unknown-linux-gnu",
+    exec_triple = "aarch64-apple-darwin",
     # and cross-compile to these platforms:
     extra_target_triples = [
+        "aarch64-apple-darwin",
         "aarch64-unknown-linux-gnu",
         "x86_64-apple-darwin",
-        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
     ],
     versions = ["1.74.1"],
 )
