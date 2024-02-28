@@ -51,8 +51,10 @@ load("@aspect_bazel_lib//lib:copy_file.bzl", "copy_file")
         "linux",
         "macos",
     ]
-    # # FIXME: compiling to macos_x86_64 not working
-    for cpu in ["aarch64"]
+    for cpu in [
+        "aarch64",
+        "x86_64",
+    ]
     for bin in [
         "unpack",
         "venv",
@@ -65,7 +67,15 @@ ARTIFACTS = [
         "linux",
         "macos",
     ]
-    for cpu in ["aarch64"]
+    # FIXME: cross-compiling to macos_aarch64 not working
+    # https://github.com/alexeagle/rules_py/actions/runs/8073435022/job/22057090776
+    for cpu in ["x86_64"]
+    for bin in [
+        "unpack",
+        "venv",
+    ]
+] + [
+    "copy_{}_linux_aarch64".format(bin)
     for bin in [
         "unpack",
         "venv",
