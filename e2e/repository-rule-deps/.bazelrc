@@ -1,0 +1,7 @@
+common --test_output=all
+
+# The test only works with bzlmod enabled.
+common --enable_bzlmod
+
+# The imports=[".."] only works properly when this matches the python toolchain major version.
+common --@aspect_rules_py//py:interpreter_version=3.11.6

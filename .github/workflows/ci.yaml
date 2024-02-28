@@ -30,6 +30,13 @@ jobs:
           {"folder": ".", "bzlmodEnabled": true}
         ]
 
+  repository-rule-deps:
+    uses: bazel-contrib/.github/.github/workflows/bazel.yaml@v6
+    with:
+      folders: '["e2e/repository-rule-deps"]'
+      exclude: |
+        [{"bzlmodEnabled":false}]
+
   verify-bcr-patches:
     runs-on: ubuntu-latest
     steps:

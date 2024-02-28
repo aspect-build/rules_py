@@ -1,0 +1,4 @@
+exports_files(
+    srcs = ["import.bzl"],
+    visibility = ["//visibility:public"],
+)
