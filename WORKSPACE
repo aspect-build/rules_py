@@ -1,13 +1,10 @@
 # Declare the local Bazel workspace.
 workspace(name = "aspect_rules_py")
 
-load("//tools/release:fetch.bzl", _release_deps = "fetch_deps")
 load(":internal_deps.bzl", "rules_py_internal_deps")
 
 # Fetch deps needed only locally for development
 rules_py_internal_deps()
-
-_release_deps()
 
 load("//py:repositories.bzl", "rules_py_dependencies")
 
@@ -32,34 +29,16 @@ load("@aspect_bazel_lib//lib:repositories.bzl", "register_coreutils_toolchains")
 
 register_coreutils_toolchains()
 
-load("@toolchains_llvm//toolchain:rules.bzl", "llvm_toolchain")
+############################################
+## CC toolchain using zig
+load("@hermetic_cc_toolchain//toolchain:defs.bzl", zig_toolchains = "toolchains")
 
-llvm_toolchain(
-    name = "llvm_toolchain",
-    llvm_version = "14.0.0",
-    sha256 = {
-        "darwin-aarch64": "1b8975db6b638b308c1ee437291f44cf8f67a2fb926eb2e6464efd180e843368",
-        "linux-x86_64": "564fcbd79c991e93fdf75f262fa7ac6553ec1dd04622f5d7db2a764c5dc7fac6",
-    },
-    strip_prefix = {
-        "darwin-aarch64": "clang+llvm-14.0.0-arm64-apple-darwin",
-        "linux-x86_64": "clang+llvm-14.0.0-x86_64-linux-gnu",
-    },
-    sysroot = {
-        "linux-aarch64": "@org_chromium_sysroot_linux_arm64//:sysroot",
-        "linux-x86_64": "@org_chromium_sysroot_linux_x86_64//:sysroot",
-        "darwin-aarch64": "@sysroot_darwin_universal//:sysroot",
-        "darwin-x86_64": "@sysroot_darwin_universal//:sysroot",
-    },
-    urls = {
-        "darwin-aarch64": ["https://github.com/aspect-forks/llvm-project/releases/download/aspect-release-14.0.0/clang+llvm-14.0.0-arm64-apple-darwin.tar.xz"],
-        "linux-x86_64": ["https://github.com/aspect-forks/llvm-project/releases/download/aspect-release-14.0.0/clang+llvm-14.0.0-x86_64-linux-gnu.tar.xz"],
-    },
-)
+# Plain zig_toolchains() will pick reasonable defaults. See
+# toolchain/defs.bzl:toolchains on how to change the Zig SDK version and
+# download URL.
+zig_toolchains()
 
-load("@llvm_toolchain//:toolchains.bzl", "llvm_register_toolchains")
-
-llvm_register_toolchains()
+register_toolchains("@zig_sdk//toolchain:all")
 
 ############################################
 # Development dependencies from pypi
@@ -129,28 +108,43 @@ load("@rules_rust//rust:repositories.bzl", "rules_rust_dependencies", "rust_regi
 
 rules_rust_dependencies()
 
+RUST_EDITION = "2021"
+
+RUST_VERSIONS = ["1.74.1"]
+
+# TODO: ship for windows
+RUST_CROSS_COMPILE_TARGET_TRIPLES = [
+    "aarch64-apple-darwin",
+    "aarch64-unknown-linux-gnu",
+    "x86_64-apple-darwin",
+    "x86_64-unknown-linux-gnu",
+]
+
+# Host platforms we can compile on
+RUST_EXEC_TRIPLES = [
+    "x86_64-unknown-linux-gnu",
+    # Typical developer laptop
+    "aarch64-apple-darwin",
+    # The runner we chose in .github/workflows/release.yml
+    "x86_64-apple-darwin",
+]
+
 rust_register_toolchains(
-    edition = "2021",
-    versions = [
-        "1.74.1",
-    ],
+    edition = RUST_EDITION,
+    versions = RUST_VERSIONS,
 )
 
 # Declare cross-compilation toolchains
-rust_repository_set(
-    name = "linux_x86_64",
-    edition = "2021",
-    # The runner we chose in .github/workflows/release.yml
-    exec_triple = "x86_64-apple-darwin",
-    # and cross-compile to these platforms:
-    extra_target_triples = [
-        "aarch64-apple-darwin",
-        "aarch64-unknown-linux-gnu",
-        "x86_64-apple-darwin",
-        "x86_64-unknown-linux-gnu",
-    ],
-    versions = ["1.74.1"],
-)
+[
+    rust_repository_set(
+        name = exec_triple,
+        edition = RUST_EDITION,
+        exec_triple = exec_triple,
+        extra_target_triples = RUST_CROSS_COMPILE_TARGET_TRIPLES,
+        versions = RUST_VERSIONS,
+    )
+    for exec_triple in RUST_EXEC_TRIPLES
+]
 
 load("@rules_rust//crate_universe:repositories.bzl", "crate_universe_dependencies")
 

@@ -67,6 +67,17 @@ def rules_py_internal_deps():
         ],
     )
 
+    HERMETIC_CC_TOOLCHAIN_VERSION = "v3.0.1"
+
+    http_archive(
+        name = "hermetic_cc_toolchain",
+        sha256 = "3bc6ec127622fdceb4129cb06b6f7ab098c4d539124dde96a6318e7c32a53f7a",
+        urls = [
+            "https://mirror.bazel.build/github.com/uber/hermetic_cc_toolchain/releases/download/{0}/hermetic_cc_toolchain-{0}.tar.gz".format(HERMETIC_CC_TOOLCHAIN_VERSION),
+            "https://github.com/uber/hermetic_cc_toolchain/releases/download/{0}/hermetic_cc_toolchain-{0}.tar.gz".format(HERMETIC_CC_TOOLCHAIN_VERSION),
+        ],
+    )
+
     http_archive(
         name = "io_bazel_rules_docker",
         sha256 = "9d41cbe09688d4de137b19091f162de05be9a629a4355bfc1a993f378231730a",

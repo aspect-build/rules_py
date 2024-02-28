@@ -4,6 +4,11 @@
 
 test --test_output=errors
 
+# ONLY use the zig toolchain, not something on the host.
+# See https://github.com/uber/hermetic_cc_toolchain/blob/c37835a954ff1db9a6134a2f38238e83de3c65e5/README.md#use-case-always-compile-with-zig-cc
+build --incompatible_enable_cc_toolchain_resolution
+build --action_env BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
+
 # TODO(alex): enable
 common --noenable_bzlmod
 
@@ -13,7 +18,6 @@ build --define=SOME_VAR=SOME_VALUE
 # Use local rules_python
 # Enable with --config=dev
 common:dev --override_repository=rules_python=~/workspace/rules_python
-build --incompatible_enable_cc_toolchain_resolution
 
 # Load any settings specific to the current user.
 # .bazelrc.user should appear in .gitignore so that settings are not shared with team members
