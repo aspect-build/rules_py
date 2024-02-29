@@ -10,25 +10,47 @@ on:
 
 jobs:
   build:
+    # We don't attempt to cross-compile rust binaries from one OS to another.
+    # So just spin up a runner on each OS to build its binaries.
+    strategy:
+      matrix:
+        # Pin to runner releases since our Rust compile is fiddly with system libs
+        os: [ubuntu-20.04, macos-12]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Rust Binaries
+        env:
+          # NB: this variable is read by tools/release/copy_release_artifacts.sh
+          DEST: artifacts
+        run: |
+          rm -rf ${{ env.DEST }}
+          mkdir -p ${{ env.DEST }}
+          bazel --bazelrc=.github/workflows/ci.bazelrc \
+            run --config=release //tools/release:copy_release_artifacts
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-${{ matrix.os }}
+          path: artifacts/
+          retention-days: 1
+
+  release:
+    needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Mount bazel caches
-        uses: actions/cache@v3
-        with:
-          path: |
-            "~/.cache/bazel"
-            "~/.cache/bazel-repo"
-          key: bazel-cache-${{ hashFiles('**/BUILD.bazel', '**/*.bzl', 'WORKSPACE') }}
-          restore-keys: bazel-cache-
-      - name: bazel test //...
-        env:
-          # Bazelisk will download bazel to here
-          XDG_CACHE_HOME: ~/.cache/bazel-repo
-        run: bazel --bazelrc=.github/workflows/ci.bazelrc --bazelrc=.bazelrc test //...
+      - uses: actions/checkout@v4
+
+      # Fetch the built artifacts from build jobs above and extract into
+      # ${GITHUB_WORKSPACE}/artifacts-macos-latest/*
+      # ${GITHUB_WORKSPACE}/artifacts-ubuntu-latest/*
+      - uses: actions/download-artifact@v4
+
       - name: Prepare release
-        run: .github/workflows/release_prep.sh ${{ env.GITHUB_REF_NAME }} > release_notes.txt
+        run: .github/workflows/release_prep.sh > release_notes.txt
+
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
@@ -36,5 +58,7 @@ jobs:
           # Use GH feature to populate the changelog automatically
           generate_release_notes: true
           body_path: release_notes.txt
-          files: rules_py-*.tar.gz
+          files: |
+            artifacts-*/*
+            rules_py-*.tar.gz
           fail_on_unmatched_files: true

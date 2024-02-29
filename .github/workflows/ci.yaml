@@ -18,9 +18,14 @@ concurrency:
 
 jobs:
   test:
-    uses: bazel-contrib/.github/.github/workflows/bazel.yaml@ca6324c506371e708095b42e24d6f34030753de6
+    uses: bazel-contrib/.github/.github/workflows/bazel.yaml@v6
     with:
       folders: '[".", "e2e/smoke"]'
       # TODO: Build Windows tools and add to toolchain
       # TODO(alex): switch the root folder to bzlmod
-      exclude: '[{"os": "windows-latest"}, {"folder": ".", "bazelversion": "6.4.0"}, {"folder": ".", "bzlmodEnabled": true}]'
+      exclude: |
+        [
+          {"os": "windows-latest"},
+          {"folder": ".", "bazelversion": "6.4.0"},
+          {"folder": ".", "bzlmodEnabled": true}
+        ]
