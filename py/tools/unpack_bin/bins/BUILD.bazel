@@ -1,9 +1,0 @@
-exports_files(
-    [
-        "unpack-aarch64-apple-darwin",
-        "unpack-aarch64-unknown-linux-musl",
-        "unpack-x86_64-apple-darwin",
-        "unpack-x86_64-unknown-linux-musl",
-    ],
-    visibility = ["//visibility:public"],
-)
