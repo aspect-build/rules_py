@@ -14,7 +14,8 @@ jobs:
     # So just spin up a runner on each OS to build its binaries.
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        # Pin to runner releases since our Rust compile is fiddly with system libs
+        os: [ubuntu-20.04, macos-12]
     runs-on: ${{ matrix.os }}
 
     steps:
