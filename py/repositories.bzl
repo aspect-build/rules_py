@@ -43,12 +43,11 @@ def rules_py_dependencies(register_py_toolchains = True):
         url = "https://github.com/aspect-build/bazel-lib/archive/refs/tags/v1.40.0.tar.gz",
     )
 
-    # We require #1671 which isn't in a release as of 19 Jan 2024
     http_archive(
         name = "rules_python",
-        sha256 = "b4e41e7cd1e953c7d49b1027fa66cb8e949eee14babd40ea4d6dc4a27e6a3707",
-        strip_prefix = "rules_python-c6941a8dad4c7a221125fbad7c8bfaac377e00ba",
-        url = "https://github.com/bazelbuild/rules_python/archive/c6941a8dad4c7a221125fbad7c8bfaac377e00ba.tar.gz",
+        sha256 = "c68bdc4fbec25de5b5493b8819cfc877c4ea299c0dcb15c244c5a00208cde311",
+        strip_prefix = "rules_python-0.31.0",
+        url = "https://github.com/bazelbuild/rules_python/releases/download/0.31.0/rules_python-0.31.0.tar.gz",
     )
 
     if register_py_toolchains:
