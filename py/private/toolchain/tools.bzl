@@ -1,10 +1,16 @@
 """Toolchain for making toolchains"""
 
+load("//tools:integrity.bzl", "RELEASED_BINARY_INTEGRITY")
 load("//tools:version.bzl", "IS_PRERELEASE")
 
 # Uncomment to manually test pre-built binary toolchain
 TEST_RELEASE_CODEPATH = True
 RELEASE_FORK = "alexeagle" # "aspect-build"
+
+RUST_BINS = {
+    "unpack": "@aspect_rules_py//py/tools/unpack_bin"
+    "venv": "@aspect_rules_py//py/tools/venv_bin"
+}
 
 TOOLCHAIN_PLATFORMS = {
     "darwin_amd64": struct(
@@ -73,10 +79,10 @@ _toolchain = rule(
     },
 )
 
-def _make_toolchain_name(name, platform):
-    return "{}_{}_toolchain".format(name, platform)
+# def _make_toolchain_name(name, platform):
+#     return "{}_{}_toolchain".format(name, platform)
 
-def make_toolchain(name, toolchain_type, tools, cfg = "exec"):
+def register_py_toolchains(name, toolchain_type, tools, cfg = "exec"):
     """Makes vtool toolchain and repositories
 
     Args:
@@ -101,29 +107,40 @@ def make_toolchain(name, toolchain_type, tools, cfg = "exec"):
         return
 
     for [platform, meta] in TOOLCHAIN_PLATFORMS.items():
-        toolchain_rule = "{}_toolchain_{}".format(name, platform)
-        _toolchain(
-            name = toolchain_rule,
-            bin = tools[meta.release_platform],
-            template_var = "{}_BIN".format(name.upper()),
-        )
+        # toolchain_rule = "{}_toolchain_{}".format(name, platform)
+        # _toolchain(
+        #     name = toolchain_rule,
+        #     bin = tools[meta.release_platform],
+        #     template_var = "{}_BIN".format(name.upper()),
+        # )
 
-        args = dict({
-            "name": _make_toolchain_name(name, platform),
-            "toolchain": toolchain_rule,
-            "toolchain_type": toolchain_type,
-        })
-        if cfg == "exec":
-            args.update({"exec_compatible_with": meta.compatible_with})
-        else:
-            args.update({"target_compatible_with": meta.compatible_with})
+        # args = dict({
+        #     "name": _make_toolchain_name(name, platform),
+        #     "toolchain": toolchain_rule,
+        #     "toolchain_type": toolchain_type,
+        # })
+        # if cfg == "exec":
+        #     args.update({"exec_compatible_with": meta.compatible_with})
+        # else:
+        #     args.update({"target_compatible_with": meta.compatible_with})
 
-        native.toolchain(**args)
+        # native.toolchain(**args)
 
 def _tool_repo_impl(rctx):
-    url = "https://github.com/{}/rules_py/releases/download/v{}/{}-{}{}".format(
+
+    filename = "{}-{}-{}".format(
+        bin,
+        os,
+        arch
+    )
+    url = "https://github.com/{}/rules_py/releases/download/v{}/{}".format(
         RELEASE_FORK,
         VERSION,
-        release_platform,
-        ".exe" if is_windows else "",
+        filename
+    )
+    rctx.download(
+        url = url,
+        sha256 = RELEASED_BINARY_INTEGRITY[filename],
+        executable = True,
+        output = bin,
     )
