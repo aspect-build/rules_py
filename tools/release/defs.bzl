@@ -1,8 +1,16 @@
 "Make releases for platforms supported by rules_py"
 
-load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@aspect_bazel_lib//lib:copy_file.bzl", "copy_file")
+load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@aspect_bazel_lib//tools/release:hashes.bzl", "hashes")
+
+def _map_os_to_triple(os):
+    if os == "linux":
+        # TODO: when we produce musl-linked binaries, this should change to unknown-linux-musl
+        return "unknown-linux-gnu"
+    if os == "macos":
+        return "apple-darwin"
+    fail("unrecognized os", os)
 
 # buildozer: disable=function-docstring
 def multi_arch_rust_binary_release(name, src, os, archs = ["aarch64", "x86_64"], **kwargs):
@@ -16,7 +24,8 @@ def multi_arch_rust_binary_release(name, src, os, archs = ["aarch64", "x86_64"],
             target_compatible_with = ["@platforms//os:{}".format(os)],
         )
 
-        artifact = "{}-{}-{}".format(bin, os, arch)
+        # Artifact naming follows typical Rust "triples" convention.
+        artifact = "{}-{}-{}".format(bin, arch, _map_os_to_triple(os))
         outs.append(artifact)
         copy_file(
             name = "copy_{}_{}_{}".format(bin, os, arch),
