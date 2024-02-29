@@ -1,0 +1,66 @@
+diff --git a/toolchain/cc_toolchain_config.bzl b/toolchain/cc_toolchain_config.bzl
+index b2aa92a..87c6614 100644
+--- a/toolchain/cc_toolchain_config.bzl
++++ b/toolchain/cc_toolchain_config.bzl
+@@ -112,8 +112,6 @@ def cc_toolchain_config(
+         "-fdebug-prefix-map={}=__bazel_toolchain_llvm_repo__/".format(toolchain_path_prefix),
+     ]
+ 
+-    is_xcompile = not (host_os == target_os and host_arch == target_arch)
+-
+     # Default compiler flags:
+     compile_flags = [
+         "--target=" + target_system_name,
+@@ -149,12 +147,15 @@ def cc_toolchain_config(
+     # unused symbols are not stripped.
+     link_libs = []
+ 
++    use_lld = True
++
+     # Linker flags:
+-    if host_os == "darwin" and not is_xcompile:
++    if host_os == "darwin":
+         # lld is experimental for Mach-O, so we use the native ld64 linker.
+         # TODO: How do we cross-compile from Linux to Darwin?
+         use_lld = False
+         link_flags.extend([
++            "-mmacosx-version-min=11.0",
+             "-headerpad_max_install_names",
+             "-fobjc-link-runtime",
+         ])
+@@ -175,8 +176,8 @@ def cc_toolchain_config(
+     # always link C++ libraries.
+     cxx_standard = compiler_configuration["cxx_standard"]
+     stdlib = compiler_configuration["stdlib"]
+-    if stdlib == "builtin-libc++" and is_xcompile:
+-        stdlib = "stdc++"
++    # if stdlib == "builtin-libc++":
++        # stdlib = "stdc++"
+     if stdlib == "builtin-libc++":
+         cxx_flags = [
+             "-std=" + cxx_standard,
+@@ -186,11 +187,11 @@ def cc_toolchain_config(
+             # For single-platform builds, we can statically link the bundled
+             # libraries.
+             link_flags.extend([
+-                "-l:libc++.a",
+-                "-l:libc++abi.a",
+-                "-l:libunwind.a",
++                # "-l:libc++.a",
++                # "-l:libc++abi.a",
++                # "-l:libunwind.a",
+                 # Compiler runtime features.
+-                "-rtlib=compiler-rt",
++                # "-rtlib=compiler-rt",
+                 # To support libunwind.
+                 "-lpthread",
+                 "-ldl",
+@@ -207,7 +208,7 @@ def cc_toolchain_config(
+             # have the sysroot directory on the search path and then add the
+             # toolchain directory back after we are done.
+             link_flags.extend([
+-                "-L{}/usr/lib".format(compiler_configuration["sysroot_path"]),
++                # "-L{}/usr/lib".format(compiler_configuration["sysroot_path"]),
+                 "-lc++",
+                 "-lc++abi",
+             ])
