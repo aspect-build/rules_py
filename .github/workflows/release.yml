@@ -19,14 +19,17 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
       - name: Build Rust Binaries
         env:
+          # NB: this variable is read by tools/release/copy_release_artifacts.sh
           DEST: artifacts
         run: |
           rm -rf ${{ env.DEST }}
           mkdir -p ${{ env.DEST }}
           bazel --bazelrc=.github/workflows/ci.bazelrc \
             run --config=release //tools/release:copy_release_artifacts
+
       - uses: actions/upload-artifact@v4
         with:
           name: artifacts-${{ matrix.os }}
@@ -38,9 +41,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # Fetch the built artifacts from build jobs above and extract into
+      # ${GITHUB_WORKSPACE}/artifacts-macos-latest/*
+      # ${GITHUB_WORKSPACE}/artifacts-ubuntu-latest/*
       - uses: actions/download-artifact@v4
+
       - name: Prepare release
         run: .github/workflows/release_prep.sh > release_notes.txt
+
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
