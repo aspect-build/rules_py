@@ -7,15 +7,9 @@ local_path_override(
 )
 
 #---SNIP--- Below here is re-used in the snippet published on releases
-bazel_dep(name = "rules_python", dev_dependency = True, version = "0.27.1")
-
-# NB: users need this as well, until a new version of rules_python is released
-archive_override(
-    module_name = "rules_python",
-    urls = "https://github.com/bazelbuild/rules_python/archive/52381415be9d3618130f02a821aef50de1e3af09.tar.gz",
-    integrity = "sha256-pYfEFNWqygSEElDYgJsuIeDYn9oll/rZB0GcR+6rirA=",
-    strip_prefix = "rules_python-52381415be9d3618130f02a821aef50de1e3af09",
-)
+# Minimum version needs:
+# feat: add interpreter_version_info to py_runtime by @mattem in #1671
+bazel_dep(name = "rules_python", dev_dependency = True, version = "0.29.0")
 
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(
