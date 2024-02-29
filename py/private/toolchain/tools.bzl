@@ -2,6 +2,10 @@
 
 load("//tools:version.bzl", "IS_PRERELEASE")
 
+# Uncomment to manually test pre-built binary toolchain
+TEST_RELEASE_CODEPATH = True
+RELEASE_FORK = "alexeagle" # "aspect-build"
+
 TOOLCHAIN_PLATFORMS = {
     "darwin_amd64": struct(
         release_platform = "macos-amd64",
@@ -82,7 +86,7 @@ def make_toolchain(name, toolchain_type, tools, cfg = "exec"):
         cfg: Generate a toolchain for the target or exec config.
     """
 
-    if IS_PRERELEASE:
+    if IS_PRERELEASE and not TEST_RELEASE_CODEPATH:
         toolchain_rule = "{}_toolchain_source".format(name)
         _toolchain(
             name = toolchain_rule,
@@ -115,3 +119,11 @@ def make_toolchain(name, toolchain_type, tools, cfg = "exec"):
             args.update({"target_compatible_with": meta.compatible_with})
 
         native.toolchain(**args)
+
+def _tool_repo_impl(rctx):
+    url = "https://github.com/{}/rules_py/releases/download/v{}/{}-{}{}".format(
+        RELEASE_FORK,
+        VERSION,
+        release_platform,
+        ".exe" if is_windows else "",
+    )
