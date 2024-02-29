@@ -4,6 +4,42 @@ local_repository(
     path = "../..",
 )
 
+load("@aspect_rules_py//:internal_deps.bzl", "rules_py_rust_deps")
+
+rules_py_rust_deps()
+
+# We test a prerelease of rules_py, so we must setup the rules_py internal deps.
+load("@rules_rust//rust:repositories.bzl", "rules_rust_dependencies", "rust_register_toolchains")
+
+rules_rust_dependencies()
+
+rust_register_toolchains(
+    edition = "2021",
+    versions = ["1.74.1"],
+)
+
+load("@rules_rust//crate_universe:repositories.bzl", "crate_universe_dependencies")
+
+crate_universe_dependencies()
+
+load("@rules_rust//crate_universe:defs.bzl", "crates_repository")
+
+crates_repository(
+    name = "crate_index",
+    cargo_lockfile = "@aspect_rules_py//:Cargo.lock",
+    lockfile = "//:Cargo.Bazel.lock",
+    manifests = [
+        "@aspect_rules_py//:Cargo.toml",
+        "@aspect_rules_py//py/tools/py:Cargo.toml",
+        "@aspect_rules_py//py/tools/venv_bin:Cargo.toml",
+        "@aspect_rules_py//py/tools/unpack_bin:Cargo.toml",
+    ],
+)
+
+load("@crate_index//:defs.bzl", "crate_repositories")
+
+crate_repositories()
+
 #---SNIP--- Below here is re-used in the snippet published on releases
 # Fetches the rules_py dependencies.
 # If you want to have a different version of some dependency,
