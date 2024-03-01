@@ -23,7 +23,7 @@ register_autodetecting_python_toolchain = _register_autodetecting_python_toolcha
 # and released only in semver majors.
 
 # buildifier: disable=unnamed-macro
-def rules_py_dependencies():
+def rules_py_dependencies(name = "rules_py_tools", register = True, prerelease = IS_PRERELEASE):
     """Fetch rules_py's dependencies"""
 
     # The minimal version of bazel_skylib we require
@@ -47,9 +47,6 @@ def rules_py_dependencies():
         strip_prefix = "rules_python-0.31.0",
         url = "https://github.com/bazelbuild/rules_python/releases/download/0.31.0/rules_python-0.31.0.tar.gz",
     )
-
-def rules_py_toolchains(name = "rules_py_tools", register = True, prerelease = IS_PRERELEASE):
-    """Create toolchains, optionally register them as well"""
     
     # When running from a release version:
     # Fetch remote tools from the release and create toolchain for them
