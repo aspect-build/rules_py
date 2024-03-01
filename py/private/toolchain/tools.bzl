@@ -79,16 +79,13 @@ py_tool_toolchain = rule(
     },
 )
 
-def _make_toolchain_name(name, platform):
-    return "{}_{}_toolchain".format(name, platform)
-
 def source_toolchain(name, toolchain_type, bin):
     """Makes vtool toolchain and repositories
 
     Args:
         name: Override the prefix for the generated toolchain repositories.
         toolchain_type: Toolchain type reference.
-        tools: Mapping of tool binary to platform.
+        bin: the rust_binary target
     """
 
     toolchain_rule = "{}_toolchain_source".format(name)
@@ -98,7 +95,7 @@ def source_toolchain(name, toolchain_type, bin):
         template_var = "{}_BIN".format(name.upper()),
     )
     native.toolchain(
-        name = _make_toolchain_name(name, "source"),
+        name = "{}_source_toolchain".format(name),
         toolchain = toolchain_rule,
         toolchain_type = toolchain_type,
     )
@@ -163,7 +160,7 @@ def binary_tool_repos(name):
     """
     result = []
     for platform in TOOLCHAIN_PLATFORMS.keys():
-        tool_repo_name = ".".join([name, platform])
-        result.append("@{}//:all".format(tool_repo_name))
-        _tool_repo(name = tool_repo_name, platform = platform)
+        plat_repo_name = ".".join([name, platform])
+        result.append("@{}//:all".format(plat_repo_name))
+        _tool_repo(name = plat_repo_name, platform = platform)
     return result
