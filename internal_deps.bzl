@@ -10,14 +10,6 @@ load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 def http_archive(name, **kwargs):
     maybe(_http_archive, name = name, **kwargs)
 
-def rules_py_rust_deps():
-    "Fetch deps needed for building Rust tools from source"
-    http_archive(
-        name = "rules_rust",
-        sha256 = "75177226380b771be36d7efc538da842c433f14cd6c36d7660976efb53defe86",
-        urls = ["https://github.com/bazelbuild/rules_rust/releases/download/0.34.1/rules_rust-v0.34.1.tar.gz"],
-    )
-
 def rules_py_internal_deps():
     "Fetch deps needed for local development"
     http_archive(
@@ -98,6 +90,12 @@ def rules_py_internal_deps():
         sha256 = "9d04041ac92a0985e344235f5d946f71ac543f1b1565f2cdbc9a2aaee8adf55b",
         strip_prefix = "rules_python-0.26.0/gazelle",
         url = "https://github.com/bazelbuild/rules_python/releases/download/0.26.0/rules_python-0.26.0.tar.gz",
+    )
+
+    http_archive(
+        name = "rules_rust",
+        sha256 = "75177226380b771be36d7efc538da842c433f14cd6c36d7660976efb53defe86",
+        urls = ["https://github.com/bazelbuild/rules_rust/releases/download/0.34.1/rules_rust-v0.34.1.tar.gz"],
     )
 
     http_file(

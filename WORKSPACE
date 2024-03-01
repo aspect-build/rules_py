@@ -2,11 +2,10 @@
 workspace(name = "aspect_rules_py")
 
 load("//tools/release:fetch.bzl", _release_deps = "fetch_deps")
-load(":internal_deps.bzl", "rules_py_internal_deps", "rules_py_rust_deps")
+load(":internal_deps.bzl", "rules_py_internal_deps")
 
 # Fetch deps needed only locally for development
 rules_py_internal_deps()
-rules_py_rust_deps()
 
 # Fetch deps needed only for a release.
 _release_deps()

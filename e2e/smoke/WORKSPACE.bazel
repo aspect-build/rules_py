@@ -4,11 +4,17 @@ local_repository(
     path = "../..",
 )
 
-load("@aspect_rules_py//:internal_deps.bzl", "rules_py_rust_deps")
+# We test a prerelease of rules_py, so we must setup rules_rust.
+# Sadly there are too many separate load/init steps here for rules_py to expose a repository macro
+# that could make this look like one line - but we expect few WORKSPACE users as bzlmod is GA now.
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
-rules_py_rust_deps()
+http_archive(
+    name = "rules_rust",
+    sha256 = "75177226380b771be36d7efc538da842c433f14cd6c36d7660976efb53defe86",
+    urls = ["https://github.com/bazelbuild/rules_rust/releases/download/0.34.1/rules_rust-v0.34.1.tar.gz"],
+)
 
-# We test a prerelease of rules_py, so we must setup the rules_py internal deps.
 load("@rules_rust//rust:repositories.bzl", "rules_rust_dependencies", "rust_register_toolchains")
 
 rules_rust_dependencies()
