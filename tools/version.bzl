@@ -2,13 +2,7 @@
 
 # Automagically "stamped" by git during `git archive` thanks to `export-subst` line in .gitattributes.
 # See https://git-scm.com/docs/git-archive#Documentation/git-archive.txt-export-subst
-#RELEASE_FORK = "aspect-build"
-#_VERSION_PRIVATE = "$Format:%(describe:tags=true)$"
-
-# Manual testing: switch to a pre-built binary toolchain.
-# revert changes before landing!
-RELEASE_FORK = "alexeagle"
-_VERSION_PRIVATE = "v0.101.0"
+_VERSION_PRIVATE = "$Format:%(describe:tags=true)$"
 
 VERSION = "0.0.0" if _VERSION_PRIVATE.startswith("$Format") else _VERSION_PRIVATE.replace("v", "", 1)
 

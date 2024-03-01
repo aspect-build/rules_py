@@ -1,6 +1,6 @@
 """Utilities for making toolchains"""
 load("//tools:integrity.bzl", "RELEASED_BINARY_INTEGRITY")
-load("//tools:version.bzl", "RELEASE_FORK", "VERSION")
+load("//tools:version.bzl", "VERSION")
 
 # The expected config for each tool, whether it runs in an action or at runtime
 RUST_BIN_CFG = {
@@ -107,6 +107,15 @@ load("@aspect_rules_py//py/private/toolchain:tools.bzl", "py_tool_toolchain")
 
 package(default_visibility = ["//visibility:public"])
 """
+    # For manual testing, override these environment variables
+    # TODO: use rctx.getenv when available, see https://github.com/bazelbuild/bazel/pull/20944
+    release_fork = "aspect-build"
+    release_version = VERSION
+    if "RULES_PY_RELEASE_FORK" in rctx.os.environ:
+        release_fork = rctx.os.environ["RULES_PY_RELEASE_FORK"]
+    if "RULES_PY_RELEASE_VERSION" in rctx.os.environ:
+        release_version = rctx.os.environ["RULES_PY_RELEASE_VERSION"]
+
     for tool, cfg in RUST_BIN_CFG.items():
         filename = "-".join([
             tool,
@@ -114,8 +123,8 @@ package(default_visibility = ["//visibility:public"])
             TOOLCHAIN_PLATFORMS[rctx.attr.platform].vendor_os_abi,
         ])
         url = "https://github.com/{}/rules_py/releases/download/v{}/{}".format(
-            RELEASE_FORK,
-            VERSION,
+            release_fork,
+            release_version,
             filename
         )
         rctx.download(

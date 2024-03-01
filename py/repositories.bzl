@@ -48,12 +48,12 @@ def rules_py_dependencies():
         url = "https://github.com/bazelbuild/rules_python/releases/download/0.31.0/rules_python-0.31.0.tar.gz",
     )
 
-def rules_py_toolchains(name = "rules_py_tools", register = True):
+def rules_py_toolchains(name = "rules_py_tools", register = True, prerelease = IS_PRERELEASE):
     """Create toolchains, optionally register them as well"""
     
     # When running from a release version:
     # Fetch remote tools from the release and create toolchain for them
-    if IS_PRERELEASE:
+    if prerelease:
         if register:
             native.register_toolchains(
                 "@aspect_rules_py//py/private/toolchain/venv/...",

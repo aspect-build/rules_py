@@ -52,7 +52,7 @@ crate_repositories()
 # you should fetch it *before* calling this.
 # Alternatively, you can skip calling this function, so long as you've
 # already fetched all the dependencies.
-load("//py:repositories.bzl", "rules_py_dependencies", "rules_py_toolchains")
+load("@aspect_rules_py//py:repositories.bzl", "rules_py_dependencies", "rules_py_toolchains")
 
 rules_py_dependencies()
 
