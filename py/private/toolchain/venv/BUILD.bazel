@@ -7,7 +7,9 @@ toolchain_type(
 
 source_toolchain(
     name = "venv",
-    cfg = "target",
+    # When running from source, we assume the target is the exec platform, maybe wrong?
+    # Do we need to cross-compile the tool as well?
+    # cfg = "target",
     toolchain_type = ":toolchain_type",
     bin = "//py/tools/venv_bin",
 )

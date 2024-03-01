@@ -53,7 +53,6 @@ def rules_py_toolchains(name = "rules_py_tools", register = True):
     
     # When running from a release version:
     # Fetch remote tools from the release and create toolchain for them
-    print("PRERELEASE: ", IS_PRERELEASE)
     if IS_PRERELEASE:
         if register:
             native.register_toolchains(
@@ -65,6 +64,5 @@ def rules_py_toolchains(name = "rules_py_tools", register = True):
     
     toolchains = binary_tool_repos(name)
     if register:
-        print("register_toolchains", toolchains)
         native.register_toolchains(*toolchains)
             

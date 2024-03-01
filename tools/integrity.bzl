@@ -4,11 +4,7 @@ This file contents are entirely replaced during release publishing.
 The checked in content is only here to allow load() statements in the sources to resolve.
 """
 
-# In a released version, this value will be replaced with sha256 values in the form
-# {
-#  "unpack-linux-aarch64": "48552e399a1f2ab97e62ca7fce5783b6214e284330c7555383f43acf82446636",
-#  "unpack-linux-x86_64": "fd265552bfd236efef519f81ce783322a50d8d7ab5af5d08a713e519cedff87f"
-# }
+# FROM https://github.com/alexeagle/rules_py/releases/tag/v0.101.0
 RELEASED_BINARY_INTEGRITY = {
   "unpack-aarch64-apple-darwin": "5199cb98d59535ba8609c4a538be99d8759e971ab9d1e680d932091529860868",
   "unpack-x86_64-apple-darwin": "23d0eb9ec09609c00d65779234f1210506eba1bf64090a01cef71d5175e3e6b6",

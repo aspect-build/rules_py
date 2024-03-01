@@ -2,16 +2,16 @@
 load("//tools:integrity.bzl", "RELEASED_BINARY_INTEGRITY")
 load("//tools:version.bzl", "RELEASE_FORK", "VERSION")
 
-RUST_BINS = {
-    "unpack": "@aspect_rules_py//py/tools/unpack_bin",
-    "venv": "@aspect_rules_py//py/tools/venv_bin",
+# The expected config for each tool, whether it runs in an action or at runtime
+RUST_BIN_CFG = {
+    "unpack": "exec",
+    "venv": "target",
 }
 
 TOOLCHAIN_PLATFORMS = {
     "darwin_amd64": struct(
         arch = "x86_64",
         vendor_os_abi = "apple-darwin",
-        release_platform = "macos-amd64",
         compatible_with = [
             "@platforms//os:macos",
             "@platforms//cpu:x86_64",
@@ -20,7 +20,6 @@ TOOLCHAIN_PLATFORMS = {
     "darwin_arm64": struct(
         arch = "aarch64",
         vendor_os_abi = "apple-darwin",
-        release_platform = "macos-arm64",
         compatible_with = [
             "@platforms//os:macos",
             "@platforms//cpu:aarch64",
@@ -29,7 +28,6 @@ TOOLCHAIN_PLATFORMS = {
     "linux_amd64": struct(
         arch = "x86_64",
         vendor_os_abi = "unknown-linux-gnu",
-        release_platform = "linux-amd64",
         compatible_with = [
             "@platforms//os:linux",
             "@platforms//cpu:x86_64",
@@ -38,7 +36,6 @@ TOOLCHAIN_PLATFORMS = {
     "linux_arm64": struct(
         arch = "aarch64",
         vendor_os_abi = "unknown-linux-gnu",
-        release_platform = "linux-arm64",
         compatible_with = [
             "@platforms//os:linux",
             "@platforms//cpu:aarch64",
@@ -85,14 +82,13 @@ py_tool_toolchain = rule(
 def _make_toolchain_name(name, platform):
     return "{}_{}_toolchain".format(name, platform)
 
-def source_toolchain(name, toolchain_type, bin, cfg = "exec"):
+def source_toolchain(name, toolchain_type, bin):
     """Makes vtool toolchain and repositories
 
     Args:
         name: Override the prefix for the generated toolchain repositories.
         toolchain_type: Toolchain type reference.
         tools: Mapping of tool binary to platform.
-        cfg: Generate a toolchain for the target or exec config.
     """
 
     toolchain_rule = "{}_toolchain_source".format(name)
@@ -134,18 +130,12 @@ py_tool_toolchain(name = "concrete_toolchain", bin = "{tool}", template_var = "{
 
 toolchain(
     name = "{tool}_exec_toolchain",
-    exec_compatible_with = {compatible_with},
-    toolchain = "concrete_toolchain",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain/{tool}:toolchain_type",
-)
-
-toolchain(
-    name = "{tool}_target_toolchain",
-    target_compatible_with = {compatible_with},
+    {cfg}_compatible_with = {compatible_with},
     toolchain = "concrete_toolchain",
     toolchain_type = "@aspect_rules_py//py/private/toolchain/{tool}:toolchain_type",
 )
 """.format(
+    cfg = RUST_BIN_CFG[rctx.attr.tool],
     compatible_with = TOOLCHAIN_PLATFORMS[rctx.attr.platform].compatible_with,
     tool = rctx.attr.tool,
     tool_upper = rctx.attr.tool.upper(),
@@ -156,13 +146,13 @@ _tool_repo = repository_rule(
     implementation = _tool_repo_impl,
     attrs = {
         "platform": attr.string(mandatory = True, values = TOOLCHAIN_PLATFORMS.keys()),
-        "tool": attr.string(mandatory = True, values = RUST_BINS.keys()),
+        "tool": attr.string(mandatory = True, values = RUST_BIN_CFG.keys()),
     }
 )
 
 def binary_tool_repos(name):
     result = []
-    for tool in RUST_BINS.keys():
+    for tool in RUST_BIN_CFG.keys():
         for platform in TOOLCHAIN_PLATFORMS.keys():
             tool_repo_name = ".".join([name, tool, platform])
             result.append("@{}//:all".format(tool_repo_name, tool))
