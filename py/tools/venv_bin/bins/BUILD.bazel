@@ -1,9 +1,0 @@
-exports_files(
-    [
-        "venv-aarch64-apple-darwin",
-        "venv-aarch64-unknown-linux-musl",
-        "venv-x86_64-apple-darwin",
-        "venv-x86_64-unknown-linux-musl",
-    ],
-    visibility = ["//visibility:public"],
-)

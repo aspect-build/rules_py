@@ -24,3 +24,51 @@ register_toolchains(
     "@aspect_rules_py//py/private/toolchain/venv/...",
     "@aspect_rules_py//py/private/toolchain/unpack/...",
 )
+
+# To allow Rust binaries in /py/tools to be built from source
+# NOTE: when publishing to BCR, we patch these to be dev_dependency, as we publish pre-built binaries
+# along with our releases.
+
+bazel_dep(
+    name = "rules_rust",
+    version = "0.38.0",
+    # In released versions: dev_dependency = True
+)
+
+rust = use_extension(
+    "@rules_rust//rust:extensions.bzl",
+    "rust",
+    # In released versions: dev_dependency = True
+)
+
+rust.toolchain(
+    edition = "2021",
+    versions = ["1.74.1"],
+)
+use_repo(rust, "rust_toolchains")
+
+register_toolchains(
+    "@rust_toolchains//:all",
+    # In released versions: dev_dependency = True
+)
+
+crate = use_extension(
+    "@rules_rust//crate_universe:extension.bzl",
+    "crate",
+    # In released versions: dev_dependency = True
+)
+
+crate.from_cargo(
+    name = "crate_index",
+    cargo_lockfile = "//:Cargo.lock",
+    # Apparently not needed under bzlmod?
+    # lockfile = "//:Cargo.Bazel.lock",
+    manifests = [
+        "//:Cargo.toml",
+        "//py/tools/py:Cargo.toml",
+        "//py/tools/venv_bin:Cargo.toml",
+        "//py/tools/unpack_bin:Cargo.toml",
+    ],
+)
+
+use_repo(crate, "crate_index")
