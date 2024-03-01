@@ -10,10 +10,13 @@ rules_py_internal_deps()
 # Fetch deps needed only for a release.
 _release_deps()
 
-load("//py:repositories.bzl", "rules_py_dependencies")
+load("//py:repositories.bzl", "rules_py_dependencies", "rules_py_toolchains")
 
 # Fetch dependencies which users need as well
 rules_py_dependencies()
+
+# Create and register toolchains used by rules_py rules.
+rules_py_toolchains()
 
 # Load the Python toolchain for rules_docker
 register_toolchains("//:container_py_toolchain")

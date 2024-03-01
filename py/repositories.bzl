@@ -7,6 +7,8 @@ See https://docs.bazel.build/versions/main/skylark/deploying.html#dependencies
 load("@bazel_tools//tools/build_defs/repo:http.bzl", _http_archive = "http_archive")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load("//py/private/toolchain:autodetecting.bzl", _register_autodetecting_python_toolchain = "register_autodetecting_python_toolchain")
+load("//py/private/toolchain:tools.bzl", "binary_tool_repos")
+load("//tools:version.bzl", "IS_PRERELEASE")
 
 def http_archive(name, **kwargs):
     maybe(_http_archive, name = name, **kwargs)
@@ -21,12 +23,8 @@ register_autodetecting_python_toolchain = _register_autodetecting_python_toolcha
 # and released only in semver majors.
 
 # buildifier: disable=unnamed-macro
-def rules_py_dependencies(register_py_toolchains = True):
-    """Fetch rules_py's dependencies, and optionally register toolchains.
-
-    Args:
-        register_py_toolchains: When true, rules_py's toolchains are automatically registered.
-    """
+def rules_py_dependencies():
+    """Fetch rules_py's dependencies"""
 
     # The minimal version of bazel_skylib we require
     http_archive(
@@ -50,8 +48,23 @@ def rules_py_dependencies(register_py_toolchains = True):
         url = "https://github.com/bazelbuild/rules_python/releases/download/0.31.0/rules_python-0.31.0.tar.gz",
     )
 
-    if register_py_toolchains:
-        native.register_toolchains(
-            "@aspect_rules_py//py/private/toolchain/venv/...",
-            "@aspect_rules_py//py/private/toolchain/unpack/...",
-        )
+def rules_py_toolchains(name = "rules_py_tools", register = True):
+    """Create toolchains, optionally register them as well"""
+    
+    # When running from a release version:
+    # Fetch remote tools from the release and create toolchain for them
+    print("PRERELEASE: ", IS_PRERELEASE)
+    if IS_PRERELEASE:
+        if register:
+            native.register_toolchains(
+                "@aspect_rules_py//py/private/toolchain/venv/...",
+                "@aspect_rules_py//py/private/toolchain/unpack/...",
+            )
+        return
+
+    
+    toolchains = binary_tool_repos(name)
+    if register:
+        print("register_toolchains", toolchains)
+        native.register_toolchains(*toolchains)
+            
