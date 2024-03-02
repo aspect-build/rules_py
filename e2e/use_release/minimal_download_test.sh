@@ -13,10 +13,14 @@ fi
 externals=$(ls $OUTPUT_BASE/external)
 OS="$(uname | tr '[:upper:]' '[:lower:]')"
 ARCH="$(arch)"
+ALLOWED="rules_py_tools.${OS}_${ARCH}"
+if [ "$ARCH" == "x86_64" ]; then
+    ALLOWED="rules_py_tools.${OS}_amd64"
+fi
 
-if echo "$externals" | grep -v "rules_py_tools.${OS}_${ARCH}" | grep -v ".marker" | grep rules_py_tools.
+if echo "$externals" | grep -v "${ALLOWED}" | grep -v ".marker" | grep rules_py_tools.
 then
-    >&2 echo "ERROR: binaries were fetched for too many platforms"
+    >&2 echo "ERROR: rules_py binaries were fetched for platform other than ${ALLOWED}"
     exit 1
 fi
 if echo "$externals" | grep rust
