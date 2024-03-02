@@ -7,8 +7,8 @@ See https://docs.bazel.build/versions/main/skylark/deploying.html#dependencies
 load("@bazel_tools//tools/build_defs/repo:http.bzl", _http_archive = "http_archive")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load("//py/private/toolchain:autodetecting.bzl", _register_autodetecting_python_toolchain = "register_autodetecting_python_toolchain")
-load("//py/private/toolchain:tools.bzl", "binary_tool_repos")
-load("//tools:version.bzl", "IS_PRERELEASE")
+load("//py/private/toolchain:tools.bzl", "TOOLCHAIN_PLATFORMS", "prebuilt_tool_repo")
+load("//py/private/toolchain:repo.bzl", "toolchains_repo")
 
 def http_archive(name, **kwargs):
     maybe(_http_archive, name = name, **kwargs)
@@ -25,13 +25,11 @@ DEFAULT_TOOLS_REPOSITORY = "rules_py_tools"
 # and released only in semver majors.
 
 # buildifier: disable=unnamed-macro
-def rules_py_dependencies(name = DEFAULT_TOOLS_REPOSITORY, register = True, prerelease = IS_PRERELEASE):
+def rules_py_dependencies(register_toolchains = True):
     """Fetch rules_py's dependencies
 
     Args:
-        name: prefix for generated repositories
-        register: whether to register the toolchains created, should be false under bzlmod
-        prerelease: whether to build rust tools from source, rather than download pre-built binaries
+        register_toolchains: whether to also do default toolchain registration
     """
 
     # The minimal version of bazel_skylib we require
@@ -56,16 +54,28 @@ def rules_py_dependencies(name = DEFAULT_TOOLS_REPOSITORY, register = True, prer
         url = "https://github.com/bazelbuild/rules_python/releases/download/0.31.0/rules_python-0.31.0.tar.gz",
     )
 
-    # When running from a release version:
-    # Fetch remote tools from the release and create toolchain for them
-    if prerelease:
-        if register:
-            native.register_toolchains(
-                "@aspect_rules_py//py/private/toolchain/venv/...",
-                "@aspect_rules_py//py/private/toolchain/unpack/...",
-            )
-        return
+    if register_toolchains:
+        rules_py_toolchains()
 
-    toolchains = binary_tool_repos(name)
+def rules_py_toolchains(name = DEFAULT_TOOLS_REPOSITORY, register = True):
+    """Create a downloaded toolchain for every tool under every supported platform.
+
+    Args:
+        name: prefix used in created repositories
+        register: whether to call the register_toolchains, should be True for WORKSPACE and False for bzlmod.
+    """
+    for platform in TOOLCHAIN_PLATFORMS.keys():
+        plat_repo_name = ".".join([name, platform])
+        prebuilt_tool_repo(name = plat_repo_name, platform = platform)
+    toolchains_repo(name = name, user_repository_name = name)
+
     if register:
-        native.register_toolchains(*toolchains)
+        native.register_toolchains("@{}//...".format(name))
+
+    # Register from-source toolchain last so we don't have a Rust dependency when
+    # pre-built binaries are available too.
+    if register:
+        native.register_toolchains(
+            "@aspect_rules_py//py/private/toolchain/venv/...",
+            "@aspect_rules_py//py/private/toolchain/unpack/...",
+        )
