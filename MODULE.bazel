@@ -18,7 +18,7 @@ tools.rules_py_tools()
 use_repo(tools, "rules_py_tools")
 
 register_toolchains(
-    "@rules_py_tools//...",
+    "@rules_py_tools//:all",
 
     # Register the "from source" toolchains last, so there's no accidental dependency on Rust
     # For manual testing: comment these out to force use of pre-built binaries.

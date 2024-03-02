@@ -63,3 +63,15 @@ toolchains_repo = repository_rule(
         """),
     },
 )
+
+def _prerelease_toolchains_repo_impl(repository_ctx):
+    repository_ctx.file("BUILD.bazel", "# No toolchains created for pre-releases")
+
+prerelease_toolchains_repo = repository_rule(
+    _prerelease_toolchains_repo_impl,
+    doc = """Create a repo with an empty BUILD file, which registers no toolchains.
+    This is used for pre-releases, which have no pre-built binaries, but still want to call
+      register_toolchains("@this_repo//:all")
+    By doing this, we can avoid those register_toolchains callsites needing to be conditional on IS_PRERELEASE
+    """,
+)

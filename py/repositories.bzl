@@ -8,7 +8,8 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", _http_archive = "http_archi
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load("//py/private/toolchain:autodetecting.bzl", _register_autodetecting_python_toolchain = "register_autodetecting_python_toolchain")
 load("//py/private/toolchain:tools.bzl", "TOOLCHAIN_PLATFORMS", "prebuilt_tool_repo")
-load("//py/private/toolchain:repo.bzl", "toolchains_repo")
+load("//py/private/toolchain:repo.bzl", "prerelease_toolchains_repo", "toolchains_repo")
+load("//tools:version.bzl", "IS_PRERELEASE")
 
 def http_archive(name, **kwargs):
     maybe(_http_archive, name = name, **kwargs)
@@ -64,13 +65,15 @@ def rules_py_toolchains(name = DEFAULT_TOOLS_REPOSITORY, register = True):
         name: prefix used in created repositories
         register: whether to call the register_toolchains, should be True for WORKSPACE and False for bzlmod.
     """
-    for platform in TOOLCHAIN_PLATFORMS.keys():
-        plat_repo_name = ".".join([name, platform])
-        prebuilt_tool_repo(name = plat_repo_name, platform = platform)
-    toolchains_repo(name = name, user_repository_name = name)
+    if IS_PRERELEASE:
+        prerelease_toolchains_repo(name = name)
+    else:
+        for platform in TOOLCHAIN_PLATFORMS.keys():
+            prebuilt_tool_repo(name = ".".join([name, platform]), platform = platform)
+        toolchains_repo(name = name, user_repository_name = name)
 
     if register:
-        native.register_toolchains("@{}//...".format(name))
+        native.register_toolchains("@{}//:all".format(name))
 
     # Register from-source toolchain last so we don't have a Rust dependency when
     # pre-built binaries are available too.
