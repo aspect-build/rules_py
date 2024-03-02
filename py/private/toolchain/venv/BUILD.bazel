@@ -1,16 +1,11 @@
 load("//py/private/toolchain:tools.bzl", "source_toolchain")
 
-toolchain_type(
-    name = "toolchain_type",
-    visibility = ["//visibility:public"],
-)
-
 source_toolchain(
     name = "venv",
+    bin = "//py/tools/venv_bin",
     # When running from source, we assume the target is the exec platform.
     # TODO: when we have cross-compile Mac -> Linux, pre-release users should be able to
     # build a py_image on their Mac and have the linux venv rust_binary end up in the container.
     # cfg = "target",
-    toolchain_type = ":toolchain_type",
-    bin = "//py/tools/venv_bin",
+    toolchain_type = "//py/private/toolchain:venv_toolchain_type",
 )

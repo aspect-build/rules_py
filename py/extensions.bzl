@@ -15,7 +15,8 @@ Overriding the default is only permitted in the root module.
 })
 
 def _toolchains_extension_impl(module_ctx):
-    registrations = {}
+    registrations = []
+    root_name = None
     for mod in module_ctx.modules:
         for toolchain in mod.tags.rules_py_tools:
             if toolchain.name != DEFAULT_TOOLS_REPOSITORY and not mod.is_root:
@@ -23,9 +24,16 @@ def _toolchains_extension_impl(module_ctx):
                 Only the root module may override the default name for the rules_py_tools toolchain.
                 This prevents conflicting registrations in the global namespace of external repos.
                 """)
-            registrations[toolchain.name] = toolchain.is_prerelease
-    for name, is_prerelease in registrations.items():
-        rules_py_toolchains(name, register = False, is_prerelease = is_prerelease)
+
+            # Ensure the root wins in case of differences
+            if mod.is_root:
+                rules_py_toolchains(toolchain.name, register = False, is_prerelease = toolchain.is_prerelease)
+                root_name = toolchain.name
+            else:
+                registrations.append(toolchain.name)
+    for name in registrations:
+        if name != root_name:
+            rules_py_toolchains(name, register = False)
 
 py_tools = module_extension(
     implementation = _toolchains_extension_impl,

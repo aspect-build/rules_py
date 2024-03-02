@@ -1,12 +1,7 @@
 load("//py/private/toolchain:tools.bzl", "source_toolchain")
 
-toolchain_type(
-    name = "toolchain_type",
-    visibility = ["//visibility:public"],
-)
-
 source_toolchain(
     name = "unpack",
-    toolchain_type = ":toolchain_type",
     bin = "//py/tools/unpack_bin",
+    toolchain_type = "//py/private/toolchain:unpack_toolchain_type",
 )

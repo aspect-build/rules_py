@@ -37,7 +37,7 @@ toolchain(
     # Bazel does not follow this attribute during analysis, so the referenced repo
     # will only be fetched if this toolchain is selected.
     toolchain = "@{user_repository_name}.{platform}//:{tool}_toolchain",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain/{tool}:toolchain_type",
+    toolchain_type = "@aspect_rules_py//py/private/toolchain:{tool}_toolchain_type",
 )
 """.format(
                 cfg = cfg,
