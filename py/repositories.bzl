@@ -58,27 +58,25 @@ def rules_py_dependencies(register_toolchains = True):
     if register_toolchains:
         rules_py_toolchains()
 
-def rules_py_toolchains(name = DEFAULT_TOOLS_REPOSITORY, register = True):
+def rules_py_toolchains(name = DEFAULT_TOOLS_REPOSITORY, register = True, is_prerelease = IS_PRERELEASE):
     """Create a downloaded toolchain for every tool under every supported platform.
 
     Args:
         name: prefix used in created repositories
         register: whether to call the register_toolchains, should be True for WORKSPACE and False for bzlmod.
+        is_prerelease: True iff there are no pre-built tool binaries for this version of rules_py
     """
-    if IS_PRERELEASE:
+    if is_prerelease:
         prerelease_toolchains_repo(name = name)
+        if register:
+            native.register_toolchains(
+                "@aspect_rules_py//py/private/toolchain/venv/...",
+                "@aspect_rules_py//py/private/toolchain/unpack/...",
+            )
     else:
         for platform in TOOLCHAIN_PLATFORMS.keys():
             prebuilt_tool_repo(name = ".".join([name, platform]), platform = platform)
         toolchains_repo(name = name, user_repository_name = name)
 
-    if register:
-        native.register_toolchains("@{}//:all".format(name))
-
-    # Register from-source toolchain last so we don't have a Rust dependency when
-    # pre-built binaries are available too.
-    if register:
-        native.register_toolchains(
-            "@aspect_rules_py//py/private/toolchain/venv/...",
-            "@aspect_rules_py//py/private/toolchain/unpack/...",
-        )
+        if register:
+            native.register_toolchains("@{}//:all".format(name))

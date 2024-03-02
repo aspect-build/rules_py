@@ -35,3 +35,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: patch --dry-run -p1 < .bcr/patches/*.patch
+
+  test-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - working-directory: e2e/use_release
+        run: ./minimal_download_test.sh
