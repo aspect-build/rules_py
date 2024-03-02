@@ -19,10 +19,11 @@ use_repo(tools, "rules_py_tools")
 
 register_toolchains(
     "@rules_py_tools//...",
+
     # Register the "from source" toolchains last, so there's no accidental dependency on Rust
-    # FIXME: uncomment before landing
-    # "@aspect_rules_py//py/private/toolchain/venv/...",
-    # "@aspect_rules_py//py/private/toolchain/unpack/...",
+    # For manual testing: comment these out to force use of pre-built binaries.
+    "@aspect_rules_py//py/private/toolchain/venv/...",
+    "@aspect_rules_py//py/private/toolchain/unpack/...",
 )
 
 # To allow Rust binaries in /py/tools to be built from source
