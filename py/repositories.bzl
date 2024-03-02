@@ -24,7 +24,13 @@ register_autodetecting_python_toolchain = _register_autodetecting_python_toolcha
 
 # buildifier: disable=unnamed-macro
 def rules_py_dependencies(name = "rules_py_tools", register = True, prerelease = IS_PRERELEASE):
-    """Fetch rules_py's dependencies"""
+    """Fetch rules_py's dependencies
+
+    Args:
+        name: prefix for generated repositories
+        register: whether to register the toolchains created, should be false under bzlmod
+        prerelease: whether to build rust tools from source, rather than download pre-built binaries
+    """
 
     # The minimal version of bazel_skylib we require
     http_archive(
@@ -58,7 +64,6 @@ def rules_py_dependencies(name = "rules_py_tools", register = True, prerelease =
             )
         return
 
-    
     toolchains = binary_tool_repos(name)
     if register:
         native.register_toolchains(*toolchains)
