@@ -15,6 +15,8 @@ def http_archive(name, **kwargs):
 
 register_autodetecting_python_toolchain = _register_autodetecting_python_toolchain
 
+DEFAULT_TOOLS_REPOSITORY = "rules_py_tools"
+
 # WARNING: any changes in this function may be BREAKING CHANGES for users
 # because we'll fetch a dependency which may be different from one that
 # they were previously fetching later in their WORKSPACE setup, and now
@@ -23,7 +25,7 @@ register_autodetecting_python_toolchain = _register_autodetecting_python_toolcha
 # and released only in semver majors.
 
 # buildifier: disable=unnamed-macro
-def rules_py_dependencies(name = "rules_py_tools", register = True, prerelease = IS_PRERELEASE):
+def rules_py_dependencies(name = DEFAULT_TOOLS_REPOSITORY, register = True, prerelease = IS_PRERELEASE):
     """Fetch rules_py's dependencies
 
     Args:
@@ -53,7 +55,7 @@ def rules_py_dependencies(name = "rules_py_tools", register = True, prerelease =
         strip_prefix = "rules_python-0.31.0",
         url = "https://github.com/bazelbuild/rules_python/releases/download/0.31.0/rules_python-0.31.0.tar.gz",
     )
-    
+
     # When running from a release version:
     # Fetch remote tools from the release and create toolchain for them
     if prerelease:
@@ -67,4 +69,3 @@ def rules_py_dependencies(name = "rules_py_tools", register = True, prerelease =
     toolchains = binary_tool_repos(name)
     if register:
         native.register_toolchains(*toolchains)
-            

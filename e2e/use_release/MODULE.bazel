@@ -1,0 +1,2 @@
+bazel_dep(name = "aspect_rules_py", version = "0.7.0")
+

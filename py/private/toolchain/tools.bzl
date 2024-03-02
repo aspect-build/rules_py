@@ -1,4 +1,5 @@
 """Utilities for making toolchains"""
+
 load("//tools:integrity.bzl", "RELEASED_BINARY_INTEGRITY")
 load("//tools:version.bzl", "VERSION")
 
@@ -107,6 +108,7 @@ load("@aspect_rules_py//py/private/toolchain:tools.bzl", "py_tool_toolchain")
 
 package(default_visibility = ["//visibility:public"])
 """
+
     # For manual testing, override these environment variables
     # TODO: use rctx.getenv when available, see https://github.com/bazelbuild/bazel/pull/20944
     release_fork = "aspect-build"
@@ -125,7 +127,7 @@ package(default_visibility = ["//visibility:public"])
         url = "https://github.com/{}/rules_py/releases/download/v{}/{}".format(
             release_fork,
             release_version,
-            filename
+            filename,
         )
         rctx.download(
             url = url,
@@ -134,20 +136,13 @@ package(default_visibility = ["//visibility:public"])
             output = tool,
         )
         build_content += """\
-py_tool_toolchain(name = "concrete_{tool}_toolchain", bin = "{tool}", template_var = "{tool_upper}_BIN")
-
-toolchain(
-    name = "{tool}_toolchain",
-    {cfg}_compatible_with = {compatible_with},
-    toolchain = "concrete_{tool}_toolchain",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain/{tool}:toolchain_type",
-)
+py_tool_toolchain(name = "{tool}_toolchain", bin = "{tool}", template_var = "{tool_upper}_BIN")
 """.format(
-    cfg = cfg,
-    compatible_with = TOOLCHAIN_PLATFORMS[rctx.attr.platform].compatible_with,
-    tool = tool,
-    tool_upper = tool.upper(),
-)
+            cfg = cfg,
+            compatible_with = TOOLCHAIN_PLATFORMS[rctx.attr.platform].compatible_with,
+            tool = tool,
+            tool_upper = tool.upper(),
+        )
 
     rctx.file("BUILD.bazel", build_content)
 
@@ -156,7 +151,7 @@ _tool_repo = repository_rule(
     implementation = _tool_repo_impl,
     attrs = {
         "platform": attr.string(mandatory = True, values = TOOLCHAIN_PLATFORMS.keys()),
-    }
+    },
 )
 
 def binary_tool_repos(name):
