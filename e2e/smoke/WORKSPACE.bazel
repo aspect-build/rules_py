@@ -53,6 +53,7 @@ crate_repositories()
 # Alternatively, you can skip calling this function, so long as you've
 # already fetched all the dependencies.
 load("@aspect_rules_py//py:repositories.bzl", "rules_py_dependencies")
+
 rules_py_dependencies()
 
 # "Installation" for rules_python
