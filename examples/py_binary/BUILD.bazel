@@ -1,0 +1,9 @@
+load("//py:defs.bzl", "py_binary")
+
+py_binary(
+    name = "py_binary",
+    srcs = ["say.py"],
+    deps = [
+        "@pypi_cowsay//:pkg",
+    ],
+)
