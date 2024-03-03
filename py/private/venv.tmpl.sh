@@ -1,4 +1,6 @@
-#!{{SHELL_BIN}}
+#!/usr/bin/env bash
+# NB: we don't use a path from @bazel_tools//tools/sh:toolchain_type because that's configured for the exec
+# configuration, while this script executes in the target configuration at runtime.
 
 {{BASH_RLOCATION_FN}}
 runfiles_export_envvars

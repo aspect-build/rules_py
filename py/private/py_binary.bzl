@@ -4,7 +4,7 @@ load("@aspect_bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocatio
 load("@aspect_bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
-load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "SH_TOOLCHAIN", "VENV_TOOLCHAIN")
+load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "VENV_TOOLCHAIN")
 
 def _dict_to_exports(env):
     return [
@@ -13,7 +13,6 @@ def _dict_to_exports(env):
     ]
 
 def _py_binary_rule_impl(ctx):
-    sh_toolchain = ctx.toolchains[SH_TOOLCHAIN]
     venv_toolchain = ctx.toolchains[VENV_TOOLCHAIN]
     py_toolchain = _py_semantics.resolve_toolchain(ctx)
 
@@ -67,7 +66,6 @@ def _py_binary_rule_impl(ctx):
         template = ctx.file._run_tmpl,
         output = executable_launcher,
         substitutions = {
-            "{{SHELL_BIN}}": sh_toolchain.path,
             "{{BASH_RLOCATION_FN}}": BASH_RLOCATION_FUNCTION,
             "{{INTERPRETER_FLAGS}}": " ".join(py_toolchain.flags),
             "{{VENV_TOOL}}": to_rlocation_path(ctx, venv_toolchain.bin),
@@ -158,7 +156,6 @@ py_base = struct(
     implementation = _py_binary_rule_impl,
     attrs = _attrs,
     toolchains = [
-        SH_TOOLCHAIN,
         PY_TOOLCHAIN,
         VENV_TOOLCHAIN,
     ],
