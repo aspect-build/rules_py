@@ -12,5 +12,11 @@
   ],
   "rebaseWhen": "never",
   "labels": ["deps"],
-  "dependencyDashboard": true
+  "dependencyDashboard": true,
+  "packageRules": [
+    {
+      "matchFiles": ["MODULE.bazel"],
+      "enabled": false
+    }
+  ]
 }
