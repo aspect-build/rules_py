@@ -130,7 +130,7 @@ def _make_import_path(label, workspace, base, imp):
 def _make_imports_depset(ctx, imports = [], extra_imports_depsets = []):
     base = paths.dirname(ctx.build_file_path)
     import_paths = [
-        _make_import_path(ctx.label, ctx.workspace_name, base, im)
+        _make_import_path(ctx.label, ctx.label.workspace_name or ctx.workspace_name, base, im)
         for im in getattr(ctx.attr, "imports", imports)
     ] + [
         # Add the workspace name in the imports such that repo-relative imports work.
