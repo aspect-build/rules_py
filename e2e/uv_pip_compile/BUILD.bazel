@@ -1,0 +1,7 @@
+load(":defs.bzl", "pip_compile")
+
+pip_compile(
+    name = "requirements",
+    requirements_in = "requirements.in",
+    requirements_lock = "requirements.txt",
+)

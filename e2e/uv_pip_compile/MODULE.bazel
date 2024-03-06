@@ -1,0 +1,11 @@
+bazel_dep(name = "aspect_rules_py", version = "0.7.1")
+bazel_dep(name = "aspect_bazel_lib", version = "2.5.1")
+bazel_dep(name = "rules_multitool", version = "0.2.0")
+bazel_dep(name = "rules_python", version = "0.31.0")
+
+multitool = use_extension("@rules_multitool//multitool:extension.bzl", "multitool")
+multitool.hub(lockfile = "//:multitool.lock.json")
+use_repo(multitool, "multitool")
+
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+use_repo(python, "pythons_hub")

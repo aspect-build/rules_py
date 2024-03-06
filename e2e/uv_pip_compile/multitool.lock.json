@@ -1,0 +1,14 @@
+{
+  "uv": {
+    "binaries": [
+      {
+        "kind": "archive",
+        "url": "https://github.com/astral-sh/uv/releases/download/0.1.15/uv-aarch64-apple-darwin.tar.gz",
+        "file": "uv-aarch64-apple-darwin/uv",
+        "sha256": "df9bab49d9a171bfafb619422ec8c88c0bea930fb69ddd6c8884420b9cf7a13d",
+        "os": "macos",
+        "cpu": "arm64"
+      }
+    ]
+  }
+}
