@@ -18,9 +18,28 @@ concurrency:
 
 jobs:
   test:
-    uses: bazel-contrib/.github/.github/workflows/bazel.yaml@ca6324c506371e708095b42e24d6f34030753de6
+    uses: bazel-contrib/.github/.github/workflows/bazel.yaml@v6
     with:
-      folders: '[".", "e2e/smoke"]'
+      folders: '[".", "e2e/smoke", "e2e/repository-rule-deps"]'
       # TODO: Build Windows tools and add to toolchain
       # TODO(alex): switch the root folder to bzlmod
-      exclude: '[{"os": "windows-latest"}, {"folder": ".", "bazelversion": "6.4.0"}, {"folder": ".", "bzlmodEnabled": true}]'
+      exclude: |
+        [
+          {"os": "windows-latest"},
+          {"folder": ".", "bazelversion": "6.4.0"},
+          {"folder": ".", "bzlmodEnabled": true},
+          {"folder": "e2e/repository-rule-deps", "bzlmodEnabled": false}
+        ]
+
+  verify-bcr-patches:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: patch --dry-run -p1 < .bcr/patches/*.patch
+
+  test-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - working-directory: e2e/use_release
+        run: ./minimal_download_test.sh

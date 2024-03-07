@@ -1,4 +1,5 @@
 load("@rules_rust//rust:defs.bzl", "rust_binary")
+load("//tools/release:defs.bzl", "multi_arch_rust_binary_release")
 
 rust_binary(
     name = "unpack_bin",
@@ -13,4 +14,23 @@ rust_binary(
         "@crate_index//:clap",
         "@crate_index//:miette",
     ],
+)
+
+alias(
+    name = "unpack",
+    actual = ":unpack_bin",
+)
+
+multi_arch_rust_binary_release(
+    name = "macos",
+    src = ":unpack",
+    os = "macos",
+    visibility = ["//tools/release:__pkg__"],
+)
+
+multi_arch_rust_binary_release(
+    name = "linux",
+    src = ":unpack",
+    os = "linux",
+    visibility = ["//tools/release:__pkg__"],
 )

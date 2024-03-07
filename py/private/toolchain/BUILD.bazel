@@ -5,6 +5,16 @@ exports_files(
     visibility = ["//visibility:public"],
 )
 
+toolchain_type(
+    name = "unpack_toolchain_type",
+    visibility = ["//visibility:public"],
+)
+
+toolchain_type(
+    name = "venv_toolchain_type",
+    visibility = ["//visibility:public"],
+)
+
 bzl_library(
     name = "autodetecting",
     srcs = ["autodetecting.bzl"],

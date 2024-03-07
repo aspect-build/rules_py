@@ -4,6 +4,48 @@ local_repository(
     path = "../..",
 )
 
+# We test a prerelease of rules_py, so we must setup rules_rust.
+# Sadly there are too many separate load/init steps here for rules_py to expose a repository macro
+# that could make this look like one line - but we expect few WORKSPACE users as bzlmod is GA now.
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "rules_rust",
+    sha256 = "75177226380b771be36d7efc538da842c433f14cd6c36d7660976efb53defe86",
+    urls = ["https://github.com/bazelbuild/rules_rust/releases/download/0.34.1/rules_rust-v0.34.1.tar.gz"],
+)
+
+load("@rules_rust//rust:repositories.bzl", "rules_rust_dependencies", "rust_register_toolchains")
+
+rules_rust_dependencies()
+
+rust_register_toolchains(
+    edition = "2021",
+    versions = ["1.74.1"],
+)
+
+load("@rules_rust//crate_universe:repositories.bzl", "crate_universe_dependencies")
+
+crate_universe_dependencies()
+
+load("@rules_rust//crate_universe:defs.bzl", "crates_repository")
+
+crates_repository(
+    name = "crate_index",
+    cargo_lockfile = "@aspect_rules_py//:Cargo.lock",
+    lockfile = "//:Cargo.Bazel.lock",
+    manifests = [
+        "@aspect_rules_py//:Cargo.toml",
+        "@aspect_rules_py//py/tools/py:Cargo.toml",
+        "@aspect_rules_py//py/tools/venv_bin:Cargo.toml",
+        "@aspect_rules_py//py/tools/unpack_bin:Cargo.toml",
+    ],
+)
+
+load("@crate_index//:defs.bzl", "crate_repositories")
+
+crate_repositories()
+
 #---SNIP--- Below here is re-used in the snippet published on releases
 # Fetches the rules_py dependencies.
 # If you want to have a different version of some dependency,
@@ -11,6 +53,7 @@ local_repository(
 # Alternatively, you can skip calling this function, so long as you've
 # already fetched all the dependencies.
 load("@aspect_rules_py//py:repositories.bzl", "rules_py_dependencies")
+
 rules_py_dependencies()
 
 # "Installation" for rules_python

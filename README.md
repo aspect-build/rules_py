@@ -47,3 +47,15 @@ We think you'll love rules_py because:
 
 Follow instructions from the release you wish to use:
 <https://github.com/aspect-build/rules_py/releases>
+
+### Using with Gazelle
+
+In any ancestor `BUILD` file of the Python code, add these lines to instruct [Gazelle] to create rules_py variants of the `py_*` rules:
+
+```
+# gazelle:map_kind py_library py_library @aspect_rules_py//py:defs.bzl
+# gazelle:map_kind py_binary py_binary @aspect_rules_py//py:defs.bzl
+# gazelle:map_kind py_test py_test @aspect_rules_py//py:defs.bzl
+```
+
+[Gazelle]: https://github.com/bazelbuild/rules_python/blob/main/gazelle/README.md

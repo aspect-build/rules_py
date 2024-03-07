@@ -5,10 +5,9 @@ load("@bazel_skylib//lib:paths.bzl", "paths")
 load("//py/private:providers.bzl", "PyVirtualInfo")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
-load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "SH_TOOLCHAIN", "VENV_TOOLCHAIN")
+load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "VENV_TOOLCHAIN")
 
 def _py_venv_rule_imp(ctx):
-    sh_toolchain = ctx.toolchains[SH_TOOLCHAIN]
     venv_toolchain = ctx.toolchains[VENV_TOOLCHAIN]
     py_toolchain = _py_semantics.resolve_toolchain(ctx)
 
@@ -41,7 +40,6 @@ def _py_venv_rule_imp(ctx):
         template = ctx.file._venv_tmpl,
         output = executable_launcher,
         substitutions = {
-            "{{SHELL_BIN}}": sh_toolchain.path,
             "{{BASH_RLOCATION_FN}}": BASH_RLOCATION_FUNCTION,
             "{{INTERPRETER_FLAGS}}": " ".join(py_toolchain.flags),
             "{{VENV_TOOL}}": to_rlocation_path(ctx, venv_toolchain.bin),
@@ -121,7 +119,6 @@ _py_venv = rule(
         ),
     },
     toolchains = [
-        SH_TOOLCHAIN,
         PY_TOOLCHAIN,
         VENV_TOOLCHAIN,
     ],

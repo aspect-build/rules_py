@@ -40,6 +40,13 @@ manifest:
     colorama.tests.winterm_test: colorama
     colorama.win32: colorama
     colorama.winterm: colorama
+    cowsay: cowsay
+    cowsay.characters: cowsay
+    cowsay.main: cowsay
+    cowsay.tests: cowsay
+    cowsay.tests.solutions: cowsay
+    cowsay.tests.test_api: cowsay
+    cowsay.tests.test_output: cowsay
     django: Django
     django.apps: Django
     django.apps.config: Django
@@ -946,4 +953,4 @@ manifest:
     typing_extensions: typing_extensions
   pip_repository:
     name: pypi
-integrity: f553566eaf30557a41499dc599ab31526aa68e77f5cee73ed0da29d6c02bedfd
+integrity: bda699f1c32ae76fb0df4861571379f69bfd240f131217fc47553f0af4e6d085

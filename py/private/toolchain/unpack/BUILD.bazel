@@ -1,17 +1,7 @@
-load("//py/private/toolchain:tools.bzl", "make_toolchain")
+load("//py/private/toolchain:tools.bzl", "source_toolchain")
 
-toolchain_type(
-    name = "toolchain_type",
-)
-
-make_toolchain(
+source_toolchain(
     name = "unpack",
-    toolchain_type = ":toolchain_type",
-    tools = {
-        "from-source": "//py/tools/unpack_bin",
-        "macos-amd64": "@aspect_rules_py//py/tools/unpack_bin/bins:unpack-x86_64-apple-darwin",
-        "macos-arm64": "@aspect_rules_py//py/tools/unpack_bin/bins:unpack-aarch64-apple-darwin",
-        "linux-amd64": "@aspect_rules_py//py/tools/unpack_bin/bins:unpack-x86_64-unknown-linux-musl",
-        "linux-arm64": "@aspect_rules_py//py/tools/unpack_bin/bins:unpack-aarch64-unknown-linux-musl",
-    },
+    bin = "//py/tools/unpack_bin",
+    toolchain_type = "//py/private/toolchain:unpack_toolchain_type",
 )
