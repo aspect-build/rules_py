@@ -28,6 +28,29 @@ Repeat the flag to avoid discarding the analysis cache:
     query --@aspect_rules_py//py:interpreter_version=3.9.18
 """
 
+_MUST_SET_TOOLCHAIN_INTERPRETER_VERSION_INFO = """
+ERROR: In Bazel 7.x and later, the python toolchain py_runtime interpreter_version_info must be set \
+to a dict with keys "major", "minor", and "micro".
+
+`PyRuntimeInfo` requires that this field contains the static version information for the given
+interpreter. This can be set via `py_runtime` when registering an interpreter toolchain, and will
+done automatically for the builtin interpreter versions registered via `python_register_toolchains`.
+Note that this only available on the Starlark implementation of the provider.
+
+For example:
+
+    py_runtime(
+        name = "system_runtime",
+        interpreter_path = "/usr/bin/python",
+        interpreter_version_info = {
+            "major": "3",
+            "minor": "11",
+            "micro": "6",
+        },
+        python_version = "PY3",
+    )
+"""
+
 def _resolve_toolchain(ctx):
     """Resolves the Python toolchain to a simple struct.
 
@@ -61,7 +84,10 @@ def _resolve_toolchain(ctx):
         uses_interpreter_path = True
 
     # Bazel 7 has this field on the PyRuntimeInfo
-    if "interpreter_version_info" in dir(py3_toolchain):
+    if hasattr(py3_toolchain, "interpreter_version_info"):
+        for attr in ["major", "minor", "micro"]:
+            if not hasattr(py3_toolchain.interpreter_version_info, attr):
+                fail(_MUST_SET_TOOLCHAIN_INTERPRETER_VERSION_INFO)
         interpreter_version_info = py3_toolchain.interpreter_version_info
     elif ctx.attr._interpreter_version_flag[BuildSettingInfo].value:
         # Back-compat for Bazel 6.
