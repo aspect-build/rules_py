@@ -135,7 +135,11 @@ def _make_imports_depset(ctx, imports = [], extra_imports_depsets = []):
     ] + [
         # Add the workspace name in the imports such that repo-relative imports work.
         ctx.workspace_name,
+        ctx.label.workspace_name,
     ]
+
+    # Filter out any empty strings
+    import_paths = [x for x in import_paths if x]
 
     return depset(
         direct = import_paths,
