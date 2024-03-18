@@ -1,5 +1,6 @@
 """Implementation for the py_library rule"""
 
+load("@rules_python//python:defs.bzl", "PyInfo")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:new_sets.bzl", "sets")
 load("//py/private:providers.bzl", "PyVirtualInfo")
