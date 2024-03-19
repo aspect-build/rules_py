@@ -137,6 +137,10 @@ def _make_imports_depset(ctx, imports = [], extra_imports_depsets = []):
         ctx.workspace_name,
     ]
 
+    # Handle the case where its a target from an external workspace that uses repo-relative imports
+    if ctx.label.workspace_name:
+        import_paths.append(ctx.label.workspace_name)
+
     return depset(
         direct = import_paths,
         transitive = [
