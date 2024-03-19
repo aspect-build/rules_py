@@ -69,7 +69,7 @@ def _resolve_toolchain(ctx):
     py3_toolchain = toolchain_info.py3_runtime
 
     interpreter = None
-    uses_interpreter_path = False
+    runfiles_interpreter = True
 
     if py3_toolchain.interpreter != None:
         files = depset([py3_toolchain.interpreter], transitive = [py3_toolchain.files])
@@ -81,7 +81,7 @@ def _resolve_toolchain(ctx):
             short_path = py3_toolchain.interpreter_path,
         )
         files = depset([])
-        uses_interpreter_path = True
+        runfiles_interpreter = False
 
     # Bazel 7 has this field on the PyRuntimeInfo
     if hasattr(py3_toolchain, "interpreter_version_info"):
@@ -107,7 +107,7 @@ def _resolve_toolchain(ctx):
         files = files,
         python = interpreter,
         interpreter_version_info = interpreter_version_info,
-        uses_interpreter_path = uses_interpreter_path,
+        runfiles_interpreter = runfiles_interpreter,
         flags = _INTERPRETER_FLAGS,
     )
 

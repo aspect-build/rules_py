@@ -70,7 +70,7 @@ def _py_binary_rule_impl(ctx):
             "{{BASH_RLOCATION_FN}}": BASH_RLOCATION_FUNCTION,
             "{{INTERPRETER_FLAGS}}": " ".join(py_toolchain.flags),
             "{{VENV_TOOL}}": to_rlocation_path(ctx, venv_toolchain.bin),
-            "{{ARG_PYTHON}}": to_rlocation_path(ctx, py_toolchain.python),
+            "{{ARG_PYTHON}}": to_rlocation_path(ctx, py_toolchain.python) if py_toolchain.runfiles_interpreter else py_toolchain.python.path,
             "{{ARG_VENV_NAME}}": ".{}.venv".format(ctx.attr.name),
             "{{ARG_VENV_PYTHON_VERSION}}": "{}.{}.{}".format(
                 py_toolchain.interpreter_version_info.major,
@@ -83,6 +83,7 @@ def _py_binary_rule_impl(ctx):
             "{{EXEC_PYTHON_BIN}}": "python{}".format(
                 py_toolchain.interpreter_version_info.major,
             ),
+            "{{RUNFILES_INTERPRETER}}": str(py_toolchain.runfiles_interpreter).lower(),
         },
         is_executable = True,
     )
