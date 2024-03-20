@@ -1,5 +1,6 @@
 """Implementation for the py_binary and py_test rules."""
 
+load("@rules_python//python:defs.bzl", "PyInfo")
 load("@aspect_bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
 load("@aspect_bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
