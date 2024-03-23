@@ -201,7 +201,6 @@ _attrs = dict({
     ),
     "deps": attr.label_list(
         doc = "Targets that produce Python code, commonly `py_library` rules.",
-        allow_files = True,
         providers = [[PyInfo], [PyVirtualInfo]],
     ),
     "data": attr.label_list(
