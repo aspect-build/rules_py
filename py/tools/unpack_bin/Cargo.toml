@@ -16,6 +16,6 @@ name = "unpack"
 path = "src/main.rs"
 
 [dependencies]
-clap = { version = "4.1.11", features = ["derive"] }
+clap = { version = "4.5.3", features = ["derive"] }
 miette = { version = "5.10", features = ["fancy"] }
 py = { path = "../py" }
