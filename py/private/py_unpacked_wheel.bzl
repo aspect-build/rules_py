@@ -1,5 +1,6 @@
 """Unpacks a Python wheel into a directory and returns a PyInfo provider that represents that wheel"""
 
+load("@rules_python//python:defs.bzl", "PyInfo")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "UNPACK_TOOLCHAIN")

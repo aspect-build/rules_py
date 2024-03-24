@@ -1,5 +1,6 @@
 """Implementation for the py_library rule"""
 
+load("@rules_python//python:defs.bzl", "PyInfo")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:new_sets.bzl", "sets")
 load("//py/private:providers.bzl", "PyVirtualInfo")
@@ -136,6 +137,10 @@ def _make_imports_depset(ctx, imports = [], extra_imports_depsets = []):
         # Add the workspace name in the imports such that repo-relative imports work.
         ctx.workspace_name,
     ]
+
+    # Handle the case where its a target from an external workspace that uses repo-relative imports
+    if ctx.label.workspace_name:
+        import_paths.append(ctx.label.workspace_name)
 
     return depset(
         direct = import_paths,
