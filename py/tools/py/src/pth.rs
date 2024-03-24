@@ -74,6 +74,10 @@ fn create_symlinks(dir: &Path, root_dir: &Path, dst_dir: &Path) -> miette::Resul
             dir.to_string_lossy()
         ))?;
         let path = entry.path();
+        // If this path is a directory, recurse into it, else symlink the file now.
+        // We must ignore the `__init__.py` file in the root_dir because these are Bazel inserted
+        // `__init__.py` files in the root site-packages directory. The site-packages directory
+        // itself is not a regular package and is not supposed to have an `__init__.py` file.
         if path.is_dir() {
             create_symlinks(&path, root_dir, dst_dir)?;
         } else if dir != root_dir || entry.file_name() != "__init__.py" {
@@ -86,6 +90,11 @@ fn create_symlinks(dir: &Path, root_dir: &Path, dst_dir: &Path) -> miette::Resul
 fn create_symlink(e: &DirEntry, root_dir: &Path, dst_dir: &Path) -> miette::Result<()> {
     let tgt = e.path();
     let link = dst_dir.join(tgt.strip_prefix(root_dir).unwrap());
+    // If the link already exists, do not return an error if the link is for an `__init__.py` file
+    // with the same content as the new destination. Some packages that should ideally be namespace
+    // packages have copies of `__init__.py` files in their distributions. For example, all the
+    // Nvidia PyPI packages have the same `nvidia/__init__.py`. So we need to either overwrite the
+    // previous symlink, or check that the new location also has the same content.
     if link.exists() && link.file_name().is_some_and(|x| x == "__init__.py") && is_same_file(link.as_path(), tgt.as_path())? {
         return Ok(());
     }
