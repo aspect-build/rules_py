@@ -24,10 +24,10 @@ filegroup(
 def fetch_deps():
     http_archive(
         name = "toolchains_llvm",
-        sha256 = "b7cd301ef7b0ece28d20d3e778697a5e3b81828393150bed04838c0c52963a01",
-        strip_prefix = "toolchains_llvm-0.10.3",
+        sha256 = "e91c4361f99011a54814e1afbe5c436e0d329871146a3cd58c23a2b4afb50737",
+        strip_prefix = "toolchains_llvm-1.0.0",
         canonical_id = "0.10.3",
-        url = "https://github.com/grailbio/bazel-toolchain/releases/download/0.10.3/toolchains_llvm-0.10.3.tar.gz",
+        url = "https://github.com/grailbio/bazel-toolchain/releases/download/1.0.0/toolchains_llvm-1.0.0.tar.gz",
         patches = ["//third_party/com.github/bazel-contrib/toolchains_llvm:clang_ldd.patch"],
         patch_args = ["-p1"],
     )
