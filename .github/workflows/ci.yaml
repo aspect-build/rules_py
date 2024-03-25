@@ -28,7 +28,8 @@ jobs:
           {"os": "windows-latest"},
           {"folder": ".", "bazelversion": "6.4.0"},
           {"folder": ".", "bzlmodEnabled": true},
-          {"folder": "e2e/repository-rule-deps", "bzlmodEnabled": false}
+          {"folder": "e2e/repository-rule-deps", "bzlmodEnabled": false},
+          {"folder": "e2e/system-interpreter", "bzlmodEnabled": false}
         ]
 
   verify-bcr-patches:
