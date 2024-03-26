@@ -20,13 +20,24 @@ function alocation {
   fi
 }
 
+function python_location {
+  local PYTHON="{{ARG_PYTHON}}"
+  local RUNFILES_INTERPRETER="{{RUNFILES_INTERPRETER}}"
+
+  if [[ "${RUNFILES_INTERPRETER}" == "true" ]]; then
+    echo -n "$(alocation $(rlocation ${PYTHON}))"
+  else
+    echo -n "${PYTHON}"
+  fi
+}
+
 VENV_TOOL="$(rlocation {{VENV_TOOL}})"
 VIRTUAL_ENV="$(alocation "${RUNFILES_DIR}/{{ARG_VENV_NAME}}")"
 export VIRTUAL_ENV
 
 "${VENV_TOOL}" \
     --location "${VIRTUAL_ENV}" \
-    --python "$(alocation $(rlocation {{ARG_PYTHON}}))" \
+    --python "$(python_location)" \
     --python-version "{{ARG_VENV_PYTHON_VERSION}}" \
     --pth-file "$(rlocation {{ARG_PTH_FILE}})"
 
