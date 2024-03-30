@@ -51,7 +51,7 @@ pub fn create_venv(
         .into_diagnostic()?;
 
     if let Some(pth) = pth_file {
-        pth.copy_to_site_packages(&venv_location.join(install_paths.platlib()))?
+        pth.set_up_site_packages(&venv_location.join(install_paths.platlib()))?
     }
 
     Ok(())
