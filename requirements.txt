@@ -19,7 +19,7 @@ colorama==0.4.6 \
 cowsay==6.1 \
     --hash=sha256:274b1e6fc1b966d53976333eb90ac94cb07a450a700b455af9fbdf882244b30a
     # via -r requirements.in
-Django==4.2.11 \
+django==4.2.11 \
     --hash=sha256:6e6ff3db2d8dd0c986b4eec8554c8e4f919b5c1ff62a5b4390c17aff2ed6e5c4 \
     --hash=sha256:ddc24a0a8280a0430baa37aff11f28574720af05888c62b7cfe71d219f4599d3
     # via -r requirements.in
