@@ -31,21 +31,29 @@ impl PthFile {
         let mut writer = BufWriter::new(dest_pth);
 
         let mut line = String::new();
+        let path_prefix = self.prefix.as_ref().map(|pre| Path::new(pre));
+
         while reader.read_line(&mut line).unwrap() > 0 {
-            let entry: PathBuf;
-            if self.prefix.is_some() {
-                entry = Path::new(self.prefix.as_deref().unwrap()).join(Path::new(line.trim()));
-            } else {
-                entry = PathBuf::from(line.trim());
-            }
+            let entry = path_prefix
+                .map(|pre| pre.join(line.trim()))
+                .unwrap_or_else(|| PathBuf::from(line.trim()));
+
             line.clear();
-            if entry.file_name().is_some_and(|x| x == "site-packages") {
-                let src_dir = dest.join(entry).canonicalize().unwrap();
-                create_symlinks(&src_dir, &src_dir, &dest)?;
-            } else {
-                writeln!(writer, "{}", entry.to_string_lossy())
-                    .into_diagnostic()
-                    .wrap_err("Unable to write new .pth file entry")?;
+
+            match entry.file_name() {
+                Some(name) if name == "site-packages" => {
+                    let src_dir = dest
+                        .join(entry)
+                        .canonicalize()
+                        .into_diagnostic()
+                        .wrap_err("Unable to get full source dir path")?;
+                    create_symlinks(&src_dir, &src_dir, &dest)?;
+                }
+                _ => {
+                    writeln!(writer, "{}", entry.to_string_lossy())
+                        .into_diagnostic()
+                        .wrap_err("Unable to write new .pth file entry")?;
+                }
             }
         }
 
@@ -59,21 +67,24 @@ fn create_symlinks(dir: &Path, root_dir: &Path, dst_dir: &Path) -> miette::Resul
     std::fs::create_dir_all(&tgt_dir)
         .into_diagnostic()
         .wrap_err(format!(
-            "unable to create parent directory for symlink: {}",
+            "Unable to create parent directory for symlink: {}",
             tgt_dir.to_string_lossy()
         ))?;
 
     // Recurse.
     let read_dir = fs::read_dir(dir).into_diagnostic().wrap_err(format!(
-        "unable to read directory {}",
+        "Unable to read directory {}",
         dir.to_string_lossy()
     ))?;
+
     for entry in read_dir {
         let entry = entry.into_diagnostic().wrap_err(format!(
-            "unable to read directory entry {}",
+            "Unable to read directory entry {}",
             dir.to_string_lossy()
         ))?;
+
         let path = entry.path();
+
         // If this path is a directory, recurse into it, else symlink the file now.
         // We must ignore the `__init__.py` file in the root_dir because these are Bazel inserted
         // `__init__.py` files in the root site-packages directory. The site-packages directory
@@ -90,14 +101,19 @@ fn create_symlinks(dir: &Path, root_dir: &Path, dst_dir: &Path) -> miette::Resul
 fn create_symlink(e: &DirEntry, root_dir: &Path, dst_dir: &Path) -> miette::Result<()> {
     let tgt = e.path();
     let link = dst_dir.join(tgt.strip_prefix(root_dir).unwrap());
+
     // If the link already exists, do not return an error if the link is for an `__init__.py` file
     // with the same content as the new destination. Some packages that should ideally be namespace
     // packages have copies of `__init__.py` files in their distributions. For example, all the
     // Nvidia PyPI packages have the same `nvidia/__init__.py`. So we need to either overwrite the
     // previous symlink, or check that the new location also has the same content.
-    if link.exists() && link.file_name().is_some_and(|x| x == "__init__.py") && is_same_file(link.as_path(), tgt.as_path())? {
+    if link.exists()
+        && link.file_name().is_some_and(|x| x == "__init__.py")
+        && is_same_file(link.as_path(), tgt.as_path())?
+    {
         return Ok(());
     }
+
     std::os::unix::fs::symlink(&tgt, &link)
         .into_diagnostic()
         .wrap_err(format!(
@@ -105,12 +121,17 @@ fn create_symlink(e: &DirEntry, root_dir: &Path, dst_dir: &Path) -> miette::Resu
             tgt.to_string_lossy(),
             link.to_string_lossy()
         ))?;
+
     Ok(())
 }
 
 fn is_same_file(p1: &Path, p2: &Path) -> miette::Result<bool> {
-    let f1 = File::open(p1).into_diagnostic().wrap_err(format!("unable to open file {}", p1.to_string_lossy()))?;
-    let f2 = File::open(p2).into_diagnostic().wrap_err(format!("unable to open file {}", p2.to_string_lossy()))?;
+    let f1 = File::open(p1)
+        .into_diagnostic()
+        .wrap_err(format!("Unable to open file {}", p1.to_string_lossy()))?;
+    let f2 = File::open(p2)
+        .into_diagnostic()
+        .wrap_err(format!("Unable to open file {}", p2.to_string_lossy()))?;
 
     // Check file size is the same.
     if f1.metadata().unwrap().len() != f2.metadata().unwrap().len() {
