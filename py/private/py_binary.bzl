@@ -112,7 +112,7 @@ def _py_binary_rule_impl(ctx):
 
     extra_default_outputs = []
 
-    zip_output = ctx.actions.declare_file(ctx.attr.name + ".zip", sibling = executable_launcher)
+    zip_output = ctx.actions.declare_file(ctx.attr.name + ".pyz", sibling = executable_launcher)
     mtree = build_python_zip(ctx, output = zip_output, runfiles = runfiles, main = ctx.file.main)
 
     # NOTE: --build_python_zip defauls to true on Windows

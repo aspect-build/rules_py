@@ -1,3 +1,5 @@
+"Create python zip file https://peps.python.org/pep-0441/"
+
 def _normalize(path):
     if path.startswith("../"):
         return path[3:]
@@ -5,18 +7,38 @@ def _normalize(path):
         return path[9:]
     return path
 
-def _line(file, path):
-    pass
+def _mtree_line(file, type, content = None, uid = "0", gid = "0", time = "1672560000", mode = "0755"):
+    spec = [
+        file,
+        "uid=" + uid,
+        "gid=" + gid,
+        "time=" + time,
+        "mode=" + mode,
+        "type=" + type,
+    ]
+    if content:
+        spec.append("content=" + content)
+    return " ".join(spec)
+
+def _map_file(file):
+    return _mtree_line("runfiles/"+_normalize(file.path), "file", file.path)
 
 
 def build_python_zip(ctx, output, runfiles, main):
     mtree = ctx.actions.declare_file(ctx.attr.name + ".spec")
+
     content = ctx.actions.args()
     content.use_param_file("@%s", use_always = True)
     content.set_param_file_format("multiline")
     content.add("#mtree")
-    content.add(main, format = "__main__.py type=file content=%s mode=0555")
-    content.add("__init__.py type=file mode=0666")
+    content.add(_mtree_line("__main__.py", "file", mode = "0555", content=main.path))
+    content.add(_mtree_line("__init__.py", "file", mode = "0666"))
+
+    for empty in runfiles.empty_filenames.to_list():
+        content.add(_mtree_line(_normalize(empty.path), "file"))
+
+    content.add_all(runfiles.files, map_each = _map_file)
+
     content.add("")
     ctx.actions.write(mtree, content = content)
 
