@@ -1,0 +1,15 @@
+load("@rules_python//python:defs.bzl", ppy_binary = "py_binary")
+load("//py:defs.bzl", "py_binary")
+
+py_binary(
+    name = "zip",
+    srcs = ["say.py"],
+    deps = [
+        "@pypi_cowsay//:pkg",
+    ],
+)
+
+ppy_binary(
+    name = "main",
+    srcs = ["main.py"],
+)

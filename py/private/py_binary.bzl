@@ -6,6 +6,7 @@ load("@aspect_bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "VENV_TOOLCHAIN")
+load("//py/private:py_zip.bzl", "build_python_zip", "ZIP_TOOLCHAIN")
 
 def _dict_to_exports(env):
     return [
@@ -109,13 +110,27 @@ def _py_binary_rule_impl(ctx):
         extra_source_attributes = ["main"],
     )
 
+    extra_default_outputs = []
+
+    zip_output = ctx.actions.declare_file(ctx.attr.name + ".zip", sibling = executable_launcher)
+    build_python_zip(ctx, output = zip_output)
+
+    # NOTE: --build_python_zip defauls to true on Windows
+    if ctx.fragments.py.build_python_zip:
+        extra_default_outputs.append(zip_output)
+    
+    # See: https://github.com/bazelbuild/bazel/blob/b4ab259fe1cba8a108f1dd30067ee357c7198509/src/main/starlark/builtins_bzl/common/python/py_executable_bazel.bzl#L265
+    output_group_info = OutputGroupInfo(
+        python_zip_file = depset([zip_output])
+    )
+
     return [
         DefaultInfo(
             files = depset([
                 executable_launcher,
                 ctx.file.main,
                 site_packages_pth_file,
-            ]),
+            ], transitive = extra_default_outputs),
             executable = executable_launcher,
             runfiles = runfiles,
         ),
@@ -126,6 +141,7 @@ def _py_binary_rule_impl(ctx):
             has_py3_only_sources = True,
             uses_shared_libraries = False,
         ),
+        output_group_info,
         instrumented_files_info,
     ]
 
@@ -210,6 +226,7 @@ py_base = struct(
     toolchains = [
         PY_TOOLCHAIN,
         VENV_TOOLCHAIN,
+        ZIP_TOOLCHAIN
     ],
     cfg = _python_version_transition
 )
@@ -219,6 +236,7 @@ py_binary = rule(
     implementation = py_base.implementation,
     attrs = py_base.attrs,
     toolchains = py_base.toolchains,
+    fragments = py_base.fragments,
     executable = True,
     cfg = py_base.cfg
 )
