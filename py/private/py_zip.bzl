@@ -24,22 +24,24 @@ def _map_file(file):
     return _mtree_line("runfiles/"+_normalize(file.path), "file", file.path)
 
 
-def build_python_zip(ctx, output, runfiles, main):
-    mtree = ctx.actions.declare_file(ctx.attr.name + ".spec")
+def build_python_zip(ctx, output, runfiles, executable):
+    main_py = ctx.actions.declare_file(ctx.attr.name + ".main.py")
+    ctx.actions.write(main_py, content = """import os; os.system("/usr/bin/env bash %s")""" % executable.path)
 
     content = ctx.actions.args()
     content.use_param_file("@%s", use_always = True)
     content.set_param_file_format("multiline")
     content.add("#mtree")
-    content.add(_mtree_line("__main__.py", "file", mode = "0555", content=main.path))
+    content.add(_mtree_line("__main__.py", "file", mode = "0555", content=main_py.path))
     content.add(_mtree_line("__init__.py", "file", mode = "0666"))
 
     for empty in runfiles.empty_filenames.to_list():
         content.add(_mtree_line(_normalize(empty.path), "file"))
 
     content.add_all(runfiles.files, map_each = _map_file)
-
     content.add("")
+
+    mtree = ctx.actions.declare_file(ctx.attr.name + ".spec")
     ctx.actions.write(mtree, content = content)
 
 
@@ -53,7 +55,7 @@ def build_python_zip(ctx, output, runfiles, main):
 
     ctx.actions.run(
         executable = bsdtar.tarinfo.binary,
-        inputs = depset(direct = [mtree], transitive = [bsdtar.default.files, runfiles.files]),
+        inputs = depset(direct = [mtree, main_py], transitive = [bsdtar.default.files, runfiles.files]),
         outputs = [intermediate_zip],
         arguments = [args],
         mnemonic = "PythonZipper",
@@ -72,8 +74,5 @@ def build_python_zip(ctx, output, runfiles, main):
         mnemonic = "BuildBinary",
         progress_message = "Build Python zip executable: %{label}",
     )
-
-    return mtree
-
 
 ZIP_TOOLCHAIN = "@aspect_bazel_lib//lib:tar_toolchain_type"

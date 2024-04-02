@@ -113,7 +113,7 @@ def _py_binary_rule_impl(ctx):
     extra_default_outputs = []
 
     zip_output = ctx.actions.declare_file(ctx.attr.name + ".pyz", sibling = executable_launcher)
-    mtree = build_python_zip(ctx, output = zip_output, runfiles = runfiles, main = ctx.file.main)
+    build_python_zip(ctx, output = zip_output, runfiles = runfiles, executable = executable_launcher)
 
     # NOTE: --build_python_zip defauls to true on Windows
     if ctx.fragments.py.build_python_zip:
@@ -121,7 +121,7 @@ def _py_binary_rule_impl(ctx):
     
     # See: https://github.com/bazelbuild/bazel/blob/b4ab259fe1cba8a108f1dd30067ee357c7198509/src/main/starlark/builtins_bzl/common/python/py_executable_bazel.bzl#L265
     output_group_info = OutputGroupInfo(
-        python_zip_file = depset([zip_output, mtree])
+        python_zip_file = depset([zip_output])
     )
 
     return [
