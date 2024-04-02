@@ -15,6 +15,10 @@ load("//py:repositories.bzl", "rules_py_dependencies")
 # Fetch dependencies which users need as well
 rules_py_dependencies()
 
+load("//py:toolchains.bzl", "rules_py_toolchains")
+
+rules_py_toolchains()
+
 # Load the Python toolchain for rules_docker
 register_toolchains("//:container_py_toolchain")
 

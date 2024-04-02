@@ -9,9 +9,11 @@ local_repository(
 # you should fetch it *before* calling this.
 # Alternatively, you can skip calling this function, so long as you've
 # already fetched all the dependencies.
-load("@aspect_rules_py//py:repositories.bzl", "rules_py_dependencies", "rules_py_toolchains")
+load("@aspect_rules_py//py:repositories.bzl", "rules_py_dependencies")
 
-rules_py_dependencies(register_toolchains = False)
+rules_py_dependencies()
+
+load("@aspect_rules_py//py:toolchains.bzl", "rules_py_toolchains")
 
 # Force use of pre-built release binaries regardless of the content of /tools/version.bzl
 rules_py_toolchains(is_prerelease = False)
