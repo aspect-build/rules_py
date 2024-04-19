@@ -53,6 +53,13 @@ Add to your \`MODULE.bazel\` file:
 
 \`\`\`starlark
 bazel_dep(name = "aspect_rules_py", version = "${TAG:1}")
+
+EOF
+
+# Collect the tools snippet from the use_release module file.
+awk 'f;/--SNIP--/{f=1}' e2e/use_release/MODULE.bazel
+
+cat << EOF
 \`\`\`
 
 And also register a Python toolchain, see rules_python. For example:

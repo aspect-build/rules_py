@@ -5,6 +5,7 @@ local_path_override(
     path = "../..",
 )
 
+#---SNIP--- Below here is re-used in the snippet published on releases
 tools = use_extension("@aspect_rules_py//py:extensions.bzl", "py_tools")
 tools.rules_py_tools(is_prerelease = False)
 use_repo(tools, "rules_py_tools")
