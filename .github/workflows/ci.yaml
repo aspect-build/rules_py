@@ -20,7 +20,13 @@ jobs:
   test:
     uses: bazel-contrib/.github/.github/workflows/bazel.yaml@v6
     with:
-      folders: '[".", "e2e/smoke", "e2e/repository-rule-deps", "e2e/system-interpreter"]'
+      folders: |
+        [
+          ".",
+          "e2e/repository-rule-deps", 
+          "e2e/system-interpreter",
+          "e2e/use_release"
+        ]
       # TODO: Build Windows tools and add to toolchain
       # TODO(alex): switch the root folder to bzlmod
       exclude: |
