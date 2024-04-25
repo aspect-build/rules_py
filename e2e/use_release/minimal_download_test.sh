@@ -11,7 +11,7 @@ fi
 
 # This test references pre-built artifacts from a prior release.
 # Will need to bump this version in the future when there are breaking changes.
-export RULES_PY_RELEASE_VERSION=0.7.0
+export RULES_PY_RELEASE_VERSION=0.7.1
 
 #############
 # Test bzlmod
@@ -37,6 +37,8 @@ then
     >&2 echo "ERROR: we fetched a rust repository"
     exit 1
 fi
+
+bazel "--output_base=$OUTPUT_BASE" test --enable_bzlmod //...
 
 #############
 # Test WORKSPACE
