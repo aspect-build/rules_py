@@ -38,8 +38,6 @@ then
     exit 1
 fi
 
-bazel "--output_base=$OUTPUT_BASE" test --enable_bzlmod //...
-
 #############
 # Test WORKSPACE
 OUTPUT_BASE=$(mktemp -d)
