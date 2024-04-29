@@ -4,7 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use miette::{Context, IntoDiagnostic};
+use miette::{miette, Context, IntoDiagnostic};
 
 pub struct PthFile {
     pub src: PathBuf,
@@ -114,10 +114,47 @@ fn create_symlink(e: &DirEntry, root_dir: &Path, dst_dir: &Path) -> miette::Resu
         return Ok(());
     }
 
+    // Is the link at the root of the `site-packages`?
+    // We can get into situations where files in wheels are at the root of the wheel,
+    // while this is valid, it leads to errors being thrown here as the symlinks will
+    // already exist. In `pip`, the last file wins, so the logic is the same here.
+    if link.exists() && link.parent().is_some_and(|x| x.ends_with("site-packages")) {
+        // File is being placed at the root of the `site-packages`, remove the link.
+        fs::remove_file(&link)
+            .into_diagnostic()
+            .wrap_err(
+                miette!(
+                    "Unable to remove conflicting symlink in site-packages root. Existing symlink {} conflicts with new target {}",
+                    link.to_string_lossy(),
+                    tgt.to_string_lossy()
+                )
+            )?
+    }
+
+    // If the link already exists, then there is going to be a conflict.
+    // Bail early here before attempting to link as to provide a better error message.
+    if link.exists() {
+        let path_to_conflict = link
+            .to_str()
+            .and_then(|s| s.split_once("site-packages/"))
+            .map(|s| s.1)
+            .unwrap();
+        let next_conflict = tgt
+            .to_str()
+            .and_then(|s| s.split_once(".runfiles/"))
+            .map(|s| s.1)
+            .unwrap();
+        return Err(
+            miette!(format!("site-packages/{}", path_to_conflict))
+            .wrap_err(format!("{}", next_conflict))
+            .wrap_err("Conflicting symlinks found when attempting to create venv. More than one package provides the file at these paths")
+        );
+    }
+
     std::os::unix::fs::symlink(&tgt, &link)
         .into_diagnostic()
         .wrap_err(format!(
-            "unable to create symlink: {} -> {}",
+            "Unable to create symlink: {} -> {}",
             tgt.to_string_lossy(),
             link.to_string_lossy()
         ))?;
