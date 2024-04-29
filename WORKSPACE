@@ -140,37 +140,39 @@ load("@rules_rust//rust:repositories.bzl", "rules_rust_dependencies", "rust_regi
 
 rules_rust_dependencies()
 
+RUST_EDITION = "2021"
+
+RUST_VERSION = "1.77.2"
+
 rust_register_toolchains(
-    edition = "2021",
+    edition = RUST_EDITION,
     extra_target_triples = [
         "x86_64-apple-darwin",
     ],
-    versions = [
-        "1.74.1",
-    ],
+    versions = [RUST_VERSION],
 )
 
 # Declare cross-compilation toolchains
 rust_repository_set(
     name = "apple_darwin_86_64",
-    edition = "2021",
+    edition = RUST_EDITION,
     exec_triple = "x86_64-apple-darwin",
     # and cross-compile to these platforms:
     extra_target_triples = [
         "aarch64-apple-darwin",
     ],
-    versions = ["1.74.1"],
+    versions = [RUST_VERSION],
 )
 
 rust_repository_set(
     name = "linux_x86_64",
-    edition = "2021",
+    edition = RUST_EDITION,
     exec_triple = "x86_64-unknown-linux-gnu",
     # and cross-compile to these platforms:
     extra_target_triples = [
         "aarch64-unknown-linux-gnu",
     ],
-    versions = ["1.74.1"],
+    versions = [RUST_VERSION],
 )
 
 load("@rules_rust//crate_universe:repositories.bzl", "crate_universe_dependencies")
