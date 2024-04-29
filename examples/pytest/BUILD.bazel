@@ -16,5 +16,7 @@ py_test(
     deps = [
         ":__test__",
         "@pypi_pytest//:pkg",
+        "@pypi_ftfy//:pkg",
+        "@pypi_neptune//:pkg",
     ],
 )
