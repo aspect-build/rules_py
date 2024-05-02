@@ -11,7 +11,7 @@ fi
 
 # This test references pre-built artifacts from a prior release.
 # Will need to bump this version in the future when there are breaking changes.
-export RULES_PY_RELEASE_VERSION=0.7.0
+export RULES_PY_RELEASE_VERSION=0.7.3
 
 #############
 # Test bzlmod
