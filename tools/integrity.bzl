@@ -4,14 +4,14 @@ This file contents are entirely replaced during release publishing.
 The checked in content is only here to allow load() statements in the sources to resolve.
 """
 
-# TEST DATA extracted from https://github.com/aspect-build/rules_py/releases/download/v0.7.0/rules_py-v0.7.0.tar.gz
+# TEST DATA extracted from tools/integrity.bzl file within https://github.com/aspect-build/rules_py/releases/download/v0.7.3/rules_py-v0.7.3.tar.gz
 RELEASED_BINARY_INTEGRITY = {
-    "unpack-aarch64-apple-darwin": "440ee3f7c06f1db301947ad4abaa5fd7c06c112e22976e863ad9732e410b31bb",
-    "unpack-x86_64-apple-darwin": "1afe12536a851e9a568bf280fa25e406ae7c58339e655e22636423a3da3cf28a",
-    "venv-aarch64-apple-darwin": "2c49ddbb814dc926c2250da4edd968c7c47ce140ded62cd6cd7c4bf2ff3fe254",
-    "venv-x86_64-apple-darwin": "65ee78ad30dfab4b7bac95476f9fa0524304a7b155c83e34a026b07acc28a087",
-    "unpack-aarch64-unknown-linux-gnu": "48552e399a1f2ab97e62ca7fce5783b6214e284330c7555383f43acf82446636",
-    "unpack-x86_64-unknown-linux-gnu": "fd265552bfd236efef519f81ce783322a50d8d7ab5af5d08a713e519cedff87f",
-    "venv-aarch64-unknown-linux-gnu": "b05d6cbe485e8ed1872f330012929126778744208e47485d7e2be285a027c7ca",
-    "venv-x86_64-unknown-linux-gnu": "61f53fe45da5f2f160907c87c1a2d663bc57eee667520a46490a837825be61c9",
+    "unpack-aarch64-apple-darwin": "7b707566f3d47faae3f27715fb1ae1689d3d1003c21b60d344c644fdee54aef9",
+    "unpack-x86_64-apple-darwin": "6e10eb9c8a336adf2c091fd0de73a0e6a2e9ff104829a2516f1283b1429deaea",
+    "venv-aarch64-apple-darwin": "cda216aed9cb6c6a9d9d5627f5d109139536d94e206e5248b1027bd0fbc42342",
+    "venv-x86_64-apple-darwin": "12ea7c3e0a660322059610aac6ce05c93667a17cfa3f3585d442e9e4815edef0",
+    "unpack-aarch64-unknown-linux-gnu": "e6da0ffc82b462ec14e6e660c396bc9530d7f1588729e3dd6500508c661e1819",
+    "unpack-x86_64-unknown-linux-gnu": "35fc4335877a852a6fa1bd3ac2f99d756376ef8540d1bfa36ac7abf9c4fcc8f8",
+    "venv-aarch64-unknown-linux-gnu": "b51756d0d66a0defcc176c2363f649a698e235f56f6d6cbc3bc2142fb99b0240",
+    "venv-x86_64-unknown-linux-gnu": "79e753c51d51c37d77151e2c36df52d5f0eb9b301e6001274a92ce9d0cdf67cd",
 }
