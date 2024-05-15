@@ -4,6 +4,7 @@ exports_files(
     [
         "run.tmpl.sh",
         "venv.tmpl.sh",
+        "run.tmpl.py",
         "pytest.py.tmpl",
     ],
     visibility = ["//visibility:public"],

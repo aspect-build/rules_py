@@ -11,5 +11,9 @@ py_binary(
 
 ppy_binary(
     name = "main",
-    srcs = ["main.py"],
+    srcs = ["say.py"],
+    main = "say.py",
+    deps = [
+        "@pypi_cowsay//:pkg",
+    ],
 )

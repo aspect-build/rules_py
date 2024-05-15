@@ -113,7 +113,31 @@ def _py_binary_rule_impl(ctx):
     extra_default_outputs = []
 
     zip_output = ctx.actions.declare_file(ctx.attr.name + ".pyz", sibling = executable_launcher)
-    build_python_zip(ctx, output = zip_output, runfiles = runfiles, executable = executable_launcher)
+    py_launcher = ctx.actions.declare_file(ctx.attr.name + ".py")
+    ctx.actions.expand_template(
+        template = ctx.file._run_tmpl_py,
+        output = py_launcher,
+        substitutions = {
+            "{{INTERPRETER_FLAGS}}": " ".join(py_toolchain.flags),
+            "{{VENV_TOOL}}": to_rlocation_path(ctx, venv_toolchain.bin),
+            "{{ARG_PYTHON}}": to_rlocation_path(ctx, py_toolchain.python) if py_toolchain.runfiles_interpreter else py_toolchain.python.path,
+            "{{ARG_VENV_NAME}}": ".{}.venv".format(ctx.attr.name),
+            "{{ARG_VENV_PYTHON_VERSION}}": "{}.{}.{}".format(
+                py_toolchain.interpreter_version_info.major,
+                py_toolchain.interpreter_version_info.minor,
+                py_toolchain.interpreter_version_info.micro,
+            ),
+            "{{ARG_PTH_FILE}}": to_rlocation_path(ctx, site_packages_pth_file),
+            "{{ENTRYPOINT}}": to_rlocation_path(ctx, ctx.file.main),
+            "{{PYTHON_ENV}}": json.encode(env),
+            "{{EXEC_PYTHON_BIN}}": "python{}".format(
+                py_toolchain.interpreter_version_info.major,
+            ),
+            "{{RUNFILES_INTERPRETER}}": str(py_toolchain.runfiles_interpreter).lower(),
+        },
+        is_executable = True,
+    )
+    build_python_zip(ctx, output = zip_output, runfiles = runfiles, executable = py_launcher)
 
     # NOTE: --build_python_zip defauls to true on Windows
     if ctx.fragments.py.build_python_zip:
@@ -193,6 +217,10 @@ python.toolchain(python_version = "3.9", is_default = True)
     "_run_tmpl": attr.label(
         allow_single_file = True,
         default = "//py/private:run.tmpl.sh",
+    ),
+    "_run_tmpl_py": attr.label(
+        allow_single_file = True,
+        default = "//py/private:run.tmpl.py",
     ),
     "_runfiles_lib": attr.label(
         default = "@bazel_tools//tools/bash/runfiles",
