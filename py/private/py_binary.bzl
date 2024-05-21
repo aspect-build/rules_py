@@ -194,10 +194,6 @@ python.toolchain(python_version = "3.9", is_default = True)
         allow_single_file = True,
         default = "//py/private:run.tmpl.sh",
     ),
-    "_run_tmpl_py": attr.label(
-        allow_single_file = True,
-        default = "//py/private:run.tmpl.py",
-    ),
     "_runfiles_lib": attr.label(
         default = "@bazel_tools//tools/bash/runfiles",
     ),

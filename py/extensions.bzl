@@ -1,6 +1,6 @@
 "Module Extensions used from MODULE.bazel"
 
-load(":toolchains.bzl", "DEFAULT_TOOLS_REPOSITORY", "rules_py_toolchains")
+load(":repositories.bzl", "DEFAULT_TOOLS_REPOSITORY", "rules_py_toolchains")
 load("//tools:version.bzl", "IS_PRERELEASE")
 
 py_toolchain = tag_class(attrs = {
