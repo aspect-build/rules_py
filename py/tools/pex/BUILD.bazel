@@ -1,0 +1,9 @@
+load("@rules_python//python:defs.bzl", "py_binary")
+
+py_binary(
+    name = "pex",
+    srcs = ["main.py"],
+    main = "main.py",
+    deps = ["@pypi_pex//:pkg"],
+    visibility = ["//visibility:public"]
+)

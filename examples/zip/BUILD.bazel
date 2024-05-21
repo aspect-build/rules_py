@@ -10,7 +10,7 @@ py_binary(
 )
 
 ppy_binary(
-    name = "main",
+    name = "zip2",
     srcs = ["say.py"],
     main = "say.py",
     deps = [

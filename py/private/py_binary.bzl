@@ -6,7 +6,7 @@ load("@aspect_bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "VENV_TOOLCHAIN")
-load("//py/private:py_zip.bzl", "build_python_zip", "ZIP_TOOLCHAIN")
+load("//py/private:py_pex.bzl", "build_pex")
 
 def _dict_to_exports(env):
     return [
@@ -14,6 +14,7 @@ def _dict_to_exports(env):
         for (k, v) in env.items()
     ]
 
+ 
 def _py_binary_rule_impl(ctx):
     venv_toolchain = ctx.toolchains[VENV_TOOLCHAIN]
     py_toolchain = _py_semantics.resolve_toolchain(ctx)
@@ -91,12 +92,11 @@ def _py_binary_rule_impl(ctx):
 
     srcs_depset = _py_library.make_srcs_depset(ctx)
 
+    srcs_and_virtual_resolutions = [srcs_depset] + virtual_resolution.srcs + virtual_resolution.runfiles
+    
     runfiles = _py_library.make_merged_runfiles(
         ctx,
-        extra_depsets = [
-            py_toolchain.files,
-            srcs_depset,
-        ] + virtual_resolution.srcs + virtual_resolution.runfiles,
+        extra_depsets = [py_toolchain.files] + srcs_and_virtual_resolutions,
         extra_runfiles = [
             site_packages_pth_file,
         ] + ctx.files._runfiles_lib,
@@ -105,6 +105,7 @@ def _py_binary_rule_impl(ctx):
         ],
     )
 
+
     instrumented_files_info = _py_library.make_instrumented_files_info(
         ctx,
         extra_source_attributes = ["main"],
@@ -112,32 +113,7 @@ def _py_binary_rule_impl(ctx):
 
     extra_default_outputs = []
 
-    zip_output = ctx.actions.declare_file(ctx.attr.name + ".pyz", sibling = executable_launcher)
-    py_launcher = ctx.actions.declare_file(ctx.attr.name + ".py")
-    ctx.actions.expand_template(
-        template = ctx.file._run_tmpl_py,
-        output = py_launcher,
-        substitutions = {
-            "{{INTERPRETER_FLAGS}}": " ".join(py_toolchain.flags),
-            "{{VENV_TOOL}}": to_rlocation_path(ctx, venv_toolchain.bin),
-            "{{ARG_PYTHON}}": to_rlocation_path(ctx, py_toolchain.python) if py_toolchain.runfiles_interpreter else py_toolchain.python.path,
-            "{{ARG_VENV_NAME}}": ".{}.venv".format(ctx.attr.name),
-            "{{ARG_VENV_PYTHON_VERSION}}": "{}.{}.{}".format(
-                py_toolchain.interpreter_version_info.major,
-                py_toolchain.interpreter_version_info.minor,
-                py_toolchain.interpreter_version_info.micro,
-            ),
-            "{{ARG_PTH_FILE}}": to_rlocation_path(ctx, site_packages_pth_file),
-            "{{ENTRYPOINT}}": to_rlocation_path(ctx, ctx.file.main),
-            "{{PYTHON_ENV}}": json.encode(env),
-            "{{EXEC_PYTHON_BIN}}": "python{}".format(
-                py_toolchain.interpreter_version_info.major,
-            ),
-            "{{RUNFILES_INTERPRETER}}": str(py_toolchain.runfiles_interpreter).lower(),
-        },
-        is_executable = True,
-    )
-    build_python_zip(ctx, output = zip_output, runfiles = runfiles, executable = py_launcher)
+    zip_output = build_pex(ctx, runfiles, depset(transitive = srcs_and_virtual_resolutions))
 
     # NOTE: --build_python_zip defauls to true on Windows
     if ctx.fragments.py.build_python_zip:
@@ -254,7 +230,6 @@ py_base = struct(
     toolchains = [
         PY_TOOLCHAIN,
         VENV_TOOLCHAIN,
-        ZIP_TOOLCHAIN
     ],
     cfg = _python_version_transition
 )
