@@ -12,3 +12,10 @@ py_binary(
         "@bazel_tools//tools/python/runfiles",
     ],
 )
+
+filegroup(
+    name = "zip_archive",
+    srcs = [":zip"],
+    output_group = "python_zip_file"
+)
+

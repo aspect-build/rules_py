@@ -33,8 +33,8 @@ def build_pex(ctx, py_toolchain, runfiles, srcs):
     output = ctx.actions.declare_file(ctx.attr.name + ".pex")
     args = ctx.actions.args()
 
-    # copy workspace name here just in case to prevent ctx
-    # to be transferred to execution phase.
+    # Copy workspace name here to prevent ctx
+    # being transferred to the execution phase.
     workspace_name = str(ctx.workspace_name)
 
     args.add_all(
@@ -59,6 +59,8 @@ def build_pex(ctx, py_toolchain, runfiles, srcs):
         inputs = runfiles.files,
         arguments = [args],
         outputs = [output],
+        mnemonic = "PyPex",
+        progress_message = "Building PEX binary %{label}",
         # Unfortunately there is no way to disable pex cache, so just set it to . allow
         # bazel to discard cache once the action is done. 
         # TODO: this is probably not the right thing to do if the action is unsandboxed.

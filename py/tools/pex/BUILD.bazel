@@ -24,8 +24,7 @@ _py_binary(
     name = "pex_builder",
     srcs = ["main.py"],
     main = "main.py",
-    deps = ["@pypi_pex//:pkg"],
-    visibility = ["//visibility:public"]
+    deps = ["@pypi_pex//:pkg"]
 )
 
 filegroup(
@@ -67,5 +66,6 @@ alias(
     actual = select({
         ":should_use_dev_pex": ":dev_only_pex",
         "//conditions:default": ":release_pex"
-    })
+    }),
+    visibility = ["//visibility:public"]
 )

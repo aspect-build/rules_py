@@ -6,7 +6,7 @@ load("@aspect_bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "VENV_TOOLCHAIN")
-load("//py/private:py_pex.bzl", "build_pex")
+load("//py/private:py_pex.bzl", _build_pex = "build_pex")
 
 def _dict_to_exports(env):
     return [
@@ -14,7 +14,6 @@ def _dict_to_exports(env):
         for (k, v) in env.items()
     ]
 
- 
 def _py_binary_rule_impl(ctx):
     venv_toolchain = ctx.toolchains[VENV_TOOLCHAIN]
     py_toolchain = _py_semantics.resolve_toolchain(ctx)
@@ -105,7 +104,6 @@ def _py_binary_rule_impl(ctx):
         ],
     )
 
-
     instrumented_files_info = _py_library.make_instrumented_files_info(
         ctx,
         extra_source_attributes = ["main"],
@@ -113,7 +111,7 @@ def _py_binary_rule_impl(ctx):
 
     extra_default_outputs = []
 
-    zip_output = build_pex(ctx, py_toolchain, runfiles, depset(transitive = srcs_and_virtual_resolutions))
+    zip_output = _build_pex(ctx, py_toolchain, runfiles, depset(transitive = srcs_and_virtual_resolutions))
 
     # NOTE: --build_python_zip defauls to true on Windows
     if ctx.fragments.py.build_python_zip:

@@ -151,7 +151,6 @@ def _make_imports_depset(ctx, imports = [], extra_imports_depsets = []):
         ] + extra_imports_depsets,
     )
 
-
 def _make_merged_runfiles(ctx, extra_depsets = [], extra_runfiles = [], extra_runfiles_depsets = []):
     runfiles_targets = getattr(ctx.attr, "deps", []) + getattr(ctx.attr, "data", [])
     runfiles = ctx.runfiles(
