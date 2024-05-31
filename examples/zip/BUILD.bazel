@@ -1,19 +1,14 @@
-load("@rules_python//python:defs.bzl", ppy_binary = "py_binary")
 load("//py:defs.bzl", "py_binary")
 
 py_binary(
     name = "zip",
     srcs = ["say.py"],
+    data = ["data.txt"],
+    env = {
+        "TEST": "1"
+    },
     deps = [
         "@pypi_cowsay//:pkg",
-    ],
-)
-
-ppy_binary(
-    name = "zip2",
-    srcs = ["say.py"],
-    main = "say.py",
-    deps = [
-        "@pypi_cowsay//:pkg",
+        "@bazel_tools//tools/python/runfiles",
     ],
 )

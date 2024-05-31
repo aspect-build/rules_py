@@ -1,13 +1,39 @@
 import sys
-import os
-from pex.common import safe_mkdtemp
-from pex.pex import PEX
+from pex.common import Chroot
 from pex.pex_builder import Check, CopyMode, PEXBuilder
-from pex.pex_info import PexInfo
 from pex.interpreter import PythonInterpreter
 from pex.layout import Layout
 from pex.dist_metadata import Distribution
 from argparse import Action, ArgumentParser
+
+
+# Monkey patch bootstrap template to inject some templated environment variables.
+# Unfortunately we can't use `preamble` feature because it runs before any initialization code.
+import pex.pex_builder
+BE=pex.pex_builder.BOOTSTRAP_ENVIRONMENT 
+
+INJECT_TEMPLATE="""
+os.environ['RUNFILES_DIR'] = __entry_point__
+"""
+
+import_idx =  BE.index("from pex.pex_bootstrapper import bootstrap_pex")
+# This is here to catch potential future bugs where pex package is updated here but the boostrap 
+# script was not checked again to see if we are still injecting values in the right place.
+assert import_idx == 3703, "Check bootstrap template monkey patching."
+
+pex.pex_builder.BOOTSTRAP_ENVIRONMENT = BE[:import_idx] + INJECT_TEMPLATE + BE[import_idx:]
+
+
+class InjectEnvAction(Action):
+    def __call__(self, parser, namespace, value, option_str=None):
+        components = value.split("=", 1)
+        if len(components) != 2:
+            raise ArgumentError(
+                self,
+                "Environment variable values must be of the form `name=value`. "
+                "Given: {value}".format(value=value),
+            )
+        self.default.append(tuple(components))
 
 parser = ArgumentParser()
 
@@ -21,9 +47,16 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    "--python",
+    dest="python",
+    required=True
+)
+
+parser.add_argument(
     "--python-shebang",
     dest="python_shebang",
     default=None,
+    required=True,
     help="The exact shebang (#!...) line to add at the top of the PEX file minus the "
     "#!. This overrides the default behavior, which picks an environment Python "
     "interpreter compatible with the one used to build the PEX file.",
@@ -61,19 +94,25 @@ parser.add_argument(
     action="append",
 )
 
+parser.add_argument(
+    "--inject-env",
+    dest="inject_env",
+    default=[],
+    action=InjectEnvAction,
+)
 
 options = parser.parse_args(args = sys.argv[1:])
 
+
 pex_builder = PEXBuilder(
-    path=safe_mkdtemp(),
-    interpreter=PythonInterpreter.get(),
-    preamble=None,
-    copy_mode=CopyMode.SYMLINK,
+    interpreter=PythonInterpreter.from_binary(options.python),
 )
 
 pex_builder.set_executable(options.executable)
 pex_builder.set_shebang(options.python_shebang)
 
+pex_info = pex_builder.info
+pex_info.inject_env = options.inject_env
 
 for dep in options.dependencies:
     dist = Distribution.load(dep + "/../")
@@ -83,7 +122,7 @@ for dep in options.dependencies:
         path=dist.location,
         dist_name = dist.key
     )
-    pex_builder._pex_info.add_distribution(dist.key, dist_hash)
+    pex_info.add_distribution(dist.key, dist_hash)
     pex_builder.add_requirement(dist.as_requirement())
 
 for source in options.sources:
@@ -95,18 +134,11 @@ for source in options.sources:
     )
 
 pex_builder.freeze(bytecode_compile=False)
-interpreter = pex_builder.interpreter
-pex = PEX(
-    pex_builder.path(),
-    interpreter=interpreter,
-    verify_entry_point=False,
-)
 
 pex_builder.build(
     options.pex_name,
-    bytecode_compile=False,
     deterministic_timestamp=True,
     layout=Layout.ZIPAPP,
-    compress=False,
     check=Check.WARN,
 )
+

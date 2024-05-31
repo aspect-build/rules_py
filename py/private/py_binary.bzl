@@ -113,7 +113,7 @@ def _py_binary_rule_impl(ctx):
 
     extra_default_outputs = []
 
-    zip_output = build_pex(ctx, runfiles, depset(transitive = srcs_and_virtual_resolutions))
+    zip_output = build_pex(ctx, py_toolchain, runfiles, depset(transitive = srcs_and_virtual_resolutions))
 
     # NOTE: --build_python_zip defauls to true on Windows
     if ctx.fragments.py.build_python_zip:
