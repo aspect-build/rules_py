@@ -165,7 +165,7 @@ python_register_toolchains(
 )
 ```
 
-Whereas configuring it for MODULE.bazel may look like this:
+Configuring for MODULE.bazel may look like this:
 
 ```
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
