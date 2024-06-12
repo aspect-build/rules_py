@@ -34,7 +34,8 @@ python_register_toolchains(
     set_python_version_constraint = True,
 )
 
-# It's important to register the default toolchain last as it will match any py_* target. 
+# It is important to register the default toolchain at last as it will be selected for any
+# py_test/py_binary target even if it has python_version attribute set.
 python_register_toolchains(
     name = "python_toolchain",
     python_version = "3.9",
