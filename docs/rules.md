@@ -7,7 +7,7 @@ Public API re-exports
 ## py_binary_rule
 
 <pre>
-py_binary_rule(<a href="#py_binary_rule-name">name</a>, <a href="#py_binary_rule-data">data</a>, <a href="#py_binary_rule-deps">deps</a>, <a href="#py_binary_rule-env">env</a>, <a href="#py_binary_rule-imports">imports</a>, <a href="#py_binary_rule-main">main</a>, <a href="#py_binary_rule-resolutions">resolutions</a>, <a href="#py_binary_rule-srcs">srcs</a>)
+py_binary_rule(<a href="#py_binary_rule-name">name</a>, <a href="#py_binary_rule-data">data</a>, <a href="#py_binary_rule-deps">deps</a>, <a href="#py_binary_rule-env">env</a>, <a href="#py_binary_rule-imports">imports</a>, <a href="#py_binary_rule-main">main</a>, <a href="#py_binary_rule-python_version">python_version</a>, <a href="#py_binary_rule-resolutions">resolutions</a>, <a href="#py_binary_rule-srcs">srcs</a>)
 </pre>
 
 Run a Python program under Bazel. Most users should use the [py_binary macro](#py_binary) instead of loading this directly.
@@ -23,6 +23,7 @@ Run a Python program under Bazel. Most users should use the [py_binary macro](#p
 | <a id="py_binary_rule-env"></a>env |  Environment variables to set when running the binary.   | <a href="https://bazel.build/rules/lib/dict">Dictionary: String -> String</a> | optional | <code>{}</code> |
 | <a id="py_binary_rule-imports"></a>imports |  List of import directories to be added to the PYTHONPATH.   | List of strings | optional | <code>[]</code> |
 | <a id="py_binary_rule-main"></a>main |  Script to execute with the Python interpreter.   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
+| <a id="py_binary_rule-python_version"></a>python_version |  Whether to build this target and its transitive deps for a specific python version.<br><br>Note that setting this attribute alone will not be enough as the python toolchain for the desired version also needs to be registered in the WORKSPACE or MODULE.bazel file.<br><br>When using WORKSPACE, this may look like this,<br><br><pre><code> load("@rules_python//python:repositories.bzl", "py_repositories", "python_register_toolchains")<br><br>python_register_toolchains(     name = "python_toolchain_3_8",     python_version = "3.8.12",     # setting set_python_version_constraint makes it so that only matches py_* rule       # which has this exact version set in the <code>python_version</code> attribute.     set_python_version_constraint = True, )<br><br># It's important to register the default toolchain last it will match any py_* target.  python_register_toolchains(     name = "python_toolchain",     python_version = "3.9", ) </code></pre><br><br>Configuring for MODULE.bazel may look like this:<br><br><pre><code> python = use_extension("@rules_python//python/extensions:python.bzl", "python") python.toolchain(python_version = "3.8.12", is_default = False) python.toolchain(python_version = "3.9", is_default = True) </code></pre>   | String | optional | <code>""</code> |
 | <a id="py_binary_rule-resolutions"></a>resolutions |  FIXME   | <a href="https://bazel.build/rules/lib/dict">Dictionary: Label -> String</a> | optional | <code>{}</code> |
 | <a id="py_binary_rule-srcs"></a>srcs |  Python source files.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
 
@@ -56,7 +57,7 @@ py_library_rule(<a href="#py_library_rule-name">name</a>, <a href="#py_library_r
 ## py_test_rule
 
 <pre>
-py_test_rule(<a href="#py_test_rule-name">name</a>, <a href="#py_test_rule-data">data</a>, <a href="#py_test_rule-deps">deps</a>, <a href="#py_test_rule-env">env</a>, <a href="#py_test_rule-imports">imports</a>, <a href="#py_test_rule-main">main</a>, <a href="#py_test_rule-resolutions">resolutions</a>, <a href="#py_test_rule-srcs">srcs</a>)
+py_test_rule(<a href="#py_test_rule-name">name</a>, <a href="#py_test_rule-data">data</a>, <a href="#py_test_rule-deps">deps</a>, <a href="#py_test_rule-env">env</a>, <a href="#py_test_rule-imports">imports</a>, <a href="#py_test_rule-main">main</a>, <a href="#py_test_rule-python_version">python_version</a>, <a href="#py_test_rule-resolutions">resolutions</a>, <a href="#py_test_rule-srcs">srcs</a>)
 </pre>
 
 Run a Python program under Bazel. Most users should use the [py_test macro](#py_test) instead of loading this directly.
@@ -72,6 +73,7 @@ Run a Python program under Bazel. Most users should use the [py_test macro](#py_
 | <a id="py_test_rule-env"></a>env |  Environment variables to set when running the binary.   | <a href="https://bazel.build/rules/lib/dict">Dictionary: String -> String</a> | optional | <code>{}</code> |
 | <a id="py_test_rule-imports"></a>imports |  List of import directories to be added to the PYTHONPATH.   | List of strings | optional | <code>[]</code> |
 | <a id="py_test_rule-main"></a>main |  Script to execute with the Python interpreter.   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
+| <a id="py_test_rule-python_version"></a>python_version |  Whether to build this target and its transitive deps for a specific python version.<br><br>Note that setting this attribute alone will not be enough as the python toolchain for the desired version also needs to be registered in the WORKSPACE or MODULE.bazel file.<br><br>When using WORKSPACE, this may look like this,<br><br><pre><code> load("@rules_python//python:repositories.bzl", "py_repositories", "python_register_toolchains")<br><br>python_register_toolchains(     name = "python_toolchain_3_8",     python_version = "3.8.12",     # setting set_python_version_constraint makes it so that only matches py_* rule       # which has this exact version set in the <code>python_version</code> attribute.     set_python_version_constraint = True, )<br><br># It's important to register the default toolchain last it will match any py_* target.  python_register_toolchains(     name = "python_toolchain",     python_version = "3.9", ) </code></pre><br><br>Configuring for MODULE.bazel may look like this:<br><br><pre><code> python = use_extension("@rules_python//python/extensions:python.bzl", "python") python.toolchain(python_version = "3.8.12", is_default = False) python.toolchain(python_version = "3.9", is_default = True) </code></pre>   | String | optional | <code>""</code> |
 | <a id="py_test_rule-resolutions"></a>resolutions |  FIXME   | <a href="https://bazel.build/rules/lib/dict">Dictionary: Label -> String</a> | optional | <code>{}</code> |
 | <a id="py_test_rule-srcs"></a>srcs |  Python source files.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
 

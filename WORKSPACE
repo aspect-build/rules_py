@@ -25,6 +25,18 @@ register_toolchains("//:container_py_toolchain")
 load("@rules_python//python:repositories.bzl", "py_repositories", "python_register_toolchains")
 
 python_register_toolchains(
+    name = "python_toolchain_3_8",
+    python_version = "3.8.12",
+    # Setting `set_python_version_constraint` will set special constraints on the registered toolchain.
+    # This means that this toolchain registration will only be selected for `py_binary` / `py_test` targets 
+    # that have the `python_version = "3.8.12"` attribute set. Targets that have no `python_attribute` will use
+    # the default toolchain resolved which can be seen below.
+    set_python_version_constraint = True,
+)
+
+# It is important to register the default toolchain at last as it will be selected for any
+# py_test/py_binary target even if it has python_version attribute set.
+python_register_toolchains(
     name = "python_toolchain",
     python_version = "3.9",
 )
