@@ -8,8 +8,6 @@ py_binary(
     ],
     python_version = "3.8.12"
 )
-
-
 py_pytest_main(
     name = "__test__",
     deps = ["@pypi_pytest//:pkg"],
