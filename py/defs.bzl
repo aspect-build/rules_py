@@ -46,6 +46,7 @@ def _py_binary_or_test(name, rule, srcs, main, imports, deps = [], resolutions =
         imports = imports,
         resolutions = resolutions,
         tags = ["manual"],
+        testonly = kwargs.get("testonly", False),
     )
 
 def py_binary(name, srcs = [], main = None, imports = ["."], **kwargs):
