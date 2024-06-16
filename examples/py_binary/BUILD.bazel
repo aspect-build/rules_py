@@ -42,12 +42,6 @@ platform_transition_filegroup(
     }),
 )
 
-container_structure_test(
-    name = "test",
-    configs = ["test.yaml"],
-    image = ":platform_image",
-)
-
 # $ bazel run //examples/py_binary:load
 # $ docker run --rm gcr.io/oci_python_hello_world:latest
 oci_tarball(

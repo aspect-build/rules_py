@@ -4,7 +4,7 @@ load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
 # For stardoc to reference the files
 exports_files(["defs.bzl"])
 
-# For Bazel 6.x compatibility, since 
+# For Bazel 6.x compatibility, since
 # PyRuntimeInfo shipped only with Bazel 7
 # Users can set, e.g. --@aspect_rules_py//py:interpreter_version=3.9.18
 string_flag(
@@ -31,6 +31,7 @@ bzl_library(
     deps = [
         "//py/private:py_binary",
         "//py/private:py_executable",
+        "//py/private:py_image_layers",
         "//py/private:py_library",
         "//py/private:py_pytest_main",
         "//py/private:py_unpacked_wheel",

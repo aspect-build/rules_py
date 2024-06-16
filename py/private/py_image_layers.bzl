@@ -27,6 +27,7 @@ def py_image_layers(name, binary, interpreter_regex = PY_INTERPRETER_REGEX, site
         binary: a py_binary target
         interpreter_regex: a regular expression for use by `grep` which extracts the interpreter and related files from the binary runfiles tree
         site_packages_regex: a regular expression for use by `grep` which extracts installed packages from the binary runfiles tree
+
     Returns:
         a list of labels for the layers, which are tar files
     """

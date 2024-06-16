@@ -111,3 +111,10 @@ bzl_library(
     srcs = ["virtual.bzl"],
     visibility = ["//py:__subpackages__"],
 )
+
+bzl_library(
+    name = "py_image_layers",
+    srcs = ["py_image_layers.bzl"],
+    visibility = ["//py:__subpackages__"],
+    deps = ["@aspect_bazel_lib//lib:tar"],
+)
