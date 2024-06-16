@@ -1,9 +1,57 @@
-load("//py:defs.bzl", "py_binary")
+load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
+load("//py:defs.bzl", "py_binary", "py_image_layers")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_tarball")
 
 py_binary(
-    name = "py_binary",
+    name = "say_hello",
     srcs = ["say.py"],
     deps = [
         "@pypi_cowsay//:pkg",
     ],
+)
+
+oci_image(
+    name = "say_image",
+    base = "@ubuntu",
+    entrypoint = ["/examples/py_binary/say_hello"],
+    tars = py_image_layers("say_image_layers", "say_hello"),
+)
+
+platform(
+    name = "aarch64_linux",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:aarch64",
+    ],
+)
+
+platform(
+    name = "x86_64_linux",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+platform_transition_filegroup(
+    name = "platform_image",
+    srcs = [":say_image"],
+    target_platform = select({
+        "@platforms//cpu:arm64": ":aarch64_linux",
+        "@platforms//cpu:x86_64": ":x86_64_linux",
+    }),
+)
+
+container_structure_test(
+    name = "test",
+    configs = ["test.yaml"],
+    image = ":platform_image",
+)
+
+# $ bazel run //examples/py_binary:load
+# $ docker run --rm gcr.io/oci_python_hello_world:latest
+oci_tarball(
+    name = "load",
+    image = ":platform_image",
+    repo_tags = ["bazel/say:latest"],
 )

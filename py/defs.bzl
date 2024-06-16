@@ -8,6 +8,7 @@ load("//py/private:py_pytest_main.bzl", _py_pytest_main = "py_pytest_main")
 load("//py/private:py_unpacked_wheel.bzl", _py_unpacked_wheel = "py_unpacked_wheel")
 load("//py/private:virtual.bzl", _resolutions = "resolutions")
 load("//py/private:py_venv.bzl", _py_venv = "py_venv")
+load("//py/private:py_image_layers.bzl", _py_image_layers = "py_image_layers")
 
 py_pytest_main = _py_pytest_main
 
@@ -16,7 +17,7 @@ py_binary_rule = _py_binary
 py_test_rule = _py_test
 py_library_rule = _py_library
 py_unpacked_wheel_rule = _py_unpacked_wheel
-
+py_image_layers = _py_image_layers
 resolutions = _resolutions
 
 def _py_binary_or_test(name, rule, srcs, main, imports, deps = [], resolutions = {}, **kwargs):
