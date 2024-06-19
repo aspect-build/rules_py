@@ -1,71 +1,15 @@
-load("@aspect_bazel_lib//lib:write_source_files.bzl", "write_source_file")
-load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
-load("@rules_python//python:defs.bzl", "py_binary")
-load("//py:defs.bzl", _py_binary = "py_binary")
+load("//py:defs.bzl", "py_binary", "py_unpacked_wheel")
 
-# For boostrapping reasons we need to use rules_python py_binary rule to break
-# self-edge on rules_py py_binary.
-# This is potentially dangerous because our tests will be using py_binary but 
-# the released version of rules_py will be using the checked in py_binary.
-
-
-# For dev only
-py_binary(
-    name = "dev_only_pex",
-    srcs = ["main.py"],
-    main = "main.py",
-    deps = ["@pypi_pex//:pkg"],
-    visibility = ["//visibility:public"]
-)
-
-
-# For released ruleset only
-_py_binary(
-    name = "pex_builder",
-    srcs = ["main.py"],
-    main = "main.py",
-    deps = ["@pypi_pex//:pkg"]
-)
-
-filegroup(
-    name = "pex_builder_archive",
-    srcs = [":pex_builder"],
-    output_group = "python_zip_file"
-)
-
-write_source_file(
-    name = "check_in_pex_builder_achive",
-    in_file = ":pex_builder_archive",
-    # we name it only py because rules_python py_binary does not accept any other extension.
-    out_file = ":pex_builder.py",
-    executable = True
+py_unpacked_wheel(
+    name = "pex_unpacked",
+    src = "@pex_2_3_1//file",
+    py_package_name = "pex"
 )
 
 py_binary(
-    name = "release_pex",
-    srcs = ["pex_builder.py"],
-    main = "pex_builder.py",
-    visibility = ["//visibility:public"]
-)
-
-# Pick between checked in pex binary or dev pex binary
-bool_flag(
-    name = "use_dev_pex",
-    build_setting_default = False,
-)
-
-config_setting(
-    name = "should_use_dev_pex",
-    flag_values = {
-        ":use_dev_pex": "true",
-    },
-)
-
-alias(
     name = "pex",
-    actual = select({
-        ":should_use_dev_pex": ":dev_only_pex",
-        "//conditions:default": ":release_pex"
-    }),
+    srcs = ["main.py"],
+    main = "main.py",
+    deps = [":pex_unpacked"],
     visibility = ["//visibility:public"]
 )

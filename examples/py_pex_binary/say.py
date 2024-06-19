@@ -19,7 +19,7 @@ print(" current dir (absolute):", os.path.abspath(os.curdir))
 
 
 r = runfiles.Create()
-data_path = r.Rlocation("aspect_rules_py/examples/zip/data.txt")
+data_path = r.Rlocation("aspect_rules_py/examples/py_pex_binary/data.txt")
 
 print("")
 print("runfiles lookup:")

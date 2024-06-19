@@ -1,4 +1,5 @@
 import sys
+import re
 from pex.common import Chroot
 from pex.pex_builder import Check, CopyMode, PEXBuilder
 from pex.interpreter import PythonInterpreter
@@ -108,7 +109,23 @@ pex_builder = PEXBuilder(
     interpreter=PythonInterpreter.from_binary(options.python),
 )
 
-pex_builder.set_executable(options.executable)
+
+MAGIC_COMMENT = "# __PEX_PY_BINARY_ENTRYPOINT__ "
+executable = None
+# set the entrypoint by looking at the generated launcher.
+with open(options.executable, "r") as contents:
+    line = contents.readline()
+    while line:
+        if line.startswith(MAGIC_COMMENT):
+            executable = line.lstrip(MAGIC_COMMENT).rstrip()
+        if executable:
+            break
+        line = contents.readline()
+    
+    if not executable:
+        print("Could not determine the `main` file for the binary. Did run.tmpl.sh change?")
+        sys.exit(1)
+    
 pex_builder.set_shebang(options.python_shebang)
 
 pex_info = pex_builder.info
@@ -127,6 +144,10 @@ for dep in options.dependencies:
 
 for source in options.sources:
     src, dest = source.split("=", 1)
+
+    # if destination path matches the entrypoint script, then also set the executable.
+    if dest == executable:
+        pex_builder.set_executable(src)
 
     pex_builder.add_source(
         src,

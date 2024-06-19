@@ -4,11 +4,13 @@ load("@aspect_bazel_lib//lib:utils.bzl", "propagate_common_rule_attributes")
 load("//py/private:py_binary.bzl", _py_binary = "py_binary", _py_test = "py_test")
 load("//py/private:py_executable.bzl", "determine_main")
 load("//py/private:py_library.bzl", _py_library = "py_library")
+load("//py/private:py_pex_binary.bzl", _py_pex_binary = "py_pex_binary")
 load("//py/private:py_pytest_main.bzl", _py_pytest_main = "py_pytest_main")
 load("//py/private:py_unpacked_wheel.bzl", _py_unpacked_wheel = "py_unpacked_wheel")
 load("//py/private:virtual.bzl", _resolutions = "resolutions")
 load("//py/private:py_venv.bzl", _py_venv = "py_venv")
 
+py_pex_binary = _py_pex_binary
 py_pytest_main = _py_pytest_main
 
 py_venv = _py_venv

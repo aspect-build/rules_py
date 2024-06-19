@@ -1,7 +1,8 @@
-load("//py:defs.bzl", "py_binary")
+load("//py:defs.bzl", "py_binary", "py_pex_binary")
+
 
 py_binary(
-    name = "zip",
+    name = "binary",
     srcs = ["say.py"],
     data = ["data.txt"],
     env = {
@@ -13,9 +14,13 @@ py_binary(
     ],
 )
 
-filegroup(
-    name = "zip_archive",
-    srcs = [":zip"],
-    output_group = "python_zip_file"
+
+
+py_pex_binary(
+    name = "py_pex_binary",
+    binary = ":binary",
+    inject_env = {
+        "TEST": "1"
+    }
 )
 

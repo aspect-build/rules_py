@@ -1,5 +1,8 @@
 "Create python zip file https://peps.python.org/pep-0441/ (PEX)"
 
+load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
+load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
+
 def _runfiles_path(file, workspace):
     if file.short_path.startswith("../"):
         return file.short_path[3:]
@@ -29,8 +32,14 @@ def _map_srcs(f, workspace):
 
     return []
 
-def build_pex(ctx, py_toolchain, runfiles, srcs):
+def _py_python_pex_impl(ctx):
+    py_toolchain = _py_semantics.resolve_toolchain(ctx)
+
+    binary = ctx.attr.binary
+    runfiles = binary[DefaultInfo].data_runfiles
+
     output = ctx.actions.declare_file(ctx.attr.name + ".pex")
+
     args = ctx.actions.args()
 
     # Copy workspace name here to prevent ctx
@@ -38,7 +47,7 @@ def build_pex(ctx, py_toolchain, runfiles, srcs):
     workspace_name = str(ctx.workspace_name)
 
     args.add_all(
-        ctx.attr.env.items(), 
+        ctx.attr.inject_env.items(), 
         map_each = lambda e: "--inject-env=%s=%s" % (e[0], e[1]),
         allow_closure = True,
     )
@@ -49,8 +58,8 @@ def build_pex(ctx, py_toolchain, runfiles, srcs):
         uniquify = True,
         allow_closure = True,
     )
-    args.add(ctx.file.main, format = "--executable=%s")
-    args.add("#!/usr/bin/env python3", format = "--python-shebang=%s")
+    args.add(binary[DefaultInfo].files_to_run.executable, format = "--executable=%s")
+    args.add(ctx.attr.python_shebang, format = "--python-shebang=%s")
     args.add(py_toolchain.python, format = "--python=%s")
     args.add(output, format = "--output-file=%s")
 
@@ -67,4 +76,32 @@ def build_pex(ctx, py_toolchain, runfiles, srcs):
         env = {"PEX_ROOT": "."}
     )
 
-    return output
+    return [
+        DefaultInfo(files = depset([output]), executable = output),
+        # See: https://github.com/bazelbuild/bazel/blob/b4ab259fe1cba8a108f1dd30067ee357c7198509/src/main/starlark/builtins_bzl/common/python/py_executable_bazel.bzl#L265
+        OutputGroupInfo(
+            python_zip_file = depset([output])
+        )
+    ]
+
+
+_attrs = dict({
+    "binary": attr.label(executable = True, cfg = "target"),
+    "inject_env": attr.string_dict(
+        doc = "Environment variables to set when running the pex binary.",
+        default = {},
+    ),
+    "python_shebang": attr.string(default = "#!/usr/bin/env python3"),
+    "_pex": attr.label(executable = True, cfg = "exec", default = "//py/tools/pex")
+})
+
+
+py_pex_binary = rule(
+    doc = "Build a pex executable from a py_binary",
+    implementation = _py_python_pex_impl,
+    attrs = _attrs,
+    toolchains = [
+        PY_TOOLCHAIN
+    ],
+    executable = True,
+)
