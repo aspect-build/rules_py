@@ -21,7 +21,7 @@ jobs:
   test:
     uses: bazel-contrib/.github/.github/workflows/bazel.yaml@v6
     with:
-      folders: '[".", "e2e/smoke", "e2e/repository-rule-deps", "e2e/system-interpreter"]'
+      folders: '[".", "e2e/smoke", "e2e/repository-rule-deps", "e2e/system-interpreter", "examples/uv_pip_compile"]'
       # TODO: Build Windows tools and add to toolchain
       # TODO(alex): switch the root folder to bzlmod
       exclude: |
@@ -30,7 +30,9 @@ jobs:
           {"folder": ".", "bazelversion": "6.4.0"},
           {"folder": ".", "bzlmodEnabled": true},
           {"folder": "e2e/repository-rule-deps", "bzlmodEnabled": false},
-          {"folder": "e2e/system-interpreter", "bzlmodEnabled": false}
+          {"folder": "e2e/system-interpreter", "bzlmodEnabled": false},
+          {"folder": "examples/uv_pip_compile", "bzlmodEnabled": false},
+          {"folder": "examples/uv_pip_compile", "bazelversion": "6.4.0"},
         ]
 
   verify-bcr-patches:

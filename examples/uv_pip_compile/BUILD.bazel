@@ -1,0 +1,10 @@
+load("@rules_uv//uv:pip.bzl", "pip_compile")
+load("@rules_uv//uv:venv.bzl", "create_venv")
+
+pip_compile(name = "generate_requirements_txt")
+
+# Run: bazel run :create_venv to allow the IDE to find deps.
+create_venv(
+    name = "create_venv",
+    destination_folder = ".venv",
+)
