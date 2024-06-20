@@ -55,15 +55,6 @@ def rules_py_dependencies(register_toolchains = True):
         url = "https://github.com/bazelbuild/rules_python/releases/download/0.31.0/rules_python-0.31.0.tar.gz",
     )
 
-    # the url and digest information can be found at https://pypi.org/pypi/pex/json
-    # WARNING: when updated, also update MODULE.bazel
-    http_file(
-        name = "pex_2_3_1",
-        urls = ["https://files.pythonhosted.org/packages/e7/d0/fbda2a4d41d62d86ce53f5ae4fbaaee8c34070f75bb7ca009090510ae874/pex-2.3.1-py2.py3-none-any.whl"],
-        sha256 = "64692a5bf6f298403aab930d22f0d836ae4736c5bc820e262e9092fe8c56f830",
-        downloaded_file_path = "pex-2.3.1-py2.py3-none-any.whl",
-    )
-
     if register_toolchains:
         rules_py_toolchains()
 
@@ -75,6 +66,16 @@ def rules_py_toolchains(name = DEFAULT_TOOLS_REPOSITORY, register = True, is_pre
         register: whether to call the register_toolchains, should be True for WORKSPACE and False for bzlmod.
         is_prerelease: True iff there are no pre-built tool binaries for this version of rules_py
     """
+
+    # the url and digest information can be found at https://pypi.org/pypi/pex/json
+    # WARNING: when updated, also update MODULE.bazel
+    http_file(
+        name = "pex_2_3_1",
+        urls = ["https://files.pythonhosted.org/packages/e7/d0/fbda2a4d41d62d86ce53f5ae4fbaaee8c34070f75bb7ca009090510ae874/pex-2.3.1-py2.py3-none-any.whl"],
+        sha256 = "64692a5bf6f298403aab930d22f0d836ae4736c5bc820e262e9092fe8c56f830",
+        downloaded_file_path = "pex-2.3.1-py2.py3-none-any.whl",
+    )
+    
     if is_prerelease:
         prerelease_toolchains_repo(name = name)
         if register:
