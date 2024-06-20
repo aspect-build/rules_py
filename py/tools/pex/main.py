@@ -112,16 +112,17 @@ pex_builder = PEXBuilder(
 
 MAGIC_COMMENT = "# __PEX_PY_BINARY_ENTRYPOINT__ "
 executable = None
+executable_was_set = False
 # set the entrypoint by looking at the generated launcher.
 with open(options.executable, "r") as contents:
     line = contents.readline()
     while line:
         if line.startswith(MAGIC_COMMENT):
-            executable = line.lstrip(MAGIC_COMMENT).rstrip()
+            executable = line[len(MAGIC_COMMENT):].rstrip()
         if executable:
             break
         line = contents.readline()
-    
+
     if not executable:
         print("Could not determine the `main` file for the binary. Did run.tmpl.sh change?")
         sys.exit(1)
@@ -148,11 +149,16 @@ for source in options.sources:
     # if destination path matches the entrypoint script, then also set the executable.
     if dest == executable:
         pex_builder.set_executable(src)
+        executable_was_set = True
 
     pex_builder.add_source(
         src,
         dest
     )
+
+if not executable_was_set:
+    print("Have not seen the source that corresponds to %s in the runfiles. Please file an issue." % executable)
+    sys.exit(1)
 
 pex_builder.freeze(bytecode_compile=False)
 

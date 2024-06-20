@@ -3986,8 +3986,4 @@ manifest:
     yaml.tokens: PyYAML
   pip_repository:
     name: pypi
-<<<<<<< HEAD
 integrity: a2cf45af9c2e7badb445eb2e1fa69a6ef1bd6c7912fd5911766c4b20d47e17a9
-=======
-integrity: 07140c6867eba1e1b94e15e2a3c5dfbc45e43d1ce31e77c14b2ebaae5d861763
->>>>>>> 85f663d (fix bzl targets)

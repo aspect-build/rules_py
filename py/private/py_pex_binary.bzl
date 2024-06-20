@@ -9,15 +9,21 @@ def _runfiles_path(file, workspace):
     else:
         return workspace + "/" + file.short_path
 
+exclude_paths = [
+    "toolchain",
+    "aspect_rules_py/py/tools/",
+    "rules_python~",
+    "aspect_rules_py~/py/tools/"
+]
+
 def _map_srcs(f, workspace):
     dest_path = _runfiles_path(f, workspace)
 
     # TODO: better way to exclude hermetic toolchain.
-    if dest_path.find("toolchain") != -1:
-        return []
+    for exclude in exclude_paths:
+        if dest_path.find(exclude) != -1:
+            return []
 
-    if dest_path.find("aspect_rules_py/py/tools/") != -1:
-        return []
 
     site_packages_i = f.path.find("site-packages")
 
