@@ -1,0 +1,18 @@
+"uv pip compile example with py"
+
+bazel_dep(name = "rules_uv", version = "0.14.0", dev_dependency = True)
+bazel_dep(name = "rules_python", version = "0.33.2")
+bazel_dep(name = "aspect_rules_py", version = "0.7.3", dev_dependency = True) 
+
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(python_version = "3.9.13")
+
+use_repo(python, "python_3_9_13")
+
+pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
+pip.parse(
+    hub_name = "pypi",
+    python_version = "3.9.13",
+    requirements_lock = "//:requirements.txt",
+)
+use_repo(pip, "pypi")
