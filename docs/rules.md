@@ -124,6 +124,39 @@ you can `bazel run [name].venv` to produce this, then use it in the editor.
 | <a id="py_binary-kwargs"></a>kwargs |  additional named parameters to the py_binary_rule.   |  none |
 
 
+<a id="py_image_layers"></a>
+
+## py_image_layers
+
+<pre>
+py_image_layers(<a href="#py_image_layers-name">name</a>, <a href="#py_image_layers-binary">binary</a>, <a href="#py_image_layers-interpreter_regex">interpreter_regex</a>, <a href="#py_image_layers-site_packages_regex">site_packages_regex</a>)
+</pre>
+
+Create three layers for a py_binary target: interpreter, third-party packages, and application code.
+
+This allows a container image to have smaller uploads, since the application layer usually changes more
+than the other two.
+
+&gt; [!NOTE]
+&gt; The middle layer may duplicate other py_image_layers which have a disjoint set of dependencies.
+&gt; Follow https://github.com/aspect-build/rules_py/issues/244
+
+
+**PARAMETERS**
+
+
+| Name  | Description | Default Value |
+| :------------- | :------------- | :------------- |
+| <a id="py_image_layers-name"></a>name |  prefix for generated targets, to ensure they are unique within the package   |  none |
+| <a id="py_image_layers-binary"></a>binary |  a py_binary target   |  none |
+| <a id="py_image_layers-interpreter_regex"></a>interpreter_regex |  a regular expression for use by <code>grep</code> which extracts the interpreter and related files from the binary runfiles tree   |  <code>"\\.runfiles/.*python.*-.*"</code> |
+| <a id="py_image_layers-site_packages_regex"></a>site_packages_regex |  a regular expression for use by <code>grep</code> which extracts installed packages from the binary runfiles tree   |  <code>"\\.runfiles/.*/site-packages/.*"</code> |
+
+**RETURNS**
+
+a list of labels for the layers, which are tar files
+
+
 <a id="py_library"></a>
 
 ## py_library

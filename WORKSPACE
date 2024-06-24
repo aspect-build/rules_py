@@ -19,8 +19,16 @@ load("//py:toolchains.bzl", "rules_py_toolchains")
 
 rules_py_toolchains()
 
+load("@bazel_features//:deps.bzl", "bazel_features_deps")
+
+bazel_features_deps()
+
 # Load the Python toolchain for rules_docker
 register_toolchains("//:container_py_toolchain")
+
+load("@rules_oci//oci:repositories.bzl", "oci_register_toolchains")
+
+oci_register_toolchains(name = "oci")
 
 load("@rules_python//python:repositories.bzl", "py_repositories", "python_register_toolchains")
 
@@ -28,7 +36,7 @@ python_register_toolchains(
     name = "python_toolchain_3_8",
     python_version = "3.8.12",
     # Setting `set_python_version_constraint` will set special constraints on the registered toolchain.
-    # This means that this toolchain registration will only be selected for `py_binary` / `py_test` targets 
+    # This means that this toolchain registration will only be selected for `py_binary` / `py_test` targets
     # that have the `python_version = "3.8.12"` attribute set. Targets that have no `python_attribute` will use
     # the default toolchain resolved which can be seen below.
     set_python_version_constraint = True,
@@ -45,9 +53,11 @@ py_repositories()
 
 ############################################
 # Aspect bazel-lib
-load("@aspect_bazel_lib//lib:repositories.bzl", "register_coreutils_toolchains")
+load("@aspect_bazel_lib//lib:repositories.bzl", "register_coreutils_toolchains", "register_tar_toolchains")
 
 register_coreutils_toolchains()
+
+register_tar_toolchains()
 
 ############################################
 ## CC toolchain using llvm
@@ -145,6 +155,18 @@ load(
 )
 
 _py_image_repos()
+
+load("@rules_oci//oci:pull.bzl", "oci_pull")
+
+oci_pull(
+    name = "ubuntu",
+    digest = "sha256:67211c14fa74f070d27cc59d69a7fa9aeff8e28ea118ef3babc295a0428a6d21",
+    image = "ubuntu",
+    platforms = [
+        "linux/arm64/v8",
+        "linux/amd64",
+    ],
+)
 
 ############################################
 # rules_rust dependencies for building tools

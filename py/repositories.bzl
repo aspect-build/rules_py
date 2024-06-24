@@ -10,7 +10,6 @@ load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 def http_archive(name, **kwargs):
     maybe(_http_archive, name = name, **kwargs)
 
-
 # WARNING: any changes in this function may be BREAKING CHANGES for users
 # because we'll fetch a dependency which may be different from one that
 # they were previously fetching later in their WORKSPACE setup, and now
@@ -32,9 +31,9 @@ def rules_py_dependencies():
 
     http_archive(
         name = "aspect_bazel_lib",
-        sha256 = "5371d3143307e5222e3c33a575042f93647b4e0a7d6d837f87b6b751102d27ca",
-        strip_prefix = "bazel-lib-1.40.3",
-        url = "https://github.com/aspect-build/bazel-lib/archive/refs/tags/v1.40.3.tar.gz",
+        sha256 = "6d758a8f646ecee7a3e294fbe4386daafbe0e5966723009c290d493f227c390b",
+        strip_prefix = "bazel-lib-2.7.7",
+        url = "https://github.com/aspect-build/bazel-lib/releases/download/v2.7.7/bazel-lib-v2.7.7.tar.gz",
     )
 
     http_archive(

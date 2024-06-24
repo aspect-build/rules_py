@@ -39,6 +39,13 @@ def rules_py_internal_deps():
         ],
     )
 
+    http_archive(
+        name = "bazel_features",
+        sha256 = "5d7e4eb0bb17aee392143cd667b67d9044c270a9345776a5e5a3cccbc44aa4b3",
+        strip_prefix = "bazel_features-1.13.0",
+        url = "https://github.com/bazel-contrib/bazel_features/releases/download/v1.13.0/bazel_features-v1.13.0.tar.gz",
+    )
+
     # Override bazel_skylib distribution to fetch sources instead
     # so that the gazelle extension is included
     # see https://github.com/bazelbuild/bazel-skylib/issues/250
@@ -117,4 +124,12 @@ def rules_py_internal_deps():
         urls = ["https://files.pythonhosted.org/packages/10/96/36c136013c4a6ecb8c6aa3eed66e6dcea838f85fd80e1446499f1dabfac7/sqlparse-0.4.0-py3-none-any.whl"],
         sha256 = "0523026398aea9c8b5f7a4a6d5c0829c285b4fbd960c17b5967a369342e21e01",
         downloaded_file_path = "sqlparse-0.4.0-py3-none-any.whl",
+    )
+
+    # for testing py_image_layers
+    http_archive(
+        name = "rules_oci",
+        sha256 = "768cd23d5fea0235858eecfc8bfaae77a11fe9db9ebb1ac03d31c4b19eb9bc11",
+        strip_prefix = "rules_oci-2.0.0-alpha5",
+        url = "https://github.com/bazel-contrib/rules_oci/releases/download/v2.0.0-alpha5/rules_oci-v2.0.0-alpha5.tar.gz",
     )
