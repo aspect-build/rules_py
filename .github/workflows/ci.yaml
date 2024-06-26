@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   test:
-    uses: bazel-contrib/.github/.github/workflows/bazel.yaml@v6
+    uses: bazel-contrib/.github/.github/workflows/bazel.yaml@d76fcd39cb9e689104db71853e7c1f1053550463
     with:
       folders: '[".", "e2e/smoke", "e2e/repository-rule-deps", "e2e/system-interpreter", "examples/uv_pip_compile"]'
       # TODO: Build Windows tools and add to toolchain
