@@ -52,6 +52,27 @@ py_library_rule(<a href="#py_library_rule-name">name</a>, <a href="#py_library_r
 | <a id="py_library_rule-virtual_deps"></a>virtual_deps |  -   | List of strings | optional | <code>[]</code> |
 
 
+<a id="py_pex_binary"></a>
+
+## py_pex_binary
+
+<pre>
+py_pex_binary(<a href="#py_pex_binary-name">name</a>, <a href="#py_pex_binary-binary">binary</a>, <a href="#py_pex_binary-inject_env">inject_env</a>, <a href="#py_pex_binary-python_shebang">python_shebang</a>)
+</pre>
+
+Build a pex executable from a py_binary
+
+**ATTRIBUTES**
+
+
+| Name  | Description | Type | Mandatory | Default |
+| :------------- | :------------- | :------------- | :------------- | :------------- |
+| <a id="py_pex_binary-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
+| <a id="py_pex_binary-binary"></a>binary |  -   | <a href="https://bazel.build/concepts/labels">Label</a> | optional | <code>None</code> |
+| <a id="py_pex_binary-inject_env"></a>inject_env |  Environment variables to set when running the pex binary.   | <a href="https://bazel.build/rules/lib/dict">Dictionary: String -> String</a> | optional | <code>{}</code> |
+| <a id="py_pex_binary-python_shebang"></a>python_shebang |  -   | String | optional | <code>"#!/usr/bin/env python3"</code> |
+
+
 <a id="py_test_rule"></a>
 
 ## py_test_rule
