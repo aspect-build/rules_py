@@ -10,10 +10,17 @@ py_unpacked_wheel(
     py_package_name = "Django",
 )
 
+py_unpacked_wheel(
+    name = "tzdata_wheel",
+    src = "@tzdata_2024_1//file",
+    py_package_name = "tzdata",
+)
+
 compile_pip_requirements(
     name = "requirements",
     requirements_in = "requirements.in",
     requirements_txt = "requirements.txt",
+    requirements_windows = "requirements_windows.txt",
 )
 
 py_library(
@@ -23,7 +30,7 @@ py_library(
     # Depend on django, but not at a particular version, any binary/test rules that
     # depend on this (directly or transitively) will need to resolve it to a version
     # of their choosing.
-    virtual_deps = ["django"],
+    virtual_deps = ["django", "tzdata"],
 )
 
 py_binary(
@@ -43,6 +50,7 @@ py_binary(
     resolutions = django_resolutions.override({
         # ...but replace the resolution of django with a specific wheel fetched by http_file.
         "django": "//py/tests/virtual/django:django_wheel",
+        "tzdata": "//py/tests/virtual/django:tzdata_wheel",
     }),
     deps = [":proj"],
 )

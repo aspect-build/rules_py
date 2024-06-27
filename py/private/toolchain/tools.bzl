@@ -44,6 +44,14 @@ TOOLCHAIN_PLATFORMS = {
             "@platforms//cpu:aarch64",
         ],
     ),
+    "windows_x86_64": struct(
+        arch = "x86_64",
+        vendor_os_abi = "pc-windows-msvc",
+        compatible_with = [
+            "@platforms//os:windows",
+            "@platforms//cpu:x86_64",
+        ],
+    ),
 }
 
 def _toolchain_impl(ctx):

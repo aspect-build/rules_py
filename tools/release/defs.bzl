@@ -10,6 +10,8 @@ def _map_os_to_triple(os):
         return "unknown-linux-gnu"
     if os == "macos":
         return "apple-darwin"
+    if os == "windows":
+        return "pc-windows-msvc"
     fail("unrecognized os", os)
 
 # buildozer: disable=function-docstring

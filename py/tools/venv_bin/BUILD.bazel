@@ -34,3 +34,11 @@ multi_arch_rust_binary_release(
     os = "linux",
     visibility = ["//tools/release:__pkg__"],
 )
+
+multi_arch_rust_binary_release(
+    name = "windows",
+    src = ":venv",
+    os = "windows",
+    archs = ["x86_64"],
+    visibility = ["//tools/release:__pkg__"],
+)

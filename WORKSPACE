@@ -51,38 +51,38 @@ register_coreutils_toolchains()
 
 ############################################
 ## CC toolchain using llvm
-load("@toolchains_llvm//toolchain:deps.bzl", "bazel_toolchain_dependencies")
+#load("@toolchains_llvm//toolchain:deps.bzl", "bazel_toolchain_dependencies")
 
-bazel_toolchain_dependencies()
+#bazel_toolchain_dependencies()
 
-load("@toolchains_llvm//toolchain:rules.bzl", "llvm_toolchain")
+#load("@toolchains_llvm//toolchain:rules.bzl", "llvm_toolchain")
 
-llvm_toolchain(
-    name = "llvm_toolchain",
-    llvm_version = "17.0.2",
-    sha256 = {
-        "darwin-aarch64": "bb5144516c94326981ec78c8b055c85b1f6780d345128cae55c5925eb65241ee",
-        "darwin-x86_64": "800ec8401344a95f84588815e97523a0ed31fd05b6ffa9e1b58ce20abdcf69f1",
-        "linux-aarch64": "49eec0202b8cd4be228c8e92878303317f660bc904cf6e6c08917a55a638917d",
-        "linux-x86_64": "0c5096c157e196a04fc6ac58543266caef0da3e3c921414a7c279feacc2309d9",
-    },
-    sysroot = {
-        "darwin-aarch64": "@sysroot_darwin_universal//:sysroot",
-        "darwin-x86_64": "@sysroot_darwin_universal//:sysroot",
-        "linux-aarch64": "@org_chromium_sysroot_linux_arm64//:sysroot",
-        "linux-x86_64": "@org_chromium_sysroot_linux_x86_64//:sysroot",
-    },
-    urls = {
-        "darwin-aarch64": ["https://github.com/dzbarsky/static-clang/releases/download/v17.0.2-8/darwin_arm64_minimal.tar.xz"],
-        "darwin-x86_64": ["https://github.com/dzbarsky/static-clang/releases/download/v17.0.2-8/darwin_amd64_minimal.tar.xz"],
-        "linux-aarch64": ["https://github.com/dzbarsky/static-clang/releases/download/v17.0.2-8/linux_arm64_minimal.tar.xz"],
-        "linux-x86_64": ["https://github.com/dzbarsky/static-clang/releases/download/v17.0.2-8/linux_amd64_minimal.tar.xz"],
-    },
-)
+# llvm_toolchain(
+#     name = "llvm_toolchain",
+#     llvm_version = "17.0.2",
+#     sha256 = {
+#         "darwin-aarch64": "bb5144516c94326981ec78c8b055c85b1f6780d345128cae55c5925eb65241ee",
+#         "darwin-x86_64": "800ec8401344a95f84588815e97523a0ed31fd05b6ffa9e1b58ce20abdcf69f1",
+#         "linux-aarch64": "49eec0202b8cd4be228c8e92878303317f660bc904cf6e6c08917a55a638917d",
+#         "linux-x86_64": "0c5096c157e196a04fc6ac58543266caef0da3e3c921414a7c279feacc2309d9",
+#     },
+#     sysroot = {
+#         "darwin-aarch64": "@sysroot_darwin_universal//:sysroot",
+#         "darwin-x86_64": "@sysroot_darwin_universal//:sysroot",
+#         "linux-aarch64": "@org_chromium_sysroot_linux_arm64//:sysroot",
+#         "linux-x86_64": "@org_chromium_sysroot_linux_x86_64//:sysroot",
+#     },
+#     urls = {
+#         "darwin-aarch64": ["https://github.com/dzbarsky/static-clang/releases/download/v17.0.2-8/darwin_arm64_minimal.tar.xz"],
+#         "darwin-x86_64": ["https://github.com/dzbarsky/static-clang/releases/download/v17.0.2-8/darwin_amd64_minimal.tar.xz"],
+#         "linux-aarch64": ["https://github.com/dzbarsky/static-clang/releases/download/v17.0.2-8/linux_arm64_minimal.tar.xz"],
+#         "linux-x86_64": ["https://github.com/dzbarsky/static-clang/releases/download/v17.0.2-8/linux_amd64_minimal.tar.xz"],
+#     },
+# )
 
-load("@llvm_toolchain//:toolchains.bzl", "llvm_register_toolchains")
+#load("@llvm_toolchain//:toolchains.bzl", "llvm_register_toolchains")
 
-llvm_register_toolchains()
+#llvm_register_toolchains()
 
 ############################################
 # Development dependencies from pypi
@@ -160,6 +160,7 @@ rust_register_toolchains(
     edition = RUST_EDITION,
     extra_target_triples = [
         "x86_64-apple-darwin",
+        "x86_64-pc-windows-gnu",
     ],
     versions = [RUST_VERSION],
 )
@@ -183,9 +184,17 @@ rust_repository_set(
     # and cross-compile to these platforms:
     extra_target_triples = [
         "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-gnu",
     ],
     versions = [RUST_VERSION],
 )
+
+# rust_repository_set(
+#     name = "windows_x86_64",
+#     edition = RUST_EDITION,
+#     exec_triple = "x86_64-pc-windows-gnu",
+#     versions = [RUST_VERSION],
+# )
 
 load("@rules_rust//crate_universe:repositories.bzl", "crate_universe_dependencies")
 
