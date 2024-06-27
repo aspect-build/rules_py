@@ -17,24 +17,15 @@
     ]
 ]
 
-# yuk, quick hack until someone can elegantly work out how
-# to only include one windows arch in the above.
-[
-    platform(
-        name = "{}_{}".format(os, cpu),
-        constraint_values = [
-            "@platforms//os:" + os,
-            "@platforms//cpu:" + cpu,
-        ],
-        visibility = ["//py/tools:__subpackages__"],
-    )
-    for os in [
-        "windows",
-    ]
-    for cpu in [
-        "x86_64",
-    ]
-]
+# if we are also supporting aarch64 we can add to the above
+platform(
+    name = "windows_x86_64",
+    constraint_values = [
+        "@platforms//os:windows",
+        "@platforms//cpu:x86_64",
+    ],
+    visibility = ["//py/tools:__subpackages__"],
+)
 
 LINUX_ARTIFACTS = [
     "//py/tools/unpack_bin:linux",
