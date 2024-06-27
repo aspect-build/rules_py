@@ -82,7 +82,7 @@ llvm_toolchain(
 
 load("@llvm_toolchain//:toolchains.bzl", "llvm_register_toolchains")
 
-#llvm_register_toolchains()
+llvm_register_toolchains()
 
 ############################################
 # Development dependencies from pypi
@@ -184,17 +184,9 @@ rust_repository_set(
     # and cross-compile to these platforms:
     extra_target_triples = [
         "aarch64-unknown-linux-gnu",
-        "x86_64-pc-windows-gnu",
     ],
     versions = [RUST_VERSION],
 )
-
-# rust_repository_set(
-#     name = "windows_x86_64",
-#     edition = RUST_EDITION,
-#     exec_triple = "x86_64-pc-windows-gnu",
-#     versions = [RUST_VERSION],
-# )
 
 load("@rules_rust//crate_universe:repositories.bzl", "crate_universe_dependencies")
 
