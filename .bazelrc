@@ -7,12 +7,6 @@ startup --windows_enable_symlinks
 # dev_dependency for rules_rust
 build --enable_runfiles
 
-# temporary
-common --override_module=aspect_bazel_lib=d://workdir//bazel-lib2
-# rattler_install_packages includes some very long filenames, and
-# this package is retrieved via git.
-# to fix, do: git config --system core.longpaths true
-
 test --test_output=errors
 
 # test //:requirements.update requires access to USERPROFILE envvar on windows
