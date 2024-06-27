@@ -118,3 +118,11 @@ def rules_py_internal_deps():
         sha256 = "0523026398aea9c8b5f7a4a6d5c0829c285b4fbd960c17b5967a369342e21e01",
         downloaded_file_path = "sqlparse-0.4.0-py3-none-any.whl",
     )
+
+    # required on windows
+    http_file(
+        name = "tzdata_2024_1",
+        urls = ["https://files.pythonhosted.org/packages/65/58/f9c9e6be752e9fcb8b6a0ee9fb87e6e7a1f6bcab2cdc73f02bb7ba91ada0/tzdata-2024.1-py2.py3-none-any.whl"],
+        sha256 = "9068bc196136463f5245e51efda838afa15aaeca9903f49050dfa2679db4d252",
+        downloaded_file_path = "tzdata-2024.1-py2.py3-none-any.whl",
+    )

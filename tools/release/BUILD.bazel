@@ -17,6 +17,16 @@
     ]
 ]
 
+# if we are also supporting aarch64 we can add to the above
+platform(
+    name = "windows_x86_64",
+    constraint_values = [
+        "@platforms//os:windows",
+        "@platforms//cpu:x86_64",
+    ],
+    visibility = ["//py/tools:__subpackages__"],
+)
+
 LINUX_ARTIFACTS = [
     "//py/tools/unpack_bin:linux",
     "//py/tools/venv_bin:linux",
@@ -27,16 +37,23 @@ MACOS_ARTIFACTS = [
     "//py/tools/venv_bin:macos",
 ]
 
+WINDOWS_ARTIFACTS = [
+    "//py/tools/unpack_bin:windows",
+    "//py/tools/venv_bin:windows",
+]
+
 sh_binary(
     name = "copy_release_artifacts",
     srcs = ["copy_release_artifacts.sh"],
     args = select({
         "@platforms//os:linux": ["$(rlocationpaths {})".format(s) for s in LINUX_ARTIFACTS],
         "@platforms//os:macos": ["$(rlocationpaths {})".format(s) for s in MACOS_ARTIFACTS],
+        "@platforms//os:windows": ["$(rlocationpaths {})".format(s) for s in WINDOWS_ARTIFACTS],
     }),
     data = select({
         "@platforms//os:linux": LINUX_ARTIFACTS,
         "@platforms//os:macos": MACOS_ARTIFACTS,
+        "@platforms//os:windows": WINDOWS_ARTIFACTS,
     }),
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
