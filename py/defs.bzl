@@ -48,7 +48,7 @@ def _py_binary_or_test(name, rule, srcs, main, imports, deps = [], resolutions =
         tags = ["manual"],
     )
 
-def py_binary(name, srcs = [], main = None, imports = ["."], **kwargs):
+def py_binary(name, srcs = [], main = None, imports = [], **kwargs):
     """Wrapper macro for [`py_binary_rule`](#py_binary_rule), setting a default for imports.
 
     It also creates a virtualenv to constrain the interpreter and packages used at runtime,
@@ -73,14 +73,14 @@ def py_binary(name, srcs = [], main = None, imports = ["."], **kwargs):
 
     _py_binary_or_test(name = name, rule = _py_binary, srcs = srcs, main = main, imports = imports, resolutions = resolutions, **kwargs)
 
-def py_test(name, main = None, srcs = [], imports = ["."], **kwargs):
+def py_test(name, main = None, srcs = [], imports = [], **kwargs):
     "Identical to py_binary, but produces a target that can be used with `bazel test`."
 
     # Ensure that any other targets we write will be testonly like the py_test target
     kwargs["testonly"] = True
     _py_binary_or_test(name = name, rule = _py_test, srcs = srcs, main = main, imports = imports, **kwargs)
 
-def py_library(name, imports = ["."], **kwargs):
+def py_library(name, imports = [], **kwargs):
     """Wrapper macro for the [py_library_rule](./py_library_rule), supporting virtual deps.
 
     Args:
