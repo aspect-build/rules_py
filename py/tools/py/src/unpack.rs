@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use miette::IntoDiagnostic;
+use miette::{miette, IntoDiagnostic, Result};
 use rattler_installs_packages::{
     artifacts::wheel::UnpackWheelOptions, artifacts::Wheel, types::PackageName,
 };
@@ -13,7 +13,7 @@ pub fn unpack_wheel(
     location: &Path,
     pkg_name: &str,
     wheel: &Path,
-) -> miette::Result<()> {
+) -> Result<()> {
     let interpreter = Interpreter::new(python, version)?;
     let python_executable = interpreter.executable()?;
     let install_paths = interpreter.install_paths(false);
@@ -25,7 +25,8 @@ pub fn unpack_wheel(
     };
 
     let package_name: PackageName = pkg_name.parse().unwrap();
-    let wheel = Wheel::from_path(wheel, &package_name.into())?;
+    let wheel = Wheel::from_path(wheel, &package_name.into())
+        .map_err(|_| miette!("Failed to create wheel from path"))?;
 
     wheel
         .unpack(

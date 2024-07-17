@@ -13,10 +13,11 @@ py_test(
     ],
     imports = ["../.."],
     main = ":__test__.py",
+    package_collisions = "warning",
     deps = [
         ":__test__",
-        "@pypi_pytest//:pkg",
         "@pypi_ftfy//:pkg",
         "@pypi_neptune//:pkg",
+        "@pypi_pytest//:pkg",
     ],
 )

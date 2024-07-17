@@ -45,6 +45,7 @@ def _py_venv_rule_imp(ctx):
             "{{INTERPRETER_FLAGS}}": " ".join(py_toolchain.flags),
             "{{VENV_TOOL}}": to_rlocation_path(ctx, venv_toolchain.bin),
             "{{ARG_PYTHON}}": to_rlocation_path(ctx, py_toolchain.python) if py_toolchain.runfiles_interpreter else py_toolchain.python.path,
+            "{{ARG_COLLISION_STRATEGY}}": ctx.attr.package_collisions,
             "{{ARG_VENV_LOCATION}}": paths.join(ctx.attr.location, ctx.attr.venv_name),
             "{{ARG_VENV_PYTHON_VERSION}}": "{}.{}.{}".format(
                 py_toolchain.interpreter_version_info.major,
@@ -107,6 +108,17 @@ _py_venv = rule(
         ),
         "resolutions": attr.label_keyed_string_dict(
             doc = "FIXME",
+        ),
+        "package_collisions": attr.string(
+            doc = """The action that should be taken when a symlink collision is encountered when creating the venv.
+A collision can occour when multiple packages providing the same file are installed into the venv. The possible values are:
+
+* "error": When conflicting symlinks are found, an error is reported and venv creation halts.
+* "warning": When conflicting symlinks are found, an warning is reported, however venv creation continues.
+* "ignore": When conflicting symlinks are found, no message is reported and venv creation continues.
+            """,
+            default = "error",
+            values = ["error", "warning", "ignore"],
         ),
         "_venv_tmpl": attr.label(
             allow_single_file = True,

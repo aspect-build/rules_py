@@ -29,4 +29,5 @@ VIRTUAL_ENV="$(alocation "${VENV_ROOT}/{{ARG_VENV_LOCATION}}")"
     --python "$(alocation $(rlocation {{ARG_PYTHON}}))" \
     --python-version "{{ARG_VENV_PYTHON_VERSION}}" \
     --pth-file "$(rlocation {{ARG_PTH_FILE}})" \
-    --pth-entry-prefix "${RUNFILES_DIR}"
+    --pth-entry-prefix "${RUNFILES_DIR}" \
+    --collision-strategy "{{ARG_COLLISION_STRATEGY}}"

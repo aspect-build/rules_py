@@ -29,6 +29,7 @@ py_library(
 py_binary(
     name = "manage",
     srcs = ["proj/manage.py"],
+    package_collisions = "warning",
     # Resolve django to the "standard" one from our requirements.txt
     resolutions = django_resolutions,
     deps = [

@@ -70,6 +70,7 @@ def _py_binary_rule_impl(ctx):
             "{{BASH_RLOCATION_FN}}": BASH_RLOCATION_FUNCTION,
             "{{INTERPRETER_FLAGS}}": " ".join(py_toolchain.flags),
             "{{VENV_TOOL}}": to_rlocation_path(ctx, venv_toolchain.bin),
+            "{{ARG_COLLISION_STRATEGY}}": ctx.attr.package_collisions,
             "{{ARG_PYTHON}}": to_rlocation_path(ctx, py_toolchain.python) if py_toolchain.runfiles_interpreter else py_toolchain.python.path,
             "{{ARG_VENV_NAME}}": ".{}.venv".format(ctx.attr.name),
             "{{ARG_VENV_PYTHON_VERSION}}": "{}.{}.{}".format(
@@ -172,7 +173,18 @@ python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(python_version = "3.8.12", is_default = False)
 python.toolchain(python_version = "3.9", is_default = True)
 ```
-"""
+""",
+    ),
+    "package_collisions": attr.string(
+        doc = """The action that should be taken when a symlink collision is encountered when creating the venv.
+A collision can occour when multiple packages providing the same file are installed into the venv. The possible values are:
+
+* "error": When conflicting symlinks are found, an error is reported and venv creation halts.
+* "warning": When conflicting symlinks are found, an warning is reported, however venv creation continues.
+* "ignore": When conflicting symlinks are found, no message is reported and venv creation continues.
+        """,
+        default = "error",
+        values = ["error", "warning", "ignore"],
     ),
     "_run_tmpl": attr.label(
         allow_single_file = True,
@@ -211,7 +223,7 @@ py_base = struct(
         PY_TOOLCHAIN,
         VENV_TOOLCHAIN,
     ],
-    cfg = _python_version_transition
+    cfg = _python_version_transition,
 )
 
 py_binary = rule(
@@ -220,7 +232,7 @@ py_binary = rule(
     attrs = py_base.attrs,
     toolchains = py_base.toolchains,
     executable = True,
-    cfg = py_base.cfg
+    cfg = py_base.cfg,
 )
 
 py_test = rule(
@@ -229,5 +241,5 @@ py_test = rule(
     attrs = py_base.attrs,
     toolchains = py_base.toolchains,
     test = True,
-    cfg = py_base.cfg
+    cfg = py_base.cfg,
 )

@@ -6,7 +6,6 @@ members = [
     "py/tools/unpack_bin",
 ]
 
-
 [workspace.package]
 version = "0.1.0"
 categories = ["development-tools"]
@@ -16,6 +15,9 @@ license = "Apache 2"
 edition = "2021"
 readme = "README.md"
 rust-version = "1.74.1"
+
+[workspace.dependencies]
+miette = { version = "7.2", features = ["fancy"] }
 
 [profile.release]
 strip = true
