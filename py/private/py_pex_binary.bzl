@@ -1,5 +1,6 @@
 "Create python zip file https://peps.python.org/pep-0441/ (PEX)"
 
+load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
 
@@ -56,6 +57,11 @@ def _py_python_pex_impl(ctx):
         ctx.attr.inject_env.items(), 
         map_each = lambda e: "--inject-env=%s=%s" % (e[0], e[1]),
         allow_closure = True,
+    )
+
+    args.add_all(
+        binary[PyInfo].imports, 
+        format_each = "--sys-path=%s"
     )
 
     args.add_all(

@@ -1,29 +1,10 @@
 import sys
-import re
 from pex.common import Chroot
 from pex.pex_builder import Check, CopyMode, PEXBuilder
 from pex.interpreter import PythonInterpreter
 from pex.layout import Layout
 from pex.dist_metadata import Distribution
 from argparse import Action, ArgumentParser
-
-
-# Monkey patch bootstrap template to inject some templated environment variables.
-# Unfortunately we can't use `preamble` feature because it runs before any initialization code.
-import pex.pex_builder
-BE=pex.pex_builder.BOOTSTRAP_ENVIRONMENT 
-
-INJECT_TEMPLATE="""
-os.environ['RUNFILES_DIR'] = __entry_point__
-"""
-
-import_idx =  BE.index("from pex.pex_bootstrapper import bootstrap_pex")
-# This is here to catch potential future bugs where pex package is updated here but the boostrap 
-# script was not checked again to see if we are still injecting values in the right place.
-assert import_idx == 3703, "Check bootstrap template monkey patching."
-
-pex.pex_builder.BOOTSTRAP_ENVIRONMENT = BE[:import_idx] + INJECT_TEMPLATE + BE[import_idx:]
-
 
 class InjectEnvAction(Action):
     def __call__(self, parser, namespace, value, option_str=None):
@@ -102,7 +83,31 @@ parser.add_argument(
     action=InjectEnvAction,
 )
 
+parser.add_argument(
+    "--sys-path",
+    dest="sys_path",
+    default=[],
+    action="append",
+)
+
 options = parser.parse_args(args = sys.argv[1:])
+
+# Monkey patch bootstrap template to inject some templated environment variables.
+# Unfortunately we can't use `preamble` feature because it runs before any initialization code.
+import pex.pex_builder
+BE=pex.pex_builder.BOOTSTRAP_ENVIRONMENT 
+
+INJECT_TEMPLATE=["os.environ['RUNFILES_DIR'] = __entry_point__"]
+
+for path in options.sys_path:
+    INJECT_TEMPLATE.append("sys.path.append(os.path.abspath(os.path.join(__entry_point__, '%s')))" % path)
+
+import_idx =  BE.index("from pex.pex_bootstrapper import bootstrap_pex")
+# This is here to catch potential future bugs where pex package is updated here but the boostrap 
+# script was not checked again to see if we are still injecting values in the right place.
+assert import_idx == 3703, "Check bootstrap template monkey patching."
+
+pex.pex_builder.BOOTSTRAP_ENVIRONMENT = BE[:import_idx] + "\n".join(INJECT_TEMPLATE) + "\n" + BE[import_idx:]
 
 
 pex_builder = PEXBuilder(
