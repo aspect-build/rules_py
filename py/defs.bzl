@@ -30,12 +30,15 @@ def _py_binary_or_test(name, rule, srcs, main, deps = [], resolutions = {}, **kw
         **propagate_common_rule_attributes(kwargs)
     )
 
+    package_collisions = kwargs.pop("package_collisions", None)
+
     rule(
         name = name,
         srcs = srcs,
         main = main_target,
         deps = deps,
         resolutions = resolutions,
+        package_collisions = package_collisions,
         **kwargs
     )
 
@@ -44,6 +47,7 @@ def _py_binary_or_test(name, rule, srcs, main, deps = [], resolutions = {}, **kw
         deps = deps,
         imports = kwargs.get("imports"),
         resolutions = resolutions,
+        package_collisions = package_collisions,
         tags = ["manual"],
         testonly = kwargs.get("testonly", False),
     )

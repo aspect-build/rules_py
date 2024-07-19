@@ -4,7 +4,30 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use miette::{miette, Context, IntoDiagnostic};
+use miette::{miette, Context, IntoDiagnostic, LabeledSpan, MietteDiagnostic, Severity};
+
+/// Strategy that will be used when creating the virtual env symlink and
+/// a collision is found.
+#[derive(Default, Debug)]
+pub enum SymlinkCollisionResolutionStrategy {
+    /// Collisions cause a hard error.
+    #[default]
+    Error,
+
+    /// The last file to provide a target wins.
+    /// If inner is true, then a warning is produced, otherwise the last target silently wins.
+    LastWins(bool),
+}
+
+/// Options for the creation of the `site-packages` folder layout.
+#[derive(Default, Debug)]
+pub struct SitePackageOptions {
+    /// Destination path, where the `site-package` folder lives.
+    pub dest: PathBuf,
+
+    /// Collision strategy determining the action taken when sylinks in the venv collide.
+    pub collision_strategy: SymlinkCollisionResolutionStrategy,
+}
 
 pub struct PthFile {
     pub src: PathBuf,
@@ -19,7 +42,9 @@ impl PthFile {
         }
     }
 
-    pub fn set_up_site_packages(&self, dest: &Path) -> miette::Result<()> {
+    pub fn set_up_site_packages(&self, opts: SitePackageOptions) -> miette::Result<()> {
+        let dest = &opts.dest;
+
         let source_pth = File::open(self.src.as_path())
             .into_diagnostic()
             .wrap_err("Unable to open source .pth file")?;
@@ -47,7 +72,7 @@ impl PthFile {
                         .canonicalize()
                         .into_diagnostic()
                         .wrap_err("Unable to get full source dir path")?;
-                    create_symlinks(&src_dir, &src_dir, &dest)?;
+                    create_symlinks(&src_dir, &src_dir, &dest, &opts.collision_strategy)?;
                 }
                 _ => {
                     writeln!(writer, "{}", entry.to_string_lossy())
@@ -61,7 +86,12 @@ impl PthFile {
     }
 }
 
-fn create_symlinks(dir: &Path, root_dir: &Path, dst_dir: &Path) -> miette::Result<()> {
+fn create_symlinks(
+    dir: &Path,
+    root_dir: &Path,
+    dst_dir: &Path,
+    collision_strategy: &SymlinkCollisionResolutionStrategy,
+) -> miette::Result<()> {
     // Create this directory at the destination.
     let tgt_dir = dst_dir.join(dir.strip_prefix(root_dir).unwrap());
     std::fs::create_dir_all(&tgt_dir)
@@ -90,50 +120,24 @@ fn create_symlinks(dir: &Path, root_dir: &Path, dst_dir: &Path) -> miette::Resul
         // `__init__.py` files in the root site-packages directory. The site-packages directory
         // itself is not a regular package and is not supposed to have an `__init__.py` file.
         if path.is_dir() {
-            create_symlinks(&path, root_dir, dst_dir)?;
+            create_symlinks(&path, root_dir, dst_dir, collision_strategy)?;
         } else if dir != root_dir || entry.file_name() != "__init__.py" {
-            create_symlink(&entry, root_dir, dst_dir)?;
+            create_symlink(&entry, root_dir, dst_dir, collision_strategy)?;
         }
     }
     Ok(())
 }
 
-fn create_symlink(e: &DirEntry, root_dir: &Path, dst_dir: &Path) -> miette::Result<()> {
+fn create_symlink(
+    e: &DirEntry,
+    root_dir: &Path,
+    dst_dir: &Path,
+    collision_strategy: &SymlinkCollisionResolutionStrategy,
+) -> miette::Result<()> {
     let tgt = e.path();
     let link = dst_dir.join(tgt.strip_prefix(root_dir).unwrap());
 
-    // If the link already exists, do not return an error if the link is for an `__init__.py` file
-    // with the same content as the new destination. Some packages that should ideally be namespace
-    // packages have copies of `__init__.py` files in their distributions. For example, all the
-    // Nvidia PyPI packages have the same `nvidia/__init__.py`. So we need to either overwrite the
-    // previous symlink, or check that the new location also has the same content.
-    if link.exists()
-        && link.file_name().is_some_and(|x| x == "__init__.py")
-        && is_same_file(link.as_path(), tgt.as_path())?
-    {
-        return Ok(());
-    }
-
-    // Is the link at the root of the `site-packages`?
-    // We can get into situations where files in wheels are at the root of the wheel,
-    // while this is valid, it leads to errors being thrown here as the symlinks will
-    // already exist. In `pip`, the last file wins, so the logic is the same here.
-    if link.exists() && link.parent().is_some_and(|x| x.ends_with("site-packages")) {
-        // File is being placed at the root of the `site-packages`, remove the link.
-        fs::remove_file(&link)
-            .into_diagnostic()
-            .wrap_err(
-                miette!(
-                    "Unable to remove conflicting symlink in site-packages root. Existing symlink {} conflicts with new target {}",
-                    link.to_string_lossy(),
-                    tgt.to_string_lossy()
-                )
-            )?
-    }
-
-    // If the link already exists, then there is going to be a conflict.
-    // Bail early here before attempting to link as to provide a better error message.
-    if link.exists() {
+    fn conflict_report(link: &Path, tgt: &Path, severity: Severity) -> miette::Report {
         let path_to_conflict = link
             .to_str()
             .and_then(|s| s.split_once("site-packages/"))
@@ -144,11 +148,53 @@ fn create_symlink(e: &DirEntry, root_dir: &Path, dst_dir: &Path) -> miette::Resu
             .and_then(|s| s.split_once(".runfiles/"))
             .map(|s| s.1)
             .unwrap();
-        return Err(
-            miette!(format!("site-packages/{}", path_to_conflict))
-            .wrap_err(format!("{}", next_conflict))
-            .wrap_err("Conflicting symlinks found when attempting to create venv. More than one package provides the file at these paths")
-        );
+
+        let mut diag = MietteDiagnostic::new("Conflicting symlinks found when attempting to create venv. More than one package provides the file at these paths".to_string())
+            .with_severity(severity)
+            .with_labels([
+                LabeledSpan::at(0..path_to_conflict.len(), "Existing file in virtual environment"),
+                LabeledSpan::at((path_to_conflict.len() + 1)..(path_to_conflict.len() + 1 + next_conflict.len()), "Next file to link"),
+            ]);
+
+        diag = if severity == Severity::Error {
+            diag.with_help("Set `package_collisions = \"warning\"` on the binary or test rule to downgrade this error to a warning")
+        } else {
+            diag.with_help("Set `package_collisions = \"ignore\"` on the binary or test rule to ignore this warning")
+        };
+
+        miette!(diag).with_source_code(format!("{}\n{}", path_to_conflict, next_conflict))
+    }
+
+    if link.exists() {
+        // If the link already exists and is the same file, then there is no need to link this new one.
+        // Assume that if the files are the same, then there is no need to warn or error.
+        if is_same_file(&link, &tgt)? {
+            return Ok(());
+        }
+
+        match collision_strategy {
+            SymlinkCollisionResolutionStrategy::LastWins(warn) => {
+                fs::remove_file(&link)
+                    .into_diagnostic()
+                    .wrap_err(
+                        miette!(
+                            "Unable to remove conflicting symlink in site-packages. Existing symlink {} conflicts with new target {}",
+                            link.to_string_lossy(),
+                            tgt.to_string_lossy()
+                        )
+                    )?;
+
+                if *warn {
+                    let conflicts = conflict_report(&link, &tgt, Severity::Warning);
+                    eprintln!("{:?}", conflicts);
+                }
+            }
+            SymlinkCollisionResolutionStrategy::Error => {
+                // If the link already exists, then there is going to be a conflict.
+                let conflicts = conflict_report(&link, &tgt, Severity::Error);
+                return Err(conflicts);
+            }
+        };
     }
 
     std::os::unix::fs::symlink(&tgt, &link)

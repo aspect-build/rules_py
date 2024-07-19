@@ -39,7 +39,8 @@ export VIRTUAL_ENV
     --location "${VIRTUAL_ENV}" \
     --python "$(python_location)" \
     --python-version "{{ARG_VENV_PYTHON_VERSION}}" \
-    --pth-file "$(rlocation {{ARG_PTH_FILE}})"
+    --pth-file "$(rlocation {{ARG_PTH_FILE}})" \
+    --collision-strategy "{{ARG_COLLISION_STRATEGY}}"
 
 PATH="${VIRTUAL_ENV}/bin:${PATH}"
 export PATH
