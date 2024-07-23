@@ -11,7 +11,7 @@ fi
 
 # This test references pre-built artifacts from a prior release.
 # Will need to bump this version in the future when there are breaking changes.
-export RULES_PY_RELEASE_VERSION=0.7.3
+export RULES_PY_RELEASE_VERSION=0.7.4
 
 #############
 # Test bzlmod
@@ -59,3 +59,13 @@ then
     >&2 echo "ERROR: we fetched a rust repository"
     exit 1
 fi
+
+#############
+# Smoke test
+bazel test --test_output=streamed //...
+
+(
+    cd ../..
+    rm MODULE.bazel
+    mv MODULE.bazel.orig MODULE.bazel
+)
