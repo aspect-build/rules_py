@@ -144,9 +144,9 @@ colorama==0.4.6 \
 cowsay==6.1 \
     --hash=sha256:274b1e6fc1b966d53976333eb90ac94cb07a450a700b455af9fbdf882244b30a
     # via -r requirements.in
-django==4.2.14 \
-    --hash=sha256:3ec32bc2c616ab02834b9cac93143a7dc1cdcd5b822d78ac95fc20a38c534240 \
-    --hash=sha256:fc6919875a6226c7ffcae1a7d51e0f2ceaf6f160393180818f6c95f51b1e7b96
+django==4.2.15 \
+    --hash=sha256:61ee4a130efb8c451ef3467c67ca99fdce400fedd768634efc86a68c18d80d30 \
+    --hash=sha256:c77f926b81129493961e19c0e02188f8d07c112a1162df69bfab178ae447f94a
     # via -r requirements.in
 exceptiongroup==1.2.0 \
     --hash=sha256:4bfd3996ac73b41e9b9628b04e079f193850720ea5945fc96a08633c66912f14 \
