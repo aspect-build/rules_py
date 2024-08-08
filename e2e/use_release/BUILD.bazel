@@ -1,6 +1,18 @@
-load("@aspect_rules_py//py:defs.bzl", "py_binary")
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_test")
 
 py_binary(
     name = "main",
-    srcs = ["__main__.py"],
+    srcs = [
+        "__init__.py",
+        "__main__.py",
+    ],
+    main = "__main__.py",
+)
+
+py_test(
+    name = "test",
+    srcs = ["test.py"],
+    deps = [
+        ":main",
+    ],
 )
