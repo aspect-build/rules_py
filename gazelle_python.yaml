@@ -3986,4 +3986,4 @@ manifest:
     yaml.tokens: PyYAML
   pip_repository:
     name: pypi
-integrity: 917aae08629f1635d70ffad8bd492ececa7a1d9417b4609a6977faadbcf65052
+integrity: e0cc13413ec04d597469a3a5baa75d320d7c614017bbccd34aa3e356675dd984
