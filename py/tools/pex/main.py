@@ -2,6 +2,7 @@ import sys
 from pex.common import Chroot
 from pex.pex_builder import Check, CopyMode, PEXBuilder
 from pex.interpreter import PythonInterpreter
+from pex.interpreter_constraints import InterpreterConstraint
 from pex.layout import Layout
 from pex.dist_metadata import Distribution
 from argparse import Action, ArgumentParser
@@ -32,6 +33,14 @@ parser.add_argument(
     "--python",
     dest="python",
     required=True
+)
+
+
+parser.add_argument(
+    "--python-version-constraint",
+    dest="constraints",
+    default=[],
+    action="append"
 )
 
 parser.add_argument(
@@ -136,16 +145,23 @@ pex_builder.set_shebang(options.python_shebang)
 
 pex_info = pex_builder.info
 pex_info.inject_env = options.inject_env
+pex_info.interpreter_constraints = [
+    InterpreterConstraint.parse(constraint) 
+    for constraint in options.constraints
+]
 
+print(pex_info.interpreter_constraints)
 for dep in options.dependencies:
     dist = Distribution.load(dep + "/../")
 
     # TODO: explain which level of inferno is this!
+    key = "%s-%s" % (dist.key, dist.version)
     dist_hash = pex_builder._add_dist(
-        path=dist.location,
-        dist_name = dist.key
+        path= dist.location,
+        dist_name = key
     )
-    pex_info.add_distribution(dist.key, dist_hash)
+    print(dist.location, dist.key)
+    pex_info.add_distribution(key, dist_hash)
     pex_builder.add_requirement(dist.as_requirement())
 
 for source in options.sources:
@@ -166,6 +182,8 @@ if not executable_was_set:
     sys.exit(1)
 
 pex_builder.freeze(bytecode_compile=False)
+
+print(options.dependencies)
 
 pex_builder.build(
     options.pex_name,

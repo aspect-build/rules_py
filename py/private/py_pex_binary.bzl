@@ -13,10 +13,9 @@ def _runfiles_path(file, workspace):
 exclude_paths = [
     "toolchain",
     "aspect_rules_py/py/tools/",
-    "rules_python~",
+    "rules_python~~python~",
     "aspect_rules_py~/py/tools/"
 ]
-
 def _map_srcs(f, workspace):
     dest_path = _runfiles_path(f, workspace)
 
@@ -73,6 +72,15 @@ def _py_python_pex_impl(ctx):
     args.add(binary[DefaultInfo].files_to_run.executable, format = "--executable=%s")
     args.add(ctx.attr.python_shebang, format = "--python-shebang=%s")
     args.add(py_toolchain.python, format = "--python=%s")
+
+    py_version = py_toolchain.interpreter_version_info
+    args.add_all(
+        [
+            constraint.format(major = py_version.major, minor = py_version.minor, patch = py_version.micro) 
+            for constraint in ctx.attr.python_interpreter_constraints
+        ], 
+        format_each = "--python-version-constraint=%s"
+    )
     args.add(output, format = "--output-file=%s")
 
     ctx.actions.run(
@@ -104,6 +112,23 @@ _attrs = dict({
         default = {},
     ),
     "python_shebang": attr.string(default = "#!/usr/bin/env python3"),
+    "python_interpreter_constraints": attr.string_list(
+        default = [], 
+        doc = """\
+Python interpreter versions this PEX binary is compatible with. A list of semver strings. 
+The placeholder strings `{major}`, `{minor}`, `{patch}` can be used for gathering version 
+information from the hermetic python toolchain.
+
+For example, to enforce same interpreter version that Bazel uses, following can be used.
+
+```starlark
+py_pex_binary
+    python_interpreter_constraints = [
+      "CPython=={major}.{minor}.{patch}"
+    ]
+)
+```
+"""),
     "_pex": attr.label(executable = True, cfg = "exec", default = "//py/tools/pex")
 })
 
