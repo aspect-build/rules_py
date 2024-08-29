@@ -67,7 +67,7 @@ def rules_py_toolchains(name = DEFAULT_TOOLS_REPOSITORY, register = True, is_pre
         is_prerelease: True iff there are no pre-built tool binaries for this version of rules_py
     """
 
-    # the url and digest information can be found at https://pypi.org/pypi/pex/json
+    # The url and digest information can be found at https://pypi.org/pypi/pex/json
     # WARNING: when updated, also update MODULE.bazel
     http_file(
         name = "pex_2_3_1",
