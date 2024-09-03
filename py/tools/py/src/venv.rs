@@ -6,13 +6,17 @@ use std::{
 use miette::{Context, IntoDiagnostic};
 use rattler_installs_packages::python_env::VEnv;
 
-use crate::{Interpreter, PthFile};
+use crate::{
+    pth::{SitePackageOptions, SymlinkCollisionResolutionStrategy},
+    Interpreter, PthFile,
+};
 
 pub fn create_venv(
     python: &Path,
     version: &str,
     location: &Path,
     pth_file: Option<PthFile>,
+    collision_strategy: SymlinkCollisionResolutionStrategy,
 ) -> miette::Result<()> {
     // Parse and find the interpreter to use.
     // Do this first so that incase we can't find or parse the version, we don't
@@ -51,7 +55,12 @@ pub fn create_venv(
         .into_diagnostic()?;
 
     if let Some(pth) = pth_file {
-        pth.set_up_site_packages(&venv_location.join(install_paths.platlib()))?
+        let site_packages_options = SitePackageOptions {
+            dest: venv_location.join(install_paths.platlib()),
+            collision_strategy,
+        };
+
+        pth.set_up_site_packages(site_packages_options)?
     }
 
     Ok(())

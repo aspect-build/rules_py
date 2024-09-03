@@ -17,5 +17,5 @@ path = "src/main.rs"
 
 [dependencies]
 clap = { version = "4.1.11", features = ["derive"] }
-miette = { version = "5.10", features = ["fancy"] }
+miette = { workspace = true }
 py = { path = "../py" }

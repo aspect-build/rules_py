@@ -214,6 +214,7 @@ _attrs = dict({
     ),
     "imports": attr.string_list(
         doc = "List of import directories to be added to the PYTHONPATH.",
+        default = [],
     ),
     "resolutions": attr.label_keyed_string_dict(
         doc = "FIXME",

@@ -1,5 +1,5 @@
 {
-  "checksum": "32b494853fa6e3f2c2ea61a76720e873e7384da14889aadcba90bfcd4f1916e3",
+  "checksum": "7b5d832f30b618fcf788084bf90341a4f9f48026f51817e91a5250c6e53648ab",
   "crates": {
     "addr2line 0.21.0": {
       "name": "addr2line",
@@ -5940,59 +5940,6 @@
       },
       "license": "MIT OR Apache-2.0"
     },
-    "is-terminal 0.4.10": {
-      "name": "is-terminal",
-      "version": "0.4.10",
-      "repository": {
-        "Http": {
-          "url": "https://static.crates.io/crates/is-terminal/0.4.10/download",
-          "sha256": "0bad00257d07be169d870ab665980b06cdb366d792ad690bf2e76876dc503455"
-        }
-      },
-      "targets": [
-        {
-          "Library": {
-            "crate_name": "is_terminal",
-            "crate_root": "src/lib.rs",
-            "srcs": [
-              "**/*.rs"
-            ]
-          }
-        }
-      ],
-      "library_target_name": "is_terminal",
-      "common_attrs": {
-        "compile_data_glob": [
-          "**"
-        ],
-        "deps": {
-          "common": [],
-          "selects": {
-            "cfg(not(any(windows, target_os = \"hermit\", target_os = \"unknown\")))": [
-              {
-                "id": "rustix 0.38.31",
-                "target": "rustix"
-              }
-            ],
-            "cfg(target_os = \"hermit\")": [
-              {
-                "id": "hermit-abi 0.3.5",
-                "target": "hermit_abi"
-              }
-            ],
-            "cfg(windows)": [
-              {
-                "id": "windows-sys 0.52.0",
-                "target": "windows_sys"
-              }
-            ]
-          }
-        },
-        "edition": "2018",
-        "version": "0.4.10"
-      },
-      "license": "MIT"
-    },
     "is_ci 1.2.0": {
       "name": "is_ci",
       "version": "1.2.0",
@@ -6740,62 +6687,15 @@
         ],
         "crate_features": {
           "common": [
-            "backtrace",
-            "backtrace-ext",
-            "default",
-            "fancy",
-            "fancy-no-backtrace",
-            "is-terminal",
-            "owo-colors",
-            "supports-color",
-            "supports-hyperlinks",
-            "supports-unicode",
-            "terminal_size",
-            "textwrap"
+            "default"
           ],
           "selects": {}
         },
         "deps": {
           "common": [
             {
-              "id": "backtrace 0.3.69",
-              "target": "backtrace"
-            },
-            {
-              "id": "backtrace-ext 0.2.1",
-              "target": "backtrace_ext"
-            },
-            {
-              "id": "is-terminal 0.4.10",
-              "target": "is_terminal"
-            },
-            {
               "id": "once_cell 1.19.0",
               "target": "once_cell"
-            },
-            {
-              "id": "owo-colors 3.5.0",
-              "target": "owo_colors"
-            },
-            {
-              "id": "supports-color 2.1.0",
-              "target": "supports_color"
-            },
-            {
-              "id": "supports-hyperlinks 2.1.0",
-              "target": "supports_hyperlinks"
-            },
-            {
-              "id": "supports-unicode 2.1.0",
-              "target": "supports_unicode"
-            },
-            {
-              "id": "terminal_size 0.1.17",
-              "target": "terminal_size"
-            },
-            {
-              "id": "textwrap 0.15.2",
-              "target": "textwrap"
             },
             {
               "id": "thiserror 1.0.56",
@@ -6819,6 +6719,113 @@
           "selects": {}
         },
         "version": "5.10.0"
+      },
+      "license": "Apache-2.0"
+    },
+    "miette 7.2.0": {
+      "name": "miette",
+      "version": "7.2.0",
+      "repository": {
+        "Http": {
+          "url": "https://static.crates.io/crates/miette/7.2.0/download",
+          "sha256": "4edc8853320c2a0dab800fbda86253c8938f6ea88510dc92c5f1ed20e794afc1"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "miette",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "miette",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": {
+          "common": [
+            "backtrace",
+            "backtrace-ext",
+            "default",
+            "derive",
+            "fancy",
+            "fancy-base",
+            "fancy-no-backtrace",
+            "miette-derive",
+            "owo-colors",
+            "supports-color",
+            "supports-hyperlinks",
+            "supports-unicode",
+            "terminal_size",
+            "textwrap"
+          ],
+          "selects": {}
+        },
+        "deps": {
+          "common": [
+            {
+              "id": "backtrace 0.3.69",
+              "target": "backtrace"
+            },
+            {
+              "id": "backtrace-ext 0.2.1",
+              "target": "backtrace_ext"
+            },
+            {
+              "id": "cfg-if 1.0.0",
+              "target": "cfg_if"
+            },
+            {
+              "id": "owo-colors 4.0.0",
+              "target": "owo_colors"
+            },
+            {
+              "id": "supports-color 3.0.0",
+              "target": "supports_color"
+            },
+            {
+              "id": "supports-hyperlinks 3.0.0",
+              "target": "supports_hyperlinks"
+            },
+            {
+              "id": "supports-unicode 3.0.0",
+              "target": "supports_unicode"
+            },
+            {
+              "id": "terminal_size 0.3.0",
+              "target": "terminal_size"
+            },
+            {
+              "id": "textwrap 0.16.1",
+              "target": "textwrap"
+            },
+            {
+              "id": "thiserror 1.0.56",
+              "target": "thiserror"
+            },
+            {
+              "id": "unicode-width 0.1.11",
+              "target": "unicode_width"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "proc_macro_deps": {
+          "common": [
+            {
+              "id": "miette-derive 7.2.0",
+              "target": "miette_derive"
+            }
+          ],
+          "selects": {}
+        },
+        "version": "7.2.0"
       },
       "license": "Apache-2.0"
     },
@@ -6866,6 +6873,53 @@
         },
         "edition": "2018",
         "version": "5.10.0"
+      },
+      "license": "Apache-2.0"
+    },
+    "miette-derive 7.2.0": {
+      "name": "miette-derive",
+      "version": "7.2.0",
+      "repository": {
+        "Http": {
+          "url": "https://static.crates.io/crates/miette-derive/7.2.0/download",
+          "sha256": "dcf09caffaac8068c346b6df2a7fc27a177fd20b39421a39ce0a211bde679a6c"
+        }
+      },
+      "targets": [
+        {
+          "ProcMacro": {
+            "crate_name": "miette_derive",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "miette_derive",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "proc-macro2 1.0.78",
+              "target": "proc_macro2"
+            },
+            {
+              "id": "quote 1.0.35",
+              "target": "quote"
+            },
+            {
+              "id": "syn 2.0.48",
+              "target": "syn"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "version": "7.2.0"
       },
       "license": "Apache-2.0"
     },
@@ -7308,13 +7362,13 @@
       },
       "license": "MIT OR Apache-2.0"
     },
-    "owo-colors 3.5.0": {
+    "owo-colors 4.0.0": {
       "name": "owo-colors",
-      "version": "3.5.0",
+      "version": "4.0.0",
       "repository": {
         "Http": {
-          "url": "https://static.crates.io/crates/owo-colors/3.5.0/download",
-          "sha256": "c1b04fb49957986fdce4d6ee7a65027d55d4b6d2265e5848bbb507b58ccfdb6f"
+          "url": "https://static.crates.io/crates/owo-colors/4.0.0/download",
+          "sha256": "caff54706df99d2a78a5a4e3455ff45448d81ef1bb63c22cd14052ca0e993a3f"
         }
       },
       "targets": [
@@ -7334,7 +7388,7 @@
           "**"
         ],
         "edition": "2018",
-        "version": "3.5.0"
+        "version": "4.0.0"
       },
       "license": "MIT"
     },
@@ -8263,7 +8317,7 @@
         "deps": {
           "common": [
             {
-              "id": "miette 5.10.0",
+              "id": "miette 7.2.0",
               "target": "miette"
             },
             {
@@ -9570,100 +9624,10 @@
             "default",
             "fs",
             "std",
+            "termios",
             "use-libc-auxv"
           ],
-          "selects": {
-            "aarch64-apple-darwin": [
-              "termios"
-            ],
-            "aarch64-apple-ios": [
-              "termios"
-            ],
-            "aarch64-apple-ios-sim": [
-              "termios"
-            ],
-            "aarch64-fuchsia": [
-              "termios"
-            ],
-            "aarch64-linux-android": [
-              "termios"
-            ],
-            "aarch64-unknown-linux-gnu": [
-              "termios"
-            ],
-            "aarch64-unknown-nixos-gnu": [
-              "termios"
-            ],
-            "aarch64-unknown-nto-qnx710": [
-              "termios"
-            ],
-            "arm-unknown-linux-gnueabi": [
-              "termios"
-            ],
-            "armv7-linux-androideabi": [
-              "termios"
-            ],
-            "armv7-unknown-linux-gnueabi": [
-              "termios"
-            ],
-            "i686-apple-darwin": [
-              "termios"
-            ],
-            "i686-linux-android": [
-              "termios"
-            ],
-            "i686-unknown-freebsd": [
-              "termios"
-            ],
-            "i686-unknown-linux-gnu": [
-              "termios"
-            ],
-            "powerpc-unknown-linux-gnu": [
-              "termios"
-            ],
-            "riscv32imc-unknown-none-elf": [
-              "termios"
-            ],
-            "riscv64gc-unknown-none-elf": [
-              "termios"
-            ],
-            "s390x-unknown-linux-gnu": [
-              "termios"
-            ],
-            "thumbv7em-none-eabi": [
-              "termios"
-            ],
-            "thumbv8m.main-none-eabi": [
-              "termios"
-            ],
-            "wasm32-wasi": [
-              "termios"
-            ],
-            "x86_64-apple-darwin": [
-              "termios"
-            ],
-            "x86_64-apple-ios": [
-              "termios"
-            ],
-            "x86_64-fuchsia": [
-              "termios"
-            ],
-            "x86_64-linux-android": [
-              "termios"
-            ],
-            "x86_64-unknown-freebsd": [
-              "termios"
-            ],
-            "x86_64-unknown-linux-gnu": [
-              "termios"
-            ],
-            "x86_64-unknown-nixos-gnu": [
-              "termios"
-            ],
-            "x86_64-unknown-none": [
-              "termios"
-            ]
-          }
+          "selects": {}
         },
         "deps": {
           "common": [
@@ -11057,13 +11021,13 @@
       },
       "license": "BSD-3-Clause"
     },
-    "supports-color 2.1.0": {
+    "supports-color 3.0.0": {
       "name": "supports-color",
-      "version": "2.1.0",
+      "version": "3.0.0",
       "repository": {
         "Http": {
-          "url": "https://static.crates.io/crates/supports-color/2.1.0/download",
-          "sha256": "d6398cde53adc3c4557306a96ce67b302968513830a77a95b2b17305d9719a89"
+          "url": "https://static.crates.io/crates/supports-color/3.0.0/download",
+          "sha256": "9829b314621dfc575df4e409e79f9d6a66a3bd707ab73f23cb4aa3a854ac854f"
         }
       },
       "targets": [
@@ -11085,10 +11049,6 @@
         "deps": {
           "common": [
             {
-              "id": "is-terminal 0.4.10",
-              "target": "is_terminal"
-            },
-            {
               "id": "is_ci 1.2.0",
               "target": "is_ci"
             }
@@ -11096,17 +11056,17 @@
           "selects": {}
         },
         "edition": "2018",
-        "version": "2.1.0"
+        "version": "3.0.0"
       },
       "license": "Apache-2.0"
     },
-    "supports-hyperlinks 2.1.0": {
+    "supports-hyperlinks 3.0.0": {
       "name": "supports-hyperlinks",
-      "version": "2.1.0",
+      "version": "3.0.0",
       "repository": {
         "Http": {
-          "url": "https://static.crates.io/crates/supports-hyperlinks/2.1.0/download",
-          "sha256": "f84231692eb0d4d41e4cdd0cabfdd2e6cd9e255e65f80c9aa7c98dd502b4233d"
+          "url": "https://static.crates.io/crates/supports-hyperlinks/3.0.0/download",
+          "sha256": "2c0a1e5168041f5f3ff68ff7d95dcb9c8749df29f6e7e89ada40dd4c9de404ee"
         }
       },
       "targets": [
@@ -11125,27 +11085,18 @@
         "compile_data_glob": [
           "**"
         ],
-        "deps": {
-          "common": [
-            {
-              "id": "is-terminal 0.4.10",
-              "target": "is_terminal"
-            }
-          ],
-          "selects": {}
-        },
         "edition": "2021",
-        "version": "2.1.0"
+        "version": "3.0.0"
       },
       "license": "Apache-2.0"
     },
-    "supports-unicode 2.1.0": {
+    "supports-unicode 3.0.0": {
       "name": "supports-unicode",
-      "version": "2.1.0",
+      "version": "3.0.0",
       "repository": {
         "Http": {
-          "url": "https://static.crates.io/crates/supports-unicode/2.1.0/download",
-          "sha256": "f850c19edd184a205e883199a261ed44471c81e39bd95b1357f5febbef00e77a"
+          "url": "https://static.crates.io/crates/supports-unicode/3.0.0/download",
+          "sha256": "b7401a30af6cb5818bb64852270bb722533397edcfc7344954a38f420819ece2"
         }
       },
       "targets": [
@@ -11164,17 +11115,8 @@
         "compile_data_glob": [
           "**"
         ],
-        "deps": {
-          "common": [
-            {
-              "id": "is-terminal 0.4.10",
-              "target": "is_terminal"
-            }
-          ],
-          "selects": {}
-        },
         "edition": "2018",
-        "version": "2.1.0"
+        "version": "3.0.0"
       },
       "license": "Apache-2.0"
     },
@@ -11567,13 +11509,13 @@
       },
       "license": "MIT OR Apache-2.0"
     },
-    "terminal_size 0.1.17": {
+    "terminal_size 0.3.0": {
       "name": "terminal_size",
-      "version": "0.1.17",
+      "version": "0.3.0",
       "repository": {
         "Http": {
-          "url": "https://static.crates.io/crates/terminal_size/0.1.17/download",
-          "sha256": "633c1a546cee861a1a6d0dc69ebeca693bf4296661ba7852b9d21d159e0506df"
+          "url": "https://static.crates.io/crates/terminal_size/0.3.0/download",
+          "sha256": "21bebf2b7c9e0a515f6e0f8c51dc0f8e4696391e6f1ff30379559f8365fb0df7"
         }
       },
       "targets": [
@@ -11597,30 +11539,30 @@
           "selects": {
             "cfg(not(windows))": [
               {
-                "id": "libc 0.2.153",
-                "target": "libc"
+                "id": "rustix 0.38.31",
+                "target": "rustix"
               }
             ],
             "cfg(windows)": [
               {
-                "id": "winapi 0.3.9",
-                "target": "winapi"
+                "id": "windows-sys 0.48.0",
+                "target": "windows_sys"
               }
             ]
           }
         },
-        "edition": "2018",
-        "version": "0.1.17"
+        "edition": "2021",
+        "version": "0.3.0"
       },
       "license": "MIT OR Apache-2.0"
     },
-    "textwrap 0.15.2": {
+    "textwrap 0.16.1": {
       "name": "textwrap",
-      "version": "0.15.2",
+      "version": "0.16.1",
       "repository": {
         "Http": {
-          "url": "https://static.crates.io/crates/textwrap/0.15.2/download",
-          "sha256": "b7b3e525a49ec206798b40326a44121291b530c963cfb01018f63e135bac543d"
+          "url": "https://static.crates.io/crates/textwrap/0.16.1/download",
+          "sha256": "23d434d3f8967a09480fb04132ebe0a3e088c173e6d0ee7897abbdf4eab0f8b9"
         }
       },
       "targets": [
@@ -11665,8 +11607,8 @@
           ],
           "selects": {}
         },
-        "edition": "2018",
-        "version": "0.15.2"
+        "edition": "2021",
+        "version": "0.16.1"
       },
       "license": "MIT"
     },
@@ -13353,7 +13295,7 @@
               "target": "clap"
             },
             {
-              "id": "miette 5.10.0",
+              "id": "miette 7.2.0",
               "target": "miette"
             }
           ],
@@ -13535,7 +13477,7 @@
               "target": "clap"
             },
             {
-              "id": "miette 5.10.0",
+              "id": "miette 7.2.0",
               "target": "miette"
             }
           ],
@@ -14268,7 +14210,6 @@
             "consoleapi",
             "errhandlingapi",
             "fileapi",
-            "handleapi",
             "minwindef",
             "processenv",
             "std",
@@ -14596,6 +14537,7 @@
             "Win32_Storage",
             "Win32_Storage_FileSystem",
             "Win32_System",
+            "Win32_System_Console",
             "Win32_System_Diagnostics",
             "Win32_System_Diagnostics_Debug",
             "Win32_System_IO",
@@ -16388,38 +16330,6 @@
       "x86_64-unknown-nixos-gnu",
       "x86_64-unknown-none"
     ],
-    "cfg(not(any(windows, target_os = \"hermit\", target_os = \"unknown\")))": [
-      "aarch64-apple-darwin",
-      "aarch64-apple-ios",
-      "aarch64-apple-ios-sim",
-      "aarch64-fuchsia",
-      "aarch64-linux-android",
-      "aarch64-unknown-linux-gnu",
-      "aarch64-unknown-nixos-gnu",
-      "aarch64-unknown-nto-qnx710",
-      "arm-unknown-linux-gnueabi",
-      "armv7-linux-androideabi",
-      "armv7-unknown-linux-gnueabi",
-      "i686-apple-darwin",
-      "i686-linux-android",
-      "i686-unknown-freebsd",
-      "i686-unknown-linux-gnu",
-      "powerpc-unknown-linux-gnu",
-      "riscv32imc-unknown-none-elf",
-      "riscv64gc-unknown-none-elf",
-      "s390x-unknown-linux-gnu",
-      "thumbv7em-none-eabi",
-      "thumbv8m.main-none-eabi",
-      "wasm32-wasi",
-      "x86_64-apple-darwin",
-      "x86_64-apple-ios",
-      "x86_64-fuchsia",
-      "x86_64-linux-android",
-      "x86_64-unknown-freebsd",
-      "x86_64-unknown-linux-gnu",
-      "x86_64-unknown-nixos-gnu",
-      "x86_64-unknown-none"
-    ],
     "cfg(not(target_arch = \"wasm32\"))": [
       "aarch64-apple-darwin",
       "aarch64-apple-ios",
@@ -16662,7 +16572,7 @@
   },
   "direct_deps": [
     "clap 4.4.18",
-    "miette 5.10.0",
+    "miette 7.2.0",
     "rattler_installs_packages 0.6.0"
   ],
   "direct_dev_deps": []

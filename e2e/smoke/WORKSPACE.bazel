@@ -33,7 +33,6 @@ load("@rules_rust//crate_universe:defs.bzl", "crates_repository")
 crates_repository(
     name = "crate_index",
     cargo_lockfile = "@aspect_rules_py//:Cargo.lock",
-    lockfile = "//:Cargo.Bazel.lock",
     manifests = [
         "@aspect_rules_py//:Cargo.toml",
         "@aspect_rules_py//py/tools/py:Cargo.toml",
