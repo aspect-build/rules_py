@@ -72,7 +72,7 @@ def _py_python_pex_impl(ctx):
         ctx.attr.inject_env.items(), 
         map_each = lambda e: "--inject-env=%s=%s" % (e[0], e[1]),
         allow_closure = True,
-        # this is needed to allow passing a lambda to map_each
+        # this is needed to allow passing a lambda (with workspace_name) to map_each 
     )
 
     args.add_all(
