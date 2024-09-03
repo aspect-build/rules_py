@@ -1,5 +1,6 @@
 """Declare toolchains"""
 
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 load("//py/private/toolchain:autodetecting.bzl", _register_autodetecting_python_toolchain = "register_autodetecting_python_toolchain")
 load("//py/private/toolchain:repo.bzl", "prerelease_toolchains_repo", "toolchains_repo")
 load("//py/private/toolchain:tools.bzl", "TOOLCHAIN_PLATFORMS", "prebuilt_tool_repo")
@@ -32,3 +33,11 @@ def rules_py_toolchains(name = DEFAULT_TOOLS_REPOSITORY, register = True, is_pre
 
         if register:
             native.register_toolchains("@{}//:all".format(name))
+
+
+    http_file(
+        name = "rules_py_pex_2_3_1",
+        urls = ["https://files.pythonhosted.org/packages/e7/d0/fbda2a4d41d62d86ce53f5ae4fbaaee8c34070f75bb7ca009090510ae874/pex-2.3.1-py2.py3-none-any.whl"],
+        sha256 = "64692a5bf6f298403aab930d22f0d836ae4736c5bc820e262e9092fe8c56f830",
+        downloaded_file_path = "pex-2.3.1-py2.py3-none-any.whl",
+    )
