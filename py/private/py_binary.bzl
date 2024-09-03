@@ -91,11 +91,12 @@ def _py_binary_rule_impl(ctx):
 
     srcs_depset = _py_library.make_srcs_depset(ctx)
 
-    srcs_and_virtual_resolutions = [srcs_depset] + virtual_resolution.srcs + virtual_resolution.runfiles
-    
     runfiles = _py_library.make_merged_runfiles(
         ctx,
-        extra_depsets = [py_toolchain.files] + srcs_and_virtual_resolutions,
+        extra_depsets = [
+            py_toolchain.files,
+            srcs_depset,
+        ] + virtual_resolution.srcs + virtual_resolution.runfiles,
         extra_runfiles = [
             site_packages_pth_file,
         ] + ctx.files._runfiles_lib,
