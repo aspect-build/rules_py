@@ -1,6 +1,5 @@
 load("//py:defs.bzl", "py_binary", "py_pex_binary")
 
-
 py_binary(
     name = "binary",
     srcs = ["say.py"],
@@ -14,8 +13,6 @@ py_binary(
     ],
 )
 
-
-
 py_pex_binary(
     name = "py_pex_binary",
     binary = ":binary",
@@ -23,4 +20,3 @@ py_pex_binary(
         "TEST": "1"
     }
 )
-

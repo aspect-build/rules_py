@@ -1,6 +1,14 @@
+# Unfortunately there is no way to stop pex from writing to a PEX_ROOT during build.
+# Closest thing seems to be creating a tmp folder and deleting it after.
+# pex cli does the same here;
+# https://github.com/pex-tool/pex/blob/252459bdd879fc1e3446a6221571875d46fad1bd/pex/commands/command.py#L362-L382
+import os
+from pex.common import safe_mkdtemp, safe_rmtree
+TMP_PEX_ROOT=safe_mkdtemp()
+os.environ["PEX_ROOT"] = TMP_PEX_ROOT
+
 import sys
-from pex.common import Chroot
-from pex.pex_builder import Check, CopyMode, PEXBuilder
+from pex.pex_builder import Check,PEXBuilder
 from pex.interpreter import PythonInterpreter
 from pex.interpreter_constraints import InterpreterConstraint
 from pex.layout import Layout
@@ -150,7 +158,6 @@ pex_info.interpreter_constraints = [
     for constraint in options.constraints
 ]
 
-print(pex_info.interpreter_constraints)
 for dep in options.dependencies:
     dist = Distribution.load(dep + "/../")
 
@@ -160,7 +167,6 @@ for dep in options.dependencies:
         path= dist.location,
         dist_name = key
     )
-    print(dist.location, dist.key)
     pex_info.add_distribution(key, dist_hash)
     pex_builder.add_requirement(dist.as_requirement())
 
@@ -183,8 +189,6 @@ if not executable_was_set:
 
 pex_builder.freeze(bytecode_compile=False)
 
-print(options.dependencies)
-
 pex_builder.build(
     options.pex_name,
     deterministic_timestamp=True,
@@ -192,3 +196,6 @@ pex_builder.build(
     check=Check.WARN,
 )
 
+
+# Cleanup temporary pex root
+safe_rmtree(TMP_PEX_ROOT)

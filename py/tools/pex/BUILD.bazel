@@ -2,7 +2,7 @@ load("//py:defs.bzl", "py_binary", "py_unpacked_wheel")
 
 py_unpacked_wheel(
     name = "pex_unpacked",
-    src = "@pex_2_3_1//file",
+    src = "@rules_py_pex_2_3_1//file",
     py_package_name = "pex"
 )
 

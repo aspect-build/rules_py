@@ -16,25 +16,41 @@ exclude_paths = [
     "rules_python~~python~",
     "aspect_rules_py~/py/tools/"
 ]
+
+# determines if the given file is a `distinfo`, `dep` or a `source`
+# this required to allow PEX to put files into different places.
+# 
+# --dep:        into `<PEX_UNPACK_ROOT>/.deps/<name_of_the_package>`
+# --distinfo:   is only used for determining package metadata
+# --source:     into `<PEX_UNPACK_ROOT>/<relative_path_to_workspace_root>/<file_name>`
 def _map_srcs(f, workspace):
     dest_path = _runfiles_path(f, workspace)
 
-    # TODO: better way to exclude hermetic toolchain.
+    # We exclude files from hermetic python toolchain.
     for exclude in exclude_paths:
         if dest_path.find(exclude) != -1:
             return []
 
-
     site_packages_i = f.path.find("site-packages")
-
-    # determine if the src if a third party.
+    
+    # if path contains `site-packages` and there is only two path segments
+    # after it, it will be treated as third party dep.
+    # Here are some examples of path we expect and use and ones we ignore.
+    #  
+    # Match: `external/rules_python~~pip~pypi_39_rtoml/site-packages/rtoml-0.11.0.dist-info/INSTALLER`
+    # Reason: It has two `/` after first `site-packages` substring.
+    # 
+    # No Match: `external/rules_python~~pip~pypi_39_rtoml/site-packages/rtoml-0.11.0/src/mod/parse.py`
+    # Reason: It has three `/` after first `site-packages` substring.
     if site_packages_i != -1 and f.path.count("/", site_packages_i) == 2:
         if f.path.find("dist-info", site_packages_i) != -1:
-            return ["--distinfo", f.dirname]
-        return ["--dep", f.dirname]
+            return ["--distinfo={}".format(f.dirname)]
+        return ["--dep={}".format(f.dirname)]
 
+    # If the path does not have a `site-packages` in it, then put it into 
+    # the standard runfiles tree.
     elif site_packages_i == -1:
-        return ["--source=%s=%s" % (f.path, dest_path)]
+        return ["--source={}={}".format(f.path, dest_path)]
 
     return []
 
@@ -56,6 +72,7 @@ def _py_python_pex_impl(ctx):
         ctx.attr.inject_env.items(), 
         map_each = lambda e: "--inject-env=%s=%s" % (e[0], e[1]),
         allow_closure = True,
+        # this is needed to allow passing a lambda to map_each
     )
 
     args.add_all(
@@ -67,6 +84,7 @@ def _py_python_pex_impl(ctx):
         runfiles.files,
         map_each = lambda f: _map_srcs(f, workspace_name),
         uniquify = True,
+        # this is needed to allow passing a lambda (with workspace_name) to map_each 
         allow_closure = True,
     )
     args.add(binary[DefaultInfo].files_to_run.executable, format = "--executable=%s")
@@ -90,10 +108,6 @@ def _py_python_pex_impl(ctx):
         outputs = [output],
         mnemonic = "PyPex",
         progress_message = "Building PEX binary %{label}",
-        # Unfortunately there is no way to disable pex cache, so just set it to . allow
-        # bazel to discard cache once the action is done. 
-        # TODO: this is probably not the right thing to do if the action is unsandboxed.
-        env = {"PEX_ROOT": "."}
     )
 
     return [
@@ -113,7 +127,7 @@ _attrs = dict({
     ),
     "python_shebang": attr.string(default = "#!/usr/bin/env python3"),
     "python_interpreter_constraints": attr.string_list(
-        default = [], 
+        default = ["CPython=={major}.{minor}.*"], 
         doc = """\
 Python interpreter versions this PEX binary is compatible with. A list of semver strings. 
 The placeholder strings `{major}`, `{minor}`, `{patch}` can be used for gathering version 
