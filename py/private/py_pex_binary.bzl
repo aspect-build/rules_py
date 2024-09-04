@@ -11,11 +11,14 @@ def _runfiles_path(file, workspace):
         return workspace + "/" + file.short_path
 
 exclude_paths = [
+    # following two lines will match paths we want to exclude in non-bzlmod setup
     "toolchain",
     "aspect_rules_py/py/tools/",
+    # these will match in bzlmod setup
     "rules_python~~python~",
-    "rules_python++python+",
     "aspect_rules_py~/py/tools/",
+    # these will match in bzlmod setup with --incompatible_use_plus_in_repo_names flag flipped.
+    "rules_python++python+",
     "aspect_rules_py+/py/tools/"
 ]
 
@@ -72,9 +75,9 @@ def _py_python_pex_impl(ctx):
 
     args.add_all(
         ctx.attr.inject_env.items(), 
-        map_each = lambda e: "--inject-env=%s=%s" % (e[0], e[1]),
-        allow_closure = True,
+        map_each = lambda e: "--inject-env={}={}".format(e[0], e[1]),
         # this is needed to allow passing a lambda (with workspace_name) to map_each 
+        allow_closure = True,
     )
 
     args.add_all(
