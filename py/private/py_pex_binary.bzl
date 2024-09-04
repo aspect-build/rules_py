@@ -76,7 +76,7 @@ def _py_python_pex_impl(ctx):
     args.add_all(
         ctx.attr.inject_env.items(), 
         map_each = lambda e: "--inject-env={}={}".format(e[0], e[1]),
-        # this is needed to allow passing a lambda (with workspace_name) to map_each 
+        # this is needed to allow passing a lambda to map_each 
         allow_closure = True,
     )
 
@@ -116,11 +116,7 @@ def _py_python_pex_impl(ctx):
     )
 
     return [
-        DefaultInfo(files = depset([output]), executable = output),
-        # See: https://github.com/bazelbuild/bazel/blob/b4ab259fe1cba8a108f1dd30067ee357c7198509/src/main/starlark/builtins_bzl/common/python/py_executable_bazel.bzl#L265
-        OutputGroupInfo(
-            python_zip_file = depset([output])
-        )
+        DefaultInfo(files = depset([output]), executable = output)
     ]
 
 
