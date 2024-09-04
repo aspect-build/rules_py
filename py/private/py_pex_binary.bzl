@@ -14,8 +14,8 @@ exclude_paths = [
     "toolchain",
     "aspect_rules_py/py/tools/",
     "rules_python~~python~",
-    "rules_python++python+"
-    "aspect_rules_py~/py/tools/"
+    "rules_python++python+",
+    "aspect_rules_py~/py/tools/",
     "aspect_rules_py+/py/tools/"
 ]
 
