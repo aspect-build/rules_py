@@ -14,7 +14,9 @@ exclude_paths = [
     "toolchain",
     "aspect_rules_py/py/tools/",
     "rules_python~~python~",
+    "rules_python++python+"
     "aspect_rules_py~/py/tools/"
+    "aspect_rules_py+/py/tools/"
 ]
 
 # determines if the given file is a `distinfo`, `dep` or a `source`
@@ -120,7 +122,7 @@ def _py_python_pex_impl(ctx):
 
 
 _attrs = dict({
-    "binary": attr.label(executable = True, cfg = "target"),
+    "binary": attr.label(executable = True, cfg = "target", mandatory = True, doc = "A py_binary target"),
     "inject_env": attr.string_dict(
         doc = "Environment variables to set when running the pex binary.",
         default = {},
