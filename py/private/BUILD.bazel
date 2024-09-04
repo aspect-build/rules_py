@@ -107,6 +107,16 @@ bzl_library(
 )
 
 bzl_library(
+    name = "py_pex_binary",
+    srcs = ["py_pex_binary.bzl"],
+    visibility = ["//py:__subpackages__"],
+    deps = [
+        ":py_semantics",
+        "//py/private/toolchain:types",
+    ],
+)
+
+bzl_library(
     name = "virtual",
     srcs = ["virtual.bzl"],
     visibility = ["//py:__subpackages__"],

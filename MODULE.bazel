@@ -23,6 +23,7 @@ python.toolchain(
 tools = use_extension("//py:extensions.bzl", "py_tools")
 tools.rules_py_tools()
 use_repo(tools, "rules_py_tools")
+use_repo(tools, "rules_py_pex_2_3_1")
 
 register_toolchains(
     "@rules_py_tools//:all",
