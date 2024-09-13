@@ -159,7 +159,7 @@ pex_info.interpreter_constraints = [
 ]
 
 for dep in options.dependencies:
-    dist = Distribution.load(dep + "/../")
+    dist = Distribution.load(dep)
 
     # TODO: explain which level of inferno is this!
     key = "%s-%s" % (dist.key, dist.version)
