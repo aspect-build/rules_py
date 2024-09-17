@@ -1,0 +1,33 @@
+load("@aspect_bazel_lib//lib:testing.bzl", "assert_contains")
+load("//py:defs.bzl", "py_binary", "py_pex_binary")
+
+# Test that both single-file modules (six) and multi-file modules (cowsay) work with py_pex_binary.
+py_binary(
+    name = "print_modules_bin",
+    srcs = ["print_modules.py"],
+    data = ["data.txt"],
+    deps = [
+        "@bazel_tools//tools/python/runfiles",
+        "@pypi_cowsay//:pkg",
+        "@pypi_six//:pkg",
+    ],
+)
+
+py_pex_binary(
+    name = "print_modules_pex",
+    binary = ":print_modules_bin",
+)
+
+# PEX_ROOT is set to avoid warning on default user PEX_ROOT not being writable
+genrule(
+    name = "run_print_modules_pex",
+    outs = ["print_modules_pex.out"],
+    cmd = "PEX_ROOT=.pex $(execpath print_modules_pex) >$@",
+    tools = ["print_modules_pex"],
+)
+
+assert_contains(
+    name = "test__print_modules_pex",
+    actual = "print_modules_pex.out",
+    expected = "Mooo!,cowsay-6.1/cowsay/__init__.py,six-1.16.0/six.py",
+)

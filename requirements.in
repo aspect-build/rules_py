@@ -5,3 +5,4 @@ pytest
 cowsay
 ftfy==6.2.0
 neptune==1.10.2
+six
