@@ -1,8 +1,8 @@
 "uv pip compile example with py"
 
 bazel_dep(name = "rules_uv", version = "0.14.0", dev_dependency = True)
-bazel_dep(name = "rules_python", version = "0.33.2")
-bazel_dep(name = "aspect_rules_py", version = "0.7.3", dev_dependency = True) 
+bazel_dep(name = "rules_python", version = "0.34.0")
+bazel_dep(name = "aspect_rules_py", version = "0.7.4", dev_dependency = True) 
 
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(python_version = "3.9.13")
