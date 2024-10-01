@@ -21,7 +21,7 @@ function alocation {
 }
 
 VENV_TOOL="$(rlocation {{VENV_TOOL}})"
-VENV_ROOT="${BUILD_WORKSPACE_DIRECTORY}"
+VENV_ROOT="${BUILD_WORKING_DIRECTORY}"
 VIRTUAL_ENV="$(alocation "${VENV_ROOT}/{{ARG_VENV_LOCATION}}")"
 
 "${VENV_TOOL}" \
@@ -31,3 +31,5 @@ VIRTUAL_ENV="$(alocation "${VENV_ROOT}/{{ARG_VENV_LOCATION}}")"
     --pth-file "$(rlocation {{ARG_PTH_FILE}})" \
     --pth-entry-prefix "${RUNFILES_DIR}" \
     --collision-strategy "{{ARG_COLLISION_STRATEGY}}"
+
+echo "Created virtualenv in ${VIRTUAL_ENV}"
