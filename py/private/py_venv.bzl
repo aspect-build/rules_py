@@ -140,8 +140,8 @@ A collision can occour when multiple packages providing the same file are instal
 )
 
 def py_venv(name, **kwargs):
-    # By default, support VSCode (and other tools) by creating virtualenv's in the root of the workspace.
-    # Editors expect to locate them here, and provide a nice name to see "which one is open".
+    # By default, VSCode (and likely other tools) expect to find virtualenv's in the root of the project opened in the editor.
+    # They also provide a nice name to see "which one is open" when discovered this way.
     # See https://github.com/aspect-build/rules_py/issues/395
     default_venv_name = ".{}".format(paths.join(native.package_name(), name).replace("/", "+"))
     _py_venv(
