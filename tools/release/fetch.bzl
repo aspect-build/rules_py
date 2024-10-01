@@ -35,8 +35,8 @@ def fetch_deps():
     http_archive(
         name = "org_chromium_sysroot_linux_arm64",
         build_file_content = _SYSROOT_LINUX_BUILD_FILE,
-        sha256 = "63dfb6585e58f6e11cd2323d52c9099a5122beca2fddd0d9beda7e869a3b8f67",
-        urls = ["https://github.com/DavidZbarsky-at/sysroot-min/releases/download/v0.0.19/debian_bullseye_arm64_sysroot.tar.xz"],
+        sha256 = "b199942a0bd9c34800e8d7b669778ef45f2054b9f106039439383dd66efcef31",
+        urls = ["https://github.com/DavidZbarsky-at/sysroot-min/releases/download/v0.0.20/debian_bullseye_arm64_sysroot.tar.xz"],
     )
 
     http_archive(
