@@ -2,8 +2,20 @@
 
 Follows [PEP-441 (PEX)](https://peps.python.org/pep-0441/)
 
+## Ensuring a compatible interpreter is used
+
 The resulting zip file does *not* contain a Python interpreter.
 Users are expected to execute the PEX with a compatible interpreter on the runtime system.
+
+Use the `python_interpreter_constraints` to provide an error if a wrong interpreter tries to execute the PEX, for example:
+
+```starlark
+py_pex_binary(
+    python_interpreter_constraints = [
+        "CPython=={major}.{minor}.{patch}",
+    ]
+)
+```
 """
 
 load("@rules_python//python:defs.bzl", "PyInfo")
@@ -138,16 +150,6 @@ _attrs = dict({
 Python interpreter versions this PEX binary is compatible with. A list of semver strings. 
 The placeholder strings `{major}`, `{minor}`, `{patch}` can be used for gathering version 
 information from the hermetic python toolchain.
-
-For example, to enforce same interpreter version that Bazel uses, following can be used.
-
-```starlark
-py_pex_binary
-    python_interpreter_constraints = [
-      "CPython=={major}.{minor}.{patch}"
-    ]
-)
-```
 """,
     ),
     # NB: this is read by _resolve_toolchain in py_semantics.

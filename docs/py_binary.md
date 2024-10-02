@@ -3,6 +3,39 @@
 Re-implementations of [py_binary](https://bazel.build/reference/be/python#py_binary)
 and [py_test](https://bazel.build/reference/be/python#py_test)
 
+## Choosing the Python version
+
+The `python_version` attribute must refer to a python toolchain version
+which has been registered in the WORKSPACE or MODULE.bazel file.
+
+When using WORKSPACE, this may look like this:
+
+```starlark
+load("@rules_python//python:repositories.bzl", "py_repositories", "python_register_toolchains")
+
+python_register_toolchains(
+    name = "python_toolchain_3_8",
+    python_version = "3.8.12",
+    # setting set_python_version_constraint makes it so that only matches py_* rule  
+    # which has this exact version set in the `python_version` attribute.
+    set_python_version_constraint = True,
+)
+
+# It's important to register the default toolchain last it will match any py_* target. 
+python_register_toolchains(
+    name = "python_toolchain",
+    python_version = "3.9",
+)
+```
+
+Configuring for MODULE.bazel may look like this:
+
+```starlark
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(python_version = "3.8.12", is_default = False)
+python.toolchain(python_version = "3.9", is_default = True)
+```
+
 
 <a id="py_binary_rule"></a>
 
@@ -27,7 +60,7 @@ Run a Python program under Bazel. Most users should use the [py_binary macro](#p
 | <a id="py_binary_rule-imports"></a>imports |  List of import directories to be added to the PYTHONPATH.   | List of strings | optional | <code>[]</code> |
 | <a id="py_binary_rule-main"></a>main |  Script to execute with the Python interpreter.   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
 | <a id="py_binary_rule-package_collisions"></a>package_collisions |  The action that should be taken when a symlink collision is encountered when creating the venv. A collision can occour when multiple packages providing the same file are installed into the venv. The possible values are:<br><br>* "error": When conflicting symlinks are found, an error is reported and venv creation halts. * "warning": When conflicting symlinks are found, an warning is reported, however venv creation continues. * "ignore": When conflicting symlinks are found, no message is reported and venv creation continues.   | String | optional | <code>"error"</code> |
-| <a id="py_binary_rule-python_version"></a>python_version |  Whether to build this target and its transitive deps for a specific python version.<br><br>Note that setting this attribute alone will not be enough as the python toolchain for the desired version also needs to be registered in the WORKSPACE or MODULE.bazel file.<br><br>When using WORKSPACE, this may look like this,<br><br><pre><code> load("@rules_python//python:repositories.bzl", "py_repositories", "python_register_toolchains")<br><br>python_register_toolchains(     name = "python_toolchain_3_8",     python_version = "3.8.12",     # setting set_python_version_constraint makes it so that only matches py_* rule       # which has this exact version set in the <code>python_version</code> attribute.     set_python_version_constraint = True, )<br><br># It's important to register the default toolchain last it will match any py_* target.  python_register_toolchains(     name = "python_toolchain",     python_version = "3.9", ) </code></pre><br><br>Configuring for MODULE.bazel may look like this:<br><br><pre><code> python = use_extension("@rules_python//python/extensions:python.bzl", "python") python.toolchain(python_version = "3.8.12", is_default = False) python.toolchain(python_version = "3.9", is_default = True) </code></pre>   | String | optional | <code>""</code> |
+| <a id="py_binary_rule-python_version"></a>python_version |  Whether to build this target and its transitive deps for a specific python version.   | String | optional | <code>""</code> |
 | <a id="py_binary_rule-resolutions"></a>resolutions |  FIXME   | <a href="https://bazel.build/rules/lib/dict">Dictionary: Label -> String</a> | optional | <code>{}</code> |
 | <a id="py_binary_rule-srcs"></a>srcs |  Python source files.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
 
@@ -42,8 +75,8 @@ py_binary(<a href="#py_binary-name">name</a>, <a href="#py_binary-srcs">srcs</a>
 
 Wrapper macro for [`py_binary_rule`](#py_binary_rule).
 
-Creates a virtualenv to constrain the interpreter and packages used at runtime.
-Users can `bazel run [name].venv` to create the virtualenv, then use it in the editor or other tools.
+Creates a [py_venv](./venv.md) target to constrain the interpreter and packages used at runtime.
+Users can `bazel run [name].venv` to create this virtualenv, then use it in the editor or other tools.
 
 
 **PARAMETERS**
@@ -53,7 +86,7 @@ Users can `bazel run [name].venv` to create the virtualenv, then use it in the e
 | :------------- | :------------- | :------------- |
 | <a id="py_binary-name"></a>name |  Name of the rule.   |  none |
 | <a id="py_binary-srcs"></a>srcs |  Python source files.   |  <code>[]</code> |
-| <a id="py_binary-main"></a>main |  Entry point. Like rules_python, this is treated as a suffix of a file that should appear among the srcs. If absent, then "[name].py" is tried. As a final fallback, if the srcs has a single file, that is used as the main.   |  <code>None</code> |
-| <a id="py_binary-kwargs"></a>kwargs |  additional named parameters to the py_binary_rule.   |  none |
+| <a id="py_binary-main"></a>main |  Entry point. Like rules_python, this is treated as a suffix of a file that should appear among the srcs. If absent, then <code>[name].py</code> is tried. As a final fallback, if the srcs has a single file, that is used as the main.   |  <code>None</code> |
+| <a id="py_binary-kwargs"></a>kwargs |  additional named parameters to <code>py_binary_rule</code>.   |  none |
 
 
