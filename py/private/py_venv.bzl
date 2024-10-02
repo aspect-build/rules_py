@@ -1,4 +1,10 @@
-"""Implementation for the py_binary and py_test rules."""
+"""Create a Python virtualenv directory structure.
+
+Uses https://github.com/prefix-dev/rip.
+
+Note that [py_binary](./py_binary.md) and [py_test](./py_test.md) macros automatically provide `[name].venv` targets.
+Using `py_venv` directly is only required for cases where those defaults do not apply.
+"""
 
 load("@rules_python//python:defs.bzl", "PyInfo")
 load("@aspect_bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")

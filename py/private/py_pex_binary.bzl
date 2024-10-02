@@ -1,4 +1,10 @@
-"Create python zip file https://peps.python.org/pep-0441/ (PEX)"
+"""Create a zip file containing a full Python application.
+
+Follows [PEP-441 (PEX)](https://peps.python.org/pep-0441/)
+
+The resulting zip file does *not* contain a Python interpreter.
+Users are expected to execute the PEX with a compatible interpreter on the runtime system.
+"""
 
 load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
@@ -52,10 +58,9 @@ def _map_srcs(f, workspace):
             return ["--distinfo={}".format(f.dirname)]
         return ["--dep={}".format(f.dirname)]
 
+    elif site_packages_i == -1:
         # If the path does not have a `site-packages` in it, then put it into
         # the standard runfiles tree.
-
-    elif site_packages_i == -1:
         return ["--source={}={}".format(f.path, dest_path)]
 
     return []

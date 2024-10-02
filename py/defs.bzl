@@ -1,4 +1,6 @@
-"Public API re-exports"
+"""Re-implementations of [py_binary](https://bazel.build/reference/be/python#py_binary)
+and [py_test](https://bazel.build/reference/be/python#py_test)
+"""
 
 load("@aspect_bazel_lib//lib:utils.bzl", "propagate_common_rule_attributes")
 load("//py/private:py_binary.bzl", _py_binary = "py_binary", _py_test = "py_test")
@@ -58,7 +60,7 @@ def py_binary(name, srcs = [], main = None, **kwargs):
     """Wrapper macro for [`py_binary_rule`](#py_binary_rule).
 
     Creates a virtualenv to constrain the interpreter and packages used at runtime.
-    Users can `bazel run [name].venv` to produce this, then use it in the editor.
+    Users can `bazel run [name].venv` to create the virtualenv, then use it in the editor or other tools.
 
     Args:
         name: Name of the rule.
@@ -79,7 +81,7 @@ def py_binary(name, srcs = [], main = None, **kwargs):
     _py_binary_or_test(name = name, rule = _py_binary, srcs = srcs, main = main, resolutions = resolutions, **kwargs)
 
 def py_test(name, main = None, srcs = [], **kwargs):
-    "Identical to py_binary, but produces a target that can be used with `bazel test`."
+    "Identical to [py_binary](./py_binary.md), but produces a target that can be used with `bazel test`."
 
     # Ensure that any other targets we write will be testonly like the py_test target
     kwargs["testonly"] = True
