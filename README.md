@@ -14,7 +14,10 @@ However we try to maintain compatibility with rules_python's rules for most use 
 | toolchain: fetch hermetic interpreter       | rules_python | rules_python         |
 | pip.parse: fetch and install deps from pypi | rules_python | rules_python         |
 | gazelle: generate BUILD files               | rules_python | [`aspect configure`] |
-| rules: BUILD file UI                        | rules_python | **rules_py**         |
+| rules: user-facing implementations          | rules_python | **rules_py**         |
+
+Watch our video series for a quick tutorial on how rules_py makes it easy to do Python with Bazel:
+[![youtube playlist](https://i.ytimg.com/vi/Ms9qX0Yyn0s/hqdefault.jpg)](https://www.youtube.com/playlist?list=PLLU28e_DRwdu46fldnYzyFYvSJLjVFICd)
 
 _Need help?_ This ruleset has support provided by https://aspect.dev.
 
@@ -33,8 +36,8 @@ We think you'll love rules_py because it fixes many issues with rules_python's r
   - [sys.path[0] breaks out of runfile tree.](https://github.com/bazelbuild/rules_python/issues/382)
   - [User site-packages directory should be ignored](https://github.com/bazelbuild/rules_python/issues/1059)
 - We create a python-idiomatic virtualenv to run actions, which means better compatibility with userland implementations of [importlib](https://docs.python.org/3/library/importlib.html).
-- Thanks to the virtualenv, you can open the project in an editor like PyCharm and have working auto-complete, jump-to-definition, etc. Fixes:
-  - [Smooth IDE support for python_rules](https://github.com/bazelbuild/rules_python/issues/1401)
+- Thanks to the virtualenv, you can open the project in an editor like PyCharm or VSCode and have working auto-complete, jump-to-definition, etc.
+  - Fixes [Smooth IDE support for python_rules](https://github.com/bazelbuild/rules_python/issues/1401)
 
 > [!NOTE]
 > What about the "starlarkification" effort in rules_python?
