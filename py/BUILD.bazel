@@ -38,6 +38,7 @@ bzl_library(
         "//py/private:py_wheel",
         "//py/private:virtual",
         "//py/private:py_pex_binary",
+        "//py/private:py_image_layer",
         "@aspect_bazel_lib//lib:utils",
     ],
 )

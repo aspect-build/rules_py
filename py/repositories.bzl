@@ -30,11 +30,12 @@ def rules_py_dependencies():
         url = "https://github.com/bazelbuild/bazel-skylib/archive/refs/tags/1.5.0.tar.gz",
     )
 
+    # py_image_layer requires 2.x for the `tar` rule.
     http_archive(
         name = "aspect_bazel_lib",
-        sha256 = "6e6f8ac3c601d6df25810cd51e51d85831e3437e873b152c5c4ecd3b96964bc8",
-        strip_prefix = "bazel-lib-1.42.3",
-        url = "https://github.com/aspect-build/bazel-lib/archive/refs/tags/v1.42.3.tar.gz",
+        sha256 = "f93d386d8d0b0149031175e81df42a488be4267c3ca2249ba5321c23c60bc1f0",
+        strip_prefix = "bazel-lib-2.9.1",
+        url = "https://github.com/bazel-contrib/bazel-lib/releases/download/v2.9.1/bazel-lib-v2.9.1.tar.gz",
     )
 
     http_archive(
