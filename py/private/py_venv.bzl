@@ -1,9 +1,10 @@
 """Create a Python virtualenv directory structure.
 
-Uses https://github.com/prefix-dev/rip.
-
 Note that [py_binary](./py_binary.md#py_binary) and [py_test](./py_test.md#py_test) macros automatically provide `[name].venv` targets.
 Using `py_venv` directly is only required for cases where those defaults do not apply.
+
+> [!NOTE]
+> As an implementation detail, this currently uses <https://github.com/prefix-dev/rip> which is a very fast Rust-based tool.
 """
 
 load("@rules_python//python:defs.bzl", "PyInfo")
