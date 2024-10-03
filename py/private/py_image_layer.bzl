@@ -3,8 +3,8 @@
 load("@aspect_bazel_lib//lib:tar.bzl", "mtree_spec", "tar")
 
 default_layer_groups = {
-    # match *only* external pip like repositories that contain the string "pip_deps"
-    "packages": "\\.runfiles/pip_deps.*",
+    # match *only* external pip like repositories that contain the string "site-packages"
+    "packages": "\\.runfiles/.*/site-packages",
     # match *only* external repositories that begins with the string "python"
     # e.g. this will match
     #   `/hello_world/hello_world_bin.runfiles/rules_python~0.21.0~python~python3_9_aarch64-unknown-linux-gnu/bin/python3`
@@ -16,7 +16,7 @@ default_layer_groups = {
 def py_image_layer(name, py_binary, root = None, layer_groups = {}, compress = "gzip", tar_args = ["--options", "gzip:!timestamp"], **kwargs):
     """Produce a separate tar output for each layer of a python app
 
-    > Requires `awk` to be installed on the host machiner/rbe runner.
+    > Requires `awk` to be installed on the host machine/rbe runner.
 
     For better performance, it is recommended to split the output of a py_binary into multiple layers.
     This can be done by grouping files into layers based on their path by using the `layer_groups` attribute.
