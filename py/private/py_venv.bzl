@@ -1,4 +1,11 @@
-"""Implementation for the py_binary and py_test rules."""
+"""Create a Python virtualenv directory structure.
+
+Note that [py_binary](./py_binary.md#py_binary) and [py_test](./py_test.md#py_test) macros automatically provide `[name].venv` targets.
+Using `py_venv` directly is only required for cases where those defaults do not apply.
+
+> [!NOTE]
+> As an implementation detail, this currently uses <https://github.com/prefix-dev/rip> which is a very fast Rust-based tool.
+"""
 
 load("@rules_python//python:defs.bzl", "PyInfo")
 load("@aspect_bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
@@ -85,8 +92,8 @@ def _py_venv_rule_imp(ctx):
         ),
     ]
 
-_py_venv = rule(
-    doc = "Create a Python virtual environment with the dependencies listed.",
+py_venv_rule = rule(
+    doc = """Create a Python virtual environment with the dependencies listed.""",
     implementation = _py_venv_rule_imp,
     attrs = {
         "deps": attr.label_list(
@@ -140,11 +147,18 @@ A collision can occour when multiple packages providing the same file are instal
 )
 
 def py_venv(name, **kwargs):
-    # By default, VSCode (and likely other tools) expect to find virtualenv's in the root of the project opened in the editor.
-    # They also provide a nice name to see "which one is open" when discovered this way.
-    # See https://github.com/aspect-build/rules_py/issues/395
+    """Wrapper macro for [`py_venv_rule`](#py_venv_rule).
+
+    Chooses a suitable default location for the resulting directory.
+
+    By default, VSCode (and likely other tools) expect to find virtualenv's in the root of the project opened in the editor.
+    They also provide a nice name to see "which one is open" when discovered this way.
+    See https://github.com/aspect-build/rules_py/issues/395
+
+    Use py_venv_rule directly to have more control over the location.
+    """
     default_venv_name = ".{}".format(paths.join(native.package_name(), name).replace("/", "+"))
-    _py_venv(
+    py_venv_rule(
         name = name,
         venv_name = kwargs.pop("venv_name", default_venv_name),
         **kwargs

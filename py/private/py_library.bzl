@@ -1,4 +1,8 @@
-"""Implementation for the py_library rule"""
+"""A re-implementation of [py_library](https://bazel.build/reference/be/python#py_library).
+
+Supports "virtual" dependencies with a `virtual_deps` attribute, which lists packages which are required
+without binding them to a particular version of that package.
+"""
 
 load("@rules_python//python:defs.bzl", "PyInfo")
 load("@bazel_skylib//lib:paths.bzl", "paths")

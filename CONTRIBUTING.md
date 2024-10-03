@@ -30,11 +30,11 @@ artifact or a version fetched from the internet, run this from this
 directory:
 
 ```sh
-OVERRIDE="--override_repository=rules_py=$(pwd)/rules_py"
+OVERRIDE="--override_repository=aspect_rules_py=$(pwd)/rules_py"
 echo "common $OVERRIDE" >> ~/.bazelrc
 ```
 
-This means that any usage of `@rules_py` on your system will point to this folder.
+This means that any usage of `@aspect_rules_py` on your system will point to this folder.
 
 ## Releasing
 

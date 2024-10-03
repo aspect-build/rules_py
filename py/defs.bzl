@@ -1,4 +1,39 @@
-"Public API re-exports"
+"""Re-implementations of [py_binary](https://bazel.build/reference/be/python#py_binary)
+and [py_test](https://bazel.build/reference/be/python#py_test)
+
+## Choosing the Python version
+
+The `python_version` attribute must refer to a python toolchain version
+which has been registered in the WORKSPACE or MODULE.bazel file.
+
+When using WORKSPACE, this may look like this:
+
+```starlark
+load("@rules_python//python:repositories.bzl", "py_repositories", "python_register_toolchains")
+
+python_register_toolchains(
+    name = "python_toolchain_3_8",
+    python_version = "3.8.12",
+    # setting set_python_version_constraint makes it so that only matches py_* rule  
+    # which has this exact version set in the `python_version` attribute.
+    set_python_version_constraint = True,
+)
+
+# It's important to register the default toolchain last it will match any py_* target. 
+python_register_toolchains(
+    name = "python_toolchain",
+    python_version = "3.9",
+)
+```
+
+Configuring for MODULE.bazel may look like this:
+
+```starlark
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(python_version = "3.8.12", is_default = False)
+python.toolchain(python_version = "3.9", is_default = True)
+```
+"""
 
 load("@aspect_bazel_lib//lib:utils.bzl", "propagate_common_rule_attributes")
 load("//py/private:py_binary.bzl", _py_binary = "py_binary", _py_test = "py_test")
@@ -57,17 +92,17 @@ def _py_binary_or_test(name, rule, srcs, main, deps = [], resolutions = {}, **kw
 def py_binary(name, srcs = [], main = None, **kwargs):
     """Wrapper macro for [`py_binary_rule`](#py_binary_rule).
 
-    Creates a virtualenv to constrain the interpreter and packages used at runtime.
-    Users can `bazel run [name].venv` to produce this, then use it in the editor.
+    Creates a [py_venv](./venv.md) target to constrain the interpreter and packages used at runtime.
+    Users can `bazel run [name].venv` to create this virtualenv, then use it in the editor or other tools.
 
     Args:
         name: Name of the rule.
         srcs: Python source files.
         main: Entry point.
             Like rules_python, this is treated as a suffix of a file that should appear among the srcs.
-            If absent, then "[name].py" is tried. As a final fallback, if the srcs has a single file,
+            If absent, then `[name].py` is tried. As a final fallback, if the srcs has a single file,
             that is used as the main.
-        **kwargs: additional named parameters to the py_binary_rule.
+        **kwargs: additional named parameters to `py_binary_rule`.
     """
 
     # For a clearer DX when updating resolutions, the resolutions dict is "string" -> "label",
@@ -79,7 +114,7 @@ def py_binary(name, srcs = [], main = None, **kwargs):
     _py_binary_or_test(name = name, rule = _py_binary, srcs = srcs, main = main, resolutions = resolutions, **kwargs)
 
 def py_test(name, main = None, srcs = [], **kwargs):
-    "Identical to py_binary, but produces a target that can be used with `bazel test`."
+    "Identical to [py_binary](./py_binary.md), but produces a target that can be used with `bazel test`."
 
     # Ensure that any other targets we write will be testonly like the py_test target
     kwargs["testonly"] = True

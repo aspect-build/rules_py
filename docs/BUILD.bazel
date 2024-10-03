@@ -3,8 +3,37 @@
 load("@aspect_bazel_lib//lib:docs.bzl", "stardoc_with_diff_test", "update_docs")
 
 stardoc_with_diff_test(
-    name = "rules",
+    name = "py_library",
+    bzl_library_target = "//py/private:py_library",
+)
+
+stardoc_with_diff_test(
+    name = "py_binary",
     bzl_library_target = "//py:defs",
+    symbol_names = [
+        "py_binary",
+        "py_binary_rule",
+    ],
+)
+
+stardoc_with_diff_test(
+    name = "py_test",
+    bzl_library_target = "//py:defs",
+    symbol_names = [
+        "py_test",
+        "py_test_rule",
+        "py_pytest_main",
+    ],
+)
+
+stardoc_with_diff_test(
+    name = "pex",
+    bzl_library_target = "//py/private:py_pex_binary",
+)
+
+stardoc_with_diff_test(
+    name = "venv",
+    bzl_library_target = "//py/private:py_venv",
 )
 
 update_docs(name = "update")

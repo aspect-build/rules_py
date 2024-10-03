@@ -7,21 +7,25 @@ The lower layer of `rules_python` is currently reused, dealing with the toolchai
 However, this ruleset introduces a new implementation of `py_library`, `py_binary`, and `py_test`.
 Our philosophy is to behave more like idiomatic python ecosystem tools, where rules_python is closely
 tied to the way Google does Python development in their internal monorepo, google3.
+However we try to maintain compatibility with rules_python's rules for most use cases.
 
-| Layer                                       | Legacy       | Recommended      |
-| ------------------------------------------- | ------------ | ---------------- |
-| rules: BUILD file UI                        | rules_python | **rules_py**     |
-| gazelle: generate BUILD files               | rules_python | rules_python [1] |
-| pip_parse: fetch and install deps from pypi | rules_python | rules_python     |
-| toolchain: fetch hermetic interpreter       | rules_python | rules_python     |
+| Layer                                       | Legacy       | Recommended          |
+| ------------------------------------------- | ------------ | -------------------- |
+| toolchain: fetch hermetic interpreter       | rules_python | rules_python         |
+| pip.parse: fetch and install deps from pypi | rules_python | rules_python         |
+| gazelle: generate BUILD files               | rules_python | [`aspect configure`] |
+| rules: user-facing implementations          | rules_python | **rules_py**         |
+
+Watch our video series for a quick tutorial on how rules_py makes it easy to do Python with Bazel:
+[![youtube playlist](https://i.ytimg.com/vi/Ms9qX0Yyn0s/hqdefault.jpg)](https://www.youtube.com/playlist?list=PLLU28e_DRwdu46fldnYzyFYvSJLjVFICd)
 
 _Need help?_ This ruleset has support provided by https://aspect.dev.
 
-[1] we will likely fork the extension for performance, using TreeSitter to parse Python code rather than a Python program.
+[`aspect configure`]: https://docs.aspect.build/cli/commands/aspect_configure
 
 ## Differences
 
-We think you'll love rules_py because:
+We think you'll love rules_py because it fixes many issues with rules_python's rule implementations:
 
 - The launcher uses the Bash toolchain rather than Python, so we have no dependency on a system interpreter. Fixes:
   - [py_binary with hermetic toolchain requires a system interpreter](https://github.com/bazelbuild/rules_python/issues/691)
@@ -32,8 +36,8 @@ We think you'll love rules_py because:
   - [sys.path[0] breaks out of runfile tree.](https://github.com/bazelbuild/rules_python/issues/382)
   - [User site-packages directory should be ignored](https://github.com/bazelbuild/rules_python/issues/1059)
 - We create a python-idiomatic virtualenv to run actions, which means better compatibility with userland implementations of [importlib](https://docs.python.org/3/library/importlib.html).
-- Thanks to the virtualenv, you can open the project in an editor like PyCharm and have working auto-complete, jump-to-definition, etc. Fixes:
-  - [Smooth IDE support for python_rules](https://github.com/bazelbuild/rules_python/issues/1401)
+- Thanks to the virtualenv, you can open the project in an editor like PyCharm or VSCode and have working auto-complete, jump-to-definition, etc.
+  - Fixes [Smooth IDE support for python_rules](https://github.com/bazelbuild/rules_python/issues/1401)
 
 > [!NOTE]
 > What about the "starlarkification" effort in rules_python?
@@ -50,7 +54,7 @@ Follow instructions from the release you wish to use:
 
 ### Using with Gazelle
 
-In any ancestor `BUILD` file of the Python code, add these lines to instruct [Gazelle] to create rules_py variants of the `py_*` rules:
+In any ancestor `BUILD` file of the Python code, add these lines to instruct [Gazelle] to create `rules_py` variants of the `py_*` rules:
 
 ```
 # gazelle:map_kind py_library py_library @aspect_rules_py//py:defs.bzl
@@ -58,4 +62,20 @@ In any ancestor `BUILD` file of the Python code, add these lines to instruct [Ga
 # gazelle:map_kind py_test py_test @aspect_rules_py//py:defs.bzl
 ```
 
-[Gazelle]: https://github.com/bazelbuild/rules_python/blob/main/gazelle/README.md
+[gazelle]: https://github.com/bazelbuild/rules_python/blob/main/gazelle/README.md
+
+# Public API
+
+## Executables
+
+- [py_binary](docs/py_binary.md) an executable Python program, used with `bazel run` or as a tool.
+- [py_test](docs/py_test.md) a Python program that executes a test runner such as `unittest` or `pytest`, to be used with `bazel test`.
+- [py_venv](docs/venv.md) create a virtualenv for a `py_binary` or `py_test` target for use outside Bazel, such as in an editor/IDE.
+
+## Packaging
+
+- [py_pex_binary](docs/pex.md) Create a zip file containing a full Python application.
+
+## Packages
+
+- [py_library](docs/py_library.md) a unit of Python code, used as a dependency of other rules.
