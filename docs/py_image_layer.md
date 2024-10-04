@@ -1,39 +1,34 @@
 <!-- Generated with Stardoc: http://skydoc.bazel.build -->
 
-Re-implementations of [py_binary](https://bazel.build/reference/be/python#py_binary)
-and [py_test](https://bazel.build/reference/be/python#py_test)
+py_image_layer macro for creating multiple layers from a py_binary
 
-## Choosing the Python version
+&gt;&gt; [!WARNING]
+&gt;&gt; This macro is EXPERIMENTAL and is not subject to our SemVer guarantees.
 
-The `python_version` attribute must refer to a python toolchain version
-which has been registered in the WORKSPACE or MODULE.bazel file.
+A py_binary that uses `torch` and `numpy` can use the following layer groups:
 
-When using WORKSPACE, this may look like this:
-
-```starlark
-load("@rules_python//python:repositories.bzl", "py_repositories", "python_register_toolchains")
-
-python_register_toolchains(
-    name = "python_toolchain_3_8",
-    python_version = "3.8.12",
-    # setting set_python_version_constraint makes it so that only matches py_* rule  
-    # which has this exact version set in the `python_version` attribute.
-    set_python_version_constraint = True,
-)
-
-# It's important to register the default toolchain last it will match any py_* target. 
-python_register_toolchains(
-    name = "python_toolchain",
-    python_version = "3.9",
-)
 ```
+load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@aspect_rules_py//py:defs.bzl", "py_image_layer", "py_binary")
 
-Configuring for MODULE.bazel may look like this:
+py_binary(
+    name = "my_app_bin",
+    deps = [
+        "@pip_deps//numpy",
+        "@pip_deps//torch"
+    ]
+)
 
-```starlark
-python = use_extension("@rules_python//python/extensions:python.bzl", "python")
-python.toolchain(python_version = "3.8.12", is_default = False)
-python.toolchain(python_version = "3.9", is_default = True)
+oci_image(
+    tars = py_image_layer(
+        name = "my_app",
+        py_binary = ":my_app_bin",
+        layer_groups = {
+            "torch": "pip_deps_torch.*",
+            "numpy": "pip_deps_numpy.*",
+        }
+    )
+)
 ```
 
 
@@ -46,8 +41,6 @@ py_image_layer(<a href="#py_image_layer-name">name</a>, <a href="#py_image_layer
 </pre>
 
 Produce a separate tar output for each layer of a python app
-
-&gt; Note: This macro is EXPERIMENTAL and is not subject to our SemVer guarantees.
 
 &gt; Requires `awk` to be installed on the host machine/rbe runner.
 
@@ -66,22 +59,6 @@ The default layer groups are:
     "interpreter": "\.runfiles/python.*-.*/", # contains the python interpreter
 }
 ```
-
-A py_binary that uses `torch` and `numpy` can use the following layer groups:
-
-```
-oci_image(
-    tars = py_image_layer(
-        name = "my_app",
-        py_binary = ":my_app_bin",
-        layer_groups = {
-            "torch": "pip_deps_torch.*",
-            "numpy": "pip_deps_numpy.*",
-        }
-    )
-)
-```
-
 
 
 **PARAMETERS**

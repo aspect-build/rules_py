@@ -33,10 +33,7 @@ stardoc_with_diff_test(
 
 stardoc_with_diff_test(
     name = "py_image_layer",
-    bzl_library_target = "//py:defs",
-    symbol_names = [
-        "py_image_layer",
-    ],
+    bzl_library_target = "//py/private:py_image_layer",
 )
 
 stardoc_with_diff_test(

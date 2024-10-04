@@ -1,4 +1,34 @@
-"py_image_layer"
+"""py_image_layer macro for creating multiple layers from a py_binary
+
+>> [!WARNING]
+>> This macro is EXPERIMENTAL and is not subject to our SemVer guarantees.
+
+A py_binary that uses `torch` and `numpy` can use the following layer groups:
+
+```
+load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@aspect_rules_py//py:defs.bzl", "py_image_layer", "py_binary")
+
+py_binary(
+    name = "my_app_bin",
+    deps = [
+        "@pip_deps//numpy",
+        "@pip_deps//torch"
+    ]
+)
+
+oci_image(
+    tars = py_image_layer(
+        name = "my_app",
+        py_binary = ":my_app_bin",
+        layer_groups = {
+            "torch": "pip_deps_torch.*",
+            "numpy": "pip_deps_numpy.*",
+        }
+    )
+)
+```
+"""
 
 load("@aspect_bazel_lib//lib:tar.bzl", "mtree_spec", "tar")
 
@@ -63,8 +93,6 @@ awk < $< 'BEGIN {
 def py_image_layer(name, py_binary, root = None, layer_groups = {}, compress = "gzip", tar_args = ["--options", "gzip:!timestamp"], **kwargs):
     """Produce a separate tar output for each layer of a python app
 
-    > Note: This macro is EXPERIMENTAL and is not subject to our SemVer guarantees.
-
     > Requires `awk` to be installed on the host machine/rbe runner.
 
     For better performance, it is recommended to split the output of a py_binary into multiple layers.
@@ -82,22 +110,6 @@ def py_image_layer(name, py_binary, root = None, layer_groups = {}, compress = "
         "interpreter": "\\.runfiles/python.*-.*/", # contains the python interpreter
     }
     ```
-
-    A py_binary that uses `torch` and `numpy` can use the following layer groups:
-
-    ```
-    oci_image(
-        tars = py_image_layer(
-            name = "my_app",
-            py_binary = ":my_app_bin",
-            layer_groups = {
-                "torch": "pip_deps_torch.*",
-                "numpy": "pip_deps_numpy.*",
-            }
-        )
-    )
-    ```
-    
 
     Args:
         name: base name for targets
