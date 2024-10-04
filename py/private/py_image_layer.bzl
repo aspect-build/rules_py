@@ -106,7 +106,7 @@ def py_image_layer(name, py_binary, root = None, layer_groups = {}, compress = "
     The default layer groups are:
     ```
     {
-        "packages": "\\.runfiles/pip_deps.*", # contains third-party deps
+        "packages": "\\.runfiles/.*/site-packages",, # contains third-party deps
         "interpreter": "\\.runfiles/python.*-.*/", # contains the python interpreter
     }
     ```

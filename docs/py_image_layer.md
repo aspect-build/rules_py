@@ -55,7 +55,7 @@ The matching order for layer groups is as follows:
 The default layer groups are:
 ```
 {
-    "packages": "\.runfiles/pip_deps.*", # contains third-party deps
+    "packages": "\.runfiles/.*/site-packages",, # contains third-party deps
     "interpreter": "\.runfiles/python.*-.*/", # contains the python interpreter
 }
 ```
