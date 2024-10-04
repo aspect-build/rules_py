@@ -13,6 +13,53 @@ default_layer_groups = {
     "interpreter": "\\.runfiles/python.*-.*/",
 }
 
+def _split_mtree_into_layer_groups(name, root, groups, group_names, **kwargs):
+    mtree_begin_blocks = "\n".join([
+        'print "#mtree" >> "$(RULEDIR)/%s.%s.manifest.spec";' % (name, gn)
+        for gn in group_names
+    ])
+
+    # When an mtree entry matches a layer group, it will be moved into the mtree
+    # for that group.
+    ifs = "\n".join([
+        """\
+if ($$1 ~ "%s") {
+    print $$0 >> "$(RULEDIR)/%s.%s.manifest.spec";
+    next
+}""" % (regex, name, gn)
+        for (gn, regex) in groups.items()
+    ])
+
+    cmd = """\
+awk < $< 'BEGIN {
+    %s
+}
+{
+    # Exclude .whl files from container images
+    if ($$1 ~ ".whl") {
+        next
+    }
+    # Move everything under the specified root
+    sub(/^/, ".%s")
+    # Match by regexes and write to the destination.
+    %s
+    # Every line that did not match the layer groups will go into the default layer.
+    print $$0 >> "$(RULEDIR)/%s.default.manifest.spec"
+}'
+""" % (mtree_begin_blocks, root, ifs, name)
+
+    native.genrule(
+        name = "_{}_manifests".format(name),
+        srcs = [name + ".manifest"],
+        outs = [
+            "{}.{}.manifest.spec".format(name, group_name)
+            for group_name in group_names
+        ],
+        cmd = cmd,
+        **kwargs
+    )
+
+
 def py_image_layer(name, py_binary, root = None, layer_groups = {}, compress = "gzip", tar_args = ["--options", "gzip:!timestamp"], **kwargs):
     """Produce a separate tar output for each layer of a python app
 
@@ -76,50 +123,7 @@ def py_image_layer(name, py_binary, root = None, layer_groups = {}, compress = "
     groups = dict(**layer_groups)
     group_names = groups.keys() + ["default"]
 
-    mtree_begin_blocks = "\n".join([
-        'print "#mtree" >> "$(RULEDIR)/%s.%s.manifest.spec";' % (name, gn)
-        for gn in group_names
-    ])
-
-    # When an mtree entry matches a layer group, it will be moved into the mtree
-    # for that group.
-    ifs = "\n".join([
-        """\
-if ($$1 ~ "%s") {
-    print $$0 >> "$(RULEDIR)/%s.%s.manifest.spec";
-    next
-}""" % (regex, name, gn)
-        for (gn, regex) in groups.items()
-    ])
-
-    cmd = """\
-awk < $< 'BEGIN {
-    %s
-}
-{
-    # Exclude .whl files from container images
-    if ($$1 ~ ".whl") {
-        next
-    }
-    # Move everything under the specified root
-    sub(/^/, ".%s")
-    # Match by regexes and write to the destination.
-    %s
-    # Every line that did not match the layer groups will go into the default layer.
-    print $$0 >> "$(RULEDIR)/%s.default.manifest.spec"
-}'
-""" % (mtree_begin_blocks, root, ifs, name)
-
-    native.genrule(
-        name = "_{}_manifests".format(name),
-        srcs = [name + ".manifest"],
-        outs = [
-            "{}.{}.manifest.spec".format(name, group_name)
-            for group_name in group_names
-        ],
-        cmd = cmd,
-        **kwargs
-    )
+    _split_mtree_into_layer_groups(name, root, groups, group_names, **kwargs)
 
     # Finally create layers using the tar rule
     result = []
