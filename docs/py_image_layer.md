@@ -2,8 +2,8 @@
 
 py_image_layer macro for creating multiple layers from a py_binary
 
-&gt;&gt; [!WARNING]
-&gt;&gt; This macro is EXPERIMENTAL and is not subject to our SemVer guarantees.
+&gt; [!WARNING]
+&gt; This macro is EXPERIMENTAL and is not subject to our SemVer guarantees.
 
 A py_binary that uses `torch` and `numpy` can use the following layer groups:
 
