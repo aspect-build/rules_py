@@ -4,6 +4,7 @@
 name: Release
 
 on:
+  workflow_dispatch: # allow trigger through Web UI
   push:
     tags:
       - "v*.*.*"
