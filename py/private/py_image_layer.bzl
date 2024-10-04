@@ -63,6 +63,8 @@ awk < $< 'BEGIN {
 def py_image_layer(name, py_binary, root = None, layer_groups = {}, compress = "gzip", tar_args = ["--options", "gzip:!timestamp"], **kwargs):
     """Produce a separate tar output for each layer of a python app
 
+    > Note: This macro is EXPERIMENTAL and is not subject to our SemVer guarantees.
+
     > Requires `awk` to be installed on the host machine/rbe runner.
 
     For better performance, it is recommended to split the output of a py_binary into multiple layers.

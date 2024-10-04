@@ -47,6 +47,8 @@ py_image_layer(<a href="#py_image_layer-name">name</a>, <a href="#py_image_layer
 
 Produce a separate tar output for each layer of a python app
 
+&gt; Note: This macro is EXPERIMENTAL and is not subject to our SemVer guarantees.
+
 &gt; Requires `awk` to be installed on the host machine/rbe runner.
 
 For better performance, it is recommended to split the output of a py_binary into multiple layers.
