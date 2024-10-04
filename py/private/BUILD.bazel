@@ -23,6 +23,14 @@ exports_files(
 )
 
 bzl_library(
+    name = "py_image_layer",
+    srcs = ["py_image_layer.bzl"],
+    deps = [
+        "@aspect_bazel_lib//lib:tar",
+    ],
+)
+
+bzl_library(
     name = "py_binary",
     srcs = ["py_binary.bzl"],
     deps = [
