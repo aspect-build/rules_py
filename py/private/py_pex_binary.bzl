@@ -56,26 +56,15 @@ def _map_srcs(f, workspace):
 
     site_packages_i = f.path.find("site-packages")
 
-    # if path contains `site-packages` and there is only two path segments
-    # after it, it will be treated as third party dep.
-    # Here are some examples of path we expect and use and ones we ignore.
-    #
-    # Match: `external/rules_python~~pip~pypi_39_rtoml/site-packages/rtoml-0.11.0.dist-info/INSTALLER`
-    # Reason: It has two `/` after first `site-packages` substring.
-    #
-    # No Match: `external/rules_python~~pip~pypi_39_rtoml/site-packages/rtoml-0.11.0/src/mod/parse.py`
-    # Reason: It has three `/` after first `site-packages` substring.
-    if site_packages_i != -1 and f.path.count("/", site_packages_i) == 2:
-        if f.path.find("dist-info", site_packages_i) != -1:
+    # If the path contains 'site-packages', treat it as a third party dep
+    if site_packages_i != -1:
+        if f.path.find("dist-info", site_packages_i) != -1 and f.path.count("/", site_packages_i) == 2:
             return ["--distinfo={}".format(f.dirname)]
-        return ["--dep={}".format(f.dirname)]
 
-    elif site_packages_i == -1:
-        # If the path does not have a `site-packages` in it, then put it into
-        # the standard runfiles tree.
-        return ["--source={}={}".format(f.path, dest_path)]
+        return ["--dep={}".format(f.path[:site_packages_i + len("site-packages")])]
 
-    return []
+    # If the path does not have a `site-packages` in it, then put it into the standard runfiles tree.
+    return ["--source={}={}".format(f.path, dest_path)]
 
 def _py_python_pex_impl(ctx):
     py_toolchain = _py_semantics.resolve_toolchain(ctx)

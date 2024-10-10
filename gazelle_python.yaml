@@ -2161,6 +2161,7 @@ manifest:
     numpy.lib.ufunclike: numpy
     numpy.lib.user_array: numpy
     numpy.lib.utils: numpy
+    numpy.libs.libopenblas64_p-r0-0cf96a72: numpy
     numpy.linalg: numpy
     numpy.linalg.lapack_lite: numpy
     numpy.linalg.linalg: numpy
@@ -3716,6 +3717,7 @@ manifest:
     past.types.olddict: future
     past.types.oldstr: future
     past.utils: future
+    pillow.libs.libopenjp2-05423b53: pillow
     pluggy: pluggy
     proxytypes: jsonref
     psutil: psutil
@@ -3986,4 +3988,4 @@ manifest:
     yaml.tokens: PyYAML
   pip_repository:
     name: pypi
-integrity: e0cc13413ec04d597469a3a5baa75d320d7c614017bbccd34aa3e356675dd984
+integrity: 2e0cbc780621ce75951013e6968f66d1aadd8d1ecb8b7c470883c998b169e733
