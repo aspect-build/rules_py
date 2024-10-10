@@ -135,6 +135,7 @@ def py_image_layer(name, py_binary, root = None, layer_groups = {}, compress = "
     )
 
     groups = dict(**layer_groups)
+    groups = dict(groups, **default_layer_groups)
     group_names = groups.keys() + ["default"]
 
     _split_mtree_into_layer_groups(name, root, groups, group_names, **kwargs)
