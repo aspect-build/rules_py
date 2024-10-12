@@ -20,4 +20,5 @@ def rules_py_internal_pypi_deps(interpreter):
         name = "django",
         python_interpreter_target = interpreter,
         requirements_lock = "//py/tests/virtual/django:requirements.txt",
+        requirements_windows = "//py/tests/virtual/django:requirements_windows.txt",
     )

@@ -160,6 +160,7 @@ rust_register_toolchains(
     edition = RUST_EDITION,
     extra_target_triples = [
         "x86_64-apple-darwin",
+        "x86_64-pc-windows-gnu",
     ],
     versions = [RUST_VERSION],
 )
