@@ -784,7 +784,7 @@ sqlparse==0.5.1 \
     --hash=sha256:773dcbf9a5ab44a090f3441e2180efe2560220203dc2f8c0b0fa141e18b505e4 \
     --hash=sha256:bb6b4df465655ef332548e24f08e205afc81b9ab86cb1c45657a7ff173a3a00e
     # via django
-swagger-spec-validator==3.0.3 \
+swagger-spec-validator==3.0.4 \
     --hash=sha256:16a5ce08c772824a77b1a4a05efc047d72eef1ed53fb969dfe0a18f437ac30a8 \
     --hash=sha256:174b5de4ab0899df9a57d35c880aaa515511c4b8b578d9d519b09a9596537055
     # via
