@@ -138,22 +138,33 @@ fn create_symlink(
     let link = dst_dir.join(tgt.strip_prefix(root_dir).unwrap());
 
     fn conflict_report(link: &Path, tgt: &Path, severity: Severity) -> miette::Report {
-        let path_to_conflict = link
+        const SITE_PACKAGES: &str = "site-packages/";
+
+        let link_str = link.to_str().unwrap();
+        let tgt_str = tgt.to_str().unwrap();
+
+        let link_span_range = link
             .to_str()
-            .and_then(|s| s.split_once("site-packages/"))
+            .and_then(|s| s.split_once(SITE_PACKAGES))
             .map(|s| s.1)
+            .map(|s| (link_str.len() - s.len() - SITE_PACKAGES.len())..link_str.len())
             .unwrap();
-        let next_conflict = tgt
+
+        let conflict_span_range = tgt
             .to_str()
-            .and_then(|s| s.split_once(".runfiles/"))
+            .and_then(|s| s.split_once(SITE_PACKAGES))
             .map(|s| s.1)
+            .map(|s| {
+                (link_str.len() + tgt_str.len() - s.len() - SITE_PACKAGES.len() + 1)
+                    ..tgt_str.len() + link_str.len() + 1
+            })
             .unwrap();
 
         let mut diag = MietteDiagnostic::new("Conflicting symlinks found when attempting to create venv. More than one package provides the file at these paths".to_string())
             .with_severity(severity)
             .with_labels([
-                LabeledSpan::at(0..path_to_conflict.len(), "Existing file in virtual environment"),
-                LabeledSpan::at((path_to_conflict.len() + 1)..(path_to_conflict.len() + 1 + next_conflict.len()), "Next file to link"),
+                LabeledSpan::at(link_span_range, "Existing file in virtual environment"),
+                LabeledSpan::at(conflict_span_range, "Next file to link"),
             ]);
 
         diag = if severity == Severity::Error {
@@ -162,7 +173,11 @@ fn create_symlink(
             diag.with_help("Set `package_collisions = \"ignore\"` on the binary or test rule to ignore this warning")
         };
 
-        miette!(diag).with_source_code(format!("{}\n{}", path_to_conflict, next_conflict))
+        miette!(diag).with_source_code(format!(
+            "{}\n{}",
+            link.to_str().unwrap(),
+            tgt.to_str().unwrap()
+        ))
     }
 
     if link.exists() {
