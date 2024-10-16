@@ -37,11 +37,6 @@ struct VenvArgs {
     #[arg(long)]
     location: PathBuf,
 
-    /// Python version string to use, eg 3.8.12
-    /// Must be seperated by dots.
-    #[arg(long)]
-    python_version: String,
-
     /// Path to a .pth file to add to the site-packages of the generated venv.
     #[arg(long)]
     pth_file: PathBuf,
@@ -55,16 +50,21 @@ struct VenvArgs {
     /// If none is given, an error will be thrown.
     #[arg(long)]
     collision_strategy: Option<SymlinkCollisionStrategy>,
+
+    /// Name to apply to the venv in the terminal when using
+    /// activate scripts.
+    #[arg(long)]
+    venv_name: String,
 }
 
 fn venv_cmd_handler(args: VenvArgs) -> miette::Result<()> {
     let pth_file = py::PthFile::new(&args.pth_file, args.pth_entry_prefix);
     py::create_venv(
         &args.python,
-        &args.python_version,
         &args.location,
         Some(pth_file),
         args.collision_strategy.unwrap_or_default().into(),
+        &args.venv_name,
     )
 }
 

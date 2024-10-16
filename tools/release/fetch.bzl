@@ -47,6 +47,12 @@ def fetch_deps():
     )
 
     http_archive(
+        name = "musl_toolchains",
+        sha256 = "86bf928e6b11e81d2d33ca8e044b875f1ed7c7016b607376dd5575db7342c31e",
+        urls = ["https://github.com/bazel-contrib/musl-toolchain/releases/download/v0.1.20/musl_toolchain-v0.1.20.tar.gz"],
+    )
+
+    http_archive(
         name = "sysroot_darwin_universal",
         build_file_content = _SYSROOT_DARWIN_BUILD_FILE,
         sha256 = "11870a4a3d382b78349861081264921bb883440a7e0b3dd4a007373d87324a38",
