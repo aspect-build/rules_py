@@ -28,7 +28,7 @@ python_register_toolchains(
     name = "python_toolchain_3_8",
     python_version = "3.8.12",
     # Setting `set_python_version_constraint` will set special constraints on the registered toolchain.
-    # This means that this toolchain registration will only be selected for `py_binary` / `py_test` targets 
+    # This means that this toolchain registration will only be selected for `py_binary` / `py_test` targets
     # that have the `python_version = "3.8.12"` attribute set. Targets that have no `python_attribute` will use
     # the default toolchain resolved which can be seen below.
     set_python_version_constraint = True,
@@ -69,8 +69,8 @@ llvm_toolchain(
     sysroot = {
         "darwin-aarch64": "@sysroot_darwin_universal//:sysroot",
         "darwin-x86_64": "@sysroot_darwin_universal//:sysroot",
-        "linux-aarch64": "@org_chromium_sysroot_linux_arm64//:sysroot",
-        "linux-x86_64": "@org_chromium_sysroot_linux_x86_64//:sysroot",
+        # "linux-aarch64": "@org_chromium_sysroot_linux_arm64//:sysroot",
+        # "linux-x86_64": "@org_chromium_sysroot_linux_x86_64//:sysroot",
     },
     urls = {
         "darwin-aarch64": ["https://github.com/dzbarsky/static-clang/releases/download/v17.0.2-8/darwin_arm64_minimal.tar.xz"],
@@ -154,7 +154,7 @@ rules_rust_dependencies()
 
 RUST_EDITION = "2021"
 
-RUST_VERSION = "1.77.2"
+RUST_VERSION = "1.81.0"
 
 rust_register_toolchains(
     edition = RUST_EDITION,
@@ -173,6 +173,13 @@ rust_repository_set(
     extra_target_triples = [
         "aarch64-apple-darwin",
     ],
+    sha256s = {
+        "rustc-1.81.0-aarch64-apple-darwin.tar.xz": "bed00f549a08030b232ad811728e3a5d7239e2e53b667df9cfb11eabf87f2cf3",
+        "clippy-1.81.0-aarch64-apple-darwin.tar.xz": "fcab64f49cd2fb47f3c9ee96cf31ce178b05be66b7dbc0543c3ea217bd4786bf",
+        "cargo-1.81.0-aarch64-apple-darwin.tar.xz": "cc826e6592016db7a5750a97051b71b48aca2d79f146daf08e953d56000ae43d",
+        "llvm-tools-1.81.0-aarch64-apple-darwin.tar.xz": "907aaf74df0dd97a23da03fde3a5162535498e5ab67c0adb6fee22999ca461fb",
+        "rust-std-1.81.0-aarch64-apple-darwin.tar.xz": "2dba5210a79617a9240570c1f7fcc24912a2c96689a3159324727e5a516c6326",
+    },
     versions = [RUST_VERSION],
 )
 

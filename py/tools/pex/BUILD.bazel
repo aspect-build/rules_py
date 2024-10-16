@@ -3,13 +3,12 @@ load("//py:defs.bzl", "py_binary", "py_unpacked_wheel")
 py_unpacked_wheel(
     name = "pex_unpacked",
     src = "@rules_py_pex_2_3_1//file",
-    py_package_name = "pex"
 )
 
 py_binary(
     name = "pex",
     srcs = ["main.py"],
     main = "main.py",
+    visibility = ["//visibility:public"],
     deps = [":pex_unpacked"],
-    visibility = ["//visibility:public"]
 )
