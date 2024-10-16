@@ -73,11 +73,6 @@ def _py_binary_rule_impl(ctx):
             "{{ARG_COLLISION_STRATEGY}}": ctx.attr.package_collisions,
             "{{ARG_PYTHON}}": to_rlocation_path(ctx, py_toolchain.python) if py_toolchain.runfiles_interpreter else py_toolchain.python.path,
             "{{ARG_VENV_NAME}}": ".{}.venv".format(ctx.attr.name),
-            "{{ARG_VENV_PYTHON_VERSION}}": "{}.{}.{}".format(
-                py_toolchain.interpreter_version_info.major,
-                py_toolchain.interpreter_version_info.minor,
-                py_toolchain.interpreter_version_info.micro,
-            ),
             "{{ARG_PTH_FILE}}": to_rlocation_path(ctx, site_packages_pth_file),
             "{{ENTRYPOINT}}": to_rlocation_path(ctx, ctx.file.main),
             "{{PYTHON_ENV}}": "\n".join(_dict_to_exports(env)).strip(),

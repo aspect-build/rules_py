@@ -18,16 +18,12 @@ def _py_unpacked_wheel_impl(ctx):
         unpack_directory.path,
         "--wheel",
         ctx.file.src.path,
-        "--python",
-        py_toolchain.python,
         "--python-version",
         "{}.{}.{}".format(
             py_toolchain.interpreter_version_info.major,
             py_toolchain.interpreter_version_info.minor,
             py_toolchain.interpreter_version_info.micro,
         ),
-        "--package-name",
-        ctx.attr.py_package_name,
     ])
 
     ctx.actions.run(
@@ -70,9 +66,6 @@ _attrs = {
     "src": attr.label(
         doc = "The Wheel file, as defined by https://packaging.python.org/en/latest/specifications/binary-distribution-format/#binary-distribution-format",
         allow_single_file = [".whl"],
-        mandatory = True,
-    ),
-    "py_package_name": attr.string(
         mandatory = True,
     ),
     # NB: this is read by _resolve_toolchain in py_semantics.
