@@ -7,12 +7,12 @@ local_path_override(
 )
 
 # Because we use a prerelease of rules_py, we must compile the rust tools from source.
-bazel_dep(name = "rules_rust", version = "0.40.0")
+bazel_dep(name = "rules_rust", version = "0.42.1")
 
 rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
 rust.toolchain(
     edition = "2021",
-    versions = ["1.74.1"],
+    versions = ["1.81.0"],
 )
 use_repo(rust, "rust_toolchains")
 register_toolchains("@rust_toolchains//:all")

@@ -4,25 +4,19 @@ use std::{
 };
 
 use miette::{Context, IntoDiagnostic};
-use rattler_installs_packages::python_env::VEnv;
 
 use crate::{
     pth::{SitePackageOptions, SymlinkCollisionResolutionStrategy},
-    Interpreter, PthFile,
+    PthFile,
 };
 
 pub fn create_venv(
     python: &Path,
-    version: &str,
     location: &Path,
     pth_file: Option<PthFile>,
     collision_strategy: SymlinkCollisionResolutionStrategy,
+    venv_name: &str,
 ) -> miette::Result<()> {
-    // Parse and find the interpreter to use.
-    // Do this first so that incase we can't find or parse the version, we don't
-    // remove an existing venv.
-    let interpreter = Interpreter::new(python, version)?;
-
     if location.exists() {
         // Clear down the an old venv if there is one present.
         fs::remove_dir_all(location)
@@ -39,24 +33,32 @@ pub fn create_venv(
         .into_diagnostic()
         .wrap_err("Unable to determine absolute directory to venv directory")?;
 
-    let install_paths = interpreter.install_paths(false);
+    // Need a way of providing our own cache here that drops, we leave the caching up to
+    // bazel.
+    // The temp dir will be cleaned up when the cache goes out of scope.
+    let cache = uv_cache::Cache::temp().into_diagnostic()?;
 
-    VEnv::create_install_paths(&venv_location, &install_paths)
-        .into_diagnostic()
-        .wrap_err("Unable to remove create install paths")?;
+    let interpreter = uv_python::Interpreter::query(&python, &cache).into_diagnostic()?;
 
-    let python_path = interpreter.executable()?;
-    let python_exe_file_name = python_path.file_name().expect("file should have a name");
-    let venv_exe_path = venv_location.join(install_paths.scripts().join(python_exe_file_name));
-
-    VEnv::create_pyvenv(&venv_location, &python_path, interpreter.version.clone())
-        .into_diagnostic()?;
-    VEnv::setup_python(&venv_exe_path, &python_path, interpreter.version.clone())
-        .into_diagnostic()?;
+    let venv = uv_virtualenv::create_venv(
+        &venv_location,
+        interpreter,
+        uv_virtualenv::Prompt::Static(venv_name.to_string()),
+        false,
+        false,
+        false,
+        false,
+    )
+    .into_diagnostic()?;
 
     if let Some(pth) = pth_file {
+        let site_package_path = venv
+            .site_packages()
+            .nth(0)
+            .expect("Should have a site-packages directory");
+
         let site_packages_options = SitePackageOptions {
-            dest: venv_location.join(install_paths.platlib()),
+            dest: venv_location.join(site_package_path),
             collision_strategy,
         };
 
