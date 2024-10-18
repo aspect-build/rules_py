@@ -1,23 +1,15 @@
-load("@aspect_rules_py//py:defs.bzl", "py_pytest_main", "py_test")
+load("@aspect_rules_py//pytest:defs.bzl", "py_pytest_test")
 
-py_pytest_main(
-    name = "__test__",
-    deps = ["@pypi_pytest//:pkg"],
-)
-
-py_test(
+py_pytest_test(
     name = "pytest_test",
     srcs = [
         "foo_test.py",
-        ":__test__",
     ],
     imports = ["../.."],
-    main = ":__test__.py",
     package_collisions = "warning",
+    pip_repo = "pypi",
     deps = [
-        ":__test__",
         "@pypi_ftfy//:pkg",
         "@pypi_neptune//:pkg",
-        "@pypi_pytest//:pkg",
     ],
 )
