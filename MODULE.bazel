@@ -40,7 +40,7 @@ register_toolchains(
 
 bazel_dep(
     name = "rules_rust",
-    version = "0.50.1",
+    version = "0.53.0",
     # In released versions: dev_dependency = True
 )
 
