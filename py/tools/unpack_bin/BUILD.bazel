@@ -3,10 +3,10 @@ load("//tools/release:defs.bzl", "multi_arch_rust_binary_release")
 alias(
     name = "unpack_bin",
     actual = select({
-        "//tools/platforms:macos_aarch64": ":venv_macos_aarch64_build",
-        "//tools/platforms:macos_x86_64": ":venv_macos_x86_64_build",
-        "//tools/platforms:linux_aarch64": ":venv_linux_aarch64_build",
-        "//tools/platforms:linux_x86_64": ":venv_linux_x86_64_build",
+        "//tools/platforms:macos_aarch64": ":unpack_macos_aarch64_build",
+        "//tools/platforms:macos_x86_64": ":unpack_macos_x86_64_build",
+        "//tools/platforms:linux_aarch64": ":unpack_linux_aarch64_build",
+        "//tools/platforms:linux_x86_64": ":unpack_linux_x86_64_build",
     }),
     tags = ["manual"],
     visibility = ["//visibility:public"],
