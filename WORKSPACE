@@ -53,7 +53,7 @@ register_coreutils_toolchains()
 
 load("@musl_toolchains//:repositories.bzl", "load_musl_toolchains")
 
-load_musl_toolchains()
+load_musl_toolchains(extra_target_compatible_with = ["@//tools/linkers:musl"])
 
 load("@musl_toolchains//:toolchains.bzl", "register_musl_toolchains")
 
@@ -204,13 +204,22 @@ rust_repository_set(
         "aarch64-unknown-linux-musl": [
             "@platforms//cpu:arm64",
             "@platforms//os:linux",
+            "@//tools/linkers:musl",
+        ],
+        "aarch64-unknown-linux-gnu": [
+            "@platforms//cpu:arm64",
+            "@platforms//os:linux",
+            "@//tools/linkers:unknown",
         ],
         "x86_64-unknown-linux-gnu": [
-            "@platforms//:incompatible",
+            "@platforms//cpu:x86_64",
+            "@platforms//os:linux",
+            "@//tools/linkers:unknown",
         ],
         "x86_64-unknown-linux-musl": [
             "@platforms//cpu:x86_64",
             "@platforms//os:linux",
+            "@//tools/linkers:musl",
         ],
     },
     versions = [RUST_VERSION],
