@@ -1,7 +1,7 @@
 "Make releases for platforms supported by rules_py"
 
 load("@aspect_bazel_lib//lib:copy_file.bzl", "copy_file")
-load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
+load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_binary")
 load("@aspect_bazel_lib//tools/release:hashes.bzl", "hashes")
 
 def _map_os_to_triple(os):
@@ -15,11 +15,12 @@ def _map_os_to_triple(os):
 # buildozer: disable=function-docstring
 def multi_arch_rust_binary_release(name, src, os, archs = ["aarch64", "x86_64"], **kwargs):
     outs = []
+    actuals = {}
     for arch in archs:
         bin = Label(src).name
-        platform_transition_filegroup(
+        platform_transition_binary(
             name = "{}_{}_{}_build".format(bin, os, arch),
-            srcs = [src],
+            binary = src,
             target_platform = "//tools/release:{}_{}".format(os, arch),
             target_compatible_with = ["@platforms//os:{}".format(os)],
         )
