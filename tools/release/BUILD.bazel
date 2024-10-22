@@ -4,6 +4,7 @@
         constraint_values = [
             "@platforms//os:" + os,
             "@platforms//cpu:" + cpu,
+            "//tools/linkers:musl" if os == "linux" else "//tools/linkers:unknown",
         ],
         visibility = ["//py/tools:__subpackages__"],
     )
