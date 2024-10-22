@@ -22,6 +22,7 @@ def multi_arch_rust_binary_release(name, bin_name, os, archs = ["aarch64", "x86_
             name = "{}_{}_{}_build".format(bin_name, os, arch),
             platform = "//tools/release:{}_{}".format(os, arch),
             target_compatible_with = ["@platforms//os:{}".format(os)],
+            tags = ["manual"],
             **kwargs
         )
 
