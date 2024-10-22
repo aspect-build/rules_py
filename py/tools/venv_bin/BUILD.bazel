@@ -20,6 +20,7 @@ rust_binary(
 alias(
     name = "venv",
     actual = ":venv_bin",
+    tags = ["manual"],
 )
 
 multi_arch_rust_binary_release(
