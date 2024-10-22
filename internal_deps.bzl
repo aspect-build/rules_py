@@ -92,10 +92,23 @@ def rules_py_internal_deps():
         url = "https://github.com/bazelbuild/rules_python/releases/download/0.31.0/rules_python-0.31.0.tar.gz",
     )
 
+    # http_archive(
+    #     name = "rules_rust",
+    #     integrity = "sha256-3QBrdyIdWeTRQSB8DnrfEbH7YNFEC4/KA7+SVheTKmA=",
+    #     urls = ["https://github.com/bazelbuild/rules_rust/releases/download/0.49.3/rules_rust-v0.49.3.tar.gz"],
+    #     patch_args = ["-p1"],
+    #     patches = [
+    #         # Enable extracting the generated `.rs` files from the `rust_prost_library` rule via an output group.
+    #         "//third_party/com.github/bazelbuild/rules_rust:rules_rust_prost_libs.patch",
+    #         "//third_party/com.github/bazelbuild/rules_rust:rules_rust_musl-0.patch",
+    #         "//third_party/com.github/bazelbuild/rules_rust:rules_rust_musl-1.patch",
+    #     ],
+    # )
+
     http_archive(
         name = "rules_rust",
-        integrity = "sha256-JLN47ZcAbx9wEr5Jiib4HduZATGLiDgK7oUi/fvotzU=",
-        urls = ["https://github.com/bazelbuild/rules_rust/releases/download/0.42.1/rules_rust-v0.42.1.tar.gz"],
+        integrity = "sha256-heIBNyerJvsiq9/+SyrAwnotW2KWFnumPY9uExQPUfk=",
+        urls = ["https://github.com/bazelbuild/rules_rust/releases/download/0.53.0/rules_rust-v0.53.0.tar.gz"],
     )
 
     http_file(

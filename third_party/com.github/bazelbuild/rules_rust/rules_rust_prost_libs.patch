@@ -1,0 +1,36 @@
+diff --git a/proto/prost/private/prost.bzl b/proto/prost/private/prost.bzl
+index c3a7d4e0..b0c30c4d 100644
+--- a/proto/prost/private/prost.bzl
++++ b/proto/prost/private/prost.bzl
+@@ -277,7 +277,10 @@ def _rust_prost_aspect_impl(target, ctx):
+             package_info = package_info_file,
+         ),
+         rust_analyzer_info,
+-        OutputGroupInfo(rust_generated_srcs = [lib_rs]),
++        OutputGroupInfo(
++            rust_generated_srcs = [lib_rs],
++            proto_descriptor_set = [proto_info.direct_descriptor_set],
++        ),
+     ]
+ 
+ rust_prost_aspect = aspect(
+@@ -315,6 +318,8 @@ def _rust_prost_library_impl(ctx):
+     proto_dep = ctx.attr.proto
+     rust_proto_info = proto_dep[ProstProtoInfo]
+     dep_variant_info = rust_proto_info.dep_variant_info
++    rust_generated_srcs = proto_dep[OutputGroupInfo].rust_generated_srcs
++    proto_descriptor_set = proto_dep[OutputGroupInfo].proto_descriptor_set
+ 
+     return [
+         DefaultInfo(files = depset([dep_variant_info.crate_info.output])),
+@@ -324,6 +329,10 @@ def _rust_prost_library_impl(ctx):
+                 transitive = [rust_proto_info.transitive_dep_infos],
+             ),
+         ),
++        OutputGroupInfo(
++            rust_generated_srcs = rust_generated_srcs,
++            proto_descriptor_set = proto_descriptor_set,
++        ),
+         RustAnalyzerGroupInfo(deps = [proto_dep[RustAnalyzerInfo]]),
+     ]
+ 

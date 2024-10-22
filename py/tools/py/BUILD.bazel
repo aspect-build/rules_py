@@ -3,7 +3,6 @@ load("@rules_rust//rust:defs.bzl", "rust_library")
 rust_library(
     name = "py",
     srcs = [
-        # "src/interpreter.rs",
         "src/lib.rs",
         "src/pth.rs",
         "src/unpack.rs",

@@ -26,6 +26,7 @@ load("@rules_python//python:repositories.bzl", "py_repositories", "python_regist
 
 python_register_toolchains(
     name = "python_toolchain_3_8",
+    ignore_root_user_error = True,
     python_version = "3.8.12",
     # Setting `set_python_version_constraint` will set special constraints on the registered toolchain.
     # This means that this toolchain registration will only be selected for `py_binary` / `py_test` targets
@@ -38,6 +39,7 @@ python_register_toolchains(
 # py_test/py_binary target even if it has python_version attribute set.
 python_register_toolchains(
     name = "python_toolchain",
+    ignore_root_user_error = True,
     python_version = "3.9",
 )
 
@@ -48,6 +50,14 @@ py_repositories()
 load("@aspect_bazel_lib//lib:repositories.bzl", "register_coreutils_toolchains")
 
 register_coreutils_toolchains()
+
+load("@musl_toolchains//:repositories.bzl", "load_musl_toolchains")
+
+load_musl_toolchains()
+
+load("@musl_toolchains//:toolchains.bzl", "register_musl_toolchains")
+
+register_musl_toolchains()
 
 ############################################
 ## CC toolchain using llvm
@@ -63,8 +73,8 @@ llvm_toolchain(
     sha256 = {
         "darwin-aarch64": "bb5144516c94326981ec78c8b055c85b1f6780d345128cae55c5925eb65241ee",
         "darwin-x86_64": "800ec8401344a95f84588815e97523a0ed31fd05b6ffa9e1b58ce20abdcf69f1",
-        "linux-aarch64": "49eec0202b8cd4be228c8e92878303317f660bc904cf6e6c08917a55a638917d",
-        "linux-x86_64": "0c5096c157e196a04fc6ac58543266caef0da3e3c921414a7c279feacc2309d9",
+        # "linux-aarch64": "49eec0202b8cd4be228c8e92878303317f660bc904cf6e6c08917a55a638917d",
+        # "linux-x86_64": "0c5096c157e196a04fc6ac58543266caef0da3e3c921414a7c279feacc2309d9",
     },
     sysroot = {
         "darwin-aarch64": "@sysroot_darwin_universal//:sysroot",
@@ -75,8 +85,8 @@ llvm_toolchain(
     urls = {
         "darwin-aarch64": ["https://github.com/dzbarsky/static-clang/releases/download/v17.0.2-8/darwin_arm64_minimal.tar.xz"],
         "darwin-x86_64": ["https://github.com/dzbarsky/static-clang/releases/download/v17.0.2-8/darwin_amd64_minimal.tar.xz"],
-        "linux-aarch64": ["https://github.com/dzbarsky/static-clang/releases/download/v17.0.2-8/linux_arm64_minimal.tar.xz"],
-        "linux-x86_64": ["https://github.com/dzbarsky/static-clang/releases/download/v17.0.2-8/linux_amd64_minimal.tar.xz"],
+        # "linux-aarch64": ["https://github.com/dzbarsky/static-clang/releases/download/v17.0.2-8/linux_arm64_minimal.tar.xz"],
+        # "linux-x86_64": ["https://github.com/dzbarsky/static-clang/releases/download/v17.0.2-8/linux_amd64_minimal.tar.xz"],
     },
 )
 
@@ -156,14 +166,6 @@ RUST_EDITION = "2021"
 
 RUST_VERSION = "1.81.0"
 
-rust_register_toolchains(
-    edition = RUST_EDITION,
-    extra_target_triples = [
-        "x86_64-apple-darwin",
-    ],
-    versions = [RUST_VERSION],
-)
-
 # Declare cross-compilation toolchains
 rust_repository_set(
     name = "apple_darwin_86_64",
@@ -183,14 +185,44 @@ rust_repository_set(
     versions = [RUST_VERSION],
 )
 
+# rust_repository_set(
+#     name = "rust_linux_x86_64",
+#     edition = RUST_EDITION,
+#     exec_triple = "x86_64-unknown-linux-musl",
+#     # and cross-compile to these platforms:
+#     extra_target_triples = [
+#         "aarch64-unknown-linux-musl",
+#     ],
+#     versions = [RUST_VERSION],
+# )
+
 rust_repository_set(
-    name = "linux_x86_64",
+    name = "rust_linux_x86_64",
     edition = RUST_EDITION,
     exec_triple = "x86_64-unknown-linux-gnu",
-    # and cross-compile to these platforms:
-    extra_target_triples = [
-        "aarch64-unknown-linux-gnu",
-    ],
+    extra_target_triples = {
+        "aarch64-unknown-linux-musl": [
+            "@platforms//cpu:arm64",
+            "@platforms//os:linux",
+        ],
+        # "x86_64-unknown-linux-gnu": [
+        #     "@//linker_config:unknown",
+        #     "@platforms//cpu:x86_64",
+        #     "@platforms//os:linux",
+        # ],
+        "x86_64-unknown-linux-musl": [
+            "@platforms//cpu:x86_64",
+            "@platforms//os:linux",
+        ],
+    },
+    versions = [RUST_VERSION],
+)
+
+rust_register_toolchains(
+    edition = RUST_EDITION,
+    # extra_target_triples = [
+    #     "x86_64-apple-darwin",
+    # ],
     versions = [RUST_VERSION],
 )
 
