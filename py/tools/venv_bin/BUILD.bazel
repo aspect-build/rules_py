@@ -1,27 +1,8 @@
 load("@rules_rust//rust:defs.bzl", "rust_binary")
 load("//tools/release:defs.bzl", "multi_arch_rust_binary_release")
 
-rust_binary(
+alias(
     name = "venv_bin",
-    srcs = [
-        "src/main.rs",
-    ],
-    deps = [
-        "//py/tools/py",
-        "@crate_index//:clap",
-        "@crate_index//:miette",
-    ],
-    tags = ["manual"],
-)
-
-alias(
-    name = "venv",
-    actual = ":venv_bin",
-    tags = ["manual"],
-)
-
-alias(
-    name = "venv_bin_for_platform",
     actual = select({
         "//tools/platforms:macos_aarch64": ":venv_macos_aarch64_build",
         "//tools/platforms:macos_x86_64": ":venv_macos_x86_64_build",
@@ -32,16 +13,20 @@ alias(
     visibility = ["//visibility:public"],
 )
 
-multi_arch_rust_binary_release(
-    name = "macos",
-    src = ":venv",
-    os = "macos",
-    visibility = ["//tools/release:__pkg__"],
-)
-
-multi_arch_rust_binary_release(
-    name = "linux",
-    src = ":venv",
-    os = "linux",
-    visibility = ["//tools/release:__pkg__"],
-)
+[
+    multi_arch_rust_binary_release(
+        name = os,
+        bin_name = "venv",
+        os = os,
+        visibility = ["//tools/release:__pkg__"],
+        srcs = [
+            "src/main.rs",
+        ],
+        deps = [
+            "//py/tools/py",
+            "@crate_index//:clap",
+            "@crate_index//:miette",
+        ],
+    )
+    for os in ["linux", "macos"]
+]

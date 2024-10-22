@@ -1,36 +1,32 @@
-load("@rules_rust//rust:defs.bzl", "rust_binary")
 load("//tools/release:defs.bzl", "multi_arch_rust_binary_release")
 
-rust_binary(
-    name = "unpack_bin",
-    srcs = [
-        "src/main.rs",
-    ],
-    visibility = [
-        "//visibility:public",
-    ],
-    deps = [
-        "//py/tools/py",
-        "@crate_index//:clap",
-        "@crate_index//:miette",
-    ],
-)
-
 alias(
-    name = "unpack",
-    actual = ":unpack_bin",
+    name = "unpack_bin",
+    actual = select({
+        "//tools/platforms:macos_aarch64": ":venv_macos_aarch64_build",
+        "//tools/platforms:macos_x86_64": ":venv_macos_x86_64_build",
+        "//tools/platforms:linux_aarch64": ":venv_linux_aarch64_build",
+        "//tools/platforms:linux_x86_64": ":venv_linux_x86_64_build",
+    }),
+    tags = ["manual"],
+    visibility = ["//visibility:public"],
 )
 
-multi_arch_rust_binary_release(
-    name = "macos",
-    src = ":unpack",
-    os = "macos",
-    visibility = ["//tools/release:__pkg__"],
-)
-
-multi_arch_rust_binary_release(
-    name = "linux",
-    src = ":unpack",
-    os = "linux",
-    visibility = ["//tools/release:__pkg__"],
-)
+[
+    multi_arch_rust_binary_release(
+        name = os,
+        bin_name = "unpack",
+        os = os,
+        visibility = ["//tools/release:__pkg__"],
+        crate_name = "unpack",
+        srcs = [
+            "src/main.rs",
+        ],
+        deps = [
+            "//py/tools/py",
+            "@crate_index//:clap",
+            "@crate_index//:miette",
+        ],
+    )
+    for os in ["linux", "macos"]
+]
