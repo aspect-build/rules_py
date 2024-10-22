@@ -205,11 +205,9 @@ rust_repository_set(
             "@platforms//cpu:arm64",
             "@platforms//os:linux",
         ],
-        # "x86_64-unknown-linux-gnu": [
-        #     "@//linker_config:unknown",
-        #     "@platforms//cpu:x86_64",
-        #     "@platforms//os:linux",
-        # ],
+        "x86_64-unknown-linux-gnu": [
+            "@platforms//:incompatible",
+        ],
         "x86_64-unknown-linux-musl": [
             "@platforms//cpu:x86_64",
             "@platforms//os:linux",
