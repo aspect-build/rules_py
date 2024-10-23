@@ -168,48 +168,104 @@ RUST_VERSION = "1.81.0"
 
 # Declare cross-compilation toolchains
 rust_repository_set(
-    name = "apple_darwin_86_64",
+    name = "apple_darwin_aarch64",
     edition = RUST_EDITION,
-    exec_triple = "x86_64-apple-darwin",
+    exec_triple = "aarch64-apple-darwin",
     # and cross-compile to these platforms:
-    extra_target_triples = [
-        "aarch64-apple-darwin",
-    ],
-    sha256s = {
-        "rustc-1.81.0-aarch64-apple-darwin.tar.xz": "bed00f549a08030b232ad811728e3a5d7239e2e53b667df9cfb11eabf87f2cf3",
-        "clippy-1.81.0-aarch64-apple-darwin.tar.xz": "fcab64f49cd2fb47f3c9ee96cf31ce178b05be66b7dbc0543c3ea217bd4786bf",
-        "cargo-1.81.0-aarch64-apple-darwin.tar.xz": "cc826e6592016db7a5750a97051b71b48aca2d79f146daf08e953d56000ae43d",
-        "llvm-tools-1.81.0-aarch64-apple-darwin.tar.xz": "907aaf74df0dd97a23da03fde3a5162535498e5ab67c0adb6fee22999ca461fb",
-        "rust-std-1.81.0-aarch64-apple-darwin.tar.xz": "2dba5210a79617a9240570c1f7fcc24912a2c96689a3159324727e5a516c6326",
+    extra_target_triples = {
+        "aarch64-apple-darwin": [
+            "@platforms//cpu:arm64",
+            "@platforms//os:macos",
+        ],
+        "aarch64-unknown-linux-musl": [
+            "@platforms//cpu:arm64",
+            "@platforms//os:linux",
+            "@//tools/linkers:musl",
+        ],
+        "x86_64-apple-darwin": [
+            "@platforms//cpu:x86_64",
+            "@platforms//os:macos",
+        ],
+        "x86_64-unknown-linux-musl": [
+            "@platforms//cpu:x86_64",
+            "@platforms//os:linux",
+            "@//tools/linkers:musl",
+        ],
     },
     versions = [RUST_VERSION],
 )
 
-# rust_repository_set(
-#     name = "rust_linux_x86_64",
-#     edition = RUST_EDITION,
-#     exec_triple = "x86_64-unknown-linux-musl",
-#     # and cross-compile to these platforms:
-#     extra_target_triples = [
-#         "aarch64-unknown-linux-musl",
-#     ],
-#     versions = [RUST_VERSION],
-# )
+rust_repository_set(
+    name = "apple_darwin_x86_64",
+    edition = RUST_EDITION,
+    exec_triple = "x86_64-apple-darwin",
+    # and cross-compile to these platforms:
+    extra_target_triples = {
+        "aarch64-apple-darwin": [
+            "@platforms//cpu:arm64",
+            "@platforms//os:macos",
+        ],
+        "aarch64-unknown-linux-musl": [
+            "@platforms//cpu:arm64",
+            "@platforms//os:linux",
+            "@//tools/linkers:musl",
+        ],
+        "x86_64-apple-darwin": [
+            "@platforms//cpu:x86_64",
+            "@platforms//os:macos",
+        ],
+        "x86_64-unknown-linux-musl": [
+            "@platforms//cpu:x86_64",
+            "@platforms//os:linux",
+            "@//tools/linkers:musl",
+        ],
+    },
+    versions = [RUST_VERSION],
+)
 
 rust_repository_set(
     name = "rust_linux_x86_64",
     edition = RUST_EDITION,
     exec_triple = "x86_64-unknown-linux-gnu",
     extra_target_triples = {
+        "aarch64-unknown-linux-gnu": [
+            "@platforms//cpu:arm64",
+            "@platforms//os:linux",
+            "@//tools/linkers:unknown",
+        ],
         "aarch64-unknown-linux-musl": [
             "@platforms//cpu:arm64",
             "@platforms//os:linux",
             "@//tools/linkers:musl",
         ],
+        "x86_64-unknown-linux-gnu": [
+            "@platforms//cpu:x86_64",
+            "@platforms//os:linux",
+            "@//tools/linkers:unknown",
+        ],
+        "x86_64-unknown-linux-musl": [
+            "@platforms//cpu:x86_64",
+            "@platforms//os:linux",
+            "@//tools/linkers:musl",
+        ],
+    },
+    versions = [RUST_VERSION],
+)
+
+rust_repository_set(
+    name = "rust_linux_aarch64",
+    edition = RUST_EDITION,
+    exec_triple = "aarch64-unknown-linux-gnu",
+    extra_target_triples = {
         "aarch64-unknown-linux-gnu": [
             "@platforms//cpu:arm64",
             "@platforms//os:linux",
             "@//tools/linkers:unknown",
+        ],
+        "aarch64-unknown-linux-musl": [
+            "@platforms//cpu:arm64",
+            "@platforms//os:linux",
+            "@//tools/linkers:musl",
         ],
         "x86_64-unknown-linux-gnu": [
             "@platforms//cpu:x86_64",
@@ -227,9 +283,6 @@ rust_repository_set(
 
 rust_register_toolchains(
     edition = RUST_EDITION,
-    # extra_target_triples = [
-    #     "x86_64-apple-darwin",
-    # ],
     versions = [RUST_VERSION],
 )
 
