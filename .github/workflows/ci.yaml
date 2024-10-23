@@ -27,12 +27,17 @@ jobs:
       exclude: |
         [
           {"os": "windows-latest"},
+
           {"folder": ".", "bazelversion": "6.4.0"},
+          {"folder": "e2e/repository-rule-deps", "bazelversion": "6.4.0"},
+          {"folder": "e2e/system-interpreter", "bazelversion": "6.4.0"},
+          {"folder": "e2e/smoke", "bazelversion": "6.4.0"},
+          {"folder": "examples/uv_pip_compile", "bazelversion": "6.4.0"},
+
           {"folder": ".", "bzlmodEnabled": true},
           {"folder": "e2e/repository-rule-deps", "bzlmodEnabled": false},
           {"folder": "e2e/system-interpreter", "bzlmodEnabled": false},
           {"folder": "examples/uv_pip_compile", "bzlmodEnabled": false},
-          {"folder": "examples/uv_pip_compile", "bazelversion": "6.4.0"},
         ]
 
   verify-bcr-patches:
