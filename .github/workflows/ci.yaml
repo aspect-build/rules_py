@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   test:
-    uses: bazel-contrib/.github/.github/workflows/bazel.yaml@v6
+    uses: bazel-contrib/.github/.github/workflows/bazel.yaml@v7
     with:
       folders: '[".", "e2e/smoke", "e2e/repository-rule-deps", "e2e/system-interpreter", "examples/uv_pip_compile"]'
       # TODO: Build Windows tools and add to toolchain
@@ -27,12 +27,10 @@ jobs:
       exclude: |
         [
           {"os": "windows-latest"},
-          {"folder": ".", "bazelversion": "6.4.0"},
           {"folder": ".", "bzlmodEnabled": true},
           {"folder": "e2e/repository-rule-deps", "bzlmodEnabled": false},
           {"folder": "e2e/system-interpreter", "bzlmodEnabled": false},
           {"folder": "examples/uv_pip_compile", "bzlmodEnabled": false},
-          {"folder": "examples/uv_pip_compile", "bazelversion": "6.4.0"},
         ]
 
   verify-bcr-patches:
@@ -41,10 +39,9 @@ jobs:
       - uses: actions/checkout@v4
       - run: patch --dry-run -p1 < .bcr/patches/*.patch
 
-  # TODO(alex): enable after next release. Matt will yell at you if you forget.
-  # test-release:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - working-directory: e2e/use_release
-  #       run: ./minimal_download_test.sh
+  test-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - working-directory: e2e/use_release
+        run: ./minimal_download_test.sh
