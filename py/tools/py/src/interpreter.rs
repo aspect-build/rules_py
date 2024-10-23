@@ -5,7 +5,7 @@ use std::{
 
 use miette::{Context, IntoDiagnostic};
 use rattler_installs_packages::{
-    artifacts::wheel::InstallPaths,
+    install::InstallPaths,
     python_env::{PythonInterpreterVersion, PythonLocation},
 };
 
