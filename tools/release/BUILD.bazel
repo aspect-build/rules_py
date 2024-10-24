@@ -4,6 +4,7 @@
         constraint_values = [
             "@platforms//os:" + os,
             "@platforms//cpu:" + cpu,
+            "//tools/linkers:musl" if os == "linux" else "//tools/linkers:unknown",
         ],
         visibility = ["//py/tools:__subpackages__"],
     )
@@ -18,13 +19,13 @@
 ]
 
 LINUX_ARTIFACTS = [
-    "//py/tools/unpack_bin:linux",
-    "//py/tools/venv_bin:linux",
+    "//py/tools/unpack_bin:unpack_linux",
+    "//py/tools/venv_bin:venv_linux",
 ]
 
 MACOS_ARTIFACTS = [
-    "//py/tools/unpack_bin:macos",
-    "//py/tools/venv_bin:macos",
+    "//py/tools/unpack_bin:unpack_macos",
+    "//py/tools/venv_bin:venv_macos",
 ]
 
 sh_binary(

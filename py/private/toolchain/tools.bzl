@@ -30,7 +30,7 @@ TOOLCHAIN_PLATFORMS = {
     ),
     "linux_amd64": struct(
         arch = "x86_64",
-        vendor_os_abi = "unknown-linux-gnu",
+        vendor_os_abi = "unknown-linux-musl",
         compatible_with = [
             "@platforms//os:linux",
             "@platforms//cpu:x86_64",
@@ -38,7 +38,7 @@ TOOLCHAIN_PLATFORMS = {
     ),
     "linux_arm64": struct(
         arch = "aarch64",
-        vendor_os_abi = "unknown-linux-gnu",
+        vendor_os_abi = "unknown-linux-musl",
         compatible_with = [
             "@platforms//os:linux",
             "@platforms//cpu:aarch64",

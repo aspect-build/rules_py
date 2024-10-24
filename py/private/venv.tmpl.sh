@@ -27,9 +27,9 @@ VIRTUAL_ENV="$(alocation "${VENV_ROOT}/{{ARG_VENV_LOCATION}}")"
 "${VENV_TOOL}" \
     --location "${VIRTUAL_ENV}" \
     --python "$(alocation $(rlocation {{ARG_PYTHON}}))" \
-    --python-version "{{ARG_VENV_PYTHON_VERSION}}" \
     --pth-file "$(rlocation {{ARG_PTH_FILE}})" \
     --pth-entry-prefix "${RUNFILES_DIR}" \
-    --collision-strategy "{{ARG_COLLISION_STRATEGY}}"
+    --collision-strategy "{{ARG_COLLISION_STRATEGY}}" \
+    --venv-name "{{ARG_VENV_NAME}}"
 
 echo "Created virtualenv in ${VIRTUAL_ENV}"

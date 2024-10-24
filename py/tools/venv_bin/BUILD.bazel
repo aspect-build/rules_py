@@ -1,13 +1,9 @@
-load("@rules_rust//rust:defs.bzl", "rust_binary")
-load("//tools/release:defs.bzl", "multi_arch_rust_binary_release")
+load("//tools/release:defs.bzl", "rust_binary")
 
 rust_binary(
-    name = "venv_bin",
+    name = "venv",
     srcs = [
         "src/main.rs",
-    ],
-    visibility = [
-        "//visibility:public",
     ],
     deps = [
         "//py/tools/py",
@@ -17,20 +13,9 @@ rust_binary(
 )
 
 alias(
-    name = "venv",
-    actual = ":venv_bin",
-)
-
-multi_arch_rust_binary_release(
-    name = "macos",
-    src = ":venv",
-    os = "macos",
-    visibility = ["//tools/release:__pkg__"],
-)
-
-multi_arch_rust_binary_release(
-    name = "linux",
-    src = ":venv",
-    os = "linux",
-    visibility = ["//tools/release:__pkg__"],
+    name = "venv_bin",
+    actual = ":venv",
+    visibility = [
+        "//visibility:public",
+    ],
 )

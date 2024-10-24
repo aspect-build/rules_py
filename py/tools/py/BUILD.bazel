@@ -3,7 +3,6 @@ load("@rules_rust//rust:defs.bzl", "rust_library")
 rust_library(
     name = "py",
     srcs = [
-        "src/interpreter.rs",
         "src/lib.rs",
         "src/pth.rs",
         "src/unpack.rs",
@@ -14,7 +13,16 @@ rust_library(
         "//py/tools/venv_bin:__pkg__",
     ],
     deps = [
+        "@crate_index//:itertools",
         "@crate_index//:miette",
-        "@crate_index//:rattler_installs_packages",
+        "@crate_index//:tempfile",
+        "@crate_index//:thiserror",
+        "@crate_index//:uv-cache",
+        "@crate_index//:uv-distribution-filename",
+        "@crate_index//:uv-extract",
+        "@crate_index//:uv-install-wheel",
+        "@crate_index//:uv-pypi-types",
+        "@crate_index//:uv-python",
+        "@crate_index//:uv-virtualenv",
     ],
 )
