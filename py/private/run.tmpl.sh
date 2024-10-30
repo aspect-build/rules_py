@@ -35,15 +35,40 @@ function python_location {
 }
 
 VENV_TOOL="$(rlocation {{VENV_TOOL}})"
-VIRTUAL_ENV="$(alocation "${RUNFILES_DIR}/{{ARG_VENV_NAME}}")"
-export VIRTUAL_ENV
+
+RUNFILES_VIRTUAL_ENV="$(alocation "${RUNFILES_DIR}/{{ARG_VENV_NAME}}")"
+VIRTUAL_ENV="${RUNFILES_VIRTUAL_ENV}"
+
+PTH_ENTRY_PREFIX=""
+PTH_FILE="$(rlocation {{ARG_PTH_FILE}})"
+
+if [[ -n "${VENV_PATH:-}" ]]; then
+  VIRTUAL_ENV="${VENV_PATH}"
+  # Remove preexisting runfiles virtualenv symlink if it exists
+  rm -rf "${RUNFILES_VIRTUAL_ENV}" > /dev/null || true
+  # Create a symlink to the virtualenv in the runfiles dir
+  ln -s "${VIRTUAL_ENV}" "${RUNFILES_VIRTUAL_ENV}"
+
+  # We need to rewrite the pth file to be relative to the runfiles dir
+  PTH="$(cat "${PTH_FILE}")"
+  PTH="${PTH//"${VENV_PTH_STRIP}"/.}"
+  PTH_FILE="$(mktemp)"
+  echo "${PTH}" > "${PTH_FILE}"
+
+  # And set the pth entry prefix to the runfiles dir
+  PTH_ENTRY_PREFIX="${RUNFILES_DIR}"
+fi
+
 
 "${VENV_TOOL}" \
     --location "${VIRTUAL_ENV}" \
     --python "$(python_location)" \
-    --pth-file "$(rlocation {{ARG_PTH_FILE}})" \
+    --pth-file "${PTH_FILE}"\
+    --pth-entry-prefix "${PTH_ENTRY_PREFIX}" \
     --collision-strategy "{{ARG_COLLISION_STRATEGY}}" \
     --venv-name "{{ARG_VENV_NAME}}"
+
+export VIRTUAL_ENV="${RUNFILES_VIRTUAL_ENV}"
 
 PATH="${VIRTUAL_ENV}/bin:${PATH}"
 export PATH
