@@ -39,7 +39,7 @@ if __name__ == "__main__":
     if test_filter is not None:
         args.append(f"-k={test_filter}")
 
-    user_args = [$$FLAGS$$]
+    user_args: list[str] = [$$FLAGS$$]
     if len(user_args) > 0:
         args.extend(user_args)
 
