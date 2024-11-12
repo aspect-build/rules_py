@@ -34,13 +34,13 @@ load("@aspect_bazel_lib//lib:tar.bzl", "mtree_spec", "tar")
 
 default_layer_groups = {
     # match *only* external pip like repositories that contain the string "site-packages"
-    "packages": "\\.runfiles/.*/site-packages",
+    "packages": "\\\\.runfiles/.*/site-packages",
     # match *only* external repositories that begins with the string "python"
     # e.g. this will match
     #   `/hello_world/hello_world_bin.runfiles/rules_python~0.21.0~python~python3_9_aarch64-unknown-linux-gnu/bin/python3`
     # but not match
     #   `/hello_world/hello_world_bin.runfiles/_main/python_app`
-    "interpreter": "\\.runfiles/python.*-.*/",
+    "interpreter": "\\\\.runfiles/.*python.*-.*/",
 }
 
 def _split_mtree_into_layer_groups(name, root, groups, group_names, **kwargs):
