@@ -90,7 +90,7 @@ awk < $< 'BEGIN {
     )
 
 
-def py_image_layer(name, py_binary, root = None, layer_groups = {}, compress = "gzip", tar_args = ["--options", "gzip:!timestamp"], **kwargs):
+def py_image_layer(name, py_binary, root = "/", layer_groups = {}, compress = "gzip", tar_args = ["--options", "gzip:!timestamp"], compute_unused_inputs = 1, **kwargs):
     """Produce a separate tar output for each layer of a python app
 
     > Requires `awk` to be installed on the host machine/rbe runner.
@@ -116,8 +116,9 @@ def py_image_layer(name, py_binary, root = None, layer_groups = {}, compress = "
         py_binary: a py_binary target
         root: Path to where the layers should be rooted. If not specified, the layers will be rooted at the workspace root.
         layer_groups: Additional layer groups to create. They are used to group files into layers based on their path. In the form of: ```{"<name>": "regex_to_match_against_file_paths"}```
-        compress: Compression algorithm to use. Default is gzip. See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#tar_rule
-        tar_args: Additional arguments to pass to the tar rule. Default is `["--options", "gzip:!timestamp"]`. See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#tar_rule
+        compress: Compression algorithm to use. Default is gzip. See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#tar_rule-compress
+        compute_unused_inputs: Whether to compute unused inputs. Default is 1. See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#tar_rule-compute_unused_inputs
+        tar_args: Additional arguments to pass to the tar rule. Default is `["--options", "gzip:!timestamp"]`. See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#tar_rule-args
         **kwargs: attribute that apply to all targets expanded by the macro
 
     Returns:
@@ -141,7 +142,7 @@ def py_image_layer(name, py_binary, root = None, layer_groups = {}, compress = "
     _split_mtree_into_layer_groups(name, root, groups, group_names, **kwargs)
 
     # Finally create layers using the tar rule
-    result = []
+    srcs = []
     for group_name in group_names:
         tar_target = "_{}_{}".format(name, group_name)
         tar(
@@ -149,9 +150,16 @@ def py_image_layer(name, py_binary, root = None, layer_groups = {}, compress = "
             srcs = [py_binary],
             mtree = "{}.{}.manifest.spec".format(name, group_name),
             compress = compress,
+            compute_unused_inputs = compute_unused_inputs,
             args = tar_args,
             **kwargs
         )
-        result.append(tar_target)
+        srcs.append(tar_target)
 
-    return result
+    native.filegroup(
+        name = name,
+        srcs = srcs,
+        **kwargs
+    )
+
+    return srcs

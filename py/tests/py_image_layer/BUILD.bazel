@@ -1,0 +1,19 @@
+load("//py:defs.bzl", "py_image_layer", "py_binary")
+load("asserts.bzl", "assert_tar_listing")
+
+# Case 1: Basic usage
+py_binary(
+    name = "my_app_bin",
+    srcs = ["main.py"],
+)
+
+py_image_layer(
+    name = "my_app_layers",
+    py_binary = ":my_app_bin",
+)
+
+assert_tar_listing(
+    name = "my_app_layers_test",
+    actual = [":my_app_layers"],
+    expected = ":my_app_layers.listing",
+)
