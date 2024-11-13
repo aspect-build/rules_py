@@ -31,16 +31,17 @@ oci_image(
 """
 
 load("@aspect_bazel_lib//lib:tar.bzl", "mtree_spec", "tar")
+load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 
 default_layer_groups = {
     # match *only* external pip like repositories that contain the string "site-packages"
-    "packages": "\\.runfiles/.*/site-packages",
+    "packages": "\\\\.runfiles/.*/site-packages",
     # match *only* external repositories that begins with the string "python"
     # e.g. this will match
     #   `/hello_world/hello_world_bin.runfiles/rules_python~0.21.0~python~python3_9_aarch64-unknown-linux-gnu/bin/python3`
     # but not match
     #   `/hello_world/hello_world_bin.runfiles/_main/python_app`
-    "interpreter": "\\.runfiles/python.*-.*/",
+    "interpreter": "\\\\.runfiles/.*python.*-.*/",
 }
 
 def _split_mtree_into_layer_groups(name, root, groups, group_names, **kwargs):
@@ -90,7 +91,7 @@ awk < $< 'BEGIN {
     )
 
 
-def py_image_layer(name, py_binary, root = None, layer_groups = {}, compress = "gzip", tar_args = ["--options", "gzip:!timestamp"], **kwargs):
+def py_image_layer(name, binary, root = "/", layer_groups = {}, compress = "gzip", tar_args = ["--options", "gzip:!timestamp"], compute_unused_inputs = 1, platform = None, **kwargs):
     """Produce a separate tar output for each layer of a python app
 
     > Requires `awk` to be installed on the host machine/rbe runner.
@@ -113,11 +114,13 @@ def py_image_layer(name, py_binary, root = None, layer_groups = {}, compress = "
 
     Args:
         name: base name for targets
-        py_binary: a py_binary target
+        binary: a py_binary target
         root: Path to where the layers should be rooted. If not specified, the layers will be rooted at the workspace root.
         layer_groups: Additional layer groups to create. They are used to group files into layers based on their path. In the form of: ```{"<name>": "regex_to_match_against_file_paths"}```
-        compress: Compression algorithm to use. Default is gzip. See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#tar_rule
-        tar_args: Additional arguments to pass to the tar rule. Default is `["--options", "gzip:!timestamp"]`. See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#tar_rule
+        compress: Compression algorithm to use. Default is gzip. See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#tar_rule-compress
+        compute_unused_inputs: Whether to compute unused inputs. Default is 1. See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#tar_rule-compute_unused_inputs
+        platform: The platform to use for the transition. Default is None. See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/transitions.md#platform_transition_binary-target_platform
+        tar_args: Additional arguments to pass to the tar rule. Default is `["--options", "gzip:!timestamp"]`. See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#tar_rule-args
         **kwargs: attribute that apply to all targets expanded by the macro
 
     Returns:
@@ -130,7 +133,7 @@ def py_image_layer(name, py_binary, root = None, layer_groups = {}, compress = "
     # into fine-grained layers for better pull, push and remote cache performance.
     mtree_spec(
         name = name + ".manifest",
-        srcs = [py_binary],
+        srcs = [binary],
         **kwargs
     )
 
@@ -141,17 +144,32 @@ def py_image_layer(name, py_binary, root = None, layer_groups = {}, compress = "
     _split_mtree_into_layer_groups(name, root, groups, group_names, **kwargs)
 
     # Finally create layers using the tar rule
-    result = []
+    srcs = []
     for group_name in group_names:
         tar_target = "_{}_{}".format(name, group_name)
         tar(
             name = tar_target,
-            srcs = [py_binary],
+            srcs = [binary],
             mtree = "{}.{}.manifest.spec".format(name, group_name),
             compress = compress,
+            compute_unused_inputs = compute_unused_inputs,
             args = tar_args,
             **kwargs
         )
-        result.append(tar_target)
+        srcs.append(tar_target)
+    
+    if platform:
+        platform_transition_filegroup(
+            name = name,
+            srcs = srcs,
+            target_platform = platform,
+            **kwargs
+        )
+    else:
+        native.filegroup(
+            name = name,
+            srcs = srcs,
+            **kwargs
+        )
 
-    return result
+    return srcs

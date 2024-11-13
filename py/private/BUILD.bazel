@@ -27,6 +27,7 @@ bzl_library(
     srcs = ["py_image_layer.bzl"],
     deps = [
         "@aspect_bazel_lib//lib:tar",
+        "@aspect_bazel_lib//lib:transitions",
     ],
 )
 
