@@ -2454,7 +2454,4 @@ drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_image_layer/my_app
 drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_image_layer/my_app_bin.runfiles/bazel_tools/tools/bash/runfiles/
 -rwxr-xr-x  0 0      0       21622 Jan  1  2023 ./py/tests/py_image_layer/my_app_bin.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash
 drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tools/
-drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tools/venv_bin/
--rwxr-xr-x  0 0      0    13204192 Jan  1  2023 ./py/tests/py_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tools/venv_bin/venv_linux_x86_64_build
 -rwxr-xr-x  0 0      0        2887 Jan  1  2023 ./py/tests/py_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_image_layer/my_app_bin
--rwxr-xr-x  0 0      0       19464 Jan  1  2023 ./py/tests/py_image_layer/my_app_bin.runfiles/_repo_mapping
