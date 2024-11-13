@@ -37,8 +37,8 @@ oci_image(
 ## py_image_layer
 
 <pre>
-py_image_layer(<a href="#py_image_layer-name">name</a>, <a href="#py_image_layer-py_binary">py_binary</a>, <a href="#py_image_layer-root">root</a>, <a href="#py_image_layer-layer_groups">layer_groups</a>, <a href="#py_image_layer-compress">compress</a>, <a href="#py_image_layer-tar_args">tar_args</a>, <a href="#py_image_layer-compute_unused_inputs">compute_unused_inputs</a>,
-               <a href="#py_image_layer-kwargs">kwargs</a>)
+py_image_layer(<a href="#py_image_layer-name">name</a>, <a href="#py_image_layer-binary">binary</a>, <a href="#py_image_layer-root">root</a>, <a href="#py_image_layer-layer_groups">layer_groups</a>, <a href="#py_image_layer-compress">compress</a>, <a href="#py_image_layer-tar_args">tar_args</a>, <a href="#py_image_layer-compute_unused_inputs">compute_unused_inputs</a>,
+               <a href="#py_image_layer-platform">platform</a>, <a href="#py_image_layer-kwargs">kwargs</a>)
 </pre>
 
 Produce a separate tar output for each layer of a python app
@@ -68,12 +68,13 @@ The default layer groups are:
 | Name  | Description | Default Value |
 | :------------- | :------------- | :------------- |
 | <a id="py_image_layer-name"></a>name |  base name for targets   |  none |
-| <a id="py_image_layer-py_binary"></a>py_binary |  a py_binary target   |  none |
+| <a id="py_image_layer-binary"></a>binary |  a py_binary target   |  none |
 | <a id="py_image_layer-root"></a>root |  Path to where the layers should be rooted. If not specified, the layers will be rooted at the workspace root.   |  <code>"/"</code> |
 | <a id="py_image_layer-layer_groups"></a>layer_groups |  Additional layer groups to create. They are used to group files into layers based on their path. In the form of: <pre><code>{"&lt;name&gt;": "regex_to_match_against_file_paths"}</code></pre>   |  <code>{}</code> |
 | <a id="py_image_layer-compress"></a>compress |  Compression algorithm to use. Default is gzip. See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#tar_rule-compress   |  <code>"gzip"</code> |
 | <a id="py_image_layer-tar_args"></a>tar_args |  Additional arguments to pass to the tar rule. Default is <code>["--options", "gzip:!timestamp"]</code>. See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#tar_rule-args   |  <code>["--options", "gzip:!timestamp"]</code> |
 | <a id="py_image_layer-compute_unused_inputs"></a>compute_unused_inputs |  Whether to compute unused inputs. Default is 1. See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#tar_rule-compute_unused_inputs   |  <code>1</code> |
+| <a id="py_image_layer-platform"></a>platform |  The platform to use for the transition. Default is None. See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/transitions.md#platform_transition_binary-target_platform   |  <code>None</code> |
 | <a id="py_image_layer-kwargs"></a>kwargs |  attribute that apply to all targets expanded by the macro   |  none |
 
 **RETURNS**

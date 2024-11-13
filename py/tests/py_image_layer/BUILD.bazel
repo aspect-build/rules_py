@@ -1,6 +1,15 @@
 load("//py:defs.bzl", "py_image_layer", "py_binary")
 load("asserts.bzl", "assert_tar_listing")
 
+platform(
+    name = "linux_amd64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+
 # Case 1: Basic usage
 py_binary(
     name = "my_app_bin",
@@ -9,7 +18,8 @@ py_binary(
 
 py_image_layer(
     name = "my_app_layers",
-    py_binary = ":my_app_bin",
+    binary = ":my_app_bin",
+    platform = ":linux_amd64",
 )
 
 assert_tar_listing(
