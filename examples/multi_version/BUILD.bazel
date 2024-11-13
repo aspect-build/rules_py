@@ -6,7 +6,7 @@ py_binary(
     deps = [
         "@pypi_cowsay//:pkg",
     ],
-    python_version = "3.8.12"
+    python_version = "3.12.0"
 )
 py_pytest_main(
     name = "__test__",
@@ -23,7 +23,7 @@ py_test(
     deps = [
         ":__test__",
     ],
-    python_version = "3.8.12"
+    python_version = "3.12.0"
 )
 py_test(
     name = "py_version_default_test",

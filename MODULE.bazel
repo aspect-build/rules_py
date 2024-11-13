@@ -21,7 +21,7 @@ bazel_dep(name = "platforms", version = "0.0.7")
 python = use_extension("@rules_python//python/extensions:python.bzl", "python", dev_dependency = True)
 python.toolchain(
     is_default = False,
-    python_version = "3.8.12",
+    python_version = "3.12.0",
 )
 
 tools = use_extension("//py:extensions.bzl", "py_tools")
