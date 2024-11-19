@@ -14,6 +14,7 @@
 
 import sys
 import os
+from typing import List
 
 import pytest
 
@@ -39,7 +40,7 @@ if __name__ == "__main__":
     if test_filter is not None:
         args.append(f"-k={test_filter}")
 
-    user_args = [$$FLAGS$$]
+    user_args: List[str] = [$$FLAGS$$]
     if len(user_args) > 0:
         args.extend(user_args)
 
