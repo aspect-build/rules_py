@@ -85,3 +85,5 @@ crate.from_cargo(
 )
 
 use_repo(crate, "crate_index")
+
+bazel_dep(name = "pybind11_bazel", version = "2.12.0", dev_dependency = True)
