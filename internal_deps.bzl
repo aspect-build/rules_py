@@ -118,3 +118,19 @@ def rules_py_internal_deps():
         sha256 = "0523026398aea9c8b5f7a4a6d5c0829c285b4fbd960c17b5967a369342e21e01",
         downloaded_file_path = "sqlparse-0.4.0-py3-none-any.whl",
     )
+
+    http_archive(
+        name = "pybind11_bazel",
+        strip_prefix = "pybind11_bazel-2.13.6",
+        sha256 = "9df284330336958c837fb70dc34c0a6254dac52a5c983b3373a8c2bbb79ac35e",
+        urls = ["https://github.com/pybind/pybind11_bazel/archive/v2.13.6.zip"],
+    )
+
+    # We still require the pybind library.
+    http_archive(
+        name = "pybind11",
+        build_file = "@pybind11_bazel//:pybind11-BUILD.bazel",
+        strip_prefix = "pybind11-2.13.6",
+        urls = ["https://github.com/pybind/pybind11/archive/v2.13.6.zip"],
+        sha256 = "d0a116e91f64a4a2d8fb7590c34242df92258a61ec644b79127951e821b47be6",
+    )
