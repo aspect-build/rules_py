@@ -4,17 +4,13 @@ load("//py:defs.bzl", "py_binary", "py_library", "py_unpacked_wheel", "resolutio
 
 django_resolutions = resolutions.from_requirements(all_whl_requirements_by_package, requirement)
 
-py_unpacked_wheel(
-    name = "django_wheel",
-    src = "@django_4_2_4//file",
-)
-
 compile_pip_requirements(
     name = "requirements",
     requirements_in = "requirements.in",
     requirements_txt = "requirements.txt",
 )
 
+# Test fixture: a library with an external dependency
 py_library(
     name = "proj",
     srcs = glob(["proj/**/*.py"]),
@@ -25,6 +21,9 @@ py_library(
     virtual_deps = ["django"],
 )
 
+## Use case 1
+# Resolve it using the result of a rules_python pip.parse call.
+# It will use pip install behind the scenes.
 py_binary(
     name = "manage",
     srcs = ["proj/manage.py"],
@@ -36,13 +35,46 @@ py_binary(
     ],
 )
 
+## Use case 2
+# Use a binary wheel that was downloaded with http_file, bypassing rules_python and its
+# pip install repository rules.
+py_unpacked_wheel(
+    name = "django_4_2_4",
+    src = "@django_4_2_4//file",
+)
+
+# bazel run //py/tests/virtual/django:manage.override_django -- --version
+# Django Version: 4.2.4
 py_binary(
     name = "manage.override_django",
     srcs = ["proj/manage.py"],
+    # package_collisions = "warning",
     # Install the dependencies that the pip_parse rule defined as defaults...
     resolutions = django_resolutions.override({
         # ...but replace the resolution of django with a specific wheel fetched by http_file.
-        "django": "//py/tests/virtual/django:django_wheel",
+        "django": ":django_4_2_4",
+    }),
+    deps = [":proj"],
+)
+
+## Use case 3
+# It's possible to completely remove a dependency.
+# For example, to reduce the size of an image when a transitive dep is known to be unused.
+filegroup(
+    name = "empty",
+)
+
+# bazel run //py/tests/virtual/django:manage.remove_django -- --version
+# ImportError: Couldn't import Django.
+# Are you sure it's installed and available on your PYTHONPATH environment variable?
+# Did you forget to activate a virtual environment?
+py_binary(
+    name = "manage.remove_django",
+    srcs = ["proj/manage.py"],
+    package_collisions = "warning",
+    resolutions = django_resolutions.override({
+        # Replace the resolution of django with an empty folder
+        "django": ":empty",
     }),
     deps = [":proj"],
 )
