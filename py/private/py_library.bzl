@@ -221,7 +221,9 @@ _attrs = dict({
         default = [],
     ),
     "resolutions": attr.label_keyed_string_dict(
-        doc = "FIXME",
+        doc = """Satisfy a virtual_dep with a mapping from external package name to the label of an installed package that provides it.
+        See [virtual dependencies](/docs/virtual_deps.md).
+        """,
     ),
 })
 

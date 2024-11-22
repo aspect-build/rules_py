@@ -29,7 +29,7 @@ Create a Python virtual environment with the dependencies listed.
 | <a id="py_venv_rule-imports"></a>imports |  List of import directories to be added to the PYTHONPATH.   | List of strings | optional | <code>[]</code> |
 | <a id="py_venv_rule-location"></a>location |  Path from the workspace root for where to root the virtial environment   | String | optional | <code>""</code> |
 | <a id="py_venv_rule-package_collisions"></a>package_collisions |  The action that should be taken when a symlink collision is encountered when creating the venv. A collision can occour when multiple packages providing the same file are installed into the venv. The possible values are:<br><br>* "error": When conflicting symlinks are found, an error is reported and venv creation halts. * "warning": When conflicting symlinks are found, an warning is reported, however venv creation continues. * "ignore": When conflicting symlinks are found, no message is reported and venv creation continues.   | String | optional | <code>"error"</code> |
-| <a id="py_venv_rule-resolutions"></a>resolutions |  FIXME   | <a href="https://bazel.build/rules/lib/dict">Dictionary: Label -> String</a> | optional | <code>{}</code> |
+| <a id="py_venv_rule-resolutions"></a>resolutions |  Satisfy a virtual_dep with a mapping from external package name to the label of an installed package that provides it.             See [virtual dependencies](/docs/virtual_deps.md).   | <a href="https://bazel.build/rules/lib/dict">Dictionary: Label -> String</a> | optional | <code>{}</code> |
 | <a id="py_venv_rule-venv_name"></a>venv_name |  Outer folder name for the generated virtual environment   | String | optional | <code>""</code> |
 
 
