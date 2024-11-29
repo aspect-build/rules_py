@@ -3,6 +3,7 @@ load("@aspect_rules_py//py:defs.bzl", "py_pytest_main", "py_test")
 py_pytest_main(
     name = "__test__",
     deps = ["@pypi_pytest//:pkg"],
+    chdir = package_name(), # So that test fixtures are available at the correct path
 )
 
 py_test(
@@ -14,6 +15,9 @@ py_test(
     imports = ["../.."],
     main = ":__test__.py",
     package_collisions = "warning",
+    data = glob([
+        "fixtures/*.json",
+    ]),
     deps = [
         ":__test__",
         "@pypi_ftfy//:pkg",
