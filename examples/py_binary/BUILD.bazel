@@ -1,9 +1,28 @@
+load("@rules_python//python:defs.bzl", upstream_py_binary = "py_binary")
 load("//py:defs.bzl", "py_binary")
 
 py_binary(
     name = "py_binary",
     srcs = ["say.py"],
-    deps = [
-        "@pypi_cowsay//:pkg",
-    ],
+)
+
+py_binary(
+    name = "py_binary2",
+    srcs = ["say.py"],
+    data = [":py_binary"],
+    env = {"FOO": "$(execpath :py_binary)"},
+)
+
+upstream_py_binary(
+    name = "upstream_py_binary",
+    srcs = ["say.py"],
+    main = "say.py",
+)
+
+upstream_py_binary(
+    name = "upstream_py_binary2",
+    srcs = ["say.py"],
+    main = "say.py",
+    data = [":upstream_py_binary"],
+    env = {"FOO": "$(execpath :upstream_py_binary)"},
 )
