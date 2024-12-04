@@ -1,8 +1,8 @@
 """Implementation for the py_binary and py_test rules."""
 
-load("@rules_python//python:defs.bzl", "PyInfo")
-load("@aspect_bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
 load("@aspect_bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
+load("@aspect_bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
+load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "VENV_TOOLCHAIN")
@@ -123,6 +123,9 @@ def _py_binary_rule_impl(ctx):
             uses_shared_libraries = False,
         ),
         instrumented_files_info,
+        RunEnvironmentInfo(
+            inherited_environment = getattr(ctx.attr, "env_inherit", {}),
+        ),
     ]
 
 _attrs = dict({
@@ -168,6 +171,13 @@ A collision can occour when multiple packages providing the same file are instal
 
 _attrs.update(**_py_library.attrs)
 
+_test_attrs = dict({
+    "env_inherit": attr.string_list(
+        doc = "Specifies additional environment variables to inherit from the external environment when the test is executed by bazel test.",
+        default = [],
+    ),
+})
+
 def _python_version_transition_impl(_, attr):
     if not attr.python_version:
         return {}
@@ -182,6 +192,7 @@ _python_version_transition = transition(
 py_base = struct(
     implementation = _py_binary_rule_impl,
     attrs = _attrs,
+    test_attrs = _test_attrs,
     toolchains = [
         PY_TOOLCHAIN,
         VENV_TOOLCHAIN,
@@ -201,7 +212,7 @@ py_binary = rule(
 py_test = rule(
     doc = "Run a Python program under Bazel. Most users should use the [py_test macro](#py_test) instead of loading this directly.",
     implementation = py_base.implementation,
-    attrs = py_base.attrs,
+    attrs = py_base.attrs | py_base.test_attrs,
     toolchains = py_base.toolchains,
     test = True,
     cfg = py_base.cfg,
