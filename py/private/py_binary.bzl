@@ -124,7 +124,7 @@ def _py_binary_rule_impl(ctx):
         ),
         instrumented_files_info,
         RunEnvironmentInfo(
-            inherited_environment = getattr(ctx.attr, "env_inherit", {}),
+            inherited_environment = getattr(ctx.attr, "env_inherit", []),
         ),
     ]
 
