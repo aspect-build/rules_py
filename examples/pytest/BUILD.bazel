@@ -21,3 +21,13 @@ py_test(
         "@pypi_pytest//:pkg",
     ],
 )
+
+py_test(
+    name = "absolute_main_test",
+    srcs = [
+        # 2 files required
+        "__init__.py",
+        "main_test.py",
+    ],
+    main = "//examples/pytest:main_test.py",
+)
