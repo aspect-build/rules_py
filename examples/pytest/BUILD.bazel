@@ -11,6 +11,7 @@ py_test(
         "foo_test.py",
         ":__test__",
     ],
+    env_inherit = ["FOO"],
     imports = ["../.."],
     main = ":__test__.py",
     package_collisions = "warning",
