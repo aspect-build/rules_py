@@ -42,8 +42,8 @@ python.toolchain(python_version = "3.9", is_default = True)
 ## py_test_rule
 
 <pre>
-py_test_rule(<a href="#py_test_rule-name">name</a>, <a href="#py_test_rule-data">data</a>, <a href="#py_test_rule-deps">deps</a>, <a href="#py_test_rule-env">env</a>, <a href="#py_test_rule-imports">imports</a>, <a href="#py_test_rule-main">main</a>, <a href="#py_test_rule-package_collisions">package_collisions</a>, <a href="#py_test_rule-python_version">python_version</a>, <a href="#py_test_rule-resolutions">resolutions</a>,
-             <a href="#py_test_rule-srcs">srcs</a>)
+py_test_rule(<a href="#py_test_rule-name">name</a>, <a href="#py_test_rule-data">data</a>, <a href="#py_test_rule-deps">deps</a>, <a href="#py_test_rule-env">env</a>, <a href="#py_test_rule-env_inherit">env_inherit</a>, <a href="#py_test_rule-imports">imports</a>, <a href="#py_test_rule-main">main</a>, <a href="#py_test_rule-package_collisions">package_collisions</a>, <a href="#py_test_rule-python_version">python_version</a>,
+             <a href="#py_test_rule-resolutions">resolutions</a>, <a href="#py_test_rule-srcs">srcs</a>)
 </pre>
 
 Run a Python program under Bazel. Most users should use the [py_test macro](#py_test) instead of loading this directly.
@@ -57,6 +57,7 @@ Run a Python program under Bazel. Most users should use the [py_test macro](#py_
 | <a id="py_test_rule-data"></a>data |  Runtime dependencies of the program.<br><br>        The transitive closure of the <code>data</code> dependencies will be available in the <code>.runfiles</code>         folder for this binary/test. The program may optionally use the Runfiles lookup library to         locate the data files, see https://pypi.org/project/bazel-runfiles/.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
 | <a id="py_test_rule-deps"></a>deps |  Targets that produce Python code, commonly <code>py_library</code> rules.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
 | <a id="py_test_rule-env"></a>env |  Environment variables to set when running the binary.   | <a href="https://bazel.build/rules/lib/dict">Dictionary: String -> String</a> | optional | <code>{}</code> |
+| <a id="py_test_rule-env_inherit"></a>env_inherit |  Specifies additional environment variables to inherit from the external environment when the test is executed by bazel test.   | List of strings | optional | <code>[]</code> |
 | <a id="py_test_rule-imports"></a>imports |  List of import directories to be added to the PYTHONPATH.   | List of strings | optional | <code>[]</code> |
 | <a id="py_test_rule-main"></a>main |  Script to execute with the Python interpreter.   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
 | <a id="py_test_rule-package_collisions"></a>package_collisions |  The action that should be taken when a symlink collision is encountered when creating the venv. A collision can occour when multiple packages providing the same file are installed into the venv. The possible values are:<br><br>* "error": When conflicting symlinks are found, an error is reported and venv creation halts. * "warning": When conflicting symlinks are found, an warning is reported, however venv creation continues. * "ignore": When conflicting symlinks are found, no message is reported and venv creation continues.   | String | optional | <code>"error"</code> |
