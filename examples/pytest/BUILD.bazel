@@ -1,4 +1,5 @@
 load("@aspect_rules_py//py:defs.bzl", "py_pytest_main", "py_test")
+load("@rules_python//python:defs.bzl", upstream_py_test = "py_test")
 
 py_pytest_main(
     name = "__test__",
@@ -11,9 +12,31 @@ py_test(
         "foo_test.py",
         ":__test__",
     ],
+    env_inherit = [
+        "FOO",
+    ],
     imports = ["../.."],
     main = ":__test__.py",
     package_collisions = "warning",
+    deps = [
+        ":__test__",
+        "@pypi_ftfy//:pkg",
+        "@pypi_neptune//:pkg",
+        "@pypi_pytest//:pkg",
+    ],
+)
+
+upstream_py_test(
+    name = "upstream_pytest_test",
+    srcs = [
+        "foo_test.py",
+        ":__test__",
+    ],
+    env_inherit = [
+        "FOO",
+    ],
+    imports = ["../.."],
+    main = ":__test__.py",
     deps = [
         ":__test__",
         "@pypi_ftfy//:pkg",
