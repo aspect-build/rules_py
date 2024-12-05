@@ -108,11 +108,7 @@ def _py_binary_rule_impl(ctx):
 
     return [
         DefaultInfo(
-            files = depset([
-                executable_launcher,
-                ctx.file.main,
-                site_packages_pth_file,
-            ]),
+            files = depset([executable_launcher]),
             executable = executable_launcher,
             runfiles = runfiles,
         ),
