@@ -49,14 +49,15 @@ def _py_binary_rule_impl(ctx):
         content = pth_lines,
     )
 
-    env = dict({
+    default_env = {
         "BAZEL_TARGET": str(ctx.label).lstrip("@"),
         "BAZEL_WORKSPACE": ctx.workspace_name,
         "BAZEL_TARGET_NAME": ctx.attr.name,
-    }, **ctx.attr.env)
+    }
 
-    for k, v in env.items():
-        env[k] = expand_variables(
+    passed_env = dict(ctx.attr.env)
+    for k, v in passed_env.items():
+        passed_env[k] = expand_variables(
             ctx,
             expand_locations(ctx, v, ctx.attr.data),
             attribute_name = "env",
@@ -75,7 +76,7 @@ def _py_binary_rule_impl(ctx):
             "{{ARG_VENV_NAME}}": ".{}.venv".format(ctx.attr.name),
             "{{ARG_PTH_FILE}}": to_rlocation_path(ctx, site_packages_pth_file),
             "{{ENTRYPOINT}}": to_rlocation_path(ctx, ctx.file.main),
-            "{{PYTHON_ENV}}": "\n".join(_dict_to_exports(env)).strip(),
+            "{{PYTHON_ENV}}": "\n".join(_dict_to_exports(default_env)).strip(),
             "{{EXEC_PYTHON_BIN}}": "python{}".format(
                 py_toolchain.interpreter_version_info.major,
             ),
@@ -124,6 +125,7 @@ def _py_binary_rule_impl(ctx):
         ),
         instrumented_files_info,
         RunEnvironmentInfo(
+            environment = passed_env,
             inherited_environment = getattr(ctx.attr, "env_inherit", []),
         ),
     ]
