@@ -30,7 +30,7 @@ python.toolchain(
 )
 
 # test case for py_library in an imported / generated repository
-bazel_dep(name = "bazel_skylib", version = "1.5.0")
+bazel_dep(name = "bazel_skylib", version = "1.7.1")
 
 importer = use_extension("//rules:import.bzl", "importer")
 use_repo(importer, "myrepo")
