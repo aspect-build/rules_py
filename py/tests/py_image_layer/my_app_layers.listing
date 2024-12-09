@@ -2439,8 +2439,6 @@ drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/
 drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/
 drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_image_layer/
 -rwxr-xr-x  0 0      0        2887 Jan  1  2023 ./py/tests/py_image_layer/my_app_bin
--rwxr-xr-x  0 0      0          16 Jan  1  2023 ./py/tests/py_image_layer/main.py
--rwxr-xr-x  0 0      0          40 Jan  1  2023 ./py/tests/py_image_layer/my_app_bin.venv.pth
 drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_image_layer/my_app_bin.runfiles/
 drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_image_layer/my_app_bin.runfiles/aspect_rules_py/
 drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_image_layer/my_app_bin.runfiles/aspect_rules_py/py/
