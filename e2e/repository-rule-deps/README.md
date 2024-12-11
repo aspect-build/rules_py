@@ -30,7 +30,6 @@ The `:test` test case imports two modules from `@myrepo` ("flat" using `imports=
 
 The second test case `:all_direct` skips the `repository_rule` to demonstrate that the `test.py` itself is correctly implemented and can actually pass when the bug is not present.
 
-
 ```console
 $ bazel test ...
 ...
