@@ -36,10 +36,8 @@ jobs:
           {"folder": "e2e/repository-rule-deps", "bzlmodEnabled": false},
           {"folder": "e2e/system-interpreter", "bzlmodEnabled": false},
           {"folder": "examples/uv_pip_compile", "bzlmodEnabled": false},
-          {"folder": ".", "bazelversion": "8.0.0rc1"},
-          {"folder": "e2e/smoke", "bazelversion": "8.0.0rc1"},
-          {"folder": "e2e/repository-rule-deps", "bazelversion": "8.0.0rc1"},
-          {"folder": "e2e/system-interpreter", "bazelversion": "8.0.0rc1"}
+          {"folder": ".", "bazelversion": "8.0.0"},
+          {"folder": "e2e/smoke", "bazelversion": "8.0.0"}
         ]
 
   verify-bcr-patches:
