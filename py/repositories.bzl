@@ -25,9 +25,9 @@ def rules_py_dependencies():
     # The minimal version of bazel_skylib we require
     http_archive(
         name = "bazel_skylib",
-        sha256 = "118e313990135890ee4cc8504e32929844f9578804a1b2f571d69b1dd080cfb8",
-        strip_prefix = "bazel-skylib-1.5.0",
-        url = "https://github.com/bazelbuild/bazel-skylib/archive/refs/tags/1.5.0.tar.gz",
+        sha256 = "e3fea03ff75a9821e84199466799ba560dbaebb299c655b5307f4df1e5970696",
+        strip_prefix = "bazel-skylib-1.7.1",
+        url = "https://github.com/bazelbuild/bazel-skylib/archive/refs/tags/1.7.1.tar.gz",
     )
 
     # py_image_layer requires 2.x for the `tar` rule.
