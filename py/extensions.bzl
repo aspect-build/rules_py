@@ -1,7 +1,7 @@
 "Module Extensions used from MODULE.bazel"
 
-load(":toolchains.bzl", "DEFAULT_TOOLS_REPOSITORY", "rules_py_toolchains")
 load("//tools:version.bzl", "IS_PRERELEASE")
+load(":toolchains.bzl", "DEFAULT_TOOLS_REPOSITORY", "rules_py_toolchains")
 
 py_toolchain = tag_class(attrs = {
     "name": attr.string(doc = """\

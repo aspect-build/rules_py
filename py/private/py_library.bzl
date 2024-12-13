@@ -4,9 +4,9 @@ Supports "virtual" dependencies with a `virtual_deps` attribute, which lists pac
 without binding them to a particular version of that package.
 """
 
-load("@rules_python//python:defs.bzl", "PyInfo")
-load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:new_sets.bzl", "sets")
+load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private:providers.bzl", "PyVirtualInfo")
 
 def _make_instrumented_files_info(ctx, extra_source_attributes = [], extra_dependency_attributes = []):
