@@ -1,7 +1,7 @@
 """Functions to determine which Python toolchain to use"""
 
-load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
 
 _INTERPRETER_FLAGS = [
     # -B     Don't write .pyc files on import. See also PYTHONDONTWRITEBYTECODE.

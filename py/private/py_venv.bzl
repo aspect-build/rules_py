@@ -7,9 +7,9 @@ Using `py_venv` directly is only required for cases where those defaults do not 
 > As an implementation detail, this currently uses <https://github.com/prefix-dev/rip> which is a very fast Rust-based tool.
 """
 
-load("@rules_python//python:defs.bzl", "PyInfo")
 load("@aspect_bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
 load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private:providers.bzl", "PyVirtualInfo")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")

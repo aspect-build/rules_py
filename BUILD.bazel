@@ -1,10 +1,10 @@
 load("@bazel_gazelle//:def.bzl", "gazelle", "gazelle_binary")
 load("@pypi//:requirements.bzl", "all_whl_requirements")
+load("@rules_python//python:defs.bzl", "py_runtime", "py_runtime_pair")
+load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirements")
 load("@rules_python_gazelle_plugin//:def.bzl", "GAZELLE_PYTHON_RUNTIME_DEPS")
 load("@rules_python_gazelle_plugin//manifest:defs.bzl", "gazelle_python_manifest")
 load("@rules_python_gazelle_plugin//modules_mapping:def.bzl", "modules_mapping")
-load("@rules_python//python:defs.bzl", "py_runtime", "py_runtime_pair")
-load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirements")
 
 # gazelle:exclude internal_python_deps.bzl
 # gazelle:exclude internal_deps.bzl
