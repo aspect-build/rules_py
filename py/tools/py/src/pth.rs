@@ -212,7 +212,12 @@ fn create_symlink(
         };
     }
 
-    std::os::unix::fs::symlink(&tgt, &link)
+    let canonical_tgt = tgt.canonicalize().into_diagnostic().wrap_err(format!(
+        "Unable to get full path for symlink target: {}",
+        tgt.to_string_lossy()
+    ))?;
+
+    std::os::unix::fs::symlink(&canonical_tgt, &link)
         .into_diagnostic()
         .wrap_err(format!(
             "Unable to create symlink: {} -> {}",
