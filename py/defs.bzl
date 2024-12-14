@@ -60,22 +60,26 @@ py_image_layer = _py_image_layer
 resolutions = _resolutions
 
 def _py_binary_or_test(name, rule, srcs, main, deps = [], resolutions = {}, **kwargs):
+    if main and type(main) not in ["string", "Label"]:
+        fail("main must be a Label or a string, not {}".format(type(main)))
+
     # Compatibility with rules_python, see docs in py_executable.bzl
     main_target = "_{}.find_main".format(name)
-    determine_main(
-        name = main_target,
-        target_name = name,
-        main = main,
-        srcs = srcs,
-        **propagate_common_rule_attributes(kwargs)
-    )
+    if type(main) != "Label":
+        determine_main(
+            name = main_target,
+            target_name = name,
+            main = main,
+            srcs = srcs,
+            **propagate_common_rule_attributes(kwargs)
+        )
 
     package_collisions = kwargs.pop("package_collisions", None)
 
     rule(
         name = name,
         srcs = srcs,
-        main = main_target,
+        main = main if type(main) == "Label" else main_target,
         deps = deps,
         resolutions = resolutions,
         package_collisions = package_collisions,
