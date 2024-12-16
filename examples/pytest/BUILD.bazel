@@ -22,3 +22,21 @@ py_test(
         "@pypi_pytest//:pkg",
     ],
 )
+
+py_test(
+    name = "nested/pytest",
+    srcs = [
+        "foo_test.py",
+        ":__test__",
+    ],
+    env_inherit = ["FOO"],
+    imports = ["../.."],
+    main = ":__test__.py",
+    package_collisions = "warning",
+    deps = [
+        ":__test__",
+        "@pypi_ftfy//:pkg",
+        "@pypi_neptune//:pkg",
+        "@pypi_pytest//:pkg",
+    ],
+)
