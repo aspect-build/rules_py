@@ -6,7 +6,7 @@ py_pytest_main(
 )
 
 py_test(
-    name = "pytest_test",
+    name = "pytest_test/nested",
     srcs = [
         "foo_test.py",
         ":__test__",
