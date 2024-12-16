@@ -32,7 +32,9 @@ def _py_binary_rule_impl(ctx):
     # each segment from site-packages in the venv to the root of the runfiles tree.
     # Five .. will get us back to the root of the venv:
     # {name}.runfiles/.{name}.venv/lib/python{version}/site-packages/first_party.pth
-    escape = "/".join(([".."] * 4))
+    # If the target is defined with a slash, it adds to the level of nesting
+    target_depth = len(ctx.label.name.split("/")) - 1
+    escape = "/".join(([".."] * (4 + target_depth)))
 
     # A few imports rely on being able to reference the root of the runfiles tree as a Python module,
     # the common case here being the @rules_python//python/runfiles target that adds the runfiles helper,
