@@ -3,6 +3,7 @@ colorama~=0.4.0
 click
 pytest
 cowsay
+snakesay
 ftfy==6.2.0
 neptune==1.10.2
 six

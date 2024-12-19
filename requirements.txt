@@ -780,6 +780,10 @@ smmap==5.0.1 \
     --hash=sha256:dceeb6c0028fdb6734471eb07c0cd2aae706ccaecab45965ee83f11c8d3b1f62 \
     --hash=sha256:e6d8668fa5f93e706934a62d7b4db19c8d9eb8cf2adbb75ef1b675aa332b69da
     # via gitdb
+snakesay==0.10.3 \
+    --hash=sha256:0a601a0c408deba05a20b11ba2f0db336b1915274601053ef8de3a6b354c60fc \
+    --hash=sha256:6346aa7231b1970efc6fa8b3ea78bd015b3d5a7e33ba709c17e00bcc3328f93f
+    # via -r requirements.in
 sqlparse==0.5.1 \
     --hash=sha256:773dcbf9a5ab44a090f3441e2180efe2560220203dc2f8c0b0fa141e18b505e4 \
     --hash=sha256:bb6b4df465655ef332548e24f08e205afc81b9ab86cb1c45657a7ff173a3a00e

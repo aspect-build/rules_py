@@ -14,12 +14,12 @@ load("@rules_python//python:repositories.bzl", "py_repositories", "python_regist
 python_register_toolchains(
     name = "python_toolchain_3_8",
     python_version = "3.8.12",
-    # setting set_python_version_constraint makes it so that only matches py_* rule  
+    # setting set_python_version_constraint makes it so that only matches py_* rule
     # which has this exact version set in the `python_version` attribute.
     set_python_version_constraint = True,
 )
 
-# It's important to register the default toolchain last it will match any py_* target. 
+# It's important to register the default toolchain last it will match any py_* target.
 python_register_toolchains(
     name = "python_toolchain",
     python_version = "3.9",
@@ -116,9 +116,26 @@ def py_binary(name, srcs = [], main = None, **kwargs):
 
     _py_binary_or_test(name = name, rule = _py_binary, srcs = srcs, main = main, resolutions = resolutions, **kwargs)
 
-def py_test(name, main = None, srcs = [], **kwargs):
-    "Identical to [py_binary](./py_binary.md), but produces a target that can be used with `bazel test`."
+def py_test(name, srcs = [], main = None, **kwargs):
+    """Identical to [py_binary](./py_binary.md), but produces a target that can be used with `bazel test`.
+
+    Args:
+        name: Name of the rule.
+        srcs: Python source files.
+        main: Entry point.
+            Like rules_python, this is treated as a suffix of a file that should appear among the srcs.
+            If absent, then `[name].py` is tried. As a final fallback, if the srcs has a single file,
+            that is used as the main.
+        **kwargs: additional named parameters to `py_binary_rule`.
+    """
 
     # Ensure that any other targets we write will be testonly like the py_test target
     kwargs["testonly"] = True
-    _py_binary_or_test(name = name, rule = _py_test, srcs = srcs, main = main, **kwargs)
+
+    # For a clearer DX when updating resolutions, the resolutions dict is "string" -> "label",
+    # where the rule attribute is a label-keyed-dict, so reverse them here.
+    resolutions = kwargs.pop("resolutions", None)
+    if resolutions:
+        resolutions = resolutions.to_label_keyed_dict()
+
+    _py_binary_or_test(name = name, rule = _py_test, srcs = srcs, main = main, resolutions = resolutions, **kwargs)
