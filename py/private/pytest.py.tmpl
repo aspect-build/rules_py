@@ -23,6 +23,7 @@ if __name__ == "__main__":
     $$CHDIR$$
 
     os.environ["ENV"] = "testing"
+    suite_name = os.environ.get("BAZEL_TARGET")
 
     args = [
         "--verbose",
@@ -31,6 +32,9 @@ if __name__ == "__main__":
         "-p",
         "no:cacheprovider",
     ]
+
+    if suite_name:
+        args.extend(["-o", f"junit_suite_name={suite_name}"])
 
     junit_xml_out = os.environ.get("XML_OUTPUT_FILE")
     if junit_xml_out is not None:
