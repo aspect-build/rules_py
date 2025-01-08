@@ -80,7 +80,7 @@ awk < $< 'BEGIN {
 """ % (mtree_begin_blocks, root, ifs, name)
 
     native.genrule(
-        name = "_{}_manifests".format(name),
+        name = "{}_manifests".format(name),
         srcs = [name + ".manifest"],
         outs = [
             "{}.{}.manifest.spec".format(name, group_name)
@@ -146,7 +146,7 @@ def py_image_layer(name, binary, root = "/", layer_groups = {}, compress = "gzip
     # Finally create layers using the tar rule
     srcs = []
     for group_name in group_names:
-        tar_target = "_{}_{}".format(name, group_name)
+        tar_target = "{}_{}".format(name, group_name)
         tar(
             name = tar_target,
             srcs = [binary],

@@ -61,7 +61,7 @@ resolutions = _resolutions
 
 def _py_binary_or_test(name, rule, srcs, main, deps = [], resolutions = {}, **kwargs):
     # Compatibility with rules_python, see docs in py_executable.bzl
-    main_target = "_{}.find_main".format(name)
+    main_target = "{}.find_main".format(name)
     determine_main(
         name = main_target,
         target_name = name,
