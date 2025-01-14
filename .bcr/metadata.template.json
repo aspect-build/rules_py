@@ -2,9 +2,9 @@
   "homepage": "https://docs.aspect.build/rules/aspect_rules_py",
   "maintainers": [
     {
-      "email": "hello@aspect.dev",
-      "github": "aspect-build",
-      "name": "Aspect team"
+      "email": "alex@aspect.build",
+      "github": "alexeagle",
+      "name": "Alex Eagle"
     }
   ],
   "repository": ["github:aspect-build/rules_py"],
