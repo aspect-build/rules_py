@@ -90,6 +90,7 @@ def _py_binary_or_test(name, rule, srcs, main, deps = [], resolutions = {}, **kw
         package_collisions = package_collisions,
         tags = ["manual"],
         testonly = kwargs.get("testonly", False),
+        target_compatible_with = kwargs.get("target_compatible_with", []),
     )
 
 def py_binary(name, srcs = [], main = None, **kwargs):
