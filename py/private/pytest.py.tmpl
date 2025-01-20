@@ -17,6 +17,22 @@ import os
 from typing import List
 
 import pytest
+cov = None
+
+if os.getenv("COVERAGE_MANIFEST"):
+    try:
+        include = []
+        with open(os.getenv("COVERAGE_MANIFEST"), "r") as mf:
+            include.extend(mf.read().splitlines())
+        import coverage
+        cov = coverage.Coverage(
+            # TODO :link to test encyclopedia
+            include = include,
+        )
+        cov.start()
+    except Exception as e:
+        print("WARNING: python coverage setup failed. Do you need to include the 'coverage' library as a dependency of py_pytest_main?", e)
+        pass
 
 if __name__ == "__main__":
     # Change to the directory where we need to run the test or execute a no-op
@@ -57,5 +73,9 @@ if __name__ == "__main__":
     if exit_code != 0:
         print("Pytest exit code: " + str(exit_code), file=sys.stderr)
         print("Ran pytest.main with " + str(args), file=sys.stderr)
+    elif cov:
+        cov.stop()
+        cov.lcov_report(outfile = os.getenv("COVERAGE_OUTPUT_FILE"))
+        cov.save()
 
     sys.exit(exit_code)

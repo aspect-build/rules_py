@@ -1,5 +1,7 @@
 load("//tools/release:defs.bzl", "rust_binary")
 
+# TODO: transition to --nocollect_code_coverage to avoid rules_rust
+# https://github.com/bazelbuild/rules_rust/pull/1324/files#diff-b52d19a2eedff3a93a0065697cec121345eaeb33fdfe3b27560468ba842e47f5R51
 rust_binary(
     name = "venv",
     srcs = [
