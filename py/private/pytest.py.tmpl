@@ -14,9 +14,12 @@
 
 import sys
 import os
+from pathlib import Path
 from typing import List
 
 import pytest
+
+from aspect_rules_py.py.private.pytest_shard.pytest_shard import ShardPlugin
 
 if __name__ == "__main__":
     # Change to the directory where we need to run the test or execute a no-op
@@ -40,6 +43,16 @@ if __name__ == "__main__":
         if suite_name:
             args.extend(["-o", f"junit_suite_name={suite_name}"])
 
+    test_shard_index = os.environ.get("TEST_SHARD_INDEX")
+    test_total_shards = os.environ.get("TEST_TOTAL_SHARDS")
+    test_shard_status_file = os.environ.get("TEST_SHARD_STATUS_FILE")
+    if all([test_shard_index, test_total_shards, test_shard_status_file]):
+        args.extend([
+            f"--shard-id={test_shard_index}",
+            f"--num-shards={test_total_shards}",
+        ])
+        Path(test_shard_status_file).touch()
+
     test_filter = os.environ.get("TESTBRIDGE_TEST_ONLY")
     if test_filter is not None:
         args.append(f"-k={test_filter}")
@@ -52,7 +65,7 @@ if __name__ == "__main__":
     if len(cli_args) > 0:
         args.extend(cli_args)
 
-    exit_code = pytest.main(args)
+    exit_code = pytest.main(args, plugins=[ShardPlugin()])
 
     if exit_code != 0:
         print("Pytest exit code: " + str(exit_code), file=sys.stderr)

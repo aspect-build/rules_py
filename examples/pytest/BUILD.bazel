@@ -40,3 +40,18 @@ py_test(
         "@pypi_pytest//:pkg",
     ],
 )
+
+py_test(
+    name = "sharding_test",
+    srcs = [
+        "__test__.py",
+        "sharding_test.py",
+    ],
+    imports = ["../.."],
+    main = "__test__.py",
+    package_collisions = "warning",
+    shard_count = 2,
+    deps = [
+        "__test__",
+    ],
+)
