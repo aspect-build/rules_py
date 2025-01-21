@@ -3860,6 +3860,8 @@ manifest:
     smmap.test.test_tutorial: smmap
     smmap.test.test_util: smmap
     smmap.util: smmap
+    snakesay: snakesay
+    snakesay.snakesay: snakesay
     sqlparse: sqlparse
     sqlparse.cli: sqlparse
     sqlparse.engine: sqlparse
@@ -3988,4 +3990,4 @@ manifest:
     yaml.tokens: PyYAML
   pip_repository:
     name: pypi
-integrity: 2e0cbc780621ce75951013e6968f66d1aadd8d1ecb8b7c470883c998b169e733
+integrity: de76d829a37e0a5afc12859854a0f8fa096534eb4c32e6a346b6378b55634f44

@@ -16,12 +16,12 @@ load("@rules_python//python:repositories.bzl", "py_repositories", "python_regist
 python_register_toolchains(
     name = "python_toolchain_3_8",
     python_version = "3.8.12",
-    # setting set_python_version_constraint makes it so that only matches py_* rule  
+    # setting set_python_version_constraint makes it so that only matches py_* rule
     # which has this exact version set in the `python_version` attribute.
     set_python_version_constraint = True,
 )
 
-# It's important to register the default toolchain last it will match any py_* target. 
+# It's important to register the default toolchain last it will match any py_* target.
 python_register_toolchains(
     name = "python_toolchain",
     python_version = "3.9",
@@ -95,7 +95,7 @@ py_pytest_main wraps the template rendering target and the final py_library.
 ## py_test
 
 <pre>
-py_test(<a href="#py_test-name">name</a>, <a href="#py_test-main">main</a>, <a href="#py_test-srcs">srcs</a>, <a href="#py_test-kwargs">kwargs</a>)
+py_test(<a href="#py_test-name">name</a>, <a href="#py_test-srcs">srcs</a>, <a href="#py_test-main">main</a>, <a href="#py_test-kwargs">kwargs</a>)
 </pre>
 
 Identical to [py_binary](./py_binary.md), but produces a target that can be used with `bazel test`.
@@ -105,9 +105,9 @@ Identical to [py_binary](./py_binary.md), but produces a target that can be used
 
 | Name  | Description | Default Value |
 | :------------- | :------------- | :------------- |
-| <a id="py_test-name"></a>name |  <p align="center"> - </p>   |  none |
-| <a id="py_test-main"></a>main |  <p align="center"> - </p>   |  <code>None</code> |
-| <a id="py_test-srcs"></a>srcs |  <p align="center"> - </p>   |  <code>[]</code> |
-| <a id="py_test-kwargs"></a>kwargs |  <p align="center"> - </p>   |  none |
+| <a id="py_test-name"></a>name |  Name of the rule.   |  none |
+| <a id="py_test-srcs"></a>srcs |  Python source files.   |  <code>[]</code> |
+| <a id="py_test-main"></a>main |  Entry point. Like rules_python, this is treated as a suffix of a file that should appear among the srcs. If absent, then <code>[name].py</code> is tried. As a final fallback, if the srcs has a single file, that is used as the main.   |  <code>None</code> |
+| <a id="py_test-kwargs"></a>kwargs |  additional named parameters to <code>py_binary_rule</code>.   |  none |
 
 

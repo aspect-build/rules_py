@@ -16,12 +16,12 @@ load("@rules_python//python:repositories.bzl", "py_repositories", "python_regist
 python_register_toolchains(
     name = "python_toolchain_3_8",
     python_version = "3.8.12",
-    # setting set_python_version_constraint makes it so that only matches py_* rule  
+    # setting set_python_version_constraint makes it so that only matches py_* rule
     # which has this exact version set in the `python_version` attribute.
     set_python_version_constraint = True,
 )
 
-# It's important to register the default toolchain last it will match any py_* target. 
+# It's important to register the default toolchain last it will match any py_* target.
 python_register_toolchains(
     name = "python_toolchain",
     python_version = "3.9",
