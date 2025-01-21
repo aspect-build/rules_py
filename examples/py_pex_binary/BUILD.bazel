@@ -1,3 +1,4 @@
+load("@aspect_bazel_lib//lib:testing.bzl", "assert_contains")
 load("//py:defs.bzl", "py_binary", "py_pex_binary")
 
 py_binary(
@@ -5,11 +6,11 @@ py_binary(
     srcs = ["say.py"],
     data = ["data.txt"],
     env = {
-        "TEST": "1"
+        "TEST": "1",
     },
     deps = [
-        "@pypi_cowsay//:pkg",
         "@bazel_tools//tools/python/runfiles",
+        "@pypi_cowsay//:pkg",
     ],
 )
 
@@ -17,6 +18,20 @@ py_pex_binary(
     name = "py_pex_binary",
     binary = ":binary",
     inject_env = {
-        "TEST": "1"
-    }
+        "TEST": "1",
+    },
+)
+
+genrule(
+    name = "execute_pex",
+    srcs = [],
+    outs = ["pex.out"],
+    cmd = "$(execpath py_pex_binary) >$@",
+    tools = ["py_pex_binary"],
+)
+
+assert_contains(
+    name = "smoke_test_pex",
+    actual = "pex.out",
+    expected = "Mooo!",
 )
