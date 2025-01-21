@@ -6,6 +6,7 @@ so that it can be passed to pytest.main's plugins attribute, and the
 shard selection was changed from a hash-based approach to a round-robin
 approach for a more balanced distribution with smaller numbers of tests.
 """
+
 from typing import Iterable, List, Sequence
 
 from _pytest import nodes  # for type checking only
@@ -30,13 +31,18 @@ def filter_items_by_shard(
             new_items.append(item)
     return new_items
 
+
 class ShardPlugin:
     @staticmethod
     def pytest_addoption(parser):
         """Add pytest-shard specific configuration parameters."""
         group = parser.getgroup("shard")
         group.addoption(
-            "--shard-id", dest="shard_id", type=positive_int, default=0, help="Number of this shard."
+            "--shard-id",
+            dest="shard_id",
+            type=positive_int,
+            default=0,
+            help="Number of this shard.",
         )
         group.addoption(
             "--num-shards",
@@ -60,6 +66,8 @@ class ShardPlugin:
         shard_id = config.getoption("shard_id")
         shard_total = config.getoption("num_shards")
         if shard_id >= shard_total:
-            raise ValueError("shard_num = f{shard_num} must be less than shard_total = f{shard_total}")
+            raise ValueError(
+                "shard_num = f{shard_num} must be less than shard_total = f{shard_total}"
+            )
 
         items[:] = filter_items_by_shard(items, shard_id, shard_total)
