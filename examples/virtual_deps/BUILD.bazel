@@ -8,7 +8,7 @@ py_library(
     virtual_deps = ["cowsay"],
 )
 
-# A library that looks like cowsay... but isn't!
+# A library that *looks* like cowsay... but isn't!
 py_library(
     name = "cowsnake",
     imports = ["cowsnake"],
