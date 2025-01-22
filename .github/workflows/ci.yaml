@@ -60,6 +60,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: ./minimal_download_test.sh
+      - run: |
+          bazel coverage //...
+          ls -R $(bazel info bazel-testlogs)/_coverage/test
 
   # For branch protection settings, this job provides a "stable" name that can be used to gate PR merges
   # on "all matrix jobs were successful".

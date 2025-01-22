@@ -1,5 +1,6 @@
 load("//tools/release:defs.bzl", "rust_binary")
 
+# TODO(#497): transition to --nocollect_code_coverage to avoid rules_rust trying to instrument this binary
 rust_binary(
     name = "venv",
     srcs = [

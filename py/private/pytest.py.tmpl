@@ -17,6 +17,21 @@ import os
 from typing import List
 
 import pytest
+# None means coverage wasn't enabled
+cov = None
+
+# Since our py_test had InstrumentedFilesInfo, we know Bazel will hand us this environment variable.
+# https://bazel.build/rules/lib/providers/InstrumentedFilesInfo
+if "COVERAGE_MANIFEST" in os.environ:
+    try:
+        import coverage
+        # The lines are files that matched the --instrumentation_filter flag
+        with open(os.getenv("COVERAGE_MANIFEST"), "r") as mf:
+            cov = coverage.Coverage(include = mf.read().splitlines())
+        cov.start()
+    except Exception as e:
+        print("WARNING: python coverage setup failed. Do you need to include the 'coverage' library as a dependency of py_pytest_main?", e)
+        pass
 
 if __name__ == "__main__":
     # Change to the directory where we need to run the test or execute a no-op
@@ -57,5 +72,10 @@ if __name__ == "__main__":
     if exit_code != 0:
         print("Pytest exit code: " + str(exit_code), file=sys.stderr)
         print("Ran pytest.main with " + str(args), file=sys.stderr)
+    elif cov:
+        cov.stop()
+        # https://bazel.build/configure/coverage
+        cov.lcov_report(outfile = os.getenv("COVERAGE_OUTPUT_FILE"))
+        cov.save()
 
     sys.exit(exit_code)

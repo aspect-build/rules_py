@@ -312,6 +312,48 @@ manifest:
     colorama.tests.winterm_test: colorama
     colorama.win32: colorama
     colorama.winterm: colorama
+    coverage: coverage
+    coverage.annotate: coverage
+    coverage.bytecode: coverage
+    coverage.cmdline: coverage
+    coverage.collector: coverage
+    coverage.config: coverage
+    coverage.context: coverage
+    coverage.control: coverage
+    coverage.core: coverage
+    coverage.data: coverage
+    coverage.debug: coverage
+    coverage.disposition: coverage
+    coverage.env: coverage
+    coverage.exceptions: coverage
+    coverage.execfile: coverage
+    coverage.files: coverage
+    coverage.html: coverage
+    coverage.inorout: coverage
+    coverage.jsonreport: coverage
+    coverage.lcovreport: coverage
+    coverage.misc: coverage
+    coverage.multiproc: coverage
+    coverage.numbits: coverage
+    coverage.parser: coverage
+    coverage.phystokens: coverage
+    coverage.plugin: coverage
+    coverage.plugin_support: coverage
+    coverage.python: coverage
+    coverage.pytracer: coverage
+    coverage.regions: coverage
+    coverage.report: coverage
+    coverage.report_core: coverage
+    coverage.results: coverage
+    coverage.sqldata: coverage
+    coverage.sqlitedb: coverage
+    coverage.sysmon: coverage
+    coverage.templite: coverage
+    coverage.tomlconfig: coverage
+    coverage.tracer: coverage
+    coverage.types: coverage
+    coverage.version: coverage
+    coverage.xmlreport: coverage
     cowsay: cowsay
     cowsay.characters: cowsay
     cowsay.main: cowsay
@@ -2161,7 +2203,6 @@ manifest:
     numpy.lib.ufunclike: numpy
     numpy.lib.user_array: numpy
     numpy.lib.utils: numpy
-    numpy.libs.libopenblas64_p-r0-0cf96a72: numpy
     numpy.linalg: numpy
     numpy.linalg.lapack_lite: numpy
     numpy.linalg.linalg: numpy
@@ -3717,7 +3758,6 @@ manifest:
     past.types.olddict: future
     past.types.oldstr: future
     past.utils: future
-    pillow.libs.libopenjp2-05423b53: pillow
     pluggy: pluggy
     proxytypes: jsonref
     psutil: psutil
@@ -3990,4 +4030,4 @@ manifest:
     yaml.tokens: PyYAML
   pip_repository:
     name: pypi
-integrity: de76d829a37e0a5afc12859854a0f8fa096534eb4c32e6a346b6378b55634f44
+integrity: 6359bc010056b6e19ee6cbb2fc9a8ac841449521e3b4997fec58163e5c635496
