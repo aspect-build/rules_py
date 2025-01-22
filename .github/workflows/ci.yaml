@@ -46,13 +46,20 @@ jobs:
       - uses: actions/checkout@v4
       - run: patch --dry-run -p1 < .bcr/patches/*.patch
 
-  # TODO(alexeagle): re-enable after greening up
-  # test-release:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - working-directory: e2e/use_release
-  #       run: ./minimal_download_test.sh
+  test-release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: e2e/use_release
+    # This test references pre-built artifacts from a prior release.
+    # See py/private/toolchain/tools.bzl where this is referenced from rctx.os.environ.
+    # Will need to bump this version in the future when there are breaking changes.
+    # NB: update tools/integrity.bzl at the same time!
+    env:
+      RULES_PY_RELEASE_VERSION: 1.1.0
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./minimal_download_test.sh
 
   # For branch protection settings, this job provides a "stable" name that can be used to gate PR merges
   # on "all matrix jobs were successful".
