@@ -91,7 +91,7 @@ awk < $< 'BEGIN {
     )
 
 
-def py_image_layer(name, binary, root = "/", layer_groups = {}, compress = "gzip", tar_args = ["--options", "gzip:!timestamp"], compute_unused_inputs = 1, platform = None, **kwargs):
+def py_image_layer(name, binary, root = "/", layer_groups = {}, compress = "gzip", tar_args = [], compute_unused_inputs = 1, platform = None, **kwargs):
     """Produce a separate tar output for each layer of a python app
 
     > Requires `awk` to be installed on the host machine/rbe runner.
@@ -120,7 +120,7 @@ def py_image_layer(name, binary, root = "/", layer_groups = {}, compress = "gzip
         compress: Compression algorithm to use. Default is gzip. See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#tar_rule-compress
         compute_unused_inputs: Whether to compute unused inputs. Default is 1. See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#tar_rule-compute_unused_inputs
         platform: The platform to use for the transition. Default is None. See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/transitions.md#platform_transition_binary-target_platform
-        tar_args: Additional arguments to pass to the tar rule. Default is `["--options", "gzip:!timestamp"]`. See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#tar_rule-args
+        tar_args: Additional arguments to pass to the tar rule. Default is `[]`. See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#tar_rule-args
         **kwargs: attribute that apply to all targets expanded by the macro
 
     Returns:
