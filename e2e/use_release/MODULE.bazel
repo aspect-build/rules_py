@@ -5,8 +5,5 @@ local_path_override(
 )
 
 tools = use_extension("@aspect_rules_py//py:extensions.bzl", "py_tools")
-tools.rules_py_tools(
-    is_prerelease = False,
-    rules_py_tools_version = "1.1.0",
-)
+tools.rules_py_tools(is_prerelease = False)
 use_repo(tools, "rules_py_tools")

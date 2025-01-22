@@ -114,13 +114,13 @@ package(default_visibility = ["//visibility:public"])
     # For manual testing, override these environment variables
     # TODO: use rctx.getenv when available, see https://github.com/bazelbuild/bazel/pull/20944
     release_fork = "aspect-build"
-    release_version = rctx.attr.rules_py_tools_version
+    release_version = VERSION
     if "RULES_PY_RELEASE_FORK" in rctx.os.environ:
         release_fork = rctx.os.environ["RULES_PY_RELEASE_FORK"]
     if "RULES_PY_RELEASE_VERSION" in rctx.os.environ:
         release_version = rctx.os.environ["RULES_PY_RELEASE_VERSION"]
 
-    for tool, _ in RUST_BIN_CFG.items():
+    for tool, cfg in RUST_BIN_CFG.items():
         filename = "-".join([
             tool,
             TOOLCHAIN_PLATFORMS[rctx.attr.platform].arch,
@@ -149,6 +149,5 @@ prebuilt_tool_repo = repository_rule(
     implementation = _prebuilt_tool_repo_impl,
     attrs = {
         "platform": attr.string(mandatory = True, values = TOOLCHAIN_PLATFORMS.keys()),
-        "rules_py_tools_version": attr.string(default = VERSION),
     },
 )
