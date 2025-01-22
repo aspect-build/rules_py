@@ -25,7 +25,6 @@ jobs:
   test:
     uses: bazel-contrib/.github/.github/workflows/bazel.yaml@646899086d7aaee8e532540480f3e91e00596234 # 11 Dec 2024
     with:
-      bazel_test_command: bazel coverage //...
       folders: '[".", "e2e/smoke", "e2e/repository-rule-deps", "e2e/system-interpreter", "examples/uv_pip_compile"]'
       # TODO: Build Windows tools and add to toolchain
       # TODO(alex): switch the root folder to bzlmod
@@ -61,6 +60,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: ./minimal_download_test.sh
+      - run: bazel coverage //...
 
   # For branch protection settings, this job provides a "stable" name that can be used to gate PR merges
   # on "all matrix jobs were successful".
