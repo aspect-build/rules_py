@@ -45,6 +45,7 @@ py_test(
     package_collisions = "warning",
     deps = [
         ":__test__",
+        ":lib",
         "@pypi_ftfy//:pkg",
         "@pypi_neptune//:pkg",
         "@pypi_pytest//:pkg",

@@ -136,13 +136,12 @@ click==8.1.7 \
     --hash=sha256:ca9853ad459e787e2192211578cc907e7594e294c7ccc834310722b41b9ca6de
     # via
     #   -r requirements.in
-    #   coverage-lcov
     #   neptune
 colorama==0.4.6 \
     --hash=sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44 \
     --hash=sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6
     # via -r requirements.in
-coverage[toml]==7.6.10 \
+coverage==7.6.10 \
     --hash=sha256:05fca8ba6a87aabdd2d30d0b6c838b50510b56cdcfc604d40760dae7153b73d9 \
     --hash=sha256:0aa9692b4fdd83a4647eeb7db46410ea1322b5ed94cd1715ef09d1d5922ba87f \
     --hash=sha256:0c807ca74d5a5e64427c8805de15b9ca140bba13572d6d74e262f46f50b13273 \
@@ -205,12 +204,6 @@ coverage[toml]==7.6.10 \
     --hash=sha256:ec22b5e7fe7a0fa8509181c4aac1db48f3dd4d3a566131b313d1efc102892c18 \
     --hash=sha256:f4f620668dbc6f5e909a0946a877310fb3d57aea8198bde792aae369ee1c23b5 \
     --hash=sha256:fd34e7b3405f0cc7ab03d54a334c17a9e802897580d964bd8c2001f4b9fd488f
-    # via
-    #   -r requirements.in
-    #   coverage-lcov
-coverage-lcov==0.3.0 \
-    --hash=sha256:0b352da0c72eacd555de2e10fa75ec165b8849ab6827218abc3ef6be2ec861f6 \
-    --hash=sha256:23ae34a535f1ed3fa4cdf9682f6c1fe1a40aa98c94aa05614512dbf2da82e749
     # via -r requirements.in
 cowsay==6.1 \
     --hash=sha256:274b1e6fc1b966d53976333eb90ac94cb07a450a700b455af9fbdf882244b30a
@@ -868,9 +861,7 @@ swagger-spec-validator==3.0.3 \
 tomli==2.0.1 \
     --hash=sha256:939de3e7a6161af0c887ef91b7d41a53e7c5a1ca976325f429cb46ea9bc30ecc \
     --hash=sha256:de526c12914f0c550d15924c62d72abc48d6fe7364aa87328337a31007fe8a4f
-    # via
-    #   coverage
-    #   pytest
+    # via pytest
 types-python-dateutil==2.9.0.20240316 \
     --hash=sha256:5d2f2e240b86905e40944dd787db6da9263f0deabef1076ddaed797351ec0202 \
     --hash=sha256:6b8cb66d960771ce5ff974e9dd45e38facb81718cc1e208b10b1baccbfdbee3b
