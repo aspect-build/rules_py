@@ -11,15 +11,16 @@ register_autodetecting_python_toolchain = _register_autodetecting_python_toolcha
 
 DEFAULT_TOOLS_REPOSITORY = "rules_py_tools"
 
-def rules_py_toolchains(name = DEFAULT_TOOLS_REPOSITORY, register = True, is_prerelease = IS_PRERELEASE):
+def rules_py_toolchains(name = DEFAULT_TOOLS_REPOSITORY, register = True, is_prerelease = IS_PRERELEASE, rules_py_tools_version = None):
     """Create a downloaded toolchain for every tool under every supported platform.
 
     Args:
         name: prefix used in created repositories
         register: whether to call the register_toolchains, should be True for WORKSPACE and False for bzlmod.
         is_prerelease: True iff there are no pre-built tool binaries for this version of rules_py
+        rules_py_tools_version: when not a prerelease, override the version of tools to be downloaded from GH releases
     """
-    
+
     register_tar_toolchains(register = register)
 
     if is_prerelease:
@@ -31,12 +32,11 @@ def rules_py_toolchains(name = DEFAULT_TOOLS_REPOSITORY, register = True, is_pre
             )
     else:
         for platform in TOOLCHAIN_PLATFORMS.keys():
-            prebuilt_tool_repo(name = ".".join([name, platform]), platform = platform)
+            prebuilt_tool_repo(name = ".".join([name, platform]), platform = platform, rules_py_tools_version = rules_py_tools_version)
         toolchains_repo(name = name, user_repository_name = name)
 
         if register:
             native.register_toolchains("@{}//:all".format(name))
-
 
     http_file(
         name = "rules_py_pex_2_3_1",

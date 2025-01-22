@@ -1,7 +1,7 @@
 "Module Extensions used from MODULE.bazel"
 
-load(":toolchains.bzl", "DEFAULT_TOOLS_REPOSITORY", "rules_py_toolchains")
 load("//tools:version.bzl", "IS_PRERELEASE")
+load(":toolchains.bzl", "DEFAULT_TOOLS_REPOSITORY", "rules_py_toolchains")
 
 py_toolchain = tag_class(attrs = {
     "name": attr.string(doc = """\
@@ -12,6 +12,7 @@ Overriding the default is only permitted in the root module.
         doc = "True iff there are no pre-built tool binaries for this version of rules_py",
         default = IS_PRERELEASE,
     ),
+    "rules_py_tools_version": attr.string(doc = "When not using a prerelease, overrides the version of tools fetched from GH releases"),
 })
 
 def _toolchains_extension_impl(module_ctx):
@@ -27,7 +28,7 @@ def _toolchains_extension_impl(module_ctx):
 
             # Ensure the root wins in case of differences
             if mod.is_root:
-                rules_py_toolchains(toolchain.name, register = False, is_prerelease = toolchain.is_prerelease)
+                rules_py_toolchains(toolchain.name, register = False, is_prerelease = toolchain.is_prerelease, rules_py_tools_version = toolchain.rules_py_tools_version)
                 root_name = toolchain.name
             else:
                 registrations.append(toolchain.name)
