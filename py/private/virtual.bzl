@@ -62,7 +62,7 @@ def _make_resolution(name, requirement):
 
 def _from_requirements(base, requirement_fn = lambda r: r):
     if type(base) == "list":
-        base = { k: None for k in base }
+        base = {k: None for k in base}
     return _make_resolutions(base, requirement_fn)
 
 resolutions = struct(

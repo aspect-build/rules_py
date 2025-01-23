@@ -3,44 +3,50 @@ load("@pypi//:requirements.bzl", "requirement")
 
 py_library(
     name = "greet",
-    imports = ["."],
     srcs = ["greet.py"],
+    imports = ["."],
     virtual_deps = ["cowsay"],
 )
 
 # A library that *looks* like cowsay... but isn't!
 py_library(
     name = "cowsnake",
-    imports = ["cowsnake"],
     srcs = ["cowsnake/cowsay.py"],
+    imports = ["cowsnake"],
     virtual_deps = ["snakesay"],
 )
 
 py_binary(
     name = "app",
     srcs = ["main.py"],
-    resolutions = resolutions.from_requirements([
-        "cowsay",
-    ], requirement),
+    python_version = "3.8.12",
+    resolutions = resolutions.from_requirements(
+        [
+            "cowsay",
+        ],
+        requirement,
+    ),
     deps = [
         ":greet",
     ],
-    python_version = "3.8.12",
 )
 
 # Here we swap out the cowsay module for our own implementation
 py_binary(
     name = "app_snake",
     srcs = ["main.py"],
+    python_version = "3.8.12",
+    resolutions = resolutions.from_requirements(
+        [
+            "snakesay",
+        ],
+        requirement,
+    ).override({
+        "cowsay": ":cowsnake",
+    }),
     deps = [
         ":greet",
     ],
-    resolutions = resolutions.from_requirements([
-        "snakesay",
-    ], requirement).override({
-        "cowsay": ":cowsnake",
-    }),
-    python_version = "3.8.12",
 )
 
 py_pytest_main(
@@ -55,9 +61,12 @@ py_test(
     ],
     main = ":__test__.py",
     package_collisions = "error",
-    resolutions = resolutions.from_requirements([
-        "cowsay",
-    ], requirement),
+    resolutions = resolutions.from_requirements(
+        [
+            "cowsay",
+        ],
+        requirement,
+    ),
     deps = [
         requirement("pytest"),
         ":greet",
