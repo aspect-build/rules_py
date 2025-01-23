@@ -120,7 +120,7 @@ package(default_visibility = ["//visibility:public"])
     if "RULES_PY_RELEASE_VERSION" in rctx.os.environ:
         release_version = rctx.os.environ["RULES_PY_RELEASE_VERSION"]
 
-    for tool, cfg in RUST_BIN_CFG.items():
+    for tool in RUST_BIN_CFG.keys():
         filename = "-".join([
             tool,
             TOOLCHAIN_PLATFORMS[rctx.attr.platform].arch,

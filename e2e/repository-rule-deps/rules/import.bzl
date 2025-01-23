@@ -1,3 +1,5 @@
+"""Create the external repository under test."""
+
 load("@bazel_skylib//lib:paths.bzl", "paths")
 
 def _myrepo_impl(repository_ctx):
@@ -22,7 +24,7 @@ myrepo = repository_rule(
     },
 )
 
-def _importer_impl(module_ctx):
+def _importer_impl(_):
     myrepo(name = "myrepo", path = "imported")
 
 importer = module_extension(

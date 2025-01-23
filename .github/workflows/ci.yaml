@@ -40,6 +40,12 @@ jobs:
           {"folder": "e2e/smoke", "bazelversion": "8.0.0"}
         ]
 
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pre-commit/action@v3.0.1
+
   verify-bcr-patches:
     runs-on: ubuntu-latest
     steps:
@@ -67,7 +73,7 @@ jobs:
   # For branch protection settings, this job provides a "stable" name that can be used to gate PR merges
   # on "all matrix jobs were successful".
   conclusion:
-    needs: test
+    needs: [test, pre-commit]
     runs-on: ubuntu-latest
     if: always()
     steps:
