@@ -1,0 +1,3 @@
+# Don't instrument the root folder, since that walks into the //external folder too
+# See https://bazelbuild.slack.com/archives/C07HTMQFTBN/p1737600241213179?thread_ts=1736875351.548719&cid=C07HTMQFTBN
+coverage --instrumentation_filter=//src
