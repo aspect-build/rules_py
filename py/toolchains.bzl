@@ -19,7 +19,7 @@ def rules_py_toolchains(name = DEFAULT_TOOLS_REPOSITORY, register = True, is_pre
         register: whether to call the register_toolchains, should be True for WORKSPACE and False for bzlmod.
         is_prerelease: True iff there are no pre-built tool binaries for this version of rules_py
     """
-    
+
     register_tar_toolchains(register = register)
 
     if is_prerelease:
@@ -36,7 +36,6 @@ def rules_py_toolchains(name = DEFAULT_TOOLS_REPOSITORY, register = True, is_pre
 
         if register:
             native.register_toolchains("@{}//:all".format(name))
-
 
     http_file(
         name = "rules_py_pex_2_3_1",

@@ -90,7 +90,6 @@ awk < $< 'BEGIN {
         **kwargs
     )
 
-
 def py_image_layer(name, binary, root = "/", layer_groups = {}, compress = "gzip", tar_args = [], compute_unused_inputs = 1, platform = None, **kwargs):
     """Produce a separate tar output for each layer of a python app
 
@@ -103,7 +102,7 @@ def py_image_layer(name, binary, root = "/", layer_groups = {}, compress = "gzip
         1. `layer_groups` are checked first.
         2. If no match is found for `layer_groups`, the `default layer groups` are checked.
         3. Any remaining files are placed into the default layer.
-    
+
     The default layer groups are:
     ```
     {
@@ -157,7 +156,7 @@ def py_image_layer(name, binary, root = "/", layer_groups = {}, compress = "gzip
             **kwargs
         )
         srcs.append(tar_target)
-    
+
     if platform:
         platform_transition_filegroup(
             name = name,
