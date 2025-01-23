@@ -16,7 +16,7 @@ struct UnpackArgs {
     wheel: PathBuf,
 
     /// Python version, eg 3.8.12
-    /// Must be seperated by dots.
+    /// Must be separated by dots.
     #[arg(long)]
     python_version: String,
 }
