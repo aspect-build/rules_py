@@ -1,4 +1,4 @@
-# buildifier: disable=module-docstring
+"""Autodetecting Python toolchain"""
 
 def _autodetecting_py_wrapper_impl(rctx):
     which_python = rctx.which("python3")
