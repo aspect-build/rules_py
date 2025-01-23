@@ -73,12 +73,12 @@ jobs:
       - name: Report code coverage
         uses: zgosalvez/github-actions-report-lcov@5989987f8058a03137e90bc16f9c0baaac5e069a # v4.1.22
         env:
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
-        if: env.GITHUB_TOKEN
+          CAN_POST_COMMENT: ${{ secrets.GITHUB_TOKEN != '' }}
+        if: env.CAN_POST_COMMENT
         with:
           working-directory: ${{ env.bazel_testlogs }}
           coverage-files: "**/coverage.dat"
-          github-token: ${{ env.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           update-comment: true
 
   # For branch protection settings, this job provides a "stable" name that can be used to gate PR merges
