@@ -8,6 +8,7 @@ py_library(
 
 py_pytest_main(
     name = "__test__",
+    chdir = package_name(), # So that test fixtures are available at the correct path
     deps = [
         "@pypi_coverage//:pkg",
         "@pypi_pytest//:pkg",
@@ -24,6 +25,9 @@ py_test(
     imports = ["../.."],
     main = ":__test__.py",
     package_collisions = "warning",
+    data = glob([
+        "fixtures/*.json",
+    ]),
     deps = [
         ":__test__",
         ":lib",
@@ -43,6 +47,9 @@ py_test(
     imports = ["../.."],
     main = ":__test__.py",
     package_collisions = "warning",
+    data = glob([
+        "fixtures/*.json",
+    ]),
     deps = [
         ":__test__",
         ":lib",
