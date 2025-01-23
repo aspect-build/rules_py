@@ -72,6 +72,7 @@ jobs:
       - run: echo "bazel_testlogs=$(bazel info bazel-testlogs)" >> $GITHUB_ENV
       - name: Report code coverage
         uses: zgosalvez/github-actions-report-lcov@5989987f8058a03137e90bc16f9c0baaac5e069a # v4.1.22
+        if: secrets.GITHUB_TOKEN
         with:
           working-directory: ${{ env.bazel_testlogs }}
           coverage-files: "**/coverage.dat"
