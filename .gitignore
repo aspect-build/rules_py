@@ -9,6 +9,8 @@
 **/*.whl
 .venv/
 
+node_modules/
+
 !third_party/**
 
 # TODO: enable when it is more stable, maybe Bazel 7.1
