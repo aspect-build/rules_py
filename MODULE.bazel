@@ -12,7 +12,7 @@ module(
 # py_image_layer requires 2.x for the `tar` rule.
 # py_image_layer needs compute_unused_inputs attribute
 # py_image_layer needs repo_mapping fix.
-bazel_dep(name = "aspect_bazel_lib", version = "2.9.4")
+bazel_dep(name = "aspect_bazel_lib", version = "2.10.0") 
 bazel_dep(name = "bazel_skylib", version = "1.4.2")
 bazel_dep(name = "rules_python", version = "0.29.0")
 bazel_dep(name = "platforms", version = "0.0.7")

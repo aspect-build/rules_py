@@ -2,7 +2,7 @@ load("@aspect_bazel_lib//lib:write_source_files.bzl", "write_source_file")
 
 # buildifier: disable=function-docstring
 def assert_tar_listing(name, actual, expected):
-    actual_listing = "_{}_listing".format(name)
+    actual_listing = "{}_listing".format(name)
     native.genrule(
         name = actual_listing,
         srcs = actual,

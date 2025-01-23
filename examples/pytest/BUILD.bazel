@@ -1,8 +1,17 @@
-load("@aspect_rules_py//py:defs.bzl", "py_pytest_main", "py_test")
+load("@aspect_rules_py//py:defs.bzl", "py_library", "py_pytest_main", "py_test")
+
+py_library(
+    name = "lib",
+    srcs = ["foo.py"],
+    imports = ["../.."],
+)
 
 py_pytest_main(
     name = "__test__",
-    deps = ["@pypi_pytest//:pkg"],
+    deps = [
+        "@pypi_coverage//:pkg",
+        "@pypi_pytest//:pkg",
+    ],
 )
 
 py_test(
@@ -17,6 +26,26 @@ py_test(
     package_collisions = "warning",
     deps = [
         ":__test__",
+        ":lib",
+        "@pypi_ftfy//:pkg",
+        "@pypi_neptune//:pkg",
+        "@pypi_pytest//:pkg",
+    ],
+)
+
+py_test(
+    name = "nested/pytest",
+    srcs = [
+        "foo_test.py",
+        ":__test__",
+    ],
+    env_inherit = ["FOO"],
+    imports = ["../.."],
+    main = ":__test__.py",
+    package_collisions = "warning",
+    deps = [
+        ":__test__",
+        ":lib",
         "@pypi_ftfy//:pkg",
         "@pypi_neptune//:pkg",
         "@pypi_pytest//:pkg",
