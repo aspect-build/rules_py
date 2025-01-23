@@ -16,7 +16,7 @@ fi
     patch -p1 < .bcr/patches/*.patch
 )
 OUTPUT_BASE=$(mktemp -d)
-output=$(bazel "--output_base=$OUTPUT_BASE" run --enable_bzlmod //:main)
+output=$(bazel "--output_base=$OUTPUT_BASE" run --enable_bzlmod //src:main)
 if [[ "$output" != "hello world" ]]; then
   >&2 echo "ERROR: bazel command did not produce expected output"
   exit 1
@@ -37,7 +37,7 @@ fi
 #############
 # Test WORKSPACE
 OUTPUT_BASE=$(mktemp -d)
-output=$(bazel "--output_base=$OUTPUT_BASE" run --noenable_bzlmod //:main)
+output=$(bazel "--output_base=$OUTPUT_BASE" run --noenable_bzlmod //src:main)
 if [[ "$output" != "hello world" ]]; then
   >&2 echo "ERROR: bazel command did not produce expected output"
   exit 1
