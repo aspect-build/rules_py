@@ -16,12 +16,12 @@ load("@rules_python//python:repositories.bzl", "py_repositories", "python_regist
 python_register_toolchains(
     name = "python_toolchain_3_8",
     python_version = "3.8.12",
-    # setting set_python_version_constraint makes it so that only matches py_* rule  
+    # setting set_python_version_constraint makes it so that only matches py_* rule
     # which has this exact version set in the `python_version` attribute.
     set_python_version_constraint = True,
 )
 
-# It's important to register the default toolchain last it will match any py_* target. 
+# It's important to register the default toolchain last it will match any py_* target.
 python_register_toolchains(
     name = "python_toolchain",
     python_version = "3.9",
@@ -42,8 +42,8 @@ python.toolchain(python_version = "3.9", is_default = True)
 ## py_test_rule
 
 <pre>
-py_test_rule(<a href="#py_test_rule-name">name</a>, <a href="#py_test_rule-data">data</a>, <a href="#py_test_rule-deps">deps</a>, <a href="#py_test_rule-env">env</a>, <a href="#py_test_rule-imports">imports</a>, <a href="#py_test_rule-main">main</a>, <a href="#py_test_rule-package_collisions">package_collisions</a>, <a href="#py_test_rule-python_version">python_version</a>, <a href="#py_test_rule-resolutions">resolutions</a>,
-             <a href="#py_test_rule-srcs">srcs</a>)
+py_test_rule(<a href="#py_test_rule-name">name</a>, <a href="#py_test_rule-data">data</a>, <a href="#py_test_rule-deps">deps</a>, <a href="#py_test_rule-env">env</a>, <a href="#py_test_rule-env_inherit">env_inherit</a>, <a href="#py_test_rule-imports">imports</a>, <a href="#py_test_rule-interpreter_options">interpreter_options</a>, <a href="#py_test_rule-main">main</a>,
+             <a href="#py_test_rule-package_collisions">package_collisions</a>, <a href="#py_test_rule-python_version">python_version</a>, <a href="#py_test_rule-resolutions">resolutions</a>, <a href="#py_test_rule-srcs">srcs</a>)
 </pre>
 
 Run a Python program under Bazel. Most users should use the [py_test macro](#py_test) instead of loading this directly.
@@ -57,7 +57,9 @@ Run a Python program under Bazel. Most users should use the [py_test macro](#py_
 | <a id="py_test_rule-data"></a>data |  Runtime dependencies of the program.<br><br>        The transitive closure of the <code>data</code> dependencies will be available in the <code>.runfiles</code>         folder for this binary/test. The program may optionally use the Runfiles lookup library to         locate the data files, see https://pypi.org/project/bazel-runfiles/.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
 | <a id="py_test_rule-deps"></a>deps |  Targets that produce Python code, commonly <code>py_library</code> rules.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
 | <a id="py_test_rule-env"></a>env |  Environment variables to set when running the binary.   | <a href="https://bazel.build/rules/lib/dict">Dictionary: String -> String</a> | optional | <code>{}</code> |
+| <a id="py_test_rule-env_inherit"></a>env_inherit |  Specifies additional environment variables to inherit from the external environment when the test is executed by bazel test.   | List of strings | optional | <code>[]</code> |
 | <a id="py_test_rule-imports"></a>imports |  List of import directories to be added to the PYTHONPATH.   | List of strings | optional | <code>[]</code> |
+| <a id="py_test_rule-interpreter_options"></a>interpreter_options |  Additional options to pass to the Python interpreter in addition to -B and -I passed by rules_py   | List of strings | optional | <code>[]</code> |
 | <a id="py_test_rule-main"></a>main |  Script to execute with the Python interpreter.   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
 | <a id="py_test_rule-package_collisions"></a>package_collisions |  The action that should be taken when a symlink collision is encountered when creating the venv. A collision can occour when multiple packages providing the same file are installed into the venv. The possible values are:<br><br>* "error": When conflicting symlinks are found, an error is reported and venv creation halts. * "warning": When conflicting symlinks are found, an warning is reported, however venv creation continues. * "ignore": When conflicting symlinks are found, no message is reported and venv creation continues.   | String | optional | <code>"error"</code> |
 | <a id="py_test_rule-python_version"></a>python_version |  Whether to build this target and its transitive deps for a specific python version.   | String | optional | <code>""</code> |
@@ -93,7 +95,7 @@ py_pytest_main wraps the template rendering target and the final py_library.
 ## py_test
 
 <pre>
-py_test(<a href="#py_test-name">name</a>, <a href="#py_test-main">main</a>, <a href="#py_test-srcs">srcs</a>, <a href="#py_test-kwargs">kwargs</a>)
+py_test(<a href="#py_test-name">name</a>, <a href="#py_test-srcs">srcs</a>, <a href="#py_test-main">main</a>, <a href="#py_test-kwargs">kwargs</a>)
 </pre>
 
 Identical to [py_binary](./py_binary.md), but produces a target that can be used with `bazel test`.
@@ -103,9 +105,9 @@ Identical to [py_binary](./py_binary.md), but produces a target that can be used
 
 | Name  | Description | Default Value |
 | :------------- | :------------- | :------------- |
-| <a id="py_test-name"></a>name |  <p align="center"> - </p>   |  none |
-| <a id="py_test-main"></a>main |  <p align="center"> - </p>   |  <code>None</code> |
-| <a id="py_test-srcs"></a>srcs |  <p align="center"> - </p>   |  <code>[]</code> |
-| <a id="py_test-kwargs"></a>kwargs |  <p align="center"> - </p>   |  none |
+| <a id="py_test-name"></a>name |  Name of the rule.   |  none |
+| <a id="py_test-srcs"></a>srcs |  Python source files.   |  <code>[]</code> |
+| <a id="py_test-main"></a>main |  Entry point. Like rules_python, this is treated as a suffix of a file that should appear among the srcs. If absent, then <code>[name].py</code> is tried. As a final fallback, if the srcs has a single file, that is used as the main.   |  <code>None</code> |
+| <a id="py_test-kwargs"></a>kwargs |  additional named parameters to <code>py_binary_rule</code>.   |  none |
 
 

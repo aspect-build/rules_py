@@ -9,10 +9,6 @@ if [ "$ARCH" == "x86_64" ]; then
     ALLOWED="rules_py_tools.${OS}_amd64"
 fi
 
-# This test references pre-built artifacts from a prior release.
-# Will need to bump this version in the future when there are breaking changes.
-export RULES_PY_RELEASE_VERSION=0.7.4
-
 #############
 # Test bzlmod
 (

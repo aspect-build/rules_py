@@ -23,7 +23,7 @@ concurrency:
 
 jobs:
   test:
-    uses: bazel-contrib/.github/.github/workflows/bazel.yaml@v7
+    uses: bazel-contrib/.github/.github/workflows/bazel.yaml@646899086d7aaee8e532540480f3e91e00596234 # 11 Dec 2024
     with:
       folders: '[".", "e2e/smoke", "e2e/repository-rule-deps", "e2e/system-interpreter", "examples/uv_pip_compile"]'
       # TODO: Build Windows tools and add to toolchain
@@ -36,10 +36,8 @@ jobs:
           {"folder": "e2e/repository-rule-deps", "bzlmodEnabled": false},
           {"folder": "e2e/system-interpreter", "bzlmodEnabled": false},
           {"folder": "examples/uv_pip_compile", "bzlmodEnabled": false},
-          {"folder": ".", "bazelversion": "8.0.0rc1"},
-          {"folder": "e2e/smoke", "bazelversion": "8.0.0rc1"},
-          {"folder": "e2e/repository-rule-deps", "bazelversion": "8.0.0rc1"},
-          {"folder": "e2e/system-interpreter", "bazelversion": "8.0.0rc1"}
+          {"folder": ".", "bazelversion": "8.0.0"},
+          {"folder": "e2e/smoke", "bazelversion": "8.0.0"}
         ]
 
   verify-bcr-patches:
@@ -48,13 +46,23 @@ jobs:
       - uses: actions/checkout@v4
       - run: patch --dry-run -p1 < .bcr/patches/*.patch
 
-  # TODO(alexeagle): re-enable after greening up
-  # test-release:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - working-directory: e2e/use_release
-  #       run: ./minimal_download_test.sh
+  test-release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: e2e/use_release
+    # This test references pre-built artifacts from a prior release.
+    # See py/private/toolchain/tools.bzl where this is referenced from rctx.os.environ.
+    # Will need to bump this version in the future when there are breaking changes.
+    # NB: update tools/integrity.bzl at the same time!
+    env:
+      RULES_PY_RELEASE_VERSION: 1.1.0
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./minimal_download_test.sh
+      - run: |
+          bazel coverage //...
+          ls -R $(bazel info bazel-testlogs)/_coverage/test
 
   # For branch protection settings, this job provides a "stable" name that can be used to gate PR merges
   # on "all matrix jobs were successful".

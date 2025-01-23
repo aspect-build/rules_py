@@ -1,8 +1,8 @@
 """Implementation for the py_binary and py_test rules."""
 
-load("@rules_python//python:defs.bzl", "PyInfo")
-load("@aspect_bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
 load("@aspect_bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
+load("@aspect_bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
+load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "VENV_TOOLCHAIN")
@@ -32,7 +32,9 @@ def _py_binary_rule_impl(ctx):
     # each segment from site-packages in the venv to the root of the runfiles tree.
     # Five .. will get us back to the root of the venv:
     # {name}.runfiles/.{name}.venv/lib/python{version}/site-packages/first_party.pth
-    escape = "/".join(([".."] * 4))
+    # If the target is defined with a slash, it adds to the level of nesting
+    target_depth = len(ctx.label.name.split("/")) - 1
+    escape = "/".join(([".."] * (4 + target_depth)))
 
     # A few imports rely on being able to reference the root of the runfiles tree as a Python module,
     # the common case here being the @rules_python//python/runfiles target that adds the runfiles helper,
@@ -49,14 +51,15 @@ def _py_binary_rule_impl(ctx):
         content = pth_lines,
     )
 
-    env = dict({
+    default_env = {
         "BAZEL_TARGET": str(ctx.label).lstrip("@"),
         "BAZEL_WORKSPACE": ctx.workspace_name,
         "BAZEL_TARGET_NAME": ctx.attr.name,
-    }, **ctx.attr.env)
+    }
 
-    for k, v in env.items():
-        env[k] = expand_variables(
+    passed_env = dict(ctx.attr.env)
+    for k, v in passed_env.items():
+        passed_env[k] = expand_variables(
             ctx,
             expand_locations(ctx, v, ctx.attr.data),
             attribute_name = "env",
@@ -68,14 +71,14 @@ def _py_binary_rule_impl(ctx):
         output = executable_launcher,
         substitutions = {
             "{{BASH_RLOCATION_FN}}": BASH_RLOCATION_FUNCTION,
-            "{{INTERPRETER_FLAGS}}": " ".join(py_toolchain.flags),
+            "{{INTERPRETER_FLAGS}}": " ".join(py_toolchain.flags + ctx.attr.interpreter_options),
             "{{VENV_TOOL}}": to_rlocation_path(ctx, venv_toolchain.bin),
             "{{ARG_COLLISION_STRATEGY}}": ctx.attr.package_collisions,
             "{{ARG_PYTHON}}": to_rlocation_path(ctx, py_toolchain.python) if py_toolchain.runfiles_interpreter else py_toolchain.python.path,
             "{{ARG_VENV_NAME}}": ".{}.venv".format(ctx.attr.name),
             "{{ARG_PTH_FILE}}": to_rlocation_path(ctx, site_packages_pth_file),
             "{{ENTRYPOINT}}": to_rlocation_path(ctx, ctx.file.main),
-            "{{PYTHON_ENV}}": "\n".join(_dict_to_exports(env)).strip(),
+            "{{PYTHON_ENV}}": "\n".join(_dict_to_exports(default_env)).strip(),
             "{{EXEC_PYTHON_BIN}}": "python{}".format(
                 py_toolchain.interpreter_version_info.major,
             ),
@@ -123,6 +126,10 @@ def _py_binary_rule_impl(ctx):
             uses_shared_libraries = False,
         ),
         instrumented_files_info,
+        RunEnvironmentInfo(
+            environment = passed_env,
+            inherited_environment = getattr(ctx.attr, "env_inherit", []),
+        ),
     ]
 
 _attrs = dict({
@@ -149,6 +156,10 @@ A collision can occour when multiple packages providing the same file are instal
         default = "error",
         values = ["error", "warning", "ignore"],
     ),
+    "interpreter_options": attr.string_list(
+        doc = "Additional options to pass to the Python interpreter in addition to -B and -I passed by rules_py",
+        default = [],
+    ),
     "_run_tmpl": attr.label(
         allow_single_file = True,
         default = "//py/private:run.tmpl.sh",
@@ -168,6 +179,13 @@ A collision can occour when multiple packages providing the same file are instal
 
 _attrs.update(**_py_library.attrs)
 
+_test_attrs = dict({
+    "env_inherit": attr.string_list(
+        doc = "Specifies additional environment variables to inherit from the external environment when the test is executed by bazel test.",
+        default = [],
+    ),
+})
+
 def _python_version_transition_impl(_, attr):
     if not attr.python_version:
         return {}
@@ -182,6 +200,7 @@ _python_version_transition = transition(
 py_base = struct(
     implementation = _py_binary_rule_impl,
     attrs = _attrs,
+    test_attrs = _test_attrs,
     toolchains = [
         PY_TOOLCHAIN,
         VENV_TOOLCHAIN,
@@ -201,7 +220,7 @@ py_binary = rule(
 py_test = rule(
     doc = "Run a Python program under Bazel. Most users should use the [py_test macro](#py_test) instead of loading this directly.",
     implementation = py_base.implementation,
-    attrs = py_base.attrs,
+    attrs = py_base.attrs | py_base.test_attrs,
     toolchains = py_base.toolchains,
     test = True,
     cfg = py_base.cfg,
