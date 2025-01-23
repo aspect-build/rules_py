@@ -20,7 +20,7 @@ py_binary(
 oci_image(
     tars = py_image_layer(
         name = "my_app",
-        py_binary = ":my_app_bin",
+        binary = ":my_app_bin",
         layer_groups = {
             "torch": "pip_deps_torch.*",
             "numpy": "pip_deps_numpy.*",
