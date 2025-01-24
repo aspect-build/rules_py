@@ -54,6 +54,8 @@ jobs:
 
   test-release:
     runs-on: ubuntu-latest
+    permissions:
+      issues: write # allow commenting to the PR with the token
     defaults:
       run:
         working-directory: e2e/use_release
@@ -72,9 +74,6 @@ jobs:
       - run: echo "bazel_testlogs=$(bazel info bazel-testlogs)" >> $GITHUB_ENV
       - name: Report code coverage
         uses: zgosalvez/github-actions-report-lcov@5989987f8058a03137e90bc16f9c0baaac5e069a # v4.1.22
-        env:
-          CAN_POST_COMMENT: ${{ secrets.GITHUB_TOKEN != '' }}
-        if: env.CAN_POST_COMMENT
         with:
           working-directory: ${{ env.bazel_testlogs }}
           coverage-files: "**/coverage.dat"
