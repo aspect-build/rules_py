@@ -64,7 +64,7 @@ jobs:
     # Will need to bump this version in the future when there are breaking changes.
     # NB: update tools/integrity.bzl at the same time!
     env:
-      RULES_PY_RELEASE_VERSION: 1.1.0
+      RULES_PY_RELEASE_VERSION: 1.2.0
     steps:
       - uses: actions/checkout@v4
       - run: ./minimal_download_test.sh
