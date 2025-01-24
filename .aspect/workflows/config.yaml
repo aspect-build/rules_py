@@ -1,0 +1,16 @@
+# See https://docs.aspect.build/workflows/configuration
+tasks:
+  # TODO: set up other tasks
+  #   - lint:
+  #       queue: aspect-medium
+  #   - format:
+  #       queue: aspect-medium
+  #   - buildifier:
+  #       queue: aspect-medium
+  #   - configure:
+  #       queue: aspect-medium
+  - test:
+  - finalization:
+      queue: aspect-small
+notifications:
+  github: {}
