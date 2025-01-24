@@ -63,5 +63,4 @@ bazel test --test_output=streamed //...
 (
     cd ../..
     rm MODULE.bazel
-    mv MODULE.bazel.orig MODULE.bazel
 )
