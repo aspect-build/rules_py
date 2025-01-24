@@ -47,7 +47,10 @@ if __name__ == "__main__":
     test_shard_index = os.environ.get("TEST_SHARD_INDEX")
     test_total_shards = os.environ.get("TEST_TOTAL_SHARDS")
     test_shard_status_file = os.environ.get("TEST_SHARD_STATUS_FILE")
-    if all([test_shard_index, test_total_shards, test_shard_status_file]):
+    if (
+        all([test_shard_index, test_total_shards, test_shard_status_file])
+        and int(test_total_shards) > 1
+    ):
         args.extend([
             f"--shard-id={test_shard_index}",
             f"--num-shards={test_total_shards}",
