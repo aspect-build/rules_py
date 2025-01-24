@@ -13,7 +13,8 @@ fi
 # Test bzlmod
 (
     cd ../..
-    patch -p1 < .bcr/patches/*.patch
+    # Create the .orig file, whether there's a mismatch or not
+    patch -p1 --backup < .bcr/patches/*.patch
 )
 OUTPUT_BASE=$(mktemp -d)
 output=$(bazel "--output_base=$OUTPUT_BASE" run --enable_bzlmod //src:main)

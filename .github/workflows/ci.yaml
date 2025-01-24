@@ -50,7 +50,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: patch --dry-run -p1 < .bcr/patches/*.patch
+      - run: patch --dry-run -p1 --fuzz 0 < .bcr/patches/*.patch
 
   test-release:
     runs-on: ubuntu-latest
