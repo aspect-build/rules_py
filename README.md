@@ -28,7 +28,6 @@ Watch Alex's talk from Monorepo World for a quick demo on how rules_py makes it 
 
 _Need help?_ This ruleset has support provided by https://aspect.dev.
 
-
 ## Differences
 
 We think you'll love rules_py because it fixes many issues with rules_python's rule implementations:
