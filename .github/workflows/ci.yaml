@@ -54,6 +54,8 @@ jobs:
 
   test-release:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write # allow commenting to the PR with the token
     defaults:
       run:
         working-directory: e2e/use_release
@@ -71,6 +73,7 @@ jobs:
       # The github-actions-report-lcov doesn't follow symlinks, so get an absolute path
       - run: echo "bazel_testlogs=$(bazel info bazel-testlogs)" >> $GITHUB_ENV
       - name: Report code coverage
+        if: github.event.pull_request.head.repo.fork == false # Forks always have read-only tokens
         uses: zgosalvez/github-actions-report-lcov@5989987f8058a03137e90bc16f9c0baaac5e069a # v4.1.22
         with:
           working-directory: ${{ env.bazel_testlogs }}

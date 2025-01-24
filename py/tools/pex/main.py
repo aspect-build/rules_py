@@ -120,7 +120,7 @@ for path in options.sys_path:
     INJECT_TEMPLATE.append("sys.path.append(os.path.abspath(os.path.join(__entry_point__, '%s')))" % path)
 
 import_idx =  BE.index("from pex.pex_bootstrapper import bootstrap_pex")
-# This is here to catch potential future bugs where pex package is updated here but the boostrap 
+# This is here to catch potential future bugs where pex package is updated here but the bootstrap 
 # script was not checked again to see if we are still injecting values in the right place.
 assert import_idx == 3703, "Check bootstrap template monkey patching."
 

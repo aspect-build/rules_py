@@ -147,7 +147,7 @@ _attrs = dict({
     ),
     "package_collisions": attr.string(
         doc = """The action that should be taken when a symlink collision is encountered when creating the venv.
-A collision can occour when multiple packages providing the same file are installed into the venv. The possible values are:
+A collision can occur when multiple packages providing the same file are installed into the venv. The possible values are:
 
 * "error": When conflicting symlinks are found, an error is reported and venv creation halts.
 * "warning": When conflicting symlinks are found, an warning is reported, however venv creation continues.
