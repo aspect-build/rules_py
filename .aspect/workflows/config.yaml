@@ -1,0 +1,7 @@
+# See https://docs.aspect.build/workflows/configuration
+tasks:
+  - test:
+  - finalization:
+      queue: aspect-small
+notifications:
+  github: {}

@@ -1,4 +1,4 @@
-"Dependencies only needed for release builds"
+"""Dependencies only needed for release builds"""
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
@@ -22,6 +22,7 @@ filegroup(
 """
 
 def fetch_deps():
+    """Fetch dependencies only needed for release builds used for the legacy WORKSPACE support."""
     http_archive(
         name = "toolchains_llvm",
         sha256 = "b7cd301ef7b0ece28d20d3e778697a5e3b81828393150bed04838c0c52963a01",

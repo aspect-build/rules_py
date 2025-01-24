@@ -11,7 +11,7 @@ PyWheelInfo = provider(
 PyVirtualInfo = provider(
     doc = "FIXME",
     fields = {
-        "dependencies": "Depset of required virtual dependencies, independant of their resolution status",
+        "dependencies": "Depset of required virtual dependencies, independent of their resolution status",
         "resolutions": "FIXME",
     },
 )

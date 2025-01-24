@@ -1,10 +1,10 @@
 """Unpacks a Python wheel into a directory and returns a PyInfo provider that represents that wheel"""
 
-load("@rules_python//python:defs.bzl", "PyInfo")
 load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
-load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "UNPACK_TOOLCHAIN")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
+load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "UNPACK_TOOLCHAIN")
 
 def _py_unpacked_wheel_impl(ctx):
     py_toolchain = _py_semantics.resolve_toolchain(ctx)

@@ -9,10 +9,6 @@ if [ "$ARCH" == "x86_64" ]; then
     ALLOWED="rules_py_tools.${OS}_amd64"
 fi
 
-# This test references pre-built artifacts from a prior release.
-# Will need to bump this version in the future when there are breaking changes.
-export RULES_PY_RELEASE_VERSION=0.7.4
-
 #############
 # Test bzlmod
 (
@@ -20,7 +16,7 @@ export RULES_PY_RELEASE_VERSION=0.7.4
     patch -p1 < .bcr/patches/*.patch
 )
 OUTPUT_BASE=$(mktemp -d)
-output=$(bazel "--output_base=$OUTPUT_BASE" run --enable_bzlmod //:main)
+output=$(bazel "--output_base=$OUTPUT_BASE" run --enable_bzlmod //src:main)
 if [[ "$output" != "hello world" ]]; then
   >&2 echo "ERROR: bazel command did not produce expected output"
   exit 1
@@ -41,7 +37,7 @@ fi
 #############
 # Test WORKSPACE
 OUTPUT_BASE=$(mktemp -d)
-output=$(bazel "--output_base=$OUTPUT_BASE" run --noenable_bzlmod //:main)
+output=$(bazel "--output_base=$OUTPUT_BASE" run --noenable_bzlmod //src:main)
 if [[ "$output" != "hello world" ]]; then
   >&2 echo "ERROR: bazel command did not produce expected output"
   exit 1

@@ -48,7 +48,7 @@ pub fn unpack_wheel(version: &str, location: &Path, wheel: &Path) -> Result<()> 
     let filename = wheel
         .file_name()
         .and_then(|f| f.to_str())
-        .expect("Exepected to get filename from wheel path");
+        .expect("Expected to get filename from wheel path");
     let wheel_file_name =
         uv_distribution_filename::WheelFilename::from_str(filename).into_diagnostic()?;
 
