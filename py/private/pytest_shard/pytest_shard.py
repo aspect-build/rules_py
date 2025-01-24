@@ -1,12 +1,3 @@
-"""
-This has been adapted from the original code at
-https://github.com/AdamGleave/pytest-shard
-The main difference is that the plugin has been converted to a class
-so that it can be passed to pytest.main's plugins attribute, and the
-shard selection was changed from a hash-based approach to a round-robin
-approach for a more balanced distribution with smaller numbers of tests.
-"""
-
 from typing import Iterable, List, Sequence
 
 from _pytest import nodes  # for type checking only

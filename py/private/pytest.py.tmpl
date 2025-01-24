@@ -27,6 +27,7 @@ if __name__ == "__main__":
 
     os.environ["ENV"] = "testing"
 
+    plugins = []
     args = [
         "--verbose",
         "--ignore=external/",
@@ -52,6 +53,7 @@ if __name__ == "__main__":
             f"--num-shards={test_total_shards}",
         ])
         Path(test_shard_status_file).touch()
+        plugins.append(ShardPlugin())
 
     test_filter = os.environ.get("TESTBRIDGE_TEST_ONLY")
     if test_filter is not None:
@@ -65,7 +67,7 @@ if __name__ == "__main__":
     if len(cli_args) > 0:
         args.extend(cli_args)
 
-    exit_code = pytest.main(args, plugins=[ShardPlugin()])
+    exit_code = pytest.main(args, plugins=plugins)
 
     if exit_code != 0:
         print("Pytest exit code: " + str(exit_code), file=sys.stderr)
