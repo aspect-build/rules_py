@@ -16,12 +16,18 @@ However we try to maintain compatibility with rules_python's rules for most use 
 | gazelle: generate BUILD files               | rules_python | [`aspect configure`] |
 | rules: user-facing implementations          | rules_python | **rules_py**         |
 
-Watch our video series for a quick tutorial on how rules_py makes it easy to do Python with Bazel:
-[![youtube playlist](https://i.ytimg.com/vi/Ms9qX0Yyn0s/hqdefault.jpg)](https://www.youtube.com/playlist?list=PLLU28e_DRwdu46fldnYzyFYvSJLjVFICd)
+[`aspect configure`]: https://docs.aspect.build/cli/commands/aspect_configure
+
+## Learn about it
+
+Aspect provides a Bazel training course based on rules_py: [Bazel 102: Python](https://training.aspect.build/bazel-102)
+
+Watch Alex's talk from Monorepo World for a quick demo on how rules_py makes it easy to do Python with Bazel:
+
+[![Python Monorepo World](https://img.youtube.com/vi/en3ep4rw0oA/0.jpg)](https://www.youtube.com/watch?v=en3ep4rw0oA)
 
 _Need help?_ This ruleset has support provided by https://aspect.dev.
 
-[`aspect configure`]: https://docs.aspect.build/cli/commands/aspect_configure
 
 ## Differences
 
@@ -29,7 +35,7 @@ We think you'll love rules_py because it fixes many issues with rules_python's r
 
 - The launcher uses the Bash toolchain rather than Python, so we have no dependency on a system interpreter. Fixes:
   - [py_binary with hermetic toolchain requires a system interpreter](https://github.com/bazelbuild/rules_python/issues/691)
-- We don't mess with the Python `sys.path`/`$PYTHONPATH`. Instead we use the standard `site-packages` folder layout produced by `pip_install`. This avoids problems like package naming collisions with built-ins (e.g. `collections`) or where `argparse` comes from a transitive dependency instead. Fixes:
+- We don't mess with the Python `sys.path`/`$PYTHONPATH`. Instead we use the standard `site-packages` folder layout produced by `uv pip install`. This avoids problems like package naming collisions with built-ins (e.g. `collections`) or where `argparse` comes from a transitive dependency instead. Fixes:
   - [Issues with PYTHONPATH resolution in recent python/rules_python versions](https://github.com/bazelbuild/rules_python/issues/1221)
 - We run python in isolated mode so we don't accidentally break out of Bazel's action sandbox. Fixes:
   - [pypi libraries installed to system python are implicitly available to builds](https://github.com/bazelbuild/rules_python/issues/27)
