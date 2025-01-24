@@ -1,3 +1,3 @@
 # Don't instrument the //external folder
 # See https://bazelbuild.slack.com/archives/C07HTMQFTBN/p1737600241213179?thread_ts=1736875351.548719&cid=C07HTMQFTBN
-coverage --instrumentation_filter=-//external
+coverage --instrumentation_filter=^//
