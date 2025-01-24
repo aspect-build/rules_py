@@ -74,6 +74,7 @@ crate.from_cargo(
     cargo_lockfile = "//:Cargo.lock",
     # Apparently not needed under bzlmod?
     # lockfile = "//:Cargo.Bazel.lock",
+    
     manifests = [
         "//:Cargo.toml",
         "//py/tools/py:Cargo.toml",
