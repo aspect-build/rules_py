@@ -1,3 +1,5 @@
+load("@container_structure_test//:defs.bzl", "container_structure_test")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load")
 load("//py:defs.bzl", "py_binary", "py_image_layer")
 load("asserts.bzl", "assert_tar_listing")
 
@@ -9,10 +11,15 @@ platform(
     ],
 )
 
-# Case 1: Basic usage
 py_binary(
     name = "my_app_bin",
-    srcs = ["main.py"],
+    srcs = ["__main__.py"],
+    tags = ["manual"],
+    deps = [
+        "//py/tests/internal-deps/adder",
+        "//py/tests/py_image_layer/branding",
+        "@pypi_colorama//:pkg",
+    ],
 )
 
 py_image_layer(
@@ -25,4 +32,28 @@ assert_tar_listing(
     name = "my_app_layers_test",
     actual = [":my_app_layers"],
     expected = ":my_app_layers.listing",
+)
+
+oci_image(
+    name = "image",
+    # This is defined by an oci.pull() call in /MODULE.bazel
+    base = "@ubuntu",
+    entrypoint = ["/{}/my_app_bin".format(package_name())],
+    tars = [":my_app_layers"],
+)
+
+# To build the image and load it into it into a local runtime:
+# $ bazel run //py/tests/py_image_layer:image_load
+# $ docker run --rm gcr.io/oci_python_hello_world:latest
+oci_load(
+    name = "image_load",
+    image = ":image",
+    repo_tags = ["gcr.io/oci_python_hello_world:latest"],
+)
+
+container_structure_test(
+    name = "py_image_test",
+    configs = ["py_image_test.yaml"],
+    image = ":image",
+    tags = ["manual"],
 )
