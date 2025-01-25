@@ -98,3 +98,4 @@ oci.pull(
     ],
     tag = "latest",
 )
+use_repo(oci, "ubuntu", "ubuntu_linux_amd64", "ubuntu_linux_arm64_v8")
