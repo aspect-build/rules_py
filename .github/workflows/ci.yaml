@@ -28,7 +28,6 @@ jobs:
       # NB: the root folder is tested with Aspect Workflows on BuildKite, see /.aspect/workflows/config.yaml
       folders: '["e2e/smoke", "e2e/repository-rule-deps", "e2e/system-interpreter", "examples/uv_pip_compile"]'
       # TODO: Build Windows tools and add to toolchain
-      # TODO(alex): switch the root folder to bzlmod
       # TODO: fix remaining folders on Bazel 8
       exclude: |
         [
