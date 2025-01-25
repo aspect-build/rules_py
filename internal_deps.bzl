@@ -79,13 +79,6 @@ def rules_py_internal_deps():
     )
 
     http_archive(
-        name = "io_bazel_rules_docker",
-        sha256 = "9d41cbe09688d4de137b19091f162de05be9a629a4355bfc1a993f378231730a",
-        strip_prefix = "rules_docker-3040e1fd74659a52d1cdaff81359f57ee0e2bb41",
-        urls = ["https://github.com/bazelbuild/rules_docker/archive/3040e1fd74659a52d1cdaff81359f57ee0e2bb41.zip"],
-    )
-
-    http_archive(
         name = "rules_python_gazelle_plugin",
         sha256 = "c68bdc4fbec25de5b5493b8819cfc877c4ea299c0dcb15c244c5a00208cde311",
         strip_prefix = "rules_python-0.31.0/gazelle",

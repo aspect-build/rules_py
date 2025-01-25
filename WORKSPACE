@@ -19,9 +19,6 @@ load("//py:toolchains.bzl", "rules_py_toolchains")
 
 rules_py_toolchains()
 
-# Load the Python toolchain for rules_docker
-register_toolchains("//:container_py_toolchain")
-
 load("@rules_python//python:repositories.bzl", "py_repositories", "python_register_toolchains")
 
 python_register_toolchains(
@@ -138,22 +135,6 @@ bazel_skylib_gazelle_plugin_workspace()
 load("@bazel_skylib_gazelle_plugin//:setup.bzl", "bazel_skylib_gazelle_plugin_setup")
 
 bazel_skylib_gazelle_plugin_setup(register_go_toolchains = False)
-
-############################################
-# rules_docker dependencies for containers
-load(
-    "@io_bazel_rules_docker//repositories:repositories.bzl",
-    container_repositories = "repositories",
-)
-
-container_repositories()
-
-load(
-    "@io_bazel_rules_docker//python3:image.bzl",
-    _py_image_repos = "repositories",
-)
-
-_py_image_repos()
 
 ############################################
 # rules_rust dependencies for building tools
