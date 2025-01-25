@@ -75,6 +75,7 @@ jobs:
         if: github.event.pull_request.head.repo.fork == false # Forks always have read-only tokens
         uses: zgosalvez/github-actions-report-lcov@5989987f8058a03137e90bc16f9c0baaac5e069a # v4.1.22
         with:
+          title-prefix: e2e/use_release
           working-directory: ${{ env.bazel_testlogs }}
           coverage-files: "**/coverage.dat"
           github-token: ${{ secrets.GITHUB_TOKEN }}
