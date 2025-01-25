@@ -55,5 +55,4 @@ container_structure_test(
     name = "py_image_test",
     configs = ["py_image_test.yaml"],
     image = ":image",
-    tags = ["manual"],
 )
