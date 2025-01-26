@@ -26,3 +26,18 @@ assert_tar_listing(
     actual = [":my_app_layers"],
     expected = ":my_app_layers.listing",
 )
+
+# Case 2: With `strip_prefix` and `root`
+py_image_layer(
+    name = "my_app_layers_strip_prefix",
+    binary = ":my_app_bin",
+    platform = ":linux_amd64",
+    strip_prefix = "py\\/tests\\/py_image_layer\\/my_app_bin",
+    root = "/app",
+)
+
+assert_tar_listing(
+    name = "my_app_layers_strip_prefix_test",
+    actual = [":my_app_layers_strip_prefix"],
+    expected = ":my_app_layers_strip_prefix.listing",
+)
