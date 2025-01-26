@@ -44,9 +44,9 @@ default_layer_groups = {
     "interpreter": "\\\\.runfiles/.*python.*-.*/",
 }
 
-def _split_mtree_into_layer_groups(name, root, groups, group_names, **kwargs):
+def _split_mtree_into_layer_groups(name, root, strip_prefix, groups, group_names, **kwargs):
     mtree_begin_blocks = "\n".join([
-        'print "#mtree" >> "$(RULEDIR)/%s.%s.manifest.spec";' % (name, gn)
+        'print "#mtree" >> "$(RULEDIR)/{name}.{gn}.manifest.spec";'.format(name = name, gn = gn)
         for gn in group_names
     ])
 
@@ -54,30 +54,30 @@ def _split_mtree_into_layer_groups(name, root, groups, group_names, **kwargs):
     # for that group.
     ifs = "\n".join([
         """\
-if ($$1 ~ "%s") {
-    print $$0 >> "$(RULEDIR)/%s.%s.manifest.spec";
+if ($$1 ~ "{regex}") {{
+    print $$0 >> "$(RULEDIR)/{name}.{gn}.manifest.spec";
     next
-}""" % (regex, name, gn)
+}}""".format(regex = regex, name = name, gn = gn)
         for (gn, regex) in groups.items()
     ])
 
     cmd = """\
-awk < $< 'BEGIN {
-    %s
-}
-{
+awk < $< 'BEGIN {{
+    {mtree_begin_blocks}
+}}
+{{
     # Exclude .whl files from container images
-    if ($$1 ~ ".whl") {
+    if ($$1 ~ ".whl") {{
         next
-    }
+    }}
     # Move everything under the specified root
-    sub(/^/, ".%s")
+    sub(/^{strip_prefix}/, ".{root}")
     # Match by regexes and write to the destination.
-    %s
+    {ifs}
     # Every line that did not match the layer groups will go into the default layer.
-    print $$0 >> "$(RULEDIR)/%s.default.manifest.spec"
-}'
-""" % (mtree_begin_blocks, root, ifs, name)
+    print $$0 >> "$(RULEDIR)/{name}.default.manifest.spec"
+}}'
+""".format(mtree_begin_blocks = mtree_begin_blocks, root = root, strip_prefix = strip_prefix, ifs = ifs, name = name)
 
     native.genrule(
         name = "{}_manifests".format(name),
@@ -90,7 +90,7 @@ awk < $< 'BEGIN {
         **kwargs
     )
 
-def py_image_layer(name, binary, root = "/", layer_groups = {}, compress = "gzip", tar_args = [], compute_unused_inputs = 1, platform = None, **kwargs):
+def py_image_layer(name, binary, root = "/", strip_prefix = "", layer_groups = {}, compress = "gzip", tar_args = [], compute_unused_inputs = 1, platform = None, **kwargs):
     """Produce a separate tar output for each layer of a python app
 
     > Requires `awk` to be installed on the host machine/rbe runner.
@@ -115,6 +115,7 @@ def py_image_layer(name, binary, root = "/", layer_groups = {}, compress = "gzip
         name: base name for targets
         binary: a py_binary target
         root: Path to where the layers should be rooted. If not specified, the layers will be rooted at the workspace root.
+        strip_prefix: Prefix to strip from files in the tar. This forms part of a regex, so certain characters must be escaped (notably `/`).
         layer_groups: Additional layer groups to create. They are used to group files into layers based on their path. In the form of: ```{"<name>": "regex_to_match_against_file_paths"}```
         compress: Compression algorithm to use. Default is gzip. See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#tar_rule-compress
         compute_unused_inputs: Whether to compute unused inputs. Default is 1. See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#tar_rule-compute_unused_inputs
@@ -140,7 +141,7 @@ def py_image_layer(name, binary, root = "/", layer_groups = {}, compress = "gzip
     groups = dict(groups, **default_layer_groups)
     group_names = groups.keys() + ["default"]
 
-    _split_mtree_into_layer_groups(name, root, groups, group_names, **kwargs)
+    _split_mtree_into_layer_groups(name, root, strip_prefix, groups, group_names, **kwargs)
 
     # Finally create layers using the tar rule
     srcs = []
