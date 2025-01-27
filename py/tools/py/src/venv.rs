@@ -26,7 +26,7 @@ pub fn create_venv(
             fs::remove_dir_all(location)
                 .into_diagnostic()
                 .wrap_err("Unable to remove venv_root directory")?;
-            }
+        }
     }
 
     // Create all the dirs down to the venv base
