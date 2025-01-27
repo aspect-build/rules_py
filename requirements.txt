@@ -18,6 +18,9 @@ attrs==23.2.0 \
     # via
     #   jsonschema
     #   referencing
+bazel-runfiles==1.1.0 \
+    --hash=sha256:37f59ea505b86ada391ef94e0949ff38a6fd6c111c9a8338065b16b355d0efae
+    # via -r requirements.in
 boto3==1.34.93 \
     --hash=sha256:b59355bf4a1408563969526f314611dbeacc151cf90ecb22af295dcc4fe18def \
     --hash=sha256:e39516e4ca21612932599819662759c04485d53ca457996a913163da11f052a4

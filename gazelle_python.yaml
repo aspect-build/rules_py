@@ -3833,6 +3833,8 @@ manifest:
     rfc3986_validator: rfc3986_validator
     rpds: rpds_py
     rpds.rpds: rpds_py
+    runfiles: bazel_runfiles
+    runfiles.runfiles: bazel_runfiles
     s3transfer: s3transfer
     s3transfer.bandwidth: s3transfer
     s3transfer.compat: s3transfer
@@ -4030,4 +4032,4 @@ manifest:
     yaml.tokens: PyYAML
   pip_repository:
     name: pypi
-integrity: 6359bc010056b6e19ee6cbb2fc9a8ac841449521e3b4997fec58163e5c635496
+integrity: 7049b81983381a0118bd63ae8cb7f19126d0034fcbb256281453ee5cbf3499be
