@@ -21,7 +21,7 @@ pub fn create_venv(
         // With readOnlyRootFilesystem (k8s), we mount a writable volume here with an empty directory.
         // In that case, we cannot delete that directory.
         let is_empty = location.read_dir()?.next().is_none();
-        if is_empty.not() {
+        if !is_empty {
             // Clear down the an old venv if there is one present.
             fs::remove_dir_all(location)
                 .into_diagnostic()
