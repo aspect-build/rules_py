@@ -19,5 +19,4 @@ def assert_tar_listing(name, actual, expected):
         in_file = actual_listing,
         out_file = expected,
         testonly = True,
-        tags = ["skip-on-bazel6"],
     )

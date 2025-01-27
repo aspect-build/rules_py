@@ -10,7 +10,7 @@ py_library(
     # This library contributes to the container test, testing we can pull in and use a library from another
     # package in the repo.
     visibility = [
-        "//py/tests/containers:__pkg__",
         "//py/tests/internal-deps:__pkg__",
+        "//py/tests/py_image_layer:__pkg__",
     ],
 )

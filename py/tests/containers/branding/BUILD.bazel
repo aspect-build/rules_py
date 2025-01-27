@@ -1,8 +1,0 @@
-load("//py:defs.bzl", "py_library")
-
-py_library(
-    name = "branding",
-    srcs = ["__init__.py"],
-    imports = [".."],
-    visibility = ["//py/tests/containers:__pkg__"],
-)
