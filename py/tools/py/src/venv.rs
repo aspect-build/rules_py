@@ -18,10 +18,15 @@ pub fn create_venv(
     venv_name: &str,
 ) -> miette::Result<()> {
     if location.exists() {
-        // Clear down the an old venv if there is one present.
-        fs::remove_dir_all(location)
-            .into_diagnostic()
-            .wrap_err("Unable to remove venv_root directory")?;
+        // With readOnlyRootFilesystem (k8s), we mount a writable volume here with an empty directory.
+        // In that case, we cannot delete that directory.
+        let is_empty = location.read_dir()?.next().is_none();
+        if is_empty.not() {
+            // Clear down the an old venv if there is one present.
+            fs::remove_dir_all(location)
+                .into_diagnostic()
+                .wrap_err("Unable to remove venv_root directory")?;
+            }
     }
 
     // Create all the dirs down to the venv base
