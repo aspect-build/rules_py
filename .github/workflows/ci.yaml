@@ -76,10 +76,9 @@ jobs:
         uses: zgosalvez/github-actions-report-lcov@5989987f8058a03137e90bc16f9c0baaac5e069a # v4.1.22
         with:
           title-prefix: "e2e/use_release folder:"
-          working-directory: ${{ env.output_path }}
           # Point to the already-merged data file Bazel produces with --combined_report=lcov
           # Follows https://bazel.build/configure/coverage#running_coverage
-          coverage-files: "_coverage/_coverage_report.dat"
+          coverage-files: "${{ env.output_path }}/_coverage/_coverage_report.dat"
           github-token: ${{ secrets.GITHUB_TOKEN }}
           update-comment: true
 
