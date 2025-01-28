@@ -69,6 +69,7 @@ py_test(
     ),
     deps = [
         requirement("pytest"),
+        "__test__",
         ":greet",
     ],
 )

@@ -88,6 +88,6 @@ def py_pytest_main(name, py_library = default_py_library, deps = [], data = [], 
         srcs = [test_main],
         tags = tags,
         visibility = visibility,
-        deps = deps,
+        deps = deps + [Label("//py/private/pytest_shard")],
         data = data,
     )
