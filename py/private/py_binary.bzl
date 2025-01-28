@@ -175,6 +175,13 @@ A collision can occur when multiple packages providing the same file are install
     "_allowlist_function_transition": attr.label(
         default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
     ),
+    # Magic attribute to make coverage work. There's no
+    # docs about this; see TestActionBuilder.java
+    "_lcov_merger": attr.label(
+        default = configuration_field(fragment = "coverage", name = "output_generator"),
+        executable = True,
+        cfg = "exec",
+    ),
 })
 
 _attrs.update(**_py_library.attrs)
