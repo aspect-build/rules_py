@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_library", "py_pytest_main", "py_test")
+load("@aspect_rules_py//py:defs.bzl", "py_library", "py_test")
 
 py_library(
     name = "lib",
@@ -6,31 +6,19 @@ py_library(
     imports = ["../.."],
 )
 
-py_pytest_main(
-    name = "__test__",
-    chdir = package_name(),  # So that test fixtures are available at the correct path
-    deps = [
-        "@pypi_coverage//:pkg",
-        "@pypi_pytest//:pkg",
-    ],
-)
-
 py_test(
     name = "pytest_test",
-    srcs = [
-        "foo_test.py",
-        ":__test__",
-    ],
+    srcs = ["foo_test.py"],
     data = glob([
         "fixtures/*.json",
     ]),
     env_inherit = ["FOO"],
     imports = ["../.."],
-    main = ":__test__.py",
     package_collisions = "warning",
+    pytest_main = True,
     deps = [
-        ":__test__",
         ":lib",
+        "@pypi_coverage//:pkg",
         "@pypi_ftfy//:pkg",
         "@pypi_neptune//:pkg",
         "@pypi_pytest//:pkg",
@@ -38,38 +26,12 @@ py_test(
 )
 
 py_test(
-    name = "nested/pytest",
-    srcs = [
-        "foo_test.py",
-        ":__test__",
-    ],
-    data = glob([
-        "fixtures/*.json",
-    ]),
-    env_inherit = ["FOO"],
+    # NB: name contains a slash as regression test for #483
+    name = "sharded/test",
+    srcs = ["sharding_test.py"],
     imports = ["../.."],
-    main = ":__test__.py",
     package_collisions = "warning",
-    deps = [
-        ":__test__",
-        ":lib",
-        "@pypi_ftfy//:pkg",
-        "@pypi_neptune//:pkg",
-        "@pypi_pytest//:pkg",
-    ],
-)
-
-py_test(
-    name = "sharding_test",
-    srcs = [
-        "__test__.py",
-        "sharding_test.py",
-    ],
-    imports = ["../.."],
-    main = "__test__.py",
-    package_collisions = "warning",
+    pytest_main = True,
     shard_count = 2,
-    deps = [
-        "__test__",
-    ],
+    deps = ["@pypi_pytest//:pkg"],
 )

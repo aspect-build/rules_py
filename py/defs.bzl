@@ -117,7 +117,7 @@ def py_binary(name, srcs = [], main = None, **kwargs):
 
     _py_binary_or_test(name = name, rule = _py_binary, srcs = srcs, main = main, resolutions = resolutions, **kwargs)
 
-def py_test(name, srcs = [], main = None, **kwargs):
+def py_test(name, srcs = [], main = None, pytest_main = False, **kwargs):
     """Identical to [py_binary](./py_binary.md), but produces a target that can be used with `bazel test`.
 
     Args:
@@ -127,6 +127,8 @@ def py_test(name, srcs = [], main = None, **kwargs):
             Like rules_python, this is treated as a suffix of a file that should appear among the srcs.
             If absent, then `[name].py` is tried. As a final fallback, if the srcs has a single file,
             that is used as the main.
+        pytest_main: If set, generate a [py_pytest_main](#py_pytest_main) script and use it as the main.
+            The deps should include the pytest package (as well as the coverage package if desired).
         **kwargs: additional named parameters to `py_binary_rule`.
     """
 
@@ -139,4 +141,14 @@ def py_test(name, srcs = [], main = None, **kwargs):
     if resolutions:
         resolutions = resolutions.to_label_keyed_dict()
 
-    _py_binary_or_test(name = name, rule = _py_test, srcs = srcs, main = main, resolutions = resolutions, **kwargs)
+    deps = kwargs.pop("deps", [])
+    if pytest_main:
+        if main:
+            fail("When pytest_main is set, the main attribute should not be set.")
+        pytest_main_target = name + ".pytest_main"
+        main = pytest_main_target + ".py"
+        py_pytest_main(name = pytest_main_target)
+        srcs.append(main)
+        deps.append(pytest_main_target)
+
+    _py_binary_or_test(name = name, rule = _py_test, srcs = srcs, deps = deps, main = main, resolutions = resolutions, **kwargs)
