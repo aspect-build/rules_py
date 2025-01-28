@@ -14,6 +14,12 @@ const RULES_PYTHON_RUNFILES_INIT_SHIM: &str = r#"
 from . import runfiles
 def _FindPythonRunfilesRoot():
     root = __file__
+    # The original implementation of this function in rules_python expects the runfiles root to be 4 directories up from the current file.
+    # but in rules_py there is additional two segments that it needs to go up to  find the runfiles root.
+    # bazel-bin/py/tests/external-deps/foo.runfiles/.foo.venv/lib/python3.9/site-packages/runfiles
+    # ╰─────────────────────┬─────────────────────╯╰───┬───╯╰─────────────┬─────────────╯╰───┬───╯
+    #             bazel runfiles root              venv root    Python packages root   Python package
+    
     for _ in range("rules_python/python/runfiles/runfiles.py".count("/") + 3):
         root = os.path.dirname(root)
     return root
@@ -143,6 +149,8 @@ fn create_symlinks(
         // See: https://github.com/aspect-build/rules_py/issues/377
         // See: https://github.com/bazelbuild/rules_python/pull/2115
         else if path.as_path().ends_with(RULES_PYTHON_INIT_PATH) {
+            // Instead of symlinking the __init__.py file from its original location to the venv site-packages,
+            // we write a shim __init__.py that makes the runfiles pypi library work with rules_py.
             fs::write(
                 dst_dir.join(RULES_PYTHON_INIT_PATH),
                 RULES_PYTHON_RUNFILES_INIT_SHIM,
