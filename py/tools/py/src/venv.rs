@@ -1,6 +1,6 @@
 use std::{
     fs::{self},
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 use miette::{Context, IntoDiagnostic};
@@ -20,8 +20,12 @@ pub fn create_venv(
     if location.exists() {
         // With readOnlyRootFilesystem (k8s), we mount a writable volume here with an empty directory.
         // In that case, we cannot delete that directory.
-        let is_empty = location.read_dir()?.next().is_none();
-        if !is_empty {
+        let mut contents = PathBuf::from(location)
+            .read_dir()
+            .into_diagnostic()
+            .wrap_err("Unable to read venv_root directory")?;
+        let is_not_empty = contents.next().is_some();
+        if is_not_empty {
             // Clear down the an old venv if there is one present.
             fs::remove_dir_all(location)
                 .into_diagnostic()
