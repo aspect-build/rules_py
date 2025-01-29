@@ -175,13 +175,6 @@ A collision can occur when multiple packages providing the same file are install
     "_allowlist_function_transition": attr.label(
         default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
     ),
-    # Magic attribute to make coverage work. There's no
-    # docs about this; see TestActionBuilder.java
-    "_lcov_merger": attr.label(
-        default = configuration_field(fragment = "coverage", name = "output_generator"),
-        executable = True,
-        cfg = "exec",
-    ),
 })
 
 _attrs.update(**_py_library.attrs)
@@ -190,6 +183,16 @@ _test_attrs = dict({
     "env_inherit": attr.string_list(
         doc = "Specifies additional environment variables to inherit from the external environment when the test is executed by bazel test.",
         default = [],
+    ),
+    # Magic attribute to make coverage --combined_report flag work.
+    # There's no docs about this.
+    # See https://github.com/bazelbuild/bazel/blob/fde4b67009d377a3543a3dc8481147307bd37d36/tools/test/collect_coverage.sh#L186-L194
+    # NB: rules_python ALSO includes this attribute on the py_binary rule, but we think that's a mistake.
+    # see https://github.com/aspect-build/rules_py/pull/520#pullrequestreview-2579076197
+    "_lcov_merger": attr.label(
+        default = configuration_field(fragment = "coverage", name = "output_generator"),
+        executable = True,
+        cfg = "exec",
     ),
 })
 
