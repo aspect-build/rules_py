@@ -12,6 +12,7 @@ py_binary(
 # TODO(alex): land https://github.com/aspect-build/rules_py/pull/401 and shorten this
 py_pytest_main(
     name = "__test__",
+    data = ["//:.coveragerc"],
     deps = [
         "@pip//coverage",
         "@pip//pytest",

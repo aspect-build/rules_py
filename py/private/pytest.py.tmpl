@@ -20,6 +20,8 @@ from typing import List
 import pytest
 # None means coverage wasn't enabled
 cov = None
+# For workaround of https://github.com/nedbat/coveragepy/issues/963
+coveragepy_absfile_mapping = {}
 
 # Since our py_test had InstrumentedFilesInfo, we know Bazel will hand us this environment variable.
 # https://bazel.build/rules/lib/providers/InstrumentedFilesInfo
@@ -28,9 +30,13 @@ if "COVERAGE_MANIFEST" in os.environ:
         import coverage
         # The lines are files that matched the --instrumentation_filter flag
         with open(os.getenv("COVERAGE_MANIFEST"), "r") as mf:
-            cov = coverage.Coverage(include = mf.read().splitlines())
+            manifest_entries = mf.read().splitlines()
+            cov = coverage.Coverage(include = manifest_entries)
+            # coveragepy incorrectly converts our entries by following symlinks
+            # record a mapping of their conversion so we can undo it later in reporting the coverage
+            coveragepy_absfile_mapping = {coverage.files.abs_file(mfe): mfe for mfe in manifest_entries}
         cov.start()
-    except Exception as e:
+    except ModuleNotFoundError as e:
         print("WARNING: python coverage setup failed. Do you need to include the 'coverage' library as a dependency of py_pytest_main?", e)
         pass
 
@@ -95,8 +101,6 @@ if __name__ == "__main__":
         # https://bazel.build/configure/coverage
         coverage_output_file = os.getenv("COVERAGE_OUTPUT_FILE")
 
-        # Workaround https://github.com/bazelbuild/bazel/issues/25118
-        # by removing 'end line number' from FN: records
         unfixed_dat = coverage_output_file + ".tmp"
         cov.lcov_report(outfile = unfixed_dat)
         cov.save()
@@ -104,6 +108,15 @@ if __name__ == "__main__":
         with open(unfixed_dat, "r") as unfixed:
           with open(coverage_output_file, "w") as output_file:
             for line in unfixed:
+              # Workaround https://github.com/nedbat/coveragepy/issues/963
+              # by mapping SF: records to un-do the symlink-following
+              if line.startswith('SF:'):
+                sourcefile = line[3:].rstrip()
+                if sourcefile in coveragepy_absfile_mapping:
+                    output_file.write(f"SF:{coveragepy_absfile_mapping[sourcefile]}\n")
+                    continue
+              # Workaround https://github.com/bazelbuild/bazel/issues/25118
+              # by removing 'end line number' from FN: records
               if line.startswith('FN:'):
                 parts = line[3:].split(",")  # Remove 'FN:' and split by commas
                 if len(parts) == 3:
