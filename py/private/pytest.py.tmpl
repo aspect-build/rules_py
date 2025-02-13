@@ -17,7 +17,12 @@ import os
 from pathlib import Path
 from typing import List
 
-import pytest
+try:
+    import pytest
+except ModuleNotFoundError as e:
+    print("ERROR: pytest must be included in the deps of the py_pytest_main or py_test target")
+    raise e
+
 # None means coverage wasn't enabled
 cov = None
 # For workaround of https://github.com/nedbat/coveragepy/issues/963
@@ -37,7 +42,7 @@ if "COVERAGE_MANIFEST" in os.environ:
             coveragepy_absfile_mapping = {coverage.files.abs_file(mfe): mfe for mfe in manifest_entries}
         cov.start()
     except ModuleNotFoundError as e:
-        print("WARNING: python coverage setup failed. Do you need to include the 'coverage' library as a dependency of py_pytest_main?", e)
+        print("WARNING: python coverage setup failed. Do you need to include the 'coverage' package as a dependency of py_pytest_main?", e)
         pass
 
 from pytest_shard import ShardPlugin
