@@ -16,7 +16,7 @@ jobs:
     strategy:
       matrix:
         # Pin to runner releases since our Rust compile is fiddly with system libs
-        os: [ubuntu-20.04, macos-13]
+        os: [ubuntu-22.04, macos-13]
     runs-on: ${{ matrix.os }}
 
     steps:
