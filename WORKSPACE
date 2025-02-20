@@ -42,9 +42,11 @@ py_repositories()
 
 ############################################
 # Aspect bazel-lib
-load("@aspect_bazel_lib//lib:repositories.bzl", "register_coreutils_toolchains")
+load("@aspect_bazel_lib//lib:repositories.bzl", "register_coreutils_toolchains", "register_expand_template_toolchains")
 
 register_coreutils_toolchains()
+
+register_expand_template_toolchains()
 
 load("@musl_toolchains//:repositories.bzl", "load_musl_toolchains")
 

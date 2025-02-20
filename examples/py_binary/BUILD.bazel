@@ -1,8 +1,17 @@
+load("@aspect_bazel_lib//lib:expand_template.bzl", "expand_template")
 load("//py:defs.bzl", "py_binary")
+
+expand_template(
+    name = "stamped",
+    stamp_substitutions = {
+        "<BUILD_TIMESTAMP>": "{{BUILD_TIMESTAMP}}",
+    },
+    template = "say.py",
+)
 
 py_binary(
     name = "py_binary",
-    srcs = ["say.py"],
+    srcs = [":stamped"],
     deps = [
         "@pypi_cowsay//:pkg",
     ],
