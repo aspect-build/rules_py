@@ -17,6 +17,9 @@ bazel_dep(name = "bazel_skylib", version = "1.4.2")
 bazel_dep(name = "rules_python", version = "0.29.0")
 bazel_dep(name = "platforms", version = "0.0.7")
 
+bazel_lib = use_extension("@aspect_bazel_lib//lib:extensions.bzl", "toolchains")
+bazel_lib.expand_template()
+
 # Custom python version for testing only
 python = use_extension("@rules_python//python/extensions:python.bzl", "python", dev_dependency = True)
 python.toolchain(
