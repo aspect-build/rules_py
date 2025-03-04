@@ -59,7 +59,7 @@ py_image_layer = _py_image_layer
 
 resolutions = _resolutions
 
-def _py_binary_or_test(name, rule, srcs, main, deps = [], resolutions = {}, **kwargs):
+def _py_binary_or_test(name, rule, srcs, main, data = [], deps = [], resolutions = {}, **kwargs):
     # Compatibility with rules_python, see docs in py_executable.bzl
     main_target = "{}.find_main".format(name)
     determine_main(
@@ -76,6 +76,7 @@ def _py_binary_or_test(name, rule, srcs, main, deps = [], resolutions = {}, **kw
         name = name,
         srcs = srcs,
         main = main_target,
+        data = data,
         deps = deps,
         resolutions = resolutions,
         package_collisions = package_collisions,
@@ -84,6 +85,7 @@ def _py_binary_or_test(name, rule, srcs, main, deps = [], resolutions = {}, **kw
 
     _py_venv(
         name = "{}.venv".format(name),
+        data = data,
         deps = deps,
         imports = kwargs.get("imports"),
         resolutions = resolutions,
