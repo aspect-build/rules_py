@@ -97,8 +97,9 @@ def _py_binary_rule_impl(ctx):
         ] + virtual_resolution.srcs + virtual_resolution.runfiles,
         extra_runfiles = [
             site_packages_pth_file,
-        ] + ctx.files._runfiles_lib,
+        ],
         extra_runfiles_depsets = [
+            ctx.attr._runfiles_lib[DefaultInfo].default_runfiles,
             venv_toolchain.default_info.default_runfiles,
         ],
     )
