@@ -14,7 +14,7 @@ Using `py_venv` directly is only required for cases where those defaults do not 
 ## py_venv_rule
 
 <pre>
-py_venv_rule(<a href="#py_venv_rule-name">name</a>, <a href="#py_venv_rule-deps">deps</a>, <a href="#py_venv_rule-imports">imports</a>, <a href="#py_venv_rule-location">location</a>, <a href="#py_venv_rule-package_collisions">package_collisions</a>, <a href="#py_venv_rule-resolutions">resolutions</a>, <a href="#py_venv_rule-venv_name">venv_name</a>)
+py_venv_rule(<a href="#py_venv_rule-name">name</a>, <a href="#py_venv_rule-data">data</a>, <a href="#py_venv_rule-deps">deps</a>, <a href="#py_venv_rule-imports">imports</a>, <a href="#py_venv_rule-location">location</a>, <a href="#py_venv_rule-package_collisions">package_collisions</a>, <a href="#py_venv_rule-resolutions">resolutions</a>, <a href="#py_venv_rule-venv_name">venv_name</a>)
 </pre>
 
 Create a Python virtual environment with the dependencies listed.
@@ -25,6 +25,7 @@ Create a Python virtual environment with the dependencies listed.
 | Name  | Description | Type | Mandatory | Default |
 | :------------- | :------------- | :------------- | :------------- | :------------- |
 | <a id="py_venv_rule-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
+| <a id="py_venv_rule-data"></a>data |  Runtime dependencies of the program.<br><br>        The transitive closure of the <code>data</code> dependencies will be available in the <code>.runfiles</code>         folder for this binary/test. The program may optionally use the Runfiles lookup library to         locate the data files, see https://pypi.org/project/bazel-runfiles/.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
 | <a id="py_venv_rule-deps"></a>deps |  Targets that produce Python code, commonly <code>py_library</code> rules.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
 | <a id="py_venv_rule-imports"></a>imports |  List of import directories to be added to the PYTHONPATH.   | List of strings | optional | <code>[]</code> |
 | <a id="py_venv_rule-location"></a>location |  Path from the workspace root for where to root the virtial environment   | String | optional | <code>""</code> |

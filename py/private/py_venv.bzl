@@ -98,6 +98,15 @@ py_venv_rule = rule(
             allow_files = True,
             providers = [[PyInfo], [PyVirtualInfo]],
         ),
+        "data": attr.label_list(
+            doc = """Runtime dependencies of the program.
+
+        The transitive closure of the `data` dependencies will be available in the `.runfiles`
+        folder for this binary/test. The program may optionally use the Runfiles lookup library to
+        locate the data files, see https://pypi.org/project/bazel-runfiles/.
+        """,
+            allow_files = True,
+        ),
         "imports": attr.string_list(
             doc = "List of import directories to be added to the PYTHONPATH.",
             default = [],
