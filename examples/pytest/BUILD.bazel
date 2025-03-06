@@ -13,6 +13,9 @@ py_test(
         "fixtures/*.json",
     ]),
     env_inherit = ["FOO"],
+    exec_properties = {
+        "test.foo": "bar",
+    },
     imports = ["../.."],
     package_collisions = "warning",
     pytest_main = True,
