@@ -30,7 +30,7 @@ oci_image(
 ```
 """
 
-load("@aspect_bazel_lib//lib:tar.bzl", "mtree_spec", "tar")
+load("@aspect_bazel_lib//lib:tar.bzl", "mtree_spec", "tar", "mtree_mutate")
 load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 
 default_layer_groups = {
@@ -90,7 +90,18 @@ awk < $< 'BEGIN {
         **kwargs
     )
 
-def py_image_layer(name, binary, root = "/", layer_groups = {}, compress = "gzip", tar_args = [], compute_unused_inputs = 1, platform = None, **kwargs):
+def py_image_layer(
+    name,
+    binary,
+    root = "/",
+    layer_groups = {},
+    compress = "gzip",
+    tar_args = [],
+    compute_unused_inputs = 1,
+    platform = None,
+    owner = None,
+    **kwargs
+    ):
     """Produce a separate tar output for each layer of a python app
 
     > Requires `awk` to be installed on the host machine/rbe runner.
@@ -119,6 +130,7 @@ def py_image_layer(name, binary, root = "/", layer_groups = {}, compress = "gzip
         compress: Compression algorithm to use. Default is gzip. See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#tar_rule-compress
         compute_unused_inputs: Whether to compute unused inputs. Default is 1. See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#tar_rule-compute_unused_inputs
         platform: The platform to use for the transition. Default is None. See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/transitions.md#platform_transition_binary-target_platform
+        owner: An owner uid for the uncompressed files. See mtree_mutate: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#mutating-the-tar-contents
         tar_args: Additional arguments to pass to the tar rule. Default is `[]`. See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#tar_rule-args
         **kwargs: attribute that apply to all targets expanded by the macro
 
@@ -131,10 +143,22 @@ def py_image_layer(name, binary, root = "/", layer_groups = {}, compress = "gzip
     # Produce the manifest for a tar file of our py_binary, but don't tar it up yet, so we can split
     # into fine-grained layers for better pull, push and remote cache performance.
     mtree_spec(
-        name = name + ".manifest",
+        name = name + ".manifest.preprocessed",
         srcs = [binary],
         **kwargs
     )
+
+    if owner:
+        mtree_mutate(
+            name = name + ".manifest",
+            mtree = name + ".manifest.preprocessed",
+            owner = owner,
+        )
+    else:
+        native.alias(
+            name = name + ".manifest",
+            actual = name + ".manifest.preprocessed",
+        )
 
     groups = dict(**layer_groups)
     groups = dict(groups, **default_layer_groups)
