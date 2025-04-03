@@ -30,7 +30,7 @@ oci_image(
 ```
 """
 
-load("@aspect_bazel_lib//lib:tar.bzl", "mtree_spec", "tar", "mtree_mutate")
+load("@aspect_bazel_lib//lib:tar.bzl", "mtree_mutate", "mtree_spec", "tar")
 load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 
 default_layer_groups = {
@@ -91,17 +91,16 @@ awk < $< 'BEGIN {
     )
 
 def py_image_layer(
-    name,
-    binary,
-    root = "/",
-    layer_groups = {},
-    compress = "gzip",
-    tar_args = [],
-    compute_unused_inputs = 1,
-    platform = None,
-    owner = None,
-    **kwargs
-    ):
+        name,
+        binary,
+        root = "/",
+        layer_groups = {},
+        compress = "gzip",
+        tar_args = [],
+        compute_unused_inputs = 1,
+        platform = None,
+        owner = None,
+        **kwargs):
     """Produce a separate tar output for each layer of a python app
 
     > Requires `awk` to be installed on the host machine/rbe runner.
