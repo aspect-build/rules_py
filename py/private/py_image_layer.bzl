@@ -141,22 +141,23 @@ def py_image_layer(
 
     # Produce the manifest for a tar file of our py_binary, but don't tar it up yet, so we can split
     # into fine-grained layers for better pull, push and remote cache performance.
-    mtree_spec(
-        name = name + ".manifest.preprocessed",
-        srcs = [binary],
-        **kwargs
-    )
-
+    manifest_name = name + ".manifest"
     if owner:
+        mtree_spec(
+            name = manifest_name + ".preprocessed",
+            srcs = [binary],
+            **kwargs
+        )
         mtree_mutate(
-            name = name + ".manifest",
+            name = manifest_name,
             mtree = name + ".manifest.preprocessed",
             owner = owner,
         )
     else:
-        native.alias(
-            name = name + ".manifest",
-            actual = name + ".manifest.preprocessed",
+        mtree_spec(
+            name = manifest_name,
+            srcs = [binary],
+            **kwargs
         )
 
     groups = dict(**layer_groups)
