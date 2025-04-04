@@ -60,6 +60,9 @@ py_image_layer = _py_image_layer
 resolutions = _resolutions
 
 def _py_binary_or_test(name, rule, srcs, main, data = [], deps = [], resolutions = {}, **kwargs):
+    exec_properties = kwargs.pop("exec_properties", {})
+    non_test_exec_properties = {k: v for k, v in exec_properties.items() if not k.startswith("test.")}
+
     # Compatibility with rules_python, see docs in py_executable.bzl
     main_target = "{}.find_main".format(name)
     determine_main(
@@ -67,6 +70,7 @@ def _py_binary_or_test(name, rule, srcs, main, data = [], deps = [], resolutions
         target_name = name,
         main = main,
         srcs = srcs,
+        exec_properties = non_test_exec_properties,
         **propagate_common_rule_attributes(kwargs)
     )
 
@@ -80,6 +84,7 @@ def _py_binary_or_test(name, rule, srcs, main, data = [], deps = [], resolutions
         deps = deps,
         resolutions = resolutions,
         package_collisions = package_collisions,
+        exec_properties = exec_properties,
         **kwargs
     )
 
