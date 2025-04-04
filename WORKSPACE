@@ -283,6 +283,7 @@ crates_repository(
         "//py/tools/py:Cargo.toml",
         "//py/tools/venv_bin:Cargo.toml",
         "//py/tools/unpack_bin:Cargo.toml",
+        "//py/tools/venv_shim:Cargo.toml",
     ],
 )
 
