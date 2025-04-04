@@ -1,0 +1,18 @@
+load("//tools/release:defs.bzl", "rust_binary")
+
+rust_binary(
+    name = "shim",
+    srcs = [
+        "src/main.rs",
+    ],
+    deps = [
+    ],
+)
+
+alias(
+    name = "venv_shim",
+    actual = ":shim",
+    visibility = [
+        "//visibility:public",
+    ],
+)
