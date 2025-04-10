@@ -205,7 +205,7 @@ _attrs = dict({
     ),
     "deps": attr.label_list(
         doc = "Targets that produce Python code, commonly `py_library` rules.",
-        providers = [[PyInfo], [PyVirtualInfo]],
+        providers = [[PyInfo], [PyVirtualInfo], [CcInfo]],
     ),
     "data": attr.label_list(
         doc = """Runtime dependencies of the program.
