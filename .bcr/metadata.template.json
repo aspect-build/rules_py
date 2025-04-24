@@ -5,6 +5,16 @@
       "email": "alex@aspect.build",
       "github": "alexeagle",
       "name": "Alex Eagle"
+    },
+    {
+      "email": "sahin@aspect.build",
+      "github": "thesayyn",
+      "name": "Şahin Yort"
+    },
+    {
+      "email": "reid@aspect.build",
+      "github": "arrdem",
+      "name": "Reid D McKenzie"
     }
   ],
   "repository": ["github:aspect-build/rules_py"],
