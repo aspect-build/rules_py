@@ -4,11 +4,13 @@
 name: Release
 
 on:
-  workflow_dispatch: # allow trigger through Web UI
   push:
     tags:
       - "v*.*.*"
-
+permissions:
+  id-token: write
+  attestations: write
+  contents: write
 jobs:
   build:
     # We don't attempt to cross-compile rust binaries from one OS to another.
@@ -40,26 +42,17 @@ jobs:
 
   release:
     needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      # Fetch the built artifacts from build jobs above and extract into
-      # ${GITHUB_WORKSPACE}/artifacts-macos-latest/*
-      # ${GITHUB_WORKSPACE}/artifacts-ubuntu-latest/*
-      - uses: actions/download-artifact@v4
-
-      - name: Prepare release
-        run: .github/workflows/release_prep.sh > release_notes.txt
-
-      - name: Release
-        uses: softprops/action-gh-release@v2
-        with:
-          prerelease: false
-          # Use GH feature to populate the changelog automatically
-          generate_release_notes: true
-          body_path: release_notes.txt
-          files: |
-            artifacts-*/*
-            rules_py-*.tar.gz
-          fail_on_unmatched_files: true
+    uses: bazel-contrib/.github/.github/workflows/release_ruleset.yaml@v7.2.2
+    with:
+      prerelease: false
+      release_files: |
+        artifacts-*/*
+        rules_py-*.tar.gz
+      tag_name: ${{ github.ref_name }}
+  publish:
+    needs: release
+    uses: ./.github/workflows/publish.yaml
+    with:
+      tag_name: ${{ github.ref_name }}
+    secrets:
+      publish_token: ${{ secrets.BCR_PUBLISH_TOKEN }}
