@@ -12,6 +12,8 @@ build --define=SOME_VAR=SOME_VALUE
 
 common --features=-libtool
 common --incompatible_enable_cc_toolchain_resolution
+common --per_file_copt=external/.*protobuf.*@--PROTOBUF_WAS_NOT_SUPPOSED_TO_BE_BUILT
+common --host_per_file_copt=external/.*protobuf.*@--PROTOBUF_WAS_NOT_SUPPOSED_TO_BE_BUILT
 
 # Use local rules_python
 # Enable with --config=dev
