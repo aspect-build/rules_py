@@ -1,0 +1,48 @@
+load("@aspect_bazel_lib//lib:expand_template.bzl", "expand_template")
+load("//py:defs.bzl", "py_binary")
+load("//py/private:py_venv.bzl", "py_venv", "py_venv_binary")
+load("@rules_pkg//pkg:zip.bzl", "pkg_zip")
+load("@rules_pkg//pkg:mappings.bzl", "pkg_files", "filter_directory")
+
+expand_template(
+    name = "stamped",
+    stamp_substitutions = {
+        "<BUILD_TIMESTAMP>": "{{BUILD_TIMESTAMP}}",
+    },
+    template = "say.py",
+)
+
+py_venv(
+    name = "venv",
+    deps = [
+        "@pypi_cowsay//:pkg",
+    ],
+)
+
+py_venv_binary(
+    name = "external_venv",
+    srcs = [
+        ":stamped"
+    ],
+    # FIXME: Allow use of venv from a separate target?
+    venv = ":venv",
+    main = ":stamped",
+    imports = [
+        "."
+    ],
+)
+
+py_venv_binary(
+    name = "internal_venv",
+    srcs = [
+        ":stamped"
+    ],
+    main = ":stamped",
+    deps = [
+        "@pypi_cowsay//:pkg",
+    ],
+    imports = [
+        "."
+    ],
+
+)

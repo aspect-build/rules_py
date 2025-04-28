@@ -1,5 +1,5 @@
 {
-  "checksum": "7c8cd2683de76ab9fae29a74881389aefee00f8d83f53bd006aba44b4dd3731d",
+  "checksum": "eb371dc49c5639c18e7f0415686de673ae7f83a972b6fd8823550485f5f63bea",
   "crates": {
     "addr2line 0.24.2": {
       "name": "addr2line",
@@ -9978,14 +9978,14 @@
       ],
       "license_file": "LICENSE.txt"
     },
-    "pathdiff 0.2.2": {
+    "pathdiff 0.2.3": {
       "name": "pathdiff",
-      "version": "0.2.2",
+      "version": "0.2.3",
       "package_url": "https://github.com/Manishearth/pathdiff",
       "repository": {
         "Http": {
-          "url": "https://static.crates.io/crates/pathdiff/0.2.2/download",
-          "sha256": "d61c5ce1153ab5b689d0c074c4e7fc613e942dfb7dd9eea5ab202d2ad91fe361"
+          "url": "https://static.crates.io/crates/pathdiff/0.2.3/download",
+          "sha256": "df94ce210e5bc13cb6651479fa48d14f601d9858cfe0467f43ae157023b938d3"
         }
       },
       "targets": [
@@ -10008,7 +10008,7 @@
           "**"
         ],
         "edition": "2018",
-        "version": "0.2.2"
+        "version": "0.2.3"
       },
       "license": "MIT/Apache-2.0",
       "license_ids": [
@@ -10857,6 +10857,14 @@
               "target": "miette"
             },
             {
+              "id": "pathdiff 0.2.3",
+              "target": "pathdiff"
+            },
+            {
+              "id": "relative-path 1.9.3",
+              "target": "relative_path"
+            },
+            {
               "id": "tempfile 3.13.0",
               "target": "tempfile"
             },
@@ -10891,6 +10899,10 @@
             {
               "id": "uv-virtualenv 0.0.4",
               "target": "uv_virtualenv"
+            },
+            {
+              "id": "walkdir 2.5.0",
+              "target": "walkdir"
             }
           ],
           "selects": {}
@@ -12202,6 +12214,51 @@
         "MIT"
       ],
       "license_file": "LICENSE-APACHE"
+    },
+    "relative-path 1.9.3": {
+      "name": "relative-path",
+      "version": "1.9.3",
+      "package_url": "https://github.com/udoprog/relative-path",
+      "repository": {
+        "Http": {
+          "url": "https://static.crates.io/crates/relative-path/1.9.3/download",
+          "sha256": "ba39f3699c378cd8970968dcbff9c43159ea4cfbd88d43c00b22f2ef10a435d2"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "relative_path",
+            "crate_root": "src/lib.rs",
+            "srcs": {
+              "allow_empty": true,
+              "include": [
+                "**/*.rs"
+              ]
+            }
+          }
+        }
+      ],
+      "library_target_name": "relative_path",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": {
+          "common": [
+            "default"
+          ],
+          "selects": {}
+        },
+        "edition": "2021",
+        "version": "1.9.3"
+      },
+      "license": "MIT OR Apache-2.0",
+      "license_ids": [
+        "Apache-2.0",
+        "MIT"
+      ],
+      "license_file": null
     },
     "rend 0.5.2": {
       "name": "rend",
@@ -21868,7 +21925,7 @@
               "target": "mailparse"
             },
             {
-              "id": "pathdiff 0.2.2",
+              "id": "pathdiff 0.2.3",
               "target": "pathdiff"
             },
             {
@@ -22997,7 +23054,7 @@
               "target": "itertools"
             },
             {
-              "id": "pathdiff 0.2.2",
+              "id": "pathdiff 0.2.3",
               "target": "pathdiff"
             },
             {
@@ -27568,6 +27625,8 @@
     "clap 4.5.20",
     "itertools 0.13.0",
     "miette 7.2.0",
+    "pathdiff 0.2.3",
+    "relative-path 1.9.3",
     "tempfile 3.13.0",
     "thiserror 1.0.65",
     "uv-cache 0.0.1",
@@ -27576,7 +27635,8 @@
     "uv-install-wheel 0.0.1",
     "uv-pypi-types 0.0.1",
     "uv-python 0.0.1",
-    "uv-virtualenv 0.0.4"
+    "uv-virtualenv 0.0.4",
+    "walkdir 2.5.0"
   ],
   "direct_dev_deps": []
 }

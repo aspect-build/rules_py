@@ -8,6 +8,11 @@ rust_library(
         "src/unpack.rs",
         "src/venv.rs",
     ],
+    data = [
+        "src/_virtualenv.py",
+        "src/pyvenv.cfg.tmpl",
+        "src/activate.tmpl",
+    ],
     visibility = [
         "//py/tools/unpack_bin:__pkg__",
         "//py/tools/venv_bin:__pkg__",
@@ -24,5 +29,7 @@ rust_library(
         "@crate_index//:uv-pypi-types",
         "@crate_index//:uv-python",
         "@crate_index//:uv-virtualenv",
+        "@crate_index//:pathdiff",
+        "@crate_index//:walkdir",
     ],
 )
