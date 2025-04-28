@@ -9,11 +9,16 @@ edition.workspace = true
 readme.workspace = true
 rust-version.workspace = true
 
+[features]
+debug = []
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 itertools = { workspace = true }
 miette = { workspace = true }
+pathdiff = "0.2.3"
+relative-path = "1.9.3"
 tempfile = { workspace = true }
 thiserror = { workspace = true }
 uv-cache = { workspace = true }
@@ -23,3 +28,4 @@ uv-install-wheel = { workspace = true }
 uv-pypi-types = { workspace = true }
 uv-python = { workspace = true }
 uv-virtualenv = { workspace = true }
+walkdir = "2.5.0"

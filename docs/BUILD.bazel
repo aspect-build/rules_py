@@ -38,7 +38,7 @@ stardoc_with_diff_test(
 
 stardoc_with_diff_test(
     name = "venv",
-    bzl_library_target = "//py/private:py_venv",
+    bzl_library_target = "//py/private/py_venv:py_venv",
 )
 
 update_docs(name = "update")
