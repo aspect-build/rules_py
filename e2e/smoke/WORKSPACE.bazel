@@ -36,8 +36,9 @@ crates_repository(
     manifests = [
         "@aspect_rules_py//:Cargo.toml",
         "@aspect_rules_py//py/tools/py:Cargo.toml",
-        "@aspect_rules_py//py/tools/venv_bin:Cargo.toml",
         "@aspect_rules_py//py/tools/unpack_bin:Cargo.toml",
+        "@aspect_rules_py//py/tools/venv_bin:Cargo.toml",
+        "@aspect_rules_py//py/tools/venv_shim:Cargo.toml",
     ],
 )
 
