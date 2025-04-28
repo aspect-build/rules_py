@@ -1,5 +1,5 @@
 {
-  "checksum": "81a92b86099c7c9b831ce831b33ad24c552a0c97ef3d8dc37836db3d08529ec4",
+  "checksum": "7c8cd2683de76ab9fae29a74881389aefee00f8d83f53bd006aba44b4dd3731d",
   "crates": {
     "addr2line 0.24.2": {
       "name": "addr2line",
@@ -23131,6 +23131,33 @@
       "license_ids": [],
       "license_file": null
     },
+    "venv_shim 0.1.0": {
+      "name": "venv_shim",
+      "version": "0.1.0",
+      "package_url": "https://github.com/aspect-build/rules_py",
+      "repository": null,
+      "targets": [],
+      "library_target_name": null,
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "miette 7.2.0",
+              "target": "miette"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2021",
+        "version": "0.1.0"
+      },
+      "license": "Apache 2",
+      "license_ids": [],
+      "license_file": null
+    },
     "version_check 0.9.5": {
       "name": "version_check",
       "version": "0.9.5",
@@ -26950,7 +26977,8 @@
   "workspace_members": {
     "py 0.1.0": "py/tools/py",
     "unpack_bin 0.1.0": "py/tools/unpack_bin",
-    "venv_bin 0.1.0": "py/tools/venv_bin"
+    "venv_bin 0.1.0": "py/tools/venv_bin",
+    "venv_shim 0.1.0": "py/tools/venv_shim"
   },
   "conditions": {
     "aarch64-apple-darwin": [
