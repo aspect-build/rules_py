@@ -16,10 +16,10 @@ for p in site.PREFIXES:
 assert "_virtualenv" in sys.modules
 
 # The virtualenv changes the sys.prefix, which should be in our runfiles
-assert sys.prefix.endswith(".runfiles/aspect_rules_py/py/tests/py-internal-venv/.venv_test")
+assert sys.prefix.endswith(".runfiles/aspect_rules_py/py/tests/py-internal-venv/.test")
 
 # That prefix should also be "the" prefix per site.PREFIXES
-assert site.PREFIXES[0].endswith(".runfiles/aspect_rules_py/py/tests/py-internal-venv/.venv_test")
+assert site.PREFIXES[0].endswith(".runfiles/aspect_rules_py/py/tests/py-internal-venv/.test")
 
 # The virtualenv also changes the sys.executable (if we've done this right)
-assert sys.executable.find("aspect_rules_py/py/tests/py-internal-venv/.venv_test/bin/python") != -1
+assert sys.executable.find("aspect_rules_py/py/tests/py-internal-venv/.test/bin/python") != -1

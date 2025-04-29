@@ -8,7 +8,7 @@ py_venv(
 )
 
 py_venv_test(
-    name = "py-external-venv",
+    name = "test",
     srcs = [
         "test.py",
     ],

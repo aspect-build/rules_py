@@ -1,7 +1,7 @@
 load("//py/private:py_venv.bzl", "py_venv_test")
 
 py_venv_test(
-    name = "venv_test",
+    name = "test",
     srcs = [
         "test.py",
     ],
