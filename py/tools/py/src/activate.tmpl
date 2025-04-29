@@ -39,7 +39,9 @@ deactivate () {
 deactivate nondestructive
 
 # use the path as-is
-export VIRTUAL_ENV="$(dirname "$(dirname "$BASH_SOURCE")")"
+# HACK: $BASH_SOURCE works on real bashes, $0 works on zsh
+VIRTUAL_ENV="$(realpath "$(dirname "$(dirname "${BASH_SOURCE-$0}")")")"
+export VIRTUAL_ENV
 
 _OLD_VIRTUAL_PATH="$PATH"
 PATH="$VIRTUAL_ENV/bin:$PATH"
