@@ -175,6 +175,12 @@ fn copy(original: PathBuf, link: PathBuf) -> miette::Result<()> {
     ));
 }
 
+const RELOCATABLE_SHEBANG: &str = "\
+#!/bin/sh
+'''exec' \"$(dirname -- \"$(realpath -- \"$0\")\")\"/'python3' \"$0\" \"$@\"
+' '''
+";
+
 /// We used to go out to UV for this. Unfortunately due to the needs of
 /// creating relocatable virtualenvs at Bazel action time, we can't "just"
 /// use UV since it has hard-coded expectations around resolving interpreter
@@ -390,8 +396,8 @@ pub fn populate_venv_with_copies(
     let dest = &venv.site_dir;
 
     // Get $PWD, which is the build working directory.
-    let build_dir = current_dir().into_diagnostic()?;
-    let bin_dir = build_dir.join(bin_dir);
+    let action_src_dir = current_dir().into_diagnostic()?;
+    let action_bin_dir = action_src_dir.join(bin_dir);
 
     let source_pth = File::open(pth_file.src.as_path())
         .into_diagnostic()
@@ -439,10 +445,22 @@ pub fn populate_venv_with_copies(
                     .join(PathBuf::from(workspace))
                     .join(entry)
             }
-            for prefix in [build_dir.clone(), bin_dir.clone()] {
+
+            // Copy library sources in
+            for prefix in [action_src_dir.clone(), action_bin_dir.clone()] {
                 let src_dir = prefix.join(entry.clone());
                 if src_dir.exists() {
                     create_tree(&src_dir, &venv.site_dir, &collision_strategy)?;
+                }
+            }
+
+            // Copy scripts (bin entries) in
+            let bin_dir = entry.parent().unwrap().join("bin");
+            for prefix in [action_src_dir.clone(), action_bin_dir.clone()] {
+                let src_dir = prefix.join(bin_dir.clone());
+                if src_dir.exists() {
+                    // FIXME: Need to correct shebangs
+                    create_tree(&src_dir, &venv.bin_dir, &collision_strategy)?;
                 }
             }
         } else {
@@ -457,7 +475,8 @@ pub fn populate_venv_with_copies(
             //
             // [1] https://github.com/python/cpython/blob/ce31ae5209c976d28d1c21fcbb06c0ae5e50a896/Lib/site.py#L215
 
-            let path_to_runfiles = diff_paths(&bin_dir, bin_dir.join(&venv.site_dir)).unwrap();
+            let path_to_runfiles =
+                diff_paths(&action_bin_dir, action_bin_dir.join(&venv.site_dir)).unwrap();
 
             writeln!(dest_pth_writer, "# @{}", line).into_diagnostic()?;
             writeln!(
@@ -516,6 +535,14 @@ pub fn create_tree(
             // Specifically avoid linking in a <root>/__init__.py file
             else if relative_entry == PathBuf::from("__init__.py") {
                 continue;
+            }
+            // In the case of copying bin entries, we need to patch them. Yay.
+            else if link_dir.file_name() == Some(OsStr::new("bin")) {
+                let mut content = fs::read_to_string(original_entry).into_diagnostic()?;
+                if content.starts_with("#!/dev/null") {
+                    content.replace_range(..0, &RELOCATABLE_SHEBANG);
+                }
+                fs::write(link_entry, content).into_diagnostic()?;
             }
             // Normal case of needing to link a file :smile:
             else {
