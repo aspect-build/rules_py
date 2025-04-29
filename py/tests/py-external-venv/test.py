@@ -15,11 +15,14 @@ for p in site.PREFIXES:
 # The virtualenv module should have already been loaded at interpreter startup
 assert "_virtualenv" in sys.modules
 
+# Note that we can't assume that a `.runfiles` tree has been created as CI may
+# use a different layout.
+
 # The virtualenv changes the sys.prefix, which should be in our runfiles
-assert sys.prefix.endswith(".runfiles/aspect_rules_py/py/tests/py-external-venv/.venv")
+assert sys.prefix.endswith("/py/tests/py-external-venv/.venv")
 
 # That prefix should also be "the" prefix per site.PREFIXES
-assert site.PREFIXES[0].endswith(".runfiles/aspect_rules_py/py/tests/py-external-venv/.venv")
+assert site.PREFIXES[0].endswith("/py/tests/py-external-venv/.venv")
 
 # The virtualenv also changes the sys.executable (if we've done this right)
-assert sys.executable.find("aspect_rules_py/py/tests/py-external-venv/.venv/bin/python") != -1
+assert sys.executable.find("/py/tests/py-external-venv/.venv/bin/python") != -1
