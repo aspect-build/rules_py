@@ -6,9 +6,14 @@ load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "VENV_TOOLCHAIN")
 
-VirtualenvInfo = provider(fields = {
-    "home": "Path of the virtualenv",
-})
+VirtualenvInfo = provider(
+    doc = """
+    Provider used to distinguish venvs from py rules.
+    """,
+    fields = {
+        "home": "Path of the virtualenv",
+    },
+)
 
 def _dict_to_exports(env):
     return [
@@ -48,7 +53,7 @@ def _venv_preexec(ctx):
             "_arr=(\"${_arr[@]:0:1}\" \"${PYTHONHOME}/bin\" \"${_arr[@]:1}\")",
             "_ifs=\"$IFS\"; IFS=:; PATH=\"${_arr[*]}\"; IFS=\"$_ifs\"",
             "export PATH",
-            "echo \"${PATH}\""
+            "echo \"${PATH}\"",
         ])
 
     return "\n".join(lines)
@@ -59,7 +64,9 @@ def _venv_preexec(ctx):
 
 def _py_venv_base_impl(ctx):
     """
-    Common base implementation of taking a PyInfo transitive depset and shoving all that into a "virtualenv" tree.
+    Common venv bits.
+
+    Taking a PyInfo transitive depset and shove all that into a "virtualenv" tree.
     Depended on by the implementation of venv building and venv-based binary building.
     """
 
@@ -162,7 +169,6 @@ def _py_venv_rule_impl(ctx):
     A virtualenv implementation the binary of which is a proxy to the Python interpreter of the venv.
     """
 
-    py_toolchain = _py_semantics.resolve_toolchain(ctx)
     venv_dir, rfs = _py_venv_base_impl(ctx)
 
     # Now we can generate an entrypoint script wrapping $VENV/bin/python
