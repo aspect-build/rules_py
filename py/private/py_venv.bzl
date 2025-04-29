@@ -22,7 +22,31 @@ def _dict_to_exports(env):
 def _interpreter_flags(ctx):
     py_toolchain = _py_semantics.resolve_toolchain(ctx)
 
-    return [it for it in py_toolchain.flags + ctx.attr.interpreter_options if it not in ["-I"]]
+    args = py_toolchain.flags + ctx.attr.interpreter_options
+
+    if hasattr(ctx.file, 'main'):
+        args.append(
+            "\"$(rlocation {})\"".format(to_rlocation_path(ctx, ctx.file.main))
+        )
+
+    args = [it for it in args if it not in ["-I"]]
+
+    return args
+
+
+def _venv_preexec(ctx):
+    py_toolchain = _py_semantics.resolve_toolchain(ctx)
+    lines = []
+
+    if py_toolchain.runfiles_interpreter:
+        lines.extend([
+            "# HACK: Override PYTHONHOME after bin/activate to support embedded standalone interpreter",
+            "PYTHONHOME=\"$(dirname $(dirname $(rlocation {})))\"".format(to_rlocation_path(ctx, py_toolchain.python)),
+            "export PYTHONHOME",
+        ])
+
+    return "\n".join(lines)
+
 
 # FIXME: This is derived directly from the py_binary.bzl rule and should really
 # be a layer on top of it if we can figure out flowing the data around. This is
@@ -84,7 +108,8 @@ def _py_venv_base_impl(ctx):
         extra_depsets = [
             py_toolchain.files,
             srcs_depset,
-        ] + virtual_resolution.srcs + virtual_resolution.runfiles,
+        ] + virtual_resolution.srcs + virtual_resolution.runfiles
+        + ([py_toolchain.files] if py_toolchain.runfiles_interpreter else []),
         extra_runfiles_depsets = [
             ctx.attr._runfiles_lib[DefaultInfo].default_runfiles,
         ],
@@ -144,7 +169,9 @@ def _py_venv_rule_impl(ctx):
             "{{BASH_RLOCATION_FN}}": BASH_RLOCATION_FUNCTION.strip(),
             "{{INTERPRETER_FLAGS}}": " ".join(_interpreter_flags(ctx)),
             "{{ENTRYPOINT}}": "${VIRTUAL_ENV}/bin/python",
-            "{{ARG_VENV}}": to_rlocation_path(ctx, venv_dir),
+            "{{PRELUDE}}": "",
+            "{{PREEXEC}}": _venv_preexec(ctx),
+            "{{VENV}}": to_rlocation_path(ctx, venv_dir),
         },
         is_executable = True,
     )
@@ -210,9 +237,9 @@ def _py_venv_binary_impl(ctx):
         substitutions = {
             "{{BASH_RLOCATION_FN}}": BASH_RLOCATION_FUNCTION.strip(),
             "{{INTERPRETER_FLAGS}}": " ".join(_interpreter_flags(ctx)),
-            "{{ENTRYPOINT}}": to_rlocation_path(ctx, ctx.file.main),
-            "{{ARG_VENV}}": to_rlocation_path(ctx, venv_dir),
-            "{{RUNFILES_INTERPRETER}}": str(py_toolchain.runfiles_interpreter).lower(),
+            "{{PRELUDE}}": "",
+            "{{PREEXEC}}": _venv_preexec(ctx),
+            "{{VENV}}": to_rlocation_path(ctx, venv_dir),
         },
         is_executable = True,
     )
@@ -286,7 +313,7 @@ _binary_attrs = dict({
     ),
     "_bin_tmpl": attr.label(
         allow_single_file = True,
-        default = "//py/private:venv_binary.tmpl.sh",
+        default = "//py/private:venv.tmpl.sh",
     ),
 })
 
