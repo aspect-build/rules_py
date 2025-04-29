@@ -39,7 +39,7 @@ deactivate () {
 deactivate nondestructive
 
 # use the path as-is
-export VIRTUAL_ENV="$(realpath "$(dirname "$(dirname "$0")")")"
+export VIRTUAL_ENV="$(dirname "$(dirname "$BASH_SOURCE")")"
 
 _OLD_VIRTUAL_PATH="$PATH"
 PATH="$VIRTUAL_ENV/bin:$PATH"

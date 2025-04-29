@@ -39,6 +39,16 @@ def _venv_preexec(ctx):
             "# HACK: Override PYTHONHOME after bin/activate to support embedded standalone interpreter",
             "PYTHONHOME=\"$(dirname $(dirname $(rlocation {})))\"".format(to_rlocation_path(ctx, py_toolchain.python)),
             "export PYTHONHOME",
+            "",
+            "# HACK: Shove the PYTHONHOME's bin/ _second_ on the path.",
+            "# First on the path will be VIRTUALENV/bin which we want to stay there.",
+            "# First on the path will be VIRTUALENV/bin which we want to stay there.",
+            "# But we also need the interpreter's bin/ to be on the path so that it can be found.",
+            "IFS=: read -a _arr <<< \"$PATH\"",
+            "_arr=(\"${_arr[@]:0:1}\" \"${PYTHONHOME}/bin\" \"${_arr[@]:1}\")",
+            "_ifs=\"$IFS\"; IFS=:; PATH=\"${_arr[*]}\"; IFS=\"$_ifs\"",
+            "export PATH",
+            "echo \"${PATH}\""
         ])
 
     return "\n".join(lines)
