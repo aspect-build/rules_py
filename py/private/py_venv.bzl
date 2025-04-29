@@ -19,6 +19,11 @@ def _dict_to_exports(env):
         for (k, v) in env.items()
     ]
 
+def _interpreter_flags(ctx):
+    py_toolchain = _py_semantics.resolve_toolchain(ctx)
+
+    return [it for it in py_toolchain.flags + ctx.attr.interpreter_options if it not in ["-I"]]
+
 # FIXME: This is derived directly from the py_binary.bzl rule and should really
 # be a layer on top of it if we can figure out flowing the data around. This is
 # PoC quality.
@@ -137,7 +142,7 @@ def _py_venv_rule_impl(ctx):
         output = ctx.outputs.executable,
         substitutions = {
             "{{BASH_RLOCATION_FN}}": BASH_RLOCATION_FUNCTION.strip(),
-            "{{INTERPRETER_FLAGS}}": " ".join(py_toolchain.flags + ctx.attr.interpreter_options),
+            "{{INTERPRETER_FLAGS}}": " ".join(_interpreter_flags(ctx)),
             "{{ENTRYPOINT}}": "${VIRTUAL_ENV}/bin/python",
             "{{ARG_VENV}}": to_rlocation_path(ctx, venv_dir),
         },
@@ -204,7 +209,7 @@ def _py_venv_binary_impl(ctx):
         output = ctx.outputs.executable,
         substitutions = {
             "{{BASH_RLOCATION_FN}}": BASH_RLOCATION_FUNCTION.strip(),
-            "{{INTERPRETER_FLAGS}}": " ".join(py_toolchain.flags + ctx.attr.interpreter_options),
+            "{{INTERPRETER_FLAGS}}": " ".join(_interpreter_flags(ctx)),
             "{{ENTRYPOINT}}": to_rlocation_path(ctx, ctx.file.main),
             "{{ARG_VENV}}": to_rlocation_path(ctx, venv_dir),
             "{{RUNFILES_INTERPRETER}}": str(py_toolchain.runfiles_interpreter).lower(),

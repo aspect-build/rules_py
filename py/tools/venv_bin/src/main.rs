@@ -75,13 +75,14 @@ struct VenvArgs {
     /// dynamic. Allows us to use the same tool statically as dynamically, which
     /// may or may not be a feature.
     #[arg(long)]
+    #[clap(default_value = "dynamic-symlink")]
     mode: VenvMode,
 
     /// The interpreter version. Must be supplied because there are parts of the
     /// venv whose path depend on the precise interpreter version. To be sourced from
     /// PyRuntimeInfo.
     #[arg(long)]
-    version: String,
+    version: Option<String>,
 }
 
 fn venv_cmd_handler(args: VenvArgs) -> miette::Result<()> {
@@ -97,7 +98,7 @@ fn venv_cmd_handler(args: VenvArgs) -> miette::Result<()> {
         VenvMode::StaticSymlink => {
             let venv = py::venv::create_empty_venv(
                 &args.python,
-                py::venv::PythonVersionInfo::from_str(&args.version)?,
+                py::venv::PythonVersionInfo::from_str(&args.version.unwrap())?,
                 &args.location,
                 &args.env_file,
             )?;
@@ -114,7 +115,7 @@ fn venv_cmd_handler(args: VenvArgs) -> miette::Result<()> {
         VenvMode::StaticPth => {
             let venv = py::venv::create_empty_venv(
                 &args.python,
-                py::venv::PythonVersionInfo::from_str(&args.version)?,
+                py::venv::PythonVersionInfo::from_str(&args.version.unwrap())?,
                 &args.location,
                 &args.env_file,
             )?;
