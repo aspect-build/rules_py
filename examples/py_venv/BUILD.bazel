@@ -1,8 +1,6 @@
 load("@aspect_bazel_lib//lib:expand_template.bzl", "expand_template")
 load("//py:defs.bzl", "py_binary")
 load("//py/private:py_venv.bzl", "py_venv", "py_venv_binary")
-load("@rules_pkg//pkg:zip.bzl", "pkg_zip")
-load("@rules_pkg//pkg:mappings.bzl", "pkg_files", "filter_directory")
 
 expand_template(
     name = "stamped",
