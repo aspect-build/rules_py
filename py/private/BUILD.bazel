@@ -98,8 +98,7 @@ bzl_library(
         ":py_library",
         ":py_semantics",
         "//py/private/toolchain:types",
-        "@aspect_bazel_lib//lib:paths",
-        "@bazel_skylib//lib:paths",
+        "@aspect_bazel_lib//lib:expand_make_vars",
     ],
 )
 
