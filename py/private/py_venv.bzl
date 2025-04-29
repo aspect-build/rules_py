@@ -2,10 +2,7 @@
 
 load("@aspect_bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
 load("@aspect_bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
-load("@rules_python//python:defs.bzl", "PyInfo", "PyRuntimeInfo")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
-load("@bazel_skylib//lib:new_sets.bzl", "sets")
-load("@bazel_skylib//lib:paths.bzl", "paths")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "VENV_TOOLCHAIN")
 
@@ -24,15 +21,14 @@ def _interpreter_flags(ctx):
 
     args = py_toolchain.flags + ctx.attr.interpreter_options
 
-    if hasattr(ctx.file, 'main'):
+    if hasattr(ctx.file, "main"):
         args.append(
-            "\"$(rlocation {})\"".format(to_rlocation_path(ctx, ctx.file.main))
+            "\"$(rlocation {})\"".format(to_rlocation_path(ctx, ctx.file.main)),
         )
 
     args = [it for it in args if it not in ["-I"]]
 
     return args
-
 
 def _venv_preexec(ctx):
     py_toolchain = _py_semantics.resolve_toolchain(ctx)
@@ -47,13 +43,11 @@ def _venv_preexec(ctx):
 
     return "\n".join(lines)
 
-
 # FIXME: This is derived directly from the py_binary.bzl rule and should really
 # be a layer on top of it if we can figure out flowing the data around. This is
 # PoC quality.
 
 def _py_venv_base_impl(ctx):
-
     """
     Common base implementation of taking a PyInfo transitive depset and shoving all that into a "virtualenv" tree.
     Depended on by the implementation of venv building and venv-based binary building.
@@ -106,10 +100,10 @@ def _py_venv_base_impl(ctx):
     rfs = _py_library.make_merged_runfiles(
         ctx,
         extra_depsets = [
-            py_toolchain.files,
-            srcs_depset,
-        ] + virtual_resolution.srcs + virtual_resolution.runfiles
-        + ([py_toolchain.files] if py_toolchain.runfiles_interpreter else []),
+                            py_toolchain.files,
+                            srcs_depset,
+                        ] + virtual_resolution.srcs + virtual_resolution.runfiles +
+                        ([py_toolchain.files] if py_toolchain.runfiles_interpreter else []),
         extra_runfiles_depsets = [
             ctx.attr._runfiles_lib[DefaultInfo].default_runfiles,
         ],
@@ -135,7 +129,7 @@ def _py_venv_base_impl(ctx):
             ),
         ],
         inputs = rfs.merge_all([
-            ctx.runfiles(files=[
+            ctx.runfiles(files = [
                 site_packages_pth_file,
                 env_file,
                 ctx.file._interpreter_shim,
@@ -143,14 +137,14 @@ def _py_venv_base_impl(ctx):
             venv_toolchain.default_info.default_runfiles,
         ]).files,
         outputs = [
-            venv_dir
+            venv_dir,
         ],
     )
 
     return venv_dir, rfs.merge_all([
-        ctx.runfiles(files=[
+        ctx.runfiles(files = [
             venv_dir,
-        ])
+        ]),
     ])
 
 def _py_venv_rule_impl(ctx):
@@ -163,7 +157,7 @@ def _py_venv_rule_impl(ctx):
 
     # Now we can generate an entrypoint script wrapping $VENV/bin/python
     ctx.actions.expand_template(
-        template = ctx.file._run_tmpl, # FIXME: Should always be single file
+        template = ctx.file._run_tmpl,  # FIXME: Should always be single file
         output = ctx.outputs.executable,
         substitutions = {
             "{{BASH_RLOCATION_FN}}": BASH_RLOCATION_FUNCTION.strip(),
@@ -185,7 +179,7 @@ def _py_venv_rule_impl(ctx):
                 venv_dir,
             ]),
             executable = ctx.outputs.executable,
-            runfiles = rfs.merge(ctx.runfiles(files=[
+            runfiles = rfs.merge(ctx.runfiles(files = [
                 venv_dir,
             ])),
         ),
@@ -232,7 +226,7 @@ def _py_venv_binary_impl(ctx):
 
     # Now we can generate an entrypoint script wrapping $VENV/bin/python
     ctx.actions.expand_template(
-        template = ctx.file._bin_tmpl, # FIXME: Should always be single file
+        template = ctx.file._bin_tmpl,  # FIXME: Should always be single file
         output = ctx.outputs.executable,
         substitutions = {
             "{{BASH_RLOCATION_FN}}": BASH_RLOCATION_FUNCTION.strip(),
@@ -366,7 +360,6 @@ py_venv = rule(
     executable = True,
     cfg = py_venv_base.cfg,
 )
-
 
 py_venv_binary = rule(
     doc = "Run a Python program under Bazel using a pseudo-virtualenv. Most users should use the [py_binary macro](#py_binary) instead of loading this directly.",

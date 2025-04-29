@@ -10,11 +10,11 @@ py_venv(
 py_venv_test(
     name = "py-external-venv",
     srcs = [
-        "test.py"
+        "test.py",
     ],
-    venv = ":venv",
-    main = "test.py",
     imports = [
-        "."
+        ".",
     ],
+    main = "test.py",
+    venv = ":venv",
 )

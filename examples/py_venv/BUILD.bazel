@@ -1,5 +1,4 @@
 load("@aspect_bazel_lib//lib:expand_template.bzl", "expand_template")
-load("//py:defs.bzl", "py_binary")
 load("//py/private:py_venv.bzl", "py_venv", "py_venv_binary")
 
 expand_template(
@@ -20,27 +19,26 @@ py_venv(
 py_venv_binary(
     name = "external_venv",
     srcs = [
-        ":stamped"
+        ":stamped",
     ],
+    imports = [
+        ".",
+    ],
+    main = ":stamped",
     # FIXME: Allow use of venv from a separate target?
     venv = ":venv",
-    main = ":stamped",
-    imports = [
-        "."
-    ],
 )
 
 py_venv_binary(
     name = "internal_venv",
     srcs = [
-        ":stamped"
+        ":stamped",
+    ],
+    imports = [
+        ".",
     ],
     main = ":stamped",
     deps = [
         "@pypi_cowsay//:pkg",
     ],
-    imports = [
-        "."
-    ],
-
 )

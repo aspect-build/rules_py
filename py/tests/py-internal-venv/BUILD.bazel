@@ -1,16 +1,15 @@
-load("//py/private:py_venv.bzl", "py_venv", "py_venv_test")
+load("//py/private:py_venv.bzl", "py_venv_test")
 
 py_venv_test(
     name = "venv_test",
     srcs = [
-        "test.py"
+        "test.py",
+    ],
+    imports = [
+        ".",
     ],
     main = "test.py",
     deps = [
         "@pypi_cowsay//:pkg",
     ],
-    imports = [
-        "."
-    ],
-
 )

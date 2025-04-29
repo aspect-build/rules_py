@@ -8,7 +8,7 @@ execroot = f"{output_base}/execroot"
 external = f"{output_base}/external"
 runfiles = _virtualenv.__file__.split(".runfiles/")[0] + ".runfiles"
 
-def _simlify(s):
+def _simplify(s):
     if isinstance(s, str):
         return s \
             .replace(runfiles, "${RUNFILES}") \
@@ -17,17 +17,17 @@ def _simlify(s):
             .replace(output_base, "${BAZEL_BASE}")
 
     elif isinstance(s, list):
-        return [_simlify(it) for it in s]
+        return [_simplify(it) for it in s]
 
-print("virtualenv:", _simlify(_virtualenv.__file__))
+print("virtualenv:", _simplify(_virtualenv.__file__))
 import sys
-print("sys.prefix:", _simlify(sys.prefix))
+print("sys.prefix:", _simplify(sys.prefix))
 print("sys.path:")
-for it in _simlify(sys.path):
+for it in _simplify(sys.path):
     print(" -", it)
 import site
 print("site.PREFIXES:")
-for it in _simlify(site.PREFIXES):
+for it in _simplify(site.PREFIXES):
     print(" -", it)
 
 import cowsay
