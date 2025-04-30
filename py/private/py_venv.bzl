@@ -4,7 +4,7 @@ load("@aspect_bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_
 load("@aspect_bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
-load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "VENV_TOOLCHAIN")
+load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
 
 VirtualenvInfo = provider(
     doc = """
@@ -70,7 +70,6 @@ def _py_venv_base_impl(ctx):
     Depended on by the implementation of venv building and venv-based binary building.
     """
 
-    venv_toolchain = ctx.toolchains[VENV_TOOLCHAIN]
     py_toolchain = _py_semantics.resolve_toolchain(ctx)
 
     # Check for duplicate virtual dependency names. Those that map to the same resolution target would have been merged by the depset for us.
@@ -130,7 +129,7 @@ def _py_venv_base_impl(ctx):
     venv_dir = ctx.actions.declare_directory(venv_name)
 
     ctx.actions.run(
-        executable = venv_toolchain.bin,
+        executable = ctx.file._venv_tool,
         arguments = [
             "--location=" + venv_dir.path,
             "--python=" + ctx.file._interpreter_shim.path,
@@ -150,8 +149,8 @@ def _py_venv_base_impl(ctx):
                 site_packages_pth_file,
                 env_file,
                 ctx.file._interpreter_shim,
+                ctx.file._venv_tool,
             ]),
-            venv_toolchain.default_info.default_runfiles,
         ]).files,
         outputs = [
             venv_dir,
@@ -307,6 +306,13 @@ A collision can occur when multiple packages providing the same file are install
     "_runfiles_lib": attr.label(
         default = "@bazel_tools//tools/bash/runfiles",
     ),
+    # Note that we're using the transitioned one for local execution, since
+    # we're going to run the tool on the local platform and produce static files
+    # not including this tool.
+    "_venv_tool": attr.label(
+        allow_single_file = True,
+        default = "//py/tools/venv_bin:local_venv_bin",
+    ),
 })
 
 _attrs.update(**_py_library.attrs)
@@ -363,7 +369,6 @@ py_venv_base = struct(
     test_attrs = _test_attrs,
     toolchains = [
         PY_TOOLCHAIN,
-        VENV_TOOLCHAIN,
     ],
     cfg = _python_version_transition,
 )

@@ -32,4 +32,4 @@ for it in _simplify(site.PREFIXES):
 
 import cowsay
 
-cowsay.cow('hello py_binary! (built at <BUILD_TIMESTAMP>)')
+cowsay.cow('hello py_venv! (built at <BUILD_TIMESTAMP>)')
