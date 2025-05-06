@@ -92,7 +92,7 @@ impl PythonVersionInfo {
                 minor: minor.parse().unwrap(),
                 patch: patch.parse().unwrap(),
             }),
-            _ => panic!("X.Y or X.Y.Z required!"),
+            _ => Err(miette!("X.Y or X.Y.Z required!")),
         }
     }
 }
@@ -429,7 +429,7 @@ pub fn populate_venv_with_copies(
         };
 
         let Some((workspace, entry_path)) = line.split_once("/") else {
-            panic!("Invalid path file entry!")
+            return Err(miette!("Invalid path file entry!"));
         };
 
         #[cfg(feature = "debug")]
@@ -527,10 +527,10 @@ pub fn create_tree(
             }
             // Handle collisions, probably conflicting empty __init__.py files from Bazel
             else if link_entry.exists() {
-                panic!(
+                return Err(miette!(
                     "Collision resolution not yet implemented! Saw {} twice",
                     relative_entry.to_str().unwrap()
-                )
+                ));
             }
             // Specifically avoid linking in a <root>/__init__.py file
             else if relative_entry == PathBuf::from("__init__.py") {
