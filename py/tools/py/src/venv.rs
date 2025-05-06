@@ -125,12 +125,12 @@ pub struct Virtualenv {
     python_bin: PathBuf,
 }
 
-fn link(original: PathBuf, link: PathBuf) -> miette::Result<()> {
+fn link(original: &PathBuf, link: &PathBuf) -> miette::Result<()> {
     let build_dir = current_dir().into_diagnostic()?;
-    let original_abs = build_dir.clone().join(original.clone());
-    let link_abs = build_dir.clone().join(link.clone());
+    let original_abs = &build_dir.join(&original);
+    let link_abs = &build_dir.join(&link);
 
-    let original_relative = diff_paths(original_abs.clone(), link_abs.parent().unwrap()).unwrap();
+    let original_relative = diff_paths(&original_abs, link_abs.parent().unwrap()).unwrap();
 
     fs::create_dir_all(link_abs.parent().unwrap())
         .into_diagnostic()
@@ -146,10 +146,10 @@ fn link(original: PathBuf, link: PathBuf) -> miette::Result<()> {
     return unix_fs::symlink(original_relative, link_abs).into_diagnostic();
 }
 
-fn _copy(original: PathBuf, link: PathBuf) -> miette::Result<()> {
+fn _copy(original: &PathBuf, link: &PathBuf) -> miette::Result<()> {
     let build_dir = current_dir().into_diagnostic()?;
-    let original_abs = build_dir.clone().join(original.clone());
-    let link_abs = build_dir.clone().join(link.clone());
+    let original_abs = build_dir.join(original);
+    let link_abs = build_dir.join(link);
 
     fs::create_dir_all(link_abs.parent().unwrap())
         .into_diagnostic()
@@ -167,8 +167,8 @@ fn _copy(original: PathBuf, link: PathBuf) -> miette::Result<()> {
     Ok(())
 }
 
-fn copy(original: PathBuf, link: PathBuf) -> miette::Result<()> {
-    return _copy(original.clone(), link.clone()).wrap_err(format!(
+fn copy(original: &PathBuf, link: &PathBuf) -> miette::Result<()> {
+    return _copy(original, link).wrap_err(format!(
         "Failed to copy {} to {}",
         original.to_str().unwrap(),
         link.to_str().unwrap()
@@ -212,7 +212,7 @@ pub fn create_empty_venv<'a>(
     env_file: &Option<PathBuf>,
 ) -> miette::Result<Virtualenv> {
     let build_dir = current_dir().into_diagnostic()?;
-    let home_dir = build_dir.clone().join(location.to_path_buf());
+    let home_dir = &build_dir.join(location.to_path_buf());
 
     let venv = Virtualenv {
         version_info: version,
@@ -227,24 +227,24 @@ pub fn create_empty_venv<'a>(
 
     let build_dir = current_dir().into_diagnostic()?;
 
-    let home_dir_abs = build_dir.clone().join(venv.home_dir.clone());
+    let home_dir_abs = &build_dir.join(&venv.home_dir);
 
     if home_dir_abs.exists() {
         // Clear down the an old venv if there is one present.
-        fs::remove_dir_all(home_dir_abs.clone())
+        fs::remove_dir_all(&home_dir_abs)
             .into_diagnostic()
             .wrap_err("Unable to remove venv_root directory")?;
     }
 
     // Create all the dirs down to the venv base
-    fs::create_dir_all(home_dir_abs.clone())
+    fs::create_dir_all(&home_dir_abs)
         .into_diagnostic()
         .wrap_err("Unable to create base venv directory")?;
 
     // Create the `pyvenv.cfg` file
     // FIXME: Should this come from the ruleset?
     fs::write(
-        venv.home_dir.clone().join("pyvenv.cfg"),
+        &venv.home_dir.join("pyvenv.cfg"),
         format!(
             include_str!("pyvenv.cfg.tmpl"),
             venv.version_info.major, venv.version_info.minor, venv.version_info.patch,
@@ -252,7 +252,7 @@ pub fn create_empty_venv<'a>(
     )
     .into_diagnostic()?;
 
-    fs::create_dir_all(venv.bin_dir.clone())
+    fs::create_dir_all(&venv.bin_dir)
         .into_diagnostic()
         .wrap_err("Unable to create venv bin directory")?;
 
@@ -269,7 +269,7 @@ pub fn create_empty_venv<'a>(
             python.to_str().unwrap()
         ))?
     }
-    copy(python.to_path_buf(), venv.python_bin.clone()).wrap_err("Unable to create interpreter")?;
+    copy(&python.to_path_buf(), &venv.python_bin).wrap_err("Unable to create interpreter")?;
     let mut interpreter_perms = fs::metadata(python)
         .into_diagnostic()
         .wrap_err("Unable to read permissions for the interpreter")?
@@ -277,7 +277,7 @@ pub fn create_empty_venv<'a>(
 
     interpreter_perms.set_mode(0o755); // executable
 
-    fs::set_permissions(venv.python_bin.clone(), interpreter_perms)
+    fs::set_permissions(&venv.python_bin, interpreter_perms)
         .into_diagnostic()
         .wrap_err("Unable to chmod interpreter")?;
 
@@ -288,7 +288,7 @@ pub fn create_empty_venv<'a>(
             .bin_dir
             .join(format!("python{}", venv.version_info.major));
 
-        link(venv.python_bin.clone(), python_n)?;
+        link(&venv.python_bin, &python_n)?;
     }
 
     {
@@ -296,7 +296,7 @@ pub fn create_empty_venv<'a>(
             "python{}.{}",
             venv.version_info.major, venv.version_info.minor,
         ));
-        link(venv.python_bin.clone().into(), python_nm)?;
+        link(&venv.python_bin, &python_nm)?;
     }
 
     {
@@ -319,7 +319,7 @@ pub fn create_empty_venv<'a>(
     // Probably.
 
     // Create the site dir
-    fs::create_dir_all(venv.site_dir.clone())
+    fs::create_dir_all(&venv.site_dir)
         .into_diagnostic()
         .wrap_err("Unable to create venv site directory")?;
 
@@ -329,13 +329,13 @@ pub fn create_empty_venv<'a>(
     //
     // FIXME: Should the user be able to provide a custom venv patch?
     fs::write(
-        venv.site_dir.clone().join("_virtualenv.py"),
+        &venv.site_dir.join("_virtualenv.py"),
         include_str!("_virtualenv.py"),
     )
     .into_diagnostic()?;
 
     fs::write(
-        venv.site_dir.clone().join("_virtualenv.pth"),
+        &venv.site_dir.join("_virtualenv.pth"),
         "import _virtualenv\n",
     )
     .into_diagnostic()?;
@@ -447,8 +447,8 @@ pub fn populate_venv_with_copies(
             }
 
             // Copy library sources in
-            for prefix in [action_src_dir.clone(), action_bin_dir.clone()] {
-                let src_dir = prefix.join(entry.clone());
+            for prefix in [&action_src_dir, &action_bin_dir] {
+                let src_dir = prefix.join(&entry);
                 if src_dir.exists() {
                     create_tree(&src_dir, &venv.site_dir, &collision_strategy)?;
                 }
@@ -456,8 +456,8 @@ pub fn populate_venv_with_copies(
 
             // Copy scripts (bin entries) in
             let bin_dir = entry.parent().unwrap().join("bin");
-            for prefix in [action_src_dir.clone(), action_bin_dir.clone()] {
-                let src_dir = prefix.join(bin_dir.clone());
+            for prefix in [&action_src_dir, &action_bin_dir] {
+                let src_dir = prefix.join(&bin_dir);
                 if src_dir.exists() {
                     // FIXME: Need to correct shebangs
                     create_tree(&src_dir, &venv.bin_dir, &collision_strategy)?;
@@ -546,7 +546,7 @@ pub fn create_tree(
             }
             // Normal case of needing to link a file :smile:
             else {
-                copy(original_entry, link_entry)?;
+                copy(&original_entry, &link_entry)?;
             }
         }
     }
