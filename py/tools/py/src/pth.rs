@@ -65,7 +65,11 @@ impl PthFile {
         }
     }
 
-    pub fn set_up_site_packages(&self, opts: SitePackageOptions) -> miette::Result<()> {
+    // This is the _old_ machinery for setting up a virtualenv, which assumes
+    // that the path file consists of pre-relativized paths. The new machinery
+    // does that math on the Rust side rather than on the Bazel side, so the two
+    // are `.pth` file incompatible.
+    pub fn set_up_site_packages_dynamic(&self, opts: SitePackageOptions) -> miette::Result<()> {
         let dest = &opts.dest;
 
         let source_pth = File::open(self.src.as_path())
@@ -91,10 +95,14 @@ impl PthFile {
             match entry.file_name() {
                 Some(name) if name == "site-packages" => {
                     let src_dir = dest
-                        .join(entry)
+                        .join(entry.clone())
                         .canonicalize()
                         .into_diagnostic()
-                        .wrap_err("Unable to get full source dir path")?;
+                        .wrap_err(format!(
+                            "Unable to get full source dir path for {} relative to {}",
+                            entry.display(),
+                            dest.display(),
+                        ))?;
                     create_symlinks(&src_dir, &src_dir, &dest, &opts.collision_strategy)?;
                 }
                 _ => {
@@ -109,7 +117,7 @@ impl PthFile {
     }
 }
 
-fn create_symlinks(
+pub fn create_symlinks(
     dir: &Path,
     root_dir: &Path,
     dst_dir: &Path,

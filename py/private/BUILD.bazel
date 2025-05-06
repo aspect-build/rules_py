@@ -9,6 +9,7 @@ exports_files(
     [
         "run.tmpl.sh",
         "venv.tmpl.sh",
+        "venv_binary.tmpl.sh",
         "pytest.py.tmpl",
     ],
     visibility = ["//visibility:public"],
@@ -97,8 +98,8 @@ bzl_library(
         ":py_library",
         ":py_semantics",
         "//py/private/toolchain:types",
+        "@aspect_bazel_lib//lib:expand_make_vars",
         "@aspect_bazel_lib//lib:paths",
-        "@bazel_skylib//lib:paths",
     ],
 )
 
