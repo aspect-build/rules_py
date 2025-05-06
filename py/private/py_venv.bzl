@@ -46,7 +46,7 @@ def _venv_preexec(ctx):
 PYTHONHOME="$(dirname "$(dirname "$(rlocation {})")")"
 export PYTHONHOME
 """.format(to_rlocation_path(ctx, py_toolchain.python)),
-"""\
+            """\
 # HACK: Shove the PYTHONHOME's bin/ _second_ on the path.
 # First on the path will be VIRTUALENV/bin which we want to stay there.
 # But we also need the interpreter's bin/ to be on the path so that it can be found.
