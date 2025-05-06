@@ -100,6 +100,7 @@ def py_image_layer(
         compute_unused_inputs = 1,
         platform = None,
         owner = None,
+        group = None,
         **kwargs):
     """Produce a separate tar output for each layer of a python app
 
@@ -152,6 +153,7 @@ def py_image_layer(
             name = manifest_name,
             mtree = name + ".manifest.preprocessed",
             owner = owner,
+            group = group,
         )
     else:
         mtree_spec(
