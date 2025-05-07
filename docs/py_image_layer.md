@@ -76,7 +76,7 @@ The default layer groups are:
 | <a id="py_image_layer-compute_unused_inputs"></a>compute_unused_inputs |  Whether to compute unused inputs. Default is 1. See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#tar_rule-compute_unused_inputs   |  <code>1</code> |
 | <a id="py_image_layer-platform"></a>platform |  The platform to use for the transition. Default is None. See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/transitions.md#platform_transition_binary-target_platform   |  <code>None</code> |
 | <a id="py_image_layer-owner"></a>owner |  An owner uid for the uncompressed files. See mtree_mutate: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#mutating-the-tar-contents   |  <code>None</code> |
-| <a id="py_image_layer-group"></a>group |  <p align="center"> - </p>   |  <code>None</code> |
+| <a id="py_image_layer-group"></a>group |  A group uid for the uncompressed files. See mtree_mutate: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#mutating-the-tar-contents   |  <code>None</code> |
 | <a id="py_image_layer-kwargs"></a>kwargs |  attribute that apply to all targets expanded by the macro   |  none |
 
 **RETURNS**
