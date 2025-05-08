@@ -100,6 +100,7 @@ def py_image_layer(
         compute_unused_inputs = 1,
         platform = None,
         owner = None,
+        group = None,
         **kwargs):
     """Produce a separate tar output for each layer of a python app
 
@@ -130,6 +131,7 @@ def py_image_layer(
         compute_unused_inputs: Whether to compute unused inputs. Default is 1. See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#tar_rule-compute_unused_inputs
         platform: The platform to use for the transition. Default is None. See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/transitions.md#platform_transition_binary-target_platform
         owner: An owner uid for the uncompressed files. See mtree_mutate: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#mutating-the-tar-contents
+        group: A group uid for the uncompressed files. See mtree_mutate: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#mutating-the-tar-contents
         tar_args: Additional arguments to pass to the tar rule. Default is `[]`. See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#tar_rule-args
         **kwargs: attribute that apply to all targets expanded by the macro
 
@@ -152,6 +154,7 @@ def py_image_layer(
             name = manifest_name,
             mtree = name + ".manifest.preprocessed",
             owner = owner,
+            group = group,
         )
     else:
         mtree_spec(
