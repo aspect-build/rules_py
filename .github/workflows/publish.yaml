@@ -9,7 +9,7 @@ on:
         required: true
         type: string
     secrets:
-      publish_token:
+      BCR_PUBLISH_TOKEN:
         required: true
   # In case of problems, let release engineers retry by manually dispatching
   # the workflow from the GitHub UI
