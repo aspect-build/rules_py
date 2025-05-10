@@ -113,10 +113,18 @@ def _py_python_pex_impl(ctx):
     )
     args.add(output, format = "--output-file=%s")
 
+    # The argument list can become quite long which can throw java.io.IOException Argument list too long.
+    # Instead write the args to a file and read that file at runtime
+    args_file = ctx.actions.declare_file("args.txt")
+    ctx.actions.write(
+        output = args_file,
+        content = args,
+    )
+
     ctx.actions.run(
         executable = ctx.executable._pex,
-        inputs = runfiles.files,
-        arguments = [args],
+        inputs = runfiles.files.to_list() + [args_file],
+        arguments = [args_file.path],
         outputs = [output],
         mnemonic = "PyPex",
         progress_message = "Building PEX binary %{label}",
