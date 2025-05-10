@@ -7,6 +7,7 @@ without binding them to a particular version of that package.
 load("@bazel_skylib//lib:new_sets.bzl", "sets")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@rules_python//python:defs.bzl", "PyInfo")
+load("@rules_cc//cc:defs.bzl", "cc_library")
 load("//py/private:providers.bzl", "PyVirtualInfo")
 
 def _make_instrumented_files_info(ctx, extra_source_attributes = [], extra_dependency_attributes = []):
@@ -205,7 +206,7 @@ _attrs = dict({
     ),
     "deps": attr.label_list(
         doc = "Targets that produce Python code, commonly `py_library` rules.",
-        providers = [[PyInfo], [PyVirtualInfo]],
+        providers = [[PyInfo], [PyVirtualInfo], [CcInfo]],
     ),
     "data": attr.label_list(
         doc = """Runtime dependencies of the program.
