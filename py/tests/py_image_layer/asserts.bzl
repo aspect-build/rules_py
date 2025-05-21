@@ -10,7 +10,19 @@ def assert_tar_listing(name, actual, expected):
         srcs = actual,
         testonly = True,
         outs = ["_{}.listing".format(name)],
-        cmd = 'echo $(SRCS) | TZ="UTC" LC_ALL="en_US.UTF-8" xargs -n 1 $(BSDTAR_BIN) --exclude "*/_repo_mapping" --exclude "**/tools/venv_bin/**" -tvf > $@'.format(actual),
+        cmd = """\
+iter=0
+for f in $(SRCS); do
+  echo "---"
+  echo "layer: $$iter"
+  echo "files:"
+  TZ="UTC" LC_ALL="en_US.UTF-8" $(BSDTAR_BIN) \\
+        --exclude "*/_repo_mapping" \\
+        --exclude "**/tools/venv_bin/**" \\
+        -tvf $$f | sort -k9 | sed "s/^/- /g"
+  iter=$$(($$iter + 1))
+done > $@
+""".format(actual),
         toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
     )
 
