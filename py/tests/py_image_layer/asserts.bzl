@@ -19,7 +19,7 @@ for f in $(SRCS); do
   TZ="UTC" LC_ALL="en_US.UTF-8" $(BSDTAR_BIN) \\
         --exclude "*/_repo_mapping" \\
         --exclude "**/tools/venv_bin/**" \\
-        -tvf $$f | sort -k9 | sed "s/^/- /g"
+        -tvf $$f | sort -k9 | sed "s/^/  - /g"
   iter=$$(($$iter + 1))
 done > $@
 """.format(actual),
