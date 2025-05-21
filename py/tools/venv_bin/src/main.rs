@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
 use clap::Parser;
+use miette::miette;
 use miette::Context;
-
 use py;
 
 #[derive(clap::ValueEnum, Clone, Debug, Default)]
@@ -31,7 +31,7 @@ impl Into<py::SymlinkCollisionResolutionStrategy> for SymlinkCollisionStrategy {
 enum VenvMode {
     #[default]
     DynamicSymlink,
-    StaticSymlink,
+    StaticCopy,
     StaticPth,
 }
 
@@ -95,10 +95,15 @@ fn venv_cmd_handler(args: VenvArgs) -> miette::Result<()> {
             args.collision_strategy.unwrap_or_default().into(),
             &args.venv_name,
         ),
-        VenvMode::StaticSymlink => {
+
+        VenvMode::StaticCopy => {
+            let Some(version) = args.version else {
+                return Err(miette!("Version must be provided for static venv modes"));
+            };
+
             let venv = py::venv::create_empty_venv(
                 &args.python,
-                py::venv::PythonVersionInfo::from_str(&args.version.unwrap())?,
+                py::venv::PythonVersionInfo::from_str(&version)?,
                 &args.location,
                 &args.env_file,
             )?;
@@ -112,19 +117,27 @@ fn venv_cmd_handler(args: VenvArgs) -> miette::Result<()> {
 
             Ok(())
         }
+
         VenvMode::StaticPth => {
+            let Some(version) = args.version else {
+                return Err(miette!("Version must be provided for static venv modes"));
+            };
+
             let venv = py::venv::create_empty_venv(
                 &args.python,
-                py::venv::PythonVersionInfo::from_str(&args.version.unwrap())?,
+                py::venv::PythonVersionInfo::from_str(&version)?,
                 &args.location,
                 &args.env_file,
             )?;
+
             py::venv::populate_venv_with_pth(
                 venv,
                 pth_file,
                 args.bin_dir.unwrap(),
                 args.collision_strategy.unwrap_or_default().into(),
-            )
+            )?;
+
+            Ok(())
         }
     }
 }

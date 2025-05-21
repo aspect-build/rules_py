@@ -148,7 +148,7 @@ def _py_venv_base_impl(ctx):
             "--bin-dir=" + ctx.bin_dir.path,
             "--collision-strategy=" + ctx.attr.package_collisions,
             "--venv-name=" + venv_name,
-            "--mode=static-symlink",
+            "--mode=static-copy",
             "--version={}.{}".format(
                 py_toolchain.interpreter_version_info.major,
                 py_toolchain.interpreter_version_info.minor,
