@@ -43,13 +43,16 @@ load("//py/private:py_library.bzl", _py_library = "py_library")
 load("//py/private:py_pex_binary.bzl", _py_pex_binary = "py_pex_binary")
 load("//py/private:py_pytest_main.bzl", _py_pytest_main = "py_pytest_main")
 load("//py/private:py_unpacked_wheel.bzl", _py_unpacked_wheel = "py_unpacked_wheel")
-load("//py/private:py_venv.bzl", _py_venv = "py_venv")
 load("//py/private:virtual.bzl", _resolutions = "resolutions")
+load("//py/private/py_venv:defs.bzl", _py_venv_link = "py_venv_link")
 
 py_pex_binary = _py_pex_binary
 py_pytest_main = _py_pytest_main
 
-py_venv = _py_venv
+# FIXME: Badly chosen name; will be replaced/migrated
+py_venv = _py_venv_link
+py_venv_link = _py_venv_link
+
 py_binary_rule = _py_binary
 py_test_rule = _py_test
 py_library = _py_library
@@ -88,7 +91,7 @@ def _py_binary_or_test(name, rule, srcs, main, data = [], deps = [], resolutions
         **kwargs
     )
 
-    _py_venv(
+    _py_venv_link(
         name = "{}.venv".format(name),
         data = data,
         deps = deps,
@@ -122,7 +125,14 @@ def py_binary(name, srcs = [], main = None, **kwargs):
     if resolutions:
         resolutions = resolutions.to_label_keyed_dict()
 
-    _py_binary_or_test(name = name, rule = _py_binary, srcs = srcs, main = main, resolutions = resolutions, **kwargs)
+    _py_binary_or_test(
+        name = name,
+        rule = _py_binary,
+        srcs = srcs,
+        main = main,
+        resolutions = resolutions,
+        **kwargs
+    )
 
 def py_test(name, srcs = [], main = None, pytest_main = False, **kwargs):
     """Identical to [py_binary](./py_binary.md), but produces a target that can be used with `bazel test`.
@@ -158,4 +168,12 @@ def py_test(name, srcs = [], main = None, pytest_main = False, **kwargs):
         srcs.append(main)
         deps.append(pytest_main_target)
 
-    _py_binary_or_test(name = name, rule = _py_test, srcs = srcs, deps = deps, main = main, resolutions = resolutions, **kwargs)
+    _py_binary_or_test(
+        name = name,
+        rule = _py_test,
+        srcs = srcs,
+        deps = deps,
+        main = main,
+        resolutions = resolutions,
+        **kwargs
+    )

@@ -31,7 +31,7 @@ py_image_layer(
 assert_tar_listing(
     name = "my_app_layers_test",
     actual = [":my_app_layers"],
-    expected = ":my_app_layers.listing",
+    expected = ":my_app_layers_listing.yaml",
 )
 
 oci_image(

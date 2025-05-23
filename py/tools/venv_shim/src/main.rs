@@ -6,6 +6,8 @@ use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+const COUNTER_VAR: &str = "ASPECT_SHIM_SKIP";
+
 fn find_pyvenv_cfg(start_path: &Path) -> Option<PathBuf> {
     let parent = start_path.parent()?.parent()?;
     let cfg_path = parent.join("pyvenv.cfg");
@@ -126,7 +128,29 @@ fn main() -> miette::Result<()> {
             }
         }
 
-        let interpreter_path = &python_executables[0];
+        // Attempt to break infinite recursion through this shim by counting up
+        // the number of times we've come back to this shim and incrementing it
+        // until we hit something on the path that DOESN'T come back here, or we
+        // run out of path entries.
+        let index: usize = {
+            match env::var(COUNTER_VAR) {
+                // Whatever the previous value was didn't work because we're
+                // back here, so increment.
+                Ok(it) => it.parse::<usize>().unwrap() + 1,
+                _ => 0,
+            }
+        };
+
+        let interpreter_path = match python_executables.get(index) {
+            Some(it) => it,
+            None => {
+                return Err(miette!(
+                    "Unable to find another interpreter at index {}",
+                    index
+                ))
+            }
+        };
+
         let exe_path = current_exe.to_string_lossy().into_owned();
         let exec_args = &args[1..];
 
@@ -155,6 +179,9 @@ fn main() -> miette::Result<()> {
         if cfg!(target_os = "macos") {
             cmd.env("PYTHONEXECUTABLE", exe_path);
         }
+
+        // Re-export the counter so it'll go up
+        cmd.env(COUNTER_VAR, index.to_string());
 
         let _ = cmd.exec();
 

@@ -1,0 +1,20 @@
+load("//py/private/py_venv:defs.bzl", "py_venv", "py_venv_test")
+
+py_venv(
+    name = "venv",
+    deps = [
+        "@pypi_cowsay//:pkg",
+    ],
+)
+
+py_venv_test(
+    name = "test",
+    srcs = [
+        "test.py",
+    ],
+    imports = [
+        ".",
+    ],
+    main = "test.py",
+    venv = ":venv",
+)
