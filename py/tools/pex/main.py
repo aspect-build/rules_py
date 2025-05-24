@@ -107,7 +107,10 @@ parser.add_argument(
     action="append",
 )
 
-options = parser.parse_args(args = sys.argv[1:])
+options = None
+with open(sys.argv[1], "r") as args_file:
+    args = [arg[1:-1] for arg in args_file.read().splitlines()]
+    options = parser.parse_args(args)
 
 # Monkey patch bootstrap template to inject some templated environment variables.
 # Unfortunately we can't use `preamble` feature because it runs before any initialization code.
