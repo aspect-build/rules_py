@@ -1,0 +1,59 @@
+load("@container_structure_test//:defs.bzl", "container_structure_test")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load")
+load("//py:defs.bzl", "py_image_layer")
+load("//py/unstable:defs.bzl", "py_venv_binary")
+load("asserts.bzl", "assert_tar_listing")
+
+platform(
+    name = "linux_amd64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+py_venv_binary(
+    name = "my_app_bin",
+    srcs = ["__main__.py"],
+    main = "__main__.py",
+    tags = ["manual"],
+    deps = [
+        "//py/tests/internal-deps/adder",
+        "@pypi_colorama//:pkg",
+    ],
+)
+
+py_image_layer(
+    name = "my_app_layers",
+    binary = ":my_app_bin",
+    platform = ":linux_amd64",
+)
+
+assert_tar_listing(
+    name = "my_app_layers_test",
+    actual = [":my_app_layers"],
+    expected = ":my_app_layers_listing.yaml",
+)
+
+oci_image(
+    name = "image",
+    # This is defined by an oci.pull() call in /MODULE.bazel
+    base = "@ubuntu",
+    entrypoint = ["/{}/my_app_bin".format(package_name())],
+    tars = [":my_app_layers"],
+)
+
+# To build the image and load it into it into a local runtime:
+# $ bazel run //py/tests/py_image_layer:image_load
+# $ docker run --rm gcr.io/oci_python_hello_world:latest
+oci_load(
+    name = "image_load",
+    image = ":image",
+    repo_tags = ["gcr.io/oci_python_hello_world:latest"],
+)
+
+container_structure_test(
+    name = "py_image_test",
+    configs = ["py_image_test.yaml"],
+    image = ":image",
+)

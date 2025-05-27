@@ -36,14 +36,15 @@ load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 default_layer_groups = {
     # match *only* external repositories that begins with the string "python"
     # e.g. this will match
-    #   `/hello_world/hello_world_bin.runfiles/rules_python~0.21.0~python~python3_9_aarch64-unknown-linux-gnu/bin/python3`
+    #   `.runfiles/rules_python~0.21.0~python~python3_9_aarch64-unknown-linux-gnu/bin/python3`
+    #   `.runfiles/python_toolchain_x86_64-unknown-linux-gnu/bin/python3`
     # but not match
-    #   `/hello_world/hello_world_bin.runfiles/_main/python_app`
+    #   `.runfiles/_main/python_app`
     #
     # Note that due to dict key insertion order sensitivity, we want this group
     # to go first so that the entire interpreter including its bundled libraries
     # goes into the same layer.
-    "interpreter": "\\\\.runfiles/.*python.*-.*/",
+    "interpreter": "\\\\.runfiles/[^/]*?python[^/]*?(x86|arm64|aarch64).*?/",
     # match *only* external pip like repositories that contain the string "site-packages"
     #
     # Note that this comes after the interpreter so that we won't bundle
