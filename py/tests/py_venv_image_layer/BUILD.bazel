@@ -18,6 +18,7 @@ py_venv_binary(
     main = "__main__.py",
     tags = ["manual"],
     deps = [
+        "//py/tests/py_image_layer/branding",
         "//py/tests/internal-deps/adder",
         "@pypi_colorama//:pkg",
     ],
