@@ -362,7 +362,6 @@ _test_attrs = dict({
 })
 
 py_venv_base = struct(
-    # implementation = _py_venv_rule_impl,
     attrs = _attrs,
     binary_attrs = _binary_attrs,
     test_attrs = _test_attrs,
@@ -373,7 +372,7 @@ py_venv_base = struct(
 )
 
 py_venv = rule(
-    doc = "Build a Python pseudo-virtual environment under Bazel which will execute a shell or console.",
+    doc = """Build a Python virtual environment and execute its interpreter.""",
     implementation = _py_venv_rule_impl,
     attrs = py_venv_base.attrs,
     toolchains = py_venv_base.toolchains,
@@ -382,6 +381,7 @@ py_venv = rule(
 )
 
 def py_venv_link(venv_name = None, **kwargs):
+    """Build a Python virtual environment and produce a script to link it into the build directory."""
     link_script = str(Label("//py/private/py_venv:link.py"))
     py_venv_binary(
         args = [] + (["--venv-name=" + venv_name] if venv_name else []),
@@ -391,7 +391,7 @@ def py_venv_link(venv_name = None, **kwargs):
     )
 
 py_venv_binary = rule(
-    doc = "Run a Python program under Bazel using a virtualenv. Most users should use the [py_binary macro](#py_binary) instead of loading this directly.",
+    doc = """Run a Python program under Bazel using a virtualenv.""",
     implementation = _py_venv_binary_impl,
     attrs = py_venv_base.attrs | py_venv_base.binary_attrs,
     toolchains = py_venv_base.toolchains,
@@ -400,7 +400,7 @@ py_venv_binary = rule(
 )
 
 py_venv_test = rule(
-    doc = "Run a Python program under Bazel using a pseudo-virtualenv. Most users should use the [py_test macro](#py_test) instead of loading this directly.",
+    doc = """Run a Python program under Bazel using a virtualenv.""",
     implementation = _py_venv_binary_impl,
     attrs = py_venv_base.attrs | py_venv_base.binary_attrs | py_venv_base.test_attrs,
     toolchains = py_venv_base.toolchains,
