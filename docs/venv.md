@@ -11,7 +11,7 @@ py_venv(<a href="#py_venv-name">name</a>, <a href="#py_venv-data">data</a>, <a h
         <a href="#py_venv-resolutions">resolutions</a>, <a href="#py_venv-srcs">srcs</a>)
 </pre>
 
-Build a Python pseudo-virtual environment under Bazel which will execute a shell or console.
+Build a Python virtual environment and execute its interpreter.
 
 **ATTRIBUTES**
 
@@ -39,7 +39,7 @@ py_venv_binary(<a href="#py_venv_binary-name">name</a>, <a href="#py_venv_binary
                <a href="#py_venv_binary-python_version">python_version</a>, <a href="#py_venv_binary-resolutions">resolutions</a>, <a href="#py_venv_binary-srcs">srcs</a>, <a href="#py_venv_binary-venv">venv</a>)
 </pre>
 
-Run a Python program under Bazel using a virtualenv. Most users should use the [py_binary macro](#py_binary) instead of loading this directly.
+Run a Python program under Bazel using a virtualenv.
 
 **ATTRIBUTES**
 
@@ -69,7 +69,7 @@ py_venv_test(<a href="#py_venv_test-name">name</a>, <a href="#py_venv_test-data"
              <a href="#py_venv_test-package_collisions">package_collisions</a>, <a href="#py_venv_test-python_version">python_version</a>, <a href="#py_venv_test-resolutions">resolutions</a>, <a href="#py_venv_test-srcs">srcs</a>, <a href="#py_venv_test-venv">venv</a>)
 </pre>
 
-Run a Python program under Bazel using a pseudo-virtualenv. Most users should use the [py_test macro](#py_test) instead of loading this directly.
+Run a Python program under Bazel using a virtualenv.
 
 **ATTRIBUTES**
 
@@ -119,7 +119,7 @@ VirtualenvInfo(<a href="#VirtualenvInfo-home">home</a>)
 py_venv_link(<a href="#py_venv_link-venv_name">venv_name</a>, <a href="#py_venv_link-kwargs">kwargs</a>)
 </pre>
 
-
+Build a Python virtual environment and produce a script to link it into the build directory.
 
 **PARAMETERS**
 
