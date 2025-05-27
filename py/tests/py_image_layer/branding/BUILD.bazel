@@ -5,7 +5,7 @@ py_library(
     srcs = ["__init__.py"],
     imports = [".."],
     visibility = [
-        "//py/tests/py_image_layer:__pkg__"
-        "//py/tests/py_venv_image_layer:__pkg__"
+        "//py/tests/py_image_layer:__pkg__",
+        "//py/tests/py_venv_image_layer:__pkg__",
     ],
 )
