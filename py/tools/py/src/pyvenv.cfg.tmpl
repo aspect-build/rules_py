@@ -1,0 +1,8 @@
+home = ./bin/python3
+implementation = CPython
+version_info = {}.{}.{}
+# FIXME: Can we flip this to false?
+# In the case of a virtualenv with .runfiles-packaged Python this needs to be true
+# And in the case of a leaked/external interpreter this still needs to be true...
+include-system-site-packages = true
+relocatable = true

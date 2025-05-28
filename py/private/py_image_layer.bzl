@@ -34,14 +34,23 @@ load("@aspect_bazel_lib//lib:tar.bzl", "mtree_mutate", "mtree_spec", "tar")
 load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 
 default_layer_groups = {
-    # match *only* external pip like repositories that contain the string "site-packages"
-    "packages": "\\\\.runfiles/.*/site-packages",
     # match *only* external repositories that begins with the string "python"
     # e.g. this will match
-    #   `/hello_world/hello_world_bin.runfiles/rules_python~0.21.0~python~python3_9_aarch64-unknown-linux-gnu/bin/python3`
+    #   `.runfiles/rules_python~0.21.0~python~python3_9_aarch64-unknown-linux-gnu/bin/python3`
+    #   `.runfiles/python_toolchain_x86_64-unknown-linux-gnu/bin/python3`
     # but not match
-    #   `/hello_world/hello_world_bin.runfiles/_main/python_app`
-    "interpreter": "\\\\.runfiles/.*python.*-.*/",
+    #   `.runfiles/_main/python_app`
+    #
+    # Note that due to dict key insertion order sensitivity, we want this group
+    # to go first so that the entire interpreter including its bundled libraries
+    # goes into the same layer.
+    "interpreter": "\\\\.runfiles/[^/]*?python[^/]*?(x86|arm64|aarch64).*?/",
+    # match *only* external pip like repositories that contain the string "site-packages"
+    #
+    # Note that this comes after the interpreter so that we won't bundle
+    # interpreter embedded libraries (setuptools, pip, site) into the same
+    # libraries layer.
+    "packages": "\\\\.runfiles/.*/site-packages",
 }
 
 def _split_mtree_into_layer_groups(name, root, groups, group_names, **kwargs):

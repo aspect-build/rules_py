@@ -6,6 +6,7 @@ load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "VENV_TOOLCHAIN")
+load(":transitions.bzl", "python_version_transition")
 
 def _dict_to_exports(env):
     return [
@@ -197,17 +198,6 @@ _test_attrs = dict({
     ),
 })
 
-def _python_version_transition_impl(_, attr):
-    if not attr.python_version:
-        return {}
-    return {"@rules_python//python/config_settings:python_version": str(attr.python_version)}
-
-_python_version_transition = transition(
-    implementation = _python_version_transition_impl,
-    inputs = [],
-    outputs = ["@rules_python//python/config_settings:python_version"],
-)
-
 py_base = struct(
     implementation = _py_binary_rule_impl,
     attrs = _attrs,
@@ -216,7 +206,7 @@ py_base = struct(
         PY_TOOLCHAIN,
         VENV_TOOLCHAIN,
     ],
-    cfg = _python_version_transition,
+    cfg = python_version_transition,
 )
 
 py_binary = rule(

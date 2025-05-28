@@ -12,5 +12,6 @@ py_library(
     visibility = [
         "//py/tests/internal-deps:__pkg__",
         "//py/tests/py_image_layer:__pkg__",
+        "//py/tests/py_venv_image_layer:__pkg__",
     ],
 )
