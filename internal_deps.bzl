@@ -125,3 +125,12 @@ def rules_py_internal_deps():
         sha256 = "0523026398aea9c8b5f7a4a6d5c0829c285b4fbd960c17b5967a369342e21e01",
         downloaded_file_path = "sqlparse-0.4.0-py3-none-any.whl",
     )
+
+    _http_archive(
+        name = "container_structure_test",
+        urls = [
+            "https://github.com/GoogleContainerTools/container-structure-test/archive/56c7201716d770c0f820a9c19207ba2ea77c34f8.zip",
+        ],
+        strip_prefix = "container-structure-test-56c7201716d770c0f820a9c19207ba2ea77c34f8",
+        sha256 = "29632b3226bb9c7dcde340b6efcc48cc5f32e60ec47c86a144922e234e4d9ce7",
+    )
