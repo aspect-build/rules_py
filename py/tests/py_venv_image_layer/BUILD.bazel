@@ -27,8 +27,8 @@ py_venv_binary(
     main = "__main__.py",
     tags = ["manual"],
     deps = [
-        "//py/tests/py_image_layer/branding",
         "//py/tests/internal-deps/adder",
+        "//py/tests/py_image_layer/branding",
         "@pypi_colorama//:pkg",
     ],
 )
@@ -40,8 +40,8 @@ py_image_layer(
 
 platform_transition_filegroup(
     name = "platform_layers",
-    target_platform = ":x86_64_linux",
     srcs = [":my_app_layers"],
+    target_platform = ":x86_64_linux",
 )
 
 assert_tar_listing(
