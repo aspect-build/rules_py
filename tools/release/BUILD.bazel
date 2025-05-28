@@ -21,11 +21,13 @@
 LINUX_ARTIFACTS = [
     "//py/tools/unpack_bin:unpack_linux",
     "//py/tools/venv_bin:venv_linux",
+    "//py/tools/venv_shim:shim_linux",
 ]
 
 MACOS_ARTIFACTS = [
     "//py/tools/unpack_bin:unpack_macos",
     "//py/tools/venv_bin:venv_macos",
+    "//py/tools/venv_shim:shim_macos",
 ]
 
 sh_binary(
