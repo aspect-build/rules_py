@@ -10,7 +10,9 @@ def PrebuiltToolConfig(
         toolchain = None,
         toolchain_type = None):
     name = name or Label(target).name
-    toolchain = toolchain or "@aspect_rules_py//py/private/toolchain/{}".format(name)
+    # FIXME: The source_toolchain macro creates two targets, so we need to match them both
+    # But that makes this not really a label which is weird
+    toolchain = toolchain or "@aspect_rules_py//py/private/toolchain/{}/...".format(name)
     toolchain_type = toolchain_type or "@aspect_rules_py//py/private/toolchain:{}_toolchain_type".format(name)
 
     return struct(

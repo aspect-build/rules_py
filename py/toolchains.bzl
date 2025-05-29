@@ -4,7 +4,7 @@ load("@aspect_bazel_lib//lib:repositories.bzl", "register_tar_toolchains")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 load("//py/private/toolchain:autodetecting.bzl", _register_autodetecting_python_toolchain = "register_autodetecting_python_toolchain")
 load("//py/private/toolchain:repo.bzl", "prerelease_toolchains_repo", "toolchains_repo")
-load("//py/private/toolchain:tools.bzl", "TOOLCHAIN_PLATFORMS", "prebuilt_tool_repo")
+load("//py/private/toolchain:tools.bzl", "TOOLCHAIN_PLATFORMS", "TOOL_CFGS", "prebuilt_tool_repo")
 load("//tools:version.bzl", "IS_PRERELEASE")
 
 register_autodetecting_python_toolchain = _register_autodetecting_python_toolchain
@@ -25,11 +25,8 @@ def rules_py_toolchains(name = DEFAULT_TOOLS_REPOSITORY, register = True, is_pre
     if is_prerelease:
         prerelease_toolchains_repo(name = name)
         if register:
-            native.register_toolchains(
-                "@aspect_rules_py//py/private/toolchain/venv/...",
-                "@aspect_rules_py//py/private/toolchain/unpack/...",
-                "@aspect_rules_py//py/private/toolchain/shim/...",
-            )
+            for tool in TOOL_CFGS:
+                native.register_toolchains(tool.toolchain)
     else:
         for platform in TOOLCHAIN_PLATFORMS.keys():
             prebuilt_tool_repo(name = ".".join([name, platform]), platform = platform)
