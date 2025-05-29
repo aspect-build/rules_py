@@ -96,13 +96,17 @@ package(default_visibility = ["//visibility:public"])
     if "RULES_PY_RELEASE_VERSION" in rctx.os.environ:
         release_version = rctx.os.environ["RULES_PY_RELEASE_VERSION"]
 
+    url_template = "https://github.com/{release_fork}/rules_py/releases/download/v{release_version}/{filename}"
+    if "RULES_PY_RELEASE_URL" in rctx.os.environ:
+        url_template = rctx.os.environ["RULES_PY_RELEASE_URL"]
+
     for tool in TOOL_CFGS:
         filename = "-".join([
             tool.name,
             TOOLCHAIN_PLATFORMS[rctx.attr.platform].arch,
             TOOLCHAIN_PLATFORMS[rctx.attr.platform].vendor_os_abi,
         ])
-        url = "https://github.com/{}/rules_py/releases/download/v{}/{}".format(
+        url = url_template.format(
             release_fork,
             release_version,
             filename,
