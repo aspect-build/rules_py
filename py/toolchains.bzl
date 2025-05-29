@@ -3,7 +3,7 @@
 load("@aspect_bazel_lib//lib:repositories.bzl", "register_tar_toolchains")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 load("//py/private/toolchain:autodetecting.bzl", _register_autodetecting_python_toolchain = "register_autodetecting_python_toolchain")
-load("//py/private/toolchain:repo.bzl", "prerelease_toolchains_repo", "prebuilt_tool_repo", "toolchains_repo")
+load("//py/private/toolchain:repo.bzl", "prebuilt_tool_repo", "prerelease_toolchains_repo", "toolchains_repo")
 load("//py/private/toolchain:tools.bzl", "TOOLCHAIN_PLATFORMS", "TOOL_CFGS")
 load("//tools:version.bzl", "IS_PRERELEASE")
 
