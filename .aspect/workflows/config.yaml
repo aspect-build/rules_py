@@ -1,7 +1,37 @@
-# See https://docs.aspect.build/workflows/configuration
+---
+workspaces:
+  - .:
+
+  - examples/uv_pip_compile:
+
+  - e2e/smoke:
+
+  - e2e/repository-rule-deps:
+
+  - e2e/system-interpreter:
+
+  - e2e/use_release:
+      # FIXME: What does this look like in the post world?
+      tasks: []
+
 tasks:
+  - lint: {}
+
   - test:
-  - finalization:
-      queue: aspect-small
+      name: "Test (bzlmod)"
+      id: test
+      bazel:
+        flags:
+          - --enable_bzlmod
+          - --noenable_workspace
+
+  - test:
+      name: "Test (WORKSPACE)"
+      id: bzlmod-false
+      bazel:
+        flags:
+          - --noenable_bzlmod
+          - --enable_workspace
+
 notifications:
   github: {}
