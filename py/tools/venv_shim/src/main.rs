@@ -64,7 +64,7 @@ fn find_python_executables(version_from_cfg: &str, exclude_dir: &Path) -> Option
                 None
             }
         })
-        .filter_map(|path| match path.canonicalize() {
+        .filter_map(|path| path.canonicalize().ok()
             Ok(p) => Some(p),
             _ => None,
         })
