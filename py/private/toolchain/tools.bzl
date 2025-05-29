@@ -20,6 +20,7 @@ def PrebuiltToolConfig(
         cfg = cfg,
         name = name,
         toolchain = toolchain,
+        toolchain_type = toolchain_type,
     )
 
 # The expected config for each tool, whether it runs in an action or at runtime
