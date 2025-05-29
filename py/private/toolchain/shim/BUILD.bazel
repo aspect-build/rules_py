@@ -1,0 +1,9 @@
+load("//py/private/toolchain:tools.bzl", "source_toolchain")
+
+source_toolchain(
+    name = "shim",
+    bin = "//py/tools/venv_shim",
+    # FIXME: Use the target cfg?
+    # See notes in the venv setup
+    toolchain_type = "//py/private/toolchain:shim_toolchain_type",
+)

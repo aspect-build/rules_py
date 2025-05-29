@@ -5,7 +5,7 @@ load("@aspect_bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocatio
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private:transitions.bzl", "python_version_transition")
-load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
+load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "SHIM_TOOLCHAIN")
 
 VirtualenvInfo = provider(
     doc = """
@@ -73,6 +73,8 @@ def _py_venv_base_impl(ctx):
     """
 
     py_toolchain = _py_semantics.resolve_toolchain(ctx)
+
+    py_shim = ctx.toolchains[SHIM_TOOLCHAIN]
 
     # Check for duplicate virtual dependency names. Those that map to the same resolution target would have been merged by the depset for us.
     virtual_resolution = _py_library.resolve_virtuals(ctx)
@@ -142,7 +144,7 @@ def _py_venv_base_impl(ctx):
         executable = ctx.file._venv_tool,
         arguments = [
             "--location=" + venv_dir.path,
-            "--python=" + ctx.file._interpreter_shim.path,
+            "--python=" + py_shim.bin.path,
             "--pth-file=" + site_packages_pth_file.path,
             "--env-file=" + env_file.path,
             "--bin-dir=" + ctx.bin_dir.path,
@@ -158,9 +160,9 @@ def _py_venv_base_impl(ctx):
             ctx.runfiles(files = [
                 site_packages_pth_file,
                 env_file,
-                ctx.file._interpreter_shim,
                 ctx.file._venv_tool,
             ]),
+            py_shim.default_info.default_runfiles,
         ]).files,
         outputs = [
             venv_dir,
@@ -300,11 +302,6 @@ A collision can occur when multiple packages providing the same file are install
     "_interpreter_version_flag": attr.label(
         default = "//py:interpreter_version",
     ),
-    "_interpreter_shim": attr.label(
-        allow_single_file = True,
-        doc = "An interpreter shim to use. Should be a single file executable.",
-        default = "//py/tools/venv_shim",
-    ),
     # Required for py_version attribute
     "_allowlist_function_transition": attr.label(
         default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
@@ -367,6 +364,7 @@ py_venv_base = struct(
     test_attrs = _test_attrs,
     toolchains = [
         PY_TOOLCHAIN,
+        SHIM_TOOLCHAIN,
     ],
     cfg = python_version_transition,
 )

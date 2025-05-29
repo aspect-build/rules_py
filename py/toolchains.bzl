@@ -28,6 +28,7 @@ def rules_py_toolchains(name = DEFAULT_TOOLS_REPOSITORY, register = True, is_pre
             native.register_toolchains(
                 "@aspect_rules_py//py/private/toolchain/venv/...",
                 "@aspect_rules_py//py/private/toolchain/unpack/...",
+                "@aspect_rules_py//py/private/toolchain/shim/...",
             )
     else:
         for platform in TOOLCHAIN_PLATFORMS.keys():

@@ -3,13 +3,32 @@
 load("//tools:integrity.bzl", "RELEASED_BINARY_INTEGRITY")
 load("//tools:version.bzl", "VERSION")
 
+def PrebuiltToolConfig(
+        target,
+        cfg = "target",
+        name = None,
+        toolchain = None,
+        toolchain_type = None):
+    name = name or Label(target).name
+    toolchain = toolchain or "@aspect_rules_py//py/private/toolchain/{}".format(name)
+    toolchain_type = toolchain_type or "@aspect_rules_py//py/private/toolchain:{}_toolchain_type".format(name)
+
+    return struct(
+        target = target,
+        cfg = cfg,
+        name = name,
+        toolchain = toolchain,
+    )
+
 # The expected config for each tool, whether it runs in an action or at runtime
-RUST_BIN_CFG = {
-    # unpack wheels happens inside an action
-    "unpack": "exec",
-    # creating the virtualenv happens when the binary is running
-    "venv": "target",
-}
+#
+# Note that this is the source of truth for how toolchains get registered and
+# for how they get prebuilt/patched in.
+TOOL_CFGS = [
+    PrebuiltToolConfig("//py/tools/unpack_bin:unpack", cfg = "exec"),
+    PrebuiltToolConfig("//py/tools/venv_bin:venv"),
+    PrebuiltToolConfig("//py/tools/venv_shim:shim"),
+]
 
 TOOLCHAIN_PLATFORMS = {
     "darwin_amd64": struct(
@@ -120,9 +139,9 @@ package(default_visibility = ["//visibility:public"])
     if "RULES_PY_RELEASE_VERSION" in rctx.os.environ:
         release_version = rctx.os.environ["RULES_PY_RELEASE_VERSION"]
 
-    for tool in RUST_BIN_CFG.keys():
+    for tool in TOOL_CFGS:
         filename = "-".join([
-            tool,
+            tool.name,
             TOOLCHAIN_PLATFORMS[rctx.attr.platform].arch,
             TOOLCHAIN_PLATFORMS[rctx.attr.platform].vendor_os_abi,
         ])
