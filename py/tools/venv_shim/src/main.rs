@@ -64,6 +64,10 @@ fn find_python_executables(version_from_cfg: &str, exclude_dir: &Path) -> Option
                 None
             }
         })
+        .filter_map(|path| match path.canonicalize() {
+            Ok(p) => Some(p),
+            _ => None,
+        })
         .filter(|potential_executable| potential_executable.parent() != Some(exclude_dir))
         .filter(|potential_executable| compare_versions(version_from_cfg, &potential_executable))
         .collect();
@@ -80,7 +84,7 @@ fn main() -> miette::Result<()> {
     let args: Vec<_> = env::args().collect();
 
     #[cfg(feature = "debug")]
-    println!("[aspect] Current executable path: {:?}", current_exe);
+    eprintln!("[aspect] Current executable path: {:?}", current_exe);
 
     let pyvenv_cfg_path = match find_pyvenv_cfg(&current_exe) {
         Some(path) => {
@@ -116,8 +120,13 @@ fn main() -> miette::Result<()> {
         }
     };
 
-    let exclude_dir = current_exe.parent().unwrap();
-    if let Some(python_executables) = find_python_executables(&target_python_version, exclude_dir) {
+    let exclude_dir = current_exe.parent().unwrap().canonicalize().unwrap();
+
+    #[cfg(feature = "debug")]
+    eprintln!("[aspect] Ignoring dir {:?}", exclude_dir);
+
+    if let Some(python_executables) = find_python_executables(&target_python_version, &exclude_dir)
+    {
         #[cfg(feature = "debug")]
         {
             eprintln!(
