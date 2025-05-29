@@ -1,4 +1,4 @@
-use miette::miette;
+use miette::{miette, Context, IntoDiagnostic};
 use std::env;
 use std::fs;
 use std::io::{self, BufRead};
@@ -64,6 +64,7 @@ fn find_python_executables(version_from_cfg: &str, exclude_dir: &Path) -> Option
                 None
             }
         })
+        .filter_map(|path| path.canonicalize().ok())
         .filter(|potential_executable| potential_executable.parent() != Some(exclude_dir))
         .filter(|potential_executable| compare_versions(version_from_cfg, &potential_executable))
         .collect();
@@ -80,116 +81,113 @@ fn main() -> miette::Result<()> {
     let args: Vec<_> = env::args().collect();
 
     #[cfg(feature = "debug")]
-    println!("[aspect] Current executable path: {:?}", current_exe);
+    eprintln!("[aspect] Current executable path: {:?}", current_exe);
 
-    let pyvenv_cfg_path = match find_pyvenv_cfg(&current_exe) {
-        Some(path) => {
-            #[cfg(feature = "debug")]
-            eprintln!("[aspect] Found pyvenv.cfg at: {:?}", path);
-            path
-        }
-        None => {
-            return Err(miette!("pyvenv.cfg not found one directory level up."));
-        }
+    let Some(pyvenv_cfg_path) = find_pyvenv_cfg(&current_exe) else {
+        return Err(miette!("pyvenv.cfg not found one directory level up."));
+    };
+    #[cfg(feature = "debug")]
+    eprintln!("[aspect] Found pyvenv.cfg at: {:?}", &pyvenv_cfg_path);
+
+    let version_info_result = extract_pyvenv_version_info(&pyvenv_cfg_path)
+        .into_diagnostic()
+        .wrap_err(format!(
+            "Failed to parse pyvenv.cfg {}",
+            &pyvenv_cfg_path.to_str().unwrap(),
+        ))
+        .unwrap();
+
+    let Some(version_info) = version_info_result else {
+        return Err(miette!("version_info key not found in pyvenv.cfg."));
     };
 
-    let version_info_result = extract_pyvenv_version_info(&pyvenv_cfg_path).unwrap();
-    let version_info = match version_info_result {
-        Some(v) => {
-            #[cfg(feature = "debug")]
-            eprintln!("[aspect] version_info from pyvenv.cfg: {}", v);
-            v
-        }
-        None => {
-            return Err(miette!("version_info key not found in pyvenv.cfg."));
-        }
+    #[cfg(feature = "debug")]
+    eprintln!("[aspect] version_info from pyvenv.cfg: {}", &version_info);
+
+    let Some(target_python_version) = parse_version_info(&version_info) else {
+        return Err(miette!("Could not parse version_info as x.y."));
     };
 
-    let target_python_version = match parse_version_info(&version_info) {
-        Some(v) => {
-            #[cfg(feature = "debug")]
-            eprintln!("[aspect] Parsed target Python version (major.minor): {}", v);
-            v
-        }
-        None => {
-            return Err(miette!("Could not parse version_info as x.y."));
-        }
-    };
+    #[cfg(feature = "debug")]
+    eprintln!(
+        "[aspect] Parsed target Python version (major.minor): {}",
+        &target_python_version
+    );
 
-    let exclude_dir = current_exe.parent().unwrap();
-    if let Some(python_executables) = find_python_executables(&target_python_version, exclude_dir) {
-        #[cfg(feature = "debug")]
-        {
-            eprintln!(
-                "[aspect] Found potential Python interpreters in PATH with matching version:"
-            );
-            for exe in &python_executables {
-                println!("[aspect] - {:?}", exe);
-            }
-        }
+    let exclude_dir = current_exe.parent().unwrap().canonicalize().unwrap();
 
-        // Attempt to break infinite recursion through this shim by counting up
-        // the number of times we've come back to this shim and incrementing it
-        // until we hit something on the path that DOESN'T come back here, or we
-        // run out of path entries.
-        let index: usize = {
-            match env::var(COUNTER_VAR) {
-                // Whatever the previous value was didn't work because we're
-                // back here, so increment.
-                Ok(it) => it.parse::<usize>().unwrap() + 1,
-                _ => 0,
-            }
-        };
+    #[cfg(feature = "debug")]
+    eprintln!("[aspect] Ignoring dir {:?}", &exclude_dir);
 
-        let interpreter_path = match python_executables.get(index) {
-            Some(it) => it,
-            None => {
-                return Err(miette!(
-                    "Unable to find another interpreter at index {}",
-                    index
-                ))
-            }
-        };
-
-        let exe_path = current_exe.to_string_lossy().into_owned();
-        let exec_args = &args[1..];
-
-        #[cfg(feature = "debug")]
-        eprintln!(
-            "[aspect] Attempting to execute: {:?} with argv[0] as {:?} and args as {:?}",
-            interpreter_path, exe_path, exec_args,
-        );
-
-        let mut cmd = Command::new(interpreter_path);
-        cmd.args(exec_args);
-
-        // Lie about the value of argv0 to hoodwink the interpreter as to its
-        // location on Linux-based platforms.
-        if cfg!(target_os = "linux") {
-            cmd.arg0(&exe_path);
-        }
-
-        // On MacOS however, there are facilities for asking the C runtime/OS
-        // what the real name of the interpreter executable is, and that value
-        // is preferred while argv[0] is ignored. So we need to use a different
-        // mechanism to lie to the target interpreter about its own path.
-        //
-        // https://github.com/python/cpython/blob/68e72cf3a80362d0a2d57ff0c9f02553c378e537/Modules/getpath.c#L778
-        // https://docs.python.org/3/using/cmdline.html#envvar-PYTHONEXECUTABLE
-        if cfg!(target_os = "macos") {
-            cmd.env("PYTHONEXECUTABLE", exe_path);
-        }
-
-        // Re-export the counter so it'll go up
-        cmd.env(COUNTER_VAR, index.to_string());
-
-        let _ = cmd.exec();
-
-        return Ok(());
-    } else {
+    let Some(python_executables) = find_python_executables(&target_python_version, &exclude_dir)
+    else {
         return Err(miette!(
             "No suitable Python interpreter found in PATH matching version '{}'.",
             &version_info,
         ));
+    };
+
+    #[cfg(feature = "debug")]
+    {
+        eprintln!("[aspect] Found potential Python interpreters in PATH with matching version:");
+        for exe in &python_executables {
+            println!("[aspect] - {:?}", exe);
+        }
     }
+
+    // Attempt to break infinite recursion through this shim by counting up
+    // the number of times we've come back to this shim and incrementing it
+    // until we hit something on the path that DOESN'T come back here, or we
+    // run out of path entries.
+    let index: usize = {
+        match env::var(COUNTER_VAR) {
+            // Whatever the previous value was didn't work because we're
+            // back here, so increment.
+            Ok(it) => it.parse::<usize>().unwrap() + 1,
+            _ => 0,
+        }
+    };
+
+    let Some(interpreter_path) = python_executables.get(index) else {
+        return Err(miette!(
+            "Unable to find another interpreter at index {}",
+            index
+        ));
+    };
+
+    let exe_path = current_exe.to_string_lossy().into_owned();
+    let exec_args = &args[1..];
+
+    #[cfg(feature = "debug")]
+    eprintln!(
+        "[aspect] Attempting to execute: {:?} with argv[0] as {:?} and args as {:?}",
+        interpreter_path, exe_path, exec_args,
+    );
+
+    let mut cmd = Command::new(&interpreter_path);
+    cmd.args(exec_args);
+
+    // Lie about the value of argv0 to hoodwink the interpreter as to its
+    // location on Linux-based platforms.
+    if cfg!(target_os = "linux") {
+        cmd.arg0(&exe_path);
+    }
+
+    // On MacOS however, there are facilities for asking the C runtime/OS
+    // what the real name of the interpreter executable is, and that value
+    // is preferred while argv[0] is ignored. So we need to use a different
+    // mechanism to lie to the target interpreter about its own path.
+    //
+    // https://github.com/python/cpython/blob/68e72cf3a80362d0a2d57ff0c9f02553c378e537/Modules/getpath.c#L778
+    // https://docs.python.org/3/using/cmdline.html#envvar-PYTHONEXECUTABLE
+    if cfg!(target_os = "macos") {
+        cmd.env("PYTHONEXECUTABLE", &exe_path);
+    }
+
+    // Re-export the counter so it'll go up
+    cmd.env(COUNTER_VAR, index.to_string());
+
+    let _ = cmd.exec();
+
+    return Ok(());
 }
