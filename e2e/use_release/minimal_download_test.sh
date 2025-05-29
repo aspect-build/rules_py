@@ -107,4 +107,4 @@ bazel test --test_output=streamed //...
 )
 
 # Shut down the devserver
-kill "$PIDFILE"
+kill "$(cat $PIDFILE)"
