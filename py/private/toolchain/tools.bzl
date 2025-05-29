@@ -158,11 +158,11 @@ package(default_visibility = ["//visibility:public"])
             url = url,
             sha256 = RELEASED_BINARY_INTEGRITY[filename],
             executable = True,
-            output = tool,
+            output = tool.name,
         )
         build_content += """py_tool_toolchain(name = "{tool}_toolchain", bin = "{tool}", template_var = "{tool_upper}_BIN")\n""".format(
-            tool = tool,
-            tool_upper = tool.upper(),
+            tool = tool.name,
+            tool_upper = tool.name.upper(),
         )
 
     rctx.file("BUILD.bazel", build_content)
