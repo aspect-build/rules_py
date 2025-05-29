@@ -107,9 +107,9 @@ package(default_visibility = ["//visibility:public"])
             TOOLCHAIN_PLATFORMS[rctx.attr.platform].vendor_os_abi,
         ])
         url = url_template.format(
-            release_fork,
-            release_version,
-            filename,
+            release_fork = release_fork,
+            release_version = release_version,
+            filename = filename,
         )
         rctx.download(
             url = url,
