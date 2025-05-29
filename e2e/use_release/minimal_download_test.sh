@@ -66,3 +66,14 @@ bazel test --test_output=streamed //...
     rm MODULE.bazel
     mv MODULE.bazel.orig MODULE.bazel
 )
+
+#############
+# Smoke test py_venv examples
+(
+  cd ../..
+  bazel run //examples/py_venv:venv -- -c 'print("Hello, world")'
+  bazel run //examples/py_venv:internal_venv
+  bazel run --stamp //examples/py_venv:internal_venv
+  bazel run //examples/py_venv:external_venv
+  bazel run --stamp //examples/py_venv:external_venv
+)
