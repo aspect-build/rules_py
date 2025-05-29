@@ -7,7 +7,7 @@ py_binary(
 )
 
 py_binary(
-    name = "devintegrity",
+    name = "integrity",
     srcs = ["devintegrity.py"],
     main = "devintegrity.py",
 )
