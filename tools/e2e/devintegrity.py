@@ -19,12 +19,12 @@ def compute_sha256(file_path):
     return sha256_hash.hexdigest()
 
 
-opts, args = PARSER.parse_known_args()
+opts, _args = PARSER.parse_known_args()
 
 sha_map = {}
-for file_path in args.dir.iterdir():
+for file_path in opts.dir.iterdir():
     if file_path.is_file():
         sha_map[file_path.name] = compute_sha256(file_path)
         
-with open(args.target, "w") as f:
+with open(opts.target, "w") as f:
     f.write("RELEASED_BINARY_INTEGRITY = {!r}\n".format(sha_map))
