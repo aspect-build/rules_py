@@ -45,6 +45,9 @@ export RULES_PY_RELEASE_URL="http://localhost:$PORT/{filename}"
 )
 
 OUTPUT_BASE=$(mktemp -d)
+
+bazel "--output_base=$OUTPUT_BASE" run --enable_bzlmod //...
+
 output=$(bazel "--output_base=$OUTPUT_BASE" run --enable_bzlmod //src:main)
 if [[ "$output" != "hello world" ]]; then
   >&2 echo "ERROR: bazel command did not produce expected output"
@@ -87,24 +90,33 @@ fi
 
 #############
 # Smoke test
-bazel test --test_output=streamed //...
-
-(
-    cd ../..
-    rm MODULE.bazel
-    mv MODULE.bazel.orig MODULE.bazel
-)
+bazel test "--output_base=$OUTPUT_BASE" --test_output=streamed //...
 
 #############
 # Smoke test py_venv examples
+OUTPUT_BASE=$(mktemp -d)
 (
   cd ../..
-  bazel run //examples/py_venv:venv -- -c 'print("Hello, world")'
-  bazel run //examples/py_venv:internal_venv
-  bazel run --stamp //examples/py_venv:internal_venv
-  bazel run //examples/py_venv:external_venv
-  bazel run --stamp //examples/py_venv:external_venv
+
+  # Exercise the static venv bits
+  bazel "--output_base=$OUTPUT_BASE" run //examples/py_venv:venv -- -c 'print("Hello, world")'
+  bazel "--output_base=$OUTPUT_BASE" run //examples/py_venv:internal_venv
+  bazel "--output_base=$OUTPUT_BASE" run --stamp //examples/py_venv:internal_venv
+  bazel "--output_base=$OUTPUT_BASE" run //examples/py_venv:external_venv
+  bazel "--output_base=$OUTPUT_BASE" run --stamp //examples/py_venv:external_venv
+
+  # Run some of the test
+  bazel "--output_base=$OUTPUT_BASE" test --platforms=//tools/release:linux_aarch64 //py/tests/py_image_layer/... //py/tests/py_venv_image_layer/...
+  bazel "--output_base=$OUTPUT_BASE" test --platforms=//tools/release:linux_x86_64 //py/tests/py_image_layer/... //py/tests/py_venv_image_layer/...
 )
+
+externals=$(ls $OUTPUT_BASE/external)
+
+if echo "$externals" | grep rust
+then
+    >&2 echo "ERROR: we fetched a rust repository"
+    exit 1
+fi
 
 # Shut down the devserver
 kill "$(cat $PIDFILE)"
