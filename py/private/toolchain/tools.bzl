@@ -1,5 +1,8 @@
 """Declaration of concrete toolchains for our Rust tools"""
 
+load("@bazel_skylib//lib:structs.bzl", "structs")
+load(":types.bzl", "PyToolInfo", "VENV_TOOLCHAIN")
+
 def PrebuiltToolConfig(
         target,
         cfg = "target",
@@ -82,7 +85,7 @@ def _toolchain_impl(ctx):
     # Export all the providers inside our ToolchainInfo
     # so the resolved_toolchain rule can grab and re-export them.
     toolchain_info = platform_common.ToolchainInfo(
-        bin = binary,
+        bin = PyToolInfo(bin = binary),
         template_variables = template_variables,
         default_info = default_info,
     )
@@ -122,3 +125,15 @@ def source_toolchain(name, toolchain_type, bin):
         toolchain = toolchain_rule,
         toolchain_type = toolchain_type,
     )
+
+# Forward all the providers
+def _resolved_toolchain_impl(ctx):
+    toolchain_info = ctx.toolchains[VENV_TOOLCHAIN]
+    return [toolchain_info] + structs.to_dict(toolchain_info).values()
+
+# Copied from java_toolchain_alias
+# https://cs.opensource.google/bazel/bazel/+/master:tools/jdk/java_toolchain_alias.bzl
+resolved_venv_toolchain = rule(
+    implementation = _resolved_toolchain_impl,
+    toolchains = [VENV_TOOLCHAIN],
+)

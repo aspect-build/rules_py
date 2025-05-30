@@ -34,13 +34,14 @@ def _toolchains_repo_impl(repository_ctx):
             build_content += """
 # Declare a toolchain Bazel will select for running {tool} on the {cfg} platform.
 toolchain(
-    name = "{tool}_{platform}_toolchain",
+    name = "{tool}_{platform}_{cfg}_toolchain",
     {cfg}_compatible_with = {compatible_with},
     # Bazel does not follow this attribute during analysis, so the referenced repo
     # will only be fetched if this toolchain is selected.
     toolchain = "@{user_repository_name}.{platform}//:{tool}_toolchain",
     toolchain_type = "{toolchain_type}",
 )
+
 """.format(
                 cfg = bin.cfg,
                 tool = bin.name,

@@ -39,6 +39,7 @@ register_toolchains(
     # For manual testing: comment these out to force use of pre-built binaries.
     "@aspect_rules_py//py/private/toolchain/venv/...",
     "@aspect_rules_py//py/private/toolchain/unpack/...",
+    "@aspect_rules_py//py/private/toolchain/shim/...",
 )
 
 # To allow Rust binaries in /py/tools to be built from source

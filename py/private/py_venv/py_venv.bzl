@@ -5,7 +5,7 @@ load("@aspect_bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocatio
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private:transitions.bzl", "python_version_transition")
-load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "SHIM_TOOLCHAIN")
+load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "PyToolInfo", "SHIM_TOOLCHAIN", "VENV_TOOLCHAIN")
 
 VirtualenvInfo = provider(
     doc = """
@@ -74,7 +74,10 @@ def _py_venv_base_impl(ctx):
 
     py_toolchain = _py_semantics.resolve_toolchain(ctx)
 
+    # Note that we HAVE to grab these files from toolchains so that we can swap
+    # in prebuild versions in production.
     py_shim = ctx.toolchains[SHIM_TOOLCHAIN]
+    venv_tool = ctx.attr._venv[PyToolInfo].bin
 
     # Check for duplicate virtual dependency names. Those that map to the same resolution target would have been merged by the depset for us.
     virtual_resolution = _py_library.resolve_virtuals(ctx)
@@ -141,10 +144,10 @@ def _py_venv_base_impl(ctx):
     venv_dir = ctx.actions.declare_directory(venv_name)
 
     ctx.actions.run(
-        executable = ctx.file._venv_tool,
+        executable = venv_tool,
         arguments = [
             "--location=" + venv_dir.path,
-            "--python=" + py_shim.bin.path,
+            "--python=" + py_shim.bin.bin.path,
             "--pth-file=" + site_packages_pth_file.path,
             "--env-file=" + env_file.path,
             "--bin-dir=" + ctx.bin_dir.path,
@@ -160,7 +163,7 @@ def _py_venv_base_impl(ctx):
             ctx.runfiles(files = [
                 site_packages_pth_file,
                 env_file,
-                ctx.file._venv_tool,
+                venv_tool,
             ]),
             py_shim.default_info.default_runfiles,
         ]).files,
@@ -313,12 +316,9 @@ A collision can occur when multiple packages providing the same file are install
     "_runfiles_lib": attr.label(
         default = "@bazel_tools//tools/bash/runfiles",
     ),
-    # Note that we're using the transitioned one for local execution, since
-    # we're going to run the tool on the local platform and produce static files
-    # not including this tool.
-    "_venv_tool": attr.label(
-        allow_single_file = True,
-        default = "//py/tools/venv_bin:local_venv_bin",
+    "_venv": attr.label(
+        default = "//py/private/toolchain:resolved_venv_toolchain",
+        cfg = "exec",
     ),
 })
 
@@ -365,6 +365,7 @@ py_venv_base = struct(
     toolchains = [
         PY_TOOLCHAIN,
         SHIM_TOOLCHAIN,
+        VENV_TOOLCHAIN,
     ],
     cfg = python_version_transition,
 )

@@ -1,4 +1,5 @@
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load(":tools.bzl", "resolved_venv_toolchain")
 
 exports_files(
     ["python.sh"],
@@ -17,6 +18,11 @@ toolchain_type(
 
 toolchain_type(
     name = "shim_toolchain_type",
+    visibility = ["//visibility:public"],
+)
+
+resolved_venv_toolchain(
+    name = "resolved_venv_toolchain",
     visibility = ["//visibility:public"],
 )
 

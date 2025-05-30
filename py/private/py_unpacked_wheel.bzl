@@ -29,7 +29,7 @@ def _py_unpacked_wheel_impl(ctx):
     ctx.actions.run(
         outputs = [unpack_directory],
         inputs = depset([ctx.file.src], transitive = [py_toolchain.files]),
-        executable = unpack_toolchain.bin,
+        executable = unpack_toolchain.bin.bin,
         arguments = [arguments],
         mnemonic = "PyUnpackedWheel",
         progress_message = "Unpacking wheel {}".format(ctx.file.src.basename),
