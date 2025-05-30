@@ -1,0 +1,13 @@
+load("//py:defs.bzl", "py_binary")
+
+py_binary(
+    name = "fileserver",
+    srcs = ["devserver.py"],
+    main = "devserver.py",
+)
+
+py_binary(
+    name = "integrity",
+    srcs = ["devintegrity.py"],
+    main = "devintegrity.py",
+)

@@ -15,6 +15,11 @@ toolchain_type(
     visibility = ["//visibility:public"],
 )
 
+toolchain_type(
+    name = "shim_toolchain_type",
+    visibility = ["//visibility:public"],
+)
+
 bzl_library(
     name = "autodetecting",
     srcs = ["autodetecting.bzl"],
@@ -25,7 +30,9 @@ bzl_library(
 bzl_library(
     name = "tools",
     srcs = ["tools.bzl"],
-    visibility = ["//py:__subpackages__"],
+    visibility = [
+        "//py:__subpackages__",
+    ],
 )
 
 bzl_library(

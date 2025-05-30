@@ -1,3 +1,7 @@
+# buildifier: disable=bzl-visibility
+# Since this is a load from private despite it being our private... sigh
+load("//py/private/toolchain:tools.bzl", "TOOL_CFGS")
+
 [
     platform(
         name = "{}_{}".format(os, cpu),
@@ -18,16 +22,15 @@
     ]
 ]
 
+# FIXME: This is kinda a mess. Should just be done with transitions? These can crossbuild.
 LINUX_ARTIFACTS = [
-    "//py/tools/unpack_bin:unpack_linux",
-    "//py/tools/venv_bin:venv_linux",
-    "//py/tools/venv_shim:shim_linux",
+    tool.target + "_linux"
+    for tool in TOOL_CFGS
 ]
 
 MACOS_ARTIFACTS = [
-    "//py/tools/unpack_bin:unpack_macos",
-    "//py/tools/venv_bin:venv_macos",
-    "//py/tools/venv_shim:shim_macos",
+    tool.target + "_macos"
+    for tool in TOOL_CFGS
 ]
 
 sh_binary(
