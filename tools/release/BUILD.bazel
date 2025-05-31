@@ -1,4 +1,5 @@
 load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
+
 # buildifier: disable=bzl-visibility
 # Since this is a load from private despite it being our private... sigh
 load("//py/private/toolchain:tools.bzl", "TOOL_CFGS")
@@ -37,13 +38,13 @@ MACOS_ARTIFACTS = [
 platform_transition_filegroup(
     name = "linux_artifacts",
     srcs = LINUX_ARTIFACTS,
-    target_platform = ":linux_aarch64"
+    target_platform = ":linux_aarch64",
 )
 
 platform_transition_filegroup(
     name = "macos_artifacts",
     srcs = MACOS_ARTIFACTS,
-    target_platform = ":macos_aarch64"
+    target_platform = ":macos_aarch64",
 )
 
 sh_binary(
