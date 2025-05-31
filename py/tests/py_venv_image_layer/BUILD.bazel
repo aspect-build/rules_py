@@ -50,7 +50,6 @@ assert_tar_listing(
     expected = ":my_app_amd64_layers_listing.yaml",
 )
 
-
 platform_transition_filegroup(
     name = "arm64_layers",
     srcs = [":my_app_layers"],
