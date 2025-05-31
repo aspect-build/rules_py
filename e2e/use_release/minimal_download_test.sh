@@ -45,9 +45,6 @@ export RULES_PY_RELEASE_URL="http://localhost:$PORT/{filename}"
 )
 
 OUTPUT_BASE=$(mktemp -d)
-
-bazel "--output_base=$OUTPUT_BASE" run --enable_bzlmod //...
-
 output=$(bazel "--output_base=$OUTPUT_BASE" run --enable_bzlmod //src:main)
 if [[ "$output" != "hello world" ]]; then
   >&2 echo "ERROR: bazel command did not produce expected output"
