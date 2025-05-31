@@ -46,7 +46,10 @@ export RULES_PY_RELEASE_URL="http://localhost:$PORT/{filename}"
     patch -p1 --backup < .bcr/patches/*.patch
     # Write a version to the `version.bzl` file.
     # This emulates the version stamping git will do when it makes an archive.
-    sed -i 's/_VERSION_PRIVATE.*/_VERSION_PRIVATE="v999.999.999"/g' tools/version.bzl
+    cat <<"EOF" > tools/version.bzl
+VERSION = "999.99.9"
+IS_PRERELEASE = False
+EOF
 )
 
 OUTPUT_BASE=$(mktemp -d)
