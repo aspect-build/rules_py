@@ -87,7 +87,7 @@ fi
 
 #############
 # Smoke test
-bazel test "--output_base=$OUTPUT_BASE" --test_output=streamed //...
+bazel "--output_base=$OUTPUT_BASE" test --test_output=streamed //...
 
 #############
 # Smoke test py_venv examples
