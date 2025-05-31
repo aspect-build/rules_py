@@ -111,7 +111,7 @@ OUTPUT_BASE=$(mktemp -d)
   bazel "--output_base=$OUTPUT_BASE" run --stamp //examples/py_venv:external_venv
 
   # Run some of the test
-  bazel "--output_base=$OUTPUT_BASE" //py/tests/py_image_layer/... //py/tests/py_venv_image_layer/...
+  bazel "--output_base=$OUTPUT_BASE" test //py/tests/py_image_layer/... //py/tests/py_venv_image_layer/...
 )
 
 externals=$(ls $OUTPUT_BASE/external)
