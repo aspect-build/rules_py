@@ -21,7 +21,9 @@ PIDFILE=$(realpath ./devserver.pid)
 
     # First we produce a release artifact matrix
     mkdir artifacts
-    DEST=$(realpath artifacts) bazel run //tools/release:copy_release_artifacts
+    # Note that we use the _e2e build target, which will do crossbuilds
+    # TODO: Why don't we do this in prod?
+    DEST=$(realpath artifacts) bazel run //tools/release:copy_release_artifacts_e2e
 
     # We kick off a dev http server on localhost
     #
@@ -98,29 +100,46 @@ fi
 bazel "--output_base=$OUTPUT_BASE" test --test_output=streamed //...
 
 #############
-# Smoke test py_venv examples
+# Demonstrate that as configured we're fully on prebuilt toolchains even for crossbuilds
 OUTPUT_BASE=$(mktemp -d)
 (
   cd ../..
 
+  # Check that the configured query doesn't use Rust for anything. If we're
+  # using source toolchains, then we'll get a hit for Rust here.
+  if bazel cquery 'kind("rust_binary", deps(//py/tests/py_venv_image_layer/...))' | grep "crate_index"; then
+    >&2 echo "ERROR: we still have a rust dependency"
+    exit 1
+  fi
+
+  # Demonstrate that we can do crossbuilds with the tool
+  bazel "--output_base=$OUTPUT_BASE" build //py/tests/py_venv_image_layer/...
+
+  # TODO: Note that we can't run and pass these tests because the old py_binary
+  # implementation sees a different label for the venv tool (internal file vs
+  # external repo file) and so its image tests fail if we run them here.
+)
+
+# Note that we can't check to see if we've fetched rules_rust etc. because
+# despite being dev deps they're still visible from and fetched in the parent
+# module, even if unused.
+
+#############
+# Smoke test py_venv examples
+(
+  cd ../..
   # Exercise the static venv bits
+  # Note that we only really expect
   bazel "--output_base=$OUTPUT_BASE" run //examples/py_venv:venv -- -c 'print("Hello, world")'
   bazel "--output_base=$OUTPUT_BASE" run //examples/py_venv:internal_venv
   bazel "--output_base=$OUTPUT_BASE" run --stamp //examples/py_venv:internal_venv
   bazel "--output_base=$OUTPUT_BASE" run //examples/py_venv:external_venv
   bazel "--output_base=$OUTPUT_BASE" run --stamp //examples/py_venv:external_venv
-
-  # Build some cross-platform images to prove that the fetches work
-  bazel "--output_base=$OUTPUT_BASE" build //py/tests/py_image_layer/... //py/tests/py_venv_image_layer/...
 )
 
-externals=$(ls $OUTPUT_BASE/external)
-
-if echo "$externals" | grep rust
-then
-    >&2 echo "ERROR: we fetched a rust repository"
-    exit 1
-fi
+# Note that we can't check to see if we've fetched rules_rust etc. because
+# despite being dev deps they're still visible from and fetched in the parent
+# module, even if unused.
 
 # Shut down the devserver
 kill "$(cat $PIDFILE)"
