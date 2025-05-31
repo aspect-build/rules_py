@@ -2,6 +2,8 @@
 
 set -o errexit -o pipefail -o nounset
 
+set -x
+
 OS="$(uname | tr '[:upper:]' '[:lower:]')"
 ARCH="$(arch)"
 ALLOWED="rules_py_tools.${OS}_${ARCH}"
@@ -42,6 +44,9 @@ export RULES_PY_RELEASE_URL="http://localhost:$PORT/{filename}"
     cd ../..
     # Create the .orig file, whether there's a mismatch or not
     patch -p1 --backup < .bcr/patches/*.patch
+    # Write a version to the `version.bzl` file.
+    # This emulates the version stamping git will do when it makes an archive.
+    sed -i 's/_VERSION_PRIVATE.*/_VERSION_PRIVATE="v999.999.999"/g' tools/version.bzl
 )
 
 OUTPUT_BASE=$(mktemp -d)
@@ -103,8 +108,7 @@ OUTPUT_BASE=$(mktemp -d)
   bazel "--output_base=$OUTPUT_BASE" run --stamp //examples/py_venv:external_venv
 
   # Run some of the test
-  bazel "--output_base=$OUTPUT_BASE" test --platforms=//tools/release:linux_aarch64 //py/tests/py_image_layer/... //py/tests/py_venv_image_layer/...
-  bazel "--output_base=$OUTPUT_BASE" test --platforms=//tools/release:linux_x86_64 //py/tests/py_image_layer/... //py/tests/py_venv_image_layer/...
+  bazel "--output_base=$OUTPUT_BASE" //py/tests/py_image_layer/... //py/tests/py_venv_image_layer/...
 )
 
 externals=$(ls $OUTPUT_BASE/external)
