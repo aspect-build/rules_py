@@ -95,10 +95,20 @@ platform_transition_filegroup(
 )
 
 container_structure_test(
-    name = "py_amd64_image_test",
-    configs = ["py_amd64_image_test.yaml"],
+    name = "py_amd64_image_content_test",
+    configs = ["py_amd64_image_content_test.yaml"],
     image = ":amd64_image",
     platform = "linux/amd64",
+)
+
+container_structure_test(
+    name = "py_amd64_image_command_test",
+    configs = ["py_image_command_test.yaml"],
+    image = ":amd64_image",
+    platform = "linux/amd64",
+    target_compatible_with = [
+        "@platforms//cpu:x86_64",
+    ]
 )
 
 platform_transition_filegroup(
@@ -108,8 +118,18 @@ platform_transition_filegroup(
 )
 
 container_structure_test(
-    name = "py_arm64_image_test",
-    configs = ["py_arm64_image_test.yaml"],
+    name = "py_arm64_image_content_test",
+    configs = ["py_arm64_image_content_test.yaml"],
     image = ":arm64_image",
     platform = "linux/aarch64",
+)
+
+container_structure_test(
+    name = "py_arm64_image_command_test",
+    configs = ["py_image_command_test.yaml"],
+    image = ":arm64_image",
+    platform = "linux/aarch64",
+    target_compatible_with = [
+        "@platforms//cpu:aarch64",
+    ]
 )
