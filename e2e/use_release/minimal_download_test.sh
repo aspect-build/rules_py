@@ -21,9 +21,10 @@ PIDFILE=$(realpath ./devserver.pid)
 
     # First we produce a release artifact matrix
     mkdir artifacts
-    # Note that we use the _e2e build target, which will do crossbuilds
-    # TODO: Why don't we do this in prod?
-    DEST=$(realpath artifacts) bazel run //tools/release:copy_release_artifacts_e2e
+    # WARNING: For local testing you'll have to manually do this with
+    # --platforms for linux otherwise you'll be missing artifacts. Which is
+    # mighty annoying.
+    DEST=$(realpath artifacts) bazel run //tools/release:copy_release_artifacts
 
     # We kick off a dev http server on localhost
     #
