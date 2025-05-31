@@ -108,7 +108,7 @@ container_structure_test(
     platform = "linux/amd64",
     target_compatible_with = [
         "@platforms//cpu:x86_64",
-    ]
+    ],
 )
 
 platform_transition_filegroup(
@@ -131,5 +131,5 @@ container_structure_test(
     platform = "linux/aarch64",
     target_compatible_with = [
         "@platforms//cpu:aarch64",
-    ]
+    ],
 )
