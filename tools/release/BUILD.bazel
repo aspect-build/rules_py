@@ -46,3 +46,34 @@ sh_binary(
     }),
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
+
+# TODO: rules_rust can't resolve a MacOS toolchain from Linux, which means this
+# breaks in CI although it works on Mac. This is probably a result of needing
+# the MacOS system libraries to link against, not sure if we can get hermetic
+# versions of that from somewhere. Not worth the trouble right now.
+#
+# platform_transition_filegroup(
+#     name = "linux_artifacts",
+#     srcs = LINUX_ARTIFACTS,
+#     target_platform = ":linux_aarch64",
+# )
+#
+# platform_transition_filegroup(
+#     name = "macos_artifacts",
+#     srcs = MACOS_ARTIFACTS,
+#     target_platform = ":macos_aarch64",
+# )
+#
+# sh_binary(
+#     name = "copy_release_artifacts_e2e",
+#     srcs = ["copy_release_artifacts.sh"],
+#     args = [
+#         "$(rlocationpaths :linux_artifacts)",
+#         "$(rlocationpaths :macos_artifacts)",
+#     ],
+#     data = [
+#         ":linux_artifacts",
+#         ":macos_artifacts",
+#     ],
+#     deps = ["@bazel_tools//tools/bash/runfiles"],
+# )

@@ -31,6 +31,7 @@ def _toolchains_extension_impl(module_ctx):
                 root_name = toolchain.name
             else:
                 registrations.append(toolchain.name)
+
     for name in registrations:
         if name != root_name:
             rules_py_toolchains(name, register = False)

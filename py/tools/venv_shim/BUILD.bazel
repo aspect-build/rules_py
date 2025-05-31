@@ -21,8 +21,9 @@ rust_binary(
     rustc_flags = select({
         ":debug_build": [],
         "//conditions:default": [
-            "-C",
-            "opt-level=3",
+            "-Copt-level=3",
+            "-Clto",
+            "-Cstrip=symbols",
         ],
     }),
     deps = [

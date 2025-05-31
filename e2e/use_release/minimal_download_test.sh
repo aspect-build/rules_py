@@ -2,6 +2,8 @@
 
 set -o errexit -o pipefail -o nounset
 
+set -x
+
 OS="$(uname | tr '[:upper:]' '[:lower:]')"
 ARCH="$(arch)"
 ALLOWED="rules_py_tools.${OS}_${ARCH}"
@@ -19,6 +21,9 @@ PIDFILE=$(realpath ./devserver.pid)
 
     # First we produce a release artifact matrix
     mkdir artifacts
+    # WARNING: For local testing you'll have to manually do this with
+    # --platforms for linux otherwise you'll be missing artifacts. Which is
+    # mighty annoying.
     DEST=$(realpath artifacts) bazel run //tools/release:copy_release_artifacts
 
     # We kick off a dev http server on localhost
@@ -42,6 +47,12 @@ export RULES_PY_RELEASE_URL="http://localhost:$PORT/{filename}"
     cd ../..
     # Create the .orig file, whether there's a mismatch or not
     patch -p1 --backup < .bcr/patches/*.patch
+    # Write a version to the `version.bzl` file.
+    # This emulates the version stamping git will do when it makes an archive.
+    cat <<"EOF" > tools/version.bzl
+VERSION = "999.99.9"
+IS_PRERELEASE = False
+EOF
 )
 
 OUTPUT_BASE=$(mktemp -d)
@@ -87,24 +98,49 @@ fi
 
 #############
 # Smoke test
-bazel test --test_output=streamed //...
+bazel "--output_base=$OUTPUT_BASE" test --test_output=streamed //...
 
+#############
+# Demonstrate that as configured we're fully on prebuilt toolchains even for crossbuilds
+OUTPUT_BASE=$(mktemp -d)
 (
-    cd ../..
-    rm MODULE.bazel
-    mv MODULE.bazel.orig MODULE.bazel
+  cd ../..
+
+  # Check that the configured query doesn't use Rust for anything. If we're
+  # using source toolchains, then we'll get a hit for Rust here.
+  if bazel cquery 'kind("rust_binary", deps(//py/tests/py_venv_image_layer/...))' | grep "crate_index"; then
+    >&2 echo "ERROR: we still have a rust dependency"
+    exit 1
+  fi
+
+  # Demonstrate that we can do crossbuilds with the tool
+  bazel "--output_base=$OUTPUT_BASE" build //py/tests/py_venv_image_layer/...
+
+  # TODO: Note that we can't run and pass these tests because the old py_binary
+  # implementation sees a different label for the venv tool (internal file vs
+  # external repo file) and so its image tests fail if we run them here.
 )
+
+# Note that we can't check to see if we've fetched rules_rust etc. because
+# despite being dev deps they're still visible from and fetched in the parent
+# module, even if unused.
 
 #############
 # Smoke test py_venv examples
 (
   cd ../..
-  bazel run //examples/py_venv:venv -- -c 'print("Hello, world")'
-  bazel run //examples/py_venv:internal_venv
-  bazel run --stamp //examples/py_venv:internal_venv
-  bazel run //examples/py_venv:external_venv
-  bazel run --stamp //examples/py_venv:external_venv
+  # Exercise the static venv bits
+  # Note that we only really expect
+  bazel "--output_base=$OUTPUT_BASE" run //examples/py_venv:venv -- -c 'print("Hello, world")'
+  bazel "--output_base=$OUTPUT_BASE" run //examples/py_venv:internal_venv
+  bazel "--output_base=$OUTPUT_BASE" run --stamp //examples/py_venv:internal_venv
+  bazel "--output_base=$OUTPUT_BASE" run //examples/py_venv:external_venv
+  bazel "--output_base=$OUTPUT_BASE" run --stamp //examples/py_venv:external_venv
 )
+
+# Note that we can't check to see if we've fetched rules_rust etc. because
+# despite being dev deps they're still visible from and fetched in the parent
+# module, even if unused.
 
 # Shut down the devserver
 kill "$(cat $PIDFILE)"

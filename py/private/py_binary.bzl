@@ -73,7 +73,7 @@ def _py_binary_rule_impl(ctx):
         substitutions = {
             "{{BASH_RLOCATION_FN}}": BASH_RLOCATION_FUNCTION,
             "{{INTERPRETER_FLAGS}}": " ".join(py_toolchain.flags + ctx.attr.interpreter_options),
-            "{{VENV_TOOL}}": to_rlocation_path(ctx, venv_toolchain.bin),
+            "{{VENV_TOOL}}": to_rlocation_path(ctx, venv_toolchain.bin.bin),
             "{{ARG_COLLISION_STRATEGY}}": ctx.attr.package_collisions,
             "{{ARG_PYTHON}}": to_rlocation_path(ctx, py_toolchain.python) if py_toolchain.runfiles_interpreter else py_toolchain.python.path,
             "{{ARG_VENV_NAME}}": ".{}.venv".format(ctx.attr.name),
