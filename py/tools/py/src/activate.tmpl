@@ -53,15 +53,8 @@ export VIRTUAL_ENV
 # unset PYTHONHOME if set
 # this will fail if PYTHONHOME is set to the empty string (which is bad anyway)
 # could use `if (set -u; : $PYTHONHOME) ;` in bash.
-#
-# Note that since we are going to set PYTHONHOME ourselves in the case of a
-# hermetic interpreter, we need to explicitly unset that when deactivating.
-if [ -n "${PYTHONHOME:-}" ] ; then
-    _OLD_VIRTUAL_PYTHONHOME="${PYTHONHOME:-}"
-    unset PYTHONHOME
-else
-    _OLD_VIRTUAL_PYTHONHOME="_activate_undef"
-fi
+_OLD_VIRTUAL_PYTHONHOME="${PYTHONHOME:-}"
+unset PYTHONHOME
 
 _OLD_VIRTUAL_PATH="$PATH"
 
@@ -71,7 +64,8 @@ _OLD_VIRTUAL_PATH="$PATH"
 
 # Initialize the runfiles interpreter if we're using one. Note that this happens
 # AFTER unsetting the PYTHONHOME so that we can set PYTHONHOME if we're using a
-# full bundled interpreter.
+# full bundled interpreter, and after we set the Bazel-specific envvars so we
+# can provide some fallback handling around runfiles too.
 {{RUNFILES_INTERPRETER}}
 
 PATH="$VIRTUAL_ENV/bin:$PATH"

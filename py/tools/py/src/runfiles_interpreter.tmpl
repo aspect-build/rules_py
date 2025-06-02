@@ -97,6 +97,13 @@ if [ "$(basename "$(dirname "$INTERPRETER")")" = "bin" ] && [ -e "$(dirname "$(d
   # This should help avoid leakages and help us load libraries hermetically
   export PYTHONHOME="$(dirname "$(dirname "$INTERPRETER")")"
 
+  # Note that since we are going to set PYTHONHOME ourselves in the case of a
+  # hermetic interpreter, we need to explicitly unset that when deactivating.
+  # If there was a previous PYTHONHOME, we want to reset to that.
+  if [ -z "${_OLD_VIRTUAL_PYTHONHOME:-}" ]; then
+     export _OLD_VIRTUAL_PYTHONHOME="_activate_undef"
+  fi
+
   # If we've got a real interpreter, we want to put its bindir on the path.
   # We'll put the venv's bindir in front of this one eventually.
   export PATH="$PYTHONHOME/bin:$PATH"
