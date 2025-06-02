@@ -153,6 +153,7 @@ def _py_venv_base_impl(ctx):
         ctx.runfiles(files = [
             venv_dir,
         ] + py_toolchain.files.to_list()),
+        ctx.attr._runfiles_lib[DefaultInfo].default_runfiles,
     ])
 
 def _py_venv_rule_impl(ctx):
@@ -185,9 +186,9 @@ def _py_venv_rule_impl(ctx):
                 venv_dir,
             ]),
             executable = ctx.outputs.executable,
-            runfiles = rfs.merge(ctx.runfiles(files = [
-                venv_dir,
-            ])),
+            runfiles = rfs.merge(
+                ctx.runfiles(files = [venv_dir]),
+            ),
         ),
         # FIXME: Does not provide PyInfo because venvs are supposed to be terminal artifacts.
         VirtualenvInfo(
@@ -216,9 +217,6 @@ def _py_venv_binary_impl(ctx):
             py_toolchain.files,
             srcs_depset,
         ] + virtual_resolution.srcs + virtual_resolution.runfiles,
-        extra_runfiles_depsets = [
-            ctx.attr._runfiles_lib[DefaultInfo].default_runfiles,
-        ],
     )
 
     if not ctx.attr.venv:

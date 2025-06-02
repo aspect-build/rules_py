@@ -36,9 +36,12 @@ deactivate () {
     # Unset Bazel-injected vars
 {{ENVVARS_UNSET}}
 
-    # Unset vars we set with the runfiles interpreter
-    unset RUNFILES_DIR
-    unset RUNFILES_MANIFEST_FILE
+    # Unset vars we set with the runfiles interpreter. Note that this needs to
+    # be conditional so we don't throw this state out under tests or run.
+    if [ "${_OLD_RUNFILES_DIR:-}" = "_activate_undef" ]; then
+        unset RUNFILES_DIR
+        unset RUNFILES_MANIFEST_FILE
+    fi
 
     if [ ! "${1:-}" = "nondestructive" ] ; then
     # Self destruct!
