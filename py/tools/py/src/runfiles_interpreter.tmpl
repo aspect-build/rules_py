@@ -11,59 +11,51 @@
 #   launcher binary in which case the manifest would be obvious
 #
 # So we need to try and find the runfiles manifest by other means.
-if [ -z "${RUNFILES_DIR:-}" ] \
-    && [ -z "${RUNFILES_MANIFEST_FILE:-}" ] \
-    && [ ! -e "${BASH_SOURCE}.runfiles" ] \
-    && [ ! -e "${BASH_SOURCE}.runfiles_manifest" ]; then
 
-   # There are two cases here.
-   # 1. In development, the realpath will be in a /execroot/ somewhere
-   # 2. If copied to "production", the realpath will be in a .runfiles/ somewhere
-
-   AEXE="$(realpath "${BASH_SOURCE}")"
-   RUNFILES_PATH="$(echo "${BAZEL_TARGET}" | sed 's/^.*\/\/\(.*\):\(.*\)$/\1\/\2/' ).runfiles"
-
-   if [[ "${BASH_SOURCE}" == */execroot/*/bin/* ]]; then
-      # Examples:
-      # - ${BAZEL_HOME}/execroot/aspect_rules_py/bazel-out/darwin_arm64-fastbuild/bin/
-      #
-      # We can grab the execroot prefix, and then use the Bazel target info to
-      # find the manifest file and runfiles tree relative to the execroot.
-
-      # HACK: We can't lazy-match to the first /bin/, so we have to manually count four groups
-      EXECROOT="$(echo "${BASH_SOURCE}" | sed 's/\(execroot\/[^\/]*\/[^\/]*\/[^\/]*\/[^\/]*\/\).*$/\1/' )"
-      RUNFILES_DIR="${EXECROOT}/${RUNFILES_PATH}"
-
-   elif [[ "${BASH_SOURCE}" == *.runfiles/* ]]; then
-      # Examples:
-      # - bazel-bin/examples/py_venv/internal_venv.runfiles/aspect_rules_py/examples/py_venv/.internal_venv/bin/activate
-      #
-      # We are within the runfiles tree, so we just need to capture its root
-      RUNFILES_DIR="$(echo "${BASH_SOURCE}" | sed 's/\(.runfiles\).*$/\1/')"
-
-   elif [[ "${AEXE}" == */execroot/*/bin/* ]]; then
-      # Examples:
-      # - ${BAZEL_HOME}/execroot/aspect_rules_py/bazel-out/darwin_arm64-fastbuild/bin/
-      #
-      # We can grab the execroot prefix, and then use the Bazel target info to
-      # find the manifest file and runfiles tree relative to the execroot.
-      EXECROOT="$(echo "${AEXE}" | sed 's/\(execroot\/[^\/]*\/[^\/]*\/[^\/]*\/[^\/]*\/\).*$/\1/' )"
-      RUNFILES_DIR="${EXECROOT}/${RUNFILES_PATH}"
-
-   elif [[ "${AEXE}" == *.runfiles/* ]]; then
-      # Examples:
-      # - bazel-bin/examples/py_venv/internal_venv.runfiles/aspect_rules_py/examples/py_venv/.internal_venv/bin/activate
-      #
-      # We are within the runfiles tree, so we just need to capture its root
-      RUNFILES_DIR="$(echo "${AEXE}" | sed 's/\(.runfiles\).*$/\1/')"
-
-   else
+_activate_find_runfiles() {
+    # $1 -- an executable path
+    if [[ "${1}" == */execroot/*/bin/* ]]; then
+       # Examples:
+       # - ${BAZEL_HOME}/execroot/aspect_rules_py/bazel-out/darwin_arm64-fastbuild/bin/
        #
-       echo>&2 "ERROR: activate[.sh] cannot identify a fallback runfiles manifest!"
-       exit 1
-   fi
+       # We can grab the execroot prefix, and then use the Bazel target info to
+       # find the manifest file and runfiles tree relative to the execroot.
 
-   export RUNFILES_DIR
+       # HACK: We can't lazy-match to the first /bin/, so we have to manually count four groups
+       EXECROOT="$(echo "${1}" | sed 's/\(execroot\/[^\/]*\/[^\/]*\/[^\/]*\/[^\/]*\/\).*$/\1/' )"
+       export RUNFILES_DIR="${EXECROOT}/${RUNFILES_PATH}"
+    elif [[ "${1}" == *.runfiles/* ]]; then
+       # Examples:
+       # - bazel-bin/examples/py_venv/internal_venv.runfiles/aspect_rules_py/examples/py_venv/.internal_venv/bin/activate
+       #
+       # We are within the runfiles tree, so we just need to capture its root
+       export RUNFILES_DIR="$(echo "${1}" | sed 's/\(.runfiles\).*$/\1/')"
+    else
+        return 1
+    fi
+}
+
+if [ -z "${RUNFILES_DIR:-}" ] && \
+    [ -z "${RUNFILES_MANIFEST_FILE:-}" ] && \
+    [ ! -e "${BASH_SOURCE:-}.runfiles" ] && \
+    [ ! -e "${BASH_SOURCE:-}.runfiles_manifest" ]; then
+
+    # There are two cases here.
+    # 1. In development, the realpath will be in a /execroot/ somewhere
+    # 2. If copied to "production", the realpath will be in a .runfiles/ somewhere
+
+    RUNFILES_PATH="$(echo "${BAZEL_TARGET}" | sed 's/^.*\/\/\(.*\):\(.*\)$/\1\/\2/' ).runfiles"
+
+    set -uo pipefail;
+    _activate_find_runfiles "${BASH_SOURCE}" || \
+        _activate_find_runfiles "$(realpath "${BASH_SOURCE}")" || \
+        { echo>&2 "ERROR: activate[.sh] cannot identify a fallback runfiles manifest!"; exit 1; };
+
+    # FIXME: This should always be true, when is it not?
+    if [ -e "${RUNFILES_DIR}/MANIFEST" ]; then
+       RUNFILES_MANIFEST_FILE="${RUNFILES_DIR}/MANIFEST"
+       export RUNFILES_MANIFEST_FILE
+    fi
 fi
 
 # As a workaround for export -f under zsh, we fence this whole thing off and pipe it to /dev/null
@@ -95,18 +87,22 @@ INTERPRETER="$(realpath $(rlocation {{INTERPRETER_TARGET}}))"
 if [ "$(basename "$(dirname "$INTERPRETER")")" = "bin" ] && [ -e "$(dirname "$(dirname "$INTERPRETER")")/lib" ]; then
   # We also want to set PYTHONHOME
   # This should help avoid leakages and help us load libraries hermetically
-  export PYTHONHOME="$(dirname "$(dirname "$INTERPRETER")")"
+  PYTHONHOME="$(dirname "$(dirname "$INTERPRETER")")"
+  export PYTHONHOME
 
   # Note that since we are going to set PYTHONHOME ourselves in the case of a
   # hermetic interpreter, we need to explicitly unset that when deactivating.
   # If there was a previous PYTHONHOME, we want to reset to that.
   if [ -z "${_OLD_VIRTUAL_PYTHONHOME:-}" ]; then
-     export _OLD_VIRTUAL_PYTHONHOME="_activate_undef"
+     _OLD_VIRTUAL_PYTHONHOME="_activate_undef"
+     export _OLD_VIRTUAL_PYTHONHOME
   fi
 
   # If we've got a real interpreter, we want to put its bindir on the path.
   # We'll put the venv's bindir in front of this one eventually.
-  export PATH="$PYTHONHOME/bin:$PATH"
+  PATH="$PYTHONHOME/bin:$PATH"
+  export PATH
 fi
 
-# FIXME: Need to handle a nominal interpreter (eg. some random script, not named as "python3.X")
+# FIXME: Need to handle a nominal interpreter (eg. some random script, not named
+# as "python3.X" or an absolute path)

@@ -329,6 +329,13 @@ pub fn create_empty_venv<'a>(
             None => "".to_string(),
         };
 
+        let envvars_unset = &envvars
+            .lines()
+            .filter_map(|line| line.find('=').map(|idx| line[..idx].trim()))
+            .map(|var| format!("    unset {}", var))
+            .collect::<Vec<_>>()
+            .join("\n");
+
         let runfiles_activation: String = match venv_shim {
             Some(_) => include_str!("runfiles_interpreter.tmpl")
                 .replace("{{INTERPRETER_TARGET}}", &python.to_str().unwrap()),
@@ -339,6 +346,7 @@ pub fn create_empty_venv<'a>(
             venv.bin_dir.join("activate"),
             include_str!("activate.tmpl")
                 .replace("{{ENVVARS}}", &envvars)
+                .replace("{{ENVVARS_UNSET}}", envvars_unset)
                 .replace("{{RUNFILES_INTERPRETER}}", &runfiles_activation)
                 .replace("{{DEBUG}}", if debug { &"set -x\n" } else { &"\n" }),
         )
