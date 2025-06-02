@@ -114,10 +114,6 @@ pub struct Virtualenv {
     ///   `python_bin`:
     ///     The path of the venv's interpreter.
     ///     Presumably ${bin_dir}/python3
-    ///
-    ///   `python_version`:
-    ///     The VersionInfo tuple for the version the venv is locked to.
-    ///
     home_dir: PathBuf,
     version_info: PythonVersionInfo,
     bin_dir: PathBuf,
@@ -210,6 +206,8 @@ pub fn create_empty_venv<'a>(
     version: PythonVersionInfo,
     location: &'a Path,
     env_file: &Option<PathBuf>,
+    venv_shim: &Option<PathBuf>,
+    debug: bool,
 ) -> miette::Result<Virtualenv> {
     let build_dir = current_dir().into_diagnostic()?;
     let home_dir = &build_dir.join(location.to_path_buf());
@@ -263,24 +261,48 @@ pub fn create_empty_venv<'a>(
     // Assume that the path to `python` is relative to the _home_ of the venv,
     // and add the extra `..` to that path to drop the bin dir.
 
-    if !python.exists() {
+    if !python.exists() && venv_shim == &None {
         Err(miette!(
             "Specified interpreter {} doesn't exist!",
             python.to_str().unwrap()
         ))?
     }
-    copy(&python.to_path_buf(), &venv.python_bin).wrap_err("Unable to create interpreter")?;
-    let mut interpreter_perms = fs::metadata(python)
-        .into_diagnostic()
-        .wrap_err("Unable to read permissions for the interpreter")?
-        .permissions();
 
-    interpreter_perms.set_mode(0o755); // executable
+    // If we've been provided with a venv shim, that gets put in place as
+    // bin/python. Otherwise we copy the Python here
+    match venv_shim {
+        Some(ref shim_path) => {
+            copy(&shim_path.to_path_buf(), &venv.python_bin)
+                .wrap_err("Unable to create interpreter shim")?;
 
-    fs::set_permissions(&venv.python_bin, interpreter_perms)
-        .into_diagnostic()
-        .wrap_err("Unable to chmod interpreter")?;
+            let mut shim_perms = fs::metadata(&shim_path)
+                .into_diagnostic()
+                .wrap_err("Unable to read permissions for the interpreter shim")?
+                .permissions();
 
+            shim_perms.set_mode(0o755); // executable
+
+            fs::set_permissions(&venv.python_bin, shim_perms)
+                .into_diagnostic()
+                .wrap_err("Unable to chmod interpreter shim")?;
+        }
+
+        None => {
+            copy(&python.to_path_buf(), &venv.python_bin)
+                .wrap_err("Unable to create interpreter")?;
+
+            let mut interpreter_perms = fs::metadata(python)
+                .into_diagnostic()
+                .wrap_err("Unable to read permissions for the interpreter")?
+                .permissions();
+
+            interpreter_perms.set_mode(0o755); // executable
+
+            fs::set_permissions(&venv.python_bin, interpreter_perms)
+                .into_diagnostic()
+                .wrap_err("Unable to chmod interpreter")?;
+        }
+    }
     // Create the two local links back to the python bin.
 
     {
@@ -307,9 +329,18 @@ pub fn create_empty_venv<'a>(
             None => "".to_string(),
         };
 
+        let runfiles_activation: String = match venv_shim {
+            Some(_) => include_str!("runfiles_interpreter.tmpl")
+                .replace("{{INTERPRETER_TARGET}}", &python.to_str().unwrap()),
+            None => "".to_string(),
+        };
+
         fs::write(
             venv.bin_dir.join("activate"),
-            include_str!("activate.tmpl").replace("{{ENVVARS}}", &envvars),
+            include_str!("activate.tmpl")
+                .replace("{{ENVVARS}}", &envvars)
+                .replace("{{RUNFILES_INTERPRETER}}", &runfiles_activation)
+                .replace("{{DEBUG}}", if debug { &"set -x\n" } else { &"\n" }),
         )
         .into_diagnostic()
         .wrap_err("Unable to create activate script")?;

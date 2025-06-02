@@ -1,0 +1,105 @@
+# --- Runfiles-based interpreter setup --
+
+# If the runfiles dir is unset AND we will fail to find a runfiles manifest
+# based on inspecting $0, we need to try something different.
+#
+# What this means is that:
+#
+# - This script isn't being loaded from `bazel run`
+#
+# - The script is likely being loaded directly as "activate" rather than via a
+#   launcher binary in which case the manifest would be obvious
+#
+# So we need to try and find the runfiles manifest by other means.
+if [ -z "${RUNFILES_DIR:-}" ] \
+    && [ -z "${RUNFILES_MANIFEST_FILE:-}" ] \
+    && [ ! -e "${BASH_SOURCE}.runfiles" ] \
+    && [ ! -e "${BASH_SOURCE}.runfiles_manifest" ]; then
+
+   # There are two cases here.
+   # 1. In development, the realpath will be in a /execroot/ somewhere
+   # 2. If copied to "production", the realpath will be in a .runfiles/ somewhere
+
+   AEXE="$(realpath "${BASH_SOURCE}")"
+   RUNFILES_PATH="$(echo "${BAZEL_TARGET}" | sed 's/^.*\/\/\(.*\):\(.*\)$/\1\/\2/' ).runfiles"
+
+   if [[ "${BASH_SOURCE}" == */execroot/*/bin/* ]]; then
+      # Examples:
+      # - ${BAZEL_HOME}/execroot/aspect_rules_py/bazel-out/darwin_arm64-fastbuild/bin/
+      #
+      # We can grab the execroot prefix, and then use the Bazel target info to
+      # find the manifest file and runfiles tree relative to the execroot.
+
+      # HACK: We can't lazy-match to the first /bin/, so we have to manually count four groups
+      EXECROOT="$(echo "${BASH_SOURCE}" | sed 's/\(execroot\/[^\/]*\/[^\/]*\/[^\/]*\/[^\/]*\/\).*$/\1/' )"
+      RUNFILES_DIR="${EXECROOT}/${RUNFILES_PATH}"
+
+   elif [[ "${BASH_SOURCE}" == *.runfiles/* ]]; then
+      # Examples:
+      # - bazel-bin/examples/py_venv/internal_venv.runfiles/aspect_rules_py/examples/py_venv/.internal_venv/bin/activate
+      #
+      # We are within the runfiles tree, so we just need to capture its root
+      RUNFILES_DIR="$(echo "${BASH_SOURCE}" | sed 's/\(.runfiles\).*$/\1/')"
+
+   elif [[ "${AEXE}" == */execroot/*/bin/* ]]; then
+      # Examples:
+      # - ${BAZEL_HOME}/execroot/aspect_rules_py/bazel-out/darwin_arm64-fastbuild/bin/
+      #
+      # We can grab the execroot prefix, and then use the Bazel target info to
+      # find the manifest file and runfiles tree relative to the execroot.
+      EXECROOT="$(echo "${AEXE}" | sed 's/\(execroot\/[^\/]*\/[^\/]*\/[^\/]*\/[^\/]*\/\).*$/\1/' )"
+      RUNFILES_DIR="${EXECROOT}/${RUNFILES_PATH}"
+
+   elif [[ "${AEXE}" == *.runfiles/* ]]; then
+      # Examples:
+      # - bazel-bin/examples/py_venv/internal_venv.runfiles/aspect_rules_py/examples/py_venv/.internal_venv/bin/activate
+      #
+      # We are within the runfiles tree, so we just need to capture its root
+      RUNFILES_DIR="$(echo "${AEXE}" | sed 's/\(.runfiles\).*$/\1/')"
+
+   else
+       #
+       echo>&2 "ERROR: activate[.sh] cannot identify a fallback runfiles manifest!"
+       exit 1
+   fi
+
+   export RUNFILES_DIR
+fi
+
+# As a workaround for export -f under zsh, we fence this whole thing off and pipe it to /dev/null
+# HACK: Note that this is adjusted to use $BASH_SOURCE not $0; this works around other zsh vs bash issues
+{
+
+# --- begin runfiles.bash initialization v3 ---
+# Copy-pasted from the Bazel Bash runfiles library v3.
+# https://github.com/bazelbuild/bazel/blob/master/tools/bash/runfiles/runfiles.bash
+set -uo pipefail; set +e; f=bazel_tools/tools/bash/runfiles/runfiles.bash
+source "${RUNFILES_DIR:-/dev/null}/${f}" 2>/dev/null || \
+    source "$(grep -sm1 "^${f} " "${RUNFILES_MANIFEST_FILE:-/dev/null}" | cut -f2- -d' ')" 2>/dev/null || \
+    source "${BASH_SOURCE}.runfiles/${f}" 2>/dev/null || \
+    source "$(grep -sm1 "^${f} " "${BASH_SOURCE}.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+    source "$(grep -sm1 "^${f} " "${BASH_SOURCE}.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+    { echo>&2 "ERROR: runfiles.bash initializer cannot find ${f}. An executable rule may have forgotten to expose it in the runfiles, or the binary may require RUNFILES_DIR to be set."; exit 1; }; f=; set -e
+# --- end runfiles.bash initialization v3 ---
+
+} >/dev/null
+
+# Look up the runfiles-based interpreter and put its dir _first_ on the path.
+INTERPRETER="$(realpath $(rlocation {{INTERPRETER_TARGET}}))"
+
+# Figure out if we're dealing with just some program or a real install
+# <SOMEDIR> <- possible $PYTHONHOME
+#   bin/<SOMETHING> <- probably our interpreter
+#   lib/...         <- site-packages, etc.
+#
+if [ "$(basename "$(dirname "$INTERPRETER")")" = "bin" ] && [ -e "$(dirname "$(dirname "$INTERPRETER")")/lib" ]; then
+  # We also want to set PYTHONHOME
+  # This should help avoid leakages and help us load libraries hermetically
+  export PYTHONHOME="$(dirname "$(dirname "$INTERPRETER")")"
+
+  # If we've got a real interpreter, we want to put its bindir on the path.
+  # We'll put the venv's bindir in front of this one eventually.
+  export PATH="$PYTHONHOME/bin:$PATH"
+fi
+
+# FIXME: Need to handle a nominal interpreter (eg. some random script, not named as "python3.X")

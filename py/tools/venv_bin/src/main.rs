@@ -41,6 +41,10 @@ struct VenvArgs {
     #[arg(long)]
     python: PathBuf,
 
+    /// A shim we may want to use in place of the interpreter
+    #[arg(long)]
+    venv_shim: Option<PathBuf>,
+
     /// Destination path of the venv.
     #[arg(long)]
     location: PathBuf,
@@ -83,6 +87,9 @@ struct VenvArgs {
     /// PyRuntimeInfo.
     #[arg(long)]
     version: Option<String>,
+
+    #[arg(long, default_value_t = false)]
+    debug: bool,
 }
 
 fn venv_cmd_handler(args: VenvArgs) -> miette::Result<()> {
@@ -106,6 +113,8 @@ fn venv_cmd_handler(args: VenvArgs) -> miette::Result<()> {
                 py::venv::PythonVersionInfo::from_str(&version)?,
                 &args.location,
                 &args.env_file,
+                &args.venv_shim,
+                args.debug,
             )?;
 
             py::venv::populate_venv_with_copies(
@@ -128,6 +137,8 @@ fn venv_cmd_handler(args: VenvArgs) -> miette::Result<()> {
                 py::venv::PythonVersionInfo::from_str(&version)?,
                 &args.location,
                 &args.env_file,
+                &args.venv_shim,
+                args.debug,
             )?;
 
             py::venv::populate_venv_with_pth(

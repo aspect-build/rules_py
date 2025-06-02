@@ -12,6 +12,7 @@ rust_library(
         "src/_virtualenv.py",
         "src/activate.tmpl",
         "src/pyvenv.cfg.tmpl",
+        "src/runfiles_interpreter.tmpl",
     ],
     visibility = [
         "//py/tools/unpack_bin:__pkg__",

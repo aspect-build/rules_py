@@ -1,7 +1,6 @@
 # Adapted from CPython Lib/venv/scripts/common/activate
-#
-# This file must be used with "source bin/activate" *from bash*
-# You cannot run it directly
+
+set -eu -o pipefail
 
 deactivate () {
     # reset old environment variables
@@ -10,7 +9,11 @@ deactivate () {
         export PATH
         unset _OLD_VIRTUAL_PATH
     fi
-    if [ -n "${_OLD_VIRTUAL_PYTHONHOME:-}" ] ; then
+
+    if [ "${_OLD_VIRTUAL_PYTHONHOME:-}" == "_activate_undef" ]; then
+       unset _OLD_VIRTUAL_PYTHONHOME
+       unset PYTHONHOME
+    elif [ -n "${_OLD_VIRTUAL_PYTHONHOME:-}" ] ; then
         PYTHONHOME="${_OLD_VIRTUAL_PYTHONHOME:-}"
         export PYTHONHOME
         unset _OLD_VIRTUAL_PYTHONHOME
@@ -35,29 +38,47 @@ deactivate () {
     fi
 }
 
+{{DEBUG}}
+
 # unset irrelevant variables
 deactivate nondestructive
 
-# use the path as-is
-# HACK: $BASH_SOURCE works on real bashes, $0 works on zsh
-VIRTUAL_ENV="$(realpath "$(dirname "$(dirname "${BASH_SOURCE-$0}")")")"
-export VIRTUAL_ENV
+# For ZSH, emulate BASH_SOURCE.
+# The runfiles library code has some deps on this so we just set it :/
+: "${BASH_SOURCE:=$0}"
 
-_OLD_VIRTUAL_PATH="$PATH"
-PATH="$VIRTUAL_ENV/bin:$PATH"
-export PATH
+VIRTUAL_ENV="$(realpath "$(dirname "$(dirname "${BASH_SOURCE}")")")"
+export VIRTUAL_ENV
 
 # unset PYTHONHOME if set
 # this will fail if PYTHONHOME is set to the empty string (which is bad anyway)
-# could use `if (set -u; : $PYTHONHOME) ;` in bash
+# could use `if (set -u; : $PYTHONHOME) ;` in bash.
+#
+# Note that since we are going to set PYTHONHOME ourselves in the case of a
+# hermetic interpreter, we need to explicitly unset that when deactivating.
 if [ -n "${PYTHONHOME:-}" ] ; then
     _OLD_VIRTUAL_PYTHONHOME="${PYTHONHOME:-}"
     unset PYTHONHOME
+else
+    _OLD_VIRTUAL_PYTHONHOME="_activate_undef"
 fi
+
+_OLD_VIRTUAL_PATH="$PATH"
+
+# Aspect additions
+# We set these before runfiles initialization so that we can use it as part of a fallback path
+{{ENVVARS}}
+
+# Initialize the runfiles interpreter if we're using one. Note that this happens
+# AFTER unsetting the PYTHONHOME so that we can set PYTHONHOME if we're using a
+# full bundled interpreter.
+{{RUNFILES_INTERPRETER}}
+
+PATH="$VIRTUAL_ENV/bin:$PATH"
+export PATH
 
 # Call hash to forget past commands. Without forgetting
 # past commands the $PATH changes we made may not be respected
 hash -r 2> /dev/null
 
-# Aspect additions
-{{ENVVARS}}
+set +eu +o pipefail
