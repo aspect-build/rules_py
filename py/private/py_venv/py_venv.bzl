@@ -36,30 +36,6 @@ def _interpreter_flags(ctx):
 
     return args
 
-def _venv_preexec(ctx):
-    py_toolchain = _py_semantics.resolve_toolchain(ctx)
-    lines = []
-
-    if py_toolchain.runfiles_interpreter:
-        lines.extend([
-            """\
-# HACK: Override PYTHONHOME after bin/activate to support embedded standalone interpreter
-PYTHONHOME="$(dirname "$(dirname "$(rlocation {})")")"
-export PYTHONHOME
-""".format(to_rlocation_path(ctx, py_toolchain.python)),
-            """\
-# HACK: Shove the PYTHONHOME's bin/ _second_ on the path.
-# First on the path will be VIRTUALENV/bin which we want to stay there.
-# But we also need the interpreter's bin/ to be on the path so that it can be found.
-IFS=: read -a _arr <<< "$PATH"
-_arr=(\"${_arr[@]:0:1}\" \"${PYTHONHOME}/bin\" \"${_arr[@]:1}\")
-_ifs=\"$IFS\"; IFS=:; PATH=\"${_arr[*]}\"; IFS=\"$_ifs\"
-export PATH
-""",
-        ])
-
-    return "\n".join(lines)
-
 # FIXME: This is derived directly from the py_binary.bzl rule and should really
 # be a layer on top of it if we can figure out flowing the data around. This is
 # PoC quality.
@@ -147,7 +123,8 @@ def _py_venv_base_impl(ctx):
         executable = venv_tool,
         arguments = [
             "--location=" + venv_dir.path,
-            "--python=" + py_shim.bin.bin.path,
+            "--venv-shim=" + py_shim.bin.bin.path,
+            "--python=" + to_rlocation_path(ctx, py_toolchain.python) if py_toolchain.runfiles_interpreter else py_toolchain.python.path,
             "--pth-file=" + site_packages_pth_file.path,
             "--env-file=" + env_file.path,
             "--bin-dir=" + ctx.bin_dir.path,
@@ -158,13 +135,13 @@ def _py_venv_base_impl(ctx):
                 py_toolchain.interpreter_version_info.major,
                 py_toolchain.interpreter_version_info.minor,
             ),
-        ],
+        ] + (["--debug"] if ctx.attr.debug else []),
         inputs = rfs.merge_all([
             ctx.runfiles(files = [
                 site_packages_pth_file,
                 env_file,
                 venv_tool,
-            ]),
+            ] + py_toolchain.files.to_list()),
             py_shim.default_info.default_runfiles,
         ]).files,
         outputs = [
@@ -175,7 +152,8 @@ def _py_venv_base_impl(ctx):
     return venv_dir, rfs.merge_all([
         ctx.runfiles(files = [
             venv_dir,
-        ]),
+        ] + py_toolchain.files.to_list()),
+        ctx.attr._runfiles_lib[DefaultInfo].default_runfiles,
     ])
 
 def _py_venv_rule_impl(ctx):
@@ -193,9 +171,8 @@ def _py_venv_rule_impl(ctx):
             "{{BASH_RLOCATION_FN}}": BASH_RLOCATION_FUNCTION.strip(),
             "{{INTERPRETER_FLAGS}}": " ".join(_interpreter_flags(ctx)),
             "{{ENTRYPOINT}}": "${VIRTUAL_ENV}/bin/python",
-            "{{PRELUDE}}": "",
-            "{{PREEXEC}}": _venv_preexec(ctx),
             "{{VENV}}": to_rlocation_path(ctx, venv_dir),
+            "{{DEBUG}}": str(ctx.attr.debug).lower(),
         },
         is_executable = True,
     )
@@ -209,9 +186,9 @@ def _py_venv_rule_impl(ctx):
                 venv_dir,
             ]),
             executable = ctx.outputs.executable,
-            runfiles = rfs.merge(ctx.runfiles(files = [
-                venv_dir,
-            ])),
+            runfiles = rfs.merge(
+                ctx.runfiles(files = [venv_dir]),
+            ),
         ),
         # FIXME: Does not provide PyInfo because venvs are supposed to be terminal artifacts.
         VirtualenvInfo(
@@ -240,9 +217,6 @@ def _py_venv_binary_impl(ctx):
             py_toolchain.files,
             srcs_depset,
         ] + virtual_resolution.srcs + virtual_resolution.runfiles,
-        extra_runfiles_depsets = [
-            ctx.attr._runfiles_lib[DefaultInfo].default_runfiles,
-        ],
     )
 
     if not ctx.attr.venv:
@@ -261,9 +235,8 @@ def _py_venv_binary_impl(ctx):
         substitutions = {
             "{{BASH_RLOCATION_FN}}": BASH_RLOCATION_FUNCTION.strip(),
             "{{INTERPRETER_FLAGS}}": " ".join(_interpreter_flags(ctx)),
-            "{{PRELUDE}}": "",
-            "{{PREEXEC}}": _venv_preexec(ctx),
             "{{VENV}}": to_rlocation_path(ctx, venv_dir),
+            "{{DEBUG}}": str(ctx.attr.debug).lower(),
         },
         is_executable = True,
     )
@@ -320,6 +293,9 @@ A collision can occur when multiple packages providing the same file are install
         default = "//py/private/toolchain:resolved_venv_toolchain",
         cfg = "exec",
     ),
+    "debug": attr.bool(
+        default = False,
+    ),
 })
 
 _attrs.update(**_py_library.attrs)
@@ -370,7 +346,7 @@ py_venv_base = struct(
     cfg = python_version_transition,
 )
 
-py_venv = rule(
+_py_venv = rule(
     doc = """Build a Python virtual environment and execute its interpreter.""",
     implementation = _py_venv_rule_impl,
     attrs = py_venv_base.attrs,
@@ -379,17 +355,14 @@ py_venv = rule(
     cfg = py_venv_base.cfg,
 )
 
-def py_venv_link(venv_name = None, **kwargs):
-    """Build a Python virtual environment and produce a script to link it into the build directory."""
-    link_script = str(Label("//py/private/py_venv:link.py"))
-    py_venv_binary(
-        args = [] + (["--venv-name=" + venv_name] if venv_name else []),
-        main = link_script,
-        srcs = [link_script],
-        **kwargs
-    )
+def _wrap_with_debug(rule):
+    def helper(**kwargs):
+        kwargs["debug"] = select({Label(":debug_build"): True, "//conditions:default": False})
+        return rule(**kwargs)
 
-py_venv_binary = rule(
+    return helper
+
+_py_venv_binary = rule(
     doc = """Run a Python program under Bazel using a virtualenv.""",
     implementation = _py_venv_binary_impl,
     attrs = py_venv_base.attrs | py_venv_base.binary_attrs,
@@ -398,7 +371,7 @@ py_venv_binary = rule(
     cfg = py_venv_base.cfg,
 )
 
-py_venv_test = rule(
+_py_venv_test = rule(
     doc = """Run a Python program under Bazel using a virtualenv.""",
     implementation = _py_venv_binary_impl,
     attrs = py_venv_base.attrs | py_venv_base.binary_attrs | py_venv_base.test_attrs,
@@ -406,3 +379,20 @@ py_venv_test = rule(
     test = True,
     cfg = py_venv_base.cfg,
 )
+
+py_venv = _wrap_with_debug(_py_venv)
+py_venv_binary = _wrap_with_debug(_py_venv_binary)
+py_venv_test = _wrap_with_debug(_py_venv_test)
+
+def py_venv_link(venv_name = None, **kwargs):
+    """Build a Python virtual environment and produce a script to link it into the build directory."""
+
+    # Note that the binary is already wrapped with debug
+    link_script = str(Label("//py/private/py_venv:link.py"))
+    kwargs["debug"] = select({Label(":debug_build"): True, "//conditions:default": False})
+    py_venv_binary(
+        args = [] + (["--venv-name=" + venv_name] if venv_name else []),
+        main = link_script,
+        srcs = [link_script],
+        **kwargs
+    )
