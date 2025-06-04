@@ -3,33 +3,33 @@ load("//py/unstable:defs.bzl", "py_venv")
 
 py_venv(
     name = "test_venv_error",
+    package_collisions = "error",
+    tags = [
+        "known-to-fail",
+        "manual",
+    ],
     deps = [
         "//py/tests/py_venv_conflict/a",
         "//py/tests/py_venv_conflict/b",
     ],
-    package_collisions="error",
-    tags = [
-        "manual",
-        "known-to-fail",
-    ]
 )
 
 py_venv(
     name = "test_venv_warning",
+    package_collisions = "warning",
     deps = [
         "//py/tests/py_venv_conflict/a",
         "//py/tests/py_venv_conflict/b",
     ],
-    package_collisions="warning",
 )
 
 py_venv(
     name = "test_venv_ignore",
+    package_collisions = "ignore",
     deps = [
         "//py/tests/py_venv_conflict/a",
         "//py/tests/py_venv_conflict/b",
     ],
-    package_collisions="ignore",
 )
 
 build_test(
@@ -37,5 +37,5 @@ build_test(
     targets = [
         ":test_venv_warning",
         ":test_venv_ignore",
-    ]
+    ],
 )

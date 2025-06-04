@@ -41,6 +41,20 @@ def rust_binary(name, visibility = [], **kwargs):
                 platform = release_platform,
                 target_compatible_with = target_compatible_with,
                 tags = ["manual"],
+                crate_features = select({
+                    str(Label(":debug_build")): [
+                        "debug",
+                    ],
+                    "//conditions:default": [],
+                }),
+                rustc_flags = select({
+                    str(Label(":debug_build")): [],
+                    "//conditions:default": [
+                        "-Copt-level=3",
+                        "-Clto",
+                        "-Cstrip=symbols",
+                    ],
+                }),
                 **kwargs
             )
 

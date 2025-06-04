@@ -2,6 +2,13 @@
 # Since this is a load from private despite it being our private... sigh
 load("//py/private/toolchain:tools.bzl", "TOOL_CFGS")
 
+config_setting(
+    name = "debug_build",
+    values = {
+        "compilation_mode": "dbg",
+    },
+)
+
 [
     platform(
         name = "{}_{}".format(os, cpu),
