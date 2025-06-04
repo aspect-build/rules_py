@@ -26,7 +26,7 @@ def tree(dir_path: Path, prefix: str=''):
             yield from tree(path, prefix=prefix+extension)
 
 here = Path(".")
-print(here.absolute())
+print(here.absolute().resolve())
 for line in tree(here):
     print(line)
 
