@@ -1,31 +1,10 @@
 load("//tools/release:defs.bzl", "rust_binary")
 
-config_setting(
-    name = "debug_build",
-    values = {
-        "compilation_mode": "dbg",
-    },
-)
-
 rust_binary(
     name = "shim",
     srcs = [
         "src/main.rs",
     ],
-    crate_features = select({
-        ":debug_build": [
-            "debug",
-        ],
-        "//conditions:default": [],
-    }),
-    rustc_flags = select({
-        ":debug_build": [],
-        "//conditions:default": [
-            "-Copt-level=3",
-            "-Clto",
-            "-Cstrip=symbols",
-        ],
-    }),
     deps = [
         "@crate_index//:miette",
     ],

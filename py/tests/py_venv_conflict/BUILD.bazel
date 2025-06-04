@@ -1,0 +1,41 @@
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("//py/unstable:defs.bzl", "py_venv")
+
+py_venv(
+    name = "test_venv_error",
+    deps = [
+        "//py/tests/py_venv_conflict/a",
+        "//py/tests/py_venv_conflict/b",
+    ],
+    package_collisions="error",
+    tags = [
+        "manual",
+        "known-to-fail",
+    ]
+)
+
+py_venv(
+    name = "test_venv_warning",
+    deps = [
+        "//py/tests/py_venv_conflict/a",
+        "//py/tests/py_venv_conflict/b",
+    ],
+    package_collisions="warning",
+)
+
+py_venv(
+    name = "test_venv_ignore",
+    deps = [
+        "//py/tests/py_venv_conflict/a",
+        "//py/tests/py_venv_conflict/b",
+    ],
+    package_collisions="ignore",
+)
+
+build_test(
+    name = "py_venv_conflict",
+    targets = [
+        ":test_venv_warning",
+        ":test_venv_ignore",
+    ]
+)

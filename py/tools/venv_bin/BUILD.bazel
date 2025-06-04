@@ -21,14 +21,3 @@ alias(
         "//visibility:public",
     ],
 )
-
-platform_transition_filegroup(
-    name = "local_venv_bin",
-    srcs = [
-        ":venv",
-    ],
-    target_platform = "@bazel_tools//tools:host_platform",
-    visibility = [
-        "//visibility:public",
-    ],
-)

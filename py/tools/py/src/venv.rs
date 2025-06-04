@@ -1,14 +1,15 @@
 use crate::{
-    pth::{SitePackageOptions, SymlinkCollisionResolutionStrategy},
+    pth::{CollisionResolutionStrategy, SitePackageOptions},
     PthFile,
 };
 use miette::{miette, Context, IntoDiagnostic};
 use pathdiff::diff_paths;
+use sha256::try_digest;
 use std::{
     env::current_dir,
     fs::{self, File},
     io::{BufRead, BufReader, BufWriter, Write},
-    os::unix::fs::PermissionsExt,
+    os::unix::fs::{MetadataExt, PermissionsExt},
     path::{Path, PathBuf},
 };
 use std::{ffi::OsStr, os::unix::fs as unix_fs};
@@ -18,7 +19,7 @@ pub fn create_venv(
     python: &Path,
     location: &Path,
     pth_file: Option<PthFile>,
-    collision_strategy: SymlinkCollisionResolutionStrategy,
+    collision_strategy: CollisionResolutionStrategy,
     venv_name: &str,
 ) -> miette::Result<()> {
     if location.exists() {
@@ -133,7 +134,7 @@ fn link(original: &PathBuf, link: &PathBuf) -> miette::Result<()> {
         .wrap_err("Unable to create link target dir")?;
 
     #[cfg(feature = "debug")]
-    println!(
+    eprintln!(
         "L {} -> {}",
         link_abs.to_str().unwrap(),
         original_relative.to_str().unwrap(),
@@ -152,7 +153,7 @@ fn _copy(original: &PathBuf, link: &PathBuf) -> miette::Result<()> {
         .wrap_err("Unable to create copy target dir")?;
 
     #[cfg(feature = "debug")]
-    println!(
+    eprintln!(
         "C {} -> {}",
         link_abs.to_str().unwrap(),
         original_abs.to_str().unwrap(),
@@ -429,14 +430,21 @@ pub fn populate_venv_with_copies(
     venv: Virtualenv,
     pth_file: PthFile,
     bin_dir: PathBuf,
-    collision_strategy: SymlinkCollisionResolutionStrategy,
+    collision_strategy: CollisionResolutionStrategy,
 ) -> miette::Result<()> {
     // Assumes that `create_empty_venv` has already been called to build out the virtualenv.
     let dest = &venv.site_dir;
 
     // Get $PWD, which is the build working directory.
     let action_src_dir = current_dir().into_diagnostic()?;
+    let main_module = action_src_dir.file_name().unwrap();
     let action_bin_dir = action_src_dir.join(bin_dir);
+
+    #[cfg(feature = "debug")]
+    eprintln!("action_src_dir: {}", &action_src_dir.to_str().unwrap());
+
+    #[cfg(feature = "debug")]
+    eprintln!("action_bin_dir: {}", &action_bin_dir.to_str().unwrap());
 
     let source_pth = File::open(pth_file.src.as_path())
         .into_diagnostic()
@@ -457,6 +465,9 @@ pub fn populate_venv_with_copies(
         .into_diagnostic()?;
 
     for line in BufReader::new(source_pth).lines().map_while(Result::ok) {
+        #[cfg(feature = "debug")]
+        eprintln!("Got pth line {}", &line);
+
         let line = line.trim().to_string();
         // Entries should be of the form `<workspace>/<path>`, but may not have
         // a trailing `/` in the case of the default workspace root import that
@@ -472,14 +483,18 @@ pub fn populate_venv_with_copies(
         };
 
         #[cfg(feature = "debug")]
-        println!("Got pth entry @{}//{}", workspace, entry_path);
+        eprintln!("Got pth entry @{}//{}", workspace, entry_path);
 
         let mut entry = PathBuf::from(entry_path);
 
         // FIXME: Handle other wheel install dirs like bin?
         if entry.file_name() == Some(OsStr::new("site-packages")) {
+            #[cfg(feature = "debug")]
+            eprintln!("Entry is site-packages...");
+
             // If the entry is external then we have to adjust the path
-            if workspace != "_main" {
+            // FIXME: This isn't quite right outside of bzlmod
+            if workspace != main_module {
                 entry = PathBuf::from("external")
                     .join(PathBuf::from(workspace))
                     .join(entry)
@@ -490,6 +505,9 @@ pub fn populate_venv_with_copies(
                 let src_dir = prefix.join(&entry);
                 if src_dir.exists() {
                     create_tree(&src_dir, &venv.site_dir, &collision_strategy)?;
+                } else {
+                    #[cfg(feature = "debug")]
+                    eprintln!("Unable to find srcs under {}", src_dir.to_str().unwrap());
                 }
             }
 
@@ -536,23 +554,28 @@ pub fn populate_venv_with_copies(
 /// to the configured import roots. At runtime this will cause the booting
 /// interpreter to traverse up out of the venv and insert other workspaces'
 /// site-packages trees (and potentially other import roots) onto the path.
-///
-///
+
 pub fn populate_venv_with_pth(
     venv: Virtualenv,
     pth_file: PthFile,
     bin_dir: PathBuf,
-    collision_strategy: SymlinkCollisionResolutionStrategy,
+    collision_strategy: CollisionResolutionStrategy,
 ) -> miette::Result<()> {
     // Assumes that `create_empty_venv` has already been called to build out the virtualenv.
 
     Ok(())
 }
 
+/// TODO (arrdem 2025-06-04):
+///   This needs to be refactored into a multi-pass solution for error handling
+///   Pass 1: Collect sources, group by destination key
+///   Pass 2: Report collision error(s) all at once
+///   Pass 3: Create links
+
 pub fn create_tree(
     original: &Path,
     link_dir: &Path,
-    collision_strategy: &SymlinkCollisionResolutionStrategy,
+    collision_strategy: &CollisionResolutionStrategy,
 ) -> miette::Result<()> {
     for entry in WalkDir::new(original) {
         if let Ok(entry) = entry {
@@ -564,24 +587,43 @@ pub fn create_tree(
             if original_entry.canonicalize().unwrap().is_dir() {
                 continue;
             }
-            // Handle collisions, probably conflicting empty __init__.py files from Bazel
-            else if link_entry.exists() {
-                return Err(miette!(
-                    "Collision resolution not yet implemented! Saw {} twice",
-                    relative_entry.to_str().unwrap()
-                ));
-            }
             // Specifically avoid linking in a <root>/__init__.py file
             else if relative_entry == PathBuf::from("__init__.py") {
                 continue;
             }
+            // Handle collisions, probably conflicting empty __init__.py files from Bazel
+            else if link_entry.exists() {
+                // If the _content_ of the files is the same then we have a
+                // false collision, otherwise we have to do collision handling.
+
+                let new_hash = try_digest(&original_entry).into_diagnostic()?;
+                let existing_hash = try_digest(&link_entry).into_diagnostic()?;
+
+                if new_hash != existing_hash {
+                    match *collision_strategy {
+                        CollisionResolutionStrategy::Error => {
+                            return Err(miette!(
+                                "Collision detected on venv element {}!",
+                                relative_entry.to_str().unwrap()
+                            ))
+                        }
+                        CollisionResolutionStrategy::LastWins(true) => {
+                            eprintln!("Warning: Collision detected on venv element {}!\n  Last one wins is configured, continuing",
+                            relative_entry.to_str().unwrap()
+                        )
+                        }
+                        _ => {}
+                    }
+                }
+            }
+
             // In the case of copying bin entries, we need to patch them. Yay.
-            else if link_dir.file_name() == Some(OsStr::new("bin")) {
+            if link_dir.file_name() == Some(OsStr::new("bin")) {
                 let mut content = fs::read_to_string(original_entry).into_diagnostic()?;
                 if content.starts_with("#!/dev/null") {
                     content.replace_range(..0, &RELOCATABLE_SHEBANG);
                 }
-                fs::write(link_entry, content).into_diagnostic()?;
+                fs::write(&link_entry, content).into_diagnostic()?;
             }
             // Normal case of needing to link a file :smile:
             else {

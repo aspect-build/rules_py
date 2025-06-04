@@ -6,23 +6,19 @@ use miette::Context;
 use py;
 
 #[derive(clap::ValueEnum, Clone, Debug, Default)]
-enum SymlinkCollisionStrategy {
+enum CollisionStrategy {
     #[default]
     Error,
     Warning,
     Ignore,
 }
 
-impl Into<py::SymlinkCollisionResolutionStrategy> for SymlinkCollisionStrategy {
-    fn into(self) -> py::SymlinkCollisionResolutionStrategy {
+impl Into<py::CollisionResolutionStrategy> for CollisionStrategy {
+    fn into(self) -> py::CollisionResolutionStrategy {
         match self {
-            SymlinkCollisionStrategy::Error => py::SymlinkCollisionResolutionStrategy::Error,
-            SymlinkCollisionStrategy::Warning => {
-                py::SymlinkCollisionResolutionStrategy::LastWins(true)
-            }
-            SymlinkCollisionStrategy::Ignore => {
-                py::SymlinkCollisionResolutionStrategy::LastWins(false)
-            }
+            CollisionStrategy::Error => py::CollisionResolutionStrategy::Error,
+            CollisionStrategy::Warning => py::CollisionResolutionStrategy::LastWins(true),
+            CollisionStrategy::Ignore => py::CollisionResolutionStrategy::LastWins(false),
         }
     }
 }
@@ -68,7 +64,7 @@ struct VenvArgs {
     /// encountered when creating the venv.
     /// If none is given, an error will be thrown.
     #[arg(long)]
-    collision_strategy: Option<SymlinkCollisionStrategy>,
+    collision_strategy: Option<CollisionStrategy>,
 
     /// Name to apply to the venv in the terminal when using
     /// activate scripts.

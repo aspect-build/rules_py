@@ -1,5 +1,5 @@
 {
-  "checksum": "eb371dc49c5639c18e7f0415686de673ae7f83a972b6fd8823550485f5f63bea",
+  "checksum": "81528401c6d6fde79ca22def4e50d7ebc47f7f182a83a106d38e9e1279da39a5",
   "crates": {
     "addr2line 0.24.2": {
       "name": "addr2line",
@@ -10865,6 +10865,10 @@
               "target": "relative_path"
             },
             {
+              "id": "sha256 1.6.0",
+              "target": "sha256"
+            },
+            {
               "id": "tempfile 3.13.0",
               "target": "tempfile"
             },
@@ -16828,6 +16832,83 @@
         },
         "edition": "2018",
         "version": "0.10.8"
+      },
+      "license": "MIT OR Apache-2.0",
+      "license_ids": [
+        "Apache-2.0",
+        "MIT"
+      ],
+      "license_file": "LICENSE-APACHE"
+    },
+    "sha256 1.6.0": {
+      "name": "sha256",
+      "version": "1.6.0",
+      "package_url": "https://github.com/baoyachi/sha256-rs",
+      "repository": {
+        "Http": {
+          "url": "https://static.crates.io/crates/sha256/1.6.0/download",
+          "sha256": "f880fc8562bdeb709793f00eb42a2ad0e672c4f883bbe59122b926eca935c8f6"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "sha256",
+            "crate_root": "src/lib.rs",
+            "srcs": {
+              "allow_empty": true,
+              "include": [
+                "**/*.rs"
+              ]
+            }
+          }
+        }
+      ],
+      "library_target_name": "sha256",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": {
+          "common": [
+            "async",
+            "default",
+            "tokio"
+          ],
+          "selects": {}
+        },
+        "deps": {
+          "common": [
+            {
+              "id": "bytes 1.8.0",
+              "target": "bytes"
+            },
+            {
+              "id": "hex 0.4.3",
+              "target": "hex"
+            },
+            {
+              "id": "sha2 0.10.8",
+              "target": "sha2"
+            },
+            {
+              "id": "tokio 1.41.0",
+              "target": "tokio"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "proc_macro_deps": {
+          "common": [
+            {
+              "id": "async-trait 0.1.83",
+              "target": "async_trait"
+            }
+          ],
+          "selects": {}
+        },
+        "version": "1.6.0"
       },
       "license": "MIT OR Apache-2.0",
       "license_ids": [
@@ -27627,6 +27708,7 @@
     "miette 7.2.0",
     "pathdiff 0.2.3",
     "relative-path 1.9.3",
+    "sha256 1.6.0",
     "tempfile 3.13.0",
     "thiserror 1.0.65",
     "uv-cache 0.0.1",

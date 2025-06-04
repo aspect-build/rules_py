@@ -1,0 +1,13 @@
+load("//py:defs.bzl", "py_library")
+
+py_library(
+    name = "b",
+    srcs = [
+        "site-packages/conflict.py",
+        "site-packages/noconflict.py",
+    ],
+    imports = [
+        "site-packages",
+    ],
+    visibility = ["//py/tests/py_venv_conflict:__pkg__"],
+)

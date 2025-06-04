@@ -31,8 +31,8 @@ from .runfiles import *
 
 /// Strategy that will be used when creating the virtual env symlink and
 /// a collision is found.
-#[derive(Default, Debug)]
-pub enum SymlinkCollisionResolutionStrategy {
+#[derive(Default, Debug, PartialEq)]
+pub enum CollisionResolutionStrategy {
     /// Collisions cause a hard error.
     #[default]
     Error,
@@ -49,7 +49,7 @@ pub struct SitePackageOptions {
     pub dest: PathBuf,
 
     /// Collision strategy determining the action taken when sylinks in the venv collide.
-    pub collision_strategy: SymlinkCollisionResolutionStrategy,
+    pub collision_strategy: CollisionResolutionStrategy,
 }
 
 pub struct PthFile {
@@ -121,7 +121,7 @@ pub fn create_symlinks(
     dir: &Path,
     root_dir: &Path,
     dst_dir: &Path,
-    collision_strategy: &SymlinkCollisionResolutionStrategy,
+    collision_strategy: &CollisionResolutionStrategy,
 ) -> miette::Result<()> {
     // Create this directory at the destination.
     let tgt_dir = dst_dir.join(dir.strip_prefix(root_dir).unwrap());
@@ -176,7 +176,7 @@ fn create_symlink(
     e: &DirEntry,
     root_dir: &Path,
     dst_dir: &Path,
-    collision_strategy: &SymlinkCollisionResolutionStrategy,
+    collision_strategy: &CollisionResolutionStrategy,
 ) -> miette::Result<()> {
     let tgt = e.path();
     let link = dst_dir.join(tgt.strip_prefix(root_dir).unwrap());
@@ -232,7 +232,7 @@ fn create_symlink(
         }
 
         match collision_strategy {
-            SymlinkCollisionResolutionStrategy::LastWins(warn) => {
+            CollisionResolutionStrategy::LastWins(warn) => {
                 fs::remove_file(&link)
                     .into_diagnostic()
                     .wrap_err(
@@ -248,7 +248,7 @@ fn create_symlink(
                     eprintln!("{:?}", conflicts);
                 }
             }
-            SymlinkCollisionResolutionStrategy::Error => {
+            CollisionResolutionStrategy::Error => {
                 // If the link already exists, then there is going to be a conflict.
                 let conflicts = conflict_report(&link, &tgt, Severity::Error);
                 return Err(conflicts);
