@@ -31,6 +31,11 @@ for line in tree(Path(".")):
 print("---")
 
 import sys
+for e in sys.path:
+    print("-", e)
+
+print("---")
+
 print(sys.prefix)
 
 import conflict
