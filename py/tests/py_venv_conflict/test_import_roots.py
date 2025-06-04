@@ -4,10 +4,10 @@ from pathlib import Path
 
 # prefix components:
 space =  '    '
-branch = '│   '
+branch = '|   '
 # pointers:
-tee =    '├── '
-last =   '└── '
+tee =    '+-- '
+last =   '+-- '
 
 
 def tree(dir_path: Path, prefix: str=''):
