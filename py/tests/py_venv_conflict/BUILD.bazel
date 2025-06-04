@@ -5,10 +5,10 @@ load("//py/unstable:defs.bzl", "py_venv", "py_venv_test")
 py_library(
     name = "lib",
     srcs = [
-        "lib.py"
+        "lib.py",
     ],
     imports = [
-        ".."
+        "..",
     ],
 )
 
@@ -56,7 +56,7 @@ build_test(
 
 py_venv_test(
     name = "validate_import_roots",
-    main = "test_import_roots.py",
     srcs = ["test_import_roots.py"],
+    main = "test_import_roots.py",
     venv = ":test_venv_ignore",
 )
