@@ -25,7 +25,8 @@ def tree(dir_path: Path, prefix: str=''):
             # i.e. space because last, └── , above so no more |
             yield from tree(path, prefix=prefix+extension)
 
-tree(Path("."))
+for line in tree("."):
+    print(line)
 
 print("---")
 
