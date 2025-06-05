@@ -10,6 +10,7 @@ rust_library(
     ],
     data = [
         "src/_virtualenv.py",
+        "src/_aspect.py",
         "src/activate.tmpl",
         "src/pyvenv.cfg.tmpl",
         "src/runfiles_interpreter.tmpl",

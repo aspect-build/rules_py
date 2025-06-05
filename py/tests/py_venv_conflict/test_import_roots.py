@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
 
+import os
+for k, v in os.environ.items():
+    if k.startswith("BUILD_") or k.startswith("RUNFILES_"):
+        print(k, ":", v)
+
+print("---")
+
 from pathlib import Path
 
 # prefix components:
