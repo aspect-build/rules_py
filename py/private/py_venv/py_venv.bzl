@@ -57,6 +57,7 @@ def _py_venv_base_impl(ctx):
 
     # Check for duplicate virtual dependency names. Those that map to the same resolution target would have been merged by the depset for us.
     virtual_resolution = _py_library.resolve_virtuals(ctx)
+
     # Note that this adds the workspace root for us (sigh), don't need to add to it
     imports_depset = _py_library.make_imports_depset(ctx, extra_imports_depsets = virtual_resolution.imports)
 
