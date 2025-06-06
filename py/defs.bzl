@@ -146,6 +146,7 @@ def py_test(name, srcs = [], main = None, pytest_main = False, tags = [], **kwar
             that is used as the main.
         pytest_main: If set, generate a [py_pytest_main](#py_pytest_main) script and use it as the main.
             The deps should include the pytest package (as well as the coverage package if desired).
+        tags: If set, tags to be passed to generated targets (e.g. [py_pytest_main](#py_pytest_main)).
         **kwargs: additional named parameters to `py_binary_rule`.
     """
 

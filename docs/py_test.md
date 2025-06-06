@@ -109,7 +109,7 @@ Identical to [py_binary](./py_binary.md), but produces a target that can be used
 | <a id="py_test-srcs"></a>srcs |  Python source files.   |  <code>[]</code> |
 | <a id="py_test-main"></a>main |  Entry point. Like rules_python, this is treated as a suffix of a file that should appear among the srcs. If absent, then <code>[name].py</code> is tried. As a final fallback, if the srcs has a single file, that is used as the main.   |  <code>None</code> |
 | <a id="py_test-pytest_main"></a>pytest_main |  If set, generate a [py_pytest_main](#py_pytest_main) script and use it as the main. The deps should include the pytest package (as well as the coverage package if desired).   |  <code>False</code> |
-| <a id="py_test-tags"></a>tags |  Tags to passed to generated rules (e.g. [py_pytest_main](#py_pytest_main))   |  <code>[]</code> |
+| <a id="py_test-tags"></a>tags |  If set, tags to be passed to generated targets (e.g. [py_pytest_main](#py_pytest_main)).   |  <code>[]</code> |
 | <a id="py_test-kwargs"></a>kwargs |  additional named parameters to <code>py_binary_rule</code>.   |  none |
 
 
