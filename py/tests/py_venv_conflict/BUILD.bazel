@@ -1,5 +1,16 @@
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
-load("//py/unstable:defs.bzl", "py_venv")
+load("//py:defs.bzl", "py_library")
+load("//py/unstable:defs.bzl", "py_venv", "py_venv_test")
+
+py_library(
+    name = "lib",
+    srcs = [
+        "lib.py",
+    ],
+    imports = [
+        "..",
+    ],
+)
 
 py_venv(
     name = "test_venv_error",
@@ -9,6 +20,7 @@ py_venv(
         "manual",
     ],
     deps = [
+        ":lib",
         "//py/tests/py_venv_conflict/a",
         "//py/tests/py_venv_conflict/b",
     ],
@@ -18,6 +30,7 @@ py_venv(
     name = "test_venv_warning",
     package_collisions = "warning",
     deps = [
+        ":lib",
         "//py/tests/py_venv_conflict/a",
         "//py/tests/py_venv_conflict/b",
     ],
@@ -27,6 +40,7 @@ py_venv(
     name = "test_venv_ignore",
     package_collisions = "ignore",
     deps = [
+        ":lib",
         "//py/tests/py_venv_conflict/a",
         "//py/tests/py_venv_conflict/b",
     ],
@@ -38,4 +52,11 @@ build_test(
         ":test_venv_warning",
         ":test_venv_ignore",
     ],
+)
+
+py_venv_test(
+    name = "validate_import_roots",
+    srcs = ["test_import_roots.py"],
+    main = "test_import_roots.py",
+    venv = ":test_venv_ignore",
 )

@@ -57,19 +57,13 @@ def _py_venv_base_impl(ctx):
 
     # Check for duplicate virtual dependency names. Those that map to the same resolution target would have been merged by the depset for us.
     virtual_resolution = _py_library.resolve_virtuals(ctx)
+
+    # Note that this adds the workspace root for us (sigh), don't need to add to it
     imports_depset = _py_library.make_imports_depset(ctx, extra_imports_depsets = virtual_resolution.imports)
 
     pth_lines = ctx.actions.args()
     pth_lines.use_param_file("%s", use_always = True)
     pth_lines.set_param_file_format("multiline")
-
-    # FIXME: This was hardcoded in the original rule_py venv and is preserved
-    # for compatibility. Repo-absolute imports are Bad (TM) and shouldn't be on
-    # by default. I believe that as of recent rules_python, creating these
-    # repo-absolute imports is handled as part of the PyInfo calculation. If we
-    # get this from rules_python, it should be removed. Or it should be moved so
-    # that we calculate it as part of the imports depset logic.
-    pth_lines.add(".")
     pth_lines.add_all(imports_depset)
 
     site_packages_pth_file = ctx.actions.declare_file("{}.pth".format(ctx.attr.name))
