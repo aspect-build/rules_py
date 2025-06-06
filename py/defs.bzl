@@ -134,7 +134,7 @@ def py_binary(name, srcs = [], main = None, **kwargs):
         **kwargs
     )
 
-def py_test(name, srcs = [], main = None, pytest_main = False, **kwargs):
+def py_test(name, srcs = [], main = None, pytest_main = False, tags = [], **kwargs):
     """Identical to [py_binary](./py_binary.md), but produces a target that can be used with `bazel test`.
 
     Args:
@@ -146,6 +146,7 @@ def py_test(name, srcs = [], main = None, pytest_main = False, **kwargs):
             that is used as the main.
         pytest_main: If set, generate a [py_pytest_main](#py_pytest_main) script and use it as the main.
             The deps should include the pytest package (as well as the coverage package if desired).
+        tags: If set, tags to be passed to generated targets (e.g. [py_pytest_main](#py_pytest_main)).
         **kwargs: additional named parameters to `py_binary_rule`.
     """
 
@@ -164,7 +165,7 @@ def py_test(name, srcs = [], main = None, pytest_main = False, **kwargs):
             fail("When pytest_main is set, the main attribute should not be set.")
         pytest_main_target = name + ".pytest_main"
         main = pytest_main_target + ".py"
-        py_pytest_main(name = pytest_main_target)
+        py_pytest_main(name = pytest_main_target, tags=tags)
         srcs.append(main)
         deps.append(pytest_main_target)
 
@@ -175,5 +176,6 @@ def py_test(name, srcs = [], main = None, pytest_main = False, **kwargs):
         deps = deps,
         main = main,
         resolutions = resolutions,
+		tags = tags,
         **kwargs
     )
