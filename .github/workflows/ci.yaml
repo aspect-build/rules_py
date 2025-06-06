@@ -41,9 +41,33 @@ jobs:
 
   pre-commit:
     runs-on: ubuntu-latest
+    if: always()
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
       - uses: pre-commit/action@v3.0.1
+        inputs:
+          extra_args: '--to-ref=HEAD --from-ref=${{ github.base_ref }}'
+      - name: Send automated commit
+        run: |
+          if ! git diff --quiet; then
+            git commit \
+              --author="aspect-marvin[bot] <marvin@aspect.build>" \
+              --all \
+              --message="Format"
+
+            for backoff in 5 10 15 20 25 30 runout; do
+              if ! git push; then
+                sleep $backoff
+              elif [ "$backoff" = "runout" ]; then
+                echo "ERROR: Failed to push commits!" >&2
+                exit 1
+              else
+                break
+              fi
+            done
+          fi
 
   verify-bcr-patches:
     runs-on: ubuntu-latest
