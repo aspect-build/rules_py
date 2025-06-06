@@ -44,3 +44,11 @@ repos:
         entry: /usr/bin/env bazel run //docs:update
         language: script
         files: \.bzl$
+
+  - repo: local
+    hooks:
+      - id: check-manifets
+        name: Update gazelle manifest
+        entry: /usr/bin/env bazel run //:gazelle_python_manifest.update
+        language: script
+        files: requirements.txt\$
