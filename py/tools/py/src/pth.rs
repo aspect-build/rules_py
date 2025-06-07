@@ -93,7 +93,9 @@ impl PthFile {
             line.clear();
 
             match entry.file_name() {
+     
                 Some(name) if name == "site-packages" => {
+                    println!("{:#?}", dest.join(entry.clone()));
                     let src_dir = dest
                         .join(entry.clone())
                         .canonicalize()
