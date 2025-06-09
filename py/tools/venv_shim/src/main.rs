@@ -113,7 +113,7 @@ fn main() -> miette::Result<()> {
     let Some(pyvenv_cfg_path) = find_pyvenv_cfg(&venv_interpreter_path) else {
         return Err(miette!(
             help = format!("VIRTUAL_ENV was {:?}", &venv_home_path),
-            "The virtual environment is either incorrectly structured or was incorrectly dectected",
+            "The virtual environment is either incorrectly structured or was incorrectly detected",
         )
         .wrap_err("pyvenv.cfg not found!"));
     };

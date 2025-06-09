@@ -2511,9 +2511,9 @@ files:
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_venv_image_layer/.my_app_bin/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_venv_image_layer/.my_app_bin/bin/
   - -rwxr-xr-x  0 0      0        8099 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_venv_image_layer/.my_app_bin/bin/activate
-  - -rwxr-xr-x  0 0      0      813320 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_venv_image_layer/.my_app_bin/bin/python
-  - -rwxr-xr-x  0 0      0      813320 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_venv_image_layer/.my_app_bin/bin/python3
-  - -rwxr-xr-x  0 0      0      813320 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_venv_image_layer/.my_app_bin/bin/python3.9
+  - -rwxr-xr-x  0 0      0      817416 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_venv_image_layer/.my_app_bin/bin/python
+  - -rwxr-xr-x  0 0      0      817416 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_venv_image_layer/.my_app_bin/bin/python3
+  - -rwxr-xr-x  0 0      0      817416 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_venv_image_layer/.my_app_bin/bin/python3.9
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_venv_image_layer/.my_app_bin/lib/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_venv_image_layer/.my_app_bin/lib/python3.9/
   - -rwxr-xr-x  0 0      0         323 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_venv_image_layer/.my_app_bin/pyvenv.cfg
