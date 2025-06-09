@@ -77,17 +77,28 @@ fn find_python_executables(version_from_cfg: &str, exclude_dir: &Path) -> Option
 }
 
 fn main() -> miette::Result<()> {
-    let venv_home_path = PathBuf::from(
-        env::var("VIRTUAL_ENV")
-            .into_diagnostic()
-            .wrap_err("[aspect] $VIRTUAL_ENV was unbound! A venv must be activated.")
-            .unwrap(),
-    );
+    let venv_home_path = env::var("VIRTUAL_ENV")
+        .map(PathBuf::from)
+        .into_diagnostic()
+        .map_err(|e| {
+            miette!(
+                help = format!(
+                    "The activate script should be available as {:?}",
+                    env::current_exe()
+                        .unwrap()
+                        .parent()
+                        .unwrap()
+                        .join("activate")
+                ),
+                "{e}",
+            )
+            .wrap_err("$VIRTUAL_ENV was unbound! A venv must be activated")
+        })?;
 
     let venv_interpreter_path: PathBuf = env::var("PYTHONEXECUTABLE")
         .map(PathBuf::from)
-        .map_err(|_| Ok::<PathBuf, VarError>(venv_home_path.join("bin/python")))
-        .unwrap();
+        .or_else(|_| Ok::<PathBuf, VarError>(venv_home_path.join("bin/python")))
+        .into_diagnostic()?;
 
     let excluded_interpreters_dir = &venv_home_path.join("bin");
 
@@ -100,8 +111,13 @@ fn main() -> miette::Result<()> {
     );
 
     let Some(pyvenv_cfg_path) = find_pyvenv_cfg(&venv_interpreter_path) else {
-        return Err(miette!("pyvenv.cfg not found one directory level up."));
+        return Err(miette!(
+            help = format!("VIRTUAL_ENV was {:?}", &venv_home_path),
+            "The virtual environment is either incorrectly structured or was incorrectly dectected",
+        )
+        .wrap_err("pyvenv.cfg not found!"));
     };
+
     #[cfg(feature = "debug")]
     eprintln!("[aspect] Found pyvenv.cfg at: {:?}", &pyvenv_cfg_path);
 
@@ -114,14 +130,22 @@ fn main() -> miette::Result<()> {
         .unwrap();
 
     let Some(version_info) = version_info_result else {
-        return Err(miette!("version_info key not found in pyvenv.cfg."));
+        return Err(miette!(
+            help = format!("pyvenv.cfg must specify the version_info= key"),
+            "The virtual environment is incorrectly built or was incorrectly detected"
+        )
+        .wrap_err("version_info key not found in pyvenv.cfg."));
     };
 
     #[cfg(feature = "debug")]
     eprintln!("[aspect] version_info from pyvenv.cfg: {:?}", &version_info);
 
     let Some(target_python_version) = parse_version_info(&version_info) else {
-        return Err(miette!("Could not parse version_info as x.y."));
+        return Err(miette!(
+            help = format!("Provided version info was {:?}", &version_info),
+            "Could not parse version_info as `x.y.z`"
+        )
+        .wrap_err("Unable to determine interpreter revision"));
     };
 
     #[cfg(feature = "debug")]
