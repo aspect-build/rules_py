@@ -15,11 +15,7 @@ virtualenv_home = os.path.realpath(os.environ["VIRTUAL_ENV"])
 virtualenv_name = os.path.basename(virtualenv_home)
 runfiles_dir = os.path.realpath(os.environ["RUNFILES_DIR"])
 builddir = os.path.realpath(os.environ["BUILD_WORKING_DIRECTORY"])
-
-# Chop off the runfiles tree prefix
-virtualenv_path = virtualenv_home.lstrip(runfiles_dir).lstrip("/")
-# Chop off the repo name to get a repo-relative path
-virtualenv_path = virtualenv_path[virtualenv_path.find("/"):]
+target_package, target_name = os.environ["BAZEL_TARGET"].split("//", 1)[1].split(":")
 
 PARSER = argparse.ArgumentParser(
     prog="link",
@@ -36,7 +32,7 @@ PARSER.add_argument(
 PARSER.add_argument(
     "--dest",
     dest="dest",
-    default=os.path.join(builddir, os.path.dirname(virtualenv_path)),
+    default=os.path.join(builddir, target_package),
     help="Dir to link the virtualenv into",
 )
 
