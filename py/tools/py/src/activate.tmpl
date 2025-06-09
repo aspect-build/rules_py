@@ -58,8 +58,14 @@ deactivate nondestructive
 # The runfiles library code has some deps on this so we just set it :/
 : "${BASH_SOURCE:=$0}"
 
-VIRTUAL_ENV="$(realpath "$(dirname "$(dirname "${BASH_SOURCE}")")")"
+VIRTUAL_ENV="$(dirname "$(dirname "${BASH_SOURCE}")")"
 export VIRTUAL_ENV
+
+# HACK: (Ab)use the MacOS $PYTHONEXECUTABLE to record the `.runfiles`-relative
+# interpreter path. This helps us avoid issues with the interpreter's path being
+# `realpath`-ed in such a way that it escapes the `.runfiles` tree.
+PYTHONEXECUTABLE="${VIRTUAL_ENV}/bin/python"
+export PYTHONEXECUTABLE
 
 # unset PYTHONHOME if set
 # this will fail if PYTHONHOME is set to the empty string (which is bad anyway)

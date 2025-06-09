@@ -80,7 +80,7 @@ source "${RUNFILES_DIR:-/dev/null}/${f}" 2>/dev/null || \
 } >/dev/null
 
 # Look up the runfiles-based interpreter and put its dir _first_ on the path.
-INTERPRETER="$(realpath $(rlocation {{INTERPRETER_TARGET}}))"
+INTERPRETER="$(rlocation {{INTERPRETER_TARGET}})"
 
 # Figure out if we're dealing with just some program or a real install
 # <SOMEDIR> <- possible $PYTHONHOME

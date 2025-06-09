@@ -45,7 +45,7 @@ platform_transition_filegroup(
 )
 
 assert_tar_listing(
-    name = "my_app_amd64_layers_test",
+    name = "my_app_amd64_layers",
     actual = [":amd64_layers"],
     expected = ":my_app_amd64_layers_listing.yaml",
 )
@@ -57,7 +57,7 @@ platform_transition_filegroup(
 )
 
 assert_tar_listing(
-    name = "my_app_arm64_layers_test",
+    name = "my_app_arm64_layers",
     actual = [":arm64_layers"],
     expected = ":my_app_arm64_layers_listing.yaml",
 )
