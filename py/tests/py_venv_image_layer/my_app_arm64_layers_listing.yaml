@@ -2491,7 +2491,7 @@ files:
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_venv_image_layer/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_venv_image_layer/.my_app_bin/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_venv_image_layer/.my_app_bin/bin/
-  - -rwxr-xr-x  0 0      0        8100 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_venv_image_layer/.my_app_bin/bin/activate
+  - -rwxr-xr-x  0 0      0        8620 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_venv_image_layer/.my_app_bin/bin/activate
   - -rwxr-xr-x  0 0      0      698064 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_venv_image_layer/.my_app_bin/bin/python
   - -rwxr-xr-x  0 0      0      698064 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_venv_image_layer/.my_app_bin/bin/python3
   - -rwxr-xr-x  0 0      0      698064 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_venv_image_layer/.my_app_bin/bin/python3.9
