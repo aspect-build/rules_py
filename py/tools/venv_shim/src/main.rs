@@ -170,7 +170,7 @@ fn main() -> miette::Result<()> {
     {
         eprintln!("[aspect] Found potential Python interpreters in PATH with matching version:");
         for exe in &python_executables {
-            println!("[aspect] - {:?}", exe);
+            eprintln!("[aspect] - {:?}", exe);
         }
     }
 
