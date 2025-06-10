@@ -70,7 +70,7 @@ export PYTHONEXECUTABLE
 # unset PYTHONHOME if set
 # this will fail if PYTHONHOME is set to the empty string (which is bad anyway)
 # could use `if (set -u; : $PYTHONHOME) ;` in bash.
-_OLD_VIRTUAL_PYTHONHOME="${PYTHONHOME:-}"
+_OLD_VIRTUAL_PYTHONHOME="${PYTHONHOME:-_activate_undef}"
 unset PYTHONHOME
 
 _OLD_VIRTUAL_PATH="$PATH"
@@ -85,6 +85,24 @@ _OLD_VIRTUAL_PATH="$PATH"
 # can provide some fallback handling around runfiles too.
 {{RUNFILES_INTERPRETER}}
 
+_abspath() {
+    "${PYTHONEXECUTABLE}" -c 'import os, sys; print(os.path.abspath(sys.argv[1]))' "$@"
+}
+
+# Re-export abspath'd vars
+# This allows us to avoid relative path issues without incurring sandbox escapes
+VIRTUAL_ENV="$(_abspath "${VIRTUAL_ENV}")"
+export VIRTUAL_ENV
+
+PYTHONEXECUTABLE="$(_abspath "${PYTHONEXECUTABLE}")"
+export PYTHONEXECUTABLE
+
+if [ -n "${PYTHONHOME:-}" ]; then
+  PYTHONHOME="$(_abspath "${PYTHONHOME}")"
+  export PYTHONHOME
+fi
+
+# Now we can put the venv's absolute bin on the path
 PATH="$VIRTUAL_ENV/bin:$PATH"
 export PATH
 

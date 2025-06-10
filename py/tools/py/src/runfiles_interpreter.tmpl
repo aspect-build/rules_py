@@ -1,4 +1,4 @@
-# --- Runfiles-based interpreter setup --
+# --- Runfiles-based interpreter setup ---
 
 # If the runfiles dir is unset AND we will fail to find a runfiles manifest
 # based on inspecting $0, we need to try something different.
@@ -22,7 +22,7 @@ _activate_find_runfiles() {
        # find the manifest file and runfiles tree relative to the execroot.
 
        # HACK: We can't lazy-match to the first /bin/, so we have to manually count four groups
-       EXECROOT="$(echo "${1}" | sed 's/\(execroot\/[^\/]*\/[^\/]*\/[^\/]*\/[^\/]*\/\).*$/\1/' )"
+       EXECROOT="$(echo "${1}" | sed 's/\(execroot\/[^\/]*\/[^\/]*\/[^\/]*\/[^\/]*\).*$/\1/' )"
        export RUNFILES_DIR="${EXECROOT}/${RUNFILES_PATH}"
     elif [[ "${1}" == *.runfiles/* ]]; then
        # Examples:
