@@ -351,7 +351,7 @@ _py_venv = rule(
 
 def _wrap_with_debug(rule):
     def helper(**kwargs):
-        kwargs["debug"] = select({Label(":debug_build"): True, "//conditions:default": False})
+        kwargs["debug"] = select({Label(":debug_venv_setting"): True, "//conditions:default": False})
         return rule(**kwargs)
 
     return helper
@@ -383,7 +383,7 @@ def py_venv_link(venv_name = None, **kwargs):
 
     # Note that the binary is already wrapped with debug
     link_script = str(Label("//py/private/py_venv:link.py"))
-    kwargs["debug"] = select({Label(":debug_build"): True, "//conditions:default": False})
+    kwargs["debug"] = select({Label(":debug_venv_setting"): True, "//conditions:default": False})
     py_venv_binary(
         args = [] + (["--venv-name=" + venv_name] if venv_name else []),
         main = link_script,

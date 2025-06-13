@@ -46,9 +46,7 @@ if __name__ == "__main__":
         default=munge_venv_name(target_package, virtualenv_name),
         help="Name to link the virtualenv as.",
     )
-
     
-    PARSER.print_help(sys.stdout)
     opts = PARSER.parse_args()
     dest = Path(os.path.join(opts.dest, opts.name))
     print("""
@@ -68,7 +66,7 @@ Linking: {venv_home} -> {venv_path}
             dest.unlink()
         except FileNotFoundError:
             pass
-    
+
         # From -> to
         dest.symlink_to(virtualenv_home, target_is_directory=True)
         print("Link created!")
