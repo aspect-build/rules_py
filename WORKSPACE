@@ -57,6 +57,12 @@ load("@musl_toolchains//:toolchains.bzl", "register_musl_toolchains")
 register_musl_toolchains()
 
 ############################################
+## rules_cc; needed for llvm
+load("@rules_cc//cc:repositories.bzl", "rules_cc_dependencies", "rules_cc_toolchains")
+
+rules_cc_dependencies()
+
+############################################
 ## CC toolchain using llvm
 load("@toolchains_llvm//toolchain:deps.bzl", "bazel_toolchain_dependencies")
 
@@ -144,9 +150,9 @@ load("@rules_rust//rust:repositories.bzl", "rules_rust_dependencies", "rust_regi
 
 rules_rust_dependencies()
 
-RUST_EDITION = "2021"
+RUST_EDITION = "2024"
 
-RUST_VERSION = "1.81.0"
+RUST_VERSION = "1.87.0"
 
 # Declare cross-compilation toolchains
 rust_repository_set(

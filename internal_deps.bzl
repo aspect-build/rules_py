@@ -67,6 +67,20 @@ def rules_py_internal_deps():
         ],
     )
 
+    http_archive(
+        name = "com_google_protobuf",
+        urls = ["https://github.com/protocolbuffers/protobuf/releases/download/v27.0/protobuf-27.0.tar.gz"],
+        sha256 = "da288bf1daa6c04d03a9051781caa52aceb9163586bff9aa6cfb12f69b9395aa",
+        strip_prefix = "protobuf-27.0",
+    )
+
+    http_archive(
+        name = "rules_cc",
+        urls = ["https://github.com/bazelbuild/rules_cc/releases/download/0.1.2/rules_cc-0.1.2.tar.gz"],
+        sha256 = "d62624b45e0912713dcd3b8e30ba6ae55418ed6bf99e6d135cd61b8addae312b",
+        strip_prefix = "rules_cc-0.1.2",
+    )
+
     HERMETIC_CC_TOOLCHAIN_VERSION = "v2.2.1"
 
     http_archive(
@@ -101,8 +115,8 @@ def rules_py_internal_deps():
 
     http_archive(
         name = "rules_rust",
-        integrity = "sha256-heIBNyerJvsiq9/+SyrAwnotW2KWFnumPY9uExQPUfk=",
-        urls = ["https://github.com/bazelbuild/rules_rust/releases/download/0.53.0/rules_rust-v0.53.0.tar.gz"],
+        integrity = "sha256-U8G6x+xI985IxMHGqgBvJ1Fa3SrrBXJZNyJObgDsfOo=",
+        urls = ["https://github.com/bazelbuild/rules_rust/releases/download/0.61.0/rules_rust-0.61.0.tar.gz"],
     )
 
     http_file(

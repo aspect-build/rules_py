@@ -48,7 +48,7 @@ register_toolchains(
 
 bazel_dep(
     name = "rules_rust",
-    version = "0.53.0",
+    version = "0.61.0",
     # In released versions: dev_dependency = True
 )
 
@@ -58,8 +58,8 @@ rust = use_extension(
     # In released versions: dev_dependency = True
 )
 rust.toolchain(
-    edition = "2021",
-    versions = ["1.81.0"],
+    edition = "2024",
+    versions = ["1.87.0"],
 )
 use_repo(rust, "rust_toolchains")
 
