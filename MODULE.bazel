@@ -14,7 +14,7 @@ module(
 # py_image_layer needs repo_mapping fix.
 bazel_dep(name = "aspect_bazel_lib", version = "2.16.0")
 bazel_dep(name = "bazel_skylib", version = "1.4.2")
-bazel_dep(name = "rules_python", version = "0.29.0")
+bazel_dep(name = "rules_python", version = "1.4.1")
 bazel_dep(name = "platforms", version = "0.0.7")
 
 bazel_lib = use_extension("@aspect_bazel_lib//lib:extensions.bzl", "toolchains")
@@ -26,6 +26,22 @@ python.toolchain(
     is_default = False,
     python_version = "3.9",
 )
+
+pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip", dev_dependency = True)
+pip.parse(
+    hub_name = "pypi",
+    python_version = "3.9",
+    requirements_lock = "//:requirements.txt",
+)
+
+pip.parse(
+    hub_name = "pypi_django",
+    python_version = "3.9",
+    requirements_lock = "//:requirements.txt",
+)
+
+use_repo(pip, "pypi", "pypi_django")
+
 
 tools = use_extension("//py:extensions.bzl", "py_tools")
 tools.rules_py_tools()
@@ -110,3 +126,6 @@ oci.pull(
     tag = "latest",
 )
 use_repo(oci, "ubuntu", "ubuntu_linux_amd64", "ubuntu_linux_arm64_v8")
+
+bazel_dep(name = "rules_go", version = "0.39.1", repo_name = "io_bazel_rules_go", dev_dependency = True)
+bazel_dep(name = "gazelle", version = "0.31.0", repo_name = "bazel_gazelle", dev_dependency = True)
