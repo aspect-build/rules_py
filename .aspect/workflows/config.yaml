@@ -10,64 +10,64 @@ workspaces:
 tasks:
   - test:
       name: test-os:linux-bzl:head
-      queue: linux-runners
+      queue: aspect-default
       hooks:
         - type: before_task
           command: |
             echo "HEAD" > .bazelversion
 
-  - test:
-      name: test-os:mac-bzl:head
-      queue: mac-runners
-      hooks:
-        - type: before_task
-          command: |
-            echo "HEAD" > .bazelversion
+  # - test:
+  #     name: test-os:mac-bzl:head
+  #     queue: mac-runners
+  #     hooks:
+  #       - type: before_task
+  #         command: |
+  #           echo "HEAD" > .bazelversion
 
   - test:
       name: test-os:linux-bzl:8
-      queue: linux-runners
+      queue: aspect-default
       hooks:
         - type: before_task
           command: |
             echo "8" > .bazelversion
 
-  - test:
-      name: test-os:mac-bzl:8
-      queue: mac-runners
-      hooks:
-        - type: before_task
-          command: |
-            echo "8" > .bazelversion
+  # - test:
+  #     name: test-os:mac-bzl:8
+  #     queue: mac-runners
+  #     hooks:
+  #       - type: before_task
+  #         command: |
+  #           echo "8" > .bazelversion
 
   - test:
       name: test-os:linux-bzl:7
-      queue: linux-runners
+      queue: aspect-default
       hooks:
         - type: before_task
           command: |
             echo "7" > .bazelversion
 
-  - test:
-      name: test-os:mac-bzl:7
-      queue: mac-runners
-      hooks:
-        - type: before_task
-          command: |
-            echo "7" > .bazelversion
+  # - test:
+  #     name: test-os:mac-bzl:7
+  #     queue: mac-runners
+  #     hooks:
+  #       - type: before_task
+  #         command: |
+  #           echo "7" > .bazelversion
 
   - test:
       name: test-os:linux-bzl:6
-      queue: linux-runners
+      queue: aspect-default
       hooks:
         - type: before_task
           command: |
             echo "6" > .bazelversion
 
-  - test:
-      name: test-os:mac-bzl:6
-      queue: mac-runners
-      hooks:
-        - type: before_task
-          command: |
-            echo "6" > .bazelversion
+  # - test:
+  #     name: test-os:mac-bzl:6
+  #     queue: mac-runners
+  #     hooks:
+  #       - type: before_task
+  #         command: |
+  #           echo "6" > .bazelversion
