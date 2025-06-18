@@ -385,7 +385,7 @@ def py_venv_link(venv_name = None, **kwargs):
     link_script = str(Label("//py/private/py_venv:link.py"))
     kwargs["debug"] = select({Label(":debug_build"): True, "//conditions:default": False})
     py_venv_binary(
-        args = [] + (["--venv-name=" + venv_name] if venv_name else []),
+        args = [] + (["--name=" + venv_name] if venv_name else []),
         main = link_script,
         srcs = [link_script],
         **kwargs
