@@ -1,7 +1,95 @@
 # See https://docs.aspect.build/workflows/configuration
-tasks:
-  - test:
-  - finalization:
-      queue: aspect-small
-notifications:
-  github: {}
+---
+workspaces:
+  e2e/smoke:
+    tasks:
+
+      bazelHEAD__linux:
+        target: //...
+        name: test
+        hook: echo "HEAD" > .bazelversion
+        queue: linux-runners
+      bazelHEAD__mac:
+        target: //...
+        name: test
+        hook: echo "HEAD" > .bazelversion
+        queue: mac-runners
+      bazel8__linux:
+        target: //...
+        name: test
+        hook: echo "8" > .bazelversion
+        queue: linux-runners
+      bazel8__mac:
+        target: //...
+        name: test
+        hook: echo "8" > .bazelversion
+        queue: mac-runners
+
+    e2e/repository-rule-deps:
+      tasks:
+        bazelHEAD__linux:
+          target: //...
+          name: test
+          hook: echo "HEAD" > .bazelversion
+          queue: linux-runners
+        bazelHEAD__mac:
+          target: //...
+          name: test
+          hook: echo "HEAD" > .bazelversion
+          queue: mac-runners
+        bazel8__linux:
+          target: //...
+          name: test
+          hook: echo "8" > .bazelversion
+          queue: linux-runners
+        bazel8__mac:
+          target: //...
+          name: test
+          hook: echo "8" > .bazelversion
+          queue: mac-runners
+
+    e2e/system-interpreter:
+      tasks:
+        bazelHEAD__linux:
+          target: //...
+          name: test
+          hook: echo "HEAD" > .bazelversion
+          queue: linux-runners
+        bazelHEAD__mac:
+          target: //...
+          name: test
+          hook: echo "HEAD" > .bazelversion
+          queue: mac-runners
+        bazel8__linux:
+          target: //...
+          name: test
+          hook: echo "8" > .bazelversion
+          queue: linux-runners
+        bazel8__mac:
+          target: //...
+          name: test
+          hook: echo "8" > .bazelversion
+          queue: mac-runners
+
+    examples/uv_pip_compile:
+      tasks:
+        bazelHEAD__linux:
+          target: //...
+          name: test
+          hook: echo "HEAD" > .bazelversion
+          queue: linux-runners
+        bazelHEAD__mac:
+          target: //...
+          name: test
+          hook: echo "HEAD" > .bazelversion
+          queue: mac-runners
+        bazel8__linux:
+          target: //...
+          name: test
+          hook: echo "8" > .bazelversion
+          queue: linux-runners
+        bazel8__mac:
+          target: //...
+          name: test
+          hook: echo "8" > .bazelversion
+          queue: mac-runners
