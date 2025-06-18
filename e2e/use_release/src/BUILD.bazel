@@ -1,6 +1,5 @@
 load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_test", "py_venv")
 
-
 py_binary(
     name = "main",
     srcs = [
