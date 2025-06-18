@@ -11,34 +11,43 @@ import sys
 import site
 from pathlib import Path
 
-virtualenv_home = os.path.realpath(os.environ["VIRTUAL_ENV"])
-virtualenv_name = os.path.basename(virtualenv_home)
-runfiles_dir = os.path.realpath(os.environ["RUNFILES_DIR"])
-builddir = os.path.realpath(os.environ["BUILD_WORKING_DIRECTORY"])
-target_package, target_name = os.environ["BAZEL_TARGET"].split("//", 1)[1].split(":")
 
-PARSER = argparse.ArgumentParser(
-    prog="link",
-    usage=__doc__,
-    formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-)
-
-PARSER.add_argument(
-    "--dest",
-    dest="dest",
-    default=builddir,
-    help="Dir to link the virtualenv into. Default is $BUILD_WORKING_DIRECTORY.",
-)
-
-PARSER.add_argument(
-    "--name",
-    dest="name",
-    default=".{}+{}".format(target_package.replace("/", "+"), virtualenv_name.lstrip(".")),
-    help="Name to link the virtualenv as.",
-)
-
+def munge_venv_name(target_package, virtualenv_name):
+    acc = (target_package or "").replace("/", "+")
+    if acc:
+        acc += "+"
+    acc += virtualenv_name.lstrip(".")
+    return "." + acc
+    
 
 if __name__ == "__main__":
+    virtualenv_home = os.path.realpath(os.environ["VIRTUAL_ENV"])
+    virtualenv_name = os.path.basename(virtualenv_home)
+    runfiles_dir = os.path.realpath(os.environ["RUNFILES_DIR"])
+    builddir = os.path.realpath(os.environ["BUILD_WORKING_DIRECTORY"])
+    target_package, target_name = os.environ["BAZEL_TARGET"].split("//", 1)[1].split(":")
+
+    PARSER = argparse.ArgumentParser(
+        prog="link",
+        usage=__doc__,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+
+    PARSER.add_argument(
+        "--dest",
+        dest="dest",
+        default=builddir,
+        help="Dir to link the virtualenv into. Default is $BUILD_WORKING_DIRECTORY.",
+    )
+
+    PARSER.add_argument(
+        "--name",
+        dest="name",
+        default=munge_venv_name(target_package, virtualenv_name),
+        help="Name to link the virtualenv as.",
+    )
+
+    
     PARSER.print_help(sys.stdout)
     opts = PARSER.parse_args()
     dest = Path(os.path.join(opts.dest, opts.name))
