@@ -37,7 +37,10 @@ bzl_library(
 
 py_venv_test(
     name = "test_link",
-    main = "test_link.py",
-    srcs = ["test_link.py", "link.py"],
+    srcs = [
+        "link.py",
+        "test_link.py",
+    ],
     imports = ["."],
+    main = "test_link.py",
 )
