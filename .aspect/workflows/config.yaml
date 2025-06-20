@@ -14,7 +14,7 @@ tasks:
       hooks:
         - type: before_task
           command: |
-            echo "HEAD" > .bazelversion
+            echo "last_green" > .bazelversion
 
   # - test:
   #     name: test-os:mac-bzl:head
@@ -22,15 +22,15 @@ tasks:
   #     hooks:
   #       - type: before_task
   #         command: |
-  #           echo "HEAD" > .bazelversion
+  #           echo "last_green" > .bazelversion
 
   - test:
-      name: test-os:linux-bzl:8
+      name: test-os:linux-bzl:latest
       queue: aspect-default
       hooks:
         - type: before_task
           command: |
-            echo "8" > .bazelversion
+            echo "latest" > .bazelversion
 
   # - test:
   #     name: test-os:mac-bzl:8
@@ -41,12 +41,20 @@ tasks:
   #           echo "8" > .bazelversion
 
   - test:
+      name: test-os:linux-bzl:8
+      queue: aspect-default
+      hooks:
+        - type: before_task
+          command: |
+            echo "8.2.1" > .bazelversion
+
+  - test:
       name: test-os:linux-bzl:7
       queue: aspect-default
       hooks:
         - type: before_task
           command: |
-            echo "7" > .bazelversion
+            echo "7.6.1" > .bazelversion
 
   # - test:
   #     name: test-os:mac-bzl:7
@@ -62,7 +70,7 @@ tasks:
       hooks:
         - type: before_task
           command: |
-            echo "6" > .bazelversion
+            echo "6.5.0" > .bazelversion
 
   # - test:
   #     name: test-os:mac-bzl:6
