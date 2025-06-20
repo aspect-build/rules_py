@@ -17,7 +17,7 @@ https://github.com/aspect-build/rules_py/issues/213
 Simply move an element from the `deps` attribute to `virtual_deps`.
 
 For example, instead of getting a specific version of Django from
-`deps = ["@pypi_django//:pkg"]` on a `py_library` target,
+`deps = ["@pypi//django"]` on a `py_library` target,
 provide the package name with `virtual_deps = ["django"]`.
 
 > Note that any `py_binary` or `py_test` transitively depending on this `py_library` must be loaded from `aspect_rules_py` rather than `rules_python`, as the latter does not have a feature of resolving the virtual dep.

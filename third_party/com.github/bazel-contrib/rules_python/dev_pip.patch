@@ -1,0 +1,10 @@
+--- MODULE.bazel
++++ MODULE.bazel
+@@ -112,7 +112,6 @@ dev_pip = use_extension(
+ dev_pip = use_extension(
+     "//python/extensions:pip.bzl",
+     "pip",
+-    dev_dependency = True,
+ )
+ dev_pip.parse(
+     download_only = True,

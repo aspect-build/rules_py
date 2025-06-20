@@ -14,18 +14,47 @@ module(
 # py_image_layer needs repo_mapping fix.
 bazel_dep(name = "aspect_bazel_lib", version = "2.16.0")
 bazel_dep(name = "bazel_skylib", version = "1.4.2")
-bazel_dep(name = "rules_python", version = "0.29.0")
+bazel_dep(name = "bazel_skylib_gazelle_plugin", version = "1.5.0")
+bazel_dep(name = "rules_python", version = "1.0.0")
+bazel_dep(name = "rules_python_gazelle_plugin", version = "1.0.0")
+bazel_dep(name = "gazelle", version = "0.31.0", repo_name = "bazel_gazelle")
 bazel_dep(name = "platforms", version = "0.0.7")
+
+single_version_override(
+    module_name = "rules_python",
+    version="1.0.0",
+    patches=[
+        "//third_party/com.github/bazel-contrib/rules_python:dev_pip.patch"
+    ],
+    patch_strip=0,
+)
 
 bazel_lib = use_extension("@aspect_bazel_lib//lib:extensions.bzl", "toolchains")
 bazel_lib.expand_template()
+bazel_lib.tar()
+use_repo(bazel_lib, "bsd_tar_toolchains")
 
 # Custom python version for testing only
 python = use_extension("@rules_python//python/extensions:python.bzl", "python", dev_dependency = True)
 python.toolchain(
-    is_default = False,
-    python_version = "3.9",
+    is_default = True,
+    python_version = "3.11",
 )
+
+pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip", dev_dependency = True)
+pip.parse(
+    hub_name = "pypi",
+    python_version = "3.11",
+    requirements_lock = "//:requirements.txt",
+)
+
+pip.parse(
+    hub_name = "django",
+    python_version = "3.11",
+    requirements_lock = "//py/tests/virtual/django:requirements.txt",
+)
+
+use_repo(pip, "pypi", "pypi_311_pytest", "django")
 
 tools = use_extension("//py:extensions.bzl", "py_tools")
 tools.rules_py_tools()
@@ -110,3 +139,11 @@ oci.pull(
     tag = "latest",
 )
 use_repo(oci, "ubuntu", "ubuntu_linux_amd64", "ubuntu_linux_arm64_v8")
+
+http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+http_file(
+    name = "django_4_2_4",
+    urls = ["https://files.pythonhosted.org/packages/7f/9e/fc6bab255ae10bc57fa2f65646eace3d5405fbb7f5678b90140052d1db0f/Django-4.2.4-py3-none-any.whl"],
+    sha256 = "860ae6a138a238fc4f22c99b52f3ead982bb4b1aad8c0122bcd8c8a3a02e409d",
+    downloaded_file_path = "Django-4.2.4-py3-none-any.whl",
+)

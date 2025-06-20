@@ -1,0 +1,4 @@
+exports_files(
+    ["dev_pip.patch"],
+    visibility = ["//visibility:public"],
+)
