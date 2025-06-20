@@ -8,16 +8,15 @@ workspaces:
   - examples/uv_pip_compile
 
 tasks:
-  # TODO(reid): symbolic versions seem broken
-
-  - test:
-      name: test-os:linux-bzl:head
-      queue: aspect-default
-      hooks:
-        - type: before_task
-          command: |
-            rm .bazelversion
-            echo "USE_BAZEL_VERSION=last_green" > .bazeliskrc
+  # TODO(reid): Rosetta doesn't like HEAD version strings seemingly
+  # - test:
+  #     name: test-os:linux-bzl:head
+  #     queue: aspect-default
+  #     hooks:
+  #       - type: before_task
+  #         command: |
+  #           rm .bazelversion
+  #           echo "USE_BAZEL_VERSION=last_green" > .bazeliskrc
 
   - test:
       name: test-os:linux-bzl:latest
