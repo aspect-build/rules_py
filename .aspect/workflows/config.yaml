@@ -45,12 +45,3 @@ tasks:
           command: |
             rm .bazelversion
             echo "USE_BAZEL_VERSION=7.6.1" > .bazeliskrc
-
-  - test:
-      name: test-os:linux-bzl:6
-      queue: aspect-default
-      hooks:
-        - type: before_task
-          command: |
-            rm .bazelversion
-            echo "USE_BAZEL_VERSION=6.5.0" > .bazeliskrc
