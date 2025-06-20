@@ -26,7 +26,7 @@ def _determine_main(ctx):
     """
     if ctx.attr.main:
         # Deviation from rules_python: allow a leading colon, e.g. `main = ":my_target"`
-        proposed_main = ctx.attr.main.removeprefix(":")
+        _, _, proposed_main = ctx.attr.main.rpartition(":")
         if not proposed_main.endswith(".py"):
             fail("main {} must end in '.py'".format(proposed_main))
     else:
