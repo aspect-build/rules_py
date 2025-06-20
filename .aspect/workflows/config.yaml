@@ -8,21 +8,16 @@ workspaces:
   - examples/uv_pip_compile
 
 tasks:
+  # TODO(reid): symbolic versions seem broken
+
   - test:
       name: test-os:linux-bzl:head
       queue: aspect-default
       hooks:
         - type: before_task
           command: |
-            echo "last_green" > .bazelversion
-
-  # - test:
-  #     name: test-os:mac-bzl:head
-  #     queue: mac-runners
-  #     hooks:
-  #       - type: before_task
-  #         command: |
-  #           echo "last_green" > .bazelversion
+            rm .bazelversion
+            echo "USE_BAZEL_VERSION=last_green" > .bazeliskrc
 
   - test:
       name: test-os:linux-bzl:latest
@@ -30,15 +25,8 @@ tasks:
       hooks:
         - type: before_task
           command: |
-            echo "latest" > .bazelversion
-
-  # - test:
-  #     name: test-os:mac-bzl:8
-  #     queue: mac-runners
-  #     hooks:
-  #       - type: before_task
-  #         command: |
-  #           echo "8" > .bazelversion
+            rm .bazelversion
+            echo "USE_BAZEL_VERSION=latest" > .bazeliskrc
 
   - test:
       name: test-os:linux-bzl:8
@@ -46,7 +34,8 @@ tasks:
       hooks:
         - type: before_task
           command: |
-            echo "8.2.1" > .bazelversion
+            rm .bazelversion
+            echo "USE_BAZEL_VERSION=8.2.1" > .bazeliskrc
 
   - test:
       name: test-os:linux-bzl:7
@@ -54,15 +43,8 @@ tasks:
       hooks:
         - type: before_task
           command: |
-            echo "7.6.1" > .bazelversion
-
-  # - test:
-  #     name: test-os:mac-bzl:7
-  #     queue: mac-runners
-  #     hooks:
-  #       - type: before_task
-  #         command: |
-  #           echo "7" > .bazelversion
+            rm .bazelversion
+            echo "USE_BAZEL_VERSION=7.6.1" > .bazeliskrc
 
   - test:
       name: test-os:linux-bzl:6
@@ -70,12 +52,5 @@ tasks:
       hooks:
         - type: before_task
           command: |
-            echo "6.5.0" > .bazelversion
-
-  # - test:
-  #     name: test-os:mac-bzl:6
-  #     queue: mac-runners
-  #     hooks:
-  #       - type: before_task
-  #         command: |
-  #           echo "6" > .bazelversion
+            rm .bazelversion
+            echo "USE_BAZEL_VERSION=6.5.0" > .bazeliskrc

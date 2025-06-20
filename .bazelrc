@@ -6,6 +6,8 @@ test --test_output=errors
 
 # TODO(alex): enable
 common --noenable_bzlmod
+# TODO(reid): remove; needed for newest bazel to enable workspace
+common --enable_workspace
 
 # Define value used by tests
 build --define=SOME_VAR=SOME_VALUE
