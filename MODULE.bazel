@@ -24,6 +24,7 @@ bazel_dep(name = "rules_python", version = "1.0.0")
 bazel_dep(name = "rules_python_gazelle_plugin", version = "1.0.0", dev_dependency = True)
 bazel_dep(name = "toolchains_musl", version = "0.1.20", dev_dependency = True)
 bazel_dep(name = "toolchains_llvm", version = "1.4.0", dev_dependency = True)
+bazel_dep(name = "toolchains_protoc", version = "0.4.3", dev_dependency = True)
 
 single_version_override(
     module_name = "rules_python",
@@ -34,18 +35,14 @@ single_version_override(
     version = "1.0.0",
 )
 
-# single_version_override(
-#     module_name = "toolchains_llvm",
-#     version = "0.10.3",
-#     patches = [
-#         "//third_party/com.github/bazel-contrib/toolchains_llvm:clang_ldd.patch",
-#     ],
-# )
-
 bazel_lib = use_extension("@aspect_bazel_lib//lib:extensions.bzl", "toolchains")
 bazel_lib.expand_template()
 bazel_lib.tar()
 use_repo(bazel_lib, "bsd_tar_toolchains")
+
+protoc = use_extension("@toolchains_protoc//protoc:extensions.bzl", "protoc")
+use_repo(protoc, "toolchains_protoc_hub")
+register_toolchains("@toolchains_protoc_hub//:all")
 
 # Custom python version for testing only
 python = use_extension("@rules_python//python/extensions:python.bzl", "python", dev_dependency = True)
