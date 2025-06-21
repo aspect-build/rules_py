@@ -2,8 +2,7 @@
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
-
-def _release_tools_impl(module_ctx):
+def _release_tools_impl(_module_ctx):
     """Fetch dependencies only needed for release builds used for the legacy WORKSPACE support."""
 
     # FIXME: Replace this with the BCR release
