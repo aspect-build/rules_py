@@ -14,11 +14,13 @@ module(
 # py_image_layer needs repo_mapping fix.
 bazel_dep(name = "aspect_bazel_lib", version = "2.16.0")
 bazel_dep(name = "bazel_skylib", version = "1.4.2")
-bazel_dep(name = "bazel_skylib_gazelle_plugin", version = "1.5.0")
-bazel_dep(name = "rules_python", version = "1.0.0")
-bazel_dep(name = "rules_python_gazelle_plugin", version = "1.0.0")
-bazel_dep(name = "gazelle", version = "0.31.0", repo_name = "bazel_gazelle")
+bazel_dep(name = "bazel_skylib_gazelle_plugin", version = "1.5.0", dev_dependency = True)
+bazel_dep(name = "gazelle", version = "0.31.0", repo_name = "bazel_gazelle", dev_dependency = True)
 bazel_dep(name = "platforms", version = "0.0.7")
+bazel_dep(name = "rules_python", version = "1.0.0")
+bazel_dep(name = "rules_python_gazelle_plugin", version = "1.0.0", dev_dependency = True)
+bazel_dep(name = "toolchains_musl", version = "0.1.20", dev_dependency = True)
+bazel_dep(name = "toolchains_llvm", version = "1.4.0", dev_dependency = True)
 
 single_version_override(
     module_name = "rules_python",
@@ -28,6 +30,14 @@ single_version_override(
     ],
     patch_strip=0,
 )
+
+# single_version_override(
+#     module_name = "toolchains_llvm",
+#     version = "0.10.3",
+#     patches = [
+#         "//third_party/com.github/bazel-contrib/toolchains_llvm:clang_ldd.patch",
+#     ],
+# )
 
 bazel_lib = use_extension("@aspect_bazel_lib//lib:extensions.bzl", "toolchains")
 bazel_lib.expand_template()
@@ -75,6 +85,92 @@ register_toolchains(
 # NOTE: when publishing to BCR, we patch these to be dev_dependency, as we publish pre-built binaries
 # along with our releases.
 
+release_tools = use_extension("//tools/release:fetch.bzl", "release_tools", dev_dependency = True)
+use_repo(release_tools,
+         "org_chromium_sysroot_linux_arm64",
+         "org_chromium_sysroot_linux_x86_64",
+         "musl_toolchains",
+         "sysroot_darwin_universal",
+)
+
+llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm")
+inject_repo(llvm,
+    org_chromium_sysroot_linux_arm64 = "org_chromium_sysroot_linux_arm64",
+    org_chromium_sysroot_linux_x86_64 = "org_chromium_sysroot_linux_x86_64",
+    sysroot_darwin_universal = "sysroot_darwin_universal",
+)
+
+llvm.toolchain(
+    name = "llvm_toolchain",
+    llvm_version = "17.0.2",
+)
+use_repo(llvm, "llvm_toolchain", "llvm_toolchain_llvm")
+register_toolchains("@llvm_toolchain//:all")
+
+llvm.toolchain(
+    name = "llvm_toolchain_linux_x86_64",
+    llvm_version = "17.0.2",
+)
+llvm.toolchain_root(
+    name = "llvm_toolchain_linux_x86_64",
+    label = "@llvm_toolchain_llvm//:BUILD",
+)
+llvm.sysroot(
+    name = "llvm_toolchain_linux_x86_64",
+    label = "@org_chromium_sysroot_linux_x86_64//:sysroot",
+    targets = ["linux-x86_64"],
+)
+use_repo(llvm, "llvm_toolchain_linux_x86_64")
+register_toolchains("@llvm_toolchain_linux_x86_64//:all")
+
+llvm.toolchain(
+    name = "llvm_toolchain_linux_aarch64",
+    llvm_version = "17.0.2",
+)
+llvm.toolchain_root(
+    name = "llvm_toolchain_linux_aarch64",
+    label = "@llvm_toolchain_llvm//:BUILD",
+)
+llvm.sysroot(
+    name = "llvm_toolchain_linux_aarch64",
+    label = "@org_chromium_sysroot_linux_arm64//:sysroot",
+    targets = ["linux-aarch64"],
+)
+use_repo(llvm, "llvm_toolchain_linux_aarch64")
+register_toolchains("@llvm_toolchain_linux_aarch64//:all")
+
+llvm.toolchain(
+    name = "llvm_toolchain_darwin_x86_64",
+    llvm_version = "17.0.2",
+)
+llvm.toolchain_root(
+    name = "llvm_toolchain_darwin_x86_64",
+    label = "@llvm_toolchain_llvm//:BUILD",
+)
+llvm.sysroot(
+    name = "llvm_toolchain_darwin_x86_64",
+    label = "@sysroot_darwin_universal//:sysroot",
+    targets = ["darwin-x86_64"],
+)
+use_repo(llvm, "llvm_toolchain_darwin_x86_64")
+register_toolchains("@llvm_toolchain_darwin_x86_64//:all")
+
+llvm.toolchain(
+    name = "llvm_toolchain_darwin_aarch64",
+    llvm_version = "17.0.2",
+)
+llvm.toolchain_root(
+    name = "llvm_toolchain_darwin_aarch64",
+    label = "@llvm_toolchain_llvm//:BUILD",
+)
+llvm.sysroot(
+    name = "llvm_toolchain_darwin_aarch64",
+    label = "@sysroot_darwin_universal//:sysroot",
+    targets = ["darwin-aarch64"],
+)
+use_repo(llvm, "llvm_toolchain_darwin_aarch64")
+register_toolchains("@llvm_toolchain_darwin_aarch64//:all")
+
 bazel_dep(
     name = "rules_rust",
     version = "0.53.0",
@@ -89,6 +185,12 @@ rust = use_extension(
 rust.toolchain(
     edition = "2021",
     versions = ["1.81.0"],
+    extra_target_triples = [
+        "aarch64-apple-darwin",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+    ]
 )
 use_repo(rust, "rust_toolchains")
 

@@ -2,37 +2,11 @@
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
-_SYSROOT_LINUX_BUILD_FILE = """
-filegroup(
-    name = "sysroot",
-    srcs = glob(["*/**"]),
-    visibility = ["//visibility:public"],
-)
-"""
 
-_SYSROOT_DARWIN_BUILD_FILE = """
-filegroup(
-    name = "sysroot",
-    srcs = glob(
-        include = ["**"],
-        exclude = ["**/*:*"],
-    ),
-    visibility = ["//visibility:public"],
-)
-"""
-
-def fetch_deps():
+def _release_tools_impl(module_ctx):
     """Fetch dependencies only needed for release builds used for the legacy WORKSPACE support."""
-    http_archive(
-        name = "toolchains_llvm",
-        sha256 = "b7cd301ef7b0ece28d20d3e778697a5e3b81828393150bed04838c0c52963a01",
-        strip_prefix = "toolchains_llvm-0.10.3",
-        canonical_id = "0.10.3",
-        url = "https://github.com/grailbio/bazel-toolchain/releases/download/0.10.3/toolchains_llvm-0.10.3.tar.gz",
-        patches = ["//third_party/com.github/bazel-contrib/toolchains_llvm:clang_ldd.patch"],
-        patch_args = ["-p1"],
-    )
 
+    # FIXME: Replace this with the BCR release
     http_archive(
         name = "org_chromium_sysroot_linux_arm64",
         build_file_content = _SYSROOT_LINUX_BUILD_FILE,
@@ -60,3 +34,7 @@ def fetch_deps():
         strip_prefix = "sdk-macos-11.3-ccbaae84cc39469a6792108b24480a4806e09d59/root",
         urls = ["https://github.com/hexops-graveyard/sdk-macos-11.3/archive/ccbaae84cc39469a6792108b24480a4806e09d59.tar.gz"],
     )
+
+release_tools = module_extension(
+    implementation = _release_tools_impl,
+)
