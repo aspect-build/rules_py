@@ -72,7 +72,7 @@ Run a Python program under Bazel. Most users should use the [py_test macro](#py_
 ## py_pytest_main
 
 <pre>
-py_pytest_main(<a href="#py_pytest_main-name">name</a>, <a href="#py_pytest_main-py_library">py_library</a>, <a href="#py_pytest_main-deps">deps</a>, <a href="#py_pytest_main-data">data</a>, <a href="#py_pytest_main-testonly">testonly</a>, <a href="#py_pytest_main-kwargs">kwargs</a>)
+py_pytest_main(<a href="#py_pytest_main-name">name</a>, <a href="#py_pytest_main-test_main">test_main</a>, <a href="#py_pytest_main-py_library">py_library</a>, <a href="#py_pytest_main-deps">deps</a>, <a href="#py_pytest_main-data">data</a>, <a href="#py_pytest_main-testonly">testonly</a>, <a href="#py_pytest_main-kwargs">kwargs</a>)
 </pre>
 
 py_pytest_main wraps the template rendering target and the final py_library.
@@ -83,6 +83,7 @@ py_pytest_main wraps the template rendering target and the final py_library.
 | Name  | Description | Default Value |
 | :------------- | :------------- | :------------- |
 | <a id="py_pytest_main-name"></a>name |  The name of the runable target that updates the test entry file.   |  none |
+| <a id="py_pytest_main-test_main"></a>test_main |  The name of the test entry file to be generated.   |  <code>None</code> |
 | <a id="py_pytest_main-py_library"></a>py_library |  Use this attribute to override the default py_library rule.   |  <code>&lt;unknown object com.google.devtools.build.skydoc.fakebuildapi.FakeStarlarkRuleFunctionsApi$RuleDefinitionIdentifier&gt;</code> |
 | <a id="py_pytest_main-deps"></a>deps |  A list containing the pytest library target, e.g., @pypi_pytest//:pkg.   |  <code>[]</code> |
 | <a id="py_pytest_main-data"></a>data |  A list of data dependencies to pass to the py_library target.   |  <code>[]</code> |
