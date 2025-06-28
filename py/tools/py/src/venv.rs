@@ -8,7 +8,7 @@ use sha256::try_digest;
 use std::{
     env::current_dir,
     fs::{self, File},
-    io::{BufRead, BufReader, BufWriter, Write},
+    io::{self, BufRead, BufReader, BufWriter, Read, Write, Seek},
     os::unix::fs::{MetadataExt, PermissionsExt},
     path::{Path, PathBuf},
 };
@@ -172,7 +172,34 @@ fn copy(original: &PathBuf, link: &PathBuf) -> miette::Result<()> {
     ));
 }
 
-const RELOCATABLE_SHEBANG: &str = "\
+fn copy_and_patch_shebang(original: &PathBuf, link: &PathBuf) -> miette::Result<()> {
+    let mut src = File::open(original.as_path()).into_diagnostic()?;
+
+    let mut buf = [0u8; PLACEHOLDER_SHEBANG.len()];
+    let found_shebang = match src.read_exact(&mut buf) {
+        Ok(()) => buf == PLACEHOLDER_SHEBANG,
+        Err(error) => match error.kind() {
+            io::ErrorKind::UnexpectedEof => false, // File too short to contain shebang.
+            _ => Err(error).into_diagnostic()?,
+        },
+    };
+
+    if found_shebang {
+        let mut dst = File::create(link.as_path()).into_diagnostic()?;
+        dst.write_all(RELOCATABLE_SHEBANG).into_diagnostic()?;
+        src.rewind().into_diagnostic()?;
+        io::copy(&mut src, &mut dst).into_diagnostic()?;
+    }
+    else {
+        copy(original, link)?;
+    }
+
+    Ok(())
+}
+
+const PLACEHOLDER_SHEBANG: &[u8] = b"#!/dev/null";
+
+const RELOCATABLE_SHEBANG: &[u8] = b"\
 #!/bin/sh
 '''exec' \"$(dirname -- \"$(realpath -- \"$0\")\")\"/'python3' \"$0\" \"$@\"
 ' '''
@@ -619,11 +646,7 @@ pub fn create_tree(
 
             // In the case of copying bin entries, we need to patch them. Yay.
             if link_dir.file_name() == Some(OsStr::new("bin")) {
-                let mut content = fs::read_to_string(original_entry).into_diagnostic()?;
-                if content.starts_with("#!/dev/null") {
-                    content.replace_range(..0, &RELOCATABLE_SHEBANG);
-                }
-                fs::write(&link_entry, content).into_diagnostic()?;
+                copy_and_patch_shebang(&original_entry, &link_entry)?;
             }
             // Normal case of needing to link a file :smile:
             else {
