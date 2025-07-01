@@ -197,6 +197,8 @@ fn copy_and_patch_shebang(original: &PathBuf, link: &PathBuf) -> miette::Result<
     Ok(())
 }
 
+// Matches entrypoints that have had their interpreter "fixed" by rules_python.
+// https://github.com/bazel-contrib/rules_python/blob/cd6948a0f706e75fa0f3ebd35e485aeec3e299fc/python/private/pypi/whl_installer/wheel.py#L319C13-L319C24
 const PLACEHOLDER_SHEBANG: &[u8] = b"#!/dev/null";
 
 const RELOCATABLE_SHEBANG: &[u8] = b"\
