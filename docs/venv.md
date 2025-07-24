@@ -63,7 +63,7 @@ py_venv_binary(<a href="#py_venv_binary-kwargs">kwargs</a>)
 ## py_venv_link
 
 <pre>
-py_venv_link(<a href="#py_venv_link-venv_name">venv_name</a>, <a href="#py_venv_link-kwargs">kwargs</a>)
+py_venv_link(<a href="#py_venv_link-venv_name">venv_name</a>, <a href="#py_venv_link-srcs">srcs</a>, <a href="#py_venv_link-kwargs">kwargs</a>)
 </pre>
 
 Build a Python virtual environment and produce a script to link it into the build directory.
@@ -74,6 +74,7 @@ Build a Python virtual environment and produce a script to link it into the buil
 | Name  | Description | Default Value |
 | :------------- | :------------- | :------------- |
 | <a id="py_venv_link-venv_name"></a>venv_name |  <p align="center"> - </p>   |  <code>None</code> |
+| <a id="py_venv_link-srcs"></a>srcs |  <p align="center"> - </p>   |  <code>[]</code> |
 | <a id="py_venv_link-kwargs"></a>kwargs |  <p align="center"> - </p>   |  none |
 
 

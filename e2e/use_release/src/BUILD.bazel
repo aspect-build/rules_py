@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_test")
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_test", "py_venv")
 
 py_binary(
     name = "main",
@@ -7,6 +7,15 @@ py_binary(
         "__main__.py",
     ],
     main = "__main__.py",
+)
+
+py_venv(
+    name = "venv",
+    srcs = [
+        "__init__.py",
+        "__main__.py",
+    ],
+    venv_name = ".venv_named",
 )
 
 py_test(

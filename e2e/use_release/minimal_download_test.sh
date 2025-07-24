@@ -101,6 +101,14 @@ fi
 bazel "--output_base=$OUTPUT_BASE" test --test_output=streamed //...
 
 #############
+# Smoke test py_venv_link
+bazel "--output_base=$OUTPUT_BASE" run //src:venv
+if ! [ -L ./.venv_named ]; then
+  >&2 echo "ERROR: The named venv target failed to respect venv_name"
+  exit 1
+fi
+
+#############
 # Demonstrate that as configured we're fully on prebuilt toolchains even for crossbuilds
 OUTPUT_BASE=$(mktemp -d)
 (
