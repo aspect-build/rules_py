@@ -84,3 +84,7 @@ In any ancestor `BUILD` file of the Python code, add these lines to instruct [Ga
 ## Packages
 
 - [py_library](docs/py_library.md) a unit of Python code, used as a dependency of other rules.
+
+# Telemetry & privacy policy
+
+This ruleset collects limited usage data via [`tools_telemetry`](https://github.com/aspect-build/tools_telemetry), which is reported to Aspect Build Inc and governed by our [privacy policy](https://www.aspect.build/privacy-policy).
