@@ -378,7 +378,7 @@ py_venv = _wrap_with_debug(_py_venv)
 py_venv_binary = _wrap_with_debug(_py_venv_binary)
 py_venv_test = _wrap_with_debug(_py_venv_test)
 
-def py_venv_link(venv_name = None, **kwargs):
+def py_venv_link(venv_name = None, srcs = [], **kwargs):
     """Build a Python virtual environment and produce a script to link it into the build directory."""
 
     # Note that the binary is already wrapped with debug
@@ -387,6 +387,6 @@ def py_venv_link(venv_name = None, **kwargs):
     py_venv_binary(
         args = [] + (["--name=" + venv_name] if venv_name else []),
         main = link_script,
-        srcs = [link_script],
+        srcs = srcs + [link_script],
         **kwargs
     )
