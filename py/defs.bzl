@@ -163,8 +163,11 @@ def py_test(name, srcs = [], main = None, pytest_main = False, **kwargs):
         if main:
             fail("When pytest_main is set, the main attribute should not be set.")
         pytest_main_target = name + ".pytest_main"
-        main = pytest_main_target + ".py"
-        py_pytest_main(name = pytest_main_target)
+
+        # NB: The main name starts with a dot, so pytest does not mistakenly collect
+        # the file during test collection even if the target name starts with `test_`.
+        main = "." + pytest_main_target + ".py"
+        py_pytest_main(name = pytest_main_target, test_main = main)
         srcs.append(main)
         deps.append(pytest_main_target)
 
