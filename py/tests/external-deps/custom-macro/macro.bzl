@@ -14,7 +14,7 @@ def click_cli_binary(name, deps = [], **kwargs):
         main = "//py/tests/external-deps/custom-macro:__main__.py",
         deps = deps + [
             name + "_lib",
-            "@pypi_click//:pkg",
+            "@pypi//click",
         ],
         **kwargs
     )

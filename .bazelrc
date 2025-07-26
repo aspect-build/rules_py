@@ -5,15 +5,20 @@
 test --test_output=errors
 
 # TODO(alex): enable
-common --noenable_bzlmod
+common --enable_bzlmod
 
 # Define value used by tests
 build --define=SOME_VAR=SOME_VALUE
 
 common --features=-libtool
 common --incompatible_enable_cc_toolchain_resolution
+
+# Use prebuilt protoc
+common --incompatible_enable_proto_toolchain_resolution
 common --per_file_copt=external/.*protobuf.*@--PROTOBUF_WAS_NOT_SUPPOSED_TO_BE_BUILT
 common --host_per_file_copt=external/.*protobuf.*@--PROTOBUF_WAS_NOT_SUPPOSED_TO_BE_BUILT
+common --per_file_copt=external/.*grpc.*@--GRPC_WAS_NOT_SUPPOSED_TO_BE_BUILT
+common --host_per_file_copt=external/.*grpc.*@--GRPC_WAS_NOT_SUPPOSED_TO_BE_BUILT
 
 # Use local rules_python
 # Enable with --config=dev

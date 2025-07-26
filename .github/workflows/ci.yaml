@@ -22,23 +22,6 @@ concurrency:
   cancel-in-progress: ${{ github.ref_name != 'main' }}
 
 jobs:
-  test:
-    uses: bazel-contrib/.github/.github/workflows/bazel.yaml@646899086d7aaee8e532540480f3e91e00596234 # 11 Dec 2024
-    with:
-      # NB: the root folder is tested with Aspect Workflows on BuildKite, see /.aspect/workflows/config.yaml
-      folders: '["e2e/smoke", "e2e/repository-rule-deps", "e2e/system-interpreter", "examples/uv_pip_compile"]'
-      # TODO: Build Windows tools and add to toolchain
-      # TODO(alex): switch the root folder to bzlmod
-      # TODO: fix remaining folders on Bazel 8
-      exclude: |
-        [
-          {"os": "windows-latest"},
-          {"folder": "e2e/repository-rule-deps", "bzlmodEnabled": false},
-          {"folder": "e2e/system-interpreter", "bzlmodEnabled": false},
-          {"folder": "examples/uv_pip_compile", "bzlmodEnabled": false},
-          {"folder": "e2e/smoke", "bazelversion": "8.0.0"}
-        ]
-
   pre-commit:
     runs-on: ubuntu-latest
     steps:
@@ -81,7 +64,6 @@ jobs:
   # on "all matrix jobs were successful".
   conclusion:
     needs:
-      - test
       - verify-bcr-patches
       - test-release
       - pre-commit

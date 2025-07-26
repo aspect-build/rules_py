@@ -29,7 +29,7 @@ py_venv_binary(
     deps = [
         "//py/tests/internal-deps/adder",
         "//py/tests/py_image_layer/branding",
-        "@pypi_colorama//:pkg",
+        "@pypi//colorama",
     ],
 )
 

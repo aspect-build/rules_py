@@ -1,7 +1,5 @@
-diff --git a/toolchain/cc_toolchain_config.bzl b/toolchain/cc_toolchain_config.bzl
-index b2aa92a..87c6614 100644
---- a/toolchain/cc_toolchain_config.bzl
-+++ b/toolchain/cc_toolchain_config.bzl
+--- toolchain/cc_toolchain_config.bzl
++++ toolchain/cc_toolchain_config.bzl
 @@ -112,8 +112,6 @@ def cc_toolchain_config(
          "-fdebug-prefix-map={}=__bazel_toolchain_llvm_repo__/".format(toolchain_path_prefix),
      ]
