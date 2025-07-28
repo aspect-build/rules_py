@@ -13,3 +13,16 @@ py_venv_test(
         "@pypi_cowsay//:pkg",
     ],
 )
+
+py_venv_test(
+    name = "test_env_vars",
+    srcs = ["test_env_vars.py"],
+    main = "test_env_vars.py",
+    env = {
+        "ONE": "un",
+        "TWO": "deux",
+        "RULEDIR": "$(RULEDIR)",
+        "LOCATION": "$(location :test_env_vars.py)",
+        "DEFINE": "$(SOME_VAR)",
+    },
+)
