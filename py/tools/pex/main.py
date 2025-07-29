@@ -26,7 +26,7 @@ class InjectEnvAction(Action):
             )
         self.default.append(tuple(components))
 
-parser = ArgumentParser()
+parser = ArgumentParser(fromfile_prefix_chars='@')
 
 parser.add_argument(
     "-o",
