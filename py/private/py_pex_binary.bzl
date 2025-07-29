@@ -76,6 +76,9 @@ def _py_python_pex_impl(ctx):
 
     args = ctx.actions.args()
 
+    args.use_param_file(param_file_arg = "@%s")
+    args.set_param_file_format("multiline")
+
     # Copy workspace name here to prevent ctx
     # being transferred to the execution phase.
     workspace_name = str(ctx.workspace_name)
