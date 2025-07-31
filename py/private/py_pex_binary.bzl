@@ -101,7 +101,6 @@ def _py_python_pex_impl(ctx):
     )
     args.add(binary[DefaultInfo].files_to_run.executable, format = "--executable=%s")
     args.add(ctx.attr.python_shebang, format = "--python-shebang=%s")
-    args.add(py_toolchain.python, format = "--python=%s")
 
     py_version = py_toolchain.interpreter_version_info
     args.add_all(

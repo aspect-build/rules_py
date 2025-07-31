@@ -1,5 +1,8 @@
 load("@aspect_bazel_lib//lib:testing.bzl", "assert_contains")
 load("//py:defs.bzl", "py_binary", "py_pex_binary")
+load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_binary")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+
 
 # Test that both single-file modules (six) and multi-file modules (cowsay) work with py_pex_binary.
 py_binary(
@@ -31,4 +34,41 @@ assert_contains(
     name = "test__print_modules_pex",
     actual = "print_modules_pex.out",
     expected = "Mooo!,cowsay-6.1/cowsay/__init__.py,six-1.16.0/six.py",
+)
+
+# Cross-compilation can work.
+
+# At least one of these platforms is a cross-compile, no matter where we run.
+platform(
+    name = "arm64_macos",
+    constraint_values = [
+        "@platforms//os:macos",
+        "@platforms//cpu:aarch64",
+    ],
+)
+platform(
+    name = "amd64_linux",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+platform_transition_binary(
+    name = "print_modules_pex_arm64_macos",
+    binary = ":print_modules_pex",
+    target_platform = ":arm64_macos",
+)
+platform_transition_binary(
+    name = "print_modules_pex_amd64_linux",
+    binary = ":print_modules_pex",
+    target_platform = ":amd64_linux",
+)
+
+build_test(
+    name = "cross_builds",
+    targets = [
+        ":print_modules_pex_arm64_macos",
+        ":print_modules_pex_amd64_linux",
+    ],
 )
