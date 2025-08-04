@@ -35,7 +35,7 @@ pub fn create_venv(
         .into_diagnostic()
         .wrap_err("Unable to determine absolute directory to venv directory")?;
 
-    let install_paths = interpreter.install_paths(false);
+    let install_paths = interpreter.install_paths(cfg!(windows));
 
     VEnv::create_install_paths(&venv_location, &install_paths)
         .into_diagnostic()

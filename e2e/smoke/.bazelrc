@@ -1,2 +1,13 @@
 # Under Bazel 7 or later, this flag is ignored as the PyRuntimeInfo gives this information.
 common --@aspect_rules_py//py:interpreter_version=3.9.18
+
+# Windows settings
+startup --windows_enable_symlinks
+
+# Attempt to shorten paths as much as possible to avoid windows limits
+common --nolegacy_external_runfiles
+common --experimental_sibling_repository_layout
+
+common --override_module=rules_rust=d:/workdir/github/rules_rust2
+
+common --incompatible_use_plus_in_repo_names=false

@@ -6,6 +6,10 @@ test --test_output=errors
 
 # TODO(alex): enable
 common --noenable_bzlmod
+common --enable_workspace
+
+# Windows settings
+startup --windows_enable_symlinks
 
 # Define value used by tests
 build --define=SOME_VAR=SOME_VALUE

@@ -5,7 +5,7 @@ use miette::Context;
 
 use py;
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 struct VenvArgs {
     /// Source Python interpreter path to symlink into the venv.
     #[arg(long)]
@@ -41,5 +41,5 @@ fn venv_cmd_handler(args: VenvArgs) -> miette::Result<()> {
 
 fn main() -> miette::Result<()> {
     let args = VenvArgs::parse();
-    venv_cmd_handler(args).wrap_err("Unable to run command:")
+    venv_cmd_handler(args.clone()).wrap_err_with(|| format!("Unable to run command (venv): {:?}", args))
 }

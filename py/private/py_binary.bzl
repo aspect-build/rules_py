@@ -3,6 +3,7 @@
 load("@rules_python//python:defs.bzl", "PyInfo")
 load("@aspect_bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
 load("@aspect_bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
+load("@aspect_bazel_lib//lib:windows_utils.bzl", "create_windows_native_launcher_script")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "VENV_TOOLCHAIN")
@@ -14,6 +15,7 @@ def _dict_to_exports(env):
     ]
 
 def _py_binary_rule_impl(ctx):
+    is_windows = ctx.target_platform_has_constraint(ctx.attr._windows_constraint[platform_common.ConstraintValueInfo])
     venv_toolchain = ctx.toolchains[VENV_TOOLCHAIN]
     py_toolchain = _py_semantics.resolve_toolchain(ctx)
 
@@ -62,10 +64,15 @@ def _py_binary_rule_impl(ctx):
             attribute_name = "env",
         )
 
-    executable_launcher = ctx.actions.declare_file(ctx.attr.name)
+    print(py_toolchain.python)
+    print(py_toolchain.runfiles_interpreter)
+    print(py_toolchain.python.path)
+    print(to_rlocation_path(ctx, py_toolchain.python))
+
+    bash_launcher = ctx.actions.declare_file(ctx.attr.name)
     ctx.actions.expand_template(
         template = ctx.file._run_tmpl,
-        output = executable_launcher,
+        output = bash_launcher,
         substitutions = {
             "{{BASH_RLOCATION_FN}}": BASH_RLOCATION_FUNCTION,
             "{{INTERPRETER_FLAGS}}": " ".join(py_toolchain.flags),
@@ -88,6 +95,8 @@ def _py_binary_rule_impl(ctx):
         is_executable = True,
     )
 
+    launcher = create_windows_native_launcher_script(ctx, bash_launcher) if is_windows else bash_launcher
+
     srcs_depset = _py_library.make_srcs_depset(ctx)
 
     runfiles = _py_library.make_merged_runfiles(
@@ -97,6 +106,8 @@ def _py_binary_rule_impl(ctx):
             srcs_depset,
         ] + virtual_resolution.srcs + virtual_resolution.runfiles,
         extra_runfiles = [
+            launcher,
+            bash_launcher,
             site_packages_pth_file,
         ] + ctx.files._runfiles_lib,
         extra_runfiles_depsets = [
@@ -112,11 +123,11 @@ def _py_binary_rule_impl(ctx):
     return [
         DefaultInfo(
             files = depset([
-                executable_launcher,
+                launcher,
                 ctx.file.main,
                 site_packages_pth_file,
             ]),
-            executable = executable_launcher,
+            executable = launcher,
             runfiles = runfiles,
         ),
         PyInfo(
@@ -189,6 +200,7 @@ python.toolchain(python_version = "3.9", is_default = True)
     "_allowlist_function_transition": attr.label(
         default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
     ),
+    "_windows_constraint": attr.label(default = "@platforms//os:windows"),
 })
 
 _attrs.update(**_py_library.attrs)
@@ -210,6 +222,7 @@ py_base = struct(
     toolchains = [
         PY_TOOLCHAIN,
         VENV_TOOLCHAIN,
+        "@bazel_tools//tools/sh:toolchain_type",
     ],
     cfg = _python_version_transition
 )

@@ -10,12 +10,18 @@ def _map_os_to_triple(os):
         return "unknown-linux-gnu"
     if os == "macos":
         return "apple-darwin"
+    if os == "macos":
+        return "apple-darwin"
+    if os == "windows":
+        return "pc-windows-gnu"
     fail("unrecognized os", os)
 
 # buildozer: disable=function-docstring
 def multi_arch_rust_binary_release(name, src, os, archs = ["aarch64", "x86_64"], **kwargs):
     outs = []
     for arch in archs:
+        if os == "windows" and arch != "x86_64":
+            continue
         bin = Label(src).name
         platform_transition_filegroup(
             name = "{}_{}_{}_build".format(bin, os, arch),

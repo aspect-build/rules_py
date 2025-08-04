@@ -38,9 +38,10 @@ register_toolchains(
 # NOTE: when publishing to BCR, we patch these to be dev_dependency, as we publish pre-built binaries
 # along with our releases.
 
+# Versions newer than 0.58 fail with https://github.com/bazelbuild/rules_rust/issues/3441
 bazel_dep(
     name = "rules_rust",
-    version = "0.38.0",
+    version = "0.58.0",
     # In released versions: dev_dependency = True
 )
 

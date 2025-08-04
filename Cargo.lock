@@ -1588,7 +1588,7 @@ dependencies = [
 [[package]]
 name = "rattler_installs_packages"
 version = "0.6.0"
-source = "git+https://github.com/prefix-dev/rip?rev=b047c9ec0b42125a67d35346f08b7e7848ac24f4#b047c9ec0b42125a67d35346f08b7e7848ac24f4"
+source = "git+https://github.com/peakschris/rip?rev=3de9ee95eab577c9e48526464013e217287c6937#3de9ee95eab577c9e48526464013e217287c6937"
 dependencies = [
  "async-once-cell",
  "async-recursion",
