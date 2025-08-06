@@ -1,5 +1,5 @@
 {
-  "checksum": "afff514f45f1d900b8218ad4704b83734c506a79afa620ac511678d84f8978af",
+  "checksum": "aa56303cf8eaea6e963e8ba41da8c3381eff6977a795dadf3fe0b3f846012e31",
   "crates": {
     "addr2line 0.21.0": {
       "name": "addr2line",
@@ -8538,7 +8538,7 @@
         "Git": {
           "remote": "https://github.com/peakschris/rip",
           "commitish": {
-            "Rev": "412805fabaf3e7811ff6ac68d65d3c9f84c9d1a0"
+            "Rev": "3de9ee95eab577c9e48526464013e217287c6937"
           },
           "strip_prefix": "crates/rattler_installs_packages"
         }
