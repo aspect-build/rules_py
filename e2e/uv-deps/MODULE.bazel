@@ -1,0 +1,51 @@
+"Bazel dependencies"
+
+bazel_dep(name = "aspect_rules_py", version = "0.0.0", dev_dependency = True)
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../..",
+)
+
+# Because we use a prerelease of rules_py, we must compile the rust tools from source.
+bazel_dep(name = "rules_rust", version = "0.53.0")
+
+rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
+rust.toolchain(
+    edition = "2021",
+    versions = ["1.81.0"],
+)
+use_repo(rust, "rust_toolchains")
+
+register_toolchains("@rust_toolchains//:all")
+
+bazel_dep(name = "rules_python", version = "0.29.0", dev_dependency = True)
+
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(
+    configure_coverage_tool = True,
+    python_version = "3.11.6",
+)
+
+# Testing
+uv = use_extension("@aspect_rules_py//uv:extension.bzl", "uv")
+uv.declare_hub(hub_name = "pip")
+uv.declare_venv(
+    hub_name = "pip",
+    venv_name = "default",
+)
+uv.lockfile(
+    hub_name = "pip",
+    lockfile = "//:uv-default.lock",
+    venv_name = "default",
+)
+uv.declare_venv(
+    hub_name = "pip",
+    venv_name = "airflow",
+)
+uv.lockfile(
+    hub_name = "pip",
+    lockfile = "//:uv-airflow.lock",
+    venv_name = "airflow",
+)
+
+use_repo(uv, "pip")

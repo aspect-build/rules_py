@@ -1,0 +1,26 @@
+load("@aspect_bazel_lib//lib:expand_template.bzl", "expand_template")
+load("//py/unstable:defs.bzl", "py_venv_binary")
+
+expand_template(
+    name = "stamped",
+    stamp_substitutions = {
+        "<BUILD_TIMESTAMP>": "{{BUILD_TIMESTAMP}}",
+    },
+    template = "say.py",
+)
+
+py_venv_binary(
+    name = "say",
+    srcs = [
+        ":stamped",
+    ],
+    imports = [
+        ".",
+    ],
+    main = ":stamped",
+    venv = "default",
+    deps = [
+        "@pip2//click",
+        "@pip2//cowsay",
+    ],
+)
