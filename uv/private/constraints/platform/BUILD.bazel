@@ -1,0 +1,22 @@
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load(":macro.bzl", "generate")
+
+package(default_visibility = ["//visibility:public"])
+
+generate()
+
+bzl_library(
+    name = "defs",
+    srcs = ["defs.bzl"],
+    deps = [],
+)
+
+bzl_library(
+    name = "macro",
+    srcs = ["macro.bzl"],
+    deps = [
+        "//uv/private/constraints:defs",
+        "@aspect_rules_py_uv_host//:defs",
+        "@bazel_skylib//lib:selects",
+    ],
+)
