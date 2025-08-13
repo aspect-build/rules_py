@@ -144,6 +144,12 @@ _attrs = dict({
         allow_single_file = True,
         mandatory = True,
     ),
+    "venv": attr.string(
+        doc = """The name of the Python virtual environment within which deps should be resolved.
+
+Part of the aspect_rules_py//uv system, has no effect in rules_python's pip.
+""",
+    ),
     "python_version": attr.string(
         doc = """Whether to build this target and its transitive deps for a specific python version.""",
     ),
@@ -154,7 +160,7 @@ A collision can occur when multiple packages providing the same file are install
 * "error": When conflicting symlinks are found, an error is reported and venv creation halts.
 * "warning": When conflicting symlinks are found, an warning is reported, however venv creation continues.
 * "ignore": When conflicting symlinks are found, no message is reported and venv creation continues.
-        """,
+""",
         default = "error",
         values = ["error", "warning", "ignore"],
     ),
