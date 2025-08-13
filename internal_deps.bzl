@@ -134,3 +134,12 @@ def rules_py_internal_deps():
         strip_prefix = "container-structure-test-56c7201716d770c0f820a9c19207ba2ea77c34f8",
         sha256 = "29632b3226bb9c7dcde340b6efcc48cc5f32e60ec47c86a144922e234e4d9ce7",
     )
+
+    _http_archive(
+        name = "yq.bzl",
+        urls = [
+            "https://github.com/bazel-contrib/yq.bzl/archive/refs/tags/v0.2.0.tar.gz",
+        ],
+        strip_prefix = "yq.bzl-0.2.0",
+        sha256 = "FIXME",
+    )
