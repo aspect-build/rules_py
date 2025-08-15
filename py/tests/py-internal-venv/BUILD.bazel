@@ -17,7 +17,6 @@ py_venv_test(
 py_venv_test(
     name = "test_env_vars",
     srcs = ["test_env_vars.py"],
-    main = "test_env_vars.py",
     env = {
         "ONE": "un",
         "TWO": "deux",
@@ -25,4 +24,5 @@ py_venv_test(
         "LOCATION": "$(location :test_env_vars.py)",
         "DEFINE": "$(SOME_VAR)",
     },
+    main = "test_env_vars.py",
 )

@@ -243,10 +243,10 @@ def _py_venv_binary_impl(ctx):
             executable = ctx.outputs.executable,
             runfiles = rfs,
         ),
-	RunEnvironmentInfo(
+        RunEnvironmentInfo(
             environment = passed_env,
             inherited_environment = getattr(ctx.attr, "env_inherit", []),
-	),
+        ),
     ]
 
 _attrs = dict({
