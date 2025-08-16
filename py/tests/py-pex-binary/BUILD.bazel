@@ -36,13 +36,14 @@ assert_contains(
     expected = "Mooo!,cowsay-6.1/cowsay/__init__.py,six-1.16.0/six.py",
 )
 
-# Cross-compilation can work.
+# Cross-compilation to Linux can work.
+# TODO(https://github.com/aspect-build/rules_py/issues/625): support arbitrary cross-compilation.
 
 # At least one of these platforms is a cross-compile, no matter where we run.
 platform(
-    name = "arm64_macos",
+    name = "arm64_linux",
     constraint_values = [
-        "@platforms//os:macos",
+        "@platforms//os:linux",
         "@platforms//cpu:aarch64",
     ],
 )
@@ -55,9 +56,9 @@ platform(
 )
 
 platform_transition_binary(
-    name = "print_modules_pex_arm64_macos",
+    name = "print_modules_pex_arm64_linux",
     binary = ":print_modules_pex",
-    target_platform = ":arm64_macos",
+    target_platform = ":arm64_linux",
 )
 platform_transition_binary(
     name = "print_modules_pex_amd64_linux",
@@ -68,7 +69,7 @@ platform_transition_binary(
 build_test(
     name = "cross_builds",
     targets = [
-        ":print_modules_pex_arm64_macos",
+        ":print_modules_pex_arm64_linux",
         ":print_modules_pex_amd64_linux",
     ],
 )
