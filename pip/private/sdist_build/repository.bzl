@@ -14,8 +14,16 @@
 def _sdist_build_impl(repository_ctx):
     repository_ctx.file("BUILD.bazel", content = """
 # FIXME
-""".format(src=repository_ctx.attr.src,
-deps=repository_ctx.attr.deps))
+filegroup(
+    name = "file",
+    srcs = [
+       {src!r},
+    ],
+)
+""".format(
+    src=repository_ctx.attr.src,
+    deps=repository_ctx.attr.deps
+))
 
 
 sdist_build = repository_rule(

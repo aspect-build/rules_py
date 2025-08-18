@@ -16,6 +16,7 @@
 # Note that dependency cycles are now inferred and groups calculated automatically, they cannot be specified.
 
 # FIXME: Need to add package name sanitization/mangling
+# https://github.com/bazel-contrib/rules_python/blob/main/python/private/normalize_name.bzl
 
 # FIXME: Need to explicitly test a lockfile with platform-conditional deps (tensorflow cpu vs gpu mac/linux)
 
@@ -109,7 +110,7 @@ def _parse_locks(module_ctx, yq, venv_specs):
 def _sdist_repo_name(package):
     """We key sdist repos strictly by their name and content hash."""
 
-    return  "aspect_rules_py__sdist__{}__{}".format(
+    return  "sdist__{}__{}".format(
         package["name"],
         package["sdist"]["hash"][len("shasum:"):][:8],
     )
@@ -147,14 +148,13 @@ def _raw_sdist_repos(module_ctx, lock_specs):
 
     # FIXME: May need to thread netrc or other credentials through to here?
     for spec in repo_defs.values():
-        print(spec)
         http_file(**spec)
 
 
 def _whl_repo_name(package, whl):
     """We key whl repos strictly by their name and content hash."""
 
-    return  "aspect_rules_py__whl__{}__{}".format(
+    return  "whl__{}__{}".format(
         package["name"],
         whl["hash"][len("shasum:"):][:8],
     )
@@ -191,19 +191,17 @@ def _raw_whl_repos(module_ctx, lock_specs):
 
     # FIXME: May need to thread netrc or other credentials through to here?
     for spec in repo_defs.values():
-        print(spec)
         http_file(**spec)
 
 
 def _sbuild_repo_name(hub, venv, package):
-    return "aspect_rules_py__sbuild__{}__{}__{}".format(
+    return "sbuild__{}__{}__{}".format(
         hub, venv, package["name"],
     )
 
 def _venv_target(hub_name, venv, package_name):
-    return "{}__{}//{}".format(
-        hub_name,
-        venv,
+    return "{}//{}".format(
+        _venv_hub_name(hub_name, venv),
         package_name,
     )
 
@@ -216,15 +214,15 @@ def _sbuild_repos(module_ctx, lock_specs):
 
                 sdist_build(
                     name = _sbuild_repo_name(hub_name, venv_name, package),
-                    src = _sdist_repo_name(package) + "//file",
+                    src = "@" + _sdist_repo_name(package) + "//file",
                     deps = [
-                        _venv_target(hub_name, venv_name, package["name"])
+                        "@" + _venv_target(hub_name, venv_name, package["name"])
                         for package in package.get("dependencies", [])
                     ],
                 )
 
 def _whl_install_repo_name(hub, venv, package):
-    return "aspect_rules_py__install__{}__{}__{}".format(
+    return "whl_install__{}__{}__{}".format(
         hub, venv, package["name"],
     )
 
@@ -253,7 +251,7 @@ def _whl_install_repos(module_ctx, lock_specs):
                 )
 
 def _venv_hub_name(hub, venv):
-    return "aspect_rules_py__venv__{}__{}".format(
+    return "venv__{}__{}".format(
         hub, venv,
     )
 
@@ -324,14 +322,16 @@ def _group_repos(module_ctx, lock_specs):
             # size 1) which it participates in, named those sccs, and identified
             # their direct dependencies beyond the scc. So we can just lay down
             # targets.
+
             venv_hub(
                 name = _venv_hub_name(hub_name, venv_name),
                 aliases = scc_aliases,  # String dict
+                sccs = named_sccs,      # List[String] dict
                 deps = deps,            # List[String] dict
                 installs = {
                     package: _whl_install_repo_name(hub_name, venv_name, {"name": package})
                     for package in sorted(graph.keys())
-                }
+                },
             )
 
     return package_venvs
@@ -341,6 +341,7 @@ def _hub_repos(module_ctx, lock_specs, package_venvs):
     for hub_name, packages in package_venvs.items():
         pip_hub(
             name = hub_name,
+            hub_name = hub_name,
             venvs = lock_specs[hub_name].keys(),
             packages = {
                 package: venvs.keys()
