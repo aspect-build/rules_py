@@ -38,3 +38,13 @@ py_test(
     shard_count = 2,
     deps = ["@pypi_pytest//:pkg"],
 )
+
+py_test(
+    # NB: target name starts with a test_ prefix
+    name = "test_prefix",
+    srcs = ["prefix_test.py"],
+    pytest_main = True,
+    deps = [
+        "@pypi_pytest//:pkg",
+    ],
+)
