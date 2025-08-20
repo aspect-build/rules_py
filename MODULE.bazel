@@ -14,11 +14,35 @@ module(
 bazel_dep(name = "aspect_bazel_lib", version = "2.16.0")
 bazel_dep(name = "aspect_tools_telemetry", version = "0.2.6")
 bazel_dep(name = "bazel_skylib", version = "1.4.2")
-bazel_dep(name = "rules_python", version = "0.29.0")
+
+bazel_dep(name = "bazel_skylib_gazelle_plugin", version = "1.5.0", dev_dependency = True)
+bazel_dep(name = "gazelle", version = "0.31.0", dev_dependency = True, repo_name = "bazel_gazelle")
+
 bazel_dep(name = "platforms", version = "0.0.7")
+bazel_dep(name = "rules_python", version = "1.0.0")
+
+bazel_dep(name = "rules_python_gazelle_plugin", version = "1.0.0", dev_dependency = True)
+bazel_dep(name = "toolchains_musl", version = "0.1.20", dev_dependency = True)
+bazel_dep(name = "toolchains_llvm", version = "1.4.0", dev_dependency = True)
+bazel_dep(name = "toolchains_protoc", version = "0.4.3", dev_dependency = True)
+
+protoc = use_extension("@toolchains_protoc//protoc:extensions.bzl", "protoc")
+use_repo(protoc, "toolchains_protoc_hub")
+register_toolchains("@toolchains_protoc_hub//:all")
+
+single_version_override(
+    module_name = "rules_python",
+    patch_strip = 0,
+    patches = [
+        "//third_party/com.github/bazel-contrib/rules_python:dev_pip.patch",
+    ],
+    version = "1.0.0",
+)
 
 bazel_lib = use_extension("@aspect_bazel_lib//lib:extensions.bzl", "toolchains")
 bazel_lib.expand_template()
+bazel_lib.tar()
+use_repo(bazel_lib, "bsd_tar_toolchains")
 
 tel = use_extension("@aspect_tools_telemetry//:extension.bzl", "telemetry")
 use_repo(tel, "aspect_tools_telemetry_report")
@@ -26,9 +50,22 @@ use_repo(tel, "aspect_tools_telemetry_report")
 # Custom python version for testing only
 python = use_extension("@rules_python//python/extensions:python.bzl", "python", dev_dependency = True)
 python.toolchain(
-    is_default = False,
-    python_version = "3.9",
+    is_default = True,
+    python_version = "3.11",
 )
+
+pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip", dev_dependency = True)
+pip.parse(
+    hub_name = "pypi",
+    python_version = "3.11",
+    requirements_lock = "//:requirements.txt",
+)
+pip.parse(
+    hub_name = "django",
+    python_version = "3.11",
+    requirements_lock = "//py/tests/virtual/django:requirements.txt",
+)
+use_repo(pip, "django", "pypi", "pypi_311_pytest")
 
 tools = use_extension("//py:extensions.bzl", "py_tools")
 tools.rules_py_tools()
@@ -49,6 +86,100 @@ register_toolchains(
 # NOTE: when publishing to BCR, we patch these to be dev_dependency, as we publish pre-built binaries
 # along with our releases.
 
+release_tools = use_extension("//tools/release:fetch.bzl", "release_tools", dev_dependency = True)
+use_repo(
+    release_tools,
+    "musl_toolchains",
+    "org_chromium_sysroot_linux_arm64",
+    "org_chromium_sysroot_linux_x86_64",
+    "sysroot_darwin_universal",
+)
+
+llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm")
+
+inject_repo(
+    llvm,
+    org_chromium_sysroot_linux_arm64 = "org_chromium_sysroot_linux_arm64",
+    org_chromium_sysroot_linux_x86_64 = "org_chromium_sysroot_linux_x86_64",
+    sysroot_darwin_universal = "sysroot_darwin_universal",
+)
+
+llvm.toolchain(
+    name = "llvm_toolchain",
+    llvm_version = "17.0.2",
+)
+use_repo(llvm, "llvm_toolchain", "llvm_toolchain_llvm")
+
+register_toolchains("@llvm_toolchain//:all")
+
+llvm.toolchain(
+    name = "llvm_toolchain_linux_x86_64",
+    llvm_version = "17.0.2",
+)
+llvm.toolchain_root(
+    name = "llvm_toolchain_linux_x86_64",
+    label = "@llvm_toolchain_llvm//:BUILD",
+)
+llvm.sysroot(
+    name = "llvm_toolchain_linux_x86_64",
+    label = "@org_chromium_sysroot_linux_x86_64//:sysroot",
+    targets = ["linux-x86_64"],
+)
+use_repo(llvm, "llvm_toolchain_linux_x86_64")
+
+register_toolchains("@llvm_toolchain_linux_x86_64//:all")
+
+llvm.toolchain(
+    name = "llvm_toolchain_linux_aarch64",
+    llvm_version = "17.0.2",
+)
+llvm.toolchain_root(
+    name = "llvm_toolchain_linux_aarch64",
+    label = "@llvm_toolchain_llvm//:BUILD",
+)
+llvm.sysroot(
+    name = "llvm_toolchain_linux_aarch64",
+    label = "@org_chromium_sysroot_linux_arm64//:sysroot",
+    targets = ["linux-aarch64"],
+)
+use_repo(llvm, "llvm_toolchain_linux_aarch64")
+
+register_toolchains("@llvm_toolchain_linux_aarch64//:all")
+
+llvm.toolchain(
+    name = "llvm_toolchain_darwin_x86_64",
+    llvm_version = "17.0.2",
+)
+llvm.toolchain_root(
+    name = "llvm_toolchain_darwin_x86_64",
+    label = "@llvm_toolchain_llvm//:BUILD",
+)
+llvm.sysroot(
+    name = "llvm_toolchain_darwin_x86_64",
+    label = "@sysroot_darwin_universal//:sysroot",
+    targets = ["darwin-x86_64"],
+)
+use_repo(llvm, "llvm_toolchain_darwin_x86_64")
+
+register_toolchains("@llvm_toolchain_darwin_x86_64//:all")
+
+llvm.toolchain(
+    name = "llvm_toolchain_darwin_aarch64",
+    llvm_version = "17.0.2",
+)
+llvm.toolchain_root(
+    name = "llvm_toolchain_darwin_aarch64",
+    label = "@llvm_toolchain_llvm//:BUILD",
+)
+llvm.sysroot(
+    name = "llvm_toolchain_darwin_aarch64",
+    label = "@sysroot_darwin_universal//:sysroot",
+    targets = ["darwin-aarch64"],
+)
+use_repo(llvm, "llvm_toolchain_darwin_aarch64")
+
+register_toolchains("@llvm_toolchain_darwin_aarch64//:all")
+
 bazel_dep(
     name = "rules_rust",
     version = "0.53.0",
@@ -62,6 +193,12 @@ rust = use_extension(
 )
 rust.toolchain(
     edition = "2021",
+    extra_target_triples = [
+        "aarch64-apple-darwin",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+    ],
     versions = ["1.81.0"],
 )
 use_repo(rust, "rust_toolchains")
@@ -113,3 +250,12 @@ oci.pull(
     tag = "latest",
 )
 use_repo(oci, "ubuntu", "ubuntu_linux_amd64", "ubuntu_linux_arm64_v8")
+
+http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+
+http_file(
+    name = "django_4_2_4",
+    downloaded_file_path = "Django-4.2.4-py3-none-any.whl",
+    sha256 = "860ae6a138a238fc4f22c99b52f3ead982bb4b1aad8c0122bcd8c8a3a02e409d",
+    urls = ["https://files.pythonhosted.org/packages/7f/9e/fc6bab255ae10bc57fa2f65646eace3d5405fbb7f5678b90140052d1db0f/Django-4.2.4-py3-none-any.whl"],
+)

@@ -64,7 +64,7 @@ def py_pytest_main(name, py_library = default_py_library, deps = [], data = [], 
     Args:
         name: The name of the runable target that updates the test entry file.
         py_library: Use this attribute to override the default py_library rule.
-        deps: A list containing the pytest library target, e.g., @pypi_pytest//:pkg.
+        deps: A list containing the pytest library target, e.g., @pypi//pytest.
         data: A list of data dependencies to pass to the py_library target.
         testonly: A boolean indicating if the py_library target is testonly.
         **kwargs: The extra arguments passed to the template rendering target.
