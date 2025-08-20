@@ -1,4 +1,4 @@
-load("@django//:requirements.bzl", "all_whl_requirements_by_package", "requirement")
+load("@pypi_django//:requirements.bzl", "all_whl_requirements_by_package", "requirement")
 load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirements")
 load("//py:defs.bzl", "py_binary", "py_library", "py_unpacked_wheel", "resolutions")
 

@@ -272,7 +272,7 @@ pub fn create_empty_venv<'a>(
     // If we've been provided with a venv shim, that gets put in place as
     // bin/python. Otherwise we copy the Python here
     match venv_shim {
-        Some(ref shim_path) => {
+        Some(shim_path) => {
             copy(&shim_path.to_path_buf(), &venv.python_bin)
                 .wrap_err("Unable to create interpreter shim")?;
 
