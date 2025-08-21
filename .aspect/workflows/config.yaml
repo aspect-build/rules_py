@@ -3,5 +3,8 @@ tasks:
   - test:
   - finalization:
       queue: aspect-small
+bazel:
+  flags:
+    - --config=ci
 notifications:
   github: {}
