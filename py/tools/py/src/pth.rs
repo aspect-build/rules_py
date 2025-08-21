@@ -19,7 +19,7 @@ def _FindPythonRunfilesRoot():
     # bazel-bin/py/tests/external-deps/foo.runfiles/.foo.venv/lib/python3.9/site-packages/runfiles
     # ╰─────────────────────┬─────────────────────╯╰───┬───╯╰─────────────┬─────────────╯╰───┬───╯
     #             bazel runfiles root              venv root    Python packages root   Python package
-    
+
     for _ in range("rules_python/python/runfiles/runfiles.py".count("/") + 3):
         root = os.path.dirname(root)
     return root
@@ -94,15 +94,19 @@ impl PthFile {
 
             match entry.file_name() {
                 Some(name) if name == "site-packages" => {
-                    let src_dir = dest
-                        .join(entry.clone())
-                        .canonicalize()
-                        .into_diagnostic()
-                        .wrap_err(format!(
-                            "Unable to get full source dir path for {} relative to {}",
-                            entry.display(),
-                            dest.display(),
-                        ))?;
+                    let src_dir = if entry.is_absolute() {
+                        entry.clone()
+                    } else {
+                        dest.join(&entry)
+                    }
+                    .canonicalize()
+                    .into_diagnostic()
+                    .wrap_err(format!(
+                        "Unable to get full source dir path for {} relative to {}",
+                        entry.display(),
+                        dest.display(),
+                    ))?;
+
                     create_symlinks(&src_dir, &src_dir, &dest, &opts.collision_strategy)?;
                 }
                 _ => {
