@@ -29,9 +29,11 @@ def _whl_install_impl(repository_ctx):
         parsed = parse_whl_name(whl)
 
         # FIXME: Move these splits to Ignas' code? Why not?
-        for python_tag in parsed.abi_tag.split("."):
-            for platform_tag in parsed.platform_tag.split("."):
-                for abi_tag in parsed.abi_tag.split("."):
+        for python_tag in parsed.python_tags:
+            for platform_tag in parsed.platform_tags:
+                for abi_tag in parsed.abi_tags:
+
+                    print(whl, "{}-{}-{}".format(python_tag, platform_tag, abi_tag))
 
     content = [
         "# FIXME",

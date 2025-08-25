@@ -28,6 +28,7 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 load("//pip/private/pip_hub:repository.bzl", "pip_hub")
 load("//pip/private/sdist_build:repository.bzl", "sdist_build")
 load("//pip/private/whl_install:repository.bzl", "whl_install")
+load("//pip/private/whl_install:parse_whl_name.bzl", "parse_whl_name")
 load("//pip/private/venv_hub:repository.bzl", "venv_hub")
 load(":sccs.bzl", "sccs")
 load(":sha1.bzl", "sha1")
@@ -107,6 +108,60 @@ def _parse_locks(module_ctx, yq, venv_specs):
     return lock_specs
 
 
+def _collect_configurations(repository_ctx, lock_specs):
+    # Set of wheel names which we're gonna do a second pass over to collect configuration names
+
+    # The config repo scheme is as follows:
+    # //_parts/version/major:2-99
+    # //_parts/version/minor:2-99
+    # //_parts/version/patch:2-99 | any
+    # //_parts/os:{any,linux,manylinux,musllinux,macos,}
+
+    wheel_files = {}
+
+    for hub_name, venvs in lock_specs.items():
+        for venv_name, lock in venvs.items():
+            for package in lock.get("package", []):
+                if "registry" not in package["source"]:
+                    continue
+
+                for whl in package.get("wheels", []):
+                    url = whl["url"]
+                    wheel_name = url.split("/")[-1] # Find the trailing file name
+                    wheel_files[wheel_name] = 1
+
+    abi_tags = {}
+    platform_tags = {}
+    python_tags = {}
+
+    # Platform definitions from groups of configs
+    configurations = {}
+
+    for wheel_name in wheel_files.keys():
+        parsed_wheel = parse_whl_name(wheel_name)
+        for python_tag in parsed_wheel.python_tags:
+            python_tags[python_tag] = 1
+
+            for platform_tag in parsed_wheel.platform_tags:
+                platform_tags[platform_tag] = 1
+
+                for abi_tag in parsed_wheel.abi_tags:
+                    abi_tags[abi_tag] = 1
+
+                    configuration = "{}-{}-{}".format(python_tag, platform_tag, abi_tag)
+
+                    configurations[configuration] = [
+                        "@aspect_rules_py//pip/private/config/python:{}".format(python_tag),
+                        "@aspect_rules_py//pip/private/config/platform:{}".format(platform_tag),
+                        "@aspect_rules_py//pip/private/config/abi:{}".format(abi_tag),
+                    ]
+
+    print(abi_tags)
+    print(platform_tags)
+    print(python_tags)
+    print(configurations)
+
+
 def _sdist_repo_name(package):
     """We key sdist repos strictly by their name and content hash."""
 
@@ -114,6 +169,7 @@ def _sdist_repo_name(package):
         package["name"],
         package["sdist"]["hash"][len("shasum:"):][:8],
     )
+
 
 def _raw_sdist_repos(module_ctx, lock_specs):
     # Map of hub -> venv -> requirement -> version -> repo name
@@ -358,6 +414,11 @@ def _pip_impl(module_ctx):
     venv_specs = _parse_venvs(module_ctx, hub_specs)
 
     lock_specs = _parse_locks(module_ctx, toml2json_tool, venv_specs)
+
+    # Roll through all the configured wheels, collect & validate the unique
+    # platform configurations so that we can go create an appropriate power set
+    # of conditions.
+    configurations = _collect_configurations(module_ctx, lock_specs)
 
     # Roll through and create sdist and whl repos for all configured sources
     # Note that these have no deps to this point

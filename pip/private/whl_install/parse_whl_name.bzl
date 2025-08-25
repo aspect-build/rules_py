@@ -20,6 +20,8 @@
 A starlark implementation of a Wheel filename parsing.
 """
 
+load("@bazel_skylib//lib:new_sets.bzl", "sets")
+
 # Taken from https://peps.python.org/pep-0600/
 _LEGACY_ALIASES = {
     "manylinux1_i686": "manylinux_2_5_i686",
@@ -90,11 +92,16 @@ def parse_whl_name(file):
     else:
         build_tag = None
 
+    # Renamed to par with https://github.com/wheelodex/wheel-filename/blob/master/src/wheel_filename/__init__.py#L56C7-L56C26
+    #
+    # FIXME: Need to sort these so that -none- and -any come "first" in the matrix sequence for select()
+    #
+    # FIXME: Drop py2 from the python tags, py2 is long dead, get a newer interpreter
     return struct(
-        distribution = distribution,
+        project = distribution,
         version = version,
-        build_tag = build_tag,
-        python_tag = python_tag,
-        abi_tag = abi_tag,
-        platform_tag = normalize_platform_tag(platform_tag),
+        build = build_tag,
+        python_tags = sorted(sets.to_list(sets.make(python_tag.split(".")))),
+        abi_tags = sorted(sets.to_list(sets.make(abi_tag.split(".")))),
+        platform_tags = sorted(sets.to_list(sets.make(normalize_platform_tag(platform_tag).split(".")))),
     )
