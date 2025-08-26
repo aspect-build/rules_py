@@ -113,8 +113,6 @@ def _py_venv_base_impl(ctx):
     venv_name = ".{}".format(ctx.attr.name)
     venv_dir = ctx.actions.declare_directory(venv_name)
 
-    print(ctx.label.repo_name or ctx.workspace_name)
-
     ctx.actions.run(
         executable = venv_tool,
         arguments = [
