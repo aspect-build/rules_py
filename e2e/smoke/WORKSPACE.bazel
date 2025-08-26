@@ -39,6 +39,7 @@ crates_repository(
         "@aspect_rules_py//py/tools/unpack_bin:Cargo.toml",
         "@aspect_rules_py//py/tools/venv_bin:Cargo.toml",
         "@aspect_rules_py//py/tools/venv_shim:Cargo.toml",
+        "@aspect_rules_py//py/tools/runfiles:Cargo.toml",
     ],
 )
 
