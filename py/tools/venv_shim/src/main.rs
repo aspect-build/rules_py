@@ -218,7 +218,7 @@ fn main() -> miette::Result<()> {
     // location on Linux-based platforms.
     cmd.arg0(&venv_interpreter);
 
-    // Psuedo-`activate`
+    // Pseudo-`activate`
     cmd.env("VIRTUAL_ENV", &venv_root.to_str().unwrap());
     let venv_bin = (&venv_root).join("bin").to_str().unwrap().to_owned();
     if let Ok(current_path) = var("PATH") {
