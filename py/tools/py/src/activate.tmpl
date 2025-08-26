@@ -79,29 +79,6 @@ _OLD_VIRTUAL_PATH="$PATH"
 # We set these before runfiles initialization so that we can use it as part of a fallback path
 {{ENVVARS}}
 
-# Initialize the runfiles interpreter if we're using one. Note that this happens
-# AFTER unsetting the PYTHONHOME so that we can set PYTHONHOME if we're using a
-# full bundled interpreter, and after we set the Bazel-specific envvars so we
-# can provide some fallback handling around runfiles too.
-{{RUNFILES_INTERPRETER}}
-
-_abspath() {
-    "${PYTHONEXECUTABLE}" -c 'import os, sys; print(os.path.abspath(sys.argv[1]))' "$@"
-}
-
-# Re-export abspath'd vars
-# This allows us to avoid relative path issues without incurring sandbox escapes
-VIRTUAL_ENV="$(_abspath "${VIRTUAL_ENV}")"
-export VIRTUAL_ENV
-
-PYTHONEXECUTABLE="$(_abspath "${PYTHONEXECUTABLE}")"
-export PYTHONEXECUTABLE
-
-if [ -n "${PYTHONHOME:-}" ]; then
-  PYTHONHOME="$(_abspath "${PYTHONHOME}")"
-  export PYTHONHOME
-fi
-
 # Now we can put the venv's absolute bin on the path
 PATH="$VIRTUAL_ENV/bin:$PATH"
 export PATH

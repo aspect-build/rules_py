@@ -87,6 +87,7 @@ crate.from_cargo(
         "//py/tools/unpack_bin:Cargo.toml",
         "//py/tools/venv_bin:Cargo.toml",
         "//py/tools/venv_shim:Cargo.toml",
+        "//py/tools/runfiles:Cargo.toml",
     ],
 )
 use_repo(crate, "crate_index")

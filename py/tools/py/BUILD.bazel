@@ -33,5 +33,6 @@ rust_library(
         "@crate_index//:uv-python",
         "@crate_index//:uv-virtualenv",
         "@crate_index//:walkdir",
+        "//py/tools/runfiles",
     ],
 )

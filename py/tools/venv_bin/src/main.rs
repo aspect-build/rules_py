@@ -33,7 +33,11 @@ enum VenvMode {
 
 #[derive(Parser, Debug)]
 struct VenvArgs {
-    /// Source Python interpreter path to symlink into the venv.
+    /// The current workspace name
+    #[arg(long)]
+    repo: Option<String>,
+
+    /// Source Bazel target of the Python interpreter.
     #[arg(long)]
     python: PathBuf,
 
@@ -91,6 +95,7 @@ struct VenvArgs {
 fn venv_cmd_handler(args: VenvArgs) -> miette::Result<()> {
     let pth_file = py::PthFile::new(&args.pth_file, args.pth_entry_prefix);
     match args.mode {
+        // FIXME: Does this need to care about the repo?
         VenvMode::DynamicSymlink => py::create_venv(
             &args.python,
             &args.location,
@@ -105,6 +110,9 @@ fn venv_cmd_handler(args: VenvArgs) -> miette::Result<()> {
             };
 
             let venv = py::venv::create_empty_venv(
+                &args
+                    .repo
+                    .expect("The --repo argument is required for static venvs!"),
                 &args.python,
                 py::venv::PythonVersionInfo::from_str(&version)?,
                 &args.location,
@@ -123,12 +131,16 @@ fn venv_cmd_handler(args: VenvArgs) -> miette::Result<()> {
             Ok(())
         }
 
+        // FIXME: Not fully implemented yet
         VenvMode::StaticPth => {
             let Some(version) = args.version else {
                 return Err(miette!("Version must be provided for static venv modes"));
             };
 
             let venv = py::venv::create_empty_venv(
+                &args
+                    .repo
+                    .expect("The --repo argument is required for static venvs!"),
                 &args.python,
                 py::venv::PythonVersionInfo::from_str(&version)?,
                 &args.location,

@@ -113,11 +113,17 @@ def _py_venv_base_impl(ctx):
     venv_name = ".{}".format(ctx.attr.name)
     venv_dir = ctx.actions.declare_directory(venv_name)
 
+    print(ctx.label.repo_name or ctx.workspace_name)
+
     ctx.actions.run(
         executable = venv_tool,
         arguments = [
             "--location=" + venv_dir.path,
             "--venv-shim=" + py_shim.bin.bin.path,
+            # Post-bzlmod we need to record the current repository in case the
+            # user tries to consume a `py_venv_binary` across repo boundaries
+            # which could cause repo mapping to become relevant.
+            "--repo=" + (ctx.label.repo_name or ctx.workspace_name),
             "--python=" + to_rlocation_path(ctx, py_toolchain.python) if py_toolchain.runfiles_interpreter else py_toolchain.python.path,
             "--pth-file=" + site_packages_pth_file.path,
             "--env-file=" + env_file.path,

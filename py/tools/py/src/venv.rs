@@ -9,7 +9,7 @@ use std::{
     env::current_dir,
     fs::{self, File},
     io::{BufRead, BufReader, BufWriter, Write},
-    os::unix::fs::{MetadataExt, PermissionsExt},
+    os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
 };
 use std::{ffi::OsStr, os::unix::fs as unix_fs};
@@ -203,6 +203,7 @@ const RELOCATABLE_SHEBANG: &str = "\
 /// - Do we _have_ to include activate scripts?
 /// - Do we _have_ to include a versioned symlink?
 pub fn create_empty_venv<'a>(
+    repo: &String,
     python: &Path,
     version: PythonVersionInfo,
     location: &'a Path,
@@ -240,14 +241,31 @@ pub fn create_empty_venv<'a>(
         .into_diagnostic()
         .wrap_err("Unable to create base venv directory")?;
 
+    let using_runfiles_interpreter = !python.exists() && venv_shim != &None;
+
+    let interpreter_cfg_snippet = if using_runfiles_interpreter {
+        &format!(
+            "
+# Non-standard extension keys used by the Aspect shim
+aspect_runfiles_interpreter = {0}
+aspect_runfiles_repo = {1}
+",
+            python.display(),
+            repo
+        )
+    } else {
+        ""
+    };
+
     // Create the `pyvenv.cfg` file
     // FIXME: Should this come from the ruleset?
     fs::write(
         &venv.home_dir.join("pyvenv.cfg"),
-        format!(
-            include_str!("pyvenv.cfg.tmpl"),
-            venv.version_info.major, venv.version_info.minor, venv.version_info.patch,
-        ),
+        include_str!("pyvenv.cfg.tmpl")
+            .replace("{{MAJOR}}", &venv.version_info.major.to_string())
+            .replace("{{MINOR}}", &venv.version_info.minor.to_string())
+            .replace("{{PATCH}}", &venv.version_info.patch.to_string())
+            .replace("{{INTERPRETER}}", interpreter_cfg_snippet),
     )
     .into_diagnostic()?;
 
@@ -337,18 +355,11 @@ pub fn create_empty_venv<'a>(
             .collect::<Vec<_>>()
             .join("\n");
 
-        let runfiles_activation: String = match venv_shim {
-            Some(_) => include_str!("runfiles_interpreter.tmpl")
-                .replace("{{INTERPRETER_TARGET}}", &python.to_str().unwrap()),
-            None => "".to_string(),
-        };
-
         fs::write(
             venv.bin_dir.join("activate"),
             include_str!("activate.tmpl")
                 .replace("{{ENVVARS}}", &envvars)
                 .replace("{{ENVVARS_UNSET}}", envvars_unset)
-                .replace("{{RUNFILES_INTERPRETER}}", &runfiles_activation)
                 .replace("{{DEBUG}}", if debug { &"set -x\n" } else { &"\n" }),
         )
         .into_diagnostic()
