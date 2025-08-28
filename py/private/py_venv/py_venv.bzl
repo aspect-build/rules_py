@@ -50,6 +50,9 @@ def _py_venv_base_impl(ctx):
 
     py_toolchain = _py_semantics.resolve_toolchain(ctx)
 
+    if (py_toolchain.interpreter_version_info.major, py_toolchain.interpreter_version_info.minor) < (3, 11):
+        fail("The prebuild py_venv strategy requires Py 3.11.0 or later")
+
     # Note that we HAVE to grab these files from toolchains so that we can swap
     # in prebuild versions in production.
     py_shim = ctx.toolchains[SHIM_TOOLCHAIN]
