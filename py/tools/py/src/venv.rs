@@ -210,6 +210,7 @@ pub fn create_empty_venv<'a>(
     env_file: &Option<PathBuf>,
     venv_shim: &Option<PathBuf>,
     debug: bool,
+    include_system_site_packages: bool,
 ) -> miette::Result<Virtualenv> {
     let build_dir = current_dir().into_diagnostic()?;
     let home_dir = &build_dir.join(location.to_path_buf());
@@ -265,7 +266,11 @@ aspect_runfiles_repo = {1}
             .replace("{{MAJOR}}", &venv.version_info.major.to_string())
             .replace("{{MINOR}}", &venv.version_info.minor.to_string())
             .replace("{{PATCH}}", &venv.version_info.patch.to_string())
-            .replace("{{INTERPRETER}}", interpreter_cfg_snippet),
+            .replace("{{INTERPRETER}}", interpreter_cfg_snippet)
+            .replace(
+                "{{INCLUDE_SYSTEM_SITE}}",
+                &include_system_site_packages.to_string(),
+            ),
     )
     .into_diagnostic()?;
 

@@ -133,6 +133,10 @@ def _py_venv_base_impl(ctx):
                 py_toolchain.interpreter_version_info.major,
                 py_toolchain.interpreter_version_info.minor,
             ),
+            "--include-system-site-packages=" + ({
+                True: "true",
+                False: "false"
+            }[ctx.attr.include_system_site_packages]),
         ] + (["--debug"] if ctx.attr.debug else []),
         inputs = rfs.merge_all([
             ctx.runfiles(files = [
@@ -293,6 +297,24 @@ A collision can occur when multiple packages providing the same file are install
     ),
     "debug": attr.bool(
         default = False,
+    ),
+    "include_system_site_packages": attr.bool(
+        default = True,
+        doc = """`pyvenv.cfg` feature flag for the `include-system-site-packages` key.
+
+When `True`, the user's site directory AND the interpreter's site directory will
+be included into the runtime pythonpath.
+
+When `False`, only the virtualenv's site directory and the interpreter's core
+libraries will be included into the runtime pythonpath.
+
+`False` is obviously preferable as it increases hermeticity, but the choice of
+`False` cases for instance a `pip` or `setuptools` bundled into the interpreter
+to be unusable. Many libraries assume these packages will always be available
+and may not reliably declare their dependencies such that Bazel will satisfy
+them, so choosing isolation could expose packaging errors.
+
+"""
     ),
 })
 

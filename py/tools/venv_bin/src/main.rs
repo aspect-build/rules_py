@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use clap::ArgAction;
 use clap::Parser;
 use miette::miette;
 use miette::Context;
@@ -90,6 +91,16 @@ struct VenvArgs {
 
     #[arg(long, default_value_t = false)]
     debug: bool,
+
+    #[clap(
+        long,
+        default_missing_value("true"),
+        default_value("true"),
+        num_args(0..=1),
+        require_equals(true),
+        action = ArgAction::Set,
+    )]
+    include_system_site_packages: bool,
 }
 
 fn venv_cmd_handler(args: VenvArgs) -> miette::Result<()> {
@@ -119,6 +130,7 @@ fn venv_cmd_handler(args: VenvArgs) -> miette::Result<()> {
                 &args.env_file,
                 &args.venv_shim,
                 args.debug,
+                args.include_system_site_packages,
             )?;
 
             py::venv::populate_venv_with_copies(
@@ -147,6 +159,7 @@ fn venv_cmd_handler(args: VenvArgs) -> miette::Result<()> {
                 &args.env_file,
                 &args.venv_shim,
                 args.debug,
+                args.include_system_site_packages,
             )?;
 
             py::venv::populate_venv_with_pth(
