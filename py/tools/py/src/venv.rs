@@ -203,7 +203,7 @@ const RELOCATABLE_SHEBANG: &str = "\
 /// - Do we _have_ to include activate scripts?
 /// - Do we _have_ to include a versioned symlink?
 pub fn create_empty_venv<'a>(
-    repo: &String,
+    repo: &str,
     python: &Path,
     version: PythonVersionInfo,
     location: &'a Path,
@@ -247,7 +247,7 @@ pub fn create_empty_venv<'a>(
 
     let interpreter_cfg_snippet = if using_runfiles_interpreter {
         format!(
-            "
+            "\
 # Non-standard extension keys used by the Aspect shim
 aspect-runfiles-interpreter = {0}
 aspect-runfiles-repo = {1}
