@@ -101,10 +101,10 @@ def _py_venv_base_impl(ctx):
     rfs = _py_library.make_merged_runfiles(
         ctx,
         extra_depsets = [
-            py_toolchain.files,
-            srcs_depset,
-        ] + virtual_resolution.srcs + virtual_resolution.runfiles +
-        ([py_toolchain.files] if py_toolchain.runfiles_interpreter else []),
+                            py_toolchain.files,
+                            srcs_depset,
+                        ] + virtual_resolution.srcs + virtual_resolution.runfiles +
+                        ([py_toolchain.files] if py_toolchain.runfiles_interpreter else []),
         extra_runfiles_depsets = [
             ctx.attr._runfiles_lib[DefaultInfo].default_runfiles,
         ],
@@ -135,11 +135,11 @@ def _py_venv_base_impl(ctx):
             ),
             "--include-system-site-packages=" + ({
                 True: "true",
-                False: "false"
+                False: "false",
             }[ctx.attr.include_system_site_packages]),
             "--include-user-site-packages=" + ({
                 True: "true",
-                False: "false"
+                False: "false",
             }[ctx.attr.include_system_site_packages]),
         ] + (["--debug"] if ctx.attr.debug else []),
         inputs = rfs.merge_all([
@@ -318,9 +318,9 @@ to be unusable. Many libraries assume these packages will always be available
 and may not reliably declare their dependencies such that Bazel will satisfy
 them, so choosing isolation could expose packaging errors.
 
-"""
+""",
     ),
-        "include_user_site_packages": attr.bool(
+    "include_user_site_packages": attr.bool(
         default = False,
         doc = """`pyvenv.cfg` feature flag for the `aspect-include-user-site-packages` extension key.
 
@@ -336,7 +336,7 @@ to be unusable. Many libraries assume these packages will always be available
 and may not reliably declare their dependencies such that Bazel will satisfy
 them, so choosing isolation could expose packaging errors.
 
-"""
+""",
     ),
 })
 
