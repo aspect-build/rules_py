@@ -131,14 +131,14 @@ fn venv_cmd_handler(args: VenvArgs) -> miette::Result<()> {
             };
 
             let venv = py::venv::create_empty_venv(
-                &args
-                    .repo
+                args.repo
+                    .as_deref()
                     .expect("The --repo argument is required for static venvs!"),
                 &args.python,
                 py::venv::PythonVersionInfo::from_str(&version)?,
                 &args.location,
-                &args.env_file,
-                &args.venv_shim,
+                args.env_file.as_deref(),
+                args.venv_shim.as_deref(),
                 args.debug,
                 args.include_system_site_packages,
                 args.include_user_site_packages,
@@ -161,14 +161,14 @@ fn venv_cmd_handler(args: VenvArgs) -> miette::Result<()> {
             };
 
             let venv = py::venv::create_empty_venv(
-                &args
-                    .repo
+                args.repo
+                    .as_deref()
                     .expect("The --repo argument is required for static venvs!"),
                 &args.python,
                 py::venv::PythonVersionInfo::from_str(&version)?,
                 &args.location,
-                &args.env_file,
-                &args.venv_shim,
+                args.env_file.as_deref(),
+                args.venv_shim.as_deref(),
                 args.debug,
                 args.include_system_site_packages,
                 args.include_user_site_packages,
