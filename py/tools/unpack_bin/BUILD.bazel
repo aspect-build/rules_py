@@ -1,4 +1,5 @@
-load("//tools/release:defs.bzl", "rust_binary")
+load("//bazel/rust:defs.bzl", "rust_binary")
+load("//bazel/rust:multi_platform_rust_binaries.bzl", "multi_platform_rust_binaries")
 
 rust_binary(
     name = "unpack",
@@ -7,9 +8,14 @@ rust_binary(
     ],
     deps = [
         "//py/tools/py",
-        "@crate_index//:clap",
-        "@crate_index//:miette",
+        "@crates//:clap",
+        "@crates//:miette",
     ],
+)
+
+multi_platform_rust_binaries(
+    name = "bins",
+    target = ":unpack",
 )
 
 alias(

@@ -3,7 +3,7 @@ load("//py/private/py_venv:defs.bzl", "py_venv", "py_venv_test")
 py_venv(
     name = "venv",
     deps = [
-        "@pypi_cowsay//:pkg",
+        "@pypi//cowsay",
     ],
 )
 

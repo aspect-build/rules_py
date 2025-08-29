@@ -23,7 +23,7 @@ for f in $(SRCS); do
   iter=$$(($$iter + 1))
 done > $@
 """.format(actual),
-        toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
+        toolchains = ["@tar.bzl//tar/toolchain:type"],
     )
 
     write_source_file(
