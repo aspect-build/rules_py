@@ -11,6 +11,7 @@ runfiles_export_envvars
 set -o errexit -o nounset -o pipefail
 
 PWD="$(pwd)"
+TEMPORARY_DIRECTORY="$(mktemp -d)"
 
 # Returns an absolute path to the given location if the path is relative, otherwise return
 # the path unchanged.
@@ -21,6 +22,10 @@ function alocation {
   else
     echo -n "${PWD}/${P}"
   fi
+}
+
+function cleanup {
+    rm -rf "${TEMPORARY_DIRECTORY}"
 }
 
 function python_location {
@@ -34,14 +39,18 @@ function python_location {
   fi
 }
 
+trap cleanup EXIT
+
 VENV_TOOL="$(rlocation {{VENV_TOOL}})"
-VIRTUAL_ENV="$(alocation "${RUNFILES_DIR}/{{ARG_VENV_NAME}}")"
+VIRTUAL_ENV="$(alocation "${TEMPORARY_DIRECTORY}/{{ARG_VENV_NAME}}")"
+
 export VIRTUAL_ENV
 
 "${VENV_TOOL}" \
     --location "${VIRTUAL_ENV}" \
     --python "$(python_location)" \
     --pth-file "$(rlocation {{ARG_PTH_FILE}})" \
+    --pth-entry-prefix "$(alocation ${RUNFILES_DIR})" \
     --collision-strategy "{{ARG_COLLISION_STRATEGY}}" \
     --venv-name "{{ARG_VENV_NAME}}"
 
@@ -58,4 +67,4 @@ if [ -n "${BASH:-}" -o -n "${ZSH_VERSION:-}" ] ; then
     hash -r 2> /dev/null
 fi
 
-exec "{{EXEC_PYTHON_BIN}}" {{INTERPRETER_FLAGS}} "$(rlocation {{ENTRYPOINT}})" "$@"
+"{{EXEC_PYTHON_BIN}}" {{INTERPRETER_FLAGS}} "$(rlocation {{ENTRYPOINT}})" "$@"
