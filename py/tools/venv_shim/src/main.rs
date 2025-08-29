@@ -95,7 +95,6 @@ fn parse_venv_cfg(venv_root: &Path, cfg_path: &Path) -> miette::Result<PyCfg> {
             },
             user_site: user_site.expect("User site flag not set!"),
         }),
-        // FIXME: Kinda useless copy in this case
         (Some(version), None, None) => Ok(PyCfg {
             root: venv_root.to_path_buf(),
             cfg: cfg_path.to_path_buf(),
