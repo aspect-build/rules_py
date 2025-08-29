@@ -211,6 +211,7 @@ pub fn create_empty_venv<'a>(
     venv_shim: &Option<PathBuf>,
     debug: bool,
     include_system_site_packages: bool,
+    include_user_site_packages: bool,
 ) -> miette::Result<Virtualenv> {
     let build_dir = current_dir().into_diagnostic()?;
     let home_dir = &build_dir.join(location.to_path_buf());
@@ -245,17 +246,17 @@ pub fn create_empty_venv<'a>(
     let using_runfiles_interpreter = !python.exists() && venv_shim != &None;
 
     let interpreter_cfg_snippet = if using_runfiles_interpreter {
-        &format!(
+        format!(
             "
 # Non-standard extension keys used by the Aspect shim
-aspect_runfiles_interpreter = {0}
-aspect_runfiles_repo = {1}
+aspect-runfiles-interpreter = {0}
+aspect-runfiles-repo = {1}
 ",
             python.display(),
             repo
         )
     } else {
-        ""
+        "".to_owned()
     };
 
     // Create the `pyvenv.cfg` file
@@ -266,10 +267,14 @@ aspect_runfiles_repo = {1}
             .replace("{{MAJOR}}", &venv.version_info.major.to_string())
             .replace("{{MINOR}}", &venv.version_info.minor.to_string())
             .replace("{{PATCH}}", &venv.version_info.patch.to_string())
-            .replace("{{INTERPRETER}}", interpreter_cfg_snippet)
+            .replace("{{INTERPRETER}}", &interpreter_cfg_snippet)
             .replace(
                 "{{INCLUDE_SYSTEM_SITE}}",
                 &include_system_site_packages.to_string(),
+            )
+            .replace(
+                "{{INCLUDE_USER_SITE}}",
+                &include_user_site_packages.to_string(),
             ),
     )
     .into_diagnostic()?;

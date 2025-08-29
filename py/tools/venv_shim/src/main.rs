@@ -45,6 +45,7 @@ struct PyCfg {
     cfg: PathBuf,
     version_info: String,
     interpreter: InterpreterConfig,
+    user_site: bool,
 }
 
 fn parse_venv_cfg(venv_root: &Path, cfg_path: &Path) -> miette::Result<PyCfg> {
@@ -53,6 +54,7 @@ fn parse_venv_cfg(venv_root: &Path, cfg_path: &Path) -> miette::Result<PyCfg> {
     let mut version: Option<String> = None;
     let mut bazel_interpreter: Option<String> = None;
     let mut bazel_repo: Option<String> = None;
+    let mut user_site: Option<bool> = None;
 
     // FIXME: Errors possible here?
     let reader = io::BufReader::new(file);
@@ -66,11 +68,14 @@ fn parse_venv_cfg(venv_root: &Path, cfg_path: &Path) -> miette::Result<PyCfg> {
                 "version_info" => {
                     version = Some(value.to_string());
                 }
-                "aspect_runfiles_interpreter" => {
+                "aspect-runfiles-interpreter" => {
                     bazel_interpreter = Some(value.to_string());
                 }
-                "aspect_runfiles_repo" => {
+                "aspect-runfiles-repo" => {
                     bazel_repo = Some(value.to_string());
+                }
+                "aspect-include-user-site-packages" => {
+                    user_site = Some(value == "true");
                 }
                 // We don't care about other keys
                 &_ => {}
@@ -87,6 +92,7 @@ fn parse_venv_cfg(venv_root: &Path, cfg_path: &Path) -> miette::Result<PyCfg> {
                 rpath: rloc,
                 repo: repo,
             },
+            user_site: user_site.expect("User site flag not set!"),
         }),
         // FIXME: Kinda useless copy in this case
         (Some(version), None, None) => Ok(PyCfg {
@@ -96,6 +102,7 @@ fn parse_venv_cfg(venv_root: &Path, cfg_path: &Path) -> miette::Result<PyCfg> {
             interpreter: InterpreterConfig::External {
                 version: parse_version_info(&version).unwrap(),
             },
+            user_site: user_site.expect("User site flag not set!"),
         }),
         (None, _, _) => Err(miette!(
             "Invalid pyvenv.cfg file! no interpreter version specified!"
@@ -229,6 +236,12 @@ fn main() -> miette::Result<()> {
 
     // Set the executable pointer for MacOS, but we do it consistently
     cmd.env("PYTHONEXECUTABLE", &venv_interpreter);
+
+    // Similar to `-s` but this avoids us having to muck with the argv in ways
+    // that could be visible to the called program.
+    if !venv_config.user_site {
+        cmd.env("PYTHONNOUSERSITE", "1");
+    }
 
     // Set the interpreter home to the resolved install base. This works around
     // the home = property in the pyvenv.cfg being wrong because we don't

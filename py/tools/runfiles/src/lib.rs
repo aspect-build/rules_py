@@ -155,14 +155,17 @@ impl Runfiles {
     /// RUNFILES_MANIFEST_FILE environment variable is present,
     /// or a directory based Runfiles object otherwise.
     pub fn create() -> Result<Self> {
-        let mode = if let Some(manifest_file) = std::env::var_os(MANIFEST_FILE_ENV_VAR) {
-            Self::create_manifest_based(Path::new(&manifest_file))?
-        } else {
-            let dir = find_runfiles_dir()?;
-            let manifest_path = dir.join("MANIFEST");
-            match manifest_path.exists() {
-                true => Self::create_manifest_based(&manifest_path)?,
-                false => Mode::DirectoryBased(dir),
+        let mode = match std::env::var_os(MANIFEST_FILE_ENV_VAR) {
+            Some(manifest_file) if (!manifest_file.is_empty()) => {
+                Self::create_manifest_based(Path::new(&manifest_file))?
+            }
+            _ => {
+                let dir = find_runfiles_dir()?;
+                let manifest_path = dir.join("MANIFEST");
+                match manifest_path.exists() {
+                    true => Self::create_manifest_based(&manifest_path)?,
+                    false => Mode::DirectoryBased(dir),
+                }
             }
         };
 
@@ -179,6 +182,7 @@ impl Runfiles {
     }
 
     fn create_manifest_based(manifest_path: &Path) -> Result<Mode> {
+        eprintln!("{manifest_path:?}");
         let manifest_content = std::fs::read_to_string(manifest_path)
             .map_err(RunfilesError::RunfilesManifestIoError)?;
         let path_mapping = manifest_content
@@ -266,11 +270,11 @@ fn parse_repo_mapping(path: PathBuf) -> Result<RepoMapping> {
 
 /// Returns the .runfiles directory for the currently executing binary.
 pub fn find_runfiles_dir() -> Result<PathBuf> {
-    assert!(
-        std::env::var_os(MANIFEST_FILE_ENV_VAR).is_none(),
-        "Unexpected call when {} exists",
-        MANIFEST_FILE_ENV_VAR
-    );
+    // assert!(
+    //     std::env::var_os(MANIFEST_FILE_ENV_VAR).is_none(),
+    //     "Unexpected call when {} exists",
+    //     MANIFEST_FILE_ENV_VAR
+    // );
 
     // If Bazel told us about the runfiles dir, use that without looking further.
     if let Some(runfiles_dir) = std::env::var_os(RUNFILES_DIR_ENV_VAR).map(PathBuf::from) {

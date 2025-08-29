@@ -101,10 +101,10 @@ def _py_venv_base_impl(ctx):
     rfs = _py_library.make_merged_runfiles(
         ctx,
         extra_depsets = [
-                            py_toolchain.files,
-                            srcs_depset,
-                        ] + virtual_resolution.srcs + virtual_resolution.runfiles +
-                        ([py_toolchain.files] if py_toolchain.runfiles_interpreter else []),
+            py_toolchain.files,
+            srcs_depset,
+        ] + virtual_resolution.srcs + virtual_resolution.runfiles +
+        ([py_toolchain.files] if py_toolchain.runfiles_interpreter else []),
         extra_runfiles_depsets = [
             ctx.attr._runfiles_lib[DefaultInfo].default_runfiles,
         ],
@@ -134,6 +134,10 @@ def _py_venv_base_impl(ctx):
                 py_toolchain.interpreter_version_info.minor,
             ),
             "--include-system-site-packages=" + ({
+                True: "true",
+                False: "false"
+            }[ctx.attr.include_system_site_packages]),
+            "--include-user-site-packages=" + ({
                 True: "true",
                 False: "false"
             }[ctx.attr.include_system_site_packages]),
@@ -299,11 +303,29 @@ A collision can occur when multiple packages providing the same file are install
         default = False,
     ),
     "include_system_site_packages": attr.bool(
-        default = True,
+        default = False,
         doc = """`pyvenv.cfg` feature flag for the `include-system-site-packages` key.
 
 When `True`, the user's site directory AND the interpreter's site directory will
 be included into the runtime pythonpath.
+
+When `False`, only the virtualenv's site directory and the interpreter's core
+libraries will be included into the runtime pythonpath.
+
+`False` is obviously preferable as it increases hermeticity, but the choice of
+`False` cases for instance a `pip` or `setuptools` bundled into the interpreter
+to be unusable. Many libraries assume these packages will always be available
+and may not reliably declare their dependencies such that Bazel will satisfy
+them, so choosing isolation could expose packaging errors.
+
+"""
+    ),
+        "include_user_site_packages": attr.bool(
+        default = False,
+        doc = """`pyvenv.cfg` feature flag for the `aspect-include-user-site-packages` extension key.
+
+When `True`, the user's site directory directory will be included into the
+runtime pythonpath.
 
 When `False`, only the virtualenv's site directory and the interpreter's core
 libraries will be included into the runtime pythonpath.

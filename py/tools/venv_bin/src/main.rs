@@ -94,13 +94,23 @@ struct VenvArgs {
 
     #[clap(
         long,
-        default_missing_value("true"),
-        default_value("true"),
+        default_missing_value("false"),
+        default_value("false"),
         num_args(0..=1),
         require_equals(true),
         action = ArgAction::Set,
     )]
     include_system_site_packages: bool,
+
+    #[clap(
+        long,
+        default_missing_value("false"),
+        default_value("false"),
+        num_args(0..=1),
+        require_equals(true),
+        action = ArgAction::Set,
+    )]
+    include_user_site_packages: bool,
 }
 
 fn venv_cmd_handler(args: VenvArgs) -> miette::Result<()> {
@@ -131,6 +141,7 @@ fn venv_cmd_handler(args: VenvArgs) -> miette::Result<()> {
                 &args.venv_shim,
                 args.debug,
                 args.include_system_site_packages,
+                args.include_user_site_packages,
             )?;
 
             py::venv::populate_venv_with_copies(
@@ -160,6 +171,7 @@ fn venv_cmd_handler(args: VenvArgs) -> miette::Result<()> {
                 &args.venv_shim,
                 args.debug,
                 args.include_system_site_packages,
+                args.include_user_site_packages,
             )?;
 
             py::venv::populate_venv_with_pth(
