@@ -1,5 +1,5 @@
 {
-  "checksum": "81528401c6d6fde79ca22def4e50d7ebc47f7f182a83a106d38e9e1279da39a5",
+  "checksum": "f1be4baa5924515e3e3bfe91c4afbfa084b2751aec2f7560df597efbcdc4dc3b",
   "crates": {
     "addr2line 0.24.2": {
       "name": "addr2line",
@@ -14740,6 +14740,37 @@
       ],
       "license_file": "LICENSE"
     },
+    "runfiles 0.1.0": {
+      "name": "runfiles",
+      "version": "0.1.0",
+      "package_url": "https://github.com/aspect-build/rules_py",
+      "repository": null,
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "runfiles",
+            "crate_root": "src/lib.rs",
+            "srcs": {
+              "allow_empty": true,
+              "include": [
+                "**/*.rs"
+              ]
+            }
+          }
+        }
+      ],
+      "library_target_name": "runfiles",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "edition": "2021",
+        "version": "0.1.0"
+      },
+      "license": "Apache 2",
+      "license_ids": [],
+      "license_file": null
+    },
     "rust-netrc 0.1.1": {
       "name": "rust-netrc",
       "version": "0.1.1",
@@ -27114,6 +27145,7 @@
   "binary_crates": [],
   "workspace_members": {
     "py 0.1.0": "py/tools/py",
+    "runfiles 0.1.0": "py/tools/runfiles",
     "unpack_bin 0.1.0": "py/tools/unpack_bin",
     "venv_bin 0.1.0": "py/tools/venv_bin",
     "venv_shim 0.1.0": "py/tools/venv_shim"

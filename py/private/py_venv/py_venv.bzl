@@ -118,6 +118,10 @@ def _py_venv_base_impl(ctx):
         arguments = [
             "--location=" + venv_dir.path,
             "--venv-shim=" + py_shim.bin.bin.path,
+            # Post-bzlmod we need to record the current repository in case the
+            # user tries to consume a `py_venv_binary` across repo boundaries
+            # which could cause repo mapping to become relevant.
+            "--repo=" + (ctx.label.repo_name or ctx.workspace_name),
             "--python=" + to_rlocation_path(ctx, py_toolchain.python) if py_toolchain.runfiles_interpreter else py_toolchain.python.path,
             "--pth-file=" + site_packages_pth_file.path,
             "--env-file=" + env_file.path,
@@ -129,6 +133,14 @@ def _py_venv_base_impl(ctx):
                 py_toolchain.interpreter_version_info.major,
                 py_toolchain.interpreter_version_info.minor,
             ),
+            "--include-system-site-packages=" + ({
+                True: "true",
+                False: "false",
+            }[ctx.attr.include_system_site_packages]),
+            "--include-user-site-packages=" + ({
+                True: "true",
+                False: "false",
+            }[ctx.attr.include_system_site_packages]),
         ] + (["--debug"] if ctx.attr.debug else []),
         inputs = rfs.merge_all([
             ctx.runfiles(files = [
@@ -289,6 +301,42 @@ A collision can occur when multiple packages providing the same file are install
     ),
     "debug": attr.bool(
         default = False,
+    ),
+    "include_system_site_packages": attr.bool(
+        default = False,
+        doc = """`pyvenv.cfg` feature flag for the `include-system-site-packages` key.
+
+When `True`, the user's site directory AND the interpreter's site directory will
+be included into the runtime pythonpath.
+
+When `False`, only the virtualenv's site directory and the interpreter's core
+libraries will be included into the runtime pythonpath.
+
+`False` is obviously preferable as it increases hermeticity, but the choice of
+`False` cases for instance a `pip` or `setuptools` bundled into the interpreter
+to be unusable. Many libraries assume these packages will always be available
+and may not reliably declare their dependencies such that Bazel will satisfy
+them, so choosing isolation could expose packaging errors.
+
+""",
+    ),
+    "include_user_site_packages": attr.bool(
+        default = False,
+        doc = """`pyvenv.cfg` feature flag for the `aspect-include-user-site-packages` extension key.
+
+When `True`, the user's site directory directory will be included into the
+runtime pythonpath.
+
+When `False`, only the virtualenv's site directory and the interpreter's core
+libraries will be included into the runtime pythonpath.
+
+`False` is obviously preferable as it increases hermeticity, but the choice of
+`False` cases for instance a `pip` or `setuptools` bundled into the interpreter
+to be unusable. Many libraries assume these packages will always be available
+and may not reliably declare their dependencies such that Bazel will satisfy
+them, so choosing isolation could expose packaging errors.
+
+""",
     ),
 })
 
