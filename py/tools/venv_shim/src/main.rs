@@ -15,8 +15,9 @@ fn find_venv_root() -> miette::Result<(PathBuf, PathBuf)> {
         let cfg = root.join(PYVENV);
         if cfg.exists() {
             return Ok((root, cfg));
+        } else {
+            eprintln!("Warning: $VIRTUAL_ENV is set but seems to be invalid; ignoring")
         }
-        // FIXME: Else warn that the VIRTUAL_ENV is invalid before continuing
     }
 
     if let Some(this) = args().next() {
