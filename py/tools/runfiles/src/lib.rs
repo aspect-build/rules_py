@@ -155,6 +155,7 @@ impl Runfiles {
     /// RUNFILES_MANIFEST_FILE environment variable is present,
     /// or a directory based Runfiles object otherwise.
     pub fn create() -> Result<Self> {
+        // Note that the MANIFEST_FILE_ENV_VAR may be set but also blank.
         let mode = match std::env::var_os(MANIFEST_FILE_ENV_VAR) {
             Some(manifest_file) if (!manifest_file.is_empty()) => {
                 Self::create_manifest_based(Path::new(&manifest_file))?
@@ -270,11 +271,20 @@ fn parse_repo_mapping(path: PathBuf) -> Result<RepoMapping> {
 
 /// Returns the .runfiles directory for the currently executing binary.
 pub fn find_runfiles_dir() -> Result<PathBuf> {
-    // assert!(
-    //     std::env::var_os(MANIFEST_FILE_ENV_VAR).is_none(),
-    //     "Unexpected call when {} exists",
-    //     MANIFEST_FILE_ENV_VAR
-    // );
+    // Note that the MANIFEST_FILE_ENV_VAR may be set but also blank.
+    assert!(
+        match std::env::var_os(MANIFEST_FILE_ENV_VAR) {
+            Some(it) if it.is_empty() => true,
+            None => true,
+            _ => false,
+        },
+        "Unexpected call when {} exists ({})",
+        MANIFEST_FILE_ENV_VAR,
+        std::env::var_os(MANIFEST_FILE_ENV_VAR)
+            .unwrap()
+            .to_str()
+            .unwrap()
+    );
 
     // If Bazel told us about the runfiles dir, use that without looking further.
     if let Some(runfiles_dir) = std::env::var_os(RUNFILES_DIR_ENV_VAR).map(PathBuf::from) {
