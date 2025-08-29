@@ -11,6 +11,6 @@ py_library(
     ],
     visibility = ["//examples/django:__pkg__"],
     deps = [
-        "@pypi_django//:pkg",
+        "@pypi//django",
     ],
 )
