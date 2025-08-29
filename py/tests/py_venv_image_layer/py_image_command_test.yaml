@@ -8,8 +8,8 @@ commandTests:
       # The test output
       - "Hello rules_py - 3.14"
       # The sys.prefix in the venv
-      - "/py/tests/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_venv_image_layer/.my_app_bin"
+      - "/py/tests/py_venv_image_layer/my_app_bin.runfiles/_main/py/tests/py_venv_image_layer/.my_app_bin"
       # The sys.executable in the venv
-      - "/py/tests/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_venv_image_layer/.my_app_bin/bin/python"
+      - "/py/tests/py_venv_image_layer/my_app_bin.runfiles/_main/py/tests/py_venv_image_layer/.my_app_bin/bin/python3"
       # The Python version
       - "3.9"

@@ -1,6 +1,0 @@
-[run]
-# NB: this ought to put relative paths into the report files.
-# However Bazel actions run in a sandbox with symlinks, and coveragepy follows those out of the sandbox
-# resulting in the wrong paths.
-# See https://github.com/nedbat/coveragepy/issues/963 and https://github.com/aspect-build/rules_py/pull/524
-relative_files = False

@@ -9,7 +9,7 @@ py_binary(
     },
     deps = [
         "@bazel_tools//tools/python/runfiles",
-        "@pypi_cowsay//:pkg",
+        "@pypi//cowsay",
     ],
 )
 

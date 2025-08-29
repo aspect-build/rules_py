@@ -1,0 +1,17 @@
+diff --git a/cargo/cargo_build_script_runner/lib.rs b/cargo/cargo_build_script_runner/lib.rs
+index de7c468bd..62c3f3338 100644
+--- a/cargo/cargo_build_script_runner/lib.rs
++++ b/cargo/cargo_build_script_runner/lib.rs
+@@ -196,7 +196,11 @@ impl BuildScriptOutput {
+                 BuildScriptOutput::Flags(e) => compile_flags.push(e.to_owned()),
+                 BuildScriptOutput::LinkArg(e) => compile_flags.push(format!("-Clink-arg={e}")),
+                 BuildScriptOutput::LinkLib(e) => link_flags.push(format!("-l{e}")),
+-                BuildScriptOutput::LinkSearch(e) => link_search_paths.push(format!("-L{e}")),
++                BuildScriptOutput::LinkSearch(e) => {
++                    eprintln!("Got link search directive {}", e);
++                    let e = e.replace("native=/usr", "native=<sysroot>/usr");
++                    link_search_paths.push(format!("-L{e}"))
++                }
+                 _ => {}
+             }
+         }

@@ -19,7 +19,6 @@ py_library(
 py_binary(
     name = "app",
     srcs = ["main.py"],
-    python_version = "3.8.12",
     resolutions = resolutions.from_requirements(
         [
             "cowsay",
@@ -35,7 +34,6 @@ py_binary(
 py_binary(
     name = "app_snake",
     srcs = ["main.py"],
-    python_version = "3.8.12",
     resolutions = resolutions.from_requirements(
         [
             "snakesay",

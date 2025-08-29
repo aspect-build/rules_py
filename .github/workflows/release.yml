@@ -13,12 +13,13 @@ permissions:
   contents: write
 jobs:
   build:
-    # We don't attempt to cross-compile rust binaries from one OS to another.
-    # So just spin up a runner on each OS to build its binaries.
     strategy:
       matrix:
-        # Pin to runner releases since our Rust compile is fiddly with system libs
-        os: [ubuntu-22.04, macos-13]
+        # TODO: Can we build from linux to mac? Is there an advantage to going
+        # in that direction?
+        os:
+          - macos-13
+
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -26,13 +27,22 @@ jobs:
 
       - name: Build Rust Binaries
         env:
-          # NB: this variable is read by tools/release/copy_release_artifacts.sh
           DEST: artifacts
         run: |
           rm -rf ${{ env.DEST }}
           mkdir -p ${{ env.DEST }}
-          bazel --bazelrc=.github/workflows/ci.bazelrc \
-            run --config=release //tools/release:copy_release_artifacts
+          FLAGS=(--bazelrc=.github/workflows/ci.bazelrc)
+
+          # Query for deliver verbs (see bazel/release/release.bzl)
+          TARGETS=$(bazel $FLAGS query 'attr(tags, "ci:verb:deliver", //...)')
+
+          # Run each one of those targets to produce and "deliver" artifacts
+          # into the target dir.
+          #
+          # These delivery targets are expected to lay down <asset> and <asset>.sha256
+          for target in $TARGETS; do
+            bazel $FLAGS run $target -- $(realpath ${{ env.DEST }})
+          done
 
       - uses: actions/upload-artifact@v4
         with:
@@ -49,6 +59,7 @@ jobs:
         artifacts-*/*
         rules_py-*.tar.gz
       tag_name: ${{ github.ref_name }}
+
   publish:
     needs: release
     uses: ./.github/workflows/publish.yaml

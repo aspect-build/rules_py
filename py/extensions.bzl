@@ -1,7 +1,7 @@
 "Module Extensions used from MODULE.bazel"
 
 load("@aspect_tools_telemetry_report//:defs.bzl", "TELEMETRY")  # buildifier: disable=load
-load("//tools:version.bzl", "IS_PRERELEASE")
+load("//py/private/release:version.bzl", "IS_PRERELEASE")
 load(":toolchains.bzl", "DEFAULT_TOOLS_REPOSITORY", "rules_py_toolchains")
 
 py_toolchain = tag_class(attrs = {

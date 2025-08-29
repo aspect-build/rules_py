@@ -1,4 +1,4 @@
-load("@bazel_gazelle//:def.bzl", "gazelle", "gazelle_binary")
+load("@gazelle//:def.bzl", "gazelle")
 load("@pypi//:requirements.bzl", "all_whl_requirements")
 load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirements")
 load("@rules_python_gazelle_plugin//manifest:defs.bzl", "gazelle_python_manifest")
@@ -17,17 +17,9 @@ gazelle_python_manifest(
     requirements = "requirements.txt",
 )
 
-gazelle_binary(
-    name = "gazelle_bin",
-    languages = [
-        "@bazel_skylib_gazelle_plugin//bzl",
-        "@rules_python_gazelle_plugin//python",
-    ],
-)
-
 gazelle(
     name = "gazelle",
-    gazelle = ":gazelle_bin",
+    gazelle = "@multitool//tools/gazelle",
 )
 
 compile_pip_requirements(

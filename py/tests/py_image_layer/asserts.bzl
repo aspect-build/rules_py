@@ -3,7 +3,7 @@
 load("@aspect_bazel_lib//lib:write_source_files.bzl", "write_source_file")
 
 # buildifier: disable=function-docstring
-def assert_tar_listing(name, actual, expected):
+def assert_tar_listing(name, actual, expected, **kwargs):
     actual_listing = "{}_listing".format(name)
     native.genrule(
         name = actual_listing,
@@ -31,4 +31,5 @@ done > $@
         in_file = actual_listing,
         out_file = expected,
         testonly = True,
+        **kwargs
     )

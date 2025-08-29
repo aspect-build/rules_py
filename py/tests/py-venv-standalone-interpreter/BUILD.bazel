@@ -10,7 +10,7 @@ py_venv_binary(
     ],
     main = "ex.py",
     deps = [
-        "@pypi_cowsay//:pkg",
+        "@pypi//cowsay",
     ],
 )
 

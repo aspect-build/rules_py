@@ -1,0 +1,30 @@
+"Bazel dependencies"
+
+include("//bazel/include:e2e.MODULE.bazel")
+
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(
+    configure_coverage_tool = True,
+    python_version = "3.11.6",
+)
+
+# TODO: Swap in our pip
+pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
+pip.parse(
+    hub_name = "pip",
+    python_version = "3.11.6",
+    requirements_lock = "//:requirements.txt",
+)
+use_repo(pip, "pip")
+
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+
+local_repository(
+    name = "subrepo_a",
+    path = "./subrepo_a",
+)
+
+local_repository(
+    name = "subrepo_b",
+    path = "./subrepo_b",
+)
