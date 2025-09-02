@@ -2423,7 +2423,7 @@ files:
 layer: 1
 files:
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_venv_image_layer/.my_app_bin/lib/python3.9/site-packages/
-  - -rwxr-xr-x  0 0      0         328 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_venv_image_layer/.my_app_bin/lib/python3.9/site-packages/_aspect.pth
+  - -rwxr-xr-x  0 0      0         385 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_venv_image_layer/.my_app_bin/lib/python3.9/site-packages/_aspect.pth
   - -rwxr-xr-x  0 0      0          19 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_venv_image_layer/.my_app_bin/lib/python3.9/site-packages/_virtualenv.pth
   - -rwxr-xr-x  0 0      0        4342 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_venv_image_layer/.my_app_bin/lib/python3.9/site-packages/_virtualenv.py
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_venv_image_layer/.my_app_bin/lib/python3.9/site-packages/colorama-0.4.6.dist-info/
