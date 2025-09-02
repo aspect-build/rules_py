@@ -54,7 +54,6 @@ fn parse_venv_cfg(venv_root: &Path, cfg_path: &Path) -> miette::Result<PyCfg> {
     let mut bazel_repo: Option<String> = None;
     let mut user_site: Option<bool> = None;
 
-    // FIXME: Errors possible here?
     let cfg_file = fs::read_to_string(cfg_path).into_diagnostic()?;
 
     for (key, value) in cfg_file.lines().flat_map(|s| s.split_once("=")) {
@@ -149,6 +148,30 @@ fn find_python_executables(version_from_cfg: &str, exclude_dir: &Path) -> Option
 fn find_actual_interpreter(cfg: &PyCfg) -> miette::Result<PathBuf> {
     match &cfg.interpreter {
         InterpreterConfig::External { version } => {
+            // NOTE (reid@aspect.build):
+            //
+            //    Previously this codepath had machinery for walking the `$PATH`
+            //    sequentially and handling re-entrant cases where the
+            //    interpreter shim could accidentally re-select itself and
+            //    recurse. This could cause infinite loops of this shim
+            //    self-selecting without making progress.
+            //
+            //    The problem boils down to inconsistent canonicalization both
+            //    of the `$PATH` entries and of the `argv[0]`/observed
+            //    executable name. We rely on the executable name to find the
+            //    bin dir to ignore, but doing so can incur canonicalization.
+            //    Meanwhile `$PATH` entries are usually not canonicalized. This
+            //    can produce behavior differences under Bazel, especially on
+            //    Linux where more aggressive use of symlinks is made although
+            //    production artifacts copied out of Bazel's sandboxing do ok.
+            //
+            //    To try and force progress (or at least an eventual failure)
+            //    this code previously counted up using the offset counter to
+            //    try each candidate interpreter successively.
+            //
+            //    That logic has optimistically been discarded. If this causes
+            //    problems we'd put it back here.
+
             let Some(python_executables) = find_python_executables(&version, &cfg.root.join("bin"))
             else {
                 miette::bail!(
@@ -166,7 +189,6 @@ fn find_actual_interpreter(cfg: &PyCfg) -> miette::Result<PathBuf> {
                 }
             }
 
-            // FIXME: Do we still need to offset beyond one?
             let Some(actual_interpreter_path) = python_executables.get(0) else {
                 miette::bail!("Unable to find another interpreter!");
             };
