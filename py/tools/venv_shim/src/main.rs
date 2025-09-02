@@ -1,16 +1,17 @@
-use miette::{miette, IntoDiagnostic};
-use runfiles::Runfiles; // Depended on out of rules_rust
-use std::env::{self, args, var};
+use miette::IntoDiagnostic;
+use runfiles::Runfiles;
+// Depended on out of rules_rust
+use std::env;
+use std::ffi::OsStr;
 use std::fs;
-use std::io::{self, BufRead};
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
 const PYVENV: &str = "pyvenv.cfg";
 
-fn find_venv_root() -> miette::Result<(PathBuf, PathBuf)> {
-    if let Ok(it) = var("VIRTUAL_ENV") {
+fn find_venv_root(exec_name: impl AsRef<Path>) -> miette::Result<(PathBuf, PathBuf)> {
+    if let Ok(it) = env::var("VIRTUAL_ENV") {
         let root = PathBuf::from(it);
         let cfg = root.join(PYVENV);
         if cfg.exists() {
@@ -20,17 +21,15 @@ fn find_venv_root() -> miette::Result<(PathBuf, PathBuf)> {
         }
     }
 
-    if let Some(this) = args().next() {
-        let this = PathBuf::from(this);
-        if let Some(parent) = this.parent().and_then(|it| it.parent()) {
-            let cfg = parent.join(PYVENV);
-            if cfg.exists() {
-                return Ok((parent.to_path_buf(), cfg));
-            }
+    let exec_name = exec_name.as_ref().to_owned();
+    if let Some(parent) = exec_name.parent().and_then(|it| it.parent()) {
+        let cfg = parent.join(PYVENV);
+        if cfg.exists() {
+            return Ok((parent.to_path_buf(), cfg));
         }
     }
 
-    return Err(miette!("Unable to identify a virtualenv home!"));
+    miette::bail!("Unable to identify a virtualenv home!");
 }
 
 #[derive(Debug)]
@@ -40,7 +39,7 @@ enum InterpreterConfig {
 }
 
 #[derive(Debug)]
-#[allow(unused_attributes)]
+#[expect(dead_code)]
 struct PyCfg {
     root: PathBuf,
     cfg: PathBuf,
@@ -50,37 +49,32 @@ struct PyCfg {
 }
 
 fn parse_venv_cfg(venv_root: &Path, cfg_path: &Path) -> miette::Result<PyCfg> {
-    let file = fs::File::open(cfg_path).into_diagnostic()?;
-
     let mut version: Option<String> = None;
     let mut bazel_interpreter: Option<String> = None;
     let mut bazel_repo: Option<String> = None;
     let mut user_site: Option<bool> = None;
 
     // FIXME: Errors possible here?
-    let reader = io::BufReader::new(file);
+    let cfg_file = fs::read_to_string(cfg_path).into_diagnostic()?;
 
-    for line in reader.lines() {
-        let line = line.into_diagnostic()?;
-        if let Some((key, value)) = line.split_once("=") {
-            let key = key.trim();
-            let value = value.trim();
-            match key {
-                "version_info" => {
-                    version = Some(value.to_string());
-                }
-                "aspect-runfiles-interpreter" => {
-                    bazel_interpreter = Some(value.to_string());
-                }
-                "aspect-runfiles-repo" => {
-                    bazel_repo = Some(value.to_string());
-                }
-                "aspect-include-user-site-packages" => {
-                    user_site = Some(value == "true");
-                }
-                // We don't care about other keys
-                &_ => {}
+    for (key, value) in cfg_file.lines().flat_map(|s| s.split_once("=")) {
+        let key = key.trim();
+        let value = value.trim();
+        match key {
+            "version_info" => {
+                version = Some(value.to_string());
             }
+            "aspect-runfiles-interpreter" => {
+                bazel_interpreter = Some(value.to_string());
+            }
+            "aspect-runfiles-repo" => {
+                bazel_repo = Some(value.to_string());
+            }
+            "aspect-include-user-site-packages" => {
+                user_site = value.parse().ok();
+            }
+            // We don't care about other keys
+            _ => continue,
         }
     }
 
@@ -104,16 +98,14 @@ fn parse_venv_cfg(venv_root: &Path, cfg_path: &Path) -> miette::Result<PyCfg> {
             },
             user_site: user_site.expect("User site flag not set!"),
         }),
-        (None, _, _) => Err(miette!(
-            "Invalid pyvenv.cfg file! no interpreter version specified!"
-        )),
-        _ => Err(miette!(
-            "Invalid pyvenv.cfg file! runfiles interpreter incompletely configured!"
-        )),
+        (None, _, _) => miette::bail!("Invalid pyvenv.cfg file! no interpreter version specified!"),
+        _ => {
+            miette::bail!("Invalid pyvenv.cfg file! runfiles interpreter incompletely configured!")
+        }
     }
 }
 
-fn parse_version_info(version_str: &String) -> Option<String> {
+fn parse_version_info(version_str: &str) -> Option<String> {
     // To avoid pulling in the regex crate, we're gonna do this by hand.
     let parts: Vec<_> = version_str.split(".").collect();
     match parts[..] {
@@ -159,10 +151,9 @@ fn find_actual_interpreter(cfg: &PyCfg) -> miette::Result<PathBuf> {
         InterpreterConfig::External { version } => {
             let Some(python_executables) = find_python_executables(&version, &cfg.root.join("bin"))
             else {
-                return Err(miette!(
-                    "No suitable Python interpreter found in PATH matching version '{}'.",
-                    &version,
-                ));
+                miette::bail!(
+                    "No suitable Python interpreter found in PATH matching version '{version}'."
+                );
             };
 
             #[cfg(feature = "debug")]
@@ -177,7 +168,7 @@ fn find_actual_interpreter(cfg: &PyCfg) -> miette::Result<PathBuf> {
 
             // FIXME: Do we still need to offset beyond one?
             let Some(actual_interpreter_path) = python_executables.get(0) else {
-                return Err(miette!("Unable to find another interpreter!",));
+                miette::bail!("Unable to find another interpreter!");
             };
 
             Ok(actual_interpreter_path.to_owned())
@@ -185,19 +176,24 @@ fn find_actual_interpreter(cfg: &PyCfg) -> miette::Result<PathBuf> {
         InterpreterConfig::Runfiles { rpath, repo } => {
             let r = Runfiles::create().unwrap();
             if let Some(interpreter) = r.rlocation_from(rpath.as_str(), &repo) {
-                return Ok(PathBuf::from(interpreter));
+                Ok(PathBuf::from(interpreter))
             } else {
-                return Err(miette!(format!(
+                miette::bail!(format!(
                     "Unable to identify an interpreter for venv {:?}",
                     cfg.interpreter,
-                )));
+                ));
             }
         }
     }
 }
 
 fn main() -> miette::Result<()> {
-    let (venv_root, venv_cfg) = find_venv_root()?;
+    let all_args: Vec<_> = env::args().collect();
+    let Some((exec_name, exec_args)) = all_args.split_first() else {
+        miette::bail!("could not discover an execution command-line");
+    };
+
+    let (venv_root, venv_cfg) = find_venv_root(exec_name)?;
 
     let venv_config = parse_venv_cfg(&venv_root, &venv_cfg)?;
 
@@ -206,10 +202,6 @@ fn main() -> miette::Result<()> {
 
     let actual_interpreter = find_actual_interpreter(&venv_config)?;
 
-    let args: Vec<_> = env::args().collect();
-
-    let exec_args = &args[1..];
-
     #[cfg(feature = "debug")]
     eprintln!(
         "[aspect] Attempting to execute: {:?} with argv[0] as {:?} and args as {:?}",
@@ -217,21 +209,34 @@ fn main() -> miette::Result<()> {
     );
 
     let mut cmd = Command::new(&actual_interpreter);
+    let cmd = cmd
+        // Pass along our args
+        .args(exec_args)
+        // Lie about the value of argv0 to hoodwink the interpreter as to its
+        // location on Linux-based platforms.
+        .arg0(&venv_interpreter)
+        // Pseudo-`activate`
+        .env("VIRTUAL_ENV", &venv_root);
 
-    // Pass along our args
-    cmd.args(exec_args);
-
-    // Lie about the value of argv0 to hoodwink the interpreter as to its
-    // location on Linux-based platforms.
-    cmd.arg0(&venv_interpreter);
-
-    // Pseudo-`activate`
-    cmd.env("VIRTUAL_ENV", &venv_root.to_str().unwrap());
-    let venv_bin = (&venv_root).join("bin").to_str().unwrap().to_owned();
-    if let Ok(current_path) = var("PATH") {
-        if current_path.find(&venv_bin).is_none() {
-            cmd.env("PATH", format!("{}:{}", venv_bin, current_path));
-        }
+    let venv_bin = (&venv_root).join("bin");
+    // TODO(arrdem|myrrlyn): PATHSEP is : on Unix and ; on Windows
+    let mut path_segments = env::var("PATH")
+        .into_diagnostic()? // if the variable is unset or not-utf-8, quit
+        .split(":") // break into individual entries
+        .filter(|&p| !p.is_empty()) // skip over `::`, which is possible
+        .map(ToOwned::to_owned) // we're dropping the big string, so own the fragments
+        .collect::<Vec<_>>(); // and save them.
+    let need_venv_in_path = path_segments
+        .iter()
+        .find(|&p| OsStr::new(p) == &venv_bin)
+        .is_none();
+    if need_venv_in_path {
+        // append to back
+        path_segments.push(venv_bin.to_string_lossy().into_owned());
+        // then move venv_bin to the front of PATH
+        path_segments.rotate_right(1);
+        // and write into the child environment. this avoids an empty PATH causing us to write `{venv_bin}:` with a trailing colon
+        cmd.env("PATH", path_segments.join(":"));
     }
 
     // Set the executable pointer for MacOS, but we do it consistently
@@ -254,9 +259,9 @@ fn main() -> miette::Result<()> {
 
     // And punt
     let err = cmd.exec();
-    Err(miette!(format!(
+    miette::bail!(
         "Failed to exec target {}, {}",
         actual_interpreter.display(),
         err,
-    )))
+    )
 }

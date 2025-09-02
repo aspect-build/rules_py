@@ -203,12 +203,12 @@ const RELOCATABLE_SHEBANG: &str = "\
 /// - Do we _have_ to include activate scripts?
 /// - Do we _have_ to include a versioned symlink?
 pub fn create_empty_venv<'a>(
-    repo: &str,
-    python: &Path,
+    repo: &'a str,
+    python: &'a Path,
     version: PythonVersionInfo,
     location: &'a Path,
-    env_file: &Option<PathBuf>,
-    venv_shim: &Option<PathBuf>,
+    env_file: Option<&'a Path>,
+    venv_shim: Option<&'a Path>,
     debug: bool,
     include_system_site_packages: bool,
     include_user_site_packages: bool,
@@ -243,7 +243,7 @@ pub fn create_empty_venv<'a>(
         .into_diagnostic()
         .wrap_err("Unable to create base venv directory")?;
 
-    let using_runfiles_interpreter = !python.exists() && venv_shim != &None;
+    let using_runfiles_interpreter = !python.exists() && venv_shim.is_some();
 
     let interpreter_cfg_snippet = if using_runfiles_interpreter {
         format!(
@@ -290,7 +290,7 @@ aspect-runfiles-repo = {1}
     // Assume that the path to `python` is relative to the _home_ of the venv,
     // and add the extra `..` to that path to drop the bin dir.
 
-    if !python.exists() && venv_shim == &None {
+    if !python.exists() && venv_shim.is_none() {
         Err(miette!(
             "Specified interpreter {} doesn't exist!",
             python.to_str().unwrap()
@@ -576,6 +576,7 @@ pub fn populate_venv_with_copies(
 /// interpreter to traverse up out of the venv and insert other workspaces'
 /// site-packages trees (and potentially other import roots) onto the path.
 
+#[expect(unused_variables)]
 pub fn populate_venv_with_pth(
     venv: Virtualenv,
     pth_file: PthFile,
