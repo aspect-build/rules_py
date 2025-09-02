@@ -3,8 +3,8 @@ load("@aspect_rules_py//py:defs.bzl", "py_library")
 py_library(
     name = "foo",
     srcs = [
-        "foo.py"
+        "foo.py",
     ],
     imports = ["."],
-    visibility = ["//visibility:public"]
+    visibility = ["//visibility:public"],
 )
