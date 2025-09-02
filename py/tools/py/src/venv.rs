@@ -445,6 +445,7 @@ aspect-runfiles-repo = {1}
 ///    the depth of the `ip` then back down to the workspace-relative path of
 ///    the target file.
 pub fn populate_venv_with_copies(
+    repo: &str,
     venv: Virtualenv,
     pth_file: PthFile,
     bin_dir: PathBuf,
@@ -455,7 +456,6 @@ pub fn populate_venv_with_copies(
 
     // Get $PWD, which is the build working directory.
     let action_src_dir = current_dir().into_diagnostic()?;
-    let main_module = action_src_dir.file_name().unwrap();
     let action_bin_dir = action_src_dir.join(bin_dir);
 
     #[cfg(feature = "debug")]
@@ -483,7 +483,7 @@ pub fn populate_venv_with_copies(
         .into_diagnostic()?;
 
     for line in BufReader::new(source_pth).lines().map_while(Result::ok) {
-        //#[cfg(feature = "debug")]
+        #[cfg(feature = "debug")]
         eprintln!("Got pth line {}", &line);
 
         let line = line.trim().to_string();
@@ -496,12 +496,12 @@ pub fn populate_venv_with_copies(
             format!("{}/", line)
         };
 
-        let Some((workspace, entry_path)) = line.split_once("/") else {
+        let Some((entry_repo, entry_path)) = line.split_once("/") else {
             return Err(miette!("Invalid path file entry!"));
         };
 
         #[cfg(feature = "debug")]
-        eprintln!("Got pth entry @{}//{}", workspace, entry_path);
+        eprintln!("Got pth entry @{}//{}", entry_repo, entry_path);
 
         let mut entry = PathBuf::from(entry_path);
 
@@ -511,9 +511,10 @@ pub fn populate_venv_with_copies(
             eprintln!("Entry is site-packages...");
 
             // If the entry is external then we have to adjust the path
-            if workspace != main_module {
+            // FIXME: This isn't quite right outside of bzlmod
+            if entry_repo != repo {
                 entry = PathBuf::from("external")
-                    .join(PathBuf::from(workspace))
+                    .join(PathBuf::from(entry_repo))
                     .join(entry)
             }
 
@@ -537,32 +538,25 @@ pub fn populate_venv_with_copies(
                 }
             }
         } else {
-            // Need to insert an appropriate pth file entry. Pth file lines
-            // are relativized to the site dir [1] so here we need to take
-            // the path from the site dir back to the root of the runfiles
-            // tree and then append the entry to that relative path.
-            //
-            // This is the path from the venv's site-packages destination
-            // "back up to" the bazel-bin dir we're building into, plus one
-            // level.
-            //
-            // [1] https://github.com/python/cpython/blob/ce31ae5209c976d28d1c21fcbb06c0ae5e50a896/Lib/site.py#L215
-
-            // aspect-build/rules_py#610
-            //
-            //   While these relative paths seem to work fine for _internal_
-            //   runfiles within the `_main` workspace, problems occur when we
-            //   try to take relative paths to _other_ workspaces because bzlmod
-            //   may munge the directory names to be something that doesn't
-            //   exist.
-            let path_to_runfiles =
-                diff_paths(&action_bin_dir, action_bin_dir.join(&venv.site_dir)).unwrap();
+            if entry_repo != repo {
+                eprintln!("Warning: @@{entry_repo}//{entry_path} is not `site-packages`via pth rather than copy",)
+            }
+            // The path to the runfiles root is _one more than_ the relative
+            // oath from the venv's target dir to the root of the module
+            // containing the venv.
+            let path_to_runfiles = diff_paths(&action_bin_dir, action_bin_dir.join(&venv.site_dir))
+                .unwrap()
+                .join("..");
 
             writeln!(dest_pth_writer, "# @{}", line).into_diagnostic()?;
             writeln!(
                 dest_pth_writer,
                 "{}",
-                path_to_runfiles.join(entry).to_str().unwrap()
+                path_to_runfiles // .runfiles
+                    .join(entry_repo) // ${REPO}
+                    .join(entry_path) // ${PATH}
+                    .to_str()
+                    .unwrap()
             )
             .into_diagnostic()?;
         }
@@ -579,6 +573,7 @@ pub fn populate_venv_with_copies(
 
 #[expect(unused_variables)]
 pub fn populate_venv_with_pth(
+    repo: &str,
     venv: Virtualenv,
     pth_file: PthFile,
     bin_dir: PathBuf,
