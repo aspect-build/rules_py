@@ -483,7 +483,7 @@ pub fn populate_venv_with_copies(
         .into_diagnostic()?;
 
     for line in BufReader::new(source_pth).lines().map_while(Result::ok) {
-        #[cfg(feature = "debug")]
+        //#[cfg(feature = "debug")]
         eprintln!("Got pth line {}", &line);
 
         let line = line.trim().to_string();
@@ -548,6 +548,13 @@ pub fn populate_venv_with_copies(
             //
             // [1] https://github.com/python/cpython/blob/ce31ae5209c976d28d1c21fcbb06c0ae5e50a896/Lib/site.py#L215
 
+            // aspect-build/rules_py#610
+            //
+            //   While these relative paths seem to work fine for _internal_
+            //   runfiles within the `_main` workspace, problems occur when we
+            //   try to take relative paths to _other_ workspaces because bzlmod
+            //   may munge the directory names to be something that doesn't
+            //   exist.
             let path_to_runfiles =
                 diff_paths(&action_bin_dir, action_bin_dir.join(&venv.site_dir)).unwrap();
 
@@ -561,7 +568,6 @@ pub fn populate_venv_with_copies(
         }
     }
 
-    //Err(miette!("Failing for debug purposes"))
     Ok(())
 }
 
