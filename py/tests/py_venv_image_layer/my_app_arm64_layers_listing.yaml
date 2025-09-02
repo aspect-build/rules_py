@@ -2497,7 +2497,7 @@ files:
   - -rwxr-xr-x  0 0      0      726736 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_venv_image_layer/.my_app_bin/bin/python3.9
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_venv_image_layer/.my_app_bin/lib/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_venv_image_layer/.my_app_bin/lib/python3.9/
-  - -rwxr-xr-x  0 0      0         345 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_venv_image_layer/.my_app_bin/pyvenv.cfg
+  - -rwxr-xr-x  0 0      0         344 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_venv_image_layer/.my_app_bin/pyvenv.cfg
   - -rwxr-xr-x  0 0      0         299 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_venv_image_layer/__main__.py
   - -rwxr-xr-x  0 0      0        1275 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_venv_image_layer/my_app_bin
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/bazel_tools/
