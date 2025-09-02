@@ -376,9 +376,6 @@ aspect-runfiles-repo = {1}
         .wrap_err("Unable to create activate script")?;
     }
 
-    // FIXME: Add `activate` scripts here? Nobody should be activating these.
-    // Probably.
-
     // Create the site dir
     fs::create_dir_all(&venv.site_dir)
         .into_diagnostic()
@@ -514,7 +511,6 @@ pub fn populate_venv_with_copies(
             eprintln!("Entry is site-packages...");
 
             // If the entry is external then we have to adjust the path
-            // FIXME: This isn't quite right outside of bzlmod
             if workspace != main_module {
                 entry = PathBuf::from("external")
                     .join(PathBuf::from(workspace))
@@ -537,7 +533,6 @@ pub fn populate_venv_with_copies(
             for prefix in [&action_src_dir, &action_bin_dir] {
                 let src_dir = prefix.join(&bin_dir);
                 if src_dir.exists() {
-                    // FIXME: Need to correct shebangs
                     create_tree(&src_dir, &venv.bin_dir, &collision_strategy)?;
                 }
             }
