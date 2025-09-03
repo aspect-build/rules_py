@@ -8,4 +8,4 @@ docs/virtual_deps.md linguist-generated=false
 examples export-ignore
 
 # Substitution for the _VERSION_PRIVATE placeholder
-tools/version.bzl export-subst
+py/private/release/version.bzl export-subst

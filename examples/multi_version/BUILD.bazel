@@ -5,13 +5,13 @@ py_binary(
     srcs = ["say.py"],
     python_version = "3.8.12",
     deps = [
-        "@pypi_cowsay//:pkg",
+        "@pypi//cowsay",
     ],
 )
 
 py_pytest_main(
     name = "__test__",
-    deps = ["@pypi_pytest//:pkg"],
+    deps = ["@pypi//pytest"],
 )
 
 py_test(

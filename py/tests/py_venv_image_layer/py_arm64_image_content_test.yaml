@@ -2,10 +2,10 @@ schemaVersion: 2.0.0
 
 fileExistenceTests:
   - name: __main__ is present
-    path: /py/tests/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_venv_image_layer/__main__.py
+    path: /py/tests/py_venv_image_layer/my_app_bin.runfiles/_main/py/tests/py_venv_image_layer/__main__.py
 
   - name: runfiles dependencies are present
-    path: /py/tests/py_venv_image_layer/my_app_bin.runfiles/pypi_colorama/site-packages/colorama/__init__.py
+    path: /py/tests/py_venv_image_layer/my_app_bin.runfiles/_main/py/tests/py_venv_image_layer/.my_app_bin/lib/python3.9/site-packages/colorama/__init__.py
 
   - name: Interpreter executable is present
-    path: /py/tests/py_venv_image_layer/my_app_bin.runfiles/python_toolchain_aarch64-unknown-linux-gnu/bin/python3.9
+    path: /py/tests/py_venv_image_layer/my_app_bin.runfiles/_main/py/tests/py_venv_image_layer/.my_app_bin/bin/python3

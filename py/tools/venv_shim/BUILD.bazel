@@ -1,4 +1,6 @@
-load("//tools/release:defs.bzl", "rust_binary")
+load("//bazel/release:release.bzl", "release")
+load("//bazel/rust:defs.bzl", "rust_binary")
+load("//bazel/rust:multi_platform_rust_binaries.bzl", "multi_platform_rust_binaries")
 
 rust_binary(
     name = "shim",
@@ -7,8 +9,13 @@ rust_binary(
     ],
     deps = [
         "//py/tools/runfiles",
-        "@crate_index//:miette",
+        "@crates//:miette",
     ],
+)
+
+multi_platform_rust_binaries(
+    name = "bins",
+    target = ":shim",
 )
 
 alias(
@@ -17,4 +24,9 @@ alias(
     visibility = [
         "//visibility:public",
     ],
+)
+
+release(
+    name = "release",
+    targets = [":bins"],
 )
