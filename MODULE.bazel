@@ -13,7 +13,6 @@ module(
 # py_image_layer needs repo_mapping fix.
 bazel_dep(name = "bazel_skylib", version = "1.4.2")
 bazel_dep(name = "platforms", version = "0.0.7")
-bazel_dep(name = "buildifier_prebuilt", version = "8.2.0.2")
 bazel_dep(name = "bazelrc-preset.bzl", version = "1.2.0")
 
 include("//bazel/include:bazel-lib.MODULE.bazel")
@@ -38,4 +37,16 @@ register_toolchains(
     "@aspect_rules_py//py/private/toolchain/venv/...",
     "@aspect_rules_py//py/private/toolchain/unpack/...",
     "@aspect_rules_py//py/private/toolchain/shim/...",
+)
+
+bazel_dep(
+    name = "gazelle",
+    version = "0.45.0",
+    dev_dependency = True,
+)
+
+bazel_dep(
+    name = "buildifier_prebuilt",
+    version = "8.2.0.2",
+    dev_dependency = True,
 )
