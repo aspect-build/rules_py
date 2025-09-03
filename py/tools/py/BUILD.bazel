@@ -19,6 +19,7 @@ rust_library(
         "//py/tools/venv_bin:__pkg__",
     ],
     deps = [
+        "//py/tools/runfiles",
         "@crate_index//:itertools",
         "@crate_index//:miette",
         "@crate_index//:pathdiff",

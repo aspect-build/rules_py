@@ -1,38 +1,107 @@
-use miette::{miette, Context, IntoDiagnostic};
+use miette::IntoDiagnostic;
+use runfiles::Runfiles;
+// Depended on out of rules_rust
 use std::env;
-use std::env::VarError;
+use std::ffi::OsStr;
 use std::fs;
-use std::io::{self, BufRead};
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-const COUNTER_VAR: &str = "ASPECT_SHIM_SKIP";
+const PYVENV: &str = "pyvenv.cfg";
 
-fn find_pyvenv_cfg(start_path: &Path) -> Option<PathBuf> {
-    let parent = start_path.parent()?.parent()?;
-    let cfg_path = parent.join("pyvenv.cfg");
-    if cfg_path.exists() && cfg_path.is_file() {
-        Some(cfg_path)
-    } else {
-        None
-    }
-}
-
-fn extract_pyvenv_version_info(cfg_path: &Path) -> Result<Option<String>, io::Error> {
-    let file = fs::File::open(cfg_path)?;
-    let reader = io::BufReader::new(file);
-    for line in reader.lines() {
-        let line = line?;
-        if let Some((key, value)) = line.split_once("=") {
-            let key = key.trim();
-            let value = value.trim();
-            if key == "version_info" {
-                return Ok(Some(value.to_string()));
-            }
+fn find_venv_root(exec_name: impl AsRef<Path>) -> miette::Result<(PathBuf, PathBuf)> {
+    if let Ok(it) = env::var("VIRTUAL_ENV") {
+        let root = PathBuf::from(it);
+        let cfg = root.join(PYVENV);
+        if cfg.exists() {
+            return Ok((root, cfg));
+        } else {
+            eprintln!("Warning: $VIRTUAL_ENV is set but seems to be invalid; ignoring")
         }
     }
-    Ok(None)
+
+    let exec_name = exec_name.as_ref().to_owned();
+    if let Some(parent) = exec_name.parent().and_then(|it| it.parent()) {
+        let cfg = parent.join(PYVENV);
+        if cfg.exists() {
+            return Ok((parent.to_path_buf(), cfg));
+        }
+    }
+
+    miette::bail!("Unable to identify a virtualenv home!");
+}
+
+#[derive(Debug)]
+enum InterpreterConfig {
+    Runfiles { rpath: String, repo: String },
+    External { version: String },
+}
+
+#[derive(Debug)]
+#[expect(dead_code)]
+struct PyCfg {
+    root: PathBuf,
+    cfg: PathBuf,
+    version_info: String,
+    interpreter: InterpreterConfig,
+    user_site: bool,
+}
+
+fn parse_venv_cfg(venv_root: &Path, cfg_path: &Path) -> miette::Result<PyCfg> {
+    let mut version: Option<String> = None;
+    let mut bazel_interpreter: Option<String> = None;
+    let mut bazel_repo: Option<String> = None;
+    let mut user_site: Option<bool> = None;
+
+    let cfg_file = fs::read_to_string(cfg_path).into_diagnostic()?;
+
+    for (key, value) in cfg_file.lines().flat_map(|s| s.split_once("=")) {
+        let key = key.trim();
+        let value = value.trim();
+        match key {
+            "version_info" => {
+                version = Some(value.to_string());
+            }
+            "aspect-runfiles-interpreter" => {
+                bazel_interpreter = Some(value.to_string());
+            }
+            "aspect-runfiles-repo" => {
+                bazel_repo = Some(value.to_string());
+            }
+            "aspect-include-user-site-packages" => {
+                user_site = value.parse().ok();
+            }
+            // We don't care about other keys
+            _ => continue,
+        }
+    }
+
+    match (version, bazel_interpreter, bazel_repo) {
+        (Some(version), Some(rloc), Some(repo)) => Ok(PyCfg {
+            root: venv_root.to_path_buf(),
+            cfg: cfg_path.to_path_buf(),
+            version_info: version,
+            interpreter: InterpreterConfig::Runfiles {
+                rpath: rloc,
+                repo: repo,
+            },
+            user_site: user_site.expect("User site flag not set!"),
+        }),
+        (Some(version), None, None) => Ok(PyCfg {
+            root: venv_root.to_path_buf(),
+            cfg: cfg_path.to_path_buf(),
+            version_info: version.to_owned(),
+            interpreter: InterpreterConfig::External {
+                version: parse_version_info(&version).unwrap(),
+            },
+            user_site: user_site.expect("User site flag not set!"),
+        }),
+        (None, _, _) => miette::bail!("Invalid pyvenv.cfg file! no interpreter version specified!"),
+        _ => {
+            miette::bail!("Invalid pyvenv.cfg file! runfiles interpreter incompletely configured!")
+        }
+    }
 }
 
 fn parse_version_info(version_str: &str) -> Option<String> {
@@ -76,125 +145,84 @@ fn find_python_executables(version_from_cfg: &str, exclude_dir: &Path) -> Option
     }
 }
 
-fn main() -> miette::Result<()> {
-    let venv_home_path = env::var("VIRTUAL_ENV")
-        .map(PathBuf::from)
-        .into_diagnostic()
-        .map_err(|e| {
-            miette!(
-                help = format!(
-                    "The activate script should be available as {:?}",
-                    env::current_exe()
-                        .unwrap()
-                        .parent()
-                        .unwrap()
-                        .join("activate")
-                ),
-                "{e}",
-            )
-            .wrap_err("$VIRTUAL_ENV was unbound! A venv must be activated")
-        })?;
+fn find_actual_interpreter(cfg: &PyCfg) -> miette::Result<PathBuf> {
+    match &cfg.interpreter {
+        InterpreterConfig::External { version } => {
+            // NOTE (reid@aspect.build):
+            //
+            //    Previously this codepath had machinery for walking the `$PATH`
+            //    sequentially and handling re-entrant cases where the
+            //    interpreter shim could accidentally re-select itself and
+            //    recurse. This could cause infinite loops of this shim
+            //    self-selecting without making progress.
+            //
+            //    The problem boils down to inconsistent canonicalization both
+            //    of the `$PATH` entries and of the `argv[0]`/observed
+            //    executable name. We rely on the executable name to find the
+            //    bin dir to ignore, but doing so can incur canonicalization.
+            //    Meanwhile `$PATH` entries are usually not canonicalized. This
+            //    can produce behavior differences under Bazel, especially on
+            //    Linux where more aggressive use of symlinks is made although
+            //    production artifacts copied out of Bazel's sandboxing do ok.
+            //
+            //    To try and force progress (or at least an eventual failure)
+            //    this code previously counted up using the offset counter to
+            //    try each candidate interpreter successively.
+            //
+            //    That logic has optimistically been discarded. If this causes
+            //    problems we'd put it back here.
 
-    let venv_interpreter_path: PathBuf = env::var("PYTHONEXECUTABLE")
-        .map(PathBuf::from)
-        .or_else(|_| Ok::<PathBuf, VarError>(venv_home_path.join("bin/python")))
-        .into_diagnostic()?;
+            let Some(python_executables) = find_python_executables(&version, &cfg.root.join("bin"))
+            else {
+                miette::bail!(
+                    "No suitable Python interpreter found in PATH matching version '{version}'."
+                );
+            };
 
-    let excluded_interpreters_dir = &venv_home_path.join("bin");
+            #[cfg(feature = "debug")]
+            {
+                eprintln!(
+                    "[aspect] Found potential Python interpreters in PATH with matching version:"
+                );
+                for exe in &python_executables {
+                    eprintln!("[aspect] - {:?}", exe);
+                }
+            }
 
-    let args: Vec<_> = env::args().collect();
+            let Some(actual_interpreter_path) = python_executables.get(0) else {
+                miette::bail!("Unable to find another interpreter!");
+            };
 
-    #[cfg(feature = "debug")]
-    eprintln!(
-        "[aspect] Current executable path: {:?}",
-        &venv_interpreter_path
-    );
-
-    let Some(pyvenv_cfg_path) = find_pyvenv_cfg(&venv_interpreter_path) else {
-        return Err(miette!(
-            help = format!("VIRTUAL_ENV was {:?}", &venv_home_path),
-            "The virtual environment is either incorrectly structured or was incorrectly detected",
-        )
-        .wrap_err("pyvenv.cfg not found!"));
-    };
-
-    #[cfg(feature = "debug")]
-    eprintln!("[aspect] Found pyvenv.cfg at: {:?}", &pyvenv_cfg_path);
-
-    let version_info_result = extract_pyvenv_version_info(&pyvenv_cfg_path)
-        .into_diagnostic()
-        .wrap_err(format!(
-            "Failed to parse pyvenv.cfg {}",
-            &pyvenv_cfg_path.to_str().unwrap(),
-        ))
-        .unwrap();
-
-    let Some(version_info) = version_info_result else {
-        return Err(miette!(
-            help = format!("pyvenv.cfg must specify the version_info= key"),
-            "The virtual environment is incorrectly built or was incorrectly detected"
-        )
-        .wrap_err("version_info key not found in pyvenv.cfg."));
-    };
-
-    #[cfg(feature = "debug")]
-    eprintln!("[aspect] version_info from pyvenv.cfg: {:?}", &version_info);
-
-    let Some(target_python_version) = parse_version_info(&version_info) else {
-        return Err(miette!(
-            help = format!("Provided version info was {:?}", &version_info),
-            "Could not parse version_info as `x.y.z`"
-        )
-        .wrap_err("Unable to determine interpreter revision"));
-    };
-
-    #[cfg(feature = "debug")]
-    eprintln!(
-        "[aspect] Parsed target Python version (major.minor): {}",
-        &target_python_version
-    );
-
-    #[cfg(feature = "debug")]
-    eprintln!("[aspect] Ignoring dir {:?}", &excluded_interpreters_dir);
-
-    let Some(python_executables) =
-        find_python_executables(&target_python_version, excluded_interpreters_dir)
-    else {
-        return Err(miette!(
-            "No suitable Python interpreter found in PATH matching version '{}'.",
-            &version_info,
-        ));
-    };
-
-    #[cfg(feature = "debug")]
-    {
-        eprintln!("[aspect] Found potential Python interpreters in PATH with matching version:");
-        for exe in &python_executables {
-            eprintln!("[aspect] - {:?}", exe);
+            Ok(actual_interpreter_path.to_owned())
+        }
+        InterpreterConfig::Runfiles { rpath, repo } => {
+            let r = Runfiles::create().unwrap();
+            if let Some(interpreter) = r.rlocation_from(rpath.as_str(), &repo) {
+                Ok(PathBuf::from(interpreter))
+            } else {
+                miette::bail!(format!(
+                    "Unable to identify an interpreter for venv {:?}",
+                    cfg.interpreter,
+                ));
+            }
         }
     }
+}
 
-    // Attempt to break infinite recursion through this shim by counting up
-    // the number of times we've come back to this shim and incrementing it
-    // until we hit something on the path that DOESN'T come back here, or we
-    // run out of path entries.
-    let index: usize = {
-        match env::var(COUNTER_VAR) {
-            // Whatever the previous value was didn't work because we're
-            // back here, so increment.
-            Ok(it) => it.parse::<usize>().unwrap() + 1,
-            _ => 0,
-        }
+fn main() -> miette::Result<()> {
+    let all_args: Vec<_> = env::args().collect();
+    let Some((exec_name, exec_args)) = all_args.split_first() else {
+        miette::bail!("could not discover an execution command-line");
     };
 
-    let Some(actual_interpreter_path) = python_executables.get(index) else {
-        return Err(miette!(
-            "Unable to find another interpreter at index {}",
-            index
-        ));
-    };
+    let (venv_root, venv_cfg) = find_venv_root(exec_name)?;
 
-    let exec_args = &args[1..];
+    let venv_config = parse_venv_cfg(&venv_root, &venv_cfg)?;
+
+    // The logical path of the interpreter
+    let venv_interpreter = venv_root.join("bin/python3");
+
+    let actual_interpreter = find_actual_interpreter(&venv_config)?;
 
     #[cfg(feature = "debug")]
     eprintln!(
@@ -202,28 +230,60 @@ fn main() -> miette::Result<()> {
         &actual_interpreter_path, &venv_interpreter_path, exec_args,
     );
 
-    let mut cmd = Command::new(actual_interpreter_path);
-    cmd.args(exec_args);
+    let mut cmd = Command::new(&actual_interpreter);
+    let cmd = cmd
+        // Pass along our args
+        .args(exec_args)
+        // Lie about the value of argv0 to hoodwink the interpreter as to its
+        // location on Linux-based platforms.
+        .arg0(&venv_interpreter)
+        // Pseudo-`activate`
+        .env("VIRTUAL_ENV", &venv_root);
 
-    // Lie about the value of argv0 to hoodwink the interpreter as to its
-    // location on Linux-based platforms.
-    cmd.arg0(&venv_interpreter_path);
-
-    // On MacOS however, there are facilities for asking the C runtime/OS
-    // what the real name of the interpreter executable is, and that value
-    // is preferred while argv[0] is ignored. So we need to use a different
-    // mechanism to lie to the target interpreter about its own path.
-    //
-    // https://github.com/python/cpython/blob/68e72cf3a80362d0a2d57ff0c9f02553c378e537/Modules/getpath.c#L778
-    // https://docs.python.org/3/using/cmdline.html#envvar-PYTHONEXECUTABLE
-    if cfg!(target_os = "macos") {
-        cmd.env("PYTHONEXECUTABLE", &venv_interpreter_path);
+    let venv_bin = (&venv_root).join("bin");
+    // TODO(arrdem|myrrlyn): PATHSEP is : on Unix and ; on Windows
+    let mut path_segments = env::var("PATH")
+        .into_diagnostic()? // if the variable is unset or not-utf-8, quit
+        .split(":") // break into individual entries
+        .filter(|&p| !p.is_empty()) // skip over `::`, which is possible
+        .map(ToOwned::to_owned) // we're dropping the big string, so own the fragments
+        .collect::<Vec<_>>(); // and save them.
+    let need_venv_in_path = path_segments
+        .iter()
+        .find(|&p| OsStr::new(p) == &venv_bin)
+        .is_none();
+    if need_venv_in_path {
+        // append to back
+        path_segments.push(venv_bin.to_string_lossy().into_owned());
+        // then move venv_bin to the front of PATH
+        path_segments.rotate_right(1);
+        // and write into the child environment. this avoids an empty PATH causing us to write `{venv_bin}:` with a trailing colon
+        cmd.env("PATH", path_segments.join(":"));
     }
 
-    // Re-export the counter so it'll go up
-    cmd.env(COUNTER_VAR, index.to_string());
+    // Set the executable pointer for MacOS, but we do it consistently
+    cmd.env("PYTHONEXECUTABLE", &venv_interpreter);
 
-    let _ = cmd.exec();
+    // Similar to `-s` but this avoids us having to muck with the argv in ways
+    // that could be visible to the called program.
+    if !venv_config.user_site {
+        cmd.env("PYTHONNOUSERSITE", "1");
+    }
 
-    Ok(())
+    // Set the interpreter home to the resolved install base. This works around
+    // the home = property in the pyvenv.cfg being wrong because we don't
+    // (currently) have a good way to map the interpreter rlocation to a
+    // relative path.
+    cmd.env(
+        "PYTHONHOME",
+        &actual_interpreter.parent().unwrap().parent().unwrap(),
+    );
+
+    // And punt
+    let err = cmd.exec();
+    miette::bail!(
+        "Failed to exec target {}, {}",
+        actual_interpreter.display(),
+        err,
+    )
 }

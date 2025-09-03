@@ -9,7 +9,7 @@ use std::{
     env::current_dir,
     fs::{self, File},
     io::{BufRead, BufReader, BufWriter, Write},
-    os::unix::fs::{MetadataExt, PermissionsExt},
+    os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
 };
 use std::{ffi::OsStr, os::unix::fs as unix_fs};
@@ -203,12 +203,15 @@ const RELOCATABLE_SHEBANG: &str = "\
 /// - Do we _have_ to include activate scripts?
 /// - Do we _have_ to include a versioned symlink?
 pub fn create_empty_venv<'a>(
-    python: &Path,
+    repo: &'a str,
+    python: &'a Path,
     version: PythonVersionInfo,
     location: &'a Path,
-    env_file: &Option<PathBuf>,
-    venv_shim: &Option<PathBuf>,
+    env_file: Option<&'a Path>,
+    venv_shim: Option<&'a Path>,
     debug: bool,
+    include_system_site_packages: bool,
+    include_user_site_packages: bool,
 ) -> miette::Result<Virtualenv> {
     let build_dir = current_dir().into_diagnostic()?;
     let home_dir = &build_dir.join(location.to_path_buf());
@@ -240,14 +243,39 @@ pub fn create_empty_venv<'a>(
         .into_diagnostic()
         .wrap_err("Unable to create base venv directory")?;
 
+    let using_runfiles_interpreter = !python.exists() && venv_shim.is_some();
+
+    let interpreter_cfg_snippet = if using_runfiles_interpreter {
+        format!(
+            "\
+# Non-standard extension keys used by the Aspect shim
+aspect-runfiles-interpreter = {0}
+aspect-runfiles-repo = {1}
+",
+            python.display(),
+            repo
+        )
+    } else {
+        "".to_owned()
+    };
+
     // Create the `pyvenv.cfg` file
     // FIXME: Should this come from the ruleset?
     fs::write(
         &venv.home_dir.join("pyvenv.cfg"),
-        format!(
-            include_str!("pyvenv.cfg.tmpl"),
-            venv.version_info.major, venv.version_info.minor, venv.version_info.patch,
-        ),
+        include_str!("pyvenv.cfg.tmpl")
+            .replace("{{MAJOR}}", &venv.version_info.major.to_string())
+            .replace("{{MINOR}}", &venv.version_info.minor.to_string())
+            .replace("{{PATCH}}", &venv.version_info.patch.to_string())
+            .replace("{{INTERPRETER}}", &interpreter_cfg_snippet)
+            .replace(
+                "{{INCLUDE_SYSTEM_SITE}}",
+                &include_system_site_packages.to_string(),
+            )
+            .replace(
+                "{{INCLUDE_USER_SITE}}",
+                &include_user_site_packages.to_string(),
+            ),
     )
     .into_diagnostic()?;
 
@@ -262,7 +290,7 @@ pub fn create_empty_venv<'a>(
     // Assume that the path to `python` is relative to the _home_ of the venv,
     // and add the extra `..` to that path to drop the bin dir.
 
-    if !python.exists() && venv_shim == &None {
+    if !python.exists() && venv_shim.is_none() {
         Err(miette!(
             "Specified interpreter {} doesn't exist!",
             python.to_str().unwrap()
@@ -337,26 +365,16 @@ pub fn create_empty_venv<'a>(
             .collect::<Vec<_>>()
             .join("\n");
 
-        let runfiles_activation: String = match venv_shim {
-            Some(_) => include_str!("runfiles_interpreter.tmpl")
-                .replace("{{INTERPRETER_TARGET}}", &python.to_str().unwrap()),
-            None => "".to_string(),
-        };
-
         fs::write(
             venv.bin_dir.join("activate"),
             include_str!("activate.tmpl")
                 .replace("{{ENVVARS}}", &envvars)
                 .replace("{{ENVVARS_UNSET}}", envvars_unset)
-                .replace("{{RUNFILES_INTERPRETER}}", &runfiles_activation)
                 .replace("{{DEBUG}}", if debug { &"set -x\n" } else { &"\n" }),
         )
         .into_diagnostic()
         .wrap_err("Unable to create activate script")?;
     }
-
-    // FIXME: Add `activate` scripts here? Nobody should be activating these.
-    // Probably.
 
     // Create the site dir
     fs::create_dir_all(&venv.site_dir)
@@ -493,7 +511,6 @@ pub fn populate_venv_with_copies(
             eprintln!("Entry is site-packages...");
 
             // If the entry is external then we have to adjust the path
-            // FIXME: This isn't quite right outside of bzlmod
             if workspace != main_module {
                 entry = PathBuf::from("external")
                     .join(PathBuf::from(workspace))
@@ -516,7 +533,6 @@ pub fn populate_venv_with_copies(
             for prefix in [&action_src_dir, &action_bin_dir] {
                 let src_dir = prefix.join(&bin_dir);
                 if src_dir.exists() {
-                    // FIXME: Need to correct shebangs
                     create_tree(&src_dir, &venv.bin_dir, &collision_strategy)?;
                 }
             }
@@ -555,6 +571,7 @@ pub fn populate_venv_with_copies(
 /// interpreter to traverse up out of the venv and insert other workspaces'
 /// site-packages trees (and potentially other import roots) onto the path.
 
+#[expect(unused_variables)]
 pub fn populate_venv_with_pth(
     venv: Virtualenv,
     pth_file: PthFile,
