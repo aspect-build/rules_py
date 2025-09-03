@@ -50,3 +50,9 @@ bazel_dep(
     version = "8.2.0.2",
     dev_dependency = True,
 )
+
+bazel_dep(
+    name = "bazel_skylib_gazelle_plugin",
+    version = "1.8.1",
+    dev_dependency = True,
+)

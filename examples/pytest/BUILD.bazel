@@ -36,5 +36,5 @@ py_test(
     package_collisions = "warning",
     pytest_main = True,
     shard_count = 2,
-    deps = ["@pipy//pytest"],
+    deps = ["@pypi//pytest"],
 )
