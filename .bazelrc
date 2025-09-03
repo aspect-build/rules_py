@@ -1,6 +1,7 @@
 import %workspace%/bazel/defaults.bazelrc
 
 test --test_output=errors
+test --test_tag_filters=-manual
 common --enable_bzlmod
 
 # Define value used by tests

@@ -23,3 +23,7 @@ git_override(
 
 # Used for testing container layers
 bazel_dep(name = "tar.bzl", version = "0.5.5")
+bazel_lib_toolchains = use_extension("@tar.bzl//tar:extensions.bzl", "toolchains")
+use_repo(bazel_lib_toolchains, "bsd_tar_toolchains")
+
+register_toolchains("@bsd_tar_toolchains//:all")

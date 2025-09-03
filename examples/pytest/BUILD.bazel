@@ -21,10 +21,10 @@ py_test(
     pytest_main = True,
     deps = [
         ":lib",
-        "@pypi_coverage//:pkg",
-        "@pypi_ftfy//:pkg",
-        "@pypi_neptune//:pkg",
-        "@pipi//pytest",
+        "@pypi//coverage",
+        "@pypi//ftfy",
+        "@pypi//neptune",
+        "@pypi//pytest",
     ],
 )
 
@@ -36,5 +36,5 @@ py_test(
     package_collisions = "warning",
     pytest_main = True,
     shard_count = 2,
-    deps = ["@pipi//pytest"],
+    deps = ["@pipy//pytest"],
 )

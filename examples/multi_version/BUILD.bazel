@@ -11,7 +11,7 @@ py_binary(
 
 py_pytest_main(
     name = "__test__",
-    deps = ["@pipi//pytest"],
+    deps = ["@pypi//pytest"],
 )
 
 py_test(
