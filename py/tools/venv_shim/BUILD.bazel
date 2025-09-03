@@ -1,5 +1,6 @@
 load("//bazel/rust:defs.bzl", "rust_binary")
 load("//bazel/rust:multi_platform_rust_binaries.bzl", "multi_platform_rust_binaries")
+load("//bazel/release:release.bzl", "release")
 
 rust_binary(
     name = "shim",
@@ -23,4 +24,9 @@ alias(
     visibility = [
         "//visibility:public",
     ],
+)
+
+release(
+    name = "release",
+    targets = [":bins"],
 )

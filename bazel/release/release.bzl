@@ -1,6 +1,8 @@
 """This module provides the macros for performing a release.
 """
 
+load("@bazel_skylib//lib:sets.bzl", "sets")
+
 def release(name, targets, **kwargs):
     """The release macro creates the artifact copier script.
 
@@ -21,6 +23,6 @@ def release(name, targets, **kwargs):
             locations = " ".join(["$(locations {})".format(target) for target in targets]),
         ),
         tools = ["//bazel/release:create_release.sh"],
-        tags = kwargs.get("tags", []) + ["manual"],
+        tags = sets.to_list(sets.make(kwargs.get("tags", []) + ["manual", "ci:verb:deliver"])),
         **kwargs
     )

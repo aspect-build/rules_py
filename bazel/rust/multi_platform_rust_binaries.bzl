@@ -16,8 +16,13 @@ TARGET_TRIPLES = [
     ("aarch64_apple_darwin", "macos_aarch64"),
 ]
 
-# Map a Rust naming scheme to a custom name.
-TARGET_NAMING_SCHEME = {}
+# Map the Rust triple naming scheme to a custom name (goos-goarch).
+TARGET_NAMING_SCHEME = {
+    "x86_64_unknown_linux_musl": "x86_64-unknown-linux-musl",
+    "aarch64_unknown_linux_musl": "aarch64-unknown-linux-musl",
+    "x86_64_apple_darwin": "x86_64-apple-darwin",
+    "aarch64_apple_darwin": "aarch64-apple-darwin",
+}
 
 def multi_platform_rust_binaries(name, target, name_scheme = TARGET_NAMING_SCHEME, target_triples = TARGET_TRIPLES, prefix = "", pkg_type = "zip", **kwargs):
     """The multi_platform_rust_binaries macro creates a filegroup containing rust binaries that are ready for release.
