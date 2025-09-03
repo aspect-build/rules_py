@@ -1,6 +1,6 @@
+load("//bazel/release:release.bzl", "release")
 load("//bazel/rust:defs.bzl", "rust_binary")
 load("//bazel/rust:multi_platform_rust_binaries.bzl", "multi_platform_rust_binaries")
-load("//bazel/release:release.bzl", "release")
 
 rust_binary(
     name = "shim",
@@ -8,8 +8,8 @@ rust_binary(
         "src/main.rs",
     ],
     deps = [
-        "@crates//:miette",
         "//py/tools/runfiles",
+        "@crates//:miette",
     ],
 )
 

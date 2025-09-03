@@ -39,7 +39,7 @@ crate.from_cargo(
 use_repo(crate, "crates")
 
 # These override the default rust_repository_sets created by rust_register_toolchain. They must be named exactly as follows.
-# NB: The first call for a particular name may set the `edition`, `exec_triple`, and `versions` attributes, the subsequent calls shoud not set it or else Bazel will fail with,
+# NB: The first call for a particular name may set the `edition`, `exec_triple`, and `versions` attributes, the subsequent calls should not set it or else Bazel will fail with,
 # "Error in fail: You must only set edition on the first call to repository_set for a particular name but it was set multiple times for rust_linux_x86_64"
 # "Error in fail: You must only set exec_triple on the first call to repository_set for a particular name but it was set multiple times for rust_linux_x86_64"
 # "Error in fail: You must only set versions on the first call to repository_set for a particular name but it was set multiple times for rust_linux_x86_64"
@@ -48,16 +48,17 @@ use_repo(crate, "crates")
 # -> linux x86_64 (gnu)
 rust.repository_set(
     name = "rust_linux_x86_64",
-    edition = RUST_EDITION, # "edition" only set in first instance of "rust_linux_x86_64" repository_set (see comment above)
-    exec_triple = "x86_64-unknown-linux-gnu", # "exec_triple" only set in first instance of "rust_linux_x86_64" repository_set (see comment above)
+    edition = RUST_EDITION,  # "edition" only set in first instance of "rust_linux_x86_64" repository_set (see comment above)
+    exec_triple = "x86_64-unknown-linux-gnu",  # "exec_triple" only set in first instance of "rust_linux_x86_64" repository_set (see comment above)
     target_compatible_with = [
         "@//bazel/platforms/linkers:unknown",
         "@platforms//cpu:x86_64",
         "@platforms//os:linux",
     ],
     target_triple = "x86_64-unknown-linux-gnu",
-    versions = [RUST_VERSION], # "versions" only set in first instance of "rust_linux_x86_64" repository_set (see comment above)
+    versions = [RUST_VERSION],  # "versions" only set in first instance of "rust_linux_x86_64" repository_set (see comment above)
 )
+
 # -> linux x86_64 (musl)
 rust.repository_set(
     name = "rust_linux_x86_64",
@@ -68,6 +69,7 @@ rust.repository_set(
     ],
     target_triple = "x86_64-unknown-linux-musl",
 )
+
 # -> linux arm (musl)
 rust.repository_set(
     name = "rust_linux_x86_64",
@@ -78,6 +80,7 @@ rust.repository_set(
     ],
     target_triple = "aarch64-unknown-linux-musl",
 )
+
 # -> darwin x86
 rust.repository_set(
     name = "rust_linux_x86_64",
@@ -87,6 +90,7 @@ rust.repository_set(
     ],
     target_triple = "x86_64-apple-darwin",
 )
+
 # -> darwin arm
 rust.repository_set(
     name = "rust_linux_x86_64",
@@ -101,16 +105,17 @@ rust.repository_set(
 # -> linux arm (gnu)
 rust.repository_set(
     name = "rust_linux_aarch64",
-    edition = RUST_EDITION, # "edition" only set in first instance of "rust_linux_aarch64" repository_set (see comment above)
-    exec_triple = "aarch64-unknown-linux-gnu", # "exec_triple" only set in first instance of "rust_linux_aarch64" repository_set (see comment above)
+    edition = RUST_EDITION,  # "edition" only set in first instance of "rust_linux_aarch64" repository_set (see comment above)
+    exec_triple = "aarch64-unknown-linux-gnu",  # "exec_triple" only set in first instance of "rust_linux_aarch64" repository_set (see comment above)
     target_compatible_with = [
         "@//bazel/platforms/linkers:unknown",
         "@platforms//cpu:aarch64",
         "@platforms//os:linux",
     ],
     target_triple = "aarch64-unknown-linux-gnu",
-    versions = [RUST_VERSION], # "versions" only set in first instance of "rust_linux_aarch64" repository_set (see comment above)
+    versions = [RUST_VERSION],  # "versions" only set in first instance of "rust_linux_aarch64" repository_set (see comment above)
 )
+
 # -> linux arm (musl)
 rust.repository_set(
     name = "rust_linux_aarch64",
@@ -126,16 +131,17 @@ rust.repository_set(
 # -> linux x86 (musl)
 rust.repository_set(
     name = "rust_darwin_x86_64",
-    edition = RUST_EDITION, # "edition" only set in first instance of "rust_darwin_x86_64" repository_set (see comment above)
-    exec_triple = "x86_64-apple-darwin", # "exec_triple" only set in first instance of "rust_darwin_x86_64" repository_set (see comment above)
+    edition = RUST_EDITION,  # "edition" only set in first instance of "rust_darwin_x86_64" repository_set (see comment above)
+    exec_triple = "x86_64-apple-darwin",  # "exec_triple" only set in first instance of "rust_darwin_x86_64" repository_set (see comment above)
     target_compatible_with = [
         "@//bazel/platforms/linkers:musl",
         "@platforms//cpu:x86_64",
         "@platforms//os:linux",
     ],
     target_triple = "x86_64-unknown-linux-musl",
-    versions = [RUST_VERSION], # "versions" only set in first instance of "rust_darwin_x86_64" repository_set (see comment above)
+    versions = [RUST_VERSION],  # "versions" only set in first instance of "rust_darwin_x86_64" repository_set (see comment above)
 )
+
 # -> linux arm (musl)
 rust.repository_set(
     name = "rust_darwin_x86_64",
@@ -146,6 +152,7 @@ rust.repository_set(
     ],
     target_triple = "aarch64-unknown-linux-musl",
 )
+
 # -> darwin x86
 rust.repository_set(
     name = "rust_darwin_x86_64",
@@ -155,6 +162,7 @@ rust.repository_set(
     ],
     target_triple = "x86_64-apple-darwin",
 )
+
 # -> darwin arm
 rust.repository_set(
     name = "rust_darwin_x86_64",
@@ -169,16 +177,17 @@ rust.repository_set(
 # -> linux x86 (musl)
 rust.repository_set(
     name = "rust_darwin_aarch64",
-    edition = RUST_EDITION, # "edition" only set in first instance of "rust_darwin_aarch64" repository_set (see comment above)
-    exec_triple = "aarch64-apple-darwin", # "exec_triple" only set in first instance of "rust_darwin_aarch64" repository_set (see comment above)
+    edition = RUST_EDITION,  # "edition" only set in first instance of "rust_darwin_aarch64" repository_set (see comment above)
+    exec_triple = "aarch64-apple-darwin",  # "exec_triple" only set in first instance of "rust_darwin_aarch64" repository_set (see comment above)
     target_compatible_with = [
         "@//bazel/platforms/linkers:musl",
         "@platforms//cpu:x86_64",
         "@platforms//os:linux",
     ],
     target_triple = "x86_64-unknown-linux-musl",
-    versions = [RUST_VERSION], # "versions" only set in first instance of "rust_darwin_aarch64" repository_set (see comment above)
+    versions = [RUST_VERSION],  # "versions" only set in first instance of "rust_darwin_aarch64" repository_set (see comment above)
 )
+
 # -> linux arm (musl)
 rust.repository_set(
     name = "rust_darwin_aarch64",
@@ -189,6 +198,7 @@ rust.repository_set(
     ],
     target_triple = "aarch64-unknown-linux-musl",
 )
+
 # -> darwin x86
 rust.repository_set(
     name = "rust_darwin_aarch64",
@@ -198,6 +208,7 @@ rust.repository_set(
     ],
     target_triple = "x86_64-apple-darwin",
 )
+
 # -> darwin arm
 rust.repository_set(
     name = "rust_darwin_aarch64",
@@ -207,7 +218,6 @@ rust.repository_set(
     ],
     target_triple = "aarch64-apple-darwin",
 )
-
 use_repo(rust, "rust_toolchains")
 
 register_toolchains("@rust_toolchains//:all")

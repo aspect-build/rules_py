@@ -63,7 +63,7 @@ bzl_library(
     name = "py_pytest_main",
     srcs = ["py_pytest_main.bzl"],
     deps = [
-        ":py_library"
+        ":py_library",
     ],
 )
 

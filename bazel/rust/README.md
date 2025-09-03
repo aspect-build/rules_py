@@ -14,7 +14,7 @@ cargo add my_dependency
 CARGO_BAZEL_ISOLATED=1 CARGO_BAZEL_REPIN=1 bazel build //...
 ```
 
-If you are adding a crate which is used in multiple `Cargo.toml` files strongly consider making the create a workspace dependency. 
+If you are adding a crate which is used in multiple `Cargo.toml` files strongly consider making the create a workspace dependency.
 
 ```
 cargo add --workspace-root YOUR_CRATE

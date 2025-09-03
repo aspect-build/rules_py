@@ -16,12 +16,19 @@ bazel_dep(name = "platforms", version = "0.0.7")
 bazel_dep(name = "bazelrc-preset.bzl", version = "1.2.0")
 
 include("//bazel/include:bazel-lib.MODULE.bazel")
+
 include("//bazel/include:llvm.MODULE.bazel")
+
 include("//bazel/include:musl.MODULE.bazel")
+
 include("//bazel/include:oci.MODULE.bazel")
+
 include("//bazel/include:rust.MODULE.bazel")
+
 include("//bazel/include:telemetry.MODULE.bazel")
+
 include("//bazel/include:rules-python.MODULE.bazel")
+
 include("//bazel/include:release.MODULE.bazel")
 
 tools = use_extension("//py:extensions.bzl", "py_tools")
@@ -44,13 +51,11 @@ bazel_dep(
     version = "0.45.0",
     dev_dependency = True,
 )
-
 bazel_dep(
     name = "buildifier_prebuilt",
     version = "8.2.0.2",
     dev_dependency = True,
 )
-
 bazel_dep(
     name = "bazel_skylib_gazelle_plugin",
     version = "1.8.1",
