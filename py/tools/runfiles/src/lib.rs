@@ -183,7 +183,6 @@ impl Runfiles {
     }
 
     fn create_manifest_based(manifest_path: &Path) -> Result<Mode> {
-        eprintln!("{manifest_path:?}");
         let manifest_content = std::fs::read_to_string(manifest_path)
             .map_err(RunfilesError::RunfilesManifestIoError)?;
         let path_mapping = manifest_content

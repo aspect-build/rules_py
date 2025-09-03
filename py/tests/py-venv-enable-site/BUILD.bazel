@@ -8,10 +8,10 @@ py_venv_test(
     imports = [
         ".",
     ],
+    include_system_site_packages = True,
+    include_user_site_packages = True,
     main = "test.py",
     deps = [
         "@pypi_cowsay//:pkg",
     ],
-    include_user_site_packages = True,
-    include_system_site_packages = True,
 )
