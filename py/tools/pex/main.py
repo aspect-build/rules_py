@@ -9,6 +9,7 @@ os.environ["PEX_ROOT"] = TMP_PEX_ROOT
 
 import sys
 from pex.pex_builder import Check,PEXBuilder
+from pex.inherit_path import InheritPath
 from pex.interpreter import PythonInterpreter
 from pex.interpreter_constraints import InterpreterConstraint
 from pex.layout import Layout
@@ -25,6 +26,13 @@ class InjectEnvAction(Action):
                 "Given: {value}".format(value=value),
             )
         self.default.append(tuple(components))
+
+
+class InheritPathAction(Action):
+    def __call__(self, parser, namespace, value, option_str=None):
+        value = InheritPath.for_value(value)
+        setattr(namespace, self.dest, value)
+
 
 parser = ArgumentParser(fromfile_prefix_chars='@')
 
@@ -107,6 +115,13 @@ parser.add_argument(
     action="append",
 )
 
+parser.add_argument(
+    "--inherit-path",
+    dest="inherit_path",
+    default=None,
+    action=InheritPathAction,
+)
+
 options = parser.parse_args(args = sys.argv[1:])
 
 # Monkey patch bootstrap template to inject some templated environment variables.
@@ -157,6 +172,8 @@ pex_info.interpreter_constraints = [
     InterpreterConstraint.parse(constraint) 
     for constraint in options.constraints
 ]
+if options.inherit_path is not None:
+    pex_info.inherit_path = options.inherit_path
 
 for dep in options.dependencies:
     dist = Distribution.load(dep)
