@@ -2471,7 +2471,7 @@ files:
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_image_layer/
   - -rwxr-xr-x  0 0      0         204 Jan  1  2023 ./py/tests/py_image_layer/__main__.py
-  - -rwxr-xr-x  0 0      0        2895 Jan  1  2023 ./py/tests/py_image_layer/my_app_bin
+  - -rwxr-xr-x  0 0      0        3067 Jan  1  2023 ./py/tests/py_image_layer/my_app_bin
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_image_layer/my_app_bin.runfiles/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_image_layer/my_app_bin.runfiles/aspect_rules_py/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_image_layer/my_app_bin.runfiles/aspect_rules_py/py/
@@ -2484,8 +2484,8 @@ files:
   - -rwxr-xr-x  0 0      0         204 Jan  1  2023 ./py/tests/py_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_image_layer/__main__.py
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_image_layer/branding/
   - -rwxr-xr-x  0 0      0          42 Jan  1  2023 ./py/tests/py_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_image_layer/branding/__init__.py
-  - -rwxr-xr-x  0 0      0        2895 Jan  1  2023 ./py/tests/py_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_image_layer/my_app_bin
-  - -rwxr-xr-x  0 0      0         183 Jan  1  2023 ./py/tests/py_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_image_layer/my_app_bin.venv.pth
+  - -rwxr-xr-x  0 0      0        3067 Jan  1  2023 ./py/tests/py_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_image_layer/my_app_bin
+  - -rwxr-xr-x  0 0      0         125 Jan  1  2023 ./py/tests/py_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tests/py_image_layer/my_app_bin.venv.pth
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_image_layer/my_app_bin.runfiles/aspect_rules_py/py/tools/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_image_layer/my_app_bin.runfiles/bazel_tools/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_image_layer/my_app_bin.runfiles/bazel_tools/tools/
@@ -2493,4 +2493,4 @@ files:
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_image_layer/my_app_bin.runfiles/bazel_tools/tools/bash/runfiles/
   - -rwxr-xr-x  0 0      0       21622 Jan  1  2023 ./py/tests/py_image_layer/my_app_bin.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_image_layer/my_app_bin.runfiles/pypi_colorama/
-  - -rwxr-xr-x  0 0      0         183 Jan  1  2023 ./py/tests/py_image_layer/my_app_bin.venv.pth
+  - -rwxr-xr-x  0 0      0         125 Jan  1  2023 ./py/tests/py_image_layer/my_app_bin.venv.pth

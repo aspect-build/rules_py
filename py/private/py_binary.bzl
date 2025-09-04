@@ -26,25 +26,14 @@ def _py_binary_rule_impl(ctx):
     pth_lines.use_param_file("%s", use_always = True)
     pth_lines.set_param_file_format("multiline")
 
-    # The venv is created at the root in the runfiles tree, in 'VENV_NAME', the full path is "${RUNFILES_DIR}/${VENV_NAME}",
-    # but depending on if we are running as the top level binary or a tool, then $RUNFILES_DIR may be absolute or relative.
-    # Paths in the .pth are relative to the site-packages folder where they reside.
-    # All "import" paths from `py_library` start with the workspace name, so we need to go back up the tree for
-    # each segment from site-packages in the venv to the root of the runfiles tree.
-    # Five .. will get us back to the root of the venv:
-    # {name}.runfiles/.{name}.venv/lib/python{version}/site-packages/first_party.pth
-    # If the target is defined with a slash, it adds to the level of nesting
-    target_depth = len(ctx.label.name.split("/")) - 1
-    escape = "/".join(([".."] * (4 + target_depth)))
-
     # A few imports rely on being able to reference the root of the runfiles tree as a Python module,
     # the common case here being the @rules_python//python/runfiles target that adds the runfiles helper,
     # which ends up in bazel_tools/tools/python/runfiles/runfiles.py, but there are no imports attrs that hint we
     # should be adding the root to the PYTHONPATH
     # Maybe in the future we can opt out of this?
-    pth_lines.add(escape)
+    pth_lines.add(".")
 
-    pth_lines.add_all(imports_depset, format_each = "{}/%s".format(escape))
+    pth_lines.add_all(imports_depset)
 
     site_packages_pth_file = ctx.actions.declare_file("{}.venv.pth".format(ctx.attr.name))
     ctx.actions.write(
