@@ -510,7 +510,7 @@ pub fn populate_venv_with_copies(
         match entry.file_name().map(|it| it.to_str().unwrap()) {
             // FIXME: dist-packages is a Debian-ism that exists in some customer
             // environments. It would be better if we could manage to make this
-            // decison a policy under user controll. Hard-coding for now.
+            // decision a policy under user control. Hard-coding for now.
             Some("site-packages") | Some("dist-packages") => {
                 #[cfg(feature = "debug")]
                 eprintln!("Entry is site-packages...");
