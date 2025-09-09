@@ -130,10 +130,13 @@ fn venv_cmd_handler(args: VenvArgs) -> miette::Result<()> {
                 return Err(miette!("Version must be provided for static venv modes"));
             };
 
+            let repo = args
+                .repo
+                .as_deref()
+                .expect("The --repo argument is required for static venvs!");
+
             let venv = py::venv::create_empty_venv(
-                args.repo
-                    .as_deref()
-                    .expect("The --repo argument is required for static venvs!"),
+                repo,
                 &args.python,
                 py::venv::PythonVersionInfo::from_str(&version)?,
                 &args.location,
@@ -145,6 +148,7 @@ fn venv_cmd_handler(args: VenvArgs) -> miette::Result<()> {
             )?;
 
             py::venv::populate_venv_with_copies(
+                repo,
                 venv,
                 pth_file,
                 args.bin_dir.unwrap(),
@@ -160,10 +164,13 @@ fn venv_cmd_handler(args: VenvArgs) -> miette::Result<()> {
                 return Err(miette!("Version must be provided for static venv modes"));
             };
 
+            let repo = args
+                .repo
+                .as_deref()
+                .expect("The --repo argument is required for static venvs!");
+
             let venv = py::venv::create_empty_venv(
-                args.repo
-                    .as_deref()
-                    .expect("The --repo argument is required for static venvs!"),
+                repo,
                 &args.python,
                 py::venv::PythonVersionInfo::from_str(&version)?,
                 &args.location,
@@ -175,6 +182,7 @@ fn venv_cmd_handler(args: VenvArgs) -> miette::Result<()> {
             )?;
 
             py::venv::populate_venv_with_pth(
+                repo,
                 venv,
                 pth_file,
                 args.bin_dir.unwrap(),
