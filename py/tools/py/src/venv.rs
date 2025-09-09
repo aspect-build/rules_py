@@ -196,7 +196,7 @@ const RELOCATABLE_SHEBANG: &str = "\
 ///         ./python3.${VERSION_MINOR}  d
 ///           ./site-packages           d
 ///             ./_virtualenv.py        t
-///             ./_virtualenv.pth       t
+///             ./_00_virtualenv.pth    t
 ///
 ///
 /// Issues:
@@ -401,49 +401,41 @@ aspect-runfiles-repo = {1}
     Ok(venv)
 }
 
-/// The tricky bit is that we then need to create _dangling at creation time_
-/// symlinks to where `.runfiles` entries _will_ be once the current action
-/// completes.
+/// Poppulate the virtualenv with files from installed packages.
 ///
-/// The input `.pth` file specifies paths in the format
+/// Bazel handles symlinks inside TreeArtifacts at least as of 8.4.0 and before
+/// by converting them into copies of the link targets. This prevents us from
+/// creating a forrest of symlinks directly as `rules_python` does. Instead we
+/// settle for copying files out of the install external repos and into the venv.
 ///
-///     <workspace name>/<path>
+/// This is inefficient but it does have the advantage of avoiding potential
+/// issues around `realpath(__file__)` causing escapes from the venv root.
 ///
-/// These paths can exist in one of four places
-/// 1. `./`                                 (source files in the same workspace)
-/// 2. `./external`                         (source files in a different workspace)
-/// 3. `./bazel-out/fastbuild/bin`          (generated files in this workspace)
-/// 4. `./bazel-out/fastbuild/bin/external` (generated files in a different workspace)
+/// In order to handle internal imports (eg. not from external `pip`) we also
+/// generate a `_aspect.bzlpth` file which contains Bazel label (label prefixes
+/// technically) which can be materialized into import roots against the
+/// runfiles structure at interpreter startup time. This allows for behavior
+/// similar to the original `rules_python` strategy of just shoving a bunch of
+/// stuff into the `$PYTHONPATH` while sidestepping issues around blowing up the
+/// env/system arg limits.
 ///
-/// In filling out a static symlink venv we have to:
+/// The tree we want to create is as follows:
 ///
-/// 0. Be told by the caller what a relative path _from the venv root_ back up to the
-///
-/// 1. Go over every entry in the computed `.pth` list
-///
-/// 2. Identify entries which end in `site-packages`
-///
-/// 3. Compute a `.runfiles` time location for the root of that import
-///
-/// 4. For each of the two possible roots of that import (./, ./bazel-bin/,)
-///    walk the directory tree there
-///
-/// 5. For every entry in that directory tree, take the path of that entry `e`
-///
-/// 6. Relativeize the path of the entry to the import root, `ip`
-///
-/// 7. Relativize the path of the entry to the `.runfiles` time workspace root `rp`
-///
-/// 6. Create an _unverified_ _dangling_ symlink in the venv.
-///
-///    At the time that we create these links the targets won't have been
-///    emplaced yet. Bazel will create them when the `.runfiles` directory is
-///    materialized by assembling all the input files.
-///
-///    The link needs to go up the depth of the target plus one to drop `_main`
-///    or any other workspace name plus four for the site-packages prefix plus
-///    the depth of the `ip` then back down to the workspace-relative path of
-///    the target file.
+///     ./<venv>/
+///       ./pyvenv.cfg                  t
+///       ./bin/
+///         ./python                    l ${PYTHON}
+///         ./python3                   l ./python
+///         ./python3.${VERSION_MINOR}  l ./python
+///       ./lib                         d
+///         ./python3.${VERSION_MINOR}  d
+///           ./site-packages           d
+///             ./_aspect.py            t
+///             ./_aspect.bzlpth        t
+///             ./<included subtrees>
+
+// TODO: Need to rework this so that what gets copied vs what gets added to the
+// pth is controlled by some sort of pluggable policy.
 pub fn populate_venv_with_copies(
     repo: &str,
     venv: Virtualenv,
@@ -464,23 +456,32 @@ pub fn populate_venv_with_copies(
     #[cfg(feature = "debug")]
     eprintln!("action_bin_dir: {}", &action_bin_dir.to_str().unwrap());
 
-    let source_pth = File::open(pth_file.src.as_path())
-        .into_diagnostic()
-        .wrap_err("Unable to open source .pth file")?;
+    // Add our own venv initialization plugin that's designed to handle the bzlpth mess
+    fs::write(&venv.site_dir.join("_aspect.pth"), "import _aspect\n").into_diagnostic()?;
+    fs::write(
+        &venv.site_dir.join("_aspect.py"),
+        include_str!("_aspect.py"),
+    )
+    .into_diagnostic()?;
 
-    let dest_pth = File::create(dest.join("_aspect.pth"))
+    let dest_pth = File::create(dest.join("_aspect.bzlpth"))
         .into_diagnostic()
-        .wrap_err("Unable to create destination .pth file")?;
+        .wrap_err("Unable to create destination .bzlpth file")?;
 
     let mut dest_pth_writer = BufWriter::new(dest_pth);
     dest_pth_writer
         .write(
             b"\
-# Generated by Aspect py_binary
-# Contains relative import paths to non site-package trees within the .runfiles
+# Generated by Aspect py_venv_*
+# Contains Bazel runfiles path suffixes to import roots
+# See _aspect.py for the relevant processing machinery
 ",
         )
         .into_diagnostic()?;
+
+    let source_pth = File::open(pth_file.src.as_path())
+        .into_diagnostic()
+        .wrap_err("Unable to open source .pth file")?;
 
     for line in BufReader::new(source_pth).lines().map_while(Result::ok) {
         #[cfg(feature = "debug")]
@@ -506,59 +507,68 @@ pub fn populate_venv_with_copies(
         let mut entry = PathBuf::from(entry_path);
 
         // FIXME: Handle other wheel install dirs like bin?
-        if entry.file_name() == Some(OsStr::new("site-packages")) {
-            #[cfg(feature = "debug")]
-            eprintln!("Entry is site-packages...");
+        match entry.file_name().map(|it| it.to_str().unwrap()) {
+            // FIXME: dist-packages is a Debian-ism that exists in some customer
+            // environments. It would be better if we could manage to make this
+            // decison a policy under user controll. Hard-coding for now.
+            Some("site-packages") | Some("dist-packages") => {
+                #[cfg(feature = "debug")]
+                eprintln!("Entry is site-packages...");
 
-            // If the entry is external then we have to adjust the path
-            // FIXME: This isn't quite right outside of bzlmod
-            if entry_repo != repo {
-                entry = PathBuf::from("external")
-                    .join(PathBuf::from(entry_repo))
-                    .join(entry)
-            }
+                // If the entry is external then we have to adjust the path
+                // FIXME: This isn't quite right outside of bzlmod
+                if entry_repo != repo {
+                    entry = PathBuf::from("external")
+                        .join(PathBuf::from(entry_repo))
+                        .join(entry)
+                }
 
-            // Copy library sources in
-            for prefix in [&action_src_dir, &action_bin_dir] {
-                let src_dir = prefix.join(&entry);
-                if src_dir.exists() {
-                    create_tree(&src_dir, &venv.site_dir, &collision_strategy)?;
-                } else {
-                    #[cfg(feature = "debug")]
-                    eprintln!("Unable to find srcs under {}", src_dir.to_str().unwrap());
+                // Copy library sources in
+                for prefix in [&action_src_dir, &action_bin_dir] {
+                    let src_dir = prefix.join(&entry);
+                    if src_dir.exists() {
+                        create_tree(&src_dir, &venv.site_dir, &collision_strategy)?;
+                    } else {
+                        #[cfg(feature = "debug")]
+                        eprintln!("Unable to find srcs under {}", src_dir.to_str().unwrap());
+                    }
+                }
+
+                // Copy scripts (bin entries) in
+                let bin_dir = entry.parent().unwrap().join("bin");
+                for prefix in [&action_src_dir, &action_bin_dir] {
+                    let src_dir = prefix.join(&bin_dir);
+                    if src_dir.exists() {
+                        create_tree(&src_dir, &venv.bin_dir, &collision_strategy)?;
+                    }
                 }
             }
-
-            // Copy scripts (bin entries) in
-            let bin_dir = entry.parent().unwrap().join("bin");
-            for prefix in [&action_src_dir, &action_bin_dir] {
-                let src_dir = prefix.join(&bin_dir);
-                if src_dir.exists() {
-                    create_tree(&src_dir, &venv.bin_dir, &collision_strategy)?;
+            _ => {
+                if entry_repo != repo {
+                    eprintln!(
+                        "Warning: @@{entry_repo}//{entry_path}/... included via pth rather than copy"
+                    )
                 }
-            }
-        } else {
-            if entry_repo != repo {
-                eprintln!("Warning: @@{entry_repo}//{entry_path} is not `site-packages`via pth rather than copy",)
-            }
-            // The path to the runfiles root is _one more than_ the relative
-            // oath from the venv's target dir to the root of the module
-            // containing the venv.
-            let path_to_runfiles = diff_paths(&action_bin_dir, action_bin_dir.join(&venv.site_dir))
-                .unwrap()
-                .join("..");
+                // The path to the runfiles root is _one more than_ the relative
+                // oath from the venv's target dir to the root of the module
+                // containing the venv.
+                let path_to_runfiles =
+                    diff_paths(&action_bin_dir, action_bin_dir.join(&venv.site_dir))
+                        .unwrap()
+                        .join("../");
 
-            writeln!(dest_pth_writer, "# @{}", line).into_diagnostic()?;
-            writeln!(
-                dest_pth_writer,
-                "{}",
-                path_to_runfiles // .runfiles
-                    .join(entry_repo) // ${REPO}
-                    .join(entry_path) // ${PATH}
-                    .to_str()
-                    .unwrap()
-            )
-            .into_diagnostic()?;
+                writeln!(dest_pth_writer, "# @{}", line).into_diagnostic()?;
+                writeln!(
+                    dest_pth_writer,
+                    "{}",
+                    path_to_runfiles // .runfiles
+                        .join(entry_repo) // ${REPO}
+                        .join(entry_path) // ${PATH}
+                        .to_str()
+                        .unwrap()
+                )
+                .into_diagnostic()?;
+            }
         }
     }
 
