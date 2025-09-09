@@ -63,8 +63,7 @@ bzl_library(
     name = "py_pytest_main",
     srcs = ["py_pytest_main.bzl"],
     deps = [
-        "@rules_python//docs:bazel_repo_tools",
-        "@rules_python//python:defs_bzl",
+        ":py_library",
     ],
 )
 
