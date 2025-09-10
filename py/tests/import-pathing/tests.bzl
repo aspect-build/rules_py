@@ -10,7 +10,8 @@ def _ctx_with_imports(imports, deps = []):
         ),
         build_file_path = "foo/bar/BUILD.bazel",
         workspace_name = "aspect_rules_py",
-        label = Label("//foo/bar:baz"),
+        # Under bzlmod we have to set the workspace name otherwise we get _main
+        label = Label("@@aspect_rules_py//foo/bar:baz"),
     )
 
 def _can_resolve_path_in_workspace_test_impl(ctx):

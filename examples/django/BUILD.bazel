@@ -5,6 +5,6 @@ py_binary(
     srcs = ["manage.py"],
     deps = [
         "//examples/django/mysite",
-        "@pypi_django//:pkg",
+        "@pypi//django",
     ],
 )
