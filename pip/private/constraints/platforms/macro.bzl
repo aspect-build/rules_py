@@ -272,3 +272,6 @@
 # win_amd64
 # win_arm64
 # win_ia64
+
+def generate():
+    pass

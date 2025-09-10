@@ -37,6 +37,54 @@ _LEGACY_ALIASES = {
     "manylinux2014_x86_64": "manylinux_2_17_x86_64",
 }
 
+def parse_abi_feature_flags(tag):
+    """Parse an ABI flag to extract the feature flags."""
+
+    flags = {
+        "d": False,
+        "m": False,
+        "u": False,
+        "t": False,
+    }
+    for cursor in [-1, -2, -3, -4]:
+        if tag[cursor] in flags:
+            flags[tag[cursor]] = True
+        else:
+            break
+
+    return struct(
+        pydebug = flags["d"],
+        pymalloc = flags["m"],
+        freethreading = flags["t"],
+        unicode = flags["u"],
+        stripped = tag[:cursor],
+        full = tag,
+    )
+
+def normalize_abi_tag(tag):
+    """Normalize feature flag order in ABI tags.
+
+    For simplicity we want to treat cp311dm the same as cp311md.
+    Extract and alphabetize the flags.
+    """
+
+    flags = {
+        "d": False,
+        "m": False,
+        "t": False,
+        "u": False,
+    }
+    for cursor in [-1, -2, -3, -4]:
+        if tag[cursor] in flags:
+            flags[tag[cursor]] = True
+        else:
+            break
+    tag = tag[:cursor]
+    for flag, state in flags.items():
+        if state:
+            tag = tag + flag
+    return tag
+
 def normalize_platform_tag(tag):
     """Resolve legacy aliases to modern equivalents for easier parsing elsewhere."""
     return ".".join(list({
@@ -102,6 +150,6 @@ def parse_whl_name(file):
         version = version,
         build = build_tag,
         python_tags = sorted(sets.to_list(sets.make(python_tag.split(".")))),
-        abi_tags = sorted(sets.to_list(sets.make(abi_tag.split(".")))),
+        abi_tags = sorted(sets.to_list(sets.make([normalize_abi_tag(it) for it in abi_tag.split(".")])))),
         platform_tags = sorted(sets.to_list(sets.make(normalize_platform_tag(platform_tag).split(".")))),
     )

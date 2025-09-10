@@ -1,107 +1,29 @@
-# Collected constraints from PyPi wheels
+load("@bazel_skylib//lib:selects.bzl", "selects")
+load("//pip/private/constraints:defs.bzl", "MAJORS", "MINORS", "INTERPRETERS", "FLAGS")
 
-none  # Symbolic any match constraint
+# FIXME: Where does abi 2/3/4 fit in here?
+# FIXME: Where do ABI feature flags fit in here?
+def generate():
+    for interpreter in INTERPRETERS:
+        for major in MAJORS:
+            selects.config_setting_group(
+                name = "{}{}".format(interpreter, major),
+                match_all = [
+                    "//pip/private/constraints/python/interpreter:{}".format(interpreter),
+                    "//pip/private/constraints/python/major:{}".format(major),
+                ]
+            )
 
-# CSH
-# abi3
-# cp10
-# cp11
-# cp15
-# cp16
-# cp20
-# cp21
-# cp26m
-# cp26mu
-# cp27
-# cp27m
-# cp27mu
-# cp27u
-# cp3
-# cp31
-# cp310
-# cp310d
-# cp310m
-# cp311
-# cp311m
-# cp312
-# cp312m
-# cp313
-# cp313t
-# cp313td
-# cp314
-# cp314t
-# cp32m
-# cp33m
-# cp34
-# cp34m
-# cp35
-# cp35m
-# cp36
-# cp36dm
-# cp36m
-# cp36mu
-# cp37
-# cp37dm
-# cp37m
-# cp37mu
-# cp38
-# cp38m
-# cp39
-# cp39m
-# cp39n
-# cpu
-# cu121
-# cu121torch231
-# darwin
-# graalpy223_38_native
-# graalpy241_311_native
-# graalpy242_311_native
-# linux
-# linux_x86_64
-# manylinux
-# manylinux1
-# nogil_39b_x86_64_linux_gnu
-# pp226
-# pp226u
-# pp240
-# pp240u
-# pp324u
-# pp3510
-# pp352
-# pp355
-# pp357
-# pp36
-# pp360
-# pp370
-# pp371
-# pp372
-# pp73
-# py2
-# py25
-# py3
-# py310
-# py311
-# py312
-# py37
-# py38m
-# pypy310_pp73
-# pypy311_pp73
-# pypy36_pp73
-# pypy37_pp73
-# pypy38_pp73
-# pypy39_pp73
-# pypy3_510
-# pypy3_58
-# pypy3_59
-# pypy3_60
-# pypy3_70
-# pypy3_71
-# pypy3_72
-# pypy_41
-# pypy_73
-# pyston_23_x86_64_linux_gnu
-# universal2
-# win32
-# win_amd64
-# windows
-# x86
+            for minor in MINORS:
+                selects.config_setting_group(
+                    name = "{}{}{}".format(interpreter, major, minor),
+                    match_all = [
+                        "//pip/private/constraints/python/interpreter:{}".format(interpreter),
+                        "//pip/private/constraints/python/major:{}".format(major),
+                        "//pip/private/constraints/python/minor:{}".format(minor),
+                    ]
+                )
+
+    # FIXME: Create the abi feature flags?
+
+# none

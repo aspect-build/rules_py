@@ -112,10 +112,13 @@ def _collect_configurations(repository_ctx, lock_specs):
     # Set of wheel names which we're gonna do a second pass over to collect configuration names
 
     # The config repo scheme is as follows:
-    # //_parts/version/major:2-99
-    # //_parts/version/minor:2-99
-    # //_parts/version/patch:2-99 | any
+    # //_parts/version/major:{2,3}
+    # //_parts/version/minor:{0..18}    # At the 18mo cadence 3.18 won't land until well in the 2030s
+    # //_parts/version/patch:0-30       # .25 is the highest we've gone to date
     # //_parts/os:{any,linux,manylinux,musllinux,macos,}
+    #
+    # https://peps.python.org/pep-3149/#proposal
+    # //_parts/abi:{d,m,u,t,pydebug,pymalloc,wide-unicode,freethread}
 
     wheel_files = {}
 
@@ -151,9 +154,9 @@ def _collect_configurations(repository_ctx, lock_specs):
                     configuration = "{}-{}-{}".format(python_tag, platform_tag, abi_tag)
 
                     configurations[configuration] = [
-                        "@aspect_rules_py//pip/private/config/python:{}".format(python_tag),
-                        "@aspect_rules_py//pip/private/config/platform:{}".format(platform_tag),
-                        "@aspect_rules_py//pip/private/config/abi:{}".format(abi_tag),
+                        "@aspect_rules_py//pip/private/constraints/python:{}".format(python_tag),
+                        "@aspect_rules_py//pip/private/constraints/platform:{}".format(platform_tag),
+                        "@aspect_rules_py//pip/private/constraints/abi:{}".format(abi_tag),
                     ]
 
     print(abi_tags)

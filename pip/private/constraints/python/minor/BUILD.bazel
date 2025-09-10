@@ -1,0 +1,3 @@
+load(":macro.bzl", "generate")
+
+generate()
