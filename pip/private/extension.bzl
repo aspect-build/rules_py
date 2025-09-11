@@ -151,6 +151,9 @@ def _collect_configurations(repository_ctx, lock_specs):
                 for abi_tag in parsed_wheel.abi_tags:
                     abi_tags[abi_tag] = 1
 
+                    # Note that we are NOT filtering out
+                    # impossible/unsatisfiable python+abi tag possibilities.
+                    # It's not aesthetic but it is simple enough.
                     configuration = "{}-{}-{}".format(python_tag, platform_tag, abi_tag)
 
                     configurations[configuration] = [
@@ -162,7 +165,9 @@ def _collect_configurations(repository_ctx, lock_specs):
     print(abi_tags)
     print(platform_tags)
     print(python_tags)
-    print(configurations)
+
+    for key, parts in configurations.items():
+        print(key, "->", parts)
 
 
 def _sdist_repo_name(package):

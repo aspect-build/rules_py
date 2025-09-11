@@ -46,9 +46,11 @@ def parse_abi_feature_flags(tag):
         "u": False,
         "t": False,
     }
+    found = False
     for cursor in [-1, -2, -3, -4]:
         if tag[cursor] in flags:
             flags[tag[cursor]] = True
+            found = True
         else:
             break
 
@@ -57,7 +59,7 @@ def parse_abi_feature_flags(tag):
         pymalloc = flags["m"],
         freethreading = flags["t"],
         unicode = flags["u"],
-        stripped = tag[:cursor],
+        stripped = tag[:cursor + 1] if found else tag,
         full = tag,
     )
 
@@ -74,12 +76,14 @@ def normalize_abi_tag(tag):
         "t": False,
         "u": False,
     }
+    found = False
     for cursor in [-1, -2, -3, -4]:
         if tag[cursor] in flags:
             flags[tag[cursor]] = True
+            found = True
         else:
             break
-    tag = tag[:cursor]
+    tag = tag[:cursor + 1] if found else tag
     for flag, state in flags.items():
         if state:
             tag = tag + flag
@@ -150,6 +154,6 @@ def parse_whl_name(file):
         version = version,
         build = build_tag,
         python_tags = sorted(sets.to_list(sets.make(python_tag.split(".")))),
-        abi_tags = sorted(sets.to_list(sets.make([normalize_abi_tag(it) for it in abi_tag.split(".")])))),
+        abi_tags = sorted(sets.to_list(sets.make([normalize_abi_tag(it) for it in abi_tag.split(".")]))),
         platform_tags = sorted(sets.to_list(sets.make(normalize_platform_tag(platform_tag).split(".")))),
     )
