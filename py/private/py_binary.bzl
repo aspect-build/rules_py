@@ -14,9 +14,70 @@ def _dict_to_exports(env):
         for (k, v) in env.items()
     ]
 
+def _csv(values):
+    """Convert a list of strings to comma separated value string."""
+    return ", ".join(sorted(values))
+
+def _path_endswith(path, endswith):
+    # Use slash to anchor each path to prevent e.g.
+    # "ab/c.py".endswith("b/c.py") from incorrectly matching.
+    return ("/" + path).endswith("/" + endswith)
+
+def _determine_main(ctx):
+    """Determine the main entry point .py source file.
+
+    Args:
+        ctx: The rule ctx.
+
+    Returns:
+        Artifact; the main file. If one can't be found, an error is raised.
+    """
+    if ctx.attr.main:
+        # Deviation from rules_python: allow a leading colon, e.g. `main = ":my_target"`
+        proposed_main = ctx.attr.main.removeprefix(":")
+        if not proposed_main.endswith(".py"):
+            fail("main {} must end in '.py'".format(proposed_main))
+    else:
+        if ctx.label.name.endswith(".py"):
+            fail("name {} must not end in '.py'".format(ctx.label.name))
+        proposed_main = ctx.label.name + ".py"
+
+    main_files = [src for src in ctx.files.srcs if _path_endswith(src.short_path, proposed_main)]
+
+    # Deviation from logic in rules_python: rules_py is a bit more permissive.
+    # Allow a srcs of length one to determine the main, if the target name didn't match anything.
+    if not main_files and len(ctx.files.srcs) == 1:
+        main_files = ctx.files.srcs
+
+    if not main_files:
+        if ctx.attr.main:
+            fail("could not find '{}' as specified by 'main' attribute".format(proposed_main))
+        else:
+            fail(("corresponding default '{}' does not appear in srcs. Add " +
+                  "it or override default file name with a 'main' attribute").format(
+                proposed_main,
+            ))
+
+    elif len(main_files) > 1:
+        if ctx.attr.main:
+            fail(("file name '{}' specified by 'main' attributes matches multiple files. " +
+                  "Matches: {}").format(
+                proposed_main,
+                _csv([f.short_path for f in main_files]),
+            ))
+        else:
+            fail(("default main file '{}' matches multiple files in srcs. Perhaps specify " +
+                  "an explicit file with 'main' attribute? Matches were: {}").format(
+                proposed_main,
+                _csv([f.short_path for f in main_files]),
+            ))
+    return main_files[0]
+
 def _py_binary_rule_impl(ctx):
     venv_toolchain = ctx.toolchains[VENV_TOOLCHAIN]
     py_toolchain = _py_semantics.resolve_toolchain(ctx)
+
+    main_file = _determine_main(ctx)
 
     # Check for duplicate virtual dependency names. Those that map to the same resolution target would have been merged by the depset for us.
     virtual_resolution = _py_library.resolve_virtuals(ctx)
@@ -78,7 +139,7 @@ def _py_binary_rule_impl(ctx):
             "{{ARG_PYTHON}}": to_rlocation_path(ctx, py_toolchain.python) if py_toolchain.runfiles_interpreter else py_toolchain.python.path,
             "{{ARG_VENV_NAME}}": ".{}.venv".format(ctx.attr.name),
             "{{ARG_PTH_FILE}}": to_rlocation_path(ctx, site_packages_pth_file),
-            "{{ENTRYPOINT}}": to_rlocation_path(ctx, ctx.file.main),
+            "{{ENTRYPOINT}}": to_rlocation_path(ctx, main_file),
             "{{PYTHON_ENV}}": "\n".join(_dict_to_exports(default_env)).strip(),
             "{{EXEC_PYTHON_BIN}}": "python{}".format(
                 py_toolchain.interpreter_version_info.major,
@@ -107,14 +168,13 @@ def _py_binary_rule_impl(ctx):
 
     instrumented_files_info = _py_library.make_instrumented_files_info(
         ctx,
-        extra_source_attributes = ["main"],
     )
 
     return [
         DefaultInfo(
             files = depset([
                 executable_launcher,
-                ctx.file.main,
+                main_file,
                 site_packages_pth_file,
             ]),
             executable = executable_launcher,
@@ -139,10 +199,13 @@ _attrs = dict({
         doc = "Environment variables to set when running the binary.",
         default = {},
     ),
-    "main": attr.label(
-        doc = "Script to execute with the Python interpreter.",
-        allow_single_file = True,
-        mandatory = True,
+    "main": attr.string(
+        doc = """Script to execute with the Python interpreter.
+Like rules_python, this is treated as a suffix of a file that should appear among the srcs.
+If absent, then `[name].py` is tried. As a final fallback, if the srcs has a single file,
+that is used as the main.
+""",
+        default = "",
     ),
     "python_version": attr.string(
         doc = """Whether to build this target and its transitive deps for a specific python version.""",
