@@ -306,8 +306,13 @@ def _whl_install_repos(module_ctx, lock_specs):
                     # FIXME: Convert filenames to coordinates here?
                     prebuilds[whl["url"].split("/")[-1]] = _whl_repo_name(package, whl) + "//file"
 
-                # FIXME: This should accept a common constraint for when to choose source builds
-                # Needs to create a `py_library` or superset rule wrapping the resulting files
+                # FIXME: This should accept a common constraint for when to
+                # choose source builds Needs to create a `py_library` or
+                # superset rule wrapping the resulting files
+                #
+                # FIXME: Needs to explicitly mark itself as being compatible
+                # only with the single venv. Shouldn't be possible to force this
+                # target to build when the venv hub is not pointed to this venv.
                 whl_install(
                     name = _whl_install_repo_name(hub_name, venv_name, package),
                     prebuilds = json.encode(prebuilds),
