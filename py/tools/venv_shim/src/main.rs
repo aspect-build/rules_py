@@ -1,4 +1,4 @@
-use miette::IntoDiagnostic;
+use miette::{miette, IntoDiagnostic};
 use runfiles::Runfiles;
 // Depended on out of rules_rust
 use std::env;
@@ -145,7 +145,7 @@ fn find_python_executables(version_from_cfg: &str, exclude_dir: &Path) -> Option
     }
 }
 
-fn find_actual_interpreter(cfg: &PyCfg) -> miette::Result<PathBuf> {
+fn find_actual_interpreter(exec_name: impl AsRef<Path>, cfg: &PyCfg) -> miette::Result<PathBuf> {
     match &cfg.interpreter {
         InterpreterConfig::External { version } => {
             // NOTE (reid@aspect.build):
@@ -196,7 +196,7 @@ fn find_actual_interpreter(cfg: &PyCfg) -> miette::Result<PathBuf> {
             Ok(actual_interpreter_path.to_owned())
         }
         InterpreterConfig::Runfiles { rpath, repo } => {
-            let r = Runfiles::create().unwrap();
+            let r = Runfiles::create(exec_name).unwrap();
             if let Some(interpreter) = r.rlocation_from(rpath.as_str(), &repo) {
                 Ok(PathBuf::from(interpreter))
             } else {
@@ -209,20 +209,80 @@ fn find_actual_interpreter(cfg: &PyCfg) -> miette::Result<PathBuf> {
     }
 }
 
+pub fn resolve_bazel_runfiles_path(path: PathBuf) -> miette::Result<PathBuf> {
+    let mut resolved_path = PathBuf::new();
+    let current_dir =
+        env::current_dir().expect("The current working directory is always expected to be set.");
+    let path = current_dir.join(path);
+    let mut components_iter = path.components().peekable();
+
+    loop {
+        // Iterate through path components to find and resolve symlinks.
+        while let Some(component) = components_iter.next() {
+            // Append the current component to the path we're building.
+            resolved_path.push(component);
+
+            eprintln!("{resolved_path:?}");
+
+            // Check for a symlink and resolve it.
+            if let Ok(metadata) = fs::symlink_metadata(&resolved_path) {
+                if metadata.file_type().is_symlink() {
+                    if let Ok(link_target) = fs::read_link(&resolved_path) {
+                        // Backtrack and append the symlink's target.
+                        resolved_path.pop();
+
+                        if link_target.is_absolute() {
+                            resolved_path = link_target;
+                        } else {
+                            resolved_path.push(&link_target);
+                        }
+                    } else {
+                        // Cannot read symlink, something is wrong.
+                        return Err(miette!("Failed to dereference symlink"));
+                    }
+                }
+            }
+
+            // Check if we've found the runfiles directory.
+            if resolved_path
+                .file_name()
+                .and_then(|s| s.to_str())
+                .filter(|s| s.ends_with(".runfiles"))
+                .is_some()
+            {
+                // Found the root. Now append the remaining original components.
+                for component in components_iter {
+                    resolved_path.push(component);
+                }
+                return Ok(resolved_path);
+            }
+        }
+
+        // We've walked through ALL the parents. The filan path element may be a link. If it is, we have to do another la
+        if fs::symlink_metadata(&resolved_path).expect("").is_symlink() {
+        } else {
+            // If the loop completes without finding a .runfiles directory, return None.
+            return Err(miette!("Didn't find a `.runfiles` parent"));
+        }
+    }
+}
+
 fn main() -> miette::Result<()> {
     let all_args: Vec<_> = env::args().collect();
     let Some((exec_name, exec_args)) = all_args.split_first() else {
         miette::bail!("could not discover an execution command-line");
     };
 
-    let (venv_root, venv_cfg) = find_venv_root(exec_name)?;
+    let exec_name = resolve_bazel_runfiles_path(PathBuf::from(exec_name))?;
+
+    let (venv_root, venv_cfg) = find_venv_root(&exec_name)?;
 
     let venv_config = parse_venv_cfg(&venv_root, &venv_cfg)?;
 
     // The logical path of the interpreter
     let venv_interpreter = venv_root.join("bin/python3");
 
-    let actual_interpreter = find_actual_interpreter(&venv_config)?;
+    let actual_interpreter = find_actual_interpreter(&exec_name, &venv_config)?;
 
     #[cfg(feature = "debug")]
     eprintln!(

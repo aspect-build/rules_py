@@ -30,6 +30,7 @@
 //! // ...
 //! ```
 
+use std::collections::binary_heap;
 use std::collections::HashMap;
 use std::env;
 use std::fs;
@@ -154,14 +155,14 @@ impl Runfiles {
     /// Creates a manifest based Runfiles object when
     /// RUNFILES_MANIFEST_FILE environment variable is present,
     /// or a directory based Runfiles object otherwise.
-    pub fn create() -> Result<Self> {
+    pub fn create(executable: impl AsRef<Path>) -> Result<Self> {
         // Note that the MANIFEST_FILE_ENV_VAR may be set but also blank.
         let mode = match std::env::var_os(MANIFEST_FILE_ENV_VAR) {
             Some(manifest_file) if (!manifest_file.is_empty()) => {
                 Self::create_manifest_based(Path::new(&manifest_file))?
             }
             _ => {
-                let dir = find_runfiles_dir()?;
+                let dir = find_runfiles_dir(executable)?;
                 let manifest_path = dir.join("MANIFEST");
                 match manifest_path.exists() {
                     true => Self::create_manifest_based(&manifest_path)?,
@@ -269,7 +270,9 @@ fn parse_repo_mapping(path: PathBuf) -> Result<RepoMapping> {
 }
 
 /// Returns the .runfiles directory for the currently executing binary.
-pub fn find_runfiles_dir() -> Result<PathBuf> {
+pub fn find_runfiles_dir(binary_path: impl AsRef<Path>) -> Result<PathBuf> {
+    let binary_path = binary_path.as_ref().to_path_buf();
+
     // Note that the MANIFEST_FILE_ENV_VAR may be set but also blank.
     assert!(
         match std::env::var_os(MANIFEST_FILE_ENV_VAR) {
@@ -297,13 +300,10 @@ pub fn find_runfiles_dir() -> Result<PathBuf> {
         }
     }
 
-    // Consume the first argument (argv[0])
-    let exec_path = std::env::args().next().expect("arg 0 was not set");
-
     let current_dir =
         env::current_dir().expect("The current working directory is always expected to be set.");
 
-    let mut binary_path = PathBuf::from(&exec_path);
+    let mut binary_path = binary_path;
     loop {
         // Check for our neighboring `${binary}.runfiles` directory.
         let mut runfiles_name = binary_path.file_name().unwrap().to_owned();
