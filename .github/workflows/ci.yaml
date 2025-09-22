@@ -64,7 +64,7 @@ jobs:
       - run: bazel coverage --combined_report=lcov //src/...
       - uses: hrishikesh-kadam/setup-lcov@6c1aa0cc9e1c02f9f58f01ac599f1064ccc83470 # v1
       # The github-actions-report-lcov doesn't follow symlinks, so get an absolute path
-      - run: echo "output_path=$(bazel info output_path)" >> $GITHUB_ENV
+      - run: echo "testlogs=$(bazel info testlogs)" >> $GITHUB_ENV
       - name: Report code coverage
         if: github.event.pull_request.head.repo.fork == false # Forks always have read-only tokens
         uses: zgosalvez/github-actions-report-lcov@5989987f8058a03137e90bc16f9c0baaac5e069a # v4.1.22
@@ -73,7 +73,7 @@ jobs:
           working-directory: e2e/use_release
           # Point to the already-merged data file Bazel produces with --combined_report=lcov
           # Follows https://bazel.build/configure/coverage#running_coverage
-          coverage-files: "${{ env.output_path }}/_coverage/_coverage_report.dat"
+          coverage-files: "${{ env.testlogs }}/**/coverage.dat"
           github-token: ${{ secrets.GITHUB_TOKEN }}
           update-comment: true
 
