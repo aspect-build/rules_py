@@ -915,30 +915,27 @@ pub fn populate_venv<A: PthEntryHandler>(
                 copy_and_patch_shebang(src, dest)?;
             }
             Command::Symlink { src, dest } => {
-                let mut src = src;
                 fs::create_dir_all(&dest.parent().unwrap()).into_diagnostic()?;
 
-                // On Linux, the sandboxing strategy for actions is to create a
-                // forest of symlinks. If we create a symlink (dest) pointing to
-                // a symlink (src) we're assuming that the src won't be removed
-                // sometime down the line.
+                // The sandboxing strategy for actions is to create a forest of
+                // symlinks. If we create a symlink (dest) pointing to a symlink
+                // (src) we're assuming that the src won't be removed sometime
+                // down the line. But sandboxes are ephemeral, so this leaves us
+                // open to heisenbugs.
                 //
-                // However on Linux the symlink forrest sandboxes are ephemeral
-                // and per-action. Bazel does not appear to rewrite links in the
-                // output TreeArtifact to refer to stable locations for the
-                // input files. But we can do that ourselves by recognizing and
-                // dereferencing the links so that we continue to take links to
-                // the "real" output locations of the files we took as inputs
-                // but which Bazel is presenting to us as links.
+                // What Bazel does gurantee is the _relative tree structure_
+                // betwen our output file(s) and the input(s) used to generate
+                // them. So while we can't sanely just write absolute paths into
+                // symlinks we can write reative paths.
                 //
-                // Ideally we'd generate links to where these files WILL BE in
-                // our runfiles tree, but those links would be dangling at
-                // creation time and Bazel doesn't allow that.
-                while src.is_symlink() && src.to_str().unwrap().contains("sandbox") {
-                    src = src.read_link().into_diagnostic()?;
-                }
-
-                unix_fs::symlink(&src, &dest).into_diagnostic()?;
+                // Note that the relative path we need is the relative path from
+                // the _dir of the destination_ to the source file, since the
+                // way symlinks are resolved is that the readlink value is
+                // joined to the dirname. Without explicitly taking the parent
+                // we're off by 1.
+                let resolved = diff_paths(&src, &dest.parent().unwrap()).unwrap();
+                eprintln!("Linking {dest:?} -> {src:?} ({resolved:?})");
+                unix_fs::symlink(&resolved, &dest).into_diagnostic()?;
             }
             Command::PthEntry { path } => {
                 writeln!(dest_pth_writer, "{}", path.to_str().unwrap()).into_diagnostic()?;
