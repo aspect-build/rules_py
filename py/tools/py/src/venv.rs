@@ -923,8 +923,8 @@ pub fn populate_venv<A: PthEntryHandler>(
                 // down the line. But sandboxes are ephemeral, so this leaves us
                 // open to heisenbugs.
                 //
-                // What Bazel does gurantee is the _relative tree structure_
-                // betwen our output file(s) and the input(s) used to generate
+                // What Bazel does guarantee is the _relative tree structure_
+                // between our output file(s) and the input(s) used to generate
                 // them. So while we can't sanely just write absolute paths into
                 // symlinks we can write reative paths.
                 //
