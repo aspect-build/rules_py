@@ -791,6 +791,16 @@ pub fn populate_venv<A: PthEntryHandler>(
     let mut planned_destinations: HashMap<PathBuf, Vec<Command>> = HashMap::new();
     for command in &plan {
         match command {
+            // Prevent commands from accidentally recursing into the venv, for
+            // instance symlinking or copying out of the venv back into itself.
+            Command::Copy { src, .. }
+            | Command::CopyAndPatch { src, .. }
+            | Command::Symlink { src, .. }
+                if (src.starts_with(&venv.home_dir)) =>
+            {
+                continue;
+            }
+            // Group remaining commands by their dest path.
             Command::Copy { dest, .. }
             | Command::CopyAndPatch { dest, .. }
             | Command::Symlink { dest, .. }
