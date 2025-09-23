@@ -414,20 +414,6 @@ def _wrap_with_debug(rule):
 
     return helper
 
-def _wrap_with_no_remote(rule):
-    """Mark the venv rules as incompatible with remote exec or cache.
-
-    Due to https://github.com/bazelbuild/bazel/issues/27068
-    """
-
-    def helper(**kwargs):
-        tags = kwargs.get("tags", [])
-        tags = sets.to_list(sets.make(tags + ["no-remote", "no-cache"]))
-        kwargs["tags"] = tags
-        return rule(**kwargs)
-
-    return helper
-
 _py_venv_binary = rule(
     doc = """Run a Python program under Bazel using a virtualenv.""",
     implementation = _py_venv_binary_impl,
@@ -446,9 +432,9 @@ _py_venv_test = rule(
     cfg = py_venv_base.cfg,
 )
 
-py_venv = _wrap_with_no_remote(_wrap_with_debug(_py_venv))
-py_venv_binary = _wrap_with_no_remote(_wrap_with_debug(_py_venv_binary))
-py_venv_test = _wrap_with_no_remote(_wrap_with_debug(_py_venv_test))
+py_venv = _wrap_with_debug(_py_venv)
+py_venv_binary = _wrap_with_debug(_py_venv_binary)
+py_venv_test = _wrap_with_debug(_py_venv_test)
 
 def py_venv_link(venv_name = None, srcs = [], **kwargs):
     """Build a Python virtual environment and produce a script to link it into the build directory."""
