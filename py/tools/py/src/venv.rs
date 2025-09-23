@@ -10,7 +10,6 @@ use std::{
     env::current_dir,
     fs::{self, File},
     io::{BufRead, BufReader, BufWriter, SeekFrom, Write},
-    ops::Deref,
     os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
 };
@@ -467,7 +466,7 @@ aspect-runfiles-repo = {1}
     Ok(venv)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Command {
     // Implies create_dir_all for the dest's parents
     Copy { src: PathBuf, dest: PathBuf },
@@ -638,7 +637,6 @@ impl PthEntryHandler for SymlinkStrategy {
                 src_dir = src_dir.join("external").join(&entry_repo)
             }
             src_dir = src_dir.join(&entry_path);
-            eprintln!("{src_dir:?}");
             if src_dir.exists() {
                 for entry in WalkDir::new(&src_dir) {
                     if let Ok(entry) = entry {
@@ -684,12 +682,12 @@ impl<A: PthEntryHandler, B: PthEntryHandler> PthEntryHandler
 }
 
 #[derive(Clone)]
-pub struct SrcSiteStrategy<A: PthEntryHandler, B: PthEntryHandler, C: AsRef<Path> + Debug> {
+pub struct SrcSiteStrategy<A: PthEntryHandler, B: PthEntryHandler, C: AsRef<Path>> {
     pub src_strategy: A,
     pub site_suffixes: Vec<C>,
     pub site_strategy: B,
 }
-impl<A: PthEntryHandler, B: PthEntryHandler, C: AsRef<Path> + Debug> PthEntryHandler
+impl<A: PthEntryHandler, B: PthEntryHandler, C: AsRef<Path>> PthEntryHandler
     for SrcSiteStrategy<A, B, C>
 {
     fn plan<D: AsRef<Path>, E: AsRef<Path>>(
@@ -699,17 +697,11 @@ impl<A: PthEntryHandler, B: PthEntryHandler, C: AsRef<Path> + Debug> PthEntryHan
         entry_repo: &str,
         entry_path: E,
     ) -> miette::Result<Vec<Command>> {
-        eprintln!(
-            "{entry_repo:?} {:?} {:?}",
-            entry_path.as_ref(),
-            self.site_suffixes
-        );
         if self
             .site_suffixes
             .iter()
             .any(|it| entry_path.as_ref().ends_with(it))
         {
-            eprintln!("Using the site strategy...");
             return self
                 .site_strategy
                 .plan(venv, bin_dir, entry_repo, entry_path);
@@ -801,7 +793,7 @@ pub fn populate_venv<A: PthEntryHandler>(
         plan.append(&mut population_strategy.plan(&venv, bin_dir.clone(), entry_repo, entry)?);
     }
 
-    let mut planned_destinations: HashMap<PathBuf, Vec<&Command>> = HashMap::new();
+    let mut planned_destinations: HashMap<PathBuf, Vec<Command>> = HashMap::new();
     for command in &plan {
         match command {
             Command::Copy { dest, .. }
@@ -811,7 +803,7 @@ pub fn populate_venv<A: PthEntryHandler>(
                 planned_destinations
                     .entry(dest.clone())
                     .or_insert_with(Vec::new)
-                    .push(command);
+                    .push(command.clone());
             }
         };
     }
@@ -822,7 +814,15 @@ pub fn populate_venv<A: PthEntryHandler>(
         CollisionResolutionStrategy::Error => true,
         CollisionResolutionStrategy::LastWins(it) => it,
     };
+
+    // Drain the plan, we'll refill it to contain only last-wins instructions.
+    plan = Vec::new();
+
     for (dest, sources) in planned_destinations.iter() {
+        // Refill the plan
+        plan.push(sources.last().unwrap().clone());
+
+        // Handle duplicates
         if sources.len() > 1 {
             if dest.ends_with("__init__.py") {
                 // FIXME: Take care of __init__.py files colliding here.
@@ -856,14 +856,14 @@ pub fn populate_venv<A: PthEntryHandler>(
             for source in sources {
                 match source {
                     Command::Copy { src, .. } | Command::CopyAndPatch { src, .. } => {
-                        // if emit_error {
-                        eprintln!("  - Source: {} (Copy)", src.display())
-                        //}
+                        if emit_error {
+                            eprintln!("  - Source: {} (Copy)", src.display())
+                        }
                     }
                     Command::Symlink { src, .. } => {
-                        //if emit_error {
-                        eprintln!("  - Source: {} (Symlink)", src.display())
-                        //}
+                        if emit_error {
+                            eprintln!("  - Source: {} (Symlink)", src.display())
+                        }
                     }
                     _ => {}
                 }
@@ -889,9 +889,8 @@ pub fn populate_venv<A: PthEntryHandler>(
         )
         .into_diagnostic()?;
 
-    for (dest, sources) in planned_destinations.iter() {
-        let command = sources.last().unwrap();
-        eprintln!("{:?}", command);
+    // The plan has now been uniq'd by destination, execute it
+    for command in plan {
         match command {
             Command::Copy { src, dest } => {
                 fs::create_dir_all(&dest.parent().unwrap()).into_diagnostic()?;
