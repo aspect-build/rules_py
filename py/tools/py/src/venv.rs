@@ -934,7 +934,6 @@ pub fn populate_venv<A: PthEntryHandler>(
                 // joined to the dirname. Without explicitly taking the parent
                 // we're off by 1.
                 let resolved = diff_paths(&src, &dest.parent().unwrap()).unwrap();
-                eprintln!("Linking {dest:?} -> {src:?} ({resolved:?})");
                 unix_fs::symlink(&resolved, &dest).into_diagnostic()?;
             }
             Command::PthEntry { path } => {
