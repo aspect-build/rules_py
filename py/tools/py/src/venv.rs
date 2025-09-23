@@ -549,11 +549,6 @@ impl PthEntryHandler for CopyStrategy {
                         if entry.file_type().is_dir() {
                             continue;
                         }
-                        // We ignore __init__.py files at import roots. They're
-                        // entirely wrong.
-                        else if entry.clone().into_path() == src_dir.join("__init__.py") {
-                            continue;
-                        }
                         plan.push(Command::Copy {
                             src: entry.clone().into_path(),
                             dest: dest.join(entry.into_path().strip_prefix(&src_dir).unwrap()),
@@ -819,6 +814,15 @@ pub fn populate_venv<A: PthEntryHandler>(
     plan = Vec::new();
 
     for (dest, sources) in planned_destinations.iter() {
+        // We ignore __init__.py files at import roots. They're entirely
+        // erroneous and a result of --legacy_creat_init_files which has all
+        // sorts of problems.
+        if dest.ends_with("site-packages/__init__.py")
+            || dest.ends_with("dist-packages/__init__.py")
+        {
+            continue;
+        }
+
         // Refill the plan
         plan.push(sources.last().unwrap().clone());
 
