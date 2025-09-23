@@ -1,8 +1,8 @@
 """Implementation for the py_binary and py_test rules."""
 
-load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@aspect_bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
 load("@aspect_bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
+load("@bazel_skylib//lib:sets.bzl", "sets")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private:transitions.bzl", "python_version_transition")
@@ -415,15 +415,14 @@ def _wrap_with_debug(rule):
     return helper
 
 def _wrap_with_no_remote(rule):
-    """
-    Mark the venv rules as incompatible with remote exec or cache.
-    May also need to mark them as uncacheable?
+    """Mark the venv rules as incompatible with remote exec or cache.
 
     Due to https://github.com/bazelbuild/bazel/issues/27068
     """
+
     def helper(**kwargs):
         tags = kwargs.get("tags", [])
-        tags = sets.to_list(sets.make(tags + ["no-remote"]))
+        tags = sets.to_list(sets.make(tags + ["no-remote", "no-cache"]))
         kwargs["tags"] = tags
         return rule(**kwargs)
 
