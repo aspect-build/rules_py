@@ -38,6 +38,7 @@ bzl_library(
         "//py/private/toolchain:types",
         "@aspect_bazel_lib//lib:expand_make_vars",
         "@aspect_bazel_lib//lib:paths",
+        "@bazel_skylib//lib:sets",
     ],
 )
 
