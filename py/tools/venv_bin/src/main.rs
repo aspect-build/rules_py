@@ -171,7 +171,11 @@ fn venv_cmd_handler(args: VenvArgs) -> miette::Result<()> {
                                 site_suffixes: vec!["site-packages", "dist-packages"],
                                 site_strategy: thirdparty_strategy.clone(),
                             },
-                            thirdparty: thirdparty_strategy.clone(),
+                            thirdparty: py::venv::SrcSiteStrategy {
+                                src_strategy: py::venv::SymlinkStrategy {},
+                                site_suffixes: vec!["site-packages", "dist-packages"],
+                                site_strategy: thirdparty_strategy.clone(),
+                            },
                         },
                         args.collision_strategy.unwrap_or_default().into(),
                     )?
