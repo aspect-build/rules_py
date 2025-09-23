@@ -913,23 +913,21 @@ pub fn populate_venv<A: PthEntryHandler>(
                 // a symlink (src) we're assuming that the src won't be removed
                 // sometime down the line.
                 //
-                // It seems that there are scenarios where Bazel will clean up
-                // individual action sandboxes, and that setting
-                // `--sandbox_debug` forces this behavior to disappear. Which
-                // make sense.
+                // However on Linux the symlink forrest sandboxes are ephemeral
+                // and per-action. Bazel does not appear to rewrite links in the
+                // output TreeArtifact to refer to stable locations for the
+                // input files. But we can do that ourselves by recognizing and
+                // dereferencing the links so that we continue to take links to
+                // the "real" output locations of the files we took as inputs
+                // but which Bazel is presenting to us as links.
                 //
-                // In order to create links which will remain valid as long as
-                // the build product we want to consume is valid, we need to
-                // decide if the src is a link and if it is we need to
-                // dereference it so that we can generate a new link which
-                // shares the same target.
-
+                // Ideally we'd generate links to where these files WILL BE in
+                // our runfiles tree, but those links would be dangling at
+                // creation time and Bazel doesn't allow that.
                 while src.is_symlink() && src.to_str().unwrap().contains("sandbox") {
-                    eprintln!("Dereferencing sandbox symlink {:?}", src);
                     src = src.read_link().into_diagnostic()?;
                 }
 
-                eprintln!("Linking {src:?} -> {dest:?}");
                 unix_fs::symlink(&src, &dest).into_diagnostic()?;
             }
             Command::PthEntry { path } => {
