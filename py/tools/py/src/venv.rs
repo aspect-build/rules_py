@@ -495,7 +495,7 @@ pub trait PthEntryHandler {
 /// the current import path represents a "package install".
 ///
 /// This is appropriate for 1stparty code, and if applied to 3rdparty code then
-/// the defalt `rules_python` $PYTHONPATH behavior is effectively emulated.
+/// the default `rules_python` $PYTHONPATH behavior is effectively emulated.
 pub struct PthStrategy;
 impl PthEntryHandler for PthStrategy {
     fn plan<A: AsRef<Path>, B: AsRef<Path>>(
@@ -848,7 +848,7 @@ pub fn populate_venv<A: PthEntryHandler>(
                 // all the colliding files have the same content. It doesn't
                 // matter which one we pick. In any other case there isn't a
                 // generally reasonable argument for ignoring files. Maybe we
-                // could fully normalize files containig comments, but that
+                // could fully normalize files containing comments, but that
                 // seems like a waste of effort.
             }
             had_collision = true;

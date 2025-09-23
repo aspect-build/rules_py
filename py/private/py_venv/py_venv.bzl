@@ -284,7 +284,8 @@ A collision can occur when multiple packages providing the same file are install
         """,
         default = "static-symlink",
         values = ["static-pth", "static-symlink"],
-    ),    "interpreter_options": attr.string_list(
+    ),
+    "interpreter_options": attr.string_list(
         doc = "Additional options to pass to the Python interpreter.",
         default = [],
     ),
