@@ -44,10 +44,28 @@ def _whl_install_impl(repository_ctx):
     content.append(
 """
 alias(
-   name = '_whl',
+   name = '_prebuild',
    actual = select({}, no_match_error = "FIXME"),
 )
 """.format(repr(select_arms))
+)
+
+    content.append(
+"""
+alias(
+   name = '_sbuild',
+   actual = '{}',
+)
+""".format(repository_ctx.attr.sbuild)
+)
+
+    content.append(
+"""
+alias(
+   name = '_sbui',
+   actual = '{}',
+)
+""".format(repository_ctx.attr.sbuild)
 )
 
     aliases = [
@@ -55,7 +73,9 @@ alias(
         for name, spec in prebuilds.items()
     ]
 
-    repository_ctx.file("BUILD.bazel", content = "\n".join(aliases))
+    print(aliases)
+
+    repository_ctx.file("BUILD.bazel", content = "\n".join(content))
 
 
 whl_install = repository_rule(

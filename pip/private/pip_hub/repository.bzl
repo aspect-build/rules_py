@@ -17,7 +17,7 @@ config_setting(
 )
 """.format(name)
     )
-    repository_ctx.file("virtualenvs/BUILD.bazel", content = "\n".join(content))
+    repository_ctx.file("virtualenv/BUILD.bazel", content = "\n".join(content))
 
     content = [
         "# FIXME ",
@@ -26,7 +26,7 @@ config_setting(
     # Lay down the hub aliases
     for name, spec in repository_ctx.attr.packages.items():
         select_spec = {
-            "//virtualenvs:{}".format(it): "@venv__{}__{}//:{}".format(repository_ctx.attr.hub_name, it, name)
+            "//virtualenv:{}".format(it): "@venv__{}__{}//:{}".format(repository_ctx.attr.hub_name, it, name)
             for it in spec
         }
         content.append(
@@ -41,7 +41,7 @@ alias(
 """.format(name, repr(select_spec))
         )
 
-    repository_ctx.file("BUILD.bazel", content = "\n".join(content))
+    repository_ctx.file("package/BUILD.bazel", content = "\n".join(content))
 
 
 pip_hub = repository_rule(
