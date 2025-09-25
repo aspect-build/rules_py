@@ -6,6 +6,7 @@ rust_binary(
         "src/main.rs",
     ],
     deps = [
+        "//py/tools/runfiles",
         "@crate_index//:miette",
     ],
 )

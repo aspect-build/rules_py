@@ -2012,6 +2012,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "runfiles"
+version = "0.1.0"
+
+[[package]]
 name = "rust-netrc"
 version = "0.1.1"
 source = "git+https://github.com/gribouille/netrc?rev=544f3890b621f0dc30fcefb4f804269c160ce2e9#544f3890b621f0dc30fcefb4f804269c160ce2e9"
@@ -3286,6 +3290,7 @@ name = "venv_shim"
 version = "0.1.0"
 dependencies = [
  "miette",
+ "runfiles",
 ]
 
 [[package]]

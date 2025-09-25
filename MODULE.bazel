@@ -2,7 +2,6 @@
 
 module(
     name = "aspect_rules_py",
-    version = "0.0.0",
     compatibility_level = 1,
 )
 
@@ -13,7 +12,7 @@ module(
 # py_image_layer needs compute_unused_inputs attribute
 # py_image_layer needs repo_mapping fix.
 bazel_dep(name = "aspect_bazel_lib", version = "2.16.0")
-bazel_dep(name = "aspect_tools_telemetry", version = "0.2.0")
+bazel_dep(name = "aspect_tools_telemetry", version = "0.2.6")
 bazel_dep(name = "bazel_skylib", version = "1.4.2")
 bazel_dep(name = "rules_python", version = "0.29.0")
 bazel_dep(name = "platforms", version = "1.0.0")
@@ -72,25 +71,26 @@ bazel_dep(
 #     # In released versions: dev_dependency = True
 # )
 
-# crate = use_extension(
-#     "@rules_rust//crate_universe:extension.bzl",
-#     "crate",
-#     # In released versions: dev_dependency = True
-# )
-# crate.from_cargo(
-#     name = "crate_index",
-#     cargo_lockfile = "//:Cargo.lock",
-#     # Apparently not needed under bzlmod?
-#     # lockfile = "//:Cargo.Bazel.lock",
-#     manifests = [
-#         "//:Cargo.toml",
-#         "//py/tools/py:Cargo.toml",
-#         "//py/tools/unpack_bin:Cargo.toml",
-#         "//py/tools/venv_bin:Cargo.toml",
-#         "//py/tools/venv_shim:Cargo.toml",
-#     ],
-# )
-# use_repo(crate, "crate_index")
+crate = use_extension(
+    "@rules_rust//crate_universe:extension.bzl",
+    "crate",
+    # In released versions: dev_dependency = True
+)
+crate.from_cargo(
+    name = "crate_index",
+    cargo_lockfile = "//:Cargo.lock",
+    # Apparently not needed under bzlmod?
+    # lockfile = "//:Cargo.Bazel.lock",
+    manifests = [
+        "//:Cargo.toml",
+        "//py/tools/py:Cargo.toml",
+        "//py/tools/unpack_bin:Cargo.toml",
+        "//py/tools/venv_bin:Cargo.toml",
+        "//py/tools/venv_shim:Cargo.toml",
+        "//py/tools/runfiles:Cargo.toml",
+    ],
+)
+use_repo(crate, "crate_index")
 
 # For building test images with py_image_layer
 bazel_dep(name = "container_structure_test", version = "1.19.3", dev_dependency = True)

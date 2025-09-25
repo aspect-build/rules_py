@@ -5,6 +5,7 @@ members = [
     "py/tools/venv_bin",
     "py/tools/unpack_bin",
     "py/tools/venv_shim",
+    "py/tools/runfiles",
 ]
 
 [workspace.package]
