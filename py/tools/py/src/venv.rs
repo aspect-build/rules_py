@@ -693,11 +693,7 @@ impl<A: PthEntryHandler, B: PthEntryHandler, C: AsRef<Path>> PthEntryHandler
         entry_repo: &str,
         entry_path: &Path,
     ) -> miette::Result<Vec<Command>> {
-        if self
-            .site_suffixes
-            .iter()
-            .any(|it| entry_path.as_ref().ends_with(it))
-        {
+        if self.site_suffixes.iter().any(|it| entry_path.ends_with(it)) {
             return self
                 .site_strategy
                 .plan(venv, bin_dir, entry_repo, entry_path);

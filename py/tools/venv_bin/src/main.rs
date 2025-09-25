@@ -116,7 +116,6 @@ struct VenvArgs {
 fn venv_cmd_handler(args: VenvArgs) -> miette::Result<()> {
     let pth_file = py::PthFile::new(&args.pth_file, args.pth_entry_prefix);
     if let VenvMode::DynamicSymlink = args.mode {
-        // FIXME: Does this need to care about the repo?
         return py::create_venv(
             &args.python,
             &args.location,
@@ -144,9 +143,12 @@ fn venv_cmd_handler(args: VenvArgs) -> miette::Result<()> {
         args.include_user_site_packages,
     )?;
 
-    let strat: Box<dyn PthEntryHandler> = match args.mode {
+    let strat: Box<dyn py::venv::PthEntryHandler> = match args.mode {
         VenvMode::DynamicSymlink => unreachable!(),
         VenvMode::StaticPth => Box::new(py::venv::PthStrategy),
+        // TODO: This is much more a "prod" strategy than a "symlink" strategy
+        // but here we are. Better naming or user-facing extension/strategy
+        // options would be a good get.
         VenvMode::StaticSymlink => {
             let thirdparty_strategy = py::venv::StrategyWithBindir {
                 root_strategy: py::venv::SymlinkStrategy,
