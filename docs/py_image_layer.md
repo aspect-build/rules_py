@@ -38,12 +38,10 @@ oci_image(
 
 <pre>
 py_image_layer(<a href="#py_image_layer-name">name</a>, <a href="#py_image_layer-binary">binary</a>, <a href="#py_image_layer-root">root</a>, <a href="#py_image_layer-layer_groups">layer_groups</a>, <a href="#py_image_layer-compress">compress</a>, <a href="#py_image_layer-tar_args">tar_args</a>, <a href="#py_image_layer-compute_unused_inputs">compute_unused_inputs</a>,
-               <a href="#py_image_layer-platform">platform</a>, <a href="#py_image_layer-owner">owner</a>, <a href="#py_image_layer-group">group</a>, <a href="#py_image_layer-kwargs">kwargs</a>)
+               <a href="#py_image_layer-platform">platform</a>, <a href="#py_image_layer-owner">owner</a>, <a href="#py_image_layer-group">group</a>, <a href="#py_image_layer-awk">awk</a>, <a href="#py_image_layer-kwargs">kwargs</a>)
 </pre>
 
 Produce a separate tar output for each layer of a python app
-
-&gt; Requires `awk` to be installed on the host machine/rbe runner.
 
 For better performance, it is recommended to split the output of a py_binary into multiple layers.
 This can be done by grouping files into layers based on their path by using the `layer_groups` attribute.
@@ -77,6 +75,7 @@ The default layer groups are:
 | <a id="py_image_layer-platform"></a>platform |  The platform to use for the transition. Default is None. See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/transitions.md#platform_transition_binary-target_platform   |  <code>None</code> |
 | <a id="py_image_layer-owner"></a>owner |  An owner uid for the uncompressed files. See mtree_mutate: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#mutating-the-tar-contents   |  <code>None</code> |
 | <a id="py_image_layer-group"></a>group |  A group uid for the uncompressed files. See mtree_mutate: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#mutating-the-tar-contents   |  <code>None</code> |
+| <a id="py_image_layer-awk"></a>awk |  The awk command to use. Default is <code>@gawk</code>.   |  <code>"@gawk"</code> |
 | <a id="py_image_layer-kwargs"></a>kwargs |  attribute that apply to all targets expanded by the macro   |  none |
 
 **RETURNS**
