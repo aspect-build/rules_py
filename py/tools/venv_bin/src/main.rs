@@ -115,76 +115,65 @@ struct VenvArgs {
 
 fn venv_cmd_handler(args: VenvArgs) -> miette::Result<()> {
     let pth_file = py::PthFile::new(&args.pth_file, args.pth_entry_prefix);
-    match args.mode {
+    if let VenvMode::DynamicSymlink = args.mode {
         // FIXME: Does this need to care about the repo?
-        VenvMode::DynamicSymlink => py::create_venv(
+        return py::create_venv(
             &args.python,
             &args.location,
             Some(pth_file),
             args.collision_strategy.unwrap_or_default().into(),
             &args.venv_name,
-        ),
+        );
+    }
 
-        it => {
-            let Some(version) = args.version else {
-                return Err(miette!("Version must be provided for static venv modes"));
+    let version = args
+        .version
+        .ok_or_else(|| miette!("Version must be provided for static venv modes"))?;
+
+    let venv = py::venv::create_empty_venv(
+        args.repo
+            .as_deref()
+            .ok_or_else(|| miette!("The --repo argument is required for static venvs!"))?,
+        &args.python,
+        py::venv::PythonVersionInfo::from_str(&version)?,
+        &args.location,
+        args.env_file.as_deref(),
+        args.venv_shim.as_deref(),
+        args.debug,
+        args.include_system_site_packages,
+        args.include_user_site_packages,
+    )?;
+
+    let strat: Box<dyn PthEntryHandler> = match args.mode {
+        VenvMode::DynamicSymlink => unreachable!(),
+        VenvMode::StaticPth => Box::new(py::venv::PthStrategy),
+        VenvMode::StaticSymlink => {
+            let thirdparty_strategy = py::venv::StrategyWithBindir {
+                root_strategy: py::venv::SymlinkStrategy,
+                bin_strategy: py::venv::CopyAndPatchStrategy,
             };
 
-            let venv = py::venv::create_empty_venv(
-                args.repo
-                    .as_deref()
-                    .expect("The --repo argument is required for static venvs!"),
-                &args.python,
-                py::venv::PythonVersionInfo::from_str(&version)?,
-                &args.location,
-                args.env_file.as_deref(),
-                args.venv_shim.as_deref(),
-                args.debug,
-                args.include_system_site_packages,
-                args.include_user_site_packages,
-            )?;
-
-            // Because the strategy type is dyn-incompatible we have to do this
-            // so that each call is monomorphic. Oh well.
-            match it {
-                VenvMode::DynamicSymlink => unreachable!(),
-                VenvMode::StaticPth => py::venv::populate_venv(
-                    venv,
-                    pth_file,
-                    args.bin_dir.unwrap(),
-                    py::venv::PthStrategy {},
-                    args.collision_strategy.unwrap_or_default().into(),
-                )?,
-                VenvMode::StaticSymlink => {
-                    let thirdparty_strategy = py::venv::StrategyWithBindir {
-                        root_strategy: py::venv::SymlinkStrategy,
-                        bin_strategy: py::venv::CopyAndPatchStrategy,
-                    };
-
-                    py::venv::populate_venv(
-                        venv,
-                        pth_file,
-                        args.bin_dir.unwrap(),
-                        py::venv::FirstpartyThirdpartyStrategy {
-                            firstparty: py::venv::SrcSiteStrategy {
-                                src_strategy: py::venv::PthStrategy {},
-                                site_suffixes: vec!["site-packages", "dist-packages"],
-                                site_strategy: thirdparty_strategy.clone(),
-                            },
-                            thirdparty: py::venv::SrcSiteStrategy {
-                                src_strategy: py::venv::SymlinkStrategy {},
-                                site_suffixes: vec!["site-packages", "dist-packages"],
-                                site_strategy: thirdparty_strategy.clone(),
-                            },
-                        },
-                        args.collision_strategy.unwrap_or_default().into(),
-                    )?
-                }
-            }
-
-            Ok(())
+            Box::new(py::venv::FirstpartyThirdpartyStrategy {
+                firstparty: py::venv::SrcSiteStrategy {
+                    src_strategy: py::venv::PthStrategy {},
+                    site_suffixes: vec!["site-packages", "dist-packages"],
+                    site_strategy: thirdparty_strategy.clone(),
+                },
+                thirdparty: py::venv::SrcSiteStrategy {
+                    src_strategy: py::venv::SymlinkStrategy {},
+                    site_suffixes: vec!["site-packages", "dist-packages"],
+                    site_strategy: thirdparty_strategy.clone(),
+                },
+            })
         }
-    }
+    };
+    py::venv::populate_venv(
+        venv,
+        pth_file,
+        args.bin_dir.unwrap(),
+        &*strat,
+        args.collision_strategy.unwrap_or_default().into(),
+    )
 }
 
 fn main() -> miette::Result<()> {

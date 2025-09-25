@@ -480,14 +480,34 @@ pub enum Command {
 }
 
 pub trait PthEntryHandler {
-    fn plan<A: AsRef<Path>, B: AsRef<Path>>(
+    fn plan(
         &self,
         venv: &Virtualenv,
-        bin_dir: A,
+        bin_dir: &Path,
         entry_repo: &str,
-        entry_path: B,
+        entry_path: &Path,
     ) -> miette::Result<Vec<Command>>;
 }
+
+pub trait PthEntryHandlerExt: PthEntryHandler {
+    fn plan<B: AsRef<Path>, E: AsRef<Path>>(
+        &self,
+        venv: &Virtualenv,
+        bin_dir: B,
+        entry_repo: &str,
+        entry_path: E,
+    ) -> miette::Result<Vec<Command>> {
+        <Self as PthEntryHandler>::plan(
+            self,
+            venv,
+            bin_dir.as_ref(),
+            entry_repo,
+            entry_path.as_ref(),
+        )
+    }
+}
+
+impl<P: PthEntryHandler> PthEntryHandlerExt for P {}
 
 /// Just put all import roots into a `.pth` file and call it a day. Minimum I/O
 /// load, generally correct. Doesn't handle bin dirs or try to decide whether
@@ -497,12 +517,12 @@ pub trait PthEntryHandler {
 /// the default `rules_python` $PYTHONPATH behavior is effectively emulated.
 pub struct PthStrategy;
 impl PthEntryHandler for PthStrategy {
-    fn plan<A: AsRef<Path>, B: AsRef<Path>>(
+    fn plan(
         &self,
         venv: &Virtualenv,
-        bin_dir: A,
+        bin_dir: &Path,
         entry_repo: &str,
-        entry_path: B,
+        entry_path: &Path,
     ) -> miette::Result<Vec<Command>> {
         let action_src_dir = current_dir().into_diagnostic()?;
         let action_bin_dir = action_src_dir.join(bin_dir);
@@ -526,12 +546,12 @@ impl PthEntryHandler for PthStrategy {
 #[derive(Copy, Clone)]
 pub struct CopyStrategy;
 impl PthEntryHandler for CopyStrategy {
-    fn plan<A: AsRef<Path>, B: AsRef<Path>>(
+    fn plan(
         &self,
         venv: &Virtualenv,
-        bin_dir: A,
+        bin_dir: &Path,
         entry_repo: &str,
-        entry_path: B,
+        entry_path: &Path,
     ) -> miette::Result<Vec<Command>> {
         // Assumes that `create_empty_venv` has already been called to build out the virtualenv.
         let dest = &venv.site_dir;
@@ -568,12 +588,12 @@ impl PthEntryHandler for CopyStrategy {
 #[derive(Clone)]
 pub struct CopyAndPatchStrategy;
 impl PthEntryHandler for CopyAndPatchStrategy {
-    fn plan<A: AsRef<Path>, B: AsRef<Path>>(
+    fn plan(
         &self,
         venv: &Virtualenv,
-        bin_dir: A,
+        bin_dir: &Path,
         entry_repo: &str,
-        entry_path: B,
+        entry_path: &Path,
     ) -> miette::Result<Vec<Command>> {
         // Assumes that `create_empty_venv` has already been called to build out the virtualenv.
         let dest = &venv.site_dir;
@@ -611,12 +631,12 @@ impl PthEntryHandler for CopyAndPatchStrategy {
 #[derive(Clone)]
 pub struct SymlinkStrategy;
 impl PthEntryHandler for SymlinkStrategy {
-    fn plan<A: AsRef<Path>, B: AsRef<Path>>(
+    fn plan(
         &self,
         venv: &Virtualenv,
-        bin_dir: A,
+        bin_dir: &Path,
         entry_repo: &str,
-        entry_path: B,
+        entry_path: &Path,
     ) -> miette::Result<Vec<Command>> {
         // Assumes that `create_empty_venv` has already been called to build out the virtualenv.
         let dest = &venv.site_dir;
@@ -659,12 +679,12 @@ pub struct FirstpartyThirdpartyStrategy<A: PthEntryHandler, B: PthEntryHandler> 
 impl<A: PthEntryHandler, B: PthEntryHandler> PthEntryHandler
     for FirstpartyThirdpartyStrategy<A, B>
 {
-    fn plan<C: AsRef<Path>, D: AsRef<Path>>(
+    fn plan(
         &self,
         venv: &Virtualenv,
-        bin_dir: C,
+        bin_dir: &Path,
         entry_repo: &str,
-        entry_path: D,
+        entry_path: &Path,
     ) -> miette::Result<Vec<Command>> {
         let action_src_dir = current_dir().into_diagnostic()?;
         let main_repo = action_src_dir.file_name().unwrap();
@@ -685,12 +705,12 @@ pub struct SrcSiteStrategy<A: PthEntryHandler, B: PthEntryHandler, C: AsRef<Path
 impl<A: PthEntryHandler, B: PthEntryHandler, C: AsRef<Path>> PthEntryHandler
     for SrcSiteStrategy<A, B, C>
 {
-    fn plan<D: AsRef<Path>, E: AsRef<Path>>(
+    fn plan(
         &self,
         venv: &Virtualenv,
-        bin_dir: D,
+        bin_dir: &Path,
         entry_repo: &str,
-        entry_path: E,
+        entry_path: &Path,
     ) -> miette::Result<Vec<Command>> {
         if self
             .site_suffixes
@@ -714,12 +734,12 @@ pub struct StrategyWithBindir<A: PthEntryHandler, B: PthEntryHandler> {
     pub bin_strategy: B,
 }
 impl<A: PthEntryHandler, B: PthEntryHandler> PthEntryHandler for StrategyWithBindir<A, B> {
-    fn plan<C: AsRef<Path>, D: AsRef<Path>>(
+    fn plan(
         &self,
         venv: &Virtualenv,
-        bin_dir: C,
+        bin_dir: &Path,
         entry_repo: &str,
-        entry_path: D,
+        entry_path: &Path,
     ) -> miette::Result<Vec<Command>> {
         // Assumes that `create_empty_venv` has already been called to build out the virtualenv.
         let action_src_dir = current_dir().into_diagnostic()?;
