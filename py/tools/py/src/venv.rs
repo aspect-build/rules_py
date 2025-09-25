@@ -733,23 +733,17 @@ impl<A: PthEntryHandler, B: PthEntryHandler> PthEntryHandler for StrategyWithBin
                 .plan(venv, &bin_dir, entry_repo, &entry_path)?,
         );
 
-        let mut flag = false;
-        for prefix in [&action_src_dir, &action_bin_dir] {
-            let bin_dir = prefix
-                .join(entry_repo)
-                .join(&entry_path.as_ref().parent().unwrap())
-                .join("bin");
-            if bin_dir.exists() {
-                flag |= true;
-            }
-        }
-        if flag {
-            plan.append(&mut self.bin_strategy.plan(
-                venv,
-                bin_dir,
-                entry_repo,
-                &entry_path.as_ref().parent().unwrap().join("bin"),
-            )?);
+        let entry_bin = entry_path.parent().unwrap().join("bin");
+        let found_bin_dir = [&action_src_dir, &action_bin_dir]
+            .iter()
+            .map(|pfx| pfx.join(entry_repo).join(&entry_bin))
+            .any(|p| p.exists());
+        if found_bin_dir {
+            plan.append(
+                &mut self
+                    .bin_strategy
+                    .plan(venv, bin_dir, entry_repo, &entry_bin)?,
+            );
         }
 
         Ok(plan)
