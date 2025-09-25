@@ -5,6 +5,7 @@ use crate::{
 use itertools::Itertools;
 use miette::{miette, Context, IntoDiagnostic};
 use pathdiff::diff_paths;
+use sha256::try_digest;
 use std::{
     collections::HashMap,
     env::current_dir,
@@ -202,9 +203,9 @@ const RELOCATABLE_SHEBANG: &[u8] = b"\
 ' '''
 ";
 
-fn copy_and_patch_shebang<A: AsRef<Path>, B: AsRef<Path>>(
-    original: A,
-    link: B,
+fn copy_and_patch_shebang(
+    original: impl AsRef<Path>,
+    link: impl AsRef<Path>,
 ) -> miette::Result<()> {
     let mut src = File::open(original.as_ref()).into_diagnostic()?;
 
@@ -815,7 +816,7 @@ pub fn populate_venv(
     };
 
     // Drain the plan, we'll refill it to contain only last-wins instructions.
-    plan = Vec::new();
+    plan.clear();
 
     for (dest, sources) in planned_destinations.iter() {
         // We ignore __init__.py files at import roots. They're entirely
@@ -832,33 +833,29 @@ pub fn populate_venv(
 
         // Handle duplicates
         if sources.len() > 1 {
-            if dest.ends_with("__init__.py") {
-                // FIXME: Take care of __init__.py files colliding here.
-                //
-                // __init__.py files are extremely troublesome because there are a
-                // bunch of possible marker files, some of which have the same
-                // logical behavior and some of which very much do not.
-                //
-                // Possible __init__.py content with no operational value
-                // - empty
-                // - whitespace
-                // - shebang
-                // - comment
-                //
-                // Possible __init__.py content with operational value
-                // - docstring
-                // - arbitrary code
-                //   - __all__ manipulation
-                //   - imports
-                //   - extend_path https://docs.python.org/3/library/pkgutil.html#pkgutil.extend_path
-                //
-                // It's obviously correct to ignore an __init__.py collision if
-                // all the colliding files have the same content. It doesn't
-                // matter which one we pick. In any other case there isn't a
-                // generally reasonable argument for ignoring files. Maybe we
-                // could fully normalize files containing comments, but that
-                // seems like a waste of effort.
+            // Hash input files so we can ignore instances where we had
+            // identical inputs.
+            //
+            // FIXME: Need to generate some sort of error if there's more than
+            // one command of the same type pointing to the same destination
+            // because then last wins doesn't actually work.
+            if sources
+                .iter()
+                .filter_map(|it| match it {
+                    Command::Copy { src, .. }
+                    | Command::CopyAndPatch { src, .. }
+                    | Command::Symlink { src, .. } => Some(try_digest(src)),
+                    _ => None,
+                })
+                .filter_map(|it| if let Ok(it) = it { Some(it) } else { None })
+                .counts()
+                .len()
+                == 1
+            {
+                // We have hash-identical inputs; doesn't matter which one we choose. We can safely ignore this collision.
+                continue;
             }
+
             had_collision = true;
             eprintln!("Collision detected at destination: {}", dest.display());
             for source in sources {
