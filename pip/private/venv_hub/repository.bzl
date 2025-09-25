@@ -11,6 +11,7 @@ def _venv_hub_impl(repository_ctx):
 alias(
    name = "{}",
    actual = "//:{}",
+   visibility = ["//visibility:public"],
 )
 """.format(name, group)
         )
@@ -21,18 +22,25 @@ alias(
     #
     # Deps are added to the scc group by their _alias_.
     for group, members in repository_ctx.attr.sccs.items():
-        member_installs = ["        \"@{}//:install\",".format(repository_ctx.attr.installs[it]) for it in members]
+        member_installs = [
+            "        \"@{}//:install\",".format(repository_ctx.attr.installs[it])
+            for it in members
+        ]
+
+        deps = repository_ctx.attr.deps[group]
+        deps = [it for it in deps if it not in members]        
         deps = [
             "        \":{}\",".format(it)
-            for it in repository_ctx.attr.deps[group]
+            for it in deps
         ]
         content.append(
 """
 filegroup(
    name = "{}",
    srcs = [
-       {}
+{}
    ],
+   visibility = ["//visibility:private"],
 )
 """.format(
     group,

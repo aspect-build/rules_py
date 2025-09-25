@@ -21,6 +21,7 @@ sdist_build(
         "{src}",
     ],
     deps = {deps},
+    visibility = ["//visibility:public"],
 )
 """.format(
     src=repository_ctx.attr.src,

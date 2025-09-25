@@ -11,8 +11,6 @@ load(":parse_whl_name.bzl", "parse_whl_name")
 
 
 def _whl_install_impl(repository_ctx):
-    print(repository_ctx.name, repository_ctx.attr.prebuilds)
-
     prebuilds = json.decode(repository_ctx.attr.prebuilds)
     # Prebuilds is a mapping from whl file name to repo labels which contain
     # that file. We need to take these wheel files and parse out compatability.
@@ -37,8 +35,6 @@ def _whl_install_impl(repository_ctx):
             for platform_tag in parsed.platform_tags:
                 for abi_tag in parsed.abi_tags:
                     select_arms["@aspect_rules_py_pip_configurations//:{}-{}-{}".format(python_tag, platform_tag, abi_tag)] = "@" + target
-
-    print(repository_ctx.name, select_arms)
 
     # FIXME: Add a way to force the use of a source build in this select
     content.append(

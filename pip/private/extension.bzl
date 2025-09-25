@@ -163,13 +163,6 @@ def _collect_configurations(repository_ctx, lock_specs):
                         "@aspect_rules_py//pip/private/constraints/abi:{}".format(abi_tag),
                     ]
 
-    print(abi_tags)
-    print(platform_tags)
-    print(python_tags)
-
-    for key, parts in configurations.items():
-        print(key, "->", parts)
-
     return configurations
 
 
