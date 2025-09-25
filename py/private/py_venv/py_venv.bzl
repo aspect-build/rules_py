@@ -128,7 +128,7 @@ def _py_venv_base_impl(ctx):
             "--bin-dir=" + ctx.bin_dir.path,
             "--collision-strategy=" + ctx.attr.package_collisions,
             "--venv-name=" + venv_name,
-            "--mode=static-copy",
+            "--mode=" + ctx.attr.mode,
             "--version={}.{}".format(
                 py_toolchain.interpreter_version_info.major,
                 py_toolchain.interpreter_version_info.minor,
@@ -275,6 +275,15 @@ A collision can occur when multiple packages providing the same file are install
         """,
         default = "error",
         values = ["error", "warning", "ignore"],
+    ),
+    "mode": attr.string(
+        doc = """The venv assembly mode.
+
+* "static-pth": Efficient. Just use a .pth file. Ignore binaries.
+* "static-symlink": Efficient. Use .pth entries for firstparty and symlinks for 3rdparty. Copies and patches binaries.
+        """,
+        default = "static-symlink",
+        values = ["static-pth", "static-symlink"],
     ),
     "interpreter_options": attr.string_list(
         doc = "Additional options to pass to the Python interpreter.",

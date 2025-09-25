@@ -227,7 +227,7 @@ fn main() -> miette::Result<()> {
     #[cfg(feature = "debug")]
     eprintln!(
         "[aspect] Attempting to execute: {:?} with argv[0] as {:?} and args as {:?}",
-        &actual_interpreter_path, &venv_interpreter_path, exec_args,
+        &actual_interpreter, &venv_interpreter, exec_args,
     );
 
     let mut cmd = Command::new(&actual_interpreter);

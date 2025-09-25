@@ -2,17 +2,23 @@ use crate::{
     pth::{CollisionResolutionStrategy, SitePackageOptions},
     PthFile,
 };
+use itertools::Itertools;
 use miette::{miette, Context, IntoDiagnostic};
 use pathdiff::diff_paths;
 use sha256::try_digest;
 use std::{
+    collections::HashMap,
     env::current_dir,
     fs::{self, File},
-    io::{BufRead, BufReader, BufWriter, Write},
+    io::{BufRead, BufReader, BufWriter, SeekFrom, Write},
     os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
 };
-use std::{ffi::OsStr, os::unix::fs as unix_fs};
+use std::{fmt::Debug, os::unix::fs as unix_fs};
+use std::{
+    io,
+    io::{ErrorKind, Read, Seek},
+};
 use walkdir::WalkDir;
 
 pub fn create_venv(
@@ -122,7 +128,7 @@ pub struct Virtualenv {
     python_bin: PathBuf,
 }
 
-fn link(original: &PathBuf, link: &PathBuf) -> miette::Result<()> {
+fn link<A: AsRef<Path>, B: AsRef<Path>>(original: A, link: B) -> miette::Result<()> {
     let build_dir = current_dir().into_diagnostic()?;
     let original_abs = &build_dir.join(&original);
     let link_abs = &build_dir.join(&link);
@@ -143,10 +149,10 @@ fn link(original: &PathBuf, link: &PathBuf) -> miette::Result<()> {
     return unix_fs::symlink(original_relative, link_abs).into_diagnostic();
 }
 
-fn _copy(original: &PathBuf, link: &PathBuf) -> miette::Result<()> {
+fn copy<A: AsRef<Path>, B: AsRef<Path>>(original: A, link: B) -> miette::Result<()> {
     let build_dir = current_dir().into_diagnostic()?;
-    let original_abs = build_dir.join(original);
-    let link_abs = build_dir.join(link);
+    let original_abs = build_dir.join(&original);
+    let link_abs = build_dir.join(&link);
 
     fs::create_dir_all(link_abs.parent().unwrap())
         .into_diagnostic()
@@ -159,24 +165,86 @@ fn _copy(original: &PathBuf, link: &PathBuf) -> miette::Result<()> {
         original_abs.to_str().unwrap(),
     );
 
-    fs::copy(original_abs, link_abs).into_diagnostic()?;
+    fs::copy(original_abs, link_abs)
+        .into_diagnostic()
+        .wrap_err(format!(
+            "Failed to copy {} to {}",
+            original.as_ref().to_str().unwrap(),
+            link.as_ref().to_str().unwrap()
+        ))?;
 
     Ok(())
 }
 
-fn copy(original: &PathBuf, link: &PathBuf) -> miette::Result<()> {
-    return _copy(original, link).wrap_err(format!(
-        "Failed to copy {} to {}",
-        original.to_str().unwrap(),
-        link.to_str().unwrap()
-    ));
-}
+// Matches entrypoints that have had their interpreter "fixed" by rules_python.
+const SHEBANGS: [&[u8]; 6] = [
+    // rules_python uses this as a placeholder.
+    // https://github.com/bazel-contrib/rules_python/blob/cd6948a0f706e75fa0f3ebd35e485aeec3e299fc/python/private/pypi/whl_installer/wheel.py#L319C13-L319C24
+    b"#!/dev/null",
+    // Note that we don't need to cover the cases of `python3` or `python3.X`
+    // because we search forwards for the first newline and use that as the
+    // basis for truncation.
+    //
+    // This is the basis for the conventional "correct" shebang
+    b"#!/usr/bin/env python",
+    // These are common hardcoded interpreters which are arguably wrong but may
+    // occur.
+    b"#!python",
+    b"#!/bin/python",
+    b"#!/usr/bin/python",
+    b"#!/usr/local/bin/python",
+];
 
-const RELOCATABLE_SHEBANG: &str = "\
+// This is a total kludge. It's a shebang which uses the shell in order to
+// identify the "python3" file in the same directory and punt to that.
+const RELOCATABLE_SHEBANG: &[u8] = b"\
 #!/bin/sh
 '''exec' \"$(dirname -- \"$(realpath -- \"$0\")\")\"/'python3' \"$0\" \"$@\"
 ' '''
 ";
+
+fn copy_and_patch_shebang(
+    original: impl AsRef<Path>,
+    link: impl AsRef<Path>,
+) -> miette::Result<()> {
+    let mut src = File::open(original.as_ref()).into_diagnostic()?;
+
+    let mut buf = [0u8; 64];
+    let found_shebang = match src.read_exact(&mut buf) {
+        // Must contain a shebang
+        Ok(()) => SHEBANGS.iter().any(|it| buf.starts_with(it)),
+        Err(error) => match error.kind() {
+            ErrorKind::UnexpectedEof => false, // File too short to contain shebang.
+            _ => Err(error).into_diagnostic()?,
+        },
+    };
+    let newline: u64 = if found_shebang {
+        buf.iter()
+            .find_position(|it| **it == 0x0A)
+            .map(|it| it.0 as u64)
+            .unwrap_or(0u64)
+    } else {
+        0
+    };
+
+    let mut dst = File::create(link.as_ref()).into_diagnostic()?;
+    if found_shebang {
+        // Dump the relocatable shebang first
+        dst.write_all(RELOCATABLE_SHEBANG).into_diagnostic()?;
+    }
+
+    // Copy everything _after_ the first newline into the dest file.
+    src.seek(SeekFrom::Start(newline)).into_diagnostic()?;
+    io::copy(&mut src, &mut dst).into_diagnostic()?;
+
+    // Finally we need to sync permissions from the one to the other.
+    let mut perms = fs::metadata(original).into_diagnostic()?.permissions();
+    // Force the executable bit(s) if we copied something with a shebang.
+    if found_shebang {
+        perms.set_mode(0o755)
+    }
+    fs::set_permissions(link, perms).into_diagnostic()
+}
 
 /// We used to go out to UV for this. Unfortunately due to the needs of
 /// creating relocatable virtualenvs at Bazel action time, we can't "just"
@@ -301,8 +369,7 @@ aspect-runfiles-repo = {1}
     // bin/python. Otherwise we copy the Python here
     match venv_shim {
         Some(ref shim_path) => {
-            copy(&shim_path.to_path_buf(), &venv.python_bin)
-                .wrap_err("Unable to create interpreter shim")?;
+            copy(&shim_path, &venv.python_bin).wrap_err("Unable to create interpreter shim")?;
 
             let mut shim_perms = fs::metadata(&shim_path)
                 .into_diagnostic()
@@ -317,8 +384,7 @@ aspect-runfiles-repo = {1}
         }
 
         None => {
-            copy(&python.to_path_buf(), &venv.python_bin)
-                .wrap_err("Unable to create interpreter")?;
+            copy(python, &venv.python_bin).wrap_err("Unable to create interpreter")?;
 
             let mut interpreter_perms = fs::metadata(python)
                 .into_diagnostic()
@@ -339,7 +405,7 @@ aspect-runfiles-repo = {1}
             .bin_dir
             .join(format!("python{}", venv.version_info.major));
 
-        link(&venv.python_bin, &python_n)?;
+        link(&venv.python_bin, python_n)?;
     }
 
     {
@@ -347,7 +413,7 @@ aspect-runfiles-repo = {1}
             "python{}.{}",
             venv.version_info.major, venv.version_info.minor,
         ));
-        link(&venv.python_bin, &python_nm)?;
+        link(&venv.python_bin, python_nm)?;
     }
 
     {
@@ -401,74 +467,420 @@ aspect-runfiles-repo = {1}
     Ok(venv)
 }
 
-/// The tricky bit is that we then need to create _dangling at creation time_
-/// symlinks to where `.runfiles` entries _will_ be once the current action
-/// completes.
+#[derive(Debug, Clone)]
+pub enum Command {
+    // Implies create_dir_all for the dest's parents
+    Copy { src: PathBuf, dest: PathBuf },
+    // Implies create_dir_all for the dest's parents. Specialized for handling
+    // binaries which _specifically_ go to the bin/ dir and may need their
+    // shebang replaced with the relocatable one.
+    CopyAndPatch { src: PathBuf, dest: PathBuf },
+    // Implies create_dir_all for the dest's parents
+    Symlink { src: PathBuf, dest: PathBuf },
+    PthEntry { path: PathBuf },
+}
+
+pub trait PthEntryHandler {
+    fn plan(
+        &self,
+        venv: &Virtualenv,
+        bin_dir: &Path,
+        entry_repo: &str,
+        entry_path: &Path,
+    ) -> miette::Result<Vec<Command>>;
+}
+
+/// Just put all import roots into a `.pth` file and call it a day. Minimum I/O
+/// load, generally correct. Doesn't handle bin dirs or try to decide whether
+/// the current import path represents a "package install".
 ///
-/// The input `.pth` file specifies paths in the format
+/// This is appropriate for 1stparty code, and if applied to 3rdparty code then
+/// the default `rules_python` $PYTHONPATH behavior is effectively emulated.
+pub struct PthStrategy;
+impl PthEntryHandler for PthStrategy {
+    fn plan(
+        &self,
+        venv: &Virtualenv,
+        bin_dir: &Path,
+        entry_repo: &str,
+        entry_path: &Path,
+    ) -> miette::Result<Vec<Command>> {
+        let action_src_dir = current_dir().into_diagnostic()?;
+        let action_bin_dir = action_src_dir.join(bin_dir);
+
+        // This diff goes up to the root of the _main repo's runfiles, need to go up one more.
+        let path_to_runfiles = diff_paths(&action_bin_dir, action_bin_dir.join(&venv.site_dir))
+            .unwrap()
+            .join("..");
+
+        Ok(vec![Command::PthEntry {
+            path: path_to_runfiles.join(entry_repo).join(entry_path),
+        }])
+    }
+}
+
+/// A really bad but functional idea.
 ///
-///     <workspace name>/<path>
+/// Just copy everything into the venv. Has horrible I/O characteristics and
+/// will trash your Bazel cache, but you can do this. Pth and symlinks are
+/// generally much better choices.
+#[derive(Copy, Clone)]
+pub struct CopyStrategy;
+impl PthEntryHandler for CopyStrategy {
+    fn plan(
+        &self,
+        venv: &Virtualenv,
+        bin_dir: &Path,
+        entry_repo: &str,
+        entry_path: &Path,
+    ) -> miette::Result<Vec<Command>> {
+        // Assumes that `create_empty_venv` has already been called to build out the virtualenv.
+        let dest = &venv.site_dir;
+        let action_src_dir = current_dir().into_diagnostic()?;
+        let action_bin_dir = action_src_dir.join(bin_dir);
+
+        let mut plan: Vec<Command> = Vec::new();
+
+        for prefix in [&action_src_dir, &action_bin_dir] {
+            let src_dir = prefix.join(entry_repo).join(&entry_path);
+            if src_dir.exists() {
+                for entry in WalkDir::new(&src_dir) {
+                    if let Ok(entry) = entry {
+                        // We ignore directories; they are created implicitly.
+                        if entry.file_type().is_dir() {
+                            continue;
+                        }
+                        plan.push(Command::Copy {
+                            src: entry.clone().into_path(),
+                            dest: dest.join(entry.into_path().strip_prefix(&src_dir).unwrap()),
+                        })
+                    }
+                }
+            }
+        }
+
+        Ok(plan)
+    }
+}
+
+/// A slightly better idea.
 ///
-/// These paths can exist in one of four places
-/// 1. `./`                                 (source files in the same workspace)
-/// 2. `./external`                         (source files in a different workspace)
-/// 3. `./bazel-out/fastbuild/bin`          (generated files in this workspace)
-/// 4. `./bazel-out/fastbuild/bin/external` (generated files in a different workspace)
+/// Just copy _and patch_ binaries into the venv so they become usable.
+#[derive(Clone)]
+pub struct CopyAndPatchStrategy;
+impl PthEntryHandler for CopyAndPatchStrategy {
+    fn plan(
+        &self,
+        venv: &Virtualenv,
+        bin_dir: &Path,
+        entry_repo: &str,
+        entry_path: &Path,
+    ) -> miette::Result<Vec<Command>> {
+        // Assumes that `create_empty_venv` has already been called to build out the virtualenv.
+        let dest = &venv.site_dir;
+        let action_src_dir = current_dir().into_diagnostic()?;
+        let action_bin_dir = action_src_dir.join(bin_dir);
+
+        let mut plan: Vec<Command> = Vec::new();
+
+        for prefix in [&action_src_dir, &action_bin_dir] {
+            let src_dir = prefix.join(entry_repo).join(&entry_path);
+            if src_dir.exists() {
+                for entry in WalkDir::new(&src_dir) {
+                    if let Ok(entry) = entry {
+                        if entry.file_type().is_dir() && entry.clone().into_path() != src_dir {
+                            return Err(miette!("Bindir contained unsupported subdirs!"));
+                        }
+                        plan.push(Command::CopyAndPatch {
+                            src: entry.clone().into_path(),
+                            dest: dest.join(entry.into_path().strip_prefix(&src_dir).unwrap()),
+                        })
+                    }
+                }
+            }
+        }
+
+        Ok(plan)
+    }
+}
+
+/// A better idea.
 ///
-/// In filling out a static symlink venv we have to:
-///
-/// 0. Be told by the caller what a relative path _from the venv root_ back up to the
-///
-/// 1. Go over every entry in the computed `.pth` list
-///
-/// 2. Identify entries which end in `site-packages`
-///
-/// 3. Compute a `.runfiles` time location for the root of that import
-///
-/// 4. For each of the two possible roots of that import (./, ./bazel-bin/,)
-///    walk the directory tree there
-///
-/// 5. For every entry in that directory tree, take the path of that entry `e`
-///
-/// 6. Relativeize the path of the entry to the import root, `ip`
-///
-/// 7. Relativize the path of the entry to the `.runfiles` time workspace root `rp`
-///
-/// 6. Create an _unverified_ _dangling_ symlink in the venv.
-///
-///    At the time that we create these links the targets won't have been
-///    emplaced yet. Bazel will create them when the `.runfiles` directory is
-///    materialized by assembling all the input files.
-///
-///    The link needs to go up the depth of the target plus one to drop `_main`
-///    or any other workspace name plus four for the site-packages prefix plus
-///    the depth of the `ip` then back down to the workspace-relative path of
-///    the target file.
-pub fn populate_venv_with_copies(
+/// Rather than copying everything into the venv, instead lay out a symlin
+/// forrest. Still creates a bunch of nodes in the filesystem, but will at least
+/// do so very very cheaply.
+#[derive(Clone)]
+pub struct SymlinkStrategy;
+impl PthEntryHandler for SymlinkStrategy {
+    fn plan(
+        &self,
+        venv: &Virtualenv,
+        bin_dir: &Path,
+        entry_repo: &str,
+        entry_path: &Path,
+    ) -> miette::Result<Vec<Command>> {
+        // Assumes that `create_empty_venv` has already been called to build out the virtualenv.
+        let dest = &venv.site_dir;
+        let action_src_dir = current_dir().into_diagnostic()?;
+        let main_repo = action_src_dir.file_name().unwrap();
+        let action_bin_dir = action_src_dir.join(bin_dir);
+
+        let mut plan: Vec<Command> = Vec::new();
+
+        for prefix in [&action_src_dir, &action_bin_dir] {
+            let mut src_dir = prefix.to_owned();
+            if main_repo != entry_repo {
+                src_dir = src_dir.join("external").join(&entry_repo)
+            }
+            src_dir = src_dir.join(&entry_path);
+            if src_dir.exists() {
+                for entry in WalkDir::new(&src_dir) {
+                    if let Ok(entry) = entry {
+                        if entry.file_type().is_dir() {
+                            continue;
+                        }
+                        plan.push(Command::Symlink {
+                            src: entry.clone().into_path(),
+                            dest: dest.join(entry.into_path().strip_prefix(&src_dir).unwrap()),
+                        })
+                    }
+                }
+            }
+        }
+
+        Ok(plan)
+    }
+}
+
+#[derive(Clone)]
+pub struct FirstpartyThirdpartyStrategy<A: PthEntryHandler, B: PthEntryHandler> {
+    pub firstparty: A,
+    pub thirdparty: B,
+}
+impl<A: PthEntryHandler, B: PthEntryHandler> PthEntryHandler
+    for FirstpartyThirdpartyStrategy<A, B>
+{
+    fn plan(
+        &self,
+        venv: &Virtualenv,
+        bin_dir: &Path,
+        entry_repo: &str,
+        entry_path: &Path,
+    ) -> miette::Result<Vec<Command>> {
+        let action_src_dir = current_dir().into_diagnostic()?;
+        let main_repo = action_src_dir.file_name().unwrap();
+        let strategy: &dyn PthEntryHandler = if entry_repo != main_repo {
+            &self.thirdparty
+        } else {
+            &self.firstparty
+        };
+        strategy.plan(venv, bin_dir, entry_repo, entry_path)
+    }
+}
+
+#[derive(Clone)]
+pub struct SrcSiteStrategy<A: PthEntryHandler, B: PthEntryHandler, C: AsRef<Path>> {
+    pub src_strategy: A,
+    pub site_suffixes: Vec<C>,
+    pub site_strategy: B,
+}
+impl<A: PthEntryHandler, B: PthEntryHandler, C: AsRef<Path>> PthEntryHandler
+    for SrcSiteStrategy<A, B, C>
+{
+    fn plan(
+        &self,
+        venv: &Virtualenv,
+        bin_dir: &Path,
+        entry_repo: &str,
+        entry_path: &Path,
+    ) -> miette::Result<Vec<Command>> {
+        if self.site_suffixes.iter().any(|it| entry_path.ends_with(it)) {
+            return self
+                .site_strategy
+                .plan(venv, bin_dir, entry_repo, entry_path);
+        } else {
+            return self
+                .src_strategy
+                .plan(venv, bin_dir, entry_repo, entry_path);
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct StrategyWithBindir<A: PthEntryHandler, B: PthEntryHandler> {
+    pub root_strategy: A,
+    pub bin_strategy: B,
+}
+impl<A: PthEntryHandler, B: PthEntryHandler> PthEntryHandler for StrategyWithBindir<A, B> {
+    fn plan(
+        &self,
+        venv: &Virtualenv,
+        bin_dir: &Path,
+        entry_repo: &str,
+        entry_path: &Path,
+    ) -> miette::Result<Vec<Command>> {
+        // Assumes that `create_empty_venv` has already been called to build out the virtualenv.
+        let action_src_dir = current_dir().into_diagnostic()?;
+        let action_bin_dir = action_src_dir.join(&bin_dir);
+
+        let mut plan: Vec<Command> = Vec::new();
+        plan.append(
+            &mut self
+                .root_strategy
+                .plan(venv, &bin_dir, entry_repo, &entry_path)?,
+        );
+
+        let entry_bin = entry_path.parent().unwrap().join("bin");
+        let found_bin_dir = [&action_src_dir, &action_bin_dir]
+            .iter()
+            .map(|pfx| pfx.join(entry_repo).join(&entry_bin))
+            .any(|p| p.exists());
+        if found_bin_dir {
+            plan.append(
+                &mut self
+                    .bin_strategy
+                    .plan(venv, bin_dir, entry_repo, &entry_bin)?,
+            );
+        }
+
+        Ok(plan)
+    }
+}
+
+pub fn populate_venv(
     venv: Virtualenv,
     pth_file: PthFile,
-    bin_dir: PathBuf,
+    bin_dir: impl AsRef<Path>,
+    population_strategy: &dyn PthEntryHandler,
     collision_strategy: CollisionResolutionStrategy,
 ) -> miette::Result<()> {
-    // Assumes that `create_empty_venv` has already been called to build out the virtualenv.
-    let dest = &venv.site_dir;
-
-    // Get $PWD, which is the build working directory.
-    let action_src_dir = current_dir().into_diagnostic()?;
-    let main_module = action_src_dir.file_name().unwrap();
-    let action_bin_dir = action_src_dir.join(bin_dir);
-
-    #[cfg(feature = "debug")]
-    eprintln!("action_src_dir: {}", &action_src_dir.to_str().unwrap());
-
-    #[cfg(feature = "debug")]
-    eprintln!("action_bin_dir: {}", &action_bin_dir.to_str().unwrap());
+    let mut plan: Vec<Command> = Vec::new();
 
     let source_pth = File::open(pth_file.src.as_path())
         .into_diagnostic()
         .wrap_err("Unable to open source .pth file")?;
 
-    let dest_pth = File::create(dest.join("_aspect.pth"))
+    for line in BufReader::new(source_pth).lines().map_while(Result::ok) {
+        let line = line.trim().to_string();
+        // Entries should be of the form `<workspace>/<path>`, but may not have
+        // a trailing `/` in the case of the default workspace root import that
+        // sadly we're stuck with for now.
+        let line = if line.find("/").is_some() {
+            line
+        } else {
+            format!("{}/", line)
+        };
+
+        let Some((entry_repo, entry_path)) = line.split_once("/") else {
+            return Err(miette!("Invalid path file entry!"));
+        };
+
+        plan.append(&mut population_strategy.plan(
+            &venv,
+            bin_dir.as_ref(),
+            entry_repo,
+            entry_path.as_ref(),
+        )?);
+    }
+
+    let mut planned_destinations: HashMap<PathBuf, Vec<Command>> = HashMap::new();
+    for command in &plan {
+        match command {
+            // Prevent commands from accidentally recursing into the venv, for
+            // instance symlinking or copying out of the venv back into itself.
+            Command::Copy { src, .. }
+            | Command::CopyAndPatch { src, .. }
+            | Command::Symlink { src, .. }
+                if (src.starts_with(&venv.home_dir)) =>
+            {
+                continue;
+            }
+            // Group remaining commands by their dest path.
+            Command::Copy { dest, .. }
+            | Command::CopyAndPatch { dest, .. }
+            | Command::Symlink { dest, .. }
+            | Command::PthEntry { path: dest } => {
+                planned_destinations
+                    .entry(dest.clone())
+                    .or_insert_with(Vec::new)
+                    .push(command.clone());
+            }
+        };
+    }
+
+    // Check for collisions and report all of them
+    let mut had_collision = false;
+    let emit_error = match collision_strategy {
+        CollisionResolutionStrategy::Error => true,
+        CollisionResolutionStrategy::LastWins(it) => it,
+    };
+
+    // Drain the plan, we'll refill it to contain only last-wins instructions.
+    plan.clear();
+
+    for (dest, sources) in planned_destinations.iter() {
+        // We ignore __init__.py files at import roots. They're entirely
+        // erroneous and a result of --legacy_creat_init_files which has all
+        // sorts of problems.
+        if dest.ends_with("site-packages/__init__.py")
+            || dest.ends_with("dist-packages/__init__.py")
+        {
+            continue;
+        }
+
+        // Refill the plan
+        plan.push(sources.last().unwrap().clone());
+
+        // Handle duplicates
+        if sources.len() > 1 {
+            // Hash input files so we can ignore instances where we had
+            // identical inputs.
+            //
+            // FIXME: Need to generate some sort of error if there's more than
+            // one command of the same type pointing to the same destination
+            // because then last wins doesn't actually work.
+            if sources
+                .iter()
+                .filter_map(|it| match it {
+                    Command::Copy { src, .. }
+                    | Command::CopyAndPatch { src, .. }
+                    | Command::Symlink { src, .. } => Some(try_digest(src)),
+                    _ => None,
+                })
+                .filter_map(|it| if let Ok(it) = it { Some(it) } else { None })
+                .counts()
+                .len()
+                == 1
+            {
+                // We have hash-identical inputs; doesn't matter which one we choose. We can safely ignore this collision.
+                continue;
+            }
+
+            had_collision = true;
+            eprintln!("Collision detected at destination: {}", dest.display());
+            for source in sources {
+                match source {
+                    Command::Copy { src, .. } | Command::CopyAndPatch { src, .. } => {
+                        if emit_error {
+                            eprintln!("  - Source: {} (Copy)", src.display())
+                        }
+                    }
+                    Command::Symlink { src, .. } => {
+                        if emit_error {
+                            eprintln!("  - Source: {} (Symlink)", src.display())
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    if had_collision && collision_strategy == CollisionResolutionStrategy::Error {
+        return Err(miette!("Multiple collisions detected. Aborting."));
+    }
+
+    let dest_pth = File::create(&venv.site_dir.join("_aspect.pth"))
         .into_diagnostic()
         .wrap_err("Unable to create destination .pth file")?;
 
@@ -482,169 +894,41 @@ pub fn populate_venv_with_copies(
         )
         .into_diagnostic()?;
 
-    for line in BufReader::new(source_pth).lines().map_while(Result::ok) {
-        #[cfg(feature = "debug")]
-        eprintln!("Got pth line {}", &line);
-
-        let line = line.trim().to_string();
-        // Entries should be of the form `<workspace>/<path>`, but may not have
-        // a trailing `/` in the case of the default workspace root import that
-        // sadly we're stuck with for now.
-        let line = if line.find("/").is_some() {
-            line
-        } else {
-            format!("{}/", line)
-        };
-
-        let Some((workspace, entry_path)) = line.split_once("/") else {
-            return Err(miette!("Invalid path file entry!"));
-        };
-
-        #[cfg(feature = "debug")]
-        eprintln!("Got pth entry @{}//{}", workspace, entry_path);
-
-        let mut entry = PathBuf::from(entry_path);
-
-        // FIXME: Handle other wheel install dirs like bin?
-        if entry.file_name() == Some(OsStr::new("site-packages")) {
-            #[cfg(feature = "debug")]
-            eprintln!("Entry is site-packages...");
-
-            // If the entry is external then we have to adjust the path
-            if workspace != main_module {
-                entry = PathBuf::from("external")
-                    .join(PathBuf::from(workspace))
-                    .join(entry)
+    // The plan has now been uniq'd by destination, execute it
+    for command in plan {
+        match command {
+            Command::Copy { src, dest } => {
+                fs::create_dir_all(&dest.parent().unwrap()).into_diagnostic()?;
+                fs::copy(&src, &dest).into_diagnostic()?;
             }
-
-            // Copy library sources in
-            for prefix in [&action_src_dir, &action_bin_dir] {
-                let src_dir = prefix.join(&entry);
-                if src_dir.exists() {
-                    create_tree(&src_dir, &venv.site_dir, &collision_strategy)?;
-                } else {
-                    #[cfg(feature = "debug")]
-                    eprintln!("Unable to find srcs under {}", src_dir.to_str().unwrap());
-                }
+            Command::CopyAndPatch { src, dest } => {
+                fs::create_dir_all(&dest.parent().unwrap()).into_diagnostic()?;
+                copy_and_patch_shebang(src, dest)?;
             }
+            Command::Symlink { src, dest } => {
+                fs::create_dir_all(&dest.parent().unwrap()).into_diagnostic()?;
 
-            // Copy scripts (bin entries) in
-            let bin_dir = entry.parent().unwrap().join("bin");
-            for prefix in [&action_src_dir, &action_bin_dir] {
-                let src_dir = prefix.join(&bin_dir);
-                if src_dir.exists() {
-                    create_tree(&src_dir, &venv.bin_dir, &collision_strategy)?;
-                }
+                // The sandboxing strategy for actions is to create a forest of
+                // symlinks. If we create a symlink (dest) pointing to a symlink
+                // (src) we're assuming that the src won't be removed sometime
+                // down the line. But sandboxes are ephemeral, so this leaves us
+                // open to heisenbugs.
+                //
+                // What Bazel does guarantee is the _relative tree structure_
+                // between our output file(s) and the input(s) used to generate
+                // them. So while we can't sanely just write absolute paths into
+                // symlinks we can write reative paths.
+                //
+                // Note that the relative path we need is the relative path from
+                // the _dir of the destination_ to the source file, since the
+                // way symlinks are resolved is that the readlink value is
+                // joined to the dirname. Without explicitly taking the parent
+                // we're off by 1.
+                let resolved = diff_paths(&src, &dest.parent().unwrap()).unwrap();
+                unix_fs::symlink(&resolved, &dest).into_diagnostic()?;
             }
-        } else {
-            // Need to insert an appropriate pth file entry. Pth file lines
-            // are relativized to the site dir [1] so here we need to take
-            // the path from the site dir back to the root of the runfiles
-            // tree and then append the entry to that relative path.
-            //
-            // This is the path from the venv's site-packages destination
-            // "back up to" the bazel-bin dir we're building into, plus one
-            // level.
-            //
-            // [1] https://github.com/python/cpython/blob/ce31ae5209c976d28d1c21fcbb06c0ae5e50a896/Lib/site.py#L215
-
-            let path_to_runfiles =
-                diff_paths(&action_bin_dir, action_bin_dir.join(&venv.site_dir)).unwrap();
-
-            writeln!(dest_pth_writer, "# @{}", line).into_diagnostic()?;
-            writeln!(
-                dest_pth_writer,
-                "{}",
-                path_to_runfiles.join(entry).to_str().unwrap()
-            )
-            .into_diagnostic()?;
-        }
-    }
-
-    //Err(miette!("Failing for debug purposes"))
-    Ok(())
-}
-
-/// As an alternative to creating a unified symlink tree, create a `.pth` file
-/// in the virtualenv which will use relative paths from the site-packages tree
-/// to the configured import roots. At runtime this will cause the booting
-/// interpreter to traverse up out of the venv and insert other workspaces'
-/// site-packages trees (and potentially other import roots) onto the path.
-
-#[expect(unused_variables)]
-pub fn populate_venv_with_pth(
-    venv: Virtualenv,
-    pth_file: PthFile,
-    bin_dir: PathBuf,
-    collision_strategy: CollisionResolutionStrategy,
-) -> miette::Result<()> {
-    // Assumes that `create_empty_venv` has already been called to build out the virtualenv.
-
-    Ok(())
-}
-
-/// TODO (arrdem 2025-06-04):
-///   This needs to be refactored into a multi-pass solution for error handling
-///   Pass 1: Collect sources, group by destination key
-///   Pass 2: Report collision error(s) all at once
-///   Pass 3: Create links
-
-pub fn create_tree(
-    original: &Path,
-    link_dir: &Path,
-    collision_strategy: &CollisionResolutionStrategy,
-) -> miette::Result<()> {
-    for entry in WalkDir::new(original) {
-        if let Ok(entry) = entry {
-            let original_entry = entry.into_path();
-            let relative_entry = diff_paths(&original_entry, &original).unwrap();
-            let link_entry = link_dir.join(&relative_entry);
-
-            // link() makes dirs for us, but maybe it shouldn't. Do it manually here
-            if original_entry.canonicalize().unwrap().is_dir() {
-                continue;
-            }
-            // Specifically avoid linking in a <root>/__init__.py file
-            else if relative_entry == PathBuf::from("__init__.py") {
-                continue;
-            }
-            // Handle collisions, probably conflicting empty __init__.py files from Bazel
-            else if link_entry.exists() {
-                // If the _content_ of the files is the same then we have a
-                // false collision, otherwise we have to do collision handling.
-
-                let new_hash = try_digest(&original_entry).into_diagnostic()?;
-                let existing_hash = try_digest(&link_entry).into_diagnostic()?;
-
-                if new_hash != existing_hash {
-                    match *collision_strategy {
-                        CollisionResolutionStrategy::Error => {
-                            return Err(miette!(
-                                "Collision detected on venv element {}!",
-                                relative_entry.to_str().unwrap()
-                            ))
-                        }
-                        CollisionResolutionStrategy::LastWins(true) => {
-                            eprintln!("Warning: Collision detected on venv element {}!\n  Last one wins is configured, continuing",
-                            relative_entry.to_str().unwrap()
-                        )
-                        }
-                        _ => {}
-                    }
-                }
-            }
-
-            // In the case of copying bin entries, we need to patch them. Yay.
-            if link_dir.file_name() == Some(OsStr::new("bin")) {
-                let mut content = fs::read_to_string(original_entry).into_diagnostic()?;
-                if content.starts_with("#!/dev/null") {
-                    content.replace_range(..0, &RELOCATABLE_SHEBANG);
-                }
-                fs::write(&link_entry, content).into_diagnostic()?;
-            }
-            // Normal case of needing to link a file :smile:
-            else {
-                copy(&original_entry, &link_entry)?;
+            Command::PthEntry { path } => {
+                writeln!(dest_pth_writer, "{}", path.to_str().unwrap()).into_diagnostic()?;
             }
         }
     }
