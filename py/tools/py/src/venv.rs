@@ -775,11 +775,11 @@ impl<A: PthEntryHandler, B: PthEntryHandler> PthEntryHandler for StrategyWithBin
     }
 }
 
-pub fn populate_venv<A: PthEntryHandler>(
+pub fn populate_venv(
     venv: Virtualenv,
     pth_file: PthFile,
-    bin_dir: PathBuf,
-    population_strategy: A,
+    bin_dir: impl AsRef<Path>,
+    population_strategy: &dyn PthEntryHandler,
     collision_strategy: CollisionResolutionStrategy,
 ) -> miette::Result<()> {
     let mut plan: Vec<Command> = Vec::new();
@@ -803,9 +803,12 @@ pub fn populate_venv<A: PthEntryHandler>(
             return Err(miette!("Invalid path file entry!"));
         };
 
-        let entry = PathBuf::from(entry_path);
-
-        plan.append(&mut population_strategy.plan(&venv, bin_dir.clone(), entry_repo, entry)?);
+        plan.append(&mut population_strategy.plan(
+            &venv,
+            bin_dir.as_ref(),
+            entry_repo,
+            entry_path.as_ref(),
+        )?);
     }
 
     let mut planned_destinations: HashMap<PathBuf, Vec<Command>> = HashMap::new();
