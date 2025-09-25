@@ -143,7 +143,7 @@ fn venv_cmd_handler(args: VenvArgs) -> miette::Result<()> {
         args.include_user_site_packages,
     )?;
 
-    let strat: Box<dyn py::venv::PthEntryHandler> = match args.mode {
+    let strategy: Box<dyn py::venv::PthEntryHandler> = match args.mode {
         VenvMode::DynamicSymlink => unreachable!(),
         VenvMode::StaticPth => Box::new(py::venv::PthStrategy),
         // TODO: This is much more a "prod" strategy than a "symlink" strategy
@@ -173,7 +173,7 @@ fn venv_cmd_handler(args: VenvArgs) -> miette::Result<()> {
         venv,
         pth_file,
         args.bin_dir.unwrap(),
-        &*strat,
+        &*strategy,
         args.collision_strategy.unwrap_or_default().into(),
     )
 }

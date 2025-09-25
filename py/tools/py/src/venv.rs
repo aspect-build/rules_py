@@ -668,12 +668,12 @@ impl<A: PthEntryHandler, B: PthEntryHandler> PthEntryHandler
     ) -> miette::Result<Vec<Command>> {
         let action_src_dir = current_dir().into_diagnostic()?;
         let main_repo = action_src_dir.file_name().unwrap();
-        let strat: &dyn PthEntryHandler = if entry_repo != main_repo {
+        let strategy: &dyn PthEntryHandler = if entry_repo != main_repo {
             &self.thirdparty
         } else {
             &self.firstparty
         };
-        strat.plan(venv, bin_dir, entry_repo, entry_path)
+        strategy.plan(venv, bin_dir, entry_repo, entry_path)
     }
 }
 
