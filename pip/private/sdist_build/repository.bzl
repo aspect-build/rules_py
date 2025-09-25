@@ -13,16 +13,18 @@
 
 def _sdist_build_impl(repository_ctx):
     repository_ctx.file("BUILD.bazel", content = """
-# FIXME
-filegroup(
-    name = "file",
+load("@aspect_rules_py//pip/private/sdist_build:rule.bzl", "sdist_build")
+
+sdist_build(
+    name = "whl",
     srcs = [
-       {src!r},
+        "{src}",
     ],
+    deps = {deps},
 )
 """.format(
     src=repository_ctx.attr.src,
-    deps=repository_ctx.attr.deps
+    deps=repr([str(it) for it in repository_ctx.attr.deps]),
 ))
 
 

@@ -35,6 +35,13 @@ load("@bazel_skylib//lib:selects.bzl", "selects")
 # linux_x86_64
 # macosx
 
+# FIXME: These don't seem entirely correct?
+platform_repo_name_mangling = {
+    "ppc64": "ppc64le",
+    "armv7l": "armv7",
+    "i686": "x86_64",
+}
+
 def generate_gte_ladder(stages):
     """
     Accept a list of names of individual conditions representing specific versions.
@@ -109,9 +116,6 @@ def generate_macos():
         "ppc",
         "ppc64",
     ]
-    platform_repo_name_mangling = {
-        "ppc64": "ppc64le"
-    }
 
     stages = []
 
@@ -119,9 +123,9 @@ def generate_macos():
     # Since then with MacOS 11 (2020) Apple's gone to an annual major version
     # With MacOS 26 "Tahoe" they've gone to using the gregorian year for the version
     # Go a bit out into the future there
-    for major in range(10, ):
+    for major in range(10, 30):
         for minor in range(0, 20):
-            name = "is_macos_{}_{}".format(major, minor)
+            name = "is_macosx_{}_{}".format(major, minor)
             native.constraint_value(
                 name = name,
                 constraint_setting = ":platform",
@@ -130,18 +134,18 @@ def generate_macos():
 
             for arch in arches:
                 selects.config_setting_group(
-                    name = "macos_{}_{}_{}".format(major, minor, arch),
+                    name = "macosx_{}_{}_{}".format(major, minor, arch),
                     match_all = [
-                        ":macos_{}_{}".format(major, minor),
+                        ":macosx_{}_{}".format(major, minor),
                         "@platforms//cpu:{}".format(platform_repo_name_mangling.get(arch, arch)),
                     ]
                 )
 
             for group, members in arch_groups.items():
                 selects.config_setting_group(
-                    name = "macos_{}_{}_{}".format(major, minor, group),
+                    name = "macosx_{}_{}_{}".format(major, minor, group),
                     match_any = [
-                        ":macos_{}_{}_{}".format(major, minor, it)
+                        ":macosx_{}_{}_{}".format(major, minor, it)
                         for it in members
                     ]
                 )
@@ -164,9 +168,6 @@ def generate_manylinux():
         "riscv64",
         "armv7l",
     ]
-    platform_repo_name_mangling = {
-        "armv7l": "armv7"
-    }
 
     stages = []
 
@@ -202,9 +203,6 @@ def generate_musllinux():
         "riscv64",
         "armv7l",
     ]
-    platform_repo_name_mangling = {
-        "armv7l": "armv7"
-    }
 
     stages = []
 
@@ -264,9 +262,11 @@ def generate_musllinux():
 
 def generate():
     # FIXME: Is there a better/worse way to do this?
-    native.alias(
-        name = "none",
-        actual = "//conditions:default",
+    selects.config_setting_group(
+        name = "any",
+        match_all = [
+            "//conditions:default",
+        ]
     )
 
     native.constraint_setting(
@@ -276,3 +276,25 @@ def generate():
     generate_macos()
     generate_manylinux()
     generate_musllinux()
+
+    native.constraint_value(
+        name = "win32",
+        constraint_setting = ":platform",
+    )
+    native.constraint_value(
+        name = "win64",
+        constraint_setting = ":platform",
+    )
+    # FIXME: These should be ands?
+    native.constraint_value(
+        name = "win_amd64",
+        constraint_setting = ":platform",
+    )
+    native.constraint_value(
+        name = "win_arm64",
+        constraint_setting = ":platform",
+    )
+    native.constraint_value(
+        name = "win_ia64",
+        constraint_setting = ":platform",
+    )

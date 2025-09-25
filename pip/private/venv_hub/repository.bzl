@@ -21,7 +21,7 @@ alias(
     #
     # Deps are added to the scc group by their _alias_.
     for group, members in repository_ctx.attr.sccs.items():
-        member_installs = ["        \"@{}//file\",".format(repository_ctx.attr.installs[it]) for it in members]
+        member_installs = ["        \"@{}//:install\",".format(repository_ctx.attr.installs[it]) for it in members]
         deps = [
             "        \":{}\",".format(it)
             for it in repository_ctx.attr.deps[group]

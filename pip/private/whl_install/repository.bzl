@@ -11,7 +11,7 @@ load(":parse_whl_name.bzl", "parse_whl_name")
 
 
 def _whl_install_impl(repository_ctx):
-    print(repository_ctx.attr)
+    print(repository_ctx.name, repository_ctx.attr.prebuilds)
 
     prebuilds = json.decode(repository_ctx.attr.prebuilds)
     # Prebuilds is a mapping from whl file name to repo labels which contain
@@ -24,57 +24,42 @@ def _whl_install_impl(repository_ctx):
     # The strategy here is to roll through the wheels,
     configuration_set = {}
     select_arms = {}
+    content = [
+        "load(\"@aspect_rules_py//pip/private/whl_install:rule.bzl\", \"whl_install\")",
+        "load(\"@bazel_skylib//lib:selects.bzl\", \"selects\")",
+    ]
 
-    for whl in prebuilds.keys():
+    for whl, target in prebuilds.items():
         parsed = parse_whl_name(whl)
 
         # FIXME: Move these splits to Ignas' code? Why not?
         for python_tag in parsed.python_tags:
             for platform_tag in parsed.platform_tags:
                 for abi_tag in parsed.abi_tags:
+                    select_arms["@aspect_rules_py_pip_configurations//:{}-{}-{}".format(python_tag, platform_tag, abi_tag)] = "@" + target
 
-                    print(whl, "{}-{}-{}".format(python_tag, platform_tag, abi_tag))
+    print(repository_ctx.name, select_arms)
 
-    content = [
-        "# FIXME",
-        "load(\"@aspect_rules_py//pip/private/whl_install:rule.bzl\", \"whl_install\")",
-    ]
-
-    # Craft the select statement for the source wheel
+    # FIXME: Add a way to force the use of a source build in this select
     content.append(
 """
 alias(
-   name = '_prebuild',
-   actual = select({}, no_match_error = "FIXME"),
+   name = 'whl',
+   actual = select({}),
 )
-""".format(repr(select_arms))
+""".format(
+    repr(select_arms | {"//conditions:default": str(repository_ctx.attr.sbuild)}),
 )
-
+)
     content.append(
 """
-alias(
-   name = '_sbuild',
-   actual = '{}',
+# FIXME: What more do we need here?
+whl_install(
+   name = "install",
+   srcs = [":whl"],
+   visibility = ["//visibility:public"],
 )
-""".format(repository_ctx.attr.sbuild)
-)
-
-    content.append(
-"""
-alias(
-   name = '_sbui',
-   actual = '{}',
-)
-""".format(repository_ctx.attr.sbuild)
-)
-
-    aliases = [
-        "".format(name, spec["name"])
-        for name, spec in prebuilds.items()
-    ]
-
-    print(aliases)
-
+""")
     repository_ctx.file("BUILD.bazel", content = "\n".join(content))
 
 

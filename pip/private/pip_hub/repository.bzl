@@ -1,8 +1,31 @@
 
 def _pip_hub_impl(repository_ctx):
 
+    ################################################################################
     content = [
+        "load(\"@bazel_skylib//lib:selects.bzl\", \"selects\")",
+    ]
+
+    for name, conditions in repository_ctx.attr.configurations.items():
+        content.append(
+"""
+selects.config_setting_group(name = "{}", match_all = {})
+""".format(name, repr(conditions))
+        )
+
+    repository_ctx.file("configuration/BUILD.bazel", content = "\n".join(content))
+
+
+    ################################################################################
+    content = [
+        """load("@bazel_skylib//rules:common_settings.bzl", "string_flag")""",
         "# FIXME",
+"""
+string_flag(
+    name = "virtualenv",
+    build_setting_default = "undefined",
+)
+""",
     ]
 
     # Lay down the venv config settings
@@ -10,15 +33,16 @@ def _pip_hub_impl(repository_ctx):
         content.append(
 """
 config_setting(
-   name = "{0}",
-   flag_values = {{
-       "//virtualenv:virtualenv": "{0}",
-   }},
+  name = "{0}",
+  flag_values = {{
+    ":virtualenv": "{0}",
+  }},
 )
 """.format(name)
     )
     repository_ctx.file("virtualenv/BUILD.bazel", content = "\n".join(content))
 
+    ################################################################################
     content = [
         "# FIXME ",
     ]
@@ -50,5 +74,6 @@ pip_hub = repository_rule(
         "hub_name": attr.string(),
         "venvs": attr.string_list(),
         "packages": attr.string_list_dict(),
+        "configurations": attr.string_list_dict(),
     },
 )

@@ -30,6 +30,7 @@ load("//pip/private/sdist_build:repository.bzl", "sdist_build")
 load("//pip/private/whl_install:repository.bzl", "whl_install")
 load("//pip/private/whl_install:parse_whl_name.bzl", "parse_whl_name")
 load("//pip/private/venv_hub:repository.bzl", "venv_hub")
+load("//pip/private/constraints:repository.bzl", "configurations_hub")
 load(":sccs.bzl", "sccs")
 load(":sha1.bzl", "sha1")
 
@@ -169,6 +170,8 @@ def _collect_configurations(repository_ctx, lock_specs):
     for key, parts in configurations.items():
         print(key, "->", parts)
 
+    return configurations
+
 
 def _sdist_repo_name(package):
     """We key sdist repos strictly by their name and content hash."""
@@ -264,7 +267,7 @@ def _sbuild_repo_name(hub, venv, package):
     )
 
 def _venv_target(hub_name, venv, package_name):
-    return "{}//{}".format(
+    return "{}//:{}".format(
         _venv_hub_name(hub_name, venv),
         package_name,
     )
@@ -316,7 +319,7 @@ def _whl_install_repos(module_ctx, lock_specs):
                 whl_install(
                     name = _whl_install_repo_name(hub_name, venv_name, package),
                     prebuilds = json.encode(prebuilds),
-                    sbuild = _sbuild_repo_name(hub_name, venv_name, package),
+                    sbuild = "@" + _sbuild_repo_name(hub_name, venv_name, package) + "//:whl",
                 )
 
 def _venv_hub_name(hub, venv):
@@ -415,7 +418,7 @@ def _hub_repos(module_ctx, lock_specs, package_venvs):
             packages = {
                 package: venvs.keys()
                 for package, venvs in packages.items()
-            }
+            },
         )
 
 def _pip_impl(module_ctx):
@@ -449,6 +452,11 @@ def _pip_impl(module_ctx):
 
     # Finally the hubs themselves are fully trivialized
     _hub_repos(module_ctx, lock_specs, package_venvs)
+
+    configurations_hub(
+        name = "aspect_rules_py_pip_configurations",
+        configurations = configurations
+    )
 
 
 _hub_tag = tag_class(

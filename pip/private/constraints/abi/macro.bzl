@@ -11,9 +11,11 @@ def generate():
     """
 
     # FIXME: Is there a better/worse way to do this?
-    native.alias(
-        name = "any",
-        actual = "//conditions:default",
+    selects.config_setting_group(
+        name = "none",
+        match_all = [
+            "//conditions:default",
+        ]
     )
 
     native.constraint_setting(
