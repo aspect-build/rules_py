@@ -480,12 +480,12 @@ pub enum Command {
 }
 
 pub trait PthEntryHandler {
-    fn plan<A: AsRef<Path>, B: AsRef<Path>>(
+    fn plan(
         &self,
         venv: &Virtualenv,
-        bin_dir: A,
+        bin_dir: &Path,
         entry_repo: &str,
-        entry_path: B,
+        entry_path: &Path,
     ) -> miette::Result<Vec<Command>>;
 }
 
@@ -497,12 +497,12 @@ pub trait PthEntryHandler {
 /// the default `rules_python` $PYTHONPATH behavior is effectively emulated.
 pub struct PthStrategy;
 impl PthEntryHandler for PthStrategy {
-    fn plan<A: AsRef<Path>, B: AsRef<Path>>(
+    fn plan(
         &self,
         venv: &Virtualenv,
-        bin_dir: A,
+        bin_dir: &Path,
         entry_repo: &str,
-        entry_path: B,
+        entry_path: &Path,
     ) -> miette::Result<Vec<Command>> {
         let action_src_dir = current_dir().into_diagnostic()?;
         let action_bin_dir = action_src_dir.join(bin_dir);
@@ -526,12 +526,12 @@ impl PthEntryHandler for PthStrategy {
 #[derive(Copy, Clone)]
 pub struct CopyStrategy;
 impl PthEntryHandler for CopyStrategy {
-    fn plan<A: AsRef<Path>, B: AsRef<Path>>(
+    fn plan(
         &self,
         venv: &Virtualenv,
-        bin_dir: A,
+        bin_dir: &Path,
         entry_repo: &str,
-        entry_path: B,
+        entry_path: &Path,
     ) -> miette::Result<Vec<Command>> {
         // Assumes that `create_empty_venv` has already been called to build out the virtualenv.
         let dest = &venv.site_dir;
@@ -568,12 +568,12 @@ impl PthEntryHandler for CopyStrategy {
 #[derive(Clone)]
 pub struct CopyAndPatchStrategy;
 impl PthEntryHandler for CopyAndPatchStrategy {
-    fn plan<A: AsRef<Path>, B: AsRef<Path>>(
+    fn plan(
         &self,
         venv: &Virtualenv,
-        bin_dir: A,
+        bin_dir: &Path,
         entry_repo: &str,
-        entry_path: B,
+        entry_path: &Path,
     ) -> miette::Result<Vec<Command>> {
         // Assumes that `create_empty_venv` has already been called to build out the virtualenv.
         let dest = &venv.site_dir;
@@ -611,12 +611,12 @@ impl PthEntryHandler for CopyAndPatchStrategy {
 #[derive(Clone)]
 pub struct SymlinkStrategy;
 impl PthEntryHandler for SymlinkStrategy {
-    fn plan<A: AsRef<Path>, B: AsRef<Path>>(
+    fn plan(
         &self,
         venv: &Virtualenv,
-        bin_dir: A,
+        bin_dir: &Path,
         entry_repo: &str,
-        entry_path: B,
+        entry_path: &Path,
     ) -> miette::Result<Vec<Command>> {
         // Assumes that `create_empty_venv` has already been called to build out the virtualenv.
         let dest = &venv.site_dir;
@@ -659,20 +659,21 @@ pub struct FirstpartyThirdpartyStrategy<A: PthEntryHandler, B: PthEntryHandler> 
 impl<A: PthEntryHandler, B: PthEntryHandler> PthEntryHandler
     for FirstpartyThirdpartyStrategy<A, B>
 {
-    fn plan<C: AsRef<Path>, D: AsRef<Path>>(
+    fn plan(
         &self,
         venv: &Virtualenv,
-        bin_dir: C,
+        bin_dir: &Path,
         entry_repo: &str,
-        entry_path: D,
+        entry_path: &Path,
     ) -> miette::Result<Vec<Command>> {
         let action_src_dir = current_dir().into_diagnostic()?;
         let main_repo = action_src_dir.file_name().unwrap();
-        if entry_repo != main_repo {
-            return self.thirdparty.plan(venv, bin_dir, entry_repo, entry_path);
+        let strategy: &dyn PthEntryHandler = if entry_repo != main_repo {
+            &self.thirdparty
         } else {
-            return self.firstparty.plan(venv, bin_dir, entry_repo, entry_path);
-        }
+            &self.firstparty
+        };
+        strategy.plan(venv, bin_dir, entry_repo, entry_path)
     }
 }
 
@@ -685,18 +686,14 @@ pub struct SrcSiteStrategy<A: PthEntryHandler, B: PthEntryHandler, C: AsRef<Path
 impl<A: PthEntryHandler, B: PthEntryHandler, C: AsRef<Path>> PthEntryHandler
     for SrcSiteStrategy<A, B, C>
 {
-    fn plan<D: AsRef<Path>, E: AsRef<Path>>(
+    fn plan(
         &self,
         venv: &Virtualenv,
-        bin_dir: D,
+        bin_dir: &Path,
         entry_repo: &str,
-        entry_path: E,
+        entry_path: &Path,
     ) -> miette::Result<Vec<Command>> {
-        if self
-            .site_suffixes
-            .iter()
-            .any(|it| entry_path.as_ref().ends_with(it))
-        {
+        if self.site_suffixes.iter().any(|it| entry_path.ends_with(it)) {
             return self
                 .site_strategy
                 .plan(venv, bin_dir, entry_repo, entry_path);
@@ -714,12 +711,12 @@ pub struct StrategyWithBindir<A: PthEntryHandler, B: PthEntryHandler> {
     pub bin_strategy: B,
 }
 impl<A: PthEntryHandler, B: PthEntryHandler> PthEntryHandler for StrategyWithBindir<A, B> {
-    fn plan<C: AsRef<Path>, D: AsRef<Path>>(
+    fn plan(
         &self,
         venv: &Virtualenv,
-        bin_dir: C,
+        bin_dir: &Path,
         entry_repo: &str,
-        entry_path: D,
+        entry_path: &Path,
     ) -> miette::Result<Vec<Command>> {
         // Assumes that `create_empty_venv` has already been called to build out the virtualenv.
         let action_src_dir = current_dir().into_diagnostic()?;
@@ -732,34 +729,28 @@ impl<A: PthEntryHandler, B: PthEntryHandler> PthEntryHandler for StrategyWithBin
                 .plan(venv, &bin_dir, entry_repo, &entry_path)?,
         );
 
-        let mut flag = false;
-        for prefix in [&action_src_dir, &action_bin_dir] {
-            let bin_dir = prefix
-                .join(entry_repo)
-                .join(&entry_path.as_ref().parent().unwrap())
-                .join("bin");
-            if bin_dir.exists() {
-                flag |= true;
-            }
-        }
-        if flag {
-            plan.append(&mut self.bin_strategy.plan(
-                venv,
-                bin_dir,
-                entry_repo,
-                &entry_path.as_ref().parent().unwrap().join("bin"),
-            )?);
+        let entry_bin = entry_path.parent().unwrap().join("bin");
+        let found_bin_dir = [&action_src_dir, &action_bin_dir]
+            .iter()
+            .map(|pfx| pfx.join(entry_repo).join(&entry_bin))
+            .any(|p| p.exists());
+        if found_bin_dir {
+            plan.append(
+                &mut self
+                    .bin_strategy
+                    .plan(venv, bin_dir, entry_repo, &entry_bin)?,
+            );
         }
 
         Ok(plan)
     }
 }
 
-pub fn populate_venv<A: PthEntryHandler>(
+pub fn populate_venv(
     venv: Virtualenv,
     pth_file: PthFile,
-    bin_dir: PathBuf,
-    population_strategy: A,
+    bin_dir: impl AsRef<Path>,
+    population_strategy: &dyn PthEntryHandler,
     collision_strategy: CollisionResolutionStrategy,
 ) -> miette::Result<()> {
     let mut plan: Vec<Command> = Vec::new();
@@ -783,9 +774,12 @@ pub fn populate_venv<A: PthEntryHandler>(
             return Err(miette!("Invalid path file entry!"));
         };
 
-        let entry = PathBuf::from(entry_path);
-
-        plan.append(&mut population_strategy.plan(&venv, bin_dir.clone(), entry_repo, entry)?);
+        plan.append(&mut population_strategy.plan(
+            &venv,
+            bin_dir.as_ref(),
+            entry_repo,
+            entry_path.as_ref(),
+        )?);
     }
 
     let mut planned_destinations: HashMap<PathBuf, Vec<Command>> = HashMap::new();
