@@ -489,26 +489,6 @@ pub trait PthEntryHandler {
     ) -> miette::Result<Vec<Command>>;
 }
 
-pub trait PthEntryHandlerExt: PthEntryHandler {
-    fn plan<B: AsRef<Path>, E: AsRef<Path>>(
-        &self,
-        venv: &Virtualenv,
-        bin_dir: B,
-        entry_repo: &str,
-        entry_path: E,
-    ) -> miette::Result<Vec<Command>> {
-        <Self as PthEntryHandler>::plan(
-            self,
-            venv,
-            bin_dir.as_ref(),
-            entry_repo,
-            entry_path.as_ref(),
-        )
-    }
-}
-
-impl<P: PthEntryHandler> PthEntryHandlerExt for P {}
-
 /// Just put all import roots into a `.pth` file and call it a day. Minimum I/O
 /// load, generally correct. Doesn't handle bin dirs or try to decide whether
 /// the current import path represents a "package install".
@@ -688,11 +668,12 @@ impl<A: PthEntryHandler, B: PthEntryHandler> PthEntryHandler
     ) -> miette::Result<Vec<Command>> {
         let action_src_dir = current_dir().into_diagnostic()?;
         let main_repo = action_src_dir.file_name().unwrap();
-        if entry_repo != main_repo {
-            return self.thirdparty.plan(venv, bin_dir, entry_repo, entry_path);
+        let strat: &dyn PthEntryHandler = if entry_repo != main_repo {
+            &self.thirdparty
         } else {
-            return self.firstparty.plan(venv, bin_dir, entry_repo, entry_path);
-        }
+            &self.firstparty
+        };
+        strat.plan(venv, bin_dir, entry_repo, entry_path)
     }
 }
 
