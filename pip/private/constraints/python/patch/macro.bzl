@@ -5,6 +5,7 @@ load("//pip/private/constraints:defs.bzl", "MAJORS", "MINORS", "PATCHES", "INTER
 def generate():
     native.constraint_setting(
         name = "patch",
+        default_constraint_value = "0"
     )
     for patch in PATCHES:
         native.constraint_value(

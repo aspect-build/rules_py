@@ -30,9 +30,9 @@ def generate_gte_ladder(stages):
     We want to get
 
         selects.config_setting_group(
-            name = "gte_macos_10_0",
+            name = "gte_macos_11_0",
             match_any = [
-               ":macos_10_0",
+               ":macos_11_0",
                ":gte_macos_10_1",
             ],
         )
@@ -40,12 +40,9 @@ def generate_gte_ladder(stages):
             name = "gte_macos_10_1",
             match_any = [
                ":macos_10_1",
-               ":gte_macos_11_0",
+               ":gte_macos_10_0",
             ],
         )
-
-    and soforth. The trick is that we need one _fewer_ gte test than we have
-    versions since we can't actually build out unbounded ranges in Bazel.
 
     As an added refinement the stages are a struct
 
@@ -57,22 +54,10 @@ def generate_gte_ladder(stages):
     """
 
     # We loop up to the second-to-last item to ensure we always have a 'next' stage.
-    for i in range(len(stages) - 1):
-        current_stage = stages[i]
-        next_stage = stages[i+1]
-
+    for i, current_stage in enumerate(stages):
         selects.config_setting_group(
             name = "{}".format(current_stage.name),
             match_any = [
                 ":{}".format(current_stage.condition),
-                ":{}".format(next_stage.name),
-            ],
+            ] + ([":{}".format(stages[i+1].name)] if i+1 < len(stages) else []),
         )
-
-    # And we do the last stage by hand.
-    selects.config_setting_group(
-        name = "{}".format(stages[-1].name),
-        match_any = [
-            ":{}".format(stages[-1].condition),
-        ],
-    )

@@ -71,26 +71,26 @@ bazel_dep(
 #     # In released versions: dev_dependency = True
 # )
 
-crate = use_extension(
-    "@rules_rust//crate_universe:extension.bzl",
-    "crate",
-    # In released versions: dev_dependency = True
-)
-crate.from_cargo(
-    name = "crate_index",
-    cargo_lockfile = "//:Cargo.lock",
-    # Apparently not needed under bzlmod?
-    # lockfile = "//:Cargo.Bazel.lock",
-    manifests = [
-        "//:Cargo.toml",
-        "//py/tools/py:Cargo.toml",
-        "//py/tools/unpack_bin:Cargo.toml",
-        "//py/tools/venv_bin:Cargo.toml",
-        "//py/tools/venv_shim:Cargo.toml",
-        "//py/tools/runfiles:Cargo.toml",
-    ],
-)
-use_repo(crate, "crate_index")
+# crate = use_extension(
+#     "@rules_rust//crate_universe:extension.bzl",
+#     "crate",
+#     # In released versions: dev_dependency = True
+# )
+# crate.from_cargo(
+#     name = "crate_index",
+#     cargo_lockfile = "//:Cargo.lock",
+#     # Apparently not needed under bzlmod?
+#     # lockfile = "//:Cargo.Bazel.lock",
+#     manifests = [
+#         "//:Cargo.toml",
+#         "//py/tools/py:Cargo.toml",
+#         "//py/tools/unpack_bin:Cargo.toml",
+#         "//py/tools/venv_bin:Cargo.toml",
+#         "//py/tools/venv_shim:Cargo.toml",
+#         "//py/tools/runfiles:Cargo.toml",
+#     ],
+# )
+# use_repo(crate, "crate_index")
 
 # For building test images with py_image_layer
 bazel_dep(name = "container_structure_test", version = "1.19.3", dev_dependency = True)
@@ -120,4 +120,7 @@ pip2 = use_extension("//pip:extension.bzl", "pip")
 pip2.declare_hub(hub_name = "pip2")
 pip2.declare_venv(hub_name = "pip2", venv_name = "default")
 pip2.lockfile(hub_name = "pip2", venv_name = "default", lockfile = "//:uv.lock")
-use_repo(pip2, "pip2")
+use_repo(pip2, "pip2", "aspect_rules_py_pip_configurations")
+
+host = use_extension("//pip/private/host:extension.bzl", "host_platform")
+use_repo(host, "aspect_rules_py_pip_host")

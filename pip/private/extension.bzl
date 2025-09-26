@@ -31,6 +31,7 @@ load("//pip/private/whl_install:repository.bzl", "whl_install")
 load("//pip/private/whl_install:parse_whl_name.bzl", "parse_whl_name")
 load("//pip/private/venv_hub:repository.bzl", "venv_hub")
 load("//pip/private/constraints:repository.bzl", "configurations_hub")
+load("//pip/private/host:repository.bzl", "host_platform_repo")
 load(":sccs.bzl", "sccs")
 load(":sha1.bzl", "sha1")
 
@@ -158,9 +159,9 @@ def _collect_configurations(repository_ctx, lock_specs):
                     configuration = "{}-{}-{}".format(python_tag, platform_tag, abi_tag)
 
                     configurations[configuration] = [
-                        "@aspect_rules_py//pip/private/constraints/python:{}".format(python_tag),
                         "@aspect_rules_py//pip/private/constraints/platform:{}".format(platform_tag),
                         "@aspect_rules_py//pip/private/constraints/abi:{}".format(abi_tag),
+                        "@aspect_rules_py//pip/private/constraints/python:{}".format(python_tag),
                     ]
 
     return configurations

@@ -59,7 +59,7 @@ def parse_abi_feature_flags(tag):
         pymalloc = flags["m"],
         freethreading = flags["t"],
         unicode = flags["u"],
-        stripped = tag[:cursor + 1] if found else tag,
+        stripped = tag[:cursor + 1] if found else cursor,
         full = tag,
     )
 
