@@ -1,8 +1,11 @@
+load("@rules_python//python:defs.bzl", "PyInfo")
+
 def _venv_hub_impl(repository_ctx):
     print("venv_hub", repository_ctx.attr)
 
     content = [
         "# FIXME",
+        """load("@aspect_rules_py//py:defs.bzl", "py_library")""",
     ]
 
     for name, group in repository_ctx.attr.aliases.items():
@@ -35,12 +38,13 @@ alias(
         ]
         content.append(
 """
-filegroup(
+py_library(
    name = "{}",
-   srcs = [
+   srcs = [],
+   deps = [
 {}
    ],
-   visibility = ["//visibility:private"],
+   visibility = ["//visibility:public"],
 )
 """.format(
     group,

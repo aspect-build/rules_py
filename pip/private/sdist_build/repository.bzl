@@ -17,9 +17,7 @@ load("@aspect_rules_py//pip/private/sdist_build:rule.bzl", "sdist_build")
 
 sdist_build(
     name = "whl",
-    srcs = [
-        "{src}",
-    ],
+    src = "{src}",
     deps = {deps},
     visibility = ["//visibility:public"],
 )

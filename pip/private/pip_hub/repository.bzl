@@ -61,6 +61,7 @@ alias(
       {},
       no_match_error = "FIXME",
     ),
+    visibility = ["//visibility:public"],
 )
 """.format(name, repr(select_spec))
         )

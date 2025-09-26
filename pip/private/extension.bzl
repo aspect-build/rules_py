@@ -186,7 +186,10 @@ def _raw_sdist_repos(module_ctx, lock_specs):
                 if "registry" not in package["source"]:
                     continue
 
-                sdist = package["sdist"]
+                sdist = package.get("sdist")
+                if sdist == None:
+                    continue
+                
                 url = sdist["url"]
                 shasum = sdist["hash"][len("sha256:"):]
 
@@ -272,6 +275,9 @@ def _sbuild_repos(module_ctx, lock_specs):
             for package in lock.get("package", []):
                 if "registry" not in package["source"]:
                     continue
+                
+                if "sdist" not in package:
+                    continue
 
                 sdist_build(
                     name = _sbuild_repo_name(hub_name, venv_name, package),
@@ -313,7 +319,7 @@ def _whl_install_repos(module_ctx, lock_specs):
                 whl_install(
                     name = _whl_install_repo_name(hub_name, venv_name, package),
                     prebuilds = json.encode(prebuilds),
-                    sbuild = "@" + _sbuild_repo_name(hub_name, venv_name, package) + "//:whl",
+                    sbuild = "@" + _sbuild_repo_name(hub_name, venv_name, package) + "//:whl" if "sdist" in package else None,
                 )
 
 def _venv_hub_name(hub, venv):

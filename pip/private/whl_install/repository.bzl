@@ -18,7 +18,7 @@ def select_key(pair):
     triple, _ = pair
     python, platform, abi = triple
     py_major = int(python[2])
-    py_minor = int(python[3:])
+    py_minor = int(python[3:]) if python[3:] else 0
 
     # FIXME: It'd be WAY better if we could enforce a stronger order here
     platform = platform.split("_")
@@ -107,12 +107,12 @@ select_chain(
     format_arms(select_arms | {"//conditions:default": str(repository_ctx.attr.sbuild)}),
 )
 )
+    # FIXME: May need to add deps to installs here?
     content.append(
 """
-# FIXME: What more do we need here?
 whl_install(
    name = "install",
-   srcs = [":whl"],
+   src = ":whl",
    visibility = ["//visibility:public"],
 )
 """)
