@@ -91,11 +91,18 @@ def _whl_install_impl(repository_ctx):
     # Sort triples
     select_arms = sort_select_arms(select_arms)
 
+    # FIXME: Insert the sbuild if it exists with an sbuild config flag
+    
     # Convert triples to conditions
     select_arms = {
         "@aspect_rules_py_pip_configurations//:{}-{}-{}".format(*k): v
         for k, v in select_arms.items()
     }
+
+    if repository_ctx.attr.sbuild:
+        select_arms = select_arms | {
+            "//conditions:default": str(repository_ctx.attr.sbuild)
+        }
 
     content.append(
 """
@@ -104,7 +111,7 @@ select_chain(
    arms = {},
 )
 """.format(
-    format_arms(select_arms | {"//conditions:default": str(repository_ctx.attr.sbuild)}),
+    format_arms(select_arms),
 )
 )
     # FIXME: May need to add deps to installs here?

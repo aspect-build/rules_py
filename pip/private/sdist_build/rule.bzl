@@ -2,7 +2,6 @@ load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "VENV_TOOLCHAIN")
 
 def _sdist_build(ctx):
     py_toolchain = ctx.toolchains[PY_TOOLCHAIN].py3_runtime
-    print(py_toolchain)
     unpacked_sdist = ctx.actions.declare_directory(
         "src",
     )

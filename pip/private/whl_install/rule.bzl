@@ -1,3 +1,6 @@
+load("@rules_python//python:defs.bzl", "PyInfo")
+load("//py/private:providers.bzl", "PyVirtualInfo")
+
 PYTHON_TOOLCHAIN_TYPE = "@rules_python//python:toolchain_type"
 
 def _whl_install(ctx):
@@ -39,13 +42,16 @@ def _whl_install(ctx):
             files = depset([
                 install_dir,
             ]),
+            runfiles = ctx.runfiles(files = [
+                install_dir,
+            ])
         ),
         PyInfo(
             transitive_sources = depset([
                 install_dir,
             ]),
             imports = depset([
-                install_dir.path + "/site-packages",
+                ctx.label.repo_name + "/install/site-packages",
             ]),
             has_py2_only_sources = False,
             has_py3_only_sources = True,

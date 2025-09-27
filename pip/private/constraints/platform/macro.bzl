@@ -236,8 +236,26 @@ def generate():
 
     native.constraint_setting(
         name = "platform",
-        default_constraint_value = CURRENT_PLATFORM,
+        default_constraint_value = CURRENT_PLATFORM, "is_macosx_15_6"
     )
+
+    native.constraint_setting(
+        name = "libc",
+        default_constraint_value = CURRENT_PLATFORM, "is_macosx_15_6"
+    )
+    native.constraint_value(
+        name = "is_libsystem",
+        constraint_setting = ":libc",
+    )
+    native.constraint_value(
+        name = "is_glibc",
+        constraint_setting = ":libc",
+    )
+    native.constraint_value(
+        name = "is_musl",
+        constraint_setting = ":libc",
+    )
+
 
     generate_macos()
     generate_manylinux()

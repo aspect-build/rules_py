@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import sys
 
 print("---")
 import _virtualenv
@@ -11,6 +12,7 @@ runfiles = _virtualenv.__file__.split(".runfiles/")[0] + ".runfiles"
 def _simplify(s):
     if isinstance(s, str):
         return s \
+            .replace(sys.prefix, "${PYTHONHOME}") \
             .replace(runfiles, "${RUNFILES}") \
             .replace(execroot, "${BAZEL_EXECROOT}") \
             .replace(external, "${BAZEL_EXTERNAL}") \
@@ -33,3 +35,10 @@ for it in _simplify(site.PREFIXES):
 import cowsay
 
 cowsay.cow('hello py_venv! (built at <BUILD_TIMESTAMP>)')
+
+
+import pandas
+print("pandas", _simplify(pandas.__file__))
+
+import numpy  # pandas transitive
+print("numpy", _simplify(numpy.__file__))
