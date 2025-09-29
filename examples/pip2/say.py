@@ -33,12 +33,11 @@ for it in _simplify(site.PREFIXES):
     print(" -", it)
 
 import cowsay
+import click
 
-cowsay.cow('hello py_venv! (built at <BUILD_TIMESTAMP>)')
+@click.command()
+@click.argument("who", envvar="USER")
+def main(who):
+    cowsay.cow(f'hello {who}! (built at <BUILD_TIMESTAMP>)')
 
-
-import pandas
-print("pandas", _simplify(pandas.__file__))
-
-import numpy  # pandas transitive
-print("numpy", _simplify(numpy.__file__))
+main()

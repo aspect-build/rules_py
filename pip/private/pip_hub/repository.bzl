@@ -53,18 +53,29 @@ config_setting(
             "//virtualenv:{}".format(it): "@venv__{}__{}//:{}".format(repository_ctx.attr.hub_name, it, name)
             for it in spec
         }
+
+        compatible_spec = {
+            "//virtualenv:{}".format(it): [] for it in spec
+        } | {"//conditions:default": ["@platforms//:incompatible"]}
+        
         content.append(
 """
 alias(
     name = "{}",
     actual = select(
       {},
-      no_match_error = "FIXME",
+      no_match_error = "{error}",
     ),
-    target_compatible_with = select({}),
+    target_compatible_with = select(
+      {},
+      no_match_error = "{error}",
+    ),
     visibility = ["//visibility:public"],
 )
-""".format(name, repr(select_spec), repr({k: [] for k in select_spec.keys()} | {"//conditions:default": ["@platforms//:incompatible"]}))
+""".format(name,
+           repr(select_spec),
+           repr(compatible_spec),
+           error="Available only in venvs " + ", ".join([it.split(":")[1][1:] for it in select_spec.keys()]))
         )
 
     repository_ctx.file("package/BUILD.bazel", content = "\n".join(content))

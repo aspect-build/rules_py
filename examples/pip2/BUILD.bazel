@@ -20,6 +20,6 @@ py_venv_binary(
     main = ":stamped",
     deps = [
         "@pip2//package:cowsay",
-        "@pip2//package:pandas",
+        "@pip2//package:click",
     ],
 )
