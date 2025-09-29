@@ -7,6 +7,7 @@ produce a filegroup/TreeArtifact.
 
 """
 
+load("//pip/private/constraints/platform:defs.bzl", "supported_platform")
 load(":parse_whl_name.bzl", "parse_whl_name")
 
 def format_arms(d):
@@ -61,6 +62,10 @@ def _whl_install_impl(repository_ctx):
         # cp212-none-cp312 with unsatisfiable version specs.
         for python_tag in parsed.python_tags:
             for platform_tag in parsed.platform_tags:
+                # Escape hatch for ignoring weird unsupported platforms
+                if not supported_platform(platform_tag):
+                    continue
+                
                 for abi_tag in parsed.abi_tags:
                     select_arms[(python_tag, platform_tag, abi_tag)] = "@" + target
 

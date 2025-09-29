@@ -32,6 +32,7 @@ load("//pip/private/whl_install:parse_whl_name.bzl", "parse_whl_name")
 load("//pip/private/venv_hub:repository.bzl", "venv_hub")
 load("//pip/private/constraints:repository.bzl", "configurations_hub")
 load("//pip/private/host:repository.bzl", "host_platform_repo")
+load("//pip/private/constraints/platform:defs.bzl", "supported_platform")
 load(":sccs.bzl", "sccs")
 load(":sha1.bzl", "sha1")
 
@@ -89,6 +90,7 @@ def _parse_locks(module_ctx, yq, venv_specs):
 
     problems = []
 
+    # FIXME: Add support for setting a default venv on a venv hub
     for mod in module_ctx.modules:
         for lock in mod.tags.lockfile:
             if lock.hub_name not in venv_specs or lock.venv_name not in venv_specs[lock.hub_name]:
@@ -102,6 +104,7 @@ def _parse_locks(module_ctx, yq, venv_specs):
                 continue
 
             # FIXME: Should validate the lockfile but for now just stash it
+            # Validating in starlark kinda rots anyway
             lock_specs[lock.hub_name][lock.venv_name] = json.decode(result.stdout)
 
     if problems:
@@ -148,6 +151,10 @@ def _collect_configurations(repository_ctx, lock_specs):
             python_tags[python_tag] = 1
 
             for platform_tag in parsed_wheel.platform_tags:
+
+                if not supported_platform(platform_tag):
+                    continue
+                
                 platform_tags[platform_tag] = 1
 
                 for abi_tag in parsed_wheel.abi_tags:
@@ -303,16 +310,13 @@ def _whl_install_repos(module_ctx, lock_specs):
                 # This is where we need to actually choose which wheel we will
                 # "install", and so this is where prebuild selection needs to
                 # happen according to constraints.
-
                 prebuilds = {}
                 for whl in package.get("wheels", []):
-                    # FIXME: Convert filenames to coordinates here?
                     prebuilds[whl["url"].split("/")[-1]] = _whl_repo_name(package, whl) + "//file"
 
                 # FIXME: This should accept a common constraint for when to
-                # choose source builds Needs to create a `py_library` or
-                # superset rule wrapping the resulting files
-                #
+                # choose source builds over prebuilds.
+
                 # FIXME: Needs to explicitly mark itself as being compatible
                 # only with the single venv. Shouldn't be possible to force this
                 # target to build when the venv hub is not pointed to this venv.
@@ -461,22 +465,23 @@ def _pip_impl(module_ctx):
 
 _hub_tag = tag_class(
     attrs = {
-        "hub_name": attr.string(),
+        "hub_name": attr.string(mandatory = True),
+        "default_venv_name": attr.string()
     },
 )
 
 _venv_tag = tag_class(
     attrs = {
-        "hub_name": attr.string(),
-        "venv_name": attr.string(),
+        "hub_name": attr.string(mandatory = True),
+        "venv_name": attr.string(mandatory = True),
     }
 )
 
 _lockfile_tag = tag_class(
     attrs = {
-        "hub_name": attr.string(),
-        "venv_name": attr.string(),
-        "lockfile": attr.label(),
+        "hub_name": attr.string(mandatory = True),
+        "venv_name": attr.string(mandatory = True),
+        "lockfile": attr.label(mandatory = True),
     }
 )
 

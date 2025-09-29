@@ -19,7 +19,7 @@ def generate():
     )
 
     native.constraint_setting(
-        name = "feature_debug",
+        name = "feature_pydebug",
         default_constraint_value = ":pydebug_disabled",
     )
     native.constraint_value(
@@ -68,6 +68,11 @@ def generate():
     native.constraint_value(
         name = "wide_unicode_disabled",
         constraint_setting = ":feature_wide_unicode",
+    )
+
+    native.alias(
+        name = "abi3",
+        actual = "is_py33"
     )
 
     for interpreter in INTERPRETERS:

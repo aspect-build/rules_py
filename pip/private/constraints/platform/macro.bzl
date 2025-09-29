@@ -31,7 +31,7 @@ load("//pip/private/constraints:defs.bzl", "generate_gte_ladder")
 # manylinux2014_s390x
 # manylinux2014_x86_64
 
-## These seem wrong
+## These seem wrong?
 # linux_armv6l
 # linux_armv7l
 # linux_x86_64
@@ -236,31 +236,49 @@ def generate():
 
     native.constraint_setting(
         name = "platform",
-        default_constraint_value = CURRENT_PLATFORM, "is_macosx_15_6"
+        default_constraint_value = CURRENT_PLATFORM,
     )
-
-    native.constraint_setting(
-        name = "libc",
-        default_constraint_value = CURRENT_PLATFORM, "is_macosx_15_6"
-    )
-    native.constraint_value(
-        name = "is_libsystem",
-        constraint_setting = ":libc",
-    )
-    native.constraint_value(
-        name = "is_glibc",
-        constraint_setting = ":libc",
-    )
-    native.constraint_value(
-        name = "is_musl",
-        constraint_setting = ":libc",
-    )
-
 
     generate_macos()
     generate_manylinux()
     generate_musllinux()
 
+    # FIXME: Is this right?
+    native.alias(
+        name = "linux_armv7l",
+        actual = "manylinux_2_17_armv7l",
+    )
+
+    # https://packaging.python.org/en/latest/specifications/platform-compatibility-tags/#manylinux
+    selects.config_setting_group(
+        name = "manylinux1",
+        match_any = [
+            ":manylinux_2_5_x86_64",
+            ":manylinux_2_5_i686",
+        ]
+    )
+    
+    selects.config_setting_group(
+        name = "manylinux2010",
+        match_any = [
+            ":manylinux_2_12_x86_64",
+            ":manylinux_2_12_i686",
+        ]
+    )
+    
+    selects.config_setting_group(
+        name = "manylinux2014",
+        match_any = [
+            ":manylinux_2_17_x86_64",
+            ":manylinux_2_17_i686",
+            ":manylinux_2_17_aarch64",
+            ":manylinux_2_17_armv7l",
+            ":manylinux_2_17_ppc64",
+            ":manylinux_2_17_ppc64le",
+            ":manylinux_2_17_s390x",
+        ]
+    )
+    
     native.constraint_value(
         name = "is_win32",
         constraint_setting = ":platform",

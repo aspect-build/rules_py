@@ -61,12 +61,25 @@ alias(
       {},
       no_match_error = "FIXME",
     ),
+    target_compatible_with = select({}),
     visibility = ["//visibility:public"],
 )
-""".format(name, repr(select_spec))
+""".format(name, repr(select_spec), repr({k: [] for k in select_spec.keys()} | {"//conditions:default": ["@platforms//:incompatible"]}))
         )
 
     repository_ctx.file("package/BUILD.bazel", content = "\n".join(content))
+
+    ################################################################################
+    content = [
+        "# FIXME ",
+    ]
+
+    content.append(
+"""
+"""
+    )
+
+    repository_ctx.file("defs.bzl", content = "\n".join(content))
 
 
 pip_hub = repository_rule(

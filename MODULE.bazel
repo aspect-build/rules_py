@@ -115,12 +115,20 @@ oci.pull(
 )
 use_repo(oci, "ubuntu", "ubuntu_linux_amd64", "ubuntu_linux_arm64_v8")
 
-# Testing
-pip2 = use_extension("//pip:extension.bzl", "pip")
-pip2.declare_hub(hub_name = "pip2")
-pip2.declare_venv(hub_name = "pip2", venv_name = "default")
-pip2.lockfile(hub_name = "pip2", venv_name = "default", lockfile = "//:uv.lock")
-use_repo(pip2, "pip2", "aspect_rules_py_pip_configurations")
 
+# Mandatory pip2 host configuration
 host = use_extension("//pip/private/host:extension.bzl", "host_platform")
 use_repo(host, "aspect_rules_py_pip_host")
+
+# Testing
+pip2 = use_extension("//pip:extension.bzl", "pip")
+
+pip2.declare_hub(hub_name = "pip2")
+
+pip2.declare_venv(hub_name = "pip2", venv_name = "default")
+pip2.lockfile(hub_name = "pip2", venv_name = "default", lockfile = "//:uv-default.lock")
+
+pip2.declare_venv(hub_name = "pip2", venv_name = "airflow")
+pip2.lockfile(hub_name = "pip2", venv_name = "airflow", lockfile = "//:uv-airflow.lock")
+
+use_repo(pip2, "pip2")
