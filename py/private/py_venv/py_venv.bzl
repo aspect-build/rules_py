@@ -122,7 +122,7 @@ def _py_venv_base_impl(ctx):
             # user tries to consume a `py_venv_binary` across repo boundaries
             # which could cause repo mapping to become relevant.
             "--repo=" + (ctx.label.repo_name or ctx.workspace_name),
-            "--python=" + to_rlocation_path(ctx, py_toolchain.python) if py_toolchain.runfiles_interpreter else py_toolchain.python.path,
+            "--python=" + (to_rlocation_path(ctx, py_toolchain.python) if py_toolchain.runfiles_interpreter else py_toolchain.python.path),
             "--pth-file=" + site_packages_pth_file.path,
             "--env-file=" + env_file.path,
             "--bin-dir=" + ctx.bin_dir.path,
