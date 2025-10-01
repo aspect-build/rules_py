@@ -2,14 +2,15 @@ load("@tar.bzl//tar/toolchain:toolchain.bzl", "TarInfo")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "VENV_TOOLCHAIN")
 
 TAR_TOOLCHAIN = "@tar.bzl//tar/toolchain:type"
+UV_TOOLCHAIN = "@multitool//tools/uv:toolchain_type"
 
 def _sdist_build(ctx):
     py_toolchain = ctx.toolchains[PY_TOOLCHAIN].py3_runtime
+    tar = ctx.toolchains[TAR_TOOLCHAIN]
+
     unpacked_sdist = ctx.actions.declare_directory(
         "src",
     )
-
-    tar = ctx.toolchains[TAR_TOOLCHAIN]
 
     archive = ctx.attr.src[DefaultInfo].files.to_list()[0]
 
@@ -44,7 +45,7 @@ def _sdist_build(ctx):
     #
     # We're going with #1 for now.
     ctx.actions.run(
-        executable = "/opt/homebrew/bin/uv", # FIXME: Use UV from the ruleset
+        executable = uv.executable, # FIXME: Use UV from the ruleset
         arguments = [
             "build",
             "--wheel",
@@ -82,6 +83,7 @@ sdist_build = rule(
     toolchains = [
         PY_TOOLCHAIN,
         TAR_TOOLCHAIN,
+        UV_TOOLCHAIN,
         # FIXME: Add in a cc toolchain here
     ]
 )

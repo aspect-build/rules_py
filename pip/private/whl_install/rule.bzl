@@ -4,10 +4,12 @@ load("//py/private:providers.bzl", "PyVirtualInfo")
 
 PYTHON_TOOLCHAIN_TYPE = "@rules_python//python:toolchain_type"
 TAR_TOOLCHAIN = "@tar.bzl//tar/toolchain:type"
+UV_TOOLCHAIN = "@multitool//tools/uv:toolchain_type"
 
 def _whl_install(ctx):
-    py_toolchain = ctx.toolchains[PYTHON_TOOLCHAIN_TYPE]
+    py_toolchain = ctx.toolchains[PYTHON_TOOLCHAIN_TYPE].py3_runtime
     tar = ctx.toolchains[TAR_TOOLCHAIN]
+    uv = ctx.toolchains[UV_TOOLCHAIN]
 
     install_dir = ctx.actions.declare_directory(
         "install",
@@ -18,22 +20,27 @@ def _whl_install(ctx):
     # 2. Use the Python toolchain and a downloaded pip wheel to run install
     # 3. Just unzip the damn thing
     #
-    # We're going with #3 for now.
+    # We're going with #1 for now.
     #
     # Could probably use bsdtar here rather than non-hermetic unzip.
 
-    # FIXME: Use bsdtar here
+    # FIXME: Need the Python toolchain here?
     archive = ctx.attr.src[DefaultInfo].files.to_list()[0]
     ctx.actions.run(
-        executable = tar[TarInfo].executable,
+        executable = uv.executable,
         arguments = [
+            "pip",
+            "install",
+            "--no-deps",
             # FIXME: What happens when this is a TreeArtifact?
-            "-d", install_dir.path + "/site-packages",
+            "--prefix", install_dir.path,
+            "--python", py_toolchain.interpreter.path,
             archive.path,
         ],
         inputs = [
             archive,
-        ] + tar[DefaultInfo].files.to_list(),
+            uv.executable,
+        ] + py_toolchain.files.to_list(),
         outputs = [
             install_dir,
         ],
@@ -74,6 +81,7 @@ whl_install = rule(
     toolchains = [
         PYTHON_TOOLCHAIN_TYPE,
         TAR_TOOLCHAIN,
+        UV_TOOLCHAIN,
     ],
     provides = [
         DefaultInfo,
