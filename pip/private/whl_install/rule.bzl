@@ -61,7 +61,10 @@ def _whl_install(ctx):
                 install_dir,
             ]),
             imports = depset([
-                ctx.label.repo_name + "/install/site-packages",
+                ctx.label.repo_name + "/install/lib/python{}.{}/site-packages".format(
+                    py_toolchain.interpreter_version_info.major,
+                    py_toolchain.interpreter_version_info.minor,
+                ),
             ]),
             has_py2_only_sources = False,
             has_py3_only_sources = True,
