@@ -22,4 +22,5 @@ py_venv_binary(
         "@pip2//package:cowsay",
         "@pip2//package:click",
     ],
+    venv = "default",
 )

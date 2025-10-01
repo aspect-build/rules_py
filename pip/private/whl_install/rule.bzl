@@ -1,11 +1,14 @@
 load("@rules_python//python:defs.bzl", "PyInfo")
+load("@tar.bzl//tar/toolchain:toolchain.bzl", "TarInfo")
 load("//py/private:providers.bzl", "PyVirtualInfo")
 
 PYTHON_TOOLCHAIN_TYPE = "@rules_python//python:toolchain_type"
+TAR_TOOLCHAIN = "@tar.bzl//tar/toolchain:type"
 
 def _whl_install(ctx):
     py_toolchain = ctx.toolchains[PYTHON_TOOLCHAIN_TYPE]
-    
+    tar = ctx.toolchains[TAR_TOOLCHAIN]
+
     install_dir = ctx.actions.declare_directory(
         "install",
     )
@@ -22,7 +25,7 @@ def _whl_install(ctx):
     # FIXME: Use bsdtar here
     archive = ctx.attr.src[DefaultInfo].files.to_list()[0]
     ctx.actions.run(
-        executable = "/usr/bin/unzip",
+        executable = tar[TarInfo].executable,
         arguments = [
             # FIXME: What happens when this is a TreeArtifact?
             "-d", install_dir.path + "/site-packages",
@@ -30,7 +33,7 @@ def _whl_install(ctx):
         ],
         inputs = [
             archive,
-        ],
+        ] + tar[DefaultInfo].files.to_list(),
         outputs = [
             install_dir,
         ],
@@ -70,6 +73,7 @@ whl_install = rule(
     },
     toolchains = [
         PYTHON_TOOLCHAIN_TYPE,
+        TAR_TOOLCHAIN,
     ],
     provides = [
         DefaultInfo,

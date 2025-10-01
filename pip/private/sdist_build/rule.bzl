@@ -1,4 +1,7 @@
+load("@tar.bzl//tar/toolchain:toolchain.bzl", "TarInfo")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "VENV_TOOLCHAIN")
+
+TAR_TOOLCHAIN = "@tar.bzl//tar/toolchain:type"
 
 def _sdist_build(ctx):
     py_toolchain = ctx.toolchains[PY_TOOLCHAIN].py3_runtime
@@ -6,11 +9,13 @@ def _sdist_build(ctx):
         "src",
     )
 
+    tar = ctx.toolchains[TAR_TOOLCHAIN]
+
     archive = ctx.attr.src[DefaultInfo].files.to_list()[0]
 
     # Extract the archive
     ctx.actions.run(
-        executable = "tar",
+        executable = tar[TarInfo].executable,
         arguments = [
             "--strip-components=1", # Ditch archive leader
             "-xf",
@@ -20,7 +25,7 @@ def _sdist_build(ctx):
         ],
         inputs = [
             archive,
-        ],
+        ] + tar[DefaultInfo].files.to_list(),
         outputs = [
             unpacked_sdist,
         ],
@@ -76,6 +81,7 @@ sdist_build = rule(
     # FIXME: Using rules_python's toolchains...
     toolchains = [
         PY_TOOLCHAIN,
+        TAR_TOOLCHAIN,
         # FIXME: Add in a cc toolchain here
     ]
 )

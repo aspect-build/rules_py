@@ -16,6 +16,7 @@ bazel_dep(name = "aspect_tools_telemetry", version = "0.2.6")
 bazel_dep(name = "bazel_skylib", version = "1.4.2")
 bazel_dep(name = "rules_python", version = "1.6.3")
 bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "tar.bzl", version = "0.5.6")
 
 bazel_lib = use_extension("@aspect_bazel_lib//lib:extensions.bzl", "toolchains")
 bazel_lib.expand_template()
@@ -130,5 +131,21 @@ pip2.lockfile(hub_name = "pip2", venv_name = "default", lockfile = "//:uv-defaul
 
 pip2.declare_venv(hub_name = "pip2", venv_name = "airflow")
 pip2.lockfile(hub_name = "pip2", venv_name = "airflow", lockfile = "//:uv-airflow.lock")
+
+# pip2.add_sdist_deps(
+#     hub_name =
+#     venv_name = 
+#     name = "annoy",
+#     deps = [
+#         "",
+#     ],
+# )
+
+# pip2.use_src_build(
+#     hub_name =
+#     venv_name = 
+#     src = "", # firstparty
+# )
+
 
 use_repo(pip2, "pip2")
