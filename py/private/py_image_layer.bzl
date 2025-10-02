@@ -53,7 +53,7 @@ default_layer_groups = {
     "packages": "\\\\.runfiles/.*/site-packages",
 }
 
-def _split_mtree_into_layer_groups(name, root, groups, group_names, **kwargs):
+def _split_mtree_into_layer_groups(name, root, groups, group_names, awk, **kwargs):
     mtree_begin_blocks = "\n".join([
         'print "#mtree" >> "$(RULEDIR)/%s.%s.manifest.spec";' % (name, gn)
         for gn in group_names
@@ -71,7 +71,7 @@ if ($$1 ~ "%s") {
     ])
 
     cmd = """\
-awk < $< 'BEGIN {
+$(execpath %s) < $< 'BEGIN {
     %s
 }
 {
@@ -86,7 +86,7 @@ awk < $< 'BEGIN {
     # Every line that did not match the layer groups will go into the default layer.
     print $$0 >> "$(RULEDIR)/%s.default.manifest.spec"
 }'
-""" % (mtree_begin_blocks, root, ifs, name)
+""" % (awk, mtree_begin_blocks, root, ifs, name)
 
     native.genrule(
         name = "{}_manifests".format(name),
@@ -95,6 +95,7 @@ awk < $< 'BEGIN {
             "{}.{}.manifest.spec".format(name, group_name)
             for group_name in group_names
         ],
+        tools = [awk],
         cmd = cmd,
         **kwargs
     )
@@ -110,10 +111,9 @@ def py_image_layer(
         platform = None,
         owner = None,
         group = None,
+        awk = "@gawk",
         **kwargs):
     """Produce a separate tar output for each layer of a python app
-
-    > Requires `awk` to be installed on the host machine/rbe runner.
 
     For better performance, it is recommended to split the output of a py_binary into multiple layers.
     This can be done by grouping files into layers based on their path by using the `layer_groups` attribute.
@@ -142,6 +142,7 @@ def py_image_layer(
         owner: An owner uid for the uncompressed files. See mtree_mutate: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#mutating-the-tar-contents
         group: A group uid for the uncompressed files. See mtree_mutate: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#mutating-the-tar-contents
         tar_args: Additional arguments to pass to the tar rule. Default is `[]`. See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#tar_rule-args
+        awk: The awk command to use. Default is `@gawk`.
         **kwargs: attribute that apply to all targets expanded by the macro
 
     Returns:
@@ -176,7 +177,7 @@ def py_image_layer(
     groups = dict(groups, **default_layer_groups)
     group_names = groups.keys() + ["default"]
 
-    _split_mtree_into_layer_groups(name, root, groups, group_names, **kwargs)
+    _split_mtree_into_layer_groups(name, root, groups, group_names, awk, **kwargs)
 
     # Finally create layers using the tar rule
     srcs = []
