@@ -35,6 +35,7 @@ load("//pip/private/host:repository.bzl", "host_platform_repo")
 load("//pip/private/constraints/platform:defs.bzl", "supported_platform")
 load(":sccs.bzl", "sccs")
 load(":sha1.bzl", "sha1")
+load("@toml.bzl", "toml")
 
 def _parse_hubs(module_ctx):
     # As with `rules_python` hub names have to be globally unique :/
@@ -84,7 +85,7 @@ def _parse_venvs(module_ctx, hub_specs):
     return venv_specs
 
 
-def _parse_locks(module_ctx, yq, venv_specs):
+def _parse_locks(module_ctx, venv_specs):
     # Map of hub to venv to lock contents
     lock_specs = {}
 
@@ -98,14 +99,14 @@ def _parse_locks(module_ctx, yq, venv_specs):
 
             lock_specs.setdefault(lock.hub_name, {})
 
-            result = module_ctx.execute([yq, lock.lockfile])
-            if result.return_code != 0:
-                problems.append("Failed to extract {} in {};\n{}".format(lock.lockfile, mod.name, result.stderr))
+            lockfile = toml.decode_file(module_ctx, lock.lockfile)
+            if not lockfile:
+                problems.append("Failed to extract {} in {}".format(lock.lockfile, mod.name))
                 continue
 
             # FIXME: Should validate the lockfile but for now just stash it
             # Validating in starlark kinda rots anyway
-            lock_specs[lock.hub_name][lock.venv_name] = json.decode(result.stdout)
+            lock_specs[lock.hub_name][lock.venv_name] = lockfile
 
     if problems:
         fail("\n".join(problems))
@@ -115,15 +116,6 @@ def _parse_locks(module_ctx, yq, venv_specs):
 
 def _collect_configurations(repository_ctx, lock_specs):
     # Set of wheel names which we're gonna do a second pass over to collect configuration names
-
-    # The config repo scheme is as follows:
-    # //_parts/version/major:{2,3}
-    # //_parts/version/minor:{0..18}    # At the 18mo cadence 3.18 won't land until well in the 2030s
-    # //_parts/version/patch:0-30       # .25 is the highest we've gone to date
-    # //_parts/os:{any,linux,manylinux,musllinux,macos,}
-    #
-    # https://peps.python.org/pep-3149/#proposal
-    # //_parts/abi:{d,m,u,t,pydebug,pymalloc,wide-unicode,freethread}
 
     wheel_files = {}
 
@@ -426,14 +418,11 @@ def _hub_repos(module_ctx, lock_specs, package_venvs):
         )
 
 def _pip_impl(module_ctx):
-    # toml2json_tool = _provision_yq(module_ctx)
-    toml2json_tool = module_ctx.path("/Users/arrdem/.cargo/bin/toml2json")
-
     hub_specs = _parse_hubs(module_ctx)
 
     venv_specs = _parse_venvs(module_ctx, hub_specs)
 
-    lock_specs = _parse_locks(module_ctx, toml2json_tool, venv_specs)
+    lock_specs = _parse_locks(module_ctx, venv_specs)
 
     # Roll through all the configured wheels, collect & validate the unique
     # platform configurations so that we can go create an appropriate power set

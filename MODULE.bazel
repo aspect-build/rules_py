@@ -17,6 +17,13 @@ bazel_dep(name = "bazel_skylib", version = "1.4.2")
 bazel_dep(name = "rules_python", version = "1.6.3")
 bazel_dep(name = "platforms", version = "1.0.0")
 
+# FIXME: Very prerelease
+bazel_dep(name = "toml.bzl", version = "0.0.0")
+local_path_override(
+    module_name = "toml.bzl",
+    path = "../toml.bzl/",
+)
+
 bazel_lib = use_extension("@aspect_bazel_lib//lib:extensions.bzl", "toolchains")
 bazel_lib.expand_template()
 
