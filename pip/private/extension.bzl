@@ -49,11 +49,11 @@ load("//pip/private/pip_hub:repository.bzl", "pip_hub")
 load("//pip/private/sdist_build:repository.bzl", "sdist_build")
 load("//pip/private/tomltool:toml.bzl", "toml")
 load("//pip/private/venv_hub:repository.bzl", "venv_hub")
-load("//pip/private/whl_install:parse_whl_name.bzl", "parse_whl_name")
 load("//pip/private/whl_install:repository.bzl", "whl_install")
+load(":parse_whl_name.bzl", "parse_whl_name")
+load(":normalize_name.bzl", "normalize_name")
 load(":sccs.bzl", "sccs")
 load(":sha1.bzl", "sha1")
-load(":normalize_name.bzl", "normalize_name")
 
 def _parse_hubs(module_ctx):
     # As with `rules_python` hub names have to be globally unique :/
@@ -130,7 +130,7 @@ def _parse_locks(module_ctx, venv_specs):
 
             # FIXME: Should validate the lockfile but for now just stash it
             # Validating in starlark kinda rots anyway
-            lock_specs[lock.hub_name][lock.venv_name] = lockfile 
+            lock_specs[lock.hub_name][lock.venv_name] = lockfile
 
     if problems:
         fail("\n".join(problems))

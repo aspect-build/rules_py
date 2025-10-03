@@ -35,7 +35,7 @@ python_register_toolchains(
 # py_test/py_binary target even if it has python_version attribute set.
 python_register_toolchains(
     name = "python_toolchain",
-    python_version = "3.13",
+    python_version = "3.12",
 )
 
 py_repositories()

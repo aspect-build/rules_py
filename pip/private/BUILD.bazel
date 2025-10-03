@@ -1,0 +1,46 @@
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+
+package(default_visibility = [
+    "//docs:__pkg__",
+])
+
+bzl_library(
+    name = "extension",
+    srcs = ["extension.bzl"],
+    deps = [
+        "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "@bazel_tools//tools/build_defs/repo:cache.bzl",
+        "@bazel_tools//tools/build_defs/repo:utils.bzl",
+        ":sccs",
+        ":sha1",
+        ":normalize_name",
+    ],
+)
+
+bzl_library(
+    name = "sccs",
+    srcs = ["sccs.bzl"],
+    deps = [
+    ],
+)
+
+bzl_library(
+    name = "sha1",
+    srcs = ["sha1.bzl"],
+    deps = [
+    ],
+)
+
+bzl_library(
+    name = "normalize_name",
+    srcs = ["normalize_name.bzl"],
+    deps = [
+    ],
+)
+
+bzl_library(
+    name = "parse_whl_name",
+    srcs = ["parse_whl_name.bzl"],
+    deps = [
+    ],
+)
