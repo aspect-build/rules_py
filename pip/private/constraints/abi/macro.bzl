@@ -1,5 +1,3 @@
-# buildifier: disable=unnamed-macro
-
 """
 Generate interpreter feature flag constraints
 
@@ -9,8 +7,8 @@ Or, as appropriate, aliases to the `rules_python` equivalents.
 load("@bazel_skylib//lib:selects.bzl", "selects")
 load("//pip/private/constraints:defs.bzl", "INTERPRETERS", "MAJORS", "MINORS")
 
-# FIXME: Where does abi 2/3/4 fit in here?
-# FIXME: Where do ABI feature flags fit in here?
+# buildifier: disable=unnamed-macro
+# buildifier: disable=function-docstring
 def generate():
     """
     Lay down `py3`, `py312`, `cp3`, `cp312` etc and critically `any`.

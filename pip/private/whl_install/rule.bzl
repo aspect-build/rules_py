@@ -1,3 +1,7 @@
+"""
+Installing wheels as a Bazel build action, rather than a repo step.
+"""
+
 load("@rules_python//python:defs.bzl", "PyInfo")
 
 PYTHON_TOOLCHAIN_TYPE = "@rules_python//python:toolchain_type"

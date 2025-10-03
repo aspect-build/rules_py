@@ -1,4 +1,16 @@
-def format_list(items):
+"""
+
+Generate a cluster of config_settings which bridge from well-known static config
+features (interpreter feature flags, interpreter version, platform, etc.) to the
+dynamic(ish) set of Python platform "triples" defined by the lockfile.
+
+This bridging allows wheel selection to occur in Python-native terms according
+to just the Python platform triple which is defined elsewhere/centrally (here),
+and makes debugging easier as well as the generated selections more meaningful.
+
+"""
+
+def _format_list(items):
     return "[\n" + "".join(["    {},\n".format(repr(it)) for it in items]) + "]"
 
 def _constraints_hub_impl(repository_ctx):
@@ -14,7 +26,7 @@ selects.config_setting_group(
     name = "{}",
     match_all = {},
 )
-""".format(name, format_list(conditions)),
+""".format(name, _format_list(conditions)),
         )
 
     repository_ctx.file("BUILD.bazel", content = "\n".join(content))

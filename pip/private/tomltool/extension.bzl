@@ -1,3 +1,11 @@
+"""
+Materialize a `tomltool` binary we can use for decoding to JSON.
+
+A slight improvement on multitool which:
+1. Fetches exactly one binary for the current host configuration
+2. Is libc aware, unlike multitool
+"""
+
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 
 TOOLS = [
@@ -99,10 +107,8 @@ def _tomltool_impl(repository_ctx):
     os = _translate_os(repository_ctx.os.name)
     libc = _translate_libc(repository_ctx)
 
-    found = False
     for tool in TOOLS:
         if tool.arch == arch and tool.os == os and tool.libc == libc:
-            found = True
             http_file(
                 name = "tomltool",
                 url = tool.url,

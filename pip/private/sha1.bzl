@@ -1,5 +1,3 @@
-# buildifier: disable=uninitialized
-
 """
 Sha1sum implemented in pure Starlark for portability.
 
@@ -20,14 +18,9 @@ def rotl32(x, n):
     """
     return ((x << n) | (x >> (32 - n))) & 0xFFFFFFFF
 
+# buildifier: disable=uninitialized
 def sha1(input):
-    """
-    Computes the SHA-1 hash of an input string (treated as an iterator of characters)
-    in pure Python, WITHOUT using the 'while' keyword.
-
-    This implementation is for environments like Starlark where 'while' loops
-    are not available. SHA-1 is cryptographically broken and should NOT be used
-    for security-sensitive applications.
+    """sha1sum.
 
     Args:
         input: An iterator of characters (e.g., a string).
@@ -57,8 +50,6 @@ def sha1(input):
     original_length_in_bits = len(message_bytes_list) * 8
 
     message_bytes_list.append(0x80)
-
-    current_bits = len(message_bytes_list) * 8
 
     bits_after_one = len(message_bytes_list) * 8
 

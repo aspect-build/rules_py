@@ -1,3 +1,7 @@
+"""
+
+"""
+
 def _pip_hub_impl(repository_ctx):
     repository_ctx.file("BUILD.bazel", "")
 

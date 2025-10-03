@@ -1,5 +1,10 @@
+"""
+"""
+
 load("//pip/private/constraints:defs.bzl", "MAJORS", "generate_gte_ladder")
 
+# buildifier: disable=unnamed-macro
+# buildifier: disable=function-docstring
 def generate():
     native.constraint_setting(
         name = "major",

@@ -13,6 +13,9 @@ def _decode_file(ctx, content_path):
     if out.return_code == 0:
         return json.decode(out.stdout)
 
+    else:
+        return None
+
 toml = struct(
     decode_file = _decode_file,
 )

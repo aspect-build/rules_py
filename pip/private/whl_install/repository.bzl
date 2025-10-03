@@ -10,12 +10,28 @@ produce a filegroup/TreeArtifact.
 load("//pip/private/constraints/platform:defs.bzl", "supported_platform")
 load(":parse_whl_name.bzl", "parse_whl_name")
 
-def format_arms(d):
+def _format_arms(d):
     content = ["        \"{}\": \"{}\"".format(k, v) for k, v in d.items()]
     content = ",\n".join(content)
     return "{\n" + content + "\n    }"
 
-def select_key(pair):
+def _select_key(pair):
+    """Force (triple, target) pairs into a orderable form.
+
+    In order to impose _sequential_ selection on whl arms, we need to impose an
+    ordering on platform triples. The way we do this is by coercing "platform
+    triples" into:
+
+    - The interpreter (major, minor) pair which  is orderable
+    - _assuming_ that platform versions are lexically orderable
+    - _assuming_ that ABI is effectively irrelevant to ordering
+
+    This allows us to produce a tuple which will sort roughly according to the
+    desired preference order among wheels which COULD be compatible with the
+    same platform.
+
+    """
+
     triple, _ = pair
     python, platform, abi = triple
     py_major = int(python[2])
@@ -31,10 +47,9 @@ def select_key(pair):
 
     return ((py_major, py_minor), platform, abi)
 
-def sort_select_arms(arms):
+def _sort_select_arms(arms):
     # {(python, platform, abi): target}
-    pairs = list(arms.items())
-    pairs = sorted(pairs, key = select_key, reverse = True)
+    pairs = sorted(arms.items(), key = _select_key, reverse = True)
     return {a: b for a, b in pairs}
 
 def _whl_install_impl(repository_ctx):
@@ -47,7 +62,6 @@ def _whl_install_impl(repository_ctx):
     # semantics which is frustrating.
 
     # The strategy here is to roll through the wheels,
-    configuration_set = {}
     select_arms = {}
     content = [
         "load(\"@aspect_rules_py//pip/private/whl_install:rule.bzl\", \"whl_install\")",
@@ -94,9 +108,11 @@ def _whl_install_impl(repository_ctx):
     # newest-match order, but more assurance would be an improvement.
     #
     # Sort triples
-    select_arms = sort_select_arms(select_arms)
+    select_arms = _sort_select_arms(select_arms)
 
-    # FIXME: Insert the sbuild if it exists with an sbuild config flag
+    # FIXME: Insert the sbuild if it exists with an sbuild config flag as the
+    # first condition so that the user can force the build to use _only_ sbuilds
+    # if available (or transition a target to mandate sbuild).
 
     # Convert triples to conditions
     select_arms = {
@@ -116,7 +132,7 @@ select_chain(
    arms = {},
 )
 """.format(
-            format_arms(select_arms),
+            _format_arms(select_arms),
         ),
     )
 

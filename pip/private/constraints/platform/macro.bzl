@@ -1,6 +1,8 @@
-load("@aspect_rules_py_pip_host//:defs.bzl", "CURRENT_PLATFORM")
+"""
 
-# Collected constraints from PyPi wheels
+"""
+
+load("@aspect_rules_py_pip_host//:defs.bzl", "CURRENT_PLATFORM")
 load("@bazel_skylib//lib:selects.bzl", "selects")
 load("//pip/private/constraints:defs.bzl", "generate_gte_ladder")
 
@@ -57,6 +59,8 @@ platform_repo_name_mangling = {
     for it in _forms
 }
 
+# buildifier: disable=unnamed-macro
+# buildifier: disable=function-docstring
 def generate_macos():
     """
     Deliberately generate an overfull matrix of possible MacOS versions and arches.
@@ -115,6 +119,8 @@ def generate_macos():
 
     generate_gte_ladder(stages)
 
+# buildifier: disable=unnamed-macro
+# buildifier: disable=function-docstring
 def generate_manylinux():
     # https://packaging.python.org/en/latest/specifications/platform-compatibility-tags/#manylinux
 
@@ -153,6 +159,8 @@ def generate_manylinux():
 
     generate_gte_ladder(stages)
 
+# buildifier: disable=unnamed-macro
+# buildifier: disable=function-docstring
 def generate_musllinux():
     arches = [
         "x86_64",
@@ -222,6 +230,8 @@ def generate_musllinux():
 # win_arm64
 # win_ia64
 
+# buildifier: disable=unnamed-macro
+# buildifier: disable=function-docstring
 def generate():
     # FIXME: Is there a better/worse way to do this?
     selects.config_setting_group(

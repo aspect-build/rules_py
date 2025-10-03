@@ -1,13 +1,18 @@
+"""
+Strongly connected components helpers.
+"""
+
 def sccs(graph):
-    """
-    Finds the strongly connected components (SCCs) of a directed graph via
-    Kosaraju's algorithm modified to fit into Starlark.
+    """Identify strongly connected components.
+
+    Uses Kosaraju's algorithm as the strategy.
 
     Args:
-        graph: A dictionary representing the adjacency list of the graph.
+        graph (dict): A mapping of nodes to their adjacencies.
 
     Returns:
         A list of lists, where each inner list represents an SCC.
+        The components of each SCC are in lexically sorted order.
     """
     nodes = list(graph.keys())
     visited = {node: False for node in nodes}

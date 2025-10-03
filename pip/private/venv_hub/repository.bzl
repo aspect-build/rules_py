@@ -1,6 +1,8 @@
-def _venv_hub_impl(repository_ctx):
-    print("venv_hub", repository_ctx.attr)
+"""
 
+"""
+
+def _venv_hub_impl(repository_ctx):
     content = [
         "# FIXME",
         """load("@aspect_rules_py//py:defs.bzl", "py_library")""",

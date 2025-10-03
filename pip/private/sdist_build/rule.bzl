@@ -1,4 +1,10 @@
+"""
+Actually building sdists.
+"""
+
 load("@tar.bzl//tar/toolchain:toolchain.bzl", "TarInfo")
+
+# buildifier: disable=bzl-visibility
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
 
 TAR_TOOLCHAIN = "@tar.bzl//tar/toolchain:type"
