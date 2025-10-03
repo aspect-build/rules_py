@@ -37,8 +37,8 @@ stardoc_with_diff_test(
 )
 
 stardoc_with_diff_test(
-    name = "py_venv",
-    bzl_library_target = "//py/private/py_venv:py_venv",
+    name = "unstable",
+    bzl_library_target = "//py/unstable:defs",
 )
 
 stardoc_with_diff_test(

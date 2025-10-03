@@ -7,8 +7,8 @@ produce a filegroup/TreeArtifact.
 
 """
 
-load("//pip/private/constraints/platform:defs.bzl", "supported_platform")
 load("//pip/private:parse_whl_name.bzl", "parse_whl_name")
+load("//pip/private/constraints/platform:defs.bzl", "supported_platform")
 
 def _format_arms(d):
     content = ["        \"{}\": \"{}\"".format(k, v) for k, v in d.items()]

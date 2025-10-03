@@ -1,3 +1,15 @@
-load(":macros.bzl", "generate")
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 
-generate()
+bzl_library(
+    name = "defs",
+    srcs = ["defs.bzl"],
+    visibility = ["//:__subpackages__"],
+    deps = ["@bazel_skylib//lib:selects"],
+)
+
+bzl_library(
+    name = "repository",
+    srcs = ["repository.bzl"],
+    visibility = ["//:__subpackages__"],
+    deps = [],
+)

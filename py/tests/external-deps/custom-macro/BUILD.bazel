@@ -1,1 +1,9 @@
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+
 exports_files(["__main__.py"])
+
+bzl_library(
+    name = "macro",
+    srcs = ["macro.bzl"],
+    deps = ["//py:defs"],
+)

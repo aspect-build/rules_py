@@ -2,8 +2,6 @@
 Actually building sdists.
 """
 
-load("@tar.bzl//tar/toolchain:toolchain.bzl", "TarInfo")
-
 # buildifier: disable=bzl-visibility
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
 
@@ -22,7 +20,7 @@ def _sdist_build(ctx):
 
     # Extract the archive
     ctx.actions.run(
-        executable = tar[TarInfo].executable,
+        executable = tar.executable,
         arguments = [
             "--strip-components=1",  # Ditch archive leader
             "-xf",
