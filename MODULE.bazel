@@ -17,13 +17,6 @@ bazel_dep(name = "bazel_skylib", version = "1.4.2")
 bazel_dep(name = "rules_python", version = "1.6.3")
 bazel_dep(name = "platforms", version = "1.0.0")
 
-# FIXME: Very prerelease
-bazel_dep(name = "toml.bzl", version = "0.0.0")
-local_path_override(
-    module_name = "toml.bzl",
-    path = "../toml.bzl/",
-)
-
 bazel_lib = use_extension("@aspect_bazel_lib//lib:extensions.bzl", "toolchains")
 bazel_lib.expand_template()
 
@@ -123,18 +116,22 @@ oci.pull(
 use_repo(oci, "ubuntu", "ubuntu_linux_amd64", "ubuntu_linux_arm64_v8")
 
 
-# Mandatory pip2 host configuration
-host = use_extension("//pip/private/host:extension.bzl", "host_platform")
-use_repo(host, "aspect_rules_py_pip_host")
-
-# Needed for some kinds of dealing with whl files
-bazel_dep(name = "tar.bzl", version = "0.5.6")
-
 # This is what `rules_uv` really boils down to, so vendoring that
 bazel_dep(name = "rules_multitool", version = "0.11.0")
 multitool = use_extension("@rules_multitool//multitool:extension.bzl", "multitool")
-multitool.hub(lockfile = "//pip/private:uv.lock.json")
+multitool.hub(lockfile = "//pip/private/uv:uv.lock.json")
 use_repo(multitool, "multitool")
+
+# Used as part of the sdist flow
+bazel_dep(name = "tar.bzl", version = "0.6.0")
+
+# The toml tool that pip2 uses
+tomltool = use_extension("//pip/private/tomltool:extension.bzl", "tomltool")
+use_repo(tomltool, "tomltool")
+
+# Mandatory pip2 host configuration
+host = use_extension("//pip/private/host:extension.bzl", "host_platform")
+use_repo(host, "aspect_rules_py_pip_host")
 
 # Testing
 pip2 = use_extension("//pip:extension.bzl", "pip")

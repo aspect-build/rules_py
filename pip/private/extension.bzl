@@ -25,17 +25,17 @@
 # FIXME: Need to add machinery for parsing wheel files and deciding compatability
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
-load("//pip/private/pip_hub:repository.bzl", "pip_hub")
-load("//pip/private/sdist_build:repository.bzl", "sdist_build")
-load("//pip/private/whl_install:repository.bzl", "whl_install")
-load("//pip/private/whl_install:parse_whl_name.bzl", "parse_whl_name")
-load("//pip/private/venv_hub:repository.bzl", "venv_hub")
+load("//pip/private/constraints/platform:defs.bzl", "supported_platform")
 load("//pip/private/constraints:repository.bzl", "configurations_hub")
 load("//pip/private/host:repository.bzl", "host_platform_repo")
-load("//pip/private/constraints/platform:defs.bzl", "supported_platform")
+load("//pip/private/pip_hub:repository.bzl", "pip_hub")
+load("//pip/private/sdist_build:repository.bzl", "sdist_build")
+load("//pip/private/tomltool:toml.bzl", "toml")
+load("//pip/private/venv_hub:repository.bzl", "venv_hub")
+load("//pip/private/whl_install:parse_whl_name.bzl", "parse_whl_name")
+load("//pip/private/whl_install:repository.bzl", "whl_install")
 load(":sccs.bzl", "sccs")
 load(":sha1.bzl", "sha1")
-load("@toml.bzl", "toml")
 
 def _parse_hubs(module_ctx):
     # As with `rules_python` hub names have to be globally unique :/

@@ -1,14 +1,11 @@
 load("@rules_python//python:defs.bzl", "PyInfo")
-load("@tar.bzl//tar/toolchain:toolchain.bzl", "TarInfo")
 load("//py/private:providers.bzl", "PyVirtualInfo")
 
 PYTHON_TOOLCHAIN_TYPE = "@rules_python//python:toolchain_type"
-TAR_TOOLCHAIN = "@tar.bzl//tar/toolchain:type"
 UV_TOOLCHAIN = "@multitool//tools/uv:toolchain_type"
 
 def _whl_install(ctx):
     py_toolchain = ctx.toolchains[PYTHON_TOOLCHAIN_TYPE].py3_runtime
-    tar = ctx.toolchains[TAR_TOOLCHAIN]
     uv = ctx.toolchains[UV_TOOLCHAIN]
 
     install_dir = ctx.actions.declare_directory(
@@ -83,7 +80,6 @@ whl_install = rule(
     },
     toolchains = [
         PYTHON_TOOLCHAIN_TYPE,
-        TAR_TOOLCHAIN,
         UV_TOOLCHAIN,
     ],
     provides = [
