@@ -317,3 +317,10 @@ oci_pull(
 load("@container_structure_test//:repositories.bzl", "container_structure_test_register_toolchain")
 
 container_structure_test_register_toolchain(name = "cst")
+
+# Forwards-compat to the new pip machinery mostly so docgen works
+load("//pip/private/host:repository.bzl", "host_platform_repo")
+
+host_platform_repo(
+    name = "aspect_rules_py_pip_host",
+)
