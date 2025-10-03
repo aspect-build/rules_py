@@ -75,14 +75,17 @@ pip = struct(
     repository_ctx.file("defs.bzl", content = "\n".join(content))
 
     ################################################################################
-    content = [
-        """
+    # Lay down the hub aliases
+
+    # FIXME: since we're creating a package per target, we may have to implement
+    # name mangling to ensure that the pip packages become valid Bazel packages.
+    for name, spec in repository_ctx.attr.packages.items():
+        content = [
+            """
 load("//:defs.bzl", "pip")
 """,
-    ]
+        ]
 
-    # Lay down the hub aliases
-    for name, spec in repository_ctx.attr.packages.items():
         select_spec = {
             "//venv:{}".format(it): "@venv__{}__{}//:{}".format(repository_ctx.attr.hub_name, it, name)
             for it in spec
@@ -107,7 +110,7 @@ alias(
             ),
         )
 
-    repository_ctx.file("package/BUILD.bazel", content = "\n".join(content))
+        repository_ctx.file(name + "/BUILD.bazel", content = "\n".join(content))
 
 pip_hub = repository_rule(
     implementation = _pip_hub_impl,
