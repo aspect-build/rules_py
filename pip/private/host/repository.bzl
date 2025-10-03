@@ -19,7 +19,6 @@ def _translate_os(os):
         return "windows"
     return None
 
-
 def _platform(rctx):
     os = _translate_os(rctx.os.name)
 
@@ -27,22 +26,20 @@ def _platform(rctx):
         res = rctx.execute(["sw_vers", "-productVersion"])
         ver = res.stdout.split(".")
         return "is_macosx_{}_{}".format(ver[0], ver[1])
-    
+
     elif os == "linux":
         res = rctx.execute(["ldd", "--version"])
 
         libc = "musllinux" if "musl" in res.stdout else "manylinux"
         if libc == "musllinux":
-            ver = res.stdout.split("\n")[1].split(" ")[-1]
-            
+            ver = res.stdout.split("\n")[1].split(" ")[-1].split(".")
+            return "is_{}_{}_{}".format(libc, ver[0], ver[1])
+
         elif libc == "manylinux":
-            ver = res.stdout.split("\n")[0].split(" ")[-1]
+            ver = res.stdout.split("\n")[0].split(" ")[-1].split(".")
+            return "is_{}_{}_{}".format(libc, ver[0], ver[1])
 
-        ver = ver.split(".")
-        return "is_{}_{}_{}".format(libc, ver[0], ver[1])
-
-    else:
-        fail("Unsupported platform {}".format(os))
+    fail("Unsupported platform {}".format(os))
 
 def _host_platform_repo_impl(rctx):
     rctx.file("BUILD.bazel", """

@@ -34,13 +34,13 @@ def select_key(pair):
 def sort_select_arms(arms):
     # {(python, platform, abi): target}
     pairs = list(arms.items())
-    pairs = sorted(pairs, key=select_key, reverse=True)
+    pairs = sorted(pairs, key = select_key, reverse = True)
     return {a: b for a, b in pairs}
-    
+
 def _whl_install_impl(repository_ctx):
     prebuilds = json.decode(repository_ctx.attr.prebuilds)
     # Prebuilds is a mapping from whl file name to repo labels which contain
-    # that file. We need to take these wheel files and parse out compatability.
+    # that file. We need to take these wheel files and parse out compatibility.
     #
     # This is complicated by Starlark as with Python not treating lists as
     # values, so we have to go to strings of JSON in order to get value
@@ -65,7 +65,7 @@ def _whl_install_impl(repository_ctx):
                 # Escape hatch for ignoring weird unsupported platforms
                 if not supported_platform(platform_tag):
                     continue
-                
+
                 for abi_tag in parsed.abi_tags:
                     select_arms[(python_tag, platform_tag, abi_tag)] = "@" + target
 
@@ -84,11 +84,11 @@ def _whl_install_impl(repository_ctx):
     # first match is also the most relevant or newest match? We don't want to
     # take a build which targets glibc 2.0 forever for instance.
     #
-    # The answer is tht we have to apply a sorting logic. Specifically we need
+    # The answer is that we have to apply a sorting logic. Specifically we need
     # to sort the platform.
     #
-    # The wheel files -> targets pairs come in sorted decending order here, and
-    # the wheel name parser reports the annotations also in sorted decending
+    # The wheel files -> targets pairs come in sorted descending order here, and
+    # the wheel name parser reports the annotations also in sorted descending
     # order. So it happens that we SHOULD have the correct behavior here because
     # our insertion order into the select arms dict follows the required
     # newest-match order, but more assurance would be an improvement.
@@ -97,7 +97,7 @@ def _whl_install_impl(repository_ctx):
     select_arms = sort_select_arms(select_arms)
 
     # FIXME: Insert the sbuild if it exists with an sbuild config flag
-    
+
     # Convert triples to conditions
     select_arms = {
         "@aspect_rules_py_pip_configurations//:{}-{}-{}".format(*k): v
@@ -106,30 +106,31 @@ def _whl_install_impl(repository_ctx):
 
     if repository_ctx.attr.sbuild:
         select_arms = select_arms | {
-            "//conditions:default": str(repository_ctx.attr.sbuild)
+            "//conditions:default": str(repository_ctx.attr.sbuild),
         }
 
     content.append(
-"""
+        """
 select_chain(
    name = 'whl',
    arms = {},
 )
 """.format(
-    format_arms(select_arms),
-)
-)
+            format_arms(select_arms),
+        ),
+    )
+
     # FIXME: May need to add deps to installs here?
     content.append(
-"""
+        """
 whl_install(
    name = "install",
    src = ":whl",
    visibility = ["//visibility:public"],
 )
-""")
+""",
+    )
     repository_ctx.file("BUILD.bazel", content = "\n".join(content))
-
 
 whl_install = repository_rule(
     implementation = _whl_install_impl,

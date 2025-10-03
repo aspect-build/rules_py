@@ -1,5 +1,3 @@
-load("@rules_python//python:defs.bzl", "PyInfo")
-
 def _venv_hub_impl(repository_ctx):
     print("venv_hub", repository_ctx.attr)
 
@@ -10,13 +8,13 @@ def _venv_hub_impl(repository_ctx):
 
     for name, group in repository_ctx.attr.aliases.items():
         content.append(
-"""
+            """
 alias(
    name = "{}",
    actual = "//:{}",
    visibility = ["//visibility:public"],
 )
-""".format(name, group)
+""".format(name, group),
         )
 
     # So the strategy here is that we need to go through sccs, create each scc
@@ -31,13 +29,13 @@ alias(
         ]
 
         deps = repository_ctx.attr.deps[group]
-        deps = [it for it in deps if it not in members]        
+        deps = [it for it in deps if it not in members]
         deps = [
             "        \":{}\",".format(it)
             for it in deps
         ]
         content.append(
-"""
+            """
 py_library(
    name = "{}",
    srcs = [],
@@ -47,9 +45,10 @@ py_library(
    visibility = ["//visibility:public"],
 )
 """.format(
-    group,
-    "\n".join(member_installs + deps),
-))
+                group,
+                "\n".join(member_installs + deps),
+            ),
+        )
 
     repository_ctx.file("BUILD.bazel", content = "\n".join(content))
 
@@ -70,12 +69,12 @@ venv_hub = repository_rule(
         ),
         "installs": attr.string_dict(
             doc = """
-            """
+            """,
         ),
     },
     doc = """
 Create a hub repository containing all the package(s) for all configuration(s) of a venv.
 
-TODO: Need to figure out where compatability selection lives in here.
-"""
+TODO: Need to figure out where compatibility selection lives in here.
+""",
 )

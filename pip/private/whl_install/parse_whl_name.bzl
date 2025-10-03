@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Vendored from
+# Vendored and patched from
 # bazel-contrib/rules_python/python/private/pypi/parse_whl_name.bzl with many
 # thanks to Ignas for his excellent work.
 
@@ -38,7 +38,15 @@ _LEGACY_ALIASES = {
 }
 
 def parse_abi_feature_flags(tag):
-    """Parse an ABI flag to extract the feature flags."""
+    """Parse an ABI flag to extract the feature flags.
+
+    Args:
+        tag (str): An interpreter tag which may contain feature flags.
+
+    Returns:
+        A struct containing the extracted and canoncalized feature flags, the
+        original tag and the "stripped" tag without any feature flags.
+    """
 
     flags = {
         "d": False,
@@ -59,15 +67,19 @@ def parse_abi_feature_flags(tag):
         pymalloc = flags["m"],
         freethreading = flags["t"],
         unicode = flags["u"],
-        stripped = tag[:cursor + 1] if found else cursor,
+        stripped = tag[:cursor + 1] if found else cursor,  # buildifier: disable=uninitialized
         full = tag,
     )
 
 def normalize_abi_tag(tag):
     """Normalize feature flag order in ABI tags.
 
-    For simplicity we want to treat cp311dm the same as cp311md.
-    Extract and alphabetize the flags.
+    Args:
+        tag (str): An interpreter ABI tag which may contain feature flags.
+
+    Returns:
+        A normalized form of the ABI tag with feature flags if any sorted.
+
     """
 
     flags = {
@@ -83,14 +95,21 @@ def normalize_abi_tag(tag):
             found = True
         else:
             break
-    tag = tag[:cursor + 1] if found else tag
+    tag = tag[:cursor + 1] if found else tag  # buildifier: disable=uninitialized
     for flag, state in flags.items():
         if state:
             tag = tag + flag
     return tag
 
 def normalize_platform_tag(tag):
-    """Resolve legacy aliases to modern equivalents for easier parsing elsewhere."""
+    """Resolve legacy aliases to modern equivalents for easier parsing elsewhere.
+
+    Args:
+        tag (str): A platform tag which may be a legacy alias such as manylinux2014.
+
+    Returns:
+        A `.` joined equivalent set of modernized tags, or the original.
+    """
     return ".".join(list({
         # The `list({})` usage here is to use it as a string set, where we will
         # deduplicate, but otherwise retain the order of the tags.

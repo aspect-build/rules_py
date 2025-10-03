@@ -1,5 +1,13 @@
+# buildifier: disable=unnamed-macro
+
+"""
+Generate interpreter feature flag constraints
+
+Or, as appropriate, aliases to the `rules_python` equivalents.
+"""
+
 load("@bazel_skylib//lib:selects.bzl", "selects")
-load("//pip/private/constraints:defs.bzl", "MAJORS", "MINORS", "INTERPRETERS", "FLAGS")
+load("//pip/private/constraints:defs.bzl", "INTERPRETERS", "MAJORS", "MINORS")
 
 # FIXME: Where does abi 2/3/4 fit in here?
 # FIXME: Where do ABI feature flags fit in here?
@@ -15,7 +23,7 @@ def generate():
         name = "none",
         match_all = [
             "//conditions:default",
-        ]
+        ],
     )
 
     native.constraint_setting(
@@ -72,7 +80,7 @@ def generate():
 
     native.alias(
         name = "abi3",
-        actual = "is_py33"
+        actual = "is_py33",
     )
 
     for interpreter in INTERPRETERS:
@@ -92,7 +100,7 @@ def generate():
                         # "//pip/private/constraints/python/interpreter:{}".format(interpreter),
                         "//pip/private/constraints/python/major:{}".format(major),
                         "//pip/private/constraints/python/minor:{}".format(minor),
-                    ]
+                    ],
                 )
 
                 for d in [False, True]:
@@ -113,10 +121,10 @@ def generate():
                                     match_all = (
                                         [
                                             ":is_{}{}{}".format(interpreter, major, minor),
-                                        ]
-                                        + ([":pydebug_enabled"] if d else [])
-                                        + ([":pymalloc_enabled"] if m else [])
-                                        + ([":freethreading_enabled"] if t else [])
-                                        + ([":wide_unicode_enabled"] if u else [])
+                                        ] +
+                                        ([":pydebug_enabled"] if d else []) +
+                                        ([":pymalloc_enabled"] if m else []) +
+                                        ([":freethreading_enabled"] if t else []) +
+                                        ([":wide_unicode_enabled"] if u else [])
                                     ),
                                 )

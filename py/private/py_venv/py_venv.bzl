@@ -355,7 +355,7 @@ _binary_attrs = dict({
         doc = """The name of a configured virtualenv within which to resolve dependencies.
 
 Default value.
-May be overriden with the --@pip//venv=<> CLI flag.
+May be overridden with the --@pip//venv=<> CLI flag.
 Only works with the experimental Aspect pip machinery.
 """,
     ),

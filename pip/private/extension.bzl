@@ -1,33 +1,50 @@
-# pip = use_repo("@aspect_rules_py//pip:extesion.bzl", "pip")
-#
-# pip.declare_hub(hub_name = "my_pip")
-#
-# pip.declare_venv(hub_name = "my_pip", venv_name = "a")
-# pip.declare_venv(hub_name = "my_pip", venv_name = "b")
-# pip.declare_venv(hub_name = "my_pip", venv_name = "c")
-#
-# pip.lockfile(hub_name = "my_pip", venv_name = "a", lockfile = "third_party/py/venvs/pylock-a.toml")
-# pip.lockfile(hub_name = "my_pip", venv_name = "b", lockfile = "third_party/py/venvs/pylock-b.toml")
-# pip.lockfile(hub_name = "my_pip", venv_name = "c", lockfile = "third_party/py/venvs/pylock-c.toml")
-#
-# use_repo(pip, "my_pip")
-#
+"""
+An implementation of pip based on consuming PEP-751 [1] like lockfiles.
+
+Follows in the footsteps of rules_js's pnpm support by consuming a lockfile
+which contains enough information to produce a virtualenv without performing any
+dynamic resolution.
+
+Relies on the lockfile to enumerate:
+- Source distributions & their digests
+- Prebuilt distribitons & their digests
+- The dependencies of digests
+
+## Example
+
+    pip = use_repo("@aspect_rules_py//pip:extension.bzl", "pip")
+    pip.declare_hub(hub_name = "pip")
+    
+    pip.declare_venv(hub_name = "pip", venv_name = "a")
+    pip.lockfile(hub_name = "pip", venv_name = "a", lockfile = "third_party/py/venvs/pylock-a.toml")
+
+    pip.declare_venv(hub_name = "pip", venv_name = "b")
+    pip.lockfile(hub_name = "pip", venv_name = "b", lockfile = "third_party/py/venvs/pylock-b.toml")
+
+    use_repo(pip, "pip")
+
+## Features
+
+- Supports cross-platform builds of wheels
+- Supports hermetic source builds of wheels
+- Automatically handles dependency cycles
+
+## Appendix
+
+[1] https://peps.python.org/pep-0751/
+[2] https://peps.python.org/pep-0751/#locking-build-requirements-for-sdists
+"""
+
 # Note that platform constraints are specified by markers in the lockfile, they cannot be explicitly specified.
-# Note that dependency cycles are now inferred and groups calculated automatically, they cannot be specified.
 
 # FIXME: Need to add package name sanitization/mangling
 # https://github.com/bazel-contrib/rules_python/blob/main/python/private/normalize_name.bzl
 
 # FIXME: Need to explicitly test a lockfile with platform-conditional deps (tensorflow cpu vs gpu mac/linux)
 
-# FIXME: Need to explicitly test a lockfile with a cycle (airflow & friends)
-
-# FIXME: Need to add machinery for parsing wheel files and deciding compatability
-
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
-load("//pip/private/constraints/platform:defs.bzl", "supported_platform")
 load("//pip/private/constraints:repository.bzl", "configurations_hub")
-load("//pip/private/host:repository.bzl", "host_platform_repo")
+load("//pip/private/constraints/platform:defs.bzl", "supported_platform")
 load("//pip/private/pip_hub:repository.bzl", "pip_hub")
 load("//pip/private/sdist_build:repository.bzl", "sdist_build")
 load("//pip/private/tomltool:toml.bzl", "toml")
@@ -53,15 +70,14 @@ def _parse_hubs(module_ctx):
             problems.append(
                 "Hub name {} should have been globally unique but was used by the following modules:{}".format(
                     hub_name,
-                    "".join(["\n - {}".format(it) for it in modules.keys()])
-                )
+                    "".join(["\n - {}".format(it) for it in modules.keys()]),
+                ),
             )
 
     if problems:
         fail(problems)
 
     return hub_specs
-
 
 def _parse_venvs(module_ctx, hub_specs):
     # Venvs should only be declared once and must refer to a hub in the same module
@@ -83,7 +99,6 @@ def _parse_venvs(module_ctx, hub_specs):
         fail("\n".join(problems))
 
     return venv_specs
-
 
 def _parse_locks(module_ctx, venv_specs):
     # Map of hub to venv to lock contents
@@ -113,7 +128,6 @@ def _parse_locks(module_ctx, venv_specs):
 
     return lock_specs
 
-
 def _collect_configurations(repository_ctx, lock_specs):
     # Set of wheel names which we're gonna do a second pass over to collect configuration names
 
@@ -127,7 +141,7 @@ def _collect_configurations(repository_ctx, lock_specs):
 
                 for whl in package.get("wheels", []):
                     url = whl["url"]
-                    wheel_name = url.split("/")[-1] # Find the trailing file name
+                    wheel_name = url.split("/")[-1]  # Find the trailing file name
                     wheel_files[wheel_name] = 1
 
     abi_tags = {}
@@ -143,10 +157,9 @@ def _collect_configurations(repository_ctx, lock_specs):
             python_tags[python_tag] = 1
 
             for platform_tag in parsed_wheel.platform_tags:
-
                 if not supported_platform(platform_tag):
                     continue
-                
+
                 platform_tags[platform_tag] = 1
 
                 for abi_tag in parsed_wheel.abi_tags:
@@ -165,15 +178,13 @@ def _collect_configurations(repository_ctx, lock_specs):
 
     return configurations
 
-
 def _sdist_repo_name(package):
     """We key sdist repos strictly by their name and content hash."""
 
-    return  "sdist__{}__{}".format(
+    return "sdist__{}__{}".format(
         package["name"],
         package["sdist"]["hash"][len("shasum:"):][:8],
     )
-
 
 def _raw_sdist_repos(module_ctx, lock_specs):
     # Map of hub -> venv -> requirement -> version -> repo name
@@ -188,7 +199,7 @@ def _raw_sdist_repos(module_ctx, lock_specs):
                 sdist = package.get("sdist")
                 if sdist == None:
                     continue
-                
+
                 url = sdist["url"]
                 shasum = sdist["hash"][len("sha256:"):]
 
@@ -213,15 +224,13 @@ def _raw_sdist_repos(module_ctx, lock_specs):
     for spec in repo_defs.values():
         http_file(**spec)
 
-
 def _whl_repo_name(package, whl):
     """We key whl repos strictly by their name and content hash."""
 
-    return  "whl__{}__{}".format(
+    return "whl__{}__{}".format(
         package["name"],
         whl["hash"][len("shasum:"):][:8],
     )
-
 
 def _raw_whl_repos(module_ctx, lock_specs):
     repo_defs = {}
@@ -234,7 +243,6 @@ def _raw_whl_repos(module_ctx, lock_specs):
 
                 wheels = package.get("wheels", [])
                 for whl in wheels:
-
                     url = whl["url"]
                     shasum = whl["hash"][len("sha256:"):]
 
@@ -256,10 +264,11 @@ def _raw_whl_repos(module_ctx, lock_specs):
     for spec in repo_defs.values():
         http_file(**spec)
 
-
 def _sbuild_repo_name(hub, venv, package):
     return "sbuild__{}__{}__{}".format(
-        hub, venv, package["name"],
+        hub,
+        venv,
+        package["name"],
     )
 
 def _venv_target(hub_name, venv, package_name):
@@ -274,7 +283,7 @@ def _sbuild_repos(module_ctx, lock_specs):
             for package in lock.get("package", []):
                 if "registry" not in package["source"]:
                     continue
-                
+
                 if "sdist" not in package:
                     continue
 
@@ -289,7 +298,9 @@ def _sbuild_repos(module_ctx, lock_specs):
 
 def _whl_install_repo_name(hub, venv, package):
     return "whl_install__{}__{}__{}".format(
-        hub, venv, package["name"],
+        hub,
+        venv,
+        package["name"],
     )
 
 def _whl_install_repos(module_ctx, lock_specs):
@@ -320,7 +331,8 @@ def _whl_install_repos(module_ctx, lock_specs):
 
 def _venv_hub_name(hub, venv):
     return "venv__{}__{}".format(
-        hub, venv,
+        hub,
+        venv,
     )
 
 def _group_repos(module_ctx, lock_specs):
@@ -332,7 +344,6 @@ def _group_repos(module_ctx, lock_specs):
         package_venvs[hub_name] = {}
 
         for venv_name, lock in venvs.items():
-
             # First we need to build the adjacency graph
             graph = {}
 
@@ -394,8 +405,8 @@ def _group_repos(module_ctx, lock_specs):
             venv_hub(
                 name = _venv_hub_name(hub_name, venv_name),
                 aliases = scc_aliases,  # String dict
-                sccs = named_sccs,      # List[String] dict
-                deps = deps,            # List[String] dict
+                sccs = named_sccs,  # List[String] dict
+                deps = deps,  # List[String] dict
                 installs = {
                     package: _whl_install_repo_name(hub_name, venv_name, {"name": package})
                     for package in sorted(graph.keys())
@@ -403,7 +414,6 @@ def _group_repos(module_ctx, lock_specs):
             )
 
     return package_venvs
-
 
 def _hub_repos(module_ctx, lock_specs, package_venvs):
     for hub_name, packages in package_venvs.items():
@@ -448,14 +458,13 @@ def _pip_impl(module_ctx):
 
     configurations_hub(
         name = "aspect_rules_py_pip_configurations",
-        configurations = configurations
+        configurations = configurations,
     )
-
 
 _hub_tag = tag_class(
     attrs = {
         "hub_name": attr.string(mandatory = True),
-        "default_venv_name": attr.string()
+        "default_venv_name": attr.string(),
     },
 )
 
@@ -463,7 +472,7 @@ _venv_tag = tag_class(
     attrs = {
         "hub_name": attr.string(mandatory = True),
         "venv_name": attr.string(mandatory = True),
-    }
+    },
 )
 
 _lockfile_tag = tag_class(
@@ -471,7 +480,7 @@ _lockfile_tag = tag_class(
         "hub_name": attr.string(mandatory = True),
         "venv_name": attr.string(mandatory = True),
         "lockfile": attr.label(mandatory = True),
-    }
+    },
 )
 
 pip = module_extension(
@@ -480,5 +489,5 @@ pip = module_extension(
         "declare_hub": _hub_tag,
         "declare_venv": _venv_tag,
         "lockfile": _lockfile_tag,
-    }
+    },
 )

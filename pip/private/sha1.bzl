@@ -1,6 +1,23 @@
+# buildifier: disable=uninitialized
+
+"""
+Sha1sum implemented in pure Starlark for portability.
+
+Certainly not for efficiency good lord.
+"""
+
 load("@aspect_bazel_lib//lib:strings.bzl", "ord")
 
 def rotl32(x, n):
+    """Rot[ate] L[eft] for 32bi wide.
+
+    Args:
+       x (int): The value to rotate
+       n (int): The number of bits by which to rotate
+
+    Returns:
+       The rotated value
+    """
     return ((x << n) | (x >> (32 - n))) & 0xFFFFFFFF
 
 def sha1(input):
@@ -16,7 +33,7 @@ def sha1(input):
         input: An iterator of characters (e.g., a string).
 
     Returns:
-        A 40-character hexadecimal string representing the SHA-1 hash.
+        a 40-character hexadecimal string representing the SHA-1 hash.
     """
 
     # --- SHA-1 Constants and Initial Hash Values ---
@@ -30,7 +47,7 @@ def sha1(input):
         0x5A827999,  # 0 <= t <= 19
         0x6ED9EBA1,  # 20 <= t <= 39
         0x8F1BBCDC,  # 40 <= t <= 59
-        0xCA62C1D6   # 60 <= t <= 79
+        0xCA62C1D6,  # 60 <= t <= 79
     ]
 
     message_bytes_list = []
@@ -42,8 +59,6 @@ def sha1(input):
     message_bytes_list.append(0x80)
 
     current_bits = len(message_bytes_list) * 8
-
-    bytes_in_current_block_incomplete = current_bits % 512 // 8
 
     bits_after_one = len(message_bytes_list) * 8
 
@@ -71,61 +86,61 @@ def sha1(input):
     num_blocks = len(message_bytes_list) // 64
 
     for i in range(num_blocks):
-        block = message_bytes_list[i * 64 : (i + 1) * 64]
+        block = message_bytes_list[i * 64:(i + 1) * 64]
 
-        W = [0] * 80
+        w = [0] * 80
 
         for t in range(16):
-            word_val = (block[t*4] << 24) | \
-                       (block[t*4 + 1] << 16) | \
-                       (block[t*4 + 2] << 8) | \
-                       (block[t*4 + 3])
-            W[t] = word_val
+            word_val = (block[t * 4] << 24) | \
+                       (block[t * 4 + 1] << 16) | \
+                       (block[t * 4 + 2] << 8) | \
+                       (block[t * 4 + 3])
+            w[t] = word_val
 
         for t in range(16, 80):
-            W[t] = rotl32(W[t-3] ^ W[t-8] ^ W[t-14] ^ W[t-16], 1)
+            w[t] = rotl32(w[t - 3] ^ w[t - 8] ^ w[t - 14] ^ w[t - 16], 1)
 
-        A = h0
-        B = h1
-        C = h2
-        D = h3
-        E = h4
+        a = h0
+        b = h1
+        c = h2
+        d = h3
+        e = h4
 
         for t in range(80):
             if 0 <= t and t <= 19:
-                F = (B & C) | ((~B) & D)
-                Kt = k[0]
+                f = (b & c) | ((~b) & d)
+                kt = k[0]
             elif 20 <= t and t <= 39:
-                F = B ^ C ^ D
-                Kt = k[1]
+                f = b ^ c ^ d
+                kt = k[1]
             elif 40 <= t and t <= 59:
-                F = (B & C) | (B & D) | (C & D)
-                Kt = k[2]
+                f = (b & c) | (b & d) | (c & d)
+                kt = k[2]
             elif 60 <= t and t <= 79:
-                F = B ^ C ^ D
-                Kt = k[3]
+                f = b ^ c ^ d
+                kt = k[3]
             else:
                 # FIXME: Error?
                 pass
 
-            temp = (rotl32(A, 5) + F + E + Kt + W[t]) & 0xFFFFFFFF
+            temp = (rotl32(a, 5) + f + e + kt + w[t]) & 0xFFFFFFFF
 
-            E = D
-            D = C
-            C = rotl32(B, 30)
-            B = A
-            A = temp
+            e = d
+            d = c
+            c = rotl32(b, 30)
+            b = a
+            a = temp
 
-        h0 = (h0 + A) & 0xFFFFFFFF
-        h1 = (h1 + B) & 0xFFFFFFFF
-        h2 = (h2 + C) & 0xFFFFFFFF
-        h3 = (h3 + D) & 0xFFFFFFFF
-        h4 = (h4 + E) & 0xFFFFFFFF
+        h0 = (h0 + a) & 0xFFFFFFFF
+        h1 = (h1 + b) & 0xFFFFFFFF
+        h2 = (h2 + c) & 0xFFFFFFFF
+        h3 = (h3 + d) & 0xFFFFFFFF
+        h4 = (h4 + e) & 0xFFFFFFFF
 
     def hex(word):
         # Converts a 32-bit word (0 to 0xFFFFFFFF) to 8 hex characters
         hex_chars = "0123456789abcdef"
-        result = [''] * 8
+        result = [""] * 8
         for i in range(8):
             nibble = (word >> (28 - i * 4)) & 0xF
             result[i] = hex_chars[nibble]

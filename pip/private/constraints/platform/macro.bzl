@@ -1,6 +1,7 @@
+load("@aspect_rules_py_pip_host//:defs.bzl", "CURRENT_PLATFORM")
+
 # Collected constraints from PyPi wheels
 load("@bazel_skylib//lib:selects.bzl", "selects")
-load("@aspect_rules_py_pip_host//:defs.bzl", "CURRENT_PLATFORM")
 load("//pip/private/constraints:defs.bzl", "generate_gte_ladder")
 
 ## These are defined but we're ignoring them for now.
@@ -42,8 +43,7 @@ load("//pip/private/constraints:defs.bzl", "generate_gte_ladder")
 # for the root source of some of this mangling....
 platform_repo_name_mangling = {
     it: to
-    for _froms, to in
-    [
+    for _forms, to in [
         [["i386", "i486", "i586", "i686", "i786", "x86"], "x86_32"],
         [["amd64", "x86_64", "x64"], "x86_64"],
         [["ppc", "ppc64"], "ppc"],
@@ -52,9 +52,9 @@ platform_repo_name_mangling = {
         [["aarch64"], "aarch64"],
         [["s390x", "s390"], "s390x"],
         [["mips64el", "mips64"], "mips64"],
-        [["riscv64"], "riscv64"]
+        [["riscv64"], "riscv64"],
     ]
-    for it in _froms
+    for it in _forms
 }
 
 def generate_macos():
@@ -92,7 +92,7 @@ def generate_macos():
                 name = name,
                 constraint_setting = ":platform",
             )
-            stages.append(struct(name=name[3:], condition=name))
+            stages.append(struct(name = name[3:], condition = name))
 
             for arch in arches:
                 selects.config_setting_group(
@@ -101,7 +101,7 @@ def generate_macos():
                         ":macosx_{}_{}".format(major, minor),
                         "@platforms//os:osx",
                         "@platforms//cpu:{}".format(platform_repo_name_mangling.get(arch, arch)),
-                    ]
+                    ],
                 )
 
             for group, members in arch_groups.items():
@@ -110,11 +110,10 @@ def generate_macos():
                     match_any = [
                         ":macosx_{}_{}_{}".format(major, minor, it)
                         for it in members
-                    ]
+                    ],
                 )
 
     generate_gte_ladder(stages)
-
 
 def generate_manylinux():
     # https://packaging.python.org/en/latest/specifications/platform-compatibility-tags/#manylinux
@@ -140,7 +139,7 @@ def generate_manylinux():
                 name = name,
                 constraint_setting = ":platform",
             )
-            stages.append(struct(name=name[3:], condition=name))
+            stages.append(struct(name = name[3:], condition = name))
 
             for arch in arches:
                 selects.config_setting_group(
@@ -149,11 +148,10 @@ def generate_manylinux():
                         ":manylinux_{}_{}".format(major, minor),
                         "@platforms//os:linux",
                         "@platforms//cpu:{}".format(platform_repo_name_mangling.get(arch, arch)),
-                    ]
+                    ],
                 )
 
     generate_gte_ladder(stages)
-
 
 def generate_musllinux():
     arches = [
@@ -183,7 +181,7 @@ def generate_musllinux():
             name = name,
             constraint_setting = ":platform",
         )
-        stages.append(struct(name=name[3:], condition=name))
+        stages.append(struct(name = name[3:], condition = name))
 
         for arch in arches:
             selects.config_setting_group(
@@ -192,11 +190,10 @@ def generate_musllinux():
                     ":musllinux_{}_{}".format(major, minor),
                     "@platforms//os:linux",
                     "@platforms//cpu:{}".format(platform_repo_name_mangling.get(arch, arch)),
-                ]
+                ],
             )
 
     generate_gte_ladder(stages)
-
 
 # musllinux_1_0_aarch64
 # musllinux_1_0_armv7l
@@ -231,7 +228,7 @@ def generate():
         name = "any",
         match_all = [
             "//conditions:default",
-        ]
+        ],
     )
 
     native.constraint_setting(
@@ -255,17 +252,17 @@ def generate():
         match_any = [
             ":manylinux_2_5_x86_64",
             ":manylinux_2_5_i686",
-        ]
+        ],
     )
-    
+
     selects.config_setting_group(
         name = "manylinux2010",
         match_any = [
             ":manylinux_2_12_x86_64",
             ":manylinux_2_12_i686",
-        ]
+        ],
     )
-    
+
     selects.config_setting_group(
         name = "manylinux2014",
         match_any = [
@@ -276,9 +273,9 @@ def generate():
             ":manylinux_2_17_ppc64",
             ":manylinux_2_17_ppc64le",
             ":manylinux_2_17_s390x",
-        ]
+        ],
     )
-    
+
     native.constraint_value(
         name = "is_win32",
         constraint_setting = ":platform",
@@ -297,7 +294,7 @@ def generate():
         actual = ":is_win64",
     )
 
-    # FIXME: These should be ands?
+    # FIXME: These should be and?
     native.constraint_value(
         name = "is_win_amd64",
         constraint_setting = ":platform",
@@ -306,7 +303,7 @@ def generate():
         name = "win_amd64",
         actual = ":is_win_amd64",
     )
-    
+
     native.constraint_value(
         name = "is_win_arm64",
         constraint_setting = ":platform",
@@ -315,7 +312,7 @@ def generate():
         name = "win_arm64",
         actual = ":is_win_arm64",
     )
-    
+
     native.constraint_value(
         name = "is_win_ia64",
         constraint_setting = ":platform",

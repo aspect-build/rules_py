@@ -1,5 +1,5 @@
 load("@aspect_bazel_lib//lib:expand_template.bzl", "expand_template")
-load("//py/unstable:defs.bzl", "py_venv", "py_venv_binary")
+load("//py/unstable:defs.bzl", "py_venv_binary")
 
 expand_template(
     name = "stamped",
@@ -18,9 +18,9 @@ py_venv_binary(
         ".",
     ],
     main = ":stamped",
-    deps = [
-        "@pip2//package:cowsay",
-        "@pip2//package:click",
-    ],
     venv = "default",
+    deps = [
+        "@pip2//package:click",
+        "@pip2//package:cowsay",
+    ],
 )

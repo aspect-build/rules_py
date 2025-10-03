@@ -1,5 +1,4 @@
 load("@rules_python//python:defs.bzl", "PyInfo")
-load("//py/private:providers.bzl", "PyVirtualInfo")
 
 PYTHON_TOOLCHAIN_TYPE = "@rules_python//python:toolchain_type"
 UV_TOOLCHAIN = "@multitool//tools/uv:toolchain_type"
@@ -30,8 +29,10 @@ def _whl_install(ctx):
             "install",
             "--no-deps",
             # FIXME: What happens when this is a TreeArtifact?
-            "--prefix", install_dir.path,
-            "--python", py_toolchain.interpreter.path,
+            "--prefix",
+            install_dir.path,
+            "--python",
+            py_toolchain.interpreter.path,
             archive.path,
         ],
         inputs = [
@@ -42,7 +43,7 @@ def _whl_install(ctx):
             install_dir,
         ],
     )
-    
+
     return [
         # FIXME: Need to generate PyInfo here
         DefaultInfo(
@@ -51,7 +52,7 @@ def _whl_install(ctx):
             ]),
             runfiles = ctx.runfiles(files = [
                 install_dir,
-            ])
+            ]),
         ),
         PyInfo(
             transitive_sources = depset([
@@ -69,7 +70,6 @@ def _whl_install(ctx):
         ),
     ]
 
-
 whl_install = rule(
     implementation = _whl_install,
     doc = """
@@ -85,5 +85,5 @@ whl_install = rule(
     provides = [
         DefaultInfo,
         PyInfo,
-    ]
+    ],
 )

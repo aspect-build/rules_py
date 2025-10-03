@@ -40,11 +40,10 @@ def sccs(graph):
                     for neighbor in graph.get(current_node, []):
                         if not visited[neighbor]:
                             stack.append(neighbor)
-                else:
-                    if current_node in path_stack:
-                        path_stack.remove(current_node)
-                        order.append(current_node)
-                        stack.pop()
+                elif current_node in path_stack:
+                    path_stack.remove(current_node)
+                    order.append(current_node)
+                    stack.pop()
 
     # Create the transpose graph (all edges reversed)
     transpose_graph = {node: [] for node in nodes}

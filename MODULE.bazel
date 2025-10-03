@@ -118,6 +118,7 @@ use_repo(oci, "ubuntu", "ubuntu_linux_amd64", "ubuntu_linux_arm64_v8")
 
 # This is what `rules_uv` really boils down to, so vendoring that
 bazel_dep(name = "rules_multitool", version = "0.11.0")
+
 multitool = use_extension("@rules_multitool//multitool:extension.bzl", "multitool")
 multitool.hub(lockfile = "//pip/private/uv:uv.lock.json")
 use_repo(multitool, "multitool")
@@ -135,18 +136,29 @@ use_repo(host, "aspect_rules_py_pip_host")
 
 # Testing
 pip2 = use_extension("//pip:extension.bzl", "pip")
-
 pip2.declare_hub(hub_name = "pip2")
-
-pip2.declare_venv(hub_name = "pip2", venv_name = "default")
-pip2.lockfile(hub_name = "pip2", venv_name = "default", lockfile = "//:uv-default.lock")
-
-pip2.declare_venv(hub_name = "pip2", venv_name = "airflow")
-pip2.lockfile(hub_name = "pip2", venv_name = "airflow", lockfile = "//:uv-airflow.lock")
+pip2.declare_venv(
+    hub_name = "pip2",
+    venv_name = "default",
+)
+pip2.lockfile(
+    hub_name = "pip2",
+    lockfile = "//:uv-default.lock",
+    venv_name = "default",
+)
+pip2.declare_venv(
+    hub_name = "pip2",
+    venv_name = "airflow",
+)
+pip2.lockfile(
+    hub_name = "pip2",
+    lockfile = "//:uv-airflow.lock",
+    venv_name = "airflow",
+)
 
 # pip2.add_sdist_deps(
 #     hub_name =
-#     venv_name = 
+#     venv_name =
 #     name = "annoy",
 #     deps = [
 #         "",
@@ -155,9 +167,8 @@ pip2.lockfile(hub_name = "pip2", venv_name = "airflow", lockfile = "//:uv-airflo
 
 # pip2.use_src_build(
 #     hub_name =
-#     venv_name = 
+#     venv_name =
 #     src = "", # firstparty
 # )
-
 
 use_repo(pip2, "pip2")

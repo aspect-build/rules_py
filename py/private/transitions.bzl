@@ -9,9 +9,9 @@ def _python_transition_impl(settings, attr):
         acc[VERSION_FLAG] = str(attr.python_version)
     else:
         acc[VERSION_FLAG] = settings[VERSION_FLAG]
-        
+
     acc[VENV_FLAG] = settings.get(VENV_FLAG) or str(attr.venv)
-        
+
     return acc
 
 python_transition = transition(

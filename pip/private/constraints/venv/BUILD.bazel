@@ -7,5 +7,5 @@ string_flag(
 )
 
 constraint_setting(
-    name = "is_venv"
+    name = "is_venv",
 )

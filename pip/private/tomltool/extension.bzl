@@ -42,7 +42,7 @@ TOOLS = [
         libc = "musl",
         url = "https://github.com/aspect-build/toml.bzl/releases/download/v0.0.2/tomltool_x86_64_unknown_linux_musl",
         sha256 = "c9b2a29dca81a4ceff9aa40049b8e5d7fafd4981f8460e81c2b3c529b95a9afa",
-    )
+    ),
 ]
 
 # Ripped from the platforms library
@@ -84,7 +84,7 @@ def _translate_libc(repository_ctx):
     os = _translate_os(repository_ctx.os.name)
     if os == "osx":
         return "libsystem"
-    
+
     elif os == "linux":
         ldd = repository_ctx.execute(["ldd", "--version"]).stdout.lower()
         if "glibc" in ldd:
@@ -93,7 +93,7 @@ def _translate_libc(repository_ctx):
             return "musl"
 
     return None
-    
+
 def _tomltool_impl(repository_ctx):
     arch = _translate_cpu(repository_ctx.os.arch)
     os = _translate_os(repository_ctx.os.name)
@@ -110,8 +110,7 @@ def _tomltool_impl(repository_ctx):
                 executable = True,
             )
 
-
 tomltool = module_extension(
     implementation = _tomltool_impl,
-    tag_classes = {}
+    tag_classes = {},
 )
