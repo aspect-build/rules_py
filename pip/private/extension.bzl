@@ -53,6 +53,7 @@ load("//pip/private/whl_install:parse_whl_name.bzl", "parse_whl_name")
 load("//pip/private/whl_install:repository.bzl", "whl_install")
 load(":sccs.bzl", "sccs")
 load(":sha1.bzl", "sha1")
+load(":normalize_name.bzl", "normalize_name")
 
 def _parse_hubs(module_ctx):
     # As with `rules_python` hub names have to be globally unique :/
@@ -119,9 +120,17 @@ def _parse_locks(module_ctx, venv_specs):
                 problems.append("Failed to extract {} in {}".format(lock.lockfile, mod.name))
                 continue
 
+            # Apply name mangling from PyPi package names to Bazel friendly
+            # package names here, once.
+            for package in lockfile.get("package", []):
+                package["name"] = normalize_name(package["name"])
+                if "dependencies" in package:
+                    for d in package["dependencies"]:
+                        d["name"] = normalize_name(d["name"])
+
             # FIXME: Should validate the lockfile but for now just stash it
             # Validating in starlark kinda rots anyway
-            lock_specs[lock.hub_name][lock.venv_name] = lockfile
+            lock_specs[lock.hub_name][lock.venv_name] = lockfile 
 
     if problems:
         fail("\n".join(problems))
