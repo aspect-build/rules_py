@@ -43,7 +43,7 @@ python.toolchain(python_version = "3.9", is_default = True)
 
 <pre>
 py_binary_rule(<a href="#py_binary_rule-name">name</a>, <a href="#py_binary_rule-data">data</a>, <a href="#py_binary_rule-deps">deps</a>, <a href="#py_binary_rule-env">env</a>, <a href="#py_binary_rule-imports">imports</a>, <a href="#py_binary_rule-interpreter_options">interpreter_options</a>, <a href="#py_binary_rule-main">main</a>, <a href="#py_binary_rule-package_collisions">package_collisions</a>,
-               <a href="#py_binary_rule-python_version">python_version</a>, <a href="#py_binary_rule-resolutions">resolutions</a>, <a href="#py_binary_rule-srcs">srcs</a>)
+               <a href="#py_binary_rule-python_version">python_version</a>, <a href="#py_binary_rule-resolutions">resolutions</a>, <a href="#py_binary_rule-srcs">srcs</a>, <a href="#py_binary_rule-venv">venv</a>)
 </pre>
 
 Run a Python program under Bazel. Most users should use the [py_binary macro](#py_binary) instead of loading this directly.
@@ -64,6 +64,7 @@ Run a Python program under Bazel. Most users should use the [py_binary macro](#p
 | <a id="py_binary_rule-python_version"></a>python_version |  Whether to build this target and its transitive deps for a specific python version.   | String | optional | <code>""</code> |
 | <a id="py_binary_rule-resolutions"></a>resolutions |  Satisfy a virtual_dep with a mapping from external package name to the label of an installed package that provides it.         See [virtual dependencies](/docs/virtual_deps.md).   | <a href="https://bazel.build/rules/lib/dict">Dictionary: Label -> String</a> | optional | <code>{}</code> |
 | <a id="py_binary_rule-srcs"></a>srcs |  Python source files.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
+| <a id="py_binary_rule-venv"></a>venv |  The name of the Python virtual environment within which deps should be resolved.<br><br>Part of the aspect_rules_py//pip system, has no effect in rules_python's pip.   | String | optional | <code>""</code> |
 
 
 <a id="py_binary"></a>
