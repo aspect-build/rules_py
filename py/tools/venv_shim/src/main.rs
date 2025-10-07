@@ -145,7 +145,7 @@ fn find_python_executables(version_from_cfg: &str, exclude_dir: &Path) -> Option
     }
 }
 
-fn find_actual_interpreter(cfg: &PyCfg) -> miette::Result<PathBuf> {
+fn find_actual_interpreter(executable: impl AsRef<Path>, cfg: &PyCfg) -> miette::Result<PathBuf> {
     match &cfg.interpreter {
         InterpreterConfig::External { version } => {
             // NOTE (reid@aspect.build):
@@ -196,7 +196,7 @@ fn find_actual_interpreter(cfg: &PyCfg) -> miette::Result<PathBuf> {
             Ok(actual_interpreter_path.to_owned())
         }
         InterpreterConfig::Runfiles { rpath, repo } => {
-            let r = Runfiles::create().unwrap();
+            let r = Runfiles::create(executable).unwrap();
             if let Some(interpreter) = r.rlocation_from(rpath.as_str(), &repo) {
                 Ok(PathBuf::from(interpreter))
             } else {
@@ -222,7 +222,51 @@ fn main() -> miette::Result<()> {
     // The logical path of the interpreter
     let venv_interpreter = venv_root.join("bin/python3");
 
-    let actual_interpreter = find_actual_interpreter(&venv_config)?;
+    // If invoked as a relative path as through a symlink, normalize that first
+    let mut executable = std::env::current_exe().into_diagnostic()?;
+    let cwd = std::env::current_dir().into_diagnostic()?;
+    if !executable.is_absolute() {
+        executable = cwd.join(executable);
+    }
+
+    // Now, if we _don't_ have the `.runfiles` part in the interpreter path,
+    // then we have to go through the path parts and try resolving the _first_
+    // link which sequentially exists in the path.
+    let mut changed = true;
+    while changed
+        && !executable
+            .components()
+            .any(|it| it.as_os_str().to_str().unwrap().ends_with(".runfiles"))
+    {
+        changed = false;
+        // Ancestors is in iterated .parent order, but we want to go the other
+        // way. We want to resolve the deepest link first on the expectation
+        // that the target file itself is likely a link which escapes a runfiles
+        // tree, whereas some part of the invocation path is a symlink to the
+        // venv tree within a runfiles tree. Ancestors isn't double ended so we
+        // have to collect it first.
+        for parent in executable.ancestors().collect::<Vec<_>>().into_iter().rev() {
+            if parent.is_symlink() {
+                // Find the stable tail we want to preserve
+                let suffix = executable.strip_prefix(parent).into_diagnostic()?;
+                // Resolve the link we identified
+                let parent = parent
+                    .parent()
+                    .unwrap()
+                    .join(parent.read_link().into_diagnostic()?);
+                // And join the tail to the resolved head
+                executable = parent.join(suffix);
+
+                changed = true;
+                break;
+            }
+        }
+        if changed {
+            break;
+        }
+    }
+
+    let actual_interpreter = find_actual_interpreter(executable, &venv_config)?;
 
     #[cfg(feature = "debug")]
     eprintln!(
