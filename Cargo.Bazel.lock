@@ -1,5 +1,5 @@
 {
-  "checksum": "f1be4baa5924515e3e3bfe91c4afbfa084b2751aec2f7560df597efbcdc4dc3b",
+  "checksum": "c6702817f7343cbaf7065db00a7e1f82a0887efa615b84fc3cc5cf60af1d649b",
   "crates": {
     "addr2line 0.24.2": {
       "name": "addr2line",
@@ -1348,7 +1348,7 @@
                 "target": "addr2line"
               },
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               },
               {
@@ -2126,7 +2126,7 @@
               "target": "bzip2_sys"
             },
             {
-              "id": "libc 0.2.161",
+              "id": "libc 0.2.176",
               "target": "libc"
             }
           ],
@@ -2190,7 +2190,7 @@
               "target": "build_script_build"
             },
             {
-              "id": "libc 0.2.161",
+              "id": "libc 0.2.176",
               "target": "libc"
             }
           ],
@@ -2360,7 +2360,7 @@
             ],
             "cfg(unix)": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
@@ -2428,7 +2428,7 @@
               "target": "jobserver"
             },
             {
-              "id": "libc 0.2.161",
+              "id": "libc 0.2.176",
               "target": "libc"
             },
             {
@@ -2907,7 +2907,7 @@
               "target": "core_foundation_sys"
             },
             {
-              "id": "libc 0.2.161",
+              "id": "libc 0.2.176",
               "target": "libc"
             }
           ],
@@ -3004,25 +3004,25 @@
           "selects": {
             "aarch64-linux-android": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "cfg(all(target_arch = \"aarch64\", target_os = \"linux\"))": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "cfg(all(target_arch = \"aarch64\", target_vendor = \"apple\"))": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "cfg(all(target_arch = \"loongarch64\", target_os = \"linux\"))": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ]
@@ -3722,7 +3722,7 @@
             ],
             "cfg(unix)": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
@@ -3973,6 +3973,45 @@
       ],
       "license_file": "LICENSE-APACHE"
     },
+    "env_home 0.1.0": {
+      "name": "env_home",
+      "version": "0.1.0",
+      "package_url": "https://github.com/notpeter/env-home",
+      "repository": {
+        "Http": {
+          "url": "https://static.crates.io/crates/env_home/0.1.0/download",
+          "sha256": "c7f84e12ccf0a7ddc17a6c41c93326024c42920d7ee630d04950e6926645c0fe"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "env_home",
+            "crate_root": "src/lib.rs",
+            "srcs": {
+              "allow_empty": true,
+              "include": [
+                "**/*.rs"
+              ]
+            }
+          }
+        }
+      ],
+      "library_target_name": "env_home",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "edition": "2015",
+        "version": "0.1.0"
+      },
+      "license": "MIT OR Apache-2.0",
+      "license_ids": [
+        "Apache-2.0",
+        "MIT"
+      ],
+      "license_file": "LICENSE-APACHE"
+    },
     "equivalent 1.0.1": {
       "name": "equivalent",
       "version": "1.0.1",
@@ -4070,14 +4109,14 @@
       ],
       "license_file": "LICENSE-APACHE"
     },
-    "errno 0.3.9": {
+    "errno 0.3.14": {
       "name": "errno",
-      "version": "0.3.9",
+      "version": "0.3.14",
       "package_url": "https://github.com/lambda-fairy/rust-errno",
       "repository": {
         "Http": {
-          "url": "https://static.crates.io/crates/errno/0.3.9/download",
-          "sha256": "534c5cf6194dfab3db3242765c03bbe257cf92f22b38f6bc0c58d59108a820ba"
+          "url": "https://static.crates.io/crates/errno/0.3.14/download",
+          "sha256": "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
         }
       },
       "targets": [
@@ -4110,32 +4149,32 @@
           "selects": {
             "cfg(target_os = \"hermit\")": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "cfg(target_os = \"wasi\")": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "cfg(unix)": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "cfg(windows)": [
               {
-                "id": "windows-sys 0.52.0",
+                "id": "windows-sys 0.59.0",
                 "target": "windows_sys"
               }
             ]
           }
         },
         "edition": "2018",
-        "version": "0.3.9"
+        "version": "0.3.14"
       },
       "license": "MIT OR Apache-2.0",
       "license_ids": [
@@ -4295,7 +4334,7 @@
             ],
             "cfg(unix)": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
@@ -4601,7 +4640,7 @@
           "selects": {
             "cfg(unix)": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
@@ -5504,7 +5543,7 @@
             ],
             "cfg(unix)": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
@@ -7547,7 +7586,7 @@
           "selects": {
             "cfg(unix)": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ]
@@ -7805,7 +7844,7 @@
             ],
             "cfg(unix)": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
@@ -7899,14 +7938,14 @@
       ],
       "license_file": "LICENSE-APACHE"
     },
-    "libc 0.2.161": {
+    "libc 0.2.176": {
       "name": "libc",
-      "version": "0.2.161",
+      "version": "0.2.176",
       "package_url": "https://github.com/rust-lang/libc",
       "repository": {
         "Http": {
-          "url": "https://static.crates.io/crates/libc/0.2.161/download",
-          "sha256": "8e9489c2807c139ffd9c1794f4af0ebe86a828db53ecdc7fea2111d0fed085d1"
+          "url": "https://static.crates.io/crates/libc/0.2.176/download",
+          "sha256": "58f929b4d672ea937a23a1ab494143d968337a5f47e56d0815df1e0890ddf174"
         }
       },
       "targets": [
@@ -8023,14 +8062,14 @@
         "deps": {
           "common": [
             {
-              "id": "libc 0.2.161",
+              "id": "libc 0.2.176",
               "target": "build_script_build"
             }
           ],
           "selects": {}
         },
-        "edition": "2015",
-        "version": "0.2.161"
+        "edition": "2021",
+        "version": "0.2.176"
       },
       "build_script_attrs": {
         "compile_data_glob": [
@@ -8083,7 +8122,7 @@
               "target": "bitflags"
             },
             {
-              "id": "libc 0.2.161",
+              "id": "libc 0.2.176",
               "target": "libc"
             },
             {
@@ -8183,6 +8222,89 @@
         },
         "edition": "2021",
         "version": "0.4.14"
+      },
+      "license": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+      "license_ids": [
+        "Apache-2.0",
+        "MIT"
+      ],
+      "license_file": "LICENSE-APACHE"
+    },
+    "linux-raw-sys 0.11.0": {
+      "name": "linux-raw-sys",
+      "version": "0.11.0",
+      "package_url": "https://github.com/sunfishcode/linux-raw-sys",
+      "repository": {
+        "Http": {
+          "url": "https://static.crates.io/crates/linux-raw-sys/0.11.0/download",
+          "sha256": "df1d3c3b53da64cf5760482273a98e575c651a67eec7f77df96b5b642de8f039"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "linux_raw_sys",
+            "crate_root": "src/lib.rs",
+            "srcs": {
+              "allow_empty": true,
+              "include": [
+                "**/*.rs"
+              ]
+            }
+          }
+        }
+      ],
+      "library_target_name": "linux_raw_sys",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": {
+          "common": [
+            "general",
+            "ioctl",
+            "no_std"
+          ],
+          "selects": {
+            "aarch64-unknown-linux-gnu": [
+              "auxvec",
+              "elf",
+              "errno"
+            ],
+            "aarch64-unknown-nixos-gnu": [
+              "auxvec",
+              "elf",
+              "errno"
+            ],
+            "arm-unknown-linux-gnueabi": [
+              "auxvec",
+              "elf",
+              "errno"
+            ],
+            "armv7-unknown-linux-gnueabi": [
+              "auxvec",
+              "elf",
+              "errno"
+            ],
+            "i686-unknown-linux-gnu": [
+              "auxvec",
+              "elf",
+              "errno"
+            ],
+            "x86_64-unknown-linux-gnu": [
+              "auxvec",
+              "elf",
+              "errno"
+            ],
+            "x86_64-unknown-nixos-gnu": [
+              "auxvec",
+              "elf",
+              "errno"
+            ]
+          }
+        },
+        "edition": "2021",
+        "version": "0.11.0"
       },
       "license": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
       "license_ids": [
@@ -8362,7 +8484,7 @@
         "deps": {
           "common": [
             {
-              "id": "libc 0.2.161",
+              "id": "libc 0.2.176",
               "target": "libc"
             },
             {
@@ -8599,7 +8721,7 @@
           "selects": {
             "cfg(unix)": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ]
@@ -9012,7 +9134,7 @@
             ],
             "cfg(target_os = \"wasi\")": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               },
               {
@@ -9022,7 +9144,7 @@
             ],
             "cfg(unix)": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
@@ -9747,7 +9869,7 @@
             ],
             "cfg(unix)": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
@@ -9842,7 +9964,7 @@
             ],
             "cfg(unix)": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
@@ -10358,7 +10480,7 @@
           "selects": {
             "cfg(not(target_os = \"windows\"))": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
@@ -11104,7 +11226,7 @@
         "deps": {
           "common": [
             {
-              "id": "libc 0.2.161",
+              "id": "libc 0.2.176",
               "target": "libc"
             },
             {
@@ -11344,145 +11466,145 @@
           "selects": {
             "aarch64-apple-darwin": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "aarch64-apple-ios": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "aarch64-apple-ios-sim": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "aarch64-fuchsia": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "aarch64-linux-android": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "aarch64-unknown-linux-gnu": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "aarch64-unknown-nixos-gnu": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "aarch64-unknown-nto-qnx710": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "arm-unknown-linux-gnueabi": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "armv7-linux-androideabi": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "armv7-unknown-linux-gnueabi": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "i686-apple-darwin": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "i686-linux-android": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "i686-unknown-freebsd": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "i686-unknown-linux-gnu": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "powerpc-unknown-linux-gnu": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "s390x-unknown-linux-gnu": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "x86_64-apple-darwin": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "x86_64-apple-ios": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "x86_64-fuchsia": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "x86_64-linux-android": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "x86_64-unknown-freebsd": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "x86_64-unknown-linux-gnu": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "x86_64-unknown-nixos-gnu": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ]
@@ -14429,7 +14551,7 @@
           "selects": {
             "cfg(all(any(target_os = \"android\", target_os = \"linux\"), any(target_arch = \"aarch64\", target_arch = \"arm\")))": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
@@ -15047,78 +15169,78 @@
           "selects": {
             "aarch64-apple-darwin": [
               {
-                "id": "errno 0.3.9",
+                "id": "errno 0.3.14",
                 "target": "errno",
                 "alias": "libc_errno"
               },
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "aarch64-apple-ios": [
               {
-                "id": "errno 0.3.9",
+                "id": "errno 0.3.14",
                 "target": "errno",
                 "alias": "libc_errno"
               },
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "aarch64-apple-ios-sim": [
               {
-                "id": "errno 0.3.9",
+                "id": "errno 0.3.14",
                 "target": "errno",
                 "alias": "libc_errno"
               },
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "aarch64-fuchsia": [
               {
-                "id": "errno 0.3.9",
+                "id": "errno 0.3.14",
                 "target": "errno",
                 "alias": "libc_errno"
               },
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "aarch64-linux-android": [
               {
-                "id": "errno 0.3.9",
+                "id": "errno 0.3.14",
                 "target": "errno",
                 "alias": "libc_errno"
               },
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "aarch64-unknown-nto-qnx710": [
               {
-                "id": "errno 0.3.9",
+                "id": "errno 0.3.14",
                 "target": "errno",
                 "alias": "libc_errno"
               },
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "armv7-linux-androideabi": [
               {
-                "id": "errno 0.3.9",
+                "id": "errno 0.3.14",
                 "target": "errno",
                 "alias": "libc_errno"
               },
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
@@ -15136,18 +15258,18 @@
             ],
             "cfg(all(not(windows), any(rustix_use_libc, miri, not(all(target_os = \"linux\", target_endian = \"little\", any(target_arch = \"arm\", all(target_arch = \"aarch64\", target_pointer_width = \"64\"), target_arch = \"riscv64\", all(rustix_use_experimental_asm, target_arch = \"powerpc64\"), all(rustix_use_experimental_asm, target_arch = \"mips\"), all(rustix_use_experimental_asm, target_arch = \"mips32r6\"), all(rustix_use_experimental_asm, target_arch = \"mips64\"), all(rustix_use_experimental_asm, target_arch = \"mips64r6\"), target_arch = \"x86\", all(target_arch = \"x86_64\", target_pointer_width = \"64\")))))))": [
               {
-                "id": "errno 0.3.9",
+                "id": "errno 0.3.14",
                 "target": "errno",
                 "alias": "libc_errno"
               },
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "cfg(windows)": [
               {
-                "id": "errno 0.3.9",
+                "id": "errno 0.3.14",
                 "target": "errno",
                 "alias": "libc_errno"
               },
@@ -15158,188 +15280,188 @@
             ],
             "i686-apple-darwin": [
               {
-                "id": "errno 0.3.9",
+                "id": "errno 0.3.14",
                 "target": "errno",
                 "alias": "libc_errno"
               },
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "i686-linux-android": [
               {
-                "id": "errno 0.3.9",
+                "id": "errno 0.3.14",
                 "target": "errno",
                 "alias": "libc_errno"
               },
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "i686-unknown-freebsd": [
               {
-                "id": "errno 0.3.9",
+                "id": "errno 0.3.14",
                 "target": "errno",
                 "alias": "libc_errno"
               },
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "powerpc-unknown-linux-gnu": [
               {
-                "id": "errno 0.3.9",
+                "id": "errno 0.3.14",
                 "target": "errno",
                 "alias": "libc_errno"
               },
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "riscv32imc-unknown-none-elf": [
               {
-                "id": "errno 0.3.9",
+                "id": "errno 0.3.14",
                 "target": "errno",
                 "alias": "libc_errno"
               },
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "riscv64gc-unknown-none-elf": [
               {
-                "id": "errno 0.3.9",
+                "id": "errno 0.3.14",
                 "target": "errno",
                 "alias": "libc_errno"
               },
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "s390x-unknown-linux-gnu": [
               {
-                "id": "errno 0.3.9",
+                "id": "errno 0.3.14",
                 "target": "errno",
                 "alias": "libc_errno"
               },
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "thumbv7em-none-eabi": [
               {
-                "id": "errno 0.3.9",
+                "id": "errno 0.3.14",
                 "target": "errno",
                 "alias": "libc_errno"
               },
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "thumbv8m.main-none-eabi": [
               {
-                "id": "errno 0.3.9",
+                "id": "errno 0.3.14",
                 "target": "errno",
                 "alias": "libc_errno"
               },
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "wasm32-unknown-unknown": [
               {
-                "id": "errno 0.3.9",
+                "id": "errno 0.3.14",
                 "target": "errno",
                 "alias": "libc_errno"
               },
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "wasm32-wasi": [
               {
-                "id": "errno 0.3.9",
+                "id": "errno 0.3.14",
                 "target": "errno",
                 "alias": "libc_errno"
               },
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "x86_64-apple-darwin": [
               {
-                "id": "errno 0.3.9",
+                "id": "errno 0.3.14",
                 "target": "errno",
                 "alias": "libc_errno"
               },
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "x86_64-apple-ios": [
               {
-                "id": "errno 0.3.9",
+                "id": "errno 0.3.14",
                 "target": "errno",
                 "alias": "libc_errno"
               },
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "x86_64-fuchsia": [
               {
-                "id": "errno 0.3.9",
+                "id": "errno 0.3.14",
                 "target": "errno",
                 "alias": "libc_errno"
               },
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "x86_64-linux-android": [
               {
-                "id": "errno 0.3.9",
+                "id": "errno 0.3.14",
                 "target": "errno",
                 "alias": "libc_errno"
               },
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "x86_64-unknown-freebsd": [
               {
-                "id": "errno 0.3.9",
+                "id": "errno 0.3.14",
                 "target": "errno",
                 "alias": "libc_errno"
               },
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
             "x86_64-unknown-none": [
               {
-                "id": "errno 0.3.9",
+                "id": "errno 0.3.14",
                 "target": "errno",
                 "alias": "libc_errno"
               },
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ]
@@ -15347,6 +15469,319 @@
         },
         "edition": "2021",
         "version": "0.38.37"
+      },
+      "build_script_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "data_glob": [
+          "**"
+        ]
+      },
+      "license": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+      "license_ids": [
+        "Apache-2.0",
+        "MIT"
+      ],
+      "license_file": "LICENSE-APACHE"
+    },
+    "rustix 1.1.2": {
+      "name": "rustix",
+      "version": "1.1.2",
+      "package_url": "https://github.com/bytecodealliance/rustix",
+      "repository": {
+        "Http": {
+          "url": "https://static.crates.io/crates/rustix/1.1.2/download",
+          "sha256": "cd15f8a2c5551a84d56efdc1cd049089e409ac19a3072d5037a17fd70719ff3e"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "rustix",
+            "crate_root": "src/lib.rs",
+            "srcs": {
+              "allow_empty": true,
+              "include": [
+                "**/*.rs"
+              ]
+            }
+          }
+        },
+        {
+          "BuildScript": {
+            "crate_name": "build_script_build",
+            "crate_root": "build.rs",
+            "srcs": {
+              "allow_empty": true,
+              "include": [
+                "**/*.rs"
+              ]
+            }
+          }
+        }
+      ],
+      "library_target_name": "rustix",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": {
+          "common": [
+            "alloc",
+            "fs",
+            "std"
+          ],
+          "selects": {}
+        },
+        "deps": {
+          "common": [
+            {
+              "id": "bitflags 2.6.0",
+              "target": "bitflags"
+            },
+            {
+              "id": "rustix 1.1.2",
+              "target": "build_script_build"
+            }
+          ],
+          "selects": {
+            "aarch64-apple-darwin": [
+              {
+                "id": "errno 0.3.14",
+                "target": "errno",
+                "alias": "libc_errno"
+              },
+              {
+                "id": "libc 0.2.176",
+                "target": "libc"
+              }
+            ],
+            "aarch64-apple-ios": [
+              {
+                "id": "errno 0.3.14",
+                "target": "errno",
+                "alias": "libc_errno"
+              },
+              {
+                "id": "libc 0.2.176",
+                "target": "libc"
+              }
+            ],
+            "aarch64-apple-ios-sim": [
+              {
+                "id": "errno 0.3.14",
+                "target": "errno",
+                "alias": "libc_errno"
+              },
+              {
+                "id": "libc 0.2.176",
+                "target": "libc"
+              }
+            ],
+            "aarch64-fuchsia": [
+              {
+                "id": "errno 0.3.14",
+                "target": "errno",
+                "alias": "libc_errno"
+              },
+              {
+                "id": "libc 0.2.176",
+                "target": "libc"
+              }
+            ],
+            "aarch64-linux-android": [
+              {
+                "id": "errno 0.3.14",
+                "target": "errno",
+                "alias": "libc_errno"
+              },
+              {
+                "id": "libc 0.2.176",
+                "target": "libc"
+              }
+            ],
+            "aarch64-unknown-nto-qnx710": [
+              {
+                "id": "errno 0.3.14",
+                "target": "errno",
+                "alias": "libc_errno"
+              },
+              {
+                "id": "libc 0.2.176",
+                "target": "libc"
+              }
+            ],
+            "armv7-linux-androideabi": [
+              {
+                "id": "errno 0.3.14",
+                "target": "errno",
+                "alias": "libc_errno"
+              },
+              {
+                "id": "libc 0.2.176",
+                "target": "libc"
+              }
+            ],
+            "cfg(all(any(target_os = \"linux\"), any(rustix_use_libc, miri, not(all(target_os = \"linux\", any(target_endian = \"little\", any(target_arch = \"s390x\", target_arch = \"powerpc\")), any(target_arch = \"arm\", all(target_arch = \"aarch64\", target_pointer_width = \"64\"), target_arch = \"riscv64\", all(rustix_use_experimental_asm, target_arch = \"powerpc\"), all(rustix_use_experimental_asm, target_arch = \"powerpc64\"), all(rustix_use_experimental_asm, target_arch = \"s390x\"), all(rustix_use_experimental_asm, target_arch = \"mips\"), all(rustix_use_experimental_asm, target_arch = \"mips32r6\"), all(rustix_use_experimental_asm, target_arch = \"mips64\"), all(rustix_use_experimental_asm, target_arch = \"mips64r6\"), target_arch = \"x86\", all(target_arch = \"x86_64\", target_pointer_width = \"64\")))))))": [
+              {
+                "id": "linux-raw-sys 0.11.0",
+                "target": "linux_raw_sys"
+              }
+            ],
+            "cfg(all(not(rustix_use_libc), not(miri), target_os = \"linux\", any(target_endian = \"little\", any(target_arch = \"s390x\", target_arch = \"powerpc\")), any(target_arch = \"arm\", all(target_arch = \"aarch64\", target_pointer_width = \"64\"), target_arch = \"riscv64\", all(rustix_use_experimental_asm, target_arch = \"powerpc\"), all(rustix_use_experimental_asm, target_arch = \"powerpc64\"), all(rustix_use_experimental_asm, target_arch = \"s390x\"), all(rustix_use_experimental_asm, target_arch = \"mips\"), all(rustix_use_experimental_asm, target_arch = \"mips32r6\"), all(rustix_use_experimental_asm, target_arch = \"mips64\"), all(rustix_use_experimental_asm, target_arch = \"mips64r6\"), target_arch = \"x86\", all(target_arch = \"x86_64\", target_pointer_width = \"64\"))))": [
+              {
+                "id": "linux-raw-sys 0.11.0",
+                "target": "linux_raw_sys"
+              }
+            ],
+            "cfg(all(not(windows), any(rustix_use_libc, miri, not(all(target_os = \"linux\", any(target_endian = \"little\", any(target_arch = \"s390x\", target_arch = \"powerpc\")), any(target_arch = \"arm\", all(target_arch = \"aarch64\", target_pointer_width = \"64\"), target_arch = \"riscv64\", all(rustix_use_experimental_asm, target_arch = \"powerpc\"), all(rustix_use_experimental_asm, target_arch = \"powerpc64\"), all(rustix_use_experimental_asm, target_arch = \"s390x\"), all(rustix_use_experimental_asm, target_arch = \"mips\"), all(rustix_use_experimental_asm, target_arch = \"mips32r6\"), all(rustix_use_experimental_asm, target_arch = \"mips64\"), all(rustix_use_experimental_asm, target_arch = \"mips64r6\"), target_arch = \"x86\", all(target_arch = \"x86_64\", target_pointer_width = \"64\")))))))": [
+              {
+                "id": "errno 0.3.14",
+                "target": "errno",
+                "alias": "libc_errno"
+              },
+              {
+                "id": "libc 0.2.176",
+                "target": "libc"
+              }
+            ],
+            "cfg(windows)": [
+              {
+                "id": "errno 0.3.14",
+                "target": "errno",
+                "alias": "libc_errno"
+              },
+              {
+                "id": "windows-sys 0.59.0",
+                "target": "windows_sys"
+              }
+            ],
+            "i686-apple-darwin": [
+              {
+                "id": "errno 0.3.14",
+                "target": "errno",
+                "alias": "libc_errno"
+              },
+              {
+                "id": "libc 0.2.176",
+                "target": "libc"
+              }
+            ],
+            "i686-linux-android": [
+              {
+                "id": "errno 0.3.14",
+                "target": "errno",
+                "alias": "libc_errno"
+              },
+              {
+                "id": "libc 0.2.176",
+                "target": "libc"
+              }
+            ],
+            "i686-unknown-freebsd": [
+              {
+                "id": "errno 0.3.14",
+                "target": "errno",
+                "alias": "libc_errno"
+              },
+              {
+                "id": "libc 0.2.176",
+                "target": "libc"
+              }
+            ],
+            "powerpc-unknown-linux-gnu": [
+              {
+                "id": "errno 0.3.14",
+                "target": "errno",
+                "alias": "libc_errno"
+              },
+              {
+                "id": "libc 0.2.176",
+                "target": "libc"
+              }
+            ],
+            "s390x-unknown-linux-gnu": [
+              {
+                "id": "errno 0.3.14",
+                "target": "errno",
+                "alias": "libc_errno"
+              },
+              {
+                "id": "libc 0.2.176",
+                "target": "libc"
+              }
+            ],
+            "wasm32-wasi": [
+              {
+                "id": "errno 0.3.14",
+                "target": "errno",
+                "alias": "libc_errno"
+              },
+              {
+                "id": "libc 0.2.176",
+                "target": "libc"
+              }
+            ],
+            "x86_64-apple-darwin": [
+              {
+                "id": "errno 0.3.14",
+                "target": "errno",
+                "alias": "libc_errno"
+              },
+              {
+                "id": "libc 0.2.176",
+                "target": "libc"
+              }
+            ],
+            "x86_64-apple-ios": [
+              {
+                "id": "errno 0.3.14",
+                "target": "errno",
+                "alias": "libc_errno"
+              },
+              {
+                "id": "libc 0.2.176",
+                "target": "libc"
+              }
+            ],
+            "x86_64-fuchsia": [
+              {
+                "id": "errno 0.3.14",
+                "target": "errno",
+                "alias": "libc_errno"
+              },
+              {
+                "id": "libc 0.2.176",
+                "target": "libc"
+              }
+            ],
+            "x86_64-linux-android": [
+              {
+                "id": "errno 0.3.14",
+                "target": "errno",
+                "alias": "libc_errno"
+              },
+              {
+                "id": "libc 0.2.176",
+                "target": "libc"
+              }
+            ],
+            "x86_64-unknown-freebsd": [
+              {
+                "id": "errno 0.3.14",
+                "target": "errno",
+                "alias": "libc_errno"
+              },
+              {
+                "id": "libc 0.2.176",
+                "target": "libc"
+              }
+            ]
+          }
+        },
+        "edition": "2021",
+        "version": "1.1.2"
       },
       "build_script_attrs": {
         "compile_data_glob": [
@@ -16257,7 +16692,7 @@
               "target": "core_foundation_sys"
             },
             {
-              "id": "libc 0.2.161",
+              "id": "libc 0.2.176",
               "target": "libc"
             },
             {
@@ -16322,7 +16757,7 @@
               "target": "core_foundation_sys"
             },
             {
-              "id": "libc 0.2.161",
+              "id": "libc 0.2.176",
               "target": "libc"
             }
           ],
@@ -17065,7 +17500,7 @@
         "deps": {
           "common": [
             {
-              "id": "libc 0.2.161",
+              "id": "libc 0.2.176",
               "target": "libc"
             }
           ],
@@ -17453,7 +17888,7 @@
           "selects": {
             "cfg(unix)": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
@@ -17887,7 +18322,7 @@
         "deps": {
           "common": [
             {
-              "id": "libc 0.2.161",
+              "id": "libc 0.2.176",
               "target": "libc"
             },
             {
@@ -18654,7 +19089,7 @@
           "selects": {
             "aarch64-apple-darwin": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               },
               {
@@ -18668,7 +19103,7 @@
             ],
             "aarch64-apple-ios": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               },
               {
@@ -18682,7 +19117,7 @@
             ],
             "aarch64-apple-ios-sim": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               },
               {
@@ -18696,7 +19131,7 @@
             ],
             "aarch64-fuchsia": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               },
               {
@@ -18710,7 +19145,7 @@
             ],
             "aarch64-linux-android": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               },
               {
@@ -18734,7 +19169,7 @@
             ],
             "aarch64-unknown-linux-gnu": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               },
               {
@@ -18748,7 +19183,7 @@
             ],
             "aarch64-unknown-nixos-gnu": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               },
               {
@@ -18762,7 +19197,7 @@
             ],
             "aarch64-unknown-nto-qnx710": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               },
               {
@@ -18776,7 +19211,7 @@
             ],
             "arm-unknown-linux-gnueabi": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               },
               {
@@ -18790,7 +19225,7 @@
             ],
             "armv7-linux-androideabi": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               },
               {
@@ -18804,7 +19239,7 @@
             ],
             "armv7-unknown-linux-gnueabi": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               },
               {
@@ -18824,7 +19259,7 @@
             ],
             "i686-apple-darwin": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               },
               {
@@ -18838,7 +19273,7 @@
             ],
             "i686-linux-android": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               },
               {
@@ -18862,7 +19297,7 @@
             ],
             "i686-unknown-freebsd": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               },
               {
@@ -18876,7 +19311,7 @@
             ],
             "i686-unknown-linux-gnu": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               },
               {
@@ -18890,7 +19325,7 @@
             ],
             "powerpc-unknown-linux-gnu": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               },
               {
@@ -18916,7 +19351,7 @@
             ],
             "s390x-unknown-linux-gnu": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               },
               {
@@ -18942,7 +19377,7 @@
             ],
             "x86_64-apple-darwin": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               },
               {
@@ -18956,7 +19391,7 @@
             ],
             "x86_64-apple-ios": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               },
               {
@@ -18970,7 +19405,7 @@
             ],
             "x86_64-fuchsia": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               },
               {
@@ -18984,7 +19419,7 @@
             ],
             "x86_64-linux-android": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               },
               {
@@ -19008,7 +19443,7 @@
             ],
             "x86_64-unknown-freebsd": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               },
               {
@@ -19022,7 +19457,7 @@
             ],
             "x86_64-unknown-linux-gnu": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               },
               {
@@ -19036,7 +19471,7 @@
             ],
             "x86_64-unknown-nixos-gnu": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               },
               {
@@ -23316,6 +23751,10 @@
             {
               "id": "miette 7.2.0",
               "target": "miette"
+            },
+            {
+              "id": "which 8.0.0",
+              "target": "which"
             }
           ],
           "selects": {}
@@ -24299,6 +24738,332 @@
         },
         "edition": "2021",
         "version": "6.0.3"
+      },
+      "license": "MIT",
+      "license_ids": [
+        "MIT"
+      ],
+      "license_file": "LICENSE.txt"
+    },
+    "which 8.0.0": {
+      "name": "which",
+      "version": "8.0.0",
+      "package_url": "https://github.com/harryfei/which-rs.git",
+      "repository": {
+        "Http": {
+          "url": "https://static.crates.io/crates/which/8.0.0/download",
+          "sha256": "d3fabb953106c3c8eea8306e4393700d7657561cb43122571b172bbfb7c7ba1d"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "which",
+            "crate_root": "src/lib.rs",
+            "srcs": {
+              "allow_empty": true,
+              "include": [
+                "**/*.rs"
+              ]
+            }
+          }
+        }
+      ],
+      "library_target_name": "which",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": {
+          "common": [
+            "default",
+            "real-sys"
+          ],
+          "selects": {}
+        },
+        "deps": {
+          "common": [],
+          "selects": {
+            "aarch64-apple-darwin": [
+              {
+                "id": "env_home 0.1.0",
+                "target": "env_home"
+              },
+              {
+                "id": "rustix 1.1.2",
+                "target": "rustix"
+              }
+            ],
+            "aarch64-apple-ios": [
+              {
+                "id": "env_home 0.1.0",
+                "target": "env_home"
+              },
+              {
+                "id": "rustix 1.1.2",
+                "target": "rustix"
+              }
+            ],
+            "aarch64-apple-ios-sim": [
+              {
+                "id": "env_home 0.1.0",
+                "target": "env_home"
+              },
+              {
+                "id": "rustix 1.1.2",
+                "target": "rustix"
+              }
+            ],
+            "aarch64-fuchsia": [
+              {
+                "id": "env_home 0.1.0",
+                "target": "env_home"
+              },
+              {
+                "id": "rustix 1.1.2",
+                "target": "rustix"
+              }
+            ],
+            "aarch64-linux-android": [
+              {
+                "id": "env_home 0.1.0",
+                "target": "env_home"
+              },
+              {
+                "id": "rustix 1.1.2",
+                "target": "rustix"
+              }
+            ],
+            "aarch64-pc-windows-msvc": [
+              {
+                "id": "env_home 0.1.0",
+                "target": "env_home"
+              },
+              {
+                "id": "winsafe 0.0.19",
+                "target": "winsafe"
+              }
+            ],
+            "aarch64-unknown-linux-gnu": [
+              {
+                "id": "env_home 0.1.0",
+                "target": "env_home"
+              },
+              {
+                "id": "rustix 1.1.2",
+                "target": "rustix"
+              }
+            ],
+            "aarch64-unknown-nixos-gnu": [
+              {
+                "id": "env_home 0.1.0",
+                "target": "env_home"
+              },
+              {
+                "id": "rustix 1.1.2",
+                "target": "rustix"
+              }
+            ],
+            "aarch64-unknown-nto-qnx710": [
+              {
+                "id": "env_home 0.1.0",
+                "target": "env_home"
+              },
+              {
+                "id": "rustix 1.1.2",
+                "target": "rustix"
+              }
+            ],
+            "arm-unknown-linux-gnueabi": [
+              {
+                "id": "env_home 0.1.0",
+                "target": "env_home"
+              },
+              {
+                "id": "rustix 1.1.2",
+                "target": "rustix"
+              }
+            ],
+            "armv7-linux-androideabi": [
+              {
+                "id": "env_home 0.1.0",
+                "target": "env_home"
+              },
+              {
+                "id": "rustix 1.1.2",
+                "target": "rustix"
+              }
+            ],
+            "armv7-unknown-linux-gnueabi": [
+              {
+                "id": "env_home 0.1.0",
+                "target": "env_home"
+              },
+              {
+                "id": "rustix 1.1.2",
+                "target": "rustix"
+              }
+            ],
+            "i686-apple-darwin": [
+              {
+                "id": "env_home 0.1.0",
+                "target": "env_home"
+              },
+              {
+                "id": "rustix 1.1.2",
+                "target": "rustix"
+              }
+            ],
+            "i686-linux-android": [
+              {
+                "id": "env_home 0.1.0",
+                "target": "env_home"
+              },
+              {
+                "id": "rustix 1.1.2",
+                "target": "rustix"
+              }
+            ],
+            "i686-pc-windows-msvc": [
+              {
+                "id": "env_home 0.1.0",
+                "target": "env_home"
+              },
+              {
+                "id": "winsafe 0.0.19",
+                "target": "winsafe"
+              }
+            ],
+            "i686-unknown-freebsd": [
+              {
+                "id": "env_home 0.1.0",
+                "target": "env_home"
+              },
+              {
+                "id": "rustix 1.1.2",
+                "target": "rustix"
+              }
+            ],
+            "i686-unknown-linux-gnu": [
+              {
+                "id": "env_home 0.1.0",
+                "target": "env_home"
+              },
+              {
+                "id": "rustix 1.1.2",
+                "target": "rustix"
+              }
+            ],
+            "powerpc-unknown-linux-gnu": [
+              {
+                "id": "env_home 0.1.0",
+                "target": "env_home"
+              },
+              {
+                "id": "rustix 1.1.2",
+                "target": "rustix"
+              }
+            ],
+            "s390x-unknown-linux-gnu": [
+              {
+                "id": "env_home 0.1.0",
+                "target": "env_home"
+              },
+              {
+                "id": "rustix 1.1.2",
+                "target": "rustix"
+              }
+            ],
+            "wasm32-wasi": [
+              {
+                "id": "rustix 1.1.2",
+                "target": "rustix"
+              }
+            ],
+            "x86_64-apple-darwin": [
+              {
+                "id": "env_home 0.1.0",
+                "target": "env_home"
+              },
+              {
+                "id": "rustix 1.1.2",
+                "target": "rustix"
+              }
+            ],
+            "x86_64-apple-ios": [
+              {
+                "id": "env_home 0.1.0",
+                "target": "env_home"
+              },
+              {
+                "id": "rustix 1.1.2",
+                "target": "rustix"
+              }
+            ],
+            "x86_64-fuchsia": [
+              {
+                "id": "env_home 0.1.0",
+                "target": "env_home"
+              },
+              {
+                "id": "rustix 1.1.2",
+                "target": "rustix"
+              }
+            ],
+            "x86_64-linux-android": [
+              {
+                "id": "env_home 0.1.0",
+                "target": "env_home"
+              },
+              {
+                "id": "rustix 1.1.2",
+                "target": "rustix"
+              }
+            ],
+            "x86_64-pc-windows-msvc": [
+              {
+                "id": "env_home 0.1.0",
+                "target": "env_home"
+              },
+              {
+                "id": "winsafe 0.0.19",
+                "target": "winsafe"
+              }
+            ],
+            "x86_64-unknown-freebsd": [
+              {
+                "id": "env_home 0.1.0",
+                "target": "env_home"
+              },
+              {
+                "id": "rustix 1.1.2",
+                "target": "rustix"
+              }
+            ],
+            "x86_64-unknown-linux-gnu": [
+              {
+                "id": "env_home 0.1.0",
+                "target": "env_home"
+              },
+              {
+                "id": "rustix 1.1.2",
+                "target": "rustix"
+              }
+            ],
+            "x86_64-unknown-nixos-gnu": [
+              {
+                "id": "env_home 0.1.0",
+                "target": "env_home"
+              },
+              {
+                "id": "rustix 1.1.2",
+                "target": "rustix"
+              }
+            ]
+          }
+        },
+        "edition": "2021",
+        "version": "8.0.0"
       },
       "license": "MIT",
       "license_ids": [
@@ -26609,7 +27374,7 @@
           "selects": {
             "cfg(any(target_os = \"freebsd\", target_os = \"netbsd\"))": [
               {
-                "id": "libc 0.2.161",
+                "id": "libc 0.2.176",
                 "target": "libc"
               }
             ],
@@ -27208,6 +27973,19 @@
       "armv7-linux-androideabi",
       "armv7-unknown-linux-gnueabi"
     ],
+    "cfg(all(any(target_os = \"linux\"), any(rustix_use_libc, miri, not(all(target_os = \"linux\", any(target_endian = \"little\", any(target_arch = \"s390x\", target_arch = \"powerpc\")), any(target_arch = \"arm\", all(target_arch = \"aarch64\", target_pointer_width = \"64\"), target_arch = \"riscv64\", all(rustix_use_experimental_asm, target_arch = \"powerpc\"), all(rustix_use_experimental_asm, target_arch = \"powerpc64\"), all(rustix_use_experimental_asm, target_arch = \"s390x\"), all(rustix_use_experimental_asm, target_arch = \"mips\"), all(rustix_use_experimental_asm, target_arch = \"mips32r6\"), all(rustix_use_experimental_asm, target_arch = \"mips64\"), all(rustix_use_experimental_asm, target_arch = \"mips64r6\"), target_arch = \"x86\", all(target_arch = \"x86_64\", target_pointer_width = \"64\")))))))": [
+      "powerpc-unknown-linux-gnu",
+      "s390x-unknown-linux-gnu"
+    ],
+    "cfg(all(not(rustix_use_libc), not(miri), target_os = \"linux\", any(target_endian = \"little\", any(target_arch = \"s390x\", target_arch = \"powerpc\")), any(target_arch = \"arm\", all(target_arch = \"aarch64\", target_pointer_width = \"64\"), target_arch = \"riscv64\", all(rustix_use_experimental_asm, target_arch = \"powerpc\"), all(rustix_use_experimental_asm, target_arch = \"powerpc64\"), all(rustix_use_experimental_asm, target_arch = \"s390x\"), all(rustix_use_experimental_asm, target_arch = \"mips\"), all(rustix_use_experimental_asm, target_arch = \"mips32r6\"), all(rustix_use_experimental_asm, target_arch = \"mips64\"), all(rustix_use_experimental_asm, target_arch = \"mips64r6\"), target_arch = \"x86\", all(target_arch = \"x86_64\", target_pointer_width = \"64\"))))": [
+      "aarch64-unknown-linux-gnu",
+      "aarch64-unknown-nixos-gnu",
+      "arm-unknown-linux-gnueabi",
+      "armv7-unknown-linux-gnueabi",
+      "i686-unknown-linux-gnu",
+      "x86_64-unknown-linux-gnu",
+      "x86_64-unknown-nixos-gnu"
+    ],
     "cfg(all(not(rustix_use_libc), not(miri), target_os = \"linux\", target_endian = \"little\", any(target_arch = \"arm\", all(target_arch = \"aarch64\", target_pointer_width = \"64\"), target_arch = \"riscv64\", all(rustix_use_experimental_asm, target_arch = \"powerpc64\"), all(rustix_use_experimental_asm, target_arch = \"mips\"), all(rustix_use_experimental_asm, target_arch = \"mips32r6\"), all(rustix_use_experimental_asm, target_arch = \"mips64\"), all(rustix_use_experimental_asm, target_arch = \"mips64r6\"), target_arch = \"x86\", all(target_arch = \"x86_64\", target_pointer_width = \"64\"))))": [
       "aarch64-unknown-linux-gnu",
       "aarch64-unknown-nixos-gnu",
@@ -27216,6 +27994,32 @@
       "i686-unknown-linux-gnu",
       "x86_64-unknown-linux-gnu",
       "x86_64-unknown-nixos-gnu"
+    ],
+    "cfg(all(not(windows), any(rustix_use_libc, miri, not(all(target_os = \"linux\", any(target_endian = \"little\", any(target_arch = \"s390x\", target_arch = \"powerpc\")), any(target_arch = \"arm\", all(target_arch = \"aarch64\", target_pointer_width = \"64\"), target_arch = \"riscv64\", all(rustix_use_experimental_asm, target_arch = \"powerpc\"), all(rustix_use_experimental_asm, target_arch = \"powerpc64\"), all(rustix_use_experimental_asm, target_arch = \"s390x\"), all(rustix_use_experimental_asm, target_arch = \"mips\"), all(rustix_use_experimental_asm, target_arch = \"mips32r6\"), all(rustix_use_experimental_asm, target_arch = \"mips64\"), all(rustix_use_experimental_asm, target_arch = \"mips64r6\"), target_arch = \"x86\", all(target_arch = \"x86_64\", target_pointer_width = \"64\")))))))": [
+      "aarch64-apple-darwin",
+      "aarch64-apple-ios",
+      "aarch64-apple-ios-sim",
+      "aarch64-fuchsia",
+      "aarch64-linux-android",
+      "aarch64-unknown-nto-qnx710",
+      "armv7-linux-androideabi",
+      "i686-apple-darwin",
+      "i686-linux-android",
+      "i686-unknown-freebsd",
+      "powerpc-unknown-linux-gnu",
+      "riscv32imc-unknown-none-elf",
+      "riscv64gc-unknown-none-elf",
+      "s390x-unknown-linux-gnu",
+      "thumbv7em-none-eabi",
+      "thumbv8m.main-none-eabi",
+      "wasm32-unknown-unknown",
+      "wasm32-wasi",
+      "x86_64-apple-darwin",
+      "x86_64-apple-ios",
+      "x86_64-fuchsia",
+      "x86_64-linux-android",
+      "x86_64-unknown-freebsd",
+      "x86_64-unknown-none"
     ],
     "cfg(all(not(windows), any(rustix_use_libc, miri, not(all(target_os = \"linux\", target_endian = \"little\", any(target_arch = \"arm\", all(target_arch = \"aarch64\", target_pointer_width = \"64\"), target_arch = \"riscv64\", all(rustix_use_experimental_asm, target_arch = \"powerpc64\"), all(rustix_use_experimental_asm, target_arch = \"mips\"), all(rustix_use_experimental_asm, target_arch = \"mips32r6\"), all(rustix_use_experimental_asm, target_arch = \"mips64\"), all(rustix_use_experimental_asm, target_arch = \"mips64r6\"), target_arch = \"x86\", all(target_arch = \"x86_64\", target_pointer_width = \"64\")))))))": [
       "aarch64-apple-darwin",
@@ -27750,7 +28554,8 @@
     "uv-pypi-types 0.0.1",
     "uv-python 0.0.1",
     "uv-virtualenv 0.0.4",
-    "walkdir 2.5.0"
+    "walkdir 2.5.0",
+    "which 8.0.0"
   ],
   "direct_dev_deps": []
 }

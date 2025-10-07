@@ -1,5 +1,6 @@
 use miette::IntoDiagnostic;
 use runfiles::Runfiles;
+use which::which;
 // Depended on out of rules_rust
 use std::env;
 use std::ffi::OsStr;
@@ -222,11 +223,37 @@ fn main() -> miette::Result<()> {
     // The logical path of the interpreter
     let venv_interpreter = venv_root.join("bin/python3");
 
-    // If invoked as a relative path as through a symlink, normalize that first
-    let mut executable = std::env::current_exe().into_diagnostic()?;
+    // Alright this is a bit of a mess.
+    //
+    // There is a std::env::current_exe(), but it has platform dependent
+    // behavior. Some platforms realpath the invocation binary, some don't, it's
+    // a mess for our purposes when we REALLY want to avoid dereferencing links.
+    //
+    // So we have to do this manually. There are three cases:
+    // 1. `/foo/bar/python3` via absolute path
+    // 2. `./foo/bar/python3` via relative path
+    // 3. `python3` via $PATH lookup
+    //
+    // If the `exec_name` (raw `argv[0]`) is absolute, use that. Otherwise try
+    // to relativize, otherwise fall back to $PATH lookup.
+    //
+    // This lets us get a "raw" un-dereferenced path to the start of any
+    // potential symlink chain so that we can then do our symlink chain dance.
+    let mut executable = PathBuf::from(exec_name);
+    #[cfg(feature = "debug")]
+    eprintln!("interp {:?}", executable);
     let cwd = std::env::current_dir().into_diagnostic()?;
     if !executable.is_absolute() {
-        executable = cwd.join(executable);
+        let candidate = cwd.join(&executable);
+        if candidate.exists() {
+            executable = candidate;
+            #[cfg(feature = "debug")]
+            eprintln!("       {:?}", executable);
+        } else if let Ok(exe) = which(&exec_name) {
+            executable = exe;
+            #[cfg(feature = "debug")]
+            eprintln!("       {:?}", executable);
+        }
     }
 
     // Now, if we _don't_ have the `.runfiles` part in the interpreter path,
@@ -256,6 +283,8 @@ fn main() -> miette::Result<()> {
                     .join(parent.read_link().into_diagnostic()?);
                 // And join the tail to the resolved head
                 executable = parent.join(suffix);
+                #[cfg(feature = "debug")]
+                eprintln!("       {:?}", executable);
 
                 changed = true;
                 break;
@@ -266,6 +295,8 @@ fn main() -> miette::Result<()> {
         }
     }
 
+    #[cfg(feature = "debug")]
+    eprintln!("final  {:?}", executable);
     let actual_interpreter = find_actual_interpreter(executable, &venv_config)?;
 
     #[cfg(feature = "debug")]
