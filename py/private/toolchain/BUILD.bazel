@@ -34,10 +34,26 @@ bzl_library(
 )
 
 bzl_library(
+    name = "repo",
+    srcs = ["repo.bzl"],
+    visibility = ["//py:__subpackages__"],
+    deps = [
+        ":tools",
+        "//tools:integrity",
+        "//tools:version",
+    ],
+)
+
+bzl_library(
     name = "tools",
     srcs = ["tools.bzl"],
     visibility = [
         "//py:__subpackages__",
+        "//tools:__subpackages__",
+    ],
+    deps = [
+        ":types",
+        "@bazel_skylib//lib:structs",
     ],
 )
 
