@@ -26,10 +26,7 @@ config_setting(
 
 bzl_library(
     name = "py_venv",
-    srcs = [
-        "defs.bzl",
-        "py_venv.bzl",
-    ],
+    srcs = ["py_venv.bzl"],
     deps = [
         "//py/private:providers",
         "//py/private:py_library",
@@ -49,4 +46,10 @@ py_venv_test(
     ],
     imports = ["."],
     main = "test_link.py",
+)
+
+bzl_library(
+    name = "defs",
+    srcs = ["defs.bzl"],
+    deps = [":py_venv"],
 )
