@@ -80,14 +80,6 @@ def _py_venv_base_impl(ctx):
         "BAZEL_TARGET_NAME": ctx.attr.name,
     }
 
-    passed_env = dict(ctx.attr.env)
-    for k, v in passed_env.items():
-        passed_env[k] = expand_variables(
-            ctx,
-            expand_locations(ctx, v, ctx.attr.data),
-            attribute_name = "env",
-        )
-
     ctx.actions.write(
         output = env_file,
         content = "\n".join(_dict_to_exports(default_env)).strip(),
@@ -247,6 +239,14 @@ def _py_venv_binary_impl(ctx):
         is_executable = True,
     )
 
+    passed_env = dict(ctx.attr.env)
+    for k, v in passed_env.items():
+        passed_env[k] = expand_variables(
+            ctx,
+            expand_locations(ctx, v, ctx.attr.data),
+            attribute_name = "env",
+        )
+
     return [
         DefaultInfo(
             files = depset([
@@ -254,6 +254,10 @@ def _py_venv_binary_impl(ctx):
             ]),
             executable = ctx.outputs.executable,
             runfiles = rfs,
+        ),
+        RunEnvironmentInfo(
+            environment = passed_env,
+            inherited_environment = getattr(ctx.attr, "env_inherit", []),
         ),
     ]
 
@@ -368,7 +372,6 @@ _binary_attrs = dict({
 })
 
 _test_attrs = dict({
-    # FIXME: Where does this come from, do we need to keep it?
     "env_inherit": attr.string_list(
         doc = "Specifies additional environment variables to inherit from the external environment when the test is executed by bazel test.",
         default = [],
