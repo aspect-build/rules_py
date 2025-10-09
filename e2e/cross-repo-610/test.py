@@ -19,14 +19,18 @@ assert "_virtualenv" in sys.modules
 # use a different layout.
 
 # The virtualenv changes the sys.prefix, which should be in our runfiles
-assert sys.prefix.endswith("/py/tests/rpy610/.test")
+assert sys.prefix.endswith("_main/.test")
 
 # That prefix should also be "the" prefix per site.PREFIXES
-assert site.PREFIXES[0].endswith("/py/tests/rpy610/.test")
+assert site.PREFIXES[0].endswith("_main/.test")
 
 # The virtualenv also changes the sys.executable (if we've done this right)
-assert sys.executable.find("/py/tests/rpy610/.test/bin/python") != -1
+assert sys.executable.find("_main/.test/bin/python") != -1
 
 # aspect-build/rules_py#610, these imports aren't quite right
 import foo
 print(foo.__file__)
+
+# Transitive through foo
+import bar
+print(bar.__file__)

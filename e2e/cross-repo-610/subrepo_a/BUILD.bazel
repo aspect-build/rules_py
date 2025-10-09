@@ -7,4 +7,7 @@ py_library(
     ],
     imports = ["."],
     visibility = ["//visibility:public"],
+    deps = [
+        "@subrepo_b//:bar",
+    ],
 )
