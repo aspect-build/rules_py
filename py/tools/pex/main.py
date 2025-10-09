@@ -9,7 +9,6 @@ os.environ["PEX_ROOT"] = TMP_PEX_ROOT
 
 import sys
 from pex.pex_builder import Check,PEXBuilder
-from pex.interpreter import PythonInterpreter
 from pex.interpreter_constraints import InterpreterConstraint
 from pex.layout import Layout
 from pex.dist_metadata import Distribution
@@ -36,13 +35,6 @@ parser.add_argument(
     help="The name of the generated .pex file: Omitting this will run PEX "
     "immediately and not save it to a file.",
 )
-
-parser.add_argument(
-    "--python",
-    dest="python",
-    required=True
-)
-
 
 parser.add_argument(
     "--python-version-constraint",
@@ -128,7 +120,10 @@ pex.pex_builder.BOOTSTRAP_ENVIRONMENT = BE[:import_idx] + "\n".join(INJECT_TEMPL
 
 
 pex_builder = PEXBuilder(
-    interpreter=PythonInterpreter.from_binary(options.python),
+    # Build the PEX artifact using the current interpreter; we know it works in cfg=exec
+    # because that's how we're already running. Interpreters inferred by other means might
+    # not work in cross-builds.
+    interpreter=None,
 )
 
 
