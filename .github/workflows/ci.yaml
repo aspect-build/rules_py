@@ -51,8 +51,9 @@ jobs:
       - name: Send automated commit
         run: |
           if ! git diff --quiet; then
+            git config --local user.name "aspect-marvin[bot]"
+            git config --local user.email "<marvin@aspect.build>"
             git commit \
-              --author="aspect-marvin[bot] <marvin@aspect.build>" \
               --all \
               --message="Format"
 
