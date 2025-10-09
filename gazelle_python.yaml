@@ -4013,23 +4013,6 @@ manifest:
     websocket.tests.test_http: websocket_client
     websocket.tests.test_url: websocket_client
     websocket.tests.test_websocket: websocket_client
-    yaml: PyYAML
-    yaml.composer: PyYAML
-    yaml.constructor: PyYAML
-    yaml.cyaml: PyYAML
-    yaml.dumper: PyYAML
-    yaml.emitter: PyYAML
-    yaml.error: PyYAML
-    yaml.events: PyYAML
-    yaml.loader: PyYAML
-    yaml.nodes: PyYAML
-    yaml.parser: PyYAML
-    yaml.reader: PyYAML
-    yaml.representer: PyYAML
-    yaml.resolver: PyYAML
-    yaml.scanner: PyYAML
-    yaml.serializer: PyYAML
-    yaml.tokens: PyYAML
   pip_repository:
     name: pypi
 integrity: ab1de420d22f3a5bf457f8e6c6487aaafe36cd6dcef24d4adfcc101966ed60b9
