@@ -317,3 +317,9 @@ oci_pull(
 load("@container_structure_test//:repositories.bzl", "container_structure_test_register_toolchain")
 
 container_structure_test_register_toolchain(name = "cst")
+
+# For tests
+local_repository(
+    name = "rpy610_test",
+    path = "./py/tests/rpy610/subrepo",
+)
