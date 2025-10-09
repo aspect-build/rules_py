@@ -47,5 +47,4 @@ uv.lockfile(
     lockfile = "//:uv-airflow.lock",
     venv_name = "airflow",
 )
-
 use_repo(uv, "pip")

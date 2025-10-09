@@ -17,7 +17,7 @@ def _python_transition_impl(settings, attr):
         acc[VENV_FLAG] = settings[VENV_FLAG]
 
     print(acc)
-        
+
     return acc
 
 python_transition = transition(

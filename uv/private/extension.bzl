@@ -61,6 +61,7 @@ def _ignored_package(package):
     Indicate whether the package manifest is something we're ignoring.
     This is a workaround for the lockfile package which represents the project itself.
     """
+
     # Remote package sources
     # - { source = { registry = "https://some.registry/..." } }
     # - { source = { url = "https://ton.hosting.biz/some.whl" } }
@@ -142,13 +143,12 @@ def _parse_locks(module_ctx, venv_specs):
             # package names here, once.
             packages = lockfile.get("package", [])
             for package in list(packages):
-
                 # Just remove ignored packages now rather than filtering them
                 # out over and over again.
                 if _ignored_package(package):
                     packages.remove(package)
                     continue
-                
+
                 package["name"] = normalize_name(package["name"])
                 if "dependencies" in package:
                     for d in package["dependencies"]:
@@ -322,7 +322,7 @@ def _venv_target(hub_name, venv, package_name):
 def _sbuild_repos(module_ctx, lock_specs):
     for hub_name, venvs in lock_specs.items():
         for venv_name, lock in venvs.items():
-            for package in lock.get("package", []):               
+            for package in lock.get("package", []):
                 if "sdist" not in package:
                     continue
 

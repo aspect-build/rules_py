@@ -1242,7 +1242,6 @@ manifest:
     django.views.generic.list: Django
     django.views.i18n: Django
     django.views.static: Django
-    exceptiongroup: exceptiongroup
     fqdn: fqdn
     ftfy: ftfy
     ftfy.bad_codecs: ftfy
@@ -2018,85 +2017,6 @@ manifest:
     numpy.core.umath: numpy
     numpy.core.umath_tests: numpy
     numpy.ctypeslib: numpy
-    numpy.distutils: numpy
-    numpy.distutils.armccompiler: numpy
-    numpy.distutils.ccompiler: numpy
-    numpy.distutils.ccompiler_opt: numpy
-    numpy.distutils.command: numpy
-    numpy.distutils.command.autodist: numpy
-    numpy.distutils.command.bdist_rpm: numpy
-    numpy.distutils.command.build: numpy
-    numpy.distutils.command.build_clib: numpy
-    numpy.distutils.command.build_ext: numpy
-    numpy.distutils.command.build_py: numpy
-    numpy.distutils.command.build_scripts: numpy
-    numpy.distutils.command.build_src: numpy
-    numpy.distutils.command.config: numpy
-    numpy.distutils.command.config_compiler: numpy
-    numpy.distutils.command.develop: numpy
-    numpy.distutils.command.egg_info: numpy
-    numpy.distutils.command.install: numpy
-    numpy.distutils.command.install_clib: numpy
-    numpy.distutils.command.install_data: numpy
-    numpy.distutils.command.install_headers: numpy
-    numpy.distutils.command.sdist: numpy
-    numpy.distutils.conv_template: numpy
-    numpy.distutils.core: numpy
-    numpy.distutils.cpuinfo: numpy
-    numpy.distutils.exec_command: numpy
-    numpy.distutils.extension: numpy
-    numpy.distutils.fcompiler: numpy
-    numpy.distutils.fcompiler.absoft: numpy
-    numpy.distutils.fcompiler.arm: numpy
-    numpy.distutils.fcompiler.compaq: numpy
-    numpy.distutils.fcompiler.environment: numpy
-    numpy.distutils.fcompiler.fujitsu: numpy
-    numpy.distutils.fcompiler.g95: numpy
-    numpy.distutils.fcompiler.gnu: numpy
-    numpy.distutils.fcompiler.hpux: numpy
-    numpy.distutils.fcompiler.ibm: numpy
-    numpy.distutils.fcompiler.intel: numpy
-    numpy.distutils.fcompiler.lahey: numpy
-    numpy.distutils.fcompiler.mips: numpy
-    numpy.distutils.fcompiler.nag: numpy
-    numpy.distutils.fcompiler.none: numpy
-    numpy.distutils.fcompiler.nv: numpy
-    numpy.distutils.fcompiler.pathf95: numpy
-    numpy.distutils.fcompiler.pg: numpy
-    numpy.distutils.fcompiler.sun: numpy
-    numpy.distutils.fcompiler.vast: numpy
-    numpy.distutils.from_template: numpy
-    numpy.distutils.fujitsuccompiler: numpy
-    numpy.distutils.intelccompiler: numpy
-    numpy.distutils.lib2def: numpy
-    numpy.distutils.line_endings: numpy
-    numpy.distutils.log: numpy
-    numpy.distutils.mingw32ccompiler: numpy
-    numpy.distutils.misc_util: numpy
-    numpy.distutils.msvc9compiler: numpy
-    numpy.distutils.msvccompiler: numpy
-    numpy.distutils.npy_pkg_config: numpy
-    numpy.distutils.numpy_distribution: numpy
-    numpy.distutils.pathccompiler: numpy
-    numpy.distutils.setup: numpy
-    numpy.distutils.system_info: numpy
-    numpy.distutils.tests: numpy
-    numpy.distutils.tests.test_build_ext: numpy
-    numpy.distutils.tests.test_ccompiler_opt: numpy
-    numpy.distutils.tests.test_ccompiler_opt_conf: numpy
-    numpy.distutils.tests.test_exec_command: numpy
-    numpy.distutils.tests.test_fcompiler: numpy
-    numpy.distutils.tests.test_fcompiler_gnu: numpy
-    numpy.distutils.tests.test_fcompiler_intel: numpy
-    numpy.distutils.tests.test_fcompiler_nagfor: numpy
-    numpy.distutils.tests.test_from_template: numpy
-    numpy.distutils.tests.test_log: numpy
-    numpy.distutils.tests.test_mingw32ccompiler: numpy
-    numpy.distutils.tests.test_misc_util: numpy
-    numpy.distutils.tests.test_npy_pkg_config: numpy
-    numpy.distutils.tests.test_shell_utils: numpy
-    numpy.distutils.tests.test_system_info: numpy
-    numpy.distutils.unixccompiler: numpy
     numpy.doc: numpy
     numpy.doc.constants: numpy
     numpy.doc.ufuncs: numpy
@@ -3760,6 +3680,15 @@ manifest:
     past.types.oldstr: future
     past.utils: future
     pillow.libs.libopenjp2-05423b53: pillow
+    pkg_resources: setuptools
+    pkg_resources.tests: setuptools
+    pkg_resources.tests.data.my-test-package-source.setup: setuptools
+    pkg_resources.tests.test_find_distributions: setuptools
+    pkg_resources.tests.test_integration_zope_interface: setuptools
+    pkg_resources.tests.test_markers: setuptools
+    pkg_resources.tests.test_pkg_resources: setuptools
+    pkg_resources.tests.test_resources: setuptools
+    pkg_resources.tests.test_working_set: setuptools
     pluggy: pluggy
     proxytypes: jsonref
     psutil: psutil
@@ -3853,6 +3782,118 @@ manifest:
     s3transfer.tasks: s3transfer
     s3transfer.upload: s3transfer
     s3transfer.utils: s3transfer
+    setuptools: setuptools
+    setuptools.archive_util: setuptools
+    setuptools.build_meta: setuptools
+    setuptools.command: setuptools
+    setuptools.command.alias: setuptools
+    setuptools.command.bdist_egg: setuptools
+    setuptools.command.bdist_rpm: setuptools
+    setuptools.command.bdist_wheel: setuptools
+    setuptools.command.build: setuptools
+    setuptools.command.build_clib: setuptools
+    setuptools.command.build_ext: setuptools
+    setuptools.command.build_py: setuptools
+    setuptools.command.develop: setuptools
+    setuptools.command.dist_info: setuptools
+    setuptools.command.easy_install: setuptools
+    setuptools.command.editable_wheel: setuptools
+    setuptools.command.egg_info: setuptools
+    setuptools.command.install: setuptools
+    setuptools.command.install_egg_info: setuptools
+    setuptools.command.install_lib: setuptools
+    setuptools.command.install_scripts: setuptools
+    setuptools.command.rotate: setuptools
+    setuptools.command.saveopts: setuptools
+    setuptools.command.sdist: setuptools
+    setuptools.command.setopt: setuptools
+    setuptools.command.test: setuptools
+    setuptools.compat: setuptools
+    setuptools.compat.py310: setuptools
+    setuptools.compat.py311: setuptools
+    setuptools.compat.py312: setuptools
+    setuptools.compat.py39: setuptools
+    setuptools.config: setuptools
+    setuptools.config.expand: setuptools
+    setuptools.config.pyprojecttoml: setuptools
+    setuptools.config.setupcfg: setuptools
+    setuptools.depends: setuptools
+    setuptools.discovery: setuptools
+    setuptools.dist: setuptools
+    setuptools.errors: setuptools
+    setuptools.extension: setuptools
+    setuptools.glob: setuptools
+    setuptools.installer: setuptools
+    setuptools.launch: setuptools
+    setuptools.logging: setuptools
+    setuptools.modified: setuptools
+    setuptools.monkey: setuptools
+    setuptools.msvc: setuptools
+    setuptools.namespaces: setuptools
+    setuptools.tests: setuptools
+    setuptools.tests.compat: setuptools
+    setuptools.tests.compat.py39: setuptools
+    setuptools.tests.config: setuptools
+    setuptools.tests.config.downloads: setuptools
+    setuptools.tests.config.downloads.preload: setuptools
+    setuptools.tests.config.test_apply_pyprojecttoml: setuptools
+    setuptools.tests.config.test_expand: setuptools
+    setuptools.tests.config.test_pyprojecttoml: setuptools
+    setuptools.tests.config.test_pyprojecttoml_dynamic_deps: setuptools
+    setuptools.tests.config.test_setupcfg: setuptools
+    setuptools.tests.contexts: setuptools
+    setuptools.tests.environment: setuptools
+    setuptools.tests.fixtures: setuptools
+    setuptools.tests.integration: setuptools
+    setuptools.tests.integration.helpers: setuptools
+    setuptools.tests.integration.test_pbr: setuptools
+    setuptools.tests.integration.test_pip_install_sdist: setuptools
+    setuptools.tests.mod_with_constant: setuptools
+    setuptools.tests.namespaces: setuptools
+    setuptools.tests.script-with-bom: setuptools
+    setuptools.tests.test_archive_util: setuptools
+    setuptools.tests.test_bdist_deprecations: setuptools
+    setuptools.tests.test_bdist_egg: setuptools
+    setuptools.tests.test_bdist_wheel: setuptools
+    setuptools.tests.test_build: setuptools
+    setuptools.tests.test_build_clib: setuptools
+    setuptools.tests.test_build_ext: setuptools
+    setuptools.tests.test_build_meta: setuptools
+    setuptools.tests.test_build_py: setuptools
+    setuptools.tests.test_config_discovery: setuptools
+    setuptools.tests.test_core_metadata: setuptools
+    setuptools.tests.test_depends: setuptools
+    setuptools.tests.test_develop: setuptools
+    setuptools.tests.test_dist: setuptools
+    setuptools.tests.test_dist_info: setuptools
+    setuptools.tests.test_distutils_adoption: setuptools
+    setuptools.tests.test_editable_install: setuptools
+    setuptools.tests.test_egg_info: setuptools
+    setuptools.tests.test_extern: setuptools
+    setuptools.tests.test_find_packages: setuptools
+    setuptools.tests.test_find_py_modules: setuptools
+    setuptools.tests.test_glob: setuptools
+    setuptools.tests.test_install_scripts: setuptools
+    setuptools.tests.test_logging: setuptools
+    setuptools.tests.test_manifest: setuptools
+    setuptools.tests.test_namespaces: setuptools
+    setuptools.tests.test_scripts: setuptools
+    setuptools.tests.test_sdist: setuptools
+    setuptools.tests.test_setopt: setuptools
+    setuptools.tests.test_setuptools: setuptools
+    setuptools.tests.test_shutil_wrapper: setuptools
+    setuptools.tests.test_unicode_utils: setuptools
+    setuptools.tests.test_virtualenv: setuptools
+    setuptools.tests.test_warnings: setuptools
+    setuptools.tests.test_wheel: setuptools
+    setuptools.tests.test_windows_wrappers: setuptools
+    setuptools.tests.text: setuptools
+    setuptools.tests.textwrap: setuptools
+    setuptools.unicode_utils: setuptools
+    setuptools.version: setuptools
+    setuptools.warnings: setuptools
+    setuptools.wheel: setuptools
+    setuptools.windows_support: setuptools
     simplejson: simplejson
     simplejson.compat: simplejson
     simplejson.decoder: simplejson
@@ -3932,7 +3973,6 @@ manifest:
     swagger_spec_validator.util: swagger_spec_validator
     swagger_spec_validator.validator12: swagger_spec_validator
     swagger_spec_validator.validator20: swagger_spec_validator
-    tomli: tomli
     typing_extensions: typing_extensions
     tzdata: tzdata
     tzdata.zoneinfo: tzdata
@@ -4034,4 +4074,4 @@ manifest:
     yaml.tokens: PyYAML
   pip_repository:
     name: pypi
-integrity: d1cc0cba08d89f9c1fafcbc38de568620ff042a90eec9c997f7f337419d9c20d
+integrity: b3882993a2567074313a0a01d3103624070951f2f73d07056ae70391da9443ce
