@@ -53,9 +53,8 @@ jobs:
           if ! git diff --quiet; then
             git config --local user.name "aspect-marvin[bot]"
             git config --local user.email "<marvin@aspect.build>"
-            git commit \
-              --all \
-              --message="Format"
+            git add .
+            git commit --message="Pre-commit changes"
 
             for backoff in 5 10 15 20 25 30 runout; do
               if ! git push; then
