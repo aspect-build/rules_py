@@ -1,0 +1,50 @@
+"Bazel dependencies"
+
+bazel_dep(name = "aspect_rules_py", version = "0.0.0", dev_dependency = True)
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../..",
+)
+
+# Because we use a prerelease of rules_py, we must compile the rust tools from source.
+bazel_dep(name = "rules_rust", version = "0.53.0")
+
+rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
+rust.toolchain(
+    edition = "2021",
+    versions = ["1.81.0"],
+)
+use_repo(rust, "rust_toolchains")
+
+register_toolchains("@rust_toolchains//:all")
+
+bazel_dep(name = "rules_python", version = "0.29.0", dev_dependency = True)
+
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(
+    configure_coverage_tool = True,
+    python_version = "3.11.6",
+)
+
+# TODO: Swap in our pip
+pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
+
+pip.parse(
+    hub_name = "pip",
+    python_version = "3.11.6",
+    requirements_lock = "//:requirements.txt",
+)
+
+use_repo(pip, "pip")
+
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+
+local_repository(
+    name = "subrepo_a",
+    path = "./subrepo_a",
+)
+
+local_repository(
+    name = "subrepo_b",
+    path = "./subrepo_b",
+)
