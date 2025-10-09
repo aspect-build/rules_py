@@ -21,10 +21,10 @@ def munge_venv_name(target_package, virtualenv_name):
     
 
 if __name__ == "__main__":
-    virtualenv_home = os.path.realpath(os.environ["VIRTUAL_ENV"])
+    virtualenv_home = os.path.normpath(os.environ["VIRTUAL_ENV"])
     virtualenv_name = os.path.basename(virtualenv_home)
-    runfiles_dir = os.path.realpath(os.environ["RUNFILES_DIR"])
-    builddir = os.path.realpath(os.environ["BUILD_WORKING_DIRECTORY"])
+    runfiles_dir = os.path.normpath(os.environ["RUNFILES_DIR"])
+    builddir = os.path.normpath(os.environ["BUILD_WORKING_DIRECTORY"])
     target_package, target_name = os.environ["BAZEL_TARGET"].split("//", 1)[1].split(":")
 
     PARSER = argparse.ArgumentParser(

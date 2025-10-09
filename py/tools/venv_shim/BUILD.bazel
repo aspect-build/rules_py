@@ -8,6 +8,7 @@ rust_binary(
     deps = [
         "//py/tools/runfiles",
         "@crate_index//:miette",
+        "@crate_index//:which",
     ],
 )
 
