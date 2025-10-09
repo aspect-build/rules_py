@@ -11,5 +11,6 @@ py_venv_test(
     main = "test.py",
     deps = [
         "@pypi_cowsay//:pkg",
+        "@rpy610_test//:foo",
     ],
 )

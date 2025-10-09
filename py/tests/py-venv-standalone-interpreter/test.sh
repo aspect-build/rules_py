@@ -4,7 +4,7 @@ set -ex
 
 ROOT="$(dirname $0)"
 
-"$ROOT"/.ex/bin/python --help
+"$ROOT"/.ex/bin/python --help >/dev/null 2>&1
 
 if [ "Hello, world!" != "$($ROOT/.ex/bin/python -c 'from ex import hello; print(hello())')" ]; then
     exit 1
