@@ -2203,6 +2203,7 @@ manifest:
     numpy.lib.ufunclike: numpy
     numpy.lib.user_array: numpy
     numpy.lib.utils: numpy
+    numpy.libs.libopenblas64_p-r0-0cf96a72: numpy
     numpy.linalg: numpy
     numpy.linalg.lapack_lite: numpy
     numpy.linalg.linalg: numpy
@@ -3758,6 +3759,7 @@ manifest:
     past.types.olddict: future
     past.types.oldstr: future
     past.utils: future
+    pillow.libs.libopenjp2-05423b53: pillow
     pluggy: pluggy
     proxytypes: jsonref
     psutil: psutil
@@ -4013,6 +4015,23 @@ manifest:
     websocket.tests.test_http: websocket_client
     websocket.tests.test_url: websocket_client
     websocket.tests.test_websocket: websocket_client
+    yaml: PyYAML
+    yaml.composer: PyYAML
+    yaml.constructor: PyYAML
+    yaml.cyaml: PyYAML
+    yaml.dumper: PyYAML
+    yaml.emitter: PyYAML
+    yaml.error: PyYAML
+    yaml.events: PyYAML
+    yaml.loader: PyYAML
+    yaml.nodes: PyYAML
+    yaml.parser: PyYAML
+    yaml.reader: PyYAML
+    yaml.representer: PyYAML
+    yaml.resolver: PyYAML
+    yaml.scanner: PyYAML
+    yaml.serializer: PyYAML
+    yaml.tokens: PyYAML
   pip_repository:
     name: pypi
-integrity: ab1de420d22f3a5bf457f8e6c6487aaafe36cd6dcef24d4adfcc101966ed60b9
+integrity: d1cc0cba08d89f9c1fafcbc38de568620ff042a90eec9c997f7f337419d9c20d
