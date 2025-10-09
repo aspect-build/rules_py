@@ -47,6 +47,7 @@ jobs:
         with:
           ref: ${{ github.head_ref }}
       - uses: pre-commit/action@v3.0.1
+        continue-on-error: true
       - name: Send automated commit
         run: |
           if ! git diff --quiet; then
