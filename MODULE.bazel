@@ -114,11 +114,3 @@ oci.pull(
     tag = "latest",
 )
 use_repo(oci, "ubuntu", "ubuntu_linux_amd64", "ubuntu_linux_arm64_v8")
-
-# For tests
-local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
-
-local_repository(
-    name = "rpy610_test",
-    path = "./py/tests/rpy610/subrepo",
-)
