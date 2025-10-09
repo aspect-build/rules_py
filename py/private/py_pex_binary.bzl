@@ -106,6 +106,9 @@ def _py_python_pex_impl(ctx):
     args.add(ctx.attr.python_shebang, format = "--python-shebang=%s")
     args.add(py_toolchain.python, format = "--python=%s")
 
+    if ctx.attr.inherit_path != "":
+        args.add(ctx.attr.inherit_path, format = "--inherit-path=%s")
+
     py_version = py_toolchain.interpreter_version_info
     args.add_all(
         [
@@ -134,6 +137,15 @@ _attrs = dict({
     "inject_env": attr.string_dict(
         doc = "Environment variables to set when running the pex binary.",
         default = {},
+    ),
+    "inherit_path": attr.string(
+        doc = """\
+Whether to inherit the `sys.path` (aka PYTHONPATH) of the environment that the binary runs in.
+
+Use `false` to not inherit `sys.path`; use `fallback` to inherit `sys.path` after packaged
+dependencies; and use `prefer` to inherit `sys.path` before packaged dependencies.
+""",
+        values = ["false", "fallback", "prefer"],
     ),
     "python_shebang": attr.string(default = "#!/usr/bin/env python3"),
     "python_interpreter_constraints": attr.string_list(
