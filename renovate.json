@@ -10,7 +10,7 @@
     "group:monorepos",
     "workarounds:all"
   ],
-  "rebaseWhen": "never",
+  "rebaseWhen": "behind-base-branch",
   "labels": ["deps"],
   "dependencyDashboard": false,
   "packageRules": [
@@ -18,5 +18,14 @@
       "matchFiles": ["MODULE.bazel"],
       "enabled": false
     }
-  ]
+  ],
+  "pip-compile": {
+    "managerFilePatterns": ["/(^|/)requirements\\.txt$/"]
+  },
+  "pip_requirements": {
+    "enabled": false
+  },
+  "pip_setup": {
+    "enabled": false
+  }
 }
