@@ -8,7 +8,7 @@ rust_library(
         "src/unpack.rs",
         "src/venv.rs",
     ],
-    data = [
+    compile_data = [
         "src/_virtualenv.py",
         "src/activate.tmpl",
         "src/pyvenv.cfg.tmpl",
