@@ -336,6 +336,7 @@ manifest:
     coverage.multiproc: coverage
     coverage.numbits: coverage
     coverage.parser: coverage
+    coverage.patch: coverage
     coverage.phystokens: coverage
     coverage.plugin: coverage
     coverage.plugin_support: coverage
@@ -4034,4 +4035,4 @@ manifest:
     yaml.tokens: PyYAML
   pip_repository:
     name: pypi
-integrity: d1cc0cba08d89f9c1fafcbc38de568620ff042a90eec9c997f7f337419d9c20d
+integrity: 7e3a0856bdd3e19fee5460ac9a2fb52f59f404233c3d17e9657cff19ad709146
