@@ -43,7 +43,6 @@ repos:
         name: Update docs
         entry: /usr/bin/env bazel run //docs:update
         language: script
-        files: \.bzl$
 
   - repo: local
     hooks:
@@ -51,4 +50,3 @@ repos:
         name: Update gazelle manifest
         entry: /usr/bin/env bazel run //:gazelle_python_manifest.update
         language: script
-        files: requirements.txt\$

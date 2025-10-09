@@ -27,7 +27,6 @@ gazelle_binary(
 
 gazelle(
     name = "gazelle",
-    data = GAZELLE_PYTHON_RUNTIME_DEPS,
     gazelle = ":gazelle_bin",
 )
 
