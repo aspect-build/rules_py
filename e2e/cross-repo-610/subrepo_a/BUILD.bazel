@@ -6,8 +6,8 @@ py_library(
         "foo.py",
     ],
     imports = ["."],
+    visibility = ["//visibility:public"],
     deps = [
         "@subrepo_b//:bar",
     ],
-    visibility = ["//visibility:public"],
 )
