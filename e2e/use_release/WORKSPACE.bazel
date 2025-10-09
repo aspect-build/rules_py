@@ -1,4 +1,6 @@
 # Override http_archive for local testing
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+
 local_repository(
     name = "aspect_rules_py",
     path = "../..",
