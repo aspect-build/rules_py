@@ -261,9 +261,12 @@ fn main() -> miette::Result<()> {
     // link which sequentially exists in the path.
     let mut changed = true;
     while changed
-        && !executable
-            .components()
-            .any(|it| it.as_os_str().to_str().unwrap().ends_with(".runfiles"))
+        && !executable.components().any(|it| {
+            it.as_os_str()
+                .to_str()
+                .expect(&format!("Failed to normalize {:?} as a str", it))
+                .ends_with(".runfiles")
+        })
     {
         changed = false;
         // Ancestors is in iterated .parent order, but we want to go the other
@@ -279,7 +282,7 @@ fn main() -> miette::Result<()> {
                 // Resolve the link we identified
                 let parent = parent
                     .parent()
-                    .unwrap()
+                    .expect(&format!("Failed to take the parent of {:?}", parent))
                     .join(parent.read_link().into_diagnostic()?);
                 // And join the tail to the resolved head
                 executable = parent.join(suffix);
