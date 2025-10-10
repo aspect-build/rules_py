@@ -1,0 +1,12 @@
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load(":macro.bzl", "generate")
+
+package(default_visibility = ["//visibility:public"])
+
+generate()
+
+bzl_library(
+    name = "macro",
+    srcs = ["macro.bzl"],
+    deps = ["//uv/private/constraints:defs"],
+)

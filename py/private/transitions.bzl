@@ -1,12 +1,36 @@
 """Common transition implementation used by the various terminals."""
 
-def _python_version_transition_impl(_, attr):
-    if not attr.python_version:
-        return {}
-    return {"@rules_python//python/config_settings:python_version": str(attr.python_version)}
+VENV_FLAG = "@aspect_rules_py//uv/private/constraints/venv:venv"
+RPY_VERSION_FLAG = "@rules_python//python/config_settings:python_version"
 
-python_version_transition = transition(
-    implementation = _python_version_transition_impl,
-    inputs = [],
-    outputs = ["@rules_python//python/config_settings:python_version"],
+def _python_transition_impl(settings, attr):
+    acc = {}
+    if attr.python_version:
+        acc[RPY_VERSION_FLAG] = str(attr.python_version)
+    else:
+        acc[RPY_VERSION_FLAG] = settings[RPY_VERSION_FLAG]
+
+    # Set the venv transition
+    if attr.venv:
+        acc[VENV_FLAG] = str(attr.venv)
+    else:
+        acc[VENV_FLAG] = settings[VENV_FLAG]
+
+    print(acc)
+
+    return acc
+
+python_transition = transition(
+    implementation = _python_transition_impl,
+    inputs = [
+        RPY_VERSION_FLAG,
+        VENV_FLAG,
+    ],
+    outputs = [
+        RPY_VERSION_FLAG,
+        VENV_FLAG,
+    ],
 )
+
+# The old name, FIXME: refactor this out
+python_version_transition = python_transition

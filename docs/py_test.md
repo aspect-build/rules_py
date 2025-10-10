@@ -43,7 +43,7 @@ python.toolchain(python_version = "3.9", is_default = True)
 
 <pre>
 py_test_rule(<a href="#py_test_rule-name">name</a>, <a href="#py_test_rule-data">data</a>, <a href="#py_test_rule-deps">deps</a>, <a href="#py_test_rule-env">env</a>, <a href="#py_test_rule-env_inherit">env_inherit</a>, <a href="#py_test_rule-imports">imports</a>, <a href="#py_test_rule-interpreter_options">interpreter_options</a>, <a href="#py_test_rule-main">main</a>,
-             <a href="#py_test_rule-package_collisions">package_collisions</a>, <a href="#py_test_rule-python_version">python_version</a>, <a href="#py_test_rule-resolutions">resolutions</a>, <a href="#py_test_rule-srcs">srcs</a>)
+             <a href="#py_test_rule-package_collisions">package_collisions</a>, <a href="#py_test_rule-python_version">python_version</a>, <a href="#py_test_rule-resolutions">resolutions</a>, <a href="#py_test_rule-srcs">srcs</a>, <a href="#py_test_rule-venv">venv</a>)
 </pre>
 
 Run a Python program under Bazel. Most users should use the [py_test macro](#py_test) instead of loading this directly.
@@ -65,6 +65,7 @@ Run a Python program under Bazel. Most users should use the [py_test macro](#py_
 | <a id="py_test_rule-python_version"></a>python_version |  Whether to build this target and its transitive deps for a specific python version.   | String | optional | <code>""</code> |
 | <a id="py_test_rule-resolutions"></a>resolutions |  Satisfy a virtual_dep with a mapping from external package name to the label of an installed package that provides it.         See [virtual dependencies](/docs/virtual_deps.md).   | <a href="https://bazel.build/rules/lib/dict">Dictionary: Label -> String</a> | optional | <code>{}</code> |
 | <a id="py_test_rule-srcs"></a>srcs |  Python source files.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
+| <a id="py_test_rule-venv"></a>venv |  The name of the Python virtual environment within which deps should be resolved.<br><br>Part of the aspect_rules_py//pip system, has no effect in rules_python's pip.   | String | optional | <code>""</code> |
 
 
 <a id="py_pytest_main"></a>

@@ -23,7 +23,7 @@ load("@rules_python//python:repositories.bzl", "py_repositories", "python_regist
 
 python_register_toolchains(
     name = "python_toolchain_3_8",
-    python_version = "3.8.12",
+    python_version = "3.8",
     # Setting `set_python_version_constraint` will set special constraints on the registered toolchain.
     # This means that this toolchain registration will only be selected for `py_binary` / `py_test` targets
     # that have the `python_version = "3.8.12"` attribute set. Targets that have no `python_attribute` will use
@@ -35,7 +35,7 @@ python_register_toolchains(
 # py_test/py_binary target even if it has python_version attribute set.
 python_register_toolchains(
     name = "python_toolchain",
-    python_version = "3.9",
+    python_version = "3.12",
 )
 
 py_repositories()
@@ -317,3 +317,10 @@ oci_pull(
 load("@container_structure_test//:repositories.bzl", "container_structure_test_register_toolchain")
 
 container_structure_test_register_toolchain(name = "cst")
+
+# Forwards-compat to the new pip machinery mostly so docgen works
+load("//uv/private/host:repository.bzl", "host_platform_repo")
+
+host_platform_repo(
+    name = "aspect_rules_py_pip_host",
+)

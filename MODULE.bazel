@@ -14,8 +14,9 @@ module(
 bazel_dep(name = "aspect_bazel_lib", version = "2.16.0")
 bazel_dep(name = "aspect_tools_telemetry", version = "0.2.6")
 bazel_dep(name = "bazel_skylib", version = "1.4.2")
-bazel_dep(name = "rules_python", version = "0.29.0")
-bazel_dep(name = "platforms", version = "0.0.7")
+bazel_dep(name = "rules_python", version = "1.6.3")
+bazel_dep(name = "rules_python_gazelle_plugin", version = "1.6.3")
+bazel_dep(name = "platforms", version = "1.0.0")
 
 bazel_lib = use_extension("@aspect_bazel_lib//lib:extensions.bzl", "toolchains")
 bazel_lib.expand_template()
@@ -27,7 +28,7 @@ use_repo(tel, "aspect_tools_telemetry_report")
 python = use_extension("@rules_python//python/extensions:python.bzl", "python", dev_dependency = True)
 python.toolchain(
     is_default = False,
-    python_version = "3.9",
+    python_version = "3.13",
 )
 
 tools = use_extension("//py:extensions.bzl", "py_tools")
@@ -114,3 +115,29 @@ oci.pull(
     tag = "latest",
 )
 use_repo(oci, "ubuntu", "ubuntu_linux_amd64", "ubuntu_linux_arm64_v8")
+
+# This is what `rules_uv` really boils down to, so vendoring that
+bazel_dep(name = "rules_multitool", version = "0.11.0")
+
+multitool = use_extension("@rules_multitool//multitool:extension.bzl", "multitool")
+multitool.hub(lockfile = "//uv/private/uv:uv.lock.json")
+use_repo(multitool, "multitool")
+
+# Used as part of the sdist flow
+bazel_dep(name = "tar.bzl", version = "0.6.0")
+
+# The toml tool that pip2 uses
+tomltool = use_extension("//uv/private/tomltool:extension.bzl", "tomltool")
+use_repo(
+    tomltool,
+    "aspect_rules_py_tomltool_aarch64_linux_gnu",
+    "aspect_rules_py_tomltool_aarch64_linux_musl",
+    "aspect_rules_py_tomltool_aarch64_osx_libsystem",
+    "aspect_rules_py_tomltool_x86_64_linux_gnu",
+    "aspect_rules_py_tomltool_x86_64_linux_musl",
+    "aspect_rules_py_tomltool_x86_64_osx_libsystem",
+)
+
+# Mandatory pip2 host configuration
+host = use_extension("//uv/private/host:extension.bzl", "host_platform")
+use_repo(host, "aspect_rules_py_pip_host")

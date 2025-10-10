@@ -1,0 +1,13 @@
+load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
+
+py_venv_test(
+    name = "say",
+    srcs = [
+        "__test__.py",
+    ],
+    main = "__test__.py",
+    venv = "default",
+    deps = [
+        "@pip//cowsay",
+    ],
+)
