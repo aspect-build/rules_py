@@ -29,6 +29,7 @@ jobs:
       folders: |
         [
           "e2e/cross-repo-610",
+          "e2e/interpreter-version-541",
           "e2e/repository-rule-deps",
           "e2e/smoke",
           "e2e/system-interpreter",
