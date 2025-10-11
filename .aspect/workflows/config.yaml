@@ -4,5 +4,8 @@ tasks:
       queue: aspect-large
   - finalization:
       queue: aspect-small
+bazel:
+  flags:
+    - --config=ci
 notifications:
   github: {}
