@@ -305,7 +305,7 @@ load("@rules_oci//oci:pull.bzl", "oci_pull")
 
 oci_pull(
     name = "ubuntu",
-    digest = "sha256:b59d21599a2b151e23eea5f6602f4af4d7d31c4e236d22bf0b62b86d2e386b8f",
+    digest = "sha256:66460d557b25769b102175144d538d88219c077c678a49af4afca6fbfc1b5252",
     image = "ubuntu",
     platforms = [
         "linux/arm64/v8",
