@@ -12,16 +12,6 @@ use std::process::Command;
 const PYVENV: &str = "pyvenv.cfg";
 
 fn find_venv_root(exec_name: impl AsRef<Path>) -> miette::Result<(PathBuf, PathBuf)> {
-    if let Ok(it) = env::var("VIRTUAL_ENV") {
-        let root = PathBuf::from(it);
-        let cfg = root.join(PYVENV);
-        if cfg.exists() {
-            return Ok((root, cfg));
-        } else {
-            eprintln!("Warning: $VIRTUAL_ENV is set but seems to be invalid; ignoring")
-        }
-    }
-
     let exec_name = exec_name.as_ref().to_owned();
     if let Some(parent) = exec_name.parent().and_then(|it| it.parent()) {
         let cfg = parent.join(PYVENV);
@@ -296,18 +286,25 @@ fn main() -> miette::Result<()> {
         }
     }
 
+    #[cfg(feature = "debug")]
+    eprintln!("final  {:?}", executable);
+
     // Now that we've identified where the .runfiles venv really is, we want to
     // use that as the basis for configuring our virtualenv and setting
     // everything else up.
     let (venv_root, venv_cfg) = find_venv_root(&executable)?;
+    #[cfg(feature = "debug")]
+    eprintln!("[aspect] venv root {:?} venv.cfg {:?}", venv_root, venv_cfg);
 
     let venv_config = parse_venv_cfg(&venv_root, &venv_cfg)?;
+    #[cfg(feature = "debug")]
+    eprintln!("[aspect] {:?}", venv_config);
 
     // The logical path of the interpreter
     let venv_interpreter = venv_root.join("bin/python3");
-
     #[cfg(feature = "debug")]
-    eprintln!("final  {:?}", executable);
+    eprintln!("[aspect] {:?}", venv_interpreter);
+
     let actual_interpreter = find_actual_interpreter(&executable, &venv_config)?;
 
     #[cfg(feature = "debug")]
@@ -349,6 +346,9 @@ fn main() -> miette::Result<()> {
 
     // Set the executable pointer for MacOS, but we do it consistently
     cmd.env("PYTHONEXECUTABLE", &venv_interpreter);
+
+    // Clobber VIRTUAL_ENV which may have been set by activate to an unresolved path
+    cmd.env("VIRTUAL_ENV", &venv_root);
 
     // Similar to `-s` but this avoids us having to muck with the argv in ways
     // that could be visible to the called program.
