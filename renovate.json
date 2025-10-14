@@ -10,7 +10,6 @@
     "group:monorepos",
     "workarounds:all"
   ],
-  "rebaseWhen": "behind-base-branch",
   "labels": ["deps"],
   "dependencyDashboard": false,
   "packageRules": [
