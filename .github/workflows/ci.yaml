@@ -42,6 +42,7 @@ jobs:
         [
           {"os": "windows-latest"},
           {"folder": "e2e/cross-repo-610", "bzlmodEnabled": false},
+          {"folder": "e2e/interpreter-version-541", "bzlmodEnabled": false},
           {"folder": "e2e/repository-rule-deps", "bzlmodEnabled": false},
           {"folder": "e2e/system-interpreter", "bzlmodEnabled": false},
           {"folder": "examples/uv_pip_compile", "bzlmodEnabled": false},
