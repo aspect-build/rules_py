@@ -216,13 +216,6 @@ fn main() -> miette::Result<()> {
         miette::bail!("could not discover an execution command-line");
     };
 
-    let (venv_root, venv_cfg) = find_venv_root(exec_name)?;
-
-    let venv_config = parse_venv_cfg(&venv_root, &venv_cfg)?;
-
-    // The logical path of the interpreter
-    let venv_interpreter = venv_root.join("bin/python3");
-
     // Alright this is a bit of a mess.
     //
     // There is a std::env::current_exe(), but it has platform dependent
@@ -303,9 +296,19 @@ fn main() -> miette::Result<()> {
         }
     }
 
+    // Now that we've identified where the .runfiles venv really is, we want to
+    // use that as the basis for configuring our virtualenv and setting
+    // everything else up.
+    let (venv_root, venv_cfg) = find_venv_root(&executable)?;
+
+    let venv_config = parse_venv_cfg(&venv_root, &venv_cfg)?;
+
+    // The logical path of the interpreter
+    let venv_interpreter = venv_root.join("bin/python3");
+
     #[cfg(feature = "debug")]
     eprintln!("final  {:?}", executable);
-    let actual_interpreter = find_actual_interpreter(executable, &venv_config)?;
+    let actual_interpreter = find_actual_interpreter(&executable, &venv_config)?;
 
     #[cfg(feature = "debug")]
     eprintln!(
