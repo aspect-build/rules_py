@@ -1,8 +1,8 @@
-use miette::IntoDiagnostic;
+use miette::{miette, IntoDiagnostic};
 use runfiles::Runfiles;
 use which::which;
 // Depended on out of rules_rust
-use std::env;
+use std::env::{self, current_exe};
 use std::ffi::OsStr;
 use std::fs;
 use std::os::unix::process::CommandExt;
@@ -245,7 +245,10 @@ fn main() -> miette::Result<()> {
     let cwd = std::env::current_dir().into_diagnostic()?;
     if !executable.is_absolute() {
         let candidate = cwd.join(&executable);
-        if candidate.exists() {
+        if candidate.exists()
+            && !candidate.is_dir()
+            && candidate.canonicalize().unwrap() == current_exe().unwrap().canonicalize().unwrap()
+        {
             executable = candidate;
             #[cfg(feature = "debug")]
             eprintln!("       {:?}", executable);
@@ -253,6 +256,8 @@ fn main() -> miette::Result<()> {
             executable = exe;
             #[cfg(feature = "debug")]
             eprintln!("       {:?}", executable);
+        } else {
+            return Err(miette!("Unable to identify the real interpreter path!"));
         }
     }
 
