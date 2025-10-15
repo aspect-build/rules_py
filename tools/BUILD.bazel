@@ -1,6 +1,9 @@
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 
-package(default_visibility = ["//py:__subpackages__", "//uv:__subpackages__"])
+package(default_visibility = [
+    "//py:__subpackages__",
+    "//uv:__subpackages__",
+])
 
 bzl_library(
     name = "version",

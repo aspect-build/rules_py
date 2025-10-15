@@ -61,8 +61,8 @@ bzl_library(
     name = "types",
     srcs = ["types.bzl"],
     visibility = [
-        "//uv:__subpackages__",
         "//py:__subpackages__",
+        "//uv:__subpackages__",
     ],
     deps = [],
 )

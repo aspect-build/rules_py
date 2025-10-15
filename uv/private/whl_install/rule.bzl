@@ -5,7 +5,6 @@ Installing wheels as a Bazel build action, rather than a repo step.
 load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "UNPACK_TOOLCHAIN")
 
-
 def _whl_install(ctx):
     py_toolchain = ctx.toolchains[PY_TOOLCHAIN].py3_runtime
     unpack_toolchain = ctx.toolchains[UNPACK_TOOLCHAIN]
@@ -21,7 +20,6 @@ def _whl_install(ctx):
     # We're going with #1 for now.
     #
     # Could probably use bsdtar here rather than non-hermetic unzip.
-
 
     # FIXME: Need the Python toolchain here?
     archive = ctx.attr.src[DefaultInfo].files.to_list()[0]
