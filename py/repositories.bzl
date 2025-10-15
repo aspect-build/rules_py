@@ -21,6 +21,13 @@ def http_archive(name, **kwargs):
 def rules_py_dependencies():
     """Fetch rules_py's dependencies"""
 
+    http_archive(
+        name = "bazel_lib",
+        sha256 = "0758ace949a93f709230a8e08ef35c5f0aacae2ff5d219b27da1d21d8233a709",
+        strip_prefix = "bazel-lib-3.0.0-rc.0",
+        url = "https://github.com/bazel-contrib/bazel-lib/releases/download/v3.0.0-rc.0/bazel-lib-v3.0.0-rc.0.tar.gz",
+    )
+
     # The minimal version of bazel_skylib we require
     http_archive(
         name = "bazel_skylib",
