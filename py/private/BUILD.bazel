@@ -27,6 +27,7 @@ bzl_library(
     deps = [
         "@aspect_bazel_lib//lib:tar",
         "@aspect_bazel_lib//lib:transitions",
+        "@rules_oci//oci:defs",
     ],
 )
 
@@ -35,8 +36,12 @@ bzl_library(
     srcs = ["py_binary.bzl"],
     deps = [
         ":py_library",
+        ":py_semantics",
+        ":transitions",
+        "//py/private/toolchain:types",
         "@aspect_bazel_lib//lib:expand_make_vars",
         "@aspect_bazel_lib//lib:paths",
+        "@rules_python//python:defs_bzl",
     ],
 )
 
@@ -45,11 +50,8 @@ bzl_library(
     srcs = ["py_library.bzl"],
     deps = [
         ":providers",
-        ":py_semantics",
-        ":py_wheel",
         "@bazel_skylib//lib:new_sets",
         "@bazel_skylib//lib:paths",
-        "@bazel_skylib//lib:types",
         "@rules_python//python:defs_bzl",
     ],
 )
@@ -62,9 +64,7 @@ bzl_library(
 bzl_library(
     name = "py_pytest_main",
     srcs = ["py_pytest_main.bzl"],
-    deps = [
-        ":py_library",
-    ],
+    deps = [":py_library"],
 )
 
 bzl_library(
@@ -84,7 +84,22 @@ bzl_library(
         ":py_semantics",
         "//py/private/toolchain:types",
         "@bazel_skylib//lib:paths",
+        "@rules_python//python:defs_bzl",
     ],
+)
+
+bzl_library(
+    name = "providers",
+    srcs = ["providers.bzl"],
+    visibility = ["//py:__subpackages__"],
+    deps = [],
+)
+
+bzl_library(
+    name = "py_executable",
+    srcs = ["py_executable.bzl"],
+    visibility = ["//py:__subpackages__"],
+    deps = [],
 )
 
 bzl_library(
@@ -98,21 +113,13 @@ bzl_library(
 )
 
 bzl_library(
-    name = "providers",
-    srcs = ["providers.bzl"],
-)
-
-bzl_library(
-    name = "py_executable",
-    srcs = ["py_executable.bzl"],
-)
-
-bzl_library(
     name = "transitions",
     srcs = ["transitions.bzl"],
+    deps = [],
 )
 
 bzl_library(
     name = "virtual",
     srcs = ["virtual.bzl"],
+    deps = [],
 )

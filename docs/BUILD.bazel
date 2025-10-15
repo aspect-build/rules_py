@@ -37,8 +37,13 @@ stardoc_with_diff_test(
 )
 
 stardoc_with_diff_test(
-    name = "venv",
-    bzl_library_target = "//py/private/py_venv:py_venv",
+    name = "unstable",
+    bzl_library_target = "//py/unstable:defs",
+)
+
+stardoc_with_diff_test(
+    name = "uv",
+    bzl_library_target = "//uv/private:extension",
 )
 
 update_docs(name = "update")

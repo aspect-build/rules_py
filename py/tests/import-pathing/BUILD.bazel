@@ -1,3 +1,4 @@
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@rules_python//python:defs.bzl", "py_library")
 load(":tests.bzl", "py_library_import_pathing_test_suite")
 
@@ -9,3 +10,12 @@ py_library(
 )
 
 py_library_import_pathing_test_suite()
+
+bzl_library(
+    name = "tests",
+    srcs = ["tests.bzl"],
+    deps = [
+        "//py/private:py_library",
+        "@bazel_skylib//lib:unittest",
+    ],
+)

@@ -1,14 +1,18 @@
-load("@bazel_lib//:bzl_library.bzl", "bzl_library")
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+
+package(default_visibility = [
+    "//py:__subpackages__",
+    "//uv:__subpackages__",
+])
 
 bzl_library(
     name = "version",
     srcs = ["version.bzl"],
-    visibility = ["//visibility:public"],
+    deps = [],
 )
 
 bzl_library(
     name = "integrity",
     srcs = ["integrity.bzl"],
-    visibility = ["//visibility:public"],
     deps = ["//py/private/toolchain:tools"],
 )

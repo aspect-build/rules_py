@@ -33,6 +33,7 @@ jobs:
           "e2e/repository-rule-deps",
           "e2e/smoke",
           "e2e/system-interpreter",
+          "e2e/uv-deps",
           "examples/uv_pip_compile"
         ]
       # TODO: Build Windows tools and add to toolchain
