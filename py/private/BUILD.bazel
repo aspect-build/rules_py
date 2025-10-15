@@ -1,4 +1,4 @@
-load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 
 package(default_visibility = [
     "//docs:__pkg__",
@@ -88,18 +88,6 @@ bzl_library(
 )
 
 bzl_library(
-    name = "providers",
-    srcs = ["providers.bzl"],
-    visibility = ["//py:__subpackages__"],
-)
-
-bzl_library(
-    name = "py_executable",
-    srcs = ["py_executable.bzl"],
-    visibility = ["//py:__subpackages__"],
-)
-
-bzl_library(
     name = "py_pex_binary",
     srcs = ["py_pex_binary.bzl"],
     deps = [
@@ -110,11 +98,21 @@ bzl_library(
 )
 
 bzl_library(
-    name = "virtual",
-    srcs = ["virtual.bzl"],
+    name = "providers",
+    srcs = ["providers.bzl"],
+)
+
+bzl_library(
+    name = "py_executable",
+    srcs = ["py_executable.bzl"],
 )
 
 bzl_library(
     name = "transitions",
     srcs = ["transitions.bzl"],
+)
+
+bzl_library(
+    name = "virtual",
+    srcs = ["virtual.bzl"],
 )

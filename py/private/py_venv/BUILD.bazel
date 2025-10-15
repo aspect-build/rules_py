@@ -1,4 +1,4 @@
-load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 load(":defs.bzl", "py_venv_test")
 
@@ -49,4 +49,10 @@ py_venv_test(
     ],
     imports = ["."],
     main = "test_link.py",
+)
+
+bzl_library(
+    name = "defs",
+    srcs = ["defs.bzl"],
+    deps = [":py_venv"],
 )

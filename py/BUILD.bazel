@@ -1,4 +1,4 @@
-load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
 
 # For stardoc to reference the files
@@ -19,6 +19,7 @@ bzl_library(
     visibility = ["//visibility:public"],
     deps = [
         "//py/private/toolchain:autodetecting",
+        "@bazel_tools//tools/build_defs/repo:cache.bzl",
         "@bazel_tools//tools/build_defs/repo:http.bzl",
         "@bazel_tools//tools/build_defs/repo:utils.bzl",
     ],
@@ -40,5 +41,34 @@ bzl_library(
         "//py/private:virtual",
         "//py/private/py_venv",
         "@aspect_bazel_lib//lib:utils",
+    ],
+)
+
+# This needs to dep on @aspect_tools_telemetry_report but we don't have that in WORKSPACE
+# gazelle:exclude extensions.bzl
+# bzl_library(
+#     name = "extensions",
+#     srcs = [
+#         "extensions.bzl",
+#         "@aspect_tools_telemetry_report//:defs.bzl",
+#     ],
+#     visibility = ["//visibility:public"],
+#     deps = [
+#         ":toolchains",
+#         "//tools:version",
+#     ],
+# )
+
+bzl_library(
+    name = "toolchains",
+    srcs = ["toolchains.bzl"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//py/private/toolchain:autodetecting",
+        "//py/private/toolchain:repo",
+        "//py/private/toolchain:tools",
+        "//tools:version",
+        "@aspect_bazel_lib//lib:repositories",
+        "@bazel_tools//tools/build_defs/repo:http.bzl",
     ],
 )

@@ -8,6 +8,7 @@ load("@rules_python_gazelle_plugin//modules_mapping:def.bzl", "modules_mapping")
 # gazelle:exclude internal_deps.bzl
 # gazelle:exclude py/tests/
 # gazelle:exclude examples/django
+# gazelle:map_kind bzl_library bzl_library @bazel_lib//:bzl_library.bzl
 
 gazelle_python_manifest(
     name = "gazelle_python_manifest",
