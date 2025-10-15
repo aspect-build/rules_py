@@ -28,7 +28,7 @@ bzl_library(
     name = "py_venv",
     srcs = [
         "defs.bzl",
-        "py_venv.bzl"
+        "py_venv.bzl",
     ],
     deps = [
         "//py/private:providers",
