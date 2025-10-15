@@ -1,7 +1,5 @@
 # Adapted from CPython Lib/venv/scripts/common/activate
 
-set -eu -o pipefail
-
 deactivate () {
     # reset old environment variables
     if [ -n "${_OLD_VIRTUAL_PATH:-}" ] ; then
@@ -84,5 +82,3 @@ export PATH
 # Call hash to forget past commands. Without forgetting
 # past commands the $PATH changes we made may not be respected
 hash -r 2> /dev/null
-
-set +eu +o pipefail
