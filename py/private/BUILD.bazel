@@ -1,9 +1,6 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 
-package(default_visibility = [
-    "//docs:__pkg__",
-    "//py:__subpackages__",
-])
+package(default_visibility = ["//py:__subpackages__"])
 
 exports_files(
     [
@@ -11,14 +8,6 @@ exports_files(
         "pytest.py.tmpl",
     ],
     visibility = ["//visibility:public"],
-)
-
-exports_files(
-    [
-        "py_binary.bzl",
-        "py_library.bzl",
-    ],
-    visibility = ["//docs:__pkg__"],
 )
 
 bzl_library(

@@ -34,12 +34,6 @@ repos:
 
   - repo: local
     hooks:
-      - id: check-docs
-        name: Update docs
-        entry: /usr/bin/env bazel run //docs:update
-        language: script
-        require_serial: true
-
       - id: check-requirements-lock
         name: Update requirements lock
         # Note that we use a nested shell to discard $@, which is the file list

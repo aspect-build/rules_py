@@ -1,8 +1,5 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 
-# For stardoc to reference the files
-exports_files(["defs.bzl"])
-
 bzl_library(
     name = "defs",
     srcs = ["defs.bzl"],

@@ -71,19 +71,7 @@ In any ancestor `BUILD` file of the Python code, add these lines to instruct [Ga
 
 # Public API
 
-## Executables
-
-- [py_binary](docs/py_binary.md) an executable Python program, used with `bazel run` or as a tool.
-- [py_test](docs/py_test.md) a Python program that executes a test runner such as `unittest` or `pytest`, to be used with `bazel test`.
-- [py_venv](docs/venv.md) create a virtualenv for a `py_binary` or `py_test` target for use outside Bazel, such as in an editor/IDE.
-
-## Packaging
-
-- [py_pex_binary](docs/pex.md) Create a zip file containing a full Python application.
-
-## Packages
-
-- [py_library](docs/py_library.md) a unit of Python code, used as a dependency of other rules.
+See https://registry.bazel.build/docs/aspect_rules_py
 
 # Telemetry & privacy policy
 
