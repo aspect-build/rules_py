@@ -41,9 +41,9 @@ gzip < $ARCHIVE_TMP > $ARCHIVE
 SHA=$(shasum -a 256 $ARCHIVE | awk '{print $1}')
 
 # Add generated API docs to the release, see https://github.com/bazelbuild/bazel-central-registry/issues/5593
-docs="$(mktemp -d)"; targets="$(mktemp)"
-bazel --output_base="$docs" query --output=label --output_file="$targets" 'kind("starlark_doc_extract rule", //py/...)'
-bazel --output_base="$docs" build --target_pattern_file="$targets"
+# Note, we use xargs here because the repo is on Bazel 7.4 which doesn't have the --output_file flag to bazel query
+docs="$(mktemp -d)"
+bazel --output_base="$docs" query --output=label 'kind("starlark_doc_extract rule", //py/...)' | xargs bazel --output_base="$docs" build
 tar --create --auto-compress \
     --directory "$(bazel --output_base="$docs" info bazel-bin)" \
     --file "$GITHUB_WORKSPACE/${ARCHIVE%.tar.gz}.docs.tar.gz" .
