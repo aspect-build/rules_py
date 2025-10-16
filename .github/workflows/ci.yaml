@@ -51,7 +51,7 @@ jobs:
 
   pre-commit:
     runs-on: ubuntu-latest
-    if: always()
+    if: always() && !cancelled()
     steps:
       - uses: actions/checkout@v4
         with:
