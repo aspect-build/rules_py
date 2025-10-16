@@ -28,7 +28,7 @@ tasks:
   # rules_python we have on the WORKSPACE side isn't ready for yet. Once we kill
   # off WORKSPACE we can flip these back on but practically this is blocked on
   # getting that change in.
-  # 
+  #
   # - test:
   #     name: test-os:linux-bzl:latest
   #     queue: aspect-large
