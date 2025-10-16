@@ -61,3 +61,10 @@ repos:
         entry: /bin/sh -c '/usr/bin/env bazel run //py/tests/py_venv_image_layer:my_app_arm64_layers'
         language: script
         require_serial: true
+
+      - id: sync-workflows-subrepos
+        name: Update workflows file for subrepos
+        # Note that we use a nested shell to discard $@, which is the file list
+        entry: /usr/bin/env python3 tools/e2e/sync.py
+        language: script
+        require_serial: true

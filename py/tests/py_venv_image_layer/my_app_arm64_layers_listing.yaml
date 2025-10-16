@@ -2504,5 +2504,5 @@ files:
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/bazel_tools/tools/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/bazel_tools/tools/bash/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/bazel_tools/tools/bash/runfiles/
-  - -rwxr-xr-x  0 0      0       21622 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash
+  - -rwxr-xr-x  0 0      0       21636 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/pypi_colorama/

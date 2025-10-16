@@ -11,3 +11,9 @@ py_binary(
     srcs = ["devintegrity.py"],
     main = "devintegrity.py",
 )
+
+py_binary(
+    name = "sync",
+    srcs = ["sync.py"],
+    main = "sync.py",
+)

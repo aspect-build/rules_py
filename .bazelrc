@@ -6,6 +6,8 @@ test --test_output=errors
 
 # TODO(alex): enable
 common --noenable_bzlmod
+# For very recent bazel we have to set this explicitly
+common --enable_workspace
 
 # Define value used by tests
 build --define=SOME_VAR=SOME_VALUE
