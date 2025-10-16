@@ -22,20 +22,6 @@ concurrency:
   cancel-in-progress: ${{ github.ref_name != 'main' }}
 
 jobs:
-  test:
-    uses: bazel-contrib/.github/.github/workflows/bazel.yaml@646899086d7aaee8e532540480f3e91e00596234 # 11 Dec 2024
-    with:
-      # NB: the root folder is tested with Aspect Workflows on BuildKite, see /.aspect/workflows/config.yaml
-      folders: |
-        [
-          "e2e/use_release"
-        ]
-      # TODO: Build Windows tools and add to toolchain
-      exclude: |
-        [
-          {"os": "windows-latest"},
-        ]
-
   pre-commit:
     runs-on: ubuntu-latest
     if: always() && !cancelled()
@@ -101,7 +87,6 @@ jobs:
   # on "all matrix jobs were successful".
   conclusion:
     needs:
-      - test
       - verify-bcr-patches
       - test-release
       - pre-commit
