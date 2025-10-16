@@ -1,8 +1,20 @@
 # See https://docs.aspect.build/workflows/configuration
+workspaces:
+# SYNC: e2e
+# {{{
+  - .
+  - e2e/cross-repo-610
+  - e2e/interpreter-version-541
+  - e2e/repository-rule-deps
+  - e2e/smoke
+  - e2e/system-interpreter
+  - examples/uv_pip_compile
+# }}}
 tasks:
   - test:
       queue: aspect-large
   - finalization:
       queue: aspect-small
+
 notifications:
   github: {}
