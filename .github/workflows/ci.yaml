@@ -28,15 +28,12 @@ jobs:
       # NB: the root folder is tested with Aspect Workflows on BuildKite, see /.aspect/workflows/config.yaml
       folders: |
         [
-          "e2e/smoke",
+          "e2e/use_release"
         ]
       # TODO: Build Windows tools and add to toolchain
-      # TODO(alex): switch the root folder to bzlmod
-      # TODO: fix remaining folders on Bazel 8
       exclude: |
         [
           {"os": "windows-latest"},
-          {"folder": "e2e/smoke", "bazelversion": "8.0.0"}
         ]
 
   pre-commit:
