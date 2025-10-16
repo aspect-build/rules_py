@@ -1,4 +1,6 @@
 # See https://docs.aspect.build/workflows/configuration
+
+# This list is maintained by tools/e2e/sync.py
 workspaces:
   # SYNC: e2e
   # {{{
@@ -10,9 +12,45 @@ workspaces:
   - e2e/system-interpreter
   - examples/uv_pip_compile
 # }}}
+
 tasks:
+  # TODO(arrdem): Rosetta doesn't like HEAD version strings seemingly
+  # - test:
+  #     name: test-os:linux-bzl:head
+  #     queue: aspect-default
+  #     hooks:
+  #       - type: before_task
+  #         command: |
+  #           rm .bazelversion
+  #           echo "USE_BAZEL_VERSION=last_green" > .bazeliskrc
+
   - test:
+      name: test-os:linux-bzl:latest
       queue: aspect-large
+      hooks:
+        - type: before_task
+          command: |
+            rm .bazelversion
+            echo "USE_BAZEL_VERSION=latest" > .bazeliskrc
+
+  - test:
+      name: test-os:linux-bzl:8
+      queue: aspect-large
+      hooks:
+        - type: before_task
+          command: |
+            rm .bazelversion
+            echo "USE_BAZEL_VERSION=8.2.1" > .bazeliskrc
+
+  - test:
+      name: test-os:linux-bzl:7
+      queue: aspect-large
+      hooks:
+        - type: before_task
+          command: |
+            rm .bazelversion
+            echo "USE_BAZEL_VERSION=7.6.1" > .bazeliskrc
+
   - finalization:
       queue: aspect-small
 
