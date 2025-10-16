@@ -1,10 +1,11 @@
 # Resolution of "virtual" dependencies
 
-rules_py allows external Python dependencies to be specified by name rather than as a label to an installed package, using a concept called "virtual" dependencies. 
+rules_py allows external Python dependencies to be specified by name rather than as a label to an installed package, using a concept called "virtual" dependencies.
 
 Virtual dependencies allow the terminal rule (for example, a `py_binary` or `py_test`) to control the version of the package which is used to satisfy the dependency, by providing a mapping from the package name to the label of an installed package that provides it.
 
 This feature allows:
+
 - for individual projects within a monorepo to upgrade their dependencies independently of other projects within the same repository
 - overriding a single version of a dependency for a py_binary or py_test
 - to test against a range of different versions of dependencies for a single library
@@ -93,4 +94,3 @@ py_binary(
     deps = [":proj"],
 )
 ```
-
