@@ -15,5 +15,5 @@ py_binary(
 py_binary(
     name = "sync",
     srcs = ["sync.py"],
-    main = "sync.py"
+    main = "sync.py",
 )
