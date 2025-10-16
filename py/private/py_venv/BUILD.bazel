@@ -2,10 +2,7 @@ load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 load(":defs.bzl", "py_venv_test")
 
-package(default_visibility = [
-    "//docs:__pkg__",
-    "//py:__subpackages__",
-])
+package(default_visibility = ["//py:__subpackages__"])
 
 exports_files([
     "entrypoint.tmpl.sh",
