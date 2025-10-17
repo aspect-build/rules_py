@@ -35,16 +35,6 @@ EOF
 # Append that generated file back into the archive
 tar --file $ARCHIVE_TMP --append ${PREFIX}/py/private/release/integrity.bzl
 
-## Generate release MODULE.bazel
-# Delete the actual MODULE.bazel which has a bunch of garbage
-tar --file $ARCHIVE_TMP --delete ${PREFIX}/MODULE.bazel
-
-# Truncate off included MODULE.bazel content
-awk --posix '/#{80}/{exit;} {print}' MODULE.bazel > ${PREFIX}/MODULE.bazel
-
-# Append that generated file back into the archive
-tar --file $ARCHIVE_TMP --append ${PREFIX}/MODULE.bazel
-
 # END patch up the archive
 ############
 

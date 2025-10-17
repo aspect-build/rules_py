@@ -7,6 +7,9 @@ A quick and dirty script which implements include() on the MODULE.bazel.
 import re
 from difflib import Differ
 from pathlib import Path
+from tempfile import mkdtemp
+from subprocess import call
+from shutil import rmtree
 
 ANCHOR_RE = re.compile("""\
 ################################################################################
@@ -47,4 +50,32 @@ if __name__ == "__main__":
 
         with open(root / "MODULE.bazel", "w") as fp:
             fp.write(new_module_content)
-            exit(1)
+
+        # Now the really cursed bit is that we need to generate an updated
+        # patchfile if the MODULE changes, since the only way we can remove
+        # content from the MODULE today is with patches.
+        base = Path(mkdtemp())
+
+        a = base / "a"
+        a.mkdir()
+        
+        b = base / "b"
+        b.mkdir()
+
+        # B is our desired end state (stripped)
+        # A is our current state     (included)
+        with open(a / "MODULE.bazel", "w") as fp:
+            fp.write(new_module_content)
+
+        with open(b / "MODULE.bazel", "w") as fp:
+            fp.write(module_content[:anchor_match.start()])
+
+        with open(root / ".bcr/patches/remove_dev_deps.patch", "w") as fp:
+            # Call diff and use it to directly write the new patchfile
+            call(["diff", "-u", "a/MODULE.bazel", "b/MODULE.bazel"], cwd=base, stdout=fp,)
+
+        # Clean up after ourselves
+        rmtree(base)
+
+        # And signal that change was made
+        exit(1)
