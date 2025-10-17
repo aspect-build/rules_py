@@ -1,5 +1,5 @@
---- a/MODULE.bazel	2025-10-16 19:48:06
-+++ b/MODULE.bazel	2025-10-16 19:48:06
+--- a/MODULE.bazel	2025-10-16 21:15:24
++++ b/MODULE.bazel	2025-10-16 21:15:24
 @@ -21,525 +21,5 @@
      "@aspect_rules_py//py/private/toolchain/venv/...",
      "@aspect_rules_py//py/private/toolchain/unpack/...",
@@ -238,7 +238,7 @@
 -    edition = RUST_EDITION,  # "edition" only set in first instance of "rust_linux_x86_64" repository_set (see comment above)
 -    exec_triple = "x86_64-unknown-linux-gnu",  # "exec_triple" only set in first instance of "rust_linux_x86_64" repository_set (see comment above)
 -    target_compatible_with = [
--        "@//bazel/platforms/linkers:unknown",
+-        "//bazel/platforms/linkers:unknown",
 -        "@platforms//cpu:x86_64",
 -        "@platforms//os:linux",
 -    ],
@@ -250,7 +250,7 @@
 -rust.repository_set(
 -    name = "rust_linux_x86_64",
 -    target_compatible_with = [
--        "@//bazel/platforms/linkers:musl",
+-        "//bazel/platforms/linkers:musl",
 -        "@platforms//cpu:x86_64",
 -        "@platforms//os:linux",
 -    ],
@@ -261,7 +261,7 @@
 -rust.repository_set(
 -    name = "rust_linux_x86_64",
 -    target_compatible_with = [
--        "@//bazel/platforms/linkers:musl",
+-        "//bazel/platforms/linkers:musl",
 -        "@platforms//cpu:arm64",
 -        "@platforms//os:linux",
 -    ],
@@ -295,7 +295,7 @@
 -    edition = RUST_EDITION,  # "edition" only set in first instance of "rust_linux_aarch64" repository_set (see comment above)
 -    exec_triple = "aarch64-unknown-linux-gnu",  # "exec_triple" only set in first instance of "rust_linux_aarch64" repository_set (see comment above)
 -    target_compatible_with = [
--        "@//bazel/platforms/linkers:unknown",
+-        "//bazel/platforms/linkers:unknown",
 -        "@platforms//cpu:aarch64",
 -        "@platforms//os:linux",
 -    ],
@@ -307,7 +307,7 @@
 -rust.repository_set(
 -    name = "rust_linux_aarch64",
 -    target_compatible_with = [
--        "@//bazel/platforms/linkers:musl",
+-        "//bazel/platforms/linkers:musl",
 -        "@platforms//cpu:aarch64",
 -        "@platforms//os:linux",
 -    ],
@@ -321,7 +321,7 @@
 -    edition = RUST_EDITION,  # "edition" only set in first instance of "rust_darwin_x86_64" repository_set (see comment above)
 -    exec_triple = "x86_64-apple-darwin",  # "exec_triple" only set in first instance of "rust_darwin_x86_64" repository_set (see comment above)
 -    target_compatible_with = [
--        "@//bazel/platforms/linkers:musl",
+-        "//bazel/platforms/linkers:musl",
 -        "@platforms//cpu:x86_64",
 -        "@platforms//os:linux",
 -    ],
@@ -333,7 +333,7 @@
 -rust.repository_set(
 -    name = "rust_darwin_x86_64",
 -    target_compatible_with = [
--        "@//bazel/platforms/linkers:musl",
+-        "//bazel/platforms/linkers:musl",
 -        "@platforms//cpu:arm64",
 -        "@platforms//os:linux",
 -    ],
@@ -367,7 +367,7 @@
 -    edition = RUST_EDITION,  # "edition" only set in first instance of "rust_darwin_aarch64" repository_set (see comment above)
 -    exec_triple = "aarch64-apple-darwin",  # "exec_triple" only set in first instance of "rust_darwin_aarch64" repository_set (see comment above)
 -    target_compatible_with = [
--        "@//bazel/platforms/linkers:musl",
+-        "//bazel/platforms/linkers:musl",
 -        "@platforms//cpu:x86_64",
 -        "@platforms//os:linux",
 -    ],
@@ -379,7 +379,7 @@
 -rust.repository_set(
 -    name = "rust_darwin_aarch64",
 -    target_compatible_with = [
--        "@//bazel/platforms/linkers:musl",
+-        "//bazel/platforms/linkers:musl",
 -        "@platforms//cpu:arm64",
 -        "@platforms//os:linux",
 -    ],
