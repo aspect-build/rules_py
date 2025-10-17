@@ -1,9 +1,9 @@
 load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@container_structure_test//:defs.bzl", "container_structure_test")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load")
+load("//bazel:defs.bzl", "incompatible_with")
 load("//py:defs.bzl", "py_binary", "py_image_layer")
 load("asserts.bzl", "assert_tar_listing")
-load("//bazel:defs.bzl", "incompatible_with")
 
 platform(
     name = "aarch64_linux",
