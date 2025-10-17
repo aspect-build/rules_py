@@ -205,7 +205,7 @@ use_repo(multitool, "multitool")
 bazel_dep(name = "toolchains_musl", version = "0.1.27")
 
 toolchains_musl = use_extension("@toolchains_musl//:toolchains_musl.bzl", "toolchains_musl")
-toolchains_musl.config(extra_target_compatible_with = ["@//bazel/platforms/linkers:musl"])
+toolchains_musl.config(extra_target_compatible_with = ["//bazel/platforms/linkers:musl"])
 
 ########################################
 # from bazel/include/rust.MODULE.bazel
