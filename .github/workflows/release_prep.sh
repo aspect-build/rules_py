@@ -14,14 +14,15 @@ ARCHIVE_TMP=$(mktemp)
 git archive --format=tar --prefix=${PREFIX}/ ${TAG} > $ARCHIVE_TMP
 
 ############
-# Patch up the archive to have integrity hashes for built binaries that we downloaded in the GHA workflow.
-# Now that we've run `git archive` we are free to pollute the working directory.
+# BEGIN archive patching
 
+## Generate release hashes
 # Delete the placeholder file
 tar --file $ARCHIVE_TMP --delete ${PREFIX}/py/private/release/integrity.bzl
 
-mkdir -p ${PREFIX}/tools
-cat >${PREFIX}/tools/integrity.bzl <<EOF
+# Generate an updated integrity hash set
+mkdir -p ${PREFIX}/py/private/release
+cat >${PREFIX}/py/private/release/integrity.bzl <<EOF
 "Generated during release by release_prep.sh, using integrity.jq"
 
 RELEASED_BINARY_INTEGRITY = $(jq \
@@ -33,6 +34,16 @@ EOF
 
 # Append that generated file back into the archive
 tar --file $ARCHIVE_TMP --append ${PREFIX}/py/private/release/integrity.bzl
+
+## Generate release MODULE.bazel
+# Delete the actual MODULE.bazel which has a bunch of garbage
+tar --file $ARCHIVE_TMP --delete ${PREFIX}/MODULE.bazel
+
+# Truncate off included MODULE.bazel content
+awk --posix '/#{80}/{exit;} {print}' MODULE.bazel > ${PREFIX}/MODULE.bazel
+
+# Append that generated file back into the archive
+tar --file $ARCHIVE_TMP --append ${PREFIX}/MODULE.bazel
 
 # END patch up the archive
 ############

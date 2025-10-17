@@ -64,7 +64,12 @@ repos:
 
       - id: sync-workflows-subrepos
         name: Update workflows file for subrepos
-        # Note that we use a nested shell to discard $@, which is the file list
         entry: /usr/bin/env python3 tools/e2e/sync.py
+        language: script
+        require_serial: true
+        
+      - id: sync-module-includes
+        name: Update MODULE.bazel includes
+        entry: /usr/bin/env python3 tools/bazel/includer.py
         language: script
         require_serial: true
