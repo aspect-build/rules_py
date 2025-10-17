@@ -37,9 +37,6 @@ common:release --@rules_rust//rust/settings:lto=fat
 common:nollvm --action_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=0
 common:nollvm --noincompatible_enable_cc_toolchain_resolution
 
-# Import the default configs
-try-import %workspace%/bazel/defaults.bazelrc
-
 # Load any settings specific to the current user.
 # .bazelrc.user should appear in .gitignore so that settings are not shared with team members
 # This needs to be last statement in this
