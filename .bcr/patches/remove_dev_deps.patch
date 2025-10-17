@@ -1,6 +1,6 @@
---- a/MODULE.bazel	2025-10-16 19:11:28
-+++ b/MODULE.bazel	2025-10-16 19:11:28
-@@ -21,515 +21,5 @@
+--- a/MODULE.bazel	2025-10-16 19:48:06
++++ b/MODULE.bazel	2025-10-16 19:48:06
+@@ -21,525 +21,5 @@
      "@aspect_rules_py//py/private/toolchain/venv/...",
      "@aspect_rules_py//py/private/toolchain/unpack/...",
      "@aspect_rules_py//py/private/toolchain/shim/...",
@@ -30,6 +30,7 @@
 -# include("//bazel/include:telemetry.MODULE.bazel")
 -# include("//bazel/include:python.MODULE.bazel")
 -# include("//bazel/include:release.MODULE.bazel")
+-# include("//bazel/include:test.MODULE.bazel")
 -# include("//bazel/include:tools.MODULE.bazel")
 -
 -################################################################################
@@ -509,6 +510,15 @@
 -# from bazel/include/release.MODULE.bazel
 -bazel_dep(name = "with_cfg.bzl", version = "0.11.0")
 -bazel_dep(name = "rules_pkg", version = "1.1.0")
+-
+-########################################
+-# from bazel/include/test.MODULE.bazel
+-# TODO: Replace with bazel_features?
+-# cf. https://github.com/bazel-contrib/bazelrc-preset.bzl/blob/main/MODULE.bazel#L8C1-L10C70
+-bazel_dep(name = "bazel_features", version = "1.0.0")
+-
+-version = use_extension("@bazel_features//private:extensions.bzl", "version_extension")
+-use_repo(version, "bazel_features_globals", "bazel_features_version")
 -
 -########################################
 -# from bazel/include/tools.MODULE.bazel
