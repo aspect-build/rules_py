@@ -1,6 +1,8 @@
 load("@bazelrc-preset.bzl", "bazelrc_preset")
 load(":defs.bzl", "incompatible_with")
 
+exports_files(["defs.bzl"])
+
 bazelrc_preset(
     name = "defaults",
     # Note that we're clobbering the Bazel version part of the normal URL

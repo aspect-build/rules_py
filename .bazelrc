@@ -16,8 +16,8 @@ common --features=-libtool
 common --incompatible_enable_cc_toolchain_resolution
 
 # TODO(bzlmod): Don't break proto
-# common --per_file_copt=external/.*protobuf.*@--PROTOBUF_WAS_NOT_SUPPOSED_TO_BE_BUILT
-# common --host_per_file_copt=external/.*protobuf.*@--PROTOBUF_WAS_NOT_SUPPOSED_TO_BE_BUILT
+common --per_file_copt=external/.*protobuf.*@--PROTOBUF_WAS_NOT_SUPPOSED_TO_BE_BUILT
+common --host_per_file_copt=external/.*protobuf.*@--PROTOBUF_WAS_NOT_SUPPOSED_TO_BE_BUILT
 
 # Don't try and auto detect the cc toolchain, as we use our own gcc toolchains.
 common --action_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
@@ -36,6 +36,9 @@ common:release --@rules_rust//rust/settings:lto=fat
 # Speed up local development by using the non-hermetic CPP toolchain.
 common:nollvm --action_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=0
 common:nollvm --noincompatible_enable_cc_toolchain_resolution
+
+# Import the default configs
+try-import %workspace%/bazel/defaults.bazelrc
 
 # Load any settings specific to the current user.
 # .bazelrc.user should appear in .gitignore so that settings are not shared with team members

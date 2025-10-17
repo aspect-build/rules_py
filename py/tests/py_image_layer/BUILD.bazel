@@ -3,6 +3,7 @@ load("@container_structure_test//:defs.bzl", "container_structure_test")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load")
 load("//py:defs.bzl", "py_binary", "py_image_layer")
 load("asserts.bzl", "assert_tar_listing")
+load("//bazel:defs.bzl", "incompatible_with")
 
 platform(
     name = "aarch64_linux",
@@ -42,10 +43,13 @@ platform_transition_filegroup(
     target_platform = ":x86_64_linux",
 )
 
+# FIXME(Bazel 8+): This listing needs to be updated/
+# Contains old style ~ munging.
 assert_tar_listing(
     name = "my_app_layers_test",
     actual = [":platform_layers"],
     expected = ":my_app_layers_listing.yaml",
+    target_compatible_with = incompatible_with("8.0.0"),
 )
 
 oci_image(
@@ -85,4 +89,5 @@ container_structure_test(
     configs = ["py_image_test.yaml"],
     image = ":amd64_image",
     platform = "linux/amd64",
+    target_compatible_with = incompatible_with("8.0.0"),
 )
