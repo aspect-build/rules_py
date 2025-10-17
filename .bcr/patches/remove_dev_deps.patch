@@ -225,7 +225,7 @@
 -use_repo(crate, "crates")
 -
 -# These override the default rust_repository_sets created by rust_register_toolchain. They must be named exactly as follows.
--# NB: The first call for a particular name may set the `edition`, `exec_triple`, and `versions` attributes, the subsequent calls shoud not set it or else Bazel will fail with,
+-# NB: The first call for a particular name may set the `edition`, `exec_triple`, and `versions` attributes, the subsequent calls should not set it or else Bazel will fail with,
 -# "Error in fail: You must only set edition on the first call to repository_set for a particular name but it was set multiple times for rust_linux_x86_64"
 -# "Error in fail: You must only set exec_triple on the first call to repository_set for a particular name but it was set multiple times for rust_linux_x86_64"
 -# "Error in fail: You must only set versions on the first call to repository_set for a particular name but it was set multiple times for rust_linux_x86_64"

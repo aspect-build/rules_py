@@ -69,7 +69,7 @@ _hashes = rule(
         ),
         "sha256": attr.string(
             mandatory = True,
-        )
+        ),
     },
 )
 
@@ -82,7 +82,7 @@ def hashes(name, src, **kwargs):
             # Manually configure that tool source.
             "@platforms//os:macos": "/sbin/sha256sum",
             # Normally tho it's just on the $PATH.
-            "//conditions:default": "sha256sum"
+            "//conditions:default": "sha256sum",
         }),
         **kwargs
     )

@@ -61,10 +61,10 @@ bzl_library(
     srcs = ["toolchains.bzl"],
     visibility = ["//visibility:public"],
     deps = [
+        "//py/private/release:version",
         "//py/private/toolchain:autodetecting",
         "//py/private/toolchain:repo",
         "//py/private/toolchain:tools",
-        "//py/private/release:version",
         "@aspect_bazel_lib//lib:repositories",
         "@bazel_tools//tools/build_defs/repo:http.bzl",
     ],

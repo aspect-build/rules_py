@@ -27,7 +27,7 @@ execution_cpus = [
             name = "llvm_toolchain_{}_{}".format(exec_os, exec_cpu),
             exec_arch = exec_cpu,
             exec_os = exec_os if exec_os != "macos" else "darwin",
-            llvm_version = "20.1.2"
+            llvm_version = "20.1.2",
         ),
         llvm.sysroot(
             name = "llvm_toolchain_{}_{}".format(exec_os, exec_cpu),
@@ -89,9 +89,9 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 """,
+    integrity = "sha256-9qzGIJ251Wtn/K+R7B3v5Ici6esT3CH7kc/s6xSJ5X4=",
     # The ruby header has an infinite symlink that we need to remove.
     patch_cmds = ["rm System/Library/Frameworks/Ruby.framework/Versions/Current/Headers/ruby/ruby"],
-    integrity = "sha256-9qzGIJ251Wtn/K+R7B3v5Ici6esT3CH7kc/s6xSJ5X4=",
     strip_prefix = "MacOSX14.5.sdk",
     urls = ["https://github.com/alexey-lysiuk/macos-sdk/releases/download/14.5/MacOSX14.5.tar.xz"],
 )

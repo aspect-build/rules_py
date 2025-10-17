@@ -67,6 +67,7 @@ def _can_resolve_path_in_workspace_test_impl(ctx):
     # Transitive imports are included in depset
     fake_ctx = _ctx_with_imports([".."], [ctx.attr.import_dep])
     imports = py_library.make_imports_depset(fake_ctx).to_list()
+
     # Note that under bzlmod the import_dep's repo is _main.
     # We can't override or force this because we're using a real label below.
     asserts.equals(env, "{}/py/tests/import-pathing/baz".format(ctx.workspace_name), imports[0])
