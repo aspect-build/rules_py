@@ -5,6 +5,7 @@ A quick and dirty script which implements include() on the MODULE.bazel.
 """
 
 import re
+import sys
 from difflib import Differ
 from pathlib import Path
 from tempfile import mkdtemp
@@ -44,7 +45,7 @@ if __name__ == "__main__":
             new_content_buffer.append(fp.read())
             
     new_module_content = "\n".join(new_content_buffer)
-    if new_module_content != module_content:
+    if new_module_content != module_content or "-f" in sys.argv:
         diff = Differ().compare(module_content.splitlines(), new_module_content.splitlines())
         print("\n".join(diff))
 

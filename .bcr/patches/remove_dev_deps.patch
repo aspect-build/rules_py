@@ -1,6 +1,6 @@
---- a/MODULE.bazel	2025-10-16 18:51:32
-+++ b/MODULE.bazel	2025-10-16 18:51:32
-@@ -21,505 +21,5 @@
+--- a/MODULE.bazel	2025-10-16 19:11:28
++++ b/MODULE.bazel	2025-10-16 19:11:28
+@@ -21,515 +21,5 @@
      "@aspect_rules_py//py/private/toolchain/venv/...",
      "@aspect_rules_py//py/private/toolchain/unpack/...",
      "@aspect_rules_py//py/private/toolchain/shim/...",
@@ -71,7 +71,7 @@
 -            name = "llvm_toolchain_{}_{}".format(exec_os, exec_cpu),
 -            exec_arch = exec_cpu,
 -            exec_os = exec_os if exec_os != "macos" else "darwin",
--            llvm_version = "20.1.2"
+-            llvm_version = "20.1.2",
 -        ),
 -        llvm.sysroot(
 -            name = "llvm_toolchain_{}_{}".format(exec_os, exec_cpu),
@@ -133,9 +133,9 @@
 -    visibility = ["//visibility:public"],
 -)
 -""",
+-    integrity = "sha256-9qzGIJ251Wtn/K+R7B3v5Ici6esT3CH7kc/s6xSJ5X4=",
 -    # The ruby header has an infinite symlink that we need to remove.
 -    patch_cmds = ["rm System/Library/Frameworks/Ruby.framework/Versions/Current/Headers/ruby/ruby"],
--    integrity = "sha256-9qzGIJ251Wtn/K+R7B3v5Ici6esT3CH7kc/s6xSJ5X4=",
 -    strip_prefix = "MacOSX14.5.sdk",
 -    urls = ["https://github.com/alexey-lysiuk/macos-sdk/releases/download/14.5/MacOSX14.5.tar.xz"],
 -)
@@ -234,16 +234,17 @@
 -# -> linux x86_64 (gnu)
 -rust.repository_set(
 -    name = "rust_linux_x86_64",
--    edition = RUST_EDITION, # "edition" only set in first instance of "rust_linux_x86_64" repository_set (see comment above)
--    exec_triple = "x86_64-unknown-linux-gnu", # "exec_triple" only set in first instance of "rust_linux_x86_64" repository_set (see comment above)
+-    edition = RUST_EDITION,  # "edition" only set in first instance of "rust_linux_x86_64" repository_set (see comment above)
+-    exec_triple = "x86_64-unknown-linux-gnu",  # "exec_triple" only set in first instance of "rust_linux_x86_64" repository_set (see comment above)
 -    target_compatible_with = [
 -        "@//bazel/platforms/linkers:unknown",
 -        "@platforms//cpu:x86_64",
 -        "@platforms//os:linux",
 -    ],
 -    target_triple = "x86_64-unknown-linux-gnu",
--    versions = [RUST_VERSION], # "versions" only set in first instance of "rust_linux_x86_64" repository_set (see comment above)
+-    versions = [RUST_VERSION],  # "versions" only set in first instance of "rust_linux_x86_64" repository_set (see comment above)
 -)
+-
 -# -> linux x86_64 (musl)
 -rust.repository_set(
 -    name = "rust_linux_x86_64",
@@ -254,6 +255,7 @@
 -    ],
 -    target_triple = "x86_64-unknown-linux-musl",
 -)
+-
 -# -> linux arm (musl)
 -rust.repository_set(
 -    name = "rust_linux_x86_64",
@@ -264,6 +266,7 @@
 -    ],
 -    target_triple = "aarch64-unknown-linux-musl",
  )
+ 
 -# -> darwin x86
 -rust.repository_set(
 -    name = "rust_linux_x86_64",
@@ -273,6 +276,7 @@
 -    ],
 -    target_triple = "x86_64-apple-darwin",
 -)
+-
 -# -> darwin arm
 -rust.repository_set(
 -    name = "rust_linux_x86_64",
@@ -282,21 +286,22 @@
 -    ],
 -    target_triple = "aarch64-apple-darwin",
 -)
- 
+-
 -# Execution platform : linux arm (aarch64-unknown-linux-gnu)
 -# -> linux arm (gnu)
 -rust.repository_set(
 -    name = "rust_linux_aarch64",
--    edition = RUST_EDITION, # "edition" only set in first instance of "rust_linux_aarch64" repository_set (see comment above)
--    exec_triple = "aarch64-unknown-linux-gnu", # "exec_triple" only set in first instance of "rust_linux_aarch64" repository_set (see comment above)
+-    edition = RUST_EDITION,  # "edition" only set in first instance of "rust_linux_aarch64" repository_set (see comment above)
+-    exec_triple = "aarch64-unknown-linux-gnu",  # "exec_triple" only set in first instance of "rust_linux_aarch64" repository_set (see comment above)
 -    target_compatible_with = [
 -        "@//bazel/platforms/linkers:unknown",
 -        "@platforms//cpu:aarch64",
 -        "@platforms//os:linux",
 -    ],
 -    target_triple = "aarch64-unknown-linux-gnu",
--    versions = [RUST_VERSION], # "versions" only set in first instance of "rust_linux_aarch64" repository_set (see comment above)
+-    versions = [RUST_VERSION],  # "versions" only set in first instance of "rust_linux_aarch64" repository_set (see comment above)
 -)
+-
 -# -> linux arm (musl)
 -rust.repository_set(
 -    name = "rust_linux_aarch64",
@@ -312,16 +317,17 @@
 -# -> linux x86 (musl)
 -rust.repository_set(
 -    name = "rust_darwin_x86_64",
--    edition = RUST_EDITION, # "edition" only set in first instance of "rust_darwin_x86_64" repository_set (see comment above)
--    exec_triple = "x86_64-apple-darwin", # "exec_triple" only set in first instance of "rust_darwin_x86_64" repository_set (see comment above)
+-    edition = RUST_EDITION,  # "edition" only set in first instance of "rust_darwin_x86_64" repository_set (see comment above)
+-    exec_triple = "x86_64-apple-darwin",  # "exec_triple" only set in first instance of "rust_darwin_x86_64" repository_set (see comment above)
 -    target_compatible_with = [
 -        "@//bazel/platforms/linkers:musl",
 -        "@platforms//cpu:x86_64",
 -        "@platforms//os:linux",
 -    ],
 -    target_triple = "x86_64-unknown-linux-musl",
--    versions = [RUST_VERSION], # "versions" only set in first instance of "rust_darwin_x86_64" repository_set (see comment above)
+-    versions = [RUST_VERSION],  # "versions" only set in first instance of "rust_darwin_x86_64" repository_set (see comment above)
 -)
+-
 -# -> linux arm (musl)
 -rust.repository_set(
 -    name = "rust_darwin_x86_64",
@@ -332,6 +338,7 @@
 -    ],
 -    target_triple = "aarch64-unknown-linux-musl",
 -)
+-
 -# -> darwin x86
 -rust.repository_set(
 -    name = "rust_darwin_x86_64",
@@ -341,6 +348,7 @@
 -    ],
 -    target_triple = "x86_64-apple-darwin",
 -)
+-
 -# -> darwin arm
 -rust.repository_set(
 -    name = "rust_darwin_x86_64",
@@ -355,16 +363,17 @@
 -# -> linux x86 (musl)
 -rust.repository_set(
 -    name = "rust_darwin_aarch64",
--    edition = RUST_EDITION, # "edition" only set in first instance of "rust_darwin_aarch64" repository_set (see comment above)
--    exec_triple = "aarch64-apple-darwin", # "exec_triple" only set in first instance of "rust_darwin_aarch64" repository_set (see comment above)
+-    edition = RUST_EDITION,  # "edition" only set in first instance of "rust_darwin_aarch64" repository_set (see comment above)
+-    exec_triple = "aarch64-apple-darwin",  # "exec_triple" only set in first instance of "rust_darwin_aarch64" repository_set (see comment above)
 -    target_compatible_with = [
 -        "@//bazel/platforms/linkers:musl",
 -        "@platforms//cpu:x86_64",
 -        "@platforms//os:linux",
 -    ],
 -    target_triple = "x86_64-unknown-linux-musl",
--    versions = [RUST_VERSION], # "versions" only set in first instance of "rust_darwin_aarch64" repository_set (see comment above)
+-    versions = [RUST_VERSION],  # "versions" only set in first instance of "rust_darwin_aarch64" repository_set (see comment above)
 -)
+-
 -# -> linux arm (musl)
 -rust.repository_set(
 -    name = "rust_darwin_aarch64",
@@ -375,6 +384,7 @@
 -    ],
 -    target_triple = "aarch64-unknown-linux-musl",
 -)
+-
 -# -> darwin x86
 -rust.repository_set(
 -    name = "rust_darwin_aarch64",
@@ -384,6 +394,7 @@
 -    ],
 -    target_triple = "x86_64-apple-darwin",
 -)
+-
 -# -> darwin arm
 -rust.repository_set(
 -    name = "rust_darwin_aarch64",
@@ -393,7 +404,6 @@
 -    ],
 -    target_triple = "aarch64-apple-darwin",
 -)
--
 -use_repo(rust, "rust_toolchains")
 -
 -register_toolchains("@rust_toolchains//:all")
