@@ -3,4 +3,8 @@ load("@bazelrc-preset.bzl", "bazelrc_preset")
 bazelrc_preset(
     name = "defaults",
     strict = True,
+    # Note that we're clobbering the Bazel version part of the normal URL
+    # template so that we don't generate a diff test that fails when we
+    # USE_BAZEL_VERSION for testing.
+    doc_link_template = "https://registry.build/flag/bazel?filter={flag}",
 )
