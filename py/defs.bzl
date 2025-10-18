@@ -63,7 +63,7 @@ py_image_layer = _py_image_layer
 resolutions = _resolutions
 
 def _py_binary_or_test(name, rule, srcs, main, data = [], deps = [], resolutions = {}, **kwargs):
-    exec_properties = kwargs.pop("exec_properties", {})
+    exec_properties = kwargs.pop("exec_properties") or {}
     non_test_exec_properties = {k: v for k, v in exec_properties.items() if not k.startswith("test.")}
 
     # Compatibility with rules_python, see docs in py_executable.bzl
