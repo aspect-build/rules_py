@@ -29,3 +29,15 @@ py_test(
         "@pip//pytest",  # keep
     ],
 )
+
+py_test(
+    name = "test2",
+    srcs = ["my_test2.py"],
+    data = ["//:.coveragerc"],
+    pytest_main = True,
+    deps = [
+        ":main",
+        "@pip//coverage",  # keep
+        "@pip//pytest",  # keep
+    ],
+)
