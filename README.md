@@ -26,7 +26,7 @@ Watch Alex's talk from Monorepo World for a quick demo on how rules_py makes it 
 
 [![Python Monorepo World](https://img.youtube.com/vi/en3ep4rw0oA/0.jpg)](https://www.youtube.com/watch?v=en3ep4rw0oA)
 
-_Need help?_ This ruleset has support provided by https://aspect.dev.
+_Need help?_ This ruleset has paid support available, see https://aspect.build/services#support
 
 ## Differences
 
