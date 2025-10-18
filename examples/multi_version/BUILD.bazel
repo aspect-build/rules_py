@@ -3,15 +3,15 @@ load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_pytest_main", "py_test")
 py_binary(
     name = "multi_version",
     srcs = ["say.py"],
-    python_version = "3.8.12",
+    python_version = "3.9",
     deps = [
-        "@pypi_cowsay//:pkg",
+        "@pypi//cowsay",
     ],
 )
 
 py_pytest_main(
     name = "__test__",
-    deps = ["@pypi_pytest//:pkg"],
+    deps = ["@pypi//pytest"],
 )
 
 py_test(
@@ -21,12 +21,13 @@ py_test(
         ":__test__",
     ],
     main = ":__test__.py",
-    python_version = "3.8.12",
+    python_version = "3.9",
     deps = [
         ":__test__",
     ],
 )
 
+# The current version is 3.12
 py_test(
     name = "py_version_default_test",
     srcs = [

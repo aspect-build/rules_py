@@ -1,4 +1,4 @@
-load("@bazel_lib//:bzl_library.bzl", "bzl_library")
+load("@aspect_bazel_lib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
 
 # For Bazel 6.x compatibility, since
@@ -52,7 +52,7 @@ bzl_library(
 #     visibility = ["//visibility:public"],
 #     deps = [
 #         ":toolchains",
-#         "//tools:version",
+#         "//py/private/release:version",
 #     ],
 # )
 
@@ -61,10 +61,10 @@ bzl_library(
     srcs = ["toolchains.bzl"],
     visibility = ["//visibility:public"],
     deps = [
+        "//py/private/release:version",
         "//py/private/toolchain:autodetecting",
         "//py/private/toolchain:repo",
         "//py/private/toolchain:tools",
-        "//tools:version",
         "@aspect_bazel_lib//lib:repositories",
         "@bazel_tools//tools/build_defs/repo:http.bzl",
     ],

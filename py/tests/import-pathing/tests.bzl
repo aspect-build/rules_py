@@ -10,7 +10,8 @@ def _ctx_with_imports(imports, deps = []):
         ),
         build_file_path = "foo/bar/BUILD.bazel",
         workspace_name = "aspect_rules_py",
-        label = Label("//foo/bar:baz"),
+        # Under bzlmod we have to set the workspace name otherwise we get _main
+        label = Label("@@aspect_rules_py//foo/bar:baz"),
     )
 
 def _can_resolve_path_in_workspace_test_impl(ctx):
@@ -66,7 +67,10 @@ def _can_resolve_path_in_workspace_test_impl(ctx):
     # Transitive imports are included in depset
     fake_ctx = _ctx_with_imports([".."], [ctx.attr.import_dep])
     imports = py_library.make_imports_depset(fake_ctx).to_list()
-    asserts.equals(env, "aspect_rules_py/py/tests/import-pathing/baz", imports[0])
+
+    # Note that under bzlmod the import_dep's repo is _main.
+    # We can't override or force this because we're using a real label below.
+    asserts.equals(env, "{}/py/tests/import-pathing/baz".format(ctx.workspace_name), imports[0])
     asserts.equals(env, "aspect_rules_py/foo", imports[1])
 
     return unittest.end(env)
@@ -75,7 +79,7 @@ _can_resolve_path_in_workspace_test = unittest.make(
     _can_resolve_path_in_workspace_test_impl,
     attrs = {
         "import_dep": attr.label(
-            default = "//py/tests/import-pathing:__native_rule_import_list_for_test",
+            default = "@//py/tests/import-pathing:__native_rule_import_list_for_test",
         ),
     },
 )
