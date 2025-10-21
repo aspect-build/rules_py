@@ -1,0 +1,22 @@
+"""E2E test for concurrent venv creation race condition fix.
+
+This test verifies that multiple processes can safely use the same py_binary
+target simultaneously without encountering race conditions during venv creation.
+"""
+
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_test")
+
+py_binary(
+    name = "hello",
+    srcs = ["hello.py"],
+)
+
+py_test(
+    name = "test",
+    srcs = ["test_concurrent.py"],
+    data = [":hello"],
+    tags = [
+        "e2e",
+        "requires-network",  # May need to download packages during venv creation
+    ],
+)
