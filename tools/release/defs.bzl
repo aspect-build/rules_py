@@ -51,7 +51,6 @@ def rust_binary(name, visibility = [], **kwargs):
                     str(Label(":debug_build")): [],
                     "//conditions:default": [
                         "-Copt-level=3",
-                        "-Clto",
                         "-Cstrip=symbols",
                     ],
                 }),
