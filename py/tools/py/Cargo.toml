@@ -15,6 +15,7 @@ debug = []
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+file-lock = "2.1.11"
 itertools = { workspace = true }
 miette = { workspace = true }
 pathdiff = "0.2.3"

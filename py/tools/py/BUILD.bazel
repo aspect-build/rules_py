@@ -20,6 +20,7 @@ rust_library(
     ],
     deps = [
         "//py/tools/runfiles",
+        "@crate_index//:file-lock",
         "@crate_index//:itertools",
         "@crate_index//:miette",
         "@crate_index//:pathdiff",
