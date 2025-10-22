@@ -127,7 +127,7 @@ def rules_py_internal_deps():
     _http_archive(
         name = "container_structure_test",
         urls = [
-            "https://github.com/GoogleContainerTools/container-structure-test/archive/56c7201716d770c0f820a9c19207ba2ea77c34f8.zip",
+            "https://github.com/GoogleContainerTools/container-structure-test/archive/89353131caa8b28f73bb5aa67e91cf5b1b5b5650.zip",
         ],
         strip_prefix = "container-structure-test-56c7201716d770c0f820a9c19207ba2ea77c34f8",
         sha256 = "29632b3226bb9c7dcde340b6efcc48cc5f32e60ec47c86a144922e234e4d9ce7",
