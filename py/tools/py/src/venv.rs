@@ -2,6 +2,7 @@ use crate::{
     pth::{CollisionResolutionStrategy, SitePackageOptions},
     PthFile,
 };
+use file_lock::{FileLock, FileOptions};
 use itertools::Itertools;
 use miette::{miette, Context, IntoDiagnostic};
 use pathdiff::diff_paths;
@@ -21,6 +22,54 @@ use std::{
 };
 use walkdir::WalkDir;
 
+/// A lock guard that ensures exclusive access to a venv location.
+/// The lock is released when the guard is dropped.
+struct VenvLock {
+    _lock: FileLock,
+}
+
+impl VenvLock {
+    /// Acquire an exclusive lock for the given venv location.
+    /// Blocks until the lock is available.
+    fn acquire(location: &Path) -> miette::Result<Self> {
+        let lock_path = location.with_extension("lock");
+
+        // Ensure parent directory exists
+        if let Some(parent) = lock_path.parent() {
+            fs::create_dir_all(parent)
+                .into_diagnostic()
+                .wrap_err("Unable to create lock file parent directory")?;
+        }
+
+        #[cfg(feature = "debug")]
+        eprintln!("Acquiring venv lock at {}", lock_path.display());
+
+        // Acquire exclusive lock (blocks until available)
+        let filelock = FileLock::lock(
+            &lock_path,
+            true, // blocking
+            FileOptions::new().write(true).create(true).truncate(true),
+        )
+        .into_diagnostic()
+        .wrap_err("Failed to acquire venv lock")?;
+
+        #[cfg(feature = "debug")]
+        eprintln!("Acquired venv lock at {}", lock_path.display());
+
+        Ok(VenvLock { _lock: filelock })
+    }
+}
+
+/// Check if a venv at the given location is valid and usable.
+fn is_venv_valid(location: &Path) -> bool {
+    // Check if key venv components exist
+    let pyvenv_cfg = location.join("pyvenv.cfg");
+    let bin_dir = location.join("bin");
+    let python_bin = bin_dir.join("python");
+
+    pyvenv_cfg.exists() && bin_dir.is_dir() && python_bin.exists()
+}
+
 pub fn create_venv(
     python: &Path,
     location: &Path,
@@ -28,6 +77,19 @@ pub fn create_venv(
     collision_strategy: CollisionResolutionStrategy,
     venv_name: &str,
 ) -> miette::Result<()> {
+    // Acquire exclusive lock to prevent race conditions
+    let _lock = VenvLock::acquire(location)?;
+
+    // Check if a valid venv already exists
+    if location.exists() && is_venv_valid(location) {
+        #[cfg(feature = "debug")]
+        eprintln!(
+            "Valid venv already exists at {}, skipping creation",
+            location.display()
+        );
+        return Ok(());
+    }
+
     if location.exists() {
         // Clear down the an old venv if there is one present.
         fs::remove_dir_all(location)
@@ -281,6 +343,9 @@ pub fn create_empty_venv<'a>(
     include_system_site_packages: bool,
     include_user_site_packages: bool,
 ) -> miette::Result<Virtualenv> {
+    // Acquire exclusive lock to prevent race conditions
+    let _lock = VenvLock::acquire(location)?;
+
     let build_dir = current_dir().into_diagnostic()?;
     let home_dir = &build_dir.join(location.to_path_buf());
 
@@ -298,6 +363,16 @@ pub fn create_empty_venv<'a>(
     let build_dir = current_dir().into_diagnostic()?;
 
     let home_dir_abs = &build_dir.join(&venv.home_dir);
+
+    // Check if a valid venv already exists
+    if home_dir_abs.exists() && is_venv_valid(&home_dir_abs) {
+        #[cfg(feature = "debug")]
+        eprintln!(
+            "Valid venv already exists at {}, skipping creation",
+            home_dir_abs.display()
+        );
+        return Ok(venv);
+    }
 
     if home_dir_abs.exists() {
         // Clear down the an old venv if there is one present.

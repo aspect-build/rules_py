@@ -1,5 +1,5 @@
 {
-  "checksum": "c6702817f7343cbaf7065db00a7e1f82a0887efa615b84fc3cc5cf60af1d649b",
+  "checksum": "9b94dcc361d52365bb16da08360f0b244992e84035534bfad3f1a7e545b064ba",
   "crates": {
     "addr2line 0.24.2": {
       "name": "addr2line",
@@ -2428,15 +2428,78 @@
               "target": "jobserver"
             },
             {
-              "id": "libc 0.2.176",
-              "target": "libc"
-            },
-            {
               "id": "shlex 1.3.0",
               "target": "shlex"
             }
           ],
-          "selects": {}
+          "selects": {
+            "aarch64-apple-darwin": [
+              {
+                "id": "libc 0.2.176",
+                "target": "libc"
+              }
+            ],
+            "aarch64-unknown-linux-gnu": [
+              {
+                "id": "libc 0.2.176",
+                "target": "libc"
+              }
+            ],
+            "aarch64-unknown-nixos-gnu": [
+              {
+                "id": "libc 0.2.176",
+                "target": "libc"
+              }
+            ],
+            "arm-unknown-linux-gnueabi": [
+              {
+                "id": "libc 0.2.176",
+                "target": "libc"
+              }
+            ],
+            "i686-unknown-linux-gnu": [
+              {
+                "id": "libc 0.2.176",
+                "target": "libc"
+              }
+            ],
+            "powerpc-unknown-linux-gnu": [
+              {
+                "id": "libc 0.2.176",
+                "target": "libc"
+              }
+            ],
+            "s390x-unknown-linux-gnu": [
+              {
+                "id": "libc 0.2.176",
+                "target": "libc"
+              }
+            ],
+            "x86_64-apple-darwin": [
+              {
+                "id": "libc 0.2.176",
+                "target": "libc"
+              }
+            ],
+            "x86_64-unknown-freebsd": [
+              {
+                "id": "libc 0.2.176",
+                "target": "libc"
+              }
+            ],
+            "x86_64-unknown-linux-gnu": [
+              {
+                "id": "libc 0.2.176",
+                "target": "libc"
+              }
+            ],
+            "x86_64-unknown-nixos-gnu": [
+              {
+                "id": "libc 0.2.176",
+                "target": "libc"
+              }
+            ]
+          }
         },
         "edition": "2018",
         "version": "1.1.31"
@@ -4288,6 +4351,86 @@
         "MIT"
       ],
       "license_file": "LICENSE-APACHE"
+    },
+    "file-lock 2.1.11": {
+      "name": "file-lock",
+      "version": "2.1.11",
+      "package_url": "https://github.com/alfiedotwtf/file-lock",
+      "repository": {
+        "Http": {
+          "url": "https://static.crates.io/crates/file-lock/2.1.11/download",
+          "sha256": "040b48f80a749da50292d0f47a1e2d5bf1d772f52836c07f64bfccc62ba6e664"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "file_lock",
+            "crate_root": "src/lib.rs",
+            "srcs": {
+              "allow_empty": true,
+              "include": [
+                "**/*.rs"
+              ]
+            }
+          }
+        },
+        {
+          "BuildScript": {
+            "crate_name": "build_script_build",
+            "crate_root": "build.rs",
+            "srcs": {
+              "allow_empty": true,
+              "include": [
+                "**/*.rs"
+              ]
+            }
+          }
+        }
+      ],
+      "library_target_name": "file_lock",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "file-lock 2.1.11",
+              "target": "build_script_build"
+            },
+            {
+              "id": "libc 0.2.176",
+              "target": "libc"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2021",
+        "version": "2.1.11"
+      },
+      "build_script_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "cc 1.1.31",
+              "target": "cc"
+            }
+          ],
+          "selects": {}
+        }
+      },
+      "license": "MIT",
+      "license_ids": [
+        "MIT"
+      ],
+      "license_file": null
     },
     "filetime 0.2.25": {
       "name": "filetime",
@@ -10970,6 +11113,10 @@
         ],
         "deps": {
           "common": [
+            {
+              "id": "file-lock 2.1.11",
+              "target": "file_lock"
+            },
             {
               "id": "itertools 0.13.0",
               "target": "itertools"
@@ -28540,6 +28687,7 @@
   },
   "direct_deps": [
     "clap 4.5.20",
+    "file-lock 2.1.11",
     "itertools 0.13.0",
     "miette 7.2.0",
     "pathdiff 0.2.3",
