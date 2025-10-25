@@ -1,5 +1,5 @@
---- a/MODULE.bazel	2025-10-24 12:57:39.806718071 -0600
-+++ b/MODULE.bazel	2025-10-24 12:57:39.806756493 -0600
+--- a/MODULE.bazel	2025-10-25 10:38:24
++++ b/MODULE.bazel	2025-10-25 10:38:24
 @@ -24,554 +24,3 @@
      "@aspect_rules_py//py/private/toolchain/shim/...",
  )
@@ -410,19 +410,19 @@
 -    # This build script is naughty and tries to depend on system zstd or build it from source.
 -    gen_build_script = "off",
 -    repositories = ["crates"],
--    deps = ["@@zstd~//:zstd"],
+-    deps = ["@@zstd+//:zstd"],
 -)
 -crate.annotation(
 -    crate = "bzip2-sys",
 -    gen_build_script = "off",
 -    repositories = ["crates"],
--    deps = ["@@bzip2~//:bz2"],
+-    deps = ["@@bzip2+//:bz2"],
 -)
 -crate.annotation(
 -    crate = "lzma-sys",
 -    gen_build_script = "off",
 -    repositories = ["crates"],
--    deps = ["@@xz~//:lzma"],
+-    deps = ["@@xz+//:lzma"],
 -)
 -use_repo(crate, "crates")
 -

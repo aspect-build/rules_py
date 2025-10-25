@@ -33,18 +33,18 @@ crate.annotation(
     # This build script is naughty and tries to depend on system zstd or build it from source.
     gen_build_script = "off",
     repositories = ["crates"],
-    deps = ["@@zstd~//:zstd"],
+    deps = ["@@zstd+//:zstd"],
 )
 crate.annotation(
     crate = "bzip2-sys",
     gen_build_script = "off",
     repositories = ["crates"],
-    deps = ["@@bzip2~//:bz2"],
+    deps = ["@@bzip2+//:bz2"],
 )
 crate.annotation(
     crate = "lzma-sys",
     gen_build_script = "off",
     repositories = ["crates"],
-    deps = ["@@xz~//:lzma"],
+    deps = ["@@xz+//:lzma"],
 )
 use_repo(crate, "crates")

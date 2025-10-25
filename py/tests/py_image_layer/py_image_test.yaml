@@ -5,7 +5,7 @@ fileExistenceTests:
     path: /py/tests/py_image_layer/__main__.py
 
   - name: runfiles dependencies are present
-    path: /py/tests/py_image_layer/my_app_bin.runfiles/rules_python~~pip~pypi_39_colorama/site-packages/colorama/__init__.py
+    path: /py/tests/py_image_layer/my_app_bin.runfiles/rules_python++pip+pypi_39_colorama/site-packages/colorama/__init__.py
 
 commandTests:
   - name: can run binary

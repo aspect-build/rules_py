@@ -33,16 +33,7 @@ tasks:
         - type: before_task
           command: |
             rm .bazelversion
-            echo "USE_BAZEL_VERSION=8.4.1" > .bazeliskrc
-
-  - test:
-      name: test-os:linux-bzl:7
-      queue: aspect-large
-      hooks:
-        - type: before_task
-          command: |
-            rm .bazelversion
-            echo "USE_BAZEL_VERSION=7.6.2" > .bazeliskrc
+            echo "USE_BAZEL_VERSION=8.4.0" > .bazeliskrc
 
   - finalization:
       queue: aspect-small
