@@ -12,7 +12,7 @@ test --test_output=errors
 # Define value used by tests
 build --define=SOME_VAR=SOME_VALUE
 
-common --features=-libtool
+#common --features=-libtool
 common --incompatible_enable_cc_toolchain_resolution
 
 # TODO(bzlmod): Don't break proto
