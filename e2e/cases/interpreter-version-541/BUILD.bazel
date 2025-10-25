@@ -1,0 +1,43 @@
+load("@aspect_bazel_lib//lib:expand_template.bzl", "expand_template")
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
+
+[
+    [
+        expand_template(
+            name = "expanded_test_{}.py".format(ver.replace(".", "_")),
+            out = "test_{}.py".format(ver.replace(".", "_")),
+            substitutions = {
+                "<VERSION>": ver,
+            },
+            template = "test.py",
+        ),
+        py_venv_test(
+            name = "test_{}_venv".format(ver.replace(".", "_")),
+            srcs = [
+                "expanded_test_{}.py".format(ver.replace(".", "_")),
+            ],
+            imports = [
+                ".",
+            ],
+            main = "expanded_test_{}.py".format(ver.replace(".", "_")),
+            python_version = ver,
+        ),
+        py_test(
+            name = "test_{}_classic".format(ver.replace(".", "_")),
+            srcs = [
+                "expanded_test_{}.py".format(ver.replace(".", "_")),
+            ],
+            imports = [
+                ".",
+            ],
+            main = "expanded_test_{}.py".format(ver.replace(".", "_")),
+            python_version = ver,
+        ),
+    ]
+    for ver in [
+        "3.9",
+        "3.10",
+        "3.11",
+    ]
+]

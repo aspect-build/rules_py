@@ -34,6 +34,12 @@ repos:
 
   - repo: local
     hooks:
+      - id: 00-sync-module-includes
+        name: Update MODULE.bazel includes
+        entry: /usr/bin/env python3 tools/bazel/includer.py
+        language: script
+        require_serial: true
+
       - id: check-requirements-lock
         name: Update requirements lock
         # Note that we use a nested shell to discard $@, which is the file list
@@ -41,12 +47,12 @@ repos:
         language: script
         require_serial: true
 
-      - id: check-gazelle-manifest
-        name: Update gazelle manifest
-        # Note that we use a nested shell to discard $@, which is the file list
-        entry: /bin/sh -c '/usr/bin/env bazel run //:gazelle_python_manifest.update'
-        language: script
-        require_serial: true
+      # - id: check-gazelle-manifest
+      #   name: Update gazelle manifest
+      #   # Note that we use a nested shell to discard $@, which is the file list
+      #   entry: /bin/sh -c '/usr/bin/env bazel run //:gazelle_python_manifest.update'
+      #   language: script
+      #   require_serial: true
 
       - id: check-amd64-image-lists
         name: Update amd64 image lists
@@ -62,9 +68,9 @@ repos:
         language: script
         require_serial: true
 
-      - id: sync-workflows-subrepos
-        name: Update workflows file for subrepos
+      - id: check-image-lists
+        name: Update image lists
         # Note that we use a nested shell to discard $@, which is the file list
-        entry: /usr/bin/env python3 tools/e2e/sync.py
+        entry: /bin/sh -c '/usr/bin/env bazel run //py/tests/py_image_layer:my_app_layers_test'
         language: script
         require_serial: true

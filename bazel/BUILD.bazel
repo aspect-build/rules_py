@@ -1,0 +1,14 @@
+load("@bazelrc-preset.bzl", "bazelrc_preset")
+load(":defs.bzl", "incompatible_with")
+
+exports_files(["defs.bzl"])
+
+bazelrc_preset(
+    name = "defaults",
+    # Note that we're clobbering the Bazel version part of the normal URL
+    # template so that we don't generate a diff test that fails when we
+    # USE_BAZEL_VERSION for testing.
+    doc_link_template = "https://registry.build/flag/bazel?filter={flag}",
+    strict = True,
+    target_compatible_with = incompatible_with("8.0.0"),
+)

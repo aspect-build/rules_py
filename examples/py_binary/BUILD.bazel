@@ -13,6 +13,6 @@ py_binary(
     name = "py_binary",
     srcs = [":stamped"],
     deps = [
-        "@pypi_cowsay//:pkg",
+        "@pypi//cowsay",
     ],
 )

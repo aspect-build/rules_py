@@ -1,0 +1,34 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+all_modules = [
+    "directmod",
+    "flat",
+    "subdir",
+    "toplevel",
+]
+
+always_deps = [
+    "//cases/repository-rule-deps-299/direct/directmod",
+    "//cases/repository-rule-deps-299/toplevel",
+]
+
+py_test(
+    name = "test",
+    srcs = ["test.py"],
+    args = all_modules,
+    deps = always_deps + [
+        "@myrepo//:subdir",
+        "@myrepo//flat",
+    ],
+)
+
+py_test(
+    name = "all_direct",
+    srcs = ["test.py"],
+    args = all_modules,
+    main = "test.py",
+    deps = always_deps + [
+        "//cases/repository-rule-deps-299/imported:subdir",
+        "//cases/repository-rule-deps-299/imported/flat",
+    ],
+)

@@ -1,14 +1,17 @@
-load("@bazel_lib//:bzl_library.bzl", "bzl_library")
+load("@bazel_env.bzl", "bazel_env")
+load("@multitool//:tools.bzl", MULTITOOL_TOOLS = "TOOLS")
 
-bzl_library(
-    name = "version",
-    srcs = ["version.bzl"],
-    visibility = ["//visibility:public"],
-)
-
-bzl_library(
-    name = "integrity",
-    srcs = ["integrity.bzl"],
-    visibility = ["//visibility:public"],
-    deps = ["//py/private/toolchain:tools"],
+bazel_env(
+    name = "bazel_env",
+    # bazle_env doesn't like that the rust toolchain crosses repo bounds
+    #
+    # toolchains = {
+    #     "rust": "@rules_rust//rust/toolchain:current_rust_toolchain",
+    # },
+    tools = {
+        # Mapping from tool binary name ($PATH entry) to Bazel label
+        "cargo": "@rules_rust//tools/upstream_wrapper:cargo",
+        "rustc": "@rules_rust//tools/upstream_wrapper:rustc",
+        "rustfmt": "@rules_rust//tools/upstream_wrapper:rustfmt",
+    } | MULTITOOL_TOOLS,
 )
