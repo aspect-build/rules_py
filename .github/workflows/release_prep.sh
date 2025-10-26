@@ -61,11 +61,10 @@ bazel_dep(name = "aspect_rules_py", version = "${TAG:1}")
 And also register a Python toolchain, see rules_python. For example:
 
 \`\`\`starlark
-EOF
-
-awk 'f;/--SNIP--/{f=1}' e2e/smoke/MODULE.bazel
-
-cat << EOF
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(
+    python_version = "3.13",
+)
 \`\`\`
 
 [Bzlmod]: https://bazel.build/build/bzlmod
@@ -80,7 +79,24 @@ http_archive(
     strip_prefix = "${PREFIX}",
     url = "https://github.com/aspect-build/rules_py/releases/download/${TAG}/${ARCHIVE}",
 )
-EOF
 
-awk 'f;/--SNIP--/{f=1}' e2e/smoke/WORKSPACE.bazel
-echo "\`\`\`"
+load("@aspect_rules_py//py:repositories.bzl", "rules_py_dependencies")
+
+rules_py_dependencies()
+
+load("@aspect_rules_py//py:toolchains.bzl", "rules_py_toolchains")
+
+rules_py_toolchains()
+
+# "Installation" for rules_python
+load("@rules_python//python:repositories.bzl", "py_repositories", "python_register_toolchains")
+
+python_register_toolchains(
+    name = "python_toolchain",
+    python_version = "3.9",
+)
+
+py_repositories()
+\`\`\`
+
+EOF

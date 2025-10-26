@@ -21,6 +21,6 @@ def release(name, targets, **kwargs):
             locations = " ".join(["$(locations {})".format(target) for target in targets]),
         ),
         tools = ["//bazel/release:create_release.sh"],
-        tags = kwargs.pop("tags", []) + ["manual", "release"],
+        tags = kwargs.pop("tags", []) + ["cd:verb:deliver"],
         **kwargs
     )

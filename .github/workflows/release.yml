@@ -34,7 +34,7 @@ jobs:
           FLAGS=(--bazelrc=.github/workflows/ci.bazelrc)
 
           # Query for deliver verbs (see bazel/release/release.bzl)
-          TARGETS=$(bazel $FLAGS query 'attr(tags, "ci:verb:deliver", //...)')
+          TARGETS=$(bazel $FLAGS query 'attr(tags, "cd:verb:deliver", //...)')
 
           # Run each one of those targets to produce and "deliver" artifacts
           # into the target dir.
