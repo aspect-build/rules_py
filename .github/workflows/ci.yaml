@@ -58,7 +58,7 @@ jobs:
       - run: patch --dry-run -p1 --fuzz 0 < .bcr/patches/*.patch
 
   test-release:
-    runs-on: macos-13
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
 
