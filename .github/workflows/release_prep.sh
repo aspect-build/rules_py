@@ -28,7 +28,7 @@ cat >${PREFIX}/py/private/release/integrity.bzl <<EOF
 RELEASED_BINARY_INTEGRITY = $(jq \
   --from-file .github/workflows/integrity.jq \
   --slurp \
-  --raw-input artifacts-*/*.sha256 \
+  --raw-input artifacts*/*.sha256 \
 )
 EOF
 
