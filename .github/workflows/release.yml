@@ -13,9 +13,7 @@ permissions:
   contents: write
 jobs:
   build:
-    runs-on:
-      # TODO: @greg fix
-      - ubuntu-22.04-32core
+    runs-on: ubuntu-22.04-32core
 
     steps:
       - uses: actions/checkout@v4
