@@ -117,8 +117,9 @@ package(default_visibility = ["//visibility:public"])
             url = url,
             sha256 = RELEASED_BINARY_INTEGRITY[filename],
             executable = True,
-            output = tool.name
+            output = tool.name,
         )
+
         # print(kwargs)
         rctx.download(
             **kwargs
