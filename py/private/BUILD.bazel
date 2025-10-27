@@ -53,6 +53,7 @@ bzl_library(
     srcs = ["py_pytest_main.bzl"],
     deps = [
         ":py_library",
+        "@rules_python//python:defs_bzl",
     ],
 )
 

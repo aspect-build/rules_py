@@ -14,25 +14,26 @@ ARCHIVE_TMP=$(mktemp)
 git archive --format=tar --prefix=${PREFIX}/ ${TAG} > $ARCHIVE_TMP
 
 ############
-# Patch up the archive to have integrity hashes for built binaries that we downloaded in the GHA workflow.
-# Now that we've run `git archive` we are free to pollute the working directory.
+# BEGIN archive patching
 
+## Generate release hashes
 # Delete the placeholder file
-tar --file $ARCHIVE_TMP --delete ${PREFIX}/tools/integrity.bzl
+tar --file $ARCHIVE_TMP --delete ${PREFIX}/py/private/release/integrity.bzl
 
-mkdir -p ${PREFIX}/tools
-cat >${PREFIX}/tools/integrity.bzl <<EOF
+# Generate an updated integrity hash set
+mkdir -p ${PREFIX}/py/private/release
+cat >${PREFIX}/py/private/release/integrity.bzl <<EOF
 "Generated during release by release_prep.sh, using integrity.jq"
 
 RELEASED_BINARY_INTEGRITY = $(jq \
   --from-file .github/workflows/integrity.jq \
   --slurp \
-  --raw-input artifacts-*/*.sha256 \
+  --raw-input artifacts*/*.sha256 \
 )
 EOF
 
 # Append that generated file back into the archive
-tar --file $ARCHIVE_TMP --append ${PREFIX}/tools/integrity.bzl
+tar --file $ARCHIVE_TMP --append ${PREFIX}/py/private/release/integrity.bzl
 
 # END patch up the archive
 ############
@@ -60,11 +61,10 @@ bazel_dep(name = "aspect_rules_py", version = "${TAG:1}")
 And also register a Python toolchain, see rules_python. For example:
 
 \`\`\`starlark
-EOF
-
-awk 'f;/--SNIP--/{f=1}' e2e/smoke/MODULE.bazel
-
-cat << EOF
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(
+    python_version = "3.13",
+)
 \`\`\`
 
 [Bzlmod]: https://bazel.build/build/bzlmod
@@ -79,7 +79,24 @@ http_archive(
     strip_prefix = "${PREFIX}",
     url = "https://github.com/aspect-build/rules_py/releases/download/${TAG}/${ARCHIVE}",
 )
-EOF
 
-awk 'f;/--SNIP--/{f=1}' e2e/smoke/WORKSPACE.bazel
-echo "\`\`\`"
+load("@aspect_rules_py//py:repositories.bzl", "rules_py_dependencies")
+
+rules_py_dependencies()
+
+load("@aspect_rules_py//py:toolchains.bzl", "rules_py_toolchains")
+
+rules_py_toolchains()
+
+# "Installation" for rules_python
+load("@rules_python//python:repositories.bzl", "py_repositories", "python_register_toolchains")
+
+python_register_toolchains(
+    name = "python_toolchain",
+    python_version = "3.9",
+)
+
+py_repositories()
+\`\`\`
+
+EOF

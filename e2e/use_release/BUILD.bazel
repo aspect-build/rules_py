@@ -1,5 +1,0 @@
-load("@rules_uv//uv:pip.bzl", "pip_compile")
-
-exports_files([".coveragerc"])
-
-pip_compile(name = "pip_compile")

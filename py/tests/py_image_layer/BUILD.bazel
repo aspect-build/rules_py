@@ -27,7 +27,7 @@ py_binary(
     deps = [
         "//py/tests/internal-deps/adder",
         "//py/tests/py_image_layer/branding",
-        "@pypi_colorama//:pkg",
+        "@pypi//colorama",
     ],
 )
 
@@ -42,6 +42,8 @@ platform_transition_filegroup(
     target_platform = ":x86_64_linux",
 )
 
+# FIXME(Bazel 8+): This listing needs to be updated/
+# Contains old style ~ munging.
 assert_tar_listing(
     name = "my_app_layers_test",
     actual = [":platform_layers"],

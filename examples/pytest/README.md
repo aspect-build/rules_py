@@ -14,7 +14,7 @@ load("@aspect_rules_py//py:defs.bzl", "py_pytest_main")
 
 py_pytest_main(
     name = "__test__",
-    deps = ["@pypi_pytest//:pkg"], # change this to the pytest target in your repo.
+    deps = ["@pypi//pytest"], # change this to the pytest target in your repo.
 )
 ```
 

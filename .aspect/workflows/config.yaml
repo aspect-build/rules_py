@@ -2,16 +2,9 @@
 
 # This list is maintained by tools/e2e/sync.py
 workspaces:
-  # SYNC: e2e
-  # {{{
   - .
-  - e2e/cross-repo-610
-  - e2e/interpreter-version-541
-  - e2e/repository-rule-deps
-  - e2e/smoke
-  - e2e/system-interpreter
+  - e2e
   - examples/uv_pip_compile
-# }}}
 
 tasks:
   # TODO(arrdem): Rosetta doesn't like HEAD version strings seemingly
@@ -24,37 +17,23 @@ tasks:
   #           rm .bazelversion
   #           echo "USE_BAZEL_VERSION=last_green" > .bazeliskrc
 
-  # TODO(arrdem): Bazel 8+ dropped the original PyInfo etc. which the ancient
-  # rules_python we have on the WORKSPACE side isn't ready for yet. Once we kill
-  # off WORKSPACE we can flip these back on but practically this is blocked on
-  # getting that change in.
-  #
-  # - test:
-  #     name: test-os:linux-bzl:latest
-  #     queue: aspect-large
-  #     hooks:
-  #       - type: before_task
-  #         command: |
-  #           rm .bazelversion
-  #           echo "USE_BAZEL_VERSION=latest" > .bazeliskrc
-
-  # - test:
-  #     name: test-os:linux-bzl:8
-  #     queue: aspect-large
-  #     hooks:
-  #       - type: before_task
-  #         command: |
-  #           rm .bazelversion
-  #           echo "USE_BAZEL_VERSION=8.2.1" > .bazeliskrc
-
   - test:
-      name: test-os:linux-bzl:7
+      name: test-os:linux-bzl:latest
       queue: aspect-large
       hooks:
         - type: before_task
           command: |
             rm .bazelversion
-            echo "USE_BAZEL_VERSION=7.6.1" > .bazeliskrc
+            echo "USE_BAZEL_VERSION=latest" > .bazeliskrc
+
+  - test:
+      name: test-os:linux-bzl:8
+      queue: aspect-large
+      hooks:
+        - type: before_task
+          command: |
+            rm .bazelversion
+            echo "USE_BAZEL_VERSION=8.4.0" > .bazeliskrc
 
   - finalization:
       queue: aspect-small

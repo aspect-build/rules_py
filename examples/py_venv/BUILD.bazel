@@ -15,7 +15,7 @@ expand_template(
 py_venv(
     name = "venv",
     deps = [
-        "@pypi_cowsay//:pkg",
+        "@pypi//cowsay",
     ],
 )
 
@@ -41,7 +41,7 @@ py_venv_binary(
     ],
     main = ":stamped",
     deps = [
-        "@pypi_cowsay//:pkg",
+        "@pypi//cowsay",
     ],
 )
 

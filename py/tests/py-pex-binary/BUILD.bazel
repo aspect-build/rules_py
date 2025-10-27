@@ -7,9 +7,9 @@ py_binary(
     srcs = ["print_modules.py"],
     data = ["data.txt"],
     deps = [
-        "@bazel_tools//tools/python/runfiles",
-        "@pypi_cowsay//:pkg",
-        "@pypi_six//:pkg",
+        "@pypi//cowsay",
+        "@pypi//six",
+        "@rules_python//python/runfiles",
     ],
 )
 
