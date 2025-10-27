@@ -29,7 +29,10 @@ jobs:
           # Query for deliver verbs (see bazel/release/release.bzl)
           TARGETS=$(bazel $FLAGS query 'attr(tags, "cd:verb:deliver", //...)')
 
-          # Run each one of those targets to produce and "deliver" artifacts
+          # Build all the targets in one shot to maximize parallelism
+          bazel $FLAGS build "${TARGETS[@]}"
+
+          # Run each one of those targets to "deliver" the artifacts they bundle
           # into the target dir.
           #
           # These delivery targets are expected to lay down <asset> and <asset>.sha256
