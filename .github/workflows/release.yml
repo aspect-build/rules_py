@@ -13,14 +13,8 @@ permissions:
   contents: write
 jobs:
   build:
-    strategy:
-      matrix:
-        # TODO: Can we build from linux to mac? Is there an advantage to going
-        # in that direction?
-        os:
-          - macos-13
-
-    runs-on: ${{ matrix.os }}
+    runs-on:
+      - ubuntu-22.04-32core
 
     steps:
       - uses: actions/checkout@v4
@@ -46,7 +40,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: artifacts-${{ matrix.os }}
+          name: artifacts-ubuntu
           path: artifacts/
           retention-days: 1
 

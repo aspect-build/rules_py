@@ -58,7 +58,8 @@ jobs:
       - run: patch --dry-run -p1 --fuzz 0 < .bcr/patches/*.patch
 
   test-release:
-    runs-on: macos-latest
+    runs-on:
+      - ubuntu-22.04-32core
     steps:
       - uses: actions/checkout@v4
 
