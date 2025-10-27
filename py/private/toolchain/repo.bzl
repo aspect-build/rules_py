@@ -101,8 +101,9 @@ package(default_visibility = ["//visibility:public"])
     if "RULES_PY_RELEASE_URL" in rctx.os.environ:
         url_template = rctx.os.environ["RULES_PY_RELEASE_URL"]
 
+    # FIXME: Follow multitool/toml pattern; one external repo per download.
     for tool in TOOL_CFGS:
-        filename = "-".join([
+        filename = "_".join([
             tool.name,
             TOOLCHAIN_PLATFORMS[rctx.attr.platform].arch,
             TOOLCHAIN_PLATFORMS[rctx.attr.platform].vendor_os_abi,
@@ -112,11 +113,15 @@ package(default_visibility = ["//visibility:public"])
             release_version = release_version,
             filename = filename,
         )
-        rctx.download(
+        kwargs = dict(
             url = url,
             sha256 = RELEASED_BINARY_INTEGRITY[filename],
             executable = True,
-            output = tool.name,
+            output = tool.name
+        )
+        # print(kwargs)
+        rctx.download(
+            **kwargs
         )
         build_content += """py_tool_toolchain(name = "{tool}_toolchain", bin = "{tool}", template_var = "{tool_upper}_BIN")\n""".format(
             tool = tool.name,

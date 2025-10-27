@@ -15,7 +15,9 @@
 | rtrimstr("\n")
 | split("\n")
 | map(
-    split(" ")
+    # Use regex splitting on one or more spaces
+    split("\\s+";"")
+    # Lines are <shasum> <filename>, want the reverse
     | {"key": .[1], "value": .[0]}
   )
 | from_entries
