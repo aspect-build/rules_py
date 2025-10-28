@@ -1,5 +1,5 @@
 # rules_oci and friends
-bazel_dep(name = "rules_oci", version = "2.0.1", dev_dependency = True)
+bazel_dep(name = "rules_oci", version = "2.2.6", dev_dependency = True)
 
 oci = use_extension("@rules_oci//oci:extensions.bzl", "oci", dev_dependency = True)
 oci.pull(
