@@ -19,6 +19,13 @@ config_setting(
     flag_values = {
         ":debug_venv": "True",
     },
+    # This needs to be set public for global use since we select() on it from
+    # macros which analyze visibility wrt the expanding package.
+    #
+    # TODO: Eliminate this in favor of a proper bool flag or something.
+    visibility = [
+        "//visibility:public",
+    ]
 )
 
 bzl_library(
