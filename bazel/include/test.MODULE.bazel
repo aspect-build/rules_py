@@ -1,6 +1,7 @@
 # TODO: Replace with bazel_features?
 # cf. https://github.com/bazel-contrib/bazelrc-preset.bzl/blob/main/MODULE.bazel#L8C1-L10C70
 bazel_dep(name = "bazel_features", version = "1.0.0")
+bazel_dep(name = "rules_shell", version = "0.6.1")
 
 version = use_extension("@bazel_features//private:extensions.bzl", "version_extension")
 use_repo(version, "bazel_features_globals", "bazel_features_version")
