@@ -27,12 +27,12 @@ register_toolchains(
 toml = use_extension("//uv/private/tomltool:extension.bzl", "tomltool")
 use_repo(
     toml,
-    "aspect_rules_py_tomltool_aarch64_osx_libsystem",
-    "aspect_rules_py_tomltool_x86_64_osx_libsystem",
     "aspect_rules_py_tomltool_aarch64_linux_gnu",
     "aspect_rules_py_tomltool_aarch64_linux_musl",
+    "aspect_rules_py_tomltool_aarch64_osx_libsystem",
     "aspect_rules_py_tomltool_x86_64_linux_gnu",
     "aspect_rules_py_tomltool_x86_64_linux_musl",
+    "aspect_rules_py_tomltool_x86_64_osx_libsystem",
 )
 
 host = use_extension("//uv/private/host:extension.bzl", "host_platform")

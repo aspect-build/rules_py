@@ -496,7 +496,7 @@ def _hub_repos(module_ctx, lock_specs, package_venvs):
 def _uv_impl(module_ctx):
     # Set the reproducible bit for this repo so we don't fill the lockfile.
     module_ctx.extension_metadata(reproducible = True)
-    
+
     hub_specs = _parse_hubs(module_ctx)
 
     venv_specs = _parse_venvs(module_ctx, hub_specs)
