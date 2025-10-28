@@ -23,7 +23,7 @@ FLAGS = {
     "u": "wide-unicode",  # Deprecated in 3.13
 }
 
-def generate_gte_ladder(stages):
+def generate_gte_ladder(stages, visibility):
     """Select macro.
 
     Accept a list of names of individual conditions representing specific versions.
@@ -73,4 +73,5 @@ def generate_gte_ladder(stages):
             match_any = [
                 ":{}".format(current_stage.condition),
             ] + ([":{}".format(stages[i + 1].name)] if i + 1 < len(stages) else []),
+            visibility = visibility,
         )

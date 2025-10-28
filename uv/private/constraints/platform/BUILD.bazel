@@ -3,7 +3,9 @@ load(":macro.bzl", "generate")
 
 package(default_visibility = ["//visibility:public"])
 
-generate()
+generate(
+    visibility = ["//visibility:public"]
+)
 
 bzl_library(
     name = "defs",

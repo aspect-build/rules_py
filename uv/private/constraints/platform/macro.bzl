@@ -61,7 +61,7 @@ platform_repo_name_mangling = {
 
 # buildifier: disable=unnamed-macro
 # buildifier: disable=function-docstring
-def generate_macos():
+def generate_macos(visibility):
     """
     Deliberately generate an overfull matrix of possible MacOS versions and arches.
     """
@@ -95,6 +95,7 @@ def generate_macos():
             native.constraint_value(
                 name = name,
                 constraint_setting = ":platform",
+                visibility = visibility,
             )
             stages.append(struct(name = name[3:], condition = name))
 
@@ -106,6 +107,7 @@ def generate_macos():
                         "@platforms//os:osx",
                         "@platforms//cpu:{}".format(platform_repo_name_mangling.get(arch, arch)),
                     ],
+                    visibility = visibility,
                 )
 
             for group, members in arch_groups.items():
@@ -115,13 +117,14 @@ def generate_macos():
                         ":macosx_{}_{}_{}".format(major, minor, it)
                         for it in members
                     ],
+                    visibility = visibility,
                 )
 
-    generate_gte_ladder(stages)
+    generate_gte_ladder(stages, visibility = visibility)
 
 # buildifier: disable=unnamed-macro
 # buildifier: disable=function-docstring
-def generate_manylinux():
+def generate_manylinux(visibility):
     # https://packaging.python.org/en/latest/specifications/platform-compatibility-tags/#manylinux
 
     arches = [
@@ -144,6 +147,7 @@ def generate_manylinux():
             native.constraint_value(
                 name = name,
                 constraint_setting = ":platform",
+                visibility = visibility,
             )
             stages.append(struct(name = name[3:], condition = name))
 
@@ -155,13 +159,14 @@ def generate_manylinux():
                         "@platforms//os:linux",
                         "@platforms//cpu:{}".format(platform_repo_name_mangling.get(arch, arch)),
                     ],
+                    visibility = visibility,
                 )
 
-    generate_gte_ladder(stages)
+    generate_gte_ladder(stages, visibility = visibility)
 
 # buildifier: disable=unnamed-macro
 # buildifier: disable=function-docstring
-def generate_musllinux():
+def generate_musllinux(visibility):
     arches = [
         "x86_64",
         "i686",
@@ -188,6 +193,7 @@ def generate_musllinux():
         native.constraint_value(
             name = name,
             constraint_setting = ":platform",
+            visibility = visibility,
         )
         stages.append(struct(name = name[3:], condition = name))
 
@@ -199,9 +205,10 @@ def generate_musllinux():
                     "@platforms//os:linux",
                     "@platforms//cpu:{}".format(platform_repo_name_mangling.get(arch, arch)),
                 ],
+                visibility = visibility,
             )
 
-    generate_gte_ladder(stages)
+    generate_gte_ladder(stages, visibility = visibility)
 
 # musllinux_1_0_aarch64
 # musllinux_1_0_armv7l
@@ -232,28 +239,33 @@ def generate_musllinux():
 
 # buildifier: disable=unnamed-macro
 # buildifier: disable=function-docstring
-def generate():
+def generate(
+    visibility
+):
     # FIXME: Is there a better/worse way to do this?
     selects.config_setting_group(
         name = "any",
         match_all = [
             "//conditions:default",
         ],
+        visibility = visibility,
     )
 
     native.constraint_setting(
         name = "platform",
         default_constraint_value = CURRENT_PLATFORM,
+        visibility = visibility,
     )
 
-    generate_macos()
-    generate_manylinux()
-    generate_musllinux()
+    generate_macos(visibility = visibility)
+    generate_manylinux(visibility = visibility)
+    generate_musllinux(visibility = visibility)
 
     # FIXME: Is this right?
     native.alias(
         name = "linux_armv7l",
         actual = "manylinux_2_17_armv7l",
+        visibility = visibility,
     )
 
     # https://packaging.python.org/en/latest/specifications/platform-compatibility-tags/#manylinux
@@ -263,6 +275,7 @@ def generate():
             ":manylinux_2_5_x86_64",
             ":manylinux_2_5_i686",
         ],
+        visibility = visibility,
     )
 
     selects.config_setting_group(
@@ -271,6 +284,7 @@ def generate():
             ":manylinux_2_12_x86_64",
             ":manylinux_2_12_i686",
         ],
+        visibility = visibility,
     )
 
     selects.config_setting_group(
@@ -284,50 +298,61 @@ def generate():
             ":manylinux_2_17_ppc64le",
             ":manylinux_2_17_s390x",
         ],
+        visibility = visibility,
     )
 
     native.constraint_value(
         name = "is_win32",
         constraint_setting = ":platform",
+        visibility = visibility,
     )
     native.alias(
         name = "win32",
         actual = ":is_win32",
+        visibility = visibility,
     )
 
     native.constraint_value(
         name = "is_win64",
         constraint_setting = ":platform",
+        visibility = visibility,
     )
     native.alias(
         name = "win64",
         actual = ":is_win64",
+        visibility = visibility,
     )
 
     # FIXME: These should be and?
     native.constraint_value(
         name = "is_win_amd64",
         constraint_setting = ":platform",
+        visibility = visibility,
     )
     native.alias(
         name = "win_amd64",
         actual = ":is_win_amd64",
+        visibility = visibility,
     )
 
     native.constraint_value(
         name = "is_win_arm64",
+        visibility = visibility,
         constraint_setting = ":platform",
     )
     native.alias(
         name = "win_arm64",
         actual = ":is_win_arm64",
+        visibility = visibility,
     )
 
     native.constraint_value(
         name = "is_win_ia64",
         constraint_setting = ":platform",
+        visibility = visibility,
     )
     native.alias(
         name = "win_ia64",
         actual = ":is_win_ia64",
+        visibility = visibility,
     )

@@ -7,17 +7,21 @@ load(":defs.bzl", "is_python_version_at_least")
 
 # buildifier: disable=unnamed-macro
 # buildifier: disable=function-docstring
-def generate():
+def generate(
+    visibility
+):
     # FIXME: Needs to generate a cascade.
     for interpreter in INTERPRETERS:
         for major in MAJORS:
             is_python_version_at_least(
                 name = "{}{}".format(interpreter, major),
                 version = "{}.0".format(major),
+                visibility = visibility,
             )
 
             for minor in MINORS:
                 is_python_version_at_least(
                     name = "{}{}{}".format(interpreter, major, minor),
                     version = "{}.{}".format(major, minor),
+                    visibility = visibility,
                 )

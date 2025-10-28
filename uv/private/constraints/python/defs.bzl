@@ -32,7 +32,7 @@ def supported_python(python_tag):
 _PYTHON_VERSION_FLAG = Label("@rules_python//python/config_settings:python_version")
 _PYTHON_VERSION_MAJOR_MINOR_FLAG = Label("@rules_python//python/config_settings:python_version_major_minor")
 
-def is_python_version_at_least(name, version = None, **kwargs):
+def is_python_version_at_least(name, version = None, visibility = visibility, **kwargs):
     version = version or name
     flag_name = "_{}_flag".format(name)
     native.config_setting(
@@ -40,6 +40,7 @@ def is_python_version_at_least(name, version = None, **kwargs):
         flag_values = {
             flag_name: "yes",
         },
+        visibility = visibility,
     )
     _python_version_at_least(
         name = flag_name,

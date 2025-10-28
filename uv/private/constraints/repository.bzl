@@ -20,11 +20,14 @@ def _constraints_hub_impl(repository_ctx):
     ]
 
     for name, conditions in repository_ctx.attr.configurations.items():
+        # FIXME: Set visibility narrowly? Would have to be to all the hubs and
+        # all the wheels, feels like a lot of work.
         content.append(
             """
 selects.config_setting_group(
     name = "{}",
     match_all = {},
+    visibility = ["//visibility:public"],
 )
 """.format(name, _format_list(conditions)),
         )

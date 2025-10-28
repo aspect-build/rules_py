@@ -9,7 +9,9 @@ load("//uv/private/constraints:defs.bzl", "INTERPRETERS", "MAJORS", "MINORS")
 
 # buildifier: disable=unnamed-macro
 # buildifier: disable=function-docstring
-def generate():
+def generate(
+    visibility
+):
     """
     Lay down `py3`, `py312`, `cp3`, `cp312` etc and critically `any`.
 
@@ -28,58 +30,71 @@ def generate():
     native.constraint_setting(
         name = "feature_pydebug",
         default_constraint_value = ":pydebug_disabled",
+        visibility = visibility,
     )
     native.constraint_value(
         name = "pydebug_enabled",
         constraint_setting = ":feature_pydebug",
+        visibility = visibility,
     )
     native.constraint_value(
         name = "pydebug_disabled",
         constraint_setting = ":feature_pydebug",
+        visibility = visibility,
     )
 
     native.constraint_setting(
         name = "feature_pymalloc",
         default_constraint_value = ":pymalloc_disabled",
+        visibility = visibility,
     )
     native.constraint_value(
         name = "pymalloc_enabled",
         constraint_setting = ":feature_pymalloc",
+        visibility = visibility,
     )
     native.constraint_value(
         name = "pymalloc_disabled",
         constraint_setting = ":feature_pymalloc",
+        visibility = visibility,
     )
 
     native.constraint_setting(
         name = "feature_freethreading",
         default_constraint_value = ":freethreading_disabled",
+        visibility = visibility,
     )
     native.constraint_value(
         name = "freethreading_enabled",
         constraint_setting = ":feature_freethreading",
+        visibility = visibility,
     )
     native.constraint_value(
         name = "freethreading_disabled",
         constraint_setting = ":feature_freethreading",
+        visibility = visibility,
     )
 
     native.constraint_setting(
         name = "feature_wide_unicode",
         default_constraint_value = ":wide_unicode_disabled",
+        visibility = visibility,
     )
     native.constraint_value(
         name = "wide_unicode_enabled",
         constraint_setting = ":feature_wide_unicode",
+        visibility = visibility,
     )
     native.constraint_value(
         name = "wide_unicode_disabled",
         constraint_setting = ":feature_wide_unicode",
+        visibility = visibility,
     )
 
     native.alias(
         name = "abi3",
         actual = "is_py33",
+        visibility = visibility,
     )
 
     for interpreter in INTERPRETERS:
@@ -91,6 +106,7 @@ def generate():
                         # "//uv/private/constraints/python/interpreter:{}".format(interpreter),
                         "//uv/private/constraints/python:py{}{}".format(major, minor),
                     ],
+                    visibility = visibility,
                 )
 
                 for d in [False, True]:
@@ -117,4 +133,5 @@ def generate():
                                         ([":freethreading_enabled"] if t else []) +
                                         ([":wide_unicode_enabled"] if u else [])
                                     ),
+                                    visibility = visibility,
                                 )
