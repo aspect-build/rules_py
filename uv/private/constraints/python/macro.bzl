@@ -8,8 +8,7 @@ load(":defs.bzl", "is_python_version_at_least")
 # buildifier: disable=unnamed-macro
 # buildifier: disable=function-docstring
 def generate(
-    visibility
-):
+        visibility):
     # FIXME: Needs to generate a cascade.
     for interpreter in INTERPRETERS:
         for major in MAJORS:

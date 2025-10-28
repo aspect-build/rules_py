@@ -240,8 +240,7 @@ def generate_musllinux(visibility):
 # buildifier: disable=unnamed-macro
 # buildifier: disable=function-docstring
 def generate(
-    visibility
-):
+        visibility):
     # FIXME: Is there a better/worse way to do this?
     selects.config_setting_group(
         name = "any",

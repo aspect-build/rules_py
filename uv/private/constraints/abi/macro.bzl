@@ -10,8 +10,7 @@ load("//uv/private/constraints:defs.bzl", "INTERPRETERS", "MAJORS", "MINORS")
 # buildifier: disable=unnamed-macro
 # buildifier: disable=function-docstring
 def generate(
-    visibility
-):
+        visibility):
     """
     Lay down `py3`, `py312`, `cp3`, `cp312` etc and critically `any`.
 
