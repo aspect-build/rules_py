@@ -465,7 +465,7 @@ oci = use_extension("@rules_oci//oci:extensions.bzl", "oci", dev_dependency = Tr
 oci.pull(
     name = "ubuntu",
     digest = "sha256:80dd3c3b9c6cecb9f1667e9290b3bc61b78c2678c02cbdae5f0fea92cc6734ab",
-    image = "ubuntu",
+    image = "public.ecr.aws/docker/library/ubuntu",
     platforms = [
         "linux/arm64/v8",
         "linux/amd64",
