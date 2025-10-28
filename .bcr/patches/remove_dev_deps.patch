@@ -1,9 +1,11 @@
---- a/MODULE.bazel	2025-10-25 10:38:24
-+++ b/MODULE.bazel	2025-10-25 10:38:24
-@@ -24,554 +24,3 @@
+--- a/MODULE.bazel	2025-10-28 11:19:35
++++ b/MODULE.bazel	2025-10-28 11:19:35
+@@ -22,557 +22,5 @@
+     "@aspect_rules_py//py/private/toolchain/venv/...",
+     "@aspect_rules_py//py/private/toolchain/unpack/...",
      "@aspect_rules_py//py/private/toolchain/shim/...",
- )
- 
+-)
+-
 -################################################################################
 -# Dev deps
 -#
@@ -291,8 +293,8 @@
 -    ],
 -    target_triple = "x86_64-unknown-linux-musl",
 -    versions = [RUST_VERSION],  # "versions" only set in first instance of "rust_darwin_x86_64" repository_set (see comment above)
--)
--
+ )
+ 
 -# -> linux arm (musl)
 -rust.repository_set(
 -    name = "rust_darwin_x86_64",
@@ -431,6 +433,7 @@
 -# TODO: Replace with bazel_features?
 -# cf. https://github.com/bazel-contrib/bazelrc-preset.bzl/blob/main/MODULE.bazel#L8C1-L10C70
 -bazel_dep(name = "bazel_features", version = "1.0.0")
+-bazel_dep(name = "rules_shell", version = "0.6.1")
 -
 -version = use_extension("@bazel_features//private:extensions.bzl", "version_extension")
 -use_repo(version, "bazel_features_globals", "bazel_features_version")

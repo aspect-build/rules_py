@@ -15,10 +15,6 @@ common:ci --announce_rc
 common --nobuild_runfile_links
 # Docs: https://registry.build/flag/bazel?filter=build_runfile_links
 
-# See https://github.com/bazelbuild/bazel/issues/20577
-coverage --build_runfile_links
-# Docs: https://registry.build/flag/bazel?filter=build_runfile_links
-
 # Always run tests even if they have cached results.
 # This ensures tests are executed fresh each time, useful for debugging and ensuring test reliability.
 common:debug --nocache_test_results
@@ -58,22 +54,6 @@ common --noexperimental_check_external_repository_files
 # to generate a full coverage report.
 common --experimental_fetch_all_coverage_outputs
 # Docs: https://registry.build/flag/bazel?filter=experimental_fetch_all_coverage_outputs
-
-# This flag was added in Bazel 6.2.0 with a default of zero:
-# https://github.com/bazelbuild/bazel/commit/24b45890c431de98d586fdfe5777031612049135
-# For Bazel 8.0.0rc1 the default was changed to 5:
-# https://github.com/bazelbuild/bazel/commit/739e37de66f4913bec1a55b2f2a162e7db6f2d0f
-# Back-port the updated flag default value to older Bazel versions.
-common --experimental_remote_cache_eviction_retries=5
-# Docs: https://registry.build/flag/bazel?filter=experimental_remote_cache_eviction_retries
-
-# This flag was added in Bazel 5.0.0 with a default of zero:
-# https://github.com/bazelbuild/bazel/commit/a1137ec1338d9549fd34a9a74502ffa58c286a8e
-# For Bazel 8.0.0 the default was changed to 5:
-# https://github.com/bazelbuild/bazel/commit/9335cf989ee6a678ca10bc4da72214634cef0a57
-# Back-port the updated flag default value to older Bazel versions.
-common --experimental_repository_downloader_retries=5
-# Docs: https://registry.build/flag/bazel?filter=experimental_repository_downloader_retries
 
 # Set this flag to enable re-tries of failed tests on CI.
 # When any test target fails, try one or more times. This applies regardless of whether the "flaky"
@@ -116,24 +96,12 @@ startup --host_jvm_args="-DBAZEL_TRACK_SOURCE_DIRECTORIES=1"
 common --incompatible_default_to_explicit_init_py
 # Docs: https://registry.build/flag/bazel?filter=incompatible_default_to_explicit_init_py
 
-# Disallow empty glob patterns.
-# The glob() function tends to be error-prone, because any typo in a path will silently return an empty list.
-# This flag was added in Bazel 0.27 and flipped in Bazel 8: https://github.com/bazelbuild/bazel/issues/8195
-common --incompatible_disallow_empty_glob
-# Docs: https://registry.build/flag/bazel?filter=incompatible_disallow_empty_glob
-
 # Make builds more reproducible by using a static value for PATH and not inheriting LD_LIBRARY_PATH.
 # Use `--action_env=ENV_VARIABLE` if you want to inherit specific variables from the environment where Bazel runs.
 # Note that doing so can prevent cross-user caching if a shared cache is used.
 # See https://github.com/bazelbuild/bazel/issues/2574 for more details.
 common --incompatible_strict_action_env
 # Docs: https://registry.build/flag/bazel?filter=incompatible_strict_action_env
-
-# Performance improvement: avoid laying out a second copy of the runfiles tree.
-# See https://github.com/bazelbuild/bazel/issues/23574.
-# This flag was flipped for Bazel 8.
-common --nolegacy_external_runfiles
-# Docs: https://registry.build/flag/bazel?filter=legacy_external_runfiles
 
 # On CI, don't download remote outputs to the local machine.
 # Most CI pipelines don't need to access the files and they can remain at rest on the remote cache.
@@ -235,3 +203,60 @@ test:ci --test_summary="terse"
 # Set to a high value to allow tests to complete even if they take longer than expected.
 common:debug --test_timeout=9999
 # Docs: https://registry.build/flag/bazel?filter=test_timeout
+
+# Automatic execution groups select an execution platform for each toolchain type.
+# In other words, one target can have multiple execution platforms without defining execution groups.
+# Migration requires setting a toolchain parameter inside ctx.actions.{run, run_shell} for actions which use tool or executable from a toolchain.
+#
+# See https://github.com/bazelbuild/bazel/issues/17134
+common --incompatible_auto_exec_groups
+# Docs: https://registry.build/flag/bazel?filter=incompatible_auto_exec_groups
+
+# Language specific rules (Protos, Java, C++, Android) are being rewritten to Starlark and moved from Bazel into their rules repositories
+# (protobuf, rules_java, rules_cc, rules_android, apple_support).
+# Because of the move the rules need to be loaded from their repositories.
+# This requires adding load statements to all bzl and BUILD files that are using those rules.
+#
+# See https://github.com/bazelbuild/bazel/issues/23043
+common --incompatible_autoload_externally=""
+# Docs: https://registry.build/flag/bazel?filter=incompatible_autoload_externally
+
+# Visibility on config_setting isn't historically enforced. This is purely for legacy reasons.
+# There's no philosophical reason to distinguish them.
+# Treat all config_settings as if they follow standard visibility logic at https://docs.bazel.build/versions/master/visibility.html:
+# have them set visibility explicitly if they'll be used anywhere outside their own package.
+#
+# See https://github.com/bazelbuild/bazel/issues/12933
+common --incompatible_config_setting_private_default_visibility
+# Docs: https://registry.build/flag/bazel?filter=incompatible_config_setting_private_default_visibility
+
+# When set to `true`, native repo rules cannot be used in WORKSPACE; their Starlark counterparts must be used. Native repo rules already can't be used in Bzlmod.
+#
+# See https://github.com/bazelbuild/bazel/issues/22080
+common --incompatible_disable_native_repo_rules
+# Docs: https://registry.build/flag/bazel?filter=incompatible_disable_native_repo_rules
+
+# Removes create_executable attribute from java_binary.
+# Migration to java_single_jar is needed.
+#
+# See https://github.com/bazelbuild/bazel/issues/19687
+common --incompatible_disable_non_executable_java_binary
+# Docs: https://registry.build/flag/bazel?filter=incompatible_disable_non_executable_java_binary
+
+# Changes this syntax to be illegal: cfg = "host"
+# Instead use: cfg = "exec"
+#
+# See https://github.com/bazelbuild/bazel/issues/17032
+common --incompatible_disable_starlark_host_transitions
+# Docs: https://registry.build/flag/bazel?filter=incompatible_disable_starlark_host_transitions
+
+# Address a counterintuitive interaction with --action_env and it's affect on repository environments.
+#
+# Note that this will implicitly affect other features which inherit the repository environment such as:
+# - Credential managers
+# - Download manager
+# - And possibly more.
+#
+# See https://github.com/bazelbuild/bazel/issues/26222
+common --incompatible_repo_env_ignores_action_env
+# Docs: https://registry.build/flag/bazel?filter=incompatible_repo_env_ignores_action_env
