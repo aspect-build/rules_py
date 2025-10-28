@@ -1,5 +1,5 @@
---- a/MODULE.bazel	2025-10-28 13:08:11
-+++ b/MODULE.bazel	2025-10-28 13:08:11
+--- a/MODULE.bazel	2025-10-28 13:13:30
++++ b/MODULE.bazel	2025-10-28 13:13:30
 @@ -22,557 +22,5 @@
      "@aspect_rules_py//py/private/toolchain/venv/...",
      "@aspect_rules_py//py/private/toolchain/unpack/...",
@@ -441,7 +441,7 @@
 -########################################
 -# from bazel/include/oci.MODULE.bazel
 -# rules_oci and friends
--bazel_dep(name = "rules_oci", version = "2.0.1", dev_dependency = True)
+-bazel_dep(name = "rules_oci", version = "2.2.6", dev_dependency = True)
 -
 -oci = use_extension("@rules_oci//oci:extensions.bzl", "oci", dev_dependency = True)
 -oci.pull(

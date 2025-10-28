@@ -10,5 +10,8 @@ bazelrc_preset(
     # USE_BAZEL_VERSION for testing.
     doc_link_template = "https://registry.build/flag/bazel?filter={flag}",
     strict = True,
+    tags = [
+        "manual",
+    ],
     target_compatible_with = incompatible_with("9.0.0"),
 )

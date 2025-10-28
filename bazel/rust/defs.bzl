@@ -112,6 +112,7 @@ def rust_library(name, rustc_env_files = [], version_key = "", crate_features = 
             "//conditions:default": [
                 "-Ccodegen-units=1",
                 "-Copt-level=3",
+                "-Cstrip=symbols",
             ],
         }),
         crate_features = crate_features + ["bazel"],
@@ -140,6 +141,7 @@ def rust_proc_macro(name, crate_features = [], **kwargs):
             "//conditions:default": [
                 "-Ccodegen-units=1",
                 "-Copt-level=3",
+                "-Cstrip=symbols",
             ],
         }),
         crate_features = crate_features + ["bazel"],

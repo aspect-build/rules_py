@@ -209,7 +209,7 @@ common:debug --test_timeout=9999
 # Migration requires setting a toolchain parameter inside ctx.actions.{run, run_shell} for actions which use tool or executable from a toolchain.
 #
 # See https://github.com/bazelbuild/bazel/issues/17134
-common --incompatible_auto_exec_groups
+# common --incompatible_auto_exec_groups
 # Docs: https://registry.build/flag/bazel?filter=incompatible_auto_exec_groups
 
 # Language specific rules (Protos, Java, C++, Android) are being rewritten to Starlark and moved from Bazel into their rules repositories
