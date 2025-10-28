@@ -145,6 +145,9 @@ def _py_venv_base_impl(ctx):
         outputs = [
             venv_dir,
         ],
+        # TODO: Is this right? The venv toolchain isn't quite in the right
+        # configuration (target not exec) so we have to use a different source
+        # of the target, but it is (logically) the venv toolchain.
         toolchain = VENV_TOOLCHAIN,
     )
 
