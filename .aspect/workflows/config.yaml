@@ -26,6 +26,9 @@ tasks:
             rm .bazelversion
             echo "USE_BAZEL_VERSION=latest" > .bazeliskrc
 
+      flags:
+        - "--config=ci"
+
   - test:
       name: test-os:linux-bzl:8
       queue: aspect-large
@@ -34,6 +37,8 @@ tasks:
           command: |
             rm .bazelversion
             echo "USE_BAZEL_VERSION=8.4.0" > .bazeliskrc
+      flags:
+        - "--config=ci"
 
   - finalization:
       queue: aspect-small
