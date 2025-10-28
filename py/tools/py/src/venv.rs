@@ -857,20 +857,18 @@ pub fn populate_venv(
             }
 
             had_collision = true;
-            eprintln!("Collision detected at destination: {}", dest.display());
-            for source in sources {
-                match source {
-                    Command::Copy { src, .. } | Command::CopyAndPatch { src, .. } => {
-                        if emit_error {
+            if emit_error {
+                eprintln!("Collision detected at destination: {}", dest.display());
+                for source in sources {
+                    match source {
+                        Command::Copy { src, .. } | Command::CopyAndPatch { src, .. } => {
                             eprintln!("  - Source: {} (Copy)", src.display())
                         }
-                    }
-                    Command::Symlink { src, .. } => {
-                        if emit_error {
+                        Command::Symlink { src, .. } => {
                             eprintln!("  - Source: {} (Symlink)", src.display())
                         }
+                        _ => {}
                     }
-                    _ => {}
                 }
             }
         }
