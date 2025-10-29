@@ -15,14 +15,15 @@ struct UnpackArgs {
     #[arg(long)]
     wheel: PathBuf,
 
-    /// Python version, eg 3.8.12
-    /// Must be separated by dots.
+    /// Python version, eg 3.8.12 => major = 3, minor = 8
     #[arg(long)]
-    python_version: String,
+    python_version_major: u8,
+    #[arg(long)]
+    python_version_minor: u8,
 }
 
 fn unpack_cmd_handler(args: UnpackArgs) -> miette::Result<()> {
-    py::unpack_wheel(&args.python_version, &args.into, &args.wheel)
+    py::unpack_wheel(args.python_version_major, args.python_version_minor, &args.into, &args.wheel)
 }
 
 fn main() -> miette::Result<()> {

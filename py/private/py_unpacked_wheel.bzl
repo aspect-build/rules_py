@@ -12,25 +12,18 @@ def _py_unpacked_wheel_impl(ctx):
 
     unpack_directory = ctx.actions.declare_directory("{}".format(ctx.attr.name))
 
-    arguments = ctx.actions.args()
-    arguments.add_all([
-        "--into",
-        unpack_directory.path,
-        "--wheel",
-        ctx.file.src.path,
-        "--python-version",
-        "{}.{}.{}".format(
-            py_toolchain.interpreter_version_info.major,
-            py_toolchain.interpreter_version_info.minor,
-            py_toolchain.interpreter_version_info.micro,
-        ),
-    ])
+    args = ctx.actions.args()
+    args.add_all([unpack_directory], expand_directories = False, before_each = "--into")
+    args.add("--wheel", ctx.file.src)
+    args.add("--python-version-major", py_toolchain.interpreter_version_info.major)
+    args.add("--python-version-minor", py_toolchain.interpreter_version_info.minor)
 
     ctx.actions.run(
         outputs = [unpack_directory],
         inputs = depset([ctx.file.src], transitive = [py_toolchain.files]),
         executable = unpack_toolchain.bin.bin,
-        arguments = [arguments],
+        arguments = [args],
+        execution_requirements = {"supports-path-mapping": "1"},
         mnemonic = "PyUnpackedWheel",
         progress_message = "Unpacking wheel {}".format(ctx.file.src.basename),
         toolchain = UNPACK_TOOLCHAIN,
