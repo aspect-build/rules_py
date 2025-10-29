@@ -4,10 +4,7 @@ load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@rules_pkg//pkg:mappings.bzl", "pkg_attributes", "pkg_files")
 load("@rules_pkg//pkg:pkg.bzl", "pkg_tar", "pkg_zip")
-load("@with_cfg.bzl", "with_cfg")
 load("//bazel/release:hashes.bzl", "hashes")
-
-opt_filegroup, _opt_filegroup_internal = with_cfg(native.filegroup).set("compilation_mode", "opt").build()
 
 TARGET_TRIPLES = [
     ("x86_64_unknown_linux_gnu", "linux_x86_64"),
@@ -106,14 +103,14 @@ def multi_platform_rust_binaries(name, target, name_scheme = TARGET_NAMING_SCHEM
             mac_bins.extend(bin_outs)
             mac_pkged.extend(pkged_outs)
 
-    opt_filegroup(
+    native.filegroup(
         name = name,
         srcs = linux_bins + mac_bins,
         tags = kwargs.get("tags", []) + ["release"],
         visibility = kwargs.get("visibility", []),
     )
 
-    opt_filegroup(
+    native.filegroup(
         name = "{}.packaged".format(name),
         srcs = linux_pkged + mac_pkged,
         tags = kwargs.get("tags", []) + ["release"],

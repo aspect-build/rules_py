@@ -2,7 +2,6 @@ load("//bazel/release:release.bzl", "release")
 load("//bazel/rust:defs.bzl", "rust_binary")
 load("//bazel/rust:multi_platform_rust_binaries.bzl", "multi_platform_rust_binaries")
 
-# TODO(#497): transition to --nocollect_code_coverage to avoid rules_rust trying to instrument this binary
 rust_binary(
     name = "venv",
     srcs = [
