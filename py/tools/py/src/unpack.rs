@@ -6,6 +6,11 @@ use std::{
 
 use miette::{miette, IntoDiagnostic, Result};
 
+const RELOCATABLE_SHEBANG: &'static str = r#"/bin/sh
+'''exec' "$(dirname -- "$(realpath -- "$0")")"/'python3' "$0" "$@"
+' '''
+"#;
+
 pub fn unpack_wheel(version: &str, location: &Path, wheel: &Path) -> Result<()> {
     let python_version: uv_python::PythonVersion = version
         .parse()
@@ -36,12 +41,12 @@ pub fn unpack_wheel(version: &str, location: &Path, wheel: &Path) -> Result<()> 
     };
 
     let layout = uv_install_wheel::Layout {
-        sys_executable: PathBuf::new(),
+        sys_executable: PathBuf::from(RELOCATABLE_SHEBANG),
         python_version: (python_version.major(), python_version.minor()),
         // Don't stamp in the path to the interpreter into the generated bins
         // as we don't want an absolute path here.
         // Perhaps this should be set to just "python" so it picks up the one in the venv path?
-        os_name: "/bin/false".to_string(),
+        os_name: "".to_string(),
         scheme,
     };
 

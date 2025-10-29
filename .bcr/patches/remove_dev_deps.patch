@@ -1,10 +1,9 @@
---- a/MODULE.bazel	2025-10-28 13:13:30
-+++ b/MODULE.bazel	2025-10-28 13:13:30
-@@ -22,557 +22,5 @@
-     "@aspect_rules_py//py/private/toolchain/venv/...",
-     "@aspect_rules_py//py/private/toolchain/unpack/...",
-     "@aspect_rules_py//py/private/toolchain/shim/...",
--)
+--- a/MODULE.bazel	2025-10-28 13:23:40
++++ b/MODULE.bazel	2025-10-28 13:23:40
+@@ -37,556 +37,4 @@
+ 
+ host = use_extension("//uv/private/host:extension.bzl", "host_platform")
+ use_repo(host, "aspect_rules_py_uv_host")
 -
 -################################################################################
 -# Dev deps
@@ -293,7 +292,7 @@
 -    ],
 -    target_triple = "x86_64-unknown-linux-musl",
 -    versions = [RUST_VERSION],  # "versions" only set in first instance of "rust_darwin_x86_64" repository_set (see comment above)
- )
+-)
  
 -# -> linux arm (musl)
 -rust.repository_set(
