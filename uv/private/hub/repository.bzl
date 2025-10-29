@@ -3,7 +3,31 @@
 """
 
 def _hub_impl(repository_ctx):
-    repository_ctx.file("BUILD.bazel", "")
+    # We get packages as {package: venvs}
+    # Need to invert that
+    venv_packages = {}
+    for package, venvs in repository_ctx.attr.packages.items():
+        for venv in venvs:
+            venv_packages.setdefault(venv, [])
+            venv_packages[venv].append("//{0}:{0}".format(package))
+
+    # Build up a single target which depends on _all_ the packages in a given
+    # venv configuration.
+    #
+    # TODO: Some packages in a venv configuration may be incompatible; figure
+    # out how to make this take "soft" rather than "hard" dependencies.
+    repository_ctx.file("BUILD.bazel", """\
+load("@aspect_rules_py//py:defs.bzl", "py_library")
+
+py_library(
+    name = "all",
+    deps = select({arms}),
+    visibility = ["//visibility:public"],
+)
+""".format(arms = {
+        "//configuration:{}".format(venv): pkgs
+        for venv, pkgs in venv_packages.items()
+    }))
 
     ################################################################################
     content = [
@@ -56,7 +80,9 @@ config_setting(
 
     content.append(
         """
-_VENVS = {}
+VIRTUALENVS = {venvs}
+
+PACKAGES = {venv_packages}
 
 def _compatible_with(venvs, extra_constraints = []):
   return select({{
@@ -69,7 +95,10 @@ def _compatible_with(venvs, extra_constraints = []):
 pip = struct(
   compatible_with = _compatible_with,
 )
-""".format(repr(repository_ctx.attr.venvs)),
+""".format(
+            venvs = repr(repository_ctx.attr.venvs),
+            venv_packages = repr(venv_packages),
+        ),
     )
 
     repository_ctx.file("defs.bzl", content = "\n".join(content))
@@ -87,12 +116,17 @@ load("//:defs.bzl", "pip")
         ]
 
         select_spec = {
-            "//venv:{}".format(it): "@venv__{}__{}//:{}".format(repository_ctx.attr.hub_name, it, name)
+            "//venv:{}".format(it): "@venv__{0}__{1}//{2}:{2}".format(repository_ctx.attr.hub_name, it, name)
             for it in spec
         }
 
+        # TODO: Find a way to add a dist-info target here
+        # TODO: Find a way to add entrypoint targets here?
+        # TODO: Add a way to take a "soft" dependency here?
         content.append(
             """
+# This target is for a "hard" dependency.
+# Dependencies on this target will cause build failures if it's unavailable.
 alias(
     name = "{name}",
     actual = select(

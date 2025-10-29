@@ -4,7 +4,7 @@
 
 load("@aspect_rules_py_uv_host//:defs.bzl", "CURRENT_PLATFORM")
 load("@bazel_skylib//lib:selects.bzl", "selects")
-load("//uv/private/constraints:defs.bzl", "generate_gte_ladder")
+load(":defs.bzl", "is_platform_version_at_least")
 
 ## These are defined but we're ignoring them for now.
 # android_21_arm64_v8a
@@ -83,15 +83,13 @@ def generate_macos(visibility):
         "ppc64",
     ]
 
-    stages = []
-
     # MacOS 10 ran for 15 minor releases
     # Since then with MacOS 11 (2020) Apple's gone to an annual major version
     # With MacOS 26 "Tahoe" they've gone to using the gregorian year for the version
     # Go a bit out into the future there
     for major in range(10, 30):
         for minor in range(0, 20):
-            name = "is_macosx_{}_{}".format(major, minor)
+            name = "macosx_at_least_{}_{}".format(major, minor)
             native.constraint_value(
                 name = name,
                 constraint_setting = ":platform",
@@ -103,7 +101,7 @@ def generate_macos(visibility):
                 selects.config_setting_group(
                     name = "macosx_{}_{}_{}".format(major, minor, arch),
                     match_all = [
-                        ":macosx_{}_{}".format(major, minor),
+                        ":macosx_at_least_{}_{}".format(major, minor),
                         "@platforms//os:osx",
                         "@platforms//cpu:{}".format(platform_repo_name_mangling.get(arch, arch)),
                     ],
@@ -119,8 +117,6 @@ def generate_macos(visibility):
                     ],
                     visibility = visibility,
                 )
-
-    generate_gte_ladder(stages, visibility = visibility)
 
 # buildifier: disable=unnamed-macro
 # buildifier: disable=function-docstring
@@ -161,8 +157,6 @@ def generate_manylinux(visibility):
                     ],
                     visibility = visibility,
                 )
-
-    generate_gte_ladder(stages, visibility = visibility)
 
 # buildifier: disable=unnamed-macro
 # buildifier: disable=function-docstring
@@ -208,8 +202,6 @@ def generate_musllinux(visibility):
                 visibility = visibility,
             )
 
-    generate_gte_ladder(stages, visibility = visibility)
-
 # musllinux_1_0_aarch64
 # musllinux_1_0_armv7l
 # musllinux_1_0_i686
@@ -239,66 +231,11 @@ def generate_musllinux(visibility):
 
 # buildifier: disable=unnamed-macro
 # buildifier: disable=function-docstring
-def generate(
-        visibility):
-    # FIXME: Is there a better/worse way to do this?
-    selects.config_setting_group(
-        name = "any",
-        match_all = [
-            "//conditions:default",
-        ],
-        visibility = visibility,
-    )
-
-    native.constraint_setting(
-        name = "platform",
-        default_constraint_value = CURRENT_PLATFORM,
-        visibility = visibility,
-    )
+def generate(visibility):
 
     generate_macos(visibility = visibility)
     generate_manylinux(visibility = visibility)
     generate_musllinux(visibility = visibility)
-
-    # FIXME: Is this right?
-    native.alias(
-        name = "linux_armv7l",
-        actual = "manylinux_2_17_armv7l",
-        visibility = visibility,
-    )
-
-    # https://packaging.python.org/en/latest/specifications/platform-compatibility-tags/#manylinux
-    selects.config_setting_group(
-        name = "manylinux1",
-        match_any = [
-            ":manylinux_2_5_x86_64",
-            ":manylinux_2_5_i686",
-        ],
-        visibility = visibility,
-    )
-
-    selects.config_setting_group(
-        name = "manylinux2010",
-        match_any = [
-            ":manylinux_2_12_x86_64",
-            ":manylinux_2_12_i686",
-        ],
-        visibility = visibility,
-    )
-
-    selects.config_setting_group(
-        name = "manylinux2014",
-        match_any = [
-            ":manylinux_2_17_x86_64",
-            ":manylinux_2_17_i686",
-            ":manylinux_2_17_aarch64",
-            ":manylinux_2_17_armv7l",
-            ":manylinux_2_17_ppc64",
-            ":manylinux_2_17_ppc64le",
-            ":manylinux_2_17_s390x",
-        ],
-        visibility = visibility,
-    )
 
     native.constraint_value(
         name = "is_win32",

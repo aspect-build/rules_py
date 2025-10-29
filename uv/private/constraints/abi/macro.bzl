@@ -26,6 +26,12 @@ def generate(
     )
 
     # TODO: Replace all this with the rules_python feature flags
+    # rules_python doesn't have _all_ of these
+    # 
+    # There is //python/config_settings:py_freethreaded
+    #
+    # Likely better to offer our own Python toolchain flow which ties off with
+    # our settings than to try and hang 1:1 off of rules_python's.
     native.constraint_setting(
         name = "feature_pydebug",
         default_constraint_value = ":pydebug_disabled",

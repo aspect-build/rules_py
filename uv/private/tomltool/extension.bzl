@@ -41,6 +41,7 @@ TOOLS = [
 
 def tomltool_impl(_):
     for tool in TOOLS:
+        print("toml2json_{}_{}_{}".format(tool.arch, tool.os, tool.libc))
         http_file(
             name = "toml2json_{}_{}_{}".format(tool.arch, tool.os, tool.libc),
             url = tool.url,

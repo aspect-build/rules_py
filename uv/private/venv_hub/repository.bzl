@@ -9,15 +9,18 @@ def _venv_hub_impl(repository_ctx):
     ]
 
     for name, group in repository_ctx.attr.aliases.items():
+        content = []
         content.append(
             """
 alias(
    name = "{}",
-   actual = "//:{}",
+   actual = "//private/sccs:{}",
    visibility = ["//visibility:public"],
 )
 """.format(name, group),
         )
+
+        repository_ctx.file("{}/BUILD.bazel", content = "\n".join(content))
 
     # So the strategy here is that we need to go through sccs, create each scc
     # and depend on the members of the scc by their _install_ directly rather
@@ -44,7 +47,7 @@ py_library(
    deps = [
 {}
    ],
-   visibility = ["//visibility:public"],
+   visibility = ["//visibility:private"],
 )
 """.format(
                 group,
@@ -52,7 +55,7 @@ py_library(
             ),
         )
 
-    repository_ctx.file("BUILD.bazel", content = "\n".join(content))
+    repository_ctx.file("private/sccs/BUILD.bazel", content = "\n".join(content))
 
 venv_hub = repository_rule(
     implementation = _venv_hub_impl,

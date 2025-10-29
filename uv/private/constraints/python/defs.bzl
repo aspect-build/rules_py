@@ -29,6 +29,7 @@ def supported_python(python_tag):
         return False
 
 # Vendored from rules_python's config_settings.bzl
+# TODO: At least make this 
 _PYTHON_VERSION_FLAG = Label("@rules_python//python/config_settings:python_version")
 _PYTHON_VERSION_MAJOR_MINOR_FLAG = Label("@rules_python//python/config_settings:python_version_major_minor")
 
