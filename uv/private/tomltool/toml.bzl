@@ -60,8 +60,7 @@ def _decode_file(ctx, content_path):
 
     out = ctx.execute(
         [
-            Label("@aspect_rules_py_tomltool_{}_{}_{}//file:downloaded".format(arch, os, libc)),
-            "-d",
+            Label("@toml2json_{}_{}_{}//file:downloaded".format(arch, os, libc)),
             content_path,
         ],
     )
