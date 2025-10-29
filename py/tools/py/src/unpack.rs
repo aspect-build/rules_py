@@ -4,13 +4,9 @@ use std::{
     str::FromStr,
 };
 
-use miette::{miette, IntoDiagnostic, Result};
+use miette::{IntoDiagnostic, Result};
 
-pub fn unpack_wheel(version: &str, location: &Path, wheel: &Path) -> Result<()> {
-    let python_version: uv_python::PythonVersion = version
-        .parse()
-        .map_err(|_| miette!("Failed to parse Python version"))?;
-
+pub fn unpack_wheel(version_major: u8, version_minor: u8, location: &Path, wheel: &Path) -> Result<()> {
     let wheel_file_reader = fs::File::open(wheel).into_diagnostic()?;
 
     let temp = tempfile::tempdir().into_diagnostic()?;
@@ -21,8 +17,8 @@ pub fn unpack_wheel(version: &str, location: &Path, wheel: &Path) -> Result<()> 
         .join("lib")
         .join(format!(
             "python{}.{}",
-            python_version.major(),
-            python_version.minor()
+            version_major,
+            version_minor,
         ))
         .join("site-packages");
 
@@ -37,7 +33,7 @@ pub fn unpack_wheel(version: &str, location: &Path, wheel: &Path) -> Result<()> 
 
     let layout = uv_install_wheel::Layout {
         sys_executable: PathBuf::new(),
-        python_version: (python_version.major(), python_version.minor()),
+        python_version: (version_major, version_minor),
         // Don't stamp in the path to the interpreter into the generated bins
         // as we don't want an absolute path here.
         // Perhaps this should be set to just "python" so it picks up the one in the venv path?
