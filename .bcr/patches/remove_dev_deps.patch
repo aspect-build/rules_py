@@ -1,11 +1,9 @@
---- a/MODULE.bazel	2025-10-28 13:13:30
-+++ b/MODULE.bazel	2025-10-28 13:13:30
-@@ -22,557 +22,5 @@
-     "@aspect_rules_py//py/private/toolchain/venv/...",
-     "@aspect_rules_py//py/private/toolchain/unpack/...",
+--- a/MODULE.bazel	2025-10-30 12:25:53
++++ b/MODULE.bazel	2025-10-30 12:25:53
+@@ -24,554 +24,3 @@
      "@aspect_rules_py//py/private/toolchain/shim/...",
--)
--
+ )
+ 
 -################################################################################
 -# Dev deps
 -#
@@ -293,8 +291,8 @@
 -    ],
 -    target_triple = "x86_64-unknown-linux-musl",
 -    versions = [RUST_VERSION],  # "versions" only set in first instance of "rust_darwin_x86_64" repository_set (see comment above)
- )
- 
+-)
+-
 -# -> linux arm (musl)
 -rust.repository_set(
 -    name = "rust_darwin_x86_64",
@@ -383,18 +381,17 @@
 -bazel_dep(name = "xz", version = "5.4.5.bcr.5")
 -bazel_dep(name = "zstd", version = "1.5.7")
 -bazel_dep(name = "bzip2", version = "1.0.8.bcr.2")
+-bazel_dep(name = "rules_rs", version = "0.0.7")
 -
 -crate = use_extension(
--    "@rules_rust//crate_universe:extension.bzl",
+-    "@rules_rs//rs:extensions.bzl",
 -    "crate",
 -)
 -crate.from_cargo(
 -    name = "crates",
--    cargo_lockfile = "//:Cargo.lock",
--    manifests = [
--        "//:Cargo.toml",
--    ],
--    supported_platform_triples = [
+-    cargo_lock = "//:Cargo.lock",
+-    cargo_toml = "//:Cargo.toml",
+-    platform_triples = [
 -        "aarch64-apple-darwin",
 -        "aarch64-unknown-linux-gnu",
 -        "x86_64-apple-darwin",

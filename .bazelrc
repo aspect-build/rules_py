@@ -4,15 +4,13 @@ common --enable_bzlmod
 
 # Ignore slow manual and release targets
 # Prevents materializing crossbuild
-build --build_tag_filters=-manual,-release
-test --test_tag_filters=-manual,-release
+common --build_tag_filters=-manual,-release
 
-test --test_output=errors
+common --test_output=errors
 
 # Define value used by tests
-build --define=SOME_VAR=SOME_VALUE
+common --define=SOME_VAR=SOME_VALUE
 
-#common --features=-libtool
 common --incompatible_enable_cc_toolchain_resolution
 
 # TODO(bzlmod): Don't break proto
@@ -20,8 +18,7 @@ common --per_file_copt=external/.*protobuf.*@--PROTOBUF_WAS_NOT_SUPPOSED_TO_BE_B
 common --host_per_file_copt=external/.*protobuf.*@--PROTOBUF_WAS_NOT_SUPPOSED_TO_BE_BUILT
 
 # Don't try and auto detect the cc toolchain, as we use our own gcc toolchains.
-common --action_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
-common --incompatible_enable_cc_toolchain_resolution
+common --repo_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
 
 # Don't link against libunwind on macos as it causes linking failures (https://github.com/bazel-contrib/toolchains_llvm/pull/346)
 common:macos --@toolchains_llvm//toolchain/config:libunwind=False
@@ -35,7 +32,7 @@ common:release --@rules_rust//rust/settings:lto=fat
 common:release --@rules_rust//:extra_rustc_flags=-Cpanic=abort
 
 # Speed up local development by using the non-hermetic CPP toolchain.
-common:nollvm --action_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=0
+common:nollvm --repo_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=0
 common:nollvm --noincompatible_enable_cc_toolchain_resolution
 
 # Load any settings specific to the current user.

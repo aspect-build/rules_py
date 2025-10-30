@@ -31,6 +31,7 @@ def rust_binary(name, rustc_env_files = [], version_key = "", crate_features = [
         rustc_env_files: Additional env files to pass to the rust compiler
         version_key: Stamp key to use for version replacement at compile time
         crate_features: Create features to enable for the binary target
+        platform: optional platform to transition to
         **kwargs: Additional args to pass to rust_binary
     """
 
