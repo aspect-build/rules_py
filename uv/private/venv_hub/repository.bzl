@@ -3,11 +3,6 @@
 """
 
 def _venv_hub_impl(repository_ctx):
-    content = [
-        "# FIXME",
-        """load("@aspect_rules_py//py:defs.bzl", "py_library")""",
-    ]
-
     for name, group in repository_ctx.attr.aliases.items():
         content = []
         content.append(
@@ -20,13 +15,18 @@ alias(
 """.format(name, group),
         )
 
-        repository_ctx.file("{}/BUILD.bazel", content = "\n".join(content))
+        repository_ctx.file("{}/BUILD.bazel".format(name), content = "\n".join(content))
 
     # So the strategy here is that we need to go through sccs, create each scc
     # and depend on the members of the scc by their _install_ directly rather
     # than by their alias/group.
     #
     # Deps are added to the scc group by their _alias_.
+    content = [
+        "# FIXME",
+        """load("@aspect_rules_py//py:defs.bzl", "py_library")""",
+    ]
+
     for group, members in repository_ctx.attr.sccs.items():
         member_installs = [
             "        \"@{}//:install\",".format(repository_ctx.attr.installs[it])
@@ -36,7 +36,7 @@ alias(
         deps = repository_ctx.attr.deps[group]
         deps = [it for it in deps if it not in members]
         deps = [
-            "        \":{}\",".format(it)
+            "        \"//{}\",".format(it)
             for it in deps
         ]
         content.append(
@@ -47,7 +47,7 @@ py_library(
    deps = [
 {}
    ],
-   visibility = ["//visibility:private"],
+   visibility = ["//:__subpackages__"],
 )
 """.format(
                 group,

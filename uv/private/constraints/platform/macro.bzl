@@ -2,7 +2,6 @@
 
 """
 
-load("@aspect_rules_py_uv_host//:defs.bzl", "CURRENT_PLATFORM")
 load("@bazel_skylib//lib:selects.bzl", "selects")
 load(":defs.bzl", "is_platform_version_at_least")
 
@@ -20,21 +19,7 @@ load(":defs.bzl", "is_platform_version_at_least")
 # ios_13_0_arm64_iphonesimulator
 # ios_13_0_x86_64_iphonesimulator
 
-## These are long obsolete manylinux wheel formats we're ignoring.
-## Hopefully we can just ignore that....
-# manylinux1_i686
-# manylinux1_x86_64
-# manylinux2010_i686
-# manylinux2010_x86_64
-# manylinux2014_aarch64
-# manylinux2014_armv7l
-# manylinux2014_i686
-# manylinux2014_ppc64
-# manylinux2014_ppc64le
-# manylinux2014_s390x
-# manylinux2014_x86_64
-
-## These seem wrong?
+## These seem wrong and/or are defined by Conda not packaging
 # linux_armv6l
 # linux_armv7l
 # linux_x86_64
@@ -89,19 +74,19 @@ def generate_macos(visibility):
     # Go a bit out into the future there
     for major in range(10, 30):
         for minor in range(0, 20):
-            name = "macosx_at_least_{}_{}".format(major, minor)
-            native.constraint_value(
+            name = "is_macos_at_least_{}_{}".format(major, minor)
+            is_platform_version_at_least(
                 name = name,
-                constraint_setting = ":platform",
-                visibility = visibility,
+                version = "{}.{}".format(major, minor),
+                visibility = ["//visibility:private"],
             )
-            stages.append(struct(name = name[3:], condition = name))
 
             for arch in arches:
                 selects.config_setting_group(
                     name = "macosx_{}_{}_{}".format(major, minor, arch),
                     match_all = [
-                        ":macosx_at_least_{}_{}".format(major, minor),
+                        name,
+                        ":is_libsystem",
                         "@platforms//os:osx",
                         "@platforms//cpu:{}".format(platform_repo_name_mangling.get(arch, arch)),
                     ],
@@ -123,6 +108,20 @@ def generate_macos(visibility):
 def generate_manylinux(visibility):
     # https://packaging.python.org/en/latest/specifications/platform-compatibility-tags/#manylinux
 
+    ## These are long obsolete manylinux wheel formats we're ignoring.
+    ## Hopefully we can just ignore that....
+    # manylinux1_i686
+    # manylinux1_x86_64
+    # manylinux2010_i686
+    # manylinux2010_x86_64
+    # manylinux2014_aarch64
+    # manylinux2014_armv7l
+    # manylinux2014_i686
+    # manylinux2014_ppc64
+    # manylinux2014_ppc64le
+    # manylinux2014_s390x
+    # manylinux2014_x86_64
+
     arches = [
         "x86_64",
         "i686",
@@ -134,24 +133,22 @@ def generate_manylinux(visibility):
         "armv7l",
     ]
 
-    stages = []
-
     # glibc 1.X ran for not that long and was in the 90s
     for major in [2]:
         for minor in range(0, 51):
-            name = "is_manylinux_{}_{}".format(major, minor)
-            native.constraint_value(
+            name = "is_glibc_at_least_{}_{}".format(major, minor)
+            is_platform_version_at_least(
                 name = name,
-                constraint_setting = ":platform",
-                visibility = visibility,
+                version = "{}.{}".format(major, minor),
+                visibility = ["//visibility:private"],
             )
-            stages.append(struct(name = name[3:], condition = name))
 
             for arch in arches:
                 selects.config_setting_group(
                     name = "manylinux_{}_{}_{}".format(major, minor, arch),
                     match_all = [
-                        ":manylinux_{}_{}".format(major, minor),
+                        name,
+                        ":is_glibc",
                         "@platforms//os:linux",
                         "@platforms//cpu:{}".format(platform_repo_name_mangling.get(arch, arch)),
                     ],
@@ -161,6 +158,28 @@ def generate_manylinux(visibility):
 # buildifier: disable=unnamed-macro
 # buildifier: disable=function-docstring
 def generate_musllinux(visibility):
+
+    # musllinux_1_0_aarch64
+    # musllinux_1_0_armv7l
+    # musllinux_1_0_i686
+    # musllinux_1_0_x86_64
+    # musllinux_1_1_aarch64
+    # musllinux_1_1_armv7l
+    # musllinux_1_1_i686
+    # musllinux_1_1_ppc64le
+    # musllinux_1_1_riscv64
+    # musllinux_1_1_s390x
+    # musllinux_1_1_x86_64
+    # musllinux_1_2_aarch64
+    # musllinux_1_2_armv7l
+    # musllinux_1_2_i686
+    # musllinux_1_2_ppc64le
+    # musllinux_1_2_riscv64
+    # musllinux_1_2_s390x
+    # musllinux_1_2_x86_64
+    # musllinux_2_0_aarch64
+    # musllinux_2_0_x86_64
+
     arches = [
         "x86_64",
         "i686",
@@ -171,8 +190,6 @@ def generate_musllinux(visibility):
         "riscv64",
         "armv7l",
     ]
-
-    stages = []
 
     # TODO: musl moves super slow and has strong back compat promises, doesn't clearly need a huge matrix?
     for major, minor in [
@@ -183,51 +200,24 @@ def generate_musllinux(visibility):
         [2, 1],  # Hypothetical
         [2, 2],  # Hypothetical
     ]:
-        name = "is_musllinux_{}_{}".format(major, minor)
-        native.constraint_value(
+        name = "is_musl_at_least_{}_{}".format(major, minor)
+        is_platform_version_at_least(
             name = name,
-            constraint_setting = ":platform",
-            visibility = visibility,
+            version = "{}.{}".format(major, minor),
+            visibility = ["//visibility:private"],
         )
-        stages.append(struct(name = name[3:], condition = name))
 
         for arch in arches:
             selects.config_setting_group(
                 name = "musllinux_{}_{}_{}".format(major, minor, arch),
                 match_all = [
-                    ":musllinux_{}_{}".format(major, minor),
+                    name,
+                    ":is_musl",
                     "@platforms//os:linux",
                     "@platforms//cpu:{}".format(platform_repo_name_mangling.get(arch, arch)),
                 ],
                 visibility = visibility,
             )
-
-# musllinux_1_0_aarch64
-# musllinux_1_0_armv7l
-# musllinux_1_0_i686
-# musllinux_1_0_x86_64
-# musllinux_1_1_aarch64
-# musllinux_1_1_armv7l
-# musllinux_1_1_i686
-# musllinux_1_1_ppc64le
-# musllinux_1_1_riscv64
-# musllinux_1_1_s390x
-# musllinux_1_1_x86_64
-# musllinux_1_2_aarch64
-# musllinux_1_2_armv7l
-# musllinux_1_2_i686
-# musllinux_1_2_ppc64le
-# musllinux_1_2_riscv64
-# musllinux_1_2_s390x
-# musllinux_1_2_x86_64
-# musllinux_2_0_aarch64
-# musllinux_2_0_x86_64
-
-# win32
-# win64
-# win_amd64
-# win_arm64
-# win_ia64
 
 # buildifier: disable=unnamed-macro
 # buildifier: disable=function-docstring
@@ -236,59 +226,3 @@ def generate(visibility):
     generate_macos(visibility = visibility)
     generate_manylinux(visibility = visibility)
     generate_musllinux(visibility = visibility)
-
-    native.constraint_value(
-        name = "is_win32",
-        constraint_setting = ":platform",
-        visibility = visibility,
-    )
-    native.alias(
-        name = "win32",
-        actual = ":is_win32",
-        visibility = visibility,
-    )
-
-    native.constraint_value(
-        name = "is_win64",
-        constraint_setting = ":platform",
-        visibility = visibility,
-    )
-    native.alias(
-        name = "win64",
-        actual = ":is_win64",
-        visibility = visibility,
-    )
-
-    # FIXME: These should be and?
-    native.constraint_value(
-        name = "is_win_amd64",
-        constraint_setting = ":platform",
-        visibility = visibility,
-    )
-    native.alias(
-        name = "win_amd64",
-        actual = ":is_win_amd64",
-        visibility = visibility,
-    )
-
-    native.constraint_value(
-        name = "is_win_arm64",
-        visibility = visibility,
-        constraint_setting = ":platform",
-    )
-    native.alias(
-        name = "win_arm64",
-        actual = ":is_win_arm64",
-        visibility = visibility,
-    )
-
-    native.constraint_value(
-        name = "is_win_ia64",
-        constraint_setting = ":platform",
-        visibility = visibility,
-    )
-    native.alias(
-        name = "win_ia64",
-        actual = ":is_win_ia64",
-        visibility = visibility,
-    )

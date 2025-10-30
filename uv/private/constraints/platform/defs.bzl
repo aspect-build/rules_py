@@ -2,6 +2,8 @@
 Helpers & constants.
 """
 
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+
 def supported_platform(platform_tag):
     """Predicate.
 
@@ -24,19 +26,18 @@ def supported_platform(platform_tag):
     # - `linux_*` which doesn't seem standardized
     # - `android_` which could be supported but we don't have to
     # - `ios_*` which could be supported but we don't have to
+    # - Windows
 
     return (
         platform_tag == "any" or
         platform_tag.startswith("macosx_") or
         platform_tag.startswith("manylinux_") or
-        platform_tag.startswith("musllinux_") or
-        platform_tag.startswith("win")
+        platform_tag.startswith("musllinux_")
     )
 
 
 # Adapted from rules_python's config_settings.bzl
-_PYTHON_VERSION_FLAG = Label("@rules_python//python/config_settings:python_version")
-_PYTHON_VERSION_MAJOR_MINOR_FLAG = Label("@rules_python//python/config_settings:python_version_major_minor")
+MAJOR_MINOR_FLAG = Label("//uv/private/constraints/platform:platform_version")
 
 def is_platform_version_at_least(name, version = None, visibility = visibility, **kwargs):
     version = version or name
@@ -56,7 +57,7 @@ def is_platform_version_at_least(name, version = None, visibility = visibility, 
     )
 
 def _platform_version_at_least_impl(ctx):
-    flag_value = ctx.attr._major_minor[config_common.FeatureFlagInfo].value
+    flag_value = ctx.attr._major_minor[BuildSettingInfo].value
 
     # CI is, somehow, getting an empty string for the current flag value.
     # How isn't clear.
@@ -72,10 +73,10 @@ def _platform_version_at_least_impl(ctx):
     value = "yes" if current >= at_least else "no"
     return [config_common.FeatureFlagInfo(value = value)]
 
-_python_version_at_least = rule(
-    implementation = _python_version_at_least_impl,
+_platform_version_at_least = rule(
+    implementation = _platform_version_at_least_impl,
     attrs = {
         "at_least": attr.string(mandatory = True),
-        "major_minor": attr.label(default = _PYTHON_VERSION_MAJOR_MINOR_FLAG),
+        "_major_minor": attr.label(default = MAJOR_MINOR_FLAG),
     },
 )

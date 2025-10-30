@@ -25,7 +25,7 @@ def _platform(rctx):
     if os == "osx":
         res = rctx.execute(["sw_vers", "-productVersion"])
         ver = res.stdout.split(".")
-        return "is_macosx_{}_{}".format(ver[0], ver[1])
+        return "libsystem", "{}.{}".format(ver[0], ver[1])
 
     elif os == "linux":
         res = rctx.execute(["ldd", "--version"])
@@ -33,11 +33,14 @@ def _platform(rctx):
         libc = "musllinux" if "musl" in res.stdout else "manylinux"
         if libc == "musllinux":
             ver = res.stdout.split("\n")[1].split(" ")[-1].split(".")
-            return "is_{}_{}_{}".format(libc, ver[0], ver[1])
+            return libc, "{}.{}".format(ver[0], ver[1])
 
         elif libc == "manylinux":
             ver = res.stdout.split("\n")[0].split(" ")[-1].split(".")
-            return "is_{}_{}_{}".format(libc, ver[0], ver[1])
+            return libc, "{}.{}".format(ver[0], ver[1])
+
+    # TODO: Windows
+    # TODO: Other
 
     fail("Unsupported platform {}".format(os))
 
@@ -53,12 +56,13 @@ bzl_library(
 )
 """)
 
-    platform = _platform(rctx)
+    libc, version = _platform(rctx)
 
     rctx.file("defs.bzl", """
 # DO NOT EDIT: automatically generated constraints list
-CURRENT_PLATFORM = {}
-""".format(repr(platform)))
+CURRENT_PLATFORM_LIBC = {}
+CURRENT_PLATFORM_VERSION = {}
+""".format(repr(libc), repr(version)))
 
 host_platform_repo = repository_rule(
     implementation = _host_platform_repo_impl,
