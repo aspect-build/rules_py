@@ -1,0 +1,7 @@
+load("//py:defs.bzl", "py_test")
+
+py_binary(
+    name = "foo",
+    srcs = ["foo.py"],
+    exec_properties = None,
+)
