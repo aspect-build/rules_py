@@ -1,5 +1,5 @@
---- a/MODULE.bazel	2025-10-30 12:25:53
-+++ b/MODULE.bazel	2025-10-30 12:25:53
+--- a/MODULE.bazel	2025-11-03 02:46:02.916146383 +0000
++++ b/MODULE.bazel	2025-11-03 02:46:02.916146383 +0000
 @@ -24,554 +24,3 @@
      "@aspect_rules_py//py/private/toolchain/shim/...",
  )
@@ -443,7 +443,7 @@
 -oci = use_extension("@rules_oci//oci:extensions.bzl", "oci", dev_dependency = True)
 -oci.pull(
 -    name = "ubuntu",
--    digest = "sha256:80dd3c3b9c6cecb9f1667e9290b3bc61b78c2678c02cbdae5f0fea92cc6734ab",
+-    digest = "sha256:66460d557b25769b102175144d538d88219c077c678a49af4afca6fbfc1b5252",
 -    image = "public.ecr.aws/docker/library/ubuntu",
 -    platforms = [
 -        "linux/arm64/v8",
