@@ -38,3 +38,21 @@ py_test(
     shard_count = 2,
     deps = ["@pypi//pytest"],
 )
+
+py_test(
+    name = "absolute_main_test",
+    srcs = [
+        "__init__.py",
+        "main_test.py",
+    ],
+    main = "//examples/pytest:main_test.py",
+)
+
+py_test(
+    name = "main_with_colon_test",
+    srcs = [
+        "__init__.py",
+        "main_test.py",
+    ],
+    main = ":main_test.py",
+)
