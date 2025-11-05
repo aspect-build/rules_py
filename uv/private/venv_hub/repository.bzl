@@ -15,12 +15,15 @@ def _venv_hub_impl(repository_ctx):
             """
 alias(
    name = "lib",
-   actual = "//private/sccs:{scc}",
+   actual = ":{pkg}",
    visibility = ["//visibility:public"],
 )
 alias(
    name = "{pkg}",
-   actual = "//private/sccs:{scc}_lib",
+   actual = select({{
+       "@aspect_rules_py//uv/private/constraints:libs_are_libs": "//private/sccs:{scc}_lib",
+       "@aspect_rules_py//uv/private/constraints:libs_are_whls": "//private/sccs:{scc}_whl",
+   }}),
    visibility = ["//visibility:public"],
 )
 alias(

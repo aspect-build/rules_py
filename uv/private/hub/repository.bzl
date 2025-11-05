@@ -19,14 +19,23 @@ def _hub_impl(repository_ctx):
     repository_ctx.file("BUILD.bazel", """\
 load("@aspect_rules_py//py:defs.bzl", "py_library")
 
-py_library(
+alias(
     name = "all",
-    deps = select({lib_arms}),
+    actual = ":all_requirements",
     visibility = ["//visibility:public"],
 )
 alias(
     name = "all_requirements",
-    actual = ":all",
+    actual = select({{
+        "@aspect_rules_py//uv/private/constraints:libs_are_libs": ":all_lib",
+        "@aspect_rules_py//uv/private/constraints:libs_are_whls": ":all_whl_requirements",
+    }}),
+    visibility = ["//visibility:public"],
+)
+py_library(
+    name = "all_lib",
+    deps = select({lib_arms}),
+    visibility = ["//visibility:private"],
 )
 filegroup(
     name = "all_whl_requirements",
