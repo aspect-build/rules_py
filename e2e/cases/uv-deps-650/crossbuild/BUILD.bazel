@@ -1,0 +1,104 @@
+load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load", "oci_image_index")
+load("@aspect_rules_py//py:defs.bzl", "py_image_layer")
+load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_binary")
+load("@container_structure_test//:defs.bzl", "container_structure_test")
+load("@aspect_rules_py//py/tests/py_image_layer:asserts.bzl", "assert_tar_listing")
+
+platform(
+    name = "arm64_linux",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:aarch64",
+    ],
+    flags = [
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.39",
+        "--@rules_rust//:extra_rustc_flag=-Cstrip=debuginfo",
+        "--@rules_rust//rust/settings:lto=fat",
+        "--stripopt=--strip-all",
+    ],
+)
+
+platform(
+    name = "amd64_linux",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    flags = [
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.39",
+        "--@rules_rust//:extra_rustc_flag=-Cstrip=debuginfo",
+        "--@rules_rust//rust/settings:lto=fat",
+        "--stripopt=--strip-all",
+    ],
+)
+
+py_venv_binary(
+    name = "app_bin",
+    srcs = ["__main__.py"],
+    main = "__main__.py",
+    deps = [
+        "@pypi//psycopg2_binary",
+    ],
+    python_version = "3.12",
+    venv = "psql",
+)
+
+py_image_layer(
+    name = "app_layers",
+    binary = ":app_bin",
+)
+
+platform_transition_filegroup(
+    name = "amd64_layers",
+    srcs = [":app_layers"],
+    target_platform = ":amd64_linux",
+)
+
+assert_tar_listing(
+    name = "app_amd64_layers",
+    actual = [":amd64_layers"],
+    expected = ":app_amd64_layers_listing.yaml",
+)
+
+platform_transition_filegroup(
+    name = "arm64_layers",
+    srcs = [":app_layers"],
+    target_platform = ":arm64_linux",
+)
+
+assert_tar_listing(
+    name = "app_arm64_layers",
+    actual = [":arm64_layers"],
+    expected = ":app_arm64_layers_listing.yaml",
+)
+
+oci_image(
+    name = "image",
+    # This is defined by an oci.pull() call in /MODULE.bazel
+    base = "@ubuntu",
+    entrypoint = ["/{}/app_bin".format(package_name())],
+    tars = [":app_layers"],
+)
+
+platform_transition_filegroup(
+    name = "amd64_image",
+    srcs = [":image"],
+    target_platform = ":amd64_linux",
+)
+
+platform_transition_filegroup(
+    name = "arm64_image",
+    srcs = [":image"],
+    target_platform = ":arm64_linux",
+)
+
+oci_image_index(
+    name = "image_index",
+    images = [
+        ":arm64_image",
+        ":amd64_image",
+    ],
+)

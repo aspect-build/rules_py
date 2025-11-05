@@ -1,5 +1,5 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
-load(":tools.bzl", "resolved_venv_toolchain")
+load(":tools.bzl", "resolved_venv_toolchain", "resolved_unpack_toolchain")
 
 exports_files(
     ["python.sh"],
@@ -26,11 +26,16 @@ resolved_venv_toolchain(
     visibility = ["//visibility:public"],
 )
 
+resolved_unpack_toolchain(
+    name = "resolved_unpack_toolchain",
+    visibility = ["//visibility:public"],
+)
+
 bzl_library(
     name = "autodetecting",
     srcs = ["autodetecting.bzl"],
     visibility = ["//py:__subpackages__"],
-    deps = ["//py/private:py_semantics"],
+    deps = ["@rules_python//python:defs_bzl"],
 )
 
 bzl_library(
@@ -59,5 +64,9 @@ bzl_library(
 bzl_library(
     name = "types",
     srcs = ["types.bzl"],
-    visibility = ["//py:__subpackages__"],
+    visibility = [
+        "//py:__subpackages__",
+        "//uv:__subpackages__",
+    ],
+    deps = [],
 )

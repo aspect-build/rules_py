@@ -6,7 +6,17 @@ use std::{
 
 use miette::{IntoDiagnostic, Result};
 
-pub fn unpack_wheel(version_major: u8, version_minor: u8, location: &Path, wheel: &Path) -> Result<()> {
+const RELOCATABLE_SHEBANG: &'static str = r#"/bin/sh
+'''exec' "$(dirname -- "$(realpath -- "$0")")"/'python3' "$0" "$@"
+' '''
+"#;
+
+pub fn unpack_wheel(
+    version_major: u8,
+    version_minor: u8,
+    location: &Path,
+    wheel: &Path,
+) -> Result<()> {
     let wheel_file_reader = fs::File::open(wheel).into_diagnostic()?;
 
     let temp = tempfile::tempdir().into_diagnostic()?;
@@ -15,11 +25,7 @@ pub fn unpack_wheel(version_major: u8, version_minor: u8, location: &Path, wheel
 
     let site_packages_dir = location
         .join("lib")
-        .join(format!(
-            "python{}.{}",
-            version_major,
-            version_minor,
-        ))
+        .join(format!("python{}.{}", version_major, version_minor,))
         .join("site-packages");
 
     let scheme = uv_pypi_types::Scheme {
@@ -32,12 +38,12 @@ pub fn unpack_wheel(version_major: u8, version_minor: u8, location: &Path, wheel
     };
 
     let layout = uv_install_wheel::Layout {
-        sys_executable: PathBuf::new(),
+        sys_executable: PathBuf::from(RELOCATABLE_SHEBANG),
         python_version: (version_major, version_minor),
         // Don't stamp in the path to the interpreter into the generated bins
         // as we don't want an absolute path here.
         // Perhaps this should be set to just "python" so it picks up the one in the venv path?
-        os_name: "/bin/false".to_string(),
+        os_name: "".to_string(),
         scheme,
     };
 

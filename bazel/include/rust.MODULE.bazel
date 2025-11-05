@@ -1,13 +1,6 @@
 # Rust configuration
 
-bazel_dep(name = "rules_rust", version = "0.66.0")
-single_version_override(
-    module_name = "rules_rust",
-    patch_strip = 1,
-    patches = [
-        "//bazel/patches:rules_rust.patch",
-    ],
-)
+bazel_dep(name = "rules_rust", version = "0.67.0")
 
 bazel_dep(name = "openssl", version = "3.3.1.bcr.6")
 

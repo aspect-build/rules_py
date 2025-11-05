@@ -1,0 +1,27 @@
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+
+package(default_visibility = [
+    "//docs:__pkg__",
+    "//uv/private:__subpackages__",
+])
+
+bzl_library(
+    name = "rule",
+    srcs = ["rule.bzl"],
+    deps = ["@rules_python//python:defs_bzl"],
+)
+
+bzl_library(
+    name = "defs",
+    srcs = ["defs.bzl"],
+    deps = [],
+)
+
+bzl_library(
+    name = "repository",
+    srcs = ["repository.bzl"],
+    deps = [
+        "//uv/private:parse_whl_name",
+        "//uv/private/constraints/platform:defs",
+    ],
+)
