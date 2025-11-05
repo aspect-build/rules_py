@@ -10,7 +10,9 @@ def _venv_hub_impl(repository_ctx):
     entrypoints = json.decode(repository_ctx.attr.entrypoints)
 
     for pkg, group in repository_ctx.attr.aliases.items():
-        content = []
+        content = [
+            """load("@aspect_rules_py//uv/private:defs.bzl", "py_whl_library")"""
+        ]
         content.append(
             """
 alias(
@@ -20,15 +22,12 @@ alias(
 )
 alias(
    name = "{pkg}",
-   actual = select({{
-       "@aspect_rules_py//uv/private/constraints:libs_are_libs": "//private/sccs:{scc}_lib",
-       "@aspect_rules_py//uv/private/constraints:libs_are_whls": "//private/sccs:{scc}_whl",
-   }}),
+   actual = "//private/sccs:{scc}_lib",
    visibility = ["//visibility:public"],
 )
-alias(
+py_whl_library(
    name = "whl",
-   actual = "//private/sccs:{scc}_whl",
+   deps = [":{pkg}"],
    visibility = ["//visibility:public"],
 )
 """.format(
@@ -102,11 +101,6 @@ py_library(
     imports = [],
     visibility = ["//visibility:private"]
 )
-filegroup(
-    name = "_empty_whl",
-    srcs = [],
-    visibility = ["//visibility:private"]
-)
 """,
     ]
 
@@ -150,13 +144,6 @@ alias(
         "//conditions:default": ":_empty_lib",
     }}),
 )
-alias(
-    name = "_{group}_{d}_whl",
-    actual = select({{
-        ":_maybe_{group}_{d}": "//{d}:whl",
-        "//conditions:default": ":_empty_whl",
-    }}),
-)
 """.format(
                         group = group,
                         d = d,
@@ -175,16 +162,9 @@ py_library(
    ],
    visibility = ["//:__subpackages__"],
 )
-filegroup(
-   name = "{name}_whl",
-   srcs = [
-{whl_deps}
-   ],
-   visibility = ["//:__subpackages__"],
-)""".format(
+""".format(
                 name=group,
                 lib_deps=",\n".join([((" " * 8) + it) for it in (member_installs + dep_labels)]),
-                whl_deps=",\n".join([((" " * 8) + it) for it in ([it.replace(":install", ":whl") for it in member_installs] + [(it[:-1] + ":whl\"") if "//" in it else it.replace("_lib", "_whl") for it in dep_labels])]),
             ),
         )
 

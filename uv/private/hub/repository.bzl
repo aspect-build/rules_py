@@ -18,36 +18,20 @@ def _hub_impl(repository_ctx):
     # out how to make this take "soft" rather than "hard" dependencies.
     repository_ctx.file("BUILD.bazel", """\
 load("@aspect_rules_py//py:defs.bzl", "py_library")
+load("@aspect_rules_py//uv/private:defs.bzl", "py_whl_library")
 
-alias(
-    name = "all",
-    actual = ":all_requirements",
-    visibility = ["//visibility:public"],
-)
-alias(
-    name = "all_requirements",
-    actual = select({{
-        "@aspect_rules_py//uv/private/constraints:libs_are_libs": ":all_lib",
-        "@aspect_rules_py//uv/private/constraints:libs_are_whls": ":all_whl_requirements",
-    }}),
-    visibility = ["//visibility:public"],
-)
 py_library(
-    name = "all_lib",
+    name = "all_requirements",
     deps = select({lib_arms}),
     visibility = ["//visibility:private"],
 )
-filegroup(
+py_whl_library(
     name = "all_whl_requirements",
-    srcs = select({whl_arms}),
+    deps = [":all_requirements"],
     visibility = ["//visibility:public"],
 )
 """.format(lib_arms = {
         "//venv:{}".format(venv): pkgs
-        for venv, pkgs in venv_packages.items()
-    },
-           whl_arms = {
-        "//venv:{}".format(venv): [it.split(":")[0] + ":whl" for it in pkgs]
         for venv, pkgs in venv_packages.items()
     }))
 

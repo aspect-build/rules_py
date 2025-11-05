@@ -1,6 +1,6 @@
---- a/MODULE.bazel	2025-11-05 12:16:36.670092448 -0700
-+++ b/MODULE.bazel	2025-11-05 12:16:36.670200199 -0700
-@@ -46,548 +46,5 @@
+--- a/MODULE.bazel	2025-11-05 15:06:52.140088163 -0700
++++ b/MODULE.bazel	2025-11-05 15:06:52.140147023 -0700
+@@ -47,546 +47,5 @@
  # HACK: In prod the includer's patch inserts the use_repo for multitool. This
  # solves the problem of needing a use_repo here in prod and below in dev.
  
@@ -170,7 +170,6 @@
 -# Rust configuration
 -
 -bazel_dep(name = "rules_rust", version = "0.67.0")
--
 -bazel_dep(name = "openssl", version = "3.3.1.bcr.6")
 -
 -RUST_EDITION = "2024"
@@ -529,7 +528,6 @@
 -
 -########################################
 -# from bazel/include/release.MODULE.bazel
--bazel_dep(name = "with_cfg.bzl", version = "0.11.0")
 -bazel_dep(name = "rules_pkg", version = "1.1.0")
 -
 -########################################

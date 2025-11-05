@@ -65,8 +65,9 @@ def _whl_install_impl(repository_ctx):
     # The strategy here is to roll through the wheels,
     select_arms = {}
     content = [
-        "load(\"@aspect_rules_py//uv/private/whl_install:rule.bzl\", \"whl_install\")",
+        "load(\"@aspect_rules_py//py:defs.bzl\", \"py_library\")",
         "load(\"@aspect_rules_py//uv/private/whl_install:defs.bzl\", \"select_chain\")",
+        "load(\"@aspect_rules_py//uv/private/whl_install:rule.bzl\", \"whl_install\")",
         "load(\"@bazel_skylib//lib:selects.bzl\", \"selects\")",
     ]
 
@@ -135,7 +136,13 @@ def _whl_install_impl(repository_ctx):
 select_chain(
    name = "whl",
    arms = {},
-   visibility = ["//visibility:public"],
+   visibility = ["//visibility:private"],
+)
+py_library(
+   name = "whl_lib",
+   srcs = [],
+   data = [":whl"],
+   visibility = ["//visibility:private"],
 )
 """.format(
             _format_arms(select_arms),
@@ -146,8 +153,16 @@ select_chain(
     content.append(
         """
 whl_install(
-   name = "install",
+   name = "actual_install",
    src = ":whl",
+   visibility = ["//visibility:private"],
+)
+alias(
+   name = "install",
+   actual = select({
+        "@aspect_rules_py//uv/private/constraints:libs_are_libs": ":actual_install",
+        "@aspect_rules_py//uv/private/constraints:libs_are_whls": ":whl_lib",
+   }),
    visibility = ["//visibility:public"],
 )
 """,
