@@ -182,11 +182,13 @@ def _parse_overrides(module_ctx, venv_specs):
         for override in mod.tags.override_requirement:
             if override.hub_name not in venv_specs:
                 fail("Override %r references undeclared hub" % (override,))
+
             # Insert a base mapping for the hub
             overrides.setdefault(override.hub_name, {})
-            
+
             if override.venv_name not in venv_specs[override.hub_name]:
                 fail("Override %r references venv not in the hub" % (override,))
+
             # Insert a base mapping for the venv
             overrides[override.hub_name].setdefault(override.venv_name, {})
 
@@ -315,7 +317,7 @@ def _raw_whl_repos(module_ctx, lock_specs, override_specs):
                 # This is an overridden package, don't declare repos for it
                 if override_specs.get(hub_name, {}).get(venv_name, {}).get(package["name"]):
                     continue
-                
+
                 wheels = package.get("wheels", [])
                 for whl in wheels:
                     url = whl["url"]
@@ -468,7 +470,7 @@ def _whl_install_repos(module_ctx, lock_specs, override_specs):
                 # This is an overridden package, don't declare a repo for it
                 if override_specs.get(hub_name, {}).get(venv_name, {}).get(package["name"]):
                     continue
-                
+
                 # This is where we need to actually choose which wheel we will
                 # "install", and so this is where prebuild selection needs to
                 # happen according to constraints.
@@ -574,7 +576,7 @@ def _group_repos(module_ctx, lock_specs, entrypoint_specs, override_specs):
             # Note that we're assuming ALL marker conditional deps are live.
             cycle_groups = sccs({k: v.keys() for k, v in graph.items()})
             # print(hub_name, venv_name, graph, cycle_groups)
-            
+
             # Now we can assign names to the sccs and collect deps. Note that
             # _every_ node in the graph will be in _a_ scc, those sccs are just
             # size 1 if the node isn't part of a cycle.
@@ -778,7 +780,7 @@ _override_requirement = tag_class(
         "venv_name": attr.string(mandatory = True),
         "requirement": attr.string(mandatory = True),
         "target": attr.label(mandatory = True),
-    }
+    },
 )
 
 uv = module_extension(

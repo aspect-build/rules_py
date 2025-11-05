@@ -39,12 +39,13 @@ def _platform(rctx):
             ver = res.stdout.split("\n")[1].split(" ")[-1].split(".")
             return "musl", "{}.{}".format(ver[0], ver[1])
 
-        # - Amazon Linux: "ldd (gnu libc ...) <ver>\n..."
-        # - Arch Linux: "ldd (gnu libc ...) <ver>\n..."
-        # - Debian: "ldd (debian glibc ...) <ver>\n..."
-        # - Fedora: "ldd (gnu libc ...) <ver>\n..."
-        # - Oracle Linux: "ldd (gnu libc ...) <ver>\n..."
-        # - Ubuntu: "ldd (ubuntu glibc ...) <ver>\n..."
+            # - Amazon Linux: "ldd (gnu libc ...) <ver>\n..."
+            # - Arch Linux: "ldd (gnu libc ...) <ver>\n..."
+            # - Debian: "ldd (debian glibc ...) <ver>\n..."
+            # - Fedora: "ldd (gnu libc ...) <ver>\n..."
+            # - Oracle Linux: "ldd (gnu libc ...) <ver>\n..."
+            # - Ubuntu: "ldd (ubuntu glibc ...) <ver>\n..."
+
         elif "glibc" in out or "gnu libc" in out:
             ver = res.stdout.split("\n")[0].split(")")[1].strip().split(".")
             major = ver[0]

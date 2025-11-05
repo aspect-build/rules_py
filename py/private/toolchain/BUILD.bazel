@@ -1,5 +1,5 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
-load(":tools.bzl", "resolved_venv_toolchain", "resolved_unpack_toolchain")
+load(":tools.bzl", "resolved_unpack_toolchain", "resolved_venv_toolchain")
 
 exports_files(
     ["python.sh"],

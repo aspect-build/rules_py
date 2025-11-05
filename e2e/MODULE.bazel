@@ -1,6 +1,7 @@
 "Bazel dependencies"
 
 include("//bazel/include:e2e.MODULE.bazel")
+
 include("//bazel/include:oci.MODULE.bazel")
 
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
