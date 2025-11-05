@@ -21,11 +21,24 @@ load("@aspect_rules_py//py:defs.bzl", "py_library")
 
 py_library(
     name = "all",
-    deps = select({arms}),
+    deps = select({lib_arms}),
     visibility = ["//visibility:public"],
 )
-""".format(arms = {
+alias(
+    name = "all_requirements",
+    actual = ":all",
+)
+filegroup(
+    name = "all_whl_requirements",
+    srcs = select({whl_arms}),
+    visibility = ["//visibility:public"],
+)
+""".format(lib_arms = {
         "//venv:{}".format(venv): pkgs
+        for venv, pkgs in venv_packages.items()
+    },
+           whl_arms = {
+        "//venv:{}".format(venv): [it.split(":")[0] + ":whl" for it in pkgs]
         for venv, pkgs in venv_packages.items()
     }))
 
@@ -131,9 +144,23 @@ load("//:defs.bzl", "pip")
 # This target is for a "hard" dependency.
 # Dependencies on this target will cause build failures if it's unavailable.
 alias(
+    name = "lib",
+    actual = "{name}",
+    visibility = ["//visibility:public"],
+)
+alias(
     name = "{name}",
     actual = select(
-      {select},
+      {lib_select},
+      no_match_error = "{error}",
+    ),
+    target_compatible_with = pip.compatible_with({compat}),
+    visibility = ["//visibility:public"],
+)
+alias(
+    name = "whl",
+    actual = select(
+      {whl_select},
       no_match_error = "{error}",
     ),
     target_compatible_with = pip.compatible_with({compat}),
@@ -141,7 +168,8 @@ alias(
 )
 """.format(
                 name = name,
-                select = repr(select_spec),
+                lib_select = repr(select_spec),
+                whl_select = repr({k: v.split(":")[0] + ":whl" for k, v in select_spec.items()}),
                 compat = repr(spec),
                 error = error,
             ),

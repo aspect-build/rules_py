@@ -20,7 +20,12 @@ alias(
 )
 alias(
    name = "{pkg}",
-   actual = "//private/sccs:{scc}",
+   actual = "//private/sccs:{scc}_lib",
+   visibility = ["//visibility:public"],
+)
+alias(
+   name = "whl",
+   actual = "//private/sccs:{scc}_whl",
    visibility = ["//visibility:public"],
 )
 """.format(
@@ -81,7 +86,6 @@ decide_marker(
 
     # JSON decode the marker mapping so we can use it
     scc_markers = json.decode(repository_ctx.attr.scc_markers)
-    print(scc_markers)
 
     content = [
         "# FIXME",
@@ -90,9 +94,14 @@ decide_marker(
         """
 # A placeholder library which allows us to select to nothing
 py_library(
-    name = "empty",
+    name = "_empty_lib",
     srcs = [],
     imports = [],
+    visibility = ["//visibility:private"]
+)
+filegroup(
+    name = "_empty_whl",
+    srcs = [],
     visibility = ["//visibility:private"]
 )
 """,
@@ -120,8 +129,6 @@ py_library(
                 dep_labels.append("\"//%s\"" % d)
 
             else:
-                print("Got markers", markers)
-
                 # Hard case of generating a conditional dep
                 content.append(
                     """
@@ -134,10 +141,17 @@ selects.config_setting_group(
 
 # Depend on {d} of any of the {group} markers is active
 alias(
-    name = "_{group}_{d}",
+    name = "_{group}_{d}_lib",
     actual = select({{
         ":_maybe_{group}_{d}": "//{d}",
-        "//conditions:default": ":empty",
+        "//conditions:default": ":_empty_lib",
+    }}),
+)
+alias(
+    name = "_{group}_{d}_whl",
+    actual = select({{
+        ":_maybe_{group}_{d}": "//{d}:whl",
+        "//conditions:default": ":_empty_whl",
     }}),
 )
 """.format(
@@ -146,21 +160,28 @@ alias(
                         markers = ["//private/markers:%s" % it for it in markers],
                     ),
                 )
-                dep_labels.append("\":_{}_{}\"".format(group, d))
+                dep_labels.append("\":_{}_{}_lib\"".format(group, d))
 
         content.append(
             """
 py_library(
-   name = "{}",
+   name = "{name}_lib",
    srcs = [],
    deps = [
-{}
+{lib_deps}
    ],
    visibility = ["//:__subpackages__"],
 )
-""".format(
-                group,
-                ",\n".join([((" " * 8) + it) for it in (member_installs + dep_labels)]),
+filegroup(
+   name = "{name}_whl",
+   srcs = [
+{whl_deps}
+   ],
+   visibility = ["//:__subpackages__"],
+)""".format(
+                name=group,
+                lib_deps=",\n".join([((" " * 8) + it) for it in (member_installs + dep_labels)]),
+                whl_deps=",\n".join([((" " * 8) + it) for it in ([it.replace(":install", ":whl") for it in member_installs] + [(it[:-1] + ":whl\"") if "//" in it else it.replace("_lib", "_whl") for it in dep_labels])]),
             ),
         )
 

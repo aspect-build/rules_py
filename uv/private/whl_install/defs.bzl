@@ -2,7 +2,7 @@
 Helpers.
 """
 
-def select_chain(name, arms):
+def select_chain(name, arms, visibility = ["//visibility:private"]):
     """
     Generate an ordered select chain.
 
@@ -30,4 +30,5 @@ def select_chain(name, arms):
                     condition: target,
                 },
             ),
+            visibility = visibility,
         )

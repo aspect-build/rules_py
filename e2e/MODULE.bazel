@@ -72,7 +72,7 @@ importer = use_extension("//cases/repository-rule-deps-299/rules:import.bzl", "i
 use_repo(importer, "myrepo")
 
 # For cases/uv-deps-650
-uv = use_extension("@aspect_rules_py//uv:extension.bzl", "uv")
+uv = use_extension("@aspect_rules_py//uv/unstable:extension.bzl", "uv")
 uv.declare_hub(hub_name = "pypi")
 uv.declare_venv(
     hub_name = "pypi",

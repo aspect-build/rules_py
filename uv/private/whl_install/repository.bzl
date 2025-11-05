@@ -133,8 +133,9 @@ def _whl_install_impl(repository_ctx):
     content.append(
         """
 select_chain(
-   name = 'whl',
+   name = "whl",
    arms = {},
+   visibility = ["//visibility:public"],
 )
 """.format(
             _format_arms(select_arms),
