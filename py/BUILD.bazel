@@ -3,7 +3,7 @@ load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
 
 alias(
     name = "interpreter_version",
-    actual = "@rules_python//python/config_settings:python_version"
+    actual = "@rules_python//python/config_settings:python_version",
     visibility = ["//visibility:public"],
 )
 
