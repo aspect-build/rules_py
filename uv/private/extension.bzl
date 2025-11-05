@@ -669,7 +669,7 @@ def _group_repos(module_ctx, lock_specs, entrypoint_specs, override_specs):
                 installs = {
                     # Use an override symbol if one exists, otherwise use the whl install repo.
                     # Note that applying an override will cause the whl install to be elided.
-                    package: overrides.get(package, _whl_install_repo_name(hub_name, venv_name, {"name": package}))
+                    package: str(overrides.get(package, _whl_install_repo_name(hub_name, venv_name, {"name": package})))
                     for package in sorted(graph.keys())
                 },
                 entrypoints = json.encode(entrypoint_specs),
@@ -702,7 +702,7 @@ def _uv_impl(module_ctx):
     lock_specs = _parse_locks(module_ctx, venv_specs)
 
     override_specs = _parse_overrides(module_ctx, venv_specs)
-
+    print(override_specs)
     # Roll through all the configured wheels, collect & validate the unique
     # platform configurations so that we can go create an appropriate power set
     # of conditions.

@@ -83,6 +83,12 @@ uv.lockfile(
     lockfile = "//cases/uv-deps-650:uv-default.lock",
     venv_name = "default",
 )
+uv.override_requirement(
+    hub_name = "pypi",
+    venv_name = "default",
+    requirement = "cowsay",
+    target = "//cases/uv-deps-650/third_party/cowsay:cowsay",
+)
 uv.declare_venv(
     hub_name = "pypi",
     venv_name = "airflow",
