@@ -169,10 +169,6 @@ A collision can occur when multiple packages providing the same file are install
     "_runfiles_lib": attr.label(
         default = "@bazel_tools//tools/bash/runfiles",
     ),
-    # NB: this is read by _resolve_toolchain in py_semantics.
-    "_interpreter_version_flag": attr.label(
-        default = "//py:interpreter_version",
-    ),
     # Required for py_version attribute
     "_allowlist_function_transition": attr.label(
         default = "@bazel_tools//tools/allowlists/function_transition_allowlist",

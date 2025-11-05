@@ -61,10 +61,6 @@ _attrs = {
         allow_single_file = [".whl"],
         mandatory = True,
     ),
-    # NB: this is read by _resolve_toolchain in py_semantics.
-    "_interpreter_version_flag": attr.label(
-        default = "//py:interpreter_version",
-    ),
 }
 
 py_unpacked_wheel = rule(
