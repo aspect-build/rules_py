@@ -1,6 +1,5 @@
 """Functions to determine which Python toolchain to use"""
 
-load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
 
 _INTERPRETER_FLAGS = [
