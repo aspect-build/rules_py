@@ -156,10 +156,6 @@ The placeholder strings `{major}`, `{minor}`, `{patch}` can be used for gatherin
 information from the hermetic python toolchain.
 """,
     ),
-    # NB: this is read by _resolve_toolchain in py_semantics.
-    "_interpreter_version_flag": attr.label(
-        default = "//py:interpreter_version",
-    ),
     "_pex": attr.label(executable = True, cfg = "exec", default = "//py/tools/pex"),
 })
 
