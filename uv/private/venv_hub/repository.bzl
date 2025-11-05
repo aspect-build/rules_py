@@ -11,7 +11,7 @@ def _venv_hub_impl(repository_ctx):
 
     for pkg, group in repository_ctx.attr.aliases.items():
         content = [
-            """load("@aspect_rules_py//uv/private:defs.bzl", "py_whl_library")"""
+            """load("@aspect_rules_py//uv/private:defs.bzl", "py_whl_library")""",
         ]
         content.append(
             """
@@ -163,8 +163,8 @@ py_library(
    visibility = ["//:__subpackages__"],
 )
 """.format(
-                name=group,
-                lib_deps=",\n".join([((" " * 8) + it) for it in (member_installs + dep_labels)]),
+                name = group,
+                lib_deps = ",\n".join([((" " * 8) + it) for it in (member_installs + dep_labels)]),
             ),
         )
 

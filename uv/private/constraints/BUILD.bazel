@@ -4,7 +4,10 @@ load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
 string_flag(
     name = "lib_mode",
     build_setting_default = "lib",
-    values = ["lib", "whl"],
+    values = [
+        "lib",
+        "whl",
+    ],
     visibility = ["//visibility:public"],
 )
 
