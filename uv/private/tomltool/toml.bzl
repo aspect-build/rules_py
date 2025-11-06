@@ -68,7 +68,7 @@ def _decode_file(ctx, content_path):
         return json.decode(out.stdout)
 
     else:
-        return None
+        fail("Unable to decode TOML file %s" % content_path)
 
 toml = struct(
     decode_file = _decode_file,

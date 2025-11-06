@@ -137,6 +137,9 @@ def _parse_locks(module_ctx, venv_specs):
             lock_specs.setdefault(lock.hub_name, {})
 
             lockfile = toml.decode_file(module_ctx, lock.src)
+            if lockfile.get("version") != 1:
+                fail("Lockfile %s is an unsupported format version!" % lock.src)
+
             if not lockfile:
                 problems.append("Failed to extract {} in {}".format(lock.src, mod.name))
                 continue
@@ -197,6 +200,55 @@ Problems:
         fail("\n".join(problems))
 
     return lock_specs
+
+_default_annotations = struct(
+    per_package={},
+    default_build_deps=[
+        {"name": "setuptools"},
+        {"name": "build"},
+    ],
+)
+
+def _parse_annotations(module_ctx, hub_specs, venv_specs):
+    # Map of hub to venv to lock contents
+    annotations = {}
+
+    for mod in module_ctx.modules:
+        for ann in mod.tags.annotate_requirements:
+            if ann.hub_name not in venv_specs:
+                fail("Annotations file %s attaches to undefined hub %s" % (ann.src, ann.hub_name))
+
+            annotations.setdefault(ann.hub_name, {})
+
+            if ann.venv_name not in venv_specs.get(ann.hub_name, {}):
+                fail("Annotations file %s attaches to undefined venv %s" % (ann.src, ann.venv_name))
+
+            # FIXME: Allow the default build deps to be changed
+            annotations[ann.hub_name].setdefault(ann.venv_name, struct(
+                per_package = {},
+                default_build_deps = [] + _default_annotations.default_build_deps,
+            ))
+
+            annotations = toml.decode_file(module_ctx, ann.src)
+            if annotations.get("version") != "0.0.0":
+                fail("Annotations file %s doesn't specify a valid version= key" % ann.src)
+            
+            for package in annotations.get("package", []):
+                if not "name" in package:
+                    fail("Annotations file %s is invalid; all [[package]] entries must have a name" % ann.src)
+
+                # Apply name normalization so we don't forget about it
+                package["name"] = normalize_name(package["name"])
+
+                if not "build-dependencies" in package:
+                    fail("Annotations file %s is invalid; all [[package]] entries must specify build-dependencies" % ann.src)
+
+                if package["name"] in annotations[ann.hub_name][ann.venv_name]:
+                    fail("Annotation conflict! Package %s is annotated in venv %s multiple times!" % (package["name"], ann.venv_name))
+
+                annotations[ann.hub_name][ann.venv_name].per_package[package["name"]] = package
+
+    return annotations
 
 def _parse_overrides(module_ctx, venv_specs):
     # Map of hub -> venv -> target -> override label
@@ -379,7 +431,7 @@ def _venv_target(hub_name, venv, package_name):
         package_name,
     )
 
-def _sbuild_repos(module_ctx, lock_specs, override_specs):
+def _sbuild_repos(module_ctx, lock_specs, annotation_specs, override_specs):
     for hub_name, venvs in lock_specs.items():
         for venv_name, lock in venvs.items():
             for package in lock.get("package", []):
@@ -392,6 +444,14 @@ def _sbuild_repos(module_ctx, lock_specs, override_specs):
 
                 name = _sbuild_repo_name(hub_name, venv_name, package)
 
+                venv_anns = annotation_specs.get(hub_name, {}).get(venv_name, _default_annotations)
+                build_deps = venv_anns.per_package.get(package["name"], {}).get("build-dependencies", [])
+
+                # Per-package build deps, plus global defaults
+                build_deps = {
+                    it["name"]: it for it in build_deps + venv_anns.default_build_deps
+                }
+
                 # print("Creating sdist repo", name)
                 sdist_build(
                     name = name,
@@ -399,10 +459,7 @@ def _sbuild_repos(module_ctx, lock_specs, override_specs):
                     # FIXME: Add support for build deps and annotative build deps
                     deps = [
                         "@" + _venv_target(hub_name, venv_name, package["name"])
-                        for package in package.get("build-dependencies", [
-                            {"name": "setuptools"},
-                            {"name": "build"}
-                        ])
+                        for package in build_deps.values()
                     ],
                 )
 
@@ -732,6 +789,8 @@ def _uv_impl(module_ctx):
     venv_specs = _parse_venvs(module_ctx, hub_specs)
 
     lock_specs = _parse_locks(module_ctx, venv_specs)
+    
+    annotation_specs = _parse_annotations(module_ctx, hub_specs, venv_specs)
 
     override_specs = _parse_overrides(module_ctx, venv_specs)
     # Roll through all the configured wheels, collect & validate the unique
@@ -741,7 +800,7 @@ def _uv_impl(module_ctx):
 
     # Collect declared entrypoints for packages
     entrypoints = _collect_entrypoints(module_ctx, lock_specs)
-    print(entrypoints)
+    # print(entrypoints)
 
     # Roll through and create sdist and whl repos for all configured sources
     # Note that these have no deps to this point
@@ -749,7 +808,7 @@ def _uv_impl(module_ctx):
     _raw_whl_repos(module_ctx, lock_specs, override_specs)
 
     # Roll through and create per-venv sdist build repos
-    _sbuild_repos(module_ctx, lock_specs, override_specs)
+    _sbuild_repos(module_ctx, lock_specs, annotation_specs, override_specs)
 
     # Roll through and create per-venv whl installs
     #
@@ -792,7 +851,7 @@ _lockfile_tag = tag_class(
     },
 )
 
-_install_requires_tag = tag_class(
+_annotations_tag = tag_class(
     attrs = {
         "hub_name": attr.string(mandatory = True),
         "venv_name": attr.string(mandatory = True),
@@ -829,7 +888,7 @@ uv = module_extension(
         "declare_hub": _hub_tag,
         "declare_venv": _venv_tag,
         "lockfile": _lockfile_tag,
-        "annotate_requirements": _install_requires_tag,
+        "annotate_requirements": _annotations_tag,
         "declare_entrypoint": _declare_entrypoint,
         "discover_entrypoints": _create_entrypoints,
         "override_requirement": _override_requirement,

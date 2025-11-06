@@ -1,0 +1,27 @@
+## Annotations.toml
+#
+# This is an aspect_rules_py//uv specific configuration file which allows
+# packages to be annoted with their build time dependencies. This fills a gap in
+# both the pylock and uv lockfile formats, neither of which allow for build
+# requirements to be specified.
+#
+# For instance if a package requires cython be available, this is how you can
+# configure it to be delivered.
+#
+# Takes the place of giant MODULE.bazel annotation tables.
+#
+# In future this machinery may allow for annotating requirements with
+# Bazel-managed dependencies (C libraries, etc.) by label. The exact semantics
+# there are TBD.
+
+# We version lockfiles and support semver semantics here
+version = "0.0.0"
+
+# Bravado doesn't have bdists, need to build it
+# Mark explicitly that we need wheel setuptools and build for it
+[[package]]
+name = "bravado-core"
+build-dependencies = [
+   { name = "build" },
+   { name = "setuptools" },
+]

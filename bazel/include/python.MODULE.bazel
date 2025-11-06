@@ -45,6 +45,11 @@ uv.declare_entrypoint(
     name = "py.test",
     entrypoint = "pytest:console_main",
 )
+uv.annotate_requirements(
+    hub_name = "pypi",
+    venv_name = "default",
+    src = "//:annotations.toml"
+)
 use_repo(uv, "pypi")
 
 http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
