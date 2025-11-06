@@ -1,30 +1,50 @@
 # (experimental) `aspect_rules_py//uv`
 
-`rules_py` provides an alternative to the venerable `rules_python` `pip.parse`
-implementation which leverages the [uv](https://github.com/astral-sh/uv) tool's
-lockfiles as an alternative to the traditional `requirements.txt` format.
+`aspect_rules_py` provides an alternative to the venerable `rules_python`
+`pip.parse` implementation, which leverages the
+[uv](https://github.com/astral-sh/uv) lockfiles instead of `requirements.txt` to
+configure PyPi dependencies.
 
-Our uv support is a drop-in replacement for simple `pip.parse` hub usage, but
-provides a number of additional features.
+Our uv is a drop-in replacement for basic `pip.parse` usage, but provides a
+number of additional features.
 
-**Configurable deps** - Uv allows for multiple lockfile states (called
+**Configurable dependencies** - Uv allows for multiple lockfile states (called
 venvs) to be registered into a single hub. Your build can be configured to
 choose between registered venvs. It's as simple as flipping the
 `--@<hub>//venv=<venv name>` flag. Binaries can also set the `venv=<venv name>`
 attribute.
 
-**Crossbuilds** - Uv delays building and installing packages until the build is
-configured. This allows uv to build your requirements in crossbuild
-configurations, such as going from a Darwin macbook to a Linux container image.
+**Effortless Crossbuilds** - Uv delays building and installing packages until
+the build is configured. This allows uv to build your requirements in crossbuild
+configurations, such as going from a Darwin macbook to a Linux container image
+using only the normal Bazel `platforms` machinery.
 
-**Hermetic source builds** - Because uv performs package builds as normal rule
-actions, it's able to perform builds and installs using hermetic Python
-toolchains or even source built Python toolchains in addition to Bazel-defined
-dependencies and C compilers.
+**Correct source builds** - Because uv performs package source builds as a
+normal part of your build, it's able to use hermetic or even source built Python
+toolchains in addition to Bazel-defined dependencies and C compilers. Future
+support for sysroots is planned. Due to its phasing, `pip.parse` is stuck doing
+all this non-hermetically.
 
-**Vendored requirements** - Uv provides an `uv.override_requirement()` tag which
-allows locked packages to be replaced with 1stparty Bazel `py_library` targets
-so you can sub in vendored code for locked dependencies.
+**Editable requirements** - Uv provides an `uv.override_requirement()` tag which
+allows locked requirements to be replaced with 1stparty Bazel `py_library`
+targets. This lets you substitute in vendored code, use custom build actions to
+produce library files, or just iterate on patches easily.
+
+**Lightning fast configuration** - The only work uv has to do at repository time
+is reading toml files. Downloads and builds all happen lazily.
+
+**Platform independence** - No more need to separate `requirements_mac`,
+`requirements_linux` and `requirements_windows` or your build exploding because
+you `query`-ed a platform incompatible requirement. Uv can always configure all
+of your requirements, and all hub labels are always available.
+
+**Mirror friendly** - Relying on uv's locked dependency graph allows the
+extension to only use the Bazel downloader, ensuring compatibility with private
+or mirrored wheels.
+
+**Automatic cycle support** - Requirement dependency cycles such as those in
+Airflow are automatically detected and resolved. User intervention is no longer
+required.
 
 ## Quickstart
 
@@ -34,7 +54,9 @@ In contrast to a conventional `requirements.txt`, the uv lockfile contains both
 the dependency graph between requirements, and detailed information about the
 wheels and sdists for the requested requirements.
 
-the short path to doing so is the following;
+Assuming you haven't already adopted the `pyproject.toml` dependency manifest,
+you can `uv add` your requirements lock to a dummy project and create a uv
+lockfile.
 
 ```shell
 d=$(mktemp -d)
@@ -56,6 +78,10 @@ rm -r $d
 ```
 
 We can now use the lockfile to configure our build.
+
+This configuration declares a dependency hub, creates two virtual environments
+(`default` and `vendored_say`), and shows how to use `uv.override_requirement`
+to swap a locked requirement (`cowsay`) for a local one.
 
 ```starlark
 # MODULE.bazel
@@ -91,7 +117,7 @@ uv.override_requirement(
 )
 
 # This one hub now has two configurations ("venvs") available
-use_repo(uv, "pypi")
+use repository(uv, "pypi")
 ```
 
 We can configure a default virtualenv by setting the venv configuration flag on our hub as part of the `.bazelrc`.
@@ -224,7 +250,7 @@ py_library(
 ## A mental model
 
 ```
-@pypi                                     # Your UV built hub repo
+@pypi                                     # Your UV built hub repository
 @pypi//requests:requests                  # The library for a requirement
 @pypi//requests:whl                       # The whl implementing a requirement
 @pypi//requests:whl                       # The whl implementing a requirement
@@ -253,16 +279,16 @@ needed to make multiple `pip.parse()` calls each of which created a hub. This
 created the problem of transitive depset inconsistency (this target uses deps
 from this hub but depends on a library that uses deps from elsewhere).
 
-By using single hub throughout your repo and leaning on venv configuration to
-choose the right one at the right point in time, your dependency management gets
-a lot easier and your builds become internally consistent.
+By using single hub throughout your repository and leaning on venv configuration
+to choose the right one at the right point in time, your dependency management
+gets a lot easier and your builds become internally consistent.
 
 **Only use one hub**. The hub name is configurable in order to accommodate
 whatever your existing `pip.parse` may be called, but there's no reason to use
-more than one hub within a single repo. Each dependency set should be registered
-as a separate venv within the same hub.
+more than one hub within a single repository. Each dependency set should be
+registered as a separate venv within the same hub.
 
-## Divergences from `pip.parse`
+## Differences and Gotchas
 
 **Lock your build tools**. In order to perform sdist builds and support
 libraries which are packaged only as sdists (which is more common than you'd
@@ -277,11 +303,12 @@ et. all, the venv flag has to be statically known. This means we get one global
 
 It only really makes sense to use the `--@pypi//venv=default` flag as part of
 your `.bazelrc`, because then the scope of where that default is applied is well
-bounded to your repo with your hub.
+bounded to your repository with your hub.
 
-We could allow the `_main` repo to set a default venv name, but the semantics
-are weird if the `_main` repo defines more than one hub. Which is poor practice
-but possible. So rather than have weird behavior we don't support this.
+We could allow the `_main` repository to set a default venv name, but the
+semantics are weird if the `_main` repository defines more than one hub. Which
+is poor practice but possible. So rather than have weird behavior we don't
+support this.
 
 **What's with annotations?** The `uv.lock` format is great, but it's missing
 some key information. Such as what requirements apply when performing sdist
@@ -301,8 +328,9 @@ declared. In most cases of normal entrypoints this is quite easy. Tools like
 ## Acknowledgements
 
 - Jeremy Volkman's `rules_pycross` is in a direct precursor and inspiration for
-  this tool. They use the same strategy, uv is just able to leverage a new off
-  the shelf lockfile format and locking tool.
+  this tool. They use the same strategy, uv is just able to leverage an off the
+  shelf lockfile format which postdates Jeremy's efforts.
+
 - Richard Levasseur and Ignas Anikevicius of `rules_python` have been great
   collaborators and good sports in my treating the `rules_python` authors
   meeting as the bazel-python-sig. Ignas in particular created the marker
