@@ -1,5 +1,6 @@
 load("@gazelle//:def.bzl", "gazelle")
 load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirements")
+load("//uv/private/manifest:defs.bzl", "gazelle_python_manifest")
 
 # gazelle:exclude internal_python_deps.bzl
 # gazelle:exclude internal_deps.bzl
@@ -7,11 +8,13 @@ load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirem
 # gazelle:exclude examples/django
 # gazelle:map_kind bzl_library bzl_library @bazel_lib//:bzl_library.bzl
 
-# gazelle_python_manifest(
-#     name = "gazelle_python_manifest",
-#     modules_mapping = ":modules_map",
-#     pip_repository_name = "pypi",
-# )
+gazelle_python_manifest(
+     name = "gazelle_python_manifest",
+     hub = "pypi",
+     venvs = [
+         "default",
+     ]
+)
 
 gazelle(
     name = "gazelle",
@@ -24,11 +27,3 @@ compile_pip_requirements(
     requirements_in = "requirements.in",
     requirements_txt = "requirements.txt",
 )
-
-# FIXME: This doesn't seem to work with a pile of wheels?
-# modules_mapping(
-#     name = "modules_map",
-#     wheels = [
-#         "@pypi//:all_whl_requirements",
-#     ],
-# )

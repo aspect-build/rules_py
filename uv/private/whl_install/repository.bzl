@@ -141,7 +141,9 @@ select_chain(
 py_library(
    name = "whl_lib",
    srcs = [],
-   data = [":whl"],
+   data = [
+        ":whl"
+   ],
    visibility = ["//visibility:private"],
 )
 """.format(
