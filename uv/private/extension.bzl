@@ -212,30 +212,30 @@ _default_annotations = struct(
 )
 
 def _parse_annotations(module_ctx, hub_specs, venv_specs):
-    # Map of hub to venv to lock contents
-    annotations = {}
+    # Map of hub to venv to annotations struct
+    annotation_specs = {}
 
     for mod in module_ctx.modules:
         for ann in mod.tags.annotate_requirements:
             if ann.hub_name not in venv_specs:
                 fail("Annotations file %s attaches to undefined hub %s" % (ann.src, ann.hub_name))
 
-            annotations.setdefault(ann.hub_name, {})
+            annotation_specs.setdefault(ann.hub_name, {})
 
             if ann.venv_name not in venv_specs.get(ann.hub_name, {}):
                 fail("Annotations file %s attaches to undefined venv %s" % (ann.src, ann.venv_name))
 
             # FIXME: Allow the default build deps to be changed
-            annotations[ann.hub_name].setdefault(ann.venv_name, struct(
+            annotation_specs[ann.hub_name].setdefault(ann.venv_name, struct(
                 per_package = {},
                 default_build_deps = [] + _default_annotations.default_build_deps,
             ))
 
-            annotations = toml.decode_file(module_ctx, ann.src)
-            if annotations.get("version") != "0.0.0":
+            ann_content = toml.decode_file(module_ctx, ann.src)
+            if ann_content.get("version") != "0.0.0":
                 fail("Annotations file %s doesn't specify a valid version= key" % ann.src)
 
-            for package in annotations.get("package", []):
+            for package in ann_content.get("package", []):
                 if not "name" in package:
                     fail("Annotations file %s is invalid; all [[package]] entries must have a name" % ann.src)
 
@@ -245,12 +245,12 @@ def _parse_annotations(module_ctx, hub_specs, venv_specs):
                 if not "build-dependencies" in package:
                     fail("Annotations file %s is invalid; all [[package]] entries must specify build-dependencies" % ann.src)
 
-                if package["name"] in annotations[ann.hub_name][ann.venv_name]:
+                if package["name"] in annotation_specs[ann.hub_name][ann.venv_name].per_package:
                     fail("Annotation conflict! Package %s is annotated in venv %s multiple times!" % (package["name"], ann.venv_name))
 
-                annotations[ann.hub_name][ann.venv_name].per_package[package["name"]] = package
+                annotation_specs[ann.hub_name][ann.venv_name].per_package[package["name"]] = package
 
-    return annotations
+    return annotation_specs
 
 def _parse_overrides(module_ctx, venv_specs):
     # Map of hub -> venv -> target -> override label
