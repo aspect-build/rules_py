@@ -1,6 +1,5 @@
-load("@rules_python//python:defs.bzl", "PyInfo")
-load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 def _modules_mapping_impl(ctx):
     out = ctx.actions.declare_file(ctx.label.name + ".yaml")
@@ -11,13 +10,14 @@ def _modules_mapping_impl(ctx):
         whl_file_deps.append(files_depset)
 
     whl_depset = depset(
-        transitive = whl_file_deps
+        transitive = whl_file_deps,
     )
     whl_files = [
-        it for it in whl_depset.to_list()
+        it
+        for it in whl_depset.to_list()
         if it.path.endswith(".whl")
     ]
- 
+
     args = ctx.actions.args()
     args.add_all(whl_files)
     args_file = ctx.actions.declare_file(ctx.label.name + ".args")
@@ -26,28 +26,30 @@ def _modules_mapping_impl(ctx):
         content = args,
         is_executable = False,
     )
-    
+
     ctx.actions.run(
         executable = ctx.executable._generator,
         arguments = [
-            "--whl_paths_file", args_file.path,
+            "--whl_paths_file",
+            args_file.path,
             # "--integrity_file", attr.file.integrity.path,
-            "--output", out.path,
+            "--output",
+            out.path,
         ],
         inputs = [
             args_file,
         ] + whl_files,
         outputs = [
             out,
-        ]
+        ],
     )
-    
+
     return [
         DefaultInfo(
             files = depset([
-                out
-            ])
-        )
+                out,
+            ]),
+        ),
     ]
 
 _modules_mapping = rule(
@@ -60,7 +62,7 @@ _modules_mapping = rule(
             executable = True,
             cfg = "exec",
         ),
-    }
+    },
 )
 
 update = Label(":update.sh")
@@ -78,7 +80,7 @@ def gazelle_python_manifest(name, hub, venvs = [], lockfile = None):
                 "@platforms//host",
             ],
             flags = [
-                "--@{}//venv={}".format(hub, venv)
+                "--@{}//venv={}".format(hub, venv),
             ],
         )
         platform_transition_filegroup(
@@ -89,7 +91,7 @@ def gazelle_python_manifest(name, hub, venvs = [], lockfile = None):
             ],
         )
         whls.append(platform_name + "_whls")
-    
+
     _modules_mapping(
         name = name,
         wheels = whls,

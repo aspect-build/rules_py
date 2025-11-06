@@ -4,8 +4,8 @@ exports_files(["update.sh"])
 
 py_venv_binary(
     name = "generator",
-    main = "generate.py",
     srcs = [
-        "generate.py"
+        "generate.py",
     ],
+    main = "generate.py",
 )

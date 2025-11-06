@@ -9,11 +9,11 @@ load("//uv/private/manifest:defs.bzl", "gazelle_python_manifest")
 # gazelle:map_kind bzl_library bzl_library @bazel_lib//:bzl_library.bzl
 
 gazelle_python_manifest(
-     name = "gazelle_python_manifest",
-     hub = "pypi",
-     venvs = [
-         "default",
-     ]
+    name = "gazelle_python_manifest",
+    hub = "pypi",
+    venvs = [
+        "default",
+    ],
 )
 
 gazelle(
