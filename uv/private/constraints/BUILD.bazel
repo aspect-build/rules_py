@@ -1,0 +1,42 @@
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
+
+string_flag(
+    name = "lib_mode",
+    build_setting_default = "lib",
+    values = [
+        "lib",
+        "whl",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "libs_are_libs",
+    flag_values = {
+        ":lib_mode": "lib",
+    },
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "libs_are_whls",
+    flag_values = {
+        ":lib_mode": "whl",
+    },
+    visibility = ["//visibility:public"],
+)
+
+bzl_library(
+    name = "defs",
+    srcs = ["defs.bzl"],
+    visibility = ["//:__subpackages__"],
+    deps = ["@bazel_skylib//lib:selects"],
+)
+
+bzl_library(
+    name = "repository",
+    srcs = ["repository.bzl"],
+    visibility = ["//:__subpackages__"],
+    deps = [],
+)

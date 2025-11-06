@@ -23,7 +23,6 @@ platform(
 py_binary(
     name = "my_app_bin",
     srcs = ["__main__.py"],
-    tags = ["manual"],
     deps = [
         "//py/tests/internal-deps/adder",
         "//py/tests/py_image_layer/branding",

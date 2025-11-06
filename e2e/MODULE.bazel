@@ -2,6 +2,8 @@
 
 include("//bazel/include:e2e.MODULE.bazel")
 
+include("//bazel/include:oci.MODULE.bazel")
+
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(
     configure_coverage_tool = True,
@@ -68,3 +70,41 @@ local_repository(
 # For cases/repository-rule-deps-299
 importer = use_extension("//cases/repository-rule-deps-299/rules:import.bzl", "importer")
 use_repo(importer, "myrepo")
+
+# For cases/uv-deps-650
+uv = use_extension("@aspect_rules_py//uv/unstable:extension.bzl", "uv")
+uv.declare_hub(hub_name = "pypi")
+uv.declare_venv(
+    hub_name = "pypi",
+    venv_name = "say",
+)
+uv.lockfile(
+    src = "//cases/uv-deps-650/say:uv.lock",
+    hub_name = "pypi",
+    venv_name = "say",
+)
+uv.override_requirement(
+    hub_name = "pypi",
+    requirement = "cowsay",
+    target = "//cases/uv-deps-650/third_party/cowsay",
+    venv_name = "say",
+)
+uv.declare_venv(
+    hub_name = "pypi",
+    venv_name = "airflow",
+)
+uv.lockfile(
+    src = "//cases/uv-deps-650/airflow:uv.lock",
+    hub_name = "pypi",
+    venv_name = "airflow",
+)
+uv.declare_venv(
+    hub_name = "pypi",
+    venv_name = "psql",
+)
+uv.lockfile(
+    src = "//cases/uv-deps-650/crossbuild:uv.lock",
+    hub_name = "pypi",
+    venv_name = "psql",
+)
+use_repo(uv, "pypi")

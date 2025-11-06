@@ -29,12 +29,26 @@ config_setting(
 )
 
 bzl_library(
+    name = "types",
+    srcs = [
+        "types.bzl",
+    ],
+    visibility = [
+        "//py/private:__subpackages__",
+        "//uv/private:__subpackages__",
+    ],
+    deps = [
+    ],
+)
+
+bzl_library(
     name = "py_venv",
     srcs = [
         "defs.bzl",
         "py_venv.bzl",
     ],
     deps = [
+        ":types.bzl",
         "//py/private:providers",
         "//py/private:py_library",
         "//py/private:py_semantics",

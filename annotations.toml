@@ -1,0 +1,42 @@
+## Annotations.toml
+#
+# This is an aspect_rules_py//uv specific configuration file which allows
+# packages to be annotated with their build time dependencies. This fills a gap in
+# both the pylock and uv lockfile formats, neither of which allow for build
+# requirements to be specified.
+#
+# For instance if a package requires cython be available, this is how you can
+# configure it to be delivered.
+#
+# Takes the place of giant MODULE.bazel annotation tables.
+#
+# In future this machinery may allow for annotating requirements with
+# Bazel-managed dependencies (C libraries, etc.) by label. The exact semantics
+# there are TBD.
+
+# We version lockfiles and support semver semantics here
+version = "0.0.0"
+
+# Bravado doesn't have bdists, need to build it. Mark explicitly that we need
+# wheel setuptools and build in order to do so; build being the standard build
+# tool driver.
+[[package]]
+name = "bravado-core"
+build-dependencies = [
+   { name = "build" },
+   { name = "setuptools" },
+]
+
+# We can also annotate packages as providing console scripts we care about.
+# Declared console scripts will have Bazel targets generated for them.
+#
+# Unlike `rules_python` which sees post-install package contents,
+# `aspect_rules_py//uv` doesn't and so can't discover entrypoints to generate
+# Bazel targets ahead of time. They have to be predeclared if you want to
+# reference them as targets.
+[[package]]
+name = "pytest"
+
+[package.entry-points.console-scripts]
+pytest = "pytest:console_main"
+"py.test" = "pytest:console_main"

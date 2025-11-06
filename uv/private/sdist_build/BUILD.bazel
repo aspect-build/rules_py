@@ -1,0 +1,25 @@
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+
+package(default_visibility = [
+    "//docs:__pkg__",
+    "//uv/private:__subpackages__",
+])
+
+bzl_library(
+    name = "rule",
+    srcs = [
+        "rule.bzl",
+    ],
+    deps = [
+        "//py/private/py_venv:types",
+        "//py/private/toolchain:types",
+    ],
+)
+
+bzl_library(
+    name = "repository",
+    srcs = ["repository.bzl"],
+    deps = [":rule"],
+)
+
+exports_files(["build_helper.py"])

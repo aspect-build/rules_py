@@ -1,5 +1,6 @@
 # Multitool configuration
 
+# Multitool is a prod dep (for now) so we don't need this
 bazel_dep(name = "rules_multitool", version = "1.9.0")
 
 multitool = use_extension("@rules_multitool//multitool:extension.bzl", "multitool")

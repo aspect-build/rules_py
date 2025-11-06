@@ -1,30 +1,15 @@
 load("@aspect_bazel_lib//lib:run_binary.bzl", "run_binary")
 load("@aspect_bazel_lib//lib:testing.bzl", "assert_contains")
 load("@pypi//:requirements.bzl", "requirement")
-load("//bazel:defs.bzl", "munge")
 load("//py:defs.bzl", "py_binary", "py_test")
-
-#################
-# Case 1: main can be a string referencing some source file
-# Inline the syntax-sugar produced by the entry_point() helper in rules_python,
-# declaring our own binary that directly invokes a third-party entry point.
-# We happen to use pytest here only for convenience; it's a program already in our requirements.in.
-py_binary(
-    name = "py_test_bin",
-    srcs = [
-        # This is a Bazel 8+ label where + is used. In 7 and earlier ~ was used. Munge sorts that out.
-        munge("@@rules_python++pip+pypi_39_pytest//:rules_python_wheel_entry_point_pytest"),
-    ],
-    # rules_python permits this label even though it's not a source file in this repository.
-    main = "rules_python_wheel_entry_point_pytest.py",
-    deps = ["@pypi//pytest"],
-)
 
 genrule(
     name = "run_py_test_help",
     outs = ["help.txt"],
-    cmd = "$(execpath py_test_bin) --help >$@",
-    tools = ["py_test_bin"],
+    cmd = "$(execpath @pypi//pytest/entrypoints:pytest) --help >$@",
+    tools = [
+        "@pypi//pytest/entrypoints:pytest",
+    ],
 )
 
 assert_contains(
@@ -61,5 +46,7 @@ py_test(
     srcs = ["runfiles_from_pip.py"],
     data = ["test_data.txt"],
     main = "runfiles_from_pip.py",
-    deps = [requirement("bazel-runfiles")],
+    deps = [
+        requirement("bazel-runfiles"),
+    ],
 )

@@ -1,0 +1,14 @@
+load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
+
+py_venv_test(
+    name = "airflow",
+    srcs = [
+        "__test__.py",
+    ],
+    main = "__test__.py",
+    python_version = "3.13",
+    venv = "airflow",
+    deps = [
+        "@pypi//apache_airflow",
+    ],
+)

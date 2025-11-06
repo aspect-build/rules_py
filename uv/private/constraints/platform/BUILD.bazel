@@ -1,0 +1,123 @@
+load("@aspect_rules_py_uv_host//:defs.bzl", "CURRENT_PLATFORM_LIBC", "CURRENT_PLATFORM_VERSION")
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load("@bazel_skylib//lib:selects.bzl", "selects")
+load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
+load(":macro.bzl", "generate")
+
+package(default_visibility = ["//visibility:public"])
+
+bzl_library(
+    name = "defs",
+    srcs = ["defs.bzl"],
+    deps = [],
+)
+
+bzl_library(
+    name = "macro",
+    srcs = ["macro.bzl"],
+    deps = [
+        "//uv/private/constraints:defs",
+        "@aspect_rules_py_uv_host//:defs",
+        "@bazel_skylib//lib:selects",
+    ],
+)
+
+# FIXME: Is there a better/worse way to do this?
+selects.config_setting_group(
+    name = "any",
+    match_all = [
+        "//conditions:default",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+selects.config_setting_group(
+    name = "glibc_or_musl",
+    match_any = [
+        ":is_glibc",
+        ":is_musl",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+# The flags we transition and select on
+string_flag(
+    name = "platform_libc",
+    build_setting_default = CURRENT_PLATFORM_LIBC,
+    visibility = ["//visibility:public"],
+)
+
+string_flag(
+    name = "platform_version",
+    build_setting_default = CURRENT_PLATFORM_VERSION,
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "is_glibc",
+    flag_values = {
+        ":platform_libc": "glibc",
+    },
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "is_musl",
+    flag_values = {
+        ":platform_libc": "musl",
+    },
+)
+
+config_setting(
+    name = "is_libsystem",
+    flag_values = {
+        ":platform_libc": "libsystem",
+    },
+    visibility = ["//visibility:public"],
+)
+
+# TODO: Windows
+
+generate(
+    visibility = ["//visibility:public"],
+)
+
+# FIXME: Is this right?
+alias(
+    name = "linux_armv7l",
+    actual = "manylinux_2_17_armv7l",
+    visibility = ["//visibility:public"],
+)
+
+# https://packaging.python.org/en/latest/specifications/platform-compatibility-tags/#manylinux
+selects.config_setting_group(
+    name = "manylinux1",
+    match_any = [
+        ":manylinux_2_5_x86_64",
+        ":manylinux_2_5_i686",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+selects.config_setting_group(
+    name = "manylinux2010",
+    match_any = [
+        ":manylinux_2_12_x86_64",
+        ":manylinux_2_12_i686",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+selects.config_setting_group(
+    name = "manylinux2014",
+    match_any = [
+        ":manylinux_2_17_x86_64",
+        ":manylinux_2_17_i686",
+        ":manylinux_2_17_aarch64",
+        ":manylinux_2_17_armv7l",
+        ":manylinux_2_17_ppc64",
+        ":manylinux_2_17_ppc64le",
+        ":manylinux_2_17_s390x",
+    ],
+    visibility = ["//visibility:public"],
+)

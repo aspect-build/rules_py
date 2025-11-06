@@ -1,8 +1,8 @@
---- a/MODULE.bazel	2025-11-04 23:45:40.547616185 +0000
-+++ b/MODULE.bazel	2025-11-04 23:45:40.547616185 +0000
-@@ -24,554 +24,3 @@
-     "@aspect_rules_py//py/private/toolchain/shim/...",
- )
+--- a/MODULE.bazel	2025-11-06 12:48:12
++++ b/MODULE.bazel	2025-11-06 12:48:12
+@@ -40,558 +40,5 @@
+ # HACK: In prod the includer's patch inserts the use_repo for multitool. This
+ # solves the problem of needing a use_repo here in prod and below in dev.
  
 -################################################################################
 -# Dev deps
@@ -29,7 +29,7 @@
 -# include("//bazel/include:release.MODULE.bazel")
 -# include("//bazel/include:multitool.MODULE.bazel")
 -# include("//bazel/include:tools.MODULE.bazel")
--
+ 
 -################################################################################
 -# Begin included content
 -
@@ -169,15 +169,7 @@
 -# from bazel/include/rust.MODULE.bazel
 -# Rust configuration
 -
--bazel_dep(name = "rules_rust", version = "0.66.0")
--single_version_override(
--    module_name = "rules_rust",
--    patch_strip = 1,
--    patches = [
--        "//bazel/patches:rules_rust.patch",
--    ],
--)
--
+-bazel_dep(name = "rules_rust", version = "0.67.0")
 -bazel_dep(name = "openssl", version = "3.3.1.bcr.6")
 -
 -RUST_EDITION = "2024"
@@ -493,23 +485,35 @@
 -    python_version = "3.12",
 -)
 -
+-# We still use pip for testing the virtual deps machinery
 -pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip", dev_dependency = True)
 -pip.parse(
 -    hub_name = "django",
 -    python_version = "3.9",
 -    requirements_lock = "//py/tests/virtual/django:requirements.txt",
 -)
--pip.parse(
+-use_repo(pip, "django")
+-
+-# For everything else, we use our own uv machinery
+-uv = use_extension("//uv/unstable:extension.bzl", "uv", dev_dependency = True)
+-uv.declare_hub(
 -    hub_name = "pypi",
--    python_version = "3.9",
--    requirements_lock = "//:requirements.txt",
 -)
--pip.parse(
+-uv.declare_venv(
 -    hub_name = "pypi",
--    python_version = "3.12",
--    requirements_lock = "//:requirements.txt",
+-    venv_name = "default",
 -)
--use_repo(pip, "django", "pypi")
+-uv.lockfile(
+-    src = "//:uv.lock",
+-    hub_name = "pypi",
+-    venv_name = "default",
+-)
+-uv.unstable_annotate_requirements(
+-    src = "//:annotations.toml",
+-    hub_name = "pypi",
+-    venv_name = "default",
+-)
+-use_repo(uv, "pypi")
 -
 -http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 -
@@ -536,18 +540,18 @@
 -
 -########################################
 -# from bazel/include/release.MODULE.bazel
--bazel_dep(name = "with_cfg.bzl", version = "0.11.0")
 -bazel_dep(name = "rules_pkg", version = "1.1.0")
 -
 -########################################
 -# from bazel/include/multitool.MODULE.bazel
 -# Multitool configuration
 -
+-# Multitool is a prod dep (for now) so we don't need this
 -bazel_dep(name = "rules_multitool", version = "1.9.0")
 -
 -multitool = use_extension("@rules_multitool//multitool:extension.bzl", "multitool")
 -multitool.hub(lockfile = "//tools:tools.lock.json")
--use_repo(multitool, "multitool")
+ use_repo(multitool, "multitool")
 -
 -########################################
 -# from bazel/include/tools.MODULE.bazel

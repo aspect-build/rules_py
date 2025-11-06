@@ -58,5 +58,10 @@ py_venv_test(
     name = "validate_import_roots",
     srcs = ["test_import_roots.py"],
     main = "test_import_roots.py",
-    venv = ":test_venv_ignore",
+    package_collisions = "ignore",
+    deps = [
+        ":lib",
+        "//py/tests/py_venv_conflict/a",
+        "//py/tests/py_venv_conflict/b",
+    ],
 )

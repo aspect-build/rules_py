@@ -2444,13 +2444,39 @@ files:
 ---
 layer: 1
 files:
+  - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/+uv+whl_install__pypi__default__colorama/install/lib/python3.9/site-packages/
+  - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/+uv+whl_install__pypi__default__colorama/install/lib/python3.9/site-packages/colorama-0.4.6.dist-info/
+  - -rwxr-xr-x  0 0      0          14 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/+uv+whl_install__pypi__default__colorama/install/lib/python3.9/site-packages/colorama-0.4.6.dist-info/INSTALLER
+  - -rwxr-xr-x  0 0      0       17158 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/+uv+whl_install__pypi__default__colorama/install/lib/python3.9/site-packages/colorama-0.4.6.dist-info/METADATA
+  - -rwxr-xr-x  0 0      0        1549 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/+uv+whl_install__pypi__default__colorama/install/lib/python3.9/site-packages/colorama-0.4.6.dist-info/RECORD
+  - -rwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/+uv+whl_install__pypi__default__colorama/install/lib/python3.9/site-packages/colorama-0.4.6.dist-info/REQUESTED
+  - -rwxr-xr-x  0 0      0         105 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/+uv+whl_install__pypi__default__colorama/install/lib/python3.9/site-packages/colorama-0.4.6.dist-info/WHEEL
+  - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/+uv+whl_install__pypi__default__colorama/install/lib/python3.9/site-packages/colorama-0.4.6.dist-info/licenses/
+  - -rwxr-xr-x  0 0      0        1491 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/+uv+whl_install__pypi__default__colorama/install/lib/python3.9/site-packages/colorama-0.4.6.dist-info/licenses/LICENSE.txt
+  - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/+uv+whl_install__pypi__default__colorama/install/lib/python3.9/site-packages/colorama/
+  - -rwxr-xr-x  0 0      0         266 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/+uv+whl_install__pypi__default__colorama/install/lib/python3.9/site-packages/colorama/__init__.py
+  - -rwxr-xr-x  0 0      0        2522 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/+uv+whl_install__pypi__default__colorama/install/lib/python3.9/site-packages/colorama/ansi.py
+  - -rwxr-xr-x  0 0      0       11128 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/+uv+whl_install__pypi__default__colorama/install/lib/python3.9/site-packages/colorama/ansitowin32.py
+  - -rwxr-xr-x  0 0      0        3325 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/+uv+whl_install__pypi__default__colorama/install/lib/python3.9/site-packages/colorama/initialise.py
+  - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/+uv+whl_install__pypi__default__colorama/install/lib/python3.9/site-packages/colorama/tests/
+  - -rwxr-xr-x  0 0      0          75 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/+uv+whl_install__pypi__default__colorama/install/lib/python3.9/site-packages/colorama/tests/__init__.py
+  - -rwxr-xr-x  0 0      0        2839 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/+uv+whl_install__pypi__default__colorama/install/lib/python3.9/site-packages/colorama/tests/ansi_test.py
+  - -rwxr-xr-x  0 0      0       10678 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/+uv+whl_install__pypi__default__colorama/install/lib/python3.9/site-packages/colorama/tests/ansitowin32_test.py
+  - -rwxr-xr-x  0 0      0        6741 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/+uv+whl_install__pypi__default__colorama/install/lib/python3.9/site-packages/colorama/tests/initialise_test.py
+  - -rwxr-xr-x  0 0      0        1866 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/+uv+whl_install__pypi__default__colorama/install/lib/python3.9/site-packages/colorama/tests/isatty_test.py
+  - -rwxr-xr-x  0 0      0        1079 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/+uv+whl_install__pypi__default__colorama/install/lib/python3.9/site-packages/colorama/tests/utils.py
+  - -rwxr-xr-x  0 0      0        3709 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/+uv+whl_install__pypi__default__colorama/install/lib/python3.9/site-packages/colorama/tests/winterm_test.py
+  - -rwxr-xr-x  0 0      0        6181 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/+uv+whl_install__pypi__default__colorama/install/lib/python3.9/site-packages/colorama/win32.py
+  - -rwxr-xr-x  0 0      0        7134 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/+uv+whl_install__pypi__default__colorama/install/lib/python3.9/site-packages/colorama/winterm.py
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/_main/py/tests/py_venv_image_layer/.my_app_bin/lib/python3.9/site-packages/
   - -rwxr-xr-x  0 0      0         250 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/_main/py/tests/py_venv_image_layer/.my_app_bin/lib/python3.9/site-packages/_aspect.pth
   - -rwxr-xr-x  0 0      0          19 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/_main/py/tests/py_venv_image_layer/.my_app_bin/lib/python3.9/site-packages/_virtualenv.pth
   - -rwxr-xr-x  0 0      0        4342 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/_main/py/tests/py_venv_image_layer/.my_app_bin/lib/python3.9/site-packages/_virtualenv.py
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/_main/py/tests/py_venv_image_layer/.my_app_bin/lib/python3.9/site-packages/colorama-0.4.6.dist-info/
-  - -rwxr-xr-x  0 0      0          42 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/_main/py/tests/py_venv_image_layer/.my_app_bin/lib/python3.9/site-packages/colorama-0.4.6.dist-info/INSTALLER
+  - -rwxr-xr-x  0 0      0          14 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/_main/py/tests/py_venv_image_layer/.my_app_bin/lib/python3.9/site-packages/colorama-0.4.6.dist-info/INSTALLER
   - -rwxr-xr-x  0 0      0       17158 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/_main/py/tests/py_venv_image_layer/.my_app_bin/lib/python3.9/site-packages/colorama-0.4.6.dist-info/METADATA
+  - -rwxr-xr-x  0 0      0        1549 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/_main/py/tests/py_venv_image_layer/.my_app_bin/lib/python3.9/site-packages/colorama-0.4.6.dist-info/RECORD
+  - -rwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/_main/py/tests/py_venv_image_layer/.my_app_bin/lib/python3.9/site-packages/colorama-0.4.6.dist-info/REQUESTED
   - -rwxr-xr-x  0 0      0         105 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/_main/py/tests/py_venv_image_layer/.my_app_bin/lib/python3.9/site-packages/colorama-0.4.6.dist-info/WHEEL
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/_main/py/tests/py_venv_image_layer/.my_app_bin/lib/python3.9/site-packages/colorama-0.4.6.dist-info/licenses/
   - -rwxr-xr-x  0 0      0        1491 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/_main/py/tests/py_venv_image_layer/.my_app_bin/lib/python3.9/site-packages/colorama-0.4.6.dist-info/licenses/LICENSE.txt
@@ -2469,29 +2495,6 @@ files:
   - -rwxr-xr-x  0 0      0        3709 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/_main/py/tests/py_venv_image_layer/.my_app_bin/lib/python3.9/site-packages/colorama/tests/winterm_test.py
   - -rwxr-xr-x  0 0      0        6181 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/_main/py/tests/py_venv_image_layer/.my_app_bin/lib/python3.9/site-packages/colorama/win32.py
   - -rwxr-xr-x  0 0      0        7134 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/_main/py/tests/py_venv_image_layer/.my_app_bin/lib/python3.9/site-packages/colorama/winterm.py
-  - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/rules_python++pip+pypi_39_colorama/site-packages/
-  - -rwxr-xr-x  0 0      0         149 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/rules_python++pip+pypi_39_colorama/site-packages/__init__.py
-  - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/rules_python++pip+pypi_39_colorama/site-packages/colorama-0.4.6.dist-info/
-  - -rwxr-xr-x  0 0      0          42 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/rules_python++pip+pypi_39_colorama/site-packages/colorama-0.4.6.dist-info/INSTALLER
-  - -rwxr-xr-x  0 0      0       17158 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/rules_python++pip+pypi_39_colorama/site-packages/colorama-0.4.6.dist-info/METADATA
-  - -rwxr-xr-x  0 0      0         105 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/rules_python++pip+pypi_39_colorama/site-packages/colorama-0.4.6.dist-info/WHEEL
-  - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/rules_python++pip+pypi_39_colorama/site-packages/colorama-0.4.6.dist-info/licenses/
-  - -rwxr-xr-x  0 0      0        1491 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/rules_python++pip+pypi_39_colorama/site-packages/colorama-0.4.6.dist-info/licenses/LICENSE.txt
-  - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/rules_python++pip+pypi_39_colorama/site-packages/colorama/
-  - -rwxr-xr-x  0 0      0         266 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/rules_python++pip+pypi_39_colorama/site-packages/colorama/__init__.py
-  - -rwxr-xr-x  0 0      0        2522 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/rules_python++pip+pypi_39_colorama/site-packages/colorama/ansi.py
-  - -rwxr-xr-x  0 0      0       11128 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/rules_python++pip+pypi_39_colorama/site-packages/colorama/ansitowin32.py
-  - -rwxr-xr-x  0 0      0        3325 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/rules_python++pip+pypi_39_colorama/site-packages/colorama/initialise.py
-  - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/rules_python++pip+pypi_39_colorama/site-packages/colorama/tests/
-  - -rwxr-xr-x  0 0      0          75 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/rules_python++pip+pypi_39_colorama/site-packages/colorama/tests/__init__.py
-  - -rwxr-xr-x  0 0      0        2839 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/rules_python++pip+pypi_39_colorama/site-packages/colorama/tests/ansi_test.py
-  - -rwxr-xr-x  0 0      0       10678 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/rules_python++pip+pypi_39_colorama/site-packages/colorama/tests/ansitowin32_test.py
-  - -rwxr-xr-x  0 0      0        6741 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/rules_python++pip+pypi_39_colorama/site-packages/colorama/tests/initialise_test.py
-  - -rwxr-xr-x  0 0      0        1866 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/rules_python++pip+pypi_39_colorama/site-packages/colorama/tests/isatty_test.py
-  - -rwxr-xr-x  0 0      0        1079 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/rules_python++pip+pypi_39_colorama/site-packages/colorama/tests/utils.py
-  - -rwxr-xr-x  0 0      0        3709 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/rules_python++pip+pypi_39_colorama/site-packages/colorama/tests/winterm_test.py
-  - -rwxr-xr-x  0 0      0        6181 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/rules_python++pip+pypi_39_colorama/site-packages/colorama/win32.py
-  - -rwxr-xr-x  0 0      0        7134 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/rules_python++pip+pypi_39_colorama/site-packages/colorama/winterm.py
 ---
 layer: 2
 files:
@@ -2500,6 +2503,10 @@ files:
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/
   - -rwxr-xr-x  0 0      0        1245 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/
+  - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/+uv+whl_install__pypi__default__colorama/
+  - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/+uv+whl_install__pypi__default__colorama/install/
+  - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/+uv+whl_install__pypi__default__colorama/install/lib/
+  - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/+uv+whl_install__pypi__default__colorama/install/lib/python3.9/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/_main/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/_main/py/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/_main/py/tests/
@@ -2514,9 +2521,9 @@ files:
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/_main/py/tests/py_venv_image_layer/.my_app_bin/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/_main/py/tests/py_venv_image_layer/.my_app_bin/bin/
   - -rwxr-xr-x  0 0      0        2503 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/_main/py/tests/py_venv_image_layer/.my_app_bin/bin/activate
-  - -rwxr-xr-x  0 0      0      734360 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/_main/py/tests/py_venv_image_layer/.my_app_bin/bin/python
-  - -rwxr-xr-x  0 0      0      734360 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/_main/py/tests/py_venv_image_layer/.my_app_bin/bin/python3
-  - -rwxr-xr-x  0 0      0      734360 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/_main/py/tests/py_venv_image_layer/.my_app_bin/bin/python3.9
+  - -rwxr-xr-x  0 0      0      799896 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/_main/py/tests/py_venv_image_layer/.my_app_bin/bin/python
+  - -rwxr-xr-x  0 0      0      799896 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/_main/py/tests/py_venv_image_layer/.my_app_bin/bin/python3
+  - -rwxr-xr-x  0 0      0      799896 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/_main/py/tests/py_venv_image_layer/.my_app_bin/bin/python3.9
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/_main/py/tests/py_venv_image_layer/.my_app_bin/lib/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/_main/py/tests/py_venv_image_layer/.my_app_bin/lib/python3.9/
   - -rwxr-xr-x  0 0      0         348 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/_main/py/tests/py_venv_image_layer/.my_app_bin/pyvenv.cfg
@@ -2527,4 +2534,3 @@ files:
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/bazel_tools/tools/bash/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/bazel_tools/tools/bash/runfiles/
   - -rwxr-xr-x  0 0      0       21636 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash
-  - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./py/tests/py_venv_image_layer/my_app_bin.runfiles/rules_python++pip+pypi_39_colorama/

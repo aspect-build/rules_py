@@ -1,0 +1,51 @@
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+
+package(default_visibility = [
+    "//docs:__pkg__",
+    "//uv/private:__subpackages__",
+])
+
+bzl_library(
+    name = "extension",
+    srcs = ["extension.bzl"],
+    deps = [
+        ":normalize_name",
+        ":parse_whl_name",
+        ":sccs",
+        ":sha1",
+        "//uv/private/constraints:repository",
+        "//uv/private/constraints/platform:defs",
+        "//uv/private/hub:repository",
+        "//uv/private/sdist_build:repository",
+        "//uv/private/tomltool:toml",
+        "//uv/private/venv_hub:repository",
+        "//uv/private/whl_install:repository",
+        "@bazel_tools//tools/build_defs/repo:cache.bzl",
+        "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "@bazel_tools//tools/build_defs/repo:utils.bzl",
+    ],
+)
+
+bzl_library(
+    name = "sccs",
+    srcs = ["sccs.bzl"],
+    deps = [],
+)
+
+bzl_library(
+    name = "sha1",
+    srcs = ["sha1.bzl"],
+    deps = ["@aspect_bazel_lib//lib:strings"],
+)
+
+bzl_library(
+    name = "normalize_name",
+    srcs = ["normalize_name.bzl"],
+    deps = [],
+)
+
+bzl_library(
+    name = "parse_whl_name",
+    srcs = ["parse_whl_name.bzl"],
+    deps = ["@bazel_skylib//lib:new_sets"],
+)

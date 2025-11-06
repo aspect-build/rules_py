@@ -1,5 +1,8 @@
 load("@aspect_bazel_lib//:bzl_library.bzl", "bzl_library")
 
+# For Bazel 6.x compatibility, since
+# PyRuntimeInfo shipped only with Bazel 7
+# Users can set, e.g. --@aspect_rules_py//py:interpreter_version=3.9.18
 alias(
     name = "interpreter_version",
     actual = "@rules_python//python/config_settings:python_version",

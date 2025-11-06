@@ -6,15 +6,7 @@ load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private:transitions.bzl", "python_version_transition")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "PyToolInfo", "SHIM_TOOLCHAIN", "VENV_TOOLCHAIN")
-
-VirtualenvInfo = provider(
-    doc = """
-    Provider used to distinguish venvs from py rules.
-    """,
-    fields = {
-        "home": "Path of the virtualenv",
-    },
-)
+load(":types.bzl", "VirtualenvInfo")
 
 def _dict_to_exports(env):
     return [
@@ -221,13 +213,7 @@ def _py_venv_binary_impl(ctx):
         ] + virtual_resolution.srcs + virtual_resolution.runfiles,
     )
 
-    if not ctx.attr.venv:
-        venv_dir, venv_rfs = _py_venv_base_impl(ctx)
-
-    else:
-        venv_dir = ctx.attr.venv[VirtualenvInfo].home
-        venv_rfs = ctx.attr.venv[DefaultInfo].default_runfiles
-
+    venv_dir, venv_rfs = _py_venv_base_impl(ctx)
     rfs = rfs.merge(venv_rfs)
 
     # Now we can generate an entrypoint script wrapping $VENV/bin/python
@@ -269,6 +255,14 @@ _attrs = dict({
     "env": attr.string_dict(
         doc = "Environment variables to set when running the binary.",
         default = {},
+    ),
+    "venv": attr.string(
+        doc = """The name of a configured virtualenv within which to resolve dependencies.
+
+Default value.
+May be overridden with the --@pip//venv=<> CLI flag.
+Only works with the experimental Aspect pip machinery.
+""",
     ),
     "python_version": attr.string(
         doc = """Whether to build this target and its transitive deps for a specific python version.""",
@@ -360,10 +354,6 @@ _binary_attrs = dict({
         doc = "Script to execute with the Python interpreter.",
         allow_single_file = True,
         mandatory = True,
-    ),
-    "venv": attr.label(
-        doc = "A virtualenv; if provided all 3rdparty deps are assumed to come via the venv.",
-        providers = [[VirtualenvInfo]],
     ),
     "_bin_tmpl": attr.label(
         allow_single_file = True,
