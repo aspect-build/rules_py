@@ -8,7 +8,7 @@ fi
 
 dir=$(mktemp -d)
 cp $proj $dir/
-bazel run @multitool//tools/uv:uv -- add --directory=$dir --no-workspace "$@"
-bazel run @multitool//tools/uv:uv -- lock --directory=$dir
+uv add --directory=$dir --no-workspace "$@"
+uv lock --directory=$dir
 cp $dir/uv.lock .
 rm -r $dir

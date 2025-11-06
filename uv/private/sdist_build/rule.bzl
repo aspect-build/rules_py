@@ -12,7 +12,7 @@ TAR_TOOLCHAIN = "@tar.bzl//tar/toolchain:type"
 def _sdist_build(ctx):
     py_toolchain = ctx.toolchains[PY_TOOLCHAIN].py3_runtime
     tar = ctx.toolchains[TAR_TOOLCHAIN]
-    uv = ctx.toolchains[UV_TOOLCHAIN]
+    # uv = ctx.toolchains[UV_TOOLCHAIN]
 
     unpacked_sdist = ctx.actions.declare_directory(
         "src",
@@ -44,7 +44,7 @@ def _sdist_build(ctx):
     )
 
     venv = ctx.attr.venv
-    print(venv[VirtualenvInfo], venv[DefaultInfo])
+    # print(venv[VirtualenvInfo], venv[DefaultInfo])
 
     # Options here:
     # 1. `python3 -m build` which requires the build library and works generally

@@ -129,14 +129,16 @@ def _parse_locks(module_ctx, venv_specs):
     # FIXME: Add support for setting a default venv on a venv hub
     for mod in module_ctx.modules:
         for lock in mod.tags.lockfile:
+            req_whls = {}
+            
             if lock.hub_name not in venv_specs or lock.venv_name not in venv_specs[lock.hub_name]:
-                problems.append("Lock {} in {} refers to hub {} which is not configured for that module".format(lock.lockfile, mod.name, lock.hub_name))
+                problems.append("Lock {} in {} refers to hub {} which is not configured for that module".format(lock.src, mod.name, lock.hub_name))
 
             lock_specs.setdefault(lock.hub_name, {})
 
-            lockfile = toml.decode_file(module_ctx, lock.lockfile)
+            lockfile = toml.decode_file(module_ctx, lock.src)
             if not lockfile:
-                problems.append("Failed to extract {} in {}".format(lock.lockfile, mod.name))
+                problems.append("Failed to extract {} in {}".format(lock.src, mod.name))
                 continue
 
             # Apply name mangling from PyPi package names to Bazel friendly
@@ -151,8 +153,11 @@ def _parse_locks(module_ctx, venv_specs):
 
                 package["name"] = normalize_name(package["name"])
 
+                # Mark that prebuilds are available for this package
+                req_whls[package["name"]] = package.get("wheels")
+
                 if package["name"] == "private":
-                    fail("Unable to parse lockfile %s due to reserved 'private' package which collides with implementation details" % lock.lockfile)
+                    fail("Unable to parse lockfile %s due to reserved 'private' package which collides with implementation details" % lock.src)
 
                 if "dependencies" in package:
                     for d in package["dependencies"]:
@@ -165,6 +170,24 @@ def _parse_locks(module_ctx, venv_specs):
                     for name, group in package["optional-dependencies"].items():
                         for d in group:
                             d["name"] = normalize_name(d["name"])
+
+            problems = []
+            has_tools = "build" in req_whls and "setuptools" in req_whls
+            for req, whls in req_whls.items():
+                if not whls and not has_tools:
+                    problems.append(req)
+
+            if problems:
+                fail("""Error in lockfile {lockfile}
+
+The requirements `build` and `setuptools` are missing from, but the following requirements only provide sdists.
+Please update your lockfile to provide build tools in order to enable sdist support.
+
+Problems:
+{problems}""".format(
+    lockfile=lock.src,
+    problems="\n".join([" - " + it for it in problems]
+)))
 
             # FIXME: Should validate the lockfile but for now just stash it
             # Validating in starlark kinda rots anyway
@@ -765,7 +788,15 @@ _lockfile_tag = tag_class(
     attrs = {
         "hub_name": attr.string(mandatory = True),
         "venv_name": attr.string(mandatory = True),
-        "lockfile": attr.label(mandatory = True),
+        "src": attr.label(mandatory = True),
+    },
+)
+
+_install_requires_tag = tag_class(
+    attrs = {
+        "hub_name": attr.string(mandatory = True),
+        "venv_name": attr.string(mandatory = True),
+        "src": attr.label(mandatory = True),
     },
 )
 
@@ -798,6 +829,7 @@ uv = module_extension(
         "declare_hub": _hub_tag,
         "declare_venv": _venv_tag,
         "lockfile": _lockfile_tag,
+        "annotate_requirements": _install_requires_tag,
         "declare_entrypoint": _declare_entrypoint,
         "discover_entrypoints": _create_entrypoints,
         "override_requirement": _override_requirement,

@@ -13,10 +13,6 @@ bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "rules_python", version = "1.0.0")
 bazel_dep(name = "with_cfg.bzl", version = "0.11.0")
 
-# FIXME: We're using this to pull in multitool for source builds. Could use an
-# internal tool instead.
-bazel_dep(name = "rules_multitool", version = "1.9.0")
-
 tools = use_extension("//py:extensions.bzl", "py_tools")
 tools.rules_py_tools()
 use_repo(tools, "rules_py_tools")
@@ -40,9 +36,6 @@ use_repo(
 
 host = use_extension("//uv/private/host:extension.bzl", "host_platform")
 use_repo(host, "aspect_rules_py_uv_host")
-
-multitool = use_extension("@rules_multitool//multitool:extension.bzl", "multitool")
-multitool.hub(lockfile = "//uv/private/uv:uv.lock.json")
 
 # HACK: In prod the includer's patch inserts the use_repo for multitool. This
 # solves the problem of needing a use_repo here in prod and below in dev.
@@ -549,7 +542,7 @@ uv.declare_venv(
 uv.lockfile(
     hub_name = "pypi",
     venv_name = "default",
-    lockfile = "//:uv.lock",
+    src = "//:uv.lock",
 )
 uv.declare_entrypoint(
     requirement = "pytest",
@@ -595,8 +588,8 @@ bazel_dep(name = "rules_pkg", version = "1.1.0")
 # Multitool configuration
 
 # Multitool is a prod dep (for now) so we don't need this
-# bazel_dep(name = "rules_multitool", version = "1.9.0")
-# multitool = use_extension("@rules_multitool//multitool:extension.bzl", "multitool")
+bazel_dep(name = "rules_multitool", version = "1.9.0")
+multitool = use_extension("@rules_multitool//multitool:extension.bzl", "multitool")
 
 multitool.hub(lockfile = "//tools:tools.lock.json")
 use_repo(multitool, "multitool")

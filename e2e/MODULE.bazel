@@ -76,16 +76,16 @@ uv = use_extension("@aspect_rules_py//uv/unstable:extension.bzl", "uv")
 uv.declare_hub(hub_name = "pypi")
 uv.declare_venv(
     hub_name = "pypi",
-    venv_name = "default",
+    venv_name = "say",
 )
 uv.lockfile(
     hub_name = "pypi",
-    lockfile = "//cases/uv-deps-650:uv-default.lock",
-    venv_name = "default",
+    venv_name = "say",
+    src = "//cases/uv-deps-650/say:uv.lock",
 )
 uv.override_requirement(
     hub_name = "pypi",
-    venv_name = "default",
+    venv_name = "say",
     requirement = "cowsay",
     target = "//cases/uv-deps-650/third_party/cowsay:cowsay",
 )
@@ -95,7 +95,7 @@ uv.declare_venv(
 )
 uv.lockfile(
     hub_name = "pypi",
-    lockfile = "//cases/uv-deps-650:uv-airflow.lock",
+    src = "//cases/uv-deps-650/airflow:uv.lock",
     venv_name = "airflow",
 )
 uv.declare_venv(
@@ -104,7 +104,7 @@ uv.declare_venv(
 )
 uv.lockfile(
     hub_name = "pypi",
-    lockfile = "//cases/uv-deps-650:uv-psql.lock",
+    src = "//cases/uv-deps-650/crossbuild:uv.lock",
     venv_name = "psql",
 )
 

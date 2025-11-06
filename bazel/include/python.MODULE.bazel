@@ -33,7 +33,7 @@ uv.declare_venv(
 uv.lockfile(
     hub_name = "pypi",
     venv_name = "default",
-    lockfile = "//:uv.lock",
+    src = "//:uv.lock",
 )
 uv.declare_entrypoint(
     requirement = "pytest",
