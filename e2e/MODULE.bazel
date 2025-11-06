@@ -79,23 +79,23 @@ uv.declare_venv(
     venv_name = "say",
 )
 uv.lockfile(
+    src = "//cases/uv-deps-650/say:uv.lock",
     hub_name = "pypi",
     venv_name = "say",
-    src = "//cases/uv-deps-650/say:uv.lock",
 )
 uv.override_requirement(
     hub_name = "pypi",
-    venv_name = "say",
     requirement = "cowsay",
-    target = "//cases/uv-deps-650/third_party/cowsay:cowsay",
+    target = "//cases/uv-deps-650/third_party/cowsay",
+    venv_name = "say",
 )
 uv.declare_venv(
     hub_name = "pypi",
     venv_name = "airflow",
 )
 uv.lockfile(
-    hub_name = "pypi",
     src = "//cases/uv-deps-650/airflow:uv.lock",
+    hub_name = "pypi",
     venv_name = "airflow",
 )
 uv.declare_venv(
@@ -103,9 +103,8 @@ uv.declare_venv(
     venv_name = "psql",
 )
 uv.lockfile(
-    hub_name = "pypi",
     src = "//cases/uv-deps-650/crossbuild:uv.lock",
+    hub_name = "pypi",
     venv_name = "psql",
 )
-
 use_repo(uv, "pypi")

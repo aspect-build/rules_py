@@ -130,7 +130,7 @@ def _parse_locks(module_ctx, venv_specs):
     for mod in module_ctx.modules:
         for lock in mod.tags.lockfile:
             req_whls = {}
-            
+
             if lock.hub_name not in venv_specs or lock.venv_name not in venv_specs[lock.hub_name]:
                 problems.append("Lock {} in {} refers to hub {} which is not configured for that module".format(lock.src, mod.name, lock.hub_name))
 
@@ -188,9 +188,11 @@ Please update your lockfile to provide build tools in order to enable sdist supp
 
 Problems:
 {problems}""".format(
-    lockfile=lock.src,
-    problems="\n".join([" - " + it for it in problems]
-)))
+                    lockfile = lock.src,
+                    problems = "\n".join(
+                        [" - " + it for it in problems],
+                    ),
+                ))
 
             # FIXME: Should validate the lockfile but for now just stash it
             # Validating in starlark kinda rots anyway
@@ -202,8 +204,8 @@ Problems:
     return lock_specs
 
 _default_annotations = struct(
-    per_package={},
-    default_build_deps=[
+    per_package = {},
+    default_build_deps = [
         {"name": "setuptools"},
         {"name": "build"},
     ],
@@ -232,7 +234,7 @@ def _parse_annotations(module_ctx, hub_specs, venv_specs):
             annotations = toml.decode_file(module_ctx, ann.src)
             if annotations.get("version") != "0.0.0":
                 fail("Annotations file %s doesn't specify a valid version= key" % ann.src)
-            
+
             for package in annotations.get("package", []):
                 if not "name" in package:
                     fail("Annotations file %s is invalid; all [[package]] entries must have a name" % ann.src)
@@ -449,7 +451,8 @@ def _sbuild_repos(module_ctx, lock_specs, annotation_specs, override_specs):
 
                 # Per-package build deps, plus global defaults
                 build_deps = {
-                    it["name"]: it for it in build_deps + venv_anns.default_build_deps
+                    it["name"]: it
+                    for it in build_deps + venv_anns.default_build_deps
                 }
 
                 # print("Creating sdist repo", name)
@@ -532,7 +535,7 @@ def _collect_entrypoints(module_ctx, lock_specs):
                 res = module_ctx.execute(
                     [
                         "tar",  # FIXME: Use a hermetic tar here somehow?
-                        "-xzOif",
+                        "-xzOf",
                         file,
                         "*.dist-info/entry_points.txt",
                     ],
@@ -789,10 +792,11 @@ def _uv_impl(module_ctx):
     venv_specs = _parse_venvs(module_ctx, hub_specs)
 
     lock_specs = _parse_locks(module_ctx, venv_specs)
-    
+
     annotation_specs = _parse_annotations(module_ctx, hub_specs, venv_specs)
 
     override_specs = _parse_overrides(module_ctx, venv_specs)
+
     # Roll through all the configured wheels, collect & validate the unique
     # platform configurations so that we can go create an appropriate power set
     # of conditions.

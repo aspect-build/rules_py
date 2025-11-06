@@ -1,7 +1,7 @@
 ## Annotations.toml
 #
 # This is an aspect_rules_py//uv specific configuration file which allows
-# packages to be annoted with their build time dependencies. This fills a gap in
+# packages to be annotated with their build time dependencies. This fills a gap in
 # both the pylock and uv lockfile formats, neither of which allow for build
 # requirements to be specified.
 #

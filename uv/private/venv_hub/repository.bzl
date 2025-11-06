@@ -107,9 +107,7 @@ py_library(
     for group, members in repository_ctx.attr.sccs.items():
         installs = repository_ctx.attr.installs
         member_installs = [
-            "\"@{}//:install\"".format(installs[it])
-            if not installs[it].startswith("@")
-            else repr(installs[it])
+            "\"@{}//:install\"".format(installs[it]) if not installs[it].startswith("@") else repr(installs[it])
             for it in members
         ]
 

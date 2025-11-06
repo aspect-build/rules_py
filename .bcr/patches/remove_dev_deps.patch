@@ -1,6 +1,6 @@
---- a/MODULE.bazel	2025-11-05 22:01:56.213559506 -0700
-+++ b/MODULE.bazel	2025-11-05 22:01:56.213619467 -0700
-@@ -40,563 +40,5 @@
+--- a/MODULE.bazel	2025-11-06 05:53:18.137728401 +0000
++++ b/MODULE.bazel	2025-11-06 05:53:18.137728401 +0000
+@@ -40,568 +40,5 @@
  # HACK: In prod the includer's patch inserts the use_repo for multitool. This
  # solves the problem of needing a use_repo here in prod and below in dev.
  
@@ -504,19 +504,24 @@
 -    venv_name = "default",
 -)
 -uv.lockfile(
+-    src = "//:uv.lock",
 -    hub_name = "pypi",
 -    venv_name = "default",
--    src = "//:uv.lock",
 -)
 -uv.declare_entrypoint(
--    requirement = "pytest",
 -    name = "pytest",
 -    entrypoint = "pytest:console_main",
+-    requirement = "pytest",
 -)
 -uv.declare_entrypoint(
--    requirement = "pytest",
 -    name = "py.test",
 -    entrypoint = "pytest:console_main",
+-    requirement = "pytest",
+-)
+-uv.annotate_requirements(
+-    src = "//:annotations.toml",
+-    hub_name = "pypi",
+-    venv_name = "default",
 -)
 -use_repo(uv, "pypi")
 -
@@ -553,8 +558,8 @@
 -
 -# Multitool is a prod dep (for now) so we don't need this
 -bazel_dep(name = "rules_multitool", version = "1.9.0")
--multitool = use_extension("@rules_multitool//multitool:extension.bzl", "multitool")
 -
+-multitool = use_extension("@rules_multitool//multitool:extension.bzl", "multitool")
 -multitool.hub(lockfile = "//tools:tools.lock.json")
  use_repo(multitool, "multitool")
 -

@@ -131,10 +131,10 @@ load("@rules_python//python:pip.bzl", "pip_utils")
 def requirement(name):
     return "@@{repo_name}//{{0}}:{{0}}".format(pip_utils.normalize_name(name))
 """.format(
-    repo_name = repository_ctx.name
-))
+        repo_name = repository_ctx.name,
+    ))
     repository_ctx.file("requirements.bzl", content = "\n".join(content))
-    
+
     ################################################################################
     # Lay down the hub aliases
 

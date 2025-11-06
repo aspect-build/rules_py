@@ -3,7 +3,10 @@ load("@aspect_rules_py//py:defs.bzl", "py_library")
 py_library(
     name = "cowsay",
     srcs = glob(["**/*.py"]),
-    data = glob(["**/*"], exclude=["**/*.py"]),
+    data = glob(
+        ["**/*"],
+        exclude = ["**/*.py"],
+    ),
     imports = ["."],
     visibility = ["//visibility:public"],
 )

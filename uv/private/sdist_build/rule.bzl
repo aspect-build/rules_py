@@ -2,9 +2,10 @@
 Actually building sdists.
 """
 
+load("//py/private/py_venv:py_venv.bzl", "VirtualenvInfo")
+
 # buildifier: disable=bzl-visibility
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
-load("//py/private/py_venv:py_venv.bzl", "VirtualenvInfo")
 
 TAR_TOOLCHAIN = "@tar.bzl//tar/toolchain:type"
 # UV_TOOLCHAIN = "@multitool//tools/uv:toolchain_type"
@@ -90,7 +91,7 @@ specified Python dependencies under the configured Python toochain.
     attrs = {
         "src": attr.label(doc = ""),
         "venv": attr.label(doc = ""),
-        "_helper": attr.label(allow_single_file = True, default = Label(":build_helper.py"))
+        "_helper": attr.label(allow_single_file = True, default = Label(":build_helper.py")),
     },
     toolchains = [
         # TODO: Py toolchain needs to be in the `host` configuration, not the

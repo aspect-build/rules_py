@@ -31,24 +31,24 @@ uv.declare_venv(
     venv_name = "default",
 )
 uv.lockfile(
+    src = "//:uv.lock",
     hub_name = "pypi",
     venv_name = "default",
-    src = "//:uv.lock",
 )
 uv.declare_entrypoint(
-    requirement = "pytest",
     name = "pytest",
     entrypoint = "pytest:console_main",
+    requirement = "pytest",
 )
 uv.declare_entrypoint(
-    requirement = "pytest",
     name = "py.test",
     entrypoint = "pytest:console_main",
+    requirement = "pytest",
 )
 uv.annotate_requirements(
+    src = "//:annotations.toml",
     hub_name = "pypi",
     venv_name = "default",
-    src = "//:annotations.toml"
 )
 use_repo(uv, "pypi")
 
