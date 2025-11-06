@@ -11,6 +11,9 @@ common --test_output=errors
 # Define value used by tests
 common --define=SOME_VAR=SOME_VALUE
 
+# Set the default virtualenv to 'default'
+common --@pypi//venv=default
+
 common --incompatible_enable_cc_toolchain_resolution
 
 # TODO(bzlmod): Don't break proto
