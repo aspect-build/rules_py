@@ -4,6 +4,7 @@ Actually building sdists.
 
 # buildifier: disable=bzl-visibility
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
+load("//py/private/py_venv:py_venv.bzl", "VirtualenvInfo")
 
 TAR_TOOLCHAIN = "@tar.bzl//tar/toolchain:type"
 UV_TOOLCHAIN = "@multitool//tools/uv:toolchain_type"
@@ -42,6 +43,9 @@ def _sdist_build(ctx):
         "build",
     )
 
+    venv = ctx.attr.venv
+    print(venv[VirtualenvInfo], venv[DefaultInfo])
+    
     # Options here:
     # 1. Use `uv build` and provide it the path for our Python toolchain
     # 2. Use the Python toolchain and a downloaded build.
@@ -50,21 +54,17 @@ def _sdist_build(ctx):
     #
     # We're going with #1 for now.
     ctx.actions.run(
-        executable = uv.executable,
+        executable = venv[VirtualenvInfo].home.path + "/bin/python3",
         arguments = [
-            "build",
-            "--wheel",
-            "--offline",
-            "--no-cache",
-            "--out-dir",
+            ctx.file._helper.path,
             wheel_dir.path,
-            "--python",
-            py_toolchain.interpreter.path,
             unpacked_sdist.path,
         ],
         inputs = [
             unpacked_sdist,
-        ] + py_toolchain.files.to_list(),
+            venv[VirtualenvInfo].home,
+            ctx.file._helper,
+        ] + py_toolchain.files.to_list() + ctx.attr.venv[DefaultInfo].files.to_list(),
         outputs = [
             wheel_dir,
         ],
@@ -88,7 +88,8 @@ specified Python dependencies under the configured Python toochain.
 """,
     attrs = {
         "src": attr.label(doc = ""),
-        "deps": attr.label_list(doc = ""),
+        "venv": attr.label(doc = ""),
+        "_helper": attr.label(allow_single_file = True, default = Label(":build_helper.py"))
     },
     toolchains = [
         # TODO: Py toolchain needs to be in the `host` configuration, not the

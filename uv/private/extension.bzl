@@ -373,9 +373,13 @@ def _sbuild_repos(module_ctx, lock_specs, override_specs):
                 sdist_build(
                     name = name,
                     src = "@" + _sdist_repo_name(package) + "//file",
+                    # FIXME: Add support for build deps and annotative build deps
                     deps = [
                         "@" + _venv_target(hub_name, venv_name, package["name"])
-                        for package in package.get("dependencies", [])
+                        for package in package.get("build-dependencies", [
+                            {"name": "setuptools"},
+                            {"name": "build"}
+                        ])
                     ],
                 )
 
@@ -448,7 +452,7 @@ def _collect_entrypoints(module_ctx, lock_specs):
                 res = module_ctx.execute(
                     [
                         "tar",  # FIXME: Use a hermetic tar here somehow?
-                        "-xOzf",
+                        "-xzOif",
                         file,
                         "*.dist-info/entry_points.txt",
                     ],
@@ -460,6 +464,11 @@ def _collect_entrypoints(module_ctx, lock_specs):
                         entrypoints[package["name"]][normalize_name(name)] = entrypoint
 
                     packages_to_collect.pop(package["name"])
+                else:
+                    fail("Unable to analyze wheel for %s\n%s" % (package["name"], res.stderr))
+
+    if packages_to_collect:
+        fail("Unable to identify entrypoints for %r", packages_to_collect.keys())
 
     return entrypoints
 
@@ -702,7 +711,6 @@ def _uv_impl(module_ctx):
     lock_specs = _parse_locks(module_ctx, venv_specs)
 
     override_specs = _parse_overrides(module_ctx, venv_specs)
-    print(override_specs)
     # Roll through all the configured wheels, collect & validate the unique
     # platform configurations so that we can go create an appropriate power set
     # of conditions.
@@ -710,6 +718,7 @@ def _uv_impl(module_ctx):
 
     # Collect declared entrypoints for packages
     entrypoints = _collect_entrypoints(module_ctx, lock_specs)
+    print(entrypoints)
 
     # Roll through and create sdist and whl repos for all configured sources
     # Note that these have no deps to this point

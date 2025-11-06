@@ -20,3 +20,5 @@ bzl_library(
     srcs = ["repository.bzl"],
     deps = [":rule"],
 )
+
+exports_files(["build_helper.py"])

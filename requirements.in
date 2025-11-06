@@ -1,3 +1,5 @@
+setuptools
+build
 django~=4.2.7
 colorama~=0.4.0
 click
