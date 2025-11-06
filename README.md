@@ -1,20 +1,20 @@
 # Aspect's Bazel rules for Python
 
-`aspect_rules_py` is a layer on top of `rules_python`, the standard Python ruleset hosted at
-https://github.com/bazelbuild/rules_python.
-The lower layer of `rules_python` is currently reused, dealing with the toolchain and dependencies.
+`aspect_rules_py` is a layer on top of [rules_python](https://github.com/bazel-contrib/rules_python), the reference Python ruleset.
 
-However, this ruleset introduces a new implementation of `py_library`, `py_binary`, and `py_test`.
+The lower layer of `rules_python` is currently reused, dealing with interpreter toolchains and other details.
+
+However, this ruleset introduces new implementations of `py_library`, `py_binary`, `py_test` and now `uv`.
 Our philosophy is to behave more like idiomatic python ecosystem tools, where rules_python is closely
 tied to the way Google does Python development in their internal monorepo, google3.
 However we try to maintain compatibility with rules_python's rules for most use cases.
 
-| Layer                                       | Legacy       | Recommended          |
-| ------------------------------------------- | ------------ | -------------------- |
-| toolchain: fetch hermetic interpreter       | rules_python | rules_python         |
-| pip.parse: fetch and install deps from pypi | rules_python | rules_python         |
-| gazelle: generate BUILD files               | rules_python | [`aspect configure`] |
-| rules: user-facing implementations          | rules_python | **rules_py**         |
+| Layer                                       | Legacy       | Recommended             |
+| ------------------------------------------- | ------------ | --------------------    |
+| toolchain: fetch hermetic interpreter       | rules_python | rules_python            |
+| deps: fetch and install from pypi           | rules_python | **aspect_rules_py//uv** |
+| rules: user-facing implementations          | rules_python | **aspect_rules_py//py** |
+| gazelle: generate BUILD files               | rules_python | [`aspect configure`]    |
 
 [`aspect configure`]: https://docs.aspect.build/cli/commands/aspect_configure
 

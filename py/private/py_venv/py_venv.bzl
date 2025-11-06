@@ -6,15 +6,7 @@ load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private:transitions.bzl", "python_version_transition")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "PyToolInfo", "SHIM_TOOLCHAIN", "VENV_TOOLCHAIN")
-
-VirtualenvInfo = provider(
-    doc = """
-    Provider used to distinguish venvs from py rules.
-    """,
-    fields = {
-        "home": "Path of the virtualenv",
-    },
-)
+load(":types.bzl", "VirtualenvInfo")
 
 def _dict_to_exports(env):
     return [

@@ -91,17 +91,31 @@ VIRTUALENVS = {venvs}
 
 PACKAGES = {venv_packages}
 
-def _compatible_with(venvs, extra_constraints = []):
-  return select({{
-    Label("//venv:" + it): extra_constraints
+_repo = native.repo_name()
+
+def compatible_with(venvs, extra_constraints = []):
+  for v in venvs:
+    if v not in VIRTUALENVS:
+      fail("Errant virtualenv reference %r" % v)
+
+  return {{
+    ("@@" + _repo + "//venv:" + it): extra_constraints
     for it in venvs
   }} | {{
     "//conditions:default": ["@platforms//:incompatible"],
-  }})
+  }}
 
-pip = struct(
-  compatible_with = _compatible_with,
-)
+def incompatible_with(venvs, extra_constraints = []):
+  for v in venvs:
+    if v not in VIRTUALENVS:
+      fail("Errant virtualenv reference %r" % v)
+
+  return {{
+    ("@@" + _repo + "//venv:" + it): ["@platforms//:incompatible"]
+    for it in venvs
+  }} | {{
+    "//conditions:default": extra_constraints,
+  }}
 """.format(
             venvs = repr(repository_ctx.attr.venvs),
             venv_packages = repr(venv_packages),
@@ -145,7 +159,7 @@ def requirement(name):
     for name, spec in repository_ctx.attr.packages.items():
         content = [
             """
-load("//:defs.bzl", "pip")
+load("//:defs.bzl", "compatible_with")
 """,
         ]
 
@@ -173,7 +187,7 @@ alias(
       {lib_select},
       no_match_error = "{error}",
     ),
-    target_compatible_with = pip.compatible_with({compat}),
+    target_compatible_with = select(compatible_with({compat})),
     visibility = ["//visibility:public"],
 )
 alias(
@@ -182,7 +196,7 @@ alias(
       {whl_select},
       no_match_error = "{error}",
     ),
-    target_compatible_with = pip.compatible_with({compat}),
+    target_compatible_with = select(compatible_with({compat})),
     visibility = ["//visibility:public"],
 )
 """.format(

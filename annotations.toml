@@ -17,11 +17,26 @@
 # We version lockfiles and support semver semantics here
 version = "0.0.0"
 
-# Bravado doesn't have bdists, need to build it
-# Mark explicitly that we need wheel setuptools and build for it
+# Bravado doesn't have bdists, need to build it. Mark explicitly that we need
+# wheel setuptools and build in order to do so; build being the standard build
+# tool driver.
 [[package]]
 name = "bravado-core"
 build-dependencies = [
    { name = "build" },
    { name = "setuptools" },
 ]
+
+# We can also annotate packages as providing console scripts we care about.
+# Declared console scripts will have Bazel targets generated for them.
+#
+# Unlike `rules_python` which sees post-install package contents,
+# `aspect_rules_py//uv` doesn't and so can't discover entrypoints to generate
+# Bazel targets ahead of time. They have to be predeclared if you want to
+# reference them as targets.
+[[package]]
+name = "pytest"
+
+[package.entry-points.console-scripts]
+pytest = "pytest:console_main"
+"py.test" = "pytest:console_main"

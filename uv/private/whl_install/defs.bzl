@@ -14,6 +14,7 @@ def select_chain(name, arms, visibility = ["//visibility:private"]):
     Args:
         name (str): The name for the select chain rule.
         arms (list): Ordered selection cases as (condition, target) pairs.
+        visibility (list): Visibility spec for the generated conditions.
 
     Returns:
         Nothing.

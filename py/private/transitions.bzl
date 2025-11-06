@@ -4,6 +4,8 @@ VENV_FLAG = "@aspect_rules_py//uv/private/constraints/venv:venv"
 RPY_VERSION_FLAG = "@rules_python//python/config_settings:python_version"
 
 def _python_transition_impl(settings, attr):
+    print(settings, attr)
+
     acc = {}
     if attr.python_version:
         acc[RPY_VERSION_FLAG] = str(attr.python_version)

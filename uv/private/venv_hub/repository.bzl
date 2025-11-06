@@ -113,7 +113,7 @@ py_library(
 
         deps = repository_ctx.attr.deps[group]
         if group not in scc_markers:
-            1 + []
+            fail("Configuration error! Configured dep groups reference reference non-existent scc!")
 
         dep_labels = []
         for d in deps:

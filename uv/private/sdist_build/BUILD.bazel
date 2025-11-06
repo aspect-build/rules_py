@@ -11,6 +11,7 @@ bzl_library(
         "rule.bzl",
     ],
     deps = [
+        "//py/private/py_venv:types",
         "//py/private/toolchain:types",
     ],
 )

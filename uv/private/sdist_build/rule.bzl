@@ -2,7 +2,7 @@
 Actually building sdists.
 """
 
-load("//py/private/py_venv:py_venv.bzl", "VirtualenvInfo")
+load("//py/private/py_venv:types.bzl", "VirtualenvInfo")
 
 # buildifier: disable=bzl-visibility
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")

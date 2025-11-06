@@ -1,6 +1,6 @@
---- a/MODULE.bazel	2025-11-06 05:53:18.137728401 +0000
-+++ b/MODULE.bazel	2025-11-06 05:53:18.137728401 +0000
-@@ -40,568 +40,5 @@
+--- a/MODULE.bazel	2025-11-06 12:48:12
++++ b/MODULE.bazel	2025-11-06 12:48:12
+@@ -40,558 +40,5 @@
  # HACK: In prod the includer's patch inserts the use_repo for multitool. This
  # solves the problem of needing a use_repo here in prod and below in dev.
  
@@ -508,17 +508,7 @@
 -    hub_name = "pypi",
 -    venv_name = "default",
 -)
--uv.declare_entrypoint(
--    name = "pytest",
--    entrypoint = "pytest:console_main",
--    requirement = "pytest",
--)
--uv.declare_entrypoint(
--    name = "py.test",
--    entrypoint = "pytest:console_main",
--    requirement = "pytest",
--)
--uv.annotate_requirements(
+-uv.unstable_annotate_requirements(
 -    src = "//:annotations.toml",
 -    hub_name = "pypi",
 -    venv_name = "default",

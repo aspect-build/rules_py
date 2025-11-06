@@ -1,3 +1,5 @@
+"Internal helpers."
+
 load("@with_cfg.bzl", "with_cfg")
 load("//py:defs.bzl", "py_library")
 
