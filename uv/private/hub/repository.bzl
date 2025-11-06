@@ -212,7 +212,7 @@ alias(
         repository_ctx.file(name + "/BUILD.bazel", content = "\n".join(content))
 
         content = [
-            """load("//:defs.bzl", "pip")""",
+            """load("//:defs.bzl", "compatible_with")""",
         ]
         for entrypoint_name, entrypoint_coordinate in entrypoints.get(name, {}).items():
             select_spec = {
@@ -228,7 +228,7 @@ alias(
       {select},
       no_match_error = "{error}",
     ),
-    target_compatible_with = pip.compatible_with({compat}),
+    target_compatible_with = select(compatible_with({compat})),
     visibility = ["//visibility:public"],
 )
 """.format(
