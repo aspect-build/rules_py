@@ -7,7 +7,7 @@ load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
 load("//py/private/py_venv:py_venv.bzl", "VirtualenvInfo")
 
 TAR_TOOLCHAIN = "@tar.bzl//tar/toolchain:type"
-UV_TOOLCHAIN = "@multitool//tools/uv:toolchain_type"
+# UV_TOOLCHAIN = "@multitool//tools/uv:toolchain_type"
 
 def _sdist_build(ctx):
     py_toolchain = ctx.toolchains[PY_TOOLCHAIN].py3_runtime
@@ -45,20 +45,21 @@ def _sdist_build(ctx):
 
     venv = ctx.attr.venv
     print(venv[VirtualenvInfo], venv[DefaultInfo])
-    
+
     # Options here:
-    # 1. Use `uv build` and provide it the path for our Python toolchain
-    # 2. Use the Python toolchain and a downloaded build.
-    #    This actually takes some doing since build requires packaging.
-    #    Not too bad but not just one wheel.
+    # 1. `python3 -m build` which requires the build library and works generally
+    # 2. `python3 setup.py bdist_wheel` which only requires setuptools but doesn't work for pyproject
+    # 3. `uv build` which works generally but causes our venv shim to really struggle
     #
     # We're going with #1 for now.
+    #
+    # TODO: Figure out a way to provide defaults for build and its deps if the user doesn't.
     ctx.actions.run(
         executable = venv[VirtualenvInfo].home.path + "/bin/python3",
         arguments = [
             ctx.file._helper.path,
-            wheel_dir.path,
             unpacked_sdist.path,
+            wheel_dir.path,
         ],
         inputs = [
             unpacked_sdist,
@@ -97,7 +98,7 @@ specified Python dependencies under the configured Python toochain.
         # one here. Ditto for the other tools.
         PY_TOOLCHAIN,
         TAR_TOOLCHAIN,
-        UV_TOOLCHAIN,
+        # UV_TOOLCHAIN,
         # FIXME: Add in a cc toolchain here
     ],
 )

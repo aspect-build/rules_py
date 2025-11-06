@@ -76,7 +76,7 @@ awk < $< 'BEGIN {
 }
 {
     # Exclude .whl files from container images
-    if ($$1 ~ ".whl") {
+    if ($$1 ~ "\\.whl$$") {
         next
     }
     # Move everything under the specified root

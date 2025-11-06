@@ -108,8 +108,4 @@ uv.lockfile(
     venv_name = "psql",
 )
 
-# Ask uv to make entrypoints for setuptools
-uv.discover_entrypoints(
-    requirement = "setuptools",
-)
 use_repo(uv, "pypi")

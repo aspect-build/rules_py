@@ -4,7 +4,8 @@ use std::{
     str::FromStr,
 };
 
-use miette::{IntoDiagnostic, Result};
+use itertools::Itertools;
+use miette::{Context, IntoDiagnostic, Result};
 
 const RELOCATABLE_SHEBANG: &'static str = r#"/bin/sh
 '''exec' "$(dirname -- "$(realpath -- "$0")")"/'python3' "$0" "$@"
@@ -17,7 +18,25 @@ pub fn unpack_wheel(
     location: &Path,
     wheel: &Path,
 ) -> Result<()> {
-    let wheel_file_reader = fs::File::open(wheel).into_diagnostic()?;
+    let wheel = if wheel.is_file() {
+        wheel.to_owned()
+    } else {
+        fs::read_dir(wheel)
+            .into_diagnostic()?
+            .filter_map(|res| res.ok())
+            .map(|dir_entry| dir_entry.path())
+            .filter_map(|path| {
+                if path.extension().map_or(false, |ext| ext == "whl") {
+                    Some(path)
+                } else {
+                    None
+                }
+            })
+            .exactly_one()
+            .into_diagnostic()
+            .wrap_err_with(|| "Didn't find exactly one wheel file to install!")?
+    };
+    let wheel_file_reader = fs::File::open(&wheel).into_diagnostic()?;
 
     let temp = tempfile::tempdir().into_diagnostic()?;
 

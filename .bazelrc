@@ -2,10 +2,6 @@ import %workspace%/bazel/defaults.bazelrc
 
 common --enable_bzlmod
 
-# Ignore slow manual and release targets
-# Prevents materializing crossbuild
-common --build_tag_filters=-manual,-release
-
 common --test_output=errors
 
 # Define value used by tests

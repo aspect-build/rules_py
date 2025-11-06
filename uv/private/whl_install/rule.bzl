@@ -76,7 +76,7 @@ to bypass some of the platform checks that UV does to enable crossbuilds, and is
 lighter weight since the toolchain's files aren't inputs.
 """,
     attrs = {
-        "src": attr.label(doc = "The prebuilt (or source built) wheel to install."),
+        "src": attr.label(doc = "The wheel to install, or a tree artifact containing exactly one wheel at its root."),
         "_unpack": attr.label(
             default = "//py/private/toolchain:resolved_unpack_toolchain",
             cfg = "exec",

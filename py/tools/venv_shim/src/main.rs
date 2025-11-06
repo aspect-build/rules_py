@@ -188,7 +188,7 @@ fn find_actual_interpreter(executable: impl AsRef<Path>, cfg: &PyCfg) -> miette:
             Ok(actual_interpreter_path.to_owned())
         }
         InterpreterConfig::Runfiles { rpath, repo } => {
-            if let Ok(r) = Runfiles::create(executable) {
+            if let Ok(r) = Runfiles::create(&executable) {
                 if let Some(interpreter) = r.rlocation_from(rpath.as_str(), &repo) {
                     Ok(PathBuf::from(interpreter))
                 } else {
@@ -198,11 +198,19 @@ fn find_actual_interpreter(executable: impl AsRef<Path>, cfg: &PyCfg) -> miette:
                     ));
                 }
             } else {
+                let exe_str = &executable.as_ref().to_str().unwrap();
+                let action_root = if exe_str.contains("bazel-out") {
+                    PathBuf::from(exe_str.split_once("bazel-out").unwrap().0)
+                } else {
+                    PathBuf::from(".")
+                };
                 for candidate in [
-                    PathBuf::from("external").join(&rpath),
-                    PathBuf::from("bazel-out/k8-fastbuild/bin/external").join(&rpath),
-                    PathBuf::from(".").join(&rpath),
-                    PathBuf::from("bazel-out/k8-fastbuild/bin").join(&rpath),
+                    action_root.join("external").join(&rpath),
+                    action_root
+                        .join("bazel-out/k8-fastbuild/bin/external")
+                        .join(&rpath),
+                    action_root.join(&rpath),
+                    action_root.join("bazel-out/k8-fastbuild/bin").join(&rpath),
                 ] {
                     if candidate.exists() {
                         return Ok(candidate);
