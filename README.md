@@ -9,12 +9,12 @@ Our philosophy is to behave more like idiomatic python ecosystem tools, where ru
 tied to the way Google does Python development in their internal monorepo, google3.
 However we try to maintain compatibility with rules_python's rules for most use cases.
 
-| Layer                                       | Legacy       | Recommended             |
-| ------------------------------------------- | ------------ | --------------------    |
-| toolchain: fetch hermetic interpreter       | rules_python | rules_python            |
-| deps: fetch and install from pypi           | rules_python | **aspect_rules_py//uv** |
-| rules: user-facing implementations          | rules_python | **aspect_rules_py//py** |
-| gazelle: generate BUILD files               | rules_python | [`aspect configure`]    |
+| Layer                                 | Legacy       | Recommended             |
+| ------------------------------------- | ------------ | ----------------------- |
+| toolchain: fetch hermetic interpreter | rules_python | rules_python            |
+| deps: fetch and install from pypi     | rules_python | **aspect_rules_py//uv** |
+| rules: user-facing implementations    | rules_python | **aspect_rules_py//py** |
+| gazelle: generate BUILD files         | rules_python | [`aspect configure`]    |
 
 [`aspect configure`]: https://docs.aspect.build/cli/commands/aspect_configure
 

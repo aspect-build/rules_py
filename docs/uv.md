@@ -31,7 +31,7 @@ so you can sub in vendored code for locked dependencies.
 The first step is to generate a `uv.lock` file.
 
 In contrast to a conventional `requirements.txt`, the uv lockfile contains both
-the dependency graph between requirements, and detailed informtion about the
+the dependency graph between requirements, and detailed information about the
 wheels and sdists for the requested requirements.
 
 the short path to doing so is the following;
@@ -127,7 +127,7 @@ The uv machinery honors the `@platforms//cpu` and `@platforms//os` constraint
 settings, and will attempt to provide installations of libraries matching the
 active constraint set.
 
-In order to cope with various libcs and libc compatability ranges, uv also has
+In order to cope with various libcs and libc compatibility ranges, uv also has
 two internal config setting flags
 
 ```
@@ -199,7 +199,7 @@ that virtualenv or as part of an internal migration or for some other reason.
 
 As a facility each hub's `@<hub>//:defs.bzl` provides a pair of helper macros
 for generating appropriate `target_compatible_with` logics. These helpers return
-case dicts which may either be manupulated or `select()`ed on.
+case dicts which may either be manipulated or `select()`ed on.
 
 ```
 load("@pypi//:defs.bzl", "compatible_with", "incompatible_with")
@@ -303,7 +303,6 @@ declared. In most cases of normal entrypoints this is quite easy. Tools like
 - Jeremy Volkman's `rules_pycross` is in a direct precursor and inspiration for
   this tool. They use the same strategy, uv is just able to leverage a new off
   the shelf lockfile format and locking tool.
-  
 - Richard Levasseur and Ignas Anikevicius of `rules_python` have been great
   collaborators and good sports in my treating the `rules_python` authors
   meeting as the bazel-python-sig. Ignas in particular created the marker
