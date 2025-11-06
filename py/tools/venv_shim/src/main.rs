@@ -1,10 +1,11 @@
-use miette::{miette, IntoDiagnostic};
+use miette::{miette, Context, IntoDiagnostic};
 use runfiles::Runfiles;
 use which::which;
 // Depended on out of rules_rust
 use std::env::{self, current_exe};
 use std::ffi::OsStr;
 use std::fs;
+use std::hash::{DefaultHasher, Hash, Hasher};
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -187,14 +188,29 @@ fn find_actual_interpreter(executable: impl AsRef<Path>, cfg: &PyCfg) -> miette:
             Ok(actual_interpreter_path.to_owned())
         }
         InterpreterConfig::Runfiles { rpath, repo } => {
-            let r = Runfiles::create(executable).unwrap();
-            if let Some(interpreter) = r.rlocation_from(rpath.as_str(), &repo) {
-                Ok(PathBuf::from(interpreter))
+            if let Ok(r) = Runfiles::create(executable) {
+                if let Some(interpreter) = r.rlocation_from(rpath.as_str(), &repo) {
+                    Ok(PathBuf::from(interpreter))
+                } else {
+                    miette::bail!(format!(
+                        "Unable to identify an interpreter for venv {:?}",
+                        cfg.interpreter,
+                    ));
+                }
             } else {
+                for candidate in [
+                    PathBuf::from("external").join(&rpath),
+                    PathBuf::from("bazel-out/k8-fastbuild/bin/external").join(&rpath),
+                    PathBuf::from(".").join(&rpath),
+                    PathBuf::from("bazel-out/k8-fastbuild/bin").join(&rpath),
+                ] {
+                    if candidate.exists() {
+                        return Ok(candidate);
+                    }
+                }
                 miette::bail!(format!(
-                    "Unable to identify an interpreter for venv {:?}",
-                    cfg.interpreter,
-                ));
+                    "Unable to initialize runfiles and unable to identify action layout interpreter"
+                ))
             }
         }
     }
@@ -305,7 +321,9 @@ fn main() -> miette::Result<()> {
     #[cfg(feature = "debug")]
     eprintln!("[aspect] {:?}", venv_interpreter);
 
-    let actual_interpreter = find_actual_interpreter(&executable, &venv_config)?;
+    let actual_interpreter = find_actual_interpreter(&executable, &venv_config)?
+        .canonicalize()
+        .into_diagnostic()?;
 
     #[cfg(feature = "debug")]
     eprintln!(
@@ -325,23 +343,24 @@ fn main() -> miette::Result<()> {
 
     let venv_bin = (&venv_root).join("bin");
     // TODO(arrdem|myrrlyn): PATHSEP is : on Unix and ; on Windows
-    let mut path_segments = env::var("PATH")
-        .into_diagnostic()? // if the variable is unset or not-utf-8, quit
-        .split(":") // break into individual entries
-        .filter(|&p| !p.is_empty()) // skip over `::`, which is possible
-        .map(ToOwned::to_owned) // we're dropping the big string, so own the fragments
-        .collect::<Vec<_>>(); // and save them.
-    let need_venv_in_path = path_segments
-        .iter()
-        .find(|&p| OsStr::new(p) == &venv_bin)
-        .is_none();
-    if need_venv_in_path {
-        // append to back
-        path_segments.push(venv_bin.to_string_lossy().into_owned());
-        // then move venv_bin to the front of PATH
-        path_segments.rotate_right(1);
-        // and write into the child environment. this avoids an empty PATH causing us to write `{venv_bin}:` with a trailing colon
-        cmd.env("PATH", path_segments.join(":"));
+    if let Ok(path) = env::var("PATH") {
+        let mut path_segments = path
+            .split(":") // break into individual entries
+            .filter(|&p| !p.is_empty()) // skip over `::`, which is possible
+            .map(ToOwned::to_owned) // we're dropping the big string, so own the fragments
+            .collect::<Vec<_>>(); // and save them.
+        let need_venv_in_path = path_segments
+            .iter()
+            .find(|&p| OsStr::new(p) == &venv_bin)
+            .is_none();
+        if need_venv_in_path {
+            // append to back
+            path_segments.push(venv_bin.to_string_lossy().into_owned());
+            // then move venv_bin to the front of PATH
+            path_segments.rotate_right(1);
+            // and write into the child environment. this avoids an empty PATH causing us to write `{venv_bin}:` with a trailing colon
+            cmd.env("PATH", path_segments.join(":"));
+        }
     }
 
     // Set the executable pointer for MacOS, but we do it consistently
@@ -360,10 +379,39 @@ fn main() -> miette::Result<()> {
     // the home = property in the pyvenv.cfg being wrong because we don't
     // (currently) have a good way to map the interpreter rlocation to a
     // relative path.
-    cmd.env(
-        "PYTHONHOME",
-        &actual_interpreter.parent().unwrap().parent().unwrap(),
-    );
+    let home = &actual_interpreter
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .canonicalize()
+        .into_diagnostic()
+        .wrap_err("Failed to canonicalize the interpreter home")?;
+
+    #[cfg(feature = "debug")]
+    eprintln!("Setting PYTHONHOME to {home:?} for {actual_interpreter:?}");
+    cmd.env("PYTHONHOME", home);
+
+    let mut hasher = DefaultHasher::new();
+    venv_interpreter.to_str().unwrap().hash(&mut hasher);
+    home.to_str().unwrap().hash(&mut hasher);
+
+    cmd.env("ASPECT_PY_VALIDITY", format!("{}", hasher.finish()));
+
+    // For the future, we could read, validate and reuse the env state.
+    //
+    // if let Ok(home) = env::var("PYTHONHOME") {
+    //     if let Ok(executable) = env::var("PYTHONEXECUTABLE") {
+    //         if let Ok(checksum) = env::var("ASPECT_PY_VALIDITY") {
+    //             let mut hasher = DefaultHasher::new();
+    //             executable.hash(&mut hasher);
+    //             home.hash(&mut hasher);
+    //             if checksum == format!("{}", hasher.finish()) {
+    //                 return Ok(PathBuf::from(home).join("bin/python3"));
+    //             }
+    //         }
+    //     }
+    // }
 
     // And punt
     let err = cmd.exec();
