@@ -91,7 +91,7 @@ VIRTUALENVS = {venvs}
 
 PACKAGES = {venv_packages}
 
-_repo = native.repo_name()
+_repo = {repo_name}
 
 def compatible_with(venvs, extra_constraints = []):
   for v in venvs:
@@ -119,6 +119,7 @@ def incompatible_with(venvs, extra_constraints = []):
 """.format(
             venvs = repr(repository_ctx.attr.venvs),
             venv_packages = repr(venv_packages),
+            repo_name = repr(repository_ctx.name),
         ),
     )
 

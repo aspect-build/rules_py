@@ -316,7 +316,7 @@ def _parse_annotations(module_ctx, hub_specs, venv_specs):
 
     return annotation_specs
 
-def _parse_overrides(module_ctx, venv_specs):
+def _parse_overrides(module_ctx, lock_specs):
     """
     Parse and validate override tags.
 
@@ -328,7 +328,7 @@ def _parse_overrides(module_ctx, venv_specs):
 
     Args:
         module_ctx (module_ctx): The Bazel module context
-        venv_specs (dict): The previously parsed venv specs
+        lock_specs (dict): The previously parsed venv specs
 
     Returns:
         dict; map of hub to venv to package to override label
@@ -339,20 +339,20 @@ def _parse_overrides(module_ctx, venv_specs):
 
     for mod in module_ctx.modules:
         for override in mod.tags.override_requirement:
-            if override.hub_name not in venv_specs:
+            if override.hub_name not in lock_specs:
                 fail("Override %r references undeclared hub" % (override,))
 
             # Insert a base mapping for the hub
             overrides.setdefault(override.hub_name, {})
 
-            if override.venv_name not in venv_specs[override.hub_name]:
+            if override.venv_name not in lock_specs[override.hub_name]:
                 fail("Override %r references venv not in the hub" % (override,))
 
             # Insert a base mapping for the venv
             overrides[override.hub_name].setdefault(override.venv_name, {})
 
             req = normalize_name(override.requirement)
-            if req not in venv_specs[override.hub_name][override.venv_name]:
+            if not any([it["name"] == req for it in lock_specs[override.hub_name][override.venv_name].get("package", [])]):
                 fail("Override  for %r references a requirement not in venv %r of hub %r" % (req, override.venv_name, override.hub_name))
 
             if req in overrides[override.hub_name][override.venv_name]:
@@ -888,7 +888,7 @@ def _uv_impl(module_ctx):
     entrypoints = _collect_entrypoints(module_ctx, lock_specs, annotation_specs)
 
     # Roll through and collect overrides of requirements with targets
-    override_specs = _parse_overrides(module_ctx, venv_specs)
+    override_specs = _parse_overrides(module_ctx, lock_specs)
 
     # Roll through and create sdist and whl repos for all configured sources
     # Note that these have no deps to this point
