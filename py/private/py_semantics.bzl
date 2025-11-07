@@ -85,7 +85,6 @@ def _resolve_toolchain(ctx):
         flags = _INTERPRETER_FLAGS,
     )
 
-
 def _csv(values):
     """Convert a list of strings to comma separated value string."""
     return ", ".join(sorted(values))
@@ -127,18 +126,17 @@ def _determine_main(ctx):
         if len(main_files) > 1:
             fail(("file name '{}' specified by 'main' attributes matches multiple files. " +
                   "Matches: {}").format(
-                      proposed_main,
-                      _csv([f.short_path for f in main_files]),
-                  ))
+                proposed_main,
+                _csv([f.short_path for f in main_files]),
+            ))
 
         elif len(main_files) == 1:
             return main_files[0]
 
         else:
             fail("{} does not specify main=, and has multiple sources. Disambiguate the entrypoint".format(
-                ctx.label
+                ctx.label,
             ))
-
 
 semantics = struct(
     interpreter_flags = _INTERPRETER_FLAGS,

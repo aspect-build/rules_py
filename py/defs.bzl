@@ -35,7 +35,6 @@ python.toolchain(python_version = "3.9", is_default = True)
 ```
 """
 
-load("@aspect_bazel_lib//lib:utils.bzl", "propagate_common_rule_attributes")
 load("//py/private:py_binary.bzl", _py_binary = "py_binary", _py_test = "py_test")
 load("//py/private:py_image_layer.bzl", _py_image_layer = "py_image_layer")
 load("//py/private:py_library.bzl", _py_library = "py_library")

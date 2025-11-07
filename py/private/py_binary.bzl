@@ -148,13 +148,13 @@ _attrs = dict({
 Script to execute with the Python interpreter.
 
 Must be a label pointing to a `.py` source file.
-If such a lable is provided, it will be honored.
+If such a label is provided, it will be honored.
 
 If no label is provided AND there is only one `srcs` file, that `srcs` file will be used.
 
 If there are more than one `srcs`, a file matching `{name}.py` is searched for.
 This is for historical compatibility with the Bazel native `py_binary` and `rules_python`.
-Relying on this behaivor is STRONGLY discouraged, may produce warnings and may
+Relying on this behavior is STRONGLY discouraged, may produce warnings and may
 be deprecated in the future.
 
 """,
