@@ -85,7 +85,61 @@ def _resolve_toolchain(ctx):
         flags = _INTERPRETER_FLAGS,
     )
 
+def _csv(values):
+    """Convert a list of strings to comma separated value string."""
+    return ", ".join(sorted(values))
+
+def _path_endswith(path, endswith):
+    # Use slash to anchor each path to prevent e.g.
+    # "ab/c.py".endswith("b/c.py") from incorrectly matching.
+    return ("/" + path).endswith("/" + endswith)
+
+def _determine_main(ctx):
+    """Determine the main entry point .py source file.
+
+    Args:
+        ctx: The rule ctx.
+
+    Returns:
+        Artifact; the main file. If one can't be found, an error is raised.
+    """
+    if ctx.attr.main:
+        if not ctx.attr.main.label.name.endswith(".py"):
+            fail("main must end in '.py'")
+
+        # Short circuit; if the user gave us a label, believe them.
+        return ctx.file.main
+
+    elif len(ctx.files.srcs) == 1:
+        # If the user only provided one src, take that
+        return ctx.files.srcs[0]
+
+    else:
+        # Legacy rule name based searching :/
+        if ctx.label.name.endswith(".py"):
+            fail("name must not end in '.py'")
+        proposed_main = ctx.label.name + ".py"
+
+        print(ctx.files.srcs)
+        main_files = [src for src in ctx.files.srcs if _path_endswith(src.short_path, proposed_main)]
+
+        if len(main_files) > 1:
+            fail(("file name '{}' specified by 'main' attributes matches multiple files. " +
+                  "Matches: {}").format(
+                proposed_main,
+                _csv([f.short_path for f in main_files]),
+            ))
+
+        elif len(main_files) == 1:
+            return main_files[0]
+
+        else:
+            fail("{} does not specify main=, and has multiple sources. Disambiguate the entrypoint".format(
+                ctx.label,
+            ))
+
 semantics = struct(
     interpreter_flags = _INTERPRETER_FLAGS,
     resolve_toolchain = _resolve_toolchain,
+    determine_main = _determine_main,
 )
