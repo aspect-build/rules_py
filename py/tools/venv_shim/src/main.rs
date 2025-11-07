@@ -78,7 +78,7 @@ fn parse_venv_cfg(venv_root: &Path, cfg_path: &Path) -> Result<PyCfg> {
             version_info: version,
             interpreter: InterpreterConfig::Runfiles {
                 rpath: rloc,
-                repo: repo,
+                repo,
             },
             user_site: user_site.expect("User site flag not set!"),
         }),
@@ -166,7 +166,7 @@ fn find_actual_interpreter(executable: impl AsRef<Path>, cfg: &PyCfg) -> Result<
             //    That logic has optimistically been discarded. If this causes
             //    problems we'd put it back here.
 
-            let Some(python_executables) = find_python_executables(&version, &cfg.root.join("bin"))
+            let Some(python_executables) = find_python_executables(version, &cfg.root.join("bin"))
             else {
                 miette::bail!(
                     "No suitable Python interpreter found in PATH matching version '{version}'."
@@ -183,7 +183,7 @@ fn find_actual_interpreter(executable: impl AsRef<Path>, cfg: &PyCfg) -> Result<
                 }
             }
 
-            let Some(actual_interpreter_path) = python_executables.get(0) else {
+            let Some(actual_interpreter_path) = python_executables.first() else {
                 miette::bail!("Unable to find another interpreter!");
             };
 
@@ -191,8 +191,8 @@ fn find_actual_interpreter(executable: impl AsRef<Path>, cfg: &PyCfg) -> Result<
         }
         InterpreterConfig::Runfiles { rpath, repo } => {
             if let Ok(r) = Runfiles::create(&executable) {
-                if let Some(interpreter) = r.rlocation_from(rpath.as_str(), &repo) {
-                    Ok(PathBuf::from(interpreter))
+                if let Some(interpreter) = r.rlocation_from(rpath.as_str(), repo) {
+                    Ok(interpreter)
                 } else {
                     miette::bail!(format!(
                         "Unable to identify an interpreter for venv {:?}",
@@ -207,12 +207,12 @@ fn find_actual_interpreter(executable: impl AsRef<Path>, cfg: &PyCfg) -> Result<
                     PathBuf::from(".")
                 };
                 for candidate in [
-                    action_root.join("external").join(&rpath),
+                    action_root.join("external").join(rpath),
                     action_root
                         .join("bazel-out/k8-fastbuild/bin/external")
-                        .join(&rpath),
-                    action_root.join(&rpath),
-                    action_root.join("bazel-out/k8-fastbuild/bin").join(&rpath),
+                        .join(rpath),
+                    action_root.join(rpath),
+                    action_root.join("bazel-out/k8-fastbuild/bin").join(rpath),
                 ] {
                     if candidate.exists() {
                         return Ok(candidate);
@@ -261,7 +261,7 @@ fn main() -> Result<()> {
             executable = candidate;
             #[cfg(feature = "debug")]
             eprintln!("       {:?}", executable);
-        } else if let Ok(exe) = which(&exec_name) {
+        } else if let Ok(exe) = which(exec_name) {
             executable = exe;
             #[cfg(feature = "debug")]
             eprintln!("       {:?}", executable);
@@ -278,7 +278,7 @@ fn main() -> Result<()> {
         && !executable.components().any(|it| {
             it.as_os_str()
                 .to_str()
-                .expect(&format!("Failed to normalize {:?} as a str", it))
+                .unwrap_or_else(|| panic!("Failed to normalize {:?} as a str", it))
                 .ends_with(".runfiles")
         })
     {
@@ -296,7 +296,7 @@ fn main() -> Result<()> {
                 // Resolve the link we identified
                 let parent = parent
                     .parent()
-                    .expect(&format!("Failed to take the parent of {:?}", parent))
+                    .unwrap_or_else(|| panic!("Failed to take the parent of {:?}", parent))
                     .join(parent.read_link().into_diagnostic()?);
                 // And join the tail to the resolved head
                 executable = parent.join(suffix);
@@ -353,7 +353,7 @@ fn main() -> Result<()> {
         // Pseudo-`activate`
         .env("VIRTUAL_ENV", &venv_root);
 
-    let venv_bin = (&venv_root).join("bin");
+    let venv_bin = venv_root.join("bin");
     // TODO(arrdem|myrrlyn): PATHSEP is : on Unix and ; on Windows
     if let Ok(path) = env::var("PATH") {
         let mut path_segments = path
@@ -361,10 +361,8 @@ fn main() -> Result<()> {
             .filter(|&p| !p.is_empty()) // skip over `::`, which is possible
             .map(ToOwned::to_owned) // we're dropping the big string, so own the fragments
             .collect::<Vec<_>>(); // and save them.
-        let need_venv_in_path = path_segments
-            .iter()
-            .find(|&p| OsStr::new(p) == &venv_bin)
-            .is_none();
+        let need_venv_in_path = !path_segments
+            .iter().any(|p| OsStr::new(p) == venv_bin);
         if need_venv_in_path {
             // append to back
             path_segments.push(venv_bin.to_string_lossy().into_owned());
