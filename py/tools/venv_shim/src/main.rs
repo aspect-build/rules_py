@@ -1,4 +1,6 @@
-use miette::{miette, Context, IntoDiagnostic};
+mod pyargs;
+
+use miette::{miette, Context, IntoDiagnostic, Result};
 use runfiles::Runfiles;
 use which::which;
 // Depended on out of rules_rust
@@ -12,7 +14,7 @@ use std::process::Command;
 
 const PYVENV: &str = "pyvenv.cfg";
 
-fn find_venv_root(exec_name: impl AsRef<Path>) -> miette::Result<(PathBuf, PathBuf)> {
+fn find_venv_root(exec_name: impl AsRef<Path>) -> Result<(PathBuf, PathBuf)> {
     let exec_name = exec_name.as_ref().to_owned();
     if let Some(parent) = exec_name.parent().and_then(|it| it.parent()) {
         let cfg = parent.join(PYVENV);
@@ -40,7 +42,7 @@ struct PyCfg {
     user_site: bool,
 }
 
-fn parse_venv_cfg(venv_root: &Path, cfg_path: &Path) -> miette::Result<PyCfg> {
+fn parse_venv_cfg(venv_root: &Path, cfg_path: &Path) -> Result<PyCfg> {
     let mut version: Option<String> = None;
     let mut bazel_interpreter: Option<String> = None;
     let mut bazel_repo: Option<String> = None;
@@ -137,7 +139,7 @@ fn find_python_executables(version_from_cfg: &str, exclude_dir: &Path) -> Option
     }
 }
 
-fn find_actual_interpreter(executable: impl AsRef<Path>, cfg: &PyCfg) -> miette::Result<PathBuf> {
+fn find_actual_interpreter(executable: impl AsRef<Path>, cfg: &PyCfg) -> Result<PathBuf> {
     match &cfg.interpreter {
         InterpreterConfig::External { version } => {
             // NOTE (reid@aspect.build):
@@ -224,7 +226,7 @@ fn find_actual_interpreter(executable: impl AsRef<Path>, cfg: &PyCfg) -> miette:
     }
 }
 
-fn main() -> miette::Result<()> {
+fn main() -> Result<()> {
     let all_args: Vec<_> = env::args().collect();
     let Some((exec_name, exec_args)) = all_args.split_first() else {
         miette::bail!("could not discover an execution command-line");
@@ -342,7 +344,9 @@ fn main() -> miette::Result<()> {
     let mut cmd = Command::new(&actual_interpreter);
     let cmd = cmd
         // Pass along our args
-        .args(exec_args)
+        .args(pyargs::reparse_args(
+            &exec_args.iter().map(|it| it.as_ref()).collect(),
+        )?)
         // Lie about the value of argv0 to hoodwink the interpreter as to its
         // location on Linux-based platforms.
         .arg0(&venv_interpreter)

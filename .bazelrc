@@ -28,7 +28,6 @@ common:release --build_tag_filters=release
 common:release --stamp
 common:release --compilation_mode=opt
 common:release --@rules_rust//rust/settings:lto=fat
-common:release --@rules_rust//:extra_rustc_flags=-Cpanic=abort
 
 # Speed up local development by using the non-hermetic CPP toolchain.
 common:nollvm --repo_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=0

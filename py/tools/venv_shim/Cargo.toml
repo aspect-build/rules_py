@@ -20,5 +20,6 @@ path = "src/main.rs"
 
 [dependencies]
 miette = { workspace = true }
+clap = { workspace = true }
 runfiles = { path = "../runfiles" }
 which = "8.0.0"

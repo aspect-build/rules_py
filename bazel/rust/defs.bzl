@@ -17,7 +17,6 @@ rust_opt_binary, _rust_opt_binary_internal = with_cfg(_rust_binary).set(
     [
         "-Cstrip=symbols",
         "-Ccodegen-units=1",
-        "-Cpanic=abort",
     ],
     # Avoid rules_rust trying to instrument this binary
 ).set("collect_code_coverage", "false").build()
