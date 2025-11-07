@@ -18,6 +18,9 @@ def _py_binary_rule_impl(ctx):
     venv_toolchain = ctx.toolchains[VENV_TOOLCHAIN]
     py_toolchain = _py_semantics.resolve_toolchain(ctx)
 
+    # Resolve our `main=` to a label, which it isn't
+    main = _py_semantics.determine_main(ctx)
+
     # Check for duplicate virtual dependency names. Those that map to the same resolution target would have been merged by the depset for us.
     virtual_resolution = _py_library.resolve_virtuals(ctx)
     imports_depset = _py_library.make_imports_depset(ctx, extra_imports_depsets = virtual_resolution.imports)
@@ -78,7 +81,7 @@ def _py_binary_rule_impl(ctx):
             "{{ARG_PYTHON}}": to_rlocation_path(ctx, py_toolchain.python) if py_toolchain.runfiles_interpreter else py_toolchain.python.path,
             "{{ARG_VENV_NAME}}": ".{}.venv".format(ctx.attr.name),
             "{{ARG_PTH_FILE}}": to_rlocation_path(ctx, site_packages_pth_file),
-            "{{ENTRYPOINT}}": to_rlocation_path(ctx, ctx.file.main),
+            "{{ENTRYPOINT}}": to_rlocation_path(ctx, main),
             "{{PYTHON_ENV}}": "\n".join(_dict_to_exports(default_env)).strip(),
             "{{EXEC_PYTHON_BIN}}": "python{}".format(
                 py_toolchain.interpreter_version_info.major,
@@ -114,7 +117,7 @@ def _py_binary_rule_impl(ctx):
         DefaultInfo(
             files = depset([
                 executable_launcher,
-                ctx.file.main,
+                main,
                 site_packages_pth_file,
             ]),
             executable = executable_launcher,
@@ -140,9 +143,21 @@ _attrs = dict({
         default = {},
     ),
     "main": attr.label(
-        doc = "Script to execute with the Python interpreter.",
         allow_single_file = True,
-        mandatory = True,
+        doc = """
+Script to execute with the Python interpreter.
+
+Must be a label pointing to a `.py` source file.
+If such a lable is provided, it will be honored.
+
+If no label is provided AND there is only one `srcs` file, that `srcs` file will be used.
+
+If there are more than one `srcs`, a file matching `{name}.py` is searched for.
+This is for historical compatibility with the Bazel native `py_binary` and `rules_python`.
+Relying on this behaivor is STRONGLY discouraged, may produce warnings and may
+be deprecated in the future.
+
+""",
     ),
     "venv": attr.string(
         doc = """The name of the Python virtual environment within which deps should be resolved.

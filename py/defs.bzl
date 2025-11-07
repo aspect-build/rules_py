@@ -37,7 +37,6 @@ python.toolchain(python_version = "3.9", is_default = True)
 
 load("@aspect_bazel_lib//lib:utils.bzl", "propagate_common_rule_attributes")
 load("//py/private:py_binary.bzl", _py_binary = "py_binary", _py_test = "py_test")
-load("//py/private:py_executable.bzl", "determine_main")
 load("//py/private:py_image_layer.bzl", _py_image_layer = "py_image_layer")
 load("//py/private:py_library.bzl", _py_library = "py_library")
 load("//py/private:py_pex_binary.bzl", _py_pex_binary = "py_pex_binary")
@@ -62,32 +61,13 @@ py_image_layer = _py_image_layer
 
 resolutions = _resolutions
 
-def _py_binary_or_test(name, rule, srcs, main, data = [], deps = [], resolutions = {}, **kwargs):
-    exec_properties = kwargs.pop("exec_properties", {})
-    non_test_exec_properties = {k: v for k, v in exec_properties.items() if not k.startswith("test.")}
-
-    # Compatibility with rules_python, see docs in py_executable.bzl
-    main_target = "{}.find_main".format(name)
-    determine_main(
-        name = main_target,
-        target_name = name,
-        main = main,
-        srcs = srcs,
-        exec_properties = non_test_exec_properties,
-        **propagate_common_rule_attributes(kwargs)
-    )
-
-    package_collisions = kwargs.pop("package_collisions", None)
-
+def _py_binary_or_test(name, rule, srcs, main, data = [], deps = [], **kwargs):
     rule(
         name = name,
         srcs = srcs,
-        main = main_target,
+        main = main,
         data = data,
         deps = deps,
-        resolutions = resolutions,
-        package_collisions = package_collisions,
-        exec_properties = exec_properties,
         **kwargs
     )
 
@@ -97,8 +77,6 @@ def _py_binary_or_test(name, rule, srcs, main, data = [], deps = [], resolutions
         data = data,
         deps = deps,
         imports = kwargs.get("imports"),
-        resolutions = resolutions,
-        package_collisions = package_collisions,
         tags = ["manual"],
         testonly = kwargs.get("testonly", False),
         target_compatible_with = kwargs.get("target_compatible_with", []),
