@@ -2,9 +2,15 @@
 
 `aspect_rules_py` is a layer on top of [rules_python](https://github.com/bazel-contrib/rules_python), the reference Python ruleset.
 
-The lower layer of `rules_python` is currently reused, dealing with interpreter toolchains and other details.
+The bottom layer of `rules_python` is currently reused, which supports interpreter toolchains, interop providers, and other details.
 
-However, this ruleset introduces new implementations of `py_library`, `py_binary`, `py_test` and now `uv`.
+`rules_py` can be used with the `pip` machinery in rules_python. However we also provide an alternative using `uv`, see below for details.
+
+`rules_py` introduces new implementations of the end-user rules, `py_library`, `py_binary`, `py_test`.
+
+Finally, we pre-compile the Python gazelle extension into our https://github.com/aspect-build/aspect-gazelle,
+this gives developers a faster path to updating BUILD files without requiring a functional cgo toolchain.
+
 Our philosophy is to behave more like idiomatic python ecosystem tools, where rules_python is closely
 tied to the way Google does Python development in their internal monorepo, google3.
 However we try to maintain compatibility with rules_python's rules for most use cases.
@@ -14,9 +20,9 @@ However we try to maintain compatibility with rules_python's rules for most use 
 | toolchain: fetch hermetic interpreter | rules_python | rules_python            |
 | deps: fetch and install from pypi     | rules_python | **aspect_rules_py//uv** |
 | rules: user-facing implementations    | rules_python | **aspect_rules_py//py** |
-| gazelle: generate BUILD files         | rules_python | [`aspect configure`]    |
+| gazelle: generate BUILD files         | rules_python | [aspect-gazelle]        |
 
-[`aspect configure`]: https://docs.aspect.build/cli/commands/aspect_configure
+[aspect-gazelle]: https://github.com/aspect-build/aspect-gazelle
 
 ## Learn about it
 
