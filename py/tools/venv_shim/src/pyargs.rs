@@ -1,5 +1,5 @@
-use clap::{arg, Arg, ArgAction, ArgMatches, Command, Parser};
-use miette::{miette, Context, IntoDiagnostic, Result};
+use clap::{arg, Arg, ArgAction, ArgMatches, Command};
+use miette::{IntoDiagnostic, Result};
 
 fn build_parser() -> Command {
     Command::new("python_like_parser")
