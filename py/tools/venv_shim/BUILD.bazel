@@ -1,19 +1,19 @@
+load("@rules_rust//rust:defs.bzl", "rust_test")
 load("//bazel/release:release.bzl", "release")
 load("//bazel/rust:defs.bzl", "rust_binary")
-load("@rules_rust//rust:defs.bzl", "rust_test")
 load("//bazel/rust:multi_platform_rust_binaries.bzl", "multi_platform_rust_binaries")
 
 rust_binary(
     name = "shim",
     srcs = [
-        "src/pyargs.rs",
         "src/main.rs",
+        "src/pyargs.rs",
     ],
     deps = [
         "//py/tools/runfiles",
+        "@crates//:clap",
         "@crates//:miette",
         "@crates//:which",
-        "@crates//:clap",
     ],
 )
 
