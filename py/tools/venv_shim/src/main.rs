@@ -225,7 +225,7 @@ fn find_actual_interpreter(executable: impl AsRef<Path>, cfg: &PyCfg) -> Result<
 
 fn main() -> Result<()> {
     let all_args: Vec<_> = env::args().collect();
-    let Some((exec_name, exec_args)) = all_args.split_first() else {
+    let Some((exec_name, _exec_args)) = all_args.split_first() else {
         miette::bail!("could not discover an execution command-line");
     };
 
@@ -324,7 +324,7 @@ fn main() -> Result<()> {
     eprintln!("[aspect] {:?}", venv_config);
 
     // The logical path of the interpreter
-    let venv_interpreter = venv_root.join("bin/python3");
+    let venv_interpreter = venv_root.join("bin").join(executable.file_name().unwrap());
     #[cfg(feature = "debug")]
     eprintln!("[aspect] {:?}", venv_interpreter);
 
@@ -342,6 +342,8 @@ fn main() -> Result<()> {
     // Lie about the value of argv0 to hoodwink the interpreter as to its
     // location on Linux-based platforms.
     reexec_args.remove(0);
+
+    #[cfg(feature = "debug")]
     eprintln!("Reexec args {:?}", reexec_args);
 
     let mut cmd = Command::new(&actual_interpreter);
@@ -401,8 +403,7 @@ fn main() -> Result<()> {
     home.to_str().unwrap().hash(&mut hasher);
     cmd.env("ASPECT_PY_VALIDITY", format!("{}", hasher.finish()));
 
-    // 1
-
+    #[cfg(feature = "debug")]
     eprintln!("Punting to {:?}", cmd);
 
     // And punt
