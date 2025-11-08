@@ -263,7 +263,9 @@ fn main() -> Result<()> {
             #[cfg(feature = "debug")]
             eprintln!("       {:?}", executable);
         } else {
-            return Err(miette!("Unable to identify the real interpreter path!"));
+            executable = env::current_exe().unwrap();
+            #[cfg(feature = "debug")]
+            eprintln!("Falling back to the libc abspath {:?}", executable);
         }
     }
 

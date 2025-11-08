@@ -3,8 +3,8 @@
 from argparse import ArgumentParser
 import shutil
 import sys
-from os import getenv, listdir, path, execv
-from subprocess import check_call, CalledProcessError
+from os import getenv
+from build.__main__ import main as build
 
 # Under Bazel, the source dir of a sdist to build is immutable. `build` and
 # other tools however are constitutionally incapable of not writing to the
@@ -15,6 +15,8 @@ from subprocess import check_call, CalledProcessError
 # - It punts to `build` targeting the tempdir
 
 print(sys.executable, file=sys.stderr)
+for e in sys.path:
+    print(" -", e, file=sys.stderr)
 
 PARSER = ArgumentParser()
 PARSER.add_argument("srcdir")
@@ -27,12 +29,11 @@ t = getenv("TMPDIR")  # Provided by Bazel
 shutil.copystat = lambda x, y, **k: None
 shutil.copytree(opts.srcdir, t, dirs_exist_ok=True)
 
-for e in sys.path:
-    print(" -", e, file=sys.stderr)
-    
-execv(sys.executable, [
-    "-m", "build",
+# 1
+
+build([
     "--wheel",
     "--no-isolation",
     "--outdir", opts.outdir,
+    t,
 ])
