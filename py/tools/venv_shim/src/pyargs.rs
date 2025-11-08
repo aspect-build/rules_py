@@ -176,9 +176,8 @@ pub fn reparse_args(original_argv: &Vec<&str>) -> Result<Vec<String>> {
         }
     };
 
-    let add_s = parsed_args.isolate || parsed_args.no_user_site;
-
-    argv.push(String::from("python"));
+    // Retain the original argv binary
+    argv.push(original_argv[0].to_string());
 
     if parsed_args.bytes_warning_level == 1 {
         argv.push(String::from("-b"));
@@ -193,8 +192,8 @@ pub fn reparse_args(original_argv: &Vec<&str>) -> Result<Vec<String>> {
 
     // -I replacement logic: -I is never pushed, its effects (-E and -s) are handled separately.
     // -E removal: -E is never pushd
-    // -s inclusion logic: push -s if it was set directly OR implied by -I
-    push_flag(&mut argv, 's', add_s);
+    // -s inclusion logic: we ALWAYS push -s
+    push_flag(&mut argv, 's', true);
 
     push_flag(&mut argv, 'S', parsed_args.no_import_site);
     push_flag(&mut argv, 'u', parsed_args.unbuffered);
@@ -244,18 +243,47 @@ mod test {
 
     #[test]
     fn basic_args_preserved1() {
-        let orig = vec!["python", "-B", "script.py", "arg1"];
+        let orig = vec!["python", "-B", "-s", "script.py", "arg1"];
         let reparsed = reparse_args(&orig);
         assert!(reparsed.is_ok(), "Args failed to parse {:?}", reparsed);
-        assert!(orig == reparsed.unwrap(), "Args shouldn't have changed");
+        let reparsed = reparsed.unwrap();
+        assert!(
+            orig == reparsed,
+            "Args shouldn't have changed, got {:?}",
+            reparsed
+        );
     }
 
     #[test]
     fn basic_args_preserved2() {
-        let orig = vec!["python", "-c", "exit(0)", "arg1"];
+        let orig = vec!["python", "-s", "-c", "exit(0)", "arg1"];
+        let reparsed = reparse_args(&orig);
+        assert!(&reparsed.is_ok(), "Args failed to parse {:?}", reparsed);
+        let reparsed = reparsed.unwrap();
+        assert!(
+            orig == reparsed,
+            "Args shouldn't have changed, got {:?}",
+            reparsed
+        );
+    }
+
+    #[test]
+    fn basic_binary_preserved() {
+        let orig = vec![
+            "/some/arbitrary/path/python",
+            "-B",
+            "-s",
+            "script.py",
+            "arg1",
+        ];
         let reparsed = reparse_args(&orig);
         assert!(reparsed.is_ok(), "Args failed to parse {:?}", reparsed);
-        assert!(orig == reparsed.unwrap(), "Args shouldn't have changed");
+        let reparsed = reparsed.unwrap();
+        assert!(
+            orig == reparsed,
+            "Args shouldn't have changed, got {:?}",
+            reparsed
+        );
     }
 
     #[test]
@@ -270,8 +298,8 @@ mod test {
     #[test]
     fn basic_e_gets_unset() {
         // We expect to REMOVE the -E flag
-        let orig = vec!["python", "-E", "-c", "exit(0)", "arg1"];
-        let expected = vec!["python", "-c", "exit(0)", "arg1"];
+        let orig = vec!["python", "-E", "-s", "-c", "exit(0)", "arg1"];
+        let expected = vec!["python", "-s", "-c", "exit(0)", "arg1"];
         let reparsed = reparse_args(&orig);
         assert!(reparsed.is_ok(), "Args failed to parse {:?}", reparsed);
         assert!(expected == reparsed.unwrap(), "-E wasn't unset");
@@ -285,5 +313,81 @@ mod test {
         let reparsed = reparse_args(&orig);
         assert!(reparsed.is_ok(), "Args failed to parse {:?}", reparsed);
         assert!(expected == reparsed.unwrap(), "Didn't translate -I to -s");
+    }
+
+    #[test]
+    fn basic_add_s() {
+        // We expect to ADD the -s flag
+        let orig = vec!["python", "-c", "exit(0)", "arg1"];
+        let expected = vec!["python", "-s", "-c", "exit(0)", "arg1"];
+        let reparsed = reparse_args(&orig);
+        assert!(reparsed.is_ok(), "Args failed to parse {:?}", reparsed);
+        assert!(expected == reparsed.unwrap(), "Didn't add -s");
+    }
+
+    #[test]
+    fn basic_m_preserved() {
+        // We expect to ADD the -s flag
+        let orig = vec!["python", "-m", "build", "--unknown", "arg1"];
+        let expected = vec!["python", "-s", "-m", "build", "--unknown", "arg1"];
+        let reparsed = reparse_args(&orig);
+        assert!(reparsed.is_ok(), "Args failed to parse {:?}", reparsed);
+        assert!(expected == reparsed.unwrap(), "Didn't add -s");
+    }
+
+    #[test]
+    fn basic_trailing_args_preserved() {
+        let orig = vec![
+            "python3",
+            "uv/private/sdist_build/build_helper.py",
+            "bazel-out/darwin_arm64-fastbuild/bin/external/+uv+sbuild__pypi__default__bravado_core/src",
+            "bazel-out/darwin_arm64-fastbuild/bin/external/+uv+sbuild__pypi__default__bravado_core/build"
+        ];
+        let expected =  vec![
+            "python3",
+            "-s",
+            "uv/private/sdist_build/build_helper.py",
+            "bazel-out/darwin_arm64-fastbuild/bin/external/+uv+sbuild__pypi__default__bravado_core/src",
+            "bazel-out/darwin_arm64-fastbuild/bin/external/+uv+sbuild__pypi__default__bravado_core/build"
+        ];
+        let reparsed = reparse_args(&orig);
+        assert!(reparsed.is_ok(), "Args failed to parse {:?}", reparsed);
+        let reparsed = reparsed.unwrap();
+        assert!(
+            expected == reparsed,
+            "Something happened to the args, got {:?}",
+            reparsed
+        );
+    }
+
+    #[test]
+    fn m_preserved_s_added_varargs_preserved() {
+        let orig = vec![
+            "python3",
+            "-m",
+            "build",
+            "--no-isolation",
+            "--out-dir",
+            "bazel-out/darwin_arm64-fastbuild/bin/external/+uv+sbuild__pypi__default__bravado_core/build",
+            "bazel-out/darwin_arm64-fastbuild/bin/external/+uv+sbuild__pypi__default__bravado_core/src",
+        ];
+        let expected =  vec![
+            "python3",
+            "-s",
+            "-m",
+            "build",
+            "--no-isolation",
+            "--out-dir",
+            "bazel-out/darwin_arm64-fastbuild/bin/external/+uv+sbuild__pypi__default__bravado_core/build",
+            "bazel-out/darwin_arm64-fastbuild/bin/external/+uv+sbuild__pypi__default__bravado_core/src",
+        ];
+        let reparsed = reparse_args(&orig);
+        assert!(reparsed.is_ok(), "Args failed to parse {:?}", reparsed);
+        let reparsed = reparsed.unwrap();
+        assert!(
+            expected == reparsed,
+            "Something happened to the args, got {:?}",
+            reparsed
+        );
     }
 }

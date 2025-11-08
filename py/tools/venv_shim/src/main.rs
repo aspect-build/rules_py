@@ -76,10 +76,7 @@ fn parse_venv_cfg(venv_root: &Path, cfg_path: &Path) -> Result<PyCfg> {
             root: venv_root.to_path_buf(),
             cfg: cfg_path.to_path_buf(),
             version_info: version,
-            interpreter: InterpreterConfig::Runfiles {
-                rpath: rloc,
-                repo,
-            },
+            interpreter: InterpreterConfig::Runfiles { rpath: rloc, repo },
             user_site: user_site.expect("User site flag not set!"),
         }),
         (Some(version), None, None) => Ok(PyCfg {
@@ -341,15 +338,17 @@ fn main() -> Result<()> {
         &actual_interpreter, &venv_interpreter, exec_args,
     );
 
+    let mut reexec_args = pyargs::reparse_args(&all_args.iter().map(|it| it.as_ref()).collect())?;
+    // Lie about the value of argv0 to hoodwink the interpreter as to its
+    // location on Linux-based platforms.
+    reexec_args.remove(0);
+    eprintln!("Reexec args {:?}", reexec_args);
+
     let mut cmd = Command::new(&actual_interpreter);
     let cmd = cmd
-        // Pass along our args
-        .args(pyargs::reparse_args(
-            &exec_args.iter().map(|it| it.as_ref()).collect(),
-        )?)
-        // Lie about the value of argv0 to hoodwink the interpreter as to its
-        // location on Linux-based platforms.
         .arg0(&venv_interpreter)
+        // Pass along our args
+        .args(reexec_args)
         // Pseudo-`activate`
         .env("VIRTUAL_ENV", &venv_root);
 
@@ -361,8 +360,7 @@ fn main() -> Result<()> {
             .filter(|&p| !p.is_empty()) // skip over `::`, which is possible
             .map(ToOwned::to_owned) // we're dropping the big string, so own the fragments
             .collect::<Vec<_>>(); // and save them.
-        let need_venv_in_path = !path_segments
-            .iter().any(|p| OsStr::new(p) == venv_bin);
+        let need_venv_in_path = !path_segments.iter().any(|p| OsStr::new(p) == venv_bin);
         if need_venv_in_path {
             // append to back
             path_segments.push(venv_bin.to_string_lossy().into_owned());
@@ -378,12 +376,6 @@ fn main() -> Result<()> {
 
     // Clobber VIRTUAL_ENV which may have been set by activate to an unresolved path
     cmd.env("VIRTUAL_ENV", &venv_root);
-
-    // Similar to `-s` but this avoids us having to muck with the argv in ways
-    // that could be visible to the called program.
-    if !venv_config.user_site {
-        cmd.env("PYTHONNOUSERSITE", "1");
-    }
 
     // Set the interpreter home to the resolved install base. This works around
     // the home = property in the pyvenv.cfg being wrong because we don't
@@ -402,26 +394,16 @@ fn main() -> Result<()> {
     eprintln!("Setting PYTHONHOME to {home:?} for {actual_interpreter:?}");
     cmd.env("PYTHONHOME", home);
 
+    // For the future, we could read, validate and reuse the env state.
     let mut hasher = DefaultHasher::new();
     venv_interpreter.to_str().unwrap().hash(&mut hasher);
+    venv_root.to_str().unwrap().hash(&mut hasher);
     home.to_str().unwrap().hash(&mut hasher);
-
     cmd.env("ASPECT_PY_VALIDITY", format!("{}", hasher.finish()));
 
-    // For the future, we could read, validate and reuse the env state.
-    //
-    // if let Ok(home) = env::var("PYTHONHOME") {
-    //     if let Ok(executable) = env::var("PYTHONEXECUTABLE") {
-    //         if let Ok(checksum) = env::var("ASPECT_PY_VALIDITY") {
-    //             let mut hasher = DefaultHasher::new();
-    //             executable.hash(&mut hasher);
-    //             home.hash(&mut hasher);
-    //             if checksum == format!("{}", hasher.finish()) {
-    //                 return Ok(PathBuf::from(home).join("bin/python3"));
-    //             }
-    //         }
-    //     }
-    // }
+    // 1
+
+    eprintln!("Punting to {:?}", cmd);
 
     // And punt
     let err = cmd.exec();

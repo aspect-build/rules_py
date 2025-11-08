@@ -4,7 +4,7 @@ from argparse import ArgumentParser
 import shutil
 import sys
 from os import getenv, listdir, path
-from subprocess import call
+from subprocess import check_call, CalledProcessError
 
 # Under Bazel, the source dir of a sdist to build is immutable. `build` and
 # other tools however are constitutionally incapable of not writing to the
@@ -28,13 +28,18 @@ shutil.copystat = lambda x, y, **k: None
 shutil.copytree(opts.srcdir, t, dirs_exist_ok=True)
 
 outdir = path.abspath(opts.outdir)
-
-call([
+args = [
     sys.executable,
     "-m", "build",
     "--wheel",
     "--no-isolation",
     "--outdir", outdir,
-], cwd=t)
+]
+print(args, file=sys.stderr)
+
+try:
+    check_call(args, cwd=t)
+except CalledProcessError:
+    exit(1)
 
 print(listdir(outdir), file=sys.stderr)
