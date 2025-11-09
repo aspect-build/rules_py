@@ -55,6 +55,9 @@ jobs:
         artifacts-*/*
         rules_py-*.tar.gz
       tag_name: ${{ github.ref_name }}
+      # Bypass rerunning the tests
+      bazel_test_command: |
+        /bin/true
 
   publish:
     needs: release
