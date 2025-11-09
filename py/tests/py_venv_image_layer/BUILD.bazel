@@ -14,9 +14,6 @@ platform(
     flags = [
         "--//uv/private/constraints/platform:platform_libc=glibc",
         "--//uv/private/constraints/platform:platform_version=2.39",
-        "--@rules_rust//:extra_rustc_flag=-Cstrip=debuginfo",
-        "--@rules_rust//rust/settings:lto=fat",
-        "--stripopt=--strip-all",
     ],
 )
 
@@ -29,9 +26,6 @@ platform(
     flags = [
         "--//uv/private/constraints/platform:platform_libc=glibc",
         "--//uv/private/constraints/platform:platform_version=2.39",
-        "--@rules_rust//:extra_rustc_flag=-Cstrip=debuginfo",
-        "--@rules_rust//rust/settings:lto=fat",
-        "--stripopt=--strip-all",
     ],
 )
 
