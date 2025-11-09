@@ -30,7 +30,7 @@ jobs:
           TARGETS=$(bazel $FLAGS query 'attr(tags, "cd:verb:deliver", //...)')
 
           # Build all the targets in one shot to maximize parallelism
-          bazel $FLAGS build "${TARGETS[@]}"
+          bazel $FLAGS build ${TARGETS[@]}
 
           # Run each one of those targets to "deliver" the artifacts they bundle
           # into the target dir.
