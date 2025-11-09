@@ -18,6 +18,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Nuke external to make space
+        # TODO: Dust off roomba
+        run: |
+          df -h
+          rm -rf /home/runner/.bazel/external/
+          df -h
+
       - name: Build Rust Binaries
         env:
           DEST: artifacts
