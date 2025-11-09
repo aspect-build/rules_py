@@ -4,7 +4,7 @@
 bazel_dep(name = "xz", version = "5.4.5.bcr.5")
 bazel_dep(name = "zstd", version = "1.5.7")
 bazel_dep(name = "bzip2", version = "1.0.8.bcr.3")
-bazel_dep(name = "rules_rs", version = "0.0.7")
+bazel_dep(name = "rules_rs", version = "0.0.16")
 
 crate = use_extension(
     "@rules_rs//rs:extensions.bzl",
@@ -16,9 +16,9 @@ crate.from_cargo(
     cargo_toml = "//:Cargo.toml",
     platform_triples = [
         "aarch64-apple-darwin",
-        "aarch64-unknown-linux-gnu",
+        "aarch64-unknown-linux-musl",
         "x86_64-apple-darwin",
-        "x86_64-unknown-linux-gnu",
+        "x86_64-unknown-linux-musl",
     ],
 )
 crate.annotation(
