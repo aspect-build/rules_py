@@ -32,3 +32,17 @@ assert_contains(
     actual = "print_modules_pex.out",
     expected = "Mooo!,cowsay-6.1/cowsay/__init__.py,six-1.16.0/six.py",
 )
+
+py_binary(
+    name = "binary",
+    srcs = [
+        "__init__.py",
+    ],
+    main = "__init__.py",
+    visibility = ["//visibility:public"],
+)
+
+py_pex_binary(
+    name = "py_pex_binary",
+    binary = ":binary",
+)
