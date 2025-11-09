@@ -1,8 +1,7 @@
 import %workspace%/bazel/defaults.bazelrc
 
-common --enable_bzlmod
-
 common --test_output=errors
+common --incompatible_disallow_empty_glob=False
 
 # Define value used by tests
 common --define=SOME_VAR=SOME_VALUE
@@ -11,16 +10,16 @@ common --define=SOME_VAR=SOME_VALUE
 common --@pypi//venv=default
 
 common --incompatible_enable_cc_toolchain_resolution
+common --@toolchains_llvm_bootstrapped//config:experimental_stub_libgcc_s
+common --@rules_cc//cc/toolchains/args/archiver_flags:use_libtool_on_macos=false
 
 # TODO(bzlmod): Don't break proto
 common --per_file_copt=external/.*protobuf.*@--PROTOBUF_WAS_NOT_SUPPOSED_TO_BE_BUILT
 common --host_per_file_copt=external/.*protobuf.*@--PROTOBUF_WAS_NOT_SUPPOSED_TO_BE_BUILT
 
-# Don't try and auto detect the cc toolchain, as we use our own gcc toolchains.
+# Don't try and auto detect the cc toolchain, as we use our own llvm toolchains.
 common --repo_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
-
-# Don't link against libunwind on macos as it causes linking failures (https://github.com/bazel-contrib/toolchains_llvm/pull/346)
-common:macos --@toolchains_llvm//toolchain/config:libunwind=False
+common --repo_env=BAZEL_NO_APPLE_CPP_TOOLCHAIN=1
 
 common:ci --toolchain_resolution_debug='@@bazel_tools//tools/cpp:toolchain_type'
 
@@ -29,10 +28,6 @@ common:release --stamp
 common:release --compilation_mode=opt
 common:release --@rules_rust//rust/settings:lto=fat
 common:release --@rules_rust//:extra_rustc_flags=-Cpanic=abort
-
-# Speed up local development by using the non-hermetic CPP toolchain.
-common:nollvm --repo_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=0
-common:nollvm --noincompatible_enable_cc_toolchain_resolution
 
 # Load any settings specific to the current user.
 # .bazelrc.user should appear in .gitignore so that settings are not shared with team members
