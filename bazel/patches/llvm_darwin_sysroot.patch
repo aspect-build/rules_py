@@ -1,0 +1,50 @@
+diff --git a/MODULE.bazel b/MODULE.bazel
+index ec9c2e8..1a3f93c 100644
+--- a/MODULE.bazel
++++ b/MODULE.bazel
+@@ -73,16 +73,13 @@ http_archive(
+     build_file = "//third_party/libc/musl:BUILD.tpl",
+ )
+ 
+-http_pkg_archive = use_repo_rule("//:http_pkg_archive.bzl", "http_pkg_archive")
+-http_pkg_archive(
++http_archive(
+     name = "macosx15.4.sdk",
+-    urls = ["https://swcdn.apple.com/content/downloads/10/32/082-12052-A_AHPGDY76PT/1a419zaf3vh8o9t3c0usblyr8eystpnsh5/CLTools_macOSNMOS_SDK.pkg"],
+-    strip_files = [
+-        "Library/Developer/CommandLineTools/SDKs/MacOSX15.4.sdk/System/Library/Frameworks/Ruby.framework/Versions/Current/Headers/ruby",
+-    ],
+-    sha256 = "f8b0600aa4ad9b0b0b150fb62691dc561f47bc33ebc40546439f1460a0680913",
++    urls = ["https://github.com/alexey-lysiuk/macos-sdk/releases/download/14.5/MacOSX14.5.tar.xz"],
++    patch_cmds = ["rm System/Library/Frameworks/Ruby.framework/Versions/Current/Headers/ruby/ruby"],
++    integrity = "sha256-9qzGIJ251Wtn/K+R7B3v5Ici6esT3CH7kc/s6xSJ5X4=",
+     build_file = "//third_party/macosx.sdk:BUILD.MacOSX15.4.sdk.tpl",
+-    strip_prefix = "Library/Developer/CommandLineTools/SDKs/MacOSX15.4.sdk",
++    strip_prefix = "MacOSX14.5.sdk",
+ )
+ 
+ glibc = use_extension("//runtimes/glibc/extension:glibc.bzl", "glibc")
+diff --git a/third_party/llvm-project/20.x/compiler-rt/BUILD.tpl b/third_party/llvm-project/20.x/compiler-rt/BUILD.tpl
+index b3b0495..a6e347c 100644
+--- a/third_party/llvm-project/20.x/compiler-rt/BUILD.tpl
++++ b/third_party/llvm-project/20.x/compiler-rt/BUILD.tpl
+@@ -301,6 +301,7 @@ cc_stage2_library(
+     srcs = select({
+         "@toolchains_llvm_bootstrapped//platforms/config:linux_x86_64": [":builtins_x86_64_sources"],
+         "@toolchains_llvm_bootstrapped//platforms/config:linux_aarch64": [":builtins_aarch64_sources"],
++        "@toolchains_llvm_bootstrapped//platforms/config:macos_x86_64": [":builtins_x86_64_sources"],
+         "@toolchains_llvm_bootstrapped//platforms/config:macos_aarch64": [":builtins_aarch64_sources"],
+     }, no_match_error = """
+         Platform not supported for compiler-rt.builtins.
+diff --git a/toolchain/args/BUILD.bazel b/toolchain/args/BUILD.bazel
+index 9700506..f66d5ca 100644
+--- a/toolchain/args/BUILD.bazel
++++ b/toolchain/args/BUILD.bazel
+@@ -29,6 +29,7 @@ cc_args(
+         "//platforms/config/libc_aware:linux_aarch64_gnu": ["aarch64-linux-gnu"],
+         "//platforms/config/libc_aware:linux_x86_64_musl": ["x86_64-linux-musl"],
+         "//platforms/config/libc_aware:linux_aarch64_musl": ["aarch64-linux-musl"],
++        "//platforms/config:macos_x86_64": ["x86_64-apple-darwin"],
+         "//platforms/config:macos_aarch64": ["aarch64-apple-darwin"],
+     }, no_match_error = "Unsupported platform"),
+ )

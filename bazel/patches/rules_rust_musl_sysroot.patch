@@ -1,0 +1,24 @@
+diff --git a/rust/private/repository_utils.bzl b/rust/private/repository_utils.bzl
+index 39f002d4c..3def0f431 100644
+--- a/rust/private/repository_utils.bzl
++++ b/rust/private/repository_utils.bzl
+@@ -241,7 +241,6 @@ rust_stdlib_filegroup(
+             "lib/rustlib/{target_triple}/lib/*.rlib",
+             "lib/rustlib/{target_triple}/lib/*{dylib_ext}*",
+             "lib/rustlib/{target_triple}/lib/*{staticlib_ext}",
+-            "lib/rustlib/{target_triple}/lib/self-contained/**",
+         ],
+         # Some patterns (e.g. `lib/*.a`) don't match anything, see https://github.com/bazelbuild/rules_rust/pull/245
+         allow_empty = True,
+diff --git a/rust/toolchain.bzl b/rust/toolchain.bzl
+index f3ef2f298..f54ab83b0 100644
+--- a/rust/toolchain.bzl
++++ b/rust/toolchain.bzl
+@@ -50,6 +50,7 @@ def _rust_stdlib_filegroup_impl(ctx):
+         for file in rust_std
+         if file.basename.endswith(".o") and "self-contained" in file.path
+     ]
++    self_contained_files = []
+     panic_files = []
+ 
+     std_rlibs = [f for f in rust_std if f.basename.endswith(".rlib")]

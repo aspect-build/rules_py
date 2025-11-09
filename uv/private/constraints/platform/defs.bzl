@@ -60,7 +60,7 @@ def _platform_version_at_least_impl(ctx):
 
     current = tuple([
         int(x)
-        for x in flag_value.split(".")
+        for x in flag_value.strip().split(".")
     ])
     at_least = tuple([int(x) for x in ctx.attr.at_least.split(".")])
 
