@@ -67,9 +67,7 @@ if __name__ == "__main__":
             fp.write(new_module_content)
 
         with open(b / "MODULE.bazel", "w") as fp:
-            fp.write(module_content[:anchor_match.start()] + """
-use_repo(multitool, "multitool")
-""")
+            fp.write(module_content[:anchor_match.start()])
 
         with open(root / ".bcr/patches/remove_dev_deps.patch", "w") as fp:
             # Call diff and use it to directly write the new patchfile
