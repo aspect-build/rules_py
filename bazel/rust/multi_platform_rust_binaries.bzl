@@ -11,6 +11,7 @@ TARGET_TRIPLES = [
     ("aarch64_unknown_linux_gnu", "linux_aarch64"),
     ("x86_64_apple_darwin", "macos_x86_64"),
     ("aarch64_apple_darwin", "macos_aarch64"),
+    ("x86_64_pc_windows_msvc", "windows_x86_64"),
 ]
 
 # Map a Rust naming scheme to a custom name.
@@ -40,12 +41,19 @@ def multi_platform_rust_binaries(name, target, name_scheme = TARGET_NAMING_SCHEM
 
     for (target_triple, target_platform) in target_triples:
         target_naming = name_scheme.get(target_triple, target_triple)
-
+        not_windows = select({
+            "@platforms//os:windows": ["@platforms//:incompatible"],
+            "//conditions:default": [],
+        })
+        target_compatible_with = not_windows
+        if target_platform.startswith("windows"):
+            target_compatible_with = ["@platforms//os:windows"]
         transition_build = "{}_{}_build".format(bin, target_naming)
         platform_transition_filegroup(
             name = transition_build,
             srcs = [target],
             target_platform = "//bazel/platforms:{}".format(target_platform),
+            target_compatible_with = target_compatible_with,
             tags = ["release"],
         )
 
@@ -54,6 +62,7 @@ def multi_platform_rust_binaries(name, target, name_scheme = TARGET_NAMING_SCHEM
             name = "{}_copy".format(copy_name),
             src = transition_build,
             out = copy_name,
+            target_compatible_with = target_compatible_with,
             tags = ["release"],
         )
 
@@ -61,6 +70,7 @@ def multi_platform_rust_binaries(name, target, name_scheme = TARGET_NAMING_SCHEM
         hashes(
             name = bin_sha256,
             src = copy_name,
+            target_compatible_with = target_compatible_with,
             tags = ["release"],
         )
 
@@ -71,6 +81,7 @@ def multi_platform_rust_binaries(name, target, name_scheme = TARGET_NAMING_SCHEM
             renames = {copy_name: bin},
             attributes = pkg_attributes(mode = "0744"),
             strip_prefix = "/",
+            target_compatible_with = target_compatible_with,
             tags = ["release"],
         )
 
@@ -84,6 +95,7 @@ def multi_platform_rust_binaries(name, target, name_scheme = TARGET_NAMING_SCHEM
             # Why is -1 not the default :/
             # This also sets the modified time in UTC.
             stamp = -1,
+            target_compatible_with = target_compatible_with,
             tags = ["release"],
         )
 
@@ -91,6 +103,7 @@ def multi_platform_rust_binaries(name, target, name_scheme = TARGET_NAMING_SCHEM
         hashes(
             name = pkged_sha256,
             src = pkged,
+            target_compatible_with = target_compatible_with,
             tags = ["release"],
         )
 

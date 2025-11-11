@@ -5,3 +5,6 @@ common --enable_bzlmod
 
 # The imports=[".."] only works properly when this matches the python toolchain major version.
 common --@aspect_rules_py//py:interpreter_version=3.11.6
+
+# Windows settings
+startup --windows_enable_symlinks

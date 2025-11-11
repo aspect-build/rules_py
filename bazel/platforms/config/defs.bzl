@@ -9,6 +9,7 @@ cpus = ["aarch64", "x86_64"]
 os_to_linker = {
     "linux": ["unknown"],
     "macos": ["unknown"],
+    "windows": ["unknown"],
 }
 
 platforms = [

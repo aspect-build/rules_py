@@ -256,13 +256,7 @@ fn create_symlink(
         };
     }
 
-    std::os::unix::fs::symlink(&tgt, &link)
-        .into_diagnostic()
-        .wrap_err(format!(
-            "Unable to create symlink: {} -> {}",
-            tgt.to_string_lossy(),
-            link.to_string_lossy()
-        ))?;
+    create_cross_platform_symlink(&tgt, &link)?;
 
     Ok(())
 }
@@ -290,4 +284,38 @@ fn is_same_file(p1: &Path, p2: &Path) -> miette::Result<bool> {
     }
 
     return Ok(true);
+}
+
+fn create_cross_platform_symlink(tgt: &Path, link: &Path) -> miette::Result<()> {
+    #[cfg(unix)]
+    {
+        std::os::unix::fs::symlink(tgt, link)
+            .into_diagnostic()
+            .wrap_err(format!(
+                "Unable to create symlink: {} -> {}",
+                tgt.to_string_lossy(),
+                link.to_string_lossy()
+            ))
+    }
+
+    #[cfg(windows)]
+    {
+        if tgt.is_dir() {
+            std::os::windows::fs::symlink_dir(tgt, link)
+                .into_diagnostic()
+                .wrap_err(format!(
+                    "Unable to create directory symlink: {} -> {}",
+                    tgt.to_string_lossy(),
+                    link.to_string_lossy()
+                ))
+        } else {
+            std::os::windows::fs::symlink_file(tgt, link)
+                .into_diagnostic()
+                .wrap_err(format!(
+                    "Unable to create file symlink: {} -> {}",
+                    tgt.to_string_lossy(),
+                    link.to_string_lossy()
+                ))
+        }
+    }
 }

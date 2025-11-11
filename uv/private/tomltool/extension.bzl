@@ -37,6 +37,20 @@ TOOLS = [
         url = "https://github.com/dzbarsky/toml2json/releases/download/v0.0.4/toml2json_linux_amd64",
         sha256 = "f3dd54fabf2d27d0c027b0421860e5d9d909080be1613f0ffd87057633b65e9a",
     ),
+    struct(
+        os = "windows",
+        arch = "aarch64",
+        libc = "msvc",
+        url = "https://github.com/peakschris/toml2json/releases/download/v0.0.9/toml2json_windows_arm64.exe",
+        sha256 = "c977f42491d2912c57e5678f4894bb45f7fbaa93158dd3189537fed6dbf8d0cc",
+    ),
+    struct(
+        os = "windows",
+        arch = "x86_64",
+        libc = "msvc",
+        url = "https://github.com/peakschris/toml2json/releases/download/v0.0.9/toml2json_windows_amd64.exe",
+        sha256 = "b434ce11d75f3040eefcbcdf43cea469c28e72455cc48f3cdd7246d1a2f08ddc",
+    ),
 ]
 
 def tomltool_impl(_):
