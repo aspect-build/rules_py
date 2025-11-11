@@ -7,8 +7,6 @@ Helper to create a symlink to a virtualenv in the source tree.
 
 import argparse
 import os
-import sys
-import site
 from pathlib import Path
 
 
