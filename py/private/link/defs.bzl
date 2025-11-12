@@ -1,22 +1,22 @@
 load("@bazel_skylib//lib:sets.bzl", "sets")
 
 def py_link_venv(
-    binary_rule,
-    name,
-    srcs,
-    args = [],
-    venv_name = None,
-    venv_dest = None,
-    **kwargs):
+        binary_rule,
+        name,
+        srcs,
+        args = [],
+        venv_name = None,
+        venv_dest = None,
+        **kwargs):
     """
     Build a Python virtual environment and produce a script to link it into the
     user's directory of choice.
 
     Args:
         binary_rule (rule): A py_binary-alike rule to employ. Must build a "venv".
-    
+
         venv_name (str): A name to use for venv's link.
-    
+
         venv_dest (str): A path (relative to the repo
             root/$BUILD_WORKING_DIRECTORY) where the link will be created.
 
@@ -36,7 +36,7 @@ def py_link_venv(
 
     if venv_dest != None:
         args = ["--dest=" + venv_dest] + args
-    
+
     binary_rule(
         name = name,
         args = args,

@@ -1,11 +1,10 @@
 load("@aspect_bazel_lib//:bzl_library.bzl", "bzl_library")
-load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
 
 alias(
     name = "interpreter_version",
     actual = "//py/settings:interpreter_version",
-    visibility = ["//visibility:public"],
     deprecation = "Please prefer py/settings:interpreter_version",
+    visibility = ["//visibility:public"],
 )
 
 bzl_library(
@@ -33,8 +32,8 @@ bzl_library(
         "//py/private:py_unpacked_wheel",
         "//py/private:py_wheel",
         "//py/private:virtual",
-        "//py/private/py_venv",
         "//py/private/link",
+        "//py/private/py_venv",
         "@aspect_bazel_lib//lib:utils",
     ],
 )

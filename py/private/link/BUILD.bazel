@@ -8,11 +8,11 @@ exports_files(["link.py"])
 bzl_library(
     name = "link",
     srcs = [
-        "defs.bzl"
+        "defs.bzl",
     ],
     deps = [
         "@bazel_skylib//lib:sets",
-    ]
+    ],
 )
 
 string_flag(
@@ -25,17 +25,16 @@ string_flag(
     visibility = ["//visibility:public"],
 )
 
-
 config_setting(
     name = "static_venvs",
     flag_values = {
         ":venv_strategy": "static",
-    }
+    },
 )
 
 config_setting(
     name = "dynamic_venvs",
     flag_values = {
         ":venv_strategy": "dynamic",
-    }
+    },
 )

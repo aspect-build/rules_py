@@ -42,8 +42,8 @@ load("//py/private:py_pex_binary.bzl", _py_pex_binary = "py_pex_binary")
 load("//py/private:py_pytest_main.bzl", _py_pytest_main = "py_pytest_main")
 load("//py/private:py_unpacked_wheel.bzl", _py_unpacked_wheel = "py_unpacked_wheel")
 load("//py/private:virtual.bzl", _resolutions = "resolutions")
-load("//py/private/py_venv:defs.bzl", _py_venv_binary = "py_venv_binary")
 load("//py/private/link:defs.bzl", _py_link_venv = "py_link_venv")
+load("//py/private/py_venv:defs.bzl", _py_venv_binary = "py_venv_binary")
 
 py_pex_binary = _py_pex_binary
 py_pytest_main = _py_pytest_main
@@ -58,7 +58,7 @@ def py_venv(name, srcs = [], data = [], deps = [], imports = None, testonly = Fa
         }),
         tags = ["manual"],
     )
-    
+
     _py_link_venv(
         _py_binary,
         name = "{}_dynamic".format(name),
@@ -70,7 +70,7 @@ def py_venv(name, srcs = [], data = [], deps = [], imports = None, testonly = Fa
         testonly = kwargs.get("testonly", False),
         target_compatible_with = kwargs.get("target_compatible_with", []),
     )
-    
+
     _py_link_venv(
         _py_venv_binary,
         name = "{}_static".format(name),
@@ -109,7 +109,7 @@ def _py_binary_or_test(name, rule, srcs, main, data = [], deps = [], **kwargs):
         srcs = srcs,
         data = data,
         deps = deps,
-        **kwargs,
+        **kwargs
     )
 
 def py_binary(name, srcs = [], main = None, **kwargs):
