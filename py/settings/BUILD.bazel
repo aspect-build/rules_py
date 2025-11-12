@@ -1,0 +1,21 @@
+load("@aspect_bazel_lib//:bzl_library.bzl", "bzl_library")
+load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
+
+# For Bazel 6.x compatibility, since
+# PyRuntimeInfo shipped only with Bazel 7
+# Users can set, e.g. --@aspect_rules_py//py:interpreter_version=3.9.18
+alias(
+    name = "interpreter_version",
+    actual = "@rules_python//python/config_settings:python_version",
+    visibility = ["//visibility:public"],
+)
+
+string_flag(
+    name = "venv_strategy",
+    build_setting_default = "dynamic",
+    values = [
+        "dynamic",
+        "static",
+    ],
+    visibility = ["//visibility:public"],
+)
