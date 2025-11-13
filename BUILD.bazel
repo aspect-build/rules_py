@@ -8,6 +8,11 @@ load("//uv/private/manifest:defs.bzl", "gazelle_python_manifest")
 # gazelle:exclude examples/django
 # gazelle:map_kind bzl_library bzl_library @bazel_lib//:bzl_library.bzl
 
+not_windows = select({
+    "@platforms//os:windows": ["@platforms//:incompatible"],
+    "//conditions:default": [],
+})
+
 gazelle_python_manifest(
     name = "gazelle_python_manifest",
     hub = "pypi",
@@ -19,6 +24,7 @@ gazelle_python_manifest(
 gazelle(
     name = "gazelle",
     gazelle = "@multitool//tools/gazelle",
+    target_compatible_with = not_windows,
 )
 
 compile_pip_requirements(

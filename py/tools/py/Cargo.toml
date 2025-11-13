@@ -6,6 +6,7 @@ homepage.workspace = true
 repository.workspace = true
 license.workspace = true
 edition.workspace = true
+readme.workspace = true
 rust-version.workspace = true
 
 [features]
@@ -29,6 +30,3 @@ uv-pypi-types = { workspace = true }
 uv-python = { workspace = true }
 uv-virtualenv = { workspace = true }
 walkdir = "2.5.0"
-# workaround issue with this package building with rules_rust on windows; the snap files used in their unit tests have
-# too long a path and import of this module is failing (even when tests are not run)
-rattler_installs_packages = { git = "https://github.com/peakschris/rip", rev = "3de9ee95eab577c9e48526464013e217287c6937", default-features = false, features = ["rustls-tls"] }
