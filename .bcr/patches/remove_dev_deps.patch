@@ -1,9 +1,10 @@
---- a/MODULE.bazel	2025-12-01 15:38:57
-+++ b/MODULE.bazel	2025-12-01 15:38:57
-@@ -41,556 +41,3 @@
+--- a/MODULE.bazel	2025-12-02 11:22:18
++++ b/MODULE.bazel	2025-12-02 11:22:18
+@@ -45,548 +45,4 @@
+ 
  # HACK: In prod the includer's patch inserts the use_repo for multitool. This
  # solves the problem of needing a use_repo here in prod and below in dev.
- 
+-
 -################################################################################
 -# Dev deps
 -#
@@ -24,7 +25,6 @@
 -# include("//bazel/include:cargo.MODULE.bazel")
 -# include("//bazel/include:test.MODULE.bazel")
 -# include("//bazel/include:oci.MODULE.bazel")
--# include("//bazel/include:telemetry.MODULE.bazel")
 -# include("//bazel/include:python.MODULE.bazel")
 -# include("//bazel/include:release.MODULE.bazel")
 -# include("//bazel/include:multitool.MODULE.bazel")
@@ -283,7 +283,7 @@
 -    target_triple = "x86_64-unknown-linux-musl",
 -    versions = [RUST_VERSION],  # "versions" only set in first instance of "rust_darwin_x86_64" repository_set (see comment above)
 -)
--
+ 
 -# -> linux arm (musl)
 -rust.repository_set(
 -    name = "rust_darwin_x86_64",
@@ -458,14 +458,6 @@
 -use_repo(bazel_lib_toolchains, "bsd_tar_toolchains")
 -
 -register_toolchains("@bsd_tar_toolchains//:all")
--
--########################################
--# from bazel/include/telemetry.MODULE.bazel
--# tools_telemetry
--bazel_dep(name = "aspect_tools_telemetry", version = "0.2.8")
--
--tel = use_extension("@aspect_tools_telemetry//:extension.bzl", "telemetry")
--use_repo(tel, "aspect_tools_telemetry_report")
 -
 -########################################
 -# from bazel/include/python.MODULE.bazel

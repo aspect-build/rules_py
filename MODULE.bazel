@@ -38,6 +38,11 @@ use_repo(
 host = use_extension("//uv/private/host:extension.bzl", "host_platform")
 use_repo(host, "aspect_rules_py_uv_host")
 
+bazel_dep(name = "aspect_tools_telemetry", version = "0.3.0")
+
+tel = use_extension("@aspect_tools_telemetry//:extension.bzl", "telemetry")
+use_repo(tel, "aspect_tools_telemetry_report")
+
 # HACK: In prod the includer's patch inserts the use_repo for multitool. This
 # solves the problem of needing a use_repo here in prod and below in dev.
 
@@ -61,7 +66,6 @@ use_repo(host, "aspect_rules_py_uv_host")
 # include("//bazel/include:cargo.MODULE.bazel")
 # include("//bazel/include:test.MODULE.bazel")
 # include("//bazel/include:oci.MODULE.bazel")
-# include("//bazel/include:telemetry.MODULE.bazel")
 # include("//bazel/include:python.MODULE.bazel")
 # include("//bazel/include:release.MODULE.bazel")
 # include("//bazel/include:multitool.MODULE.bazel")
@@ -495,14 +499,6 @@ bazel_lib_toolchains = use_extension("@tar.bzl//tar:extensions.bzl", "toolchains
 use_repo(bazel_lib_toolchains, "bsd_tar_toolchains")
 
 register_toolchains("@bsd_tar_toolchains//:all")
-
-########################################
-# from bazel/include/telemetry.MODULE.bazel
-# tools_telemetry
-bazel_dep(name = "aspect_tools_telemetry", version = "0.2.8")
-
-tel = use_extension("@aspect_tools_telemetry//:extension.bzl", "telemetry")
-use_repo(tel, "aspect_tools_telemetry_report")
 
 ########################################
 # from bazel/include/python.MODULE.bazel
