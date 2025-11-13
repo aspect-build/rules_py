@@ -1,0 +1,11 @@
+load("//py/private/py_venv:defs.bzl", "py_venv_binary")
+
+py_venv_test(
+    name = "test_link",
+    srcs = [
+        "link.py",
+        "test_link.py",
+    ],
+    imports = ["."],
+    main = "test_link.py",
+)
