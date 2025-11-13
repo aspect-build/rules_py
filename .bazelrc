@@ -4,6 +4,14 @@ common --enable_bzlmod
 
 common --test_output=errors
 
+# Windows settings
+startup --windows_enable_symlinks
+
+# Point tools such as coursier (used in rules_jvm_external) to Bazel's downloaded JDK
+# suggested in https://github.com/bazelbuild/rules_jvm_external/issues/445
+common --repo_env=JAVA_HOME=../bazel_tools/jdk
+common --action_env=JAVA_HOME=../bazel_tools/jdk
+
 # Define value used by tests
 common --define=SOME_VAR=SOME_VALUE
 
@@ -17,7 +25,9 @@ common --per_file_copt=external/.*protobuf.*@--PROTOBUF_WAS_NOT_SUPPOSED_TO_BE_B
 common --host_per_file_copt=external/.*protobuf.*@--PROTOBUF_WAS_NOT_SUPPOSED_TO_BE_BUILT
 
 # Don't try and auto detect the cc toolchain, as we use our own gcc toolchains.
-common --repo_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
+# Except on windows, where we use msvc
+common:linux --repo_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
+common:macos --repo_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
 
 # Don't link against libunwind on macos as it causes linking failures (https://github.com/bazel-contrib/toolchains_llvm/pull/346)
 common:macos --@toolchains_llvm//toolchain/config:libunwind=False

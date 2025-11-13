@@ -31,3 +31,10 @@ release(
     name = "release",
     targets = [":bins"],
 )
+
+# multi_arch_rust_binary_release(
+#     name = "windows",
+#     src = ":venv",
+#     os = "windows",
+#     visibility = ["//tools/release:__pkg__"],
+# )

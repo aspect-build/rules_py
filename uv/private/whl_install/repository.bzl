@@ -40,7 +40,7 @@ def _select_key(pair):
 
     # FIXME: It'd be WAY better if we could enforce a stronger order here
     platform = platform.split("_")
-    if platform[0] in ["manylinux", "musllinux", "macosx"]:
+    if platform[0] in ["manylinux", "musllinux", "macosx", "win32"]:
         platform = (int(platform[1]), int(platform[2]))
     else:
         # Really case of windows; potential BSD issues?

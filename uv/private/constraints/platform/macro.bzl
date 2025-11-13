@@ -103,6 +103,16 @@ def generate_macos(visibility):
                     visibility = visibility,
                 )
 
+def generate_windows(visibility):
+    selects.config_setting_group(
+        name = "win_amd64",
+        match_all = [
+            "@platforms//os:windows",
+            "@platforms//cpu:x86_64",
+        ],
+        visibility = visibility,
+    )
+
 # buildifier: disable=unnamed-macro
 # buildifier: disable=function-docstring
 def generate_manylinux(visibility):
@@ -224,3 +234,4 @@ def generate(visibility):
     generate_macos(visibility = visibility)
     generate_manylinux(visibility = visibility)
     generate_musllinux(visibility = visibility)
+    generate_windows(visibility = visibility)
