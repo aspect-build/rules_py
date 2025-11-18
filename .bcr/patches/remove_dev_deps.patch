@@ -1,5 +1,5 @@
---- a/MODULE.bazel	2025-11-08 19:15:08
-+++ b/MODULE.bazel	2025-11-08 19:15:08
+--- a/MODULE.bazel	2025-11-17 02:33:20.184254871 +0000
++++ b/MODULE.bazel	2025-11-17 02:33:20.184254871 +0000
 @@ -40,558 +40,3 @@
  # HACK: In prod the includer's patch inserts the use_repo for multitool. This
  # solves the problem of needing a use_repo here in prod and below in dev.
@@ -435,7 +435,7 @@
 -oci = use_extension("@rules_oci//oci:extensions.bzl", "oci", dev_dependency = True)
 -oci.pull(
 -    name = "ubuntu",
--    digest = "sha256:66460d557b25769b102175144d538d88219c077c678a49af4afca6fbfc1b5252",
+-    digest = "sha256:c35e29c9450151419d9448b0fd75374fec4fff364a27f176fb458d472dfc9e54",
 -    image = "public.ecr.aws/docker/library/ubuntu",
 -    platforms = [
 -        "linux/arm64/v8",

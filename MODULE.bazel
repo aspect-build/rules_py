@@ -471,7 +471,7 @@ bazel_dep(name = "rules_oci", version = "2.2.6", dev_dependency = True)
 oci = use_extension("@rules_oci//oci:extensions.bzl", "oci", dev_dependency = True)
 oci.pull(
     name = "ubuntu",
-    digest = "sha256:66460d557b25769b102175144d538d88219c077c678a49af4afca6fbfc1b5252",
+    digest = "sha256:c35e29c9450151419d9448b0fd75374fec4fff364a27f176fb458d472dfc9e54",
     image = "public.ecr.aws/docker/library/ubuntu",
     platforms = [
         "linux/arm64/v8",
