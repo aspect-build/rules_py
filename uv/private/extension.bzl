@@ -513,7 +513,7 @@ def _sbuild_repo_name(hub, venv, package):
         hub,
         venv,
         package["name"],
-        package["version"],
+        package["sdist"]["hash"][len("sha256:"):][:8],
     )
 
 def _venv_target(hub_name, venv, package_name):
@@ -564,11 +564,20 @@ def _sbuild_repos(_module_ctx, lock_specs, annotation_specs, override_specs):
 def _whl_install_repo_name(hub, venv, package):
     """Get the whl install repo name for a given package."""
 
+    # Prefer sdist hash for consistency, fall back to first wheel hash
+    if "sdist" in package:
+        hash_val = package["sdist"]["hash"][len("sha256:"):][:8]
+    elif "wheels" in package and package["wheels"]:
+        hash_val = package["wheels"][0]["hash"][len("sha256:"):][:8]
+    else:
+        # This should never happen based on lockfile validation, but be defensive
+        hash_val = sha1("{}__{}__{}".format(hub, venv, package["name"]))[:8]
+
     return "whl_install__{}__{}__{}__{}".format(
         hub,
         venv,
         package["name"],
-        package["version"],
+        hash_val,
     )
 
 # TODO: Move this to a real library
