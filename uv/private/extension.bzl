@@ -509,10 +509,11 @@ def _raw_whl_repos(_module_ctx, lock_specs, override_specs):
 def _sbuild_repo_name(hub, venv, package):
     """Get the repo name for a sdist build."""
 
-    return "sbuild__{}__{}__{}".format(
+    return "sbuild__{}__{}__{}__{}".format(
         hub,
         venv,
         package["name"],
+        package["version"],
     )
 
 def _venv_target(hub_name, venv, package_name):
@@ -563,10 +564,11 @@ def _sbuild_repos(_module_ctx, lock_specs, annotation_specs, override_specs):
 def _whl_install_repo_name(hub, venv, package):
     """Get the whl install repo name for a given package."""
 
-    return "whl_install__{}__{}__{}".format(
+    return "whl_install__{}__{}__{}__{}".format(
         hub,
         venv,
         package["name"],
+        package["version"],
     )
 
 # TODO: Move this to a real library
