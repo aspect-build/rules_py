@@ -18,7 +18,7 @@ use_repo(oci, "ubuntu", "ubuntu_linux_amd64", "ubuntu_linux_arm64_v8")
 bazel_dep(name = "container_structure_test", version = "1.19.3", dev_dependency = True)
 git_override(
     module_name = "container_structure_test",
-    commit = "89353131caa8b28f73bb5aa67e91cf5b1b5b5650",
+    commit = "63ee63e15fae64f00b1c1ace1eb5cc99251b9e02",
     remote = "https://github.com/GoogleContainerTools/container-structure-test.git",
 )
 
