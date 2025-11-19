@@ -24,7 +24,7 @@ def _platform(rctx):
 
     if os == "osx":
         res = rctx.execute(["sw_vers", "-productVersion"])
-        ver = res.stdout.split(".")
+        ver = res.stdout.strip().split(".")
         return "libsystem", "{}.{}".format(ver[0], ver[1])
 
     elif os == "linux":
