@@ -38,18 +38,9 @@ def supported_platform(platform_tag):
 # Adapted from rules_python's config_settings.bzl
 MAJOR_MINOR_FLAG = Label("//uv/private/constraints/platform:platform_version")
 
-def is_platform_version_at_least(name, version = None, visibility = None, **kwargs):
-    version = version or name
-    flag_name = "_{}_flag".format(name)
-    native.config_setting(
-        name = name,
-        flag_values = {
-            flag_name: "true",
-        },
-        visibility = visibility,
-    )
+def is_platform_version_at_least(name, version, **kwargs):
     _platform_version_at_least(
-        name = flag_name,
+        name = name,
         at_least = version,
         visibility = ["//visibility:private"],
         **kwargs

@@ -75,18 +75,20 @@ def generate_macos(visibility):
     for major in range(10, 30):
         for minor in range(0, 20):
             name = "is_macos_at_least_{}_{}".format(major, minor)
+            flag_name = "_{}_flag".format(name)
             is_platform_version_at_least(
-                name = name,
+                name = flag_name,
                 version = "{}.{}".format(major, minor),
-                visibility = ["//visibility:private"],
             )
 
             for arch in arches:
-                selects.config_setting_group(
+                native.config_setting(
                     name = "macosx_{}_{}_{}".format(major, minor, arch),
-                    match_all = [
-                        name,
-                        ":is_libsystem",
+                    flag_values = {
+                        flag_name: "true",
+                        ":platform_libc": "libsystem",
+                    },
+                    constraint_values = [
                         "@platforms//os:osx",
                         "@platforms//cpu:{}".format(platform_repo_name_mangling.get(arch, arch)),
                     ],
@@ -136,19 +138,20 @@ def generate_manylinux(visibility):
     # glibc 1.X ran for not that long and was in the 90s
     for major in [2]:
         for minor in range(0, 51):
-            name = "is_glibc_at_least_{}_{}".format(major, minor)
+            flag_name = "is_glibc_at_least_{}_{}".format(major, minor)
             is_platform_version_at_least(
-                name = name,
+                name = flag_name,
                 version = "{}.{}".format(major, minor),
-                visibility = ["//visibility:private"],
             )
 
             for arch in arches:
-                selects.config_setting_group(
+                native.config_setting(
                     name = "manylinux_{}_{}_{}".format(major, minor, arch),
-                    match_all = [
-                        name,
-                        ":is_glibc",
+                    flag_values = {
+                        flag_name: "true",
+                        ":platform_libc": "glibc",
+                    },
+                    constraint_values = [
                         "@platforms//os:linux",
                         "@platforms//cpu:{}".format(platform_repo_name_mangling.get(arch, arch)),
                     ],
@@ -199,19 +202,20 @@ def generate_musllinux(visibility):
         [2, 1],  # Hypothetical
         [2, 2],  # Hypothetical
     ]:
-        name = "is_musl_at_least_{}_{}".format(major, minor)
+        flag_name = "is_musl_at_least_{}_{}".format(major, minor)
         is_platform_version_at_least(
-            name = name,
+            name = flag_name,
             version = "{}.{}".format(major, minor),
-            visibility = ["//visibility:private"],
         )
 
         for arch in arches:
-            selects.config_setting_group(
+            native.config_setting(
                 name = "musllinux_{}_{}_{}".format(major, minor, arch),
-                match_all = [
-                    name,
-                    ":is_musl",
+                flag_values = {
+                    flag_name: "true",
+                    ":platform_libc": "musl",
+                },
+                constraint_values = [
                     "@platforms//os:linux",
                     "@platforms//cpu:{}".format(platform_repo_name_mangling.get(arch, arch)),
                 ],
