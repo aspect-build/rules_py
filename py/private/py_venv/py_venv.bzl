@@ -35,12 +35,9 @@ def _to_rlocation_path(workspace_name, file):
     else:
         return workspace_name + "/" + file.short_path
 
-
 def _interpreter_path(workspace_name, py_toolchain):
     return (
-        _to_rlocation_path(workspace_name, py_toolchain.python)
-        if py_toolchain.runfiles_interpreter
-        else py_toolchain.python.path
+        _to_rlocation_path(workspace_name, py_toolchain.python) if py_toolchain.runfiles_interpreter else py_toolchain.python.path
     )
 
 # FIXME: This is derived directly from the py_binary.bzl rule and should really
@@ -114,8 +111,8 @@ def _py_venv_base_impl(ctx):
     workspace_name = ctx.workspace_name
 
     args = ctx.actions.args()
-    args.add_all([venv_dir], expand_directories = False, format_each="--location=%s")
-    args.add(py_shim.bin.bin, format="--venv-shim=%s")
+    args.add_all([venv_dir], expand_directories = False, format_each = "--location=%s")
+    args.add(py_shim.bin.bin, format = "--venv-shim=%s")
 
     # Post-bzlmod we need to record the current repository in case the
     # user tries to consume a `py_venv_binary` across repo boundaries
@@ -126,9 +123,10 @@ def _py_venv_base_impl(ctx):
     )
     args.add_all(
         [py_toolchain],
-        map_each=lambda py_toolchain: _interpreter_path(workspace_name, py_toolchain),
+        map_each = lambda py_toolchain: _interpreter_path(workspace_name, py_toolchain),
         format_each = "--python=%s",
-        allow_closure = True)
+        allow_closure = True,
+    )
     args.add(site_packages_pth_file, format = "--pth-file=%s")
     args.add(env_file, format = "--env-file=%s")
     args.add(ctx.bin_dir.path, format = "--bin-dir=%s")
