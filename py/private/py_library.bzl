@@ -97,7 +97,7 @@ def _resolve_virtuals(ctx, ignore_missing = False):
         missing = missing,
     )
 
-def _make_import_path(label, workspace, base, imp):
+def _make_import_path(label, workspace, imp):
     if imp.startswith("/"):
         fail(
             "Import path '{imp}' on target {target} is invalid. Absolute paths are not supported.".format(
@@ -106,7 +106,7 @@ def _make_import_path(label, workspace, base, imp):
             ),
         )
 
-    base_segments = base.split("/")
+    base_segments = label.package.split("/")
     path_segments = imp.split("/")
 
     relative_segments = 0
@@ -130,12 +130,11 @@ def _make_import_path(label, workspace, base, imp):
     if imp.startswith(".."):
         return paths.normalize(paths.join(workspace, *(base_segments[0:-relative_segments] + path_segments[relative_segments:])))
     else:
-        return paths.normalize(paths.join(workspace, base, imp))
+        return paths.normalize(paths.join(workspace, label.package, imp))
 
 def _make_imports_depset(ctx, imports = [], extra_imports_depsets = []):
-    base = paths.dirname(ctx.build_file_path)
     import_paths = [
-        _make_import_path(ctx.label, ctx.label.workspace_name or ctx.workspace_name, base, im)
+        _make_import_path(ctx.label, ctx.label.workspace_name or ctx.workspace_name, im)
         for im in getattr(ctx.attr, "imports", imports)
     ] + [
         # Add the workspace name in the imports such that repo-relative imports work.
