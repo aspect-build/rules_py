@@ -1,7 +1,6 @@
 # Rust configuration
 
 bazel_dep(name = "rules_rust", version = "0.67.0")
-bazel_dep(name = "openssl", version = "3.3.1.bcr.6")
 
 RUST_EDITION = "2024"
 
