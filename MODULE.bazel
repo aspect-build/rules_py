@@ -408,7 +408,7 @@ register_toolchains("@rust_toolchains//:all")
 bazel_dep(name = "xz", version = "5.4.5.bcr.5")
 bazel_dep(name = "zstd", version = "1.5.7")
 bazel_dep(name = "bzip2", version = "1.0.8.bcr.2")
-bazel_dep(name = "rules_rs", version = "0.0.7")
+bazel_dep(name = "rules_rs", version = "0.0.16")
 
 crate = use_extension(
     "@rules_rs//rs:extensions.bzl",
@@ -499,7 +499,7 @@ register_toolchains("@bsd_tar_toolchains//:all")
 ########################################
 # from bazel/include/telemetry.MODULE.bazel
 # tools_telemetry
-bazel_dep(name = "aspect_tools_telemetry", version = "0.2.8")
+bazel_dep(name = "aspect_tools_telemetry", version = "0.3.2")
 
 tel = use_extension("@aspect_tools_telemetry//:extension.bzl", "telemetry")
 use_repo(tel, "aspect_tools_telemetry_report")
