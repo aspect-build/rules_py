@@ -38,14 +38,6 @@ def supported_platform(platform_tag):
 # Adapted from rules_python's config_settings.bzl
 MAJOR_MINOR_FLAG = Label("//uv/private/constraints/platform:platform_version")
 
-def is_platform_version_at_least(name, version, **kwargs):
-    _platform_version_at_least(
-        name = name,
-        at_least = version,
-        visibility = ["//visibility:private"],
-        **kwargs
-    )
-
 def _platform_version_at_least_impl(ctx):
     flag_value = ctx.attr._major_minor[BuildSettingInfo].value
 
@@ -58,7 +50,7 @@ def _platform_version_at_least_impl(ctx):
     value = "true" if current >= at_least else "false"
     return [config_common.FeatureFlagInfo(value = value)]
 
-_platform_version_at_least = rule(
+platform_version_at_least = rule(
     implementation = _platform_version_at_least_impl,
     attrs = {
         "at_least": attr.string(mandatory = True),
