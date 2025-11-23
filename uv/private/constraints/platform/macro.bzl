@@ -2,7 +2,6 @@
 
 """
 
-load("@bazel_skylib//lib:selects.bzl", "selects")
 load(":defs.bzl", "is_platform_version_at_least")
 
 ## These are defined but we're ignoring them for now.
@@ -74,34 +73,39 @@ def generate_macos(visibility):
     # Go a bit out into the future there
     for major in range(10, 30):
         for minor in range(0, 20):
-            name = "is_macos_at_least_{}_{}".format(major, minor)
-            flag_name = "_{}_flag".format(name)
+            major_minor = (major, minor)
+            flag_name = "_is_macos_at_least_%s_%s_flat" % major_minor
             is_platform_version_at_least(
                 name = flag_name,
-                version = "{}.{}".format(major, minor),
+                version = "%s.%s" % major_minor,
             )
 
             for arch in arches:
                 native.config_setting(
-                    name = "macosx_{}_{}_{}".format(major, minor, arch),
+                    name = "macosx_%s_%s_%s" % (major, minor, arch),
                     flag_values = {
                         flag_name: "true",
                         ":platform_libc": "libsystem",
                     },
                     constraint_values = [
                         "@platforms//os:osx",
-                        "@platforms//cpu:{}".format(platform_repo_name_mangling.get(arch, arch)),
+                        "@platforms//cpu:" + platform_repo_name_mangling.get(arch, arch),
                     ],
                     visibility = visibility,
                 )
 
             for group, members in arch_groups.items():
-                selects.config_setting_group(
-                    name = "macosx_{}_{}_{}".format(major, minor, group),
-                    match_any = [
-                        ":macosx_{}_{}_{}".format(major, minor, it)
-                        for it in members
-                    ],
+                options = [
+                    ":macosx_%s_%s_%s" % (major, minor, it)
+                    for it in members
+                ]
+
+                branches = {opt: opt for opt in options[:-1]}
+                branches["//conditions:default"] = options[-1]
+
+                native.alias(
+                    name = "macosx_%s_%s_%s" % (major, minor, group),
+                    actual = select(branches),
                     visibility = visibility,
                 )
 
