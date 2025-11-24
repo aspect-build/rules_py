@@ -9,12 +9,14 @@ alias(
     visibility = ["//visibility:public"],
 )
 
-string_flag(
-    name = "venv_strategy",
-    build_setting_default = "dynamic",
-    values = [
-        "dynamic",
-        "static",
-    ],
+alias(
+    name = "link_venv_strategy",
+    actual = "//py/private/link:venv_strategy",
+    visibility = ["//visibility:public"],
+)
+
+alias(
+    name = "linking_strategy",
+    actual = "//py/private/link:linking_strategy",
     visibility = ["//visibility:public"],
 )

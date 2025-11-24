@@ -37,6 +37,13 @@ def py_link_venv(
     if venv_dest != None:
         args = ["--dest=" + venv_dest] + args
 
+    # Default configurable behavior
+    if not venv_name and not venv_dest:
+        args = select({
+            Label(":link_per_package"): ["--dest=$BUILD_WORKING_DIRECTORY/" + native.package(), "--name=.venv"] + args
+            "//conditions:default": args
+        })
+
     binary_rule(
         name = name,
         args = args,

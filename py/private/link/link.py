@@ -45,7 +45,7 @@ if __name__ == "__main__":
     )
     
     opts = PARSER.parse_args()
-    dest = Path(os.path.join(opts.dest, opts.name))
+    dest = Path(os.path.join(os.path.expandvars(opts.dest), opts.name))
     print("""
 
 Linking: {venv_home} -> {venv_path}

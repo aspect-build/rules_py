@@ -38,3 +38,45 @@ config_setting(
         ":venv_strategy": "dynamic",
     },
 )
+
+string_flag(
+    name = "linking_strategy",
+    build_setting_default = "per-package",
+    values = [
+        "per-package",
+        "workspace-root",
+        "workon-root",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "link_to_package",
+    flag_values = {
+        ":linking_strategy": "per-package",
+    },
+)
+
+config_setting(
+    name = "link_to_workspace",
+    flag_values = {
+        ":linking_strategy": "workspace-root",
+    },
+)
+
+config_setting(
+    name = "link_to_workon",
+    flag_values = {
+        ":linking_strategy": "workspace-root",
+    },
+)
+
+string_flag(
+    name = "naming_strategy",
+    build_setting_default = "venv-name",
+    values = [
+        "venv-name", # Respect the virtualenv's name property
+        "dot-venv",  # Use .venv as the name of the link
+    ],
+
+)
