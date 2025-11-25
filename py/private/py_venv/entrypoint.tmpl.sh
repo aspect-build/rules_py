@@ -12,4 +12,4 @@ set -o errexit -o nounset -o pipefail
 
 source "$(rlocation "{{VENV}}")"/bin/activate
 
-exec "$(rlocation "{{VENV}}")"/bin/python {{INTERPRETER_FLAGS}} "$@"
+exec "$(rlocation "{{VENV}}")"/bin/python3 {{INTERPRETER_FLAGS}} "$@"
