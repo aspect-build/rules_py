@@ -1,5 +1,5 @@
---- a/MODULE.bazel	2025-11-22 20:51:10
-+++ b/MODULE.bazel	2025-11-22 20:51:10
+--- a/MODULE.bazel	2025-11-23 11:09:03
++++ b/MODULE.bazel	2025-11-23 11:09:03
 @@ -39,558 +39,4 @@
  
  # HACK: In prod the includer's patch inserts the use_repo for multitool. This
@@ -373,7 +373,7 @@
 -bazel_dep(name = "xz", version = "5.4.5.bcr.5")
 -bazel_dep(name = "zstd", version = "1.5.7")
 -bazel_dep(name = "bzip2", version = "1.0.8.bcr.2")
--bazel_dep(name = "rules_rs", version = "0.0.7")
+-bazel_dep(name = "rules_rs", version = "0.0.15")
 -
 -crate = use_extension(
 -    "@rules_rs//rs:extensions.bzl",
