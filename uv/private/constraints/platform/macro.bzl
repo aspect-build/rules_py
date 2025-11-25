@@ -2,8 +2,7 @@
 
 """
 
-load("@bazel_skylib//lib:selects.bzl", "selects")
-load(":defs.bzl", "is_platform_version_at_least")
+load(":defs.bzl", "platform_version_at_least")
 
 ## These are defined but we're ignoring them for now.
 # android_21_arm64_v8a
@@ -74,32 +73,39 @@ def generate_macos(visibility):
     # Go a bit out into the future there
     for major in range(10, 30):
         for minor in range(0, 20):
-            name = "is_macos_at_least_{}_{}".format(major, minor)
-            is_platform_version_at_least(
-                name = name,
-                version = "{}.{}".format(major, minor),
-                visibility = ["//visibility:private"],
+            major_minor = (major, minor)
+            version_flag = "_is_macos_at_least_%s_%s_flat" % major_minor
+            platform_version_at_least(
+                name = version_flag,
+                at_least = "%s.%s" % major_minor,
             )
 
             for arch in arches:
-                selects.config_setting_group(
-                    name = "macosx_{}_{}_{}".format(major, minor, arch),
-                    match_all = [
-                        name,
-                        ":is_libsystem",
+                native.config_setting(
+                    name = "macosx_%s_%s_%s" % (major, minor, arch),
+                    flag_values = {
+                        version_flag: "true",
+                        ":platform_libc": "libsystem",
+                    },
+                    constraint_values = [
                         "@platforms//os:osx",
-                        "@platforms//cpu:{}".format(platform_repo_name_mangling.get(arch, arch)),
+                        "@platforms//cpu:" + platform_repo_name_mangling.get(arch, arch),
                     ],
                     visibility = visibility,
                 )
 
             for group, members in arch_groups.items():
-                selects.config_setting_group(
-                    name = "macosx_{}_{}_{}".format(major, minor, group),
-                    match_any = [
-                        ":macosx_{}_{}_{}".format(major, minor, it)
-                        for it in members
-                    ],
+                options = [
+                    ":macosx_%s_%s_%s" % (major, minor, it)
+                    for it in members
+                ]
+
+                branches = {opt: opt for opt in options[:-1]}
+                branches["//conditions:default"] = options[-1]
+
+                native.alias(
+                    name = "macosx_%s_%s_%s" % (major, minor, group),
+                    actual = select(branches),
                     visibility = visibility,
                 )
 
@@ -136,19 +142,20 @@ def generate_manylinux(visibility):
     # glibc 1.X ran for not that long and was in the 90s
     for major in [2]:
         for minor in range(0, 51):
-            name = "is_glibc_at_least_{}_{}".format(major, minor)
-            is_platform_version_at_least(
-                name = name,
-                version = "{}.{}".format(major, minor),
-                visibility = ["//visibility:private"],
+            version_flag = "_is_glibc_at_least_{}_{}".format(major, minor)
+            platform_version_at_least(
+                name = version_flag,
+                at_least = "{}.{}".format(major, minor),
             )
 
             for arch in arches:
-                selects.config_setting_group(
+                native.config_setting(
                     name = "manylinux_{}_{}_{}".format(major, minor, arch),
-                    match_all = [
-                        name,
-                        ":is_glibc",
+                    flag_values = {
+                        version_flag: "true",
+                        ":platform_libc": "glibc",
+                    },
+                    constraint_values = [
                         "@platforms//os:linux",
                         "@platforms//cpu:{}".format(platform_repo_name_mangling.get(arch, arch)),
                     ],
@@ -199,19 +206,20 @@ def generate_musllinux(visibility):
         [2, 1],  # Hypothetical
         [2, 2],  # Hypothetical
     ]:
-        name = "is_musl_at_least_{}_{}".format(major, minor)
-        is_platform_version_at_least(
-            name = name,
-            version = "{}.{}".format(major, minor),
-            visibility = ["//visibility:private"],
+        version_flag = "_is_musl_at_least_{}_{}".format(major, minor)
+        platform_version_at_least(
+            name = version_flag,
+            at_least = "{}.{}".format(major, minor),
         )
 
         for arch in arches:
-            selects.config_setting_group(
+            native.config_setting(
                 name = "musllinux_{}_{}_{}".format(major, minor, arch),
-                match_all = [
-                    name,
-                    ":is_musl",
+                flag_values = {
+                    version_flag: "true",
+                    ":platform_libc": "musl",
+                },
+                constraint_values = [
                     "@platforms//os:linux",
                     "@platforms//cpu:{}".format(platform_repo_name_mangling.get(arch, arch)),
                 ],
