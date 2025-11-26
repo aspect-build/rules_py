@@ -75,8 +75,7 @@ string_flag(
     name = "naming_strategy",
     build_setting_default = "venv-name",
     values = [
-        "venv-name", # Respect the virtualenv's name property
+        "venv-name",  # Respect the virtualenv's name property
         "dot-venv",  # Use .venv as the name of the link
     ],
-
 )
