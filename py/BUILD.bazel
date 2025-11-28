@@ -36,6 +36,7 @@ bzl_library(
         "//py/private:virtual",
         "//py/private/py_venv",
         "@aspect_bazel_lib//lib:utils",
+        "@aspect_bazel_lib//lib:windows_utils",
     ],
 )
 

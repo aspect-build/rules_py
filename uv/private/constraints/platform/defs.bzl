@@ -26,13 +26,13 @@ def supported_platform(platform_tag):
     # - `linux_*` which doesn't seem standardized
     # - `android_` which could be supported but we don't have to
     # - `ios_*` which could be supported but we don't have to
-    # - Windows
 
     return (
         platform_tag == "any" or
         platform_tag.startswith("macosx_") or
         platform_tag.startswith("manylinux_") or
         platform_tag.startswith("musllinux_")
+        # platform_tag.startswith("win_")
     )
 
 # Adapted from rules_python's config_settings.bzl

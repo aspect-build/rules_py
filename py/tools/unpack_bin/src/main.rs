@@ -28,5 +28,5 @@ fn unpack_cmd_handler(args: UnpackArgs) -> miette::Result<()> {
 
 fn main() -> miette::Result<()> {
     let args = UnpackArgs::parse();
-    unpack_cmd_handler(args).wrap_err("Unable to run command:")
+    unpack_cmd_handler(args).wrap_err("Unable to run command (unpack):")
 }
