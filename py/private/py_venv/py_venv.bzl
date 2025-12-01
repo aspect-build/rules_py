@@ -129,7 +129,7 @@ def _py_venv_base_impl(ctx):
     )
     args.add(site_packages_pth_file, format = "--pth-file=%s")
     args.add(env_file, format = "--env-file=%s")
-    args.add(ctx.bin_dir.path, format = "--bin-dir=%s")
+    args.add_all([ctx.bin_dir], expand_directories = False, format_each = "--bin-dir=%s")
     args.add(ctx.attr.package_collisions, format = "--collision-strategy=%s")
     args.add(venv_name, format = "--venv-name=%s")
     args.add(ctx.attr.mode, format = "--mode=%s")
