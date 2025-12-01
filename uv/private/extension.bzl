@@ -37,11 +37,9 @@ Relies on the lockfile to enumerate:
 
 # Note that platform constraints are specified by markers in the lockfile, they cannot be explicitly specified.
 
-# FIXME: Need to add package name sanitization/mangling
-# https://github.com/bazel-contrib/rules_python/blob/main/python/private/normalize_name.bzl
-
 # FIXME: Need to explicitly test a lockfile with platform-conditional deps (tensorflow cpu vs gpu mac/linux)
 
+load("@bazel_features//:features.bzl", features = "bazel_features")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 load("//uv/private/constraints:repository.bzl", "configurations_hub")
 load("//uv/private/constraints/platform:defs.bzl", "supported_platform")
@@ -867,10 +865,6 @@ def _uv_impl(module_ctx):
 
     """
 
-    # Set the reproducible bit for this repo. This at least reduces how much
-    # junk we dump into the lockfile.
-    module_ctx.extension_metadata(reproducible = True)
-
     hub_specs = _parse_hubs(module_ctx)
 
     venv_specs = _parse_venvs(module_ctx, hub_specs)
@@ -916,6 +910,9 @@ def _uv_impl(module_ctx):
         name = "aspect_rules_py_pip_configurations",
         configurations = configurations,
     )
+
+    if features.external_deps.extension_metadata_has_reproducible:
+        return module_ctx.extension_metadata(reproducible = True)
 
 _hub_tag = tag_class(
     attrs = {

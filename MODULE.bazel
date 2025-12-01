@@ -7,6 +7,7 @@ module(
 
 # TODO(arrdem): Consolidate on just needing the one bazel_lib
 bazel_dep(name = "aspect_bazel_lib", version = "2.21.2")
+bazel_dep(name = "bazel_features", version = "1.38.0")
 bazel_dep(name = "bazel_lib", version = "3.0.0")
 bazel_dep(name = "bazel_skylib", version = "1.4.2")
 bazel_dep(name = "platforms", version = "1.0.0")
@@ -456,7 +457,6 @@ use_repo(crate, "crates")
 # from bazel/include/test.MODULE.bazel
 # TODO: Replace with bazel_features?
 # cf. https://github.com/bazel-contrib/bazelrc-preset.bzl/blob/main/MODULE.bazel#L8C1-L10C70
-bazel_dep(name = "bazel_features", version = "1.0.0")
 bazel_dep(name = "rules_shell", version = "0.6.1")
 
 version = use_extension("@bazel_features//private:extensions.bzl", "version_extension")

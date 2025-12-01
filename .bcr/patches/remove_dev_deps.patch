@@ -1,10 +1,9 @@
---- a/MODULE.bazel	2025-11-22 20:51:10
-+++ b/MODULE.bazel	2025-11-22 20:51:10
-@@ -39,558 +39,4 @@
- 
+--- a/MODULE.bazel	2025-12-01 15:38:57
++++ b/MODULE.bazel	2025-12-01 15:38:57
+@@ -41,556 +41,3 @@
  # HACK: In prod the includer's patch inserts the use_repo for multitool. This
  # solves the problem of needing a use_repo here in prod and below in dev.
--
+ 
 -################################################################################
 -# Dev deps
 -#
@@ -284,7 +283,7 @@
 -    target_triple = "x86_64-unknown-linux-musl",
 -    versions = [RUST_VERSION],  # "versions" only set in first instance of "rust_darwin_x86_64" repository_set (see comment above)
 -)
- 
+-
 -# -> linux arm (musl)
 -rust.repository_set(
 -    name = "rust_darwin_x86_64",
@@ -421,7 +420,6 @@
 -# from bazel/include/test.MODULE.bazel
 -# TODO: Replace with bazel_features?
 -# cf. https://github.com/bazel-contrib/bazelrc-preset.bzl/blob/main/MODULE.bazel#L8C1-L10C70
--bazel_dep(name = "bazel_features", version = "1.0.0")
 -bazel_dep(name = "rules_shell", version = "0.6.1")
 -
 -version = use_extension("@bazel_features//private:extensions.bzl", "version_extension")
