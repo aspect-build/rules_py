@@ -20,6 +20,7 @@ Vendored and used here with thanks.
 """
 
 load("@rules_python//python/private:enum.bzl", "enum")
+load(":semver.bzl", "semver")
 
 # The expression parsing and resolution for the PEP508 is below
 #
@@ -499,101 +500,4 @@ def _or_expr(self):
         append = _append,
         # private fields that help debugging
         _maybe_value = maybe_value,
-    )
-
-def _key(version):
-    return (
-        version.major,
-        version.minor or 0,
-        version.patch or 0,
-        # non pre-release versions are higher
-        version.pre_release == "",
-        # then we compare each element of the pre_release tag separately
-        tuple([
-            (
-                i if not i.isdigit() else "",
-                # digit values take precedence
-                int(i) if i.isdigit() else 0,
-            )
-            for i in version.pre_release.split(".")
-        ]) if version.pre_release else None,
-        # And build info is just alphabetic
-        version.build,
-    )
-
-def _to_dict(self):
-    return {
-        "build": self.build,
-        "major": self.major,
-        "minor": self.minor,
-        "patch": self.patch,
-        "pre_release": self.pre_release,
-    }
-
-def _upper(self):
-    major = self.major
-    minor = self.minor
-    patch = self.patch
-    build = ""
-    pre_release = ""
-    version = self.str()
-
-    if patch != None:
-        minor = minor + 1
-        patch = 0
-    elif minor != None:
-        major = major + 1
-        minor = 0
-    elif minor == None:
-        major = major + 1
-
-    return _new(
-        major = major,
-        minor = minor,
-        patch = patch,
-        build = build,
-        pre_release = pre_release,
-        version = "~" + version,
-    )
-
-def _new(*, major, minor, patch, pre_release, build, version = None):
-    # buildifier: disable=uninitialized
-    self = struct(
-        major = int(major),
-        minor = None if minor == None else int(minor),
-        # NOTE: this is called `micro` in the Python interpreter versioning scheme
-        patch = None if patch == None else int(patch),
-        pre_release = pre_release,
-        build = build,
-        # buildifier: disable=uninitialized
-        key = lambda: _key(self),
-        str = lambda: version,
-        to_dict = lambda: _to_dict(self),
-        upper = lambda: _upper(self),
-    )
-    return self
-
-def semver(version):
-    """Parse the semver version and return the values as a struct.
-
-    Args:
-        version: {type}`str` the version string.
-
-    Returns:
-        A {type}`struct` with `major`, `minor`, `patch` and `build` attributes.
-    """
-
-    # Implement the https://semver.org/ spec
-    major, _, tail = version.partition(".")
-    minor, _, tail = tail.partition(".")
-    patch, _, build = tail.partition("+")
-    patch, _, pre_release = patch.partition("-")
-
-    return _new(
-        major = int(major),
-        minor = int(minor) if minor.isdigit() else None,
-        patch = int(patch) if patch.isdigit() else None,
-        build = build,
-        pre_release = pre_release,
-        version = version,
     )
