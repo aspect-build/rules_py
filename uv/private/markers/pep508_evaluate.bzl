@@ -20,7 +20,7 @@ Vendored and used here with thanks.
 """
 
 load("@rules_python//python/private:enum.bzl", "enum")
-load("@rules_python//python/private:semver.bzl", "semver")
+load(":semver.bzl", "semver")
 
 # The expression parsing and resolution for the PEP508 is below
 #
