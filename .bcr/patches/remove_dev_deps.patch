@@ -1,5 +1,5 @@
---- a/MODULE.bazel	2025-12-02 11:22:18
-+++ b/MODULE.bazel	2025-12-02 11:22:18
+--- a/MODULE.bazel	2025-12-02 11:22:35
++++ b/MODULE.bazel	2025-12-02 11:22:35
 @@ -45,548 +45,4 @@
  
  # HACK: In prod the includer's patch inserts the use_repo for multitool. This

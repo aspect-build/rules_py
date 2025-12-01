@@ -38,7 +38,7 @@ use_repo(
 host = use_extension("//uv/private/host:extension.bzl", "host_platform")
 use_repo(host, "aspect_rules_py_uv_host")
 
-bazel_dep(name = "aspect_tools_telemetry", version = "0.3.0")
+bazel_dep(name = "aspect_tools_telemetry", version = "0.3.2")
 
 tel = use_extension("@aspect_tools_telemetry//:extension.bzl", "telemetry")
 use_repo(tel, "aspect_tools_telemetry_report")
