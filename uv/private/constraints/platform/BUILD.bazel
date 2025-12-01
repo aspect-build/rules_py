@@ -31,12 +31,12 @@ selects.config_setting_group(
     visibility = ["//visibility:public"],
 )
 
-selects.config_setting_group(
+alias(
     name = "glibc_or_musl",
-    match_any = [
-        ":is_glibc",
-        ":is_musl",
-    ],
+    actual = select({
+        ":is_glibc": ":is_glibc",
+        "//conditions:default": ":is_musl",
+    }),
     visibility = ["//visibility:public"],
 )
 
@@ -90,34 +90,34 @@ alias(
 )
 
 # https://packaging.python.org/en/latest/specifications/platform-compatibility-tags/#manylinux
-selects.config_setting_group(
+alias(
     name = "manylinux1",
-    match_any = [
-        ":manylinux_2_5_x86_64",
-        ":manylinux_2_5_i686",
-    ],
+    actual = select({
+        ":manylinux_2_5_x86_64": ":manylinux_2_5_x86_64",
+        "//conditions:default": ":manylinux_2_5_i686",
+    }),
     visibility = ["//visibility:public"],
 )
 
-selects.config_setting_group(
+alias(
     name = "manylinux2010",
-    match_any = [
-        ":manylinux_2_12_x86_64",
-        ":manylinux_2_12_i686",
-    ],
+    actual = select({
+        ":manylinux_2_12_x86_64": ":manylinux_2_12_x86_64",
+        "//conditions:default": ":manylinux_2_12_i686",
+    }),
     visibility = ["//visibility:public"],
 )
 
-selects.config_setting_group(
+alias(
     name = "manylinux2014",
-    match_any = [
-        ":manylinux_2_17_x86_64",
-        ":manylinux_2_17_i686",
-        ":manylinux_2_17_aarch64",
-        ":manylinux_2_17_armv7l",
-        ":manylinux_2_17_ppc64",
-        ":manylinux_2_17_ppc64le",
-        ":manylinux_2_17_s390x",
-    ],
+    actual = select({
+        ":manylinux_2_17_x86_64": ":manylinux_2_17_x86_64",
+        ":manylinux_2_17_i686": ":manylinux_2_17_i686",
+        ":manylinux_2_17_aarch64": ":manylinux_2_17_aarch64",
+        ":manylinux_2_17_armv7l": ":manylinux_2_17_armv7l",
+        ":manylinux_2_17_ppc64": ":manylinux_2_17_ppc64",
+        ":manylinux_2_17_ppc64le": ":manylinux_2_17_ppc64le",
+        "//conditions:default": ":manylinux_2_17_s390x",
+    }),
     visibility = ["//visibility:public"],
 )
