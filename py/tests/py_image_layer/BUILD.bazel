@@ -4,6 +4,11 @@ load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load")
 load("//py:defs.bzl", "py_binary", "py_image_layer")
 load("asserts.bzl", "assert_tar_listing")
 
+not_windows = select({
+    "@platforms//os:windows": ["@platforms//:incompatible"],
+    "//conditions:default": [],
+})
+
 platform(
     name = "aarch64_linux",
     constraint_values = [
@@ -39,6 +44,7 @@ platform_transition_filegroup(
     name = "platform_layers",
     srcs = [":my_app_layers"],
     target_platform = ":x86_64_linux",
+    target_compatible_with = not_windows,
 )
 
 # FIXME(Bazel 8+): This listing needs to be updated/
@@ -64,6 +70,7 @@ platform_transition_filegroup(
         "@platforms//cpu:arm64": ":aarch64_linux",
         "@platforms//cpu:x86_64": ":x86_64_linux",
     }),
+    target_compatible_with = not_windows,
 )
 
 # To build the image and load it into it into a local runtime:
@@ -79,6 +86,7 @@ platform_transition_filegroup(
     name = "amd64_image",
     srcs = [":image"],
     target_platform = ":x86_64_linux",
+    target_compatible_with = not_windows,
 )
 
 container_structure_test(

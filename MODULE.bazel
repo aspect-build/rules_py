@@ -14,6 +14,12 @@ bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "rules_python", version = "1.0.0")
 bazel_dep(name = "with_cfg.bzl", version = "0.11.0")
 
+python_stdlib_list = use_extension("@rules_python//python:extensions.bzl", "python_stdlib_list")
+use_repo(
+    python_stdlib_list,
+    "python_stdlib_list",
+)
+
 tools = use_extension("//py:extensions.bzl", "py_tools")
 tools.rules_py_tools()
 use_repo(tools, "rules_py_tools")
@@ -31,8 +37,10 @@ use_repo(
     toml,
     "toml2json_aarch64_linux_gnu",
     "toml2json_aarch64_osx_libsystem",
+    "toml2json_aarch64_windows_msvc",
     "toml2json_x86_64_linux_gnu",
     "toml2json_x86_64_osx_libsystem",
+    "toml2json_x86_64_windows_msvc",
 )
 
 host = use_extension("//uv/private/host:extension.bzl", "host_platform")
@@ -409,7 +417,7 @@ register_toolchains("@rust_toolchains//:all")
 bazel_dep(name = "xz", version = "5.4.5.bcr.5")
 bazel_dep(name = "zstd", version = "1.5.7")
 bazel_dep(name = "bzip2", version = "1.0.8.bcr.2")
-bazel_dep(name = "rules_rs", version = "0.0.7")
+bazel_dep(name = "rules_rs", version = "0.0.13")
 
 crate = use_extension(
     "@rules_rs//rs:extensions.bzl",

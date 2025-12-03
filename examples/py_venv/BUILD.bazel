@@ -4,6 +4,11 @@ load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load")
 load("//py:defs.bzl", "py_image_layer")
 load("//py/unstable:defs.bzl", "py_venv", "py_venv_binary")
 
+not_windows = select({
+    "@platforms//os:windows": ["@platforms//:incompatible"],
+    "//conditions:default": [],
+})
+
 expand_template(
     name = "stamped",
     stamp_substitutions = {
@@ -82,10 +87,12 @@ platform_transition_filegroup(
         "@platforms//cpu:arm64": ":aarch64_linux",
         "@platforms//cpu:x86_64": ":x86_64_linux",
     }),
+    target_compatible_with = not_windows,
 )
 
 oci_load(
     name = "load",
     image = ":platform_image",
     repo_tags = ["py_venv_example:latest"],
+    target_compatible_with = not_windows,
 )
