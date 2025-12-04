@@ -412,7 +412,7 @@ register_toolchains("@rust_toolchains//:all")
 
 bazel_dep(name = "xz", version = "5.4.5.bcr.5")
 bazel_dep(name = "zstd", version = "1.5.7")
-bazel_dep(name = "bzip2", version = "1.0.8.bcr.2")
+bazel_dep(name = "bzip2", version = "1.0.8.bcr.3")
 bazel_dep(name = "rules_rs", version = "0.0.7")
 
 crate = use_extension(
