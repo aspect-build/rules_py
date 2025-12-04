@@ -24,7 +24,7 @@ itertools = "0.13.0"
 miette = { version = "7.2", features = ["fancy"] }
 tempfile = "3.13.0"
 thiserror = "1.0.64"
-uv-cache = { git = "https://github.com/astral-sh/uv", rev = "855c1917e1e0e2b48c38de71bebc845af016afae" }
+uv-cache = { git = "https://github.com/astral-sh/uv", rev = "d3cd94ecaf640deacc8d8882b4dd305031e65016" }
 uv-distribution-filename = { git = "https://github.com/astral-sh/uv.git", rev = "855c1917e1e0e2b48c38de71bebc845af016afae" }
 uv-extract = { git = "https://github.com/astral-sh/uv.git", rev = "855c1917e1e0e2b48c38de71bebc845af016afae" }
 uv-install-wheel = { git = "https://github.com/astral-sh/uv", rev = "855c1917e1e0e2b48c38de71bebc845af016afae" }
