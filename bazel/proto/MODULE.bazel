@@ -1,6 +1,6 @@
 bazel_dep(name = "rules_proto", version = "7.1.0")
 bazel_dep(name = "bazel", version = "0.0.0")
-bazel_dep(name = "googleapis", version = "0.0.0-20250604-de157ca3")
+bazel_dep(name = "googleapis", version = "0.0.0-20251127-8cd3749f")
 
 archive_override(
     module_name = "bazel",
