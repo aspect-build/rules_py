@@ -173,6 +173,8 @@ def _py_venv_rule_impl(ctx):
 
     # TODO: Zip output group to allow for bypassing filtering et. all
 
+    print(ctx.label, rfs)
+
     return [
         DefaultInfo(
             files = depset([

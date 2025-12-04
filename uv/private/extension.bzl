@@ -219,7 +219,7 @@ def _parse_locks(module_ctx, venv_specs):
                             d["name"] = normalize_name(d["name"])
 
             problems = []
-            has_tools = "build" in req_whls and "setuptools" in req_whls
+            has_tools = "build" in req_whls and "setuptools" in req_whls and "wheel" in req_whls
             for req, whls in req_whls.items():
                 if not whls and not has_tools:
                     problems.append(req)
@@ -227,8 +227,8 @@ def _parse_locks(module_ctx, venv_specs):
             if problems:
                 fail("""Error in lockfile {lockfile}
 
-The requirements `build` and `setuptools` are missing from, but the following requirements only provide sdists.
-Please update your lockfile to provide build tools in order to enable sdist support.
+The requirements `build`, `setuptools` or `wheel` are missing, but the following requirements only provide sdists.
+Please update your lockfile to provide these build tools in order to enable sdist support.
 
 Problems:
 {problems}""".format(
@@ -249,6 +249,7 @@ _default_annotations = struct(
     default_build_deps = [
         {"name": "setuptools"},
         {"name": "build"},
+        {"name": "wheel"},
     ],
 )
 
@@ -309,6 +310,10 @@ def _parse_annotations(module_ctx, hub_specs, venv_specs):
 
                 if package["name"] in annotation_specs[ann.hub_name][ann.venv_name].per_package:
                     fail("Annotation conflict! Package %s is annotated in venv %s multiple times!" % (package["name"], ann.venv_name))
+
+                if "build-dependencies" in package:
+                    for it in package["build-dependencies"]:
+                        it["name"] = normalize_name(it["name"])
 
                 annotation_specs[ann.hub_name][ann.venv_name].per_package[package["name"]] = package
 

@@ -45,7 +45,9 @@ def _sdist_build(ctx):
     )
 
     venv = ctx.attr.venv
+
     # print(venv[VirtualenvInfo], venv[DefaultInfo])
+    print(venv[DefaultInfo].files_to_run)
 
     # Options here:
     # 1. `python3 -m build` which requires the build library and works generally
@@ -64,11 +66,13 @@ def _sdist_build(ctx):
         ],
         inputs = [
             unpacked_sdist,
-            venv[VirtualenvInfo].home,
             ctx.file._helper,
-        ] + py_toolchain.files.to_list() + ctx.attr.venv[DefaultInfo].files.to_list(),
+        ],
         outputs = [
             wheel_dir,
+        ],
+        tools = [
+            venv[DefaultInfo].files_to_run,
         ],
     )
 
