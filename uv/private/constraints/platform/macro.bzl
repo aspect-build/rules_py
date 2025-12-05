@@ -114,20 +114,6 @@ def generate_macos(visibility):
 def generate_manylinux(visibility):
     # https://packaging.python.org/en/latest/specifications/platform-compatibility-tags/#manylinux
 
-    ## These are long obsolete manylinux wheel formats we're ignoring.
-    ## Hopefully we can just ignore that....
-    # manylinux1_i686
-    # manylinux1_x86_64
-    # manylinux2010_i686
-    # manylinux2010_x86_64
-    # manylinux2014_aarch64
-    # manylinux2014_armv7l
-    # manylinux2014_i686
-    # manylinux2014_ppc64
-    # manylinux2014_ppc64le
-    # manylinux2014_s390x
-    # manylinux2014_x86_64
-
     arches = [
         "x86_64",
         "i686",
