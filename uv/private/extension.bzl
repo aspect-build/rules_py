@@ -310,6 +310,10 @@ def _parse_annotations(module_ctx, hub_specs, venv_specs):
                 if package["name"] in annotation_specs[ann.hub_name][ann.venv_name].per_package:
                     fail("Annotation conflict! Package %s is annotated in venv %s multiple times!" % (package["name"], ann.venv_name))
 
+                if "build-dependencies" in package:
+                    for it in package["build-dependencies"]:
+                        it["name"] = normalize_name(it["name"])
+
                 annotation_specs[ann.hub_name][ann.venv_name].per_package[package["name"]] = package
 
     return annotation_specs
