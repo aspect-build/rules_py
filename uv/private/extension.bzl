@@ -73,10 +73,13 @@ def _ignored_package(package):
     # FIXME: Git URLs?
     # FIXME: Egg URLs?
     #
-    # These seem to be used by the package itself
-    # - { source = { editable = "." } }
+    # These seem to be used by the package source
+    # - { itself = { editable = "." } }
     # - { source = { virtual = "." } }
     if "virtual" in package["source"] and package["source"]["virtual"] == ".":
+        return True
+
+    if "editable" in package["source"] and package["source"]["editable"] == ".":
         return True
 
     return False
