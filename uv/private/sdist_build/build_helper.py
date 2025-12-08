@@ -5,6 +5,7 @@ import shutil
 import sys
 from os import getenv, listdir, path
 from subprocess import check_call
+from hashlib import sha1
 
 # Under Bazel, the source dir of a sdist to build is immutable. `build` and
 # other tools however are constitutionally incapable of not writing to the
@@ -23,6 +24,8 @@ opts, args = PARSER.parse_known_args()
 
 t = getenv("TMPDIR")  # Provided by Bazel
 
+t = path.join(t, sha1(opts.srcdir.encode()).hexdigest())
+
 # Dirty awful way to prevent permissions from being replicated
 shutil.copystat = lambda x, y, **k: None
 shutil.copytree(opts.srcdir, t, dirs_exist_ok=True)
@@ -37,9 +40,8 @@ try:
         "--no-isolation",
         "--outdir", outdir,
     ], cwd=t)
+except Exception as e:
+    shutil.rmtree(t)
+    raise e
 finally:
     print(listdir(outdir), file=sys.stderr)
-
-if not listdir(outdir):
-    print("Failed to build!", file=sys.stderr)
-    exit(1)
