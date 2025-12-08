@@ -6,6 +6,7 @@ without binding them to a particular version of that package.
 
 load("@bazel_skylib//lib:new_sets.bzl", "sets")
 load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private:providers.bzl", "PyVirtualInfo")
 
