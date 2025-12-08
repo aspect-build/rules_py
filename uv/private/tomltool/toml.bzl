@@ -52,13 +52,14 @@ def _translate_libc(repository_ctx):
 
     return None
 
-def _decode_file(ctx, content_path):
-    # Note that ctx is either the repository_ctx or maybe the module_ctx
-    arch = _translate_cpu(ctx.os.arch)
-    os = _translate_os(ctx.os.name)
-    libc = _translate_libc(ctx)
+def _decode_file(module_ctx, content_path):
+    arch = _translate_cpu(module_ctx.os.arch)
+    os = _translate_os(module_ctx.os.name)
+    libc = _translate_libc(module_ctx)
 
-    out = ctx.execute(
+    module_ctx.watch(content_path)
+
+    out = module_ctx.execute(
         [
             Label("@toml2json_{}_{}_{}//file:downloaded".format(arch, os, libc)),
             content_path,
