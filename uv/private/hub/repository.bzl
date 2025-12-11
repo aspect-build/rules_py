@@ -73,7 +73,7 @@ config_setting(
     flag_values = {{
         "@aspect_rules_py//uv/private/constraints/venv:venv": "{0}",
     }},
-    visibility = ["//:__subpackages__"],
+    visibility = ["//visibility:public"],  # So that compatible_with is usable from other repos
 )
 """.format(name),
         )
@@ -99,7 +99,7 @@ def compatible_with(venvs, extra_constraints = []):
       fail("Errant virtualenv reference %r" % v)
 
   return {{
-    ("@@" + _repo + "//venv:" + it): extra_constraints
+    Label("//venv:" + it): extra_constraints
     for it in venvs
   }} | {{
     "//conditions:default": ["@platforms//:incompatible"],
@@ -111,7 +111,7 @@ def incompatible_with(venvs, extra_constraints = []):
       fail("Errant virtualenv reference %r" % v)
 
   return {{
-    ("@@" + _repo + "//venv:" + it): ["@platforms//:incompatible"]
+    Label("//venv:" + it): ["@platforms//:incompatible"]
     for it in venvs
   }} | {{
     "//conditions:default": extra_constraints,
