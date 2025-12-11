@@ -14,12 +14,11 @@ bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "rules_python", version = "1.0.0")
 bazel_dep(name = "with_cfg.bzl", version = "0.11.0")
 bazel_dep(name = "rules_cc", version = "0.2.11")
-
 single_version_override(
     module_name = "rules_cc",
-    version = "0.2.11",
-    patches = ["//bazel/patches:rules_cc_visibility.patch"],
     patch_strip = 1,
+    patches = ["//bazel/patches:rules_cc_visibility.patch"],
+    version = "0.2.11",
 )
 
 tools = use_extension("//py:extensions.bzl", "py_tools")
@@ -90,17 +89,18 @@ bazel_dep(name = "toolchains_llvm_bootstrapped", version = "0.2.5", dev_dependen
 archive_override(
     module_name = "toolchains_llvm_bootstrapped",
     integrity = "sha256-eFiVi7+nC2ILQZSs2U1qUf1ocY6AtvR0CDrEKyjnHPY=",
-    strip_prefix = "toolchains_llvm_bootstrapped-36b46cebf6b738b5c2ab653291176d5a9bfe0fe1",
-    urls = ["https://github.com/cerisier/toolchains_llvm_bootstrapped/archive/36b46cebf6b738b5c2ab653291176d5a9bfe0fe1/master.tar.gz"],
     patch_strip = 1,
     patches = [
         "//bazel/patches:llvm_darwin_sysroot.patch",
     ],
+    strip_prefix = "toolchains_llvm_bootstrapped-36b46cebf6b738b5c2ab653291176d5a9bfe0fe1",
+    urls = ["https://github.com/cerisier/toolchains_llvm_bootstrapped/archive/36b46cebf6b738b5c2ab653291176d5a9bfe0fe1/master.tar.gz"],
 )
 
 register_toolchains(
     "@toolchains_llvm_bootstrapped//toolchain:all",
 )
+
 ########################################
 # from bazel/include/rust.MODULE.bazel
 # Rust configuration
@@ -113,15 +113,14 @@ rust = use_extension(
 )
 rust.toolchain(
     edition = "2024",
-    versions = ["1.88.0"],
     extra_target_triples = [
         "aarch64-apple-darwin",
         "x86_64-apple-darwin",
         "aarch64-unknown-linux-musl",
         "x86_64-unknown-linux-musl",
     ],
+    versions = ["1.88.0"],
 )
-
 use_repo(rust, "rust_toolchains")
 
 register_toolchains("@rust_toolchains//:all")

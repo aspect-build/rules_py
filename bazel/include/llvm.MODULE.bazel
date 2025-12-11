@@ -4,12 +4,12 @@ bazel_dep(name = "toolchains_llvm_bootstrapped", version = "0.2.5", dev_dependen
 archive_override(
     module_name = "toolchains_llvm_bootstrapped",
     integrity = "sha256-eFiVi7+nC2ILQZSs2U1qUf1ocY6AtvR0CDrEKyjnHPY=",
-    strip_prefix = "toolchains_llvm_bootstrapped-36b46cebf6b738b5c2ab653291176d5a9bfe0fe1",
-    urls = ["https://github.com/cerisier/toolchains_llvm_bootstrapped/archive/36b46cebf6b738b5c2ab653291176d5a9bfe0fe1/master.tar.gz"],
     patch_strip = 1,
     patches = [
         "//bazel/patches:llvm_darwin_sysroot.patch",
     ],
+    strip_prefix = "toolchains_llvm_bootstrapped-36b46cebf6b738b5c2ab653291176d5a9bfe0fe1",
+    urls = ["https://github.com/cerisier/toolchains_llvm_bootstrapped/archive/36b46cebf6b738b5c2ab653291176d5a9bfe0fe1/master.tar.gz"],
 )
 
 register_toolchains(
