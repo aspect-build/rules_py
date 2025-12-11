@@ -1,0 +1,21 @@
+[project]
+name = "googlemaps-test"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+dependencies = [
+    "googlemaps>=4.10.0",
+]
+
+[project.optional-dependencies]
+build = [
+    "pip",
+    "build",
+    "setuptools",
+    "wheel",
+]
+
+[dependency-groups]
+googlemaps = [
+    "googlemaps-test[build]",
+]

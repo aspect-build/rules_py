@@ -136,4 +136,17 @@ uv.override_package(
 )
 # }}}
 
+# For cases/uv-legacy-deps-750
+# {{{
+uv.project(
+    hub_name = "pypi",
+    pyproject = "//cases/uv-legacy-deps-750:pyproject.toml",
+    lock = "//cases/uv-legacy-deps-750:uv.lock",
+)
+uv.unstable_annotate_packages(
+    lock = "//cases/uv-legacy-deps-750:uv.lock",
+    src = "//cases/uv-legacy-deps-750:annotations.toml",
+)
+# }}}
+
 use_repo(uv, "pypi")
