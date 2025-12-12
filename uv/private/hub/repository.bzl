@@ -214,7 +214,7 @@ alias(
         content = [
             """load("//:defs.bzl", "compatible_with")""",
         ]
-        for entrypoint_name, entrypoint_coordinate in entrypoints.get(name, {}).items():
+        for entrypoint_name, _entrypoint_coordinate in entrypoints.get(name, {}).items():
             select_spec = {
                 "//venv:{}".format(it): "@venv__{0}__{1}//{2}/entrypoints:{3}".format(repository_ctx.attr.hub_name, it, name, entrypoint_name)
                 for it in spec
