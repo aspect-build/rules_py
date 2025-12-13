@@ -2,25 +2,11 @@
 
 load("@aspect_bazel_lib//lib:expand_template.bzl", _expand_template = "expand_template")
 load("@rules_rust//rust:defs.bzl", _rust_binary = "rust_binary", _rust_library = "rust_library", _rust_proc_macro = "rust_proc_macro", _rust_test = "rust_test")
-load("@with_cfg.bzl", "with_cfg")
 
 _default_platform = select({
     # Non-Linux binaries should just build with their default platforms
     "//conditions:default": None,
 })
-
-rust_opt_binary, _rust_opt_binary_internal = with_cfg(_rust_binary).set(
-    "compilation_mode",
-    "opt",
-).set(
-    Label("@rules_rust//:extra_rustc_flags"),
-    [
-        "-Cstrip=symbols",
-        "-Ccodegen-units=1",
-        "-Cpanic=abort",
-    ],
-    # Avoid rules_rust trying to instrument this binary
-).set("collect_code_coverage", "false").build()
 
 def rust_binary(name, rustc_env_files = [], version_key = "", crate_features = [], platform = _default_platform, **kwargs):
     """
@@ -50,7 +36,7 @@ def rust_binary(name, rustc_env_files = [], version_key = "", crate_features = [
     # Note that we use symbol stripping to
     # try and make these artifacts reproducibly sized for the
     # container_structure tests.
-    rust_opt_binary(
+    _rust_binary(
         name = name,
         rustc_env_files = rustc_env_files,
         crate_features = crate_features + ["bazel"],

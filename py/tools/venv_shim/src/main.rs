@@ -1,4 +1,6 @@
-use miette::{miette, Context, IntoDiagnostic};
+mod pyargs;
+
+use miette::{miette, Context, IntoDiagnostic, Result};
 use runfiles::Runfiles;
 use which::which;
 // Depended on out of rules_rust
@@ -12,7 +14,7 @@ use std::process::Command;
 
 const PYVENV: &str = "pyvenv.cfg";
 
-fn find_venv_root(exec_name: impl AsRef<Path>) -> miette::Result<(PathBuf, PathBuf)> {
+fn find_venv_root(exec_name: impl AsRef<Path>) -> Result<(PathBuf, PathBuf)> {
     let exec_name = exec_name.as_ref().to_owned();
     if let Some(parent) = exec_name.parent().and_then(|it| it.parent()) {
         let cfg = parent.join(PYVENV);
@@ -40,7 +42,7 @@ struct PyCfg {
     user_site: bool,
 }
 
-fn parse_venv_cfg(venv_root: &Path, cfg_path: &Path) -> miette::Result<PyCfg> {
+fn parse_venv_cfg(venv_root: &Path, cfg_path: &Path) -> Result<PyCfg> {
     let mut version: Option<String> = None;
     let mut bazel_interpreter: Option<String> = None;
     let mut bazel_repo: Option<String> = None;
@@ -74,10 +76,7 @@ fn parse_venv_cfg(venv_root: &Path, cfg_path: &Path) -> miette::Result<PyCfg> {
             root: venv_root.to_path_buf(),
             cfg: cfg_path.to_path_buf(),
             version_info: version,
-            interpreter: InterpreterConfig::Runfiles {
-                rpath: rloc,
-                repo: repo,
-            },
+            interpreter: InterpreterConfig::Runfiles { rpath: rloc, repo },
             user_site: user_site.expect("User site flag not set!"),
         }),
         (Some(version), None, None) => Ok(PyCfg {
@@ -137,7 +136,7 @@ fn find_python_executables(version_from_cfg: &str, exclude_dir: &Path) -> Option
     }
 }
 
-fn find_actual_interpreter(executable: impl AsRef<Path>, cfg: &PyCfg) -> miette::Result<PathBuf> {
+fn find_actual_interpreter(executable: impl AsRef<Path>, cfg: &PyCfg) -> Result<PathBuf> {
     match &cfg.interpreter {
         InterpreterConfig::External { version } => {
             // NOTE (reid@aspect.build):
@@ -164,7 +163,7 @@ fn find_actual_interpreter(executable: impl AsRef<Path>, cfg: &PyCfg) -> miette:
             //    That logic has optimistically been discarded. If this causes
             //    problems we'd put it back here.
 
-            let Some(python_executables) = find_python_executables(&version, &cfg.root.join("bin"))
+            let Some(python_executables) = find_python_executables(version, &cfg.root.join("bin"))
             else {
                 miette::bail!(
                     "No suitable Python interpreter found in PATH matching version '{version}'."
@@ -181,7 +180,7 @@ fn find_actual_interpreter(executable: impl AsRef<Path>, cfg: &PyCfg) -> miette:
                 }
             }
 
-            let Some(actual_interpreter_path) = python_executables.get(0) else {
+            let Some(actual_interpreter_path) = python_executables.first() else {
                 miette::bail!("Unable to find another interpreter!");
             };
 
@@ -189,8 +188,8 @@ fn find_actual_interpreter(executable: impl AsRef<Path>, cfg: &PyCfg) -> miette:
         }
         InterpreterConfig::Runfiles { rpath, repo } => {
             if let Ok(r) = Runfiles::create(&executable) {
-                if let Some(interpreter) = r.rlocation_from(rpath.as_str(), &repo) {
-                    Ok(PathBuf::from(interpreter))
+                if let Some(interpreter) = r.rlocation_from(rpath.as_str(), repo) {
+                    Ok(interpreter)
                 } else {
                     miette::bail!(format!(
                         "Unable to identify an interpreter for venv {:?}",
@@ -205,12 +204,12 @@ fn find_actual_interpreter(executable: impl AsRef<Path>, cfg: &PyCfg) -> miette:
                     PathBuf::from(".")
                 };
                 for candidate in [
-                    action_root.join("external").join(&rpath),
+                    action_root.join("external").join(rpath),
                     action_root
                         .join("bazel-out/k8-fastbuild/bin/external")
-                        .join(&rpath),
-                    action_root.join(&rpath),
-                    action_root.join("bazel-out/k8-fastbuild/bin").join(&rpath),
+                        .join(rpath),
+                    action_root.join(rpath),
+                    action_root.join("bazel-out/k8-fastbuild/bin").join(rpath),
                 ] {
                     if candidate.exists() {
                         return Ok(candidate);
@@ -224,9 +223,9 @@ fn find_actual_interpreter(executable: impl AsRef<Path>, cfg: &PyCfg) -> miette:
     }
 }
 
-fn main() -> miette::Result<()> {
+fn main() -> Result<()> {
     let all_args: Vec<_> = env::args().collect();
-    let Some((exec_name, exec_args)) = all_args.split_first() else {
+    let Some((exec_name, _exec_args)) = all_args.split_first() else {
         miette::bail!("could not discover an execution command-line");
     };
 
@@ -259,12 +258,14 @@ fn main() -> miette::Result<()> {
             executable = candidate;
             #[cfg(feature = "debug")]
             eprintln!("       {:?}", executable);
-        } else if let Ok(exe) = which(&exec_name) {
+        } else if let Ok(exe) = which(exec_name) {
             executable = exe;
             #[cfg(feature = "debug")]
             eprintln!("       {:?}", executable);
         } else {
-            return Err(miette!("Unable to identify the real interpreter path!"));
+            executable = env::current_exe().unwrap();
+            #[cfg(feature = "debug")]
+            eprintln!("Falling back to the libc abspath {:?}", executable);
         }
     }
 
@@ -276,7 +277,7 @@ fn main() -> miette::Result<()> {
         && !executable.components().any(|it| {
             it.as_os_str()
                 .to_str()
-                .expect(&format!("Failed to normalize {:?} as a str", it))
+                .unwrap_or_else(|| panic!("Failed to normalize {:?} as a str", it))
                 .ends_with(".runfiles")
         })
     {
@@ -294,7 +295,7 @@ fn main() -> miette::Result<()> {
                 // Resolve the link we identified
                 let parent = parent
                     .parent()
-                    .expect(&format!("Failed to take the parent of {:?}", parent))
+                    .unwrap_or_else(|| panic!("Failed to take the parent of {:?}", parent))
                     .join(parent.read_link().into_diagnostic()?);
                 // And join the tail to the resolved head
                 executable = parent.join(suffix);
@@ -325,7 +326,7 @@ fn main() -> miette::Result<()> {
     eprintln!("[aspect] {:?}", venv_config);
 
     // The logical path of the interpreter
-    let venv_interpreter = venv_root.join("bin/python3");
+    let venv_interpreter = venv_root.join("bin").join(executable.file_name().unwrap());
     #[cfg(feature = "debug")]
     eprintln!("[aspect] {:?}", venv_interpreter);
 
@@ -339,17 +340,23 @@ fn main() -> miette::Result<()> {
         &actual_interpreter, &venv_interpreter, exec_args,
     );
 
+    let mut reexec_args = pyargs::reparse_args(&all_args.iter().map(|it| it.as_ref()).collect())?;
+    // Lie about the value of argv0 to hoodwink the interpreter as to its
+    // location on Linux-based platforms.
+    reexec_args.remove(0);
+
+    #[cfg(feature = "debug")]
+    eprintln!("Reexec args {:?}", reexec_args);
+
     let mut cmd = Command::new(&actual_interpreter);
     let cmd = cmd
-        // Pass along our args
-        .args(exec_args)
-        // Lie about the value of argv0 to hoodwink the interpreter as to its
-        // location on Linux-based platforms.
         .arg0(&venv_interpreter)
+        // Pass along our args
+        .args(reexec_args)
         // Pseudo-`activate`
         .env("VIRTUAL_ENV", &venv_root);
 
-    let venv_bin = (&venv_root).join("bin");
+    let venv_bin = venv_root.join("bin");
     // TODO(arrdem|myrrlyn): PATHSEP is : on Unix and ; on Windows
     if let Ok(path) = env::var("PATH") {
         let mut path_segments = path
@@ -357,10 +364,7 @@ fn main() -> miette::Result<()> {
             .filter(|&p| !p.is_empty()) // skip over `::`, which is possible
             .map(ToOwned::to_owned) // we're dropping the big string, so own the fragments
             .collect::<Vec<_>>(); // and save them.
-        let need_venv_in_path = path_segments
-            .iter()
-            .find(|&p| OsStr::new(p) == &venv_bin)
-            .is_none();
+        let need_venv_in_path = !path_segments.iter().any(|p| OsStr::new(p) == venv_bin);
         if need_venv_in_path {
             // append to back
             path_segments.push(venv_bin.to_string_lossy().into_owned());
@@ -376,12 +380,6 @@ fn main() -> miette::Result<()> {
 
     // Clobber VIRTUAL_ENV which may have been set by activate to an unresolved path
     cmd.env("VIRTUAL_ENV", &venv_root);
-
-    // Similar to `-s` but this avoids us having to muck with the argv in ways
-    // that could be visible to the called program.
-    if !venv_config.user_site {
-        cmd.env("PYTHONNOUSERSITE", "1");
-    }
 
     // Set the interpreter home to the resolved install base. This works around
     // the home = property in the pyvenv.cfg being wrong because we don't
@@ -400,26 +398,15 @@ fn main() -> miette::Result<()> {
     eprintln!("Setting PYTHONHOME to {home:?} for {actual_interpreter:?}");
     cmd.env("PYTHONHOME", home);
 
+    // For the future, we could read, validate and reuse the env state.
     let mut hasher = DefaultHasher::new();
     venv_interpreter.to_str().unwrap().hash(&mut hasher);
+    venv_root.to_str().unwrap().hash(&mut hasher);
     home.to_str().unwrap().hash(&mut hasher);
-
     cmd.env("ASPECT_PY_VALIDITY", format!("{}", hasher.finish()));
 
-    // For the future, we could read, validate and reuse the env state.
-    //
-    // if let Ok(home) = env::var("PYTHONHOME") {
-    //     if let Ok(executable) = env::var("PYTHONEXECUTABLE") {
-    //         if let Ok(checksum) = env::var("ASPECT_PY_VALIDITY") {
-    //             let mut hasher = DefaultHasher::new();
-    //             executable.hash(&mut hasher);
-    //             home.hash(&mut hasher);
-    //             if checksum == format!("{}", hasher.finish()) {
-    //                 return Ok(PathBuf::from(home).join("bin/python3"));
-    //             }
-    //         }
-    //     }
-    // }
+    #[cfg(feature = "debug")]
+    eprintln!("Punting to {:?}", cmd);
 
     // And punt
     let err = cmd.exec();
