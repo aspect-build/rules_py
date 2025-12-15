@@ -218,7 +218,7 @@ bazel_dep(name = "openssl", version = "3.3.1.bcr.6")
 
 RUST_EDITION = "2024"
 
-RUST_VERSION = "1.88.0"
+RUST_VERSION = "1.89.0"
 
 rust = use_extension(
     "@rules_rust//rust:extensions.bzl",
@@ -432,6 +432,7 @@ crate.from_cargo(
         "aarch64-unknown-linux-gnu",
         "x86_64-apple-darwin",
         "x86_64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc",
     ],
 )
 crate.annotation(
@@ -459,6 +460,12 @@ crate.annotation(
     repositories = ["crates"],
     deps = ["@@xz+//:lzma"],
 )
+crate.annotation(
+    crate = "uv-trampoline-builder",
+    patches = [
+        "uv_trampoline_builder_src_lib.patch",
+    ],
+)
 use_repo(crate, "crates")
 
 ########################################
@@ -475,6 +482,17 @@ use_repo(version, "bazel_features_globals", "bazel_features_version")
 # from bazel/include/oci.MODULE.bazel
 # rules_oci and friends
 bazel_dep(name = "rules_oci", version = "2.2.6", dev_dependency = True)
+
+RULES_OCI_TAG = "1f0ce1e27c31ecd88332814d3bdc6f930fa1dc73"
+ 
+RULES_OCI_INTEGRITY = "sha256-xHEIeNqEjhxqr0k7chdP04jC1UHv4lKit1MxTof1yyA="
+
+archive_override(
+    strip_prefix = "rules_oci-" + RULES_OCI_TAG,
+    integrity = RULES_OCI_INTEGRITY,
+    module_name = "rules_oci",
+    urls = ["https://github.com/peakschris/rules_oci/archive/" + RULES_OCI_TAG + ".zip"],
+)
 
 oci = use_extension("@rules_oci//oci:extensions.bzl", "oci", dev_dependency = True)
 oci.pull(

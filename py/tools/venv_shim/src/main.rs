@@ -6,6 +6,7 @@ use std::env::{self, current_exe};
 use std::ffi::OsStr;
 use std::fs;
 use std::hash::{DefaultHasher, Hash, Hasher};
+#[cfg(unix)]
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -340,6 +341,7 @@ fn main() -> miette::Result<()> {
     );
 
     let mut cmd = Command::new(&actual_interpreter);
+    #[cfg(unix)]
     let cmd = cmd
         // Pass along our args
         .args(exec_args)
@@ -348,13 +350,25 @@ fn main() -> miette::Result<()> {
         .arg0(&venv_interpreter)
         // Pseudo-`activate`
         .env("VIRTUAL_ENV", &venv_root);
+    
+    #[cfg(windows)]
+    let cmd = cmd
+        // Pass along our args
+        .args(exec_args)
+        // Pseudo-`activate`
+        .env("VIRTUAL_ENV", &venv_root);
 
     let venv_bin = (&venv_root).join("bin");
-    // TODO(arrdem|myrrlyn): PATHSEP is : on Unix and ; on Windows
+    // PATHSEP is : on Unix and ; on Windows
+    #[cfg(windows)]
+    const PATH_SEP: &str = ";";
+    #[cfg(not(windows))]
+    const PATH_SEP: &str = ":";
+    
     if let Ok(path) = env::var("PATH") {
         let mut path_segments = path
-            .split(":") // break into individual entries
-            .filter(|&p| !p.is_empty()) // skip over `::`, which is possible
+            .split(PATH_SEP) // break into individual entries
+            .filter(|&p| !p.is_empty()) // skip over empty entries
             .map(ToOwned::to_owned) // we're dropping the big string, so own the fragments
             .collect::<Vec<_>>(); // and save them.
         let need_venv_in_path = path_segments
@@ -366,8 +380,8 @@ fn main() -> miette::Result<()> {
             path_segments.push(venv_bin.to_string_lossy().into_owned());
             // then move venv_bin to the front of PATH
             path_segments.rotate_right(1);
-            // and write into the child environment. this avoids an empty PATH causing us to write `{venv_bin}:` with a trailing colon
-            cmd.env("PATH", path_segments.join(":"));
+            // and write into the child environment. this avoids an empty PATH causing us to write `{venv_bin}{PATH_SEP}` with a trailing separator
+            cmd.env("PATH", path_segments.join(PATH_SEP));
         }
     }
 
@@ -419,13 +433,22 @@ fn main() -> miette::Result<()> {
     //             }
     //         }
     //     }
-    // }
+    // };
 
     // And punt
-    let err = cmd.exec();
-    miette::bail!(
-        "Failed to exec target {}, {}",
-        actual_interpreter.display(),
-        err,
-    )
+    #[cfg(unix)]
+    {
+        let err = cmd.exec();
+        miette::bail!(
+            "Failed to exec target {}, {}",
+            actual_interpreter.display(),
+            err,
+        )
+    }
+    
+    #[cfg(windows)]
+    {
+        let status = cmd.status().into_diagnostic()?;
+        std::process::exit(status.code().unwrap_or(1));
+    }
 }

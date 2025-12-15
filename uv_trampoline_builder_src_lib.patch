@@ -1,0 +1,36 @@
+--- src\lib.rs	Fri Dec 05 15:33:15 2025
++++ src\lib.rs	Fri Dec 05 16:24:08 2025
+@@ -7,27 +7,27 @@
+ 
+ #[cfg(all(windows, target_arch = "x86"))]
+ const LAUNCHER_I686_GUI: &[u8] =
+-    include_bytes!("../../uv-trampoline/trampolines/uv-trampoline-i686-gui.exe");
++    include_bytes!("../.tmp_git_root/crates/uv-trampoline/trampolines/uv-trampoline-i686-gui.exe");
+ 
+ #[cfg(all(windows, target_arch = "x86"))]
+ const LAUNCHER_I686_CONSOLE: &[u8] =
+-    include_bytes!("../../uv-trampoline/trampolines/uv-trampoline-i686-console.exe");
++    include_bytes!("../.tmp_git_root/crates/uv-trampoline/trampolines/uv-trampoline-i686-console.exe");
+ 
+ #[cfg(all(windows, target_arch = "x86_64"))]
+ const LAUNCHER_X86_64_GUI: &[u8] =
+-    include_bytes!("../../uv-trampoline/trampolines/uv-trampoline-x86_64-gui.exe");
++    include_bytes!("../.tmp_git_root/crates/uv-trampoline/trampolines/uv-trampoline-x86_64-gui.exe");
+ 
+ #[cfg(all(windows, target_arch = "x86_64"))]
+ const LAUNCHER_X86_64_CONSOLE: &[u8] =
+-    include_bytes!("../../uv-trampoline/trampolines/uv-trampoline-x86_64-console.exe");
++    include_bytes!("../.tmp_git_root/crates/uv-trampoline/trampolines/uv-trampoline-x86_64-console.exe");
+ 
+ #[cfg(all(windows, target_arch = "aarch64"))]
+ const LAUNCHER_AARCH64_GUI: &[u8] =
+-    include_bytes!("../../uv-trampoline/trampolines/uv-trampoline-aarch64-gui.exe");
++    include_bytes!("../.tmp_git_root/crates/uv-trampoline/trampolines/uv-trampoline-aarch64-gui.exe");
+ 
+ #[cfg(all(windows, target_arch = "aarch64"))]
+ const LAUNCHER_AARCH64_CONSOLE: &[u8] =
+-    include_bytes!("../../uv-trampoline/trampolines/uv-trampoline-aarch64-console.exe");
++    include_bytes!("../.tmp_git_root/crates/uv-trampoline/trampolines/uv-trampoline-aarch64-console.exe");
+ 
+ // https://learn.microsoft.com/en-us/windows/win32/menurc/resource-types
+ #[cfg(windows)]
