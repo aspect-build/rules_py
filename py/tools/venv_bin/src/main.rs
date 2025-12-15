@@ -32,7 +32,7 @@ enum VenvMode {
     StaticSymlink,
 }
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 struct VenvArgs {
     /// The current workspace name
     #[arg(long)]

@@ -71,11 +71,6 @@ def _py_binary_rule_impl(ctx):
             attribute_name = "env",
         )
 
-    print(py_toolchain.python)
-    print(py_toolchain.runfiles_interpreter)
-    print(py_toolchain.python.path)
-    print(to_rlocation_path(ctx, py_toolchain.python))
-
     bash_launcher = ctx.actions.declare_file(ctx.attr.name)
     ctx.actions.expand_template(
         template = ctx.file._run_tmpl,
