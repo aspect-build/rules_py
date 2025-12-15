@@ -212,9 +212,44 @@ def generate_musllinux(visibility):
                 visibility = visibility,
             )
 
+
+# buildifier: disable=unnamed-macro
+# buildifier: disable=function-docstring
+def generate_windows(visibility):
+    native.config_setting(
+        name = "win32",
+        constraint_values = [
+            "@platforms//os:windows",
+            "@platforms//cpu:x86_32",
+        ],
+        visibility = visibility,
+    )
+    native.config_setting(
+        name = "win64",
+        constraint_values = [
+            "@platforms//os:windows",
+            "@platforms//cpu:x86_64",
+        ],
+        visibility = visibility,
+    )
+    native.alias(
+        name = "win_amd64",
+        actual = ":win64",
+        visibility = visibility,
+    )
+    native.config_setting(
+        name = "win_arm64",
+        constraint_values = [
+            "@platforms//os:windows",
+            "@platforms//cpu:aarch64",
+        ],
+        visibility = visibility,
+    )
+
 # buildifier: disable=unnamed-macro
 # buildifier: disable=function-docstring
 def generate(visibility):
     generate_macos(visibility = visibility)
     generate_manylinux(visibility = visibility)
     generate_musllinux(visibility = visibility)
+    generate_windows(visibility = visibility)

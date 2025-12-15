@@ -32,7 +32,8 @@ def supported_platform(platform_tag):
         platform_tag == "any" or
         platform_tag.startswith("macosx_") or
         platform_tag.startswith("manylinux_") or
-        platform_tag.startswith("musllinux_")
+        platform_tag.startswith("musllinux_") or
+        platform_tag.startswith("win")
     )
 
 # Adapted from rules_python's config_settings.bzl

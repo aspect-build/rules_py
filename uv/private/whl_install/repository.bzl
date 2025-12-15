@@ -14,7 +14,7 @@ load("//uv/private/constraints/python:defs.bzl", "supported_python")
 def _format_arms(d):
     content = ["        \"{}\": \"{}\"".format(k, v) for k, v in d.items()]
     content = ",\n".join(content)
-    return "{\n" + content + "\n    }"
+    return "{\n" + content + "\n   }"
 
 def _select_key(pair):
     """Force (triple, target) pairs into a orderable form.
@@ -130,6 +130,8 @@ def _whl_install_impl(repository_ctx):
         select_arms = select_arms | {
             "//conditions:default": str(repository_ctx.attr.sbuild),
         }
+
+    print(repository_ctx.name, "No sdist", select_arms, prebuilds)
 
     content.append(
         """
