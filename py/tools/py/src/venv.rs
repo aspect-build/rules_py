@@ -11,10 +11,13 @@ use std::{
     env::current_dir,
     fs::{self, File},
     io::{BufRead, BufReader, BufWriter, SeekFrom, Write},
-    os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
 };
-use std::{fmt::Debug, os::unix::fs as unix_fs};
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+use std::fmt::Debug;
+#[cfg(unix)]
+use std::os::unix::fs as unix_fs;
 use std::{
     io,
     io::{ErrorKind, Read, Seek},
@@ -146,7 +149,14 @@ fn link<A: AsRef<Path>, B: AsRef<Path>>(original: A, link: B) -> miette::Result<
         original_relative.to_str().unwrap(),
     );
 
+    #[cfg(unix)]
     return unix_fs::symlink(original_relative, link_abs).into_diagnostic();
+    
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::symlink_file;
+        return symlink_file(&original_abs, &link_abs).into_diagnostic();
+    }
 }
 
 fn copy<A: AsRef<Path>, B: AsRef<Path>>(original: A, link: B) -> miette::Result<()> {
@@ -240,6 +250,7 @@ fn copy_and_patch_shebang(
     // Finally we need to sync permissions from the one to the other.
     let mut perms = fs::metadata(original).into_diagnostic()?.permissions();
     // Force the executable bit(s) if we copied something with a shebang.
+    #[cfg(unix)]
     if found_shebang {
         perms.set_mode(0o755)
     }
@@ -376,11 +387,12 @@ aspect-runfiles-repo = {1}
                 .wrap_err("Unable to read permissions for the interpreter shim")?
                 .permissions();
 
+            #[cfg(unix)]
             shim_perms.set_mode(0o755); // executable
 
             fs::set_permissions(&venv.python_bin, shim_perms)
                 .into_diagnostic()
-                .wrap_err("Unable to chmod interpreter shim")?;
+                .wrap_err("Unable to chmod interpreter shim")?
         }
 
         None => {
@@ -391,11 +403,12 @@ aspect-runfiles-repo = {1}
                 .wrap_err("Unable to read permissions for the interpreter")?
                 .permissions();
 
+            #[cfg(unix)]
             interpreter_perms.set_mode(0o755); // executable
 
             fs::set_permissions(&venv.python_bin, interpreter_perms)
                 .into_diagnostic()
-                .wrap_err("Unable to chmod interpreter")?;
+                .wrap_err("Unable to chmod interpreter")?
         }
     }
     // Create the two local links back to the python bin.
@@ -923,7 +936,13 @@ pub fn populate_venv(
                 // joined to the dirname. Without explicitly taking the parent
                 // we're off by 1.
                 let resolved = diff_paths(&src, &dest.parent().unwrap()).unwrap();
+                #[cfg(unix)]
                 unix_fs::symlink(&resolved, &dest).into_diagnostic()?;
+                #[cfg(windows)]
+                {
+                    use std::os::windows::fs::symlink_file;
+                    symlink_file(&src, &dest).into_diagnostic()?;
+                }
             }
             Command::PthEntry { path } => {
                 writeln!(dest_pth_writer, "{}", path.to_str().unwrap()).into_diagnostic()?;

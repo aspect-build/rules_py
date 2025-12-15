@@ -16,7 +16,7 @@ repository = "https://github.com/aspect-build/rules_py"
 license = "Apache 2"
 edition = "2021"
 readme = "README.md"
-rust-version = "1.81.0"
+rust-version = "1.88.0"
 
 [workspace.dependencies]
 clap = { version = "4.5.20", features = ["derive"] }

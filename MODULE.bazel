@@ -218,11 +218,17 @@ bazel_dep(name = "openssl", version = "3.3.1.bcr.6")
 
 RUST_EDITION = "2024"
 
-RUST_VERSION = "1.89.0"
+RUST_VERSION = "1.88.0"
 
 rust = use_extension(
     "@rules_rust//rust:extensions.bzl",
     "rust",
+)
+
+# Set the default rust version (e.g. for windows)
+rust.toolchain(
+    edition = RUST_EDITION, 
+    versions = [RUST_VERSION],
 )
 
 # These override the default rust_repository_sets created by rust_register_toolchain. They must be named exactly as follows.
@@ -464,6 +470,12 @@ crate.annotation(
     crate = "uv-trampoline-builder",
     patches = [
         "uv_trampoline_builder_src_lib.patch",
+    ],
+)
+crate.annotation(
+    crate = "uv-install-wheel",
+    patches = [
+        "uv_install_wheel_src_wheel.patch",
     ],
 )
 use_repo(crate, "crates")
