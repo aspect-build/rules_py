@@ -1,4 +1,4 @@
-load("@aspect_bazel_lib//lib:write_source_files.bzl", "write_source_files")
+load("@bazel_lib//lib:write_source_files.bzl", "write_source_files")
 load("//py:defs.bzl", "py_binary", "py_library", "py_test")
 load("//py/tests/external-deps/custom-macro:macro.bzl", "click_cli_binary")
 

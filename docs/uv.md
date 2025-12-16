@@ -170,9 +170,9 @@ Crossbuilds can be accomplished simply by setting the `--platform` flag, or
 using platform transitions.
 
 ```
-load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_binary")
 load("@aspect_rules_py//py:defs.bzl", "py_image_layer")
+load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 
 platform(
     name = "arm64_linux",

@@ -54,8 +54,8 @@ bzl_library(
         "//py/private:py_semantics",
         "//py/private:transitions",
         "//py/private/toolchain:types",
-        "@aspect_bazel_lib//lib:expand_make_vars",
-        "@aspect_bazel_lib//lib:paths",
+        "@bazel_lib//lib:expand_make_vars",
+        "@bazel_lib//lib:paths",
     ],
 )
 

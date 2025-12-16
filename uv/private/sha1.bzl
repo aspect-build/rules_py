@@ -4,7 +4,7 @@ Sha1sum implemented in pure Starlark for portability.
 Certainly not for efficiency good lord.
 """
 
-load("@aspect_bazel_lib//lib:strings.bzl", "ord")
+load("@bazel_lib//lib:strings.bzl", "ord")
 
 def rotl32(x, n):
     """Rot[ate] L[eft] for 32bi wide.
