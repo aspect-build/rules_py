@@ -1,4 +1,4 @@
-load("@aspect_bazel_lib//:bzl_library.bzl", "bzl_library")
+load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 
 # For Bazel 6.x compatibility, since
 # PyRuntimeInfo shipped only with Bazel 7
@@ -35,7 +35,7 @@ bzl_library(
         "//py/private:py_wheel",
         "//py/private:virtual",
         "//py/private/py_venv",
-        "@aspect_bazel_lib//lib:utils",
+        "@bazel_lib//lib:utils",
     ],
 )
 

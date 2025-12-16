@@ -1,6 +1,6 @@
 """Rust rule defaults"""
 
-load("@aspect_bazel_lib//lib:expand_template.bzl", _expand_template = "expand_template")
+load("@bazel_lib//lib:expand_template.bzl", "expand_template")
 load("@rules_rust//rust:defs.bzl", _rust_binary = "rust_binary", _rust_library = "rust_library", _rust_proc_macro = "rust_proc_macro", _rust_test = "rust_test")
 load("@with_cfg.bzl", "with_cfg")
 
@@ -37,7 +37,7 @@ def rust_binary(name, rustc_env_files = [], version_key = "", crate_features = [
 
     if version_key != None:
         rustc_env_file = "{}_rustc_env_file".format(name)
-        _expand_template(
+        expand_template(
             name = "{}_env_file".format(name),
             out = rustc_env_file,
             stamp_substitutions = {"0.0.0-DEV": "{{%s}}" % (version_key)},
@@ -80,7 +80,7 @@ def rust_library(name, rustc_env_files = [], version_key = "", crate_features = 
     stamp = 0
     if version_key != None:
         rustc_env_file = "{}_rustc_env_file".format(name)
-        _expand_template(
+        expand_template(
             name = "{}_env_file".format(name),
             out = rustc_env_file,
             stamp_substitutions = {"0.0.0-DEV": "{{%s}}" % (version_key)},
