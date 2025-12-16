@@ -33,7 +33,8 @@ def supported_platform(platform_tag):
         platform_tag.startswith("macosx_") or
         platform_tag.startswith("manylinux_") or
         platform_tag.startswith("musllinux_") or
-        platform_tag.startswith("win")
+        # Itanium is silly
+        (platform_tag.startswith("win") and not platform_tag.endswith("ia64"))
     )
 
 # Adapted from rules_python's config_settings.bzl
