@@ -131,8 +131,6 @@ def _whl_install_impl(repository_ctx):
             "//conditions:default": str(repository_ctx.attr.sbuild),
         }
 
-    print(repository_ctx.name, "No sdist", select_arms, prebuilds)
-
     content.append(
         """
 select_chain(
