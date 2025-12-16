@@ -1,5 +1,5 @@
---- a/MODULE.bazel	2025-12-16 08:26:57
-+++ b/MODULE.bazel	2025-12-16 08:26:57
+--- a/MODULE.bazel	2026-01-07 20:51:31
++++ b/MODULE.bazel	2026-01-07 20:51:31
 @@ -58,253 +58,3 @@
  # HACK: In prod the includer's patch inserts the use_repo for multitool. This
  # solves the problem of needing a use_repo here in prod and below in dev.
@@ -40,16 +40,17 @@
 -archive_override(
 -    module_name = "toolchains_llvm_bootstrapped",
 -    integrity = "sha256-+nddimV34BYO8YExiKLYG2kMoA2Sv+5ZoMRPQLJxNfE=",
--    strip_prefix = "toolchains_llvm_bootstrapped-121c8419394e76b5652c161369743c564799b2e3",
--    urls = ["https://github.com/cerisier/toolchains_llvm_bootstrapped/archive/121c8419394e76b5652c161369743c564799b2e3/master.tar.gz"],
 -    patch_strip = 1,
 -    patches = [
 -        "//bazel/patches:llvm_darwin_sysroot.patch",
 -    ],
+-    strip_prefix = "toolchains_llvm_bootstrapped-121c8419394e76b5652c161369743c564799b2e3",
+-    urls = ["https://github.com/cerisier/toolchains_llvm_bootstrapped/archive/121c8419394e76b5652c161369743c564799b2e3/master.tar.gz"],
 -)
 -
 -register_toolchains(
 -    "@toolchains_llvm_bootstrapped//toolchain:all",
+-    dev_dependency = True,
 -)
 -
 -########################################
@@ -64,15 +65,14 @@
 -)
 -rust.toolchain(
 -    edition = "2024",
--    versions = ["1.88.0"],
 -    extra_target_triples = [
 -        "aarch64-apple-darwin",
 -        "x86_64-apple-darwin",
 -        "aarch64-unknown-linux-musl",
 -        "x86_64-unknown-linux-musl",
 -    ],
+-    versions = ["1.88.0"],
 -)
--
 -use_repo(rust, "rust_toolchains")
 -
 -register_toolchains("@rust_toolchains//:all")

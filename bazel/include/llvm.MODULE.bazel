@@ -14,4 +14,5 @@ archive_override(
 
 register_toolchains(
     "@toolchains_llvm_bootstrapped//toolchain:all",
+    dev_dependency = True,
 )

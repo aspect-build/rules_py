@@ -1,6 +1,6 @@
-load("@aspect_bazel_lib//lib:expand_template.bzl", "expand_template")
 load("@aspect_rules_py//py:defs.bzl", "py_test")
 load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
+load("@bazel_lib//lib:expand_template.bzl", "expand_template")
 
 [
     [
