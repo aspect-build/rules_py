@@ -11,4 +11,5 @@ local_path_override(
     module_name = "aspect_rules_py",
     path = "..",
 )
+
 bazel_dep(name = "rules_oci", version = "2.2.6", dev_dependency = True)

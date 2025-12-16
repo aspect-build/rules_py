@@ -1,4 +1,2 @@
 # rules_oci and friends
 # bazel_dep(name = "rules_oci", version = "2.2.6", dev_dependency = True)
-
-

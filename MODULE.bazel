@@ -194,28 +194,7 @@ use_repo(version, "bazel_features_globals", "bazel_features_version")
 ########################################
 # from bazel/include/oci.MODULE.bazel
 # rules_oci and friends
-bazel_dep(name = "rules_oci", version = "2.2.6", dev_dependency = True)
-
-oci = use_extension("@rules_oci//oci:extensions.bzl", "oci", dev_dependency = True)
-oci.pull(
-    name = "ubuntu",
-    digest = "sha256:c35e29c9450151419d9448b0fd75374fec4fff364a27f176fb458d472dfc9e54",
-    image = "public.ecr.aws/docker/library/ubuntu",
-    platforms = [
-        "linux/arm64/v8",
-        "linux/amd64",
-    ],
-    tag = "latest",
-)
-use_repo(oci, "ubuntu", "ubuntu_linux_amd64", "ubuntu_linux_arm64_v8")
-
-# For building test images with py_image_layer
-bazel_dep(name = "container_structure_test", version = "1.19.3", dev_dependency = True)
-git_override(
-    module_name = "container_structure_test",
-    commit = "63ee63e15fae64f00b1c1ace1eb5cc99251b9e02",
-    remote = "https://github.com/GoogleContainerTools/container-structure-test.git",
-)
+# bazel_dep(name = "rules_oci", version = "2.2.6", dev_dependency = True)
 
 ########################################
 # from bazel/include/python.MODULE.bazel
