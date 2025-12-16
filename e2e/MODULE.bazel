@@ -1,115 +1,14 @@
 "Bazel dependencies"
 
-bazel_dep(name = "tar.bzl", version = "0.5.5")
+bazel_dep(name = "tar.bzl", version = "0.7.0")
 
 bazel_lib_toolchains = use_extension("@tar.bzl//tar:extensions.bzl", "toolchains", dev_dependency = True)
 use_repo(bazel_lib_toolchains, "bsd_tar_toolchains")
 
-include("//bazel/include:e2e.MODULE.bazel")
-
-include("//bazel/include:oci.MODULE.bazel")
-
-python = use_extension("@rules_python//python/extensions:python.bzl", "python")
-python.toolchain(
-    configure_coverage_tool = True,
-    python_version = "3.9",
+bazel_dep(name = "aspect_bazel_lib", version = "2.21.2")
+bazel_dep(name = "aspect_rules_py", version = "0.0.0")
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "..",
 )
-python.toolchain(
-    configure_coverage_tool = True,
-    python_version = "3.10",
-)
-python.toolchain(
-    configure_coverage_tool = True,
-    is_default = True,
-    python_version = "3.11",
-)
-python.toolchain(
-    python_version = "3.12",
-)
-python.toolchain(
-    python_version = "3.13",
-)
-
-# TODO: Swap in our pip
-pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
-pip.parse(
-    hub_name = "pip",
-    python_version = "3.9",
-    requirements_lock = "//:requirements.txt",
-)
-pip.parse(
-    hub_name = "pip",
-    python_version = "3.10",
-    requirements_lock = "//:requirements.txt",
-)
-pip.parse(
-    hub_name = "pip",
-    python_version = "3.11",
-    requirements_lock = "//:requirements.txt",
-)
-pip.parse(
-    hub_name = "pip",
-    python_version = "3.12",
-    requirements_lock = "//:requirements.txt",
-)
-pip.parse(
-    hub_name = "pip",
-    python_version = "3.13",
-    requirements_lock = "//:requirements.txt",
-)
-use_repo(pip, "pip")
-
-# For cases/cross-repo-610
-local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
-
-local_repository(
-    name = "subrepo_a",
-    path = "./cases/cross-repo-610/subrepo_a",
-)
-
-local_repository(
-    name = "subrepo_b",
-    path = "./cases/cross-repo-610/subrepo_b",
-)
-
-# For cases/repository-rule-deps-299
-importer = use_extension("//cases/repository-rule-deps-299/rules:import.bzl", "importer")
-use_repo(importer, "myrepo")
-
-# For cases/uv-deps-650
-uv = use_extension("@aspect_rules_py//uv/unstable:extension.bzl", "uv")
-uv.declare_hub(hub_name = "pypi")
-uv.declare_venv(
-    hub_name = "pypi",
-    venv_name = "say",
-)
-uv.lockfile(
-    src = "//cases/uv-deps-650/say:uv.lock",
-    hub_name = "pypi",
-    venv_name = "say",
-)
-uv.override_requirement(
-    hub_name = "pypi",
-    requirement = "cowsay",
-    target = "//cases/uv-deps-650/third_party/cowsay",
-    venv_name = "say",
-)
-uv.declare_venv(
-    hub_name = "pypi",
-    venv_name = "airflow",
-)
-uv.lockfile(
-    src = "//cases/uv-deps-650/airflow:uv.lock",
-    hub_name = "pypi",
-    venv_name = "airflow",
-)
-uv.declare_venv(
-    hub_name = "pypi",
-    venv_name = "psql",
-)
-uv.lockfile(
-    src = "//cases/uv-deps-650/crossbuild:uv.lock",
-    hub_name = "pypi",
-    venv_name = "psql",
-)
-use_repo(uv, "pypi")
+bazel_dep(name = "rules_oci", version = "2.2.6", dev_dependency = True)

@@ -33,7 +33,7 @@ tasks:
         - type: before_task
           command: |
             rm .bazelversion
-            echo "USE_BAZEL_VERSION=8.4.0" > .bazeliskrc
+            echo "USE_BAZEL_VERSION=8.5.0" > .bazeliskrc
 
   - finalization:
       queue: aspect-small
