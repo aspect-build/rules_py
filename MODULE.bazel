@@ -21,9 +21,9 @@ use_repo(bazel_lib_toolchains, "bsd_tar_toolchains")
 
 single_version_override(
     module_name = "rules_cc",
-    version = "0.2.11",
-    patches = ["//bazel/patches:rules_cc_visibility.patch"],
     patch_strip = 1,
+    patches = ["//bazel/patches:rules_cc_visibility.patch"],
+    version = "0.2.11",
 )
 
 tools = use_extension("//py:extensions.bzl", "py_tools")
@@ -94,12 +94,12 @@ bazel_dep(name = "toolchains_llvm_bootstrapped", version = "0.2.5", dev_dependen
 archive_override(
     module_name = "toolchains_llvm_bootstrapped",
     integrity = "sha256-+nddimV34BYO8YExiKLYG2kMoA2Sv+5ZoMRPQLJxNfE=",
-    strip_prefix = "toolchains_llvm_bootstrapped-121c8419394e76b5652c161369743c564799b2e3",
-    urls = ["https://github.com/cerisier/toolchains_llvm_bootstrapped/archive/121c8419394e76b5652c161369743c564799b2e3/master.tar.gz"],
     patch_strip = 1,
     patches = [
         "//bazel/patches:llvm_darwin_sysroot.patch",
     ],
+    strip_prefix = "toolchains_llvm_bootstrapped-121c8419394e76b5652c161369743c564799b2e3",
+    urls = ["https://github.com/cerisier/toolchains_llvm_bootstrapped/archive/121c8419394e76b5652c161369743c564799b2e3/master.tar.gz"],
 )
 
 register_toolchains(
@@ -118,15 +118,14 @@ rust = use_extension(
 )
 rust.toolchain(
     edition = "2024",
-    versions = ["1.88.0"],
     extra_target_triples = [
         "aarch64-apple-darwin",
         "x86_64-apple-darwin",
         "aarch64-unknown-linux-musl",
         "x86_64-unknown-linux-musl",
     ],
+    versions = ["1.88.0"],
 )
-
 use_repo(rust, "rust_toolchains")
 
 register_toolchains("@rust_toolchains//:all")
