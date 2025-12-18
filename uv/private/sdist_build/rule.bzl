@@ -6,9 +6,12 @@ load("//py/private/py_venv:types.bzl", "VirtualenvInfo")
 
 # buildifier: disable=bzl-visibility
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
+load("//uv/private:transitions.bzl", "transition_to_target")
+
 
 TAR_TOOLCHAIN = "@tar.bzl//tar/toolchain:type"
 # UV_TOOLCHAIN = "@multitool//tools/uv:toolchain_type"
+
 
 def _sdist_build(ctx):
     py_toolchain = ctx.toolchains[PY_TOOLCHAIN].py3_runtime
@@ -59,6 +62,7 @@ def _sdist_build(ctx):
         executable = venv[VirtualenvInfo].home.path + "/bin/python3",
         arguments = [
             ctx.file._helper.path,
+        ] + ctx.attr.args + [
             unpacked_sdist.path,
             wheel_dir.path,
         ],
@@ -89,10 +93,41 @@ specified Python dependencies under the configured Python toochain.
 
 """,
     attrs = {
-        "src": attr.label(doc = ""),
-        "venv": attr.label(doc = ""),
+        "src": attr.label(),
+        "venv": attr.label(),
+        "args": attr.string_list(),
         "_helper": attr.label(allow_single_file = True, default = Label(":build_helper.py")),
     },
+    toolchains = [
+        # TODO: Py toolchain needs to be in the `host` configuration, not the
+        # `exec` configuration. May need to split toolchains or use a different
+        # one here. Ditto for the other tools.
+        PY_TOOLCHAIN,
+        TAR_TOOLCHAIN,
+        # UV_TOOLCHAIN,
+        # FIXME: Add in a cc toolchain here
+    ],
+)
+
+
+sdist_native_build = rule(
+    implementation = _sdist_build,
+    doc = """Sdist to whl build rule _with native extensions_.
+
+Consumes a sdist artifact and performs a build of that artifact with the
+specified Python dependencies under the configured Python toochain.
+
+Forces the exec platform to match the target platform so that we can safely
+build packages with native code.
+
+""",
+    attrs = {
+        "src": attr.label(doc = ""),
+        "venv": attr.label(doc = ""),
+        "args": attr.string_list(),
+        "_helper": attr.label(allow_single_file = True, default = Label(":build_helper.py")),
+    },
+    cfg = transition_to_target,
     toolchains = [
         # TODO: Py toolchain needs to be in the `host` configuration, not the
         # `exec` configuration. May need to split toolchains or use a different

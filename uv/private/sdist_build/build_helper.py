@@ -4,7 +4,7 @@ from argparse import ArgumentParser
 import shutil
 import sys
 from os import getenv, listdir, path
-from subprocess import call
+from subprocess import check_call
 
 # Under Bazel, the source dir of a sdist to build is immutable. `build` and
 # other tools however are constitutionally incapable of not writing to the
@@ -19,6 +19,8 @@ print(sys.executable, file=sys.stderr)
 PARSER = ArgumentParser()
 PARSER.add_argument("srcdir")
 PARSER.add_argument("outdir")
+PARSER.add_argument("--validate-anyarch", action="store_true")
+PARSER.add_argument("--sandbox", action="store_true")
 opts, args = PARSER.parse_known_args()
 
 t = getenv("TMPDIR")  # Provided by Bazel
@@ -29,7 +31,7 @@ shutil.copytree(opts.srcdir, t, dirs_exist_ok=True)
 
 outdir = path.abspath(opts.outdir)
 
-call([
+check_call([
     sys.executable,
     "-m", "build",
     "--wheel",
@@ -37,4 +39,13 @@ call([
     "--outdir", outdir,
 ], cwd=t)
 
-print(listdir(outdir), file=sys.stderr)
+inventory = listdir(outdir)
+print(inventory, file=sys.stderr)
+
+if len(inventory) > 1:
+    print("Error: Built more than one wheel!", file=sys.stderr)
+    exit(1)
+
+if opts.validate_anyarch and not inventory[0].endswith("-none-any.whl"):
+    print("Error: Target was anyarch but built a none-any wheel!")
+    exit(1)

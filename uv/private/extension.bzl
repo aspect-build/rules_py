@@ -265,9 +265,19 @@ def _parse_annotations(module_ctx, hub_specs, venv_specs):
 
     Dep = TypedDict({"name": str})
     record(
-       per_package=Dict[str, List[Dep]],
+       per_package=Dict[str, Annotation],
        default_build_deps=List[Dep],
     )
+
+    The annotations file is structured as follows:
+
+    ```
+    version = 0.0.0
+    [[package]]
+    name = "foo"
+    native = true
+    build-dependencies = [ {name = "bar"} ]
+    ```
 
     Args:
         module_ctx (module_ctx): The Bazel module context
@@ -550,6 +560,22 @@ def _sbuild_repos(_module_ctx, lock_specs, annotation_specs, override_specs):
                     it["name"]: it
                     for it in build_deps + venv_anns.default_build_deps
                 }
+                
+                # FIXME: This is placeholder code. We need to decide if the
+                # sdist we're building contains native extensions. For now we're
+                # relying on annotations to do that. It would be better for the
+                # sdist_build repo rule to inspect the sdist's contents and
+                # search for well known file types such as `pyx` and `cxx`. That
+                # would also make it easier to support for instance Rust
+                # extensions.
+                is_native = (
+                    # Cythonized code
+                    "cython" in build_deps or
+                    # Mypyc code
+                    "mypy" in build_deps or
+                    # User has annotated the package as using C extensions or such
+                    venv_anns.per_package.get(package["name"], {}).get("native", False)
+                )
 
                 # print("Creating sdist repo", name)
                 sdist_build(
@@ -560,6 +586,7 @@ def _sbuild_repos(_module_ctx, lock_specs, annotation_specs, override_specs):
                         "@" + _venv_target(hub_name, venv_name, package["name"])
                         for package in build_deps.values()
                     ],
+                    is_native = is_native,
                 )
 
 def _whl_install_repo_name(hub, venv, package):
