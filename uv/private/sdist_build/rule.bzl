@@ -8,10 +8,8 @@ load("//py/private/py_venv:types.bzl", "VirtualenvInfo")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
 load("//uv/private:transitions.bzl", "transition_to_target")
 
-
 TAR_TOOLCHAIN = "@tar.bzl//tar/toolchain:type"
 # UV_TOOLCHAIN = "@multitool//tools/uv:toolchain_type"
-
 
 def _sdist_build(ctx):
     py_toolchain = ctx.toolchains[PY_TOOLCHAIN].py3_runtime
@@ -108,7 +106,6 @@ specified Python dependencies under the configured Python toochain.
         # FIXME: Add in a cc toolchain here
     ],
 )
-
 
 sdist_native_build = rule(
     implementation = _sdist_build,

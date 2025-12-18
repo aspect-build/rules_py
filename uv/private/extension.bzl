@@ -560,7 +560,7 @@ def _sbuild_repos(_module_ctx, lock_specs, annotation_specs, override_specs):
                     it["name"]: it
                     for it in build_deps + venv_anns.default_build_deps
                 }
-                
+
                 # FIXME: This is placeholder code. We need to decide if the
                 # sdist we're building contains native extensions. For now we're
                 # relying on annotations to do that. It would be better for the

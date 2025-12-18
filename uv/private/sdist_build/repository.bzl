@@ -6,7 +6,7 @@ Consues a given src (.tar.gz or other artifact) and deps. Produces a
 sibling `rule.bzl` file for the implementation of `sdist_build`.
 """
 
-def _sdist_build_impl(repository_ctx):    
+def _sdist_build_impl(repository_ctx):
     repository_ctx.file("BUILD.bazel", content = """
 load("@aspect_rules_py//uv/private/sdist_build:rule.bzl", "{rule}")
 load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv")
