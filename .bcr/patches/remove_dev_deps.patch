@@ -1,5 +1,5 @@
---- a/MODULE.bazel	2025-12-11 15:32:06.556883760 -0800
-+++ b/MODULE.bazel	2025-12-11 15:32:06.556900451 -0800
+--- a/MODULE.bazel	2025-12-22 01:11:41.109342904 +0000
++++ b/MODULE.bazel	2025-12-22 01:11:41.109342904 +0000
 @@ -51,537 +51,3 @@
  # HACK: In prod the includer's patch inserts the use_repo for multitool. This
  # solves the problem of needing a use_repo here in prod and below in dev.
@@ -444,7 +444,7 @@
 -bazel_dep(name = "container_structure_test", version = "1.19.3", dev_dependency = True)
 -git_override(
 -    module_name = "container_structure_test",
--    commit = "63ee63e15fae64f00b1c1ace1eb5cc99251b9e02",
+-    commit = "88e3e6d83f2f6d15738edf9a7ca884ec94c84865",
 -    remote = "https://github.com/GoogleContainerTools/container-structure-test.git",
 -)
 -
