@@ -171,7 +171,7 @@ def _make_merged_runfiles(ctx, extra_depsets = [], extra_runfiles = [], extra_ru
 
     return runfiles
 
-def _py_library_impl(ctx):
+def _py_library_impl(ctx, executable=None):
     transitive_srcs = _make_srcs_depset(ctx)
     imports = _make_imports_depset(ctx)
     virtuals = _make_virtual_depset(ctx)
@@ -183,6 +183,8 @@ def _py_library_impl(ctx):
         DefaultInfo(
             files = depset(direct = ctx.files.srcs),
             default_runfiles = runfiles,
+            # Ugly hack: Inject dummy executable in case this library is actually a transitioned binary.
+            executable = executable
         ),
         PyInfo(
             imports = imports,

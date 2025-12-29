@@ -1,6 +1,21 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 
 package(default_visibility = ["//py:__subpackages__"])
+
+exports_files(
+    [
+        "run.tmpl.sh",
+        "pytest.py.tmpl",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+bool_flag(
+    name = "bin_to_lib_flag",
+    build_setting_default = True,
+    visibility = ["//:__subpackages__"]
+)
 
 exports_files(
     [
