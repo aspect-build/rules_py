@@ -65,6 +65,9 @@ def wrap_with_bin_to_lib(bin_rule, lib_rule):
             return bin_providers
 
         lib_providers = lib_rule(ctx)
+
+        # It appears that one cannot transition the executable status of a binary.
+        #   This means we need to resolve an executable for binaries transitioned to libraries.
         return _add_executable(
             ctx,
             lib_providers,
