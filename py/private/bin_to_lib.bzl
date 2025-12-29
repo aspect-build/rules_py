@@ -1,7 +1,7 @@
 """
 
 Sometimes it is desirable for a python binary or venv to depend on another binary target or venv.
-This package reifies bin-dep-bin semantics by transitioning a binary into a library if it is
+Here we reify bin-dep-bin semantics by transitioning a binary into a library if it is
  depended upon by another binary.
 
 This functionality has the following benefits: 
@@ -31,30 +31,28 @@ bin_to_lib_transition = transition(
     ],
 )
 
-def _add_executable(ctx, providers):
+def _find_provider(providers, prov_type_name):
+    for provider in providers:
+        if type(provider) == prov_type_name:
+            return provider
+    return None
+
+def _add_executable(ctx, lib_providers, bin_providers):
     new_providers = []
-
-    # Ugly hack: Is there a better way?
-    dummy_file = ctx.actions.declare_file(
-        ctx.label.name + "_dummy_bin",
-    )
-    ctx.actions.write(
-        output = dummy_file,
-        content = "\n\n",
-    )
-
-    for p in providers:
+    bin_default_info = _find_provider(bin_providers, "DefaultInfo")
+    for p in lib_providers:
         if type(p) == "DefaultInfo":
             new_providers.append(
                 DefaultInfo(
                     files = p.files,
                     default_runfiles = p.default_runfiles,
-                    executable = dummy_file,
+                    # ugly hack: For some reason files_to_run is None so we must infer executable
+                    #  from file list.
+                    executable = bin_default_info.files.to_list()[0],
                 ),
             )
-        else:
-            new_providers.append(p)
-
+            continue
+        new_providers.append(p)
     return new_providers
 
 def wrap_with_bin_to_lib(bin_rule, lib_rule):
@@ -62,12 +60,15 @@ def wrap_with_bin_to_lib(bin_rule, lib_rule):
         if not ctx.attr._binary_mode:
             fail("Wrapped rule missing required attributes.")
 
+        bin_providers = bin_rule(ctx)
         if ctx.attr._binary_mode[BuildSettingInfo].value:
-            return bin_rule(ctx)
+            return bin_providers
 
+        lib_providers = lib_rule(ctx)
         return _add_executable(
             ctx,
-            lib_rule(ctx),
+            lib_providers,
+            bin_providers,
         )
 
     return helper
