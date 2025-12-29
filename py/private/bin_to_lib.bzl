@@ -15,21 +15,7 @@ load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private:providers.bzl", "PyVirtualInfo")
-
-def _bin_to_lib_transition_impl(settings, attr):
-    return {
-        "//py/private:bin_to_lib_flag": False,
-    }
-
-bin_to_lib_transition = transition(
-    implementation = _bin_to_lib_transition_impl,
-    inputs = [
-        "//py/private:bin_to_lib_flag",
-    ],
-    outputs = [
-        "//py/private:bin_to_lib_flag",
-    ],
-)
+load(":transitions.bzl", "bin_to_lib_transition")
 
 def _add_executable(ctx, lib_providers):
     new_providers = []
