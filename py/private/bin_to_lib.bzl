@@ -31,24 +31,15 @@ bin_to_lib_transition = transition(
     ],
 )
 
-def _find_provider(providers, prov_type_name):
-    for provider in providers:
-        if type(provider) == prov_type_name:
-            return provider
-    return None
-
-def _add_executable(ctx, lib_providers, bin_providers):
+def _add_executable(ctx, lib_providers):
     new_providers = []
-    bin_default_info = _find_provider(bin_providers, "DefaultInfo")
     for p in lib_providers:
         if type(p) == "DefaultInfo":
             new_providers.append(
                 DefaultInfo(
                     files = p.files,
                     default_runfiles = p.default_runfiles,
-                    # ugly hack: For some reason files_to_run is None so we must infer executable
-                    #  from file list.
-                    executable = bin_default_info.files.to_list()[0],
+                    executable = ctx.outputs.executable,
                 ),
             )
             continue
@@ -64,14 +55,11 @@ def wrap_with_bin_to_lib(bin_rule, lib_rule):
         if ctx.attr._binary_mode[BuildSettingInfo].value:
             return bin_providers
 
-        lib_providers = lib_rule(ctx)
-
         # It appears that one cannot transition the executable status of a binary.
         #   This means we need to resolve an executable for binaries transitioned to libraries.
         return _add_executable(
             ctx,
-            lib_providers,
-            bin_providers,
+            lib_rule(ctx),
         )
 
     return helper
