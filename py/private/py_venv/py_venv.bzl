@@ -2,6 +2,7 @@
 
 load("@aspect_bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
 load("@aspect_bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
+load("//py/private:bin_to_lib.bzl", "bin_to_lib")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private:transitions.bzl", "python_version_transition")
@@ -392,8 +393,11 @@ py_venv_base = struct(
 
 _py_venv = rule(
     doc = """Build a Python virtual environment and execute its interpreter.""",
-    implementation = _py_venv_rule_impl,
-    attrs = py_venv_base.attrs,
+    implementation = bin_to_lib.wrapper(
+        _py_venv_rule_impl,
+        _py_library.implementation,
+    ),
+    attrs = py_venv_base.attrs | bin_to_lib.attribs,
     toolchains = py_venv_base.toolchains,
     executable = True,
     cfg = py_venv_base.cfg,
@@ -411,8 +415,12 @@ def _wrap_with_debug(rule):
 
 _py_venv_binary = rule(
     doc = """Run a Python program under Bazel using a virtualenv.""",
-    implementation = _py_venv_binary_impl,
-    attrs = py_venv_base.attrs | py_venv_base.binary_attrs,
+    implementation = bin_to_lib.wrapper(
+        _py_venv_binary_impl,
+        _py_library.implementation,
+    ),
+    #implementation = _py_venv_binary_impl,
+    attrs = py_venv_base.attrs | py_venv_base.binary_attrs | bin_to_lib.attribs,
     toolchains = py_venv_base.toolchains,
     executable = True,
     cfg = py_venv_base.cfg,

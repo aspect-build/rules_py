@@ -17,13 +17,21 @@ load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private:providers.bzl", "PyVirtualInfo")
 load(":transitions.bzl", "bin_to_lib_transition")
 
-def _add_executable(ctx, lib_providers):
+def _find_provider(providers, prov_type_name):
+    for provider in providers:
+        if type(provider) == prov_type_name:
+            return provider
+    return None
+
+def _resolve_providers(ctx, lib_providers, bin_providers):
     new_providers = []
+    bin_default_info = _find_provider(bin_providers, "DefaultInfo")
     for p in lib_providers:
         if type(p) == "DefaultInfo":
             new_providers.append(
                 DefaultInfo(
                     files = p.files,
+                    data_runfiles = p.data_runfiles,
                     default_runfiles = p.default_runfiles,
                     executable = ctx.outputs.executable,
                 ),
@@ -41,11 +49,13 @@ def wrap_with_bin_to_lib(bin_rule, lib_rule):
         if ctx.attr._binary_mode[BuildSettingInfo].value:
             return bin_providers
 
-        # It appears that one cannot transition the executable status of a binary.
-        #   This means we need to resolve an executable for binaries transitioned to libraries.
-        return _add_executable(
+        lib_providers = lib_rule(ctx)
+
+        # Looks like we need to extract and propagate some files from the original binary.
+        return _resolve_providers(
             ctx,
-            lib_rule(ctx),
+            lib_providers,
+            bin_providers,
         )
 
     return helper
