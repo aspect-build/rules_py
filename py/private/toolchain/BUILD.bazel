@@ -1,5 +1,5 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
-load(":tools.bzl", "resolved_unpack_toolchain", "resolved_venv_toolchain", "dummy_toolchain")
+load(":tools.bzl", "dummy_toolchain", "resolved_unpack_toolchain", "resolved_venv_toolchain")
 
 exports_files(
     ["python.sh"],
@@ -34,7 +34,7 @@ resolved_unpack_toolchain(
 # Implementation detail of the target exec toolchain
 dummy_toolchain(
     name = "empty",
-    visibility = ["//visibility:private"]
+    visibility = ["//visibility:private"],
 )
 
 toolchain_type(
@@ -46,8 +46,8 @@ toolchain_type(
 # resolved for the target.
 toolchain(
     name = "target_exec_toolchain",
-    toolchain_type = "target_exec_toolchain_type",
     toolchain = ":empty",
+    toolchain_type = "target_exec_toolchain_type",
     use_target_platform_constraints = True,
 )
 

@@ -1,7 +1,7 @@
 """Declaration of concrete toolchains for our Rust tools"""
 
 load("@bazel_skylib//lib:structs.bzl", "structs")
-load(":types.bzl", "PyToolInfo", "UNPACK_TOOLCHAIN", "VENV_TOOLCHAIN", "PY_TOOLCHAIN")
+load(":types.bzl", "PyToolInfo", "UNPACK_TOOLCHAIN", "VENV_TOOLCHAIN")
 
 def PrebuiltToolConfig(
         target,

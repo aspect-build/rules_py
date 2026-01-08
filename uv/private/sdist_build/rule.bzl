@@ -36,12 +36,12 @@ def _sdist_build(ctx):
         progress_message = "Source compiling {} to a whl".format(archive.basename),
         executable = venv[VirtualenvInfo].home.path + "/bin/python3",
         arguments = [
-            ctx.file._helper.path
+            ctx.file._helper.path,
         ] + ctx.attr.args + [
             archive.path,
             wheel_dir.path,
         ],
-        # FIXME: Shouldn't need to add the Python toolchain files explictily here; should be transitives/defaultinfo of the venv.
+        # FIXME: Shouldn't need to add the Python toolchain files explicitly here; should be transitives/defaultinfo of the venv.
         inputs = [
             archive,
             venv[VirtualenvInfo].home,
@@ -72,7 +72,7 @@ specified Python dependencies under the configured Python toochain.
     attrs = {
         "src": attr.label(),
         "venv": attr.label(),
-        "args": attr.string_list(default=["--validate-anyarch"]),
+        "args": attr.string_list(default = ["--validate-anyarch"]),
         "_helper": attr.label(allow_single_file = True, default = Label(":build_helper.py")),
     },
     exec_groups = {
