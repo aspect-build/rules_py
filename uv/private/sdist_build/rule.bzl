@@ -36,7 +36,7 @@ def _sdist_build(ctx):
         progress_message = "Source compiling {} to a whl".format(archive.basename),
         executable = venv[VirtualenvInfo].home.path + "/bin/python3",
         arguments = [
-            ctx._helper.path
+            ctx.file._helper.path
         ] + ctx.attr.args + [
             archive.path,
             wheel_dir.path,
