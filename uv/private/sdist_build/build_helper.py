@@ -3,14 +3,14 @@
 """
 A minimal python3 -m build wrapper
 
-Mostly exists to allow debugging
+Mostly exists to allow debugging.
 """
 
 from argparse import ArgumentParser
 import shutil
 import sys
-from os import getenv, listdir, path
-from subprocess import check_call
+from os import listdir, path
+from subprocess import CalledProcessError, check_call
 from tempfile import TemporaryDirectory
 
 PARSER = ArgumentParser()
@@ -24,23 +24,31 @@ with TemporaryDirectory() as t:
     # Extract the source archive
     shutil.unpack_archive(opts.srcarchive, t)
 
+    # Annoyingly, unpack_archive creates a subdir in the target. Update t
+    # accordingly. Not worth the eng effort to prevent creating this dir.
+    t = path.join(t, listdir(t)[0])
+
     # Get a path to the outdir which will be valid after we cd
     outdir = path.abspath(opts.outdir)
 
-    check_call([
-        sys.executable,
-        "-m", "build",
-        "--wheel",
-        "--no-isolation",
-        "--outdir", outdir,
-    ], cwd=t)
+    try:
+        check_call([
+            sys.executable,
+            "-m", "build",
+            "--wheel",
+            "--no-isolation",
+            "--outdir", outdir,
+        ], cwd=t)
+    except CalledProcessError:
+        print("Error: Build failed!\nSee {} for the sandbox".format(t), file=sys.stderr)
+        exit(1)
 
     inventory = listdir(outdir)
 
     if len(inventory) > 1:
-        print("Error: Built more than one wheel!", file=sys.stderr)
+        print("Error: Built more than one wheel!\nSee {} for the sandbox".format(t), file=sys.stderr)
         exit(1)
 
     if opts.validate_anyarch and not inventory[0].endswith("-none-any.whl"):
-        print("Error: Target was anyarch but built a none-any wheel!")
+        print("Error: Target was anyarch but built a none-any wheel!\nSee {} for the sandbox".format(t), file=sys.stderr)
         exit(1)
