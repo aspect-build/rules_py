@@ -2,13 +2,10 @@
 Actually building sdists.
 """
 
-load("//py/private/py_venv:types.bzl", "VirtualenvInfo")
-
 # buildifier: disable=bzl-visibility
+load("//py/private/py_venv:types.bzl", "VirtualenvInfo")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "TARGET_EXEC_TOOLCHAIN")
 load("//uv/private:defs.bzl", "lib_mode_transition")
-
-# UV_TOOLCHAIN = "@multitool//tools/uv:toolchain_type"
 
 def _sdist_build(ctx):
     py_toolchain = ctx.exec_groups["target"].toolchains[PY_TOOLCHAIN].py3_runtime
@@ -35,6 +32,8 @@ def _sdist_build(ctx):
     # inherit RBE placement properties matching the target platform so that
     # it'll run remotely.
     ctx.actions.run(
+        mnemonic = "PySdistBuild",
+        progress_message = "Source compiling {} to a whl".format(archive.basename),
         executable = venv[VirtualenvInfo].home.path + "/bin/python3",
         arguments = [
             ctx._helper.path
