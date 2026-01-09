@@ -3,6 +3,7 @@ Actually building sdists.
 """
 
 load("//py/private/py_venv:types.bzl", "VirtualenvInfo")
+load("//uv/private:defs.bzl", "lib_mode_transition")
 
 # buildifier: disable=bzl-visibility
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
@@ -102,4 +103,13 @@ specified Python dependencies under the configured Python toochain.
         # UV_TOOLCHAIN,
         # FIXME: Add in a cc toolchain here
     ],
+    # KLUDGE: Reset the uv lib mode and force it to lib. This ensures that if
+    # the user requests a library graph as whl files instead of libraries AND we
+    # have to do an sdist build to create one of those whls, the sdist builds
+    # required to produce those whls will occur with their dependencies
+    # _installed as libraries_ rather than _present as whl files_.
+    #
+    # Otherwise the transitive deps of the venv will still be in whl mode and we
+    # get cool errors that `build` and other tools aren't installed.
+    cfg=lib_mode_transition,
 )
