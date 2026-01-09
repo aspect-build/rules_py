@@ -3,7 +3,6 @@ Actually building sdists.
 """
 
 load("//py/private/py_venv:types.bzl", "VirtualenvInfo")
-load("//uv/private:defs.bzl", "lib_mode_transition")
 
 # buildifier: disable=bzl-visibility
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
