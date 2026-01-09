@@ -122,4 +122,13 @@ uv.lockfile(
     hub_name = "pypi",
     venv_name = "psql",
 )
+uv.declare_venv(
+    hub_name = "pypi",
+    venv_name = "no-sdist",
+)
+uv.lockfile(
+    src = "//cases/uv-no-sdist-754:uv.lock",
+    hub_name = "pypi",
+    venv_name = "no-sdist",
+)
 use_repo(uv, "pypi")
