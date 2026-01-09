@@ -3,10 +3,10 @@ Actually building sdists.
 """
 
 load("//py/private/py_venv:types.bzl", "VirtualenvInfo")
-load("//uv/private:defs.bzl", "lib_mode_transition")
 
 # buildifier: disable=bzl-visibility
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
+load("//uv/private:defs.bzl", "lib_mode_transition")
 
 TAR_TOOLCHAIN = "@tar.bzl//tar/toolchain:type"
 # UV_TOOLCHAIN = "@multitool//tools/uv:toolchain_type"
@@ -111,5 +111,5 @@ specified Python dependencies under the configured Python toochain.
     #
     # Otherwise the transitive deps of the venv will still be in whl mode and we
     # get cool errors that `build` and other tools aren't installed.
-    cfg=lib_mode_transition,
+    cfg = lib_mode_transition,
 )
