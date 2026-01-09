@@ -18,7 +18,7 @@ def indent(text, space = " "):
 def _format_arms(d):
     content = ["        \"{}\": \"{}\"".format(k, v) for k, v in d.items()]
     content = ",\n".join(content)
-    return "{\n" + content + "\n    }"
+    return "{\n" + content + "\n   }"
 
 def select_key(triple):
     """Force (triple, target) pairs into a orderable form.
@@ -173,6 +173,21 @@ def _whl_install_impl(repository_ctx):
     if repository_ctx.attr.sbuild:
         select_arms = select_arms | {
             "//conditions:default": str(repository_ctx.attr.sbuild),
+        }
+
+    else:
+        # When there's no sbuild fallback, ensure the select chain always has a
+        # default arm. This avoids empty select chains for packages that only
+        # have wheels for platforms we don't currently support (e.g. Windows-only).
+        content.append("""
+filegroup(
+    name = "_no_sbuild",
+    srcs = [],
+    target_compatible_with = ["@platforms//:incompatible"],
+)
+""")
+        select_arms = select_arms | {
+            "//conditions:default": ":_no_sbuild",
         }
 
     if prebuilds:
