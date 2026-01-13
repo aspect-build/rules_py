@@ -1,0 +1,32 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_test", "py_library")
+
+py_library(
+    name = "lib",
+    imports = ["."],
+    srcs = ["lib.py"]
+)
+
+py_binary(
+    name = "bin_a",
+    srcs = ["bin_a.py"],
+    deps = [
+        ":lib"
+    ]
+)
+
+py_binary(
+    name = "bin_b",
+    srcs = ["bin_b.py"],
+    deps = [
+        ":bin_a"
+    ]
+)
+
+py_test(
+    name = "test",
+    srcs = ["test.py"],
+    deps = [
+        ":bin_a",
+        ":bin_b",
+    ]
+)

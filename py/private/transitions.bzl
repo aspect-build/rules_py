@@ -30,5 +30,20 @@ python_transition = transition(
     ],
 )
 
+def _bin_to_lib_transition_impl(settings, attr):
+    return {
+        "//py/private:bin_to_lib_flag": False,
+    }
+
+bin_to_lib_transition = transition(
+    implementation = _bin_to_lib_transition_impl,
+    inputs = [
+        "//py/private:bin_to_lib_flag",
+    ],
+    outputs = [
+        "//py/private:bin_to_lib_flag",
+    ],
+)
+
 # The old name, FIXME: refactor this out
 python_version_transition = python_transition

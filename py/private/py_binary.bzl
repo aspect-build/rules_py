@@ -8,6 +8,8 @@ load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "VENV_TOOLCHAIN")
 load(":transitions.bzl", "python_version_transition")
 
+load(":bin_to_lib.bzl", "bin_to_lib")
+
 def _dict_to_exports(env):
     return [
         "export %s=\"%s\"" % (k, v)
@@ -228,8 +230,11 @@ py_base = struct(
 
 py_binary = rule(
     doc = "Run a Python program under Bazel. Most users should use the [py_binary macro](#py_binary) instead of loading this directly.",
-    implementation = py_base.implementation,
-    attrs = py_base.attrs,
+    implementation = bin_to_lib.wrapper(
+        py_base.implementation,
+        _py_library.implementation
+    ),
+    attrs = py_base.attrs | bin_to_lib.attribs,
     toolchains = py_base.toolchains,
     executable = True,
     cfg = py_base.cfg,
