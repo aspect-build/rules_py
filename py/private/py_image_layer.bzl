@@ -31,7 +31,8 @@ oci_image(
 """
 
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
-load("@tar.bzl", "mtree_mutate", "mtree_spec", "tar")
+load("@tar.bzl//tar:mtree.bzl", "mtree_mutate", "mtree_spec")
+load("@tar.bzl//tar:tar.bzl", "tar")
 
 default_layer_groups = {
     # match *only* external repositories that begins with the string "python"

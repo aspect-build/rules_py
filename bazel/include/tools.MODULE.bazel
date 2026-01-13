@@ -1,4 +1,0 @@
-# Local tools
-bazel_dep(name = "bazelrc-preset.bzl", version = "1.4.0")
-bazel_dep(name = "bazel_env.bzl", version = "0.5.0")
-bazel_dep(name = "gazelle", version = "0.45.0")
