@@ -180,7 +180,7 @@ oci.pull(
 use_repo(oci, "ubuntu", "ubuntu_linux_amd64", "ubuntu_linux_arm64_v8")
 
 # For building test images with py_image_layer
-bazel_dep(name = "container_structure_test", version = "1.19.3", dev_dependency = IS_RELEASE)
+bazel_dep(name = "container_structure_test", version = "1.19.1", dev_dependency = IS_RELEASE)
 git_override(
     module_name = "container_structure_test",
     commit = "63ee63e15fae64f00b1c1ace1eb5cc99251b9e02",

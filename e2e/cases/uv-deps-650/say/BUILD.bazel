@@ -9,6 +9,6 @@ py_venv_test(
     python_version = "3.11",
     venv = "say",
     deps = [
-        "@pypi//cowsay",
+        "@e2e_pypi//cowsay",
     ],
 )
