@@ -2,7 +2,7 @@ diff --git a/MODULE.bazel b/MODULE.bazel
 index eec026a..4854935 100644
 --- a/MODULE.bazel
 +++ b/MODULE.bazel
-@@ -1,10 +1,10
+@@ -1,10 +1,10 @@
  "aspect-build/rules_py"
  
  module(
