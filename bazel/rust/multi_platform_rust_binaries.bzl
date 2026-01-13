@@ -7,8 +7,8 @@ load("@rules_pkg//pkg:pkg.bzl", "pkg_tar", "pkg_zip")
 load("//bazel/release:hashes.bzl", "hashes")
 
 TARGET_TRIPLES = [
-    ("x86_64_unknown_linux_gnu", "linux_x86_64"),
-    ("aarch64_unknown_linux_gnu", "linux_aarch64"),
+    ("x86_64_unknown_linux_musl", "linux_x86_64"),
+    ("aarch64_unknown_linux_musl", "linux_aarch64"),
     ("x86_64_apple_darwin", "macos_x86_64"),
     ("aarch64_apple_darwin", "macos_aarch64"),
 ]

@@ -2235,9 +2235,9 @@ files:
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./cases/uv-deps-650/crossbuild/app_bin.runfiles/_main/cases/uv-deps-650/crossbuild/.app_bin/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./cases/uv-deps-650/crossbuild/app_bin.runfiles/_main/cases/uv-deps-650/crossbuild/.app_bin/bin/
   - -rwxr-xr-x  0 0      0        2497 Jan  1  2023 ./cases/uv-deps-650/crossbuild/app_bin.runfiles/_main/cases/uv-deps-650/crossbuild/.app_bin/bin/activate
-  - -rwxr-xr-x  0 0      0      800024 Jan  1  2023 ./cases/uv-deps-650/crossbuild/app_bin.runfiles/_main/cases/uv-deps-650/crossbuild/.app_bin/bin/python
-  - -rwxr-xr-x  0 0      0      800024 Jan  1  2023 ./cases/uv-deps-650/crossbuild/app_bin.runfiles/_main/cases/uv-deps-650/crossbuild/.app_bin/bin/python3
-  - -rwxr-xr-x  0 0      0      800024 Jan  1  2023 ./cases/uv-deps-650/crossbuild/app_bin.runfiles/_main/cases/uv-deps-650/crossbuild/.app_bin/bin/python3.12
+  - -rwxr-xr-x  0 0      0      831040 Jan  1  2023 ./cases/uv-deps-650/crossbuild/app_bin.runfiles/_main/cases/uv-deps-650/crossbuild/.app_bin/bin/python
+  - -rwxr-xr-x  0 0      0      831040 Jan  1  2023 ./cases/uv-deps-650/crossbuild/app_bin.runfiles/_main/cases/uv-deps-650/crossbuild/.app_bin/bin/python3
+  - -rwxr-xr-x  0 0      0      831040 Jan  1  2023 ./cases/uv-deps-650/crossbuild/app_bin.runfiles/_main/cases/uv-deps-650/crossbuild/.app_bin/bin/python3.12
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./cases/uv-deps-650/crossbuild/app_bin.runfiles/_main/cases/uv-deps-650/crossbuild/.app_bin/lib/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./cases/uv-deps-650/crossbuild/app_bin.runfiles/_main/cases/uv-deps-650/crossbuild/.app_bin/lib/python3.12/
   - -rwxr-xr-x  0 0      0         350 Jan  1  2023 ./cases/uv-deps-650/crossbuild/app_bin.runfiles/_main/cases/uv-deps-650/crossbuild/.app_bin/pyvenv.cfg
