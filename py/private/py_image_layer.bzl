@@ -30,8 +30,8 @@ oci_image(
 ```
 """
 
-load("@aspect_bazel_lib//lib:tar.bzl", "mtree_mutate", "mtree_spec", "tar")
-load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
+load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
+load("@tar.bzl", "mtree_mutate", "mtree_spec", "tar")
 
 default_layer_groups = {
     # match *only* external repositories that begins with the string "python"

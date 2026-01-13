@@ -6,10 +6,6 @@ bazel_dep(name = "tar.bzl", version = "0.5.5")
 bazel_lib_toolchains = use_extension("@tar.bzl//tar:extensions.bzl", "toolchains", dev_dependency = True)
 use_repo(bazel_lib_toolchains, "bsd_tar_toolchains")
 
-include("//bazel/include:e2e.MODULE.bazel")
-
-include("//bazel/include:oci.MODULE.bazel")
-
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(
     configure_coverage_tool = True,

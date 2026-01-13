@@ -14,8 +14,8 @@ bzl_library(
     name = "py_image_layer",
     srcs = ["py_image_layer.bzl"],
     deps = [
-        "@aspect_bazel_lib//lib:tar",
-        "@aspect_bazel_lib//lib:transitions",
+        "@bazel_lib//lib:tar",
+        "@bazel_lib//lib:transitions",
     ],
 )
 
@@ -24,8 +24,8 @@ bzl_library(
     srcs = ["py_binary.bzl"],
     deps = [
         ":py_library",
-        "@aspect_bazel_lib//lib:expand_make_vars",
-        "@aspect_bazel_lib//lib:paths",
+        "@bazel_lib//lib:expand_make_vars",
+        "@bazel_lib//lib:paths",
     ],
 )
 

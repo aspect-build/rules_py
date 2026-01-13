@@ -1,4 +1,4 @@
-load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
+load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 def _modules_mapping_impl(ctx):

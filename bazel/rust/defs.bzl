@@ -1,6 +1,6 @@
 """Rust rule defaults"""
 
-load("@aspect_bazel_lib//lib:expand_template.bzl", _expand_template = "expand_template")
+load("@bazel_lib//lib:expand_template.bzl", _expand_template = "expand_template")
 load("@rules_rust//rust:defs.bzl", _rust_binary = "rust_binary", _rust_library = "rust_library", _rust_proc_macro = "rust_proc_macro", _rust_test = "rust_test")
 load("@with_cfg.bzl", "with_cfg")
 
