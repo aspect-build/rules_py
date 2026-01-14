@@ -97,7 +97,10 @@ rust.toolchain(
 )
 use_repo(rust, "rust_toolchains")
 
-register_toolchains("@rust_toolchains//:all")
+register_toolchains(
+    "@rust_toolchains//:all",
+    dev_dependency = IS_RELEASE,
+)
 
 bazel_dep(name = "bazelrc-preset.bzl", version = "1.4.0", dev_dependency = IS_RELEASE)
 bazel_dep(name = "bazel_env.bzl", version = "0.5.0", dev_dependency = IS_RELEASE)
