@@ -107,7 +107,7 @@ bazel_dep(name = "bazel_env.bzl", version = "0.5.0", dev_dependency = IS_RELEASE
 bazel_dep(name = "bzip2", version = "1.0.8.bcr.3", dev_dependency = IS_RELEASE)
 bazel_dep(name = "gazelle", version = "0.45.0", dev_dependency = IS_RELEASE)
 bazel_dep(name = "rules_pkg", version = "1.1.0", dev_dependency = IS_RELEASE)
-bazel_dep(name = "rules_rs", version = "0.0.16", dev_dependency = IS_RELEASE)
+bazel_dep(name = "rules_rs", version = "0.0.26", dev_dependency = IS_RELEASE)
 bazel_dep(name = "xz", version = "5.4.5.bcr.5", dev_dependency = IS_RELEASE)
 bazel_dep(name = "zstd", version = "1.5.7", dev_dependency = IS_RELEASE)
 bazel_dep(name = "rules_multitool", version = "1.9.0", dev_dependency = IS_RELEASE)
