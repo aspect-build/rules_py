@@ -5,9 +5,9 @@ workspaces:
   - e2e
   - examples/uv_pip_compile:
       tasks:
-          - bazel-9:
-              # TODO(alexeagle): needs an updated published aspect_rules_py
-              without: true
+        - bazel-9:
+            # TODO(alexeagle): needs an updated published aspect_rules_py
+            without: true
 
 tasks:
   - test:
