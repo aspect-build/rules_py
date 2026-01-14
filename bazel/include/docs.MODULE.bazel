@@ -1,2 +1,0 @@
-# We use stardoc
-bazel_dep(name = "stardoc", version = "0.8.0")

@@ -41,7 +41,7 @@ py_venv_binary(
     python_version = "3.12",
     venv = "psql",
     deps = [
-        "@pypi//psycopg2_binary",
+        "@e2e_pypi//psycopg2_binary",
     ],
 )
 
@@ -77,7 +77,7 @@ assert_tar_listing(
 oci_image(
     name = "image",
     # This is defined by an oci.pull() call in /MODULE.bazel
-    base = "@ubuntu",
+    base = "@aspect_rules_py//py/private:ubuntu",
     entrypoint = ["/{}/app_bin".format(package_name())],
     tars = [":app_layers"],
 )

@@ -1,1 +1,0 @@
-../../bazel/defs.bzl

@@ -1,4 +1,4 @@
-load("@aspect_bazel_lib//lib:testing.bzl", "assert_contains")
+load("@bazel_lib//lib:testing.bzl", "assert_contains")
 load("//py:defs.bzl", "py_binary", "py_pex_binary")
 
 # Test that both single-file modules (six) and multi-file modules (cowsay) work with py_pex_binary.

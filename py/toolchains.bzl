@@ -1,6 +1,5 @@
 """Declare toolchains"""
 
-load("@aspect_bazel_lib//lib:repositories.bzl", "register_tar_toolchains")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 load("//py/private/release:version.bzl", "IS_PRERELEASE")
 load("//py/private/toolchain:autodetecting.bzl", _register_autodetecting_python_toolchain = "register_autodetecting_python_toolchain")
@@ -19,8 +18,6 @@ def rules_py_toolchains(name = DEFAULT_TOOLS_REPOSITORY, register = True, is_pre
         register: whether to call the register_toolchains, should be True for WORKSPACE and False for bzlmod.
         is_prerelease: True iff there are no pre-built tool binaries for this version of rules_py
     """
-
-    register_tar_toolchains(register = register)
 
     if is_prerelease:
         prerelease_toolchains_repo(name = name)

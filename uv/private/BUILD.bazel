@@ -35,7 +35,7 @@ bzl_library(
 bzl_library(
     name = "sha1",
     srcs = ["sha1.bzl"],
-    deps = ["@aspect_bazel_lib//lib:strings"],
+    deps = ["@bazel_lib//lib:strings"],
 )
 
 bzl_library(
