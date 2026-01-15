@@ -1,39 +1,25 @@
 # See https://docs.aspect.build/workflows/configuration
 
-# This list is maintained by tools/e2e/sync.py
 workspaces:
   - .
   - e2e
-  - examples/uv_pip_compile
+  - examples/uv_pip_compile:
+      tasks:
+        - bazel-9:
+            # TODO(alexeagle): needs an updated published aspect_rules_py
+            without: true
 
 tasks:
-  # TODO(arrdem): Rosetta doesn't like HEAD version strings seemingly
-  # - test:
-  #     name: test-os:linux-bzl:head
-  #     queue: aspect-default
-  #     hooks:
-  #       - type: before_task
-  #         command: |
-  #           rm .bazelversion
-  #           echo "USE_BAZEL_VERSION=last_green" > .bazeliskrc
-
   - test:
-      name: test-os:linux-bzl:latest
-      queue: aspect-large
-      hooks:
-        - type: before_task
-          command: |
-            rm .bazelversion
-            echo "USE_BAZEL_VERSION=latest" > .bazeliskrc
-
+      name: Bazel 8
+      id: bazel-8
+      env:
+        USE_BAZEL_VERSION: 8.x
   - test:
-      name: test-os:linux-bzl:8
-      queue: aspect-large
-      hooks:
-        - type: before_task
-          command: |
-            rm .bazelversion
-            echo "USE_BAZEL_VERSION=8.5.1" > .bazeliskrc
+      name: Bazel 9
+      id: bazel-9
+      env:
+        USE_BAZEL_VERSION: 9.*
 
   - finalization:
       queue: aspect-small

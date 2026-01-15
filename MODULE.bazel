@@ -13,19 +13,12 @@ bazel_dep(name = "bazel_lib", version = "3.0.0")
 bazel_dep(name = "bazel_skylib", version = "1.4.2")
 bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "rules_python", version = "1.0.0")
-bazel_dep(name = "with_cfg.bzl", version = "0.11.0")
-bazel_dep(name = "rules_cc", version = "0.2.11")
+bazel_dep(name = "with_cfg.bzl", version = "0.14.1")
+bazel_dep(name = "rules_cc", version = "0.2.16")
 bazel_dep(name = "tar.bzl", version = "0.5.5")
 
 bazel_lib_toolchains = use_extension("@tar.bzl//tar:extensions.bzl", "toolchains")
 use_repo(bazel_lib_toolchains, "bsd_tar_toolchains")
-
-single_version_override(
-    module_name = "rules_cc",
-    patch_strip = 1,
-    patches = ["//bazel/patches:rules_cc_visibility.patch"],
-    version = "0.2.11",
-)
 
 tools = use_extension("//py:extensions.bzl", "py_tools")
 tools.rules_py_tools()
@@ -107,8 +100,8 @@ bazel_dep(name = "bazel_env.bzl", version = "0.5.0", dev_dependency = IS_RELEASE
 bazel_dep(name = "bzip2", version = "1.0.8.bcr.3", dev_dependency = IS_RELEASE)
 bazel_dep(name = "gazelle", version = "0.45.0", dev_dependency = IS_RELEASE)
 bazel_dep(name = "rules_pkg", version = "1.1.0", dev_dependency = IS_RELEASE)
-bazel_dep(name = "rules_rs", version = "0.0.16", dev_dependency = IS_RELEASE)
-bazel_dep(name = "xz", version = "5.4.5.bcr.5", dev_dependency = IS_RELEASE)
+bazel_dep(name = "rules_rs", version = "0.0.26", dev_dependency = IS_RELEASE)
+bazel_dep(name = "xz", version = "5.4.5.bcr.7", dev_dependency = IS_RELEASE)
 bazel_dep(name = "zstd", version = "1.5.7", dev_dependency = IS_RELEASE)
 bazel_dep(name = "rules_multitool", version = "1.9.0", dev_dependency = IS_RELEASE)
 
