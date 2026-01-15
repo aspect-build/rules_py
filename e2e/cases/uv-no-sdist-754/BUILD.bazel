@@ -1,5 +1,4 @@
 load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
-load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
 
 platform(
     name = "amd64_windows",

@@ -212,7 +212,6 @@ def generate_musllinux(visibility):
                 visibility = visibility,
             )
 
-
 # buildifier: disable=unnamed-macro
 # buildifier: disable=function-docstring
 def generate_windows(visibility):
