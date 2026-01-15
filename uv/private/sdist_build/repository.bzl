@@ -8,7 +8,7 @@ sibling `rule.bzl` file for the implementation of `sdist_build`.
 
 def _sdist_build_impl(repository_ctx):
     repository_ctx.file("BUILD.bazel", content = """
-load("@aspect_rules_py//uv/private/sdist_build:rule.bzl", "sdist_build")
+load("@aspect_rules_py//uv/private/sdist_build:rule.bzl", "{rule}")
 load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv")
 
 py_venv(
@@ -16,15 +16,18 @@ py_venv(
     deps = {deps},
 )
     
-sdist_build(
+{rule}(
     name = "whl",
     src = "{src}",
     venv = ":build_venv",
+    args = [],
     visibility = ["//visibility:public"],
 )
 """.format(
         src = repository_ctx.attr.src,
         deps = repr([str(it) for it in repository_ctx.attr.deps]),
+        # FIXME: This should probably be inferred by looking at the inventory of the sdist
+        rule = "sdist_native_build" if repository_ctx.attr.is_native else "sdist_build",
     ))
 
 sdist_build = repository_rule(
@@ -32,5 +35,6 @@ sdist_build = repository_rule(
     attrs = {
         "src": attr.label(),
         "deps": attr.label_list(),
+        "is_native": attr.bool(),
     },
 )

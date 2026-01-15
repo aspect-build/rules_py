@@ -16,6 +16,7 @@ local_path_override(
     path = "..",
 )
 
+# FIXME: Can we clean this up now that sdist builds don't use tar
 bazel_lib_toolchains = use_extension("@tar.bzl//tar:extensions.bzl", "toolchains", dev_dependency = True)
 use_repo(bazel_lib_toolchains, "bsd_tar_toolchains")
 

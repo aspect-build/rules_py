@@ -58,6 +58,8 @@ def _decode_file(ctx, content_path):
     os = _translate_os(ctx.os.name)
     libc = _translate_libc(ctx)
 
+    ctx.watch(content_path)
+
     out = ctx.execute(
         [
             Label("@toml2json_{}_{}_{}//file:downloaded".format(arch, os, libc)),

@@ -1,40 +1,54 @@
 #!/usr/bin/env python3
 
+"""
+A minimal python3 -m build wrapper
+
+Mostly exists to allow debugging.
+"""
+
 from argparse import ArgumentParser
 import shutil
 import sys
-from os import getenv, listdir, path
-from subprocess import call
-
-# Under Bazel, the source dir of a sdist to build is immutable. `build` and
-# other tools however are constitutionally incapable of not writing to the
-# source tree.
-#
-# As a workaround, we use this launcher which exists to do two things.
-# - It makes a writable tempdir with a copy of the source tree
-# - It punts to `build` targeting the tempdir
-
-print(sys.executable, file=sys.stderr)
+from os import listdir, path
+from subprocess import CalledProcessError, check_call
+from tempfile import TemporaryDirectory
 
 PARSER = ArgumentParser()
-PARSER.add_argument("srcdir")
+PARSER.add_argument("srcarchive")
 PARSER.add_argument("outdir")
+PARSER.add_argument("--validate-anyarch", action="store_true")
+PARSER.add_argument("--sandbox", action="store_true")
 opts, args = PARSER.parse_known_args()
 
-t = getenv("TMPDIR")  # Provided by Bazel
+with TemporaryDirectory() as t:
+    # Extract the source archive
+    shutil.unpack_archive(opts.srcarchive, t)
 
-# Dirty awful way to prevent permissions from being replicated
-shutil.copystat = lambda x, y, **k: None
-shutil.copytree(opts.srcdir, t, dirs_exist_ok=True)
+    # Annoyingly, unpack_archive creates a subdir in the target. Update t
+    # accordingly. Not worth the eng effort to prevent creating this dir.
+    t = path.join(t, listdir(t)[0])
 
-outdir = path.abspath(opts.outdir)
+    # Get a path to the outdir which will be valid after we cd
+    outdir = path.abspath(opts.outdir)
 
-call([
-    sys.executable,
-    "-m", "build",
-    "--wheel",
-    "--no-isolation",
-    "--outdir", outdir,
-], cwd=t)
+    try:
+        check_call([
+            sys.executable,
+            "-m", "build",
+            "--wheel",
+            "--no-isolation",
+            "--outdir", outdir,
+        ], cwd=t)
+    except CalledProcessError:
+        print("Error: Build failed!\nSee {} for the sandbox".format(t), file=sys.stderr)
+        exit(1)
 
-print(listdir(outdir), file=sys.stderr)
+    inventory = listdir(outdir)
+
+    if len(inventory) > 1:
+        print("Error: Built more than one wheel!\nSee {} for the sandbox".format(t), file=sys.stderr)
+        exit(1)
+
+    if opts.validate_anyarch and not inventory[0].endswith("-none-any.whl"):
+        print("Error: Target was anyarch but built a none-any wheel!\nSee {} for the sandbox".format(t), file=sys.stderr)
+        exit(1)

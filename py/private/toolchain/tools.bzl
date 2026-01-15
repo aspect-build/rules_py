@@ -147,3 +147,15 @@ resolved_unpack_toolchain = rule(
     implementation = _resolved_unpack_impl,
     toolchains = [UNPACK_TOOLCHAIN],
 )
+
+def _dummy_toolchain_impl(ctx):
+    toolchain_info = platform_common.ToolchainInfo(
+        dummy = True,
+    )
+    return [toolchain_info]
+
+dummy_toolchain = rule(
+    implementation = _dummy_toolchain_impl,
+    attrs = {
+    },
+)

@@ -7,6 +7,7 @@ SH_TOOLCHAIN = "@bazel_tools//tools/sh:toolchain_type"
 SHIM_TOOLCHAIN = "@aspect_rules_py//py/private/toolchain:shim_toolchain_type"
 UNPACK_TOOLCHAIN = "@aspect_rules_py//py/private/toolchain:unpack_toolchain_type"
 VENV_TOOLCHAIN = "@aspect_rules_py//py/private/toolchain:venv_toolchain_type"
+TARGET_EXEC_TOOLCHAIN = "@aspect_rules_py//py/private/toolchain:target_exec_toolchain_type"
 
 PyToolInfo = provider(
     doc = "An info so we don't just return bare files",
