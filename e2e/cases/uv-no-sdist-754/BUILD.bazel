@@ -1,0 +1,26 @@
+load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
+
+platform(
+    name = "amd64_windows",
+    constraint_values = [
+        "@platforms//os:windows",
+        "@platforms//cpu:x86_64",
+    ],
+    flags = [
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=msvc",
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_version=1.0",
+        "--@rules_rust//:extra_rustc_flag=-Cstrip=debuginfo",
+        "--@rules_rust//rust/settings:lto=fat",
+        "--stripopt=--strip-all",
+        # Note that we have to set this
+        "--@pypi//venv=no-sdist",
+    ],
+)
+
+platform_transition_filegroup(
+    name = "test",
+    srcs = [
+        "@pypi//pywin32",
+    ],
+    target_platform = ":amd64_windows",
+)
