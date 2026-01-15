@@ -88,38 +88,38 @@ use_repo(importer, "myrepo")
 
 # For cases/uv-deps-650
 uv = use_extension("@aspect_rules_py//uv/unstable:extension.bzl", "uv")
-uv.declare_hub(hub_name = "e2e_pypi")
+uv.declare_hub(hub_name = "pypi")
 uv.declare_venv(
-    hub_name = "e2e_pypi",
+    hub_name = "pypi",
     venv_name = "say",
 )
 uv.lockfile(
     src = "//cases/uv-deps-650/say:uv.lock",
-    hub_name = "e2e_pypi",
+    hub_name = "pypi",
     venv_name = "say",
 )
 uv.override_requirement(
-    hub_name = "e2e_pypi",
+    hub_name = "pypi",
     requirement = "cowsay",
     target = "//cases/uv-deps-650/third_party/cowsay",
     venv_name = "say",
 )
 uv.declare_venv(
-    hub_name = "e2e_pypi",
+    hub_name = "pypi",
     venv_name = "airflow",
 )
 uv.lockfile(
     src = "//cases/uv-deps-650/airflow:uv.lock",
-    hub_name = "e2e_pypi",
+    hub_name = "pypi",
     venv_name = "airflow",
 )
 uv.declare_venv(
-    hub_name = "e2e_pypi",
+    hub_name = "pypi",
     venv_name = "psql",
 )
 uv.lockfile(
     src = "//cases/uv-deps-650/crossbuild:uv.lock",
-    hub_name = "e2e_pypi",
+    hub_name = "pypi",
     venv_name = "psql",
 )
-use_repo(uv, "e2e_pypi")
+use_repo(uv, "pypi")

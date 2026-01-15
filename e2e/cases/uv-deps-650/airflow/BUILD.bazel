@@ -9,6 +9,6 @@ py_venv_test(
     python_version = "3.13",
     venv = "airflow",
     deps = [
-        "@e2e_pypi//apache_airflow",
+        "@pypi//apache_airflow",
     ],
 )

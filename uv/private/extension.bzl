@@ -103,18 +103,10 @@ def _parse_hubs(module_ctx):
             hub_specs.setdefault(hub.hub_name, {})
             hub_specs[hub.hub_name][mod.name] = 1
 
-    problems = []
-    for hub_name, modules in hub_specs.items():
-        if len(modules.keys()) > 1:
-            problems.append(
-                "Hub name {} should have been globally unique but was used by the following modules:{}".format(
-                    hub_name,
-                    "".join(["\n - {}".format(it) for it in modules.keys()]),
-                ),
-            )
-
-    if problems:
-        fail(problems)
+    # Note that we ARE NOT validating that the same hub name is registered by
+    # one and only one repository. This allows `@pypi` which we think should be
+    # the one and only conventional hub to be referenced by many modules since
+    # we disambiguate the build configuration on the "venv" not the hub.
 
     return hub_specs
 
