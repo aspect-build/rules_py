@@ -10,6 +10,10 @@ platform(
         "@platforms//os:linux",
         "@platforms//cpu:aarch64",
     ],
+    exec_properties = {
+        "OSFamily": "Linux",
+        "Arch": "arm64",
+    },
     flags = [
         "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
         "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.39",
@@ -17,10 +21,6 @@ platform(
         "--@rules_rust//rust/settings:lto=fat",
         "--stripopt=--strip-all",
     ],
-    exec_properties = {
-        "OSFamily": "Linux",
-        "Arch": "arm64",
-    },
 )
 
 platform(
@@ -29,6 +29,10 @@ platform(
         "@platforms//os:linux",
         "@platforms//cpu:x86_64",
     ],
+    exec_properties = {
+        "OSFamily": "Linux",
+        "Arch": "amd64",
+    },
     flags = [
         "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
         "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.39",
@@ -36,10 +40,6 @@ platform(
         "--@rules_rust//rust/settings:lto=fat",
         "--stripopt=--strip-all",
     ],
-    exec_properties = {
-        "OSFamily": "Linux",
-        "Arch": "amd64",
-    },
 )
 
 py_venv_binary(
