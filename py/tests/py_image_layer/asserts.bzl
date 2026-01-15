@@ -1,5 +1,6 @@
 """Test helper"""
 
+load("@bazel_features//:features.bzl", "bazel_features")
 load("@bazel_lib//lib:write_source_files.bzl", "write_source_file")
 
 # buildifier: disable=function-docstring
@@ -24,6 +25,9 @@ for f in $(SRCS); do
 done > $@
 """.format(actual),
         toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
+        # HACK: avoid running tests that depend on this output on Bazel 9.
+        # For some reason, the listing is different than on Bazel 8, in a way that's hard to scrub.
+        target_compatible_with = ["@platforms//:incompatible"] if bazel_features.rules.merkle_cache_v2 else [],
     )
 
     write_source_file(
