@@ -1,0 +1,8 @@
+[project]
+name = "source-crossbuild"
+version = "0.0.0"
+dependencies = [
+  "cowsay @ https://files.pythonhosted.org/packages/7e/b5/e8e802ddc7f5219417dc7d7953eec81ffe48ad129b793f3040361e4aff89/cowsay-6.0.tar.gz",
+  "build",
+  "wheel",
+]

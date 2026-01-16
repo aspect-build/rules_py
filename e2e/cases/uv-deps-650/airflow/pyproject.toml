@@ -1,0 +1,10 @@
+[project]
+name = "dummy"
+version = "0.0.0"
+dependencies = [
+  "apache-airflow",
+  "apache-airflow-providers-sqlite",
+]
+
+[dependency-groups]
+airflow = ["dummy"]
