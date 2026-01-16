@@ -91,10 +91,10 @@ use_repo(importer, "myrepo")
 uv = use_extension("@aspect_rules_py//uv/unstable:extension.bzl", "uv")
 uv.declare_hub(hub_name = "pypi")
 uv.project(
-    hub_name = "pypi",
     name = "say",
-    pyproject = "//cases/uv-deps-650/say:pyproject.toml",
+    hub_name = "pypi",
     lock = "//cases/uv-deps-650/say:uv.lock",
+    pyproject = "//cases/uv-deps-650/say:pyproject.toml",
 )
 uv.override_requirement(
     hub_name = "pypi",
@@ -103,16 +103,16 @@ uv.override_requirement(
     target = "//cases/uv-deps-650/third_party/cowsay",
 )
 uv.project(
-    hub_name = "pypi",
     name = "airflow",
-    pyproject = "//cases/uv-deps-650/airflow:pyproject.toml",
+    hub_name = "pypi",
     lock = "//cases/uv-deps-650/airflow:uv.lock",
+    pyproject = "//cases/uv-deps-650/airflow:pyproject.toml",
 )
 uv.project(
-    hub_name = "pypi",
     name = "crossbuild",
-    pyproject = "//cases/uv-deps-650/crossbuild:pyproject.toml",
+    hub_name = "pypi",
     lock = "//cases/uv-deps-650/crossbuild:uv.lock",
+    pyproject = "//cases/uv-deps-650/crossbuild:pyproject.toml",
 )
 uv.project(
     hub_name = "pypi",

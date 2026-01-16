@@ -43,19 +43,10 @@ and project-based closures. It handles project-specific sdist builds and
 enforces mandatory overrides for virtual, path, and git dependencies.
 """
 
-load("@bazel_features//:features.bzl", features = "bazel_features")
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
-load("//uv/private/constraints:repository.bzl", "configurations_hub")
-load("//uv/private/hub:repository.bzl", "hub_repo")
-load("//uv/private/sdist_build:repository.bzl", "sdist_build")
 load("//uv/private/tomltool:toml.bzl", "toml")
-load("//uv/private/venv_hub:repository.bzl", "venv_hub")
-load("//uv/private/whl_install:repository.bzl", "whl_install")
 load(":normalize_name.bzl", "normalize_name")
-load(":parse_whl_name.bzl", "parse_whl_name")
 load(":sccs.bzl", "sccs")
 load(":sha1.bzl", "sha1")
-
 
 def _pretty_print(val):
     """
@@ -63,41 +54,43 @@ def _pretty_print(val):
     Uses a stack to perform depth-first traversal for a YAML-like format.
     """
     lines = []
+
     # Worklist acts as a stack: (value, indentation_level, optional_key)
     stack = [(val, 0, None)]
 
     for i in range(1000000):  # Starlark loop safety limit
         if not stack:
             break
-        
+
         curr, indent, key = stack.pop()
         prefix = "  " * indent
         key_str = "{}: ".format(key) if key != None else ""
-        
+
         t = type(curr)
-        
+
         if t == "struct":
             lines.append("{}{}{}".format(prefix, key_str, ""))
             d = dir(curr)
+
             # Add to stack in reverse to process fields in correct order
             fields = sorted([f for f in d if f not in ("to_json", "to_proto")])
             for j in range(len(fields)):
                 field = fields[len(fields) - 1 - j]
                 stack.append((getattr(curr, field), indent + 1, field))
-        
+
         elif t == "dict":
             lines.append("{}{}{}".format(prefix, key_str, ""))
             keys = curr.keys()
             for j in range(len(keys)):
                 k = keys[len(keys) - 1 - j]
                 stack.append((curr[k], indent + 1, str(k)))
-        
+
         elif t == "list" or t == "tuple":
             lines.append("{}{}{}".format(prefix, key_str, ""))
             for j in range(len(curr)):
                 item = curr[len(curr) - 1 - j]
                 stack.append((item, indent + 1, "-"))
-        
+
         else:
             # Leaf node
             lines.append("{}{}{}".format(prefix, key_str, curr))
@@ -192,12 +185,13 @@ def _process_project_to_ir(hub_name, project_name, lock_data, pyproject_data):
 
     # 2. Build Adjacency Graph (Base + Extras)
     graph = {}
+
     # edges: { from_id: { to_id: marker_expression } }
     edges = {}
     active_extras = {}  # pkg_id -> {extra_name: True}
 
     limit = len(nodes) * len(nodes)
-    
+
     for p_id, pkg in nodes.items():
         graph[p_id] = []
         edges[p_id] = {}
@@ -225,7 +219,7 @@ def _process_project_to_ir(hub_name, project_name, lock_data, pyproject_data):
     for _ in range(limit):
         if not all_extra_ids:
             break
-        
+
         ex_id = all_extra_ids.pop()
 
         if ex_id in graph:
@@ -284,6 +278,7 @@ def _process_project_to_ir(hub_name, project_name, lock_data, pyproject_data):
 
     # 6. Environment Closures (Dependency Groups)
     envs = {}
+
     # Note that we hack in a default mapping from the project to itself
     groups = pyproject_data.get("dependency-groups", {root_pkg_name: [root_pkg_name]})
     for group_name, roots in groups.items():
@@ -549,7 +544,7 @@ def _uv_impl(module_ctx):
     #     return module_ctx.extension_metadata(reproducible = True)
 
     fail("Not ready yet")
-    
+
 # --- Tag Definitions ---
 
 _hub_attrs = {
@@ -585,4 +580,3 @@ uv = module_extension(
         "override_requirement": tag_class(attrs = _override_attrs),
     },
 )
-

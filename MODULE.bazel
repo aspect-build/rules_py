@@ -209,15 +209,15 @@ uv.declare_hub(
     hub_name = "pypi",
 )
 uv.project(
-    hub_name = "pypi",
     name = "aspect_rules_py",
-    pyproject = "//:pyproject.toml",
+    hub_name = "pypi",
     lock = "//:uv.lock",
+    pyproject = "//:pyproject.toml",
 )
 uv.unstable_annotate_requirements(
+    src = "//:annotations.toml",
     hub_name = "pypi",
     project_name = "aspect_rules_py",
-    src = "//:annotations.toml",
 )
 use_repo(uv, "pypi")
 
