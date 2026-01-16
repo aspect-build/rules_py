@@ -90,31 +90,31 @@ use_repo(importer, "myrepo")
 # For cases/uv-deps-650
 uv = use_extension("@aspect_rules_py//uv/unstable:extension.bzl", "uv")
 uv.declare_hub(hub_name = "pypi")
-uv.declare_venv(
+uv.project(
     hub_name = "pypi",
-    venv_name = "say",
-)
-uv.lockfile(
-    src = "//cases/uv-deps-650/say:uv.lock",
-    hub_name = "pypi",
-    venv_name = "say",
+    name = "say",
+    pyproject = "//cases/uv-deps-650/say:pyproject.toml",
+    lock = "//cases/uv-deps-650/say:uv.lock",
 )
 uv.override_requirement(
     hub_name = "pypi",
+    project_name = "say",
     requirement = "cowsay",
     target = "//cases/uv-deps-650/third_party/cowsay",
-    venv_name = "say",
 )
-uv.declare_venv(
+uv.project(
     hub_name = "pypi",
-    venv_name = "airflow",
+    name = "airflow",
+    pyproject = "//cases/uv-deps-650/airflow:pyproject.toml",
+    lock = "//cases/uv-deps-650/airflow:uv.lock",
 )
-uv.lockfile(
-    src = "//cases/uv-deps-650/airflow:uv.lock",
+uv.project(
     hub_name = "pypi",
-    venv_name = "airflow",
+    name = "crossbuild",
+    pyproject = "//cases/uv-deps-650/crossbuild:pyproject.toml",
+    lock = "//cases/uv-deps-650/crossbuild:uv.lock",
 )
-uv.declare_venv(
+uv.project(
     hub_name = "pypi",
     venv_name = "psql",
 )
@@ -122,5 +122,19 @@ uv.lockfile(
     src = "//cases/uv-deps-650/crossbuild:uv.lock",
     hub_name = "pypi",
     venv_name = "psql",
+)
+uv.declare_venv(
+    hub_name = "pypi",
+    venv_name = "source-build",
+)
+uv.lockfile(
+    src = "//cases/uv-deps-650/source_crossbuild:uv.lock",
+    hub_name = "pypi",
+    venv_name = "source-build",
+)
+uv.unstable_annotate_requirements(
+    src = "//cases/uv-deps-650/source_crossbuild:annotations.toml",
+    hub_name = "pypi",
+    venv_name = "source-build",
 )
 use_repo(uv, "pypi")

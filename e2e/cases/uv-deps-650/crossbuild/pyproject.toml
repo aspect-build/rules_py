@@ -1,0 +1,6 @@
+[project]
+name = "crossbuild"
+version = "0.0.0"
+dependencies = [
+  "psycopg2-binary~=2.9.0",
+]

@@ -1,0 +1,6 @@
+[project]
+name = "say"
+version = "0.0.0"
+dependencies = [
+  "cowsay==6.1",
+]
