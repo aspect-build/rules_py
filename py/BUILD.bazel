@@ -1,11 +1,9 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 
-# For Bazel 6.x compatibility, since
-# PyRuntimeInfo shipped only with Bazel 7
-# Users can set, e.g. --@aspect_rules_py//py:interpreter_version=3.9.18
 alias(
     name = "interpreter_version",
-    actual = "@rules_python//python/config_settings:python_version",
+    actual = "//py/settings:interpreter_version",
+    deprecation = "Please prefer py/settings:interpreter_version",
     visibility = ["//visibility:public"],
 )
 
@@ -34,6 +32,7 @@ bzl_library(
         "//py/private:py_unpacked_wheel",
         "//py/private:py_wheel",
         "//py/private:virtual",
+        "//py/private/link",
         "//py/private/py_venv",
         "@bazel_lib//lib:utils",
     ],
@@ -41,6 +40,7 @@ bzl_library(
 
 # This needs to dep on @aspect_tools_telemetry_report but we don't have that in WORKSPACE
 # gazelle:exclude extensions.bzl
+#
 # bzl_library(
 #     name = "extensions",
 #     srcs = [
