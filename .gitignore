@@ -1,17 +1,15 @@
+!third_party/**
+**/*.whl
+**/__pycache__
 **/bazel-*
+**/target/
+.*.venv/
+.DS_Store
+.agent*
+.gemini*
 .bazelrc.user
 .idea
 .ijwb
-.*.venv/
-**/__pycache__
-.DS_Store
-**/target/
-**/*.whl
 .venv/
-
-node_modules/
-
-!third_party/**
-
-# TODO: enable when it is more stable, maybe Bazel 7.1
 MODULE.bazel.lock
+node_modules/

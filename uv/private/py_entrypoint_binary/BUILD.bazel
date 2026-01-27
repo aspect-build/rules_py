@@ -1,1 +1,4 @@
-exports_files(["entrypoint.tmpl"])
+exports_files([
+    "entrypoint.tmpl",
+    "search.py",
+])

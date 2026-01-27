@@ -1,0 +1,14 @@
+# TOOLCHAIN_DEPS
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+
+load(":test_graph_utils.bzl", "graph_utils_test_suite")
+
+bzl_library(
+    name = "defs",
+    srcs = [
+        "defs.bzl",
+    ],
+    visibility = ["//uv:__subpackages__"],
+)
+
+graph_utils_test_suite()

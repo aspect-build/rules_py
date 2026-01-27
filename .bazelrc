@@ -7,7 +7,7 @@ common --incompatible_disallow_empty_glob=False
 common --define=SOME_VAR=SOME_VALUE
 
 # Set the default virtualenv to 'default'
-common --@pypi//venv=default
+common --@pypi//venv=aspect_rules_py
 
 common --incompatible_enable_cc_toolchain_resolution
 common --@toolchains_llvm_bootstrapped//config:experimental_stub_libgcc_s

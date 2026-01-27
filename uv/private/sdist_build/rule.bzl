@@ -50,6 +50,9 @@ def _sdist_build(ctx):
         outputs = [
             wheel_dir,
         ],
+        env = {
+            "SETUPTOOLS_SCM_PRETEND_VERSION": ctx.attr.version,
+        },
         exec_group = "target",
     )
 
@@ -72,6 +75,7 @@ specified Python dependencies under the configured Python toochain.
     attrs = {
         "src": attr.label(),
         "venv": attr.label(),
+        "version": attr.string(),
         "args": attr.string_list(default = ["--validate-anyarch"]),
         "_helper": attr.label(allow_single_file = True, default = Label(":build_helper.py")),
     },
@@ -101,6 +105,7 @@ constraints of the target platform.
     attrs = {
         "src": attr.label(),
         "venv": attr.label(),
+        "version": attr.string(),
         "args": attr.string_list(),
         "_helper": attr.label(allow_single_file = True, default = Label(":build_helper.py")),
     },

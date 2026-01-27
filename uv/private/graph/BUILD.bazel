@@ -1,0 +1,10 @@
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load(":sccs_test.bzl", "sccs_test_suite")
+
+bzl_library(
+    name = "sccs",
+    srcs = ["sccs.bzl"],
+    visibility = ["//visibility:public"],
+)
+
+sccs_test_suite()

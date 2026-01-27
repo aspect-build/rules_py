@@ -7,4 +7,4 @@ common --repo_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
 common --repo_env=BAZEL_NO_APPLE_CPP_TOOLCHAIN=1
 
 # Configure a default venv
-common --@pypi//venv=say
+# common --@pypi//venv=say

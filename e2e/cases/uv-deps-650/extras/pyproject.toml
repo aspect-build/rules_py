@@ -1,0 +1,15 @@
+[project]
+name = "extras"
+version = "0.0.0"
+authors = []
+dependencies = [
+    "requests",
+    "urllib3[brotli]",  # Activate an extra
+]
+
+[dependency-groups]
+extras = [
+   "extras",
+   "build",
+   "setuptools",
+]

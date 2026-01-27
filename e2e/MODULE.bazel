@@ -111,37 +111,30 @@ use_repo(importer, "myrepo")
 # For cases/uv-deps-650
 uv = use_extension("@aspect_rules_py//uv/unstable:extension.bzl", "uv")
 uv.declare_hub(hub_name = "pypi")
-uv.declare_venv(
+uv.project(
     hub_name = "pypi",
-    venv_name = "say",
+    lock = "//cases/uv-deps-650/say:uv.lock",
+    pyproject = "//cases/uv-deps-650/say:pyproject.toml",
 )
-uv.lockfile(
-    src = "//cases/uv-deps-650/say:uv.lock",
-    hub_name = "pypi",
-    venv_name = "say",
-)
-uv.override_requirement(
-    hub_name = "pypi",
-    requirement = "cowsay",
+uv.override_package(
+    name = "cowsay",
+    lock = "//cases/uv-deps-650/say:uv.lock",
+    # FIXME: Version annotation may be required for disambiguation
     target = "//cases/uv-deps-650/third_party/cowsay",
-    venv_name = "say",
 )
-uv.declare_venv(
+uv.project(
     hub_name = "pypi",
-    venv_name = "airflow",
+    lock = "//cases/uv-deps-650/airflow:uv.lock",
+    pyproject = "//cases/uv-deps-650/airflow:pyproject.toml",
 )
-uv.lockfile(
-    src = "//cases/uv-deps-650/airflow:uv.lock",
+uv.project(
     hub_name = "pypi",
-    venv_name = "airflow",
+    lock = "//cases/uv-deps-650/crossbuild:uv.lock",
+    pyproject = "//cases/uv-deps-650/crossbuild:pyproject.toml",
 )
-uv.declare_venv(
+uv.project(
     hub_name = "pypi",
-    venv_name = "psql",
-)
-uv.lockfile(
-    src = "//cases/uv-deps-650/crossbuild:uv.lock",
-    hub_name = "pypi",
-    venv_name = "psql",
+    lock = "//cases/uv-deps-650/extras:uv.lock",
+    pyproject = "//cases/uv-deps-650/extras:pyproject.toml",
 )
 use_repo(uv, "pypi")

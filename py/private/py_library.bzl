@@ -181,7 +181,7 @@ def _py_library_impl(ctx):
 
     return [
         DefaultInfo(
-            files = depset(direct = ctx.files.srcs),
+            files = depset(direct = ctx.files.srcs, transitive = [transitive_srcs]),
             default_runfiles = runfiles,
         ),
         PyInfo(
