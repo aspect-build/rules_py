@@ -241,7 +241,7 @@ alias(
 
         repository_ctx.file(name + "/entrypoints/BUILD.bazel", content = "\n".join(content))
 
-hub_repo = repository_rule(
+uv_hub = repository_rule(
     implementation = _hub_impl,
     attrs = {
         "hub_name": attr.string(),

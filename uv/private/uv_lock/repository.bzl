@@ -171,7 +171,7 @@ py_library(
 
     repository_ctx.file("private/sccs/BUILD.bazel", content = "\n".join(content))
 
-venv_hub = repository_rule(
+uv_lock = repository_rule(
     implementation = _venv_hub_impl,
     attrs = {
         "aliases": attr.string_dict(

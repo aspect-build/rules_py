@@ -41,13 +41,13 @@ Relies on the lockfile to enumerate:
 
 load("@bazel_features//:features.bzl", features = "bazel_features")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
-load("//uv/private/constraints:repository.bzl", "configurations_hub")
 load("//uv/private/constraints/platform:defs.bzl", "supported_platform")
 load("//uv/private/constraints/python:defs.bzl", "supported_python")
-load("//uv/private/hub:repository.bzl", "hub_repo")
+load("//uv/private/constraints:repository.bzl", "configurations_hub")
 load("//uv/private/sdist_build:repository.bzl", "sdist_build")
 load("//uv/private/tomltool:toml.bzl", "toml")
-load("//uv/private/venv_hub:repository.bzl", _venv_hub="venv_hub")
+load("//uv/private/uv_hub:repository.bzl", "uv_hub")
+load("//uv/private/uv_lock:repository.bzl", "uv_lock")
 load("//uv/private/whl_install:repository.bzl", "whl_install")
 load(":normalize_name.bzl", "normalize_name")
 load(":parse_whl_name.bzl", "parse_whl_name")
@@ -518,7 +518,14 @@ def _parse_projects(module_ctx, hub_specs):
             # This SHOULD be stable enough.
             # We'll rebuild the lock hub whenever the toml changes.
             # Reusing the name is fine.
-            lock_id = sha1(repr(project.lock))[:16]
+            lock_id = "lockfile__" + sha1(repr(project.lock))[:16]
+            
+            def _name(k):
+                print(repr(k))
+                if k[3] == "__base__":
+                    return "@{}//:{}__{}".format(lock_id, k[1], k[2].replace(".", "_"))
+                else:
+                    return "@{}//:{}__{}__extra__{}".format(lock_id, k[1], k[2].replace(".", "_"), k[3])
 
             # Read these from the project or honor the module state
             project_name = project.name or project_data["project"]["name"]
@@ -547,7 +554,7 @@ def _parse_projects(module_ctx, hub_specs):
                 dep_to_scc, scc_graph, scc_deps = _collect_sccs(marker_graph)
 
                 for package in lock_data.get("package", []):
-                    k = "whl_install__{}__{}__{}".format(lock_id, package["name"], package["version"])
+                    k = "whl_install__{}__{}__{}".format(lock_id, package["name"], package["version"].replace(".", "_"))
                     install_table[(lock_id, package["name"], package["version"], "__base__")] = "@{}//:install".format(k)
 
                     sdist = package.get("sdist")
@@ -566,10 +573,18 @@ def _parse_projects(module_ctx, hub_specs):
                 }
 
                 lock_cfgs[lock_id] = struct(
-                    default_versions = default_versions,
-                    dep_to_scc = dep_to_scc,
+                    default_versions = {
+                        k: _name(v) for k, v in default_versions.items()
+                    },
+                    dep_to_scc = {
+                        _name(k).split(":")[1]: v for k, v in dep_to_scc.items()
+                    },
+                    scc_deps = {
+                        k: {_name(d).split("//")[1]: markers}
+                        for k, deps in scc_deps.items()
+                        for d, markers in deps.items()
+                    },
                     scc_graph = scc_graph,
-                    scc_deps = scc_deps,
                 )
 
             else:
@@ -582,11 +597,27 @@ def _parse_projects(module_ctx, hub_specs):
             configuration_names, activated_extras = _collect_activated_extras(project_data, default_versions, marker_graph)
             version_activations = _collate_versions_by_name(activated_extras)
 
+            activated_extras = {
+                _name(k): {cfg: {_name(ek): markers}}
+                for k, cfgs in activated_extras.items()
+                for cfg, extras in cfgs.items()
+                for ek, markers in extras.items()
+                if k != ek
+            }
+
+            version_activations = {
+                cfg: {pkg: {_name(version): markers}}
+                for cfg, packages in version_activations.items()
+                for pkg, versions in packages.items()
+                for version, markers in versions.items()
+            }
+            
             hub_cfg = hub_cfgs.setdefault(project.hub_name, struct(
                 configurations = {},
                 version_activations = {},
                 extra_activations = {},
             ))
+
             for cfg in configuration_names.keys():
                 if cfg in hub_cfg.configurations:
                     fail("Conflict on configuration name {} in hub {}".format(cfg, project.hub_name))
@@ -615,35 +646,6 @@ def venv_hub(name, cfg, sdist_table, bdist_table, marker_table):
 
     Take a single hub configuration and generate all the components.
     """
-
-    # print(name, pprint(cfg))
-
-    def _name(k):
-        if k[2] == "__base__":
-            return "{}__{}".format(k[0], k[1])
-        else:
-            return "{}__{}__extra__{}".format(*k)
-
-    # We have to re-key the extra activations, graph and package configs so that we're using a json-friendly key
-    activated_extras = {
-        _name(k): {_name(ek): markers}
-        for k, extras in cfg.activated_extras.items()
-        for ek, markers in extras.items()
-    }
-    graph = {
-        _name(k): {_name(d): markers}
-        for k, deps in cfg.graph.items()
-        for d, markers in deps.items()
-    }
-    pkg_cfgs = {
-        _name(pkg): pkg_cfg
-        for pkg, pkg_cfg in cfg.package_cfgs.items()
-    }
-
-    print(pprint(activated_extras))
-    print(pprint(graph))
-    print(pprint(pkg_cfgs))
-
 
 def _uv_impl(module_ctx):
     """
@@ -694,20 +696,28 @@ def _uv_impl(module_ctx):
             downloaded_file_path = bdist_cfg["url"].split("/")[-1].split("?")[0].split("#")[0],
         )
 
-    for hub_name, hub_cfg in cfg.hub_specs.items():
-        for cfg_name, cfg_spec in hub_cfg.items():
-            venv_hub(
-                name = cfg_name,
-                cfg = cfg_spec,
-                sdist_table = cfg.sdist_table,
-                bdist_table = cfg.bdist_table,
-                marker_table = cfg.marker_specs,
-            )
+    for install_id, install_cfg in cfg.install_cfgs.items():
+        whl_install(
+            name = install_id,
+            sdist = install_cfg.sdist,
+            whls = install_cfg.whls,
+        )
 
-        # hub(
-        #     name = hub_name,
-        #     cfg = hub_cfg,
-        # )
+    for lock_id, lock_cfg in cfg.lock_cfgs.items():
+        uv_lock(
+            name = lock_id,
+            dep_to_scc = lock_cfg.dep_to_scc,
+            scc_deps = lock_cfg.scc_deps,
+            scc_graph = lock_cfg.scc_graph,
+        )
+
+    for hub_id, hub_cfg in cfg.hub_cfgs.items():
+        uv_hub(
+            name = hub_id,
+            configurations = hub_cfg.configurations,
+            extra_activations = hub_cfg.extra_activations,
+            version_activations = hub_cfg.version_activations,
+        )
 
     if features.external_deps.extension_metadata_has_reproducible:
         return module_ctx.extension_metadata(reproducible = True)
