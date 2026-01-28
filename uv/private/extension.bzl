@@ -547,8 +547,8 @@ def _parse_projects(module_ctx, hub_specs):
                 dep_to_scc, scc_graph, scc_deps = _collect_sccs(marker_graph)
 
                 for package in lock_data.get("package", []):
-                    k = "@whl_install__{}__{}__{}//:install".format(lock_id, package["name"], package["version"])
-                    install_table[(lock_id, package["name"], package["version"], "__base__")] = k
+                    k = "whl_install__{}__{}__{}".format(lock_id, package["name"], package["version"])
+                    install_table[(lock_id, package["name"], package["version"], "__base__")] = "@{}//:install".format(k)
 
                     sdist = package.get("sdist")
                     if sdist:
