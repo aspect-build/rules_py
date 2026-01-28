@@ -47,7 +47,7 @@ load("//uv/private/constraints/python:defs.bzl", "supported_python")
 load("//uv/private/hub:repository.bzl", "hub_repo")
 load("//uv/private/sdist_build:repository.bzl", "sdist_build")
 load("//uv/private/tomltool:toml.bzl", "toml")
-load("//uv/private/venv_hub:repository.bzl", "venv_hub")
+load("//uv/private/venv_hub:repository.bzl", _venv_hub="venv_hub")
 load("//uv/private/whl_install:repository.bzl", "whl_install")
 load(":normalize_name.bzl", "normalize_name")
 load(":parse_whl_name.bzl", "parse_whl_name")
@@ -111,7 +111,7 @@ def _parse_hubs(module_ctx):
 
     return hub_specs
 
-def _normalize_deps(lock_data):
+def _normalize_deps(lock_id, lock_data):
     """
     Normalize the lockfile.
     1. Compute the "default version" mapping
@@ -122,19 +122,21 @@ def _normalize_deps(lock_data):
     for spec in lock_data.get("package", []):
         # spec: RequirementSpec
         spec["name"] = normalize_name(spec["name"])
-        
+
         # Collect all the versions first
         package_versions.setdefault(spec["name"], {})[spec["version"]] = 1
 
     default_versions = {
-        requirement: list(versions.keys())[0]
+        requirement: (lock_id, requirement, list(versions.keys())[0], "__base__")
         for requirement, versions in package_versions.items() if len(versions) == 1
     }
 
     def _fix_version(dep):
         dep["name"] = normalize_name(dep["name"])
         if not "version" in dep:
-            dep["version"] = default_versions.get(dep["name"])
+            # Note that default versions is requirement => (lock_id, name, version, "__base__")
+            # So we need to extract the version component here
+            dep["version"] = default_versions.get(dep["name"])[2]
 
     for spec in lock_data.get("package", []):
         for dep in spec.get("dependencies", []):
@@ -143,11 +145,11 @@ def _normalize_deps(lock_data):
             for dep in extra_deps:
                 _fix_version(dep)
 
-    return package_versions, default_versions, lock_data
+    return default_versions, lock_data
 
 
-def _build_marker_graph(lock_data):
-    """The graph is {(package, version, extra): {(package, version, extra): {marker: 1}}}.
+def _build_marker_graph(lock_id, lock_data):
+    """The graph is {(lock_id, package, version, extra): {(lock_id, package, version, extra): {marker: 1}}}.
 
     We convert dependencies which no extra list to dependencies on ["__base__"].
     We also ensure that every extra depends on the "__base__" configuration if itself.
@@ -163,21 +165,21 @@ def _build_marker_graph(lock_data):
     graph = {}
     for spec in lock_data.get("package", []):
         # spec: RequirementSpec
-        k = (spec["name"], spec["version"], "__base__")
+        k = (lock_id, spec["name"], spec["version"], "__base__")
         pkg_deps = graph.setdefault(k, {})
         for dep in spec.get("dependencies", []):
             extras = dep.get("extra", ["__base__"])
             for e in extras:
-                pkg_deps.setdefault((dep["name"], dep["version"], e), {})[dep.get("marker")] = 1
+                pkg_deps.setdefault((lock_id, dep["name"], dep["version"], e), {})[dep.get("marker")] = 1
 
         for extra_name, optional_deps in spec.get("optional-dependencies", {}).items():
-            ek = (spec["name"], spec["version"], extra_name)
+            ek = (lock_id, spec["name"], spec["version"], extra_name)
             # Add a synthetic edge from the extra package to the base package
             pkg_deps = graph.setdefault(ek, {}).setdefault(k, {None: 1})
             for dep in optional_deps:
                 extras = dep.get("extra", ["__base__"])
                 for e in extras:
-                    graph[ek].setdefault((dep["name"], dep["version"], e), {})[dep.get("marker")] = 1
+                    graph[ek].setdefault((lock_id, dep["name"], dep["version"], e), {})[dep.get("marker")] = 1
 
     return graph
 
@@ -196,10 +198,24 @@ def _collect_sccs(graph):
 
     simplified_graph = {dep: nexts.keys() for dep, nexts in graph.items()}
     graph_components = sccs(simplified_graph)
+
+    # Now we need to rebuild markers for intra-scc deps
     scc_graph = {
-        sha1(repr(sorted(scc)))[:16]: scc
+        sha1(repr(sorted(scc)))[:16]: {m: {} for m in scc}
         for scc in graph_components
     }
+    for scc_id, scc in scc_graph.items():
+        for start in scc.keys():
+            for next in scc.keys():
+                next_marks = graph.get(start, {}).get(next, {})
+                # Merge the markers back into the next
+                if next_marks:
+                    scc_graph[scc_id][next].update(next_marks)
+
+        # Ensure that everything has at least the no-op marker
+        for next in scc.keys():
+            if len(scc_graph[scc_id][next].keys()) == 0:
+                scc_graph[scc_id][next].update({None: 1})
 
     # Compute the mapping from dependency coordinates to the SCC containing that dep
     dep_to_scc = {
@@ -222,19 +238,19 @@ def _collect_sccs(graph):
 def _extract_requirement_marker_pairs(req_string, version_map):
     """
     Parses a requirement string into a list of ((name, version, extra), marker) pairs.
-    
+
     Args:
         req_string: The requirement string (e.g., "foo[bar]>=1.0; sys_platform == 'linux'").
         version_map: A dict mapping package names to default version strings.
-        
+
     Returns:
-        A list of tuples [((name, version, extra), marker), ...]. 
+        A list of tuples [((name, version, extra), marker), ...].
         The marker is a string or None.
     """
     # 1. Split Requirement and Marker
     # Starlark split() often doesn't support maxsplit, so we use find() + slicing
     semicolon_idx = req_string.find(";")
-    
+
     marker = None
     if semicolon_idx != -1:
         # Extract and clean the marker
@@ -251,30 +267,30 @@ def _extract_requirement_marker_pairs(req_string, version_map):
 
     # 2. Identify end of package name within req_part
     stop_chars = {
-        "[": 1, 
-        "=": 1, 
-        ">": 1, 
-        "<": 1, 
-        "!": 1, 
-        "~": 1, 
+        "[": 1,
+        "=": 1,
+        ">": 1,
+        "<": 1,
+        "!": 1,
+        "~": 1,
         " ": 1
     }
-    
+
     name_end_idx = len(req_part)
-    
+
     for i in range(len(req_part)):
         char = req_part[i]
         if char in stop_chars:
             name_end_idx = i
             break
-    
+
     pkg_name = req_part[:name_end_idx]
 
     # 3. Extract Extras from req_part
     extras = []
-    
+
     remainder = req_part[name_end_idx:]
-    
+
     if remainder.startswith("["):
         close_idx = remainder.find("]")
         if close_idx != -1:
@@ -286,21 +302,21 @@ def _extract_requirement_marker_pairs(req_string, version_map):
                     extras.append(clean_p)
 
     # 4. Look up version
-    version = version_map.get(pkg_name)
+    lock_id, pkg_name, version, _ = version_map.get(pkg_name)
 
     # 5. Construct results
     # Each result is ((name, ver, extra), marker)
     results = []
-    
+
     # Base requirement
-    base_dep = (pkg_name, version, "__base__")
+    base_dep = (lock_id, pkg_name, version, "__base__")
     results.append((base_dep, marker))
-    
+
     # Extras
     for e in extras:
-        dep = (pkg_name, version, e)
+        dep = (lock_id, pkg_name, version, e)
         results.append((dep, marker))
-        
+
     return results
 
 def _collect_activated_extras(project_data, default_versions, graph):
@@ -333,7 +349,7 @@ def _collect_activated_extras(project_data, default_versions, graph):
 
                 # Note that this is the base case for the reach set walk below
                 # We do this here so it's easy to handle marker expressions
-                base = (dep[0], dep[1], "__base__")
+                base = (dep[0], dep[1], dep[2], "__base__")
                 activated_extras.setdefault(base, {}).setdefault(group_name, {}).setdefault(dep, {}).update({marker: 1})
 
     for group_name, deps in normalized_dep_groups.items():
@@ -351,7 +367,7 @@ def _collect_activated_extras(project_data, default_versions, graph):
 
             for next, markers in graph.get(it, {}).items():
                 # Convert `next`, being a dependency potentially with marker, to its base package
-                base = (next[0], next[1], "__base__")
+                base = (next[0], next[1], next[2], "__base__")
                 # Upsert the base package so that under the appropriate cfg it lists next as a dep with the appropriate markers
                 activated_extras.setdefault(base, {}).setdefault(group_name, {}).setdefault(next, {}).update(markers)
                 if next not in visited:
@@ -364,8 +380,8 @@ def _collect_activated_extras(project_data, default_versions, graph):
 
 def _collate_versions_by_name(activated_extras):
     """
-    Transforms the activated extras map into a mapping of names to configs to 
-    versions to markers. This groups different versions of the same package 
+    Transforms the activated extras map into a mapping of names to configs to
+    versions to markers. This groups different versions of the same package
     together under the package name.
 
     Returns:
@@ -373,11 +389,12 @@ def _collate_versions_by_name(activated_extras):
     """
     result = {}
 
-    for (pkg_name, pkg_version, _), configs in activated_extras.items():
+    for id, configs in activated_extras.items():
+        (lock_id, pkg_name, pkg_version, _) = id
         for cfg, deps in configs.items():
             # Ensure path exists: result[name][cfg][version] -> {marker: 1}
             # We use setdefault chain to traverse/create the nested dicts
-            version_markers = result.setdefault(pkg_name, {}).setdefault(cfg, {}).setdefault(pkg_version, {})
+            version_markers = result.setdefault(pkg_name, {}).setdefault(cfg, {}).setdefault(id, {})
 
             # deps is {dep_triple: {marker: 1}}
             # We aggregate all markers for this version (from base and extras)
@@ -454,7 +471,7 @@ def _collect_bdists(lock_data):
     bdist_table = {}
     for package in lock_data.get("package", []):
         for bdist in package.get("wheels", []):
-            bdist_repo_name = "{}__{}__{}".format(package["name"], package["version"], bdist["hash"].split(":")[1][:16])
+            bdist_repo_name = "whl__{}__{}".format(package["name"], bdist["hash"].split(":")[1][:16])
             bdist_specs[bdist_repo_name] = bdist
             bdist_table[bdist["hash"]] = "@{}//:file".format(bdist_repo_name)
 
@@ -466,7 +483,7 @@ def _collect_sdists(lock_data):
     for package in lock_data.get("package", []):
         if "sdist" in package:
             sdist = package["sdist"]
-            sdist_repo_name = "{}__{}__{}".format(package["name"], package["version"], sdist["hash"].split(":")[1][:16])
+            sdist_repo_name = "sdist__{}__{}".format(package["name"], sdist["hash"].split(":")[1][:16])
             sdist_specs[sdist_repo_name] = sdist
             sdist_table[sdist["hash"]] = "@{}//:file".format(sdist_repo_name)
 
@@ -476,89 +493,157 @@ def _parse_projects(module_ctx, hub_specs):
     """
     Parse project declaration tags.
 
-    Returns a mapping
-        {hub: {configuration: struct(project, group_packages, lock)}}
+    Returns:
+        {lock_id: struct(lock, dep_to_scc, scc_graph, scc_deps)}
+        {hub: {nominal_requirement: {cfg: lock_qualified_}}
     """
 
-    hub_cfg_specs = {}
+    lock_cfgs = {}
+    hub_cfgs = {}
     marker_specs = {}
     whl_configurations = {}
     sdist_specs = {}
     sdist_table = {}
     bdist_specs = {}
     bdist_table = {}
+    install_cfgs = {}
+    install_table = {}
 
     # Collect all hubs, ensure we have no dupes
     for mod in module_ctx.modules:
         for project in mod.tags.project:
             project_data = toml.decode_file(module_ctx, project.pyproject)
             lock_data = toml.decode_file(module_ctx, project.lock)
-            
+
+            # This SHOULD be stable enough.
+            # We'll rebuild the lock hub whenever the toml changes.
+            # Reusing the name is fine.
+            lock_id = sha1(repr(project.lock))[:16]
+
             # Read these from the project or honor the module state
             project_name = project.name or project_data["project"]["name"]
             # FIXME: Error if this wasn't provided and the version is marked as dynamic
             project_version = project.version or project_data["project"]["version"]
-            
+
             if project.hub_name not in hub_specs:
                 fail("Project {} in {} refers to hub {} which is not configured for that module. Please declare it.".format(project_name, mod.name, project.hub_name))
-                            
-            package_versions, default_versions, lock_data = _normalize_deps(lock_data)
-            marker_graph = _build_marker_graph(lock_data)
-            marker_specs.update(_collect_markers(marker_graph))
 
-            bd, bt = _collect_bdists(lock_data)
-            bdist_specs.update(bd)
-            bdist_table.update(bt)
-            
-            sd, st = _collect_sdists(lock_data)
-            sdist_specs.update(sd)
-            sdist_table.update(st)
+            if lock_id not in lock_cfgs:
+                default_versions, lock_data = _normalize_deps(lock_id, lock_data)
+
+                marker_graph = _build_marker_graph(lock_id, lock_data)
+                marker_specs.update(_collect_markers(marker_graph))
+
+                bd, bt = _collect_bdists(lock_data)
+                bdist_specs.update(bd)
+                bdist_table.update(bt)
+
+                sd, st = _collect_sdists(lock_data)
+                sdist_specs.update(sd)
+                sdist_table.update(st)
+
+                whl_configurations.update(_collect_configurations(lock_data))
+
+                dep_to_scc, scc_graph, scc_deps = _collect_sccs(marker_graph)
+
+                for package in lock_data.get("package", []):
+                    k = "@whl_install__{}__{}__{}//:install".format(lock_id, package["name"], package["version"])
+                    install_table[(lock_id, package["name"], package["version"], "__base__")] = k
+
+                    sdist = package.get("sdist")
+                    if sdist:
+                        sdist = sdist_table.get(sdist["hash"])
+
+                    install_cfgs[k] = struct(
+                        whls = {whl["url"].split("/")[-1].split("?")[0].split("#")[0]: bdist_table.get(whl["hash"]) for whl in package.get("wheels", [])},
+                        sdist = sdist,
+                    )
+
+                # Rebuild the SCC graph to point to member installs
+                scc_graph = {
+                    scc_id: {install_table[m]: markers for m, markers in members.items()}
+                    for scc_id, members in scc_graph.items()
+                }
+
+                lock_cfgs[lock_id] = struct(
+                    default_versions = default_versions,
+                    dep_to_scc = dep_to_scc,
+                    scc_graph = scc_graph,
+                    scc_deps = scc_deps,
+                )
+
+            else:
+                cfg = lock_cfgs[lock_id]
+                default_versions = cfg.default_versions
+                dep_to_scc = cfg.dep_to_scc
+                scc_graph = cfg.scc_graph
+                scc_deps = cfg.scc_deps
 
             configuration_names, activated_extras = _collect_activated_extras(project_data, default_versions, marker_graph)
             version_activations = _collate_versions_by_name(activated_extras)
 
-            whl_configurations.update(_collect_configurations(lock_data))
+            hub_cfg = hub_cfgs.setdefault(project.hub_name, struct(
+                configurations = {},
+                version_activations = {},
+                extra_activations = {},
+            ))
+            for cfg in configuration_names.keys():
+                if cfg in hub_cfg.configurations:
+                    fail("Conflict on configuration name {} in hub {}".format(cfg, project.hub_name))
 
-            hub_cfg_specs.setdefault(project.hub_name, {})
-            for cfg in configuration_names:
-                if cfg in hub_cfg_specs[project.hub_name]:
-                    fail("Conflict! Multiple configurations named {} registered into hub {}".format(cfg, project.hub_name))
-                else:
-                    hub_cfg_specs[project.hub_name][cfg] = struct(
-                        lock_data = lock_data,
-                        default_versions = default_versions,
-                        # Package configs keyed per version
-                        package_cfgs = {(it["name"], it["version"], "__base__"): it
-                                        for it in lock_data.get("package", [])},
-                        # The core internal depgraph of this lock
-                        graph = marker_graph,
-                        # Extra activation conditions
-                        activated_extras = {dep: extras.get(cfg, {})
-                                            for dep, extras in activated_extras.items()},
-                        # Version activation conditions
-                        activated_versions = {dep: versions.get(cfg, {})
-                                              for dep, versions in version_activations.items()}
-                    )
+            hub_cfg.configurations.update(configuration_names)
+            hub_cfg.version_activations.update(version_activations)
+            hub_cfg.extra_activations.update(activated_extras)
 
     return struct(
-        hub_specs = hub_cfg_specs,
+        lock_cfgs = lock_cfgs,
+        hub_cfgs = hub_cfgs,
+        install_cfgs = install_cfgs,
         marker_specs = marker_specs,
         whl_configurations = whl_configurations,
         sdist_specs = sdist_specs,
-        sdist_table = sdist_table,
         bdist_specs = bdist_specs,
-        bdist_table = bdist_table,
     )
+
 
 def _config_marker(marker_registry, expr):
     return "@aspect_rules_py_pip_configurations//:{}".format(marker_registry[expr])
 
-def hub(name, cfg):
+def venv_hub(name, cfg, sdist_table, bdist_table, marker_table):
     """
     Psuedo-repo-rule.
 
     Take a single hub configuration and generate all the components.
     """
+
+    # print(name, pprint(cfg))
+
+    def _name(k):
+        if k[2] == "__base__":
+            return "{}__{}".format(k[0], k[1])
+        else:
+            return "{}__{}__extra__{}".format(*k)
+
+    # We have to re-key the extra activations, graph and package configs so that we're using a json-friendly key
+    activated_extras = {
+        _name(k): {_name(ek): markers}
+        for k, extras in cfg.activated_extras.items()
+        for ek, markers in extras.items()
+    }
+    graph = {
+        _name(k): {_name(d): markers}
+        for k, deps in cfg.graph.items()
+        for d, markers in deps.items()
+    }
+    pkg_cfgs = {
+        _name(pkg): pkg_cfg
+        for pkg, pkg_cfg in cfg.package_cfgs.items()
+    }
+
+    print(pprint(activated_extras))
+    print(pprint(graph))
+    print(pprint(pkg_cfgs))
+
 
 def _uv_impl(module_ctx):
     """
@@ -584,12 +669,14 @@ def _uv_impl(module_ctx):
     hub_specs = _parse_hubs(module_ctx)
 
     cfg = _parse_projects(module_ctx, hub_specs)
-    
+
     configurations_hub(
         name = "aspect_rules_py_pip_configurations",
         configurations = cfg.whl_configurations,
         markers = cfg.marker_specs,
     )
+
+    print(pprint(cfg))
 
     for sdist_name, sdist_cfg in cfg.sdist_specs.items():
         http_file(
@@ -608,18 +695,19 @@ def _uv_impl(module_ctx):
         )
 
     for hub_name, hub_cfg in cfg.hub_specs.items():
-
-        print(hub_name, pprint(hub_cfg))
-
         for cfg_name, cfg_spec in hub_cfg.items():
             venv_hub(
-                
+                name = cfg_name,
+                cfg = cfg_spec,
+                sdist_table = cfg.sdist_table,
+                bdist_table = cfg.bdist_table,
+                marker_table = cfg.marker_specs,
             )
-        
-        hub(
-            name = hub_name,
-            cfg = hub_cfg,
-        )
+
+        # hub(
+        #     name = hub_name,
+        #     cfg = hub_cfg,
+        # )
 
     if features.external_deps.extension_metadata_has_reproducible:
         return module_ctx.extension_metadata(reproducible = True)
