@@ -569,9 +569,11 @@ def _parse_projects(module_ctx, hub_specs):
 
                         sbuild_id = "sdist_build__{}__{}__{}".format(package["name"], package["version"].replace(".", "_"), lock_id.split("__")[1])
                         sbuild_specs[sbuild_id] = struct(
-                            sdist = sdist,
-                            is_native = False,
+                            src = sdist,
+                            # FIXME: Need to resurrect deps code & inject
                             deps = [],
+                            # FIXME: Check annotations
+                            is_native = False,
                         )
 
                     install_cfgs[k] = struct(
