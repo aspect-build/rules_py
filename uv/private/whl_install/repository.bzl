@@ -54,7 +54,7 @@ def _sort_select_arms(arms):
     return {a: b for a, b in pairs}
 
 def _whl_install_impl(repository_ctx):
-    prebuilds = json.decode(repository_ctx.attr.prebuilds)
+    prebuilds = json.decode(repository_ctx.attr.whls)
     # Prebuilds is a mapping from whl file name to repo labels which contain
     # that file. We need to take these wheel files and parse out compatibility.
     #
@@ -175,7 +175,7 @@ alias(
 whl_install = repository_rule(
     implementation = _whl_install_impl,
     attrs = {
-        "prebuilds": attr.string(),
+        "whls": attr.string(),
         "sbuild": attr.label(),
     },
 )

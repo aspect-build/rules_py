@@ -502,10 +502,15 @@ def _parse_projects(module_ctx, hub_specs):
     hub_cfgs = {}
     marker_specs = {}
     whl_configurations = {}
+
     sdist_specs = {}
     sdist_table = {}
+
     bdist_specs = {}
     bdist_table = {}
+    
+    sbuild_specs = {}
+
     install_cfgs = {}
     install_table = {}
 
@@ -558,12 +563,20 @@ def _parse_projects(module_ctx, hub_specs):
                     install_table[(lock_id, package["name"], package["version"], "__base__")] = "@{}//:install".format(k)
 
                     sdist = package.get("sdist")
+                    sbuild_id = None
                     if sdist:
                         sdist = sdist_table.get(sdist["hash"])
 
+                        sbuild_id = "sdist_build__{}__{}__{}".format(package["name"], package["version"].replace(".", "_"), lock_id.split("__")[1])
+                        sbuild_specs[sbuild_id] = struct(
+                            sdist = sdist,
+                            is_native = False,
+                            deps = [],
+                        )
+
                     install_cfgs[k] = struct(
                         whls = {whl["url"].split("/")[-1].split("?")[0].split("#")[0]: bdist_table.get(whl["hash"]) for whl in package.get("wheels", [])},
-                        sdist = sdist,
+                        sbuild = "@{}//:whl".format(sbuild_id) if sbuild_id else None,
                     )
 
                 # Rebuild the SCC graph to point to member installs
@@ -630,10 +643,11 @@ def _parse_projects(module_ctx, hub_specs):
         lock_cfgs = lock_cfgs,
         hub_cfgs = hub_cfgs,
         install_cfgs = install_cfgs,
-        marker_specs = marker_specs,
-        whl_configurations = whl_configurations,
-        sdist_specs = sdist_specs,
-        bdist_specs = bdist_specs,
+        sbuild_cfgs = sbuild_specs,
+        marker_cfgs = marker_specs,
+        whl_cfgs = whl_configurations,
+        sdist_cfgs = sdist_specs,
+        bdist_cfgs = bdist_specs,
     )
 
 
@@ -674,13 +688,13 @@ def _uv_impl(module_ctx):
 
     configurations_hub(
         name = "aspect_rules_py_pip_configurations",
-        configurations = cfg.whl_configurations,
-        markers = cfg.marker_specs,
+        configurations = cfg.whl_cfgs,
+        markers = cfg.marker_cfgs,
     )
 
     print(pprint(cfg))
 
-    for sdist_name, sdist_cfg in cfg.sdist_specs.items():
+    for sdist_name, sdist_cfg in cfg.sdist_cfgs.items():
         http_file(
             name = sdist_name,
             url = sdist_cfg["url"],
@@ -688,18 +702,26 @@ def _uv_impl(module_ctx):
             downloaded_file_path = sdist_cfg["url"].split("/")[-1].split("?")[0].split("#")[0],
         )
 
-    for bdist_name, bdist_cfg in cfg.bdist_specs.items():
+    for bdist_name, bdist_cfg in cfg.bdist_cfgs.items():
         http_file(
             name = bdist_name,
             url = bdist_cfg["url"],
             sha256 = bdist_cfg["hash"][len("sha256:"):],
             downloaded_file_path = bdist_cfg["url"].split("/")[-1].split("?")[0].split("#")[0],
         )
+        
+    for sbuild_id, sbuild_cfg in cfg.sbuild_cfgs.items():
+        sdist_build(
+            name = sbuild_id,
+            src = sbuild_cfg.src,
+            deps = sbuild_cfg.deps,
+            is_native = sbuild_cfg.is_native,
+        )
 
     for install_id, install_cfg in cfg.install_cfgs.items():
         whl_install(
             name = install_id,
-            sdist = install_cfg.sdist,
+            sdist = install_cfg.sbuild,
             whls = install_cfg.whls,
         )
 
