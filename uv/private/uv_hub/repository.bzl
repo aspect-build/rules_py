@@ -2,9 +2,17 @@
 
 """
 
+load("//uv/private:pprint.bzl", "pprint")
+load("//uv/private:sha1.bzl", "sha1")
+
+def indent(text, space = " "):
+    return "\n".join(["{}{}".format(space, l) for l in text.splitlines()])
+
 def _hub_impl(repository_ctx):
     extra_activations = json.decode(repository_ctx.attr.extra_activations)
     version_activations = json.decode(repository_ctx.attr.version_activations)
+
+    marker_table = {}
 
     # FIXME: all_requirements target
     repository_ctx.file("BUILD.bazel", """\
@@ -125,12 +133,66 @@ load("//:defs.bzl", "compatible_with")
 """,
         ]
 
-        # TODO: Cheating
-        # Need to deal with there being multiple package versions in the cfg
-        # Need to deal with there being markers on a package in the cfg
+        cfgs = {}
+        extra_targets = {}
+
+        for cfg, versions in specs.items():
+            if len(versions.keys()) > 1:
+                fail("Error: Package {} has multiple versions in configuration {}; cowardly failing to configure this graph".format(name, cfg))
+
+
+            version = list(versions.keys())[0]
+
+            deps = []
+            for extra, markers in extra_activations[version][cfg].items():
+                if "" not in markers:
+                    extra_name = "_extra_{}".format(sha1(extra + repr(markers))[:16])
+                    deps.append(":" + extra_name)
+                    if extra_name in extra_targets:
+                        continue
+                    
+                    arms = {}
+                    for marker in markers.keys():
+                        if marker not in marker_table:
+                            id = sha1(marker)
+                            marker_table[marker] = id
+                        else:
+                            id = marker_table[marker]
+
+                    marker_condition = "//private/markers:" + id
+                    arms[marker_condition] = extra
+
+                    arms["//conditions:default"] = "@platforms//:incompatible"
+
+                    extra_targets[extra_name] = 1
+                    content.append("""
+# Implementation of {} markers
+#
+{}
+#
+alias(
+    name = "{}",
+    actual = select({}),
+    visibility = ["//visibility:private"],
+)
+""".format(extra, indent(pprint(markers), "#   "), extra_name, indent(pprint(arms), "    ").lstrip()))
+
+                else:
+                    deps.append(extra)
+                
+            cfg_name = "_cfg_{}".format(cfg)
+            cfgs[cfg] = cfg_name
+            content.append("""
+py_library(
+    name = "{}",
+    deps = {},
+    visibility = ["//visibility:private"],
+)
+""".format(cfg_name, indent(pprint(deps), "    ").lstrip()))
+
         select_spec = {
-            "//venv:{}".format(cfg): list(versions.keys())[0]
-            for cfg, versions in specs.items()
+            "//venv:{}".format(cfg): ":" + cfgs[cfg]
+            for cfg in specs.keys()
         }
         
         error = "Available only in venvs: " + ", ".join([it.split(":")[1] for it in select_spec.keys()])
@@ -138,6 +200,7 @@ load("//:defs.bzl", "compatible_with")
         # TODO: Find a way to add a dist-info target here
         # TODO: Find a way to add entrypoint targets here?
         # TODO: Add a way to take a "soft" dependency here?
+        # TODO: Add the wheel graph back in here
         content.append(
             """
 # This target is for a "hard" dependency.
@@ -149,8 +212,7 @@ alias(
 )
 alias(
     name = "{name}",
-    actual = select(
-      {lib_select},
+    actual = select({lib_select},
       no_match_error = "{error}",
     ),
     target_compatible_with = select(compatible_with({compat})),
@@ -158,8 +220,7 @@ alias(
 )
 """.format(
                 name = name,
-                lib_select = repr(select_spec),
-                whl_select = repr({k: v.split(":")[0] + ":whl" for k, v in select_spec.items()}),
+                lib_select = indent(pprint(select_spec), "      ").lstrip(),
                 compat = repr(specs.keys()),
                 error = error,
             ),
@@ -167,6 +228,26 @@ alias(
 
         repository_ctx.file(name + "/BUILD.bazel", content = "\n".join(content))
 
+    ################################################################################
+    # Finally we have to lay down the marker tests
+
+    # FIXME: This will duplicate conditions in the individual venvs
+    # But doing it this way decouples the implementations
+    content = ["""
+load("@aspect_rules_py//uv/private/markers:defs.bzl", "decide_marker")
+
+"""]
+
+    for marker_expr, marker_id in marker_table.items():
+        content.append("""
+decide_marker(
+    name = "{name}",
+    marker = {marker},
+    visibility = ["//:__subpackages__"],
+)
+""".format(name = marker_id, marker = repr(marker_expr)))
+        
+    repository_ctx.file("private/markers/BUILD.bazel", "\n".join(content))
 
 uv_hub = repository_rule(
     implementation = _hub_impl,

@@ -83,7 +83,7 @@ load("@aspect_rules_py//py:defs.bzl", "py_library")
                     cases["//private/markers:" + marker_id] = member
                 cases["//conditions:default"] = "//private:empty"
 
-                dep = "_maybe__{}__{}".format(scc_id, member.split(":")[1])
+                dep = "_maybe__{}__{}".format(scc_id, sha1(member)[:16])
                 deps.append(dep)
                 content.append("""
 alias(

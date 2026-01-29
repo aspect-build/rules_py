@@ -139,8 +139,13 @@ def _normalize_deps(lock_id, lock_data):
             dep["version"] = default_versions.get(dep["name"])[2]
 
     for spec in lock_data.get("package", []):
+        # Backfill the sdist URL if the source is a URL file
+        if "sdist" in spec and not "url" in spec["sdist"]:
+            spec["sdist"]["url"] = spec["source"]["url"]
+
         for dep in spec.get("dependencies", []):
             _fix_version(dep)
+
         for extra_deps in spec.get("optional-dependencies", {}).values():
             for dep in extra_deps:
                 _fix_version(dep)
@@ -477,6 +482,76 @@ def _collect_bdists(lock_data):
 
     return bdist_specs, bdist_table
 
+def _parse_git_url(url):
+    """Parses a git URL into a dict of git_repository kwargs."""
+
+    # 1. Handle Fragment (anything after #)
+    # URL: https://github.com/user/repo.git#c7076a0...
+    remote_and_query, hash_sep, fragment = url.partition("#")
+
+    # 2. Handle Query Parameters (anything after ?)
+    # URL: https://github.com/user/repo.git?rev=refs/pull/64/head
+    remote_base, query_sep, query_string = remote_and_query.partition("?")
+
+    kwargs = {"remote": remote_base}
+    rev = ""
+
+    # 3. Extract revision from Fragment
+    if fragment:
+        rev = fragment
+
+    # 4. Extract revision from Query String (if fragment wasn't present)
+    elif query_string:
+        # Manually parse query string for 'rev=' or 'ref='
+        pairs = query_string.split("&")
+        for pair in pairs:
+            if pair.startswith("rev=") or pair.startswith("ref="):
+                # Starlark doesn't have urllib.parse.unquote,
+                # but we can handle common encodings like %2F (/)
+                rev = pair.split("=")[1].replace("%2F", "/").replace("%2f", "/")
+                break
+
+    # 5. Determine if the revision is a commit, tag, or branch
+    if rev:
+        kwargs["tag"] = rev
+
+    return kwargs
+
+def _ensure_ref(maybe_ref):
+    if maybe_ref == None:
+        return None
+
+    if not maybe_ref.startswith("ref/"):
+        return "ref/" + maybe_ref
+
+    return maybe_ref
+
+def _try_git_to_http_archive(git_cfg):
+    """
+    Given a git_repository kwargs config, try to convert it to a http_archive.
+
+    While it's possible to run `git archive --remote=<url>` and get an archive
+    for an arbitrary repo, it's better/easier by far to just download an archive
+    over HTTP if we can identify the git repo host service. Github and Gitlab
+    for instance both provide snapshot URLs.
+
+    """
+
+    if "https://github.com/" in git_cfg["remote"]:
+        url = git_cfg["remote"].replace("git+", "").replace(".git", "").rstrip("/")
+        if "commit" in git_cfg:
+            url = "{}/archive/{}.tar.gz".format(url, git_cfg["commit"])
+            return {
+                "url": url
+            }
+        elif "tag" in git_cfg:
+            url = "{}/archive/{}.tar.gz".format(url, _ensure_ref(git_cfg["tag"]))
+            return {
+                "url": url
+            }
+
+    # FIXME: Support gitlab, other hosts?
+
 def _collect_sdists(lock_data):
     sdist_specs = {}
     sdist_table = {}
@@ -484,8 +559,22 @@ def _collect_sdists(lock_data):
         if "sdist" in package:
             sdist = package["sdist"]
             sdist_repo_name = "sdist__{}__{}".format(package["name"], sdist["hash"].split(":")[1][:16])
-            sdist_specs[sdist_repo_name] = sdist
+            sdist_specs[sdist_repo_name] = {"file": sdist}
             sdist_table[sdist["hash"]] = "@{}//file".format(sdist_repo_name)
+
+        elif "git" in package["source"]:
+            git_url = package["source"]["git"]
+            git_cfg = _parse_git_url(git_url)
+
+            sdist_cfg = _try_git_to_http_archive(git_cfg)
+            sdist_repo_name = "sdist_git__{}__{}".format(package["name"], sha1(git_url)[:16])
+            sdist_table[sdist["hash"]] = "@{}//file".format(sdist_repo_name)
+
+            if sdist_cfg:
+                sdist_specs[sdist_repo_name] = {"file": sdist_cfg}
+
+            else:
+                sdist_specs[sdist_repo_name] = {"git": git_cfg}
 
     return sdist_specs, sdist_table
 
@@ -508,7 +597,7 @@ def _parse_projects(module_ctx, hub_specs):
 
     bdist_specs = {}
     bdist_table = {}
-    
+
     sbuild_specs = {}
 
     install_cfgs = {}
@@ -524,7 +613,7 @@ def _parse_projects(module_ctx, hub_specs):
             # We'll rebuild the lock hub whenever the toml changes.
             # Reusing the name is fine.
             lock_id = "lockfile__" + sha1(repr(project.lock))[:16]
-            
+
             def _name(k):
                 if k[3] == "__base__":
                     return "@{}//:{}__{}".format(lock_id, k[1], k[2].replace(".", "_"))
@@ -556,9 +645,6 @@ def _parse_projects(module_ctx, hub_specs):
                 whl_configurations.update(_collect_configurations(lock_data))
 
                 dep_to_scc, scc_graph, scc_deps = _collect_sccs(marker_graph)
-                print("dep_to_scc:", pprint(dep_to_scc))
-                print("scc_graph:", pprint(scc_graph))
-                print("scc_deps:", pprint(scc_deps))
 
                 for package in lock_data.get("package", []):
                     k = "whl_install__{}__{}__{}".format(lock_id, package["name"], package["version"].replace(".", "_"))
@@ -627,21 +713,29 @@ def _parse_projects(module_ctx, hub_specs):
             configuration_names, activated_extras = _collect_activated_extras(project_data, default_versions, marker_graph)
             version_activations = _collate_versions_by_name(activated_extras)
 
-            activated_extras = {
-                _name(k): {cfg: {_name(ek): markers}}
-                for k, cfgs in activated_extras.items()
-                for cfg, extras in cfgs.items()
-                for ek, markers in extras.items()
-                if k != ek
-            }
+            # We're doing this by hand because doing it with a dict
+            # comprehension didn't behave as expected.
+            _simplified_extras = {}
+            for pkg, pkg_cfgs in activated_extras.items():
+                _pkg = _simplified_extras.setdefault(_name(pkg), {})
+                for cfg, extra_cfgs in pkg_cfgs.items():
+                    _cfgs = _pkg.setdefault(cfg, {})
+                    for extra, markers in extra_cfgs.items():
+                        _cfgs[_name(extra)] = markers
+            activated_extras = _simplified_extras
+            print(project.pyproject, "extras", pprint(activated_extras))
 
-            version_activations = {
-                cfg: {pkg: {_name(version): markers}}
-                for cfg, packages in version_activations.items()
-                for pkg, versions in packages.items()
-                for version, markers in versions.items()
-            }
-            
+            # We need to normalize version activations manually too
+            _simplified_activations = {}
+            for cfg, packages in version_activations.items():
+                _cfg = _simplified_activations.setdefault(cfg, {})
+                for pkg, versions in packages.items():
+                    _pkg = _cfg.setdefault(pkg, {})
+                    for version, markers in versions.items():
+                        _pkg[_name(version)] = markers
+            version_activations = _simplified_activations
+            print(project.pyproject, "versions", pprint(version_activations))
+
             hub_cfg = hub_cfgs.setdefault(project.hub_name, struct(
                 configurations = {},
                 version_activations = {},
@@ -670,13 +764,6 @@ def _parse_projects(module_ctx, hub_specs):
 
 def _config_marker(marker_registry, expr):
     return "@aspect_rules_py_pip_configurations//:{}".format(marker_registry[expr])
-
-def venv_hub(name, cfg, sdist_table, bdist_table, marker_table):
-    """
-    Psuedo-repo-rule.
-
-    Take a single hub configuration and generate all the components.
-    """
 
 def _uv_impl(module_ctx):
     """
@@ -710,12 +797,20 @@ def _uv_impl(module_ctx):
     )
 
     for sdist_name, sdist_cfg in cfg.sdist_cfgs.items():
-        http_file(
-            name = sdist_name,
-            url = sdist_cfg["url"],
-            sha256 = sdist_cfg["hash"][len("sha256:"):],
-            downloaded_file_path = sdist_cfg["url"].split("/")[-1].split("?")[0].split("#")[0],
-        )
+        if "file" in sdist_cfg:
+            sdist_cfg = sdist_cfg["file"]
+            sha256 = None
+            if "hash" in sdist_cfg:
+                sha256 = sdist_cfg["hash"][len("sha256:"):]
+
+            http_file(
+                name = sdist_name,
+                url = sdist_cfg["url"],
+                sha256 = sha256,
+                downloaded_file_path = sdist_cfg["url"].split("/")[-1].split("?")[0].split("#")[0],
+            )
+        else:
+            fail("Unsupported archive! {}".format(repr(sdist_cfg)))
 
     for bdist_name, bdist_cfg in cfg.bdist_cfgs.items():
         http_file(
@@ -724,7 +819,7 @@ def _uv_impl(module_ctx):
             sha256 = bdist_cfg["hash"][len("sha256:"):],
             downloaded_file_path = bdist_cfg["url"].split("/")[-1].split("?")[0].split("#")[0],
         )
-        
+
     for sbuild_id, sbuild_cfg in cfg.sbuild_cfgs.items():
         sdist_build(
             name = sbuild_id,
