@@ -162,20 +162,23 @@ load("//:defs.bzl", "compatible_with")
                     marker_condition = "//private/markers:" + id
                     arms[marker_condition] = extra
 
-                    arms["//conditions:default"] = "@platforms//:incompatible"
-
                     extra_targets[extra_name] = 1
                     content.append("""
-# Implementation of {} markers
+# Implementation of {extra} markers
 #
-{}
+{markers_comment}
 #
 alias(
-    name = "{}",
-    actual = select({}),
+    name = "{name}",
+    actual = select({select}),
+    target_compatible_with = select(compatible_with({compat})),
     visibility = ["//visibility:private"],
 )
-""".format(extra, indent(pprint(markers), "#   "), extra_name, indent(pprint(arms), "    ").lstrip()))
+""".format(extra = extra,
+           markers_comment = indent(pprint(markers.keys()), "#   "),
+           name = extra_name,
+           select = indent(pprint(arms), "    ").lstrip(),
+           compat = repr(cfgs.keys())))
 
                 else:
                     deps.append(extra)

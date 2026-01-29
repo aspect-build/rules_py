@@ -618,7 +618,7 @@ def _parse_projects(module_ctx, hub_specs):
                 if k[3] == "__base__":
                     return "@{}//:{}__{}".format(lock_id, k[1], k[2].replace(".", "_"))
                 else:
-                    return "@{}//:{}__{}__extra__{}".format(lock_id, k[1], k[2].replace(".", "_"), k[3])
+                    return "@{}//:{}__{}__extra__{}".format(lock_id, k[1], k[2].replace(".", "_"), normalize_name(k[3]))
 
             # Read these from the project or honor the module state
             project_name = project.name or project_data["project"]["name"]
@@ -666,7 +666,7 @@ def _parse_projects(module_ctx, hub_specs):
 
                     install_cfgs[k] = struct(
                         whls = {whl["url"].split("/")[-1].split("?")[0].split("#")[0]: bdist_table.get(whl["hash"]) for whl in package.get("wheels", [])},
-                        sbuild = "@{}//:whl".format(sbuild_id) if sbuild_id else None,
+                        sbuild = "@{}//:install".format(sbuild_id) if sbuild_id else None,
                     )
 
                 # Rebuild the SCC graph to point to member installs
