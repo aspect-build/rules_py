@@ -44,13 +44,14 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 load("//uv/private/constraints:repository.bzl", "configurations_hub")
 load("//uv/private/constraints/platform:defs.bzl", "supported_platform")
 load("//uv/private/constraints/python:defs.bzl", "supported_python")
-load("//uv/private/hub:repository.bzl", "hub_repo")
 load("//uv/private/sdist_build:repository.bzl", "sdist_build")
 load("//uv/private/tomltool:toml.bzl", "toml")
-load("//uv/private/venv_hub:repository.bzl", "venv_hub")
+load("//uv/private/uv_hub:repository.bzl", "uv_hub")
+load("//uv/private/uv_lock:repository.bzl", "uv_lock")
 load("//uv/private/whl_install:repository.bzl", "whl_install")
 load(":normalize_name.bzl", "normalize_name")
 load(":parse_whl_name.bzl", "parse_whl_name")
+load(":pprint.bzl", "pprint")
 load(":sccs.bzl", "sccs")
 load(":sha1.bzl", "sha1")
 
@@ -110,274 +111,324 @@ def _parse_hubs(module_ctx):
 
     return hub_specs
 
-def _parse_venvs(module_ctx, hub_specs):
+def _normalize_deps(lock_id, lock_data):
     """
-    Parse venv declaration tags.
+    Normalize the lockfile.
+    1. Compute the "default version" mapping
+    2. Update all the dependency statements within the lockfile so they're version disambiguated
+    """
 
-    Validates against the parsed hub specs to produce appropriate errors.
+    package_versions = {}
+    for spec in lock_data.get("package", []):
+        # spec: RequirementSpec
+        spec["name"] = normalize_name(spec["name"])
 
-    Produces a hub to venv table we use for validating lockfiles and overrides.
+        # Collect all the versions first
+        package_versions.setdefault(spec["name"], {})[spec["version"]] = 1
 
-    Args:
-        module_ctx (module_ctx): The Bazel module context
-        hub_specs (dict): The previously parsed hub specs
+    default_versions = {
+        requirement: (lock_id, requirement, list(versions.keys())[0], "__base__")
+        for requirement, versions in package_versions.items()
+        if len(versions) == 1
+    }
+
+    def _fix_version(dep):
+        dep["name"] = normalize_name(dep["name"])
+        if not "version" in dep:
+            # Note that default versions is requirement => (lock_id, name, version, "__base__")
+            # So we need to extract the version component here
+            dep["version"] = default_versions.get(dep["name"])[2]
+
+    for spec in lock_data.get("package", []):
+        for dep in spec.get("dependencies", []):
+            _fix_version(dep)
+        for extra_deps in spec.get("optional-dependencies", {}).values():
+            for dep in extra_deps:
+                _fix_version(dep)
+
+    return default_versions, lock_data
+
+def _build_marker_graph(lock_id, lock_data):
+    """The graph is {(lock_id, package, version, extra): {(lock_id, package, version, extra): {marker: 1}}}.
+
+    We convert dependencies which no extra list to dependencies on ["__base__"].
+    We also ensure that every extra depends on the "__base__" configuration if itself.
+
+
+    So writing `requests` is understood to be `requests[__base__]`, and
+    `requests[foo]` is `requests[__foo__] -> requests[__base__]` which allows is
+    to capture the same graph without having do splice in dependencies.
+
+    At this point we also HAVE NOT done extras activation.
+    """
+
+    graph = {}
+    for spec in lock_data.get("package", []):
+        # spec: RequirementSpec
+        k = (lock_id, spec["name"], spec["version"], "__base__")
+        pkg_deps = graph.setdefault(k, {})
+        for dep in spec.get("dependencies", []):
+            extras = dep.get("extra", ["__base__"])
+            for e in extras:
+                pkg_deps.setdefault((lock_id, dep["name"], dep["version"], e), {})[dep.get("marker", "")] = 1
+
+        for extra_name, optional_deps in spec.get("optional-dependencies", {}).items():
+            ek = (lock_id, spec["name"], spec["version"], extra_name)
+
+            # Add a synthetic edge from the extra package to the base package
+            pkg_deps = graph.setdefault(ek, {}).setdefault(k, {"": 1})
+            for dep in optional_deps:
+                extras = dep.get("extra", ["__base__"])
+                for e in extras:
+                    graph[ek].setdefault((lock_id, dep["name"], dep["version"], e), {})[dep.get("marker", "")] = 1
+
+    return graph
+
+def _collect_sccs(graph):
+    """Given the internal dependency graph, compute strongly connected
+    components and the mapping from each dependency to the strongly connected
+    component which contains that dependency.
 
     Returns:
-        dict; parsed venv specs.
+     - A mapping from dependency to scc ID
+     - A mapping from scc id to the dependencies which are members of the scc
+     - A mapping from scc id to the dependencies which are directs of the scc
+
     """
 
-    venv_specs = {}
+    simplified_graph = {dep: nexts.keys() for dep, nexts in graph.items()}
+    graph_components = sccs(simplified_graph)
 
-    problems = []
+    # Now we need to rebuild markers for intra-scc deps
+    scc_graph = {
+        sha1(repr(sorted(scc)))[:16]: {m: {} for m in scc}
+        for scc in graph_components
+    }
+    for scc_id, scc in scc_graph.items():
+        for start in scc.keys():
+            for next in scc.keys():
+                next_marks = graph.get(start, {}).get(next, {})
 
-    # Collect all hubs, ensure we have no dupes
-    for mod in module_ctx.modules:
-        for venv in mod.tags.declare_venv:
-            if venv.hub_name not in hub_specs or mod.name not in hub_specs[venv.hub_name]:
-                problems.append("Venv {} in {} refers to hub {} which is not configured for that module".format(venv.venv_name, venv.hub_name, mod.name))
+                # Merge the markers back into the next
+                if next_marks:
+                    scc_graph[scc_id][next].update(next_marks)
 
-            venv_specs.setdefault(venv.hub_name, {})
-            venv_specs[venv.hub_name][venv.venv_name] = 1
+        # Ensure that everything has at least the no-op marker
+        for next in scc.keys():
+            if len(scc_graph[scc_id][next].keys()) == 0:
+                scc_graph[scc_id][next].update({"": 1})
 
-    if problems:
-        fail("\n".join(problems))
+    # Compute the mapping from dependency coordinates to the SCC containing that dep
+    dep_to_scc = {
+        it: scc
+        for scc, deps in scc_graph.items()
+        for it in deps
+    }
 
-    return venv_specs
+    # Compute the mapping from sccs to _direct_ non-member deps for "fattening"
+    scc_deps = {}
+    for scc, members in scc_graph.items():
+        for member in members:
+            for dep, markers in graph.get(member, {}).items():
+                if dep not in members:
+                    scc_deps.setdefault(scc, {}).setdefault(dep, {}).update(markers)
 
-def _parse_locks(module_ctx, venv_specs):
+    return dep_to_scc, scc_graph, scc_deps
+
+def _extract_requirement_marker_pairs(req_string, version_map):
     """
-    Parse lockfile tags.
-
-    Validates against parsed hubs and venvs to produce appropriate errors.
-
-    Applies a bunch of package normalization here at the entrypoint before we forget.
-
-    Produces a hub to venv to package to package descriptor mapping.
+    Parses a requirement string into a list of ((name, version, extra), marker) pairs.
 
     Args:
-        module_ctx (module_ctx): The Bazel module context
-        venv_specs (dict): The previously parsed venv specs
+        req_string: The requirement string (e.g., "foo[bar]>=1.0; sys_platform == 'linux'").
+        version_map: A dict mapping package names to default version strings.
 
     Returns:
-        dict; collected lockfiles.
+        A list of tuples [((name, version, extra), marker), ...].
+        The marker is a string or None.
     """
 
-    lock_specs = {}
+    # 1. Split Requirement and Marker
+    # Starlark split() often doesn't support maxsplit, so we use find() + slicing
+    semicolon_idx = req_string.find(";")
 
-    # FIXME: Add support for setting a default venv on a venv hub
-    for mod in module_ctx.modules:
-        for lock in mod.tags.lockfile:
-            req_whls = {}
+    marker = ""
+    if semicolon_idx != -1:
+        # Extract and clean the marker
+        marker_text = req_string[semicolon_idx + 1:].strip()
+        if marker_text:
+            marker = marker_text
 
-            if lock.hub_name not in venv_specs or lock.venv_name not in venv_specs[lock.hub_name]:
-                fail("Lock {} in {} refers to hub {} which is not configured for that module".format(lock.src, mod.name, lock.hub_name))
+        # The requirement part is everything before the semicolon
+        req_part = req_string[:semicolon_idx].strip()
+    else:
+        req_part = req_string.strip()
 
-            lock_specs.setdefault(lock.hub_name, {})
-            if lock.venv_name in lock_specs[lock.hub_name]:
-                fail("Multiple lockfiles detected for hub %s venv %s!" % (lock.hub_name, lock.venv_name))
+    if not req_part:
+        return []
 
-            lockfile = toml.decode_file(module_ctx, lock.src)
-            if lockfile.get("version") != 1:
-                fail("Lockfile %s is an unsupported format version!" % lock.src)
+    # 2. Identify end of package name within req_part
+    stop_chars = {
+        "[": 1,
+        "=": 1,
+        ">": 1,
+        "<": 1,
+        "!": 1,
+        "~": 1,
+        " ": 1,
+    }
 
-            # Apply name mangling from PyPi package names to Bazel friendly
-            # package names here, once.
-            packages = lockfile.get("package", [])
-            for package in list(packages):
-                # Just remove ignored packages now rather than filtering them
-                # out over and over again.
-                if _ignored_package(package):
-                    packages.remove(package)
-                    continue
+    name_end_idx = len(req_part)
 
-                package["name"] = normalize_name(package["name"])
+    for i in range(len(req_part)):
+        char = req_part[i]
+        if char in stop_chars:
+            name_end_idx = i
+            break
 
-                # Mark that prebuilds are available for this package
-                req_whls[package["name"]] = package.get("wheels")
+    pkg_name = req_part[:name_end_idx]
 
-                if package["name"] == "private":
-                    fail("Unable to parse lockfile %s due to reserved 'private' package which collides with implementation details" % lock.src)
+    # 3. Extract Extras from req_part
+    extras = []
 
-                if "dependencies" in package:
-                    for d in package["dependencies"]:
-                        d["name"] = normalize_name(d["name"])
+    remainder = req_part[name_end_idx:]
 
-                # Note that we also have to mangle the optional deps so they tie
-                # off too. We don't mangle group names because they're
-                # eliminated when we resolve the depgraph.
-                if "optional-dependencies" in package:
-                    for _name, group in package["optional-dependencies"].items():
-                        for d in group:
-                            d["name"] = normalize_name(d["name"])
+    if remainder.startswith("["):
+        close_idx = remainder.find("]")
+        if close_idx != -1:
+            content = remainder[1:close_idx]
+            parts = content.split(",")
+            for project_data in parts:
+                clean_p = project_data.strip()
+                if clean_p:
+                    extras.append(clean_p)
 
-            problems = []
-            has_tools = "build" in req_whls and "setuptools" in req_whls
-            for req, whls in req_whls.items():
-                if not whls and not has_tools:
-                    problems.append(req)
+    # 4. Look up version
+    lock_id, pkg_name, version, _ = version_map.get(pkg_name)
 
-            if problems:
-                fail("""Error in lockfile {lockfile}
+    # 5. Construct results
+    # Each result is ((name, ver, extra), marker)
+    results = []
 
-The requirements `build` and `setuptools` are missing from, but the following requirements only provide sdists.
-Please update your lockfile to provide build tools in order to enable sdist support.
+    # Base requirement
+    base_dep = (lock_id, pkg_name, version, "__base__")
+    results.append((base_dep, marker or ""))
 
-Problems:
-{problems}""".format(
-                    lockfile = lock.src,
-                    problems = "\n".join(
-                        [" - " + it for it in problems],
-                    ),
-                ))
+    # Extras
+    for e in extras:
+        dep = (lock_id, pkg_name, version, e)
+        results.append((dep, marker or ""))
 
-            # FIXME: Should validate the lockfile but for now just stash it
-            # Validating in starlark kinda rots anyway
-            lock_specs[lock.hub_name][lock.venv_name] = lockfile
+    return results
 
-    return lock_specs
-
-_default_annotations = struct(
-    per_package = {},
-    default_build_deps = [
-        {"name": "setuptools"},
-        {"name": "build"},
-    ],
-)
-
-def _parse_annotations(module_ctx, hub_specs, venv_specs):
+def _collect_activated_extras(project_data, default_versions, graph):
     """
-    Parse and validate requirement annotations.
+    Collect the set of extras which are directly or transitively activated in the given configuration.
+    Assumes all marker expressions are live.
 
-    Requirement annotations allow us to attach stuff (build deps) to requirement
-    targets which the uv lockfile doesn't (currently) have a way to express.
+    Returns
+      - {cfg: 1}
+      - {dep: {cfg: {extra_dep: {marker: 1}}}}
+    """
 
-    Returns a table from hub to venv to an annotations struct for that venv.
+    dep_groups = project_data.get("dependency-groups", {
+        project_data["project"]["name"]: [
+            project_data["project"]["name"],
+        ],
+    })
 
-    Venv annotations structs are
+    # Normalize dep groups to our dependency triples (graph keys)
+    normalized_dep_groups = {}
 
-    Dep = TypedDict({"name": str})
-    record(
-       per_package=Dict[str, Annotation],
-       default_build_deps=List[Dep],
-    )
+    # Builds up {package: {configuration: {extra: {marker: 1}}}}
+    activated_extras = {}
 
-    The annotations file is structured as follows:
+    for group_name, specs in dep_groups.items():
+        normalized_dep_groups[group_name] = []
+        for spec in specs:
+            for dep, marker in _extract_requirement_marker_pairs(spec, default_versions):
+                normalized_dep_groups[group_name].append(dep)
 
-    ```
-    version = 0.0.0
-    [[package]]
-    name = "foo"
-    native = true
-    build-dependencies = [ {name = "bar"} ]
-    ```
+                # Note that this is the base case for the reach set walk below
+                # We do this here so it's easy to handle marker expressions
+                base = (dep[0], dep[1], dep[2], "__base__")
+                activated_extras.setdefault(base, {}).setdefault(group_name, {}).setdefault(dep, {}).update({marker: 1})
 
-    Args:
-        module_ctx (module_ctx): The Bazel module context
-        hub_specs (dict): The previously parsed hub specs
-        venv_specs (dict): The previously parsed venv specs
+    for group_name, deps in normalized_dep_groups.items():
+        worklist = list(deps)
+
+        # Worklist graph traversal to handle the reach set
+        visited = {}
+        idx = 0
+        for _ in range(1000000):
+            if idx == len(worklist):
+                break
+
+            it = worklist[idx]
+            visited[it] = 1
+
+            for next, markers in graph.get(it, {}).items():
+                # Convert `next`, being a dependency potentially with marker, to its base package
+                base = (next[0], next[1], next[2], "__base__")
+
+                # Upsert the base package so that under the appropriate cfg it lists next as a dep with the appropriate markers
+                activated_extras.setdefault(base, {}).setdefault(group_name, {}).setdefault(next, {}).update(markers)
+                if next not in visited:
+                    visited[next] = 1
+                    worklist.append(next)
+
+            idx += 1
+
+    return {it: 1 for it in dep_groups.keys()}, activated_extras
+
+def _collate_versions_by_name(activated_extras):
+    """
+    Transforms the activated extras map into a mapping of names to configs to
+    versions to markers. This groups different versions of the same package
+    together under the package name.
 
     Returns:
-        dict; collected requirement annotations.
+      {name: {config: {version: {marker: 1}}}}
     """
+    result = {}
 
-    annotation_specs = {}
+    for id, configs in activated_extras.items():
+        (lock_id, pkg_name, pkg_version, _) = id
+        for cfg, deps in configs.items():
+            # Ensure path exists: result[name][cfg][version] -> {marker: 1}
+            # We use setdefault chain to traverse/create the nested dicts
+            version_markers = result.setdefault(pkg_name, {}).setdefault(cfg, {}).setdefault(id, {})
 
-    for mod in module_ctx.modules:
-        for ann in mod.tags.unstable_annotate_requirements:
-            if ann.hub_name not in hub_specs:
-                fail("Annotations file %s attaches to undefined hub %s" % (ann.src, ann.hub_name))
+            # deps is {dep_triple: {marker: 1}}
+            # We aggregate all markers for this version (from base and extras)
+            # into the single map for this version string.
+            for markers in deps.values():
+                version_markers.update(markers)
 
-            annotation_specs.setdefault(ann.hub_name, {})
+    return result
 
-            if ann.venv_name not in venv_specs.get(ann.hub_name, {}):
-                fail("Annotations file %s attaches to undefined venv %s" % (ann.src, ann.venv_name))
-
-            # FIXME: Allow the default build deps to be changed
-            annotation_specs[ann.hub_name].setdefault(ann.venv_name, struct(
-                per_package = {},
-                default_build_deps = [] + _default_annotations.default_build_deps,
-            ))
-
-            ann_content = toml.decode_file(module_ctx, ann.src)
-            if ann_content.get("version") != "0.0.0":
-                fail("Annotations file %s doesn't specify a valid version= key" % ann.src)
-
-            for package in ann_content.get("package", []):
-                if not "name" in package:
-                    fail("Annotations file %s is invalid; all [[package]] entries must have a name" % ann.src)
-
-                # Apply name normalization so we don't forget about it
-                package["name"] = normalize_name(package["name"])
-
-                if package["name"] in annotation_specs[ann.hub_name][ann.venv_name].per_package:
-                    fail("Annotation conflict! Package %s is annotated in venv %s multiple times!" % (package["name"], ann.venv_name))
-
-                if "build-dependencies" in package:
-                    for it in package["build-dependencies"]:
-                        it["name"] = normalize_name(it["name"])
-
-                annotation_specs[ann.hub_name][ann.venv_name].per_package[package["name"]] = package
-
-    return annotation_specs
-
-def _parse_overrides(module_ctx, lock_specs):
+def _collect_markers(graph):
     """
-    Parse and validate override tags.
-
-    Override tags allow users to replace a requirement's `install` target in a
-    venv with a different (presumably firstparty) Bazel target.
-
-    Overridden targets will have their sdist and whl repos pruned from the build
-    graph, and don't have a conventional install target.
-
-    Args:
-        module_ctx (module_ctx): The Bazel module context
-        lock_specs (dict): The previously parsed venv specs
-
-    Returns:
-        dict; map of hub to venv to package to override label
-
+    Return a mapping of marker -> sha1, containing all markers in the graph
     """
+    acc = {}
+    for _dep, nexts in graph.items():
+        for _next, markers in nexts.items():
+            for marker in markers.keys():
+                # sha1 is "expensive" so we minimize it
+                if marker and marker not in acc:
+                    acc[marker] = sha1(marker)
 
-    overrides = {}
+    return acc
 
-    for mod in module_ctx.modules:
-        for override in mod.tags.override_requirement:
-            if override.hub_name not in lock_specs:
-                fail("Override %r references undeclared hub" % (override,))
-
-            # Insert a base mapping for the hub
-            overrides.setdefault(override.hub_name, {})
-
-            if override.venv_name not in lock_specs[override.hub_name]:
-                fail("Override %r references venv not in the hub" % (override,))
-
-            # Insert a base mapping for the venv
-            overrides[override.hub_name].setdefault(override.venv_name, {})
-
-            req = normalize_name(override.requirement)
-            if not any([it["name"] == req for it in lock_specs[override.hub_name][override.venv_name].get("package", [])]):
-                fail("Override  for %r references a requirement not in venv %r of hub %r" % (req, override.venv_name, override.hub_name))
-
-            if req in overrides[override.hub_name][override.venv_name]:
-                fail("Override collision! Requirement %r of venv %r of hub %r has multiple overrides" % (req, override.venv_name, override.hub_name))
-
-            overrides[override.hub_name][override.venv_name][req] = override.target
-
-    return overrides
-
-def _collect_configurations(_module_ctx, lock_specs):
-    # Set of wheel names which we're gonna do a second pass over to collect configuration names
-
+def _collect_configurations(lock):
     wheel_files = {}
 
-    for _hub_name, venvs in lock_specs.items():
-        for _venv_name, lock in venvs.items():
-            for package in lock.get("package", []):
-                for whl in package.get("wheels", []):
-                    url = whl["url"]
-                    wheel_name = url.split("/")[-1]  # Find the trailing file name
-                    wheel_files[wheel_name] = 1
+    for package in lock.get("package", []):
+        for whl in package.get("wheels", []):
+            url = whl["url"]
+            wheel_name = url.split("/")[-1]  # Find the trailing file name
+            wheel_files[wheel_name] = 1
 
     abi_tags = {}
     platform_tags = {}
@@ -418,460 +469,219 @@ def _collect_configurations(_module_ctx, lock_specs):
 
     return configurations
 
-def _sdist_repo_name(package):
-    """We key sdist repos strictly by their name and content hash."""
+def _collect_bdists(lock_data):
+    bdist_specs = {}
+    bdist_table = {}
+    for package in lock_data.get("package", []):
+        for bdist in package.get("wheels", []):
+            bdist_repo_name = "whl__{}__{}".format(package["name"], bdist["hash"].split(":")[1][:16])
+            bdist_specs[bdist_repo_name] = bdist
+            bdist_table[bdist["hash"]] = "@{}//file".format(bdist_repo_name)
 
-    return "sdist__{}__{}".format(
-        package["name"],
-        package["sdist"]["hash"][len("shasum:"):][:8],
-    )
+    return bdist_specs, bdist_table
 
-def _raw_sdist_repos(_module_ctx, lock_specs, override_specs):
-    # Map of hub -> venv -> requirement -> version -> repo name
-    repo_defs = {}
+def _collect_sdists(lock_data):
+    sdist_specs = {}
+    sdist_table = {}
+    for package in lock_data.get("package", []):
+        if "sdist" in package:
+            sdist = package["sdist"]
+            sdist_repo_name = "sdist__{}__{}".format(package["name"], sdist["hash"].split(":")[1][:16])
+            sdist_specs[sdist_repo_name] = sdist
+            sdist_table[sdist["hash"]] = "@{}//file".format(sdist_repo_name)
 
-    for hub_name, venvs in lock_specs.items():
-        for venv_name, lock in venvs.items():
-            for package in lock.get("package", []):
-                # This is an overridden package, don't declare repos for it
-                if override_specs.get(hub_name, {}).get(venv_name, {}).get(package["name"]):
-                    continue
+    return sdist_specs, sdist_table
 
-                sdist = package.get("sdist")
-                if sdist == None:
-                    continue
+def _parse_projects(module_ctx, hub_specs):
+    """
+    Parse project declaration tags.
 
-                # Note that for source=url=... packages, the URL may not be
-                # repeated in the sdist spec so we have to replicate it down.
-                url = sdist.get("url", package["source"].get("url"))
-                shasum = sdist["hash"][len("sha256:"):]
+    Returns:
+        {lock_id: struct(lock, dep_to_scc, scc_graph, scc_deps)}
+        {hub: {nominal_requirement: {cfg: lock_qualified_}}
+    """
 
-                # FIXME: Do we need to factor in the shasum or source her? Could
-                # have two or more sources for one "artifact".
-                #
-                # Assume (potentially a problem!)
-                name = _sdist_repo_name(package)
-                downloaded_file_path = url.split("/")[-1]
-                spec = dict(
-                    name = name,
-                    downloaded_file_path = downloaded_file_path,
-                    urls = [url],
-                    sha256 = shasum,
-                )
-                if name not in repo_defs:
-                    repo_defs[name] = spec
-                elif name in repo_defs and url not in repo_defs[name]["urls"]:
-                    repo_defs[name]["urls"].append(url)
+    lock_cfgs = {}
+    hub_cfgs = {}
+    marker_specs = {}
+    whl_configurations = {}
 
-    # FIXME: May need to thread netrc or other credentials through to here?
-    for spec in repo_defs.values():
-        http_file(**spec)
+    sdist_specs = {}
+    sdist_table = {}
 
-def _whl_repo_name(package, whl):
-    """Get the repo name for a whl."""
+    bdist_specs = {}
+    bdist_table = {}
 
-    return "whl__{}__{}".format(
-        package["name"],
-        whl["hash"][len("shasum:"):][:8],
-    )
+    sbuild_specs = {}
 
-def _raw_whl_repos(_module_ctx, lock_specs, override_specs):
-    repo_defs = {}
+    install_cfgs = {}
+    install_table = {}
 
-    for hub_name, venvs in lock_specs.items():
-        for venv_name, lock in venvs.items():
-            for package in lock.get("package", []):
-                # This is an overridden package, don't declare repos for it
-                if override_specs.get(hub_name, {}).get(venv_name, {}).get(package["name"]):
-                    continue
+    # Collect all hubs, ensure we have no dupes
+    for mod in module_ctx.modules:
+        for project in mod.tags.project:
+            project_data = toml.decode_file(module_ctx, project.pyproject)
+            lock_data = toml.decode_file(module_ctx, project.lock)
 
-                wheels = package.get("wheels", [])
-                for whl in wheels:
-                    url = whl["url"]
-                    shasum = whl["hash"][len("sha256:"):]
+            # This SHOULD be stable enough.
+            # We'll rebuild the lock hub whenever the toml changes.
+            # Reusing the name is fine.
+            lock_id = "lockfile__" + sha1(repr(project.lock))[:16]
 
-                    # FIXME: Do we need to factor in the shasum or source her? Could
-                    # have two or more sources for one "artifact".
-                    #
-                    # Assume (potentially a problem!)
-                    name = _whl_repo_name(package, whl)
+            def _name(k):
+                if k[3] == "__base__":
+                    return "@{}//:{}__{}".format(lock_id, k[1], k[2].replace(".", "_"))
+                else:
+                    return "@{}//:{}__{}__extra__{}".format(lock_id, k[1], k[2].replace(".", "_"), k[3])
 
-                    # print("Creating whl repo", name)
-                    downloaded_file_path = url.split("/")[-1]
-                    spec = dict(
-                        name = name,
-                        downloaded_file_path = downloaded_file_path,
-                        urls = [url],
-                        sha256 = shasum,
+            # Read these from the project or honor the module state
+            project_name = project.name or project_data["project"]["name"]
+
+            # FIXME: Error if this wasn't provided and the version is marked as dynamic
+            project_version = project.version or project_data["project"]["version"]
+
+            if project.hub_name not in hub_specs:
+                fail("Project {} in {} refers to hub {} which is not configured for that module. Please declare it.".format(project_name, mod.name, project.hub_name))
+
+            if lock_id not in lock_cfgs:
+                default_versions, lock_data = _normalize_deps(lock_id, lock_data)
+
+                marker_graph = _build_marker_graph(lock_id, lock_data)
+                marker_specs.update(_collect_markers(marker_graph))
+
+                bd, bt = _collect_bdists(lock_data)
+                bdist_specs.update(bd)
+                bdist_table.update(bt)
+
+                sd, st = _collect_sdists(lock_data)
+                sdist_specs.update(sd)
+                sdist_table.update(st)
+
+                whl_configurations.update(_collect_configurations(lock_data))
+
+                dep_to_scc, scc_graph, scc_deps = _collect_sccs(marker_graph)
+                print("dep_to_scc:", pprint(dep_to_scc))
+                print("scc_graph:", pprint(scc_graph))
+                print("scc_deps:", pprint(scc_deps))
+
+                for package in lock_data.get("package", []):
+                    k = "whl_install__{}__{}__{}".format(lock_id, package["name"], package["version"].replace(".", "_"))
+                    install_table[(lock_id, package["name"], package["version"], "__base__")] = "@{}//:install".format(k)
+
+                    sdist = package.get("sdist")
+                    sbuild_id = None
+                    if sdist:
+                        sdist = sdist_table.get(sdist["hash"])
+
+                        sbuild_id = "sdist_build__{}__{}__{}".format(package["name"], package["version"].replace(".", "_"), lock_id.split("__")[1])
+                        sbuild_specs[sbuild_id] = struct(
+                            src = sdist,
+                            # FIXME: Need to resurrect deps code & inject
+                            deps = [],
+                            # FIXME: Check annotations
+                            is_native = False,
+                        )
+
+                    install_cfgs[k] = struct(
+                        whls = {whl["url"].split("/")[-1].split("?")[0].split("#")[0]: bdist_table.get(whl["hash"]) for whl in package.get("wheels", [])},
+                        sbuild = "@{}//:whl".format(sbuild_id) if sbuild_id else None,
                     )
-                    repo_defs[name] = spec
 
-    # FIXME: May need to thread netrc or other credentials through to here?
-    for spec in repo_defs.values():
-        http_file(**spec)
-
-def _sbuild_repo_name(hub, venv, package):
-    """Get the repo name for a sdist build."""
-
-    return "sbuild__{}__{}__{}".format(
-        hub,
-        venv,
-        package["name"],
-    )
-
-def _venv_target(hub_name, venv, package_name):
-    """Get the venv hub spoke for a given package."""
-
-    return "{}//{}".format(
-        _venv_hub_name(hub_name, venv),
-        package_name,
-    )
-
-def _sbuild_repos(_module_ctx, lock_specs, annotation_specs, override_specs):
-    """
-    Lay down sdist build repos for each configured sdist.
-    """
-
-    for hub_name, venvs in lock_specs.items():
-        for venv_name, lock in venvs.items():
-            for package in lock.get("package", []):
-                # This is an overridden package, don't declare a repo for it
-                if override_specs.get(hub_name, {}).get(venv_name, {}).get(package["name"]):
-                    continue
-
-                if "sdist" not in package:
-                    continue
-
-                name = _sbuild_repo_name(hub_name, venv_name, package)
-
-                venv_anns = annotation_specs.get(hub_name, {}).get(venv_name, _default_annotations)
-                build_deps = venv_anns.per_package.get(package["name"], {}).get("build-dependencies", [])
-
-                # Per-package build deps, plus global defaults
-                build_deps = {
-                    it["name"]: it
-                    for it in build_deps + venv_anns.default_build_deps
+                # Rebuild the SCC graph to point to member installs
+                #
+                # This is a bit tricky because _extras_ which have no install
+                # COULD be members of the SCC. We handle this by recognizing
+                # that an extra is a group of deps we splice in potentially
+                # conditionally, so all we need to do here is to recognize that
+                # the package is virtual (has no install) and skip it. scc_deps
+                # already handles the set of external edges, which will include
+                # the set of external edges from component extras.
+                scc_graph = {
+                    scc_id: {
+                        install_table[m]: markers
+                        for m, markers in members.items()
+                        # Extras etc. have no install table presence
+                        if m in install_table
+                    }
+                    for scc_id, members in scc_graph.items()
                 }
 
-                # TODO: Need a better native strategy.
-                #
-                # We need to decide if the sdist we're building contains native
-                # extensions. For now we're relying on user-provided annotations
-                # to do that.
-                #
-                # It would be better for the sdist_build repo rule to inspect
-                # the sdist's contents and search for well known file types such
-                # as `pyx` and `cxx`. That would also make it easier to support
-                # for instance Rust extensions. This would work from a phasing
-                # perspective because we declare sdist archives separately, so
-                # the repo rule for deciding whether an sdist build is native or
-                # not can run (prebuilt) tools to inspect downloaded archives.
-                is_native = (
-                    # Cythonized code
-                    "cython" in build_deps or
-                    # Mypyc code
-                    "mypy" in build_deps or
-                    # User has annotated the package as using C extensions or such
-                    venv_anns.per_package.get(package["name"], {}).get("native", False)
+                lock_cfgs[lock_id] = struct(
+                    default_versions = {
+                        k: _name(v)
+                        for k, v in default_versions.items()
+                    },
+                    dep_to_scc = {
+                        _name(k).split(":")[1]: v
+                        for k, v in dep_to_scc.items()
+                    },
+                    scc_deps = {
+                        k: {_name(d).split("//")[1]: markers}
+                        for k, deps in scc_deps.items()
+                        for d, markers in deps.items()
+                    },
+                    scc_graph = scc_graph,
                 )
 
-                # TODO: What if the build needs toolchains? (cc, etc.)
-                sdist_build(
-                    name = name,
-                    src = "@" + _sdist_repo_name(package) + "//file",
-                    # FIXME: Add support for build deps and annotative build deps
-                    deps = [
-                        "@" + _venv_target(hub_name, venv_name, package["name"])
-                        for package in build_deps.values()
-                    ],
-                    is_native = is_native,
-                )
+            else:
+                cfg = lock_cfgs[lock_id]
+                default_versions = cfg.default_versions
+                dep_to_scc = cfg.dep_to_scc
+                scc_graph = cfg.scc_graph
+                scc_deps = cfg.scc_deps
 
-def _whl_install_repo_name(hub, venv, package):
-    """Get the whl install repo name for a given package."""
+            configuration_names, activated_extras = _collect_activated_extras(project_data, default_versions, marker_graph)
+            version_activations = _collate_versions_by_name(activated_extras)
 
-    return "whl_install__{}__{}__{}".format(
-        hub,
-        venv,
-        package["name"],
-    )
-
-# TODO: Move this to a real library
-def _parse_ini(lines):
-    """
-    Quick and dirty INI parser
-
-    Handles basic INI format tables of key-value pairs, returning a dict.
-    Ignores top level/sectionless keys.
-    """
-    dict = {}
-    heading = None
-    for line in lines.split("\n"):
-        line = line.strip()
-        if line.startswith("[") and line.endswith("]"):
-            heading = line[1:-2]
-            dict[heading] = {}
-
-        elif "=" in line and heading:
-            key, value = line.split("=", 1)
-            key = key.strip()
-            value = value.strip()
-            dict[heading][key] = value
-
-    return dict
-
-def _collect_entrypoints(module_ctx, lock_specs, annotation_specs):
-    entrypoints = {}
-
-    # Collect predeclared entrypoints
-    for mod in module_ctx.modules:
-        for it in mod.tags.declare_entrypoint:
-            r = normalize_name(it.requirement)
-            entrypoints.setdefault(r, {})
-
-            # FIXME: Apply normalization here?
-            entrypoints[r][it.name] = it.entrypoint
-
-    # Collect entrypoints from annotation specifications
-    for hub_name, venvs in annotation_specs.items():
-        for venv_name, venv_struct in venvs.items():
-            # print(hub_name, venv_name, venv_struct)
-            for package_name, package in venv_struct.per_package.items():
-                entrypoints.setdefault(package_name, {})
-                scripts = package.get("entry-points", {}).get("console-scripts", {})
-                for name, target in scripts.items():
-                    # FIXME: Apply normalization here?
-                    entrypoints[package_name][name] = target
-
-    return entrypoints
-
-def _whl_install_repos(module_ctx, lock_specs, override_specs):
-    for hub_name, venvs in lock_specs.items():
-        for venv_name, lock in venvs.items():
-            for package in lock.get("package", []):
-                # This is an overridden package, don't declare a repo for it
-                if override_specs.get(hub_name, {}).get(venv_name, {}).get(package["name"]):
-                    continue
-
-                # This is where we need to actually choose which wheel we will
-                # "install", and so this is where prebuild selection needs to
-                # happen according to constraints.
-                prebuilds = {}
-                for whl in package.get("wheels", []):
-                    prebuilds[whl["url"].split("/")[-1]] = _whl_repo_name(package, whl) + "//file"
-
-                # FIXME: This should accept a common constraint for when to
-                # choose source builds over prebuilds.
-
-                # FIXME: Needs to explicitly mark itself as being compatible
-                # only with the single venv. Shouldn't be possible to force this
-                # target to build when the venv hub is not pointed to this venv.
-                name = _whl_install_repo_name(hub_name, venv_name, package)
-
-                # print("Creating install repo", hub_name, venv_name, name)
-                whl_install(
-                    name = name,
-                    prebuilds = json.encode(prebuilds),
-                    sbuild = "@" + _sbuild_repo_name(hub_name, venv_name, package) + "//:whl" if "sdist" in package else None,
-                )
-
-def _venv_hub_name(hub, venv):
-    return "venv__{}__{}".format(
-        hub,
-        venv,
-    )
-
-def _marker_sha(marker):
-    if marker:
-        return sha1(marker)[:8]
-    else:
-        return None
-
-def _group_repos(module_ctx, lock_specs, entrypoint_specs, override_specs):
-    # Hub -> requirement -> venv -> True
-    # For building hubs we need to know what venv configurations a given
-
-    package_venvs = {}
-
-    for hub_name, venvs in lock_specs.items():
-        package_venvs[hub_name] = {}
-
-        for venv_name, lock in venvs.items():
-            # Index all the packages by name so activating extras is easy
-            packages = {
-                package["name"]: package
-                for package in lock.get("package", [])
+            activated_extras = {
+                _name(k): {cfg: {_name(ek): markers}}
+                for k, cfgs in activated_extras.items()
+                for cfg, extras in cfgs.items()
+                for ek, markers in extras.items()
+                if k != ek
             }
 
-            # Graph of {marker shasum: raw marker expr}
-            markers = {}
-
-            # Build a graph {name: {dependency_name: marker shasum}}
-            graph = {}
-
-            for name, package in packages.items():
-                deps = {}
-
-                if package.get("marker"):
-                    fail("In venv %s package %s is marked which is unsupported" % (venv_name, package["name"]))
-
-                # Enter the package into the venv internal graph
-                graph.setdefault(package["name"], {})
-
-                for d in package.get("dependencies", []):
-                    marker = d.get("marker", "")
-                    msha = _marker_sha(marker)
-
-                    # If a marker expr is present, intern it
-                    if msha:
-                        markers[msha] = marker
-
-                    # Add this dep to the set with the marker if any
-                    graph[package["name"]][d["name"]] = msha
-
-                    # Assume all extras are activated
-                    extras = packages[d["name"]].get("optional-dependencies", {})
-                    for extra in d.get("extra", []):
-                        for extra_dep in extras.get(extra, []):
-                            # This should never happen, but if we do have a
-                            # reference in an extra to an inactive package we
-                            # want to ignore it.
-                            if extra_dep["name"] not in packages:
-                                continue
-
-                            graph.setdefault(d["name"], {})
-                            marker = extra_dep.get("marker", "")
-                            msha = _marker_sha(marker)
-
-                            # If a marker expr is present, intern it
-                            if msha:
-                                markers[msha] = marker
-
-                            # Add this dep to the set with the marker if any
-                            graph[d["name"]][extra_dep["name"]] = msha
-
-                # Enter the package into the venv hub manifest
-                package_venvs[hub_name].setdefault(package["name"], {})
-                package_venvs[hub_name][package["name"]][venv_name] = 1
-
-            # So we can find sccs/clusters which need to co-occur
-            # Note that we're assuming ALL marker conditional deps are live.
-            cycle_groups = sccs({k: v.keys() for k, v in graph.items()})
-            # print(hub_name, venv_name, graph, cycle_groups)
-
-            # Now we can assign names to the sccs and collect deps. Note that
-            # _every_ node in the graph will be in _a_ scc, those sccs are just
-            # size 1 if the node isn't part of a cycle.
-            #
-            # Rather than trying to handle size-1 clusters separately which adds
-            # implementation complexity we handle all clusters the same.
-            named_sccs = {}
-            scc_aliases = {}
-
-            # scc id -> requirement -> marker IDs -> 1
-            scc_markers = {}
-            deps = {}
-            for scc in cycle_groups:
-                # Make up a deterministic name for the scc. What it is doesn't
-                # matter. Could be gensym-style numeric too, but this is stable
-                # to the cycle's content rather than the order of the lockfile.
-                name = sha1(repr(scc))[:8]
-                deps[name] = {}
-                scc_markers[name] = {}
-                named_sccs[name] = scc
-
-                for node in scc:
-                    # Mark scc component with an alias
-                    scc_aliases[node] = name
-
-                    # Mark the scc as depending on this package because it does
-                    deps[name][node] = 1
-
-                    # We know we've never visited node before so this is an assign
-                    scc_markers[name][node] = {}
-
-                    # FIXME: we are PURPOSEFULLY ignoring the potential that the
-                    # dependency on this package within the scc goes through a
-                    # dependency edge with a marker. Dependencies within the scc
-                    # are always activated. This may cause problems.
-                    for it in scc:
-                        marker = markers.get(node, {}).get(it)
-                        if marker:
-                            fail("In venv %s package %s and %s form a cycle which may be marker-conditional! This is not supported" % (venv_name, node, it))
-
-                    # Collect deps of the component which are not in the scc. We
-                    # use dict-to-one as a set because there could be multiple
-                    # members of an scc which take a dependency on the same
-                    # thing outside the scc.
-                    for d in graph[node]:
-                        # Copy in the marker from node -> d if any
-                        marker = graph[node].get(d)
-                        if marker:
-                            scc_markers[name].setdefault(d, {})
-                            scc_markers[name][d][marker] = 1
-
-                        if d not in scc:
-                            deps[name][d] = 1
-
-            # Simplify the scc markers to scc -> dep -> list[marker id]
-            scc_markers = {
-                scc_id: {dep: markers.keys() for dep, markers in deps.items()}
-                for scc_id, deps in scc_markers.items()
+            version_activations = {
+                cfg: {pkg: {_name(version): markers}}
+                for cfg, packages in version_activations.items()
+                for pkg, versions in packages.items()
+                for version, markers in versions.items()
             }
 
-            # TODO: How do we plumb markers through here? The packages
-            # themselves may have markers. Furthermore dependencies ON the
-            # packages may have markers.
-            #
-            # Reviewing some (hopefully representative) markers it seems
-            # unlikely that cycles would activate _through_ marker/conditional
-            # dependencies. That is a conditional dependency edge's activation
-            # creates an otherwise absent cycle. The most common application of
-            # markers is to implement platform support and compatibility deps.
-            #
-            # On this basis we _ASSUME_ that this will never happen and all we
-            # need to do is implement conditionals
+            hub_cfg = hub_cfgs.setdefault(project.hub_name, struct(
+                configurations = {},
+                version_activations = {},
+                extra_activations = {},
+            ))
 
-            # At this point we have mapped every package to an scc (possibly of
-            # size 1) which it participates in, named those sccs, and identified
-            # their direct dependencies beyond the scc. So we can just lay down
-            # targets.
-            name = _venv_hub_name(hub_name, venv_name)
+            for cfg in configuration_names.keys():
+                if cfg in hub_cfg.configurations:
+                    fail("Conflict on configuration name {} in hub {}".format(cfg, project.hub_name))
 
-            overrides = override_specs.get(hub_name, {}).get(venv_name, {})
+            hub_cfg.configurations.update(configuration_names)
+            hub_cfg.version_activations.update(version_activations)
+            hub_cfg.extra_activations.update(activated_extras)
 
-            # print("Creating venv hub", name)
-            venv_hub(
-                name = name,
-                aliases = scc_aliases,  # String dict
-                markers = markers,  # String dict
-                sccs = named_sccs,  # List[String] dict
-                scc_markers = json.encode(scc_markers),  # Mangle to String
-                deps = deps,  # List[String] dict
-                installs = {
-                    # Use an override symbol if one exists, otherwise use the whl install repo.
-                    # Note that applying an override will cause the whl install to be elided.
-                    package: str(overrides.get(package, _whl_install_repo_name(hub_name, venv_name, {"name": package})))
-                    for package in sorted(graph.keys())
-                },
-                entrypoints = json.encode(entrypoint_specs),
-            )
+    return struct(
+        lock_cfgs = lock_cfgs,
+        hub_cfgs = hub_cfgs,
+        install_cfgs = install_cfgs,
+        sbuild_cfgs = sbuild_specs,
+        marker_cfgs = marker_specs,
+        whl_cfgs = whl_configurations,
+        sdist_cfgs = sdist_specs,
+        bdist_cfgs = bdist_specs,
+    )
 
-    return package_venvs
+def _config_marker(marker_registry, expr):
+    return "@aspect_rules_py_pip_configurations//:{}".format(marker_registry[expr])
 
-def _hub_repos(module_ctx, lock_specs, package_venvs, entrypoint_specs):
-    for hub_name, packages in package_venvs.items():
-        # print("Creating uv hub", hub_name)
-        hub_repo(
-            name = hub_name,
-            hub_name = hub_name,
-            venvs = lock_specs[hub_name].keys(),
-            packages = {
-                package: venvs.keys()
-                for package, venvs in packages.items()
-            },
-            entrypoints = json.encode(entrypoint_specs),
-        )
+def venv_hub(name, cfg, sdist_table, bdist_table, marker_table):
+    """
+    Pseudo-repo-rule.
+
+    Take a single hub configuration and generate all the components.
+    """
 
 def _uv_impl(module_ctx):
     """
@@ -896,49 +706,60 @@ def _uv_impl(module_ctx):
 
     hub_specs = _parse_hubs(module_ctx)
 
-    venv_specs = _parse_venvs(module_ctx, hub_specs)
-
-    lock_specs = _parse_locks(module_ctx, venv_specs)
-
-    annotation_specs = _parse_annotations(module_ctx, hub_specs, venv_specs)
-
-    # Roll through all the configured wheels, collect & validate the unique
-    # platform configurations so that we can go create an appropriate power set
-    # of conditions.
-    configurations = _collect_configurations(module_ctx, lock_specs)
-
-    # Collect declared entrypoints for packages
-    entrypoints = _collect_entrypoints(module_ctx, lock_specs, annotation_specs)
-
-    # Roll through and collect overrides of requirements with targets
-    override_specs = _parse_overrides(module_ctx, lock_specs)
-
-    # Roll through and create sdist and whl repos for all configured sources
-    # Note that these have no deps to this point
-    _raw_sdist_repos(module_ctx, lock_specs, override_specs)
-    _raw_whl_repos(module_ctx, lock_specs, override_specs)
-
-    # Roll through and create per-venv sdist build repos
-    _sbuild_repos(module_ctx, lock_specs, annotation_specs, override_specs)
-
-    # Roll through and create per-venv whl installs
-    #
-    # Note that we handle entrypoints at the venv level NOT the install level.
-    # This is because we handle cycle breaking and deps at the venv level, so we
-    # can't just take a direct dependency on the installed whl in its
-    # implementation repo.
-    _whl_install_repos(module_ctx, lock_specs, override_specs)
-
-    # Roll through and create per-venv group/dep layers
-    package_venvs = _group_repos(module_ctx, lock_specs, entrypoints, override_specs)
-
-    # Finally the hubs themselves are fully trivialized
-    _hub_repos(module_ctx, lock_specs, package_venvs, entrypoints)
+    cfg = _parse_projects(module_ctx, hub_specs)
 
     configurations_hub(
         name = "aspect_rules_py_pip_configurations",
-        configurations = configurations,
+        configurations = cfg.whl_cfgs,
+        markers = {},
     )
+
+    for sdist_name, sdist_cfg in cfg.sdist_cfgs.items():
+        http_file(
+            name = sdist_name,
+            url = sdist_cfg["url"],
+            sha256 = sdist_cfg["hash"][len("sha256:"):],
+            downloaded_file_path = sdist_cfg["url"].split("/")[-1].split("?")[0].split("#")[0],
+        )
+
+    for bdist_name, bdist_cfg in cfg.bdist_cfgs.items():
+        http_file(
+            name = bdist_name,
+            url = bdist_cfg["url"],
+            sha256 = bdist_cfg["hash"][len("sha256:"):],
+            downloaded_file_path = bdist_cfg["url"].split("/")[-1].split("?")[0].split("#")[0],
+        )
+
+    for sbuild_id, sbuild_cfg in cfg.sbuild_cfgs.items():
+        sdist_build(
+            name = sbuild_id,
+            src = sbuild_cfg.src,
+            deps = sbuild_cfg.deps,
+            is_native = sbuild_cfg.is_native,
+        )
+
+    for install_id, install_cfg in cfg.install_cfgs.items():
+        whl_install(
+            name = install_id,
+            sbuild = install_cfg.sbuild,
+            whls = json.encode(install_cfg.whls),
+        )
+
+    for lock_id, lock_cfg in cfg.lock_cfgs.items():
+        uv_lock(
+            name = lock_id,
+            dep_to_scc = json.encode(lock_cfg.dep_to_scc),
+            scc_deps = json.encode(lock_cfg.scc_deps),
+            scc_graph = json.encode(lock_cfg.scc_graph),
+        )
+
+    for hub_id, hub_cfg in cfg.hub_cfgs.items():
+        uv_hub(
+            name = hub_id,
+            configurations = hub_cfg.configurations.keys(),
+            extra_activations = json.encode(hub_cfg.extra_activations),
+            version_activations = json.encode(hub_cfg.version_activations),
+        )
 
     if features.external_deps.extension_metadata_has_reproducible:
         return module_ctx.extension_metadata(reproducible = True)
@@ -949,18 +770,13 @@ _hub_tag = tag_class(
     },
 )
 
-_venv_tag = tag_class(
+_project_tag = tag_class(
     attrs = {
         "hub_name": attr.string(mandatory = True),
-        "venv_name": attr.string(mandatory = True),
-    },
-)
-
-_lockfile_tag = tag_class(
-    attrs = {
-        "hub_name": attr.string(mandatory = True),
-        "venv_name": attr.string(mandatory = True),
-        "src": attr.label(mandatory = True),
+        "name": attr.string(mandatory = False),
+        "version": attr.string(mandatory = False),
+        "pyproject": attr.label(mandatory = True),
+        "lock": attr.label(mandatory = True),
     },
 )
 
@@ -983,20 +799,21 @@ _declare_entrypoint = tag_class(
 _override_requirement = tag_class(
     attrs = {
         "hub_name": attr.string(mandatory = True),
-        "venv_name": attr.string(mandatory = True),
+        "configuration": attr.string(mandatory = True),
         "requirement": attr.string(mandatory = True),
         "target": attr.label(mandatory = True),
     },
 )
 
+# TODO: patch_requirement
+
 uv = module_extension(
     implementation = _uv_impl,
     tag_classes = {
         "declare_hub": _hub_tag,
-        "declare_venv": _venv_tag,
-        "lockfile": _lockfile_tag,
+        "project": _project_tag,
         "unstable_annotate_requirements": _annotations_tag,
-        "declare_entrypoint": _declare_entrypoint,
         "override_requirement": _override_requirement,
+        "declare_entrypoint": _declare_entrypoint,
     },
 )

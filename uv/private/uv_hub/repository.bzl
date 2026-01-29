@@ -3,54 +3,20 @@
 """
 
 def _hub_impl(repository_ctx):
-    # We get packages as {package: venvs}
-    # Need to invert that
-    venv_packages = {}
-    for package, venvs in repository_ctx.attr.packages.items():
-        for venv in venvs:
-            venv_packages.setdefault(venv, [])
-            venv_packages[venv].append("//{0}:{0}".format(package))
+    extra_activations = json.decode(repository_ctx.attr.extra_activations)
+    version_activations = json.decode(repository_ctx.attr.version_activations)
 
-    # Build up a single target which depends on _all_ the packages in a given
-    # venv configuration.
-    #
-    # TODO: Some packages in a venv configuration may be incompatible; figure
-    # out how to make this take "soft" rather than "hard" dependencies.
+    # FIXME: all_requirements target
     repository_ctx.file("BUILD.bazel", """\
 load("@aspect_rules_py//py:defs.bzl", "py_library")
 load("@aspect_rules_py//uv/private:defs.bzl", "py_whl_library")
 
-py_library(
-    name = "all_requirements",
-    deps = select({lib_arms}),
-    visibility = ["//visibility:private"],
-)
-py_whl_library(
-    name = "all_whl_requirements",
-    deps = [":all_requirements"],
-    visibility = ["//visibility:public"],
-)
-""".format(lib_arms = {
-        "//venv:{}".format(venv): pkgs
-        for venv, pkgs in venv_packages.items()
-    }))
+""".format())
 
     ################################################################################
     content = [
         "load(\"@bazel_skylib//lib:selects.bzl\", \"selects\")",
     ]
-
-    for name, conditions in repository_ctx.attr.configurations.items():
-        content.append(
-            """\
-selects.config_setting_group(
-    name = "{}",
-    match_all = {},
-)
-""".format(name, repr(conditions)),
-        )
-
-    repository_ctx.file("configuration/BUILD.bazel", content = "\n".join(content))
 
     ################################################################################
     content = [
@@ -65,7 +31,7 @@ alias(
     ]
 
     # Lay down the venv config settings
-    for name in repository_ctx.attr.venvs:
+    for name in repository_ctx.attr.configurations:
         content.append(
             """
 config_setting(
@@ -87,10 +53,7 @@ config_setting(
 
     content.append(
         """
-VIRTUALENVS = {venvs}
-
-PACKAGES = {venv_packages}
-
+VIRTUALENVS = {configurations}
 _repo = {repo_name}
 
 def compatible_with(venvs, extra_constraints = []):
@@ -117,8 +80,7 @@ def incompatible_with(venvs, extra_constraints = []):
     "//conditions:default": extra_constraints,
   }}
 """.format(
-            venvs = repr(repository_ctx.attr.venvs),
-            venv_packages = repr(venv_packages),
+            configurations = repository_ctx.attr.configurations,
             repo_name = repr(repository_ctx.name),
         ),
     )
@@ -129,9 +91,9 @@ def incompatible_with(venvs, extra_constraints = []):
     # Lay down a requirements.bzl for compatibility with rules_python
     content = []
     content.append("""
-load("@rules_python//python:pip.bzl", "pip_utils")
+load("@aspect_rules_py//uv/private:normalize_name.bzl", "normalize_name")
 
-# We arne't compatible with this because it isn't constant over venvs.
+# We aren't compatible with this because it isn't constant over venvs.
 # all_requirements = []
 
 # We aren't compatible with this because it isn't constant over venvs.
@@ -144,7 +106,7 @@ load("@rules_python//python:pip.bzl", "pip_utils")
 # all_data_requirements = []
 
 def requirement(name):
-    return "@@{repo_name}//{{0}}:{{0}}".format(pip_utils.normalize_name(name))
+    return "@@{repo_name}//{{0}}:{{0}}".format(normalize_name(name))
 """.format(
         repo_name = repository_ctx.name,
     ))
@@ -153,22 +115,26 @@ def requirement(name):
     ################################################################################
     # Lay down the hub aliases
 
-    entrypoints = json.decode(repository_ctx.attr.entrypoints)
+    entrypoints = {}
 
     # FIXME: since we're creating a package per target, we may have to implement
     # name mangling to ensure that the pip packages become valid Bazel packages.
-    for name, spec in repository_ctx.attr.packages.items():
+    for name, specs in version_activations.items():
         content = [
             """
 load("//:defs.bzl", "compatible_with")
 """,
         ]
 
+        # TODO: Cheating
+        # Need to deal with there being multiple package versions in the cfg
+        # Need to deal with there being markers on a package in the cfg
         select_spec = {
-            "//venv:{}".format(it): "@venv__{0}__{1}//{2}:{2}".format(repository_ctx.attr.hub_name, it, name)
-            for it in spec
+            "//venv:{}".format(cfg): list(versions.keys())[0]
+            for cfg, versions in specs.items()
         }
-        error = "Available only in venvs " + ", ".join([it.split(":")[1][1:] for it in select_spec.keys()])
+
+        error = "Available only in venvs: " + ", ".join([it.split(":")[1] for it in select_spec.keys()])
 
         # TODO: Find a way to add a dist-info target here
         # TODO: Find a way to add entrypoint targets here?
@@ -191,67 +157,22 @@ alias(
     target_compatible_with = select(compatible_with({compat})),
     visibility = ["//visibility:public"],
 )
-alias(
-    name = "whl",
-    actual = select(
-      {whl_select},
-      no_match_error = "{error}",
-    ),
-    target_compatible_with = select(compatible_with({compat})),
-    visibility = ["//visibility:public"],
-)
 """.format(
                 name = name,
                 lib_select = repr(select_spec),
                 whl_select = repr({k: v.split(":")[0] + ":whl" for k, v in select_spec.items()}),
-                compat = repr(spec),
+                compat = repr(specs.keys()),
                 error = error,
             ),
         )
 
         repository_ctx.file(name + "/BUILD.bazel", content = "\n".join(content))
 
-        content = [
-            """load("//:defs.bzl", "compatible_with")""",
-        ]
-        for entrypoint_name, _entrypoint_coordinate in entrypoints.get(name, {}).items():
-            select_spec = {
-                "//venv:{}".format(it): "@venv__{0}__{1}//{2}/entrypoints:{3}".format(repository_ctx.attr.hub_name, it, name, entrypoint_name)
-                for it in spec
-            }
-
-            content.append(
-                """
-alias(
-    name = "{name}",
-    actual = select(
-      {select},
-      no_match_error = "{error}",
-    ),
-    target_compatible_with = select(compatible_with({compat})),
-    visibility = ["//visibility:public"],
-)
-""".format(
-                    name = entrypoint_name,
-                    select = repr(select_spec),
-                    compat = repr(spec),
-                    error = error,
-                ),
-            )
-
-        repository_ctx.file(name + "/entrypoints/BUILD.bazel", content = "\n".join(content))
-
-hub_repo = repository_rule(
+uv_hub = repository_rule(
     implementation = _hub_impl,
     attrs = {
-        "hub_name": attr.string(),
-        "venvs": attr.string_list(),
-        "packages": attr.string_list_dict(),
-        "configurations": attr.string_list_dict(),
-        "entrypoints": attr.string(
-            doc = """
-        JSON encoded map of pkg -> entrypoint -> coordinate
-        """,
-        ),
+        "configurations": attr.string_list(),
+        "extra_activations": attr.string(),
+        "version_activations": attr.string(),
     },
 )
