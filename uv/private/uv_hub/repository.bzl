@@ -80,9 +80,10 @@ def incompatible_with(venvs, extra_constraints = []):
     "//conditions:default": extra_constraints,
   }}
 """.format(
-    configurations = repository_ctx.attr.configurations,
-    repo_name = repr(repository_ctx.name),
-))
+            configurations = repository_ctx.attr.configurations,
+            repo_name = repr(repository_ctx.name),
+        ),
+    )
 
     repository_ctx.file("defs.bzl", content = "\n".join(content))
 
@@ -132,7 +133,7 @@ load("//:defs.bzl", "compatible_with")
             "//venv:{}".format(cfg): list(versions.keys())[0]
             for cfg, versions in specs.items()
         }
-        
+
         error = "Available only in venvs: " + ", ".join([it.split(":")[1] for it in select_spec.keys()])
 
         # TODO: Find a way to add a dist-info target here
@@ -166,7 +167,6 @@ alias(
         )
 
         repository_ctx.file(name + "/BUILD.bazel", content = "\n".join(content))
-
 
 uv_hub = repository_rule(
     implementation = _hub_impl,

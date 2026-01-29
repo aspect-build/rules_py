@@ -23,7 +23,7 @@ alias(
     actual = "//private/sccs:{scc}",
     visibility = ["//visibility:public"],
 )
-""".format(name=name, scc=scc_id))
+""".format(name = name, scc = scc_id))
     repository_ctx.file("BUILD.bazel", "\n".join(content))
 
     ################################################################################
@@ -39,13 +39,13 @@ py_library(
     visibility = ["//:__subpackages__"],
 )
 """)
-    
+
     ################################################################################
     # Now the slightly harder bit -- lay down the SCCs
 
-    # As we go for simplicitly we collect markers
+    # As we go for simplicity we collect markers
     marker_table = {}
-    
+
     content = ["""\
 load("@aspect_rules_py//py:defs.bzl", "py_library")
 
@@ -61,16 +61,15 @@ load("@aspect_rules_py//py:defs.bzl", "py_library")
 {}
 """.format(scc_id, indent(pprint(members), "# "), indent(pprint(this_scc_deps), "# ")))
         for member, markers in list(members.items()) + list(this_scc_deps.items()):
-
             # FIXME: Hack. Why do we have names coming in like this?
             if member[0] == ":":
                 member = "//" + member
-            
+
             if "" in markers:
                 # This is a dep which can be reached unconditionally
                 # Add it directly
                 deps.append(member)
-                
+
             else:
                 # This is a dep which is conditional
                 cases = {}
@@ -92,9 +91,9 @@ alias(
     visibility = ["//:__subpackages__"],
 )
 """.format(
-    name = dep,
-    arms = indent(pprint(cases), "    ").lstrip(),
-))
+                    name = dep,
+                    arms = indent(pprint(cases), "    ").lstrip(),
+                ))
 
         content.append("""
 py_library(
@@ -103,10 +102,10 @@ py_library(
     visibility = ["//:__subpackages__"],
 )
 """.format(
-    name = scc_id,
-    deps = indent(pprint(deps), "    ").lstrip(),
-))
-    
+            name = scc_id,
+            deps = indent(pprint(deps), "    ").lstrip(),
+        ))
+
     repository_ctx.file("private/sccs/BUILD.bazel", "\n".join(content))
 
     ################################################################################
@@ -124,7 +123,7 @@ decide_marker(
     visibility = ["//:__subpackages__"],
 )
 """.format(name = marker_id, marker = repr(marker_expr)))
-        
+
     repository_ctx.file("private/markers/BUILD.bazel", "\n".join(content))
 
 uv_lock = repository_rule(

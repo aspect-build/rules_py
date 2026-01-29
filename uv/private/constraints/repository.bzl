@@ -17,7 +17,7 @@ def _constraints_hub_impl(repository_ctx):
     ################################################################################
     content = [
         "load(\"@bazel_skylib//lib:selects.bzl\", \"selects\")",
-        "load(\"@aspect_rules_py//uv/private/markers:defs.bzl\", \"decide_marker\")"
+        "load(\"@aspect_rules_py//uv/private/markers:defs.bzl\", \"decide_marker\")",
     ]
 
     for name, conditions in repository_ctx.attr.configurations.items():
@@ -41,7 +41,8 @@ decide_marker(
     marker = {!r},
     visibility = ["//visibility:public"],
 )
-""".format(id, marker))
+""".format(id, marker),
+        )
 
     repository_ctx.file("BUILD.bazel", content = "\n".join(content))
 
