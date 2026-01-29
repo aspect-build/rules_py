@@ -102,25 +102,14 @@ uv.override_requirement(
     # FIXME: Version annotation may be required for disambiguation
     target = "//cases/uv-deps-650/third_party/cowsay",
 )
-# uv.project(
-#     hub_name = "pypi",
-#     pyproject = "//cases/uv-deps-650/airflow:pyproject.toml",
-#     lock = "//cases/uv-deps-650/airflow:uv.lock",
-# )
+uv.project(
+    hub_name = "pypi",
+    pyproject = "//cases/uv-deps-650/airflow:pyproject.toml",
+    lock = "//cases/uv-deps-650/airflow:uv.lock",
+)
 uv.project(
     hub_name = "pypi",
     pyproject = "//cases/uv-deps-650/crossbuild:pyproject.toml",
     lock = "//cases/uv-deps-650/crossbuild:uv.lock",
 )
-# uv.project(
-#     hub_name = "pypi",
-#     name = "source-build",
-#     pyproject = "//cases/uv-deps-650/source_crossbuild:pyproject.toml",
-#     lock = "//cases/uv-deps-650/source_crossbuild:uv.lock",
-# )
-# uv.unstable_annotate_requirements(
-#     hub_name = "pypi",
-#     venv_name = "source-build",
-#     src = "//cases/uv-deps-650/source_crossbuild:annotations.toml",
-# )
 use_repo(uv, "pypi")

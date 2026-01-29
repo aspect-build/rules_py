@@ -2,207 +2,145 @@
 
 """
 
+load("//uv/private:pprint.bzl", "pprint")
+load("//uv/private:sha1.bzl", "sha1")
+
+def indent(text, space = " "):
+    return "\n".join(["{}{}".format(space, l) for l in text.splitlines()])
+
 def _venv_hub_impl(repository_ctx):
-    # Lay down an alias from every nominal package to the scc containing it.
-    #
-    # TODO: If packages had markers, those markers would have to go here.
+    dep_to_scc = json.decode(repository_ctx.attr.dep_to_scc)
+    scc_deps = json.decode(repository_ctx.attr.scc_deps)
+    scc_graph = json.decode(repository_ctx.attr.scc_graph)
 
-    entrypoints = json.decode(repository_ctx.attr.entrypoints)
-
-    for pkg, group in repository_ctx.attr.aliases.items():
-        content = [
-            """load("@aspect_rules_py//uv/private:defs.bzl", "py_whl_library")""",
-        ]
-        content.append(
-            """
+    ################################################################################
+    # First the easy bit -- lay down the scc aliases
+    content = []
+    for name, scc_id in dep_to_scc.items():
+        content.append("""
 alias(
-   name = "lib",
-   actual = ":{pkg}",
-   visibility = ["//visibility:public"],
-)
-alias(
-   name = "{pkg}",
-   actual = "//private/sccs:{scc}_lib",
-   visibility = ["//visibility:public"],
-)
-py_whl_library(
-   name = "whl",
-   deps = [":{pkg}"],
-   visibility = ["//visibility:public"],
-)
-""".format(
-                pkg = pkg,
-                scc = group,
-            ),
-        )
-        repository_ctx.file("{}/BUILD.bazel".format(pkg), content = "\n".join(content))
-
-        content = [
-            """load("@aspect_rules_py//uv/private/py_entrypoint_binary:defs.bzl", "py_entrypoint_binary")""",
-        ]
-        for entrypoint_name, entrypoint_coordinate in entrypoints.get(pkg, {}).items():
-            content.append(
-                """
-py_entrypoint_binary(
     name = "{name}",
-    deps = ["//{pkg}:{pkg}"],
-    coordinate = "{coordinate}",
+    actual = "//private/sccs:{scc}",
     visibility = ["//visibility:public"],
 )
+""".format(name=name, scc=scc_id))
+    repository_ctx.file("BUILD.bazel", "\n".join(content))
+
+    ################################################################################
+
+    repository_ctx.file("private/BUILD.bazel", """\
+load("@aspect_rules_py//py:defs.bzl", "py_library")
+
+py_library(
+    name = "empty",
+    srcs = [],
+    deps = [],
+    imports =  [],
+    visibility = ["//:__subpackages__"],
+)
+""")
+    
+    ################################################################################
+    # Now the slightly harder bit -- lay down the SCCs
+
+    # As we go for simplicitly we collect markers
+    marker_table = {}
+    
+    content = ["""\
+load("@aspect_rules_py//py:defs.bzl", "py_library")
+
+"""]
+    for scc_id, members in scc_graph.items():
+        this_scc_deps = scc_deps.get(scc_id, {})
+        deps = []
+        content.append("""
+# scc: {}
+# members:
+{}
+# deps:
+{}
+""".format(scc_id, indent(pprint(members), "# "), indent(pprint(this_scc_deps), "# ")))
+        for member, markers in list(members.items()) + list(this_scc_deps.items()):
+
+            # FIXME: Hack. Why do we have names coming in like this?
+            if member[0] == ":":
+                member = "//" + member
+            
+            if "" in markers:
+                # This is a dep which can be reached unconditionally
+                # Add it directly
+                deps.append(member)
+                
+            else:
+                # This is a dep which is conditional
+                cases = {}
+                for marker in markers.keys():
+                    # We know that "" cannot be in the markers from above
+                    if marker not in marker_table:
+                        marker_table[marker] = sha1(marker)
+                    marker_id = marker_table[marker]
+
+                    cases["//private/markers:" + marker_id] = member
+                cases["//conditions:default"] = "//private:empty"
+
+                dep = "_maybe__{}__{}".format(scc_id, member.split(":")[1])
+                deps.append(dep)
+                content.append("""
+alias(
+    name = "{name}",
+    actual = select({arms}),
+    visibility = ["//:__subpackages__"],
+)
 """.format(
-                    name = entrypoint_name,
-                    pkg = pkg,
-                    coordinate = entrypoint_coordinate,
-                ),
-            )
+    name = dep,
+    arms = indent(pprint(cases), "    ").lstrip(),
+))
 
-        repository_ctx.file("{}/entrypoints/BUILD.bazel".format(pkg), content = "\n".join(content))
+        content.append("""
+py_library(
+    name = "{name}",
+    deps = {deps},
+    visibility = ["//:__subpackages__"],
+)
+""".format(
+    name = scc_id,
+    deps = indent(pprint(deps), "    ").lstrip(),
+))
+    
+    repository_ctx.file("private/sccs/BUILD.bazel", "\n".join(content))
 
-    # Lay down a package full of marker conditions which we'll reuse as we
-    # evaluate the groups' dependencies.
-    content = [
-        "# FIXME",
-        """load("@aspect_rules_py//uv/private/markers:defs.bzl", "decide_marker")""",
-    ]
-    for name, marker in repository_ctx.attr.markers.items():
-        content.append(
-            """
+    ################################################################################
+    # Finally lay down the collected markers
+    content = ["""
+load("@aspect_rules_py//uv/private/markers:defs.bzl", "decide_marker")
+
+"""]
+
+    for marker_expr, marker_id in marker_table.items():
+        content.append("""
 decide_marker(
     name = "{name}",
-    marker = "{marker}",
-    visibility = ["//private:__subpackages__"],
+    marker = {marker},
+    visibility = ["//:__subpackages__"],
 )
-""".format(
-                name = name,
-                marker = marker,
-            ),
-        )
-
-    repository_ctx.file("private/markers/BUILD.bazel", content = "\n".join(content))
-
-    # So the strategy here is that we need to go through sccs, create each scc
-    # and depend on the members of the scc by their _install_ directly rather
-    # than by their alias/group.
-    #
-    # Deps are added to the scc group by their _alias_.
-
-    # JSON decode the marker mapping so we can use it
-    scc_markers = json.decode(repository_ctx.attr.scc_markers)
-
-    content = [
-        "# FIXME",
-        """load("@aspect_rules_py//py:defs.bzl", "py_library")""",
-        "load(\"@bazel_skylib//lib:selects.bzl\", \"selects\")",
-        """
-# A placeholder library which allows us to select to nothing
-py_library(
-    name = "_empty_lib",
-    srcs = [],
-    imports = [],
-    visibility = ["//visibility:private"]
-)
-""",
-    ]
-
-    for group, members in repository_ctx.attr.sccs.items():
-        installs = repository_ctx.attr.installs
-        member_installs = [
-            "\"@{}//:install\"".format(installs[it]) if not installs[it].startswith("@") else repr(installs[it])
-            for it in members
-        ]
-
-        deps = repository_ctx.attr.deps[group]
-        if group not in scc_markers:
-            fail("Configuration error! Configured dep groups reference reference non-existent scc!")
-
-        dep_labels = []
-        for d in deps:
-            if d in members:
-                # Easy case of dependency edges within the group
-                continue
-
-            markers = scc_markers[group].get(d, [])
-            if not markers:
-                # Easy case of non-conditional external dep
-                dep_labels.append("\"//%s\"" % d)
-
-            else:
-                # Hard case of generating a conditional dep
-                content.append(
-                    """
-# All of the markers under which {group} depends on {d}
-selects.config_setting_group(
-    name = "_maybe_{group}_{d}",
-    match_any = {markers},
-    visibility = ["//visibility:private"],
-)
-
-# Depend on {d} of any of the {group} markers is active
-alias(
-    name = "_{group}_{d}_lib",
-    actual = select({{
-        ":_maybe_{group}_{d}": "//{d}",
-        "//conditions:default": ":_empty_lib",
-    }}),
-)
-""".format(
-                        group = group,
-                        d = d,
-                        markers = ["//private/markers:%s" % it for it in markers],
-                    ),
-                )
-                dep_labels.append("\":_{}_{}_lib\"".format(group, d))
-
-        content.append(
-            """
-py_library(
-   name = "{name}_lib",
-   srcs = [],
-   deps = [
-{lib_deps}
-   ],
-   visibility = ["//:__subpackages__"],
-)
-""".format(
-                name = group,
-                lib_deps = ",\n".join([((" " * 8) + it) for it in (member_installs + dep_labels)]),
-            ),
-        )
-
-    repository_ctx.file("private/sccs/BUILD.bazel", content = "\n".join(content))
+""".format(name = marker_id, marker = repr(marker_expr)))
+        
+    repository_ctx.file("private/markers/BUILD.bazel", "\n".join(content))
 
 uv_lock = repository_rule(
     implementation = _venv_hub_impl,
     attrs = {
-        "aliases": attr.string_dict(
+        "dep_to_scc": attr.string(
             doc = """
             """,
         ),
-        "markers": attr.string_dict(
+        "scc_deps": attr.string(
             doc = """
             """,
         ),
-        "sccs": attr.string_list_dict(
+        "scc_graph": attr.string(
             doc = """
             """,
-        ),
-        "scc_markers": attr.string(
-            doc = """
-            Graph of pkg -> dep -> Option[marker ID]
-            """,
-        ),
-        "deps": attr.string_list_dict(
-            doc = """
-            """,
-        ),
-        "installs": attr.string_dict(
-            doc = """
-            """,
-        ),
-        "entrypoints": attr.string(
-            doc = """
-        JSON encoded map of pkg -> entrypoint -> coordinate
-        """,
         ),
     },
     doc = """

@@ -87,7 +87,7 @@ def _whl_install_impl(repository_ctx):
                     continue
 
                 for abi_tag in parsed.abi_tags:
-                    select_arms[(python_tag, platform_tag, abi_tag)] = "@" + target
+                    select_arms[(python_tag, platform_tag, abi_tag)] = target
 
     # Unfortunately the way that Bazel decides ambiguous selects is explicitly
     # NOT designed to allow for the implementation of ranges. Because that would

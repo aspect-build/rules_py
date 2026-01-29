@@ -170,16 +170,16 @@ def _build_marker_graph(lock_id, lock_data):
         for dep in spec.get("dependencies", []):
             extras = dep.get("extra", ["__base__"])
             for e in extras:
-                pkg_deps.setdefault((lock_id, dep["name"], dep["version"], e), {})[dep.get("marker")] = 1
+                pkg_deps.setdefault((lock_id, dep["name"], dep["version"], e), {})[dep.get("marker", "")] = 1
 
         for extra_name, optional_deps in spec.get("optional-dependencies", {}).items():
             ek = (lock_id, spec["name"], spec["version"], extra_name)
             # Add a synthetic edge from the extra package to the base package
-            pkg_deps = graph.setdefault(ek, {}).setdefault(k, {None: 1})
+            pkg_deps = graph.setdefault(ek, {}).setdefault(k, {"": 1})
             for dep in optional_deps:
                 extras = dep.get("extra", ["__base__"])
                 for e in extras:
-                    graph[ek].setdefault((lock_id, dep["name"], dep["version"], e), {})[dep.get("marker")] = 1
+                    graph[ek].setdefault((lock_id, dep["name"], dep["version"], e), {})[dep.get("marker", "")] = 1
 
     return graph
 
@@ -215,7 +215,7 @@ def _collect_sccs(graph):
         # Ensure that everything has at least the no-op marker
         for next in scc.keys():
             if len(scc_graph[scc_id][next].keys()) == 0:
-                scc_graph[scc_id][next].update({None: 1})
+                scc_graph[scc_id][next].update({"": 1})
 
     # Compute the mapping from dependency coordinates to the SCC containing that dep
     dep_to_scc = {
@@ -251,7 +251,7 @@ def _extract_requirement_marker_pairs(req_string, version_map):
     # Starlark split() often doesn't support maxsplit, so we use find() + slicing
     semicolon_idx = req_string.find(";")
 
-    marker = None
+    marker = ""
     if semicolon_idx != -1:
         # Extract and clean the marker
         marker_text = req_string[semicolon_idx + 1:].strip()
@@ -310,12 +310,12 @@ def _extract_requirement_marker_pairs(req_string, version_map):
 
     # Base requirement
     base_dep = (lock_id, pkg_name, version, "__base__")
-    results.append((base_dep, marker))
+    results.append((base_dep, marker or ""))
 
     # Extras
     for e in extras:
         dep = (lock_id, pkg_name, version, e)
-        results.append((dep, marker))
+        results.append((dep, marker or ""))
 
     return results
 
@@ -413,7 +413,7 @@ def _collect_markers(graph):
         for _next, markers in nexts.items():
             for marker in markers.keys():
                 # sha1 is "expensive" so we minimize it
-                if marker != None and marker not in acc:
+                if marker and marker not in acc:
                     acc[marker] = sha1(marker)
 
     return acc
@@ -473,7 +473,7 @@ def _collect_bdists(lock_data):
         for bdist in package.get("wheels", []):
             bdist_repo_name = "whl__{}__{}".format(package["name"], bdist["hash"].split(":")[1][:16])
             bdist_specs[bdist_repo_name] = bdist
-            bdist_table[bdist["hash"]] = "@{}//:file".format(bdist_repo_name)
+            bdist_table[bdist["hash"]] = "@{}//file".format(bdist_repo_name)
 
     return bdist_specs, bdist_table
 
@@ -485,7 +485,7 @@ def _collect_sdists(lock_data):
             sdist = package["sdist"]
             sdist_repo_name = "sdist__{}__{}".format(package["name"], sdist["hash"].split(":")[1][:16])
             sdist_specs[sdist_repo_name] = sdist
-            sdist_table[sdist["hash"]] = "@{}//:file".format(sdist_repo_name)
+            sdist_table[sdist["hash"]] = "@{}//file".format(sdist_repo_name)
 
     return sdist_specs, sdist_table
 
@@ -526,7 +526,6 @@ def _parse_projects(module_ctx, hub_specs):
             lock_id = "lockfile__" + sha1(repr(project.lock))[:16]
             
             def _name(k):
-                print(repr(k))
                 if k[3] == "__base__":
                     return "@{}//:{}__{}".format(lock_id, k[1], k[2].replace(".", "_"))
                 else:
@@ -557,6 +556,9 @@ def _parse_projects(module_ctx, hub_specs):
                 whl_configurations.update(_collect_configurations(lock_data))
 
                 dep_to_scc, scc_graph, scc_deps = _collect_sccs(marker_graph)
+                print("dep_to_scc:", pprint(dep_to_scc))
+                print("scc_graph:", pprint(scc_graph))
+                print("scc_deps:", pprint(scc_deps))
 
                 for package in lock_data.get("package", []):
                     k = "whl_install__{}__{}__{}".format(lock_id, package["name"], package["version"].replace(".", "_"))
@@ -582,8 +584,21 @@ def _parse_projects(module_ctx, hub_specs):
                     )
 
                 # Rebuild the SCC graph to point to member installs
+                #
+                # This is a bit tricky because _extras_ which have no install
+                # COULD be members of the SCC. We handle this by recognizing
+                # that an extra is a group of deps we splice in potentially
+                # conditionally, so all we need to do here is to recognize that
+                # the package is virtual (has no install) and skip it. scc_deps
+                # already handles the set of external edges, which will include
+                # the set of external edges from component extras.
                 scc_graph = {
-                    scc_id: {install_table[m]: markers for m, markers in members.items()}
+                    scc_id: {
+                        install_table[m]: markers
+                        for m, markers in members.items()
+                        # Extras etc. have no install table presence
+                        if m in install_table
+                    }
                     for scc_id, members in scc_graph.items()
                 }
 
@@ -691,10 +706,8 @@ def _uv_impl(module_ctx):
     configurations_hub(
         name = "aspect_rules_py_pip_configurations",
         configurations = cfg.whl_cfgs,
-        markers = cfg.marker_cfgs,
+        markers = {},
     )
-
-    print(pprint(cfg))
 
     for sdist_name, sdist_cfg in cfg.sdist_cfgs.items():
         http_file(
@@ -723,24 +736,24 @@ def _uv_impl(module_ctx):
     for install_id, install_cfg in cfg.install_cfgs.items():
         whl_install(
             name = install_id,
-            sdist = install_cfg.sbuild,
-            whls = install_cfg.whls,
+            sbuild = install_cfg.sbuild,
+            whls = json.encode(install_cfg.whls),
         )
 
     for lock_id, lock_cfg in cfg.lock_cfgs.items():
         uv_lock(
             name = lock_id,
-            dep_to_scc = lock_cfg.dep_to_scc,
-            scc_deps = lock_cfg.scc_deps,
-            scc_graph = lock_cfg.scc_graph,
+            dep_to_scc = json.encode(lock_cfg.dep_to_scc),
+            scc_deps = json.encode(lock_cfg.scc_deps),
+            scc_graph = json.encode(lock_cfg.scc_graph),
         )
 
     for hub_id, hub_cfg in cfg.hub_cfgs.items():
         uv_hub(
             name = hub_id,
-            configurations = hub_cfg.configurations,
-            extra_activations = hub_cfg.extra_activations,
-            version_activations = hub_cfg.version_activations,
+            configurations = hub_cfg.configurations.keys(),
+            extra_activations = json.encode(hub_cfg.extra_activations),
+            version_activations = json.encode(hub_cfg.version_activations),
         )
 
     if features.external_deps.extension_metadata_has_reproducible:
