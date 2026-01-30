@@ -1,7 +1,7 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@container_structure_test//:defs.bzl", "container_structure_test")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load")
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer")
 load("asserts.bzl", "assert_tar_listing")
 
 platform(
@@ -24,8 +24,8 @@ py_binary(
     name = "my_app_bin",
     srcs = ["__main__.py"],
     deps = [
-        "@aspect_rules_py//py/tests/internal-deps/adder",
         "//cases/oci/py_image_layer/branding",
+        "@aspect_rules_py//py/tests/internal-deps/adder",
         "@pypi//colorama",
     ],
 )

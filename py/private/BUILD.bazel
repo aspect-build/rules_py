@@ -2,8 +2,6 @@ load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 
 package(default_visibility = ["//py:__subpackages__"])
 
-
-
 exports_files(
     [
         "run.tmpl.sh",
