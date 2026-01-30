@@ -646,6 +646,10 @@ def _parse_projects(module_ctx, hub_specs):
 
             if lock_id not in lock_cfgs:
                 default_versions, lock_data = _normalize_deps(lock_id, lock_data)
+                wheel = default_versions.get("wheel")
+                setuptools = default_versions.get("setuptools")
+                build = default_versions.get("build")
+                packaging = default_versions.get("packaging")
 
                 marker_graph = _build_marker_graph(lock_id, lock_data)
                 marker_specs.update(_collect_markers(marker_graph))
@@ -668,10 +672,18 @@ def _parse_projects(module_ctx, hub_specs):
                     sbuild_id = "sdist_build__{}__{}__{}".format(lock_stamp, package["name"], package["version"].replace(".", "_"))
                     sdist = sdist_table.get(sbuild_id)
                     if sdist:
+                        if not (wheel and setuptools and build and packaging):
+                            fail("A sdist build is required and build deps (build, setuptools, wheel) are not available!")
+
                         sbuild_specs[sbuild_id] = struct(
                             src = sdist,
                             # FIXME: Need to resurrect deps code & inject
-                            deps = [],
+                            deps = [
+                                _name(build),
+                                _name(setuptools),
+                                _name(wheel),
+                                _name(packaging),
+                            ],
                             # FIXME: Check annotations
                             is_native = False,
                         )
