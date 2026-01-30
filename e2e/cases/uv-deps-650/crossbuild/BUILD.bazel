@@ -1,8 +1,8 @@
 load("@aspect_rules_py//py:defs.bzl", "py_image_layer")
-load("@aspect_rules_py//py/tests/py_image_layer:asserts.bzl", "assert_tar_listing")
 load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_binary")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_image_index")
+load("//cases/oci/py_image_layer:asserts.bzl", "assert_tar_listing")
 
 platform(
     name = "arm64_linux",
@@ -77,7 +77,7 @@ assert_tar_listing(
 oci_image(
     name = "image",
     # This is defined by an oci.pull() call in /MODULE.bazel
-    base = "@aspect_rules_py//py/private:ubuntu",
+    base = "@ubuntu",
     entrypoint = ["/{}/app_bin".format(package_name())],
     tars = [":app_layers"],
 )
