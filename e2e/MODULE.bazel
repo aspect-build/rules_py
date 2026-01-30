@@ -1,15 +1,36 @@
 "Bazel dependencies"
 
 bazel_dep(name = "aspect_rules_py")
+bazel_dep(name = "bazel_features", version = "1.38.0")
 bazel_dep(name = "bazel_skylib", version = "1.4.2")
 bazel_dep(name = "bazel_lib", version = "3.0.0")
 bazel_dep(name = "rules_cc", version = "0.2.11")
 bazel_dep(name = "tar.bzl", version = "0.5.5")
 bazel_dep(name = "rules_python", version = "1.0.0")
+bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "toolchains_llvm_bootstrapped", version = "0.3.1")
 bazel_dep(name = "rules_oci", version = "2.2.6")
-bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "rules_rust", version = "0.68.1")
+
+oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
+oci.pull(
+    name = "ubuntu",
+    digest = "sha256:c35e29c9450151419d9448b0fd75374fec4fff364a27f176fb458d472dfc9e54",
+    image = "public.ecr.aws/docker/library/ubuntu",
+    platforms = [
+        "linux/arm64/v8",
+        "linux/amd64",
+    ],
+    tag = "latest",
+)
+use_repo(oci, "ubuntu", "ubuntu_linux_amd64", "ubuntu_linux_arm64_v8")
+
+bazel_dep(name = "container_structure_test", version = "1.19.1")
+git_override(
+    module_name = "container_structure_test",
+    commit = "63ee63e15fae64f00b1c1ace1eb5cc99251b9e02",
+    remote = "https://github.com/GoogleContainerTools/container-structure-test.git",
+)
 
 local_path_override(
     module_name = "aspect_rules_py",
