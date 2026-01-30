@@ -482,6 +482,15 @@ def _collect_bdists(lock_data):
 
     return bdist_specs, bdist_table
 
+def _ensure_ref(maybe_ref):
+    if maybe_ref == None:
+        return None
+
+    if not maybe_ref.startswith("ref/"):
+        return "ref/" + maybe_ref
+
+    return maybe_ref
+
 def _parse_git_url(url):
     """Parses a git URL into a dict of git_repository kwargs."""
 
@@ -495,6 +504,7 @@ def _parse_git_url(url):
 
     kwargs = {"remote": remote_base}
     rev = ""
+    ref = ""
 
     # 3. Extract revision from Fragment
     if fragment:
@@ -502,29 +512,29 @@ def _parse_git_url(url):
 
     # 4. Extract revision from Query String (if fragment wasn't present)
     elif query_string:
+        params = {}
         # Manually parse query string for 'rev=' or 'ref='
         pairs = query_string.split("&")
         for pair in pairs:
-            if pair.startswith("rev=") or pair.startswith("ref="):
-                # Starlark doesn't have urllib.parse.unquote,
-                # but we can handle common encodings like %2F (/)
-                rev = pair.split("=")[1].replace("%2F", "/").replace("%2f", "/")
-                break
+            k, v = pair.split("=", 1)
+            # FIXME: Better urldecode
+            params[k] = v.replace("%2F", "/").replace("%2f", "/")
+
+        if "ref" in params:
+            ref = params["ref"]
+
+        if "commit" in params:
+            rev = params["commit"]
 
     # 5. Determine if the revision is a commit, tag, or branch
     if rev:
-        kwargs["tag"] = rev
+        kwargs["commit"] = rev
+    elif ref:
+        kwargs["ref"] = _ensure_ref(ref)
+
+    print("Git", kwargs)
 
     return kwargs
-
-def _ensure_ref(maybe_ref):
-    if maybe_ref == None:
-        return None
-
-    if not maybe_ref.startswith("ref/"):
-        return "ref/" + maybe_ref
-
-    return maybe_ref
 
 def _try_git_to_http_archive(git_cfg):
     """
@@ -544,23 +554,24 @@ def _try_git_to_http_archive(git_cfg):
             return {
                 "url": url
             }
-        elif "tag" in git_cfg:
-            url = "{}/archive/{}.tar.gz".format(url, _ensure_ref(git_cfg["tag"]))
+        elif "ref" in git_cfg:
+            url = "{}/archive/{}.tar.gz".format(url, git_cfg["tag"])
             return {
                 "url": url
             }
 
     # FIXME: Support gitlab, other hosts?
 
-def _collect_sdists(lock_data):
+def _collect_sdists(lock_id, lock_data):
     sdist_specs = {}
     sdist_table = {}
     for package in lock_data.get("package", []):
+        k = "sdist_build__{}__{}__{}".format(lock_id, package["name"], package["version"].replace(".", "_"))
         if "sdist" in package:
             sdist = package["sdist"]
             sdist_repo_name = "sdist__{}__{}".format(package["name"], sdist["hash"].split(":")[1][:16])
             sdist_specs[sdist_repo_name] = {"file": sdist}
-            sdist_table[sdist["hash"]] = "@{}//file".format(sdist_repo_name)
+            sdist_table[k] = "@{}//file".format(sdist_repo_name)
 
         elif "git" in package["source"]:
             git_url = package["source"]["git"]
@@ -568,7 +579,7 @@ def _collect_sdists(lock_data):
 
             sdist_cfg = _try_git_to_http_archive(git_cfg)
             sdist_repo_name = "sdist_git__{}__{}".format(package["name"], sha1(git_url)[:16])
-            sdist_table[sdist["hash"]] = "@{}//file".format(sdist_repo_name)
+            sdist_table[k] = "@{}//file".format(sdist_repo_name)
 
             if sdist_cfg:
                 sdist_specs[sdist_repo_name] = {"file": sdist_cfg}
@@ -603,6 +614,8 @@ def _parse_projects(module_ctx, hub_specs):
     install_cfgs = {}
     install_table = {}
 
+    project_set = {}
+
     # Collect all hubs, ensure we have no dupes
     for mod in module_ctx.modules:
         for project in mod.tags.project:
@@ -612,7 +625,8 @@ def _parse_projects(module_ctx, hub_specs):
             # This SHOULD be stable enough.
             # We'll rebuild the lock hub whenever the toml changes.
             # Reusing the name is fine.
-            lock_id = "lockfile__" + sha1(repr(project.lock))[:16]
+            lock_stamp = sha1(repr(project.lock))[:16]
+            lock_id = "lockfile__" + lock_stamp
 
             def _name(k):
                 if k[3] == "__base__":
@@ -624,6 +638,8 @@ def _parse_projects(module_ctx, hub_specs):
             project_name = project.name or project_data["project"]["name"]
             # FIXME: Error if this wasn't provided and the version is marked as dynamic
             project_version = project.version or project_data["project"]["version"]
+
+            project_set[project_name] = 1
 
             if project.hub_name not in hub_specs:
                 fail("Project {} in {} refers to hub {} which is not configured for that module. Please declare it.".format(project_name, mod.name, project.hub_name))
@@ -638,7 +654,7 @@ def _parse_projects(module_ctx, hub_specs):
                 bdist_specs.update(bd)
                 bdist_table.update(bt)
 
-                sd, st = _collect_sdists(lock_data)
+                sd, st = _collect_sdists(lock_stamp, lock_data)
                 sdist_specs.update(sd)
                 sdist_table.update(st)
 
@@ -647,15 +663,11 @@ def _parse_projects(module_ctx, hub_specs):
                 dep_to_scc, scc_graph, scc_deps = _collect_sccs(marker_graph)
 
                 for package in lock_data.get("package", []):
-                    k = "whl_install__{}__{}__{}".format(lock_id, package["name"], package["version"].replace(".", "_"))
+                    k = "whl_install__{}__{}__{}".format(lock_stamp, package["name"], package["version"].replace(".", "_"))
                     install_table[(lock_id, package["name"], package["version"], "__base__")] = "@{}//:install".format(k)
-
-                    sdist = package.get("sdist")
-                    sbuild_id = None
+                    sbuild_id = "sdist_build__{}__{}__{}".format(lock_stamp, package["name"], package["version"].replace(".", "_"))
+                    sdist = sdist_table.get(sbuild_id)
                     if sdist:
-                        sdist = sdist_table.get(sdist["hash"])
-
-                        sbuild_id = "sdist_build__{}__{}__{}".format(package["name"], package["version"].replace(".", "_"), lock_id.split("__")[1])
                         sbuild_specs[sbuild_id] = struct(
                             src = sdist,
                             # FIXME: Need to resurrect deps code & inject
@@ -666,7 +678,7 @@ def _parse_projects(module_ctx, hub_specs):
 
                     install_cfgs[k] = struct(
                         whls = {whl["url"].split("/")[-1].split("?")[0].split("#")[0]: bdist_table.get(whl["hash"]) for whl in package.get("wheels", [])},
-                        sbuild = "@{}//:install".format(sbuild_id) if sbuild_id else None,
+                        sbuild = "@{}//:whl".format(sbuild_id) if sdist else None,
                     )
 
                 # Rebuild the SCC graph to point to member installs
@@ -723,7 +735,6 @@ def _parse_projects(module_ctx, hub_specs):
                     for extra, markers in extra_cfgs.items():
                         _cfgs[_name(extra)] = markers
             activated_extras = _simplified_extras
-            print(project.pyproject, "extras", pprint(activated_extras))
 
             # We need to normalize version activations manually too
             _simplified_activations = {}
@@ -734,7 +745,6 @@ def _parse_projects(module_ctx, hub_specs):
                     for version, markers in versions.items():
                         _pkg[_name(version)] = markers
             version_activations = _simplified_activations
-            print(project.pyproject, "versions", pprint(version_activations))
 
             hub_cfg = hub_cfgs.setdefault(project.hub_name, struct(
                 configurations = {},
@@ -789,6 +799,7 @@ def _uv_impl(module_ctx):
     hub_specs = _parse_hubs(module_ctx)
 
     cfg = _parse_projects(module_ctx, hub_specs)
+    print(pprint(cfg))
 
     configurations_hub(
         name = "aspect_rules_py_pip_configurations",
