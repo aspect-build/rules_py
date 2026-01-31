@@ -7,7 +7,7 @@ py_library(
 )
 
 py_test(
-    name = "pytest_test",
+    name = "test_pytest_test",
     srcs = ["foo_test.py"],
     data = glob([
         "fixtures/*.json",
