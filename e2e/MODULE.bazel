@@ -144,4 +144,13 @@ uv.lockfile(
     hub_name = "pypi",
     venv_name = "psql",
 )
+uv.declare_venv(
+    hub_name = "pypi",
+    venv_name = "googlemaps",
+)
+uv.lockfile(
+    src = "//cases/legacy-deps/googlemaps:uv.lock",
+    hub_name = "pypi",
+    venv_name = "googlemaps",
+)
 use_repo(uv, "pypi")
