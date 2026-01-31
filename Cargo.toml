@@ -28,7 +28,7 @@ uv-cache = { git = "https://github.com/astral-sh/uv", rev = "855c1917e1e0e2b48c3
 uv-distribution-filename = { git = "https://github.com/astral-sh/uv.git", rev = "855c1917e1e0e2b48c38de71bebc845af016afae" }
 uv-extract = { git = "https://github.com/astral-sh/uv.git", rev = "855c1917e1e0e2b48c38de71bebc845af016afae" }
 uv-install-wheel = { git = "https://github.com/astral-sh/uv", rev = "855c1917e1e0e2b48c38de71bebc845af016afae" }
-uv-pypi-types = { git = "https://github.com/astral-sh/uv.git", rev = "855c1917e1e0e2b48c38de71bebc845af016afae" }
+uv-pypi-types = { git = "https://github.com/astral-sh/uv.git", rev = "6df4b7166931f65b23cc0927495d4efda7976824" }
 uv-python = { git = "https://github.com/astral-sh/uv", rev = "855c1917e1e0e2b48c38de71bebc845af016afae" }
 uv-virtualenv = { git = "https://github.com/astral-sh/uv", rev = "855c1917e1e0e2b48c38de71bebc845af016afae" }
 
