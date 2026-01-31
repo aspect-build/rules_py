@@ -1,0 +1,81 @@
+load("@bazel_lib//:bzl_library.bzl", "bzl_library")
+load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
+
+package(default_visibility = ["//visibility:public"])
+
+exports_files(["link.py"])
+
+bzl_library(
+    name = "link",
+    srcs = [
+        "defs.bzl",
+    ],
+    deps = [
+        "@bazel_skylib//lib:sets",
+    ],
+)
+
+string_flag(
+    name = "venv_strategy",
+    build_setting_default = "dynamic",
+    values = [
+        "dynamic",
+        "static",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "static_venvs",
+    flag_values = {
+        ":venv_strategy": "static",
+    },
+)
+
+config_setting(
+    name = "dynamic_venvs",
+    flag_values = {
+        ":venv_strategy": "dynamic",
+    },
+)
+
+string_flag(
+    name = "linking_strategy",
+    build_setting_default = "per-package",
+    values = [
+        "per-package",
+        "workspace-root",
+        "workon-root",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "link_to_package",
+    flag_values = {
+        ":linking_strategy": "per-package",
+    },
+)
+
+config_setting(
+    name = "link_to_workspace",
+    flag_values = {
+        ":linking_strategy": "workspace-root",
+    },
+)
+
+config_setting(
+    name = "link_to_workon",
+    flag_values = {
+        ":linking_strategy": "workspace-root",
+    },
+)
+
+string_flag(
+    name = "naming_strategy",
+    build_setting_default = "venv-name",
+    values = [
+        "venv-name",  # Respect the virtualenv's name property
+        "dot-venv",  # Use .venv as the name of the link
+    ],
+)

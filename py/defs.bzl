@@ -42,14 +42,48 @@ load("//py/private:py_pex_binary.bzl", _py_pex_binary = "py_pex_binary")
 load("//py/private:py_pytest_main.bzl", _py_pytest_main = "py_pytest_main")
 load("//py/private:py_unpacked_wheel.bzl", _py_unpacked_wheel = "py_unpacked_wheel")
 load("//py/private:virtual.bzl", _resolutions = "resolutions")
-load("//py/private/py_venv:defs.bzl", _py_venv_link = "py_venv_link")
+load("//py/private/link:defs.bzl", _py_link_venv = "py_link_venv")
+load("//py/private/py_venv:defs.bzl", _py_venv_binary = "py_venv_binary")
 
 py_pex_binary = _py_pex_binary
 py_pytest_main = _py_pytest_main
 
 # FIXME: Badly chosen name; will be replaced/migrated
-py_venv = _py_venv_link
-py_venv_link = _py_venv_link
+def py_venv(name, srcs = [], data = [], deps = [], imports = None, testonly = False, **kwargs):
+    native.alias(
+        name = name,
+        actual = select({
+            Label("//py/private/link:dynamic_venvs"): ":{}_dynamic".format(name),
+            Label("//py/private/link:static_venvs"): ":{}_static".format(name),
+        }),
+        tags = ["manual"],
+    )
+
+    _py_link_venv(
+        _py_binary,
+        name = "{}_dynamic".format(name),
+        srcs = srcs,
+        data = data,
+        deps = deps,
+        imports = kwargs.get("imports"),
+        tags = ["manual"],
+        testonly = kwargs.get("testonly", False),
+        target_compatible_with = kwargs.get("target_compatible_with", []),
+    )
+
+    _py_link_venv(
+        _py_venv_binary,
+        name = "{}_static".format(name),
+        srcs = srcs,
+        data = data,
+        deps = deps,
+        imports = kwargs.get("imports"),
+        tags = ["manual"],
+        testonly = kwargs.get("testonly", False),
+        target_compatible_with = kwargs.get("target_compatible_with", []),
+    )
+
+py_venv_link = py_venv
 
 py_binary_rule = _py_binary
 py_test_rule = _py_test
@@ -70,15 +104,12 @@ def _py_binary_or_test(name, rule, srcs, main, data = [], deps = [], **kwargs):
         **kwargs
     )
 
-    _py_venv_link(
-        name = "{}.venv".format(name),
+    py_venv(
+        name = name + ".venv",
         srcs = srcs,
         data = data,
         deps = deps,
-        imports = kwargs.get("imports"),
-        tags = ["manual"],
-        testonly = kwargs.get("testonly", False),
-        target_compatible_with = kwargs.get("target_compatible_with", []),
+        **kwargs
     )
 
 def py_binary(name, srcs = [], main = None, **kwargs):

@@ -1,12 +1,10 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
-load(":defs.bzl", "py_venv_test")
 
 package(default_visibility = ["//py:__subpackages__"])
 
 exports_files([
     "entrypoint.tmpl.sh",
-    "link.py",
 ])
 
 bool_flag(
@@ -57,16 +55,6 @@ bzl_library(
         "@bazel_lib//lib:expand_make_vars",
         "@bazel_lib//lib:paths",
     ],
-)
-
-py_venv_test(
-    name = "test_link",
-    srcs = [
-        "link.py",
-        "test_link.py",
-    ],
-    imports = ["."],
-    main = "test_link.py",
 )
 
 bzl_library(

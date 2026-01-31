@@ -7,8 +7,6 @@ Helper to create a symlink to a virtualenv in the source tree.
 
 import argparse
 import os
-import sys
-import site
 from pathlib import Path
 
 
@@ -23,7 +21,6 @@ def munge_venv_name(target_package, virtualenv_name):
 if __name__ == "__main__":
     virtualenv_home = os.path.normpath(os.environ["VIRTUAL_ENV"])
     virtualenv_name = os.path.basename(virtualenv_home)
-    runfiles_dir = os.path.normpath(os.environ["RUNFILES_DIR"])
     builddir = os.path.normpath(os.environ["BUILD_WORKING_DIRECTORY"])
     target_package, target_name = os.environ["BAZEL_TARGET"].split("//", 1)[1].split(":")
 
@@ -48,7 +45,7 @@ if __name__ == "__main__":
     )
     
     opts = PARSER.parse_args()
-    dest = Path(os.path.join(opts.dest, opts.name))
+    dest = Path(os.path.join(os.path.expandvars(opts.dest), opts.name))
     print("""
 
 Linking: {venv_home} -> {venv_path}
