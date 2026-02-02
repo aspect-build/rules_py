@@ -655,13 +655,30 @@ def _parse_projects(module_ctx, hub_specs):
             if lock_id not in lock_cfgs:
                 default_versions, lock_data = _normalize_deps(lock_id, lock_data)
 
+                build_dependencies = {}
+                for ann in mod.tags.unstable_annotate_requirements:
+                    if ann.lock == project.lock:
+                        annotations = toml.decode_file(ann.src)
+                        for package in annotations.get("package", []):
+                            v = package.get("version", default_versions.get(package["name"]))
+                            if not v:
+                                fail("Package annotation for {} in {} neither specifies a version nor has an implied singular version in the lockfile!".format(package["name"], ann.src))
+                            k = (lock_id, package["name"], v, "__base__")
+                            deps = []
+                            for dep in package.get("build-dependencies", []):
+                                v = dep.get("version", default_versions.get(dep["name"]))
+                                if not v:
+                                    fail("Package annotation in {} for {} neither specifies a version nor has an implied singular version from the lockfile!".format(ann.src, package["name"]))
+                                deps.append((lock_id, dep["name"], v, "__base__"))
+                            build_dependencies[k] = deps
+
                 overriden_packages = {}
                 # FIXME: This inner join is correct and easy, but it doesn't allow us to warn if there are annotations that don't join.
                 for override in mod.tags.override_package:
                     if override.lock == project.lock:
                         v = override.version or default_versions.get(override.name)
                         if not v:
-                            fail("Overriden project {} neither specifies a version nor has an implied singular version in the lockfile!".format(override, project.lock))
+                            fail("Overriden project {} neither specifies a version nor has an implied singular version in the lockfile!".format(override.name, project.lock))
                         k = (lock_id, override.name, v, "__base__")
                         install_table[k] = str(override.target)
 
@@ -701,27 +718,34 @@ def _parse_projects(module_ctx, hub_specs):
                     install_table[install_key] = "@{}//:install".format(k)
                     sbuild_id = "sdist_build__{}__{}__{}".format(lock_stamp, package["name"], package["version"].replace(".", "_"))
                     sdist = sdist_table.get(sbuild_id)
-
+                    # WARNING: Loop invariant; this flag needs to be False by
+                    # default and set if we do a build.
+                    has_sbuild = False
+                    
                     # HACK: If there's a -none-any wheel for the package, then
                     # we can actually skip creating the sdist build because
                     # we'll never use it. This allows projects which can do
                     # anyarch builds from bdists to avoid providing build deps.
                     has_none_any = any(["-none-any.whl" in it["url"] for it in package.get("wheels", [])])
-                    if sdist and not has_none_any:
+                    if sdist and not (has_none_any and project.elide_sbuilds_with_anyarch):
                         # HACK: Note that we resolve these LAZILY so that
                         # bdist-only or fully overriden configurations don't
                         # have to provide the build tools.
-                        # 
-                        # FIXME: Consult the per-package build deps lookaside table here
-                        for it in DEFAULT_BUILD_DEPS:
-                            if it["name"] not in default_versions:
-                                fail("While emitting {}\nLockfile {} doesn't specify build dep {}!".format(pprint(package), project.lock, it["name"]))
 
-                        build_deps = lock_default_build_deps or [
-                            default_versions[it["name"]]
-                            for it in DEFAULT_BUILD_DEPS
-                        ]
-                        
+                        build_deps = build_dependencies.get(install_key)
+                        if not build_deps and not lock_default_build_deps:
+                            for it in DEFAULT_BUILD_DEPS:
+                                if it["name"] not in default_versions:
+                                    fail("While emitting {}\nLockfile {} doesn't specify build dep {}!".format(pprint(package), project.lock, it["name"]))
+
+                            lock_default_build_deps = [
+                                default_versions[it["name"]]
+                                for it in DEFAULT_BUILD_DEPS
+                            ]
+
+                        if not build_deps:
+                            build_deps = lock_default_build_deps
+
                         sbuild_specs[sbuild_id] = struct(
                             src = sdist,
                             # FIXME: Need to resurrect deps code & inject
@@ -730,12 +754,11 @@ def _parse_projects(module_ctx, hub_specs):
                             is_native = False,
                         )
 
-                    else:
-                        sdist = None
+                        has_sbuild = True
 
                     install_cfgs[k] = struct(
                         whls = {whl["url"].split("/")[-1].split("?")[0].split("#")[0]: bdist_table.get(whl["hash"]) for whl in package.get("wheels", [])},
-                        sbuild = "@{}//:whl".format(sbuild_id) if sdist else None,
+                        sbuild = "@{}//:whl".format(sbuild_id) if has_sbuild else None,
                     )
 
                 # Rebuild the SCC graph to point to member installs
@@ -935,6 +958,7 @@ _project_tag = tag_class(
         "version": attr.string(mandatory = False),
         "pyproject": attr.label(mandatory = True),
         "lock": attr.label(mandatory = True),
+        "elide_sbuilds_with_anyarch": attr.bool(mandatory = False, default = True),
     },
 )
 
@@ -948,7 +972,7 @@ _annotations_tag = tag_class(
 _declare_entrypoint_tag = tag_class(
     attrs = {
         "package": attr.string(mandatory = True),
-        "versuion": attr.string(mandatory = False),
+        "version": attr.string(mandatory = False),
         "name": attr.string(mandatory = True),
         "entrypoint": attr.string(mandatory = True),
     },
