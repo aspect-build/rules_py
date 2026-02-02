@@ -660,13 +660,13 @@ def _parse_projects(module_ctx, hub_specs):
                     if ann.lock == project.lock:
                         annotations = toml.decode_file(ann.src)
                         for package in annotations.get("package", []):
-                            v = package.get("version", default_versions.get(package["name"]))
+                            v = package.get("version", default_versions.get(package["name"])).replace(".", "_")
                             if not v:
                                 fail("Package annotation for {} in {} neither specifies a version nor has an implied singular version in the lockfile!".format(package["name"], ann.src))
                             k = (lock_id, package["name"], v, "__base__")
                             deps = []
                             for dep in package.get("build-dependencies", []):
-                                v = dep.get("version", default_versions.get(dep["name"]))
+                                v = dep.get("version", default_versions.get(dep["name"])).replace(".", "_"))
                                 if not v:
                                     fail("Package annotation in {} for {} neither specifies a version nor has an implied singular version from the lockfile!".format(ann.src, package["name"]))
                                 deps.append((lock_id, dep["name"], v, "__base__"))
