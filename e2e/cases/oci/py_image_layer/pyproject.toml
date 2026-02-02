@@ -1,9 +1,9 @@
 [project]
-name = "crossbuild"
+name = "images"
 version = "0.0.0"
 authors = []
 dependencies = [
-    "psycopg2-binary",
+    "colorama",
     "setuptools",
     "build",
 ]

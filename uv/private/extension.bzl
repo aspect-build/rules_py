@@ -589,6 +589,11 @@ def _collect_sdists(lock_id, lock_data):
 
     return sdist_specs, sdist_table
 
+DEFAULT_BUILD_DEPS = [
+    {"name": "setuptools"},
+    {"name": "build"},
+]
+
 def _parse_projects(module_ctx, hub_specs):
     """
     Parse project declaration tags.
@@ -615,6 +620,9 @@ def _parse_projects(module_ctx, hub_specs):
     install_table = {}
 
     project_set = {}
+
+    # FIXME: Collect build deps files/annotations
+
 
     # Collect all hubs, ensure we have no dupes
     for mod in module_ctx.modules:
@@ -646,10 +654,21 @@ def _parse_projects(module_ctx, hub_specs):
 
             if lock_id not in lock_cfgs:
                 default_versions, lock_data = _normalize_deps(lock_id, lock_data)
-                wheel = default_versions.get("wheel")
-                setuptools = default_versions.get("setuptools")
-                build = default_versions.get("build")
-                packaging = default_versions.get("packaging")
+
+                overriden_packages = {}
+                # FIXME: This inner join is correct and easy, but it doesn't allow us to warn if there are annotations that don't join.
+                for override in mod.tags.override_package:
+                    if override.lock == project.lock:
+                        v = override.version or default_versions.get(override.name)
+                        if not v:
+                            fail("Overriden project {} neither specifies a version nor has an implied singular version in the lockfile!".format(override, project.lock))
+                        k = (lock_id, override.name, v, "__base__")
+                        install_table[k] = str(override.target)
+
+                # Translate the build deps to dependency coordinate quads
+                # FIXME: Support versioned build deps?
+                # FIXME: How do we want to rework this so that the uv tool can be used instead?
+                lock_default_build_deps = None
 
                 marker_graph = _build_marker_graph(lock_id, lock_data)
                 marker_specs.update(_collect_markers(marker_graph))
@@ -666,27 +685,53 @@ def _parse_projects(module_ctx, hub_specs):
 
                 dep_to_scc, scc_graph, scc_deps = _collect_sccs(marker_graph)
 
-                for package in lock_data.get("package", []):
+                for package in lock_data.get("package", []):                    
+                    install_key = (lock_id, package["name"], package["version"], "__base__")
+                    if install_key in install_table:
+                        continue
+
+                    if "virtual" in package["source"]:
+                        # Don't generate a sdist build or anything else for the self-package
+                        if package["name"] == project_name:
+                            continue
+                        else:
+                            fail("Virtual package {} in lockfile {} doesn't have a mandatory `uv.override_package()` annotation!".format(package["name"], project.lock))
+                    
                     k = "whl_install__{}__{}__{}".format(lock_stamp, package["name"], package["version"].replace(".", "_"))
-                    install_table[(lock_id, package["name"], package["version"], "__base__")] = "@{}//:install".format(k)
+                    install_table[install_key] = "@{}//:install".format(k)
                     sbuild_id = "sdist_build__{}__{}__{}".format(lock_stamp, package["name"], package["version"].replace(".", "_"))
                     sdist = sdist_table.get(sbuild_id)
-                    if sdist:
-                        if not (wheel and setuptools and build and packaging):
-                            fail("A sdist build is required and build deps (build, setuptools, wheel) are not available!")
 
+                    # HACK: If there's a -none-any wheel for the package, then
+                    # we can actually skip creating the sdist build because
+                    # we'll never use it. This allows projects which can do
+                    # anyarch builds from bdists to avoid providing build deps.
+                    has_none_any = any(["-none-any.whl" in it["url"] for it in package.get("wheels", [])])
+                    if sdist and not has_none_any:
+                        # HACK: Note that we resolve these LAZILY so that
+                        # bdist-only or fully overriden configurations don't
+                        # have to provide the build tools.
+                        # 
+                        # FIXME: Consult the per-package build deps lookaside table here
+                        for it in DEFAULT_BUILD_DEPS:
+                            if it["name"] not in default_versions:
+                                fail("While emitting {}\nLockfile {} doesn't specify build dep {}!".format(pprint(package), project.lock, it["name"]))
+
+                        build_deps = lock_default_build_deps or [
+                            default_versions[it["name"]]
+                            for it in DEFAULT_BUILD_DEPS
+                        ]
+                        
                         sbuild_specs[sbuild_id] = struct(
                             src = sdist,
                             # FIXME: Need to resurrect deps code & inject
-                            deps = [
-                                _name(build),
-                                _name(setuptools),
-                                _name(wheel),
-                                _name(packaging),
-                            ],
+                            deps = [_name(it) for it in build_deps],
                             # FIXME: Check annotations
                             is_native = False,
                         )
+
+                    else:
+                        sdist = None
 
                     install_cfgs[k] = struct(
                         whls = {whl["url"].split("/")[-1].split("?")[0].split("#")[0]: bdist_table.get(whl["hash"]) for whl in package.get("wheels", [])},
@@ -895,25 +940,25 @@ _project_tag = tag_class(
 
 _annotations_tag = tag_class(
     attrs = {
-        "hub_name": attr.string(mandatory = True),
-        "venv_name": attr.string(mandatory = True),
+        "lock": attr.label(mandatory = True),
         "src": attr.label(mandatory = True),
     },
 )
 
-_declare_entrypoint = tag_class(
+_declare_entrypoint_tag = tag_class(
     attrs = {
-        "requirement": attr.string(mandatory = True),
+        "package": attr.string(mandatory = True),
+        "versuion": attr.string(mandatory = False),
         "name": attr.string(mandatory = True),
         "entrypoint": attr.string(mandatory = True),
     },
 )
 
-_override_requirement = tag_class(
+_override_package_tag = tag_class(
     attrs = {
-        "hub_name": attr.string(mandatory = True),
-        "configuration": attr.string(mandatory = True),
-        "requirement": attr.string(mandatory = True),
+        "lock": attr.label(mandatory = True),
+        "name": attr.string(mandatory = True),
+        "version": attr.string(mandatory = False),
         "target": attr.label(mandatory = True),
     },
 )
@@ -926,7 +971,7 @@ uv = module_extension(
         "declare_hub": _hub_tag,
         "project": _project_tag,
         "unstable_annotate_requirements": _annotations_tag,
-        "override_requirement": _override_requirement,
-        "declare_entrypoint": _declare_entrypoint,
+        "override_package": _override_package_tag,
+        # "declare_entrypoint": _declare_entrypoint_tag,
     },
 )

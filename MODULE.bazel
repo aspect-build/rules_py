@@ -192,12 +192,13 @@ uv.project(
     pyproject = "//:pyproject.toml",
     lock = "//:uv.lock",
 )
-uv.unstable_annotate_requirements(
-    hub_name = "pypi",
-    project_name = "aspect_rules_py",
-    src = "//:annotations.toml",
-)
+# uv.unstable_annotate_requirements(
+#     hub_name = "pypi",
+#     project_name = "aspect_rules_py",
+#     src = "//:annotations.toml",
+# )
 use_repo(uv, "pypi")
+
 
 http_file = use_repo_rule(
     "@bazel_tools//tools/build_defs/repo:http.bzl",

@@ -28,6 +28,7 @@ py_binary(
         "@aspect_rules_py//py/tests/internal-deps/adder",
         "@pypi//colorama",
     ],
+    venv = "images",
 )
 
 py_image_layer(

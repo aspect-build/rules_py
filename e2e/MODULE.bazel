@@ -116,10 +116,9 @@ uv.project(
     pyproject = "//cases/uv-deps-650/say:pyproject.toml",
     lock = "//cases/uv-deps-650/say:uv.lock",
 )
-uv.override_requirement(
-    hub_name = "pypi",
-    configuration = "say",
-    requirement = "cowsay",
+uv.override_package(
+    lock = "//cases/uv-deps-650/say:uv.lock",
+    name = "cowsay",
     # FIXME: Version annotation may be required for disambiguation
     target = "//cases/uv-deps-650/third_party/cowsay",
 )
