@@ -289,7 +289,7 @@ def _extract_requirement_marker_pairs(req_string, version_map):
             name_end_idx = i
             break
 
-    pkg_name = req_part[:name_end_idx]
+    pkg_name = normalize_name(req_part[:name_end_idx])
 
     # 3. Extract Extras from req_part
     extras = []
@@ -307,7 +307,11 @@ def _extract_requirement_marker_pairs(req_string, version_map):
                     extras.append(clean_p)
 
     # 4. Look up version
-    lock_id, pkg_name, version, _ = version_map.get(pkg_name)
+    v = version_map.get(pkg_name)
+    if v == None:
+        fail("Unable to resolve a default version for requirement {}".format(repr(req_string)))
+    else:
+        lock_id, pkg_name, version, _ = v
 
     # 5. Construct results
     # Each result is ((name, ver, extra), marker)
@@ -532,8 +536,6 @@ def _parse_git_url(url):
     elif ref:
         kwargs["ref"] = _ensure_ref(ref)
 
-    print("Git", kwargs)
-
     return kwargs
 
 def _try_git_to_http_archive(git_cfg):
@@ -589,10 +591,6 @@ def _collect_sdists(lock_id, lock_data):
 
     return sdist_specs, sdist_table
 
-DEFAULT_BUILD_DEPS = [
-    {"name": "setuptools"},
-    {"name": "build"},
-]
 
 def _parse_projects(module_ctx, hub_specs):
     """
@@ -655,37 +653,38 @@ def _parse_projects(module_ctx, hub_specs):
             if lock_id not in lock_cfgs:
                 default_versions, lock_data = _normalize_deps(lock_id, lock_data)
 
-                build_dependencies = {}
-                for ann in mod.tags.unstable_annotate_requirements:
+                def _resolve(package):
+                    name = normalize_name(package["name"])
+                    if "version" in package:
+                        return (lock_id, name, package["version"].replace(".", "_"), "__base__")
+                    elif name in default_versions:
+                        return default_versions[name]
+                    else:
+                        fail("Unable to identify id for package {} for lock {}\n{}".format(package, project.lock, pprint(default_versions)))
+
+                lock_build_dep_anns = {}
+                for ann in mod.tags.unstable_annotate_packages:
                     if ann.lock == project.lock:
-                        annotations = toml.decode_file(ann.src)
+                        annotations = toml.decode_file(module_ctx, ann.src)
                         for package in annotations.get("package", []):
-                            v = package.get("version", default_versions.get(package["name"])).replace(".", "_")
-                            if not v:
-                                fail("Package annotation for {} in {} neither specifies a version nor has an implied singular version in the lockfile!".format(package["name"], ann.src))
-                            k = (lock_id, package["name"], v, "__base__")
+                            k = _resolve(package)
                             deps = []
                             for dep in package.get("build-dependencies", []):
-                                v = dep.get("version", default_versions.get(dep["name"])).replace(".", "_"))
-                                if not v:
-                                    fail("Package annotation in {} for {} neither specifies a version nor has an implied singular version from the lockfile!".format(ann.src, package["name"]))
-                                deps.append((lock_id, dep["name"], v, "__base__"))
-                            build_dependencies[k] = deps
+                                deps.append(_resolve(dep))
+                            lock_build_dep_anns[k] = deps
 
                 overriden_packages = {}
                 # FIXME: This inner join is correct and easy, but it doesn't allow us to warn if there are annotations that don't join.
                 for override in mod.tags.override_package:
                     if override.lock == project.lock:
-                        v = override.version or default_versions.get(override.name)
+                        v = override.version or default_versions.get(normalize_name(override.name))
                         if not v:
                             fail("Overriden project {} neither specifies a version nor has an implied singular version in the lockfile!".format(override.name, project.lock))
-                        k = (lock_id, override.name, v, "__base__")
+                        k = (lock_id, normalize_name(override.name), v, "__base__")
                         install_table[k] = str(override.target)
-
-                # Translate the build deps to dependency coordinate quads
-                # FIXME: Support versioned build deps?
-                # FIXME: How do we want to rework this so that the uv tool can be used instead?
-                lock_default_build_deps = None
+                        
+                # Lazily evaluated cache
+                lock_build_deps = None
 
                 marker_graph = _build_marker_graph(lock_id, lock_data)
                 marker_specs.update(_collect_markers(marker_graph))
@@ -702,18 +701,18 @@ def _parse_projects(module_ctx, hub_specs):
 
                 dep_to_scc, scc_graph, scc_deps = _collect_sccs(marker_graph)
 
-                for package in lock_data.get("package", []):                    
+                for package in lock_data.get("package", []):
                     install_key = (lock_id, package["name"], package["version"], "__base__")
-                    if install_key in install_table:
-                        continue
 
-                    if "virtual" in package["source"]:
+                    if "editable" in package["source"]:
                         # Don't generate a sdist build or anything else for the self-package
-                        if package["name"] == project_name:
+                        if package["name"] == normalize_name(project_name):
+                            continue
+                        elif install_key in install_table:
                             continue
                         else:
                             fail("Virtual package {} in lockfile {} doesn't have a mandatory `uv.override_package()` annotation!".format(package["name"], project.lock))
-                    
+
                     k = "whl_install__{}__{}__{}".format(lock_stamp, package["name"], package["version"].replace(".", "_"))
                     install_table[install_key] = "@{}//:install".format(k)
                     sbuild_id = "sdist_build__{}__{}__{}".format(lock_stamp, package["name"], package["version"].replace(".", "_"))
@@ -721,7 +720,7 @@ def _parse_projects(module_ctx, hub_specs):
                     # WARNING: Loop invariant; this flag needs to be False by
                     # default and set if we do a build.
                     has_sbuild = False
-                    
+
                     # HACK: If there's a -none-any wheel for the package, then
                     # we can actually skip creating the sdist build because
                     # we'll never use it. This allows projects which can do
@@ -732,26 +731,27 @@ def _parse_projects(module_ctx, hub_specs):
                         # bdist-only or fully overriden configurations don't
                         # have to provide the build tools.
 
-                        build_deps = build_dependencies.get(install_key)
-                        if not build_deps and not lock_default_build_deps:
-                            for it in DEFAULT_BUILD_DEPS:
-                                if it["name"] not in default_versions:
-                                    fail("While emitting {}\nLockfile {} doesn't specify build dep {}!".format(pprint(package), project.lock, it["name"]))
+                        # FIXME: We can read the [build-system] requires=
+                        # property if it exists for the sdist. Question is how
+                        # to defer choosing deps until the repo rule when we
+                        # could do pyproject.toml introspection.
+                        build_deps = lock_build_dep_anns.get(install_key)
+                        if build_deps == None:
+                            if lock_build_deps == None:
+                                lock_build_deps = [
+                                    it[0]
+                                    for req in project.default_build_dependencies
+                                    for it in _extract_requirement_marker_pairs(req, default_versions)
+                                ]
 
-                            lock_default_build_deps = [
-                                default_versions[it["name"]]
-                                for it in DEFAULT_BUILD_DEPS
-                            ]
-
-                        if not build_deps:
-                            build_deps = lock_default_build_deps
+                            build_deps = lock_build_deps
 
                         sbuild_specs[sbuild_id] = struct(
                             src = sdist,
-                            # FIXME: Need to resurrect deps code & inject
                             deps = [_name(it) for it in build_deps],
                             # FIXME: Check annotations
                             is_native = False,
+                            version = package["version"],
                         )
 
                         has_sbuild = True
@@ -805,10 +805,17 @@ def _parse_projects(module_ctx, hub_specs):
             configuration_names, activated_extras = _collect_activated_extras(project_data, default_versions, marker_graph)
             version_activations = _collate_versions_by_name(activated_extras)
 
+            # Filter out the project itself
+            version_activations.pop(project_name)
+
             # We're doing this by hand because doing it with a dict
             # comprehension didn't behave as expected.
             _simplified_extras = {}
             for pkg, pkg_cfgs in activated_extras.items():
+                # Filter out the project itself
+                if pkg[1] == project_name:
+                    continue
+
                 _pkg = _simplified_extras.setdefault(_name(pkg), {})
                 for cfg, extra_cfgs in pkg_cfgs.items():
                     _cfgs = _pkg.setdefault(cfg, {})
@@ -819,6 +826,10 @@ def _parse_projects(module_ctx, hub_specs):
             # We need to normalize version activations manually too
             _simplified_activations = {}
             for cfg, packages in version_activations.items():
+                # Filter out the project itself
+                if pkg[1] == project_name:
+                    continue
+
                 _cfg = _simplified_activations.setdefault(cfg, {})
                 for pkg, versions in packages.items():
                     _pkg = _cfg.setdefault(pkg, {})
@@ -849,6 +860,7 @@ def _parse_projects(module_ctx, hub_specs):
         whl_cfgs = whl_configurations,
         sdist_cfgs = sdist_specs,
         bdist_cfgs = bdist_specs,
+        project_set = project_set,
     )
 
 
@@ -879,7 +891,6 @@ def _uv_impl(module_ctx):
     hub_specs = _parse_hubs(module_ctx)
 
     cfg = _parse_projects(module_ctx, hub_specs)
-    print(pprint(cfg))
 
     configurations_hub(
         name = "aspect_rules_py_pip_configurations",
@@ -917,6 +928,7 @@ def _uv_impl(module_ctx):
             src = sbuild_cfg.src,
             deps = sbuild_cfg.deps,
             is_native = sbuild_cfg.is_native,
+            version = sbuild_cfg.version,
         )
 
     for install_id, install_cfg in cfg.install_cfgs.items():
@@ -959,6 +971,13 @@ _project_tag = tag_class(
         "pyproject": attr.label(mandatory = True),
         "lock": attr.label(mandatory = True),
         "elide_sbuilds_with_anyarch": attr.bool(mandatory = False, default = True),
+        "default_build_dependencies": attr.string_list(
+            mandatory = False,
+            default = [
+                "build",
+                "setuptools",
+            ],
+        ),
     },
 )
 
@@ -994,7 +1013,7 @@ uv = module_extension(
     tag_classes = {
         "declare_hub": _hub_tag,
         "project": _project_tag,
-        "unstable_annotate_requirements": _annotations_tag,
+        "unstable_annotate_packages": _annotations_tag,
         "override_package": _override_package_tag,
         # "declare_entrypoint": _declare_entrypoint_tag,
     },

@@ -38,6 +38,7 @@ py_venv(
     name = "whl",
     src = "{src}",
     venv = ":build_venv",
+    version = "{version}",
     args = [],
     visibility = ["//visibility:public"],
 )
@@ -45,6 +46,7 @@ py_venv(
         src = repository_ctx.attr.src,
         deps = repr([str(it) for it in repository_ctx.attr.deps]),
         rule = "sdist_native_build" if repository_ctx.attr.is_native else "sdist_build",
+        version = repository_ctx.attr.version,
     ))
 
 sdist_build = repository_rule(
@@ -53,5 +55,6 @@ sdist_build = repository_rule(
         "src": attr.label(),
         "deps": attr.label_list(),
         "is_native": attr.bool(),
+        "version": attr.string(),
     },
 )
