@@ -40,6 +40,7 @@ py_venv_binary(
     srcs = ["__main__.py"],
     main = "__main__.py",
     tags = ["manual"],
+    venv = "venv_images",
     deps = [
         "//cases/oci/py_image_layer/branding",
         "@aspect_rules_py//py/tests/internal-deps/adder",

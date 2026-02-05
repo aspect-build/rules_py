@@ -90,29 +90,16 @@ uv = use_extension("//uv/unstable:extension.bzl", "uv")
 uv.declare_hub(
     hub_name = "pypi",      # Or whatever you wish
 )
-uv.declare_venv(
+uv.project(
     hub_name = "pypi",      # Must be a declared hub
-    venv_name = "default",  # Or whatever you wish
-)
-uv.lockfile(
-    hub_name = "pypi",      # Must be a declared hub
-    venv_name = "default",  # Must be a declared venv
-    src = "//:uv.lock",
+    pyproject = "//:pyproject.toml",
+    lock = "//:uv.lock",
 )
 
-uv.declare_venv(
-    hub_name = "pypi",
-    venv_name = "vendored_say",
-)
-uv.lockfile(
-    hub_name = "pypi",
-    venv_name = "vendored_say",
-    src = "//:uv.lock",
-)
-uv.override_requirement(
-    hub_name = "pypi",
-    venv_name = "vendored_say",
-    requirement = "cowsay",
+uv.override_package(
+    lock = "//:uv.lock",
+    name = "cowsay",
+    # version = "",    Optional but may be required for disambiguation
     target = "//third_party/py/cowsay:cowsay",
 )
 
@@ -121,10 +108,12 @@ use repository(uv, "pypi")
 ```
 
 We can configure a default virtualenv by setting the venv configuration flag on our hub as part of the `.bazelrc`.
+Each `[dependency-group]` of the `pyproject.toml` is registered as a named venv configuration.
+If no dependency groups are listed, an implicit default group with the name of the project itself is created.
 
 ```
 # .bazelrc
-common --@pypi//venv=default
+common --@pypi//venv=dummy
 ```
 
 Individual targets can request different venvs if multiple venvs are configured.
