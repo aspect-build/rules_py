@@ -22,6 +22,7 @@ def sccs(graph):
 
     # First DFS traversal to determine finishing times (post-order traversal)
     order = []
+
     # visited can be 0 (unvisited), 1 (visiting), or 2 (finished)
     visited = {node: 0 for node in nodes}
     for node in nodes:

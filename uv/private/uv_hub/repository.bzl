@@ -88,9 +88,10 @@ def incompatible_with(venvs, extra_constraints = []):
     "//conditions:default": extra_constraints,
   }}
 """.format(
-    configurations = repository_ctx.attr.configurations,
-    repo_name = repr(repository_ctx.name),
-))
+            configurations = repository_ctx.attr.configurations,
+            repo_name = repr(repository_ctx.name),
+        ),
+    )
 
     repository_ctx.file("defs.bzl", content = "\n".join(content))
 
@@ -140,7 +141,6 @@ load("//:defs.bzl", "compatible_with")
             if len(versions.keys()) > 1:
                 fail("Error: Package {} has multiple versions in configuration {}; cowardly failing to configure this graph".format(name, cfg))
 
-
             version = list(versions.keys())[0]
 
             deps = []
@@ -150,7 +150,7 @@ load("//:defs.bzl", "compatible_with")
                     deps.append(":" + extra_name)
                     if extra_name in extra_targets:
                         continue
-                    
+
                     arms = {}
                     for marker in markers.keys():
                         if marker not in marker_table:
@@ -174,15 +174,17 @@ alias(
     target_compatible_with = select(compatible_with({compat})),
     visibility = ["//visibility:private"],
 )
-""".format(extra = extra,
-           markers_comment = indent(pprint(markers.keys()), "#   "),
-           name = extra_name,
-           select = indent(pprint(arms), "    ").lstrip(),
-           compat = repr(cfgs.keys())))
+""".format(
+                        extra = extra,
+                        markers_comment = indent(pprint(markers.keys()), "#   "),
+                        name = extra_name,
+                        select = indent(pprint(arms), "    ").lstrip(),
+                        compat = repr(cfgs.keys()),
+                    ))
 
                 else:
                     deps.append(extra)
-                
+
             cfg_name = "_cfg_{}".format(cfg)
             cfgs[cfg] = cfg_name
             content.append("""
@@ -197,7 +199,7 @@ py_library(
             "//venv:{}".format(cfg): ":" + cfgs[cfg]
             for cfg in specs.keys()
         }
-        
+
         error = "Available only in venvs: " + ", ".join([it.split(":")[1] for it in select_spec.keys()])
 
         # TODO: Find a way to add a dist-info target here
@@ -249,7 +251,7 @@ decide_marker(
     visibility = ["//:__subpackages__"],
 )
 """.format(name = marker_id, marker = repr(marker_expr)))
-        
+
     repository_ctx.file("private/markers/BUILD.bazel", "\n".join(content))
 
 uv_hub = repository_rule(

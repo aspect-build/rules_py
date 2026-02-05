@@ -41,9 +41,9 @@ Relies on the lockfile to enumerate:
 
 load("@bazel_features//:features.bzl", features = "bazel_features")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+load("//uv/private/constraints:repository.bzl", "configurations_hub")
 load("//uv/private/constraints/platform:defs.bzl", "supported_platform")
 load("//uv/private/constraints/python:defs.bzl", "supported_python")
-load("//uv/private/constraints:repository.bzl", "configurations_hub")
 load("//uv/private/sdist_build:repository.bzl", "sdist_build")
 load("//uv/private/tomltool:toml.bzl", "toml")
 load("//uv/private/uv_hub:repository.bzl", "uv_hub")
@@ -51,9 +51,9 @@ load("//uv/private/uv_lock:repository.bzl", "uv_lock")
 load("//uv/private/whl_install:repository.bzl", "whl_install")
 load(":normalize_name.bzl", "normalize_name")
 load(":parse_whl_name.bzl", "parse_whl_name")
+load(":pprint.bzl", "pprint")
 load(":sccs.bzl", "sccs")
 load(":sha1.bzl", "sha1")
-load(":pprint.bzl", "pprint")
 
 def _ignored_package(package):
     """
@@ -128,7 +128,8 @@ def _normalize_deps(lock_id, lock_data):
 
     default_versions = {
         requirement: (lock_id, requirement, list(versions.keys())[0], "__base__")
-        for requirement, versions in package_versions.items() if len(versions) == 1
+        for requirement, versions in package_versions.items()
+        if len(versions) == 1
     }
 
     def _fix_version(dep):
@@ -151,7 +152,6 @@ def _normalize_deps(lock_id, lock_data):
                 _fix_version(dep)
 
     return default_versions, lock_data
-
 
 def _build_marker_graph(lock_id, lock_data):
     """The graph is {(lock_id, package, version, extra): {(lock_id, package, version, extra): {marker: 1}}}.
@@ -180,6 +180,7 @@ def _build_marker_graph(lock_id, lock_data):
 
         for extra_name, optional_deps in spec.get("optional-dependencies", {}).items():
             ek = (lock_id, spec["name"], spec["version"], extra_name)
+
             # Add a synthetic edge from the extra package to the base package
             graph.setdefault(ek, {k: {"": 1}})
             for dep in optional_deps:
@@ -190,7 +191,6 @@ def _build_marker_graph(lock_id, lock_data):
                     graph[ek][eek][dep.get("marker", "")] = 1
 
     return graph
-
 
 def _collect_sccs(graph):
     """Given the internal dependency graph, compute strongly connected
@@ -212,7 +212,7 @@ def _collect_sccs(graph):
         sha1(repr(sorted(scc)))[:16]: {m: {} for m in scc}
         for scc in graph_components
     }
-    
+
     for scc_id, scc in scc_graph.items():
         for start in scc.keys():
             for next in scc.keys():
@@ -244,7 +244,6 @@ def _collect_sccs(graph):
 
     return dep_to_scc, scc_graph, scc_deps
 
-
 def _extract_requirement_marker_pairs(req_string, version_map):
     """
     Parses a requirement string into a list of ((name, version, extra), marker) pairs.
@@ -257,6 +256,7 @@ def _extract_requirement_marker_pairs(req_string, version_map):
         A list of tuples [((name, version, extra), marker), ...].
         The marker is a string or None.
     """
+
     # 1. Split Requirement and Marker
     # Starlark split() often doesn't support maxsplit, so we use find() + slicing
     semicolon_idx = req_string.find(";")
@@ -267,6 +267,7 @@ def _extract_requirement_marker_pairs(req_string, version_map):
         marker_text = req_string[semicolon_idx + 1:].strip()
         if marker_text:
             marker = marker_text
+
         # The requirement part is everything before the semicolon
         req_part = req_string[:semicolon_idx].strip()
     else:
@@ -283,7 +284,7 @@ def _extract_requirement_marker_pairs(req_string, version_map):
         "<": 1,
         "!": 1,
         "~": 1,
-        " ": 1
+        " ": 1,
     }
 
     name_end_idx = len(req_part)
@@ -382,6 +383,7 @@ def _collect_activated_extras(project_data, default_versions, graph):
             for next, markers in graph.get(it, {}).items():
                 # Convert `next`, being a dependency potentially with marker, to its base package
                 base = (next[0], next[1], next[2], "__base__")
+
                 # Upsert the base package so that under the appropriate cfg it lists next as a dep with the appropriate markers
                 activated_extras.setdefault(base, {}).setdefault(group_name, {}).setdefault(next, {}).update(markers)
                 if next not in visited:
@@ -519,13 +521,15 @@ def _parse_git_url(url):
     if fragment:
         rev = fragment
 
-    # 4. Extract revision from Query String (if fragment wasn't present)
+        # 4. Extract revision from Query String (if fragment wasn't present)
     elif query_string:
         params = {}
+
         # Manually parse query string for 'rev=' or 'ref='
         pairs = query_string.split("&")
         for pair in pairs:
             k, v = pair.split("=", 1)
+
             # FIXME: Better urldecode
             params[k] = v.replace("%2F", "/").replace("%2f", "/")
 
@@ -559,12 +563,12 @@ def _try_git_to_http_archive(git_cfg):
         if "commit" in git_cfg:
             url = "{}/archive/{}.tar.gz".format(url, git_cfg["commit"])
             return {
-                "url": url
+                "url": url,
             }
         elif "ref" in git_cfg:
             url = "{}/archive/{}.tar.gz".format(url, git_cfg["tag"])
             return {
-                "url": url
+                "url": url,
             }
 
     # FIXME: Support gitlab, other hosts?
@@ -596,7 +600,6 @@ def _collect_sdists(lock_id, lock_data):
 
     return sdist_specs, sdist_table
 
-
 def _parse_projects(module_ctx, hub_specs):
     """
     Parse project declaration tags.
@@ -626,7 +629,6 @@ def _parse_projects(module_ctx, hub_specs):
 
     # FIXME: Collect build deps files/annotations
 
-
     # Collect all hubs, ensure we have no dupes
     for mod in module_ctx.modules:
         for project in mod.tags.project:
@@ -647,6 +649,7 @@ def _parse_projects(module_ctx, hub_specs):
 
             # Read these from the project or honor the module state
             project_name = project.name or project_data["project"]["name"]
+
             # FIXME: Error if this wasn't provided and the version is marked as dynamic
             project_version = project.version or project_data["project"]["version"]
 
@@ -678,13 +681,14 @@ def _parse_projects(module_ctx, hub_specs):
                                 deps.append(_resolve(dep))
                             lock_build_dep_anns[k] = deps
 
-                overriden_packages = {}
+                overridden_packages = {}
+
                 # FIXME: This inner join is correct and easy, but it doesn't allow us to warn if there are annotations that don't join.
                 for override in mod.tags.override_package:
                     if override.lock == project.lock:
                         v = override.version or default_versions.get(normalize_name(override.name))
                         if not v:
-                            fail("Overriden project {} neither specifies a version nor has an implied singular version in the lockfile!".format(override.name, project.lock))
+                            fail("Overridden project {} neither specifies a version nor has an implied singular version in the lockfile!".format(override.name, project.lock))
                         k = (lock_id, normalize_name(override.name), v, "__base__")
                         install_table[k] = str(override.target)
 
@@ -694,7 +698,7 @@ def _parse_projects(module_ctx, hub_specs):
                 marker_graph = _build_marker_graph(lock_id, lock_data)
 
                 marker_specs.update(_collect_markers(marker_graph))
-                
+
                 bd, bt = _collect_bdists(lock_data)
                 bdist_specs.update(bd)
                 bdist_table.update(bt)
@@ -723,6 +727,7 @@ def _parse_projects(module_ctx, hub_specs):
                     install_table[install_key] = "@{}//:install".format(k)
                     sbuild_id = "sdist_build__{}__{}__{}".format(lock_stamp, package["name"], package["version"].replace(".", "_"))
                     sdist = sdist_table.get(sbuild_id)
+
                     # WARNING: Loop invariant; this flag needs to be False by
                     # default and set if we do a build.
                     has_sbuild = False
@@ -734,7 +739,7 @@ def _parse_projects(module_ctx, hub_specs):
                     has_none_any = any(["-none-any.whl" in it["url"] for it in package.get("wheels", [])])
                     if sdist and not (has_none_any and project.elide_sbuilds_with_anyarch):
                         # HACK: Note that we resolve these LAZILY so that
-                        # bdist-only or fully overriden configurations don't
+                        # bdist-only or fully overridden configurations don't
                         # have to provide the build tools.
 
                         # FIXME: We can read the [build-system] requires=
@@ -788,10 +793,12 @@ def _parse_projects(module_ctx, hub_specs):
 
                 lock_cfgs[lock_id] = struct(
                     default_versions = {
-                        k: _name(v) for k, v in default_versions.items()
+                        k: _name(v)
+                        for k, v in default_versions.items()
                     },
                     dep_to_scc = {
-                        _name(k).split(":")[1]: v for k, v in dep_to_scc.items()
+                        _name(k).split(":")[1]: v
+                        for k, v in dep_to_scc.items()
                     },
                     scc_deps = {
                         k: {
@@ -865,7 +872,6 @@ def _parse_projects(module_ctx, hub_specs):
         bdist_cfgs = bdist_specs,
         project_set = project_set,
     )
-
 
 def _config_marker(marker_registry, expr):
     return "@aspect_rules_py_pip_configurations//:{}".format(marker_registry[expr])
