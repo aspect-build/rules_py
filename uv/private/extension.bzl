@@ -788,9 +788,11 @@ def _parse_projects(module_ctx, hub_specs):
                         _name(k).split(":")[1]: v for k, v in dep_to_scc.items()
                     },
                     scc_deps = {
-                        k: {_name(d).split("//")[1]: markers}
+                        k: {
+                            _name(d).split("//")[1]: markers
+                            for d, markers in deps.items()
+                        }
                         for k, deps in scc_deps.items()
-                        for d, markers in deps.items()
                     },
                     scc_graph = scc_graph,
                 )
@@ -808,35 +810,30 @@ def _parse_projects(module_ctx, hub_specs):
             # Filter out the project itself
             version_activations.pop(project_name)
 
-            # We're doing this by hand because doing it with a dict
-            # comprehension didn't behave as expected.
-            _simplified_extras = {}
-            for pkg, pkg_cfgs in activated_extras.items():
-                # Filter out the project itself
-                if pkg[1] == project_name:
-                    continue
+            activated_extras = {
+                _name(pkg): {
+                    cfg: {
+                        _name(extra): markers 
+                        for extra, markers in extra_cfgs.items()
+                    }
+                    for cfg, extra_cfgs in pkg_cfgs.items()
+                }
+                for pkg, pkg_cfgs in activated_extras.items()
+                if pkg[1] != project_name
+            }
 
-                _pkg = _simplified_extras.setdefault(_name(pkg), {})
-                for cfg, extra_cfgs in pkg_cfgs.items():
-                    _cfgs = _pkg.setdefault(cfg, {})
-                    for extra, markers in extra_cfgs.items():
-                        _cfgs[_name(extra)] = markers
-            activated_extras = _simplified_extras
-
-            # We need to normalize version activations manually too
-            _simplified_activations = {}
-            for cfg, packages in version_activations.items():
-                # Filter out the project itself
-                if pkg[1] == project_name:
-                    continue
-
-                _cfg = _simplified_activations.setdefault(cfg, {})
-                for pkg, versions in packages.items():
-                    _pkg = _cfg.setdefault(pkg, {})
-                    for version, markers in versions.items():
-                        _pkg[_name(version)] = markers
-            version_activations = _simplified_activations
-
+            version_activations = {
+                cfg: {
+                    pkg: {
+                        _name(version): markers 
+                        for version, markers in versions.items()
+                    }
+                    for pkg, versions in packages.items()
+                    if pkg[1] != project_name  # Logic fix applied here
+                }
+                for cfg, packages in version_activations.items()
+            }
+            
             hub_cfg = hub_cfgs.setdefault(project.hub_name, struct(
                 configurations = {},
                 version_activations = {},
