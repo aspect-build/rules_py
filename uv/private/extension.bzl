@@ -159,7 +159,6 @@ def _build_marker_graph(lock_id, lock_data):
     We convert dependencies which no extra list to dependencies on ["__base__"].
     We also ensure that every extra depends on the "__base__" configuration if itself.
 
-
     So writing `requests` is understood to be `requests[__base__]`, and
     `requests[foo]` is `requests[__foo__] -> requests[__base__]` which allows is
     to capture the same graph without having do splice in dependencies.
@@ -171,20 +170,24 @@ def _build_marker_graph(lock_id, lock_data):
     for spec in lock_data.get("package", []):
         # spec: RequirementSpec
         k = (lock_id, spec["name"], spec["version"], "__base__")
-        pkg_deps = graph.setdefault(k, {})
+        graph.setdefault(k, {})
         for dep in spec.get("dependencies", []):
             extras = dep.get("extra", ["__base__"])
             for e in extras:
-                pkg_deps.setdefault((lock_id, dep["name"], dep["version"], e), {})[dep.get("marker", "")] = 1
+                ek = (lock_id, dep["name"], dep["version"], e)
+                graph[k].setdefault(ek, {})
+                graph[k][ek][dep.get("marker", "")] = 1
 
         for extra_name, optional_deps in spec.get("optional-dependencies", {}).items():
             ek = (lock_id, spec["name"], spec["version"], extra_name)
             # Add a synthetic edge from the extra package to the base package
-            pkg_deps = graph.setdefault(ek, {}).setdefault(k, {"": 1})
+            graph.setdefault(ek, {k: {"": 1}})
             for dep in optional_deps:
                 extras = dep.get("extra", ["__base__"])
                 for e in extras:
-                    graph[ek].setdefault((lock_id, dep["name"], dep["version"], e), {})[dep.get("marker", "")] = 1
+                    eek = (lock_id, dep["name"], dep["version"], e)
+                    graph[ek].setdefault(eek, {})
+                    graph[ek][eek][dep.get("marker", "")] = 1
 
     return graph
 
@@ -201,7 +204,7 @@ def _collect_sccs(graph):
 
     """
 
-    simplified_graph = {dep: nexts.keys() for dep, nexts in graph.items()}
+    simplified_graph = {pkg: deps.keys() for pkg, deps in graph.items()}
     graph_components = sccs(simplified_graph)
 
     # Now we need to rebuild markers for intra-scc deps
@@ -209,13 +212,15 @@ def _collect_sccs(graph):
         sha1(repr(sorted(scc)))[:16]: {m: {} for m in scc}
         for scc in graph_components
     }
+    
     for scc_id, scc in scc_graph.items():
         for start in scc.keys():
             for next in scc.keys():
+                # Note that we DO NOT provide a default marker here because this
+                # is a dependency edge which may not actually exist and we don't
+                # want to falsely insert edges/markers.
                 next_marks = graph.get(start, {}).get(next, {})
-                # Merge the markers back into the next
-                if next_marks:
-                    scc_graph[scc_id][next].update(next_marks)
+                scc_graph[scc_id][next].update(next_marks)
 
         # Ensure that everything has at least the no-op marker
         for next in scc.keys():
@@ -682,13 +687,14 @@ def _parse_projects(module_ctx, hub_specs):
                             fail("Overriden project {} neither specifies a version nor has an implied singular version in the lockfile!".format(override.name, project.lock))
                         k = (lock_id, normalize_name(override.name), v, "__base__")
                         install_table[k] = str(override.target)
-                        
+
                 # Lazily evaluated cache
                 lock_build_deps = None
 
                 marker_graph = _build_marker_graph(lock_id, lock_data)
-                marker_specs.update(_collect_markers(marker_graph))
 
+                marker_specs.update(_collect_markers(marker_graph))
+                
                 bd, bt = _collect_bdists(lock_data)
                 bdist_specs.update(bd)
                 bdist_table.update(bt)
@@ -813,7 +819,7 @@ def _parse_projects(module_ctx, hub_specs):
             activated_extras = {
                 _name(pkg): {
                     cfg: {
-                        _name(extra): markers 
+                        _name(extra): markers
                         for extra, markers in extra_cfgs.items()
                     }
                     for cfg, extra_cfgs in pkg_cfgs.items()
@@ -825,7 +831,7 @@ def _parse_projects(module_ctx, hub_specs):
             version_activations = {
                 cfg: {
                     pkg: {
-                        _name(version): markers 
+                        _name(version): markers
                         for version, markers in versions.items()
                     }
                     for pkg, versions in packages.items()
@@ -833,7 +839,7 @@ def _parse_projects(module_ctx, hub_specs):
                 }
                 for cfg, packages in version_activations.items()
             }
-            
+
             hub_cfg = hub_cfgs.setdefault(project.hub_name, struct(
                 configurations = {},
                 version_activations = {},
@@ -888,6 +894,8 @@ def _uv_impl(module_ctx):
     hub_specs = _parse_hubs(module_ctx)
 
     cfg = _parse_projects(module_ctx, hub_specs)
+
+    # print(pprint(cfg))
 
     configurations_hub(
         name = "aspect_rules_py_pip_configurations",
