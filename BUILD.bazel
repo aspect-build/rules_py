@@ -1,5 +1,7 @@
 load("@gazelle//:def.bzl", "gazelle")
 load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirements")
+
+# buildifier: disable=bzl-visibility
 load("//uv/private/manifest:defs.bzl", "gazelle_python_manifest")
 
 # gazelle:exclude internal_python_deps.bzl
