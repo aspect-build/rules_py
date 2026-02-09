@@ -130,6 +130,8 @@ def requirement(name):
     for name, specs in version_activations.items():
         content = [
             """
+load("@aspect_rules_py//py:defs.bzl", "py_library")
+load("@aspect_rules_py//uv/private:defs.bzl", "py_whl_library")
 load("//:defs.bzl", "compatible_with")
 """,
         ]
@@ -215,10 +217,20 @@ alias(
     actual = "{name}",
     visibility = ["//visibility:public"],
 )
+py_whl_library(
+    name = "whl",
+    srcs = [":{name}"],
+    visibility = ["//visibility:public"],
+)
+filegroup(
+    name = "dist_info",
+    srcs = [":{name}"],
+    visibility = ["//visibility:public"],
+)
 alias(
     name = "{name}",
     actual = select({lib_select},
-      no_match_error = "{error}",
+        no_match_error = "{error}",
     ),
     target_compatible_with = select(compatible_with({compat})),
     visibility = ["//visibility:public"],
@@ -240,7 +252,6 @@ alias(
     # But doing it this way decouples the implementations
     content = ["""
 load("@aspect_rules_py//uv/private/markers:defs.bzl", "decide_marker")
-
 """]
 
     for marker_expr, marker_id in marker_table.items():
