@@ -2,8 +2,8 @@
 
 """
 
-load("//uv/private/pprint:defs.bzl", "pprint")
 load("//uv/private:sha1.bzl", "sha1")
+load("//uv/private/pprint:defs.bzl", "pprint")
 
 def indent(text, space = " "):
     return "\n".join(["{}{}".format(space, l) for l in text.splitlines()])
@@ -41,7 +41,7 @@ def _hub_impl(repository_ctx):
 load("@aspect_rules_py//py:defs.bzl", "py_library")
 load("@aspect_rules_py//uv/private:defs.bzl", "py_whl_library", "whl_requirements")
 """
-    
+
     select_clauses = []
     for cfg in repository_ctx.attr.configurations:
         packages_in_config = [
@@ -49,7 +49,7 @@ load("@aspect_rules_py//uv/private:defs.bzl", "py_whl_library", "whl_requirement
             for name, specs in version_activations.items()
             if cfg in specs
         ]
-        
+
         build_content += """
 filegroup(
     name = "all_requirements_{cfg}",

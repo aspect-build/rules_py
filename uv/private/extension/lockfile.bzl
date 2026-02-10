@@ -204,8 +204,10 @@ def collect_bdists(lock_data):
 
     return bdist_specs, bdist_table
 
-def collect_sdists(lock_id, lock_data,
-                   allow_git_to_http_conversion = False):
+def collect_sdists(
+        lock_id,
+        lock_data,
+        allow_git_to_http_conversion = False):
     """Collects all source distributions (sdists) from a lockfile.
 
     Args:

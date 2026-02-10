@@ -35,6 +35,7 @@ def _constraints_hub_impl(repository_ctx):
     Args:
         repository_ctx: The repository context.
     """
+
     ################################################################################
     content = [
         "load(\"@bazel_skylib//lib:selects.bzl\", \"selects\")",

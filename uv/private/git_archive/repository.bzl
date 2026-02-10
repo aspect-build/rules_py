@@ -13,11 +13,11 @@ def _is_sha1(s):
             return False
     return True
 
-def _git_archive_impl(repository_ctx):    
+def _git_archive_impl(repository_ctx):
     url = repository_ctx.attr.url
     commit = repository_ctx.attr.commit
     ref = repository_ctx.attr.ref
-    
+
     if commit and not _is_sha1(commit):
         fail("The 'commit' attribute must be a 40-character hex string. Got: {}".format(commit))
 

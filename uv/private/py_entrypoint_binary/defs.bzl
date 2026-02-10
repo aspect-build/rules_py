@@ -6,7 +6,6 @@ def py_entrypoint_binary(
         entrypoint,
         pkg,
         visibility = ["//visibility:public"]):
-
     main = "_{}_entrypoint".format(name)
     tmpl = Label("@aspect_rules_py//uv/private/py_entrypoint_binary:entrypoint.tmpl")
 
@@ -43,27 +42,25 @@ def py_entrypoint_binary(
         visibility = visibility,
     )
 
-
 def py_console_script_binary(
         name,
         script,
         pkg,
         visibility = ["//visibility:public"]):
-
     main = "_{}_entrypoint".format(name)
     tmpl = Label("@aspect_rules_py//uv/private/py_entrypoint_binary:entrypoint.tmpl")
 
     search_tool = "_{}_search_binary".format(name)
     search_py = Label("@aspect_rules_py//uv/private/py_entrypoint_binary:search.py")
     search = "_{}_search".format(name)
-    
+
     py_venv_binary(
         name = search_tool,
         deps = [pkg],
         main = search_py,
         srcs = [search_py],
     )
-    
+
     native.genrule(
         name = search,
         tools = [

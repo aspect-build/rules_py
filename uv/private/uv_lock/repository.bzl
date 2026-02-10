@@ -2,8 +2,8 @@
 
 """
 
-load("//uv/private/pprint:defs.bzl", "pprint")
 load("//uv/private:sha1.bzl", "sha1")
+load("//uv/private/pprint:defs.bzl", "pprint")
 
 def indent(text, space = " "):
     return "\n".join(["{}{}".format(space, l) for l in text.splitlines()])

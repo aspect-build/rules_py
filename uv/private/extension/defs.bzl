@@ -59,6 +59,7 @@ load("//uv/private:sha1.bzl", "sha1")
 load("//uv/private/constraints:repository.bzl", "configurations_hub")
 load("//uv/private/constraints/platform:defs.bzl", "supported_platform")
 load("//uv/private/constraints/python:defs.bzl", "supported_python")
+load("//uv/private/git_archive:repository.bzl", "git_archive")
 load("//uv/private/graph:sccs.bzl", "sccs")
 load("//uv/private/pprint:defs.bzl", "pprint")
 load("//uv/private/sdist_build:repository.bzl", "sdist_build")
@@ -66,7 +67,6 @@ load("//uv/private/tomltool:toml.bzl", "toml")
 load("//uv/private/uv_hub:repository.bzl", "uv_hub")
 load("//uv/private/uv_lock:repository.bzl", "uv_lock")
 load("//uv/private/whl_install:repository.bzl", "whl_install")
-load("//uv/private/git_archive:repository.bzl", "git_archive")
 load(":collect_sccs.bzl", "collect_sccs")
 load(":lockfile.bzl", "build_marker_graph", "collect_bdists", "collect_configurations", "collect_markers", "collect_sdists", "normalize_deps")
 load(":projectfile.bzl", "collate_versions_by_name", "collect_activated_extras", "extract_requirement_marker_pairs")
@@ -432,7 +432,7 @@ def _uv_impl(module_ctx):
             git_archive(
                 name = sdist_name,
                 url = git_cfg["url"],
-                ref = git_cfg.get("commit") or git_cfg.get("ref") or fail("No viable commit-ish!")
+                ref = git_cfg.get("commit") or git_cfg.get("ref") or fail("No viable commit-ish!"),
             )
 
         else:
