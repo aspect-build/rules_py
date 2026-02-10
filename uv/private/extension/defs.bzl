@@ -51,10 +51,6 @@ resolved dependencies available in the `@uv` repository.
 [2] https://peps.python.org/pep-0751/#locking-build-requirements-for-sdists
 """
 
-# Note that platform constraints are specified by markers in the lockfile, they cannot be explicitly specified.
-
-# FIXME: Need to explicitly test a lockfile with platform-conditional deps (tensorflow cpu vs gpu mac/linux)
-
 load("@bazel_features//:features.bzl", features = "bazel_features")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 load("//uv/private:normalize_name.bzl", "normalize_name")
