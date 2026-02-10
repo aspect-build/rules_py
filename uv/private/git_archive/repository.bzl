@@ -31,8 +31,6 @@ def _git_archive_impl(repository_ctx):
         if result.return_code == 0 and result.stdout:
             # ls-remote output is: "<commit>\t<ref>"
             resolved_commit = result.stdout.split()[0]
-            print("\nWARNING: git_archive for {} uses a non-reproducible ref '{}'. "
-                  "Consider pinning to commit '{}'.".format(url, ref, resolved_commit))
             is_reproducible = False
         else:
             # If we can't resolve it, it's definitely not reproducible
