@@ -66,6 +66,7 @@ load("//uv/private/tomltool:toml.bzl", "toml")
 load("//uv/private/uv_hub:repository.bzl", "uv_hub")
 load("//uv/private/uv_lock:repository.bzl", "uv_lock")
 load("//uv/private/whl_install:repository.bzl", "whl_install")
+load("//uv/private/git_archive:repository.bzl", "git_archive")
 load(":collect_sccs.bzl", "collect_sccs")
 load(":lockfile.bzl", "build_marker_graph", "collect_bdists", "collect_configurations", "collect_markers", "collect_sdists", "normalize_deps")
 load(":projectfile.bzl", "collate_versions_by_name", "collect_activated_extras", "extract_requirement_marker_pairs")
@@ -425,6 +426,15 @@ def _uv_impl(module_ctx):
                 sha256 = sha256,
                 downloaded_file_path = sdist_cfg["url"].split("/")[-1].split("?")[0].split("#")[0],
             )
+
+        elif "git" in sdist_cfg:
+            git_cfg = sdist_cfg["git"]
+            git_archive(
+                name = sdist_name,
+                url = git_cfg["url"],
+                ref = git_cfg.get("commit") or git_cfg.get("ref") or fail("No viable commit-ish!")
+            )
+
         else:
             fail("Unsupported archive! {}".format(repr(sdist_cfg)))
 

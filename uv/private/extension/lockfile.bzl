@@ -204,7 +204,8 @@ def collect_bdists(lock_data):
 
     return bdist_specs, bdist_table
 
-def collect_sdists(lock_id, lock_data):
+def collect_sdists(lock_id, lock_data,
+                   allow_git_to_http_conversion = False):
     """Collects all source distributions (sdists) from a lockfile.
 
     Args:
@@ -231,15 +232,17 @@ def collect_sdists(lock_id, lock_data):
             git_url = package["source"]["git"]
             git_cfg = parse_git_url(git_url)
 
-            sdist_cfg = try_git_to_http_archive(git_cfg)
-            sdist_repo_name = "sdist_git__{}__{}".format(package["name"], sha1(git_url)[:16])
-            sdist_table[k] = "@{}//file".format(sdist_repo_name)
+            # FIXME: Replace with a policy mechanism
+            if allow_git_to_http_conversion:
+                sdist_cfg = try_git_to_http_archive(git_cfg)
+                sdist_repo_name = "sdist_git__{}__{}".format(package["name"], sha1(git_url)[:16])
+                sdist_table[k] = "@{}//file".format(sdist_repo_name)
 
-            if sdist_cfg:
-                sdist_specs[sdist_repo_name] = {"file": sdist_cfg}
+                if sdist_cfg:
+                    sdist_specs[sdist_repo_name] = {"file": sdist_cfg}
+                    continue
 
-            else:
-                sdist_specs[sdist_repo_name] = {"git": git_cfg}
+            sdist_specs[sdist_repo_name] = {"git": git_cfg}
 
     return sdist_specs, sdist_table
 
