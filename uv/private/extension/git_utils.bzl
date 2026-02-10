@@ -2,8 +2,6 @@
 Utilities for parsing git URLs and converting them to http_archive.
 """
 
-load("//uv/private:sha1.bzl", "sha1")
-
 def ensure_ref(maybe_ref):
     """Ensures a git ref starts with "ref/".
 

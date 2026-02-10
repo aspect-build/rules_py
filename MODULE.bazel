@@ -188,18 +188,18 @@ uv.declare_hub(
 )
 uv.project(
     name = "aspect_rules_py",
-    hub_name = "pypi",
-    lock = "//:uv.lock",
-    pyproject = "//:pyproject.toml",
     default_build_dependencies = [
         "build",
         "setuptools",
         "maturin",
     ],
+    hub_name = "pypi",
+    lock = "//:uv.lock",
+    pyproject = "//:pyproject.toml",
 )
 uv.unstable_annotate_packages(
-    lock = "//:uv.lock",
     src = "//:annotations.toml",
+    lock = "//:uv.lock",
 )
 use_repo(uv, "pypi")
 

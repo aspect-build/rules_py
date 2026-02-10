@@ -13,7 +13,7 @@ import sys
 class CaseSensitiveConfigParser(configparser.ConfigParser):
     optionxform = staticmethod(str)
 
-# Quick and dirty re-implementaiton of the setuptools search.
+# Quick and dirty re-implementation of the setuptools search.
 
 PARSER = argparse.ArgumentParser()
 PARSER.add_argument("--template")
