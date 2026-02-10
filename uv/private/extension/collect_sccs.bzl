@@ -1,14 +1,14 @@
-load("//uv/private/graph:defs.bzl", "graph")
 load("//uv/private:sha1.bzl", "sha1")
+load("//uv/private/graph:sccs.bzl", "sccs")
 
-def _collect_sccs(graph_data):
+def collect_sccs(graph):
     """Computes Strongly Connected Components (SCCs) for a dependency graph.
 
     This function takes a dependency graph and identifies all the SCCs, which
     are groups of packages that have cyclic dependencies on each other.
 
     Args:
-        graph_data: The dependency graph, as returned by `_build_marker_graph`.
+        graph: The dependency graph, as returned by `_build_marker_graph`.
 
     Returns:
         A tuple containing:
@@ -21,8 +21,8 @@ def _collect_sccs(graph_data):
           dependencies.
     """
 
-    simplified_graph = {pkg: deps.keys() for pkg, deps in graph_data.items()}
-    graph_components = graph.sccs.find(simplified_graph)
+    simplified_graph = {pkg: deps.keys() for pkg, deps in graph.items()}
+    graph_components = sccs(simplified_graph)
 
     # Now we need to rebuild markers for intra-scc deps
     scc_graph = {
@@ -36,7 +36,7 @@ def _collect_sccs(graph_data):
                 # Note that we DO NOT provide a default marker here because this
                 # is a dependency edge which may not actually exist and we don't
                 # want to falsely insert edges/markers.
-                next_marks = graph_data.get(start, {}).get(next, {})
+                next_marks = graph.get(start, {}).get(next, {})
                 scc_graph[scc_id][next].update(next_marks)
 
         # Ensure that everything has at least the no-op marker
@@ -55,7 +55,7 @@ def _collect_sccs(graph_data):
     scc_deps = {}
     for scc, members in scc_graph.items():
         for member in members:
-            for dep, markers in graph_data.get(member, {}).items():
+            for dep, markers in graph.get(member, {}).items():
                 if dep not in members:
                     scc_deps.setdefault(scc, {}).setdefault(dep, {}).update(markers)
 

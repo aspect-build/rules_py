@@ -2,19 +2,19 @@
 
 load("@bazel_features//:features.bzl", features = "bazel_features")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+load("//uv/private:parse_whl_name.bzl", "parse_whl_name")
 load("//uv/private:sha1.bzl", "sha1")
 load("//uv/private/constraints:repository.bzl", "configurations_hub")
 load("//uv/private/constraints/platform:defs.bzl", "supported_platform")
 load("//uv/private/constraints/python:defs.bzl", "supported_python")
+load("//uv/private/graph:sccs.bzl", "sccs")
+load("//uv/private/pprint:defs.bzl", "pprint")
 load("//uv/private/sdist_build:repository.bzl", "sdist_build")
 load("//uv/private/tomltool:toml.bzl", "toml")
 load("//uv/private/uv_hub:repository.bzl", "uv_hub")
 load("//uv/private/uv_lock:repository.bzl", "uv_lock")
 load("//uv/private/whl_install:repository.bzl", "whl_install")
-load("//uv/private:parse_whl_name.bzl", "parse_whl_name")
 load(":normalize_name.bzl", "normalize_name")
-load("//uv/private/pprint:defs.bzl", "pprint")
-load("//uv/private/graph:sccs.bzl", "sccs")
 
 def _normalize_deps(lock_id, lock_data):
     """Normalizes dependency specifications in a lockfile.
