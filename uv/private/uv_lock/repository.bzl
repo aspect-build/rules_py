@@ -2,13 +2,33 @@
 
 """
 
-load("//uv/private:pprint.bzl", "pprint")
+load("//uv/private/extension:pprint.bzl", "pprint")
 load("//uv/private:sha1.bzl", "sha1")
 
 def indent(text, space = " "):
     return "\n".join(["{}{}".format(space, l) for l in text.splitlines()])
 
 def _venv_hub_impl(repository_ctx):
+    """Materializes the dependency graph for a single lockfile, handling circular dependencies.
+
+    This repository rule is responsible for translating the (potentially cyclic)
+    dependency graph from a lockfile into a directed acyclic graph (DAG) of
+    Bazel targets. It consumes a JSON-encoded representation of the graph that has
+    been pre-processed by the module extension to identify Strongly Connected
+    Components (SCCs, or groups of cyclically-dependent packages).
+
+    It generates:
+    1.  A `py_library` target for each SCC. The dependencies of this library are the
+        other SCCs or packages it depends on. Conditional dependencies (based on
+        environment markers) are handled by using `select()` to point to either
+        the real dependency or an empty target.
+    2.  An `alias` for each canonical package name (e.g., `requests`) that points to
+        the `py_library` of the SCC that contains it. This allows other rules to
+        depend on `//:requests` and get the correct underlying SCC target.
+
+    Args:
+        repository_ctx: The repository context.
+    """
     dep_to_scc = json.decode(repository_ctx.attr.dep_to_scc)
     scc_deps = json.decode(repository_ctx.attr.scc_deps)
     scc_graph = json.decode(repository_ctx.attr.scc_graph)

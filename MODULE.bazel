@@ -191,13 +191,16 @@ uv.project(
     hub_name = "pypi",
     lock = "//:uv.lock",
     pyproject = "//:pyproject.toml",
+    default_build_dependencies = [
+        "build",
+        "setuptools",
+        "maturin",
+    ],
 )
-
-# uv.unstable_annotate_requirements(
-#     hub_name = "pypi",
-#     project_name = "aspect_rules_py",
-#     src = "//:annotations.toml",
-# )
+uv.unstable_annotate_packages(
+    lock = "//:uv.lock",
+    src = "//:annotations.toml",
+)
 use_repo(uv, "pypi")
 
 http_file = use_repo_rule(

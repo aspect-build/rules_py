@@ -1,33 +1,49 @@
-"""
-An implementation of fetching dependencies based on consuming UV's lockfiles.
+"""A Bazel module extension for resolving Python dependencies from a `uv.lock` file.
 
-Follows in the footsteps of rules_js's pnpm support by consuming a lockfile
-which contains enough information to produce a virtualenv without performing any
-dynamic resolution.
+This extension provides a mechanism for resolving Python dependencies declared in a
+`pyproject.toml` and locked in a `uv.lock` file. It generates a dependency graph,
+handles platform-specific constraints, and creates repository rules for fetching
+pre-built wheels (bdists) or building wheels from source (sdists).
 
-Relies on the lockfile to enumerate:
-- Source distributions & their digests
-- Prebuilt distribitons & their digests
-- The dependencies of digests
+The extension is designed to handle complex dependency scenarios, including:
+- Cross-platform builds for different operating systems and architectures.
+- Hermetic builds of source distributions.
+- Dependency cycles, which are resolved by computing the strongly connected
+  components (SCCs) of the dependency graph.
 
 ## Example
 
-    uv = use_repo("@aspect_rules_py//uv:extension.bzl", "uv")
-    uv.declare_hub(hub_name = "uv")
+The following example shows how to use the `uv` module extension in a `MODULE.bazel`
+file:
 
-    uv.declare_venv(hub_name = "uv", venv_name = "a")
-    uv.lockfile(hub_name = "uv", venv_name = "a", lockfile = "third_party/py/venvs/uv-a.lock")
+```starlark
+uv = use_extension("@aspect_rules_py//uv:extension.bzl", "uv")
+uv.hub(name = "uv")
+uv.project(
+    hub_name = "uv",
+    name = "my_project",
+    pyproject = "//:pyproject.toml",
+    lock = "//:uv.lock",
+)
+use_repo(uv, "uv")
+```
 
-    uv.declare_venv(hub_name = "uv", venv_name = "b")
-    uv.lockfile(hub_name = "uv", venv_name = "b", lockfile = "third_party/py/venvs/uv-b.lock")
+This configuration declares a `uv` hub and registers a project with its
+`pyproject.toml` and `uv.lock` files. The `use_repo` directive then makes the
+resolved dependencies available in the `@uv` repository.
 
-    use_repo(uv, "uv")
+## Common Types
 
-## Features
-
-- Supports cross-platform builds of wheels
-- Supports hermetic source builds of wheels
-- Automatically handles dependency cycles
+- **Dependency:** A tuple of `(lock_id, package_name, version, extra)` that
+  uniquely identifies a package within a lockfile. `lock_id` is a unique
+  identifier for the lockfile, `package_name` is the normalized name of the
+  package, `version` is the package version, and `extra` is the optional extra
+  (or `__base__` for the base package).
+- **Marker:** A string representing a PEP 508 marker, used to specify
+  environment-specific dependencies (e.g.,
+  `"sys_platform == 'linux'"`).
+- **SCC:** A Strongly Connected Component, which is a set of packages that have
+  cyclic dependencies on each other.
 
 ## Appendix
 
@@ -49,50 +65,25 @@ load("//uv/private/tomltool:toml.bzl", "toml")
 load("//uv/private/uv_hub:repository.bzl", "uv_hub")
 load("//uv/private/uv_lock:repository.bzl", "uv_lock")
 load("//uv/private/whl_install:repository.bzl", "whl_install")
-load(":normalize_name.bzl", "normalize_name")
-load(":parse_whl_name.bzl", "parse_whl_name")
+load("//uv/private:normalize_name.bzl", "normalize_name")
+load("//uv/private:parse_whl_name.bzl", "parse_whl_name")
 load(":pprint.bzl", "pprint")
-load(":sccs.bzl", "sccs")
-load(":sha1.bzl", "sha1")
-
-def _ignored_package(package):
-    """
-    Indicate whether the package manifest is something we're ignoring.
-
-    This is a workaround for the lockfile package which represents the project itself.
-
-    Args:
-        package (dict): A package record from a lockfile
-
-    Returns:
-        bool indicating whether the package should be skipped
-    """
-
-    # Remote package sources
-    # - { source = { registry = "https://some.registry/..." } }
-    # - { source = { url = "https://ton.hosting.biz/some.whl" } }
-    # FIXME: Git URLs?
-    # FIXME: Egg URLs?
-    #
-    # These seem to be used by the package itself
-    # - { source = { editable = "." } }
-    # - { source = { virtual = "." } }
-    if "virtual" in package["source"] and package["source"]["virtual"] == ".":
-        return True
-
-    return False
+load("//uv/private/graph:sccs.bzl", "sccs")
+load("//uv/private:sha1.bzl", "sha1")
 
 def _parse_hubs(module_ctx):
-    """
-    Parse hub declaration tags.
+    """Parses `uv.hub()` declarations from all modules.
 
-    Produces a hubs table we use to validate venv registrations.
+    This function iterates through all the modules in the Bazel dependency graph
+    and collects the `uv.hub()` declarations. It produces a dictionary of hub
+    specifications that is used to validate project registrations.
 
     Args:
-        module_ctx (module_ctx): The Bazel module context
+        module_ctx: The Bazel module context.
 
     Returns:
-        dict; parsed hub specs.
+        A dictionary of hub specifications, where the keys are hub names and the
+        values are dictionaries of module names that declared the hub.
     """
 
     # As with `rules_python` hub names have to be globally unique :/
@@ -112,10 +103,24 @@ def _parse_hubs(module_ctx):
     return hub_specs
 
 def _normalize_deps(lock_id, lock_data):
-    """
-    Normalize the lockfile.
-    1. Compute the "default version" mapping
-    2. Update all the dependency statements within the lockfile so they're version disambiguated
+    """Normalizes dependency specifications in a lockfile.
+
+    This function performs two main normalization steps:
+    1.  It computes a "default version" for each package, which is used when a
+        dependency specification does not include a version. The default version
+        is only computed for packages that have a single version in the lockfile.
+    2.  It updates all dependency statements within the lockfile to be
+        version-disambiguated, using the default versions where necessary.
+
+    Args:
+        lock_id: A unique identifier for the lockfile.
+        lock_data: The parsed content of the `uv.lock` file.
+
+    Returns:
+        A tuple containing:
+        - A dictionary mapping package names to their default version dependency
+          tuples `(lock_id, package_name, version, "__base__")`.
+        - The normalized `lock_data` dictionary.
     """
 
     package_versions = {}
@@ -154,16 +159,23 @@ def _normalize_deps(lock_id, lock_data):
     return default_versions, lock_data
 
 def _build_marker_graph(lock_id, lock_data):
-    """The graph is {(lock_id, package, version, extra): {(lock_id, package, version, extra): {marker: 1}}}.
+    """Builds a dependency graph from a lockfile.
 
-    We convert dependencies which no extra list to dependencies on ["__base__"].
-    We also ensure that every extra depends on the "__base__" configuration if itself.
+    The graph is represented as a dictionary where the keys are `Dependency`
+    tuples `(lock_id, package, version, extra)` and the values are dictionaries
+    of their dependencies. The dependency dictionaries are keyed by `Dependency`
+    tuples and their values are dictionaries of markers.
 
-    So writing `requests` is understood to be `requests[__base__]`, and
-    `requests[foo]` is `requests[__foo__] -> requests[__base__]` which allows is
-    to capture the same graph without having do splice in dependencies.
+    This function also normalizes dependencies on extras. Dependencies without an
+    extra are converted to a dependency on the `__base__` extra. Each extra also
+    gets a synthetic dependency on the `__base__` package of the same version.
 
-    At this point we also HAVE NOT done extras activation.
+    Args:
+        lock_id: A unique identifier for the lockfile.
+        lock_data: The parsed content of the `uv.lock` file.
+
+    Returns:
+        A dictionary representing the dependency graph.
     """
 
     graph = {}
@@ -193,15 +205,23 @@ def _build_marker_graph(lock_id, lock_data):
     return graph
 
 def _collect_sccs(graph):
-    """Given the internal dependency graph, compute strongly connected
-    components and the mapping from each dependency to the strongly connected
-    component which contains that dependency.
+    """Computes Strongly Connected Components (SCCs) for a dependency graph.
+
+    This function takes a dependency graph and identifies all the SCCs, which
+    are groups of packages that have cyclic dependencies on each other.
+
+    Args:
+        graph: The dependency graph, as returned by `_build_marker_graph`.
 
     Returns:
-     - A mapping from dependency to scc ID
-     - A mapping from scc id to the dependencies which are members of the scc
-     - A mapping from scc id to the dependencies which are directs of the scc
-
+        A tuple containing:
+        - A dictionary mapping each dependency to the ID of the SCC that
+          contains it.
+        - A dictionary representing the graph of SCCs, where the keys are SCC IDs
+          and the values are dictionaries of member dependencies and their
+          markers.
+        - A dictionary mapping each SCC ID to its direct, non-member
+          dependencies.
     """
 
     simplified_graph = {pkg: deps.keys() for pkg, deps in graph.items()}
@@ -245,16 +265,20 @@ def _collect_sccs(graph):
     return dep_to_scc, scc_graph, scc_deps
 
 def _extract_requirement_marker_pairs(req_string, version_map):
-    """
-    Parses a requirement string into a list of ((name, version, extra), marker) pairs.
+    """Parses a requirement string into a list of dependency-marker pairs.
+
+    This function parses a PEP 508 requirement string (e.g.,
+    "requests[security]>=2.0; python_version < '3.8'") and converts it into a
+    list of pairs, where each pair contains a `Dependency` tuple and a `Marker`
+    string.
 
     Args:
-        req_string: The requirement string (e.g., "foo[bar]>=1.0; sys_platform == 'linux'").
-        version_map: A dict mapping package names to default version strings.
+        req_string: The requirement string to parse.
+        version_map: A dictionary mapping package names to their default version
+            dependency tuples.
 
     Returns:
-        A list of tuples [((name, version, extra), marker), ...].
-        The marker is a string or None.
+        A list of tuples, where each tuple is `(Dependency, Marker)`.
     """
 
     # 1. Split Requirement and Marker
@@ -335,14 +359,28 @@ def _extract_requirement_marker_pairs(req_string, version_map):
     return results
 
 def _collect_activated_extras(project_data, default_versions, graph):
-    """
-    Collect the set of extras which are directly or transitively activated in the given configuration.
-    Assumes all marker expressions are live.
+    """Collects the set of transitively activated extras for each configuration.
 
-    Returns
-      - {cfg: 1}
-      - {dep: {cfg: {extra_dep: {marker: 1}}}}
+    This function determines the full set of extras that are activated for each
+    dependency group defined in the `pyproject.toml`. It performs a transitive
+    traversal of the dependency graph to find all extras that are pulled in by
+    the initial set of requirements.
+
+    Args:
+        project_data: The parsed content of the `pyproject.toml` file.
+        default_versions: A dictionary mapping package names to their default
+            version dependency tuples.
+        graph: The dependency graph, as returned by `_build_marker_graph`.
+
+    Returns:
+        A tuple containing:
+        - A dictionary of configuration names.
+        - A dictionary mapping each dependency to a dictionary of configurations
+          that activate it, which in turn maps to a dictionary of the extra
+          dependencies and their markers. The structure is:
+          `{dep: {cfg: {extra_dep: {marker: 1}}}}`.
     """
+
 
     dep_groups = project_data.get("dependency-groups", {
         project_data["project"]["name"]: [
@@ -395,13 +433,18 @@ def _collect_activated_extras(project_data, default_versions, graph):
     return {it: 1 for it in dep_groups.keys()}, activated_extras
 
 def _collate_versions_by_name(activated_extras):
-    """
-    Transforms the activated extras map into a mapping of names to configs to
-    versions to markers. This groups different versions of the same package
-    together under the package name.
+    """Collates activated extras by package name, configuration, and version.
+
+    This function transforms the `activated_extras` map into a more convenient
+    structure that groups different versions of the same package together.
+
+    Args:
+        activated_extras: The map of activated extras, as returned by
+            `_collect_activated_extras`.
 
     Returns:
-      {name: {config: {version: {marker: 1}}}}
+        A dictionary mapping package names to configurations, versions, and
+        markers. The structure is: `{name: {config: {version: {marker: 1}}}}`.
     """
     result = {}
 
@@ -421,8 +464,13 @@ def _collate_versions_by_name(activated_extras):
     return result
 
 def _collect_markers(graph):
-    """
-    Return a mapping of marker -> sha1, containing all markers in the graph
+    """Collects all unique marker expressions from the dependency graph.
+
+    Args:
+        graph: The dependency graph.
+
+    Returns:
+        A dictionary mapping each unique marker expression to its SHA-1 hash.
     """
     acc = {}
     for _dep, nexts in graph.items():
@@ -435,6 +483,19 @@ def _collect_markers(graph):
     return acc
 
 def _collect_configurations(lock):
+    """Collects all unique platform configurations from the wheels in a lockfile.
+
+    This function identifies all the unique combinations of Python implementation,
+    platform, and ABI from the wheel filenames in the lockfile.
+
+    Args:
+        lock: The parsed content of the `uv.lock` file.
+
+    Returns:
+        A dictionary mapping configuration strings (e.g.,
+        "cp39-manylinux_2_17_x86_64-cp39") to a list of `config_setting`
+        labels that define the configuration.
+    """
     wheel_files = {}
 
     for package in lock.get("package", []):
@@ -483,6 +544,17 @@ def _collect_configurations(lock):
     return configurations
 
 def _collect_bdists(lock_data):
+    """Collects all pre-built wheels (bdists) from a lockfile.
+
+    Args:
+        lock_data: The parsed content of the `uv.lock` file.
+
+    Returns:
+        A tuple containing:
+        - A dictionary mapping repository names for the wheels to their bdist
+          specifications.
+        - A dictionary mapping the hash of each wheel to its repository label.
+    """
     bdist_specs = {}
     bdist_table = {}
     for package in lock_data.get("package", []):
@@ -494,6 +566,14 @@ def _collect_bdists(lock_data):
     return bdist_specs, bdist_table
 
 def _ensure_ref(maybe_ref):
+    """Ensures a git ref starts with "ref/".
+
+    Args:
+        maybe_ref: The git ref string.
+
+    Returns:
+        The git ref string, prefixed with "ref/" if it is not already.
+    """
     if maybe_ref == None:
         return None
 
@@ -503,7 +583,17 @@ def _ensure_ref(maybe_ref):
     return maybe_ref
 
 def _parse_git_url(url):
-    """Parses a git URL into a dict of git_repository kwargs."""
+    """Parses a git URL into a dictionary of `git_repository` arguments.
+
+    This function is a simplified parser for git URLs that can extract a remote
+    URL, a commit hash, or a ref. It supports URLs with fragments and query
+
+    Args:
+        url: The git URL to parse.
+
+    Returns:
+        A dictionary of `git_repository` arguments.
+    """
 
     # 1. Handle Fragment (anything after #)
     # URL: https://github.com/user/repo.git#c7076a0...
@@ -548,14 +638,19 @@ def _parse_git_url(url):
     return kwargs
 
 def _try_git_to_http_archive(git_cfg):
-    """
-    Given a git_repository kwargs config, try to convert it to a http_archive.
+    """Tries to convert a `git_repository` configuration to an `http_archive`.
 
-    While it's possible to run `git archive --remote=<url>` and get an archive
-    for an arbitrary repo, it's better/easier by far to just download an archive
-    over HTTP if we can identify the git repo host service. Github and Gitlab
-    for instance both provide snapshot URLs.
+    This function attempts to convert a `git_repository` configuration to an
+    `http_archive` configuration for well-known git hosting services like
+    GitHub. This is useful for performance, as downloading a tarball over HTTP
+    is generally faster than cloning a git repository.
 
+    Args:
+        git_cfg: A dictionary of `git_repository` arguments.
+
+    Returns:
+        A dictionary of `http_archive` arguments, or `None` if the conversion
+        is not possible.
     """
 
     if "https://github.com/" in git_cfg["remote"]:
@@ -574,6 +669,18 @@ def _try_git_to_http_archive(git_cfg):
     # FIXME: Support gitlab, other hosts?
 
 def _collect_sdists(lock_id, lock_data):
+    """Collects all source distributions (sdists) from a lockfile.
+
+    Args:
+        lock_id: A unique identifier for the lockfile.
+        lock_data: The parsed content of the `uv.lock` file.
+
+    Returns:
+        A tuple containing:
+        - A dictionary mapping repository names for the sdists to their
+          specifications.
+        - A dictionary mapping sdist build keys to their repository labels.
+    """
     sdist_specs = {}
     sdist_table = {}
     for package in lock_data.get("package", []):
@@ -601,12 +708,21 @@ def _collect_sdists(lock_id, lock_data):
     return sdist_specs, sdist_table
 
 def _parse_projects(module_ctx, hub_specs):
-    """
-    Parse project declaration tags.
+    """Parses all `uv.project()` declarations from all modules.
+
+    This function is the core of the module extension's logic. It iterates
+    through all the `uv.project()` declarations, parses the `pyproject.toml` and
+    `uv.lock` files, and builds up the complete dependency graph.
+
+    Args:
+        module_ctx: The Bazel module context.
+        hub_specs: A dictionary of hub specifications, as returned by
+            `_parse_hubs`.
 
     Returns:
-        {lock_id: struct(lock, dep_to_scc, scc_graph, scc_deps)}
-        {hub: {nominal_requirement: {cfg: lock_qualified_}}
+        A struct containing all the parsed information, including the dependency
+        graph, SCCs, and configurations for all the repository rules that need
+        to be generated.
     """
 
     lock_cfgs = {}
@@ -877,24 +993,20 @@ def _config_marker(marker_registry, expr):
     return "@aspect_rules_py_pip_configurations//:{}".format(marker_registry[expr])
 
 def _uv_impl(module_ctx):
-    """
-    And now for the easy bit.
+    """The implementation function for the `uv` module extension.
 
-    - Collect hub configurations
-    - Collect venv configurations per hub
-    - Collect and parse lockfiles per venv per hub
-    - Collect annotations and overrides per venv and hub
-    - Generate sdist fetches for every locked package
-    - Generate sdist to whl builds for every locked package
-    - Generate whl fetches for every locked package
-    - Generate an install choosing between a sdist build and a prebuilt whl for every package
-    - For each venv generate a hub over the installs of packages in that venv
-    - For each hub generate a hub fanning out to the venvs which make up the hub
+    This function is the main entry point for the module extension. It orchestrates
+    the entire dependency resolution process, which includes:
+    - Parsing `uv.hub()` and `uv.project()` declarations.
+    - Generating repository rules for fetching and building all the declared
+      dependencies.
+    - Generating a `uv_lock` repository rule for each lockfile, which contains
+      the resolved dependency graph for that lockfile.
+    - Generating a `uv_hub` repository rule for each hub, which contains the
+      aggregated dependency information for all the projects in that hub.
 
-    Note that we also generate a config repo which is used to introspect the
-    host platform and establish flag default values so the default configuration
-    is appropriate for the host platform.
-
+    Args:
+        module_ctx: The Bazel module context.
     """
 
     hub_specs = _parse_hubs(module_ctx)

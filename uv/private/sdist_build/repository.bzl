@@ -25,6 +25,26 @@ sibling `rule.bzl` file for the implementation of `sdist_build`.
 # provide this metadata.
 
 def _sdist_build_impl(repository_ctx):
+    """Prepares a repository for building a wheel from a source distribution (sdist).
+
+    This rule does not perform the build itself, but generates the `BUILD.bazel`
+    file that defines the necessary targets to do so.
+
+    It creates:
+    1.  A `py_venv` target named `build_venv`, which contains the build-time
+        dependencies (e.g., `build`, `setuptools`, `wheel`) specified in the
+        `deps` attribute.
+    2.  A target (either `sdist_build` or `sdist_native_build` from `rule.bzl`)
+        named `whl`. When this target is built, it executes the wheel build process
+        for the given `src` sdist within the `build_venv`.
+
+    The `is_native` attribute determines whether the build is for a pure-Python
+    wheel or one that may contain C-extensions, which controls which underlying
+    build rule is used.
+
+    Args:
+        repository_ctx: The repository context.
+    """
     repository_ctx.file("BUILD.bazel", content = """
 load("@aspect_rules_py//uv/private/sdist_build:rule.bzl", "{rule}")
 load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv")

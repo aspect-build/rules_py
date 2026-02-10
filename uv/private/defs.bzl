@@ -24,3 +24,13 @@ whl_mode_transition = transition(
     inputs = [],
     outputs = [LIB_MODE],
 )
+
+def _whl_requirements_impl(ctx):
+    return [DefaultInfo(files = depset(transitive = [s.files for s in ctx.attr.srcs]))]
+
+whl_requirements = rule(
+    implementation = _whl_requirements_impl,
+    attrs = {
+        "srcs": attr.label_list(cfg = whl_mode_transition),
+    },
+)

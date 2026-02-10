@@ -2,24 +2,79 @@
 
 """
 
-load("//uv/private:pprint.bzl", "pprint")
+load("//uv/private/extension:pprint.bzl", "pprint")
 load("//uv/private:sha1.bzl", "sha1")
 
 def indent(text, space = " "):
     return "\n".join(["{}{}".format(space, l) for l in text.splitlines()])
 
 def _hub_impl(repository_ctx):
+    """Generates the central hub repository that exposes resolved dependencies to the build.
+
+    This rule consumes the final, resolved dependency graph (encoded in the
+    `extra_activations` and `version_activations` JSON attributes) and creates the
+    user-facing API for depending on Python packages.
+
+    For each Python package in the resolved graph, this rule generates:
+    1.  A package (a directory with a `BUILD.bazel` file) named after the
+        Python package (e.g., `requests/`).
+    2.  Inside the `BUILD.bazel` file, a primary `alias` target (e.g.,
+        `@pip//requests`) that `select()`s on the active virtual environment
+        configuration (`:venv`). This resolves to a configuration-specific
+        `py_library` that has the correct transitive dependencies for that venv.
+    3.  A `defs.bzl` file containing `compatible_with` and `incompatible_with`
+        helper functions. Users can use these in the `target_compatible_with`
+        attribute of their `py_binary` or `py_test` to ensure they are built
+        against a specific, compatible virtual environment.
+    4.  A `requirements.bzl` file for partial compatibility with `rules_python`'s
+        `requirement()` macro.
+
+    Args:
+        repository_ctx: The repository context.
+    """
     extra_activations = json.decode(repository_ctx.attr.extra_activations)
     version_activations = json.decode(repository_ctx.attr.version_activations)
 
     marker_table = {}
 
-    # FIXME: all_requirements target
-    repository_ctx.file("BUILD.bazel", """\
+    build_content = """\
 load("@aspect_rules_py//py:defs.bzl", "py_library")
-load("@aspect_rules_py//uv/private:defs.bzl", "py_whl_library")
+load("@aspect_rules_py//uv/private:defs.bzl", "py_whl_library", "whl_requirements")
+"""
+    
+    select_clauses = []
+    for cfg in repository_ctx.attr.configurations:
+        packages_in_config = [
+            "//{}:lib".format(name)
+            for name, specs in version_activations.items()
+            if cfg in specs
+        ]
+        
+        build_content += """
+filegroup(
+    name = "all_requirements_{cfg}",
+    srcs = {packages},
+    visibility = ["//visibility:private"],
+)
+""".format(cfg = cfg, packages = repr(packages_in_config))
 
-""".format())
+        select_clauses.append("        \"//venv:{cfg}\": [\":all_requirements_{cfg}\"]".format(cfg = cfg))
+
+    build_content += """
+filegroup(
+    name = "all_requirements",
+    srcs = select({{\n{select_clauses},\n        "//conditions:default": [],\n    }}),
+    visibility = ["//visibility:public"],
+)
+
+whl_requirements(
+    name = "all_whl_requirements",
+    srcs = [":all_requirements"],
+    visibility = ["//visibility:public"],
+)
+""".format(select_clauses = ",\n".join(select_clauses))
+
+    repository_ctx.file("BUILD.bazel", build_content)
 
     ################################################################################
     content = [
@@ -97,12 +152,12 @@ def incompatible_with(venvs, extra_constraints = []):
 
     ################################################################################
     # Lay down a requirements.bzl for compatibility with rules_python
+    all_requirements = [name for name, specs in version_activations.items()]
     content = []
-    content.append("""
+    content.append('''
 load("@aspect_rules_py//uv/private:normalize_name.bzl", "normalize_name")
 
-# We aren't compatible with this because it isn't constant over venvs.
-# all_requirements = []
+all_requirements = {all_requirements}
 
 # We aren't compatible with this because it isn't constant over venvs.
 # all_whl_requirements_by_package = {{}}
@@ -115,8 +170,9 @@ load("@aspect_rules_py//uv/private:normalize_name.bzl", "normalize_name")
 
 def requirement(name):
     return "@@{repo_name}//{{0}}:{{0}}".format(normalize_name(name))
-""".format(
+'''.format(
         repo_name = repository_ctx.name,
+        all_requirements = repr(all_requirements),
     ))
     repository_ctx.file("requirements.bzl", content = "\n".join(content))
 
@@ -146,7 +202,7 @@ load("//:defs.bzl", "compatible_with")
             version = list(versions.keys())[0]
 
             deps = []
-            for extra, markers in extra_activations[version][cfg].items():
+            for extra, markers in extra_activations.get(version, {}).get(cfg, {}).items():
                 if "" not in markers:
                     extra_name = "_extra_{}".format(sha1(extra + repr(markers))[:16])
                     deps.append(":" + extra_name)
@@ -161,8 +217,8 @@ load("//:defs.bzl", "compatible_with")
                         else:
                             id = marker_table[marker]
 
-                    marker_condition = "//private/markers:" + id
-                    arms[marker_condition] = extra
+                        marker_condition = "//private/markers:" + id
+                        arms[marker_condition] = extra
 
                     extra_targets[extra_name] = 1
                     content.append("""
