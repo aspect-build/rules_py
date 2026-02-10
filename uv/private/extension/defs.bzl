@@ -67,7 +67,7 @@ load("//uv/private/uv_lock:repository.bzl", "uv_lock")
 load("//uv/private/whl_install:repository.bzl", "whl_install")
 load("//uv/private:normalize_name.bzl", "normalize_name")
 load("//uv/private:parse_whl_name.bzl", "parse_whl_name")
-load(":pprint.bzl", "pprint")
+load("//uv/private/pprint:defs.bzl", "pprint")
 load("//uv/private/graph:sccs.bzl", "sccs")
 load("//uv/private:sha1.bzl", "sha1")
 

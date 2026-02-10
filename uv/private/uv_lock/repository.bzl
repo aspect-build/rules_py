@@ -2,7 +2,7 @@
 
 """
 
-load("//uv/private/extension:pprint.bzl", "pprint")
+load("//uv/private/pprint:defs.bzl", "pprint")
 load("//uv/private:sha1.bzl", "sha1")
 
 def indent(text, space = " "):
