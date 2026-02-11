@@ -3,22 +3,11 @@ load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 # For Bazel 6.x compatibility, since
 # PyRuntimeInfo shipped only with Bazel 7
 # Users can set, e.g. --@aspect_rules_py//py:interpreter_version=3.9.18
+# TODO(2.0): remove since Bazel 6 is no longer LTS
 alias(
     name = "interpreter_version",
     actual = "@rules_python//python/config_settings:python_version",
     visibility = ["//visibility:public"],
-)
-
-bzl_library(
-    name = "repositories",
-    srcs = ["repositories.bzl"],
-    visibility = ["//visibility:public"],
-    deps = [
-        "//py/private/toolchain:autodetecting",
-        "@bazel_tools//tools/build_defs/repo:cache.bzl",
-        "@bazel_tools//tools/build_defs/repo:http.bzl",
-        "@bazel_tools//tools/build_defs/repo:utils.bzl",
-    ],
 )
 
 bzl_library(
@@ -39,20 +28,16 @@ bzl_library(
     ],
 )
 
-# This needs to dep on @aspect_tools_telemetry_report but we don't have that in WORKSPACE
-# gazelle:exclude extensions.bzl
-# bzl_library(
-#     name = "extensions",
-#     srcs = [
-#         "extensions.bzl",
-#         "@aspect_tools_telemetry_report//:defs.bzl",
-#     ],
-#     visibility = ["//visibility:public"],
-#     deps = [
-#         ":toolchains",
-#         "//py/private/release:version",
-#     ],
-# )
+bzl_library(
+    name = "extensions",
+    srcs = ["extensions.bzl"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":toolchains",
+        "//py/private/release:version",
+        "@aspect_tools_telemetry_report//:defs.bzl",
+    ],
+)
 
 bzl_library(
     name = "toolchains",

@@ -50,8 +50,6 @@ tar --create --auto-compress \
     --file "$GITHUB_WORKSPACE/${ARCHIVE%.tar.gz}.docs.tar.gz" .
 
 cat << EOF
-## Using [Bzlmod] with Bazel 6:
-
 Add to your \`MODULE.bazel\` file:
 
 \`\`\`starlark
@@ -65,38 +63,6 @@ python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(
     python_version = "3.13",
 )
-\`\`\`
-
-[Bzlmod]: https://bazel.build/build/bzlmod
-
-## Using WORKSPACE
-
-\`\`\`starlark
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-http_archive(
-    name = "aspect_rules_py",
-    sha256 = "${SHA}",
-    strip_prefix = "${PREFIX}",
-    url = "https://github.com/aspect-build/rules_py/releases/download/${TAG}/${ARCHIVE}",
-)
-
-load("@aspect_rules_py//py:repositories.bzl", "rules_py_dependencies")
-
-rules_py_dependencies()
-
-load("@aspect_rules_py//py:toolchains.bzl", "rules_py_toolchains")
-
-rules_py_toolchains()
-
-# "Installation" for rules_python
-load("@rules_python//python:repositories.bzl", "py_repositories", "python_register_toolchains")
-
-python_register_toolchains(
-    name = "python_toolchain",
-    python_version = "3.9",
-)
-
-py_repositories()
 \`\`\`
 
 EOF
