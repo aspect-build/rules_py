@@ -176,6 +176,9 @@ def _parse_locks(module_ctx, venv_specs):
             if lock.venv_name in lock_specs[lock.hub_name]:
                 fail("Multiple lockfiles detected for hub %s venv %s!" % (lock.hub_name, lock.venv_name))
 
+            # Keep module extension state keyed on lockfile content in normal
+            # lockfile modes so updated dependencies invalidate stale hub repos.
+            module_ctx.watch(lock.src)
             lockfile = toml.decode_file(module_ctx, lock.src)
             if lockfile.get("version") != 1:
                 fail("Lockfile %s is an unsupported format version!" % lock.src)
@@ -298,6 +301,8 @@ def _parse_annotations(module_ctx, hub_specs, venv_specs):
                 default_build_deps = [] + _default_annotations.default_build_deps,
             ))
 
+            # Track annotation file changes for module extension invalidation.
+            module_ctx.watch(ann.src)
             ann_content = toml.decode_file(module_ctx, ann.src)
             if ann_content.get("version") != "0.0.0":
                 fail("Annotations file %s doesn't specify a valid version= key" % ann.src)
