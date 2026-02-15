@@ -470,9 +470,12 @@ def _raw_sdist_repos(_module_ctx, lock_specs, override_specs):
 def _whl_repo_name(package, whl):
     """Get the repo name for a whl."""
 
+    # Use hash when available, fall back to URL-based identifier for wheels
+    # from private registries that don't serve PEP 503 hash fragments.
+    identifier = whl["hash"][len("shasum:"):][:8] if "hash" in whl else sha1(whl["url"])[:8]
     return "whl__{}__{}".format(
         package["name"],
-        whl["hash"][len("shasum:"):][:8],
+        identifier,
     )
 
 def _raw_whl_repos(_module_ctx, lock_specs, override_specs):
@@ -488,7 +491,10 @@ def _raw_whl_repos(_module_ctx, lock_specs, override_specs):
                 wheels = package.get("wheels", [])
                 for whl in wheels:
                     url = whl["url"]
-                    shasum = whl["hash"][len("sha256:"):]
+
+                    # Wheels from private registries may lack hash digests
+                    # when the registry doesn't serve PEP 503 hash fragments.
+                    shasum = whl["hash"][len("sha256:"):] if "hash" in whl else ""
 
                     # FIXME: Do we need to factor in the shasum or source her? Could
                     # have two or more sources for one "artifact".
