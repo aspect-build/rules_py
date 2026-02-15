@@ -14,7 +14,7 @@ load("//uv/private/constraints/python:defs.bzl", "supported_python")
 def _format_arms(d):
     content = ["        \"{}\": \"{}\"".format(k, v) for k, v in d.items()]
     content = ",\n".join(content)
-    return "{\n" + content + "\n    }"
+    return "{\n" + content + "\n   }"
 
 def _select_key(pair):
     """Force (triple, target) pairs into a orderable form.
@@ -131,20 +131,32 @@ def _whl_install_impl(repository_ctx):
             "//conditions:default": str(repository_ctx.attr.sbuild),
         }
 
+    else:
+        content.append("""
+filegroup(
+    name = "_no_sbuild",
+    srcs = [],
+    target_compatible_with = ["@platforms//:incompatible"]
+)
+""")
+        select_arms = select_arms | {
+            "//conditions:default": ":_no_sbuild",
+        }
+
     content.append(
         """
 select_chain(
-   name = "whl",
-   arms = {},
-   visibility = ["//visibility:private"],
+    name = "whl",
+    arms = {},
+    visibility = ["//visibility:private"],
 )
 py_library(
-   name = "whl_lib",
-   srcs = [],
-   data = [
-        ":whl"
-   ],
-   visibility = ["//visibility:private"],
+    name = "whl_lib",
+    srcs = [],
+    data = [
+         ":whl"
+    ],
+    visibility = ["//visibility:private"],
 )
 """.format(
             _format_arms(select_arms),
@@ -155,17 +167,17 @@ py_library(
     content.append(
         """
 whl_install(
-   name = "actual_install",
-   src = ":whl",
-   visibility = ["//visibility:private"],
+    name = "actual_install",
+    src = ":whl",
+    visibility = ["//visibility:private"],
 )
 alias(
-   name = "install",
-   actual = select({
-        "@aspect_rules_py//uv/private/constraints:libs_are_libs": ":actual_install",
-        "@aspect_rules_py//uv/private/constraints:libs_are_whls": ":whl_lib",
-   }),
-   visibility = ["//visibility:public"],
+    name = "install",
+    actual = select({
+         "@aspect_rules_py//uv/private/constraints:libs_are_libs": ":actual_install",
+         "@aspect_rules_py//uv/private/constraints:libs_are_whls": ":whl_lib",
+    }),
+    visibility = ["//visibility:public"],
 )
 """,
     )
