@@ -76,6 +76,10 @@ def _ignored_package(package):
     # These seem to be used by the package itself
     # - { source = { editable = "." } }
     # - { source = { virtual = "." } }
+    if "editable" in package["source"]:
+        return True
+
+    # The root project itself uses a virtual source
     if "virtual" in package["source"] and package["source"]["virtual"] == ".":
         return True
 
@@ -209,6 +213,22 @@ def _parse_locks(module_ctx, venv_specs):
                     for _name, group in package["optional-dependencies"].items():
                         for d in group:
                             d["name"] = normalize_name(d["name"])
+
+            # After removing ignored packages (editable/virtual), prune
+            # dangling dependency references that point to removed packages.
+            remaining = {package["name"]: 1 for package in packages}
+            for package in packages:
+                if "dependencies" in package:
+                    package["dependencies"] = [
+                        d for d in package["dependencies"]
+                        if d["name"] in remaining
+                    ]
+                if "optional-dependencies" in package:
+                    for group_name in list(package["optional-dependencies"].keys()):
+                        package["optional-dependencies"][group_name] = [
+                            d for d in package["optional-dependencies"][group_name]
+                            if d["name"] in remaining
+                        ]
 
             problems = []
             has_tools = "build" in req_whls and "setuptools" in req_whls
