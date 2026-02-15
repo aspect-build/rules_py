@@ -19,7 +19,7 @@ load(":py_library.bzl", default_py_library = "py_library")
 
 def _py_pytest_main_impl(ctx):
     substitutions = {
-        "$$FLAGS$$": ", ".join(['"{}"'.format(f) for f in ctx.attr.args]).strip(),
+        "user_args: List[str] = []": "user_args: List[str] = " + repr(['"{}"'.format(f) for f in ctx.attr.args]),
         # Leaving CHDIR empty results in potentially user facing issues w/
         # black and flake8, so we'll just assign something trivial as a no-op.
         "$$CHDIR$$": "os.chdir('{}')".format(ctx.attr.chdir) if ctx.attr.chdir else "_ = 0",
