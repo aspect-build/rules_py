@@ -513,10 +513,16 @@ def _raw_whl_repos(_module_ctx, lock_specs, override_specs):
 def _sbuild_repo_name(hub, venv, package):
     """Get the repo name for a sdist build."""
 
-    return "sbuild__{}__{}__{}".format(
+    # Include version hash to avoid collisions when uv.lock contains multiple
+    # versions of the same package (e.g., python-version-conditional deps).
+    # Use sha1 of version since version strings may contain chars invalid
+    # in Bazel repo names (e.g., '+' in dev versions like 0.7.0.dev40+g1fa30273b).
+    version_id = sha1(package.get("version", "0"))[:8]
+    return "sbuild__{}__{}__{}__{}".format(
         hub,
         venv,
         package["name"],
+        version_id,
     )
 
 def _venv_target(hub_name, venv, package_name):
@@ -590,10 +596,14 @@ def _sbuild_repos(_module_ctx, lock_specs, annotation_specs, override_specs):
 def _whl_install_repo_name(hub, venv, package):
     """Get the whl install repo name for a given package."""
 
-    return "whl_install__{}__{}__{}".format(
+    # Include version hash to avoid collisions when uv.lock contains multiple
+    # versions of the same package (e.g., python-version-conditional deps).
+    version_id = sha1(package.get("version", "0"))[:8]
+    return "whl_install__{}__{}__{}__{}".format(
         hub,
         venv,
         package["name"],
+        version_id,
     )
 
 # TODO: Move this to a real library
@@ -851,7 +861,9 @@ def _group_repos(module_ctx, lock_specs, entrypoint_specs, override_specs):
                 installs = {
                     # Use an override symbol if one exists, otherwise use the whl install repo.
                     # Note that applying an override will cause the whl install to be elided.
-                    package: str(overrides.get(package, _whl_install_repo_name(hub_name, venv_name, {"name": package})))
+                    # Pass the full package dict (with version) so _whl_install_repo_name
+                    # can compute the correct version-hashed repo name.
+                    package: str(overrides.get(package, _whl_install_repo_name(hub_name, venv_name, packages[package])))
                     for package in sorted(graph.keys())
                 },
                 entrypoints = json.encode(entrypoint_specs),
