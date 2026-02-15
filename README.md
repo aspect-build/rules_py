@@ -24,6 +24,10 @@ However we try to maintain compatibility with rules_python's rules for most use 
 
 [aspect-gazelle]: https://github.com/aspect-build/aspect-gazelle
 
+### Starter repo
+
+The fastest way to try this in an empty project is to click the green "Use this template" button on https://github.com/bazel-starters/py.
+
 ## Learn about it
 
 Aspect provides a Bazel training course based on rules_py: [Bazel 102: Python](https://training.aspect.build/bazel-102)
