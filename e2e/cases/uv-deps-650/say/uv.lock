@@ -1,6 +1,6 @@
 version = 1
 revision = 3
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 
 [[package]]
 name = "cowsay"
@@ -11,7 +11,7 @@ wheels = [
 ]
 
 [[package]]
-name = "dummy"
+name = "say"
 version = "0.0.0"
 source = { virtual = "." }
 dependencies = [
@@ -19,4 +19,4 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cowsay", specifier = "==6.1" }]
+requires-dist = [{ name = "cowsay" }]

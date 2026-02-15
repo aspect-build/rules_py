@@ -1,0 +1,9 @@
+[project]
+name = "images"
+version = "0.0.0"
+authors = []
+dependencies = [
+    "colorama",
+    "setuptools",
+    "build",
+]

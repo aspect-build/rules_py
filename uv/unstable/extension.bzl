@@ -1,5 +1,5 @@
 """"""
 
-load("//uv/private:extension.bzl", _uv = "uv")
+load("//uv/private/extension:defs.bzl", _uv = "uv")
 
 uv = _uv
