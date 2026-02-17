@@ -4,7 +4,7 @@ from argparse import ArgumentParser
 import shutil
 import sys
 from os import getenv, listdir, path
-from subprocess import call
+from subprocess import check_call
 
 # Under Bazel, the source dir of a sdist to build is immutable. `build` and
 # other tools however are constitutionally incapable of not writing to the
@@ -29,7 +29,7 @@ shutil.copytree(opts.srcdir, t, dirs_exist_ok=True)
 
 outdir = path.abspath(opts.outdir)
 
-call([
+check_call([
     sys.executable,
     "-m", "build",
     "--wheel",
