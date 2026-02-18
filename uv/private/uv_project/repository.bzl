@@ -123,11 +123,11 @@ load("@aspect_rules_py//py:defs.bzl", "py_library")
             cfg_arms = {}
 
             # This is a bit tricky. We're doing choice between several different
-            # SCCs possibly encoding different verisons or extra specializations
+            # SCCs possibly encoding different versions or extra specializations
             # of a package "at once" depending on the venv + marker set.
             # Consequently this second-level choice is actually the MERGE
             # between the individual cases under which specific markers evaluate
-            # to true. It's a configuraiton and locking failure for there to be
+            # to true. It's a configuration and locking failure for there to be
             # more than one package which resolves at this point. So we just jam all the configurations into a single select.
             for scc, markers in scc_cfgs.items():
                 if "" in markers:
