@@ -5,7 +5,7 @@
 # be overkill and take more work.
 #
 # The strategy is simple.
-# - Accept an args file containing paths to wheel (.whl) files
+# - Accept an args file containing paths to wheel (.whl) files or directories containing .whl files
 # - A path to a lockfile
 # - A path to a file containing an integrity shasum
 #
@@ -18,7 +18,6 @@
 # - Write a YAML format manifest file {manifest: {modules_mapping: <mapping>, pip_repository: <hub name>}, integrity: <integrity>}
 
 import argparse
-import re
 import sys
 from zipfile import ZipFile
 from pathlib import Path
@@ -73,12 +72,12 @@ def extract_package_name(whl_path: Path) -> Optional[str]:
             # Use email.parser (standard library) to reliably parse RFC 822 headers
             parser = Parser()
             msg = parser.parse(StringIO(metadata_content))
-            
+
             package_name = msg.get('Name')
             if not package_name:
                 print(f"Warning: 'Name' field missing from METADATA in {whl_path}", file=sys.stderr)
                 return None
-            
+
             return normalize_name(package_name.strip())
 
     except Exception as e:
@@ -99,11 +98,11 @@ def get_importable_module_name(filepath: str) -> Optional[str]:
 
     # 2. Split into path segments
     segments = filepath.split('/')
-    
+
     # 3. Filter out single-underscore prefixed segments (e.g., requests/_internal)
     # Exclude '__init__' from the underscore check
     filtered_segments = [s for s in segments if not (s.startswith('_') and s != '__init__')]
-    
+
     # If any segment was filtered out, we exclude the entire path
     if len(filtered_segments) != len(segments):
         return None
@@ -133,7 +132,7 @@ def identify_modules(whl_path: Path, package_name: str) -> dict[str, str]:
         A dictionary mapping importable module names to the requirement name.
     """
     module_mapping = {}
-    
+
     # Normalize package name for use as requirement name (Gazelle convention)
     requirement_name = package_name.lower().replace('-', '_')
 
@@ -153,7 +152,7 @@ def identify_modules(whl_path: Path, package_name: str) -> dict[str, str]:
                         if module_name not in module_mapping:
                             module_mapping[module_name] = requirement_name
                         # else: module already found, perhaps via a different path, skip
-    
+
     except Exception as e:
         print(f"Error identifying modules in {whl_path}: {e}", file=sys.stderr)
 
@@ -186,7 +185,7 @@ manifest:
   pip_repository: {pip_repository_name}
 integrity: "{integrity_value}"
 """
-    
+
     try:
         with open(output_path, 'w') as f:
             f.write(yaml_content)
@@ -203,7 +202,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="A tool for generating Gazelle manifests from Python wheel files."
     )
-    
+
     # Args file containing paths to wheel (.whl) files
     parser.add_argument(
         '--whl_paths_file',
@@ -211,7 +210,7 @@ def main():
         required=True,
         help="Path to a file containing a list of paths to wheel (.whl) files, one per line."
     )
-    
+
     # Path to a file containing the integrity shasum
     parser.add_argument(
         '--integrity_file',
@@ -219,7 +218,7 @@ def main():
         required=False,
         help="Path to a file containing the final integrity SHA sum (e.g., SHA256)."
     )
-    
+
     # Output path for the final Gazelle manifest
     parser.add_argument(
         '--output',
@@ -227,7 +226,7 @@ def main():
         default=Path('gazelle_manifest.yaml'),
         help="Path to write the final YAML manifest file."
     )
-    
+
     args = parser.parse_args()
 
     # 1. Read integrity value
@@ -240,7 +239,7 @@ def main():
         else:
             # The null shasum
             integrity_value = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-        
+
     except Exception as e:
         print(f"Error reading integrity file {args.integrity_file}: {e}", file=sys.stderr)
         sys.exit(1)
@@ -248,7 +247,18 @@ def main():
     # 2. Read wheel paths
     try:
         whl_paths_raw = args.whl_paths_file.read_text().splitlines()
-        whl_paths = [Path(p.strip()) for p in whl_paths_raw if p.strip()]
+        whl_paths = []
+        for p in whl_paths_raw:
+            p = p.strip()
+            if p:
+                p = Path(p)
+                if p.is_file():
+                    whl_paths.append(p)
+                elif p.is_dir():
+                    whl_paths.extend(p.glob("*.whl"))
+                else:
+                    print(f"No wheels found for {p}", file=sys.stderr)
+
     except Exception as e:
         print(f"Error reading wheel paths file {args.whl_paths_file}: {e}", file=sys.stderr)
         sys.exit(1)
@@ -262,15 +272,15 @@ def main():
         if not whl_path.exists():
             print(f"Warning: Wheel file not found: {whl_path}. Skipping.", file=sys.stderr)
             continue
-        
+
         # Get package name (requirement name)
         package_name = extract_package_name(whl_path)
         if not package_name:
             continue
-        
+
         # Identify importable modules for this package
         modules = identify_modules(whl_path, package_name)
-        
+
         # Merge results into the final map
         final_module_mapping.update(modules)
 

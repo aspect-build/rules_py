@@ -1,12 +1,14 @@
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("//uv/private/pprint:defs.bzl", "pprint")
 
 def _modules_mapping_impl(ctx):
     out = ctx.actions.declare_file(ctx.label.name + ".yaml")
 
     whl_file_deps = []
     for target in ctx.attr.wheels:
-        files_depset = target[DefaultInfo].default_runfiles.files
+        print(pprint(target[DefaultInfo]))
+        files_depset = target[DefaultInfo].files
         whl_file_deps.append(files_depset)
 
     whl_depset = depset(

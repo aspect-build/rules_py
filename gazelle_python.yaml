@@ -1546,6 +1546,8 @@ manifest:
     libpasteurize.fixes.fix_throw: future
     libpasteurize.fixes.fix_unpacking: future
     libpasteurize.main: future
+    maturin: maturin
+    maturin.bootstrap: maturin
     monotonic: monotonic
     msgpack: msgpack
     msgpack.exceptions: msgpack

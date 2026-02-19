@@ -172,7 +172,7 @@ alias(
             all_requirements.setdefault("//private/venv:" + cfg, []).append("//:" + package)
 
     content.append("""
-py_library(
+filegroup(
     name = "all_requirements",
     srcs = select({arms}),
     visibility = ["//visibility:public"],

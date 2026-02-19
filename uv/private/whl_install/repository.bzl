@@ -162,9 +162,10 @@ select_chain(
 )
 py_library(
    name = "whl_lib",
-   srcs = [],
-   data = [
+   srcs = [
         ":whl"
+   ],
+   data = [
    ],
    visibility = ["//visibility:private"],
 )
