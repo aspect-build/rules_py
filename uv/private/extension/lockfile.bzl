@@ -195,7 +195,6 @@ def collect_bdists(lock_data):
     bdist_table = {}
     for package in lock_data.get("package", []):
         for bdist in package.get("wheels", []):
-
             identifier = None
             if "hash" in bdist:
                 identifier = bdist["hash"].split(":")[1][:16]
