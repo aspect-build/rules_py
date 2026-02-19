@@ -62,35 +62,6 @@ python.toolchain(
     python_version = "3.13",
 )
 
-# TODO: Swap in our pip
-pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
-pip.parse(
-    hub_name = "pip",
-    python_version = "3.9",
-    requirements_lock = "//:requirements.txt",
-)
-pip.parse(
-    hub_name = "pip",
-    python_version = "3.10",
-    requirements_lock = "//:requirements.txt",
-)
-pip.parse(
-    hub_name = "pip",
-    python_version = "3.11",
-    requirements_lock = "//:requirements.txt",
-)
-pip.parse(
-    hub_name = "pip",
-    python_version = "3.12",
-    requirements_lock = "//:requirements.txt",
-)
-pip.parse(
-    hub_name = "pip",
-    python_version = "3.13",
-    requirements_lock = "//:requirements.txt",
-)
-use_repo(pip, "pip")
-
 # For cases/cross-repo-610
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 
