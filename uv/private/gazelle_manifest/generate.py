@@ -161,16 +161,14 @@ def identify_modules(whl_path: Path, package_name: str) -> dict[str, str]:
     return module_mapping
 
 def write_manifest(module_mapping: dict[str, str],
-                   integrity_value: str,
                    output_path: Path,
                    pip_repository_name: str = "pypi") -> None:
     """
-    Formats the module mapping and integrity into a YAML-like string and
+    Formats the module mapping into a YAML-like string and
     writes it to the specified output path. No pyyaml is used.
 
     Args:
         module_mapping: The collected module-to-requirement map.
-        integrity_value: The SHA256 integrity hash.
         output_path: Path to write the manifest file.
         pip_repository_name: The name to use for pip_repository in the output.
     """
@@ -185,7 +183,6 @@ manifest:
   modules_mapping:
 {sorted_mapping}
   pip_repository: {pip_repository_name}
-integrity: "{integrity_value}"
 """
 
     try:
@@ -213,14 +210,6 @@ def main():
         help="Path to a file containing a list of paths to wheel (.whl) files, one per line."
     )
 
-    # Path to a file containing the integrity shasum
-    parser.add_argument(
-        '--integrity_file',
-        type=Path,
-        required=False,
-        help="Path to a file containing the final integrity SHA sum (e.g., SHA256)."
-    )
-
     # Output path for the final Gazelle manifest
     parser.add_argument(
         '--output',
@@ -231,22 +220,7 @@ def main():
 
     args = parser.parse_args()
 
-    # 1. Read integrity value
-    try:
-        if args.integrity_file:
-            integrity_value = args.integrity_file.read_text().strip()
-            if not integrity_value:
-                print("Error: Integrity file is empty.", file=sys.stderr)
-                sys.exit(1)
-        else:
-            # The null shasum
-            integrity_value = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-
-    except Exception as e:
-        print(f"Error reading integrity file {args.integrity_file}: {e}", file=sys.stderr)
-        sys.exit(1)
-
-    # 2. Read wheel paths
+    # Read wheel paths
     try:
         whl_paths_raw = args.whl_paths_file.read_text().splitlines()
         whl_paths = []
@@ -287,7 +261,7 @@ def main():
         final_module_mapping.update(modules)
 
     # 4. Write the final manifest
-    write_manifest(final_module_mapping, integrity_value, args.output)
+    write_manifest(final_module_mapping, args.output)
 
 if __name__ == '__main__':
     main()

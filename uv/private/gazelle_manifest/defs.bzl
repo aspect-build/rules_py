@@ -32,7 +32,6 @@ def _modules_mapping_impl(ctx):
         arguments = [
             "--whl_paths_file",
             args_file.path,
-            # "--integrity_file", attr.file.integrity.path,
             "--output",
             out.path,
         ],
@@ -56,7 +55,6 @@ _modules_mapping = rule(
     implementation = _modules_mapping_impl,
     attrs = {
         "wheels": attr.label_list(providers = [[DefaultInfo]]),
-        # "integrity": attr.label(allow_single_file = True),
         "_generator": attr.label(
             default = Label(":generator"),
             executable = True,
