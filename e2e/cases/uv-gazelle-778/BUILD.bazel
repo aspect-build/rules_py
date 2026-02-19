@@ -1,12 +1,6 @@
 # buildifier: disable=bzl-visibility
 load("@aspect_rules_py//uv/private/gazelle_manifest:defs.bzl", "gazelle_python_manifest")
 
-# gazelle:exclude internal_python_deps.bzl
-# gazelle:exclude internal_deps.bzl
-# gazelle:exclude py/tests/
-# gazelle:exclude examples/django
-# gazelle:map_kind bzl_library bzl_library @bazel_lib//:bzl_library.bzl
-
 # Excercise generating a Gazelle manifest covering a ton of venvs
 gazelle_python_manifest(
     name = "gazelle_python_manifest",
