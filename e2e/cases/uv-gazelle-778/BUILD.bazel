@@ -1,7 +1,7 @@
 # buildifier: disable=bzl-visibility
 load("@aspect_rules_py//uv/private/gazelle_manifest:defs.bzl", "gazelle_python_manifest")
 
-# Excercise generating a Gazelle manifest covering a ton of venvs
+# Exercise generating a Gazelle manifest covering a ton of venvs
 gazelle_python_manifest(
     name = "gazelle_python_manifest",
     hub = "pypi",

@@ -242,7 +242,7 @@ def _parse_projects(module_ctx, hub_specs):
             for package in lock_data.get("package", []):
                 install_key = (project_id, package["name"], package["version"], "__base__")
                 if install_key in install_table:
-                    # Case of an overriden package
+                    # Case of an overridden package
                     continue
 
                 if install_key in install_table:

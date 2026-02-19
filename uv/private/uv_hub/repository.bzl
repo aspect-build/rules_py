@@ -65,7 +65,7 @@ load("@aspect_rules_py//uv/private:defs.bzl", "py_whl_library", "whl_requirement
         "//venv:" + cfg: ["@{}//:gazelle_index_whls".format(project_id)]
         for cfg, project_id in repository_ctx.attr.configurations.items()
     }
-    
+
     content.append("""
 filegroup(
     name = "gazelle_index_whls",
@@ -210,7 +210,7 @@ uv_hub = repository_rule(
     attrs = {
         "configurations": attr.string_dict(
             doc = """
-            Mapping of configuration name to a project _containing_ that configuraiton.
+            Mapping of configuration name to a project _containing_ that configuration.
             """,
         ),
         "packages": attr.string(

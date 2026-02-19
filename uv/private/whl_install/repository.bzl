@@ -8,9 +8,9 @@ produce a filegroup/TreeArtifact.
 """
 
 load("//uv/private:parse_whl_name.bzl", "parse_whl_name")
-load("//uv/private/pprint:defs.bzl", "pprint")
 load("//uv/private/constraints/platform:defs.bzl", "supported_platform")
 load("//uv/private/constraints/python:defs.bzl", "supported_python")
+load("//uv/private/pprint:defs.bzl", "pprint")
 
 def indent(text, space = " "):
     return "\n".join(["{}{}".format(space, l) for l in text.splitlines()])

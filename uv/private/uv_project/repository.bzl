@@ -43,7 +43,7 @@ def _project_impl(repository_ctx):
     for scc_installs in scc_graph.values():
         for install in scc_installs:
             installs[install] = 1
-    
+
     # As we go for simplicity we collect markers
     marker_table = {}
 
@@ -188,8 +188,10 @@ filegroup(
     srcs = {gazelle_whls},
     visibility = ["//visibility:public"],
 )
-""".format(arms = indent(pprint(all_requirements), " " * 4).lstrip(),
-           gazelle_whls = indent(pprint([it.replace("//:install", "//:gazelle_index_whl") for it in installs]), " " * 4).lstrip()))
+""".format(
+        arms = indent(pprint(all_requirements), " " * 4).lstrip(),
+        gazelle_whls = indent(pprint([it.replace("//:install", "//:gazelle_index_whl") for it in installs]), " " * 4).lstrip(),
+    ))
 
     repository_ctx.file("BUILD.bazel", "\n".join(content))
 
