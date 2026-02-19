@@ -137,6 +137,8 @@ def identify_modules(whl_path: Path, package_name: str) -> dict[str, str]:
     requirement_name = package_name.lower().replace('-', '_')
 
     try:
+        print(f"Indexing {whl_path.name}...", file=sys.stderr)
+
         with ZipFile(whl_path, 'r') as zf:
             for member in zf.namelist():
                 # Skip files inside dist-info, test, or example directories

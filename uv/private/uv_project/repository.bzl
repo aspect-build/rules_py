@@ -38,6 +38,12 @@ def _project_impl(repository_ctx):
     scc_deps = json.decode(repository_ctx.attr.scc_deps)
     scc_graph = json.decode(repository_ctx.attr.scc_graph)
 
+    # Collect all the underlying whl installs
+    installs = {}
+    for scc_installs in scc_graph.values():
+        for install in scc_installs:
+            installs[install] = 1
+    
     # As we go for simplicity we collect markers
     marker_table = {}
 
@@ -177,7 +183,14 @@ filegroup(
     srcs = select({arms}),
     visibility = ["//visibility:public"],
 )
-""".format(arms = indent(pprint(all_requirements), " " * 4).lstrip()))
+filegroup(
+    name = "gazelle_index_whls",
+    srcs = {gazelle_whls},
+    visibility = ["//visibility:public"],
+)
+""".format(arms = indent(pprint(all_requirements), " " * 4).lstrip(),
+           gazelle_whls = indent(pprint([it.replace("//:install", "//:gazelle_index_whl") for it in installs]), " " * 4).lstrip()))
+
     repository_ctx.file("BUILD.bazel", "\n".join(content))
 
     ################################0################################################

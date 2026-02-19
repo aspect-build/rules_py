@@ -7,7 +7,6 @@ def _modules_mapping_impl(ctx):
 
     whl_file_deps = []
     for target in ctx.attr.wheels:
-        print(pprint(target[DefaultInfo]))
         files_depset = target[DefaultInfo].files
         whl_file_deps.append(files_depset)
 
@@ -89,7 +88,7 @@ def gazelle_python_manifest(name, hub, venvs = [], lockfile = None):
             name = platform_name + "_whls",
             target_platform = platform_name,
             srcs = [
-                "@{}//:all_whl_requirements".format(hub),
+                "@{}//:gazelle_index_whls".format(hub),
             ],
         )
         whls.append(platform_name + "_whls")
@@ -108,5 +107,5 @@ def gazelle_python_manifest(name, hub, venvs = [], lockfile = None):
         name = name + ".update",
         srcs = [update],
         data = [name],
-        args = ["$(location :%s)" % name, dest],
+        args = ["$(location %s)" % name, dest],
     )

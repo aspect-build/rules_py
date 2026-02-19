@@ -8,8 +8,12 @@ produce a filegroup/TreeArtifact.
 """
 
 load("//uv/private:parse_whl_name.bzl", "parse_whl_name")
+load("//uv/private/pprint:defs.bzl", "pprint")
 load("//uv/private/constraints/platform:defs.bzl", "supported_platform")
 load("//uv/private/constraints/python:defs.bzl", "supported_python")
+
+def indent(text, space = " "):
+    return "\n".join(["{}{}".format(space, l) for l in text.splitlines()])
 
 def _format_arms(d):
     content = ["        \"{}\": \"{}\"".format(k, v) for k, v in d.items()]
@@ -153,24 +157,39 @@ def _whl_install_impl(repository_ctx):
             "//conditions:default": str(repository_ctx.attr.sbuild),
         }
 
+    if prebuilds:
+        gazelle_index_whl = prebuilds.values()[0]  # Effectively random choice :shrug:
+    elif repository_ctx.attr.sbuild:
+        gazelle_index_whl = repository_ctx.attr.sbuild
+    else:
+        fail("Cannot identify a wheel or sbuild of {} to analyze for Gazelle indexing".format(repository_ctx.name))
+
     content.append(
         """
 select_chain(
    name = "whl",
-   arms = {},
+   arms = {arms},
    visibility = ["//visibility:private"],
 )
+
+filegroup(
+    name = "gazelle_index_whl",
+    srcs = {index_whl},
+    visibility = ["//visibility:public"],
+)
+
 py_library(
-   name = "whl_lib",
-   srcs = [
+    name = "whl_lib",
+    srcs = [
         ":whl"
-   ],
-   data = [
-   ],
-   visibility = ["//visibility:private"],
+    ],
+    data = [
+    ],
+    visibility = ["//visibility:private"],
 )
 """.format(
-            _format_arms(select_arms),
+            arms = _format_arms(select_arms),
+            index_whl = indent(pprint([str(gazelle_index_whl)]), " " * 4).lstrip(),
         ),
     )
 
@@ -178,17 +197,17 @@ py_library(
     content.append(
         """
 whl_install(
-   name = "actual_install",
-   src = ":whl",
-   visibility = ["//visibility:private"],
+    name = "actual_install",
+    src = ":whl",
+    visibility = ["//visibility:private"],
 )
 alias(
-   name = "install",
-   actual = select({
+    name = "install",
+    actual = select({
         "@aspect_rules_py//uv/private/constraints:libs_are_libs": ":actual_install",
         "@aspect_rules_py//uv/private/constraints:libs_are_whls": ":whl_lib",
-   }),
-   visibility = ["//visibility:public"],
+    }),
+    visibility = ["//visibility:public"],
 )
 """,
     )

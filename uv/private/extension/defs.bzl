@@ -245,11 +245,10 @@ def _parse_projects(module_ctx, hub_specs):
                     # Case of an overriden package
                     continue
 
-                if "editable" in package["source"]:
-                    # Don't generate a sdist build or anything else for the self-package
-                    if package["name"] == normalize_name(project_name):
-                        continue
-                    elif install_key in install_table:
+                if install_key in install_table:
+                    continue
+                elif "editable" in package["source"] or "virtual" in package["source"]:
+                    if package["name"] == project_name:
                         continue
                     else:
                         fail("Virtual package {} in lockfile {} doesn't have a mandatory `uv.override_package()` annotation!".format(package["name"], project.lock))

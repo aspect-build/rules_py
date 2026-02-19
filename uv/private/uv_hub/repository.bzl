@@ -61,25 +61,19 @@ load("@aspect_rules_py//uv/private:defs.bzl", "py_whl_library", "whl_requirement
 """,
     ]
 
-    select_clauses = {
-        "//venv:" + cfg: ["@{}//:all_requirements".format(project_id)]
+    index_select_clauses = {
+        "//venv:" + cfg: ["@{}//:gazelle_index_whls".format(project_id)]
         for cfg, project_id in repository_ctx.attr.configurations.items()
     }
-
+    
     content.append("""
 filegroup(
-    name = "all_requirements",
-    srcs = select({select_clauses},
+    name = "gazelle_index_whls",
+    srcs = select({index_select_clauses},
     ),
     visibility = ["//visibility:public"],
 )
-
-whl_requirements(
-    name = "all_whl_requirements",
-    srcs = [":all_requirements"],
-    visibility = ["//visibility:public"],
-)
-""".format(select_clauses = indent(pprint(select_clauses), "        ").lstrip()))
+""".format(index_select_clauses = indent(pprint(index_select_clauses), "        ").lstrip()))
 
     repository_ctx.file("BUILD.bazel", "\n".join(content))
 
