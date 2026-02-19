@@ -195,7 +195,14 @@ def collect_bdists(lock_data):
     bdist_table = {}
     for package in lock_data.get("package", []):
         for bdist in package.get("wheels", []):
-            bdist_repo_name = "whl__{}__{}".format(package["name"], bdist["hash"].split(":")[1][:16])
+
+            identifier = None
+            if "hash" in bdist:
+                identifier = bdist["hash"].split(":")[1][:16]
+            else:
+                identifier = sha1(bdist["url"])[:16]
+
+            bdist_repo_name = "whl__{}__{}".format(package["name"], identifier)
             bdist_specs[bdist_repo_name] = bdist
             bdist_table[bdist["hash"]] = "@{}//file".format(bdist_repo_name)
 
@@ -223,7 +230,14 @@ def collect_sdists(
         k = "sdist_build__{}__{}__{}".format(lock_id, package["name"], package["version"].replace(".", "_"))
         if "sdist" in package:
             sdist = package["sdist"]
-            sdist_repo_name = "sdist__{}__{}".format(package["name"], sdist["hash"].split(":")[1][:16])
+
+            identifier = None
+            if "hash" in sdist:
+                identifier = sdist["hash"].split(":")[1][:16]
+            else:
+                identifier = sha1(sdist["url"])[:16]
+
+            sdist_repo_name = "sdist__{}__{}".format(package["name"], identifier)
             sdist_specs[sdist_repo_name] = {"file": sdist}
             sdist_table[k] = "@{}//file".format(sdist_repo_name)
 

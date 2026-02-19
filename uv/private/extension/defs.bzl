@@ -420,10 +420,14 @@ def _uv_impl(module_ctx):
             fail("Unsupported archive! {}".format(repr(sdist_cfg)))
 
     for bdist_name, bdist_cfg in cfg.bdist_cfgs.items():
+        sha256 = None
+        if "hash" in bdist_cfg:
+            sha256 = bdist_cfg["hash"][len("sha256:"):]
+
         http_file(
             name = bdist_name,
             url = bdist_cfg["url"],
-            sha256 = bdist_cfg["hash"][len("sha256:"):],
+            sha256 = sha256,
             downloaded_file_path = bdist_cfg["url"].split("/")[-1].split("?")[0].split("#")[0],
         )
 
