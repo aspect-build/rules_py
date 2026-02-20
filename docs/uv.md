@@ -86,7 +86,7 @@ to swap a locked requirement (`cowsay`) for a local one.
 ```starlark
 # MODULE.bazel
 bazel_dep(name = "aspect_rules_py", version = "1.6.7") # Or later
-uv = use_extension("//uv/unstable:extension.bzl", "uv")
+uv = use_extension("aspect_rules_py//uv/unstable:extension.bzl", "uv")
 uv.declare_hub(
     hub_name = "pypi",      # Or whatever you wish
 )
@@ -117,7 +117,7 @@ uv.override_requirement(
 )
 
 # This one hub now has two configurations ("venvs") available
-use repository(uv, "pypi")
+use_repo(uv, "pypi")
 ```
 
 We can configure a default virtualenv by setting the venv configuration flag on our hub as part of the `.bazelrc`.
