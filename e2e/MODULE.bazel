@@ -117,4 +117,24 @@ uv.project(
     pyproject = "//cases/uv-deps-650/extras:pyproject.toml",
 )
 # }}}
+
+# For cases/uv-workspace-789
+# {{{
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/uv-workspace-789:uv.lock",
+    pyproject = "//cases/uv-workspace-789:pyproject.toml",
+)
+uv.override_package(
+    name = "foo",
+    lock = "//cases/uv-workspace-789:uv.lock",
+    target = "//cases/uv-workspace-789/packages/foo",
+)
+uv.override_package(
+    name = "pi",
+    lock = "//cases/uv-workspace-789:uv.lock",
+    target = "//cases/uv-workspace-789/packages/pi",
+)
+# }}}
+
 use_repo(uv, "pypi")

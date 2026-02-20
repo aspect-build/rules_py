@@ -1,0 +1,14 @@
+load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
+
+py_venv_test(
+    name = "test",
+    srcs = [
+        "__test__.py",
+    ],
+    deps = [
+        "@pypi//foo",  # Firstparty package
+        "@pypi//pi",   # Firstparty package
+    ],
+    main = "__test__.py",
+    venv = "workspace",
+)

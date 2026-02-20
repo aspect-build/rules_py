@@ -206,7 +206,7 @@ def _parse_projects(module_ctx, hub_specs):
 
             whl_configurations.update(collect_configurations(lock_data))
 
-            configuration_names, activated_extras = collect_activated_extras(project.lock, project_data, default_versions, marker_graph)
+            configuration_names, activated_extras = collect_activated_extras(project.lock, project_data, lock_data, default_versions, marker_graph)
             version_activations = collate_versions_by_name(activated_extras)
 
             # Mapping from SCC ID to marked SCC members
@@ -244,10 +244,9 @@ def _parse_projects(module_ctx, hub_specs):
                 if install_key in install_table:
                     # Case of an overridden package
                     continue
-
-                if install_key in install_table:
-                    continue
                 elif "editable" in package["source"] or "virtual" in package["source"]:
+                    # Case of the workspace self-package
+                    # FIXME: Workspace packages can have srcs? It's a bit weird
                     if package["name"] == project_name:
                         continue
                     else:

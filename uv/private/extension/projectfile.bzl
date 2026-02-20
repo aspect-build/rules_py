@@ -98,7 +98,7 @@ def extract_requirement_marker_pairs(projectfile, req_string, version_map):
 
     return results
 
-def collect_activated_extras(projectfile, project_data, default_versions, graph):
+def collect_activated_extras(projectfile, project_data, lock_data, default_versions, graph):
     """Collects the set of transitively activated extras for each configuration.
 
     This function determines the full set of extras that are activated for each
@@ -121,11 +121,11 @@ def collect_activated_extras(projectfile, project_data, default_versions, graph)
           `{dep: {cfg: {extra_dep: {marker: 1}}}}`.
     """
 
-    # If no dependency-groups are specified, create a default group
+    # If no dependency-groups are specified, use the lock members manifest, or just the self-list
     dep_groups = project_data.get("dependency-groups", {
-        project_data["project"]["name"]: [
+        project_data["project"]["name"]: lock_data.get("manifest", {}).get("members", [
             project_data["project"]["name"],
-        ],
+        ]),
     })
 
     # Normalize dep groups to our dependency triples (graph keys)
