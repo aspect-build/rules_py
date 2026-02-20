@@ -38,7 +38,6 @@ python.toolchain(
     python_version = "3.13",
 )
 
-
 # For the OCI tests
 # {{{
 oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")

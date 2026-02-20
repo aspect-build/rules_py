@@ -4,8 +4,8 @@ py_library(
     name = "pi",
     srcs = glob(["src/**/*.py"]),
     imports = ["src"],
+    visibility = ["//visibility:public"],
     deps = [
         "@pypi//requests",
     ],
-    visibility = ["//visibility:public"],
 )
