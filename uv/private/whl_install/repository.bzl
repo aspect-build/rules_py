@@ -162,7 +162,7 @@ def _whl_install_impl(repository_ctx):
     elif repository_ctx.attr.sbuild:
         gazelle_index_whl = repository_ctx.attr.sbuild
     else:
-        fail("Cannot identify a wheel or sbuild of {} to analyze for Gazelle indexing".format(repository_ctx.name))
+        fail("Cannot identify a wheel or sbuild of {} to analyze for Gazelle indexing\n{}".format(repository_ctx.name, pprint(repository_ctx.attr)))
 
     content.append(
         """
