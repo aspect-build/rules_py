@@ -23,7 +23,9 @@ from zipfile import ZipFile
 from pathlib import Path
 from email.parser import Parser
 from io import StringIO
-from typing import Optional
+from typing import Optional, Set, List, Tuple
+from collections import defaultdict
+
 
 def normalize_name(name):
     """normalize a PyPI package name and return a valid bazel label.
@@ -45,6 +47,7 @@ def normalize_name(name):
         for part in name.split("_")
         if part
     ])
+
 
 def extract_package_name(whl_path: Path) -> Optional[str]:
     """
@@ -84,6 +87,7 @@ def extract_package_name(whl_path: Path) -> Optional[str]:
         print(f"Error reading package name from {whl_path}: {e}", file=sys.stderr)
         return None
 
+
 def get_importable_module_name(filepath: str) -> Optional[str]:
     """
     Converts a file path inside the wheel (e.g., 'requests/utils.py') into
@@ -118,6 +122,7 @@ def get_importable_module_name(filepath: str) -> Optional[str]:
     module_name = ".".join(filtered_segments).replace('-', '_')
 
     return module_name if module_name else None
+
 
 def identify_modules(whl_path: Path, package_name: str) -> dict[str, str]:
     """
@@ -160,6 +165,7 @@ def identify_modules(whl_path: Path, package_name: str) -> dict[str, str]:
 
     return module_mapping
 
+
 def write_manifest(module_mapping: dict[str, str],
                    output_path: Path,
                    pip_repository_name: str = "pypi") -> None:
@@ -193,7 +199,63 @@ manifest:
     except Exception as e:
         print(f"Error writing manifest to {output_path}: {e}", file=sys.stderr)
 
-# --- Main Logic and Argument Parsing ---
+
+def find_unique_shallowest_prefixes(all_module_package_pairs: List[Tuple[str, str]]) -> dict[str, str]:
+    """
+    Identifies the shallowest module prefixes that map uniquely to a given Python package.
+
+    Args:
+        all_module_package_pairs: A list of (module_name, package_name) tuples from all wheels.
+
+    Returns:
+        A dictionary mapping the unique shallowest module prefixes to their corresponding package names.
+    """
+    prefix_to_packages: defaultdict[str, Set[str]] = defaultdict(set)
+
+    # 1. Populate prefix_to_packages: map each prefix to the set of packages it belongs to.
+    for module_name, package_name in all_module_package_pairs:
+        parts = module_name.split('.')
+        current_prefix_parts = []
+        for part in parts:
+            current_prefix_parts.append(part)
+            prefix = ".".join(current_prefix_parts)
+            prefix_to_packages[prefix].add(package_name)
+
+    final_module_mapping: dict[str, str] = {}
+    
+    # Sort unique full module names by length, then alphabetically for deterministic results.
+    # This ensures that shallower prefixes are considered before deeper ones.
+    unique_full_module_names = sorted(list(set(module for module, _ in all_module_package_pairs)), key=lambda x: (len(x.split('.')), x))
+
+    for module_name in unique_full_module_names:
+        # Check if this module_name (or a deeper path starting with it) has already been covered
+        # by a previously established shallowest unique prefix.
+        # This is crucial for ensuring we only pick the *shallowest* unique prefix.
+        if any(module_name.startswith(mapped_prefix) and mapped_prefix != module_name for mapped_prefix in final_module_mapping.keys()):
+            continue
+
+        parts = module_name.split('.')
+        
+        # Iterate from the shallowest prefix to the deepest for the current module_name
+        # The goal is to find the *first* (shallowest) prefix that is unique.
+        for i in range(1, len(parts) + 1):
+            current_prefix = ".".join(parts[:i])
+            packages_for_prefix = prefix_to_packages.get(current_prefix)
+
+            if packages_for_prefix and len(packages_for_prefix) == 1:
+                unique_package = next(iter(packages_for_prefix))
+                # If this prefix is unique AND it's not already mapped, or it's mapped to a different package
+                # (which means a conflict or a better shallowest prefix found), then map it.
+                # The 'mapped_prefix' check above should prevent mapping deeper paths if a shallower one exists for the same package.
+                if current_prefix not in final_module_mapping:
+                    final_module_mapping[current_prefix] = unique_package
+                # Once a shallowest unique prefix is found for this module path, break and move to the next unique_full_module_name.
+                break 
+            # If len(packages_for_prefix) > 1, this prefix is not unique, continue to a deeper prefix.
+            # If packages_for_prefix is None, it implies this prefix was never encountered, continue.
+            
+    return final_module_mapping
+
 
 def main():
     """
@@ -244,7 +306,7 @@ def main():
         print("Warning: No wheel paths found in the input file. Generating empty manifest.", file=sys.stderr)
 
     # 3. Process each wheel file
-    final_module_mapping = {}
+    all_module_package_pairs = []
     for whl_path in whl_paths:
         if not whl_path.exists():
             print(f"Warning: Wheel file not found: {whl_path}. Skipping.", file=sys.stderr)
@@ -258,8 +320,11 @@ def main():
         # Identify importable modules for this package
         modules = identify_modules(whl_path, package_name)
 
-        # Merge results into the final map
-        final_module_mapping.update(modules)
+        for module, package in modules.items():
+            all_module_package_pairs.append((module, package))
+
+    # Process all_module_package_pairs to find unique shallowest prefixes
+    final_module_mapping = find_unique_shallowest_prefixes(all_module_package_pairs)
 
     # 4. Write the final manifest
     write_manifest(final_module_mapping, args.output)
