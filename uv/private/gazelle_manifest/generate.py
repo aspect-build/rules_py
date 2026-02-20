@@ -182,7 +182,8 @@ def write_manifest(module_mapping: dict[str, str],
 manifest:
   modules_mapping:
 {sorted_mapping}
-  pip_repository: {pip_repository_name}
+  pip_repository:
+    name: {pip_repository_name}
 """
 
     try:
