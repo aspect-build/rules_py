@@ -10,8 +10,10 @@ common --define=SOME_VAR=SOME_VALUE
 common --@pypi//venv=default
 
 common --incompatible_enable_cc_toolchain_resolution
+common --incompatible_enable_proto_toolchain_resolution
 common --@toolchains_llvm_bootstrapped//config:experimental_stub_libgcc_s
 common --@rules_cc//cc/toolchains/args/archiver_flags:use_libtool_on_macos=false
+common --@protobuf//bazel/toolchains:prefer_prebuilt_protoc
 
 # TODO(bzlmod): Don't break proto
 common --per_file_copt=external/.*protobuf.*@--PROTOBUF_WAS_NOT_SUPPOSED_TO_BE_BUILT

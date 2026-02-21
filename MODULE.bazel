@@ -18,6 +18,9 @@ bazel_dep(name = "rules_cc", version = "0.2.16")
 bazel_dep(name = "rules_pkg", version = "1.1.0")
 bazel_dep(name = "tar.bzl", version = "0.5.5")
 
+# NB: LOWER BOUND on earliest BCR release of protobuf module, to avoid upgrading the root module by accident
+bazel_dep(name = "protobuf", version = "3.19.6")
+
 bazel_lib_toolchains = use_extension("@tar.bzl//tar:extensions.bzl", "toolchains")
 use_repo(bazel_lib_toolchains, "bsd_tar_toolchains")
 
@@ -102,6 +105,11 @@ bazel_dep(name = "rules_rs", version = "0.0.26", dev_dependency = IS_RELEASE)
 bazel_dep(name = "xz", version = "5.4.5.bcr.7", dev_dependency = IS_RELEASE)
 bazel_dep(name = "zstd", version = "1.5.7", dev_dependency = IS_RELEASE)
 bazel_dep(name = "rules_multitool", version = "1.9.0", dev_dependency = IS_RELEASE)
+
+single_version_override(
+    module_name = "protobuf",
+    version = "33.4",
+)
 
 multitool = use_extension("@rules_multitool//multitool:extension.bzl", "multitool", dev_dependency = IS_RELEASE)
 multitool.hub(lockfile = "//tools:tools.lock.json")

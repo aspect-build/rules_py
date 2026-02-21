@@ -9,6 +9,7 @@ load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private:providers.bzl", "PyVirtualInfo")
+load(":proto.bzl", "py_proto_aspect")
 
 def _make_instrumented_files_info(ctx, extra_source_attributes = [], extra_dependency_attributes = []):
     return coverage_common.instrumented_files_info(
@@ -206,6 +207,7 @@ _attrs = dict({
     "deps": attr.label_list(
         doc = "Targets that produce Python code, commonly `py_library` rules.",
         providers = [[PyInfo], [PyVirtualInfo], [CcInfo]],
+        aspects = [py_proto_aspect],
     ),
     "data": attr.label_list(
         doc = """Runtime dependencies of the program.

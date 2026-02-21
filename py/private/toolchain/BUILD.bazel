@@ -7,6 +7,11 @@ exports_files(
 )
 
 toolchain_type(
+    name = "protoc_plugin_toolchain_type",
+    visibility = ["//visibility:public"],
+)
+
+toolchain_type(
     name = "unpack_toolchain_type",
     visibility = ["//visibility:public"],
 )

@@ -1,0 +1,13 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
+
+proto_library(
+    name = "foo_proto",
+    srcs = ["foo.proto"],
+)
+
+py_binary(
+    name = "main",
+    srcs = ["__main__.py"],
+    deps = [":foo_proto"],
+)
