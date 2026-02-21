@@ -243,18 +243,15 @@ def collect_sdists(
         elif "git" in package["source"]:
             git_url = package["source"]["git"]
             git_cfg = parse_git_url(git_url)
+            sdist_repo_name = "sdist_git__{}__{}".format(package["name"], sha1(git_url)[:16])
 
-            # FIXME: Replace with a policy mechanism
-            if allow_git_to_http_conversion:
-                sdist_cfg = try_git_to_http_archive(git_cfg)
-                sdist_repo_name = "sdist_git__{}__{}".format(package["name"], sha1(git_url)[:16])
-                sdist_table[k] = "@{}//file".format(sdist_repo_name)
+            sdist_table[k] = "@{}//file".format(sdist_repo_name)
+            sdist_cfg = try_git_to_http_archive(git_cfg)
+            if allow_git_to_http_conversion and sdist_cfg:
+                sdist_specs[sdist_repo_name] = {"file": sdist_cfg}
 
-                if sdist_cfg:
-                    sdist_specs[sdist_repo_name] = {"file": sdist_cfg}
-                    continue
-
-            sdist_specs[sdist_repo_name] = {"git": git_cfg}
+            else:
+                sdist_specs[sdist_repo_name] = {"git": git_cfg}
 
     return sdist_specs, sdist_table
 
