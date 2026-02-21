@@ -3,79 +3,79 @@
 The aspect converts a ProtoInfo provider into a PyInfo provider so that proto_library may be a dep to python rules.
 """
 
+load("@protobuf//bazel/common:proto_common.bzl", "proto_common")
 load("@protobuf//bazel/common:proto_info.bzl", "ProtoInfo")
 load("@rules_python//python:defs.bzl", "PyInfo")
-# load(":proto_common.bzl", "proto_common")
 
 LANG_PROTO_TOOLCHAIN = Label("//py/private/toolchain:protoc_plugin_toolchain_type")
-PROTOC_TOOLCHAIN = Label("@protobuf//bazel/private:proto_toolchain_type")
 
 def _py_proto_aspect_impl(target, ctx):
     proto_info = target[ProtoInfo]
-    protoc_info = ctx.toolchains[PROTOC_TOOLCHAIN].proto
     proto_lang_toolchain_info = ctx.toolchains[LANG_PROTO_TOOLCHAIN].proto
+    proto_deps = [d for d in ctx.rule.attr.deps if PyInfo in d]
+    python_naming = lambda name: name.replace("-", "_").replace(".", "/")
+    py_outputs = proto_common.declare_generated_files(
+        actions = ctx.actions,
+        proto_info = proto_info,
+        extension = "_pb2.py",
+        name_mapper = python_naming,
+    )
 
-    #py_outputs = proto_common.declare_generated_files(ctx.actions, proto_info, "_pb.py")
+    # FIXME: support generated stubs
+    # generated_stubs = proto_common.declare_generated_files(
+    #     actions = ctx.actions,
+    #     proto_info = proto_info,
+    #     extension = "_pb2.pyi",
+    #     name_mapper = python_naming,
+    # )
+
+    # Determine root folder, mapping output paths to inputs, i.e. bazel-bin/arch/bin/foo to foo
+    proto_root = proto_info.proto_source_root
+    if proto_root.startswith(ctx.bin_dir.path):
+        proto_root = proto_root[len(ctx.bin_dir.path) + 1:]
+
+    # It's possible for proto_library to have only deps but no srcs
+    if proto_info.direct_sources:
+        additional_args = ctx.actions.args()
+        # FIXME: this is plugin-specific and fishy
+        # additional_args.add(py_outputs[0].root, format = "--pyi_out=%s")
+
+        proto_common.compile(
+            actions = ctx.actions,
+            proto_info = proto_info,
+            proto_lang_toolchain_info = proto_lang_toolchain_info,
+            generated_files = py_outputs,
+            plugin_output = py_outputs[0].root.path,
+            additional_args = additional_args,
+        )
+
+    # Import path within the runfiles tree
+    if proto_root.startswith("external/"):
+        import_path = proto_root[len("external") + 1:]
+    else:
+        import_path = ctx.workspace_name + "/" + proto_root
     return [
+        DefaultInfo(files = depset(py_outputs)),
         PyInfo(
-            #       sources = depset(py_outputs),
+            imports = depset(
+                # Adding to PYTHONPATH so the generated modules can be
+                # imported.  This is necessary when there is
+                # strip_import_prefix, the Python modules are generated under
+                # _virtual_imports. But it's undesirable otherwise, because it
+                # will put the repo root at the top of the PYTHONPATH, ahead of
+                # directories added through `imports` attributes.
+                [import_path] if "_virtual_imports" in import_path else [],
+                transitive = [dep.imports for dep in proto_deps],  # + [proto_lang_toolchain_info.runtime[PyInfo].imports]
+            ),
+            # direct_pyi_files = depset(direct = direct_pyi_files),
+            # transitive_pyi_files = transitive_pyi_files,
+            transitive_sources = depset(py_outputs, transitive = [dep.transitive_sources for dep in proto_deps]),
+            # Proto always produces 2- and 3- compatible source files
+            has_py2_only_sources = False,
+            has_py3_only_sources = False,
+            uses_shared_libraries = False,
         ),
     ]
-
-# TODO: borrow from the JS implementation:
-# def _js_proto_aspect_impl(target, ctx):
-#     proto_info = target[ProtoInfo]
-#     protoc_info = ctx.toolchains[PROTOC_TOOLCHAIN].proto
-#     proto_lang_toolchain_info = ctx.toolchains[LANG_PROTO_TOOLCHAIN].proto
-#     js_outputs = proto_common.declare_generated_files(ctx.actions, proto_info, "_pb.js")
-#     dts_outputs = proto_common.declare_generated_files(ctx.actions, proto_info, "_pb.d.ts")
-#     output_root = js_outputs[0].root
-
-#     args = ctx.actions.args()
-#     args.add(proto_lang_toolchain_info.plugin.executable, format = proto_lang_toolchain_info.plugin_format_flag)
-#     proto_outdir = proto_common.output_directory(proto_info, output_root)
-#     args.add_all((proto_lang_toolchain_info.out_replacement_format_flag % proto_outdir).split(" "))
-#     args.add("--descriptor_set_in")
-#     args.add_joined(proto_info.transitive_descriptor_sets, join_with = ctx.configuration.host_path_separator)
-
-#     # Vendored: https://github.com/protocolbuffers/protobuf/blob/v31.1/bazel/common/proto_common.bzl#L193-L204
-#     # Protoc searches for .protos -I paths in order they are given and then
-#     # uses the path within the directory as the package.
-#     # This requires ordering the paths from most specific (longest) to least
-#     # specific ones, so that no path in the list is a prefix of any of the
-#     # following paths in the list.
-#     # For example: 'bazel-out/k8-fastbuild/bin/external/foo' needs to be listed
-#     # before 'bazel-out/k8-fastbuild/bin'. If not, protoc will discover file under
-#     # the shorter path and use 'external/foo/...' as its package path.
-#     args.add_all(proto_info.transitive_proto_path, map_each = proto_common.import_virtual_proto_path)
-#     args.add_all(proto_info.transitive_proto_path, map_each = proto_common.import_repo_proto_path)
-#     args.add_all(proto_info.transitive_proto_path, map_each = proto_common.import_main_output_proto_path)
-#     args.add("-I.")  # Needs to come last
-
-#     args.add_all(proto_info.direct_sources)
-
-#     ctx.actions.run(
-#         executable = protoc_info.proto_compiler.executable,
-#         arguments = [args],
-#         progress_message = "Generating .js/.d.ts from %{label}",
-#         mnemonic = "JsProtocGenerate",
-#         tools = [proto_lang_toolchain_info.plugin, protoc_info.proto_compiler],
-#         inputs = depset(proto_info.direct_sources, transitive = [proto_info.transitive_descriptor_sets]),
-#         outputs = js_outputs + dts_outputs,
-#         use_default_shell_env = True,
-#     )
-
-#     return [
-#         js_info(
-#             target = ctx.label,
-#             sources = depset(js_outputs),
-#             types = depset(dts_outputs),
-#             transitive_sources = gather_transitive_sources(js_outputs, ctx.rule.attr.deps),
-#             transitive_types = gather_transitive_types(dts_outputs, ctx.rule.attr.deps),
-#             npm_sources = gather_npm_sources(srcs = [], deps = [proto_lang_toolchain_info.runtime]),
-#             npm_package_store_infos = gather_npm_package_store_infos([proto_lang_toolchain_info.runtime]),
-#         ),
-#     ]
 
 py_proto_aspect = aspect(
     implementation = _py_proto_aspect_impl,
@@ -83,10 +83,7 @@ py_proto_aspect = aspect(
     attr_aspects = ["deps"],
     # Only visit nodes that produce a ProtoInfo provider
     required_providers = [ProtoInfo],
-    # Be a valid dependency of a ts_project rule
+    # Be a valid dependency of a py_library rule
     provides = [PyInfo],
-    toolchains = [
-        LANG_PROTO_TOOLCHAIN,
-        PROTOC_TOOLCHAIN,
-    ],
+    toolchains = [LANG_PROTO_TOOLCHAIN],
 )

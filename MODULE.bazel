@@ -106,9 +106,15 @@ bazel_dep(name = "xz", version = "5.4.5.bcr.7", dev_dependency = IS_RELEASE)
 bazel_dep(name = "zstd", version = "1.5.7", dev_dependency = IS_RELEASE)
 bazel_dep(name = "rules_multitool", version = "1.9.0", dev_dependency = IS_RELEASE)
 
+# Support examples/protobuf
 single_version_override(
     module_name = "protobuf",
     version = "33.4",
+)
+
+register_toolchains(
+    "//examples/protobuf/toolchains:all",
+    dev_dependency = True,
 )
 
 multitool = use_extension("@rules_multitool//multitool:extension.bzl", "multitool", dev_dependency = IS_RELEASE)
