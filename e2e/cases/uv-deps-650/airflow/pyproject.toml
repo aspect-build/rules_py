@@ -1,0 +1,10 @@
+[project]
+name = "airflow"
+version = "0.0.0"
+authors = []
+dependencies = [
+    "apache-airflow",
+    "apache-airflow-providers-sqlite",
+    "setuptools",
+    "build",
+]

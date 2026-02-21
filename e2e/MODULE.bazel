@@ -12,34 +12,10 @@ bazel_dep(name = "toolchains_llvm_bootstrapped", version = "0.3.1")
 bazel_dep(name = "rules_oci", version = "2.2.6")
 bazel_dep(name = "rules_rust", version = "0.68.1")
 
-oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
-oci.pull(
-    name = "ubuntu",
-    digest = "sha256:c35e29c9450151419d9448b0fd75374fec4fff364a27f176fb458d472dfc9e54",
-    image = "public.ecr.aws/docker/library/ubuntu",
-    platforms = [
-        "linux/arm64/v8",
-        "linux/amd64",
-    ],
-    tag = "latest",
-)
-use_repo(oci, "ubuntu", "ubuntu_linux_amd64", "ubuntu_linux_arm64_v8")
-
-bazel_dep(name = "container_structure_test", version = "1.19.1")
-git_override(
-    module_name = "container_structure_test",
-    commit = "63ee63e15fae64f00b1c1ace1eb5cc99251b9e02",
-    remote = "https://github.com/GoogleContainerTools/container-structure-test.git",
-)
-
 local_path_override(
     module_name = "aspect_rules_py",
     path = "..",
 )
-
-# FIXME: Can we clean this up now that sdist builds don't use tar
-bazel_lib_toolchains = use_extension("@tar.bzl//tar:extensions.bzl", "toolchains", dev_dependency = True)
-use_repo(bazel_lib_toolchains, "bsd_tar_toolchains")
 
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(
@@ -62,36 +38,34 @@ python.toolchain(
     python_version = "3.13",
 )
 
-# TODO: Swap in our pip
-pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
-pip.parse(
-    hub_name = "pip",
-    python_version = "3.9",
-    requirements_lock = "//:requirements.txt",
+# For the OCI tests
+# {{{
+oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
+oci.pull(
+    name = "ubuntu",
+    digest = "sha256:c35e29c9450151419d9448b0fd75374fec4fff364a27f176fb458d472dfc9e54",
+    image = "public.ecr.aws/docker/library/ubuntu",
+    platforms = [
+        "linux/arm64/v8",
+        "linux/amd64",
+    ],
+    tag = "latest",
 )
-pip.parse(
-    hub_name = "pip",
-    python_version = "3.10",
-    requirements_lock = "//:requirements.txt",
+use_repo(oci, "ubuntu", "ubuntu_linux_amd64", "ubuntu_linux_arm64_v8")
+
+bazel_dep(name = "container_structure_test", version = "1.19.1")
+git_override(
+    module_name = "container_structure_test",
+    commit = "63ee63e15fae64f00b1c1ace1eb5cc99251b9e02",
+    remote = "https://github.com/GoogleContainerTools/container-structure-test.git",
 )
-pip.parse(
-    hub_name = "pip",
-    python_version = "3.11",
-    requirements_lock = "//:requirements.txt",
-)
-pip.parse(
-    hub_name = "pip",
-    python_version = "3.12",
-    requirements_lock = "//:requirements.txt",
-)
-pip.parse(
-    hub_name = "pip",
-    python_version = "3.13",
-    requirements_lock = "//:requirements.txt",
-)
-use_repo(pip, "pip")
+
+bazel_lib_toolchains = use_extension("@tar.bzl//tar:extensions.bzl", "toolchains", dev_dependency = True)
+use_repo(bazel_lib_toolchains, "bsd_tar_toolchains")
+# }}}
 
 # For cases/cross-repo-610
+# {{{
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 
 local_repository(
@@ -103,45 +77,63 @@ local_repository(
     name = "subrepo_b",
     path = "./cases/cross-repo-610/subrepo_b",
 )
+# }}}
 
 # For cases/repository-rule-deps-299
+# {{{
 importer = use_extension("//cases/repository-rule-deps-299/rules:import.bzl", "importer")
 use_repo(importer, "myrepo")
+# }}}
 
 # For cases/uv-deps-650
+# {{{
 uv = use_extension("@aspect_rules_py//uv/unstable:extension.bzl", "uv")
 uv.declare_hub(hub_name = "pypi")
-uv.declare_venv(
+uv.project(
     hub_name = "pypi",
-    venv_name = "say",
+    lock = "//cases/uv-deps-650/say:uv.lock",
+    pyproject = "//cases/uv-deps-650/say:pyproject.toml",
 )
-uv.lockfile(
-    src = "//cases/uv-deps-650/say:uv.lock",
-    hub_name = "pypi",
-    venv_name = "say",
-)
-uv.override_requirement(
-    hub_name = "pypi",
-    requirement = "cowsay",
+uv.override_package(
+    name = "cowsay",
+    lock = "//cases/uv-deps-650/say:uv.lock",
+    # FIXME: Version annotation may be required for disambiguation
     target = "//cases/uv-deps-650/third_party/cowsay",
-    venv_name = "say",
 )
-uv.declare_venv(
+uv.project(
     hub_name = "pypi",
-    venv_name = "airflow",
+    lock = "//cases/uv-deps-650/airflow:uv.lock",
+    pyproject = "//cases/uv-deps-650/airflow:pyproject.toml",
 )
-uv.lockfile(
-    src = "//cases/uv-deps-650/airflow:uv.lock",
+uv.project(
     hub_name = "pypi",
-    venv_name = "airflow",
+    lock = "//cases/uv-deps-650/crossbuild:uv.lock",
+    pyproject = "//cases/uv-deps-650/crossbuild:pyproject.toml",
 )
-uv.declare_venv(
+uv.project(
     hub_name = "pypi",
-    venv_name = "psql",
+    lock = "//cases/uv-deps-650/extras:uv.lock",
+    pyproject = "//cases/uv-deps-650/extras:pyproject.toml",
 )
-uv.lockfile(
-    src = "//cases/uv-deps-650/crossbuild:uv.lock",
+# }}}
+
+# For cases/uv-workspace-789
+# {{{
+uv.project(
     hub_name = "pypi",
-    venv_name = "psql",
+    lock = "//cases/uv-workspace-789:uv.lock",
+    pyproject = "//cases/uv-workspace-789:pyproject.toml",
 )
+uv.override_package(
+    name = "foo",
+    lock = "//cases/uv-workspace-789:uv.lock",
+    target = "//cases/uv-workspace-789/packages/foo",
+)
+uv.override_package(
+    name = "pi",
+    lock = "//cases/uv-workspace-789:uv.lock",
+    target = "//cases/uv-workspace-789/packages/pi",
+)
+# }}}
+
 use_repo(uv, "pypi")

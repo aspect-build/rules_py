@@ -9,8 +9,9 @@ py_venv_test(
         ".",
     ],
     main = "test.py",
+    venv = "say",
     deps = [
-        "@pip//cowsay",
+        "@pypi//cowsay",
         "@subrepo_a//:foo",
     ],
 )

@@ -1,0 +1,15 @@
+# buildifier: disable=bzl-visibility
+load("@aspect_rules_py//uv/private/gazelle_manifest:defs.bzl", "gazelle_python_manifest")
+
+# Exercise generating a Gazelle manifest covering a ton of venvs
+gazelle_python_manifest(
+    name = "gazelle_python_manifest",
+    hub = "pypi",
+    # Note that we _merge_ the package mappings from several configurations.
+    venvs = [
+        "airflow",
+        "crossbuild",
+        "extras",
+        "say",
+    ],
+)

@@ -1,0 +1,5 @@
+# TOOLCHAIN: Unused
+# Visible to the private extension package
+package(default_visibility = ["//uv/private/extension:__pkg__"])
+
+exports_files(["defs.bzl"])
