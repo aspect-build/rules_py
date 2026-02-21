@@ -25,7 +25,7 @@ from email.parser import Parser
 from io import StringIO
 from typing import Optional, Set, List, Tuple
 from collections import defaultdict
-
+from pprint import pprint
 
 def normalize_name(name):
     """normalize a PyPI package name and return a valid bazel label.
@@ -98,7 +98,7 @@ def get_importable_module_name(filepath: str) -> Optional[str]:
     """
     # 1. Strip file extension
     if '.' in filepath:
-        filepath = filepath.rsplit('.', 1)[0]
+        filepath = filepath.split('.', 1)[0]
 
     # 2. Split into path segments
     segments = filepath.split('/')
@@ -152,7 +152,7 @@ def identify_modules(whl_path: Path, package_name: str) -> dict[str, str]:
 
                 # Check for importable file types
                 # FIXME: C-extensions are, technically, importable.
-                if member.endswith(('.py')):
+                if member.endswith(('.py', '.so', '.dylib')):
                     module_name = get_importable_module_name(member)
                     if module_name:
                         # Add to mapping
@@ -222,38 +222,27 @@ def find_unique_shallowest_prefixes(all_module_package_pairs: List[Tuple[str, st
             prefix_to_packages[prefix].add(package_name)
 
     final_module_mapping: dict[str, str] = {}
-    
-    # Sort unique full module names by length, then alphabetically for deterministic results.
-    # This ensures that shallower prefixes are considered before deeper ones.
-    unique_full_module_names = sorted(list(set(module for module, _ in all_module_package_pairs)), key=lambda x: (len(x.split('.')), x))
 
-    for module_name in unique_full_module_names:
-        # Check if this module_name (or a deeper path starting with it) has already been covered
-        # by a previously established shallowest unique prefix.
-        # This is crucial for ensuring we only pick the *shallowest* unique prefix.
-        if any(module_name.startswith(mapped_prefix) and mapped_prefix != module_name for mapped_prefix in final_module_mapping.keys()):
+    # Sort prefixes by length, then alphabetically to ensure shallower prefixes are processed first.
+    sorted_prefixes = sorted(prefix_to_packages.keys(), key=lambda x: (len(x.split('.')), x))
+
+    for prefix in sorted_prefixes:
+        # If this prefix maps to multiple packages, it's not unique, so skip it.
+        if len(prefix_to_packages[prefix]) > 1:
             continue
 
-        parts = module_name.split('.')
-        
-        # Iterate from the shallowest prefix to the deepest for the current module_name
-        # The goal is to find the *first* (shallowest) prefix that is unique.
-        for i in range(1, len(parts) + 1):
-            current_prefix = ".".join(parts[:i])
-            packages_for_prefix = prefix_to_packages.get(current_prefix)
+        package_for_this_prefix = next(iter(prefix_to_packages[prefix]))
 
-            if packages_for_prefix and len(packages_for_prefix) == 1:
-                unique_package = next(iter(packages_for_prefix))
-                # If this prefix is unique AND it's not already mapped, or it's mapped to a different package
-                # (which means a conflict or a better shallowest prefix found), then map it.
-                # The 'mapped_prefix' check above should prevent mapping deeper paths if a shallower one exists for the same package.
-                if current_prefix not in final_module_mapping:
-                    final_module_mapping[current_prefix] = unique_package
-                # Once a shallowest unique prefix is found for this module path, break and move to the next unique_full_module_name.
-                break 
-            # If len(packages_for_prefix) > 1, this prefix is not unique, continue to a deeper prefix.
-            # If packages_for_prefix is None, it implies this prefix was never encountered, continue.
-            
+        # Check if this prefix is already covered by a *shorter* prefix that maps to the *same* package.
+        is_covered_by_shallower = False
+        for mapped_prefix_in_result, mapped_package_in_result in final_module_mapping.items():
+            if prefix.startswith(mapped_prefix_in_result + '.') and mapped_package_in_result == package_for_this_prefix:
+                is_covered_by_shallower = True
+                break
+
+        if not is_covered_by_shallower:
+            final_module_mapping[prefix] = package_for_this_prefix
+
     return final_module_mapping
 
 
@@ -299,7 +288,8 @@ def main():
                 if p.is_file():
                     whl_paths.append(p)
                 elif p.is_dir():
-                    whl_paths.extend(p.glob("*.whl"))
+                    ps = list(p.glob("*.whl"))
+                    whl_paths.extend(ps)
                 else:
                     print(f"No wheels found for {p}", file=sys.stderr)
 
@@ -327,6 +317,8 @@ def main():
 
         for module, package in modules.items():
             all_module_package_pairs.append((module, package))
+
+    pprint(all_module_package_pairs, stream=sys.stderr)
 
     # Process all_module_package_pairs to find unique shallowest prefixes
     final_module_mapping = find_unique_shallowest_prefixes(all_module_package_pairs)
