@@ -105,7 +105,7 @@ def get_importable_module_name(filepath: str) -> Optional[str]:
 
     # 3. Filter out single-underscore prefixed segments (e.g., requests/_internal)
     # Exclude '__init__' from the underscore check
-    filtered_segments = [s for s in segments if not (s.startswith('_') and s != '__init__')]
+    filtered_segments = [s for s in segments if not (s.startswith('_') and s != '__init__') and s]
 
     # If any segment was filtered out, we exclude the entire path
     if len(filtered_segments) != len(segments):
