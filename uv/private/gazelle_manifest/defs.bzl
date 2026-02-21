@@ -30,6 +30,8 @@ def _modules_mapping_impl(ctx):
     ctx.actions.run(
         executable = ctx.executable._generator,
         arguments = [
+            "--hub_name",
+            ctx.attr.hub,
             "--whl_paths_file",
             args_file.path,
             "--output",
@@ -55,6 +57,7 @@ _modules_mapping = rule(
     implementation = _modules_mapping_impl,
     attrs = {
         "wheels": attr.label_list(providers = [[DefaultInfo]]),
+        "hub": attr.string(),
         "_generator": attr.label(
             default = Label(":generator"),
             executable = True,
@@ -93,6 +96,7 @@ def gazelle_python_manifest(name, hub, venvs = [], lockfile = None):
     _modules_mapping(
         name = name,
         wheels = whls,
+        hub = hub,
     )
 
     dest = native.package_name()

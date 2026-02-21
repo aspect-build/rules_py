@@ -281,6 +281,11 @@ def main():
         help="Path to write the final YAML manifest file."
     )
 
+    # Hub name to use
+    parser.add_argument(
+        '--hub_name',
+    )
+
     args = parser.parse_args()
 
     # Read wheel paths
@@ -327,7 +332,7 @@ def main():
     final_module_mapping = find_unique_shallowest_prefixes(all_module_package_pairs)
 
     # 4. Write the final manifest
-    write_manifest(final_module_mapping, args.output)
+    write_manifest(final_module_mapping, args.output, args.hub_name)
 
 if __name__ == '__main__':
     main()
