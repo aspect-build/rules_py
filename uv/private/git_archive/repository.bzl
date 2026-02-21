@@ -61,7 +61,7 @@ filegroup(
     )
 
     if features.external_deps.extension_metadata_has_reproducible:
-        return repository_ctx.repository_ctx(
+        return repository_ctx.repo_metadata(
             reproducible = is_reproducible,
             attrs_for_reproducibility = {"commit": resolved_commit},
         )
