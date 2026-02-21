@@ -4,6 +4,7 @@ manifest:
     arrow: arrow
     asgiref: asgiref
     attr: attrs
+    attrs: attrs
     boto3: boto3
     botocore: botocore
     bravado: bravado
@@ -15,20 +16,24 @@ manifest:
     coverage: coverage
     cowsay: cowsay
     dateutil: python_dateutil
+    ddc459050edb75a05942__mypyc: tomli
     django: django
     exceptiongroup: exceptiongroup
     fqdn: fqdn
     ftfy: ftfy
     future: future
     git: gitpython
+    gitdb: gitdb
     idna: idna
     importlib_metadata: importlib_metadata
     iniconfig: iniconfig
     isoduration: isoduration
     jmespath: jmespath
+    jmespath_1: jmespath
     jsonpointer: jsonpointer
     jsonref: jsonref
     jsonschema: jsonschema
+    jsonschema_specifications: jsonschema_specifications
     jwt: pyjwt
     libfuturize: future
     libpasteurize: future
@@ -46,8 +51,12 @@ manifest:
     proxytypes: jsonref
     psutil: psutil
     py: pytest
+    pyproject_hooks: pyproject_hooks
+    pytest: pytest
+    pytz: pytz
     referencing: referencing
     requests: requests
+    requests_oauthlib: requests_oauthlib
     rfc3339_validator: rfc3339_validator
     rfc3986_validator: rfc3986_validator
     rpds: rpds_py
