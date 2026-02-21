@@ -61,10 +61,11 @@ filegroup(
     )
 
     if features.external_deps.extension_metadata_has_reproducible:
-        return repository_ctx.repo_metadata(
-            reproducible = is_reproducible,
-            attrs_for_reproducibility = {"commit": resolved_commit} if not is_reproducible else None,
-        )
+        kwargs = {"is_reproducible": is_reproducible}
+        if not is_reproducible:
+            kwargs["attrs_for_reproducibility"] = {"commit": resolved_commit}
+
+        return repository_ctx.repo_metadata(**kwargs)
 
 git_archive = repository_rule(
     implementation = _git_archive_impl,
