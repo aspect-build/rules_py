@@ -1,0 +1,26 @@
+load("@aspect_rules_py//py:proto.bzl", "py_proto_toolchain")
+
+# FIXME(arrdem): does rules_py uv-created package support any way to invoke the console script of a package?
+# py_console_script_binary(
+#     name = "protoc-gen-grpc",
+#     pkg = "@pypi//grpcio_tools",
+#     script = "protoc",
+# )
+
+py_proto_toolchain(
+    name = "builtin_protoc_plugin",
+    plugin_bin = None,  # use the python emit embedded in protoc
+    plugin_name = "python",
+    plugin_options = [],
+    runtime = "@pypi//protobuf",
+)
+
+# TODO: support gRPC as well, which is NOT built-in
+# py_proto_toolchain(
+#     name = "grpcio_protoc_plugin",
+#     plugin_bin = ":protoc-gen-grpc",
+#     plugin_name = "python",
+#     plugin_options = [
+#     ],
+#     # runtime = "//:node_modules/@bufbuild/protobuf",
+# )

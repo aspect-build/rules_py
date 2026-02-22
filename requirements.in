@@ -11,3 +11,5 @@ ftfy==6.2.0
 neptune==1.10.2
 six
 bazel-runfiles
+grpcio-tools
+protobuf==6.33.4
