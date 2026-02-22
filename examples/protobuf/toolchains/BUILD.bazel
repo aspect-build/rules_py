@@ -13,7 +13,7 @@ py_proto_toolchain(
     plugin_name = "python",
     plugin_options = [
     ],
-    # runtime = "//:node_modules/@bufbuild/protobuf",
+    runtime = "@pypi//protobuf",
 )
 
 # TODO: support gRPC as well, which is NOT built-in

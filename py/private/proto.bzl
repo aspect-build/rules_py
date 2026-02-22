@@ -65,11 +65,18 @@ def _py_proto_aspect_impl(target, ctx):
                 # will put the repo root at the top of the PYTHONPATH, ahead of
                 # directories added through `imports` attributes.
                 [import_path] if "_virtual_imports" in import_path else [],
-                transitive = [dep.imports for dep in proto_deps],  # + [proto_lang_toolchain_info.runtime[PyInfo].imports]
+                transitive = [dep.imports for dep in proto_deps] + (
+                    [proto_lang_toolchain_info.runtime[PyInfo].imports] if proto_lang_toolchain_info.runtime else []
+                ),
             ),
             # direct_pyi_files = depset(direct = direct_pyi_files),
             # transitive_pyi_files = transitive_pyi_files,
-            transitive_sources = depset(py_outputs, transitive = [dep.transitive_sources for dep in proto_deps]),
+            transitive_sources = depset(
+                py_outputs,
+                transitive = [dep.transitive_sources for dep in proto_deps] + (
+                    [proto_lang_toolchain_info.runtime[PyInfo].transitive_sources] if proto_lang_toolchain_info.runtime else []
+                ),
+            ),
             # Proto always produces 2- and 3- compatible source files
             has_py2_only_sources = False,
             has_py3_only_sources = False,
