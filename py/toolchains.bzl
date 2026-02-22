@@ -33,8 +33,8 @@ def rules_py_toolchains(name = DEFAULT_TOOLS_REPOSITORY, register = True, is_pre
             native.register_toolchains("@{}//:all".format(name))
 
     http_file(
-        name = "rules_py_pex_2_3_1",
-        urls = ["https://files.pythonhosted.org/packages/e7/d0/fbda2a4d41d62d86ce53f5ae4fbaaee8c34070f75bb7ca009090510ae874/pex-2.3.1-py2.py3-none-any.whl"],
-        sha256 = "64692a5bf6f298403aab930d22f0d836ae4736c5bc820e262e9092fe8c56f830",
-        downloaded_file_path = "pex-2.3.1-py2.py3-none-any.whl",
+        name = "rules_py_pex",
+        integrity = "sha256-6X1ojdO4DBJkgXABy1k8DHCMxgdyUIpz/87LNi0kCZY=",
+        urls = ["https://files.pythonhosted.org/packages/af/da/1d91d20d3e56a0f65d56106e2b56ae3e5a863e43a3f32ffbda1c3c7fa698/pex-2.33.7-py2.py3-none-any.whl"],
+        downloaded_file_path = "pex-2.33.7-py2.py3-none-any.whl",
     )

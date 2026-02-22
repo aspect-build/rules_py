@@ -24,7 +24,7 @@ use_repo(bazel_lib_toolchains, "bsd_tar_toolchains")
 tools = use_extension("//py:extensions.bzl", "py_tools")
 tools.rules_py_tools()
 use_repo(tools, "rules_py_tools")
-use_repo(tools, "rules_py_pex_2_3_1")
+use_repo(tools, "rules_py_pex")
 
 register_toolchains(
     "@rules_py_tools//:all",
