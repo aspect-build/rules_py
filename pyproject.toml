@@ -1,0 +1,4 @@
+[tool.pyright]
+# Bazel-generated modules may provide `.pyi` in source, while `.py` appears only
+# in runfiles/venv at runtime. Suppress missing-source diagnostics for this case.
+reportMissingModuleSource = "none"

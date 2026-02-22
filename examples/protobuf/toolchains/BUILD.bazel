@@ -11,8 +11,7 @@ py_proto_toolchain(
     name = "builtin_protoc_plugin",
     plugin_bin = None,  # use the python emit embedded in protoc
     plugin_name = "python",
-    plugin_options = [
-    ],
+    plugin_options = [],
     runtime = "@pypi//protobuf",
 )
 

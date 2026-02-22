@@ -21,30 +21,32 @@ def _py_proto_aspect_impl(target, ctx):
         name_mapper = python_naming,
     )
 
-    # FIXME: support generated stubs
-    # generated_stubs = proto_common.declare_generated_files(
-    #     actions = ctx.actions,
-    #     proto_info = proto_info,
-    #     extension = "_pb2.pyi",
-    #     name_mapper = python_naming,
-    # )
+    generated_stubs = []
+    if True:  # len([o for o in proto_lang_toolchain_info.command_line.split() if o.startswith("--pyi_out=")]) > 0:
+        generated_stubs = proto_common.declare_generated_files(
+            actions = ctx.actions,
+            proto_info = proto_info,
+            extension = "_pb2.pyi",
+            name_mapper = python_naming,
+        )
 
     # Determine root folder, mapping output paths to inputs, i.e. bazel-bin/arch/bin/foo to foo
     proto_root = proto_info.proto_source_root
     if proto_root.startswith(ctx.bin_dir.path):
         proto_root = proto_root[len(ctx.bin_dir.path) + 1:]
 
+    # FIXME: this is plugin-specific and fishy.
+    # the user should specify their pyi_out preference in the lang_proto_toolchain construction
+    additional_args = ctx.actions.args()
+    additional_args.add(py_outputs[0].root.path, format = "--pyi_out=%s")
+
     # It's possible for proto_library to have only deps but no srcs
     if proto_info.direct_sources:
-        additional_args = ctx.actions.args()
-        # FIXME: this is plugin-specific and fishy
-        # additional_args.add(py_outputs[0].root, format = "--pyi_out=%s")
-
         proto_common.compile(
             actions = ctx.actions,
             proto_info = proto_info,
             proto_lang_toolchain_info = proto_lang_toolchain_info,
-            generated_files = py_outputs,
+            generated_files = py_outputs + generated_stubs,
             plugin_output = py_outputs[0].root.path,
             additional_args = additional_args,
         )
@@ -55,7 +57,7 @@ def _py_proto_aspect_impl(target, ctx):
     else:
         import_path = ctx.workspace_name + "/" + proto_root
     return [
-        DefaultInfo(files = depset(py_outputs)),
+        DefaultInfo(files = depset(generated_stubs)),
         PyInfo(
             imports = depset(
                 # Adding to PYTHONPATH so the generated modules can be
@@ -72,7 +74,7 @@ def _py_proto_aspect_impl(target, ctx):
             # direct_pyi_files = depset(direct = direct_pyi_files),
             # transitive_pyi_files = transitive_pyi_files,
             transitive_sources = depset(
-                py_outputs,
+                py_outputs + generated_stubs,
                 transitive = [dep.transitive_sources for dep in proto_deps] + (
                     [proto_lang_toolchain_info.runtime[PyInfo].transitive_sources] if proto_lang_toolchain_info.runtime else []
                 ),
