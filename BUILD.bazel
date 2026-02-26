@@ -16,6 +16,8 @@ gazelle_python_manifest(
     venvs = [
         "default",
     ],
+    # TODO: this doesn't work on linux because it hardcodes the @platforms//host platform which won't match rust toolchains.
+    tags = ["manual"],
 )
 
 gazelle(

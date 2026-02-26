@@ -1,43 +1,16 @@
-load("//bazel/platforms/config:defs.bzl", "linker_suffix", "platforms")
-
-[platform(
-    name = "{}_{}{}".format(
-        p.os,
-        p.cpu,
-        linker_suffix(
-            "_",
-            p.linker,
-        ),
-    ),
+platform(
+    name = "linux_host",
     constraint_values = [
-        "@platforms//os:{}".format(p.os),
-        "@platforms//cpu:{}".format(p.cpu),
-        "//bazel/platforms/linkers:{}".format(p.linker),
+        "@llvm//constraints/libc:gnu.2.28",
     ],
-    visibility = ["//visibility:public"],
-) for p in platforms]
-
-alias(
-    name = "linux_amd64",
-    actual = ":linux_x86_64",
-    visibility = ["//visibility:public"],
-)
-
-alias(
-    name = "linux_arm64",
-    actual = ":linux_aarch64",
-    visibility = ["//visibility:public"],
+    parents = ["@platforms//host"],
 )
 
 platform(
     name = "rbe",
-    constraint_values = [
-        "@platforms//cpu:x86_64",
-        "@platforms//os:linux",
-        "@bazel_tools//tools/cpp:clang",
-    ],
     exec_properties = {
         "container-image": "docker://ubuntu:22.04",
         "OSFamily": "Linux",
     },
+    parents = ["@rules_rs//rs/experimental/platforms:x86_64-unknown-linux-gnu"],
 )
