@@ -818,7 +818,11 @@ pub fn populate_venv(
     // Drain the plan, we'll refill it to contain only last-wins instructions.
     plan.clear();
 
-    for (dest, sources) in planned_destinations.iter() {
+    // Sort destination keys for a deterministic _aspect.pth ordering across builds.
+    let mut sorted_dests: Vec<&PathBuf> = planned_destinations.keys().collect();
+    sorted_dests.sort();
+    for dest in sorted_dests {
+        let sources = &planned_destinations[dest];
         // We ignore __init__.py files at import roots. They're entirely
         // erroneous and a result of --legacy_creat_init_files which has all
         // sorts of problems.
