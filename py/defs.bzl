@@ -141,7 +141,7 @@ def py_test(name, srcs = [], main = None, pytest_main = False, **kwargs):
         if main:
             fail("When pytest_main is set, the main attribute should not be set.")
         # Add a prefix to the test main to ensure targets called "test_*" do not get discovered by pytest.
-        pytest_main_target = "zzz_" + name + ".pytest_main"
+        pytest_main_target = "_" + name + ".pytest_main"
         main = pytest_main_target + ".py"
         py_pytest_main(name = pytest_main_target)
         srcs.append(main)
