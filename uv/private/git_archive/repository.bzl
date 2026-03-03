@@ -48,17 +48,28 @@ filegroup(
 )
 """.format(archive_path))
 
+    cmd = [
+        "git",
+        "archive",
+        "--format=tar",
+        "--remote=" + remote,
+        "--output=file/" + archive_path,
+        target_ref,
+    ]
+
+    print(cmd)
+
     # Execute the archive command
-    repository_ctx.execute(
-        [
-            "git",
-            "archive",
-            "--format=tar",
-            "--remote=" + remote,
-            "--output=file/" + archive_path,
-            target_ref,
-        ],
+    status = repository_ctx.execute(
+        cmd,
     )
+
+    print("Git exited {}".format(status.return_code))
+    print(status.stdout)
+    print(status.stderr)
+
+    if status.return_code != 0:
+        fail("Failed to build the requested git archive!")
 
     if features.external_deps.extension_metadata_has_reproducible:
         if is_reproducible:

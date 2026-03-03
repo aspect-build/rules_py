@@ -279,9 +279,8 @@ def main():
 
     # Read wheel paths
     try:
-        whl_paths_raw = args.whl_paths_file.read_text().splitlines()
         whl_paths = []
-        for p in whl_paths_raw:
+        for p in args.whl_paths_file.read_text().splitlines():
             p = p.strip()
             if p:
                 p = Path(p)

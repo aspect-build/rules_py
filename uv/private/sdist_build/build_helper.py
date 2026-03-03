@@ -11,7 +11,6 @@ import shutil
 import sys
 from os import listdir, mkdir, path
 from subprocess import CalledProcessError, check_call
-from tempfile import TemporaryDirectory
 
 PARSER = ArgumentParser()
 PARSER.add_argument("srcarchive")
