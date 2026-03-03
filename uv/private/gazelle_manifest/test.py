@@ -7,6 +7,7 @@ def test_parse_names():
     assert get_importable_module_name("foo/__init__.py") == "foo"
     assert get_importable_module_name("foo.cpython-311-x86_64-linux-gnu.so") == "foo"
     assert get_importable_module_name("libclang-18.1.1.data/platlib/clang/__init__.py") == "clang"
+    assert get_importable_module_name("libclang-18.1.1.data/purelib/clang/__init__.py") == "clang"
     assert not get_importable_module_name("_pytest/_io/pprint.py")
     
 # name 1 -- bunch of basic examples
