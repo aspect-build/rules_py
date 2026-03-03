@@ -15,7 +15,7 @@ def _modules_mapping_impl(ctx):
     whl_files = [
         it
         for it in whl_depset.to_list()
-        if it.path.endswith(".whl")
+        if it.path.endswith(".whl") or it.path.endswith("/whl")
     ]
 
     args = ctx.actions.args()

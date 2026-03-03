@@ -15,7 +15,7 @@ def _sdist_build(ctx):
 
     # Now we need to do a build from the archive dir to a source artifact.
     wheel_dir = ctx.actions.declare_directory(
-        "build",
+        "whl",
     )
 
     venv = ctx.attr.venv
