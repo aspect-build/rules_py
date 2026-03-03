@@ -87,6 +87,18 @@ def extract_package_name(whl_path: Path) -> Optional[str]:
         print(f"Error reading package name from {whl_path}: {e}", file=sys.stderr)
         return None
 
+def conventional_name(path_str: str) -> str:
+    p = Path(path_str)
+    
+    # Strip everything after the first dot in the filename
+    base_name = p.name.partition('.')[0]
+    
+    # If the file is in the current directory, return just the base name
+    if str(p.parent) == ".":
+        return base_name
+    
+    # Otherwise, join the parent path with the base name
+    return str(p.parent / base_name)
 
 def get_importable_module_name(filepath: str) -> Optional[str]:
     """
@@ -98,28 +110,25 @@ def get_importable_module_name(filepath: str) -> Optional[str]:
     """
     # 1. Strip file extension
     if '.' in filepath:
-        filepath = filepath.split('.', 1)[0]
+        filepath = conventional_name(filepath)
 
     # 2. Split into path segments
     segments = filepath.split('/')
 
-    # 3. Filter out single-underscore prefixed segments (e.g., requests/_internal)
-    # Exclude '__init__' from the underscore check
-    filtered_segments = [s for s in segments if not (s.startswith('_') and s != '__init__') and s]
-
-    # If any segment was filtered out, we exclude the entire path
-    if len(filtered_segments) != len(segments):
-        return None
+    # .data/platlib/ is a stripped prefix
+    # https://peps.python.org/pep-0491/#installing-a-wheel-distribution-1-0-py32-none-any-whl
+    if len(segments) >= 2 and segments[0].endswith(".data") and segments[1] in ("platlib", "purelib"):
+        segments = segments[2:]
 
     # 4. Handle __init__ (remove the segment itself)
-    if filtered_segments and filtered_segments[-1] == '__init__':
-        filtered_segments.pop()
+    if segments[-1] == '__init__':
+        segments.pop()
 
-    if any(it.startswith("_") for it in filtered_segments):
+    if any(it.startswith("_") for it in segments):
         return None
 
     # 5. Join segments with '.' to form the module name
-    module_name = ".".join(filtered_segments).replace('-', '_')
+    module_name = ".".join(segments).replace('-', '_')
 
     return module_name if module_name else None
 
@@ -142,8 +151,6 @@ def identify_modules(whl_path: Path, package_name: str) -> dict[str, str]:
     requirement_name = package_name.lower().replace('-', '_')
 
     try:
-        print(f"Indexing {whl_path.name}...", file=sys.stderr)
-
         with ZipFile(whl_path, 'r') as zf:
             for member in zf.namelist():
                 # Skip files inside dist-info, test, or example directories
@@ -316,8 +323,6 @@ def main():
 
         for module, package in modules.items():
             all_module_package_pairs.append((module, package))
-
-    pprint(all_module_package_pairs, stream=sys.stderr)
 
     # Process all_module_package_pairs to find unique shallowest prefixes
     final_module_mapping = find_unique_shallowest_prefixes(all_module_package_pairs)
