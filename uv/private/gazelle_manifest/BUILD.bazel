@@ -1,0 +1,25 @@
+load("//py/unstable:defs.bzl", "py_venv_binary", "py_venv_test")
+
+exports_files(["update.sh"])
+
+py_venv_binary(
+    name = "generator",
+    srcs = [
+        "generate.py",
+    ],
+    main = "generate.py",
+)
+
+py_venv_test(
+    name = "test",
+    srcs = [
+        "__test__.py",
+        "generate.py",
+        "test.py",
+    ],
+    args = ["$(location :test.py)"],
+    main = "__test__.py",
+    deps = [
+        "@pypi//pytest",
+    ],
+)

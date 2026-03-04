@@ -23,6 +23,7 @@ platform(
 py_binary(
     name = "my_app_bin",
     srcs = ["__main__.py"],
+    venv = "images",
     deps = [
         "//cases/oci/py_image_layer/branding",
         "@aspect_rules_py//py/tests/internal-deps/adder",
