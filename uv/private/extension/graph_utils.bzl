@@ -134,7 +134,7 @@ def activate_extras(marker_graph, activated_extras, cfg):
         for dep, markers in list(marked_deps.items()):
             # Normalize all deps to deps on the base package
             normalized_dep = (dep[0], dep[1], dep[2], "__base__")
-            acc[pkg][normalized_dep] = markers
+            acc[pkg].setdefault(normalized_dep, {}).update(markers)
 
         # For the current (base!) package, look up the closure of activated
         # extras and merge the _dependencies_ of those extras in.
@@ -144,6 +144,6 @@ def activate_extras(marker_graph, activated_extras, cfg):
             for implied_dep, implied_markers in marker_graph.get(extra, {}).items():
                 # Normalize since the source graph isn't
                 normalized_implied_dep = (implied_dep[0], implied_dep[1], implied_dep[2], "__base__")
-                acc[pkg][normalized_implied_dep] = combine_markers(extra_markers, implied_markers)
+                acc[pkg].setdefault(normalized_implied_dep, {}).update(combine_markers(extra_markers, implied_markers))
 
     return acc
