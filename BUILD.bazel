@@ -13,6 +13,8 @@ load("//uv/private/manifest:defs.bzl", "gazelle_python_manifest")
 gazelle_python_manifest(
     name = "gazelle_python_manifest",
     hub = "pypi",
+    # TODO: this doesn't work on linux because it hardcodes the @platforms//host platform which won't match rust toolchains.
+    tags = ["manual"],
     venvs = [
         "default",
     ],

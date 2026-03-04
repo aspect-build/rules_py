@@ -7,23 +7,19 @@ load("@rules_pkg//pkg:pkg.bzl", "pkg_tar", "pkg_zip")
 load("//bazel/release:hashes.bzl", "hashes")
 
 TARGET_TRIPLES = [
-    ("x86_64_unknown_linux_musl", "linux_x86_64"),
-    ("aarch64_unknown_linux_musl", "linux_aarch64"),
-    ("x86_64_apple_darwin", "macos_x86_64"),
-    ("aarch64_apple_darwin", "macos_aarch64"),
+    "x86_64-unknown-linux-musl",
+    "aarch64-unknown-linux-musl",
+    "x86_64-apple-darwin",
+    "aarch64-apple-darwin",
 ]
 
-# Map a Rust naming scheme to a custom name.
-TARGET_NAMING_SCHEME = {}
-
-def multi_platform_rust_binaries(name, target, name_scheme = TARGET_NAMING_SCHEME, target_triples = TARGET_TRIPLES, prefix = "", pkg_type = "zip", **kwargs):
+def multi_platform_rust_binaries(name, target, target_triples = TARGET_TRIPLES, prefix = "", pkg_type = "zip", **kwargs):
     """The multi_platform_rust_binaries macro creates a filegroup containing rust binaries that are ready for release.
 
     Args:
         name: The name of the filegroup containing all rust targets produced by this macro.
         target: rust_binary that releases will be created for.
-        name_scheme: Mapping overriding the "standard" naming for a triple to a custom string.
-        target_triples: Map of target tiples to the target platform to build for.
+        target_triples: Map of target triples to the target platform to build for.
         prefix: An optional prefix added to the output rust binary file name.
         pkg_type: The packaging type that the {name}.packaged target outputs, can be one of 'zip' or 'tar'.
         **kwargs: All other args, forwarded to the output filegroups.
@@ -38,18 +34,16 @@ def multi_platform_rust_binaries(name, target, name_scheme = TARGET_NAMING_SCHEM
     bin = Label(target).name
     pkg_rule = pkg_zip if pkg_type == "zip" else pkg_tar
 
-    for (target_triple, target_platform) in target_triples:
-        target_naming = name_scheme.get(target_triple, target_triple)
-
-        transition_build = "{}_{}_build".format(bin, target_naming)
+    for target_triple in target_triples:
+        transition_build = "{}_{}_build".format(bin, target_triple)
         platform_transition_filegroup(
             name = transition_build,
             srcs = [target],
-            target_platform = "//bazel/platforms:{}".format(target_platform),
+            target_platform = "@rules_rs//rs/experimental/platforms:" + target_triple,
             tags = ["release"],
         )
 
-        copy_name = "{}{}_{}".format(prefix, bin, target_naming)
+        copy_name = "{}{}_{}".format(prefix, bin, target_triple)
         copy_file(
             name = "{}_copy".format(copy_name),
             src = transition_build,
@@ -64,7 +58,7 @@ def multi_platform_rust_binaries(name, target, name_scheme = TARGET_NAMING_SCHEM
             tags = ["release"],
         )
 
-        pkged_files = "{}{}_{}_pkged_files".format(prefix, bin, target_naming)
+        pkged_files = "{}{}_{}_pkged_files".format(prefix, bin, target_triple)
         pkg_files(
             name = pkged_files,
             srcs = [copy_name],
@@ -74,7 +68,7 @@ def multi_platform_rust_binaries(name, target, name_scheme = TARGET_NAMING_SCHEM
             tags = ["release"],
         )
 
-        pkged = "{}{}_{}_packed".format(prefix, bin, target_naming)
+        pkged = "{}{}_{}_packed".format(prefix, bin, target_triple)
         pkg_rule(
             name = pkged,
             srcs = [
@@ -96,7 +90,7 @@ def multi_platform_rust_binaries(name, target, name_scheme = TARGET_NAMING_SCHEM
 
         bin_outs = [copy_name, bin_sha256]
         pkged_outs = [pkged, pkged_sha256]
-        if target_platform.startswith("linux"):
+        if "linux" in target_triple:
             linux_bins.extend(bin_outs)
             linux_pkged.extend(pkged_outs)
         else:

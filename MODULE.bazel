@@ -52,45 +52,10 @@ use_repo(tel, "aspect_tools_telemetry_report")
 # Dev deps are the remainder of the file
 
 # LLVM configuration
-bazel_dep(name = "toolchains_llvm_bootstrapped", version = "0.2.5", dev_dependency = IS_RELEASE)
-archive_override(
-    module_name = "toolchains_llvm_bootstrapped",
-    integrity = "sha256-+nddimV34BYO8YExiKLYG2kMoA2Sv+5ZoMRPQLJxNfE=",
-    patch_strip = 1,
-    patches = [
-        "//bazel/patches:llvm_darwin_sysroot.patch",
-    ],
-    strip_prefix = "toolchains_llvm_bootstrapped-121c8419394e76b5652c161369743c564799b2e3",
-    urls = ["https://github.com/cerisier/toolchains_llvm_bootstrapped/archive/121c8419394e76b5652c161369743c564799b2e3/master.tar.gz"],
-)
+bazel_dep(name = "llvm", version = "0.6.1", dev_dependency = IS_RELEASE)
 
 register_toolchains(
-    "@toolchains_llvm_bootstrapped//toolchain:all",
-    dev_dependency = IS_RELEASE,
-)
-
-# Rust configuration
-bazel_dep(name = "rules_rust", version = "0.68.1", dev_dependency = IS_RELEASE)
-
-rust = use_extension(
-    "@rules_rust//rust:extensions.bzl",
-    "rust",
-    dev_dependency = IS_RELEASE,
-)
-rust.toolchain(
-    edition = "2024",
-    extra_target_triples = [
-        "aarch64-apple-darwin",
-        "x86_64-apple-darwin",
-        "aarch64-unknown-linux-musl",
-        "x86_64-unknown-linux-musl",
-    ],
-    versions = ["1.88.0"],
-)
-use_repo(rust, "rust_toolchains")
-
-register_toolchains(
-    "@rust_toolchains//:all",
+    "@llvm//toolchain:all",
     dev_dependency = IS_RELEASE,
 )
 
@@ -98,7 +63,6 @@ bazel_dep(name = "bazelrc-preset.bzl", version = "1.4.0", dev_dependency = IS_RE
 bazel_dep(name = "bazel_env.bzl", version = "0.5.0", dev_dependency = IS_RELEASE)
 bazel_dep(name = "bzip2", version = "1.0.8.bcr.3", dev_dependency = IS_RELEASE)
 bazel_dep(name = "gazelle", version = "0.45.0", dev_dependency = IS_RELEASE)
-bazel_dep(name = "rules_rs", version = "0.0.26", dev_dependency = IS_RELEASE)
 bazel_dep(name = "xz", version = "5.4.5.bcr.7", dev_dependency = IS_RELEASE)
 bazel_dep(name = "zstd", version = "1.5.7", dev_dependency = IS_RELEASE)
 bazel_dep(name = "rules_multitool", version = "1.9.0", dev_dependency = IS_RELEASE)
@@ -106,6 +70,24 @@ bazel_dep(name = "rules_multitool", version = "1.9.0", dev_dependency = IS_RELEA
 multitool = use_extension("@rules_multitool//multitool:extension.bzl", "multitool", dev_dependency = IS_RELEASE)
 multitool.hub(lockfile = "//tools:tools.lock.json")
 use_repo(multitool, "multitool")
+
+# Rust configuration
+bazel_dep(name = "rules_rs", version = "0.0.37", dev_dependency = IS_RELEASE)
+
+toolchains = use_extension("@rules_rs//rs/experimental/toolchains:module_extension.bzl", "toolchains", dev_dependency = IS_RELEASE)
+toolchains.toolchain(
+    edition = "2024",
+    version = "1.93.1",
+)
+use_repo(toolchains, "default_rust_toolchains")
+
+register_toolchains(
+    "@default_rust_toolchains//:all",
+    dev_dependency = IS_RELEASE,
+)
+
+rules_rust = use_extension("@rules_rs//rs/experimental:rules_rust.bzl", "rules_rust")
+use_repo(rules_rust, "rules_rust")
 
 crate = use_extension(
     "@rules_rs//rs:extensions.bzl",
@@ -118,10 +100,13 @@ crate.from_cargo(
     cargo_toml = "//:Cargo.toml",
     platform_triples = [
         "aarch64-apple-darwin",
+        "aarch64-unknown-linux-gnu",
         "aarch64-unknown-linux-musl",
         "x86_64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
         "x86_64-unknown-linux-musl",
     ],
+    use_experimental_platforms = True,
 )
 crate.annotation(
     crate = "backtrace",
@@ -147,6 +132,32 @@ crate.annotation(
     gen_build_script = "off",
     repositories = ["crates"],
     deps = ["@@xz+//:lzma"],
+)
+crate.annotation(
+    additive_build_file_content = """
+load("@rules_cc//cc:defs.bzl", "cc_import")
+
+cc_import(
+    name = "windows_import_lib",
+    static_library = glob(["lib/*.a"])[0],
+)
+""",
+    crate = "windows_x86_64_gnullvm",
+    gen_build_script = "off",
+    deps = [":windows_import_lib"],
+)
+crate.annotation(
+    additive_build_file_content = """
+load("@rules_cc//cc:defs.bzl", "cc_import")
+
+cc_import(
+    name = "windows_import_lib",
+    static_library = glob(["lib/*.a"])[0],
+)
+""",
+    crate = "windows_aarch64_gnullvm",
+    gen_build_script = "off",
+    deps = [":windows_import_lib"],
 )
 use_repo(crate, "crates")
 
