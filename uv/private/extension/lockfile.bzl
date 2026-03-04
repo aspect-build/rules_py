@@ -68,6 +68,13 @@ def normalize_deps(lock_id, lock_data):
 
 MAGIC_ACTIVATE_BASE_MARKER = "magic_activate_base == 1"
 
+def _and_markers(left, right):
+    if left == "":
+        return right
+    if right == "":
+        return left
+    return "({}) and ({})".format(left, right)
+
 def build_marker_graph(lock_id, lock_data):
     """Builds a dependency graph from a lockfile.
 
@@ -89,6 +96,12 @@ def build_marker_graph(lock_id, lock_data):
     """
 
     graph = {}
+    requested_package_extras = {}
+    for override in lock_data.get("manifest", {}).get("overrides", []):
+        if not override.get("extras", []):
+            continue
+        requested_package_extras.setdefault(normalize_name(override["name"]), []).append(override)
+
     for spec in lock_data.get("package", []):
         # spec: RequirementSpec
         k = (lock_id, spec["name"], spec["version"], "__base__")
@@ -116,6 +129,21 @@ def build_marker_graph(lock_id, lock_data):
                     eek = (lock_id, dep["name"], dep["version"], e)
                     graph[ek].setdefault(eek, {})
                     graph[ek][eek][dep.get("marker", "")] = 1
+
+        for requested_dep in requested_package_extras.get(spec["name"], []):
+            requested_marker = requested_dep.get("marker", "")
+            extras = spec.get("optional-dependencies", {})
+            for extra in requested_dep.get("extras", []):
+                for dep in extras.get(extra, []):
+                    dep_extras = dep.get("extra", ["__base__"])
+                    if "__base__" not in dep_extras:
+                        dep_extras = ["__base__"] + dep_extras
+
+                    combined_marker = _and_markers(requested_marker, dep.get("marker", ""))
+                    for dep_extra in dep_extras:
+                        eek = (lock_id, dep["name"], dep["version"], dep_extra)
+                        graph[k].setdefault(eek, {})
+                        graph[k][eek][combined_marker] = 1
 
     return graph
 
