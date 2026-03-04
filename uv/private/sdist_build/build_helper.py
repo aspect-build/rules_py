@@ -10,7 +10,8 @@ from argparse import ArgumentParser
 import shutil
 import sys
 from os import listdir, mkdir, path
-from subprocess import CalledProcessError, check_call
+from subprocess import CalledProcessError, check_call, STDOUT, run
+from tempfile import TemporaryFile
 
 PARSER = ArgumentParser()
 PARSER.add_argument("srcarchive")
@@ -42,44 +43,51 @@ if opts.patches:
 # Get a path to the outdir which will be valid after we cd
 outdir = path.abspath(opts.outdir)
 
-try:
-    if path.exists(path.join(t, "pyproject.toml")):
-        cmd = [
-            sys.executable,
-            "-m", "build",
-            "--wheel",
-            "--no-isolation",
-            "--outdir", outdir,
-        ]
+build_env = {
+    "TMP": tmp_root,
+    "TEMP": tmp_root,
+    "TEMPDIR": tmp_root,
+}
 
-    # FIXME: Shelling to setup.py is explicitly recommended against in modern
-    # setuptools. Need to figure out a better story. The setuptools
-    # recommendation seems to be 'pip wheel' which means we really want to
-    # bifurcate this machinery into 'build with build' and 'build with pip' as
-    # separate target types? What about 'build with uv' or another backend?
-    elif path.exists(path.join(t, "setup.py")):
-        cmd = [
-            sys.executable,
-            path.realpath(path.join(t, "setup.py")),
-            "bdist_wheel",
-            "--dist-dir",
-            outdir,
-        ]
+if path.exists(path.join(t, "pyproject.toml")):
+    cmd = [
+        sys.executable,
+        "-m", "build",
+        "--wheel",
+        "--no-isolation",
+        "--outdir", outdir,
+    ]
 
-    else:
-        print("Error: Unable to detect build command! Neither pyproject nor setup.py found!", file=sys.stderr)
-        exit(1)    
-    
-    check_call(cmd,
-    cwd=t,
-    env={
-        "TMP": tmp_root,
-        "TEMP": tmp_root,
-        "TEMPDIR": tmp_root,
-    })
-except CalledProcessError:
-    print("Error: Build failed!\nSee {} for the sandbox".format(t), file=sys.stderr)
+# FIXME: Shelling to setup.py is explicitly recommended against in modern
+# setuptools. Need to figure out a better story. The setuptools
+# recommendation seems to be 'pip wheel' which means we really want to
+# bifurcate this machinery into 'build with build' and 'build with pip' as
+# separate target types? What about 'build with uv' or another backend?
+elif path.exists(path.join(t, "setup.py")):
+    cmd = [
+        sys.executable,
+        path.realpath(path.join(t, "setup.py")),
+        "bdist_wheel",
+        "--dist-dir",
+        outdir,
+    ]
+
+else:
+    print("Error: Unable to detect build command! Neither pyproject nor setup.py found!", file=sys.stderr)
     exit(1)
+
+with TemporaryFile(mode="w+") as build_log:
+    try:
+        run(cmd, cwd=t, env=build_env, stdout=build_log, stderr=STDOUT, check=True)
+    except CalledProcessError:
+        build_log.seek(0)
+        output = build_log.read()
+        if output:
+            sys.stderr.write(output)
+            if not output.endswith("\n"):
+                sys.stderr.write("\n")
+        print("Error: Build failed!\nSee {} for the sandbox".format(t), file=sys.stderr)
+        exit(1)
 
 inventory = listdir(outdir)
 
