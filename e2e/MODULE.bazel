@@ -144,4 +144,18 @@ uv.lockfile(
     hub_name = "pypi",
     venv_name = "psql",
 )
+uv.declare_venv(
+    hub_name = "pypi",
+    venv_name = "source-build",
+)
+uv.lockfile(
+    src = "//cases/uv-deps-650/source_crossbuild:uv.lock",
+    hub_name = "pypi",
+    venv_name = "source-build",
+)
+uv.unstable_annotate_requirements(
+    src = "//cases/uv-deps-650/source_crossbuild:annotations.toml",
+    hub_name = "pypi",
+    venv_name = "source-build",
+)
 use_repo(uv, "pypi")
