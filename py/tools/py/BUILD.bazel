@@ -22,6 +22,7 @@ rust_library(
         "@crates//:itertools",
         "@crates//:miette",
         "@crates//:pathdiff",
+        "@crates//:percent-encoding-2.3.1",
         "@crates//:sha256",
         "@crates//:tempfile",
         "@crates//:thiserror",

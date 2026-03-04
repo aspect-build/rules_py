@@ -6,6 +6,7 @@ use std::{
 
 use itertools::Itertools;
 use miette::{Context, IntoDiagnostic, Result};
+use percent_encoding::percent_decode_str;
 
 const RELOCATABLE_SHEBANG: &'static str = r#"/bin/sh
 '''exec' "$(dirname -- "$(realpath -- "$0")")"/'python3' "$0" "$@"
@@ -70,8 +71,9 @@ pub fn unpack_wheel(
         .file_name()
         .and_then(|f| f.to_str())
         .expect("Expected to get filename from wheel path");
+    let filename = percent_decode_str(filename).decode_utf8_lossy();
     let wheel_file_name =
-        uv_distribution_filename::WheelFilename::from_str(filename).into_diagnostic()?;
+        uv_distribution_filename::WheelFilename::from_str(&filename).into_diagnostic()?;
 
     uv_install_wheel::linker::install_wheel(
         &layout,

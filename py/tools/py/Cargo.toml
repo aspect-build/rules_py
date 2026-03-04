@@ -18,6 +18,7 @@ debug = []
 itertools = { workspace = true }
 miette = { workspace = true }
 pathdiff = "0.2.3"
+percent-encoding = "2.3.1"
 relative-path = "1.9.3"
 sha256 = "1.6.0"
 tempfile = { workspace = true }

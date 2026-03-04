@@ -1633,6 +1633,7 @@ dependencies = [
  "itertools 0.13.0",
  "miette",
  "pathdiff",
+ "percent-encoding",
  "relative-path",
  "sha256",
  "tempfile",
