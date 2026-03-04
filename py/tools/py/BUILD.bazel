@@ -1,4 +1,4 @@
-load("@rules_rust//rust:defs.bzl", "rust_library")
+load("//bazel/rust:defs.bzl", "rust_library")
 
 rust_library(
     name = "py",
