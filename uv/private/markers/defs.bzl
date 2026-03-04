@@ -87,6 +87,19 @@ def _decide_marker_impl(ctx):
         else:
             fail("Unable to deref %r" % it)
 
+    aliases = {
+        # Marker values use Python runtime strings, while Bazel platform/config
+        # values skew toward canonical architecture names. Normalize common
+        # synonyms so arm64 wheels selected in uv.lock also match Bazel's
+        # aarch64-based platform settings.
+        "platform_machine": {
+            "arm64": "aarch64",
+            "aarch64": "aarch64",
+            "amd64": "x86_64",
+            "x64": "x86_64",
+        },
+    }
+
     res = _evaluate_marker(
         marker = ctx.attr.marker,
         env = {
@@ -111,6 +124,7 @@ def _decide_marker_impl(ctx):
             "platform_python_implementation": _value(ctx.attr.platform_python_implementation),
             "implementation_name": _value(ctx.attr.implementation_name),
             "implementation_version": _value(ctx.attr.implementation_version),
+            "_aliases": aliases,
         },
     )
 
