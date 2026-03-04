@@ -50,6 +50,9 @@ def _translate_libc(repository_ctx):
         elif "musl" in ldd:
             return "musl"
 
+    elif os == "windows":
+        return "msvc"
+
     return None
 
 def _decode_file(ctx, content_path):
