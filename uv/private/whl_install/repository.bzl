@@ -9,6 +9,7 @@ produce a filegroup/TreeArtifact.
 
 load("@bazel_features//:features.bzl", features = "bazel_features")
 load("//uv/private:parse_whl_name.bzl", "parse_whl_name")
+load("//uv/private/constraints:defs.bzl", "MAJORS", "MINORS")
 load("//uv/private/constraints/platform:defs.bzl", "supported_platform")
 load("//uv/private/constraints/python:defs.bzl", "supported_python")
 load("//uv/private/pprint:defs.bzl", "pprint")
@@ -213,6 +214,26 @@ def sort_select_arms(arms):
     pairs = sorted(arms.items(), key = lambda kv: select_key(kv[0]), reverse = True)
     return {a: b for a, b in pairs}
 
+def _compatible_python_tags(python_tag, abi_tag):
+    if abi_tag != "abi3" or not python_tag.startswith("cp"):
+        return [python_tag]
+
+    major = int(python_tag[2])
+    minor = int(python_tag[3:]) if python_tag[3:] else 0
+    compatible = []
+    for candidate_major in MAJORS:
+        if candidate_major != major:
+            continue
+        for candidate_minor in MINORS:
+            if candidate_minor < minor:
+                continue
+
+            candidate = "cp{}{}".format(candidate_major, candidate_minor)
+            if supported_python(candidate):
+                compatible.append(candidate)
+
+    return compatible if compatible else [python_tag]
+
 def _whl_install_impl(repository_ctx):
     """Selects a compatible wheel for the host platform and defines its installation.
 
@@ -258,18 +279,19 @@ def _whl_install_impl(repository_ctx):
 
         # FIXME: Make it impossible to generate absurd combinations such as
         # cp212-none-cp312 with unsatisfiable version specs.
-        for python_tag in parsed.python_tags:
-            # Escape hatch for ignoring unsupported interpreters
-            if not supported_python(python_tag):
+        for platform_tag in parsed.platform_tags:
+            # Escape hatch for ignoring weird unsupported platforms
+            if not supported_platform(platform_tag):
                 continue
 
-            for platform_tag in parsed.platform_tags:
-                # Escape hatch for ignoring weird unsupported platforms
-                if not supported_platform(platform_tag):
-                    continue
+            for abi_tag in parsed.abi_tags:
+                for python_tag in parsed.python_tags:
+                    for compatible_python_tag in _compatible_python_tags(python_tag, abi_tag):
+                        # Escape hatch for ignoring unsupported interpreters
+                        if not supported_python(compatible_python_tag):
+                            continue
 
-                for abi_tag in parsed.abi_tags:
-                    select_arms[(python_tag, platform_tag, abi_tag)] = target
+                        select_arms[(compatible_python_tag, platform_tag, abi_tag)] = target
 
     # Unfortunately the way that Bazel decides ambiguous selects is explicitly
     # NOT designed to allow for the implementation of ranges. Because that would
