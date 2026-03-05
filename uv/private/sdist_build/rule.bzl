@@ -52,7 +52,7 @@ def _sdist_build(ctx):
         ],
         env = {
             "SETUPTOOLS_SCM_PRETEND_VERSION": ctx.attr.version,
-        },
+        } | ctx.configuration.default_shell_env,
         exec_group = "target",
     )
 
