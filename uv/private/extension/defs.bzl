@@ -51,8 +51,8 @@ resolved dependencies available in the `@uv` repository.
 [2] https://peps.python.org/pep-0751/#locking-build-requirements-for-sdists
 """
 
-load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_features//:features.bzl", features = "bazel_features")
+load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 load("//uv/private:normalize_name.bzl", "normalize_name")
 load("//uv/private/constraints:repository.bzl", "configurations_hub")

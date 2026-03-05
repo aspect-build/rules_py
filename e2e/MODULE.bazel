@@ -140,12 +140,12 @@ uv.override_package(
 # {{{
 uv.project(
     hub_name = "pypi",
-    pyproject = "//cases/uv-legacy-deps-750:pyproject.toml",
     lock = "//cases/uv-legacy-deps-750:uv.lock",
+    pyproject = "//cases/uv-legacy-deps-750:pyproject.toml",
 )
 uv.unstable_annotate_packages(
-    lock = "//cases/uv-legacy-deps-750:uv.lock",
     src = "//cases/uv-legacy-deps-750:annotations.toml",
+    lock = "//cases/uv-legacy-deps-750:uv.lock",
 )
 # }}}
 
