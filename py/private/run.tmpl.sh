@@ -28,7 +28,7 @@ function python_location {
   local RUNFILES_INTERPRETER="{{RUNFILES_INTERPRETER}}"
 
   if [[ "${RUNFILES_INTERPRETER}" == "true" ]]; then
-    echo -n "$(alocation $(rlocation ${PYTHON}))"
+    echo -n "$(alocation "$(rlocation ${PYTHON})")"
   else
     echo -n "${PYTHON}"
   fi
