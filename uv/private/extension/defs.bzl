@@ -257,7 +257,7 @@ def _parse_projects(module_ctx, hub_specs):
                 elif "editable" in package["source"] or "virtual" in package["source"]:
                     # Case of the workspace self-package
                     # FIXME: Workspace packages can have srcs? It's a bit weird
-                    if package["name"] == project_name:
+                    if normalize_name(package["name"]) == normalize_name(project_name):
                         continue
                     else:
                         fail("Virtual package {} in lockfile {} doesn't have a mandatory `uv.override_package()` annotation!".format(package["name"], project.lock))
