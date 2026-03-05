@@ -120,7 +120,6 @@ def _determine_main(ctx):
             fail("name must not end in '.py'")
         proposed_main = ctx.label.name + ".py"
 
-        print(ctx.files.srcs)
         main_files = [src for src in ctx.files.srcs if _path_endswith(src.short_path, proposed_main)]
 
         if len(main_files) > 1:
