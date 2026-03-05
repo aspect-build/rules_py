@@ -51,6 +51,7 @@ resolved dependencies available in the `@uv` repository.
 [2] https://peps.python.org/pep-0751/#locking-build-requirements-for-sdists
 """
 
+load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_features//:features.bzl", features = "bazel_features")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 load("//uv/private:normalize_name.bzl", "normalize_name")
@@ -291,16 +292,24 @@ def _parse_projects(module_ctx, hub_specs):
                     # property if it exists for the sdist. Question is how
                     # to defer choosing deps until the repo rule when we
                     # could do pyproject.toml introspection.
-                    build_deps = lock_build_dep_anns.get(install_key)
-                    if build_deps == None:
-                        if lock_build_deps == None:
-                            lock_build_deps = [
-                                it[0]
-                                for req in project.default_build_dependencies
-                                for it in extract_requirement_marker_pairs(project.lock, req, default_versions)
-                            ]
+                    build_deps = lock_build_dep_anns.get(install_key) or []
+                    if lock_build_deps == None:
+                        lock_build_deps = [
+                            it[0]
+                            for req in project.default_build_dependencies
+                            for it in extract_requirement_marker_pairs(project.lock, req, default_versions)
+                        ]
 
-                        build_deps = lock_build_deps
+                    # FIXME: For really old packages that can't use `build`, we
+                    # have to use `setup.py` which checks to see if requirements
+                    # are installed meaning that we need requirements _at build
+                    # time_. Which is a problem from the perspective of our
+                    # build graph since we'd need to lay down a buch of marked
+                    # conditional deps as extracted for this package. Doable,
+                    # but a substantial model shift here.
+                    #
+                    # Forcing users to annotate in extra build deps is way easier.
+                    build_deps = sets.to_list(sets.make(build_deps + lock_build_deps))
 
                     sbuild_specs[sbuild_id] = struct(
                         src = sdist,
