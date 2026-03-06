@@ -27,9 +27,11 @@ def _parse_version_prerelease_test_impl(ctx):
     asserts.equals(env, [1, 0], parse_version("1.0a1"))
     asserts.equals(env, [1, 0], parse_version("1.0b2"))
     asserts.equals(env, [3, 0, 0, 0], parse_version("3.0.0.dev4"))
+
     # Alpha/beta with no number
     asserts.equals(env, [1, 2], parse_version("1.2a"))
     asserts.equals(env, [1, 2], parse_version("1.2b"))
+
     # Post-release
     asserts.equals(env, [1, 0, 0], parse_version("1.0.post1"))
     asserts.equals(env, [1, 0, 0], parse_version("1.0.post456"))
@@ -68,10 +70,12 @@ parse_version_local_test = unittest.make(_parse_version_local_test_impl)
 def _parse_version_leading_v_test_impl(ctx):
     """Leading 'v' prefix should be handled (common in tags)."""
     env = unittest.begin(ctx)
+
     # Our parser stops at non-digit, so 'v' prefix means numeric starts after
     # parse_version strips to numeric portion — 'v' is non-digit so numeric is empty
     # This is a known limitation; lockfile versions won't have 'v' prefix
     result = parse_version("v1.0")
+
     # 'v' is at position 0, not a digit, so end=0, numeric=""
     asserts.equals(env, [0], result)
     return unittest.end(env)
@@ -143,13 +147,16 @@ def _satisfies_eq_test_impl(ctx):
     env = unittest.begin(ctx)
     asserts.true(env, version_satisfies("24.0", "==24.0"), "24.0 == 24.0")
     asserts.false(env, version_satisfies("21.3", "==24.0"), "21.3 != 24.0")
+
     # Zero-padding: 1.1 and 1.1.0 are equivalent
     asserts.true(env, version_satisfies("1.0.0", "==1.0"), "1.0.0 == 1.0 (zero-padded)")
     asserts.true(env, version_satisfies("1.0", "==1.0.0"), "1.0 == 1.0.0 (zero-padded)")
     asserts.true(env, version_satisfies("1.0", "==1.0.0.0.0"), "1.0 == 1.0.0.0.0")
+
     # Whitespace in specifier
     asserts.true(env, version_satisfies("1.0", "== 1.0"), "whitespace after ==")
     asserts.true(env, version_satisfies("1.0", "==  1.0"), "double whitespace after ==")
+
     # Exact match required
     asserts.false(env, version_satisfies("1.0.1", "==1.0"), "1.0.1 != 1.0")
     asserts.false(env, version_satisfies("1.1", "==1.0"), "1.1 != 1.0")
@@ -166,6 +173,7 @@ def _satisfies_neq_test_impl(ctx):
     env = unittest.begin(ctx)
     asserts.true(env, version_satisfies("21.3", "!=24.0"), "21.3 != 24.0")
     asserts.false(env, version_satisfies("24.0", "!=24.0"), "24.0 == 24.0")
+
     # Zero-padding
     asserts.false(env, version_satisfies("1.0.0", "!=1.0"), "1.0.0 == 1.0 (zero-padded)")
     asserts.true(env, version_satisfies("1.0.1", "!=1.0"), "1.0.1 != 1.0")
@@ -182,6 +190,7 @@ def _satisfies_gte_test_impl(ctx):
     asserts.true(env, version_satisfies("24.0", ">=21.0"), "24.0 >= 21.0")
     asserts.true(env, version_satisfies("21.0", ">=21.0"), "21.0 >= 21.0 (boundary)")
     asserts.false(env, version_satisfies("20.0", ">=21.0"), "20.0 < 21.0")
+
     # Zero-padding: 1.0.0 >= 1.0
     asserts.true(env, version_satisfies("1.0.0", ">=1.0"), "1.0.0 >= 1.0")
     asserts.true(env, version_satisfies("1.0", ">=1.0.0"), "1.0 >= 1.0.0")
@@ -200,6 +209,7 @@ def _satisfies_lte_test_impl(ctx):
     asserts.true(env, version_satisfies("21.0", "<=24.0"), "21.0 <= 24.0")
     asserts.true(env, version_satisfies("24.0", "<=24.0"), "24.0 <= 24.0 (boundary)")
     asserts.false(env, version_satisfies("25.0", "<=24.0"), "25.0 > 24.0")
+
     # Zero-padding
     asserts.true(env, version_satisfies("1.0", "<=1.0.0"), "1.0 <= 1.0.0")
     asserts.true(env, version_satisfies("1.0.0", "<=1.0"), "1.0.0 <= 1.0")
@@ -217,12 +227,15 @@ def _satisfies_gt_test_impl(ctx):
     asserts.true(env, version_satisfies("24.0", ">21.0"), "24.0 > 21.0")
     asserts.false(env, version_satisfies("21.0", ">21.0"), "21.0 == 21.0, not >")
     asserts.false(env, version_satisfies("20.0", ">21.0"), "20.0 < 21.0")
+
     # Boundary: just above
     asserts.true(env, version_satisfies("1.0.1", ">1.0"), "1.0.1 > 1.0")
     asserts.true(env, version_satisfies("1.1", ">1.0"), "1.1 > 1.0")
+
     # Zero-padding: 1.0.0 == 1.0, so not >
     asserts.false(env, version_satisfies("1.0.0", ">1.0"), "1.0.0 == 1.0 (not >)")
     asserts.false(env, version_satisfies("1.0", ">1.0.0"), "1.0 == 1.0.0 (not >)")
+
     # Per PEP 440: >1.7 should allow 1.7.1
     asserts.true(env, version_satisfies("1.7.1", ">1.7"), "1.7.1 > 1.7")
     return unittest.end(env)
@@ -238,9 +251,11 @@ def _satisfies_lt_test_impl(ctx):
     asserts.true(env, version_satisfies("20.0", "<21.0"), "20.0 < 21.0")
     asserts.false(env, version_satisfies("21.0", "<21.0"), "21.0 == 21.0, not <")
     asserts.false(env, version_satisfies("22.0", "<21.0"), "22.0 > 21.0")
+
     # Boundary: just below
     asserts.true(env, version_satisfies("0.9.9", "<1.0"), "0.9.9 < 1.0")
     asserts.true(env, version_satisfies("0.99", "<1.0"), "0.99 < 1.0")
+
     # Zero-padding: 1.0.0 == 1.0, so not <
     asserts.false(env, version_satisfies("1.0.0", "<1.0"), "1.0.0 == 1.0 (not <)")
     asserts.false(env, version_satisfies("1.0", "<1.0.0"), "1.0 == 1.0.0 (not <)")
@@ -255,6 +270,7 @@ satisfies_lt_test = unittest.make(_satisfies_lt_test_impl)
 def _satisfies_compatible_two_segment_test_impl(ctx):
     """~=X.Y means >=X.Y, ==X.*"""
     env = unittest.begin(ctx)
+
     # ~=2.2 is >=2.2, ==2.*  (i.e. >=2.2, <3.0)
     asserts.true(env, version_satisfies("2.2", "~=2.2"), "2.2 ~= 2.2 (exact)")
     asserts.true(env, version_satisfies("2.2.0", "~=2.2"), "2.2.0 ~= 2.2")
@@ -274,6 +290,7 @@ satisfies_compatible_two_segment_test = unittest.make(_satisfies_compatible_two_
 def _satisfies_compatible_three_segment_test_impl(ctx):
     """~=X.Y.Z means >=X.Y.Z, ==X.Y.*  (i.e. >=X.Y.Z, <X.(Y+1).0)"""
     env = unittest.begin(ctx)
+
     # ~=1.4.2 is >=1.4.2, <1.5.0
     asserts.true(env, version_satisfies("1.4.2", "~=1.4.2"), "1.4.2 (exact)")
     asserts.true(env, version_satisfies("1.4.3", "~=1.4.2"), "1.4.3")
@@ -291,6 +308,7 @@ satisfies_compatible_three_segment_test = unittest.make(_satisfies_compatible_th
 def _satisfies_compatible_four_segment_test_impl(ctx):
     """~=X.Y.Z.W means >=X.Y.Z.W, <X.Y.(Z+1).0"""
     env = unittest.begin(ctx)
+
     # ~=1.4.2.0 is >=1.4.2.0, <1.4.3.0
     asserts.true(env, version_satisfies("1.4.2.0", "~=1.4.2.0"), "exact")
     asserts.true(env, version_satisfies("1.4.2.1", "~=1.4.2.0"), "1.4.2.1")
@@ -304,6 +322,7 @@ satisfies_compatible_four_segment_test = unittest.make(_satisfies_compatible_fou
 def _satisfies_compatible_vs_eq_star_test_impl(ctx):
     """Demonstrate that ~=2.2.0 is stricter than ~=2.2."""
     env = unittest.begin(ctx)
+
     # ~=2.2   is >=2.2, <3.0   — allows 2.3, 2.99 etc.
     # ~=2.2.0 is >=2.2.0, <2.3 — does NOT allow 2.3
     asserts.true(env, version_satisfies("2.3", "~=2.2"), "2.3 matches ~=2.2")
@@ -319,6 +338,7 @@ satisfies_compatible_vs_eq_star_test = unittest.make(_satisfies_compatible_vs_eq
 
 def _satisfies_wildcard_eq_test_impl(ctx):
     env = unittest.begin(ctx)
+
     # ==1.0.* matches any 1.0.x
     asserts.true(env, version_satisfies("1.0.0", "==1.0.*"), "1.0.0")
     asserts.true(env, version_satisfies("1.0.1", "==1.0.*"), "1.0.1")
@@ -349,6 +369,7 @@ satisfies_wildcard_eq_test = unittest.make(_satisfies_wildcard_eq_test_impl)
 
 def _satisfies_wildcard_neq_test_impl(ctx):
     env = unittest.begin(ctx)
+
     # !=1.0.* excludes all 1.0.x
     asserts.true(env, version_satisfies("1.1.0", "!=1.0.*"), "1.1.0 not in 1.0.*")
     asserts.true(env, version_satisfies("2.0.0", "!=1.0.*"), "2.0.0 not in 1.0.*")
@@ -373,6 +394,7 @@ satisfies_wildcard_neq_test = unittest.make(_satisfies_wildcard_neq_test_impl)
 def _satisfies_compound_range_test_impl(ctx):
     """Compound specifiers: >=X,<Y (common range pattern)."""
     env = unittest.begin(ctx)
+
     # >=1.0,<2.0
     asserts.true(env, version_satisfies("1.0", ">=1.0,<2.0"), "1.0 in [1.0,2.0)")
     asserts.true(env, version_satisfies("1.5", ">=1.0,<2.0"), "1.5 in [1.0,2.0)")
@@ -392,6 +414,7 @@ satisfies_compound_range_test = unittest.make(_satisfies_compound_range_test_imp
 def _satisfies_compound_exclusion_test_impl(ctx):
     """Compound specifiers with exclusions."""
     env = unittest.begin(ctx)
+
     # >=2.0,!=2.1
     asserts.true(env, version_satisfies("2.0", ">=2.0,!=2.1"), "2.0 ok")
     asserts.false(env, version_satisfies("2.1", ">=2.0,!=2.1"), "2.1 excluded")
@@ -422,6 +445,7 @@ satisfies_compound_whitespace_test = unittest.make(_satisfies_compound_whitespac
 def _satisfies_compound_many_clauses_test_impl(ctx):
     """Many clauses combined."""
     env = unittest.begin(ctx)
+
     # >=1.0,<3.0,!=1.5,!=2.0,!=2.5
     asserts.true(env, version_satisfies("1.0", ">=1.0,<3.0,!=1.5,!=2.0,!=2.5"), "1.0 ok")
     asserts.false(env, version_satisfies("1.5", ">=1.0,<3.0,!=1.5,!=2.0,!=2.5"), "1.5 excluded")
@@ -441,6 +465,7 @@ satisfies_compound_many_clauses_test = unittest.make(_satisfies_compound_many_cl
 
 def _satisfies_arbitrary_eq_test_impl(ctx):
     env = unittest.begin(ctx)
+
     # === does string comparison on parsed versions
     asserts.true(env, version_satisfies("1.0", "===1.0"), "1.0 === 1.0")
     asserts.true(env, version_satisfies("2.3.4", "===2.3.4"), "exact match")
@@ -489,6 +514,7 @@ def _satisfies_calver_test_impl(ctx):
     asserts.false(env, version_satisfies("2023.12", ">=2024.0"), "calver below")
     asserts.true(env, version_satisfies("2024.3.1", "~=2024.3"), "calver compatible")
     asserts.true(env, version_satisfies("2024.4.0", "~=2024.3"), "calver next minor within compat range")
+
     # Hmm actually ~=2024.3 means >=2024.3, <2025.0 — 2024.4.0 is in range
     # Let me correct: ~=2024.3 means >=2024.3, <2025.0
     # But 2024.4 < 2025.0, so it should match!
@@ -499,6 +525,7 @@ satisfies_calver_test = unittest.make(_satisfies_calver_test_impl)
 def _satisfies_real_world_numpy_test_impl(ctx):
     """Real-world specifiers from popular packages."""
     env = unittest.begin(ctx)
+
     # numpy>=1.21.0
     asserts.true(env, version_satisfies("1.21.0", ">=1.21.0"))
     asserts.true(env, version_satisfies("1.26.4", ">=1.21.0"))
@@ -516,6 +543,7 @@ satisfies_real_world_numpy_test = unittest.make(_satisfies_real_world_numpy_test
 def _satisfies_real_world_django_test_impl(ctx):
     """Django-style version specifiers."""
     env = unittest.begin(ctx)
+
     # Django>=4.2,<5.0
     asserts.true(env, version_satisfies("4.2", ">=4.2,<5.0"))
     asserts.true(env, version_satisfies("4.2.11", ">=4.2,<5.0"))
@@ -534,6 +562,7 @@ satisfies_real_world_django_test = unittest.make(_satisfies_real_world_django_te
 def _satisfies_real_world_requests_test_impl(ctx):
     """Requests-style version specifiers."""
     env = unittest.begin(ctx)
+
     # requests>=2.20.0,!=2.25.0
     asserts.true(env, version_satisfies("2.31.0", ">=2.20.0,!=2.25.0"))
     asserts.true(env, version_satisfies("2.20.0", ">=2.20.0,!=2.25.0"))
@@ -546,6 +575,7 @@ satisfies_real_world_requests_test = unittest.make(_satisfies_real_world_request
 def _satisfies_real_world_protobuf_test_impl(ctx):
     """Protobuf-style range pinning."""
     env = unittest.begin(ctx)
+
     # protobuf>=3.19.5,<5.0.0,!=3.20.0,!=3.20.1,!=4.21.1,!=4.21.2,!=4.21.3,!=4.21.4,!=4.21.5
     spec = ">=3.19.5,<5.0.0,!=3.20.0,!=3.20.1,!=4.21.1,!=4.21.2,!=4.21.3,!=4.21.4,!=4.21.5"
     asserts.true(env, version_satisfies("3.19.5", spec), "3.19.5 ok")
@@ -566,6 +596,7 @@ satisfies_real_world_protobuf_test = unittest.make(_satisfies_real_world_protobu
 def _satisfies_boundary_precision_test_impl(ctx):
     """Tests around exact boundaries to catch off-by-one errors."""
     env = unittest.begin(ctx)
+
     # Right at the boundary for each operator
     asserts.true(env, version_satisfies("1.0", ">=1.0"))
     asserts.true(env, version_satisfies("1.0", "<=1.0"))
@@ -615,12 +646,16 @@ def _find_matching_version_range_test_impl(ctx):
         "21.3": ("proj", "packaging", "21.3", "__base__"),
         "24.0": ("proj", "packaging", "24.0", "__base__"),
     }
+
     # >=22.0 should only match 24.0
     asserts.equals(env, ("proj", "packaging", "24.0", "__base__"), find_matching_version(">=22.0", candidates))
+
     # <22.0 should only match 21.3
     asserts.equals(env, ("proj", "packaging", "21.3", "__base__"), find_matching_version("<22.0", candidates))
+
     # >=25.0 should match nothing
     asserts.equals(env, None, find_matching_version(">=25.0", candidates))
+
     # <21.0 should match nothing
     asserts.equals(env, None, find_matching_version("<21.0", candidates))
     return unittest.end(env)
@@ -633,8 +668,10 @@ def _find_matching_version_compatible_test_impl(ctx):
         "21.3": ("proj", "packaging", "21.3", "__base__"),
         "24.0": ("proj", "packaging", "24.0", "__base__"),
     }
+
     # ~=21.0 means >=21.0,<22.0 — matches 21.3 only
     asserts.equals(env, ("proj", "packaging", "21.3", "__base__"), find_matching_version("~=21.0", candidates))
+
     # ~=24.0 means >=24.0,<25.0 — matches 24.0 only
     asserts.equals(env, ("proj", "packaging", "24.0", "__base__"), find_matching_version("~=24.0", candidates))
     return unittest.end(env)
@@ -648,11 +685,14 @@ def _find_matching_version_gte_client_test_impl(ctx):
         "2.0.0": ("proj", "numpy", "2.0.0", "__base__"),
         "2.1.2": ("proj", "numpy", "2.1.2", "__base__"),
     }
+
     # >=2.1 should match 2.1.2 (only candidate >= 2.1)
     asserts.equals(env, ("proj", "numpy", "2.1.2", "__base__"), find_matching_version(">=2.1", candidates))
+
     # >=2.0 matches at least one
     result = find_matching_version(">=2.0", candidates)
     asserts.true(env, result != None, ">=2.0 finds at least one")
+
     # <2.1 should only match 2.0.0
     asserts.equals(env, ("proj", "numpy", "2.0.0", "__base__"), find_matching_version("<2.1", candidates))
     return unittest.end(env)
@@ -667,6 +707,7 @@ def _find_matching_version_compound_test_impl(ctx):
         "1.5": ("proj", "foo", "1.5", "__base__"),
         "2.0": ("proj", "foo", "2.0", "__base__"),
     }
+
     # >=1.0,<2.0 should NOT match 2.0
     result = find_matching_version(">=1.0,<2.0", candidates)
     asserts.true(env, result != None, "at least one in [1.0,2.0)")
