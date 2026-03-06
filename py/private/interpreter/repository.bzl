@@ -2,6 +2,9 @@
 
 load(":versions.bzl", "DEFAULT_RELEASE_BASE_URL")
 
+_PYTHON_VERSION_FLAG = "@aspect_rules_py//py/private/interpreter:python_version"
+_RPY_VERSION_FLAG = "@rules_python//python/config_settings:python_version"
+
 def _python_interpreter_impl(rctx):
     """Downloads and extracts a Python interpreter from PBS."""
     python_version = rctx.attr.python_version
@@ -24,17 +27,60 @@ def _python_interpreter_impl(rctx):
     major = version_parts[0]
     minor = version_parts[1]
     micro = version_parts[2] if len(version_parts) > 2 else "0"
+    major_minor = "{}.{}".format(major, minor)
 
-    # Delete __pycache__ pyc files to prevent cache invalidation
-    # Also delete terminfo symlink loops on newer PBS releases (linux only)
+    # Delete terminfo symlink loops on newer PBS releases (linux only)
     if "linux" in platform:
         rctx.delete("share/terminfo")
 
     rctx.file("BUILD.bazel", content = """\
 load("@rules_python//python:py_runtime.bzl", "py_runtime")
 load("@rules_python//python:py_runtime_pair.bzl", "py_runtime_pair")
+load("@bazel_skylib//lib:selects.bzl", "selects")
 
 package(default_visibility = ["//visibility:public"])
+
+# Config settings that match when python_version is set to this interpreter's
+# version (either "X.Y" or "X.Y.Z"). Both our own flag and the rules_python
+# flag are checked so that toolchain resolution works regardless of which flag
+# is being set.
+config_setting(
+    name = "_is_our_major_minor",
+    flag_values = {{
+        "{our_flag}": "{major_minor}",
+    }},
+)
+
+config_setting(
+    name = "_is_our_major_minor_micro",
+    flag_values = {{
+        "{our_flag}": "{version}",
+    }},
+)
+
+config_setting(
+    name = "_is_rpy_major_minor",
+    flag_values = {{
+        "{rpy_flag}": "{major_minor}",
+    }},
+)
+
+config_setting(
+    name = "_is_rpy_major_minor_micro",
+    flag_values = {{
+        "{rpy_flag}": "{version}",
+    }},
+)
+
+selects.config_setting_group(
+    name = "is_matching_python_version",
+    match_any = [
+        ":_is_our_major_minor",
+        ":_is_our_major_minor_micro",
+        ":_is_rpy_major_minor",
+        ":_is_rpy_major_minor_micro",
+    ],
+)
 
 filegroup(
     name = "files",
@@ -72,6 +118,10 @@ py_runtime_pair(
     py3_runtime = ":py3_runtime",
 )
 """.format(
+        our_flag = _PYTHON_VERSION_FLAG,
+        rpy_flag = _RPY_VERSION_FLAG,
+        version = python_version,
+        major_minor = major_minor,
         python_bin = python_bin,
         major = major,
         minor = minor,
@@ -94,13 +144,13 @@ def _python_toolchains_impl(rctx):
     content = ['package(default_visibility = ["//visibility:public"])']
 
     for entry in rctx.attr.toolchains:
-        # entry is a JSON string: {"name": ..., "repo": ..., "compatible_with": [...], "python_version": ...}
         info = json.decode(entry)
         content.append("""
 toolchain(
     name = "{name}",
     exec_compatible_with = {compatible_with},
     target_compatible_with = {compatible_with},
+    target_settings = ["@{repo}//:is_matching_python_version"],
     toolchain = "@{repo}//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )

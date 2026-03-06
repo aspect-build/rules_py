@@ -12,6 +12,28 @@ DEFAULT_RELEASE_BASE_URL = "https://github.com/astral-sh/python-build-standalone
 
 # buildifier: disable=unsorted-dict-items
 TOOL_VERSIONS = {
+    "3.9.25": {
+        "url": "20251031/cpython-{python_version}+20251031-{platform}-install_only.tar.gz",
+        "strip_prefix": "python",
+        "sha256": {
+            "aarch64-apple-darwin": "87275619c2706affa4d1090d2ca3dad354b6d69f8b85dbfafe38785870751b9a",
+            "aarch64-unknown-linux-gnu": "6112d46355857680b81849764a6cf9f38cc4cd0d1cf29d432bc12fe5aeedf9d0",
+            "x86_64-apple-darwin": "ace63cfe27a9487c4d72e1cb518be01c1d985271da0b2158e813801f7d3e5503",
+            "x86_64-unknown-linux-gnu": "42834f61eb6df43432c3dd6ab9ca3fdf8c06d10a404ebdb53d6902e6b9570b08",
+            "x86_64-unknown-linux-musl": "76593e8c889e81e82db5fe117fe15b69466f85100ab2ec0e4035aa86242b4e93",
+        },
+    },
+    "3.10.19": {
+        "url": "20251031/cpython-{python_version}+20251031-{platform}-install_only.tar.gz",
+        "strip_prefix": "python",
+        "sha256": {
+            "aarch64-apple-darwin": "43bda24c2fc073bc308bf631203b917a72640d59b59fdad4ba14503d84727012",
+            "aarch64-unknown-linux-gnu": "f77a8a8aa77f3f943126fa9215a25309da4bf20398fc8f4b4eec54b5fc7570ef",
+            "x86_64-apple-darwin": "76c12e633c09c2a790f8a958a55df4495527e0718d1875310c836e757c0c7b55",
+            "x86_64-unknown-linux-gnu": "fb1caac917d7b6497bb6f5950da5f1e48d05c43a498948dd97f85760c4382d9f",
+            "x86_64-unknown-linux-musl": "ba85013ed5ac7733fc6840168cc33ed19e9959b363dc80227d54f8fd9c92c0f4",
+        },
+    },
     "3.11.14": {
         "url": "20251031/cpython-{python_version}+20251031-{platform}-install_only.tar.gz",
         "strip_prefix": "python",
@@ -94,6 +116,8 @@ PLATFORMS = {
 # Default minor version mapping: "3.11" -> "3.11.14"
 # buildifier: disable=unsorted-dict-items
 MINOR_MAPPING = {
+    "3.9": "3.9.25",
+    "3.10": "3.10.19",
     "3.11": "3.11.14",
     "3.12": "3.12.12",
     "3.13": "3.13.11",
