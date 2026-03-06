@@ -159,3 +159,8 @@ uv.project(
 # }}}
 
 use_repo(uv, "pypi")
+
+# For cases/source-built-python
+# {{{
+include("//cases/source-built-python:source-built-python.MODULE.bazel")
+# }}}

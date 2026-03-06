@@ -1,0 +1,91 @@
+load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
+load("@rules_python//python:defs.bzl", "py_runtime", "py_runtime_pair")
+load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
+load(":defs.bzl", "build_cpython", "python_interpreter_wrapper", "source_built_test")
+
+# -- Build CPython 3.11.9 from source --
+
+build_cpython(
+    name = "cpython",
+    src = "@cpython_src//:all_srcs",
+)
+
+# Wrapper script that sets PYTHONHOME before exec-ing the real interpreter
+python_interpreter_wrapper(
+    name = "python3",
+    cpython = ":cpython",
+)
+
+# -- Toolchain registration --
+
+py_runtime(
+    name = "source_built_runtime",
+    interpreter = ":python3",
+    files = [":cpython"],
+    python_version = "PY3",
+    interpreter_version_info = {
+        "major": "3",
+        "minor": "11",
+        "micro": "9",
+    },
+)
+
+py_runtime_pair(
+    name = "source_built_py_runtime_pair",
+    py3_runtime = ":source_built_runtime",
+)
+
+# Gate the toolchain behind a build setting so it doesn't affect other tests
+string_flag(
+    name = "python_build_type",
+    build_setting_default = "prebuilt",
+    values = ["prebuilt", "source"],
+)
+
+config_setting(
+    name = "is_source_built",
+    flag_values = {":python_build_type": "source"},
+)
+
+toolchain(
+    name = "source_built_toolchain",
+    toolchain = ":source_built_py_runtime_pair",
+    toolchain_type = "@rules_python//python:toolchain_type",
+    target_settings = [":is_source_built"],
+)
+
+# -- Tests --
+
+# Inner test (built under the source-built Python toolchain via transition)
+py_venv_test(
+    name = "_test_source_built_inner",
+    srcs = ["test_source_built.py"],
+    main = "test_source_built.py",
+    python_version = "3.11",
+    tags = ["manual"],
+)
+
+# Outer test that transitions to activate the source-built toolchain
+source_built_test(
+    name = "test_source_built",
+    test = ":_test_source_built_inner",
+)
+
+# Inner test with sdist-built markupsafe (forced via no-binary-package in pyproject.toml)
+py_venv_test(
+    name = "_test_with_deps_inner",
+    srcs = ["test_with_deps.py"],
+    main = "test_with_deps.py",
+    python_version = "3.11",
+    venv = "test",
+    deps = [
+        "@pypi//markupsafe",
+    ],
+    tags = ["manual"],
+)
+
+# Outer test with deps, transitioned to use source-built debug Python
+source_built_test(
+    name = "test_with_deps",
+    test = ":_test_with_deps_inner",
+)
