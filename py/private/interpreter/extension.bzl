@@ -100,6 +100,7 @@ def _version_gt(a, b):
 def _owner_repo_from_base_url(base_url):
     """Extract GitHub owner/repo from a base URL like https://github.com/{owner}/{repo}/releases/download."""
     parts = base_url.split("/")
+
     # Expected: ["https:", "", "github.com", "{owner}", "{repo}", "releases", "download"]
     if len(parts) >= 5 and "github.com" in parts[2]:
         return parts[3], parts[4]
