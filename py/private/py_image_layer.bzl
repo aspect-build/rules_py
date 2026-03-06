@@ -35,17 +35,21 @@ load("@tar.bzl//tar:mtree.bzl", "mtree_mutate", "mtree_spec")
 load("@tar.bzl//tar:tar.bzl", "tar")
 
 default_layer_groups = {
-    # match *only* external repositories that begins with the string "python"
+    # match *only* external repositories containing a Python interpreter,
+    # by matching the interpreter repo naming convention:
+    #   python[_]<major>_<minor>[_<patch>]_<arch>-<vendor>-<os>
+    #
     # e.g. this will match
+    #   `.runfiles/rules_python++python+python_3_9_x86_64-unknown-linux-gnu/bin/python3`
     #   `.runfiles/rules_python~0.21.0~python~python3_9_aarch64-unknown-linux-gnu/bin/python3`
-    #   `.runfiles/python_toolchain_x86_64-unknown-linux-gnu/bin/python3`
     # but not match
+    #   `.runfiles/rules_python++pip+pypi_313_argon2_cffi_bindings_cp36_abi3_manylinux_2_17_x86_64_.../`
     #   `.runfiles/_main/python_app`
     #
     # Note that due to dict key insertion order sensitivity, we want this group
     # to go first so that the entire interpreter including its bundled libraries
     # goes into the same layer.
-    "interpreter": "\\\\.runfiles/[^/]*?python[^/]*?(x86|arm64|aarch64).*?/",
+    "interpreter": "\\\\.runfiles/[^/]*python_?[0-9]+(_[0-9]+)+_[a-z0-9_]+-(unknown|apple|pc)-[^/]*/",
     # match *only* external pip like repositories that contain the string "site-packages"
     #
     # Note that this comes after the interpreter so that we won't bundle
