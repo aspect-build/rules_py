@@ -1,26 +1,24 @@
-load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
+# Regression test for #754: packages with no sdist and no wheels for the host
+# platform must not crash the build graph.
+#
+# The pywin32 package (registered in MODULE.bazel via uv.project) has only
+# Windows wheels and no sdist. On a Linux host, the whl_install repo must
+# generate an incompatible default target rather than failing with an empty
+# select chain.
 
-platform(
-    name = "amd64_windows",
-    constraint_values = [
-        "@platforms//os:windows",
-        "@platforms//cpu:x86_64",
-    ],
-    flags = [
-        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=msvc",
-        "--@aspect_rules_py//uv/private/constraints/platform:platform_version=1.0",
-        "--@rules_rust//:extra_rustc_flag=-Cstrip=debuginfo",
-        "--@rules_rust//rust/settings:lto=fat",
-        "--stripopt=--strip-all",
-        # Note that we have to set this
-        "--@pypi//venv=no-sdist",
-    ],
+load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
+
+# Use genquery to prove the whl_install repo was generated and contains the
+# _no_sbuild incompatible default. If the fix regresses, this query will fail.
+genquery(
+    name = "pywin32_targets",
+    expression = "deps(@pypi//pywin32)",
+    scope = ["@pypi//pywin32"],
 )
 
-platform_transition_filegroup(
+sh_test(
     name = "test",
-    srcs = [
-        "@pypi//pywin32",
-    ],
-    target_platform = ":amd64_windows",
+    srcs = ["test_no_sdist.sh"],
+    data = [":pywin32_targets"],
+    target_compatible_with = ["@platforms//os:linux"],
 )
