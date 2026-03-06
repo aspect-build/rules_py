@@ -41,6 +41,12 @@ try:
             "--no-isolation",
             "--outdir", outdir,
         ]
+
+    # FIXME: Shelling to setup.py is explicitly recommended against in modern
+    # setuptools. Need to figure out a better story. The setuptools
+    # recommendation seems to be 'pip wheel' which means we really want to
+    # bifurcate this machinery into 'build with build' and 'build with pip' as
+    # separate target types? What about 'build with uv' or another backend?
     elif path.exists(path.join(t, "setup.py")):
         cmd = [
             sys.executable,
@@ -49,6 +55,7 @@ try:
             "--dist-dir",
             outdir,
         ]
+
     else:
         print("Error: Unable to detect build command! Neither pyproject nor setup.py found!", file=sys.stderr)
         exit(1)    

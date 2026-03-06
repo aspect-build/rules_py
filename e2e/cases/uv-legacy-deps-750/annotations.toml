@@ -1,0 +1,5 @@
+[[package]]
+name = "googlemaps"
+build-dependencies = [
+    { name = "requests"},
+]

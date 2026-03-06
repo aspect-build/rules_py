@@ -351,24 +351,23 @@ fn main() -> miette::Result<()> {
 
     let venv_bin = (&venv_root).join("bin");
     // TODO(arrdem|myrrlyn): PATHSEP is : on Unix and ; on Windows
-    if let Ok(path) = env::var("PATH") {
-        let mut path_segments = path
-            .split(":") // break into individual entries
-            .filter(|&p| !p.is_empty()) // skip over `::`, which is possible
-            .map(ToOwned::to_owned) // we're dropping the big string, so own the fragments
-            .collect::<Vec<_>>(); // and save them.
-        let need_venv_in_path = path_segments
-            .iter()
-            .find(|&p| OsStr::new(p) == &venv_bin)
-            .is_none();
-        if need_venv_in_path {
-            // append to back
-            path_segments.push(venv_bin.to_string_lossy().into_owned());
-            // then move venv_bin to the front of PATH
-            path_segments.rotate_right(1);
-            // and write into the child environment. this avoids an empty PATH causing us to write `{venv_bin}:` with a trailing colon
-            cmd.env("PATH", path_segments.join(":"));
-        }
+    let path = env::var("PATH").unwrap_or("".to_string());
+    let mut path_segments = path
+        .split(":") // break into individual entries
+        .filter(|&p| !p.is_empty()) // skip over `::`, which is possible
+        .map(ToOwned::to_owned) // we're dropping the big string, so own the fragments
+        .collect::<Vec<_>>(); // and save them.
+    let need_venv_in_path = path_segments
+        .iter()
+        .find(|&p| OsStr::new(p) == &venv_bin)
+        .is_none();
+    if need_venv_in_path {
+        // append to back
+        path_segments.push(venv_bin.to_string_lossy().into_owned());
+        // then move venv_bin to the front of PATH
+        path_segments.rotate_right(1);
+        // and write into the child environment. this avoids an empty PATH causing us to write `{venv_bin}:` with a trailing colon
+        cmd.env("PATH", path_segments.join(":"));
     }
 
     // Set the executable pointer for MacOS, but we do it consistently
