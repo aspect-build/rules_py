@@ -1,0 +1,22 @@
+[project]
+name = "ambig"
+version = "0.0.0"
+requires-python = "== 3.10.19"
+dependencies = []
+
+[dependency-groups]
+ambig-a = [
+    "packaging==24.0",
+]
+
+ambig-b = [
+    "packaging==21.3",
+]
+
+[tool.uv]
+conflicts = [
+    [
+      { group = "ambig-a" },
+      { group = "ambig-b" },
+    ],
+]
