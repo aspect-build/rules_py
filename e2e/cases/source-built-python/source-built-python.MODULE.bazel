@@ -4,10 +4,10 @@ http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "ht
 
 http_archive(
     name = "cpython_src",
-    url = "https://www.python.org/ftp/python/3.11.9/Python-3.11.9.tgz",
+    build_file = "//cases/source-built-python:cpython_src.BUILD.bazel",
     sha256 = "e7de3240a8bc2b1e1ba5c81bf943f06861ff494b69fda990ce2722a504c6153d",
     strip_prefix = "Python-3.11.9",
-    build_file = "//cases/source-built-python:cpython_src.BUILD.bazel",
+    url = "https://www.python.org/ftp/python/3.11.9/Python-3.11.9.tgz",
 )
 
 register_toolchains("//cases/source-built-python:source_built_toolchain")

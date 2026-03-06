@@ -1,6 +1,6 @@
+load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
 load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
 load("@rules_python//python:defs.bzl", "py_runtime", "py_runtime_pair")
-load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
 load(":defs.bzl", "build_cpython", "python_interpreter_wrapper", "source_built_test")
 
 # -- Build CPython 3.11.9 from source --
@@ -20,14 +20,14 @@ python_interpreter_wrapper(
 
 py_runtime(
     name = "source_built_runtime",
-    interpreter = ":python3",
     files = [":cpython"],
-    python_version = "PY3",
+    interpreter = ":python3",
     interpreter_version_info = {
         "major": "3",
         "minor": "11",
         "micro": "9",
     },
+    python_version = "PY3",
 )
 
 py_runtime_pair(
@@ -39,7 +39,10 @@ py_runtime_pair(
 string_flag(
     name = "python_build_type",
     build_setting_default = "prebuilt",
-    values = ["prebuilt", "source"],
+    values = [
+        "prebuilt",
+        "source",
+    ],
 )
 
 config_setting(
@@ -49,9 +52,9 @@ config_setting(
 
 toolchain(
     name = "source_built_toolchain",
+    target_settings = [":is_source_built"],
     toolchain = ":source_built_py_runtime_pair",
     toolchain_type = "@rules_python//python:toolchain_type",
-    target_settings = [":is_source_built"],
 )
 
 # -- Tests --
@@ -77,11 +80,11 @@ py_venv_test(
     srcs = ["test_with_deps.py"],
     main = "test_with_deps.py",
     python_version = "3.11",
+    tags = ["manual"],
     venv = "test",
     deps = [
         "@pypi//markupsafe",
     ],
-    tags = ["manual"],
 )
 
 # Outer test with deps, transitioned to use source-built debug Python
