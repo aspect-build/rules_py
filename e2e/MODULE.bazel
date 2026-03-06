@@ -36,6 +36,10 @@ interpreters.toolchain(
 interpreters.toolchain(
     python_version = "3.13",
 )
+interpreters.toolchain(
+    build_config = "freethreaded+pgo+lto",
+    python_version = "3.13",
+)
 use_repo(interpreters, "python_interpreters")
 
 register_toolchains("@python_interpreters//:all")
@@ -158,6 +162,16 @@ uv.project(
 uv.unstable_annotate_packages(
     src = "//cases/uv-legacy-deps-750:annotations.toml",
     lock = "//cases/uv-legacy-deps-750:uv.lock",
+)
+# }}}
+
+# For cases/freethreaded-805
+# {{{
+uv.project(
+    default_build_dependencies = [],
+    hub_name = "pypi",
+    lock = "//cases/freethreaded-805:uv.lock",
+    pyproject = "//cases/freethreaded-805:pyproject.toml",
 )
 # }}}
 
