@@ -149,4 +149,13 @@ uv.unstable_annotate_packages(
 )
 # }}}
 
+# For cases/uv-conflict-817
+# {{{
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/uv-conflict-817:uv.lock",
+    pyproject = "//cases/uv-conflict-817:pyproject.toml",
+)
+# }}}
+
 use_repo(uv, "pypi")
