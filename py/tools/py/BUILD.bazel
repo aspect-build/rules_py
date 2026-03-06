@@ -19,6 +19,7 @@ rust_library(
         "//py/tools/venv_bin:__pkg__",
     ],
     deps = [
+        "@crates//:indexmap",
         "@crates//:itertools",
         "@crates//:miette",
         "@crates//:pathdiff",
@@ -34,6 +35,5 @@ rust_library(
         "@crates//:uv-python",
         "@crates//:uv-virtualenv",
         "@crates//:walkdir",
-        "@crates//:indexmap",
     ],
 )
