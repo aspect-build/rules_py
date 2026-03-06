@@ -17,6 +17,7 @@ parse_version_simple_test = unittest.make(_parse_version_simple_test_impl)
 
 def _parse_version_prerelease_test_impl(ctx):
     env = unittest.begin(ctx)
+
     # Pre-release suffixes are stripped to the numeric prefix
     asserts.equals(env, [2, 0, 0], parse_version("2.0.0rc1"))
     asserts.equals(env, [1, 0], parse_version("1.0a1"))
@@ -115,6 +116,7 @@ satisfies_lt_test = unittest.make(_satisfies_lt_test_impl)
 
 def _satisfies_compatible_test_impl(ctx):
     env = unittest.begin(ctx)
+
     # ~=2.1 means >=2.1,<3.0
     asserts.true(env, version_satisfies("2.1", "~=2.1"), "2.1 ~= 2.1")
     asserts.true(env, version_satisfies("2.5", "~=2.1"), "2.5 ~= 2.1")
@@ -137,6 +139,7 @@ satisfies_compatible_test = unittest.make(_satisfies_compatible_test_impl)
 
 def _satisfies_compound_test_impl(ctx):
     env = unittest.begin(ctx)
+
     # >=21.0,<25.0
     asserts.true(env, version_satisfies("24.0", ">=21.0,<25.0"), "24.0 in [21,25)")
     asserts.true(env, version_satisfies("21.0", ">=21.0,<25.0"), "21.0 in [21,25)")
