@@ -3,6 +3,9 @@
 load(":repository.bzl", "python_interpreter", "python_toolchains")
 load(":versions.bzl", "BUILD_CONFIGS", "DEFAULT_RELEASE_BASE_URL", "DEFAULT_RELEASE_DATES", "PLATFORMS")
 
+# The GitHub API endpoint for resolving "latest" releases.
+_GITHUB_API_LATEST = "https://api.github.com/repos/{owner}/{repo}/releases/latest"
+
 def _sanitize(s):
     """Replace characters that are invalid in Bazel repo names."""
     return s.replace(".", "_").replace("-", "_")
@@ -94,6 +97,41 @@ def _version_gt(a, b):
             return False
     return False
 
+def _owner_repo_from_base_url(base_url):
+    """Extract GitHub owner/repo from a base URL like https://github.com/{owner}/{repo}/releases/download."""
+    parts = base_url.split("/")
+    # Expected: ["https:", "", "github.com", "{owner}", "{repo}", "releases", "download"]
+    if len(parts) >= 5 and "github.com" in parts[2]:
+        return parts[3], parts[4]
+    return None, None
+
+def _resolve_latest(module_ctx, base_url):
+    """Resolve "latest" to an actual release date tag via the GitHub releases API.
+
+    Returns the tag_name string (e.g. "20260303").
+    """
+    owner, repo = _owner_repo_from_base_url(base_url)
+    if not owner:
+        fail(
+            'Cannot resolve "latest" for base_url "{}": '.format(base_url) +
+            "only GitHub-hosted repositories support automatic latest resolution. " +
+            "Use an explicit release date instead.",
+        )
+
+    api_url = _GITHUB_API_LATEST.format(owner = owner, repo = repo)
+    module_ctx.report_progress('Resolving "latest" PBS release via GitHub API')
+    result_path = module_ctx.path("latest_release.json")
+    module_ctx.download(
+        url = [api_url],
+        output = result_path,
+    )
+    content = module_ctx.read(result_path)
+    release_info = json.decode(content)
+    tag = release_info.get("tag_name")
+    if not tag:
+        fail('Could not resolve "latest" release from {}'.format(api_url))
+    return tag
+
 def _fetch_release_index(module_ctx, release_date, base_url, facts):
     """Fetch and parse SHA256SUMS for a release, using facts as cache.
 
@@ -108,7 +146,7 @@ def _fetch_release_index(module_ctx, release_date, base_url, facts):
     sha256sums_url = "{}/{}/SHA256SUMS".format(base_url, release_date)
     module_ctx.report_progress("Fetching SHA256SUMS for PBS release {}".format(release_date))
     sha256sums_path = module_ctx.path("sha256sums_{}".format(release_date))
-    download_result = module_ctx.download(
+    module_ctx.download(
         url = [sha256sums_url],
         output = sha256sums_path,
     )
@@ -124,18 +162,35 @@ def _python_interpreters_impl(module_ctx):
     # We read from it with .get(key) and build a new dict for output.
     facts = module_ctx.facts if has_facts else {}
 
-    # Collect release dates from tags, falling back to defaults
+    # Track whether the extension is reproducible. Using "latest" as a release
+    # date makes it non-reproducible since the resolution depends on when it runs.
+    is_reproducible = True
+    resolved_latest = None
+
+    # Collect release dates and base URLs from tags, falling back to defaults
     release_dates = []
+    release_base_urls = {}  # date -> base_url
     has_release_tags = False
 
     for mod in module_ctx.modules:
         for tag in mod.tags.release:
             has_release_tags = True
-            if tag.date not in release_dates:
-                release_dates.append(tag.date)
+            date = tag.date
+            base_url = tag.base_url if tag.base_url else DEFAULT_RELEASE_BASE_URL
+
+            if date == "latest":
+                is_reproducible = False
+                date = _resolve_latest(module_ctx, base_url)
+                resolved_latest = date
+
+            if date not in release_dates:
+                release_dates.append(date)
+                release_base_urls[date] = base_url
 
     if not has_release_tags:
         release_dates = list(DEFAULT_RELEASE_DATES)
+        for date in release_dates:
+            release_base_urls[date] = DEFAULT_RELEASE_BASE_URL
 
     # Sort newest-first for "prefer newest release" semantics
     release_dates = sorted(release_dates, reverse = True)
@@ -171,7 +226,7 @@ def _python_interpreters_impl(module_ctx):
                 )
 
     if not toolchain_requests:
-        return _maybe_return_metadata(module_ctx, has_facts, facts)
+        return _return_metadata(module_ctx, has_facts, facts, is_reproducible, resolved_latest)
 
     # If no default, pick the first one
     if not default_version:
@@ -182,10 +237,11 @@ def _python_interpreters_impl(module_ctx):
     new_facts = {}
 
     for date in release_dates:
-        index = _fetch_release_index(module_ctx, date, DEFAULT_RELEASE_BASE_URL, facts)
+        base_url = release_base_urls.get(date, DEFAULT_RELEASE_BASE_URL)
+        index = _fetch_release_index(module_ctx, date, base_url, facts)
         release_indices[date] = index
 
-        # Cache in facts for next run
+        # Cache in facts for next run — but never cache under "latest"
         facts_key = "release_index_{}".format(date)
         new_facts[facts_key] = index
 
@@ -221,8 +277,9 @@ def _python_interpreters_impl(module_ctx):
             )
 
             if asset_info:
+                base_url = release_base_urls.get(asset_info["release_date"], DEFAULT_RELEASE_BASE_URL)
                 url = "{}/{}/{}".format(
-                    DEFAULT_RELEASE_BASE_URL,
+                    base_url,
                     asset_info["release_date"],
                     asset_info["filename"],
                 )
@@ -259,7 +316,7 @@ def _python_interpreters_impl(module_ctx):
         toolchains = toolchain_entries,
     )
 
-    return _maybe_return_metadata(module_ctx, has_facts, new_facts)
+    return _return_metadata(module_ctx, has_facts, new_facts, is_reproducible, resolved_latest)
 
 def _find_asset(major_minor, platform, build_config, release_dates, release_indices):
     """Find the best asset across releases, preferring newer releases."""
@@ -276,16 +333,44 @@ def _find_asset(major_minor, platform, build_config, release_dates, release_indi
             }
     return None
 
-def _maybe_return_metadata(module_ctx, has_facts, facts):
-    """Return extension_metadata with facts if supported."""
-    if has_facts and hasattr(module_ctx, "extension_metadata"):
-        return module_ctx.extension_metadata(facts = facts)
-    return None
+def _return_metadata(module_ctx, has_facts, facts, is_reproducible, resolved_latest):
+    """Return extension_metadata with facts and reproducibility info."""
+    if not has_facts or not hasattr(module_ctx, "extension_metadata"):
+        return None
+
+    if not is_reproducible:
+        # Non-reproducible: "latest" was used. Signal this to Bazel so it
+        # warns the user and doesn't cache the extension evaluation.
+        # Include the resolved date in the reproducibility report.
+        return module_ctx.extension_metadata(
+            facts = facts,
+            reproducible = False,
+        )
+
+    return module_ctx.extension_metadata(
+        facts = facts,
+        reproducible = True,
+    )
 
 _release_tag = tag_class(
     attrs = {
+        "base_url": attr.string(
+            default = "",
+            doc = """\
+Base URL for downloading release assets. Defaults to the official PBS GitHub releases URL.
+Override this to fetch from a mirror or fork, e.g.
+"https://github.com/my-org/python-build-standalone/releases/download".
+The URL should point to the directory containing release date directories,
+such that {base_url}/{date}/SHA256SUMS is a valid path.
+""",
+        ),
         "date": attr.string(mandatory = True, doc = """\
-A python-build-standalone release date (e.g. "20251209").
+A python-build-standalone release date (e.g. "20251209") or "latest".
+
+Using "latest" resolves to the newest release via the GitHub releases API.
+This makes the extension non-reproducible: Bazel will re-evaluate it on
+every invocation rather than caching the result.
+
 See https://github.com/astral-sh/python-build-standalone/releases for available releases.
 """),
     },
