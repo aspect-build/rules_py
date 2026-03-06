@@ -119,6 +119,7 @@ def _fetch_release_index(module_ctx, release_date, base_url, facts):
 
 def _python_interpreters_impl(module_ctx):
     has_facts = hasattr(module_ctx, "facts")
+
     # Facts is a special Bazel type that supports .get() but is not iterable.
     # We read from it with .get(key) and build a new dict for output.
     facts = module_ctx.facts if has_facts else {}
