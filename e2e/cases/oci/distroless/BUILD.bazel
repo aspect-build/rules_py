@@ -1,0 +1,97 @@
+load("@aspect_rules_py//py:defs.bzl", "py_image_layer")
+load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_binary")
+load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
+load("@container_structure_test//:defs.bzl", "container_structure_test")
+load("@rules_oci//oci:defs.bzl", "oci_image")
+
+platform(
+    name = "arm64_linux",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:aarch64",
+    ],
+    flags = [
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.39",
+        "--@rules_rust//:extra_rustc_flag=-Cstrip=debuginfo",
+        "--@rules_rust//rust/settings:lto=fat",
+        "--stripopt=--strip-all",
+    ],
+)
+
+platform(
+    name = "amd64_linux",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    flags = [
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.39",
+        "--@rules_rust//:extra_rustc_flag=-Cstrip=debuginfo",
+        "--@rules_rust//rust/settings:lto=fat",
+        "--stripopt=--strip-all",
+    ],
+)
+
+py_venv_binary(
+    name = "hello",
+    srcs = ["__main__.py"],
+    main = "__main__.py",
+    tags = ["manual"],
+)
+
+py_image_layer(
+    name = "hello_layers",
+    binary = ":hello",
+)
+
+# amd64
+
+platform_transition_filegroup(
+    name = "amd64_layers",
+    srcs = [":hello_layers"],
+    target_platform = ":amd64_linux",
+)
+
+oci_image(
+    name = "amd64_image",
+    base = "@distroless_cc",
+    entrypoint = ["/{}/hello".format(package_name())],
+    tars = [":amd64_layers"],
+)
+
+container_structure_test(
+    name = "amd64_exec_test",
+    configs = ["command_test.yaml"],
+    image = ":amd64_image",
+    platform = "linux/amd64",
+    target_compatible_with = [
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+# arm64
+
+platform_transition_filegroup(
+    name = "arm64_layers",
+    srcs = [":hello_layers"],
+    target_platform = ":arm64_linux",
+)
+
+oci_image(
+    name = "arm64_image",
+    base = "@distroless_cc",
+    entrypoint = ["/{}/hello".format(package_name())],
+    tars = [":arm64_layers"],
+)
+
+container_structure_test(
+    name = "arm64_exec_test",
+    configs = ["command_test.yaml"],
+    image = ":arm64_image",
+    platform = "linux/aarch64",
+    target_compatible_with = [
+        "@platforms//cpu:aarch64",
+    ],
+)

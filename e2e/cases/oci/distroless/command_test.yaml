@@ -1,0 +1,8 @@
+schemaVersion: 2.0.0
+
+commandTests:
+  - name: can run py_venv_binary in distroless (no shell)
+    exitCode: 0
+    command: /cases/oci/distroless/hello
+    expectedOutput:
+      - "Hello from distroless!"
