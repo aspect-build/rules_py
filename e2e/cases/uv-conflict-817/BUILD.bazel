@@ -7,7 +7,7 @@ py_venv_test(
     venv = "ambig-a",
     deps = [
         "@pypi//packaging",
-    ]
+    ],
 )
 
 py_venv_test(
@@ -17,5 +17,5 @@ py_venv_test(
     venv = "ambig-b",
     deps = [
         "@pypi//packaging",
-    ]
+    ],
 )
