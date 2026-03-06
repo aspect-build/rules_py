@@ -1,7 +1,5 @@
 """Repository rules for downloading Python interpreters from python-build-standalone."""
 
-load(":versions.bzl", "DEFAULT_RELEASE_BASE_URL")
-
 _PYTHON_VERSION_FLAG = "@aspect_rules_py//py/private/interpreter:python_version"
 _RPY_VERSION_FLAG = "@rules_python//python/config_settings:python_version"
 
