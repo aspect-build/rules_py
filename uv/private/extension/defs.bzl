@@ -166,6 +166,11 @@ def _parse_projects(module_ctx, hub_specs):
             if project.hub_name not in hub_specs:
                 fail("Project {} in {} refers to hub {} which is not configured for that module. Please declare it.".format(project_name, mod.name, project.hub_name))
 
+            no_binary_packages = {
+                normalize_name(p): True
+                for p in project_data.get("tool", {}).get("uv", {}).get("no-binary-package", [])
+            }
+
             default_versions, lock_data = normalize_deps(project_id, lock_data)
 
             def _resolve(package):
@@ -272,6 +277,8 @@ def _parse_projects(module_ctx, hub_specs):
                 # default and set if we do a build.
                 has_sbuild = False
 
+                is_no_binary = normalize_name(package["name"]) in no_binary_packages
+
                 # HACK: If there's a -none-any wheel for the package, then
                 # we can actually skip creating the sdist build because
                 # we'll never use it. This allows projects which can do
@@ -279,11 +286,10 @@ def _parse_projects(module_ctx, hub_specs):
                 #
                 # FIXME: This condition is actually incomplete, `py2.py3` wheels
                 # match the same condition.
-                #
-                # FIXME: If we add support for a sdist-only mode then this is
-                # just wrong.
                 has_none_any = any(["-none-any.whl" in it["url"] for it in package.get("wheels", [])])
-                if sdist and not (has_none_any and project.elide_sbuilds_with_anyarch):
+                if is_no_binary and not sdist:
+                    fail("Package {} is in [tool.uv] no-binary-package but has no sdist in the lockfile".format(package["name"]))
+                if sdist and (is_no_binary or not (has_none_any and project.elide_sbuilds_with_anyarch)):
                     # HACK: Note that we resolve these LAZILY so that
                     # bdist-only or fully overridden configurations don't
                     # have to provide the build tools.
@@ -322,7 +328,10 @@ def _parse_projects(module_ctx, hub_specs):
                     has_sbuild = True
 
                 install_cfgs[k] = struct(
-                    whls = {whl["url"].split("/")[-1].split("?")[0].split("#")[0]: bdist_table.get(whl["hash"]) for whl in package.get("wheels", [])},
+                    whls = {} if is_no_binary else {
+                        whl["url"].split("/")[-1].split("?")[0].split("#")[0]: bdist_table.get(whl["hash"])
+                        for whl in package.get("wheels", [])
+                    },
                     sbuild = "@{}//:whl".format(sbuild_id) if has_sbuild else None,
                 )
 
