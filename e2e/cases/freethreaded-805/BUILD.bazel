@@ -1,0 +1,20 @@
+load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
+
+# This test requires --@aspect_rules_py//py/private/interpreter:freethreaded=true
+# to pass, because it asserts that the interpreter is freethreaded and that
+# native extensions use the 't' ABI suffix.
+#
+# Run with:
+#   bazel test //cases/freethreaded-805:test \
+#     --@aspect_rules_py//py/private/interpreter:freethreaded=true
+py_venv_test(
+    name = "test",
+    srcs = ["test.py"],
+    main = "test.py",
+    python_version = "3.13",
+    tags = ["manual"],
+    venv = "freethreaded-test",
+    deps = [
+        "@pypi//regex",
+    ],
+)

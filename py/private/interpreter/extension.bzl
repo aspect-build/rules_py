@@ -8,7 +8,7 @@ _GITHUB_API_LATEST = "https://api.github.com/repos/{owner}/{repo}/releases/lates
 
 def _sanitize(s):
     """Replace characters that are invalid in Bazel repo names."""
-    return s.replace(".", "_").replace("-", "_")
+    return s.replace(".", "_").replace("-", "_").replace("+", "_")
 
 def _parse_sha256sums(content, release_date):
     """Parse a SHA256SUMS file into a structured index.

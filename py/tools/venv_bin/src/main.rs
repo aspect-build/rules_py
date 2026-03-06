@@ -92,6 +92,11 @@ struct VenvArgs {
     #[arg(long, default_value_t = false)]
     debug: bool,
 
+    /// Whether the interpreter is a free-threaded build. Affects the
+    /// site-packages path (e.g. lib/python3.13t/ instead of lib/python3.13/).
+    #[arg(long, default_value_t = false)]
+    freethreaded: bool,
+
     #[clap(
         long,
         default_missing_value("false"),
@@ -129,12 +134,15 @@ fn venv_cmd_handler(args: VenvArgs) -> miette::Result<()> {
         .version
         .ok_or_else(|| miette!("Version must be provided for static venv modes"))?;
 
+    let mut version_info = py::venv::PythonVersionInfo::from_str(&version)?;
+    version_info.freethreaded = args.freethreaded;
+
     let venv = py::venv::create_empty_venv(
         args.repo
             .as_deref()
             .ok_or_else(|| miette!("The --repo argument is required for static venvs!"))?,
         &args.python,
-        py::venv::PythonVersionInfo::from_str(&version)?,
+        version_info,
         &args.location,
         args.env_file.as_deref(),
         args.venv_shim.as_deref(),
