@@ -8,16 +8,31 @@ string_flag(
 )
 
 string_flag(
-    name = "python_version_major_minor",
-    build_setting_default = "",
+    name = "build_config",
+    build_setting_default = "install_only",
 )
+
+# Interpreter feature flags. These correspond to the single-letter suffixes
+# in wheel ABI tags: d (pydebug), m (pymalloc), t (freethreaded), u (wide_unicode).
+# The uv constraint system references these via config_settings to select
+# the correct wheels for the active interpreter configuration.
 
 bool_flag(
     name = "freethreaded",
     build_setting_default = False,
 )
 
-string_flag(
-    name = "build_config",
-    build_setting_default = "install_only",
+bool_flag(
+    name = "pydebug",
+    build_setting_default = False,
+)
+
+bool_flag(
+    name = "pymalloc",
+    build_setting_default = False,
+)
+
+bool_flag(
+    name = "wide_unicode",
+    build_setting_default = False,
 )
