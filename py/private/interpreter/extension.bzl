@@ -35,6 +35,7 @@ def _python_interpreters_impl(module_ctx):
             date = tag.date
             if date not in release_dates:
                 release_dates.append(date)
+
                 # For custom releases, we don't know the available versions
                 # upfront. The repo rule will discover them from SHA256SUMS.
                 # We mark them with an empty list; _find_release_for_version
