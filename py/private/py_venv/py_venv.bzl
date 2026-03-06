@@ -8,6 +8,18 @@ load("//py/private:transitions.bzl", "python_version_transition")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "PyToolInfo", "SHIM_TOOLCHAIN", "VENV_TOOLCHAIN")
 load(":types.bzl", "VirtualenvInfo")
 
+# Forked from bazel-lib to avoid keeping `ctx` alive to execution phase
+def _to_rlocation_path(workspace_name, file):
+    if file.short_path.startswith("../"):
+        return file.short_path[3:]
+    else:
+        return workspace_name + "/" + file.short_path
+
+def _interpreter_path(workspace_name, py_toolchain):
+    return (
+        _to_rlocation_path(workspace_name, py_toolchain.python) if py_toolchain.runfiles_interpreter else py_toolchain.python.path
+    )
+
 def _dict_to_exports(env):
     return [
         "export %s=\"%s\"" % (k, v)
@@ -96,42 +108,58 @@ def _py_venv_base_impl(ctx):
 
     venv_name = ".{}".format(ctx.attr.name)
     venv_dir = ctx.actions.declare_directory(venv_name)
+    workspace_name = ctx.workspace_name
+
+    args = ctx.actions.args()
+    args.add_all([venv_dir], expand_directories = False, format_each = "--location=%s")
+    args.add(py_shim.bin.bin, format = "--venv-shim=%s")
+
+    # Post-bzlmod we need to record the current repository in case the
+    # user tries to consume a `py_venv_binary` across repo boundaries
+    # which could cause repo mapping to become relevant.
+    args.add(
+        ctx.label.repo_name or workspace_name,
+        format = "--repo=%s",
+    )
+    args.add_all(
+        [py_toolchain],
+        map_each = lambda py_toolchain: _interpreter_path(workspace_name, py_toolchain),
+        format_each = "--python=%s",
+        allow_closure = True,
+    )
+    args.add(site_packages_pth_file, format = "--pth-file=%s")
+    args.add(env_file, format = "--env-file=%s")
+    args.add(ctx.bin_dir.path, format = "--bin-dir=%s")
+    args.add(ctx.attr.package_collisions, format = "--collision-strategy=%s")
+    args.add(venv_name, format = "--venv-name=%s")
+    args.add(ctx.attr.mode, format = "--mode=%s")
+    args.add(
+        "{}.{}".format(
+            py_toolchain.interpreter_version_info.major,
+            py_toolchain.interpreter_version_info.minor,
+        ),
+        format = "--version=%s",
+    )
+    args.add(
+        "true" if ctx.attr.include_system_site_packages else "false",
+        format = "--include-system-site-packages=%s",
+    )
+    args.add(
+        "true" if ctx.attr.include_system_site_packages else "false",
+        format = "--include-user-site-packages=%s",
+    )
+
+    if ctx.attr.debug:
+        args.add("--debug")
 
     ctx.actions.run(
         executable = venv_tool,
-        arguments = [
-            "--location=" + venv_dir.path,
-            "--venv-shim=" + py_shim.bin.bin.path,
-            # Post-bzlmod we need to record the current repository in case the
-            # user tries to consume a `py_venv_binary` across repo boundaries
-            # which could cause repo mapping to become relevant.
-            "--repo=" + (ctx.label.repo_name or ctx.workspace_name),
-            "--python=" + (to_rlocation_path(ctx, py_toolchain.python) if py_toolchain.runfiles_interpreter else py_toolchain.python.path),
-            "--pth-file=" + site_packages_pth_file.path,
-            "--env-file=" + env_file.path,
-            "--bin-dir=" + ctx.bin_dir.path,
-            "--collision-strategy=" + ctx.attr.package_collisions,
-            "--venv-name=" + venv_name,
-            "--mode=" + ctx.attr.mode,
-            "--version={}.{}".format(
-                py_toolchain.interpreter_version_info.major,
-                py_toolchain.interpreter_version_info.minor,
-            ),
-            "--include-system-site-packages=" + ({
-                True: "true",
-                False: "false",
-            }[ctx.attr.include_system_site_packages]),
-            "--include-user-site-packages=" + ({
-                True: "true",
-                False: "false",
-            }[ctx.attr.include_system_site_packages]),
-        ] + (["--debug"] if ctx.attr.debug else []),
+        arguments = [args],
         inputs = rfs.merge_all([
-            ctx.runfiles(files = [
-                site_packages_pth_file,
-                env_file,
-                venv_tool,
-            ] + py_toolchain.files.to_list()),
+            ctx.runfiles(
+                files = [site_packages_pth_file, env_file, venv_tool],
+                transitive_files = py_toolchain.files,
+            ),
             py_shim.default_info.default_runfiles,
         ]).files,
         outputs = [
@@ -144,9 +172,10 @@ def _py_venv_base_impl(ctx):
     )
 
     return venv_dir, rfs.merge_all([
-        ctx.runfiles(files = [
-            venv_dir,
-        ] + py_toolchain.files.to_list()),
+        ctx.runfiles(
+            files = [venv_dir],
+            transitive_files = py_toolchain.files,
+        ),
         ctx.attr._runfiles_lib[DefaultInfo].default_runfiles,
     ])
 
