@@ -1,0 +1,169 @@
+# `aspect_rules_py` Python Interpreters
+
+`aspect_rules_py` provides its own Python interpreter provisioning, backed by
+[python-build-standalone](https://github.com/astral-sh/python-build-standalone)
+(PBS). This replaces the need to use `rules_python`'s `python.toolchain()` for
+interpreter management.
+
+**No version manifests.** Unlike `rules_python`, there is no checked-in table of
+SHA256 hashes or version metadata to maintain. Interpreter versions and checksums
+are discovered automatically from PBS release artifacts and cached in your
+`MODULE.bazel.lock`.
+
+**Easy updates.** To get new interpreter versions, add a PBS release date. That's
+it — no repinning, no manifest regeneration.
+
+**No editorial decisions.** We don't decide which Python versions you can use.
+Any version published in a PBS release is available. Need Python 3.8? Add an
+older release date that includes it.
+
+**Windows and cross-platform support.** 9 platforms are registered out of the
+box, including Windows (x86_64, aarch64, i686), Linux (glibc and musl), and
+macOS.
+
+## Quickstart
+
+```starlark
+# MODULE.bazel
+bazel_dep(name = "aspect_rules_py", version = "1.6.7")  # Or later
+
+interpreters = use_extension("@aspect_rules_py//py:interpreter.bzl", "python_interpreters")
+interpreters.toolchain(
+    is_default = True,
+    python_version = "3.12",
+)
+interpreters.toolchain(python_version = "3.11")
+use_repo(interpreters, "python_interpreters")
+register_toolchains("@python_interpreters//:all")
+```
+
+That's all you need. The extension uses a set of default PBS release dates that
+cover Python 3.8 through 3.15. The newest available build for each requested
+version is selected automatically.
+
+## Specifying release dates
+
+By default, the extension ships with a small set of release dates covering the
+full range of available Python versions. You can override these to pin to
+specific releases or to include versions that have been dropped from newer
+releases:
+
+```starlark
+interpreters = use_extension("@aspect_rules_py//py:interpreter.bzl", "python_interpreters")
+
+# Use specific PBS releases
+interpreters.release(date = "20260303")  # Has 3.10-3.15
+interpreters.release(date = "20241002")  # Has 3.8-3.13
+
+interpreters.toolchain(python_version = "3.12", is_default = True)
+interpreters.toolchain(python_version = "3.8")  # Resolved from 20241002
+
+use_repo(interpreters, "python_interpreters")
+register_toolchains("@python_interpreters//:all")
+```
+
+When multiple releases contain the same Python minor version, the newest release
+is preferred.
+
+## Using the latest release
+
+For development workflows where you always want the newest PBS release:
+
+```starlark
+interpreters.release(date = "latest")
+```
+
+This resolves to the newest release via the GitHub releases API. Because the
+result depends on when it runs, this marks the extension as **non-reproducible**
+— Bazel will re-evaluate it on each invocation rather than caching it.
+
+For CI and production builds, prefer explicit release dates.
+
+## Using a mirror or fork
+
+If you host PBS releases on a mirror or maintain your own fork:
+
+```starlark
+interpreters.release(
+    date = "20260303",
+    base_url = "https://my-mirror.example.com/pbs/releases/download",
+)
+```
+
+The `base_url` must point to a directory structure matching PBS releases, where
+`{base_url}/{date}/SHA256SUMS` and `{base_url}/{date}/{asset}` are valid paths.
+
+## Selecting a Python version per target
+
+Individual `py_binary` and `py_venv_binary` targets can request a specific
+Python version using the `python_version` attribute:
+
+```starlark
+load("@aspect_rules_py//py:defs.bzl", "py_binary")
+
+py_binary(
+    name = "app",
+    srcs = ["app.py"],
+    python_version = "3.12",
+)
+```
+
+You can also set the version globally via a flag:
+
+```
+# .bazelrc
+common --@aspect_rules_py//py:interpreter_version=3.12
+```
+
+## Build configurations
+
+PBS provides several build configurations. The default is `install_only`, which
+is PGO+LTO optimized on platforms that support it. You can select a different
+configuration per toolchain:
+
+```starlark
+interpreters.toolchain(
+    python_version = "3.12",
+    build_config = "install_only_stripped",  # Smaller, debug symbols removed
+)
+```
+
+Available configurations:
+- `install_only` — Standard optimized build (default)
+- `install_only_stripped` — Same but with debug symbols stripped
+- `freethreaded+pgo+lto` — Free-threaded (no GIL) with PGO+LTO optimization
+- `freethreaded+debug` — Free-threaded debug build
+
+## Platforms
+
+The following platforms are registered by default:
+
+| Platform | OS | Architecture |
+|---|---|---|
+| `aarch64-apple-darwin` | macOS | ARM64 |
+| `x86_64-apple-darwin` | macOS | x86_64 |
+| `aarch64-unknown-linux-gnu` | Linux (glibc) | ARM64 |
+| `x86_64-unknown-linux-gnu` | Linux (glibc) | x86_64 |
+| `aarch64-unknown-linux-musl` | Linux (musl) | ARM64 |
+| `x86_64-unknown-linux-musl` | Linux (musl) | x86_64 |
+| `x86_64-pc-windows-msvc` | Windows | x86_64 |
+| `aarch64-pc-windows-msvc` | Windows | ARM64 |
+| `i686-pc-windows-msvc` | Windows | x86 (32-bit) |
+
+Not all Python versions are available on all platforms. Unavailable combinations
+are silently skipped during toolchain resolution.
+
+## Compatibility with rules_python
+
+This interpreter provisioning is designed to coexist with `rules_python`:
+
+- The standard `@bazel_tools//tools/python:toolchain_type` is used for toolchain
+  registration, so these interpreters work with all existing Python rules.
+- The `@rules_python//python/config_settings:python_version` flag is kept in
+  sync with our own version flag via build transitions.
+- `py_runtime` and `py_runtime_pair` from `rules_python` are used to create
+  the runtime providers.
+
+You can migrate incrementally: replace `python.toolchain()` calls with
+`interpreters.toolchain()` and remove the `rules_python` interpreter
+configuration while keeping everything else.
