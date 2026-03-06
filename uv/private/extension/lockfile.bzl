@@ -63,7 +63,7 @@ def normalize_deps(lock_id, lock_data):
             for dep in extra_deps:
                 _fix_version(dep)
 
-    return default_versions, lock_data
+    return default_versions, package_versions, lock_data
 
 MAGIC_ACTIVATE_BASE_MARKER = "magic_activate_base == 1"
 

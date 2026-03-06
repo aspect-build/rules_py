@@ -63,7 +63,7 @@ def _normalize_deps(lock_id, lock_data):
             for dep in extra_deps:
                 _fix_version(dep)
 
-    return default_versions, lock_data
+    return default_versions, package_versions, lock_data
 
 def _build_marker_graph(lock_id, lock_data):
     """Builds a dependency graph from a lockfile.
@@ -739,7 +739,7 @@ def _parse_single_project(module_ctx, mod, project, hub_specs, lock_cfgs, hub_cf
         fail("Project {} in {} refers to hub {} which is not configured for that module. Please declare it.".format(project_name, mod.name, project.hub_name))
 
     if lock_id not in lock_cfgs:
-        default_versions, lock_data = _normalize_deps(lock_id, lock_data)
+        default_versions, package_versions, lock_data = _normalize_deps(lock_id, lock_data)
 
         _process_overridden_packages(mod, project, lock_id, default_versions, install_table)
 
