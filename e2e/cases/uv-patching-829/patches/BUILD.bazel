@@ -1,0 +1,4 @@
+exports_files([
+    "pre_build.patch",
+    "post_install.patch",
+])

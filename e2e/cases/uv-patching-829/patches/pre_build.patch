@@ -1,0 +1,11 @@
+--- a/cowsay/main.py
++++ b/cowsay/main.py
+@@ -3,6 +3,8 @@ from .characters import CHARS
+
+ __version__ = '6.0'
+
++PATCHED_PRE_BUILD = True
++
+ CHARS = dict(sorted(CHARS.items()))
+ char_names = list(CHARS.keys())
+
