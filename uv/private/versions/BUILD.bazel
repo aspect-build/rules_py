@@ -1,0 +1,5 @@
+load(":versions_test.bzl", "versions_test_suite")
+
+exports_files(["defs.bzl"])
+
+versions_test_suite()
