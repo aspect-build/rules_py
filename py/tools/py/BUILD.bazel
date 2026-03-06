@@ -34,5 +34,6 @@ rust_library(
         "@crates//:uv-python",
         "@crates//:uv-virtualenv",
         "@crates//:walkdir",
+        "@crates//:indexmap",
     ],
 )

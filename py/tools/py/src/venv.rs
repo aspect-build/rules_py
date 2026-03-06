@@ -2,12 +2,12 @@ use crate::{
     pth::{CollisionResolutionStrategy, SitePackageOptions},
     PthFile,
 };
+use indexmap::IndexMap;
 use itertools::Itertools;
 use miette::{miette, Context, IntoDiagnostic};
 use pathdiff::diff_paths;
 use sha256::try_digest;
 use std::{
-    collections::HashMap,
     env::current_dir,
     fs::{self, File},
     io::{BufRead, BufReader, BufWriter, SeekFrom, Write},
@@ -783,7 +783,9 @@ pub fn populate_venv(
         )?);
     }
 
-    let mut planned_destinations: HashMap<PathBuf, Vec<Command>> = HashMap::new();
+    // Note that we use an IndexMap to preserve insertion order from the
+    // pth_file. A HashMap uses a random seed and would be unstable.
+    let mut planned_destinations: IndexMap<PathBuf, Vec<Command>> = IndexMap::new();
     for command in &plan {
         match command {
             // Prevent commands from accidentally recursing into the venv, for
