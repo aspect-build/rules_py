@@ -6,6 +6,7 @@ Actually building sdists.
 load("//py/private/py_venv:types.bzl", "VirtualenvInfo")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "TARGET_EXEC_TOOLCHAIN")
 load("//uv/private:defs.bzl", "lib_mode_transition")
+load("//uv/private/diffutils:defs.bzl", "PATCH_TOOL_LABEL")
 
 def _sdist_build(ctx):
     py_toolchain = ctx.exec_groups["target"].toolchains[PY_TOOLCHAIN].py3_runtime
@@ -28,6 +29,19 @@ def _sdist_build(ctx):
     #
     # We're going with #1 for now.
 
+    # Build patch arguments if pre_build_patches are specified
+    patch_args = []
+    patch_inputs = []
+    if ctx.attr.pre_build_patches:
+        patch_tool = ctx.file._patch_tool
+        patch_inputs.append(patch_tool)
+        patch_args.extend(["--patch-tool", patch_tool.path])
+        patch_args.extend(["--patch-strip", str(ctx.attr.pre_build_patch_strip)])
+        for target in ctx.attr.pre_build_patches:
+            for f in target[DefaultInfo].files.to_list():
+                patch_args.extend(["--patch", f.path])
+                patch_inputs.append(f)
+
     # Note that we have to use exec_group = "target" to force this action to
     # inherit RBE placement properties matching the target platform so that
     # it'll run remotely.
@@ -37,7 +51,7 @@ def _sdist_build(ctx):
         executable = venv[VirtualenvInfo].home.path + "/bin/python3",
         arguments = [
             ctx.file._helper.path,
-        ] + ctx.attr.args + [
+        ] + ctx.attr.args + patch_args + [
             archive.path,
             wheel_dir.path,
         ],
@@ -46,7 +60,7 @@ def _sdist_build(ctx):
             archive,
             venv[VirtualenvInfo].home,
             ctx.file._helper,
-        ] + py_toolchain.files.to_list() + ctx.attr.venv[DefaultInfo].files.to_list(),
+        ] + py_toolchain.files.to_list() + ctx.attr.venv[DefaultInfo].files.to_list() + patch_inputs,
         outputs = [
             wheel_dir,
         ],
@@ -64,6 +78,23 @@ def _sdist_build(ctx):
         ),
     ]
 
+_PATCH_ATTRS = {
+    "pre_build_patches": attr.label_list(
+        default = [],
+        allow_files = [".patch", ".diff"],
+        doc = "Patch files to apply to the extracted source before building.",
+    ),
+    "pre_build_patch_strip": attr.int(
+        default = 0,
+        doc = "Strip count for pre-build patches (-p flag to patch).",
+    ),
+    "_patch_tool": attr.label(
+        default = PATCH_TOOL_LABEL,
+        allow_single_file = True,
+        cfg = "exec",
+    ),
+}
+
 sdist_build = rule(
     implementation = _sdist_build,
     doc = """Sdist to _anyarch_ whl build rule.
@@ -78,7 +109,7 @@ specified Python dependencies under the configured Python toochain.
         "version": attr.string(),
         "args": attr.string_list(default = ["--validate-anyarch"]),
         "_helper": attr.label(allow_single_file = True, default = Label(":build_helper.py")),
-    },
+    } | _PATCH_ATTRS,
     exec_groups = {
         # Copy-paste from above, but without the target constraint toolchain
         "target": exec_group(
@@ -108,7 +139,7 @@ constraints of the target platform.
         "version": attr.string(),
         "args": attr.string_list(),
         "_helper": attr.label(allow_single_file = True, default = Label(":build_helper.py")),
-    },
+    } | _PATCH_ATTRS,
     exec_groups = {
         # Create an exec group which depends on a toolchain which can only be
         # resolved to exec_compatible_with constraints equal to the target. This

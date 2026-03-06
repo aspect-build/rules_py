@@ -56,6 +56,7 @@ load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 load("//uv/private:normalize_name.bzl", "normalize_name")
 load("//uv/private/constraints:repository.bzl", "configurations_hub")
+load("//uv/private/diffutils:repository.bzl", "system_diffutils")
 load("//uv/private/git_archive:repository.bzl", "git_archive")
 load("//uv/private/pprint:defs.bzl", "pprint")
 load("//uv/private/sdist_build:repository.bzl", "sdist_build")
@@ -193,15 +194,42 @@ def _parse_projects(module_ctx, hub_specs):
                             deps.append(_resolve(dep))
                         lock_build_dep_anns[k] = deps
 
-            overridden_packages = {}
-
-            # FIXME: This inner join is correct and easy, but it doesn't allow us to warn if there are annotations that don't join.
+            # Collect package overrides, validating no duplicates per (lock, name, version).
+            package_overrides = {}
             for override in mod.tags.override_package:
-                if override.lock == project.lock:
-                    v = override.version or default_versions.get(normalize_name(override.name))[2]
-                    if not v:
-                        fail("Overridden project {} neither specifies a version nor has an implied singular version in the lockfile!".format(override.name, project.lock))
-                    k = (project_id, normalize_name(override.name), v, "__base__")
+                if override.lock != project.lock:
+                    continue
+
+                v = override.version or default_versions.get(normalize_name(override.name), (None, None, None, None))[2]
+                if not v:
+                    fail("Overridden project {} neither specifies a version nor has an implied singular version in the lockfile!".format(override.name, project.lock))
+
+                override_key = (normalize_name(override.name), v)
+                if override_key in package_overrides:
+                    fail("Duplicate uv.override_package() for package '{}' version '{}' in lock '{}'. Each (lock, name, version) triple may only be overridden once.".format(
+                        override.name,
+                        v,
+                        project.lock,
+                    ))
+
+                has_target = override.target != None
+                has_modifications = (
+                    override.pre_build_patches or
+                    override.post_install_patches or
+                    override.extra_deps or
+                    override.extra_data
+                )
+
+                if has_target and has_modifications:
+                    fail("uv.override_package() for '{}': `target` is mutually exclusive with patch/exclude attributes. Use `target` for full replacement OR patch/exclude attributes for modifications, not both.".format(override.name))
+
+                if not has_target and not has_modifications:
+                    fail("uv.override_package() for '{}': must specify either `target` for full replacement or at least one modification attribute (pre_build_patches, post_install_patches, extra_deps, extra_data).".format(override.name))
+
+                package_overrides[override_key] = override
+
+                k = (project_id, normalize_name(override.name), v, "__base__")
+                if has_target:
                     print("Overriding {}@{} in {} with {}".format(override.name, v, project_name, override.target))
                     install_table[k] = str(override.target)
 
@@ -317,15 +345,37 @@ def _parse_projects(module_ctx, hub_specs):
                     # Forcing users to annotate in extra build deps is way easier.
                     build_deps = sets.to_list(sets.make(build_deps + lock_build_deps))
 
+                    # Look up pre-build patches for this package
+                    pkg_override = package_overrides.get((normalize_name(package["name"]), package["version"]))
+                    pre_build_patches = []
+                    pre_build_patch_strip = 0
+                    if pkg_override and pkg_override.pre_build_patches:
+                        pre_build_patches = [str(p) for p in pkg_override.pre_build_patches]
+                        pre_build_patch_strip = pkg_override.pre_build_patch_strip
+
                     sbuild_specs[sbuild_id] = struct(
                         src = sdist,
                         deps = ["@{0}//:{1}".format(*it) for it in build_deps],
                         # FIXME: Check annotations
                         is_native = False,
                         version = package["version"],
+                        pre_build_patches = pre_build_patches,
+                        pre_build_patch_strip = pre_build_patch_strip,
                     )
 
                     has_sbuild = True
+
+                # Look up post-install patches and BUILD modifications
+                pkg_override = package_overrides.get((normalize_name(package["name"]), package["version"]))
+                post_install_patches = []
+                post_install_patch_strip = 0
+                extra_deps = []
+                extra_data = []
+                if pkg_override and not pkg_override.target:
+                    post_install_patches = [str(p) for p in pkg_override.post_install_patches]
+                    post_install_patch_strip = pkg_override.post_install_patch_strip
+                    extra_deps = [str(d) for d in pkg_override.extra_deps]
+                    extra_data = [str(d) for d in pkg_override.extra_data]
 
                 install_cfgs[k] = struct(
                     whls = {} if is_no_binary else {
@@ -333,6 +383,10 @@ def _parse_projects(module_ctx, hub_specs):
                         for whl in package.get("wheels", [])
                     },
                     sbuild = "@{}//:whl".format(sbuild_id) if has_sbuild else None,
+                    post_install_patches = post_install_patches,
+                    post_install_patch_strip = post_install_patch_strip,
+                    extra_deps = extra_deps,
+                    extra_data = extra_data,
                 )
 
             # Frustratingly we have to re-key all these structures so that they
@@ -416,6 +470,17 @@ def _uv_impl(module_ctx):
 
     cfg = _parse_projects(module_ctx, hub_specs)
 
+    # Create the system diffutils repo if any packages need patching.
+    needs_diffutils = any([
+        cfg.install_cfgs[k].post_install_patches
+        for k in cfg.install_cfgs
+    ]) or any([
+        cfg.sbuild_cfgs[k].pre_build_patches
+        for k in cfg.sbuild_cfgs
+    ])
+    if needs_diffutils:
+        system_diffutils(name = "aspect_rules_py_system_diffutils")
+
     configurations_hub(
         name = "aspect_rules_py_pip_configurations",
         configurations = cfg.whl_cfgs,
@@ -461,20 +526,32 @@ def _uv_impl(module_ctx):
         )
 
     for sbuild_id, sbuild_cfg in cfg.sbuild_cfgs.items():
-        sdist_build(
-            name = sbuild_id,
-            src = sbuild_cfg.src,
-            deps = sbuild_cfg.deps,
-            is_native = sbuild_cfg.is_native,
-            version = sbuild_cfg.version,
-        )
+        sbuild_kwargs = {
+            "name": sbuild_id,
+            "src": sbuild_cfg.src,
+            "deps": sbuild_cfg.deps,
+            "is_native": sbuild_cfg.is_native,
+            "version": sbuild_cfg.version,
+        }
+        if sbuild_cfg.pre_build_patches:
+            sbuild_kwargs["pre_build_patches"] = sbuild_cfg.pre_build_patches
+            sbuild_kwargs["pre_build_patch_strip"] = sbuild_cfg.pre_build_patch_strip
+        sdist_build(**sbuild_kwargs)
 
     for install_id, install_cfg in cfg.install_cfgs.items():
-        whl_install(
-            name = install_id,
-            sbuild = install_cfg.sbuild,
-            whls = json.encode(install_cfg.whls),
-        )
+        install_kwargs = {
+            "name": install_id,
+            "sbuild": install_cfg.sbuild,
+            "whls": json.encode(install_cfg.whls),
+        }
+        if install_cfg.post_install_patches:
+            install_kwargs["post_install_patches"] = json.encode(install_cfg.post_install_patches)
+            install_kwargs["post_install_patch_strip"] = install_cfg.post_install_patch_strip
+        if install_cfg.extra_deps:
+            install_kwargs["extra_deps"] = json.encode(install_cfg.extra_deps)
+        if install_cfg.extra_data:
+            install_kwargs["extra_data"] = json.encode(install_cfg.extra_data)
+        whl_install(**install_kwargs)
 
     for project_id, project_cfg in cfg.project_cfgs.items():
         uv_project(
@@ -539,11 +616,65 @@ _override_package_tag = tag_class(
         "lock": attr.label(mandatory = True),
         "name": attr.string(mandatory = True),
         "version": attr.string(mandatory = False),
-        "target": attr.label(mandatory = True),
-    },
-)
 
-# TODO: patch_package
+        # Full replacement: provide a target that substitutes for the package entirely.
+        # Mutually exclusive with patch/exclude attributes.
+        "target": attr.label(mandatory = False),
+
+        # Pre-build patches: applied to extracted sdist source before wheel build.
+        "pre_build_patches": attr.label_list(
+            default = [],
+            allow_files = [".patch", ".diff"],
+            doc = "Patch files to apply to the sdist source tree before building a wheel.",
+        ),
+        "pre_build_patch_strip": attr.int(
+            default = 0,
+            doc = "Strip count for pre-build patches (-p flag to the patch tool).",
+        ),
+
+        # Post-install patches: applied to the installed tree artifact after wheel unpacking.
+        "post_install_patches": attr.label_list(
+            default = [],
+            allow_files = [".patch", ".diff"],
+            doc = "Patch files to apply to the installed package after wheel unpacking.",
+        ),
+        "post_install_patch_strip": attr.int(
+            default = 0,
+            doc = "Strip count for post-install patches (-p flag to the patch tool).",
+        ),
+
+        # BUILD-level modifications to the generated py_library target.
+        #
+        # FIXME: srcs_exclude_glob and data_exclude_glob are not yet implemented.
+        # Implementing them requires either extending the Rust unpack tool to
+        # accept exclusion patterns at install time, or adding a post-install
+        # tree-filtering action that can selectively remove files from a tree
+        # artifact. The attrs are commented out to avoid exposing a non-functional
+        # API surface.
+        #
+        # "srcs_exclude_glob": attr.string_list(
+        #     default = [],
+        #     doc = "Glob patterns to exclude from the package's srcs (e.g. '**/tests/**').",
+        # ),
+        # "data_exclude_glob": attr.string_list(
+        #     default = [],
+        #     doc = "Glob patterns to exclude from the package's data.",
+        # ),
+        "extra_deps": attr.label_list(
+            default = [],
+            doc = "Additional deps to add to the package's py_library target.",
+        ),
+        "extra_data": attr.label_list(
+            default = [],
+            doc = "Additional data files to add to the package's py_library target.",
+        ),
+    },
+    doc = """Override or modify a Python package resolved from a lockfile.
+
+Use `target` for full replacement, or use the patch/exclude attributes
+for surgical modifications. Specifying `target` is mutually exclusive with
+all other modification attributes.""",
+)
 
 uv = module_extension(
     implementation = _uv_impl,

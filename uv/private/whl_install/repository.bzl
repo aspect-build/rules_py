@@ -211,24 +211,75 @@ py_library(
         ),
     )
 
-    # FIXME: May need to add deps to installs here?
-    content.append(
-        """
+    post_install_patches = json.decode(repository_ctx.attr.post_install_patches) if repository_ctx.attr.post_install_patches else []
+    post_install_patch_strip = repository_ctx.attr.post_install_patch_strip
+
+    extra_deps = json.decode(repository_ctx.attr.extra_deps) if repository_ctx.attr.extra_deps else []
+    extra_data = json.decode(repository_ctx.attr.extra_data) if repository_ctx.attr.extra_data else []
+
+    if post_install_patches:
+        # Use the combined whl_apply_patches rule that preserves PyInfo
+        content.append(
+            "load(\"@aspect_rules_py//uv/private/apply_patches:whl_apply_patches.bzl\", \"whl_apply_patches\")",
+        )
+        content.append(
+            """
+whl_apply_patches(
+    name = "actual_install",
+    src = ":whl",
+    patches = {patches},
+    patch_strip = {strip},
+    visibility = ["//visibility:private"],
+)""".format(
+                patches = repr(post_install_patches),
+                strip = post_install_patch_strip,
+            ),
+        )
+    else:
+        # No patches, use standard whl_install
+        content.append(
+            """
 whl_install(
     name = "actual_install",
     src = ":whl",
     visibility = ["//visibility:private"],
+)""",
+        )
+
+    if extra_deps or extra_data:
+        # When extra deps/data are needed, wrap in a py_library instead of alias
+        content.append(
+            """
+py_library(
+    name = "install",
+    srcs = [],
+    deps = [
+        select({{
+            "@aspect_rules_py//uv/private/constraints:libs_are_libs": ":actual_install",
+            "@aspect_rules_py//uv/private/constraints:libs_are_whls": ":whl_lib",
+        }}),
+    ] + {extra_deps},
+    data = {extra_data},
+    visibility = ["//visibility:public"],
 )
+""".format(
+                extra_deps = repr(extra_deps),
+                extra_data = repr(extra_data),
+            ),
+        )
+    else:
+        content.append(
+            """
 alias(
     name = "install",
-    actual = select({
+    actual = select({{
         "@aspect_rules_py//uv/private/constraints:libs_are_libs": ":actual_install",
         "@aspect_rules_py//uv/private/constraints:libs_are_whls": ":whl_lib",
-    }),
+    }}),
     visibility = ["//visibility:public"],
 )
 """,
-    )
+        )
 
     repository_ctx.file("BUILD.bazel", content = "\n".join(content))
 
@@ -237,5 +288,9 @@ whl_install = repository_rule(
     attrs = {
         "whls": attr.string(),
         "sbuild": attr.label(),
+        "post_install_patches": attr.string(default = ""),
+        "post_install_patch_strip": attr.int(default = 0),
+        "extra_deps": attr.string(default = ""),
+        "extra_data": attr.string(default = ""),
     },
 )

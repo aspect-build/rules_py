@@ -1,0 +1,2 @@
+# Diffutils toolchain support for package patching.
+# The actual patch binary is provided by the system_diffutils repo rule.

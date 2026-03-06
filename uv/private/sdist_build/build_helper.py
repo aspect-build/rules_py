@@ -16,6 +16,9 @@ PARSER = ArgumentParser()
 PARSER.add_argument("srcarchive")
 PARSER.add_argument("outdir")
 PARSER.add_argument("--validate-anyarch", action="store_true")
+PARSER.add_argument("--patch-tool", default=None, help="Path to the patch binary")
+PARSER.add_argument("--patch-strip", type=int, default=0, help="Strip count for patch (-p)")
+PARSER.add_argument("--patch", action="append", default=[], dest="patches", help="Patch file to apply (repeatable)")
 opts, args = PARSER.parse_known_args()
 
 tmp_root = opts.outdir.lstrip("/") + ".tmp"
@@ -28,6 +31,17 @@ shutil.unpack_archive(opts.srcarchive, t)
 # Annoyingly, unpack_archive creates a subdir in the target. Update t
 # accordingly. Not worth the eng effort to prevent creating this dir.
 t = path.join(t, listdir(t)[0])
+
+if opts.patches:
+    if not opts.patch_tool:
+        print("Error: --patch-tool is required when --patch is specified", file=sys.stderr)
+        exit(1)
+    for patch_file in opts.patches:
+        result = check_call(
+            [opts.patch_tool, "-p{}".format(opts.patch_strip), "-i", path.abspath(patch_file)],
+            cwd=t,
+        )
+
 
 # Get a path to the outdir which will be valid after we cd
 outdir = path.abspath(opts.outdir)
