@@ -19,10 +19,8 @@ load(":py_library.bzl", default_py_library = "py_library")
 
 def _py_pytest_main_impl(ctx):
     substitutions = {
-        "$$FLAGS$$": ", ".join(['"{}"'.format(f) for f in ctx.attr.args]).strip(),
-        # Leaving CHDIR empty results in potentially user facing issues w/
-        # black and flake8, so we'll just assign something trivial as a no-op.
-        "$$CHDIR$$": "os.chdir('{}')".format(ctx.attr.chdir) if ctx.attr.chdir else "_ = 0",
+        "user_args: List[str] = []": "user_args: List[str] = " + repr([f for f in ctx.attr.args]),
+        "_ = 0  # no-op": "os.chdir('{}')".format(ctx.attr.chdir) if ctx.attr.chdir else "_ = 0  # no-op",
     }
 
     ctx.actions.expand_template(
@@ -47,10 +45,10 @@ _py_pytest_main = rule(
             mandatory = True,
         ),
         "template": attr.label(
-            doc = """INTERNAL USE ONLY. 
+            doc = """INTERNAL USE ONLY.
             A python script to be called as the pytest main.
-            Variables such as `$$CHDIR$$` and `$$FLAGS$$` are replaced before executing the script.
-            This is not considered a Public API. Variable replacements may change without warning.
+            Default values in the template are replaced before executing the script.
+            This is not considered a Public API. Replacements may change without warning.
             """,
             allow_single_file = True,
             default = Label("//py/private:pytest.py.tmpl"),

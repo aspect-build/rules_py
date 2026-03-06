@@ -1,3 +1,4 @@
+# -*- mode: python -*-
 # Copyright 2022 Aspect Build Systems, Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,8 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-# type: ignore
 
 import sys
 import os
@@ -50,8 +49,8 @@ if "COVERAGE_MANIFEST" in os.environ:
 from pytest_shard import ShardPlugin
 
 if __name__ == "__main__":
-    # Change to the directory where we need to run the test or execute a no-op
-    $$CHDIR$$
+    # This statement will be replaced if the user provides a chdir path
+    _ = 0  # no-op
 
     os.environ["ENV"] = "testing"
 
@@ -90,7 +89,8 @@ if __name__ == "__main__":
     if test_filter is not None:
         args.append(f"-k={test_filter}")
 
-    user_args: List[str] = [$$FLAGS$$]
+    # This list will be replaced if the user provides args to bake in
+    user_args: List[str] = []
     if len(user_args) > 0:
         args.extend(user_args)
 
