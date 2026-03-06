@@ -20,7 +20,7 @@ def _format_arms(d):
     content = ",\n".join(content)
     return "{\n" + content + "\n    }"
 
-def _select_key(pair):
+def select_key(triple):
     """Force (triple, target) pairs into a orderable form.
 
     In order to impose _sequential_ selection on whl arms, we need to impose an
@@ -37,10 +37,12 @@ def _select_key(pair):
 
     """
 
-    triple, _ = pair
     python, platform, abi = triple
+
+    # Build a key for the interpreter
     py_major = int(python[2])
     py_minor = int(python[3:]) if python[3:] else 0
+    py = (py_major, py_minor)
 
     # FIXME: It'd be WAY better if we could enforce a stronger order here
     platform = platform.split("_")
@@ -50,11 +52,27 @@ def _select_key(pair):
         # Really case of windows; potential BSD issues?
         platform = (0, 0)
 
-    return ((py_major, py_minor), platform, abi)
+    # Build a key for the ABI.
+    #
+    # We want to prefer the most specific (eg. cp312t) build over a more generic
+    # build (cp312). In order to achieve this, we check the ABI string for
+    # specific feature flags and we set those flags to 1 rather than 0 before
+    # including them in the sorting key.
+    d = 1 if "d" in abi else 0
+    m = 1 if "m" in abi else 0
+    t = 1 if "t" in abi else 0
+    u = 1 if "u" in abi else 0
 
-def _sort_select_arms(arms):
+    # In order to get the most specific match first, we score the abi by the
+    # number of flags set and we sort wheels with highly specific ABIs first.
+    flags = (d + m + t + u)
+    abi = (flags, d, m, t, u, abi)
+
+    return (py, platform, abi)
+
+def sort_select_arms(arms):
     # {(python, platform, abi): target}
-    pairs = sorted(arms.items(), key = _select_key, reverse = True)
+    pairs = sorted(arms.items(), key = lambda kv: select_key(kv[0]), reverse = True)
     return {a: b for a, b in pairs}
 
 def _whl_install_impl(repository_ctx):
@@ -140,7 +158,7 @@ def _whl_install_impl(repository_ctx):
     # newest-match order, but more assurance would be an improvement.
     #
     # Sort triples
-    select_arms = _sort_select_arms(select_arms)
+    select_arms = sort_select_arms(select_arms)
 
     # FIXME: Insert the sbuild if it exists with an sbuild config flag as the
     # first condition so that the user can force the build to use _only_ sbuilds
