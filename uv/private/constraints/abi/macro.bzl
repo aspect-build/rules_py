@@ -1,11 +1,21 @@
 """
-Generate interpreter feature flag constraints
+Generate interpreter ABI config_settings for wheel selection.
 
-Or, as appropriate, aliases to the `rules_python` equivalents.
+Each ABI tag from a wheel filename (e.g. cp312, cp312t, cp312dmu) maps to a
+config_setting_group that combines a Python version check with interpreter
+feature flag checks. The feature flags are backed by bool_flags defined in
+//py/private/interpreter:BUILD.bazel and are set by the interpreter toolchain
+provisioning system.
 """
 
 load("@bazel_skylib//lib:selects.bzl", "selects")
 load("//uv/private/constraints:defs.bzl", "INTERPRETERS", "MAJORS", "MINORS")
+
+# Canonical locations of the interpreter feature flags.
+_PYDEBUG_FLAG = "//py/private/interpreter:pydebug"
+_PYMALLOC_FLAG = "//py/private/interpreter:pymalloc"
+_FREETHREADING_FLAG = "//py/private/interpreter:freethreaded"
+_WIDE_UNICODE_FLAG = "//py/private/interpreter:wide_unicode"
 
 # buildifier: disable=unnamed-macro
 # buildifier: disable=function-docstring
@@ -25,74 +35,49 @@ def generate(
         ],
     )
 
-    # TODO: Replace all this with the rules_python feature flags
-    # rules_python doesn't have _all_ of these
-    #
-    # There is //python/config_settings:py_freethreaded
-    #
-    # Likely better to offer our own Python toolchain flow which ties off with
-    # our settings than to try and hang 1:1 off of rules_python's.
-    native.constraint_setting(
-        name = "feature_pydebug",
-        default_constraint_value = ":pydebug_disabled",
-        visibility = visibility,
-    )
-    native.constraint_value(
+    # Interpreter feature flag config_settings. Each pair (enabled/disabled)
+    # checks the corresponding bool_flag from //py/private/interpreter.
+    native.config_setting(
         name = "pydebug_enabled",
-        constraint_setting = ":feature_pydebug",
+        flag_values = {_PYDEBUG_FLAG: "true"},
         visibility = visibility,
     )
-    native.constraint_value(
+    native.config_setting(
         name = "pydebug_disabled",
-        constraint_setting = ":feature_pydebug",
+        flag_values = {_PYDEBUG_FLAG: "false"},
         visibility = visibility,
     )
 
-    native.constraint_setting(
-        name = "feature_pymalloc",
-        default_constraint_value = ":pymalloc_disabled",
-        visibility = visibility,
-    )
-    native.constraint_value(
+    native.config_setting(
         name = "pymalloc_enabled",
-        constraint_setting = ":feature_pymalloc",
+        flag_values = {_PYMALLOC_FLAG: "true"},
         visibility = visibility,
     )
-    native.constraint_value(
+    native.config_setting(
         name = "pymalloc_disabled",
-        constraint_setting = ":feature_pymalloc",
+        flag_values = {_PYMALLOC_FLAG: "false"},
         visibility = visibility,
     )
 
-    native.constraint_setting(
-        name = "feature_freethreading",
-        default_constraint_value = ":freethreading_disabled",
-        visibility = visibility,
-    )
-    native.constraint_value(
+    native.config_setting(
         name = "freethreading_enabled",
-        constraint_setting = ":feature_freethreading",
+        flag_values = {_FREETHREADING_FLAG: "true"},
         visibility = visibility,
     )
-    native.constraint_value(
+    native.config_setting(
         name = "freethreading_disabled",
-        constraint_setting = ":feature_freethreading",
+        flag_values = {_FREETHREADING_FLAG: "false"},
         visibility = visibility,
     )
 
-    native.constraint_setting(
-        name = "feature_wide_unicode",
-        default_constraint_value = ":wide_unicode_disabled",
-        visibility = visibility,
-    )
-    native.constraint_value(
+    native.config_setting(
         name = "wide_unicode_enabled",
-        constraint_setting = ":feature_wide_unicode",
+        flag_values = {_WIDE_UNICODE_FLAG: "true"},
         visibility = visibility,
     )
-    native.constraint_value(
+    native.config_setting(
         name = "wide_unicode_disabled",
-        constraint_setting = ":feature_wide_unicode",
+        flag_values = {_WIDE_UNICODE_FLAG: "false"},
         visibility = visibility,
     )
 
@@ -108,7 +93,6 @@ def generate(
                 selects.config_setting_group(
                     name = "is_{}{}{}".format(interpreter, major, minor),
                     match_all = [
-                        # "//uv/private/constraints/python/interpreter:{}".format(interpreter),
                         "//uv/private/constraints/python:py{}{}".format(major, minor),
                     ],
                     visibility = visibility,
@@ -119,7 +103,6 @@ def generate(
                         for t in [False, True]:
                             for u in [False, True]:
                                 selects.config_setting_group(
-                                    # This is a bit out of hand I admit
                                     name = "{0}{1}{2}{3}{4}{5}{6}".format(
                                         interpreter,
                                         major,
