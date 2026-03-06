@@ -1,0 +1,22 @@
+[project]
+name = "gte-conflict"
+version = "0.0.0"
+requires-python = "== 3.10.19"
+dependencies = []
+
+[dependency-groups]
+group-a = [
+    "packaging>=24.0",
+]
+
+group-b = [
+    "packaging>=21.0,<22.0",
+]
+
+[tool.uv]
+conflicts = [
+    [
+      { group = "group-a" },
+      { group = "group-b" },
+    ],
+]
