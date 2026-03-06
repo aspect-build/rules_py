@@ -30,7 +30,7 @@ INSTALL_DIR="$(pwd)/{install_dir}"
 cd "$SRC_DIR"
 ./configure \
     --prefix="$INSTALL_DIR" \
-    --with-ensurepip=install \
+    --without-ensurepip \
     --disable-test-modules \
     --with-pydebug \
     2>&1
