@@ -6,6 +6,8 @@
 # generate an incompatible default target rather than failing with an empty
 # select chain.
 
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 # Use genquery to prove the whl_install repo was generated and contains the
 # _no_sbuild incompatible default. If the fix regresses, this query will fail.
 genquery(
