@@ -133,10 +133,10 @@ def generate(
                                         [
                                             ":is_{}{}{}".format(interpreter, major, minor),
                                         ] +
-                                        ([":pydebug_enabled"] if d else []) +
-                                        ([":pymalloc_enabled"] if m else []) +
-                                        ([":freethreading_enabled"] if t else []) +
-                                        ([":wide_unicode_enabled"] if u else [])
+                                        ([":pydebug_enabled"] if d else [":pydebug_disabled"]) +
+                                        ([":pymalloc_enabled"] if m else [":pymalloc_disabled"]) +
+                                        ([":freethreading_enabled"] if t else [":freethreading_disabled"]) +
+                                        ([":wide_unicode_enabled"] if u else [":wide_unicode_disabled"])
                                     ),
                                     visibility = visibility,
                                 )
