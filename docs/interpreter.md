@@ -129,6 +129,7 @@ interpreters.toolchain(
 ```
 
 Available configurations:
+
 - `install_only` — Standard optimized build (default)
 - `install_only_stripped` — Same but with debug symbols stripped
 - `freethreaded+pgo+lto` — Free-threaded (no GIL) with PGO+LTO optimization
@@ -138,17 +139,17 @@ Available configurations:
 
 The following platforms are registered by default:
 
-| Platform | OS | Architecture |
-|---|---|---|
-| `aarch64-apple-darwin` | macOS | ARM64 |
-| `x86_64-apple-darwin` | macOS | x86_64 |
-| `aarch64-unknown-linux-gnu` | Linux (glibc) | ARM64 |
-| `x86_64-unknown-linux-gnu` | Linux (glibc) | x86_64 |
-| `aarch64-unknown-linux-musl` | Linux (musl) | ARM64 |
-| `x86_64-unknown-linux-musl` | Linux (musl) | x86_64 |
-| `x86_64-pc-windows-msvc` | Windows | x86_64 |
-| `aarch64-pc-windows-msvc` | Windows | ARM64 |
-| `i686-pc-windows-msvc` | Windows | x86 (32-bit) |
+| Platform                     | OS            | Architecture |
+| ---------------------------- | ------------- | ------------ |
+| `aarch64-apple-darwin`       | macOS         | ARM64        |
+| `x86_64-apple-darwin`        | macOS         | x86_64       |
+| `aarch64-unknown-linux-gnu`  | Linux (glibc) | ARM64        |
+| `x86_64-unknown-linux-gnu`   | Linux (glibc) | x86_64       |
+| `aarch64-unknown-linux-musl` | Linux (musl)  | ARM64        |
+| `x86_64-unknown-linux-musl`  | Linux (musl)  | x86_64       |
+| `x86_64-pc-windows-msvc`     | Windows       | x86_64       |
+| `aarch64-pc-windows-msvc`    | Windows       | ARM64        |
+| `i686-pc-windows-msvc`       | Windows       | x86 (32-bit) |
 
 Not all Python versions are available on all platforms. Unavailable combinations
 are silently skipped during toolchain resolution.
