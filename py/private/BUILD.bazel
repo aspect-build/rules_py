@@ -1,4 +1,5 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
+load(":py_library.bzl", "py_library")
 
 package(default_visibility = ["//py:__subpackages__"])
 
@@ -6,8 +7,17 @@ exports_files(
     [
         "run.tmpl.sh",
         "pytest.py.tmpl",
+        "pytest_main.py",
     ],
     visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "default_pytest_main",
+    testonly = True,
+    srcs = ["pytest_main.py"],
+    visibility = ["//visibility:public"],
+    deps = ["//py/private/pytest_shard"],
 )
 
 bzl_library(

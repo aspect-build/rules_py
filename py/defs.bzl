@@ -140,11 +140,11 @@ def py_test(name, srcs = [], main = None, pytest_main = False, **kwargs):
     if pytest_main:
         if main:
             fail("When pytest_main is set, the main attribute should not be set.")
-        pytest_main_target = name + ".pytest_main"
-        main = pytest_main_target + ".py"
-        py_pytest_main(name = pytest_main_target)
-        srcs.append(main)
-        deps.append(pytest_main_target)
+
+        # When pytest_main is True (no custom args/chdir), reuse the shared
+        # default pytest main instead of generating a per-test copy.
+        main = Label("//py/private:pytest_main.py")
+        deps.append(Label("//py/private:default_pytest_main"))
 
     _py_binary_or_test(
         name = name,
