@@ -1,5 +1,4 @@
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-
 load(":repository.bzl", "select_key", "sort_select_arms")
 
 def _whl_sorting_test_impl(ctx):
