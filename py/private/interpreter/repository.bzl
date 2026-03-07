@@ -210,17 +210,50 @@ python_interpreter = repository_rule(
     },
 )
 
+def _platform_setting_name(flag, value):
+    """Generate a unique config_setting name for a flag/value pair."""
+
+    # Extract the last path component of the flag label as a readable prefix,
+    # e.g. "@aspect_rules_py//uv/private/constraints/platform:platform_libc"
+    # -> "platform_libc_glibc"
+    name = flag.split(":")[-1] if ":" in flag else flag.split("/")[-1]
+    return "{}_is_{}".format(name, value)
+
 def _python_toolchains_impl(rctx):
     """Creates toolchain() registrations pointing to interpreter repos."""
     content = ['package(default_visibility = ["//visibility:public"])']
 
+    # First pass: collect all unique flag/value pairs so we generate each
+    # config_setting exactly once.
+    seen_settings = {}  # name -> (flag, value)
+    toolchain_infos = []
+
     for entry in rctx.attr.toolchains:
         info = json.decode(entry)
+        platform_settings = info.get("platform_target_settings", {})
+        setting_names = []
+        for flag, value in platform_settings.items():
+            name = _platform_setting_name(flag, value)
+            if name not in seen_settings:
+                seen_settings[name] = (flag, value)
+            setting_names.append(name)
+        toolchain_infos.append((info, setting_names))
 
+    # Emit config_settings for platform target settings
+    for name, (flag, value) in seen_settings.items():
+        content.append("""
+config_setting(
+    name = "{name}",
+    flag_values = {{"{flag}": "{value}"}},
+)
+""".format(name = name, flag = flag, value = value))
+
+    # Second pass: emit toolchain() registrations
+    for info, platform_setting_names in toolchain_infos:
         target_settings = [
             "@{repo}//:is_matching_python_version".format(repo = info["repo"]),
             "@{repo}//:is_matching_freethreaded".format(repo = info["repo"]),
-        ]
+        ] + [":" + name for name in platform_setting_names]
 
         content.append("""
 toolchain(
