@@ -218,8 +218,10 @@ def _python_interpreters_impl(module_ctx):
             if major_minor not in requested_versions:
                 requested_versions.append(major_minor)
 
-            # Track pre-release policy; True if any tag for this version allows it
-            if tag.pre_release:
+            # Track pre-release policy; True if any tag for this version allows it.
+            # Explicitly specifying a pre-release version (e.g. "3.15.0a2")
+            # implies pre_release = True for that major.minor.
+            if tag.pre_release or is_pre_release(version):
                 allow_pre_release[major_minor] = True
             elif major_minor not in allow_pre_release:
                 allow_pre_release[major_minor] = False
