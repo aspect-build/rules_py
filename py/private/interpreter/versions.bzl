@@ -40,6 +40,9 @@ PLATFORMS = {
             "@platforms//os:macos",
             "@platforms//cpu:aarch64",
         ],
+        "target_settings": {
+            _PLATFORM_LIBC_FLAG: "libsystem",
+        },
     },
     "aarch64-unknown-linux-gnu": {
         "compatible_with": [
@@ -64,6 +67,9 @@ PLATFORMS = {
             "@platforms//os:macos",
             "@platforms//cpu:x86_64",
         ],
+        "target_settings": {
+            _PLATFORM_LIBC_FLAG: "libsystem",
+        },
     },
     "x86_64-unknown-linux-gnu": {
         "compatible_with": [
@@ -88,18 +94,27 @@ PLATFORMS = {
             "@platforms//os:windows",
             "@platforms//cpu:x86_64",
         ],
+        "target_settings": {
+            _PLATFORM_LIBC_FLAG: "msvc",
+        },
     },
     "aarch64-pc-windows-msvc": {
         "compatible_with": [
             "@platforms//os:windows",
             "@platforms//cpu:aarch64",
         ],
+        "target_settings": {
+            _PLATFORM_LIBC_FLAG: "msvc",
+        },
     },
     "i686-pc-windows-msvc": {
         "compatible_with": [
             "@platforms//os:windows",
             "@platforms//cpu:x86_32",
         ],
+        "target_settings": {
+            _PLATFORM_LIBC_FLAG: "msvc",
+        },
     },
 }
 
