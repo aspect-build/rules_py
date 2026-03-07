@@ -122,7 +122,7 @@ PLATFORMS = {
 # - suffix: the build config suffix in the asset filename
 # - extension: the archive file extension
 # - strip_prefix: the prefix to strip when extracting
-# - features: list of interpreter features this build has (e.g. ["freethreaded"])
+# - freethreaded: whether this is a free-threaded build
 #
 # buildifier: disable=unsorted-dict-items
 BUILD_CONFIGS = {
@@ -130,24 +130,24 @@ BUILD_CONFIGS = {
         "suffix": "install_only",
         "extension": "tar.gz",
         "strip_prefix": "python",
-        "features": [],
+        "freethreaded": False,
     },
     "install_only_stripped": {
         "suffix": "install_only_stripped",
         "extension": "tar.gz",
         "strip_prefix": "python",
-        "features": [],
+        "freethreaded": False,
     },
     "freethreaded+pgo+lto": {
         "suffix": "freethreaded+pgo+lto-full",
         "extension": "tar.zst",
         "strip_prefix": "python/install",
-        "features": ["freethreaded"],
+        "freethreaded": True,
     },
     "freethreaded+debug": {
         "suffix": "freethreaded+debug-full",
         "extension": "tar.zst",
         "strip_prefix": "python/install",
-        "features": ["freethreaded"],
+        "freethreaded": True,
     },
 }

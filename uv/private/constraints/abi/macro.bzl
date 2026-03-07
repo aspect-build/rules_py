@@ -3,15 +3,15 @@ Generate interpreter ABI config_settings for wheel selection.
 
 Each ABI tag from a wheel filename (e.g. cp312, cp312t, cp312dmu) maps to a
 config_setting_group that combines a Python version check with interpreter
-feature flag checks. The feature flags are derived from the repeatable
---interpreter_feature flag defined in //py/private/interpreter:BUILD.bazel.
+feature flag checks. The feature flags are backed by bool_flags defined in
+//py/private/interpreter:BUILD.bazel and are set by the interpreter toolchain
+provisioning system.
 """
 
 load("@bazel_skylib//lib:selects.bzl", "selects")
 load("//uv/private/constraints:defs.bzl", "INTERPRETERS", "MAJORS", "MINORS")
 
-# Canonical locations of the derived interpreter feature flags.
-# These are interpreter_has_feature rules that expose FeatureFlagInfo.
+# Canonical locations of the interpreter feature flags.
 _PYDEBUG_FLAG = "//py/private/interpreter:pydebug"
 _PYMALLOC_FLAG = "//py/private/interpreter:pymalloc"
 _FREETHREADING_FLAG = "//py/private/interpreter:freethreaded"
@@ -36,7 +36,7 @@ def generate(
     )
 
     # Interpreter feature flag config_settings. Each pair (enabled/disabled)
-    # checks the corresponding derived flag from //py/private/interpreter.
+    # checks the corresponding bool_flag from //py/private/interpreter.
     native.config_setting(
         name = "pydebug_enabled",
         flag_values = {_PYDEBUG_FLAG: "true"},
