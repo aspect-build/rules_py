@@ -1,0 +1,15 @@
+[project]
+name = "source-built-python-test"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = []
+
+[dependency-groups]
+test = [
+    "markupsafe>=2.1",
+    "build",
+    "setuptools",
+]
+
+[tool.uv]
+no-binary-package = ["markupsafe"]

@@ -1,0 +1,24 @@
+"Source-built Python interpreter e2e test"
+
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "cpython_src",
+    build_file = "//cases/source-built-python:cpython_src.BUILD.bazel",
+    sha256 = "e7de3240a8bc2b1e1ba5c81bf943f06861ff494b69fda990ce2722a504c6153d",
+    strip_prefix = "Python-3.11.9",
+    url = "https://www.python.org/ftp/python/3.11.9/Python-3.11.9.tgz",
+)
+
+# Use the system make rather than bootstrapping GNU Make from source, which
+# fails under the hermetic LLVM toolchain.
+register_toolchains("@rules_foreign_cc//toolchains:preinstalled_make_toolchain")
+
+register_toolchains("//cases/source-built-python:source_built_toolchain")
+
+uv = use_extension("@aspect_rules_py//uv/unstable:extension.bzl", "uv")
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/source-built-python:uv.lock",
+    pyproject = "//cases/source-built-python:pyproject.toml",
+)
