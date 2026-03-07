@@ -1,0 +1,58 @@
+load("@aspect_rules_py//py:defs.bzl", "py_image_layer")
+load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_binary")
+load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
+load("@container_structure_test//:defs.bzl", "container_structure_test")
+load("@rules_oci//oci:defs.bzl", "oci_image")
+
+platform(
+    name = "exclude_turtle_linux_amd64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    flags = [
+        "--@aspect_rules_py//py/private/interpreter:exclude_feature=turtle",
+    ],
+)
+
+py_venv_binary(
+    name = "check_no_turtle",
+    srcs = ["__main__.py"],
+    main = "__main__.py",
+    tags = ["manual"],
+    venv = "no-turtle-test",
+)
+
+py_image_layer(
+    name = "layers",
+    binary = ":check_no_turtle",
+)
+
+platform_transition_filegroup(
+    name = "amd64_layers",
+    srcs = [":layers"],
+    target_platform = ":exclude_turtle_linux_amd64",
+)
+
+oci_image(
+    name = "image",
+    base = "@ubuntu",
+    entrypoint = ["/{}/check_no_turtle".format(package_name())],
+    tars = [":layers"],
+)
+
+platform_transition_filegroup(
+    name = "amd64_image",
+    srcs = [":image"],
+    target_platform = ":exclude_turtle_linux_amd64",
+)
+
+container_structure_test(
+    name = "test",
+    configs = ["test.yaml"],
+    image = ":amd64_image",
+    platform = "linux/amd64",
+    target_compatible_with = [
+        "@platforms//cpu:x86_64",
+    ],
+)

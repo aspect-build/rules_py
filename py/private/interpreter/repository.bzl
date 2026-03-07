@@ -1,8 +1,11 @@
 """Repository rules for downloading Python interpreters from python-build-standalone."""
 
+load(":exclude_feature.bzl", "INTERPRETER_FEATURES")
+
 _PYTHON_VERSION_FLAG = "@aspect_rules_py//py/private/interpreter:python_version"
 _RPY_VERSION_FLAG = "@rules_python//python/config_settings:python_version"
 _FREETHREADING_FLAG = "@aspect_rules_py//py/private/interpreter:freethreaded"
+_EXCLUDE_FEATURE_FLAG = "@aspect_rules_py//py/private/interpreter:exclude_feature"
 
 # BUILD file for version/platform combinations that don't exist in any release.
 # Uses sentinel values that will never match, so toolchain resolution skips them.
@@ -87,18 +90,91 @@ def _python_interpreter_impl(rctx):
     if "linux" in platform:
         rctx.delete("share/terminfo")
 
-    # Windows and Unix have different directory layouts
+    # Generate the BUILD file
+    is_windows = "windows" in platform
+
+    rctx.file("BUILD.bazel", content = _build_file_content(
+        major = major,
+        minor = minor,
+        micro = micro,
+        major_minor = major_minor,
+        python_version = python_version,
+        python_bin = "python.exe" if is_windows else "bin/python3",
+        is_windows = is_windows,
+        is_freethreaded = is_freethreaded,
+    ))
+
+def _feature_filegroups(major, minor, is_windows):
+    """Generate per-feature filegroup targets and config_settings.
+
+    Returns a tuple of (feature_targets_str, all_feature_exclude_patterns).
+    The exclude patterns are used to carve out feature files from the core filegroup.
+    """
     if is_windows:
-        files_glob_include = '["**/*.py", "**/*.pyd", "**/*.dll", "**/*.exe", "include/**", "Lib/**"]'
-        files_glob_exclude = '["Lib/**/test/**", "Lib/**/tests/**", "**/__pycache__/*.pyc*"]'
+        # Feature exclusions not yet supported on Windows
+        return "", []
+
+    lines = []
+    all_excludes = []
+
+    for feature_name, feature_info in INTERPRETER_FEATURES.items():
+        patterns = [
+            p.format(major = major, minor = minor)
+            for p in feature_info["include"]
+        ]
+        all_excludes.extend(patterns)
+
+        # config_setting that matches when this feature IS excluded
+        lines.append("""\
+config_setting(
+    name = "_exclude_{feature}",
+    flag_values = {{"{flag}": "{feature}"}},
+)
+""".format(feature = feature_name, flag = _EXCLUDE_FEATURE_FLAG))
+
+        # filegroup for this feature's files (allow_empty because not all
+        # PBS builds ship every optional component)
+        lines.append("""\
+filegroup(
+    name = "_feature_{feature}",
+    srcs = glob({patterns}, allow_empty = True),
+)
+""".format(feature = feature_name, patterns = repr(patterns)))
+
+    return "\n".join(lines), all_excludes
+
+def _build_file_content(major, minor, micro, major_minor, python_version, python_bin, is_windows, is_freethreaded):
+    """Generate the full BUILD.bazel content for an interpreter repo."""
+
+    feature_targets, feature_excludes = _feature_filegroups(major, minor, is_windows)
+
+    if is_windows:
+        core_include = '["**/*.py", "**/*.pyd", "**/*.dll", "**/*.exe", "include/**", "Lib/**"]'
+        core_exclude = '["Lib/**/test/**", "Lib/**/tests/**", "**/__pycache__/*.pyc*"]'
     else:
-        files_glob_include = '["bin/**", "include/**", "lib/**", "share/**"]'
-        files_glob_exclude = '["lib/**/*.a", "lib/python{major}.{minor}/**/test/**", "lib/python{major}.{minor}/**/tests/**", "**/__pycache__/*.pyc*"]'.format(
-            major = major,
-            minor = minor,
+        core_include = '["bin/**", "lib/**"]'
+        core_exclude = repr(
+            [
+                "lib/**/*.a",
+                "lib/python{}.{}/**/test/**".format(major, minor),
+                "lib/python{}.{}/**/tests/**".format(major, minor),
+                "**/__pycache__/*.pyc*",
+            ] +
+            feature_excludes,
         )
 
-    rctx.file("BUILD.bazel", content = """\
+    # Build the select() expressions for optional features
+    feature_selects = ""
+    if not is_windows:
+        for feature_name in INTERPRETER_FEATURES.keys():
+            feature_selects += """\
+    + select({{
+        ":_exclude_{feature}": [],
+        "//conditions:default": [":_feature_{feature}"],
+    }})
+""".format(feature = feature_name)
+
+    return """\
 load("@rules_python//python:py_runtime.bzl", "py_runtime")
 load("@rules_python//python:py_runtime_pair.bzl", "py_runtime_pair")
 load("@bazel_skylib//lib:selects.bzl", "selects")
@@ -145,12 +221,24 @@ selects.config_setting_group(
 
 {freethreaded_config_setting}
 
+# --- Optional interpreter features ---
+
+{feature_targets}
+
+# --- Core + optional filegroups ---
+
+filegroup(
+    name = "_core",
+    srcs = glob(
+        include = {core_include},
+        exclude = {core_exclude},
+    ),
+)
+
 filegroup(
     name = "files",
-    srcs = glob(
-        include = {files_glob_include},
-        exclude = {files_glob_exclude},
-    ),
+    srcs = [":_core"]
+{feature_selects}    ,
 )
 
 py_runtime(
@@ -180,9 +268,11 @@ py_runtime_pair(
         minor = minor,
         micro = micro,
         freethreaded_config_setting = _freethreaded_config_setting(is_freethreaded),
-        files_glob_include = files_glob_include,
-        files_glob_exclude = files_glob_exclude,
-    ))
+        feature_targets = feature_targets,
+        feature_selects = feature_selects,
+        core_include = core_include,
+        core_exclude = core_exclude,
+    )
 
 def _freethreaded_config_setting(is_freethreaded):
     """Generate config_setting for the freethreaded flag."""
@@ -210,6 +300,16 @@ python_interpreter = repository_rule(
     },
 )
 
+_PLATFORM_LIBC_FLAG = "@aspect_rules_py//uv/private/constraints/platform:platform_libc"
+
+# Map from libc name to the config_setting target that matches it.
+_LIBC_CONFIG_SETTINGS = {
+    "glibc": "@aspect_rules_py//uv/private/constraints/platform:is_glibc",
+    "musl": "@aspect_rules_py//uv/private/constraints/platform:is_musl",
+    "libsystem": "@aspect_rules_py//uv/private/constraints/platform:is_libsystem",
+    "msvc": "@aspect_rules_py//uv/private/constraints/platform:is_msvc",
+}
+
 def _python_toolchains_impl(rctx):
     """Creates toolchain() registrations pointing to interpreter repos."""
     content = ['package(default_visibility = ["//visibility:public"])']
@@ -221,6 +321,12 @@ def _python_toolchains_impl(rctx):
             "@{repo}//:is_matching_python_version".format(repo = info["repo"]),
             "@{repo}//:is_matching_freethreaded".format(repo = info["repo"]),
         ]
+
+        # Add libc constraint so glibc and musl toolchains are distinguishable
+        libc = info.get("libc", "")
+        libc_setting = _LIBC_CONFIG_SETTINGS.get(libc)
+        if libc_setting:
+            target_settings.append(libc_setting)
 
         content.append("""
 toolchain(

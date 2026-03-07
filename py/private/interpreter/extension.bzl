@@ -313,6 +313,7 @@ def _python_interpreters_impl(module_ctx):
                     "name": repo_name,
                     "repo": repo_name,
                     "compatible_with": platform_info["compatible_with"],
+                    "libc": platform_info.get("libc", ""),
                 }))
 
     # Create the toolchains hub repo
