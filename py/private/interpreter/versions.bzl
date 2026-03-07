@@ -25,7 +25,14 @@ DEFAULT_RELEASE_DATES = [
     "20241002",  # 3.8-3.13
 ]
 
+# The libc flag used to disambiguate glibc vs musl Linux toolchains.
+_PLATFORM_LIBC_FLAG = "@aspect_rules_py//uv/private/constraints/platform:platform_libc"
+
 # Mapping from PBS platform triple to Bazel platform constraints.
+#
+# - compatible_with: constraint_values for exec_compatible_with / target_compatible_with
+# - target_settings: additional config_settings the toolchain must match (optional)
+#
 # buildifier: disable=unsorted-dict-items
 PLATFORMS = {
     "aarch64-apple-darwin": {
@@ -39,12 +46,18 @@ PLATFORMS = {
             "@platforms//os:linux",
             "@platforms//cpu:aarch64",
         ],
+        "target_settings": {
+            _PLATFORM_LIBC_FLAG: "glibc",
+        },
     },
     "aarch64-unknown-linux-musl": {
         "compatible_with": [
             "@platforms//os:linux",
             "@platforms//cpu:aarch64",
         ],
+        "target_settings": {
+            _PLATFORM_LIBC_FLAG: "musl",
+        },
     },
     "x86_64-apple-darwin": {
         "compatible_with": [
@@ -57,12 +70,18 @@ PLATFORMS = {
             "@platforms//os:linux",
             "@platforms//cpu:x86_64",
         ],
+        "target_settings": {
+            _PLATFORM_LIBC_FLAG: "glibc",
+        },
     },
     "x86_64-unknown-linux-musl": {
         "compatible_with": [
             "@platforms//os:linux",
             "@platforms//cpu:x86_64",
         ],
+        "target_settings": {
+            _PLATFORM_LIBC_FLAG: "musl",
+        },
     },
     "x86_64-pc-windows-msvc": {
         "compatible_with": [
