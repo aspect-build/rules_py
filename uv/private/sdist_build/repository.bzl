@@ -45,6 +45,16 @@ def _sdist_build_impl(repository_ctx):
     Args:
         repository_ctx: The repository context.
     """
+    pre_build_patches = repository_ctx.attr.pre_build_patches
+    patch_attrs = ""
+    if pre_build_patches:
+        patch_attrs = """
+    pre_build_patches = {patches},
+    pre_build_patch_strip = {strip},""".format(
+            patches = repr([str(it) for it in pre_build_patches]),
+            strip = repository_ctx.attr.pre_build_patch_strip,
+        )
+
     repository_ctx.file("BUILD.bazel", content = """
 load("@aspect_rules_py//uv/private/sdist_build:rule.bzl", "{rule}")
 load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv")
@@ -53,13 +63,13 @@ py_venv(
     name = "build_venv",
     deps = {deps},
 )
-    
+
 {rule}(
     name = "whl",
     src = "{src}",
     venv = ":build_venv",
     version = "{version}",
-    args = [],
+    args = [],{patch_attrs}
     visibility = ["//visibility:public"],
 )
 """.format(
@@ -67,6 +77,7 @@ py_venv(
         deps = repr([str(it) for it in repository_ctx.attr.deps]),
         rule = "sdist_native_build" if repository_ctx.attr.is_native else "sdist_build",
         version = repository_ctx.attr.version,
+        patch_attrs = patch_attrs,
     ))
 
 sdist_build = repository_rule(
@@ -76,5 +87,7 @@ sdist_build = repository_rule(
         "deps": attr.label_list(),
         "is_native": attr.bool(),
         "version": attr.string(),
+        "pre_build_patches": attr.label_list(default = []),
+        "pre_build_patch_strip": attr.int(default = 0),
     },
 )
