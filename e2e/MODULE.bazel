@@ -36,10 +36,6 @@ interpreters.toolchain(
 interpreters.toolchain(
     python_version = "3.13",
 )
-interpreters.toolchain(
-    build_config = "freethreaded+pgo+lto",
-    python_version = "3.13",
-)
 use_repo(interpreters, "python_interpreters")
 
 register_toolchains("@python_interpreters//:all")
