@@ -1,0 +1,35 @@
+load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
+load("@bazel_lib//lib:transitions.bzl", "platform_transition_test")
+
+platform(
+    name = "freethreaded_linux_amd64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    flags = [
+        "--@aspect_rules_py//py/private/interpreter:freethreaded=true",
+    ],
+)
+
+py_venv_test(
+    name = "test_bin",
+    srcs = ["test.py"],
+    main = "test.py",
+    python_version = "3.13",
+    tags = ["manual"],
+    venv = "freethreaded-test",
+    deps = [
+        "@pypi//regex",
+    ],
+)
+
+platform_transition_test(
+    name = "test",
+    binary = ":test_bin",
+    target_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    target_platform = ":freethreaded_linux_amd64",
+)

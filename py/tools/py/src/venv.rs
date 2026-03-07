@@ -84,6 +84,7 @@ pub struct PythonVersionInfo {
     major: u32,
     minor: u32,
     patch: u32,
+    pub freethreaded: bool,
 }
 
 impl PythonVersionInfo {
@@ -93,13 +94,24 @@ impl PythonVersionInfo {
                 major: major.parse().unwrap(),
                 minor: minor.parse().unwrap(),
                 patch: 0,
+                freethreaded: false,
             }),
             [major, minor, patch] => Ok(PythonVersionInfo {
                 major: major.parse().unwrap(),
                 minor: minor.parse().unwrap(),
                 patch: patch.parse().unwrap(),
+                freethreaded: false,
             }),
             _ => Err(miette!("X.Y or X.Y.Z required!")),
+        }
+    }
+
+    /// Returns the lib directory suffix, e.g. "python3.13" or "python3.13t".
+    fn lib_suffix(&self) -> String {
+        if self.freethreaded {
+            format!("python{}.{}t", self.major, self.minor)
+        } else {
+            format!("python{}.{}", self.major, self.minor)
         }
     }
 }
@@ -289,8 +301,8 @@ pub fn create_empty_venv<'a>(
         home_dir: home_dir.clone(),
         bin_dir: home_dir.clone().join("bin"),
         site_dir: home_dir.clone().join(format!(
-            "lib/python{}.{}/site-packages",
-            version.major, version.minor,
+            "lib/{}/site-packages",
+            version.lib_suffix(),
         )),
         python_bin: location.join("bin/python"),
     };

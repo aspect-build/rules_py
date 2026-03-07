@@ -1,0 +1,36 @@
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
+load(":version_util_test.bzl", "version_util_test_suite")
+
+package(default_visibility = ["//visibility:public"])
+
+string_flag(
+    name = "python_version",
+    build_setting_default = "",
+)
+
+# Interpreter feature flags. These correspond to the single-letter suffixes
+# in wheel ABI tags: d (pydebug), m (pymalloc), t (freethreaded), u (wide_unicode).
+# The uv constraint system references these via config_settings to select
+# the correct wheels for the active interpreter configuration.
+
+bool_flag(
+    name = "freethreaded",
+    build_setting_default = False,
+)
+
+bool_flag(
+    name = "pydebug",
+    build_setting_default = False,
+)
+
+bool_flag(
+    name = "pymalloc",
+    build_setting_default = False,
+)
+
+bool_flag(
+    name = "wide_unicode",
+    build_setting_default = False,
+)
+
+version_util_test_suite()

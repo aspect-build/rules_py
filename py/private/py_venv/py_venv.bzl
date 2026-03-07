@@ -2,6 +2,7 @@
 
 load("@bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
 load("@bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private:transitions.bzl", "python_version_transition")
@@ -151,6 +152,9 @@ def _py_venv_base_impl(ctx):
 
     if ctx.attr.debug:
         args.add("--debug")
+
+    if ctx.attr._freethreaded_flag[BuildSettingInfo].value:
+        args.add("--freethreaded")
 
     ctx.actions.run(
         executable = venv_tool,
@@ -334,6 +338,9 @@ A collision can occur when multiple packages providing the same file are install
     "_venv": attr.label(
         default = "//py/private/toolchain:resolved_venv_toolchain",
         cfg = "exec",
+    ),
+    "_freethreaded_flag": attr.label(
+        default = "//py/private/interpreter:freethreaded",
     ),
     "debug": attr.bool(
         default = False,
