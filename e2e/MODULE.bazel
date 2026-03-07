@@ -212,6 +212,7 @@ http_archive(
 )
 
 register_toolchains("@rules_foreign_cc//toolchains:preinstalled_make_toolchain")
+
 register_toolchains("//cases/source-built-python:source_built_toolchain")
 
 uv.project(

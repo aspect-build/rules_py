@@ -8,25 +8,22 @@ load(":defs.bzl", "python_interpreter_wrapper", "source_built_test")
 
 configure_make(
     name = "cpython",
-    configure_options = [
-        "--without-ensurepip",
-        "--disable-test-modules",
-        "--with-pydebug",
-    ],
     # The hermetic LLVM toolchain sets -D__DATE__=redacted (quotes stripped
     # by shell), but CPython's getbuildinfo.c needs a string literal.
     # With -U__DATE__, getbuildinfo.c falls back to "xx/xx/xx" which
     # compiles fine. The postfix_script patches the fallback values to
     # "redacted" (all word chars, so platform.py can parse sys.version).
     configure_in_place = True,
+    configure_options = [
+        "--without-ensurepip",
+        "--disable-test-modules",
+        "--with-pydebug",
+    ],
     copts = [
         "-U__DATE__",
         "-U__TIME__",
         "-U__TIMESTAMP__",
     ],
-    # Provide zlib so CPython can build the _zlib extension module
-    # (needed by tarfile, zipfile, etc.)
-    deps = ["@zlib"],
     lib_source = "@cpython_src//:all_srcs",
     # With --with-pydebug the real binary is python3.11d; python3 and
     # python3.11 are symlinks that rules_foreign_cc can't copy as outputs.
@@ -59,6 +56,9 @@ configure_make(
         "make install && " +
         "rm -f $$INSTALLDIR/lib/python3.11/lib-dynload/*_failed.so && " +
         "cp -rf $$BUILD_TMPDIR/$$INSTALL_PREFIX/* $$INSTALLDIR/",
+    # Provide zlib so CPython can build the _zlib extension module
+    # (needed by tarfile, zipfile, etc.)
+    deps = ["@zlib"],
 )
 
 # Wrapper script that sets PYTHONHOME before exec-ing the real interpreter.
