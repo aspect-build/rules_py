@@ -75,21 +75,21 @@ PLATFORMS = {
             "@platforms//os:windows",
             "@platforms//cpu:x86_64",
         ],
-        "libc": "",
+        "libc": "msvc",
     },
     "aarch64-pc-windows-msvc": {
         "compatible_with": [
             "@platforms//os:windows",
             "@platforms//cpu:aarch64",
         ],
-        "libc": "",
+        "libc": "msvc",
     },
     "i686-pc-windows-msvc": {
         "compatible_with": [
             "@platforms//os:windows",
             "@platforms//cpu:x86_32",
         ],
-        "libc": "",
+        "libc": "msvc",
     },
 }
 

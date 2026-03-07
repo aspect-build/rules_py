@@ -307,6 +307,7 @@ _LIBC_CONFIG_SETTINGS = {
     "glibc": "@aspect_rules_py//uv/private/constraints/platform:is_glibc",
     "musl": "@aspect_rules_py//uv/private/constraints/platform:is_musl",
     "libsystem": "@aspect_rules_py//uv/private/constraints/platform:is_libsystem",
+    "msvc": "@aspect_rules_py//uv/private/constraints/platform:is_msvc",
 }
 
 def _python_toolchains_impl(rctx):
