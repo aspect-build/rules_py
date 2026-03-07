@@ -54,8 +54,6 @@ def my_py_test(name, deps = [], **kwargs):
 ```
 """
 
-load("@bazel_skylib//lib:paths.bzl", "paths")
-
 # Template for the BUILD file when a venv IS detected.
 # This creates the toolchain implementation targets and a config_setting
 # gated on a bool_flag that defaults to True.
