@@ -1,0 +1,22 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+py_test(
+    name = "test_pytest_main",
+    srcs = ["test_smoke.py"],
+    deps = [
+        "@pypi//pytest",
+    ],
+    venv = "pytest-main-826",
+    pytest_main = True,
+)
+
+py_test(
+    name = "test_sharding",
+    srcs = ["test_sharding.py"],
+    shard_count = 3,
+    deps = [
+        "@pypi//pytest",
+    ],
+    venv = "pytest-main-826",
+    pytest_main = True,
+)

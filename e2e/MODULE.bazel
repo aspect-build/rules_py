@@ -158,4 +158,13 @@ uv.project(
 )
 # }}}
 
+# For cases/pytest-main-826
+# {{{
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/pytest-main-826:uv.lock",
+    pyproject = "//cases/pytest-main-826:pyproject.toml",
+)
+# }}}
+
 use_repo(uv, "pypi")
