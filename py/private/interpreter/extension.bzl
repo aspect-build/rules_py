@@ -196,14 +196,15 @@ def _python_interpreters_impl(module_ctx):
     # Sort newest-first for "prefer newest release" semantics
     release_dates = sorted(release_dates, reverse = True)
 
-    # Collect all requested toolchains
+    # Collect all requested Python versions. For each version, we register
+    # toolchains for ALL build configs so users can select via flags/platforms
+    # without needing to declare build configs up front.
     default_version = None
-    toolchain_requests = {}
+    requested_versions = []
 
     for mod in module_ctx.modules:
         for tag in mod.tags.toolchain:
             version = tag.python_version
-            build_config = tag.build_config
 
             # Normalize: "3.11.14" -> major_minor "3.11"
             parts = version.split(".")
@@ -219,19 +220,15 @@ def _python_interpreters_impl(module_ctx):
                     ))
                 default_version = major_minor
 
-            key = (major_minor, build_config)
-            if key not in toolchain_requests:
-                toolchain_requests[key] = struct(
-                    major_minor = major_minor,
-                    build_config = build_config,
-                )
+            if major_minor not in requested_versions:
+                requested_versions.append(major_minor)
 
-    if not toolchain_requests:
+    if not requested_versions:
         return _return_metadata(module_ctx, has_facts, facts, is_reproducible, resolved_latest)
 
     # If no default, pick the first one
     if not default_version:
-        default_version = sorted(toolchain_requests.keys())[0][0]
+        default_version = sorted(requested_versions)[0]
 
     # Fetch and parse release indices (cached via facts)
     release_indices = {}
@@ -247,69 +244,76 @@ def _python_interpreters_impl(module_ctx):
         new_facts[facts_key] = index
 
     # Order: default version first, then sorted
-    ordered_keys = []
-    for key in sorted(toolchain_requests.keys()):
-        if key[0] == default_version:
-            ordered_keys.insert(0, key)
+    ordered_versions = []
+    for version in sorted(requested_versions):
+        if version == default_version:
+            ordered_versions.insert(0, version)
         else:
-            ordered_keys.append(key)
+            ordered_versions.append(version)
 
-    # Create per-platform interpreter repos and collect toolchain entries
+    # Create per-platform, per-build-config interpreter repos and collect
+    # toolchain entries.  Non-freethreaded configs are registered first so
+    # they win by default when the freethreaded flag is not set.
     toolchain_entries = []
 
-    for key in ordered_keys:
-        req = toolchain_requests[key]
+    # Order build configs: non-freethreaded first (default wins), then freethreaded
+    ordered_configs = (
+        [(name, cfg) for name, cfg in BUILD_CONFIGS.items() if not cfg["freethreaded"]] +
+        [(name, cfg) for name, cfg in BUILD_CONFIGS.items() if cfg["freethreaded"]]
+    )
 
-        for platform_triple, platform_info in PLATFORMS.items():
-            repo_name = "python_{}_{}".format(
-                _sanitize(req.major_minor),
-                _sanitize(platform_triple),
-            )
-            if req.build_config != "install_only":
-                repo_name += "_" + _sanitize(req.build_config)
-
-            # Find the best release for this version/platform/config
-            asset_info = _find_asset(
-                req.major_minor,
-                platform_triple,
-                req.build_config,
-                release_dates,
-                release_indices,
-            )
-
-            if asset_info:
-                base_url = release_base_urls.get(asset_info["release_date"], DEFAULT_RELEASE_BASE_URL)
-                url = "{}/{}/{}".format(
-                    base_url,
-                    asset_info["release_date"],
-                    asset_info["filename"],
+    for major_minor in ordered_versions:
+        for config_name, config_info in ordered_configs:
+            for platform_triple, platform_info in PLATFORMS.items():
+                repo_name = "python_{}_{}".format(
+                    _sanitize(major_minor),
+                    _sanitize(platform_triple),
                 )
-                python_interpreter(
-                    name = repo_name,
-                    python_version = asset_info["full_version"],
-                    platform = platform_triple,
-                    url = url,
-                    sha256 = asset_info["sha256"],
-                    strip_prefix = BUILD_CONFIGS[req.build_config]["strip_prefix"],
-                    freethreaded = BUILD_CONFIGS[req.build_config]["freethreaded"],
-                )
-            else:
-                # Version/platform combo doesn't exist in any release
-                python_interpreter(
-                    name = repo_name,
-                    python_version = "",
-                    platform = platform_triple,
-                    url = "",
-                    sha256 = "",
-                    strip_prefix = "",
-                    freethreaded = False,
+                if config_name != "install_only":
+                    repo_name += "_" + _sanitize(config_name)
+
+                # Find the best release for this version/platform/config
+                asset_info = _find_asset(
+                    major_minor,
+                    platform_triple,
+                    config_name,
+                    release_dates,
+                    release_indices,
                 )
 
-            toolchain_entries.append(json.encode({
-                "name": repo_name,
-                "repo": repo_name,
-                "compatible_with": platform_info["compatible_with"],
-            }))
+                if asset_info:
+                    base_url = release_base_urls.get(asset_info["release_date"], DEFAULT_RELEASE_BASE_URL)
+                    url = "{}/{}/{}".format(
+                        base_url,
+                        asset_info["release_date"],
+                        asset_info["filename"],
+                    )
+                    python_interpreter(
+                        name = repo_name,
+                        python_version = asset_info["full_version"],
+                        platform = platform_triple,
+                        url = url,
+                        sha256 = asset_info["sha256"],
+                        strip_prefix = config_info["strip_prefix"],
+                        freethreaded = config_info["freethreaded"],
+                    )
+                else:
+                    # Version/platform combo doesn't exist in any release
+                    python_interpreter(
+                        name = repo_name,
+                        python_version = "",
+                        platform = platform_triple,
+                        url = "",
+                        sha256 = "",
+                        strip_prefix = "",
+                        freethreaded = False,
+                    )
+
+                toolchain_entries.append(json.encode({
+                    "name": repo_name,
+                    "repo": repo_name,
+                    "compatible_with": platform_info["compatible_with"],
+                }))
 
     # Create the toolchains hub repo
     python_toolchains(
@@ -382,7 +386,9 @@ _toolchain_tag = tag_class(
     attrs = {
         "build_config": attr.string(
             default = "install_only",
-            doc = "The PBS build configuration to use. One of: install_only, install_only_stripped, freethreaded+pgo+lto, freethreaded+debug.",
+            doc = "Deprecated: ignored. All build configs are registered automatically. " +
+                  "Use flags (--@aspect_rules_py//py/private/interpreter:freethreaded=true) " +
+                  "or a custom platform() to select a specific build config.",
         ),
         "is_default": attr.bool(default = False),
         "python_version": attr.string(
