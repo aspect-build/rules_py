@@ -1,0 +1,147 @@
+load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
+load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
+load("@rules_foreign_cc//foreign_cc:configure.bzl", "configure_make")
+load("@rules_python//python:defs.bzl", "py_runtime", "py_runtime_pair")
+load(":defs.bzl", "python_interpreter_wrapper", "source_built_test")
+
+# -- Build CPython 3.11.9 from source --
+
+configure_make(
+    name = "cpython",
+    configure_options = [
+        "--without-ensurepip",
+        "--disable-test-modules",
+        "--with-pydebug",
+    ],
+    # The hermetic LLVM toolchain sets -D__DATE__=redacted (quotes stripped
+    # by shell), but CPython's getbuildinfo.c needs a string literal.
+    # With -U__DATE__, getbuildinfo.c falls back to "xx/xx/xx" which
+    # compiles fine. The postfix_script patches the fallback values to
+    # "redacted" (all word chars, so platform.py can parse sys.version).
+    configure_in_place = True,
+    copts = [
+        "-U__DATE__",
+        "-U__TIME__",
+        "-U__TIMESTAMP__",
+    ],
+    # Provide zlib so CPython can build the _zlib extension module
+    # (needed by tarfile, zipfile, etc.)
+    deps = ["@zlib"],
+    lib_source = "@cpython_src//:all_srcs",
+    # With --with-pydebug the real binary is python3.11d; python3 and
+    # python3.11 are symlinks that rules_foreign_cc can't copy as outputs.
+    out_binaries = ["python3.11d"],
+    out_data_dirs = ["lib/python3.11"],
+    # Fix shared-library linking: rules_foreign_cc puts cxx_linker_executable
+    # flags (incl. CRT startup objects) into LDFLAGS, which CPython stores in
+    # CONFIGURE_LDFLAGS and reuses for LDSHARED. CRT objects break .so linking.
+    # The postfix_script strips CRT objects from CONFIGURE_LDFLAGS in the
+    # Makefile, then rebuilds extension modules and reinstalls.
+    # NOTE: CWD is already BUILD_TMPDIR when postfix_script runs.
+    postfix_script =
+        # 1. Fix __DATE__/__TIME__: patch getbuildinfo.c to replace the
+        #    "xx/xx/xx" and "xx:xx:xx" fallbacks with "redacted" (all word
+        #    chars, so platform.py can parse sys.version), then rebuild the
+        #    python binary.  configure_in_place=True means sources are in CWD.
+        "sed -i 's|xx/xx/xx|redacted|;s|xx:xx:xx|redacted|' Modules/getbuildinfo.c && " +
+        "make python && " +
+        # 2. Fix shared-library linking: extract CONFIGURE_LDFLAGS with CRT
+        #    startup objects stripped, override BLDSHARED on the make command
+        #    line (avoids modifying the Makefile which triggers cascading
+        #    rebuilds), delete _failed.so placeholders so setup.py rebuilds.
+        "LDFLAGS_CLEAN=$$(sed -n 's/^CONFIGURE_LDFLAGS=[[:space:]]*//p' Makefile " +
+        "| sed -E 's/-Wl,--whole-archive [^ ]*(crt|Scrt)[^ ]* -Wl,--no-whole-archive//g') && " +
+        "CC_VAL=$$(sed -n 's/^CC=[[:space:]]*//p' Makefile) && " +
+        "rm -f build/lib.linux-*/*_failed.so && " +
+        "make sharedmods BLDSHARED=\"$$CC_VAL -shared $$LDFLAGS_CLEAN\" && " +
+        # 3. Reinstall and copy results to final output (postfix_script runs
+        #    after rules_foreign_cc already copied to INSTALLDIR).
+        "make install && " +
+        "rm -f $$INSTALLDIR/lib/python3.11/lib-dynload/*_failed.so && " +
+        "cp -rf $$BUILD_TMPDIR/$$INSTALL_PREFIX/* $$INSTALLDIR/",
+)
+
+# Wrapper script that sets PYTHONHOME before exec-ing the real interpreter.
+# Propagates all cpython outputs (binary, stdlib, etc.) in DefaultInfo so
+# downstream rules have the full interpreter installation.
+python_interpreter_wrapper(
+    name = "python3",
+    cpython = ":cpython",
+)
+
+# -- Toolchain registration --
+
+py_runtime(
+    name = "source_built_runtime",
+    files = [":cpython"],
+    interpreter = ":python3",
+    interpreter_version_info = {
+        "major": "3",
+        "minor": "11",
+        "micro": "9",
+    },
+    python_version = "PY3",
+)
+
+py_runtime_pair(
+    name = "source_built_py_runtime_pair",
+    py3_runtime = ":source_built_runtime",
+)
+
+# Gate the toolchain behind a build setting so it doesn't affect other tests
+string_flag(
+    name = "python_build_type",
+    build_setting_default = "prebuilt",
+    values = [
+        "prebuilt",
+        "source",
+    ],
+)
+
+config_setting(
+    name = "is_source_built",
+    flag_values = {":python_build_type": "source"},
+)
+
+toolchain(
+    name = "source_built_toolchain",
+    target_settings = [":is_source_built"],
+    toolchain = ":source_built_py_runtime_pair",
+    toolchain_type = "@rules_python//python:toolchain_type",
+)
+
+# -- Tests --
+
+# Inner test (built under the source-built Python toolchain via transition)
+py_venv_test(
+    name = "_test_source_built_inner",
+    srcs = ["test_source_built.py"],
+    main = "test_source_built.py",
+    python_version = "3.11",
+    tags = ["manual"],
+)
+
+# Outer test that transitions to activate the source-built toolchain
+source_built_test(
+    name = "test_source_built",
+    test = ":_test_source_built_inner",
+)
+
+# Inner test with sdist-built markupsafe (forced via no-binary-package in pyproject.toml)
+py_venv_test(
+    name = "_test_with_deps_inner",
+    srcs = ["test_with_deps.py"],
+    main = "test_with_deps.py",
+    python_version = "3.11",
+    tags = ["manual"],
+    venv = "test",
+    deps = [
+        "@pypi//markupsafe",
+    ],
+)
+
+# Outer test with deps, transitioned to use source-built debug Python
+source_built_test(
+    name = "test_with_deps",
+    test = ":_test_with_deps_inner",
+)

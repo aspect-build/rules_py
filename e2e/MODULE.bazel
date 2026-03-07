@@ -10,12 +10,19 @@ bazel_dep(name = "rules_python", version = "1.0.0")
 bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "toolchains_llvm_bootstrapped", version = "0.3.1")
 bazel_dep(name = "rules_oci", version = "2.2.7")
+bazel_dep(name = "rules_foreign_cc", version = "0.15.1")
+bazel_dep(name = "zlib", version = "1.3.1.bcr.5")
 bazel_dep(name = "rules_rust", version = "0.68.1")
 bazel_dep(name = "rules_shell", version = "0.4.1")
 
 local_path_override(
     module_name = "aspect_rules_py",
     path = "..",
+)
+
+local_path_override(
+    module_name = "rules_foreign_cc",
+    path = "../../rules_foreign_cc",
 )
 
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
@@ -189,6 +196,28 @@ uv.project(
     hub_name = "pypi",
     lock = "//cases/uv-no-sdist-754:uv.lock",
     pyproject = "//cases/uv-no-sdist-754:pyproject.toml",
+)
+# }}}
+
+# For cases/source-built-python
+# {{{
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "cpython_src",
+    build_file = "//cases/source-built-python:cpython_src.BUILD.bazel",
+    sha256 = "e7de3240a8bc2b1e1ba5c81bf943f06861ff494b69fda990ce2722a504c6153d",
+    strip_prefix = "Python-3.11.9",
+    url = "https://www.python.org/ftp/python/3.11.9/Python-3.11.9.tgz",
+)
+
+register_toolchains("@rules_foreign_cc//toolchains:preinstalled_make_toolchain")
+register_toolchains("//cases/source-built-python:source_built_toolchain")
+
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/source-built-python:uv.lock",
+    pyproject = "//cases/source-built-python:pyproject.toml",
 )
 # }}}
 
