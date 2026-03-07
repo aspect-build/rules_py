@@ -356,7 +356,7 @@ def _parse_projects(module_ctx, hub_specs):
                         src = sdist,
                         deps = ["@{0}//:{1}".format(*it) for it in build_deps],
                         # FIXME: Check annotations
-                        is_native = False,
+                        is_native = is_no_binary,
                         version = package["version"],
                         pre_build_patches = pre_build_patches,
                         pre_build_patch_strip = pre_build_patch_strip,

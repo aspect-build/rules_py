@@ -74,7 +74,7 @@ _PATCH_ATTRS = {
 
 _sdist_build_attrs = {
     "src": attr.label(),
-    "tool": attr.label(executable = True, cfg = "exec"),
+    "tool": attr.label(executable = True, cfg = "target"),
     "version": attr.string(),
     "args": attr.string_list(default = ["--validate-anyarch"]),
 } | _PATCH_ATTRS
