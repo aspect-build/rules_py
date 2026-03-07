@@ -19,7 +19,7 @@ function alocation {
   if [[ "${P:0:1}" == "/" ]]; then
     echo -n "${P}"
   else
-    echo -n "${PWD}/${P}"
+    echo -n "${PWD%/}/${P}"
   fi
 }
 

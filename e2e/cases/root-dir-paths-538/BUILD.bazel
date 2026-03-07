@@ -1,0 +1,30 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary")
+load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_binary")
+
+# py_binary uses run.tmpl.sh which has the alocation bug
+py_binary(
+    name = "check_paths_bin",
+    srcs = ["check_paths.py"],
+    main = "check_paths.py",
+    python_version = "3.11",
+)
+
+# py_venv_binary uses a different startup path — test it too
+py_venv_binary(
+    name = "check_paths_venv_bin",
+    srcs = ["check_paths.py"],
+    main = "check_paths.py",
+    python_version = "3.11",
+)
+
+sh_test(
+    name = "test_root_dir",
+    srcs = ["test_root_dir.sh"],
+    data = [":check_paths_bin"],
+)
+
+sh_test(
+    name = "test_root_dir_venv",
+    srcs = ["test_root_dir_venv.sh"],
+    data = [":check_paths_venv_bin"],
+)
