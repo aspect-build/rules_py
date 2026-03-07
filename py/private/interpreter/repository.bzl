@@ -300,6 +300,15 @@ python_interpreter = repository_rule(
     },
 )
 
+_PLATFORM_LIBC_FLAG = "@aspect_rules_py//uv/private/constraints/platform:platform_libc"
+
+# Map from libc name to the config_setting target that matches it.
+_LIBC_CONFIG_SETTINGS = {
+    "glibc": "@aspect_rules_py//uv/private/constraints/platform:is_glibc",
+    "musl": "@aspect_rules_py//uv/private/constraints/platform:is_musl",
+    "libsystem": "@aspect_rules_py//uv/private/constraints/platform:is_libsystem",
+}
+
 def _python_toolchains_impl(rctx):
     """Creates toolchain() registrations pointing to interpreter repos."""
     content = ['package(default_visibility = ["//visibility:public"])']
@@ -311,6 +320,12 @@ def _python_toolchains_impl(rctx):
             "@{repo}//:is_matching_python_version".format(repo = info["repo"]),
             "@{repo}//:is_matching_freethreaded".format(repo = info["repo"]),
         ]
+
+        # Add libc constraint so glibc and musl toolchains are distinguishable
+        libc = info.get("libc", "")
+        libc_setting = _LIBC_CONFIG_SETTINGS.get(libc)
+        if libc_setting:
+            target_settings.append(libc_setting)
 
         content.append("""
 toolchain(

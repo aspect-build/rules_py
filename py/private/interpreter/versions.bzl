@@ -33,54 +33,63 @@ PLATFORMS = {
             "@platforms//os:macos",
             "@platforms//cpu:aarch64",
         ],
+        "libc": "libsystem",
     },
     "aarch64-unknown-linux-gnu": {
         "compatible_with": [
             "@platforms//os:linux",
             "@platforms//cpu:aarch64",
         ],
+        "libc": "glibc",
     },
     "aarch64-unknown-linux-musl": {
         "compatible_with": [
             "@platforms//os:linux",
             "@platforms//cpu:aarch64",
         ],
+        "libc": "musl",
     },
     "x86_64-apple-darwin": {
         "compatible_with": [
             "@platforms//os:macos",
             "@platforms//cpu:x86_64",
         ],
+        "libc": "libsystem",
     },
     "x86_64-unknown-linux-gnu": {
         "compatible_with": [
             "@platforms//os:linux",
             "@platforms//cpu:x86_64",
         ],
+        "libc": "glibc",
     },
     "x86_64-unknown-linux-musl": {
         "compatible_with": [
             "@platforms//os:linux",
             "@platforms//cpu:x86_64",
         ],
+        "libc": "musl",
     },
     "x86_64-pc-windows-msvc": {
         "compatible_with": [
             "@platforms//os:windows",
             "@platforms//cpu:x86_64",
         ],
+        "libc": "",
     },
     "aarch64-pc-windows-msvc": {
         "compatible_with": [
             "@platforms//os:windows",
             "@platforms//cpu:aarch64",
         ],
+        "libc": "",
     },
     "i686-pc-windows-msvc": {
         "compatible_with": [
             "@platforms//os:windows",
             "@platforms//cpu:x86_32",
         ],
+        "libc": "",
     },
 }
 
