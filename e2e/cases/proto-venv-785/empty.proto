@@ -1,0 +1,5 @@
+edition = "2023";
+
+package proto_venv_785;
+
+message EmptyMessage {}

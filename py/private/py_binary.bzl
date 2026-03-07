@@ -170,13 +170,15 @@ Part of the aspect_rules_py//uv system, has no effect in rules_python's pip.
     ),
     "package_collisions": attr.string(
         doc = """The action that should be taken when a symlink collision is encountered when creating the venv.
-A collision can occur when multiple packages providing the same file are installed into the venv. The possible values are:
+A collision can occur when multiple packages providing the same file are installed into the venv.
+This commonly happens when a Bazel-provided dependency (e.g. py_proto_library) and a pip package
+(e.g. protobuf) both supply the same files. The possible values are:
 
 * "error": When conflicting symlinks are found, an error is reported and venv creation halts.
-* "warning": When conflicting symlinks are found, an warning is reported, however venv creation continues.
+* "warning": When conflicting symlinks are found, a warning is reported, however venv creation continues.
 * "ignore": When conflicting symlinks are found, no message is reported and venv creation continues.
 """,
-        default = "error",
+        default = "warning",
         values = ["error", "warning", "ignore"],
     ),
     "interpreter_options": attr.string_list(

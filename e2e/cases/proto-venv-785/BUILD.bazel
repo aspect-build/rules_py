@@ -1,0 +1,25 @@
+load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
+load("@protobuf//bazel:py_proto_library.bzl", "py_proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
+
+proto_library(
+    name = "empty_proto",
+    srcs = ["empty.proto"],
+    strip_import_prefix = "/cases/proto-venv-785",
+)
+
+py_proto_library(
+    name = "empty_pb2",
+    deps = [":empty_proto"],
+)
+
+py_venv_test(
+    name = "test",
+    srcs = ["test.py"],
+    main = "test.py",
+    venv = "proto-venv-785",
+    deps = [
+        ":empty_pb2",
+        "@pypi//protobuf",
+    ],
+)
