@@ -16,7 +16,6 @@ PARSER = ArgumentParser()
 PARSER.add_argument("srcarchive")
 PARSER.add_argument("outdir")
 PARSER.add_argument("--validate-anyarch", action="store_true")
-PARSER.add_argument("--patch-tool", default=None, help="Path to the patch binary")
 PARSER.add_argument("--patch-strip", type=int, default=0, help="Strip count for patch (-p)")
 PARSER.add_argument("--patch", action="append", default=[], dest="patches", help="Patch file to apply (repeatable)")
 opts, args = PARSER.parse_known_args()
@@ -33,12 +32,9 @@ shutil.unpack_archive(opts.srcarchive, t)
 t = path.join(t, listdir(t)[0])
 
 if opts.patches:
-    if not opts.patch_tool:
-        print("Error: --patch-tool is required when --patch is specified", file=sys.stderr)
-        exit(1)
     for patch_file in opts.patches:
-        result = check_call(
-            [opts.patch_tool, "-p{}".format(opts.patch_strip), "-i", path.abspath(patch_file)],
+        check_call(
+            ["patch", "-p{}".format(opts.patch_strip), "-i", path.abspath(patch_file)],
             cwd=t,
         )
 

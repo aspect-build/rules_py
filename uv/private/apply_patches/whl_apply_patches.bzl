@@ -10,8 +10,6 @@ load("@rules_python//python:defs.bzl", "PyInfo")
 
 # buildifier: disable=bzl-visibility
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "UNPACK_TOOLCHAIN")
-load("//uv/private/diffutils:defs.bzl", "PATCH_TOOL_LABEL")
-
 def _whl_apply_patches(ctx):
     py_toolchain = ctx.toolchains[PY_TOOLCHAIN].py3_runtime
 
@@ -45,11 +43,9 @@ def _whl_apply_patches(ctx):
     # Step 2: Copy and apply patches
     install_dir = ctx.actions.declare_directory("install")
 
-    patch_tool = ctx.file._patch_tool
     patch_files = [f for t in ctx.attr.patches for f in t[DefaultInfo].files.to_list()]
 
     patch_args = [
-        patch_tool.path,
         str(ctx.attr.patch_strip),
         unpatched_dir.path,
         install_dir.path,
@@ -58,7 +54,7 @@ def _whl_apply_patches(ctx):
     ctx.actions.run(
         executable = ctx.file._apply_script,
         arguments = patch_args,
-        inputs = [unpatched_dir, patch_tool] + patch_files,
+        inputs = [unpatched_dir] + patch_files,
         outputs = [install_dir],
         mnemonic = "WhlApplyPatches",
         progress_message = "Applying %d patch(es) to %s" % (len(patch_files), ctx.label.name),
@@ -106,11 +102,6 @@ that correctly provides PyInfo.""",
         ),
         "_unpack": attr.label(
             default = "//py/private/toolchain:resolved_unpack_toolchain",
-            cfg = "exec",
-        ),
-        "_patch_tool": attr.label(
-            default = PATCH_TOOL_LABEL,
-            allow_single_file = True,
             cfg = "exec",
         ),
         "_apply_script": attr.label(

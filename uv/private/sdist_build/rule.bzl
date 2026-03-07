@@ -6,8 +6,6 @@ Actually building sdists.
 load("//py/private/py_venv:types.bzl", "VirtualenvInfo")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "TARGET_EXEC_TOOLCHAIN")
 load("//uv/private:defs.bzl", "lib_mode_transition")
-load("//uv/private/diffutils:defs.bzl", "PATCH_TOOL_LABEL")
-
 def _sdist_build(ctx):
     py_toolchain = ctx.exec_groups["target"].toolchains[PY_TOOLCHAIN].py3_runtime
     # uv = ctx.toolchains[UV_TOOLCHAIN]
@@ -33,9 +31,6 @@ def _sdist_build(ctx):
     patch_args = []
     patch_inputs = []
     if ctx.attr.pre_build_patches:
-        patch_tool = ctx.file._patch_tool
-        patch_inputs.append(patch_tool)
-        patch_args.extend(["--patch-tool", patch_tool.path])
         patch_args.extend(["--patch-strip", str(ctx.attr.pre_build_patch_strip)])
         for target in ctx.attr.pre_build_patches:
             for f in target[DefaultInfo].files.to_list():
@@ -87,11 +82,6 @@ _PATCH_ATTRS = {
     "pre_build_patch_strip": attr.int(
         default = 0,
         doc = "Strip count for pre-build patches (-p flag to patch).",
-    ),
-    "_patch_tool": attr.label(
-        default = PATCH_TOOL_LABEL,
-        allow_single_file = True,
-        cfg = "exec",
     ),
 }
 

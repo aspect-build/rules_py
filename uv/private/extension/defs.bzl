@@ -56,7 +56,6 @@ load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 load("//uv/private:normalize_name.bzl", "normalize_name")
 load("//uv/private/constraints:repository.bzl", "configurations_hub")
-load("//uv/private/diffutils:repository.bzl", "system_diffutils")
 load("//uv/private/git_archive:repository.bzl", "git_archive")
 load("//uv/private/pprint:defs.bzl", "pprint")
 load("//uv/private/sdist_build:repository.bzl", "sdist_build")
@@ -469,17 +468,6 @@ def _uv_impl(module_ctx):
     hub_specs = _parse_hubs(module_ctx)
 
     cfg = _parse_projects(module_ctx, hub_specs)
-
-    # Create the system diffutils repo if any packages need patching.
-    needs_diffutils = any([
-        cfg.install_cfgs[k].post_install_patches
-        for k in cfg.install_cfgs
-    ]) or any([
-        cfg.sbuild_cfgs[k].pre_build_patches
-        for k in cfg.sbuild_cfgs
-    ])
-    if needs_diffutils:
-        system_diffutils(name = "aspect_rules_py_system_diffutils")
 
     configurations_hub(
         name = "aspect_rules_py_pip_configurations",

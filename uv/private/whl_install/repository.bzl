@@ -272,10 +272,10 @@ py_library(
             """
 alias(
     name = "install",
-    actual = select({{
+    actual = select({
         "@aspect_rules_py//uv/private/constraints:libs_are_libs": ":actual_install",
         "@aspect_rules_py//uv/private/constraints:libs_are_whls": ":whl_lib",
-    }}),
+    }),
     visibility = ["//visibility:public"],
 )
 """,
