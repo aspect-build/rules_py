@@ -177,8 +177,8 @@ uv.project(
 uv.override_package(
     name = "cowsay",
     lock = "//cases/uv-patching-829:uv.lock",
-    post_install_patches = ["//cases/uv-patching-829/patches:post_install.patch"],
     post_install_patch_strip = 1,
+    post_install_patches = ["//cases/uv-patching-829/patches:post_install.patch"],
 )
 # }}}
 

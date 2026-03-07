@@ -10,6 +10,7 @@ load("@rules_python//python:defs.bzl", "PyInfo")
 
 # buildifier: disable=bzl-visibility
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "UNPACK_TOOLCHAIN")
+
 def _whl_apply_patches(ctx):
     py_toolchain = ctx.toolchains[PY_TOOLCHAIN].py3_runtime
 
