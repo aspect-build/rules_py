@@ -394,12 +394,6 @@ See https://github.com/astral-sh/python-build-standalone/releases for available 
 
 _toolchain_tag = tag_class(
     attrs = {
-        "build_config": attr.string(
-            default = "install_only",
-            doc = "Deprecated: ignored. All build configs are registered automatically. " +
-                  "Use flags (--@aspect_rules_py//py/private/interpreter:freethreaded=true) " +
-                  "or a custom platform() to select a specific build config.",
-        ),
         "is_default": attr.bool(default = False),
         "python_version": attr.string(
             mandatory = True,
