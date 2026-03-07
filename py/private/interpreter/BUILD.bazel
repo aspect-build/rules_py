@@ -1,4 +1,5 @@
-load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
+load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
+load(":interpreter_feature.bzl", "interpreter_feature_flag", "interpreter_has_feature")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -7,32 +8,36 @@ string_flag(
     build_setting_default = "",
 )
 
-string_flag(
-    name = "build_config",
-    build_setting_default = "install_only",
+# Interpreter build features as a repeatable flag. Each --interpreter_feature
+# value accumulates. Corresponds to wheel ABI tag suffixes:
+#   d (pydebug), m (pymalloc), t (freethreaded), u (wide_unicode)
+#
+# Example:
+#   bazel build //... --@aspect_rules_py//py/private/interpreter:interpreter_feature=freethreaded
+interpreter_feature_flag(
+    name = "interpreter_feature",
+    build_setting_default = "",
 )
 
-# Interpreter feature flags. These correspond to the single-letter suffixes
-# in wheel ABI tags: d (pydebug), m (pymalloc), t (freethreaded), u (wide_unicode).
-# The uv constraint system references these via config_settings to select
-# the correct wheels for the active interpreter configuration.
-
-bool_flag(
+# Derived feature flags. Each reads the interpreter_feature list and exposes
+# FeatureFlagInfo("true"/"false"), enabling both presence and absence matching
+# via config_setting flag_values.
+interpreter_has_feature(
     name = "freethreaded",
-    build_setting_default = False,
+    feature = "freethreaded",
 )
 
-bool_flag(
+interpreter_has_feature(
     name = "pydebug",
-    build_setting_default = False,
+    feature = "pydebug",
 )
 
-bool_flag(
+interpreter_has_feature(
     name = "pymalloc",
-    build_setting_default = False,
+    feature = "pymalloc",
 )
 
-bool_flag(
+interpreter_has_feature(
     name = "wide_unicode",
-    build_setting_default = False,
+    feature = "wide_unicode",
 )

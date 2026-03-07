@@ -262,10 +262,10 @@ def _python_interpreters_impl(module_ctx):
     # they win by default when the freethreaded flag is not set.
     toolchain_entries = []
 
-    # Order build configs: non-freethreaded first (default wins), then freethreaded
+    # Order build configs: featureless first (default wins), then featured
     ordered_configs = (
-        [(name, cfg) for name, cfg in BUILD_CONFIGS.items() if not cfg["freethreaded"]] +
-        [(name, cfg) for name, cfg in BUILD_CONFIGS.items() if cfg["freethreaded"]]
+        [(name, cfg) for name, cfg in BUILD_CONFIGS.items() if not cfg["features"]] +
+        [(name, cfg) for name, cfg in BUILD_CONFIGS.items() if cfg["features"]]
     )
 
     for major_minor in ordered_versions:
@@ -308,7 +308,7 @@ def _python_interpreters_impl(module_ctx):
                     url = url,
                     sha256 = asset_info["sha256"],
                     strip_prefix = config_info["strip_prefix"],
-                    freethreaded = config_info["freethreaded"],
+                    features = config_info["features"],
                 )
 
                 toolchain_entries.append(json.encode({
@@ -316,6 +316,7 @@ def _python_interpreters_impl(module_ctx):
                     "repo": repo_name,
                     "compatible_with": platform_info["compatible_with"],
                     "platform_target_settings": platform_info.get("target_settings", {}),
+                    "feature_settings": config_info["features"],
                 }))
 
         if not version_found:
