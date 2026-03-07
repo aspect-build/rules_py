@@ -44,6 +44,10 @@ def _sdist_build(ctx):
         ],
         env = {
             "SETUPTOOLS_SCM_PRETEND_VERSION": ctx.attr.version,
+            # Determinism: fix hash seed so dict/set iteration order is stable
+            "PYTHONHASHSEED": "0",
+            # Determinism: reproducible timestamps in archives
+            "SOURCE_DATE_EPOCH": "0",
         } | ctx.configuration.default_shell_env,
         exec_group = "target",
     )
