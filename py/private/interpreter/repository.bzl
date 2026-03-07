@@ -132,11 +132,12 @@ config_setting(
 )
 """.format(feature = feature_name, flag = _EXCLUDE_FEATURE_FLAG))
 
-        # filegroup for this feature's files
+        # filegroup for this feature's files (allow_empty because not all
+        # PBS builds ship every optional component)
         lines.append("""\
 filegroup(
     name = "_feature_{feature}",
-    srcs = glob({patterns}),
+    srcs = glob({patterns}, allow_empty = True),
 )
 """.format(feature = feature_name, patterns = repr(patterns)))
 
