@@ -1,0 +1,46 @@
+# Test that Windows cross-build toolchain resolution and dependency selection
+# work correctly from a Linux host.
+#
+# This exercises:
+# - Windows Python interpreter toolchain registration (python.exe from PBS)
+# - Windows-only native wheel selection (pywin32 .pyd/.dll files)
+# - Correct platform-specific dependency resolution
+#
+# We verify at the analysis level rather than building the full venv, because
+# compiling the Rust venv tools for Windows requires a cross-compilation CC
+# toolchain that may not be configured in all environments.
+
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+# Prove the Windows x86_64 interpreter toolchain exists by querying its deps.
+# If the toolchain repo was not provisioned, this query will fail at analysis time.
+genquery(
+    name = "windows_x64_toolchain_deps",
+    expression = "deps(@python_interpreters//:python_3_12_x86_64_pc_windows_msvc, 1)",
+    scope = ["@python_interpreters//:python_3_12_x86_64_pc_windows_msvc"],
+)
+
+# Prove the Windows aarch64 interpreter toolchain exists.
+genquery(
+    name = "windows_arm64_toolchain_deps",
+    expression = "deps(@python_interpreters//:python_3_12_aarch64_pc_windows_msvc, 1)",
+    scope = ["@python_interpreters//:python_3_12_aarch64_pc_windows_msvc"],
+)
+
+# Prove that pywin32's wheel selection includes Windows wheel targets.
+genquery(
+    name = "pywin32_deps",
+    expression = "deps(@pypi//pywin32)",
+    scope = ["@pypi//pywin32"],
+)
+
+sh_test(
+    name = "test",
+    srcs = ["test_crossbuild.sh"],
+    data = [
+        ":pywin32_deps",
+        ":windows_arm64_toolchain_deps",
+        ":windows_x64_toolchain_deps",
+    ],
+    target_compatible_with = ["@platforms//os:linux"],
+)

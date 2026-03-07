@@ -203,4 +203,14 @@ uv.project(
 )
 # }}}
 
+# For cases/windows-crossbuild
+# {{{
+uv.project(
+    default_build_dependencies = [],
+    hub_name = "pypi",
+    lock = "//cases/windows-crossbuild:uv.lock",
+    pyproject = "//cases/windows-crossbuild:pyproject.toml",
+)
+# }}}
+
 use_repo(uv, "pypi")
