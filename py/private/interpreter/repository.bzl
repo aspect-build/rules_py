@@ -2,6 +2,7 @@
 
 _PYTHON_VERSION_FLAG = "@aspect_rules_py//py/private/interpreter:python_version"
 _RPY_VERSION_FLAG = "@rules_python//python/config_settings:python_version"
+_FREETHREADING_FLAG = "@aspect_rules_py//py/private/interpreter:freethreaded"
 
 def _python_interpreter_impl(rctx):
     """Downloads and extracts a Python interpreter from PBS."""
@@ -11,7 +12,7 @@ def _python_interpreter_impl(rctx):
     python_version = rctx.attr.python_version
     sha256 = rctx.attr.sha256
     strip_prefix = rctx.attr.strip_prefix
-    features = rctx.attr.features
+    is_freethreaded = rctx.attr.freethreaded
 
     rctx.download_and_extract(
         url = [url],
@@ -42,11 +43,6 @@ def _python_interpreter_impl(rctx):
             major = major,
             minor = minor,
         )
-
-    # Generate config_settings for each interpreter feature. Each matches
-    # against the derived interpreter_has_feature rule which exposes
-    # FeatureFlagInfo("true"/"false") based on the --interpreter_feature list.
-    feature_settings = _feature_config_settings(features)
 
     rctx.file("BUILD.bazel", content = """\
 load("@rules_python//python:py_runtime.bzl", "py_runtime")
@@ -93,7 +89,7 @@ selects.config_setting_group(
     ],
 )
 
-{feature_config_settings}
+{freethreaded_config_setting}
 
 filegroup(
     name = "files",
@@ -129,44 +125,29 @@ py_runtime_pair(
         major = major,
         minor = minor,
         micro = micro,
-        feature_config_settings = "\n".join(feature_settings),
+        freethreaded_config_setting = _freethreaded_config_setting(is_freethreaded),
         files_glob_include = files_glob_include,
         files_glob_exclude = files_glob_exclude,
     ))
 
-def _feature_config_settings(features):
-    """Generate config_settings that match the interpreter_has_feature derived flags.
-
-    For each known feature, emits a config_setting matching "true" if the
-    feature is in the build's feature list, "false" otherwise. This gives
-    toolchain resolution anti-matching: a non-freethreaded build only matches
-    when --interpreter_feature=freethreaded is NOT set.
-    """
-    # Features that participate in toolchain selection.
-    # Each maps to a derived interpreter_has_feature rule in
-    # //py/private/interpreter:BUILD.bazel.
-    _FEATURE_FLAGS = {
-        "freethreaded": "@aspect_rules_py//py/private/interpreter:freethreaded",
-    }
-
-    settings = []
-    for feature, flag in _FEATURE_FLAGS.items():
-        value = "true" if feature in features else "false"
-        settings.append("""\
+def _freethreaded_config_setting(is_freethreaded):
+    """Generate config_setting for the freethreaded flag."""
+    return """\
 config_setting(
-    name = "is_matching_{feature}",
+    name = "is_matching_freethreaded",
     flag_values = {{
         "{flag}": "{value}",
     }},
 )
-""".format(feature = feature, flag = flag, value = value))
-
-    return settings
+""".format(
+        flag = _FREETHREADING_FLAG,
+        value = "true" if is_freethreaded else "false",
+    )
 
 python_interpreter = repository_rule(
     implementation = _python_interpreter_impl,
     attrs = {
-        "features": attr.string_list(default = []),
+        "freethreaded": attr.bool(default = False),
         "platform": attr.string(mandatory = True),
         "python_version": attr.string(default = ""),
         "sha256": attr.string(default = ""),
@@ -215,15 +196,10 @@ config_setting(
 
     # Second pass: emit toolchain() registrations
     for info, platform_setting_names in toolchain_infos:
-        # Feature matching settings from the interpreter repo
-        feature_settings = [
-            "@{repo}//:is_matching_{feature}".format(repo = info["repo"], feature = f)
-            for f in info.get("feature_settings", [])
-        ]
-
         target_settings = [
             "@{repo}//:is_matching_python_version".format(repo = info["repo"]),
-        ] + feature_settings + [":" + name for name in platform_setting_names]
+            "@{repo}//:is_matching_freethreaded".format(repo = info["repo"]),
+        ] + [":" + name for name in platform_setting_names]
 
         content.append("""
 toolchain(
