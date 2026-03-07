@@ -6,3 +6,7 @@ commandTests:
     command: /cases/oci/distroless/hello
     expectedOutput:
       - "Hello from distroless!"
+      - "OK: __file__ no //"
+      - "OK: sys.executable no //"
+      - "OK: VIRTUAL_ENV set"
+      - "OK: BAZEL_TARGET set"
