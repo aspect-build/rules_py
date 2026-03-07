@@ -1,6 +1,7 @@
 """Module extension for provisioning Python interpreters from python-build-standalone."""
 
 load(":repository.bzl", "python_interpreter", "python_toolchains")
+load(":version_util.bzl", "is_pre_release", "version_gt")
 load(":versions.bzl", "BUILD_CONFIGS", "DEFAULT_RELEASE_BASE_URL", "DEFAULT_RELEASE_DATES", "PLATFORMS")
 
 # The GitHub API endpoint for resolving "latest" releases.
@@ -73,7 +74,7 @@ def _parse_sha256sums(content, release_date):
 
         # Keep the newest patch version
         existing = index.get(key)
-        if existing and not _version_gt(version, existing["full_version"]):
+        if existing and not version_gt(version, existing["full_version"]):
             continue
 
         index[key] = {
@@ -83,19 +84,6 @@ def _parse_sha256sums(content, release_date):
         }
 
     return index
-
-def _version_gt(a, b):
-    """Returns True if version string a > b."""
-    a_parts = a.split(".")
-    b_parts = b.split(".")
-    for i in range(max(len(a_parts), len(b_parts))):
-        a_val = int(a_parts[i]) if i < len(a_parts) else 0
-        b_val = int(b_parts[i]) if i < len(b_parts) else 0
-        if a_val > b_val:
-            return True
-        if a_val < b_val:
-            return False
-    return False
 
 def _owner_repo_from_base_url(base_url):
     """Extract GitHub owner/repo from a base URL like https://github.com/{owner}/{repo}/releases/download."""
@@ -207,6 +195,7 @@ def _python_interpreters_impl(module_ctx):
     # without needing to declare build configs up front.
     default_version = None
     requested_versions = []
+    allow_pre_release = {}  # major_minor -> bool
 
     for mod in module_ctx.modules:
         for tag in mod.tags.toolchain:
@@ -228,6 +217,12 @@ def _python_interpreters_impl(module_ctx):
 
             if major_minor not in requested_versions:
                 requested_versions.append(major_minor)
+
+            # Track pre-release policy; True if any tag for this version allows it
+            if tag.pre_release:
+                allow_pre_release[major_minor] = True
+            elif major_minor not in allow_pre_release:
+                allow_pre_release[major_minor] = False
 
     if not requested_versions:
         return _return_metadata(module_ctx, has_facts, facts, is_reproducible, resolved_latest)
@@ -291,6 +286,10 @@ def _python_interpreters_impl(module_ctx):
                 if not asset_info:
                     # Version/platform/config combo doesn't exist — skip it
                     # rather than registering a stub toolchain.
+                    continue
+
+                # Skip pre-release versions unless explicitly allowed
+                if is_pre_release(asset_info["full_version"]) and not allow_pre_release.get(major_minor, False):
                     continue
 
                 version_found = True
@@ -395,6 +394,16 @@ See https://github.com/astral-sh/python-build-standalone/releases for available 
 _toolchain_tag = tag_class(
     attrs = {
         "is_default": attr.bool(default = False),
+        "pre_release": attr.bool(
+            default = False,
+            doc = """\
+Allow pre-release versions (alpha, beta, rc) for this toolchain.
+
+By default, only final release versions are provisioned. Set this to True
+to allow pre-release versions like 3.15.0a6 or 3.14.0b1. This is useful
+for testing against upcoming Python versions that have no stable release yet.
+""",
+        ),
         "python_version": attr.string(
             mandatory = True,
             doc = "Python version to provision, e.g. '3.11' or '3.11.14'. The newest available patch version is used.",
