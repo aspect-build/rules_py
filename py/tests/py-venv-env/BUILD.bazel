@@ -1,0 +1,11 @@
+load("//py/unstable:defs.bzl", "py_venv_test")
+
+py_venv_test(
+    name = "test_env_vars",
+    srcs = ["test_env_vars.py"],
+    env = {
+        "CUSTOM_ONE": "alpha",
+        "CUSTOM_TWO": "beta",
+    },
+    main = "test_env_vars.py",
+)
