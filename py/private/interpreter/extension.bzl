@@ -154,6 +154,12 @@ def _fetch_release_index(module_ctx, release_date, base_url, facts):
     content = module_ctx.read(sha256sums_path)
 
     index = _parse_sha256sums(content, release_date)
+    if not index:
+        fail(
+            "No CPython assets found in SHA256SUMS for release date \"{}\". ".format(release_date) +
+            "Check that this is a valid python-build-standalone release date. " +
+            "Available releases: https://github.com/astral-sh/python-build-standalone/releases",
+        )
     return index
 
 def _python_interpreters_impl(module_ctx):
