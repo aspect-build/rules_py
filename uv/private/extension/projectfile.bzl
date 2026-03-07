@@ -3,23 +3,9 @@ Machinery specific to interacting with a pyproject.toml
 """
 
 load("//uv/private:normalize_name.bzl", "normalize_name")
+load("//uv/private/versions:versions.bzl", "find_matching_version")
 
-def _parse_pinned_version(s):
-    """Extracts a pinned version from a version specifier like '==24.0'.
-
-    Returns the version string or None.
-    """
-    s = s.lstrip()
-    if s.startswith("=="):
-        ver = s[2:].strip()
-        comma = ver.find(",")
-        if comma != -1:
-            ver = ver[:comma].strip()
-        if ver:
-            return ver
-    return None
-
-def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_map):
+def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_map, package_versions = {}):
     """Parses a requirement string into a list of dependency-marker pairs.
 
     This function parses a PEP 508 requirement string (e.g.,
@@ -95,11 +81,16 @@ def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_m
     # 4. Look up version
     v = version_map.get(pkg_name)
     if v == None:
-        # For multi-version packages (e.g. conflicts), parse the pinned
-        # version from the requirement string and construct the tuple.
-        pinned = _parse_pinned_version(remainder)
-        if pinned:
-            v = (lock_id, pkg_name, pinned, "__base__")
+        # For multi-version packages (e.g. conflicts), match the version
+        # specifier against all known versions of this package in the lockfile.
+        specifier = remainder.strip()
+        pkg_vers = package_versions.get(pkg_name, {})
+        if specifier and pkg_vers:
+            candidates = {
+                ver: (lock_id, pkg_name, ver, "__base__")
+                for ver in pkg_vers.keys()
+            }
+            v = find_matching_version(specifier, candidates)
     if v == None:
         fail("Unable to resolve a default version for requirement {} in {}".format(repr(req_string), projectfile))
     else:
@@ -120,7 +111,7 @@ def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_m
 
     return results
 
-def collect_activated_extras(projectfile, lock_id, project_data, lock_data, default_versions, graph):
+def collect_activated_extras(projectfile, lock_id, project_data, lock_data, default_versions, graph, package_versions = {}):
     """Collects the set of transitively activated extras for each configuration.
 
     This function determines the full set of extras that are activated for each
@@ -159,7 +150,7 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
     for group_name, specs in dep_groups.items():
         normalized_dep_groups[group_name] = []
         for spec in specs:
-            for dep, marker in extract_requirement_marker_pairs(projectfile, lock_id, spec, default_versions):
+            for dep, marker in extract_requirement_marker_pairs(projectfile, lock_id, spec, default_versions, package_versions):
                 normalized_dep_groups[group_name].append(dep)
 
                 # Note that this is the base case for the reach set walk below

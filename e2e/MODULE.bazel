@@ -158,4 +158,13 @@ uv.project(
 )
 # }}}
 
+# For cases/uv-conflict-gte
+# {{{
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/uv-conflict-gte:uv.lock",
+    pyproject = "//cases/uv-conflict-gte:pyproject.toml",
+)
+# }}}
+
 use_repo(uv, "pypi")

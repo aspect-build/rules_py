@@ -171,7 +171,7 @@ def _parse_projects(module_ctx, hub_specs):
                 for p in project_data.get("tool", {}).get("uv", {}).get("no-binary-package", [])
             }
 
-            default_versions, lock_data = normalize_deps(project_id, lock_data)
+            default_versions, package_versions, lock_data = normalize_deps(project_id, lock_data)
 
             def _resolve(package):
                 name = normalize_name(package["name"])
@@ -222,7 +222,7 @@ def _parse_projects(module_ctx, hub_specs):
 
             whl_configurations.update(collect_configurations(lock_data))
 
-            configuration_names, activated_extras = collect_activated_extras(project.lock, project_id, project_data, lock_data, default_versions, marker_graph)
+            configuration_names, activated_extras = collect_activated_extras(project.lock, project_id, project_data, lock_data, default_versions, marker_graph, package_versions)
             version_activations = collate_versions_by_name(activated_extras)
 
             # Mapping from SCC ID to marked SCC members
@@ -303,7 +303,7 @@ def _parse_projects(module_ctx, hub_specs):
                         lock_build_deps = [
                             it[0]
                             for req in project.default_build_dependencies
-                            for it in extract_requirement_marker_pairs(project.lock, project_id, req, default_versions)
+                            for it in extract_requirement_marker_pairs(project.lock, project_id, req, default_versions, package_versions)
                         ]
 
                     # FIXME: For really old packages that can't use `build`, we
