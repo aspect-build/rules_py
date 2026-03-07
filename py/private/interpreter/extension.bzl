@@ -138,7 +138,7 @@ def _fetch_release_index(module_ctx, release_date, base_url, facts):
 
     Returns the parsed index dict for this release date.
     """
-    facts_key = "release_index_{}".format(release_date)
+    facts_key = "release_index_{}_{}".format(release_date, base_url)
     cached = facts.get(facts_key)
     if cached:
         return cached
@@ -246,7 +246,7 @@ def _python_interpreters_impl(module_ctx):
         release_indices[date] = index
 
         # Cache in facts for next run — but never cache under "latest"
-        facts_key = "release_index_{}".format(date)
+        facts_key = "release_index_{}_{}".format(date, base_url)
         new_facts[facts_key] = index
 
     # Order: default version first, then sorted

@@ -8,6 +8,9 @@ PYTHON_VERSION_FLAG = "@aspect_rules_py//py/private/interpreter:python_version"
 # rules_python's flag, kept for backward compatibility during migration.
 _RPY_VERSION_FLAG = "@rules_python//python/config_settings:python_version"
 
+# Interpreter feature flags that must be propagated through transitions.
+_FREETHREADED_FLAG = "@aspect_rules_py//py/private/interpreter:freethreaded"
+
 # Public alias for backward compatibility
 RPY_VERSION_FLAG = _RPY_VERSION_FLAG
 
@@ -27,6 +30,9 @@ def _python_transition_impl(settings, attr):
     else:
         acc[VENV_FLAG] = settings[VENV_FLAG]
 
+    # Propagate interpreter feature flags
+    acc[_FREETHREADED_FLAG] = settings[_FREETHREADED_FLAG]
+
     return acc
 
 python_transition = transition(
@@ -35,11 +41,13 @@ python_transition = transition(
         PYTHON_VERSION_FLAG,
         _RPY_VERSION_FLAG,
         VENV_FLAG,
+        _FREETHREADED_FLAG,
     ],
     outputs = [
         PYTHON_VERSION_FLAG,
         _RPY_VERSION_FLAG,
         VENV_FLAG,
+        _FREETHREADED_FLAG,
     ],
 )
 
