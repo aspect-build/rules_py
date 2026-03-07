@@ -31,12 +31,13 @@ def _sdist_build_impl(repository_ctx):
     file that defines the necessary targets to do so.
 
     It creates:
-    1.  A `py_venv` target named `build_venv`, which contains the build-time
-        dependencies (e.g., `build`, `setuptools`, `wheel`) specified in the
-        `deps` attribute.
+    1.  A `py_venv_binary` target named `build_tool`, which bundles the build
+        helper script with build-time dependencies (e.g., `build`, `setuptools`,
+        `wheel`) specified in the `deps` attribute. As a proper binary with
+        runfiles, Bazel can materialize its interpreter at action time.
     2.  A target (either `sdist_build` or `sdist_native_build` from `rule.bzl`)
         named `whl`. When this target is built, it executes the wheel build process
-        for the given `src` sdist within the `build_venv`.
+        for the given `src` sdist using `build_tool`.
 
     The `is_native` attribute determines whether the build is for a pure-Python
     wheel or one that may contain C-extensions, which controls which underlying
@@ -57,17 +58,19 @@ def _sdist_build_impl(repository_ctx):
 
     repository_ctx.file("BUILD.bazel", content = """
 load("@aspect_rules_py//uv/private/sdist_build:rule.bzl", "{rule}")
-load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv")
+load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_binary")
 
-py_venv(
-    name = "build_venv",
+py_venv_binary(
+    name = "build_tool",
+    main = "@aspect_rules_py//uv/private/sdist_build:build_helper.py",
+    srcs = ["@aspect_rules_py//uv/private/sdist_build:build_helper.py"],
     deps = {deps},
 )
 
 {rule}(
     name = "whl",
     src = "{src}",
-    venv = ":build_venv",
+    tool = ":build_tool",
     version = "{version}",
     args = [],{patch_attrs}
     visibility = ["//visibility:public"],
