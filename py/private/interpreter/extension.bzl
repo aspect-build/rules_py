@@ -269,6 +269,7 @@ def _python_interpreters_impl(module_ctx):
     )
 
     for major_minor in ordered_versions:
+        version_found = False
         for config_name, config_info in ordered_configs:
             for platform_triple, platform_info in PLATFORMS.items():
                 repo_name = "python_{}_{}".format(
@@ -292,6 +293,8 @@ def _python_interpreters_impl(module_ctx):
                     # rather than registering a stub toolchain.
                     continue
 
+                version_found = True
+
                 base_url = release_base_urls.get(asset_info["release_date"], DEFAULT_RELEASE_BASE_URL)
                 url = "{}/{}/{}".format(
                     base_url,
@@ -314,6 +317,13 @@ def _python_interpreters_impl(module_ctx):
                     "compatible_with": platform_info["compatible_with"],
                     "platform_target_settings": platform_info.get("target_settings", {}),
                 }))
+
+        if not version_found:
+            fail(
+                "No CPython {} builds found in any configured PBS release. ".format(major_minor) +
+                "Check that this version exists in the release(s): " +
+                ", ".join(release_dates),
+            )
 
     # Create the toolchains hub repo
     python_toolchains(
