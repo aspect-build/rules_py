@@ -579,17 +579,25 @@ impl PthEntryHandler for CopyAndPatchStrategy {
         // Assumes that `create_empty_venv` has already been called to build out the virtualenv.
         let dest = &venv.site_dir;
         let action_src_dir = current_dir().into_diagnostic()?;
+        let main_repo = action_src_dir.file_name().unwrap();
         let action_bin_dir = action_src_dir.join(bin_dir);
 
         let mut plan: Vec<Command> = Vec::new();
 
         for prefix in [&action_src_dir, &action_bin_dir] {
-            let src_dir = prefix.join(entry_repo).join(&entry_path);
+            let mut src_dir = prefix.to_owned();
+            if main_repo != entry_repo {
+                src_dir = src_dir.join("external").join(&entry_repo);
+            }
+            let src_dir = src_dir.join(&entry_path);
             if src_dir.exists() {
                 for entry in WalkDir::new(&src_dir) {
                     if let Ok(entry) = entry {
-                        if entry.file_type().is_dir() && entry.clone().into_path() != src_dir {
-                            return Err(miette!("Bindir contained unsupported subdirs!"));
+                        if entry.file_type().is_dir() {
+                            if entry.path() != src_dir {
+                                return Err(miette!("Bindir contained unsupported subdirs!"));
+                            }
+                            continue;
                         }
                         plan.push(Command::CopyAndPatch {
                             src: entry.clone().into_path(),
@@ -721,6 +729,7 @@ impl<A: PthEntryHandler, B: PthEntryHandler> PthEntryHandler for StrategyWithBin
     ) -> miette::Result<Vec<Command>> {
         // Assumes that `create_empty_venv` has already been called to build out the virtualenv.
         let action_src_dir = current_dir().into_diagnostic()?;
+        let main_repo = action_src_dir.file_name().unwrap();
         let action_bin_dir = action_src_dir.join(&bin_dir);
 
         let mut plan: Vec<Command> = Vec::new();
@@ -730,17 +739,46 @@ impl<A: PthEntryHandler, B: PthEntryHandler> PthEntryHandler for StrategyWithBin
                 .plan(venv, &bin_dir, entry_repo, &entry_path)?,
         );
 
-        let entry_bin = entry_path.parent().unwrap().join("bin");
-        let found_bin_dir = [&action_src_dir, &action_bin_dir]
-            .iter()
-            .map(|pfx| pfx.join(entry_repo).join(&entry_bin))
-            .any(|p| p.exists());
-        if found_bin_dir {
-            plan.append(
-                &mut self
-                    .bin_strategy
-                    .plan(venv, bin_dir, entry_repo, &entry_bin)?,
-            );
+        // Look for a sibling bin/ directory relative to the entry_path.
+        //
+        // whl_install produces a standard Python install layout:
+        //   <prefix>/lib/pythonX.Y/site-packages (what the .pth points to)
+        //   <prefix>/bin/ (console_scripts entry points)
+        // If entry_path contains a lib/ component, find bin/ as a sibling of
+        // lib/ under the same prefix. Otherwise fall back to the original
+        // behavior of checking bin/ as a sibling of the entry_path itself.
+        let components: Vec<_> = entry_path.components().collect();
+        let lib_index = components.iter().position(|c| {
+            c.as_os_str() == "lib"
+        });
+        let entry_bin = if let Some(idx) = lib_index {
+            let prefix: PathBuf = components[..idx].iter().collect();
+            prefix.join("bin")
+        } else {
+            entry_path.parent().unwrap().join("bin")
+        };
+
+        for prefix in [&action_src_dir, &action_bin_dir] {
+            let mut src_dir = prefix.to_path_buf();
+            if main_repo != entry_repo {
+                src_dir = src_dir.join("external").join(&entry_repo);
+            }
+            let src_dir = src_dir.join(&entry_bin);
+            if src_dir.exists() {
+                for entry in WalkDir::new(&src_dir) {
+                    if let Ok(entry) = entry {
+                        if entry.file_type().is_dir() {
+                            continue;
+                        }
+                        plan.push(Command::CopyAndPatch {
+                            src: entry.clone().into_path(),
+                            dest: venv.bin_dir.join(
+                                entry.into_path().strip_prefix(&src_dir).unwrap(),
+                            ),
+                        });
+                    }
+                }
+            }
         }
 
         Ok(plan)

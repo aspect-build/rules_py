@@ -192,4 +192,13 @@ uv.project(
 )
 # }}}
 
+# For cases/venv-bin-scripts-423
+# {{{
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/venv-bin-scripts-423:uv.lock",
+    pyproject = "//cases/venv-bin-scripts-423:pyproject.toml",
+)
+# }}}
+
 use_repo(uv, "pypi")
