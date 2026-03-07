@@ -4,64 +4,10 @@ _PYTHON_VERSION_FLAG = "@aspect_rules_py//py/private/interpreter:python_version"
 _RPY_VERSION_FLAG = "@rules_python//python/config_settings:python_version"
 _FREETHREADING_FLAG = "@aspect_rules_py//py/private/interpreter:freethreaded"
 
-# BUILD file for version/platform combinations that don't exist in any release.
-# Uses sentinel values that will never match, so toolchain resolution skips them.
-_UNAVAILABLE_BUILD = """\
-load("@bazel_skylib//lib:selects.bzl", "selects")
-
-package(default_visibility = ["//visibility:public"])
-
-config_setting(
-    name = "_is_our_major_minor",
-    flag_values = {{"{our_flag}": "__unavailable__"}},
-)
-
-config_setting(
-    name = "_is_our_major_minor_micro",
-    flag_values = {{"{our_flag}": "__unavailable__"}},
-)
-
-config_setting(
-    name = "_is_rpy_major_minor",
-    flag_values = {{"{rpy_flag}": "__unavailable__"}},
-)
-
-config_setting(
-    name = "_is_rpy_major_minor_micro",
-    flag_values = {{"{rpy_flag}": "__unavailable__"}},
-)
-
-selects.config_setting_group(
-    name = "is_matching_python_version",
-    match_any = [
-        ":_is_our_major_minor",
-        ":_is_our_major_minor_micro",
-        ":_is_rpy_major_minor",
-        ":_is_rpy_major_minor_micro",
-    ],
-)
-
-# Freethreaded matching: use "true" so combined with the version sentinel
-# this toolchain is never selected.
-config_setting(
-    name = "is_matching_freethreaded",
-    flag_values = {{"{freethreading_flag}": "true"}},
-)
-"""
-
 def _python_interpreter_impl(rctx):
     """Downloads and extracts a Python interpreter from PBS."""
     url = rctx.attr.url
     platform = rctx.attr.platform
-
-    if not url:
-        # Unavailable version/platform combination — generate stub BUILD
-        rctx.file("BUILD.bazel", content = _UNAVAILABLE_BUILD.format(
-            our_flag = _PYTHON_VERSION_FLAG,
-            rpy_flag = _RPY_VERSION_FLAG,
-            freethreading_flag = _FREETHREADING_FLAG,
-        ))
-        return
 
     python_version = rctx.attr.python_version
     sha256 = rctx.attr.sha256

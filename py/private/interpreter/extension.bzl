@@ -287,33 +287,26 @@ def _python_interpreters_impl(module_ctx):
                     release_indices,
                 )
 
-                if asset_info:
-                    base_url = release_base_urls.get(asset_info["release_date"], DEFAULT_RELEASE_BASE_URL)
-                    url = "{}/{}/{}".format(
-                        base_url,
-                        asset_info["release_date"],
-                        asset_info["filename"],
-                    )
-                    python_interpreter(
-                        name = repo_name,
-                        python_version = asset_info["full_version"],
-                        platform = platform_triple,
-                        url = url,
-                        sha256 = asset_info["sha256"],
-                        strip_prefix = config_info["strip_prefix"],
-                        freethreaded = config_info["freethreaded"],
-                    )
-                else:
-                    # Version/platform combo doesn't exist in any release
-                    python_interpreter(
-                        name = repo_name,
-                        python_version = "",
-                        platform = platform_triple,
-                        url = "",
-                        sha256 = "",
-                        strip_prefix = "",
-                        freethreaded = False,
-                    )
+                if not asset_info:
+                    # Version/platform/config combo doesn't exist — skip it
+                    # rather than registering a stub toolchain.
+                    continue
+
+                base_url = release_base_urls.get(asset_info["release_date"], DEFAULT_RELEASE_BASE_URL)
+                url = "{}/{}/{}".format(
+                    base_url,
+                    asset_info["release_date"],
+                    asset_info["filename"],
+                )
+                python_interpreter(
+                    name = repo_name,
+                    python_version = asset_info["full_version"],
+                    platform = platform_triple,
+                    url = url,
+                    sha256 = asset_info["sha256"],
+                    strip_prefix = config_info["strip_prefix"],
+                    freethreaded = config_info["freethreaded"],
+                )
 
                 toolchain_entries.append(json.encode({
                     "name": repo_name,
