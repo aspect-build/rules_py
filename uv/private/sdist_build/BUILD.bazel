@@ -11,7 +11,6 @@ bzl_library(
         "rule.bzl",
     ],
     deps = [
-        "//py/private/py_venv:types",
         "//py/private/toolchain:types",
     ],
 )
@@ -22,4 +21,7 @@ bzl_library(
     deps = [":rule"],
 )
 
-exports_files(["build_helper.py"])
+exports_files(
+    ["build_helper.py"],
+    visibility = ["//visibility:public"],
+)

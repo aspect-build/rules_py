@@ -2,31 +2,15 @@
 Actually building sdists.
 """
 
-# buildifier: disable=bzl-visibility
-load("//py/private/py_venv:types.bzl", "VirtualenvInfo")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "TARGET_EXEC_TOOLCHAIN")
 load("//uv/private:defs.bzl", "lib_mode_transition")
 
 def _sdist_build(ctx):
-    py_toolchain = ctx.exec_groups["target"].toolchains[PY_TOOLCHAIN].py3_runtime
-    # uv = ctx.toolchains[UV_TOOLCHAIN]
-
     archive = ctx.attr.src[DefaultInfo].files.to_list()[0]
 
-    # Now we need to do a build from the archive dir to a source artifact.
     wheel_dir = ctx.actions.declare_directory(
         "whl",
     )
-
-    venv = ctx.attr.venv
-    # print(venv[VirtualenvInfo], venv[DefaultInfo])
-
-    # Options here:
-    # 1. `python3 -m build` which requires the build library and works generally
-    # 2. `python3 setup.py bdist_wheel` which only requires setuptools but doesn't work for pyproject
-    # 3. `uv build` which works generally but causes our venv shim to really struggle
-    #
-    # We're going with #1 for now.
 
     # Build patch arguments if pre_build_patches are specified
     patch_args = []
@@ -38,25 +22,23 @@ def _sdist_build(ctx):
                 patch_args.extend(["--patch", f.path])
                 patch_inputs.append(f)
 
-    # Note that we have to use exec_group = "target" to force this action to
-    # inherit RBE placement properties matching the target platform so that
-    # it'll run remotely.
+    # The build tool is a py_venv_binary wrapping build_helper.py. Using it as
+    # a tool (not just an input) causes Bazel to materialize its runfiles in
+    # the action sandbox, which means the venv shim can find the interpreter
+    # via the standard runfiles mechanism regardless of whether the interpreter
+    # comes from an external repo or the main workspace.
     ctx.actions.run(
         mnemonic = "PySdistBuild",
         progress_message = "Source compiling {} to a whl".format(archive.basename),
-        executable = venv[VirtualenvInfo].home.path + "/bin/python3",
-        arguments = [
-            ctx.file._helper.path,
-        ] + ctx.attr.args + patch_args + [
+        executable = ctx.executable.tool,
+        arguments = ctx.attr.args + patch_args + [
             archive.path,
             wheel_dir.path,
         ],
-        # FIXME: Shouldn't need to add the Python toolchain files explicitly here; should be transitives/defaultinfo of the venv.
         inputs = [
             archive,
-            venv[VirtualenvInfo].home,
-            ctx.file._helper,
-        ] + py_toolchain.files.to_list() + ctx.attr.venv[DefaultInfo].files.to_list() + patch_inputs,
+        ] + patch_inputs,
+        tools = [ctx.attr.tool[DefaultInfo].files_to_run],
         outputs = [
             wheel_dir,
         ],
@@ -86,6 +68,13 @@ _PATCH_ATTRS = {
     ),
 }
 
+_sdist_build_attrs = {
+    "src": attr.label(),
+    "tool": attr.label(executable = True, cfg = "exec"),
+    "version": attr.string(),
+    "args": attr.string_list(default = ["--validate-anyarch"]),
+} | _PATCH_ATTRS
+
 sdist_build = rule(
     implementation = _sdist_build,
     doc = """Sdist to _anyarch_ whl build rule.
@@ -94,15 +83,8 @@ Consumes a sdist artifact and performs a build of that artifact with the
 specified Python dependencies under the configured Python toochain.
 
 """,
-    attrs = {
-        "src": attr.label(),
-        "venv": attr.label(),
-        "version": attr.string(),
-        "args": attr.string_list(default = ["--validate-anyarch"]),
-        "_helper": attr.label(allow_single_file = True, default = Label(":build_helper.py")),
-    } | _PATCH_ATTRS,
+    attrs = _sdist_build_attrs,
     exec_groups = {
-        # Copy-paste from above, but without the target constraint toolchain
         "target": exec_group(
             toolchains = [
                 PY_TOOLCHAIN,
@@ -124,13 +106,9 @@ The build is guaranteed to occur on an execution platform matching the
 constraints of the target platform.
 
 """,
-    attrs = {
-        "src": attr.label(),
-        "venv": attr.label(),
-        "version": attr.string(),
+    attrs = _sdist_build_attrs | {
         "args": attr.string_list(),
-        "_helper": attr.label(allow_single_file = True, default = Label(":build_helper.py")),
-    } | _PATCH_ATTRS,
+    },
     exec_groups = {
         # Create an exec group which depends on a toolchain which can only be
         # resolved to exec_compatible_with constraints equal to the target. This
