@@ -153,10 +153,12 @@ def _build_file_content(major, minor, micro, major_minor, python_version, python
     else:
         core_include = '["bin/**", "lib/**"]'
         core_exclude = repr(
-            ["lib/**/*.a",
-             "lib/python{}.{}/**/test/**".format(major, minor),
-             "lib/python{}.{}/**/tests/**".format(major, minor),
-             "**/__pycache__/*.pyc*"] +
+            [
+                "lib/**/*.a",
+                "lib/python{}.{}/**/test/**".format(major, minor),
+                "lib/python{}.{}/**/tests/**".format(major, minor),
+                "**/__pycache__/*.pyc*",
+            ] +
             feature_excludes,
         )
 
