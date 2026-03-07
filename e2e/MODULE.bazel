@@ -11,6 +11,7 @@ bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "toolchains_llvm_bootstrapped", version = "0.3.1")
 bazel_dep(name = "rules_oci", version = "2.2.7")
 bazel_dep(name = "rules_rust", version = "0.68.1")
+bazel_dep(name = "rules_shell", version = "0.4.1")
 
 local_path_override(
     module_name = "aspect_rules_py",
@@ -179,6 +180,15 @@ uv.override_package(
     lock = "//cases/uv-patching-829:uv.lock",
     post_install_patch_strip = 1,
     post_install_patches = ["//cases/uv-patching-829/patches:post_install.patch"],
+)
+# }}}
+
+# For cases/uv-no-sdist-754
+# {{{
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/uv-no-sdist-754:uv.lock",
+    pyproject = "//cases/uv-no-sdist-754:pyproject.toml",
 )
 # }}}
 
