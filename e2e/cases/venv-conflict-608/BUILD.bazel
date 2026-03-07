@@ -1,0 +1,20 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+
+py_binary(
+    name = "app",
+    srcs = ["app.py"],
+    python_version = "3.11",
+)
+
+# Regression test for https://github.com/aspect-build/rules_py/issues/608
+# and https://github.com/aspect-build/rules_py/issues/686.
+# Building a py_binary and its auto-generated .venv target in the same
+# invocation must not produce an action conflict on <name>.venv.pth.
+build_test(
+    name = "test_no_venv_conflict",
+    targets = [
+        ":app",
+        ":app.venv",
+    ],
+)

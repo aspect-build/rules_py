@@ -49,7 +49,7 @@ def _py_binary_rule_impl(ctx):
 
     pth_lines.add_all(imports_depset, format_each = "{}/%s".format(escape))
 
-    site_packages_pth_file = ctx.actions.declare_file("{}.venv.pth".format(ctx.attr.name))
+    site_packages_pth_file = ctx.actions.declare_file("{}.pth".format(ctx.attr.name))
     ctx.actions.write(
         output = site_packages_pth_file,
         content = pth_lines,
