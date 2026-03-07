@@ -51,7 +51,7 @@ _py_pytest_main = rule(
             This is not considered a Public API. Replacements may change without warning.
             """,
             allow_single_file = True,
-            default = Label("//py/private:pytest.py.tmpl"),
+            default = Label("//py/private:pytest_main.py"),
         ),
     },
 )

@@ -6,7 +6,6 @@ package(default_visibility = ["//py:__subpackages__"])
 exports_files(
     [
         "run.tmpl.sh",
-        "pytest.py.tmpl",
         "pytest_main.py",
     ],
     visibility = ["//visibility:public"],
