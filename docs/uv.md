@@ -277,6 +277,55 @@ whatever your existing `pip.parse` may be called, but there's no reason to use
 more than one hub within a single repository. Each dependency set should be
 registered as a separate venv within the same hub.
 
+## Gazelle integration
+
+If you use [Gazelle](https://github.com/bazelbuild/bazel-gazelle) with the
+[aspect-gazelle](https://github.com/aspect-build/aspect-gazelle) Python
+extension, you need a `gazelle_python.yaml` manifest that maps Python import
+names to their PyPI package names. The `gazelle_python_manifest` rule generates
+this file from your locked wheels.
+
+```starlark
+# BUILD.bazel (typically at the workspace root)
+load("@aspect_rules_py//uv/unstable:defs.bzl", "gazelle_python_manifest")
+
+gazelle_python_manifest(
+    name = "gazelle_python_manifest",
+    hub = "pypi",
+    venvs = ["default"],
+)
+```
+
+**Parameters:**
+- `hub` — The name of your uv hub (must match `uv.declare_hub(hub_name = ...)`).
+- `venvs` — List of venv names whose wheels should be indexed. Module mappings
+  from all listed venvs are merged into a single manifest.
+
+This creates two targets:
+- `:gazelle_python_manifest` — builds the manifest YAML
+- `:gazelle_python_manifest.update` — copies the built manifest into your source tree
+
+To generate or refresh the manifest:
+
+```shell
+bazel run //:gazelle_python_manifest.update
+```
+
+This writes `gazelle_python.yaml` next to the BUILD file. Commit it to your
+repository so that Gazelle can resolve Python imports without rebuilding the
+manifest on every invocation.
+
+If you have multiple venvs with different dependency sets, list them all to
+produce a complete mapping:
+
+```starlark
+gazelle_python_manifest(
+    name = "gazelle_python_manifest",
+    hub = "pypi",
+    venvs = ["web", "ml", "cli"],
+)
+```
+
 ## Differences and Gotchas
 
 **Lock your build tools**. In order to perform sdist builds and support
