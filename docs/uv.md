@@ -297,11 +297,13 @@ gazelle_python_manifest(
 ```
 
 **Parameters:**
+
 - `hub` — The name of your uv hub (must match `uv.declare_hub(hub_name = ...)`).
 - `venvs` — List of venv names whose wheels should be indexed. Module mappings
   from all listed venvs are merged into a single manifest.
 
 This creates two targets:
+
 - `:gazelle_python_manifest` — builds the manifest YAML
 - `:gazelle_python_manifest.update` — copies the built manifest into your source tree
 

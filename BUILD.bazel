@@ -1,6 +1,5 @@
 load("@gazelle//:def.bzl", "gazelle")
 load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirements")
-
 load("//uv/unstable:defs.bzl", "gazelle_python_manifest")
 
 # gazelle:exclude internal_python_deps.bzl
