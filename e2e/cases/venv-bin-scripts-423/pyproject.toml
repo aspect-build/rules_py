@@ -1,0 +1,7 @@
+[project]
+name = "venv-bin-scripts-423"
+version = "0.0.0"
+authors = []
+dependencies = [
+    "dice",
+]

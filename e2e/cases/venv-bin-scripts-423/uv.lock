@@ -1,0 +1,35 @@
+version = 1
+revision = 3
+requires-python = ">=3.11"
+
+[[package]]
+name = "dice"
+version = "4.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyparsing" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/72/3e/a07b66d345678cd277df76fdf51cb4ffc1054492efcd674a7b30f49a80bf/dice-4.0.0.tar.gz", hash = "sha256:7a1bfd68f21abf245f333de89721cd30379b5413c774a9d34a6b4123c526815c", size = 22252, upload-time = "2023-05-18T17:23:34.224Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b5/75/bf7ef10ce7f9a8d17e127e77092505368999e6bd86deab8eb9a74b2103ec/dice-4.0.0-py3-none-any.whl", hash = "sha256:59aa1f7b23846b32a618697534429fec80be3a1087b4f934022dcdb99cf1417f", size = 22042, upload-time = "2023-05-18T17:22:59.548Z" },
+]
+
+[[package]]
+name = "pyparsing"
+version = "3.3.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/f3/91/9c6ee907786a473bf81c5f53cf703ba0957b23ab84c264080fb5a450416f/pyparsing-3.3.2.tar.gz", hash = "sha256:c777f4d763f140633dcb6d8a3eda953bf7a214dc4eff598413c070bcdc117cbc", size = 6851574, upload-time = "2026-01-21T03:57:59.36Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/10/bd/c038d7cc38edc1aa5bf91ab8068b63d4308c66c4c8bb3cbba7dfbc049f9c/pyparsing-3.3.2-py3-none-any.whl", hash = "sha256:850ba148bd908d7e2411587e247a1e4f0327839c40e2e5e6d05a007ecc69911d", size = 122781, upload-time = "2026-01-21T03:57:55.912Z" },
+]
+
+[[package]]
+name = "venv-bin-scripts-423"
+version = "0.0.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "dice" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "dice" }]
