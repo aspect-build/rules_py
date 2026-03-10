@@ -201,4 +201,13 @@ uv.project(
 )
 # }}}
 
+# For cases/uv-include-group (PEP 735 include-group syntax)
+# {{{
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/uv-include-group:uv.lock",
+    pyproject = "//cases/uv-include-group:pyproject.toml",
+)
+# }}}
+
 use_repo(uv, "pypi")
