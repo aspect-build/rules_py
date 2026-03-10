@@ -1,0 +1,18 @@
+# Regression test: packages like watchdog ship win_ia64 wheels which have no
+# corresponding config_setting target. The supported_platform() filter must
+# silently drop these tags so analysis succeeds.
+
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+genquery(
+    name = "watchdog_targets",
+    expression = "deps(@pypi//watchdog)",
+    scope = ["@pypi//watchdog"],
+)
+
+sh_test(
+    name = "test",
+    srcs = ["test_win_ia64_filter.sh"],
+    data = [":watchdog_targets"],
+    target_compatible_with = ["@platforms//os:linux"],
+)

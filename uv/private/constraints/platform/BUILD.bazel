@@ -3,6 +3,7 @@ load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//lib:selects.bzl", "selects")
 load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
 load(":macro.bzl", "generate")
+load(":test.bzl", "platform_suite")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -128,3 +129,5 @@ alias(
     }),
     visibility = ["//visibility:public"],
 )
+
+platform_suite()

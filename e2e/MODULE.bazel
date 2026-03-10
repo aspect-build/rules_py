@@ -210,4 +210,14 @@ uv.project(
 )
 # }}}
 
+# For cases/uv-win-ia64-filter
+# Regression: watchdog ships win_ia64 wheels that must be filtered out.
+# {{{
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/uv-win-ia64-filter:uv.lock",
+    pyproject = "//cases/uv-win-ia64-filter:pyproject.toml",
+)
+# }}}
+
 use_repo(uv, "pypi")
