@@ -19,7 +19,7 @@ local_path_override(
 )
 
 # Python interpreters provisioned from python-build-standalone via aspect_rules_py
-interpreters = use_extension("@aspect_rules_py//py:interpreter.bzl", "python_interpreters")
+interpreters = use_extension("@aspect_rules_py//py/unstable:extension.bzl", "python_interpreters")
 interpreters.toolchain(
     python_version = "3.9",
 )
