@@ -175,11 +175,11 @@ versions:
 
 ### Precedence
 
-| Mechanism | Scope | Set by |
-|---|---|---|
-| `is_default = True` on `toolchain()` | Whole build (fallback) | `MODULE.bazel` |
-| `--@aspect_rules_py//py:python_version` | Whole build | `.bazelrc` or command line |
-| `python_version` attribute | Single target | `BUILD.bazel` |
+| Mechanism                               | Scope                  | Set by                     |
+| --------------------------------------- | ---------------------- | -------------------------- |
+| `is_default = True` on `toolchain()`    | Whole build (fallback) | `MODULE.bazel`             |
+| `--@aspect_rules_py//py:python_version` | Whole build            | `.bazelrc` or command line |
+| `python_version` attribute              | Single target          | `BUILD.bazel`              |
 
 The most specific wins: attribute > flag > default toolchain.
 
