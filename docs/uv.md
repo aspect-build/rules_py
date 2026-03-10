@@ -136,6 +136,20 @@ py_binary(
 )
 ```
 
+## Relationship to interpreter provisioning
+
+Unlike `rules_python`, there is no coupling between `uv.project()` and Python
+interpreter provisioning. The uv extension only reads lockfiles and generates
+build targets — it does not download or configure Python interpreters.
+
+At build time, Bazel's normal toolchain resolution selects an interpreter. You
+can provide one via `aspect_rules_py`'s own `python_interpreters` extension
+(see [interpreter.md](interpreter.md)), via `rules_python`'s
+`python.toolchain()`, or any other mechanism that registers a
+`@bazel_tools//tools/python:toolchain_type` toolchain. As long as an
+appropriate Python toolchain is registered for the target platform, uv targets
+will build correctly regardless of how that toolchain was provisioned.
+
 ## Example: Doing crossbuilds
 
 The uv machinery honors the `@platforms//cpu` and `@platforms//os` constraint
