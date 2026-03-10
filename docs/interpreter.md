@@ -41,19 +41,17 @@ That's all you need. The extension uses a set of default PBS release dates that
 cover Python 3.8 through 3.15. The newest available build for each requested
 version is selected automatically.
 
-## Specifying release dates
+## Configuring releases
 
 By default, the extension ships with a small set of release dates covering the
-full range of available Python versions. You can override these to pin to
-specific releases or to include versions that have been dropped from newer
-releases:
+full range of available Python versions. Use `configure()` to pin to specific
+releases or to include versions that have been dropped from newer releases:
 
 ```starlark
 interpreters = use_extension("@aspect_rules_py//py/unstable:extension.bzl", "python_interpreters")
-
-# Use specific PBS releases
-interpreters.release(date = "20260303")  # Has 3.10-3.15
-interpreters.release(date = "20241002")  # Has 3.8-3.13
+interpreters.configure(
+    releases = ["20260303", "20241002"],
+)
 
 interpreters.toolchain(python_version = "3.12", is_default = True)
 interpreters.toolchain(python_version = "3.8")  # Resolved from 20241002
@@ -63,14 +61,16 @@ register_toolchains("@python_interpreters//:all")
 ```
 
 When multiple releases contain the same Python minor version, the newest release
-is preferred.
+is preferred. Only one `configure()` tag is allowed per module graph, and only
+the root module's tag is honored — dependency modules may include `configure()`
+without error, but it will be silently ignored.
 
 ## Using the latest release
 
 For development workflows where you always want the newest PBS release:
 
 ```starlark
-interpreters.release(date = "latest")
+interpreters.configure(releases = ["latest"])
 ```
 
 This resolves to the newest release via the GitHub releases API. Because the
@@ -84,14 +84,32 @@ For CI and production builds, prefer explicit release dates.
 If you host PBS releases on a mirror or maintain your own fork:
 
 ```starlark
-interpreters.release(
-    date = "20260303",
+interpreters.configure(
+    releases = ["20260303"],
     base_url = "https://my-mirror.example.com/pbs/releases/download",
 )
 ```
 
 The `base_url` must point to a directory structure matching PBS releases, where
 `{base_url}/{date}/SHA256SUMS` and `{base_url}/{date}/{asset}` are valid paths.
+
+## Module scoping
+
+The `configure()` tag and the `is_default` / `pre_release` flags on `toolchain()`
+are only honored from the root module. This gives the root module full control
+over the build environment while allowing dependency modules to declare which
+Python versions they need.
+
+| Setting | Root module | Non-root module |
+|---|---|---|
+| `configure()` | Sets release search space and mirror | Silently ignored |
+| `toolchain(python_version = ...)` | Adds to global set | Adds to global set |
+| `toolchain(is_default = True)` | Honored | Silently ignored |
+| `toolchain(pre_release = True)` | Honored | Silently ignored |
+
+If a dependency module requests a Python version that isn't available in any
+release configured by the root module, the build will fail with a clear error
+message identifying which module requested it.
 
 ## Selecting a Python version per target
 

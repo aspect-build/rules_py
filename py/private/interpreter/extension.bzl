@@ -162,27 +162,34 @@ def _python_interpreters_impl(module_ctx):
     is_reproducible = True
     resolved_latest = None
 
-    # Collect release dates and base URLs from tags, falling back to defaults
+    # Collect release configuration from the root module only.
+    # Non-root configure() tags are silently ignored — this allows rules_py
+    # to carry a configure() for development without breaking downstream users.
     release_dates = []
     release_base_urls = {}  # date -> base_url
-    has_release_tags = False
+    has_configure = False
 
     for mod in module_ctx.modules:
-        for tag in mod.tags.release:
-            has_release_tags = True
-            date = tag.date
+        for tag in mod.tags.configure:
+            if not mod.is_root:
+                continue
+            if has_configure:
+                fail(
+                    "Only one interpreters.configure() tag is allowed. " +
+                    "Pass all release dates as a single list.",
+                )
+            has_configure = True
             base_url = tag.base_url if tag.base_url else DEFAULT_RELEASE_BASE_URL
+            for date in tag.releases:
+                if date == "latest":
+                    is_reproducible = False
+                    date = _resolve_latest(module_ctx, base_url)
+                    resolved_latest = date
+                if date not in release_dates:
+                    release_dates.append(date)
+                    release_base_urls[date] = base_url
 
-            if date == "latest":
-                is_reproducible = False
-                date = _resolve_latest(module_ctx, base_url)
-                resolved_latest = date
-
-            if date not in release_dates:
-                release_dates.append(date)
-                release_base_urls[date] = base_url
-
-    if not has_release_tags:
+    if not has_configure:
         release_dates = list(DEFAULT_RELEASE_DATES)
         for date in release_dates:
             release_base_urls[date] = DEFAULT_RELEASE_BASE_URL
@@ -190,11 +197,11 @@ def _python_interpreters_impl(module_ctx):
     # Sort newest-first for "prefer newest release" semantics
     release_dates = sorted(release_dates, reverse = True)
 
-    # Collect all requested Python versions. For each version, we register
-    # toolchains for ALL build configs so users can select via flags/platforms
-    # without needing to declare build configs up front.
+    # Collect all requested Python versions. Any module can request a version,
+    # but only the root module's is_default and pre_release flags are honored.
     default_version = None
     requested_versions = []
+    version_sources = {}  # major_minor -> list of module names (for error messages)
     allow_pre_release = {}  # major_minor -> bool
 
     for mod in module_ctx.modules:
@@ -207,7 +214,8 @@ def _python_interpreters_impl(module_ctx):
                 fail("python_version must be at least major.minor, got '{}'".format(version))
             major_minor = "{}.{}".format(parts[0], parts[1])
 
-            if tag.is_default:
+            # is_default is root-module-only
+            if tag.is_default and mod.is_root:
                 if default_version and default_version != major_minor:
                     fail("Multiple default Python versions specified: {} and {}".format(
                         default_version,
@@ -217,11 +225,13 @@ def _python_interpreters_impl(module_ctx):
 
             if major_minor not in requested_versions:
                 requested_versions.append(major_minor)
+                version_sources[major_minor] = []
+            version_sources[major_minor].append(mod.name)
 
-            # Track pre-release policy; True if any tag for this version allows it.
-            # Explicitly specifying a pre-release version (e.g. "3.15.0a2")
-            # implies pre_release = True for that major.minor.
-            if tag.pre_release or is_pre_release(version):
+            # Pre-release policy is root-module-only. A non-root module
+            # requesting "3.15.0a2" will need the root to also allow
+            # pre-releases for that version.
+            if mod.is_root and (tag.pre_release or is_pre_release(version)):
                 allow_pre_release[major_minor] = True
             elif major_minor not in allow_pre_release:
                 allow_pre_release[major_minor] = False
@@ -320,9 +330,12 @@ def _python_interpreters_impl(module_ctx):
                 }))
 
         if not version_found:
+            sources = version_sources.get(major_minor, ["unknown"])
             fail(
                 "No CPython {} builds found in any configured PBS release. ".format(major_minor) +
-                "Check that this version exists in the release(s): " +
+                "Requested by module(s): {}. ".format(", ".join(sources)) +
+                "The root module's interpreters.configure(releases = [...]) must include " +
+                "a release that contains this version. Configured releases: " +
                 ", ".join(release_dates),
             )
 
@@ -368,7 +381,7 @@ def _return_metadata(module_ctx, has_facts, facts, is_reproducible, resolved_lat
         reproducible = True,
     )
 
-_release_tag = tag_class(
+_configure_tag = tag_class(
     attrs = {
         "base_url": attr.string(
             default = "",
@@ -378,24 +391,38 @@ Override this to fetch from a mirror or fork, e.g.
 "https://github.com/my-org/python-build-standalone/releases/download".
 The URL should point to the directory containing release date directories,
 such that {base_url}/{date}/SHA256SUMS is a valid path.
+
+Only honored from the root module.
 """,
         ),
-        "date": attr.string(mandatory = True, doc = """\
-A python-build-standalone release date (e.g. "20251209") or "latest".
+        "releases": attr.string_list(
+            mandatory = True,
+            doc = """\
+List of python-build-standalone release dates to search for interpreters,
+e.g. ["20260303", "20241002"]. Newer releases are preferred when multiple
+contain the same Python minor version.
 
-Using "latest" resolves to the newest release via the GitHub releases API.
-This makes the extension non-reproducible: Bazel will re-evaluate it on
-every invocation rather than caching the result.
+The special value "latest" resolves to the newest release via the GitHub
+releases API. This makes the extension non-reproducible: Bazel will
+re-evaluate it on every invocation rather than caching the result.
 
-See https://github.com/astral-sh/python-build-standalone/releases for available releases.
-"""),
+See https://github.com/astral-sh/python-build-standalone/releases for
+available releases.
+
+Only honored from the root module. Non-root modules may include this tag
+without error, but it will be silently ignored.
+""",
+        ),
     },
-    doc = "Specify a python-build-standalone release to use for interpreter provisioning.",
+    doc = "Configure the set of python-build-standalone releases to search for interpreters.",
 )
 
 _toolchain_tag = tag_class(
     attrs = {
-        "is_default": attr.bool(default = False),
+        "is_default": attr.bool(
+            default = False,
+            doc = "Only honored from the root module.",
+        ),
         "pre_release": attr.bool(
             default = False,
             doc = """\
@@ -404,6 +431,8 @@ Allow pre-release versions (alpha, beta, rc) for this toolchain.
 By default, only final release versions are provisioned. Set this to True
 to allow pre-release versions like 3.15.0a6 or 3.14.0b1. This is useful
 for testing against upcoming Python versions that have no stable release yet.
+
+Only honored from the root module.
 """,
         ),
         "python_version": attr.string(
@@ -416,7 +445,7 @@ for testing against upcoming Python versions that have no stable release yet.
 python_interpreters = module_extension(
     implementation = _python_interpreters_impl,
     tag_classes = {
-        "release": _release_tag,
+        "configure": _configure_tag,
         "toolchain": _toolchain_tag,
     },
 )
