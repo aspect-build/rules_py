@@ -2,6 +2,7 @@
 
 load("@bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
 load("@bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
+load("@hermetic_launcher//launcher:lib.bzl", "launcher")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private:transitions.bzl", "python_version_transition")
@@ -221,7 +222,11 @@ def _py_venv_rule_impl(ctx):
 
 def _py_venv_binary_impl(ctx):
     """
-    A virtualenv implementation the binary of which is a proxy to the Python interpreter of the venv.
+    A virtualenv implementation the binary of which is a native hermetic launcher stub.
+
+    The stub resolves runfiles and execs the venv's bin/python (our venv_shim),
+    which handles full virtualenv activation (VIRTUAL_ENV, PATH, PYTHONHOME, etc.)
+    before exec'ing the real Python interpreter.
     """
 
     py_toolchain = _py_semantics.resolve_toolchain(ctx)
@@ -245,17 +250,37 @@ def _py_venv_binary_impl(ctx):
     venv_dir, venv_rfs = _py_venv_base_impl(ctx)
     rfs = rfs.merge(venv_rfs)
 
-    # Now we can generate an entrypoint script wrapping $VENV/bin/python
-    ctx.actions.expand_template(
-        template = ctx.file._bin_tmpl,  # FIXME: Should always be single file
-        output = ctx.outputs.executable,
-        substitutions = {
-            "{{BASH_RLOCATION_FN}}": BASH_RLOCATION_FUNCTION.strip(),
-            "{{INTERPRETER_FLAGS}}": " ".join(_interpreter_flags(ctx)),
-            "{{VENV}}": to_rlocation_path(ctx, venv_dir),
-            "{{DEBUG}}": str(ctx.attr.debug).lower(),
-        },
-        is_executable = True,
+    # Build a hermetic launcher stub instead of a shell script.
+    # The entrypoint is the venv's bin/python which is our venv_shim binary.
+    # The shim handles full venv activation (VIRTUAL_ENV, PATH, PYTHONHOME, etc.)
+    venv_rloc = launcher.to_rlocation_path(venv_dir)
+    embedded_args = [venv_rloc + "/bin/python"]
+    transformed_args = [0]
+
+    # Add interpreter flags as literal (non-transformed) args.
+    # Skip -I as the existing code does.
+    for flag in py_toolchain.flags + ctx.attr.interpreter_options:
+        if flag == "-I":
+            continue
+        launcher.append_embedded_arg(
+            arg = flag,
+            embedded_args = embedded_args,
+            transformed_args = transformed_args,
+        )
+
+    # Add main script as a runfile-resolved arg
+    launcher.append_runfile(
+        file = ctx.file.main,
+        embedded_args = embedded_args,
+        transformed_args = transformed_args,
+    )
+
+    # Compile the native launcher stub
+    launcher.compile_stub(
+        ctx = ctx,
+        embedded_args = embedded_args,
+        transformed_args = transformed_args,
+        output_file = ctx.outputs.executable,
     )
 
     passed_env = dict(ctx.attr.env)
@@ -266,6 +291,15 @@ def _py_venv_binary_impl(ctx):
             attribute_name = "env",
         )
 
+    # BAZEL_* env vars were previously set by sourcing the venv's activate
+    # script. With the hermetic launcher we no longer source activate, so
+    # these are provided via RunEnvironmentInfo instead.
+    default_env = {
+        "BAZEL_TARGET": str(ctx.label).lstrip("@"),
+        "BAZEL_WORKSPACE": ctx.workspace_name,
+        "BAZEL_TARGET_NAME": ctx.attr.name,
+    }
+
     return [
         DefaultInfo(
             files = depset([
@@ -275,7 +309,7 @@ def _py_venv_binary_impl(ctx):
             runfiles = rfs,
         ),
         RunEnvironmentInfo(
-            environment = passed_env,
+            environment = default_env | passed_env,
             inherited_environment = getattr(ctx.attr, "env_inherit", []),
         ),
     ]
@@ -384,10 +418,6 @@ _binary_attrs = dict({
         allow_single_file = True,
         mandatory = True,
     ),
-    "_bin_tmpl": attr.label(
-        allow_single_file = True,
-        default = "//py/private/py_venv:entrypoint.tmpl.sh",
-    ),
 })
 
 _test_attrs = dict({
@@ -442,7 +472,10 @@ _py_venv_binary = rule(
     doc = """Run a Python program under Bazel using a virtualenv.""",
     implementation = _py_venv_binary_impl,
     attrs = py_venv_base.attrs | py_venv_base.binary_attrs,
-    toolchains = py_venv_base.toolchains,
+    toolchains = py_venv_base.toolchains + [
+        launcher.finalizer_toolchain_type,
+        launcher.template_toolchain_type,
+    ],
     executable = True,
     cfg = py_venv_base.cfg,
 )
@@ -451,7 +484,10 @@ _py_venv_test = rule(
     doc = """Run a Python program under Bazel using a virtualenv.""",
     implementation = _py_venv_binary_impl,
     attrs = py_venv_base.attrs | py_venv_base.binary_attrs | py_venv_base.test_attrs,
-    toolchains = py_venv_base.toolchains,
+    toolchains = py_venv_base.toolchains + [
+        launcher.finalizer_toolchain_type,
+        launcher.template_toolchain_type,
+    ],
     test = True,
     cfg = py_venv_base.cfg,
 )

@@ -370,6 +370,28 @@ fn main() -> miette::Result<()> {
         cmd.env("PATH", path_segments.join(":"));
     }
 
+    // Apply env vars from .aspect_env (written by the venv builder).
+    // This provides BAZEL_TARGET, BAZEL_WORKSPACE, etc. when running
+    // outside of `bazel run`/`bazel test` (e.g. in containers).
+    let aspect_env_path = venv_root.join(".aspect_env");
+    if aspect_env_path.exists() {
+        if let Ok(content) = fs::read_to_string(&aspect_env_path) {
+            for line in content.lines() {
+                let line = line.trim();
+                if line.is_empty() || line.starts_with('#') {
+                    continue;
+                }
+                if let Some((key, value)) = line.split_once('=') {
+                    // Only set if not already present in the environment,
+                    // so that RunEnvironmentInfo or explicit env takes precedence.
+                    if env::var_os(key).is_none() {
+                        cmd.env(key, value);
+                    }
+                }
+            }
+        }
+    }
+
     // Set the executable pointer for MacOS, but we do it consistently
     cmd.env("PYTHONEXECUTABLE", &venv_interpreter);
 
