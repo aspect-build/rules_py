@@ -9,7 +9,7 @@ build graph using PEP 735 dependency groups, a Bazel `string_flag`, and
 
 In a typical Python project you have packages needed at runtime (Flask,
 SQLAlchemy, …) and packages only useful during development (ipdb, pytest,
-coverage, …).  You want both importable when iterating locally, but you don't
+coverage, …). You want both importable when iterating locally, but you don't
 want them present in a production container image.
 
 ## How It Works
@@ -30,7 +30,7 @@ dev  = [
 ```
 
 The `dev` group composes `prod` (the runtime deps) with dev-only tools using
-PEP 735's `include-group` syntax.  `uv lock` resolves all groups into a
+PEP 735's `include-group` syntax. `uv lock` resolves all groups into a
 single lockfile.
 
 ### 2. Venv selection via `.bazelrc`
@@ -46,7 +46,7 @@ common:release --stamp
 ```
 
 The `--@pypi//venv=` flag controls which dependency group the hub makes
-available.  The default is `dev` (everything importable).  `--config=release`
+available. The default is `dev` (everything importable). `--config=release`
 switches to `prod` (runtime deps only).
 
 ### 3. A `string_flag` to control dep inclusion
@@ -76,7 +76,7 @@ def py_dev_binary(name, deps = [], dev_deps = [], **kwargs):
     )
 ```
 
-In dev mode (the default), `dev_deps` are included.  In prod mode the
+In dev mode (the default), `dev_deps` are included. In prod mode the
 `select()` resolves to an empty list.
 
 ### 5. Using it
@@ -110,12 +110,12 @@ bazel run //:app --config=release
 
 The venv flag and the mode flag work together:
 
-| `.bazelrc` config | `--@pypi//venv=` | `--//:mode=` | Effect |
-|---|---|---|---|
-| _(default)_ | `dev` | `dev` | Hub exposes all packages; `select()` includes dev_deps |
-| `--config=release` | `prod` | `prod` | Hub exposes only prod packages; `select()` excludes dev_deps |
+| `.bazelrc` config  | `--@pypi//venv=` | `--//:mode=` | Effect                                                       |
+| ------------------ | ---------------- | ------------ | ------------------------------------------------------------ |
+| _(default)_        | `dev`            | `dev`        | Hub exposes all packages; `select()` includes dev_deps       |
+| `--config=release` | `prod`           | `prod`       | Hub exposes only prod packages; `select()` excludes dev_deps |
 
 The venv flag controls which packages the hub _makes available_ (which wheels
-are fetched and linked).  The mode flag controls which packages the target
-_actually depends on_ via `select()`.  Both must agree — the `.bazelrc`
+are fetched and linked). The mode flag controls which packages the target
+_actually depends on_ via `select()`. Both must agree — the `.bazelrc`
 configs keep them in sync.

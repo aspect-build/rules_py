@@ -34,12 +34,12 @@ config_setting(
 py_dev_binary(
     name = "app",
     srcs = ["app.py"],
-    main = "app.py",
-    deps = [
-        "@pypi//flask",
-    ],
     dev_deps = [
         "@pypi//ipdb",
         "@pypi//pytest",
+    ],
+    main = "app.py",
+    deps = [
+        "@pypi//flask",
     ],
 )
