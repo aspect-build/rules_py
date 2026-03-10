@@ -7,6 +7,7 @@ load("//uv/private/constraints/python:defs.bzl", "supported_python")
 load("//uv/private/graph:sccs.bzl", "sccs")
 load("//uv/private/pprint:defs.bzl", "pprint")
 load("//uv/private/tomltool:toml.bzl", "toml")
+load(":dep_groups.bzl", "resolve_dependency_group_specs")
 load(":normalize_name.bzl", "normalize_name")
 
 def _normalize_deps(lock_id, lock_data):
@@ -300,9 +301,10 @@ def _collect_activated_extras(project_data, default_versions, graph):
     # Builds up {package: {configuration: {extra: {marker: 1}}}}
     activated_extras = {}
 
-    for group_name, specs in dep_groups.items():
+    for group_name in dep_groups.keys():
         normalized_dep_groups[group_name] = []
-        for spec in specs:
+        resolved_specs = resolve_dependency_group_specs(dep_groups, group_name)
+        for spec in resolved_specs:
             for dep, marker in _extract_requirement_marker_pairs(spec, default_versions):
                 normalized_dep_groups[group_name].append(dep)
 

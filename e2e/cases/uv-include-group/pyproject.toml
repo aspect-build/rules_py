@@ -1,0 +1,18 @@
+[project]
+name = "include-group-test"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = []
+
+[dependency-groups]
+# Test PEP 735 include-group syntax
+build = [
+    "setuptools",
+]
+test = [
+    "pytest",
+]
+dev = [
+    {include-group = "build"},
+    {include-group = "test"},
+]

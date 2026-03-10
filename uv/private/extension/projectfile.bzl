@@ -4,6 +4,7 @@ Machinery specific to interacting with a pyproject.toml
 
 load("//uv/private:normalize_name.bzl", "normalize_name")
 load("//uv/private/versions:versions.bzl", "find_matching_version")
+load(":dep_groups.bzl", "resolve_dependency_group_specs")
 
 def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_map, package_versions = {}):
     """Parses a requirement string into a list of dependency-marker pairs.
@@ -147,9 +148,10 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
     # Builds up {package: {configuration: {extra: {marker: 1}}}}
     activated_extras = {}
 
-    for group_name, specs in dep_groups.items():
+    for group_name in dep_groups.keys():
         normalized_dep_groups[group_name] = []
-        for spec in specs:
+        resolved_specs = resolve_dependency_group_specs(dep_groups, group_name)
+        for spec in resolved_specs:
             for dep, marker in extract_requirement_marker_pairs(projectfile, lock_id, spec, default_versions, package_versions):
                 normalized_dep_groups[group_name].append(dep)
 
