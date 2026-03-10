@@ -2,7 +2,7 @@
 
 """
 
-load(":defs.bzl", "platform_version_at_least")
+load(":defs.bzl", "LINUX_ARCHES", "MACOS_ARCHES", "MACOS_ARCH_GROUPS", "WINDOWS_PLATFORMS", "platform_version_at_least")
 
 ## These are defined but we're ignoring them for now.
 # android_21_arm64_v8a
@@ -50,23 +50,6 @@ def generate_macos(visibility):
     Deliberately generate an overfull matrix of possible MacOS versions and arches.
     """
 
-    # https://packaging.python.org/en/latest/specifications/platform-compatibility-tags/#macos
-    arch_groups = {
-        "universal2": ["arm64", "x86_64"],
-        "universal": ["i386", "ppc", "ppc64", "x86_64"],
-        "intel": ["i386", "x86_64"],
-        "fat": ["i386", "ppc"],
-        "fat3": ["i386", "ppc", "x86_64"],
-        "fat64": ["ppc64", "x86_64"],
-    }
-    arches = [
-        "arm64",
-        "x86_64",
-        "i386",
-        "ppc",
-        "ppc64",
-    ]
-
     # MacOS 10 ran for 15 minor releases
     # Since then with MacOS 11 (2020) Apple's gone to an annual major version
     # With MacOS 26 "Tahoe" they've gone to using the gregorian year for the version
@@ -80,7 +63,7 @@ def generate_macos(visibility):
                 at_least = "%s.%s" % major_minor,
             )
 
-            for arch in arches:
+            for arch in MACOS_ARCHES:
                 native.config_setting(
                     name = "macosx_%s_%s_%s" % (major, minor, arch),
                     flag_values = {
@@ -94,7 +77,7 @@ def generate_macos(visibility):
                     visibility = visibility,
                 )
 
-            for group, members in arch_groups.items():
+            for group, members in MACOS_ARCH_GROUPS.items():
                 options = [
                     ":macosx_%s_%s_%s" % (major, minor, it)
                     for it in members
@@ -114,17 +97,6 @@ def generate_macos(visibility):
 def generate_manylinux(visibility):
     # https://packaging.python.org/en/latest/specifications/platform-compatibility-tags/#manylinux
 
-    arches = [
-        "x86_64",
-        "i686",
-        "aarch64",
-        "ppc64",
-        "ppc64le",
-        "s390x",
-        "riscv64",
-        "armv7l",
-    ]
-
     # glibc 1.X ran for not that long and was in the 90s
     for major in [2]:
         for minor in range(0, 51):
@@ -134,7 +106,7 @@ def generate_manylinux(visibility):
                 at_least = "{}.{}".format(major, minor),
             )
 
-            for arch in arches:
+            for arch in LINUX_ARCHES:
                 native.config_setting(
                     name = "manylinux_{}_{}_{}".format(major, minor, arch),
                     flag_values = {
@@ -151,38 +123,6 @@ def generate_manylinux(visibility):
 # buildifier: disable=unnamed-macro
 # buildifier: disable=function-docstring
 def generate_musllinux(visibility):
-    # musllinux_1_0_aarch64
-    # musllinux_1_0_armv7l
-    # musllinux_1_0_i686
-    # musllinux_1_0_x86_64
-    # musllinux_1_1_aarch64
-    # musllinux_1_1_armv7l
-    # musllinux_1_1_i686
-    # musllinux_1_1_ppc64le
-    # musllinux_1_1_riscv64
-    # musllinux_1_1_s390x
-    # musllinux_1_1_x86_64
-    # musllinux_1_2_aarch64
-    # musllinux_1_2_armv7l
-    # musllinux_1_2_i686
-    # musllinux_1_2_ppc64le
-    # musllinux_1_2_riscv64
-    # musllinux_1_2_s390x
-    # musllinux_1_2_x86_64
-    # musllinux_2_0_aarch64
-    # musllinux_2_0_x86_64
-
-    arches = [
-        "x86_64",
-        "i686",
-        "aarch64",
-        "ppc64",
-        "ppc64le",
-        "s390x",
-        "riscv64",
-        "armv7l",
-    ]
-
     # TODO: musl moves super slow and has strong back compat promises, doesn't clearly need a huge matrix?
     for major, minor in [
         [1, 0],
@@ -198,7 +138,7 @@ def generate_musllinux(visibility):
             at_least = "{}.{}".format(major, minor),
         )
 
-        for arch in arches:
+        for arch in LINUX_ARCHES:
             native.config_setting(
                 name = "musllinux_{}_{}_{}".format(major, minor, arch),
                 flag_values = {
@@ -215,39 +155,18 @@ def generate_musllinux(visibility):
 # buildifier: disable=unnamed-macro
 # buildifier: disable=function-docstring
 def generate_windows(visibility):
-    native.config_setting(
-        name = "win32",
-        flag_values = {
-            ":platform_libc": "msvc",
-        },
-        constraint_values = [
-            "@platforms//os:windows",
-            "@platforms//cpu:x86_64",
-        ],
-        visibility = visibility,
-    )
-    native.config_setting(
-        name = "win_amd64",
-        flag_values = {
-            ":platform_libc": "msvc",
-        },
-        constraint_values = [
-            "@platforms//os:windows",
-            "@platforms//cpu:x86_64",
-        ],
-        visibility = visibility,
-    )
-    native.config_setting(
-        name = "win_arm64",
-        flag_values = {
-            ":platform_libc": "msvc",
-        },
-        constraint_values = [
-            "@platforms//os:windows",
-            "@platforms//cpu:aarch64",
-        ],
-        visibility = visibility,
-    )
+    for name, cpu in WINDOWS_PLATFORMS.items():
+        native.config_setting(
+            name = name,
+            flag_values = {
+                ":platform_libc": "msvc",
+            },
+            constraint_values = [
+                "@platforms//os:windows",
+                "@platforms//cpu:" + cpu,
+            ],
+            visibility = visibility,
+        )
 
 # buildifier: disable=unnamed-macro
 # buildifier: disable=function-docstring

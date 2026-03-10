@@ -1,0 +1,10 @@
+[project]
+name = "win-ia64-filter"
+version = "0.0.0"
+authors = []
+requires-python = ">=3.11"
+dependencies = [
+    "build>=1.4.0",
+    "setuptools>=82.0.1",
+    "watchdog",
+]
