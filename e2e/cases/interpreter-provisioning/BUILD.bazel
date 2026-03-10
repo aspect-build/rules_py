@@ -1,0 +1,10 @@
+load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
+
+# Verify that e2e tests use aspect_rules_py interpreter provisioning,
+# not rules_python's python-build-standalone toolchains.
+py_venv_test(
+    name = "test",
+    srcs = ["test_interpreter.py"],
+    main = "test_interpreter.py",
+    python_version = "3.11",
+)
