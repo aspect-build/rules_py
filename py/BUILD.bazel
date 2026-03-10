@@ -1,12 +1,9 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 
-# For Bazel 6.x compatibility, since
-# PyRuntimeInfo shipped only with Bazel 7
-# Users can set, e.g. --@aspect_rules_py//py:interpreter_version=3.9.18
-# TODO(2.0): remove since Bazel 6 is no longer LTS
+# Users can set, e.g. --@aspect_rules_py//py:python_version=3.12
 alias(
-    name = "interpreter_version",
-    actual = "@rules_python//python/config_settings:python_version",
+    name = "python_version",
+    actual = "//py/private/interpreter:python_version",
     visibility = ["//visibility:public"],
 )
 
