@@ -111,10 +111,44 @@ If a dependency module requests a Python version that isn't available in any
 release configured by the root module, the build will fail with a clear error
 message identifying which module requested it.
 
-## Selecting a Python version per target
+## Selecting Python versions
 
-Individual `py_binary` and `py_venv_binary` targets can request a specific
-Python version using the `python_version` attribute:
+There are three layers of version control, from broadest to most specific.
+
+### 1. The default version (MODULE.bazel)
+
+The `is_default = True` toolchain is what Bazel selects when nothing else
+overrides it:
+
+```starlark
+interpreters.toolchain(python_version = "3.12", is_default = True)
+```
+
+### 2. A build-wide default (.bazelrc)
+
+Set `--@aspect_rules_py//py:interpreter_version` in `.bazelrc` to lock the
+entire build to a specific version. This is a good practice even when it matches
+the `is_default` toolchain — it makes the choice explicit and visible in version
+control:
+
+```
+# .bazelrc
+common --@aspect_rules_py//py:interpreter_version=3.12
+```
+
+This flag can also be overridden on the command line for one-off testing against
+a different version:
+
+```sh
+# Quick smoke-test on 3.11 without editing any files
+bazel test //... --@aspect_rules_py//py:interpreter_version=3.11
+```
+
+### 3. Per-target overrides (python_version attribute)
+
+Individual `py_binary`, `py_venv_binary`, `py_test`, and `py_venv_test` targets
+can pin to a specific version using the `python_version` attribute. This takes
+precedence over the flag:
 
 ```starlark
 load("@aspect_rules_py//py:defs.bzl", "py_binary")
@@ -126,12 +160,28 @@ py_binary(
 )
 ```
 
-You can also set the version globally via a flag:
+Use this when a target genuinely requires a specific version — for example a
+library that only supports 3.12+, or a test matrix that exercises multiple
+versions:
 
+```starlark
+[py_venv_test(
+    name = "test_py%s" % v.replace(".", ""),
+    srcs = ["test.py"],
+    main = "test.py",
+    python_version = v,
+) for v in ["3.11", "3.12", "3.13"]]
 ```
-# .bazelrc
-common --@aspect_rules_py//py:interpreter_version=3.12
-```
+
+### Precedence
+
+| Mechanism | Scope | Set by |
+|---|---|---|
+| `is_default = True` on `toolchain()` | Whole build (fallback) | `MODULE.bazel` |
+| `--@aspect_rules_py//py:interpreter_version` | Whole build | `.bazelrc` or command line |
+| `python_version` attribute | Single target | `BUILD.bazel` |
+
+The most specific wins: attribute > flag > default toolchain.
 
 ## Build configurations
 
