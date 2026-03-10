@@ -126,14 +126,14 @@ interpreters.toolchain(python_version = "3.12", is_default = True)
 
 ### 2. A build-wide default (.bazelrc)
 
-Set `--@aspect_rules_py//py:interpreter_version` in `.bazelrc` to lock the
+Set `--@aspect_rules_py//py:python_version` in `.bazelrc` to lock the
 entire build to a specific version. This is a good practice even when it matches
 the `is_default` toolchain — it makes the choice explicit and visible in version
 control:
 
 ```
 # .bazelrc
-common --@aspect_rules_py//py:interpreter_version=3.12
+common --@aspect_rules_py//py:python_version=3.12
 ```
 
 This flag can also be overridden on the command line for one-off testing against
@@ -141,7 +141,7 @@ a different version:
 
 ```sh
 # Quick smoke-test on 3.11 without editing any files
-bazel test //... --@aspect_rules_py//py:interpreter_version=3.11
+bazel test //... --@aspect_rules_py//py:python_version=3.11
 ```
 
 ### 3. Per-target overrides (python_version attribute)
@@ -178,7 +178,7 @@ versions:
 | Mechanism | Scope | Set by |
 |---|---|---|
 | `is_default = True` on `toolchain()` | Whole build (fallback) | `MODULE.bazel` |
-| `--@aspect_rules_py//py:interpreter_version` | Whole build | `.bazelrc` or command line |
+| `--@aspect_rules_py//py:python_version` | Whole build | `.bazelrc` or command line |
 | `python_version` attribute | Single target | `BUILD.bazel` |
 
 The most specific wins: attribute > flag > default toolchain.
