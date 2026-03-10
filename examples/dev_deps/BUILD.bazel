@@ -1,0 +1,45 @@
+load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
+load(":defs.bzl", "py_dev_binary")
+
+# --------------------------------------------------------------------------- #
+# Build mode flag.
+#
+# The default is "dev" (development dependencies included).
+# Pass --config=release (see .bazelrc) or --//:mode=prod to exclude them.
+# --------------------------------------------------------------------------- #
+
+string_flag(
+    name = "mode",
+    build_setting_default = "dev",
+    values = [
+        "dev",
+        "prod",
+    ],
+)
+
+config_setting(
+    name = "is_dev",
+    flag_values = {":mode": "dev"},
+)
+
+config_setting(
+    name = "is_prod",
+    flag_values = {":mode": "prod"},
+)
+
+# --------------------------------------------------------------------------- #
+# Application target
+# --------------------------------------------------------------------------- #
+
+py_dev_binary(
+    name = "app",
+    srcs = ["app.py"],
+    main = "app.py",
+    deps = [
+        "@pypi//flask",
+    ],
+    dev_deps = [
+        "@pypi//ipdb",
+        "@pypi//pytest",
+    ],
+)
