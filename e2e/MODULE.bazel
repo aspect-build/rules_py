@@ -21,7 +21,11 @@ local_path_override(
 # Python interpreters provisioned from python-build-standalone via aspect_rules_py
 interpreters = use_extension("@aspect_rules_py//py/unstable:extension.bzl", "python_interpreters")
 interpreters.configure(
-    releases = ["20260303", "20251031", "20241002"],
+    releases = [
+        "20260303",
+        "20251031",
+        "20241002",
+    ],
 )
 interpreters.toolchain(
     python_version = "3.9",

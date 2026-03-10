@@ -100,12 +100,12 @@ are only honored from the root module. This gives the root module full control
 over the build environment while allowing dependency modules to declare which
 Python versions they need.
 
-| Setting | Root module | Non-root module |
-|---|---|---|
-| `configure()` | Sets release search space and mirror | Silently ignored |
-| `toolchain(python_version = ...)` | Adds to global set | Adds to global set |
-| `toolchain(is_default = True)` | Honored | Silently ignored |
-| `toolchain(pre_release = True)` | Honored | Silently ignored |
+| Setting                           | Root module                          | Non-root module    |
+| --------------------------------- | ------------------------------------ | ------------------ |
+| `configure()`                     | Sets release search space and mirror | Silently ignored   |
+| `toolchain(python_version = ...)` | Adds to global set                   | Adds to global set |
+| `toolchain(is_default = True)`    | Honored                              | Silently ignored   |
+| `toolchain(pre_release = True)`   | Honored                              | Silently ignored   |
 
 If a dependency module requests a Python version that isn't available in any
 release configured by the root module, the build will fail with a clear error
