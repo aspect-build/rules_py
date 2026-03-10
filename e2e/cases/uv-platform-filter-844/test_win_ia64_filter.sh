@@ -8,7 +8,7 @@ set -euo pipefail
 # graph is created successfully. We verify genquery ran (meaning analysis
 # succeeded) and there is no win_ia64 platform constraint reference.
 
-TARGETS_FILE="${TEST_SRCDIR}/_main/cases/uv-win-ia64-filter/watchdog_targets"
+TARGETS_FILE="${TEST_SRCDIR}/_main/cases/uv-platform-filter-844/watchdog_targets"
 TARGETS="$(cat "$TARGETS_FILE")"
 
 errors=0
