@@ -67,6 +67,7 @@ container_structure_test(
     image = ":amd64_image",
     platform = "linux/amd64",
     target_compatible_with = [
+        "@platforms//os:linux",
         "@platforms//cpu:x86_64",
     ],
 )
@@ -92,6 +93,7 @@ container_structure_test(
     image = ":arm64_image",
     platform = "linux/aarch64",
     target_compatible_with = [
+        "@platforms//os:linux",
         "@platforms//cpu:aarch64",
     ],
 )
