@@ -194,9 +194,15 @@ def _parse_projects(module_ctx, hub_specs):
                             # Allow a shared annotation file to include entries for other locks.
                             continue
                         deps = []
+                        skip = False
                         for dep in package.get("build-dependencies", []):
-                            deps.append(_resolve(dep))
-                        lock_build_dep_anns[k] = deps
+                            resolved = _resolve(dep, fail_if_missing = False)
+                            if resolved == None:
+                                skip = True
+                                break
+                            deps.append(resolved)
+                        if not skip:
+                            lock_build_dep_anns[k] = deps
 
             # Collect package overrides, validating no duplicates per (lock, name, version).
             package_overrides = {}

@@ -647,9 +647,15 @@ def _process_lock_file(module_ctx, mod, project, lock_id, lock_data, default_ver
                     # Allow a shared annotation file to include entries for other locks.
                     continue
                 deps = []
+                skip = False
                 for dep in package.get("build-dependencies", []):
-                    deps.append(_resolve(dep, lock_id, default_versions))
-                lock_build_dep_anns[k] = deps
+                    resolved = _resolve(dep, lock_id, default_versions, fail_if_missing = False)
+                    if resolved == None:
+                        skip = True
+                        break
+                    deps.append(resolved)
+                if not skip:
+                    lock_build_dep_anns[k] = deps
 
     # Lazily evaluated cache
     lock_build_deps = None
