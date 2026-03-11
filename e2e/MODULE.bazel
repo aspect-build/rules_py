@@ -236,6 +236,10 @@ uv.project(
     lock = "//cases/uv-include-group:uv.lock",
     pyproject = "//cases/uv-include-group:pyproject.toml",
 )
+uv.unstable_annotate_packages(
+    src = "//cases/uv-legacy-deps-750:annotations.toml",
+    lock = "//cases/uv-include-group:uv.lock",
+)
 # }}}
 
 # For cases/uv-platform-filter-844

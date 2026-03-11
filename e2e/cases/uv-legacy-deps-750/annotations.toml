@@ -3,3 +3,9 @@ name = "googlemaps"
 build-dependencies = [
     { name = "requests"},
 ]
+
+[[package]]
+name = "pytest"
+build-dependencies = [
+    { name = "setuptools" },
+]
