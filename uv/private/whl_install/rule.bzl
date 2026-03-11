@@ -23,6 +23,8 @@ def _whl_install(ctx):
         "--python-version-minor",
         py_toolchain.interpreter_version_info.minor,
     ])
+    arguments.add_all(ctx.attr.srcs_exclude_glob, before_each = "--srcs-exclude-glob")
+    arguments.add_all(ctx.attr.data_exclude_glob, before_each = "--data-exclude-glob")
 
     # Need to read the toolchain config from the unpack target so we can grab
     # its bin and run it. Note that we have to do this dance in order to get the
@@ -77,6 +79,14 @@ lighter weight since the toolchain's files aren't inputs.
 """,
     attrs = {
         "src": attr.label(doc = "The wheel to install, or a tree artifact containing exactly one wheel at its root."),
+        "srcs_exclude_glob": attr.string_list(
+            default = [],
+            doc = "Glob patterns for installed source files to remove after unpacking.",
+        ),
+        "data_exclude_glob": attr.string_list(
+            default = [],
+            doc = "Glob patterns for installed data files to remove after unpacking.",
+        ),
         "_unpack": attr.label(
             default = "//py/private/toolchain:resolved_unpack_toolchain",
             cfg = "exec",

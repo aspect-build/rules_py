@@ -183,6 +183,27 @@ uv.override_package(
 )
 # }}}
 
+# For cases/uv-exclusions-848
+# {{{
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/uv-exclusions-848:uv.lock",
+    pyproject = "//cases/uv-exclusions-848:pyproject.toml",
+)
+uv.override_package(
+    name = "cowsay",
+    data_exclude_glob = [
+        "site-packages/*.dist-info/LICENSE.txt",
+        "site-packages/cowsay/main.py",
+    ],
+    lock = "//cases/uv-exclusions-848:uv.lock",
+    srcs_exclude_glob = [
+        "site-packages/cowsay/tests/**",
+        "site-packages/*.dist-info/METADATA",
+    ],
+)
+# }}}
+
 # For cases/uv-no-sdist-754
 # {{{
 uv.project(
