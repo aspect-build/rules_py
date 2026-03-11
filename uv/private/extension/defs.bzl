@@ -173,21 +173,26 @@ def _parse_projects(module_ctx, hub_specs):
 
             default_versions, package_versions, lock_data = normalize_deps(project_id, lock_data)
 
-            def _resolve(package):
+            def _resolve(package, fail_if_missing = True):
                 name = normalize_name(package["name"])
                 if "version" in package:
                     return (project_id, name, package["version"].replace(".", "_"), "__base__")
                 elif name in default_versions:
                     return default_versions[name]
                 else:
-                    fail("Unable to identify id for package {} for lock {}\n{}".format(package, project.lock, pprint(default_versions)))
+                    if fail_if_missing:
+                        fail("Unable to identify id for package {} for lock {}\n{}".format(package, project.lock, pprint(default_versions)))
+                    return None
 
             lock_build_dep_anns = {}
             for ann in mod.tags.unstable_annotate_packages:
                 if ann.lock == project.lock:
                     annotations = toml.decode_file(module_ctx, ann.src)
                     for package in annotations.get("package", []):
-                        k = _resolve(package)
+                        k = _resolve(package, fail_if_missing = False)
+                        if k == None:
+                            # Allow a shared annotation file to include entries for other locks.
+                            continue
                         deps = []
                         for dep in package.get("build-dependencies", []):
                             deps.append(_resolve(dep))

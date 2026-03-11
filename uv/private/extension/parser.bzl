@@ -615,14 +615,16 @@ def _collect_sdists(lock_id, lock_data):
 
     return sdist_specs, sdist_table
 
-def _resolve(package, lock_id, default_versions):
+def _resolve(package, lock_id, default_versions, fail_if_missing = True):
     name = normalize_name(package["name"])
     if "version" in package:
         return (lock_id, name, package["version"].replace(".", "_"), "__base__")
     elif name in default_versions:
         return default_versions[name]
     else:
-        fail("Unable to identify id for package {} for lock {}".format(package, lock_id, pprint(default_versions)))
+        if fail_if_missing:
+            fail("Unable to identify id for package {} for lock {}".format(package, lock_id, pprint(default_versions)))
+        return None
 
 def _process_overridden_packages(mod, project, lock_id, default_versions, install_table):
     # FIXME: This inner join is correct and easy, but it doesn't allow us to warn if there are annotations that don't join.
@@ -640,7 +642,10 @@ def _process_lock_file(module_ctx, mod, project, lock_id, lock_data, default_ver
         if ann.lock == project.lock:
             annotations = toml.decode_file(module_ctx, ann.src)
             for package in annotations.get("package", []):
-                k = _resolve(package, lock_id, default_versions)
+                k = _resolve(package, lock_id, default_versions, fail_if_missing = False)
+                if k == None:
+                    # Allow a shared annotation file to include entries for other locks.
+                    continue
                 deps = []
                 for dep in package.get("build-dependencies", []):
                     deps.append(_resolve(dep, lock_id, default_versions))
