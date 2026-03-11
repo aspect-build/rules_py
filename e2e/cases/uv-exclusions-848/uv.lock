@@ -1,0 +1,24 @@
+version = 1
+revision = 3
+requires-python = ">=3.11"
+
+[[package]]
+name = "cowsay"
+version = "6.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/7e/b5/e8e802ddc7f5219417dc7d7953eec81ffe48ad129b793f3040361e4aff89/cowsay-6.0.tar.gz", hash = "sha256:47445cb273684618a1786db8e8d05ec9258455f7eb74893e5d0933daafeb44ba", size = 25228, upload-time = "2023-09-08T17:16:36.028Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/73/56/7922bfc226ccd44221befb6b866aaa4da4170bc9d8b036ef0675ce0f1b53/cowsay-6.0-py2.py3-none-any.whl", hash = "sha256:77b07c508af48aa300a90f3b3c5c013a12360a71fc5c87b1efb763fe2803a775", size = 25411, upload-time = "2023-09-08T17:16:34.44Z" },
+    { url = "https://files.pythonhosted.org/packages/c7/01/40be54532d7bd37c99d849bbdd590f0135ce13183365df6f0e85c475ca71/cowsay-6.0-py3-none-any.whl", hash = "sha256:011c067841451ea49baf8ff49c355bd7f659d53fc538459e0a84c12ae2b4e027", size = 25409, upload-time = "2023-09-08T17:25:17.505Z" },
+]
+
+[[package]]
+name = "exclusions"
+version = "0.0.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "cowsay" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "cowsay", specifier = "==6.0" }]

@@ -229,6 +229,9 @@ py_library(
     post_install_patches = json.decode(repository_ctx.attr.post_install_patches) if repository_ctx.attr.post_install_patches else []
     post_install_patch_strip = repository_ctx.attr.post_install_patch_strip
 
+    srcs_exclude_glob = json.decode(repository_ctx.attr.srcs_exclude_glob) if repository_ctx.attr.srcs_exclude_glob else []
+    data_exclude_glob = json.decode(repository_ctx.attr.data_exclude_glob) if repository_ctx.attr.data_exclude_glob else []
+
     extra_deps = json.decode(repository_ctx.attr.extra_deps) if repository_ctx.attr.extra_deps else []
     extra_data = json.decode(repository_ctx.attr.extra_data) if repository_ctx.attr.extra_data else []
 
@@ -244,10 +247,14 @@ whl_apply_patches(
     src = ":whl",
     patches = {patches},
     patch_strip = {strip},
+    srcs_exclude_glob = {srcs_exclude_glob},
+    data_exclude_glob = {data_exclude_glob},
     visibility = ["//visibility:private"],
 )""".format(
                 patches = repr(post_install_patches),
                 strip = post_install_patch_strip,
+                srcs_exclude_glob = repr(srcs_exclude_glob),
+                data_exclude_glob = repr(data_exclude_glob),
             ),
         )
     else:
@@ -257,8 +264,13 @@ whl_apply_patches(
 whl_install(
     name = "actual_install",
     src = ":whl",
+    srcs_exclude_glob = {srcs_exclude_glob},
+    data_exclude_glob = {data_exclude_glob},
     visibility = ["//visibility:private"],
-)""",
+)""".format(
+                srcs_exclude_glob = repr(srcs_exclude_glob),
+                data_exclude_glob = repr(data_exclude_glob),
+            ),
         )
 
     if extra_deps or extra_data:
@@ -305,6 +317,8 @@ whl_install = repository_rule(
         "sbuild": attr.label(),
         "post_install_patches": attr.string(default = ""),
         "post_install_patch_strip": attr.int(default = 0),
+        "srcs_exclude_glob": attr.string(default = ""),
+        "data_exclude_glob": attr.string(default = ""),
         "extra_deps": attr.string(default = ""),
         "extra_data": attr.string(default = ""),
     },

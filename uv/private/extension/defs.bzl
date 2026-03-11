@@ -215,6 +215,8 @@ def _parse_projects(module_ctx, hub_specs):
                 has_modifications = (
                     override.pre_build_patches or
                     override.post_install_patches or
+                    override.srcs_exclude_glob or
+                    override.data_exclude_glob or
                     override.extra_deps or
                     override.extra_data
                 )
@@ -223,7 +225,7 @@ def _parse_projects(module_ctx, hub_specs):
                     fail("uv.override_package() for '{}': `target` is mutually exclusive with patch/exclude attributes. Use `target` for full replacement OR patch/exclude attributes for modifications, not both.".format(override.name))
 
                 if not has_target and not has_modifications:
-                    fail("uv.override_package() for '{}': must specify either `target` for full replacement or at least one modification attribute (pre_build_patches, post_install_patches, extra_deps, extra_data).".format(override.name))
+                    fail("uv.override_package() for '{}': must specify either `target` for full replacement or at least one modification attribute (pre_build_patches, post_install_patches, srcs_exclude_glob, data_exclude_glob, extra_deps, extra_data).".format(override.name))
 
                 package_overrides[override_key] = override
 
@@ -368,11 +370,15 @@ def _parse_projects(module_ctx, hub_specs):
                 pkg_override = package_overrides.get((normalize_name(package["name"]), package["version"]))
                 post_install_patches = []
                 post_install_patch_strip = 0
+                srcs_exclude_glob = []
+                data_exclude_glob = []
                 extra_deps = []
                 extra_data = []
                 if pkg_override and not pkg_override.target:
                     post_install_patches = [str(p) for p in pkg_override.post_install_patches]
                     post_install_patch_strip = pkg_override.post_install_patch_strip
+                    srcs_exclude_glob = pkg_override.srcs_exclude_glob
+                    data_exclude_glob = pkg_override.data_exclude_glob
                     extra_deps = [str(d) for d in pkg_override.extra_deps]
                     extra_data = [str(d) for d in pkg_override.extra_data]
 
@@ -384,6 +390,8 @@ def _parse_projects(module_ctx, hub_specs):
                     sbuild = "@{}//:whl".format(sbuild_id) if has_sbuild else None,
                     post_install_patches = post_install_patches,
                     post_install_patch_strip = post_install_patch_strip,
+                    srcs_exclude_glob = srcs_exclude_glob,
+                    data_exclude_glob = data_exclude_glob,
                     extra_deps = extra_deps,
                     extra_data = extra_data,
                 )
@@ -535,6 +543,10 @@ def _uv_impl(module_ctx):
         if install_cfg.post_install_patches:
             install_kwargs["post_install_patches"] = json.encode(install_cfg.post_install_patches)
             install_kwargs["post_install_patch_strip"] = install_cfg.post_install_patch_strip
+        if install_cfg.srcs_exclude_glob:
+            install_kwargs["srcs_exclude_glob"] = json.encode(install_cfg.srcs_exclude_glob)
+        if install_cfg.data_exclude_glob:
+            install_kwargs["data_exclude_glob"] = json.encode(install_cfg.data_exclude_glob)
         if install_cfg.extra_deps:
             install_kwargs["extra_deps"] = json.encode(install_cfg.extra_deps)
         if install_cfg.extra_data:
@@ -632,22 +644,14 @@ _override_package_tag = tag_class(
         ),
 
         # BUILD-level modifications to the generated py_library target.
-        #
-        # FIXME: srcs_exclude_glob and data_exclude_glob are not yet implemented.
-        # Implementing them requires either extending the Rust unpack tool to
-        # accept exclusion patterns at install time, or adding a post-install
-        # tree-filtering action that can selectively remove files from a tree
-        # artifact. The attrs are commented out to avoid exposing a non-functional
-        # API surface.
-        #
-        # "srcs_exclude_glob": attr.string_list(
-        #     default = [],
-        #     doc = "Glob patterns to exclude from the package's srcs (e.g. '**/tests/**').",
-        # ),
-        # "data_exclude_glob": attr.string_list(
-        #     default = [],
-        #     doc = "Glob patterns to exclude from the package's data.",
-        # ),
+        "srcs_exclude_glob": attr.string_list(
+            default = [],
+            doc = "Glob patterns to exclude from installed package srcs.",
+        ),
+        "data_exclude_glob": attr.string_list(
+            default = [],
+            doc = "Glob patterns to exclude from installed package data.",
+        ),
         "extra_deps": attr.label_list(
             default = [],
             doc = "Additional deps to add to the package's py_library target.",

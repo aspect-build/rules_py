@@ -1,3 +1,4 @@
+mod bazel_glob;
 pub mod pth;
 pub mod unpack;
 pub mod venv;

@@ -30,6 +30,8 @@ def _whl_apply_patches(ctx):
         "--python-version-minor",
         py_toolchain.interpreter_version_info.minor,
     ])
+    arguments.add_all(ctx.attr.srcs_exclude_glob, before_each = "--srcs-exclude-glob")
+    arguments.add_all(ctx.attr.data_exclude_glob, before_each = "--data-exclude-glob")
 
     unpack = ctx.attr._unpack[platform_common.ToolchainInfo].bin.bin
     ctx.actions.run(
@@ -100,6 +102,14 @@ that correctly provides PyInfo.""",
         "patch_strip": attr.int(
             default = 0,
             doc = "Strip count for patches (-p flag).",
+        ),
+        "srcs_exclude_glob": attr.string_list(
+            default = [],
+            doc = "Glob patterns for installed source files to remove before patching.",
+        ),
+        "data_exclude_glob": attr.string_list(
+            default = [],
+            doc = "Glob patterns for installed data files to remove before patching.",
         ),
         "_unpack": attr.label(
             default = "//py/private/toolchain:resolved_unpack_toolchain",
