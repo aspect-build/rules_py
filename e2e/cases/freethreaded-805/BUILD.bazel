@@ -3,10 +3,10 @@ load("@bazel_lib//lib:transitions.bzl", "platform_transition_test")
 
 platform(
     name = "freethreaded",
-    parents = ["@platforms//host"],
     flags = [
         "--@aspect_rules_py//py/private/interpreter:freethreaded=true",
     ],
+    parents = ["@platforms//host"],
 )
 
 py_venv_test(
