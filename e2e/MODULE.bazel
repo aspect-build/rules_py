@@ -60,17 +60,7 @@ oci.pull(
     ],
     tag = "latest",
 )
-oci.pull(
-    name = "distroless_cc",
-    digest = "sha256:329e54034ce498f9c6b345044e8f530c6691f99e94a92446f68c0adf9baa8464",
-    image = "gcr.io/distroless/cc-debian12",
-    platforms = [
-        "linux/arm64",
-        "linux/amd64",
-    ],
-    tag = "latest",
-)
-use_repo(oci, "distroless_cc", "distroless_cc_linux_amd64", "distroless_cc_linux_arm64", "ubuntu", "ubuntu_linux_amd64", "ubuntu_linux_arm64_v8")
+use_repo(oci, "ubuntu", "ubuntu_linux_amd64", "ubuntu_linux_arm64_v8")
 
 bazel_dep(name = "container_structure_test", version = "1.19.1")
 git_override(

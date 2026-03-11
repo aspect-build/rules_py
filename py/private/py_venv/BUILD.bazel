@@ -56,7 +56,6 @@ bzl_library(
         "//py/private/toolchain:types",
         "@bazel_lib//lib:expand_make_vars",
         "@bazel_lib//lib:paths",
-        "@hermetic_launcher//launcher:lib_bzl",
     ],
 )
 
