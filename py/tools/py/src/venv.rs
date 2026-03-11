@@ -452,28 +452,6 @@ aspect-runfiles-repo = {1}
         )
         .into_diagnostic()
         .wrap_err("Unable to create activate script")?;
-
-        // Write a simple KEY=VALUE env file for the hermetic launcher's
-        // venv_shim to read. The activate script uses shell `export` syntax
-        // which the native shim cannot parse directly.
-        let simple_env: String = envvars
-            .lines()
-            .filter_map(|line| {
-                let line = line.strip_prefix("export ").unwrap_or(line);
-                // Strip surrounding quotes from the value
-                if let Some((key, value)) = line.split_once('=') {
-                    let value = value.trim_matches('"');
-                    Some(format!("{}={}", key, value))
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>()
-            .join("\n");
-
-        fs::write(venv.home_dir.join(".aspect_env"), simple_env)
-            .into_diagnostic()
-            .wrap_err("Unable to create .aspect_env file")?;
     }
 
     // Create the site dir
