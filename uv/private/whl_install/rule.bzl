@@ -14,20 +14,23 @@ def _whl_install(ctx):
 
     unpack = ctx.attr._unpack[platform_common.ToolchainInfo].bin.bin
 
+    arguments = ctx.actions.args()
+    arguments.add_all([
+        unpack.path,
+        py_toolchain.interpreter.path,
+        "--into",
+        install_dir.path,
+        "--wheel",
+        archive.path,
+        "--python-version-major",
+        py_toolchain.interpreter_version_info.major,
+        "--python-version-minor",
+        py_toolchain.interpreter_version_info.minor,
+    ])
+
     ctx.actions.run(
         executable = ctx.file._install_script,
-        arguments = [
-            unpack.path,
-            py_toolchain.interpreter.path,
-            "--into",
-            install_dir.path,
-            "--wheel",
-            archive.path,
-            "--python-version-major",
-            py_toolchain.interpreter_version_info.major,
-            "--python-version-minor",
-            py_toolchain.interpreter_version_info.minor,
-        ],
+        arguments = [arguments],
         inputs = depset([archive], transitive = [py_toolchain.files]),
         tools = [unpack],
         outputs = [
