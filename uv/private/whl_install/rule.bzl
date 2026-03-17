@@ -12,6 +12,10 @@ def _whl_install(ctx):
 
     archive = ctx.attr.src[DefaultInfo].files.to_list()[0]
 
+    # Need to read the toolchain config from the unpack target so we can grab
+    # its bin and run it. Note that we have to do this dance in order to get the
+    # unpack toolchain in the "exec" rather than target config. This allows us
+    # to use unpack in crossbuild scenarios.
     unpack = ctx.attr._unpack[platform_common.ToolchainInfo].bin.bin
 
     arguments = ctx.actions.args()
