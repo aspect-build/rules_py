@@ -589,6 +589,49 @@ def _satisfies_real_world_protobuf_test_impl(ctx):
 
 satisfies_real_world_protobuf_test = unittest.make(_satisfies_real_world_protobuf_test_impl)
 
+def _satisfies_real_world_setuptools_tilde_test_impl(ctx):
+    """Regression: setuptools~=59.6 reported as unsupported."""
+    env = unittest.begin(ctx)
+
+    # ~=59.6 means >=59.6, <60.0
+    asserts.true(env, version_satisfies("59.6.0", "~=59.6"), "59.6.0 exact")
+    asserts.true(env, version_satisfies("59.6", "~=59.6"), "59.6 exact (no patch)")
+    asserts.true(env, version_satisfies("59.7", "~=59.6"), "59.7 in range")
+    asserts.true(env, version_satisfies("59.8.1", "~=59.6"), "59.8.1 in range")
+    asserts.true(env, version_satisfies("59.99.99", "~=59.6"), "59.99.99 in range")
+    asserts.false(env, version_satisfies("60.0", "~=59.6"), "60.0 upper bound")
+    asserts.false(env, version_satisfies("60.0.0", "~=59.6"), "60.0.0 above")
+    asserts.false(env, version_satisfies("59.5", "~=59.6"), "59.5 below")
+    asserts.false(env, version_satisfies("59.5.9", "~=59.6"), "59.5.9 below")
+    asserts.false(env, version_satisfies("58.0", "~=59.6"), "58.0 well below")
+
+    # find_matching_version with ~= specifier (conflict resolution scenario)
+    candidates = {
+        "59.6.0": ("proj", "setuptools", "59.6.0", "__base__"),
+        "75.8.0": ("proj", "setuptools", "75.8.0", "__base__"),
+    }
+    asserts.equals(
+        env,
+        ("proj", "setuptools", "59.6.0", "__base__"),
+        find_matching_version("~=59.6", candidates),
+        "~=59.6 selects 59.6.0 over 75.8.0",
+    )
+    asserts.equals(
+        env,
+        ("proj", "setuptools", "75.8.0", "__base__"),
+        find_matching_version("~=75.0", candidates),
+        "~=75.0 selects 75.8.0",
+    )
+    asserts.equals(
+        env,
+        None,
+        find_matching_version("~=70.0", candidates),
+        "~=70.0 matches neither",
+    )
+    return unittest.end(env)
+
+satisfies_real_world_setuptools_tilde_test = unittest.make(_satisfies_real_world_setuptools_tilde_test_impl)
+
 # =============================================================================
 # version_satisfies — boundary precision tests
 # =============================================================================
@@ -811,6 +854,8 @@ def versions_test_suite():
         satisfies_real_world_requests_test,
         # Real-world: protobuf (many exclusions)
         satisfies_real_world_protobuf_test,
+        # Real-world: setuptools ~= (regression)
+        satisfies_real_world_setuptools_tilde_test,
         # Boundary precision
         satisfies_boundary_precision_test,
         # find_matching_version
