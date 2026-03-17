@@ -186,12 +186,12 @@ uv.project(
 )
 # }}}
 
-# For cases/uv-conflict-tilde
+# For cases/uv-conflict-tilde-856
 # {{{
 uv.project(
     hub_name = "pypi",
-    lock = "//cases/uv-conflict-tilde:uv.lock",
-    pyproject = "//cases/uv-conflict-tilde:pyproject.toml",
+    lock = "//cases/uv-conflict-tilde-856:uv.lock",
+    pyproject = "//cases/uv-conflict-tilde-856:pyproject.toml",
 )
 # }}}
 
