@@ -1,0 +1,15 @@
+# Regression test: abi3 wheel compatibility must be propagated to newer
+# Python minors. cryptography ships cp311-abi3 wheels that Python 3.12
+# should recognize as compatible (PEP 652).
+
+load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
+
+py_venv_test(
+    name = "test_import",
+    srcs = ["test_abi3.py"],
+    main = "test_abi3.py",
+    python_version = "3.12",
+    venv = "abi3-compat",
+    deps = ["@pypi//cryptography"],
+    target_compatible_with = ["@platforms//os:linux"],
+)

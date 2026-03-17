@@ -1,3 +1,5 @@
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+
 def supported_python(python_tag):
     """Predicate.
 
@@ -28,10 +30,8 @@ def supported_python(python_tag):
     else:
         return False
 
-# Vendored from rules_python's config_settings.bzl
-# TODO: At least make this
-_PYTHON_VERSION_FLAG = Label("@rules_python//python/config_settings:python_version")
 _PYTHON_VERSION_MAJOR_MINOR_FLAG = Label("@rules_python//python/config_settings:python_version_major_minor")
+_ARPY_PYTHON_VERSION_FLAG = Label("@aspect_rules_py//py/private/interpreter:python_version")
 
 def is_python_version_at_least(name, version = None, visibility = visibility, **kwargs):
     version = version or name
@@ -51,17 +51,33 @@ def is_python_version_at_least(name, version = None, visibility = visibility, **
     )
 
 def _python_version_at_least_impl(ctx):
-    flag_value = ctx.attr._major_minor[config_common.FeatureFlagInfo].value
+    # Read from both sources
+    rpy_value = ctx.attr._major_minor[config_common.FeatureFlagInfo].value
+    arpy_raw = ctx.attr._arpy_version[BuildSettingInfo].value
 
-    # CI is, somehow, getting an empty string for the current flag value.
-    # How isn't clear.
+    # Normalize aspect_rules_py flag to major.minor
+    arpy_value = ""
+    if arpy_raw:
+        parts = arpy_raw.split(".")
+        if len(parts) >= 2:
+            arpy_value = "{}.{}".format(parts[0], parts[1])
+
+    # Error on disagreement when both are set
+    if arpy_value and rpy_value and arpy_value != rpy_value:
+        fail(
+            "Python version mismatch: " +
+            "@aspect_rules_py//py/private/interpreter:python_version is {}, ".format(arpy_value) +
+            "but @rules_python python_version_major_minor is {}. ".format(rpy_value) +
+            "These must agree.",
+        )
+
+    # Aspect flag is authoritative; rules_python is fallback
+    flag_value = arpy_value or rpy_value
+
     if not flag_value:
         return [config_common.FeatureFlagInfo(value = "no")]
 
-    current = tuple([
-        int(x)
-        for x in flag_value.split(".")
-    ])
+    current = tuple([int(x) for x in flag_value.split(".")])
     at_least = tuple([int(x) for x in ctx.attr.at_least.split(".")])
 
     value = "yes" if current >= at_least else "no"
@@ -72,5 +88,6 @@ _python_version_at_least = rule(
     attrs = {
         "at_least": attr.string(mandatory = True),
         "_major_minor": attr.label(default = _PYTHON_VERSION_MAJOR_MINOR_FLAG),
+        "_arpy_version": attr.label(default = _ARPY_PYTHON_VERSION_FLAG),
     },
 )
