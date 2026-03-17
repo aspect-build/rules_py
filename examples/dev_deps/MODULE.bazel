@@ -1,0 +1,32 @@
+"Dev dependencies example"
+
+bazel_dep(name = "aspect_rules_py")
+bazel_dep(name = "bazel_skylib", version = "1.4.2")
+bazel_dep(name = "rules_cc", version = "0.2.16")
+bazel_dep(name = "rules_python", version = "1.0.0")
+bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "toolchains_llvm_bootstrapped", version = "0.3.1")
+
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../..",
+)
+
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(
+    is_default = True,
+    python_version = "3.11",
+)
+
+uv = use_extension("@aspect_rules_py//uv/unstable:extension.bzl", "uv")
+uv.declare_hub(hub_name = "pypi")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "setuptools",
+    ],
+    hub_name = "pypi",
+    lock = "//:uv.lock",
+    pyproject = "//:pyproject.toml",
+)
+use_repo(uv, "pypi")
