@@ -12,30 +12,30 @@ def _whl_install(ctx):
 
     archive = ctx.attr.src[DefaultInfo].files.to_list()[0]
 
-    arguments = ctx.actions.args()
-    arguments.add_all([
-        "--into",
-        install_dir.path,
-        "--wheel",
-        archive.path,
-        "--python-version-major",
-        py_toolchain.interpreter_version_info.major,
-        "--python-version-minor",
-        py_toolchain.interpreter_version_info.minor,
-    ])
-
-    # Need to read the toolchain config from the unpack target so we can grab
-    # its bin and run it. Note that we have to do this dance in order to get the
-    # unpack toolchain in the "exec" rather than target config. This allows us
-    # to use unpack in crossbuild scenarios.
     unpack = ctx.attr._unpack[platform_common.ToolchainInfo].bin.bin
+
     ctx.actions.run(
-        executable = unpack,
-        arguments = [arguments],
-        inputs = [archive],
+        executable = ctx.file._install_script,
+        arguments = [
+            unpack.path,
+            py_toolchain.interpreter.path,
+            "--into",
+            install_dir.path,
+            "--wheel",
+            archive.path,
+            "--python-version-major",
+            py_toolchain.interpreter_version_info.major,
+            "--python-version-minor",
+            py_toolchain.interpreter_version_info.minor,
+        ],
+        inputs = depset([archive], transitive = [py_toolchain.files]),
+        tools = [unpack],
         outputs = [
             install_dir,
         ],
+        mnemonic = "WhlInstall",
+        progress_message = "Installing wheel %{label}",
+        use_default_shell_env = True,
     )
 
     return [
@@ -70,16 +70,19 @@ Private implementation detail of aspect_rules_py//uv.
 
 Installing wheels as a Bazel build action, rather than a repo step.
 
-We implement wheel installation without an interpreter (or even uv) by using our
-unpack tool, which uses a subset of UV's machinery. Critically, this allows us
-to bypass some of the platform checks that UV does to enable crossbuilds, and is
-lighter weight since the toolchain's files aren't inputs.
+We implement wheel installation without by using our unpack tool, which
+uses a subset of UV's machinery. Critically, this allows us to bypass some
+of the platform checks that UV does, to enable crossbuilds.
 """,
     attrs = {
         "src": attr.label(doc = "The wheel to install, or a tree artifact containing exactly one wheel at its root."),
         "_unpack": attr.label(
             default = "//py/private/toolchain:resolved_unpack_toolchain",
             cfg = "exec",
+        ),
+        "_install_script": attr.label(
+            default = "//uv/private/whl_install:install_wheel.sh",
+            allow_single_file = True,
         ),
     },
     toolchains = [

@@ -47,6 +47,8 @@ def _whl_apply_patches(ctx):
     patch_files = [f for t in ctx.attr.patches for f in t[DefaultInfo].files.to_list()]
 
     patch_args = [
+        "--python",
+        py_toolchain.interpreter.path,
         str(ctx.attr.patch_strip),
         unpatched_dir.path,
         install_dir.path,
@@ -55,7 +57,7 @@ def _whl_apply_patches(ctx):
     ctx.actions.run(
         executable = ctx.file._apply_script,
         arguments = patch_args,
-        inputs = [unpatched_dir] + patch_files,
+        inputs = depset([unpatched_dir] + patch_files, transitive = [py_toolchain.files]),
         outputs = [install_dir],
         mnemonic = "WhlApplyPatches",
         progress_message = "Applying %d patch(es) to %s" % (len(patch_files), ctx.label.name),

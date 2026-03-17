@@ -6,6 +6,8 @@ package(default_visibility = [
     "//uv/private:__subpackages__",
 ])
 
+exports_files(["install_wheel.sh"])
+
 bzl_library(
     name = "rule",
     srcs = ["rule.bzl"],
