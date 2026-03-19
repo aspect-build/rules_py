@@ -57,11 +57,15 @@ if __name__ == "__main__":
     plugins = []
     args = [
         "--verbose",
-        "--ignore=external/",
         # Avoid loading of the plugin "cacheprovider".
         "-p",
         "no:cacheprovider",
     ]
+
+    # Ignore the legacy external/ symlink tree that Bazel may create
+    # in WORKSPACE mode or as a compat shim under bzlmod.
+    if os.path.isdir("external"):
+        args.extend(["--ignore", "external"])
 
     junit_xml_out = os.environ.get("XML_OUTPUT_FILE")
     if junit_xml_out is not None:
@@ -97,6 +101,25 @@ if __name__ == "__main__":
     cli_args = sys.argv[1:]
     if len(cli_args) > 0:
         args.extend(cli_args)
+
+    # Read the pytest paths args file written by the pytest_paths rule.
+    # Contains directories (one per line) where pytest should search for tests,
+    # relative to the workspace root (which is CWD at test time).  When present,
+    # these are passed as positional args so pytest collects only from those
+    # directories instead of autodiscovering from CWD.
+    target_name = os.environ.get("BAZEL_TARGET_NAME", "")
+    target = os.environ.get("BAZEL_TARGET", "")
+    if target:
+        package = target.split(":")[0].lstrip("/")
+        paths_file = os.path.join(package, target_name + ".pytest_paths")
+        if os.path.isfile(paths_file):
+            with open(paths_file) as f:
+                for line in f:
+                    d = line.strip()
+                    if not d:
+                        continue
+                    if os.path.isdir(d):
+                        args.append(d)
 
     exit_code = pytest.main(args, plugins=plugins)
 

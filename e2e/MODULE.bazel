@@ -271,4 +271,14 @@ uv.project(
 )
 # }}}
 
+# For cases/pytest-main-867
+# Cross-repo pytest_main=True regression test.
+# {{{
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/pytest-main-867:uv.lock",
+    pyproject = "//cases/pytest-main-867:pyproject.toml",
+)
+# }}}
+
 use_repo(uv, "pypi")

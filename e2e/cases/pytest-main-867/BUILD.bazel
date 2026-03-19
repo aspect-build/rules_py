@@ -1,0 +1,30 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+# Regression test for #867: cross-repo pytest_main=True must discover tests
+# in the consumer repo, not autodiscover from the runfiles root.
+py_test(
+    name = "test_example",
+    srcs = ["test_example.py"],
+    pytest_main = True,
+    venv = "pytest-main-867",
+    deps = ["@pypi//pytest"],
+)
+
+# Regression test for #723: test targets named test_* must work with
+# pytest_main without pytest discovering the generated main script.
+py_test(
+    name = "test_naming_regression",
+    srcs = ["test_example.py"],
+    pytest_main = True,
+    venv = "pytest-main-867",
+    deps = ["@pypi//pytest"],
+)
+
+# Auto-detection: pytest_main is not set, main is not set, and there's no
+# test_auto_detect.py in srcs, so pytest_main should be inferred.
+py_test(
+    name = "test_auto_detect",
+    srcs = ["test_example.py"],
+    venv = "pytest-main-867",
+    deps = ["@pypi//pytest"],
+)
