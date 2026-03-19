@@ -232,34 +232,30 @@ py_library(
     extra_deps = json.decode(repository_ctx.attr.extra_deps) if repository_ctx.attr.extra_deps else []
     extra_data = json.decode(repository_ctx.attr.extra_data) if repository_ctx.attr.extra_data else []
 
+    compile_pyc_select = """select({
+        "@aspect_rules_py//uv/private/pyc:is_precompile": True,
+        "//conditions:default": False,
+    })"""
+
+    install_attrs = """
+    src = ":whl",
+    compile_pyc = {compile_pyc},""".format(compile_pyc = compile_pyc_select)
+
     if post_install_patches:
-        # Use the combined whl_apply_patches rule that preserves PyInfo
-        content.append(
-            "load(\"@aspect_rules_py//uv/private/apply_patches:whl_apply_patches.bzl\", \"whl_apply_patches\")",
-        )
-        content.append(
-            """
-whl_apply_patches(
-    name = "actual_install",
-    src = ":whl",
+        install_attrs += """
     patches = {patches},
-    patch_strip = {strip},
-    visibility = ["//visibility:private"],
-)""".format(
-                patches = repr(post_install_patches),
-                strip = post_install_patch_strip,
-            ),
+    patch_strip = {strip},""".format(
+            patches = repr(post_install_patches),
+            strip = post_install_patch_strip,
         )
-    else:
-        # No patches, use standard whl_install
-        content.append(
-            """
+
+    content.append(
+        """
 whl_install(
-    name = "actual_install",
-    src = ":whl",
+    name = "actual_install",{attrs}
     visibility = ["//visibility:private"],
-)""",
-        )
+)""".format(attrs = install_attrs),
+    )
 
     if extra_deps or extra_data:
         # When extra deps/data are needed, wrap in a py_library instead of alias
