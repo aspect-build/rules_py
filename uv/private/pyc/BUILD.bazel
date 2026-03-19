@@ -1,7 +1,5 @@
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 
-exports_files(["compile_pyc.py"])
-
 bool_flag(
     name = "precompile",
     build_setting_default = False,

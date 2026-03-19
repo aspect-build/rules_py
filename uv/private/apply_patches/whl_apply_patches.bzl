@@ -41,7 +41,7 @@ def _whl_apply_patches(ctx):
         progress_message = "Installing wheel for %s" % ctx.label.name,
     )
 
-    # Step 2: Copy and apply patches
+    # Step 2: Copy and apply patches (and optionally compile .pyc)
     install_dir = ctx.actions.declare_directory("install")
 
     patch_files = [f for t in ctx.attr.patches for f in t[DefaultInfo].files.to_list()]
@@ -50,12 +50,20 @@ def _whl_apply_patches(ctx):
         str(ctx.attr.patch_strip),
         unpatched_dir.path,
         install_dir.path,
-    ] + [f.path for f in patch_files]
+    ]
+
+    patch_inputs = [unpatched_dir] + patch_files
+
+    if ctx.attr.compile_pyc:
+        patch_args += ["--compile-pyc", py_toolchain.interpreter.path]
+        patch_inputs = patch_inputs + [py_toolchain.interpreter] + py_toolchain.files.to_list()
+
+    patch_args += [f.path for f in patch_files]
 
     ctx.actions.run(
         executable = ctx.file._apply_script,
         arguments = patch_args,
-        inputs = [unpatched_dir] + patch_files,
+        inputs = patch_inputs,
         outputs = [install_dir],
         mnemonic = "WhlApplyPatches",
         progress_message = "Applying %d patch(es) to %s" % (len(patch_files), ctx.label.name),
@@ -91,6 +99,10 @@ that correctly provides PyInfo.""",
         "src": attr.label(
             mandatory = True,
             doc = "The wheel to install.",
+        ),
+        "compile_pyc": attr.bool(
+            default = False,
+            doc = "Pre-compile .pyc bytecode after patching.",
         ),
         "patches": attr.label_list(
             mandatory = True,

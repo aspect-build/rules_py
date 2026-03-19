@@ -110,7 +110,6 @@ def _whl_install_impl(repository_ctx):
     select_arms = {}
     content = [
         "load(\"@aspect_rules_py//py:defs.bzl\", \"py_library\")",
-        "load(\"@aspect_rules_py//uv/private/pyc:rule.bzl\", \"whl_compile_pyc\")",
         "load(\"@aspect_rules_py//uv/private/whl_install:defs.bzl\", \"select_chain\")",
         "load(\"@aspect_rules_py//uv/private/whl_install:rule.bzl\", \"whl_install\")",
         "load(\"@bazel_skylib//lib:selects.bzl\", \"selects\")",
@@ -233,6 +232,11 @@ py_library(
     extra_deps = json.decode(repository_ctx.attr.extra_deps) if repository_ctx.attr.extra_deps else []
     extra_data = json.decode(repository_ctx.attr.extra_data) if repository_ctx.attr.extra_data else []
 
+    compile_pyc_select = """select({
+        "@aspect_rules_py//uv/private/pyc:is_precompile": True,
+        "//conditions:default": False,
+    })"""
+
     if post_install_patches:
         # Use the combined whl_apply_patches rule that preserves PyInfo
         content.append(
@@ -245,10 +249,12 @@ whl_apply_patches(
     src = ":whl",
     patches = {patches},
     patch_strip = {strip},
+    compile_pyc = {compile_pyc},
     visibility = ["//visibility:private"],
 )""".format(
                 patches = repr(post_install_patches),
                 strip = post_install_patch_strip,
+                compile_pyc = compile_pyc_select,
             ),
         )
     else:
@@ -258,29 +264,13 @@ whl_apply_patches(
 whl_install(
     name = "actual_install",
     src = ":whl",
+    compile_pyc = {compile_pyc},
     visibility = ["//visibility:private"],
-)""",
+)""".format(
+                compile_pyc = compile_pyc_select,
+            ),
         )
 
-    # Optional .pyc pre-compilation stage, gated by a build flag.
-    content.append(
-        """
-whl_compile_pyc(
-    name = "compiled_install",
-    src = ":actual_install",
-    visibility = ["//visibility:private"],
-)
-
-alias(
-    name = "_lib_install",
-    actual = select({
-        "@aspect_rules_py//uv/private/pyc:is_precompile": ":compiled_install",
-        "//conditions:default": ":actual_install",
-    }),
-    visibility = ["//visibility:private"],
-)
-""",
-    )
 
     if extra_deps or extra_data:
         # When extra deps/data are needed, wrap in a py_library instead of alias
@@ -291,7 +281,7 @@ py_library(
     srcs = [],
     deps = [
         select({{
-            "@aspect_rules_py//uv/private/constraints:libs_are_libs": ":_lib_install",
+            "@aspect_rules_py//uv/private/constraints:libs_are_libs": ":actual_install",
             "@aspect_rules_py//uv/private/constraints:libs_are_whls": ":whl_lib",
         }}),
     ] + {extra_deps},
@@ -309,7 +299,7 @@ py_library(
 alias(
     name = "install",
     actual = select({
-        "@aspect_rules_py//uv/private/constraints:libs_are_libs": ":_lib_install",
+        "@aspect_rules_py//uv/private/constraints:libs_are_libs": ":actual_install",
         "@aspect_rules_py//uv/private/constraints:libs_are_whls": ":whl_lib",
     }),
     visibility = ["//visibility:public"],

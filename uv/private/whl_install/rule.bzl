@@ -24,6 +24,14 @@ def _whl_install(ctx):
         py_toolchain.interpreter_version_info.minor,
     ])
 
+    inputs = [archive]
+
+    if ctx.attr.compile_pyc:
+        arguments.add("--compile-pyc")
+        arguments.add("--python")
+        arguments.add(py_toolchain.interpreter.path)
+        inputs = inputs + [py_toolchain.interpreter] + py_toolchain.files.to_list()
+
     # Need to read the toolchain config from the unpack target so we can grab
     # its bin and run it. Note that we have to do this dance in order to get the
     # unpack toolchain in the "exec" rather than target config. This allows us
@@ -32,7 +40,7 @@ def _whl_install(ctx):
     ctx.actions.run(
         executable = unpack,
         arguments = [arguments],
-        inputs = [archive],
+        inputs = inputs,
         outputs = [
             install_dir,
         ],
@@ -77,6 +85,10 @@ lighter weight since the toolchain's files aren't inputs.
 """,
     attrs = {
         "src": attr.label(doc = "The wheel to install, or a tree artifact containing exactly one wheel at its root."),
+        "compile_pyc": attr.bool(
+            default = False,
+            doc = "Pre-compile .pyc bytecode after unpacking.",
+        ),
         "_unpack": attr.label(
             default = "//py/private/toolchain:resolved_unpack_toolchain",
             cfg = "exec",
