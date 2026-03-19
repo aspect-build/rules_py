@@ -241,6 +241,16 @@ uv.unstable_annotate_packages(
 )
 # }}}
 
+# For cases/uv-abi3-compat-853
+# Regression: abi3 wheel compatibility must propagate to newer Python minors.
+# {{{
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/uv-abi3-compat-853:uv.lock",
+    pyproject = "//cases/uv-abi3-compat-853:pyproject.toml",
+)
+# }}}
+
 # For cases/uv-platform-filter-844
 # Regression: watchdog ships win_ia64 wheels that must be filtered out.
 # {{{

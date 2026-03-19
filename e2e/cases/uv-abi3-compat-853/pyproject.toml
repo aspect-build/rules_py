@@ -1,0 +1,9 @@
+[project]
+name = "abi3-compat"
+version = "0.0.0"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "cryptography==46.0.5",
+    "build>=1.4.0",
+    "setuptools>=82.0.1",
+]
