@@ -39,7 +39,7 @@ def _py_unpacked_wheel_impl(ctx):
         ),
         "site-packages",
     )
-    imports = _py_library.make_imports_depset(ctx, imports = [import_path])
+    imports = _py_library.make_imports_depset(ctx, imports = [import_path], include_repo_import = False)
 
     return [
         DefaultInfo(

@@ -133,18 +133,19 @@ def _make_import_path(label, workspace, imp):
     else:
         return paths.normalize(paths.join(workspace, label.package, imp))
 
-def _make_imports_depset(ctx, imports = [], extra_imports_depsets = []):
+def _make_imports_depset(ctx, imports = [], extra_imports_depsets = [], include_repo_import = True):
     import_paths = [
         _make_import_path(ctx.label, ctx.label.workspace_name or ctx.workspace_name, im)
         for im in getattr(ctx.attr, "imports", imports)
-    ] + [
-        # Add the workspace name in the imports such that repo-relative imports work.
-        ctx.workspace_name,
     ]
 
-    # Handle the case where its a target from an external workspace that uses repo-relative imports
-    if ctx.label.workspace_name:
-        import_paths.append(ctx.label.workspace_name)
+    if include_repo_import:
+        # Add the workspace name in the imports such that repo-relative imports work.
+        import_paths.append(ctx.workspace_name)
+
+        # Handle the case where its a target from an external workspace that uses repo-relative imports
+        if ctx.label.workspace_name:
+            import_paths.append(ctx.label.workspace_name)
 
     return depset(
         direct = import_paths,
