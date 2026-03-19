@@ -139,7 +139,8 @@ def test_fortran():
     })
     result = detect(archive, {})
     assert result["is_native"] is True
-    assert "numpy" in result["inferred_build_requires"]
+    # Fortran is detected as native but we don't infer any specific build dep
+    assert result["inferred_build_requires"] == []
 
 
 # --- pyproject.toml parsing ---

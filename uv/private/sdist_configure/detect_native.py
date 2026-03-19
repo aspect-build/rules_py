@@ -42,14 +42,12 @@ NATIVE_EXTENSIONS = frozenset({
 })
 
 # Map from file extensions to build-time package dependencies.
+# Note: C/C++ extensions are handled natively by setuptools and don't need
+# extra deps. Fortran has no reliable default build dep to infer.
 EXTENSION_TO_BUILD_DEP = {
     ".pyx": "cython",
     ".pxd": "cython",
     ".rs": "setuptools-rust",
-    ".f": "numpy",
-    ".f90": "numpy",
-    ".f95": "numpy",
-    ".for": "numpy",
 }
 
 _REQ_NAME_RE = re.compile(r"^([A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?)")

@@ -2,17 +2,22 @@
 Actually building sdists.
 """
 
+load("@bazel_tools//tools/cpp:toolchain_utils.bzl", find_cc_toolchain = "find_cpp_toolchain")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "TARGET_EXEC_TOOLCHAIN")
 load("//uv/private:defs.bzl", "lib_mode_transition")
 
-def _sdist_build(ctx):
-    archive = ctx.attr.src[DefaultInfo].files.to_list()[0]
+CC_TOOLCHAIN = "@bazel_tools//tools/cpp:toolchain_type"
 
-    wheel_dir = ctx.actions.declare_directory(
-        "whl",
-    )
+def _common_env(ctx):
+    return {
+        "SETUPTOOLS_SCM_PRETEND_VERSION": ctx.attr.version,
+        # Determinism: fix hash seed so dict/set iteration order is stable
+        "PYTHONHASHSEED": "0",
+        # Determinism: reproducible timestamps in archives
+        "SOURCE_DATE_EPOCH": "0",
+    } | ctx.configuration.default_shell_env
 
-    # Build patch arguments if pre_build_patches are specified
+def _patch_args_and_inputs(ctx):
     patch_args = []
     patch_inputs = []
     if ctx.attr.pre_build_patches:
@@ -21,6 +26,12 @@ def _sdist_build(ctx):
             for f in target[DefaultInfo].files.to_list():
                 patch_args.extend(["--patch", f.path])
                 patch_inputs.append(f)
+    return patch_args, patch_inputs
+
+def _sdist_build(ctx):
+    archive = ctx.attr.src[DefaultInfo].files.to_list()[0]
+    wheel_dir = ctx.actions.declare_directory("whl")
+    patch_args, patch_inputs = _patch_args_and_inputs(ctx)
 
     # The build tool is a py_venv_binary wrapping build_helper.py. Using it as
     # a tool (not just an input) causes Bazel to materialize its runfiles in
@@ -35,30 +46,49 @@ def _sdist_build(ctx):
             archive.path,
             wheel_dir.path,
         ],
-        inputs = [
-            archive,
-        ] + patch_inputs,
+        inputs = [archive] + patch_inputs,
         tools = [ctx.attr.tool[DefaultInfo].files_to_run],
-        outputs = [
-            wheel_dir,
-        ],
-        env = {
-            "SETUPTOOLS_SCM_PRETEND_VERSION": ctx.attr.version,
-            # Determinism: fix hash seed so dict/set iteration order is stable
-            "PYTHONHASHSEED": "0",
-            # Determinism: reproducible timestamps in archives
-            "SOURCE_DATE_EPOCH": "0",
-        } | ctx.configuration.default_shell_env,
+        outputs = [wheel_dir],
+        env = _common_env(ctx),
         exec_group = "target",
     )
 
-    return [
-        DefaultInfo(
-            files = depset([
-                wheel_dir,
-            ]),
+    return [DefaultInfo(files = depset([wheel_dir]))]
+
+def _sdist_native_build(ctx):
+    archive = ctx.attr.src[DefaultInfo].files.to_list()[0]
+    wheel_dir = ctx.actions.declare_directory("whl")
+    patch_args, patch_inputs = _patch_args_and_inputs(ctx)
+
+    env = _common_env(ctx)
+    extra_inputs = []
+
+    # Resolve the CC toolchain so setuptools/distutils can find the compiler
+    # rather than falling back to whatever is on the system PATH.
+    cc_toolchain = find_cc_toolchain(ctx, mandatory = False)
+    if cc_toolchain:
+        env["CC"] = cc_toolchain.compiler_executable
+        extra_inputs.append(cc_toolchain.all_files)
+
+    ctx.actions.run(
+        mnemonic = "PySdistNativeBuild",
+        progress_message = "Native source compiling {} to a whl".format(archive.basename),
+        executable = ctx.executable.tool,
+        arguments = ctx.attr.args + patch_args + [
+            archive.path,
+            wheel_dir.path,
+        ],
+        inputs = depset(
+            [archive] + patch_inputs,
+            transitive = extra_inputs,
         ),
-    ]
+        tools = [ctx.attr.tool[DefaultInfo].files_to_run],
+        outputs = [wheel_dir],
+        env = env,
+        exec_group = "target",
+    )
+
+    return [DefaultInfo(files = depset([wheel_dir]))]
 
 _PATCH_ATTRS = {
     "pre_build_patches": attr.label_list(
@@ -99,12 +129,16 @@ specified Python dependencies under the configured Python toochain.
 )
 
 sdist_native_build = rule(
-    implementation = _sdist_build,
-    doc = """Sdist to whl build rule.
+    implementation = _sdist_native_build,
+    doc = """Sdist to whl build rule for packages with native/compiled code.
 
 Consumes a sdist artifact and performs a build of that artifact with the
-specified Python dependencies under the configured Python toochain to produce a
+specified Python dependencies under the configured Python toolchain to produce a
 platform-specific bdist we can subsequently install or deploy.
+
+The CC toolchain is resolved and `$CC` is set in the build environment so
+that setuptools/distutils can find the hermetic compiler rather than falling
+back to whatever is on the system PATH.
 
 The build is guaranteed to occur on an execution platform matching the
 constraints of the target platform.
@@ -112,6 +146,9 @@ constraints of the target platform.
 """,
     attrs = _sdist_build_attrs | {
         "args": attr.string_list(),
+        "_cc_toolchain": attr.label(
+            default = Label("@bazel_tools//tools/cpp:current_cc_toolchain"),
+        ),
     },
     exec_groups = {
         # Create an exec group which depends on a toolchain which can only be
@@ -121,8 +158,13 @@ constraints of the target platform.
             toolchains = [
                 PY_TOOLCHAIN,
                 TARGET_EXEC_TOOLCHAIN,
+                CC_TOOLCHAIN,
             ],
         ),
     },
+    toolchains = [
+        config_common.toolchain_type(CC_TOOLCHAIN, mandatory = False),
+    ],
+    fragments = ["cpp"],
     cfg = lib_mode_transition,
 )
