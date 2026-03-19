@@ -4,6 +4,8 @@ load(":version_util_test.bzl", "version_util_test_suite")
 
 package(default_visibility = ["//visibility:public"])
 
+exports_files(["probe_interpreter.py"])
+
 string_flag(
     name = "python_version",
     build_setting_default = "",
