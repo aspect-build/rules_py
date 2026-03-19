@@ -113,22 +113,7 @@ def py_binary(name, srcs = [], main = None, **kwargs):
         **kwargs
     )
 
-def _can_resolve_main(name, srcs):
-    """Check whether the implicit main resolution heuristic would succeed.
-
-    Returns True if:
-    - There is exactly one src (it becomes the main), or
-    - Any string src ends with {name}.py
-    """
-    if len(srcs) == 1:
-        return True
-    expected = name + ".py"
-    for s in srcs:
-        if type(s) == "string" and (s == expected or s.endswith("/" + expected)):
-            return True
-    return False
-
-def py_test(name, srcs = [], main = None, pytest_main = None, **kwargs):
+def py_test(name, srcs = [], main = None, pytest_main = False, **kwargs):
     """Identical to [py_binary](./py_binary.md), but produces a target that can be used with `bazel test`.
 
     Args:
@@ -140,20 +125,11 @@ def py_test(name, srcs = [], main = None, pytest_main = None, **kwargs):
             that is used as the main.
         pytest_main: If True, use a shared pytest entry point as the main.
             The deps should include the pytest package (as well as the coverage package if desired).
-            When not set and no main can be inferred from srcs, pytest_main is enabled automatically.
         **kwargs: additional named parameters to `py_binary_rule`.
     """
 
     # Ensure that any other targets we write will be testonly like the py_test target
     kwargs["testonly"] = True
-
-    # Auto-detect: if no main is specified and implicit resolution would fail,
-    # enable pytest_main rather than letting the build error.
-    if pytest_main == None:
-        if main != None or _can_resolve_main(name, srcs):
-            pytest_main = False
-        else:
-            pytest_main = True
 
     # For a clearer DX when updating resolutions, the resolutions dict is "string" -> "label",
     # where the rule attribute is a label-keyed-dict, so reverse them here.
