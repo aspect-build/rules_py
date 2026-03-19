@@ -32,7 +32,7 @@ NATIVE_EXTENSIONS = frozenset({
     # C
     ".c",
     # C++
-    ".cc", ".cpp", ".cxx", ".hh",
+    ".cc", ".cpp", ".cxx",
     # Cython
     ".pyx", ".pxd",
     # Fortran
