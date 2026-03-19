@@ -68,7 +68,10 @@ def py_pytest_main(name, py_library = default_py_library, deps = [], data = [], 
         **kwargs: The extra arguments passed to the template rendering target.
     """
 
-    test_main = name + ".py"
+    # Use __test__<name>__.py so pytest won't discover the generated main
+    # as a test module (see #723). The double-underscore wrapping signals
+    # "internal/dunder" to pytest's default collection rules.
+    test_main = "__test__" + name + "__.py"
     tags = kwargs.pop("tags", [])
     visibility = kwargs.pop("visibility", [])
 

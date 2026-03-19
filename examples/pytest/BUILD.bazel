@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_library", "py_test")
+load("@aspect_rules_py//py:defs.bzl", "py_library", "py_pytest_main", "py_test")
 
 py_library(
     name = "lib",
@@ -55,4 +55,27 @@ py_test(
         "main_test.py",
     ],
     main = ":main_test.py",
+)
+
+# Regression test for #723: test targets named test_* must work with
+# py_pytest_main without pytest discovering the generated main script.
+py_pytest_main(
+    name = "test_naming_723_main",
+)
+
+py_test(
+    name = "test_naming_723",
+    srcs = [
+        "foo_test.py",
+        ":test_naming_723_main",
+    ],
+    data = glob(["fixtures/*.json"]),
+    imports = ["../.."],
+    main = ":__test__test_naming_723_main__.py",
+    package_collisions = "warning",
+    deps = [
+        ":lib",
+        ":test_naming_723_main",
+        "@pypi//pytest",
+    ],
 )
