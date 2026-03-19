@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@aspect_rules_py//py:defs.bzl", "py_pytest_main", "py_test")
 
 # Regression test for #867: cross-repo pytest_main=True must discover tests
 # in the consumer repo, not autodiscover from the runfiles root.
@@ -18,4 +18,50 @@ py_test(
     pytest_main = True,
     venv = "pytest-main-867",
     deps = ["@pypi//pytest"],
+)
+
+# Regression test for #723: multiple test sources with a test_* target name.
+# This is the exact reproduction scenario — the old codegen would create
+# test_multi_src_pytest_main.py which pytest would discover as a test module.
+py_test(
+    name = "test_multi_src",
+    srcs = [
+        "test_a.py",
+        "test_b.py",
+    ],
+    pytest_main = True,
+    venv = "pytest-main-867",
+    deps = ["@pypi//pytest"],
+)
+
+# Verify pytest collects only the expected tests and no spurious files.
+# Uses --collect-only to introspect what pytest sees.
+py_test(
+    name = "test_collection_check",
+    srcs = ["test_collection_check.py"],
+    pytest_main = True,
+    venv = "pytest-main-867",
+    deps = ["@pypi//pytest"],
+)
+
+# Regression test for #723 via direct py_pytest_main() with test_* name
+# (cross-repo). Validates that the dunder-wrapped output (__test__<name>__.py)
+# is not discovered by pytest even in cross-repo usage.
+py_pytest_main(
+    name = "test_direct_main",
+    tags = ["manual"],
+)
+
+py_test(
+    name = "test_direct_pytest_main",
+    srcs = [
+        "test_a.py",
+        ":test_direct_main",
+    ],
+    main = ":__test__test_direct_main__.py",
+    venv = "pytest-main-867",
+    deps = [
+        ":test_direct_main",
+        "@pypi//pytest",
+    ],
 )
