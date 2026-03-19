@@ -113,6 +113,7 @@ def _log_build_dep_info(repository_ctx, inspection):
 
     if build_requires or inferred:
         all_names = sorted(set(build_requires + inferred))
+
         # buildifier: disable=print
         print("Build deps discovered for {}: {}{}".format(
             repository_ctx.name,

@@ -54,10 +54,10 @@ resolved dependencies available in the `@uv` repository.
 load("@bazel_features//:features.bzl", features = "bazel_features")
 load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+load("//py/private/interpreter:resolve.bzl", "resolve_host_interpreter_label")
 load("//uv/private:normalize_name.bzl", "normalize_name")
 load("//uv/private/constraints:repository.bzl", "configurations_hub")
 load("//uv/private/git_archive:repository.bzl", "git_archive")
-load("//py/private/interpreter:resolve.bzl", "resolve_host_interpreter_label")
 load("//uv/private/pprint:defs.bzl", "pprint")
 load("//uv/private/sdist_build:repository.bzl", "sdist_build")
 load("//uv/private/sdist_configure:defs.bzl", "DEFAULT_CONFIGURE_SCRIPT")
@@ -303,7 +303,9 @@ def _parse_projects(module_ctx, hub_specs):
                     continue
                 pkg_name = normalize_name(package["name"])
                 pkg_stamp = "whl_install__{}__{}__{}".format(
-                    project_stamp, package["name"], package["version"].replace(".", "_"),
+                    project_stamp,
+                    package["name"],
+                    package["version"].replace(".", "_"),
                 )
                 project_available_deps[pkg_name] = "@{}//:install".format(pkg_stamp)
 
