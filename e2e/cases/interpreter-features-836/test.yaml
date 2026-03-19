@@ -1,0 +1,17 @@
+schemaVersion: 2.0.0
+
+commandTests:
+  - name: turtle is not importable
+    exitCode: 0
+    command: /cases/interpreter-features-836/check_no_turtle
+    expectedOutput:
+      - "OK: turtle and turtledemo are not importable"
+
+fileExistenceTests:
+  - name: turtle.py must not exist in interpreter
+    path: /cases/interpreter-features-836/check_no_turtle.runfiles/_main/cases/interpreter-features-836/.no-turtle-test/lib/python3.11/turtle.py
+    shouldExist: false
+
+  - name: turtledemo must not exist in interpreter
+    path: /cases/interpreter-features-836/check_no_turtle.runfiles/_main/cases/interpreter-features-836/.no-turtle-test/lib/python3.11/turtledemo
+    shouldExist: false

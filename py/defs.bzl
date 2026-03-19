@@ -79,7 +79,7 @@ def _py_binary_or_test(name, rule, srcs, main, data = [], deps = [], **kwargs):
         tags = ["manual"],
         testonly = kwargs.get("testonly", False),
         target_compatible_with = kwargs.get("target_compatible_with", []),
-        package_collisions = kwargs.get("package_collisions")
+        package_collisions = kwargs.get("package_collisions"),
     )
 
 def py_binary(name, srcs = [], main = None, **kwargs):
