@@ -186,6 +186,16 @@ uv.project(
 )
 # }}}
 
+# For cases/uv-conflict-max-863
+# Regression: broad constraint matching multiple lockfile versions must pick the greatest.
+# {{{
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/uv-conflict-max-863:uv.lock",
+    pyproject = "//cases/uv-conflict-max-863:pyproject.toml",
+)
+# }}}
+
 # For cases/uv-conflict-tilde-856
 # {{{
 uv.project(

@@ -732,9 +732,8 @@ def _find_matching_version_gte_client_test_impl(ctx):
     # >=2.1 should match 2.1.2 (only candidate >= 2.1)
     asserts.equals(env, ("proj", "numpy", "2.1.2", "__base__"), find_matching_version(">=2.1", candidates))
 
-    # >=2.0 matches at least one
-    result = find_matching_version(">=2.0", candidates)
-    asserts.true(env, result != None, ">=2.0 finds at least one")
+    # >=2.0 matches both; should return the greatest (2.1.2)
+    asserts.equals(env, ("proj", "numpy", "2.1.2", "__base__"), find_matching_version(">=2.0", candidates))
 
     # <2.1 should only match 2.0.0
     asserts.equals(env, ("proj", "numpy", "2.0.0", "__base__"), find_matching_version("<2.1", candidates))
@@ -751,10 +750,8 @@ def _find_matching_version_compound_test_impl(ctx):
         "2.0": ("proj", "foo", "2.0", "__base__"),
     }
 
-    # >=1.0,<2.0 should NOT match 2.0
-    result = find_matching_version(">=1.0,<2.0", candidates)
-    asserts.true(env, result != None, "at least one in [1.0,2.0)")
-    asserts.true(env, result != ("proj", "foo", "2.0", "__base__"), "2.0 excluded")
+    # >=1.0,<2.0 matches 1.0 and 1.5; should return the greatest (1.5)
+    asserts.equals(env, ("proj", "foo", "1.5", "__base__"), find_matching_version(">=1.0,<2.0", candidates))
 
     # ==2.0 should match exactly 2.0
     asserts.equals(env, ("proj", "foo", "2.0", "__base__"), find_matching_version("==2.0", candidates))
@@ -785,6 +782,52 @@ def _find_matching_version_single_test_impl(ctx):
     return unittest.end(env)
 
 find_matching_version_single_test = unittest.make(_find_matching_version_single_test_impl)
+
+def _find_matching_version_max_863_test_impl(ctx):
+    """Broad constraint matching multiple versions returns the greatest (#863)."""
+    env = unittest.begin(ctx)
+
+    # Simulates a lockfile with setuptools 81.1.0 and 82.0.0 (from uv conflicts).
+    # A dependency group specifying ">81.0.0" matches both; the greatest should win.
+    candidates = {
+        "81.1.0": ("proj", "setuptools", "81.1.0", "__base__"),
+        "82.0.0": ("proj", "setuptools", "82.0.0", "__base__"),
+    }
+    asserts.equals(
+        env,
+        ("proj", "setuptools", "82.0.0", "__base__"),
+        find_matching_version(">81.0.0", candidates),
+        ">81.0.0 selects greatest match (82.0.0)",
+    )
+
+    # Even when the greater version appears first in the dict, the result
+    # should be the same — order-independence.
+    candidates_reversed = {
+        "82.0.0": ("proj", "setuptools", "82.0.0", "__base__"),
+        "81.1.0": ("proj", "setuptools", "81.1.0", "__base__"),
+    }
+    asserts.equals(
+        env,
+        ("proj", "setuptools", "82.0.0", "__base__"),
+        find_matching_version(">81.0.0", candidates_reversed),
+        ">81.0.0 selects greatest match regardless of dict order",
+    )
+
+    # Three candidates, broad constraint matches all three
+    candidates_three = {
+        "60.0.0": ("proj", "setuptools", "60.0.0", "__base__"),
+        "75.8.0": ("proj", "setuptools", "75.8.0", "__base__"),
+        "82.0.0": ("proj", "setuptools", "82.0.0", "__base__"),
+    }
+    asserts.equals(
+        env,
+        ("proj", "setuptools", "82.0.0", "__base__"),
+        find_matching_version(">=60.0.0", candidates_three),
+        ">=60.0.0 selects greatest of three matches",
+    )
+    return unittest.end(env)
+
+find_matching_version_max_863_test = unittest.make(_find_matching_version_max_863_test_impl)
 
 # =============================================================================
 # Test suite
@@ -866,4 +909,5 @@ def versions_test_suite():
         find_matching_version_compound_test,
         find_matching_version_empty_test,
         find_matching_version_single_test,
+        find_matching_version_max_863_test,
     )
