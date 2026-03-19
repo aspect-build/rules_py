@@ -271,7 +271,6 @@ whl_install(
             ),
         )
 
-
     if extra_deps or extra_data:
         # When extra deps/data are needed, wrap in a py_library instead of alias
         content.append(
