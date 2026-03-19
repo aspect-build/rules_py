@@ -1,0 +1,25 @@
+[project]
+name = "max-conflict-863"
+version = "0.0.0"
+requires-python = "== 3.10.19"
+dependencies = []
+
+[dependency-groups]
+# Broad constraint: ">21.0" matches both 21.3 and 26.0 in the lockfile.
+# Per pip preference order, 26.0 (the greatest match) must be selected.
+max-a = [
+    "packaging>21.0",
+]
+
+# Narrow constraint: only matches 21.3
+max-b = [
+    "packaging>=21.0,<22.0",
+]
+
+[tool.uv]
+conflicts = [
+    [
+      { group = "max-a" },
+      { group = "max-b" },
+    ],
+]

@@ -195,11 +195,14 @@ def version_satisfies(version_str, specifier):
     return True
 
 def find_matching_version(specifier, candidate_versions):
-    """Finds the version from candidates that satisfies a specifier.
+    """Finds the greatest version from candidates that satisfies a specifier.
 
     When a dependency group lists a requirement like "numpy>=2.0", and the
     lockfile contains multiple versions of numpy (due to conflicts), this
     function determines which lockfile version the specifier refers to.
+
+    Per pip's preference order, when multiple candidates satisfy the
+    specifier, the greatest matching version is returned.
 
     Args:
         specifier: The version specifier string (e.g., ">=2.0", "==24.0").
@@ -209,7 +212,12 @@ def find_matching_version(specifier, candidate_versions):
     Returns:
         The matching value, or None if no candidate matches.
     """
+    best_version = None
+    best_value = None
     for version_str, value in candidate_versions.items():
         if version_satisfies(version_str, specifier):
-            return value
-    return None
+            parsed = parse_version(version_str)
+            if best_version == None or version_cmp(parsed, best_version) > 0:
+                best_version = parsed
+                best_value = value
+    return best_value
