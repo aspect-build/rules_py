@@ -1,1 +1,1 @@
-exports_files(["apply_patches.sh"])
+# Kept for directory structure; patching is now handled by the unpacker tool.

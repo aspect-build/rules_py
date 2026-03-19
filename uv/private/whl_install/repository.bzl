@@ -237,39 +237,25 @@ py_library(
         "//conditions:default": False,
     })"""
 
+    install_attrs = """
+    src = ":whl",
+    compile_pyc = {compile_pyc},""".format(compile_pyc = compile_pyc_select)
+
     if post_install_patches:
-        # Use the combined whl_apply_patches rule that preserves PyInfo
-        content.append(
-            "load(\"@aspect_rules_py//uv/private/apply_patches:whl_apply_patches.bzl\", \"whl_apply_patches\")",
-        )
-        content.append(
-            """
-whl_apply_patches(
-    name = "actual_install",
-    src = ":whl",
+        install_attrs += """
     patches = {patches},
-    patch_strip = {strip},
-    compile_pyc = {compile_pyc},
-    visibility = ["//visibility:private"],
-)""".format(
-                patches = repr(post_install_patches),
-                strip = post_install_patch_strip,
-                compile_pyc = compile_pyc_select,
-            ),
+    patch_strip = {strip},""".format(
+            patches = repr(post_install_patches),
+            strip = post_install_patch_strip,
         )
-    else:
-        # No patches, use standard whl_install
-        content.append(
-            """
+
+    content.append(
+        """
 whl_install(
-    name = "actual_install",
-    src = ":whl",
-    compile_pyc = {compile_pyc},
+    name = "actual_install",{attrs}
     visibility = ["//visibility:private"],
-)""".format(
-                compile_pyc = compile_pyc_select,
-            ),
-        )
+)""".format(attrs = install_attrs),
+    )
 
     if extra_deps or extra_data:
         # When extra deps/data are needed, wrap in a py_library instead of alias

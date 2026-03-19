@@ -26,6 +26,15 @@ def _whl_install(ctx):
 
     inputs = [archive]
 
+    # Patch application (happens before pyc compilation).
+    patch_files = [f for t in ctx.attr.patches for f in t[DefaultInfo].files.to_list()]
+    if patch_files:
+        arguments.add("--patch-strip", str(ctx.attr.patch_strip))
+        for f in patch_files:
+            arguments.add("--patch", f.path)
+        inputs = inputs + patch_files
+
+    # Optional .pyc pre-compilation (runs after patching).
     if ctx.attr.compile_pyc:
         arguments.add("--compile-pyc")
         arguments.add("--python")
@@ -44,6 +53,7 @@ def _whl_install(ctx):
         outputs = [
             install_dir,
         ],
+        use_default_shell_env = bool(patch_files),
     )
 
     return [
@@ -85,9 +95,18 @@ lighter weight since the toolchain's files aren't inputs.
 """,
     attrs = {
         "src": attr.label(doc = "The wheel to install, or a tree artifact containing exactly one wheel at its root."),
+        "patches": attr.label_list(
+            default = [],
+            allow_files = [".patch", ".diff"],
+            doc = "Patch files to apply after installation, in order.",
+        ),
+        "patch_strip": attr.int(
+            default = 0,
+            doc = "Strip count for patches (-p flag).",
+        ),
         "compile_pyc": attr.bool(
             default = False,
-            doc = "Pre-compile .pyc bytecode after unpacking.",
+            doc = "Pre-compile .pyc bytecode after unpacking and patching.",
         ),
         "_unpack": attr.label(
             default = "//py/private/toolchain:resolved_unpack_toolchain",
