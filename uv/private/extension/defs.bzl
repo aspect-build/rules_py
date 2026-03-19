@@ -57,8 +57,10 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 load("//uv/private:normalize_name.bzl", "normalize_name")
 load("//uv/private/constraints:repository.bzl", "configurations_hub")
 load("//uv/private/git_archive:repository.bzl", "git_archive")
+load("//py/private/interpreter:resolve.bzl", "resolve_host_interpreter_label")
 load("//uv/private/pprint:defs.bzl", "pprint")
 load("//uv/private/sdist_build:repository.bzl", "sdist_build")
+load("//uv/private/sdist_configure:defs.bzl", "DEFAULT_CONFIGURE_SCRIPT")
 load("//uv/private/tomltool:toml.bzl", "toml")
 load("//uv/private/uv_hub:repository.bzl", "uv_hub")
 load("//uv/private/uv_project:repository.bzl", "uv_project")
@@ -292,6 +294,19 @@ def _parse_projects(module_ctx, hub_specs):
                         # Map the version to a scc in this configuration, while collecting version conditional markers
                         marked_package_cfg_sccs.setdefault(package, {}).setdefault(cfg, {}).setdefault(package_cfg_sccs[version][cfg], {}).update(markers)
 
+            # Pre-build the per-project available_deps mapping from the
+            # lockfile. This gives each sdist configure tool visibility
+            # into the packages within this project's dependency perimeter.
+            project_available_deps = {}
+            for package in lock_data.get("package", []):
+                if "editable" in package.get("source", {}) or "virtual" in package.get("source", {}):
+                    continue
+                pkg_name = normalize_name(package["name"])
+                pkg_stamp = "whl_install__{}__{}__{}".format(
+                    project_stamp, package["name"], package["version"].replace(".", "_"),
+                )
+                project_available_deps[pkg_name] = "@{}//:install".format(pkg_stamp)
+
             # Translate the package lock into installs for this project
             for package in lock_data.get("package", []):
                 install_key = (project_id, package["name"], package["version"], "__base__")
@@ -366,11 +381,11 @@ def _parse_projects(module_ctx, hub_specs):
                     sbuild_specs[sbuild_id] = struct(
                         src = sdist,
                         deps = ["@{0}//:{1}".format(*it) for it in build_deps],
-                        # FIXME: Check annotations
-                        is_native = False,
+                        is_native = "auto",
                         version = package["version"],
                         pre_build_patches = pre_build_patches,
                         pre_build_patch_strip = pre_build_patch_strip,
+                        available_deps = project_available_deps,
                     )
 
                     has_sbuild = True
@@ -524,6 +539,10 @@ def _uv_impl(module_ctx):
             downloaded_file_path = bdist_cfg["url"].split("/")[-1].split("?")[0].split("#")[0],
         )
 
+    # Resolve the sdist configure tool. The default is our bundled
+    # detect_native.py, run with a PBS interpreter for the host platform.
+    sdist_configure_interpreter = resolve_host_interpreter_label(module_ctx)
+
     for sbuild_id, sbuild_cfg in cfg.sbuild_cfgs.items():
         sbuild_kwargs = {
             "name": sbuild_id,
@@ -532,6 +551,11 @@ def _uv_impl(module_ctx):
             "is_native": sbuild_cfg.is_native,
             "version": sbuild_cfg.version,
         }
+        if sdist_configure_interpreter:
+            sbuild_kwargs["configure_script"] = DEFAULT_CONFIGURE_SCRIPT
+            sbuild_kwargs["configure_interpreter"] = sdist_configure_interpreter
+        if sbuild_cfg.available_deps:
+            sbuild_kwargs["available_deps"] = json.encode(sbuild_cfg.available_deps)
         if sbuild_cfg.pre_build_patches:
             sbuild_kwargs["pre_build_patches"] = sbuild_cfg.pre_build_patches
             sbuild_kwargs["pre_build_patch_strip"] = sbuild_cfg.pre_build_patch_strip
