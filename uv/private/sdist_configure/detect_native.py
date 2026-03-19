@@ -26,11 +26,13 @@ except ModuleNotFoundError:
 from pathlib import PurePosixPath
 
 # Extensions that indicate native/compiled source code.
+# Headers (.h, .hpp, .hxx) are excluded — many packages ship headers without
+# any actual compilable source (e.g. pyobjc framework stubs).
 NATIVE_EXTENSIONS = frozenset({
     # C
-    ".c", ".h",
+    ".c",
     # C++
-    ".cc", ".cpp", ".cxx", ".hpp", ".hxx", ".hh",
+    ".cc", ".cpp", ".cxx", ".hh",
     # Cython
     ".pyx", ".pxd",
     # Fortran
@@ -97,16 +99,26 @@ def _open_archive(path):
 
 # --- Config file parsers ---
 
-def _parse_pyproject_build_requires(content):
-    """Extract [build-system] requires from pyproject.toml content."""
+def _parse_pyproject_build_system(content):
+    """Extract [build-system] metadata from pyproject.toml content.
+
+    Returns (requires, build_backend, backend_path) where:
+    - requires: list of normalized package names
+    - build_backend: the build-backend string (e.g. "setuptools.build_meta"), or None
+    - backend_path: the backend-path list, or None
+    """
     if tomllib is None:
-        return []
+        return [], None, None
     data = tomllib.loads(content)
-    return [
+    build_system = data.get("build-system", {})
+    requires = [
         _extract_name(r)
-        for r in data.get("build-system", {}).get("requires", [])
+        for r in build_system.get("requires", [])
         if _extract_name(r)
     ]
+    build_backend = build_system.get("build-backend")
+    backend_path = build_system.get("backend-path")
+    return requires, build_backend, backend_path
 
 
 def _parse_setup_cfg_build_requires(content):
@@ -164,17 +176,26 @@ def detect(archive_path, context):
             if dep:
                 inferred.add(_normalize_name(dep))
 
-        # Parse declared build deps from config files
+        # Parse declared build deps and build-system metadata
         declared = []
-        for filename, parser in [
-            ("pyproject.toml", _parse_pyproject_build_requires),
-            ("setup.cfg", _parse_setup_cfg_build_requires),
-        ]:
-            path = _find_config_file(members, filename)
-            if path:
-                content = read_fn(path)
-                if content:
-                    declared.extend(parser(content))
+        build_backend = None
+        backend_path = None
+
+        pyproject_path = _find_config_file(members, "pyproject.toml")
+        if pyproject_path:
+            content = read_fn(pyproject_path)
+            if content:
+                requires, build_backend, backend_path = _parse_pyproject_build_system(content)
+                declared.extend(requires)
+
+        setup_cfg_path = _find_config_file(members, "setup.cfg")
+        if setup_cfg_path:
+            content = read_fn(setup_cfg_path)
+            if content:
+                declared.extend(_parse_setup_cfg_build_requires(content))
+
+        # Detect legacy setup.py-only packages (no pyproject.toml)
+        has_setup_py = _find_config_file(members, "setup.py") is not None
     finally:
         close_fn()
 
@@ -198,13 +219,20 @@ def detect(archive_path, context):
         and available_deps[name] not in provided_labels
     )
 
-    return {
+    result = {
         "is_native": bool(native_files),
         "native_files": native_files,
         "build_requires": declared_dedup,
         "inferred_build_requires": sorted(inferred),
         "extra_deps": extra_deps,
+        "build_backend": build_backend,
+        "has_pyproject": pyproject_path is not None,
+        "has_setup_py": has_setup_py,
+        "has_setup_cfg": setup_cfg_path is not None,
     }
+    if backend_path is not None:
+        result["backend_path"] = backend_path
+    return result
 
 
 def main():

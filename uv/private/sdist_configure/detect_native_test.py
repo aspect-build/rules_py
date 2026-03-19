@@ -92,12 +92,22 @@ def test_c_extension():
     })
     result = detect(archive, {})
     assert result["is_native"] is True
-    assert set(result["native_files"]) == {
-        "pkg-1.0/pkg/_accel.c",
-        "pkg-1.0/pkg/_accel.h",
-    }
-    # C files don't infer any specific build dep
+    # Headers alone don't count — only .c triggers native
+    assert result["native_files"] == ["pkg-1.0/pkg/_accel.c"]
     assert result["inferred_build_requires"] == []
+
+
+def test_headers_only_not_native():
+    """Packages with only .h/.hpp files are not considered native."""
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/pkg/__init__.py": "",
+        "pkg-1.0/pkg/types.h": "/* header */",
+        "pkg-1.0/pkg/utils.hpp": "/* header */",
+    })
+    result = detect(archive, {})
+    assert result["is_native"] is False
+    assert result["native_files"] == []
 
 
 # --- Cython ---
