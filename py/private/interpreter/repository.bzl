@@ -5,8 +5,6 @@ Includes rules for downloading PBS interpreters and registering local interprete
 
 load(":exclude_feature.bzl", "INTERPRETER_FEATURES")
 
-load(":exclude_feature.bzl", "INTERPRETER_FEATURES")
-
 _PYTHON_VERSION_FLAG = "@aspect_rules_py//py/private/interpreter:python_version"
 _RPY_VERSION_FLAG = "@rules_python//python/config_settings:python_version"
 _FREETHREADING_FLAG = "@aspect_rules_py//py/private/interpreter:freethreaded"
