@@ -17,6 +17,38 @@
 
 load(":py_library.bzl", default_py_library = "py_library")
 
+def _pytest_paths_impl(ctx):
+    """Compute the unique directories containing test sources and write them to a file."""
+    dirs = {}
+    for src in ctx.files.srcs:
+        p = src.short_path
+
+        # Skip external-repo sources (../reponame/...) — only the test's
+        # own workspace sources should be discovery roots.
+        if p.startswith("../"):
+            continue
+        if "/" in p:
+            dirs[p.rsplit("/", 1)[0]] = True
+        else:
+            dirs[""] = True
+    out = ctx.actions.declare_file(ctx.attr.name)
+    ctx.actions.write(out, "\n".join(sorted(dirs.keys())))
+    return [DefaultInfo(
+        files = depset([out]),
+        runfiles = ctx.runfiles(files = [out]),
+    )]
+
+pytest_paths = rule(
+    doc = "Computes the set of directories containing test sources for pytest collection.",
+    implementation = _pytest_paths_impl,
+    attrs = {
+        "srcs": attr.label_list(
+            allow_files = True,
+            doc = "Source files whose parent directories become pytest search roots.",
+        ),
+    },
+)
+
 def _py_pytest_main_impl(ctx):
     substitutions = {
         "user_args: List[str] = []": "user_args: List[str] = " + repr([f for f in ctx.attr.args]),
@@ -68,7 +100,21 @@ def py_pytest_main(name, py_library = default_py_library, deps = [], data = [], 
         **kwargs: The extra arguments passed to the template rendering target.
     """
 
-    test_main = name + ".py"
+    if not kwargs.get("args") and not kwargs.get("chdir"):
+        # buildifier: disable=print
+        print("WARNING: py_pytest_main(name = \"%s\") has no custom args or chdir. " % name +
+              "Use py_test(pytest_main = True) instead, which avoids generating a " +
+              "per-test entry script. py_pytest_main without custom parameters " +
+              "will be removed in a future release.")
+
+    # Use __test__<name>__.py so pytest won't discover the generated main
+    # as a test module (see #723). The double-underscore wrapping signals
+    # "internal/dunder" to pytest's default collection rules.
+    # Skip wrapping if the name is already dunder-wrapped (e.g. "__test__").
+    if name.startswith("__") and name.endswith("__"):
+        test_main = name + ".py"
+    else:
+        test_main = "__test__" + name + "__.py"
     tags = kwargs.pop("tags", [])
     visibility = kwargs.pop("visibility", [])
 

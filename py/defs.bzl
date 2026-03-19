@@ -39,7 +39,7 @@ load("//py/private:py_binary.bzl", _py_binary = "py_binary", _py_test = "py_test
 load("//py/private:py_image_layer.bzl", _py_image_layer = "py_image_layer")
 load("//py/private:py_library.bzl", _py_library = "py_library")
 load("//py/private:py_pex_binary.bzl", _py_pex_binary = "py_pex_binary")
-load("//py/private:py_pytest_main.bzl", _py_pytest_main = "py_pytest_main")
+load("//py/private:py_pytest_main.bzl", _py_pytest_main = "py_pytest_main", _pytest_paths = "pytest_paths")
 load("//py/private:py_unpacked_wheel.bzl", _py_unpacked_wheel = "py_unpacked_wheel")
 load("//py/private:virtual.bzl", _resolutions = "resolutions")
 load("//py/private/py_venv:defs.bzl", _py_venv_link = "py_venv_link")
@@ -123,7 +123,7 @@ def py_test(name, srcs = [], main = None, pytest_main = False, **kwargs):
             Like rules_python, this is treated as a suffix of a file that should appear among the srcs.
             If absent, then `[name].py` is tried. As a final fallback, if the srcs has a single file,
             that is used as the main.
-        pytest_main: If set, generate a [py_pytest_main](#py_pytest_main) script and use it as the main.
+        pytest_main: If True, use a shared pytest entry point as the main.
             The deps should include the pytest package (as well as the coverage package if desired).
         **kwargs: additional named parameters to `py_binary_rule`.
     """
@@ -146,6 +146,21 @@ def py_test(name, srcs = [], main = None, pytest_main = False, **kwargs):
         # default pytest main instead of generating a per-test copy.
         main = Label("//py/private:pytest_main.py")
         deps.append(Label("//py/private:default_pytest_main"))
+
+        # Compute the directories containing test sources and write them
+        # to an args file. The shared pytest main reads this file to pass
+        # explicit search paths to pytest instead of relying on autodiscovery
+        # from the runfiles root.
+        paths_target = name + ".pytest_paths"
+        _pytest_paths(
+            name = paths_target,
+            srcs = srcs,
+            testonly = True,
+            tags = kwargs.get("tags", []),
+        )
+        data = list(kwargs.pop("data", []))
+        data.append(paths_target)
+        kwargs["data"] = data
 
     _py_binary_or_test(
         name = name,
