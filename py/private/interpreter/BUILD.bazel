@@ -1,10 +1,30 @@
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
+load(":exclude_feature.bzl", "exclude_feature_flag")
 load(":version_util_test.bzl", "version_util_test_suite")
 
 package(default_visibility = ["//visibility:public"])
 
 string_flag(
     name = "python_version",
+    build_setting_default = "",
+)
+
+# Interpreter feature exclusions. Pass one or more --exclude_feature flags to
+# strip optional components from interpreter filegroups. Supported values:
+#   headers, docs, tkinter, idle, ensurepip, config, pydoc, lib2to3, turtle
+#
+# Example .bazelrc:
+#   build:lean --@aspect_rules_py//py/private/interpreter:exclude_feature=headers
+#   build:lean --@aspect_rules_py//py/private/interpreter:exclude_feature=docs
+#   build:lean --@aspect_rules_py//py/private/interpreter:exclude_feature=tkinter
+#   build:lean --@aspect_rules_py//py/private/interpreter:exclude_feature=idle
+#   build:lean --@aspect_rules_py//py/private/interpreter:exclude_feature=ensurepip
+#   build:lean --@aspect_rules_py//py/private/interpreter:exclude_feature=config
+#   build:lean --@aspect_rules_py//py/private/interpreter:exclude_feature=pydoc
+#   build:lean --@aspect_rules_py//py/private/interpreter:exclude_feature=lib2to3
+#   build:lean --@aspect_rules_py//py/private/interpreter:exclude_feature=turtle
+exclude_feature_flag(
+    name = "exclude_feature",
     build_setting_default = "",
 )
 
