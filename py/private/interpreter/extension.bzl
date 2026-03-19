@@ -327,6 +327,9 @@ def _python_interpreters_impl(module_ctx):
                     "repo": repo_name,
                     "compatible_with": platform_info["compatible_with"],
                     "platform_target_settings": platform_info.get("target_settings", {}),
+                    "config_settings": tag.config_settings,
+                    "target_compatible_with": tag.target_compatible_with,
+                    "exec_compatible_with": tag.exec_compatible_with,
                 }))
 
         if not version_found:
@@ -419,6 +422,26 @@ without error, but it will be silently ignored.
 
 _toolchain_tag = tag_class(
     attrs = {
+        "config_settings": attr.string_list(
+            default = [],
+            doc = """\
+Additional config_setting labels that must match for this toolchain to be selected.
+Use this to gate a toolchain on a custom flag, e.g.
+["@//:use_hermetic_python"]. The settings are added to the toolchain's
+target_settings alongside the version and platform constraints.
+
+Only honored from the root module.
+""",
+        ),
+        "exec_compatible_with": attr.string_list(
+            default = [],
+            doc = """\
+Additional exec platform constraints appended to each platform variant's
+exec_compatible_with list.
+
+Only honored from the root module.
+""",
+        ),
         "is_default": attr.bool(
             default = False,
             doc = "Only honored from the root module.",
@@ -438,6 +461,15 @@ Only honored from the root module.
         "python_version": attr.string(
             mandatory = True,
             doc = "Python version to provision, e.g. '3.11' or '3.11.14'. The newest available patch version is used.",
+        ),
+        "target_compatible_with": attr.string_list(
+            default = [],
+            doc = """\
+Additional target platform constraints appended to each platform variant's
+target_compatible_with list.
+
+Only honored from the root module.
+""",
         ),
     },
 )

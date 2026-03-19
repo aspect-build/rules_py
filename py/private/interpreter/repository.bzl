@@ -279,16 +279,23 @@ config_setting(
 
     # Second pass: emit toolchain() registrations
     for info, platform_setting_names in toolchain_infos:
+        extra_config_settings = info.get("config_settings", [])
+        extra_target_compatible = info.get("target_compatible_with", [])
+        extra_exec_compatible = info.get("exec_compatible_with", [])
+
         target_settings = [
             "@{repo}//:is_matching_python_version".format(repo = info["repo"]),
             "@{repo}//:is_matching_freethreaded".format(repo = info["repo"]),
-        ] + [":" + name for name in platform_setting_names]
+        ] + [":" + name for name in platform_setting_names] + extra_config_settings
+
+        target_compatible_with = info["compatible_with"] + extra_target_compatible
+        exec_compatible_with = info["compatible_with"] + extra_exec_compatible
 
         content.append("""
 toolchain(
     name = "{name}",
-    exec_compatible_with = {compatible_with},
-    target_compatible_with = {compatible_with},
+    exec_compatible_with = {exec_compatible_with},
+    target_compatible_with = {target_compatible_with},
     target_settings = {target_settings},
     toolchain = "@{repo}//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
@@ -296,7 +303,8 @@ toolchain(
 """.format(
             name = info["name"],
             repo = info["repo"],
-            compatible_with = info["compatible_with"],
+            exec_compatible_with = exec_compatible_with,
+            target_compatible_with = target_compatible_with,
             target_settings = target_settings,
         ))
 
