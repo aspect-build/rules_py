@@ -1,0 +1,24 @@
+[project]
+name = "test_project"
+version = "0.0.0"
+requires-python = ">= 3.10"
+dependencies = []
+
+[dependency-groups]
+group_a = [
+    "packaging==24.0",
+    "build",
+]
+
+group_b = [
+    "packaging==21.3",
+    "build",
+]
+
+[tool.uv]
+conflicts = [
+    [
+      { group = "group_a" },
+      { group = "group_b" },
+    ],
+]
