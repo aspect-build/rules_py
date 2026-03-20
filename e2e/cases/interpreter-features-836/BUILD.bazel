@@ -55,4 +55,5 @@ container_structure_test(
     target_compatible_with = [
         "@platforms//cpu:x86_64",
     ],
+    tags = ["requires-docker"],
 )
