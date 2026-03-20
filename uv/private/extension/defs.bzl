@@ -178,7 +178,7 @@ def _parse_projects(module_ctx, hub_specs):
             def _resolve(package, fail_if_missing = True):
                 name = normalize_name(package["name"])
                 if "version" in package:
-                    return (project_id, name, package["version"].replace(".", "_"), "__base__")
+                    return (project_id, name, package["version"], "__base__")
                 elif name in default_versions:
                     return default_versions[name]
                 else:
@@ -353,7 +353,7 @@ def _parse_projects(module_ctx, hub_specs):
                     # property if it exists for the sdist. Question is how
                     # to defer choosing deps until the repo rule when we
                     # could do pyproject.toml introspection.
-                    ann_key = (project_id, normalize_name(package["name"]), package["version"].replace(".", "_"), "__base__")
+                    ann_key = (project_id, normalize_name(package["name"]), package["version"], "__base__")
                     build_deps = lock_build_dep_anns.get(ann_key) or []
                     if lock_build_deps == None:
                         lock_build_deps = [

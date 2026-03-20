@@ -52,7 +52,11 @@ build_env.update({
     "TEMPDIR": tmp_root,
 })
 
-if path.exists(path.join(t, "pyproject.toml")):
+if path.exists(path.join(t, "pyproject.toml")) or path.exists(path.join(t, "setup.py")):
+    # Always use `python -m build` (PEP 517 frontend). For setup.py-only
+    # packages without a pyproject.toml, build creates a minimal PEP 517
+    # shim automatically. --no-isolation ensures it uses the deps we've
+    # already provided in the build venv rather than trying to pip-install.
     cmd = [
         sys.executable,
         "-m", "build",
@@ -61,22 +65,8 @@ if path.exists(path.join(t, "pyproject.toml")):
         "--outdir", outdir,
     ]
 
-# FIXME: Shelling to setup.py is explicitly recommended against in modern
-# setuptools. Need to figure out a better story. The setuptools
-# recommendation seems to be 'pip wheel' which means we really want to
-# bifurcate this machinery into 'build with build' and 'build with pip' as
-# separate target types? What about 'build with uv' or another backend?
-elif path.exists(path.join(t, "setup.py")):
-    cmd = [
-        sys.executable,
-        path.realpath(path.join(t, "setup.py")),
-        "bdist_wheel",
-        "--dist-dir",
-        outdir,
-    ]
-
 else:
-    print("Error: Unable to detect build command! Neither pyproject nor setup.py found!", file=sys.stderr)
+    print("Error: Unable to detect build command! Neither pyproject.toml nor setup.py found!", file=sys.stderr)
     exit(1)
 
 with TemporaryFile(mode="w+") as build_log:
