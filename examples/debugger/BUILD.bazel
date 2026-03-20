@@ -1,0 +1,48 @@
+load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
+load(":defs.bzl", "py_debuggable_binary")
+
+# --------------------------------------------------------------------------- #
+# Build mode flag.
+#
+# The default is "debug" (debugpy wraps the entrypoint).
+# Pass --config=release or --//:mode=prod to get a clean binary.
+# --------------------------------------------------------------------------- #
+
+string_flag(
+    name = "mode",
+    build_setting_default = "debug",
+    values = [
+        "debug",
+        "prod",
+    ],
+)
+
+config_setting(
+    name = "is_debug",
+    flag_values = {":mode": "debug"},
+)
+
+config_setting(
+    name = "is_prod",
+    flag_values = {":mode": "prod"},
+)
+
+# --------------------------------------------------------------------------- #
+# Application target
+#
+# In debug mode, debug_main.py wraps app.py — it starts a debugpy DAP
+# listener then imports and runs app.main(). In prod mode, app.py is
+# the entrypoint directly and debugpy is not present.
+# --------------------------------------------------------------------------- #
+
+py_debuggable_binary(
+    name = "app",
+    srcs = ["app.py"],
+    debug_deps = [
+        "@pypi//debugpy",
+    ],
+    main = "app.py",
+    deps = [
+        "@pypi//flask",
+    ],
+)

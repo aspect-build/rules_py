@@ -1,3 +1,4 @@
 e2e/
 examples/dev_deps/
+examples/debugger/
 examples/uv_pip_compile/

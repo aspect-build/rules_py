@@ -1,0 +1,17 @@
+[project]
+name = "debugger-example"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    "build",
+    "setuptools",
+]
+
+[dependency-groups]
+prod = [
+    "flask",
+]
+debug = [
+    {include-group = "prod"},
+    "debugpy",
+]
