@@ -144,7 +144,7 @@ crate = use_extension(
     dev_dependency = IS_RELEASE,
 )
 crate.from_cargo(
-    name = "crates",
+    name = "aspect_rules_py__crates",
     cargo_lock = "//:Cargo.lock",
     cargo_toml = "//:Cargo.toml",
     platform_triples = [
@@ -158,28 +158,28 @@ crate.annotation(
     crate = "backtrace",
     # This just compiles code on Android, we don't need it.
     gen_build_script = "off",
-    repositories = ["crates"],
+    repositories = ["aspect_rules_py__crates"],
 )
 crate.annotation(
     crate = "zstd-sys",
     # This build script is naughty and tries to depend on system zstd or build it from source.
     gen_build_script = "off",
-    repositories = ["crates"],
+    repositories = ["aspect_rules_py__crates"],
     deps = ["@@zstd+//:zstd"],
 )
 crate.annotation(
     crate = "bzip2-sys",
     gen_build_script = "off",
-    repositories = ["crates"],
+    repositories = ["aspect_rules_py__crates"],
     deps = ["@@bzip2+//:bz2"],
 )
 crate.annotation(
     crate = "lzma-sys",
     gen_build_script = "off",
-    repositories = ["crates"],
+    repositories = ["aspect_rules_py__crates"],
     deps = ["@@xz+//:lzma"],
 )
-use_repo(crate, "crates")
+use_repo(crate, "aspect_rules_py__crates")
 
 # TODO: Replace with bazel_features?
 # cf. https://github.com/bazel-contrib/bazelrc-preset.bzl/blob/main/MODULE.bazel#L8C1-L10C70
