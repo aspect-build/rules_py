@@ -52,8 +52,8 @@ container_structure_test(
     configs = ["test.yaml"],
     image = ":amd64_image",
     platform = "linux/amd64",
+    tags = ["requires-docker"],
     target_compatible_with = [
         "@platforms//cpu:x86_64",
     ],
-    tags = ["requires-docker"],
 )
