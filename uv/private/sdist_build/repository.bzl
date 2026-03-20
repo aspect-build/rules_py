@@ -109,25 +109,6 @@ def _resolve_extra_deps(repository_ctx, inspection):
 
     return resolved
 
-def _log_build_dep_info(repository_ctx, inspection):
-    """Log informational messages about discovered build dependencies."""
-    if not inspection:
-        return
-
-    build_requires = inspection.get("build_requires", [])
-    inferred = inspection.get("inferred_build_requires", [])
-    extra = inspection.get("extra_deps", [])
-
-    if build_requires or inferred:
-        all_names = sorted(set(build_requires + inferred))
-
-        # buildifier: disable=print
-        print("Build deps discovered for {}: {}{}".format(
-            repository_ctx.name,
-            ", ".join(all_names),
-            " (auto-wiring: {})".format(", ".join(extra)) if extra else "",
-        ))
-
 # --- Archive path resolution ---
 
 def _resolve_archive_path(repository_ctx):
@@ -189,7 +170,6 @@ def _sdist_build_impl(repository_ctx):
             # If the tool provided complete build file content, use it directly.
             build_file_content = inspection.get("build_file_content")
             if build_file_content:
-                _log_build_dep_info(repository_ctx, inspection)
                 repository_ctx.file("BUILD.bazel", content = build_file_content)
                 return
 
@@ -213,7 +193,6 @@ def _sdist_build_impl(repository_ctx):
 
     # Resolve additional deps discovered by the configure tool
     extra_dep_labels = _resolve_extra_deps(repository_ctx, inspection)
-    _log_build_dep_info(repository_ctx, inspection)
 
     # TODO: When the configure tool didn't run or failed, we may want to
     # conservatively add setuptools + wheel as fallback build deps. For now
