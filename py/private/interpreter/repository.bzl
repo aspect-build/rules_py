@@ -18,8 +18,6 @@ def _python_interpreter_impl(rctx):
     python_version = rctx.attr.python_version
     sha256 = rctx.attr.sha256
     strip_prefix = rctx.attr.strip_prefix
-    is_freethreaded = rctx.attr.freethreaded
-
     rctx.download_and_extract(
         url = [url],
         sha256 = sha256,
@@ -33,7 +31,6 @@ def _python_interpreter_impl(rctx):
     major = version_parts[0]
     minor = version_parts[1]
     micro = version_parts[2] if len(version_parts) > 2 else "0"
-    major_minor = "{}.{}".format(major, minor)
 
     # Delete terminfo symlink loops on newer PBS releases (linux only)
     if "linux" in platform:
@@ -43,11 +40,8 @@ def _python_interpreter_impl(rctx):
         major = major,
         minor = minor,
         micro = micro,
-        major_minor = major_minor,
-        python_version = python_version,
         python_bin = python_bin,
         is_windows = is_windows,
-        is_freethreaded = is_freethreaded,
     ))
 
 def _feature_filegroups(major, minor, is_windows):
@@ -85,7 +79,7 @@ filegroup(
 
     return "\n".join(lines), all_excludes
 
-def _build_file_content(major, minor, micro, major_minor, python_version, python_bin, is_windows, is_freethreaded):
+def _build_file_content(major, minor, micro, python_bin, is_windows):
     """Generate the full BUILD.bazel content for an interpreter repo."""
 
     feature_targets, feature_excludes = _feature_filegroups(major, minor, is_windows)
@@ -119,49 +113,8 @@ def _build_file_content(major, minor, micro, major_minor, python_version, python
     return """\
 load("@rules_python//python:py_runtime.bzl", "py_runtime")
 load("@rules_python//python:py_runtime_pair.bzl", "py_runtime_pair")
-load("@bazel_skylib//lib:selects.bzl", "selects")
 
 package(default_visibility = ["//visibility:public"])
-
-config_setting(
-    name = "_is_our_major_minor",
-    flag_values = {{
-        "{our_flag}": "{major_minor}",
-    }},
-)
-
-config_setting(
-    name = "_is_our_major_minor_micro",
-    flag_values = {{
-        "{our_flag}": "{version}",
-    }},
-)
-
-config_setting(
-    name = "_is_rpy_major_minor",
-    flag_values = {{
-        "{rpy_flag}": "{major_minor}",
-    }},
-)
-
-config_setting(
-    name = "_is_rpy_major_minor_micro",
-    flag_values = {{
-        "{rpy_flag}": "{version}",
-    }},
-)
-
-selects.config_setting_group(
-    name = "is_matching_python_version",
-    match_any = [
-        ":_is_our_major_minor",
-        ":_is_our_major_minor_micro",
-        ":_is_rpy_major_minor",
-        ":_is_rpy_major_minor_micro",
-    ],
-)
-
-{freethreaded_config_setting}
 
 # --- Optional interpreter features ---
 
@@ -201,33 +154,14 @@ py_runtime_pair(
     py3_runtime = ":py3_runtime",
 )
 """.format(
-        our_flag = _PYTHON_VERSION_FLAG,
-        rpy_flag = _RPY_VERSION_FLAG,
-        version = python_version,
-        major_minor = major_minor,
         python_bin = python_bin,
         major = major,
         minor = minor,
         micro = micro,
-        freethreaded_config_setting = _freethreaded_config_setting(is_freethreaded),
         feature_targets = feature_targets,
         feature_selects = feature_selects,
         core_include = core_include,
         core_exclude = core_exclude,
-    )
-
-def _freethreaded_config_setting(is_freethreaded):
-    """Generate config_setting for the freethreaded flag."""
-    return """\
-config_setting(
-    name = "is_matching_freethreaded",
-    flag_values = {{
-        "{flag}": "{value}",
-    }},
-)
-""".format(
-        flag = _FREETHREADING_FLAG,
-        value = "true" if is_freethreaded else "false",
     )
 
 python_interpreter = repository_rule(
@@ -251,13 +185,26 @@ def _platform_setting_name(flag, value):
     name = flag.split(":")[-1] if ":" in flag else flag.split("/")[-1]
     return "{}_is_{}".format(name, value)
 
+def _version_setting_name(major_minor):
+    """Generate config_setting name for a Python version."""
+    return "python_version_is_" + major_minor.replace(".", "_")
+
+def _freethreaded_setting_name(value):
+    """Generate config_setting name for the freethreaded flag."""
+    return "freethreaded_is_" + ("true" if value else "false")
+
 def _python_toolchains_impl(rctx):
     """Creates toolchain() registrations pointing to interpreter repos."""
-    content = ['package(default_visibility = ["//visibility:public"])']
+    content = [
+        'load("@bazel_skylib//lib:selects.bzl", "selects")',
+        'package(default_visibility = ["//visibility:public"])',
+    ]
 
-    # First pass: collect all unique flag/value pairs so we generate each
-    # config_setting exactly once.
+    # First pass: collect all unique flag/value pairs and version/freethreaded
+    # combos so we generate each config_setting exactly once.
     seen_settings = {}  # name -> (flag, value)
+    seen_versions = {}  # major_minor -> True
+    seen_freethreaded = {}  # bool -> True
     toolchain_infos = []
 
     for entry in rctx.attr.toolchains:
@@ -269,7 +216,58 @@ def _python_toolchains_impl(rctx):
             if name not in seen_settings:
                 seen_settings[name] = (flag, value)
             setting_names.append(name)
+
+        # Track version/freethreaded for hub-local config_settings
+        python_version = info.get("python_version", "")
+        if python_version:
+            seen_versions[python_version] = True
+        freethreaded = info.get("freethreaded", False)
+        seen_freethreaded[freethreaded] = True
+
         toolchain_infos.append((info, setting_names))
+
+    # Emit hub-local version config_settings so toolchain resolution doesn't
+    # need to fetch individual interpreter repos.
+    for major_minor in seen_versions.keys():
+        group_name = _version_setting_name(major_minor)
+        content.append("""
+config_setting(
+    name = "_{group}_our_major_minor",
+    flag_values = {{"{our_flag}": "{major_minor}"}},
+)
+
+config_setting(
+    name = "_{group}_rpy_major_minor",
+    flag_values = {{"{rpy_flag}": "{major_minor}"}},
+)
+
+selects.config_setting_group(
+    name = "{group}",
+    match_any = [
+        ":_{group}_our_major_minor",
+        ":_{group}_rpy_major_minor",
+    ],
+)
+""".format(
+            group = group_name,
+            major_minor = major_minor,
+            our_flag = _PYTHON_VERSION_FLAG,
+            rpy_flag = _RPY_VERSION_FLAG,
+        ))
+
+    # Emit hub-local freethreaded config_settings
+    for value in seen_freethreaded.keys():
+        name = _freethreaded_setting_name(value)
+        content.append("""
+config_setting(
+    name = "{name}",
+    flag_values = {{"{flag}": "{value}"}},
+)
+""".format(
+            name = name,
+            flag = _FREETHREADING_FLAG,
+            value = "true" if value else "false",
+        ))
 
     # Emit config_settings for platform target settings
     for name, (flag, value) in seen_settings.items():
@@ -286,9 +284,20 @@ config_setting(
         extra_target_compatible = info.get("target_compatible_with", [])
         extra_exec_compatible = info.get("exec_compatible_with", [])
 
+        # Use hub-local config_settings for version/freethreaded when available,
+        # fall back to repo-local settings for local interpreters without version info.
+        python_version = info.get("python_version", "")
+        if python_version:
+            version_setting = ":" + _version_setting_name(python_version)
+            freethreaded_setting = ":" + _freethreaded_setting_name(info.get("freethreaded", False))
+        else:
+            # Local interpreters without known version — must reference repo-local settings
+            version_setting = "@{repo}//:is_matching_python_version".format(repo = info["repo"])
+            freethreaded_setting = "@{repo}//:is_matching_freethreaded".format(repo = info["repo"])
+
         target_settings = [
-            "@{repo}//:is_matching_python_version".format(repo = info["repo"]),
-            "@{repo}//:is_matching_freethreaded".format(repo = info["repo"]),
+            version_setting,
+            freethreaded_setting,
         ] + [":" + name for name in platform_setting_names] + extra_config_settings
 
         target_compatible_with = info["compatible_with"] + extra_target_compatible

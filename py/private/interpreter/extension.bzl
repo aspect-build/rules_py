@@ -302,9 +302,18 @@ def _python_interpreters_impl(module_ctx):
                 python_version = tag.python_version,
             )
 
+            # Normalize python_version to major.minor if provided
+            local_version = ""
+            if tag.python_version:
+                parts = tag.python_version.split(".")
+                if len(parts) >= 2:
+                    local_version = "{}.{}".format(parts[0], parts[1])
+
             toolchain_entries.append(json.encode({
                 "name": repo_name,
                 "repo": repo_name,
+                "python_version": local_version,
+                "freethreaded": False,
                 "compatible_with": [],
                 "platform_target_settings": {},
                 "config_settings": tag.config_settings,
@@ -368,6 +377,8 @@ def _python_interpreters_impl(module_ctx):
                 toolchain_entries.append(json.encode({
                     "name": repo_name,
                     "repo": repo_name,
+                    "python_version": major_minor,
+                    "freethreaded": config_info["freethreaded"],
                     "compatible_with": platform_info["compatible_with"],
                     "platform_target_settings": platform_info.get("target_settings", {}),
                     "config_settings": tag.config_settings,
