@@ -1,9 +1,9 @@
 """
 Repository rule backing sdist_build repos.
 
-Consumes a given src (.tar.gz or other artifact) and deps. Produces a
-`sdist_build` rule which will eat those files and emit a built `.whl`. See the
-sibling `rule.bzl` file for the implementation of `sdist_build`.
+Consumes a given src (.tar.gz or other artifact) and deps. Runs a configure
+tool to inspect the archive, then generates a BUILD.bazel that uses the
+appropriate backend-specific build rule (e.g. setuptools_whl, maturin_whl).
 """
 
 load("//uv/private:normalize_name.bzl", "normalize_name")
@@ -72,6 +72,8 @@ def _resolve_extra_deps(repository_ctx, inspection):
 
     Returns a list of label strings. Calls fail() if a dep cannot be resolved.
     """
+    if not inspection:
+        return []
     extra_dep_names = inspection.get("extra_deps", [])
     if not extra_dep_names:
         return []
@@ -189,13 +191,13 @@ def _sdist_build_impl(repository_ctx):
         )
 
     repository_ctx.file("BUILD.bazel", content = """
-load("@aspect_rules_py//uv/private/sdist_build:rule.bzl", "{rule}")
+load("@aspect_rules_py//uv/private/setuptools_whl:rule.bzl", "{rule}")
 load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_binary")
 
 py_venv_binary(
     name = "build_tool",
-    main = "@aspect_rules_py//uv/private/sdist_build:build_helper.py",
-    srcs = ["@aspect_rules_py//uv/private/sdist_build:build_helper.py"],
+    main = "@aspect_rules_py//uv/private/setuptools_whl:build_helper.py",
+    srcs = ["@aspect_rules_py//uv/private/setuptools_whl:build_helper.py"],
     deps = {deps},
 )
 
