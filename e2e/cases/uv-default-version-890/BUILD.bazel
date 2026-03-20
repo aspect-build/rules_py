@@ -2,17 +2,17 @@ load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
 
 py_venv_test(
     name = "test_a",
-    venv = "group_a",
-    main = "__test__.py",
     srcs = ["__test__.py"],
+    main = "__test__.py",
+    venv = "group_a",
     deps = ["@pypi//setuptools"],
 )
 
 py_venv_test(
     name = "test_b",
-    venv = "group_b",
-    main = "__test__.py",
     srcs = ["__test__.py"],
+    main = "__test__.py",
+    venv = "group_b",
     deps = ["@pypi//setuptools"],
 )
 
