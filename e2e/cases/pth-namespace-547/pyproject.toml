@@ -1,0 +1,10 @@
+[project]
+name = "pth-namespace-547"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    "build",
+    "setuptools",
+    "jaraco-functools",
+    "jaraco-classes",
+]
