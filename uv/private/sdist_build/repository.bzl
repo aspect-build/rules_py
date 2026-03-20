@@ -3,7 +3,7 @@ Repository rule backing sdist_build repos.
 
 Consumes a given src (.tar.gz or other artifact) and deps. Runs a configure
 tool to inspect the archive, then generates a BUILD.bazel that uses the
-appropriate backend-specific build rule (e.g. setuptools_whl, maturin_whl).
+appropriate backend-specific build rule (e.g. pep517_whl, maturin_whl).
 """
 
 load("//uv/private:normalize_name.bzl", "normalize_name")
@@ -39,19 +39,21 @@ def _run_configure_tool(repository_ctx, archive_path):
 
     Returns a dict on success, or None on failure.
     """
-    script = repository_ctx.attr.configure_script
-    interpreter = repository_ctx.attr.configure_interpreter
+    configure_command = repository_ctx.attr.configure_command
 
-    if not script:
+    if not configure_command:
         return None
 
     context_path = _write_context_file(repository_ctx)
-    script_path = repository_ctx.path(script)
 
-    if interpreter:
-        cmd = [repository_ctx.path(interpreter), script_path, archive_path, context_path]
-    else:
-        cmd = [script_path, archive_path, context_path]
+    cmd = []
+    for arg in configure_command:
+        if arg.startswith("$(location ") and arg.endswith(")"):
+            label_str = arg[len("$(location "):-1]
+            cmd.append(str(repository_ctx.path(Label(label_str))))
+        else:
+            cmd.append(arg)
+    cmd.extend([str(archive_path), str(context_path)])
 
     result = repository_ctx.execute(cmd, timeout = 30)
     if result.return_code != 0:
@@ -123,6 +125,39 @@ def _log_build_dep_info(repository_ctx, inspection):
             " (auto-wiring: {})".format(", ".join(extra)) if extra else "",
         ))
 
+# --- Archive path resolution ---
+
+def _resolve_archive_path(repository_ctx):
+    """Resolve the src label to an actual archive file path.
+
+    The src label typically points at an http_file filegroup (e.g.
+    @sdist__foo//file) whose default target is `:file`, a filegroup wrapping
+    the downloaded archive. repository_ctx.path() on that label yields
+    `<repo>/file/file` which doesn't exist on disk — the real archive is a
+    sibling like `<repo>/file/foo-1.0.tar.gz`. We scan the parent directory
+    for archive files.
+    """
+    src_path = repository_ctx.path(repository_ctx.attr.src)
+    if src_path.exists:
+        return src_path
+
+    # src_path doesn't exist — it's likely `<pkg>/file` from a filegroup.
+    # Scan the parent directory for an archive file.
+    parent = src_path.dirname
+    if parent.exists:
+        for child in parent.readdir():
+            name = child.basename
+            if name in ("BUILD", "BUILD.bazel"):
+                continue
+            if name.endswith(".tar.gz") or name.endswith(".tar.bz2") or name.endswith(".tar.xz") or name.endswith(".zip") or name.endswith(".tar"):
+                return child
+
+    # buildifier: disable=print
+    print("WARNING: Could not resolve archive path from src label for {}".format(
+        repository_ctx.name,
+    ))
+    return None
+
 # --- Repository rule implementation ---
 
 def _sdist_build_impl(repository_ctx):
@@ -144,8 +179,8 @@ def _sdist_build_impl(repository_ctx):
     inspection = None
 
     if is_native_override == "auto":
-        archive_path = repository_ctx.path(repository_ctx.attr.src)
-        inspection = _run_configure_tool(repository_ctx, archive_path)
+        archive_path = _resolve_archive_path(repository_ctx)
+        inspection = _run_configure_tool(repository_ctx, archive_path) if archive_path else None
 
         if inspection != None:
             # If the tool provided complete build file content, use it directly.
@@ -177,6 +212,10 @@ def _sdist_build_impl(repository_ctx):
     extra_dep_labels = _resolve_extra_deps(repository_ctx, inspection)
     _log_build_dep_info(repository_ctx, inspection)
 
+    # TODO: When the configure tool didn't run or failed, we may want to
+    # conservatively add setuptools + wheel as fallback build deps. For now
+    # we rely on the configure tool succeeding.
+
     # Merge explicit deps with auto-discovered deps
     all_deps = [str(d) for d in repository_ctx.attr.deps] + extra_dep_labels
 
@@ -191,13 +230,13 @@ def _sdist_build_impl(repository_ctx):
         )
 
     repository_ctx.file("BUILD.bazel", content = """
-load("@aspect_rules_py//uv/private/setuptools_whl:rule.bzl", "{rule}")
+load("@aspect_rules_py//uv/private/pep517_whl:rule.bzl", "{rule}")
 load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_binary")
 
 py_venv_binary(
     name = "build_tool",
-    main = "@aspect_rules_py//uv/private/setuptools_whl:build_helper.py",
-    srcs = ["@aspect_rules_py//uv/private/setuptools_whl:build_helper.py"],
+    main = "@aspect_rules_py//uv/private/pep517_whl:build_helper.py",
+    srcs = ["@aspect_rules_py//uv/private/pep517_whl:build_helper.py"],
     deps = {deps},
 )
 
@@ -212,7 +251,7 @@ py_venv_binary(
 """.format(
         src = repository_ctx.attr.src,
         deps = repr(all_deps),
-        rule = "sdist_native_build" if is_native else "sdist_build",
+        rule = "pep517_native_whl" if is_native else "pep517_whl",
         version = repository_ctx.attr.version,
         patch_attrs = patch_attrs,
     ))
@@ -229,16 +268,12 @@ sdist_build = repository_rule(
                   "discovered by the configure tool.",
         ),
         "is_native": attr.string(default = "auto", values = ["auto", "true", "false"]),
-        "configure_script": attr.label(
-            mandatory = False,
-            allow_single_file = True,
-            doc = "Label to an sdist configure tool script/binary. " +
-                  "See //uv/private/sdist_configure:defs.bzl for the contract.",
-        ),
-        "configure_interpreter": attr.label(
-            mandatory = False,
-            doc = "Label to a Python interpreter for running the configure script. " +
-                  "Not needed for compiled configure tools.",
+        "configure_command": attr.string_list(
+            default = [],
+            doc = "Command to run as the sdist configure tool. Each element is " +
+                  "either a literal string or a $(location <label>) reference. " +
+                  "The archive path and context file are appended as the final " +
+                  "two arguments. See //uv/private/sdist_configure:defs.bzl.",
         ),
         "version": attr.string(),
         "pre_build_patches": attr.label_list(default = []),

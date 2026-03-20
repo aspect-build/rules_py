@@ -388,6 +388,7 @@ def _parse_projects(module_ctx, hub_specs):
                         pre_build_patches = pre_build_patches,
                         pre_build_patch_strip = pre_build_patch_strip,
                         available_deps = project_available_deps,
+                        configure_command = project.unstable_configure_command,
                     )
 
                     has_sbuild = True
@@ -543,7 +544,13 @@ def _uv_impl(module_ctx):
 
     # Resolve the sdist configure tool. The default is our bundled
     # detect_native.py, run with a PBS interpreter for the host platform.
-    sdist_configure_interpreter = resolve_host_interpreter_label(module_ctx)
+    default_configure_interpreter = resolve_host_interpreter_label(module_ctx)
+    default_configure_command = []
+    if default_configure_interpreter:
+        default_configure_command = [
+            "$(location {})".format(default_configure_interpreter),
+            "$(location {})".format(DEFAULT_CONFIGURE_SCRIPT),
+        ]
 
     for sbuild_id, sbuild_cfg in cfg.sbuild_cfgs.items():
         sbuild_kwargs = {
@@ -553,9 +560,13 @@ def _uv_impl(module_ctx):
             "is_native": sbuild_cfg.is_native,
             "version": sbuild_cfg.version,
         }
-        if sdist_configure_interpreter:
-            sbuild_kwargs["configure_script"] = DEFAULT_CONFIGURE_SCRIPT
-            sbuild_kwargs["configure_interpreter"] = sdist_configure_interpreter
+
+        # Use per-project custom configure command if provided, otherwise the default.
+        if sbuild_cfg.configure_command:
+            sbuild_kwargs["configure_command"] = sbuild_cfg.configure_command
+        elif default_configure_command:
+            sbuild_kwargs["configure_command"] = default_configure_command
+
         if sbuild_cfg.available_deps:
             sbuild_kwargs["available_deps"] = json.encode(sbuild_cfg.available_deps)
         if sbuild_cfg.pre_build_patches:
@@ -614,8 +625,15 @@ _project_tag = tag_class(
             mandatory = False,
             default = [
                 "build",
-                "setuptools",
             ],
+        ),
+        "unstable_configure_command": attr.string_list(
+            mandatory = False,
+            doc = "Command to run as the sdist configure tool. Each element is either " +
+                  "a literal string argument or a $(location <label>) expansion. " +
+                  "The archive path and context file are appended as the final two " +
+                  "arguments. When set, replaces the default native-detection tool. " +
+                  "See //uv/private/sdist_configure:defs.bzl for the contract.",
         ),
     },
 )

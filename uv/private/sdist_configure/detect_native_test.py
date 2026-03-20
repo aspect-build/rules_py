@@ -139,20 +139,6 @@ def test_rust():
     assert "setuptools_rust" in result["inferred_build_requires"]
 
 
-# --- Fortran ---
-
-
-def test_fortran():
-    archive = _make_tar_gz({
-        "pkg-1.0/": None,
-        "pkg-1.0/src/solver.f90": "! fortran",
-    })
-    result = detect(archive, {})
-    assert result["is_native"] is True
-    # Fortran is detected as native but we don't infer any specific build dep
-    assert result["inferred_build_requires"] == []
-
-
 # --- pyproject.toml parsing ---
 
 
@@ -192,6 +178,38 @@ setup_requires =
     result = detect(archive, {})
     assert "setuptools" in result["build_requires"]
     assert "numpy" in result["build_requires"]
+
+
+# --- legacy setup.py fallback ---
+
+
+def test_legacy_setup_py_infers_setuptools():
+    """A setup.py-only package (no pyproject.toml) gets setuptools+wheel inferred."""
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/setup.py": "from setuptools import setup; setup()",
+        "pkg-1.0/pkg/__init__.py": "",
+    })
+    result = detect(archive, {})
+    assert "setuptools" in result["build_requires"]
+    assert "wheel" in result["build_requires"]
+
+
+@requires_tomllib
+def test_pyproject_does_not_infer_setuptools():
+    """A package with pyproject.toml should NOT get implicit setuptools."""
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/pyproject.toml": (
+            '[build-system]\nrequires = ["flit_core"]\n'
+            'build-backend = "flit_core.buildapi"\n'
+        ),
+        "pkg-1.0/setup.py": "# legacy shim",
+        "pkg-1.0/pkg/__init__.py": "",
+    })
+    result = detect(archive, {})
+    assert "setuptools" not in result["build_requires"]
+    assert "flit_core" in result["build_requires"]
 
 
 # --- extra_deps resolution ---

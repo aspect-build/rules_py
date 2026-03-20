@@ -52,9 +52,9 @@ The JSON object MUST contain:
     }
 
     is_native: True if the archive contains source files that require a
-    platform-specific build (C, C++, Cython, Fortran, Rust, assembly, etc.).
+    platform-specific build (C, C++, Cython, Rust, assembly, etc.).
     When True and no `build_file_content` is provided, the repository rule
-    generates an `sdist_native_build` target instead of `sdist_build`.
+    generates a `pep517_native_whl` target instead of `pep517_whl`.
 
 The JSON object MAY contain any of the following fields:
 

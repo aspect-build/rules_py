@@ -1,5 +1,8 @@
 """
-Actually building sdists.
+PEP 517 sdist-to-wheel build rules.
+
+Uses `python -m build` (the pypa/build frontend) which delegates to whatever
+build backend the sdist declares in its `[build-system]` table.
 """
 
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", find_cc_toolchain = "find_cpp_toolchain")
@@ -28,7 +31,7 @@ def _patch_args_and_inputs(ctx):
                 patch_inputs.append(f)
     return patch_args, patch_inputs
 
-def _sdist_build(ctx):
+def _pep517_whl(ctx):
     archive = ctx.attr.src[DefaultInfo].files.to_list()[0]
     wheel_dir = ctx.actions.declare_directory("whl")
     patch_args, patch_inputs = _patch_args_and_inputs(ctx)
@@ -55,7 +58,7 @@ def _sdist_build(ctx):
 
     return [DefaultInfo(files = depset([wheel_dir]))]
 
-def _sdist_native_build(ctx):
+def _pep517_native_whl(ctx):
     archive = ctx.attr.src[DefaultInfo].files.to_list()[0]
     wheel_dir = ctx.actions.declare_directory("whl")
     patch_args, patch_inputs = _patch_args_and_inputs(ctx)
@@ -102,22 +105,22 @@ _PATCH_ATTRS = {
     ),
 }
 
-_sdist_build_attrs = {
+_pep517_whl_attrs = {
     "src": attr.label(),
     "tool": attr.label(executable = True, cfg = "exec"),
     "version": attr.string(),
     "args": attr.string_list(default = ["--validate-anyarch"]),
 } | _PATCH_ATTRS
 
-sdist_build = rule(
-    implementation = _sdist_build,
-    doc = """Sdist to _anyarch_ whl build rule.
+pep517_whl = rule(
+    implementation = _pep517_whl,
+    doc = """PEP 517 sdist to anyarch whl build rule.
 
 Consumes a sdist artifact and performs a build of that artifact with the
-specified Python dependencies under the configured Python toochain.
+specified Python dependencies under the configured Python toolchain.
 
 """,
-    attrs = _sdist_build_attrs,
+    attrs = _pep517_whl_attrs,
     exec_groups = {
         "target": exec_group(
             toolchains = [
@@ -128,9 +131,9 @@ specified Python dependencies under the configured Python toochain.
     cfg = lib_mode_transition,
 )
 
-sdist_native_build = rule(
-    implementation = _sdist_native_build,
-    doc = """Sdist to whl build rule for packages with native/compiled code.
+pep517_native_whl = rule(
+    implementation = _pep517_native_whl,
+    doc = """PEP 517 sdist to platform-specific whl build rule.
 
 Consumes a sdist artifact and performs a build of that artifact with the
 specified Python dependencies under the configured Python toolchain to produce a
@@ -144,7 +147,7 @@ The build is guaranteed to occur on an execution platform matching the
 constraints of the target platform.
 
 """,
-    attrs = _sdist_build_attrs | {
+    attrs = _pep517_whl_attrs | {
         "args": attr.string_list(),
         "_cc_toolchain": attr.label(
             default = Label("@bazel_tools//tools/cpp:current_cc_toolchain"),

@@ -35,8 +35,6 @@ NATIVE_EXTENSIONS = frozenset({
     ".cc", ".cpp", ".cxx",
     # Cython
     ".pyx", ".pxd",
-    # Fortran
-    ".f", ".f90", ".f95", ".for",
     # Rust
     ".rs",
     # Assembly
@@ -45,7 +43,7 @@ NATIVE_EXTENSIONS = frozenset({
 
 # Map from file extensions to build-time package dependencies.
 # Note: C/C++ extensions are handled natively by setuptools and don't need
-# extra deps. Fortran has no reliable default build dep to infer.
+# extra deps.
 EXTENSION_TO_BUILD_DEP = {
     ".pyx": "cython",
     ".pxd": "cython",
@@ -198,6 +196,14 @@ def detect(archive_path, context):
         has_setup_py = _find_config_file(members, "setup.py") is not None
     finally:
         close_fn()
+
+    # Legacy setup.py-only packages (no pyproject.toml) implicitly need
+    # setuptools and wheel to build.
+    if not pyproject_path and has_setup_py:
+        if "setuptools" not in {_normalize_name(d) for d in declared}:
+            declared.append("setuptools")
+        if "wheel" not in {_normalize_name(d) for d in declared}:
+            declared.append("wheel")
 
     # Deduplicate declared
     seen = set()
