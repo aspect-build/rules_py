@@ -1,4 +1,6 @@
 load("@bazel_lib//lib:testing.bzl", "assert_contains")
+load("@bazel_lib//lib:transitions.bzl", "platform_transition_binary")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("//py:defs.bzl", "py_binary", "py_pex_binary")
 
 # Test that both single-file modules (six) and multi-file modules (cowsay) work with py_pex_binary.
@@ -31,4 +33,31 @@ assert_contains(
     name = "test__print_modules_pex",
     actual = "print_modules_pex.out",
     expected = "Mooo!,cowsay-6.1/cowsay/__init__.py,six-1.16.0/six.py",
+)
+
+# Verify PEX building works under a platform transition. The PEX builder must
+# use the exec interpreter (cfg=exec), not the target interpreter, because the
+# target interpreter may not be runnable on the build host in cross-builds.
+# TODO(https://github.com/aspect-build/rules_py/issues/625): true cross-arch
+# builds (e.g. arm64 from x86_64) are blocked by whl_install also needing the
+# exec interpreter for compileall.
+platform(
+    name = "amd64_linux",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+platform_transition_binary(
+    name = "print_modules_pex_amd64_linux",
+    binary = ":print_modules_pex",
+    target_platform = ":amd64_linux",
+)
+
+build_test(
+    name = "cross_builds",
+    targets = [
+        ":print_modules_pex_amd64_linux",
+    ],
 )
