@@ -1,4 +1,4 @@
-load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
 
 bool_flag(
     name = "precompile",
@@ -9,5 +9,37 @@ bool_flag(
 config_setting(
     name = "is_precompile",
     flag_values = {":precompile": "True"},
+    visibility = ["//visibility:public"],
+)
+
+# Controls the PEP 552 invalidation mode for pre-compiled .pyc files.
+#
+# Supported values:
+#   "checked-hash"   (default) — Python validates the .pyc hash against the
+#                     source at import time. Safe when sources may be modified
+#                     after compilation (e.g. the runfiles __init__.py shim).
+#   "unchecked-hash" — Python trusts the .pyc unconditionally. Faster imports
+#                     but stale .pyc files will silently shadow source changes.
+#   "timestamp"      — Classic mtime-based invalidation.
+string_flag(
+    name = "invalidation_mode",
+    build_setting_default = "checked-hash",
+    values = [
+        "checked-hash",
+        "unchecked-hash",
+        "timestamp",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "is_unchecked_hash",
+    flag_values = {":invalidation_mode": "unchecked-hash"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "is_timestamp",
+    flag_values = {":invalidation_mode": "timestamp"},
     visibility = ["//visibility:public"],
 )
