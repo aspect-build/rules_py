@@ -18,8 +18,6 @@ def _python_interpreter_impl(rctx):
     python_version = rctx.attr.python_version
     sha256 = rctx.attr.sha256
     strip_prefix = rctx.attr.strip_prefix
-    is_freethreaded = rctx.attr.freethreaded
-
     rctx.download_and_extract(
         url = [url],
         sha256 = sha256,
@@ -33,7 +31,6 @@ def _python_interpreter_impl(rctx):
     major = version_parts[0]
     minor = version_parts[1]
     micro = version_parts[2] if len(version_parts) > 2 else "0"
-    major_minor = "{}.{}".format(major, minor)
 
     # Delete terminfo symlink loops on newer PBS releases (linux only)
     if "linux" in platform:
@@ -43,11 +40,8 @@ def _python_interpreter_impl(rctx):
         major = major,
         minor = minor,
         micro = micro,
-        major_minor = major_minor,
-        python_version = python_version,
         python_bin = python_bin,
         is_windows = is_windows,
-        is_freethreaded = is_freethreaded,
     ))
 
 def _feature_filegroups(major, minor, is_windows):
@@ -85,7 +79,7 @@ filegroup(
 
     return "\n".join(lines), all_excludes
 
-def _build_file_content(major, minor, micro, major_minor, python_version, python_bin, is_windows, is_freethreaded):
+def _build_file_content(major, minor, micro, python_bin, is_windows):
     """Generate the full BUILD.bazel content for an interpreter repo."""
 
     feature_targets, feature_excludes = _feature_filegroups(major, minor, is_windows)
@@ -119,49 +113,8 @@ def _build_file_content(major, minor, micro, major_minor, python_version, python
     return """\
 load("@rules_python//python:py_runtime.bzl", "py_runtime")
 load("@rules_python//python:py_runtime_pair.bzl", "py_runtime_pair")
-load("@bazel_skylib//lib:selects.bzl", "selects")
 
 package(default_visibility = ["//visibility:public"])
-
-config_setting(
-    name = "_is_our_major_minor",
-    flag_values = {{
-        "{our_flag}": "{major_minor}",
-    }},
-)
-
-config_setting(
-    name = "_is_our_major_minor_micro",
-    flag_values = {{
-        "{our_flag}": "{version}",
-    }},
-)
-
-config_setting(
-    name = "_is_rpy_major_minor",
-    flag_values = {{
-        "{rpy_flag}": "{major_minor}",
-    }},
-)
-
-config_setting(
-    name = "_is_rpy_major_minor_micro",
-    flag_values = {{
-        "{rpy_flag}": "{version}",
-    }},
-)
-
-selects.config_setting_group(
-    name = "is_matching_python_version",
-    match_any = [
-        ":_is_our_major_minor",
-        ":_is_our_major_minor_micro",
-        ":_is_rpy_major_minor",
-        ":_is_rpy_major_minor_micro",
-    ],
-)
-
-{freethreaded_config_setting}
 
 # --- Optional interpreter features ---
 
@@ -201,33 +154,14 @@ py_runtime_pair(
     py3_runtime = ":py3_runtime",
 )
 """.format(
-        our_flag = _PYTHON_VERSION_FLAG,
-        rpy_flag = _RPY_VERSION_FLAG,
-        version = python_version,
-        major_minor = major_minor,
         python_bin = python_bin,
         major = major,
         minor = minor,
         micro = micro,
-        freethreaded_config_setting = _freethreaded_config_setting(is_freethreaded),
         feature_targets = feature_targets,
         feature_selects = feature_selects,
         core_include = core_include,
         core_exclude = core_exclude,
-    )
-
-def _freethreaded_config_setting(is_freethreaded):
-    """Generate config_setting for the freethreaded flag."""
-    return """\
-config_setting(
-    name = "is_matching_freethreaded",
-    flag_values = {{
-        "{flag}": "{value}",
-    }},
-)
-""".format(
-        flag = _FREETHREADING_FLAG,
-        value = "true" if is_freethreaded else "false",
     )
 
 python_interpreter = repository_rule(
