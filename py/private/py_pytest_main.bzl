@@ -100,13 +100,6 @@ def py_pytest_main(name, py_library = default_py_library, deps = [], data = [], 
         **kwargs: The extra arguments passed to the template rendering target.
     """
 
-    if not kwargs.get("args") and not kwargs.get("chdir"):
-        # buildifier: disable=print
-        print("WARNING: py_pytest_main(name = \"%s\") has no custom args or chdir. " % name +
-              "Use py_test(pytest_main = True) instead, which avoids generating a " +
-              "per-test entry script. py_pytest_main without custom parameters " +
-              "will be removed in a future release.")
-
     # Use __test__<name>__.py so pytest won't discover the generated main
     # as a test module (see #723). The double-underscore wrapping signals
     # "internal/dunder" to pytest's default collection rules.
