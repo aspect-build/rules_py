@@ -37,6 +37,11 @@ struct UnpackArgs {
     #[arg(long, default_value_t = false)]
     compile_pyc: bool,
 
+    /// PEP 552 invalidation mode for .pyc files.
+    /// One of: checked-hash, unchecked-hash, timestamp.
+    #[arg(long, default_value = "checked-hash")]
+    pyc_invalidation_mode: String,
+
     /// Path to the Python interpreter (required when --compile-pyc is set).
     #[arg(long)]
     python: Option<PathBuf>,
@@ -88,7 +93,7 @@ fn unpack_cmd_handler(args: UnpackArgs) -> miette::Result<()> {
                 "compileall",
                 "-q",
                 "--invalidation-mode",
-                "unchecked-hash",
+                &args.pyc_invalidation_mode,
             ])
             .arg(&site_packages)
             .status()

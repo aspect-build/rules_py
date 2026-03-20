@@ -237,9 +237,19 @@ py_library(
         "//conditions:default": False,
     })"""
 
+    pyc_invalidation_mode_select = """select({
+        "@aspect_rules_py//uv/private/pyc:is_unchecked_hash": "unchecked-hash",
+        "@aspect_rules_py//uv/private/pyc:is_timestamp": "timestamp",
+        "//conditions:default": "checked-hash",
+    })"""
+
     install_attrs = """
     src = ":whl",
-    compile_pyc = {compile_pyc},""".format(compile_pyc = compile_pyc_select)
+    compile_pyc = {compile_pyc},
+    pyc_invalidation_mode = {pyc_invalidation_mode},""".format(
+        compile_pyc = compile_pyc_select,
+        pyc_invalidation_mode = pyc_invalidation_mode_select,
+    )
 
     if post_install_patches:
         install_attrs += """

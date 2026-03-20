@@ -37,6 +37,7 @@ def _whl_install(ctx):
     # Optional .pyc pre-compilation (runs after patching).
     if ctx.attr.compile_pyc:
         arguments.add("--compile-pyc")
+        arguments.add("--pyc-invalidation-mode", ctx.attr.pyc_invalidation_mode)
         arguments.add("--python")
         arguments.add(py_toolchain.interpreter.path)
         inputs = inputs + [py_toolchain.interpreter] + py_toolchain.files.to_list()
@@ -107,6 +108,11 @@ lighter weight since the toolchain's files aren't inputs.
         "compile_pyc": attr.bool(
             default = False,
             doc = "Pre-compile .pyc bytecode after unpacking and patching.",
+        ),
+        "pyc_invalidation_mode": attr.string(
+            default = "checked-hash",
+            values = ["checked-hash", "unchecked-hash", "timestamp"],
+            doc = "PEP 552 invalidation mode for pre-compiled .pyc files.",
         ),
         "_unpack": attr.label(
             default = "//py/private/toolchain:resolved_unpack_toolchain",
