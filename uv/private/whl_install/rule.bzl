@@ -35,12 +35,16 @@ def _whl_install(ctx):
         inputs = inputs + patch_files
 
     # Optional .pyc pre-compilation (runs after patching).
+    # Use the exec-configured interpreter so cross-arch builds work (the target
+    # interpreter may not be runnable on the build host). This is safe because
+    # .pyc bytecode varies by Python version, not by architecture.
     if ctx.attr.compile_pyc:
+        exec_py = ctx.attr._exec_python[platform_common.ToolchainInfo]
         arguments.add("--compile-pyc")
         arguments.add("--pyc-invalidation-mode", ctx.attr.pyc_invalidation_mode)
         arguments.add("--python")
-        arguments.add(py_toolchain.interpreter.path)
-        inputs = inputs + [py_toolchain.interpreter] + py_toolchain.files.to_list()
+        arguments.add(exec_py.interpreter.path)
+        inputs = inputs + [exec_py.interpreter] + exec_py.files.to_list()
 
     # Need to read the toolchain config from the unpack target so we can grab
     # its bin and run it. Note that we have to do this dance in order to get the
@@ -113,6 +117,10 @@ lighter weight since the toolchain's files aren't inputs.
             default = "checked-hash",
             values = ["checked-hash", "unchecked-hash", "timestamp"],
             doc = "PEP 552 invalidation mode for pre-compiled .pyc files.",
+        ),
+        "_exec_python": attr.label(
+            default = "//py/private/toolchain:resolved_py_toolchain",
+            cfg = "exec",
         ),
         "_unpack": attr.label(
             default = "//py/private/toolchain:resolved_unpack_toolchain",
