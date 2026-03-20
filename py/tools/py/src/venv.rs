@@ -489,6 +489,9 @@ pub enum Command {
     CopyAndPatch { src: PathBuf, dest: PathBuf },
     // Implies create_dir_all for the dest's parents
     Symlink { src: PathBuf, dest: PathBuf },
+    // Like Symlink but for an entire directory. Implies create_dir_all for the
+    // dest's parent (not the dest itself, since that becomes the symlink).
+    SymlinkDir { src: PathBuf, dest: PathBuf },
     PthEntry { path: PathBuf },
 }
 
@@ -797,6 +800,123 @@ impl<A: PthEntryHandler, B: PthEntryHandler> PthEntryHandler for StrategyWithBin
     }
 }
 
+/// Native extension file suffixes that prevent directory coalescing.
+/// When a directory contains files with these extensions, we keep file-level
+/// symlinks because directory symlinks change `os.path.realpath()` behavior,
+/// which can break relative library loads.
+const NATIVE_EXTENSIONS: &[&str] = &[".so", ".dylib", ".pyd"];
+
+/// Returns true if the filename looks like a native extension.
+fn has_native_extension(path: &Path) -> bool {
+    let name = path.file_name().unwrap_or_default().to_string_lossy();
+    NATIVE_EXTENSIONS.iter().any(|ext| name.ends_with(ext))
+        || name.contains(".so.") // versioned .so files like libfoo.so.1.2
+}
+
+/// Post-processing pass that replaces groups of file-level `Symlink` commands
+/// with a single `SymlinkDir` when all files in a top-level package directory
+/// come from the same source root and contain no native extensions.
+fn coalesce_symlinks(plan: Vec<Command>, site_dir: &Path) -> Vec<Command> {
+    // Partition into Symlink commands targeting site_dir and everything else.
+    let mut non_symlinks: Vec<Command> = Vec::new();
+    // Group symlinks by their top-level directory component relative to site_dir.
+    // Key: top-level dir name, Value: vec of (src, dest, relative_path) tuples.
+    let mut dir_groups: IndexMap<PathBuf, Vec<(PathBuf, PathBuf)>> = IndexMap::new();
+    // Top-level files (no directory component) pass through unchanged.
+    let mut toplevel_symlinks: Vec<Command> = Vec::new();
+
+    for cmd in plan {
+        match cmd {
+            Command::Symlink { ref src, ref dest } => {
+                if let Ok(rel) = dest.strip_prefix(site_dir) {
+                    let mut components = rel.components();
+                    if let Some(first) = components.next() {
+                        let top_dir = PathBuf::from(first.as_os_str());
+                        if components.next().is_some() {
+                            // File is inside a subdirectory
+                            dir_groups
+                                .entry(top_dir)
+                                .or_insert_with(Vec::new)
+                                .push((src.clone(), dest.clone()));
+                        } else {
+                            // Top-level file (e.g., six.py)
+                            toplevel_symlinks.push(cmd);
+                        }
+                    } else {
+                        toplevel_symlinks.push(cmd);
+                    }
+                } else {
+                    non_symlinks.push(cmd);
+                }
+            }
+            _ => non_symlinks.push(cmd),
+        }
+    }
+
+    let mut result = non_symlinks;
+    result.append(&mut toplevel_symlinks);
+
+    for (top_dir, entries) in dir_groups {
+        // For each file, compute its source root: src minus the relative suffix.
+        // If all roots are the same and no native extensions, coalesce.
+        let mut source_roots: Vec<PathBuf> = Vec::new();
+        let mut has_native = false;
+
+        for (src, dest) in &entries {
+            let rel = dest.strip_prefix(site_dir).unwrap();
+            if let Ok(suffix) = src.strip_prefix(
+                // Try to recover the source root by stripping the relative path
+                // This works because src = <source_root>/<rel>
+                // So source_root = src with rel stripped from the end
+                &{
+                    let mut p = src.clone();
+                    for _ in rel.components() {
+                        p.pop();
+                    }
+                    p
+                },
+            ) {
+                // Verify the suffix matches rel
+                if suffix == rel {
+                    let mut root = src.clone();
+                    for _ in rel.components() {
+                        root.pop();
+                    }
+                    source_roots.push(root);
+                } else {
+                    // Mismatch — can't coalesce
+                    source_roots.push(src.clone()); // unique dummy
+                }
+            } else {
+                source_roots.push(src.clone()); // unique dummy
+            }
+
+            if has_native_extension(src) {
+                has_native = true;
+            }
+        }
+
+        let all_same_root = !source_roots.is_empty()
+            && source_roots.iter().all(|r| r == &source_roots[0]);
+
+        if all_same_root && !has_native {
+            // Replace all file symlinks with a single directory symlink
+            let source_root = &source_roots[0];
+            result.push(Command::SymlinkDir {
+                src: source_root.join(&top_dir),
+                dest: site_dir.join(&top_dir),
+            });
+        } else {
+            // Keep file-level symlinks
+            for (src, dest) in entries {
+                result.push(Command::Symlink { src, dest });
+            }
+        }
+    }
+
+    result
+}
+
 pub fn populate_venv(
     venv: Virtualenv,
     pth_file: PthFile,
@@ -843,6 +963,7 @@ pub fn populate_venv(
             Command::Copy { src, .. }
             | Command::CopyAndPatch { src, .. }
             | Command::Symlink { src, .. }
+            | Command::SymlinkDir { src, .. }
                 if (src.starts_with(&venv.home_dir)) =>
             {
                 continue;
@@ -851,6 +972,7 @@ pub fn populate_venv(
             Command::Copy { dest, .. }
             | Command::CopyAndPatch { dest, .. }
             | Command::Symlink { dest, .. }
+            | Command::SymlinkDir { dest, .. }
             | Command::PthEntry { path: dest } => {
                 planned_destinations
                     .entry(dest.clone())
@@ -896,7 +1018,8 @@ pub fn populate_venv(
                 .filter_map(|it| match it {
                     Command::Copy { src, .. }
                     | Command::CopyAndPatch { src, .. }
-                    | Command::Symlink { src, .. } => Some(try_digest(src)),
+                    | Command::Symlink { src, .. }
+                    | Command::SymlinkDir { src, .. } => Some(try_digest(src)),
                     _ => None,
                 })
                 .filter_map(|it| if let Ok(it) = it { Some(it) } else { None })
@@ -916,7 +1039,8 @@ pub fn populate_venv(
                         Command::Copy { src, .. } | Command::CopyAndPatch { src, .. } => {
                             eprintln!("  - Source: {} (Copy)", src.display())
                         }
-                        Command::Symlink { src, .. } => {
+                        Command::Symlink { src, .. }
+                        | Command::SymlinkDir { src, .. } => {
                             eprintln!("  - Source: {} (Symlink)", src.display())
                         }
                         _ => {}
@@ -943,6 +1067,9 @@ pub fn populate_venv(
 ",
         )
         .into_diagnostic()?;
+
+    // Coalesce file-level symlinks into directory symlinks where possible.
+    let plan = coalesce_symlinks(plan, &venv.site_dir);
 
     // The plan has now been uniq'd by destination, execute it
     for command in plan {
@@ -977,6 +1104,11 @@ pub fn populate_venv(
                 let resolved = diff_paths(&src, &dest.parent().unwrap()).unwrap();
                 unix_fs::symlink(&resolved, &dest).into_diagnostic()?;
             }
+            Command::SymlinkDir { src, dest } => {
+                fs::create_dir_all(&dest.parent().unwrap()).into_diagnostic()?;
+                let resolved = diff_paths(&src, &dest.parent().unwrap()).unwrap();
+                unix_fs::symlink(&resolved, &dest).into_diagnostic()?;
+            }
             Command::PthEntry { path } => {
                 writeln!(dest_pth_writer, "{}", path.to_str().unwrap()).into_diagnostic()?;
             }
@@ -984,4 +1116,166 @@ pub fn populate_venv(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn coalesce_single_source_root() {
+        let site = PathBuf::from("/venv/lib/python3.11/site-packages");
+        let plan = vec![
+            Command::Symlink {
+                src: PathBuf::from("/src/site-packages/requests/__init__.py"),
+                dest: site.join("requests/__init__.py"),
+            },
+            Command::Symlink {
+                src: PathBuf::from("/src/site-packages/requests/api.py"),
+                dest: site.join("requests/api.py"),
+            },
+            Command::Symlink {
+                src: PathBuf::from("/src/site-packages/requests/models.py"),
+                dest: site.join("requests/models.py"),
+            },
+        ];
+
+        let result = coalesce_symlinks(plan, &site);
+        assert_eq!(result.len(), 1);
+        match &result[0] {
+            Command::SymlinkDir { src, dest } => {
+                assert_eq!(src, &PathBuf::from("/src/site-packages/requests"));
+                assert_eq!(dest, &site.join("requests"));
+            }
+            other => panic!("Expected SymlinkDir, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn no_coalesce_native_extension() {
+        let site = PathBuf::from("/venv/lib/python3.11/site-packages");
+        let plan = vec![
+            Command::Symlink {
+                src: PathBuf::from("/src/site-packages/numpy/__init__.py"),
+                dest: site.join("numpy/__init__.py"),
+            },
+            Command::Symlink {
+                src: PathBuf::from("/src/site-packages/numpy/_core.cpython-311-x86_64-linux-gnu.so"),
+                dest: site.join("numpy/_core.cpython-311-x86_64-linux-gnu.so"),
+            },
+        ];
+
+        let result = coalesce_symlinks(plan, &site);
+        assert_eq!(result.len(), 2);
+        assert!(result.iter().all(|c| matches!(c, Command::Symlink { .. })));
+    }
+
+    #[test]
+    fn no_coalesce_mixed_source_roots() {
+        let site = PathBuf::from("/venv/lib/python3.11/site-packages");
+        let plan = vec![
+            Command::Symlink {
+                src: PathBuf::from("/src_a/site-packages/mypkg/mod_a.py"),
+                dest: site.join("mypkg/mod_a.py"),
+            },
+            Command::Symlink {
+                src: PathBuf::from("/src_b/site-packages/mypkg/mod_b.py"),
+                dest: site.join("mypkg/mod_b.py"),
+            },
+        ];
+
+        let result = coalesce_symlinks(plan, &site);
+        assert_eq!(result.len(), 2);
+        assert!(result.iter().all(|c| matches!(c, Command::Symlink { .. })));
+    }
+
+    #[test]
+    fn toplevel_files_pass_through() {
+        let site = PathBuf::from("/venv/lib/python3.11/site-packages");
+        let plan = vec![Command::Symlink {
+            src: PathBuf::from("/src/site-packages/six.py"),
+            dest: site.join("six.py"),
+        }];
+
+        let result = coalesce_symlinks(plan, &site);
+        assert_eq!(result.len(), 1);
+        assert!(matches!(&result[0], Command::Symlink { .. }));
+    }
+
+    #[test]
+    fn non_symlink_commands_pass_through() {
+        let site = PathBuf::from("/venv/lib/python3.11/site-packages");
+        let plan = vec![
+            Command::Copy {
+                src: PathBuf::from("/src/foo.py"),
+                dest: site.join("pkg/foo.py"),
+            },
+            Command::PthEntry {
+                path: PathBuf::from("../../some/path"),
+            },
+        ];
+
+        let result = coalesce_symlinks(plan, &site);
+        assert_eq!(result.len(), 2);
+        assert!(matches!(&result[0], Command::Copy { .. }));
+        assert!(matches!(&result[1], Command::PthEntry { .. }));
+    }
+
+    #[test]
+    fn coalesce_nested_subdirs() {
+        let site = PathBuf::from("/venv/lib/python3.11/site-packages");
+        let plan = vec![
+            Command::Symlink {
+                src: PathBuf::from("/src/site-packages/pkg/__init__.py"),
+                dest: site.join("pkg/__init__.py"),
+            },
+            Command::Symlink {
+                src: PathBuf::from("/src/site-packages/pkg/sub/mod.py"),
+                dest: site.join("pkg/sub/mod.py"),
+            },
+            Command::Symlink {
+                src: PathBuf::from("/src/site-packages/pkg/sub/deep/thing.py"),
+                dest: site.join("pkg/sub/deep/thing.py"),
+            },
+        ];
+
+        let result = coalesce_symlinks(plan, &site);
+        assert_eq!(result.len(), 1);
+        match &result[0] {
+            Command::SymlinkDir { src, dest } => {
+                assert_eq!(src, &PathBuf::from("/src/site-packages/pkg"));
+                assert_eq!(dest, &site.join("pkg"));
+            }
+            other => panic!("Expected SymlinkDir, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn no_coalesce_versioned_so() {
+        let site = PathBuf::from("/venv/lib/python3.11/site-packages");
+        let plan = vec![
+            Command::Symlink {
+                src: PathBuf::from("/src/site-packages/lib/__init__.py"),
+                dest: site.join("lib/__init__.py"),
+            },
+            Command::Symlink {
+                src: PathBuf::from("/src/site-packages/lib/libfoo.so.1.2"),
+                dest: site.join("lib/libfoo.so.1.2"),
+            },
+        ];
+
+        let result = coalesce_symlinks(plan, &site);
+        assert_eq!(result.len(), 2);
+        assert!(result.iter().all(|c| matches!(c, Command::Symlink { .. })));
+    }
+
+    #[test]
+    fn has_native_extension_checks() {
+        assert!(has_native_extension(Path::new("foo.so")));
+        assert!(has_native_extension(Path::new("foo.dylib")));
+        assert!(has_native_extension(Path::new("foo.pyd")));
+        assert!(has_native_extension(Path::new("libfoo.so.1.2")));
+        assert!(!has_native_extension(Path::new("foo.py")));
+        assert!(!has_native_extension(Path::new("foo.pyc")));
+    }
 }
