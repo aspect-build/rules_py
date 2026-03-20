@@ -89,10 +89,10 @@ Add to `.vscode/launch.json`:
 
 ```json
 {
-    "name": "Attach to Bazel py_binary",
-    "type": "debugpy",
-    "request": "attach",
-    "connect": {"host": "127.0.0.1", "port": 5678}
+  "name": "Attach to Bazel py_binary",
+  "type": "debugpy",
+  "request": "attach",
+  "connect": { "host": "127.0.0.1", "port": 5678 }
 }
 ```
 
