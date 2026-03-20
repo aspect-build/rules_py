@@ -1,0 +1,36 @@
+# Test that Windows cross-build interpreter toolchain provisioning works
+# correctly from a Linux host.
+#
+# Verifies Windows Python interpreter toolchains (x86_64, aarch64) are
+# registered from python-build-standalone. We verify at the analysis level
+# via genquery rather than building a full venv, because cross-compiling
+# the Rust venv tools to Windows requires a CC toolchain not yet configured.
+#
+# Windows-only wheel selection (pywin32) is covered by uv-no-sdist-754.
+
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+# Prove the Windows x86_64 interpreter toolchain exists by querying its deps.
+# If the toolchain repo was not provisioned, this query will fail at analysis time.
+genquery(
+    name = "windows_x64_toolchain_deps",
+    expression = "deps(@python_interpreters//:python_3_12_x86_64_pc_windows_msvc, 1)",
+    scope = ["@python_interpreters//:python_3_12_x86_64_pc_windows_msvc"],
+)
+
+# Prove the Windows aarch64 interpreter toolchain exists.
+genquery(
+    name = "windows_arm64_toolchain_deps",
+    expression = "deps(@python_interpreters//:python_3_12_aarch64_pc_windows_msvc, 1)",
+    scope = ["@python_interpreters//:python_3_12_aarch64_pc_windows_msvc"],
+)
+
+sh_test(
+    name = "test",
+    srcs = ["test_crossbuild.sh"],
+    data = [
+        ":windows_arm64_toolchain_deps",
+        ":windows_x64_toolchain_deps",
+    ],
+    target_compatible_with = ["@platforms//os:linux"],
+)
