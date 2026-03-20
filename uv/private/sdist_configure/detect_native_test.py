@@ -353,6 +353,196 @@ def test_flat_archive():
     assert "flit_core" in result["build_requires"]
 
 
+# --- setup.py partial evaluator ---
+
+
+def test_setup_py_literal_setup_requires():
+    """setup_requires as a literal list in setup()."""
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/setup.py": (
+            'from setuptools import setup\n'
+            'setup(\n'
+            '    name="pkg",\n'
+            '    setup_requires=["cython>=0.29", "numpy"],\n'
+            '    install_requires=["requests>=2.0"],\n'
+            ')\n'
+        ),
+        "pkg-1.0/pkg/__init__.py": "",
+    })
+    result = detect(archive, {})
+    # setup_requires should appear in build_requires
+    assert "cython" in result["build_requires"]
+    assert "numpy" in result["build_requires"]
+    # install_requires reported separately
+    assert "requests" in result["setup_py_install_requires"]
+
+
+def test_setup_py_variable_reference():
+    """setup_requires referencing a variable defined earlier."""
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/setup.py": (
+            'from setuptools import setup\n'
+            'BUILD_DEPS = ["cython", "numpy>=1.20"]\n'
+            'setup(\n'
+            '    name="pkg",\n'
+            '    setup_requires=BUILD_DEPS,\n'
+            ')\n'
+        ),
+        "pkg-1.0/pkg/__init__.py": "",
+    })
+    result = detect(archive, {})
+    assert "cython" in result["build_requires"]
+    assert "numpy" in result["build_requires"]
+
+
+def test_setup_py_list_concatenation():
+    """setup_requires built from list concatenation."""
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/setup.py": (
+            'from setuptools import setup\n'
+            'BASE = ["setuptools"]\n'
+            'EXTRA = ["cython"]\n'
+            'setup(\n'
+            '    name="pkg",\n'
+            '    setup_requires=BASE + EXTRA,\n'
+            ')\n'
+        ),
+        "pkg-1.0/pkg/__init__.py": "",
+    })
+    result = detect(archive, {})
+    assert "setuptools" in result["build_requires"]
+    assert "cython" in result["build_requires"]
+
+
+def test_setup_py_setuptools_dot_setup():
+    """setuptools.setup() call syntax."""
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/setup.py": (
+            'import setuptools\n'
+            'setuptools.setup(\n'
+            '    name="pkg",\n'
+            '    setup_requires=["cython"],\n'
+            ')\n'
+        ),
+        "pkg-1.0/pkg/__init__.py": "",
+    })
+    result = detect(archive, {})
+    assert "cython" in result["build_requires"]
+
+
+def test_setup_py_dynamic_deps():
+    """Dynamic deps computed at runtime are captured by exec."""
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/setup.py": (
+            'from setuptools import setup\n'
+            'deps = ["numpy"]\n'
+            'if True:\n'
+            '    deps.append("scipy")\n'
+            'setup(\n'
+            '    name="pkg",\n'
+            '    install_requires=deps,\n'
+            ')\n'
+        ),
+        "pkg-1.0/pkg/__init__.py": "",
+    })
+    result = detect(archive, {})
+    assert "numpy" in result["setup_py_install_requires"]
+    assert "scipy" in result["setup_py_install_requires"]
+
+
+def test_setup_py_imports_own_package():
+    """setup.py that imports the package (e.g. for __version__) doesn't crash."""
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/setup.py": (
+            'from setuptools import setup\n'
+            'from mypackage import __version__\n'
+            'setup(\n'
+            '    name="pkg",\n'
+            '    version=str(__version__),\n'
+            '    setup_requires=["cython"],\n'
+            ')\n'
+        ),
+        "pkg-1.0/pkg/__init__.py": "",
+    })
+    result = detect(archive, {})
+    assert "cython" in result["build_requires"]
+
+
+def test_setup_py_distutils_setup():
+    """distutils.core.setup() call syntax."""
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/setup.py": (
+            'from distutils.core import setup\n'
+            'setup(\n'
+            '    name="pkg",\n'
+            '    install_requires=["requests"],\n'
+            ')\n'
+        ),
+        "pkg-1.0/pkg/__init__.py": "",
+    })
+    result = detect(archive, {})
+    assert "requests" in result["setup_py_install_requires"]
+
+
+def test_setup_py_syntax_error_graceful():
+    """A setup.py with syntax errors should not crash detection."""
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/setup.py": "this is not valid python }{][",
+        "pkg-1.0/pkg/__init__.py": "",
+    })
+    result = detect(archive, {})
+    assert result["setup_py_setup_requires"] == []
+    assert result["setup_py_install_requires"] == []
+
+
+def test_setup_py_exception_graceful():
+    """A setup.py that raises during exec should not crash detection."""
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/setup.py": (
+            'raise RuntimeError("I am broken")\n'
+        ),
+        "pkg-1.0/pkg/__init__.py": "",
+    })
+    result = detect(archive, {})
+    assert result["setup_py_setup_requires"] == []
+    assert result["setup_py_install_requires"] == []
+
+
+def test_setup_py_setup_requires_in_extra_deps():
+    """setup.py setup_requires should feed into extra_deps resolution."""
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/setup.py": (
+            'from setuptools import setup\n'
+            'setup(\n'
+            '    name="pkg",\n'
+            '    setup_requires=["cython", "numpy>=1.20"],\n'
+            ')\n'
+        ),
+        "pkg-1.0/pkg/__init__.py": "",
+    })
+    context = {
+        "deps": [],
+        "available_deps": {
+            "cython": "@pypi//cython:install",
+            "numpy": "@pypi//numpy:install",
+            "setuptools": "@pypi//setuptools:install",
+        },
+    }
+    result = detect(archive, context)
+    assert "cython" in result["extra_deps"]
+    assert "numpy" in result["extra_deps"]
+
+
 if __name__ == "__main__":
     failures = []
     skipped = []

@@ -13,10 +13,14 @@ Requires Python >= 3.11 (for tomllib).
 """
 
 import configparser
+import importlib
+import importlib.abc
+import importlib.machinery
 import json
 import re
 import sys
 import tarfile
+import types
 import zipfile
 
 try:
@@ -133,6 +137,182 @@ def _parse_setup_cfg_build_requires(content):
     ]
 
 
+# --- setup.py dynamic evaluator ---
+#
+# setup.py is fundamentally dynamic and unsound — it's arbitrary Python.
+# Rather than trying to statically analyze an ever-shrinking subset of
+# patterns, we exec() the file with a capturing setup() function injected
+# into the module globals. This runs in Bazel's sandbox with a hermetic
+# interpreter, so the blast radius is already contained.
+
+
+class _SetupCapture(Exception):
+    """Raised by our fake setup() to abort execution after capturing kwargs."""
+
+
+class _MockModule(types.ModuleType):
+    """A module that returns mock objects for any attribute access.
+
+    Prevents ImportError for packages that aren't installed in the
+    analysis environment (which is most of them).
+    """
+
+    def __init__(self, name):
+        super().__init__(name)
+        self.__path__ = []
+        self.__file__ = f"<mock:{name}>"
+
+    def __getattr__(self, name):
+        if name in ("__path__", "__file__", "__name__", "__loader__", "__spec__"):
+            return super().__getattribute__(name)
+        # Return a new mock module for sub-attribute access
+        child = _MockModule(f"{self.__name__}.{name}")
+        setattr(self, name, child)
+        return child
+
+    def __call__(self, *args, **kwargs):
+        return _MockModule(f"{self.__name__}()")
+
+    def __iter__(self):
+        return iter([])
+
+    def __bool__(self):
+        return False
+
+    def __str__(self):
+        return ""
+
+    def __repr__(self):
+        return f"<mock:{self.__name__}>"
+
+
+class _MockImportLoader(importlib.abc.Loader):
+    """Loader that creates mock modules."""
+
+    def create_module(self, spec):
+        return _MockModule(spec.name)
+
+    def exec_module(self, module):
+        pass  # MockModule handles everything via __getattr__
+
+
+class _MockImportFinder(importlib.abc.MetaPathFinder):
+    """Import hook that returns mock modules for anything not in stdlib.
+
+    Installed at the front of sys.meta_path during setup.py execution so
+    that `from mypackage import __version__` and similar don't blow up.
+    """
+
+    _loader = _MockImportLoader()
+
+    # Modules we allow to import normally (stdlib + stuff we need).
+    _PASSTHROUGH = frozenset({
+        "os", "os.path", "sys", "re", "io", "codecs", "pathlib",
+        "platform", "struct", "collections", "functools", "itertools",
+        "contextlib", "warnings", "errno", "stat", "posixpath",
+        "ntpath", "genericpath", "fnmatch", "glob", "operator",
+        "string", "textwrap", "copy", "types", "abc",
+        "configparser", "json",
+    })
+
+    def find_spec(self, fullname, path, target=None):
+        # Let stdlib and already-loaded modules through
+        if fullname in self._PASSTHROUGH or fullname in sys.modules:
+            return None
+        # Let sub-imports of passthrough modules through
+        top = fullname.split(".")[0]
+        if top in self._PASSTHROUGH:
+            return None
+        return importlib.machinery.ModuleSpec(
+            fullname, self._loader, is_package=True,
+        )
+
+
+def _parse_setup_py_requires(content):
+    """Extract setup_requires and install_requires from setup.py via exec.
+
+    Executes the setup.py with a fake setup() that captures its keyword
+    arguments, and a mock import system that prevents ImportErrors.
+
+    Args:
+        content: The setup.py source code as a string.
+
+    Returns:
+        (setup_requires, install_requires) where each is a list of
+        normalized package names. Returns empty lists on failure.
+    """
+    captured = {}
+
+    def _fake_setup(**kwargs):
+        captured.update(kwargs)
+        raise _SetupCapture()
+
+    # Build fake setuptools/distutils modules with our capturing setup()
+    fake_setuptools = _MockModule("setuptools")
+    fake_setuptools.setup = _fake_setup
+    fake_setuptools.find_packages = lambda *a, **kw: []
+    fake_setuptools.find_namespace_packages = lambda *a, **kw: []
+    fake_setuptools.Extension = lambda *a, **kw: None
+
+    fake_distutils = _MockModule("distutils")
+    fake_distutils_core = _MockModule("distutils.core")
+    fake_distutils_core.setup = _fake_setup
+    fake_distutils.core = fake_distutils_core
+
+    # Snapshot state we're about to mutate
+    old_meta_path = sys.meta_path[:]
+    old_modules = sys.modules.copy()
+    old_argv = sys.argv[:]
+
+    finder = _MockImportFinder()
+
+    try:
+        # Install our mocks
+        sys.meta_path.insert(0, finder)
+        sys.modules["setuptools"] = fake_setuptools
+        sys.modules["distutils"] = fake_distutils
+        sys.modules["distutils.core"] = fake_distutils_core
+        sys.argv = ["setup.py"]
+
+        # Build module globals with setup() available at top level
+        globs = {
+            "__name__": "__main__",
+            "__file__": "setup.py",
+            "__builtins__": __builtins__,
+            "setup": _fake_setup,
+        }
+
+        exec(compile(content, "setup.py", "exec"), globs)
+    except _SetupCapture:
+        pass  # Expected — setup() was called and we captured kwargs
+    except Exception:
+        # setup.py did something we can't handle; that's fine
+        return [], []
+    finally:
+        # Restore state
+        sys.argv = old_argv
+        sys.meta_path[:] = old_meta_path
+        # Remove any modules our mock finder injected
+        for name in list(sys.modules):
+            if name not in old_modules:
+                del sys.modules[name]
+        sys.modules.update(old_modules)
+
+    def _extract_names(key):
+        value = captured.get(key)
+        if not isinstance(value, (list, tuple)):
+            return []
+        return [
+            _extract_name(item)
+            for item in value
+            if isinstance(item, str) and _extract_name(item)
+        ]
+
+    setup_requires = _extract_names("setup_requires")
+    install_requires = _extract_names("install_requires")
+    return setup_requires, install_requires
+
+
 # --- Detection ---
 
 def _find_config_file(members, filename):
@@ -192,8 +372,18 @@ def detect(archive_path, context):
             if content:
                 declared.extend(_parse_setup_cfg_build_requires(content))
 
-        # Detect legacy setup.py-only packages (no pyproject.toml)
-        has_setup_py = _find_config_file(members, "setup.py") is not None
+        # Parse setup.py for setup_requires / install_requires
+        setup_py_path = _find_config_file(members, "setup.py")
+        has_setup_py = setup_py_path is not None
+        setup_py_setup_requires = []
+        setup_py_install_requires = []
+        if setup_py_path:
+            setup_py_content = read_fn(setup_py_path)
+            if setup_py_content:
+                setup_py_setup_requires, setup_py_install_requires = (
+                    _parse_setup_py_requires(setup_py_content)
+                )
+                declared.extend(setup_py_setup_requires)
     finally:
         close_fn()
 
@@ -235,6 +425,8 @@ def detect(archive_path, context):
         "has_pyproject": pyproject_path is not None,
         "has_setup_py": has_setup_py,
         "has_setup_cfg": setup_cfg_path is not None,
+        "setup_py_setup_requires": setup_py_setup_requires,
+        "setup_py_install_requires": setup_py_install_requires,
     }
     if backend_path is not None:
         result["backend_path"] = backend_path
