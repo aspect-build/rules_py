@@ -281,6 +281,17 @@ uv.project(
 )
 # }}}
 
+# For cases/pth-namespace-547
+# Regression: namespace packages spanning multiple wheels (#547).
+# {{{
+uv.project(
+    default_build_dependencies = [],
+    hub_name = "pypi",
+    lock = "//cases/pth-namespace-547:uv.lock",
+    pyproject = "//cases/pth-namespace-547:pyproject.toml",
+)
+# }}}
+
 # For cases/pytest-main-867
 # Cross-repo pytest_main=True regression test.
 # {{{
