@@ -165,6 +165,14 @@ pub fn create_symlinks(
             )
             .into_diagnostic()
             .wrap_err("Unable to write to runfiles __init__.py file")?;
+        }
+        // Skip pre-compiled .pyc for the runfiles __init__.py — we write a custom shim
+        // above and stale bytecode from the original wheel would shadow it, especially
+        // under unchecked-hash invalidation mode (PEP 552 flags=0x01).
+        else if dir.ends_with("runfiles/__pycache__")
+            && entry.file_name().to_string_lossy().starts_with("__init__.")
+        {
+            // Intentionally not symlinked.
         } else if dir != root_dir || entry.file_name() != "__init__.py" {
             create_symlink(&entry, root_dir, dst_dir, collision_strategy)?;
         }
