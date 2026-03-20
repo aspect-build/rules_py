@@ -271,6 +271,16 @@ uv.project(
 )
 # }}}
 
+# For cases/pytest-mock-530
+# Regression: pytest-mock plugin discovery with py_test and py_venv_test.
+# {{{
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/pytest-mock-530:uv.lock",
+    pyproject = "//cases/pytest-mock-530:pyproject.toml",
+)
+# }}}
+
 # For cases/pytest-main-867
 # Cross-repo pytest_main=True regression test.
 # {{{
