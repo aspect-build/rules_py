@@ -502,6 +502,23 @@ pub trait PthEntryHandler {
     ) -> miette::Result<Vec<Command>>;
 }
 
+/// Walk a directory tree, skipping any subdirectory that looks like a nested
+/// virtualenv (contains a `pyvenv.cfg` file). This prevents quadratic re-walking
+/// when one `py_venv_*` target depends on another whose materialized venv tree
+/// appears in the runfiles.
+fn walk_skip_venvs(root: &Path) -> impl Iterator<Item = walkdir::DirEntry> {
+    WalkDir::new(root)
+        .into_iter()
+        .filter_entry(|e| {
+            if e.file_type().is_dir() {
+                !e.path().join("pyvenv.cfg").exists()
+            } else {
+                true
+            }
+        })
+        .filter_map(|e| e.ok())
+}
+
 /// Just put all import roots into a `.pth` file and call it a day. Minimum I/O
 /// load, generally correct. Doesn't handle bin dirs or try to decide whether
 /// the current import path represents a "package install".
@@ -556,17 +573,15 @@ impl PthEntryHandler for CopyStrategy {
         for prefix in [&action_src_dir, &action_bin_dir] {
             let src_dir = prefix.join(entry_repo).join(&entry_path);
             if src_dir.exists() {
-                for entry in WalkDir::new(&src_dir) {
-                    if let Ok(entry) = entry {
-                        // We ignore directories; they are created implicitly.
-                        if entry.file_type().is_dir() {
-                            continue;
-                        }
-                        plan.push(Command::Copy {
-                            src: entry.clone().into_path(),
-                            dest: dest.join(entry.into_path().strip_prefix(&src_dir).unwrap()),
-                        })
+                for entry in walk_skip_venvs(&src_dir) {
+                    // We ignore directories; they are created implicitly.
+                    if entry.file_type().is_dir() {
+                        continue;
                     }
+                    plan.push(Command::Copy {
+                        src: entry.clone().into_path(),
+                        dest: dest.join(entry.into_path().strip_prefix(&src_dir).unwrap()),
+                    })
                 }
             }
         }
@@ -603,19 +618,17 @@ impl PthEntryHandler for CopyAndPatchStrategy {
             }
             let src_dir = src_dir.join(&entry_path);
             if src_dir.exists() {
-                for entry in WalkDir::new(&src_dir) {
-                    if let Ok(entry) = entry {
-                        if entry.file_type().is_dir() {
-                            if entry.path() != src_dir {
-                                return Err(miette!("Bindir contained unsupported subdirs!"));
-                            }
-                            continue;
+                for entry in walk_skip_venvs(&src_dir) {
+                    if entry.file_type().is_dir() {
+                        if entry.path() != src_dir {
+                            return Err(miette!("Bindir contained unsupported subdirs!"));
                         }
-                        plan.push(Command::CopyAndPatch {
-                            src: entry.clone().into_path(),
-                            dest: dest.join(entry.into_path().strip_prefix(&src_dir).unwrap()),
-                        })
+                        continue;
                     }
+                    plan.push(Command::CopyAndPatch {
+                        src: entry.clone().into_path(),
+                        dest: dest.join(entry.into_path().strip_prefix(&src_dir).unwrap()),
+                    })
                 }
             }
         }
@@ -654,16 +667,14 @@ impl PthEntryHandler for SymlinkStrategy {
             }
             src_dir = src_dir.join(&entry_path);
             if src_dir.exists() {
-                for entry in WalkDir::new(&src_dir) {
-                    if let Ok(entry) = entry {
-                        if entry.file_type().is_dir() {
-                            continue;
-                        }
-                        plan.push(Command::Symlink {
-                            src: entry.clone().into_path(),
-                            dest: dest.join(entry.into_path().strip_prefix(&src_dir).unwrap()),
-                        })
+                for entry in walk_skip_venvs(&src_dir) {
+                    if entry.file_type().is_dir() {
+                        continue;
                     }
+                    plan.push(Command::Symlink {
+                        src: entry.clone().into_path(),
+                        dest: dest.join(entry.into_path().strip_prefix(&src_dir).unwrap()),
+                    })
                 }
             }
         }
@@ -777,18 +788,16 @@ impl<A: PthEntryHandler, B: PthEntryHandler> PthEntryHandler for StrategyWithBin
             }
             let src_dir = src_dir.join(&entry_bin);
             if src_dir.exists() {
-                for entry in WalkDir::new(&src_dir) {
-                    if let Ok(entry) = entry {
-                        if entry.file_type().is_dir() {
-                            continue;
-                        }
-                        plan.push(Command::CopyAndPatch {
-                            src: entry.clone().into_path(),
-                            dest: venv.bin_dir.join(
-                                entry.into_path().strip_prefix(&src_dir).unwrap(),
-                            ),
-                        });
+                for entry in walk_skip_venvs(&src_dir) {
+                    if entry.file_type().is_dir() {
+                        continue;
                     }
+                    plan.push(Command::CopyAndPatch {
+                        src: entry.clone().into_path(),
+                        dest: venv.bin_dir.join(
+                            entry.into_path().strip_prefix(&src_dir).unwrap(),
+                        ),
+                    });
                 }
             }
         }
