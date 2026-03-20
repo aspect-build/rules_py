@@ -48,10 +48,12 @@ def _run_configure_tool(repository_ctx, archive_path):
 
     cmd = []
     for arg in configure_command:
-        if arg.startswith("$(location ") and arg.endswith(")"):
-            label = Label(arg[len("$(location "):-1])
+        loc_start = "$(location "
+        if arg.startswith(loc_start):
+            close = arg.rfind(")")
+            label = Label(arg[len(loc_start):close])
             repository_ctx.watch(label)
-            cmd.append(str(repository_ctx.path(label)))
+            cmd.append(str(repository_ctx.path(label)) + arg[close + 1:])
         else:
             cmd.append(arg)
     cmd.extend([str(archive_path), str(context_path)])
