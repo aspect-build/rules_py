@@ -54,11 +54,13 @@ resolved dependencies available in the `@uv` repository.
 load("@bazel_features//:features.bzl", features = "bazel_features")
 load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+load("//py/private/interpreter:resolve.bzl", "resolve_host_interpreter_label")
 load("//uv/private:normalize_name.bzl", "normalize_name")
 load("//uv/private/constraints:repository.bzl", "configurations_hub")
 load("//uv/private/git_archive:repository.bzl", "git_archive")
 load("//uv/private/pprint:defs.bzl", "pprint")
 load("//uv/private/sdist_build:repository.bzl", "sdist_build")
+load("//uv/private/sdist_configure:defs.bzl", "DEFAULT_CONFIGURE_SCRIPT")
 load("//uv/private/tomltool:toml.bzl", "toml")
 load("//uv/private/uv_hub:repository.bzl", "uv_hub")
 load("//uv/private/uv_project:repository.bzl", "uv_project")
@@ -176,7 +178,7 @@ def _parse_projects(module_ctx, hub_specs):
             def _resolve(package, fail_if_missing = True):
                 name = normalize_name(package["name"])
                 if "version" in package:
-                    return (project_id, name, package["version"].replace(".", "_"), "__base__")
+                    return (project_id, name, package["version"], "__base__")
                 elif name in default_versions:
                     return default_versions[name]
                 else:
@@ -292,6 +294,21 @@ def _parse_projects(module_ctx, hub_specs):
                         # Map the version to a scc in this configuration, while collecting version conditional markers
                         marked_package_cfg_sccs.setdefault(package, {}).setdefault(cfg, {}).setdefault(package_cfg_sccs[version][cfg], {}).update(markers)
 
+            # Pre-build the per-project available_deps mapping from the
+            # lockfile. This gives each sdist configure tool visibility
+            # into the packages within this project's dependency perimeter.
+            project_available_deps = {}
+            for package in lock_data.get("package", []):
+                if "editable" in package.get("source", {}) or "virtual" in package.get("source", {}):
+                    continue
+                pkg_name = normalize_name(package["name"])
+                pkg_stamp = "whl_install__{}__{}__{}".format(
+                    project_stamp,
+                    package["name"],
+                    package["version"].replace(".", "_"),
+                )
+                project_available_deps[pkg_name] = "@{}//:install".format(pkg_stamp)
+
             # Translate the package lock into installs for this project
             for package in lock_data.get("package", []):
                 install_key = (project_id, package["name"], package["version"], "__base__")
@@ -336,7 +353,8 @@ def _parse_projects(module_ctx, hub_specs):
                     # property if it exists for the sdist. Question is how
                     # to defer choosing deps until the repo rule when we
                     # could do pyproject.toml introspection.
-                    build_deps = lock_build_dep_anns.get(install_key) or []
+                    ann_key = (project_id, normalize_name(package["name"]), package["version"], "__base__")
+                    build_deps = lock_build_dep_anns.get(ann_key) or []
                     if lock_build_deps == None:
                         lock_build_deps = [
                             it[0]
@@ -366,11 +384,12 @@ def _parse_projects(module_ctx, hub_specs):
                     sbuild_specs[sbuild_id] = struct(
                         src = sdist,
                         deps = ["@{0}//:{1}".format(*it) for it in build_deps],
-                        # FIXME: Check annotations
-                        is_native = False,
+                        is_native = "auto",
                         version = package["version"],
                         pre_build_patches = pre_build_patches,
                         pre_build_patch_strip = pre_build_patch_strip,
+                        available_deps = project_available_deps,
+                        configure_command = project.unstable_configure_command,
                     )
 
                     has_sbuild = True
@@ -524,6 +543,16 @@ def _uv_impl(module_ctx):
             downloaded_file_path = bdist_cfg["url"].split("/")[-1].split("?")[0].split("#")[0],
         )
 
+    # Resolve the sdist configure tool. The default is our bundled
+    # detect_native.py, run with a PBS interpreter for the host platform.
+    default_configure_interpreter = resolve_host_interpreter_label(module_ctx)
+    default_configure_command = []
+    if default_configure_interpreter:
+        default_configure_command = [
+            "$(location {})".format(default_configure_interpreter),
+            "$(location {})".format(DEFAULT_CONFIGURE_SCRIPT),
+        ]
+
     for sbuild_id, sbuild_cfg in cfg.sbuild_cfgs.items():
         sbuild_kwargs = {
             "name": sbuild_id,
@@ -532,6 +561,15 @@ def _uv_impl(module_ctx):
             "is_native": sbuild_cfg.is_native,
             "version": sbuild_cfg.version,
         }
+
+        # Use per-project custom configure command if provided, otherwise the default.
+        if sbuild_cfg.configure_command:
+            sbuild_kwargs["configure_command"] = sbuild_cfg.configure_command
+        elif default_configure_command:
+            sbuild_kwargs["configure_command"] = default_configure_command
+
+        if sbuild_cfg.available_deps:
+            sbuild_kwargs["available_deps"] = json.encode(sbuild_cfg.available_deps)
         if sbuild_cfg.pre_build_patches:
             sbuild_kwargs["pre_build_patches"] = sbuild_cfg.pre_build_patches
             sbuild_kwargs["pre_build_patch_strip"] = sbuild_cfg.pre_build_patch_strip
@@ -588,8 +626,15 @@ _project_tag = tag_class(
             mandatory = False,
             default = [
                 "build",
-                "setuptools",
             ],
+        ),
+        "unstable_configure_command": attr.string_list(
+            mandatory = False,
+            doc = "Command to run as the sdist configure tool. Each element is either " +
+                  "a literal string argument or a $(location <label>) expansion. " +
+                  "The archive path and context file are appended as the final two " +
+                  "arguments. When set, replaces the default native-detection tool. " +
+                  "See //uv/private/sdist_configure:defs.bzl for the contract.",
         ),
     },
 )

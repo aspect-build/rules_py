@@ -1,0 +1,20 @@
+load("//py/unstable:defs.bzl", "py_venv_test")
+
+package(default_visibility = [
+    "//uv/private:__subpackages__",
+])
+
+exports_files(
+    ["detect_native.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_venv_test(
+    name = "detect_native_test",
+    srcs = [
+        "detect_native.py",
+        "detect_native_test.py",
+    ],
+    imports = ["../../.."],
+    main = "detect_native_test.py",
+)

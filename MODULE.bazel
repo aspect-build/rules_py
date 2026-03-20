@@ -44,6 +44,35 @@ use_repo(
 host = use_extension("//uv/private/host:extension.bzl", "host_platform")
 use_repo(host, "aspect_rules_py_uv_host")
 
+# PBS interpreters — used at repo-rule time for sdist inspection (needs >= 3.11
+# for tomllib) and available as build-time toolchains.
+interpreters = use_extension("//py/unstable:extension.bzl", "python_interpreters")
+interpreters.configure(
+    releases = [
+        "20260303",
+        "20251031",
+    ],
+)
+interpreters.toolchain(
+    python_version = "3.13",
+)
+use_repo(
+    interpreters,
+    "python_interpreters",
+    # Individual platform repos — must be visible so the uv extension can
+    # reference the host interpreter for sdist configure tooling.
+    "python_3_13_aarch64_apple_darwin",
+    "python_3_13_aarch64_unknown_linux_gnu",
+    "python_3_13_aarch64_unknown_linux_musl",
+    "python_3_13_i686_pc_windows_msvc",
+    "python_3_13_x86_64_apple_darwin",
+    "python_3_13_x86_64_pc_windows_msvc",
+    "python_3_13_x86_64_unknown_linux_gnu",
+    "python_3_13_x86_64_unknown_linux_musl",
+)
+
+register_toolchains("@python_interpreters//:all")
+
 bazel_dep(name = "aspect_tools_telemetry", version = "0.3.3")
 
 tel = use_extension("@aspect_tools_telemetry//:extension.bzl", "telemetry")
