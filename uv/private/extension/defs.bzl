@@ -335,17 +335,9 @@ def _parse_projects(module_ctx, hub_specs):
 
                 is_no_binary = normalize_name(package["name"]) in no_binary_packages
 
-                # HACK: If there's a -none-any wheel for the package, then
-                # we can actually skip creating the sdist build because
-                # we'll never use it. This allows projects which can do
-                # anyarch builds from bdists to avoid providing build deps.
-                #
-                # FIXME: This condition is actually incomplete, `py2.py3` wheels
-                # match the same condition.
-                has_none_any = any(["-none-any.whl" in it["url"] for it in package.get("wheels", [])])
                 if is_no_binary and not sdist:
                     fail("Package {} is in [tool.uv] no-binary-package but has no sdist in the lockfile".format(package["name"]))
-                if sdist and (is_no_binary or not (has_none_any and project.elide_sbuilds_with_anyarch)):
+                if sdist:
                     # HACK: Note that we resolve these LAZILY so that
                     # bdist-only or fully overridden configurations don't
                     # have to provide the build tools.
