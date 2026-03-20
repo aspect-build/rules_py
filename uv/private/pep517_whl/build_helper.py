@@ -7,6 +7,7 @@ Mostly exists to allow debugging.
 """
 
 from argparse import ArgumentParser
+import os
 import shutil
 import sys
 from os import listdir, mkdir, path
@@ -43,11 +44,13 @@ if opts.patches:
 # Get a path to the outdir which will be valid after we cd
 outdir = path.abspath(opts.outdir)
 
-build_env = {
+# Preserve PATH so native sdist builds can find compilers (clang, gcc).
+build_env = dict(os.environ)
+build_env.update({
     "TMP": tmp_root,
     "TEMP": tmp_root,
     "TEMPDIR": tmp_root,
-}
+})
 
 if path.exists(path.join(t, "pyproject.toml")):
     cmd = [
