@@ -543,6 +543,218 @@ def test_setup_py_setup_requires_in_extra_deps():
     assert "numpy" in result["extra_deps"]
 
 
+def test_setup_py_main_guard():
+    """setup.py with if __name__ == '__main__' guard."""
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/setup.py": (
+            'from setuptools import setup\n'
+            'if __name__ == "__main__":\n'
+            '    setup(\n'
+            '        name="pkg",\n'
+            '        setup_requires=["cython"],\n'
+            '        install_requires=["numpy"],\n'
+            '    )\n'
+        ),
+        "pkg-1.0/pkg/__init__.py": "",
+    })
+    result = detect(archive, {})
+    assert "cython" in result["build_requires"]
+    assert "numpy" in result["setup_py_install_requires"]
+
+
+def test_setup_py_distutils_qualified_call():
+    """distutils.core.setup() via qualified attribute access (not from-import)."""
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/setup.py": (
+            'import distutils.core\n'
+            'distutils.core.setup(\n'
+            '    name="pkg",\n'
+            '    install_requires=["requests"],\n'
+            ')\n'
+        ),
+        "pkg-1.0/pkg/__init__.py": "",
+    })
+    result = detect(archive, {})
+    assert "requests" in result["setup_py_install_requires"]
+
+
+def test_setup_py_file_io_failure_graceful():
+    """setup.py that reads a nonexistent file before calling setup()."""
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/setup.py": (
+            'from setuptools import setup\n'
+            'with open("NONEXISTENT_FILE_d41d8cd98f00b204.txt") as f:\n'
+            '    long_description = f.read()\n'
+            'setup(\n'
+            '    name="pkg",\n'
+            '    long_description=long_description,\n'
+            '    install_requires=["requests"],\n'
+            ')\n'
+        ),
+        "pkg-1.0/pkg/__init__.py": "",
+    })
+    result = detect(archive, {})
+    # FileNotFoundError before setup() is called — deps are lost
+    assert result["setup_py_setup_requires"] == []
+    assert result["setup_py_install_requires"] == []
+
+
+def test_setup_py_never_calls_setup():
+    """setup.py that imports setuptools but never calls setup()."""
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/setup.py": (
+            'from setuptools import setup\n'
+            'x = 42\n'
+        ),
+        "pkg-1.0/pkg/__init__.py": "",
+    })
+    result = detect(archive, {})
+    assert result["setup_py_setup_requires"] == []
+    assert result["setup_py_install_requires"] == []
+
+
+def test_setup_py_sys_exit_graceful():
+    """setup.py that calls sys.exit() should not crash detection."""
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/setup.py": (
+            'import sys\n'
+            'sys.exit("Python 2 only")\n'
+        ),
+        "pkg-1.0/pkg/__init__.py": "",
+    })
+    result = detect(archive, {})
+    assert result["setup_py_setup_requires"] == []
+    assert result["setup_py_install_requires"] == []
+
+
+def test_setup_py_platform_conditional():
+    """setup.py using platform.system() for conditional deps."""
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/setup.py": (
+            'import platform\n'
+            'from setuptools import setup\n'
+            'deps = ["requests"]\n'
+            'if platform.system() == "Linux":\n'
+            '    deps.append("pyinotify")\n'
+            'setup(\n'
+            '    name="pkg",\n'
+            '    install_requires=deps,\n'
+            ')\n'
+        ),
+        "pkg-1.0/pkg/__init__.py": "",
+    })
+    result = detect(archive, {})
+    assert "requests" in result["setup_py_install_requires"]
+    # pyinotify presence depends on the platform running the test,
+    # but the point is it doesn't crash
+
+
+def test_setup_py_pkg_resources_import():
+    """setup.py importing pkg_resources — handled by mock import system."""
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/setup.py": (
+            'from pkg_resources import get_distribution\n'
+            'from setuptools import setup\n'
+            'setup(\n'
+            '    name="pkg",\n'
+            '    install_requires=["requests"],\n'
+            ')\n'
+        ),
+        "pkg-1.0/pkg/__init__.py": "",
+    })
+    result = detect(archive, {})
+    assert "requests" in result["setup_py_install_requires"]
+
+
+def test_setup_py_chdir_restored():
+    """setup.py that calls os.chdir() — cwd should be restored."""
+    original_cwd = os.getcwd()
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/setup.py": (
+            'import os\n'
+            'os.chdir("/tmp")\n'
+            'from setuptools import setup\n'
+            'setup(name="pkg", install_requires=["requests"])\n'
+        ),
+        "pkg-1.0/pkg/__init__.py": "",
+    })
+    result = detect(archive, {})
+    assert os.getcwd() == original_cwd
+    assert "requests" in result["setup_py_install_requires"]
+
+
+def test_setup_py_sys_path_restored():
+    """setup.py that mutates sys.path — should be restored."""
+    original_path = sys.path[:]
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/setup.py": (
+            'import sys\n'
+            'sys.path.insert(0, "/bogus/path")\n'
+            'from setuptools import setup\n'
+            'setup(name="pkg", install_requires=["requests"])\n'
+        ),
+        "pkg-1.0/pkg/__init__.py": "",
+    })
+    result = detect(archive, {})
+    assert sys.path == original_path
+    assert "requests" in result["setup_py_install_requires"]
+
+
+def test_setup_py_extension_with_install_requires():
+    """setup.py with Extension() objects and install_requires."""
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/setup.py": (
+            'from setuptools import setup, Extension\n'
+            'ext = Extension("pkg._accel", sources=["pkg/_accel.c"])\n'
+            'setup(\n'
+            '    name="pkg",\n'
+            '    ext_modules=[ext],\n'
+            '    install_requires=["numpy>=1.20"],\n'
+            '    setup_requires=["cython"],\n'
+            ')\n'
+        ),
+        "pkg-1.0/pkg/__init__.py": "",
+        "pkg-1.0/pkg/_accel.c": "/* C */",
+    })
+    result = detect(archive, {})
+    assert "numpy" in result["setup_py_install_requires"]
+    assert "cython" in result["build_requires"]
+
+
+def test_setup_cfg_and_setup_py_merged():
+    """Both setup.cfg and setup.py providing different deps — should merge."""
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/setup.cfg": (
+            '[options]\n'
+            'setup_requires =\n'
+            '    numpy\n'
+        ),
+        "pkg-1.0/setup.py": (
+            'from setuptools import setup\n'
+            'setup(\n'
+            '    name="pkg",\n'
+            '    setup_requires=["cython"],\n'
+            ')\n'
+        ),
+        "pkg-1.0/pkg/__init__.py": "",
+    })
+    result = detect(archive, {})
+    # Both sources should contribute to build_requires
+    assert "numpy" in result["build_requires"]
+    assert "cython" in result["build_requires"]
+
+
 if __name__ == "__main__":
     failures = []
     skipped = []

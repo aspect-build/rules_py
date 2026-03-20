@@ -14,6 +14,7 @@ Requires Python >= 3.11 (for tomllib).
 
 import configparser
 import importlib
+import os
 import importlib.abc
 import importlib.machinery
 import json
@@ -146,8 +147,12 @@ def _parse_setup_cfg_build_requires(content):
 # interpreter, so the blast radius is already contained.
 
 
-class _SetupCapture(Exception):
-    """Raised by our fake setup() to abort execution after capturing kwargs."""
+class _SetupCapture(BaseException):
+    """Raised by our fake setup() to abort execution after capturing kwargs.
+
+    Inherits from BaseException (not Exception) so that setup.py files
+    with ``except Exception:`` blocks don't accidentally swallow it.
+    """
 
 
 class _MockModule(types.ModuleType):
@@ -243,7 +248,7 @@ def _parse_setup_py_requires(content):
     """
     captured = {}
 
-    def _fake_setup(**kwargs):
+    def _fake_setup(*args, **kwargs):
         captured.update(kwargs)
         raise _SetupCapture()
 
@@ -263,6 +268,8 @@ def _parse_setup_py_requires(content):
     old_meta_path = sys.meta_path[:]
     old_modules = sys.modules.copy()
     old_argv = sys.argv[:]
+    old_path = sys.path[:]
+    old_cwd = os.getcwd()
 
     finder = _MockImportFinder()
 
@@ -285,13 +292,19 @@ def _parse_setup_py_requires(content):
         exec(compile(content, "setup.py", "exec"), globs)
     except _SetupCapture:
         pass  # Expected — setup() was called and we captured kwargs
-    except Exception:
-        # setup.py did something we can't handle; that's fine
+    except BaseException:
+        # setup.py did something we can't handle (runtime errors,
+        # SystemExit from sys.exit(), KeyboardInterrupt, etc.)
         return [], []
     finally:
         # Restore state
         sys.argv = old_argv
+        sys.path[:] = old_path
         sys.meta_path[:] = old_meta_path
+        try:
+            os.chdir(old_cwd)
+        except OSError:
+            pass
         # Remove any modules our mock finder injected
         for name in list(sys.modules):
             if name not in old_modules:
