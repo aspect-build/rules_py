@@ -21,6 +21,7 @@ import json
 import re
 import sys
 import tarfile
+import tempfile
 import types
 import zipfile
 
@@ -272,6 +273,15 @@ def _parse_setup_py_requires(content):
     old_cwd = os.getcwd()
 
     finder = _MockImportFinder()
+    failed = False
+
+    # Redirect stdout/stderr to temp files so stray print() calls from
+    # setup.py don't corrupt our JSON output.  We only replay the captured
+    # output if the exec fails.
+    stdout_tmp = tempfile.TemporaryFile(mode="w+")
+    stderr_tmp = tempfile.TemporaryFile(mode="w+")
+    old_stdout = sys.stdout
+    old_stderr = sys.stderr
 
     try:
         # Install our mocks
@@ -280,6 +290,8 @@ def _parse_setup_py_requires(content):
         sys.modules["distutils"] = fake_distutils
         sys.modules["distutils.core"] = fake_distutils_core
         sys.argv = ["setup.py"]
+        sys.stdout = stdout_tmp
+        sys.stderr = stderr_tmp
 
         # Build module globals with setup() available at top level
         globs = {
@@ -295,9 +307,11 @@ def _parse_setup_py_requires(content):
     except BaseException:
         # setup.py did something we can't handle (runtime errors,
         # SystemExit from sys.exit(), KeyboardInterrupt, etc.)
-        return [], []
+        failed = True
     finally:
         # Restore state
+        sys.stdout = old_stdout
+        sys.stderr = old_stderr
         sys.argv = old_argv
         sys.path[:] = old_path
         sys.meta_path[:] = old_meta_path
@@ -310,6 +324,19 @@ def _parse_setup_py_requires(content):
             if name not in old_modules:
                 del sys.modules[name]
         sys.modules.update(old_modules)
+
+        # On failure, dump captured output so the user can debug.
+        if failed:
+            for tmp, dest in ((stdout_tmp, old_stderr), (stderr_tmp, old_stderr)):
+                tmp.seek(0)
+                data = tmp.read()
+                if data:
+                    dest.write(data)
+        stdout_tmp.close()
+        stderr_tmp.close()
+
+    if failed:
+        return [], []
 
     def _extract_names(key):
         value = captured.get(key)
