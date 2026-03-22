@@ -1,0 +1,3 @@
+load(":tests.bzl", "py_library_defaultinfo_test_suite")
+
+py_library_defaultinfo_test_suite()
