@@ -1,0 +1,26 @@
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("//py:defs.bzl", "py_binary", "py_image_layer")
+
+py_binary(
+    name = "main",
+    srcs = ["main.py"],
+)
+
+py_image_layer(
+    name = "layers",
+    binary = ":main",
+)
+
+# Extract the interpreter tar listing for the test to inspect.
+genrule(
+    name = "interpreter_listing",
+    srcs = [":layers_interpreter"],
+    outs = ["interpreter_listing.txt"],
+    cmd = "tar -tvf $< 2>/dev/null > $@",
+)
+
+sh_test(
+    name = "test_resolve_symlinks",
+    srcs = ["test_resolve_symlinks.sh"],
+    data = [":interpreter_listing"],
+)
