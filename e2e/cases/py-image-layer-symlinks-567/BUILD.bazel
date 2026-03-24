@@ -1,5 +1,5 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
-load("//py:defs.bzl", "py_binary", "py_image_layer")
 
 py_binary(
     name = "main",
