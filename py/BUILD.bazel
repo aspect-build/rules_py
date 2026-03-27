@@ -8,6 +8,12 @@ alias(
 )
 
 bzl_library(
+    name = "current_py_toolchain",
+    srcs = ["current_py_toolchain.bzl"],
+    visibility = ["//visibility:public"],
+)
+
+bzl_library(
     name = "defs",
     srcs = ["defs.bzl"],
     visibility = ["//visibility:public"],

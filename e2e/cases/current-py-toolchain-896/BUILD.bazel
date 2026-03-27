@@ -1,0 +1,19 @@
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+# Verify that $(PYTHON3) Make variable is provided by
+# @python_interpreters//:current_py_toolchain.
+genrule(
+    name = "python_path",
+    outs = ["python_path.txt"],
+    cmd = "echo $(PYTHON3) > $@",
+    toolchains = ["@python_interpreters//:current_py_toolchain"],
+)
+
+sh_test(
+    name = "test",
+    srcs = ["test.sh"],
+    data = [
+        ":python_path",
+        "@python_interpreters//:current_py_toolchain",
+    ],
+)
