@@ -8,6 +8,11 @@ package(default_visibility = ["//visibility:public"])
 exports_files(["probe_interpreter.py"])
 
 bzl_library(
+    name = "current_py_toolchain",
+    srcs = ["current_py_toolchain.bzl"],
+)
+
+bzl_library(
     name = "extension",
     srcs = ["extension.bzl"],
     deps = [
