@@ -1,0 +1,7 @@
+[project]
+name = "plus-version"
+version = "0.0.0"
+requires-python = ">=3.12"
+dependencies = [
+    "cowsay",
+]
