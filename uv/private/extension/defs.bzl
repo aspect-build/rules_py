@@ -56,6 +56,7 @@ load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 load("//py/private/interpreter:resolve.bzl", "resolve_host_interpreter_label")
 load("//uv/private:normalize_name.bzl", "normalize_name")
+load("//uv/private:normalize_version.bzl", "normalize_version")
 load("//uv/private/constraints:repository.bzl", "configurations_hub")
 load("//uv/private/git_archive:repository.bzl", "git_archive")
 load("//uv/private/pprint:defs.bzl", "pprint")
@@ -305,7 +306,7 @@ def _parse_projects(module_ctx, hub_specs):
                 pkg_stamp = "whl_install__{}__{}__{}".format(
                     project_stamp,
                     package["name"],
-                    package["version"].replace(".", "_"),
+                    normalize_version(package["version"]),
                 )
                 project_available_deps[pkg_name] = "@{}//:install".format(pkg_stamp)
 
@@ -323,9 +324,9 @@ def _parse_projects(module_ctx, hub_specs):
                     else:
                         fail("Virtual package {} in lockfile {} doesn't have a mandatory `uv.override_package()` annotation!".format(package["name"], project.lock))
 
-                k = "whl_install__{}__{}__{}".format(project_stamp, package["name"], package["version"].replace(".", "_"))
+                k = "whl_install__{}__{}__{}".format(project_stamp, package["name"], normalize_version(package["version"]))
                 install_table[install_key] = "@{}//:install".format(k)
-                sbuild_id = "sdist_build__{}__{}__{}".format(project_stamp, package["name"], package["version"].replace(".", "_"))
+                sbuild_id = "sdist_build__{}__{}__{}".format(project_stamp, package["name"], normalize_version(package["version"]))
                 sdist = sdist_table.get(sbuild_id)
 
                 # WARNING: Loop invariant; this flag needs to be False by
