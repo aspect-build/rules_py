@@ -24,6 +24,7 @@ load("//py/private:py_pex_binary.bzl", _py_pex_binary = "py_pex_binary")
 load("//py/private:py_pytest_main.bzl", _py_pytest_main = "py_pytest_main", _pytest_paths = "pytest_paths")
 load("//py/private:py_unpacked_wheel.bzl", _py_unpacked_wheel = "py_unpacked_wheel")
 load("//py/private:virtual.bzl", _resolutions = "resolutions")
+load("//py/private/interpreter:current_py_toolchain.bzl", _current_py_toolchain = "current_py_toolchain")
 load(
     "//py/private/py_venv:py_venv.bzl",
     _py_binary_with_venv = "py_binary_with_venv",
@@ -32,6 +33,7 @@ load(
 )
 load("//py/private/py_venv:py_venv_exec.bzl", _py_venv_exec = "py_venv_exec", _py_venv_exec_test = "py_venv_exec_test")
 
+current_py_toolchain = _current_py_toolchain
 py_pex_binary = _py_pex_binary
 py_pytest_main = _py_pytest_main
 

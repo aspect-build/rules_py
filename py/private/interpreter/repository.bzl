@@ -207,6 +207,7 @@ def _python_toolchains_impl(rctx):
     """Creates toolchain() registrations pointing to interpreter repos."""
     content = [
         'load("@bazel_skylib//lib:selects.bzl", "selects")',
+        'load("@aspect_rules_py//py/private/interpreter:current_py_toolchain.bzl", "current_py_toolchain")',
         'package(default_visibility = ["//visibility:public"])',
     ]
 
@@ -350,6 +351,10 @@ toolchain(
 exports_files(
     ["BUILD.bazel"],
     visibility = ["//visibility:public"],
+)
+
+current_py_toolchain(
+    name = "current_py_toolchain",
 )
 """)
 
