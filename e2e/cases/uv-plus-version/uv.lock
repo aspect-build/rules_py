@@ -1,0 +1,22 @@
+version = 1
+revision = 3
+requires-python = ">=3.12"
+
+[[package]]
+name = "jaxlib"
+version = "0.4.25+cuda11.cudnn86"
+source = { registry = "https://storage.googleapis.com/jax-releases/jax_cuda_releases.html" }
+wheels = [
+    { url = "https://storage.googleapis.com/jax-releases/cuda11/jaxlib-0.4.25+cuda11.cudnn86-cp312-cp312-manylinux2014_x86_64.whl", hash = "sha256:b70dc64da9d8e0f13b07b34a053d8ae904f72d96bfc17c343af3056b8ab5ad93", size = 130366058 },
+]
+
+[[package]]
+name = "plus-version"
+version = "0.0.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "jaxlib" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "jaxlib" }]

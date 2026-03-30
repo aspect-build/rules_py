@@ -302,4 +302,14 @@ uv.project(
 )
 # }}}
 
+# For cases/uv-plus-version
+# Versions containing '+' must not produce invalid Bazel repo names.
+# {{{
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/uv-plus-version:uv.lock",
+    pyproject = "//cases/uv-plus-version:pyproject.toml",
+)
+# }}}
+
 use_repo(uv, "pypi")

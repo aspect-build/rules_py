@@ -3,6 +3,7 @@ Machinery specific to interacting with a uv.lock
 """
 
 load("//uv/private:normalize_name.bzl", "normalize_name")
+load("//uv/private:normalize_version.bzl", "normalize_version")
 load("//uv/private:parse_whl_name.bzl", "parse_whl_name")
 load("//uv/private:sha1.bzl", "sha1")
 load("//uv/private/constraints/platform:defs.bzl", "supported_platform")
@@ -227,7 +228,7 @@ def collect_sdists(
     sdist_specs = {}
     sdist_table = {}
     for package in lock_data.get("package", []):
-        k = "sdist_build__{}__{}__{}".format(lock_id, package["name"], package["version"].replace(".", "_"))
+        k = "sdist_build__{}__{}__{}".format(lock_id, package["name"], normalize_version(package["version"]))
         if "sdist" in package:
             sdist = package["sdist"]
 
