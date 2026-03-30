@@ -7,6 +7,6 @@ py_venv_test(
     python_version = "3.12",
     venv = "plus-version",
     deps = [
-        "@pypi//cowsay",
+        "@pypi//jaxlib",
     ],
 )

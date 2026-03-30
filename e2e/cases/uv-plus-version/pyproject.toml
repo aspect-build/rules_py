@@ -3,5 +3,9 @@ name = "plus-version"
 version = "0.0.0"
 requires-python = ">=3.12"
 dependencies = [
-    "cowsay",
+    "jaxlib",
 ]
+
+[[tool.uv.index]]
+url = "https://storage.googleapis.com/jax-releases/jax_cuda_releases.html"
+format = "flat"
