@@ -2,11 +2,6 @@
   "homepage": "https://github.com/aspect-build/rules_py",
   "maintainers": [
     {
-      "email": "alex@aspect.build",
-      "github": "alexeagle",
-      "name": "Alex Eagle"
-    },
-    {
       "email": "sahin@aspect.build",
       "github": "thesayyn",
       "name": "Şahin Yort"
