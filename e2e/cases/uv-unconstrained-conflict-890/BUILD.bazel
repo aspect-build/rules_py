@@ -1,3 +1,4 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
 load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
 
 py_venv_test(

@@ -1,24 +1,31 @@
 [project]
 name = "test_project"
 version = "0.0.0"
-requires-python = ">= 3.10"
+requires-python = "== 3.10.19"
 dependencies = []
 
+[[tool.uv.index]]
+name = "private-registry"
+url = "https://artifactory.myorg.com/artifactory/api/pypi/python-global-team-bat-cu126/simple"
+
 [dependency-groups]
-group_a = [
-    "packaging==24.0",
+depctx_py_main_uv = [
     "build",
+    "packaging==24.0",
+    "setuptools<82.0.0",
 ]
 
-group_b = [
-    "packaging==21.3",
+depctx_py_humble_uv = [
     "build",
+    "packaging==21.3",
+    "setuptools~=59.6",
+    "vcstool>=0.3.0,<0.4",
 ]
 
 [tool.uv]
 conflicts = [
     [
-      { group = "group_a" },
-      { group = "group_b" },
+      { group = "depctx_py_main_uv" },
+      { group = "depctx_py_humble_uv" },
     ],
 ]
