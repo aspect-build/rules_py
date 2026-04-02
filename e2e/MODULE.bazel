@@ -238,6 +238,17 @@ uv.project(
 )
 # }}}
 
+# For cases/uv-console-script-binary
+# Regression: py_console_script_binary should work with an explicit script and
+# when the script defaults to the target name.
+# {{{
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/uv-console-script-binary:uv.lock",
+    pyproject = "//cases/uv-console-script-binary:pyproject.toml",
+)
+# }}}
+
 # For cases/uv-include-group (PEP 735 include-group syntax)
 # {{{
 uv.project(
