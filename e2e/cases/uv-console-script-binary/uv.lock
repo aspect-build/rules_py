@@ -1,0 +1,23 @@
+version = 1
+revision = 3
+requires-python = ">=3.11"
+
+[[package]]
+name = "uv-console-script-binary"
+version = "0.0.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "whoowns" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "whoowns" }]
+
+[[package]]
+name = "whoowns"
+version = "0.7.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/55/7a/633802a7bdf07de8a30703abdc7ec6c85b324bcea0a0426682d2b874eb9d/whoowns-0.7.0.tar.gz", hash = "sha256:941c5c97de13c52a0507e40870a9531fb3a1a6f77cbd8f382d06c0a253ebcb14", size = 3898, upload-time = "2026-04-01T14:37:46.542Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d6/4e/c764c3791940b463385fdcc52ee82f1f5548bf15a7efdde3daac982ad3c8/whoowns-0.7.0-py3-none-any.whl", hash = "sha256:80a80e69f82e060418a5859fb6c3d616787b8638eb32f3d111e3a5b7d4c0877f", size = 5261, upload-time = "2026-04-01T14:37:45.268Z" },
+]

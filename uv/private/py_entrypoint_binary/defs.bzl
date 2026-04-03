@@ -1,6 +1,9 @@
 load("@bazel_lib//lib:expand_template.bzl", "expand_template")
 load("//py/unstable:defs.bzl", "py_venv_binary")
 
+def console_script_name(name, script):
+    return script or name
+
 def py_entrypoint_binary(
         name,
         entrypoint,
@@ -44,8 +47,8 @@ def py_entrypoint_binary(
 
 def py_console_script_binary(
         name,
-        script,
         pkg,
+        script = None,
         visibility = ["//visibility:public"]):
     main = "_{}_entrypoint".format(name)
     tmpl = Label("@aspect_rules_py//uv/private/py_entrypoint_binary:entrypoint.tmpl")
@@ -72,7 +75,7 @@ def py_console_script_binary(
         srcs = [
             tmpl,
         ],
-        cmd = "$(location {}) --template=\"$(location {})\" --script=\"{}\" >\"$@\"".format(search_tool, tmpl, script),
+        cmd = "$(location {}) --template=\"$(location {})\" --script=\"{}\" >\"$@\"".format(search_tool, tmpl, console_script_name(name, script)),
     )
 
     py_venv_binary(
