@@ -113,6 +113,7 @@ def _build_file_content(major, minor, micro, python_bin, is_windows):
     return """\
 load("@rules_python//python:py_runtime.bzl", "py_runtime")
 load("@rules_python//python:py_runtime_pair.bzl", "py_runtime_pair")
+load("@rules_python//python/private:py_exec_tools_toolchain.bzl", "py_exec_tools_toolchain")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -152,6 +153,10 @@ py_runtime_pair(
     name = "runtime_pair",
     py2_runtime = None,
     py3_runtime = ":py3_runtime",
+)
+
+py_exec_tools_toolchain(
+    name = "exec_tools_toolchain",
 )
 """.format(
         python_bin = python_bin,
@@ -311,6 +316,16 @@ toolchain(
     target_settings = {target_settings},
     toolchain = "@{repo}//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
+)
+
+# Exec tools toolchain: selected by exec platform (not target platform) so
+# that build actions using the interpreter (e.g. compileall) get a runnable
+# binary on the build host regardless of the target platform being built for.
+toolchain(
+    name = "{name}_exec_tools",
+    exec_compatible_with = {target_compatible_with},
+    toolchain = "@{repo}//:exec_tools_toolchain",
+    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
 )
 """.format(
             name = info["name"],
