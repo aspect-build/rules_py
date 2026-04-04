@@ -15,6 +15,6 @@ py_test(
 py_test(
     name = "test_with_pytest_main",
     srcs = ["tests/test_subdir.py"],
-    deps = [":foo"],
     pytest_main = True,
+    deps = [":foo"],
 )
