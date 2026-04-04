@@ -1,0 +1,7 @@
+[project]
+name = "venv-internal-symlinks"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    "babel>=2.14.0",
+]

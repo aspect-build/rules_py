@@ -822,6 +822,24 @@ fn has_native_extension(path: &Path) -> bool {
         || name.contains(".so.") // versioned .so files like libfoo.so.1.2
 }
 
+fn has_internal_symlinks(dir: &Path) -> bool {
+    WalkDir::new(dir)
+        .follow_links(false)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .skip(1)
+        .any(|e| e.file_type().is_symlink())
+}
+
+fn would_create_symlink_cycle(src: &Path, dest: &Path) -> bool {
+    let src_has_links = has_internal_symlinks(src);
+    let dest_parent_has_links = dest.parent()
+        .map(|p| has_internal_symlinks(p))
+        .unwrap_or(false);
+    
+    src_has_links && dest_parent_has_links
+}
+
 /// Post-processing pass that replaces groups of file-level `Symlink` commands
 /// with a single `SymlinkDir` when all files in a top-level package directory
 /// come from the same source root and contain no native extensions.
@@ -911,15 +929,20 @@ fn coalesce_symlinks(plan: Vec<Command>, site_dir: &Path) -> Vec<Command> {
         if all_same_root && !has_native {
             // Replace all file symlinks with a single directory symlink
             let source_root = &source_roots[0];
-            result.push(Command::SymlinkDir {
-                src: source_root.join(&top_dir),
-                dest: site_dir.join(&top_dir),
-            });
-        } else {
-            // Keep file-level symlinks
-            for (src, dest) in entries {
-                result.push(Command::Symlink { src, dest });
+            let has_symlinks = has_internal_symlinks(&source_root.join(&top_dir));
+            
+            if !has_symlinks {
+                result.push(Command::SymlinkDir {
+                    src: source_root.join(&top_dir),
+                    dest: site_dir.join(&top_dir),
+                });
+                continue;
             }
+        }
+        
+        // Keep file-level symlinks
+        for (src, dest) in entries {
+            result.push(Command::Symlink { src, dest });
         }
     }
 

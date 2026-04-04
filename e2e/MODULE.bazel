@@ -323,4 +323,9 @@ uv.project(
 )
 # }}}
 
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/venv-internal-symlinks:uv.lock",
+    pyproject = "//cases/venv-internal-symlinks:pyproject.toml",
+)
 use_repo(uv, "pypi")
