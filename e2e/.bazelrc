@@ -8,3 +8,8 @@ common --repo_env=BAZEL_NO_APPLE_CPP_TOOLCHAIN=1
 
 # Configure a default venv
 # common --@pypi//venv=say
+
+# Enable path mapping so WhlInstall actions are exercised with
+# supports-path-mapping. Actions that declare the execution requirement get
+# configuration-stripped cache keys; those that don't still work normally.
+build --experimental_output_paths=strip

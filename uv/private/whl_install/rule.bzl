@@ -11,19 +11,24 @@ def _whl_install(ctx):
         "install",
     )
 
-    archive = ctx.attr.src[DefaultInfo].files.to_list()[0]
+    archive = ctx.file.src
 
     arguments = ctx.actions.args()
-    arguments.add_all([
-        "--into",
-        install_dir.path,
-        "--wheel",
-        archive.path,
-        "--python-version-major",
-        py_toolchain.interpreter_version_info.major,
-        "--python-version-minor",
-        py_toolchain.interpreter_version_info.minor,
-    ])
+
+    # Pass File objects (not .path strings) so Bazel can rewrite paths for
+    # remote-cache deduplication when supports-path-mapping is set.
+    #
+    # Both install_dir and archive may be tree artifacts (install_dir is always
+    # a declare_directory; archive is a tree when src is a directory containing
+    # a single wheel). Args#add rejects directories
+    # outright; Args#add_all with expand_directories=False passes the directory
+    # path itself without enumerating its contents.
+    # https://bazel.build/versions/7.1.0/rules/lib/builtins/Args#add
+    # https://bazel.build/versions/7.1.0/rules/lib/builtins/Args#add_all
+    arguments.add_all([install_dir], expand_directories = False, before_each = "--into")
+    arguments.add_all([archive], expand_directories = False, before_each = "--wheel")
+    arguments.add("--python-version-major", py_toolchain.interpreter_version_info.major)
+    arguments.add("--python-version-minor", py_toolchain.interpreter_version_info.minor)
 
     transitive_inputs = [depset([archive])]
 
@@ -31,8 +36,7 @@ def _whl_install(ctx):
     patch_files = [f for t in ctx.attr.patches for f in t[DefaultInfo].files.to_list()]
     if patch_files:
         arguments.add("--patch-strip", str(ctx.attr.patch_strip))
-        for f in patch_files:
-            arguments.add("--patch", f.path)
+        arguments.add_all(patch_files, before_each = "--patch")
         transitive_inputs.append(depset(patch_files))
 
     # Optional .pyc pre-compilation (runs after patching).
@@ -52,6 +56,7 @@ def _whl_install(ctx):
     # to use unpack in crossbuild scenarios.
     unpack = ctx.attr._unpack[platform_common.ToolchainInfo].bin.bin
     ctx.actions.run(
+        mnemonic = "WhlInstall",
         executable = unpack,
         arguments = [arguments],
         inputs = depset(transitive = transitive_inputs),
@@ -59,6 +64,9 @@ def _whl_install(ctx):
             install_dir,
         ],
         use_default_shell_env = bool(patch_files),
+        execution_requirements = {
+            "supports-path-mapping": "1",
+        },
     )
 
     return [
@@ -99,7 +107,10 @@ to bypass some of the platform checks that UV does to enable crossbuilds, and is
 lighter weight since the toolchain's files aren't inputs.
 """,
     attrs = {
-        "src": attr.label(doc = "The wheel to install, or a tree artifact containing exactly one wheel at its root."),
+        "src": attr.label(
+            allow_single_file = True,
+            doc = "The wheel to install, or a tree artifact containing exactly one wheel at its root.",
+        ),
         "patches": attr.label_list(
             default = [],
             allow_files = [".patch", ".diff"],
