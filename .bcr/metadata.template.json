@@ -7,9 +7,19 @@
       "name": "Şahin Yort"
     },
     {
-      "email": "reid@aspect.build",
-      "github": "arrdem",
-      "name": "Reid D McKenzie"
+      "email": "greg@aspect.build",
+      "github": "gregmagolan",
+      "name": "Greg Magolan"
+    },
+    {
+      "email": "cesar@aspect.build",
+      "github": "xangcastle",
+      "name": "César Abel"
+    },
+    {
+      "email": "jason@aspect.build",
+      "github": "jbedard",
+      "name": "Jason Bedard"
     }
   ],
   "repository": ["github:aspect-build/rules_py"],
