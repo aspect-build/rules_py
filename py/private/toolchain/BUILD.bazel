@@ -1,5 +1,5 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
-load(":tools.bzl", "dummy_toolchain", "resolved_unpack_toolchain", "resolved_venv_toolchain")
+load(":tools.bzl", "dummy_toolchain", "resolved_venv_toolchain")
 
 exports_files(
     ["python.sh"],
@@ -23,11 +23,6 @@ toolchain_type(
 
 resolved_venv_toolchain(
     name = "resolved_venv_toolchain",
-    visibility = ["//visibility:public"],
-)
-
-resolved_unpack_toolchain(
-    name = "resolved_unpack_toolchain",
     visibility = ["//visibility:public"],
 )
 
