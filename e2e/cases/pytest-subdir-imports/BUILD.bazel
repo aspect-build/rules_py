@@ -1,0 +1,18 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library", "py_test")
+
+py_library(
+    name = "lib",
+    srcs = ["lib.py"],
+    imports = ["."],
+)
+
+py_test(
+    name = "test_subdir_import",
+    srcs = ["tests/test_subdir.py"],
+    pytest_main = True,
+    venv = "pytest-subdir-imports",
+    deps = [
+        ":lib",
+        "@pypi//pytest",
+    ],
+)
