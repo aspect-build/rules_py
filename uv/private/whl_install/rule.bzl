@@ -2,6 +2,7 @@
 """
 
 load("@rules_python//python:defs.bzl", "PyInfo")
+load("@rules_python//python/private:toolchain_types.bzl", "EXEC_TOOLS_TOOLCHAIN_TYPE")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "UNPACK_TOOLCHAIN")
 
 def _whl_install(ctx):
@@ -24,7 +25,7 @@ def _whl_install(ctx):
         py_toolchain.interpreter_version_info.minor,
     ])
 
-    inputs = [archive]
+    transitive_inputs = [depset([archive])]
 
     # Patch application (happens before pyc compilation).
     patch_files = [f for t in ctx.attr.patches for f in t[DefaultInfo].files.to_list()]
@@ -32,19 +33,18 @@ def _whl_install(ctx):
         arguments.add("--patch-strip", str(ctx.attr.patch_strip))
         for f in patch_files:
             arguments.add("--patch", f.path)
-        inputs = inputs + patch_files
+        transitive_inputs.append(depset(patch_files))
 
     # Optional .pyc pre-compilation (runs after patching).
-    # Use the exec-configured interpreter so cross-arch builds work (the target
-    # interpreter may not be runnable on the build host). This is safe because
-    # .pyc bytecode varies by Python version, not by architecture.
+    # Use the exec-configured interpreter from EXEC_TOOLS_TOOLCHAIN_TYPE so cross-arch
+    # builds work (the target interpreter isn't runnable on the build host). This is
+    # safe because .pyc bytecode varies by Python version, not by architecture.
     if ctx.attr.compile_pyc:
-        exec_py = ctx.attr._exec_python[platform_common.ToolchainInfo]
+        exec_runtime = ctx.toolchains[EXEC_TOOLS_TOOLCHAIN_TYPE].exec_tools.exec_runtime
         arguments.add("--compile-pyc")
         arguments.add("--pyc-invalidation-mode", ctx.attr.pyc_invalidation_mode)
-        arguments.add("--python")
-        arguments.add(exec_py.interpreter.path)
-        inputs = inputs + [exec_py.interpreter] + exec_py.files.to_list()
+        arguments.add("--python", exec_runtime.interpreter)
+        transitive_inputs.append(depset([exec_runtime.interpreter], transitive = [exec_runtime.files]))
 
     # Need to read the toolchain config from the unpack target so we can grab
     # its bin and run it. Note that we have to do this dance in order to get the
@@ -54,7 +54,7 @@ def _whl_install(ctx):
     ctx.actions.run(
         executable = unpack,
         arguments = [arguments],
-        inputs = inputs,
+        inputs = depset(transitive = transitive_inputs),
         outputs = [
             install_dir,
         ],
@@ -118,10 +118,6 @@ lighter weight since the toolchain's files aren't inputs.
             values = ["checked-hash", "unchecked-hash", "timestamp"],
             doc = "PEP 552 invalidation mode for pre-compiled .pyc files.",
         ),
-        "_exec_python": attr.label(
-            default = "//py/private/toolchain:resolved_py_toolchain",
-            cfg = "exec",
-        ),
         "_unpack": attr.label(
             default = "//py/private/toolchain:resolved_unpack_toolchain",
             cfg = "exec",
@@ -130,6 +126,7 @@ lighter weight since the toolchain's files aren't inputs.
     toolchains = [
         PY_TOOLCHAIN,
         UNPACK_TOOLCHAIN,
+        EXEC_TOOLS_TOOLCHAIN_TYPE,
     ],
     provides = [
         DefaultInfo,

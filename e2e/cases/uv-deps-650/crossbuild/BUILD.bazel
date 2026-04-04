@@ -2,6 +2,7 @@ load("@aspect_rules_py//py:defs.bzl", "py_image_layer")
 load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_binary")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_image_index")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 platform(
     name = "arm64_linux",
@@ -87,4 +88,18 @@ oci_image_index(
         ":arm64_image",
         ":amd64_image",
     ],
+)
+
+# ── Test: cross-arch whl_install with compile_pyc (build-time) ─────────────
+#
+# Building arm64_layers on an amd64 host exercises whl_install with
+# compile_pyc=True against a non-host target platform. The compileall action
+# must use the exec-platform interpreter; if it selects the arm64 interpreter
+# instead, the action fails with "Exec format error" and the test fails to build.
+
+sh_test(
+    name = "crossbuild_compile_pyc_test",
+    srcs = ["test_crossbuild_pyc.sh"],
+    data = [":arm64_layers"],
+    target_compatible_with = ["@platforms//os:linux"],
 )
