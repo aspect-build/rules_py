@@ -594,12 +594,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "env_home"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7f84e12ccf0a7ddc17a6c41c93326024c42920d7ee630d04950e6926645c0fe"
-
-[[package]]
 name = "equivalent"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1222,12 +1216,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "78b3ae25bc7c8c38cec158d1f2757ee79e9b3740fbc7ccf0e59e4b08d793fa89"
 
 [[package]]
-name = "linux-raw-sys"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df1d3c3b53da64cf5760482273a98e575c651a67eec7f77df96b5b642de8f039"
-
-[[package]]
 name = "lock_api"
 version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1636,10 +1624,8 @@ dependencies = [
  "miette",
  "pathdiff",
  "percent-encoding",
- "relative-path",
  "sha256",
  "tempfile",
- "thiserror",
  "uv-cache",
  "uv-distribution-filename",
  "uv-extract",
@@ -1817,7 +1803,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc31414597d1cd7fdd2422798b7652a6329dda0fe0219e6335a13d5bcaa9aeb6"
 dependencies = [
  "cfg-if",
- "rustix 0.38.37",
+ "rustix",
  "windows",
 ]
 
@@ -1849,12 +1835,6 @@ name = "regex-syntax"
 version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
-
-[[package]]
-name = "relative-path"
-version = "1.9.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba39f3699c378cd8970968dcbff9c43159ea4cfbd88d43c00b22f2ef10a435d2"
 
 [[package]]
 name = "rend"
@@ -2059,21 +2039,8 @@ dependencies = [
  "bitflags 2.6.0",
  "errno",
  "libc",
- "linux-raw-sys 0.4.14",
+ "linux-raw-sys",
  "windows-sys 0.52.0",
-]
-
-[[package]]
-name = "rustix"
-version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd15f8a2c5551a84d56efdc1cd049089e409ac19a3072d5037a17fd70719ff3e"
-dependencies = [
- "bitflags 2.6.0",
- "errno",
- "libc",
- "linux-raw-sys 0.11.0",
- "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -2484,7 +2451,7 @@ dependencies = [
  "cfg-if",
  "fastrand",
  "once_cell",
- "rustix 0.38.37",
+ "rustix",
  "windows-sys 0.59.0",
 ]
 
@@ -2494,7 +2461,7 @@ version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "21bebf2b7c9e0a515f6e0f8c51dc0f8e4696391e6f1ff30379559f8365fb0df7"
 dependencies = [
- "rustix 0.38.37",
+ "rustix",
  "windows-sys 0.48.0",
 ]
 
@@ -2952,7 +2919,7 @@ dependencies = [
  "uv-platform-tags",
  "uv-pypi-types",
  "uv-static",
- "which 6.0.3",
+ "which",
 ]
 
 [[package]]
@@ -3037,7 +3004,7 @@ dependencies = [
  "fs2",
  "junction",
  "path-slash",
- "rustix 0.38.37",
+ "rustix",
  "serde",
  "tempfile",
  "tokio",
@@ -3260,7 +3227,7 @@ dependencies = [
  "uv-state",
  "uv-static",
  "uv-warnings",
- "which 6.0.3",
+ "which",
  "windows-registry",
  "windows-result",
  "windows-sys 0.59.0",
@@ -3329,7 +3296,7 @@ version = "0.1.0"
 dependencies = [
  "miette",
  "runfiles",
- "which 8.0.0",
+ "which",
 ]
 
 [[package]]
@@ -3486,18 +3453,7 @@ dependencies = [
  "either",
  "home",
  "regex",
- "rustix 0.38.37",
- "winsafe 0.0.19",
-]
-
-[[package]]
-name = "which"
-version = "8.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3fabb953106c3c8eea8306e4393700d7657561cb43122571b172bbfb7c7ba1d"
-dependencies = [
- "env_home",
- "rustix 1.1.2",
+ "rustix",
  "winsafe 0.0.19",
 ]
 
@@ -3783,8 +3739,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8da84f1a25939b27f6820d92aed108f83ff920fdf11a7b19366c27c4cda81d4f"
 dependencies = [
  "libc",
- "linux-raw-sys 0.4.14",
- "rustix 0.38.37",
+ "linux-raw-sys",
+ "rustix",
 ]
 
 [[package]]
