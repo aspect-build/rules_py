@@ -92,18 +92,41 @@ def _toolchain_impl(ctx):
 
     return [toolchain_info, default_info, template_variables]
 
-py_tool_toolchain = rule(
+source_target_py_tool_toolchain = rule(
     implementation = _toolchain_impl,
     attrs = {
         "bin": attr.label(
             mandatory = True,
             allow_single_file = True,
+            cfg = "target",
         ),
         "template_var": attr.string(
             mandatory = True,
         ),
     },
 )
+
+# For exec-side tools: cfg="exec" on bin forces the binary to be compiled for
+# the build host. Without it, Bazel analyzes toolchain targets in the caller's
+# configuration, causing cross-config contamination (e.g.
+# platform_transition_filegroup to a Linux target causes the binary to be
+# built for Linux and fail with "cannot execute binary file" on macOS).
+source_exec_py_tool_toolchain = rule(
+    implementation = _toolchain_impl,
+    attrs = {
+        "bin": attr.label(
+            mandatory = True,
+            allow_single_file = True,
+            cfg = "exec",
+        ),
+        "template_var": attr.string(
+            mandatory = True,
+        ),
+    },
+)
+
+# Build a lookup dict from tool name → cfg, sourced from TOOL_CFGS.
+_TOOL_CFGS_BY_NAME = {t.name: t for t in TOOL_CFGS}
 
 def source_toolchain(name, toolchain_type, bin):
     """Makes vtool toolchain and repositories
@@ -114,8 +137,12 @@ def source_toolchain(name, toolchain_type, bin):
         bin: the rust_binary target
     """
 
+    # Use cfg from TOOL_CFGS as the single source of truth: tools registered
+    # with cfg="exec" (e.g. unpack) get source_exec_py_tool_toolchain so the
+    # binary is built for the exec host even when the target platform differs.
+    tool_rule = source_exec_py_tool_toolchain if _TOOL_CFGS_BY_NAME[name].cfg == "exec" else source_target_py_tool_toolchain
     toolchain_rule = "{}_toolchain_source".format(name)
-    py_tool_toolchain(
+    tool_rule(
         name = toolchain_rule,
         bin = bin,
         template_var = "{}_BIN".format(name.upper()),
