@@ -113,16 +113,11 @@ package(default_visibility = ["//visibility:public"])
             release_version = release_version,
             filename = filename,
         )
-        kwargs = dict(
+        rctx.download(
             url = url,
             sha256 = RELEASED_BINARY_INTEGRITY[filename],
             executable = True,
             output = tool.name,
-        )
-
-        # print(kwargs)
-        rctx.download(
-            **kwargs
         )
         build_content += """py_tool_toolchain(name = "{tool}_toolchain", bin = "{tool}", template_var = "{tool_upper}_BIN")\n""".format(
             tool = tool.name,

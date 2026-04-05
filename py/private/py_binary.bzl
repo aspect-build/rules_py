@@ -5,7 +5,7 @@ load("@bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path"
 load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
-load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "VENV_TOOLCHAIN")
+load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "VENV_TARGET_TOOLCHAIN")
 load(":transitions.bzl", "python_version_transition")
 
 def _dict_to_exports(env):
@@ -15,7 +15,7 @@ def _dict_to_exports(env):
     ]
 
 def _py_binary_rule_impl(ctx):
-    venv_toolchain = ctx.toolchains[VENV_TOOLCHAIN]
+    venv_toolchain = ctx.toolchains[VENV_TARGET_TOOLCHAIN]
     py_toolchain = _py_semantics.resolve_toolchain(ctx)
 
     # Resolve our `main=` to a label, which it isn't
@@ -221,7 +221,7 @@ py_base = struct(
     test_attrs = _test_attrs,
     toolchains = [
         PY_TOOLCHAIN,
-        VENV_TOOLCHAIN,
+        VENV_TARGET_TOOLCHAIN,
     ],
     cfg = python_version_transition,
 )

@@ -1,7 +1,6 @@
 """Declaration of concrete toolchains for our Rust tools"""
 
-load("@bazel_skylib//lib:structs.bzl", "structs")
-load(":types.bzl", "PyToolInfo", "VENV_TOOLCHAIN")
+load(":types.bzl", "PyToolInfo")
 
 def PrebuiltToolConfig(
         target,
@@ -30,7 +29,17 @@ def PrebuiltToolConfig(
 # for how they get prebuilt/patched in.
 TOOL_CFGS = [
     PrebuiltToolConfig("//py/tools/unpack_bin:unpack", cfg = "exec"),
+    # venv has two toolchain registrations: target-cfg for py_binary runfiles
+    # (the binary runs on the user's machine) and exec-cfg for py_venv build
+    # actions (the binary creates the venv directory on the exec host).
     PrebuiltToolConfig("//py/tools/venv_bin:venv"),
+    PrebuiltToolConfig(
+        "//py/tools/venv_bin:venv",
+        cfg = "exec",
+        name = "venv_exec",
+        toolchain_type = "@aspect_rules_py//py/private/toolchain:venv_exec_toolchain_type",
+        toolchain = "@aspect_rules_py//py/private/toolchain/venv_exec/...",
+    ),
     PrebuiltToolConfig("//py/tools/venv_shim:shim"),
 ]
 
@@ -153,17 +162,6 @@ def source_toolchain(name, toolchain_type, bin):
         toolchain_type = toolchain_type,
     )
 
-# Forward all the providers
-def _resolved_venv_impl(ctx):
-    toolchain_info = ctx.toolchains[VENV_TOOLCHAIN]
-    return [toolchain_info] + structs.to_dict(toolchain_info).values()
-
-# Copied from java_toolchain_alias
-# https://cs.opensource.google/bazel/bazel/+/master:tools/jdk/java_toolchain_alias.bzl
-resolved_venv_toolchain = rule(
-    implementation = _resolved_venv_impl,
-    toolchains = [VENV_TOOLCHAIN],
-)
 
 def _dummy_toolchain_impl(ctx):
     toolchain_info = platform_common.ToolchainInfo(

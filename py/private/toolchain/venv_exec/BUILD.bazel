@@ -1,0 +1,7 @@
+load("//py/private/toolchain:tools.bzl", "source_toolchain")
+
+source_toolchain(
+    name = "venv_exec",
+    bin = "//py/tools/venv_bin",
+    toolchain_type = "//py/private/toolchain:venv_exec_toolchain_type",
+)
