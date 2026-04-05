@@ -2,43 +2,39 @@
 
 load(":types.bzl", "PyToolInfo")
 
-def PrebuiltToolConfig(
-        target,
-        cfg = "target",
-        name = None,
-        toolchain = None,
-        toolchain_type = None,
-        exec_toolchain_type = None):
-    name = name or Label(target).name
+def PrebuiltToolConfig(target, cfg = "target"):
+    """Declare a tool's toolchain configuration.
 
-    # The source_toolchain macro creates two targets per cfg; the glob matches both.
-    toolchain = toolchain or "@aspect_rules_py//py/private/toolchain/{}/...".format(name)
-    toolchain_type = toolchain_type or "@aspect_rules_py//py/private/toolchain:{}_toolchain_type".format(name)
+    Args:
+        target: the Bazel target for this tool's binary.
+        cfg: one of "target" (runs on the user's machine), "exec" (runs on the
+            build host), or "both" (registered under two toolchain types: one
+            target_compatible_with for runfiles, one exec_compatible_with for
+            build actions).
+    """
+    name = Label(target).name
+    toolchain_type = "@aspect_rules_py//py/private/toolchain:{}_toolchain_type".format(name)
+    exec_toolchain_type = "@aspect_rules_py//py/private/toolchain:{}_exec_toolchain_type".format(name) if cfg == "both" else None
+
+    pkg = "@aspect_rules_py//py/private/toolchain/{}".format(name)
+    source_toolchains = ["{pkg}:{name}_source_toolchain".format(pkg = pkg, name = name)]
+    if cfg == "both":
+        source_toolchains.append("{pkg}:{name}_exec_source_toolchain".format(pkg = pkg, name = name))
 
     return struct(
         target = target,
         cfg = cfg,
         name = name,
-        toolchain = toolchain,
+        source_toolchains = source_toolchains,
         toolchain_type = toolchain_type,
         exec_toolchain_type = exec_toolchain_type,
     )
 
 # The expected config for each tool, whether it runs in an action or at runtime.
-#
-# This is the source of truth for how toolchains get registered and how they
-# get prebuilt/patched in.
-#
-# Tools with exec_toolchain_type set register under two toolchain types from a
-# single binary: target_compatible_with for the primary type (binary runs on
-# the user's machine) and exec_compatible_with for the exec type (binary runs
-# on the build host).
+# This is the source of truth for toolchain registration and prebuilt downloads.
 TOOL_CFGS = [
     PrebuiltToolConfig("//py/tools/unpack_bin:unpack", cfg = "exec"),
-    PrebuiltToolConfig(
-        "//py/tools/venv_bin:venv",
-        exec_toolchain_type = "@aspect_rules_py//py/private/toolchain:venv_exec_toolchain_type",
-    ),
+    PrebuiltToolConfig("//py/tools/venv_bin:venv", cfg = "both"),
     PrebuiltToolConfig("//py/tools/venv_shim:shim"),
 ]
 
@@ -136,22 +132,20 @@ source_exec_py_tool_toolchain = rule(
 # Build a lookup dict from tool name → cfg, sourced from TOOL_CFGS.
 _TOOL_CFGS_BY_NAME = {t.name: t for t in TOOL_CFGS}
 
-def source_toolchain(name, toolchain_type, bin, exec_toolchain_type = None):
+def source_toolchain(name, toolchain_type, bin):
     """Creates source toolchain targets for a tool.
 
     Args:
         name: The tool name; must match an entry in TOOL_CFGS.
-        toolchain_type: Toolchain type label for the primary (target-cfg) registration.
+        toolchain_type: Toolchain type label for the primary registration.
         bin: The rust_binary target.
-        exec_toolchain_type: If set, also creates an exec-cfg toolchain registered
-            under this type. Used for tools that run both on the user's machine
-            (target cfg) and as build actions on the exec host (exec cfg).
     """
+    tool = _TOOL_CFGS_BY_NAME[name]
 
     # Use cfg from TOOL_CFGS as the single source of truth: tools registered
     # with cfg="exec" (e.g. unpack) get source_exec_py_tool_toolchain so the
     # binary is built for the exec host even when the target platform differs.
-    tool_rule = source_exec_py_tool_toolchain if _TOOL_CFGS_BY_NAME[name].cfg == "exec" else source_target_py_tool_toolchain
+    tool_rule = source_exec_py_tool_toolchain if tool.cfg == "exec" else source_target_py_tool_toolchain
     toolchain_rule = "{}_toolchain_source".format(name)
     tool_rule(
         name = toolchain_rule,
@@ -164,7 +158,7 @@ def source_toolchain(name, toolchain_type, bin, exec_toolchain_type = None):
         toolchain_type = toolchain_type,
     )
 
-    if exec_toolchain_type:
+    if tool.cfg == "both":
         exec_toolchain_rule = "{}_exec_toolchain_source".format(name)
         source_exec_py_tool_toolchain(
             name = exec_toolchain_rule,
@@ -174,7 +168,7 @@ def source_toolchain(name, toolchain_type, bin, exec_toolchain_type = None):
         native.toolchain(
             name = "{}_exec_source_toolchain".format(name),
             toolchain = exec_toolchain_rule,
-            toolchain_type = exec_toolchain_type,
+            toolchain_type = tool.exec_toolchain_type,
         )
 
 
