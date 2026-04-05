@@ -8,7 +8,7 @@ load("@bazel_skylib//lib:new_sets.bzl", "sets")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 load("@rules_python//python:defs.bzl", "PyInfo")
-load("//py/private:providers.bzl", "PyVirtualInfo")
+load("//py/private:providers.bzl", "PyVirtualInfo", "PyWheelInfo")
 
 def _make_instrumented_files_info(ctx, extra_source_attributes = [], extra_dependency_attributes = []):
     return coverage_common.instrumented_files_info(
@@ -17,6 +17,13 @@ def _make_instrumented_files_info(ctx, extra_source_attributes = [], extra_depen
         dependency_attributes = ["data", "deps"] + extra_dependency_attributes,
         extensions = ["py"],
     )
+
+def _make_wheel_depset(ctx):
+    return depset(transitive = [
+        target[PyWheelInfo].files
+        for target in ctx.attr.deps
+        if PyWheelInfo in target
+    ])
 
 def _make_srcs_depset(ctx):
     return depset(
@@ -178,6 +185,7 @@ def _py_library_impl(ctx):
     resolutions = _make_virtual_resolutions_depset(ctx)
     runfiles = _make_merged_runfiles(ctx, extra_runfiles = ctx.files.srcs)
     instrumented_files_info = _make_instrumented_files_info(ctx)
+    wheels = _make_wheel_depset(ctx)
 
     return [
         DefaultInfo(
@@ -195,6 +203,7 @@ def _py_library_impl(ctx):
             dependencies = virtuals,
             resolutions = resolutions,
         ),
+        PyWheelInfo(files = wheels, default_runfiles = ctx.runfiles()),
         instrumented_files_info,
     ]
 
@@ -230,6 +239,7 @@ _attrs = dict({
 _providers = [
     DefaultInfo,
     PyInfo,
+    PyWheelInfo,
 ]
 
 py_library_utils = struct(
@@ -240,6 +250,7 @@ py_library_utils = struct(
     make_instrumented_files_info = _make_instrumented_files_info,
     make_merged_runfiles = _make_merged_runfiles,
     make_srcs_depset = _make_srcs_depset,
+    make_wheel_depset = _make_wheel_depset,
     py_library_providers = _providers,
     resolve_virtuals = _resolve_virtuals,
 )

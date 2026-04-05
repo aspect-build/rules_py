@@ -2,6 +2,7 @@
 """
 
 load("@rules_python//python:defs.bzl", "PyInfo")
+load("//py/private:providers.bzl", "PyWheelInfo")
 load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PY_TOOLCHAIN", "UNPACK_TOOLCHAIN")
 
 def _whl_install(ctx):
@@ -95,6 +96,7 @@ def _whl_install(ctx):
             has_py3_only_sources = True,
             uses_shared_libraries = False,
         ),
+        PyWheelInfo(files = depset([archive]), default_runfiles = ctx.runfiles()),
     ]
 
 whl_install = rule(
@@ -142,5 +144,6 @@ lighter weight since the toolchain's files aren't inputs.
         DefaultInfo,
         OutputGroupInfo,
         PyInfo,
+        PyWheelInfo,
     ],
 )
