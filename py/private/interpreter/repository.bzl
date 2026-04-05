@@ -113,7 +113,7 @@ def _build_file_content(major, minor, micro, python_bin, is_windows):
     return """\
 load("@rules_python//python:py_runtime.bzl", "py_runtime")
 load("@rules_python//python:py_runtime_pair.bzl", "py_runtime_pair")
-load("@rules_python//python/private:py_exec_tools_toolchain.bzl", "py_exec_tools_toolchain")
+load("@aspect_rules_py//py/private/exec_tools:defs.bzl", "py_exec_tools_toolchain")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -325,7 +325,7 @@ toolchain(
     name = "{name}_exec_tools",
     exec_compatible_with = {target_compatible_with},
     toolchain = "@{repo}//:exec_tools_toolchain",
-    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
+    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 """.format(
             name = info["name"],
