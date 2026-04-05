@@ -1,12 +1,24 @@
+load("@rules_rust//rust:defs.bzl", "rust_binary")
 load("//bazel/release:release.bzl", "release")
-load("//bazel/rust:defs.bzl", "rust_binary")
+load("//bazel/rust:defs.bzl", "rust_opt_binary")
 load("//bazel/rust:multi_platform_rust_binaries.bzl", "multi_platform_rust_binaries")
 
+# Plain rust_binary for the source toolchain: fast dev builds.
 rust_binary(
     name = "venv",
-    srcs = [
-        "src/main.rs",
+    srcs = ["src/main.rs"],
+    crate_features = ["bazel"],
+    deps = [
+        "//py/tools/py",
+        "@aspect_rules_py__crates//:clap",
+        "@aspect_rules_py__crates//:miette",
     ],
+)
+
+rust_opt_binary(
+    name = "venv_opt",
+    srcs = ["src/main.rs"],
+    crate_features = ["bazel"],
     deps = [
         "//py/tools/py",
         "@aspect_rules_py__crates//:clap",
@@ -16,7 +28,7 @@ rust_binary(
 
 multi_platform_rust_binaries(
     name = "bins",
-    target = ":venv",
+    target = ":venv_opt",
 )
 
 alias(

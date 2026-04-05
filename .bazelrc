@@ -10,6 +10,12 @@ common --define=SOME_VAR=SOME_VALUE
 common --@pypi//venv=aspect_rules_py
 
 common --incompatible_enable_cc_toolchain_resolution
+# Strip target-scoped Starlark flags from exec config so they don't affect
+# CC toolchain selection for exec tools (e.g. prevents experimental_stub_libgcc_s
+# from causing the LLVM CC toolchain to select Linux x86-64 on a macOS exec host).
+# Flags that must propagate to exec config use scope = "universal" (e.g. @pypi//venv).
+# This flag is the default in Bazel 10 (incompatible_exclude_starlark_flags_from_exec_config).
+common --incompatible_exclude_starlark_flags_from_exec_config
 common --@toolchains_llvm_bootstrapped//config:experimental_stub_libgcc_s
 common --@rules_cc//cc/toolchains/args/archiver_flags:use_libtool_on_macos=false
 

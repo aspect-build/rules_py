@@ -1,11 +1,3 @@
-common --incompatible_enable_cc_toolchain_resolution
-common --@toolchains_llvm_bootstrapped//config:experimental_stub_libgcc_s
-common --@rules_cc//cc/toolchains/args/archiver_flags:use_libtool_on_macos=false
-
-# Don't try and auto detect the cc toolchain, as we use our own llvm toolchains.
-common --repo_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
-common --repo_env=BAZEL_NO_APPLE_CPP_TOOLCHAIN=1
-
 # Configure a default venv
 # common --@pypi//venv=say
 
@@ -13,3 +5,14 @@ common --repo_env=BAZEL_NO_APPLE_CPP_TOOLCHAIN=1
 # supports-path-mapping. Actions that declare the execution requirement get
 # configuration-stripped cache keys; those that don't still work normally.
 build --experimental_output_paths=strip
+
+# LLVM toolchain configuration (used for OCI crossbuild tests).
+# Applied unconditionally so the toolchain is properly configured on both
+# macOS and Linux exec platforms.
+common --repo_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
+common --repo_env=BAZEL_NO_APPLE_CPP_TOOLCHAIN=1
+common --incompatible_enable_cc_toolchain_resolution
+common --@llvm//config:experimental_stub_libgcc_s
+common --@rules_cc//cc/toolchains/args/archiver_flags:use_libtool_on_macos=false
+common --enable_platform_specific_config
+common:linux --host_platform=//:local_gnu_platform
