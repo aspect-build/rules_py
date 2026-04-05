@@ -3,6 +3,7 @@ load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_binary")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_image_index")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load(":toolchain_test.bzl", "unpack_toolchain_path")
 
 platform(
     name = "arm64_linux",
@@ -90,7 +91,40 @@ oci_image_index(
     ],
 )
 
-# ── Test: cross-arch whl_install with compile_pyc (build-time) ─────────────
+# ── Test: UNPACK_TOOLCHAIN resolves exec-platform binary (analysis-time) ──
+#
+# Verifies that ctx.toolchains[UNPACK_TOOLCHAIN] selects the exec-platform
+# binary even when the target platform is arm64. The unpack toolchain is
+# registered with exec_compatible_with.
+
+unpack_toolchain_path(
+    name = "unpack_path",
+)
+
+# A second rule instance whose output is named unpack_path_for_arm64.txt.
+# platform_transition_filegroup re-exports its srcs' files unchanged, so the
+# source rule's name determines the filename visible in the test's runfiles.
+unpack_toolchain_path(
+    name = "unpack_path_for_arm64",
+)
+
+platform_transition_filegroup(
+    name = "unpack_path_for_arm64_transition",
+    srcs = [":unpack_path_for_arm64"],
+    target_platform = ":arm64_linux",
+)
+
+sh_test(
+    name = "exec_toolchain_resolution_test",
+    srcs = ["test_exec_toolchain.sh"],
+    data = [
+        ":unpack_path",
+        ":unpack_path_for_arm64_transition",
+    ],
+    target_compatible_with = ["@platforms//os:linux"],
+)
+
+# ── Test: cross-arch whl_install with compile_pyc (build-time) ──────────────
 #
 # Building arm64_layers on an amd64 host exercises whl_install with
 # compile_pyc=True against a non-host target platform. The compileall action

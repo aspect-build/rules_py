@@ -1,7 +1,7 @@
 """Declaration of concrete toolchains for our Rust tools"""
 
 load("@bazel_skylib//lib:structs.bzl", "structs")
-load(":types.bzl", "PyToolInfo", "UNPACK_TOOLCHAIN", "VENV_TOOLCHAIN")
+load(":types.bzl", "PyToolInfo", "VENV_TOOLCHAIN")
 
 def PrebuiltToolConfig(
         target,
@@ -136,16 +136,6 @@ def _resolved_venv_impl(ctx):
 resolved_venv_toolchain = rule(
     implementation = _resolved_venv_impl,
     toolchains = [VENV_TOOLCHAIN],
-)
-
-# FIXME: Clean up this copypasta somehow
-def _resolved_unpack_impl(ctx):
-    toolchain_info = ctx.toolchains[UNPACK_TOOLCHAIN]
-    return [toolchain_info] + structs.to_dict(toolchain_info).values()
-
-resolved_unpack_toolchain = rule(
-    implementation = _resolved_unpack_impl,
-    toolchains = [UNPACK_TOOLCHAIN],
 )
 
 def _dummy_toolchain_impl(ctx):

@@ -50,11 +50,7 @@ def _whl_install(ctx):
         arguments.add("--python", exec_runtime.interpreter)
         transitive_inputs.append(depset([exec_runtime.interpreter], transitive = [exec_runtime.files]))
 
-    # Need to read the toolchain config from the unpack target so we can grab
-    # its bin and run it. Note that we have to do this dance in order to get the
-    # unpack toolchain in the "exec" rather than target config. This allows us
-    # to use unpack in crossbuild scenarios.
-    unpack = ctx.attr._unpack[platform_common.ToolchainInfo].bin.bin
+    unpack = ctx.toolchains[UNPACK_TOOLCHAIN].bin.bin
     ctx.actions.run(
         mnemonic = "WhlInstall",
         executable = unpack,
@@ -129,10 +125,6 @@ lighter weight since the toolchain's files aren't inputs.
             default = "checked-hash",
             values = ["checked-hash", "unchecked-hash", "timestamp"],
             doc = "PEP 552 invalidation mode for pre-compiled .pyc files.",
-        ),
-        "_unpack": attr.label(
-            default = "//py/private/toolchain:resolved_unpack_toolchain",
-            cfg = "exec",
         ),
     },
     toolchains = [
