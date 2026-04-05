@@ -63,9 +63,10 @@ def _whl_install(ctx):
 
     return [
         DefaultInfo(
-            files = depset([
-                install_dir,
-            ]),
+            # install_dir is an intermediate artifact consumed by downstream
+            # Python rules via PyInfo.transitive_sources. Excluding it from
+            # DefaultInfo.files prevents it from appearing as a visible output
+            # when building a binary that transitively depends on this wheel.
             runfiles = ctx.runfiles(files = [
                 install_dir,
             ]),
