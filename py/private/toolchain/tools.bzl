@@ -7,11 +7,11 @@ def PrebuiltToolConfig(
         cfg = "target",
         name = None,
         toolchain = None,
-        toolchain_type = None):
+        toolchain_type = None,
+        exec_toolchain_type = None):
     name = name or Label(target).name
 
-    # FIXME: The source_toolchain macro creates two targets, so we need to match them both
-    # But that makes this not really a label which is weird
+    # The source_toolchain macro creates two targets per cfg; the glob matches both.
     toolchain = toolchain or "@aspect_rules_py//py/private/toolchain/{}/...".format(name)
     toolchain_type = toolchain_type or "@aspect_rules_py//py/private/toolchain:{}_toolchain_type".format(name)
 
@@ -21,24 +21,23 @@ def PrebuiltToolConfig(
         name = name,
         toolchain = toolchain,
         toolchain_type = toolchain_type,
+        exec_toolchain_type = exec_toolchain_type,
     )
 
-# The expected config for each tool, whether it runs in an action or at runtime
+# The expected config for each tool, whether it runs in an action or at runtime.
 #
-# Note that this is the source of truth for how toolchains get registered and
-# for how they get prebuilt/patched in.
+# This is the source of truth for how toolchains get registered and how they
+# get prebuilt/patched in.
+#
+# Tools with exec_toolchain_type set register under two toolchain types from a
+# single binary: target_compatible_with for the primary type (binary runs on
+# the user's machine) and exec_compatible_with for the exec type (binary runs
+# on the build host).
 TOOL_CFGS = [
     PrebuiltToolConfig("//py/tools/unpack_bin:unpack", cfg = "exec"),
-    # venv has two toolchain registrations: target-cfg for py_binary runfiles
-    # (the binary runs on the user's machine) and exec-cfg for py_venv build
-    # actions (the binary creates the venv directory on the exec host).
-    PrebuiltToolConfig("//py/tools/venv_bin:venv"),
     PrebuiltToolConfig(
         "//py/tools/venv_bin:venv",
-        cfg = "exec",
-        name = "venv_exec",
-        toolchain_type = "@aspect_rules_py//py/private/toolchain:venv_exec_toolchain_type",
-        toolchain = "@aspect_rules_py//py/private/toolchain/venv_exec/...",
+        exec_toolchain_type = "@aspect_rules_py//py/private/toolchain:venv_exec_toolchain_type",
     ),
     PrebuiltToolConfig("//py/tools/venv_shim:shim"),
 ]
@@ -137,13 +136,16 @@ source_exec_py_tool_toolchain = rule(
 # Build a lookup dict from tool name → cfg, sourced from TOOL_CFGS.
 _TOOL_CFGS_BY_NAME = {t.name: t for t in TOOL_CFGS}
 
-def source_toolchain(name, toolchain_type, bin):
-    """Makes vtool toolchain and repositories
+def source_toolchain(name, toolchain_type, bin, exec_toolchain_type = None):
+    """Creates source toolchain targets for a tool.
 
     Args:
-        name: Override the prefix for the generated toolchain repositories.
-        toolchain_type: Toolchain type reference.
-        bin: the rust_binary target
+        name: The tool name; must match an entry in TOOL_CFGS.
+        toolchain_type: Toolchain type label for the primary (target-cfg) registration.
+        bin: The rust_binary target.
+        exec_toolchain_type: If set, also creates an exec-cfg toolchain registered
+            under this type. Used for tools that run both on the user's machine
+            (target cfg) and as build actions on the exec host (exec cfg).
     """
 
     # Use cfg from TOOL_CFGS as the single source of truth: tools registered
@@ -161,6 +163,19 @@ def source_toolchain(name, toolchain_type, bin):
         toolchain = toolchain_rule,
         toolchain_type = toolchain_type,
     )
+
+    if exec_toolchain_type:
+        exec_toolchain_rule = "{}_exec_toolchain_source".format(name)
+        source_exec_py_tool_toolchain(
+            name = exec_toolchain_rule,
+            bin = bin,
+            template_var = "{}_EXEC_BIN".format(name.upper()),
+        )
+        native.toolchain(
+            name = "{}_exec_source_toolchain".format(name),
+            toolchain = exec_toolchain_rule,
+            toolchain_type = exec_toolchain_type,
+        )
 
 
 def _dummy_toolchain_impl(ctx):
