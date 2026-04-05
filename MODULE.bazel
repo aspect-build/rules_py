@@ -120,7 +120,7 @@ register_toolchains(
 
 bazel_dep(name = "buildifier_prebuilt", version = "8.5.1.2", dev_dependency = True)
 
-bazel_dep(name = "bazelrc-preset.bzl", version = "1.4.0", dev_dependency = IS_RELEASE)
+bazel_dep(name = "bazelrc-preset.bzl", version = "1.9.2", dev_dependency = IS_RELEASE)
 bazel_dep(name = "bazel_env.bzl", version = "0.5.0", dev_dependency = IS_RELEASE)
 bazel_dep(name = "bzip2", version = "1.0.8.bcr.3", dev_dependency = IS_RELEASE)
 bazel_dep(name = "gazelle", version = "0.47.0", dev_dependency = IS_RELEASE)

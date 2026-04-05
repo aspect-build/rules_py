@@ -45,6 +45,7 @@ def _pep517_whl(ctx):
         mnemonic = "PySdistBuild",
         progress_message = "Source compiling {} to a whl".format(archive.basename),
         executable = ctx.executable.tool,
+        toolchain = None,
         arguments = ctx.attr.args + patch_args + [
             archive.path,
             wheel_dir.path,
@@ -77,6 +78,7 @@ def _pep517_native_whl(ctx):
         mnemonic = "PySdistNativeBuild",
         progress_message = "Native source compiling {} to a whl".format(archive.basename),
         executable = ctx.executable.tool,
+        toolchain = None,
         arguments = ctx.attr.args + patch_args + [
             archive.path,
             wheel_dir.path,
