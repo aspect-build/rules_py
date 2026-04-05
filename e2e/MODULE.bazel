@@ -333,4 +333,18 @@ uv.project(
     lock = "//cases/pytest-subdir-imports:uv.lock",
     pyproject = "//cases/pytest-subdir-imports:pyproject.toml",
 )
+uv.declare_venv(
+    hub_name = "pypi",
+    venv_name = "source-build",
+)
+uv.lockfile(
+    src = "//cases/uv-deps-650/source_crossbuild:uv.lock",
+    hub_name = "pypi",
+    venv_name = "source-build",
+)
+uv.unstable_annotate_requirements(
+    src = "//cases/uv-deps-650/source_crossbuild:annotations.toml",
+    hub_name = "pypi",
+    venv_name = "source-build",
+)
 use_repo(uv, "pypi")
