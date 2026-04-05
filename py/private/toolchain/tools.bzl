@@ -2,7 +2,7 @@
 
 load(":types.bzl", "PyToolInfo")
 
-def PrebuiltToolConfig(target, cfg = "target"):
+def PrebuiltToolConfig(target, cfg):
     """Declare a tool's toolchain configuration.
 
     Args:
@@ -12,6 +12,8 @@ def PrebuiltToolConfig(target, cfg = "target"):
             target_compatible_with for runfiles, one exec_compatible_with for
             build actions).
     """
+    if cfg not in ("target", "exec", "both"):
+        fail("cfg must be one of 'target', 'exec', or 'both', got: '{}'".format(cfg))
     name = Label(target).name
     toolchain_type = "@aspect_rules_py//py/private/toolchain:{}_toolchain_type".format(name)
     exec_toolchain_type = "@aspect_rules_py//py/private/toolchain:{}_exec_toolchain_type".format(name) if cfg == "both" else None
@@ -35,7 +37,7 @@ def PrebuiltToolConfig(target, cfg = "target"):
 TOOL_CFGS = [
     PrebuiltToolConfig("//py/tools/unpack_bin:unpack", cfg = "exec"),
     PrebuiltToolConfig("//py/tools/venv_bin:venv", cfg = "both"),
-    PrebuiltToolConfig("//py/tools/venv_shim:shim"),
+    PrebuiltToolConfig("//py/tools/venv_shim:shim", cfg = "target"),
 ]
 
 TOOLCHAIN_PLATFORMS = {
