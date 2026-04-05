@@ -171,7 +171,6 @@ def source_toolchain(name, toolchain_type, bin):
             toolchain_type = tool.exec_toolchain_type,
         )
 
-
 def _dummy_toolchain_impl(ctx):
     toolchain_info = platform_common.ToolchainInfo(
         dummy = True,
