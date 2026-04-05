@@ -2,8 +2,7 @@
 """
 
 load("@rules_python//python:defs.bzl", "PyInfo")
-load("@rules_python//python/private:toolchain_types.bzl", "EXEC_TOOLS_TOOLCHAIN_TYPE")
-load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "UNPACK_TOOLCHAIN")
+load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PY_TOOLCHAIN", "UNPACK_TOOLCHAIN")
 
 def _whl_install(ctx):
     py_toolchain = ctx.toolchains[PY_TOOLCHAIN].py3_runtime
@@ -40,11 +39,11 @@ def _whl_install(ctx):
         transitive_inputs.append(depset(patch_files))
 
     # Optional .pyc pre-compilation (runs after patching).
-    # Use the exec-configured interpreter from EXEC_TOOLS_TOOLCHAIN_TYPE so cross-arch
+    # Use the exec-configured interpreter from EXEC_TOOLS_TOOLCHAIN so cross-arch
     # builds work (the target interpreter isn't runnable on the build host). This is
     # safe because .pyc bytecode varies by Python version, not by architecture.
     if ctx.attr.compile_pyc:
-        exec_runtime = ctx.toolchains[EXEC_TOOLS_TOOLCHAIN_TYPE].exec_tools.exec_runtime
+        exec_runtime = ctx.toolchains[EXEC_TOOLS_TOOLCHAIN].exec_tools.exec_runtime
         arguments.add("--compile-pyc")
         arguments.add("--pyc-invalidation-mode", ctx.attr.pyc_invalidation_mode)
         arguments.add("--python", exec_runtime.interpreter)
@@ -130,7 +129,7 @@ lighter weight since the toolchain's files aren't inputs.
     toolchains = [
         PY_TOOLCHAIN,
         UNPACK_TOOLCHAIN,
-        EXEC_TOOLS_TOOLCHAIN_TYPE,
+        EXEC_TOOLS_TOOLCHAIN,
     ],
     provides = [
         DefaultInfo,

@@ -36,6 +36,11 @@ toolchain_type(
     name = "target_exec_toolchain_type",
 )
 
+toolchain_type(
+    name = "exec_tools_toolchain_type",
+    visibility = ["//visibility:public"],
+)
+
 # This creates a toolchain instance with exec_compatible_with placement
 # constraints matching the target, backed by the Python toolchain already
 # resolved for the target.

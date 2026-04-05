@@ -1,0 +1,6 @@
+load(":defs.bzl", "current_interpreter_executable")
+
+current_interpreter_executable(
+    name = "current_interpreter_executable",
+    visibility = ["//visibility:public"],
+)
