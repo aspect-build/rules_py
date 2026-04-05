@@ -35,7 +35,7 @@ function python_location {
 }
 
 VENV_TOOL="$(rlocation {{VENV_TOOL}})"
-VIRTUAL_ENV="$(alocation "${RUNFILES_DIR}/{{ARG_VENV_NAME}}")"
+VIRTUAL_ENV="$(alocation "${RUNFILES_DIR:?'RUNFILES_DIR' must be set}/{{ARG_VENV_NAME}}")"
 export VIRTUAL_ENV
 
 "${VENV_TOOL}" \
