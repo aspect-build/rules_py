@@ -105,17 +105,40 @@ py_tool_toolchain = rule(
     },
 )
 
-def source_toolchain(name, toolchain_type, bin):
+# Variant for exec-side tools (e.g. unpack): forces bin into exec config so
+# the binary is compiled for the build host, not the target/test-trimmed config.
+# Without cfg="exec", Bazel analyzes toolchain targets in the same configuration
+# as the requesting rule, which on macOS with experimental_stub_libgcc_s set
+# produces an ELF binary instead of Mach-O.
+exec_py_tool_toolchain = rule(
+    implementation = _toolchain_impl,
+    attrs = {
+        "bin": attr.label(
+            mandatory = True,
+            allow_single_file = True,
+            cfg = "exec",
+        ),
+        "template_var": attr.string(
+            mandatory = True,
+        ),
+    },
+)
+
+def source_toolchain(name, toolchain_type, bin, exec_tool = False):
     """Makes vtool toolchain and repositories
 
     Args:
         name: Override the prefix for the generated toolchain repositories.
         toolchain_type: Toolchain type reference.
         bin: the rust_binary target
+        exec_tool: if True, use exec_py_tool_toolchain so the binary is built
+            in exec config (required for tools that run during the build, such
+            as unpack). Target-side tools (venv, shim) should leave this False.
     """
 
     toolchain_rule = "{}_toolchain_source".format(name)
-    py_tool_toolchain(
+    tool_rule = exec_py_tool_toolchain if exec_tool else py_tool_toolchain
+    tool_rule(
         name = toolchain_rule,
         bin = bin,
         template_var = "{}_BIN".format(name.upper()),

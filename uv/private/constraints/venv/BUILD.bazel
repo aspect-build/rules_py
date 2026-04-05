@@ -3,5 +3,11 @@ load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
 string_flag(
     name = "venv",
     build_setting_default = "",
+    # "universal" causes this flag to propagate through exec transitions so
+    # that exec-configured tools (e.g. Gazelle) that depend on a Python venv
+    # see the same venv selection as the target configuration.
+    # Required when --incompatible_exclude_starlark_flags_from_exec_config is
+    # active (default in Bazel 10; bazelbuild/bazel#26909).
+    scope = "universal",
     visibility = ["//visibility:public"],
 )

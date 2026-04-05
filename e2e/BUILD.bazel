@@ -1,0 +1,7 @@
+platform(
+    name = "local_gnu_platform",
+    constraint_values = [
+        "@llvm//constraints/libc:gnu.2.28",
+    ],
+    parents = ["@platforms//host"],
+)

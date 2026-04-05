@@ -1,12 +1,28 @@
 load("//bazel/release:release.bzl", "release")
-load("//bazel/rust:defs.bzl", "rust_binary")
+load("//bazel/rust:defs.bzl", "rust_opt_binary")
 load("//bazel/rust:multi_platform_rust_binaries.bzl", "multi_platform_rust_binaries")
+load("@rules_rust//rust:defs.bzl", "rust_binary")
 
+# Plain rust_binary for the source toolchain: fast dev builds.
+# exec_py_tool_toolchain (py/private/toolchain/tools.bzl) applies cfg="exec"
+# to build this binary in exec config for the build host.
 rust_binary(
     name = "unpack",
-    srcs = [
-        "src/main.rs",
+    srcs = ["src/main.rs"],
+    crate_features = ["bazel"],
+    deps = [
+        "//py/tools/py",
+        "@aspect_rules_py__crates//:clap",
+        "@aspect_rules_py__crates//:miette",
     ],
+)
+
+# Optimized variant for release artifacts — applies symbol stripping and LTO.
+# Used only by multi_platform_rust_binaries (release builds), never as an exec tool.
+rust_opt_binary(
+    name = "unpack_opt",
+    srcs = ["src/main.rs"],
+    crate_features = ["bazel"],
     deps = [
         "//py/tools/py",
         "@aspect_rules_py__crates//:clap",
@@ -16,7 +32,7 @@ rust_binary(
 
 multi_platform_rust_binaries(
     name = "bins",
-    target = ":unpack",
+    target = ":unpack_opt",
 )
 
 alias(

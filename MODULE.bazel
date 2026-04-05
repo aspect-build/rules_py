@@ -8,15 +8,15 @@ module(
 # NOTE: when publishing to BCR, we patch this to True, as we publish pre-built binaries along with our releases.
 IS_RELEASE = False
 
-bazel_dep(name = "bazel_features", version = "1.38.0")
+bazel_dep(name = "bazel_features", version = "1.42.1")
 bazel_dep(name = "bazel_lib", version = "3.0.0")
-bazel_dep(name = "bazel_skylib", version = "1.4.2")
+bazel_dep(name = "bazel_skylib", version = "1.8.2")
 bazel_dep(name = "platforms", version = "1.0.0")
-bazel_dep(name = "rules_cc", version = "0.2.16")
+bazel_dep(name = "rules_cc", version = "0.2.17")
 bazel_dep(name = "rules_pkg", version = "1.1.0")
 bazel_dep(name = "rules_python", version = "1.9.0")
 bazel_dep(name = "rules_shell", version = "0.6.1")
-bazel_dep(name = "tar.bzl", version = "0.5.5")
+bazel_dep(name = "tar.bzl", version = "0.6.0")
 bazel_dep(name = "with_cfg.bzl", version = "0.14.1")
 
 bazel_lib_toolchains = use_extension("@tar.bzl//tar:extensions.bzl", "toolchains")
