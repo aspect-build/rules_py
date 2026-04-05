@@ -1,7 +1,7 @@
+load("@rules_rust//rust:defs.bzl", "rust_binary")
 load("//bazel/release:release.bzl", "release")
 load("//bazel/rust:defs.bzl", "rust_opt_binary")
 load("//bazel/rust:multi_platform_rust_binaries.bzl", "multi_platform_rust_binaries")
-load("@rules_rust//rust:defs.bzl", "rust_binary")
 
 # Plain rust_binary for the source toolchain: fast dev builds.
 rust_binary(
