@@ -142,6 +142,25 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
         ]),
     })
 
+    # Find the root project in lock_data to extract per-group resolved versions.
+    # The lockfile's dev-dependencies/dependency-groups section records the exact
+    # version the resolver picked for each group, which lets us resolve
+    # unconstrained multi-version packages (e.g. "build" with no specifier).
+    root_project_name = normalize_name(project_data["project"]["name"])
+    lock_group_versions = {}
+    for spec in lock_data.get("package", []):
+        if normalize_name(spec["name"]) == root_project_name:
+            # Handle both old ("dev-dependencies") and new ("dependency-groups") key names
+            group_deps_map = spec.get("dev-dependencies", spec.get("dependency-groups", {}))
+            for group_name, group_deps in group_deps_map.items():
+                group_map = {}
+                for dep in group_deps:
+                    dep_name = normalize_name(dep["name"])
+                    if "version" in dep:
+                        group_map[dep_name] = (lock_id, dep_name, dep["version"], "__base__")
+                lock_group_versions[normalize_name(group_name)] = group_map
+            break
+
     # Normalize dep groups to our dependency triples (graph keys)
     normalized_dep_groups = {}
 
@@ -151,8 +170,13 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
     for group_name in dep_groups.keys():
         normalized_dep_groups[group_name] = []
         resolved_specs = resolve_dependency_group_specs(dep_groups, group_name)
+
+        # Build per-group version map by overlaying lockfile-resolved versions
+        group_defaults = dict(default_versions)
+        group_defaults.update(lock_group_versions.get(normalize_name(group_name), {}))
+
         for spec in resolved_specs:
-            for dep, marker in extract_requirement_marker_pairs(projectfile, lock_id, spec, default_versions, package_versions):
+            for dep, marker in extract_requirement_marker_pairs(projectfile, lock_id, spec, group_defaults, package_versions):
                 normalized_dep_groups[group_name].append(dep)
 
                 # Note that this is the base case for the reach set walk below

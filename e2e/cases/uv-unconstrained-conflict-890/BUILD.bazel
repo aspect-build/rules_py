@@ -1,0 +1,24 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
+
+py_venv_test(
+    name = "test_a",
+    srcs = ["__test__.py"],
+    main = "__test__.py",
+    venv = "group_a",
+    deps = ["@pypi//setuptools"],
+)
+
+py_venv_test(
+    name = "test_b",
+    srcs = ["__test__.py"],
+    main = "__test__.py",
+    venv = "group_b",
+    deps = ["@pypi//setuptools"],
+)
+
+py_test(
+    name = "test_unconstrained",
+    srcs = ["test_unconstrained.py"],
+    data = ["pyproject.toml"],
+)
