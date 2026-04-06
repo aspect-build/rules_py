@@ -16,8 +16,9 @@ bazel_dep(name = "rules_shell", version = "0.3.0")
 
 python = use_extension("@aspect_rules_py//python/extensions:python.bzl", "python")
 python.toolchain(
-    python_version = "3.12",
     is_default = True,
+    python_version = "3.12",
 )
 use_repo(python, "python_3_12_host")
+
 register_toolchains("@python_3_12_host//:all")

@@ -42,5 +42,8 @@ sh_test(
     name = "bcr_compatibility_test",
     srcs = ["test.sh"],
     data = [":arm64_transition"],
-    tags = ["bcr-compat", "manual"],
+    tags = [
+        "bcr-compat",
+        "manual",
+    ],
 )
