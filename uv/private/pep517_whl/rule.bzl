@@ -6,7 +6,7 @@ build backend the sdist declares in its `[build-system]` table.
 """
 
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", find_cc_toolchain = "find_cpp_toolchain")
-load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "NATIVE_BUILD_TOOLCHAIN")
+load("//py/private/toolchain:types.bzl", "NATIVE_BUILD_TOOLCHAIN", "PY_TOOLCHAIN")
 load("//uv/private:defs.bzl", "lib_mode_transition")
 
 CC_TOOLCHAIN = "@bazel_tools//tools/cpp:toolchain_type"
