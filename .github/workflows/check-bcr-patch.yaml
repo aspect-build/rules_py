@@ -1,0 +1,19 @@
+name: Check BCR patch
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+  workflow_dispatch:
+
+jobs:
+  check-bcr-patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: patch --dry-run -p1 --fuzz 0 < .bcr/patches/*.patch
