@@ -17,14 +17,10 @@ def PrebuiltToolConfig(target, cfg):
     name = Label(target).name
 
     toolchain_type = (
-        "@aspect_rules_py//py/private/toolchain:{}_toolchain_type".format(name)
-        if cfg in ("target", "both")
-        else None
+        "@aspect_rules_py//py/private/toolchain:{}_toolchain_type".format(name) if cfg in ("target", "both") else None
     )
     exec_toolchain_type = (
-        "@aspect_rules_py//py/private/toolchain:{}_exec_toolchain_type".format(name)
-        if cfg in ("exec", "both")
-        else None
+        "@aspect_rules_py//py/private/toolchain:{}_exec_toolchain_type".format(name) if cfg in ("exec", "both") else None
     )
 
     pkg = "@aspect_rules_py//py/private/toolchain/{}".format(name)
@@ -176,7 +172,6 @@ def source_toolchain(name, bin):
             toolchain = "{}_exec_tool".format(name),
             toolchain_type = tool.exec_toolchain_type,
         )
-
 
 def _dummy_toolchain_impl(ctx):
     toolchain_info = platform_common.ToolchainInfo(
