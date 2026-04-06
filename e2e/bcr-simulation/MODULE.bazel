@@ -9,7 +9,6 @@ local_path_override(
     path = "../..",
 )
 
-bazel_dep(name = "bazel_skylib", version = "1.7.1")
 bazel_dep(name = "platforms", version = "0.0.11")
 bazel_dep(name = "aspect_bazel_lib", version = "2.14.0")
 bazel_dep(name = "rules_shell", version = "0.3.0")
@@ -17,7 +16,6 @@ bazel_dep(name = "rules_shell", version = "0.3.0")
 python = use_extension("@aspect_rules_py//python/extensions:python.bzl", "python")
 python.toolchain(
     python_version = "3.12",
-    is_default = True,
 )
-use_repo(python, "python_3_12_host")
-register_toolchains("@python_3_12_host//:all")
+use_repo(python, "python_3_12")
+register_toolchains("@python_3_12//:all")
