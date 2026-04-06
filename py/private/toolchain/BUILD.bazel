@@ -35,7 +35,7 @@ dummy_toolchain(
 )
 
 toolchain_type(
-    name = "target_exec_toolchain_type",
+    name = "native_build_toolchain_type",
 )
 
 toolchain_type(
@@ -47,9 +47,9 @@ toolchain_type(
 # constraints matching the target, backed by the Python toolchain already
 # resolved for the target.
 toolchain(
-    name = "target_exec_toolchain",
+    name = "native_build_toolchain",
     toolchain = ":empty",
-    toolchain_type = "target_exec_toolchain_type",
+    toolchain_type = "native_build_toolchain_type",
     use_target_platform_constraints = True,
 )
 
