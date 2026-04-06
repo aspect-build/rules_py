@@ -96,12 +96,32 @@ startup --host_jvm_args="-DBAZEL_TRACK_SOURCE_DIRECTORIES=1"
 common --incompatible_default_to_explicit_init_py
 # Docs: https://registry.build/flag/bazel?filter=incompatible_default_to_explicit_init_py
 
+# Fail if Starlark files are not UTF-8 encoded.
+# Introduced in Bazel 8.1, see https://github.com/bazelbuild/bazel/pull/24944
+# Recommended to enable since Bazel 8.5, see https://github.com/bazel-contrib/bazelrc-preset.bzl/issues/95
+common --incompatible_enforce_starlark_utf8="error"
+# Docs: https://registry.build/flag/bazel?filter=incompatible_enforce_starlark_utf8
+
+# Accept multiple --modify_execution_info flags, rather than the last flag overwriting earlier ones.
+common --incompatible_modify_execution_info_additive
+# Docs: https://registry.build/flag/bazel?filter=incompatible_modify_execution_info_additive
+
 # Make builds more reproducible by using a static value for PATH and not inheriting LD_LIBRARY_PATH.
 # Use `--action_env=ENV_VARIABLE` if you want to inherit specific variables from the environment where Bazel runs.
 # Note that doing so can prevent cross-user caching if a shared cache is used.
 # See https://github.com/bazelbuild/bazel/issues/2574 for more details.
 common --incompatible_strict_action_env
 # Docs: https://registry.build/flag/bazel?filter=incompatible_strict_action_env
+
+# Fail the build if the MODULE.bazel.lock file is out of date.
+# Using this mode in ci prevents the lockfile from being out of date.
+common:ci --lockfile_mode="error"
+# Docs: https://registry.build/flag/bazel?filter=lockfile_mode
+
+# Add the CloudFlare mirror of BCR-referenced downloads.
+# Improves reliability of Bazel when CDNs are flaky, for example issues with ftp.gnu.org in 2025.
+common --module_mirrors="https://bcr.cloudflaremirrors.com"
+# Docs: https://registry.build/flag/bazel?filter=module_mirrors
 
 # On CI, don't download remote outputs to the local machine.
 # Most CI pipelines don't need to access the files and they can remain at rest on the remote cache.
@@ -209,7 +229,7 @@ common:debug --test_timeout=9999
 # Migration requires setting a toolchain parameter inside ctx.actions.{run, run_shell} for actions which use tool or executable from a toolchain.
 #
 # See https://github.com/bazelbuild/bazel/issues/17134
-# common --incompatible_auto_exec_groups
+common --incompatible_auto_exec_groups
 # Docs: https://registry.build/flag/bazel?filter=incompatible_auto_exec_groups
 
 # Language specific rules (Protos, Java, C++, Android) are being rewritten to Starlark and moved from Bazel into their rules repositories

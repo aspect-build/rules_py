@@ -13,11 +13,15 @@ tasks:
   - test:
       name: Bazel 8
       id: bazel-8
+      bazel:
+        flags: ["--test_tag_filters=-skip-on-bazel8"]
       env:
         USE_BAZEL_VERSION: 8.x
   - test:
       name: Bazel 9
       id: bazel-9
+      bazel:
+        flags: ["--test_tag_filters=-skip-on-bazel9"]
       env:
         USE_BAZEL_VERSION: 9.*
 
