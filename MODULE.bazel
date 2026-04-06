@@ -86,20 +86,10 @@ use_repo(tel, "aspect_tools_telemetry_report")
 # Dev deps are the remainder of the file
 
 # LLVM configuration
-bazel_dep(name = "toolchains_llvm_bootstrapped", version = "0.2.5", dev_dependency = IS_RELEASE)
-archive_override(
-    module_name = "toolchains_llvm_bootstrapped",
-    integrity = "sha256-+nddimV34BYO8YExiKLYG2kMoA2Sv+5ZoMRPQLJxNfE=",
-    patch_strip = 1,
-    patches = [
-        "//bazel/patches:llvm_darwin_sysroot.patch",
-    ],
-    strip_prefix = "toolchains_llvm_bootstrapped-121c8419394e76b5652c161369743c564799b2e3",
-    urls = ["https://github.com/cerisier/toolchains_llvm_bootstrapped/archive/121c8419394e76b5652c161369743c564799b2e3/master.tar.gz"],
-)
+bazel_dep(name = "llvm", version = "0.7.0", dev_dependency = IS_RELEASE)
 
 register_toolchains(
-    "@toolchains_llvm_bootstrapped//toolchain:all",
+    "@llvm//toolchain:all",
     dev_dependency = IS_RELEASE,
 )
 
