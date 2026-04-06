@@ -13,6 +13,10 @@ common --incompatible_enable_cc_toolchain_resolution
 common --@toolchains_llvm_bootstrapped//config:experimental_stub_libgcc_s
 common --@rules_cc//cc/toolchains/args/archiver_flags:use_libtool_on_macos=false
 
+# Enable now to test that @pypi//venv (scope = "universal") propagates correctly
+# through exec transitions. This will be the default in Bazel 10.
+common --incompatible_exclude_starlark_flags_from_exec_config
+
 # TODO(bzlmod): Don't break proto
 common --per_file_copt=external/.*protobuf.*@--PROTOBUF_WAS_NOT_SUPPOSED_TO_BE_BUILT
 common --host_per_file_copt=external/.*protobuf.*@--PROTOBUF_WAS_NOT_SUPPOSED_TO_BE_BUILT
