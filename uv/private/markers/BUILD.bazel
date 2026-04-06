@@ -1,5 +1,6 @@
 load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
 load(":defs.bzl", "configurable_string", "decide_marker")
+load(":pep508_evaluate_test.bzl", "pep508_evaluate_test_suite")
 
 # 'python_version'
 #   {major}.{minor}
@@ -120,6 +121,8 @@ alias(
     actual = ":python_full_version",
     visibility = ["//visibility:public"],
 )
+
+pep508_evaluate_test_suite()
 
 ### Test markers
 # TODO: Figure out a way to make these actual tests...

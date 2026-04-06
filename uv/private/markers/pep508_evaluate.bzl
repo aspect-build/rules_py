@@ -232,7 +232,7 @@ def _new_expr(
         value = lambda: _value(self),
         # This is a way for us to have a handle to the currently constructed
         # expression tree branch.
-        current = lambda: self._current[0] if self._current else None,
+        current = lambda: self._current[-1] if self._current else None,
         _current = [],
         _and = and_fn,
         _or = or_fn,
@@ -396,7 +396,7 @@ def _append(self, value):
     elif hasattr(current.tree[-1], "append"):
         current.tree[-1].append(value)
     else:
-        current.tree._append(value)
+        current.tree.append(value)
 
 def _open_parenthesis(self):
     """Add an extra node into the tree to perform evaluate inside parenthesis."""
