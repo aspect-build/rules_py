@@ -140,8 +140,54 @@ enum Mode {
     ManifestBased(HashMap<PathBuf, PathBuf>),
 }
 
-type RepoMappingKey = (String, String);
-type RepoMapping = HashMap<RepoMappingKey, String>;
+/// Repo mapping supporting both the legacy 3-column CSV format and the compact
+/// prefix-wildcard format introduced in Bazel 9
+/// (`--incompatible_compact_repo_mapping_manifest`).
+///
+/// In the compact format, a source repo field ending with `*` is a prefix that
+/// matches any canonical repo name starting with that prefix. Exact entries take
+/// priority over prefix entries; among prefix entries the first match wins.
+#[derive(Debug, Default)]
+struct RepoMapping {
+    exact: HashMap<(String, String), String>,
+    /// `(prefix, apparent_name, canonical_name)` — in file order, first match wins.
+    prefixed: Vec<(String, String, String)>,
+}
+
+impl RepoMapping {
+    fn new() -> Self {
+        Self::default()
+    }
+
+    fn insert_exact(&mut self, key: (String, String), value: String) {
+        self.exact.insert(key, value);
+    }
+
+    fn insert_prefix(&mut self, prefix: String, apparent: String, canonical: String) {
+        self.prefixed.push((prefix, apparent, canonical));
+    }
+
+    fn get(&self, source_repo: &str, apparent_name: &str) -> Option<&str> {
+        if let Some(canonical) = self
+            .exact
+            .get(&(source_repo.to_owned(), apparent_name.to_owned()))
+        {
+            return Some(canonical);
+        }
+        for (prefix, apparent, canonical) in &self.prefixed {
+            if apparent == apparent_name && source_repo.starts_with(prefix.as_str()) {
+                return Some(canonical);
+            }
+        }
+        None
+    }
+}
+
+impl PartialEq for RepoMapping {
+    fn eq(&self, other: &Self) -> bool {
+        self.exact == other.exact && self.prefixed == other.prefixed
+    }
+}
 
 /// An interface for accessing to [Bazel runfiles](https://bazel.build/extending/rules#runfiles).
 #[derive(Debug)]
@@ -229,8 +275,7 @@ impl Runfiles {
             Some((name, alias)) => (name, Some(alias)),
             None => (path_str, None),
         };
-        let key: (String, String) = (source_repo.into(), repo_alias.into());
-        if let Some(target_repo_directory) = self.repo_mapping.get(&key) {
+        if let Some(target_repo_directory) = self.repo_mapping.get(source_repo, repo_alias) {
             match repo_path {
                 Some(repo_path) => {
                     raw_rlocation(&self.mode, format!("{target_repo_directory}/{repo_path}"))
@@ -262,7 +307,19 @@ fn parse_repo_mapping(path: PathBuf) -> Result<RepoMapping> {
         if parts.len() < 3 {
             return Err(RunfilesError::RepoMappingInvalidFormat);
         }
-        repo_mapping.insert((parts[0].into(), parts[1].into()), parts[2].into());
+        let source_repo = parts[0];
+        let apparent_name = parts[1];
+        let canonical_name = parts[2];
+        // The compact format (Bazel 9 --incompatible_compact_repo_mapping_manifest)
+        // uses a trailing `*` in source_repo as a prefix wildcard. The `*`
+        // character is otherwise illegal in canonical repo names, so it is
+        // unambiguous.
+        if let Some(prefix) = source_repo.strip_suffix('*') {
+            repo_mapping.insert_prefix(prefix.into(), apparent_name.into(), canonical_name.into());
+        } else {
+            repo_mapping
+                .insert_exact((source_repo.into(), apparent_name.into()), canonical_name.into());
+        }
     }
 
     Ok(repo_mapping)
@@ -602,46 +659,94 @@ mod test {
         )
         .unwrap();
 
+        let result = parse_repo_mapping(valid).expect("parse failed");
+        // All entries in the test file are exact (no wildcards).
+        assert!(result.prefixed.is_empty());
+        let expected_exact: HashMap<(String, String), String> = HashMap::from([
+            (
+                ("local_config_xcode".to_owned(), "rules_rust".to_owned()),
+                "rules_rust".to_owned(),
+            ),
+            (
+                ("platforms".to_owned(), "rules_rust".to_owned()),
+                "rules_rust".to_owned(),
+            ),
+            (
+                (
+                    "rust_darwin_aarch64__aarch64-apple-darwin__stable_tools".to_owned(),
+                    "rules_rust".to_owned(),
+                ),
+                "rules_rust".to_owned(),
+            ),
+            (
+                ("rules_rust_tinyjson".to_owned(), "rules_rust".to_owned()),
+                "rules_rust".to_owned(),
+            ),
+            (
+                ("local_config_sh".to_owned(), "rules_rust".to_owned()),
+                "rules_rust".to_owned(),
+            ),
+            (
+                ("bazel_tools".to_owned(), "__main__".to_owned()),
+                "rules_rust".to_owned(),
+            ),
+            (
+                ("local_config_cc".to_owned(), "rules_rust".to_owned()),
+                "rules_rust".to_owned(),
+            ),
+            (
+                ("".to_owned(), "rules_rust".to_owned()),
+                "rules_rust".to_owned(),
+            ),
+        ]);
+        assert_eq!(result.exact, expected_exact);
+    }
+
+    /// Compact format (Bazel 9 --incompatible_compact_repo_mapping_manifest):
+    /// source repo fields ending with `*` are prefix wildcards.
+    #[test]
+    fn test_parse_repo_mapping_compact_format() {
+        let temp_dir = PathBuf::from(std::env::var("TEST_TMPDIR").unwrap());
+        std::fs::create_dir_all(&temp_dir).unwrap();
+
+        let compact = temp_dir.join("test_parse_repo_mapping_compact.txt");
+        // Mix of exact and prefix entries.
+        std::fs::write(
+            &compact,
+            dedent(
+                r#",my_lib,my_lib~1.0
+            specific_repo,my_lib,my_lib~2.0
+            deps+*,shared_dep,shared_dep~3.0
+            "#,
+            ),
+        )
+        .unwrap();
+
+        let result = parse_repo_mapping(compact).expect("parse failed");
+
+        // Two exact entries, one prefix entry.
+        assert_eq!(result.exact.len(), 2);
+        assert_eq!(result.prefixed.len(), 1);
         assert_eq!(
-            parse_repo_mapping(valid),
-            Ok(RepoMapping::from([
-                (
-                    ("local_config_xcode".to_owned(), "rules_rust".to_owned()),
-                    "rules_rust".to_owned()
-                ),
-                (
-                    ("platforms".to_owned(), "rules_rust".to_owned()),
-                    "rules_rust".to_owned()
-                ),
-                (
-                    (
-                        "rust_darwin_aarch64__aarch64-apple-darwin__stable_tools".to_owned(),
-                        "rules_rust".to_owned()
-                    ),
-                    "rules_rust".to_owned()
-                ),
-                (
-                    ("rules_rust_tinyjson".to_owned(), "rules_rust".to_owned()),
-                    "rules_rust".to_owned()
-                ),
-                (
-                    ("local_config_sh".to_owned(), "rules_rust".to_owned()),
-                    "rules_rust".to_owned()
-                ),
-                (
-                    ("bazel_tools".to_owned(), "__main__".to_owned()),
-                    "rules_rust".to_owned()
-                ),
-                (
-                    ("local_config_cc".to_owned(), "rules_rust".to_owned()),
-                    "rules_rust".to_owned()
-                ),
-                (
-                    ("".to_owned(), "rules_rust".to_owned()),
-                    "rules_rust".to_owned()
-                )
-            ]))
+            result.prefixed[0],
+            ("deps+".to_owned(), "shared_dep".to_owned(), "shared_dep~3.0".to_owned())
         );
+
+        // Exact match wins over prefix.
+        assert_eq!(result.get("specific_repo", "my_lib"), Some("my_lib~2.0"));
+        // Empty source repo (main module) exact match.
+        assert_eq!(result.get("", "my_lib"), Some("my_lib~1.0"));
+        // Prefix match: any repo starting with "deps+" maps shared_dep.
+        assert_eq!(
+            result.get("deps+some_dep", "shared_dep"),
+            Some("shared_dep~3.0")
+        );
+        assert_eq!(
+            result.get("deps+other_dep", "shared_dep"),
+            Some("shared_dep~3.0")
+        );
+        // No match for unknown repo.
+        assert_eq!(result.get("unrelated_repo", "shared_dep"), None);
     }
 
     #[test]
