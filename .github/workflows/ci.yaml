@@ -35,6 +35,14 @@ jobs:
       - name: Send automated commit
         run: |
           if ! git diff --quiet; then
+            # Fork PRs run with a read-only GITHUB_TOKEN, so we cannot push automated fixes.
+            # Ask the contributor to run pre-commit locally instead.
+            if [ "${{ github.event_name }}" = "pull_request" ] && [ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]; then
+              echo "Pre-commit found issues that need to be fixed. Please run 'pre-commit run --all-files' locally and push the fixes."
+              git diff
+              exit 1
+            fi
+
             git config --local user.name "aspect-marvin[bot]"
             git config --local user.email "<marvin@aspect.build>"
             git add .
