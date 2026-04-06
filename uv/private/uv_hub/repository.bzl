@@ -57,7 +57,6 @@ config_setting(
     content = [
         """\
 load("@aspect_rules_py//py:defs.bzl", "py_library")
-load("@aspect_rules_py//uv/private:defs.bzl", "py_whl_library", "whl_requirements")
 """,
     ]
 
@@ -85,7 +84,6 @@ filegroup(
         content = [
             """\
 load("@aspect_rules_py//py:defs.bzl", "py_library")
-load("@aspect_rules_py//uv/private:defs.bzl", "py_whl_library")
 load("//:defs.bzl", "compatible_with")
 """,
         ]
@@ -108,9 +106,14 @@ alias(
     actual = "{name}",
     visibility = ["//visibility:public"],
 )
-py_whl_library(
+# TODO(v2): Remove. This target previously forced
+# whl_mode (returning the raw .whl file rather than the installed py_library).
+# That machinery has been removed; it now simply aliases :lib. Kept for API
+# compatibility — removing it would be a breaking change for callers that
+# reference @hub//<pkg>:whl directly.
+alias(
     name = "whl",
-    srcs = [":{name}"],
+    actual = ":{name}",
     visibility = ["//visibility:public"],
 )
 filegroup(
