@@ -15,11 +15,17 @@ tasks:
       id: bazel-8
       env:
         USE_BAZEL_VERSION: 8.x
+      bazel:
+        flags:
+          - --toolchain_resolution_debug=python
   - test:
       name: Bazel 9
       id: bazel-9
       env:
-        USE_BAZEL_VERSION: 9.*
+        USE_BAZEL_VERSION: 9.0.1
+      bazel:
+        flags:
+          - --toolchain_resolution_debug=python
 
   - finalization:
       queue: aspect-small
