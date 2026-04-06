@@ -21,7 +21,7 @@ bazel_dep(name = "rules_pkg", version = "1.1.0")
 bazel_dep(name = "rules_python", version = "1.0.0")
 bazel_dep(name = "rules_shell", version = "0.6.1")
 bazel_dep(name = "tar.bzl", version = "0.5.5")
-bazel_dep(name = "with_cfg.bzl", version = "0.14.1")
+bazel_dep(name = "with_cfg.bzl", version = "0.14.6")
 
 bazel_lib_toolchains = use_extension("@tar.bzl//tar:extensions.bzl", "toolchains")
 use_repo(bazel_lib_toolchains, "bsd_tar_toolchains")
@@ -93,28 +93,27 @@ register_toolchains(
     dev_dependency = IS_RELEASE,
 )
 
-# Rust configuration
-bazel_dep(name = "rules_rust", version = "0.68.1", dev_dependency = IS_RELEASE)
-
-rust = use_extension(
-    "@rules_rust//rust:extensions.bzl",
-    "rust",
+# Rust configuration (via rules_rs's bundled rules_rust)
+rules_rust_ext = use_extension(
+    "@rules_rs//rs/experimental:rules_rust.bzl",
+    "rules_rust",
     dev_dependency = IS_RELEASE,
 )
-rust.toolchain(
-    edition = "2024",
-    extra_target_triples = [
-        "aarch64-apple-darwin",
-        "x86_64-apple-darwin",
-        "aarch64-unknown-linux-musl",
-        "x86_64-unknown-linux-musl",
-    ],
-    versions = ["1.88.0"],
+use_repo(rules_rust_ext, "rules_rust")
+
+toolchains = use_extension(
+    "@rules_rs//rs/experimental/toolchains:module_extension.bzl",
+    "toolchains",
+    dev_dependency = IS_RELEASE,
 )
-use_repo(rust, "rust_toolchains")
+toolchains.toolchain(
+    edition = "2024",
+    version = "1.88.0",
+)
+use_repo(toolchains, "default_rust_toolchains")
 
 register_toolchains(
-    "@rust_toolchains//:all",
+    "@default_rust_toolchains//:all",
     dev_dependency = IS_RELEASE,
 )
 
@@ -123,7 +122,7 @@ bazel_dep(name = "bazel_env.bzl", version = "0.5.0", dev_dependency = IS_RELEASE
 bazel_dep(name = "bzip2", version = "1.0.8.bcr.3", dev_dependency = IS_RELEASE)
 bazel_dep(name = "gazelle", version = "0.47.0", dev_dependency = IS_RELEASE)
 bazel_dep(name = "rules_go", version = "0.60.0", dev_dependency = IS_RELEASE)
-bazel_dep(name = "rules_rs", version = "0.0.26", dev_dependency = IS_RELEASE)
+bazel_dep(name = "rules_rs", version = "0.0.53", dev_dependency = IS_RELEASE)
 bazel_dep(name = "xz", version = "5.4.5.bcr.7", dev_dependency = IS_RELEASE)
 bazel_dep(name = "zstd", version = "1.5.7", dev_dependency = IS_RELEASE)
 bazel_dep(name = "rules_multitool", version = "1.9.0", dev_dependency = IS_RELEASE)

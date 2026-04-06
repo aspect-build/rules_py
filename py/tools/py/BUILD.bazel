@@ -26,7 +26,6 @@ rust_library(
         "@aspect_rules_py__crates//:percent-encoding-2.3.1",
         "@aspect_rules_py__crates//:sha256",
         "@aspect_rules_py__crates//:tempfile",
-        "@aspect_rules_py__crates//:thiserror",
         "@aspect_rules_py__crates//:uv-cache",
         "@aspect_rules_py__crates//:uv-distribution-filename",
         "@aspect_rules_py__crates//:uv-extract",

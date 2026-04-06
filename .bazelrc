@@ -23,6 +23,13 @@ common --repo_env=BAZEL_NO_APPLE_CPP_TOOLCHAIN=1
 
 common:ci --toolchain_resolution_debug='@@bazel_tools//tools/cpp:toolchain_type'
 
+# rules_rs experimental toolchains require an llvm libc constraint on the target platform.
+# The auto-detected host platform on Linux doesn't have one, so set it explicitly.
+# @llvm//platforms:linux_amd64 has @llvm//constraints/libc:gnu.2.28 by default.
+# --enable_platform_specific_config (in defaults.bazelrc) makes this activate automatically on Linux.
+common:linux --platforms=@llvm//platforms:linux_amd64
+common:linux --host_platform=@llvm//platforms:linux_amd64
+
 common:release --build_tag_filters=release
 common:release --stamp
 common:release --compilation_mode=opt
