@@ -1,3 +1,4 @@
+load("@buildifier_prebuilt//:rules.bzl", "buildifier")
 load("@gazelle//:def.bzl", "gazelle")
 load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirements")
 load("//uv/unstable:defs.bzl", "gazelle_python_manifest")
@@ -19,6 +20,19 @@ gazelle_python_manifest(
 gazelle(
     name = "gazelle",
     gazelle = "@multitool//tools/gazelle",
+)
+
+buildifier(
+    name = "buildifier",
+    lint_mode = "fix",
+    mode = "fix",
+)
+
+buildifier(
+    name = "buildifier.check",
+    # TODO: enable lint_mode = "warn" once existing warnings are fixed
+    lint_mode = "",
+    mode = "diff",
 )
 
 compile_pip_requirements(

@@ -2,11 +2,16 @@
 
 workspaces:
   - .
-  - e2e
+  - e2e:
+      tasks:
+        - buildifier:
+            without: true
   - examples/uv_pip_compile:
       tasks:
         - bazel-9:
             # TODO(alexeagle): needs an updated published aspect_rules_py
+            without: true
+        - buildifier:
             without: true
 
 tasks:
@@ -20,6 +25,9 @@ tasks:
       id: bazel-9
       env:
         USE_BAZEL_VERSION: 9.*
+
+  - buildifier:
+      queue: aspect-small
 
   - finalization:
       queue: aspect-small
