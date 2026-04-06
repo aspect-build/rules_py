@@ -31,11 +31,11 @@ def _toolchains_repo_impl(repository_ctx):
 """
     for bin in TOOL_CFGS:
         for [platform, meta] in TOOLCHAIN_PLATFORMS.items():
-            build_content += """
-# Declare a toolchain Bazel will select for running {tool} on the {cfg} platform.
+            if bin.target_toolchain_type:
+                build_content += """
 toolchain(
-    name = "{tool}_{platform}_{cfg}_toolchain",
-    {cfg}_compatible_with = {compatible_with},
+    name = "{tool}_{platform}_target_toolchain",
+    target_compatible_with = {compatible_with},
     # Bazel does not follow this attribute during analysis, so the referenced repo
     # will only be fetched if this toolchain is selected.
     toolchain = "@{user_repository_name}.{platform}//:{tool}_toolchain",
@@ -43,28 +43,27 @@ toolchain(
 )
 
 """.format(
-                cfg = bin.cfg,
-                tool = bin.name,
-                toolchain_type = bin.toolchain_type,
-                platform = platform,
-                user_repository_name = repository_ctx.attr.user_repository_name,
-                compatible_with = meta.compatible_with,
-            )
+                    tool = bin.name,
+                    toolchain_type = bin.target_toolchain_type,
+                    platform = platform,
+                    user_repository_name = repository_ctx.attr.user_repository_name,
+                    compatible_with = meta.compatible_with,
+                )
 
             if bin.exec_toolchain_type:
                 build_content += """
-# Exec-cfg variant: selected when the exec platform matches, so build actions
-# using this tool get a binary that runs on the build host.
 toolchain(
     name = "{tool}_{platform}_exec_toolchain",
     exec_compatible_with = {compatible_with},
+    # Bazel does not follow this attribute during analysis, so the referenced repo
+    # will only be fetched if this toolchain is selected.
     toolchain = "@{user_repository_name}.{platform}//:{tool}_toolchain",
-    toolchain_type = "{exec_toolchain_type}",
+    toolchain_type = "{toolchain_type}",
 )
 
 """.format(
                     tool = bin.name,
-                    exec_toolchain_type = bin.exec_toolchain_type,
+                    toolchain_type = bin.exec_toolchain_type,
                     platform = platform,
                     user_repository_name = repository_ctx.attr.user_repository_name,
                     compatible_with = meta.compatible_with,

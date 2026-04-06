@@ -6,7 +6,7 @@ EXEC_TOOLS_TOOLCHAIN = "@aspect_rules_py//py/private/toolchain:exec_tools_toolch
 
 # Toolchain type for the virtual env creation tools.
 SHIM_TOOLCHAIN = "@aspect_rules_py//py/private/toolchain:shim_toolchain_type"
-UNPACK_TOOLCHAIN = "@aspect_rules_py//py/private/toolchain:unpack_toolchain_type"
+UNPACK_TOOLCHAIN = "@aspect_rules_py//py/private/toolchain:unpack_exec_toolchain_type"
 VENV_TARGET_TOOLCHAIN = "@aspect_rules_py//py/private/toolchain:venv_toolchain_type"
 
 # Exec-configured variant of the venv tool: used for build actions that run

@@ -3,5 +3,4 @@ load("//py/private/toolchain:tools.bzl", "source_toolchain")
 source_toolchain(
     name = "venv",
     bin = "//py/tools/venv_bin",
-    toolchain_type = "//py/private/toolchain:venv_toolchain_type",
 )
