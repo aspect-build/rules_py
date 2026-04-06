@@ -104,7 +104,7 @@ def _toolchain_impl(ctx):
 
     return [toolchain_info, default_info, template_variables]
 
-source_target_py_tool_toolchain = rule(
+source_py_tool_toolchain = rule(
     implementation = _toolchain_impl,
     attrs = {
         "bin": attr.label(
@@ -150,7 +150,7 @@ def source_toolchain(name, bin):
     tool = _TOOL_CFGS_BY_NAME[name]
 
     if tool.toolchain_type:
-        source_target_py_tool_toolchain(
+        source_py_tool_toolchain(
             name = "{}_tool".format(name),
             bin = bin,
             template_var = "{}_BIN".format(name.upper()),
