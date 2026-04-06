@@ -23,7 +23,8 @@ def rules_py_toolchains(name = DEFAULT_TOOLS_REPOSITORY, register = True, is_pre
         prerelease_toolchains_repo(name = name)
         if register:
             for tool in TOOL_CFGS:
-                native.register_toolchains(tool.toolchain)
+                for tc in tool.source_toolchains:
+                    native.register_toolchains(tc)
     else:
         for platform in TOOLCHAIN_PLATFORMS.keys():
             prebuilt_tool_repo(name = ".".join([name, platform]), platform = platform)
