@@ -831,15 +831,6 @@ fn has_internal_symlinks(dir: &Path) -> bool {
         .any(|e| e.file_type().is_symlink())
 }
 
-fn would_create_symlink_cycle(src: &Path, dest: &Path) -> bool {
-    let src_has_links = has_internal_symlinks(src);
-    let dest_parent_has_links = dest.parent()
-        .map(|p| has_internal_symlinks(p))
-        .unwrap_or(false);
-    
-    src_has_links && dest_parent_has_links
-}
-
 /// Post-processing pass that replaces groups of file-level `Symlink` commands
 /// with a single `SymlinkDir` when all files in a top-level package directory
 /// come from the same source root and contain no native extensions.
