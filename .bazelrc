@@ -15,7 +15,8 @@ common --@rules_cc//cc/toolchains/args/archiver_flags:use_libtool_on_macos=false
 
 # Enable now to test that @pypi//venv (scope = "universal") propagates correctly
 # through exec transitions. This will be the default in Bazel 10.
-common --incompatible_exclude_starlark_flags_from_exec_config
+# Use the experimental_ prefix for Bazel 8 compatibility (renamed in Bazel 9).
+common --experimental_exclude_starlark_flags_from_exec_config
 
 # TODO(bzlmod): Don't break proto
 common --per_file_copt=external/.*protobuf.*@--PROTOBUF_WAS_NOT_SUPPOSED_TO_BE_BUILT
