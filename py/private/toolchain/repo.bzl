@@ -31,10 +31,10 @@ def _toolchains_repo_impl(repository_ctx):
 """
     for bin in TOOL_CFGS:
         for [platform, meta] in TOOLCHAIN_PLATFORMS.items():
-            if bin.target_toolchain_type:
+            if bin.toolchain_type:
                 build_content += """
 toolchain(
-    name = "{tool}_{platform}_target_toolchain",
+    name = "{tool}_{platform}_toolchain",
     target_compatible_with = {compatible_with},
     # Bazel does not follow this attribute during analysis, so the referenced repo
     # will only be fetched if this toolchain is selected.
@@ -44,7 +44,7 @@ toolchain(
 
 """.format(
                     tool = bin.name,
-                    toolchain_type = bin.target_toolchain_type,
+                    toolchain_type = bin.toolchain_type,
                     platform = platform,
                     user_repository_name = repository_ctx.attr.user_repository_name,
                     compatible_with = meta.compatible_with,

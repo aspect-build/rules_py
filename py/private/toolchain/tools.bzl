@@ -16,7 +16,7 @@ def PrebuiltToolConfig(target, cfg):
         fail("cfg must be one of 'target', 'exec', or 'both', got: '{}'".format(cfg))
     name = Label(target).name
 
-    target_toolchain_type = (
+    toolchain_type = (
         "@aspect_rules_py//py/private/toolchain:{}_toolchain_type".format(name)
         if cfg in ("target", "both")
         else None
@@ -30,7 +30,7 @@ def PrebuiltToolConfig(target, cfg):
     pkg = "@aspect_rules_py//py/private/toolchain/{}".format(name)
     source_toolchains = []
     if cfg in ("target", "both"):
-        source_toolchains.append("{pkg}:{name}_target_source_toolchain".format(pkg = pkg, name = name))
+        source_toolchains.append("{pkg}:{name}_source_toolchain".format(pkg = pkg, name = name))
     if cfg in ("exec", "both"):
         source_toolchains.append("{pkg}:{name}_exec_source_toolchain".format(pkg = pkg, name = name))
 
@@ -38,7 +38,7 @@ def PrebuiltToolConfig(target, cfg):
         target = target,
         name = name,
         source_toolchains = source_toolchains,
-        target_toolchain_type = target_toolchain_type,
+        toolchain_type = toolchain_type,
         exec_toolchain_type = exec_toolchain_type,
     )
 
@@ -153,29 +153,27 @@ def source_toolchain(name, bin):
     """
     tool = _TOOL_CFGS_BY_NAME[name]
 
-    if tool.target_toolchain_type:
-        toolchain_rule = "{}_target_toolchain_source".format(name)
+    if tool.toolchain_type:
         source_target_py_tool_toolchain(
-            name = toolchain_rule,
+            name = "{}_tool".format(name),
             bin = bin,
             template_var = "{}_BIN".format(name.upper()),
         )
         native.toolchain(
-            name = "{}_target_source_toolchain".format(name),
-            toolchain = toolchain_rule,
-            toolchain_type = tool.target_toolchain_type,
+            name = "{}_source_toolchain".format(name),
+            toolchain = "{}_tool".format(name),
+            toolchain_type = tool.toolchain_type,
         )
 
     if tool.exec_toolchain_type:
-        exec_toolchain_rule = "{}_exec_toolchain_source".format(name)
         source_exec_py_tool_toolchain(
-            name = exec_toolchain_rule,
+            name = "{}_exec_tool".format(name),
             bin = bin,
             template_var = "{}_EXEC_BIN".format(name.upper()),
         )
         native.toolchain(
             name = "{}_exec_source_toolchain".format(name),
-            toolchain = exec_toolchain_rule,
+            toolchain = "{}_exec_tool".format(name),
             toolchain_type = tool.exec_toolchain_type,
         )
 
