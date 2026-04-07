@@ -33,9 +33,10 @@ _whl_install_output_group_test = analysistest.make(
     # The hub alias for @pypi//iniconfig uses target_compatible_with = incompatible
     # by default; set the venv flag so the select resolves to the whl_install target.
     config_settings = {
-        # Use Label() so the label is resolved in this package's context rather
-        # than in bazel_skylib's context (which can't see @aspect_rules_py).
-        Label("@aspect_rules_py//uv/private/constraints/venv:venv"): "uv-whl-install-output-group",
+        # str(Label(...)) produces the canonical @@repo+//... form, which is
+        # repo-context-independent and satisfies analysis_test_transition's
+        # requirement for string keys.
+        str(Label("@aspect_rules_py//uv/private/constraints/venv:venv")): "uv-whl-install-output-group",
     },
 )
 
