@@ -74,6 +74,12 @@ def _whl_install(ctx):
                 install_dir,
             ]),
         ),
+        OutputGroupInfo(
+            # Expose install_dir for consumers that need to access files from
+            # the wheel directory directly (e.g. extracting non-console-script
+            # binaries via a filegroup with output_group = "install_dir").
+            install_dir = depset([install_dir]),
+        ),
         PyInfo(
             transitive_sources = depset([
                 install_dir,
@@ -133,6 +139,7 @@ lighter weight since the toolchain's files aren't inputs.
     ],
     provides = [
         DefaultInfo,
+        OutputGroupInfo,
         PyInfo,
     ],
 )
