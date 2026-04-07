@@ -69,6 +69,28 @@ toolchain(
                     compatible_with = meta.compatible_with,
                 )
 
+    # Generate one native_build toolchain entry per platform.
+    # Used by pep517_whl (sdist builds) as a sentinel asserting the build is
+    # running natively (exec == target). Both exec_compatible_with and
+    # target_compatible_with are set to the same constraints so that this
+    # toolchain is only selected when the exec and target platforms match —
+    # cross-compilation sdist builds are unsupported and correctly fail.
+    # Registered via @rules_py_tools//:all.
+    for [platform, meta] in TOOLCHAIN_PLATFORMS.items():
+        build_content += """
+toolchain(
+    name = "native_build_{platform}_toolchain",
+    exec_compatible_with = {compatible_with},
+    target_compatible_with = {compatible_with},
+    toolchain = "@aspect_rules_py//py/private/toolchain:empty",
+    toolchain_type = "@aspect_rules_py//py/private/toolchain:native_build_toolchain_type",
+)
+
+""".format(
+            platform = platform,
+            compatible_with = meta.compatible_with,
+        )
+
     # Base BUILD file for this repository
     repository_ctx.file("BUILD.bazel", build_content)
 
