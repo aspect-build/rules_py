@@ -53,6 +53,7 @@ def _whl_install(ctx):
     ctx.actions.run(
         mnemonic = "WhlInstall",
         executable = unpack,
+        toolchain = UNPACK_TOOLCHAIN,
         arguments = [arguments],
         inputs = depset(transitive = transitive_inputs),
         outputs = [
