@@ -3,6 +3,7 @@
 workspaces:
   - .
   - e2e
+  - e2e/cases/bcr-simulation-900
   - examples/uv_pip_compile:
       tasks:
         - bazel-9:
