@@ -3,6 +3,12 @@ load("@bazel_lib//lib:transitions.bzl", "platform_transition_test")
 
 platform(
     name = "freethreaded",
+    constraint_values = [
+        # rules_rs Rust toolchains for linux-gnu targets require gnu.2.28 in the
+        # target platform's constraint set. @platforms//host auto-detects os/cpu
+        # but does not include a libc constraint, so we add it explicitly.
+        "@llvm//constraints/libc:gnu.2.28",
+    ],
     flags = [
         "--@aspect_rules_py//py/private/interpreter:freethreaded=true",
     ],
