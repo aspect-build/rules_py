@@ -1,29 +1,10 @@
-# Regression test for OutputGroupInfo("install_dir") on whl_install.
+# Regression test: whl_install must expose install_dir via OutputGroupInfo.
 #
 # Since #907 removed install_dir from DefaultInfo.files, consumers that need
 # to extract files from a wheel directory must use a filegroup with
-# output_group = "install_dir" to access the install TreeArtifact.
+# output_group = "install_dir". This analysis test verifies that OutputGroupInfo
+# is present on whl_install and contains exactly one TreeArtifact named "install".
 
-load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load(":tests.bzl", "whl_install_output_group_test_suite")
 
-# Access the install dir via the install_dir output group rather than
-# DefaultInfo.files (which is intentionally empty since #907).
-filegroup(
-    name = "iniconfig_install_dir",
-    srcs = ["@pypi//iniconfig:install"],
-    output_group = "install_dir",
-)
-
-# Use the install dir in a genrule to verify it is accessible as a srcs dep.
-genrule(
-    name = "install_dir_listing",
-    srcs = [":iniconfig_install_dir"],
-    outs = ["listing.txt"],
-    cmd = "find $(execpath :iniconfig_install_dir) -type f | sort > $@",
-)
-
-sh_test(
-    name = "test",
-    srcs = ["test.sh"],
-    data = [":install_dir_listing"],
-)
+whl_install_output_group_test_suite()
