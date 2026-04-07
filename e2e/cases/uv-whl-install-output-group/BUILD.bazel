@@ -1,10 +1,28 @@
 # Regression test: whl_install must expose install_dir via OutputGroupInfo.
 #
-# Since #907 removed install_dir from DefaultInfo.files, consumers that need
-# to extract files from a wheel directory must use a filegroup with
-# output_group = "install_dir". This analysis test verifies that OutputGroupInfo
-# is present on whl_install and contains exactly one TreeArtifact named "install".
+# Since #907 removed install_dir from DefaultInfo.files, consumers that need to
+# access files from the wheel directory directly must use a filegroup with
+# output_group = "install_dir". This test exercises that pattern end-to-end.
 
-load(":tests.bzl", "whl_install_output_group_test_suite")
+load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
 
-whl_install_output_group_test_suite()
+# Access the install dir via the install_dir output group rather than
+# DefaultInfo.files (which is intentionally empty since #907).
+#
+# This filegroup is placed in py_venv_test's data (not a genrule srcs) so that
+# the venv transition applies and @pypi//iniconfig's hub select resolves.
+filegroup(
+    name = "iniconfig_install_dir",
+    srcs = ["@pypi//iniconfig"],
+    output_group = "install_dir",
+)
+
+py_venv_test(
+    name = "test",
+    srcs = ["test.py"],
+    data = [":iniconfig_install_dir"],
+    main = "test.py",
+    python_version = "3.11",
+    venv = "uv-whl-install-output-group",
+    deps = ["@pypi//iniconfig"],
+)
