@@ -249,6 +249,18 @@ uv.project(
 )
 # }}}
 
+# For cases/uv-whl-install-output-group
+# Verify that whl_install exposes install_dir via OutputGroupInfo so that a
+# filegroup with output_group = "install_dir" makes the wheel directory
+# accessible to downstream genrules.
+# {{{
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/uv-whl-install-output-group:uv.lock",
+    pyproject = "//cases/uv-whl-install-output-group:pyproject.toml",
+)
+# }}}
+
 # For cases/uv-include-group (PEP 735 include-group syntax)
 # {{{
 uv.project(
