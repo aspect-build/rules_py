@@ -11,6 +11,6 @@ py_venv_test(
     name = "test",
     srcs = ["test_geohash.py"],
     main = "test_geohash.py",
-    deps = ["@pypi//python_geohash"],
     target_compatible_with = ["@platforms//os:linux"],
+    deps = ["@pypi//python_geohash"],
 )
