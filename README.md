@@ -87,7 +87,7 @@ using symlink trees:
 
 - **Isolated mode**: Python executes with `-I` flag, preventing implicit loading of user site-packages or host
   environment variables
-- **Hermetic launchers**: Our launcher uses the Bazel Bash toolchain, not the host Python—ensuring 100% hermetic
+- **Hermetic launchers**: Our launcher uses the Bazel Bash toolchain, not the host Python, this ensures 100% hermetic
   execution across local machines and RBE nodes
 - **No host Python leakage**: Breaks the implicit dependency on system Python during the boot sequence
 
