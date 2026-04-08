@@ -47,6 +47,13 @@ use_repo(interpreters, "python_interpreters")
 
 register_toolchains("@python_interpreters//:all")
 
+# rules_py tools — provides the native_build_toolchain entries for sdist builds.
+tools = use_extension("@aspect_rules_py//py:extensions.bzl", "py_tools")
+tools.rules_py_tools()
+use_repo(tools, "rules_py_tools")
+
+register_toolchains("@rules_py_tools//:all")
+
 # For the OCI tests
 # {{{
 oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
@@ -345,4 +352,21 @@ uv.project(
     lock = "//cases/pytest-subdir-imports:uv.lock",
     pyproject = "//cases/pytest-subdir-imports:pyproject.toml",
 )
+
+# For cases/uv-sdist-native-build
+# Verify that native_build_toolchain_type is registered via @rules_py_tools//:all
+# so that sdist packages with C extensions can be built with pep517_native_whl.
+# python-geohash is sdist-only and contains a C++ extension (_geohash).
+# {{{
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "setuptools",
+    ],
+    hub_name = "pypi",
+    lock = "//cases/uv-sdist-native-build:uv.lock",
+    pyproject = "//cases/uv-sdist-native-build:pyproject.toml",
+)
+# }}}
+
 use_repo(uv, "pypi")
