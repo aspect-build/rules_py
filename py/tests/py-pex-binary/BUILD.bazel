@@ -4,10 +4,12 @@ load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("//py:defs.bzl", "py_binary", "py_pex_binary")
 
 # Test that both single-file modules (six) and multi-file modules (cowsay) work with py_pex_binary.
+# Also tests that py_pex_binary works with hermetic Python toolchains (python_version = 3.11).
 py_binary(
     name = "print_modules_bin",
     srcs = ["print_modules.py"],
     data = ["data.txt"],
+    python_version = "3.11",
     deps = [
         "@pypi//cowsay",
         "@pypi//six",
