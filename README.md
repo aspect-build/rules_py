@@ -17,18 +17,61 @@ RBE) environments.
 
 ## Advantages Over `rules_python`
 
-### Lightning-Fast Dependency Resolution with `uv`
+| Feature | rules_python | rules_py |
+|:---|:---|:---|
+| Dependency resolution | `pip.parse` (repo rules, loading phase) | Build-action wheel installs (`whl_install`) |
+| uv integration | `uv pip compile` → `requirements.txt` → `pip.parse` | Native `uv.lock` consumption |
+| Cross-platform lockfile | Per-platform `requirements_*.txt` | Single `uv.lock` for all platforms |
+| sdist / PEP 517 builds | Not supported ([#2410](https://github.com/bazel-contrib/rules_python/issues/2410), open since Nov 2024) | Build actions (`pep517_whl`, `pep517_native_whl`) |
+| Interpreter provisioning | Download via rules_python extension | Own [python-build-standalone](https://github.com/astral-sh/python-build-standalone) extension — no rules_python required |
+| Site-packages layout | `sys.path` / `PYTHONPATH` manipulation | Standard `site-packages` symlink tree |
+| Cross-compilation | Limited | Native platform transitions (e.g. arm64 image on amd64 host) |
+| Virtual dependencies | No | `virtual_deps` — swap implementations at binary level |
+| PEP 735 dependency groups | No | `--@pypi//venv=prod` flag |
+
+> [!NOTE]
+> **rules_python's uv support**: `rules_python`'s uv integration runs `uv pip compile` as a build action to
+> generate a `requirements.txt`—it is a faster `pip-compile` replacement. The result still feeds into `pip.parse()` →
+> `whl_library` repository rules at loading phase. There is no `uv.lock` consumption; the rules_python maintainer has
+> [suggested](https://github.com/bazel-contrib/rules_python/discussions/3391) this work belongs in a dedicated project.
+
+### Native `uv.lock` Dependency Resolution
 
 Instead of relying on legacy `pip` machinery, we provide native integration with [uv](https://github.com/astral-sh/uv),
 a Rust-native Python package resolver.
 
-- **Sub-second resolution**: Lockfile-backed dependency installation at Rust speeds
+- **Build-action installs**: Wheel extraction runs as Bazel execution-phase actions—not repo rules—so they are
+  cacheable, sandboxed, and compatible with RBE. Crucially, wheels are no longer resolved against the host machine
+  architecture: a single build can fetch and extract wheels for any exec or target platform, enabling true
+  cross-platform builds (e.g. building Linux `aarch64` wheels on a macOS `x86_64` host)
+- **Native `uv.lock` parsing**: Consumes `uv.lock` directly; no `requirements.txt` generation step
 - **Universal lockfiles**: A single `uv.lock` works across all platforms—no more `requirements_linux.txt`,
   `requirements_mac.txt`, `requirements_windows.txt`
+- **sdist / PEP 517 builds**: Build source distributions as Bazel actions (rules_python has no equivalent;
+  [#2410](https://github.com/bazel-contrib/rules_python/issues/2410) open since November 2024)
 - **PEP 735 dependency groups**: Define `prod`, `dev`, `test` dependency groups and switch between them with a flag
 - **Editable requirements**: Override locked packages with local `py_library` targets via `uv.override_package()`
 - **Lazy downloads**: All fetching happens during the build phase, not repository loading—fully compatible with private
   mirrors and RBE
+
+### Own Python Interpreter Provisioning
+
+`aspect_rules_py` ships its own [python-build-standalone](https://github.com/astral-sh/python-build-standalone)
+interpreter extension—rules_python is not required as a toolchain provider.
+
+> [!NOTE]
+> The `//py/unstable` and `//uv/unstable` extension paths indicate that the extension API may evolve across
+> releases—not that the features are unstable.
+
+```python
+interpreters = use_extension("@aspect_rules_py//py/unstable:extension.bzl", "python_interpreters")
+interpreters.toolchain(python_version = "3.12", is_default = True)
+use_repo(interpreters, "python_interpreters")
+register_toolchains("@python_interpreters//:all")
+```
+
+This enables cross-compilation from any host to any target without host-installed Python, and is the foundation for
+correct toolchain selection in RBE environments.
 
 ### Idiomatic `site-packages` Layout
 
@@ -81,7 +124,7 @@ Built-in rules for creating optimized container images:
 ## Installation and Configuration
 
 ```bzl
-bazel_dep(name = "aspect_rules_py", version = "1.6.7")
+bazel_dep(name = "aspect_rules_py", version = "1.11.2")
 ```
 
 ### Quick Start
@@ -128,13 +171,23 @@ uv.project(
     hub_name = "pypi",
     lock = "//:uv.lock",
     pyproject = "//:pyproject.toml",
+    # Build tools injected for sdist packages that need them (e.g. maturin, setuptools)
+    default_build_dependencies = ["build", "setuptools"],
 )
 
-# 3. (Optional) Override packages with local targets
+# 3a. (Optional) Replace a package with a local Bazel target
 uv.override_package(
     name = "some_package",
     lock = "//:uv.lock",
     target = "//third_party/some_package",
+)
+
+# 3b. (Optional) Patch an installed wheel's file tree after unpacking
+uv.override_package(
+    name = "some_other_package",
+    lock = "//:uv.lock",
+    post_install_patches = ["//third_party/patches:fix_some_other_package.patch"],
+    post_install_patch_strip = 1,
 )
 
 use_repo(uv, "pypi")
@@ -296,7 +349,7 @@ Generate `BUILD` files automatically with the Gazelle extension:
 ```bzl
 # MODULE.bazel
 bazel_dep(name = "gazelle", version = "0.42.0")
-bazel_dep(name = "aspect_rules_py", version = "1.6.7")
+bazel_dep(name = "aspect_rules_py", version = "1.11.2")
 
 # In your BUILD file
 # gazelle:map_kind py_library py_library @aspect_rules_py//py:defs.bzl
@@ -313,10 +366,11 @@ bazel run //:gazelle
 
 `aspect_rules_py` is designed for incremental adoption:
 
-1. **Keep `rules_python` toolchains**: We reuse `rules_python` for hermetic Python interpreter fetching
-2. **Swap the rules**: Load `py_binary`, `py_library`, `py_test` from `@aspect_rules_py//py:defs.bzl` instead of
+1. **Swap the rules**: Load `py_binary`, `py_library`, `py_test` from `@aspect_rules_py//py:defs.bzl` instead of
    `@rules_python//python:defs.bzl`
-3. **Migrate dependencies**: Replace `pip.parse` with `uv.hub` and generate a `uv.lock`
+2. **Migrate dependencies**: Replace `pip.parse` with `uv.hub` and generate a `uv.lock`
+3. **Optionally migrate toolchains**: Replace `rules_python` interpreter provisioning with
+   the `aspect_rules_py` interpreter extension for fully independent hermetic interpreters
 
 For detailed migration guidance, see [docs/migrating.md](docs/migrating.md).
 
@@ -330,18 +384,27 @@ For detailed migration guidance, see [docs/migrating.md](docs/migrating.md).
 
 ## Users
 
-- [Aspect CLI](https://github.com/aspect-build/aspect-cli)
-- [OpenAI Codex](https://github.com/openai/codex)
-- [DataDog Agent](https://github.com/DataDog/datadog-agent)
+- [OpenAI](https://github.com/openai/codex)
+- [Physical Intelligence](https://www.physicalintelligence.company/)
+- [RAI Institute](https://www.rai.ac/)
+- [NVIDIA OSMO](https://github.com/NVIDIA/OSMO)
+- [ZML](https://github.com/zml/zml)
+- [Eclipse SCORE](https://github.com/eclipse-score/score)
+- [Intrinsic](https://github.com/intrinsic-opensource/ros-central-registry)
+- [Enfabrica](https://github.com/enfabrica/enkit)
+- [ReSim AI](https://github.com/resim-ai/open-core)
+- [StackAV](https://github.com/stackav-oss/clockwork)
+- [Netherlands Cancer Institute](https://github.com/NKI-AI/direct)
+- [pyrovelocity](https://github.com/pyrovelocity/pyrovelocity)
 
 ## Architecture
 
-| Layer          | Implementation         | Description                                                                          |
-|:---------------|:-----------------------|:-------------------------------------------------------------------------------------|
-| **Toolchains** | `@rules_python`        | Hermetic Python interpreter fetching and registration                                |
-| **Resolution** | `@aspect_rules_py//uv` | Fast, lockfile-backed dependency resolution with `uv`                                |
-| **Execution**  | `@aspect_rules_py//py` | Drop-in replacements for `py_binary`, `py_library`, `py_test` with sandbox isolation |
-| **Generation** | `aspect-gazelle`       | Pre-compiled Gazelle extension—no CGO toolchain required                             |
+| Layer          | Implementation                    | Description                                                                          |
+|:---------------|:----------------------------------|:-------------------------------------------------------------------------------------|
+| **Toolchains** | `@aspect_rules_py//py`            | Own python-build-standalone interpreter provisioning; `@rules_python` optional       |
+| **Resolution** | `@aspect_rules_py//uv`            | Fast, lockfile-backed dependency resolution with `uv`                                |
+| **Execution**  | `@aspect_rules_py//py`            | Drop-in replacements for `py_binary`, `py_library`, `py_test` with sandbox isolation |
+| **Generation** | `aspect-gazelle`                  | Pre-compiled Gazelle extension—no CGO toolchain required                             |
 
 ## License
 
