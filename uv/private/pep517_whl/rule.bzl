@@ -159,6 +159,16 @@ constraints of the target platform.
         # Create an exec group which depends on a toolchain which can only be
         # resolved to exec_compatible_with constraints equal to the target. This
         # allows us to discover what those constraints need to be.
+        #
+        # NATIVE_BUILD_TOOLCHAIN has matching exec_compatible_with and
+        # target_compatible_with, so this exec group only resolves when the exec
+        # and target platforms match. Cross-compilation of sdists is intentionally
+        # unsupported: PEP 517 build backends (setuptools, meson-python, etc.)
+        # have no standard mechanism for cross-compilation, Python headers for
+        # the target platform are not readily available, and output wheel tags
+        # would need to encode the target platform with no upstream tooling
+        # support. Packages that need cross-compiled native extensions should
+        # publish pre-built wheels for their target platforms instead.
         "target": exec_group(
             toolchains = [
                 PY_TOOLCHAIN,

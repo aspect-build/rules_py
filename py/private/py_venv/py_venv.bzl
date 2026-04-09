@@ -312,7 +312,15 @@ A collision can occur when multiple packages providing the same file are install
         doc = """The venv assembly mode.
 
 * "static-pth": Efficient. Just use a .pth file. Ignore binaries.
-* "static-symlink": Efficient. Use .pth entries for firstparty and symlinks for 3rdparty. Copies and patches binaries.
+* "static-symlink": Efficient. Use .pth entries for firstparty code (including
+  firstparty code in external repositories) and symlinks for 3rdparty wheels
+  (detected by the presence of site-packages or dist-packages in the path).
+  Copies and patches binaries.
+
+This mode is designed to minimize inode usage while still providing a fully
+functional virtualenv. First-party code is referenced via .pth files (one entry
+per import root), while third-party wheels are symlinked into the venv to ensure
+proper package metadata and console scripts work correctly.
         """,
         default = "static-symlink",
         values = ["static-pth", "static-symlink"],

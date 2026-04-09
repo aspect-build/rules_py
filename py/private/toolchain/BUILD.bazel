@@ -28,29 +28,22 @@ toolchain_type(
     visibility = ["//visibility:public"],
 )
 
-# Implementation detail of the target exec toolchain
+# Dummy toolchain backing target — no binary, used as a sentinel.
+# Public so the generated @rules_py_tools repo can reference it for
+# native_build toolchain entries.
 dummy_toolchain(
     name = "empty",
-    visibility = ["//visibility:private"],
+    visibility = ["//visibility:public"],
 )
 
 toolchain_type(
     name = "native_build_toolchain_type",
+    visibility = ["//visibility:public"],
 )
 
 toolchain_type(
     name = "exec_tools_toolchain_type",
     visibility = ["//visibility:public"],
-)
-
-# This creates a toolchain instance with exec_compatible_with placement
-# constraints matching the target, backed by the Python toolchain already
-# resolved for the target.
-toolchain(
-    name = "native_build_toolchain",
-    toolchain = ":empty",
-    toolchain_type = "native_build_toolchain_type",
-    use_target_platform_constraints = True,
 )
 
 bzl_library(
