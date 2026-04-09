@@ -33,7 +33,11 @@ use_repo(tools, "rules_py_pex_2_3_1")
 
 register_toolchains(
     "@rules_py_tools//:all",
+)
+
+register_toolchains(
     "@aspect_rules_py//py/private/toolchain/...",
+    dev_dependency = IS_RELEASE,
 )
 
 toml = use_extension("//uv/private/tomltool:extension.bzl", "tomltool")
