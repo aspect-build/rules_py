@@ -923,23 +923,22 @@ fn coalesce_symlinks(plan: Vec<Command>, site_dir: &Path) -> Vec<Command> {
         let all_same_root = !source_roots.is_empty()
             && source_roots.iter().all(|r| r == &source_roots[0]);
 
-        if all_same_root && !has_native {
-            // Replace all file symlinks with a single directory symlink
+        let can_symlinkdir = all_same_root && !has_native && {
             let source_root = &source_roots[0];
-            let has_symlinks = has_internal_symlinks(&source_root.join(&top_dir));
-            
-            if !has_symlinks {
-                result.push(Command::SymlinkDir {
-                    src: source_root.join(&top_dir),
-                    dest: site_dir.join(&top_dir),
-                });
-                continue;
+            !has_internal_symlinks(&source_root.join(&top_dir))
+        };
+
+        if can_symlinkdir {
+            let source_root = &source_roots[0];
+            result.push(Command::SymlinkDir {
+                src: source_root.join(&top_dir),
+                dest: site_dir.join(&top_dir),
+            });
+        } else {
+            // Keep file-level symlinks
+            for (src, dest) in entries {
+                result.push(Command::Symlink { src, dest });
             }
-        }
-        
-        // Keep file-level symlinks
-        for (src, dest) in entries {
-            result.push(Command::Symlink { src, dest });
         }
     }
 
