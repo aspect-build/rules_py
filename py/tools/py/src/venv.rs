@@ -691,6 +691,14 @@ pub struct FirstpartyThirdpartyStrategy<A: PthEntryHandler, B: PthEntryHandler> 
     pub firstparty: A,
     pub thirdparty: B,
 }
+
+fn is_installed_wheel(entry_path: &Path) -> bool {
+    entry_path.components().any(|c| {
+        let name = c.as_os_str().to_string_lossy();
+        name == "site-packages" || name == "dist-packages"
+    })
+}
+
 impl<A: PthEntryHandler, B: PthEntryHandler> PthEntryHandler
     for FirstpartyThirdpartyStrategy<A, B>
 {
@@ -701,9 +709,7 @@ impl<A: PthEntryHandler, B: PthEntryHandler> PthEntryHandler
         entry_repo: &str,
         entry_path: &Path,
     ) -> miette::Result<Vec<Command>> {
-        let action_src_dir = current_dir().into_diagnostic()?;
-        let main_repo = action_src_dir.file_name().unwrap();
-        let strategy: &dyn PthEntryHandler = if entry_repo != main_repo {
+        let strategy: &dyn PthEntryHandler = if is_installed_wheel(entry_path) {
             &self.thirdparty
         } else {
             &self.firstparty
@@ -1300,5 +1306,49 @@ mod tests {
         assert!(has_native_extension(Path::new("libfoo.so.1.2")));
         assert!(!has_native_extension(Path::new("foo.py")));
         assert!(!has_native_extension(Path::new("foo.pyc")));
+    }
+
+    // Tests for is_installed_wheel function
+    #[test]
+    fn detects_site_packages_as_installed_wheel() {
+        assert!(is_installed_wheel(Path::new(
+            "external/pip_requests/lib/python3.11/site-packages/requests"
+        )));
+        assert!(is_installed_wheel(Path::new(
+            "bazel-out/k8-fastbuild/bin/external/pip_numpy/site-packages/numpy"
+        )));
+    }
+
+    #[test]
+    fn detects_dist_packages_as_installed_wheel() {
+        assert!(is_installed_wheel(Path::new(
+            "external/debian_pkgs/usr/lib/python3/dist-packages/somepkg"
+        )));
+    }
+
+    #[test]
+    fn firstparty_source_not_detected_as_wheel() {
+        // First-party code in main repo
+        assert!(!is_installed_wheel(Path::new("src/myproject/foo")));
+        assert!(!is_installed_wheel(Path::new("projects/mylib/src")));
+    }
+
+    #[test]
+    fn external_firstparty_not_detected_as_wheel() {
+        // First-party code in external repos (monorepo scenario)
+        assert!(!is_installed_wheel(Path::new(
+            "external/company_shared_lib/src/shared"
+        )));
+        assert!(!is_installed_wheel(Path::new(
+            "bazel-out/k8-fastbuild/bin/external/other_repo/code"
+        )));
+    }
+
+    #[test]
+    fn wheel_with_nested_site_packages_detected() {
+        // Edge case: deeply nested site-packages
+        assert!(is_installed_wheel(Path::new(
+            "external/pip_complex/lib/python3.11/site-packages/pkg/sub/deep"
+        )));
     }
 }
