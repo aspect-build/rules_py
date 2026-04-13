@@ -52,7 +52,6 @@ resolved dependencies available in the `@uv` repository.
 """
 
 load("@bazel_features//:features.bzl", features = "bazel_features")
-load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 load("//py/private/interpreter:resolve.bzl", "resolve_host_interpreter_label")
 load("//uv/private:normalize_name.bzl", "normalize_name")
@@ -88,6 +87,15 @@ def url_basename(url):
     if not basename:
         fail("Invalid distribution URL (no file name): " + url)
     return basename
+
+def _merge_build_deps(default_build_deps, annotated_build_deps):
+    merged = []
+    seen = {}
+    for dep in default_build_deps + annotated_build_deps:
+        if dep not in seen:
+            seen[dep] = 1
+            merged.append(dep)
+    return merged
 
 def _merge_scc_dep_markers_by_surface_package(marked_deps):
     merged = {}
@@ -180,7 +188,7 @@ def _parse_projects(module_ctx, hub_specs):
             project_id = "project__" + project_stamp
 
             # Read these from the project or honor the module state
-            project_name = project.name or project_data["project"]["name"]
+            project_name = normalize_name(project.name or project_data["project"]["name"])
 
             # FIXME: Error if this wasn't provided and the version is marked as dynamic
             project_version = project.version or project_data["project"]["version"]
@@ -371,7 +379,6 @@ def _parse_projects(module_ctx, hub_specs):
                     # to defer choosing deps until the repo rule when we
                     # could do pyproject.toml introspection.
                     ann_key = (project_id, normalize_name(package["name"]), package["version"], "__base__")
-                    build_deps = lock_build_dep_anns.get(ann_key) or []
                     if lock_build_deps == None:
                         # For optional sdist fallbacks (sdist present but a
                         # wheel will be picked at install time), tolerate a
@@ -389,8 +396,11 @@ def _parse_projects(module_ctx, hub_specs):
                             for req in project.default_build_dependencies
                             for it in extract_requirement_marker_pairs(project.lock, project_id, req, default_versions, package_versions, fail_if_missing = sbuild_required)
                         ]
-
-                    build_deps = sets.to_list(sets.make(build_deps + lock_build_deps))
+                    build_deps = lock_build_dep_anns.get(ann_key)
+                    if build_deps == None:
+                        build_deps = lock_build_deps
+                    else:
+                        build_deps = _merge_build_deps(lock_build_deps, build_deps)
 
                     # Look up pre-build patches for this package
                     pkg_override = package_overrides.get((normalize_name(package["name"]), package["version"]))
@@ -674,6 +684,8 @@ _project_tag = tag_class(
             mandatory = False,
             default = [
                 "build",
+                "setuptools",
+                "wheel",
             ],
         ),
         "unstable_configure_command": attr.string_list(
