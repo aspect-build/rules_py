@@ -379,6 +379,7 @@ def _parse_projects(module_ctx, hub_specs):
                     sbuild_specs[sbuild_id] = struct(
                         src = sdist,
                         deps = ["@{0}//:{1}".format(*it) for it in build_deps],
+                        python_version = project.python_version,
                         is_native = "auto",
                         version = package["version"],
                         pre_build_patches = pre_build_patches,
@@ -555,6 +556,7 @@ def _uv_impl(module_ctx):
             "deps": sbuild_cfg.deps,
             "is_native": sbuild_cfg.is_native,
             "version": sbuild_cfg.version,
+            "python_version": sbuild_cfg.python_version,
         }
 
         # Use per-project custom configure command if provided, otherwise the default.
@@ -620,6 +622,7 @@ _project_tag = tag_class(
         "name": attr.string(mandatory = False),
         "version": attr.string(mandatory = False),
         "pyproject": attr.label(mandatory = True),
+        "python_version": attr.string(mandatory = False),
         "lock": attr.label(mandatory = True),
         "default_build_dependencies": attr.string_list(
             mandatory = False,
