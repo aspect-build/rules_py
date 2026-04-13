@@ -57,3 +57,18 @@ python_transition = transition(
 
 # The old name, FIXME: refactor this out
 python_version_transition = python_transition
+
+# Data deps are packaged into runfiles and should not inherit custom py_binary/py_venv
+# dep_group settings. We reset back to the default to match the default .bazelrc settings.
+def _reset_python_flags_transition_impl(_settings, _attr):
+    return {
+        DEP_GROUP_FLAG: "",
+    }
+
+reset_python_flags_transition = transition(
+    implementation = _reset_python_flags_transition_impl,
+    inputs = [],
+    outputs = [
+        DEP_GROUP_FLAG,
+    ],
+)
