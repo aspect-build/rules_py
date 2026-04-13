@@ -108,8 +108,18 @@ load("//:defs.bzl", "compatible_with")
             "//dep_group:{}".format(cfg): l + "_whl"
             for cfg, l in specs.items()
         }
+        if len(select_spec) == 1:
+            select_spec["//conditions:default"] = select_spec.values()[0]
+            whl_select_spec["//conditions:default"] = whl_select_spec.values()[0]
 
-        error = "Available only in dep_groups: " + ", ".join(specs.keys())  # Simplified error string
+        error = "No matching dep_group was selected. Specify --@aspect_rules_py//uv/private/constraints/dep_group:dep_group=<name> on the CLI, or set `dep_group = ...` on the top-level py_binary/py_test/py_venv target. Available dep_groups: " + ", ".join(specs.keys())
+        compat_expr = "[]" if len(specs) == 1 else """select(
+        compatible_with({venvs}),
+        no_match_error = {error},
+    )""".format(
+            venvs = repr(specs.keys()),
+            error = repr(error),
+        )
 
         # When the package itself is named "pkg", the `:{name}` alias below already
         # exposes a `pkg` target — emitting a separate `:pkg` alias would collide.
@@ -136,7 +146,7 @@ alias(
 alias(
     name = "whl",
     actual = select({whl_select}),
-    target_compatible_with = select(compatible_with({compat})),
+    target_compatible_with = {compat},
     visibility = ["//visibility:public"],
 )
 filegroup(
@@ -149,7 +159,7 @@ alias(
     actual = select({lib_select},
         no_match_error = "{error}",
     ),
-    target_compatible_with = select(compatible_with({compat})),
+    target_compatible_with = {compat},
     visibility = ["//visibility:public"],
 )
 
@@ -162,7 +172,7 @@ exports_files(
                 pkg_alias = pkg_alias,
                 lib_select = indent(pprint(select_spec), "      ").lstrip(),
                 whl_select = indent(pprint(whl_select_spec), "      ").lstrip(),
-                compat = repr(specs.keys()),
+                compat = compat_expr,
                 error = error,
             ),
         )
@@ -184,8 +194,6 @@ def compatible_with(venvs, extra_constraints = []):
   return {{
     Label("//dep_group:" + it): extra_constraints
     for it in venvs
-  }} | {{
-    "//conditions:default": ["@platforms//:incompatible"],
   }}
 
 def incompatible_with(venvs, extra_constraints = []):
