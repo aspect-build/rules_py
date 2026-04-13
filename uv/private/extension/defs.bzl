@@ -52,7 +52,6 @@ resolved dependencies available in the `@uv` repository.
 """
 
 load("@bazel_features//:features.bzl", features = "bazel_features")
-load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 load("//py/private/interpreter:resolve.bzl", "resolve_host_interpreter_label")
 load("//uv/private:normalize_name.bzl", "normalize_name")
@@ -69,6 +68,15 @@ load("//uv/private/whl_install:repository.bzl", "whl_install")
 load(":graph_utils.bzl", "activate_extras", "collect_sccs")
 load(":lockfile.bzl", "build_marker_graph", "collect_bdists", "collect_configurations", "collect_markers", "collect_sdists", "normalize_deps")
 load(":projectfile.bzl", "collate_versions_by_name", "collect_activated_extras", "extract_requirement_marker_pairs")
+
+def _merge_build_deps(default_build_deps, annotated_build_deps):
+    merged = []
+    seen = {}
+    for dep in default_build_deps + annotated_build_deps:
+        if dep not in seen:
+            seen[dep] = 1
+            merged.append(dep)
+    return merged
 
 def _merge_scc_dep_markers_by_surface_package(marked_deps):
     merged = {}
@@ -161,7 +169,7 @@ def _parse_projects(module_ctx, hub_specs):
             project_id = "project__" + project_stamp
 
             # Read these from the project or honor the module state
-            project_name = project.name or project_data["project"]["name"]
+            project_name = normalize_name(project.name or project_data["project"]["name"])
 
             # FIXME: Error if this wasn't provided and the version is marked as dynamic
             project_version = project.version or project_data["project"]["version"]
@@ -209,6 +217,7 @@ def _parse_projects(module_ctx, hub_specs):
 
             # Collect package overrides, validating no duplicates per (lock, name, version).
             package_overrides = {}
+            overridden_packages = {}
             for override in mod.tags.override_package:
                 if override.lock != project.lock:
                     continue
@@ -247,6 +256,7 @@ def _parse_projects(module_ctx, hub_specs):
                 if has_target:
                     if module_ctx.getenv("RULES_PY_UV_VERBOSE", ""):
                         print("Overriding {}@{} in {} with {}".format(override.name, v, project_name, override.target))
+                    overridden_packages[k] = 1
                     install_table[k] = str(override.target)
 
             # Lazily evaluated cache
@@ -316,7 +326,7 @@ def _parse_projects(module_ctx, hub_specs):
             # Translate the package lock into installs for this project
             for package in lock_data.get("package", []):
                 install_key = (project_id, package["name"], package["version"], "__base__")
-                if install_key in install_table:
+                if install_key in overridden_packages:
                     # Case of an overridden package
                     continue
                 elif "editable" in package["source"] or "virtual" in package["source"]:
@@ -329,6 +339,7 @@ def _parse_projects(module_ctx, hub_specs):
 
                 k = "whl_install__{}__{}__{}".format(project_stamp, package["name"], normalize_version(package["version"]))
                 install_table[install_key] = "@{}//:install".format(k)
+                existing_install_cfg = install_cfgs.get(k)
                 sbuild_id = "sdist_build__{}__{}__{}".format(project_stamp, package["name"], normalize_version(package["version"]))
                 sdist = sdist_table.get(sbuild_id)
 
@@ -350,7 +361,6 @@ def _parse_projects(module_ctx, hub_specs):
                     # to defer choosing deps until the repo rule when we
                     # could do pyproject.toml introspection.
                     ann_key = (project_id, normalize_name(package["name"]), package["version"], "__base__")
-                    build_deps = lock_build_dep_anns.get(ann_key) or []
                     if lock_build_deps == None:
                         # For optional sdist fallbacks (sdist present but a
                         # wheel will be picked at install time), tolerate a
@@ -368,8 +378,11 @@ def _parse_projects(module_ctx, hub_specs):
                             for req in project.default_build_dependencies
                             for it in extract_requirement_marker_pairs(project.lock, project_id, req, default_versions, package_versions, fail_if_missing = sbuild_required)
                         ]
-
-                    build_deps = sets.to_list(sets.make(build_deps + lock_build_deps))
+                    build_deps = lock_build_dep_anns.get(ann_key)
+                    if build_deps == None:
+                        build_deps = lock_build_deps
+                    else:
+                        build_deps = _merge_build_deps(lock_build_deps, build_deps)
 
                     # Look up pre-build patches for this package
                     pkg_override = package_overrides.get((normalize_name(package["name"]), package["version"]))
@@ -415,12 +428,18 @@ def _parse_projects(module_ctx, hub_specs):
                     extra_deps = [str(d) for d in pkg_override.extra_deps]
                     extra_data = [str(d) for d in pkg_override.extra_data]
 
-                install_cfgs[k] = struct(
-                    whls = {} if is_no_binary else {
+                whls = {}
+                if existing_install_cfg:
+                    whls.update(existing_install_cfg.whls)
+                if not is_no_binary:
+                    whls.update({
                         whl["url"].split("/")[-1].split("?")[0].split("#")[0]: bdist_table.get(whl["url"])
                         for whl in package.get("wheels", [])
-                    },
-                    sbuild = "@{}//:whl".format(sbuild_id) if has_sbuild else None,
+                    })
+
+                install_cfgs[k] = struct(
+                    whls = whls,
+                    sbuild = existing_install_cfg.sbuild if existing_install_cfg and existing_install_cfg.sbuild else "@{}//:whl".format(sbuild_id) if has_sbuild else None,
                     post_install_patches = post_install_patches,
                     post_install_patch_strip = post_install_patch_strip,
                     extra_deps = extra_deps,
@@ -643,6 +662,8 @@ _project_tag = tag_class(
             mandatory = False,
             default = [
                 "build",
+                "setuptools",
+                "wheel",
             ],
         ),
         "unstable_configure_command": attr.string_list(

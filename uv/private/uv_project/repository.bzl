@@ -151,6 +151,9 @@ load("@aspect_rules_py//py:defs.bzl", "py_library")
 
                         cfg_arms[marker] = "//private/sccs:" + scc
 
+            if "//conditions:default" not in cfg_arms:
+                cfg_arms["//conditions:default"] = "//private/sccs:empty"
+
             # Now we can just build one big choice alias from that arm set.
             content.append("""
 alias(
@@ -161,6 +164,10 @@ alias(
 """.format(name = cfg_name, arms = indent(pprint(cfg_arms), " " * 4).lstrip()))
 
         # Finally we can render the wrapper over all the component arms
+        package_arms = dict(main_arms)
+        if len(package_arms) == 1:
+            package_arms["//conditions:default"] = package_arms.values()[0]
+
         content.append("""
 alias(
     name = "{name}",
@@ -169,7 +176,7 @@ alias(
 )
 """.format(
             name = package,
-            arms = indent(pprint(main_arms), " " * 4).lstrip(),
+            arms = indent(pprint(package_arms), " " * 4).lstrip(),
         ))
 
     # As part of this root repo we also lay down :all_requirements which is slightly tricky because we have to
@@ -213,7 +220,7 @@ py_library(
     srcs = [],
     deps = [],
     imports = [],
-    visibility = ["//visibility:private"],
+    visibility = ["//:__pkg__", "//:__subpackages__"],
 )
 """]
 

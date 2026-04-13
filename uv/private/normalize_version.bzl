@@ -14,4 +14,9 @@ def normalize_version(version):
     Returns:
         a normalized version as a string.
     """
-    return version.replace(".", "_").replace("+", "_")
+    repo_name_chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_."
+    acc = []
+    for i in range(len(version)):
+        ch = version[i]
+        acc.append(ch if ch in repo_name_chars else "_")
+    return "".join(acc)
