@@ -107,9 +107,14 @@ load("//:defs.bzl", "compatible_with")
         if len(select_spec) == 1:
             select_spec["//conditions:default"] = select_spec.values()[0]
 
-        compat_expr = "[]" if len(specs) == 1 else "select(compatible_with({}))".format(repr(specs.keys()))
-
-        error = "Available only in dep_groups: " + ", ".join(specs.keys())  # Simplified error string
+        error = "No matching dep_group was selected. Specify --@aspect_rules_py//uv/private/constraints/dep_group:dep_group=<name> on the CLI, or set `dep_group = ...` on the top-level py_binary/py_test/py_venv target. Available dep_groups: " + ", ".join(specs.keys())
+        compat_expr = "[]" if len(specs) == 1 else """select(
+        compatible_with({venvs}),
+        no_match_error = {error},
+    )""".format(
+            venvs = repr(specs.keys()),
+            error = repr(error),
+        )
 
         # FIXME: Add support for entrypoints?
         # FIXME: Create a narrower dist-info rule
@@ -170,8 +175,6 @@ def compatible_with(venvs, extra_constraints = []):
   return {{
     Label("//dep_group:" + it): extra_constraints
     for it in venvs
-  }} | {{
-    "//conditions:default": ["@platforms//:incompatible"],
   }}
 
 def incompatible_with(venvs, extra_constraints = []):
