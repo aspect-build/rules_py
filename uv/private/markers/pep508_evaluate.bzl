@@ -94,10 +94,7 @@ def tokenize(marker):
             return tokens
 
         char = marker[0]
-        if char in _BRACKETS:
-            state = _STATE.NONE
-            token = char
-        elif state == _STATE.STRING and char in _QUOTES:
+        if state == _STATE.STRING and char in _QUOTES:
             state = _STATE.NONE
             token = '"{}"'.format(token)
         elif (
@@ -106,6 +103,9 @@ def tokenize(marker):
         ):
             state = _STATE.NONE
             continue  # Skip consuming the char below
+        elif char in _BRACKETS:
+            state = _STATE.NONE
+            token = char
         elif state == _STATE.NONE:
             # Transition from _STATE.NONE to something or stay in NONE
             if char in _QUOTES:
