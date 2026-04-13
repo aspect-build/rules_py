@@ -1,0 +1,44 @@
+load("//py:defs.bzl", "py_binary", "py_test", "py_library")
+load(":probe.bzl", "config_probe")
+
+config_probe(name = "library_probe")
+config_probe(name = "binary_probe")
+config_probe(name = "test_probe")
+
+py_library(
+    name = "lib",
+    srcs = ["lib.py"],
+    data = [":library_probe"],
+)
+
+py_binary(
+    name = "binary",
+    srcs = ["main.py"],
+    main = "main.py",
+    data = [":binary_probe"],
+    deps = [":lib"],
+    python_version = "3.11",
+    dep_group = "reset-data-edges",
+)
+
+py_test(
+    name = "binary_smoke_test",
+    srcs = ["binary_smoke_test.py"],
+    main = "binary_smoke_test.py",
+    data = [":binary"],
+)
+
+py_test(
+    name = "test",
+    srcs = ["test_main.py"],
+    main = "test_main.py",
+    data = [":test_probe"],
+    deps = [":lib"],
+    python_version = "3.11",
+    dep_group = "reset-data-edges",
+)
+
+test_suite(
+    name = "smoke",
+    tests = [":binary_smoke_test", ":test"],
+)

@@ -9,6 +9,7 @@ load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private:providers.bzl", "PyVirtualInfo", "PyWheelsInfo")
 load("//py/private:pth.bzl", "make_imports_depset")
+load("//py/private:transitions.bzl", "reset_python_flags_transition")
 
 def _make_instrumented_files_info(ctx, extra_source_attributes = [], extra_dependency_attributes = []):
     return coverage_common.instrumented_files_info(
@@ -187,8 +188,10 @@ _attrs = dict({
         The transitive closure of the `data` dependencies will be available in the `.runfiles`
         folder for this binary/test. The program may optionally use the Runfiles lookup library to
         locate the data files, see https://pypi.org/project/bazel-runfiles/.
+        Native data deps should not inherit Python environment transition settings.
         """,
         allow_files = True,
+        cfg = reset_python_flags_transition,
     ),
     "imports": attr.string_list(
         doc = "List of import directories to be added to the PYTHONPATH.",
@@ -222,6 +225,9 @@ py_library_utils = struct(
 py_library = rule(
     implementation = py_library_utils.implementation,
     attrs = dict({
+        "_allowlist_function_transition": attr.label(
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+        ),
         "virtual_deps": attr.string_list(allow_empty = True, default = []),
     }, **py_library_utils.attrs),
     provides = py_library_utils.py_library_providers,
