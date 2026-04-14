@@ -12,4 +12,5 @@ bzl_library(
 )
 
 graph_utils_test_suite()
+
 projectfile_test_suite()
