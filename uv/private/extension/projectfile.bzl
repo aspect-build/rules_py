@@ -86,12 +86,13 @@ def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_m
         # specifier against all known versions of this package in the lockfile.
         specifier = remainder.strip()
         pkg_vers = package_versions.get(pkg_name, {})
-        if specifier and pkg_vers:
+        if pkg_vers:
+            match_spec = specifier if specifier else ">=0"
             candidates = {
                 ver: (lock_id, pkg_name, ver, "__base__")
                 for ver in pkg_vers.keys()
             }
-            v = find_matching_version(specifier, candidates)
+            v = find_matching_version(match_spec, candidates)
     if v == None:
         fail("Unable to resolve a default version for requirement {} in {}".format(repr(req_string), projectfile))
     else:
