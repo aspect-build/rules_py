@@ -6,7 +6,7 @@ load("//uv/private:normalize_name.bzl", "normalize_name")
 load("//uv/private/versions:versions.bzl", "find_matching_version")
 load(":dep_groups.bzl", "resolve_dependency_group_specs")
 
-def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_map, package_versions = {}):
+def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_map, package_versions = {}, preferred_versions = {}):
     """Parses a requirement string into a list of dependency-marker pairs.
 
     This function parses a PEP 508 requirement string (e.g.,
@@ -80,7 +80,9 @@ def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_m
             remainder = remainder[close_idx + 1:]
 
     # 4. Look up version
-    v = version_map.get(pkg_name)
+    v = preferred_versions.get(pkg_name)
+    if v == None:
+        v = version_map.get(pkg_name)
     if v == None:
         # For multi-version packages (e.g. conflicts), match the version
         # specifier against all known versions of this package in the lockfile.
@@ -152,8 +154,15 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
     for group_name in dep_groups.keys():
         normalized_dep_groups[group_name] = []
         resolved_specs = resolve_dependency_group_specs(dep_groups, group_name)
+
+        group_preferences = {}
         for spec in resolved_specs:
-            for dep, marker in extract_requirement_marker_pairs(projectfile, lock_id, spec, default_versions, package_versions):
+            for dep, _marker in extract_requirement_marker_pairs(projectfile, lock_id, spec, default_versions, package_versions):
+                base = (dep[0], dep[1], dep[2], "__base__")
+                group_preferences[dep[1]] = base
+
+        for spec in resolved_specs:
+            for dep, marker in extract_requirement_marker_pairs(projectfile, lock_id, spec, default_versions, package_versions, group_preferences):
                 normalized_dep_groups[group_name].append(dep)
 
                 # Note that this is the base case for the reach set walk below
