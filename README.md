@@ -11,23 +11,22 @@ It provides drop-in replacements for `py_binary`, `py_library`, and `py_test` th
 - **Seamless IDE compatibility** via virtualenv-native structures
 - **Production-ready containers** with optimized OCI image layers
 
-Unlike `rules_python`, which maintains strict compatibility with Google's internal monorepo semantics (google3),
 `aspect_rules_py` optimizes for modern Python development workflows, large-scale monorepos, and Remote Build Execution (
 RBE) environments.
 
 ## Advantages Over `rules_python`
 
-| Feature | rules_python | rules_py |
-|:---|:---|:---|
-| Dependency resolution | `pip.parse` (repo rules, loading phase) | Build-action wheel installs (`whl_install`) |
-| uv integration | `uv pip compile` → `requirements.txt` → `pip.parse` | Native `uv.lock` consumption |
-| Cross-platform lockfile | Per-platform `requirements_*.txt` | Single `uv.lock` for all platforms |
-| sdist / PEP 517 builds | Not supported ([#2410](https://github.com/bazel-contrib/rules_python/issues/2410), open since Nov 2024) | Build actions (`pep517_whl`, `pep517_native_whl`) |
-| Interpreter provisioning | Download via rules_python extension | Own [python-build-standalone](https://github.com/astral-sh/python-build-standalone) extension — no rules_python required |
-| Site-packages layout | `sys.path` / `PYTHONPATH` manipulation | Standard `site-packages` symlink tree |
-| Cross-compilation | Limited | Native platform transitions (e.g. arm64 image on amd64 host) |
-| Virtual dependencies | No | `virtual_deps` — swap implementations at binary level |
-| PEP 735 dependency groups | No | `--@pypi//venv=prod` flag |
+| Feature                   | rules_python                                                                                            | rules_py                                                                                                                 |
+|:--------------------------|:--------------------------------------------------------------------------------------------------------|:-------------------------------------------------------------------------------------------------------------------------|
+| Dependency resolution     | `pip.parse` (repo rules, loading phase)                                                                 | Build-action wheel installs (`whl_install`)                                                                              |
+| uv integration            | `uv pip compile` → `requirements.txt` → `pip.parse`                                                     | Native `uv.lock` consumption                                                                                             |
+| Cross-platform lockfile   | `requirements.txt` (`uv.lock` via `uv pip compile`)                                                     | Native single `uv.lock` consumption                                                                                      |
+| sdist / PEP 517 builds    | Not supported ([#2410](https://github.com/bazel-contrib/rules_python/issues/2410), open since Nov 2024) | Build actions (`pep517_whl`, `pep517_native_whl`)                                                                        |
+| Interpreter provisioning  | Download via rules_python extension                                                                     | Own [python-build-standalone](https://github.com/astral-sh/python-build-standalone) extension — no rules_python required |
+| Site-packages layout      | Standard `site-packages` layout (flag-enabled)                                                          | Standard `site-packages` symlink tree                                                                                    |
+| Cross-compilation         | Limited                                                                                                 | Native platform transitions (e.g. arm64 image on amd64 host)                                                             |
+| Virtual dependencies      | No                                                                                                      | `virtual_deps` — swap implementations at binary level                                                                    |
+| PEP 735 dependency groups | No                                                                                                      | `--@pypi//venv=prod` flag                                                                                                |
 
 > [!NOTE]
 > **rules_python's uv support**: `rules_python`'s uv integration runs `uv pip compile` as a build action to
@@ -41,12 +40,11 @@ Instead of relying on legacy `pip` machinery, we provide native integration with
 a Rust-native Python package resolver.
 
 - **Build-action installs**: Wheel extraction runs as Bazel execution-phase actions—not repo rules—so they are
-  cacheable, sandboxed, and compatible with RBE. Crucially, wheels are no longer resolved against the host machine
+  sandboxed and compatible with RBE. Crucially, wheels are no longer resolved against the host machine
   architecture: a single build can fetch and extract wheels for any exec or target platform, enabling true
   cross-platform builds (e.g. building Linux `aarch64` wheels on a macOS `x86_64` host)
 - **Native `uv.lock` parsing**: Consumes `uv.lock` directly; no `requirements.txt` generation step
-- **Universal lockfiles**: A single `uv.lock` works across all platforms—no more `requirements_linux.txt`,
-  `requirements_mac.txt`, `requirements_windows.txt`
+- **Universal lockfiles**: A single `uv.lock` works across all platforms
 - **sdist / PEP 517 builds**: Build source distributions as Bazel actions (rules_python has no equivalent;
   [#2410](https://github.com/bazel-contrib/rules_python/issues/2410) open since November 2024)
 - **PEP 735 dependency groups**: Define `prod`, `dev`, `test` dependency groups and switch between them with a flag
@@ -399,12 +397,12 @@ For detailed migration guidance, see [docs/migrating.md](docs/migrating.md).
 
 ## Architecture
 
-| Layer          | Implementation                    | Description                                                                          |
-|:---------------|:----------------------------------|:-------------------------------------------------------------------------------------|
-| **Toolchains** | `@aspect_rules_py//py`            | Own python-build-standalone interpreter provisioning; `@rules_python` optional       |
-| **Resolution** | `@aspect_rules_py//uv`            | Fast, lockfile-backed dependency resolution with `uv`                                |
-| **Execution**  | `@aspect_rules_py//py`            | Drop-in replacements for `py_binary`, `py_library`, `py_test` with sandbox isolation |
-| **Generation** | `aspect-gazelle`                  | Pre-compiled Gazelle extension—no CGO toolchain required                             |
+| Layer          | Implementation         | Description                                                                          |
+|:---------------|:-----------------------|:-------------------------------------------------------------------------------------|
+| **Toolchains** | `@aspect_rules_py//py` | Own python-build-standalone interpreter provisioning; `@rules_python` optional       |
+| **Resolution** | `@aspect_rules_py//uv` | Fast, lockfile-backed dependency resolution with `uv`                                |
+| **Execution**  | `@aspect_rules_py//py` | Drop-in replacements for `py_binary`, `py_library`, `py_test` with sandbox isolation |
+| **Generation** | `aspect-gazelle`       | Pre-compiled Gazelle extension—no CGO toolchain required                             |
 
 ## License
 
