@@ -90,6 +90,8 @@ configurable_string(
     value = select({
         "@platforms//cpu:x86_64": "x86_64",
         "@platforms//cpu:aarch64": "aarch64",
+        "@platforms//cpu:arm64": "arm64",
+        "//conditions:default": "unknown",
     }),
     visibility = ["//visibility:public"],
 )
