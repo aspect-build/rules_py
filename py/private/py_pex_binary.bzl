@@ -38,6 +38,8 @@ exclude_paths = [
     # these will match in bzlmod setup with --incompatible_use_plus_in_repo_names flag flipped.
     "rules_python++python+",
     "aspect_rules_py+/py/tools/",
+    # these will match the hermetic python interpreter from rules_py extension
+    "python_interpreters~",
     "python_interpreters+",
 ]
 

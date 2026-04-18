@@ -58,6 +58,9 @@ interpreters.configure(
     ],
 )
 interpreters.toolchain(
+    python_version = "3.11",
+)
+interpreters.toolchain(
     python_version = "3.13",
 )
 use_repo(
