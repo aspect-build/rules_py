@@ -1,49 +1,37 @@
 """Declaration of concrete toolchains for our Rust tools"""
 
-load(":types.bzl", "PyToolInfo")
+load("@bazel_skylib//lib:structs.bzl", "structs")
+load(":types.bzl", "PY_TOOLCHAIN", "PyToolInfo", "UNPACK_TOOLCHAIN", "VENV_TOOLCHAIN")
 
-def PrebuiltToolConfig(target, cfg):
-    """Declare a tool's toolchain configuration.
+def PrebuiltToolConfig(
+        target,
+        cfg = "target",
+        name = None,
+        toolchain = None,
+        toolchain_type = None):
+    name = name or Label(target).name
 
-    Args:
-        target: the Bazel target for this tool's binary.
-        cfg: one of "target" (runs on the user's machine), "exec" (runs on the
-            build host), or "both" (registered under two toolchain types: one
-            target_compatible_with for runfiles, one exec_compatible_with for
-            build actions).
-    """
-    if cfg not in ("target", "exec", "both"):
-        fail("cfg must be one of 'target', 'exec', or 'both', got: '{}'".format(cfg))
-    name = Label(target).name
-
-    toolchain_type = (
-        "@aspect_rules_py//py/private/toolchain:{}_toolchain_type".format(name) if cfg in ("target", "both") else None
-    )
-    exec_toolchain_type = (
-        "@aspect_rules_py//py/private/toolchain:{}_exec_toolchain_type".format(name) if cfg in ("exec", "both") else None
-    )
-
-    pkg = "@aspect_rules_py//py/private/toolchain/{}".format(name)
-    source_toolchains = []
-    if cfg in ("target", "both"):
-        source_toolchains.append("{pkg}:{name}_source_toolchain".format(pkg = pkg, name = name))
-    if cfg in ("exec", "both"):
-        source_toolchains.append("{pkg}:{name}_exec_source_toolchain".format(pkg = pkg, name = name))
+    # FIXME: The source_toolchain macro creates two targets, so we need to match them both
+    # But that makes this not really a label which is weird
+    toolchain = toolchain or "@aspect_rules_py//py/private/toolchain/{}/...".format(name)
+    toolchain_type = toolchain_type or "@aspect_rules_py//py/private/toolchain:{}_toolchain_type".format(name)
 
     return struct(
         target = target,
+        cfg = cfg,
         name = name,
-        source_toolchains = source_toolchains,
+        toolchain = toolchain,
         toolchain_type = toolchain_type,
-        exec_toolchain_type = exec_toolchain_type,
     )
 
-# The expected config for each tool, whether it runs in an action or at runtime.
-# This is the source of truth for toolchain registration and prebuilt downloads.
+# The expected config for each tool, whether it runs in an action or at runtime
+#
+# Note that this is the source of truth for how toolchains get registered and
+# for how they get prebuilt/patched in.
 TOOL_CFGS = [
     PrebuiltToolConfig("//py/tools/unpack_bin:unpack", cfg = "exec"),
-    PrebuiltToolConfig("//py/tools/venv_bin:venv", cfg = "both"),
-    PrebuiltToolConfig("//py/tools/venv_shim:shim", cfg = "target"),
+    PrebuiltToolConfig("//py/tools/venv_bin:venv"),
+    PrebuiltToolConfig("//py/tools/venv_shim:shim"),
 ]
 
 TOOLCHAIN_PLATFORMS = {
@@ -104,13 +92,12 @@ def _toolchain_impl(ctx):
 
     return [toolchain_info, default_info, template_variables]
 
-source_py_tool_toolchain = rule(
+py_tool_toolchain = rule(
     implementation = _toolchain_impl,
     attrs = {
         "bin": attr.label(
             mandatory = True,
             allow_single_file = True,
-            cfg = "target",
         ),
         "template_var": attr.string(
             mandatory = True,
@@ -118,60 +105,68 @@ source_py_tool_toolchain = rule(
     },
 )
 
-# For exec-side tools: cfg="exec" on bin forces the binary to be compiled for
-# the build host. Without it, Bazel analyzes toolchain targets in the caller's
-# configuration, causing cross-config contamination (e.g.
-# platform_transition_filegroup to a Linux target causes the binary to be
-# built for Linux and fail with "cannot execute binary file" on macOS).
-source_exec_py_tool_toolchain = rule(
-    implementation = _toolchain_impl,
-    attrs = {
-        "bin": attr.label(
-            mandatory = True,
-            allow_single_file = True,
-            cfg = "exec",
-        ),
-        "template_var": attr.string(
-            mandatory = True,
-        ),
-    },
-)
-
-# Build a lookup dict from tool name → config, sourced from TOOL_CFGS.
-_TOOL_CFGS_BY_NAME = {t.name: t for t in TOOL_CFGS}
-
-def source_toolchain(name, bin):
-    """Creates source toolchain targets for a tool.
+def source_toolchain(name, toolchain_type, bin):
+    """Makes vtool toolchain and repositories
 
     Args:
-        name: The tool name; must match an entry in TOOL_CFGS.
-        bin: The rust_binary target.
+        name: Override the prefix for the generated toolchain repositories.
+        toolchain_type: Toolchain type reference.
+        bin: the rust_binary target
     """
-    tool = _TOOL_CFGS_BY_NAME[name]
 
-    if tool.toolchain_type:
-        source_py_tool_toolchain(
-            name = "{}_tool".format(name),
-            bin = bin,
-            template_var = "{}_BIN".format(name.upper()),
-        )
-        native.toolchain(
-            name = "{}_source_toolchain".format(name),
-            toolchain = "{}_tool".format(name),
-            toolchain_type = tool.toolchain_type,
-        )
+    toolchain_rule = "{}_toolchain_source".format(name)
+    py_tool_toolchain(
+        name = toolchain_rule,
+        bin = bin,
+        template_var = "{}_BIN".format(name.upper()),
+    )
+    native.toolchain(
+        name = "{}_source_toolchain".format(name),
+        toolchain = toolchain_rule,
+        toolchain_type = toolchain_type,
+    )
 
-    if tool.exec_toolchain_type:
-        source_exec_py_tool_toolchain(
-            name = "{}_exec_tool".format(name),
-            bin = bin,
-            template_var = "{}_EXEC_BIN".format(name.upper()),
-        )
-        native.toolchain(
-            name = "{}_exec_source_toolchain".format(name),
-            toolchain = "{}_exec_tool".format(name),
-            toolchain_type = tool.exec_toolchain_type,
-        )
+# Forward all the providers
+def _resolved_venv_impl(ctx):
+    toolchain_info = ctx.toolchains[VENV_TOOLCHAIN]
+    return [toolchain_info] + structs.to_dict(toolchain_info).values()
+
+# Copied from java_toolchain_alias
+# https://cs.opensource.google/bazel/bazel/+/master:tools/jdk/java_toolchain_alias.bzl
+resolved_venv_toolchain = rule(
+    implementation = _resolved_venv_impl,
+    toolchains = [VENV_TOOLCHAIN],
+)
+
+# FIXME: Clean up this copypasta somehow
+def _resolved_unpack_impl(ctx):
+    toolchain_info = ctx.toolchains[UNPACK_TOOLCHAIN]
+    return [toolchain_info] + structs.to_dict(toolchain_info).values()
+
+resolved_unpack_toolchain = rule(
+    implementation = _resolved_unpack_impl,
+    toolchains = [UNPACK_TOOLCHAIN],
+)
+
+def _resolved_py_impl(ctx):
+    py_toolchain = ctx.toolchains[PY_TOOLCHAIN].py3_runtime
+    return [
+        DefaultInfo(
+            files = depset([py_toolchain.interpreter] + py_toolchain.files.to_list()),
+            runfiles = ctx.runfiles(files = [py_toolchain.interpreter] + py_toolchain.files.to_list()),
+        ),
+        platform_common.ToolchainInfo(
+            interpreter = py_toolchain.interpreter,
+            files = py_toolchain.files,
+            interpreter_version_info = py_toolchain.interpreter_version_info,
+        ),
+    ]
+
+resolved_py_toolchain = rule(
+    implementation = _resolved_py_impl,
+    doc = "Re-exports the Python toolchain so it can be referenced via cfg='exec'.",
+    toolchains = [PY_TOOLCHAIN],
+)
 
 def _dummy_toolchain_impl(ctx):
     toolchain_info = platform_common.ToolchainInfo(

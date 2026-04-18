@@ -10,6 +10,8 @@ runfiles_export_envvars
 
 set -o errexit -o nounset -o pipefail
 
-source "$(rlocation "{{VENV}}")"/bin/activate
+VENV_PATH="$(rlocation "{{VENV}}")"
 
-exec "$(rlocation "{{VENV}}")"/bin/python {{INTERPRETER_FLAGS}} "$@"
+source "${VENV_PATH}"/bin/activate
+
+exec "${VENV_PATH}"/bin/python {{INTERPRETER_FLAGS}} "$@"

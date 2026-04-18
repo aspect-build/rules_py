@@ -190,10 +190,6 @@ A collision can occur when multiple packages providing the same file are install
     "_runfiles_lib": attr.label(
         default = "@bazel_tools//tools/bash/runfiles",
     ),
-    # Required for py_version attribute
-    "_allowlist_function_transition": attr.label(
-        default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
-    ),
 })
 
 _attrs.update(**_py_library.attrs)

@@ -1,5 +1,5 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
-load(":tools.bzl", "dummy_toolchain")
+load(":tools.bzl", "dummy_toolchain", "resolved_py_toolchain", "resolved_unpack_toolchain", "resolved_venv_toolchain")
 
 exports_files(
     ["python.sh"],
@@ -7,7 +7,7 @@ exports_files(
 )
 
 toolchain_type(
-    name = "unpack_exec_toolchain_type",
+    name = "unpack_toolchain_type",
     visibility = ["//visibility:public"],
 )
 
@@ -16,34 +16,44 @@ toolchain_type(
     visibility = ["//visibility:public"],
 )
 
-# Exec-configured variant: used for build actions that run the venv binary
-# on the exec host (e.g. creating the venv directory in py_venv).
-toolchain_type(
-    name = "venv_exec_toolchain_type",
-    visibility = ["//visibility:public"],
-)
-
 toolchain_type(
     name = "shim_toolchain_type",
     visibility = ["//visibility:public"],
 )
 
-# Dummy toolchain backing target — no binary, used as a sentinel.
-# Public so the generated @rules_py_tools repo can reference it for
-# native_build toolchain entries.
+resolved_venv_toolchain(
+    name = "resolved_venv_toolchain",
+    visibility = ["//visibility:public"],
+)
+
+resolved_py_toolchain(
+    name = "resolved_py_toolchain",
+    visibility = ["//visibility:public"],
+)
+
+resolved_unpack_toolchain(
+    name = "resolved_unpack_toolchain",
+    visibility = ["//visibility:public"],
+)
+
+# Implementation detail of the target exec toolchain
 dummy_toolchain(
     name = "empty",
-    visibility = ["//visibility:public"],
+    visibility = ["//visibility:private"],
 )
 
 toolchain_type(
-    name = "native_build_toolchain_type",
-    visibility = ["//visibility:public"],
+    name = "target_exec_toolchain_type",
 )
 
-toolchain_type(
-    name = "exec_tools_toolchain_type",
-    visibility = ["//visibility:public"],
+# This creates a toolchain instance with exec_compatible_with placement
+# constraints matching the target, backed by the Python toolchain already
+# resolved for the target.
+toolchain(
+    name = "target_exec_toolchain",
+    toolchain = ":empty",
+    toolchain_type = "target_exec_toolchain_type",
+    use_target_platform_constraints = True,
 )
 
 bzl_library(

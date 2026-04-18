@@ -120,7 +120,6 @@ def _py_python_pex_impl(ctx):
 
     ctx.actions.run(
         executable = ctx.executable._pex,
-        toolchain = None,
         inputs = runfiles.files,
         arguments = [args],
         outputs = [output],

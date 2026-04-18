@@ -113,7 +113,6 @@ def _build_file_content(major, minor, micro, python_bin, is_windows):
     return """\
 load("@rules_python//python:py_runtime.bzl", "py_runtime")
 load("@rules_python//python:py_runtime_pair.bzl", "py_runtime_pair")
-load("@aspect_rules_py//py/private/exec_tools:defs.bzl", "py_exec_tools_toolchain")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -153,10 +152,6 @@ py_runtime_pair(
     name = "runtime_pair",
     py2_runtime = None,
     py3_runtime = ":py3_runtime",
-)
-
-py_exec_tools_toolchain(
-    name = "exec_tools_toolchain",
 )
 """.format(
         python_bin = python_bin,
@@ -309,29 +304,13 @@ config_setting(
         exec_compatible_with = info["compatible_with"] + extra_exec_compatible
 
         content.append("""
-# The Python interpreter toolchain has no exec_compatible_with: the interpreter
-# runs on the TARGET platform (inside the virtualenv), not on the exec host.
-# Setting exec_compatible_with = platform_constraints would prevent this
-# toolchain from being selected during cross-compilation (e.g. building an
-# arm64 image on an amd64 host), because the exec platform (amd64) would not
-# satisfy the arm64 exec constraint.  The target_compatible_with constraint is
-# sufficient to pick the right interpreter for the target.
 toolchain(
     name = "{name}",
+    exec_compatible_with = {exec_compatible_with},
     target_compatible_with = {target_compatible_with},
     target_settings = {target_settings},
     toolchain = "@{repo}//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
-)
-
-# Exec tools toolchain: selected by exec platform (not target platform) so
-# that build actions using the interpreter (e.g. compileall) get a runnable
-# binary on the build host regardless of the target platform being built for.
-toolchain(
-    name = "{name}_exec_tools",
-    exec_compatible_with = {exec_compatible_with},
-    toolchain = "@{repo}//:exec_tools_toolchain",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 """.format(
             name = info["name"],

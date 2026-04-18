@@ -6,7 +6,7 @@ load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private:transitions.bzl", "python_version_transition")
-load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "SHIM_TOOLCHAIN", "VENV_EXEC_TOOLCHAIN")
+load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "PyToolInfo", "SHIM_TOOLCHAIN", "VENV_TOOLCHAIN")
 load(":types.bzl", "VirtualenvInfo")
 
 # Forked from bazel-lib to avoid keeping `ctx` alive to execution phase
@@ -58,7 +58,7 @@ def _py_venv_base_impl(ctx):
     # Note that we HAVE to grab these files from toolchains so that we can swap
     # in prebuild versions in production.
     py_shim = ctx.toolchains[SHIM_TOOLCHAIN]
-    venv_tool = ctx.toolchains[VENV_EXEC_TOOLCHAIN].bin.bin
+    venv_tool = ctx.attr._venv[PyToolInfo].bin
 
     # Check for duplicate virtual dependency names. Those that map to the same resolution target would have been merged by the depset for us.
     virtual_resolution = _py_library.resolve_virtuals(ctx)
@@ -169,7 +169,10 @@ def _py_venv_base_impl(ctx):
         outputs = [
             venv_dir,
         ],
-        toolchain = VENV_EXEC_TOOLCHAIN,
+        # TODO: Is this right? The venv toolchain isn't quite in the right
+        # configuration (target not exec) so we have to use a different source
+        # of the target, but it is (logically) the venv toolchain.
+        toolchain = VENV_TOOLCHAIN,
     )
 
     return venv_dir, rfs.merge_all([
@@ -312,15 +315,7 @@ A collision can occur when multiple packages providing the same file are install
         doc = """The venv assembly mode.
 
 * "static-pth": Efficient. Just use a .pth file. Ignore binaries.
-* "static-symlink": Efficient. Use .pth entries for firstparty code (including
-  firstparty code in external repositories) and symlinks for 3rdparty wheels
-  (detected by the presence of site-packages or dist-packages in the path).
-  Copies and patches binaries.
-
-This mode is designed to minimize inode usage while still providing a fully
-functional virtualenv. First-party code is referenced via .pth files (one entry
-per import root), while third-party wheels are symlinked into the venv to ensure
-proper package metadata and console scripts work correctly.
+* "static-symlink": Efficient. Use .pth entries for firstparty and symlinks for 3rdparty. Copies and patches binaries.
         """,
         default = "static-symlink",
         values = ["static-pth", "static-symlink"],
@@ -329,16 +324,16 @@ proper package metadata and console scripts work correctly.
         doc = "Additional options to pass to the Python interpreter.",
         default = [],
     ),
-    # Required for py_version attribute
-    "_allowlist_function_transition": attr.label(
-        default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
-    ),
     "_run_tmpl": attr.label(
         allow_single_file = True,
         default = "//py/private/py_venv:entrypoint.tmpl.sh",
     ),
     "_runfiles_lib": attr.label(
         default = "@bazel_tools//tools/bash/runfiles",
+    ),
+    "_venv": attr.label(
+        default = "//py/private/toolchain:resolved_venv_toolchain",
+        cfg = "exec",
     ),
     "_freethreaded_flag": attr.label(
         default = "//py/private/interpreter:freethreaded",
@@ -422,7 +417,7 @@ py_venv_base = struct(
     toolchains = [
         PY_TOOLCHAIN,
         SHIM_TOOLCHAIN,
-        VENV_EXEC_TOOLCHAIN,
+        VENV_TOOLCHAIN,
     ],
     cfg = python_version_transition,
 )
