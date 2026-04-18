@@ -1,0 +1,18 @@
+# Gazelle plugin for Python
+# This is a copy of rules_python_gazelle_plugin adapted for aspect_rules_py
+
+load("@bazel_gazelle//:def.bzl", "gazelle_binary")
+
+# gazelle:exclude python/testdata/
+
+gazelle_binary(
+    name = "gazelle_binary",
+    languages = ["//gazelle/python"],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "distribution",
+    srcs = glob(["**"]),
+    visibility = ["//:__pkg__"],
+)
