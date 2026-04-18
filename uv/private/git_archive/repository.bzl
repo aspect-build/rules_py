@@ -1,6 +1,4 @@
-"""
-A repository rule for creating an archive from a remote git repository.
-"""
+"""A repository rule for creating an archive from a remote git repository."""
 
 load("@bazel_features//:features.bzl", features = "bazel_features")
 
@@ -14,6 +12,18 @@ def _is_sha1(s):
     return True
 
 def _git_archive_impl(repository_ctx):
+    """Fetch a git snapshot and expose it as a tar filegroup.
+
+    The implementation validates the commit hash, resolves symbolic refs via
+    `git ls-remote`, runs `git archive`, and reports reproducibility metadata
+    when the Bazel version supports it.
+
+    Args:
+      repository_ctx: the repository rule context.
+
+    Returns:
+      Optional reproducibility metadata returned by `repository_ctx.repo_metadata`.
+    """
     remote = repository_ctx.attr.remote
     commit = repository_ctx.attr.commit
     ref = repository_ctx.attr.ref
@@ -26,20 +36,16 @@ def _git_archive_impl(repository_ctx):
     resolved_commit = commit
 
     if ref:
-        # Use git ls-remote to find the commit associated with the ref
         result = repository_ctx.execute(["git", "ls-remote", remote, ref])
         if result.return_code == 0 and result.stdout:
-            # ls-remote output is: "<commit>\t<ref>"
             resolved_commit = result.stdout.split()[0]
             is_reproducible = False
         else:
-            # If we can't resolve it, it's definitely not reproducible
             is_reproducible = False
             fail("Unable to resolve remote ref {} {}".format(remote, ref))
 
     archive_path = "archive.tar"
 
-    # Note that this implies a mkdir the execute relies on
     repository_ctx.file("file/BUILD.bazel", """
 package(default_visibility = ["//visibility:public"])
 filegroup(
@@ -59,10 +65,7 @@ filegroup(
 
     print(cmd)
 
-    # Execute the archive command
-    status = repository_ctx.execute(
-        cmd,
-    )
+    status = repository_ctx.execute(cmd)
 
     print("Git exited {}".format(status.return_code))
     print(status.stdout)

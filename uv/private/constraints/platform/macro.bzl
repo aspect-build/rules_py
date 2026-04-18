@@ -1,5 +1,11 @@
 """
+Platform constraint generation macro for uv rules.
 
+Cache invalidation note: This file is a dependency of whl_install repository rules.
+When platform mappings change (e.g., arm64 -> aarch64 alignment), the change here
+forces regeneration of all wheel install repositories.
+
+Version: 2026-03-30-v2
 """
 
 load(":defs.bzl", "LINUX_ARCHES", "MACOS_ARCHES", "MACOS_ARCH_GROUPS", "WINDOWS_PLATFORMS", "platform_version_at_least")
@@ -35,7 +41,7 @@ platform_repo_name_mangling = {
         [["ppc", "ppc64"], "ppc"],
         [["ppc64le"], "ppc64le"],
         [["arm", "armv7l"], "arm"],
-        [["aarch64"], "aarch64"],
+        [["aarch64", "arm64"], "aarch64"],
         [["s390x", "s390"], "s390x"],
         [["mips64el", "mips64"], "mips64"],
         [["riscv64"], "riscv64"],

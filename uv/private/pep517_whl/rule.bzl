@@ -1,99 +1,171 @@
-"""
-PEP 517 sdist-to-wheel build rules.
+"""PEP 517 sdist-to-wheel build rules.
 
 Uses `python -m build` (the pypa/build frontend) which delegates to whatever
 build backend the sdist declares in its `[build-system]` table.
+
+Hermetic build process:
+1. UNPACK_TOOLCHAIN extracts sdist -> source directory
+2. Patches (if any) are applied to the extracted source
+3. build_helper.py runs `python -m build` on the prepared source
 """
 
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", find_cc_toolchain = "find_cpp_toolchain")
-load("//py/private/toolchain:types.bzl", "NATIVE_BUILD_TOOLCHAIN", "PY_TOOLCHAIN")
+load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "TARGET_EXEC_TOOLCHAIN", "UNPACK_TOOLCHAIN")
 load("//uv/private:defs.bzl", "lib_mode_transition")
 
 CC_TOOLCHAIN = "@bazel_tools//tools/cpp:toolchain_type"
 
 def _common_env(ctx):
+    """Return a dictionary of environment variables for deterministic builds.
+
+    The returned dictionary forces a fixed hash seed, reproducible timestamps,
+    and a pretend version for setuptools-scm. It is merged with the default
+    shell environment of the current Bazel configuration.
+    """
     return {
         "SETUPTOOLS_SCM_PRETEND_VERSION": ctx.attr.version,
-        # Determinism: fix hash seed so dict/set iteration order is stable
         "PYTHONHASHSEED": "0",
-        # Determinism: reproducible timestamps in archives
         "SOURCE_DATE_EPOCH": "0",
     } | ctx.configuration.default_shell_env
 
-def _patch_args_and_inputs(ctx):
-    patch_args = []
-    patch_inputs = []
-    if ctx.attr.pre_build_patches:
-        patch_args.extend(["--patch-strip", str(ctx.attr.pre_build_patch_strip)])
-        for target in ctx.attr.pre_build_patches:
-            for f in target[DefaultInfo].files.to_list():
-                patch_args.extend(["--patch", f.path])
-                patch_inputs.append(f)
-    return patch_args, patch_inputs
+def _pep517_whl_impl(ctx, exec_group_name = "target", extra_inputs = [], env = None):
+    """Shared implementation for PEP 517 wheel builds.
 
-def _pep517_whl(ctx):
+    Performs three sequential actions:
+      1. Extract the provided archive (wheel or tarball) into a directory.
+      2. Copy the extracted contents into a mutable source directory and apply
+         any pre-build patches configured on the target.
+      3. Invoke the configured build tool (usually build_helper.py) to produce
+         a wheel directory from the prepared source.
+
+    Args:
+      ctx:             the rule context.
+      exec_group_name: name of the exec_group used for the build action.
+      extra_inputs:    additional input files to pass to the build action.
+      env:             optional environment dictionary; if None, `_common_env`
+                       is used.
+
+    Returns:
+      A list containing a single `DefaultInfo` provider whose `files` depset
+      holds the declared wheel output directory.
+    """
     archive = ctx.attr.src[DefaultInfo].files.to_list()[0]
     wheel_dir = ctx.actions.declare_directory("whl")
-    patch_args, patch_inputs = _patch_args_and_inputs(ctx)
+    extracted_dir = ctx.actions.declare_directory(ctx.attr.name + "_extracted")
+    source_dir = ctx.actions.declare_directory(ctx.attr.name + "_src")
+    py_toolchain = ctx.toolchains[PY_TOOLCHAIN].py3_runtime
 
-    # The build tool is a py_venv_binary wrapping build_helper.py. Using it as
-    # a tool (not just an input) causes Bazel to materialize its runfiles in
-    # the action sandbox, which means the venv shim can find the interpreter
-    # via the standard runfiles mechanism regardless of whether the interpreter
-    # comes from an external repo or the main workspace.
+    if archive.basename.endswith(".whl"):
+        unpack_toolchain = ctx.toolchains[UNPACK_TOOLCHAIN]
+        unpack_bin = unpack_toolchain.bin.bin
+        extract_args = ctx.actions.args()
+        extract_args.add_all([
+            "--into",
+            extracted_dir.path,
+            "--wheel",
+            archive.path,
+            "--python-version-major",
+            py_toolchain.interpreter_version_info.major,
+            "--python-version-minor",
+            py_toolchain.interpreter_version_info.minor,
+        ])
+        ctx.actions.run(
+            mnemonic = "PySdistExtract",
+            progress_message = "Extracting sdist {}".format(archive.basename),
+            executable = unpack_bin,
+            arguments = [extract_args],
+            inputs = [archive],
+            outputs = [extracted_dir],
+            toolchain = UNPACK_TOOLCHAIN,
+        )
+    else:
+        tar_flags = "-xf"
+        if archive.basename.endswith(".gz") or archive.basename.endswith(".tgz"):
+            tar_flags = "-xzf"
+        elif archive.basename.endswith(".bz2"):
+            tar_flags = "-xjf"
+        elif archive.basename.endswith(".xz"):
+            tar_flags = "-xJf"
+        ctx.actions.run_shell(
+            mnemonic = "PySdistExtract",
+            progress_message = "Extracting sdist {}".format(archive.basename),
+            outputs = [extracted_dir],
+            inputs = [archive],
+            command = "mkdir -p {out} && tar {flags} {archive} -C {out} --strip-components=1".format(
+                out = extracted_dir.path,
+                flags = tar_flags,
+                archive = archive.path,
+            ),
+            use_default_shell_env = True,
+        )
+
+    patch_files = []
+    if ctx.attr.pre_build_patches:
+        for target in ctx.attr.pre_build_patches:
+            patch_files.extend(target[DefaultInfo].files.to_list())
+
+    patch_cmds = []
+    if patch_files:
+        patch_cmds.append("patch -p{strip} -d {out} < {patch}".format(
+            strip = ctx.attr.pre_build_patch_strip,
+            out = source_dir.path,
+            patch = patch_files[0].path,
+        ))
+        for f in patch_files[1:]:
+            patch_cmds.append("patch -p{strip} -d {out} < {patch}".format(
+                strip = ctx.attr.pre_build_patch_strip,
+                out = source_dir.path,
+                patch = f.path,
+            ))
+
+    ctx.actions.run_shell(
+        mnemonic = "PySdistPatch",
+        progress_message = "Patching {}".format(archive.basename) if patch_files else "Preparing {}".format(archive.basename),
+        inputs = [extracted_dir] + patch_files,
+        outputs = [source_dir],
+        command = "mkdir -p {out} && tar -cC {src} . | tar -xC {out} && chmod -R u+w {out}".format(
+            src = extracted_dir.path,
+            out = source_dir.path,
+        ) + (" && " + " && ".join(patch_cmds) if patch_cmds else ""),
+        use_default_shell_env = True,
+    )
+
     ctx.actions.run(
         mnemonic = "PySdistBuild",
         progress_message = "Source compiling {} to a whl".format(archive.basename),
         executable = ctx.executable.tool,
-        toolchain = None,
-        arguments = ctx.attr.args + patch_args + [
-            archive.path,
+        arguments = ctx.attr.args + [
+            source_dir.path,
             wheel_dir.path,
         ],
-        inputs = [archive] + patch_inputs,
+        inputs = [source_dir] + extra_inputs,
         tools = [ctx.attr.tool[DefaultInfo].files_to_run],
         outputs = [wheel_dir],
-        env = _common_env(ctx),
-        exec_group = "target",
+        env = env if env != None else _common_env(ctx),
+        exec_group = exec_group_name,
     )
 
     return [DefaultInfo(files = depset([wheel_dir]))]
 
+def _pep517_whl(ctx):
+    """Rule implementation for PEP 517 any-arch wheel builds."""
+    return _pep517_whl_impl(ctx, exec_group_name = "target")
+
 def _pep517_native_whl(ctx):
-    archive = ctx.attr.src[DefaultInfo].files.to_list()[0]
-    wheel_dir = ctx.actions.declare_directory("whl")
-    patch_args, patch_inputs = _patch_args_and_inputs(ctx)
+    """Rule implementation for PEP 517 platform-specific wheel builds.
 
-    env = _common_env(ctx)
+    Resolves the C/C++ toolchain and injects the compiler path into `$CC` so
+    that setuptools/distutils uses the hermetic compiler instead of whatever
+    happens to be on the host PATH.
+    """
     extra_inputs = []
-
-    # Resolve the CC toolchain so setuptools/distutils can find the compiler
-    # rather than falling back to whatever is on the system PATH.
+    env = _common_env(ctx)
     cc_toolchain = find_cc_toolchain(ctx, mandatory = False)
     if cc_toolchain:
         env["CC"] = cc_toolchain.compiler_executable
-        extra_inputs.append(cc_toolchain.all_files)
+        extra_inputs.extend(cc_toolchain.all_files.to_list())
 
-    ctx.actions.run(
-        mnemonic = "PySdistNativeBuild",
-        progress_message = "Native source compiling {} to a whl".format(archive.basename),
-        executable = ctx.executable.tool,
-        toolchain = None,
-        arguments = ctx.attr.args + patch_args + [
-            archive.path,
-            wheel_dir.path,
-        ],
-        inputs = depset(
-            [archive] + patch_inputs,
-            transitive = extra_inputs,
-        ),
-        tools = [ctx.attr.tool[DefaultInfo].files_to_run],
-        outputs = [wheel_dir],
-        env = env,
-        exec_group = "target",
-    )
-
-    return [DefaultInfo(files = depset([wheel_dir]))]
+    return _pep517_whl_impl(ctx, exec_group_name = "target", extra_inputs = extra_inputs, env = env)
 
 _PATCH_ATTRS = {
     "pre_build_patches": attr.label_list(
@@ -121,15 +193,24 @@ pep517_whl = rule(
 Consumes a sdist artifact and performs a build of that artifact with the
 specified Python dependencies under the configured Python toolchain.
 
+Hermetic build process:
+1. UNPACK_TOOLCHAIN extracts sdist -> source directory
+2. UNPACK_TOOLCHAIN applies patches (if any) to source directory
+3. build_helper.py runs `python -m build` on the prepared source
 """,
     attrs = _pep517_whl_attrs,
     exec_groups = {
         "target": exec_group(
             toolchains = [
                 PY_TOOLCHAIN,
+                UNPACK_TOOLCHAIN,
             ],
         ),
     },
+    toolchains = [
+        PY_TOOLCHAIN,
+        UNPACK_TOOLCHAIN,
+    ],
     cfg = lib_mode_transition,
 )
 
@@ -148,6 +229,10 @@ back to whatever is on the system PATH.
 The build is guaranteed to occur on an execution platform matching the
 constraints of the target platform.
 
+Hermetic build process:
+1. UNPACK_TOOLCHAIN extracts sdist -> source directory
+2. UNPACK_TOOLCHAIN applies patches (if any) to source directory
+3. build_helper.py runs `python -m build` on the prepared source
 """,
     attrs = _pep517_whl_attrs | {
         "args": attr.string_list(),
@@ -156,29 +241,19 @@ constraints of the target platform.
         ),
     },
     exec_groups = {
-        # Create an exec group which depends on a toolchain which can only be
-        # resolved to exec_compatible_with constraints equal to the target. This
-        # allows us to discover what those constraints need to be.
-        #
-        # NATIVE_BUILD_TOOLCHAIN has matching exec_compatible_with and
-        # target_compatible_with, so this exec group only resolves when the exec
-        # and target platforms match. Cross-compilation of sdists is intentionally
-        # unsupported: PEP 517 build backends (setuptools, meson-python, etc.)
-        # have no standard mechanism for cross-compilation, Python headers for
-        # the target platform are not readily available, and output wheel tags
-        # would need to encode the target platform with no upstream tooling
-        # support. Packages that need cross-compiled native extensions should
-        # publish pre-built wheels for their target platforms instead.
         "target": exec_group(
             toolchains = [
                 PY_TOOLCHAIN,
-                NATIVE_BUILD_TOOLCHAIN,
+                TARGET_EXEC_TOOLCHAIN,
                 CC_TOOLCHAIN,
+                UNPACK_TOOLCHAIN,
             ],
         ),
     },
     toolchains = [
+        PY_TOOLCHAIN,
         config_common.toolchain_type(CC_TOOLCHAIN, mandatory = False),
+        UNPACK_TOOLCHAIN,
     ],
     fragments = ["cpp"],
     cfg = lib_mode_transition,

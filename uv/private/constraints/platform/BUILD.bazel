@@ -23,6 +23,10 @@ bzl_library(
     ],
 )
 
+# Export macro.bzl as a file target to allow repository rules to depend on it
+# for cache invalidation when platform constraint mappings change.
+exports_files(["macro.bzl"])
+
 # FIXME: Is there a better/worse way to do this?
 selects.config_setting_group(
     name = "any",

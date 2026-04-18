@@ -1,0 +1,8 @@
+package(default_visibility = ["//visibility:public"])
+
+exports_files(["defs.bzl", "extension.bzl"])
+
+alias(
+    name = "uv",
+    actual = "@uv//:uv",
+)

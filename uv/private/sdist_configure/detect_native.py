@@ -31,25 +31,14 @@ except ModuleNotFoundError:
     tomllib = None
 from pathlib import PurePosixPath
 
-# Extensions that indicate native/compiled source code.
-# Headers (.h, .hpp, .hxx) are excluded — many packages ship headers without
-# any actual compilable source (e.g. pyobjc framework stubs).
 NATIVE_EXTENSIONS = frozenset({
-    # C
     ".c",
-    # C++
     ".cc", ".cpp", ".cxx",
-    # Cython
     ".pyx", ".pxd",
-    # Rust
     ".rs",
-    # Assembly
     ".s", ".asm",
 })
 
-# Map from file extensions to build-time package dependencies.
-# Note: C/C++ extensions are handled natively by setuptools and don't need
-# extra deps.
 EXTENSION_TO_BUILD_DEP = {
     ".pyx": "cython",
     ".pxd": "cython",
@@ -72,8 +61,6 @@ def _extract_name(requirement_str):
     return None
 
 
-# --- Archive helpers ---
-
 def _read_tar_member(tf, member_name):
     try:
         f = tf.extractfile(tf.getmember(member_name))
@@ -90,7 +77,6 @@ def _read_zip_member(zf, member_name):
 
 
 def _open_archive(path):
-    """Open an archive. Returns (members, reader_fn, closer)."""
     if zipfile.is_zipfile(path):
         zf = zipfile.ZipFile(path, "r")
         members = [i.filename for i in zf.infolist() if not i.is_dir()]
@@ -101,7 +87,6 @@ def _open_archive(path):
     return members, lambda name: _read_tar_member(tf, name), tf.close
 
 
-# --- Config file parsers ---
 
 def _parse_pyproject_build_system(content):
     """Extract [build-system] metadata from pyproject.toml content.
@@ -137,15 +122,6 @@ def _parse_setup_cfg_build_requires(content):
         for line in raw.strip().splitlines()
         if _extract_name(line.strip())
     ]
-
-
-# --- setup.py dynamic evaluator ---
-#
-# setup.py is fundamentally dynamic and unsound — it's arbitrary Python.
-# Rather than trying to statically analyze an ever-shrinking subset of
-# patterns, we exec() the file with a capturing setup() function injected
-# into the module globals. This runs in Bazel's sandbox with a hermetic
-# interpreter, so the blast radius is already contained.
 
 
 class _SetupCapture(BaseException):
@@ -222,10 +198,8 @@ class _MockImportFinder(importlib.abc.MetaPathFinder):
     })
 
     def find_spec(self, fullname, path, target=None):
-        # Let stdlib and already-loaded modules through
         if fullname in self._PASSTHROUGH or fullname in sys.modules:
             return None
-        # Let sub-imports of passthrough modules through
         top = fullname.split(".")[0]
         if top in self._PASSTHROUGH:
             return None
@@ -253,7 +227,6 @@ def _parse_setup_py_requires(content):
         captured.update(kwargs)
         raise _SetupCapture()
 
-    # Build fake setuptools/distutils modules with our capturing setup()
     fake_setuptools = _MockModule("setuptools")
     fake_setuptools.setup = _fake_setup
     fake_setuptools.find_packages = lambda *a, **kw: []
@@ -265,7 +238,6 @@ def _parse_setup_py_requires(content):
     fake_distutils_core.setup = _fake_setup
     fake_distutils.core = fake_distutils_core
 
-    # Snapshot state we're about to mutate
     old_meta_path = sys.meta_path[:]
     old_modules = sys.modules.copy()
     old_argv = sys.argv[:]
@@ -275,16 +247,12 @@ def _parse_setup_py_requires(content):
     finder = _MockImportFinder()
     failed = False
 
-    # Redirect stdout/stderr to temp files so stray print() calls from
-    # setup.py don't corrupt our JSON output.  We only replay the captured
-    # output if the exec fails.
     stdout_tmp = tempfile.TemporaryFile(mode="w+")
     stderr_tmp = tempfile.TemporaryFile(mode="w+")
     old_stdout = sys.stdout
     old_stderr = sys.stderr
 
     try:
-        # Install our mocks
         sys.meta_path.insert(0, finder)
         sys.modules["setuptools"] = fake_setuptools
         sys.modules["distutils"] = fake_distutils
@@ -293,7 +261,6 @@ def _parse_setup_py_requires(content):
         sys.stdout = stdout_tmp
         sys.stderr = stderr_tmp
 
-        # Build module globals with setup() available at top level
         globs = {
             "__name__": "__main__",
             "__file__": "setup.py",
@@ -303,13 +270,10 @@ def _parse_setup_py_requires(content):
 
         exec(compile(content, "setup.py", "exec"), globs)
     except _SetupCapture:
-        pass  # Expected — setup() was called and we captured kwargs
+        pass
     except BaseException:
-        # setup.py did something we can't handle (runtime errors,
-        # SystemExit from sys.exit(), KeyboardInterrupt, etc.)
         failed = True
     finally:
-        # Restore state
         sys.stdout = old_stdout
         sys.stderr = old_stderr
         sys.argv = old_argv
@@ -319,13 +283,11 @@ def _parse_setup_py_requires(content):
             os.chdir(old_cwd)
         except OSError:
             pass
-        # Remove any modules our mock finder injected
         for name in list(sys.modules):
             if name not in old_modules:
                 del sys.modules[name]
         sys.modules.update(old_modules)
 
-        # On failure, dump captured output so the user can debug.
         if failed:
             for tmp, dest in ((stdout_tmp, old_stderr), (stderr_tmp, old_stderr)):
                 tmp.seek(0)
@@ -353,8 +315,6 @@ def _parse_setup_py_requires(content):
     return setup_requires, install_requires
 
 
-# --- Detection ---
-
 def _find_config_file(members, filename):
     """Find a config file, accounting for the typical top-level sdist directory."""
     if filename in members:
@@ -378,7 +338,6 @@ def detect(archive_path, context):
     """
     members, read_fn, close_fn = _open_archive(archive_path)
     try:
-        # Detect native source files
         native_files = []
         seen_extensions = set()
         for name in members:
@@ -387,14 +346,12 @@ def detect(archive_path, context):
                 native_files.append(name)
                 seen_extensions.add(suffix)
 
-        # Infer build deps from file extensions
         inferred = set()
         for ext in seen_extensions:
             dep = EXTENSION_TO_BUILD_DEP.get(ext)
             if dep:
                 inferred.add(_normalize_name(dep))
 
-        # Parse declared build deps and build-system metadata
         declared = []
         build_backend = None
         backend_path = None
@@ -412,7 +369,6 @@ def detect(archive_path, context):
             if content:
                 declared.extend(_parse_setup_cfg_build_requires(content))
 
-        # Parse setup.py for setup_requires / install_requires
         setup_py_path = _find_config_file(members, "setup.py")
         has_setup_py = setup_py_path is not None
         setup_py_setup_requires = []
@@ -427,15 +383,12 @@ def detect(archive_path, context):
     finally:
         close_fn()
 
-    # Legacy setup.py-only packages (no pyproject.toml) implicitly need
-    # setuptools and wheel to build.
     if not pyproject_path and has_setup_py:
         if "setuptools" not in {_normalize_name(d) for d in declared}:
             declared.append("setuptools")
         if "wheel" not in {_normalize_name(d) for d in declared}:
             declared.append("wheel")
 
-    # Deduplicate declared
     seen = set()
     declared_dedup = []
     for name in declared:
@@ -443,8 +396,6 @@ def detect(archive_path, context):
             seen.add(name)
             declared_dedup.append(name)
 
-    # Compute extra_deps: names from declared + inferred that are resolvable
-    # from available_deps but not already in the explicit deps list.
     available_deps = context.get("available_deps", {})
     provided_labels = set(context.get("deps", []))
 

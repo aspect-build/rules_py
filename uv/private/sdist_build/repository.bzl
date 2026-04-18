@@ -8,7 +8,6 @@ appropriate backend-specific build rule (e.g. pep517_whl, maturin_whl).
 
 load("//uv/private:normalize_name.bzl", "normalize_name")
 
-# --- Configure tool invocation ---
 
 def _write_context_file(repository_ctx):
     """Write the context JSON file that the configure tool reads.
@@ -60,7 +59,6 @@ def _run_configure_tool(repository_ctx, archive_path):
 
     result = repository_ctx.execute(cmd, timeout = 30)
     if result.return_code != 0:
-        # buildifier: disable=print
         print("WARNING: sdist configure tool failed for {} (exit {}): {}".format(
             repository_ctx.name,
             result.return_code,
@@ -69,8 +67,6 @@ def _run_configure_tool(repository_ctx, archive_path):
         return None
 
     return json.decode(result.stdout)
-
-# --- Dep resolution ---
 
 def _resolve_extra_deps(repository_ctx, inspection):
     """Resolve extra_deps from the configure tool output into label strings.
@@ -109,8 +105,6 @@ def _resolve_extra_deps(repository_ctx, inspection):
 
     return resolved
 
-# --- Archive path resolution ---
-
 def _resolve_archive_path(repository_ctx):
     """Resolve the src label to an actual archive file path.
 
@@ -125,8 +119,6 @@ def _resolve_archive_path(repository_ctx):
     if src_path.exists:
         return src_path
 
-    # src_path doesn't exist — it's likely `<pkg>/file` from a filegroup.
-    # Scan the parent directory for an archive file.
     parent = src_path.dirname
     if parent.exists:
         for child in parent.readdir():
@@ -136,13 +128,10 @@ def _resolve_archive_path(repository_ctx):
             if name.endswith(".tar.gz") or name.endswith(".tar.bz2") or name.endswith(".tar.xz") or name.endswith(".zip") or name.endswith(".tar"):
                 return child
 
-    # buildifier: disable=print
     print("WARNING: Could not resolve archive path from src label for {}".format(
         repository_ctx.name,
     ))
     return None
-
-# --- Repository rule implementation ---
 
 def _sdist_build_impl(repository_ctx):
     """Prepares a repository for building a wheel from a source distribution (sdist).
@@ -167,7 +156,6 @@ def _sdist_build_impl(repository_ctx):
         inspection = _run_configure_tool(repository_ctx, archive_path) if archive_path else None
 
         if inspection != None:
-            # If the tool provided complete build file content, use it directly.
             build_file_content = inspection.get("build_file_content")
             if build_file_content:
                 repository_ctx.file("BUILD.bazel", content = build_file_content)
@@ -175,15 +163,11 @@ def _sdist_build_impl(repository_ctx):
 
             is_native = inspection["is_native"]
             if is_native:
-                # buildifier: disable=print
                 print("Detected native sources in {}: {} file(s)".format(
                     repository_ctx.name,
                     len(inspection.get("native_files", [])),
                 ))
         else:
-            # No tool or tool failed — assume pure-Python. sdist_build
-            # validates -none-any so a wrong guess fails loudly at build time.
-            # buildifier: disable=print
             print("WARNING: Could not inspect sdist for {}; assuming pure-Python".format(
                 repository_ctx.name,
             ))
@@ -191,14 +175,12 @@ def _sdist_build_impl(repository_ctx):
     else:
         is_native = is_native_override == "true"
 
-    # Resolve additional deps discovered by the configure tool
     extra_dep_labels = _resolve_extra_deps(repository_ctx, inspection)
 
     # TODO: When the configure tool didn't run or failed, we may want to
     # conservatively add setuptools + wheel as fallback build deps. For now
     # we rely on the configure tool succeeding.
 
-    # Merge explicit deps with auto-discovered deps
     all_deps = [str(d) for d in repository_ctx.attr.deps] + extra_dep_labels
 
     pre_build_patches = repository_ctx.attr.pre_build_patches
@@ -213,9 +195,9 @@ def _sdist_build_impl(repository_ctx):
 
     repository_ctx.file("BUILD.bazel", content = """
 load("@aspect_rules_py//uv/private/pep517_whl:rule.bzl", "{rule}")
-load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_binary")
+load("@aspect_rules_py//py:defs.bzl", "py_binary")
 
-py_venv_binary(
+py_binary(
     name = "build_tool",
     main = "@aspect_rules_py//uv/private/pep517_whl:build_helper.py",
     srcs = ["@aspect_rules_py//uv/private/pep517_whl:build_helper.py"],

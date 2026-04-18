@@ -1,7 +1,3 @@
-"""
-
-"""
-
 load("//uv/private/pprint:defs.bzl", "pprint")
 
 def indent(text, space = "    "):
@@ -20,13 +16,8 @@ def _hub_impl(repository_ctx):
         repository_ctx: The repository context.
     """
 
-    # {requirement: {cfg: target}}
     packages = json.decode(repository_ctx.attr.packages)
 
-    ################################################################################
-    # Lay down the //venv:BUILD.bazel file with config flags
-    #
-    # We do this first because everything else hangs off of these config_settings.
     content = [
         """\
 alias(
@@ -37,7 +28,6 @@ alias(
 """,
     ]
 
-    # Lay down the venv config settings
     for name in repository_ctx.attr.configurations:
         content.append(
             """
@@ -52,8 +42,6 @@ config_setting(
         )
     repository_ctx.file("venv/BUILD.bazel", content = "\n".join(content))
 
-    ################################################################################
-    # Lay down the //:BUILD.bazel file
     content = [
         """\
 load("@aspect_rules_py//py:defs.bzl", "py_library")
@@ -77,8 +65,6 @@ filegroup(
 
     repository_ctx.file("BUILD.bazel", "\n".join(content))
 
-    ################################################################################
-    # Lay down the hub aliases
     entrypoints = {}
 
     for package_name, specs in packages.items():
@@ -97,8 +83,32 @@ load("//:defs.bzl", "compatible_with")
 
         error = "Available only in venvs: " + ", ".join(specs.keys())  # Simplified error string
 
+        if len(specs) == 1:
+            select_spec["//conditions:default"] = list(specs.values())[0]
+
         # FIXME: Add support for entrypoints?
         # FIXME: Create a narrower dist-info rule
+        if len(specs) == 1:
+            alias_template = """
+alias(
+    name = "{name}",
+    actual = select({lib_select}),
+    target_compatible_with = select(compatible_with({compat})),
+    visibility = ["//visibility:public"],
+)
+"""
+        else:
+            alias_template = """
+alias(
+    name = "{name}",
+    actual = select({lib_select},
+        no_match_error = "{error}",
+    ),
+    target_compatible_with = select(compatible_with({compat})),
+    visibility = ["//visibility:public"],
+)
+"""
+
         content.append(
             """
 # This target is for a "hard" dependency.
@@ -118,15 +128,7 @@ filegroup(
     srcs = [":{name}"],
     visibility = ["//visibility:public"],
 )
-alias(
-    name = "{name}",
-    actual = select({lib_select},
-        no_match_error = "{error}",
-    ),
-    target_compatible_with = select(compatible_with({compat})),
-    visibility = ["//visibility:public"],
-)
-""".format(
+""".format(name = package_name) + alias_template.format(
                 name = package_name,
                 lib_select = indent(pprint(select_spec), "      ").lstrip(),
                 compat = repr(specs.keys()),
@@ -136,8 +138,6 @@ alias(
 
         repository_ctx.file(package_name + "/BUILD.bazel", content = "\n".join(content))
 
-    ################################################################################
-    # Lay down //:defs.bzl
     content = [
         """
 VIRTUALENVS = {configurations}
@@ -148,12 +148,15 @@ def compatible_with(venvs, extra_constraints = []):
     if v not in VIRTUALENVS:
       fail("Errant virtualenv reference %r" % v)
 
-  return {{
+  result = {{
     Label("//venv:" + it): extra_constraints
     for it in venvs
-  }} | {{
-    "//conditions:default": ["@platforms//:incompatible"],
   }}
+  if len(venvs) == 1:
+    result["//conditions:default"] = extra_constraints
+  else:
+    result["//conditions:default"] = ["@platforms//:incompatible"]
+  return result
 
 def incompatible_with(venvs, extra_constraints = []):
   for v in venvs:
@@ -174,8 +177,11 @@ def incompatible_with(venvs, extra_constraints = []):
 
     repository_ctx.file("defs.bzl", content = "\n".join(content))
 
-    ################################################################################
-    # Lay down a requirements.bzl for compatibility with rules_python
+    repository_ctx.file("python_version.bzl", content = """PYTHON_VERSION = "{python_version}"
+""".format(
+        python_version = repository_ctx.attr.python_version,
+    ))
+
     content = []
     content.append("""
 load("@rules_python//python:pip.bzl", "pip_utils")
@@ -199,8 +205,6 @@ def requirement(name):
     ))
     repository_ctx.file("requirements.bzl", content = "\n".join(content))
 
-    ################################################################################
-    # Lay down the hub aliases
     entrypoints = {}
 
 uv_hub = repository_rule(
@@ -216,6 +220,11 @@ uv_hub = repository_rule(
         "packages": attr.string(
             doc = """
             JSON blob mapping packages to configurations to projects.
+            """,
+        ),
+        "python_version": attr.string(
+            doc = """
+            Python version used for uv lock resolution.
             """,
         ),
     },
