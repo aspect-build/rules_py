@@ -71,6 +71,57 @@ def normalize_deps(lock_id, lock_data):
 
     return default_versions, package_versions, lock_data
 
+def _platform_tag_matches_target(target, platform_tag):
+    """Determines whether a wheel platform tag satisfies a canonical target.
+
+    Args:
+        target: A canonical target platform string (e.g. "linux_aarch64").
+        platform_tag: A wheel platform tag (e.g. "manylinux_2_17_x86_64").
+
+    Returns:
+        True if the wheel platform tag is compatible with the target.
+    """
+    if target == "linux_aarch64":
+        return (platform_tag.startswith("manylinux_") or platform_tag.startswith("musllinux_")) and platform_tag.endswith("_aarch64")
+    if target == "linux_x86_64":
+        return (platform_tag.startswith("manylinux_") or platform_tag.startswith("musllinux_")) and platform_tag.endswith("_x86_64")
+    if target == "linux_armv7l":
+        return (platform_tag.startswith("manylinux_") or platform_tag.startswith("musllinux_")) and platform_tag.endswith("_armv7l")
+    if target == "linux_ppc64le":
+        return (platform_tag.startswith("manylinux_") or platform_tag.startswith("musllinux_")) and platform_tag.endswith("_ppc64le")
+    if target == "linux_s390x":
+        return (platform_tag.startswith("manylinux_") or platform_tag.startswith("musllinux_")) and platform_tag.endswith("_s390x")
+    if target == "linux_riscv64":
+        return (platform_tag.startswith("manylinux_") or platform_tag.startswith("musllinux_")) and platform_tag.endswith("_riscv64")
+    if target == "macos_aarch64":
+        return platform_tag.startswith("macosx_") and ("arm64" in platform_tag or "universal2" in platform_tag)
+    if target == "macos_x86_64":
+        return platform_tag.startswith("macosx_") and ("x86_64" in platform_tag or "universal2" in platform_tag)
+    if target == "windows_x86_64":
+        return platform_tag in ["win_amd64"]
+    if target == "windows_arm64":
+        return platform_tag in ["win_arm64"]
+    return False
+
+def wheel_matches_any_target(wheel_name, target_platforms):
+    """Checks if a wheel filename matches any of the target platforms.
+
+    Args:
+        wheel_name: The filename of the wheel (e.g. "numpy-1.24.3-...-manylinux_2_17_x86_64.whl").
+        target_platforms: A list of canonical target platform strings.
+
+    Returns:
+        True if at least one target platform matches the wheel.
+    """
+    if not target_platforms:
+        return True
+    parsed = parse_whl_name(wheel_name)
+    for platform_tag in parsed.platform_tags:
+        for target in target_platforms:
+            if _platform_tag_matches_target(target, platform_tag):
+                return True
+    return False
+
 MAGIC_ACTIVATE_BASE_MARKER = "magic_activate_base == 1"
 
 def build_marker_graph(lock_id, lock_data):
@@ -118,15 +169,19 @@ def build_marker_graph(lock_id, lock_data):
 
     return graph
 
-def collect_configurations(lock):
+def collect_configurations(lock, target_platforms = []):
     """Collects all unique platform configurations from the wheels in a lockfile.
 
     Parses every wheel filename to extract Python, platform and ABI tags, filters
-    out unsupported tags, and maps each surviving combination to a list of
-    `config_setting` labels.
+    out unsupported tags and wheels that do not match the requested target
+    platforms, and maps each surviving combination to a list of `config_setting`
+    labels.
 
     Args:
         lock: The parsed content of the `uv.lock` file.
+        target_platforms: Optional list of canonical target platform strings.
+            When provided, only wheels matching at least one target platform are
+            considered.
 
     Returns:
         A dictionary mapping configuration strings (e.g.
@@ -138,6 +193,8 @@ def collect_configurations(lock):
         for whl in package.get("wheels", []):
             url = whl["url"]
             wheel_name = url.split("/")[-1]
+            if target_platforms and not wheel_matches_any_target(wheel_name, target_platforms):
+                continue
             wheel_files[wheel_name] = 1
 
     configurations = {}
@@ -161,11 +218,14 @@ def collect_configurations(lock):
 
     return configurations
 
-def collect_bdists(lock_data):
+def collect_bdists(lock_data, target_platforms = []):
     """Collects all pre-built wheels (bdists) from a lockfile.
 
     Args:
         lock_data: The parsed content of the `uv.lock` file.
+        target_platforms: Optional list of canonical target platform strings.
+            When provided, only wheels matching at least one target platform are
+            collected.
 
     Returns:
         A tuple `(bdist_specs, bdist_table)` where:
@@ -178,6 +238,9 @@ def collect_bdists(lock_data):
     bdist_table = {}
     for package in lock_data.get("package", []):
         for bdist in package.get("wheels", []):
+            wheel_name = bdist["url"].split("/")[-1]
+            if target_platforms and not wheel_matches_any_target(wheel_name, target_platforms):
+                continue
             identifier = None
             if "hash" in bdist:
                 identifier = bdist["hash"].split(":")[1][:16]

@@ -36,9 +36,8 @@ python.toolchain(python_version = "3.9", is_default = True)
 """
 
 load("//py/private:py_binary.bzl", _py_binary = "py_binary", _py_test = "py_test")
-load("//py/private:py_container_binary.bzl", _py_container_binary = "py_container_binary")
-load("//py/private:py_container_image_layer.bzl", _py_container_image_layer = "py_container_image_layer")
 load("//py/private:py_image_layer.bzl", _py_image_layer = "py_image_layer")
+load("//py/private:py_venv_materialize.bzl", _py_venv_materialize = "py_venv_materialize")
 load("//py/private:py_library.bzl", _py_library = "py_library")
 load("//py/private:py_pex_binary.bzl", _py_pex_binary = "py_pex_binary")
 load("//py/private:py_pytest_main.bzl", _py_pytest_main = "py_pytest_main", _pytest_paths = "pytest_paths")
@@ -65,11 +64,9 @@ py_test_rule = _py_test
 py_library = _py_library
 py_unpacked_wheel = _py_unpacked_wheel
 
-# Container-optimized binary with pre-built venv for cross-compilation
-py_container_binary_rule = _py_container_binary
-py_container_image_layer = _py_container_image_layer
-
 py_image_layer = _py_image_layer
+
+py_venv_materialize = _py_venv_materialize
 
 py_console_script_binary = _py_console_script_binary
 
@@ -187,33 +184,4 @@ def py_test(name, srcs = [], main = None, pytest_main = False, **kwargs):
         **kwargs
     )
 
-def py_container_binary(name, srcs = [], main = None, **kwargs):
-    """Wrapper macro for [`py_container_binary_rule`](#py_container_binary_rule).
 
-    Creates a Python binary with a pre-built virtualenv, optimized for container images.
-    Unlike py_binary, this rule creates the virtualenv during the build process instead
-    of at runtime, allowing cross-compilation from macOS to Linux.
-
-    The resulting binary includes a self-contained virtualenv that can be copied directly
-    into a container image.
-
-    Args:
-        name: Name of the rule.
-        srcs: Python source files.
-        main: Entry point.
-            Like rules_python, this is treated as a suffix of a file that should appear among the srcs.
-            If absent, then `[name].py` is tried. As a final fallback, if the srcs has a single file,
-            that is used as the main.
-        **kwargs: additional named parameters to `py_container_binary_rule`.
-    """
-    resolutions = kwargs.pop("resolutions", None)
-    if resolutions:
-        resolutions = resolutions.to_label_keyed_dict()
-
-    _py_container_binary(
-        name = name,
-        srcs = srcs,
-        main = main,
-        resolutions = resolutions,
-        **kwargs
-    )

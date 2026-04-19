@@ -227,5 +227,11 @@ uv_hub = repository_rule(
             Python version used for uv lock resolution.
             """,
         ),
+        "target_platforms": attr.string(
+            doc = """
+            JSON-encoded list of canonical target platforms for which wheels
+            were downloaded.
+            """,
+        ),
     },
 )

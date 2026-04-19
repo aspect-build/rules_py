@@ -105,21 +105,43 @@ py_tool_toolchain = rule(
     },
 )
 
-def source_toolchain(name, toolchain_type, bin):
+py_tool_toolchain_target = rule(
+    implementation = _toolchain_impl,
+    attrs = {
+        "bin": attr.label(
+            mandatory = True,
+            allow_single_file = True,
+            cfg = "target",
+        ),
+        "template_var": attr.string(
+            mandatory = True,
+        ),
+    },
+)
+
+def source_toolchain(name, toolchain_type, bin, cfg = "exec"):
     """Makes vtool toolchain and repositories
 
     Args:
         name: Override the prefix for the generated toolchain repositories.
         toolchain_type: Toolchain type reference.
         bin: the rust_binary target
+        cfg: The configuration for the binary target ("exec" or "target").
     """
 
     toolchain_rule = "{}_toolchain_source".format(name)
-    py_tool_toolchain(
-        name = toolchain_rule,
-        bin = bin,
-        template_var = "{}_BIN".format(name.upper()),
-    )
+    if cfg == "target":
+        py_tool_toolchain_target(
+            name = toolchain_rule,
+            bin = bin,
+            template_var = "{}_BIN".format(name.upper()),
+        )
+    else:
+        py_tool_toolchain(
+            name = toolchain_rule,
+            bin = bin,
+            template_var = "{}_BIN".format(name.upper()),
+        )
     native.toolchain(
         name = "{}_source_toolchain".format(name),
         toolchain = toolchain_rule,

@@ -27,7 +27,7 @@ Example usage in MODULE.bazel:
 load("//uv/private:gazelle.bzl", "gazelle_python_yaml_repository")
 load("//uv/private/constraints/libc:repository.bzl", "libc_detector")
 load("//uv/private/extension:defs.bzl", "uv_impl")
-load("//uv/private/toolchain:repositories.bzl", "uv_platform_repository", "uv_repository")
+load("//uv/private/toolchain:repositories.bzl", "uv_host_repository", "uv_platform_repository", "uv_repository", "uv_toolchains_hub")
 
 _SUPPORTED_PLATFORMS = [
     "aarch64-apple-darwin",
@@ -43,25 +43,40 @@ def _uv_unstable_impl(mctx):
     """Implementation of the UV module extension (graph-based + toolchain + gazelle)."""
 
     version = "0.5.27"
+    local_path = None
+    local_paths = {}
     for mod in mctx.modules:
         for toolchain in mod.tags.toolchain:
             if toolchain.version:
                 version = toolchain.version
+            if toolchain.local_path:
+                local_path = toolchain.local_path
+            if toolchain.local_paths:
+                local_paths.update(toolchain.local_paths)
 
     for platform in _SUPPORTED_PLATFORMS:
         repo_name = "uv_{}_{}".format(
             version.replace(".", "_"),
             platform.replace("-", "_"),
         )
+        platform_local_path = local_paths.get(platform, None)
         uv_repository(
             name = repo_name,
             version = version,
             platform = platform,
+            local_path = platform_local_path,
         )
 
     uv_platform_repository(
         name = "uv",
         version = version,
+        local_path = local_path,
+    )
+
+    uv_host_repository(
+        name = "aspect_rules_py_uv_toolchain",
+        version = version,
+        local_path = local_path,
     )
 
     libc_detector(name = "uv_libc_detection")
@@ -77,6 +92,12 @@ def _uv_unstable_impl(mctx):
                 modules_mapping = manifest.modules_mapping,
             )
 
+    uv_toolchains_hub(
+        name = "uv_toolchains",
+        version = version,
+        platforms = _SUPPORTED_PLATFORMS,
+    )
+
     return result
 
 _toolchain_tag = tag_class(
@@ -85,6 +106,12 @@ _toolchain_tag = tag_class(
             doc = "The UV version to use",
             default = "0.5.27",
         ),
+        "local_path": attr.string(
+            doc = "Absolute path to a local UV binary with bazel-runfiles support. Skips download for host platform.",
+        ),
+        "local_paths": attr.string_dict(
+            doc = "Map of platform -> absolute path to local UV binary with bazel-runfiles support. Overrides download for specific platforms.",
+        ),
     },
     doc = "Configures the UV toolchain version",
 )
@@ -92,6 +119,15 @@ _toolchain_tag = tag_class(
 _hub_tag = tag_class(
     attrs = {
         "hub_name": attr.string(mandatory = True),
+        "target_platforms": attr.string_list(
+            mandatory = False,
+            default = [],
+            doc = """\
+List of target platforms to download wheels for. When empty, wheels for all
+platforms found in uv.lock are downloaded. Supported values: linux_aarch64,
+linux_x86_64, macos_aarch64, macos_x86_64, windows_x86_64, windows_arm64.
+""",
+        ),
     },
 )
 

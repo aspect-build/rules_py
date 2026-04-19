@@ -80,25 +80,32 @@ def _merge_scc_dep_markers_by_surface_package(marked_deps):
     return merged
 
 def _parse_hubs(module_ctx):
-    """Parses `uv.hub()` declarations from all modules.
+    """Parses `uv.declare_hub()` declarations from all modules.
 
     Iterates through all modules in the Bazel dependency graph and collects the
-    `uv.hub()` declarations. Produces a dictionary of hub specifications used to
-    validate project registrations.
+    `uv.declare_hub()` declarations, including the list of target platforms
+    for which wheels should be downloaded.
 
     Args:
         module_ctx: The Bazel module context.
 
     Returns:
         A dictionary of hub specifications, where the keys are hub names and the
-        values are dictionaries of module names that declared the hub.
+        values are structs with fields `modules` and `target_platforms`.
     """
     hub_specs = {}
 
     for mod in module_ctx.modules:
         for hub in mod.tags.declare_hub:
-            hub_specs.setdefault(hub.hub_name, {})
-            hub_specs[hub.hub_name][mod.name] = 1
+            if hub.hub_name not in hub_specs:
+                hub_specs[hub.hub_name] = struct(
+                    modules = {},
+                    target_platforms = list(hub.target_platforms),
+                )
+            hub_specs[hub.hub_name].modules[mod.name] = 1
+            for p in hub.target_platforms:
+                if p not in hub_specs[hub.hub_name].target_platforms:
+                    hub_specs[hub.hub_name].target_platforms.append(p)
 
     return hub_specs
 
@@ -149,12 +156,15 @@ def _parse_projects(module_ctx, hub_specs):
             if project.hub_name not in hub_specs:
                 fail("Project {} in {} refers to hub {} which is not configured for that module. Please declare it.".format(project_name, mod.name, project.hub_name))
 
+            hub_target_platforms = hub_specs[project.hub_name].target_platforms
+
             if lock_data == None or not lock_data.get("package"):
                 print("WARNING: uv.lock not found or invalid for project '{}'. Run 'uv lock' to generate it.".format(project_name))
                 hub_cfgs.setdefault(project.hub_name, struct(
                     configurations = {},
                     packages = {},
                     python_version = project.python_version,
+                    target_platforms = hub_target_platforms,
                 ))
                 continue
 
@@ -171,6 +181,7 @@ def _parse_projects(module_ctx, hub_specs):
                     configurations = {},
                     packages = {},
                     python_version = project.python_version,
+                    target_platforms = hub_target_platforms,
                 ))
                 continue
 
@@ -248,7 +259,7 @@ def _parse_projects(module_ctx, hub_specs):
 
             marker_specs.update(collect_markers(marker_graph))
 
-            bd, bt = collect_bdists(lock_data)
+            bd, bt = collect_bdists(lock_data, hub_target_platforms)
             bdist_specs.update(bd)
             bdist_table.update(bt)
 
@@ -256,7 +267,7 @@ def _parse_projects(module_ctx, hub_specs):
             sdist_specs.update(sd)
             sdist_table.update(st)
 
-            whl_configurations.update(collect_configurations(lock_data))
+            whl_configurations.update(collect_configurations(lock_data, hub_target_platforms))
 
             configuration_names, activated_extras = collect_activated_extras(project.lock, project_id, project_data, lock_data, default_versions, marker_graph, package_versions)
             version_activations = collate_versions_by_name(activated_extras)
@@ -382,14 +393,16 @@ def _parse_projects(module_ctx, hub_specs):
 
                 install_cfgs[k] = struct(
                     whls = {} if is_no_binary else {
-                        whl["url"].split("/")[-1].split("?")[0].split("#")[0]: bdist_table.get(whl["hash"])
+                        whl["url"].split("/")[-1].split("?")[0].split("#")[0]: bdist_table[whl["hash"]]
                         for whl in package.get("wheels", [])
+                        if whl["hash"] in bdist_table
                     },
                     sbuild = "@{}//:whl".format(sbuild_id) if has_sbuild else None,
                     post_install_patches = post_install_patches,
                     post_install_patch_strip = post_install_patch_strip,
                     extra_deps = extra_deps,
                     extra_data = extra_data,
+                    target_platforms = hub_target_platforms,
                 )
 
             project_cfgs[project_id] = struct(
@@ -417,6 +430,7 @@ def _parse_projects(module_ctx, hub_specs):
                 configurations = {},
                 packages = {},
                 python_version = project.python_version,
+                target_platforms = hub_target_platforms,
             ))
 
             for cfg in configuration_names.keys():
@@ -545,6 +559,8 @@ def uv_impl(module_ctx):
             install_kwargs["extra_deps"] = json.encode(install_cfg.extra_deps)
         if install_cfg.extra_data:
             install_kwargs["extra_data"] = json.encode(install_cfg.extra_data)
+        if install_cfg.target_platforms:
+            install_kwargs["target_platforms"] = json.encode(install_cfg.target_platforms)
         whl_install(**install_kwargs)
 
     for project_id, project_cfg in cfg.project_cfgs.items():
@@ -561,6 +577,7 @@ def uv_impl(module_ctx):
             configurations = hub_cfg.configurations,
             packages = json.encode(hub_cfg.packages),
             python_version = hub_cfg.python_version,
+            target_platforms = json.encode(hub_cfg.target_platforms),
         )
 
     if features.external_deps.extension_metadata_has_reproducible:

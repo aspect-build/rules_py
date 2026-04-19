@@ -34,16 +34,24 @@ function python_location {
   fi
 }
 
-VENV_TOOL="$(rlocation {{VENV_TOOL}})"
+RUNFILES_DIR="${RUNFILES_DIR:-/opt}"
+VENV_TOOL="$(rlocation {{VENV_TOOL}} || true)"
 VIRTUAL_ENV="$(alocation "${RUNFILES_DIR}/{{ARG_VENV_NAME}}")"
 export VIRTUAL_ENV
 
-"${VENV_TOOL}" \
-    --location "${VIRTUAL_ENV}" \
-    --python "$(python_location)" \
-    --pth-file "$(rlocation {{ARG_PTH_FILE}})" \
-    --collision-strategy "{{ARG_COLLISION_STRATEGY}}" \
-    --venv-name "{{ARG_VENV_NAME}}"
+if [ -f "${VIRTUAL_ENV}/bin/python" ]; then
+    :
+elif [ -n "$VENV_TOOL" ] && [ -f "$VENV_TOOL" ]; then
+    "${VENV_TOOL}" \
+        --location "${VIRTUAL_ENV}" \
+        --python "$(python_location)" \
+        --pth-file "$(rlocation {{ARG_PTH_FILE}})" \
+        --collision-strategy "{{ARG_COLLISION_STRATEGY}}" \
+        --venv-name "{{ARG_VENV_NAME}}"
+else
+    echo "ERROR: No materialized venv found at ${VIRTUAL_ENV} and no venv tool available" >&2
+    exit 1
+fi
 
 PATH="${VIRTUAL_ENV}/bin:${PATH}"
 export PATH

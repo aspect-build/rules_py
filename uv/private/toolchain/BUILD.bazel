@@ -1,1 +1,9 @@
 package(default_visibility = ["//visibility:public"])
+
+load("@aspect_rules_py//uv/private/toolchain:types.bzl", "UV_TOOLCHAIN")
+
+# Toolchain type for the UV binary
+toolchain_type(
+    name = "toolchain_type",
+    visibility = ["//visibility:public"],
+)
