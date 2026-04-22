@@ -6,7 +6,7 @@ load("//uv/private:normalize_name.bzl", "normalize_name")
 load("//uv/private/versions:versions.bzl", "find_matching_version")
 load(":dep_groups.bzl", "resolve_dependency_group_specs")
 
-def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_map, package_versions = {}):
+def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_map, package_versions = {}, preferred_versions = {}):
     """Parses a requirement string into a list of dependency-marker pairs.
 
     This function parses a PEP 508 requirement string (e.g.,
@@ -80,7 +80,9 @@ def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_m
             remainder = remainder[close_idx + 1:]
 
     # 4. Look up version
-    v = version_map.get(pkg_name)
+    v = preferred_versions.get(pkg_name)
+    if v == None:
+        v = version_map.get(pkg_name)
     if v == None:
         # For multi-version packages (e.g. conflicts), match the version
         # specifier against all known versions of this package in the lockfile.
@@ -112,6 +114,33 @@ def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_m
         results.append((dep, marker or ""))
 
     return results
+
+def _extract_lockfile_group_versions(lock_id, lock_data):
+    """Extracts resolved package versions per dependency group from the lockfile.
+
+    uv.lock encodes the exact package versions selected for each dependency group
+    in the root package's `dev-dependencies` section. This function builds a map
+    that can be used as `preferred_versions` when resolving requirement strings.
+
+    Args:
+        lock_id: The lockfile identifier used in dependency tuples.
+        lock_data: The parsed content of the `uv.lock` file.
+
+    Returns:
+        A dictionary mapping normalized group names to dictionaries of
+        {package_name: (lock_id, package_name, version, "__base__")}.
+    """
+    result = {}
+    for pkg in lock_data.get("package", []):
+        if "virtual" not in pkg.get("source", {}):
+            continue
+        for raw_group_name, deps in pkg.get("dev-dependencies", {}).items():
+            group_name = normalize_name(raw_group_name)
+            for dep in deps:
+                pkg_name = normalize_name(dep["name"])
+                if "version" in dep:
+                    result.setdefault(group_name, {})[pkg_name] = (lock_id, pkg_name, dep["version"], "__base__")
+    return result
 
 def collect_activated_extras(projectfile, lock_id, project_data, lock_data, default_versions, graph, package_versions = {}):
     """Collects the set of transitively activated extras for each configuration.
@@ -149,12 +178,24 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
     # Builds up {package: {configuration: {extra: {marker: 1}}}}
     activated_extras = {}
 
+    all_group_preferences = {}
+
+    lockfile_group_versions = _extract_lockfile_group_versions(lock_id, lock_data)
+
     for group_name in dep_groups.keys():
-        normalized_dep_groups[group_name] = []
         resolved_specs = resolve_dependency_group_specs(dep_groups, group_name)
+
+        group_preferences = dict(lockfile_group_versions.get(group_name, {}))
+
         for spec in resolved_specs:
-            for dep, marker in extract_requirement_marker_pairs(projectfile, lock_id, spec, default_versions, package_versions):
-                normalized_dep_groups[group_name].append(dep)
+            for dep, _marker in extract_requirement_marker_pairs(projectfile, lock_id, spec, default_versions, package_versions, group_preferences):
+                group_preferences[dep[1]] = (dep[0], dep[1], dep[2], "__base__")
+
+        all_group_preferences[group_name] = group_preferences
+
+        for spec in resolved_specs:
+            for dep, marker in extract_requirement_marker_pairs(projectfile, lock_id, spec, default_versions, package_versions, group_preferences):
+                normalized_dep_groups.setdefault(group_name, []).append(dep)
 
                 # Note that this is the base case for the reach set walk below
                 # We do this here so it's easy to handle marker expressions
@@ -163,8 +204,7 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
 
     for group_name, deps in normalized_dep_groups.items():
         worklist = list(deps)
-
-        # Worklist graph traversal to handle the reach set
+        group_prefs = all_group_preferences.get(group_name, {})
         visited = {}
         idx = 0
         for _ in range(1000000):
@@ -174,15 +214,19 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
             it = worklist[idx]
             visited[it] = 1
 
-            for next, markers in graph.get(it, {}).items():
-                # Convert `next`, being a dependency potentially with marker, to its base package
-                base = (next[0], next[1], next[2], "__base__")
+            for next_dep, markers in graph.get(it, {}).items():
+                pkg_name = next_dep[1]
+                pref = group_prefs.get(pkg_name)
+                target_dep = next_dep
+                if pref and pref[2] != next_dep[2]:
+                    target_dep = (next_dep[0], next_dep[1], pref[2], next_dep[3])
 
-                # Upsert the base package so that under the appropriate cfg it lists next as a dep with the appropriate markers
-                activated_extras.setdefault(base, {}).setdefault(group_name, {}).setdefault(next, {}).update(markers)
-                if next not in visited:
-                    visited[next] = 1
-                    worklist.append(next)
+                base = (target_dep[0], target_dep[1], target_dep[2], "__base__")
+
+                activated_extras.setdefault(base, {}).setdefault(group_name, {}).setdefault(target_dep, {}).update(markers)
+                if target_dep not in visited:
+                    visited[target_dep] = 1
+                    worklist.append(target_dep)
 
             idx += 1
 

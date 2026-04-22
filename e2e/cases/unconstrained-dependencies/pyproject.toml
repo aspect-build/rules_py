@@ -1,0 +1,29 @@
+[project]
+name = "test_project"
+version = "0.0.0"
+requires-python = "== 3.10.19"
+dependencies = []
+
+[dependency-groups]
+depctx_py_main_uv = [
+    "build",
+    "packaging==24.0",
+    "pytest",
+    "setuptools<82.0.0",
+]
+
+depctx_py_humble_uv = [
+    "build",
+    "packaging==21.3",
+    "pytest",
+    "setuptools~=59.6",
+    "vcstool>=0.3.0,<0.4",
+]
+
+[tool.uv]
+conflicts = [
+    [
+      { group = "depctx_py_main_uv" },
+      { group = "depctx_py_humble_uv" },
+    ],
+]
