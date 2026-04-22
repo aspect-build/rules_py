@@ -1,9 +1,3 @@
-"""A semver version parser.
-
-Authored by Ignas, released as part of rules_python.
-Removed in 1.5.0, so vendored and used here with thanks.
-"""
-
 def _key(version):
     """Return a comparison key for a semver version struct.
 
@@ -100,6 +94,7 @@ def _new(*, major, minor, patch, pre_release, build, version = None):
     Returns:
       A struct representing the parsed semver with attached helper methods.
     """
+
     # buildifier: disable=uninitialized
     self = struct(
         major = int(major),

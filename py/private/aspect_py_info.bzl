@@ -1,4 +1,4 @@
-"""AspectPyInfo provider - reemplazo independiente de PyInfo de rules_python.
+"""AspectPyInfo provider - información Python independiente para el grafo de build.
 
 Ubicación: bazel/rules_py/py/private/aspect_py_info.bzl
 """
@@ -8,7 +8,7 @@ AspectPyInfo = provider(
     Provider que encapsula información sobre artefactos Python para propagación
     en el grafo de dependencias de Bazel.
 
-    Este provider reemplaza PyInfo de rules_python y agrega soporte para:
+    Este provider encapsula información Python para propagación en Bazel y agrega soporte para:
     - Type stubs (.pyi files)
     - Metadatos de resolución UV
     - Información de compatibilidad de Python

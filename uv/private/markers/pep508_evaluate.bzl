@@ -1,6 +1,5 @@
 """PEP-508 marker evaluation."""
 
-load("@rules_python//python/private:enum.bzl", "enum")
 load(":semver.bzl", "semver")
 
 _VERSION_CMP = sorted(
@@ -11,7 +10,7 @@ _VERSION_CMP = sorted(
     key = lambda x: (-len(x), x),
 )
 
-_STATE = enum(
+_STATE = struct(
     STRING = "string",
     VAR = "var",
     OP = "op",
@@ -196,6 +195,7 @@ def _new_expr(
         or_fn = _or_fn,
         not_fn = _not_fn):
     """Create a new expression tree."""
+
     # buildifier: disable=uninitialized
     self = struct(
         tree = [],

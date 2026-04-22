@@ -5,7 +5,6 @@ This is a hermetic alternative to py_venv_binary that avoids symlink issues.
 """
 
 load("@bazel_lib//lib:paths.bzl", "to_rlocation_path")
-load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
@@ -58,6 +57,7 @@ def _py_zipapp_binary_impl(ctx):
     entry_path = main_file.path
     if entry_path.endswith(".py"):
         entry_module = entry_path[:-3].replace("/", ".").replace("\\", ".")
+
         # Remove leading dots that might come from workspace paths
         entry_module = entry_module.lstrip(".")
     else:

@@ -2,18 +2,13 @@
 
 Supports "virtual" dependencies with a `virtual_deps` attribute, which lists packages which are required
 without binding them to a particular version of that package.
-
-INTEGRACIÓN AspectPyInfo:
-- Genera tanto PyInfo (legacy) como AspectPyInfo (nuevo) durante migración
-- Usa py_info_shim para consumir ambos tipos de providers
 """
 
 load("@bazel_skylib//lib:new_sets.bzl", "sets")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
-load("@rules_python//python:defs.bzl", "PyInfo")
-load("//py/private:providers.bzl", "PyVirtualInfo")
 load("//py/private:aspect_py_info.bzl", "AspectPyInfo")
+load("//py/private:providers.bzl", "PyVirtualInfo")
 load("//py/private:py_info_shim.bzl", "PyInfoShim")
 
 def _make_instrumented_files_info(ctx, extra_source_attributes = [], extra_dependency_attributes = []):
@@ -189,24 +184,16 @@ def _py_library_impl(ctx):
     # Colectar UV hashes transitivos de dependencias
     transitive_uv_hashes = []
     for target in ctx.attr.deps:
-        info = PyInfoShim.maybe_convert_from_rules_python(target)
-        if info and info.transitive_uv_hashes:
-            transitive_uv_hashes.append(info.transitive_uv_hashes)
+        if AspectPyInfo in target:
+            info = target[AspectPyInfo]
+            if info.transitive_uv_hashes:
+                transitive_uv_hashes.append(info.transitive_uv_hashes)
 
     return [
         DefaultInfo(
             files = depset(direct = ctx.files.srcs, transitive = [transitive_srcs]),
             default_runfiles = runfiles,
         ),
-        # PyInfo legacy (mantener durante migración)
-        PyInfo(
-            imports = imports,
-            transitive_sources = transitive_srcs,
-            has_py2_only_sources = False,
-            has_py3_only_sources = True,
-            uses_shared_libraries = False,
-        ),
-        # AspectPyInfo nuevo (grafo interno de Cosmos)
         AspectPyInfo(
             transitive_sources = transitive_srcs,
             imports = imports,
@@ -235,7 +222,7 @@ _attrs = dict({
     ),
     "deps": attr.label_list(
         doc = "Targets that produce Python code, commonly `py_library` rules.",
-        providers = [[PyInfo], [AspectPyInfo], [PyVirtualInfo], [CcInfo]],
+        providers = [[AspectPyInfo], [PyVirtualInfo], [CcInfo]],
     ),
     "data": attr.label_list(
         doc = """Runtime dependencies of the program.
@@ -259,7 +246,6 @@ _attrs = dict({
 
 _providers = [
     DefaultInfo,
-    PyInfo,
     AspectPyInfo,
 ]
 

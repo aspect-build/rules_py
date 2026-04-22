@@ -14,17 +14,16 @@ TODOs:
 """
 
 load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
-load(":defs.bzl", "configurable_string", "decide_marker")
+load(":defs.bzl", "configurable_string", "decide_marker", "python_version")
 
-alias(
+python_version(
     name = "python_version",
-    actual = "@rules_python//python/config_settings:python_version_major_minor",
     visibility = ["//visibility:public"],
 )
 
 alias(
     name = "python_full_version",
-    actual = "@rules_python//python/config_settings:python_version",
+    actual = "@aspect_rules_py//py/private/interpreter:python_version",
     visibility = ["//visibility:public"],
 )
 

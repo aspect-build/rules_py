@@ -9,13 +9,13 @@ in distroless/RBE environments.
 
 load("@bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
 load("@bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
-load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
 
 def _get_interpreter_hash(ctx, py_toolchain):
     """Generate a hash identifier for the Python interpreter."""
+
     # Use interpreter path and version info to create a unique identifier
     version_info = py_toolchain.interpreter_version_info
     hash_input = "{}_{}_{}".format(
@@ -23,6 +23,7 @@ def _get_interpreter_hash(ctx, py_toolchain):
         version_info.major,
         version_info.minor,
     )
+
     # Create a simple hash (using first 16 chars for brevity)
     # In practice, this could use a more sophisticated hashing approach
     return hash_input.replace("/", "_").replace(".", "_")[:64]

@@ -90,4 +90,3 @@ def try_git_to_http_archive(git_cfg):
             return {"url": url}
 
     return None
-

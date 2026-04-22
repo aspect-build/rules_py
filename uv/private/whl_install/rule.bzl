@@ -1,4 +1,3 @@
-load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private:aspect_py_info.bzl", "AspectPyInfo")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "UNPACK_TOOLCHAIN")
 
@@ -27,13 +26,6 @@ def _whl_install(ctx):
             DefaultInfo(
                 files = depset([install_dir]),
                 runfiles = ctx.runfiles(files = [install_dir]),
-            ),
-            PyInfo(
-                transitive_sources = depset([install_dir]),
-                imports = depset([imports_path]),
-                has_py2_only_sources = False,
-                has_py3_only_sources = True,
-                uses_shared_libraries = False,
             ),
             AspectPyInfo(
                 transitive_sources = depset([install_dir]),
@@ -100,15 +92,6 @@ def _whl_install(ctx):
                 install_dir,
             ]),
         ),
-        PyInfo(
-            transitive_sources = depset([
-                install_dir,
-            ]),
-            imports = depset([imports_path]),
-            has_py2_only_sources = False,
-            has_py3_only_sources = True,
-            uses_shared_libraries = False,
-        ),
         AspectPyInfo(
             transitive_sources = depset([
                 install_dir,
@@ -172,7 +155,6 @@ lighter weight since the toolchain's files aren't inputs.
     ],
     provides = [
         DefaultInfo,
-        PyInfo,
         AspectPyInfo,
     ],
 )

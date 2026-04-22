@@ -82,31 +82,31 @@ def _detect_host_platform(rctx):
 
 def _uv_url(version, platform):
     """Generate the download URL for a specific UV version and platform.
-    
+
     Args:
         version: The UV version (e.g., "0.5.27")
         platform: The platform tuple (e.g., "aarch64-apple-darwin")
-    
+
     Returns:
         The download URL for the UV binary
     """
     base = "https://github.com/astral-sh/uv/releases/download/{}".format(version)
-    
+
     if platform.endswith("-windows-msvc"):
         ext = "zip"
     else:
         ext = "tar.gz"
-    
+
     return "{}/uv-{}.{}".format(base, platform, ext)
 
 def _uv_repository_impl(ctx):
     """Implementation of the UV repository rule."""
     version = ctx.attr.version
     platform = ctx.attr.platform
-    
+
     is_windows = platform.endswith("-windows-msvc")
     uv_binary = "uv.exe" if is_windows else "uv"
-    
+
     if ctx.attr.local_path:
         result = ctx.execute([
             "cp",
@@ -117,18 +117,18 @@ def _uv_repository_impl(ctx):
             fail("Failed to copy UV from local path: {}".format(result.stderr))
     else:
         url = _uv_url(version, platform)
-        
+
         if ctx.attr.urls:
             url = ctx.attr.urls[0]
-        
+
         kwargs = {
             "url": url,
             "canonical_id": "uv-{}-{}".format(version, platform),
         }
-        
+
         if ctx.attr.sha256:
             kwargs["sha256"] = ctx.attr.sha256
-        
+
         strip_prefix = "uv-{}".format(platform)
         ctx.download_and_extract(
             stripPrefix = strip_prefix,
@@ -225,20 +225,20 @@ def _uv_host_repository_impl(rctx):
             fail("Failed to copy UV from local path: {}".format(result.stderr))
     else:
         url = _uv_url(version, platform)
-        
+
         if rctx.attr.urls:
             url = rctx.attr.urls[0]
-        
+
         kwargs = {
             "url": url,
             "canonical_id": "uv-{}-{}".format(version, platform),
         }
-        
+
         if rctx.attr.sha256:
             kwargs["sha256"] = rctx.attr.sha256
-        
+
         strip_prefix = "uv-{}".format(platform)
-        
+
         rctx.download_and_extract(
             stripPrefix = strip_prefix,
             **kwargs
@@ -302,10 +302,10 @@ def _uv_platform_repository_impl(rctx):
     """Repository rule that creates a platform-independent alias to UV binary."""
     platform = _detect_host_platform(rctx)
     version = rctx.attr.version
-    
+
     is_windows = platform.endswith("-windows-msvc")
     uv_binary = "uv.exe" if is_windows else "uv"
-    
+
     if rctx.attr.local_path:
         actual = "@aspect_rules_py_uv_toolchain//:{}".format(uv_binary)
     else:
@@ -314,7 +314,7 @@ def _uv_platform_repository_impl(rctx):
             platform.replace("-", "_"),
         )
         actual = "@{}//:{}".format(platform_repo, uv_binary)
-    
+
     rctx.file("BUILD.bazel", '''
 # Alias to the platform-specific UV binary
 alias(
@@ -344,7 +344,7 @@ def uv_register_toolchains(version = "0.5.27", sha256_map = None):
 
     This macro creates repository rules for all supported platforms and registers
     the corresponding toolchains.
-    
+
     Args:
         version: The UV version to use (default: 0.5.27)
         sha256_map: Optional dict mapping platform -> sha256 for verification.
@@ -359,7 +359,7 @@ def uv_register_toolchains(version = "0.5.27", sha256_map = None):
         "aarch64-unknown-linux-musl",
         "x86_64-unknown-linux-musl",
     ]
-    
+
     for platform in platforms:
         repo_name = "uv_{}_{}".format(
             version.replace(".", "_"),
@@ -368,20 +368,20 @@ def uv_register_toolchains(version = "0.5.27", sha256_map = None):
         sha256 = None
         if sha256_map and platform in sha256_map:
             sha256 = sha256_map[platform]
-        
+
         uv_repository(
             name = repo_name,
             version = version,
             platform = platform,
             sha256 = sha256,
         )
-    
+
     uv_host_repository(
         name = "aspect_rules_py_uv_toolchain",
         version = version,
         sha256 = sha256_map.get("host") if sha256_map else None,
     )
-    
+
     uv_platform_repository(
         name = "uv",
         version = version,

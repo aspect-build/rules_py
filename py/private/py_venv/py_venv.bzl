@@ -401,7 +401,7 @@ _test_attrs = dict({
     # Magic attribute to make coverage --combined_report flag work.
     # There's no docs about this.
     # See https://github.com/bazelbuild/bazel/blob/fde4b67009d377a3543a3dc8481147307bd37d36/tools/test/collect_coverage.sh#L186-L194
-    # NB: rules_python ALSO includes this attribute on the py_binary rule, but we think that's a mistake.
+    # NB: Some rulesets also include this attribute on the py_binary rule, but we think that's a mistake.
     # see https://github.com/aspect-build/rules_py/pull/520#pullrequestreview-25790761972
     "_lcov_merger": attr.label(
         default = configuration_field(fragment = "coverage", name = "output_generator"),

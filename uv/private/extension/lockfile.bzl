@@ -81,6 +81,8 @@ def _platform_tag_matches_target(target, platform_tag):
     Returns:
         True if the wheel platform tag is compatible with the target.
     """
+    if platform_tag == "any":
+        return True
     if target == "linux_aarch64":
         return (platform_tag.startswith("manylinux_") or platform_tag.startswith("musllinux_")) and platform_tag.endswith("_aarch64")
     if target == "linux_x86_64":

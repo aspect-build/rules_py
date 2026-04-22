@@ -326,9 +326,20 @@ whl_install(
             for canonical in canonicals:
                 if canonical not in platform_wheels:
                     platform_wheels[canonical] = target
-        else:
-            if "any" not in platform_wheels:
-                platform_wheels["any"] = target
+        elif "any" not in platform_wheels:
+            platform_wheels["any"] = target
+
+    target_platforms = []
+    if repository_ctx.attr.target_platforms:
+        target_platforms = json.decode(repository_ctx.attr.target_platforms)
+
+    # Pure-python wheels (platform_tag == "any") are compatible with all target platforms.
+    # Create per-platform install aliases so that the :install select works.
+    if "any" in platform_wheels:
+        any_target = platform_wheels["any"]
+        for platform in target_platforms:
+            if platform != "any" and platform not in platform_wheels:
+                platform_wheels[platform] = any_target
 
     for canonical, target in platform_wheels.items():
         alias_name = "wheel_{}".format(canonical)
@@ -360,10 +371,6 @@ alias(
             canonical = canonical,
             attrs = install_attrs_base,
         ))
-
-    target_platforms = []
-    if repository_ctx.attr.target_platforms:
-        target_platforms = json.decode(repository_ctx.attr.target_platforms)
 
     if target_platforms:
         platform_arms = {}

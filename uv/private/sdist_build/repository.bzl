@@ -8,7 +8,6 @@ appropriate backend-specific build rule (e.g. pep517_whl, maturin_whl).
 
 load("//uv/private:normalize_name.bzl", "normalize_name")
 
-
 def _write_context_file(repository_ctx):
     """Write the context JSON file that the configure tool reads.
 

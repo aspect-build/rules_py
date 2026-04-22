@@ -117,7 +117,7 @@ func apparentLoads(moduleToApparentName func(string) string) []rule.LoadInfo {
 
 	return []rule.LoadInfo{
 		{
-			Name: "@rules_python//python:defs.bzl",
+			Name: "//py:defs.bzl",
 			Symbols: []string{
 				pyBinaryKind,
 				pyLibraryKind,

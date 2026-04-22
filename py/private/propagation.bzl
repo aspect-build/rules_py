@@ -36,12 +36,11 @@ def collect_deps_info(ctx, deps_attr = "deps", data_attr = "data"):
     # Colectar de dependencias
     for dep in deps:
         if PyInfoShim.has_py_info(dep):
-            info = PyInfoShim.maybe_convert_from_rules_python(dep)
-            if info:
-                aspect_py_infos.append(info)
-            has_py2_only = has_py2_only or PyInfoShim.get_has_py2_only_sources(dep)
-            has_py3_only = has_py3_only or PyInfoShim.get_has_py3_only_sources(dep)
-            uses_shared_libs = uses_shared_libs or PyInfoShim.get_uses_shared_libraries(dep)
+            info = dep[AspectPyInfo]
+            aspect_py_infos.append(info)
+            has_py2_only = has_py2_only or info.has_py2_only_sources
+            has_py3_only = has_py3_only or info.has_py3_only_sources
+            uses_shared_libs = uses_shared_libs or info.uses_shared_libraries
 
         # Agregar runfiles
         if DefaultInfo in dep:
@@ -87,9 +86,7 @@ def propagate_through_aspect(target, ctx):
     if not PyInfoShim.has_py_info(target):
         return []
 
-    info = PyInfoShim.maybe_convert_from_rules_python(target)
-    if not info:
-        return []
+    info = target[AspectPyInfo]
 
     # Los aspects pueden transformar o filtrar información
     return [info]

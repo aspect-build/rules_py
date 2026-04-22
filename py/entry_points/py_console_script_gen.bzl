@@ -15,6 +15,7 @@ def _get_entry_points_txt(entry_points_txt):
     for file in files:
         if file.basename == "entry_points.txt":
             return file
+
     # Fallback for TreeArtifacts: return the directory and let the Python
     # script search inside it at action execution time.
     if files:
@@ -47,6 +48,7 @@ def _py_console_script_gen_impl(ctx):
     entry_points_txt = _get_entry_points_txt(ctx.attr.entry_points_txt)
 
     args = ctx.actions.args()
+
     # Use .path to support TreeArtifacts (directories) which cannot be added
     # directly via args.add() due to Bazel's multi-value expansion rules.
     args.add(entry_points_txt.path)

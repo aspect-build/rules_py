@@ -7,36 +7,36 @@ process rather than at container runtime. This allows cross-compilation from mac
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@tar.bzl//tar:mtree.bzl", "mtree_mutate", "mtree_spec")
 load("@tar.bzl//tar:tar.bzl", "tar")
-load("//py/private/toolchain:types.bzl", "VENV_TOOLCHAIN", "PY_TOOLCHAIN")
+load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "VENV_TOOLCHAIN")
 
 def _py_venv_image_layer_impl(ctx):
     """Implementation that creates a layer with a pre-built virtualenv."""
-    
+
     # Get toolchains
     venv_toolchain = ctx.toolchains[VENV_TOOLCHAIN]
     py_toolchain = ctx.toolchains[PY_TOOLCHAIN]
-    
+
     # Get the binary and its runfiles
     binary = ctx.attr.binary
     binary_file = binary[DefaultInfo].files_to_run.executable
     runfiles = binary[DefaultInfo].default_runfiles
-    
+
     # Create output directory for the pre-built venv
     venv_output = ctx.actions.declare_directory(ctx.attr.name + ".venv")
-    
+
     # Collect all runfiles for the venv creation
     runfiles_list = runfiles.files.to_list()
-    
+
     # Find the pth file in runfiles
     pth_file = None
     for f in runfiles_list:
         if f.basename.endswith(".pth") and "site-packages" not in f.path:
             pth_file = f
             break
-    
+
     if not pth_file:
         fail("Could not find .pth file in binary runfiles")
-    
+
     # Get Python interpreter path
     python_path = py_toolchain.python.path
     if py_toolchain.runfiles_interpreter:
@@ -46,7 +46,7 @@ def _py_venv_image_layer_impl(ctx):
                 if "bin" in f.path.split("/"):
                     python_path = f.path
                     break
-    
+
     # Create the venv using the venv tool
     ctx.actions.run_shell(
         outputs = [venv_output],
@@ -84,7 +84,7 @@ def _py_venv_image_layer_impl(ctx):
         mnemonic = "PyVenvCreate",
         progress_message = "Creating virtualenv for %s" % ctx.attr.name,
     )
-    
+
     # Create the manifest for the venv
     manifest = ctx.actions.declare_file(ctx.attr.name + ".manifest")
     ctx.actions.run_shell(
@@ -106,7 +106,7 @@ def _py_venv_image_layer_impl(ctx):
             output = manifest.path,
         ),
     )
-    
+
     # Create the tar from the venv
     venv_tar = ctx.actions.declare_file(ctx.attr.name + ".tar.gz")
     ctx.actions.run_shell(
@@ -119,13 +119,13 @@ def _py_venv_image_layer_impl(ctx):
             output = venv_tar.path,
         ),
     )
-    
+
     # Also include binary runfiles (excluding the venv tool)
     binary_manifest = ctx.actions.declare_file(ctx.attr.name + ".binary.manifest")
-    
+
     # Use mtree_spec for the binary runfiles
     # Filter out venv-related files as they won't be needed
-    
+
     return [
         DefaultInfo(
             files = depset([venv_tar]),

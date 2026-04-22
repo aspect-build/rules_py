@@ -1,5 +1,5 @@
-load("@multitool//:tools.bzl", MULTITOOL_TOOLS = "TOOLS")
 load("@bazel_env.bzl", "bazel_env")
+load("@multitool//:tools.bzl", MULTITOOL_TOOLS = "TOOLS")
 
 bazel_env(
     name = "bazel_env",

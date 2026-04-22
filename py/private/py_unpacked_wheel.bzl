@@ -1,7 +1,7 @@
-"""Unpacks a Python wheel into a directory and returns a PyInfo provider that represents that wheel"""
+"""Unpacks a Python wheel into a directory and returns a AspectPyInfo provider that represents that wheel"""
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
-load("@rules_python//python:defs.bzl", "PyInfo")
+load("//py/private:aspect_py_info.bzl", "AspectPyInfo")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "UNPACK_TOOLCHAIN")
@@ -46,12 +46,19 @@ def _py_unpacked_wheel_impl(ctx):
             files = depset(direct = [unpack_directory]),
             default_runfiles = ctx.runfiles(files = [unpack_directory]),
         ),
-        PyInfo(
+        AspectPyInfo(
             imports = imports,
             transitive_sources = depset([unpack_directory]),
+            type_stubs = depset(),
+            transitive_type_stubs = depset(),
             has_py2_only_sources = False,
             has_py3_only_sources = True,
             uses_shared_libraries = False,
+            runfiles = ctx.runfiles(files = [unpack_directory]),
+            default_runfiles = ctx.runfiles(files = [unpack_directory]),
+            uv_metadata = None,
+            transitive_uv_hashes = depset(),
+            _transitive_debug_info = None,
         ),
     ]
 
@@ -66,7 +73,7 @@ _attrs = {
 py_unpacked_wheel = rule(
     implementation = _py_unpacked_wheel_impl,
     attrs = _attrs,
-    provides = [PyInfo],
+    provides = [AspectPyInfo],
     toolchains = [
         PY_TOOLCHAIN,
         UNPACK_TOOLCHAIN,

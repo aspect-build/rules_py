@@ -11,7 +11,7 @@ From the Bazel docs:
 However, due to restrictions on Bazel labels we also cannot allow hyphens.
 See https://github.com/bazelbuild/bazel/issues/6841
 
-Further, rules_python automatically adds the repository root to the
+Further, some Python rulesets automatically add the repository root to the
 PYTHONPATH, meaning a package that has the same name as a module is picked
 up. We workaround this by prefixing with `<hub_name>_`.
 

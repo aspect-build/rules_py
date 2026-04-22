@@ -1,6 +1,9 @@
 package(default_visibility = ["//visibility:public"])
 
-exports_files(["defs.bzl", "extension.bzl"])
+exports_files([
+    "defs.bzl",
+    "extension.bzl",
+])
 
 alias(
     name = "uv",

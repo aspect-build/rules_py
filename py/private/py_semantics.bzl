@@ -13,17 +13,15 @@ _INTERPRETER_FLAGS = [
 ]
 
 _MUST_SET_TOOLCHAIN_INTERPRETER_VERSION_INFO = """
-ERROR: In Bazel 7.x and later, the python toolchain py_runtime interpreter_version_info must be set \
+ERROR: The python toolchain aspect_py_runtime interpreter_version_info must be set \
 to a dict with keys "major", "minor", and "micro".
 
-`PyRuntimeInfo` requires that this field contains the static version information for the given
-interpreter. This can be set via `py_runtime` when registering an interpreter toolchain, and will
-done automatically for the builtin interpreter versions registered via `python_register_toolchains`.
-Note that this only available on the Starlark implementation of the provider.
+`AspectPyRuntimeInfo` requires that this field contains the static version information for the given
+interpreter. This can be set via `aspect_py_runtime` when registering an interpreter toolchain.
 
 For example:
 
-    py_runtime(
+    aspect_py_runtime(
         name = "system_runtime",
         interpreter_path = "/usr/bin/python",
         interpreter_version_info = {

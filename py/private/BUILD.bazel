@@ -56,7 +56,6 @@ bzl_library(
         "@bazel_skylib//lib:new_sets",
         "@bazel_skylib//lib:paths",
         "@bazel_skylib//lib:types",
-        "@rules_python//python:defs_bzl",
     ],
 )
 
@@ -70,7 +69,6 @@ bzl_library(
     srcs = ["py_pytest_main.bzl"],
     deps = [
         ":py_library",
-        "@rules_python//python:defs_bzl",
     ],
 )
 
@@ -100,7 +98,6 @@ bzl_library(
     deps = [
         ":py_semantics",
         "//py/private/toolchain:types",
-        "@rules_python//python:defs_bzl",
     ],
 )
 
@@ -128,7 +125,6 @@ bzl_library(
         "//py/private/toolchain:types",
         "@bazel_lib//lib:expand_make_vars",
         "@bazel_lib//lib:paths",
-        "@rules_python//python:defs_bzl",
     ],
 )
 
@@ -140,7 +136,6 @@ bzl_library(
         ":py_semantics",
         "//py/private/toolchain:types",
         "@bazel_lib//lib:paths",
-        "@rules_python//python:defs_bzl",
     ],
 )
 

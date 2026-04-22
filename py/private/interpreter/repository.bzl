@@ -6,7 +6,6 @@ Includes rules for downloading PBS interpreters and registering local interprete
 load(":exclude_feature.bzl", "INTERPRETER_FEATURES")
 
 _PYTHON_VERSION_FLAG = "@aspect_rules_py//py/private/interpreter:python_version"
-_RPY_VERSION_FLAG = "@rules_python//python/config_settings:python_version"
 _FREETHREADING_FLAG = "@aspect_rules_py//py/private/interpreter:freethreaded"
 _EXCLUDE_FEATURE_FLAG = "@aspect_rules_py//py/private/interpreter:exclude_feature"
 
@@ -111,8 +110,8 @@ def _build_file_content(major, minor, micro, python_bin, is_windows):
 """.format(feature = feature_name)
 
     return """\
-load("@rules_python//python:py_runtime.bzl", "py_runtime")
-load("@rules_python//python:py_runtime_pair.bzl", "py_runtime_pair")
+load("@aspect_rules_py//py/private/toolchain:py_runtime.bzl", "aspect_py_runtime")
+load("@aspect_rules_py//py/private/toolchain:py_runtime_pair.bzl", "aspect_py_runtime_pair")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -136,7 +135,7 @@ filegroup(
 {feature_selects}    ,
 )
 
-py_runtime(
+aspect_py_runtime(
     name = "py3_runtime",
     files = [":files"],
     interpreter = "{python_bin}",
@@ -148,7 +147,7 @@ py_runtime(
     python_version = "PY3",
 )
 
-py_runtime_pair(
+aspect_py_runtime_pair(
     name = "runtime_pair",
     py2_runtime = None,
     py3_runtime = ":py3_runtime",
@@ -232,27 +231,20 @@ def _python_toolchains_impl(rctx):
         group_name = _version_setting_name(major_minor)
         content.append("""
 config_setting(
-    name = "_{group}_our_major_minor",
-    flag_values = {{"{our_flag}": "{major_minor}"}},
-)
-
-config_setting(
-    name = "_{group}_rpy_major_minor",
-    flag_values = {{"{rpy_flag}": "{major_minor}"}},
+    name = "_{group}_major_minor",
+    flag_values = {{"{flag}": "{major_minor}"}},
 )
 
 selects.config_setting_group(
     name = "{group}",
     match_any = [
-        ":_{group}_our_major_minor",
-        ":_{group}_rpy_major_minor",
+        ":_{group}_major_minor",
     ],
 )
 """.format(
             group = group_name,
             major_minor = major_minor,
-            our_flag = _PYTHON_VERSION_FLAG,
-            rpy_flag = _RPY_VERSION_FLAG,
+            flag = _PYTHON_VERSION_FLAG,
         ))
 
     # Emit hub-local freethreaded config_settings
@@ -391,47 +383,31 @@ def _local_python_interpreter_impl(rctx):
     major_minor = "{}.{}".format(major, minor)
 
     rctx.file("BUILD.bazel", content = """\
-load("@rules_python//python:py_runtime.bzl", "py_runtime")
-load("@rules_python//python:py_runtime_pair.bzl", "py_runtime_pair")
+load("@aspect_rules_py//py/private/toolchain:py_runtime.bzl", "aspect_py_runtime")
+load("@aspect_rules_py//py/private/toolchain:py_runtime_pair.bzl", "aspect_py_runtime_pair")
 load("@bazel_skylib//lib:selects.bzl", "selects")
 
 package(default_visibility = ["//visibility:public"])
 
 config_setting(
-    name = "_is_our_major_minor",
+    name = "_is_major_minor",
     flag_values = {{
-        "{our_flag}": "{major_minor}",
+        "{flag}": "{major_minor}",
     }},
 )
 
 config_setting(
-    name = "_is_our_major_minor_micro",
+    name = "_is_major_minor_micro",
     flag_values = {{
-        "{our_flag}": "{version}",
-    }},
-)
-
-config_setting(
-    name = "_is_rpy_major_minor",
-    flag_values = {{
-        "{rpy_flag}": "{major_minor}",
-    }},
-)
-
-config_setting(
-    name = "_is_rpy_major_minor_micro",
-    flag_values = {{
-        "{rpy_flag}": "{version}",
+        "{flag}": "{version}",
     }},
 )
 
 selects.config_setting_group(
     name = "is_matching_python_version",
     match_any = [
-        ":_is_our_major_minor",
-        ":_is_our_major_minor_micro",
-        ":_is_rpy_major_minor",
-        ":_is_rpy_major_minor_micro",
+        ":_is_major_minor",
+        ":_is_major_minor_micro",
     ],
 )
 
@@ -442,7 +418,7 @@ config_setting(
     }},
 )
 
-py_runtime(
+aspect_py_runtime(
     name = "py3_runtime",
     interpreter_path = "{interpreter_path}",
     interpreter_version_info = {{
@@ -453,14 +429,13 @@ py_runtime(
     python_version = "PY3",
 )
 
-py_runtime_pair(
+aspect_py_runtime_pair(
     name = "runtime_pair",
     py2_runtime = None,
     py3_runtime = ":py3_runtime",
 )
 """.format(
-        our_flag = _PYTHON_VERSION_FLAG,
-        rpy_flag = _RPY_VERSION_FLAG,
+        flag = _PYTHON_VERSION_FLAG,
         freethreaded_flag = _FREETHREADING_FLAG,
         version = python_version,
         major_minor = major_minor,

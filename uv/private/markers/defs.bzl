@@ -133,6 +133,25 @@ def decide_marker(
         **kwargs
     )
 
+def _python_version_impl(ctx):
+    """Derive python_version (major.minor) from the full python version flag."""
+    full = ctx.attr._full_version[BuildSettingInfo].value
+    if full:
+        parts = full.split(".")
+        version = "{}.{}".format(parts[0], parts[1]) if len(parts) >= 2 else full
+    else:
+        version = ""
+    return [config_common.FeatureFlagInfo(value = version)]
+
+python_version = rule(
+    implementation = _python_version_impl,
+    attrs = {
+        "_full_version": attr.label(
+            default = Label("@aspect_rules_py//py/private/interpreter:python_version"),
+        ),
+    },
+)
+
 def _configurable_string_impl(ctx):
     """Rule implementation that forwards an attr.string to FeatureFlagInfo."""
     return [

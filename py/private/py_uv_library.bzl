@@ -2,22 +2,6 @@
 
 load("//py/private:aspect_py_info.bzl", "AspectPyInfo")
 
-def _get_py_info():
-    """Obtener PyInfo desde rules_python si está disponible."""
-    # Primero intentar rules_python
-    if native.repository_name() == "_main" or True:  # Siempre intentar
-        native_py_info = native.provider("PyInfo", default = None)
-        if native_py_info:
-            return native_py_info
-    
-    # Fallback: crear nuestro propio (no será compatible con rules_python)
-    return provider(
-        doc = "Provider de Python",
-        fields = ["transitive_sources", "imports", "has_py2_only_sources",
-                  "has_py3_only_sources", "uses_shared_libraries"],
-    )
-
-
 def _py_uv_library_impl(ctx):
     """
     Implementación de py_uv_library para paquetes de UV.
@@ -41,18 +25,8 @@ def _py_uv_library_impl(ctx):
 
     direct_hashes = depset(direct = [ctx.attr.uv_hash] if ctx.attr.uv_hash else [])
 
-    # Crear PyInfo para compatibilidad con rules_python
-    py_info = PyInfo(
-        transitive_sources = transitive_sources,
-        imports = imports,
-        has_py2_only_sources = False,
-        has_py3_only_sources = True,
-        uses_shared_libraries = has_so,
-    )
-
     return [
         DefaultInfo(files = transitive_sources),
-        py_info,
         AspectPyInfo(
             transitive_sources = transitive_sources,
             imports = imports,

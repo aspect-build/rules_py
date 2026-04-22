@@ -184,7 +184,9 @@ def incompatible_with(venvs, extra_constraints = []):
 
     content = []
     content.append("""
-load("@rules_python//python:pip.bzl", "pip_utils")
+# Normalizes a Python package name per PEP 503.
+def _normalize_name(name):
+    return name.lower().replace("-", "_").replace(".", "_").replace(" ", "_")
 
 # We arne't compatible with this because it isn't constant over venvs.
 # all_requirements = []
@@ -199,7 +201,7 @@ load("@rules_python//python:pip.bzl", "pip_utils")
 # all_data_requirements = []
 
 def requirement(name):
-    return "@@{repo_name}//{{0}}:{{0}}".format(pip_utils.normalize_name(name))
+    return "@@{repo_name}//{{0}}:{{0}}".format(_normalize_name(name))
 """.format(
         repo_name = repository_ctx.name,
     ))

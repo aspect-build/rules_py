@@ -18,7 +18,7 @@ py_pex_binary(
 ```
 """
 
-load("@rules_python//python:defs.bzl", "PyInfo")
+load("//py/private:aspect_py_info.bzl", "AspectPyInfo")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
 
@@ -29,14 +29,12 @@ def _runfiles_path(file, workspace):
         return workspace + "/" + file.short_path
 
 exclude_paths = [
-    # following two lines will match paths we want to exclude in non-bzlmod setup
+    # paths we want to exclude in non-bzlmod setup
     "toolchain",
     "aspect_rules_py/py/tools/",
     # these will match in bzlmod setup
-    "rules_python~~python~",
     "aspect_rules_py~/py/tools/",
     # these will match in bzlmod setup with --incompatible_use_plus_in_repo_names flag flipped.
-    "rules_python++python+",
     "aspect_rules_py+/py/tools/",
 ]
 
@@ -91,7 +89,7 @@ def _py_python_pex_impl(ctx):
     )
 
     args.add_all(
-        binary[PyInfo].imports,
+        binary[AspectPyInfo].imports,
         format_each = "--sys-path=%s",
     )
 

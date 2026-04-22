@@ -74,11 +74,64 @@ def _py_venv_materialize_impl(ctx):
 
     pth_copy = ""
     if pth_file:
-        pth_copy = 'cp "{pth}" "$OUT/lib/python{major}.{minor}/site-packages/"'.format(
+        pth_copy = '''
+PYTHON_REWRITE="{python}"
+PTH_ORIG="{pth}"
+SITE_PKGS="$OUT/lib/python{major}.{minor}/site-packages"
+$PYTHON_REWRITE -c "
+import os, sys
+pth_orig = os.path.abspath('$PTH_ORIG')
+orig_dir = os.path.dirname(pth_orig)
+sp = os.path.abspath('$SITE_PKGS')
+with open(pth_orig) as f:
+    lines = f.readlines()
+with open(os.path.join(sp, os.path.basename(pth_orig)), 'w') as f:
+    for line in lines:
+        line = line.rstrip('\\n')
+        if not line or line.startswith('#') or line.startswith('import'):
+            f.write(line + '\\n')
+            continue
+        abs_path = os.path.normpath(os.path.join(orig_dir, line))
+        rel_path = os.path.relpath(abs_path, sp)
+        f.write(rel_path + '\\n')
+"
+'''.format(
             pth = pth_file.path,
+            python = python_path,
             major = py_major,
             minor = py_minor,
         )
+
+    # Generate a sitecustomize.py that adds runfiles paths to sys.path.
+    # This works around UV --mode=bazel-runfiles generating .pth files with
+    # relative paths that assume the venv is at the runfiles root.
+    sitecustomize = """\
+import json, os, sys
+
+_runfiles_dir = os.environ.get("RUNFILES_DIR", "")
+if not _runfiles_dir:
+    # Fallback: derive from this file's location within the venv
+    _site_packages = os.path.dirname(__file__)
+    _venv_dir = os.path.dirname(os.path.dirname(os.path.dirname(_site_packages)))
+    # Walk up looking for the runfiles root (contains whl_install repos)
+    for _ in range(8):
+        _venv_dir = os.path.dirname(_venv_dir)
+        _test = os.path.join(_venv_dir, "aspect_rules_py++uv+whl_install__cosmos__cffi__2_0_0")
+        if os.path.exists(_test):
+            _runfiles_dir = _venv_dir
+            break
+
+_manifest_path = os.path.join(os.path.dirname(__file__), "pth_manifest.json")
+if _runfiles_dir and os.path.exists(_manifest_path):
+    with open(_manifest_path) as _f:
+        _manifest = json.load(_f)
+    for _entry in _manifest.get("entries", []):
+        _repo = _entry.get("repo", "")
+        _path = _entry.get("path", "")
+        _full = os.path.join(_runfiles_dir, _repo, _path)
+        if os.path.isdir(_full) and _full not in sys.path:
+            sys.path.append(_full)
+"""
 
     ctx.actions.run_shell(
         outputs = [venv_dir, venv_tar],
@@ -90,6 +143,7 @@ PYTHON="{python}"
 MANIFEST="{manifest}"
 OUT="{out}"
 TAR="{tar}"
+export UV_CACHE_DIR="$(mktemp -d)"
 
 "$UV" venv \
     --mode=bazel-runfiles \
@@ -99,6 +153,14 @@ TAR="{tar}"
 
 {pth_copy}
 
+# Copy manifest into site-packages so sitecustomize.py can read it
+cp "$MANIFEST" "$OUT/lib/python{major}.{minor}/site-packages/pth_manifest.json"
+
+# Write sitecustomize.py to fixup sys.path at interpreter startup
+cat > "$OUT/lib/python{major}.{minor}/site-packages/sitecustomize.py" << 'PYEOF'
+{sitecustomize}
+PYEOF
+
 tar -czf "$TAR" -C "$OUT" .
 """.format(
             uv = uv.path,
@@ -107,11 +169,18 @@ tar -czf "$TAR" -C "$OUT" .
             out = venv_dir.path,
             tar = venv_tar.path,
             pth_copy = pth_copy,
+            major = py_major,
+            minor = py_minor,
+            sitecustomize = sitecustomize,
         ),
         progress_message = "Materializing venv for %s" % ctx.attr.name,
+        execution_requirements = {"no-sandbox": "1"},
     )
 
-    return [DefaultInfo(files = depset([venv_dir, venv_tar]))]
+    return [DefaultInfo(
+        files = depset([venv_dir, venv_tar]),
+        runfiles = ctx.runfiles(files = [venv_dir, venv_tar]),
+    )]
 
 py_venv_materialize = rule(
     implementation = _py_venv_materialize_impl,

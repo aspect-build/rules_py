@@ -25,15 +25,17 @@ def _autodetecting_py_wrapper_impl(rctx):
     )
 
     build_content = """\
-load("@rules_python//python:defs.bzl", "py_runtime", "py_runtime_pair")
+load("@aspect_rules_py//py/private/toolchain:py_runtime.bzl", "aspect_py_runtime")
+load("@aspect_rules_py//py/private/toolchain:py_runtime_pair.bzl", "aspect_py_runtime_pair")
 
-py_runtime(
+aspect_py_runtime(
     name = "autodetecting_python3_runtime",
     interpreter = "@{name}//:python.sh",
+    interpreter_version_info = {"major": "3", "minor": "0", "micro": "0"},
     python_version = "PY3",
 )
 
-py_runtime_pair(
+aspect_py_runtime_pair(
     name = "autodetecting_py_runtime_pair",
     py2_runtime = None,
     py3_runtime = ":autodetecting_python3_runtime",
