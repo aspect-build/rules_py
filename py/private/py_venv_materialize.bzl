@@ -80,6 +80,7 @@ def _py_venv_materialize_impl(ctx):
             minor = py_minor,
         )
 
+
     ctx.actions.run_shell(
         outputs = [venv_dir, venv_tar],
         inputs = inputs,
