@@ -11,6 +11,14 @@ bzl_library(
     visibility = ["//uv:__subpackages__"],
 )
 
+bzl_library(
+    name = "uv_bin",
+    srcs = [
+        "uv_bin.bzl",
+    ],
+    visibility = ["//uv:__subpackages__"],
+)
+
 graph_utils_test_suite()
 
 projectfile_test_suite()
