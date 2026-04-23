@@ -1,0 +1,19 @@
+load("//py:defs.bzl", "py_test")
+
+# Exercises the console-script wrappers that py_binary/py_test generate under
+# <venv>/bin/<name> from each wheel's `[console_scripts]` entry points, and
+# the launcher's $PATH manipulation that makes them discoverable at runtime.
+#
+# Failure modes this test catches:
+#   - Wrapper file not written (PyWheelInfo plumbing broken)
+#   - Wrapper not on $PATH (launcher doesn't prepend <venv>/bin/)
+#   - Wrapper's `$(dirname "$0")/python` can't find the venv's python
+#   - Module resolution inside the wrapper fails (site-packages not set up)
+py_test(
+    name = "test_console_scripts",
+    srcs = ["test_console_scripts.py"],
+    deps = [
+        # cowsay declares a `cowsay` console-script entry point in its wheel.
+        "@pypi//cowsay",
+    ],
+)

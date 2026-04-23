@@ -13,6 +13,133 @@ load("//uv/private/constraints/platform:defs.bzl", "supported_platform")
 load("//uv/private/constraints/python:defs.bzl", "supported_python")
 load("//uv/private/pprint:defs.bzl", "pprint")
 
+def _find_whl_file(repository_ctx, whl_label):
+    """Resolve an http_file-style wheel label to the actual .whl path on disk.
+
+    whl_label typically points at an http_file's filegroup (`//file:file`),
+    so `repository_ctx.path` returns the filegroup's logical path — not
+    the actual .whl file, which is a sibling in the same directory under
+    its downloaded filename. Scan the parent directory to find it.
+
+    Returns None if no .whl file is found.
+    """
+    logical_path = repository_ctx.path(whl_label)
+    parent = logical_path.dirname
+    for entry in parent.readdir():
+        if entry.basename.endswith(".whl"):
+            return entry
+    return None
+
+def _extract_wheel_metadata(repository_ctx, whl_label):
+    """Peek inside a wheel to discover top-level names and console scripts.
+
+    Mirrors the rules_js `npm_import` pattern of doing partial archive
+    extraction at repo-rule time for metadata, rather than deferring to a
+    build-time action (which would leave the info invisible to analysis).
+
+    Reads:
+      * `*.dist-info/RECORD` (mandatory per PEP 427) to get top-level names.
+      * `*.dist-info/entry_points.txt` (optional) to get `[console_scripts]`.
+
+    Both reads go through `unzip -p` (stdout, no disk writes).
+
+    Args:
+      repository_ctx: The repo rule context.
+      whl_label: A Label pointing at a wheel file (typically an http_file
+                 target), passed in via the repo rule's `whl_files`
+                 label_list attr so Bazel wires up repo visibility.
+
+    Returns:
+      Tuple (top_levels, namespace_top_levels, console_scripts) where:
+        * top_levels: sorted list of top-level names.
+        * namespace_top_levels: sorted subset of top_levels that are PEP 420
+          namespace packages (no `<toplevel>/__init__.py` in RECORD).
+          Consumers use this to suppress collision errors when multiple
+          wheels contribute to the same namespace root (e.g. `jaraco.*`,
+          `google.*`, `zope.*`).
+        * console_scripts: sorted list of `"name=module:func"` encoded
+          strings (stable format for Starlark string_list plumbing).
+      All empty on any failure — callers tolerate empty and fall back.
+    """
+    unzip = repository_ctx.which("unzip")
+    if not unzip:
+        return [], [], []
+
+    whl_path = _find_whl_file(repository_ctx, whl_label)
+    if whl_path == None:
+        return [], [], []
+
+    # RECORD: authoritative list of every installed file. First path segment
+    # = top-level name, excluding the wheel's `*.data/` staging area.
+    record = repository_ctx.execute([unzip, "-p", str(whl_path), "*.dist-info/RECORD"])
+    top_levels_set = {}
+
+    # Tracks which top-levels contain a direct `<toplevel>/__init__.py` —
+    # i.e., are regular packages. The complement (top_levels that never
+    # appear with an `__init__.py` at depth 1) are PEP 420 namespace
+    # packages that expect to be merged across wheels.
+    regular_top_levels = {}
+    if record.return_code == 0 and record.stdout:
+        for line in record.stdout.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            path = line.split(",", 1)[0]
+            if not path:
+                continue
+            segments = path.split("/")
+            first_segment = segments[0]
+
+            # `*.data/` files (PEP 427) aren't installed to site-packages;
+            # they're routed to data/scripts/headers/purelib/etc. under
+            # sys.prefix. Exclude from site-packages top-level list.
+            if first_segment.endswith(".data"):
+                continue
+            top_levels_set[first_segment] = True
+
+            # Single-file modules (e.g. `six.py` at top level) aren't
+            # namespace packages — treat them as regular.
+            if len(segments) == 1 or (len(segments) >= 2 and segments[1] == "__init__.py"):
+                regular_top_levels[first_segment] = True
+
+    # entry_points.txt: INI-style file. Only `[console_scripts]` interests
+    # us — pip/uv synthesize executables under `bin/<name>` from those at
+    # install time. Missing file is normal (lots of libs have no scripts).
+    ep = repository_ctx.execute([unzip, "-p", str(whl_path), "*.dist-info/entry_points.txt"])
+    console_scripts = {}
+    if ep.return_code == 0 and ep.stdout:
+        in_console_scripts = False
+        for raw_line in ep.stdout.splitlines():
+            # Strip comments (`;` or `#`) and whitespace.
+            line = raw_line.split(";", 1)[0].split("#", 1)[0].strip()
+            if not line:
+                continue
+            if line.startswith("[") and line.endswith("]"):
+                in_console_scripts = line[1:-1].strip() == "console_scripts"
+                continue
+            if not in_console_scripts:
+                continue
+            if "=" not in line:
+                continue
+            name, _, target = line.partition("=")
+            name = name.strip()
+            target = target.strip()
+            if not name or ":" not in target:
+                continue
+
+            # Normalise to "name=module:func" so downstream parsing is trivial.
+            console_scripts[name] = "{}={}".format(name, target)
+
+    namespace_top_levels = sorted([
+        tl
+        for tl in top_levels_set
+        # dist-info directories are always regular (they have their own
+        # structure with no __init__.py). Don't flag them as namespaces.
+        if tl not in regular_top_levels and not tl.endswith(".dist-info")
+    ])
+
+    return sorted(top_levels_set.keys()), namespace_top_levels, sorted(console_scripts.values())
+
 def indent(text, space = " "):
     return "\n".join(["{}{}".format(space, l) for l in text.splitlines()])
 
@@ -244,12 +371,37 @@ py_library(
         "//conditions:default": "checked-hash",
     })"""
 
+    # Peek into one wheel (any one — different platforms of the same package
+    # all share the same site-packages layout) to extract the top-level names
+    # it installs AND its `[console_scripts]` entry points. This powers
+    # PyWheelsInfo, which py_binary can use to build a merged site-packages
+    # tree via ctx.actions.symlink and wrap console scripts into <venv>/bin/.
+    # Falls back gracefully to [] if extraction fails; consumers tolerate it.
+    #
+    # We read from `whl_files` (a real label_list) rather than `whls` (a
+    # JSON-encoded string of labels) because only the former adds the
+    # wheel repos to our visibility so `rctx.path(Label(...))` can resolve.
+    top_levels = []
+    namespace_top_levels = []
+    console_scripts = []
+    if repository_ctx.attr.whl_files:
+        top_levels, namespace_top_levels, console_scripts = _extract_wheel_metadata(
+            repository_ctx,
+            repository_ctx.attr.whl_files[0],
+        )
+
     install_attrs = """
     src = ":whl",
     compile_pyc = {compile_pyc},
-    pyc_invalidation_mode = {pyc_invalidation_mode},""".format(
+    pyc_invalidation_mode = {pyc_invalidation_mode},
+    top_levels = {top_levels},
+    namespace_top_levels = {namespace_top_levels},
+    console_scripts = {console_scripts},""".format(
         compile_pyc = compile_pyc_select,
         pyc_invalidation_mode = pyc_invalidation_mode_select,
+        top_levels = repr(top_levels),
+        namespace_top_levels = repr(namespace_top_levels),
+        console_scripts = repr(console_scripts),
     )
 
     if post_install_patches:
@@ -313,6 +465,12 @@ whl_install = repository_rule(
     implementation = _whl_install_impl,
     attrs = {
         "whls": attr.string(),
+        # Mirror of the http_file labels from `whls`, declared as a real
+        # label_list so Bazel adds those repos to this repo's visibility
+        # mapping. Needed so that `repository_ctx.path(Label(...))` can
+        # resolve any one of them at repo-rule time to peek at the wheel's
+        # `*.dist-info/RECORD` — see `_extract_top_levels` above.
+        "whl_files": attr.label_list(allow_files = [".whl"]),
         "sbuild": attr.label(),
         "post_install_patches": attr.string(default = ""),
         "post_install_patch_strip": attr.int(default = 0),

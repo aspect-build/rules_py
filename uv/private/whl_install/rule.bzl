@@ -2,6 +2,7 @@
 """
 
 load("@rules_python//python:defs.bzl", "PyInfo")
+load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PY_TOOLCHAIN", "UNPACK_TOOLCHAIN")
 
 def _whl_install(ctx):
@@ -65,7 +66,12 @@ def _whl_install(ctx):
         },
     )
 
-    return [
+    site_packages_rfpath = ctx.label.repo_name + "/install/lib/python{}.{}/site-packages".format(
+        py_toolchain.interpreter_version_info.major,
+        py_toolchain.interpreter_version_info.minor,
+    )
+
+    providers = [
         DefaultInfo(
             # install_dir is an intermediate artifact consumed by downstream
             # Python rules via PyInfo.transitive_sources. Excluding it from
@@ -85,17 +91,32 @@ def _whl_install(ctx):
             transitive_sources = depset([
                 install_dir,
             ]),
-            imports = depset([
-                ctx.label.repo_name + "/install/lib/python{}.{}/site-packages".format(
-                    py_toolchain.interpreter_version_info.major,
-                    py_toolchain.interpreter_version_info.minor,
-                ),
-            ]),
+            imports = depset([site_packages_rfpath]),
             has_py2_only_sources = False,
             has_py3_only_sources = True,
             uses_shared_libraries = False,
         ),
     ]
+
+    if ctx.attr.top_levels or ctx.attr.console_scripts:
+        providers.append(PyWheelsInfo(
+            wheels = depset(direct = [struct(
+                top_levels = tuple(ctx.attr.top_levels),
+                # PEP 420 namespace packages this wheel contributes to.
+                # When multiple wheels claim the same top-level and ALL of
+                # them flag it as namespace, py_binary treats the
+                # collision as benign and falls back to .pth-based
+                # resolution so Python's namespace-package machinery
+                # merges contributions across wheels.
+                namespace_top_levels = tuple(ctx.attr.namespace_top_levels),
+                site_packages_rfpath = site_packages_rfpath,
+                # Each entry is "name=module:func"; py_binary parses into
+                # wrapper scripts at <venv>/bin/<name> at analysis time.
+                console_scripts = tuple(ctx.attr.console_scripts),
+            )]),
+        ))
+
+    return providers
 
 whl_install = rule(
     implementation = _whl_install,
@@ -131,6 +152,41 @@ lighter weight since the toolchain's files aren't inputs.
             default = "checked-hash",
             values = ["checked-hash", "unchecked-hash", "timestamp"],
             doc = "PEP 552 invalidation mode for pre-compiled .pyc files.",
+        ),
+        "top_levels": attr.string_list(
+            doc = """Names of the top-level packages / modules / *.dist-info directories this wheel installs into its site-packages.
+
+When set, the target emits a `PyWheelsInfo` provider describing this wheel.
+Downstream rules (such as `py_binary`) can consume this to assemble a merged
+`site-packages/` tree via `ctx.actions.symlink` instead of relying on `.pth`
+entries. Empty default preserves existing `.pth`-based behavior.
+
+Typically populated automatically by the `whl_install` repo rule from the
+wheel's `*.dist-info/top_level.txt` or `RECORD` at repo-fetch time.
+""",
+            default = [],
+        ),
+        "console_scripts": attr.string_list(
+            doc = """Console-script entry points declared by this wheel, in the form `"name=module:func"`.
+
+Populated from the wheel's `*.dist-info/entry_points.txt` `[console_scripts]`
+section by the `whl_install` repo rule at repo-fetch time. `py_binary`
+consumes these via `PyWheelsInfo` to generate executable wrappers under
+`<venv>/bin/<name>` so `subprocess.run(["<name>", ...])` works.
+""",
+            default = [],
+        ),
+        "namespace_top_levels": attr.string_list(
+            doc = """Subset of `top_levels` that are PEP 420 namespace packages.
+
+A top-level is a namespace if the wheel's RECORD shows no
+`<toplevel>/__init__.py`. When multiple wheels contribute to the same
+namespace (e.g. `jaraco-classes` and `jaraco-functools` both claim
+`jaraco`), `py_binary`'s collision detector treats the overlap as
+benign and falls back to `.pth`-based resolution so Python's namespace
+machinery merges the contributions at runtime.
+""",
+            default = [],
         ),
     },
     toolchains = [

@@ -8,7 +8,7 @@ load("@bazel_skylib//lib:new_sets.bzl", "sets")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 load("@rules_python//python:defs.bzl", "PyInfo")
-load("//py/private:providers.bzl", "PyVirtualInfo")
+load("//py/private:providers.bzl", "PyVirtualInfo", "PyWheelsInfo")
 
 def _make_instrumented_files_info(ctx, extra_source_attributes = [], extra_dependency_attributes = []):
     return coverage_common.instrumented_files_info(
@@ -155,6 +155,24 @@ def _make_imports_depset(ctx, imports = [], extra_imports_depsets = []):
         ] + extra_imports_depsets,
     )
 
+def _make_wheels_depset(ctx, extra_transitive = []):
+    """Collect PyWheelsInfo.wheels across deps + resolutions.
+
+    Used by downstream rules that want a flat list of wheels (with their
+    declared top-level names) in the transitive closure, for building a
+    merged site-packages via symlinks.
+    """
+    transitive = [
+        target[PyWheelsInfo].wheels
+        for target in getattr(ctx.attr, "deps", [])
+        if PyWheelsInfo in target
+    ]
+    for target in getattr(ctx.attr, "resolutions", {}).keys():
+        if PyWheelsInfo in target:
+            transitive.append(target[PyWheelsInfo].wheels)
+    transitive.extend(extra_transitive)
+    return depset(transitive = transitive)
+
 def _make_merged_runfiles(ctx, extra_depsets = [], extra_runfiles = [], extra_runfiles_depsets = []):
     runfiles_targets = getattr(ctx.attr, "deps", []) + getattr(ctx.attr, "data", [])
     runfiles = ctx.runfiles(
@@ -178,6 +196,7 @@ def _py_library_impl(ctx):
     resolutions = _make_virtual_resolutions_depset(ctx)
     runfiles = _make_merged_runfiles(ctx, extra_runfiles = ctx.files.srcs)
     instrumented_files_info = _make_instrumented_files_info(ctx)
+    wheels = _make_wheels_depset(ctx)
 
     return [
         DefaultInfo(
@@ -194,6 +213,9 @@ def _py_library_impl(ctx):
         PyVirtualInfo(
             dependencies = virtuals,
             resolutions = resolutions,
+        ),
+        PyWheelsInfo(
+            wheels = wheels,
         ),
         instrumented_files_info,
     ]
@@ -240,6 +262,7 @@ py_library_utils = struct(
     make_instrumented_files_info = _make_instrumented_files_info,
     make_merged_runfiles = _make_merged_runfiles,
     make_srcs_depset = _make_srcs_depset,
+    make_wheels_depset = _make_wheels_depset,
     py_library_providers = _providers,
     resolve_virtuals = _resolve_virtuals,
 )
