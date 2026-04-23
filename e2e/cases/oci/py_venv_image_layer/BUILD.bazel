@@ -51,6 +51,9 @@ py_venv_binary(
 py_image_layer(
     name = "my_app_layers",
     binary = ":my_app_bin",
+    # Remap the binary to /app so the launcher sees its runfiles at /app.runfiles/.
+    root = "/app",
+    strip_prefix = "cases/oci/py_venv_image_layer/my_app_bin",
 )
 
 platform_transition_filegroup(
@@ -85,7 +88,7 @@ oci_image(
     name = "image",
     # This is defined by an oci.pull() call in /MODULE.bazel
     base = "@ubuntu",
-    entrypoint = ["/{}/my_app_bin".format(package_name())],
+    entrypoint = ["/app"],
     tars = [":my_app_layers"],
 )
 

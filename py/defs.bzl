@@ -36,7 +36,12 @@ python.toolchain(python_version = "3.9", is_default = True)
 """
 
 load("//py/private:py_binary.bzl", _py_binary = "py_binary", _py_test = "py_test")
-load("//py/private:py_image_layer.bzl", _py_image_layer = "py_image_layer")
+load(
+    "//py/private:py_image_layer.bzl",
+    _LayerTierInfo = "LayerTierInfo",
+    _layer_tier = "layer_tier",
+    _py_image_layer = "py_image_layer",
+)
 load("//py/private:py_library.bzl", _py_library = "py_library")
 load("//py/private:py_pex_binary.bzl", _py_pex_binary = "py_pex_binary")
 load("//py/private:py_pytest_main.bzl", _py_pytest_main = "py_pytest_main", _pytest_paths = "pytest_paths")
@@ -57,6 +62,8 @@ py_library = _py_library
 py_unpacked_wheel = _py_unpacked_wheel
 
 py_image_layer = _py_image_layer
+layer_tier = _layer_tier
+LayerTierInfo = _LayerTierInfo
 
 resolutions = _resolutions
 
