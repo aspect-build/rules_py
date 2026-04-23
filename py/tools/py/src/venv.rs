@@ -56,6 +56,7 @@ pub fn create_venv(
         interpreter,
         uv_virtualenv::Prompt::Static(venv_name.to_string()),
         false,
+        uv_virtualenv::OnExisting::Allow,
         false,
         false,
         false,

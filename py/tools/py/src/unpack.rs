@@ -1,9 +1,9 @@
 use std::{
-    fs,
     path::{Path, PathBuf},
     str::FromStr,
 };
 
+use fs_err as fs;
 use itertools::Itertools;
 use miette::{Context, IntoDiagnostic, Result};
 use percent_encoding::percent_decode_str;
@@ -75,16 +75,18 @@ pub fn unpack_wheel(
     let wheel_file_name =
         uv_distribution_filename::WheelFilename::from_str(&filename).into_diagnostic()?;
 
-    uv_install_wheel::linker::install_wheel(
+    uv_install_wheel::install_wheel::<(), ()>(
         &layout,
         false,
         temp.path(),
         &wheel_file_name,
         None,
         None,
+        None,
         Some("aspect_rule_py"),
-        uv_install_wheel::linker::LinkMode::Copy,
-        &uv_install_wheel::linker::Locks::default(),
+        false,
+        uv_install_wheel::LinkMode::Copy,
+        &uv_install_wheel::InstallState::default(),
     )
     .into_diagnostic()?;
 
