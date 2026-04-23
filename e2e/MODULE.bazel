@@ -5,7 +5,7 @@ bazel_dep(name = "bazel_features", version = "1.38.0")
 bazel_dep(name = "bazel_skylib", version = "1.4.2")
 bazel_dep(name = "bazel_lib", version = "3.0.0")
 bazel_dep(name = "rules_cc", version = "0.2.16")
-bazel_dep(name = "tar.bzl", version = "0.5.5")
+bazel_dep(name = "tar.bzl", version = "0.10.1")
 bazel_dep(name = "rules_python", version = "1.0.0")
 bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "llvm", version = "0.7.1")
@@ -19,7 +19,7 @@ local_path_override(
 )
 
 # Python interpreters provisioned from python-build-standalone via aspect_rules_py
-interpreters = use_extension("@aspect_rules_py//py/unstable:extension.bzl", "python_interpreters")
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
 interpreters.configure(
     releases = [
         "20260303",
@@ -151,7 +151,7 @@ use_repo(uv_bin, "uv", "uv_bazel_fork", "uv_custom", "uv_legacy", "uv_mirror")
 
 # For cases/uv-deps-650
 # {{{
-uv = use_extension("@aspect_rules_py//uv/unstable:extension.bzl", "uv")
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi")
 uv.project(
     hub_name = "pypi",

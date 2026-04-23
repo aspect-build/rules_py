@@ -1,10 +1,4 @@
-load("@bazel_lib//:bzl_library.bzl", "bzl_library")
-
-bzl_library(
-    name = "defs",
-    srcs = ["defs.bzl"],
-    visibility = ["//visibility:public"],
-    deps = [
-        "//py/private/py_venv:defs",
-    ],
-)
+# Removed in rules_py v2.0.0 — see defs.bzl / extension.bzl in this
+# directory for migration messages. No targets are declared here; the
+# .bzl files exist solely as fail() shims that point users at the new
+# stable load paths (//py:defs.bzl and //py:extensions.bzl).

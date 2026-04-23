@@ -13,3 +13,7 @@ If using Gazelle, see the note on [using with Gazelle](/README.md#using-with-gaz
 ## Remaining notes
 
 Users are encouraged to send a Pull Request to add more documentation as they uncover issues during migrations.
+
+## Migrating between `aspect_rules_py` versions
+
+- [1.x → 2.0.0](migrating_v1_v2.md)

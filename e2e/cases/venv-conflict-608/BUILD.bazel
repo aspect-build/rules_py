@@ -1,16 +1,18 @@
 load("@aspect_rules_py//py:defs.bzl", "py_binary")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 
+# Regression test for #608 and #686: building a `py_binary` AND its
+# sibling `<name>.venv` target in the same invocation must not action-
+# conflict on any shared output. In v2.0.0 the `.venv` sibling is
+# opt-in via `expose_venv = True` rather than auto-generated; the
+# same invariant still holds.
 py_binary(
     name = "app",
     srcs = ["app.py"],
+    expose_venv = True,
     python_version = "3.11",
 )
 
-# Regression test for https://github.com/aspect-build/rules_py/issues/608
-# and https://github.com/aspect-build/rules_py/issues/686.
-# Building a py_binary and its auto-generated .venv target in the same
-# invocation must not produce an action conflict on <name>.venv.pth.
 build_test(
     name = "test_no_venv_conflict",
     targets = [

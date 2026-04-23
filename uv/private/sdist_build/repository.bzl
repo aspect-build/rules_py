@@ -213,13 +213,19 @@ def _sdist_build_impl(repository_ctx):
 
     repository_ctx.file("BUILD.bazel", content = """
 load("@aspect_rules_py//uv/private/pep517_whl:rule.bzl", "{rule}")
-load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_binary")
+load("@aspect_rules_py//py:defs.bzl", "py_binary")
 
-py_venv_binary(
+py_binary(
     name = "build_tool",
     main = "@aspect_rules_py//uv/private/pep517_whl:build_helper.py",
     srcs = ["@aspect_rules_py//uv/private/pep517_whl:build_helper.py"],
     deps = {deps},
+    # sdist build-tool venvs pull in overlapping top-levels (setuptools +
+    # importlib_metadata both ship `importlib_metadata`, etc). We don't
+    # want analysis-time collision errors to block legitimate sdist
+    # builds — the build_helper is a single entrypoint that doesn't
+    # care about ordering nuances, so first-wins is fine.
+    package_collisions = "ignore",
 )
 
 {rule}(

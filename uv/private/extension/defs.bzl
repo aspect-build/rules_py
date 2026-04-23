@@ -17,7 +17,7 @@ The following example shows how to use the `uv` module extension in a `MODULE.ba
 file:
 
 ```starlark
-uv = use_extension("@aspect_rules_py//uv:extension.bzl", "uv")
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.hub(name = "uv")
 uv.project(
     hub_name = "uv",
@@ -581,6 +581,10 @@ def _uv_impl(module_ctx):
             "name": install_id,
             "sbuild": install_cfg.sbuild,
             "whls": json.encode(install_cfg.whls),
+            # Parallel list of the same wheel labels as a real label_list,
+            # so the whl_install repo rule can `rctx.path()` them to peek
+            # at `*.dist-info/RECORD` for top-level metadata.
+            "whl_files": [v for v in install_cfg.whls.values() if v],
         }
         if install_cfg.post_install_patches:
             install_kwargs["post_install_patches"] = json.encode(install_cfg.post_install_patches)

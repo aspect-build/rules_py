@@ -4,12 +4,12 @@
 # access files from the wheel directory directly must use a filegroup with
 # output_group = "install_dir". This test exercises that pattern end-to-end.
 
-load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
+load("@aspect_rules_py//py:defs.bzl", "py_test")
 
 # Access the install dir via the install_dir output group rather than
 # DefaultInfo.files (which is intentionally empty since #907).
 #
-# This filegroup is placed in py_venv_test's data (not a genrule srcs) so that
+# This filegroup is placed in the test's data (not a genrule srcs) so that
 # the venv transition applies and @pypi//iniconfig's hub select resolves.
 filegroup(
     name = "iniconfig_install_dir",
@@ -17,12 +17,25 @@ filegroup(
     output_group = "install_dir",
 )
 
-py_venv_test(
+py_test(
     name = "test",
     srcs = ["test.py"],
     data = [":iniconfig_install_dir"],
     main = "test.py",
     python_version = "3.11",
     venv = "uv-whl-install-output-group",
+    deps = ["@pypi//iniconfig"],
+)
+
+py_test(
+    name = "venv_test",
+    srcs = ["test.py"],
+    data = [":iniconfig_install_dir"],
+    expose_venv = True,
+    isolated = False,
+    main = "test.py",
+    python_version = "3.11",
+    venv = "uv-whl-install-output-group",
+    venv_dir_basename = ".venv_test",
     deps = ["@pypi//iniconfig"],
 )

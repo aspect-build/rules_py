@@ -78,11 +78,11 @@ to swap a locked requirement (`cowsay`) for a local one.
 # MODULE.bazel
 bazel_dep(name = "aspect_rules_py", version = "1.6.7") # Or later
 
-uv_bin = use_extension("@aspect_rules_py//uv/unstable:extension.bzl", "uv_bin")
+uv_bin = use_extension("@aspect_rules_py//uv:extension.bzl", "uv_bin")
 uv_bin.toolchain(version = "0.11.6")
 use_repo(uv_bin, "uv")
 
-uv = use_extension("@aspect_rules_py//uv/unstable:extension.bzl", "uv")
+uv = use_extension("@aspect_rules_py//uv:extension.bzl", "uv")
 uv.declare_hub(
     hub_name = "pypi",      # Or whatever you wish
 )
@@ -197,8 +197,7 @@ using platform transitions.
 
 ```
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
-load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_binary")
-load("@aspect_rules_py//py:defs.bzl", "py_image_layer")
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer")
 
 platform(
     name = "arm64_linux",
@@ -214,7 +213,7 @@ platform(
     ],
 )
 
-py_venv_binary(
+py_binary(
     name = "app_bin",
     srcs = ["__main__.py"],
     main = "__main__.py",
@@ -322,7 +321,7 @@ this file from your locked wheels.
 
 ```starlark
 # BUILD.bazel (typically at the workspace root)
-load("@aspect_rules_py//uv/unstable:defs.bzl", "gazelle_python_manifest")
+load("@aspect_rules_py//uv:defs.bzl", "gazelle_python_manifest")
 
 gazelle_python_manifest(
     name = "gazelle_python_manifest",

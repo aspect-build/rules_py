@@ -1,6 +1,6 @@
-load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
+load("@aspect_rules_py//py:defs.bzl", "py_test")
 
-py_venv_test(
+py_test(
     name = "test_a",
     srcs = ["test_a.py"],
     main = "test_a.py",
@@ -10,11 +10,37 @@ py_venv_test(
     ],
 )
 
-py_venv_test(
+py_test(
+    name = "test_a_venv_test",
+    srcs = ["test_a.py"],
+    expose_venv = True,
+    isolated = False,
+    main = "test_a.py",
+    venv = "tilde-a",
+    venv_dir_basename = ".test_a_venv_test",
+    deps = [
+        "@pypi//packaging",
+    ],
+)
+
+py_test(
     name = "test_b",
     srcs = ["test_b.py"],
     main = "test_b.py",
     venv = "tilde-b",
+    deps = [
+        "@pypi//packaging",
+    ],
+)
+
+py_test(
+    name = "test_b_venv_test",
+    srcs = ["test_b.py"],
+    expose_venv = True,
+    isolated = False,
+    main = "test_b.py",
+    venv = "tilde-b",
+    venv_dir_basename = ".test_b_venv_test",
     deps = [
         "@pypi//packaging",
     ],

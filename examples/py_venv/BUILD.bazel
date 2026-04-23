@@ -1,9 +1,10 @@
 load("@bazel_lib//lib:expand_template.bzl", "expand_template")
-load("//py:defs.bzl", "py_image_layer")
-load("//py/unstable:defs.bzl", "py_venv", "py_venv_binary")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("//py:defs.bzl", "py_binary", "py_image_layer", "py_venv")
 
 expand_template(
     name = "stamped",
+    out = "stamped.py",
     stamp_substitutions = {
         "<BUILD_TIMESTAMP>": "{{BUILD_TIMESTAMP}}",
     },
@@ -12,31 +13,55 @@ expand_template(
 
 py_venv(
     name = "venv",
+    imports = ["."],
     deps = [
         "@pypi//cowsay",
     ],
 )
 
-py_venv_binary(
+py_binary(
     name = "external_venv",
     srcs = [
         ":stamped",
     ],
-    imports = [
-        ".",
-    ],
+    external_venv = ":venv",
     main = ":stamped",
-    venv = ":venv",
 )
 
-py_venv_binary(
+# Same shape as `external_venv` above but with `expose_venv = True` on
+# the binary macro itself — the hidden `_internal_venv_venv` is
+# auto-generated from the binary's deps. Preserves the legacy on-disk
+# venv directory (`.internal_venv/`) via `venv_dir_basename`.
+py_binary(
     name = "internal_venv",
     srcs = [
         ":stamped",
     ],
+    expose_venv = True,
     imports = [
         ".",
     ],
+    isolated = False,
+    main = ":stamped",
+    venv_dir_basename = ".internal_venv",
+    deps = [
+        "@pypi//cowsay",
+    ],
+)
+
+# Variant of `internal_venv` without the venv_dir_basename override, so
+# the hidden venv lands at the default `.<name>_venv/` basename.
+# Exercises the expose_venv codepath with minimal attrs set.
+py_binary(
+    name = "exposed_venv",
+    srcs = [
+        ":stamped",
+    ],
+    expose_venv = True,
+    imports = [
+        ".",
+    ],
+    isolated = False,
     main = ":stamped",
     deps = [
         "@pypi//cowsay",
@@ -46,4 +71,29 @@ py_venv_binary(
 py_image_layer(
     name = "layers",
     binary = ":internal_venv",
+)
+
+# Regression-test that all three venv-sourcing paths succeed end-to-end
+# — the binary's main imports cowsay and prints the canonical
+# "hello py_venv!" banner; if any path fails to wire wheels onto
+# sys.path, the import blows up at runtime and so does the test.
+sh_test(
+    name = "test_internal_venv",
+    srcs = ["run_and_grep.sh"],
+    args = ["internal_venv"],
+    data = [":internal_venv"],
+)
+
+sh_test(
+    name = "test_external_venv",
+    srcs = ["run_and_grep.sh"],
+    args = ["external_venv"],
+    data = [":external_venv"],
+)
+
+sh_test(
+    name = "test_exposed_venv",
+    srcs = ["run_and_grep.sh"],
+    args = ["exposed_venv"],
+    data = [":exposed_venv"],
 )

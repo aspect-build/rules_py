@@ -25,17 +25,14 @@ bzl_library(
     ],
 )
 
-bzl_library(
-    name = "extensions",
-    srcs = ["extensions.bzl"],
-    visibility = ["//visibility:public"],
-    deps = [
-        ":toolchains",
-        "//py/private/release:version",
-        "@aspect_tools_telemetry_report//:defs.bzl",
-        "@bazel_features//:features",
-    ],
-)
+# No bzl_library for extensions.bzl: loading from
+# //py/private/interpreter:extension.bzl would require declaring the
+# full transitive bzl_library chain (repository / version_util /
+# versions / bazel_features / rules_python / …) just so
+# `starlark_doc_extract` (which `bzl_library` generates as a sibling)
+# resolves. `load()` works without bzl_library regardless, and
+# nothing in-repo depends on //py:extensions as a bzl_library target.
+exports_files(["extensions.bzl"])
 
 bzl_library(
     name = "toolchains",

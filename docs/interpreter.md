@@ -27,7 +27,7 @@ macOS.
 # MODULE.bazel
 bazel_dep(name = "aspect_rules_py", version = "1.6.7")  # Or later
 
-interpreters = use_extension("@aspect_rules_py//py/unstable:extension.bzl", "python_interpreters")
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
 interpreters.toolchain(
     is_default = True,
     python_version = "3.12",
@@ -48,7 +48,7 @@ full range of available Python versions. Use `configure()` to pin to specific
 releases or to include versions that have been dropped from newer releases:
 
 ```starlark
-interpreters = use_extension("@aspect_rules_py//py/unstable:extension.bzl", "python_interpreters")
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
 interpreters.configure(
     releases = ["20260303", "20241002"],
 )
@@ -146,9 +146,8 @@ bazel test //... --@aspect_rules_py//py:python_version=3.11
 
 ### 3. Per-target overrides (python_version attribute)
 
-Individual `py_binary`, `py_venv_binary`, `py_test`, and `py_venv_test` targets
-can pin to a specific version using the `python_version` attribute. This takes
-precedence over the flag:
+Individual `py_binary` and `py_test` targets can pin to a specific version
+using the `python_version` attribute. This takes precedence over the flag:
 
 ```starlark
 load("@aspect_rules_py//py:defs.bzl", "py_binary")
@@ -165,7 +164,7 @@ library that only supports 3.12+, or a test matrix that exercises multiple
 versions:
 
 ```starlark
-[py_venv_test(
+[py_test(
     name = "test_py%s" % v.replace(".", ""),
     srcs = ["test.py"],
     main = "test.py",
