@@ -18,7 +18,7 @@ python.toolchain(
     python_version = "3.11",
 )
 
-uv = use_extension("@aspect_rules_py//uv/unstable:extension.bzl", "uv")
+uv = use_extension("@aspect_rules_py//uv:extension.bzl", "uv")
 uv.declare_hub(hub_name = "pypi")
 uv.project(
     default_build_dependencies = [
@@ -28,5 +28,6 @@ uv.project(
     hub_name = "pypi",
     lock = "//:uv.lock",
     pyproject = "//:pyproject.toml",
+    python_version = "3.11",
 )
 use_repo(uv, "pypi")

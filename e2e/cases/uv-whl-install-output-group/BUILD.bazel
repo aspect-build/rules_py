@@ -4,7 +4,7 @@
 # access files from the wheel directory directly must use a filegroup with
 # output_group = "install_dir". This test exercises that pattern end-to-end.
 
-load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
+load("@aspect_rules_py//py/private/py_venv:defs.bzl", "py_venv_test")
 
 # Access the install dir via the install_dir output group rather than
 # DefaultInfo.files (which is intentionally empty since #907).

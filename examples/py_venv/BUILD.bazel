@@ -1,6 +1,6 @@
 load("@bazel_lib//lib:expand_template.bzl", "expand_template")
 load("//py:defs.bzl", "py_image_layer")
-load("//py/unstable:defs.bzl", "py_venv", "py_venv_binary")
+load("//py/private/py_venv:defs.bzl", "py_venv", "py_venv_binary")
 
 expand_template(
     name = "stamped",

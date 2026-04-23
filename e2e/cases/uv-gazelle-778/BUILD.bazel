@@ -1,4 +1,4 @@
-load("@aspect_rules_py//uv/unstable:defs.bzl", "gazelle_python_manifest")
+load("@aspect_rules_py//uv/private/gazelle_manifest:defs.bzl", "gazelle_python_manifest")
 
 # Exercise generating a Gazelle manifest covering a ton of venvs
 gazelle_python_manifest(

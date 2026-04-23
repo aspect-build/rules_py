@@ -1,4 +1,4 @@
-load("@aspect_rules_py//uv/unstable:defs.bzl", "py_console_script_binary")
+load("@aspect_rules_py//py:defs.bzl", "py_console_script_binary")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 py_console_script_binary(

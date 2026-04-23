@@ -5,7 +5,7 @@
 # asserting that the exec and target platforms match. This test verifies that the
 # per-platform toolchain entries generated into @rules_py_tools are reachable.
 
-load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
+load("@aspect_rules_py//py/private/py_venv:defs.bzl", "py_venv_test")
 
 py_venv_test(
     name = "test",

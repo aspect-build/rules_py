@@ -1,5 +1,5 @@
 load("@aspect_rules_py//py:defs.bzl", "py_binary")
-load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_binary")
+load("@aspect_rules_py//py/private/py_venv:defs.bzl", "py_venv_binary")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 # py_binary uses run.tmpl.sh which has the alocation bug

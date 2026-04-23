@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
+load("@aspect_rules_py//py/private/py_venv:defs.bzl", "py_venv_test")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_test")
 
 platform(

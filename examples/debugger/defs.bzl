@@ -1,6 +1,6 @@
 """Wrapper macro that injects debugpy as a wrapper entrypoint."""
 
-load("@aspect_rules_py//py/unstable:defs.bzl", _py_venv_binary = "py_venv_binary")
+load("@aspect_rules_py//py/private/py_venv:defs.bzl", _py_venv_binary = "py_venv_binary")
 
 def _debug_main_impl(ctx):
     """Generate a debugpy wrapper that runs the real entrypoint."""

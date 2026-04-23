@@ -1,5 +1,5 @@
 load("@aspect_rules_py//py:defs.bzl", "py_test")
-load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
+load("@aspect_rules_py//py/private/py_venv:defs.bzl", "py_venv_test")
 
 # Regression test for #530: pytest-mock plugin must be discoverable.
 py_test(
