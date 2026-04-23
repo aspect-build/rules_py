@@ -100,5 +100,4 @@ Python >= 3.11 (for `tomllib`). It is located at:
     @aspect_rules_py//uv/private/sdist_configure:detect_native.py
 """
 
-# Default configure script bundled with rules_py.
 DEFAULT_CONFIGURE_SCRIPT = Label("//uv/private/sdist_configure:detect_native.py")

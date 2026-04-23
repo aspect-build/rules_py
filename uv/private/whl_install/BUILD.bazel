@@ -9,7 +9,7 @@ package(default_visibility = [
 bzl_library(
     name = "rule",
     srcs = ["rule.bzl"],
-    deps = ["@rules_python//python:defs_bzl"],
+    deps = [],
 )
 
 bzl_library(

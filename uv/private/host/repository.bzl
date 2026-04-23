@@ -1,12 +1,19 @@
-"""Host config for constraints.
+"""Host platform detection repository rule.
 
-Inspect the build host and decide default values for the various build
-constraints such as the libc version or the darwin version as needed. This
-allows for compatible prebuilds to be selected by default.
-
+Inspects the build host and emits default values for platform constraints
+such as the libc family and version. This allows compatible prebuilt
+artifacts to be selected by default.
 """
 
 def _translate_os(os):
+    """Normalize the OS name returned by Bazel to an internal identifier.
+
+    Args:
+      os: the string returned by `rctx.os.name`.
+
+    Returns:
+      One of "osx", "freebsd", "openbsd", "linux", "windows", or None.
+    """
     if os.startswith("mac os"):
         return "osx"
     if os.startswith("freebsd"):
@@ -20,6 +27,19 @@ def _translate_os(os):
     return None
 
 def _platform(rctx):
+    """Detect the host platform libc and version.
+
+    On macOS this uses `sw_vers` to obtain the libsystem version.
+    On Linux this uses `ldd --version` to distinguish between musl and glibc.
+
+    Args:
+      rctx: the repository context.
+
+    Returns:
+      A tuple `(libc, version)` where `libc` is a string such as
+      "libsystem", "musl", or "glibc", and `version` is a "major.minor"
+      string.
+    """
     os = _translate_os(rctx.os.name)
 
     if os == "osx":
@@ -34,35 +54,22 @@ def _platform(rctx):
 
         out = res.stdout.lower()
 
-        # - Alpine: "musl libc\nversion <ver>\n ..."
         if "musl" in out:
             ver = res.stdout.split("\n")[1].split(" ")[-1].split(".")
             return "musl", "{}.{}".format(ver[0], ver[1])
 
-            # - Amazon Linux: "ldd (gnu libc ...) <ver>\n..."
-            # - Arch Linux: "ldd (gnu libc ...) <ver>\n..."
-            # - Debian: "ldd (debian glibc ...) <ver>\n..."
-            # - Fedora: "ldd (gnu libc ...) <ver>\n..."
-            # - Oracle Linux: "ldd (gnu libc ...) <ver>\n..."
-            # - Ubuntu: "ldd (ubuntu glibc ...) <ver>\n..."
-
         elif "glibc" in out or "gnu libc" in out:
             ver = res.stdout.split("\n")[0].split(")")[1].strip().split(".")
-            major = ver[0]
-            minor = ver[1]
-            return "glibc", "{}.{}".format(major, minor)
+            return "glibc", "{}.{}".format(ver[0], ver[1])
 
         else:
             fail("Unknown libc from ldd --version %r" % res.stdout)
 
-    # TODO: Windows
-    # TODO: Other
-
     fail("Unsupported platform {}".format(os))
 
 def _host_platform_repo_impl(rctx):
+    """Generate a repository exposing host platform constraints."""
     rctx.file("BUILD.bazel", """
-# DO NOT EDIT: automatically generated BUILD file
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 
 bzl_library(
@@ -75,16 +82,17 @@ bzl_library(
     libc, version = _platform(rctx)
 
     rctx.file("defs.bzl", """
-# DO NOT EDIT: automatically generated constraints list
 CURRENT_PLATFORM_LIBC = {}
 CURRENT_PLATFORM_VERSION = {}
 """.format(repr(libc), repr(version)))
 
 host_platform_repo = repository_rule(
     implementation = _host_platform_repo_impl,
-    doc = """Generates constraints for the host platform. The constraints.bzl
-file contains a single <code>HOST_CONSTRAINTS</code> variable, which is a
-list of strings, each of which is a label to a <code>constraint_value</code>
-for the host platform.""",
+    doc = """Generates constraints for the host platform.
+
+The generated `defs.bzl` file contains `CURRENT_PLATFORM_LIBC` and
+`CURRENT_PLATFORM_VERSION`, which can be consumed by other build logic
+to select compatible prebuilt artifacts.
+""",
     local = True,
 )

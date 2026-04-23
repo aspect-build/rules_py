@@ -30,7 +30,6 @@ def supported_python(python_tag):
     else:
         return False
 
-_PYTHON_VERSION_MAJOR_MINOR_FLAG = Label("@rules_python//python/config_settings:python_version_major_minor")
 _ARPY_PYTHON_VERSION_FLAG = Label("@aspect_rules_py//py/private/interpreter:python_version")
 
 def is_python_version_at_least(name, version = None, visibility = visibility, **kwargs):
@@ -51,28 +50,14 @@ def is_python_version_at_least(name, version = None, visibility = visibility, **
     )
 
 def _python_version_at_least_impl(ctx):
-    # Read from both sources
-    rpy_value = ctx.attr._major_minor[config_common.FeatureFlagInfo].value
     arpy_raw = ctx.attr._arpy_version[BuildSettingInfo].value
 
     # Normalize aspect_rules_py flag to major.minor
-    arpy_value = ""
+    flag_value = ""
     if arpy_raw:
         parts = arpy_raw.split(".")
         if len(parts) >= 2:
-            arpy_value = "{}.{}".format(parts[0], parts[1])
-
-    # Error on disagreement when both are set
-    if arpy_value and rpy_value and arpy_value != rpy_value:
-        fail(
-            "Python version mismatch: " +
-            "@aspect_rules_py//py/private/interpreter:python_version is {}, ".format(arpy_value) +
-            "but @rules_python python_version_major_minor is {}. ".format(rpy_value) +
-            "These must agree.",
-        )
-
-    # Aspect flag is authoritative; rules_python is fallback
-    flag_value = arpy_value or rpy_value
+            flag_value = "{}.{}".format(parts[0], parts[1])
 
     if not flag_value:
         return [config_common.FeatureFlagInfo(value = "no")]
@@ -87,7 +72,6 @@ _python_version_at_least = rule(
     implementation = _python_version_at_least_impl,
     attrs = {
         "at_least": attr.string(mandatory = True),
-        "_major_minor": attr.label(default = _PYTHON_VERSION_MAJOR_MINOR_FLAG),
         "_arpy_version": attr.label(default = _ARPY_PYTHON_VERSION_FLAG),
     },
 )

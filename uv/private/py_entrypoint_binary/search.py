@@ -13,8 +13,6 @@ import sys
 class CaseSensitiveConfigParser(configparser.ConfigParser):
     optionxform = staticmethod(str)
 
-# Quick and dirty re-implementation of the setuptools search.
-
 PARSER = argparse.ArgumentParser()
 PARSER.add_argument("--template")
 PARSER.add_argument("--script")
@@ -43,7 +41,6 @@ if not entrypoint:
     print("Failed to identify the requested entrpoint script!", file=sys.stderr)
     exit(1)
 
-# <name> = <package_or_module>[:<object>[.<attr>[.<nested-attr>]*]]
 package, symbol = entrypoint.split(":")
 
 if "." in symbol:

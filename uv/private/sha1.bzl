@@ -18,7 +18,6 @@ def rotl32(x, n):
     """
     return ((x << n) | (x >> (32 - n))) & 0xFFFFFFFF
 
-# buildifier: disable=uninitialized
 def sha1(input):
     """sha1sum.
 

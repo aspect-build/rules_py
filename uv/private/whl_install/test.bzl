@@ -7,10 +7,8 @@ def _whl_sorting_test_impl(ctx):
     a = ("cp314", "musllinux_1_2_s390x", "cp314")
     at = ("cp314", "musllinux_1_2_s390x", "cp314t")
 
-    # Ensure that the freethreaded wheel scores lowest
     asserts.true(env, select_key(at) > select_key(a))
 
-    # Ensure that the sorted arms put the freethreaded wheel first
     asserts.equals(
         env,
         [

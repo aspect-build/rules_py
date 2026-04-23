@@ -1,27 +1,33 @@
+"""Graph utilities for processing dependency marker graphs from uv.lock files.
+
+This module provides functions to collapse strongly connected components,
+combine PEP 508 markers under logical conjunction, and activate optional
+extras into a concrete dependency graph.
+"""
+
 load("//uv/private:sha1.bzl", "sha1")
 load("//uv/private/graph:sccs.bzl", "sccs")
 
 def collect_sccs(marker_graph):
-    """Computes Strongly Connected Components (SCCs) for a dependency marker_graph.
+    """Computes Strongly Connected Components (SCCs) for a dependency graph.
 
-    This function takes a dependency marker_graph and identifies all the SCCs, which
-    are groups of packages that have cyclic dependencies on each other.
+    Identifies cyclic groups of packages, then rebuilds the graph so that each
+    SCC becomes a single node. Intra-SCC edges preserve their original markers,
+    while inter-SCC dependencies are aggregated per SCC.
 
     Args:
-        marker_graph: The dependency marker_graph, as returned by `_build_marker_graph`.
-        {pkg: {dep: {marker: 1}}}
+        marker_graph: A dependency graph mapping package tuples to dicts of
+            dependencies and their markers: `{pkg: {dep: {marker: 1}}}`.
 
     Returns:
-        A tuple containing:
-        - A dictionary mapping each dependency to the ID of the SCC that
+        A tuple `(dep_to_scc, new_scc_graph, final_scc_deps)` where:
+        - `dep_to_scc` maps each original package tuple to the SCC ID that
           contains it.
-        - A dictionary representing the marker_graph of SCCs, where the keys are SCC IDs
-          and the values are dictionaries of member dependencies and their
-          markers.
-        - A dictionary mapping each SCC ID to its direct, non-member
-          dependencies.
+        - `new_scc_graph` maps each SCC ID to a dict of its member packages
+          and the markers between them.
+        - `final_scc_deps` maps each SCC ID to its aggregated external
+          dependencies and markers.
     """
-
     all_nodes = set()
     for pkg, deps in marker_graph.items():
         all_nodes.add(pkg)
@@ -34,47 +40,35 @@ def collect_sccs(marker_graph):
 
     graph_components = sccs(simplified_graph)
 
-    # Now we need to rebuild markers for intra-scc deps
-    # Data structure to hold scc_members and their raw deps
     scc_info_list = []
     for scc_members in graph_components:
         raw_scc_deps = {}
         for member in scc_members:
             for dep, markers in marker_graph.get(member, {}).items():
-                if dep not in scc_members:  # Only consider external dependencies
+                if dep not in scc_members:
                     raw_scc_deps.setdefault(dep, {}).update(markers)
         scc_info_list.append((scc_members, raw_scc_deps))
 
     new_scc_graph = {}
     dep_to_scc = {}
-    final_scc_deps = {}  # This will store the scc_deps with the new keys
+    final_scc_deps = {}
 
     for scc_members, raw_scc_deps in scc_info_list:
-        # Generate the new scc_id
-        # We need to sort the raw_scc_deps.items() to ensure consistent hashing
         sorted_raw_scc_deps_repr = repr(sorted(raw_scc_deps.items()))
         new_scc_id = sha1(repr(sorted(scc_members)) + ";" + sorted_raw_scc_deps_repr)[:16]
 
-        # Build the new scc_graph entry
         new_scc_graph[new_scc_id] = {m: {} for m in scc_members}
 
-        # Populate dep_to_scc
         for member in scc_members:
             dep_to_scc[member] = new_scc_id
 
-        # Populate final_scc_deps
         final_scc_deps[new_scc_id] = raw_scc_deps
 
-        # Now, rebuild markers for intra-scc deps for the new_scc_graph
         for start in scc_members:
             for next in scc_members:
-                # Note that we DO NOT provide a default marker here because this
-                # is a dependency edge which may not actually exist and we don't
-                # want to falsely insert edges/markers.
                 next_marks = marker_graph.get(start, {}).get(next, {})
                 new_scc_graph[new_scc_id][next].update(next_marks)
 
-        # Ensure that everything has at least the no-op marker
         for next in scc_members:
             if len(new_scc_graph[new_scc_id][next].keys()) == 0:
                 new_scc_graph[new_scc_id][next].update({"": 1})
@@ -82,22 +76,22 @@ def collect_sccs(marker_graph):
     return dep_to_scc, new_scc_graph, final_scc_deps
 
 def combine_markers(lefts, rights):
-    """
-    Combine two sets of markers under _and_.
+    """Combines two sets of markers under logical AND.
 
-    If `a[b]; m` implies some `b; n`, then `a` implies `b` IFF `m and n`. It
-    would be incorrect to disregard either the left or right markers, as either
-    case of doing so could lead to an unsatisfiable false dependency.
-    """
+    If `a` depends on `b` with marker `m`, and `b` depends on `c` with marker
+    `n`, then `a` depends on `c` when `m and n` is satisfiable. Dropping either
+    marker would create a false dependency.
 
+    Args:
+        lefts: A dictionary of marker strings `{marker: 1}`.
+        rights: A dictionary of marker strings `{marker: 1}`.
+
+    Returns:
+        A dictionary of combined marker strings `{marker: 1}`.
+    """
     acc = {}
 
     def _and(l, r):
-        """
-        We use "" as the empty/True marker, so if either side is true then we
-        need to return the other side.
-        """
-
         if l == "":
             return r
         elif r == "":
@@ -112,37 +106,39 @@ def combine_markers(lefts, rights):
     return acc
 
 def activate_extras(marker_graph, activated_extras, cfg):
-    """
-    Configure an unconfigured marker graph by activating extras.
+    """Configures a marker graph by activating optional extras.
 
-    Produce a _new_ graph without modifying the original which:
-    - Merges all active extras into their base packages (add deps)
-    - Translates all deps on extras to deps on the base package
-    - Removes all extras pesudo-packages
-    """
+    Produces a new graph in which:
+    - Active extras are merged into their base packages.
+    - All dependencies are translated into dependencies on the `__base__`
+      package of the target.
+    - Extra pseudo-packages are removed entirely.
 
+    Args:
+        marker_graph: The unconfigured dependency graph.
+        activated_extras: A nested dictionary mapping base package tuples to
+            activated extras per configuration: `{pkg: {cfg: {extra: {marker: 1}}}}`.
+        cfg: The configuration key to look up in `activated_extras`.
+
+    Returns:
+        A new dependency graph with extras resolved and normalized to
+        `__base__` dependencies.
+    """
     acc = {}
 
     for pkg, marked_deps in marker_graph.items():
-        # Ignore extra pseudo-packages
         if pkg[3] != "__base__":
             continue
 
-        # Packages may have no deps so we have to create this here
         acc.setdefault(pkg, {})
 
         for dep, markers in list(marked_deps.items()):
-            # Normalize all deps to deps on the base package
             normalized_dep = (dep[0], dep[1], dep[2], "__base__")
             acc[pkg].setdefault(normalized_dep, {}).update(markers)
 
-        # For the current (base!) package, look up the closure of activated
-        # extras and merge the _dependencies_ of those extras in.
         extras = activated_extras.get(pkg, {}).get(cfg, {})
         for extra, extra_markers in extras.items():
-            # Merge in deps from the requested extra
             for implied_dep, implied_markers in marker_graph.get(extra, {}).items():
-                # Normalize since the source graph isn't
                 normalized_implied_dep = (implied_dep[0], implied_dep[1], implied_dep[2], "__base__")
                 acc[pkg].setdefault(normalized_implied_dep, {}).update(combine_markers(extra_markers, implied_markers))
 

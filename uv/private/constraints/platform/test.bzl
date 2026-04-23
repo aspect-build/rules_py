@@ -1,9 +1,13 @@
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
 load(":defs.bzl", "LINUX_ARCHES", "MACOS_ARCHES", "MACOS_ARCH_GROUPS", "WINDOWS_PLATFORMS", "supported_platform")
 
-# -- supported_platform: accepted tags -----------------------------------------
-
 def _any_test_impl(ctx):
+    """Verify that the 'any' platform tag is accepted as a valid platform.
+
+    Wheels tagged with 'any' are pure-Python distributions that claim
+    compatibility with all platforms. This test ensures the predicate
+    recognises this universal tag.
+    """
     env = unittest.begin(ctx)
     asserts.true(env, supported_platform("any"))
     return unittest.end(env)
@@ -11,6 +15,11 @@ def _any_test_impl(ctx):
 any_test = unittest.make(_any_test_impl)
 
 def _macos_arches_test_impl(ctx):
+    """Verify that all supported macOS platform tags are accepted.
+
+    Covers both individual CPU architectures and the multi-arch group
+    aliases defined by PEP 425 / packaging.python.org conventions.
+    """
     env = unittest.begin(ctx)
     for arch in MACOS_ARCHES:
         asserts.true(env, supported_platform("macosx_11_0_%s" % arch), "macosx arch %s should be supported" % arch)
@@ -21,6 +30,11 @@ def _macos_arches_test_impl(ctx):
 macos_arches_test = unittest.make(_macos_arches_test_impl)
 
 def _manylinux_arches_test_impl(ctx):
+    """Verify that all supported manylinux platform tags are accepted.
+
+    Iterates over the known Linux CPU architectures that are valid for
+    manylinux wheels according to the project allowlist.
+    """
     env = unittest.begin(ctx)
     for arch in LINUX_ARCHES:
         asserts.true(env, supported_platform("manylinux_2_17_%s" % arch), "manylinux arch %s should be supported" % arch)
@@ -29,6 +43,11 @@ def _manylinux_arches_test_impl(ctx):
 manylinux_arches_test = unittest.make(_manylinux_arches_test_impl)
 
 def _musllinux_arches_test_impl(ctx):
+    """Verify that all supported musllinux platform tags are accepted.
+
+    Iterates over the known Linux CPU architectures that are valid for
+    musllinux wheels according to the project allowlist.
+    """
     env = unittest.begin(ctx)
     for arch in LINUX_ARCHES:
         asserts.true(env, supported_platform("musllinux_1_1_%s" % arch), "musllinux arch %s should be supported" % arch)
@@ -37,6 +56,11 @@ def _musllinux_arches_test_impl(ctx):
 musllinux_arches_test = unittest.make(_musllinux_arches_test_impl)
 
 def _windows_platforms_test_impl(ctx):
+    """Verify that all supported Windows platform tags are accepted.
+
+    Ensures the exact set of Windows tags defined in WINDOWS_PLATFORMS
+    are recognised by the predicate.
+    """
     env = unittest.begin(ctx)
     for tag in WINDOWS_PLATFORMS:
         asserts.true(env, supported_platform(tag), "windows platform %s should be supported" % tag)
@@ -44,10 +68,14 @@ def _windows_platforms_test_impl(ctx):
 
 windows_platforms_test = unittest.make(_windows_platforms_test_impl)
 
-# -- supported_platform: rejected tags -----------------------------------------
-
 def _reject_win_ia64_test_impl(ctx):
-    """Regression: win_ia64 has no config_setting target and must be rejected."""
+    """Verify that the win_ia64 platform tag is explicitly rejected.
+
+    This is a regression guard. The win_ia64 architecture does not have
+    a corresponding config_setting target in the build graph. If the
+    predicate were to accept it, downstream rules would fail when Bazel
+    attempts to resolve a non-existent platform constraint.
+    """
     env = unittest.begin(ctx)
     asserts.false(env, supported_platform("win_ia64"), "win_ia64 must not be supported")
     return unittest.end(env)
@@ -55,43 +83,46 @@ def _reject_win_ia64_test_impl(ctx):
 reject_win_ia64_test = unittest.make(_reject_win_ia64_test_impl)
 
 def _reject_unsupported_arches_test_impl(ctx):
-    env = unittest.begin(ctx)
+    """Verify that unsupported architectures and operating systems are rejected.
 
-    # Unknown linux arch
+    Covers architectures not listed in the Linux or macOS allowlists,
+    as well as unsupported OS families such as Android, iOS, and bare
+    linux tags that do not conform to manylinux or musllinux.
+    """
+    env = unittest.begin(ctx)
     asserts.false(env, supported_platform("manylinux_2_17_sparc64"), "sparc64 is not a supported linux arch")
     asserts.false(env, supported_platform("musllinux_1_1_mips"), "mips is not a supported linux arch")
-
-    # Unknown macOS arch
     asserts.false(env, supported_platform("macosx_11_0_mips"), "mips is not a supported macOS arch")
-
-    # Unsupported OS families
     asserts.false(env, supported_platform("android_21_arm64_v8a"), "android should not be supported")
     asserts.false(env, supported_platform("ios_13_0_arm64_iphoneos"), "ios should not be supported")
     asserts.false(env, supported_platform("linux_x86_64"), "bare linux_ should not be supported")
-
     return unittest.end(env)
 
 reject_unsupported_arches_test = unittest.make(_reject_unsupported_arches_test_impl)
 
 def _reject_malformed_tags_test_impl(ctx):
-    env = unittest.begin(ctx)
+    """Verify that malformed or truncated platform tags are rejected.
 
-    # Too few components
+    Platform tags are expected to follow the shape prefix_major_minor_arch.
+    Tags with missing components must not be accepted.
+    """
+    env = unittest.begin(ctx)
     asserts.false(env, supported_platform("macosx_11"), "truncated macosx tag should be rejected")
     asserts.false(env, supported_platform("manylinux_2"), "truncated manylinux tag should be rejected")
     asserts.false(env, supported_platform("musllinux_1"), "truncated musllinux tag should be rejected")
-
     return unittest.end(env)
 
 reject_malformed_tags_test = unittest.make(_reject_malformed_tags_test_impl)
 
-# -- Real-world wheel platform tags from the uv cache -------------------------
-
 def _real_world_tags_test_impl(ctx):
-    """Verify supported_platform handles real wheel platform tags from the wild."""
-    env = unittest.begin(ctx)
+    """Verify supported_platform against real wheel tags from the uv cache.
 
-    # Accepted: real tags seen in ~/.cache/uv/wheels-v6/pypi/
+    This test uses platform tags observed in wheels downloaded by uv from
+    PyPI. Accepted tags must continue to pass the predicate, and rejected
+    tags must continue to fail, ensuring the filter stays aligned with the
+    actual ecosystem.
+    """
+    env = unittest.begin(ctx)
     for tag in [
         "any",
         "macosx_10_9_x86_64",
@@ -110,8 +141,6 @@ def _real_world_tags_test_impl(ctx):
         "win_arm64",
     ]:
         asserts.true(env, supported_platform(tag), "real-world tag %s should be supported" % tag)
-
-    # Rejected: tags seen in the wild that we intentionally do not support
     for tag in [
         "win_ia64",
         "linux_armv7l",
@@ -119,14 +148,12 @@ def _real_world_tags_test_impl(ctx):
         "android_21_arm64_v8a",
     ]:
         asserts.false(env, supported_platform(tag), "tag %s should be rejected" % tag)
-
     return unittest.end(env)
 
 real_world_tags_test = unittest.make(_real_world_tags_test_impl)
 
-# -- Suite ---------------------------------------------------------------------
-
 def platform_suite():
+    """Register all platform constraint tests as a single test suite."""
     unittest.suite(
         "platform_tests",
         any_test,
