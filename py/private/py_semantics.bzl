@@ -5,11 +5,15 @@ load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
 _INTERPRETER_FLAGS = [
     # -B     Don't write .pyc files on import. See also PYTHONDONTWRITEBYTECODE.
     "-B",
-    # -I     Run Python in isolated mode. This also implies -E and -s.
-    #        In isolated mode sys.path contains neither the script's directory nor the user's site-packages directory.
-    #        All PYTHON* environment variables are ignored, too.
-    #        Further restrictions may be imposed to prevent the user from injecting malicious code.
-    "-I",
+    # -s     Don't add user site-packages directory to sys.path.
+    #        Provides isolation from local user installs without blocking PYTHONPATH,
+    #        which the run.tmpl.sh launcher uses to inject dependency paths.
+    #
+    # NOTE:  Previously used -I (isolated mode), but that flag also implies -E
+    #        which ignores ALL PYTHON* environment variables, including PYTHONPATH.
+    #        Since our launcher builds PYTHONPATH from the .pth file, -I made it
+    #        impossible for dependencies to be found at runtime.
+    "-s",
 ]
 
 _MUST_SET_TOOLCHAIN_INTERPRETER_VERSION_INFO = """

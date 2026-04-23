@@ -4,7 +4,7 @@
 #
 # This launcher handles:
 # - Runfiles resolution (Bazel runfiles or standalone)
-# - Interpreter caching (when include_interpreter=true)
+# - Interpreter resolution via runfiles (when include_interpreter=true)
 # - Cross-platform execution
 
 set -euo pipefail
@@ -17,19 +17,8 @@ fi
 
 # Configuration from rule attributes
 SCIE_NAME="{{SCIE_NAME}}"
-INTERPRETER_HASH="{{INTERPRETER_HASH}}"
 INCLUDE_INTERPRETER={{INCLUDE_INTERPRETER}}
 WORKSPACE_NAME="{{WORKSPACE_NAME}}"
-
-# Determine cache location for embedded interpreter
-if [[ -n "${XDG_CACHE_HOME:-}" ]]; then
-    CACHE_BASE="$XDG_CACHE_HOME"
-elif [[ -n "${HOME:-}" ]]; then
-    CACHE_BASE="$HOME/.cache"
-else
-    CACHE_BASE="/tmp"
-fi
-CACHE_DIR="$CACHE_BASE/rules_py_scie/$INTERPRETER_HASH"
 
 # Find the script's directory
 SCRIPT_DIR=""
@@ -83,62 +72,6 @@ ZIPAPP_PATH="$(resolve_zipapp)" || {
     exit 1
 }
 
-# Function to extract and use embedded interpreter
-use_embedded_interpreter() {
-    local interpreter_tar=""
-    local candidates=()
-    
-    # Find interpreter tarball
-    candidates+=("$SCRIPT_DIR/interpreter.tar.gz")
-    candidates+=("$SCRIPT_DIR/{{SCIE_NAME}}_interpreter.tar.gz")
-    
-    if [[ -n "${RUNFILES_DIR:-}" ]]; then
-        candidates+=("$RUNFILES_DIR/interpreter.tar.gz")
-        candidates+=("$RUNFILES_DIR/{{ZIPAPP_PATH}}.interpreter.tar.gz")
-    fi
-    
-    for candidate in "${candidates[@]}"; do
-        if [[ -f "$candidate" ]]; then
-            interpreter_tar="$candidate"
-            break
-        fi
-    done
-    
-    [[ -z "$interpreter_tar" ]] && return 1
-    
-    # Extract if not already cached
-    if [[ ! -d "$CACHE_DIR/python/bin" ]]; then
-        mkdir -p "$CACHE_DIR"
-        
-        # Extract with error handling
-        if ! tar -xzf "$interpreter_tar" -C "$CACHE_DIR" 2>/dev/null; then
-            rm -rf "$CACHE_DIR"
-            return 1
-        fi
-        
-        # Create marker file with extraction info
-        date > "$CACHE_DIR/.extracted"
-        echo "$INTERPRETER_HASH" > "$CACHE_DIR/.hash"
-    fi
-    
-    # Find Python executable in extracted interpreter
-    local python_candidates=(
-        "$CACHE_DIR/python/bin/python3"
-        "$CACHE_DIR/bin/python3"
-        "$CACHE_DIR/python/bin/python"
-        "$CACHE_DIR/bin/python"
-    )
-    
-    for python in "${python_candidates[@]}"; do
-        if [[ -x "$python" ]]; then
-            echo "$python"
-            return 0
-        fi
-    done
-    
-    return 1
-}
-
 # Function to resolve interpreter from runfiles
 resolve_runfiles_interpreter() {
     local interpreter="{{INTERPRETER_PATH}}"
@@ -161,23 +94,14 @@ resolve_runfiles_interpreter() {
 
 # Main execution logic
 determine_interpreter() {
-    # Priority 1: Embedded interpreter (if enabled)
-    if [[ "$INCLUDE_INTERPRETER" == "true" ]]; then
-        local embedded
-        embedded="$(use_embedded_interpreter 2>/dev/null)" && {
-            echo "$embedded"
-            return 0
-        }
-    fi
-    
-    # Priority 2: Runfiles interpreter
+    # Priority 1: Runfiles interpreter (includes interpreter files when include_interpreter=true)
     local runfiles_interp
     runfiles_interp="$(resolve_runfiles_interpreter 2>/dev/null)" && {
         echo "$runfiles_interp"
         return 0
     }
     
-    # Priority 3: System Python
+    # Priority 2: System Python
     # Try versioned first, then generic
     local system_candidates=(
         "python3"
@@ -211,13 +135,37 @@ if [[ ! -r "$ZIPAPP_PATH" ]]; then
     exit 1
 fi
 
+# Inject AspectPyInfo import paths into PYTHONPATH for robust module resolution.
+# The zipapp __main__.py also injects these, but setting PYTHONPATH in the
+# launcher ensures compatibility with direct zipapp execution scenarios.
+_SCIE_IMPORTS="{{IMPORTS}}"
+if [[ -n "${_SCIE_IMPORTS}" ]]; then
+    _PYTHONPATH_EXTRA=""
+    _IFS_OLD="$IFS"
+    IFS=":"
+    for _imp in ${_SCIE_IMPORTS}; do
+        _path="${ZIPAPP_PATH}/${_imp}"
+        if [[ -d "${_path}" && ":${_PYTHONPATH_EXTRA}:" != *":${_path}:"* ]]; then
+            if [[ -z "${_PYTHONPATH_EXTRA}" ]]; then
+                _PYTHONPATH_EXTRA="${_path}"
+            else
+                _PYTHONPATH_EXTRA="${_PYTHONPATH_EXTRA}:${_path}"
+            fi
+        fi
+    done
+    IFS="${_IFS_OLD}"
+    if [[ -n "${_PYTHONPATH_EXTRA}" ]]; then
+        export PYTHONPATH="${_PYTHONPATH_EXTRA}${PYTHONPATH:+:${PYTHONPATH}}"
+    fi
+fi
+
 # Debug output (controlled by environment)
 if [[ -n "${SCIE_DEBUG:-}" ]]; then
     echo "SCIE Debug: name=$SCIE_NAME" >&2
     echo "SCIE Debug: zipapp=$ZIPAPP_PATH" >&2
     echo "SCIE Debug: interpreter=$PYTHON" >&2
     echo "SCIE Debug: include_interpreter=$INCLUDE_INTERPRETER" >&2
-    echo "SCIE Debug: cache_dir=$CACHE_DIR" >&2
+    echo "SCIE Debug: pythonpath=$PYTHONPATH" >&2
 fi
 
 # Execute the zipapp

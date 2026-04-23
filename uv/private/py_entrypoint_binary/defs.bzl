@@ -1,5 +1,5 @@
 load("@bazel_lib//lib:expand_template.bzl", "expand_template")
-load("//py/unstable:defs.bzl", "py_venv_binary")
+load("//py/private/py_venv:defs.bzl", "py_venv_binary")
 
 def py_entrypoint_binary(
         name,

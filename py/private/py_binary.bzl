@@ -16,22 +16,17 @@ def _dict_to_exports(env):
 
 def _py_binary_impl(ctx):
     py_toolchain = _py_semantics.resolve_toolchain(ctx)
-
     main = _py_semantics.determine_main(ctx)
 
     virtual_resolution = _py_library.resolve_virtuals(ctx)
     imports_depset = _py_library.make_imports_depset(ctx, extra_imports_depsets = virtual_resolution.imports)
 
+    # NUEVA LÓGICA: Rutas directas relativas a los runfiles, sin escapes "../"
     pth_lines = ctx.actions.args()
     pth_lines.use_param_file("%s", use_always = True)
     pth_lines.set_param_file_format("multiline")
-
-    target_depth = len(ctx.label.name.split("/")) - 1
-    escape = "/".join(([".."] * (4 + target_depth)))
-
-    pth_lines.add(escape)
-
-    pth_lines.add_all(imports_depset, format_each = "{}/%s".format(escape))
+    pth_lines.add(ctx.workspace_name)
+    pth_lines.add_all(imports_depset)
 
     site_packages_pth_file = ctx.actions.declare_file("{}.pth".format(ctx.attr.name))
     ctx.actions.write(
@@ -60,16 +55,10 @@ def _py_binary_impl(ctx):
         substitutions = {
             "{{BASH_RLOCATION_FN}}": BASH_RLOCATION_FUNCTION,
             "{{INTERPRETER_FLAGS}}": " ".join(py_toolchain.flags + ctx.attr.interpreter_options),
-            "{{VENV_TOOL}}": "__dummy_venv_tool__",
-            "{{ARG_COLLISION_STRATEGY}}": ctx.attr.package_collisions,
             "{{ARG_PYTHON}}": to_rlocation_path(ctx, py_toolchain.python) if py_toolchain.runfiles_interpreter else py_toolchain.python.path,
-            "{{ARG_VENV_NAME}}": ".{}.venv".format(ctx.attr.name),
             "{{ARG_PTH_FILE}}": to_rlocation_path(ctx, site_packages_pth_file),
             "{{ENTRYPOINT}}": to_rlocation_path(ctx, main),
             "{{PYTHON_ENV}}": "\n".join(_dict_to_exports(default_env)).strip(),
-            "{{EXEC_PYTHON_BIN}}": "python{}".format(
-                py_toolchain.interpreter_version_info.major,
-            ),
             "{{RUNFILES_INTERPRETER}}": str(py_toolchain.runfiles_interpreter).lower(),
         },
         is_executable = True,
@@ -132,48 +121,17 @@ _attrs = dict({
     ),
     "main": attr.label(
         allow_single_file = True,
-        doc = """
-Script to execute with the Python interpreter.
-
-Must be a label pointing to a `.py` source file.
-If such a label is provided, it will be honored.
-
-If no label is provided AND there is only one `srcs` file, that `srcs` file will be used.
-
-If there are more than one `srcs`, a file matching `{name}.py` is searched for.
-This is for historical compatibility with the Bazel native `py_binary`.
-Relying on this behavior is STRONGLY discouraged, may produce warnings and may
-be deprecated in the future.
-
-""",
+        doc = "Script to execute with the Python interpreter.",
     ),
     "venv": attr.string(
-        doc = """The name of the Python virtual environment within which deps should be resolved.
-
-Part of the aspect_rules_py//uv system.
-""",
+        doc = "The name of the Python virtual environment within which deps should be resolved.",
     ),
     "python_version": attr.string(
-        doc = """Whether to build this target and its transitive deps for a specific python version.""",
-    ),
-    "package_collisions": attr.string(
-        doc = """The action that should be taken when a symlink collision is encountered when creating the venv.
-A collision can occur when multiple packages providing the same file are installed into the venv. The possible values are:
-
-* "error": When conflicting symlinks are found, an error is reported and venv creation halts.
-* "warning": When conflicting symlinks are found, an warning is reported, however venv creation continues.
-* "ignore": When conflicting symlinks are found, no message is reported and venv creation continues.
-""",
-        default = "error",
-        values = ["error", "warning", "ignore"],
+        doc = "Whether to build this target and its transitive deps for a specific python version.",
     ),
     "interpreter_options": attr.string_list(
-        doc = "Additional options to pass to the Python interpreter in addition to -B and -I passed by rules_py",
+        doc = "Additional options to pass to the Python interpreter.",
         default = [],
-    ),
-    "create_launcher": attr.bool(
-        doc = "Whether to create the venv launcher script. Set to False when this binary is only used as an input to py_venv_materialize or py_image_layer, to avoid a dependency on VENV_TOOLCHAIN.",
-        default = True,
     ),
     "_run_tmpl": attr.label(
         allow_single_file = True,
@@ -188,14 +146,9 @@ _attrs.update(**_py_library.attrs)
 
 _test_attrs = dict({
     "env_inherit": attr.string_list(
-        doc = "Specifies additional environment variables to inherit from the external environment when the test is executed by bazel test.",
+        doc = "Specifies additional environment variables to inherit.",
         default = [],
     ),
-    # Magic attribute to make coverage --combined_report flag work.
-    # There's no docs about this.
-    # See https://github.com/bazelbuild/bazel/blob/fde4b67009d377a3543a3dc8481147307bd37d36/tools/test/collect_coverage.sh#L186-L194
-    # NB: Some rulesets also include this attribute on the py_binary rule, but we think that's a mistake.
-    # see https://github.com/aspect-build/rules_py/pull/520#pullrequestreview-2579076197
     "_lcov_merger": attr.label(
         default = configuration_field(fragment = "coverage", name = "output_generator"),
         executable = True,
@@ -204,34 +157,19 @@ _test_attrs = dict({
 })
 
 py_binary = rule(
-    doc = "Run a Python program under Bazel. Most users should use the [py_binary macro](#py_binary) instead of loading this directly.",
+    doc = "Run a Python program under Bazel.",
     implementation = _py_binary_impl,
     attrs = _attrs,
-    toolchains = [
-        PY_TOOLCHAIN,
-    ],
-    executable = True,
-    cfg = python_version_transition,
-)
-
-py_binary_oci = rule(
-    doc = "Variant of py_binary that does not depend on VENV_TOOLCHAIN. Used for OCI image builds where the venv is materialized separately.",
-    implementation = _py_binary_impl,
-    attrs = _attrs,
-    toolchains = [
-        PY_TOOLCHAIN,
-    ],
+    toolchains = [PY_TOOLCHAIN],
     executable = True,
     cfg = python_version_transition,
 )
 
 py_test = rule(
-    doc = "Run a Python program under Bazel. Most users should use the [py_test macro](#py_test) instead of loading this directly.",
+    doc = "Run a Python program under Bazel test.",
     implementation = _py_binary_impl,
     attrs = _attrs | _test_attrs,
-    toolchains = [
-        PY_TOOLCHAIN,
-    ],
+    toolchains = [PY_TOOLCHAIN],
     test = True,
     cfg = python_version_transition,
 )

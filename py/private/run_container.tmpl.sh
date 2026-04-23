@@ -1,49 +1,76 @@
 #!/usr/bin/env bash
-# Container-specific launcher for py_binary targets.
-# This launcher assumes the venv is pre-created during the build process.
+# Hermetic container launcher for py_binary targets.
+# Uses Bazel runfiles and direct PYTHONPATH injection.
+# NO virtualenv is assumed or created at runtime.
 
 set -o errexit -o nounset -o pipefail
 
-# Determine the runfiles directory
-RUNFILES_DIR=""
-if [[ -n "${RUNFILES_DIR:-}" ]]; then
-    RUNFILES_DIR="$RUNFILES_DIR"
-elif [[ -n "${RUNFILES_MANIFEST_FILE:-}" ]]; then
-    RUNFILES_DIR="${RUNFILES_MANIFEST_FILE%.manifest}"
-elif [[ -d "$0.runfiles" ]]; then
-    RUNFILES_DIR="$0.runfiles"
-else
-    RUNFILES_DIR="${0}.runfiles"
+# Initialize Bazel runfiles
+{{BASH_RLOCATION_FN}}
+runfiles_export_envvars
+
+# Resolve the Python interpreter
+PYTHON="{{ARG_PYTHON}}"
+if [[ "{{RUNFILES_INTERPRETER}}" == "true" ]]; then
+    PYTHON="$(rlocation "${PYTHON}")"
 fi
 
-# In containers, the venv is at a known location (set during build)
-VENV_PATH="{{VENV_PATH}}"
+# Resolve the entrypoint
+ENTRYPOINT="$(rlocation {{ENTRYPOINT}})"
 
-# Verify the venv exists (it was created during build)
-if [[ ! -d "$VENV_PATH" ]]; then
-    echo "ERROR: Pre-built venv not found at $VENV_PATH" >&2
-    echo "The container image may be corrupted." >&2
-    exit 1
+# Resolve the .pth file and construct PYTHONPATH
+PTH_FILE="$(rlocation {{ARG_PTH_FILE}})"
+PTH_DIR="$(dirname "${PTH_FILE}")"
+
+_normalize_path() {
+    local _path="$1"
+    local _IFS="/"
+    local -a _parts
+    local -a _result=()
+    read -ra _parts <<< "${_path}"
+    for _part in "${_parts[@]}"; do
+        if [[ -z "${_part}" || "${_part}" == "." ]]; then
+            continue
+        elif [[ "${_part}" == ".." ]]; then
+            if [[ ${#_result[@]} -gt 0 && "${_result[-1]}" != ".." ]]; then
+                unset '_result[-1]'
+            else
+                _result+=("..")
+            fi
+        else
+            _result+=("${_part}")
+        fi
+    done
+    local _out=""
+    if [[ "${_path}" == /* ]]; then
+        _out="/"
+    fi
+    _out="${_out}${_result[*]}"
+    _out="${_out// /\/}"
+    echo "${_out:-.}"
+}
+
+_EXTRA_PYTHONPATH=""
+while IFS= read -r _line || [[ -n "${_line}" ]]; do
+    case "${_line}" in
+        ""|\#*|import*) continue ;;
+    esac
+    _abs_path="$(_normalize_path "${PTH_DIR}/${_line}")"
+    if [[ -d "${_abs_path}" ]]; then
+        if [[ -z "${_EXTRA_PYTHONPATH}" ]]; then
+            _EXTRA_PYTHONPATH="${_abs_path}"
+        else
+            _EXTRA_PYTHONPATH="${_EXTRA_PYTHONPATH}:${_abs_path}"
+        fi
+    fi
+done < "${PTH_FILE}"
+
+if [[ -n "${_EXTRA_PYTHONPATH}" ]]; then
+    export PYTHONPATH="${_EXTRA_PYTHONPATH}${PYTHONPATH:+:${PYTHONPATH}}"
 fi
 
-# Find the Python interpreter in the venv
-PYTHON="${VENV_PATH}/bin/{{EXEC_PYTHON_BIN}}"
-if [[ ! -x "$PYTHON" ]]; then
-    # Fallback to python3
-    PYTHON="${VENV_PATH}/bin/python3"
-fi
-
-if [[ ! -x "$PYTHON" ]]; then
-    echo "ERROR: Python interpreter not found in venv at $VENV_PATH/bin/" >&2
-    exit 1
-fi
-
-# Set environment
-export VIRTUAL_ENV="$VENV_PATH"
-export PATH="${VENV_PATH}/bin:${PATH}"
-
-# Set Bazel environment variables
+# Set runtime environment
 {{PYTHON_ENV}}
 
-# Run the actual Python entry point
-exec "$PYTHON" -m {{ENTRYPOINT}} "$@"
+# Direct exec
+exec "${PYTHON}" {{INTERPRETER_FLAGS}} "${ENTRYPOINT}" "$@"

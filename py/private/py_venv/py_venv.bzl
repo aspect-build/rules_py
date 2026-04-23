@@ -1,4 +1,19 @@
-"""Implementation for the py_binary and py_test rules."""
+"""Virtual environment rules for IDE/LSP development workflows.
+
+IMPORTANT: The rules in this file (py_venv, py_venv_binary, py_venv_test,
+py_venv_link) exist SOLELY for local development environment generation,
+such as feeding Python interpreters to Language Servers (LSP) or IDEs.
+
+They are NOT suitable for production binaries, OCI images, or Remote Build
+Execution (RBE) because they materialize mutable virtualenv directories at
+build time, violating hermeticity and determinism guarantees.
+
+For production executables, use:
+  - py_binary / py_test (direct PYTHONPATH injection, no venv)
+  - py_scie_binary (self-contained executable)
+  - py_zipapp_binary (portable zipapp)
+  - py_image_layer (OCI layer from runfiles tree)
+"""
 
 load("@bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
 load("@bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")

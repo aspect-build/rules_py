@@ -2,6 +2,9 @@
 
 Creates a self-contained Python zipapp executable that doesn't require a virtualenv.
 This is a hermetic alternative to py_venv_binary that avoids symlink issues.
+
+The zipapp preserves the Bazel runfiles directory structure and injects
+AspectPyInfo import paths into sys.path at startup.
 """
 
 load("@bazel_lib//lib:paths.bzl", "to_rlocation_path")
@@ -9,23 +12,24 @@ load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
 
-# Template for the __main__.py that bootstraps the zipapp
+# Template for the __main__.py that bootstraps the zipapp.
+# Injects AspectPyInfo import paths into sys.path so that package imports
+# resolve correctly inside the zipapp.
 _ZIPAPP_MAIN_PY = '''#!/usr/bin/env python3
 """Auto-generated __main__.py for zipapp execution."""
 
 import sys
 import os
 
-# Add the zipapp's directory to Python path for imports
-if __package__ is None:
-    # Running as a script
-    _zipapp_dir = os.path.dirname(__file__)
-else:
-    # Running as a module
-    _zipapp_dir = os.path.dirname(os.path.abspath(__file__))
+# The zipapp itself is on sys.path[0]
+_zipapp = sys.path[0]
 
-if _zipapp_dir not in sys.path:
-    sys.path.insert(0, _zipapp_dir)
+# Inject import paths derived from AspectPyInfo at build time.
+_IMPORTS = {imports!r}
+for _imp in _IMPORTS:
+    _path = os.path.join(_zipapp, _imp)
+    if _path not in sys.path:
+        sys.path.append(_path)
 
 # Execute the entry point
 if __name__ == "__main__":
@@ -37,138 +41,116 @@ def _py_zipapp_binary_impl(ctx):
     """Build a Python zipapp executable.
 
     Creates a .pyz file that contains all dependencies and can be executed
-    directly with a Python interpreter.
+    directly with a Python interpreter. The zipapp preserves runfiles paths
+    and injects AspectPyInfo imports at startup for correct module resolution.
     """
     py_toolchain = _py_semantics.resolve_toolchain(ctx)
 
-    # Collect all transitive sources
+    # Collect all transitive sources and imports
     srcs_depset = _py_library.make_srcs_depset(ctx)
     virtual_resolution = _py_library.resolve_virtuals(ctx)
-
-    # Build imports depset for path handling
     imports_depset = _py_library.make_imports_depset(ctx, extra_imports_depsets = virtual_resolution.imports)
 
-    # Get the main entry point
     main_file = ctx.file.main
     if main_file == None:
         fail("main file must be specified")
 
-    # Determine entry module from main file
-    entry_path = main_file.path
-    if entry_path.endswith(".py"):
-        entry_module = entry_path[:-3].replace("/", ".").replace("\\", ".")
-
-        # Remove leading dots that might come from workspace paths
-        entry_module = entry_module.lstrip(".")
+    # Determine entry module from main file rlocation path
+    entry_rloc = to_rlocation_path(ctx, main_file)
+    if entry_rloc.endswith(".py"):
+        entry_module = entry_rloc[:-3].replace("/", ".").replace("\\", ".")
     else:
-        entry_module = entry_path.replace("/", ".").replace("\\", ".")
+        entry_module = entry_rloc.replace("/", ".").replace("\\", ".")
+    entry_module = entry_module.lstrip(".")
 
-    # Allow override via entry_point attribute
     if ctx.attr.entry_point:
         entry_module = ctx.attr.entry_point
 
-    # Create __main__.py for the zipapp
+    # Build a manifest mapping source file paths -> destination paths inside zipapp.
+    # Destinations use rlocation paths so that imports resolve relative to the zipapp root.
+    manifest_entries = []
+    seen_dst = {}
+
+    def _add_file(file):
+        dst = to_rlocation_path(ctx, file)
+        if dst not in seen_dst:
+            seen_dst[dst] = True
+            manifest_entries.append("{}={}".format(file.path, dst))
+
+    for f in ctx.files.srcs:
+        _add_file(f)
+    for f in ctx.files.deps:
+        _add_file(f)
+    for f in srcs_depset.to_list():
+        _add_file(f)
+    for dep in virtual_resolution.srcs:
+        for f in dep.to_list():
+            _add_file(f)
+
+    # Add the main entry point and __main__.py
+    _add_file(main_file)
+
     main_py = ctx.actions.declare_file("{}_zipapp_main.py".format(ctx.attr.name))
     ctx.actions.write(
         output = main_py,
         content = _ZIPAPP_MAIN_PY.format(
+            imports = imports_depset.to_list(),
             entry_module = entry_module,
         ),
     )
+    manifest_entries.append("{}={}".format(main_py.path, "__main__.py"))
 
-    # Collect all input files for the zipapp
-    all_inputs = depset(
-        direct = [main_file, main_py],
-        transitive = [
-            srcs_depset,
-            depset(ctx.files.deps),
-        ] + virtual_resolution.srcs,
-    ).to_list()
+    manifest_file = ctx.actions.declare_file("{}.zipapp.manifest".format(ctx.attr.name))
+    ctx.actions.write(manifest_file, "\n".join(manifest_entries))
 
-    # Create a mapping of files to their destination paths in the zipapp
-    # We need to preserve the package structure for imports to work
     zipapp_file = ctx.actions.declare_file("{}.pyz".format(ctx.attr.name))
 
-    # Use a shell command to create the zipapp structure
-    # This is more reliable than trying to do complex file mapping in Starlark
+    # Use the hermetic Python interpreter from the toolchain, not host python3.
+    python_bin = py_toolchain.python.path
+    if py_toolchain.runfiles_interpreter:
+        python_bin = to_rlocation_path(ctx, py_toolchain.python)
+
     ctx.actions.run_shell(
         outputs = [zipapp_file],
-        inputs = all_inputs,
-        command = """
-set -euo pipefail
-
-# Create temporary directory for zipapp contents
+        inputs = ctx.files.srcs + ctx.files.deps + srcs_depset.to_list() + [main_file, main_py, manifest_file],
+        command = """set -euo pipefail
+PYTHON="{python}"
 ZIPAPP_DIR=$(mktemp -d)
 trap "rm -rf $ZIPAPP_DIR" EXIT
 
-# Copy all source files preserving directory structure
-for src in {srcs}; do
-    if [[ "$src" == *.py ]]; then
-        # Determine destination based on path
-        dest="$ZIPAPP_DIR/$(basename "$src")"
-        # If it's in a package structure, preserve it
-        if [[ "$src" == */* ]]; then
-            # Try to maintain some directory structure for imports
-            dir_part=$(dirname "$src")
-            # Remove leading workspace/external repo parts
-            clean_dir=$(echo "$dir_part" | sed 's|^external/[^/]*||' | sed 's|^||')
-            if [[ -n "$clean_dir" ]]; then
-                mkdir -p "$ZIPAPP_DIR/$clean_dir"
-                dest="$ZIPAPP_DIR/$clean_dir/$(basename "$src")"
-            fi
-        fi
-        cp "$src" "$dest"
+while IFS='=' read -r src dst; do
+    if [[ -f "$src" ]]; then
+        mkdir -p "$ZIPAPP_DIR/$(dirname \"$dst\")"
+        cp "$src" "$ZIPAPP_DIR/$dst"
     fi
-done
+done < {manifest}
 
-# Copy dependencies preserving their structure
-for dep in {deps}; do
-    if [[ "$dep" == *.py ]] && [[ -f "$dep" ]]; then
-        # For deps, we copy to root if not in a package
-        cp "$dep" "$ZIPAPP_DIR/" 2>/dev/null || true
-    fi
-done
-
-# Copy the main entry point
-mkdir -p "$ZIPAPP_DIR/$(dirname {main_base})"
-cp "{main_path}" "$ZIPAPP_DIR/{main_base}"
-
-# Install the __main__.py
-cp "{main_py_path}" "$ZIPAPP_DIR/__main__.py"
-
-# Create the zipapp with the specified python path
-python3 -m zipapp "$ZIPAPP_DIR" -o "{output}" -p "{python_path}"
-
-# Make it executable
+"$PYTHON" -m zipapp "$ZIPAPP_DIR" -o "{output}" -p "{shebang}"
 chmod +x "{output}"
 """.format(
-            srcs = " ".join([f.path for f in ctx.files.srcs]),
-            deps = " ".join([f.path for f in ctx.files.deps]),
-            main_path = main_file.path,
-            main_base = main_file.basename,
-            main_py_path = main_py.path,
+            python = python_bin,
+            manifest = manifest_file.path,
             output = zipapp_file.path,
-            python_path = ctx.attr.python_path or "/usr/bin/env python3",
+            shebang = ctx.attr.python_path or "/usr/bin/env python3",
         ),
         mnemonic = "PyZipapp",
         progress_message = "Creating zipapp %{output}",
     )
 
-    # Create a wrapper script that can be used as the executable
-    # This handles the case where we want to run with bazel run
+    # Wrapper script for bazel run
     executable = ctx.actions.declare_file(ctx.attr.name)
     ctx.actions.write(
         output = executable,
         content = """#!/bin/bash
 # Wrapper for zipapp execution
-exec python3 "{zipapp_path}" "$@"
+exec "{python}" "{zipapp_path}" "$@"
 """.format(
+            python = ctx.attr.python_path or "python3",
             zipapp_path = zipapp_file.short_path,
         ),
         is_executable = True,
     )
 
-    # Build runfiles
     runfiles = ctx.runfiles(files = [zipapp_file, executable])
 
     return [
@@ -223,6 +205,8 @@ py_zipapp_binary = rule(
 
 This rule creates a .pyz file containing all Python sources and dependencies
 that can be executed directly without requiring a virtualenv or Bazel.
+Files are placed at their Bazel rlocation paths so that AspectPyInfo imports
+resolve correctly.
 
 Example usage:
     py_zipapp_binary(

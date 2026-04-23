@@ -29,14 +29,13 @@ Known problems:
 """
 
 load("//py/entry_points:py_console_script_binary.bzl", _py_console_script_binary = "py_console_script_binary")
-load("//py/private:py_binary.bzl", _py_binary = "py_binary", _py_binary_oci = "py_binary_oci", _py_test = "py_test")
+load("//py/private:py_binary.bzl", _py_binary = "py_binary", _py_test = "py_test")
 load("//py/private:py_image_layer.bzl", _py_image_layer = "py_image_layer")
 load("//py/private:py_library.bzl", _py_library = "py_library")
 load("//py/private:py_pex_binary.bzl", _py_pex_binary = "py_pex_binary")
 load("//py/private:py_pytest_main.bzl", _py_pytest_main = "py_pytest_main", _pytest_paths = "pytest_paths")
 load("//py/private:py_scie.bzl", _py_scie_binary = "py_scie_binary")
 load("//py/private:py_unpacked_wheel.bzl", _py_unpacked_wheel = "py_unpacked_wheel")
-load("//py/private:py_venv_materialize.bzl", _py_venv_materialize = "py_venv_materialize")
 load("//py/private:py_zipapp.bzl", _py_zipapp_binary = "py_zipapp_binary")
 load("//py/private:virtual.bzl", _resolutions = "resolutions")
 load("//py/private/toolchain:py_runtime.bzl", _aspect_py_runtime = "aspect_py_runtime")
@@ -49,14 +48,11 @@ py_scie_binary = _py_scie_binary
 py_zipapp_binary = _py_zipapp_binary
 
 py_binary_rule = _py_binary
-py_binary_oci_rule = _py_binary_oci
 py_test_rule = _py_test
 py_library = _py_library
 py_unpacked_wheel = _py_unpacked_wheel
 
 py_image_layer = _py_image_layer
-
-py_venv_materialize = _py_venv_materialize
 
 py_console_script_binary = _py_console_script_binary
 
@@ -64,6 +60,7 @@ aspect_py_runtime = _aspect_py_runtime
 aspect_py_runtime_pair = _aspect_py_runtime_pair
 
 resolutions = _resolutions
+
 
 def _py_binary_or_test(name, rule, srcs, main, data = [], deps = [], **kwargs):
     """Invoke the underlying rule with the given arguments.

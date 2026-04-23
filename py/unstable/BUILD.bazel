@@ -1,3 +1,0 @@
-# py/unstable package - exports for unstable/experimental APIs
-
-exports_files(["extension.bzl"])

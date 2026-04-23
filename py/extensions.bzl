@@ -1,22 +1,21 @@
-"""bzlmod module extension for rules_py toolchains.
+"""bzlmod module extensions for rules_py.
 
-This module declares ``py_tools``, a ``module_extension`` consumed from
-``MODULE.bazel`` via ``rules_py_tools`` tags. It orchestrates the creation of
-external repositories that contain the pre-built native tools (unpacker, pth
-builder, etc.) needed by the Python toolchain.
+This module exports two module extensions:
 
-Known problems:
-    - Dead import: ``TELEMETRY`` is loaded from ``@aspect_tools_telemetry_report``
-      but never referenced in this file. It should be removed or used.
-    - The two-pass logic (accumulate non-root names, then filter against
-      ``root_name``) is unnecessary; the root could be handled in a single pass.
-    - The module-level docstring was historically vacuous (only "Module Extensions
-      used from MODULE.bazel"), giving no hint about the root-only name policy.
+- ``py_tools``: Provisions pre-built native tools (unpacker, pth builder, etc.)
+  needed by the Python toolchain.
+
+- ``python_interpreters``: Provisions Python interpreters from
+  python-build-standalone (PBS) releases with automatic version resolution
+  and cross-platform support.
 """
 
 load("@aspect_tools_telemetry_report//:defs.bzl", "TELEMETRY")
+load("//py/private/interpreter:extension.bzl", _python_interpreters = "python_interpreters")
 load("//py/private/release:version.bzl", "IS_PRERELEASE")
 load(":toolchains.bzl", "DEFAULT_TOOLS_REPOSITORY", "rules_py_toolchains")
+
+python_interpreters = _python_interpreters
 
 py_toolchain = tag_class(attrs = {
     "name": attr.string(

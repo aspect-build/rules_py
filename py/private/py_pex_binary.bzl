@@ -157,7 +157,15 @@ information from the hermetic python toolchain.
 })
 
 py_pex_binary = rule(
-    doc = "Build a pex executable from a py_binary",
+    doc = """Build a pex executable from a py_binary.
+
+> [!WARNING]
+> py_pex_binary is DEPRECATED and may be removed in a future release.
+> It relies on host-side PEX_ROOT mutation during the build action, which
+> complicates determinism guarantees under Remote Build Execution (RBE).
+> Use py_scie_binary or py_zipapp_binary instead for hermetic,
+> self-contained executables.
+""",
     implementation = _py_python_pex_impl,
     attrs = _attrs,
     toolchains = [

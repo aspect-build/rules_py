@@ -1,4 +1,4 @@
-load("//py/unstable:defs.bzl", "py_venv_test")
+load("//py/private/py_venv:defs.bzl", "py_venv_test")
 
 package(default_visibility = [
     "//uv/private:__subpackages__",
