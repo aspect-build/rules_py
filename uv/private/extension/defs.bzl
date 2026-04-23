@@ -63,6 +63,8 @@ load("//uv/private/pprint:defs.bzl", "pprint")
 load("//uv/private/sdist_build:repository.bzl", "sdist_build")
 load("//uv/private/sdist_configure:defs.bzl", "DEFAULT_CONFIGURE_SCRIPT")
 load("//uv/private/tomltool:toml.bzl", "toml")
+load("//uv/private/toolchain:repositories.bzl", "uv_hub_repository", "uv_repository")
+load("//uv/private/toolchain:versions.bzl", "UV_VERSIONS")
 load("//uv/private/uv_hub:repository.bzl", "uv_hub")
 load("//uv/private/uv_project:repository.bzl", "uv_project")
 load("//uv/private/whl_install:repository.bzl", "whl_install")
@@ -478,6 +480,63 @@ def _parse_projects(module_ctx, hub_specs):
         bdist_cfgs = bdist_specs,
     )
 
+LATEST_UV_VERSION = UV_VERSIONS.keys()[-1]
+
+def _process_toolchain_tags(module_ctx):
+    # Collect per-hub config, keyed by the `name` attr (default "uv"). Tags
+    # sharing a name must agree on all attrs.
+    hubs = {}
+    for mod in module_ctx.modules:
+        for tc in mod.tags.toolchain:
+            cfg = struct(
+                version = tc.version,
+                urls = list(tc.urls),
+                sha256s = dict(tc.sha256s),
+            )
+            existing = hubs.get(tc.name)
+            if existing != None and (
+                existing.version != cfg.version or
+                existing.urls != cfg.urls or
+                existing.sha256s != cfg.sha256s
+            ):
+                fail(
+                    "Conflicting uv.toolchain(name = \"{}\") declarations. ".format(tc.name) +
+                    "All tags sharing a name must agree on version, urls, and sha256s.",
+                )
+            hubs[tc.name] = cfg
+
+    for hub_name, cfg in hubs.items():
+        hashes = dict(UV_VERSIONS.get(cfg.version, {}))
+        hashes.update(cfg.sha256s)
+        if not hashes:
+            fail(
+                "uv.toolchain(name = \"{}\", version = \"{}\") is not pinned in aspect_rules_py ".format(hub_name, cfg.version) +
+                "and has no `sha256s` entries. Supply `sha256s` with at least " +
+                "one platform (value may be empty string for non-reproducible fetches).",
+            )
+
+        repo_prefix = "{}_".format(hub_name)
+        for platform, sha256 in hashes.items():
+            ext = "zip" if platform.endswith("-windows-msvc") else "tar.gz"
+            urls = [
+                tmpl.format(version = cfg.version, platform = platform, ext = ext)
+                for tmpl in cfg.urls
+            ]
+            uv_repository(
+                name = "{}{}".format(repo_prefix, platform.replace("-", "_")),
+                version = cfg.version,
+                platform = platform,
+                sha256 = sha256,
+                urls = urls,
+            )
+
+        uv_hub_repository(
+            name = hub_name,
+            version = cfg.version,
+            platforms = hashes.keys(),
+            repo_prefix = repo_prefix,
+        )
+
 def _uv_impl(module_ctx):
     """The implementation function for the `uv` module extension.
 
@@ -495,6 +554,8 @@ def _uv_impl(module_ctx):
     Args:
         module_ctx: The Bazel module context.
     """
+
+    _process_toolchain_tags(module_ctx)
 
     hub_specs = _parse_hubs(module_ctx)
 
@@ -721,9 +782,36 @@ for surgical modifications. Specifying `target` is mutually exclusive with
 all other modification attributes.""",
 )
 
+_toolchain_tag = tag_class(
+    attrs = {
+        "name": attr.string(
+            default = "uv",
+            doc = "Name of the hub repo (e.g. `@uv`). Set to a distinct value to publish an additional hub alongside the default.",
+        ),
+        "version": attr.string(
+            default = LATEST_UV_VERSION,
+            doc = "UV version to download (e.g. '0.11.6'). Defaults to the latest version known to aspect_rules_py.",
+        ),
+        "urls": attr.string_list(
+            doc = "Download URL templates. Each entry is a format string with " +
+                  "'{version}', '{platform}', and '{ext}' placeholders (ext is " +
+                  "'tar.gz' on Unix, 'zip' on Windows). URLs are tried in order. " +
+                  "When omitted, defaults to the upstream GitHub release URL.",
+        ),
+        "sha256s": attr.string_dict(
+            doc = "Map of platform triple to SHA256 of the UV release archive. " +
+                  "Overrides (or supplies, for unpinned versions) the hashes that " +
+                  "ship with aspect_rules_py. Use this when combining `version` " +
+                  "with `urls` to point at a custom build or mirror.",
+        ),
+    },
+    doc = "Configures the UV toolchain to download and register.",
+)
+
 uv = module_extension(
     implementation = _uv_impl,
     tag_classes = {
+        "toolchain": _toolchain_tag,
         "declare_hub": _hub_tag,
         "project": _project_tag,
         "unstable_annotate_packages": _annotations_tag,

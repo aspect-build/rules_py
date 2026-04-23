@@ -104,6 +104,24 @@ use_repo(importer, "myrepo")
 # For cases/uv-deps-650
 # {{{
 uv = use_extension("@aspect_rules_py//uv/unstable:extension.bzl", "uv")
+uv.toolchain(version = "0.11.6")
+
+# A second hub, pinned to an older version, exercised by cases/uv-toolchain.
+uv.toolchain(
+    name = "uv_legacy",
+    version = "0.10.12",
+)
+
+# A hub for an unpinned UV version with user-supplied sha256s.
+uv.toolchain(
+    name = "uv_custom",
+    # Only the platforms CI runs on; see .bcr/presubmit.yml.
+    sha256s = {
+        "aarch64-apple-darwin": "470993e87503874c7c48861daa308b48a7c367e117235bbecf19368b9fdd35b2",
+        "x86_64-unknown-linux-gnu": "0d87793f733f327849ebf9cf51b576cfb08328e22af73061405e4bec96ae84d1",
+    },
+    version = "0.11.5",
+)
 uv.declare_hub(hub_name = "pypi")
 uv.project(
     hub_name = "pypi",
@@ -378,4 +396,6 @@ uv.project(
 )
 # }}}
 
-use_repo(uv, "pypi")
+use_repo(uv, "pypi", "uv", "uv_custom", "uv_legacy")
+
+register_toolchains("@uv//:all")
