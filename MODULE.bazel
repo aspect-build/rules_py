@@ -204,8 +204,11 @@ python.toolchain(
 
 
 
-# For everything else, we use our own uv machinery
-uv = use_extension("//uv:extension.bzl", "uv", dev_dependency = IS_RELEASE)
+# For everything else, we use our own uv machinery.
+# The wrapper extension auto-resolves bundled UV binaries from tools/uv/bin/
+# so builds work portably in CI without absolute paths.
+uv = use_extension("//tools/uv:extension.bzl", "uv", dev_dependency = IS_RELEASE)
+uv.toolchain(version = "0.11.6")
 uv.declare_hub(
     hub_name = "pypi",
 )
@@ -225,6 +228,8 @@ uv.unstable_annotate_packages(
     src = "//:annotations.toml",
     lock = "//:uv.lock",
 )
-use_repo(uv, "pypi")
+use_repo(uv, "pypi", "uv", "uv_toolchains")
+
+register_toolchains("@uv_toolchains//:all")
 
 

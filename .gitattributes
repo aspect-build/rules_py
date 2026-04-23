@@ -5,3 +5,6 @@ examples export-ignore
 
 # Substitution for the _VERSION_PRIVATE placeholder
 py/private/release/version.bzl export-subst
+
+# Custom UV binaries — track with Git LFS when available
+tools/uv/bin/**/uv filter=lfs diff=lfs merge=lfs -text

@@ -1,6 +1,6 @@
-load("@aspect_rules_py//py/private/py_venv:defs.bzl", "py_venv_test")
+load("@aspect_rules_py//py:defs.bzl", "py_test")
 
-py_venv_test(
+py_test(
     name = "test",
     srcs = ["__test__.py"],
     main = "__test__.py",

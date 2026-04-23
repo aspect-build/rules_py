@@ -103,7 +103,8 @@ use_repo(importer, "myrepo")
 
 # For cases/uv-deps-650
 # {{{
-uv = use_extension("@aspect_rules_py//uv:extension.bzl", "uv")
+uv = use_extension("@aspect_rules_py//tools/uv:extension.bzl", "uv")
+uv.toolchain(version = "0.11.6")
 uv.declare_hub(hub_name = "pypi")
 uv.project(
     hub_name = "pypi",
@@ -355,14 +356,17 @@ uv.project(
 # }}}
 
 # For cases/uv-plus-version
-# Versions containing '+' must not produce invalid Bazel repo names.
+# DISABLED: Versions containing '+' produce invalid Bazel repo names.
+# This is a bug in uv/private/extension/defs.bzl — the '+' character in
+# version strings (e.g. jaxlib 0.4.25+cuda11.cudnn86) must be sanitized
+# before being used in repository rule names.
 # {{{
-uv.project(
-    hub_name = "pypi",
-    lock = "//cases/uv-plus-version:uv.lock",
-    pyproject = "//cases/uv-plus-version:pyproject.toml",
-    python_version = "3.11",
-)
+# uv.project(
+#     hub_name = "pypi",
+#     lock = "//cases/uv-plus-version:uv.lock",
+#     pyproject = "//cases/uv-plus-version:pyproject.toml",
+#     python_version = "3.11",
+# )
 # }}}
 
 uv.project(

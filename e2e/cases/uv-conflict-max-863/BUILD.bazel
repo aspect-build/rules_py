@@ -1,7 +1,8 @@
-load("@aspect_rules_py//py/private/py_venv:defs.bzl", "py_venv_test")
+load("@aspect_rules_py//py:defs.bzl", "py_test")
 
-py_venv_test(
+py_test(
     name = "test_a",
+    python_version = "3.11",
     srcs = ["test_a.py"],
     main = "test_a.py",
     venv = "max-a",
@@ -10,8 +11,9 @@ py_venv_test(
     ],
 )
 
-py_venv_test(
+py_test(
     name = "test_b",
+    python_version = "3.11",
     srcs = ["test_b.py"],
     main = "test_b.py",
     venv = "max-b",

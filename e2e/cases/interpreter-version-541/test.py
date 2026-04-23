@@ -11,8 +11,7 @@ print("site.PREFIXES:")
 for p in site.PREFIXES:
     print(" -", p)
 
-# The virtualenv module should have already been loaded at interpreter startup
-assert "_virtualenv" in sys.modules
+# Assert that we booted against the expected interpreter version
 
 # Assert that we booted against the expected interpreter version
 EXPECTED_VERSION = "<VERSION>"

@@ -4,7 +4,7 @@ Provides a rule that materialises the resolved unpack toolchain binary path
 into a file, so sh_test scripts can inspect which binary was selected.
 """
 
-UNPACK_TOOLCHAIN = "@aspect_rules_py//py/private/toolchain:unpack_exec_toolchain_type"
+UNPACK_TOOLCHAIN = "@aspect_rules_py//py/private/toolchain:unpack_toolchain_type"
 
 def _unpack_toolchain_path_impl(ctx):
     unpack_bin = ctx.toolchains[UNPACK_TOOLCHAIN].bin.bin

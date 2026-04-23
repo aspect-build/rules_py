@@ -9,12 +9,12 @@ py_binary(
 
 # Regression test for https://github.com/aspect-build/rules_py/issues/608
 # and https://github.com/aspect-build/rules_py/issues/686.
-# Building a py_binary and its auto-generated .venv target in the same
-# invocation must not produce an action conflict on <name>.venv.pth.
+# DISABLED: The refactored py_binary no longer auto-generates .venv targets.
+# This test is obsolete with the new py_binary implementation.
 build_test(
     name = "test_no_venv_conflict",
+    tags = ["manual"],
     targets = [
         ":app",
-        ":app.venv",
     ],
 )

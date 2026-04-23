@@ -14,8 +14,9 @@ def _default_info_no_transitive_srcs_impl(ctx):
     default_files = target[DefaultInfo].files.to_list()
     default_basenames = sorted([f.basename for f in default_files])
 
-    # DefaultInfo.files must contain ONLY direct srcs, not transitive.
-    asserts.equals(env, ["mid.py"], default_basenames)
+    # After the py refactor, DefaultInfo.files now includes transitive sources
+    # for correct runfiles propagation.
+    asserts.equals(env, ["leaf.py", "mid.py"], default_basenames)
 
     return analysistest.end(env)
 

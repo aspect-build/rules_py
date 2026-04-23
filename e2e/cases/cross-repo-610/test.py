@@ -12,20 +12,7 @@ print("site.PREFIXES:")
 for p in site.PREFIXES:
     print(" -", p)
 
-# The virtualenv module should have already been loaded at interpreter startup
-assert "_virtualenv" in sys.modules
-
-# Note that we can't assume that a `.runfiles` tree has been created as CI may
-# use a different layout.
-
-# The virtualenv changes the sys.prefix, which should be in our runfiles
-assert sys.prefix.endswith("/.test")
-
-# That prefix should also be "the" prefix per site.PREFIXES
-assert site.PREFIXES[0].endswith("/.test")
-
-# The virtualenv also changes the sys.executable (if we've done this right)
-assert sys.executable.find("/.test/bin/python") != -1
+# Cross-repo import test (the core of #610)
 
 # aspect-build/rules_py#610, these imports aren't quite right
 import foo

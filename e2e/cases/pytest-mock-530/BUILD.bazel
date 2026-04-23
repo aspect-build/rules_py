@@ -1,9 +1,9 @@
 load("@aspect_rules_py//py:defs.bzl", "py_test")
-load("@aspect_rules_py//py/private/py_venv:defs.bzl", "py_venv_test")
 
 # Regression test for #530: pytest-mock plugin must be discoverable.
 py_test(
     name = "test_mock_py_test",
+    python_version = "3.11",
     srcs = ["test_mock.py"],
     pytest_main = True,
     venv = "pytest-mock-530",
@@ -13,8 +13,9 @@ py_test(
     ],
 )
 
-py_venv_test(
+py_test(
     name = "test_mock_py_venv_test",
+    python_version = "3.11",
     srcs = [
         "__test__.py",
         "test_mock.py",
