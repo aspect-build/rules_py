@@ -13,7 +13,10 @@ load("//bazel/platforms/config:defs.bzl", "linker_suffix", "platforms")
         "@platforms//os:{}".format(p.os),
         "@platforms//cpu:{}".format(p.cpu),
         "//bazel/platforms/linkers:{}".format(p.linker),
-    ],
+    ] + ([
+        "@llvm//constraints/libc:musl",
+        "@llvm//constraints/pie:off",
+    ] if p.os == "linux" else []),
     visibility = ["//visibility:public"],
 ) for p in platforms]
 
@@ -26,6 +29,18 @@ alias(
 alias(
     name = "linux_arm64",
     actual = ":linux_aarch64",
+    visibility = ["//visibility:public"],
+)
+
+# A host-compatible Linux platform with glibc 2.28+, used as the build target
+# and exec platform on Linux CI. Inherits cpu/os from the auto-detected host
+# so it works on both x86_64 and aarch64 builders without separate entries.
+platform(
+    name = "linux_gnu",
+    constraint_values = [
+        "@llvm//constraints/libc:gnu.2.28",
+    ],
+    parents = ["@platforms//host"],
     visibility = ["//visibility:public"],
 )
 
