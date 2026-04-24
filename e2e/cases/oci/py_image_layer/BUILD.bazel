@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer")
+load("@aspect_rules_py//py:defs.bzl", "layer_tier", "py_binary", "py_image_layer")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@container_structure_test//:defs.bzl", "container_structure_test")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load")
@@ -36,9 +36,44 @@ py_image_layer(
     binary = ":my_app_bin",
 )
 
+# Tier wired into :my_app_layers_fp that exercises both first-party and third-party
+# grouping end-to-end:
+#   - //cases/oci/py_image_layer/branding (first-party py_library) → "branding" layer
+#   - @pip//colorama (third-party pip package)                     → "colorama" rest layer
+#   - @pip//colorama:**/*.py                                       → "colorama_code" subpath
+# The .py files peel off into their own layer; the remainder (dist-info metadata,
+# license, etc.) stays in the "colorama" whole-group layer. Compression is bumped
+# to gzip -9 to verify the compression attr is wired through.
+layer_tier(
+    name = "my_app_tier",
+    compression = {
+        "@pip//colorama": [
+            "gzip",
+            "9",
+        ],
+    },
+    groups = {
+        "//cases/oci/py_image_layer/branding": "branding",
+        "@pip//colorama": "colorama",
+        "@pip//colorama:**/*.py": "colorama_code",
+    },
+)
+
+py_image_layer(
+    name = "my_app_layers_fp",
+    binary = ":my_app_bin",
+    layer_tier = ":my_app_tier",
+)
+
 platform_transition_filegroup(
     name = "platform_layers",
     srcs = [":my_app_layers"],
+    target_platform = ":x86_64_linux",
+)
+
+platform_transition_filegroup(
+    name = "platform_layers_fp",
+    srcs = [":my_app_layers_fp"],
     target_platform = ":x86_64_linux",
 )
 
@@ -48,6 +83,12 @@ assert_tar_listing(
     name = "my_app_layers_test",
     actual = [":platform_layers"],
     expected = ":my_app_layers_listing.yaml",
+)
+
+assert_tar_listing(
+    name = "my_app_layers_fp_test",
+    actual = [":platform_layers_fp"],
+    expected = ":my_app_layers_fp_listing.yaml",
 )
 
 oci_image(
