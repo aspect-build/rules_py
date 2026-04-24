@@ -12,7 +12,6 @@ This module exports two module extensions:
 
 load("@aspect_tools_telemetry_report//:defs.bzl", "TELEMETRY")  # buildifier: disable=load
 load("@bazel_features//:features.bzl", features = "bazel_features")
-load("@aspect_tools_telemetry_report//:defs.bzl", "TELEMETRY")
 load("//py/private/interpreter:extension.bzl", _python_interpreters = "python_interpreters")
 load("//py/private/release:version.bzl", "IS_PRERELEASE")
 load(":toolchains.bzl", "DEFAULT_TOOLS_REPOSITORY", "rules_py_toolchains")

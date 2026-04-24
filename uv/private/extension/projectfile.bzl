@@ -115,6 +115,33 @@ def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_m
 
     return results
 
+def _extract_lockfile_group_versions(lock_id, lock_data):
+    """Extracts resolved package versions per dependency group from the lockfile.
+
+    uv.lock encodes the exact package versions selected for each dependency group
+    in the root package's `dev-dependencies` section. This function builds a map
+    that can be used as `preferred_versions` when resolving requirement strings.
+
+    Args:
+        lock_id: The lockfile identifier used in dependency tuples.
+        lock_data: The parsed content of the `uv.lock` file.
+
+    Returns:
+        A dictionary mapping normalized group names to dictionaries of
+        {package_name: (lock_id, package_name, version, "__base__")}.
+    """
+    result = {}
+    for pkg in lock_data.get("package", []):
+        if "virtual" not in pkg.get("source", {}):
+            continue
+        for raw_group_name, deps in pkg.get("dev-dependencies", {}).items():
+            group_name = normalize_name(raw_group_name)
+            for dep in deps:
+                pkg_name = normalize_name(dep["name"])
+                if "version" in dep:
+                    result.setdefault(group_name, {})[pkg_name] = (lock_id, pkg_name, dep["version"], "__base__")
+    return result
+
 def collect_activated_extras(projectfile, lock_id, project_data, lock_data, default_versions, graph, package_versions = {}):
     """Collects the set of transitively activated extras for each configuration.
 
