@@ -17,6 +17,7 @@ This guidance tells us how to avoid that: we put the toolchain targets in the al
 with only the toolchain attribute pointing into the platform-specific repositories.
 """
 
+load("@bazel_features//:features.bzl", features = "bazel_features")
 load("//py/private/release:integrity.bzl", "RELEASED_BINARY_INTEGRITY")
 load("//py/private/release:version.bzl", "VERSION")
 load("//py/private/toolchain:tools.bzl", "TOOLCHAIN_PLATFORMS", "TOOL_CFGS")
@@ -94,6 +95,10 @@ toolchain(
     # Base BUILD file for this repository
     repository_ctx.file("BUILD.bazel", build_content)
 
+    if not features.external_deps.extension_metadata_has_reproducible:
+        return None
+    return repository_ctx.repo_metadata(reproducible = True)
+
 toolchains_repo = repository_rule(
     _toolchains_repo_impl,
     doc = """\
@@ -130,6 +135,10 @@ toolchain(
         )
     repository_ctx.file("BUILD.bazel", build_content)
 
+    if not features.external_deps.extension_metadata_has_reproducible:
+        return None
+    return repository_ctx.repo_metadata(reproducible = True)
+
 prerelease_toolchains_repo = repository_rule(
     _prerelease_toolchains_repo_impl,
     doc = """Create a repo with native_build toolchain entries but no tool toolchains.
@@ -149,18 +158,15 @@ load("@aspect_rules_py//py/private/toolchain:tools.bzl", "source_py_tool_toolcha
 package(default_visibility = ["//visibility:public"])
 """
 
-    # For manual testing, override these environment variables
-    # TODO: use rctx.getenv when available, see https://github.com/bazelbuild/bazel/pull/20944
-    release_fork = "aspect-build"
-    release_version = VERSION
-    if "RULES_PY_RELEASE_FORK" in rctx.os.environ:
-        release_fork = rctx.os.environ["RULES_PY_RELEASE_FORK"]
-    if "RULES_PY_RELEASE_VERSION" in rctx.os.environ:
-        release_version = rctx.os.environ["RULES_PY_RELEASE_VERSION"]
-
-    url_template = "https://github.com/{release_fork}/rules_py/releases/download/v{release_version}/{filename}"
-    if "RULES_PY_RELEASE_URL" in rctx.os.environ:
-        url_template = rctx.os.environ["RULES_PY_RELEASE_URL"]
+    # For manual testing, override via environment variables. These vars are
+    # declared in `environ` below so Bazel re-fetches when they change, which
+    # keeps the rule reproducible (its output depends only on attrs + declared env).
+    release_fork = rctx.os.environ.get("RULES_PY_RELEASE_FORK", "aspect-build")
+    release_version = rctx.os.environ.get("RULES_PY_RELEASE_VERSION", VERSION)
+    url_template = rctx.os.environ.get(
+        "RULES_PY_RELEASE_URL",
+        "https://github.com/{release_fork}/rules_py/releases/download/v{release_version}/{filename}",
+    )
 
     # FIXME: Follow multitool/toml pattern; one external repo per download.
     for tool in TOOL_CFGS:
@@ -187,10 +193,19 @@ package(default_visibility = ["//visibility:public"])
 
     rctx.file("BUILD.bazel", build_content)
 
+    if not features.external_deps.extension_metadata_has_reproducible:
+        return None
+    return rctx.repo_metadata(reproducible = True)
+
 prebuilt_tool_repo = repository_rule(
     doc = "Download pre-built binary tools and create concrete toolchains for them",
     implementation = _prebuilt_tool_repo_impl,
     attrs = {
         "platform": attr.string(mandatory = True, values = TOOLCHAIN_PLATFORMS.keys()),
     },
+    environ = [
+        "RULES_PY_RELEASE_FORK",
+        "RULES_PY_RELEASE_VERSION",
+        "RULES_PY_RELEASE_URL",
+    ],
 )

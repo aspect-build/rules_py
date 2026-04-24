@@ -3,6 +3,7 @@
 Includes rules for downloading PBS interpreters and registering local interpreters.
 """
 
+load("@bazel_features//:features.bzl", features = "bazel_features")
 load(":exclude_feature.bzl", "INTERPRETER_FEATURES")
 
 _PYTHON_VERSION_FLAG = "@aspect_rules_py//py/private/interpreter:python_version"
@@ -43,6 +44,10 @@ def _python_interpreter_impl(rctx):
         python_bin = python_bin,
         is_windows = is_windows,
     ))
+
+    if not features.external_deps.extension_metadata_has_reproducible:
+        return None
+    return rctx.repo_metadata(reproducible = True)
 
 def _feature_filegroups(major, minor, is_windows):
     """Generate per-feature filegroup targets and config_settings.
@@ -342,6 +347,10 @@ toolchain(
         ))
 
     rctx.file("BUILD.bazel", content = "\n".join(content))
+
+    if not features.external_deps.extension_metadata_has_reproducible:
+        return None
+    return rctx.repo_metadata(reproducible = True)
 
 python_toolchains = repository_rule(
     implementation = _python_toolchains_impl,
