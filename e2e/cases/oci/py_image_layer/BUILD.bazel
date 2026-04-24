@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer")
+load("@aspect_rules_py//py:defs.bzl", "layer_tier", "py_binary", "py_image_layer")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@container_structure_test//:defs.bzl", "container_structure_test")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load")
@@ -36,9 +36,85 @@ py_image_layer(
     binary = ":my_app_bin",
 )
 
+# Tier wired into :my_app_layers_fp that exercises every grouping path:
+#   - //cases/oci/py_image_layer/branding (first-party py_library, incl. `data`) → "branding"
+#   - @pip//colorama (third-party pip package)                                   → "colorama" rest
+#   - @pip//colorama:**/*.py                                                     → "colorama_code"
+#   - Python interpreter (pulled from py3 toolchain)                             → "interpreter"
+# The .py files peel off into their own layer; the remainder (dist-info metadata,
+# license, etc.) stays in the "colorama" whole-group layer. Compression is bumped
+# to gzip -9 to verify the compression attr is wired through.
+layer_tier(
+    name = "my_app_tier",
+    compression = {
+        "colorama": [
+            "gzip",
+            "9",
+        ],
+    },
+    groups = {
+        "//cases/oci/py_image_layer/branding": "branding",
+        "@pip//colorama": "colorama",
+        "@pip//colorama:**/*.py": "colorama_code",
+    },
+    interpreter_group = "interpreter",
+)
+
+py_image_layer(
+    name = "my_app_layers_fp",
+    binary = ":my_app_bin",
+    layer_tier = ":my_app_tier",
+)
+
+# Multi-member group coverage: two pip packages mapped to the same group name
+# go through the _merge_aspect path (no per-package tars; single merged tar
+# from both install_dirs). Binary also adds pyproject_hooks to make the
+# closure non-trivial. Zstd-compressed to exercise _compression_ext.
+py_binary(
+    name = "my_app_multi_bin",
+    srcs = ["__main__.py"],
+    venv = "images",
+    deps = [
+        "@pypi//colorama",
+        "@pypi//pyproject_hooks",
+    ],
+)
+
+layer_tier(
+    name = "my_app_multi_tier",
+    compression = {
+        "third_party": [
+            "zstd",
+            "3",
+        ],
+    },
+    groups = {
+        "@pip//colorama": "third_party",
+        "@pip//pyproject_hooks": "third_party",
+    },
+)
+
+py_image_layer(
+    name = "my_app_multi_layers",
+    binary = ":my_app_multi_bin",
+    layer_tier = ":my_app_multi_tier",
+)
+
 platform_transition_filegroup(
     name = "platform_layers",
     srcs = [":my_app_layers"],
+    target_platform = ":x86_64_linux",
+)
+
+platform_transition_filegroup(
+    name = "platform_layers_fp",
+    srcs = [":my_app_layers_fp"],
+    target_platform = ":x86_64_linux",
+)
+
+platform_transition_filegroup(
+    name = "platform_layers_multi",
+    srcs = [":my_app_multi_layers"],
     target_platform = ":x86_64_linux",
 )
 
@@ -48,6 +124,18 @@ assert_tar_listing(
     name = "my_app_layers_test",
     actual = [":platform_layers"],
     expected = ":my_app_layers_listing.yaml",
+)
+
+assert_tar_listing(
+    name = "my_app_layers_fp_test",
+    actual = [":platform_layers_fp"],
+    expected = ":my_app_layers_fp_listing.yaml",
+)
+
+assert_tar_listing(
+    name = "my_app_layers_multi_test",
+    actual = [":platform_layers_multi"],
+    expected = ":my_app_layers_multi_listing.yaml",
 )
 
 oci_image(

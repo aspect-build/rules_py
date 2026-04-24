@@ -378,4 +378,18 @@ uv.project(
 )
 # }}}
 
+# For cases/oci/py_image_layer and cases/oci/py_venv_image_layer
+# {{{
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/oci/py_image_layer:uv.lock",
+    pyproject = "//cases/oci/py_image_layer:pyproject.toml",
+)
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/oci/py_venv_image_layer:uv.lock",
+    pyproject = "//cases/oci/py_venv_image_layer:pyproject.toml",
+)
+# }}}
+
 use_repo(uv, "pypi")

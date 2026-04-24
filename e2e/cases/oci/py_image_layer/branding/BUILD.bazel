@@ -3,9 +3,14 @@ load("@aspect_rules_py//py:defs.bzl", "py_library")
 py_library(
     name = "branding",
     srcs = ["__init__.py"],
+    # palette.txt is declared as data so the aspect has to route a non-source
+    # file through the tier group — regression coverage for the bug where only
+    # DefaultInfo.files (i.e. the .py sources) got captured and everything else
+    # leaked into the default layer.
+    data = ["palette.txt"],
     imports = [".."],
     visibility = [
-        "//py/tests/py_image_layer:__pkg__",
-        "//py/tests/py_venv_image_layer:__pkg__",
+        "//cases/oci/py_image_layer:__pkg__",
+        "//cases/oci/py_venv_image_layer:__pkg__",
     ],
 )

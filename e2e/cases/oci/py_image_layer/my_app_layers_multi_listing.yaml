@@ -16,14 +16,19 @@ files:
   - -rwxr-xr-x  0 0      0        3709 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/install/lib/python3.11/site-packages/colorama/tests/winterm_test.py
   - -rwxr-xr-x  0 0      0        6181 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/install/lib/python3.11/site-packages/colorama/win32.py
   - -rwxr-xr-x  0 0      0        7134 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/install/lib/python3.11/site-packages/colorama/winterm.py
+  - -rwxr-xr-x  0 0      0        1081 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__pyproject_hooks__1_2_0/install/lib/python3.11/site-packages/pyproject_hooks-1.2.0.dist-info/LICENSE
+  - -rwxr-xr-x  0 0      0        1288 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__pyproject_hooks__1_2_0/install/lib/python3.11/site-packages/pyproject_hooks-1.2.0.dist-info/METADATA
+  - -rwxr-xr-x  0 0      0         691 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__pyproject_hooks__1_2_0/install/lib/python3.11/site-packages/pyproject_hooks/__init__.py
+  - -rwxr-xr-x  0 0      0       14936 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__pyproject_hooks__1_2_0/install/lib/python3.11/site-packages/pyproject_hooks/_impl.py
+  - -rwxr-xr-x  0 0      0         557 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__pyproject_hooks__1_2_0/install/lib/python3.11/site-packages/pyproject_hooks/_in_process/__init__.py
+  - -rwxr-xr-x  0 0      0       12216 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__pyproject_hooks__1_2_0/install/lib/python3.11/site-packages/pyproject_hooks/_in_process/_in_process.py
+  - -rwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__pyproject_hooks__1_2_0/install/lib/python3.11/site-packages/pyproject_hooks/py.typed
 ---
 layer: 1
 files:
   - -rwxr-xr-x  0 0      0         204 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/__main__.py
-  - -rwxr-xr-x  0 0      0          42 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/branding/__init__.py
-  - -rwxr-xr-x  0 0      0          31 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/branding/palette.txt
-  - -rwxr-xr-x  0 0      0        2872 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/my_app_bin
-  - -rwxr-xr-x  0 0      0         308 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/my_app_bin.pth
+  - -rwxr-xr-x  0 0      0        2902 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/my_app_multi_bin
+  - -rwxr-xr-x  0 0      0         297 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/my_app_multi_bin.pth
   - -rwxr-xr-x  0 0      0         158 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/2to3
   - -rwxr-xr-x  0 0      0         158 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/2to3-3.11
   - -rwxr-xr-x  0 0      0         156 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/idle3
@@ -2339,6 +2344,4 @@ files:
   - -rwxr-xr-x  0 0      0       25855 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/tk9.0/xmfbox.tcl
   - -rwxr-xr-x  0 0      0       20280 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/share/man/man1/python3.1
   - -rwxr-xr-x  0 0      0       20280 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/share/man/man1/python3.11.1
-  - -rwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/aspect_rules_py+/py/tests/internal-deps/adder/__init__.py
-  - -rwxr-xr-x  0 0      0          32 Jan  1  2023 ./app.runfiles/aspect_rules_py+/py/tests/internal-deps/adder/add.py
   - -rwxr-xr-x  0 0      0       21636 Jan  1  2023 ./app.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash
