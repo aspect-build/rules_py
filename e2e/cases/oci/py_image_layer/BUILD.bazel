@@ -47,7 +47,7 @@ py_image_layer(
 layer_tier(
     name = "my_app_tier",
     compression = {
-        "@pip//colorama": [
+        "colorama": [
             "gzip",
             "9",
         ],
@@ -66,6 +66,40 @@ py_image_layer(
     layer_tier = ":my_app_tier",
 )
 
+# Multi-member group coverage: two pip packages mapped to the same group name
+# go through the _merge_aspect path (no per-package tars; single merged tar
+# from both install_dirs). Binary also adds pyproject_hooks to make the
+# closure non-trivial. Zstd-compressed to exercise _compression_ext.
+py_binary(
+    name = "my_app_multi_bin",
+    srcs = ["__main__.py"],
+    venv = "images",
+    deps = [
+        "@pypi//colorama",
+        "@pypi//pyproject_hooks",
+    ],
+)
+
+layer_tier(
+    name = "my_app_multi_tier",
+    compression = {
+        "third_party": [
+            "zstd",
+            "3",
+        ],
+    },
+    groups = {
+        "@pip//colorama": "third_party",
+        "@pip//pyproject_hooks": "third_party",
+    },
+)
+
+py_image_layer(
+    name = "my_app_multi_layers",
+    binary = ":my_app_multi_bin",
+    layer_tier = ":my_app_multi_tier",
+)
+
 platform_transition_filegroup(
     name = "platform_layers",
     srcs = [":my_app_layers"],
@@ -75,6 +109,12 @@ platform_transition_filegroup(
 platform_transition_filegroup(
     name = "platform_layers_fp",
     srcs = [":my_app_layers_fp"],
+    target_platform = ":x86_64_linux",
+)
+
+platform_transition_filegroup(
+    name = "platform_layers_multi",
+    srcs = [":my_app_multi_layers"],
     target_platform = ":x86_64_linux",
 )
 
@@ -90,6 +130,12 @@ assert_tar_listing(
     name = "my_app_layers_fp_test",
     actual = [":platform_layers_fp"],
     expected = ":my_app_layers_fp_listing.yaml",
+)
+
+assert_tar_listing(
+    name = "my_app_layers_multi_test",
+    actual = [":platform_layers_multi"],
+    expected = ":my_app_layers_multi_listing.yaml",
 )
 
 oci_image(

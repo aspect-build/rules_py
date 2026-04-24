@@ -21,6 +21,7 @@ layer: 1
 files:
   - -rwxr-xr-x  0 0      0        1248 Jan  1  2023 ./app
   - -rwxr-xr-x  0 0      0          42 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/branding/__init__.py
+  - -rwxr-xr-x  0 0      0          31 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/branding/palette.txt
   - -rwxr-xr-x  0 0      0        2504 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin/bin/activate
   - -rwxr-xr-x  0 0      0      853872 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin/bin/python
   - -rwxr-xr-x  0 0      0      853872 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin/bin/python3
