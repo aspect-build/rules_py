@@ -2,6 +2,7 @@
 
 """
 
+load("@bazel_features//:features.bzl", features = "bazel_features")
 load("//uv/private:sha1.bzl", "sha1")
 load("//uv/private/pprint:defs.bzl", "pprint")
 
@@ -269,6 +270,10 @@ decide_marker(
 """.format(name = marker_id, marker = repr(marker_expr)))
 
     repository_ctx.file("private/markers/BUILD.bazel", "\n".join(content))
+
+    if not features.external_deps.extension_metadata_has_reproducible:
+        return None
+    return repository_ctx.repo_metadata(reproducible = True)
 
 uv_project = repository_rule(
     implementation = _project_impl,

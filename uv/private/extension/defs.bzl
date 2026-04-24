@@ -606,8 +606,9 @@ def _uv_impl(module_ctx):
             packages = json.encode(hub_cfg.packages),
         )
 
-    if features.external_deps.extension_metadata_has_reproducible:
-        return module_ctx.extension_metadata(reproducible = True)
+    if not features.external_deps.extension_metadata_has_reproducible:
+        return None
+    return module_ctx.extension_metadata(reproducible = True)
 
 _hub_tag = tag_class(
     attrs = {

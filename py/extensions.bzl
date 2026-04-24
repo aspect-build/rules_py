@@ -1,6 +1,7 @@
 "Module Extensions used from MODULE.bazel"
 
 load("@aspect_tools_telemetry_report//:defs.bzl", "TELEMETRY")  # buildifier: disable=load
+load("@bazel_features//:features.bzl", features = "bazel_features")
 load("//py/private/release:version.bzl", "IS_PRERELEASE")
 load(":toolchains.bzl", "DEFAULT_TOOLS_REPOSITORY", "rules_py_toolchains")
 
@@ -36,6 +37,10 @@ def _toolchains_extension_impl(module_ctx):
     for name in registrations:
         if name != root_name:
             rules_py_toolchains(name, register = False)
+
+    if not features.external_deps.extension_metadata_has_reproducible:
+        return None
+    return module_ctx.extension_metadata(reproducible = True)
 
 py_tools = module_extension(
     implementation = _toolchains_extension_impl,

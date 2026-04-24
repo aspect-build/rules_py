@@ -2,6 +2,7 @@
 
 """
 
+load("@bazel_features//:features.bzl", features = "bazel_features")
 load("//uv/private/pprint:defs.bzl", "pprint")
 
 def indent(text, space = "    "):
@@ -202,6 +203,10 @@ def requirement(name):
     ################################################################################
     # Lay down the hub aliases
     entrypoints = {}
+
+    if not features.external_deps.extension_metadata_has_reproducible:
+        return None
+    return repository_ctx.repo_metadata(reproducible = True)
 
 uv_hub = repository_rule(
     doc = """
