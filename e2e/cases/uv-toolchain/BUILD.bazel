@@ -1,0 +1,25 @@
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+[
+    genrule(
+        name = "{}_version".format(hub),
+        outs = ["{}_version.txt".format(hub)],
+        cmd = "$(execpath @{}//:uv) --version > $@".format(hub),
+        tools = ["@{}//:uv".format(hub)],
+    )
+    for hub in [
+        "uv",
+        "uv_custom",
+        "uv_legacy",
+    ]
+]
+
+sh_test(
+    name = "test",
+    srcs = ["test.sh"],
+    data = [
+        ":uv_custom_version.txt",
+        ":uv_legacy_version.txt",
+        ":uv_version.txt",
+    ],
+)

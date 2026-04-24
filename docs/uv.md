@@ -48,33 +48,24 @@ required.
 
 ## Quickstart
 
-The first step is to generate a `uv.lock` file.
+The first step is to generate a `uv.lock` file. In contrast to a conventional
+`requirements.txt`, the uv lockfile contains both the dependency graph between
+requirements and detailed information about the wheels and sdists.
 
-In contrast to a conventional `requirements.txt`, the uv lockfile contains both
-the dependency graph between requirements, and detailed information about the
-wheels and sdists for the requested requirements.
-
-Assuming you haven't already adopted the `pyproject.toml` dependency manifest,
-you can `uv add` your requirements lock to a dummy project and create a uv
-lockfile.
+The `uv.toolchain()` tag below registers a Bazel-managed `uv`, so you can
+invoke it via `bazel run @uv -- …` without installing `uv` globally. From a
+workspace that already has a `pyproject.toml`:
 
 ```shell
-d=$(mktemp -d)
-cat <<'EOF' > $d/pyproject.toml
-[project]
-name = "dummy"
-version = "0.0.0"
-requires-python = ">= 3.9"
-dependencies = []
-EOF
-cp requirements_lock.txt $d/
-(
-  cd $d
-  uv add -r requirements_lock.txt
-  uv lock
-)
-cp $d/uv.lock .
-rm -r $d
+bazel run @uv -- lock
+```
+
+If you're migrating from `requirements.txt`, use uv's own import flow to
+create a `pyproject.toml` and seed it:
+
+```shell
+bazel run @uv -- init --no-workspace
+bazel run @uv -- add -r requirements_lock.txt
 ```
 
 We can now use the lockfile to configure our build.
@@ -87,6 +78,7 @@ to swap a locked requirement (`cowsay`) for a local one.
 # MODULE.bazel
 bazel_dep(name = "aspect_rules_py", version = "1.6.7") # Or later
 uv = use_extension("@aspect_rules_py//uv/unstable:extension.bzl", "uv")
+uv.toolchain(version = "0.11.6")
 uv.declare_hub(
     hub_name = "pypi",      # Or whatever you wish
 )
@@ -104,7 +96,9 @@ uv.override_package(
 )
 
 # This one hub now has two configurations ("venvs") available
-use_repo(uv, "pypi")
+use_repo(uv, "pypi", "uv")
+
+register_toolchains("@uv//:all")
 ```
 
 We can configure a default virtualenv by setting the venv configuration flag on our hub as part of the `.bazelrc`.
@@ -135,6 +129,31 @@ py_binary(
    venv = "vendored_say",    # Change the default venv choice
 )
 ```
+
+## The `uv` toolchain
+
+`uv.toolchain()` fetches the UV binary for the required platform(s) and
+publishes `@uv`:
+
+- `@uv//:uv` — host-platform alias for ad-hoc use (`bazel run @uv`,
+  `genrule(tools=…)`, `sh_binary(data=…)`).
+- `@uv//:all` — per-platform toolchains for `register_toolchains`.
+
+Optional attributes:
+
+- `name` — hub repo name; defaults to `"uv"` (i.e. `@uv`). Set to a distinct
+  value to publish an additional hub (e.g. `@uv_legacy//:uv`) alongside the
+  default.
+- `version` — defaults to the latest version known to aspect_rules_py.
+  Unknown versions are still fetchable but non-reproducible unless paired
+  with `sha256s`.
+- `urls` — mirror templates with `{version}`, `{platform}`, `{ext}`
+  placeholders; tried in order. Defaults to the upstream GitHub release URL.
+- `sha256s` — map of platform triple to SHA256. Overrides or supplies the
+  hashes baked into aspect_rules_py. Entries are optional per-platform; a
+  platform with an empty-string hash fetches without integrity verification
+  and the download is marked non-reproducible (its bytes may vary across
+  users).
 
 ## Relationship to interpreter provisioning
 

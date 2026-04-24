@@ -13,5 +13,6 @@ bazel_env(
         "cargo": "@rules_rust//tools/upstream_wrapper:cargo",
         "rustc": "@rules_rust//tools/upstream_wrapper:rustc",
         "rustfmt": "@rules_rust//tools/upstream_wrapper:rustfmt",
+        "uv": "@uv",
     } | MULTITOOL_TOOLS,
 )
