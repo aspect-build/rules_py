@@ -33,6 +33,7 @@ Sharing model:
 """
 
 load("@rules_python//python:defs.bzl", "PyInfo")
+load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
 
 _TAR_TOOLCHAIN = "@tar.bzl//tar/toolchain:type"
 
@@ -78,6 +79,7 @@ LayerTierInfo = provider(
         "subpath_groups": "dict[str, dict[str, list[str]]] — label → {group_name: [glob_patterns]}.",
         "compression": "dict[str, list[str]] — normalized pip label → [algorithm, level].",
         "multi_member_groups": "dict[str, True] — group names with 2+ members in whole_groups.",
+        "interpreter_group": "str — group name for the Python interpreter layer; '' disables.",
     },
 )
 
@@ -108,6 +110,7 @@ def _layer_tier_impl(ctx):
         subpath_groups = subpath_groups,
         compression = {normalize_label(k): v for k, v in ctx.attr.compression.items()},
         multi_member_groups = multi_member_groups,
+        interpreter_group = ctx.attr.interpreter_group,
     )]
 
 layer_tier = rule(
@@ -124,6 +127,13 @@ layer_tier = rule(
         "compression": attr.string_list_dict(
             default = {},
             doc = "Maps @pip//package → [algorithm, level], e.g. {\"@pip//torch\": [\"zstd\", \"1\"]}.",
+        ),
+        "interpreter_group": attr.string(
+            default = "",
+            doc = ("When non-empty, the Python interpreter tree supplied by the " +
+                   "py toolchain (@bazel_tools//tools/python:toolchain_type's " +
+                   "py3_runtime.files) is emitted as its own layer with this name " +
+                   "instead of being bundled into the default source layer."),
         ),
     },
     provides = [LayerTierInfo],
@@ -288,32 +298,49 @@ def _layer_aspect_impl(target, ctx):
     kind = ctx.rule.kind
     is_binary = kind in _PY_BINARY_KINDS
 
-    # First-party PyInfo targets (libraries, not binaries) can be assigned to a
-    # layer_tier whole-group. When matched, the target's own DefaultInfo.files
-    # flow into that group's tar instead of the default source layer. Binaries
-    # are never themselves grouped — they are the entry point and participate in
+    # First-party PyInfo targets (libraries, not binaries) capture their own
+    # contribution: sources plus files declared via `data` (and any non-PyInfo
+    # entries in `deps`, e.g. cc extensions). Deps that self-capture via the
+    # aspect — other PyInfo libraries and pip packages — are skipped so we
+    # don't double-count them. This is all depset-level: no to_list walks.
+    #
+    # When a layer_tier whole-group matches this label, the contribution flows
+    # into that group's tar instead of the default source layer. Binaries are
+    # never themselves grouped — they are the entry point and participate in
     # the runfiles-based assembly below.
-    if kind not in _PY_VENV_KINDS and PyInfo in target:
-        fp_group = None
-        if not is_binary:
-            plan = ctx.attr._layer_tier[LayerTierInfo]
-            label_str = normalize_label(str(target.label))
-            fp_group = plan.whole_groups.get(label_str, None)
+    if kind not in _PY_VENV_KINDS and PyInfo in target and not is_binary:
+        own_parts = [target[DefaultInfo].files]
+        for attr_name in ("data", "deps"):
+            attr_val = getattr(ctx.rule.attr, attr_name, None)
+            if not attr_val:
+                continue
+            for dep in attr_val:
+                if PyInfo in dep:
+                    continue
+                if OutputGroupInfo in dep and hasattr(dep[OutputGroupInfo], "install_dir"):
+                    continue
+                if DefaultInfo in dep:
+                    own_parts.append(dep[DefaultInfo].files)
+        own_depset = depset(transitive = own_parts)
+
+        plan = ctx.attr._layer_tier[LayerTierInfo]
+        label_str = normalize_label(str(target.label))
+        fp_group = plan.whole_groups.get(label_str, None)
         if fp_group != None:
             own_fp.append(struct(
                 label = label_str,
-                files = target[DefaultInfo].files,
+                files = own_depset,
                 group = fp_group,
             ))
         else:
-            own_source.append(target[DefaultInfo].files)
+            own_source.append(own_depset)
 
     # Binary rules are the image's entry point. Capture the full runfiles tree so
     # the interpreter + venv directory land in the image (py_venv_binary assembles
     # its site-packages as a tree artifact in runfiles; the interpreter is toolchain
-    # runfiles). Pip install_dirs and first-party grouped files are filtered out
-    # here because they already ship in their own layers; OCI layer overlay would
-    # otherwise duplicate the bytes.
+    # runfiles). Pip install_dirs, first-party grouped files, and optionally the
+    # interpreter tree are filtered out here because they already ship in their own
+    # layers; OCI layer overlay would otherwise duplicate the bytes.
     if is_binary:
         if PyInfo not in target:
             own_source.append(target[DefaultInfo].files)
@@ -326,6 +353,27 @@ def _layer_aspect_impl(target, ctx):
             for entry in fp_depset.to_list():
                 for f in entry.files.to_list():
                     skip_paths[f.path] = True
+
+        # Opt-in interpreter layer. Pull the interpreter depset straight off
+        # the py3 toolchain (which the aspect declares so ctx.toolchains can
+        # resolve it), emit it as a first_party_layer entry, and skip-list its
+        # paths so the default layer doesn't duplicate them.
+        plan = ctx.attr._layer_tier[LayerTierInfo]
+        interp_group = plan.interpreter_group
+        if interp_group and PY_TOOLCHAIN in ctx.toolchains:
+            py_tc = ctx.toolchains[PY_TOOLCHAIN]
+            py3 = getattr(py_tc, "py3_runtime", None) if py_tc else None
+            if py3 != None and py3.files != None:
+                interp_direct = [py3.interpreter] if getattr(py3, "interpreter", None) != None else []
+                interp_depset = depset(direct = interp_direct, transitive = [py3.files])
+                for f in interp_depset.to_list():
+                    skip_paths[f.path] = True
+                own_fp.append(struct(
+                    label = "%s#__interpreter__" % str(target.label),
+                    files = interp_depset,
+                    group = interp_group,
+                ))
+
         runfiles_files = target[DefaultInfo].default_runfiles.files.to_list()
         filtered = [f for f in runfiles_files if f.path not in skip_paths]
         if filtered:
@@ -347,7 +395,7 @@ _layer_aspect = aspect(
             providers = [LayerTierInfo],
         ),
     },
-    toolchains = [_TAR_TOOLCHAIN],
+    toolchains = [_TAR_TOOLCHAIN, PY_TOOLCHAIN],
     provides = [_LayerInfo],
 )
 

@@ -36,11 +36,11 @@ py_image_layer(
     binary = ":my_app_bin",
 )
 
-# Tier wired into :my_app_layers_fp that exercises both first-party and third-party
-# grouping end-to-end:
-#   - //cases/oci/py_image_layer/branding (first-party py_library) → "branding" layer
-#   - @pip//colorama (third-party pip package)                     → "colorama" rest layer
-#   - @pip//colorama:**/*.py                                       → "colorama_code" subpath
+# Tier wired into :my_app_layers_fp that exercises every grouping path:
+#   - //cases/oci/py_image_layer/branding (first-party py_library, incl. `data`) → "branding"
+#   - @pip//colorama (third-party pip package)                                   → "colorama" rest
+#   - @pip//colorama:**/*.py                                                     → "colorama_code"
+#   - Python interpreter (pulled from py3 toolchain)                             → "interpreter"
 # The .py files peel off into their own layer; the remainder (dist-info metadata,
 # license, etc.) stays in the "colorama" whole-group layer. Compression is bumped
 # to gzip -9 to verify the compression attr is wired through.
@@ -57,6 +57,7 @@ layer_tier(
         "@pip//colorama": "colorama",
         "@pip//colorama:**/*.py": "colorama_code",
     },
+    interpreter_group = "interpreter",
 )
 
 py_image_layer(
