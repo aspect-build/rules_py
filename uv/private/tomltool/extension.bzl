@@ -6,6 +6,7 @@ A slight improvement on multitool which:
 2. Is libc aware, unlike multitool
 """
 
+load("@bazel_features//:features.bzl", features = "bazel_features")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 
 TOOLS = [
@@ -53,7 +54,7 @@ TOOLS = [
     ),
 ]
 
-def tomltool_impl(_):
+def tomltool_impl(module_ctx):
     for tool in TOOLS:
         http_file(
             name = "toml2json_{}_{}_{}".format(tool.arch, tool.os, tool.libc),
@@ -61,6 +62,10 @@ def tomltool_impl(_):
             sha256 = tool.sha256,
             executable = True,
         )
+
+    if not features.external_deps.extension_metadata_has_reproducible:
+        return None
+    return module_ctx.extension_metadata(reproducible = True)
 
 tomltool = module_extension(
     implementation = tomltool_impl,

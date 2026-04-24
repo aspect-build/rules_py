@@ -1,3 +1,8 @@
+"""
+
+"""
+
+load("@bazel_features//:features.bzl", features = "bazel_features")
 load("//uv/private:sha1.bzl", "sha1")
 load("//uv/private/pprint:defs.bzl", "pprint")
 
@@ -20,15 +25,27 @@ def _project_impl(repository_ctx):
         scc_graph:    {scc: {install: {marker: 1}}}
     """
 
+    # Styleguide; string append via `+=` is inefficient. Prefer to use a list as
+    # a pseudo string builder buffer and a single final "\n".join(content) to
+    # materialize the buffer to a final writable string.
+
+    # Styleguide: Address each layer of aliases sequentially. Each layer should
+    # begin with a comment explaining what faimily of BUILD.bazel files will be
+    # generated, and end with the required `repository_ctx.file(path, content)`
+    # call.
+
+    # These are provided as JSON strings and must be decoded.
     dep_to_scc = json.decode(repository_ctx.attr.dep_to_scc)
     scc_deps = json.decode(repository_ctx.attr.scc_deps)
     scc_graph = json.decode(repository_ctx.attr.scc_graph)
 
+    # Collect all the underlying whl installs
     installs = {}
     for scc_installs in scc_graph.values():
         for install in scc_installs:
             installs[install] = 1
 
+    # As we go for simplicity we collect markers
     marker_table = {}
 
     def _marker(expr):
@@ -45,6 +62,7 @@ def _project_impl(repository_ctx):
         if "" in markers:
             return it
         else:
+            # This is a dep which is conditional
             cases = {}
             for marker in markers.keys():
                 cases[_marker(marker)] = it
@@ -65,8 +83,13 @@ alias(
             ))
             return ":" + cond_id
 
+    ################################################################################
+    # Lay down the //private/venv:BUILD.bazel file with config flags
+    #
+    # This mirrors the uv_hub's venv, but is internal to the project.
     venv_content = []
 
+    # Collect all unique cfgs first
     all_cfgs = set()
     for dep, cfgs in dep_to_scc.items():
         for cfg in cfgs.keys():
@@ -86,6 +109,8 @@ config_setting(
         )
     repository_ctx.file("private/venv/BUILD.bazel", content = "\n".join(venv_content))
 
+    ################################################################################
+    # Lay down the surface-level targets
     content = ["""\
 load("@aspect_rules_py//py:defs.bzl", "py_library")
 
@@ -104,6 +129,13 @@ load("@aspect_rules_py//py:defs.bzl", "py_library")
 
             cfg_arms = {}
 
+            # This is a bit tricky. We're doing choice between several different
+            # SCCs possibly encoding different versions or extra specializations
+            # of a package "at once" depending on the venv + marker set.
+            # Consequently this second-level choice is actually the MERGE
+            # between the individual cases under which specific markers evaluate
+            # to true. It's a configuration and locking failure for there to be
+            # more than one package which resolves at this point. So we just jam all the configurations into a single select.
             for scc, markers in scc_cfgs.items():
                 if "" in markers:
                     if "//conditions:default" in cfg_arms:
@@ -119,6 +151,7 @@ load("@aspect_rules_py//py:defs.bzl", "py_library")
 
                         cfg_arms[marker] = "//private/sccs:" + scc
 
+            # Now we can just build one big choice alias from that arm set.
             content.append("""
 alias(
     name = "{name}",
@@ -141,6 +174,7 @@ alias(
             arms = indent(pprint(main_arms), " " * 4).lstrip(),
         ))
 
+    # As part of this root repo we also lay down :all_requirements which is slightly tricky because we have to
     all_requirements = {}
     for package, cfgs in dep_to_scc.items():
         for cfg in cfgs.keys():
@@ -163,6 +197,9 @@ filegroup(
     ))
 
     repository_ctx.file("BUILD.bazel", "\n".join(content))
+
+    ################################0################################################
+    # Now the slightly harder bit -- lay down the SCCs
 
     content = ["""\
 load("@aspect_rules_py//py:defs.bzl", "py_library")
@@ -198,6 +235,7 @@ py_library(
 
         for dep, markers in this_scc_deps.items():
             deps.append(_conditionalize(
+                # Note that we map these back to surface packages
                 "//:" + dep,
                 markers,
                 lambda: "_maybe__{}__{}".format(scc_id, sha1(dep)[:16]),
@@ -217,6 +255,8 @@ py_library(
 
     repository_ctx.file("private/sccs/BUILD.bazel", "\n".join(content))
 
+    ################################################################################
+    # Finally lay down the collected markers
     content = ["""
 load("@aspect_rules_py//uv/private/markers:defs.bzl", "decide_marker")
 
@@ -232,6 +272,10 @@ decide_marker(
 """.format(name = marker_id, marker = repr(marker_expr)))
 
     repository_ctx.file("private/markers/BUILD.bazel", "\n".join(content))
+
+    if not features.external_deps.extension_metadata_has_reproducible:
+        return None
+    return repository_ctx.repo_metadata(reproducible = True)
 
 uv_project = repository_rule(
     implementation = _project_impl,

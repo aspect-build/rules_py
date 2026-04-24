@@ -23,14 +23,18 @@ def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_m
         A list of tuples, where each tuple is `(Dependency, Marker)`.
     """
 
+    # 1. Split Requirement and Marker
+    # Starlark split() often doesn't support maxsplit, so we use find() + slicing
     semicolon_idx = req_string.find(";")
 
     marker = ""
     if semicolon_idx != -1:
+        # Extract and clean the marker
         marker_text = req_string[semicolon_idx + 1:].strip()
         if marker_text:
             marker = marker_text
 
+        # The requirement part is everything before the semicolon
         req_part = req_string[:semicolon_idx].strip()
     else:
         req_part = req_string.strip()
@@ -38,6 +42,7 @@ def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_m
     if not req_part:
         return []
 
+    # 2. Identify end of package name within req_part
     stop_chars = {
         "[": 1,
         "=": 1,
@@ -58,6 +63,7 @@ def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_m
 
     pkg_name = normalize_name(req_part[:name_end_idx])
 
+    # 3. Extract Extras from req_part
     extras = []
 
     remainder = req_part[name_end_idx:]
@@ -73,10 +79,13 @@ def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_m
                     extras.append(clean_p)
             remainder = remainder[close_idx + 1:]
 
+    # 4. Look up version
     v = preferred_versions.get(pkg_name)
     if v == None:
         v = version_map.get(pkg_name)
     if v == None:
+        # For multi-version packages (e.g. conflicts), match the version
+        # specifier against all known versions of this package in the lockfile.
         specifier = remainder.strip()
         pkg_vers = package_versions.get(pkg_name, {})
         if pkg_vers:
@@ -91,43 +100,20 @@ def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_m
     else:
         lock_id, pkg_name, version, _ = v
 
+    # 5. Construct results
+    # Each result is ((name, ver, extra), marker)
     results = []
 
+    # Base requirement
     base_dep = (lock_id, pkg_name, version, "__base__")
     results.append((base_dep, marker or ""))
 
+    # Extras
     for e in extras:
         dep = (lock_id, pkg_name, version, e)
         results.append((dep, marker or ""))
 
     return results
-
-def _extract_lockfile_group_versions(lock_id, lock_data):
-    """Extracts resolved package versions per dependency group from the lockfile.
-
-    uv.lock encodes the exact package versions selected for each dependency group
-    in the root package's `dev-dependencies` section. This function builds a map
-    that can be used as `preferred_versions` when resolving requirement strings.
-
-    Args:
-        lock_id: The lockfile identifier used in dependency tuples.
-        lock_data: The parsed content of the `uv.lock` file.
-
-    Returns:
-        A dictionary mapping normalized group names to dictionaries of
-        {package_name: (lock_id, package_name, version, "__base__")}.
-    """
-    result = {}
-    for pkg in lock_data.get("package", []):
-        if "virtual" not in pkg.get("source", {}):
-            continue
-        for raw_group_name, deps in pkg.get("dev-dependencies", {}).items():
-            group_name = normalize_name(raw_group_name)
-            for dep in deps:
-                pkg_name = normalize_name(dep["name"])
-                if "version" in dep:
-                    result.setdefault(group_name, {})[pkg_name] = (lock_id, pkg_name, dep["version"], "__base__")
-    return result
 
 def collect_activated_extras(projectfile, lock_id, project_data, lock_data, default_versions, graph, package_versions = {}):
     """Collects the set of transitively activated extras for each configuration.
@@ -152,14 +138,17 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
           `{dep: {cfg: {extra_dep: {marker: 1}}}}`.
     """
 
+    # If no dependency-groups are specified, use the lock members manifest, or just the self-list
     dep_groups = project_data.get("dependency-groups", {
         project_data["project"]["name"]: lock_data.get("manifest", {}).get("members", [
             project_data["project"]["name"],
         ]),
     })
 
+    # Normalize dep groups to our dependency triples (graph keys)
     normalized_dep_groups = {}
 
+    # Builds up {package: {configuration: {extra: {marker: 1}}}}
     activated_extras = {}
 
     all_group_preferences = {}
@@ -233,8 +222,13 @@ def collate_versions_by_name(activated_extras):
     for id, configs in activated_extras.items():
         (lock_id, pkg_name, pkg_version, _) = id
         for cfg, deps in configs.items():
+            # Ensure path exists: result[name][cfg][version] -> {marker: 1}
+            # We use setdefault chain to traverse/create the nested dicts
             version_markers = result.setdefault(pkg_name, {}).setdefault(cfg, {}).setdefault(id, {})
 
+            # deps is {dep_triple: {marker: 1}}
+            # We aggregate all markers for this version (from base and extras)
+            # into the single map for this version string.
             for markers in deps.values():
                 version_markers.update(markers)
 

@@ -8,7 +8,7 @@ bazel_dep(name = "rules_cc", version = "0.2.16")
 bazel_dep(name = "tar.bzl", version = "0.5.5")
 bazel_dep(name = "rules_python", version = "1.0.0")
 bazel_dep(name = "platforms", version = "1.0.0")
-bazel_dep(name = "llvm", version = "0.7.0")
+bazel_dep(name = "llvm", version = "0.7.1")
 bazel_dep(name = "rules_oci", version = "2.2.7")
 bazel_dep(name = "rules_rust", version = "0.68.1")
 bazel_dep(name = "rules_shell", version = "0.4.1")
@@ -406,6 +406,15 @@ uv.project(
     lock = "//cases/unconstrained-dependencies:uv.lock",
     pyproject = "//cases/unconstrained-dependencies:pyproject.toml",
     python_version = "3.10",
+)
+# }}}
+
+# For cases/unconstrained-dependencies
+# {{{
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/unconstrained-dependencies:uv.lock",
+    pyproject = "//cases/unconstrained-dependencies:pyproject.toml",
 )
 # }}}
 

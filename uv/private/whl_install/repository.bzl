@@ -7,6 +7,7 @@ produce a filegroup/TreeArtifact.
 
 """
 
+load("@bazel_features//:features.bzl", features = "bazel_features")
 load("//uv/private:parse_whl_name.bzl", "parse_whl_name")
 load("//uv/private/constraints/platform:defs.bzl", "supported_platform")
 load("//uv/private/constraints/python:defs.bzl", "supported_python")
@@ -471,6 +472,10 @@ alias(
         )
 
     repository_ctx.file("BUILD.bazel", content = "\n".join(content))
+
+    if not features.external_deps.extension_metadata_has_reproducible:
+        return None
+    return repository_ctx.repo_metadata(reproducible = True)
 
 whl_install = repository_rule(
     implementation = _whl_install_impl,

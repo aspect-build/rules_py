@@ -1,3 +1,8 @@
+"""
+
+"""
+
+load("@bazel_features//:features.bzl", features = "bazel_features")
 load("//uv/private/pprint:defs.bzl", "pprint")
 
 def indent(text, space = "    "):
@@ -16,8 +21,13 @@ def _hub_impl(repository_ctx):
         repository_ctx: The repository context.
     """
 
+    # {requirement: {cfg: target}}
     packages = json.decode(repository_ctx.attr.packages)
 
+    ################################################################################
+    # Lay down the //venv:BUILD.bazel file with config flags
+    #
+    # We do this first because everything else hangs off of these config_settings.
     content = [
         """\
 alias(
@@ -28,6 +38,7 @@ alias(
 """,
     ]
 
+    # Lay down the venv config settings
     for name in repository_ctx.attr.configurations:
         content.append(
             """
@@ -42,6 +53,8 @@ config_setting(
         )
     repository_ctx.file("venv/BUILD.bazel", content = "\n".join(content))
 
+    ################################################################################
+    # Lay down the //:BUILD.bazel file
     content = [
         """\
 load("@aspect_rules_py//py:defs.bzl", "py_library")
@@ -65,6 +78,8 @@ filegroup(
 
     repository_ctx.file("BUILD.bazel", "\n".join(content))
 
+    ################################################################################
+    # Lay down the hub aliases
     entrypoints = {}
 
     for package_name, specs in packages.items():
@@ -128,7 +143,15 @@ filegroup(
     srcs = [":{name}"],
     visibility = ["//visibility:public"],
 )
-""".format(name = package_name) + alias_template.format(
+alias(
+    name = "{name}",
+    actual = select({lib_select},
+        no_match_error = "{error}",
+    ),
+    target_compatible_with = select(compatible_with({compat})),
+    visibility = ["//visibility:public"],
+)
+""".format(
                 name = package_name,
                 lib_select = indent(pprint(select_spec), "      ").lstrip(),
                 compat = repr(specs.keys()),
@@ -138,6 +161,8 @@ filegroup(
 
         repository_ctx.file(package_name + "/BUILD.bazel", content = "\n".join(content))
 
+    ################################################################################
+    # Lay down //:defs.bzl
     content = [
         """
 VIRTUALENVS = {configurations}
@@ -207,7 +232,13 @@ def requirement(name):
     ))
     repository_ctx.file("requirements.bzl", content = "\n".join(content))
 
+    ################################################################################
+    # Lay down the hub aliases
     entrypoints = {}
+
+    if not features.external_deps.extension_metadata_has_reproducible:
+        return None
+    return repository_ctx.repo_metadata(reproducible = True)
 
 uv_hub = repository_rule(
     doc = """
