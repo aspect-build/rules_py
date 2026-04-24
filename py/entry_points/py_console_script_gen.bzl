@@ -5,6 +5,8 @@ from entry_points.txt metadata, similar to rules_python but simplified
 for use with our UV-based system.
 """
 
+load("//py/private:transitions.bzl", "python_version_transition")
+
 def _get_entry_points_txt(entry_points_txt):
     """Get the entry_points.txt file from the input target.
 
@@ -79,6 +81,7 @@ def _py_console_script_gen_impl(ctx):
 
 py_console_script_gen = rule(
     implementation = _py_console_script_gen_impl,
+    cfg = python_version_transition,
     attrs = {
         "entry_points_txt": attr.label(
             doc = "Target containing entry_points.txt file",
@@ -102,11 +105,20 @@ py_console_script_gen = rule(
             allow_files = True,
             default = None,
         ),
+        "python_version": attr.string(
+            doc = "Python version for resolving wheel dependencies (e.g. '3.11').",
+        ),
+        "venv": attr.string(
+            doc = "Virtual environment name for dependency resolution.",
+        ),
         "_generator": attr.label(
             doc = "Generator script executable",
             default = "//py/entry_points:py_console_script_gen",
             executable = True,
             cfg = "exec",
+        ),
+        "_allowlist_function_transition": attr.label(
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
         ),
     },
     doc = "Generates a Python entry point file from entry_points.txt",

@@ -47,6 +47,10 @@ outdir = path.abspath(opts.outdir)
 # Preserve PATH so native sdist builds can find compilers (clang, gcc).
 build_env = dict(os.environ)
 
+build_env["PYTHONPATH"] = os.pathsep.join(
+    p for p in sys.path if p and os.path.isabs(p)
+)
+
 if path.exists(path.join(srcdir, "pyproject.toml")) or path.exists(path.join(srcdir, "setup.py")):
     # Always use `python -m build` (PEP 517 frontend). For setup.py-only
     # packages without a pyproject.toml, build creates a minimal PEP 517

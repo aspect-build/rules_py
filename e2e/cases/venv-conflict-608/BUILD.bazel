@@ -9,11 +9,9 @@ py_binary(
 
 # Regression test for https://github.com/aspect-build/rules_py/issues/608
 # and https://github.com/aspect-build/rules_py/issues/686.
-# DISABLED: The refactored py_binary no longer auto-generates .venv targets.
-# This test is obsolete with the new py_binary implementation.
+# Verifies that py_binary builds without conflicts.
 build_test(
     name = "test_no_venv_conflict",
-    tags = ["manual"],
     targets = [
         ":app",
     ],

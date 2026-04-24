@@ -77,6 +77,8 @@ def py_console_script_binary(
         console_script = script or "",
         console_script_guess = name,
         out = main,
+        python_version = kwargs.get("python_version", ""),
+        venv = kwargs.get("venv", ""),
         visibility = ["//visibility:private"],
     )
 

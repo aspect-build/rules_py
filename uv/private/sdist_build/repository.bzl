@@ -200,6 +200,7 @@ py_binary(
     name = "build_tool",
     main = "@aspect_rules_py//uv/private/pep517_whl:build_helper.py",
     srcs = ["@aspect_rules_py//uv/private/pep517_whl:build_helper.py"],
+    python_version = "{python_version}",
     deps = {deps},
 )
 
@@ -217,6 +218,7 @@ py_binary(
         rule = "pep517_native_whl" if is_native else "pep517_whl",
         version = repository_ctx.attr.version,
         patch_attrs = patch_attrs,
+        python_version = repository_ctx.attr.python_version,
     ))
 
 sdist_build = repository_rule(
@@ -239,6 +241,11 @@ sdist_build = repository_rule(
                   "two arguments. See //uv/private/sdist_configure:defs.bzl.",
         ),
         "version": attr.string(),
+        "python_version": attr.string(
+            default = "",
+            doc = "Python version (e.g. '3.11') for the build_tool py_binary " +
+                  "to correctly resolve whl_install dependencies.",
+        ),
         "pre_build_patches": attr.label_list(default = []),
         "pre_build_patch_strip": attr.int(default = 0),
     },

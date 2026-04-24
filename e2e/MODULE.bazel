@@ -399,4 +399,14 @@ uv.project(
 )
 # }}}
 
+# For cases/unconstrained-dependencies
+# {{{
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/unconstrained-dependencies:uv.lock",
+    pyproject = "//cases/unconstrained-dependencies:pyproject.toml",
+    python_version = "3.10",
+)
+# }}}
+
 use_repo(uv, "pypi")

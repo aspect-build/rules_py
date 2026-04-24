@@ -69,8 +69,12 @@ unzip -q -o "$WHEEL" -d "$SITE_PACKAGES"
 
 # Apply patches if any
 for patch_file in "${PATCH_FILES[@]}"; do
-  if [[ -f "$patch_file" ]]; then
-    patch -d "$SITE_PACKAGES" -p"$PATCH_STRIP" -i "$patch_file"
+  abs_patch="$(cd "$(dirname "$patch_file")" && pwd)/$(basename "$patch_file")"
+  if [[ -f "$abs_patch" ]]; then
+    patch -d "$INTO" -p"$PATCH_STRIP" -i "$abs_patch"
+  else
+    echo "ERROR: patch file not found: $patch_file (resolved: $abs_patch)" >&2
+    exit 1
   fi
 done
 

@@ -372,6 +372,7 @@ def _parse_projects(module_ctx, hub_specs):
                         deps = [project_available_deps.get(it[1], "@{0}//:{1}".format(*it)) for it in build_deps],
                         is_native = "auto",
                         version = package["version"],
+                        python_version = project.python_version,
                         pre_build_patches = pre_build_patches,
                         pre_build_patch_strip = pre_build_patch_strip,
                         available_deps = project_available_deps,
@@ -532,6 +533,7 @@ def uv_impl(module_ctx):
             "deps": sbuild_cfg.deps,
             "is_native": sbuild_cfg.is_native,
             "version": sbuild_cfg.version,
+            "python_version": sbuild_cfg.python_version,
         }
 
         if sbuild_cfg.configure_command:
