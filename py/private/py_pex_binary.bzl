@@ -38,16 +38,16 @@ exclude_paths = [
     # these will match in bzlmod setup with --incompatible_use_plus_in_repo_names flag flipped.
     "rules_python++python+",
     "aspect_rules_py+/py/tools/",
-    # py_binary assembles a synthetic venv at <pkg>/.<name>_venv/ with a
+    # py_binary assembles a synthetic venv at <pkg>/.<name>.venv/ with a
     # lib/python<MAJ>.<MIN>/site-packages/ subtree holding the .pth file
     # that tells the interpreter where wheels live. These files are
     # launcher-side plumbing and should not be packed into the PEX — pex
     # discovers wheels itself from PyInfo.imports / --dep. Matching the
     # inner "/site-packages/" path component excluding actual wheels is
-    # tricky, so we match on the outer "_venv/" segment which is unique
-    # to our synthetic venv tree (chosen to avoid prefix-colliding with
-    # py_venv_link's `<name>.venv` tree artifact).
-    "_venv/",
+    # tricky, so we match on the outer "/.<name>.venv/" hidden-dir
+    # segment that only our synthetic venv tree produces. Wheel payload
+    # paths never contain a "/.<something>.venv/" segment.
+    ".venv/",
 ]
 
 # determines if the given file is a `distinfo`, `dep` or a `source`

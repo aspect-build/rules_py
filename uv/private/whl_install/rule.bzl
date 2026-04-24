@@ -113,6 +113,14 @@ def _whl_install(ctx):
                 # Each entry is "name=module:func"; py_binary parses into
                 # wrapper scripts at <venv>/bin/<name> at analysis time.
                 console_scripts = tuple(ctx.attr.console_scripts),
+                # Tree artifact holding this wheel's installed file tree
+                # (`install/`, whose internal shape is
+                # `lib/python<M>.<m>/site-packages/...`). Downstream
+                # venv-assembly uses this as a `target_file` for a
+                # per-wheel directory symlink, so the per-top-level
+                # symlinks inside the venv can be intra-venv relative
+                # (identical resolution in bazel-bin and runfiles).
+                install_tree = install_dir,
             )]),
         ))
 

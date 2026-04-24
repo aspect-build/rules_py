@@ -86,6 +86,8 @@ def _py_unpacked_wheel_impl(ctx):
                 namespace_top_levels = tuple(ctx.attr.namespace_top_levels),
                 site_packages_rfpath = site_packages_rfpath,
                 console_scripts = tuple(ctx.attr.console_scripts),
+                # See whl_install rule for the rationale.
+                install_tree = unpack_directory,
             )]),
         ))
 

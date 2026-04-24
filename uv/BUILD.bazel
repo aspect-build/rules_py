@@ -1,0 +1,7 @@
+# The public entry points for the uv integration live as `defs.bzl` and
+# `extensions.bzl` in this directory. No `bzl_library` is declared here
+# because `starlark_doc_extract` (which `bzl_library` generates as a
+# sibling) would require the full transitive closure of every
+# `bzl_library` under `//uv/private/...` to be declared — something
+# this ruleset doesn't currently maintain. `load()` resolution works
+# without `bzl_library` regardless.

@@ -1,10 +1,20 @@
-load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
+load("@aspect_rules_py//py:defs.bzl", "py_test")
 
 # Verify that e2e tests use aspect_rules_py interpreter provisioning,
 # not rules_python's python-build-standalone toolchains.
-py_venv_test(
+py_test(
     name = "test",
     srcs = ["test_interpreter.py"],
     main = "test_interpreter.py",
     python_version = "3.11",
+)
+
+py_test(
+    name = "venv_test",
+    srcs = ["test_interpreter.py"],
+    expose_venv = True,
+    isolated = False,
+    main = "test_interpreter.py",
+    python_version = "3.11",
+    venv_dir_basename = ".venv_test",
 )

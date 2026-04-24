@@ -42,14 +42,29 @@ load("//py/private:py_pex_binary.bzl", _py_pex_binary = "py_pex_binary")
 load("//py/private:py_pytest_main.bzl", _py_pytest_main = "py_pytest_main", _pytest_paths = "pytest_paths")
 load("//py/private:py_unpacked_wheel.bzl", _py_unpacked_wheel = "py_unpacked_wheel")
 load("//py/private:virtual.bzl", _resolutions = "resolutions")
-load("//py/private/py_venv:defs.bzl", _py_venv_link = "py_venv_link")
+load(
+    "//py/private/py_venv:py_venv.bzl",
+    _py_binary_with_venv = "py_binary_with_venv",
+    _py_venv = "py_venv",
+    _py_venv_binary = "py_venv_binary",
+    _py_venv_link = "py_venv_link",
+    _py_venv_test = "py_venv_test",
+)
 
 py_pex_binary = _py_pex_binary
 py_pytest_main = _py_pytest_main
 
-# FIXME: Badly chosen name; will be replaced/migrated
-py_venv = _py_venv_link
+py_venv = _py_venv
 py_venv_link = _py_venv_link
+
+# Removed in v2.0.0: calling these `fail()`s at analysis with a
+# migration message pointing at `py_binary` / `py_test` with
+# `expose_venv = True, isolated = False`. Kept exported here so that
+# `load("@aspect_rules_py//py:defs.bzl", "py_venv_binary")` resolves
+# and the call-site failure surfaces the friendly message (instead of
+# Bazel's generic "symbol not exported" error).
+py_venv_binary = _py_venv_binary
+py_venv_test = _py_venv_test
 
 py_binary_rule = _py_binary
 py_test_rule = _py_test
@@ -60,7 +75,28 @@ py_image_layer = _py_image_layer
 
 resolutions = _resolutions
 
-def _py_binary_or_test(name, rule, srcs, main, data = [], deps = [], **kwargs):
+def _py_binary_or_test(name, rule, srcs, main, data = [], deps = [], expose_venv = False, venv_dir_basename = None, **kwargs):
+    if expose_venv:
+        # Split into a sibling `:{name}.venv` py_venv + a rule call
+        # consuming it via `external_venv`. The `.venv` target is
+        # first-class: shareable across binaries and runnable to drop
+        # into the interpreter. See `py_binary_with_venv` for the
+        # attribute split.
+        _py_binary_with_venv(
+            rule,
+            name = name,
+            srcs = srcs,
+            main = main,
+            data = data,
+            deps = deps,
+            venv_dir_basename = venv_dir_basename,
+            **kwargs
+        )
+        return
+
+    if venv_dir_basename != None:
+        fail("venv_dir_basename requires expose_venv = True (no venv target is created otherwise)")
+
     rule(
         name = name,
         srcs = srcs,
@@ -70,23 +106,14 @@ def _py_binary_or_test(name, rule, srcs, main, data = [], deps = [], **kwargs):
         **kwargs
     )
 
-    _py_venv_link(
-        name = "{}.venv".format(name),
-        srcs = srcs,
-        data = data,
-        deps = deps,
-        imports = kwargs.get("imports"),
-        tags = ["manual"],
-        testonly = kwargs.get("testonly", False),
-        target_compatible_with = kwargs.get("target_compatible_with", []),
-        package_collisions = kwargs.get("package_collisions"),
-    )
-
 def py_binary(name, srcs = [], main = None, **kwargs):
     """Wrapper macro for [`py_binary_rule`](#py_binary_rule).
 
-    Creates a [py_venv](./venv.md) target to constrain the interpreter and packages used at runtime.
-    Users can `bazel run [name].venv` to create this virtualenv, then use it in the editor or other tools.
+    By default builds one target: the binary with an internal
+    analysis-time venv. Set `expose_venv = True` to also emit a
+    first-class sibling `:{name}.venv` py_venv — shareable across
+    multiple binaries via `external_venv`, and runnable
+    (`bazel run :{name}.venv`) to drop into the hermetic interpreter.
 
     Args:
         name: Name of the rule.
@@ -95,7 +122,22 @@ def py_binary(name, srcs = [], main = None, **kwargs):
             Like rules_python, this is treated as a suffix of a file that should appear among the srcs.
             If absent, then `[name].py` is tried. As a final fallback, if the srcs has a single file,
             that is used as the main.
-        **kwargs: additional named parameters to `py_binary_rule`.
+        **kwargs: additional named parameters to `py_binary_rule`. Two
+            extras handled by this macro:
+
+            * `expose_venv` (bool, default `False`) — when `True`, emit
+              a sibling `:{name}.venv` py_venv carrying all venv-shaping
+              attrs (deps, imports, package_collisions,
+              include_*_site_packages, interpreter_options). The binary
+              consumes it via `external_venv`. The `.venv` target is
+              shareable (another `py_binary(external_venv = ":{name}.venv")`
+              can point at it) and runnable (drops into interpreter).
+              To also materialise the venv as a workspace-local symlink
+              for IDE integration, declare an explicit `py_venv_link(
+              name = "...", venv = ":{name}.venv")` target.
+            * `venv_dir_basename` (str) — only valid with
+              `expose_venv = True`. Controls the on-disk basename of
+              the generated venv.
     """
 
     # For a clearer DX when updating resolutions, the resolutions dict is "string" -> "label",

@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
+load("@aspect_rules_py//py:defs.bzl", "py_test")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_test")
 
 platform(
@@ -9,21 +9,23 @@ platform(
     parents = ["@platforms//host"],
 )
 
-py_venv_test(
+# Freethreaded interpreters are only provisioned for linux.
+# This constraint causes Bazel to skip the entire subgraph on
+# non-linux hosts, preventing Bazel 9's default_test_toolchain_type
+# resolution from failing when platform_transition_test transitions
+# into a platform with no matching execution platform.
+_LINUX_X86_64 = [
+    "@platforms//os:linux",
+    "@platforms//cpu:x86_64",
+]
+
+py_test(
     name = "test_bin",
     srcs = ["test.py"],
     main = "test.py",
     python_version = "3.13",
     tags = ["manual"],
-    # Freethreaded interpreters are only provisioned for linux.
-    # This constraint causes Bazel to skip the entire subgraph on
-    # non-linux hosts, preventing Bazel 9's default_test_toolchain_type
-    # resolution from failing when platform_transition_test transitions
-    # into a platform with no matching execution platform.
-    target_compatible_with = [
-        "@platforms//os:linux",
-        "@platforms//cpu:x86_64",
-    ],
+    target_compatible_with = _LINUX_X86_64,
     venv = "freethreaded-test",
     deps = [
         "@pypi//regex",
@@ -33,9 +35,29 @@ py_venv_test(
 platform_transition_test(
     name = "test",
     binary = ":test_bin",
-    target_compatible_with = [
-        "@platforms//os:linux",
-        "@platforms//cpu:x86_64",
+    target_compatible_with = _LINUX_X86_64,
+    target_platform = ":freethreaded",
+)
+
+py_test(
+    name = "venv_test_bin",
+    srcs = ["test.py"],
+    expose_venv = True,
+    isolated = False,
+    main = "test.py",
+    python_version = "3.13",
+    tags = ["manual"],
+    target_compatible_with = _LINUX_X86_64,
+    venv = "freethreaded-test",
+    venv_dir_basename = ".venv_test_bin",
+    deps = [
+        "@pypi//regex",
     ],
+)
+
+platform_transition_test(
+    name = "venv_test",
+    binary = ":venv_test_bin",
+    target_compatible_with = _LINUX_X86_64,
     target_platform = ":freethreaded",
 )

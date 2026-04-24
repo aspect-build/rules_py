@@ -1,5 +1,6 @@
 """Functions to determine which Python toolchain to use"""
 
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
 
 _INTERPRETER_FLAGS = [
@@ -76,6 +77,14 @@ def _resolve_toolchain(ctx):
     else:
         fail(_MUST_SET_TOOLCHAIN_INTERPRETER_VERSION_INFO)
 
+    # Read the freethreaded build setting if the consuming rule exposed
+    # the attr. Freethreaded Python uses `lib/python<M>.<m>t/site-packages/`
+    # instead of `lib/python<M>.<m>/site-packages/`, so assemble_venv
+    # needs this to lay out the venv at the interpreter-expected path.
+    freethreaded = False
+    if hasattr(ctx.attr, "_freethreaded_flag"):
+        freethreaded = ctx.attr._freethreaded_flag[BuildSettingInfo].value
+
     return struct(
         toolchain = py3_toolchain,
         files = files,
@@ -83,6 +92,7 @@ def _resolve_toolchain(ctx):
         interpreter_version_info = interpreter_version_info,
         runfiles_interpreter = runfiles_interpreter,
         flags = _INTERPRETER_FLAGS,
+        freethreaded = freethreaded,
     )
 
 def _csv(values):
@@ -104,8 +114,11 @@ def _determine_main(ctx):
         Artifact; the main file. If one can't be found, an error is raised.
     """
     if ctx.attr.main:
-        if not ctx.attr.main.label.name.endswith(".py"):
-            fail("main must end in '.py'")
+        # Check the RESOLVED file name, not the label name — the label may
+        # be a generator (expand_template, genrule) whose name doesn't end
+        # in `.py` even though its output does.
+        if not ctx.file.main.basename.endswith(".py"):
+            fail("main must end in '.py', got: " + ctx.file.main.basename)
 
         # Short circuit; if the user gave us a label, believe them.
         return ctx.file.main

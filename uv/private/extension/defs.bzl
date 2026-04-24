@@ -17,7 +17,7 @@ The following example shows how to use the `uv` module extension in a `MODULE.ba
 file:
 
 ```starlark
-uv = use_extension("@aspect_rules_py//uv:extension.bzl", "uv")
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.hub(name = "uv")
 uv.project(
     hub_name = "uv",

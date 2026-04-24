@@ -23,6 +23,7 @@ set -o errexit -o nounset -o pipefail
 
 VENV_PYTHON="$(rlocation {{ARG_VENV_PYTHON}})"
 VENV_BIN="$(dirname "${VENV_PYTHON}")"
+export VIRTUAL_ENV="$(dirname "${VENV_BIN}")"
 export PATH="${VENV_BIN}:${PATH-}"
 
 # Set all the env vars here, just before we launch

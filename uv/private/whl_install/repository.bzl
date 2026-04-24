@@ -50,24 +50,25 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
                  label_list attr so Bazel wires up repo visibility.
 
     Returns:
-      Tuple (top_levels, namespace_top_levels, console_scripts) where:
-        * top_levels: sorted list of top-level names.
-        * namespace_top_levels: sorted subset of top_levels that are PEP 420
-          namespace packages (no `<toplevel>/__init__.py` in RECORD).
-          Consumers use this to suppress collision errors when multiple
-          wheels contribute to the same namespace root (e.g. `jaraco.*`,
-          `google.*`, `zope.*`).
-        * console_scripts: sorted list of `"name=module:func"` encoded
-          strings (stable format for Starlark string_list plumbing).
+      Tuple (top_levels_set, regular_top_levels_set, console_scripts_set):
+        * top_levels_set: dict[name → True] — all first-path-segment
+          names in RECORD (excluding `*.data/` staging entries).
+        * regular_top_levels_set: subset that had an `__init__.py` at
+          depth 1, i.e. regular packages. Its complement (within
+          top_levels_set, minus `.dist-info/`) is the PEP 420 namespace
+          set. Returned separately so callers can union regular/top sets
+          across multiple platform wheels before deriving namespaces —
+          a top-level is a namespace only if NO wheel has it as regular.
+        * console_scripts_set: dict[script_name → "name=module:func"].
       All empty on any failure — callers tolerate empty and fall back.
     """
     unzip = repository_ctx.which("unzip")
     if not unzip:
-        return [], [], []
+        return {}, {}, {}
 
     whl_path = _find_whl_file(repository_ctx, whl_label)
     if whl_path == None:
-        return [], [], []
+        return {}, {}, {}
 
     # RECORD: authoritative list of every installed file. First path segment
     # = top-level name, excluding the wheel's `*.data/` staging area.
@@ -94,6 +95,20 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
             # they're routed to data/scripts/headers/purelib/etc. under
             # sys.prefix. Exclude from site-packages top-level list.
             if first_segment.endswith(".data"):
+                continue
+
+            # Filter RECORD entries that escape the install root. Some
+            # wheels (notably setuptools-family) emit lines like
+            # `../../bin/foo` for entry-point scripts. We don't want
+            # `..` / `.` / absolute paths / empty strings in top_levels
+            # because downstream `ctx.actions.declare_symlink` normalises
+            # paths and would create phantom outputs at parent dirs,
+            # producing prefix-collision errors.
+            if not first_segment:
+                continue
+            if first_segment in (".", ".."):
+                continue
+            if first_segment.startswith("/"):
                 continue
             top_levels_set[first_segment] = True
 
@@ -130,15 +145,10 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
             # Normalise to "name=module:func" so downstream parsing is trivial.
             console_scripts[name] = "{}={}".format(name, target)
 
-    namespace_top_levels = sorted([
-        tl
-        for tl in top_levels_set
-        # dist-info directories are always regular (they have their own
-        # structure with no __init__.py). Don't flag them as namespaces.
-        if tl not in regular_top_levels and not tl.endswith(".dist-info")
-    ])
-
-    return sorted(top_levels_set.keys()), namespace_top_levels, sorted(console_scripts.values())
+    # Return raw sets (not the final namespace derivation) so callers can
+    # union across multiple platform wheels before deciding namespace
+    # status — see the caller in `_whl_install_repo_impl`.
+    return top_levels_set, regular_top_levels, console_scripts
 
 def indent(text, space = " "):
     return "\n".join(["{}{}".format(space, l) for l in text.splitlines()])
@@ -371,24 +381,46 @@ py_library(
         "//conditions:default": "checked-hash",
     })"""
 
-    # Peek into one wheel (any one — different platforms of the same package
-    # all share the same site-packages layout) to extract the top-level names
-    # it installs AND its `[console_scripts]` entry points. This powers
-    # PyWheelsInfo, which py_binary can use to build a merged site-packages
-    # tree via ctx.actions.symlink and wrap console scripts into <venv>/bin/.
+    # Peek into each wheel to extract the top-level names it installs AND
+    # its `[console_scripts]` entry points. This powers PyWheelsInfo,
+    # which py_binary uses to build a merged site-packages tree via
+    # ctx.actions.symlink and to wrap console scripts into <venv>/bin/.
     # Falls back gracefully to [] if extraction fails; consumers tolerate it.
     #
     # We read from `whl_files` (a real label_list) rather than `whls` (a
     # JSON-encoded string of labels) because only the former adds the
     # wheel repos to our visibility so `rctx.path(Label(...))` can resolve.
-    top_levels = []
-    namespace_top_levels = []
-    console_scripts = []
-    if repository_ctx.attr.whl_files:
-        top_levels, namespace_top_levels, console_scripts = _extract_wheel_metadata(
-            repository_ctx,
-            repository_ctx.attr.whl_files[0],
-        )
+    #
+    # Union across all platform wheels — same-python-version wheels for
+    # a given package share their pure-Python top-levels but have
+    # DIFFERENT C-extension filenames (e.g. cffi's `_cffi_backend` ships
+    # as `_cffi_backend.cpython-311-darwin.so` on macOS and
+    # `_cffi_backend.cpython-311-x86_64-linux-gnu.so` on Linux). Picking
+    # only one wheel bakes in that wheel's suffix; at build time on a
+    # different platform, the venv's top-level symlink points at a file
+    # that doesn't exist in the actually-installed wheel. Unioning lets
+    # every platform see its own suffix in top_levels — the dangling
+    # symlinks for other platforms' suffixes are invisible to Python's
+    # importer (it matches by the current interpreter's exact suffix).
+    top_levels_set = {}
+    regular_top_levels_set = {}
+    console_scripts_set = {}
+    for whl_file in repository_ctx.attr.whl_files:
+        tls, reg, css = _extract_wheel_metadata(repository_ctx, whl_file)
+        top_levels_set.update(tls)
+        regular_top_levels_set.update(reg)
+        console_scripts_set.update(css)
+
+    # Namespace derivation happens AFTER the union: a top-level counts as
+    # a PEP 420 namespace only if NO extracted wheel had `__init__.py` at
+    # depth 1 for it. If any wheel flagged it regular, it's regular.
+    top_levels = sorted(top_levels_set.keys())
+    namespace_top_levels = sorted([
+        tl
+        for tl in top_levels_set
+        if tl not in regular_top_levels_set and not tl.endswith(".dist-info")
+    ])
+    console_scripts = sorted(console_scripts_set.values())
 
     install_attrs = """
     src = ":whl",

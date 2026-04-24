@@ -1,6 +1,6 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
-load(":defs.bzl", "py_venv_test")
+load("//py:defs.bzl", "py_test")
 
 package(default_visibility = ["//py:__subpackages__"])
 
@@ -50,22 +50,45 @@ bzl_library(
     deps = [
         ":types.bzl",
         "//py/private:providers",
+        "//py/private:py_binary",
         "//py/private:py_library",
         "//py/private:py_semantics",
         "//py/private:transitions",
+        "//py/private:venv",
         "//py/private/toolchain:types",
-        "@bazel_lib//lib:expand_make_vars",
         "@bazel_lib//lib:paths",
     ],
 )
 
-py_venv_test(
+# Two variants of link.py's unit-style tests: `test_link` uses the
+# expose_venv split with the legacy `.test_link/` venv-dir basename
+# (what users migrating off py_venv_test get with the documented
+# replacement kwargs); `test_link_expose_venv` uses expose_venv alone
+# and lets the basename default to `.test_link_venv/`. Both should
+# pass — we exercise both codepaths since they're distinct disk
+# layouts.
+py_test(
     name = "test_link",
     srcs = [
         "link.py",
         "test_link.py",
     ],
+    expose_venv = True,
     imports = ["."],
+    isolated = False,
+    main = "test_link.py",
+    venv_dir_basename = ".test_link",
+)
+
+py_test(
+    name = "test_link_expose_venv",
+    srcs = [
+        "link.py",
+        "test_link.py",
+    ],
+    expose_venv = True,
+    imports = ["."],
+    isolated = False,
     main = "test_link.py",
 )
 

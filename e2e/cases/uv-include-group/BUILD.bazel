@@ -1,13 +1,38 @@
-load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
+load("@aspect_rules_py//py:defs.bzl", "py_test")
 
-py_venv_test(
+# setuptools vendors `packaging` (among others), which collides at
+# the top-level with the real packaging wheel pulled in via pytest.
+# Not a PEP 420 namespace on either side, so our analysis-time check
+# flags it — but first-seen wins is correct here (vendored copy
+# stays invisible). Downgrade to warning.
+
+py_test(
     name = "include_group",
     srcs = [
         "__test__.py",
     ],
     main = "__test__.py",
+    package_collisions = "warning",
     python_version = "3.11",
     venv = "dev",
+    deps = [
+        "@pypi//pytest",
+        "@pypi//setuptools",
+    ],
+)
+
+py_test(
+    name = "include_group_venv_test",
+    srcs = [
+        "__test__.py",
+    ],
+    expose_venv = True,
+    isolated = False,
+    main = "__test__.py",
+    package_collisions = "warning",
+    python_version = "3.11",
+    venv = "dev",
+    venv_dir_basename = ".include_group_venv_test",
     deps = [
         "@pypi//pytest",
         "@pypi//setuptools",

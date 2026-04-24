@@ -1,0 +1,17 @@
+[project]
+name = "firebase-admin-import"
+version = "0.0.0"
+# firebase-admin 6.6.0 pulls in google-auth, google-api-core,
+# google-cloud-firestore, google-cloud-storage — all contributing to the
+# `google.*` PEP 420 namespace. Its __init__.py performs an eager
+# `from google.auth import ...` at import time, so any error in our
+# namespace handling surfaces as an ImportError here.
+requires-python = ">=3.11"
+dependencies = [
+    # `build` + `setuptools` match the hub's default_build_dependencies
+    # declared in //MODULE.bazel. The uv extension expects every project
+    # lockfile to be able to resolve them.
+    "build",
+    "setuptools",
+    "firebase-admin==6.6.0",
+]

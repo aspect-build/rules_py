@@ -1,4 +1,4 @@
-load("//py/unstable:defs.bzl", "py_venv_test")
+load("//py:defs.bzl", "py_test")
 
 package(default_visibility = [
     "//uv/private:__subpackages__",
@@ -9,7 +9,7 @@ exports_files(
     visibility = ["//visibility:public"],
 )
 
-py_venv_test(
+py_test(
     name = "detect_native_test",
     srcs = [
         "detect_native.py",
@@ -17,4 +17,17 @@ py_venv_test(
     ],
     imports = ["../../.."],
     main = "detect_native_test.py",
+)
+
+py_test(
+    name = "detect_native_venv_test",
+    srcs = [
+        "detect_native.py",
+        "detect_native_test.py",
+    ],
+    expose_venv = True,
+    imports = ["../../.."],
+    isolated = False,
+    main = "detect_native_test.py",
+    venv_dir_basename = ".detect_native_venv_test",
 )
