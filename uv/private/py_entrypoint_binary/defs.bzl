@@ -1,5 +1,5 @@
 load("@bazel_lib//lib:expand_template.bzl", "expand_template")
-load("//py/unstable:defs.bzl", "py_venv_binary")
+load("//py:defs.bzl", "py_binary")
 
 def console_script_name(name, script):
     return script or name
@@ -37,7 +37,7 @@ def py_entrypoint_binary(
         },
     )
 
-    py_venv_binary(
+    py_binary(
         name = name,
         main = main + ".py",
         srcs = [main],
@@ -57,7 +57,7 @@ def py_console_script_binary(
     search_py = Label("@aspect_rules_py//uv/private/py_entrypoint_binary:search.py")
     search = "_{}_search".format(name)
 
-    py_venv_binary(
+    py_binary(
         name = search_tool,
         deps = [pkg],
         main = search_py,
@@ -78,7 +78,7 @@ def py_console_script_binary(
         cmd = "$(location {}) --template=\"$(location {})\" --script=\"{}\" >\"$@\"".format(search_tool, tmpl, console_script_name(name, script)),
     )
 
-    py_venv_binary(
+    py_binary(
         name = name,
         main = search,
         srcs = [search],

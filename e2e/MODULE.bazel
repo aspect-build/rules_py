@@ -5,7 +5,7 @@ bazel_dep(name = "bazel_features", version = "1.38.0")
 bazel_dep(name = "bazel_skylib", version = "1.4.2")
 bazel_dep(name = "bazel_lib", version = "3.0.0")
 bazel_dep(name = "rules_cc", version = "0.2.16")
-bazel_dep(name = "tar.bzl", version = "0.5.5")
+bazel_dep(name = "tar.bzl", version = "0.10.1")
 bazel_dep(name = "rules_python", version = "1.0.0")
 bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "llvm", version = "0.7.1")
@@ -19,7 +19,7 @@ local_path_override(
 )
 
 # Python interpreters provisioned from python-build-standalone via aspect_rules_py
-interpreters = use_extension("@aspect_rules_py//py/unstable:extension.bzl", "python_interpreters")
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
 interpreters.configure(
     releases = [
         "20260303",
@@ -103,7 +103,7 @@ use_repo(importer, "myrepo")
 
 # For cases/uv-deps-650
 # {{{
-uv = use_extension("@aspect_rules_py//uv/unstable:extension.bzl", "uv")
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi")
 uv.project(
     hub_name = "pypi",
@@ -149,6 +149,19 @@ uv.override_package(
     name = "pi",
     lock = "//cases/uv-workspace-789:uv.lock",
     target = "//cases/uv-workspace-789/packages/pi",
+)
+# }}}
+
+# For cases/firebase-admin-import
+# Regression: firebase-admin 6.6.0 triggers a runtime `from google.auth
+# import ...` from its own __init__.py. Exercises PEP 420 namespace
+# handling across the google-auth / google-api-core / google-cloud-*
+# wheel graph.
+# {{{
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/firebase-admin-import:uv.lock",
+    pyproject = "//cases/firebase-admin-import:pyproject.toml",
 )
 # }}}
 
@@ -308,6 +321,17 @@ uv.project(
     hub_name = "pypi",
     lock = "//cases/pytest-mock-530:uv.lock",
     pyproject = "//cases/pytest-mock-530:pyproject.toml",
+)
+# }}}
+
+# For cases/pytest-xdist-integration
+# Regression: pytest-xdist plugin discovery + actual parallel-worker
+# execution through py_test(pytest_main = True).
+# {{{
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/pytest-xdist-integration:uv.lock",
+    pyproject = "//cases/pytest-xdist-integration:pyproject.toml",
 )
 # }}}
 

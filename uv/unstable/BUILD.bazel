@@ -1,0 +1,4 @@
+# Removed in rules_py v2.0.0 — see defs.bzl / extension.bzl in this
+# directory for migration messages. No targets are declared here; the
+# .bzl files exist solely as fail() shims that point users at the new
+# stable load paths (//uv:defs.bzl and //uv:extensions.bzl).

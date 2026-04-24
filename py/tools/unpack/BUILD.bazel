@@ -1,0 +1,32 @@
+load("//bazel/release:release.bzl", "release")
+load("//bazel/rust:defs.bzl", "rust_binary")
+load("//bazel/rust:multi_platform_rust_binaries.bzl", "multi_platform_rust_binaries")
+
+rust_binary(
+    name = "unpack",
+    srcs = [
+        "src/main.rs",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@aspect_rules_py__crates//:clap",
+        "@aspect_rules_py__crates//:itertools",
+        "@aspect_rules_py__crates//:miette",
+        "@aspect_rules_py__crates//:percent-encoding-2.3.1",
+        "@aspect_rules_py__crates//:tempfile",
+        "@aspect_rules_py__crates//:uv-distribution-filename",
+        "@aspect_rules_py__crates//:uv-extract",
+        "@aspect_rules_py__crates//:uv-install-wheel",
+        "@aspect_rules_py__crates//:uv-pypi-types",
+    ],
+)
+
+multi_platform_rust_binaries(
+    name = "bins",
+    target = ":unpack",
+)
+
+release(
+    name = "release",
+    targets = [":bins"],
+)

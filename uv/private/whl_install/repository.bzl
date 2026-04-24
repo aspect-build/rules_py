@@ -13,6 +13,143 @@ load("//uv/private/constraints/platform:defs.bzl", "supported_platform")
 load("//uv/private/constraints/python:defs.bzl", "supported_python")
 load("//uv/private/pprint:defs.bzl", "pprint")
 
+def _find_whl_file(repository_ctx, whl_label):
+    """Resolve an http_file-style wheel label to the actual .whl path on disk.
+
+    whl_label typically points at an http_file's filegroup (`//file:file`),
+    so `repository_ctx.path` returns the filegroup's logical path — not
+    the actual .whl file, which is a sibling in the same directory under
+    its downloaded filename. Scan the parent directory to find it.
+
+    Returns None if no .whl file is found.
+    """
+    logical_path = repository_ctx.path(whl_label)
+    parent = logical_path.dirname
+    for entry in parent.readdir():
+        if entry.basename.endswith(".whl"):
+            return entry
+    return None
+
+def _extract_wheel_metadata(repository_ctx, whl_label):
+    """Peek inside a wheel to discover top-level names and console scripts.
+
+    Mirrors the rules_js `npm_import` pattern of doing partial archive
+    extraction at repo-rule time for metadata, rather than deferring to a
+    build-time action (which would leave the info invisible to analysis).
+
+    Reads:
+      * `*.dist-info/RECORD` (mandatory per PEP 427) to get top-level names.
+      * `*.dist-info/entry_points.txt` (optional) to get `[console_scripts]`.
+
+    Both reads go through `unzip -p` (stdout, no disk writes).
+
+    Args:
+      repository_ctx: The repo rule context.
+      whl_label: A Label pointing at a wheel file (typically an http_file
+                 target), passed in via the repo rule's `whl_files`
+                 label_list attr so Bazel wires up repo visibility.
+
+    Returns:
+      Tuple (top_levels_set, regular_top_levels_set, console_scripts_set):
+        * top_levels_set: dict[name → True] — all first-path-segment
+          names in RECORD (excluding `*.data/` staging entries).
+        * regular_top_levels_set: subset that had an `__init__.py` at
+          depth 1, i.e. regular packages. Its complement (within
+          top_levels_set, minus `.dist-info/`) is the PEP 420 namespace
+          set. Returned separately so callers can union regular/top sets
+          across multiple platform wheels before deriving namespaces —
+          a top-level is a namespace only if NO wheel has it as regular.
+        * console_scripts_set: dict[script_name → "name=module:func"].
+      All empty on any failure — callers tolerate empty and fall back.
+    """
+    unzip = repository_ctx.which("unzip")
+    if not unzip:
+        return {}, {}, {}
+
+    whl_path = _find_whl_file(repository_ctx, whl_label)
+    if whl_path == None:
+        return {}, {}, {}
+
+    # RECORD: authoritative list of every installed file. First path segment
+    # = top-level name, excluding the wheel's `*.data/` staging area.
+    record = repository_ctx.execute([unzip, "-p", str(whl_path), "*.dist-info/RECORD"])
+    top_levels_set = {}
+
+    # Tracks which top-levels contain a direct `<toplevel>/__init__.py` —
+    # i.e., are regular packages. The complement (top_levels that never
+    # appear with an `__init__.py` at depth 1) are PEP 420 namespace
+    # packages that expect to be merged across wheels.
+    regular_top_levels = {}
+    if record.return_code == 0 and record.stdout:
+        for line in record.stdout.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            path = line.split(",", 1)[0]
+            if not path:
+                continue
+            segments = path.split("/")
+            first_segment = segments[0]
+
+            # `*.data/` files (PEP 427) aren't installed to site-packages;
+            # they're routed to data/scripts/headers/purelib/etc. under
+            # sys.prefix. Exclude from site-packages top-level list.
+            if first_segment.endswith(".data"):
+                continue
+
+            # Filter RECORD entries that escape the install root. Some
+            # wheels (notably setuptools-family) emit lines like
+            # `../../bin/foo` for entry-point scripts. We don't want
+            # `..` / `.` / absolute paths / empty strings in top_levels
+            # because downstream `ctx.actions.declare_symlink` normalises
+            # paths and would create phantom outputs at parent dirs,
+            # producing prefix-collision errors.
+            if not first_segment:
+                continue
+            if first_segment in (".", ".."):
+                continue
+            if first_segment.startswith("/"):
+                continue
+            top_levels_set[first_segment] = True
+
+            # Single-file modules (e.g. `six.py` at top level) aren't
+            # namespace packages — treat them as regular.
+            if len(segments) == 1 or (len(segments) >= 2 and segments[1] == "__init__.py"):
+                regular_top_levels[first_segment] = True
+
+    # entry_points.txt: INI-style file. Only `[console_scripts]` interests
+    # us — pip/uv synthesize executables under `bin/<name>` from those at
+    # install time. Missing file is normal (lots of libs have no scripts).
+    ep = repository_ctx.execute([unzip, "-p", str(whl_path), "*.dist-info/entry_points.txt"])
+    console_scripts = {}
+    if ep.return_code == 0 and ep.stdout:
+        in_console_scripts = False
+        for raw_line in ep.stdout.splitlines():
+            # Strip comments (`;` or `#`) and whitespace.
+            line = raw_line.split(";", 1)[0].split("#", 1)[0].strip()
+            if not line:
+                continue
+            if line.startswith("[") and line.endswith("]"):
+                in_console_scripts = line[1:-1].strip() == "console_scripts"
+                continue
+            if not in_console_scripts:
+                continue
+            if "=" not in line:
+                continue
+            name, _, target = line.partition("=")
+            name = name.strip()
+            target = target.strip()
+            if not name or ":" not in target:
+                continue
+
+            # Normalise to "name=module:func" so downstream parsing is trivial.
+            console_scripts[name] = "{}={}".format(name, target)
+
+    # Return raw sets (not the final namespace derivation) so callers can
+    # union across multiple platform wheels before deciding namespace
+    # status — see the caller in `_whl_install_repo_impl`.
+    return top_levels_set, regular_top_levels, console_scripts
+
 def indent(text, space = " "):
     return "\n".join(["{}{}".format(space, l) for l in text.splitlines()])
 
@@ -244,12 +381,59 @@ py_library(
         "//conditions:default": "checked-hash",
     })"""
 
+    # Peek into each wheel to extract the top-level names it installs AND
+    # its `[console_scripts]` entry points. This powers PyWheelsInfo,
+    # which py_binary uses to build a merged site-packages tree via
+    # ctx.actions.symlink and to wrap console scripts into <venv>/bin/.
+    # Falls back gracefully to [] if extraction fails; consumers tolerate it.
+    #
+    # We read from `whl_files` (a real label_list) rather than `whls` (a
+    # JSON-encoded string of labels) because only the former adds the
+    # wheel repos to our visibility so `rctx.path(Label(...))` can resolve.
+    #
+    # Union across all platform wheels — same-python-version wheels for
+    # a given package share their pure-Python top-levels but have
+    # DIFFERENT C-extension filenames (e.g. cffi's `_cffi_backend` ships
+    # as `_cffi_backend.cpython-311-darwin.so` on macOS and
+    # `_cffi_backend.cpython-311-x86_64-linux-gnu.so` on Linux). Picking
+    # only one wheel bakes in that wheel's suffix; at build time on a
+    # different platform, the venv's top-level symlink points at a file
+    # that doesn't exist in the actually-installed wheel. Unioning lets
+    # every platform see its own suffix in top_levels — the dangling
+    # symlinks for other platforms' suffixes are invisible to Python's
+    # importer (it matches by the current interpreter's exact suffix).
+    top_levels_set = {}
+    regular_top_levels_set = {}
+    console_scripts_set = {}
+    for whl_file in repository_ctx.attr.whl_files:
+        tls, reg, css = _extract_wheel_metadata(repository_ctx, whl_file)
+        top_levels_set.update(tls)
+        regular_top_levels_set.update(reg)
+        console_scripts_set.update(css)
+
+    # Namespace derivation happens AFTER the union: a top-level counts as
+    # a PEP 420 namespace only if NO extracted wheel had `__init__.py` at
+    # depth 1 for it. If any wheel flagged it regular, it's regular.
+    top_levels = sorted(top_levels_set.keys())
+    namespace_top_levels = sorted([
+        tl
+        for tl in top_levels_set
+        if tl not in regular_top_levels_set and not tl.endswith(".dist-info")
+    ])
+    console_scripts = sorted(console_scripts_set.values())
+
     install_attrs = """
     src = ":whl",
     compile_pyc = {compile_pyc},
-    pyc_invalidation_mode = {pyc_invalidation_mode},""".format(
+    pyc_invalidation_mode = {pyc_invalidation_mode},
+    top_levels = {top_levels},
+    namespace_top_levels = {namespace_top_levels},
+    console_scripts = {console_scripts},""".format(
         compile_pyc = compile_pyc_select,
         pyc_invalidation_mode = pyc_invalidation_mode_select,
+        top_levels = repr(top_levels),
+        namespace_top_levels = repr(namespace_top_levels),
+        console_scripts = repr(console_scripts),
     )
 
     if post_install_patches:
@@ -313,6 +497,12 @@ whl_install = repository_rule(
     implementation = _whl_install_impl,
     attrs = {
         "whls": attr.string(),
+        # Mirror of the http_file labels from `whls`, declared as a real
+        # label_list so Bazel adds those repos to this repo's visibility
+        # mapping. Needed so that `repository_ctx.path(Label(...))` can
+        # resolve any one of them at repo-rule time to peek at the wheel's
+        # `*.dist-info/RECORD` — see `_extract_top_levels` above.
+        "whl_files": attr.label_list(allow_files = [".whl"]),
         "sbuild": attr.label(),
         "post_install_patches": attr.string(default = ""),
         "post_install_patch_strip": attr.int(default = 0),

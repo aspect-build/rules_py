@@ -2,8 +2,13 @@
 
 load("@aspect_tools_telemetry_report//:defs.bzl", "TELEMETRY")  # buildifier: disable=load
 load("@bazel_features//:features.bzl", features = "bazel_features")
+load("//py/private/interpreter:extension.bzl", _python_interpreters = "python_interpreters")
 load("//py/private/release:version.bzl", "IS_PRERELEASE")
 load(":toolchains.bzl", "DEFAULT_TOOLS_REPOSITORY", "rules_py_toolchains")
+
+# python-build-standalone interpreter provisioning extension. Stable
+# location of the previously-at-`//py/unstable:extension.bzl` export.
+python_interpreters = _python_interpreters
 
 py_toolchain = tag_class(attrs = {
     "name": attr.string(doc = """\

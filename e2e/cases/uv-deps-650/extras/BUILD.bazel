@@ -1,6 +1,6 @@
-load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
+load("@aspect_rules_py//py:defs.bzl", "py_test")
 
-py_venv_test(
+py_test(
     name = "extras",
     srcs = [
         "__test__.py",
@@ -8,6 +8,22 @@ py_venv_test(
     main = "__test__.py",
     python_version = "3.11",
     venv = "extras",
+    deps = [
+        "@pypi//requests",
+    ],
+)
+
+py_test(
+    name = "extras_venv_test",
+    srcs = [
+        "__test__.py",
+    ],
+    expose_venv = True,
+    isolated = False,
+    main = "__test__.py",
+    python_version = "3.11",
+    venv = "extras",
+    venv_dir_basename = ".extras_venv_test",
     deps = [
         "@pypi//requests",
     ],

@@ -1,0 +1,27 @@
+[package]
+name = "unpack"
+version.workspace = true
+categories.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+edition.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[[bin]]
+name = "unpack"
+path = "src/main.rs"
+
+[dependencies]
+clap = { workspace = true }
+itertools = { workspace = true }
+miette = { workspace = true }
+percent-encoding = "2.3.1"
+tempfile = { workspace = true }
+uv-distribution-filename = { workspace = true }
+uv-extract = { workspace = true }
+uv-install-wheel = { workspace = true }
+uv-pypi-types = { workspace = true }

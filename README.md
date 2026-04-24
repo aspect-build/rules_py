@@ -6,6 +6,8 @@ reference Python ruleset for Bazel.
 It provides drop-in replacements for `py_binary`, `py_library`, and `py_test` that prioritize:
 
 - **Blazing-fast dependency resolution** via native `uv` integration
+- **Analysis-time venv assembly** — the virtualenv is a tree of `ctx.actions.symlink` outputs, not a runtime extraction. No tool runs to stage site-packages at test time
+- **Shared virtualenvs** — point many `py_binary` / `py_test` targets at one `py_venv` for fast iteration and IDE-native workflows
 - **Strict hermeticity** with isolated Python execution and Bash-based launchers
 - **Idiomatic Python layouts** using standard `site-packages` symlink trees
 - **Seamless IDE compatibility** via virtualenv-native structures
@@ -23,6 +25,8 @@ RBE) environments.
 | Cross-platform lockfile   | `requirements.txt` (`uv.lock` via `uv pip compile`)                                                     | Native single `uv.lock` consumption                                                                                      |
 | sdist / PEP 517 builds    | Not supported ([#2410](https://github.com/bazel-contrib/rules_python/issues/2410), open since Nov 2024) | Build actions (`pep517_whl`, `pep517_native_whl`)                                                                        |
 | Interpreter provisioning  | Download via rules_python extension                                                                     | Own [python-build-standalone](https://github.com/astral-sh/python-build-standalone) extension — no rules_python required |
+| Venv assembly             | Runtime sys.path manipulation; no real venv on disk                                                     | Analysis-time `ctx.actions.symlink` tree — a real venv, no runtime staging                                               |
+| Shared venvs              | No                                                                                                      | `py_binary(external_venv = :shared)` — one venv, many binaries                                                           |
 | Site-packages layout      | Standard `site-packages` layout (flag-enabled)                                                          | Standard `site-packages` symlink tree                                                                                    |
 | Cross-compilation         | Limited                                                                                                 | Native platform transitions (e.g. arm64 image on amd64 host)                                                             |
 | Virtual dependencies      | No                                                                                                      | `virtual_deps` — swap implementations at binary level                                                                    |
@@ -57,12 +61,8 @@ a Rust-native Python package resolver.
 `aspect_rules_py` ships its own [python-build-standalone](https://github.com/astral-sh/python-build-standalone)
 interpreter extension—rules_python is not required as a toolchain provider.
 
-> [!NOTE]
-> The `//py/unstable` and `//uv/unstable` extension paths indicate that the extension API may evolve across
-> releases—not that the features are unstable.
-
 ```python
-interpreters = use_extension("@aspect_rules_py//py/unstable:extension.bzl", "python_interpreters")
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
 interpreters.toolchain(python_version = "3.12", is_default = True)
 use_repo(interpreters, "python_interpreters")
 register_toolchains("@python_interpreters//:all")
@@ -71,20 +71,86 @@ register_toolchains("@python_interpreters//:all")
 This enables cross-compilation from any host to any target without host-installed Python, and is the foundation for
 correct toolchain selection in RBE environments.
 
-### Idiomatic `site-packages` Layout
+### Analysis-time Venv Assembly
 
-We do not manipulate `sys.path` or `$PYTHONPATH`. Instead, we generate a standard `site-packages` directory structure
-using symlink trees:
+`py_binary` assembles a **real virtualenv** on disk at analysis time, using only `ctx.actions.symlink` and
+`ctx.actions.write`. No tool runs at test time to stage site-packages, no sys.path patching, no PYTHONPATH tricks.
 
-- Prevents module name collisions (e.g., standard library `collections` vs. a transitive dependency named `collections`)
-- Matches standard Python expectations—tools just work
-- Native IDE compatibility: VSCode, PyCharm, and language servers resolve jump-to-definition correctly into the Bazel
-  sandbox
+- `pyvenv.cfg`, `bin/python`, `bin/activate`, per-top-level `site-packages/<name>` symlinks, `.pth` for first-party
+  imports — all declared as Bazel outputs
+- CPython sees an ordinary relocatable venv — `site.main()` does its standard thing
+- Action cache deduplicates the symlink actions across targets, so adding one wheel to one binary is cheap
+
+**Why it matters at scale.** Earlier versions of `py_binary` ran a Rust tool at every launcher invocation to
+stage the site-packages tree before exec'ing Python. On small graphs that's a few hundred milliseconds; on large
+monorepos with thousands of wheels in the transitive closure we measured 10+ seconds of launcher overhead per
+`bazel run` / `bazel test`, paid on every invocation. The new analysis-time assembly makes the launcher a no-op —
+startup is milliseconds regardless of graph size, and the per-wheel symlink actions are cached and shared across
+targets.
+
+### Shared Virtualenvs
+
+Point many binaries and tests at a single `py_venv` target via `external_venv`:
+
+```starlark
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_test", "py_venv")
+
+py_venv(
+    name = "project_venv",
+    imports = ["."],
+    deps = [
+        "@pypi//fastapi",
+        "@pypi//uvicorn",
+        "@pypi//pydantic",
+    ],
+)
+
+py_binary(
+    name = "serve",
+    srcs = ["serve.py"],
+    main = "serve.py",
+    external_venv = ":project_venv",
+)
+
+py_test(
+    name = "test_api",
+    srcs = ["test_api.py"],
+    external_venv = ":project_venv",
+    deps = ["@pypi//pytest"],
+)
+```
+
+- **One venv path to point your IDE at** — VSCode, PyCharm, language servers all see a consistent interpreter with a
+  stable dep closure across the repo's entrypoints
+- **Analysis-time coverage check** — if a `py_binary` declares a wheel dep the venv doesn't carry, analysis fails
+  with a clear error naming the missing package
+- **Env vars flow through** — `env = {...}` and `env_inherit = [...]` declared on the venv reach consuming binaries;
+  binary-level `env` wins on key conflicts
+
+For one-off targets that want the same split without a separately-declared `py_venv`, pass `expose_venv = True`:
+
+```starlark
+py_binary(
+    name = "serve",
+    srcs = ["serve.py"],
+    main = "serve.py",
+    expose_venv = True,           # auto-emits a `:serve.venv` sibling
+    deps = ["@pypi//fastapi"],
+)
+```
+
+The `:serve.venv` sibling is a first-class `py_venv`:
+`bazel run :serve.venv` drops into the hermetic interpreter, and other
+targets can `external_venv = "//:serve.venv"` to share it.
+
+`expose_venv` defaults to `False` so default `py_binary` callers see exactly
+one target in `bazel query` output — no graph bloat.
 
 ### Strict Sandbox Isolation
 
-- **Isolated mode**: Python executes with `-I` flag, preventing implicit loading of user site-packages or host
-  environment variables
+- **Isolated mode**: Python executes with `-I` flag by default, preventing implicit loading of user site-packages or
+  host environment variables. Opt out per-target with `isolated = False` for legacy code that needs PYTHONPATH or
+  script-dir-on-sys.path semantics
 - **Hermetic launchers**: Our launcher uses the Bazel Bash toolchain, not the host Python, this ensures 100% hermetic
   execution across local machines and RBE nodes
 - **No host Python leakage**: Breaks the implicit dependency on system Python during the boot sequence
@@ -122,7 +188,7 @@ Built-in rules for creating optimized container images:
 ## Installation and Configuration
 
 ```bzl
-bazel_dep(name = "aspect_rules_py", version = "1.11.2")
+bazel_dep(name = "aspect_rules_py", version = "2.0.0-rc0")
 ```
 
 ### Quick Start
@@ -157,7 +223,7 @@ py_test(
 `aspect_rules_py//uv` is our alternative to `rules_python`'s `pip.parse`:
 
 ```bzl
-uv = use_extension("@aspect_rules_py//uv/unstable:extension.bzl", "uv")
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 
 # 1. Declare a hub (a shared dependency namespace)
 uv.declare_hub(
@@ -299,18 +365,38 @@ bazel build //:image --platforms=//platforms:linux_amd64
 
 ## IDE Integration
 
-`aspect_rules_py` generates standard virtualenv structures that IDEs understand:
+`aspect_rules_py` materialises a standard virtualenv on disk; the directory
+layout is exactly what IDEs and LSPs look for. To expose one to your editor,
+declare a `py_venv` (or have `py_binary` emit a sibling via `expose_venv = True`)
+and a `py_venv_link` that materialises a workspace-local symlink:
 
-```bash
-# Creates a .venv symlink for the target
-bazel run //:my_app.venv
+```starlark
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_venv_link")
+
+py_binary(
+    name = "my_app",
+    srcs = ["main.py"],
+    deps = ["//:lib"],
+    expose_venv = True,           # auto-emits :my_app.venv sibling
+)
+
+# `bazel run :my_app_ide` creates a .<pkg>+my_app.venv/ symlink in the
+# workspace pointing at the materialised venv in bazel-bin — IDEs then
+# resolve the interpreter and site-packages through a stable path.
+py_venv_link(
+    name = "my_app_ide",
+    venv = ":my_app.venv",
+)
 ```
 
-Then point your IDE to the generated virtualenv:
+Then point your IDE at the materialised symlink:
 
 - **VSCode**: Set `python.defaultInterpreterPath` to the `.venv` path
 - **PyCharm**: Add the `.venv` as a Python interpreter
 - **Neovim/LSP**: Configure `python-lsp-server` or `pyright` to use the virtualenv
+
+If you prefer to skip the link step, `bazel run :my_app.venv` drops into the
+hermetic interpreter directly (useful for ad-hoc REPL sessions).
 
 ### Debugger Support (VSCode/PyCharm)
 
@@ -347,7 +433,7 @@ Generate `BUILD` files automatically with the Gazelle extension:
 ```bzl
 # MODULE.bazel
 bazel_dep(name = "gazelle", version = "0.42.0")
-bazel_dep(name = "aspect_rules_py", version = "1.11.2")
+bazel_dep(name = "aspect_rules_py", version = "2.0.0-rc0")
 
 # In your BUILD file
 # gazelle:map_kind py_library py_library @aspect_rules_py//py:defs.bzl
@@ -359,6 +445,33 @@ bazel_dep(name = "aspect_rules_py", version = "1.11.2")
 # Generate BUILD files
 bazel run //:gazelle
 ```
+
+## Migration from `aspect_rules_py` 1.x
+
+v2.0.0 ships several breaking changes. All of them surface with a clear
+error at analysis time — there is no silent-fail path — so `bazel test
+//...` after the bump will name every callsite that needs updating.
+
+**For the full migration guide with before/after examples for every
+change:** see [docs/migrating_v1_v2.md](docs/migrating_v1_v2.md).
+
+The short summary:
+
+- `py_venv_binary` / `py_venv_test` are **removed**. Replace with plain
+  `py_binary` / `py_test` (or `py_binary(expose_venv = True, isolated = False)`
+  if you need the old split-target / PYTHONPATH-honoring semantics).
+- `//py/unstable:*` and `//uv/unstable:*` load paths are **removed**. Move
+  to `//py:defs.bzl`, `//py:extensions.bzl`, `//uv:defs.bzl`, and
+  `//uv:extensions.bzl`. Symbols are unchanged.
+- `py_binary` / `py_test` no longer auto-emit a `:<name>.venv` sibling.
+  Opt in via `expose_venv = True` to get a consumable + runnable venv
+  target, and declare `py_venv_link` explicitly if you want workspace-
+  materialise-a-symlink behaviour for IDE integration.
+- `py_venv_link`'s signature changed: takes `venv = :<label>` pointing at
+  an existing `py_venv` instead of building its own.
+- `VENV_TOOLCHAIN` / `VENV_EXEC_TOOLCHAIN` / `SHIM_TOOLCHAIN` Rust
+  toolchain types are **removed**. Delete any custom registrations —
+  there's no replacement needed (the work happens in Starlark now).
 
 ## Migration from `rules_python`
 
@@ -377,7 +490,8 @@ For detailed migration guidance, see [docs/migrating.md](docs/migrating.md).
 - [Dependency resolution with `uv`](docs/uv.md)
 - [Virtual dependencies](docs/virtual_deps.md)
 - [Interpreter configuration](docs/interpreter.md)
-- [Migration guide](docs/migrating.md)
+- [Migrating from rules_python](docs/migrating.md)
+- [Migrating from `aspect_rules_py` 1.x to 2.0.0](docs/migrating_v1_v2.md)
 - [Contributing](CONTRIBUTING.md)
 
 ## Users

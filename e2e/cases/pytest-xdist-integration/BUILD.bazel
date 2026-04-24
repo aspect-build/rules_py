@@ -1,0 +1,22 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+# Regression test: pytest-xdist must be discoverable as a pytest plugin
+# and -n <N> must actually spawn parallel workers when running through
+# the py_test(pytest_main=True) entry point. test_xdist.py contains
+# four tests that each record os.getpid() to a shared log, plus a
+# sentinel that asserts at least two distinct PIDs were seen.
+
+py_test(
+    name = "test_xdist",
+    srcs = ["test_xdist.py"],
+    args = [
+        "-n",
+        "2",
+    ],
+    pytest_main = True,
+    venv = "pytest-xdist-integration",
+    deps = [
+        "@pypi//pytest",
+        "@pypi//pytest_xdist",
+    ],
+)

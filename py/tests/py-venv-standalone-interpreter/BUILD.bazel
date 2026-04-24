@@ -1,15 +1,23 @@
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
-load("//py/private/py_venv:defs.bzl", "py_venv_binary")
+load("//py:defs.bzl", "py_binary")
 
-py_venv_binary(
+# Regression test: `py_binary(expose_venv = True, isolated = False)` —
+# the opt-in split shape — produces a runnable venv whose interpreter
+# honors `-I`-less semantics (PYTHONPATH, script-dir-on-sys.path,
+# optionally user-site). This is the shape users land on when they
+# used to call `py_venv_binary`.
+py_binary(
     name = "ex",
     srcs = [
         "ex.py",
     ],
+    expose_venv = True,
     imports = [
         ".",
     ],
+    isolated = False,
     main = "ex.py",
+    venv_dir_basename = ".ex",
     deps = [
         "@pypi//cowsay",
     ],

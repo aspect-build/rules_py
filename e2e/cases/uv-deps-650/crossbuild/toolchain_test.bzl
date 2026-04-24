@@ -7,9 +7,9 @@ into a file, so sh_test scripts can inspect which binary was selected.
 UNPACK_TOOLCHAIN = "@aspect_rules_py//py/private/toolchain:unpack_exec_toolchain_type"
 
 def _unpack_toolchain_path_impl(ctx):
-    unpack_bin = ctx.toolchains[UNPACK_TOOLCHAIN].bin.bin
+    unpack = ctx.toolchains[UNPACK_TOOLCHAIN].bin.bin
     out = ctx.actions.declare_file(ctx.label.name + ".txt")
-    ctx.actions.write(out, unpack_bin.path)
+    ctx.actions.write(out, unpack.path)
     return [DefaultInfo(files = depset([out]))]
 
 unpack_toolchain_path = rule(

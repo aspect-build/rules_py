@@ -1,0 +1,27 @@
+load("//py:defs.bzl", "py_test", "py_venv")
+
+# Regression test: `py_binary(external_venv = X)` should inherit X's
+# `env = {...}` at runtime, and the binary's own `env` should win on
+# key conflicts.
+
+py_venv(
+    name = "shared_venv",
+    env = {
+        "VENV_ONLY": "from_venv",
+        "CONFLICTING": "venv_value",  # binary overrides this
+    },
+    env_inherit = ["VENV_INHERITED"],
+    imports = ["."],
+)
+
+py_test(
+    name = "test_env_forwarding",
+    srcs = ["check_env.py"],
+    env = {
+        "BINARY_ONLY": "from_binary",
+        "CONFLICTING": "binary_value",  # wins over venv's value
+    },
+    env_inherit = ["BINARY_INHERITED"],
+    external_venv = ":shared_venv",
+    main = "check_env.py",
+)

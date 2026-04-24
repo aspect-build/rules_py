@@ -1,4 +1,5 @@
 load("@aspect_rules_py//py:defs.bzl", "py_library", "py_pytest_main", "py_test")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 py_library(
     name = "lib",
@@ -57,6 +58,35 @@ py_test(
     main = ":main_test.py",
 )
 
+# Regression test for py_pytest_main(chdir = "..."): the chdir
+# template substitution in py_pytest_main.bzl must land an os.chdir()
+# call into the generated pytest main, so the test starts with its CWD
+# pointing at the requested directory. chdir_test.py then verifies
+# that a relative open("hello.json") resolves without needing an
+# absolute runfiles path.
+# After chdir into examples/pytest/fixtures/, pytest can't auto-discover
+# the test file (chdir_test.py lives one level up). Pass a path that
+# resolves from the post-chdir cwd so pytest collects the intended test.
+py_pytest_main(
+    name = "chdir_main",
+    args = ["../chdir_test.py"],
+    chdir = "examples/pytest/fixtures",
+)
+
+py_test(
+    name = "chdir_test",
+    srcs = [
+        "chdir_test.py",
+        ":chdir_main",
+    ],
+    data = glob(["fixtures/*.json"]),
+    main = ":__test__chdir_main__.py",
+    deps = [
+        ":chdir_main",
+        "@pypi//pytest",
+    ],
+)
+
 # Regression test for #723: test targets named test_* must work with
 # py_pytest_main without pytest discovering the generated main script.
 py_pytest_main(
@@ -77,5 +107,66 @@ py_test(
         ":lib",
         ":test_naming_723_main",
         "@pypi//pytest",
+    ],
+)
+
+# ─── Coverage-branch regression ──────────────────────────────────────
+#
+# Verifies the COVERAGE_MANIFEST / COVERAGE_OUTPUT_FILE machinery in
+# pytest_main.py works end-to-end: setup (read manifest, start
+# coverage.Coverage) AND teardown (lcov_report, apply SF/FN fixups,
+# write LCOV). `bazel coverage` would normally set these env vars; we
+# synthesize them here so the branch gets exercised under plain `bazel
+# test` with no special runner.
+#
+# The coverage_setup_test below runs pytest with COVERAGE_MANIFEST
+# pointing at a manifest pre-baked by the coverage_manifest genrule.
+# If pytest passes, pytest_main.py's coverage teardown writes an LCOV
+# file to COVERAGE_OUTPUT_FILE. The coverage_lcov_shape_test sh_test
+# then consumes that LCOV and asserts on its contents.
+
+genrule(
+    name = "coverage_manifest",
+    outs = ["coverage_manifest.txt"],
+    # The path format here is what bazel itself would write into
+    # COVERAGE_MANIFEST for an instrumented py_test — runfiles-relative
+    # paths, one per line.
+    cmd = "echo 'examples/pytest/foo.py' > $@",
+)
+
+py_test(
+    name = "coverage_setup_test",
+    srcs = ["foo_test.py"],
+    data = glob([
+        "fixtures/*.json",
+    ]) + [":coverage_manifest"],
+    env = {
+        "COVERAGE_MANIFEST": "$(rootpath :coverage_manifest)",
+        # Write the LCOV where a sibling sh_test can find it. This
+        # path is per-test-invocation (TEST_UNDECLARED_OUTPUTS_DIR is
+        # set by Bazel's test runner and collected as outputs).
+        "COVERAGE_OUTPUT_FILE": "coverage_setup_test.lcov",
+    },
+    imports = ["../.."],
+    package_collisions = "warning",
+    pytest_main = True,
+    # Mark manual so `bazel test //...` doesn't double-run this; the
+    # sh_test below drives it and reads its LCOV output.
+    tags = ["manual"],
+    deps = [
+        ":lib",
+        "@pypi//coverage",
+        "@pypi//ftfy",
+        "@pypi//neptune",
+        "@pypi//pytest",
+    ],
+)
+
+sh_test(
+    name = "coverage_lcov_shape_test",
+    srcs = ["run_coverage_and_check_lcov.sh"],
+    data = [
+        ":coverage_manifest",
+        ":coverage_setup_test",
     ],
 )

@@ -31,8 +31,9 @@ oci_image(
 """
 
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
-load("@tar.bzl//tar:mtree.bzl", "mtree_mutate", "mtree_spec")
+load("@tar.bzl//tar:mtree.bzl", "mtree_spec")
 load("@tar.bzl//tar:tar.bzl", "tar")
+load(":mtree_preserve_symlinks.bzl", "mtree_preserve_symlinks")
 
 default_layer_groups = {
     # match *only* external repositories containing a Python interpreter,
@@ -155,27 +156,29 @@ def py_image_layer(
     if root != None and not root.startswith("/"):
         fail("root path must start with '/' but got '{root}', expected '/{root}'".format(root = root))
 
-    # Produce the manifest for a tar file of our py_binary, but don't tar it up yet, so we can split
-    # into fine-grained layers for better pull, push and remote cache performance.
+    # Produce the manifest for a tar file of our py_binary, but don't
+    # tar it up yet — we split into fine-grained layers for better pull,
+    # push and remote cache performance.
+    #
+    # mtree_spec emits `type=file` for every non-directory entry,
+    # including `ctx.actions.symlink` outputs. At archive time bsdtar
+    # would follow the symlink, see a directory, and raise
+    # "different type" errors; `mtree_preserve_symlinks` rewrites
+    # symlink-shaped rows to `type=link` first.
     manifest_name = name + ".manifest"
-    if owner:
-        mtree_spec(
-            name = manifest_name + ".preprocessed",
-            srcs = [binary],
-            **kwargs
-        )
-        mtree_mutate(
-            name = manifest_name,
-            mtree = name + ".manifest.preprocessed",
-            owner = owner,
-            group = group,
-        )
-    else:
-        mtree_spec(
-            name = manifest_name,
-            srcs = [binary],
-            **kwargs
-        )
+    mtree_spec(
+        name = manifest_name + ".preprocessed",
+        srcs = [binary],
+        **kwargs
+    )
+
+    mtree_preserve_symlinks(
+        name = manifest_name,
+        mtree = manifest_name + ".preprocessed",
+        srcs = [binary],
+        owner = owner,
+        group = group,
+    )
 
     groups = dict(**layer_groups)
     groups = dict(groups, **default_layer_groups)

@@ -56,13 +56,26 @@ Add to your \`MODULE.bazel\` file:
 bazel_dep(name = "aspect_rules_py", version = "${TAG:1}")
 \`\`\`
 
-And also register a Python toolchain, see rules_python. For example:
+And also register a Python toolchain. \`aspect_rules_py\` ships its own
+[python-build-standalone](https://github.com/astral-sh/python-build-standalone)
+interpreter extension; \`rules_python\` is not required as a toolchain
+provider:
 
 \`\`\`starlark
-python = use_extension("@rules_python//python/extensions:python.bzl", "python")
-python.toolchain(
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+interpreters.toolchain(
     python_version = "3.13",
+    is_default = True,
 )
+use_repo(interpreters, "python_interpreters")
+register_toolchains("@python_interpreters//:all")
 \`\`\`
+
+See [docs/interpreter.md](https://github.com/aspect-build/rules_py/blob/main/docs/interpreter.md)
+for multi-version setups, mirror configuration, and per-target version
+pinning. If you prefer \`rules_python\`'s \`python.toolchain()\` — or
+already use it in your workspace — that continues to work too; any
+registered \`@bazel_tools//tools/python:toolchain_type\` toolchain is
+honored.
 
 EOF

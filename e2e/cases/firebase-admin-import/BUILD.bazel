@@ -1,0 +1,93 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_test")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+
+# Coverage test: the `google.*` namespace handling on a real wheel graph.
+#
+# firebase-admin 6.6.0 pulls in google-auth, google-api-core, google-cloud-*
+# — every one of them contributing to the PEP 420 `google` namespace — and
+# its own `__init__.py` does `from google.auth.credentials import ...` at
+# import time. That makes it a compact stress test for whether our
+# venv-assembly correctly merges contributions across namespace wheels.
+# All three variants below pass as shipped.
+#
+# Context: we built this case from a downstream report of a
+# `ModuleNotFoundError: No module named 'google.auth'` on exactly this
+# package. On investigation the downstream repo turned out to be using
+# rules_python's pip.parse (repos named `rules_python++pip+pystar_311_*`),
+# NOT rules_py's uv extension — and the failure reproduces reliably under
+# rules_python but NOT under rules_py. Root cause: google-auth 2.49.2's
+# wheel ships a `google/__init__.py`, which promotes `google` to a regular
+# package instead of a namespace. When that __init__.py wins in sys.path,
+# sibling `google.*` contributors become unreachable.
+#
+# rules_py sidesteps this because `whl_install`'s RECORD-based metadata
+# extraction marks `google` as a namespace in every wheel that doesn't
+# ship the `__init__.py`, and the `.pth` + `addsitedir` fallback we apply
+# to partial coverage promotes each wheel's site-packages to a site
+# directory — which reinvokes Python's PEP 420 namespace machinery and
+# merges contributions. rules_python's plain `PYTHONPATH` setup doesn't
+# get that second-pass behaviour, so the first `__init__.py` wins.
+#
+# Variants:
+#   :test       — rules_py py_test + uv wheels, target config
+#   :test_tool  — py_venv_test variant, target config
+#   :test_exec  — py_binary + uv wheels, forced into EXEC config via
+#                 `genrule.tools` — matches the shape the downstream
+#                 failure was reported at
+
+py_test(
+    name = "test",
+    srcs = ["test.py"],
+    main = "test.py",
+    venv = "firebase-admin-import",
+    deps = [
+        "@pypi//firebase_admin",
+    ],
+)
+
+# Naming: `test_tool` (not `test_venv`) because py_venv_test's tree
+# artifact output at `.test_venv/` would prefix-collide with py_test's
+# internal `<pkg>/.<name>_venv/` venv directory if both targets shared
+# the `_venv` suffix.
+py_test(
+    name = "test_tool",
+    srcs = ["test.py"],
+    expose_venv = True,
+    isolated = False,
+    main = "test.py",
+    python_version = "3.11",
+    venv = "firebase-admin-import",
+    venv_dir_basename = ".test_tool",
+    deps = [
+        "@pypi//firebase_admin",
+    ],
+)
+
+# `genrule.tools` forces the attached target into exec configuration:
+# exec-cfg'd interpreter, exec-cfg'd wheel selection, exec-cfg'd
+# runfiles. Any discrepancy between the metadata we extract at
+# repo-rule time (from one representative wheel) and the wheel the
+# exec-cfg select_chain picks would surface here. No discrepancy in
+# practice — firebase-admin's deps are all py3-none-any so the same
+# wheel is chosen across configurations.
+py_binary(
+    name = "firebase_importer",
+    srcs = ["test.py"],
+    main = "test.py",
+    venv = "firebase-admin-import",
+    deps = [
+        "@pypi//firebase_admin",
+    ],
+)
+
+genrule(
+    name = "run_in_exec",
+    outs = ["exec_run.out"],
+    cmd = "$(execpath :firebase_importer) > $@",
+    tools = [":firebase_importer"],
+)
+
+build_test(
+    name = "test_exec",
+    targets = [":run_in_exec"],
+)

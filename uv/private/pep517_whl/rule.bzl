@@ -36,7 +36,7 @@ def _pep517_whl(ctx):
     wheel_dir = ctx.actions.declare_directory("whl")
     patch_args, patch_inputs = _patch_args_and_inputs(ctx)
 
-    # The build tool is a py_venv_binary wrapping build_helper.py. Using it as
+    # The build tool is a py_binary wrapping build_helper.py. Using it as
     # a tool (not just an input) causes Bazel to materialize its runfiles in
     # the action sandbox, which means the venv shim can find the interpreter
     # via the standard runfiles mechanism regardless of whether the interpreter
