@@ -1,0 +1,25 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "pythonconfig",
+    srcs = [
+        "pythonconfig.go",
+        "types.go",
+    ],
+    importpath = "github.com/bazel-contrib/rules_python/gazelle/pythonconfig",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//gazelle/manifest:go_default_library",
+        "@bazel_gazelle//config:go_default_library",
+        "@bazel_gazelle//label:go_default_library",
+        "@bazel_gazelle//rule:go_default_library",
+        "@com_github_bazelbuild_buildtools//build",
+        "@com_github_emirpasic_gods//lists/singlylinkedlist:go_default_library",
+    ],
+)
+
+filegroup(
+    name = "distribution",
+    srcs = glob(["**"]),
+    visibility = ["//visibility:public"],
+)

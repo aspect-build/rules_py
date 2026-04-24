@@ -32,11 +32,11 @@ def _toolchains_repo_impl(repository_ctx):
 """
     for bin in TOOL_CFGS:
         for [platform, meta] in TOOLCHAIN_PLATFORMS.items():
-            if bin.toolchain_type:
-                build_content += """
+            build_content += """
+# Declare a toolchain Bazel will select for running {tool} on the {cfg} platform.
 toolchain(
-    name = "{tool}_{platform}_toolchain",
-    target_compatible_with = {compatible_with},
+    name = "{tool}_{platform}_{cfg}_toolchain",
+    {cfg}_compatible_with = {compatible_with},
     # Bazel does not follow this attribute during analysis, so the referenced repo
     # will only be fetched if this toolchain is selected.
     toolchain = "@{user_repository_name}.{platform}//:{tool}_toolchain",
@@ -44,53 +44,13 @@ toolchain(
 )
 
 """.format(
-                    tool = bin.name,
-                    toolchain_type = bin.toolchain_type,
-                    platform = platform,
-                    user_repository_name = repository_ctx.attr.user_repository_name,
-                    compatible_with = meta.compatible_with,
-                )
-
-            if bin.exec_toolchain_type:
-                build_content += """
-toolchain(
-    name = "{tool}_{platform}_exec_toolchain",
-    exec_compatible_with = {compatible_with},
-    # Bazel does not follow this attribute during analysis, so the referenced repo
-    # will only be fetched if this toolchain is selected.
-    toolchain = "@{user_repository_name}.{platform}//:{tool}_toolchain",
-    toolchain_type = "{toolchain_type}",
-)
-
-""".format(
-                    tool = bin.name,
-                    toolchain_type = bin.exec_toolchain_type,
-                    platform = platform,
-                    user_repository_name = repository_ctx.attr.user_repository_name,
-                    compatible_with = meta.compatible_with,
-                )
-
-    # Generate one native_build toolchain entry per platform.
-    # Used by pep517_whl (sdist builds) as a sentinel asserting the build is
-    # running natively (exec == target). Both exec_compatible_with and
-    # target_compatible_with are set to the same constraints so that this
-    # toolchain is only selected when the exec and target platforms match —
-    # cross-compilation sdist builds are unsupported and correctly fail.
-    # Registered via @rules_py_tools//:all.
-    for [platform, meta] in TOOLCHAIN_PLATFORMS.items():
-        build_content += """
-toolchain(
-    name = "native_build_{platform}_toolchain",
-    exec_compatible_with = {compatible_with},
-    target_compatible_with = {compatible_with},
-    toolchain = "@aspect_rules_py//py/private/toolchain:empty",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:native_build_toolchain_type",
-)
-
-""".format(
-            platform = platform,
-            compatible_with = meta.compatible_with,
-        )
+                cfg = bin.cfg,
+                tool = bin.name,
+                toolchain_type = bin.toolchain_type,
+                platform = platform,
+                user_repository_name = repository_ctx.attr.user_repository_name,
+                compatible_with = meta.compatible_with,
+            )
 
     # Base BUILD file for this repository
     repository_ctx.file("BUILD.bazel", build_content)
@@ -114,26 +74,7 @@ toolchains_repo = repository_rule(
 )
 
 def _prerelease_toolchains_repo_impl(repository_ctx):
-    # No tool toolchains in prerelease (no pre-built binaries), but we still
-    # generate the native_build toolchain entries. These use the sentinel
-    # @aspect_rules_py//py/private/toolchain:empty target which requires no
-    # downloaded binary, so they work correctly in development/prerelease mode.
-    build_content = "# No tool toolchains created for pre-releases\n"
-    for [platform, meta] in TOOLCHAIN_PLATFORMS.items():
-        build_content += """
-toolchain(
-    name = "native_build_{platform}_toolchain",
-    exec_compatible_with = {compatible_with},
-    target_compatible_with = {compatible_with},
-    toolchain = "@aspect_rules_py//py/private/toolchain:empty",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:native_build_toolchain_type",
-)
-
-""".format(
-            platform = platform,
-            compatible_with = meta.compatible_with,
-        )
-    repository_ctx.file("BUILD.bazel", build_content)
+    repository_ctx.file("BUILD.bazel", "# No toolchains created for pre-releases")
 
     if not features.external_deps.extension_metadata_has_reproducible:
         return None
@@ -141,19 +82,17 @@ toolchain(
 
 prerelease_toolchains_repo = repository_rule(
     _prerelease_toolchains_repo_impl,
-    doc = """Create a repo with native_build toolchain entries but no tool toolchains.
-    This is used for pre-releases, which have no pre-built tool binaries, but still want to call
+    doc = """Create a repo with an empty BUILD file, which registers no toolchains.
+    This is used for pre-releases, which have no pre-built binaries, but still want to call
       register_toolchains("@this_repo//:all")
-    By doing this, we can avoid those register_toolchains callsites needing to be conditional on IS_PRERELEASE.
-    The native_build toolchain entries are included because they reference only the sentinel :empty
-    target (no downloaded binary required), so they work in dev mode too.
+    By doing this, we can avoid those register_toolchains callsites needing to be conditional on IS_PRERELEASE
     """,
 )
 
 def _prebuilt_tool_repo_impl(rctx):
     build_content = """\
 # Generated by @aspect_rules_py//py/private/toolchain:tools.bzl
-load("@aspect_rules_py//py/private/toolchain:tools.bzl", "source_py_tool_toolchain")
+load("@aspect_rules_py//py/private/toolchain:tools.bzl", "py_tool_toolchain")
 
 package(default_visibility = ["//visibility:public"])
 """
@@ -180,13 +119,18 @@ package(default_visibility = ["//visibility:public"])
             release_version = release_version,
             filename = filename,
         )
-        rctx.download(
+        kwargs = dict(
             url = url,
             sha256 = RELEASED_BINARY_INTEGRITY[filename],
             executable = True,
             output = tool.name,
         )
-        build_content += """source_py_tool_toolchain(name = "{tool}_toolchain", bin = "{tool}", template_var = "{tool_upper}_BIN")\n""".format(
+
+        # print(kwargs)
+        rctx.download(
+            **kwargs
+        )
+        build_content += """py_tool_toolchain(name = "{tool}_toolchain", bin = "{tool}", template_var = "{tool_upper}_BIN")\n""".format(
             tool = tool.name,
             tool_upper = tool.name.upper(),
         )

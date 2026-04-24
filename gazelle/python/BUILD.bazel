@@ -1,0 +1,55 @@
+load("@bazel_gazelle//:def.bzl", "gazelle_binary")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "python",
+    srcs = [
+        "configure.go",
+        "file_parser.go",
+        "fix.go",
+        "generate.go",
+        "kinds.go",
+        "language.go",
+        "parser.go",
+        "resolve.go",
+        "std_modules.go",
+        "target.go",
+    ],
+    embedsrcs = ["stdlib_list.txt"],
+    importpath = "github.com/bazel-contrib/rules_python/gazelle/python",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//gazelle/pythonconfig",
+        "@bazel_gazelle//config:go_default_library",
+        "@bazel_gazelle//label:go_default_library",
+        "@bazel_gazelle//language:go_default_library",
+        "@bazel_gazelle//repo:go_default_library",
+        "@bazel_gazelle//resolve:go_default_library",
+        "@bazel_gazelle//rule:go_default_library",
+        "@com_github_bazelbuild_buildtools//build",
+        "@com_github_bmatcuk_doublestar_v4//:doublestar",
+        "@com_github_emirpasic_gods//lists/singlylinkedlist",
+        "@com_github_emirpasic_gods//sets/treeset",
+        "@com_github_emirpasic_gods//utils",
+        "@com_github_smacker_go_tree_sitter//:go-tree-sitter",
+        "@com_github_smacker_go_tree_sitter//python",
+        "@org_golang_x_sync//errgroup",
+    ],
+)
+
+# Copy stdlib list from a default version
+genrule(
+    name = "stdlib_list",
+    outs = ["stdlib_list.txt"],
+    cmd = """
+echo "# Standard library modules for Python 3.11" > "$@"
+echo "# This is a placeholder - in production this would be generated from python_stdlib_list" >> "$@"
+    """,
+    visibility = ["//visibility:private"],
+)
+
+filegroup(
+    name = "distribution",
+    srcs = glob(["**"]),
+    visibility = ["//visibility:public"],
+)

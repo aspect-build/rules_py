@@ -2,7 +2,7 @@
 
 # Automagically "stamped" by git during `git archive` thanks to `export-subst` line in .gitattributes.
 # See https://git-scm.com/docs/git-archive#Documentation/git-archive.txt-export-subst
-_VERSION_PRIVATE = "$Format:%(describe:tags=true)$"
+_VERSION_PRIVATE = "v1.10.0-4-g28c9e133f"
 
 VERSION = "0.0.0" if _VERSION_PRIVATE.startswith("$Format") else _VERSION_PRIVATE.replace("v", "", 1)
 

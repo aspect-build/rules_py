@@ -8,6 +8,7 @@ py_library(
 
 py_test(
     name = "test_subdir_import",
+    python_version = "3.11",
     srcs = ["tests/test_subdir.py"],
     pytest_main = True,
     venv = "pytest-subdir-imports",

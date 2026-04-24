@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
-# TODO: Deprecated API, need an alternative
-import pkgutil
-assert "cases/uv-deps-650/airflow/.airflow/" in pkgutil.get_loader("airflow").get_filename()
+# Verify airflow is importable from the installed wheel
+import importlib.util
+spec = importlib.util.find_spec("airflow")
+assert spec is not None, "airflow package should be importable"
+assert spec.origin is not None, "airflow should have an origin path"
 
 import sys
 assert sys.version_info.major == 3

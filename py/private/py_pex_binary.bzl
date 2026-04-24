@@ -18,7 +18,7 @@ py_pex_binary(
 ```
 """
 
-load("@rules_python//python:defs.bzl", "PyInfo")
+load("//py/private:aspect_py_info.bzl", "AspectPyInfo")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
 
@@ -29,14 +29,12 @@ def _runfiles_path(file, workspace):
         return workspace + "/" + file.short_path
 
 exclude_paths = [
-    # following two lines will match paths we want to exclude in non-bzlmod setup
+    # paths we want to exclude in non-bzlmod setup
     "toolchain",
     "aspect_rules_py/py/tools/",
     # these will match in bzlmod setup
-    "rules_python~~python~",
     "aspect_rules_py~/py/tools/",
     # these will match in bzlmod setup with --incompatible_use_plus_in_repo_names flag flipped.
-    "rules_python++python+",
     "aspect_rules_py+/py/tools/",
 ]
 
@@ -91,7 +89,7 @@ def _py_python_pex_impl(ctx):
     )
 
     args.add_all(
-        binary[PyInfo].imports,
+        binary[AspectPyInfo].imports,
         format_each = "--sys-path=%s",
     )
 
@@ -120,7 +118,6 @@ def _py_python_pex_impl(ctx):
 
     ctx.actions.run(
         executable = ctx.executable._pex,
-        toolchain = None,
         inputs = runfiles.files,
         arguments = [args],
         outputs = [output],
@@ -160,7 +157,15 @@ information from the hermetic python toolchain.
 })
 
 py_pex_binary = rule(
-    doc = "Build a pex executable from a py_binary",
+    doc = """Build a pex executable from a py_binary.
+
+> [!WARNING]
+> py_pex_binary is DEPRECATED and may be removed in a future release.
+> It relies on host-side PEX_ROOT mutation during the build action, which
+> complicates determinism guarantees under Remote Build Execution (RBE).
+> Use py_scie_binary or py_zipapp_binary instead for hermetic,
+> self-contained executables.
+""",
     implementation = _py_python_pex_impl,
     attrs = _attrs,
     toolchains = [

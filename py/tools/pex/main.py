@@ -1,11 +1,9 @@
-# Unfortunately there is no way to stop pex from writing to a PEX_ROOT during build.
-# Closest thing seems to be creating a tmp folder and deleting it after.
-# pex cli does the same here;
-# https://github.com/pex-tool/pex/blob/252459bdd879fc1e3446a6221571875d46fad1bd/pex/commands/command.py#L362-L382
 import os
+import atexit
 from pex.common import safe_mkdtemp, safe_rmtree
 TMP_PEX_ROOT=safe_mkdtemp()
 os.environ["PEX_ROOT"] = TMP_PEX_ROOT
+atexit.register(safe_rmtree, TMP_PEX_ROOT)
 
 import sys
 from pex.pex_builder import Check,PEXBuilder
@@ -209,5 +207,5 @@ pex_builder.build(
 )
 
 
-# Cleanup temporary pex root
-safe_rmtree(TMP_PEX_ROOT)
+# Cleanup of TMP_PEX_ROOT is handled by the atexit handler registered above.
+# This ensures removal even on uncaught exceptions during the build action.

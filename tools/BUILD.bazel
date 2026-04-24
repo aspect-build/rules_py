@@ -13,5 +13,7 @@ bazel_env(
         "cargo": "@rules_rust//tools/upstream_wrapper:cargo",
         "rustc": "@rules_rust//tools/upstream_wrapper:rustc",
         "rustfmt": "@rules_rust//tools/upstream_wrapper:rustfmt",
+        # UV - Python package manager (from the internal toolchain extension)
+        "uv": "@aspect_rules_py_uv_toolchain//:uv",
     } | MULTITOOL_TOOLS,
 )

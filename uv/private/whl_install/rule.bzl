@@ -1,8 +1,5 @@
-"""
-"""
-
-load("@rules_python//python:defs.bzl", "PyInfo")
-load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PY_TOOLCHAIN", "UNPACK_TOOLCHAIN")
+load("//py/private:aspect_py_info.bzl", "AspectPyInfo")
+load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "UNPACK_TOOLCHAIN")
 
 def _whl_install(ctx):
     py_toolchain = ctx.toolchains[PY_TOOLCHAIN].py3_runtime
@@ -10,90 +7,104 @@ def _whl_install(ctx):
         "install",
     )
 
-    archive = ctx.file.src
+    imports_path = ctx.label.repo_name + "/install/lib/python{}.{}/site-packages".format(
+        py_toolchain.interpreter_version_info.major,
+        py_toolchain.interpreter_version_info.minor,
+    )
+
+    src_files = ctx.attr.src[DefaultInfo].files.to_list()
+    if not src_files:
+        site_packages_path = "lib/python{}.{}/site-packages".format(
+            py_toolchain.interpreter_version_info.major,
+            py_toolchain.interpreter_version_info.minor,
+        )
+        ctx.actions.run_shell(
+            outputs = [install_dir],
+            command = "mkdir -p %s/%s" % (install_dir.path, site_packages_path),
+        )
+        return [
+            DefaultInfo(
+                files = depset([install_dir]),
+                runfiles = ctx.runfiles(files = [install_dir]),
+            ),
+            AspectPyInfo(
+                transitive_sources = depset([install_dir]),
+                imports = depset([imports_path]),
+                has_py2_only_sources = False,
+                has_py3_only_sources = True,
+                uses_shared_libraries = False,
+                type_stubs = depset(),
+                transitive_type_stubs = depset(),
+                runfiles = ctx.runfiles(files = [install_dir]),
+                default_runfiles = ctx.runfiles(files = [install_dir]),
+                transitive_uv_hashes = depset(),
+            ),
+        ]
+
+    archive = src_files[0]
 
     arguments = ctx.actions.args()
+    arguments.add_all([
+        "--into",
+        install_dir.path,
+        "--wheel",
+        archive.path,
+        "--python-version-major",
+        py_toolchain.interpreter_version_info.major,
+        "--python-version-minor",
+        py_toolchain.interpreter_version_info.minor,
+    ])
 
-    # Pass File objects (not .path strings) so Bazel can rewrite paths for
-    # remote-cache deduplication when supports-path-mapping is set.
-    #
-    # Both install_dir and archive may be tree artifacts (install_dir is always
-    # a declare_directory; archive is a tree when src is a directory containing
-    # a single wheel). Args#add rejects directories
-    # outright; Args#add_all with expand_directories=False passes the directory
-    # path itself without enumerating its contents.
-    # https://bazel.build/versions/7.1.0/rules/lib/builtins/Args#add
-    # https://bazel.build/versions/7.1.0/rules/lib/builtins/Args#add_all
-    arguments.add_all([install_dir], expand_directories = False, before_each = "--into")
-    arguments.add_all([archive], expand_directories = False, before_each = "--wheel")
-    arguments.add("--python-version-major", py_toolchain.interpreter_version_info.major)
-    arguments.add("--python-version-minor", py_toolchain.interpreter_version_info.minor)
+    inputs = [archive]
 
-    transitive_inputs = [depset([archive])]
-
-    # Patch application (happens before pyc compilation).
     patch_files = [f for t in ctx.attr.patches for f in t[DefaultInfo].files.to_list()]
     if patch_files:
         arguments.add("--patch-strip", str(ctx.attr.patch_strip))
-        arguments.add_all(patch_files, before_each = "--patch")
-        transitive_inputs.append(depset(patch_files))
+        for f in patch_files:
+            arguments.add("--patch", f.path)
+        inputs = inputs + patch_files
 
-    # Optional .pyc pre-compilation (runs after patching).
-    # Use the exec-configured interpreter from EXEC_TOOLS_TOOLCHAIN so cross-arch
-    # builds work (the target interpreter isn't runnable on the build host). This is
-    # safe because .pyc bytecode varies by Python version, not by architecture.
     if ctx.attr.compile_pyc:
-        exec_runtime = ctx.toolchains[EXEC_TOOLS_TOOLCHAIN].exec_tools.exec_runtime
+        exec_py = ctx.attr._exec_python[platform_common.ToolchainInfo]
         arguments.add("--compile-pyc")
         arguments.add("--pyc-invalidation-mode", ctx.attr.pyc_invalidation_mode)
-        arguments.add("--python", exec_runtime.interpreter)
-        transitive_inputs.append(depset([exec_runtime.interpreter], transitive = [exec_runtime.files]))
+        arguments.add("--python")
+        arguments.add(exec_py.interpreter.path)
+        inputs = inputs + [exec_py.interpreter] + exec_py.files.to_list()
 
-    unpack = ctx.toolchains[UNPACK_TOOLCHAIN].bin.bin
+    unpack = ctx.attr._unpack[platform_common.ToolchainInfo].bin.bin
     ctx.actions.run(
-        mnemonic = "WhlInstall",
         executable = unpack,
-        toolchain = UNPACK_TOOLCHAIN,
         arguments = [arguments],
-        inputs = depset(transitive = transitive_inputs),
+        inputs = inputs,
         outputs = [
             install_dir,
         ],
         use_default_shell_env = bool(patch_files),
-        execution_requirements = {
-            "supports-path-mapping": "1",
-        },
     )
 
     return [
         DefaultInfo(
-            # install_dir is an intermediate artifact consumed by downstream
-            # Python rules via PyInfo.transitive_sources. Excluding it from
-            # DefaultInfo.files prevents it from appearing as a visible output
-            # when building a binary that transitively depends on this wheel.
+            files = depset([
+                install_dir,
+            ]),
             runfiles = ctx.runfiles(files = [
                 install_dir,
             ]),
         ),
-        OutputGroupInfo(
-            # Expose install_dir for consumers that need to access files from
-            # the wheel directory directly (e.g. extracting non-console-script
-            # binaries via a filegroup with output_group = "install_dir").
-            install_dir = depset([install_dir]),
-        ),
-        PyInfo(
+        AspectPyInfo(
             transitive_sources = depset([
                 install_dir,
             ]),
-            imports = depset([
-                ctx.label.repo_name + "/install/lib/python{}.{}/site-packages".format(
-                    py_toolchain.interpreter_version_info.major,
-                    py_toolchain.interpreter_version_info.minor,
-                ),
-            ]),
+            imports = depset([imports_path]),
             has_py2_only_sources = False,
             has_py3_only_sources = True,
             uses_shared_libraries = False,
+            type_stubs = depset(),
+            transitive_type_stubs = depset(),
+            runfiles = ctx.runfiles(files = [install_dir]),
+            default_runfiles = ctx.runfiles(files = [install_dir]),
+            transitive_uv_hashes = depset(),
         ),
     ]
 
@@ -110,10 +121,7 @@ to bypass some of the platform checks that UV does to enable crossbuilds, and is
 lighter weight since the toolchain's files aren't inputs.
 """,
     attrs = {
-        "src": attr.label(
-            allow_single_file = True,
-            doc = "The wheel to install, or a tree artifact containing exactly one wheel at its root.",
-        ),
+        "src": attr.label(doc = "The wheel to install, or a tree artifact containing exactly one wheel at its root."),
         "patches": attr.label_list(
             default = [],
             allow_files = [".patch", ".diff"],
@@ -132,15 +140,21 @@ lighter weight since the toolchain's files aren't inputs.
             values = ["checked-hash", "unchecked-hash", "timestamp"],
             doc = "PEP 552 invalidation mode for pre-compiled .pyc files.",
         ),
+        "_exec_python": attr.label(
+            default = "//py/private/toolchain:resolved_py_toolchain",
+            cfg = "exec",
+        ),
+        "_unpack": attr.label(
+            default = "//py/private/toolchain:resolved_unpack_toolchain",
+            cfg = "exec",
+        ),
     },
     toolchains = [
         PY_TOOLCHAIN,
         UNPACK_TOOLCHAIN,
-        EXEC_TOOLS_TOOLCHAIN,
     ],
     provides = [
         DefaultInfo,
-        OutputGroupInfo,
-        PyInfo,
+        AspectPyInfo,
     ],
 )

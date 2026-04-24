@@ -1,7 +1,6 @@
 load("@aspect_rules_py//py:defs.bzl", "py_test")
-load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
 
-py_venv_test(
+py_test(
     name = "test_internal_symlinks",
     srcs = ["test_babel.py"],
     main = "test_babel.py",
@@ -16,6 +15,7 @@ py_test(
     name = "test_internal_symlinks_legacy",
     srcs = ["test_babel.py"],
     main = "test_babel.py",
+    python_version = "3.11",
     venv = "venv-internal-symlinks",
     deps = [
         "@pypi//babel",

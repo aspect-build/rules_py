@@ -4,6 +4,7 @@ load("@aspect_rules_py//py:defs.bzl", "py_pytest_main", "py_test")
 # in the consumer repo, not autodiscover from the runfiles root.
 py_test(
     name = "test_example",
+    python_version = "3.11",
     srcs = ["test_example.py"],
     pytest_main = True,
     venv = "pytest-main-867",
@@ -14,6 +15,7 @@ py_test(
 # pytest_main without pytest discovering the generated main script.
 py_test(
     name = "test_naming_regression",
+    python_version = "3.11",
     srcs = ["test_example.py"],
     pytest_main = True,
     venv = "pytest-main-867",
@@ -25,6 +27,7 @@ py_test(
 # test_multi_src_pytest_main.py which pytest would discover as a test module.
 py_test(
     name = "test_multi_src",
+    python_version = "3.11",
     srcs = [
         "test_a.py",
         "test_b.py",
@@ -38,6 +41,7 @@ py_test(
 # Uses --collect-only to introspect what pytest sees.
 py_test(
     name = "test_collection_check",
+    python_version = "3.11",
     srcs = ["test_collection_check.py"],
     pytest_main = True,
     venv = "pytest-main-867",
@@ -54,6 +58,7 @@ py_pytest_main(
 
 py_test(
     name = "test_direct_pytest_main",
+    python_version = "3.11",
     srcs = [
         "test_a.py",
         ":test_direct_main",

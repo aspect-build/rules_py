@@ -1,4 +1,19 @@
-"""Declare toolchains"""
+"""Public API for registering rules_py toolchains.
+
+This module exposes ``rules_py_toolchains``, the entry point used by
+consumers (WORKSPACE or bzlmod) to download pre-built native tools and
+register the corresponding Bazel toolchains.
+
+Known problems:
+    - The PEX 2.3.1 wheel is hardcoded with a fixed URL and SHA256. There is
+      no automated update rule, so security patches or bug fixes in PEX require
+      a manual edit of this file.
+    - The ``register`` boolean is a compatibility shim between WORKSPACE and
+      bzlmod. In a pure-bzlmod world this parameter should not exist; the
+      extension should simply return the toolchains to be registered.
+    - The module-level docstring was historically empty (only "Declare toolchains"),
+      hiding the dual release/prerelease architecture from readers.
+"""
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 load("//py/private/release:version.bzl", "IS_PRERELEASE")
@@ -11,20 +26,37 @@ register_autodetecting_python_toolchain = _register_autodetecting_python_toolcha
 DEFAULT_TOOLS_REPOSITORY = "rules_py_tools"
 
 def rules_py_toolchains(name = DEFAULT_TOOLS_REPOSITORY, register = True, is_prerelease = IS_PRERELEASE):
-    """Create a downloaded toolchain for every tool under every supported platform.
+    """Create downloaded toolchains for every supported platform.
+
+    In release mode (``is_prerelease = False``) the function instantiates a
+    ``prebuilt_tool_repo`` per platform listed in ``TOOLCHAIN_PLATFORMS`` and
+    wraps them in a single ``toolchains_repo``. The resulting toolchains are
+    registered via ``native.register_toolchains("@name//:all")`` when
+    ``register`` is ``True``.
+
+    In prerelease mode (``is_prerelease = True``) no pre-built binaries exist,
+    so a ``prerelease_toolchains_repo`` is created instead and the individual
+    toolchains from ``TOOL_CFGS`` are registered directly.
+
+    Regardless of the mode, this function also declares an ``http_file`` for
+    PEX 2.3.1, which is consumed elsewhere in the build to bundle Python
+    entrypoints.
 
     Args:
-        name: prefix used in created repositories
-        register: whether to call the register_toolchains, should be True for WORKSPACE and False for bzlmod.
-        is_prerelease: True iff there are no pre-built tool binaries for this version of rules_py
+        name: Prefix used for created repository names. Defaults to
+            ``"rules_py_tools"``.
+        register: If ``True``, call ``native.register_toolchains``. Should be
+            ``True`` under WORKSPACE and ``False`` under bzlmod (where
+            registration is performed by the module extension).
+        is_prerelease: ``True`` when the current ``rules_py`` version has no
+            published pre-built tool binaries.
     """
 
     if is_prerelease:
         prerelease_toolchains_repo(name = name)
         if register:
             for tool in TOOL_CFGS:
-                for tc in tool.source_toolchains:
-                    native.register_toolchains(tc)
+                native.register_toolchains(tool.toolchain)
     else:
         for platform in TOOLCHAIN_PLATFORMS.keys():
             prebuilt_tool_repo(name = ".".join([name, platform]), platform = platform)

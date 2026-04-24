@@ -7,8 +7,9 @@ without binding them to a particular version of that package.
 load("@bazel_skylib//lib:new_sets.bzl", "sets")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
-load("@rules_python//python:defs.bzl", "PyInfo")
+load("//py/private:aspect_py_info.bzl", "AspectPyInfo")
 load("//py/private:providers.bzl", "PyVirtualInfo")
+load("//py/private:py_info_shim.bzl", "PyInfoShim")
 
 def _make_instrumented_files_info(ctx, extra_source_attributes = [], extra_dependency_attributes = []):
     return coverage_common.instrumented_files_info(
@@ -19,14 +20,16 @@ def _make_instrumented_files_info(ctx, extra_source_attributes = [], extra_depen
     )
 
 def _make_srcs_depset(ctx):
+    """Crea depset de sources usando shim para soportar ambos providers."""
+    transitive = []
+    for target in ctx.attr.deps:
+        if PyInfoShim.has_py_info(target):
+            transitive.append(PyInfoShim.get_transitive_sources(target))
+
     return depset(
         order = "postorder",
         direct = ctx.files.srcs,
-        transitive = [
-            target[PyInfo].transitive_sources
-            for target in ctx.attr.deps
-            if PyInfo in target
-        ],
+        transitive = transitive,
     )
 
 def _make_virtual_depset(ctx):
@@ -42,8 +45,8 @@ def _make_virtual_depset(ctx):
 
 def _make_resolved_virtual_depset(target):
     transitive = [target[DefaultInfo].files]
-    if PyInfo in target:
-        transitive.append(target[PyInfo].transitive_sources)
+    if PyInfoShim.has_py_info(target):
+        transitive.append(PyInfoShim.get_transitive_sources(target))
 
     return depset(
         order = "postorder",
@@ -84,8 +87,8 @@ def _resolve_virtuals(ctx, ignore_missing = False):
         v_srcs.append(_make_resolved_virtual_depset(resolution.target))
         v_runfiles.append(resolution.target[DefaultInfo].default_runfiles.files)
 
-        if PyInfo in resolution.target:
-            v_imports.append(resolution.target[PyInfo].imports)
+        if PyInfoShim.has_py_info(resolution.target):
+            v_imports.append(PyInfoShim.get_imports(resolution.target))
 
     missing = sets.to_list(sets.difference(sets.make(virtual), sets.make(seen.keys())))
     if len(missing) > 0 and not ignore_missing:
@@ -138,21 +141,20 @@ def _make_imports_depset(ctx, imports = [], extra_imports_depsets = []):
         _make_import_path(ctx.label, ctx.label.workspace_name or ctx.workspace_name, im)
         for im in getattr(ctx.attr, "imports", imports)
     ] + [
-        # Add the workspace name in the imports such that repo-relative imports work.
         ctx.workspace_name,
     ]
 
-    # Handle the case where its a target from an external workspace that uses repo-relative imports
     if ctx.label.workspace_name:
         import_paths.append(ctx.label.workspace_name)
 
+    transitive_imports = []
+    for target in getattr(ctx.attr, "deps", []):
+        if PyInfoShim.has_py_info(target):
+            transitive_imports.append(PyInfoShim.get_imports(target))
+
     return depset(
         direct = import_paths,
-        transitive = [
-            target[PyInfo].imports
-            for target in getattr(ctx.attr, "deps", [])
-            if PyInfo in target
-        ] + extra_imports_depsets,
+        transitive = transitive_imports + extra_imports_depsets,
     )
 
 def _make_merged_runfiles(ctx, extra_depsets = [], extra_runfiles = [], extra_runfiles_depsets = []):
@@ -179,17 +181,32 @@ def _py_library_impl(ctx):
     runfiles = _make_merged_runfiles(ctx, extra_runfiles = ctx.files.srcs)
     instrumented_files_info = _make_instrumented_files_info(ctx)
 
+    # Colectar UV hashes transitivos de dependencias
+    transitive_uv_hashes = []
+    for target in ctx.attr.deps:
+        if AspectPyInfo in target:
+            info = target[AspectPyInfo]
+            if info.transitive_uv_hashes:
+                transitive_uv_hashes.append(info.transitive_uv_hashes)
+
     return [
         DefaultInfo(
-            files = depset(direct = ctx.files.srcs),
+            files = depset(direct = ctx.files.srcs, transitive = [transitive_srcs]),
             default_runfiles = runfiles,
         ),
-        PyInfo(
-            imports = imports,
+        AspectPyInfo(
             transitive_sources = transitive_srcs,
+            imports = imports,
+            type_stubs = depset(),
+            transitive_type_stubs = depset(),
+            uses_shared_libraries = False,
             has_py2_only_sources = False,
             has_py3_only_sources = True,
-            uses_shared_libraries = False,
+            runfiles = runfiles,
+            default_runfiles = runfiles,
+            uv_metadata = None,  # Solo paquetes UV tienen metadata
+            transitive_uv_hashes = depset(transitive = transitive_uv_hashes),
+            _transitive_debug_info = None,
         ),
         PyVirtualInfo(
             dependencies = virtuals,
@@ -205,7 +222,7 @@ _attrs = dict({
     ),
     "deps": attr.label_list(
         doc = "Targets that produce Python code, commonly `py_library` rules.",
-        providers = [[PyInfo], [PyVirtualInfo], [CcInfo]],
+        providers = [[AspectPyInfo], [PyVirtualInfo], [CcInfo]],
     ),
     "data": attr.label_list(
         doc = """Runtime dependencies of the program.
@@ -229,7 +246,7 @@ _attrs = dict({
 
 _providers = [
     DefaultInfo,
-    PyInfo,
+    AspectPyInfo,
 ]
 
 py_library_utils = struct(

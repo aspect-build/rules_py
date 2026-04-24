@@ -40,7 +40,6 @@ def select_key(triple):
 
     python, platform, abi = triple
 
-    # Build a key for the interpreter
     py_major = int(python[2])
     py_minor = int(python[3:]) if python[3:] else 0
     py = (py_major, py_minor)
@@ -50,7 +49,6 @@ def select_key(triple):
     if platform[0] in ["manylinux", "musllinux", "macosx"]:
         platform = (int(platform[1]), int(platform[2]))
     else:
-        # Really case of windows; potential BSD issues?
         platform = (0, 0)
 
     # Build a key for the ABI.
@@ -64,15 +62,86 @@ def select_key(triple):
     t = 1 if "t" in abi else 0
     u = 1 if "u" in abi else 0
 
-    # In order to get the most specific match first, we score the abi by the
-    # number of flags set and we sort wheels with highly specific ABIs first.
     flags = (d + m + t + u)
     abi = (flags, d, m, t, u, abi)
 
     return (py, platform, abi)
 
+def _platform_constraint_labels(canonical_platform):
+    """Maps a canonical platform string to Bazel constraint value labels.
+
+    Args:
+        canonical_platform: A canonical platform string (e.g. "linux_aarch64").
+
+    Returns:
+        A tuple (os_constraint, cpu_constraint) of Bazel constraint value labels.
+    """
+    parts = canonical_platform.split("_", 1)
+    os_name = parts[0]
+    cpu = parts[1] if len(parts) > 1 else ""
+
+    os_constraint = {
+        "linux": "@platforms//os:linux",
+        "macos": "@platforms//os:macos",
+        "windows": "@platforms//os:windows",
+    }.get(os_name)
+
+    cpu_constraint = {
+        "aarch64": "@platforms//cpu:aarch64",
+        "x86_64": "@platforms//cpu:x86_64",
+        "arm64": "@platforms//cpu:aarch64",
+    }.get(cpu)
+
+    return (os_constraint, cpu_constraint)
+
+def _canonical_platforms_from_wheel_name(wheel_name):
+    """Maps a wheel filename to its canonical target platform strings.
+
+    A single wheel may be compatible with multiple platforms (e.g. macOS
+    universal2 wheels work on both aarch64 and x86_64).
+
+    Args:
+        wheel_name: The filename of the wheel.
+
+    Returns:
+        A list of canonical platform strings (e.g. ["linux_aarch64"]) or
+        an empty list for pure-Python wheels.
+    """
+    parsed = parse_whl_name(wheel_name)
+    platforms = []
+    for platform_tag in parsed.platform_tags:
+        if platform_tag == "any":
+            continue
+        if platform_tag.startswith("manylinux_") or platform_tag.startswith("musllinux_"):
+            for arch in ["aarch64", "x86_64", "armv7l", "ppc64le", "s390x", "riscv64"]:
+                if platform_tag.endswith("_" + arch):
+                    canonical = "linux_" + arch
+                    if canonical not in platforms:
+                        platforms.append(canonical)
+        if platform_tag.startswith("macosx_"):
+            if "universal2" in platform_tag:
+                for canonical in ["macos_aarch64", "macos_x86_64"]:
+                    if canonical not in platforms:
+                        platforms.append(canonical)
+            elif "arm64" in platform_tag:
+                canonical = "macos_aarch64"
+                if canonical not in platforms:
+                    platforms.append(canonical)
+            elif "x86_64" in platform_tag:
+                canonical = "macos_x86_64"
+                if canonical not in platforms:
+                    platforms.append(canonical)
+        if platform_tag == "win_amd64":
+            canonical = "windows_x86_64"
+            if canonical not in platforms:
+                platforms.append(canonical)
+        if platform_tag == "win_arm64":
+            canonical = "windows_arm64"
+            if canonical not in platforms:
+                platforms.append(canonical)
+    return platforms
+
 def sort_select_arms(arms):
-    # {(python, platform, abi): target}
     pairs = sorted(arms.items(), key = lambda kv: select_key(kv[0]), reverse = True)
     return {a: b for a, b in pairs}
 
@@ -83,6 +152,9 @@ def _whl_install_impl(repository_ctx):
     wheel built from source (`sbuild`). It is responsible for generating the
     logic to select the single, most appropriate wheel for the current target
     platform.
+
+    Note: This rule implicitly depends on //uv/private/constraints/platform:macro.bzl
+    to ensure regeneration when platform constraint mappings change.
 
     It generates a `BUILD.bazel` file that:
     1.  Uses a custom `select_chain` rule to create a sequence of `select`
@@ -100,15 +172,10 @@ def _whl_install_impl(repository_ctx):
         repository_ctx: The repository context.
     """
     prebuilds = json.decode(repository_ctx.attr.whls)
-    # Prebuilds is a mapping from whl file name to repo labels which contain
-    # that file. We need to take these wheel files and parse out compatibility.
-    #
-    # This is complicated by Starlark as with Python not treating lists as
-    # values, so we have to go to strings of JSON in order to get value
-    # semantics which is frustrating.
 
-    # The strategy here is to roll through the wheels,
     select_arms = {}
+    _ = repository_ctx.path(Label("//uv/private/constraints/platform:macro.bzl"))
+
     content = [
         "load(\"@aspect_rules_py//py:defs.bzl\", \"py_library\")",
         "load(\"@aspect_rules_py//uv/private/whl_install:defs.bzl\", \"select_chain\")",
@@ -119,53 +186,24 @@ def _whl_install_impl(repository_ctx):
     for whl, target in prebuilds.items():
         parsed = parse_whl_name(whl)
 
-        # FIXME: Make it impossible to generate absurd combinations such as
-        # cp212-none-cp312 with unsatisfiable version specs.
+        # FIXME: Make it impossible to generate absurd combinations such as cp212-none-cp312 with unsatisfiable version specs.
         for python_tag in parsed.python_tags:
-            # Escape hatch for ignoring unsupported interpreters
             if not supported_python(python_tag):
                 continue
 
             for platform_tag in parsed.platform_tags:
-                # Escape hatch for ignoring weird unsupported platforms
                 if not supported_platform(platform_tag):
                     continue
 
                 for abi_tag in parsed.abi_tags:
                     select_arms[(python_tag, platform_tag, abi_tag)] = target
 
-    # Unfortunately the way that Bazel decides ambiguous selects is explicitly
-    # NOT designed to allow for the implementation of ranges. Because that would
-    # be too easy. The disambiguation criteria is based on the number of
-    # ultimately matching ground conditions, with the most matching winning. No
-    # attention is paid to "how far away" those conditions may be down a select
-    # chain, for instance down a range ladder.
-    #
-    # So we have to implement a select with ordering ourselves by testing one
-    # condition at a time and taking the first mapped target for the first
-    # matching condition.
-    #
-    # But how do we put all the potential options in an order such that the
-    # first match is also the most relevant or newest match? We don't want to
-    # take a build which targets glibc 2.0 forever for instance.
-    #
-    # The answer is that we have to apply a sorting logic. Specifically we need
-    # to sort the platform.
-    #
-    # The wheel files -> targets pairs come in sorted descending order here, and
-    # the wheel name parser reports the annotations also in sorted descending
-    # order. So it happens that we SHOULD have the correct behavior here because
-    # our insertion order into the select arms dict follows the required
-    # newest-match order, but more assurance would be an improvement.
-    #
-    # Sort triples
     select_arms = sort_select_arms(select_arms)
 
     # FIXME: Insert the sbuild if it exists with an sbuild config flag as the
     # first condition so that the user can force the build to use _only_ sbuilds
     # if available (or transition a target to mandate sbuild).
 
-    # Convert triples to conditions
     select_arms = {
         "@aspect_rules_py_pip_configurations//:{}-{}-{}".format(*k): v
         for k, v in select_arms.items()
@@ -177,19 +215,31 @@ def _whl_install_impl(repository_ctx):
         }
 
     else:
-        # When there's no sbuild fallback, ensure the select chain always has a
-        # default arm. This avoids empty select chains for packages that only
-        # have wheels for platforms we don't currently support (e.g. Windows-only).
         content.append("""
-filegroup(
+py_library(
     name = "_no_sbuild",
     srcs = [],
-    target_compatible_with = ["@platforms//:incompatible"],
+    deps = [],
+    imports = [],
+    visibility = ["//visibility:private"],
 )
 """)
         select_arms = select_arms | {
             "//conditions:default": ":_no_sbuild",
         }
+
+    if not prebuilds and not repository_ctx.attr.sbuild:
+        content.append("""
+py_library(
+    name = "install",
+    srcs = [],
+    deps = [],
+    imports = [],
+    visibility = ["//visibility:public"],
+)
+""")
+        repository_ctx.file("BUILD.bazel", content = "\n".join(content))
+        return
 
     if prebuilds:
         gazelle_index_whl = prebuilds.values()[0]  # Effectively random choice :shrug:
@@ -244,8 +294,7 @@ py_library(
         "//conditions:default": "checked-hash",
     })"""
 
-    install_attrs = """
-    src = ":whl",
+    install_attrs_base = """
     compile_pyc = {compile_pyc},
     pyc_invalidation_mode = {pyc_invalidation_mode},""".format(
         compile_pyc = compile_pyc_select,
@@ -253,23 +302,142 @@ py_library(
     )
 
     if post_install_patches:
-        install_attrs += """
+        install_attrs_base += """
     patches = {patches},
     patch_strip = {strip},""".format(
             patches = repr(post_install_patches),
             strip = post_install_patch_strip,
         )
 
+    install_attrs = "    src = \":whl\",\n" + install_attrs_base
+
     content.append(
         """
 whl_install(
-    name = "actual_install",{attrs}
+    name = "actual_install",
+{attrs}
     visibility = ["//visibility:private"],
 )""".format(attrs = install_attrs),
     )
 
-    if extra_deps or extra_data:
-        # When extra deps/data are needed, wrap in a py_library instead of alias
+    platform_wheels = {}
+    for whl_name, target in prebuilds.items():
+        canonicals = _canonical_platforms_from_wheel_name(whl_name)
+        if canonicals:
+            for canonical in canonicals:
+                if canonical not in platform_wheels:
+                    platform_wheels[canonical] = target
+        elif "any" not in platform_wheels:
+            platform_wheels["any"] = target
+
+    target_platforms = []
+    if repository_ctx.attr.target_platforms:
+        target_platforms = json.decode(repository_ctx.attr.target_platforms)
+
+    # Pure-python wheels (platform_tag == "any") are compatible with all target platforms.
+    # Create per-platform install aliases so that the :install select works.
+    if "any" in platform_wheels:
+        any_target = platform_wheels["any"]
+        for platform in target_platforms:
+            if platform != "any" and platform not in platform_wheels:
+                platform_wheels[platform] = any_target
+
+    for canonical, target in platform_wheels.items():
+        alias_name = "wheel_{}".format(canonical)
+        content.append("""
+alias(
+    name = "{name}",
+    actual = "{target}",
+    visibility = ["//visibility:public"],
+)
+""".format(name = alias_name, target = target))
+
+    for canonical, target in platform_wheels.items():
+        install_name = "actual_install_{}".format(canonical)
+        content.append("""
+whl_install(
+    name = "{name}",
+    src = ":wheel_{canonical}",
+{attrs}
+    visibility = ["//visibility:private"],
+)
+
+alias(
+    name = "install_{canonical}",
+    actual = ":{name}",
+    visibility = ["//visibility:public"],
+)
+""".format(
+            name = install_name,
+            canonical = canonical,
+            attrs = install_attrs_base,
+        ))
+
+    if target_platforms:
+        platform_arms = {}
+        default_arm = None
+        for platform in target_platforms:
+            if platform == "any":
+                default_arm = ":install_any"
+                continue
+            os_constraint, cpu_constraint = _platform_constraint_labels(platform)
+            if not os_constraint or not cpu_constraint:
+                continue
+            config_name = "_platform_{}".format(platform)
+            content.append("""
+config_setting(
+    name = "{name}",
+    constraint_values = [
+        "{os}",
+        "{cpu}",
+    ],
+    visibility = ["//visibility:private"],
+)
+""".format(
+                name = config_name,
+                os = os_constraint,
+                cpu = cpu_constraint,
+            ))
+            platform_arms[":" + config_name] = ":install_{}".format(platform)
+
+        if "any" in platform_wheels and not default_arm:
+            default_arm = ":install_any"
+
+        if default_arm:
+            platform_arms["//conditions:default"] = default_arm
+
+        select_arms_str = "{\n"
+        for config, target in platform_arms.items():
+            select_arms_str += '        "{}": "{}",\n'.format(config, target)
+        select_arms_str += "    }"
+
+        if extra_deps or extra_data:
+            content.append(
+                """
+py_library(
+    name = "install",
+    srcs = [],
+    deps = [select({arms})] + {extra_deps},
+    data = {extra_data},
+    visibility = ["//visibility:public"],
+)
+""".format(
+                    arms = select_arms_str,
+                    extra_deps = repr(extra_deps),
+                    extra_data = repr(extra_data),
+                ),
+            )
+        else:
+            content.append(
+                """
+alias(
+    name = "install",
+    actual = select({arms}),
+    visibility = ["//visibility:public"],
+)
+""".format(arms = select_arms_str),
+            )
+    elif extra_deps or extra_data:
         content.append(
             """
 py_library(
@@ -291,7 +459,7 @@ py_library(
         )
     else:
         content.append(
-            """
+            """\
 alias(
     name = "install",
     actual = select({
@@ -318,5 +486,10 @@ whl_install = repository_rule(
         "post_install_patch_strip": attr.int(default = 0),
         "extra_deps": attr.string(default = ""),
         "extra_data": attr.string(default = ""),
+        "target_platforms": attr.string(
+            default = "",
+            doc = "JSON-encoded list of canonical target platforms. When present, :install uses platform-based select.",
+        ),
+        "_config_version": attr.int(default = 2),
     },
 )

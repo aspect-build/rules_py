@@ -98,8 +98,32 @@ load("//:defs.bzl", "compatible_with")
 
         error = "Available only in venvs: " + ", ".join(specs.keys())  # Simplified error string
 
+        if len(specs) == 1:
+            select_spec["//conditions:default"] = list(specs.values())[0]
+
         # FIXME: Add support for entrypoints?
         # FIXME: Create a narrower dist-info rule
+        if len(specs) == 1:
+            alias_template = """
+alias(
+    name = "{name}",
+    actual = select({lib_select}),
+    target_compatible_with = select(compatible_with({compat})),
+    visibility = ["//visibility:public"],
+)
+"""
+        else:
+            alias_template = """
+alias(
+    name = "{name}",
+    actual = select({lib_select},
+        no_match_error = "{error}",
+    ),
+    target_compatible_with = select(compatible_with({compat})),
+    visibility = ["//visibility:public"],
+)
+"""
+
         content.append(
             """
 # This target is for a "hard" dependency.
@@ -149,12 +173,15 @@ def compatible_with(venvs, extra_constraints = []):
     if v not in VIRTUALENVS:
       fail("Errant virtualenv reference %r" % v)
 
-  return {{
+  result = {{
     Label("//venv:" + it): extra_constraints
     for it in venvs
-  }} | {{
-    "//conditions:default": ["@platforms//:incompatible"],
   }}
+  if len(venvs) == 1:
+    result["//conditions:default"] = extra_constraints
+  else:
+    result["//conditions:default"] = ["@platforms//:incompatible"]
+  return result
 
 def incompatible_with(venvs, extra_constraints = []):
   for v in venvs:
@@ -175,11 +202,16 @@ def incompatible_with(venvs, extra_constraints = []):
 
     repository_ctx.file("defs.bzl", content = "\n".join(content))
 
-    ################################################################################
-    # Lay down a requirements.bzl for compatibility with rules_python
+    repository_ctx.file("python_version.bzl", content = """PYTHON_VERSION = "{python_version}"
+""".format(
+        python_version = repository_ctx.attr.python_version,
+    ))
+
     content = []
     content.append("""
-load("@rules_python//python:pip.bzl", "pip_utils")
+# Normalizes a Python package name per PEP 503.
+def _normalize_name(name):
+    return name.lower().replace("-", "_").replace(".", "_").replace(" ", "_")
 
 # We arne't compatible with this because it isn't constant over venvs.
 # all_requirements = []
@@ -194,7 +226,7 @@ load("@rules_python//python:pip.bzl", "pip_utils")
 # all_data_requirements = []
 
 def requirement(name):
-    return "@@{repo_name}//{{0}}:{{0}}".format(pip_utils.normalize_name(name))
+    return "@@{repo_name}//{{0}}:{{0}}".format(_normalize_name(name))
 """.format(
         repo_name = repository_ctx.name,
     ))
@@ -221,6 +253,17 @@ uv_hub = repository_rule(
         "packages": attr.string(
             doc = """
             JSON blob mapping packages to configurations to projects.
+            """,
+        ),
+        "python_version": attr.string(
+            doc = """
+            Python version used for uv lock resolution.
+            """,
+        ),
+        "target_platforms": attr.string(
+            doc = """
+            JSON-encoded list of canonical target platforms for which wheels
+            were downloaded.
             """,
         ),
     },

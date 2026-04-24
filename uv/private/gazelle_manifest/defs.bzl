@@ -29,7 +29,6 @@ def _modules_mapping_impl(ctx):
 
     ctx.actions.run(
         executable = ctx.executable._generator,
-        toolchain = None,
         arguments = [
             "--hub_name",
             ctx.attr.hub,

@@ -160,7 +160,9 @@ alias(
 )
 """.format(name = cfg_name, arms = indent(pprint(cfg_arms), " " * 4).lstrip()))
 
-        # Finally we can render the wrapper over all the component arms
+        if len(main_arms) == 1:
+            main_arms["//conditions:default"] = list(main_arms.values())[0]
+
         content.append("""
 alias(
     name = "{name}",

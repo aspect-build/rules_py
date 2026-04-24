@@ -197,8 +197,6 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
             for dep, marker in extract_requirement_marker_pairs(projectfile, lock_id, spec, default_versions, package_versions, group_preferences):
                 normalized_dep_groups.setdefault(group_name, []).append(dep)
 
-                # Note that this is the base case for the reach set walk below
-                # We do this here so it's easy to handle marker expressions
                 base = (dep[0], dep[1], dep[2], "__base__")
                 activated_extras.setdefault(base, {}).setdefault(group_name, {}).setdefault(dep, {}).update({marker: 1})
 

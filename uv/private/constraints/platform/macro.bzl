@@ -1,32 +1,28 @@
-"""
+"""Platform constraint generation macro for uv rules.
 
+This module is a dependency of whl_install repository rules. Any change to
+platform mappings (for example arm64 to aarch64 alignment) forces
+regeneration of all wheel install repositories.
+
+The following platform families are deliberately not generated:
+- Android (android_21_arm64_v8a, android_21_armeabi_v7a, etc.)
+- iOS (ios_13_0_arm64_iphoneos, ios_13_0_arm64_iphonesimulator, etc.)
+
+The following tags are excluded because they are either Conda-specific or
+otherwise invalid under the packaging.python.org specification:
+- linux_armv6l, linux_armv7l, linux_x86_64
+- macosx (bare, without version or arch)
+
+See https://github.com/bazelbuild/platforms/blob/main/host/extension.bzl
+for the root source of some of this mangling.
+
+Version: 2026-03-30-v2
 """
 
 load(":defs.bzl", "LINUX_ARCHES", "MACOS_ARCHES", "MACOS_ARCH_GROUPS", "WINDOWS_PLATFORMS", "platform_version_at_least")
 
-## These are defined but we're ignoring them for now.
-# android_21_arm64_v8a
-# android_21_armeabi_v7a
-# android_21_x86_64
-# android_24_arm64_v8a
-# android_24_x86_64
-# android_26_arm64_v8a
-# android_26_x86_64
-# android_28_arm64_v8a
-# android_33_arm64_v8a
-# ios_13_0_arm64_iphoneos
-# ios_13_0_arm64_iphonesimulator
-# ios_13_0_x86_64_iphonesimulator
-
-## These seem wrong and/or are defined by Conda not packaging
-# linux_armv6l
-# linux_armv7l
-# linux_x86_64
-# macosx
-
-# See
-# https://github.com/bazelbuild/platforms/blob/main/host/extension.bzl#L1-L20
-# for the root source of some of this mangling....
+# Mapping from Python packaging architecture names to the canonical CPU
+# constraint values used by Bazel @platforms.
 platform_repo_name_mangling = {
     it: to
     for _forms, to in [
@@ -35,7 +31,7 @@ platform_repo_name_mangling = {
         [["ppc", "ppc64"], "ppc"],
         [["ppc64le"], "ppc64le"],
         [["arm", "armv7l"], "arm"],
-        [["aarch64"], "aarch64"],
+        [["aarch64", "arm64"], "aarch64"],
         [["s390x", "s390"], "s390x"],
         [["mips64el", "mips64"], "mips64"],
         [["riscv64"], "riscv64"],
@@ -44,16 +40,19 @@ platform_repo_name_mangling = {
 }
 
 # buildifier: disable=unnamed-macro
-# buildifier: disable=function-docstring
 def generate_macos(visibility):
-    """
-    Deliberately generate an overfull matrix of possible MacOS versions and arches.
-    """
+    """Generate config_setting targets for macOS platform tags.
 
-    # MacOS 10 ran for 15 minor releases
-    # Since then with MacOS 11 (2020) Apple's gone to an annual major version
-    # With MacOS 26 "Tahoe" they've gone to using the gregorian year for the version
-    # Go a bit out into the future there
+    MacOS 10 had 15 minor releases. Starting with MacOS 11 (2020) Apple
+    switched to annual major versions. With MacOS 26 "Tahoe" the versioning
+    scheme moved to the gregorian year. The generated matrix covers major
+    versions 10 through 29 and minors 0 through 19 to remain future-proof.
+
+    For every version and individual architecture in MACOS_ARCHES a
+    config_setting is emitted. For every multi-arch group in
+    MACOS_ARCH_GROUPS an alias with a select() is emitted so that the
+    group resolves to the first matching member.
+    """
     for major in range(10, 30):
         for minor in range(0, 20):
             major_minor = (major, minor)
@@ -93,11 +92,16 @@ def generate_macos(visibility):
                 )
 
 # buildifier: disable=unnamed-macro
-# buildifier: disable=function-docstring
 def generate_manylinux(visibility):
-    # https://packaging.python.org/en/latest/specifications/platform-compatibility-tags/#manylinux
+    """Generate config_setting targets for manylinux platform tags.
 
-    # glibc 1.X ran for not that long and was in the 90s
+    manylinux is defined by PEP 600. glibc 1.x was short-lived and from
+    the 1990s, so the matrix only covers glibc 2.x minor versions 0
+    through 50.
+
+    Each emitted config_setting requires the glibc version flag and the
+    linux OS constraint together with the mapped CPU architecture.
+    """
     for major in [2]:
         for minor in range(0, 51):
             version_flag = "_is_glibc_at_least_{}_{}".format(major, minor)
@@ -121,16 +125,24 @@ def generate_manylinux(visibility):
                 )
 
 # buildifier: disable=unnamed-macro
-# buildifier: disable=function-docstring
 def generate_musllinux(visibility):
-    # TODO: musl moves super slow and has strong back compat promises, doesn't clearly need a huge matrix?
+    """Generate config_setting targets for musllinux platform tags.
+
+    musl has strong backwards-compatibility promises and moves slowly,
+    so it does not need as large a version matrix as glibc. The
+    supported versions are explicit: 1.0, 1.1, 1.2, 2.0 and the
+    hypothetical 2.1 and 2.2.
+
+    Each config_setting requires the musl version flag and the linux OS
+    constraint together with the mapped CPU architecture.
+    """
     for major, minor in [
         [1, 0],
         [1, 1],
         [1, 2],
         [2, 0],
-        [2, 1],  # Hypothetical
-        [2, 2],  # Hypothetical
+        [2, 1],
+        [2, 2],
     ]:
         version_flag = "_is_musl_at_least_{}_{}".format(major, minor)
         platform_version_at_least(
@@ -153,8 +165,13 @@ def generate_musllinux(visibility):
             )
 
 # buildifier: disable=unnamed-macro
-# buildifier: disable=function-docstring
 def generate_windows(visibility):
+    """Generate config_setting targets for Windows platform tags.
+
+    Emits one config_setting per entry in WINDOWS_PLATFORMS. Every
+    target requires the msvc libc flag and the windows OS constraint
+    together with the CPU value defined in the WINDOWS_PLATFORMS map.
+    """
     for name, cpu in WINDOWS_PLATFORMS.items():
         native.config_setting(
             name = name,
@@ -169,8 +186,12 @@ def generate_windows(visibility):
         )
 
 # buildifier: disable=unnamed-macro
-# buildifier: disable=function-docstring
 def generate(visibility):
+    """Emit platform constraint targets for all supported operating systems.
+
+    Invokes the macOS, manylinux, musllinux and Windows generators with
+    the provided visibility.
+    """
     generate_macos(visibility = visibility)
     generate_manylinux(visibility = visibility)
     generate_musllinux(visibility = visibility)

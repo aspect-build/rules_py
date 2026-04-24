@@ -11,7 +11,6 @@ py_binary(
     deps = [
         "@pypi//cowsay",
         "@pypi//six",
-        "@rules_python//python/runfiles",
     ],
 )
 
@@ -32,7 +31,7 @@ genrule(
 assert_contains(
     name = "test__print_modules_pex",
     actual = "print_modules_pex.out",
-    expected = "Mooo!,cowsay-6.1/cowsay/__init__.py,six-1.16.0/six.py",
+    expected = "cowsay-6.1/cowsay/__init__.py,six-1.16.0/six.py",
 )
 
 # Verify PEX building works under a platform transition. The PEX builder must

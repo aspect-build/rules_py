@@ -19,7 +19,7 @@ local_path_override(
 )
 
 # Python interpreters provisioned from python-build-standalone via aspect_rules_py
-interpreters = use_extension("@aspect_rules_py//py/unstable:extension.bzl", "python_interpreters")
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
 interpreters.configure(
     releases = [
         "20260303",
@@ -103,12 +103,14 @@ use_repo(importer, "myrepo")
 
 # For cases/uv-deps-650
 # {{{
-uv = use_extension("@aspect_rules_py//uv/unstable:extension.bzl", "uv")
+uv = use_extension("@aspect_rules_py//tools/uv:extension.bzl", "uv")
+uv.toolchain(version = "0.11.6")
 uv.declare_hub(hub_name = "pypi")
 uv.project(
     hub_name = "pypi",
     lock = "//cases/uv-deps-650/say:uv.lock",
     pyproject = "//cases/uv-deps-650/say:pyproject.toml",
+    python_version = "3.11",
 )
 uv.override_package(
     name = "cowsay",
@@ -120,16 +122,19 @@ uv.project(
     hub_name = "pypi",
     lock = "//cases/uv-deps-650/airflow:uv.lock",
     pyproject = "//cases/uv-deps-650/airflow:pyproject.toml",
+    python_version = "3.11",
 )
 uv.project(
     hub_name = "pypi",
     lock = "//cases/uv-deps-650/crossbuild:uv.lock",
     pyproject = "//cases/uv-deps-650/crossbuild:pyproject.toml",
+    python_version = "3.11",
 )
 uv.project(
     hub_name = "pypi",
     lock = "//cases/uv-deps-650/extras:uv.lock",
     pyproject = "//cases/uv-deps-650/extras:pyproject.toml",
+    python_version = "3.11",
 )
 # }}}
 
@@ -139,6 +144,7 @@ uv.project(
     hub_name = "pypi",
     lock = "//cases/uv-workspace-789:uv.lock",
     pyproject = "//cases/uv-workspace-789:pyproject.toml",
+    python_version = "3.11",
 )
 uv.override_package(
     name = "foo",
@@ -158,6 +164,7 @@ uv.project(
     hub_name = "pypi",
     lock = "//cases/uv-legacy-deps-750:uv.lock",
     pyproject = "//cases/uv-legacy-deps-750:pyproject.toml",
+    python_version = "3.11",
 )
 uv.unstable_annotate_packages(
     src = "//cases/uv-legacy-deps-750:annotations.toml",
@@ -172,6 +179,7 @@ uv.project(
     hub_name = "pypi",
     lock = "//cases/freethreaded-805:uv.lock",
     pyproject = "//cases/freethreaded-805:pyproject.toml",
+    python_version = "3.11",
 )
 # }}}
 
@@ -181,6 +189,7 @@ uv.project(
     hub_name = "pypi",
     lock = "//cases/uv-conflict-817:uv.lock",
     pyproject = "//cases/uv-conflict-817:pyproject.toml",
+    python_version = "3.11",
 )
 # }}}
 
@@ -190,6 +199,7 @@ uv.project(
     hub_name = "pypi",
     lock = "//cases/uv-conflict-gte:uv.lock",
     pyproject = "//cases/uv-conflict-gte:pyproject.toml",
+    python_version = "3.11",
 )
 # }}}
 
@@ -200,6 +210,7 @@ uv.project(
     hub_name = "pypi",
     lock = "//cases/uv-conflict-max-863:uv.lock",
     pyproject = "//cases/uv-conflict-max-863:pyproject.toml",
+    python_version = "3.11",
 )
 # }}}
 
@@ -209,6 +220,7 @@ uv.project(
     hub_name = "pypi",
     lock = "//cases/uv-conflict-tilde-856:uv.lock",
     pyproject = "//cases/uv-conflict-tilde-856:pyproject.toml",
+    python_version = "3.11",
 )
 # }}}
 
@@ -218,6 +230,7 @@ uv.project(
     hub_name = "pypi",
     lock = "//cases/uv-patching-829:uv.lock",
     pyproject = "//cases/uv-patching-829:pyproject.toml",
+    python_version = "3.11",
 )
 uv.override_package(
     name = "cowsay",
@@ -233,6 +246,7 @@ uv.project(
     hub_name = "pypi",
     lock = "//cases/uv-no-sdist-754:uv.lock",
     pyproject = "//cases/uv-no-sdist-754:pyproject.toml",
+    python_version = "3.11",
 )
 # }}}
 
@@ -242,6 +256,7 @@ uv.project(
     hub_name = "pypi",
     lock = "//cases/venv-bin-scripts-423:uv.lock",
     pyproject = "//cases/venv-bin-scripts-423:pyproject.toml",
+    python_version = "3.11",
 )
 # }}}
 
@@ -253,6 +268,7 @@ uv.project(
     hub_name = "pypi",
     lock = "//cases/uv-console-script-binary:uv.lock",
     pyproject = "//cases/uv-console-script-binary:pyproject.toml",
+    python_version = "3.11",
 )
 # }}}
 
@@ -265,6 +281,7 @@ uv.project(
     hub_name = "pypi",
     lock = "//cases/uv-whl-install-output-group:uv.lock",
     pyproject = "//cases/uv-whl-install-output-group:pyproject.toml",
+    python_version = "3.11",
 )
 # }}}
 
@@ -274,6 +291,7 @@ uv.project(
     hub_name = "pypi",
     lock = "//cases/uv-include-group:uv.lock",
     pyproject = "//cases/uv-include-group:pyproject.toml",
+    python_version = "3.11",
 )
 uv.unstable_annotate_packages(
     src = "//cases/uv-legacy-deps-750:annotations.toml",
@@ -288,6 +306,7 @@ uv.project(
     hub_name = "pypi",
     lock = "//cases/uv-abi3-compat-853:uv.lock",
     pyproject = "//cases/uv-abi3-compat-853:pyproject.toml",
+    python_version = "3.11",
 )
 # }}}
 
@@ -298,6 +317,7 @@ uv.project(
     hub_name = "pypi",
     lock = "//cases/uv-platform-filter-844:uv.lock",
     pyproject = "//cases/uv-platform-filter-844:pyproject.toml",
+    python_version = "3.11",
 )
 # }}}
 
@@ -308,6 +328,7 @@ uv.project(
     hub_name = "pypi",
     lock = "//cases/pytest-mock-530:uv.lock",
     pyproject = "//cases/pytest-mock-530:pyproject.toml",
+    python_version = "3.11",
 )
 # }}}
 
@@ -319,6 +340,7 @@ uv.project(
     hub_name = "pypi",
     lock = "//cases/pth-namespace-547:uv.lock",
     pyproject = "//cases/pth-namespace-547:pyproject.toml",
+    python_version = "3.11",
 )
 # }}}
 
@@ -329,28 +351,35 @@ uv.project(
     hub_name = "pypi",
     lock = "//cases/pytest-main-867:uv.lock",
     pyproject = "//cases/pytest-main-867:pyproject.toml",
+    python_version = "3.11",
 )
 # }}}
 
 # For cases/uv-plus-version
-# Versions containing '+' must not produce invalid Bazel repo names.
+# DISABLED: Versions containing '+' produce invalid Bazel repo names.
+# This is a bug in uv/private/extension/defs.bzl — the '+' character in
+# version strings (e.g. jaxlib 0.4.25+cuda11.cudnn86) must be sanitized
+# before being used in repository rule names.
 # {{{
-uv.project(
-    hub_name = "pypi",
-    lock = "//cases/uv-plus-version:uv.lock",
-    pyproject = "//cases/uv-plus-version:pyproject.toml",
-)
+# uv.project(
+#     hub_name = "pypi",
+#     lock = "//cases/uv-plus-version:uv.lock",
+#     pyproject = "//cases/uv-plus-version:pyproject.toml",
+#     python_version = "3.11",
+# )
 # }}}
 
 uv.project(
     hub_name = "pypi",
     lock = "//cases/venv-internal-symlinks:uv.lock",
     pyproject = "//cases/venv-internal-symlinks:pyproject.toml",
+    python_version = "3.11",
 )
 uv.project(
     hub_name = "pypi",
     lock = "//cases/pytest-subdir-imports:uv.lock",
     pyproject = "//cases/pytest-subdir-imports:pyproject.toml",
+    python_version = "3.11",
 )
 
 # For cases/uv-sdist-native-build
@@ -366,6 +395,17 @@ uv.project(
     hub_name = "pypi",
     lock = "//cases/uv-sdist-native-build:uv.lock",
     pyproject = "//cases/uv-sdist-native-build:pyproject.toml",
+    python_version = "3.11",
+)
+# }}}
+
+# For cases/unconstrained-dependencies
+# {{{
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/unconstrained-dependencies:uv.lock",
+    pyproject = "//cases/unconstrained-dependencies:pyproject.toml",
+    python_version = "3.10",
 )
 # }}}
 

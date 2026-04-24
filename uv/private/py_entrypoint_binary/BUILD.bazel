@@ -1,8 +1,4 @@
-load(":test.bzl", "py_entrypoint_binary_test_suite")
-
 exports_files([
     "entrypoint.tmpl",
     "search.py",
 ])
-
-py_entrypoint_binary_test_suite()

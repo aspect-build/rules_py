@@ -1,5 +1,4 @@
 load("@aspect_rules_py//py:defs.bzl", "py_test")
-load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
 load("@bazel_lib//lib:expand_template.bzl", "expand_template")
 
 [
@@ -12,7 +11,7 @@ load("@bazel_lib//lib:expand_template.bzl", "expand_template")
             },
             template = "test.py",
         ),
-        py_venv_test(
+        py_test(
             name = "test_{}_venv".format(ver.replace(".", "_")),
             srcs = [
                 "expanded_test_{}.py".format(ver.replace(".", "_")),

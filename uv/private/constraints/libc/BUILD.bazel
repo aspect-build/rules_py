@@ -1,0 +1,39 @@
+# libc constraint settings for UV/Bazel integration
+# Provides detection and configuration for glibc vs musl
+
+package(default_visibility = ["//visibility:public"])
+
+# Define a constraint setting for libc type
+constraint_setting(
+    name = "libc_variant",
+    default_constraint_value = ":unknown",
+)
+
+# glibc (GNU C Library) - used by most Linux distributions
+constraint_value(
+    name = "glibc",
+    constraint_setting = ":libc_variant",
+)
+
+# musl libc - used by Alpine Linux and other lightweight distributions
+constraint_value(
+    name = "musl",
+    constraint_setting = ":libc_variant",
+)
+
+# Unknown/undetected libc
+constraint_value(
+    name = "unknown",
+    constraint_setting = ":libc_variant",
+)
+
+# Config setting for selecting based on libc type
+config_setting(
+    name = "is_glibc",
+    constraint_values = [":glibc"],
+)
+
+config_setting(
+    name = "is_musl",
+    constraint_values = [":musl"],
+)

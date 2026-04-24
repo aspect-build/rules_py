@@ -1,15 +1,31 @@
-"Module Extensions used from MODULE.bazel"
+"""bzlmod module extensions for rules_py.
+
+This module exports two module extensions:
+
+- ``py_tools``: Provisions pre-built native tools (unpacker, pth builder, etc.)
+  needed by the Python toolchain.
+
+- ``python_interpreters``: Provisions Python interpreters from
+  python-build-standalone (PBS) releases with automatic version resolution
+  and cross-platform support.
+"""
 
 load("@aspect_tools_telemetry_report//:defs.bzl", "TELEMETRY")  # buildifier: disable=load
 load("@bazel_features//:features.bzl", features = "bazel_features")
+load("//py/private/interpreter:extension.bzl", _python_interpreters = "python_interpreters")
 load("//py/private/release:version.bzl", "IS_PRERELEASE")
 load(":toolchains.bzl", "DEFAULT_TOOLS_REPOSITORY", "rules_py_toolchains")
 
+python_interpreters = _python_interpreters
+
 py_toolchain = tag_class(attrs = {
-    "name": attr.string(doc = """\
+    "name": attr.string(
+        doc = """\
 Base name for generated repositories, allowing more than one toolchain to be registered.
 Overriding the default is only permitted in the root module.
-""", default = DEFAULT_TOOLS_REPOSITORY),
+""",
+        default = DEFAULT_TOOLS_REPOSITORY,
+    ),
     "is_prerelease": attr.bool(
         doc = "True iff there are no pre-built tool binaries for this version of rules_py",
         default = IS_PRERELEASE,
@@ -17,6 +33,20 @@ Overriding the default is only permitted in the root module.
 })
 
 def _toolchains_extension_impl(module_ctx):
+    """Create toolchain repositories for every module that declares a tag.
+
+    Iterates over the dependency graph and enforces two policies:
+
+    1. **Root-only name override** — Only the root module may change the
+       repository name from ``DEFAULT_TOOLS_REPOSITORY``. Non-root modules that
+       attempt to do so trigger a fatal error to prevent namespace collisions.
+    2. **Root wins** — When the root module declares a tag, its settings take
+       precedence. Dependent modules that use the default name are ignored to
+       avoid redundant repository creation.
+
+    Args:
+        module_ctx: The module extension context provided by Bazel.
+    """
     registrations = []
     root_name = None
     for mod in module_ctx.modules:
@@ -27,7 +57,6 @@ def _toolchains_extension_impl(module_ctx):
                 This prevents conflicting registrations in the global namespace of external repos.
                 """)
 
-            # Ensure the root wins in case of differences
             if mod.is_root:
                 rules_py_toolchains(toolchain.name, register = False, is_prerelease = toolchain.is_prerelease)
                 root_name = toolchain.name

@@ -1,16 +1,26 @@
-"""
-Helpers & constants.
+"""Platform constraint helpers and constants.
 
-Platform arch/tag allowlists defined here are the single source of truth used
-by both supported_platform() (to filter wheel tags) and the generate_*()
-macros in macro.bzl (to create Bazel config_setting targets). Keeping both
-sides derived from the same data makes "unsupported tag passes the filter but
-has no target" bugs impossible by construction.
+The arch and tag allowlists defined in this module are the single source of
+truth used by both supported_platform() (to filter wheel tags) and the
+generate_*() macros in macro.bzl (to create Bazel config_setting targets).
+Keeping both sides derived from the same data makes "unsupported tag passes
+the filter but has no target" bugs impossible by construction.
+
+Constants:
+    MACOS_ARCHES: Individual CPU architectures that receive their own
+        config_setting targets (arm64, x86_64, i386, ppc, ppc64).
+    MACOS_ARCH_GROUPS: Multi-arch group aliases defined by
+        packaging.python.org platform compatibility tags. Each group
+        resolves to one or more individual arches (e.g. universal2
+        maps to arm64 and x86_64).
+    LINUX_ARCHES: CPU architectures shared by manylinux and musllinux
+        (x86_64, i686, aarch64, ppc64, ppc64le, s390x, riscv64, armv7l).
+    WINDOWS_PLATFORMS: Supported Windows platform tags and their
+        corresponding CPU constraints for Bazel.
 """
 
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 
-# macOS individual CPU architectures that get their own config_setting targets.
 MACOS_ARCHES = [
     "arm64",
     "x86_64",
@@ -19,8 +29,6 @@ MACOS_ARCHES = [
     "ppc64",
 ]
 
-# macOS multi-arch group aliases (each resolves to one of the individual arches).
-# https://packaging.python.org/en/latest/specifications/platform-compatibility-tags/#macos
 MACOS_ARCH_GROUPS = {
     "universal2": ["arm64", "x86_64"],
     "universal": ["i386", "ppc", "ppc64", "x86_64"],
@@ -30,7 +38,6 @@ MACOS_ARCH_GROUPS = {
     "fat64": ["ppc64", "x86_64"],
 }
 
-# CPU architectures shared by manylinux and musllinux.
 LINUX_ARCHES = [
     "x86_64",
     "i686",
@@ -42,7 +49,6 @@ LINUX_ARCHES = [
     "armv7l",
 ]
 
-# Supported Windows platform tags and their CPU constraints.
 WINDOWS_PLATFORMS = {
     "win32": "x86_64",
     "win_amd64": "x86_64",
@@ -50,14 +56,17 @@ WINDOWS_PLATFORMS = {
 }
 
 def _parse_platform_arch(platform_tag):
-    """Extract the arch suffix from a {prefix}_{major}_{minor}_{arch} tag.
+    """Extract the architecture suffix from a platform tag.
+
+    Tags are expected to follow the shape {prefix}_{major}_{minor}_{arch},
+    for example "manylinux_2_17_x86_64".
 
     Args:
-        platform_tag (str): A platform tag like "manylinux_2_17_x86_64".
+        platform_tag (str): A wheel platform tag.
 
     Returns:
-        str or None; the arch portion, or None if the tag doesn't have the
-        expected structure.
+        str or None: The arch portion if the tag has four components,
+        otherwise None.
     """
     parts = platform_tag.split("_", 3)
     if len(parts) == 4:
@@ -65,23 +74,17 @@ def _parse_platform_arch(platform_tag):
     return None
 
 def supported_platform(platform_tag):
-    """Predicate.
+    """Predicate that indicates whether a wheel platform tag is supported.
 
-    Indicate whether the current `pip` implementation supports the platform
-    represented by a given wheel platform tag. Allows for filtering out of
-    wheels for currently unsupported platforms, being:
-
-    - Android
-    - iOS
-    - The legacy/undefined linux_* platforms
-    - Architectures we don't generate config_setting targets for
+    Filters out wheels for platforms that are not part of the build graph:
+    Android, iOS, legacy or bare linux_* tags, and architectures for which
+    no config_setting targets are generated.
 
     Args:
-        platform_tag (str): A wheel platform tag
+        platform_tag (str): A wheel platform tag.
 
     Returns:
-        bool; whether the platform is supported or not.
-
+        bool: True if the platform is supported, False otherwise.
     """
     if platform_tag == "any":
         return True
@@ -96,10 +99,15 @@ def supported_platform(platform_tag):
 
     return platform_tag in WINDOWS_PLATFORMS
 
-# Adapted from rules_python's config_settings.bzl
 MAJOR_MINOR_FLAG = Label("//uv/private/constraints/platform:platform_version")
 
 def _platform_version_at_least_impl(ctx):
+    """Rule implementation adapted from rules_python's config_settings.bzl.
+
+    Compares the current platform version (read from a build setting flag)
+    against a minimum required version and emits a FeatureFlagInfo provider
+    with value "true" or "false".
+    """
     flag_value = ctx.attr._major_minor[BuildSettingInfo].value
 
     current = tuple([

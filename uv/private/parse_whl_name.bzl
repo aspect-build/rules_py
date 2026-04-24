@@ -1,28 +1,9 @@
-# Copyright 2023 The Bazel Authors. All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-# Vendored and patched from
-# bazel-contrib/rules_python/python/private/pypi/parse_whl_name.bzl with many
-# thanks to Ignas for his excellent work.
-
 """
 A starlark implementation of a Wheel filename parsing.
 """
 
 load("@bazel_skylib//lib:new_sets.bzl", "sets")
 
-# Taken from https://peps.python.org/pep-0600/
 _LEGACY_ALIASES = {
     "manylinux1_i686": "manylinux_2_5_i686",
     "manylinux1_x86_64": "manylinux_2_5_x86_64",
@@ -95,7 +76,7 @@ def normalize_abi_tag(tag):
             found = True
         else:
             break
-    tag = tag[:cursor + 1] if found else tag  # buildifier: disable=uninitialized
+    tag = tag[:cursor + 1] if found else tag
     for flag, state in flags.items():
         if state:
             tag = tag + flag
@@ -111,8 +92,6 @@ def normalize_platform_tag(tag):
         A `.` joined equivalent set of modernized tags, or the original.
     """
     return ".".join(list({
-        # The `list({})` usage here is to use it as a string set, where we will
-        # deduplicate, but otherwise retain the order of the tags.
         _LEGACY_ALIASES.get(p, p): None
         for p in tag.split(".")
     }))
@@ -138,12 +117,6 @@ def parse_whl_name(file):
 
     file = file[:-len(".whl")]
 
-    # Parse the following
-    # {distribution}-{version}(-{build tag})?-{python tag}-{abi tag}-{platform tag}.whl
-    #
-    # For more info, see the following standards:
-    # https://packaging.python.org/en/latest/specifications/binary-distribution-format/#binary-distribution-format
-    # https://packaging.python.org/en/latest/specifications/platform-compatibility-tags/
     head, _, platform_tag = file.rpartition("-")
     if not platform_tag:
         fail("cannot extract platform tag from the whl filename: {}".format(file))
@@ -163,10 +136,7 @@ def parse_whl_name(file):
     else:
         build_tag = None
 
-    # Renamed to par with https://github.com/wheelodex/wheel-filename/blob/master/src/wheel_filename/__init__.py#L56C7-L56C26
-    #
     # FIXME: Need to sort these so that -none- and -any come "first" in the matrix sequence for select()
-    #
     # FIXME: Drop py2 from the python tags, py2 is long dead, get a newer interpreter
     return struct(
         project = distribution,

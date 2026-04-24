@@ -1,0 +1,13 @@
+load("//py:defs.bzl", "py_binary")
+
+# Entry points support for aspect_rules_py
+# This package provides py_console_script_binary without depending on rules_python
+
+exports_files(["py_console_script_gen.py"])
+
+py_binary(
+    name = "py_console_script_gen",
+    srcs = ["py_console_script_gen.py"],
+    main = "py_console_script_gen.py",
+    visibility = ["//visibility:public"],
+)

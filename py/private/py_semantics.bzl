@@ -5,25 +5,27 @@ load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
 _INTERPRETER_FLAGS = [
     # -B     Don't write .pyc files on import. See also PYTHONDONTWRITEBYTECODE.
     "-B",
-    # -I     Run Python in isolated mode. This also implies -E and -s.
-    #        In isolated mode sys.path contains neither the script's directory nor the user's site-packages directory.
-    #        All PYTHON* environment variables are ignored, too.
-    #        Further restrictions may be imposed to prevent the user from injecting malicious code.
-    "-I",
+    # -s     Don't add user site-packages directory to sys.path.
+    #        Provides isolation from local user installs without blocking PYTHONPATH,
+    #        which the run.tmpl.sh launcher uses to inject dependency paths.
+    #
+    # NOTE:  Previously used -I (isolated mode), but that flag also implies -E
+    #        which ignores ALL PYTHON* environment variables, including PYTHONPATH.
+    #        Since our launcher builds PYTHONPATH from the .pth file, -I made it
+    #        impossible for dependencies to be found at runtime.
+    "-s",
 ]
 
 _MUST_SET_TOOLCHAIN_INTERPRETER_VERSION_INFO = """
-ERROR: In Bazel 7.x and later, the python toolchain py_runtime interpreter_version_info must be set \
+ERROR: The python toolchain aspect_py_runtime interpreter_version_info must be set \
 to a dict with keys "major", "minor", and "micro".
 
-`PyRuntimeInfo` requires that this field contains the static version information for the given
-interpreter. This can be set via `py_runtime` when registering an interpreter toolchain, and will
-done automatically for the builtin interpreter versions registered via `python_register_toolchains`.
-Note that this only available on the Starlark implementation of the provider.
+`AspectPyRuntimeInfo` requires that this field contains the static version information for the given
+interpreter. This can be set via `aspect_py_runtime` when registering an interpreter toolchain.
 
 For example:
 
-    py_runtime(
+    aspect_py_runtime(
         name = "system_runtime",
         interpreter_path = "/usr/bin/python",
         interpreter_version_info = {

@@ -1,0 +1,24 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+exports_files([
+    "copy_to_source.py",
+])
+
+go_library(
+    name = "manifest",
+    srcs = ["manifest.go"],
+    importpath = "github.com/bazel-contrib/rules_python/gazelle/manifest",
+    visibility = ["//visibility:public"],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":manifest",
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "distribution",
+    srcs = glob(["**"]),
+    visibility = ["//:__pkg__"],
+)

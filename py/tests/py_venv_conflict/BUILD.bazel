@@ -1,6 +1,6 @@
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("//py:defs.bzl", "py_library")
-load("//py/unstable:defs.bzl", "py_venv", "py_venv_test")
+load("//py/private/py_venv:defs.bzl", "py_venv", "py_venv_test")
 
 py_library(
     name = "lib",

@@ -1,15 +1,19 @@
-load("@aspect_rules_py//uv/unstable:defs.bzl", "py_console_script_binary")
+load("@aspect_rules_py//py:defs.bzl", "py_console_script_binary")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 py_console_script_binary(
     name = "whoowns",
     pkg = "@pypi//whoowns",
+    python_version = "3.11",
+    venv = "uv-console-script-binary",
 )
 
 py_console_script_binary(
     name = "whoowns_explicit",
     pkg = "@pypi//whoowns",
+    python_version = "3.11",
     script = "whoowns",
+    venv = "uv-console-script-binary",
 )
 
 sh_test(

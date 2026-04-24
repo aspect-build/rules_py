@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
+load("@aspect_rules_py//py:defs.bzl", "py_test")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_test")
 
 platform(
@@ -9,7 +9,7 @@ platform(
     parents = ["@platforms//host"],
 )
 
-py_venv_test(
+py_test(
     name = "test_bin",
     srcs = ["test.py"],
     main = "test.py",

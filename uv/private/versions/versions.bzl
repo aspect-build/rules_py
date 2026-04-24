@@ -18,12 +18,10 @@ def parse_version(v):
     """
     v = v.strip()
 
-    # Strip epoch (e.g., "1!2.0" -> "2.0")
     bang = v.find("!")
     if bang != -1:
         v = v[bang + 1:]
 
-    # Find where the numeric portion ends
     end = len(v)
     for i in range(len(v)):
         c = v[i]
@@ -135,7 +133,6 @@ def _check_single(version, spec):
         op = "=="
         target_str = spec.strip()
 
-    # Handle wildcard matches (e.g., "==1.0.*")
     if target_str.endswith(".*"):
         return _check_wildcard(version, op, target_str[:-2])
 
@@ -155,8 +152,6 @@ def _check_single(version, spec):
     elif op == "<":
         return cmp < 0
     elif op == "~=":
-        # ~=X.Y   is  >=X.Y, <(X+1).0
-        # ~=X.Y.Z is  >=X.Y.Z, <X.(Y+1).0
         if cmp < 0:
             return False
         upper = list(target)

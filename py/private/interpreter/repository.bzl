@@ -7,7 +7,6 @@ load("@bazel_features//:features.bzl", features = "bazel_features")
 load(":exclude_feature.bzl", "INTERPRETER_FEATURES")
 
 _PYTHON_VERSION_FLAG = "@aspect_rules_py//py/private/interpreter:python_version"
-_RPY_VERSION_FLAG = "@rules_python//python/config_settings:python_version"
 _FREETHREADING_FLAG = "@aspect_rules_py//py/private/interpreter:freethreaded"
 _EXCLUDE_FEATURE_FLAG = "@aspect_rules_py//py/private/interpreter:exclude_feature"
 
@@ -116,9 +115,8 @@ def _build_file_content(major, minor, micro, python_bin, is_windows):
 """.format(feature = feature_name)
 
     return """\
-load("@rules_python//python:py_runtime.bzl", "py_runtime")
-load("@rules_python//python:py_runtime_pair.bzl", "py_runtime_pair")
-load("@aspect_rules_py//py/private/exec_tools:defs.bzl", "py_exec_tools_toolchain")
+load("@aspect_rules_py//py/private/toolchain:py_runtime.bzl", "aspect_py_runtime")
+load("@aspect_rules_py//py/private/toolchain:py_runtime_pair.bzl", "aspect_py_runtime_pair")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -142,7 +140,7 @@ filegroup(
 {feature_selects}    ,
 )
 
-py_runtime(
+aspect_py_runtime(
     name = "py3_runtime",
     files = [":files"],
     interpreter = "{python_bin}",
@@ -154,14 +152,10 @@ py_runtime(
     python_version = "PY3",
 )
 
-py_runtime_pair(
+aspect_py_runtime_pair(
     name = "runtime_pair",
     py2_runtime = None,
     py3_runtime = ":py3_runtime",
-)
-
-py_exec_tools_toolchain(
-    name = "exec_tools_toolchain",
 )
 """.format(
         python_bin = python_bin,
@@ -242,27 +236,20 @@ def _python_toolchains_impl(rctx):
         group_name = _version_setting_name(major_minor)
         content.append("""
 config_setting(
-    name = "_{group}_our_major_minor",
-    flag_values = {{"{our_flag}": "{major_minor}"}},
-)
-
-config_setting(
-    name = "_{group}_rpy_major_minor",
-    flag_values = {{"{rpy_flag}": "{major_minor}"}},
+    name = "_{group}_major_minor",
+    flag_values = {{"{flag}": "{major_minor}"}},
 )
 
 selects.config_setting_group(
     name = "{group}",
     match_any = [
-        ":_{group}_our_major_minor",
-        ":_{group}_rpy_major_minor",
+        ":_{group}_major_minor",
     ],
 )
 """.format(
             group = group_name,
             major_minor = major_minor,
-            our_flag = _PYTHON_VERSION_FLAG,
-            rpy_flag = _RPY_VERSION_FLAG,
+            flag = _PYTHON_VERSION_FLAG,
         ))
 
     # Emit hub-local freethreaded config_settings
@@ -314,29 +301,13 @@ config_setting(
         exec_compatible_with = info["compatible_with"] + extra_exec_compatible
 
         content.append("""
-# The Python interpreter toolchain has no exec_compatible_with: the interpreter
-# runs on the TARGET platform (inside the virtualenv), not on the exec host.
-# Setting exec_compatible_with = platform_constraints would prevent this
-# toolchain from being selected during cross-compilation (e.g. building an
-# arm64 image on an amd64 host), because the exec platform (amd64) would not
-# satisfy the arm64 exec constraint.  The target_compatible_with constraint is
-# sufficient to pick the right interpreter for the target.
 toolchain(
     name = "{name}",
+    exec_compatible_with = {exec_compatible_with},
     target_compatible_with = {target_compatible_with},
     target_settings = {target_settings},
     toolchain = "@{repo}//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
-)
-
-# Exec tools toolchain: selected by exec platform (not target platform) so
-# that build actions using the interpreter (e.g. compileall) get a runnable
-# binary on the build host regardless of the target platform being built for.
-toolchain(
-    name = "{name}_exec_tools",
-    exec_compatible_with = {exec_compatible_with},
-    toolchain = "@{repo}//:exec_tools_toolchain",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 """.format(
             name = info["name"],
@@ -421,47 +392,31 @@ def _local_python_interpreter_impl(rctx):
     major_minor = "{}.{}".format(major, minor)
 
     rctx.file("BUILD.bazel", content = """\
-load("@rules_python//python:py_runtime.bzl", "py_runtime")
-load("@rules_python//python:py_runtime_pair.bzl", "py_runtime_pair")
+load("@aspect_rules_py//py/private/toolchain:py_runtime.bzl", "aspect_py_runtime")
+load("@aspect_rules_py//py/private/toolchain:py_runtime_pair.bzl", "aspect_py_runtime_pair")
 load("@bazel_skylib//lib:selects.bzl", "selects")
 
 package(default_visibility = ["//visibility:public"])
 
 config_setting(
-    name = "_is_our_major_minor",
+    name = "_is_major_minor",
     flag_values = {{
-        "{our_flag}": "{major_minor}",
+        "{flag}": "{major_minor}",
     }},
 )
 
 config_setting(
-    name = "_is_our_major_minor_micro",
+    name = "_is_major_minor_micro",
     flag_values = {{
-        "{our_flag}": "{version}",
-    }},
-)
-
-config_setting(
-    name = "_is_rpy_major_minor",
-    flag_values = {{
-        "{rpy_flag}": "{major_minor}",
-    }},
-)
-
-config_setting(
-    name = "_is_rpy_major_minor_micro",
-    flag_values = {{
-        "{rpy_flag}": "{version}",
+        "{flag}": "{version}",
     }},
 )
 
 selects.config_setting_group(
     name = "is_matching_python_version",
     match_any = [
-        ":_is_our_major_minor",
-        ":_is_our_major_minor_micro",
-        ":_is_rpy_major_minor",
-        ":_is_rpy_major_minor_micro",
+        ":_is_major_minor",
+        ":_is_major_minor_micro",
     ],
 )
 
@@ -472,7 +427,7 @@ config_setting(
     }},
 )
 
-py_runtime(
+aspect_py_runtime(
     name = "py3_runtime",
     interpreter_path = "{interpreter_path}",
     interpreter_version_info = {{
@@ -483,14 +438,13 @@ py_runtime(
     python_version = "PY3",
 )
 
-py_runtime_pair(
+aspect_py_runtime_pair(
     name = "runtime_pair",
     py2_runtime = None,
     py3_runtime = ":py3_runtime",
 )
 """.format(
-        our_flag = _PYTHON_VERSION_FLAG,
-        rpy_flag = _RPY_VERSION_FLAG,
+        flag = _PYTHON_VERSION_FLAG,
         freethreaded_flag = _FREETHREADING_FLAG,
         version = python_version,
         major_minor = major_minor,
