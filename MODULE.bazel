@@ -62,6 +62,9 @@ interpreters.configure(
     ],
 )
 interpreters.toolchain(
+    python_version = "3.11",
+)
+interpreters.toolchain(
     python_version = "3.13",
 )
 use_repo(
@@ -69,6 +72,14 @@ use_repo(
     "python_interpreters",
     # Individual platform repos — must be visible so the uv extension can
     # reference the host interpreter for sdist configure tooling.
+    "python_3_11_aarch64_apple_darwin",
+    "python_3_11_aarch64_unknown_linux_gnu",
+    "python_3_11_aarch64_unknown_linux_musl",
+    "python_3_11_i686_pc_windows_msvc",
+    "python_3_11_x86_64_apple_darwin",
+    "python_3_11_x86_64_pc_windows_msvc",
+    "python_3_11_x86_64_unknown_linux_gnu",
+    "python_3_11_x86_64_unknown_linux_musl",
     "python_3_13_aarch64_apple_darwin",
     "python_3_13_aarch64_unknown_linux_gnu",
     "python_3_13_aarch64_unknown_linux_musl",
