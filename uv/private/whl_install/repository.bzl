@@ -211,16 +211,6 @@ filegroup(
     srcs = {index_whl},
     visibility = ["//visibility:public"],
 )
-
-py_library(
-    name = "whl_lib",
-    srcs = [
-        ":whl"
-    ],
-    data = [
-    ],
-    visibility = ["//visibility:private"],
-)
 """.format(
             arms = _format_arms(select_arms),
             index_whl = indent(pprint([str(gazelle_index_whl)]), " " * 4).lstrip(),
@@ -275,12 +265,7 @@ whl_install(
 py_library(
     name = "install",
     srcs = [],
-    deps = [
-        select({{
-            "@aspect_rules_py//uv/private/constraints:libs_are_libs": ":actual_install",
-            "@aspect_rules_py//uv/private/constraints:libs_are_whls": ":whl_lib",
-        }}),
-    ] + {extra_deps},
+    deps = [":actual_install"] + {extra_deps},
     data = {extra_data},
     visibility = ["//visibility:public"],
 )
@@ -294,10 +279,7 @@ py_library(
             """
 alias(
     name = "install",
-    actual = select({
-        "@aspect_rules_py//uv/private/constraints:libs_are_libs": ":actual_install",
-        "@aspect_rules_py//uv/private/constraints:libs_are_whls": ":whl_lib",
-    }),
+    actual = ":actual_install",
     visibility = ["//visibility:public"],
 )
 """,
