@@ -1,0 +1,27 @@
+load("//py:defs.bzl", "py_binary", "py_test")
+
+# Regression: a `main = :label` whose label name doesn't end in `.py` must still
+# work when the label resolves to a `.py` file (e.g. a genrule output).
+genrule(
+    name = "gen_main",
+    outs = ["main_generated.py"],
+    cmd = "echo 'print(\"ok\")' > $@",
+)
+
+py_binary(
+    name = "main_from_genrule_bin",
+    srcs = [":gen_main"],
+    main = ":gen_main",
+)
+
+genrule(
+    name = "gen_test_main",
+    outs = ["test_main_generated.py"],
+    cmd = "echo 'def test_ok(): assert True' > $@",
+)
+
+py_test(
+    name = "main_from_genrule_test",
+    srcs = [":gen_test_main"],
+    main = ":gen_test_main",
+)
