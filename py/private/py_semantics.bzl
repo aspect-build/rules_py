@@ -104,8 +104,9 @@ def _determine_main(ctx):
         Artifact; the main file. If one can't be found, an error is raised.
     """
     if ctx.attr.main:
-        if not ctx.attr.main.label.name.endswith(".py"):
-            fail("main must end in '.py'")
+        # Check the resolved file, not the label name — the label may be a generator.
+        if not ctx.file.main.basename.endswith(".py"):
+            fail("main must end in '.py', got: " + ctx.file.main.basename)
 
         # Short circuit; if the user gave us a label, believe them.
         return ctx.file.main
