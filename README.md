@@ -360,6 +360,10 @@ bazel_dep(name = "aspect_rules_py", version = "1.11.2")
 bazel run //:gazelle
 ```
 
+> [!NOTE]
+>  When using `pytest_main=True`, you can create a [small wrapper macro](https://github.com/aspect-build/aspect-workflows-template/blob/main/%7B%7B%20.ProjectSnake%20%7D%7D/tools/pytest/defs.bzl) for `py_test` that presets `pytest_main=True` and automatically adds `pytest` as dep.
+> Then you need to update ` gazelle:map_kind py_test py_test` to point to your wrapper rule.
+
 ## Migration from `rules_python`
 
 `aspect_rules_py` is designed for incremental adoption:
