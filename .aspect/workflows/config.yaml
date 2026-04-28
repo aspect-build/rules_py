@@ -22,6 +22,7 @@ tasks:
         flags: ["--test_tag_filters=-skip-on-bazel8"]
       env:
         USE_BAZEL_VERSION: 8.x
+      queue: aspect-large
   - test:
       name: Bazel 9
       id: bazel-9
@@ -29,6 +30,7 @@ tasks:
         flags: ["--test_tag_filters=-skip-on-bazel9"]
       env:
         USE_BAZEL_VERSION: 9.*
+      queue: aspect-large
 
   - buildifier:
       queue: aspect-small
