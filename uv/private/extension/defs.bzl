@@ -722,6 +722,8 @@ for surgical modifications. Specifying `target` is mutually exclusive with
 all other modification attributes.""",
 )
 
+uv_impl = _uv_impl
+
 uv = module_extension(
     implementation = _uv_impl,
     tag_classes = {
