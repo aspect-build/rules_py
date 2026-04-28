@@ -6,10 +6,10 @@ Transitive sources belong exclusively in `PyInfo.transitive_sources`.
 ## Why this matters
 
 When `DefaultInfo.files` includes the transitive closure, every rule that
-consumes a `py_library` via `DefaultInfo` (e.g. filegroups, `select_chain`,
-`whl_requirements`) ends up flattening an O(n²) depset — the same sources
-appear once per level of the dependency graph. In large workspaces this
-causes Bazel to OOM during analysis or action execution.
+consumes a `py_library` via `DefaultInfo` (e.g. filegroups, `select_chain`)
+ends up flattening an O(n²) depset — the same sources appear once per level
+of the dependency graph. In large workspaces this causes Bazel to OOM during
+analysis or action execution.
 
 ## History
 

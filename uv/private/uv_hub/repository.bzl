@@ -58,7 +58,6 @@ config_setting(
     content = [
         """\
 load("@aspect_rules_py//py:defs.bzl", "py_library")
-load("@aspect_rules_py//uv/private:defs.bzl", "py_whl_library", "whl_requirements")
 """,
     ]
 
@@ -86,7 +85,6 @@ filegroup(
         content = [
             """\
 load("@aspect_rules_py//py:defs.bzl", "py_library")
-load("@aspect_rules_py//uv/private:defs.bzl", "py_whl_library")
 load("//:defs.bzl", "compatible_with")
 """,
         ]
@@ -109,9 +107,12 @@ alias(
     actual = "{name}",
     visibility = ["//visibility:public"],
 )
-py_whl_library(
+# TODO(v2): Remove. Previously selected the raw .whl via a cfg transition; that
+# machinery is gone and wheels are now carried by PyWheelInfo on :{name}.
+# Kept as an alias because external callers may reference @hub//<pkg>:whl.
+alias(
     name = "whl",
-    srcs = [":{name}"],
+    actual = ":{name}",
     visibility = ["//visibility:public"],
 )
 filegroup(
