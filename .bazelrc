@@ -23,6 +23,14 @@ common --repo_env=BAZEL_NO_APPLE_CPP_TOOLCHAIN=1
 
 common:ci --toolchain_resolution_debug='@@bazel_tools//tools/cpp:toolchain_type'
 
+# rules_rs experimental toolchains require @llvm//constraints/libc:gnu.2.28 on the target
+# platform for gnu Linux targets. The auto-detected host platform doesn't include it, so we
+# use a custom platform that inherits host cpu/os constraints and adds gnu.2.28. This works
+# on both x86_64 and aarch64 Linux builders.
+# --enable_platform_specific_config (in defaults.bazelrc) makes this activate automatically on Linux.
+common:linux --platforms=//bazel/platforms:linux_gnu
+common:linux --host_platform=//bazel/platforms:linux_gnu
+
 common:release --build_tag_filters=release
 common:release --stamp
 common:release --compilation_mode=opt
