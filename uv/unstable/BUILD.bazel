@@ -1,0 +1,7 @@
+load("//py/unstable:defs.bzl", "py_venv_test")
+
+py_venv_test(
+    name = "inspect_wheel_test",
+    srcs = ["inspect_wheel_test.py"],
+    main = "inspect_wheel_test.py",
+)

@@ -1,0 +1,7 @@
+[project]
+name = "uv-gazelle-unstable"
+version = "0.0.0"
+authors = []
+dependencies = [
+    "cowsay",
+]

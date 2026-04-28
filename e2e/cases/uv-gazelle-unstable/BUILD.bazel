@@ -1,0 +1,10 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+py_test(
+    name = "test_gazelle_manifest",
+    srcs = ["test_gazelle_manifest.py"],
+    args = ["$(location @pypi_gazelle_unstable//:gazelle_python.yaml)"],
+    data = ["@pypi_gazelle_unstable//:gazelle_python.yaml"],
+    main = "test_gazelle_manifest.py",
+    python_version = "3.11",
+)

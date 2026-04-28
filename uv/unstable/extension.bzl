@@ -24,10 +24,10 @@ Example usage in MODULE.bazel:
     use_repo(uv, "pypi", "pypi_gazelle", "uv")
 """
 
-load("//uv/unstable:gazelle.bzl", "gazelle_python_yaml_repository")
 load("//uv/private/constraints/libc:repository.bzl", "libc_detector")
 load("//uv/private/extension:defs.bzl", "uv_impl")
 load("//uv/private/toolchain:repositories.bzl", "uv_host_repository", "uv_platform_repository", "uv_repository", "uv_toolchains_hub")
+load("//uv/unstable:gazelle.bzl", "gazelle_python_yaml_repository")
 
 _SUPPORTED_PLATFORMS = [
     "aarch64-apple-darwin",

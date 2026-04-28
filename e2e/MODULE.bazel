@@ -378,4 +378,15 @@ uv.project(
 )
 # }}}
 
-use_repo(uv, "pypi")
+# For cases/uv-gazelle-unstable
+# Verify that uv.gazelle_manifest() generates a valid gazelle_python.yaml
+# by downloading and inspecting wheels from uv.lock.
+# {{{
+uv.gazelle_manifest(
+    name = "pypi_gazelle_unstable",
+    hub = "pypi",
+    lock = "//cases/uv-gazelle-unstable:uv.lock",
+)
+# }}}
+
+use_repo(uv, "pypi", "pypi_gazelle_unstable")
