@@ -7,10 +7,10 @@ load("@rules_pkg//pkg:pkg.bzl", "pkg_tar", "pkg_zip")
 load("//bazel/release:hashes.bzl", "hashes")
 
 TARGET_TRIPLES = [
-    ("x86_64_unknown_linux_musl", "linux_x86_64"),
-    ("aarch64_unknown_linux_musl", "linux_aarch64"),
-    ("x86_64_apple_darwin", "macos_x86_64"),
-    ("aarch64_apple_darwin", "macos_aarch64"),
+    ("x86_64_unknown_linux_musl", "@rules_rs//rs/platforms:x86_64-unknown-linux-musl"),
+    ("aarch64_unknown_linux_musl", "@rules_rs//rs/platforms:aarch64-unknown-linux-musl"),
+    ("x86_64_apple_darwin", "@rules_rs//rs/platforms:x86_64-apple-darwin"),
+    ("aarch64_apple_darwin", "@rules_rs//rs/platforms:aarch64-apple-darwin"),
 ]
 
 # Map a Rust naming scheme to a custom name.
@@ -45,7 +45,7 @@ def multi_platform_rust_binaries(name, target, name_scheme = TARGET_NAMING_SCHEM
         platform_transition_filegroup(
             name = transition_build,
             srcs = [target],
-            target_platform = "//bazel/platforms:{}".format(target_platform),
+            target_platform = target_platform,
             tags = ["release"],
         )
 
@@ -96,7 +96,7 @@ def multi_platform_rust_binaries(name, target, name_scheme = TARGET_NAMING_SCHEM
 
         bin_outs = [copy_name, bin_sha256]
         pkged_outs = [pkged, pkged_sha256]
-        if target_platform.startswith("linux"):
+        if "linux" in target_triple:
             linux_bins.extend(bin_outs)
             linux_pkged.extend(pkged_outs)
         else:
