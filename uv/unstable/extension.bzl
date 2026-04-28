@@ -25,7 +25,7 @@ Example usage in MODULE.bazel:
 """
 
 load("//uv/private/constraints/libc:repository.bzl", "libc_detector")
-load("//uv/private/extension:defs.bzl", "uv_impl")
+load("//uv/private/extension:defs.bzl", "_uv_impl")
 load("//uv/private/toolchain:repositories.bzl", "uv_host_repository", "uv_platform_repository", "uv_repository", "uv_toolchains_hub")
 load("//uv/unstable:gazelle.bzl", "gazelle_python_yaml_repository")
 
@@ -81,7 +81,7 @@ def _uv_unstable_impl(mctx):
 
     libc_detector(name = "uv_libc_detection")
 
-    result = uv_impl(mctx)
+    result = _uv_impl(mctx)
 
     for mod in mctx.modules:
         for manifest in mod.tags.gazelle_manifest:
