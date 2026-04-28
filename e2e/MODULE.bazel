@@ -342,6 +342,30 @@ uv.project(
 )
 # }}}
 
+# For cases/firebase-admin-import
+# Regression: firebase-admin 6.6.0 triggers a runtime `from google.auth
+# import ...` from its own __init__.py. Exercises PEP 420 namespace
+# handling across the google-auth / google-api-core / google-cloud-*
+# wheel graph.
+# {{{
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/firebase-admin-import:uv.lock",
+    pyproject = "//cases/firebase-admin-import:pyproject.toml",
+)
+# }}}
+
+# For cases/pytest-xdist-integration
+# Regression: pytest-xdist plugin discovery + actual parallel-worker
+# execution through py_test(pytest_main = True).
+# {{{
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/pytest-xdist-integration:uv.lock",
+    pyproject = "//cases/pytest-xdist-integration:pyproject.toml",
+)
+# }}}
+
 uv.project(
     hub_name = "pypi",
     lock = "//cases/venv-internal-symlinks:uv.lock",
