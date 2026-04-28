@@ -6,17 +6,9 @@ package(default_visibility = [
 ])
 
 bzl_library(
-    name = "extension",
-    srcs = ["extension.bzl"],
-    deps = [
-        "@bazel_tools//tools/build_defs/repo:cache.bzl",
-        "@bazel_tools//tools/build_defs/repo:http.bzl",
-        "@bazel_tools//tools/build_defs/repo:utils.bzl",
-    ],
-)
-
-bzl_library(
     name = "toml",
     srcs = ["toml.bzl"],
-    deps = [],
+    deps = [
+        "@bazel_lib//lib:repo_utils",
+    ],
 )

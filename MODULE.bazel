@@ -40,14 +40,27 @@ register_toolchains(
     dev_dependency = IS_RELEASE,
 )
 
-toml = use_extension("//uv/private/tomltool:extension.bzl", "tomltool")
-use_repo(
-    toml,
-    "toml2json_aarch64_linux_gnu",
-    "toml2json_aarch64_osx_libsystem",
-    "toml2json_x86_64_linux_gnu",
-    "toml2json_x86_64_osx_libsystem",
+http_file = use_repo_rule(
+    "@bazel_tools//tools/build_defs/repo:http.bzl",
+    "http_file",
 )
+
+[
+    http_file(
+        name = "toml2json_" + name,
+        executable = True,
+        sha256 = sha256,
+        url = "https://github.com/hermeticbuild/toml2json/releases/download/v0.0.26/toml2json_" + name + ext,
+    )
+    for name, sha256, ext in [
+        ("darwin_amd64", "632da497331d7aa5f2dd36b7c3c4339639e203bbafa56db77f0bb46cf46089a6", ""),
+        ("darwin_arm64", "13e000bb10f66fd3eb7e72c1fbb382a72859fefb9a75b99173728b0136bd932f", ""),
+        ("linux_amd64", "87921b36ceb343af152fc988be59eec49ac9865f2e499a48152bed03e66f8228", ""),
+        ("linux_arm64", "b271e043e58814353a3f289fb7ce78198d742e730149325d0622d71f3d8595b5", ""),
+        ("windows_amd64", "3fb037472c7ec2485b1c965253404841bfa32d571489b76dfbbc1c7ad6848884", ".exe"),
+        ("windows_arm64", "f825f7b6aea181bb050d4112d3234ec4ef0de45fadc9e6f99c0adcb08db9cf64", ".exe"),
+    ]
+]
 
 host = use_extension("//uv/private/host:extension.bzl", "host_platform")
 use_repo(host, "aspect_rules_py_uv_host")
@@ -253,11 +266,6 @@ uv.unstable_annotate_packages(
     lock = "//:uv.lock",
 )
 use_repo(uv, "pypi")
-
-http_file = use_repo_rule(
-    "@bazel_tools//tools/build_defs/repo:http.bzl",
-    "http_file",
-)
 
 http_file(
     name = "django_4_2_4",
