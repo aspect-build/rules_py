@@ -3,11 +3,7 @@
 
 set -euo pipefail
 
-python_path_file="$(dirname "$0")/python_path.txt"
-if [[ ! -f "$python_path_file" ]]; then
-    # Try rlocation-style path (Bazel runfiles)
-    python_path_file="${RUNFILES_DIR:-$0.runfiles}/aspect_rules_py/e2e/cases/current-py-toolchain-896/python_path.txt"
-fi
+python_path_file="${TEST_SRCDIR}/_main/cases/current-py-toolchain-896/python_path.txt"
 
 python_path="$(cat "$python_path_file" | tr -d '[:space:]')"
 

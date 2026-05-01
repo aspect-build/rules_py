@@ -4,14 +4,14 @@ Provides `$(PYTHON3)` and `$(PYTHON3_ROOTPATH)` for use in `genrule`,
 `bazel_env`, and other rules that support Make variable expansion.
 """
 
-_TOOLCHAIN_TYPE = "@bazel_tools//tools/python:toolchain_type"
+load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
 
 def _current_py_toolchain_impl(ctx):
     direct = []
     transitive = []
     vars = {}
 
-    toolchain = ctx.toolchains[_TOOLCHAIN_TYPE]
+    toolchain = ctx.toolchains[PY_TOOLCHAIN]
     if toolchain.py3_runtime:
         if toolchain.py3_runtime.interpreter:
             # Hermetic / in-tree interpreter (File object)
@@ -23,6 +23,8 @@ def _current_py_toolchain_impl(ctx):
             # Local / system interpreter (absolute path string)
             vars["PYTHON3"] = toolchain.py3_runtime.interpreter_path
             vars["PYTHON3_ROOTPATH"] = toolchain.py3_runtime.interpreter_path
+        else:
+            fail("py3_runtime has neither interpreter nor interpreter_path")
 
     files = depset(direct, transitive = transitive)
     return [
@@ -71,5 +73,5 @@ bazel_env(
 ```
 """,
     implementation = _current_py_toolchain_impl,
-    toolchains = [_TOOLCHAIN_TYPE],
+    toolchains = [PY_TOOLCHAIN],
 )
