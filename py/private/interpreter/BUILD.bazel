@@ -10,6 +10,7 @@ exports_files(["probe_interpreter.py"])
 bzl_library(
     name = "current_py_toolchain",
     srcs = ["current_py_toolchain.bzl"],
+    deps = ["//py/private/toolchain:types"],
 )
 
 bzl_library(
