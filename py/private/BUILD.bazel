@@ -33,6 +33,10 @@ bzl_library(
 bzl_library(
     name = "pth",
     srcs = ["pth.bzl"],
+    deps = [
+        "@bazel_skylib//lib:paths",
+        "@rules_python//python:defs_bzl",
+    ],
 )
 
 bzl_library(
@@ -51,10 +55,10 @@ bzl_library(
     srcs = ["py_library.bzl"],
     deps = [
         ":providers",
+        ":pth",
         ":py_semantics",
         ":py_wheel",
         "@bazel_skylib//lib:new_sets",
-        "@bazel_skylib//lib:paths",
         "@bazel_skylib//lib:types",
         "@rules_python//python:defs_bzl",
     ],
@@ -87,6 +91,7 @@ bzl_library(
     name = "py_unpacked_wheel",
     srcs = ["py_unpacked_wheel.bzl"],
     deps = [
+        ":pth",
         ":py_library",
         ":py_semantics",
         "//py/private/toolchain:types",

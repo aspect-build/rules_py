@@ -5,10 +5,10 @@ without binding them to a particular version of that package.
 """
 
 load("@bazel_skylib//lib:new_sets.bzl", "sets")
-load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private:providers.bzl", "PyVirtualInfo")
+load("//py/private:pth.bzl", "make_imports_depset")
 
 def _make_instrumented_files_info(ctx, extra_source_attributes = [], extra_dependency_attributes = []):
     return coverage_common.instrumented_files_info(
@@ -98,61 +98,13 @@ def _resolve_virtuals(ctx, ignore_missing = False):
         missing = missing,
     )
 
-def _make_import_path(label, workspace, imp):
-    if imp.startswith("/"):
-        fail(
-            "Import path '{imp}' on target {target} is invalid. Absolute paths are not supported.".format(
-                imp = imp,
-                target = str(label),
-            ),
-        )
-
-    base_segments = label.package.split("/")
-    path_segments = imp.split("/")
-
-    relative_segments = 0
-    for segment in path_segments:
-        if segment == "..":
-            relative_segments += 1
-        else:
-            break
-
-    # Check if the relative segments that the import path starts with match the number of segments in the base path
-    # that would break use out of the workspace root.
-    # The +1 is base_segments would take the path to the root, then one more to escape.
-    if relative_segments == (len(base_segments) + 1):
-        fail(
-            "Import path '{imp}' on target {target} is invalid. Import paths must not escape the workspace root".format(
-                imp = imp,
-                target = str(label),
-            ),
-        )
-
-    if imp.startswith(".."):
-        return paths.normalize(paths.join(workspace, *(base_segments[0:-relative_segments] + path_segments[relative_segments:])))
-    else:
-        return paths.normalize(paths.join(workspace, label.package, imp))
-
 def _make_imports_depset(ctx, imports = [], extra_imports_depsets = []):
-    import_paths = [
-        _make_import_path(ctx.label, ctx.label.workspace_name or ctx.workspace_name, im)
-        for im in getattr(ctx.attr, "imports", imports)
-    ] + [
-        # Add the workspace name in the imports such that repo-relative imports work.
-        ctx.workspace_name,
-    ]
-
-    # Handle the case where its a target from an external workspace that uses repo-relative imports
-    if ctx.label.workspace_name:
-        import_paths.append(ctx.label.workspace_name)
-
-    return depset(
-        direct = import_paths,
-        transitive = [
-            target[PyInfo].imports
-            for target in getattr(ctx.attr, "deps", [])
-            if PyInfo in target
-        ] + extra_imports_depsets,
+    return make_imports_depset(
+        deps = getattr(ctx.attr, "deps", []),
+        imports = getattr(ctx.attr, "imports", imports),
+        workspace_name = ctx.workspace_name,
+        label = ctx.label,
+        extra_imports_depsets = extra_imports_depsets,
     )
 
 def _make_merged_runfiles(ctx, extra_depsets = [], extra_runfiles = [], extra_runfiles_depsets = []):

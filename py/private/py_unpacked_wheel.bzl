@@ -2,6 +2,7 @@
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@rules_python//python:defs.bzl", "PyInfo")
+load("//py/private:pth.bzl", "make_imports_depset")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "UNPACK_TOOLCHAIN")
@@ -39,7 +40,12 @@ def _py_unpacked_wheel_impl(ctx):
         ),
         "site-packages",
     )
-    imports = _py_library.make_imports_depset(ctx, imports = [import_path])
+    imports = make_imports_depset(
+        deps = getattr(ctx.attr, "deps", []),
+        imports = [import_path],
+        workspace_name = ctx.workspace_name,
+        label = ctx.label,
+    )
 
     return [
         DefaultInfo(
