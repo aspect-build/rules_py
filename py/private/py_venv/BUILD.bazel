@@ -49,8 +49,8 @@ bzl_library(
     ],
     deps = [
         ":types.bzl",
-        "//py/private:pth",
         "//py/private:providers",
+        "//py/private:pth",
         "//py/private:py_library",
         "//py/private:py_semantics",
         "//py/private:transitions",
