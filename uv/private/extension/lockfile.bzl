@@ -198,13 +198,15 @@ def collect_bdists(lock_data):
         for bdist in package.get("wheels", []):
             identifier = None
             if "hash" in bdist:
-                identifier = bdist["hash"].split(":")[1][:16]
+                hash = bdist["hash"]
+                identifier = hash.split(":")[1][:16]
             else:
-                identifier = sha1(bdist["url"])[:16]
+                hash = sha1(bdist["url"])
+                identifier = hash[:16]
 
             bdist_repo_name = "whl__{}__{}".format(package["name"], identifier)
             bdist_specs[bdist_repo_name] = bdist
-            bdist_table[bdist["hash"]] = "@{}//file".format(bdist_repo_name)
+            bdist_table[hash] = "@{}//file".format(bdist_repo_name)
 
     return bdist_specs, bdist_table
 
