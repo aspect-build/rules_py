@@ -38,6 +38,16 @@ def _make_import_path(label, workspace, imp):
 def make_imports_depset(deps, imports, workspace_name, label = None, extra_imports_depsets = []):
     """Build an imports depset from PyInfo providers and explicit import paths.
 
+    This helper merges transitive imports from `deps` and resolves any relative
+    `imports` against the target's package. It also automatically appends the
+    workspace root so that repo-relative imports work:
+
+    - The current `workspace_name` is always appended.
+    - If `label` is provided and it originates from an external workspace,
+      `label.workspace_name` is appended as well.
+
+    This means callers do not need to manually add the workspace root.
+
     Args:
         deps: List of targets that provide PyInfo. Their transitive imports are merged.
         imports: List of explicit import path strings. Relative paths (e.g. "..")
@@ -57,10 +67,8 @@ def make_imports_depset(deps, imports, workspace_name, label = None, extra_impor
     else:
         import_paths = list(imports)
 
-    # Add the workspace name in the imports such that repo-relative imports work.
     import_paths.append(workspace_name)
 
-    # Handle the case where its a target from an external workspace that uses repo-relative imports
     if label and label.workspace_name:
         import_paths.append(label.workspace_name)
 
@@ -75,6 +83,21 @@ def make_imports_depset(deps, imports, workspace_name, label = None, extra_impor
 
 def write_pth_file(ctx, name, imports_depset, escape = None):
     """Create a .pth file from an imports depset.
+
+    A `.pth` file is dropped into the venv's `site-packages` directory so that
+    the interpreter adds those directories to `sys.path` at startup.
+
+    When `escape` is provided, it is prepended to every import path and also
+    written as the first line of the file. This is used by `py_binary` because
+    the `.pth` file lives deep inside the venv tree, e.g.:
+
+        {name}.runfiles/.{name}.venv/lib/python{version}/site-packages/{name}.pth
+
+    The `escape` value is the relative path from `site-packages` back to the
+    runfiles root (e.g. `../../../../..`). By writing it as the first line, the
+    runfiles root itself becomes importable, which is required by a few targets
+    (notably `@rules_python//python/runfiles`) that rely on the root being on
+    `sys.path` but have no `imports` attribute to hint that they need it.
 
     Args:
         ctx: The rule context.
