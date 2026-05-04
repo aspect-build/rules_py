@@ -32,6 +32,11 @@ def _py_binary_rule_impl(ctx):
         extra_imports_depsets = virtual_resolution.imports,
     )
 
+    # All "import" paths from `py_library` start with the workspace name, so we need to go back up the tree for
+    # each segment from site-packages in the venv to the root of the runfiles tree.
+    # Five .. will get us back to the root of the venv:
+    # {name}.runfiles/.{name}.venv/lib/python{version}/site-packages/first_party.pth
+    # If the target is defined with a slash, it adds to the level of nesting
     target_depth = len(ctx.label.name.split("/")) - 1
     escape = "/".join(([".."] * (4 + target_depth)))
 
