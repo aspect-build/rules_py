@@ -3,6 +3,7 @@
 load("@bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
 load("@bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+load("//py/private:pth.bzl", "write_pth_file")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private:transitions.bzl", "python_version_transition")
@@ -66,16 +67,7 @@ def _py_venv_base_impl(ctx):
     # Note that this adds the workspace root for us (sigh), don't need to add to it
     imports_depset = _py_library.make_imports_depset(ctx, extra_imports_depsets = virtual_resolution.imports)
 
-    pth_lines = ctx.actions.args()
-    pth_lines.use_param_file("%s", use_always = True)
-    pth_lines.set_param_file_format("multiline")
-    pth_lines.add_all(imports_depset)
-
-    site_packages_pth_file = ctx.actions.declare_file("{}.pth".format(ctx.attr.name))
-    ctx.actions.write(
-        output = site_packages_pth_file,
-        content = pth_lines,
-    )
+    site_packages_pth_file = write_pth_file(ctx, ctx.attr.name, imports_depset)
 
     env_file = ctx.actions.declare_file("{}.env".format(ctx.attr.name))
 

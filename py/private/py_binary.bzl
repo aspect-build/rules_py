@@ -3,6 +3,7 @@
 load("@bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
 load("@bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
 load("@rules_python//python:defs.bzl", "PyInfo")
+load("//py/private:pth.bzl", "write_pth_file")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "VENV_TOOLCHAIN")
@@ -25,10 +26,6 @@ def _py_binary_rule_impl(ctx):
     virtual_resolution = _py_library.resolve_virtuals(ctx)
     imports_depset = _py_library.make_imports_depset(ctx, extra_imports_depsets = virtual_resolution.imports)
 
-    pth_lines = ctx.actions.args()
-    pth_lines.use_param_file("%s", use_always = True)
-    pth_lines.set_param_file_format("multiline")
-
     # The venv is created at the root in the runfiles tree, in 'VENV_NAME', the full path is "${RUNFILES_DIR}/${VENV_NAME}",
     # but depending on if we are running as the top level binary or a tool, then $RUNFILES_DIR may be absolute or relative.
     # Paths in the .pth are relative to the site-packages folder where they reside.
@@ -45,15 +42,7 @@ def _py_binary_rule_impl(ctx):
     # which ends up in bazel_tools/tools/python/runfiles/runfiles.py, but there are no imports attrs that hint we
     # should be adding the root to the PYTHONPATH
     # Maybe in the future we can opt out of this?
-    pth_lines.add(escape)
-
-    pth_lines.add_all(imports_depset, format_each = "{}/%s".format(escape))
-
-    site_packages_pth_file = ctx.actions.declare_file("{}.pth".format(ctx.attr.name))
-    ctx.actions.write(
-        output = site_packages_pth_file,
-        content = pth_lines,
-    )
+    site_packages_pth_file = write_pth_file(ctx, ctx.attr.name, imports_depset, escape)
 
     default_env = {
         "BAZEL_TARGET": str(ctx.label).lstrip("@"),
