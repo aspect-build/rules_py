@@ -88,5 +88,19 @@ pub fn unpack_wheel(
     )
     .into_diagnostic()?;
 
+    // Guard against silent empty-output failures. If install_wheel wrote to a
+    // path-mapped location instead of `location` (e.g. due to
+    // bazelbuild/bazel#28910 when running unsandboxed with
+    // --experimental_output_paths=strip), site-packages will be absent and
+    // Bazel would cache an empty install/ directory without any error.
+    if !site_packages_dir.exists() {
+        miette::bail!(
+            "wheel installation produced no output: {} does not exist after install_wheel. \
+             If --experimental_output_paths=strip is enabled, do not override WhlInstall \
+             to run with a local unsandboxed strategy (see bazelbuild/bazel#28910).",
+            site_packages_dir.display()
+        );
+    }
+
     Ok(())
 }
