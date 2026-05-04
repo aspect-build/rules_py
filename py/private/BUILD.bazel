@@ -31,9 +31,15 @@ bzl_library(
 )
 
 bzl_library(
+    name = "pth",
+    srcs = ["pth.bzl"],
+)
+
+bzl_library(
     name = "py_binary",
     srcs = ["py_binary.bzl"],
     deps = [
+        ":pth",
         ":py_library",
         "@bazel_lib//lib:expand_make_vars",
         "@bazel_lib//lib:paths",
