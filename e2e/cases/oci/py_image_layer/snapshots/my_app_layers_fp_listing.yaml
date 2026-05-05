@@ -1,8 +1,11 @@
 ---
 layer: 0
 files:
-  - -rwxr-xr-x  0 0      0       17158 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/install/lib/python3.11/site-packages/colorama-0.4.6.dist-info/METADATA
-  - -rwxr-xr-x  0 0      0        1491 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/install/lib/python3.11/site-packages/colorama-0.4.6.dist-info/licenses/LICENSE.txt
+  - -rwxr-xr-x  0 0      0          42 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/branding/__init__.py
+  - -rwxr-xr-x  0 0      0          31 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/branding/palette.txt
+---
+layer: 1
+files:
   - -rwxr-xr-x  0 0      0         266 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/install/lib/python3.11/site-packages/colorama/__init__.py
   - -rwxr-xr-x  0 0      0        2522 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/install/lib/python3.11/site-packages/colorama/ansi.py
   - -rwxr-xr-x  0 0      0       11128 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/install/lib/python3.11/site-packages/colorama/ansitowin32.py
@@ -17,7 +20,12 @@ files:
   - -rwxr-xr-x  0 0      0        6181 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/install/lib/python3.11/site-packages/colorama/win32.py
   - -rwxr-xr-x  0 0      0        7134 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/install/lib/python3.11/site-packages/colorama/winterm.py
 ---
-layer: 1
+layer: 2
+files:
+  - -rwxr-xr-x  0 0      0       17158 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/install/lib/python3.11/site-packages/colorama-0.4.6.dist-info/METADATA
+  - -rwxr-xr-x  0 0      0        1491 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/install/lib/python3.11/site-packages/colorama-0.4.6.dist-info/licenses/LICENSE.txt
+---
+layer: 3
 files:
   - -rwxr-xr-x  0 0      0        1555 Jan  1  2023 ./app
   - -rwxr-xr-x  0 0      0          14 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/._my_app_bin.venv/_wheels/89fe6648/lib/python3.11/site-packages/colorama-0.4.6.dist-info/INSTALLER
@@ -64,8 +72,6 @@ files:
   - -rwxr-xr-x  0 0      0         160 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/._my_app_bin.venv/pyvenv.cfg
   - -rwxr-xr-x  0 0      0         276 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/__main__.py
   - -rwxr-xr-x  0 0      0        1274 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/_my_app_bin.venv
-  - -rwxr-xr-x  0 0      0          42 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/branding/__init__.py
-  - -rwxr-xr-x  0 0      0          31 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/branding/palette.txt
   - -rwxr-xr-x  0 0      0        5759 Jan  1  2023 ./app.runfiles/_main/tools/verify_venv/verify_venv.py
   - -rwxr-xr-x  0 0      0         158 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/2to3
   - -rwxr-xr-x  0 0      0         158 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/2to3-3.11

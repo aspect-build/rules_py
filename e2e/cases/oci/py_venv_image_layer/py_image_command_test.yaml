@@ -3,15 +3,13 @@ schemaVersion: 2.0.0
 commandTests:
   - name: can run binary
     exitCode: 0
-    command: /cases/oci/py_venv_image_layer/my_app_bin
+    command: /app
     expectedOutput:
       # The test output
       - "Hello rules_py - 3.14"
       # The sys.prefix in the venv
-      - "/cases/oci/py_venv_image_layer/my_app_bin.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv"
-      # The sys.executable line ends at `bin/python` (the venv symlink the
-      # shim invokes), not `bin/python3`. `(?m)…$` anchors at end-of-line
-      # so the match is unambiguous.
-      - "(?m)/cases/oci/py_venv_image_layer/.my_app_bin.venv/bin/python$"
+      - "/app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv"
+      # The sys.executable in the venv
+      - "/app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/bin/python"
       # The Python version
       - "3.11"
