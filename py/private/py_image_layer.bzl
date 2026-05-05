@@ -34,6 +34,54 @@ load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@tar.bzl//tar:mtree.bzl", "mtree_mutate", "mtree_spec")
 load("@tar.bzl//tar:tar.bzl", "tar")
 
+# Resolve filesystem-level symlinks in mtree specs so that tars preserve them.
+#
+# mtree_spec records every file as type=file with a distinct content= path, even
+# when files are symlinks to each other (e.g. python/python3 -> python3.13 in the
+# Python toolchain). Without this, the tar contains multiple full copies.
+#
+# Detection uses two-step readlink in the Bazel sandbox:
+#   1. readlink(sandbox_path) -> absolute cache path (always succeeds in sandbox)
+#   2. readlink(cache_path) -> non-empty only if the real file is a symlink
+# Only relative targets from step 2 are converted; absolute targets are cross-repo
+# ctx.actions.symlink references that would break in containers.
+#
+# A Starlark rule (not a genrule) is required because genrules cannot access
+# runfiles from srcs — only DefaultInfo.default_runfiles gives sandbox access.
+#
+# See: https://github.com/aspect-build/rules_py/issues/567
+
+_RESOLVE_SYMLINKS_SCRIPT = """\
+/type=file/ && /content=/ {
+    match($0, /content=[^ ]+/); split(substr($0, RSTART, RLENGTH), p, "=")
+    c = ""; cmd = "readlink \\\"" p[2] "\\\""; cmd | getline c; close(cmd)
+    if (c != "") { t = ""; cmd2 = "readlink \\\"" c "\\\""; cmd2 | getline t; close(cmd2)
+        if (t != "" && t !~ /^\\//) { sub(/type=file/, "type=link"); sub(/content=[^ ]+/, "link=" t) }
+    }
+} 1"""
+
+def _resolve_symlinks_impl(ctx):
+    out = ctx.outputs.out
+    ctx.actions.run_shell(
+        command = "awk '%s' %s > %s" % (_RESOLVE_SYMLINKS_SCRIPT, ctx.file.mtree.path, out.path),
+        inputs = depset([ctx.file.mtree], transitive = [
+            s[DefaultInfo].default_runfiles.files
+            for s in ctx.attr.srcs
+        ]),
+        outputs = [out],
+    )
+    return [DefaultInfo(files = depset([out]))]
+
+_resolve_symlinks = rule(
+    doc = "Post-process an mtree spec to convert filesystem symlinks to type=link entries.",
+    implementation = _resolve_symlinks_impl,
+    attrs = {
+        "mtree": attr.label(mandatory = True, allow_single_file = True),
+        "srcs": attr.label_list(mandatory = True),
+        "out": attr.output(mandatory = True),
+    },
+)
+
 default_layer_groups = {
     # match *only* external repositories containing a Python interpreter,
     # by matching the interpreter repo naming convention:
@@ -158,23 +206,28 @@ def py_image_layer(
     # Produce the manifest for a tar file of our py_binary, but don't tar it up yet, so we can split
     # into fine-grained layers for better pull, push and remote cache performance.
     manifest_name = name + ".manifest"
+    mtree_spec(
+        name = manifest_name + ".raw",
+        srcs = [binary],
+        **kwargs
+    )
+    _resolve_symlinks(
+        name = manifest_name + ".symlinks_resolved",
+        mtree = manifest_name + ".raw",
+        srcs = [binary],
+        out = manifest_name + ".symlinks_resolved.mtree",
+    )
     if owner:
-        mtree_spec(
-            name = manifest_name + ".preprocessed",
-            srcs = [binary],
-            **kwargs
-        )
         mtree_mutate(
             name = manifest_name,
-            mtree = name + ".manifest.preprocessed",
+            mtree = manifest_name + ".symlinks_resolved",
             owner = owner,
             group = group,
         )
     else:
-        mtree_spec(
+        native.filegroup(
             name = manifest_name,
-            srcs = [binary],
-            **kwargs
+            srcs = [manifest_name + ".symlinks_resolved"],
         )
 
     groups = dict(**layer_groups)
