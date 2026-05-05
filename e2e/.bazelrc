@@ -10,8 +10,8 @@ common --repo_env=BAZEL_NO_APPLE_CPP_TOOLCHAIN=1
 # platform for gnu Linux targets. The auto-detected host platform doesn't include it, so we
 # use a custom platform that inherits host cpu/os constraints and adds gnu.2.28.
 common --enable_platform_specific_config
-common:linux --platforms=@aspect_rules_py//bazel/platforms:linux_gnu
-common:linux --host_platform=@aspect_rules_py//bazel/platforms:linux_gnu
+common:linux --platforms=//:linux_gnu
+common:linux --host_platform=//:linux_gnu
 
 # Configure a default venv
 # common --@pypi//venv=say
