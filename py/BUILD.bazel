@@ -7,6 +7,14 @@ alias(
     visibility = ["//visibility:public"],
 )
 
+# Users can set --@aspect_rules_py//py:layer_tier=//path:custom_tier to switch
+# the pip-package grouping + compression plan consumed by py_image_layer.
+label_flag(
+    name = "layer_tier",
+    build_setting_default = "//py/private:default_layer_tier",
+    visibility = ["//visibility:public"],
+)
+
 bzl_library(
     name = "defs",
     srcs = ["defs.bzl"],

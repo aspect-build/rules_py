@@ -1,7 +1,13 @@
 load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer")
+load("@bazel_features//:features.bzl", "bazel_features")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@container_structure_test//:defs.bzl", "container_structure_test")
 load("@rules_oci//oci:defs.bzl", "oci_image")
+
+# See cases/oci/py_venv_image_layer/BUILD.bazel for the rationale: Bazel 9
+# stages canonical repo names so `runfiles.bash` bootstrap can't locate
+# `bazel_tools/tools/bash/runfiles/runfiles.bash` by apparent name.
+_RUNS_BINARY_INCOMPATIBLE_WITH_BAZEL9 = ["@platforms//:incompatible"] if bazel_features.rules.merkle_cache_v2 else []
 
 platform(
     name = "exclude_turtle_linux_amd64",
@@ -26,6 +32,10 @@ py_binary(
 py_image_layer(
     name = "layers",
     binary = ":check_no_turtle",
+    # Remap the binary to /app so the launcher can find its venv at
+    # /app.runfiles/_main/cases/interpreter-features-836/.check_no_turtle/.
+    root = "/app",
+    strip_prefix = "cases/interpreter-features-836/check_no_turtle",
 )
 
 platform_transition_filegroup(
@@ -37,7 +47,7 @@ platform_transition_filegroup(
 oci_image(
     name = "image",
     base = "@ubuntu",
-    entrypoint = ["/{}/check_no_turtle".format(package_name())],
+    entrypoint = ["/app"],
     tars = [":layers"],
 )
 
@@ -55,5 +65,5 @@ container_structure_test(
     tags = ["requires-docker"],
     target_compatible_with = [
         "@platforms//cpu:x86_64",
-    ],
+    ] + _RUNS_BINARY_INCOMPATIBLE_WITH_BAZEL9,
 )
