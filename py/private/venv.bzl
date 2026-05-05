@@ -412,16 +412,42 @@ def assemble_venv(
     )
     declared.append(pyvenv_cfg)
 
-    # bin/python — symlink to the real interpreter. We use target_file
-    # (resolved symlink) rather than target_path (unresolved) so that
-    # downstream tooling like py_image_layer / mtree_spec can follow the
-    # symlink and include the interpreter in tar layers. PR4 will revisit
-    # this with mtree_preserve_symlinks for proper OCI container support.
-    bin_python = ctx.actions.declare_file("{}/bin/python".format(venv_name))
-    ctx.actions.symlink(
-        output = bin_python,
-        target_file = py_toolchain.python,
-    )
+    # bin/python — the symlink the launcher exec's and that Python reads
+    # to compute sys.base_prefix. We emit an UNRESOLVED symlink
+    # (`declare_symlink` + `target_path`) with an explicit relative
+    # target rather than a `declare_file` + `target_file` on
+    # `py_toolchain.python` for two reasons:
+    #
+    #  1. `target_file` lets Bazel pick the symlink target, and the
+    #     choice differs across Bazel versions (Bazel 8 tends to write
+    #     relative, Bazel 9 absolute). Downstream tools that repack the
+    #     tar (`py_image_layer`) need a stable, runfiles-correct target.
+    #  2. Absolute targets bake in the build-host execroot path — in an
+    #     OCI container that path doesn't exist, bin/python becomes a
+    #     dangling symlink, Python falls back to its compile-time
+    #     `/install` base_prefix, then fails to locate the stdlib.
+    #
+    # From `<venv>/bin/`, walk up to the runfiles root (`.runfiles/`)
+    # and then down through the interpreter's rlocation path — which is
+    # exactly the shape `runfiles` libraries would compute. Up count:
+    # 1 (bin) + 1 (venv) + package_depth + 1 (workspace) = 3 + pkg.
+    # For system-interpreter (no runfiles_interpreter), fall back to the
+    # absolute path — these are already non-hermetic by construction.
+    bin_python = ctx.actions.declare_symlink("{}/bin/python".format(venv_name))
+    if py_toolchain.runfiles_interpreter:
+        bin_to_runfiles_root = "/".join([".."] * (3 + package_depth))
+        ctx.actions.symlink(
+            output = bin_python,
+            target_path = "{}/{}".format(
+                bin_to_runfiles_root,
+                to_rlocation_path(ctx, py_toolchain.python),
+            ),
+        )
+    else:
+        ctx.actions.symlink(
+            output = bin_python,
+            target_path = py_toolchain.python.path,
+        )
     declared.append(bin_python)
 
     # Versioned python symlinks: python3, python3.<MAJ>.<MIN>, and on
