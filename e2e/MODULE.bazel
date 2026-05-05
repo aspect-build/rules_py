@@ -103,7 +103,7 @@ use_repo(importer, "myrepo")
 
 # For cases/uv-toolchain
 # {{{
-uv_bin = use_extension("@aspect_rules_py//uv/unstable:extension.bzl", "uv_bin")
+uv_bin = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv_bin")
 uv_bin.toolchain(version = "0.11.6")
 
 # A second hub, pinned to an older version.

@@ -108,7 +108,7 @@ alias(
     visibility = ["//visibility:public"],
 )
 # TODO(v2): Remove. Previously selected the raw .whl via a cfg transition; that
-# machinery is gone and wheels are now carried by PyWheelInfo on :{name}.
+# machinery is gone and wheels are now carried by PyWheelsInfo on :{name}.
 # Kept as an alias because external callers may reference @hub//<pkg>:whl.
 alias(
     name = "whl",

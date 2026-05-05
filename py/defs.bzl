@@ -46,9 +46,7 @@ load(
     "//py/private/py_venv:py_venv.bzl",
     _py_binary_with_venv = "py_binary_with_venv",
     _py_venv = "py_venv",
-    _py_venv_binary = "py_venv_binary",
     _py_venv_link = "py_venv_link",
-    _py_venv_test = "py_venv_test",
 )
 
 py_pex_binary = _py_pex_binary
@@ -56,15 +54,6 @@ py_pytest_main = _py_pytest_main
 
 py_venv = _py_venv
 py_venv_link = _py_venv_link
-
-# Removed in v2.0.0: calling these `fail()`s at analysis with a
-# migration message pointing at `py_binary` / `py_test` with
-# `expose_venv = True, isolated = False`. Kept exported here so that
-# `load("@aspect_rules_py//py:defs.bzl", "py_venv_binary")` resolves
-# and the call-site failure surfaces the friendly message (instead of
-# Bazel's generic "symbol not exported" error).
-py_venv_binary = _py_venv_binary
-py_venv_test = _py_venv_test
 
 py_binary_rule = _py_binary
 py_test_rule = _py_test

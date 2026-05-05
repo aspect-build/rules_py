@@ -19,10 +19,6 @@
   `py_venv`'s tree. Pair with `py_binary(expose_venv = True)` to hand
   your IDE a stable `.venv` symlink to point at.
 
-- `py_venv_binary` / `py_venv_test` — **removed in v2.0.0.** Left
-  behind as `fail()`-ing stubs that direct callers to
-  `py_binary` / `py_test` with `expose_venv = True, isolated = False`.
-
 Shared venv-assembly logic lives in
 `//py/private:venv.bzl::assemble_venv`. See that file's header for the
 layout details.
@@ -363,46 +359,6 @@ def py_binary_with_venv(py_rule, name, main, srcs = None, deps = None, data = No
         isolated = isolated,
         **kwargs
     )
-
-_REMOVED_MIGRATION = """\
-{rule}(name = "{name}") was removed in rules_py v2.0.0.
-
-Replacement: {new_rule} from @aspect_rules_py//py:defs.bzl, called with
-the two attributes that {rule} used to inject for you:
-
-    {new_rule}(
-        name = "{name}",
-        # ... existing attrs ...
-        expose_venv = True,
-        isolated = False,
-    )
-
-`expose_venv = True` splits the target into a sibling `:{name}.venv`
-py_venv (shareable via `external_venv`, runnable to drop into the
-interpreter) and a {new_rule} consuming it.
-`isolated = False` drops Python's `-I` flag so PYTHONPATH / script-dir
-auto-add / user-site behave the way they did under {rule}.
-
-If you don't need those specific semantics, plain `{new_rule}(...)`
-with no extra attrs is the common case — analysis-time venv assembly
-is built into the default shape.
-"""
-
-def py_venv_binary(name, **_kwargs):
-    """Removed in rules_py v2.0.0. Calling this macro fails with a migration message pointing at py_binary + expose_venv."""
-    fail(_REMOVED_MIGRATION.format(
-        rule = "py_venv_binary",
-        new_rule = "py_binary",
-        name = name,
-    ))
-
-def py_venv_test(name, **_kwargs):
-    """Removed in rules_py v2.0.0. Calling this macro fails with a migration message pointing at py_test + expose_venv."""
-    fail(_REMOVED_MIGRATION.format(
-        rule = "py_venv_test",
-        new_rule = "py_test",
-        name = name,
-    ))
 
 def py_venv_link(name, venv, link_name = None, **kwargs):
     """Emit a runnable target that materialises `venv` into the workspace.

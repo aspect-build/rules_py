@@ -13,10 +13,6 @@ Downstream rules (notably `py_binary`) use this to create one
 `ctx.actions.symlink` per top-level name, merging wheels into a single
 `site-packages/` tree without invoking a runtime tool, and to generate
 executable wrappers under `<venv>/bin/<name>` for console scripts.
-
-Distinct from `PyWheelInfo` — that provider carries raw wheel archive
-files for transitive collection (see `whl_requirements`); this one
-carries the metadata needed to shape site-packages at analysis time.
 """,
     fields = {
         "wheels": """Depset of `struct(top_levels, namespace_top_levels, site_packages_rfpath, console_scripts)`

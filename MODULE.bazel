@@ -248,7 +248,7 @@ pip.parse(
 use_repo(pip, "django")
 
 # For everything else, we use our own uv machinery
-uv_bin = use_extension("//uv:extension.bzl", "uv_bin", dev_dependency = IS_RELEASE)
+uv_bin = use_extension("//uv:extensions.bzl", "uv_bin", dev_dependency = IS_RELEASE)
 uv_bin.toolchain()
 use_repo(uv_bin, "uv")
 

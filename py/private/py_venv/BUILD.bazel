@@ -43,10 +43,7 @@ bzl_library(
 
 bzl_library(
     name = "py_venv",
-    srcs = [
-        "defs.bzl",
-        "py_venv.bzl",
-    ],
+    srcs = ["py_venv.bzl"],
     deps = [
         ":types.bzl",
         "//py/private:providers",
@@ -92,8 +89,3 @@ py_test(
     main = "test_link.py",
 )
 
-bzl_library(
-    name = "defs",
-    srcs = ["defs.bzl"],
-    deps = [":py_venv"],
-)
