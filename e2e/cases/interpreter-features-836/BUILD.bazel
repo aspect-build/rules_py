@@ -23,6 +23,7 @@ py_venv_binary(
     main = "__main__.py",
     tags = ["manual"],
     venv = "no-turtle-test",
+    venv_dir_basename = ".no-turtle-test",
 )
 
 py_image_layer(

@@ -10,6 +10,11 @@ runfiles_export_envvars
 
 set -o errexit -o nounset -o pipefail
 
-source "$(rlocation "{{VENV}}")"/bin/activate
+VENV_PYTHON="$(rlocation {{ARG_VENV_PYTHON}})"
+VENV_BIN="$(dirname "${VENV_PYTHON}")"
+VENV_HOME="$(dirname "${VENV_BIN}")"
 
-exec "$(rlocation "{{VENV}}")"/bin/python {{INTERPRETER_FLAGS}} "$@"
+export VIRTUAL_ENV="${VENV_HOME}"
+export PATH="${VENV_BIN}:${PATH-}"
+
+exec "${VENV_PYTHON}" {{INTERPRETER_FLAGS}} "$@"

@@ -47,14 +47,20 @@ print("---")
 
 print(sys.prefix)
 
+# Verify that conflicting modules are importable and originate from one
+# of our `a/` or `b/` fixtures. The venv assembly routes non-PyWheelsInfo
+# deps through `.pth` + `addsitedir`, so files stay where they were
+# declared rather than being materialised into the venv's site-packages.
 import conflict
 print(conflict.__file__)
-assert conflict.__file__.startswith(sys.prefix)
+assert "py_venv_conflict/a/" in conflict.__file__ or "py_venv_conflict/b/" in conflict.__file__
 
 import noconflict
 print(noconflict.__file__)
-assert noconflict.__file__.startswith(sys.prefix)
+assert "py_venv_conflict/a/" in noconflict.__file__ or "py_venv_conflict/b/" in noconflict.__file__
 
 import py_venv_conflict.lib as srclib
 print(srclib.__file__)
+# First-party `:lib` target's source file stays under the runfiles tree,
+# not inside the venv — same before and after the refactor.
 assert not srclib.__file__.startswith(sys.prefix)
