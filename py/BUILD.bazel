@@ -8,6 +8,13 @@ alias(
 )
 
 bzl_library(
+    name = "current_py_toolchain",
+    srcs = ["current_py_toolchain.bzl"],
+    visibility = ["//visibility:public"],
+    deps = ["//py/private/interpreter:current_py_toolchain"],
+)
+
+bzl_library(
     name = "defs",
     srcs = ["defs.bzl"],
     visibility = ["//visibility:public"],
@@ -20,6 +27,7 @@ bzl_library(
         "//py/private:py_unpacked_wheel",
         "//py/private:py_wheel",
         "//py/private:virtual",
+        "//py/private/interpreter:current_py_toolchain",
         "//py/private/py_venv",
         "@bazel_lib//lib:utils",
     ],
