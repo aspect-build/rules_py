@@ -1,6 +1,9 @@
-load("//py/private/py_venv:defs.bzl", "py_venv_test")
+load("//py:defs.bzl", "py_test")
 
-py_venv_test(
+# `isolated = False` is required so Python honors the user-site flag
+# (py_test defaults to `-I` which ignores user-site regardless of the
+# pyvenv.cfg `aspect-include-user-site-packages` key).
+py_test(
     name = "test",
     srcs = [
         "test.py",
@@ -10,7 +13,27 @@ py_venv_test(
     ],
     include_system_site_packages = True,
     include_user_site_packages = True,
+    isolated = False,
     main = "test.py",
+    deps = [
+        "@pypi//cowsay",
+    ],
+)
+
+py_test(
+    name = "venv_test",
+    srcs = [
+        "test.py",
+    ],
+    expose_venv = True,
+    imports = [
+        ".",
+    ],
+    include_system_site_packages = True,
+    include_user_site_packages = True,
+    isolated = False,
+    main = "test.py",
+    venv_dir_basename = ".venv_test",
     deps = [
         "@pypi//cowsay",
     ],

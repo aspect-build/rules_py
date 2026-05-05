@@ -1,0 +1,68 @@
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("//py:defs.bzl", "py_binary", "py_test", "py_venv")
+
+# Regression test: a single `py_venv` target should be consumable by
+# many `py_binary` + `py_test` targets via `external_venv`. This is
+# the shared-virtualenv pattern the README advertises — point many
+# entry points at one venv, IDE targets one `.venv/bin/python`, and
+# the analysis-time subset-coverage check rejects binaries whose dep
+# closure is not a subset of the venv's.
+#
+# Layout below:
+#   :venv         — one py_venv carrying cowsay + colorama + pytest
+#   :say          — py_binary using external_venv = :venv, imports cowsay
+#   :colorize     — py_binary using external_venv = :venv, imports colorama
+#   :test_venv    — py_test using external_venv = :venv, imports both
+#
+# The sh_tests pipe `bazel run`-equivalent executions through
+# `run_and_check.sh` to confirm the binaries succeed end-to-end.
+
+py_venv(
+    name = "venv",
+    imports = ["."],
+    deps = [
+        "@pypi//colorama",
+        "@pypi//cowsay",
+    ],
+)
+
+py_binary(
+    name = "say",
+    srcs = ["uses_cowsay.py"],
+    external_venv = ":venv",
+    main = "uses_cowsay.py",
+)
+
+py_binary(
+    name = "colorize",
+    srcs = ["uses_colorama.py"],
+    external_venv = ":venv",
+    main = "uses_colorama.py",
+)
+
+py_test(
+    name = "test_venv",
+    srcs = ["test_shared_venv.py"],
+    external_venv = ":venv",
+    main = "test_shared_venv.py",
+)
+
+sh_test(
+    name = "test_say",
+    srcs = ["run_and_check.sh"],
+    args = [
+        "say",
+        "hello from shared venv",
+    ],
+    data = [":say"],
+)
+
+sh_test(
+    name = "test_colorize",
+    srcs = ["run_and_check.sh"],
+    args = [
+        "colorize",
+        "hello from shared venv (colorama path)",
+    ],
+    data = [":colorize"],
+)
