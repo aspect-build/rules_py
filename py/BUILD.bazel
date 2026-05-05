@@ -25,17 +25,7 @@ bzl_library(
     ],
 )
 
-bzl_library(
-    name = "extensions",
-    srcs = ["extensions.bzl"],
-    visibility = ["//visibility:public"],
-    deps = [
-        ":toolchains",
-        "//py/private/release:version",
-        "@aspect_tools_telemetry_report//:defs.bzl",
-        "@bazel_features//:features",
-    ],
-)
+exports_files(["extensions.bzl"])
 
 bzl_library(
     name = "toolchains",

@@ -19,7 +19,7 @@ local_path_override(
 )
 
 # Python interpreters provisioned from python-build-standalone via aspect_rules_py
-interpreters = use_extension("@aspect_rules_py//py/unstable:extension.bzl", "python_interpreters")
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
 interpreters.configure(
     releases = [
         "20260303",
@@ -103,7 +103,7 @@ use_repo(importer, "myrepo")
 
 # For cases/uv-toolchain
 # {{{
-uv_bin = use_extension("@aspect_rules_py//uv/unstable:extension.bzl", "uv_bin")
+uv_bin = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv_bin")
 uv_bin.toolchain(version = "0.11.6")
 
 # A second hub, pinned to an older version.
@@ -151,7 +151,7 @@ use_repo(uv_bin, "uv", "uv_bazel_fork", "uv_custom", "uv_legacy", "uv_mirror")
 
 # For cases/uv-deps-650
 # {{{
-uv = use_extension("@aspect_rules_py//uv/unstable:extension.bzl", "uv")
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi")
 uv.project(
     hub_name = "pypi",

@@ -27,7 +27,7 @@ macOS.
 # MODULE.bazel
 bazel_dep(name = "aspect_rules_py", version = "1.6.7")  # Or later
 
-interpreters = use_extension("@aspect_rules_py//py/unstable:extension.bzl", "python_interpreters")
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
 interpreters.toolchain(
     is_default = True,
     python_version = "3.12",
@@ -48,7 +48,7 @@ full range of available Python versions. Use `configure()` to pin to specific
 releases or to include versions that have been dropped from newer releases:
 
 ```starlark
-interpreters = use_extension("@aspect_rules_py//py/unstable:extension.bzl", "python_interpreters")
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
 interpreters.configure(
     releases = ["20260303", "20241002"],
 )

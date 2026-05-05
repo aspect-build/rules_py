@@ -78,11 +78,11 @@ to swap a locked requirement (`cowsay`) for a local one.
 # MODULE.bazel
 bazel_dep(name = "aspect_rules_py", version = "1.6.7") # Or later
 
-uv_bin = use_extension("@aspect_rules_py//uv/unstable:extension.bzl", "uv_bin")
+uv_bin = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv_bin")
 uv_bin.toolchain(version = "0.11.6")
 use_repo(uv_bin, "uv")
 
-uv = use_extension("@aspect_rules_py//uv/unstable:extension.bzl", "uv")
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(
     hub_name = "pypi",      # Or whatever you wish
 )
@@ -322,7 +322,7 @@ this file from your locked wheels.
 
 ```starlark
 # BUILD.bazel (typically at the workspace root)
-load("@aspect_rules_py//uv/unstable:defs.bzl", "gazelle_python_manifest")
+load("@aspect_rules_py//uv:defs.bzl", "gazelle_python_manifest")
 
 gazelle_python_manifest(
     name = "gazelle_python_manifest",
