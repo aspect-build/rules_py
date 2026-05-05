@@ -18,6 +18,12 @@ local_path_override(
     path = "..",
 )
 
+# Ensure any transitive "aspect_bazel_lib" is latest to be forward compatible with bazel_lib 3+
+single_version_override(
+    module_name = "aspect_bazel_lib",
+    version = "2.22.5",
+)
+
 # Python interpreters provisioned from python-build-standalone via aspect_rules_py
 interpreters = use_extension("@aspect_rules_py//py/unstable:extension.bzl", "python_interpreters")
 interpreters.configure(
