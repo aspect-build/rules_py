@@ -207,15 +207,22 @@ match their historical permissive behaviour.""",
     "_allowlist_function_transition": attr.label(
         default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
     ),
+    # `data` is the only py_library attr the launcher reads (env-var
+    # location expansion, runfiles merge, coverage walk). `srcs`,
+    # `deps`, `imports`, `resolutions`, and `virtual_deps` are routed
+    # to the sibling py_venv by the macro layer and have no role on
+    # the launcher rule.
+    "data": attr.label_list(
+        doc = """Runtime dependencies of the program.
+
+The transitive closure of the `data` dependencies will be available in
+the `.runfiles` folder for this binary/test. The program may optionally
+use the Runfiles lookup library to locate the data files, see
+https://pypi.org/project/bazel-runfiles/.
+""",
+        allow_files = True,
+    ),
 })
-
-_attrs.update(**_py_library.attrs)
-
-# `srcs` and `deps` are not rule-level attrs — the public macros route
-# both to the sibling py_venv. Pop them after pulling py_library's attr
-# dict so the rule rejects direct settings.
-_attrs.pop("srcs", None)
-_attrs.pop("deps", None)
 
 _test_attrs = dict({
     "env_inherit": attr.string_list(
