@@ -25,7 +25,7 @@ provide the package name with `virtual_deps = ["django"]`.
 
 ## Resolving to a package installed by rules_python
 
-Typically, users write one or more `pip_parse` statements in `WORKSPACE` or `pip.parse` in `MODULE.bazel` to read requirements files, and install the referenced packages into an external repository. For example, from the [rules_python docs](https://rules-python.readthedocs.io/en/latest/pypi-dependencies.html#using-dependencies-from-pypi):
+Typically, users write one or more `pip.parse` statements in `MODULE.bazel` to read requirements files, and install the referenced packages into an external repository. For example, from the [rules_python docs](https://rules-python.readthedocs.io/en/latest/pypi-dependencies.html#using-dependencies-from-pypi):
 
 ```
 pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")

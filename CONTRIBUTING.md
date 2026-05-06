@@ -21,16 +21,16 @@ Run `bazel run //:gazelle` to keep them up-to-date.
 
 ## Using this as a development dependency of other rules
 
-You'll commonly find that you develop in another WORKSPACE, such as
-some other ruleset that depends on rules_py, or in a nested
-WORKSPACE in the integration_tests folder.
+You'll commonly find that you develop in another Bazel module, such as
+some other ruleset that depends on rules_py, or in a nested module in
+the integration_tests folder.
 
 To always tell Bazel to use this directory rather than some release
 artifact or a version fetched from the internet, run this from this
 directory:
 
 ```sh
-OVERRIDE="--override_repository=aspect_rules_py=$(pwd)/rules_py"
+OVERRIDE="--override_module=aspect_rules_py=$(pwd)/rules_py"
 echo "common $OVERRIDE" >> ~/.bazelrc
 ```
 

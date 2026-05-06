@@ -29,14 +29,14 @@ def _toolchains_extension_impl(module_ctx):
 
             # Ensure the root wins in case of differences
             if mod.is_root:
-                rules_py_toolchains(toolchain.name, register = False, is_prerelease = toolchain.is_prerelease)
+                rules_py_toolchains(toolchain.name, is_prerelease = toolchain.is_prerelease)
                 root_name = toolchain.name
             else:
                 registrations.append(toolchain.name)
 
     for name in registrations:
         if name != root_name:
-            rules_py_toolchains(name, register = False)
+            rules_py_toolchains(name)
 
     if not features.external_deps.extension_metadata_has_reproducible:
         return None
