@@ -4,29 +4,7 @@ and [py_test](https://bazel.build/reference/be/python#py_test)
 ## Choosing the Python version
 
 The `python_version` attribute must refer to a python toolchain version
-which has been registered in the WORKSPACE or MODULE.bazel file.
-
-When using WORKSPACE, this may look like this:
-
-```starlark
-load("@rules_python//python:repositories.bzl", "py_repositories", "python_register_toolchains")
-
-python_register_toolchains(
-    name = "python_toolchain_3_8",
-    python_version = "3.8.12",
-    # setting set_python_version_constraint makes it so that only matches py_* rule
-    # which has this exact version set in the `python_version` attribute.
-    set_python_version_constraint = True,
-)
-
-# It's important to register the default toolchain last it will match any py_* target.
-python_register_toolchains(
-    name = "python_toolchain",
-    python_version = "3.9",
-)
-```
-
-Configuring for MODULE.bazel may look like this:
+which has been registered in the `MODULE.bazel` file, e.g.:
 
 ```starlark
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")

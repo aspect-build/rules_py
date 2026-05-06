@@ -43,7 +43,6 @@ bzl_library(
     visibility = ["//visibility:public"],
     deps = [
         "//py/private/release:version",
-        "//py/private/toolchain:autodetecting",
         "//py/private/toolchain:repo",
         "//py/private/toolchain:tools",
         "@bazel_features//:features",

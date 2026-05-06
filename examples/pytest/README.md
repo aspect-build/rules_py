@@ -6,8 +6,8 @@ same way the `pytest` command-line does.
 
 ## How to use
 
-After importing this repository into your `WORKSPACE`, add the following to your Bazel packages
-which contain `_test.py` files:
+After adding `aspect_rules_py` as a `bazel_dep` in your `MODULE.bazel`, add the following to your
+Bazel packages which contain `_test.py` files:
 
 ```python
 load("@aspect_rules_py//py:defs.bzl", "py_pytest_main")

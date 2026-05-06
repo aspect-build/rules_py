@@ -2,36 +2,25 @@
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 load("//py/private/release:version.bzl", "IS_PRERELEASE")
-load("//py/private/toolchain:autodetecting.bzl", _register_autodetecting_python_toolchain = "register_autodetecting_python_toolchain")
 load("//py/private/toolchain:repo.bzl", "prebuilt_tool_repo", "prerelease_toolchains_repo", "toolchains_repo")
 load("//py/private/toolchain:tools.bzl", "TOOLCHAIN_PLATFORMS", "TOOL_CFGS")
 
-register_autodetecting_python_toolchain = _register_autodetecting_python_toolchain
-
 DEFAULT_TOOLS_REPOSITORY = "rules_py_tools"
 
-def rules_py_toolchains(name = DEFAULT_TOOLS_REPOSITORY, register = True, is_prerelease = IS_PRERELEASE):
+def rules_py_toolchains(name = DEFAULT_TOOLS_REPOSITORY, is_prerelease = IS_PRERELEASE):
     """Create a downloaded toolchain for every tool under every supported platform.
 
     Args:
         name: prefix used in created repositories
-        register: whether to call the register_toolchains, should be True for WORKSPACE and False for bzlmod.
         is_prerelease: True iff there are no pre-built tool binaries for this version of rules_py
     """
 
     if is_prerelease:
         prerelease_toolchains_repo(name = name)
-        if register:
-            for tool in TOOL_CFGS:
-                for tc in tool.source_toolchains:
-                    native.register_toolchains(tc)
     else:
         for platform in TOOLCHAIN_PLATFORMS.keys():
             prebuilt_tool_repo(name = ".".join([name, platform]), platform = platform)
         toolchains_repo(name = name, user_repository_name = name)
-
-        if register:
-            native.register_toolchains("@{}//:all".format(name))
 
     http_file(
         name = "rules_py_pex_2_3_1",
