@@ -6,6 +6,8 @@ internal `external_venv` attr) and exec its `bin/python`. The public
 attrs to the auto-generated sibling.
 """
 
+# TODO: rename this file to py_venv_exec.bzl.
+
 load("@bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
 load("@bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
 load("@rules_python//python:defs.bzl", "PyInfo")
