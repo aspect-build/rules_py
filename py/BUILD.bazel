@@ -20,7 +20,7 @@ bzl_library(
         "//py/private:py_unpacked_wheel",
         "//py/private:py_wheel",
         "//py/private:virtual",
-        "//py/private/py_venv:defs",
+        "//py/private/py_venv",
         "@bazel_lib//lib:utils",
     ],
 )

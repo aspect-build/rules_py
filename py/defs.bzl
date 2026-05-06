@@ -35,24 +35,26 @@ python.toolchain(python_version = "3.9", is_default = True)
 ```
 """
 
-load("//py/private:py_binary.bzl", _py_binary = "py_binary", _py_test = "py_test")
+load("//py/private:py_binary.bzl", _py_venv_exec = "py_venv_exec", _py_venv_exec_test = "py_venv_exec_test")
 load("//py/private:py_image_layer.bzl", _py_image_layer = "py_image_layer")
 load("//py/private:py_library.bzl", _py_library = "py_library")
 load("//py/private:py_pex_binary.bzl", _py_pex_binary = "py_pex_binary")
 load("//py/private:py_pytest_main.bzl", _py_pytest_main = "py_pytest_main", _pytest_paths = "pytest_paths")
 load("//py/private:py_unpacked_wheel.bzl", _py_unpacked_wheel = "py_unpacked_wheel")
 load("//py/private:virtual.bzl", _resolutions = "resolutions")
-load("//py/private/py_venv:defs.bzl", _py_venv_link = "py_venv_link")
+load(
+    "//py/private/py_venv:py_venv.bzl",
+    _py_binary_with_venv = "py_binary_with_venv",
+    _py_venv = "py_venv",
+    _py_venv_link = "py_venv_link",
+)
 
 py_pex_binary = _py_pex_binary
 py_pytest_main = _py_pytest_main
 
-# FIXME: Badly chosen name; will be replaced/migrated
-py_venv = _py_venv_link
+py_venv = _py_venv
 py_venv_link = _py_venv_link
 
-py_binary_rule = _py_binary
-py_test_rule = _py_test
 py_library = _py_library
 py_unpacked_wheel = _py_unpacked_wheel
 
@@ -60,33 +62,41 @@ py_image_layer = _py_image_layer
 
 resolutions = _resolutions
 
-def _py_binary_or_test(name, rule, srcs, main, data = [], deps = [], **kwargs):
-    rule(
-        name = name,
-        srcs = srcs,
-        main = main,
-        data = data,
-        deps = deps,
-        **kwargs
-    )
+def _resolve_main(name, srcs, main):
+    """Macro-time fallback for `main`. Mirrors `_determine_main` in
+    py_semantics.bzl, except it operates on label strings instead of
+    files because srcs no longer reaches the underlying rule. Order:
 
-    _py_venv_link(
-        name = "{}.venv".format(name),
-        srcs = srcs,
-        data = data,
-        deps = deps,
-        imports = kwargs.get("imports"),
-        tags = ["manual"],
-        testonly = kwargs.get("testonly", False),
-        target_compatible_with = kwargs.get("target_compatible_with", []),
-        package_collisions = kwargs.get("package_collisions"),
-    )
+    1. Use `main` if set.
+    2. If `srcs` has exactly one entry, use it.
+    3. Look for a `<basename(name)>.py` suffix match in srcs.
+    """
+    if main != None:
+        return main
+    if len(srcs) == 1:
+        return srcs[0]
+    proposed = name.split("/")[-1] + ".py"
+    matches = [s for s in srcs if _label_endswith(s, proposed)]
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) > 1:
+        fail("py_binary {}: file '{}' matches multiple srcs: {}".format(name, proposed, [str(m) for m in matches]))
+    fail("py_binary {} has multiple srcs and no `main =`. Set main explicitly.".format(name))
+
+def _label_endswith(label_or_str, suffix):
+    s = str(label_or_str)
+    return s == suffix or s.endswith(":" + suffix) or s.endswith("/" + suffix)
 
 def py_binary(name, srcs = [], main = None, **kwargs):
-    """Wrapper macro for [`py_binary_rule`](#py_binary_rule).
+    """Build and run a Python binary.
 
-    Creates a [py_venv](./venv.md) target to constrain the interpreter and packages used at runtime.
-    Users can `bazel run [name].venv` to create this virtualenv, then use it in the editor or other tools.
+    Splits the call into a sibling `py_venv` (which carries srcs / deps
+    / imports / virtual_deps / resolutions / package_collisions /
+    include_*_site_packages / interpreter_options) plus a thin launcher
+    rule that exec's that venv's interpreter. Set `expose_venv = True`
+    to make the sibling a first-class `:{name}.venv` target — runnable
+    (`bazel run :{name}.venv` drops into the hermetic interpreter) and
+    pairable with `py_venv_link` for IDE integration.
 
     Args:
         name: Name of the rule.
@@ -95,7 +105,26 @@ def py_binary(name, srcs = [], main = None, **kwargs):
             Like rules_python, this is treated as a suffix of a file that should appear among the srcs.
             If absent, then `[name].py` is tried. As a final fallback, if the srcs has a single file,
             that is used as the main.
-        **kwargs: additional named parameters to `py_binary_rule`.
+
+            Note: the fallback runs at macro-evaluation time and operates
+            on label strings, not resolved files — it cannot inspect a
+            generated target's output basename. If `main` would resolve
+            to a file produced by another rule (e.g. a `genrule` whose
+            output happens to be `<name>.py`), the macro can't see that
+            and you must pass `main =` explicitly.
+        **kwargs: additional named parameters forwarded to the
+            underlying rule and the sibling py_venv. One extra is
+            handled by this macro:
+
+            * `expose_venv` (bool, default `False`) — when `True`, emit
+              a sibling `:{name}.venv` py_venv carrying all venv-shaping
+              attrs (deps, imports, package_collisions,
+              include_*_site_packages, interpreter_options). The `.venv`
+              target is runnable (`bazel run :{name}.venv` drops into
+              the hermetic interpreter). To also materialise the venv as
+              a workspace-local symlink for IDE integration, declare an
+              explicit `py_venv_link(name = "...", venv = ":{name}.venv")`
+              target.
     """
 
     # For a clearer DX when updating resolutions, the resolutions dict is "string" -> "label",
@@ -104,11 +133,11 @@ def py_binary(name, srcs = [], main = None, **kwargs):
     if resolutions:
         resolutions = resolutions.to_label_keyed_dict()
 
-    _py_binary_or_test(
+    _py_binary_with_venv(
+        _py_venv_exec,
         name = name,
-        rule = _py_binary,
         srcs = srcs,
-        main = main,
+        main = _resolve_main(name, srcs, main),
         resolutions = resolutions,
         **kwargs
     )
@@ -125,7 +154,8 @@ def py_test(name, srcs = [], main = None, pytest_main = False, **kwargs):
             that is used as the main.
         pytest_main: If True, use a shared pytest entry point as the main.
             The deps should include the pytest package (as well as the coverage package if desired).
-        **kwargs: additional named parameters to `py_binary_rule`.
+        **kwargs: additional named parameters forwarded to the
+            underlying rule and the sibling py_venv.
     """
 
     # Ensure that any other targets we write will be testonly like the py_test target
@@ -162,12 +192,12 @@ def py_test(name, srcs = [], main = None, pytest_main = False, **kwargs):
         data.append(paths_target)
         kwargs["data"] = data
 
-    _py_binary_or_test(
+    _py_binary_with_venv(
+        _py_venv_exec_test,
         name = name,
-        rule = _py_test,
         srcs = srcs,
         deps = deps,
-        main = main,
+        main = _resolve_main(name, srcs, main),
         resolutions = resolutions,
         **kwargs
     )

@@ -24,9 +24,13 @@ def _python_transition_impl(settings, attr):
     acc[PYTHON_VERSION_FLAG] = version
     acc[_RPY_VERSION_FLAG] = version
 
-    # Set the venv transition
-    if attr.venv:
-        acc[VENV_FLAG] = str(attr.venv)
+    # Set the venv transition. The attr is only present on `py_venv`
+    # (rules without it propagate the inherited setting; `py_venv_exec`
+    # is config-agnostic — its runfiles inherit the venv's wheels at
+    # whatever VENV_FLAG the venv resolved under).
+    venv = getattr(attr, "venv", None)
+    if venv:
+        acc[VENV_FLAG] = str(venv)
     else:
         acc[VENV_FLAG] = settings[VENV_FLAG]
 

@@ -1,13 +1,19 @@
-"""Implementation for the py_binary and py_test rules."""
+"""Implementation for the py_venv_exec and py_venv_exec_test rules.
+
+Both are thin launchers that consume a sibling `py_venv` (passed via the
+internal `external_venv` attr) and exec its `bin/python`. The public
+`py_binary` / `py_test` macros wrap them and route all venv-shaping
+attrs to the auto-generated sibling.
+"""
+
+# TODO: rename this file to py_venv_exec.bzl.
 
 load("@bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
 load("@bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
 load("@rules_python//python:defs.bzl", "PyInfo")
-load("//py/private:pth.bzl", "make_imports_depset", "write_pth_file")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
-load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "VENV_TOOLCHAIN")
-load(":transitions.bzl", "python_version_transition")
+load("//py/private/py_venv:types.bzl", "VirtualenvInfo")
 
 def _dict_to_exports(env):
     return [
@@ -15,46 +21,59 @@ def _dict_to_exports(env):
         for (k, v) in env.items()
     ]
 
-def _py_binary_rule_impl(ctx):
-    venv_toolchain = ctx.toolchains[VENV_TOOLCHAIN]
-    py_toolchain = _py_semantics.resolve_toolchain(ctx)
+def _py_venv_exec_impl(ctx):
+    # The launcher itself doesn't need a python toolchain — it just
+    # exec's the sibling venv's `bin/python`, whose path was already
+    # resolved when the venv was analysed. Default interpreter flags
+    # come from a shared constant.
+    #
+    # The macro layer routes srcs / deps to the sibling py_venv (always
+    # set as `external_venv`) and passes an explicit `main =` to the
+    # rule. `main` is the only first-party file the rule contributes;
+    # everything else flows through the sibling venv.
+    if not ctx.attr.main:
+        fail("py_binary {}: main is required.".format(ctx.label))
+    main = ctx.file.main
+    if not main.basename.endswith(".py"):
+        fail("main must end in '.py', got: " + main.basename)
 
-    # Resolve our `main=` to a label, which it isn't
-    main = _py_semantics.determine_main(ctx)
+    external_venv = ctx.attr.external_venv
+    if not external_venv:
+        fail("py_binary {}: external_venv is required.".format(ctx.label))
+    vinfo = external_venv[VirtualenvInfo]
 
-    # Check for duplicate virtual dependency names. Those that map to the same resolution target would have been merged by the depset for us.
-    virtual_resolution = _py_library.resolve_virtuals(ctx)
-    imports_depset = make_imports_depset(
-        deps = ctx.attr.deps,
-        imports = getattr(ctx.attr, "imports", []),
-        workspace_name = ctx.workspace_name,
-        label = ctx.label,
-        extra_imports_depsets = virtual_resolution.imports,
-    )
-
-    # All "import" paths from `py_library` start with the workspace name, so we need to go back up the tree for
-    # each segment from site-packages in the venv to the root of the runfiles tree.
-    # Five .. will get us back to the root of the venv:
-    # {name}.runfiles/.{name}.venv/lib/python{version}/site-packages/first_party.pth
-    # If the target is defined with a slash, it adds to the level of nesting
-    target_depth = len(ctx.label.name.split("/")) - 1
-    escape = "/".join(([".."] * (4 + target_depth)))
-
-    site_packages_pth_file = write_pth_file(ctx, ctx.attr.name, imports_depset, escape)
-
+    # Bazel-contextual env vars that the launcher exports via
+    # {{PYTHON_ENV}}.
     default_env = {
         "BAZEL_TARGET": str(ctx.label).lstrip("@"),
         "BAZEL_WORKSPACE": ctx.workspace_name,
         "BAZEL_TARGET_NAME": ctx.attr.name,
     }
 
-    passed_env = dict(ctx.attr.env)
-    for k, v in passed_env.items():
+    # Merge env vars: start from the venv's `env` (if any), then
+    # overlay the binary's own — binary wins on key conflicts. Same
+    # merge for inherited env-var names.
+    passed_env = {}
+    inherited_env = []
+    if RunEnvironmentInfo in external_venv:
+        venv_env = external_venv[RunEnvironmentInfo]
+        passed_env = dict(venv_env.environment)
+        inherited_env = list(venv_env.inherited_environment)
+    for k, v in ctx.attr.env.items():
         passed_env[k] = expand_variables(
             ctx,
             expand_locations(ctx, v, ctx.attr.data),
             attribute_name = "env",
         )
+    for name in getattr(ctx.attr, "env_inherit", []):
+        if name not in inherited_env:
+            inherited_env.append(name)
+
+    # When `isolated = False`, drop Python's `-I` flag so PYTHONPATH is
+    # honored and the script directory is auto-added to sys.path.
+    flags = list(_py_semantics.interpreter_flags) + ctx.attr.interpreter_options
+    if not ctx.attr.isolated:
+        flags = [f for f in flags if f != "-I"]
 
     executable_launcher = ctx.actions.declare_file(ctx.attr.name)
     ctx.actions.expand_template(
@@ -62,56 +81,44 @@ def _py_binary_rule_impl(ctx):
         output = executable_launcher,
         substitutions = {
             "{{BASH_RLOCATION_FN}}": BASH_RLOCATION_FUNCTION,
-            "{{INTERPRETER_FLAGS}}": " ".join(py_toolchain.flags + ctx.attr.interpreter_options),
-            "{{VENV_TOOL}}": to_rlocation_path(ctx, venv_toolchain.bin.bin),
-            "{{ARG_COLLISION_STRATEGY}}": ctx.attr.package_collisions,
-            "{{ARG_PYTHON}}": to_rlocation_path(ctx, py_toolchain.python) if py_toolchain.runfiles_interpreter else py_toolchain.python.path,
-            "{{ARG_VENV_NAME}}": ".{}.venv".format(ctx.attr.name),
-            "{{ARG_PTH_FILE}}": to_rlocation_path(ctx, site_packages_pth_file),
+            "{{INTERPRETER_FLAGS}}": " ".join(flags),
+            "{{ARG_VENV_PYTHON}}": to_rlocation_path(ctx, vinfo.bin_python),
             "{{ENTRYPOINT}}": to_rlocation_path(ctx, main),
             "{{PYTHON_ENV}}": "\n".join(_dict_to_exports(default_env)).strip(),
-            "{{EXEC_PYTHON_BIN}}": "python{}".format(
-                py_toolchain.interpreter_version_info.major,
-            ),
-            "{{RUNFILES_INTERPRETER}}": str(py_toolchain.runfiles_interpreter).lower(),
         },
         is_executable = True,
     )
 
-    srcs_depset = _py_library.make_srcs_depset(ctx)
-
     runfiles = _py_library.make_merged_runfiles(
         ctx,
-        extra_depsets = [
-            py_toolchain.files,
-            srcs_depset,
-        ] + virtual_resolution.srcs + virtual_resolution.runfiles,
-        extra_runfiles = [
-            site_packages_pth_file,
-        ],
+        extra_runfiles = [main],
         extra_runfiles_depsets = [
             ctx.attr._runfiles_lib[DefaultInfo].default_runfiles,
-            venv_toolchain.default_info.default_runfiles,
+            external_venv[DefaultInfo].default_runfiles,
         ],
     )
 
-    instrumented_files_info = _py_library.make_instrumented_files_info(
+    instrumented_files_info = coverage_common.instrumented_files_info(
         ctx,
-        extra_source_attributes = ["main"],
+        source_attributes = ["main"],
+        dependency_attributes = ["data", "external_venv"],
+        extensions = ["py"],
     )
 
     return [
         DefaultInfo(
-            files = depset([
-                executable_launcher,
-                main,
-            ]),
+            files = depset([executable_launcher, main]),
             executable = executable_launcher,
             runfiles = runfiles,
         ),
         PyInfo(
-            imports = imports_depset,
-            transitive_sources = srcs_depset,
+            # Surface the venv's imports + transitive_sources through
+            # PyInfo so downstream consumers (e.g. py_pex_binary's
+            # `--sys-path=`) see the same sys.path / source closure the
+            # launcher will run with. `srcs` / `deps` live on the
+            # sibling venv, not on this rule.
+            imports = vinfo.imports,
+            transitive_sources = vinfo.transitive_sources,
             has_py2_only_sources = False,
             has_py3_only_sources = True,
             uses_shared_libraries = False,
@@ -119,7 +126,7 @@ def _py_binary_rule_impl(ctx):
         instrumented_files_info,
         RunEnvironmentInfo(
             environment = passed_env,
-            inherited_environment = getattr(ctx.attr, "env_inherit", []),
+            inherited_environment = inherited_env,
         ),
     ]
 
@@ -145,29 +152,33 @@ be deprecated in the future.
 
 """,
     ),
-    "venv": attr.string(
-        doc = """The name of the Python virtual environment within which deps should be resolved.
+    "external_venv": attr.label(
+        providers = [[VirtualenvInfo]],
+        mandatory = True,
+        doc = """Internal: set by the `py_binary_with_venv` macro for
+every public `py_binary` / `py_test` invocation (the macro splits the
+call into a py_venv target + a rule call routed at it). Not a
+user-facing attribute — direct settings on the rule are blocked at
+the macro layer in `//py:defs.bzl`.
 
-Part of the aspect_rules_py//uv system, has no effect in rules_python's pip.
+The binary's launcher exec's the referenced venv's `bin/python`; its
+runfiles inherit the venv's default_runfiles so all wheels and first-
+party sources land at their usual rlocation paths.
 """,
-    ),
-    "python_version": attr.string(
-        doc = """Whether to build this target and its transitive deps for a specific python version.""",
-    ),
-    "package_collisions": attr.string(
-        doc = """The action that should be taken when a symlink collision is encountered when creating the venv.
-A collision can occur when multiple packages providing the same file are installed into the venv. The possible values are:
-
-* "error": When conflicting symlinks are found, an error is reported and venv creation halts.
-* "warning": When conflicting symlinks are found, an warning is reported, however venv creation continues.
-* "ignore": When conflicting symlinks are found, no message is reported and venv creation continues.
-""",
-        default = "error",
-        values = ["error", "warning", "ignore"],
     ),
     "interpreter_options": attr.string_list(
         doc = "Additional options to pass to the Python interpreter in addition to -B and -I passed by rules_py",
         default = [],
+    ),
+    "isolated": attr.bool(
+        default = True,
+        doc = """When True (default), the launcher invokes Python with `-I`
+(isolated mode: ignore PYTHON* env vars, skip user site-packages, don't
+auto-add the script's dir to sys.path). Set to False to drop `-I` — the
+launcher then respects `PYTHONPATH` and loads user site-packages if the
+sibling venv has `include_user_site_packages = True` set. The deprecated
+`py_venv_binary` / `py_venv_test` aliases default this to False to
+match their historical permissive behaviour.""",
     ),
     "_run_tmpl": attr.label(
         allow_single_file = True,
@@ -176,13 +187,22 @@ A collision can occur when multiple packages providing the same file are install
     "_runfiles_lib": attr.label(
         default = "@bazel_tools//tools/bash/runfiles",
     ),
-    # Required for py_version attribute
-    "_allowlist_function_transition": attr.label(
-        default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+    # `data` is the only py_library attr the launcher reads (env-var
+    # location expansion, runfiles merge, coverage walk). `srcs`,
+    # `deps`, `imports`, `resolutions`, and `virtual_deps` are routed
+    # to the sibling py_venv by the macro layer and have no role on
+    # the launcher rule.
+    "data": attr.label_list(
+        doc = """Runtime dependencies of the program.
+
+The transitive closure of the `data` dependencies will be available in
+the `.runfiles` folder for this binary/test. The program may optionally
+use the Runfiles lookup library to locate the data files, see
+https://pypi.org/project/bazel-runfiles/.
+""",
+        allow_files = True,
     ),
 })
-
-_attrs.update(**_py_library.attrs)
 
 _test_attrs = dict({
     "env_inherit": attr.string_list(
@@ -201,31 +221,16 @@ _test_attrs = dict({
     ),
 })
 
-py_base = struct(
-    implementation = _py_binary_rule_impl,
+py_venv_exec = rule(
+    doc = "Launcher rule that exec's the interpreter from a sibling `py_venv` (set via `external_venv`). Most users should use the [py_binary macro](#py_binary) instead of loading this directly.",
+    implementation = _py_venv_exec_impl,
     attrs = _attrs,
-    test_attrs = _test_attrs,
-    toolchains = [
-        PY_TOOLCHAIN,
-        VENV_TOOLCHAIN,
-    ],
-    cfg = python_version_transition,
-)
-
-py_binary = rule(
-    doc = "Run a Python program under Bazel. Most users should use the [py_binary macro](#py_binary) instead of loading this directly.",
-    implementation = py_base.implementation,
-    attrs = py_base.attrs,
-    toolchains = py_base.toolchains,
     executable = True,
-    cfg = py_base.cfg,
 )
 
-py_test = rule(
-    doc = "Run a Python program under Bazel. Most users should use the [py_test macro](#py_test) instead of loading this directly.",
-    implementation = py_base.implementation,
-    attrs = py_base.attrs | py_base.test_attrs,
-    toolchains = py_base.toolchains,
+py_venv_exec_test = rule(
+    doc = "Test variant of `py_venv_exec`. Most users should use the [py_test macro](#py_test) instead of loading this directly.",
+    implementation = _py_venv_exec_impl,
+    attrs = _attrs | _test_attrs,
     test = True,
-    cfg = py_base.cfg,
 )

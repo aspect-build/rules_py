@@ -1,0 +1,66 @@
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("//py:defs.bzl", "py_binary", "py_test")
+
+# Analysis-only coverage of the `expose_venv = True` API surface. Each
+# target below exercises a different combination of attrs that the
+# splitting macro (`py_binary_with_venv`) routes between the generated
+# `:{name}.venv` py_venv and the binary/test rule. The `build_test` at
+# the bottom asserts every combination analyses + builds — the runtime
+# behaviour of these shapes is covered elsewhere (py-internal-venv,
+# py-venv-* tests, e2e/cases/root-dir-paths-538, etc.).
+
+# Bare minimum: just `expose_venv = True`.
+py_binary(
+    name = "minimal_bin",
+    srcs = ["main.py"],
+    expose_venv = True,
+    main = "main.py",
+)
+
+py_test(
+    name = "minimal_test",
+    srcs = ["main.py"],
+    expose_venv = True,
+    main = "main.py",
+)
+
+# Legacy migration shape: `expose_venv + isolated=False` — what
+# users moving off `py_venv_binary` land on.
+py_binary(
+    name = "legacy_shape_bin",
+    srcs = ["main.py"],
+    expose_venv = True,
+    isolated = False,
+    main = "main.py",
+)
+
+# Venv-shaping attrs (deps, imports, package_collisions, site flags,
+# interpreter_options) must all land on the generated `.venv`.
+py_binary(
+    name = "venv_shaping_bin",
+    srcs = ["main.py"],
+    expose_venv = True,
+    imports = ["."],
+    include_system_site_packages = False,
+    include_user_site_packages = False,
+    interpreter_options = ["-O"],
+    main = "main.py",
+    package_collisions = "ignore",
+    deps = [
+        "@pypi//cowsay",
+    ],
+)
+
+build_test(
+    name = "expose_venv_api_build_test",
+    targets = [
+        ":minimal_bin",
+        ":minimal_bin.venv",
+        ":minimal_test",
+        ":minimal_test.venv",
+        ":legacy_shape_bin",
+        ":legacy_shape_bin.venv",
+        ":venv_shaping_bin",
+        ":venv_shaping_bin.venv",
+    ],
+)

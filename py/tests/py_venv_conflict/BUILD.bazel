@@ -1,6 +1,5 @@
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
-load("//py:defs.bzl", "py_library")
-load("//py/unstable:defs.bzl", "py_venv", "py_venv_test")
+load("//py:defs.bzl", "py_library", "py_test", "py_venv")
 
 py_library(
     name = "lib",
@@ -54,9 +53,22 @@ build_test(
     ],
 )
 
-py_venv_test(
+py_test(
     name = "validate_import_roots",
     srcs = ["test_import_roots.py"],
+    main = "test_import_roots.py",
+    package_collisions = "ignore",
+    deps = [
+        ":lib",
+        "//py/tests/py_venv_conflict/a",
+        "//py/tests/py_venv_conflict/b",
+    ],
+)
+
+py_test(
+    name = "validate_import_roots_non_isolated",
+    srcs = ["test_import_roots.py"],
+    isolated = False,
     main = "test_import_roots.py",
     package_collisions = "ignore",
     deps = [

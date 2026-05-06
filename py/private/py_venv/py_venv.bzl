@@ -2,16 +2,16 @@
 
 - `py_venv` — a rule that builds a Python virtualenv and produces an
   executable that activates it and exec's `bin/python`. Emits
-  `VirtualenvInfo` so other targets consume it via `external_venv=`.
-  `bazel run :name` on a py_venv drops into the hermetic interpreter
-  with the venv activated — useful for interactive Python sessions.
+  `VirtualenvInfo` consumed by `py_binary_with_venv` (the
+  `expose_venv = True` codepath). `bazel run :name` on a py_venv drops
+  into the hermetic interpreter with the venv activated — useful for
+  interactive Python sessions.
 
 - `py_binary_with_venv` — shared helper invoked by
   `py_binary(expose_venv = True, ...)` / `py_test(expose_venv = True, ...)`.
   Splits the call into a sibling `:<name>.venv` `py_venv` + a
-  `py_binary` / `py_test` rule consuming it via `external_venv`.
-  First-class sibling: other targets can share the `.venv` via
-  `external_venv`, and `bazel run :<name>.venv` drops into the
+  `py_binary` / `py_test` rule that consumes it via the internal
+  `external_venv` attribute. `bazel run :<name>.venv` drops into the
   interpreter.
 
 - `py_venv_link` — opt-in macro that emits a runnable target whose
@@ -107,6 +107,7 @@ def _assemble_shared(ctx):
         runfiles = runfiles,
         imports_depset = imports_depset,
         wheels_depset = wheels_depset,
+        srcs_depset = srcs_depset,
     )
 
 def _py_venv_rule_impl(ctx):
@@ -149,13 +150,24 @@ def _py_venv_rule_impl(ctx):
             venv_name = shared.venv.venv_name,
             imports = shared.imports_depset,
             wheels = shared.wheels_depset,
+            transitive_sources = shared.srcs_depset,
         ),
-        # Forwarded to py_binary(external_venv = :this_venv) consumers
-        # so env vars declared on the venv apply to binaries using it.
-        # The binary's own `env` wins on key conflicts; see py_binary.bzl.
+        # Forwarded to the sibling py_binary/py_test consumer (created
+        # by `expose_venv = True`) so env vars declared on the venv
+        # apply to the binary using it. The binary's own `env` wins on
+        # key conflicts; see py_binary.bzl.
         RunEnvironmentInfo(
             environment = passed_env,
             inherited_environment = ctx.attr.env_inherit,
+        ),
+        # `bazel coverage` walks the binary's `external_venv` attr to
+        # pick this up — the venv carries the test's `srcs` and
+        # first-party `deps`, so this is where instrumentation belongs.
+        coverage_common.instrumented_files_info(
+            ctx,
+            source_attributes = ["srcs"],
+            dependency_attributes = ["deps"],
+            extensions = ["py"],
         ),
     ]
 
@@ -200,15 +212,15 @@ two rules share the underlying collision detector.
         default = False,
     ),
     "env": attr.string_dict(
-        doc = """Environment variables to set when running the venv (and any
-`py_binary(external_venv = ...)` consumer). Binary-level `env` wins on
-key conflicts.""",
+        doc = """Environment variables to set when running the venv (and the
+sibling py_binary/py_test consumer when `expose_venv = True` is used).
+Binary-level `env` wins on key conflicts.""",
         default = {},
     ),
     "env_inherit": attr.string_list(
         doc = """Names of environment variables to pass through from the invoking
-environment. Forwarded to `py_binary(external_venv = ...)` consumers
-alongside `env`.""",
+environment. Forwarded to the sibling py_binary/py_test consumer
+(when `expose_venv = True` is used) alongside `env`.""",
         default = [],
     ),
     "venv_dir_basename": attr.string(
@@ -224,7 +236,7 @@ IDE configs hardcode a specific path independent of the target name.
     ),
     "_run_tmpl": attr.label(
         allow_single_file = True,
-        default = "//py/private/py_venv:entrypoint.tmpl.sh",
+        default = "//py/private/py_venv:venv.tmpl.sh",
     ),
     "_runfiles_lib": attr.label(
         default = "@bazel_tools//tools/bash/runfiles",
@@ -349,14 +361,10 @@ py_venv = _wrap_with_debug(_py_venv)
 py_venv_binary = _wrap_with_debug(_py_venv_binary)
 py_venv_test = _wrap_with_debug(_py_venv_test)
 
-# Attrs that belong on the generated `py_venv` when `py_binary_with_venv`
-# splits a `py_binary(expose_venv = True, ...)` call into (venv, binary)
-# targets. Everything else belongs on the binary/test target. Some
-# attrs (`python_version`, `venv`) need to land on BOTH so the
-# python_version_transition picks the same config for both —
-# otherwise the binary's `data` resolves wheels under a different uv
-# VENV_FLAG / python version than the venv was built for, and
-# `select()`-driven hub picks diverge.
+# Attrs that the macro routes to the generated `py_venv`. Two flavors:
+# venv-only (popped from kwargs, the launcher never sees them) and
+# shared (copied into venv kwargs but kept in kwargs so they also reach
+# the launcher rule).
 _VENV_ONLY_ATTRS = [
     "deps",
     "imports",
@@ -365,64 +373,75 @@ _VENV_ONLY_ATTRS = [
     "package_collisions",
     "include_system_site_packages",
     "include_user_site_packages",
-    "interpreter_options",
-]
-_SHARED_TRANSITION_ATTRS = [
+    "venv",
     "python_version",
-    "venv",  # uv's pip-extension config-transition attr (string)
+]
+_SHARED_ATTRS = [
+    # The launcher uses these for `python <flags> main.py`; the venv
+    # forwards them to its interactive REPL too so `bazel run
+    # :name.venv` runs python with the same flags as the binary.
+    "interpreter_options",
 ]
 
 def _split_kwargs_for_venv(kwargs):
-    """Pop venv-only kwargs off the dict and copy the shared-transition
-    ones. Returns the dict to pass to py_venv. `kwargs` is mutated:
-    venv-only attrs are popped; shared-transition attrs stay so they
-    also reach the py_binary/py_test call.
+    """Build the kwargs dict to pass to `py_venv`. `kwargs` is mutated:
+    venv-only attrs are popped; shared attrs are copied (left in
+    `kwargs` so they also reach the launcher).
     """
     venv_kwargs = {}
     for name in _VENV_ONLY_ATTRS:
         if name in kwargs:
             venv_kwargs[name] = kwargs.pop(name)
-    for name in _SHARED_TRANSITION_ATTRS:
+    for name in _SHARED_ATTRS:
         if name in kwargs:
             venv_kwargs[name] = kwargs[name]
     return venv_kwargs
 
-def py_binary_with_venv(py_rule, name, main, srcs = None, deps = None, data = None, imports = None, tags = None, testonly = None, visibility = None, venv_dir_basename = None, isolated = True, **kwargs):
-    """Split `py_rule(name, ...)` into a `{name}.venv` py_venv target +
-    a `py_rule` call with `external_venv = :{name}.venv`.
+def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = None, imports = [], tags = None, testonly = None, visibility = None, isolated = True, expose_venv = False, **kwargs):
+    """Split `py_rule(name, ...)` into a sibling py_venv target + a
+    `py_rule` call routed at it via the internal `external_venv` rule
+    attribute. Called for every `py_binary` / `py_test` macro invocation.
 
-    Called by `py_binary` / `py_test` when `expose_venv = True`. The
-    emitted `:{name}.venv` is a first-class public target: shareable
-    via `external_venv` from other `py_binary` / `py_test` callsites,
-    and `bazel run :{name}.venv`-able to drop into the hermetic
-    interpreter for an interactive session.
+    `expose_venv = True` emits a public `:{name}.venv` py_venv:
+    runnable (`bazel run :{name}.venv` drops into the hermetic
+    interpreter) and pairable with `py_venv_link` for IDE integration.
+    The venv inherits the binary's visibility.
 
     All venv-shaping attrs (`deps`, `imports`, `package_collisions`,
     `include_*_site_packages`, `interpreter_options`) land on the
-    `.venv` target. The rule's own dep closure is empty by
-    construction, so the analysis-time subset-coverage check in
-    py_binary's `_check_venv_coverage` is trivially satisfied.
+    sibling venv.
     """
     venv_kwargs = _split_kwargs_for_venv(kwargs)
-    if deps != None:
-        venv_kwargs["deps"] = deps
-    if imports != None:
-        venv_kwargs["imports"] = imports
+    venv_kwargs["srcs"] = srcs
+    venv_kwargs["deps"] = deps
+    venv_kwargs["imports"] = imports
 
-    venv_label = "{}.venv".format(name)
+    # Target names can contain `/` (Bazel allows it), but venv labels
+    # and the on-disk venv basename must be slash-free.
+    safe_name = name.replace("/", "_")
+    if expose_venv:
+        venv_label = "{}.venv".format(name)
+        venv_visibility = visibility
+        venv_tags = None
+        venv_basename = None
+    else:
+        venv_label = "_{}_venv".format(safe_name)
+        venv_visibility = ["//visibility:private"]
+        venv_tags = ["manual"]
+        venv_basename = ".{}.venv".format(safe_name)
 
     py_venv(
         name = venv_label,
-        venv_dir_basename = venv_dir_basename,
+        venv_dir_basename = venv_basename,
         testonly = testonly,
-        visibility = visibility,
+        visibility = venv_visibility,
+        tags = venv_tags,
         **venv_kwargs
     )
 
     py_rule(
         name = name,
         main = main,
-        srcs = srcs or [],
         data = data,
         tags = tags,
         testonly = testonly,

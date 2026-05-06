@@ -5,7 +5,7 @@ load(":defs.bzl", "py_venv_test")
 package(default_visibility = ["//py:__subpackages__"])
 
 exports_files([
-    "entrypoint.tmpl.sh",
+    "venv.tmpl.sh",
     "link.py",
 ])
 

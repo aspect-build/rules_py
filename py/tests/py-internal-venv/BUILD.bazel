@@ -1,6 +1,11 @@
-load("//py/private/py_venv:defs.bzl", "py_venv_test")
+load("//py:defs.bzl", "py_test")
 
-py_venv_test(
+# Two variants of the same test: `test` uses `py_test` defaults
+# (`isolated = True`); `test_non_isolated` flips `isolated = False`.
+# Both should satisfy the structural assertions in test.py (they're
+# basename-tolerant).
+
+py_test(
     name = "test",
     srcs = [
         "test.py",
@@ -8,6 +13,21 @@ py_venv_test(
     imports = [
         ".",
     ],
+    main = "test.py",
+    deps = [
+        "@pypi//cowsay",
+    ],
+)
+
+py_test(
+    name = "test_non_isolated",
+    srcs = [
+        "test.py",
+    ],
+    imports = [
+        ".",
+    ],
+    isolated = False,
     main = "test.py",
     deps = [
         "@pypi//cowsay",
