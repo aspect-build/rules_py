@@ -1,8 +1,6 @@
 load("@aspect_rules_py//py:defs.bzl", "py_binary")
-load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_binary")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
-# py_binary uses run.tmpl.sh which has the alocation bug
 py_binary(
     name = "check_paths_bin",
     srcs = ["check_paths.py"],
@@ -10,12 +8,30 @@ py_binary(
     python_version = "3.11",
 )
 
-# py_venv_binary uses a different startup path — test it too
-py_venv_binary(
-    name = "check_paths_venv_bin",
+# Same test as above but with `expose_venv = True` — exercises the
+# splitting codepath (hidden `_<name>_venv` py_venv + binary rule
+# consuming it via external_venv).
+py_binary(
+    name = "check_paths_expose_venv",
     srcs = ["check_paths.py"],
+    expose_venv = True,
     main = "check_paths.py",
     python_version = "3.11",
+)
+
+# Full legacy-shape variant: expose_venv + isolated=False + the
+# legacy `.{name}/` venv_dir_basename — the exact settings users
+# migrating off py_venv_binary are told to set. Keeps regression
+# coverage for that specific combination through the root-dir-paths
+# test harness.
+py_binary(
+    name = "check_paths_via_venv_macro",
+    srcs = ["check_paths.py"],
+    expose_venv = True,
+    isolated = False,
+    main = "check_paths.py",
+    python_version = "3.11",
+    venv_dir_basename = ".check_paths_via_venv_macro",
 )
 
 sh_test(
@@ -25,7 +41,13 @@ sh_test(
 )
 
 sh_test(
+    name = "test_root_dir_expose_venv",
+    srcs = ["test_root_dir_expose_venv.sh"],
+    data = [":check_paths_expose_venv"],
+)
+
+sh_test(
     name = "test_root_dir_venv",
     srcs = ["test_root_dir_venv.sh"],
-    data = [":check_paths_venv_bin"],
+    data = [":check_paths_via_venv_macro"],
 )

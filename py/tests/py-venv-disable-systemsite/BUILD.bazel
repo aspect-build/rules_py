@@ -1,6 +1,6 @@
-load("//py/private/py_venv:defs.bzl", "py_venv_test")
+load("//py:defs.bzl", "py_test")
 
-py_venv_test(
+py_test(
     name = "test",
     srcs = [
         "test.py",
@@ -10,6 +10,24 @@ py_venv_test(
     ],
     include_system_site_packages = False,
     main = "test.py",
+    deps = [
+        "@pypi//cowsay",
+    ],
+)
+
+py_test(
+    name = "venv_test",
+    srcs = [
+        "test.py",
+    ],
+    expose_venv = True,
+    imports = [
+        ".",
+    ],
+    include_system_site_packages = False,
+    isolated = False,
+    main = "test.py",
+    venv_dir_basename = ".venv_test",
     deps = [
         "@pypi//cowsay",
     ],

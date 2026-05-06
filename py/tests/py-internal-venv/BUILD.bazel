@@ -1,6 +1,13 @@
-load("//py/private/py_venv:defs.bzl", "py_venv_test")
+load("//py:defs.bzl", "py_test")
 
-py_venv_test(
+# Two variants of the same test: `test` uses `py_test` with the
+# default (internal, `.{name}_venv/`) venv shape; `venv_test` uses
+# `py_test(expose_venv = True, isolated = False,
+# venv_dir_basename = ".{name}")` — the opt-in split shape with the
+# legacy `.{name}/` on-disk basename. Both should satisfy the
+# structural assertions in test.py (they're basename-tolerant).
+
+py_test(
     name = "test",
     srcs = [
         "test.py",
@@ -9,6 +16,23 @@ py_venv_test(
         ".",
     ],
     main = "test.py",
+    deps = [
+        "@pypi//cowsay",
+    ],
+)
+
+py_test(
+    name = "venv_test",
+    srcs = [
+        "test.py",
+    ],
+    expose_venv = True,
+    imports = [
+        ".",
+    ],
+    isolated = False,
+    main = "test.py",
+    venv_dir_basename = ".venv_test",
     deps = [
         "@pypi//cowsay",
     ],
