@@ -423,6 +423,9 @@ def py_binary_with_venv(py_rule, name, main, srcs = None, deps = None, data = No
     if imports != None:
         venv_kwargs["imports"] = imports
 
+    # Target names can contain `/` (Bazel allows it), but venv labels
+    # and the on-disk venv basename must be slash-free.
+    safe_name = name.replace("/", "_")
     if expose_venv:
         venv_label = "{}.venv".format(name)
         venv_visibility = visibility
@@ -432,12 +435,12 @@ def py_binary_with_venv(py_rule, name, main, srcs = None, deps = None, data = No
         # Private sibling: name-mangled to keep it out of users'
         # autocomplete, `manual`-tagged so wildcards skip it,
         # `//visibility:private` so neighboring packages can't depend
-        # on it. The on-disk basename is forced to `.{name}.venv/`
+        # on it. The on-disk basename is forced to `.{safe_name}.venv/`
         # so runfiles layouts match the exposed-case default.
-        venv_label = "_{}_venv".format(name)
+        venv_label = "_{}_venv".format(safe_name)
         venv_visibility = ["//visibility:private"]
         venv_tags = ["manual"]
-        venv_basename = ".{}.venv".format(name)
+        venv_basename = ".{}.venv".format(safe_name)
 
     py_venv(
         name = venv_label,
