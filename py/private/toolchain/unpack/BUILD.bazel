@@ -2,5 +2,5 @@ load("//py/private/toolchain:tools.bzl", "source_toolchain")
 
 source_toolchain(
     name = "unpack",
-    bin = "//py/tools/unpack_bin",
+    bin = "//py/tools/unpack",
 )
