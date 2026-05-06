@@ -137,7 +137,7 @@ def _py_venv_rule_impl(ctx):
 
     return [
         DefaultInfo(
-            files = depset([ctx.outputs.executable] + shared.venv.all_files),
+            files = depset([ctx.outputs.executable]),
             executable = ctx.outputs.executable,
             runfiles = shared.runfiles,
         ),
