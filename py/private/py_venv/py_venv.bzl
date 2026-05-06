@@ -377,10 +377,13 @@ _VENV_ONLY_ATTRS = [
     "package_collisions",
     "include_system_site_packages",
     "include_user_site_packages",
+    # `venv` is the uv pip-extension config-transition string. Only
+    # the `py_venv` rule has the attr — `py_venv_exec` is config-
+    # agnostic, so the macro routes the kwarg to the venv only.
+    "venv",
 ]
 _SHARED_TRANSITION_ATTRS = [
     "python_version",
-    "venv",  # uv's pip-extension config-transition attr (string)
     # The launcher's `python` invocation needs these flags too — not
     # just the venv's interactive interpreter session — so route them
     # to both targets.

@@ -152,12 +152,6 @@ be deprecated in the future.
 
 """,
     ),
-    "venv": attr.string(
-        doc = """The name of the Python virtual environment within which deps should be resolved.
-
-Part of the aspect_rules_py//uv system, has no effect in rules_python's pip.
-""",
-    ),
     "external_venv": attr.label(
         providers = [[VirtualenvInfo]],
         mandatory = True,
