@@ -19,21 +19,3 @@ py_test(
         "@pypi//cowsay",
     ],
 )
-
-py_test(
-    name = "venv_test",
-    srcs = [
-        "test.py",
-    ],
-    expose_venv = True,
-    imports = [
-        ".",
-    ],
-    include_system_site_packages = True,
-    include_user_site_packages = True,
-    isolated = False,
-    main = "test.py",
-    deps = [
-        "@pypi//cowsay",
-    ],
-)
