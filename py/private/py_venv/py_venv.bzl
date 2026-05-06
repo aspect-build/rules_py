@@ -184,17 +184,6 @@ two rules share the underlying collision detector.
         default = "warning",
         values = ["error", "warning", "ignore"],
     ),
-    "mode": attr.string(
-        doc = """Legacy attr, no longer honored.
-
-Historically selected between `static-pth` and `static-symlink` assembly
-strategies. The current venv assembly is always per-top-level-symlink
-for wheels with `PyWheelsInfo` metadata and `.pth` for everything else
-— there's no mode to choose. Attribute retained for API compatibility.
-""",
-        default = "static-symlink",
-        values = ["static-pth", "static-symlink"],
-    ),
     "interpreter_options": attr.string_list(
         doc = "Additional options to pass to the Python interpreter.",
         default = [],
