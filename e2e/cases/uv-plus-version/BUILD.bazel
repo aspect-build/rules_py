@@ -17,7 +17,7 @@ platform(
 py_test(
     name = "test",
     srcs = ["__test__.py"],
-    dep_group = "plus-version",
+    dep_group = "plus_version",
     main = "__test__.py",
     python_version = "3.12",
     deps = [
@@ -39,7 +39,7 @@ wheel_metadata_test(
 py_test(
     name = "venv_test",
     srcs = ["__test__.py"],
-    dep_group = "plus-version",
+    dep_group = "plus_version",
     expose_venv = True,
     isolated = False,
     main = "__test__.py",

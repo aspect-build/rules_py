@@ -1,25 +1,47 @@
 load("@aspect_rules_py//py:defs.bzl", "py_library")
-load("//:defs.bzl", "compatible_with")
 
-
-# This target is for a "hard" dependency.
-# Dependencies on this target will cause build failures if it's unavailable.
+alias(
+    name = "cowsay",
+    actual = select({
+          "//dep_group:single_project_hub__": "//project/single_project_hub:cowsay",
+          "//dep_group:single_project_hub__single_project_hub": "//project/single_project_hub:cowsay",
+      },
+        no_match_error = "Package `cowsay` is available in dep_groups: , single_project_hub. If multiple projects in this hub provide `cowsay` at different versions in the active dep_group, Bazel will surface 'multiple keys match' — use a project-qualified label instead: @aspect_rules_py++uv+pypi_single//project/single_project_hub:cowsay",
+    ),
+    target_compatible_with = select({
+          "//dep_group:single_project_hub__": [],
+          "//dep_group:single_project_hub__single_project_hub": [],
+          "//conditions:default": [
+              "@platforms//:incompatible",
+          ],
+      }),
+    visibility = ["//visibility:public"],
+)
 alias(
     name = "lib",
-    actual = "cowsay",
+    actual = ":cowsay",
     visibility = ["//visibility:public"],
 )
 alias(
     name = "pkg",
-    actual = "cowsay",
+    actual = ":cowsay",
     visibility = ["//visibility:public"],
 )
 alias(
     name = "whl",
     actual = select({
-          "//dep_group:single_project_hub": "@project__single_project_hub//:cowsay_whl",
+          "//dep_group:single_project_hub__": "//project/single_project_hub:cowsay_whl",
+          "//dep_group:single_project_hub__single_project_hub": "//project/single_project_hub:cowsay_whl",
+      },
+        no_match_error = "Package `cowsay` is available in dep_groups: , single_project_hub. If multiple projects in this hub provide `cowsay` at different versions in the active dep_group, Bazel will surface 'multiple keys match' — use a project-qualified label instead: @aspect_rules_py++uv+pypi_single//project/single_project_hub:cowsay",
+    ),
+    target_compatible_with = select({
+          "//dep_group:single_project_hub__": [],
+          "//dep_group:single_project_hub__single_project_hub": [],
+          "//conditions:default": [
+              "@platforms//:incompatible",
+          ],
       }),
-    target_compatible_with = select(compatible_with(["single_project_hub"])),
     visibility = ["//visibility:public"],
 )
 filegroup(
@@ -27,17 +49,6 @@ filegroup(
     srcs = [":cowsay"],
     visibility = ["//visibility:public"],
 )
-alias(
-    name = "cowsay",
-    actual = select({
-          "//dep_group:single_project_hub": "@project__single_project_hub//:cowsay",
-      },
-        no_match_error = "Available only in dep_groups: single_project_hub",
-    ),
-    target_compatible_with = select(compatible_with(["single_project_hub"])),
-    visibility = ["//visibility:public"],
-)
-
 exports_files(
     ["BUILD.bazel"],
     visibility = ["//visibility:public"],

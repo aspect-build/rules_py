@@ -1,32 +1,42 @@
-VIRTUALENVS = [
+DEP_GROUPS = [
     "single_project_hub",
 ]
+PROJECTS_BY_GROUP = {
+    "single_project_hub": [
+        "single_project_hub",
+    ],
+}
+_repo = "aspect_rules_py++uv+pypi_single"
 
-def compatible_with(venvs, extra_constraints = []):
-    for v in venvs:
-        if v not in VIRTUALENVS:
-            fail("Errant virtualenv reference %r" % v)
+def compatible_with(groups, extra_constraints = []):
+    for g in groups:
+        if g not in PROJECTS_BY_GROUP:
+            fail("Errant dep_group reference %r — known groups: %r" % (g, DEP_GROUPS))
 
-    return {
-        Label("//dep_group:" + it): extra_constraints
-        for it in venvs
-    } | {
-        "//conditions:default": ["@platforms//:incompatible"],
-    }
+    result = {}
+    for grp in groups:
+        for stamp in PROJECTS_BY_GROUP[grp]:
+            result[Label("//dep_group:" + stamp + "__" + grp)] = extra_constraints
+    result["//conditions:default"] = ["@platforms//:incompatible"]
+    return result
 
-def incompatible_with(venvs, extra_constraints = []):
-    for v in venvs:
-        if v not in VIRTUALENVS:
-            fail("Errant virtualenv reference %r" % v)
+def incompatible_with(groups, extra_constraints = []):
+    for g in groups:
+        if g not in PROJECTS_BY_GROUP:
+            fail("Errant dep_group reference %r — known groups: %r" % (g, DEP_GROUPS))
 
-    return {
-        Label("//dep_group:" + it): ["@platforms//:incompatible"]
-        for it in venvs
-    } | {
-        "//conditions:default": extra_constraints,
-    }
+    result = {}
+    for grp in groups:
+        for stamp in PROJECTS_BY_GROUP[grp]:
+            result[Label("//dep_group:" + stamp + "__" + grp)] = ["@platforms//:incompatible"]
+    result["//conditions:default"] = extra_constraints
+    return result
 
 _DEPS_BY_GROUP = {
+    "": [
+        "@@aspect_rules_py++uv+pypi_single//cowsay:pkg",
+        "@@aspect_rules_py++uv+pypi_single//single_project_hub:pkg",
+    ],
     "single_project_hub": [
         "@@aspect_rules_py++uv+pypi_single//cowsay:pkg",
         "@@aspect_rules_py++uv+pypi_single//single_project_hub:pkg",
@@ -38,10 +48,21 @@ _GROUP_DEP_LABELS = {
     for group, deps in _DEPS_BY_GROUP.items()
 }
 
+_GROUP_DEPS_RAW = {
+    "//dep_group:single_project_hub__": [
+        "@@aspect_rules_py++uv+pypi_single//cowsay:pkg",
+        "@@aspect_rules_py++uv+pypi_single//single_project_hub:pkg",
+    ],
+    "//dep_group:single_project_hub__single_project_hub": [
+        "@@aspect_rules_py++uv+pypi_single//cowsay:pkg",
+        "@@aspect_rules_py++uv+pypi_single//single_project_hub:pkg",
+    ],
+}
+
 _GROUP_DEPS = select(
     {
-        Label("//dep_group:" + group): deps
-        for group, deps in _GROUP_DEP_LABELS.items()
+        Label(cfg): [Label(dep) for dep in deps]
+        for cfg, deps in _GROUP_DEPS_RAW.items()
     },
     no_match_error = "no dep_group selected; set the dep_group attribute on the consuming target to one of: single_project_hub",
 )
