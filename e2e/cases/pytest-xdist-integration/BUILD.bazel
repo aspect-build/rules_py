@@ -13,7 +13,7 @@ py_test(
         "-n",
         "2",
     ],
-    dep_group = "pytest-xdist-integration",
+    dep_group = "pytest_xdist_integration",
     pytest_main = True,
     deps = [
         "@pypi//pytest",

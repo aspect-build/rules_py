@@ -172,7 +172,7 @@ _attrs = dict({
 
 Default value.
 May be overridden with the --@pip//dep_group=<> CLI flag.
-Only works with the experimental Aspect pip machinery.
+Only works with the Aspect rules_py uv machinery.
 """,
     ),
     "python_version": attr.string(

@@ -1,0 +1,53 @@
+# Synthesis-fallback regression test.
+#
+# The sibling pyproject.toml deliberately has NO [dependency-groups] table.
+# The uv extension synthesizes two groups (`""` and `<stamp>`) from the
+# lock manifest, and the dep_group flag's `build_setting_default = ""`
+# activates the empty-keyed group without any .bazelrc entry — exercising
+# the "just works" zero-config path for projects that don't declare groups.
+#
+# Three test variants:
+#
+#   - No `dep_group=` attr; relies on the global flag default. Hub label
+#     is unqualified.
+#   - Explicit `dep_group=""`; same routing, just different transition path.
+#   - Project-qualified label `@<hub>//project/<stamp>:pytest`; verifies
+#     that the per-project subdir is generated even when the project did
+#     not declare an explicit [dependency-groups].
+
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+# Implicit: no dep_group attr; flag default ("") applies.
+py_test(
+    name = "test_implicit_default",
+    srcs = ["test.py"],
+    main = "test.py",
+    deps = ["@pypi_synth_848//pytest"],
+)
+
+# Explicit dep_group="" via the per-target attr.
+py_test(
+    name = "test_explicit_default",
+    srcs = ["test.py"],
+    dep_group = "",
+    main = "test.py",
+    deps = ["@pypi_synth_848//pytest"],
+)
+
+# Project-qualified label — exercises the //project/<stamp>/BUILD.bazel
+# emitter even though the project has no explicit [dependency-groups].
+py_test(
+    name = "test_qualified_default",
+    srcs = ["test.py"],
+    main = "test.py",
+    deps = ["@pypi_synth_848//project/synth_default_848:pytest"],
+)
+
+# Bare `dep_group = "<stamp>"` — the synthesized project alias.
+py_test(
+    name = "test_bare_project_alias",
+    srcs = ["test.py"],
+    dep_group = "synth_default_848",
+    main = "test.py",
+    deps = ["@pypi_synth_848//pytest"],
+)

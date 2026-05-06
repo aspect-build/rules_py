@@ -6,6 +6,10 @@ py_library(
     imports = ["src"],
     visibility = ["//visibility:public"],
     deps = [
-        "@pypi//requests",
+        # Project-qualified to workspace's resolution. py_library doesn't
+        # itself transition, so analyzing this target via wildcard builds
+        # the unqualified @pypi//requests would multi-match against other
+        # projects' default groups providing requests at different versions.
+        "@pypi//project/workspace:requests",
     ],
 )

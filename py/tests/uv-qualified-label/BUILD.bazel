@@ -1,0 +1,30 @@
+# Regression test for the project-qualified hub label shape.
+#
+# `@pypi//.<project>:<package>` is the always-available qualified form. Even
+# when the unqualified `@pypi//<package>` would be ambiguous (multiple
+# projects providing the package via the same dep_group name), the qualified
+# variant routes deterministically to a single project's resolution.
+#
+# Here we have only one project (aspect_rules_py) bound to @pypi, so both
+# label shapes resolve to the same target — but exercising the qualified
+# shape catches the //.<project>/BUILD.bazel emitter regressing.
+
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+py_test(
+    name = "test_qualified_label_resolves",
+    srcs = ["test.py"],
+    main = "test.py",
+    deps = [
+        "@pypi//project/aspect_rules_py:cowsay",
+    ],
+)
+
+py_test(
+    name = "test_unqualified_label_resolves",
+    srcs = ["test.py"],
+    main = "test.py",
+    deps = [
+        "@pypi//cowsay",
+    ],
+)
