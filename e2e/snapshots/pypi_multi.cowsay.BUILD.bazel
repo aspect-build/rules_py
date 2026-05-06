@@ -1,28 +1,67 @@
 load("@aspect_rules_py//py:defs.bzl", "py_library")
-load("//:defs.bzl", "compatible_with")
 
-
-# This target is for a "hard" dependency.
-# Dependencies on this target will cause build failures if it's unavailable.
+alias(
+    name = "cowsay",
+    actual = select({
+          "//dep_group:beta__": "//project/beta:cowsay",
+          "//dep_group:beta__beta": "//project/beta:cowsay",
+          "//dep_group:alpha__dev": "//project/alpha:cowsay",
+          "//dep_group:alpha__q__dev": "//project/alpha:cowsay",
+          "//dep_group:gamma__gamma": "//project/gamma:cowsay",
+          "//dep_group:alpha__unit-tests": "//project/alpha:cowsay",
+          "//dep_group:alpha__q__unit-tests": "//project/alpha:cowsay",
+      },
+        no_match_error = "Package `cowsay` is available in dep_groups: , beta, dev, gamma, unit-tests. If multiple projects in this hub provide `cowsay` at different versions in the active dep_group, Bazel will surface 'multiple keys match' — use a project-qualified label instead: @aspect_rules_py++uv+pypi_multi//project/alpha:cowsay, @aspect_rules_py++uv+pypi_multi//project/beta:cowsay, @aspect_rules_py++uv+pypi_multi//project/gamma:cowsay",
+    ),
+    target_compatible_with = select({
+          "//dep_group:beta__": [],
+          "//dep_group:beta__beta": [],
+          "//dep_group:alpha__dev": [],
+          "//dep_group:alpha__q__dev": [],
+          "//dep_group:gamma__gamma": [],
+          "//dep_group:alpha__unit-tests": [],
+          "//dep_group:alpha__q__unit-tests": [],
+          "//conditions:default": [
+              "@platforms//:incompatible",
+          ],
+      }),
+    visibility = ["//visibility:public"],
+)
 alias(
     name = "lib",
-    actual = "cowsay",
+    actual = ":cowsay",
     visibility = ["//visibility:public"],
 )
 alias(
     name = "pkg",
-    actual = "cowsay",
+    actual = ":cowsay",
     visibility = ["//visibility:public"],
 )
 alias(
     name = "whl",
     actual = select({
-          "//dep_group:beta": "@project__beta//:cowsay_whl",
-          "//dep_group:dev": "@project__alpha//:cowsay_whl",
-          "//dep_group:gamma": "@project__gamma//:cowsay_whl",
-          "//dep_group:unit-tests": "@project__alpha//:cowsay_whl",
+          "//dep_group:beta__": "//project/beta:cowsay_whl",
+          "//dep_group:beta__beta": "//project/beta:cowsay_whl",
+          "//dep_group:alpha__dev": "//project/alpha:cowsay_whl",
+          "//dep_group:alpha__q__dev": "//project/alpha:cowsay_whl",
+          "//dep_group:gamma__gamma": "//project/gamma:cowsay_whl",
+          "//dep_group:alpha__unit-tests": "//project/alpha:cowsay_whl",
+          "//dep_group:alpha__q__unit-tests": "//project/alpha:cowsay_whl",
+      },
+        no_match_error = "Package `cowsay` is available in dep_groups: , beta, dev, gamma, unit-tests. If multiple projects in this hub provide `cowsay` at different versions in the active dep_group, Bazel will surface 'multiple keys match' — use a project-qualified label instead: @aspect_rules_py++uv+pypi_multi//project/alpha:cowsay, @aspect_rules_py++uv+pypi_multi//project/beta:cowsay, @aspect_rules_py++uv+pypi_multi//project/gamma:cowsay",
+    ),
+    target_compatible_with = select({
+          "//dep_group:beta__": [],
+          "//dep_group:beta__beta": [],
+          "//dep_group:alpha__dev": [],
+          "//dep_group:alpha__q__dev": [],
+          "//dep_group:gamma__gamma": [],
+          "//dep_group:alpha__unit-tests": [],
+          "//dep_group:alpha__q__unit-tests": [],
+          "//conditions:default": [
+              "@platforms//:incompatible",
+          ],
       }),
-    target_compatible_with = select(compatible_with(["beta", "dev", "gamma", "unit-tests"])),
     visibility = ["//visibility:public"],
 )
 filegroup(
@@ -30,20 +69,6 @@ filegroup(
     srcs = [":cowsay"],
     visibility = ["//visibility:public"],
 )
-alias(
-    name = "cowsay",
-    actual = select({
-          "//dep_group:beta": "@project__beta//:cowsay",
-          "//dep_group:dev": "@project__alpha//:cowsay",
-          "//dep_group:gamma": "@project__gamma//:cowsay",
-          "//dep_group:unit-tests": "@project__alpha//:cowsay",
-      },
-        no_match_error = "Available only in dep_groups: beta, dev, gamma, unit-tests",
-    ),
-    target_compatible_with = select(compatible_with(["beta", "dev", "gamma", "unit-tests"])),
-    visibility = ["//visibility:public"],
-)
-
 exports_files(
     ["BUILD.bazel"],
     visibility = ["//visibility:public"],

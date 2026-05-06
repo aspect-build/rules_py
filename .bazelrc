@@ -6,8 +6,9 @@ common --incompatible_disallow_empty_glob=False
 # Define value used by tests
 common --define=SOME_VAR=SOME_VALUE
 
-# Set the default virtualenv to 'default'
-common --@pypi//dep_group=aspect_rules_py
+# dep_group=default is the flag's default; no explicit setting needed
+# because pyproject.toml has no [dependency-groups] table and the uv
+# extension synthesizes a single "default" group.
 
 common --incompatible_enable_cc_toolchain_resolution
 common --@llvm//config:experimental_stub_libgcc_s

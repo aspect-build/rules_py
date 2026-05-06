@@ -1,20 +1,20 @@
 load("@aspect_rules_py//uv:defs.bzl", "gazelle_python_manifest")
 
-# Exercise generating a Gazelle manifest covering a ton of venvs. Reads
-# from the //cases/uv-deps-650 hub which already has the 4-project shape
-# this case needs to exercise.
+# Exercise generating a Gazelle manifest covering several dep_groups.
+# `extras` is uv-deps-650/extras's explicit `[dependency-groups].extras`;
+# the bare `<name>` entries are the synthesized per-project aliases for
+# projects without explicit `[dependency-groups]` (airflow, say, crossbuild).
 #
 # Documented exception to per-case isolation: this test applies Gazelle to
-# venvs from another case (//cases/uv-deps-650), so the cross-case
+# dep_groups from another case (//cases/uv-deps-650), so the cross-case
 # reference is by design.
 gazelle_python_manifest(
     name = "gazelle_python_manifest",
     hub = "pypi_uv_deps_650",
-    # Note that we _merge_ the package mappings from several configurations.
     venvs = [
+        "extras",
         "airflow",
         "crossbuild",
-        "extras",
         "say",
     ],
 )
