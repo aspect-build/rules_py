@@ -388,7 +388,7 @@ def _split_kwargs_for_venv(kwargs):
             venv_kwargs[name] = kwargs[name]
     return venv_kwargs
 
-def py_binary_with_venv(py_rule, name, main, srcs = None, deps = None, data = None, imports = None, tags = None, testonly = None, visibility = None, isolated = True, expose_venv = False, **kwargs):
+def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = None, imports = [], tags = None, testonly = None, visibility = None, isolated = True, expose_venv = False, **kwargs):
     """Split `py_rule(name, ...)` into a sibling py_venv target + a
     `py_rule` call routed at it via the internal `external_venv` rule
     attribute. Called for every `py_binary` / `py_test` macro invocation.
@@ -418,10 +418,9 @@ def py_binary_with_venv(py_rule, name, main, srcs = None, deps = None, data = No
     `_check_venv_coverage` is trivially satisfied.
     """
     venv_kwargs = _split_kwargs_for_venv(kwargs)
-    if deps != None:
-        venv_kwargs["deps"] = deps
-    if imports != None:
-        venv_kwargs["imports"] = imports
+    venv_kwargs["srcs"] = srcs
+    venv_kwargs["deps"] = deps
+    venv_kwargs["imports"] = imports
 
     # Target names can contain `/` (Bazel allows it), but venv labels
     # and the on-disk venv basename must be slash-free.
@@ -454,7 +453,6 @@ def py_binary_with_venv(py_rule, name, main, srcs = None, deps = None, data = No
     py_rule(
         name = name,
         main = main,
-        srcs = srcs or [],
         data = data,
         tags = tags,
         testonly = testonly,

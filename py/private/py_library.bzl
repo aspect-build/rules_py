@@ -35,7 +35,7 @@ def _make_virtual_depset(ctx):
         direct = getattr(ctx.attr, "virtual_deps", []),
         transitive = [
             target[PyVirtualInfo].dependencies
-            for target in ctx.attr.deps
+            for target in getattr(ctx.attr, "deps", [])
             if PyVirtualInfo in target
         ],
     )
@@ -55,11 +55,11 @@ def _make_virtual_resolutions_depset(ctx):
         order = "postorder",
         direct = [
             struct(virtual = v, target = k)
-            for k, v in ctx.attr.resolutions.items()
+            for k, v in getattr(ctx.attr, "resolutions", {}).items()
         ],
         transitive = [
             target[PyVirtualInfo].resolutions
-            for target in ctx.attr.deps
+            for target in getattr(ctx.attr, "deps", [])
             if PyVirtualInfo in target
         ],
     )

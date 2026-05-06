@@ -3,10 +3,8 @@
 load("@bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
 load("@bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
 load("@rules_python//python:defs.bzl", "PyInfo")
-load("//py/private:pth.bzl", "make_imports_depset")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
-load("//py/private:venv.bzl", "assemble_venv")
 load("//py/private/py_venv:types.bzl", "VirtualenvInfo")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
 load(":transitions.bzl", "python_version_transition")
@@ -17,133 +15,38 @@ def _dict_to_exports(env):
         for (k, v) in env.items()
     ]
 
-def _check_venv_coverage(ctx, imports_depset, wheels_depset, vinfo):
-    """Analysis-time check: everything the binary needs must live in the venv.
-
-    The external venv's .pth file is what puts its own deps on sys.path at
-    runtime. We can't augment that from the binary's launcher under `-I`
-    (which blocks PYTHONPATH). So any first-party import or wheel dep the
-    binary declares that the venv doesn't already cover is a guaranteed
-    runtime ImportError — catch it at analysis instead.
-    """
-    venv_imports = {imp: True for imp in vinfo.imports.to_list()}
-    bin_wheel_sps = {w.site_packages_rfpath: w for w in wheels_depset.to_list()}
-
-    # Classify missing imports: wheel site-packages vs first-party. Wheel
-    # paths get reported by top-level names (readable) instead of repo
-    # paths (ugly).
-    missing_wheel_names = []
-    missing_first_party = []
-    for imp in imports_depset.to_list():
-        if imp in venv_imports:
-            continue
-        wheel = bin_wheel_sps.get(imp)
-        if wheel != None:
-            names = getattr(wheel, "top_levels", ())
-            missing_wheel_names.append(
-                ", ".join(sorted(names)) if names else imp,
-            )
-        else:
-            missing_first_party.append(imp)
-
-    if missing_wheel_names or missing_first_party:
-        parts = []
-        if missing_wheel_names:
-            parts.append("wheels: " + "; ".join(sorted(missing_wheel_names)))
-        if missing_first_party:
-            parts.append("first-party imports: " + ", ".join(sorted(missing_first_party)))
-        fail(
-            ("py_binary {target}: the sibling venv {venv} (emitted by " +
-             "`expose_venv = True`) doesn't cover this binary's dep " +
-             "closure — {details}. Add the missing deps to the " +
-             "py_binary/py_test call (they're routed to the venv) or " +
-             "drop `expose_venv = True` to use the per-target " +
-             "internal venv.").format(
-                target = str(ctx.label),
-                venv = str(ctx.attr.external_venv.label),
-                details = "; ".join(parts),
-            ),
-        )
-
 def _py_binary_rule_impl(ctx):
     py_toolchain = _py_semantics.resolve_toolchain(ctx)
 
-    # Resolve our `main=` to a label, which it isn't
-    main = _py_semantics.determine_main(ctx)
+    # The macro layer routes srcs / deps to the sibling py_venv (always
+    # set as `external_venv`) and passes an explicit `main =` to the
+    # rule. `main` is the only first-party file the rule contributes;
+    # everything else flows through the sibling venv.
+    if not ctx.attr.main:
+        fail("py_binary {}: main is required.".format(ctx.label))
+    main = ctx.file.main
+    if not main.basename.endswith(".py"):
+        fail("main must end in '.py', got: " + main.basename)
 
-    # Virtual deps resolve to concrete targets first; imports_depset
-    # then gathers first-party + transitive wheel site-packages paths.
-    virtual_resolution = _py_library.resolve_virtuals(ctx)
-    imports_depset = make_imports_depset(
-        deps = ctx.attr.deps,
-        imports = getattr(ctx.attr, "imports", []),
-        workspace_name = ctx.workspace_name,
-        label = ctx.label,
-        extra_imports_depsets = virtual_resolution.imports,
-    )
+    external_venv = ctx.attr.external_venv
+    if not external_venv:
+        fail("py_binary {}: external_venv is required.".format(ctx.label))
+    vinfo = external_venv[VirtualenvInfo]
 
-    # Bazel-contextual env vars that both the launcher (via {{PYTHON_ENV}})
-    # and the venv's activate script (via {{ENVVARS}} / {{ENVVARS_UNSET}})
-    # export.
+    # Bazel-contextual env vars that the launcher exports via
+    # {{PYTHON_ENV}}.
     default_env = {
         "BAZEL_TARGET": str(ctx.label).lstrip("@"),
         "BAZEL_WORKSPACE": ctx.workspace_name,
         "BAZEL_TARGET_NAME": ctx.attr.name,
     }
 
-    # Two venv-sourcing modes:
-    #
-    # * Sibling-venv (the path public callers always go through): the
-    #   `py_binary` / `py_test` macro splits the call into a sibling
-    #   py_venv + a rule call with `external_venv = :<that_venv>`. We
-    #   skip assemble_venv and the launcher exec's the sibling venv's
-    #   bin/python; the binary's runfiles inherit the venv target's
-    #   default_runfiles so the venv's files land at their usual
-    #   rlocation paths. We enforce that the binary's dep closure is a
-    #   subset of the venv's at analysis time — the venv's .pth is
-    #   the only mechanism putting deps on sys.path under our `-I`
-    #   flag, so un-covered deps would just be runtime ImportErrors
-    #   otherwise.
-    #
-    # * Internal (rule-only fallback): assemble_venv declares every
-    #   venv file as an output of this target. Runfiles include the
-    #   venv files. Reachable only by callers using `py_binary_rule`
-    #   directly without setting `external_venv`.
-    safe_name = ctx.attr.name.replace("/", "_")
-    external_venv = ctx.attr.external_venv
-    wheels_depset = _py_library.make_wheels_depset(ctx)
-    extra_runfiles = []
-    extra_runfiles_depsets = [
-        ctx.attr._runfiles_lib[DefaultInfo].default_runfiles,
-    ]
-
-    if external_venv:
-        vinfo = external_venv[VirtualenvInfo]
-        _check_venv_coverage(ctx, imports_depset, wheels_depset, vinfo)
-        bin_python = vinfo.bin_python
-        extra_runfiles_depsets.append(external_venv[DefaultInfo].default_runfiles)
-    else:
-        venv = assemble_venv(
-            ctx,
-            safe_name = safe_name,
-            py_toolchain = py_toolchain,
-            imports_depset = imports_depset,
-            package_collisions = ctx.attr.package_collisions,
-            include_system_site_packages = ctx.attr.include_system_site_packages,
-            include_user_site_packages = ctx.attr.include_user_site_packages,
-            default_env = default_env,
-            venv_activate_tmpl = ctx.file._venv_activate_tmpl,
-            virtualenv_shim_py = ctx.file._virtualenv_shim,
-        )
-        bin_python = venv.bin_python
-        extra_runfiles = venv.all_files
-
-    # Merge env vars: start from the external venv's `env` (if any),
-    # then overlay the binary's own — binary wins on key conflicts.
-    # Same merge for inherited env-var names.
+    # Merge env vars: start from the venv's `env` (if any), then
+    # overlay the binary's own — binary wins on key conflicts. Same
+    # merge for inherited env-var names.
     passed_env = {}
     inherited_env = []
-    if external_venv and RunEnvironmentInfo in external_venv:
+    if RunEnvironmentInfo in external_venv:
         venv_env = external_venv[RunEnvironmentInfo]
         passed_env = dict(venv_env.environment)
         inherited_env = list(venv_env.inherited_environment)
@@ -170,50 +73,44 @@ def _py_binary_rule_impl(ctx):
         substitutions = {
             "{{BASH_RLOCATION_FN}}": BASH_RLOCATION_FUNCTION,
             "{{INTERPRETER_FLAGS}}": " ".join(flags),
-            "{{ARG_VENV_PYTHON}}": to_rlocation_path(ctx, bin_python),
+            "{{ARG_VENV_PYTHON}}": to_rlocation_path(ctx, vinfo.bin_python),
             "{{ENTRYPOINT}}": to_rlocation_path(ctx, main),
             "{{PYTHON_ENV}}": "\n".join(_dict_to_exports(default_env)).strip(),
         },
         is_executable = True,
     )
 
-    srcs_depset = _py_library.make_srcs_depset(ctx)
-
     runfiles = _py_library.make_merged_runfiles(
         ctx,
-        extra_depsets = [
-            py_toolchain.files,
-            srcs_depset,
-        ] + virtual_resolution.srcs + virtual_resolution.runfiles,
-        extra_runfiles = extra_runfiles,
-        extra_runfiles_depsets = extra_runfiles_depsets,
+        extra_depsets = [py_toolchain.files],
+        extra_runfiles = [main],
+        extra_runfiles_depsets = [
+            ctx.attr._runfiles_lib[DefaultInfo].default_runfiles,
+            external_venv[DefaultInfo].default_runfiles,
+        ],
     )
 
-    instrumented_files_info = _py_library.make_instrumented_files_info(
+    instrumented_files_info = coverage_common.instrumented_files_info(
         ctx,
-        extra_source_attributes = ["main"],
+        source_attributes = ["main"],
+        dependency_attributes = ["data", "external_venv"],
+        extensions = ["py"],
     )
-
-    default_info_files = [executable_launcher, main]
-    if not external_venv:
-        default_info_files = default_info_files + extra_runfiles
-
-    # When the venv is external, deps were routed to it (not to this
-    # rule), so the binary's own imports_depset is just the workspace
-    # root. Surface the venv's imports through PyInfo so downstream
-    # consumers (e.g. py_pex_binary's `--sys-path=`) see the same
-    # sys.path the launcher will run with.
-    pyinfo_imports = vinfo.imports if external_venv else imports_depset
 
     return [
         DefaultInfo(
-            files = depset(default_info_files),
+            files = depset([executable_launcher, main]),
             executable = executable_launcher,
             runfiles = runfiles,
         ),
         PyInfo(
-            imports = pyinfo_imports,
-            transitive_sources = srcs_depset,
+            # Surface the venv's imports through PyInfo so downstream
+            # consumers (e.g. py_pex_binary's `--sys-path=`) see the
+            # same sys.path the launcher will run with.
+            imports = vinfo.imports,
+            # No `srcs` / `deps` on this rule — first-party sources
+            # live on the sibling venv. Keep the depset empty here.
+            transitive_sources = depset(),
             has_py2_only_sources = False,
             has_py3_only_sources = True,
             uses_shared_libraries = False,
@@ -255,19 +152,16 @@ Part of the aspect_rules_py//uv system, has no effect in rules_python's pip.
     ),
     "external_venv": attr.label(
         providers = [[VirtualenvInfo]],
+        mandatory = True,
         doc = """Internal: set by the `py_binary_with_venv` macro for
 every public `py_binary` / `py_test` invocation (the macro splits the
 call into a py_venv target + a rule call routed at it). Not a
 user-facing attribute — direct settings on the rule are blocked at
 the macro layer in `//py:defs.bzl`.
 
-When non-None, the binary skips its own per-target venv assembly and
-exec's the referenced venv's `bin/python`. The binary's dep closure
-must be a **subset** of the venv's: any first-party import or wheel
-dep this binary declares that the venv doesn't already cover is
-rejected at analysis time, because the venv's `.pth` file is the only
-channel putting deps on `sys.path` under `-I` (which blocks
-`PYTHONPATH`).
+The binary's launcher exec's the referenced venv's `bin/python`; its
+runfiles inherit the venv's default_runfiles so all wheels and first-
+party sources land at their usual rlocation paths.
 """,
     ),
     "python_version": attr.string(
@@ -282,65 +176,22 @@ channel putting deps on `sys.path` under `-I` (which blocks
         doc = """When True (default), the launcher invokes Python with `-I`
 (isolated mode: ignore PYTHON* env vars, skip user site-packages, don't
 auto-add the script's dir to sys.path). Set to False to drop `-I` — the
-launcher then respects `PYTHONPATH` and loads user site-packages if
-`include_user_site_packages` is also true. The deprecated
+launcher then respects `PYTHONPATH` and loads user site-packages if the
+sibling venv has `include_user_site_packages = True` set. The deprecated
 `py_venv_binary` / `py_venv_test` aliases default this to False to
 match their historical permissive behaviour.""",
-    ),
-    "package_collisions": attr.string(
-        doc = """What to do when two wheels both claim the same top-level name.
-
-Wheels contribute top-level names via `PyWheelsInfo` (populated by the
-uv `whl_install` repo rule from each wheel's `*.dist-info/RECORD`).
-
-* "error": Fail analysis with a message naming both wheels.
-* "warning" (default): Print a warning and use the first wheel seen.
-* "ignore": Use the first wheel silently; the second is skipped.
-
-The default is `"warning"` because legitimate top-level overlaps are
-common in the Python ecosystem: setuptools vendors `packaging`,
-multi-package distributions split the `<root>.*` namespace across
-wheels (apache-airflow, jaraco.*), etc. First-seen wins matches what
-pip / uv give you at install time. Set this to `"error"` for strict
-non-overlap (useful during project hygiene audits).
-
-PEP 420 namespace packages (empty `<root>/` across wheels) are
-automatically skipped — they're not real collisions.
-""",
-        default = "warning",
-        values = ["error", "warning", "ignore"],
-    ),
-    "include_system_site_packages": attr.bool(
-        doc = """`pyvenv.cfg` `include-system-site-packages` key. When True,
-the host interpreter's site-packages participate in sys.path. Default False
-for hermeticity; only flip on to match legacy `python -m venv` behavior or
-when system-installed packages need to be reachable.""",
-        default = False,
-    ),
-    "include_user_site_packages": attr.bool(
-        doc = """Aspect extension key `aspect-include-user-site-packages` in
-pyvenv.cfg. When True, `~/.local/lib/pythonX.Y/site-packages/` participates
-in sys.path. Default False for hermeticity.""",
-        default = False,
     ),
     "_run_tmpl": attr.label(
         allow_single_file = True,
         default = "//py/private:run.tmpl.sh",
     ),
-    "_venv_activate_tmpl": attr.label(
-        allow_single_file = True,
-        default = "//py/private:venv_activate.tmpl.sh",
-    ),
-    "_virtualenv_shim": attr.label(
-        allow_single_file = True,
-        default = "//py/private:_virtualenv.py",
-    ),
     "_runfiles_lib": attr.label(
         default = "@bazel_tools//tools/bash/runfiles",
     ),
-    # Freethreaded Python 3.13+ uses `lib/python<M>.<m>t/site-packages/`
-    # — py_semantics reads this to report freethreaded status to
-    # assemble_venv so the venv lands at the interpreter-expected path.
+    # Read by py_semantics — freethreaded interpreters live at
+    # `lib/python<M>.<m>t/site-packages/`, not the default
+    # `.../python<M>.<m>/`. Even though the rule no longer assembles a
+    # venv, py_semantics.resolve_toolchain still consults this flag.
     "_freethreaded_flag": attr.label(
         default = "//py/private/interpreter:freethreaded",
     ),
@@ -351,6 +202,12 @@ in sys.path. Default False for hermeticity.""",
 })
 
 _attrs.update(**_py_library.attrs)
+
+# `srcs` and `deps` are not rule-level attrs — the public macros route
+# both to the sibling py_venv. Pop them after pulling py_library's attr
+# dict so the rule rejects direct settings.
+_attrs.pop("srcs", None)
+_attrs.pop("deps", None)
 
 _test_attrs = dict({
     "env_inherit": attr.string_list(

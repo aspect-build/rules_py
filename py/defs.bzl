@@ -64,6 +64,31 @@ py_image_layer = _py_image_layer
 
 resolutions = _resolutions
 
+def _resolve_main(name, srcs, main):
+    """Macro-time fallback for `main`. Mirrors `_determine_main` in
+    py_semantics.bzl, except it operates on label strings instead of
+    files because srcs no longer reaches the underlying rule. Order:
+
+    1. Use `main` if set.
+    2. If `srcs` has exactly one entry, use it.
+    3. Look for a `<basename(name)>.py` suffix match in srcs.
+    """
+    if main != None:
+        return main
+    if len(srcs) == 1:
+        return srcs[0]
+    proposed = name.split("/")[-1] + ".py"
+    matches = [s for s in srcs if _label_endswith(s, proposed)]
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) > 1:
+        fail("py_binary {}: file '{}' matches multiple srcs: {}".format(name, proposed, [str(m) for m in matches]))
+    fail("py_binary {} has multiple srcs and no `main =`. Set main explicitly.".format(name))
+
+def _label_endswith(label_or_str, suffix):
+    s = str(label_or_str)
+    return s == suffix or s.endswith(":" + suffix) or s.endswith("/" + suffix)
+
 def py_binary(name, srcs = [], main = None, **kwargs):
     """Wrapper macro for [`py_binary_rule`](#py_binary_rule).
 
@@ -79,6 +104,13 @@ def py_binary(name, srcs = [], main = None, **kwargs):
             Like rules_python, this is treated as a suffix of a file that should appear among the srcs.
             If absent, then `[name].py` is tried. As a final fallback, if the srcs has a single file,
             that is used as the main.
+
+            Note: the fallback runs at macro-evaluation time and operates
+            on label strings, not resolved files — it cannot inspect a
+            generated target's output basename. If `main` would resolve
+            to a file produced by another rule (e.g. a `genrule` whose
+            output happens to be `<name>.py`), the macro can't see that
+            and you must pass `main =` explicitly.
         **kwargs: additional named parameters to `py_binary_rule`. One
             extra handled by this macro:
 
@@ -103,7 +135,7 @@ def py_binary(name, srcs = [], main = None, **kwargs):
         _py_binary,
         name = name,
         srcs = srcs,
-        main = main,
+        main = _resolve_main(name, srcs, main),
         resolutions = resolutions,
         **kwargs
     )
@@ -162,7 +194,7 @@ def py_test(name, srcs = [], main = None, pytest_main = False, **kwargs):
         name = name,
         srcs = srcs,
         deps = deps,
-        main = main,
+        main = _resolve_main(name, srcs, main),
         resolutions = resolutions,
         **kwargs
     )
