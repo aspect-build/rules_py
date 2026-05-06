@@ -1,0 +1,43 @@
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("//py:defs.bzl", "py_binary", "py_test")
+
+# Verify `interpreter_options = ["-O"]` reaches every place the user
+# might run the python interpreter:
+#
+# 1. The py_test launcher itself.
+# 2. The py_binary launcher emitted alongside `:bin_O.venv`.
+# 3. The public sibling `:bin_O.venv` (the interactive REPL target).
+#
+# `assert_optimize.py` runs `assert sys.flags.optimize == 1` which is
+# only true if -O made it to the python invocation. If the macro stops
+# routing `interpreter_options` to one of these targets, the relevant
+# test fails.
+
+py_test(
+    name = "test_options_on_test",
+    srcs = ["assert_optimize.py"],
+    interpreter_options = ["-O"],
+    main = "assert_optimize.py",
+)
+
+py_binary(
+    name = "bin_O",
+    srcs = ["assert_optimize.py"],
+    expose_venv = True,
+    interpreter_options = ["-O"],
+    main = "assert_optimize.py",
+)
+
+# Run the binary launcher as a test — it asserts internally.
+sh_test(
+    name = "test_options_on_binary",
+    srcs = ["check_binary.sh"],
+    data = [":bin_O"],
+)
+
+# Run the public `.venv` sibling and verify -O is honored.
+sh_test(
+    name = "test_options_on_venv_sibling",
+    srcs = ["check_venv_sibling.sh"],
+    data = [":bin_O.venv"],
+)
