@@ -22,7 +22,6 @@ py_venv_binary(
     srcs = ["__main__.py"],
     main = "__main__.py",
     tags = ["manual"],
-    venv = "no-turtle-test",
 )
 
 py_image_layer(
