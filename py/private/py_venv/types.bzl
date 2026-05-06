@@ -15,5 +15,6 @@ loudly when their dep closure isn't covered by the venv.
         "venv_name": "str — the venv dir's basename (e.g. `.myapp_venv`). Combine with ctx.label to derive the runfiles path to the venv root.",
         "imports": "depset[str] — rlocation-root-relative import paths covered by this venv. Mirrors `PyInfo.imports` of the venv's dep closure. Used by py_binary to verify its own imports are a subset.",
         "wheels": "depset[struct] — per-wheel metadata (same shape as `PyWheelsInfo.wheels`). Used by py_binary to verify its own wheel deps are covered by the venv.",
+        "transitive_sources": "depset[File] — first-party Python sources carried by this venv (its own `srcs` plus those of any `deps` that emit `PyInfo`). Surfaced by py_binary as `PyInfo.transitive_sources` so downstream consumers see the same source closure they'd see if srcs/deps lived on the binary directly.",
     },
 )

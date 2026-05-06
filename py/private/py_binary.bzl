@@ -112,13 +112,13 @@ def _py_venv_exec_impl(ctx):
             runfiles = runfiles,
         ),
         PyInfo(
-            # Surface the venv's imports through PyInfo so downstream
-            # consumers (e.g. py_pex_binary's `--sys-path=`) see the
-            # same sys.path the launcher will run with.
+            # Surface the venv's imports + transitive_sources through
+            # PyInfo so downstream consumers (e.g. py_pex_binary's
+            # `--sys-path=`) see the same sys.path / source closure the
+            # launcher will run with. `srcs` / `deps` live on the
+            # sibling venv, not on this rule.
             imports = vinfo.imports,
-            # No `srcs` / `deps` on this rule — first-party sources
-            # live on the sibling venv. Keep the depset empty here.
-            transitive_sources = depset(),
+            transitive_sources = vinfo.transitive_sources,
             has_py2_only_sources = False,
             has_py3_only_sources = True,
             uses_shared_libraries = False,

@@ -107,6 +107,7 @@ def _assemble_shared(ctx):
         runfiles = runfiles,
         imports_depset = imports_depset,
         wheels_depset = wheels_depset,
+        srcs_depset = srcs_depset,
     )
 
 def _py_venv_rule_impl(ctx):
@@ -149,6 +150,7 @@ def _py_venv_rule_impl(ctx):
             venv_name = shared.venv.venv_name,
             imports = shared.imports_depset,
             wheels = shared.wheels_depset,
+            transitive_sources = shared.srcs_depset,
         ),
         # Forwarded to the sibling py_binary/py_test consumer (created
         # by `expose_venv = True`) so env vars declared on the venv
@@ -405,29 +407,14 @@ def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = None, 
     `py_rule` call routed at it via the internal `external_venv` rule
     attribute. Called for every `py_binary` / `py_test` macro invocation.
 
-    `expose_venv` controls the sibling's visibility:
-
-    * `expose_venv = True` — emits a public `:{name}.venv` py_venv
-      target. Runnable (`bazel run :{name}.venv` drops into the
-      hermetic interpreter) and pairable with `py_venv_link` for IDE
-      integration. The venv inherits the binary's visibility.
-
-    * `expose_venv = False` (default) — emits a private
-      `:_{name}_venv` py_venv tagged `manual` and visibility-restricted
-      to its own package. The binary still routes through it for venv
-      assembly, but the target itself is not part of the user-facing
-      API surface.
-
-    Either way the on-disk venv tree lands at `.{name}.venv/` —
-    py_venv's basename default for the exposed case (where safe_name
-    is already `<name>.venv`) and an explicit override for the
-    private case (where safe_name is `_<name>_venv`).
+    `expose_venv = True` emits a public `:{name}.venv` py_venv:
+    runnable (`bazel run :{name}.venv` drops into the hermetic
+    interpreter) and pairable with `py_venv_link` for IDE integration.
+    The venv inherits the binary's visibility.
 
     All venv-shaping attrs (`deps`, `imports`, `package_collisions`,
     `include_*_site_packages`, `interpreter_options`) land on the
-    sibling venv. The rule's own dep closure is empty by construction,
-    so the analysis-time subset-coverage check in py_binary's
-    `_check_venv_coverage` is trivially satisfied.
+    sibling venv.
     """
     venv_kwargs = _split_kwargs_for_venv(kwargs)
     venv_kwargs["srcs"] = srcs
@@ -443,11 +430,6 @@ def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = None, 
         venv_tags = None
         venv_basename = None
     else:
-        # Private sibling: name-mangled to keep it out of users'
-        # autocomplete, `manual`-tagged so wildcards skip it,
-        # `//visibility:private` so neighboring packages can't depend
-        # on it. The on-disk basename is forced to `.{safe_name}.venv/`
-        # so runfiles layouts match the exposed-case default.
         venv_label = "_{}_venv".format(safe_name)
         venv_visibility = ["//visibility:private"]
         venv_tags = ["manual"]
