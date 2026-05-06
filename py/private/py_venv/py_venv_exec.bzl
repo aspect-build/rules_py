@@ -10,7 +10,7 @@ load("@bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variabl
 load("@hermetic_launcher//launcher:lib.bzl", "launcher")
 load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
-load(":types.bzl", "VirtualenvInfo")
+load(":types.bzl", "VirtualenvInfo", "venv_root")
 
 # Identifiers the launcher always sets to the analysing rule's contextual
 # values. Excluded from `inherited_environment` so that a stray
@@ -53,13 +53,22 @@ def _py_venv_exec_impl(ctx):
         venv_env = venv[RunEnvironmentInfo]
         passed_env = dict(venv_env.environment)
         inherited_env = list(venv_env.inherited_environment)
+
+    # Owned by the rule. The lib venv variant carries no `env` to guard,
+    # so guard here to match the executable variant's check.
+    if "VIRTUAL_ENV" in ctx.attr.env:
+        fail("py_binary/py_test {}: `VIRTUAL_ENV` is set by the rule and cannot be overridden via `env`.".format(ctx.label))
+
+    # Set here so it's present even for the lib venv variant, which has
+    # no RunEnvironmentInfo to carry it.
+    passed_env["VIRTUAL_ENV"] = venv_root(vinfo.bin_python)
     for k, v in ctx.attr.env.items():
         passed_env[k] = expand_variables(
             ctx,
             expand_locations(ctx, v, ctx.attr.data),
             attribute_name = "env",
         )
-    for name in getattr(ctx.attr, "env_inherit", []):
+    for name in ctx.attr.env_inherit:
         if name not in inherited_env:
             inherited_env.append(name)
     passed_env["BAZEL_TARGET"] = str(ctx.label).lstrip("@")
@@ -144,6 +153,10 @@ _attrs = dict({
         doc = "Environment variables to set when running the binary.",
         default = {},
     ),
+    "env_inherit": attr.string_list(
+        doc = "Names of environment variables to pass through from the invoking environment.",
+        default = [],
+    ),
     "main": attr.label(
         allow_single_file = True,
         doc = """
@@ -216,10 +229,6 @@ https://pypi.org/project/bazel-runfiles/.
 })
 
 _test_attrs = dict({
-    "env_inherit": attr.string_list(
-        doc = "Specifies additional environment variables to inherit from the external environment when the test is executed by bazel test.",
-        default = [],
-    ),
     # Magic attribute to make coverage --combined_report flag work.
     # There's no docs about this.
     # See https://github.com/bazelbuild/bazel/blob/fde4b67009d377a3543a3dc8481147307bd37d36/tools/test/collect_coverage.sh#L186-L194

@@ -1,5 +1,11 @@
 """quasi-public types."""
 
+def venv_root(bin_python):
+    """The venv root's runfiles-relative rootpath, derived from the
+    `bin/python` symlink's short_path (drop the trailing `bin/python`).
+    The value `py_venv` and its launcher export as `VIRTUAL_ENV`."""
+    return bin_python.short_path.rsplit("/", 2)[0]
+
 VirtualenvInfo = provider(
     doc = """Provider emitted by `py_venv` identifying a materialised
 virtualenv for downstream consumers.

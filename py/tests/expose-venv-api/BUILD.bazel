@@ -51,6 +51,26 @@ py_binary(
     ],
 )
 
+# Regression: `env_inherit` on a py_binary must analyse in both expose
+# modes (the binary launcher carries the attr; the venv split routes it
+# to the launcher, not the sibling venv).
+py_binary(
+    name = "env_inherit_bin",
+    srcs = ["main.py"],
+    env = {"FOO": "bar"},
+    env_inherit = ["PATH"],
+    main = "main.py",
+)
+
+py_binary(
+    name = "env_inherit_exposed_bin",
+    srcs = ["main.py"],
+    env = {"FOO": "bar"},
+    env_inherit = ["PATH"],
+    expose_venv = True,
+    main = "main.py",
+)
+
 # `expose_venv_link = True` implies `expose_venv = True` and additionally
 # emits a `:{name}.venv_link` py_venv_link.
 py_binary(
@@ -78,6 +98,9 @@ build_test(
         ":legacy_shape_bin.venv",
         ":venv_shaping_bin",
         ":venv_shaping_bin.venv",
+        ":env_inherit_bin",
+        ":env_inherit_exposed_bin",
+        ":env_inherit_exposed_bin.venv",
         ":link_bin",
         ":link_bin.venv",
         ":link_bin.venv_link",
