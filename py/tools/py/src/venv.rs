@@ -466,7 +466,7 @@ aspect-runfiles-repo = {1}
     // FIXME: Should the user be able to provide a custom venv patch?
     fs::write(
         &venv.site_dir.join("_virtualenv.py"),
-        include_str!("_virtualenv.py"),
+        include_str!("__virtualenv.py"),
     )
     .into_diagnostic()?;
 

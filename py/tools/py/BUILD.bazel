@@ -9,7 +9,7 @@ rust_library(
         "src/venv.rs",
     ],
     compile_data = [
-        "src/_virtualenv.py",
+        "src/__virtualenv.py",
         "src/activate.tmpl",
         "src/pyvenv.cfg.tmpl",
         "src/runfiles_interpreter.tmpl",
