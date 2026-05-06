@@ -52,24 +52,14 @@ def _py_unpacked_wheel_impl(ctx):
     # site_packages_rfpath: runfiles-root-relative path to this wheel's
     # site-packages/, used by downstream rules to compute symlink targets
     # for the top-level names declared in `top_levels`.
-    if ctx.label.workspace_name:
-        site_packages_rfpath = paths.join(
-            ctx.label.workspace_name,
-            ctx.label.package,
-            unpack_directory.basename,
-            "lib",
-            py_ver_dir,
-            "site-packages",
-        )
-    else:
-        site_packages_rfpath = paths.join(
-            ctx.workspace_name,
-            ctx.label.package,
-            unpack_directory.basename,
-            "lib",
-            py_ver_dir,
-            "site-packages",
-        )
+    site_packages_rfpath = paths.join(
+        ctx.label.workspace_name if ctx.label.workspace_name else ctx.workspace_name,
+        ctx.label.package,
+        unpack_directory.basename,
+        "lib",
+        py_ver_dir,
+        "site-packages",
+    )
 
     providers = [
         DefaultInfo(
