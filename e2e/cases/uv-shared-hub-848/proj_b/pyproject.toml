@@ -1,0 +1,14 @@
+[project]
+name = "proj-b-848"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    "pytest",
+]
+
+# Mirror of proj-a-848 with a distinct project name. The "shared" group
+# overlaps with proj-a-848's "shared" — exercise the conflict path.
+# "b_only" is unique to this project for unambiguous resolution tests.
+[dependency-groups]
+shared = ["proj-b-848"]
+b_only = ["proj-b-848"]

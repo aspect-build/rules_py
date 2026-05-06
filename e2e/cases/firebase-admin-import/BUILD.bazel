@@ -38,7 +38,7 @@ load("@bazel_skylib//rules:build_test.bzl", "build_test")
 py_test(
     name = "test",
     srcs = ["test.py"],
-    dep_group = "firebase-admin-import",
+    dep_group = "firebase_admin_import",
     main = "test.py",
     deps = [
         "@pypi//firebase_admin",
@@ -52,7 +52,7 @@ py_test(
 py_test(
     name = "test_tool",
     srcs = ["test.py"],
-    dep_group = "firebase-admin-import",
+    dep_group = "firebase_admin_import",
     expose_venv = True,
     isolated = False,
     main = "test.py",
@@ -72,7 +72,7 @@ py_test(
 py_binary(
     name = "firebase_importer",
     srcs = ["test.py"],
-    dep_group = "firebase-admin-import",
+    dep_group = "firebase_admin_import",
     main = "test.py",
     deps = [
         "@pypi//firebase_admin",

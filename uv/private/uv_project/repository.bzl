@@ -1,5 +1,23 @@
-"""
+"""Generates the per-project repo backing each `uv.project()` declaration.
 
+The hub repo (uv_hub) routes top-level package labels into one of these
+project repos based on the active `dep_group` flag value. Each project
+repo carries:
+
+  - `//private/dep_group/BUILD.bazel` — internal config_settings mirroring
+    the hub's `dep_group/` shape: a broad `<cfg>` config_setting for each
+    declared group, plus a narrow `q_<cfg>` keyed on the qualified flag
+    value `<stamp>/<cfg>`.
+  - `//BUILD.bazel` — surface package aliases. Each `:<package>` selects on
+    `private/dep_group:<cfg>` and routes to the appropriate SCC.
+  - `//private/sccs/BUILD.bazel` — `py_library` per SCC.
+  - `//private/markers/BUILD.bazel` — `decide_marker` rules for collected
+    PEP 508 markers.
+
+Style: each layer is built as a list of string fragments (`content = [...]`)
+and finalized with a single `"\\n".join(content)` to avoid the cost of
+repeated string concatenation. Each layer ends with a
+`repository_ctx.file(path, content)` call.
 """
 
 load("@bazel_features//:features.bzl", features = "bazel_features")
@@ -8,6 +26,15 @@ load("//uv/private/pprint:defs.bzl", "pprint")
 
 def indent(text, space = " "):
     return "\n".join(["{}{}".format(space, l) for l in text.splitlines()])
+
+def _cfg_target(cfg):
+    """Bazel target name for a dep_group key. Empty maps to `_default`.
+
+    The synthesized empty-keyed group has flag_value `""`, but Bazel
+    forbids empty target names. We use `_default` for the target while
+    the flag_value stays `""`.
+    """
+    return cfg if cfg else "_default"
 
 def name(quad):
     _lock, package_name, package_version, package_extra = quad.split(",")
@@ -25,16 +52,7 @@ def _project_impl(repository_ctx):
         scc_graph:    {scc: {install: {marker: 1}}}
     """
 
-    # Styleguide; string append via `+=` is inefficient. Prefer to use a list as
-    # a pseudo string builder buffer and a single final "\n".join(content) to
-    # materialize the buffer to a final writable string.
-
-    # Styleguide: Address each layer of aliases sequentially. Each layer should
-    # begin with a comment explaining what faimily of BUILD.bazel files will be
-    # generated, and end with the required `repository_ctx.file(path, content)`
-    # call.
-
-    # These are provided as JSON strings and must be decoded.
+    # JSON-encoded by the extension; decode to the nested dicts above.
     dep_to_scc = json.decode(repository_ctx.attr.dep_to_scc)
     scc_deps = json.decode(repository_ctx.attr.scc_deps)
     scc_graph = json.decode(repository_ctx.attr.scc_graph)
@@ -84,29 +102,42 @@ alias(
             return ":" + cond_id
 
     ################################################################################
-    # Lay down the //private/dep_group:BUILD.bazel file with config flags
-    #
-    # This mirrors the uv_hub's dep_group, but is internal to the project.
+    # //private/dep_group/BUILD.bazel
     venv_content = []
 
-    # Collect all unique cfgs first
     all_cfgs = set()
     for dep, cfgs in dep_to_scc.items():
         for cfg in cfgs.keys():
             all_cfgs.add(cfg)
 
+    project_stamp = repository_ctx.attr.project_stamp
     for cfg_name in all_cfgs:
+        # Broad arm: `dep_group=<cfg>`.
         venv_content.append(
             """
 config_setting(
-    name = "{name}",
+    name = "{target}",
     flag_values = {{
-        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "{name}",
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "{flag_value}",
     }},
     visibility = ["//visibility:public"],
 )
-""".format(name = cfg_name),
+""".format(target = _cfg_target(cfg_name), flag_value = cfg_name),
         )
+
+        # Narrow arm: `dep_group=<stamp>/<cfg>`.
+        if cfg_name != "" and cfg_name != project_stamp:
+            venv_content.append(
+                """
+config_setting(
+    name = "q_{name}",
+    flag_values = {{
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "{stamp}/{name}",
+    }},
+    visibility = ["//visibility:public"],
+)
+""".format(name = cfg_name, stamp = project_stamp),
+            )
     repository_ctx.file("private/dep_group/BUILD.bazel", content = "\n".join(venv_content))
 
     ################################################################################
@@ -124,18 +155,16 @@ load("@aspect_rules_py//py:defs.bzl", "py_library")
 
         # FIXME: Handle markers for distinct versions
         for cfg, scc_cfgs in cfgs.items():
-            cfg_name = "_package_{}_{}".format(package, cfg)
-            main_arms["//private/dep_group:" + cfg] = ":" + cfg_name
+            cfg_name = "_package_{}_{}".format(package, _cfg_target(cfg))
+            main_arms["//private/dep_group:" + _cfg_target(cfg)] = ":" + cfg_name
+            if cfg != "" and cfg != project_stamp:
+                main_arms["//private/dep_group:q_" + cfg] = ":" + cfg_name
 
             cfg_arms = {}
 
-            # This is a bit tricky. We're doing choice between several different
-            # SCCs possibly encoding different versions or extra specializations
-            # of a package "at once" depending on the venv + marker set.
-            # Consequently this second-level choice is actually the MERGE
-            # between the individual cases under which specific markers evaluate
-            # to true. It's a configuration and locking failure for there to be
-            # more than one package which resolves at this point. So we just jam all the configurations into a single select.
+            # Second-level select: merges the SCCs under which markers evaluate
+            # true. Two SCCs matching the same marker (or `__base__`) is a
+            # locking failure and surfaces as a configuration error below.
             for scc, markers in scc_cfgs.items():
                 if "" in markers:
                     if "//conditions:default" in cfg_arms:
@@ -176,7 +205,7 @@ alias(
     all_requirements = {}
     for package, cfgs in dep_to_scc.items():
         for cfg in cfgs.keys():
-            all_requirements.setdefault("//private/dep_group:" + cfg, []).append("//:" + package)
+            all_requirements.setdefault("//private/dep_group:" + _cfg_target(cfg), []).append("//:" + package)
 
     content.append("""
 filegroup(
@@ -278,6 +307,10 @@ decide_marker(
 uv_project = repository_rule(
     implementation = _project_impl,
     attrs = {
+        "project_stamp": attr.string(
+            doc = "PEP 503 normalized project name. Used to construct " +
+                  "the qualified flag-value match `project/<stamp>/<group>`.",
+        ),
         "dep_to_scc": attr.string(),
         "scc_deps": attr.string(),
         "scc_graph": attr.string(),

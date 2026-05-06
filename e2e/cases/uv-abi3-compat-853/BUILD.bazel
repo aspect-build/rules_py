@@ -7,7 +7,7 @@ load("@aspect_rules_py//py:defs.bzl", "py_test")
 py_test(
     name = "test_import",
     srcs = ["test_abi3.py"],
-    dep_group = "abi3-compat",
+    dep_group = "abi3_compat",
     main = "test_abi3.py",
     python_version = "3.12",
     target_compatible_with = ["@platforms//os:linux"],
@@ -17,7 +17,7 @@ py_test(
 py_test(
     name = "test_import_venv_test",
     srcs = ["test_abi3.py"],
-    dep_group = "abi3-compat",
+    dep_group = "abi3_compat",
     expose_venv = True,
     isolated = False,
     main = "test_abi3.py",

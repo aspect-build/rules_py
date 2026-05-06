@@ -470,6 +470,41 @@ uv.project(
 use_repo(uv, "pypi-pytorch")
 # }}}
 
+# For cases/uv-shared-hub-848
+# {{{
+# Distinct hub deliberately registering two projects with overlapping
+# group names ("shared") and project-unique groups ("a_only", "b_only").
+# Exercises the namespacing paths added in v2.0.
+uv.declare_hub(hub_name = "pypi_shared_848")
+uv.project(
+    hub_name = "pypi_shared_848",
+    lock = "//cases/uv-shared-hub-848/proj_a:uv.lock",
+    pyproject = "//cases/uv-shared-hub-848/proj_a:pyproject.toml",
+)
+uv.project(
+    hub_name = "pypi_shared_848",
+    lock = "//cases/uv-shared-hub-848/proj_b:uv.lock",
+    pyproject = "//cases/uv-shared-hub-848/proj_b:pyproject.toml",
+)
+use_repo(uv, "pypi_shared_848")
+# }}}
+
+# For cases/uv-synthesis-default-848
+# {{{
+# Single-project hub whose pyproject.toml has no [dependency-groups] table.
+# Exercises the synthesis fallback (empty-keyed group + `<name>` alias)
+# and the zero-config path where the dep_group flag's
+# build_setting_default of `""` makes everything resolve without any
+# .bazelrc entry.
+uv.declare_hub(hub_name = "pypi_synth_848")
+uv.project(
+    hub_name = "pypi_synth_848",
+    lock = "//cases/uv-synthesis-default-848:uv.lock",
+    pyproject = "//cases/uv-synthesis-default-848:pyproject.toml",
+)
+use_repo(uv, "pypi_synth_848")
+# }}}
+
 use_repo(uv, "pypi")
 
 register_toolchains("@uv//:all")
