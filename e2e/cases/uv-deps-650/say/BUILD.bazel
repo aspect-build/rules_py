@@ -5,9 +5,9 @@ py_venv_test(
     srcs = [
         "__test__.py",
     ],
+    dep_group = "say",
     main = "__test__.py",
     python_version = "3.11",
-    dep_group = "say",
     deps = [
         "@pypi//cowsay",
     ],

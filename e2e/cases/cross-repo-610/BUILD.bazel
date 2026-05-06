@@ -5,11 +5,11 @@ py_venv_test(
     srcs = [
         "test.py",
     ],
+    dep_group = "say",
     imports = [
         ".",
     ],
     main = "test.py",
-    dep_group = "say",
     deps = [
         "@pypi//cowsay",
         "@subrepo_a//:foo",

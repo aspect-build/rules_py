@@ -7,9 +7,9 @@ load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
 py_venv_test(
     name = "test_import",
     srcs = ["test_abi3.py"],
+    dep_group = "abi3-compat",
     main = "test_abi3.py",
     python_version = "3.12",
     target_compatible_with = ["@platforms//os:linux"],
-    dep_group = "abi3-compat",
     deps = ["@pypi//cryptography"],
 )

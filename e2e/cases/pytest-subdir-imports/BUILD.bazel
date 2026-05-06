@@ -9,8 +9,8 @@ py_library(
 py_test(
     name = "test_subdir_import",
     srcs = ["tests/test_subdir.py"],
-    pytest_main = True,
     dep_group = "pytest-subdir-imports",
+    pytest_main = True,
     deps = [
         ":lib",
         "@pypi//pytest",

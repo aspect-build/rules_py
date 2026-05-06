@@ -3,8 +3,8 @@ load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
 py_venv_test(
     name = "test_a",
     srcs = ["test_a.py"],
-    main = "test_a.py",
     dep_group = "max-a",
+    main = "test_a.py",
     deps = [
         "@pypi//packaging",
     ],
@@ -13,8 +13,8 @@ py_venv_test(
 py_venv_test(
     name = "test_b",
     srcs = ["test_b.py"],
-    main = "test_b.py",
     dep_group = "max-b",
+    main = "test_b.py",
     deps = [
         "@pypi//packaging",
     ],
