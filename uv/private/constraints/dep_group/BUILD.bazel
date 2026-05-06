@@ -2,6 +2,12 @@ load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
 
 string_flag(
     name = "dep_group",
+    # Empty matches the synthesis fallback in uv.project()'s extension
+    # impl: projects without a [dependency-groups] table get a group
+    # keyed on "" (and one keyed on the project name). PEP 735 forbids
+    # an empty group name so user-declared groups can never collide with
+    # this default. Projects with explicit groups pick one with
+    # `--@<hub>//dep_group=<name>` or per-target `dep_group="..."`.
     build_setting_default = "",
     # "universal" causes this flag to propagate through exec transitions so
     # that the dep-group selection is consistent across all platforms.

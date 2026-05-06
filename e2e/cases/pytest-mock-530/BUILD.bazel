@@ -4,7 +4,7 @@ load("@aspect_rules_py//py:defs.bzl", "py_test")
 py_test(
     name = "test_mock_py_test",
     srcs = ["test_mock.py"],
-    dep_group = "pytest-mock-530",
+    dep_group = "pytest_mock_530",
     pytest_main = True,
     deps = [
         "@pypi_pytest_mock_530//pytest",
@@ -18,7 +18,7 @@ py_test(
         "__test__.py",
         "test_mock.py",
     ],
-    dep_group = "pytest-mock-530",
+    dep_group = "pytest_mock_530",
     expose_venv = True,
     isolated = False,
     main = "__test__.py",

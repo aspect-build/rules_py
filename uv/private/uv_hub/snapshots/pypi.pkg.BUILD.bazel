@@ -1,20 +1,42 @@
 load("@aspect_rules_py//py:defs.bzl", "py_library")
-load("//:defs.bzl", "compatible_with")
 
-
-# This target is for a "hard" dependency.
-# Dependencies on this target will cause build failures if it's unavailable.
+alias(
+    name = "pkg",
+    actual = select({
+          "//dep_group:aspect_rules_py__": "//project/aspect_rules_py:pkg",
+          "//dep_group:aspect_rules_py__aspect_rules_py": "//project/aspect_rules_py:pkg",
+      },
+        no_match_error = "Package `pkg` is available in dep_groups: , aspect_rules_py. If multiple projects in this hub provide `pkg` at different versions in the active dep_group, Bazel will surface 'multiple keys match' — use a project-qualified label instead: @+uv+pypi//project/aspect_rules_py:pkg",
+    ),
+    target_compatible_with = select({
+          "//dep_group:aspect_rules_py__": [],
+          "//dep_group:aspect_rules_py__aspect_rules_py": [],
+          "//conditions:default": [
+              "@platforms//:incompatible",
+          ],
+      }),
+    visibility = ["//visibility:public"],
+)
 alias(
     name = "lib",
-    actual = "pkg",
+    actual = ":pkg",
     visibility = ["//visibility:public"],
 )
 alias(
     name = "whl",
     actual = select({
-          "//dep_group:aspect_rules_py": "@project__aspect_rules_py//:pkg_whl",
+          "//dep_group:aspect_rules_py__": "//project/aspect_rules_py:pkg_whl",
+          "//dep_group:aspect_rules_py__aspect_rules_py": "//project/aspect_rules_py:pkg_whl",
+      },
+        no_match_error = "Package `pkg` is available in dep_groups: , aspect_rules_py. If multiple projects in this hub provide `pkg` at different versions in the active dep_group, Bazel will surface 'multiple keys match' — use a project-qualified label instead: @+uv+pypi//project/aspect_rules_py:pkg",
+    ),
+    target_compatible_with = select({
+          "//dep_group:aspect_rules_py__": [],
+          "//dep_group:aspect_rules_py__aspect_rules_py": [],
+          "//conditions:default": [
+              "@platforms//:incompatible",
+          ],
       }),
-    target_compatible_with = select(compatible_with(["aspect_rules_py"])),
     visibility = ["//visibility:public"],
 )
 filegroup(
@@ -22,17 +44,6 @@ filegroup(
     srcs = [":pkg"],
     visibility = ["//visibility:public"],
 )
-alias(
-    name = "pkg",
-    actual = select({
-          "//dep_group:aspect_rules_py": "@project__aspect_rules_py//:pkg",
-      },
-        no_match_error = "Available only in dep_groups: aspect_rules_py",
-    ),
-    target_compatible_with = select(compatible_with(["aspect_rules_py"])),
-    visibility = ["//visibility:public"],
-)
-
 exports_files(
     ["BUILD.bazel"],
     visibility = ["//visibility:public"],
