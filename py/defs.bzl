@@ -35,7 +35,7 @@ python.toolchain(python_version = "3.9", is_default = True)
 ```
 """
 
-load("//py/private:py_binary.bzl", _py_binary = "py_binary", _py_test = "py_test")
+load("//py/private:py_binary.bzl", _py_venv_exec = "py_venv_exec", _py_venv_exec_test = "py_venv_exec_test")
 load("//py/private:py_image_layer.bzl", _py_image_layer = "py_image_layer")
 load("//py/private:py_library.bzl", _py_library = "py_library")
 load("//py/private:py_pex_binary.bzl", _py_pex_binary = "py_pex_binary")
@@ -55,8 +55,6 @@ py_pytest_main = _py_pytest_main
 py_venv = _py_venv
 py_venv_link = _py_venv_link
 
-py_binary_rule = _py_binary
-py_test_rule = _py_test
 py_library = _py_library
 py_unpacked_wheel = _py_unpacked_wheel
 
@@ -90,12 +88,15 @@ def _label_endswith(label_or_str, suffix):
     return s == suffix or s.endswith(":" + suffix) or s.endswith("/" + suffix)
 
 def py_binary(name, srcs = [], main = None, **kwargs):
-    """Wrapper macro for [`py_binary_rule`](#py_binary_rule).
+    """Build and run a Python binary.
 
-    By default builds one target: the binary with an internal
-    analysis-time venv. Set `expose_venv = True` to also emit a
-    first-class sibling `:{name}.venv` py_venv that is runnable
-    (`bazel run :{name}.venv`) to drop into the hermetic interpreter.
+    Splits the call into a sibling `py_venv` (which carries srcs / deps
+    / imports / virtual_deps / resolutions / package_collisions /
+    include_*_site_packages / interpreter_options) plus a thin launcher
+    rule that exec's that venv's interpreter. Set `expose_venv = True`
+    to make the sibling a first-class `:{name}.venv` target — runnable
+    (`bazel run :{name}.venv` drops into the hermetic interpreter) and
+    pairable with `py_venv_link` for IDE integration.
 
     Args:
         name: Name of the rule.
@@ -111,8 +112,9 @@ def py_binary(name, srcs = [], main = None, **kwargs):
             to a file produced by another rule (e.g. a `genrule` whose
             output happens to be `<name>.py`), the macro can't see that
             and you must pass `main =` explicitly.
-        **kwargs: additional named parameters to `py_binary_rule`. One
-            extra handled by this macro:
+        **kwargs: additional named parameters forwarded to the
+            underlying rule and the sibling py_venv. One extra is
+            handled by this macro:
 
             * `expose_venv` (bool, default `False`) — when `True`, emit
               a sibling `:{name}.venv` py_venv carrying all venv-shaping
@@ -132,7 +134,7 @@ def py_binary(name, srcs = [], main = None, **kwargs):
         resolutions = resolutions.to_label_keyed_dict()
 
     _py_binary_with_venv(
-        _py_binary,
+        _py_venv_exec,
         name = name,
         srcs = srcs,
         main = _resolve_main(name, srcs, main),
@@ -152,7 +154,8 @@ def py_test(name, srcs = [], main = None, pytest_main = False, **kwargs):
             that is used as the main.
         pytest_main: If True, use a shared pytest entry point as the main.
             The deps should include the pytest package (as well as the coverage package if desired).
-        **kwargs: additional named parameters to `py_binary_rule`.
+        **kwargs: additional named parameters forwarded to the
+            underlying rule and the sibling py_venv.
     """
 
     # Ensure that any other targets we write will be testonly like the py_test target
@@ -190,7 +193,7 @@ def py_test(name, srcs = [], main = None, pytest_main = False, **kwargs):
         kwargs["data"] = data
 
     _py_binary_with_venv(
-        _py_test,
+        _py_venv_exec_test,
         name = name,
         srcs = srcs,
         deps = deps,

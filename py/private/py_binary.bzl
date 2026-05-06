@@ -1,4 +1,10 @@
-"""Implementation for the py_binary and py_test rules."""
+"""Implementation for the py_venv_exec and py_venv_exec_test rules.
+
+Both are thin launchers that consume a sibling `py_venv` (passed via the
+internal `external_venv` attr) and exec its `bin/python`. The public
+`py_binary` / `py_test` macros wrap them and route all venv-shaping
+attrs to the auto-generated sibling.
+"""
 
 load("@bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
 load("@bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
@@ -15,7 +21,7 @@ def _dict_to_exports(env):
         for (k, v) in env.items()
     ]
 
-def _py_binary_rule_impl(ctx):
+def _py_venv_exec_impl(ctx):
     py_toolchain = _py_semantics.resolve_toolchain(ctx)
 
     # The macro layer routes srcs / deps to the sibling py_venv (always
@@ -227,7 +233,7 @@ _test_attrs = dict({
 })
 
 py_base = struct(
-    implementation = _py_binary_rule_impl,
+    implementation = _py_venv_exec_impl,
     attrs = _attrs,
     test_attrs = _test_attrs,
     toolchains = [
@@ -236,8 +242,8 @@ py_base = struct(
     cfg = python_version_transition,
 )
 
-py_binary = rule(
-    doc = "Run a Python program under Bazel. Most users should use the [py_binary macro](#py_binary) instead of loading this directly.",
+py_venv_exec = rule(
+    doc = "Launcher rule that exec's the interpreter from a sibling `py_venv` (set via `external_venv`). Most users should use the [py_binary macro](#py_binary) instead of loading this directly.",
     implementation = py_base.implementation,
     attrs = py_base.attrs,
     toolchains = py_base.toolchains,
@@ -245,8 +251,8 @@ py_binary = rule(
     cfg = py_base.cfg,
 )
 
-py_test = rule(
-    doc = "Run a Python program under Bazel. Most users should use the [py_test macro](#py_test) instead of loading this directly.",
+py_venv_exec_test = rule(
+    doc = "Test variant of `py_venv_exec`. Most users should use the [py_test macro](#py_test) instead of loading this directly.",
     implementation = py_base.implementation,
     attrs = py_base.attrs | py_base.test_attrs,
     toolchains = py_base.toolchains,
