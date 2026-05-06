@@ -4,10 +4,9 @@ load("//py:defs.bzl", "py_binary", "py_test")
 # Analysis-only coverage of the `expose_venv = True` API surface. Each
 # target below exercises a different combination of attrs that the
 # splitting macro (`py_binary_with_venv`) routes between the generated
-# `:{name}.venv` py_venv and the binary/test rule consuming it via
-# `external_venv`. The `build_test` at the bottom asserts every
-# combination analyses + builds — the runtime behaviour of these
-# shapes is covered elsewhere (py-internal-venv, shared-external-venv,
+# `:{name}.venv` py_venv and the binary/test rule. The `build_test` at
+# the bottom asserts every combination analyses + builds — the runtime
+# behaviour of these shapes is covered elsewhere (py-internal-venv,
 # py-venv-* tests, e2e/cases/root-dir-paths-538, etc.).
 
 # Bare minimum: just `expose_venv = True`.
@@ -25,24 +24,14 @@ py_test(
     main = "main.py",
 )
 
-# Custom on-disk venv basename — must reach the generated py_venv.
-py_binary(
-    name = "custom_basename_bin",
-    srcs = ["main.py"],
-    expose_venv = True,
-    main = "main.py",
-    venv_dir_basename = ".custom_basename_bin",
-)
-
-# Legacy migration shape: `expose_venv + isolated=False + venv_dir_basename`
-# — what users moving off `py_venv_binary` are told to set.
+# Legacy migration shape: `expose_venv + isolated=False` — what
+# users moving off `py_venv_binary` land on.
 py_binary(
     name = "legacy_shape_bin",
     srcs = ["main.py"],
     expose_venv = True,
     isolated = False,
     main = "main.py",
-    venv_dir_basename = ".legacy_shape_bin",
 )
 
 # Venv-shaping attrs (deps, imports, package_collisions, site flags,
@@ -62,15 +51,6 @@ py_binary(
     ],
 )
 
-# Sharing: the generated `:minimal_bin.venv` is a first-class target
-# and another binary should be able to consume it via `external_venv`.
-py_binary(
-    name = "shared_consumer_bin",
-    srcs = ["main.py"],
-    external_venv = ":minimal_bin.venv",
-    main = "main.py",
-)
-
 build_test(
     name = "expose_venv_api_build_test",
     targets = [
@@ -78,12 +58,9 @@ build_test(
         ":minimal_bin.venv",
         ":minimal_test",
         ":minimal_test.venv",
-        ":custom_basename_bin",
-        ":custom_basename_bin.venv",
         ":legacy_shape_bin",
         ":legacy_shape_bin.venv",
         ":venv_shaping_bin",
         ":venv_shaping_bin.venv",
-        ":shared_consumer_bin",
     ],
 )

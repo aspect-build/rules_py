@@ -27,7 +27,6 @@ py_test(
     include_system_site_packages = False,
     isolated = False,
     main = "test.py",
-    venv_dir_basename = ".venv_test",
     deps = [
         "@pypi//cowsay",
     ],

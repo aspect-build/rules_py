@@ -53,10 +53,12 @@ def _check_venv_coverage(ctx, imports_depset, wheels_depset, vinfo):
         if missing_first_party:
             parts.append("first-party imports: " + ", ".join(sorted(missing_first_party)))
         fail(
-            ("py_binary {target}: `external_venv = {venv}` doesn't cover " +
-             "this binary's dep closure — {details}. Either add the " +
-             "missing deps to {venv}, or drop `external_venv` to let the " +
-             "binary build its own internal venv.").format(
+            ("py_binary {target}: the sibling venv {venv} (emitted by " +
+             "`expose_venv = True`) doesn't cover this binary's dep " +
+             "closure — {details}. Add the missing deps to the " +
+             "py_binary/py_test call (they're routed to the venv) or " +
+             "drop `expose_venv = True` to use the per-target " +
+             "internal venv.").format(
                 target = str(ctx.label),
                 venv = str(ctx.attr.external_venv.label),
                 details = "; ".join(parts),
@@ -91,18 +93,22 @@ def _py_binary_rule_impl(ctx):
 
     # Two venv-sourcing modes:
     #
-    # * Internal (default): assemble_venv declares every venv file as an
-    #   output of this target. Runfiles include the venv files.
+    # * Sibling-venv (the path public callers always go through): the
+    #   `py_binary` / `py_test` macro splits the call into a sibling
+    #   py_venv + a rule call with `external_venv = :<that_venv>`. We
+    #   skip assemble_venv and the launcher exec's the sibling venv's
+    #   bin/python; the binary's runfiles inherit the venv target's
+    #   default_runfiles so the venv's files land at their usual
+    #   rlocation paths. We enforce that the binary's dep closure is a
+    #   subset of the venv's at analysis time — the venv's .pth is
+    #   the only mechanism putting deps on sys.path under our `-I`
+    #   flag, so un-covered deps would just be runtime ImportErrors
+    #   otherwise.
     #
-    # * External (`external_venv = <py_venv label>`): reuse the venv produced
-    #   by another target. Skip assemble_venv entirely. The launcher
-    #   exec's the external venv's bin/python; the binary's runfiles
-    #   inherit the venv target's default_runfiles so the venv's files
-    #   land at their usual rlocation paths. We enforce that the binary's
-    #   dep closure is a subset of the venv's at analysis time — the
-    #   external venv's .pth is the only mechanism putting deps on
-    #   sys.path under our `-I` flag, so un-covered deps would just be
-    #   runtime ImportErrors otherwise.
+    # * Internal (rule-only fallback): assemble_venv declares every
+    #   venv file as an output of this target. Runfiles include the
+    #   venv files. Reachable only by callers using `py_binary_rule`
+    #   directly without setting `external_venv`.
     safe_name = ctx.attr.name.replace("/", "_")
     external_venv = ctx.attr.external_venv
     wheels_depset = _py_library.make_wheels_depset(ctx)
@@ -192,6 +198,13 @@ def _py_binary_rule_impl(ctx):
     if not external_venv:
         default_info_files = default_info_files + extra_runfiles
 
+    # When the venv is external, deps were routed to it (not to this
+    # rule), so the binary's own imports_depset is just the workspace
+    # root. Surface the venv's imports through PyInfo so downstream
+    # consumers (e.g. py_pex_binary's `--sys-path=`) see the same
+    # sys.path the launcher will run with.
+    pyinfo_imports = vinfo.imports if external_venv else imports_depset
+
     return [
         DefaultInfo(
             files = depset(default_info_files),
@@ -199,7 +212,7 @@ def _py_binary_rule_impl(ctx):
             runfiles = runfiles,
         ),
         PyInfo(
-            imports = imports_depset,
+            imports = pyinfo_imports,
             transitive_sources = srcs_depset,
             has_py2_only_sources = False,
             has_py3_only_sources = True,
@@ -242,33 +255,19 @@ Part of the aspect_rules_py//uv system, has no effect in rules_python's pip.
     ),
     "external_venv": attr.label(
         providers = [[VirtualenvInfo]],
-        doc = """Build this binary against an externally-provided virtualenv.
+        doc = """Internal: set by the `py_binary_with_venv` macro for
+every public `py_binary` / `py_test` invocation (the macro splits the
+call into a py_venv target + a rule call routed at it). Not a
+user-facing attribute — direct settings on the rule are blocked at
+the macro layer in `//py:defs.bzl`.
 
-When set, the binary skips its own per-target venv assembly and instead
-exec's the referenced venv's `bin/python`. Typical shape:
-
-```
-py_venv(
-    name = "venv",
-    deps = ["@pypi//fastapi", "@pypi//uvicorn"],
-)
-
-py_binary(
-    name = "serve",
-    srcs = ["serve.py"],
-    main = "serve.py",
-    external_venv = ":venv",
-)
-```
-
-The binary's dep closure is required to be a **subset** of the venv's:
-any first-party import or wheel dep this binary declares that the venv
-doesn't already cover is rejected at analysis time. This is a hard
-constraint because the venv's `.pth` file is the only channel putting
-deps on `sys.path` under `-I` (which blocks `PYTHONPATH`) — un-covered
-deps would just be runtime ImportErrors otherwise.
-
-Leave unset (the default) to keep the per-binary internal-venv behaviour.
+When non-None, the binary skips its own per-target venv assembly and
+exec's the referenced venv's `bin/python`. The binary's dep closure
+must be a **subset** of the venv's: any first-party import or wheel
+dep this binary declares that the venv doesn't already cover is
+rejected at analysis time, because the venv's `.pth` file is the only
+channel putting deps on `sys.path` under `-I` (which blocks
+`PYTHONPATH`).
 """,
     ),
     "python_version": attr.string(

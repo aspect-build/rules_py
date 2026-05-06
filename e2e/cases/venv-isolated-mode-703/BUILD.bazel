@@ -8,5 +8,4 @@ py_test(
     main = "__test__.py",
     python_version = "3.11",
     venv = "venv-isolated-mode-703",
-    venv_dir_basename = ".test",
 )

@@ -17,7 +17,6 @@ py_binary(
     ],
     isolated = False,
     main = "ex.py",
-    venv_dir_basename = ".ex",
     deps = [
         "@pypi//cowsay",
     ],

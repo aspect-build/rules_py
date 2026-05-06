@@ -4,10 +4,11 @@ VirtualenvInfo = provider(
     doc = """Provider emitted by `py_venv` identifying a materialised
 virtualenv for downstream consumers.
 
-Consumed by `py_binary(external_venv = X)` to assemble its launcher against
-an externally-provided venv. `bin_python` is what the launcher exec's;
-`imports` and `wheels` are used for analysis-time coverage checks so
-binaries fail loudly when their dep closure isn't covered by the venv.
+Consumed by `py_binary` / `py_test` when `expose_venv = True` splits
+the call into a sibling py_venv + a binary that consumes it. The
+binary's launcher exec's the venv's `bin_python`; `imports` and
+`wheels` are used for analysis-time coverage checks so binaries fail
+loudly when their dep closure isn't covered by the venv.
 """,
     fields = {
         "bin_python": "File — the venv's bin/python symlink. Callers needing a launcher target point here.",

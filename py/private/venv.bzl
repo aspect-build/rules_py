@@ -2,8 +2,9 @@
 
 This module is the single place in rules_py that declares the files making
 up a Python venv. Both `py_binary` / `py_test` (each with its own internal
-venv, when `external_venv` is unset) and the standalone `py_venv` rule call
-`assemble_venv` to keep their layouts bit-identical.
+venv, unless `expose_venv = True` routes them to a sibling py_venv) and
+the standalone `py_venv` rule call `assemble_venv` to keep their layouts
+bit-identical.
 
 The venv shape mirrors what CPython's `python -m venv` + pip install
 produces, so downstream tools (IDEs, `$VIRTUAL_ENV`-aware shells,
@@ -266,10 +267,10 @@ def assemble_venv(
 
     # Default basename is `.{name}.venv/` — the Pythonic name that
     # IDEs auto-detect. The leading dot also keeps this distinct from
-    # a sibling py_venv target at `:<name>.venv` (auto-emitted by
-    # `py_binary(expose_venv = True, ...)`): the sibling's launcher
-    # file lands at `bazel-bin/<pkg>/<name>.venv`, while any internal
-    # venv tree lives under `bazel-bin/<pkg>/.<name>.venv/`. Different
+    # a sibling py_venv target at `:<name>.venv` (auto-emitted when
+    # `expose_venv = True` is set): the sibling's launcher file lands
+    # at `bazel-bin/<pkg>/<name>.venv`, while any internal venv tree
+    # lives under `bazel-bin/<pkg>/.<name>.venv/`. Different
     # filesystem paths, no collision. Callers can override via the
     # `venv_name` parameter.
     if venv_name == None:

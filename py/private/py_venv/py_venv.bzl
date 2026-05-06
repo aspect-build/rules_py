@@ -2,16 +2,16 @@
 
 - `py_venv` — a rule that builds a Python virtualenv and produces an
   executable that activates it and exec's `bin/python`. Emits
-  `VirtualenvInfo` so other targets consume it via `external_venv=`.
-  `bazel run :name` on a py_venv drops into the hermetic interpreter
-  with the venv activated — useful for interactive Python sessions.
+  `VirtualenvInfo` consumed by `py_binary_with_venv` (the
+  `expose_venv = True` codepath). `bazel run :name` on a py_venv drops
+  into the hermetic interpreter with the venv activated — useful for
+  interactive Python sessions.
 
 - `py_binary_with_venv` — shared helper invoked by
   `py_binary(expose_venv = True, ...)` / `py_test(expose_venv = True, ...)`.
   Splits the call into a sibling `:<name>.venv` `py_venv` + a
-  `py_binary` / `py_test` rule consuming it via `external_venv`.
-  First-class sibling: other targets can share the `.venv` via
-  `external_venv`, and `bazel run :<name>.venv` drops into the
+  `py_binary` / `py_test` rule that consumes it via the internal
+  `external_venv` attribute. `bazel run :<name>.venv` drops into the
   interpreter.
 
 - `py_venv_link` — opt-in macro that emits a runnable target whose
@@ -150,9 +150,10 @@ def _py_venv_rule_impl(ctx):
             imports = shared.imports_depset,
             wheels = shared.wheels_depset,
         ),
-        # Forwarded to py_binary(external_venv = :this_venv) consumers
-        # so env vars declared on the venv apply to binaries using it.
-        # The binary's own `env` wins on key conflicts; see py_binary.bzl.
+        # Forwarded to the sibling py_binary/py_test consumer (created
+        # by `expose_venv = True`) so env vars declared on the venv
+        # apply to the binary using it. The binary's own `env` wins on
+        # key conflicts; see py_binary.bzl.
         RunEnvironmentInfo(
             environment = passed_env,
             inherited_environment = ctx.attr.env_inherit,
@@ -200,15 +201,15 @@ two rules share the underlying collision detector.
         default = False,
     ),
     "env": attr.string_dict(
-        doc = """Environment variables to set when running the venv (and any
-`py_binary(external_venv = ...)` consumer). Binary-level `env` wins on
-key conflicts.""",
+        doc = """Environment variables to set when running the venv (and the
+sibling py_binary/py_test consumer when `expose_venv = True` is used).
+Binary-level `env` wins on key conflicts.""",
         default = {},
     ),
     "env_inherit": attr.string_list(
         doc = """Names of environment variables to pass through from the invoking
-environment. Forwarded to `py_binary(external_venv = ...)` consumers
-alongside `env`.""",
+environment. Forwarded to the sibling py_binary/py_test consumer
+(when `expose_venv = True` is used) alongside `env`.""",
         default = [],
     ),
     "venv_dir_basename": attr.string(
@@ -387,21 +388,34 @@ def _split_kwargs_for_venv(kwargs):
             venv_kwargs[name] = kwargs[name]
     return venv_kwargs
 
-def py_binary_with_venv(py_rule, name, main, srcs = None, deps = None, data = None, imports = None, tags = None, testonly = None, visibility = None, venv_dir_basename = None, isolated = True, **kwargs):
-    """Split `py_rule(name, ...)` into a `{name}.venv` py_venv target +
-    a `py_rule` call with `external_venv = :{name}.venv`.
+def py_binary_with_venv(py_rule, name, main, srcs = None, deps = None, data = None, imports = None, tags = None, testonly = None, visibility = None, isolated = True, expose_venv = False, **kwargs):
+    """Split `py_rule(name, ...)` into a sibling py_venv target + a
+    `py_rule` call routed at it via the internal `external_venv` rule
+    attribute. Called for every `py_binary` / `py_test` macro invocation.
 
-    Called by `py_binary` / `py_test` when `expose_venv = True`. The
-    emitted `:{name}.venv` is a first-class public target: shareable
-    via `external_venv` from other `py_binary` / `py_test` callsites,
-    and `bazel run :{name}.venv`-able to drop into the hermetic
-    interpreter for an interactive session.
+    `expose_venv` controls the sibling's visibility:
+
+    * `expose_venv = True` — emits a public `:{name}.venv` py_venv
+      target. Runnable (`bazel run :{name}.venv` drops into the
+      hermetic interpreter) and pairable with `py_venv_link` for IDE
+      integration. The venv inherits the binary's visibility.
+
+    * `expose_venv = False` (default) — emits a private
+      `:_{name}_venv` py_venv tagged `manual` and visibility-restricted
+      to its own package. The binary still routes through it for venv
+      assembly, but the target itself is not part of the user-facing
+      API surface.
+
+    Either way the on-disk venv tree lands at `.{name}.venv/` —
+    py_venv's basename default for the exposed case (where safe_name
+    is already `<name>.venv`) and an explicit override for the
+    private case (where safe_name is `_<name>_venv`).
 
     All venv-shaping attrs (`deps`, `imports`, `package_collisions`,
     `include_*_site_packages`, `interpreter_options`) land on the
-    `.venv` target. The rule's own dep closure is empty by
-    construction, so the analysis-time subset-coverage check in
-    py_binary's `_check_venv_coverage` is trivially satisfied.
+    sibling venv. The rule's own dep closure is empty by construction,
+    so the analysis-time subset-coverage check in py_binary's
+    `_check_venv_coverage` is trivially satisfied.
     """
     venv_kwargs = _split_kwargs_for_venv(kwargs)
     if deps != None:
@@ -409,13 +423,28 @@ def py_binary_with_venv(py_rule, name, main, srcs = None, deps = None, data = No
     if imports != None:
         venv_kwargs["imports"] = imports
 
-    venv_label = "{}.venv".format(name)
+    if expose_venv:
+        venv_label = "{}.venv".format(name)
+        venv_visibility = visibility
+        venv_tags = None
+        venv_basename = None
+    else:
+        # Private sibling: name-mangled to keep it out of users'
+        # autocomplete, `manual`-tagged so wildcards skip it,
+        # `//visibility:private` so neighboring packages can't depend
+        # on it. The on-disk basename is forced to `.{name}.venv/`
+        # so runfiles layouts match the exposed-case default.
+        venv_label = "_{}_venv".format(name)
+        venv_visibility = ["//visibility:private"]
+        venv_tags = ["manual"]
+        venv_basename = ".{}.venv".format(name)
 
     py_venv(
         name = venv_label,
-        venv_dir_basename = venv_dir_basename,
+        venv_dir_basename = venv_basename,
         testonly = testonly,
-        visibility = visibility,
+        visibility = venv_visibility,
+        tags = venv_tags,
         **venv_kwargs
     )
 

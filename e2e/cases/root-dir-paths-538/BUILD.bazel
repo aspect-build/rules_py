@@ -19,10 +19,9 @@ py_binary(
     python_version = "3.11",
 )
 
-# Full legacy-shape variant: expose_venv + isolated=False + the
-# legacy `.{name}/` venv_dir_basename — the exact settings users
-# migrating off py_venv_binary are told to set. Keeps regression
-# coverage for that specific combination through the root-dir-paths
+# Full legacy-shape variant: expose_venv + isolated=False — the
+# settings users migrating off py_venv_binary are told to set. Keeps
+# regression coverage for that combination through the root-dir-paths
 # test harness.
 py_binary(
     name = "check_paths_via_venv_macro",
@@ -31,7 +30,6 @@ py_binary(
     isolated = False,
     main = "check_paths.py",
     python_version = "3.11",
-    venv_dir_basename = ".check_paths_via_venv_macro",
 )
 
 sh_test(
