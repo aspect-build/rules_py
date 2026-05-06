@@ -209,6 +209,8 @@ def assemble_venv(
         `ctx.file._venv_activate_tmpl`).
       virtualenv_shim_py: File — the `_virtualenv.py` distutils shim
         source (usually `ctx.file._virtualenv_shim`).
+      venv_name: Optional str — explicit venv dir basename. Defaults to
+        "." + safe_name + ".venv" when unset.
 
     Returns:
       struct with:
