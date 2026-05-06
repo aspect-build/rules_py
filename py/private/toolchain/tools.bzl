@@ -41,9 +41,7 @@ def PrebuiltToolConfig(target, cfg):
 # The expected config for each tool, whether it runs in an action or at runtime.
 # This is the source of truth for toolchain registration and prebuilt downloads.
 TOOL_CFGS = [
-    PrebuiltToolConfig("//py/tools/unpack_bin:unpack", cfg = "exec"),
-    PrebuiltToolConfig("//py/tools/venv_bin:venv", cfg = "both"),
-    PrebuiltToolConfig("//py/tools/venv_shim:shim", cfg = "target"),
+    PrebuiltToolConfig("//py/tools/unpack:unpack", cfg = "exec"),
 ]
 
 TOOLCHAIN_PLATFORMS = {

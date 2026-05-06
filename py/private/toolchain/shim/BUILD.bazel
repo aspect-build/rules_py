@@ -1,6 +1,0 @@
-load("//py/private/toolchain:tools.bzl", "source_toolchain")
-
-source_toolchain(
-    name = "shim",
-    bin = "//py/tools/venv_shim",
-)
