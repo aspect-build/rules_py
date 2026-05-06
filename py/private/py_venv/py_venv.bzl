@@ -236,7 +236,7 @@ IDE configs hardcode a specific path independent of the target name.
     ),
     "_run_tmpl": attr.label(
         allow_single_file = True,
-        default = "//py/private/py_venv:entrypoint.tmpl.sh",
+        default = "//py/private/py_venv:venv.tmpl.sh",
     ),
     "_runfiles_lib": attr.label(
         default = "@bazel_tools//tools/bash/runfiles",
