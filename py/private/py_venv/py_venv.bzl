@@ -158,6 +158,15 @@ def _py_venv_rule_impl(ctx):
             environment = passed_env,
             inherited_environment = ctx.attr.env_inherit,
         ),
+        # `bazel coverage` walks the binary's `external_venv` attr to
+        # pick this up — the venv carries the test's `srcs` and
+        # first-party `deps`, so this is where instrumentation belongs.
+        coverage_common.instrumented_files_info(
+            ctx,
+            source_attributes = ["srcs"],
+            dependency_attributes = ["deps"],
+            extensions = ["py"],
+        ),
     ]
 
 _attrs = dict({
@@ -366,11 +375,14 @@ _VENV_ONLY_ATTRS = [
     "package_collisions",
     "include_system_site_packages",
     "include_user_site_packages",
-    "interpreter_options",
 ]
 _SHARED_TRANSITION_ATTRS = [
     "python_version",
     "venv",  # uv's pip-extension config-transition attr (string)
+    # The launcher's `python` invocation needs these flags too — not
+    # just the venv's interactive interpreter session — so route them
+    # to both targets.
+    "interpreter_options",
 ]
 
 def _split_kwargs_for_venv(kwargs):
