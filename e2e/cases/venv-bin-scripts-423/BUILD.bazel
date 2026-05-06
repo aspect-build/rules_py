@@ -12,9 +12,8 @@ py_test(
 )
 
 py_test(
-    name = "venv_test",
+    name = "test_non_isolated",
     srcs = ["__test__.py"],
-    expose_venv = True,
     isolated = False,
     main = "__test__.py",
     python_version = "3.11",

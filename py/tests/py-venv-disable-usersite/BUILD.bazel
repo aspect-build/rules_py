@@ -16,11 +16,10 @@ py_test(
 )
 
 py_test(
-    name = "venv_test",
+    name = "test_non_isolated",
     srcs = [
         "test.py",
     ],
-    expose_venv = True,
     imports = [
         ".",
     ],

@@ -66,9 +66,8 @@ py_test(
 )
 
 py_test(
-    name = "validate_import_roots_venv_test",
+    name = "validate_import_roots_non_isolated",
     srcs = ["test_import_roots.py"],
-    expose_venv = True,
     isolated = False,
     main = "test_import_roots.py",
     package_collisions = "ignore",

@@ -19,9 +19,8 @@ assert "_virtualenv" in sys.modules
 # use a different layout.
 
 # The virtualenv changes sys.prefix to a dot-prefixed directory under
-# this test's package — the exact basename varies by rule variant
-# (py_test uses `.<name>_venv/`, py_venv_test uses `.<name>/`), so
-# assert on the structural invariant rather than the specific name.
+# this test's package — assert on the structural invariant rather
+# than the specific basename.
 _prefix_parent, _prefix_basename = os.path.split(sys.prefix.rstrip("/"))
 assert _prefix_parent.endswith("/py/tests/py-internal-venv"), sys.prefix
 assert _prefix_basename.startswith("."), sys.prefix

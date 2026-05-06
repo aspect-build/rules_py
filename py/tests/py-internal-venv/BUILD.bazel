@@ -1,10 +1,9 @@
 load("//py:defs.bzl", "py_test")
 
-# Two variants of the same test: `test` uses `py_test` with the
-# default internal (private-sibling) venv shape; `venv_test` uses
-# `py_test(expose_venv = True, isolated = False)` — the opt-in
-# public-sibling shape. Both should satisfy the structural
-# assertions in test.py (they're basename-tolerant).
+# Two variants of the same test: `test` uses `py_test` defaults
+# (`isolated = True`); `test_non_isolated` flips `isolated = False`.
+# Both should satisfy the structural assertions in test.py (they're
+# basename-tolerant).
 
 py_test(
     name = "test",
@@ -21,11 +20,10 @@ py_test(
 )
 
 py_test(
-    name = "venv_test",
+    name = "test_non_isolated",
     srcs = [
         "test.py",
     ],
-    expose_venv = True,
     imports = [
         ".",
     ],
