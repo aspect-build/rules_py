@@ -362,13 +362,10 @@ py_venv_binary = _wrap_with_debug(_py_venv_binary)
 py_venv_test = _wrap_with_debug(_py_venv_test)
 
 # Attrs that belong on the generated `py_venv` when `py_binary_with_venv`
-# splits a `py_binary(expose_venv = True, ...)` call into (venv, binary)
-# targets. Everything else belongs on the binary/test target. Some
-# attrs (`python_version`, `venv`) need to land on BOTH so the
-# python_version_transition picks the same config for both —
-# otherwise the binary's `data` resolves wheels under a different uv
-# VENV_FLAG / python version than the venv was built for, and
-# `select()`-driven hub picks diverge.
+# splits a `py_binary` / `py_test` call. Everything else belongs on the
+# launcher rule. `interpreter_options` is launcher-only — the launcher
+# uses it for `python <flags> main.py`; the venv's interactive REPL
+# (`bazel run :name.venv`) doesn't need the binary's flags.
 _VENV_ONLY_ATTRS = [
     "deps",
     "imports",
@@ -377,32 +374,19 @@ _VENV_ONLY_ATTRS = [
     "package_collisions",
     "include_system_site_packages",
     "include_user_site_packages",
-    # `venv` is the uv pip-extension config-transition string. Only
-    # the `py_venv` rule has the attr — `py_venv_exec` is config-
-    # agnostic, so the macro routes the kwarg to the venv only.
     "venv",
-]
-_SHARED_TRANSITION_ATTRS = [
     "python_version",
-    # The launcher's `python` invocation needs these flags too — not
-    # just the venv's interactive interpreter session — so route them
-    # to both targets.
-    "interpreter_options",
 ]
 
 def _split_kwargs_for_venv(kwargs):
-    """Pop venv-only kwargs off the dict and copy the shared-transition
-    ones. Returns the dict to pass to py_venv. `kwargs` is mutated:
-    venv-only attrs are popped; shared-transition attrs stay so they
-    also reach the py_binary/py_test call.
+    """Pop venv-only kwargs off `kwargs` and return a dict to pass to
+    `py_venv`. `kwargs` is mutated — popped attrs no longer reach the
+    launcher rule.
     """
     venv_kwargs = {}
     for name in _VENV_ONLY_ATTRS:
         if name in kwargs:
             venv_kwargs[name] = kwargs.pop(name)
-    for name in _SHARED_TRANSITION_ATTRS:
-        if name in kwargs:
-            venv_kwargs[name] = kwargs[name]
     return venv_kwargs
 
 def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = None, imports = [], tags = None, testonly = None, visibility = None, isolated = True, expose_venv = False, **kwargs):

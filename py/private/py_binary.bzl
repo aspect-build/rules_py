@@ -14,8 +14,6 @@ load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private/py_venv:types.bzl", "VirtualenvInfo")
-load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
-load(":transitions.bzl", "python_version_transition")
 
 def _dict_to_exports(env):
     return [
@@ -24,8 +22,11 @@ def _dict_to_exports(env):
     ]
 
 def _py_venv_exec_impl(ctx):
-    py_toolchain = _py_semantics.resolve_toolchain(ctx)
-
+    # The launcher itself doesn't need a python toolchain — it just
+    # exec's the sibling venv's `bin/python`, whose path was already
+    # resolved when the venv was analysed. Default interpreter flags
+    # come from a shared constant.
+    #
     # The macro layer routes srcs / deps to the sibling py_venv (always
     # set as `external_venv`) and passes an explicit `main =` to the
     # rule. `main` is the only first-party file the rule contributes;
@@ -70,7 +71,7 @@ def _py_venv_exec_impl(ctx):
 
     # When `isolated = False`, drop Python's `-I` flag so PYTHONPATH is
     # honored and the script directory is auto-added to sys.path.
-    flags = py_toolchain.flags + ctx.attr.interpreter_options
+    flags = list(_py_semantics.interpreter_flags) + ctx.attr.interpreter_options
     if not ctx.attr.isolated:
         flags = [f for f in flags if f != "-I"]
 
@@ -90,7 +91,6 @@ def _py_venv_exec_impl(ctx):
 
     runfiles = _py_library.make_merged_runfiles(
         ctx,
-        extra_depsets = [py_toolchain.files],
         extra_runfiles = [main],
         extra_runfiles_depsets = [
             ctx.attr._runfiles_lib[DefaultInfo].default_runfiles,
@@ -166,9 +166,6 @@ runfiles inherit the venv's default_runfiles so all wheels and first-
 party sources land at their usual rlocation paths.
 """,
     ),
-    "python_version": attr.string(
-        doc = """Whether to build this target and its transitive deps for a specific python version.""",
-    ),
     "interpreter_options": attr.string_list(
         doc = "Additional options to pass to the Python interpreter in addition to -B and -I passed by rules_py",
         default = [],
@@ -189,17 +186,6 @@ match their historical permissive behaviour.""",
     ),
     "_runfiles_lib": attr.label(
         default = "@bazel_tools//tools/bash/runfiles",
-    ),
-    # Read by py_semantics — freethreaded interpreters live at
-    # `lib/python<M>.<m>t/site-packages/`, not the default
-    # `.../python<M>.<m>/`. Even though the rule no longer assembles a
-    # venv, py_semantics.resolve_toolchain still consults this flag.
-    "_freethreaded_flag": attr.label(
-        default = "//py/private/interpreter:freethreaded",
-    ),
-    # Required for py_version attribute
-    "_allowlist_function_transition": attr.label(
-        default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
     ),
     # `data` is the only py_library attr the launcher reads (env-var
     # location expansion, runfiles merge, coverage walk). `srcs`,
@@ -235,30 +221,16 @@ _test_attrs = dict({
     ),
 })
 
-py_base = struct(
-    implementation = _py_venv_exec_impl,
-    attrs = _attrs,
-    test_attrs = _test_attrs,
-    toolchains = [
-        PY_TOOLCHAIN,
-    ],
-    cfg = python_version_transition,
-)
-
 py_venv_exec = rule(
     doc = "Launcher rule that exec's the interpreter from a sibling `py_venv` (set via `external_venv`). Most users should use the [py_binary macro](#py_binary) instead of loading this directly.",
-    implementation = py_base.implementation,
-    attrs = py_base.attrs,
-    toolchains = py_base.toolchains,
+    implementation = _py_venv_exec_impl,
+    attrs = _attrs,
     executable = True,
-    cfg = py_base.cfg,
 )
 
 py_venv_exec_test = rule(
     doc = "Test variant of `py_venv_exec`. Most users should use the [py_test macro](#py_test) instead of loading this directly.",
-    implementation = py_base.implementation,
-    attrs = py_base.attrs | py_base.test_attrs,
-    toolchains = py_base.toolchains,
+    implementation = _py_venv_exec_impl,
+    attrs = _attrs | _test_attrs,
     test = True,
-    cfg = py_base.cfg,
 )
