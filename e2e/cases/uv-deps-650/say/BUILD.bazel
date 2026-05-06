@@ -7,7 +7,7 @@ py_venv_test(
     ],
     main = "__test__.py",
     python_version = "3.11",
-    venv = "say",
+    dep_group = "say",
     deps = [
         "@pypi//cowsay",
     ],

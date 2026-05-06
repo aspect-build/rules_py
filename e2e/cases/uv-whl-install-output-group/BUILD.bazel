@@ -23,6 +23,6 @@ py_venv_test(
     data = [":iniconfig_install_dir"],
     main = "test.py",
     python_version = "3.11",
-    venv = "uv-whl-install-output-group",
+    dep_group = "uv-whl-install-output-group",
     deps = ["@pypi//iniconfig"],
 )

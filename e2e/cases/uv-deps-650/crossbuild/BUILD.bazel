@@ -44,7 +44,7 @@ py_venv_binary(
     srcs = ["__main__.py"],
     main = "__main__.py",
     python_version = "3.12",
-    venv = "psql",
+    dep_group = "psql",
     deps = [
         "@pypi//psycopg2_binary",
     ],

@@ -4,7 +4,7 @@ py_venv_test(
     name = "test_a",
     srcs = ["test_a.py"],
     main = "test_a.py",
-    venv = "ambig-a",
+    dep_group = "ambig-a",
     deps = [
         "@pypi//packaging",
     ],
@@ -14,7 +14,7 @@ py_venv_test(
     name = "test_b",
     srcs = ["test_b.py"],
     main = "test_b.py",
-    venv = "ambig-b",
+    dep_group = "ambig-b",
     deps = [
         "@pypi//packaging",
     ],

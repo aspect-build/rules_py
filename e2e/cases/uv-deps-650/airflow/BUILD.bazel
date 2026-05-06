@@ -7,7 +7,7 @@ py_venv_test(
     ],
     main = "__test__.py",
     python_version = "3.13",
-    venv = "airflow",
+    dep_group = "airflow",
     deps = [
         "@pypi//apache_airflow",
     ],

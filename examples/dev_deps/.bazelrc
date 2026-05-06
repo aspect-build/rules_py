@@ -7,9 +7,9 @@ common --repo_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
 common --repo_env=BAZEL_NO_APPLE_CPP_TOOLCHAIN=1
 
 # Default to dev venv — includes debug/test tools
-common --@pypi//venv=dev
+common --@pypi//dep_group=dev
 
 # Release config: strip dev deps, enable stamping
-common:release --@pypi//venv=prod
+common:release --@pypi//dep_group=prod
 common:release --//:mode=prod
 common:release --stamp

@@ -7,5 +7,5 @@ py_test(
     isolated = False,
     main = "__test__.py",
     python_version = "3.11",
-    venv = "venv-isolated-mode-703",
+    dep_group = "venv-isolated-mode-703",
 )

@@ -11,7 +11,7 @@ number of additional features.
 **Configurable dependencies** - Uv allows for multiple lockfile states (called
 venvs) to be registered into a single hub. Your build can be configured to
 choose between registered venvs. It's as simple as flipping the
-`--@<hub>//venv=<venv name>` flag. Binaries can also set the `venv=<venv name>`
+`--@<hub>//dep_group=<dep_group name>` flag. Binaries can also set the `dep_group=<dep_group name>`
 attribute.
 
 **Effortless Crossbuilds** - Uv delays building and installing packages until
@@ -111,7 +111,7 @@ If no dependency groups are listed, an implicit default group with the name of t
 
 ```
 # .bazelrc
-common --@pypi//venv=dummy
+common --@pypi//dep_group=dummy
 ```
 
 Individual targets can request different venvs if multiple venvs are configured.
@@ -130,7 +130,7 @@ py_binary(
    name = "say_vendored",
    srcs = ["__main__.py_"],
    deps = ["@pypi//cowsay"],
-   venv = "vendored_say",    # Change the default venv choice
+   dep_group = "vendored_say",    # Change the default dep_group choice
 )
 ```
 
@@ -219,7 +219,7 @@ py_venv_binary(
     srcs = ["__main__.py"],
     main = "__main__.py",
     python_version = "3.12",
-    venv = "psql",
+    dep_group = "psql",
     deps = [
         "@pypi//psycopg2_binary",
     ],
@@ -376,7 +376,7 @@ available.
 et. all, the venv flag has to be statically known. This means we get one global
 "current venv" flag, no matter how many hubs you have.
 
-It only really makes sense to use the `--@pypi//venv=default` flag as part of
+It only really makes sense to use the `--@pypi//dep_group=default` flag as part of
 your `.bazelrc`, because then the scope of where that default is applied is well
 bounded to your repository with your hub.
 

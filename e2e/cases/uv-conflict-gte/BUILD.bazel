@@ -4,7 +4,7 @@ py_venv_test(
     name = "test_a",
     srcs = ["test_a.py"],
     main = "test_a.py",
-    venv = "group-a",
+    dep_group = "group-a",
     deps = [
         "@pypi//packaging",
     ],
@@ -14,7 +14,7 @@ py_venv_test(
     name = "test_b",
     srcs = ["test_b.py"],
     main = "test_b.py",
-    venv = "group-b",
+    dep_group = "group-b",
     deps = [
         "@pypi//packaging",
     ],

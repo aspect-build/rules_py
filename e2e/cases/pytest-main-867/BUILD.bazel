@@ -6,7 +6,7 @@ py_test(
     name = "test_example",
     srcs = ["test_example.py"],
     pytest_main = True,
-    venv = "pytest-main-867",
+    dep_group = "pytest-main-867",
     deps = ["@pypi//pytest"],
 )
 
@@ -16,7 +16,7 @@ py_test(
     name = "test_naming_regression",
     srcs = ["test_example.py"],
     pytest_main = True,
-    venv = "pytest-main-867",
+    dep_group = "pytest-main-867",
     deps = ["@pypi//pytest"],
 )
 
@@ -30,7 +30,7 @@ py_test(
         "test_b.py",
     ],
     pytest_main = True,
-    venv = "pytest-main-867",
+    dep_group = "pytest-main-867",
     deps = ["@pypi//pytest"],
 )
 
@@ -40,7 +40,7 @@ py_test(
     name = "test_collection_check",
     srcs = ["test_collection_check.py"],
     pytest_main = True,
-    venv = "pytest-main-867",
+    dep_group = "pytest-main-867",
     deps = ["@pypi//pytest"],
 )
 
@@ -59,7 +59,7 @@ py_test(
         ":test_direct_main",
     ],
     main = ":__test__test_direct_main__.py",
-    venv = "pytest-main-867",
+    dep_group = "pytest-main-867",
     deps = [
         ":test_direct_main",
         "@pypi//pytest",

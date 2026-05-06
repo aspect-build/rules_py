@@ -25,33 +25,33 @@ def _hub_impl(repository_ctx):
     packages = json.decode(repository_ctx.attr.packages)
 
     ################################################################################
-    # Lay down the //venv:BUILD.bazel file with config flags
+    # Lay down the //dep_group:BUILD.bazel file with config flags
     #
     # We do this first because everything else hangs off of these config_settings.
     content = [
         """\
 alias(
-    name = "venv",
-    actual = "@aspect_rules_py//uv/private/constraints/venv:venv",
+    name = "dep_group",
+    actual = "@aspect_rules_py//uv/private/constraints/dep_group:dep_group",
     visibility = ["//visibility:public"],
 )
 """,
     ]
 
-    # Lay down the venv config settings
+    # Lay down the dep_group config settings
     for name in repository_ctx.attr.configurations:
         content.append(
             """
 config_setting(
     name = "{name}",
     flag_values = {{
-        "@aspect_rules_py//uv/private/constraints/venv:venv": "{name}",
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "{name}",
     }},
     visibility = ["//visibility:public"],
 )
 """.format(name = name),
         )
-    repository_ctx.file("venv/BUILD.bazel", content = "\n".join(content))
+    repository_ctx.file("dep_group/BUILD.bazel", content = "\n".join(content))
 
     ################################################################################
     # Lay down the //:BUILD.bazel file
@@ -62,7 +62,7 @@ load("@aspect_rules_py//py:defs.bzl", "py_library")
     ]
 
     index_select_clauses = {
-        "//venv:" + cfg: ["@{}//:gazelle_index_whls".format(project_id)]
+        "//dep_group:" + cfg: ["@{}//:gazelle_index_whls".format(project_id)]
         for cfg, project_id in repository_ctx.attr.configurations.items()
     }
 
@@ -90,11 +90,11 @@ load("//:defs.bzl", "compatible_with")
         ]
 
         select_spec = {
-            "//venv:{}".format(cfg): l
+            "//dep_group:{}".format(cfg): l
             for cfg, l in specs.items()
         }
 
-        error = "Available only in venvs: " + ", ".join(specs.keys())  # Simplified error string
+        error = "Available only in dep_groups: " + ", ".join(specs.keys())  # Simplified error string
 
         # FIXME: Add support for entrypoints?
         # FIXME: Create a narrower dist-info rule
@@ -143,7 +143,7 @@ def compatible_with(venvs, extra_constraints = []):
       fail("Errant virtualenv reference %r" % v)
 
   return {{
-    Label("//venv:" + it): extra_constraints
+    Label("//dep_group:" + it): extra_constraints
     for it in venvs
   }} | {{
     "//conditions:default": ["@platforms//:incompatible"],
@@ -155,7 +155,7 @@ def incompatible_with(venvs, extra_constraints = []):
       fail("Errant virtualenv reference %r" % v)
 
   return {{
-    Label("//venv:" + it): ["@platforms//:incompatible"]
+    Label("//dep_group:" + it): ["@platforms//:incompatible"]
     for it in venvs
   }} | {{
     "//conditions:default": extra_constraints,

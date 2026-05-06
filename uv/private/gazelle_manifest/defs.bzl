@@ -82,7 +82,7 @@ def gazelle_python_manifest(name, hub, venvs = [], lockfile = None):
                 "@platforms//host",
             ],
             flags = [
-                "--@{}//venv={}".format(hub, venv),
+                "--@{}//dep_group={}".format(hub, venv),
             ],
         )
         platform_transition_filegroup(

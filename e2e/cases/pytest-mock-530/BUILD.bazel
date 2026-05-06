@@ -6,7 +6,7 @@ py_test(
     name = "test_mock_py_test",
     srcs = ["test_mock.py"],
     pytest_main = True,
-    venv = "pytest-mock-530",
+    dep_group = "pytest-mock-530",
     deps = [
         "@pypi//pytest",
         "@pypi//pytest_mock",
@@ -20,7 +20,7 @@ py_venv_test(
         "test_mock.py",
     ],
     main = "__test__.py",
-    venv = "pytest-mock-530",
+    dep_group = "pytest-mock-530",
     deps = [
         "@pypi//pytest",
         "@pypi//pytest_mock",

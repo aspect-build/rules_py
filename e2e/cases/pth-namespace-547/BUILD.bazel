@@ -8,7 +8,7 @@ py_venv_test(
     main = "__test__.py",
     package_collisions = "warning",
     python_version = "3.11",
-    venv = "pth-namespace-547",
+    dep_group = "pth-namespace-547",
     deps = [
         "@pypi//jaraco_classes",
         "@pypi//jaraco_functools",
@@ -20,7 +20,7 @@ py_test(
     name = "test_legacy",
     srcs = ["__test__.py"],
     main = "__test__.py",
-    venv = "pth-namespace-547",
+    dep_group = "pth-namespace-547",
     deps = [
         "@pypi//jaraco_classes",
         "@pypi//jaraco_functools",

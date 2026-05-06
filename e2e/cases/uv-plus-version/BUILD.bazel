@@ -5,7 +5,7 @@ py_venv_test(
     srcs = ["__test__.py"],
     main = "__test__.py",
     python_version = "3.12",
-    venv = "plus-version",
+    dep_group = "plus-version",
     deps = [
         "@pypi//jaxlib",
     ],

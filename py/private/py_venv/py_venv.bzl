@@ -172,11 +172,11 @@ def _py_venv_rule_impl(ctx):
     ]
 
 _attrs = dict({
-    "venv": attr.string(
-        doc = """The name of a configured virtualenv within which to resolve dependencies.
+    "dep_group": attr.string(
+        doc = """The name of a configured dependency group within which to resolve dependencies.
 
 Default value.
-May be overridden with the --@pip//venv=<> CLI flag.
+May be overridden with the --@pip//dep_group=<> CLI flag.
 Only works with the experimental Aspect pip machinery.
 """,
     ),
@@ -373,7 +373,7 @@ _VENV_ONLY_ATTRS = [
     "package_collisions",
     "include_system_site_packages",
     "include_user_site_packages",
-    "venv",
+    "dep_group",
     "python_version",
 ]
 _SHARED_ATTRS = [

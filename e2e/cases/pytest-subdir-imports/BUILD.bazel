@@ -10,7 +10,7 @@ py_test(
     name = "test_subdir_import",
     srcs = ["tests/test_subdir.py"],
     pytest_main = True,
-    venv = "pytest-subdir-imports",
+    dep_group = "pytest-subdir-imports",
     deps = [
         ":lib",
         "@pypi//pytest",

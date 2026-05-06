@@ -37,15 +37,15 @@ single lockfile.
 
 ```
 # Default: dev venv, includes ipdb/pytest
-common --@pypi//venv=dev
+common --@pypi//dep_group=dev
 
 # Release config: prod venv only, enable stamping
-common:release --@pypi//venv=prod
+common:release --@pypi//dep_group=prod
 common:release --//:mode=prod
 common:release --stamp
 ```
 
-The `--@pypi//venv=` flag controls which dependency group the hub makes
+The `--@pypi//dep_group=` flag controls which dependency group the hub makes
 available. The default is `dev` (everything importable). `--config=release`
 switches to `prod` (runtime deps only).
 
@@ -110,7 +110,7 @@ bazel run //:app --config=release
 
 The venv flag and the mode flag work together:
 
-| `.bazelrc` config  | `--@pypi//venv=` | `--//:mode=` | Effect                                                       |
+| `.bazelrc` config  | `--@pypi//dep_group=` | `--//:mode=` | Effect                                                       |
 | ------------------ | ---------------- | ------------ | ------------------------------------------------------------ |
 | _(default)_        | `dev`            | `dev`        | Hub exposes all packages; `select()` includes dev_deps       |
 | `--config=release` | `prod`           | `prod`       | Hub exposes only prod packages; `select()` excludes dev_deps |

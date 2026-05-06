@@ -7,7 +7,7 @@ py_venv_test(
     ],
     main = "__test__.py",
     python_version = "3.11",
-    venv = "extras",
+    dep_group = "extras",
     deps = [
         "@pypi//requests",
     ],

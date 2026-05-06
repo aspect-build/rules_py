@@ -1,6 +1,6 @@
 """Common transition implementation used by the various terminals."""
 
-VENV_FLAG = "@aspect_rules_py//uv/private/constraints/venv:venv"
+DEP_GROUP_FLAG = "@aspect_rules_py//uv/private/constraints/dep_group:dep_group"
 
 # Our own python_version flag, replacing the rules_python one.
 PYTHON_VERSION_FLAG = "@aspect_rules_py//py/private/interpreter:python_version"
@@ -24,15 +24,15 @@ def _python_transition_impl(settings, attr):
     acc[PYTHON_VERSION_FLAG] = version
     acc[_RPY_VERSION_FLAG] = version
 
-    # Set the venv transition. The attr is only present on `py_venv`
+    # Set the dep_group transition. The attr is only present on `py_venv`
     # (rules without it propagate the inherited setting; `py_venv_exec`
     # is config-agnostic — its runfiles inherit the venv's wheels at
-    # whatever VENV_FLAG the venv resolved under).
-    venv = getattr(attr, "venv", None)
-    if venv:
-        acc[VENV_FLAG] = str(venv)
+    # whatever DEP_GROUP_FLAG the venv resolved under).
+    dep_group = getattr(attr, "dep_group", None)
+    if dep_group:
+        acc[DEP_GROUP_FLAG] = str(dep_group)
     else:
-        acc[VENV_FLAG] = settings[VENV_FLAG]
+        acc[DEP_GROUP_FLAG] = settings[DEP_GROUP_FLAG]
 
     # Propagate interpreter feature flags
     acc[_FREETHREADED_FLAG] = settings[_FREETHREADED_FLAG]
@@ -44,13 +44,13 @@ python_transition = transition(
     inputs = [
         PYTHON_VERSION_FLAG,
         _RPY_VERSION_FLAG,
-        VENV_FLAG,
+        DEP_GROUP_FLAG,
         _FREETHREADED_FLAG,
     ],
     outputs = [
         PYTHON_VERSION_FLAG,
         _RPY_VERSION_FLAG,
-        VENV_FLAG,
+        DEP_GROUP_FLAG,
         _FREETHREADED_FLAG,
     ],
 )

@@ -26,7 +26,7 @@ RBE) environments.
 | Site-packages layout      | Standard `site-packages` layout (flag-enabled)                                                          | Standard `site-packages` symlink tree                                                                                    |
 | Cross-compilation         | Limited                                                                                                 | Native platform transitions (e.g. arm64 image on amd64 host)                                                             |
 | Virtual dependencies      | No                                                                                                      | `virtual_deps` — swap implementations at binary level                                                                    |
-| PEP 735 dependency groups | No                                                                                                      | `--@pypi//venv=prod` flag                                                                                                |
+| PEP 735 dependency groups | No                                                                                                      | `--@pypi//dep_group=prod` flag                                                                                                |
 
 > [!NOTE]
 > **rules_python's uv support**: `rules_python`'s uv integration runs `uv pip compile` as a build action to
@@ -220,7 +220,7 @@ Switch between dependency groups:
 bazel run //:app
 
 # Use only production dependencies
-bazel run //:app --@pypi//venv=prod
+bazel run //:app --@pypi//dep_group=prod
 ```
 
 ## Virtual Dependencies

@@ -10,6 +10,6 @@ py_venv_test(
     main = "test_abi3.py",
     python_version = "3.12",
     target_compatible_with = ["@platforms//os:linux"],
-    venv = "abi3-compat",
+    dep_group = "abi3-compat",
     deps = ["@pypi//cryptography"],
 )

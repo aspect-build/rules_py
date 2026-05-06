@@ -7,7 +7,7 @@ py_venv_test(
     ],
     main = "__test__.py",
     python_version = "3.11",
-    venv = "dev",
+    dep_group = "dev",
     deps = [
         "@pypi//pytest",
         "@pypi//setuptools",
