@@ -361,11 +361,10 @@ py_venv = _wrap_with_debug(_py_venv)
 py_venv_binary = _wrap_with_debug(_py_venv_binary)
 py_venv_test = _wrap_with_debug(_py_venv_test)
 
-# Attrs that belong on the generated `py_venv` when `py_binary_with_venv`
-# splits a `py_binary` / `py_test` call. Everything else belongs on the
-# launcher rule. `interpreter_options` is launcher-only — the launcher
-# uses it for `python <flags> main.py`; the venv's interactive REPL
-# (`bazel run :name.venv`) doesn't need the binary's flags.
+# Attrs that the macro routes to the generated `py_venv`. Two flavors:
+# venv-only (popped from kwargs, the launcher never sees them) and
+# shared (copied into venv kwargs but kept in kwargs so they also reach
+# the launcher rule).
 _VENV_ONLY_ATTRS = [
     "deps",
     "imports",
@@ -377,16 +376,25 @@ _VENV_ONLY_ATTRS = [
     "venv",
     "python_version",
 ]
+_SHARED_ATTRS = [
+    # The launcher uses these for `python <flags> main.py`; the venv
+    # forwards them to its interactive REPL too so `bazel run
+    # :name.venv` runs python with the same flags as the binary.
+    "interpreter_options",
+]
 
 def _split_kwargs_for_venv(kwargs):
-    """Pop venv-only kwargs off `kwargs` and return a dict to pass to
-    `py_venv`. `kwargs` is mutated — popped attrs no longer reach the
-    launcher rule.
+    """Build the kwargs dict to pass to `py_venv`. `kwargs` is mutated:
+    venv-only attrs are popped; shared attrs are copied (left in
+    `kwargs` so they also reach the launcher).
     """
     venv_kwargs = {}
     for name in _VENV_ONLY_ATTRS:
         if name in kwargs:
             venv_kwargs[name] = kwargs.pop(name)
+    for name in _SHARED_ATTRS:
+        if name in kwargs:
+            venv_kwargs[name] = kwargs[name]
     return venv_kwargs
 
 def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = None, imports = [], tags = None, testonly = None, visibility = None, isolated = True, expose_venv = False, **kwargs):
