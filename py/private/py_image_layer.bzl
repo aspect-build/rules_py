@@ -31,9 +31,8 @@ oci_image(
 """
 
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
-load("@tar.bzl//tar:mtree.bzl", "mtree_spec")
+load("@tar.bzl//tar:mtree.bzl", "mtree_mutate", "mtree_spec")
 load("@tar.bzl//tar:tar.bzl", "tar")
-load(":mtree_preserve_symlinks.bzl", "mtree_preserve_symlinks")
 
 default_layer_groups = {
     # match *only* external repositories containing a Python interpreter,
@@ -160,10 +159,10 @@ def py_image_layer(
     # tar it up yet — we split into fine-grained layers for better pull,
     # push and remote cache performance.
     #
-    # mtree_spec emits `type=file` for every non-directory entry,
+    # `mtree_spec` emits `type=file` for every non-directory entry,
     # including `ctx.actions.symlink` outputs. At archive time bsdtar
-    # would follow the symlink, see a directory, and raise
-    # "different type" errors; `mtree_preserve_symlinks` rewrites
+    # would follow those, see a directory, and raise "different type"
+    # errors. `mtree_mutate(preserve_symlinks = True)` rewrites
     # symlink-shaped rows to `type=link` first.
     manifest_name = name + ".manifest"
     mtree_spec(
@@ -172,10 +171,11 @@ def py_image_layer(
         **kwargs
     )
 
-    mtree_preserve_symlinks(
+    mtree_mutate(
         name = manifest_name,
         mtree = manifest_name + ".preprocessed",
         srcs = [binary],
+        preserve_symlinks = True,
         owner = owner,
         group = group,
     )

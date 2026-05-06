@@ -20,7 +20,7 @@ bazel_dep(name = "rules_pkg", version = "1.1.0")
 # EXEC_TOOLS_TOOLCHAIN back to @rules_python//python:exec_tools_toolchain_type.
 bazel_dep(name = "rules_python", version = "1.0.0")
 bazel_dep(name = "rules_shell", version = "0.6.1")
-bazel_dep(name = "tar.bzl", version = "0.10.1")
+bazel_dep(name = "tar.bzl", version = "0.10.4")
 bazel_dep(name = "with_cfg.bzl", version = "0.14.6")
 
 bazel_lib_toolchains = use_extension("@tar.bzl//tar:extensions.bzl", "toolchains")

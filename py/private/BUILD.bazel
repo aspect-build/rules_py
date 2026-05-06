@@ -10,7 +10,6 @@ exports_files(
         "pytest_main.py",
         "venv_activate.tmpl.sh",
         "_virtualenv.py",
-        "modify_mtree.awk",
     ],
     visibility = ["//visibility:public"],
 )
@@ -27,16 +26,10 @@ bzl_library(
     name = "py_image_layer",
     srcs = ["py_image_layer.bzl"],
     deps = [
-        ":mtree_preserve_symlinks",
         "@bazel_lib//lib:transitions",
         "@tar.bzl//tar:mtree",
         "@tar.bzl//tar:tar",
     ],
-)
-
-bzl_library(
-    name = "mtree_preserve_symlinks",
-    srcs = ["mtree_preserve_symlinks.bzl"],
 )
 
 bzl_library(
