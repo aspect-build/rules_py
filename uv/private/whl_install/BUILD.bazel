@@ -1,4 +1,4 @@
-load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load(":test.bzl", "whl_install_suite")
 
 package(default_visibility = [
@@ -24,7 +24,19 @@ bzl_library(
     deps = [
         "//uv/private:parse_whl_name",
         "//uv/private/constraints/platform:defs",
+        "//uv/private/constraints/python:defs",
+        "//uv/private/pprint:defs",
+        "@bazel_features//:features",
     ],
 )
 
 whl_install_suite()
+
+bzl_library(
+    name = "test",
+    srcs = ["test.bzl"],
+    deps = [
+        ":repository",
+        "@bazel_skylib//lib:unittest",
+    ],
+)

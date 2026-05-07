@@ -1,3 +1,4 @@
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@bazelrc-preset.bzl", "bazelrc_preset")
 
 exports_files(["defs.bzl"])
@@ -13,5 +14,15 @@ bazelrc_preset(
     tags = [
         "skip-on-bazel7",
         "skip-on-bazel9",
+    ],
+)
+
+bzl_library(
+    name = "defs",
+    srcs = ["defs.bzl"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@bazel_features_version//:version",
+        "@bazel_skylib//lib:versions",
     ],
 )

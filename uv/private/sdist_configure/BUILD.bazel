@@ -1,3 +1,4 @@
+load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load("//py:defs.bzl", "py_test")
 
 package(default_visibility = [
@@ -16,4 +17,9 @@ py_test(
         "detect_native_test.py",
     ],
     main = "detect_native_test.py",
+)
+
+bzl_library(
+    name = "defs",
+    srcs = ["defs.bzl"],
 )

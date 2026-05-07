@@ -6,12 +6,16 @@ workspaces:
       tasks:
         - buildifier:
             without: true
+        - gazelle:
+            without: true
   - examples/uv_pip_compile:
       tasks:
         - bazel-9:
             # TODO(alexeagle): needs an updated published aspect_rules_py
             without: true
         - buildifier:
+            without: true
+        - gazelle:
             without: true
 
 tasks:
@@ -33,6 +37,9 @@ tasks:
       queue: aspect-large
 
   - buildifier:
+      queue: aspect-small
+
+  - gazelle:
       queue: aspect-small
 
   - finalization:

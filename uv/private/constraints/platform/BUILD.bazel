@@ -1,5 +1,5 @@
 load("@aspect_rules_py_uv_host//:defs.bzl", "CURRENT_PLATFORM_LIBC", "CURRENT_PLATFORM_VERSION")
-load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//lib:selects.bzl", "selects")
 load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
 load(":macro.bzl", "generate")
@@ -131,3 +131,12 @@ alias(
 )
 
 platform_suite()
+
+bzl_library(
+    name = "test",
+    srcs = ["test.bzl"],
+    deps = [
+        ":defs",
+        "@bazel_skylib//lib:unittest",
+    ],
+)
