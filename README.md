@@ -58,11 +58,11 @@ a Rust-native Python package resolver.
 interpreter extension—rules_python is not required as a toolchain provider.
 
 > [!NOTE]
-> The `//py/unstable` and `//uv/unstable` extension paths indicate that the extension API may evolve across
-> releases—not that the features are unstable.
+> The `//py` and `//uv` extension paths provide stable APIs for interpreter provisioning
+> and dependency resolution. They graduated from `//py/unstable` and `//uv/unstable` in rules_py v2.0.0.
 
 ```python
-interpreters = use_extension("@aspect_rules_py//py/unstable:extension.bzl", "python_interpreters")
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
 interpreters.toolchain(python_version = "3.12", is_default = True)
 use_repo(interpreters, "python_interpreters")
 register_toolchains("@python_interpreters//:all")
@@ -157,7 +157,7 @@ py_test(
 `aspect_rules_py//uv` is our alternative to `rules_python`'s `pip.parse`:
 
 ```bzl
-uv = use_extension("@aspect_rules_py//uv/unstable:extension.bzl", "uv")
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 
 # 1. Declare a hub (a shared dependency namespace)
 uv.declare_hub(

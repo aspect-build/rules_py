@@ -1,3 +1,4 @@
+load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
 load(":exclude_feature.bzl", "exclude_feature_flag")
 load(":version_util_test.bzl", "version_util_test_suite")
@@ -5,6 +6,37 @@ load(":version_util_test.bzl", "version_util_test_suite")
 package(default_visibility = ["//visibility:public"])
 
 exports_files(["probe_interpreter.py"])
+
+bzl_library(
+    name = "extension",
+    srcs = ["extension.bzl"],
+    deps = [
+        ":exclude_feature_bzl",
+        ":repository",
+        ":version_util",
+        ":versions",
+    ],
+)
+
+bzl_library(
+    name = "exclude_feature_bzl",
+    srcs = ["exclude_feature.bzl"],
+)
+
+bzl_library(
+    name = "repository",
+    srcs = ["repository.bzl"],
+)
+
+bzl_library(
+    name = "version_util",
+    srcs = ["version_util.bzl"],
+)
+
+bzl_library(
+    name = "versions",
+    srcs = ["versions.bzl"],
+)
 
 string_flag(
     name = "python_version",
