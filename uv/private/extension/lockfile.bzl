@@ -52,6 +52,12 @@ def normalize_deps(lock_id, lock_data):
             # So we need to extract the version component here
             dep["version"] = default_versions.get(dep["name"])[2]
 
+    def _ensure_wheel_hash(whl):
+        if "hash" not in whl:
+            # Hashes in uv.lock start with "sha256:". For compatibility, we prefix these
+            # hashes with "sha1:". (The ':' is what matters for our purposes.)
+            whl["hash"] = "sha1:" + sha1(whl["url"])
+
     for spec in lock_data.get("package", []):
         # Backfill the sdist URL if the source is a URL file
         if "sdist" in spec and not "url" in spec["sdist"]:
@@ -63,6 +69,9 @@ def normalize_deps(lock_id, lock_data):
         for extra_deps in spec.get("optional-dependencies", {}).values():
             for dep in extra_deps:
                 _fix_version(dep)
+
+        for whl in spec.get("wheels", []):
+            _ensure_wheel_hash(whl)
 
     return default_versions, package_versions, lock_data
 
@@ -196,17 +205,12 @@ def collect_bdists(lock_data):
     bdist_table = {}
     for package in lock_data.get("package", []):
         for bdist in package.get("wheels", []):
-            identifier = None
-            if "hash" in bdist:
-                hash = bdist["hash"]
-                identifier = hash.split(":")[1][:16]
-            else:
-                hash = sha1(bdist["url"])
-                identifier = hash[:16]
-
+            # normalize_deps ensures what every wheel has a "hash" field.
+            bdist_hash = bdist["hash"]
+            identifier = bdist_hash.split(":")[1][:16]
             bdist_repo_name = "whl__{}__{}".format(package["name"], identifier)
             bdist_specs[bdist_repo_name] = bdist
-            bdist_table[hash] = "@{}//file".format(bdist_repo_name)
+            bdist_table[bdist_hash] = "@{}//file".format(bdist_repo_name)
 
     return bdist_specs, bdist_table
 

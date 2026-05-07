@@ -450,6 +450,19 @@ uv.project(
 )
 # }}}
 
+# For cases/uv-dep-hashes
+# This test verifies that we can handle uv.lock wheel entries that don't have
+# `hash` fields.
+# {{{
+uv.declare_hub(hub_name = "pypi-pytorch")
+uv.project(
+    hub_name = "pypi-pytorch",
+    lock = "//cases/uv-dep-hashes:uv.lock",
+    pyproject = "//cases/uv-dep-hashes:pyproject.toml",
+)
+use_repo(uv, "pypi-pytorch")
+# }}}
+
 use_repo(uv, "pypi")
 
 register_toolchains("@uv//:all")
