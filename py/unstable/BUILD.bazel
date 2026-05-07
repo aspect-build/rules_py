@@ -4,7 +4,5 @@ bzl_library(
     name = "defs",
     srcs = ["defs.bzl"],
     visibility = ["//visibility:public"],
-    deps = [
-        "//py/private/py_venv:defs",
-    ],
+    deps = [],
 )

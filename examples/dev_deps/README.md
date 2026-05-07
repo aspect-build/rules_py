@@ -66,7 +66,7 @@ config_setting(name = "is_prod", flag_values = {":mode": "prod"})
 
 ```starlark
 def py_dev_binary(name, deps = [], dev_deps = [], **kwargs):
-    py_venv_binary(
+    py_binary(
         name = name,
         deps = deps + select({
             "//:is_prod": [],

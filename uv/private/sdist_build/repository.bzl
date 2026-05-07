@@ -213,9 +213,9 @@ def _sdist_build_impl(repository_ctx):
 
     repository_ctx.file("BUILD.bazel", content = """
 load("@aspect_rules_py//uv/private/pep517_whl:rule.bzl", "{rule}")
-load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_binary")
+load("@aspect_rules_py//py:defs.bzl", "py_binary")
 
-py_venv_binary(
+py_binary(
     name = "build_tool",
     main = "@aspect_rules_py//uv/private/pep517_whl:build_helper.py",
     srcs = ["@aspect_rules_py//uv/private/pep517_whl:build_helper.py"],

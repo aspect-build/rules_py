@@ -8,7 +8,7 @@ load("@bazel_skylib//rules:build_test.bzl", "build_test")
 # its own `__init__.py` does `from google.auth.credentials import ...` at
 # import time. That makes it a compact stress test for whether our
 # venv-assembly correctly merges contributions across namespace wheels.
-# Both variants below pass as shipped.
+# All three variants below pass as shipped.
 #
 # Context: we built this case from a downstream report of a
 # `ModuleNotFoundError: No module named 'google.auth'` on exactly this
@@ -30,6 +30,7 @@ load("@bazel_skylib//rules:build_test.bzl", "build_test")
 #
 # Variants:
 #   :test       — rules_py py_test + uv wheels, target config
+#   :test_tool  — py_venv_test variant, target config
 #   :test_exec  — py_binary + uv wheels, forced into EXEC config via
 #                 `genrule.tools` — matches the shape the downstream
 #                 failure was reported at
@@ -39,6 +40,23 @@ py_test(
     srcs = ["test.py"],
     dep_group = "firebase-admin-import",
     main = "test.py",
+    deps = [
+        "@pypi//firebase_admin",
+    ],
+)
+
+# Naming: `test_tool` (not `test_venv`) because py_venv_test's tree
+# artifact output at `.test_venv/` would prefix-collide with py_test's
+# internal `<pkg>/.<name>_venv/` venv directory if both targets shared
+# the `_venv` suffix.
+py_test(
+    name = "test_tool",
+    srcs = ["test.py"],
+    dep_group = "firebase-admin-import",
+    expose_venv = True,
+    isolated = False,
+    main = "test.py",
+    python_version = "3.11",
     deps = [
         "@pypi//firebase_admin",
     ],

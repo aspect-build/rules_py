@@ -18,14 +18,19 @@ assert "_virtualenv" in sys.modules
 # Note that we can't assume that a `.runfiles` tree has been created as CI may
 # use a different layout.
 
-# The virtualenv changes the sys.prefix, which should be in our runfiles
-assert sys.prefix.endswith("/.test")
+# The virtualenv changes sys.prefix to a dot-prefixed directory under
+# this test's package — the exact basename varies by rule variant
+# (py_test uses `.<name>_venv/`, py_venv_test uses `.<name>/`), so
+# assert on the structural invariant rather than the specific name.
+_prefix_parent, _prefix_basename = os.path.split(sys.prefix.rstrip("/"))
+assert _prefix_parent.endswith("/cases/cross-repo-610"), sys.prefix
+assert _prefix_basename.startswith("."), sys.prefix
 
 # That prefix should also be "the" prefix per site.PREFIXES
-assert site.PREFIXES[0].endswith("/.test")
+assert site.PREFIXES[0] == sys.prefix
 
 # The virtualenv also changes the sys.executable (if we've done this right)
-assert sys.executable.find("/.test/bin/python") != -1
+assert sys.executable.startswith(sys.prefix + "/bin/python"), sys.executable
 
 # aspect-build/rules_py#610, these imports aren't quite right
 import foo

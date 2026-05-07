@@ -202,6 +202,15 @@ https://pypi.org/project/bazel-runfiles/.
 """,
         allow_files = True,
     ),
+    # Forwarded to the sibling py_venv (which is where srcs actually
+    # feed sys.path). Carried on the launcher only so Bazel's `args`
+    # location-expansion (`args = ["$(location :foo.py)"]`) can resolve
+    # the label against the same files the user wrote on
+    # `py_binary` / `py_test`.
+    "srcs": attr.label_list(
+        doc = "Python source files. Forwarded to the sibling py_venv.",
+        allow_files = [".py"],
+    ),
 })
 
 _test_attrs = dict({
