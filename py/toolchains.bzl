@@ -3,7 +3,7 @@
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 load("//py/private/release:version.bzl", "IS_PRERELEASE")
 load("//py/private/toolchain:repo.bzl", "prebuilt_tool_repo", "prerelease_toolchains_repo", "toolchains_repo")
-load("//py/private/toolchain:tools.bzl", "TOOLCHAIN_PLATFORMS", "TOOL_CFGS")
+load("//py/private/toolchain:tools.bzl", "TOOLCHAIN_PLATFORMS")
 
 DEFAULT_TOOLS_REPOSITORY = "rules_py_tools"
 

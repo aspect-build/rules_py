@@ -60,9 +60,9 @@ directly and `debugpy` is absent.
 ### 4. Venv selection via `.bazelrc`
 
 ```
-common --@pypi//venv=debug
+common --@pypi//dep_group=debug
 
-common:release --@pypi//venv=prod
+common:release --@pypi//dep_group=prod
 common:release --//:mode=prod
 ```
 

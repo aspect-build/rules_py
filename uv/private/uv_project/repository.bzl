@@ -84,9 +84,9 @@ alias(
             return ":" + cond_id
 
     ################################################################################
-    # Lay down the //private/venv:BUILD.bazel file with config flags
+    # Lay down the //private/dep_group:BUILD.bazel file with config flags
     #
-    # This mirrors the uv_hub's venv, but is internal to the project.
+    # This mirrors the uv_hub's dep_group, but is internal to the project.
     venv_content = []
 
     # Collect all unique cfgs first
@@ -101,13 +101,13 @@ alias(
 config_setting(
     name = "{name}",
     flag_values = {{
-        "@aspect_rules_py//uv/private/constraints/venv:venv": "{name}",
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "{name}",
     }},
     visibility = ["//visibility:public"],
 )
 """.format(name = cfg_name),
         )
-    repository_ctx.file("private/venv/BUILD.bazel", content = "\n".join(venv_content))
+    repository_ctx.file("private/dep_group/BUILD.bazel", content = "\n".join(venv_content))
 
     ################################################################################
     # Lay down the surface-level targets
@@ -125,7 +125,7 @@ load("@aspect_rules_py//py:defs.bzl", "py_library")
         # FIXME: Handle markers for distinct versions
         for cfg, scc_cfgs in cfgs.items():
             cfg_name = "_package_{}_{}".format(package, cfg)
-            main_arms["//private/venv:" + cfg] = ":" + cfg_name
+            main_arms["//private/dep_group:" + cfg] = ":" + cfg_name
 
             cfg_arms = {}
 
@@ -176,7 +176,7 @@ alias(
     all_requirements = {}
     for package, cfgs in dep_to_scc.items():
         for cfg in cfgs.keys():
-            all_requirements.setdefault("//private/venv:" + cfg, []).append("//:" + package)
+            all_requirements.setdefault("//private/dep_group:" + cfg, []).append("//:" + package)
 
     content.append("""
 filegroup(

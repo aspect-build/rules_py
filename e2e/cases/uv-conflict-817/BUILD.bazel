@@ -3,8 +3,8 @@ load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
 py_venv_test(
     name = "test_a",
     srcs = ["test_a.py"],
+    dep_group = "ambig-a",
     main = "test_a.py",
-    venv = "ambig-a",
     deps = [
         "@pypi//packaging",
     ],
@@ -13,8 +13,8 @@ py_venv_test(
 py_venv_test(
     name = "test_b",
     srcs = ["test_b.py"],
+    dep_group = "ambig-b",
     main = "test_b.py",
-    venv = "ambig-b",
     deps = [
         "@pypi//packaging",
     ],

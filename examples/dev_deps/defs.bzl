@@ -8,8 +8,8 @@ def py_dev_binary(name, deps = [], dev_deps = [], **kwargs):
     The default mode is "dev": all dependencies (including dev_deps) are
     linked.  In release/prod mode the dev_deps are stripped.
 
-    The active venv is controlled separately via --@pypi//venv (see
-    .bazelrc) so that the hub makes the right set of packages available.
+    The active dep_group is controlled separately via --@pypi//dep_group
+    (see .bazelrc) so that the hub makes the right set of packages available.
 
     Args:
         name: Target name.

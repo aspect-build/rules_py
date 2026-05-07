@@ -14,7 +14,7 @@ common:linux --platforms=//:linux_gnu
 common:linux --host_platform=//:linux_gnu
 
 # Configure a default venv
-# common --@pypi//venv=say
+# common --@pypi//dep_group=say
 
 # Enable path mapping so WhlInstall actions are exercised with
 # supports-path-mapping. Actions that declare the execution requirement get

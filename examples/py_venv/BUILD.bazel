@@ -22,11 +22,11 @@ py_venv_binary(
     srcs = [
         ":stamped",
     ],
+    dep_group = ":venv",
     imports = [
         ".",
     ],
     main = ":stamped",
-    venv = ":venv",
 )
 
 py_venv_binary(

@@ -5,8 +5,8 @@ py_venv_test(
     srcs = [
         "__test__.py",
     ],
+    dep_group = "workspace",
     main = "__test__.py",
-    venv = "workspace",
     deps = [
         "@pypi//foo",  # Firstparty package
         "@pypi//pi",  # Firstparty package

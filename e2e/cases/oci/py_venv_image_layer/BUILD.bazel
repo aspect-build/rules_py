@@ -42,9 +42,9 @@ platform(
 py_venv_binary(
     name = "my_app_bin",
     srcs = ["__main__.py"],
+    dep_group = "venv_images",
     main = "__main__.py",
     tags = ["manual"],
-    venv = "venv_images",
     deps = [
         "//cases/oci/py_image_layer/branding",
         "@aspect_rules_py//py/tests/internal-deps/adder",

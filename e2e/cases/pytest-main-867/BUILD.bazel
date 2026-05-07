@@ -5,8 +5,8 @@ load("@aspect_rules_py//py:defs.bzl", "py_pytest_main", "py_test")
 py_test(
     name = "test_example",
     srcs = ["test_example.py"],
+    dep_group = "pytest-main-867",
     pytest_main = True,
-    venv = "pytest-main-867",
     deps = ["@pypi//pytest"],
 )
 
@@ -15,8 +15,8 @@ py_test(
 py_test(
     name = "test_naming_regression",
     srcs = ["test_example.py"],
+    dep_group = "pytest-main-867",
     pytest_main = True,
-    venv = "pytest-main-867",
     deps = ["@pypi//pytest"],
 )
 
@@ -29,8 +29,8 @@ py_test(
         "test_a.py",
         "test_b.py",
     ],
+    dep_group = "pytest-main-867",
     pytest_main = True,
-    venv = "pytest-main-867",
     deps = ["@pypi//pytest"],
 )
 
@@ -39,8 +39,8 @@ py_test(
 py_test(
     name = "test_collection_check",
     srcs = ["test_collection_check.py"],
+    dep_group = "pytest-main-867",
     pytest_main = True,
-    venv = "pytest-main-867",
     deps = ["@pypi//pytest"],
 )
 
@@ -58,8 +58,8 @@ py_test(
         "test_a.py",
         ":test_direct_main",
     ],
+    dep_group = "pytest-main-867",
     main = ":__test__test_direct_main__.py",
-    venv = "pytest-main-867",
     deps = [
         ":test_direct_main",
         "@pypi//pytest",

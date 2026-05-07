@@ -42,9 +42,9 @@ platform(
 py_venv_binary(
     name = "app_bin",
     srcs = ["__main__.py"],
+    dep_group = "psql",
     main = "__main__.py",
     python_version = "3.12",
-    venv = "psql",
     deps = [
         "@pypi//psycopg2_binary",
     ],
