@@ -10,7 +10,7 @@ py_binary(
 
 # Same test as above but with `expose_venv = True` — exercises the
 # splitting codepath (hidden `_<name>_venv` py_venv + binary rule
-# consuming it via external_venv).
+# consuming it via the internal venv attr).
 py_binary(
     name = "check_paths_expose_venv",
     srcs = ["check_paths.py"],
@@ -21,8 +21,8 @@ py_binary(
 
 # Full legacy-shape variant: expose_venv + isolated=False — the
 # settings users migrating off py_venv_binary are told to set. Keeps
-# regression coverage for that combination through the root-dir-paths
-# test harness.
+# regression coverage for that specific combination through the
+# root-dir-paths test harness.
 py_binary(
     name = "check_paths_via_venv_macro",
     srcs = ["check_paths.py"],

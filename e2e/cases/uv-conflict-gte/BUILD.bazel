@@ -1,6 +1,6 @@
-load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
+load("@aspect_rules_py//py:defs.bzl", "py_test")
 
-py_venv_test(
+py_test(
     name = "test_a",
     srcs = ["test_a.py"],
     dep_group = "group-a",
@@ -10,10 +10,34 @@ py_venv_test(
     ],
 )
 
-py_venv_test(
+py_test(
+    name = "test_a_venv_test",
+    srcs = ["test_a.py"],
+    dep_group = "group-a",
+    expose_venv = True,
+    isolated = False,
+    main = "test_a.py",
+    deps = [
+        "@pypi//packaging",
+    ],
+)
+
+py_test(
     name = "test_b",
     srcs = ["test_b.py"],
     dep_group = "group-b",
+    main = "test_b.py",
+    deps = [
+        "@pypi//packaging",
+    ],
+)
+
+py_test(
+    name = "test_b_venv_test",
+    srcs = ["test_b.py"],
+    dep_group = "group-b",
+    expose_venv = True,
+    isolated = False,
     main = "test_b.py",
     deps = [
         "@pypi//packaging",

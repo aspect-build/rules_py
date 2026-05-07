@@ -1,9 +1,22 @@
-load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
+load("@aspect_rules_py//py:defs.bzl", "py_test")
 
-py_venv_test(
+py_test(
     name = "test",
     srcs = ["__test__.py"],
     dep_group = "patching",
+    main = "__test__.py",
+    python_version = "3.11",
+    deps = [
+        "@pypi//cowsay",
+    ],
+)
+
+py_test(
+    name = "venv_test",
+    srcs = ["__test__.py"],
+    dep_group = "patching",
+    expose_venv = True,
+    isolated = False,
     main = "__test__.py",
     python_version = "3.11",
     deps = [

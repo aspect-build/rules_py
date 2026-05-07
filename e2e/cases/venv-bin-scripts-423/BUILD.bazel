@@ -22,3 +22,16 @@ py_test(
         "@pypi//dice",
     ],
 )
+
+py_test(
+    name = "venv_test",
+    srcs = ["__test__.py"],
+    dep_group = "venv-bin-scripts-423",
+    expose_venv = True,
+    isolated = False,
+    main = "__test__.py",
+    python_version = "3.11",
+    deps = [
+        "@pypi//dice",
+    ],
+)

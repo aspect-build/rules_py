@@ -26,6 +26,7 @@ layout details.
 
 load("@bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
 load("@bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
+load("//py/private:py_binary.bzl", _py_venv_exec = "py_venv_exec")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private:transitions.bzl", "python_version_transition")
@@ -265,88 +266,7 @@ def _wrap_with_debug(rule):
 
     return helper
 
-def _py_venv_binary_impl(ctx):
-    """A virtualenv-based binary/test that runs a specific Python file."""
-    shared = _assemble_shared(ctx)
-
-    ctx.actions.expand_template(
-        template = ctx.file._run_tmpl,
-        output = ctx.outputs.executable,
-        substitutions = {
-            "{{BASH_RLOCATION_FN}}": BASH_RLOCATION_FUNCTION.strip(),
-            "{{INTERPRETER_FLAGS}}": " ".join(_interpreter_flags(ctx, include_main = True)),
-            "{{ARG_VENV_PYTHON}}": to_rlocation_path(ctx, shared.venv.bin_python),
-            "{{DEBUG}}": str(ctx.attr.debug).lower(),
-        },
-        is_executable = True,
-    )
-
-    passed_env = dict(ctx.attr.env)
-    for k, v in passed_env.items():
-        passed_env[k] = expand_variables(
-            ctx,
-            expand_locations(ctx, v, ctx.attr.data),
-            attribute_name = "env",
-        )
-
-    return [
-        DefaultInfo(
-            files = depset([ctx.outputs.executable]),
-            executable = ctx.outputs.executable,
-            runfiles = shared.runfiles,
-        ),
-        RunEnvironmentInfo(
-            environment = passed_env,
-            inherited_environment = getattr(ctx.attr, "env_inherit", []),
-        ),
-    ]
-
-_binary_attrs = dict({
-    "main": attr.label(
-        doc = "Script to execute with the Python interpreter.",
-        allow_single_file = True,
-        mandatory = True,
-    ),
-})
-
-_test_attrs = dict({
-    "env_inherit": attr.string_list(
-        doc = "Specifies additional environment variables to inherit from the external environment when the test is executed by bazel test.",
-        default = [],
-    ),
-    # Magic attribute to make coverage --combined_report flag work.
-    # There's no docs about this.
-    # See https://github.com/bazelbuild/bazel/blob/fde4b67009d377a3543a3dc8481147307bd37d36/tools/test/collect_coverage.sh#L186-L194
-    # NB: rules_python ALSO includes this attribute on the py_binary rule, but we think that's a mistake.
-    # see https://github.com/aspect-build/rules_py/pull/520#pullrequestreview-25790761972
-    "_lcov_merger": attr.label(
-        default = configuration_field(fragment = "coverage", name = "output_generator"),
-        executable = True,
-        cfg = "exec",
-    ),
-})
-
-_py_venv_binary = rule(
-    doc = """Run a Python program under Bazel using a virtualenv.""",
-    implementation = _py_venv_binary_impl,
-    attrs = _attrs | _binary_attrs,
-    toolchains = [PY_TOOLCHAIN],
-    executable = True,
-    cfg = python_version_transition,
-)
-
-_py_venv_test = rule(
-    doc = """Run a Python program under Bazel using a virtualenv.""",
-    implementation = _py_venv_binary_impl,
-    attrs = _attrs | _binary_attrs | _test_attrs,
-    toolchains = [PY_TOOLCHAIN],
-    test = True,
-    cfg = python_version_transition,
-)
-
 py_venv = _wrap_with_debug(_py_venv)
-py_venv_binary = _wrap_with_debug(_py_venv_binary)
-py_venv_test = _wrap_with_debug(_py_venv_test)
 
 # Attrs that the macro routes to the generated `py_venv`. Two flavors:
 # venv-only (popped from kwargs, the launcher never sees them) and
@@ -360,13 +280,14 @@ _VENV_ONLY_ATTRS = [
     "package_collisions",
     "include_system_site_packages",
     "include_user_site_packages",
-    "dep_group",
     "python_version",
+    "dep_group",
+    "env",
+    "env_inherit",
 ]
 _SHARED_ATTRS = [
-    # The launcher uses these for `python <flags> main.py`; the venv
-    # forwards them to its interactive REPL too so `bazel run
-    # :name.venv` runs python with the same flags as the binary.
+    # Launcher constructs `python <flags> main.py`; venv forwards them
+    # to its REPL so `bazel run :name.venv` matches the binary's flags.
     "interpreter_options",
 ]
 
@@ -384,7 +305,7 @@ def _split_kwargs_for_venv(kwargs):
             venv_kwargs[name] = kwargs[name]
     return venv_kwargs
 
-def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = None, imports = [], tags = None, testonly = None, visibility = None, isolated = True, expose_venv = False, **kwargs):
+def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = [], imports = [], tags = None, testonly = None, visibility = None, isolated = True, expose_venv = False, **kwargs):
     """Split `py_rule(name, ...)` into a sibling py_venv target + a
     `py_rule` call routed at it via the internal `venv` rule
     attribute. Called for every `py_binary` / `py_test` macro invocation.
@@ -402,6 +323,7 @@ def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = None, 
     venv_kwargs["srcs"] = srcs
     venv_kwargs["deps"] = deps
     venv_kwargs["imports"] = imports
+    venv_kwargs["data"] = data
 
     # Target names can contain `/` (Bazel allows it), but venv labels
     # and the on-disk venv basename must be slash-free.
@@ -426,7 +348,7 @@ def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = None, 
     py_rule(
         name = name,
         main = main,
-        data = data,
+        srcs = srcs,
         tags = tags,
         testonly = testonly,
         visibility = visibility,
@@ -435,18 +357,35 @@ def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = None, 
         **kwargs
     )
 
-def py_venv_link(venv_name = None, srcs = [], **kwargs):
-    """Build a Python virtual environment and produce a script to link it into the build directory."""
+def py_venv_link(name, venv, link_name = None, **kwargs):
+    """Emit a runnable target that materialises `venv` into the workspace.
 
-    # Note that the binary is already wrapped with debug
+    `bazel run :<name>` creates a symlink in `$BUILD_WORKING_DIRECTORY`
+    (typically the workspace root) that points at `venv`'s materialised
+    venv tree in bazel-bin, so IDEs / LSPs can resolve interpreter and
+    site-packages via a stable workspace-local path.
+
+    Args:
+        name: Runnable target name. `bazel run :<name>` materialises
+            the symlink; pick something like `<something>.venv` by
+            convention so `python.defaultInterpreterPath` readers
+            recognise it, but any label works.
+        venv: Label of a `py_venv` target to link. Typically the
+            `:<binary_name>.venv` target auto-emitted by
+            `py_binary(expose_venv = True, ...)`, or a standalone
+            `py_venv` shared across many binaries.
+        link_name: Workspace-relative basename for the created
+            symlink. Defaults to a safely-escaped version of the
+            target's package + venv name.
+        **kwargs: Forwarded to the underlying `py_binary`.
+    """
     link_script = str(Label("//py/private/py_venv:link.py"))
-    kwargs["debug"] = select({
-        Label(":debug_venv_setting"): True,
-        "//conditions:default": False,
-    })
-    py_venv_binary(
-        args = [] + (["--name=" + venv_name] if venv_name else []),
+    _py_venv_exec(
+        name = name,
         main = link_script,
-        srcs = srcs + [link_script],
+        srcs = [link_script],
+        args = [] + (["--name=" + link_name] if link_name else []),
+        venv = venv,
+        isolated = False,
         **kwargs
     )

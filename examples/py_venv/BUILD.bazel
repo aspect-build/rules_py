@@ -1,42 +1,57 @@
 load("@bazel_lib//lib:expand_template.bzl", "expand_template")
-load("//py:defs.bzl", "py_image_layer")
-load("//py/unstable:defs.bzl", "py_venv", "py_venv_binary")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("//py:defs.bzl", "py_binary", "py_image_layer")
 
 expand_template(
     name = "stamped",
+    out = "stamped.py",
     stamp_substitutions = {
         "<BUILD_TIMESTAMP>": "{{BUILD_TIMESTAMP}}",
     },
     template = "say.py",
 )
 
-py_venv(
-    name = "venv",
+# py_binary with own deps — the macro creates an internal venv automatically.
+py_binary(
+    name = "simple_binary",
+    srcs = [
+        ":stamped",
+    ],
+    imports = ["."],
+    main = ":stamped",
     deps = [
         "@pypi//cowsay",
     ],
 )
 
-py_venv_binary(
-    name = "external_venv",
-    srcs = [
-        ":stamped",
-    ],
-    dep_group = ":venv",
-    imports = [
-        ".",
-    ],
-    main = ":stamped",
-)
-
-py_venv_binary(
+# py_binary with expose_venv — emits a runnable sibling venv target.
+py_binary(
     name = "internal_venv",
     srcs = [
         ":stamped",
     ],
+    expose_venv = True,
     imports = [
         ".",
     ],
+    isolated = False,
+    main = ":stamped",
+    deps = [
+        "@pypi//cowsay",
+    ],
+)
+
+# Same as internal_venv, covered by an independent sh_test.
+py_binary(
+    name = "exposed_venv",
+    srcs = [
+        ":stamped",
+    ],
+    expose_venv = True,
+    imports = [
+        ".",
+    ],
+    isolated = False,
     main = ":stamped",
     deps = [
         "@pypi//cowsay",
@@ -46,4 +61,26 @@ py_venv_binary(
 py_image_layer(
     name = "layers",
     binary = ":internal_venv",
+)
+
+# E2E regression test — verifies all three venv variants can import cowsay.
+sh_test(
+    name = "test_simple_binary",
+    srcs = ["run_and_grep.sh"],
+    args = ["simple_binary"],
+    data = [":simple_binary"],
+)
+
+sh_test(
+    name = "test_internal_venv",
+    srcs = ["run_and_grep.sh"],
+    args = ["internal_venv"],
+    data = [":internal_venv"],
+)
+
+sh_test(
+    name = "test_exposed_venv",
+    srcs = ["run_and_grep.sh"],
+    args = ["exposed_venv"],
+    data = [":exposed_venv"],
 )

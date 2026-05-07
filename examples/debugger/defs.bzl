@@ -1,6 +1,6 @@
 """Wrapper macro that injects debugpy as a wrapper entrypoint."""
 
-load("@aspect_rules_py//py/unstable:defs.bzl", _py_venv_binary = "py_venv_binary")
+load("@aspect_rules_py//py:defs.bzl", _py_binary = "py_binary")
 
 def _debug_main_impl(ctx):
     """Generate a debugpy wrapper that runs the real entrypoint."""
@@ -35,7 +35,7 @@ _debug_main = rule(
 )
 
 def py_debuggable_binary(name, srcs = [], deps = [], debug_deps = [], **kwargs):
-    """A py_venv_binary that wraps the entrypoint with debugpy in debug mode.
+    """A py_binary that wraps the entrypoint with debugpy in debug mode.
 
     In debug mode (the default), the binary's main is replaced with a
     debugpy wrapper that starts a DAP listener before importing the real
@@ -49,7 +49,7 @@ def py_debuggable_binary(name, srcs = [], deps = [], debug_deps = [], **kwargs):
         srcs: Source files.
         deps: Production dependencies — always included.
         debug_deps: Debug-only dependencies (e.g. debugpy) — included unless mode=prod.
-        **kwargs: Forwarded to py_venv_binary.
+        **kwargs: Forwarded to py_binary.
     """
     main = kwargs.pop("main", None)
 
@@ -60,7 +60,7 @@ def py_debuggable_binary(name, srcs = [], deps = [], debug_deps = [], **kwargs):
         out = debug_main_name + ".py",
     )
 
-    _py_venv_binary(
+    _py_binary(
         name = name,
         srcs = srcs + select({
             "//:is_prod": [],
