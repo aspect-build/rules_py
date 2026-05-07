@@ -1,0 +1,9 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+py_test(
+    name = "test_import",
+    srcs = ["test.py"],
+    main = "test.py",
+    python_version = "3.11",
+    deps = ["@pypi-pytorch//torch", "@pypi-pytorch//build"],
+)
