@@ -11,7 +11,7 @@
   `py_binary(expose_venv = True, ...)` / `py_test(expose_venv = True, ...)`.
   Splits the call into a sibling `:<name>.venv` `py_venv` + a
   `py_binary` / `py_test` rule that consumes it via the internal
-  `external_venv` attribute. `bazel run :<name>.venv` drops into the
+  `venv` attribute. `bazel run :<name>.venv` drops into the
   interpreter.
 
 - `py_venv_link` — opt-in macro that emits a runnable target whose
@@ -160,7 +160,7 @@ def _py_venv_rule_impl(ctx):
             environment = passed_env,
             inherited_environment = ctx.attr.env_inherit,
         ),
-        # `bazel coverage` walks the binary's `external_venv` attr to
+        # `bazel coverage` walks the binary's `venv` attr to
         # pick this up — the venv carries the test's `srcs` and
         # first-party `deps`, so this is where instrumentation belongs.
         coverage_common.instrumented_files_info(
@@ -399,7 +399,7 @@ def _split_kwargs_for_venv(kwargs):
 
 def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = None, imports = [], tags = None, testonly = None, visibility = None, isolated = True, expose_venv = False, **kwargs):
     """Split `py_rule(name, ...)` into a sibling py_venv target + a
-    `py_rule` call routed at it via the internal `external_venv` rule
+    `py_rule` call routed at it via the internal `venv` rule
     attribute. Called for every `py_binary` / `py_test` macro invocation.
 
     `expose_venv = True` emits a public `:{name}.venv` py_venv:
@@ -446,7 +446,7 @@ def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = None, 
         tags = tags,
         testonly = testonly,
         visibility = visibility,
-        external_venv = ":" + venv_label,
+        venv = ":" + venv_label,
         isolated = isolated,
         **kwargs
     )

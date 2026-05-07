@@ -1,7 +1,7 @@
 """Implementation for the py_venv_exec and py_venv_exec_test rules.
 
 Both are thin launchers that consume a sibling `py_venv` (passed via the
-internal `external_venv` attr) and exec its `bin/python`. The public
+internal `venv` attr) and exec its `bin/python`. The public
 `py_binary` / `py_test` macros wrap them and route all venv-shaping
 attrs to the auto-generated sibling.
 """
@@ -28,8 +28,8 @@ def _py_venv_exec_impl(ctx):
     # come from a shared constant.
     #
     # The macro layer routes srcs / deps to the sibling py_venv (always
-    # set as `external_venv`) and passes an explicit `main =` to the
-    # rule. `main` is the only first-party file the rule contributes;
+    # set as `venv`) and passes an explicit `main =` to the rule.
+    # `main` is the only first-party file the rule contributes;
     # everything else flows through the sibling venv.
     if not ctx.attr.main:
         fail("py_binary {}: main is required.".format(ctx.label))
@@ -37,10 +37,10 @@ def _py_venv_exec_impl(ctx):
     if not main.basename.endswith(".py"):
         fail("main must end in '.py', got: " + main.basename)
 
-    external_venv = ctx.attr.external_venv
-    if not external_venv:
-        fail("py_binary {}: external_venv is required.".format(ctx.label))
-    vinfo = external_venv[VirtualenvInfo]
+    venv = ctx.attr.venv
+    if not venv:
+        fail("py_binary {}: venv is required.".format(ctx.label))
+    vinfo = venv[VirtualenvInfo]
 
     # Bazel-contextual env vars that the launcher exports via
     # {{PYTHON_ENV}}.
@@ -55,8 +55,8 @@ def _py_venv_exec_impl(ctx):
     # merge for inherited env-var names.
     passed_env = {}
     inherited_env = []
-    if RunEnvironmentInfo in external_venv:
-        venv_env = external_venv[RunEnvironmentInfo]
+    if RunEnvironmentInfo in venv:
+        venv_env = venv[RunEnvironmentInfo]
         passed_env = dict(venv_env.environment)
         inherited_env = list(venv_env.inherited_environment)
     for k, v in ctx.attr.env.items():
@@ -94,14 +94,14 @@ def _py_venv_exec_impl(ctx):
         extra_runfiles = [main],
         extra_runfiles_depsets = [
             ctx.attr._runfiles_lib[DefaultInfo].default_runfiles,
-            external_venv[DefaultInfo].default_runfiles,
+            venv[DefaultInfo].default_runfiles,
         ],
     )
 
     instrumented_files_info = coverage_common.instrumented_files_info(
         ctx,
         source_attributes = ["main"],
-        dependency_attributes = ["data", "external_venv"],
+        dependency_attributes = ["data", "venv"],
         extensions = ["py"],
     )
 
@@ -152,7 +152,7 @@ be deprecated in the future.
 
 """,
     ),
-    "external_venv": attr.label(
+    "venv": attr.label(
         providers = [[VirtualenvInfo]],
         mandatory = True,
         doc = """Internal: set by the `py_binary_with_venv` macro for
@@ -222,7 +222,7 @@ _test_attrs = dict({
 })
 
 py_venv_exec = rule(
-    doc = "Launcher rule that exec's the interpreter from a sibling `py_venv` (set via `external_venv`). Most users should use the [py_binary macro](#py_binary) instead of loading this directly.",
+    doc = "Launcher rule that exec's the interpreter from a sibling `py_venv` (set via `venv`). Most users should use the [py_binary macro](#py_binary) instead of loading this directly.",
     implementation = _py_venv_exec_impl,
     attrs = _attrs,
     executable = True,
