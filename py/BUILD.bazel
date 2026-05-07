@@ -31,6 +31,7 @@ bzl_library(
     visibility = ["//visibility:public"],
     deps = [
         ":toolchains",
+        "//py/private/interpreter:extension",
         "//py/private/release:version",
         "@aspect_tools_telemetry_report//:defs.bzl",
         "@bazel_features//:features",
