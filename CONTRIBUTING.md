@@ -1,5 +1,22 @@
 # How to Contribute
 
+## Commit messages
+
+PRs are squash-merged, so the **PR title** becomes the commit subject on `main`
+and feeds the changelog. Titles must follow [Conventional Commits], e.g.:
+
+```
+feat(uv): add foo
+fix: handle bar
+chore: bump baz
+```
+
+Common types: `build`, `chore`, `ci`, `docs`, `feat`, `fix`, `perf`,
+`refactor`, `revert`, `style`, `test`. A GitHub Action enforces this on every
+PR; locally, `pre-commit install` wires up the same check via commitizen.
+
+[Conventional Commits]: https://www.conventionalcommits.org/
+
 ## Formatting
 
 Starlark files should be formatted by buildifier.
