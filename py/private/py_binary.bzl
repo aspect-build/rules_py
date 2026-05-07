@@ -8,6 +8,7 @@ attrs to the auto-generated sibling.
 
 # TODO: rename this file to py_venv_exec.bzl.
 
+load("@bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
 load("@bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
 load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
@@ -49,12 +50,24 @@ def _py_venv_exec_impl(ctx):
         "BAZEL_TARGET_NAME": ctx.attr.name,
     }
 
-    # `env` / `env_inherit` / `data` live on the sibling py_venv (the
-    # macro routes them there). The venv has already location-expanded
-    # its env dict against its own srcs/data, so pass it through verbatim.
-    venv_env = venv[RunEnvironmentInfo]
-    passed_env = dict(venv_env.environment)
-    inherited_env = list(venv_env.inherited_environment)
+    # Merge env vars: start from the venv's `env` (if any), then
+    # overlay the binary's own — binary wins on key conflicts. Same
+    # merge for inherited env-var names.
+    passed_env = {}
+    inherited_env = []
+    if RunEnvironmentInfo in venv:
+        venv_env = venv[RunEnvironmentInfo]
+        passed_env = dict(venv_env.environment)
+        inherited_env = list(venv_env.inherited_environment)
+    for k, v in ctx.attr.env.items():
+        passed_env[k] = expand_variables(
+            ctx,
+            expand_locations(ctx, v, ctx.attr.data),
+            attribute_name = "env",
+        )
+    for name in getattr(ctx.attr, "env_inherit", []):
+        if name not in inherited_env:
+            inherited_env.append(name)
 
     # When `isolated = False`, drop Python's `-I` flag so PYTHONPATH is
     # honored and the script directory is auto-added to sys.path.
@@ -87,8 +100,8 @@ def _py_venv_exec_impl(ctx):
 
     instrumented_files_info = coverage_common.instrumented_files_info(
         ctx,
-        source_attributes = ["main", "srcs"],
-        dependency_attributes = ["venv"],
+        source_attributes = ["main"],
+        dependency_attributes = ["data", "venv"],
         extensions = ["py"],
     )
 
@@ -118,6 +131,10 @@ def _py_venv_exec_impl(ctx):
     ]
 
 _attrs = dict({
+    "env": attr.string_dict(
+        doc = "Environment variables to set when running the binary.",
+        default = {},
+    ),
     "main": attr.label(
         allow_single_file = True,
         doc = """
@@ -170,11 +187,26 @@ match their historical permissive behaviour.""",
     "_runfiles_lib": attr.label(
         default = "@bazel_tools//tools/bash/runfiles",
     ),
-    # `srcs` lives on both the launcher and the sibling py_venv. The
-    # launcher carries it purely so Bazel's `args` location-expansion
-    # (`args = ["$(location :foo.py)"]`) can resolve the label against
-    # the same files the user wrote on `py_binary` / `py_test`. The
-    # venv is what actually feeds them onto sys.path.
+    # `data` is the only py_library attr the launcher reads (env-var
+    # location expansion, runfiles merge, coverage walk). `srcs`,
+    # `deps`, `imports`, `resolutions`, and `virtual_deps` are routed
+    # to the sibling py_venv by the macro layer and have no role on
+    # the launcher rule.
+    "data": attr.label_list(
+        doc = """Runtime dependencies of the program.
+
+The transitive closure of the `data` dependencies will be available in
+the `.runfiles` folder for this binary/test. The program may optionally
+use the Runfiles lookup library to locate the data files, see
+https://pypi.org/project/bazel-runfiles/.
+""",
+        allow_files = True,
+    ),
+    # Forwarded to the sibling py_venv (which is where srcs actually
+    # feed sys.path). Carried on the launcher only so Bazel's `args`
+    # location-expansion (`args = ["$(location :foo.py)"]`) can resolve
+    # the label against the same files the user wrote on
+    # `py_binary` / `py_test`.
     "srcs": attr.label_list(
         doc = "Python source files. Forwarded to the sibling py_venv.",
         allow_files = [".py"],
@@ -182,6 +214,10 @@ match their historical permissive behaviour.""",
 })
 
 _test_attrs = dict({
+    "env_inherit": attr.string_list(
+        doc = "Specifies additional environment variables to inherit from the external environment when the test is executed by bazel test.",
+        default = [],
+    ),
     # Magic attribute to make coverage --combined_report flag work.
     # There's no docs about this.
     # See https://github.com/bazelbuild/bazel/blob/fde4b67009d377a3543a3dc8481147307bd37d36/tools/test/collect_coverage.sh#L186-L194
