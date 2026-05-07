@@ -68,12 +68,6 @@ def _assemble_shared(ctx):
 
     safe_name = ctx.attr.name.replace("/", "_")
 
-    # `venv_dir_basename` lets callers pin the venv's on-disk name
-    # regardless of target name — handy for pinning IDE / test fixture
-    # paths that hardcode a specific venv dir. Defaults to `.<name>/`
-    # (with `_venv` appended when assemble_venv's `venv_name` param
-    # isn't set explicitly; see venv.bzl for the default there).
-    venv_basename = ctx.attr.venv_dir_basename or ".{}".format(safe_name)
     venv = assemble_venv(
         ctx,
         safe_name = safe_name,
@@ -85,7 +79,7 @@ def _assemble_shared(ctx):
         default_env = default_env,
         venv_activate_tmpl = ctx.file._venv_activate_tmpl,
         virtualenv_shim_py = ctx.file._virtualenv_shim,
-        venv_name = venv_basename,
+        venv_name = ".{}".format(safe_name),
     )
 
     srcs_depset = _py_library.make_srcs_depset(ctx)
@@ -222,13 +216,6 @@ Binary-level `env` wins on key conflicts.""",
 environment. Forwarded to the sibling py_binary/py_test consumer
 (when `expose_venv = True` is used) alongside `env`.""",
         default = [],
-    ),
-    "venv_dir_basename": attr.string(
-        doc = """Override the generated venv's directory basename.
-
-Defaults to `.<target_name>/`. Overrideable when test fixtures or
-IDE configs hardcode a specific path independent of the target name.
-""",
     ),
     # Required for py_version attribute
     "_allowlist_function_transition": attr.label(
@@ -423,16 +410,13 @@ def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = None, 
         venv_label = "{}.venv".format(name)
         venv_visibility = visibility
         venv_tags = None
-        venv_basename = None
     else:
-        venv_label = "_{}_venv".format(safe_name)
+        venv_label = "_{}.venv".format(safe_name)
         venv_visibility = ["//visibility:private"]
         venv_tags = ["manual"]
-        venv_basename = ".{}.venv".format(safe_name)
 
     py_venv(
         name = venv_label,
-        venv_dir_basename = venv_basename,
         testonly = testonly,
         visibility = venv_visibility,
         tags = venv_tags,
