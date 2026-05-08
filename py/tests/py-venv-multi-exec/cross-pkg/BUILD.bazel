@@ -1,0 +1,12 @@
+load("//py/private/py_venv:py_venv_exec.bzl", "py_venv_exec_test")
+
+# A py_venv_exec_test consuming a `:shared_venv` defined in a sibling
+# package. Exercises cross-package visibility of the venv label and
+# rlocation paths spanning two packages: the venv's runfiles tree
+# lives under `_main/py/tests/py-venv-multi-exec/...`, while this
+# launcher lives in this package.
+py_venv_exec_test(
+    name = "test_cross_pkg",
+    main = "entry_cross_pkg.py",
+    venv = "//py/tests/py-venv-multi-exec:shared_venv",
+)
