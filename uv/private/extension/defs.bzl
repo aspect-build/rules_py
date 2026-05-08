@@ -409,7 +409,7 @@ def _parse_projects(module_ctx, hub_specs):
 
                 install_cfgs[k] = struct(
                     whls = {} if is_no_binary else {
-                        whl["url"].split("/")[-1].split("?")[0].split("#")[0]: bdist_table.get(whl["hash"])
+                        whl["url"].split("/")[-1].split("?")[0].split("#")[0]: bdist_table.get(whl["url"])
                         for whl in package.get("wheels", [])
                     },
                     sbuild = "@{}//:whl".format(sbuild_id) if has_sbuild else None,
