@@ -409,7 +409,7 @@ def _parse_projects(module_ctx, hub_specs):
 
                 install_cfgs[k] = struct(
                     whls = {} if is_no_binary else {
-                        whl["url"].split("/")[-1].split("?")[0].split("#")[0]: bdist_table.get(whl["hash"])
+                        whl["url"].split("/")[-1].split("?")[0].split("#")[0]: bdist_table.get(whl["url"])
                         for whl in package.get("wheels", [])
                     },
                     sbuild = "@{}//:whl".format(sbuild_id) if has_sbuild else None,
@@ -534,7 +534,7 @@ def _uv_impl(module_ctx):
 
     for bdist_name, bdist_cfg in cfg.bdist_cfgs.items():
         sha256 = None
-        if "hash" in bdist_cfg:
+        if "hash" in bdist_cfg and bdist_cfg["hash"].startswith("sha256:"):
             sha256 = bdist_cfg["hash"][len("sha256:"):]
 
         http_file(

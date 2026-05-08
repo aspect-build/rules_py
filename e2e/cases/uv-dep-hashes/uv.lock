@@ -1,0 +1,29 @@
+version = 1
+revision = 3
+requires-python = "==3.11.*"
+
+# colorama's wheel entry intentionally omits the `hash` field.
+# This reproduces an issue where uv emits hashless wheel entries (e.g. for
+# packages from `find-links` registries). The companion sh_test guards against
+# the lockfile being regenerated and gaining a hash, which would silently
+# void this regression test.
+[[package]]
+name = "colorama"
+version = "0.4.6"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d1/d6/3965ed04c63042e047cb6a3e6ed1a63a35087b6a609aa3a15ed8ac56c221/colorama-0.4.6-py2.py3-none-any.whl" },
+]
+
+[[package]]
+name = "uv-dep-hashes"
+version = "0.1.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "colorama" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "colorama" },
+]
