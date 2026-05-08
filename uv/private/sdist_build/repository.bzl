@@ -230,6 +230,11 @@ py_binary(
     args = [],{patch_attrs}
     visibility = ["//visibility:public"],
 )
+
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//visibility:public"],
+)
 """.format(
         src = repository_ctx.attr.src,
         deps = repr(all_deps),

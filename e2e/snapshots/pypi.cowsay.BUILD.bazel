@@ -1,0 +1,33 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library")
+load("//:defs.bzl", "compatible_with")
+
+
+# This target is for a "hard" dependency.
+# Dependencies on this target will cause build failures if it's unavailable.
+alias(
+    name = "lib",
+    actual = "cowsay",
+    visibility = ["//visibility:public"],
+)
+filegroup(
+    name = "dist_info",
+    srcs = [":cowsay"],
+    visibility = ["//visibility:public"],
+)
+alias(
+    name = "cowsay",
+    actual = select({
+          "//dep_group:aspect_rules_py": "@project__aspect_rules_py//:cowsay",
+          "//dep_group:patching": "@project__patching//:cowsay",
+          "//dep_group:say": "@project__say//:cowsay",
+      },
+        no_match_error = "Available only in dep_groups: aspect_rules_py, patching, say",
+    ),
+    target_compatible_with = select(compatible_with(["aspect_rules_py", "patching", "say"])),
+    visibility = ["//visibility:public"],
+)
+
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//visibility:public"],
+)

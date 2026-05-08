@@ -1,0 +1,56 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library")
+
+# A dummy target so we can select to nothing when no markers match.
+py_library(
+    name = "empty",
+    srcs = [],
+    deps = [],
+    imports = [],
+    visibility = ["//visibility:private"],
+)
+
+
+# scc: aee49c8f5bedac06
+# members:
+# {
+#     "@whl_install__single_project_hub__cowsay__6_1//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "aee49c8f5bedac06",
+    deps = [
+        "@whl_install__single_project_hub__cowsay__6_1//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: b3c9a68bcea9c616
+# members:
+# {}
+# deps:
+# {
+#     "cowsay": {
+#         "": 1,
+#     },
+# }
+
+
+py_library(
+    name = "b3c9a68bcea9c616",
+    deps = [
+        "//:cowsay",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//visibility:public"],
+)

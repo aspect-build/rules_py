@@ -269,7 +269,14 @@ uv.unstable_annotate_packages(
     src = "//:annotations.toml",
     lock = "//:uv.lock",
 )
-use_repo(uv, "pypi")
+use_repo(
+    uv,
+    "aspect_rules_py_pip_configurations",
+    "project__aspect_rules_py",
+    "pypi",
+    "sdist_build__aspect_rules_py__bravado_core__6_1_1",
+    "whl_install__aspect_rules_py__attrs__23_2_0",
+)
 
 register_toolchains(
     "@uv//:all",

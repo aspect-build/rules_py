@@ -1,0 +1,9 @@
+
+load("@aspect_rules_py//uv/private/markers:defs.bzl", "decide_marker")
+
+
+
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//visibility:public"],
+)

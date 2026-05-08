@@ -5,3 +5,9 @@ examples export-ignore
 
 # Substitution for the _VERSION_PRIVATE placeholder
 py/private/release/version.bzl export-subst
+
+# Snapshot files of generated repository content. Each snapshots/ directory
+# is data-only (the write_source_files rule lives in the parent BUILD.bazel),
+# so the whole tree can be marked generated.
+uv/private/uv_hub/snapshots/** linguist-generated
+e2e/snapshots/** linguist-generated

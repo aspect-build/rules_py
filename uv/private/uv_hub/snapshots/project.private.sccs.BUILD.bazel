@@ -1,0 +1,2076 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library")
+
+# A dummy target so we can select to nothing when no markers match.
+py_library(
+    name = "empty",
+    srcs = [],
+    deps = [],
+    imports = [],
+    visibility = ["//visibility:private"],
+)
+
+
+# scc: 0122121f49196a45
+# members:
+# {
+#     "@whl_install__aspect_rules_py__jmespath__1_0_1//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "0122121f49196a45",
+    deps = [
+        "@whl_install__aspect_rules_py__jmespath__1_0_1//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 02c60fe71555dbc6
+# members:
+# {
+#     "@whl_install__aspect_rules_py__asgiref__3_8_1//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {
+#     "typing_extensions": {
+#         "python_full_version < '3.11'": 1,
+#     },
+# }
+
+
+alias(
+    name = "_maybe__02c60fe71555dbc6__406189b2fa92c520",
+    actual = select({
+        "//private/markers:f1406cfc2f85641e883d3ba9c27a964444fb80b1": "//:typing_extensions",
+        "//conditions:default": ":empty",
+    }),
+    visibility = ["//:__subpackages__"],
+)
+
+
+py_library(
+    name = "02c60fe71555dbc6",
+    deps = [
+        "@whl_install__aspect_rules_py__asgiref__3_8_1//:install",
+        ":_maybe__02c60fe71555dbc6__406189b2fa92c520",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 0b3eac9fa46ed553
+# members:
+# {
+#     "@whl_install__aspect_rules_py__gitpython__3_1_43//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {
+#     "gitdb": {
+#         "": 1,
+#     },
+# }
+
+
+py_library(
+    name = "0b3eac9fa46ed553",
+    deps = [
+        "@whl_install__aspect_rules_py__gitpython__3_1_43//:install",
+        "//:gitdb",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 0bf957689dc8a17a
+# members:
+# {
+#     "@whl_install__aspect_rules_py__future__1_0_0//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "0bf957689dc8a17a",
+    deps = [
+        "@whl_install__aspect_rules_py__future__1_0_0//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 0c448469fc42e513
+# members:
+# {
+#     "@whl_install__aspect_rules_py__neptune__1_10_2//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {
+#     "boto3": {
+#         "": 1,
+#     },
+#     "bravado": {
+#         "": 1,
+#     },
+#     "click": {
+#         "": 1,
+#     },
+#     "future": {
+#         "": 1,
+#     },
+#     "gitpython": {
+#         "": 1,
+#     },
+#     "oauthlib": {
+#         "": 1,
+#     },
+#     "packaging": {
+#         "": 1,
+#     },
+#     "pandas": {
+#         "": 1,
+#     },
+#     "pillow": {
+#         "": 1,
+#     },
+#     "psutil": {
+#         "": 1,
+#     },
+#     "pyjwt": {
+#         "": 1,
+#     },
+#     "requests": {
+#         "": 1,
+#     },
+#     "requests_oauthlib": {
+#         "": 1,
+#     },
+#     "six": {
+#         "": 1,
+#     },
+#     "swagger_spec_validator": {
+#         "": 1,
+#     },
+#     "typing_extensions": {
+#         "": 1,
+#     },
+#     "urllib3": {
+#         "": 1,
+#     },
+#     "websocket_client": {
+#         "": 1,
+#     },
+# }
+
+
+py_library(
+    name = "0c448469fc42e513",
+    deps = [
+        "@whl_install__aspect_rules_py__neptune__1_10_2//:install",
+        "//:boto3",
+        "//:bravado",
+        "//:click",
+        "//:future",
+        "//:gitpython",
+        "//:oauthlib",
+        "//:packaging",
+        "//:pandas",
+        "//:pillow",
+        "//:psutil",
+        "//:pyjwt",
+        "//:requests",
+        "//:requests_oauthlib",
+        "//:six",
+        "//:swagger_spec_validator",
+        "//:typing_extensions",
+        "//:urllib3",
+        "//:websocket_client",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 0d90a0107911e2ee
+# members:
+# {
+#     "@whl_install__aspect_rules_py__pyyaml__6_0_1//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "0d90a0107911e2ee",
+    deps = [
+        "@whl_install__aspect_rules_py__pyyaml__6_0_1//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 0dfe8750086323f2
+# members:
+# {
+#     "@whl_install__aspect_rules_py__zipp__3_23_0//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "0dfe8750086323f2",
+    deps = [
+        "@whl_install__aspect_rules_py__zipp__3_23_0//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 1126c4a05de455bd
+# members:
+# {
+#     "@whl_install__aspect_rules_py__types_python_dateutil__2_9_0_20240316//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "1126c4a05de455bd",
+    deps = [
+        "@whl_install__aspect_rules_py__types_python_dateutil__2_9_0_20240316//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 17569fac0688142c
+# members:
+# {
+#     "@whl_install__aspect_rules_py__click__8_1_7//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {
+#     "colorama": {
+#         "sys_platform == 'win32'": 1,
+#     },
+# }
+
+
+alias(
+    name = "_maybe__17569fac0688142c__fd9b7770715c779f",
+    actual = select({
+        "//private/markers:3f86223bfcc789fb321ff9bf716d56b3833c02b4": "//:colorama",
+        "//conditions:default": ":empty",
+    }),
+    visibility = ["//:__subpackages__"],
+)
+
+
+py_library(
+    name = "17569fac0688142c",
+    deps = [
+        "@whl_install__aspect_rules_py__click__8_1_7//:install",
+        ":_maybe__17569fac0688142c__fd9b7770715c779f",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 188d1bae875e01c5
+# members:
+# {
+#     "@whl_install__aspect_rules_py__pyjwt__2_8_0//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "188d1bae875e01c5",
+    deps = [
+        "@whl_install__aspect_rules_py__pyjwt__2_8_0//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 1a9692ca440d40f6
+# members:
+# {
+#     "@whl_install__aspect_rules_py__botocore__1_34_93//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {
+#     "jmespath": {
+#         "": 1,
+#     },
+#     "python_dateutil": {
+#         "": 1,
+#     },
+#     "urllib3": {
+#         "": 1,
+#     },
+# }
+
+
+py_library(
+    name = "1a9692ca440d40f6",
+    deps = [
+        "@whl_install__aspect_rules_py__botocore__1_34_93//:install",
+        "//:jmespath",
+        "//:python_dateutil",
+        "//:urllib3",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 1ab32a29e45cda88
+# members:
+# {
+#     "@whl_install__aspect_rules_py__pillow__10_3_0//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "1ab32a29e45cda88",
+    deps = [
+        "@whl_install__aspect_rules_py__pillow__10_3_0//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 1e0e56026e400a78
+# members:
+# {
+#     "@whl_install__aspect_rules_py__pytest__8_1_1//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {
+#     "colorama": {
+#         "sys_platform == 'win32'": 1,
+#     },
+#     "exceptiongroup": {
+#         "python_full_version < '3.11'": 1,
+#     },
+#     "iniconfig": {
+#         "": 1,
+#     },
+#     "packaging": {
+#         "": 1,
+#     },
+#     "pluggy": {
+#         "": 1,
+#     },
+#     "tomli": {
+#         "python_full_version < '3.11'": 1,
+#     },
+# }
+
+
+alias(
+    name = "_maybe__1e0e56026e400a78__fd9b7770715c779f",
+    actual = select({
+        "//private/markers:3f86223bfcc789fb321ff9bf716d56b3833c02b4": "//:colorama",
+        "//conditions:default": ":empty",
+    }),
+    visibility = ["//:__subpackages__"],
+)
+
+
+alias(
+    name = "_maybe__1e0e56026e400a78__520b4425048c4c29",
+    actual = select({
+        "//private/markers:f1406cfc2f85641e883d3ba9c27a964444fb80b1": "//:exceptiongroup",
+        "//conditions:default": ":empty",
+    }),
+    visibility = ["//:__subpackages__"],
+)
+
+
+alias(
+    name = "_maybe__1e0e56026e400a78__b3bca24d7b58766c",
+    actual = select({
+        "//private/markers:f1406cfc2f85641e883d3ba9c27a964444fb80b1": "//:tomli",
+        "//conditions:default": ":empty",
+    }),
+    visibility = ["//:__subpackages__"],
+)
+
+
+py_library(
+    name = "1e0e56026e400a78",
+    deps = [
+        "@whl_install__aspect_rules_py__pytest__8_1_1//:install",
+        ":_maybe__1e0e56026e400a78__fd9b7770715c779f",
+        ":_maybe__1e0e56026e400a78__520b4425048c4c29",
+        "//:iniconfig",
+        "//:packaging",
+        "//:pluggy",
+        ":_maybe__1e0e56026e400a78__b3bca24d7b58766c",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 36263f2e745aec68
+# members:
+# {
+#     "@whl_install__aspect_rules_py__bazel_runfiles__1_1_0//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "36263f2e745aec68",
+    deps = [
+        "@whl_install__aspect_rules_py__bazel_runfiles__1_1_0//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 3d28b6e946c58648
+# members:
+# {
+#     "@whl_install__aspect_rules_py__certifi__2024_7_4//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "3d28b6e946c58648",
+    deps = [
+        "@whl_install__aspect_rules_py__certifi__2024_7_4//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 3efdd519ba908a3d
+# members:
+# {
+#     "@whl_install__aspect_rules_py__maturin__1_11_5//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {
+#     "tomli": {
+#         "python_full_version < '3.11'": 1,
+#     },
+# }
+
+
+alias(
+    name = "_maybe__3efdd519ba908a3d__b3bca24d7b58766c",
+    actual = select({
+        "//private/markers:f1406cfc2f85641e883d3ba9c27a964444fb80b1": "//:tomli",
+        "//conditions:default": ":empty",
+    }),
+    visibility = ["//:__subpackages__"],
+)
+
+
+py_library(
+    name = "3efdd519ba908a3d",
+    deps = [
+        "@whl_install__aspect_rules_py__maturin__1_11_5//:install",
+        ":_maybe__3efdd519ba908a3d__b3bca24d7b58766c",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 47a07453022c3f00
+# members:
+# {
+#     "@whl_install__aspect_rules_py__cowsay__6_1//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "47a07453022c3f00",
+    deps = [
+        "@whl_install__aspect_rules_py__cowsay__6_1//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 4e0c8fcba708bfaa
+# members:
+# {
+#     "@whl_install__aspect_rules_py__six__1_16_0//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "4e0c8fcba708bfaa",
+    deps = [
+        "@whl_install__aspect_rules_py__six__1_16_0//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 501678eadc2406c8
+# members:
+# {
+#     "@whl_install__aspect_rules_py__rfc3339_validator__0_1_4//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {
+#     "six": {
+#         "": 1,
+#     },
+# }
+
+
+py_library(
+    name = "501678eadc2406c8",
+    deps = [
+        "@whl_install__aspect_rules_py__rfc3339_validator__0_1_4//:install",
+        "//:six",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 532dae902462bf54
+# members:
+# {
+#     "@whl_install__aspect_rules_py__typing_extensions__4_12_2//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "532dae902462bf54",
+    deps = [
+        "@whl_install__aspect_rules_py__typing_extensions__4_12_2//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 57bbb1e13328c57d
+# members:
+# {
+#     "@whl_install__aspect_rules_py__gitdb__4_0_12//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {
+#     "smmap": {
+#         "": 1,
+#     },
+# }
+
+
+py_library(
+    name = "57bbb1e13328c57d",
+    deps = [
+        "@whl_install__aspect_rules_py__gitdb__4_0_12//:install",
+        "//:smmap",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 57db4c17774c1aff
+# members:
+# {
+#     "@whl_install__aspect_rules_py__msgpack__1_0_8//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "57db4c17774c1aff",
+    deps = [
+        "@whl_install__aspect_rules_py__msgpack__1_0_8//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 5ad4c33225a6c315
+# members:
+# {
+#     "@whl_install__aspect_rules_py__bravado__11_0_3//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {
+#     "bravado_core": {
+#         "": 1,
+#     },
+#     "monotonic": {
+#         "": 1,
+#     },
+#     "msgpack": {
+#         "": 1,
+#     },
+#     "python_dateutil": {
+#         "": 1,
+#     },
+#     "pyyaml": {
+#         "": 1,
+#     },
+#     "requests": {
+#         "": 1,
+#     },
+#     "simplejson": {
+#         "": 1,
+#     },
+#     "six": {
+#         "": 1,
+#     },
+#     "typing_extensions": {
+#         "": 1,
+#     },
+# }
+
+
+py_library(
+    name = "5ad4c33225a6c315",
+    deps = [
+        "@whl_install__aspect_rules_py__bravado__11_0_3//:install",
+        "//:bravado_core",
+        "//:monotonic",
+        "//:msgpack",
+        "//:python_dateutil",
+        "//:pyyaml",
+        "//:requests",
+        "//:simplejson",
+        "//:six",
+        "//:typing_extensions",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 5fc6ecd45601013d
+# members:
+# {
+#     "@whl_install__aspect_rules_py__urllib3__1_26_19//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "5fc6ecd45601013d",
+    deps = [
+        "@whl_install__aspect_rules_py__urllib3__1_26_19//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 605ce566dcea5c6e
+# members:
+# {
+#     "@whl_install__aspect_rules_py__psutil__5_9_8//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "605ce566dcea5c6e",
+    deps = [
+        "@whl_install__aspect_rules_py__psutil__5_9_8//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 645e8b10704343f3
+# members:
+# {
+#     "@whl_install__aspect_rules_py__monotonic__1_6//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "645e8b10704343f3",
+    deps = [
+        "@whl_install__aspect_rules_py__monotonic__1_6//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 64670a6ca059db08
+# members:
+# {
+#     "@whl_install__aspect_rules_py__simplejson__3_19_2//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "64670a6ca059db08",
+    deps = [
+        "@whl_install__aspect_rules_py__simplejson__3_19_2//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 66db1ee5578c91b3
+# members:
+# {
+#     "@whl_install__aspect_rules_py__arrow__1_3_0//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {
+#     "python_dateutil": {
+#         "": 1,
+#     },
+#     "types_python_dateutil": {
+#         "": 1,
+#     },
+# }
+
+
+py_library(
+    name = "66db1ee5578c91b3",
+    deps = [
+        "@whl_install__aspect_rules_py__arrow__1_3_0//:install",
+        "//:python_dateutil",
+        "//:types_python_dateutil",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 755a2d8d1d107b02
+# members:
+# {
+#     "@whl_install__aspect_rules_py__importlib_metadata__8_7_1//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {
+#     "zipp": {
+#         "(python_full_version < '3.10.2') and (python_full_version < '3.11')": 1,
+#         "python_full_version < '3.11'": 1,
+#     },
+# }
+
+
+alias(
+    name = "_maybe__755a2d8d1d107b02__f4aa5147405e1f10",
+    actual = select({
+        "//private/markers:1ad1862a16d6a81b2e261b1afd5b12f09b7d1e6c": "//:zipp",
+        "//private/markers:f1406cfc2f85641e883d3ba9c27a964444fb80b1": "//:zipp",
+        "//conditions:default": ":empty",
+    }),
+    visibility = ["//:__subpackages__"],
+)
+
+
+py_library(
+    name = "755a2d8d1d107b02",
+    deps = [
+        "@whl_install__aspect_rules_py__importlib_metadata__8_7_1//:install",
+        ":_maybe__755a2d8d1d107b02__f4aa5147405e1f10",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 75d05c99d874710d
+# members:
+# {
+#     "@whl_install__aspect_rules_py__coverage__7_6_10//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "75d05c99d874710d",
+    deps = [
+        "@whl_install__aspect_rules_py__coverage__7_6_10//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 79d80fb738204348
+# members:
+# {
+#     "@whl_install__aspect_rules_py__referencing__0_35_0//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {
+#     "attrs": {
+#         "": 1,
+#     },
+#     "rpds_py": {
+#         "": 1,
+#     },
+# }
+
+
+py_library(
+    name = "79d80fb738204348",
+    deps = [
+        "@whl_install__aspect_rules_py__referencing__0_35_0//:install",
+        "//:attrs",
+        "//:rpds_py",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 7a5508482ee7c7ef
+# members:
+# {
+#     "@whl_install__aspect_rules_py__charset_normalizer__3_3_2//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "7a5508482ee7c7ef",
+    deps = [
+        "@whl_install__aspect_rules_py__charset_normalizer__3_3_2//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 7b750f6dabe77708
+# members:
+# {
+#     "@whl_install__aspect_rules_py__jsonschema_specifications__2023_12_1//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {
+#     "referencing": {
+#         "": 1,
+#     },
+# }
+
+
+py_library(
+    name = "7b750f6dabe77708",
+    deps = [
+        "@whl_install__aspect_rules_py__jsonschema_specifications__2023_12_1//:install",
+        "//:referencing",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 7dc7776b98af97fb
+# members:
+# {
+#     "@whl_install__aspect_rules_py__attrs__23_2_0//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "7dc7776b98af97fb",
+    deps = [
+        "@whl_install__aspect_rules_py__attrs__23_2_0//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 7e2655fa19c9381e
+# members:
+# {
+#     "@whl_install__aspect_rules_py__rfc3986_validator__0_1_1//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "7e2655fa19c9381e",
+    deps = [
+        "@whl_install__aspect_rules_py__rfc3986_validator__0_1_1//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 813a1389613cfa27
+# members:
+# {
+#     "@whl_install__aspect_rules_py__snakesay__0_10_3//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "813a1389613cfa27",
+    deps = [
+        "@whl_install__aspect_rules_py__snakesay__0_10_3//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 83c2335691aac8c7
+# members:
+# {
+#     "@whl_install__aspect_rules_py__jsonschema__4_21_1//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {
+#     "attrs": {
+#         "": 1,
+#     },
+#     "fqdn": {
+#         "": 1,
+#     },
+#     "idna": {
+#         "": 1,
+#     },
+#     "isoduration": {
+#         "": 1,
+#     },
+#     "jsonpointer": {
+#         "": 1,
+#     },
+#     "jsonschema_specifications": {
+#         "": 1,
+#     },
+#     "referencing": {
+#         "": 1,
+#     },
+#     "rfc3339_validator": {
+#         "": 1,
+#     },
+#     "rfc3986_validator": {
+#         "": 1,
+#     },
+#     "rpds_py": {
+#         "": 1,
+#     },
+#     "uri_template": {
+#         "": 1,
+#     },
+#     "webcolors": {
+#         "": 1,
+#     },
+# }
+
+
+py_library(
+    name = "83c2335691aac8c7",
+    deps = [
+        "@whl_install__aspect_rules_py__jsonschema__4_21_1//:install",
+        "//:attrs",
+        "//:fqdn",
+        "//:idna",
+        "//:isoduration",
+        "//:jsonpointer",
+        "//:jsonschema_specifications",
+        "//:referencing",
+        "//:rfc3339_validator",
+        "//:rfc3986_validator",
+        "//:rpds_py",
+        "//:uri_template",
+        "//:webcolors",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 8c7876aa6947b426
+# members:
+# {
+#     "@whl_install__aspect_rules_py__uri_template__1_3_0//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "8c7876aa6947b426",
+    deps = [
+        "@whl_install__aspect_rules_py__uri_template__1_3_0//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: 94204164e2a95885
+# members:
+# {
+#     "@whl_install__aspect_rules_py__pluggy__1_4_0//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "94204164e2a95885",
+    deps = [
+        "@whl_install__aspect_rules_py__pluggy__1_4_0//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: a42101321901faea
+# members:
+# {
+#     "@whl_install__aspect_rules_py__wcwidth__0_2_13//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "a42101321901faea",
+    deps = [
+        "@whl_install__aspect_rules_py__wcwidth__0_2_13//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: a645893aac936c2f
+# members:
+# {
+#     "@whl_install__aspect_rules_py__iniconfig__2_0_0//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "a645893aac936c2f",
+    deps = [
+        "@whl_install__aspect_rules_py__iniconfig__2_0_0//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: a6e543d0278612c3
+# members:
+# {
+#     "@whl_install__aspect_rules_py__build__1_3_0//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {
+#     "colorama": {
+#         "os_name == 'nt'": 1,
+#     },
+#     "importlib_metadata": {
+#         "python_full_version < '3.10.2'": 1,
+#     },
+#     "packaging": {
+#         "": 1,
+#     },
+#     "pyproject_hooks": {
+#         "": 1,
+#     },
+#     "tomli": {
+#         "python_full_version < '3.11'": 1,
+#     },
+# }
+
+
+alias(
+    name = "_maybe__a6e543d0278612c3__fd9b7770715c779f",
+    actual = select({
+        "//private/markers:12e4bc7c496178f88620c50eccb1bb90c24f7aff": "//:colorama",
+        "//conditions:default": ":empty",
+    }),
+    visibility = ["//:__subpackages__"],
+)
+
+
+alias(
+    name = "_maybe__a6e543d0278612c3__f8dd3b4b139f76a6",
+    actual = select({
+        "//private/markers:db384b5a67611795b7cf16442b57a34653387090": "//:importlib_metadata",
+        "//conditions:default": ":empty",
+    }),
+    visibility = ["//:__subpackages__"],
+)
+
+
+alias(
+    name = "_maybe__a6e543d0278612c3__b3bca24d7b58766c",
+    actual = select({
+        "//private/markers:f1406cfc2f85641e883d3ba9c27a964444fb80b1": "//:tomli",
+        "//conditions:default": ":empty",
+    }),
+    visibility = ["//:__subpackages__"],
+)
+
+
+py_library(
+    name = "a6e543d0278612c3",
+    deps = [
+        "@whl_install__aspect_rules_py__build__1_3_0//:install",
+        ":_maybe__a6e543d0278612c3__fd9b7770715c779f",
+        ":_maybe__a6e543d0278612c3__f8dd3b4b139f76a6",
+        "//:packaging",
+        "//:pyproject_hooks",
+        ":_maybe__a6e543d0278612c3__b3bca24d7b58766c",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: abf028a68f5c5ef2
+# members:
+# {
+#     "@whl_install__aspect_rules_py__oauthlib__3_2_2//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "abf028a68f5c5ef2",
+    deps = [
+        "@whl_install__aspect_rules_py__oauthlib__3_2_2//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: ad22749935bebfb1
+# members:
+# {
+#     "@whl_install__aspect_rules_py__requests_oauthlib__2_0_0//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {
+#     "oauthlib": {
+#         "": 1,
+#     },
+#     "requests": {
+#         "": 1,
+#     },
+# }
+
+
+py_library(
+    name = "ad22749935bebfb1",
+    deps = [
+        "@whl_install__aspect_rules_py__requests_oauthlib__2_0_0//:install",
+        "//:oauthlib",
+        "//:requests",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: b21aa6f0da345f65
+# members:
+# {
+#     "@whl_install__aspect_rules_py__s3transfer__0_10_1//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {
+#     "botocore": {
+#         "": 1,
+#     },
+# }
+
+
+py_library(
+    name = "b21aa6f0da345f65",
+    deps = [
+        "@whl_install__aspect_rules_py__s3transfer__0_10_1//:install",
+        "//:botocore",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: b2c4b8d6df4d741c
+# members:
+# {
+#     "@whl_install__aspect_rules_py__webcolors__1_13//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "b2c4b8d6df4d741c",
+    deps = [
+        "@whl_install__aspect_rules_py__webcolors__1_13//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: b614323508da0659
+# members:
+# {
+#     "@whl_install__aspect_rules_py__isoduration__20_11_0//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {
+#     "arrow": {
+#         "": 1,
+#     },
+# }
+
+
+py_library(
+    name = "b614323508da0659",
+    deps = [
+        "@whl_install__aspect_rules_py__isoduration__20_11_0//:install",
+        "//:arrow",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: b852273138dfaef1
+# members:
+# {
+#     "@whl_install__aspect_rules_py__bravado_core__6_1_1//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {
+#     "jsonref": {
+#         "": 1,
+#     },
+#     "jsonschema": {
+#         "": 1,
+#     },
+#     "msgpack": {
+#         "": 1,
+#     },
+#     "python_dateutil": {
+#         "": 1,
+#     },
+#     "pytz": {
+#         "": 1,
+#     },
+#     "pyyaml": {
+#         "": 1,
+#     },
+#     "requests": {
+#         "": 1,
+#     },
+#     "simplejson": {
+#         "": 1,
+#     },
+#     "six": {
+#         "": 1,
+#     },
+#     "swagger_spec_validator": {
+#         "": 1,
+#     },
+# }
+
+
+py_library(
+    name = "b852273138dfaef1",
+    deps = [
+        "@whl_install__aspect_rules_py__bravado_core__6_1_1//:install",
+        "//:jsonref",
+        "//:jsonschema",
+        "//:msgpack",
+        "//:python_dateutil",
+        "//:pytz",
+        "//:pyyaml",
+        "//:requests",
+        "//:simplejson",
+        "//:six",
+        "//:swagger_spec_validator",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: ba5e2f6d3abc42ae
+# members:
+# {
+#     "@whl_install__aspect_rules_py__exceptiongroup__1_3_1//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {
+#     "typing_extensions": {
+#         "(python_full_version < '3.11') and (python_full_version < '3.11')": 1,
+#         "python_full_version < '3.11'": 1,
+#     },
+# }
+
+
+alias(
+    name = "_maybe__ba5e2f6d3abc42ae__406189b2fa92c520",
+    actual = select({
+        "//private/markers:67b1edeb1aa91c0f50e1e49af7775f6d7837e291": "//:typing_extensions",
+        "//private/markers:f1406cfc2f85641e883d3ba9c27a964444fb80b1": "//:typing_extensions",
+        "//conditions:default": ":empty",
+    }),
+    visibility = ["//:__subpackages__"],
+)
+
+
+py_library(
+    name = "ba5e2f6d3abc42ae",
+    deps = [
+        "@whl_install__aspect_rules_py__exceptiongroup__1_3_1//:install",
+        ":_maybe__ba5e2f6d3abc42ae__406189b2fa92c520",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: be422b5bb805eb81
+# members:
+# {
+#     "@whl_install__aspect_rules_py__fqdn__1_5_1//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "be422b5bb805eb81",
+    deps = [
+        "@whl_install__aspect_rules_py__fqdn__1_5_1//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: be4598f5093464bc
+# members:
+# {
+#     "@whl_install__aspect_rules_py__django__4_2_15//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {
+#     "asgiref": {
+#         "": 1,
+#     },
+#     "sqlparse": {
+#         "": 1,
+#     },
+#     "tzdata": {
+#         "sys_platform == 'win32'": 1,
+#     },
+# }
+
+
+alias(
+    name = "_maybe__be4598f5093464bc__0542fffb639f09e7",
+    actual = select({
+        "//private/markers:3f86223bfcc789fb321ff9bf716d56b3833c02b4": "//:tzdata",
+        "//conditions:default": ":empty",
+    }),
+    visibility = ["//:__subpackages__"],
+)
+
+
+py_library(
+    name = "be4598f5093464bc",
+    deps = [
+        "@whl_install__aspect_rules_py__django__4_2_15//:install",
+        "//:asgiref",
+        "//:sqlparse",
+        ":_maybe__be4598f5093464bc__0542fffb639f09e7",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: c586b17b00ce1e93
+# members:
+# {
+#     "@whl_install__aspect_rules_py__tomli__2_4_0//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "c586b17b00ce1e93",
+    deps = [
+        "@whl_install__aspect_rules_py__tomli__2_4_0//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: c8fdcb8672c8c446
+# members:
+# {
+#     "@whl_install__aspect_rules_py__websocket_client__1_8_0//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "c8fdcb8672c8c446",
+    deps = [
+        "@whl_install__aspect_rules_py__websocket_client__1_8_0//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: c9bd99220bf6a1cc
+# members:
+# {
+#     "@whl_install__aspect_rules_py__jsonref__1_1_0//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "c9bd99220bf6a1cc",
+    deps = [
+        "@whl_install__aspect_rules_py__jsonref__1_1_0//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: cf43c11aa7568cfc
+# members:
+# {
+#     "@whl_install__aspect_rules_py__swagger_spec_validator__3_0_3//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {
+#     "jsonschema": {
+#         "": 1,
+#     },
+#     "pyyaml": {
+#         "": 1,
+#     },
+#     "typing_extensions": {
+#         "": 1,
+#     },
+# }
+
+
+py_library(
+    name = "cf43c11aa7568cfc",
+    deps = [
+        "@whl_install__aspect_rules_py__swagger_spec_validator__3_0_3//:install",
+        "//:jsonschema",
+        "//:pyyaml",
+        "//:typing_extensions",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: d062f9c8da4486d0
+# members:
+# {
+#     "@whl_install__aspect_rules_py__boto3__1_34_93//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {
+#     "botocore": {
+#         "": 1,
+#     },
+#     "jmespath": {
+#         "": 1,
+#     },
+#     "s3transfer": {
+#         "": 1,
+#     },
+# }
+
+
+py_library(
+    name = "d062f9c8da4486d0",
+    deps = [
+        "@whl_install__aspect_rules_py__boto3__1_34_93//:install",
+        "//:botocore",
+        "//:jmespath",
+        "//:s3transfer",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: d2e5aa217f8d6e1c
+# members:
+# {
+#     "@whl_install__aspect_rules_py__smmap__5_0_1//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "d2e5aa217f8d6e1c",
+    deps = [
+        "@whl_install__aspect_rules_py__smmap__5_0_1//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: da61d1b3f896ca29
+# members:
+# {
+#     "@whl_install__aspect_rules_py__colorama__0_4_6//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "da61d1b3f896ca29",
+    deps = [
+        "@whl_install__aspect_rules_py__colorama__0_4_6//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: daf8d376b4a8df52
+# members:
+# {
+#     "@whl_install__aspect_rules_py__rpds_py__0_18_0//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "daf8d376b4a8df52",
+    deps = [
+        "@whl_install__aspect_rules_py__rpds_py__0_18_0//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: e32f72aa83d0aa19
+# members:
+# {
+#     "@whl_install__aspect_rules_py__idna__3_7//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "e32f72aa83d0aa19",
+    deps = [
+        "@whl_install__aspect_rules_py__idna__3_7//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: e5244e9a2665fdb2
+# members:
+# {
+#     "@whl_install__aspect_rules_py__requests__2_31_0//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {
+#     "certifi": {
+#         "": 1,
+#     },
+#     "charset_normalizer": {
+#         "": 1,
+#     },
+#     "idna": {
+#         "": 1,
+#     },
+#     "urllib3": {
+#         "": 1,
+#     },
+# }
+
+
+py_library(
+    name = "e5244e9a2665fdb2",
+    deps = [
+        "@whl_install__aspect_rules_py__requests__2_31_0//:install",
+        "//:certifi",
+        "//:charset_normalizer",
+        "//:idna",
+        "//:urllib3",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: e585531523a85c06
+# members:
+# {
+#     "@whl_install__aspect_rules_py__pandas__2_2_2//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {
+#     "numpy": {
+#         "": 1,
+#     },
+#     "python_dateutil": {
+#         "": 1,
+#     },
+#     "pytz": {
+#         "": 1,
+#     },
+#     "tzdata": {
+#         "": 1,
+#     },
+# }
+
+
+py_library(
+    name = "e585531523a85c06",
+    deps = [
+        "@whl_install__aspect_rules_py__pandas__2_2_2//:install",
+        "//:numpy",
+        "//:python_dateutil",
+        "//:pytz",
+        "//:tzdata",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: e676cae8276d8ac5
+# members:
+# {
+#     "@whl_install__aspect_rules_py__pytz__2024_1//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "e676cae8276d8ac5",
+    deps = [
+        "@whl_install__aspect_rules_py__pytz__2024_1//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: e75ced7ea0bca451
+# members:
+# {
+#     "@whl_install__aspect_rules_py__tzdata__2024_1//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "e75ced7ea0bca451",
+    deps = [
+        "@whl_install__aspect_rules_py__tzdata__2024_1//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: ee63e8df8d3acccd
+# members:
+# {
+#     "@whl_install__aspect_rules_py__pyproject_hooks__1_2_0//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "ee63e8df8d3acccd",
+    deps = [
+        "@whl_install__aspect_rules_py__pyproject_hooks__1_2_0//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: eea4088953a3b997
+# members:
+# {}
+# deps:
+# {
+#     "bazel_runfiles": {
+#         "": 1,
+#     },
+#     "build": {
+#         "": 1,
+#     },
+#     "click": {
+#         "": 1,
+#     },
+#     "colorama": {
+#         "": 1,
+#     },
+#     "coverage": {
+#         "": 1,
+#     },
+#     "cowsay": {
+#         "": 1,
+#     },
+#     "django": {
+#         "": 1,
+#     },
+#     "ftfy": {
+#         "": 1,
+#     },
+#     "maturin": {
+#         "": 1,
+#     },
+#     "neptune": {
+#         "": 1,
+#     },
+#     "pytest": {
+#         "": 1,
+#     },
+#     "setuptools": {
+#         "": 1,
+#     },
+#     "six": {
+#         "": 1,
+#     },
+#     "snakesay": {
+#         "": 1,
+#     },
+# }
+
+
+py_library(
+    name = "eea4088953a3b997",
+    deps = [
+        "//:bazel_runfiles",
+        "//:build",
+        "//:click",
+        "//:colorama",
+        "//:coverage",
+        "//:cowsay",
+        "//:django",
+        "//:ftfy",
+        "//:maturin",
+        "//:neptune",
+        "//:pytest",
+        "//:setuptools",
+        "//:six",
+        "//:snakesay",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: f16968e1474c15d5
+# members:
+# {
+#     "@whl_install__aspect_rules_py__setuptools__80_9_0//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "f16968e1474c15d5",
+    deps = [
+        "@whl_install__aspect_rules_py__setuptools__80_9_0//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: f3fc9e72edf46a94
+# members:
+# {
+#     "@whl_install__aspect_rules_py__ftfy__6_2_0//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {
+#     "wcwidth": {
+#         "": 1,
+#     },
+# }
+
+
+py_library(
+    name = "f3fc9e72edf46a94",
+    deps = [
+        "@whl_install__aspect_rules_py__ftfy__6_2_0//:install",
+        "//:wcwidth",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: f4309313f08dd20b
+# members:
+# {
+#     "@whl_install__aspect_rules_py__sqlparse__0_5_1//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "f4309313f08dd20b",
+    deps = [
+        "@whl_install__aspect_rules_py__sqlparse__0_5_1//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: f562ebd179f2bb77
+# members:
+# {
+#     "@whl_install__aspect_rules_py__jsonpointer__2_4//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "f562ebd179f2bb77",
+    deps = [
+        "@whl_install__aspect_rules_py__jsonpointer__2_4//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: f729005acfb43d98
+# members:
+# {
+#     "@whl_install__aspect_rules_py__numpy__1_26_4//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "f729005acfb43d98",
+    deps = [
+        "@whl_install__aspect_rules_py__numpy__1_26_4//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: faab7792fab0e0c3
+# members:
+# {
+#     "@whl_install__aspect_rules_py__packaging__24_0//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "faab7792fab0e0c3",
+    deps = [
+        "@whl_install__aspect_rules_py__packaging__24_0//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: fe2c2ebbba7146e6
+# members:
+# {
+#     "@whl_install__aspect_rules_py__python_dateutil__2_9_0_post0//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {
+#     "six": {
+#         "": 1,
+#     },
+# }
+
+
+py_library(
+    name = "fe2c2ebbba7146e6",
+    deps = [
+        "@whl_install__aspect_rules_py__python_dateutil__2_9_0_post0//:install",
+        "//:six",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//visibility:public"],
+)

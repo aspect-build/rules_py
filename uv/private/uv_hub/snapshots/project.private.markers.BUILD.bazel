@@ -1,0 +1,51 @@
+
+load("@aspect_rules_py//uv/private/markers:defs.bzl", "decide_marker")
+
+
+
+decide_marker(
+    name = "f1406cfc2f85641e883d3ba9c27a964444fb80b1",
+    marker = "python_full_version < '3.11'",
+    visibility = ["//:__subpackages__"],
+)
+
+
+decide_marker(
+    name = "db384b5a67611795b7cf16442b57a34653387090",
+    marker = "python_full_version < '3.10.2'",
+    visibility = ["//:__subpackages__"],
+)
+
+
+decide_marker(
+    name = "3f86223bfcc789fb321ff9bf716d56b3833c02b4",
+    marker = "sys_platform == 'win32'",
+    visibility = ["//:__subpackages__"],
+)
+
+
+decide_marker(
+    name = "1ad1862a16d6a81b2e261b1afd5b12f09b7d1e6c",
+    marker = "(python_full_version < '3.10.2') and (python_full_version < '3.11')",
+    visibility = ["//:__subpackages__"],
+)
+
+
+decide_marker(
+    name = "12e4bc7c496178f88620c50eccb1bb90c24f7aff",
+    marker = "os_name == 'nt'",
+    visibility = ["//:__subpackages__"],
+)
+
+
+decide_marker(
+    name = "67b1edeb1aa91c0f50e1e49af7775f6d7837e291",
+    marker = "(python_full_version < '3.11') and (python_full_version < '3.11')",
+    visibility = ["//:__subpackages__"],
+)
+
+
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//visibility:public"],
+)

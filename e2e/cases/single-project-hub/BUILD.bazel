@@ -1,0 +1,16 @@
+# A minimal one-project hub (`@pypi_single`) used as the baseline shape for
+# the e2e snapshots. Mirrors the root MODULE's single-`uv.project()` setup
+# without sharing root's dep graph, so e2e can pin both the single-project
+# and multi-project (38-project `@pypi`) shapes.
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+py_test(
+    name = "single_project_hub",
+    srcs = ["__test__.py"],
+    dep_group = "single_project_hub",
+    main = "__test__.py",
+    python_version = "3.11",
+    deps = [
+        "@pypi_single//cowsay",
+    ],
+)

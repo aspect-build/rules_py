@@ -1,0 +1,344 @@
+alias(
+    name = "dep_group",
+    actual = "@aspect_rules_py//uv/private/constraints/dep_group:dep_group",
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "say",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "say",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "airflow",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "airflow",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "crossbuild",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "crossbuild",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "extras",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "extras",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "workspace",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "workspace",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "googlemaps",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "googlemaps",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "freethreaded-test",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "freethreaded-test",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "ambig-a",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "ambig-a",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "ambig-b",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "ambig-b",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "group-a",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "group-a",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "group-b",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "group-b",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "max-a",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "max-a",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "max-b",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "max-b",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "tilde-a",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "tilde-a",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "tilde-b",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "tilde-b",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "patching",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "patching",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "dummy",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "dummy",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "venv-bin-scripts-423",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "venv-bin-scripts-423",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "uv-console-script-binary",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "uv-console-script-binary",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "uv-whl-install-output-group",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "uv-whl-install-output-group",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "build",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "build",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "dev",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "dev",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "test",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "test",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "abi3-compat",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "abi3-compat",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "win-ia64-filter",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "win-ia64-filter",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "pytest-mock-530",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "pytest-mock-530",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "pth-namespace-547",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "pth-namespace-547",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "pytest-main-867",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "pytest-main-867",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "plus-version",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "plus-version",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "firebase-admin-import",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "firebase-admin-import",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "pytest-xdist-integration",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "pytest-xdist-integration",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "venv-internal-symlinks",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "venv-internal-symlinks",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "pytest-subdir-imports",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "pytest-subdir-imports",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "uv-sdist-native-build",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "uv-sdist-native-build",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "depctx_py_humble_uv",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "depctx_py_humble_uv",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "depctx_py_main_uv",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "depctx_py_main_uv",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "aspect_rules_py",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "aspect_rules_py",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//visibility:public"],
+)
