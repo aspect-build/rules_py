@@ -1,12 +1,21 @@
+load("@aspect_gazelle_prebuilt//:def.bzl", "aspect_gazelle")
 load("@buildifier_prebuilt//:rules.bzl", "buildifier")
-load("@gazelle//:def.bzl", "gazelle")
 load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirements")
 load("//uv:defs.bzl", "gazelle_python_manifest")
 
-# gazelle:exclude internal_python_deps.bzl
-# gazelle:exclude internal_deps.bzl
-# gazelle:exclude py/tests/
-# gazelle:exclude examples/django
+# Gazelle manages the bzl_library graph for the public //py/... and //uv/...
+# packages so release_prep.sh's starlark_doc_extract query has fresh deps.
+# Other dirs (bazel/, examples/) hold internal/example code with no doc consumers.
+# gazelle:exclude bazel
+# gazelle:exclude examples
+# gazelle:exclude py/tests
+# uv/extensions.bzl transitively loads @bazel_tools http.bzl whose own
+# transitive cache.bzl/utils.bzl loads have no bzl_library targets to declare,
+# which breaks starlark_doc_extract validation. Skip it until @bazel_tools
+# exposes those. See https://github.com/bazelbuild/bazel/issues/12444.
+# gazelle:exclude uv/extensions.bzl
+# Use aspect_bazel_lib's bzl_library, which auto-generates the
+# starlark_doc_extract targets queried at release time.
 # gazelle:map_kind bzl_library bzl_library @bazel_lib//:bzl_library.bzl
 
 gazelle_python_manifest(
@@ -17,9 +26,10 @@ gazelle_python_manifest(
     ],
 )
 
-gazelle(
+aspect_gazelle(
     name = "gazelle",
-    gazelle = "@multitool//tools/gazelle",
+    languages = ["starlark"],
+    with_check = True,
 )
 
 buildifier(

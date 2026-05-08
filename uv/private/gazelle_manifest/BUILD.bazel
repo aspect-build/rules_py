@@ -1,3 +1,4 @@
+load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load("//py:defs.bzl", "py_binary", "py_test")
 
 exports_files(["update.sh"])
@@ -22,5 +23,15 @@ py_test(
     main = "__test__.py",
     deps = [
         "@pypi//pytest",
+    ],
+)
+
+bzl_library(
+    name = "defs",
+    srcs = ["defs.bzl"],
+    visibility = ["//uv:__subpackages__"],
+    deps = [
+        "@bazel_lib//lib:transitions",
+        "@rules_shell//shell:rules_bzl",
     ],
 )

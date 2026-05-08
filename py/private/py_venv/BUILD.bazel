@@ -30,9 +30,7 @@ config_setting(
 
 bzl_library(
     name = "types",
-    srcs = [
-        "types.bzl",
-    ],
+    srcs = ["types.bzl"],
     visibility = [
         "//py/private:__subpackages__",
         "//uv/private:__subpackages__",

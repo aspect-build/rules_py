@@ -1,3 +1,5 @@
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+
 exports_files(["create_release.sh"])
 
 config_setting(
@@ -13,5 +15,17 @@ config_setting(
     values = {
         "compilation_mode": "dbg",
     },
+    visibility = ["//visibility:public"],
+)
+
+bzl_library(
+    name = "hashes",
+    srcs = ["hashes.bzl"],
+    visibility = ["//visibility:public"],
+)
+
+bzl_library(
+    name = "release",
+    srcs = ["release.bzl"],
     visibility = ["//visibility:public"],
 )

@@ -1,24 +1,112 @@
-# TOOLCHAIN_DEPS
-load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load(":test_graph_utils.bzl", "graph_utils_test_suite")
 load(":test_projectfile.bzl", "projectfile_test_suite")
-
-bzl_library(
-    name = "defs",
-    srcs = [
-        "defs.bzl",
-    ],
-    visibility = ["//uv:__subpackages__"],
-)
-
-bzl_library(
-    name = "uv_bin",
-    srcs = [
-        "uv_bin.bzl",
-    ],
-    visibility = ["//uv:__subpackages__"],
-)
 
 graph_utils_test_suite()
 
 projectfile_test_suite()
+
+bzl_library(
+    name = "defs",
+    srcs = ["defs.bzl"],
+    visibility = ["//uv:__subpackages__"],
+    deps = [
+        ":graph_utils",
+        ":lockfile",
+        ":projectfile",
+        "//py/private/interpreter:resolve",
+        "//uv/private:normalize_name",
+        "//uv/private:normalize_version",
+        "//uv/private/constraints:repository",
+        "//uv/private/git_archive:repository",
+        "//uv/private/pprint:defs",
+        "//uv/private/sdist_build:repository",
+        "//uv/private/sdist_configure:defs",
+        "//uv/private/tomltool:toml",
+        "//uv/private/uv_hub:repository",
+        "//uv/private/uv_project:repository",
+        "//uv/private/whl_install:repository",
+        "@bazel_features//:features",
+        "@bazel_skylib//lib:sets",
+        "@bazel_tools//tools/build_defs/repo:http.bzl",
+    ],
+)
+
+bzl_library(
+    name = "graph_utils",
+    srcs = ["graph_utils.bzl"],
+    visibility = ["//uv:__subpackages__"],
+    deps = [
+        "//uv/private:sha1",
+        "//uv/private/graph:sccs",
+    ],
+)
+
+bzl_library(
+    name = "lockfile",
+    srcs = ["lockfile.bzl"],
+    visibility = ["//uv:__subpackages__"],
+    deps = [
+        ":git_utils",
+        "//uv/private:normalize_name",
+        "//uv/private:normalize_version",
+        "//uv/private:parse_whl_name",
+        "//uv/private:sha1",
+        "//uv/private/constraints/platform:defs",
+        "//uv/private/constraints/python:defs",
+    ],
+)
+
+bzl_library(
+    name = "projectfile",
+    srcs = ["projectfile.bzl"],
+    visibility = ["//uv:__subpackages__"],
+    deps = [
+        ":dep_groups",
+        "//uv/private:normalize_name",
+        "//uv/private/versions",
+    ],
+)
+
+bzl_library(
+    name = "test_graph_utils",
+    srcs = ["test_graph_utils.bzl"],
+    visibility = ["//uv:__subpackages__"],
+    deps = [
+        ":graph_utils",
+        "@bazel_skylib//lib:unittest",
+    ],
+)
+
+bzl_library(
+    name = "test_projectfile",
+    srcs = ["test_projectfile.bzl"],
+    visibility = ["//uv:__subpackages__"],
+    deps = [
+        ":projectfile",
+        "@bazel_skylib//lib:unittest",
+    ],
+)
+
+bzl_library(
+    name = "uv_bin",
+    srcs = ["uv_bin.bzl"],
+    visibility = ["//uv:__subpackages__"],
+    deps = [
+        "//uv/private/toolchain:repositories",
+        "//uv/private/toolchain:versions",
+        "@bazel_features//:features",
+    ],
+)
+
+bzl_library(
+    name = "dep_groups",
+    srcs = ["dep_groups.bzl"],
+    visibility = ["//uv:__subpackages__"],
+)
+
+bzl_library(
+    name = "git_utils",
+    srcs = ["git_utils.bzl"],
+    visibility = ["//uv:__subpackages__"],
+)
