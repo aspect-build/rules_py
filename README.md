@@ -1,5 +1,8 @@
 # aspect_rules_py
 
+> [!WARNING]
+> **This is the 2.x ALPHA branch.** APIs and behavior may change without notice. For stable documentation, see the [1.x branch](https://github.com/aspect-build/rules_py/tree/1.x).
+
 `aspect_rules_py` is a high-performance alternative to [rules_python](https://github.com/bazelbuild/rules_python), the
 reference Python ruleset for Bazel.
 
