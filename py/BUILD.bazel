@@ -12,7 +12,6 @@ bzl_library(
     srcs = ["defs.bzl"],
     visibility = ["//visibility:public"],
     deps = [
-        "//py/private:py_binary",
         "//py/private:py_image_layer",
         "//py/private:py_library",
         "//py/private:py_pex_binary",
@@ -21,6 +20,7 @@ bzl_library(
         "//py/private:py_wheel",
         "//py/private:virtual",
         "//py/private/py_venv",
+        "//py/private/py_venv:py_venv_exec",
         "@bazel_lib//lib:utils",
     ],
 )

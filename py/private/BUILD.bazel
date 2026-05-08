@@ -5,11 +5,8 @@ package(default_visibility = ["//py:__subpackages__"])
 
 exports_files(
     [
-        "run.tmpl.sh",
         "pytest.py.tmpl",
         "pytest_main.py",
-        "venv_activate.tmpl.sh",
-        "_virtualenv.py",
         "modify_mtree.awk",
     ],
     visibility = ["//visibility:public"],
@@ -41,23 +38,6 @@ bzl_library(
         "@bazel_skylib//lib:paths",
         "@rules_python//python:defs_bzl",
     ],
-)
-
-bzl_library(
-    name = "py_binary",
-    srcs = ["py_binary.bzl"],
-    deps = [
-        ":pth",
-        ":py_library",
-        "@bazel_lib//lib:expand_make_vars",
-        "@bazel_lib//lib:paths",
-    ],
-)
-
-bzl_library(
-    name = "venv",
-    srcs = ["venv.bzl"],
-    deps = [":py_library"],
 )
 
 bzl_library(

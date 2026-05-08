@@ -6,14 +6,12 @@ internal `venv` attr) and exec its `bin/python`. The public
 attrs to the auto-generated sibling.
 """
 
-# TODO: rename this file to py_venv_exec.bzl.
-
 load("@bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
 load("@bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
 load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
-load("//py/private/py_venv:types.bzl", "VirtualenvInfo")
+load(":types.bzl", "VirtualenvInfo")
 
 def _dict_to_exports(env):
     return [
@@ -182,7 +180,7 @@ match their historical permissive behaviour.""",
     ),
     "_run_tmpl": attr.label(
         allow_single_file = True,
-        default = "//py/private:run.tmpl.sh",
+        default = ":run.tmpl.sh",
     ),
     "_runfiles_lib": attr.label(
         default = "@bazel_tools//tools/bash/runfiles",

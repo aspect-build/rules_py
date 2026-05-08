@@ -20,19 +20,19 @@
   your IDE a stable `.venv` symlink to point at.
 
 Shared venv-assembly logic lives in
-`//py/private:venv.bzl::assemble_venv`. See that file's header for the
+`//py/private/py_venv:venv.bzl::assemble_venv`. See that file's header for the
 layout details.
 """
 
 load("@bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
 load("@bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
-load("//py/private:py_binary.bzl", _py_venv_exec = "py_venv_exec")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private:transitions.bzl", "python_version_transition")
-load("//py/private:venv.bzl", "assemble_venv")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
+load(":py_venv_exec.bzl", _py_venv_exec = "py_venv_exec")
 load(":types.bzl", "VirtualenvInfo")
+load(":venv.bzl", "assemble_venv")
 
 def _interpreter_flags(ctx, include_main = False):
     py_toolchain = _py_semantics.resolve_toolchain(ctx)
@@ -41,7 +41,7 @@ def _interpreter_flags(ctx, include_main = False):
     # py_venv strips `-I` so the interpreter picks up PYTHONPATH and
     # script dir — useful when users `bazel run` the venv for an
     # interactive python session and want their shell's env to apply.
-    # The per-binary py_binary launcher keeps `-I` (see py_binary.bzl).
+    # The per-binary py_binary launcher keeps `-I` (see py_venv_exec.bzl).
     args = [it for it in args if it not in ["-I"]]
 
     if include_main and hasattr(ctx.file, "main") and ctx.file.main:
@@ -150,7 +150,7 @@ def _py_venv_rule_impl(ctx):
         # Forwarded to the sibling py_binary/py_test consumer (created
         # by `expose_venv = True`) so env vars declared on the venv
         # apply to the binary using it. The binary's own `env` wins on
-        # key conflicts; see py_binary.bzl.
+        # key conflicts; see py_venv_exec.bzl.
         RunEnvironmentInfo(
             environment = passed_env,
             inherited_environment = ctx.attr.env_inherit,
@@ -224,7 +224,7 @@ environment. Forwarded to the sibling py_binary/py_test consumer
     ),
     "_run_tmpl": attr.label(
         allow_single_file = True,
-        default = "//py/private/py_venv:venv.tmpl.sh",
+        default = ":venv.tmpl.sh",
     ),
     "_runfiles_lib": attr.label(
         default = "@bazel_tools//tools/bash/runfiles",
@@ -237,11 +237,11 @@ environment. Forwarded to the sibling py_binary/py_test consumer
     # Shared with py_binary via the venv-assembly helper.
     "_venv_activate_tmpl": attr.label(
         allow_single_file = True,
-        default = "//py/private:venv_activate.tmpl.sh",
+        default = ":venv_activate.tmpl.sh",
     ),
     "_virtualenv_shim": attr.label(
         allow_single_file = True,
-        default = "//py/private:_virtualenv.py",
+        default = ":_virtualenv.py",
     ),
 })
 
@@ -379,7 +379,7 @@ def py_venv_link(name, venv, link_name = None, **kwargs):
             target's package + venv name.
         **kwargs: Forwarded to the underlying `py_binary`.
     """
-    link_script = str(Label("//py/private/py_venv:link.py"))
+    link_script = str(Label(":link.py"))
     _py_venv_exec(
         name = name,
         main = link_script,
