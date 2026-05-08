@@ -190,21 +190,23 @@ def collect_bdists(lock_data):
         A tuple containing:
         - A dictionary mapping repository names for the wheels to their bdist
           specifications.
-        - A dictionary mapping the hash of each wheel to its repository label.
+        - A dictionary mapping the URL of each wheel to its repository label.
     """
     bdist_specs = {}
     bdist_table = {}
     for package in lock_data.get("package", []):
         for bdist in package.get("wheels", []):
-            identifier = None
+            # Some lockfile sources (e.g. find-links registries) emit wheel
+            # entries without a `hash` field. Fall back to hashing the URL so
+            # the repo name is still stable; key the table by URL since that
+            # is the only field guaranteed to be present.
             if "hash" in bdist:
                 identifier = bdist["hash"].split(":")[1][:16]
             else:
                 identifier = sha1(bdist["url"])[:16]
-
             bdist_repo_name = "whl__{}__{}".format(package["name"], identifier)
             bdist_specs[bdist_repo_name] = bdist
-            bdist_table[bdist["hash"]] = "@{}//file".format(bdist_repo_name)
+            bdist_table[bdist["url"]] = "@{}//file".format(bdist_repo_name)
 
     return bdist_specs, bdist_table
 
