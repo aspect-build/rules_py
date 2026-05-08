@@ -1,9 +1,21 @@
-load("@aspect_rules_py//py:defs.bzl", "py_test")
+# Regression test: uv.lock entries whose wheels lack a `hash` field must not
+# crash module-extension evaluation, and the resulting wheel must still install.
+load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
-py_test(
+py_venv_test(
     name = "test_import",
     srcs = ["test.py"],
     main = "test.py",
     python_version = "3.11",
-    deps = ["@pypi-pytorch//torch", "@pypi-pytorch//build"],
+    venv = "uv-dep-hashes",
+    deps = ["@pypi-pytorch//colorama"],
+)
+
+# Guard the regression: if uv.lock is regenerated and gains a `hash` for the
+# colorama wheel, this test fails so the regression case stays meaningful.
+sh_test(
+    name = "test_lockfile_hashless",
+    srcs = ["test_lockfile_hashless.sh"],
+    data = ["uv.lock"],
 )

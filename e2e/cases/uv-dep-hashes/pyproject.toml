@@ -3,8 +3,5 @@ name = "uv-dep-hashes"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.11,<3.12"
-dependencies = ["build>=1.5.0", "torch==2.2.1"]
-
-[tool.uv]
-find-links = ["https://download.pytorch.org/whl/torch_stable.html"]
+requires-python = "==3.11.*"
+dependencies = ["colorama"]

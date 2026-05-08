@@ -1,8 +1,10 @@
-import torch
+import colorama
 
-def main():
-    print("Hello from uv-dep-hashes!")
+
+def test_imported():
+    assert hasattr(colorama, "Fore")
 
 
 if __name__ == "__main__":
-    main()
+    test_imported()
+    print("OK")

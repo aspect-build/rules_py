@@ -534,7 +534,7 @@ def _uv_impl(module_ctx):
 
     for bdist_name, bdist_cfg in cfg.bdist_cfgs.items():
         sha256 = None
-        if "hash" in bdist_cfg:
+        if "hash" in bdist_cfg and bdist_cfg["hash"].startswith("sha256:"):
             sha256 = bdist_cfg["hash"][len("sha256:"):]
 
         http_file(
