@@ -190,7 +190,7 @@ def collect_bdists(lock_data):
         A tuple containing:
         - A dictionary mapping repository names for the wheels to their bdist
           specifications.
-        - A dictionary mapping the hash of each wheel to its repository label.
+        - A dictionary mapping the URL of each wheel to its repository label.
     """
     bdist_specs = {}
     bdist_table = {}
