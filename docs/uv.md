@@ -219,8 +219,6 @@ py_binary(
     main = "__main__.py",
     python_version = "3.12",
     dep_group = "psql",
-    expose_venv = True,
-    isolated = False,
     deps = [
         "@pypi//psycopg2_binary",
     ],
