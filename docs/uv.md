@@ -8,11 +8,11 @@ configure PyPi dependencies.
 Our uv is a drop-in replacement for basic `pip.parse` usage, but provides a
 number of additional features.
 
-**Configurable dependencies** - Uv allows for multiple lockfile states (called
-venvs) to be registered into a single hub. Your build can be configured to
-choose between registered venvs. It's as simple as flipping the
-`--@<hub>//dep_group=<dep_group name>` flag. Binaries can also set the `dep_group=<dep_group name>`
-attribute.
+**Dependency groups** - Uv supports [PEP 735 dependency
+groups](https://peps.python.org/pep-0735/): each `[dependency-groups]` entry
+in your `pyproject.toml` registers as a named group your build can switch
+between. Flip the `--@<hub>//dep_group=<name>` flag, or set
+`dep_group="<name>"` on a `py_binary` / `py_test` target.
 
 **Effortless Crossbuilds** - Uv delays building and installing packages until
 the build is configured. This allows uv to build your requirements in crossbuild
@@ -70,8 +70,8 @@ bazel run @uv -- add -r requirements_lock.txt
 
 We can now use the lockfile to configure our build.
 
-This configuration declares a dependency hub, creates two virtual environments
-(`default` and `vendored_say`), and shows how to use `uv.override_requirement`
+This configuration declares a dependency hub, creates two dependency groups
+(`default` and `vendored_say`), and shows how to use `uv.override_package`
 to swap a locked requirement (`cowsay`) for a local one.
 
 ```starlark
@@ -99,14 +99,14 @@ uv.override_package(
     target = "//third_party/py/cowsay:cowsay",
 )
 
-# This one hub now has two configurations ("venvs") available
+# This one hub now has two configurations ("dependency groups") available
 use_repo(uv, "pypi")
 
 register_toolchains("@uv//:all")
 ```
 
-We can configure a default virtualenv by setting the venv configuration flag on our hub as part of the `.bazelrc`.
-Each `[dependency-group]` of the `pyproject.toml` is registered as a named venv configuration.
+We can configure a default dependency group by setting the `dep_group` flag on our hub as part of the `.bazelrc`.
+Each `[dependency-group]` of the `pyproject.toml` is registered as a named dependency group.
 If no dependency groups are listed, an implicit default group with the name of the project itself is created.
 
 ```
@@ -114,7 +114,7 @@ If no dependency groups are listed, an implicit default group with the name of t
 common --@pypi//dep_group=dummy
 ```
 
-Individual targets can request different venvs if multiple venvs are configured.
+Individual targets can request different dependency groups if multiple dependency groups are configured.
 
 ```
 # BUILD.bazel
@@ -197,8 +197,7 @@ using platform transitions.
 
 ```
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
-load("@aspect_rules_py//py:defs.bzl", "py_binary")
-load("@aspect_rules_py//py:defs.bzl", "py_image_layer")
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer")
 
 platform(
     name = "arm64_linux",
@@ -242,12 +241,11 @@ platform_transition_filegroup(
 ## Example: Constraining library compatibility
 
 By default uv hubs let you write `py_library` and other targets which are
-compatible with _any_ virtualenv configuration providing all the needed
-requirements.
+compatible with _any_ dependency group providing all the needed requirements.
 
-But sometimes you want a library to be incompatible with a virtualenv state;
+But sometimes you want a library to be incompatible with a dependency group;
 either because it depends on packages at versions below what are available in
-that virtualenv or as part of an internal migration or for some other reason.
+that dependency group or as part of an internal migration or for some other reason.
 
 As a facility each hub's `@<hub>//:defs.bzl` provides a pair of helper macros
 for generating appropriate `target_compatible_with` logics. These helpers return
@@ -257,19 +255,19 @@ case dicts which may either be manipulated or `select()`ed on.
 load("@pypi//:defs.bzl", "compatible_with", "incompatible_with")
 
 py_library(
-  name = "requires_venv_a",
+  name = "requires_prod",
   srcs = ["foo.py"],
   deps = ["@pypi//cowsay"],
   # Allowlist
-  target_compatible_with = select(compatible_with(["venv-a"])),
+  target_compatible_with = select(compatible_with(["prod"])),
 )
 
 py_library(
-  name = "deny_venv_a",
+  name = "not_in_prod",
   srcs = ["foo.py"],
   deps = ["@pypi//cowsay"],
   # Allowlist
-  target_compatible_with = select(incompatible_with(["venv-a"])),
+  target_compatible_with = select(incompatible_with(["prod"])),
 )
 ```
 
@@ -281,14 +279,14 @@ py_library(
 @pypi//jinja2-cli/entrypoints:jinja2-cli  # A requirement's declared entrypoint
 ```
 
-This central hub wraps "spoke" internal venv repos. For instance if you have two
-venvs "a" and "b", then each hub target for a requirement is a `select()` alias
-over the venv targets in which that requirement is defined.
+This central hub wraps "spoke" internal dependency group repos. For instance if you have two
+dependency groups "a" and "b", then each hub target for a requirement is a `select()` alias
+over the dependency group targets in which that requirement is defined.
 
-Hub requirement targets are _incompatible_ with venv configurations in which the
+Hub requirement targets are _incompatible_ with dependency group configurations in which the
 requirement in question is not defined.
 
-Each venv requirement is backed by a `whl_install` rule which chooses among
+Each dependency group requirement is backed by a `whl_install` rule which chooses among
 prebuilt wheels listed in the lockfile to produce the equivalent of a
 `py_library`.
 
@@ -303,14 +301,14 @@ needed to make multiple `pip.parse()` calls each of which created a hub. This
 created the problem of transitive depset inconsistency (this target uses deps
 from this hub but depends on a library that uses deps from elsewhere).
 
-By using single hub throughout your repository and leaning on venv configuration
+By using single hub throughout your repository and leaning on dependency group configuration
 to choose the right one at the right point in time, your dependency management
 gets a lot easier and your builds become internally consistent.
 
 **Only use one hub**. The hub name is configurable in order to accommodate
 whatever your existing `pip.parse` may be called, but there's no reason to use
 more than one hub within a single repository. Each dependency set should be
-registered as a separate venv within the same hub.
+registered as a separate dependency group within the same hub.
 
 ## Gazelle integration
 
@@ -334,8 +332,8 @@ gazelle_python_manifest(
 **Parameters:**
 
 - `hub` — The name of your uv hub (must match `uv.declare_hub(hub_name = ...)`).
-- `venvs` — List of venv names whose wheels should be indexed. Module mappings
-  from all listed venvs are merged into a single manifest.
+- `venvs` — List of dependency group names whose wheels should be indexed. Module mappings
+  from all listed dependency groups are merged into a single manifest.
 
 This creates two targets:
 
@@ -352,7 +350,7 @@ This writes `gazelle_python.yaml` next to the BUILD file. Commit it to your
 repository so that Gazelle can resolve Python imports without rebuilding the
 manifest on every invocation.
 
-If you have multiple venvs with different dependency sets, list them all to
+If you have multiple dependency groups with different dependency sets, list them all to
 produce a complete mapping:
 
 ```starlark
@@ -372,15 +370,15 @@ think) uv needs a Python build tool to use. Uv currently uses `setuptools` and
 encounter configuration errors if these tools would be required and are not
 available.
 
-**No default venv?** In order to implement the `venv=` transition on `py_binary`
-et. all, the venv flag has to be statically known. This means we get one global
-"current venv" flag, no matter how many hubs you have.
+**No default dependency group?** In order to implement the `dep_group=` transition on `py_binary`
+et. all, the `dep_group` flag has to be statically known. This means we get one global
+"current dependency group" flag, no matter how many hubs you have.
 
 It only really makes sense to use the `--@pypi//dep_group=default` flag as part of
 your `.bazelrc`, because then the scope of where that default is applied is well
 bounded to your repository with your hub.
 
-We could allow the `_main` repository to set a default venv name, but the
+We could allow the `_main` repository to set a default dependency group name, but the
 semantics are weird if the `_main` repository defines more than one hub. Which
 is poor practice but possible. So rather than have weird behavior we don't
 support this.
