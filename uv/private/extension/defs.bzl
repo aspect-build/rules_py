@@ -560,31 +560,28 @@ def _parse_projects(module_ctx, hub_specs):
 
     # Collision check: a project's stamp shares the global flag-value
     # namespace with every group name in the hub. If a different project
-    # in the same hub declares a group named identically to project P's
+    # in the same hub declares a group with the same name as project P's
     # stamp, `dep_group=<stamp>` simultaneously activates P's synthesized
     # alias AND the other project's group — same broad semantics, but the
     # mental model breaks. Both namespaces are user-controlled and
     # locally adjustable, so we fail loudly and let the user rename one.
     for hub_id, hub_cfg in hub_cfgs.items():
-        stamps_by_id = {pid: p.stamp for pid, p in hub_cfg.projects.items()}
+        stamp_to_pid = {p.stamp: pid for pid, p in hub_cfg.projects.items()}
         for pid, p in hub_cfg.projects.items():
             for grp in p.groups:
-                for other_pid, other_stamp in stamps_by_id.items():
-                    if other_pid == pid:
-                        continue
-                    if grp == other_stamp:
-                        fail((
-                            "In hub '{hub}': project '{pid}' declares dep_group " +
-                            "'{grp}' which collides with project '{other}' (stamp " +
-                            "'{stamp}'). Both share the global dep_group flag-value " +
-                            "namespace. Rename either the dep_group or the project."
-                        ).format(
-                            hub = hub_id,
-                            pid = pid,
-                            grp = grp,
-                            other = other_pid,
-                            stamp = other_stamp,
-                        ))
+                other_pid = stamp_to_pid.get(grp)
+                if other_pid and other_pid != pid:
+                    fail((
+                        "In hub '{hub}': project '{stamp}' declares dep_group " +
+                        "'{grp}' which is also the name of project '{other}' in " +
+                        "the same hub. Both share the global dep_group flag-value " +
+                        "namespace. Rename either the dep_group or the project."
+                    ).format(
+                        hub = hub_id,
+                        stamp = p.stamp,
+                        grp = grp,
+                        other = hub_cfg.projects[other_pid].stamp,
+                    ))
 
     return struct(
         project_cfgs = project_cfgs,
