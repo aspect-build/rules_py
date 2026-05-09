@@ -1,0 +1,67 @@
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("//py:defs.bzl", "py_venv")
+load("//py/private/py_venv:py_venv_exec.bzl", "py_venv_exec")
+
+# Regression: when the generated launcher script is executed directly
+# (e.g. inside an OCI image, not via `bazel run`), the `env = {...}`
+# values must be baked into the script. Routing them only through
+# RunEnvironmentInfo isn't enough — that channel only fires when Bazel
+# itself launches the target.
+#
+# Each sh_test below invokes the py_venv_exec launcher via its runfiles
+# path; from sh_test's perspective the launcher is a tool, so Bazel
+# does NOT apply its RunEnvironmentInfo. The env vars must therefore
+# come from `{{PYTHON_ENV}}` substitution.
+
+# A shared py_venv carries `env`, exec'd via py_venv_exec. The venv's
+# RunEnvironmentInfo env must be baked into the consumer's launcher
+# script.
+py_venv(
+    name = "venv_with_env",
+    srcs = ["assert_env.py"],
+    env = {
+        "VENV_FOO": "from-venv",
+        "OVERRIDE_ME": "venv-value",
+    },
+    visibility = ["//visibility:private"],
+)
+
+py_venv_exec(
+    name = "exec_inherit_env",
+    main = "assert_env.py",
+    venv = ":venv_with_env",
+)
+
+sh_test(
+    name = "test_py_venv_exec_inherits_env_baked",
+    srcs = ["run_direct.sh"],
+    args = [
+        "exec_inherit_env",
+        "VENV_FOO=from-venv",
+        "OVERRIDE_ME=venv-value",
+    ],
+    data = [":exec_inherit_env"],
+)
+
+# Consumer's own `env` overlays the venv's; both must be baked.
+py_venv_exec(
+    name = "exec_override_env",
+    env = {
+        "OVERRIDE_ME": "exec-value",
+        "EXEC_ONLY": "exec-only-value",
+    },
+    main = "assert_env.py",
+    venv = ":venv_with_env",
+)
+
+sh_test(
+    name = "test_py_venv_exec_override_env_baked",
+    srcs = ["run_direct.sh"],
+    args = [
+        "exec_override_env",
+        "VENV_FOO=from-venv",
+        "OVERRIDE_ME=exec-value",
+        "EXEC_ONLY=exec-only-value",
+    ],
+    data = [":exec_override_env"],
+)

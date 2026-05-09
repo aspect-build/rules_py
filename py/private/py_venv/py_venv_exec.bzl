@@ -82,7 +82,7 @@ def _py_venv_exec_impl(ctx):
             "{{INTERPRETER_FLAGS}}": " ".join(flags),
             "{{ARG_VENV_PYTHON}}": to_rlocation_path(ctx, vinfo.bin_python),
             "{{ENTRYPOINT}}": to_rlocation_path(ctx, main),
-            "{{PYTHON_ENV}}": "\n".join(_dict_to_exports(default_env)).strip(),
+            "{{PYTHON_ENV}}": "\n".join(_dict_to_exports(default_env | passed_env)).strip(),
         },
         is_executable = True,
     )
