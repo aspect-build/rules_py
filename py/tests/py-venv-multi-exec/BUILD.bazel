@@ -1,0 +1,317 @@
+load("//py:defs.bzl", "py_venv")
+load("//py/private/py_venv:py_venv_exec.bzl", "py_venv_exec_test")
+load(":env_inherit_test.bzl", "env_inherit_test")
+
+# A single py_venv exec'd through multiple py_venv_exec consumers,
+# each differing in `main`, `env`, `args`, `data`, or other launcher-
+# level config. Demonstrates that the venv-shaping attrs (srcs, deps,
+# imports, env, env_inherit) can be declared once and reused across
+# many launchers.
+#
+# Entry scripts dispatch on BAZEL_TARGET_NAME to assert per-consumer
+# expectations, so each test target reduces to "pick the main + the
+# launcher knob to vary".
+
+py_venv(
+    name = "shared_venv",
+    testonly = True,
+    srcs = [
+        "entry_a.py",
+        "entry_args.py",
+        "entry_b.py",
+        "entry_data.py",
+        "entry_env.py",
+        "entry_no_optimize.py",
+        "entry_wheel.py",
+        "shared_lib.py",
+    ],
+    env = {
+        "FROM_VENV": "venv-value",
+        "OVERRIDE_ME": "venv-value",
+    },
+    # Forwards `VAR_FROM_VENV` from the test invocation env to every
+    # consumer; consumers' own env_inherit lists are merged on top
+    # (extends, doesn't replace).
+    env_inherit = ["VAR_FROM_VENV"],
+    imports = ["."],
+    # Affects only the venv's own REPL launcher; consumers don't pick
+    # this up (see `:test_venv_options_no_leak` for the seam).
+    interpreter_options = ["-O"],
+    visibility = [":__subpackages__"],
+    deps = [
+        "@pypi//cowsay",
+    ],
+)
+
+# Same shared venv, two different `main` entry points. Both reach
+# `shared_lib` via the venv's sys.path.
+py_venv_exec_test(
+    name = "test_entry_a",
+    main = "entry_a.py",
+    venv = ":shared_venv",
+)
+
+py_venv_exec_test(
+    name = "test_entry_b",
+    main = "entry_b.py",
+    venv = ":shared_venv",
+)
+
+# Same main, different consumer-level `env`: each sets MODE to its own
+# value while inheriting FROM_VENV / OVERRIDE_ME from the shared venv.
+# `args` carry the per-consumer expectations (KEY=VALUE or !KEY).
+py_venv_exec_test(
+    name = "test_env_x",
+    args = [
+        "FROM_VENV=venv-value",
+        "OVERRIDE_ME=venv-value",
+        "MODE=x",
+    ],
+    env = {"MODE": "x"},
+    main = "entry_env.py",
+    venv = ":shared_venv",
+)
+
+py_venv_exec_test(
+    name = "test_env_y",
+    args = [
+        "FROM_VENV=venv-value",
+        "OVERRIDE_ME=venv-value",
+        "MODE=y",
+    ],
+    env = {"MODE": "y"},
+    main = "entry_env.py",
+    venv = ":shared_venv",
+)
+
+# Consumer sets no `env` of its own — both FROM_VENV and OVERRIDE_ME
+# come from `:shared_venv` via its RunEnvironmentInfo.
+py_venv_exec_test(
+    name = "test_inherit_env",
+    args = [
+        "FROM_VENV=venv-value",
+        "OVERRIDE_ME=venv-value",
+        "!MODE",
+    ],
+    main = "entry_env.py",
+    venv = ":shared_venv",
+)
+
+# Consumer overrides a venv-declared key (binary wins on conflicts);
+# untouched venv-only keys still flow through unchanged.
+py_venv_exec_test(
+    name = "test_override_env",
+    args = [
+        "FROM_VENV=venv-value",
+        "OVERRIDE_ME=binary-value",
+        "!MODE",
+    ],
+    env = {"OVERRIDE_ME": "binary-value"},
+    main = "entry_env.py",
+    venv = ":shared_venv",
+)
+
+# Consumer adds a brand-new key (MODE) and overrides a venv key
+# (OVERRIDE_ME) in the same `env` dict.
+py_venv_exec_test(
+    name = "test_env_override",
+    args = [
+        "FROM_VENV=venv-value",
+        "OVERRIDE_ME=binary-value",
+        "MODE=override",
+    ],
+    env = {
+        "MODE": "override",
+        "OVERRIDE_ME": "binary-value",
+    },
+    main = "entry_env.py",
+    venv = ":shared_venv",
+)
+
+# `interpreter_options = ["-O"]` is a launcher-level knob: the shared
+# venv is unchanged, only this consumer's Python runs with __debug__ off.
+py_venv_exec_test(
+    name = "test_optimize",
+    interpreter_options = ["-O"],
+    main = "entry_a.py",
+    venv = ":shared_venv",
+)
+
+# `isolated = False` drops the launcher's `-I` flag for this consumer
+# only — the shared venv is unaffected.
+py_venv_exec_test(
+    name = "test_non_isolated",
+    isolated = False,
+    main = "entry_a.py",
+    venv = ":shared_venv",
+)
+
+# Same main, different `args` lists. The launcher forwards them via
+# `"$@"`, surfacing as `sys.argv[1:]` in the script.
+py_venv_exec_test(
+    name = "test_args_one",
+    args = ["alpha"],
+    main = "entry_args.py",
+    venv = ":shared_venv",
+)
+
+py_venv_exec_test(
+    name = "test_args_many",
+    args = [
+        "one",
+        "two",
+        "three",
+    ],
+    main = "entry_args.py",
+    venv = ":shared_venv",
+)
+
+# Args containing spaces need inner quoting — Bazel tokenizes `"$@"`
+# after Make-variable expansion, so the inner quotes preserve the space
+# as a single argv entry.
+py_venv_exec_test(
+    name = "test_args_with_spaces",
+    args = [
+        "'hello world'",
+        "'another arg'",
+    ],
+    main = "entry_args.py",
+    venv = ":shared_venv",
+)
+
+# Empty `args` — sys.argv[1:] should be empty.
+py_venv_exec_test(
+    name = "test_args_empty",
+    args = [],
+    main = "entry_args.py",
+    venv = ":shared_venv",
+)
+
+# Two consumers sharing the same wheel install (`@pypi//cowsay`) on
+# `:shared_venv`. The wheel resolves once at venv-assembly time; every
+# consumer imports it from the same site-packages without rebuilding.
+py_venv_exec_test(
+    name = "test_wheel_a",
+    main = "entry_wheel.py",
+    venv = ":shared_venv",
+)
+
+py_venv_exec_test(
+    name = "test_wheel_b",
+    main = "entry_wheel.py",
+    venv = ":shared_venv",
+)
+
+# Per-consumer `data` runfiles. Each consumer ships a different file
+# (forwarded as DATA_PATH via `$(rootpath ...)`) while sharing the
+# same venv — the launcher's `data` slot is independent of the venv's.
+py_venv_exec_test(
+    name = "test_data_alpha",
+    data = ["data_alpha.txt"],
+    env = {"DATA_PATH": "$(rootpath :data_alpha.txt)"},
+    main = "entry_data.py",
+    venv = ":shared_venv",
+)
+
+py_venv_exec_test(
+    name = "test_data_beta",
+    data = ["data_beta.txt"],
+    env = {"DATA_PATH": "$(rootpath :data_beta.txt)"},
+    main = "entry_data.py",
+    venv = ":shared_venv",
+)
+
+# `$(location :file)` and `$(MAKE_VAR)` expansion in the launcher's
+# `env` dict. SOME_VAR comes from `--define=SOME_VAR=SOME_VALUE` in
+# the workspace .bazelrc. `args` carry the expected post-expansion
+# values for entry_env.py to assert.
+py_venv_exec_test(
+    name = "test_expand_env",
+    args = [
+        "PAYLOAD_PATH=py/tests/py-venv-multi-exec/payload.txt",
+        "SOME_DEFINE=SOME_VALUE",
+    ],
+    data = ["payload.txt"],
+    env = {
+        "PAYLOAD_PATH": "$(rootpath :payload.txt)",
+        "SOME_DEFINE": "$(SOME_VAR)",
+    },
+    main = "entry_env.py",
+    venv = ":shared_venv",
+)
+
+# Same expansion machinery applied to the launcher's `args` attribute
+# (Bazel-native, not py_venv_exec-specific) — the entries surface as
+# `sys.argv[1:]` after expansion. entry_args.py asserts the expected
+# post-expansion shape via its target-name dispatch table.
+py_venv_exec_test(
+    name = "test_expand_args",
+    args = [
+        "$(rootpath :payload.txt)",
+        "$(SOME_VAR)",
+    ],
+    data = ["payload.txt"],
+    main = "entry_args.py",
+    venv = ":shared_venv",
+)
+
+# Documents the seam for venv-level `interpreter_options`: those flags
+# only affect `bazel run :shared_venv`'s REPL launcher, not consumers.
+# `:shared_venv` declares `interpreter_options = ["-O"]`; this consumer
+# sets none of its own and therefore runs with `__debug__ == True`.
+py_venv_exec_test(
+    name = "test_venv_options_no_leak",
+    main = "entry_no_optimize.py",
+    venv = ":shared_venv",
+)
+
+# env_inherit propagation: venv lists `VAR_FROM_VENV`, this consumer
+# adds `VAR_FROM_EXEC`. The merged RunEnvironmentInfo.inherited_environment
+# should contain both names (consumer extends, doesn't replace).
+# Validated by an analysistest below — see env_inherit_test.bzl for why
+# this isn't a runtime test.
+py_venv_exec_test(
+    name = "_env_inherit_inner",
+    env_inherit = ["VAR_FROM_EXEC"],
+    main = "entry_b.py",
+    tags = ["manual"],
+    venv = ":shared_venv",
+)
+
+env_inherit_test(
+    name = "test_env_inherit",
+    target_under_test = ":_env_inherit_inner",
+)
+
+# `main` is decoupled from the venv's `srcs` — the launcher attaches
+# `main` to its own runfiles, independent of the venv's source closure.
+# `entry_outside_srcs.py` is intentionally NOT in `:shared_venv.srcs`
+# but can still `import shared_lib` (provided by the venv's sys.path)
+# and `import cowsay` (provided by the venv's deps).
+py_venv_exec_test(
+    name = "test_main_outside_srcs",
+    main = "entry_outside_srcs.py",
+    venv = ":shared_venv",
+)
+
+# Generated `main` — the launcher accepts a label that points at a
+# genrule output, not just a source file. Real-world use: configurable
+# entrypoints stamped at build time.
+genrule(
+    name = "gen_main",
+    testonly = True,
+    outs = ["gen_main.py"],
+    cmd = """cat > $@ <<'EOF'
+import shared_lib
+
+assert shared_lib.GREETING == "hello from the shared venv"
+print("gen_main ok")
+EOF
+""",
+)
+
+py_venv_exec_test(
+    name = "test_gen_main",
+    main = ":gen_main",
+    venv = ":shared_venv",
+)
