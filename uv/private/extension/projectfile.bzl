@@ -150,6 +150,23 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
     traversal of the dependency graph to find all extras that are pulled in by
     the initial set of requirements.
 
+    When `[dependency-groups]` is absent, synthesizes two equivalent groups
+    pointing at the project itself (i.e. its `[project].dependencies`):
+
+      - `""` — matches the `dep_group` flag's `build_setting_default = ""`,
+        so single-project hubs resolve zero-config. PEP 735 forbids empty
+        group names, so this can never collide with a user-declared group.
+      - `<stamp>` — per-project alias for implicit isolation in
+        multi-project hubs. `<stamp>` is the PEP 503 normalized
+        `[project].name` and matches the same token in qualified hub
+        labels (`@<hub>//project/<stamp>:<package>`).
+
+    The extension fails analysis if `<stamp>` collides with a group name
+    declared by any project in the same hub — both namespaces are
+    user-controlled and locally adjustable, so collisions are user error.
+
+    Projects with explicit `[dependency-groups]` keep just what they declared.
+
     Args:
         project_data: The parsed content of the `pyproject.toml` file.
         default_versions: A dictionary mapping package names to their default
@@ -165,12 +182,16 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
           `{dep: {cfg: {extra_dep: {marker: 1}}}}`.
     """
 
-    # If no dependency-groups are specified, use the lock members manifest, or just the self-list
-    dep_groups = project_data.get("dependency-groups", {
-        project_data["project"]["name"]: lock_data.get("manifest", {}).get("members", [
+    if "dependency-groups" not in project_data:
+        fallback_members = lock_data.get("manifest", {}).get("members", [
             project_data["project"]["name"],
-        ]),
-    })
+        ])
+        dep_groups = {
+            "": fallback_members,
+            normalize_name(project_data["project"]["name"]): fallback_members,
+        }
+    else:
+        dep_groups = project_data["dependency-groups"]
 
     # Normalize dep groups to our dependency triples (graph keys)
     normalized_dep_groups = {}

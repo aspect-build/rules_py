@@ -1,14 +1,16 @@
 load("@aspect_rules_py//uv:defs.bzl", "gazelle_python_manifest")
 
-# Exercise generating a Gazelle manifest covering a ton of venvs
+# Exercise generating a Gazelle manifest covering several dep_groups.
+# `extras` is uv-deps-650/extras's explicit `[dependency-groups].extras`;
+# the bare `<name>` entries are the synthesized per-project aliases for
+# projects without explicit `[dependency-groups]` (airflow, say, crossbuild).
 gazelle_python_manifest(
     name = "gazelle_python_manifest",
     hub = "pypi",
-    # Note that we _merge_ the package mappings from several configurations.
     venvs = [
+        "extras",
         "airflow",
         "crossbuild",
-        "extras",
         "say",
     ],
 )

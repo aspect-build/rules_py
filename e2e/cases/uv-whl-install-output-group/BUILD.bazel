@@ -9,11 +9,15 @@ load("@aspect_rules_py//py:defs.bzl", "py_test")
 # Access the install dir via the install_dir output group rather than
 # DefaultInfo.files (which is intentionally empty since #907).
 #
-# This filegroup is placed in the test's data (not a genrule srcs) so that
-# the venv transition applies and @pypi//iniconfig's hub select resolves.
+# Uses the project-qualified label `@pypi//project/uv_whl_install_output_group:iniconfig`
+# rather than the unqualified `@pypi//iniconfig` because this filegroup is
+# analyzed under the build's default `dep_group` flag value (it doesn't
+# itself transition). The qualified label routes through this project's own
+# resolution regardless of the active flag, so wildcard builds can analyze
+# it cleanly even when other projects in the hub provide iniconfig.
 filegroup(
     name = "iniconfig_install_dir",
-    srcs = ["@pypi//iniconfig"],
+    srcs = ["@pypi//project/uv_whl_install_output_group:iniconfig"],
     output_group = "install_dir",
 )
 
@@ -21,7 +25,7 @@ py_test(
     name = "test",
     srcs = ["test.py"],
     data = [":iniconfig_install_dir"],
-    dep_group = "uv-whl-install-output-group",
+    dep_group = "uv_whl_install_output_group",
     main = "test.py",
     python_version = "3.11",
     deps = ["@pypi//iniconfig"],
@@ -31,7 +35,7 @@ py_test(
     name = "venv_test",
     srcs = ["test.py"],
     data = [":iniconfig_install_dir"],
-    dep_group = "uv-whl-install-output-group",
+    dep_group = "uv_whl_install_output_group",
     expose_venv = True,
     isolated = False,
     main = "test.py",
