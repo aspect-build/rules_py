@@ -42,6 +42,24 @@ config_setting(
 
 
 config_setting(
+    name = "images",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "images",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "venv_images",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "venv_images",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
     name = "aspect_rules_py",
     flag_values = {
         "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "aspect_rules_py",
