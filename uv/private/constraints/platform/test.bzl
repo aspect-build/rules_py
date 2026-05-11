@@ -82,6 +82,15 @@ def _reject_unsupported_arches_test_impl(ctx):
 
 reject_unsupported_arches_test = unittest.make(_reject_unsupported_arches_test_impl)
 
+def _bare_linux_tags_test_impl(ctx):
+    """Regression: bare linux_* wheel tags (e.g. PyTorch CPU) must be accepted."""
+    env = unittest.begin(ctx)
+    asserts.true(env, supported_platform("linux_x86_64"), "linux_x86_64 should be supported")
+    asserts.true(env, supported_platform("linux_aarch64"), "linux_aarch64 should be supported")
+    return unittest.end(env)
+
+bare_linux_tags_test = unittest.make(_bare_linux_tags_test_impl)
+
 def _reject_malformed_tags_test_impl(ctx):
     env = unittest.begin(ctx)
 
@@ -148,6 +157,7 @@ def platform_suite():
         musllinux_arches_test,
         windows_platforms_test,
         reject_win_ia64_test,
+        bare_linux_tags_test,
         reject_unsupported_arches_test,
         reject_malformed_tags_test,
         real_world_tags_test,

@@ -1,0 +1,16 @@
+# Regression: bare linux_* wheel platform tags must survive lockfile parsing.
+# grpcio 1.80.0 ships cp3x-linux_armv7l wheels that exercise this.
+
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+genquery(
+    name = "grpcio_targets",
+    expression = "deps(@pypi-bare-linux-wheels//grpcio)",
+    scope = ["@pypi-bare-linux-wheels//grpcio"],
+)
+
+sh_test(
+    name = "test",
+    srcs = ["test_bare_linux_wheels.sh"],
+    data = [":grpcio_targets"],
+)
