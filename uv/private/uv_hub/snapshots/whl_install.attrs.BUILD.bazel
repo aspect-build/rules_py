@@ -3,19 +3,20 @@ load("@aspect_rules_py//uv/private/whl_install:defs.bzl", "select_chain")
 load("@aspect_rules_py//uv/private/whl_install:rule.bzl", "whl_install")
 load("@bazel_skylib//lib:selects.bzl", "selects")
 
-filegroup(
-    name = "_no_sbuild",
+py_library(
+    name = "whl_missing",
     srcs = [],
     target_compatible_with = ["@platforms//:incompatible"],
+    visibility = ["//visibility:private"],
 )
 
 
 select_chain(
    name = "whl",
    arms = {
-        "@aspect_rules_py_pip_configurations//:py3-any-none": "@whl__attrs__99b87a485a5820b2//file",
-        "//conditions:default": ":_no_sbuild"
+        "@aspect_rules_py_pip_configurations//:py3-any-none": "@whl__attrs__99b87a485a5820b2//file"
    },
+   default_target = ":whl_missing",
    visibility = ["//visibility:private"],
 )
 
