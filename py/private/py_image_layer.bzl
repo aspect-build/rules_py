@@ -165,7 +165,7 @@ _LayerInfo = provider(
 
 _PY_VENV_KINDS = ("py_venv", "_py_venv")
 
-_PY_BINARY_KINDS = ("py_binary", "py_test", "_py_venv_binary", "_py_venv_test", "py_venv_binary", "py_venv_test")
+_PY_BINARY_KINDS = ("py_binary", "py_test", "_py_venv_binary", "_py_venv_test", "py_venv_binary", "py_venv_test", "py_venv_exec", "py_venv_exec_test")
 
 def _collect_from_deps(ctx, provider):
     """Walk deps/data/actual and return a list of provider values from each matching dep."""
@@ -440,6 +440,10 @@ _layer_aspect = aspect(
             default = "//py:layer_tier",
             providers = [LayerTierInfo],
         ),
+        "_awk_script": attr.label(
+            default = "//py/private:modify_mtree.awk",
+            allow_single_file = True,
+        ),
     },
     toolchains = [_TAR_TOOLCHAIN],
     toolchains_aspects = [PY_TOOLCHAIN],
@@ -501,6 +505,10 @@ _merge_aspect = aspect(
             default = "//py:layer_tier",
             providers = [LayerTierInfo],
         ),
+        "_awk_script": attr.label(
+            default = "//py/private:modify_mtree.awk",
+            allow_single_file = True,
+        ),
     },
     toolchains = [_TAR_TOOLCHAIN],
     required_aspect_providers = [[_LayerInfo]],
@@ -527,6 +535,17 @@ def _file_to_mtree_entry(f, mode = "0644", strip_prefix = "", root = "/"):
         dst = _apply_strip_prefix(sp, strip_prefix, root)
     else:
         dst = "./app.runfiles/_main/" + sp
+
+    # Symlinks (e.g. the venv's site-packages entries pointing at wheel install
+    # trees) are emitted with `content=` (singular) as a marker. A post-process
+    # awk step calls `readlink` on each marked path and rewrites the row to
+    # `type=link link=<target>`. Non-symlinks use `contents=` and pass through.
+    if f.is_symlink:
+        return "{} type=file mode={} uid=0 gid=0 time=1672560000 content={}".format(
+            dst.replace(" ", "\\040"),
+            mode,
+            f.path.replace(" ", "\\040"),
+        )
     return "{} type=file mode={} uid=0 gid=0 time=1672560000 contents={}".format(
         dst.replace(" ", "\\040"),
         mode,
@@ -637,27 +656,33 @@ _platform_cfg = transition(
 )
 
 def _run_tar_action(ctx, bsdtar, bsdtar_files, tar_out, files_depset, map_each, compress, level, reqs, mnemonic, progress_msg):
-    bsdtar_args = ctx.actions.args()
-    bsdtar_args.add("--create")
-    bsdtar_args.add("--" + compress)
-    bsdtar_args.add("--options", "{}:compression-level={}".format(compress, level))
-    bsdtar_args.add("--file", tar_out)
-
+    # Single action chains: emit mtree (param file) → awk resolves
+    # `type=file content=<path>` rows the map_each emitted for `f.is_symlink`
+    # files into `type=link link=<target>` rows → bsdtar reads from stdin.
     mtree_args = ctx.actions.args()
     mtree_args.set_param_file_format("multiline")
-    mtree_args.use_param_file("@%s", use_always = True)
+    mtree_args.use_param_file("%s", use_always = True)
     mtree_args.add("#mtree")
     mtree_args.add_all(files_depset, map_each = map_each, expand_directories = False, allow_closure = True)
 
-    ctx.actions.run(
-        executable = bsdtar.binary,
-        inputs = depset(transitive = [files_depset, bsdtar_files.files]),
+    awk_script = ctx.file._awk_script
+    ctx.actions.run_shell(
+        inputs = depset(direct = [awk_script], transitive = [files_depset, bsdtar_files.files]),
         outputs = [tar_out],
-        arguments = [bsdtar_args, mtree_args],
+        arguments = [
+            mtree_args,
+            awk_script.path,
+            bsdtar.binary.path,
+            tar_out.path,
+            "--" + compress,
+            "{}:compression-level={}".format(compress, level),
+        ],
+        command = 'awk -f "$2" "$1" | LC_ALL=C sort | "$3" --create "$5" --options "$6" --file "$4" @-',
         mnemonic = mnemonic,
         progress_message = progress_msg,
         execution_requirements = reqs,
         toolchain = _TAR_TOOLCHAIN,
+        use_default_shell_env = True,
     )
 
 def _declare_group_tar(ctx, bsdtar, bsdtar_files, out_name, group_name, files, map_each, progress):
@@ -838,6 +863,10 @@ _py_image_layer = rule(
             executable = True,
             cfg = "exec",
             allow_files = True,
+        ),
+        "_awk_script": attr.label(
+            default = "//py/private:modify_mtree.awk",
+            allow_single_file = True,
         ),
     },
     cfg = _platform_cfg,

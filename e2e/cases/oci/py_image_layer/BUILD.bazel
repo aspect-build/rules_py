@@ -87,7 +87,7 @@ py_image_layer(
 py_binary(
     name = "my_app_multi_bin",
     srcs = ["__main__.py"],
-    venv = "images",
+    dep_group = "images",
     deps = [
         "@pypi_oci_py_image_layer//colorama",
         "@pypi_oci_py_image_layer//pyproject_hooks",
