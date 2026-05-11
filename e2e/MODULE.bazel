@@ -347,6 +347,7 @@ uv.project(
     lock = "//cases/uv-abi3-compat-853:uv.lock",
     pyproject = "//cases/uv-abi3-compat-853:pyproject.toml",
 )
+use_repo(uv, "abi3_compat_pypi")
 # }}}
 
 # For cases/uv-platform-filter-844
@@ -504,6 +505,5 @@ use_repo(uv, "project__single_project_hub", "pypi_single")
 # }}}
 
 use_repo(uv, "aspect_rules_py_pip_configurations", "pypi")
-use_repo(uv, "abi3_compat_pypi")
 
 register_toolchains("@uv//:all")
