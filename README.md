@@ -223,6 +223,27 @@ bazel run //:app
 bazel run //:app --@pypi//venv=prod
 ```
 
+## `.bazelrc` setup
+
+Add the following to your `.bazelrc`. The venv flag is required — without it,
+depending on a package from `@pypi` fails because no `[dependency-group]` is
+selected:
+
+```
+# Select a default venv from the @pypi hub. The value must be one of the
+# [dependency-group] names in pyproject.toml; if no groups are declared an
+# implicit "default" group is created from the project's main dependencies.
+common --@pypi//venv=default
+
+# (Recommended) Pin the build to a specific Python version. Optional if your
+# interpreters extension declares `is_default = True`, but setting it here makes
+# the choice explicit and overridable from the command line.
+common --@aspect_rules_py//py:python_version=3.12
+```
+
+See [docs/uv.md](docs/uv.md) and [docs/interpreter.md](docs/interpreter.md) for the
+full set of options.
+
 ## Virtual Dependencies
 
 Declare virtual dependencies in libraries:
