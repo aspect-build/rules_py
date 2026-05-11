@@ -1,0 +1,11 @@
+[project]
+name = "arch_alias_marker"
+version = "0.0.0"
+authors = []
+requires-python = ">=3.11"
+dependencies = [
+    # Marker uses only Python-style arch spellings. Bazel's platform_machine
+    # emits aarch64/x86_64, so without the alias normalization in
+    # uv/private/markers/defs.bzl this dep is never pulled in on any host.
+    "cowsay; platform_machine == 'arm64' or platform_machine == 'amd64'",
+]

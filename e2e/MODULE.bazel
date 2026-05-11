@@ -484,6 +484,22 @@ uv.project(
 use_repo(uv, "project__single_project_hub", "pypi_single")
 # }}}
 
+# For cases/arch-alias-marker
+# Dedicated hub exercising decide_marker's Python<->Bazel architecture
+# alias normalization. The pyproject pins a dep under a marker that uses
+# only Python-style spellings (arm64/amd64); without the alias
+# normalization in uv/private/markers/defs.bzl the dep is dropped on every
+# mainstream Bazel host.
+# {{{
+uv.declare_hub(hub_name = "pypi_arch_alias_marker")
+uv.project(
+    hub_name = "pypi_arch_alias_marker",
+    lock = "//cases/arch-alias-marker:uv.lock",
+    pyproject = "//cases/arch-alias-marker:pyproject.toml",
+)
+use_repo(uv, "pypi_arch_alias_marker")
+# }}}
+
 use_repo(uv, "aspect_rules_py_pip_configurations", "pypi")
 
 register_toolchains("@uv//:all")

@@ -1,5 +1,6 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
+load("//py:defs.bzl", "py_test")
 load(":defs.bzl", "configurable_string", "decide_marker")
 load(":pep508_evaluate_test.bzl", "pep508_evaluate_test_suite")
 
@@ -124,6 +125,25 @@ alias(
 )
 
 pep508_evaluate_test_suite()
+
+# End-to-end regression for the architecture alias normalization in
+# decide_marker. The marker uses only Python-style spellings (arm64/amd64);
+# Bazel's platform_machine flag emits aarch64/x86_64. Pre-fix the select()
+# falls through on every host; post-fix one of the alternatives matches.
+decide_marker(
+    name = "_arch_alias_marker",
+    marker = "platform_machine == 'arm64' or platform_machine == 'amd64'",
+)
+
+py_test(
+    name = "marker_arch_alias_test",
+    srcs = ["marker_arch_alias_test.py"],
+    args = select({
+        ":_arch_alias_marker": ["matched"],
+        "//conditions:default": ["did_not_match"],
+    }),
+    main = "marker_arch_alias_test.py",
+)
 
 ### Test markers
 # TODO: Figure out a way to make these actual tests...
