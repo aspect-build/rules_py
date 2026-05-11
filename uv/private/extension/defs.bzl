@@ -349,18 +349,19 @@ def _parse_projects(module_ctx, hub_specs):
                     ann_key = (project_id, normalize_name(package["name"]), package["version"], "__base__")
                     build_deps = lock_build_dep_anns.get(ann_key) or []
                     if lock_build_deps == None:
-                        # `default_build_dependencies` is advisory — a lock
-                        # may legitimately omit `build` etc. when no sbuild
-                        # actually needs them (pre-fix this code path was
-                        # unreachable for any package with a `-none-any.whl`
-                        # neighbor, so missing build tools went unnoticed).
-                        # Skip unresolvable defaults rather than failing the
-                        # whole extension over a build tool this project
-                        # never uses.
+                        # For optional sdist fallbacks (sdist present but a
+                        # wheel will be picked at install time), tolerate a
+                        # lock that doesn't carry `default_build_dependencies`
+                        # — the sbuild target is never selected, so demanding
+                        # the build tools would force every project to pin
+                        # them. For forced sdist builds (`no-binary-package`),
+                        # keep failing here so the missing tool is reported
+                        # at extension-evaluation time rather than surfacing
+                        # later as an opaque `python -m build` failure.
                         lock_build_deps = [
                             it[0]
                             for req in project.default_build_dependencies
-                            for it in extract_requirement_marker_pairs(project.lock, project_id, req, default_versions, package_versions, fail_if_missing = False)
+                            for it in extract_requirement_marker_pairs(project.lock, project_id, req, default_versions, package_versions, fail_if_missing = is_no_binary)
                         ]
 
                     # FIXME: For really old packages that can't use `build`, we
