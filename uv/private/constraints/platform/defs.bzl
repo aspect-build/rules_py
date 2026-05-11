@@ -42,9 +42,13 @@ LINUX_ARCHES = [
     "armv7l",
 ]
 
-# CPU architectures supported for legacy bare linux_* wheel tags.
-# Keep armv7l out of this list: BUILD.bazel already aliases linux_armv7l to a
-# manylinux target, while armv6l needs a dedicated generic-linux config_setting.
+# CPU architectures supported for legacy bare linux_* wheel tags. Generic
+# linux_* tags carry no libc/version constraint, so each entry here produces a
+# config_setting that matches musl or older-glibc systems too -- something the
+# old "alias linux_armv7l -> manylinux_2_17_armv7l" shortcut got wrong.
+# armv8l is what packaging.tags emits for 32-bit Python on an ARMv8/aarch64
+# kernel; it shares the @platforms//cpu:arm constraint with the other 32-bit
+# ARM tags via platform_repo_name_mangling in macro.bzl.
 GENERIC_LINUX_ARCHES = [
     "x86_64",
     "i686",
@@ -54,6 +58,8 @@ GENERIC_LINUX_ARCHES = [
     "s390x",
     "riscv64",
     "armv6l",
+    "armv7l",
+    "armv8l",
 ]
 
 # Supported Windows platform tags and their CPU constraints.
@@ -109,7 +115,7 @@ def supported_platform(platform_tag):
 
     if platform_tag.startswith("linux_"):
         arch = platform_tag.removeprefix("linux_")
-        return arch in GENERIC_LINUX_ARCHES or arch == "armv7l"
+        return arch in GENERIC_LINUX_ARCHES
 
     return platform_tag in WINDOWS_PLATFORMS
 

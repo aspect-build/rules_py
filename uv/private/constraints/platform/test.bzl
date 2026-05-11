@@ -32,7 +32,6 @@ def _generic_linux_arches_test_impl(ctx):
     env = unittest.begin(ctx)
     for arch in GENERIC_LINUX_ARCHES:
         asserts.true(env, supported_platform("linux_%s" % arch), "generic linux arch %s should be supported" % arch)
-    asserts.true(env, supported_platform("linux_armv7l"), "generic linux arch armv7l should be supported")
     return unittest.end(env)
 
 generic_linux_arches_test = unittest.make(_generic_linux_arches_test_impl)
@@ -125,6 +124,7 @@ def _real_world_tags_test_impl(ctx):
         "linux_aarch64",
         "linux_armv7l",
         "linux_armv6l",
+        "linux_armv8l",
         "musllinux_1_1_x86_64",
         "musllinux_1_2_aarch64",
         "win32",

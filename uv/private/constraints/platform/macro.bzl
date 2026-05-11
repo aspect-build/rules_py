@@ -35,7 +35,7 @@ platform_repo_name_mangling = {
         [["amd64", "x86_64", "x64"], "x86_64"],
         [["ppc", "ppc64"], "ppc"],
         [["ppc64le"], "ppc64le"],
-        [["arm", "armv6l", "armv7l"], "arm"],
+        [["arm", "armv6l", "armv7l", "armv8l"], "arm"],
         [["aarch64"], "aarch64"],
         [["s390x", "s390"], "s390x"],
         [["mips64el", "mips64"], "mips64"],
