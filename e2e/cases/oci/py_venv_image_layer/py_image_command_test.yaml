@@ -10,6 +10,6 @@ commandTests:
       # The sys.prefix in the venv
       - "/app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv"
       # The sys.executable in the venv
-      - "/app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/bin/python3"
+      - "/app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/bin/python"
       # The Python version
       - "3.11"
