@@ -7,7 +7,7 @@ py_test(
     main = "__test__.py",
     python_version = "3.11",
     deps = [
-        "@pypi//dice",
+        "@pypi_venv_bin_scripts_423//dice",
     ],
 )
 
@@ -19,7 +19,7 @@ py_test(
     main = "__test__.py",
     python_version = "3.11",
     deps = [
-        "@pypi//dice",
+        "@pypi_venv_bin_scripts_423//dice",
     ],
 )
 
@@ -32,6 +32,6 @@ py_test(
     main = "__test__.py",
     python_version = "3.11",
     deps = [
-        "@pypi//dice",
+        "@pypi_venv_bin_scripts_423//dice",
     ],
 )

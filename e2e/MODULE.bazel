@@ -156,12 +156,24 @@ uv_bin.toolchain(
 use_repo(uv_bin, "uv", "uv_bazel_fork", "uv_custom", "uv_legacy", "uv_mirror")
 # }}}
 
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+
+# For cases/cross-repo-610
+# {{{
+uv.declare_hub(hub_name = "pypi_cross_repo_610")
+uv.project(
+    hub_name = "pypi_cross_repo_610",
+    lock = "//cases/cross-repo-610:uv.lock",
+    pyproject = "//cases/cross-repo-610:pyproject.toml",
+)
+use_repo(uv, "pypi_cross_repo_610")
+# }}}
+
 # For cases/uv-deps-650
 # {{{
-uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
-uv.declare_hub(hub_name = "pypi")
+uv.declare_hub(hub_name = "pypi_uv_deps_650")
 uv.project(
-    hub_name = "pypi",
+    hub_name = "pypi_uv_deps_650",
     lock = "//cases/uv-deps-650/say:uv.lock",
     pyproject = "//cases/uv-deps-650/say:pyproject.toml",
 )
@@ -172,26 +184,28 @@ uv.override_package(
     target = "//cases/uv-deps-650/third_party/cowsay",
 )
 uv.project(
-    hub_name = "pypi",
+    hub_name = "pypi_uv_deps_650",
     lock = "//cases/uv-deps-650/airflow:uv.lock",
     pyproject = "//cases/uv-deps-650/airflow:pyproject.toml",
 )
 uv.project(
-    hub_name = "pypi",
+    hub_name = "pypi_uv_deps_650",
     lock = "//cases/uv-deps-650/crossbuild:uv.lock",
     pyproject = "//cases/uv-deps-650/crossbuild:pyproject.toml",
 )
 uv.project(
-    hub_name = "pypi",
+    hub_name = "pypi_uv_deps_650",
     lock = "//cases/uv-deps-650/extras:uv.lock",
     pyproject = "//cases/uv-deps-650/extras:pyproject.toml",
 )
+use_repo(uv, "pypi_uv_deps_650")
 # }}}
 
 # For cases/uv-workspace-789
 # {{{
+uv.declare_hub(hub_name = "pypi_uv_workspace_789")
 uv.project(
-    hub_name = "pypi",
+    hub_name = "pypi_uv_workspace_789",
     lock = "//cases/uv-workspace-789:uv.lock",
     pyproject = "//cases/uv-workspace-789:pyproject.toml",
 )
@@ -205,12 +219,14 @@ uv.override_package(
     lock = "//cases/uv-workspace-789:uv.lock",
     target = "//cases/uv-workspace-789/packages/pi",
 )
+use_repo(uv, "pypi_uv_workspace_789")
 # }}}
 
 # For cases/uv-legacy-deps-750
 # {{{
+uv.declare_hub(hub_name = "pypi_uv_legacy_deps_750")
 uv.project(
-    hub_name = "pypi",
+    hub_name = "pypi_uv_legacy_deps_750",
     lock = "//cases/uv-legacy-deps-750:uv.lock",
     pyproject = "//cases/uv-legacy-deps-750:pyproject.toml",
 )
@@ -218,59 +234,71 @@ uv.unstable_annotate_packages(
     src = "//cases/uv-legacy-deps-750:annotations.toml",
     lock = "//cases/uv-legacy-deps-750:uv.lock",
 )
+use_repo(uv, "pypi_uv_legacy_deps_750")
 # }}}
 
 # For cases/freethreaded-805
 # {{{
+uv.declare_hub(hub_name = "pypi_freethreaded_805")
 uv.project(
     default_build_dependencies = [],
-    hub_name = "pypi",
+    hub_name = "pypi_freethreaded_805",
     lock = "//cases/freethreaded-805:uv.lock",
     pyproject = "//cases/freethreaded-805:pyproject.toml",
 )
+use_repo(uv, "pypi_freethreaded_805")
 # }}}
 
 # For cases/uv-conflict-817
 # {{{
+uv.declare_hub(hub_name = "pypi_uv_conflict_817")
 uv.project(
-    hub_name = "pypi",
+    hub_name = "pypi_uv_conflict_817",
     lock = "//cases/uv-conflict-817:uv.lock",
     pyproject = "//cases/uv-conflict-817:pyproject.toml",
 )
+use_repo(uv, "pypi_uv_conflict_817")
 # }}}
 
 # For cases/uv-conflict-gte
 # {{{
+uv.declare_hub(hub_name = "pypi_uv_conflict_gte")
 uv.project(
-    hub_name = "pypi",
+    hub_name = "pypi_uv_conflict_gte",
     lock = "//cases/uv-conflict-gte:uv.lock",
     pyproject = "//cases/uv-conflict-gte:pyproject.toml",
 )
+use_repo(uv, "pypi_uv_conflict_gte")
 # }}}
 
 # For cases/uv-conflict-max-863
 # Regression: broad constraint matching multiple lockfile versions must pick the greatest.
 # {{{
+uv.declare_hub(hub_name = "pypi_uv_conflict_max_863")
 uv.project(
-    hub_name = "pypi",
+    hub_name = "pypi_uv_conflict_max_863",
     lock = "//cases/uv-conflict-max-863:uv.lock",
     pyproject = "//cases/uv-conflict-max-863:pyproject.toml",
 )
+use_repo(uv, "pypi_uv_conflict_max_863")
 # }}}
 
 # For cases/uv-conflict-tilde-856
 # {{{
+uv.declare_hub(hub_name = "pypi_uv_conflict_tilde_856")
 uv.project(
-    hub_name = "pypi",
+    hub_name = "pypi_uv_conflict_tilde_856",
     lock = "//cases/uv-conflict-tilde-856:uv.lock",
     pyproject = "//cases/uv-conflict-tilde-856:pyproject.toml",
 )
+use_repo(uv, "pypi_uv_conflict_tilde_856")
 # }}}
 
 # For cases/uv-patching-829
 # {{{
+uv.declare_hub(hub_name = "pypi_uv_patching_829")
 uv.project(
-    hub_name = "pypi",
+    hub_name = "pypi_uv_patching_829",
     lock = "//cases/uv-patching-829:uv.lock",
     pyproject = "//cases/uv-patching-829:pyproject.toml",
 )
@@ -280,35 +308,42 @@ uv.override_package(
     post_install_patch_strip = 1,
     post_install_patches = ["//cases/uv-patching-829/patches:post_install.patch"],
 )
+use_repo(uv, "pypi_uv_patching_829")
 # }}}
 
 # For cases/uv-no-sdist-754
 # {{{
+uv.declare_hub(hub_name = "pypi_uv_no_sdist_754")
 uv.project(
-    hub_name = "pypi",
+    hub_name = "pypi_uv_no_sdist_754",
     lock = "//cases/uv-no-sdist-754:uv.lock",
     pyproject = "//cases/uv-no-sdist-754:pyproject.toml",
 )
+use_repo(uv, "pypi_uv_no_sdist_754")
 # }}}
 
 # For cases/venv-bin-scripts-423
 # {{{
+uv.declare_hub(hub_name = "pypi_venv_bin_scripts_423")
 uv.project(
-    hub_name = "pypi",
+    hub_name = "pypi_venv_bin_scripts_423",
     lock = "//cases/venv-bin-scripts-423:uv.lock",
     pyproject = "//cases/venv-bin-scripts-423:pyproject.toml",
 )
+use_repo(uv, "pypi_venv_bin_scripts_423")
 # }}}
 
 # For cases/uv-console-script-binary
 # Regression: py_console_script_binary should work with an explicit script and
 # when the script defaults to the target name.
 # {{{
+uv.declare_hub(hub_name = "pypi_uv_console_script_binary")
 uv.project(
-    hub_name = "pypi",
+    hub_name = "pypi_uv_console_script_binary",
     lock = "//cases/uv-console-script-binary:uv.lock",
     pyproject = "//cases/uv-console-script-binary:pyproject.toml",
 )
+use_repo(uv, "pypi_uv_console_script_binary")
 # }}}
 
 # For cases/uv-whl-install-output-group
@@ -316,17 +351,20 @@ uv.project(
 # filegroup with output_group = "install_dir" makes the wheel directory
 # accessible to downstream genrules.
 # {{{
+uv.declare_hub(hub_name = "pypi_uv_whl_install_output_group")
 uv.project(
-    hub_name = "pypi",
+    hub_name = "pypi_uv_whl_install_output_group",
     lock = "//cases/uv-whl-install-output-group:uv.lock",
     pyproject = "//cases/uv-whl-install-output-group:pyproject.toml",
 )
+use_repo(uv, "pypi_uv_whl_install_output_group")
 # }}}
 
 # For cases/uv-include-group (PEP 735 include-group syntax)
 # {{{
+uv.declare_hub(hub_name = "pypi_uv_include_group")
 uv.project(
-    hub_name = "pypi",
+    hub_name = "pypi_uv_include_group",
     lock = "//cases/uv-include-group:uv.lock",
     pyproject = "//cases/uv-include-group:pyproject.toml",
 )
@@ -334,6 +372,7 @@ uv.unstable_annotate_packages(
     src = "//cases/uv-legacy-deps-750:annotations.toml",
     lock = "//cases/uv-include-group:uv.lock",
 )
+use_repo(uv, "pypi_uv_include_group")
 # }}}
 
 # For cases/uv-abi3-compat-853
@@ -341,15 +380,15 @@ uv.unstable_annotate_packages(
 # Uses a dedicated hub so the case's regression test isn't influenced by
 # other cases' lockfiles contributing to the shared pypi hub.
 # {{{
-uv.declare_hub(hub_name = "abi3_compat_pypi")
+uv.declare_hub(hub_name = "pypi_uv_abi3_compat_853")
 uv.project(
-    hub_name = "abi3_compat_pypi",
+    hub_name = "pypi_uv_abi3_compat_853",
     lock = "//cases/uv-abi3-compat-853:uv.lock",
     pyproject = "//cases/uv-abi3-compat-853:pyproject.toml",
 )
 use_repo(
     uv,
-    "abi3_compat_pypi",
+    "pypi_uv_abi3_compat_853",
     "whl_install__abi3_compat__cryptography__46_0_5",
 )
 # }}}
@@ -357,11 +396,13 @@ use_repo(
 # For cases/uv-platform-filter-844
 # Regression: watchdog ships win_ia64 wheels that must be filtered out.
 # {{{
+uv.declare_hub(hub_name = "pypi_uv_platform_filter_844")
 uv.project(
-    hub_name = "pypi",
+    hub_name = "pypi_uv_platform_filter_844",
     lock = "//cases/uv-platform-filter-844:uv.lock",
     pyproject = "//cases/uv-platform-filter-844:pyproject.toml",
 )
+use_repo(uv, "pypi_uv_platform_filter_844")
 # }}}
 
 # For cases/uv-bare-linux-wheels
@@ -383,42 +424,50 @@ use_repo(uv, "whl_install__uv_bare_linux_wheels__grpcio__1_80_0")
 # For cases/pytest-mock-530
 # Regression: pytest-mock plugin discovery with py_test and py_venv_test.
 # {{{
+uv.declare_hub(hub_name = "pypi_pytest_mock_530")
 uv.project(
-    hub_name = "pypi",
+    hub_name = "pypi_pytest_mock_530",
     lock = "//cases/pytest-mock-530:uv.lock",
     pyproject = "//cases/pytest-mock-530:pyproject.toml",
 )
+use_repo(uv, "pypi_pytest_mock_530")
 # }}}
 
 # For cases/pth-namespace-547
 # Regression: namespace packages spanning multiple wheels (#547).
 # {{{
+uv.declare_hub(hub_name = "pypi_pth_namespace_547")
 uv.project(
     default_build_dependencies = [],
-    hub_name = "pypi",
+    hub_name = "pypi_pth_namespace_547",
     lock = "//cases/pth-namespace-547:uv.lock",
     pyproject = "//cases/pth-namespace-547:pyproject.toml",
 )
+use_repo(uv, "pypi_pth_namespace_547")
 # }}}
 
 # For cases/pytest-main-867
 # Cross-repo pytest_main=True regression test.
 # {{{
+uv.declare_hub(hub_name = "pypi_pytest_main_867")
 uv.project(
-    hub_name = "pypi",
+    hub_name = "pypi_pytest_main_867",
     lock = "//cases/pytest-main-867:uv.lock",
     pyproject = "//cases/pytest-main-867:pyproject.toml",
 )
+use_repo(uv, "pypi_pytest_main_867")
 # }}}
 
 # For cases/uv-plus-version
 # Versions containing '+' must not produce invalid Bazel repo names.
 # {{{
+uv.declare_hub(hub_name = "pypi_uv_plus_version")
 uv.project(
-    hub_name = "pypi",
+    hub_name = "pypi_uv_plus_version",
     lock = "//cases/uv-plus-version:uv.lock",
     pyproject = "//cases/uv-plus-version:pyproject.toml",
 )
+use_repo(uv, "pypi_uv_plus_version")
 # }}}
 
 # For cases/firebase-admin-import
@@ -427,58 +476,98 @@ uv.project(
 # handling across the google-auth / google-api-core / google-cloud-*
 # wheel graph.
 # {{{
+uv.declare_hub(hub_name = "pypi_firebase_admin_import")
 uv.project(
-    hub_name = "pypi",
+    hub_name = "pypi_firebase_admin_import",
     lock = "//cases/firebase-admin-import:uv.lock",
     pyproject = "//cases/firebase-admin-import:pyproject.toml",
 )
+use_repo(uv, "pypi_firebase_admin_import")
 # }}}
 
 # For cases/pytest-xdist-integration
 # Regression: pytest-xdist plugin discovery + actual parallel-worker
 # execution through py_test(pytest_main = True).
 # {{{
+uv.declare_hub(hub_name = "pypi_pytest_xdist_integration")
 uv.project(
-    hub_name = "pypi",
+    hub_name = "pypi_pytest_xdist_integration",
     lock = "//cases/pytest-xdist-integration:uv.lock",
     pyproject = "//cases/pytest-xdist-integration:pyproject.toml",
 )
+use_repo(uv, "pypi_pytest_xdist_integration")
 # }}}
 
+# For cases/venv-internal-symlinks
+# {{{
+uv.declare_hub(hub_name = "pypi_venv_internal_symlinks")
 uv.project(
-    hub_name = "pypi",
+    hub_name = "pypi_venv_internal_symlinks",
     lock = "//cases/venv-internal-symlinks:uv.lock",
     pyproject = "//cases/venv-internal-symlinks:pyproject.toml",
 )
+use_repo(uv, "pypi_venv_internal_symlinks")
+# }}}
+
+# For cases/pytest-subdir-imports
+# {{{
+uv.declare_hub(hub_name = "pypi_pytest_subdir_imports")
 uv.project(
-    hub_name = "pypi",
+    hub_name = "pypi_pytest_subdir_imports",
     lock = "//cases/pytest-subdir-imports:uv.lock",
     pyproject = "//cases/pytest-subdir-imports:pyproject.toml",
 )
+use_repo(uv, "pypi_pytest_subdir_imports")
+# }}}
 
 # For cases/uv-sdist-native-build
 # Verify that native_build_toolchain_type is registered via @rules_py_tools//:all
 # so that sdist packages with C extensions can be built with pep517_native_whl.
 # python-geohash is sdist-only and contains a C++ extension (_geohash).
 # {{{
+uv.declare_hub(hub_name = "pypi_uv_sdist_native_build")
 uv.project(
     default_build_dependencies = [
         "build",
         "setuptools",
     ],
-    hub_name = "pypi",
+    hub_name = "pypi_uv_sdist_native_build",
     lock = "//cases/uv-sdist-native-build:uv.lock",
     pyproject = "//cases/uv-sdist-native-build:pyproject.toml",
 )
+use_repo(uv, "pypi_uv_sdist_native_build")
 # }}}
 
 # For cases/unconstrained-dependencies
 # {{{
+uv.declare_hub(hub_name = "pypi_unconstrained_dependencies")
 uv.project(
-    hub_name = "pypi",
+    hub_name = "pypi_unconstrained_dependencies",
     lock = "//cases/unconstrained-dependencies:uv.lock",
     pyproject = "//cases/unconstrained-dependencies:pyproject.toml",
 )
+use_repo(uv, "pypi_unconstrained_dependencies")
+# }}}
+
+# For cases/oci/py_image_layer and cases/oci/py_venv_image_layer
+# Each OCI sub-case has its own pyproject + lock (colorama dep). They live
+# in dedicated hubs alongside the other cases.
+# {{{
+uv.declare_hub(hub_name = "pypi_oci_py_image_layer")
+uv.project(
+    hub_name = "pypi_oci_py_image_layer",
+    lock = "//cases/oci/py_image_layer:uv.lock",
+    pyproject = "//cases/oci/py_image_layer:pyproject.toml",
+)
+use_repo(uv, "pypi_oci_py_image_layer")
+
+uv.declare_hub(hub_name = "pypi_oci_py_venv_image_layer")
+uv.project(
+    hub_name = "pypi_oci_py_venv_image_layer",
+    lock = "//cases/oci/py_venv_image_layer:uv.lock",
+    pyproject = "//cases/oci/py_venv_image_layer:pyproject.toml",
+)
+use_repo(uv, "pypi_oci_py_venv_image_layer")
 # }}}
 
 # For cases/uv-dep-hashes
@@ -544,6 +633,31 @@ uv.project(
 use_repo(uv, "pypi_arch_alias_marker")
 # }}}
 
-use_repo(uv, "aspect_rules_py_pip_configurations", "pypi")
+# For cases/multi-project-hub
+# A dedicated multi-`uv.project()` hub used as the baseline for the
+# //snapshots multi-project-shape regression checks. Three sub-projects
+# (alpha, beta, gamma) all depend on cowsay, exercising N>1 select-arm
+# alias emission and dep_group config_setting scaling.
+# {{{
+uv.declare_hub(hub_name = "pypi")
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/multi-project-hub/alpha:uv.lock",
+    pyproject = "//cases/multi-project-hub/alpha:pyproject.toml",
+)
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/multi-project-hub/beta:uv.lock",
+    pyproject = "//cases/multi-project-hub/beta:pyproject.toml",
+)
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/multi-project-hub/gamma:uv.lock",
+    pyproject = "//cases/multi-project-hub/gamma:pyproject.toml",
+)
+use_repo(uv, "pypi")
+# }}}
+
+use_repo(uv, "aspect_rules_py_pip_configurations")
 
 register_toolchains("@uv//:all")

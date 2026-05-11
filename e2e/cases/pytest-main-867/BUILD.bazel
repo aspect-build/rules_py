@@ -7,7 +7,7 @@ py_test(
     srcs = ["test_example.py"],
     dep_group = "pytest-main-867",
     pytest_main = True,
-    deps = ["@pypi//pytest"],
+    deps = ["@pypi_pytest_main_867//pytest"],
 )
 
 # Regression test for #723: test targets named test_* must work with
@@ -17,7 +17,7 @@ py_test(
     srcs = ["test_example.py"],
     dep_group = "pytest-main-867",
     pytest_main = True,
-    deps = ["@pypi//pytest"],
+    deps = ["@pypi_pytest_main_867//pytest"],
 )
 
 # Regression test for #723: multiple test sources with a test_* target name.
@@ -31,7 +31,7 @@ py_test(
     ],
     dep_group = "pytest-main-867",
     pytest_main = True,
-    deps = ["@pypi//pytest"],
+    deps = ["@pypi_pytest_main_867//pytest"],
 )
 
 # Verify pytest collects only the expected tests and no spurious files.
@@ -41,7 +41,7 @@ py_test(
     srcs = ["test_collection_check.py"],
     dep_group = "pytest-main-867",
     pytest_main = True,
-    deps = ["@pypi//pytest"],
+    deps = ["@pypi_pytest_main_867//pytest"],
 )
 
 # Regression test for #723 via direct py_pytest_main() with test_* name
@@ -62,6 +62,6 @@ py_test(
     main = ":__test__test_direct_main__.py",
     deps = [
         ":test_direct_main",
-        "@pypi//pytest",
+        "@pypi_pytest_main_867//pytest",
     ],
 )

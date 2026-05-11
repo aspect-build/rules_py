@@ -1,0 +1,52 @@
+# A multi-`uv.project()` hub (`@pypi`) used as the baseline shape for the
+# e2e snapshots. Three sub-projects (alpha, beta, gamma) all depend on
+# cowsay, exercising the N>1 select-arm and dep_group config_setting
+# emission that the single-project @pypi_single snapshot cannot cover.
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+# Alpha defines `[dependency-groups]` (`dev` + hyphenated `unit-tests`)
+# instead of an implicit project-name group, so the snapshot covers both
+# dependency-group emission and hyphenated config_setting names.
+py_test(
+    name = "alpha_dev",
+    srcs = ["__test__.py"],
+    dep_group = "dev",
+    main = "__test__.py",
+    python_version = "3.11",
+    deps = [
+        "@pypi//cowsay",
+    ],
+)
+
+py_test(
+    name = "alpha_unit_tests",
+    srcs = ["__test__.py"],
+    dep_group = "unit-tests",
+    main = "__test__.py",
+    python_version = "3.11",
+    deps = [
+        "@pypi//cowsay",
+    ],
+)
+
+py_test(
+    name = "beta",
+    srcs = ["__test__.py"],
+    dep_group = "beta",
+    main = "__test__.py",
+    python_version = "3.11",
+    deps = [
+        "@pypi//cowsay",
+    ],
+)
+
+py_test(
+    name = "gamma",
+    srcs = ["__test__.py"],
+    dep_group = "gamma",
+    main = "__test__.py",
+    python_version = "3.11",
+    deps = [
+        "@pypi//cowsay",
+    ],
+)

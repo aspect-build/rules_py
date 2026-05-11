@@ -41,11 +41,13 @@ platform(
 py_binary(
     name = "app_bin",
     srcs = ["__main__.py"],
+    # TODO: should be "crossbuild" (the pyproject name); "psql" makes the
+    # target incompatible, which is why crossbuild_compile_pyc_test is SKIPPED.
     dep_group = "psql",
     main = "__main__.py",
     python_version = "3.12",
     deps = [
-        "@pypi//psycopg2_binary",
+        "@pypi_uv_deps_650//psycopg2_binary",
     ],
 )
 

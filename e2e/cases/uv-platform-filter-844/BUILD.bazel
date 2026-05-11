@@ -6,8 +6,8 @@ load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 genquery(
     name = "watchdog_targets",
-    expression = "deps(@pypi//watchdog)",
-    scope = ["@pypi//watchdog"],
+    expression = "deps(@pypi_uv_platform_filter_844//watchdog)",
+    scope = ["@pypi_uv_platform_filter_844//watchdog"],
 )
 
 sh_test(

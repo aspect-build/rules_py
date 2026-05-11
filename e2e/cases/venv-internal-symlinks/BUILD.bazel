@@ -9,7 +9,7 @@ py_test(
     main = "test_babel.py",
     python_version = "3.11",
     deps = [
-        "@pypi//babel",
+        "@pypi_venv_internal_symlinks//babel",
     ],
 )
 
@@ -19,6 +19,6 @@ py_test(
     dep_group = "venv-internal-symlinks",
     main = "test_babel.py",
     deps = [
-        "@pypi//babel",
+        "@pypi_venv_internal_symlinks//babel",
     ],
 )

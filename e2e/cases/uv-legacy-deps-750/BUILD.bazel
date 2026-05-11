@@ -9,7 +9,7 @@ py_test(
     main = "__test__.py",
     python_version = "3.11",
     deps = [
-        "@pypi//googlemaps",
+        "@pypi_uv_legacy_deps_750//googlemaps",
     ],
 )
 
@@ -24,6 +24,6 @@ py_test(
     main = "__test__.py",
     python_version = "3.11",
     deps = [
-        "@pypi//googlemaps",
+        "@pypi_uv_legacy_deps_750//googlemaps",
     ],
 )

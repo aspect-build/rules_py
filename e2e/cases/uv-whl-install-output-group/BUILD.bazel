@@ -10,10 +10,10 @@ load("@aspect_rules_py//py:defs.bzl", "py_test")
 # DefaultInfo.files (which is intentionally empty since #907).
 #
 # This filegroup is placed in the test's data (not a genrule srcs) so that
-# the venv transition applies and @pypi//iniconfig's hub select resolves.
+# the venv transition applies and @pypi_uv_whl_install_output_group//iniconfig's hub select resolves.
 filegroup(
     name = "iniconfig_install_dir",
-    srcs = ["@pypi//iniconfig"],
+    srcs = ["@pypi_uv_whl_install_output_group//iniconfig"],
     output_group = "install_dir",
 )
 
@@ -24,7 +24,7 @@ py_test(
     dep_group = "uv-whl-install-output-group",
     main = "test.py",
     python_version = "3.11",
-    deps = ["@pypi//iniconfig"],
+    deps = ["@pypi_uv_whl_install_output_group//iniconfig"],
 )
 
 py_test(
@@ -36,5 +36,5 @@ py_test(
     isolated = False,
     main = "test.py",
     python_version = "3.11",
-    deps = ["@pypi//iniconfig"],
+    deps = ["@pypi_uv_whl_install_output_group//iniconfig"],
 )

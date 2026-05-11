@@ -10,7 +10,8 @@ py_test(
     dep_group = "abi3-compat",
     main = "test_abi3.py",
     python_version = "3.12",
-    deps = ["@abi3_compat_pypi//cryptography"],
+    target_compatible_with = ["@platforms//os:linux"],
+    deps = ["@pypi_uv_abi3_compat_853//cryptography"],
 )
 
 py_test(
@@ -21,5 +22,6 @@ py_test(
     isolated = False,
     main = "test_abi3.py",
     python_version = "3.12",
-    deps = ["@abi3_compat_pypi//cryptography"],
+    target_compatible_with = ["@platforms//os:linux"],
+    deps = ["@pypi_uv_abi3_compat_853//cryptography"],
 )

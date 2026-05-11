@@ -1,9 +1,11 @@
 load("@aspect_rules_py//uv:defs.bzl", "gazelle_python_manifest")
 
-# Exercise generating a Gazelle manifest covering a ton of venvs
+# Exercise generating a Gazelle manifest covering a ton of venvs. Reads
+# from the //cases/uv-deps-650 hub which already has the 4-project shape
+# this case needs to exercise.
 gazelle_python_manifest(
     name = "gazelle_python_manifest",
-    hub = "pypi",
+    hub = "pypi_uv_deps_650",
     # Note that we _merge_ the package mappings from several configurations.
     venvs = [
         "airflow",
