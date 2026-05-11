@@ -168,12 +168,19 @@ _PY_VENV_KINDS = ("py_venv", "_py_venv")
 _PY_BINARY_KINDS = ("py_binary", "py_test", "_py_venv_binary", "_py_venv_test", "py_venv_binary", "py_venv_test", "py_venv_exec", "py_venv_exec_test")
 
 def _collect_from_deps(ctx, provider):
-    """Walk deps/data/actual and return a list of provider values from each matching dep."""
+    """Walk deps/data/actual/venv and return a list of provider values from each matching dep."""
     results = []
     for attr_name in ["deps", "data"]:
         for dep in getattr(ctx.rule.attr, attr_name, []):
             if provider in dep:
                 results.append(dep[provider])
+
+    # `py_venv_exec` (the rule the `py_binary` macro expands to) routes srcs /
+    # deps onto a sibling `py_venv` reached via the `venv` attr, so the aspect
+    # must hop through it to see the binary's actual dep closure.
+    venv = getattr(ctx.rule.attr, "venv", None)
+    if venv != None and provider in venv:
+        results.append(venv[provider])
     actual = getattr(ctx.rule.attr, "actual", None)
     if actual != None and type(actual) != "list":
         if provider in actual:
@@ -348,6 +355,18 @@ def _layer_aspect_impl(target, ctx):
     kind = ctx.rule.kind
     is_binary = kind in _PY_BINARY_KINDS
 
+    # Aliases (and other pure-forwarding wrappers) forward DefaultInfo from
+    # `actual`. Reading `target[DefaultInfo].files` here for an alias of a
+    # wheel target would re-introduce the install_tree as a source file — but
+    # it is already captured upstream as a pip package via the wheel-leaf
+    # branch. Just propagate transitively for these targets.
+    if kind == "alias":
+        return [_LayerInfo(
+            source_files = depset(transitive = transitive_source),
+            pip_packages = depset(transitive = transitive_pkgs),
+            first_party_layers = depset(transitive = transitive_fp),
+        )]
+
     # Skip PyInfo deps (including wheel-leaf targets, which also emit PyInfo) —
     # they self-capture via the aspect.
     if kind not in _PY_VENV_KINDS and PyInfo in target and not is_binary:
@@ -434,7 +453,7 @@ def _layer_aspect_impl(target, ctx):
 
 _layer_aspect = aspect(
     implementation = _layer_aspect_impl,
-    attr_aspects = ["deps", "data", "actual"],
+    attr_aspects = ["deps", "data", "actual", "venv"],
     attrs = {
         "_layer_tier": attr.label(
             default = "//py:layer_tier",
@@ -519,7 +538,10 @@ def _apply_strip_prefix(sp, strip_prefix, root):
     prefix = strip_prefix.replace("\\/", "/")
     if sp == prefix:
         return "." + root
-    if sp.startswith(prefix + "."):
+
+    # `prefix + "."` catches the binary's own `*.runfiles/...` tree; `prefix + "/"`
+    # catches files actually under a directory named `prefix`.
+    if sp.startswith(prefix + ".") or sp.startswith(prefix + "/"):
         return "." + root + sp[len(prefix):]
     return "./app.runfiles/_main/" + sp
 
@@ -717,6 +739,18 @@ def _py_image_layer_impl(ctx):
 
     strip_prefix = ctx.attr.strip_prefix
     root = ctx.attr.root
+
+    # 3p pip layers are action-shared across the graph and hard-code their
+    # destination under `./app.runfiles/<repo>/...`, so the consumer's source
+    # layer has to land under the same `/app.runfiles/` tree for the launcher
+    # to find them. Default the launcher to `/app` and the binary's
+    # `short_path` to `strip_prefix` so the natural runfile layout maps onto
+    # `./app.runfiles/_main/...` without each caller wiring it up.
+    binary_short_path = ctx.attr.binary[DefaultInfo].files_to_run.executable.short_path
+    if not strip_prefix:
+        strip_prefix = binary_short_path
+    if root == "/":
+        root = "/app"
 
     all_tars = []
 

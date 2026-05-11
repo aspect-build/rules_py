@@ -157,7 +157,7 @@ oci_image(
     name = "image",
     # This is defined by an oci.pull() call in /MODULE.bazel
     base = "@ubuntu",
-    entrypoint = ["/{}/my_app_bin".format(package_name())],
+    entrypoint = ["/app"],
     tars = [":my_app_layers"],
 )
 
