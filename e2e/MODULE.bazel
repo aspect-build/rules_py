@@ -366,6 +366,10 @@ uv.project(
     pyproject = "//cases/uv-bare-linux-wheels:pyproject.toml",
 )
 use_repo(uv, "pypi-bare-linux-wheels")
+
+# Exposed so e2e/BUILD.bazel can snapshot the select_chain that contains the
+# linux_armv7l arms emitted for grpcio.
+use_repo(uv, "whl_install__uv_bare_linux_wheels__grpcio__1_80_0")
 # }}}
 
 # For cases/pytest-mock-530

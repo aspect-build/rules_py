@@ -67,14 +67,14 @@ write_source_files(
         # lower-bound check that the file still gets emitted with no entries.
         "snapshots/project_single.private.markers.BUILD.bazel": "@project__single_project_hub//private/markers:BUILD.bazel",
 
-        # @pypi-bare-linux-wheels (bare linux_* wheel coverage)
+        # @whl_install for grpcio with bare linux_* wheels
         # ----------------------------------------------------------------
-        # Per-package alias for grpcio, which ships bare linux_armv7l wheels
-        # alongside manylinux/musllinux/macosx/win arms. Pins the full select
-        # tree so a regression that silently drops the bare-linux arm or
-        # reorders the manylinux/musllinux arms shows up as a snapshot diff
-        # (the genquery+grep test in cases/uv-bare-linux-wheels only checks
-        # presence of one constraint string).
-        "snapshots/pypi_bare_linux_wheels.grpcio.BUILD.bazel": "@pypi-bare-linux-wheels//grpcio:BUILD.bazel",
+        # grpcio 1.80.0 ships bare linux_armv7l wheels alongside manylinux/
+        # musllinux/macosx/win arms across four Python ABIs. Pins the full
+        # select_chain so a regression that drops the bare-linux arm or
+        # reorders the per-ABI groups shows up as a snapshot diff -- the
+        # genquery+grep test in cases/uv-bare-linux-wheels only checks for
+        # one constraint string.
+        "snapshots/whl_install.bare_linux_wheels.grpcio.BUILD.bazel": "@whl_install__uv_bare_linux_wheels__grpcio__1_80_0//:BUILD.bazel",
     },
 )
