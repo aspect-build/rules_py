@@ -45,9 +45,9 @@ select_chain(
         "@aspect_rules_py_pip_configurations//:cp311-musllinux_1_2_x86_64-cp311": "@whl__grpcio__ce1794f4ea6cc3ca//file",
         "@aspect_rules_py_pip_configurations//:cp311-linux_armv7l-cp311": "@whl__grpcio__dfab85db094068ff//file",
         "@aspect_rules_py_pip_configurations//:cp311-win32-cp311": "@whl__grpcio__51b4a7189b0bef2a//file",
-        "@aspect_rules_py_pip_configurations//:cp311-win_amd64-cp311": "@whl__grpcio__02e64bb0bb2da14d//file",
-        "//conditions:default": "@@aspect_rules_py++uv+sdist_build__uv_bare_linux_wheels__grpcio__1_80_0//:whl"
+        "@aspect_rules_py_pip_configurations//:cp311-win_amd64-cp311": "@whl__grpcio__02e64bb0bb2da14d//file"
    },
+   default_target = "@@aspect_rules_py++uv+sdist_build__uv_bare_linux_wheels__grpcio__1_80_0//:whl",
    visibility = ["//visibility:private"],
 )
 

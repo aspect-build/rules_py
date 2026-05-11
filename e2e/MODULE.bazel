@@ -347,7 +347,11 @@ uv.project(
     lock = "//cases/uv-abi3-compat-853:uv.lock",
     pyproject = "//cases/uv-abi3-compat-853:pyproject.toml",
 )
-use_repo(uv, "abi3_compat_pypi")
+use_repo(
+    uv,
+    "abi3_compat_pypi",
+    "whl_install__abi3_compat__cryptography__46_0_5",
+)
 # }}}
 
 # For cases/uv-platform-filter-844
