@@ -59,6 +59,11 @@ def _evaluate_test_impl(ctx):
     asserts.true(env, evaluate("((sys_platform == 'linux'))", env = _LINUX_ENV))
     asserts.true(env, evaluate("((sys_platform == 'linux') and (platform_machine == 'x86_64')) or sys_platform == 'win32'", env = _LINUX_ENV))
 
+    # Identifier immediately followed by ')'
+    asserts.true(env, evaluate("('linux' in sys_platform)", env = _LINUX_ENV))
+    asserts.true(env, evaluate("('win32' not in sys_platform)", env = _LINUX_ENV))
+    asserts.true(env, evaluate("(python_version >= '3.10' and 'linux' in sys_platform)", env = _LINUX_ENV))
+
     return unittest.end(env)
 
 evaluate_test = unittest.make(
