@@ -1,23 +1,36 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Regression test for #754.
+# pywin32 has only Windows wheels and no sdist. On a non-Windows host the
+# whl_install repo must still generate a usable BUILD: a `whl_missing`
+# incompatible default plus a select_chain whose default is wired through
+# `default_target=`, not inlined as a `//conditions:default` arm.
 #
-# The pywin32 package has only Windows wheels and no source distribution. On a
-# Linux host this used to produce an empty select chain and crash during
-# analysis. The fix adds an incompatible default arm so analysis succeeds.
-#
-# genquery produced a list of all deps of @pypi//pywin32. We verify it contains
-# the _no_sbuild target (our fix) and Windows wheel targets.
+# 12 platform wheels (cp311..cp314 × win32/win_amd64/win_arm64) → chain
+# terminates at whl_11. whl_12 would mean the default leaked back onto arms.
 
-# Locate the genquery output in runfiles
 TARGETS_FILE="${TEST_SRCDIR}/_main/cases/uv-no-sdist-754/pywin32_targets"
 TARGETS="$(cat "$TARGETS_FILE")"
 
 errors=0
 
-if ! echo "$TARGETS" | grep -q '_no_sbuild'; then
-    echo "FAIL: _no_sbuild target not found in pywin32 deps"
+if ! echo "$TARGETS" | grep -q ':whl_missing$'; then
+    echo "FAIL: whl_missing target not found in pywin32 deps"
+    errors=$((errors + 1))
+fi
+
+if echo "$TARGETS" | grep -q ':_no_sbuild$'; then
+    echo "FAIL: stale _no_sbuild target present"
+    errors=$((errors + 1))
+fi
+
+if ! echo "$TARGETS" | grep -q ':whl_11$'; then
+    echo "FAIL: expected select_chain to terminate at whl_11"
+    errors=$((errors + 1))
+fi
+
+if echo "$TARGETS" | grep -q ':whl_12$'; then
+    echo "FAIL: whl_12 present — default leaked back into select_chain arms"
     errors=$((errors + 1))
 fi
 
@@ -38,6 +51,4 @@ if [ "$errors" -gt 0 ]; then
     exit 1
 fi
 
-echo "PASS: pywin32 whl_install repo generated correctly (#754)"
-echo "  - _no_sbuild incompatible default present"
-echo "  - Windows wheel targets present"
+echo "PASS"

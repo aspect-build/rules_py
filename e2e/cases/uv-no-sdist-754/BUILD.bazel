@@ -8,8 +8,8 @@
 
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
-# Use genquery to prove the whl_install repo was generated and contains the
-# _no_sbuild incompatible default. If the fix regresses, this query will fail.
+# Expose @pypi//pywin32's deps so the shell test can assert the generated
+# whl_install BUILD shape (whl_missing default, select_chain arm count).
 genquery(
     name = "pywin32_targets",
     expression = "deps(@pypi//pywin32)",
