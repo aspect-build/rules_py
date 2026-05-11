@@ -84,10 +84,13 @@ def _evaluate_test_impl(ctx):
     # Architecture alias normalization (decide_marker populates _aliases so
     # Python-spelled arch names match Bazel-spelled platform_machine values).
     asserts.true(env, evaluate("platform_machine == 'arm64'", env = _AARCH64_ENV))
+    asserts.true(env, evaluate("platform_machine == 'ARM64'", env = _AARCH64_ENV))
     asserts.true(env, evaluate("'arm64' == platform_machine", env = _AARCH64_ENV))
     asserts.true(env, evaluate("platform_machine == 'aarch64'", env = _AARCH64_ENV))
     asserts.false(env, evaluate("platform_machine == 'arm64'", env = _X86_64_ENV))
+    asserts.false(env, evaluate("platform_machine == 'ARM64'", env = _X86_64_ENV))
     asserts.true(env, evaluate("platform_machine == 'amd64'", env = _X86_64_ENV))
+    asserts.true(env, evaluate("platform_machine == 'AMD64'", env = _X86_64_ENV))
     asserts.true(env, evaluate("platform_machine == 'x64'", env = _X86_64_ENV))
     asserts.true(env, evaluate("platform_machine != 'arm64'", env = _X86_64_ENV))
 

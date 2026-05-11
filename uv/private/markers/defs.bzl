@@ -69,12 +69,15 @@ load(":pep508_evaluate.bzl", _evaluate_marker = "evaluate")
 # Marker values use Python runtime strings, while Bazel platform/config
 # values skew toward canonical architecture names. Normalize common
 # synonyms so arm64 wheels selected in uv.lock also match Bazel's
-# aarch64-based platform settings.
+# aarch64-based platform settings. Includes the uppercase spellings
+# (`AMD64`, `ARM64`) that `platform.machine()` returns on Windows.
 MARKER_ENV_ALIASES = {
     "platform_machine": {
         "arm64": "aarch64",
+        "ARM64": "aarch64",
         "aarch64": "aarch64",
         "amd64": "x86_64",
+        "AMD64": "x86_64",
         "x64": "x86_64",
     },
 }
