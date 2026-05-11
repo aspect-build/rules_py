@@ -66,5 +66,15 @@ write_source_files(
         # deps, so this snapshot pins the zero-marker shape — useful as a
         # lower-bound check that the file still gets emitted with no entries.
         "snapshots/project_single.private.markers.BUILD.bazel": "@project__single_project_hub//private/markers:BUILD.bazel",
+
+        # @pypi-bare-linux-wheels (bare linux_* wheel coverage)
+        # ----------------------------------------------------------------
+        # Per-package alias for grpcio, which ships bare linux_armv7l wheels
+        # alongside manylinux/musllinux/macosx/win arms. Pins the full select
+        # tree so a regression that silently drops the bare-linux arm or
+        # reorders the manylinux/musllinux arms shows up as a snapshot diff
+        # (the genquery+grep test in cases/uv-bare-linux-wheels only checks
+        # presence of one constraint string).
+        "snapshots/pypi_bare_linux_wheels.grpcio.BUILD.bazel": "@pypi-bare-linux-wheels//grpcio:BUILD.bazel",
     },
 )
