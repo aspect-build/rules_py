@@ -1,4 +1,5 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
+load("@bazel_lib//lib:write_source_files.bzl", "write_source_files")
 
 package(default_visibility = [
     "//docs:__pkg__",
@@ -12,4 +13,62 @@ bzl_library(
         "//uv/private/pprint:defs",
         "@bazel_features//:features",
     ],
+)
+
+# Snapshots of generated repository files produced by rules_py's repo rules.
+# Acts as a regression check on the public surface those rules emit so changes
+# show up as a reviewable diff. Each entry below documents *what* shape the
+# snapshot pins down. Multi-project shape (cowsay BUILD with N>1 select arms,
+# dep_group with N>1 config_settings) is exercised by the e2e snapshots
+# instead — see //:test in the e2e workspace.
+#
+# Source files live in snapshots/ which is a data-only directory (no BUILD
+# inside) so the entire dir can be marked linguist-generated in .gitattributes.
+#
+# To update after an intentional change, run:
+#   bazel run //uv/private/uv_hub:snapshots
+write_source_files(
+    name = "snapshots",
+    files = {
+        # uv_hub: public helpers consumed via @pypi//:defs.bzl. Pins
+        # VIRTUALENVS list, _repo string, and the compatible_with helpers.
+        "snapshots/pypi.defs.bzl": "@pypi//:defs.bzl",
+        # uv_hub: rules_python-compat shim. Pins the canonical-name format
+        # used by the requirement() helper.
+        "snapshots/pypi.requirements.bzl": "@pypi//:requirements.bzl",
+        # uv_hub: per-package alias to a project repo's target. Pins the
+        # `lib`/`dist_info`/select-with-no_match_error layout used by every
+        # package alias in the hub.
+        "snapshots/pypi.cowsay.BUILD.bazel": "@pypi//cowsay:BUILD.bazel",
+        # uv_hub: dep_group config_settings. Pins the shape of the public
+        # dep_group surface (the `dep_group` alias plus one config_setting
+        # per uv.project() call).
+        "snapshots/pypi.dep_group.BUILD.bazel": "@pypi//dep_group:BUILD.bazel",
+        # uv_project: package-name → SCC alias map. Pins how surface
+        # packages are wired into the SCC-partitioned graph for one project.
+        "snapshots/project.BUILD.bazel": "@project__aspect_rules_py//:BUILD.bazel",
+        # uv_project: py_library SCC definitions with wheel installs and
+        # cross-SCC deps. Pins the resolved dep graph at 78-package scale —
+        # the most precise check on the partitioning algorithm.
+        "snapshots/project.private.sccs.BUILD.bazel": "@project__aspect_rules_py//private/sccs:BUILD.bazel",
+        # uv_project: decide_marker rules keyed by SHA1 of the marker
+        # expression. Pins marker emission and the hashing scheme.
+        "snapshots/project.private.markers.BUILD.bazel": "@project__aspect_rules_py//private/markers:BUILD.bazel",
+        # configurations_hub: Python platform-triple config_setting_groups
+        # used by whl_install to pick the right pre-built wheel. Largest
+        # snapshot (~1200 lines) — the resolver's flattened output shape.
+        "snapshots/pip_configurations.BUILD.bazel": "@aspect_rules_py_pip_configurations//:BUILD.bazel",
+        # python_toolchains: interpreter toolchain hub. Pins the public
+        # toolchain registration surface (toolchain + exec_tools toolchain
+        # rules per PBS release × Python version × platform).
+        "snapshots/python_interpreters.BUILD.bazel": "@python_interpreters//:BUILD.bazel",
+        # whl_install: per-wheel install BUILD. attrs is a stable
+        # pure-Python wheel — pins the select_chain + gazelle_index_whl
+        # filegroup layout shared by every whl_install repo.
+        "snapshots/whl_install.attrs.BUILD.bazel": "@whl_install__aspect_rules_py__attrs__23_2_0//:BUILD.bazel",
+        # sdist_build: PEP 517 build wiring. bravado_core is the only sdist
+        # in the root lock — pins the py_binary build_tool + pep517_whl rule
+        # shape used by every sdist_build repo.
+        "snapshots/sdist_build.bravado_core.BUILD.bazel": "@sdist_build__aspect_rules_py__bravado_core__6_1_1//:BUILD.bazel",
+    },
 )

@@ -51,6 +51,12 @@ config_setting(
 )
 """.format(name = name),
         )
+    content.append("""
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//visibility:public"],
+)
+""")
     repository_ctx.file("dep_group/BUILD.bazel", content = "\n".join(content))
 
     ################################################################################
@@ -71,6 +77,11 @@ filegroup(
     name = "gazelle_index_whls",
     srcs = select({index_select_clauses},
     ),
+    visibility = ["//visibility:public"],
+)
+
+exports_files(
+    ["defs.bzl", "requirements.bzl"],
     visibility = ["//visibility:public"],
 )
 """.format(index_select_clauses = indent(pprint(index_select_clauses), "        ").lstrip()))
@@ -118,6 +129,11 @@ alias(
         no_match_error = "{error}",
     ),
     target_compatible_with = select(compatible_with({compat})),
+    visibility = ["//visibility:public"],
+)
+
+exports_files(
+    ["BUILD.bazel"],
     visibility = ["//visibility:public"],
 )
 """.format(

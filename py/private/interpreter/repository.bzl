@@ -346,6 +346,13 @@ toolchain(
             target_settings = target_settings,
         ))
 
+    content.append("""
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//visibility:public"],
+)
+""")
+
     rctx.file("BUILD.bazel", content = "\n".join(content))
 
     if not features.external_deps.extension_metadata_has_reproducible:

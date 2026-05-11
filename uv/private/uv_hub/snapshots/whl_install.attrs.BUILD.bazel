@@ -1,0 +1,59 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library")
+load("@aspect_rules_py//uv/private/whl_install:defs.bzl", "select_chain")
+load("@aspect_rules_py//uv/private/whl_install:rule.bzl", "whl_install")
+load("@bazel_skylib//lib:selects.bzl", "selects")
+
+filegroup(
+    name = "_no_sbuild",
+    srcs = [],
+    target_compatible_with = ["@platforms//:incompatible"],
+)
+
+
+select_chain(
+   name = "whl",
+   arms = {
+        "@aspect_rules_py_pip_configurations//:py3-any-none": "@whl__attrs__99b87a485a5820b2//file",
+        "//conditions:default": ":_no_sbuild"
+   },
+   visibility = ["//visibility:private"],
+)
+
+filegroup(
+    name = "gazelle_index_whl",
+    srcs = [
+        "@whl__attrs__99b87a485a5820b2//file",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+
+whl_install(
+    name = "actual_install",
+    src = ":whl",
+    compile_pyc = select({
+        "@aspect_rules_py//uv/private/pyc:is_precompile": True,
+        "//conditions:default": False,
+    }),
+    pyc_invalidation_mode = select({
+        "@aspect_rules_py//uv/private/pyc:is_unchecked_hash": "unchecked-hash",
+        "@aspect_rules_py//uv/private/pyc:is_timestamp": "timestamp",
+        "//conditions:default": "checked-hash",
+    }),
+    top_levels = ["attr", "attrs", "attrs-23.2.0.dist-info"],
+    namespace_top_levels = [],
+    console_scripts = [],
+    visibility = ["//visibility:private"],
+)
+
+alias(
+    name = "install",
+    actual = ":actual_install",
+    visibility = ["//visibility:public"],
+)
+
+
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//visibility:public"],
+)

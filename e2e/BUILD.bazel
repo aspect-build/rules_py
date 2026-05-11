@@ -1,3 +1,5 @@
+load("@bazel_lib//lib:write_source_files.bzl", "write_source_files")
+
 # A host-compatible Linux platform with glibc 2.28+, used as the build target
 # and exec platform on Linux. Inherits cpu/os from the auto-detected host so
 # it works on both x86_64 and aarch64 builders without separate entries.
@@ -8,4 +10,61 @@ platform(
     ],
     parents = ["@platforms//host"],
     visibility = ["//:__subpackages__"],
+)
+
+# Snapshots of generated repository files emitted by rules_py's repo rules
+# *under the e2e harness*. Two shapes are pinned:
+#
+#   1. Multi-project hub (`@pypi`): ~38 `uv.project()` calls. Catches
+#      regressions that only manifest with N>1 projects (multi-arm package
+#      aliases, scaled dep_group emission).
+#   2. Single-project hub (`@pypi_single`, see //cases/single-project-hub):
+#      one `uv.project()` call. Mirrors the shape rules_py's own root MODULE
+#      produces, but with a hermetic synthetic lock so the snapshot doesn't
+#      churn whenever rules_py's dev deps move.
+#
+# Source files live in snapshots/ which is a data-only directory (no BUILD
+# inside) so the entire dir can be marked linguist-generated in .gitattributes.
+#
+# To update after an intentional change, run:
+#   bazel run //:snapshots
+write_source_files(
+    name = "snapshots",
+    files = {
+        # @pypi (multi-project, ~38 dep_groups)
+        # ----------------------------------------------------------------
+        # Per-package alias with N=3 select arms. Catches regressions in
+        # multi-project alias emission and the no_match_error message.
+        "snapshots/pypi.cowsay.BUILD.bazel": "@pypi//cowsay:BUILD.bazel",
+        # 38 `config_setting` rules — one per `uv.project()` call. Catches
+        # regressions in the public dep_group surface at scale.
+        "snapshots/pypi.dep_group.BUILD.bazel": "@pypi//dep_group:BUILD.bazel",
+
+        # @pypi_single (single-project baseline)
+        # ----------------------------------------------------------------
+        # uv_hub: public helpers consumed via @pypi_single//:defs.bzl. Pins
+        # the single-entry VIRTUALENVS list, _repo string, and the
+        # compatible_with helpers in their minimal form.
+        "snapshots/pypi_single.defs.bzl": "@pypi_single//:defs.bzl",
+        # uv_hub: rules_python-compat shim. Pins the canonical-name format
+        # used by the requirement() helper for a single-project hub.
+        "snapshots/pypi_single.requirements.bzl": "@pypi_single//:requirements.bzl",
+        # uv_hub: per-package alias with N=1 select arm — the minimal
+        # shape that the multi-arm @pypi//cowsay snapshot generalizes.
+        "snapshots/pypi_single.cowsay.BUILD.bazel": "@pypi_single//cowsay:BUILD.bazel",
+        # uv_hub: dep_group config_settings with a single entry — the
+        # minimal shape that the 38-entry @pypi//dep_group snapshot scales.
+        "snapshots/pypi_single.dep_group.BUILD.bazel": "@pypi_single//dep_group:BUILD.bazel",
+        # uv_project: package-name → SCC alias map for one project. Pins
+        # how a one-package surface (cowsay only) is wired into the SCC
+        # graph.
+        "snapshots/project_single.BUILD.bazel": "@project__single_project_hub//:BUILD.bazel",
+        # uv_project: SCC py_library definitions. With a single non-cyclic
+        # dep, this snapshot pins the simplest possible SCC partition.
+        "snapshots/project_single.private.sccs.BUILD.bazel": "@project__single_project_hub//private/sccs:BUILD.bazel",
+        # uv_project: decide_marker rules. cowsay has no version-conditional
+        # deps, so this snapshot pins the zero-marker shape — useful as a
+        # lower-bound check that the file still gets emitted with no entries.
+        "snapshots/project_single.private.markers.BUILD.bazel": "@project__single_project_hub//private/markers:BUILD.bazel",
+    },
 )

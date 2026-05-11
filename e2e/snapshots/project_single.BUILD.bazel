@@ -1,0 +1,82 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library")
+
+
+
+# cowsay
+# {
+#     "single_project_hub": {
+#         "aee49c8f5bedac06": {
+#             "": 1,
+#         },
+#     },
+# }
+
+
+alias(
+    name = "_package_cowsay_single_project_hub",
+    actual = select({
+        "//conditions:default": "//private/sccs:aee49c8f5bedac06",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
+    name = "cowsay",
+    actual = select({
+        "//private/dep_group:single_project_hub": ":_package_cowsay_single_project_hub",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+# single_project_hub
+# {
+#     "single_project_hub": {
+#         "b3c9a68bcea9c616": {
+#             "": 1,
+#         },
+#     },
+# }
+
+
+alias(
+    name = "_package_single_project_hub_single_project_hub",
+    actual = select({
+        "//conditions:default": "//private/sccs:b3c9a68bcea9c616",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
+    name = "single_project_hub",
+    actual = select({
+        "//private/dep_group:single_project_hub": ":_package_single_project_hub_single_project_hub",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+filegroup(
+    name = "all_requirements",
+    srcs = select({
+        "//private/dep_group:single_project_hub": [
+            "//:cowsay",
+            "//:single_project_hub",
+        ],
+    }),
+    visibility = ["//visibility:public"],
+)
+filegroup(
+    name = "gazelle_index_whls",
+    srcs = [
+        "@whl_install__single_project_hub__cowsay__6_1//:gazelle_index_whl",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//visibility:public"],
+)

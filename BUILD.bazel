@@ -9,11 +9,17 @@ load("//uv:defs.bzl", "gazelle_python_manifest")
 # gazelle:exclude bazel
 # gazelle:exclude examples
 # gazelle:exclude py/tests
+
+# Snapshot directories hold copies of generated repo-rule output checked
+# in for diff_test regression coverage; they aren't real Starlark sources.
+# gazelle:exclude uv/private/uv_hub/snapshots
+
 # uv/extensions.bzl transitively loads @bazel_tools http.bzl whose own
 # transitive cache.bzl/utils.bzl loads have no bzl_library targets to declare,
 # which breaks starlark_doc_extract validation. Skip it until @bazel_tools
 # exposes those. See https://github.com/bazelbuild/bazel/issues/12444.
 # gazelle:exclude uv/extensions.bzl
+
 # Use aspect_bazel_lib's bzl_library, which auto-generates the
 # starlark_doc_extract targets queried at release time.
 # gazelle:map_kind bzl_library bzl_library @bazel_lib//:bzl_library.bzl
@@ -32,14 +38,23 @@ aspect_gazelle(
     with_check = True,
 )
 
+# Snapshot directories hold copies of generated repo-rule output and aren't
+# real Starlark sources — see .gitattributes / //uv/private/uv_hub:snapshots.
+_BUILDIFIER_EXCLUDES = [
+    "./uv/private/uv_hub/snapshots/*",
+    "./e2e/snapshots/*",
+]
+
 buildifier(
     name = "buildifier",
+    exclude_patterns = _BUILDIFIER_EXCLUDES,
     lint_mode = "fix",
     mode = "fix",
 )
 
 buildifier(
     name = "buildifier.check",
+    exclude_patterns = _BUILDIFIER_EXCLUDES,
     # TODO: enable lint_mode = "warn" once existing warnings are fixed
     lint_mode = "",
     mode = "diff",

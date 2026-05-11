@@ -189,6 +189,11 @@ filegroup(
     srcs = {gazelle_whls},
     visibility = ["//visibility:public"],
 )
+
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//visibility:public"],
+)
 """.format(
         arms = indent(pprint(all_requirements), " " * 4).lstrip(),
         gazelle_whls = indent(pprint([it.replace("//:install", "//:gazelle_index_whl") for it in installs]), " " * 4).lstrip(),
@@ -251,6 +256,13 @@ py_library(
             deps = indent(pprint(deps), " " * 4).lstrip(),
         ))
 
+    content.append("""
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//visibility:public"],
+)
+""")
+
     repository_ctx.file("private/sccs/BUILD.bazel", "\n".join(content))
 
     ################################################################################
@@ -268,6 +280,13 @@ decide_marker(
     visibility = ["//:__subpackages__"],
 )
 """.format(name = marker_id, marker = repr(marker_expr)))
+
+    content.append("""
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//visibility:public"],
+)
+""")
 
     repository_ctx.file("private/markers/BUILD.bazel", "\n".join(content))
 
