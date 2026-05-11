@@ -1,0 +1,14 @@
+[project]
+name = "uv_sdist_fallback"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    "cowsay==6.0",
+]
+
+# cowsay 6.0 ships both an sdist and a `py3-none-any.whl`. Forcing it to
+# build from source via `no-binary-package` exercises the source-build
+# pathway end-to-end for a package whose lockfile entry has a matching
+# anyarch wheel.
+[tool.uv]
+no-binary-package = ["cowsay"]
