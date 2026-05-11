@@ -1,0 +1,30 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+# Regression: requests[socks] is requested via tool.uv.override-dependencies,
+# which lands in uv.lock as `[manifest] overrides` rather than inside any
+# package's dependencies. The optional dep (pysocks) must still be present in
+# the resolved venv. We only declare a direct dep on requests; importing
+# `socks` is the actual assertion.
+py_test(
+    name = "manifest_extras",
+    srcs = ["__test__.py"],
+    dep_group = "test",
+    main = "__test__.py",
+    python_version = "3.11",
+    deps = [
+        "@manifest_extras_hub//requests",
+    ],
+)
+
+py_test(
+    name = "manifest_extras_venv_test",
+    srcs = ["__test__.py"],
+    dep_group = "test",
+    expose_venv = True,
+    isolated = False,
+    main = "__test__.py",
+    python_version = "3.11",
+    deps = [
+        "@manifest_extras_hub//requests",
+    ],
+)

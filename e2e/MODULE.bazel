@@ -346,6 +346,21 @@ uv.project(
 )
 # }}}
 
+# For cases/uv-manifest-extras
+# Regression: extras requested via tool.uv.override-dependencies land in
+# uv.lock under `[manifest] overrides`; the optional deps must still be
+# threaded into the dependency graph. Isolated in its own hub so the
+# extras-driven resolution can't be masked by other projects.
+# {{{
+uv.declare_hub(hub_name = "manifest_extras_hub")
+uv.project(
+    hub_name = "manifest_extras_hub",
+    lock = "//cases/uv-manifest-extras:uv.lock",
+    pyproject = "//cases/uv-manifest-extras:pyproject.toml",
+)
+use_repo(uv, "manifest_extras_hub")
+# }}}
+
 # For cases/uv-platform-filter-844
 # Regression: watchdog ships win_ia64 wheels that must be filtered out.
 # {{{
