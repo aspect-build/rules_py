@@ -1,6 +1,7 @@
 """Tests for pep508_evaluate.bzl."""
 
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
+load(":defs.bzl", "MARKER_ENV_ALIASES")
 load(":pep508_evaluate.bzl", "evaluate")
 
 _LINUX_ENV = {
@@ -15,6 +16,22 @@ _WINDOWS_ENV = {
     "python_full_version": "3.11.0",
     "python_version": "3.11",
     "sys_platform": "win32",
+}
+
+_AARCH64_ENV = {
+    "platform_machine": "aarch64",
+    "python_full_version": "3.11.0",
+    "python_version": "3.11",
+    "sys_platform": "linux",
+    "_aliases": MARKER_ENV_ALIASES,
+}
+
+_X86_64_ENV = {
+    "platform_machine": "x86_64",
+    "python_full_version": "3.11.0",
+    "python_version": "3.11",
+    "sys_platform": "linux",
+    "_aliases": MARKER_ENV_ALIASES,
 }
 
 def _evaluate_test_impl(ctx):
@@ -63,6 +80,16 @@ def _evaluate_test_impl(ctx):
     asserts.true(env, evaluate("('linux' in sys_platform)", env = _LINUX_ENV))
     asserts.true(env, evaluate("('win32' not in sys_platform)", env = _LINUX_ENV))
     asserts.true(env, evaluate("(python_version >= '3.10' and 'linux' in sys_platform)", env = _LINUX_ENV))
+
+    # Architecture alias normalization (decide_marker populates _aliases so
+    # Python-spelled arch names match Bazel-spelled platform_machine values).
+    asserts.true(env, evaluate("platform_machine == 'arm64'", env = _AARCH64_ENV))
+    asserts.true(env, evaluate("'arm64' == platform_machine", env = _AARCH64_ENV))
+    asserts.true(env, evaluate("platform_machine == 'aarch64'", env = _AARCH64_ENV))
+    asserts.false(env, evaluate("platform_machine == 'arm64'", env = _X86_64_ENV))
+    asserts.true(env, evaluate("platform_machine == 'amd64'", env = _X86_64_ENV))
+    asserts.true(env, evaluate("platform_machine == 'x64'", env = _X86_64_ENV))
+    asserts.true(env, evaluate("platform_machine != 'arm64'", env = _X86_64_ENV))
 
     return unittest.end(env)
 
