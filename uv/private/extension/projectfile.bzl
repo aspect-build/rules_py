@@ -6,7 +6,7 @@ load("//uv/private:normalize_name.bzl", "normalize_name")
 load("//uv/private/versions:versions.bzl", "find_matching_version")
 load(":dep_groups.bzl", "resolve_dependency_group_specs")
 
-def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_map, package_versions = {}, preferred_versions = {}):
+def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_map, package_versions = {}, preferred_versions = {}, fail_if_missing = True):
     """Parses a requirement string into a list of dependency-marker pairs.
 
     This function parses a PEP 508 requirement string (e.g.,
@@ -18,6 +18,11 @@ def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_m
         req_string: The requirement string to parse.
         version_map: A dictionary mapping package names to their default version
             dependency tuples.
+        fail_if_missing: If True (the default), fail when the requirement's
+            package can't be located in the lockfile. If False, return an empty
+            list — useful for advisory requirements like the project-level
+            `default_build_dependencies`, which may legitimately be absent
+            from lockfiles that ship no sdists needing the build tooling.
 
     Returns:
         A list of tuples, where each tuple is `(Dependency, Marker)`.
@@ -96,6 +101,8 @@ def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_m
             }
             v = find_matching_version(match_spec, candidates)
     if v == None:
+        if not fail_if_missing:
+            return []
         fail("Unable to resolve a default version for requirement {} in {}".format(repr(req_string), projectfile))
     else:
         lock_id, pkg_name, version, _ = v
