@@ -54,6 +54,7 @@ bzl_library(
         "//uv/private:sha1",
         "//uv/private/constraints/platform:defs",
         "//uv/private/constraints/python:defs",
+        "//uv/private/whl_install:repository",
     ],
 )
 

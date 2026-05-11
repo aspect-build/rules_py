@@ -214,7 +214,7 @@ def sort_select_arms(arms):
     pairs = sorted(arms.items(), key = lambda kv: select_key(kv[0]), reverse = True)
     return {a: b for a, b in pairs}
 
-def _compatible_python_tags(python_tag, abi_tag):
+def compatible_python_tags(python_tag, abi_tag):
     if abi_tag != "abi3" or not python_tag.startswith("cp"):
         return [python_tag]
 
@@ -286,7 +286,7 @@ def _whl_install_impl(repository_ctx):
 
             for abi_tag in parsed.abi_tags:
                 for python_tag in parsed.python_tags:
-                    for compatible_python_tag in _compatible_python_tags(python_tag, abi_tag):
+                    for compatible_python_tag in compatible_python_tags(python_tag, abi_tag):
                         # Escape hatch for ignoring unsupported interpreters
                         if not supported_python(compatible_python_tag):
                             continue

@@ -3,6 +3,7 @@
 # should recognize as compatible (PEP 652).
 
 load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 py_test(
     name = "test_import",
@@ -10,8 +11,7 @@ py_test(
     dep_group = "abi3-compat",
     main = "test_abi3.py",
     python_version = "3.12",
-    target_compatible_with = ["@platforms//os:linux"],
-    deps = ["@pypi//cryptography"],
+    deps = ["@abi3_compat_pypi//cryptography"],
 )
 
 py_test(
@@ -22,6 +22,20 @@ py_test(
     isolated = False,
     main = "test_abi3.py",
     python_version = "3.12",
-    target_compatible_with = ["@platforms//os:linux"],
-    deps = ["@pypi//cryptography"],
+    deps = ["@abi3_compat_pypi//cryptography"],
+)
+
+# The py_tests above also pass without the abi3 fix (they fall back to
+# sdist build). This inspects the dep graph for the expanded
+# cp3{12..20}-...-abi3 config_settings the fix produces.
+genquery(
+    name = "cryptography_targets",
+    expression = "deps(@abi3_compat_pypi//cryptography)",
+    scope = ["@abi3_compat_pypi//cryptography"],
+)
+
+sh_test(
+    name = "test_abi3_expansion",
+    srcs = ["test_abi3_expansion.sh"],
+    data = [":cryptography_targets"],
 )
