@@ -6,9 +6,9 @@
 # generate an incompatible default target rather than failing with an empty
 # select chain.
 
-load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("@aspect_rules_py//py:defs.bzl", "py_test")
 
-# Expose @pypi//pywin32's deps so the shell test can assert the generated
+# Expose @pypi//pywin32's deps so the test can assert the generated
 # whl_install BUILD shape (whl_missing default, select_chain arm count).
 genquery(
     name = "pywin32_targets",
@@ -16,9 +16,11 @@ genquery(
     scope = ["@pypi//pywin32"],
 )
 
-sh_test(
+py_test(
     name = "test",
-    srcs = ["test_no_sdist.sh"],
+    srcs = ["test_no_sdist.py"],
     data = [":pywin32_targets"],
+    main = "test_no_sdist.py",
     target_compatible_with = ["@platforms//os:linux"],
+    deps = ["@bazel_tools//tools/python/runfiles"],
 )
