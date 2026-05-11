@@ -42,13 +42,9 @@ LINUX_ARCHES = [
     "armv7l",
 ]
 
-# CPU architectures supported for legacy bare linux_* wheel tags. Generic
-# linux_* tags carry no libc/version constraint, so each entry here produces a
-# config_setting that matches musl or older-glibc systems too -- something the
-# old "alias linux_armv7l -> manylinux_2_17_armv7l" shortcut got wrong.
-# armv8l is what packaging.tags emits for 32-bit Python on an ARMv8/aarch64
-# kernel; it shares the @platforms//cpu:arm constraint with the other 32-bit
-# ARM tags via platform_repo_name_mangling in macro.bzl.
+# CPU architectures supported for bare linux_* wheel tags. These config_settings
+# carry no libc/version constraint, so they match musl and older-glibc systems
+# too.
 GENERIC_LINUX_ARCHES = [
     "x86_64",
     "i686",
