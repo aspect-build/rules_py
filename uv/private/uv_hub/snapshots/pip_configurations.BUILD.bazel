@@ -684,6 +684,17 @@ selects.config_setting_group(
 
 
 selects.config_setting_group(
+    name = "py3-linux_armv6l-none",
+    match_all = [
+    "@aspect_rules_py//uv/private/constraints/platform:linux_armv6l",
+    "@aspect_rules_py//uv/private/constraints/abi:none",
+    "@aspect_rules_py//uv/private/constraints/python:py3",
+],
+    visibility = ["//visibility:public"],
+)
+
+
+selects.config_setting_group(
     name = "py3-macosx_10_12_universal2-none",
     match_all = [
     "@aspect_rules_py//uv/private/constraints/platform:macosx_10_12_universal2",
