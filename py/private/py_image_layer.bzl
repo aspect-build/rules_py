@@ -32,12 +32,9 @@ Sharing model:
   - Ungrouped pip packages: squashed by the rule into one per-rule tar.
 """
 
-load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@rules_python//python:defs.bzl", "PyInfo")
-load("@tar.bzl//tar:mtree.bzl", "mtree_spec")
-load("@tar.bzl//tar:tar.bzl", "tar")
+load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
-load(":mtree_preserve_symlinks.bzl", "mtree_preserve_symlinks")
 
 _TAR_TOOLCHAIN = "@tar.bzl//tar/toolchain:type"
 
@@ -46,9 +43,11 @@ _TAR_TOOLCHAIN = "@tar.bzl//tar/toolchain:type"
 # between Bazel 8 (`+`) and Bazel 9 (`~`); `whl_install__` is the stable
 # anchor we match on, which works under both.
 def _extract_whl_install_pkg(label_str):
-    """If `label_str` is inside a whl_install repo, return the canonical pip
-    package name; otherwise return None. Tolerates both Bazel 8 (`+`) and
-    Bazel 9 (`~`) module-extension separators.
+    """Extract the pip package name from a whl_install repo label.
+
+    Returns the canonical pip package name if `label_str` lives inside a
+    whl_install repo; otherwise returns None. Tolerates both Bazel 8
+    (`+`) and Bazel 9 (`~`) module-extension separators.
     """
     marker = "whl_install__"
     idx = label_str.find(marker)
@@ -61,9 +60,16 @@ def _extract_whl_install_pkg(label_str):
     return parts[1]
 
 def normalize_label(label_str):
-    """Canonicalize a label so user-supplied strings match `str(target.label)`:
-    whl_install labels → '@pip//<pkg>', '@@//' prefix stripped, implicit target
-    names expanded ('//foo/bar' → '//foo/bar:bar').
+    """Canonicalize a label so user-supplied strings match `str(target.label)`.
+
+    Rewrites whl_install labels to '@pip//<pkg>', strips the '@@//' prefix,
+    and expands implicit target names ('//foo/bar' → '//foo/bar:bar').
+
+    Args:
+        label_str: Label or string to canonicalize.
+
+    Returns:
+        The canonicalized label string.
     """
     label_str = str(label_str)
     pkg = _extract_whl_install_pkg(label_str)
@@ -190,8 +196,11 @@ def _tar_toolchain(ctx):
     return tc.tarinfo, tc.default
 
 def _build_pip_layers(ctx, plan, label, install_dir):
-    """Returns (layers, merge_group): layers is tuple of struct(tar, group) for this
-    package; merge_group is set (and layers is empty) iff deferred to _merge_aspect.
+    """Declare per-package pip tars for one wheel target.
+
+    Returns (layers, merge_group): layers is a tuple of struct(tar, group)
+    entries for this package; merge_group is set (and layers is empty) iff
+    the package is deferred to `_merge_aspect`.
     """
     subpath_for_this = plan.subpath_groups.get(label, {})
     whole_group = plan.whole_groups.get(label, None)
@@ -313,10 +322,10 @@ def _layer_aspect_impl(target, ctx):
     transitive_pkgs = [info.pip_packages for info in dep_infos]
     transitive_fp = [info.first_party_layers for info in dep_infos]
 
-    if OutputGroupInfo in target and hasattr(target[OutputGroupInfo], "install_dir"):
+    if PyWheelsInfo in target and ctx.rule.kind in ("whl_install", "py_unpacked_wheel"):
         plan = ctx.attr._layer_tier[LayerTierInfo]
         label = normalize_label(str(target.label))
-        install_dir = target[OutputGroupInfo].install_dir
+        install_dir = depset([w.install_tree for w in target[PyWheelsInfo].wheels.to_list()])
         layers, merge_group = _build_pip_layers(ctx, plan, label, install_dir)
 
         return [_LayerInfo(
@@ -339,7 +348,8 @@ def _layer_aspect_impl(target, ctx):
     kind = ctx.rule.kind
     is_binary = kind in _PY_BINARY_KINDS
 
-    # Skip PyInfo / install_dir deps — they self-capture via the aspect.
+    # Skip PyInfo deps (including wheel-leaf targets, which also emit PyInfo) —
+    # they self-capture via the aspect.
     if kind not in _PY_VENV_KINDS and PyInfo in target and not is_binary:
         own_parts = [target[DefaultInfo].files]
         for attr_name in ("data", "deps"):
@@ -348,8 +358,6 @@ def _layer_aspect_impl(target, ctx):
                 continue
             for dep in attr_val:
                 if PyInfo in dep:
-                    continue
-                if OutputGroupInfo in dep and hasattr(dep[OutputGroupInfo], "install_dir"):
                     continue
                 if DefaultInfo in dep:
                     own_parts.append(dep[DefaultInfo].files)
