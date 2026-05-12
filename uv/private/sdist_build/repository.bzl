@@ -153,6 +153,10 @@ def _sdist_build_impl(repository_ctx):
     - `is_native` + `extra_deps`: used to generate a standard build file
       with the appropriate rule and resolved dependencies
 
+    For native builds, `toolchains` and `env` are emitted verbatim into the
+    generated BUILD file. Toolchain targets expose `TemplateVariableInfo`; env
+    values are make-variable references that Bazel resolves at analysis time.
+
     See //uv/private/sdist_configure:defs.bzl for the tool contract.
 
     Args:
@@ -211,6 +215,22 @@ def _sdist_build_impl(repository_ctx):
             strip = repository_ctx.attr.pre_build_patch_strip,
         )
 
+    # Emit toolchains/env verbatim for native builds; empty list/dict is honored.
+    toolchain_attrs = ""
+    if is_native:
+        toolchains = repository_ctx.attr.toolchains
+        env = repository_ctx.attr.env
+        toolchain_attrs = """
+    toolchains = [
+{toolchains}
+    ],
+    env = {{
+{env}
+    }},""".format(
+            toolchains = "\n".join(["        \"{}\",".format(t) for t in toolchains]),
+            env = "\n".join(["        \"{}\": \"{}\",".format(k, v) for k, v in sorted(env.items())]),
+        )
+
     repository_ctx.file("BUILD.bazel", content = """
 load("@aspect_rules_py//uv/private/pep517_whl:rule.bzl", "{rule}")
 load("@aspect_rules_py//py:defs.bzl", "py_binary")
@@ -227,7 +247,7 @@ py_binary(
     src = "{src}",
     tool = ":build_tool",
     version = "{version}",
-    args = [],{patch_attrs}
+    args = [],{patch_attrs}{toolchain_attrs}
     visibility = ["//visibility:public"],
 )
 
@@ -241,6 +261,7 @@ exports_files(
         rule = "pep517_native_whl" if is_native else "pep517_whl",
         version = repository_ctx.attr.version,
         patch_attrs = patch_attrs,
+        toolchain_attrs = toolchain_attrs,
     ))
 
 sdist_build = repository_rule(
@@ -265,5 +286,25 @@ sdist_build = repository_rule(
         "version": attr.string(),
         "pre_build_patches": attr.label_list(default = []),
         "pre_build_patch_strip": attr.int(default = 0),
+        "toolchains": attr.string_list(
+            default = ["@bazel_tools//tools/cpp:current_cc_toolchain"],
+            doc = "Toolchain labels forwarded verbatim to the generated pep517_native_whl(...) " +
+                  "call. Each target's TemplateVariableInfo variables are available for $(VAR) " +
+                  "expansion in `env`. Defaults to the CC toolchain for native sdists. " +
+                  "Set to [] via uv.override_package to strip CC and substitute another toolchain.",
+        ),
+        "env": attr.string_dict(
+            default = {
+                "AR": "$(AR)",
+                "CC": "$(CC)",
+                "CXX": "$(CC)",
+                "LD": "$(LD)",
+                "STRIP": "$(STRIP)",
+            },
+            doc = "Environment variables for the build action; values may reference $(VAR) " +
+                  "make-variables sourced from the listed toolchains. CXX defaults to $(CC) " +
+                  "because most clang/gcc-based toolchains use a single driver for both languages. " +
+                  "Set to {} via uv.override_package to strip the default CC env.",
+        ),
     },
 )

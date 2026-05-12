@@ -1,0 +1,7 @@
+[[package]]
+name = "jpype1"
+build-dependencies = [
+    { name = "scikit-build-core" },
+    { name = "setuptools" },
+    { name = "wheel" },
+]

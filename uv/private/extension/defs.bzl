@@ -70,6 +70,21 @@ load(":graph_utils.bzl", "activate_extras", "collect_sccs")
 load(":lockfile.bzl", "build_marker_graph", "collect_bdists", "collect_configurations", "collect_markers", "collect_sdists", "normalize_deps")
 load(":projectfile.bzl", "collate_versions_by_name", "collect_activated_extras", "extract_requirement_marker_pairs")
 
+# Default toolchain + env wired into the generated pep517_native_whl(...) call
+# for native sdists. Match the matching defaults on sdist_build's repo rule so
+# a no-op override_package (toolchains/env left at their default) produces the
+# same generated BUILD as no override at all. To strip CC (or replace with
+# another toolchain), pass `toolchains = [...]` and `env = {...}` explicitly —
+# an empty list / dict is honored verbatim.
+_DEFAULT_NATIVE_TOOLCHAINS = [Label("@bazel_tools//tools/cpp:current_cc_toolchain")]
+_DEFAULT_NATIVE_ENV = {
+    "AR": "$(AR)",
+    "CC": "$(CC)",
+    "CXX": "$(CC)",
+    "LD": "$(LD)",
+    "STRIP": "$(STRIP)",
+}
+
 def _merge_scc_dep_markers_by_surface_package(marked_deps):
     merged = {}
     for dep, markers in marked_deps.items():
@@ -226,11 +241,19 @@ def _parse_projects(module_ctx, hub_specs):
                     ))
 
                 has_target = override.target != None
+
+                # Toolchains / env count as modifications when they differ from
+                # the rule defaults (which equal sdist_build's defaults, so a
+                # no-op override has neither effect nor anything to validate).
+                toolchains_overridden = [str(t) for t in override.toolchains] != [str(t) for t in _DEFAULT_NATIVE_TOOLCHAINS]
+                env_overridden = override.env != _DEFAULT_NATIVE_ENV
                 has_modifications = (
                     override.pre_build_patches or
                     override.post_install_patches or
                     override.extra_deps or
-                    override.extra_data
+                    override.extra_data or
+                    toolchains_overridden or
+                    env_overridden
                 )
 
                 if has_target and has_modifications:
@@ -376,6 +399,19 @@ def _parse_projects(module_ctx, hub_specs):
                         pre_build_patches = [str(p) for p in pkg_override.pre_build_patches]
                         pre_build_patch_strip = pkg_override.pre_build_patch_strip
 
+                    # Only thread the toolchains/env kwargs through to
+                    # sdist_build when the override differs from the
+                    # default — otherwise let sdist_build use its own
+                    # matching defaults (avoids unnecessary kwargs and
+                    # keeps the no-override path simple).
+                    toolchains_for_sbuild = None
+                    env_for_sbuild = None
+                    if pkg_override:
+                        if [str(t) for t in pkg_override.toolchains] != [str(t) for t in _DEFAULT_NATIVE_TOOLCHAINS]:
+                            toolchains_for_sbuild = [str(t) for t in pkg_override.toolchains]
+                        if pkg_override.env != _DEFAULT_NATIVE_ENV:
+                            env_for_sbuild = pkg_override.env
+
                     sbuild_specs[sbuild_id] = struct(
                         src = sdist,
                         deps = ["@{0}//:{1}".format(*it) for it in build_deps],
@@ -385,6 +421,8 @@ def _parse_projects(module_ctx, hub_specs):
                         pre_build_patch_strip = pre_build_patch_strip,
                         available_deps = project_available_deps,
                         configure_command = project.unstable_configure_command,
+                        toolchains = toolchains_for_sbuild,
+                        env = env_for_sbuild,
                     )
 
                     has_sbuild = True
@@ -568,6 +606,14 @@ def _uv_impl(module_ctx):
         if sbuild_cfg.pre_build_patches:
             sbuild_kwargs["pre_build_patches"] = sbuild_cfg.pre_build_patches
             sbuild_kwargs["pre_build_patch_strip"] = sbuild_cfg.pre_build_patch_strip
+
+        # `None` (sentinel for "user didn't deviate from default") leaves
+        # sdist_build to use its own matching default. An empty list/dict
+        # passes through verbatim and emits empty toolchains/env.
+        if sbuild_cfg.toolchains != None:
+            sbuild_kwargs["toolchains"] = sbuild_cfg.toolchains
+        if sbuild_cfg.env != None:
+            sbuild_kwargs["env"] = sbuild_cfg.env
         sdist_build(**sbuild_kwargs)
 
     for install_id, install_cfg in cfg.install_cfgs.items():
@@ -663,6 +709,21 @@ _override_package_tag = tag_class(
         # Full replacement: provide a target that substitutes for the package entirely.
         # Mutually exclusive with patch/exclude attributes.
         "target": attr.label(mandatory = False),
+
+        # Per-package toolchain plumbing for native sdist builds. Defaults
+        # to the CC toolchain + CC/CXX/AR/LD/STRIP env so leaving these
+        # untouched produces the same generated BUILD as no override at
+        # all. Set them explicitly to plug in another toolchain (Java,
+        # Rust, …) or to wipe the defaults — `toolchains = []` and
+        # `env = {}` emit empty lists/dicts verbatim, stripping CC.
+        "toolchains": attr.label_list(
+            default = _DEFAULT_NATIVE_TOOLCHAINS,
+            doc = "Toolchains forwarded to the generated pep517_native_whl(...) call. Each target's TemplateVariableInfo make-variables become available for $(VAR) expansion in `env`. Empty list strips the default CC toolchain.",
+        ),
+        "env": attr.string_dict(
+            default = _DEFAULT_NATIVE_ENV,
+            doc = "Environment variables for the build action. Values may reference $(VAR) make-variables sourced from any toolchain in `toolchains`. Empty dict strips the default CC env.",
+        ),
 
         # Pre-build patches: applied to extracted sdist source before wheel build.
         "pre_build_patches": attr.label_list(
