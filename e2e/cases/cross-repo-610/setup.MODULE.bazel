@@ -1,0 +1,21 @@
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+
+local_repository(
+    name = "subrepo_a",
+    path = "./cases/cross-repo-610/subrepo_a",
+)
+
+local_repository(
+    name = "subrepo_b",
+    path = "./cases/cross-repo-610/subrepo_b",
+)
+
+uv.declare_hub(hub_name = "pypi_cross_repo_610")
+uv.project(
+    hub_name = "pypi_cross_repo_610",
+    lock = "//cases/cross-repo-610:uv.lock",
+    pyproject = "//cases/cross-repo-610:pyproject.toml",
+)
+use_repo(uv, "pypi_cross_repo_610")

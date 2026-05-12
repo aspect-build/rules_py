@@ -1,0 +1,10 @@
+"""Versions containing '+' must not produce invalid Bazel repo names."""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_uv_plus_version")
+uv.project(
+    hub_name = "pypi_uv_plus_version",
+    lock = "//cases/uv-plus-version:uv.lock",
+    pyproject = "//cases/uv-plus-version:pyproject.toml",
+)
+use_repo(uv, "pypi_uv_plus_version")

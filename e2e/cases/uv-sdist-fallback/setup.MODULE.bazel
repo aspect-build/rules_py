@@ -1,0 +1,19 @@
+"""Regression: a package whose lockfile entry has both an sdist *and* a
+`-none-any.whl` must still be source-buildable. cowsay 6.0 has both
+shapes; the pyproject's `no-binary-package` setting forces the source
+build path at runtime. Uses its own hub to keep the no-binary setting
+isolated from the shared `pypi` hub.
+"""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_sdist_fallback")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "setuptools",
+    ],
+    hub_name = "pypi_sdist_fallback",
+    lock = "//cases/uv-sdist-fallback:uv.lock",
+    pyproject = "//cases/uv-sdist-fallback:pyproject.toml",
+)
+use_repo(uv, "pypi_sdist_fallback")

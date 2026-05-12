@@ -1,0 +1,8 @@
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_pytest_subdir_imports")
+uv.project(
+    hub_name = "pypi_pytest_subdir_imports",
+    lock = "//cases/pytest-subdir-imports:uv.lock",
+    pyproject = "//cases/pytest-subdir-imports:pyproject.toml",
+)
+use_repo(uv, "pypi_pytest_subdir_imports")

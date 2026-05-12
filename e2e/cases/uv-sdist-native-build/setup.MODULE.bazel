@@ -1,0 +1,17 @@
+"""Verify that native_build_toolchain_type is registered via @rules_py_tools//:all
+so that sdist packages with C extensions can be built with pep517_native_whl.
+python-geohash is sdist-only and contains a C++ extension (_geohash).
+"""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_uv_sdist_native_build")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "setuptools",
+    ],
+    hub_name = "pypi_uv_sdist_native_build",
+    lock = "//cases/uv-sdist-native-build:uv.lock",
+    pyproject = "//cases/uv-sdist-native-build:pyproject.toml",
+)
+use_repo(uv, "pypi_uv_sdist_native_build")

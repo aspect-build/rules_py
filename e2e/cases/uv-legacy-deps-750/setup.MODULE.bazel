@@ -1,0 +1,12 @@
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_uv_legacy_deps_750")
+uv.project(
+    hub_name = "pypi_uv_legacy_deps_750",
+    lock = "//cases/uv-legacy-deps-750:uv.lock",
+    pyproject = "//cases/uv-legacy-deps-750:pyproject.toml",
+)
+uv.unstable_annotate_packages(
+    src = "//cases/uv-legacy-deps-750:annotations.toml",
+    lock = "//cases/uv-legacy-deps-750:uv.lock",
+)
+use_repo(uv, "pypi_uv_legacy_deps_750")
