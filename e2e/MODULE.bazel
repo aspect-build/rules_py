@@ -356,6 +356,22 @@ uv.project(
 )
 # }}}
 
+# For cases/uv-bare-linux-wheels
+# Regression: grpcio ships bare linux_armv7l wheels that must survive lockfile parsing.
+# {{{
+uv.declare_hub(hub_name = "pypi-bare-linux-wheels")
+uv.project(
+    hub_name = "pypi-bare-linux-wheels",
+    lock = "//cases/uv-bare-linux-wheels:uv.lock",
+    pyproject = "//cases/uv-bare-linux-wheels:pyproject.toml",
+)
+use_repo(uv, "pypi-bare-linux-wheels")
+
+# Exposed so e2e/BUILD.bazel can snapshot the select_chain that contains the
+# linux_armv7l arms emitted for grpcio.
+use_repo(uv, "whl_install__uv_bare_linux_wheels__grpcio__1_80_0")
+# }}}
+
 # For cases/pytest-mock-530
 # Regression: pytest-mock plugin discovery with py_test and py_venv_test.
 # {{{

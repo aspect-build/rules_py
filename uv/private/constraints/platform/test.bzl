@@ -1,5 +1,5 @@
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load(":defs.bzl", "LINUX_ARCHES", "MACOS_ARCHES", "MACOS_ARCH_GROUPS", "WINDOWS_PLATFORMS", "supported_platform")
+load(":defs.bzl", "GENERIC_LINUX_ARCHES", "LINUX_ARCHES", "MACOS_ARCHES", "MACOS_ARCH_GROUPS", "WINDOWS_PLATFORMS", "supported_platform")
 
 # -- supported_platform: accepted tags -----------------------------------------
 
@@ -27,6 +27,14 @@ def _manylinux_arches_test_impl(ctx):
     return unittest.end(env)
 
 manylinux_arches_test = unittest.make(_manylinux_arches_test_impl)
+
+def _generic_linux_arches_test_impl(ctx):
+    env = unittest.begin(ctx)
+    for arch in GENERIC_LINUX_ARCHES:
+        asserts.true(env, supported_platform("linux_%s" % arch), "generic linux arch %s should be supported" % arch)
+    return unittest.end(env)
+
+generic_linux_arches_test = unittest.make(_generic_linux_arches_test_impl)
 
 def _musllinux_arches_test_impl(ctx):
     env = unittest.begin(ctx)
@@ -60,6 +68,7 @@ def _reject_unsupported_arches_test_impl(ctx):
     # Unknown linux arch
     asserts.false(env, supported_platform("manylinux_2_17_sparc64"), "sparc64 is not a supported linux arch")
     asserts.false(env, supported_platform("musllinux_1_1_mips"), "mips is not a supported linux arch")
+    asserts.false(env, supported_platform("linux_sparc64"), "sparc64 is not a supported generic linux arch")
 
     # Unknown macOS arch
     asserts.false(env, supported_platform("macosx_11_0_mips"), "mips is not a supported macOS arch")
@@ -67,11 +76,19 @@ def _reject_unsupported_arches_test_impl(ctx):
     # Unsupported OS families
     asserts.false(env, supported_platform("android_21_arm64_v8a"), "android should not be supported")
     asserts.false(env, supported_platform("ios_13_0_arm64_iphoneos"), "ios should not be supported")
-    asserts.false(env, supported_platform("linux_x86_64"), "bare linux_ should not be supported")
 
     return unittest.end(env)
 
 reject_unsupported_arches_test = unittest.make(_reject_unsupported_arches_test_impl)
+
+def _bare_linux_tags_test_impl(ctx):
+    """Regression: bare linux_* wheel tags (e.g. PyTorch CPU) must be accepted."""
+    env = unittest.begin(ctx)
+    asserts.true(env, supported_platform("linux_x86_64"), "linux_x86_64 should be supported")
+    asserts.true(env, supported_platform("linux_aarch64"), "linux_aarch64 should be supported")
+    return unittest.end(env)
+
+bare_linux_tags_test = unittest.make(_bare_linux_tags_test_impl)
 
 def _reject_malformed_tags_test_impl(ctx):
     env = unittest.begin(ctx)
@@ -103,6 +120,11 @@ def _real_world_tags_test_impl(ctx):
         "manylinux_2_17_i686",
         "manylinux_2_31_x86_64",
         "manylinux_2_27_aarch64",
+        "linux_x86_64",
+        "linux_aarch64",
+        "linux_armv7l",
+        "linux_armv6l",
+        "linux_armv8l",
         "musllinux_1_1_x86_64",
         "musllinux_1_2_aarch64",
         "win32",
@@ -114,8 +136,7 @@ def _real_world_tags_test_impl(ctx):
     # Rejected: tags seen in the wild that we intentionally do not support
     for tag in [
         "win_ia64",
-        "linux_armv7l",
-        "linux_armv6l",
+        "linux_sparc64",
         "android_21_arm64_v8a",
     ]:
         asserts.false(env, supported_platform(tag), "tag %s should be rejected" % tag)
@@ -132,9 +153,11 @@ def platform_suite():
         any_test,
         macos_arches_test,
         manylinux_arches_test,
+        generic_linux_arches_test,
         musllinux_arches_test,
         windows_platforms_test,
         reject_win_ia64_test,
+        bare_linux_tags_test,
         reject_unsupported_arches_test,
         reject_malformed_tags_test,
         real_world_tags_test,

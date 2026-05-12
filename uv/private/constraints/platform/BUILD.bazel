@@ -90,13 +90,6 @@ generate(
     visibility = ["//visibility:public"],
 )
 
-# FIXME: Is this right?
-alias(
-    name = "linux_armv7l",
-    actual = "manylinux_2_17_armv7l",
-    visibility = ["//visibility:public"],
-)
-
 # https://packaging.python.org/en/latest/specifications/platform-compatibility-tags/#manylinux
 alias(
     name = "manylinux1",
