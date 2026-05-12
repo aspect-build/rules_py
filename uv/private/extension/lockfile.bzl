@@ -8,6 +8,7 @@ load("//uv/private:parse_whl_name.bzl", "parse_whl_name")
 load("//uv/private:sha1.bzl", "sha1")
 load("//uv/private/constraints/platform:defs.bzl", "supported_platform")
 load("//uv/private/constraints/python:defs.bzl", "supported_python")
+load("//uv/private/whl_install:repository.bzl", "compatible_python_tags")
 load(":git_utils.bzl", "parse_git_url", "try_git_to_http_archive")
 
 def normalize_deps(lock_id, lock_data):
@@ -155,8 +156,6 @@ def collect_configurations(lock):
             if not supported_python(python_tag):
                 continue
 
-            python_tags[python_tag] = 1
-
             for platform_tag in parsed_wheel.platform_tags:
                 # Ignore configurations for unsupported platforms
                 if not supported_platform(platform_tag):
@@ -167,16 +166,23 @@ def collect_configurations(lock):
                 for abi_tag in parsed_wheel.abi_tags:
                     abi_tags[abi_tag] = 1
 
-                    # Note that we are NOT filtering out
-                    # impossible/unsatisfiable python+abi tag possibilities.
-                    # It's not aesthetic but it is simple enough.
-                    configuration = "{}-{}-{}".format(python_tag, platform_tag, abi_tag)
+                    # Mirror the abi3 expansion `_whl_install_impl` does
+                    # via `compatible_python_tags`, so every triple it
+                    # references has a matching config_setting here.
+                    for cfg_python_tag in compatible_python_tags(python_tag, abi_tag):
+                        python_tags[cfg_python_tag] = 1
 
-                    configurations[configuration] = [
-                        "@aspect_rules_py//uv/private/constraints/platform:{}".format(platform_tag),
-                        "@aspect_rules_py//uv/private/constraints/abi:{}".format(abi_tag),
-                        "@aspect_rules_py//uv/private/constraints/python:{}".format(python_tag),
-                    ]
+                        # Note that we are NOT filtering out
+                        # impossible/unsatisfiable python+abi tag
+                        # possibilities. It's not aesthetic but it is
+                        # simple enough.
+                        configuration = "{}-{}-{}".format(cfg_python_tag, platform_tag, abi_tag)
+
+                        configurations[configuration] = [
+                            "@aspect_rules_py//uv/private/constraints/platform:{}".format(platform_tag),
+                            "@aspect_rules_py//uv/private/constraints/abi:{}".format(abi_tag),
+                            "@aspect_rules_py//uv/private/constraints/python:{}".format(cfg_python_tag),
+                        ]
 
     return configurations
 

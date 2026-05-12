@@ -213,15 +213,6 @@ config_setting(
 
 
 config_setting(
-    name = "abi3-compat",
-    flag_values = {
-        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "abi3-compat",
-    },
-    visibility = ["//visibility:public"],
-)
-
-
-config_setting(
     name = "win-ia64-filter",
     flag_values = {
         "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "win-ia64-filter",

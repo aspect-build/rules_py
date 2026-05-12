@@ -9,6 +9,7 @@ produce a filegroup/TreeArtifact.
 
 load("@bazel_features//:features.bzl", features = "bazel_features")
 load("//uv/private:parse_whl_name.bzl", "parse_whl_name")
+load("//uv/private/constraints:defs.bzl", "MAJORS", "MINORS")
 load("//uv/private/constraints/platform:defs.bzl", "supported_platform")
 load("//uv/private/constraints/python:defs.bzl", "supported_python")
 load("//uv/private/pprint:defs.bzl", "pprint")
@@ -213,6 +214,40 @@ def sort_select_arms(arms):
     pairs = sorted(arms.items(), key = lambda kv: select_key(kv[0]), reverse = True)
     return {a: b for a, b in pairs}
 
+def compatible_python_tags(python_tag, abi_tag):
+    if abi_tag != "abi3" or not python_tag.startswith("cp"):
+        return [python_tag]
+
+    major = int(python_tag[2])
+    minor = int(python_tag[3:]) if python_tag[3:] else 0
+    compatible = []
+    for candidate_major in MAJORS:
+        if candidate_major != major:
+            continue
+        for candidate_minor in MINORS:
+            if candidate_minor < minor:
+                continue
+
+            candidate = "cp{}{}".format(candidate_major, candidate_minor)
+            if supported_python(candidate):
+                compatible.append(candidate)
+
+    return compatible if compatible else [python_tag]
+
+def source_specificity(python_tag):
+    """Score how specific a wheel's source python_tag is.
+
+    Two abi3 wheels can expand into the same (compatible_python, platform,
+    abi) key — e.g. both a cp38-abi3 and a cp311-abi3 wheel cover cp312+.
+    Among those, the wheel with the higher minimum-CPython requirement is
+    the most specific match and should win. Returned as an orderable tuple.
+    """
+    if not python_tag.startswith("cp"):
+        return (0, 0)
+    major = int(python_tag[2])
+    minor = int(python_tag[3:]) if python_tag[3:] else 0
+    return (major, minor)
+
 def _whl_install_impl(repository_ctx):
     """Selects a compatible wheel for the host platform and defines its installation.
 
@@ -253,23 +288,35 @@ def _whl_install_impl(repository_ctx):
         "load(\"@bazel_skylib//lib:selects.bzl\", \"selects\")",
     ]
 
+    # During expansion the value is (source_specificity, target). When two
+    # abi3 wheels claim the same (compatible_python, platform, abi) key —
+    # e.g. cp38-abi3 and cp311-abi3 both expand into cp312+ — the wheel
+    # with the higher source minor must win, regardless of iteration order.
     for whl, target in prebuilds.items():
         parsed = parse_whl_name(whl)
 
         # FIXME: Make it impossible to generate absurd combinations such as
         # cp212-none-cp312 with unsatisfiable version specs.
-        for python_tag in parsed.python_tags:
-            # Escape hatch for ignoring unsupported interpreters
-            if not supported_python(python_tag):
+        for platform_tag in parsed.platform_tags:
+            # Escape hatch for ignoring weird unsupported platforms
+            if not supported_platform(platform_tag):
                 continue
 
-            for platform_tag in parsed.platform_tags:
-                # Escape hatch for ignoring weird unsupported platforms
-                if not supported_platform(platform_tag):
-                    continue
+            for abi_tag in parsed.abi_tags:
+                for python_tag in parsed.python_tags:
+                    specificity = source_specificity(python_tag)
+                    for compatible_python_tag in compatible_python_tags(python_tag, abi_tag):
+                        # Escape hatch for ignoring unsupported interpreters
+                        if not supported_python(compatible_python_tag):
+                            continue
 
-                for abi_tag in parsed.abi_tags:
-                    select_arms[(python_tag, platform_tag, abi_tag)] = target
+                        key = (compatible_python_tag, platform_tag, abi_tag)
+                        existing = select_arms.get(key)
+                        if existing == None or specificity > existing[0]:
+                            select_arms[key] = (specificity, target)
+
+    # Strip the bookkeeping specificity score; downstream only needs the target.
+    select_arms = {k: v[1] for k, v in select_arms.items()}
 
     # Unfortunately the way that Bazel decides ambiguous selects is explicitly
     # NOT designed to allow for the implementation of ranges. Because that would

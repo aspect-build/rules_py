@@ -338,11 +338,19 @@ uv.unstable_annotate_packages(
 
 # For cases/uv-abi3-compat-853
 # Regression: abi3 wheel compatibility must propagate to newer Python minors.
+# Uses a dedicated hub so the case's regression test isn't influenced by
+# other cases' lockfiles contributing to the shared pypi hub.
 # {{{
+uv.declare_hub(hub_name = "abi3_compat_pypi")
 uv.project(
-    hub_name = "pypi",
+    hub_name = "abi3_compat_pypi",
     lock = "//cases/uv-abi3-compat-853:uv.lock",
     pyproject = "//cases/uv-abi3-compat-853:pyproject.toml",
+)
+use_repo(
+    uv,
+    "abi3_compat_pypi",
+    "whl_install__abi3_compat__cryptography__46_0_5",
 )
 # }}}
 

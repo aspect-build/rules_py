@@ -76,5 +76,11 @@ write_source_files(
         # genquery+grep test in cases/uv-bare-linux-wheels only checks for
         # one constraint string.
         "snapshots/whl_install.bare_linux_wheels.grpcio.BUILD.bazel": "@whl_install__uv_bare_linux_wheels__grpcio__1_80_0//:BUILD.bazel",
+
+        # whl_install for cryptography 46.0.5, which ships BOTH cp311-abi3
+        # AND cp38-abi3 wheels for the same platforms. Pins the select_chain
+        # arm mapping so a regression that drops source-specificity
+        # disambiguation flips ~150 arms to the cp38 wheel in the diff.
+        "snapshots/abi3_compat.whl_install.cryptography.BUILD.bazel": "@whl_install__abi3_compat__cryptography__46_0_5//:BUILD.bazel",
     },
 )
