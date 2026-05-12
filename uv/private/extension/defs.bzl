@@ -366,15 +366,6 @@ def _parse_projects(module_ctx, hub_specs):
                             for it in extract_requirement_marker_pairs(project.lock, project_id, req, default_versions, package_versions, fail_if_missing = sbuild_required)
                         ]
 
-                    # FIXME: For really old packages that can't use `build`, we
-                    # have to use `setup.py` which checks to see if requirements
-                    # are installed meaning that we need requirements _at build
-                    # time_. Which is a problem from the perspective of our
-                    # build graph since we'd need to lay down a buch of marked
-                    # conditional deps as extracted for this package. Doable,
-                    # but a substantial model shift here.
-                    #
-                    # Forcing users to annotate in extra build deps is way easier.
                     build_deps = sets.to_list(sets.make(build_deps + lock_build_deps))
 
                     # Look up pre-build patches for this package
@@ -630,7 +621,6 @@ _project_tag = tag_class(
         "version": attr.string(mandatory = False),
         "pyproject": attr.label(mandatory = True),
         "lock": attr.label(mandatory = True),
-        "elide_sbuilds_with_anyarch": attr.bool(mandatory = False, default = True),
         "default_build_dependencies": attr.string_list(
             mandatory = False,
             default = [
