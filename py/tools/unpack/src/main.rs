@@ -189,7 +189,9 @@ fn unpack_cmd_handler(args: UnpackArgs) -> Result<()> {
             ))
             .join("site-packages");
 
-        let status = std::process::Command::new(python)
+        // Swallow compileall's non-zero exit to match uv (and pip before it):
+        // https://github.com/astral-sh/uv/blob/374fcaa56aa46a2923eed31fe0df7a4a7a14c477/crates/uv-installer/src/pip_compileall.py#L5
+        let _ = std::process::Command::new(python)
             .args([
                 "-m",
                 "compileall",
@@ -201,14 +203,6 @@ fn unpack_cmd_handler(args: UnpackArgs) -> Result<()> {
             .status()
             .into_diagnostic()
             .wrap_err("Failed to launch compileall")?;
-
-        if !status.success() {
-            eprintln!(
-                "WARNING: compileall exited with status {} for {} (non-fatal)",
-                status,
-                site_packages.display()
-            );
-        }
     }
 
     Ok(())
