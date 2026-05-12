@@ -16,7 +16,7 @@ py_test(
     dep_group = "pytest-xdist-integration",
     pytest_main = True,
     deps = [
-        "@pypi//pytest",
-        "@pypi//pytest_xdist",
+        "@pypi_pytest_xdist_integration//pytest",
+        "@pypi_pytest_xdist_integration//pytest_xdist",
     ],
 )

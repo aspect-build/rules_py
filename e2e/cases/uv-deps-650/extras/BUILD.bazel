@@ -9,7 +9,7 @@ py_test(
     main = "__test__.py",
     python_version = "3.11",
     deps = [
-        "@pypi//requests",
+        "@pypi_uv_deps_650//requests",
     ],
 )
 
@@ -24,6 +24,6 @@ py_test(
     main = "__test__.py",
     python_version = "3.11",
     deps = [
-        "@pypi//requests",
+        "@pypi_uv_deps_650//requests",
     ],
 )

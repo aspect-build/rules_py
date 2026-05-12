@@ -6,7 +6,7 @@ py_test(
     dep_group = "ambig-a",
     main = "test_a.py",
     deps = [
-        "@pypi//packaging",
+        "@pypi_uv_conflict_817//packaging",
     ],
 )
 
@@ -18,7 +18,7 @@ py_test(
     isolated = False,
     main = "test_a.py",
     deps = [
-        "@pypi//packaging",
+        "@pypi_uv_conflict_817//packaging",
     ],
 )
 
@@ -28,7 +28,7 @@ py_test(
     dep_group = "ambig-b",
     main = "test_b.py",
     deps = [
-        "@pypi//packaging",
+        "@pypi_uv_conflict_817//packaging",
     ],
 )
 
@@ -40,6 +40,6 @@ py_test(
     isolated = False,
     main = "test_b.py",
     deps = [
-        "@pypi//packaging",
+        "@pypi_uv_conflict_817//packaging",
     ],
 )

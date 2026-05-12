@@ -16,8 +16,8 @@ py_test(
     package_collisions = "warning",
     python_version = "3.11",
     deps = [
-        "@pypi//pytest",
-        "@pypi//setuptools",
+        "@pypi_uv_include_group//pytest",
+        "@pypi_uv_include_group//setuptools",
     ],
 )
 
@@ -33,7 +33,7 @@ py_test(
     package_collisions = "warning",
     python_version = "3.11",
     deps = [
-        "@pypi//pytest",
-        "@pypi//setuptools",
+        "@pypi_uv_include_group//pytest",
+        "@pypi_uv_include_group//setuptools",
     ],
 )

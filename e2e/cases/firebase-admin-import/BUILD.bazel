@@ -41,7 +41,7 @@ py_test(
     dep_group = "firebase-admin-import",
     main = "test.py",
     deps = [
-        "@pypi//firebase_admin",
+        "@pypi_firebase_admin_import//firebase_admin",
     ],
 )
 
@@ -58,7 +58,7 @@ py_test(
     main = "test.py",
     python_version = "3.11",
     deps = [
-        "@pypi//firebase_admin",
+        "@pypi_firebase_admin_import//firebase_admin",
     ],
 )
 
@@ -75,7 +75,7 @@ py_binary(
     dep_group = "firebase-admin-import",
     main = "test.py",
     deps = [
-        "@pypi//firebase_admin",
+        "@pypi_firebase_admin_import//firebase_admin",
     ],
 )
 

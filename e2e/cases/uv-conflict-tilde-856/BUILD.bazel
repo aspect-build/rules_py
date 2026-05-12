@@ -6,7 +6,7 @@ py_test(
     dep_group = "tilde-a",
     main = "test_a.py",
     deps = [
-        "@pypi//packaging",
+        "@pypi_uv_conflict_tilde_856//packaging",
     ],
 )
 
@@ -18,7 +18,7 @@ py_test(
     isolated = False,
     main = "test_a.py",
     deps = [
-        "@pypi//packaging",
+        "@pypi_uv_conflict_tilde_856//packaging",
     ],
 )
 
@@ -28,7 +28,7 @@ py_test(
     dep_group = "tilde-b",
     main = "test_b.py",
     deps = [
-        "@pypi//packaging",
+        "@pypi_uv_conflict_tilde_856//packaging",
     ],
 )
 
@@ -40,6 +40,6 @@ py_test(
     isolated = False,
     main = "test_b.py",
     deps = [
-        "@pypi//packaging",
+        "@pypi_uv_conflict_tilde_856//packaging",
     ],
 )

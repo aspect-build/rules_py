@@ -8,10 +8,7 @@ py_library(
     ],
     imports = [".."],
     # This library contributes to the container test, testing we can pull in and use a library from another
-    # package in the repo.
-    visibility = [
-        "//py/tests/internal-deps:__pkg__",
-        "//py/tests/py_image_layer:__pkg__",
-        "//py/tests/py_venv_image_layer:__pkg__",
-    ],
+    # package in the repo. Public so the e2e harness's OCI cases (which live in
+    # a different module under //cases/oci/...) can consume it.
+    visibility = ["//visibility:public"],
 )

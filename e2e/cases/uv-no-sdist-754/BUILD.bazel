@@ -12,8 +12,8 @@ load("@aspect_rules_py//py:defs.bzl", "py_test")
 # whl_install BUILD shape (whl_missing default, select_chain arm count).
 genquery(
     name = "pywin32_targets",
-    expression = "deps(@pypi//pywin32)",
-    scope = ["@pypi//pywin32"],
+    expression = "deps(@pypi_uv_no_sdist_754//pywin32)",
+    scope = ["@pypi_uv_no_sdist_754//pywin32"],
 )
 
 py_test(

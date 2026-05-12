@@ -32,7 +32,7 @@ py_test(
     tags = ["manual"],
     target_compatible_with = _LINUX_X86_64,
     deps = [
-        "@pypi//regex",
+        "@pypi_freethreaded_805//regex",
     ],
 )
 
@@ -54,7 +54,7 @@ py_test(
     tags = ["manual"],
     target_compatible_with = _LINUX_X86_64,
     deps = [
-        "@pypi//regex",
+        "@pypi_freethreaded_805//regex",
     ],
 )
 

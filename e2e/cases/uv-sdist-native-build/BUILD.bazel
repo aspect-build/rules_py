@@ -12,7 +12,7 @@ py_test(
     srcs = ["test_geohash.py"],
     main = "test_geohash.py",
     target_compatible_with = ["@platforms//os:linux"],
-    deps = ["@pypi//python_geohash"],
+    deps = ["@pypi_uv_sdist_native_build//python_geohash"],
 )
 
 py_test(
@@ -22,5 +22,5 @@ py_test(
     isolated = False,
     main = "test_geohash.py",
     target_compatible_with = ["@platforms//os:linux"],
-    deps = ["@pypi//python_geohash"],
+    deps = ["@pypi_uv_sdist_native_build//python_geohash"],
 )

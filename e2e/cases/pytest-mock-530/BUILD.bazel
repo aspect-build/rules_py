@@ -7,8 +7,8 @@ py_test(
     dep_group = "pytest-mock-530",
     pytest_main = True,
     deps = [
-        "@pypi//pytest",
-        "@pypi//pytest_mock",
+        "@pypi_pytest_mock_530//pytest",
+        "@pypi_pytest_mock_530//pytest_mock",
     ],
 )
 
@@ -23,7 +23,7 @@ py_test(
     isolated = False,
     main = "__test__.py",
     deps = [
-        "@pypi//pytest",
-        "@pypi//pytest_mock",
+        "@pypi_pytest_mock_530//pytest",
+        "@pypi_pytest_mock_530//pytest_mock",
     ],
 )

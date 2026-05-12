@@ -9,7 +9,7 @@ py_test(
     main = "__test__.py",
     python_version = "3.13",
     deps = [
-        "@pypi//apache_airflow",
+        "@pypi_uv_deps_650//apache_airflow",
     ],
 )
 
@@ -24,6 +24,6 @@ py_test(
     main = "__test__.py",
     python_version = "3.13",
     deps = [
-        "@pypi//apache_airflow",
+        "@pypi_uv_deps_650//apache_airflow",
     ],
 )

@@ -15,9 +15,11 @@ platform(
 # Snapshots of generated repository files emitted by rules_py's repo rules
 # *under the e2e harness*. Two shapes are pinned:
 #
-#   1. Multi-project hub (`@pypi`): ~38 `uv.project()` calls. Catches
-#      regressions that only manifest with N>1 projects (multi-arm package
-#      aliases, scaled dep_group emission).
+#   1. Multi-project hub (`@pypi`, see //cases/multi-project-hub): three
+#      `uv.project()` calls (alpha/beta/gamma). Catches regressions that
+#      only manifest with N>1 projects (multi-arm package aliases, dep_group
+#      config_setting emission). Each test case lives in its own hub, so
+#      `@pypi` stays focused on the multi-project baseline.
 #   2. Single-project hub (`@pypi_single`, see //cases/single-project-hub):
 #      one `uv.project()` call. Mirrors the shape rules_py's own root MODULE
 #      produces, but with a hermetic synthetic lock so the snapshot doesn't
@@ -31,13 +33,13 @@ platform(
 write_source_files(
     name = "snapshots",
     files = {
-        # @pypi (multi-project, ~38 dep_groups)
+        # @pypi (multi-project: alpha, beta, gamma)
         # ----------------------------------------------------------------
-        # Per-package alias with N=3 select arms. Catches regressions in
+        # Per-package alias with multiple select arms. Catches regressions in
         # multi-project alias emission and the no_match_error message.
         "snapshots/pypi.cowsay.BUILD.bazel": "@pypi//cowsay:BUILD.bazel",
-        # 38 `config_setting` rules — one per `uv.project()` call. Catches
-        # regressions in the public dep_group surface at scale.
+        # `config_setting` rules — one per `uv.project()` call. Catches
+        # regressions in the public dep_group surface for N>1 projects.
         "snapshots/pypi.dep_group.BUILD.bazel": "@pypi//dep_group:BUILD.bazel",
 
         # @pypi_single (single-project baseline)

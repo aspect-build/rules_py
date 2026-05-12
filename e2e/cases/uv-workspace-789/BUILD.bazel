@@ -8,8 +8,8 @@ py_test(
     dep_group = "workspace",
     main = "__test__.py",
     deps = [
-        "@pypi//foo",  # Firstparty package
-        "@pypi//pi",  # Firstparty package
+        "@pypi_uv_workspace_789//foo",  # Firstparty package
+        "@pypi_uv_workspace_789//pi",  # Firstparty package
     ],
 )
 
@@ -23,7 +23,7 @@ py_test(
     isolated = False,
     main = "__test__.py",
     deps = [
-        "@pypi//foo",  # Firstparty package
-        "@pypi//pi",  # Firstparty package
+        "@pypi_uv_workspace_789//foo",  # Firstparty package
+        "@pypi_uv_workspace_789//pi",  # Firstparty package
     ],
 )

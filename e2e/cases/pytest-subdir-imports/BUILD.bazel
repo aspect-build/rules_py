@@ -13,6 +13,6 @@ py_test(
     pytest_main = True,
     deps = [
         ":lib",
-        "@pypi//pytest",
+        "@pypi_pytest_subdir_imports//pytest",
     ],
 )

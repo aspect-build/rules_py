@@ -1,0 +1,19 @@
+[project]
+name = "alpha"
+version = "0.0.0"
+authors = []
+requires-python = ">=3.11"
+dependencies = [
+    "cowsay",
+]
+
+# Two dependency-groups so the //snapshots multi-project baseline pins
+# config_setting emission for non-project dep_groups as well: one plain
+# identifier (`dev`) and one hyphenated name (`unit-tests`).
+[dependency-groups]
+dev = [
+    "cowsay",
+]
+unit-tests = [
+    "cowsay",
+]

@@ -6,6 +6,6 @@ py_library(
     imports = ["src"],
     visibility = ["//visibility:public"],
     deps = [
-        "@pypi//requests",
+        "@pypi_uv_workspace_789//requests",
     ],
 )

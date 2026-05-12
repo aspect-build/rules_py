@@ -5,13 +5,13 @@ py_test(
     srcs = [
         "test.py",
     ],
-    dep_group = "say",
+    dep_group = "cross_repo_610",
     imports = [
         ".",
     ],
     main = "test.py",
     deps = [
-        "@pypi//cowsay",
+        "@pypi_cross_repo_610//cowsay",
         "@subrepo_a//:foo",
     ],
 )
@@ -21,7 +21,7 @@ py_test(
     srcs = [
         "test.py",
     ],
-    dep_group = "say",
+    dep_group = "cross_repo_610",
     expose_venv = True,
     imports = [
         ".",
@@ -29,7 +29,7 @@ py_test(
     isolated = False,
     main = "test.py",
     deps = [
-        "@pypi//cowsay",
+        "@pypi_cross_repo_610//cowsay",
         "@subrepo_a//:foo",
     ],
 )

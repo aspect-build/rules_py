@@ -7,7 +7,7 @@ py_test(
     main = "__test__.py",
     python_version = "3.12",
     deps = [
-        "@pypi//jaxlib",
+        "@pypi_uv_plus_version//jaxlib",
     ],
 )
 
@@ -20,6 +20,6 @@ py_test(
     main = "__test__.py",
     python_version = "3.12",
     deps = [
-        "@pypi//jaxlib",
+        "@pypi_uv_plus_version//jaxlib",
     ],
 )
