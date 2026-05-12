@@ -44,7 +44,11 @@ def _collect_toolchain_inputs_and_vars(ctx):
     for target in ctx.attr.toolchains:
         if DefaultInfo in target:
             extra_inputs.append(target[DefaultInfo].files)
-            extra_inputs.append(target[DefaultInfo].default_runfiles.files)
+
+            # `default_runfiles` can be None on some target types — guard it.
+            default_runfiles = target[DefaultInfo].default_runfiles
+            if default_runfiles:
+                extra_inputs.append(default_runfiles.files)
         if platform_common.ToolchainInfo in target:
             all_files = getattr(target[platform_common.ToolchainInfo], "all_files", None)
             if all_files:

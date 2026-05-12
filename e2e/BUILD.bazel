@@ -88,10 +88,10 @@ write_source_files(
         # @sdist_build for jpype1 with uv.override_package toolchains/env
         # ----------------------------------------------------------------
         # Covers the override_package -> repo-rule -> BUILD-template
-        # plumbing for the generic `toolchains = [...]` / `env = {...}`
-        # pass-through. The override replaces the default CC toolchain
-        # plumbing with a JDK-only set; the snapshot pins the JDK
-        # toolchain reference and the JAVA_HOME / JAVA / JAR env entries.
+        # plumbing for the augment-on-defaults `toolchains = [...]` /
+        # `env = {...}`. The override layers a JDK runtime on top of the
+        # default CC toolchain; the snapshot pins both toolchain
+        # references and both env families (CC + JAVA_HOME/JAVA/JAR).
         # Pairs with the analysis test at
         # //uv/private/pep517_whl:toolchain_env_test which asserts the
         # rule expands env keys correctly given an explicit fixture.

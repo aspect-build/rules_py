@@ -214,22 +214,31 @@ def _sdist_build_impl(repository_ctx):
             strip = repository_ctx.attr.pre_build_patch_strip,
         )
 
-    # For native builds, emit the toolchains + env exactly as supplied by
-    # the repo rule's attrs. Targets passed via the `toolchains` attribute
-    # expose `TemplateVariableInfo`; the env values below are
-    # make-variable references resolved at action analysis time.
+    # For native builds, emit a baked-in CC toolchain + CC/CXX/AR/LD/STRIP
+    # env block. Targets in `toolchains` expose `TemplateVariableInfo`;
+    # the env values below are make-variable references resolved at
+    # action analysis time.
     #
-    # The defaults on the attrs (the CC toolchain + CC/CXX/AR/LD/STRIP
-    # env) cover the common case for native sdists. To strip CC, opt out
-    # by setting `toolchains = []` and `env = {}` via
-    # `uv.override_package(...)` — empty is honored verbatim. CXX
-    # defaults to $(CC) because most clang/gcc-based toolchains use a
-    # single driver binary for both languages, and meson-python /
+    # CXX defaults to $(CC) because most clang/gcc-based toolchains use
+    # a single driver binary for both languages, and meson-python /
     # cmake-based backends look for CXX independently of CC.
+    #
+    # `extra_toolchains` and `extra_env` augment (do not replace) the
+    # defaults — set via `uv.override_package(toolchains = [...],
+    # env = {...})` to layer JDK / Rust / etc. plumbing on top.
     toolchain_attrs = ""
     if is_native:
-        toolchains = repository_ctx.attr.toolchains
-        env = repository_ctx.attr.env
+        toolchains = [
+            "@bazel_tools//tools/cpp:current_cc_toolchain",
+        ] + list(repository_ctx.attr.extra_toolchains)
+        env = {
+            "AR": "$(AR)",
+            "CC": "$(CC)",
+            "CXX": "$(CC)",
+            "LD": "$(LD)",
+            "STRIP": "$(STRIP)",
+        }
+        env.update(repository_ctx.attr.extra_env)
         toolchain_attrs = """
     toolchains = [
 {toolchains}
@@ -296,19 +305,13 @@ sdist_build = repository_rule(
         "version": attr.string(),
         "pre_build_patches": attr.label_list(default = []),
         "pre_build_patch_strip": attr.int(default = 0),
-        "toolchains": attr.string_list(
-            default = ["@bazel_tools//tools/cpp:current_cc_toolchain"],
-            doc = "Toolchain labels forwarded to the generated pep517_native_whl(...) call. Emitted verbatim — set to [] to strip the default CC toolchain. Set via `uv.override_package(toolchains = [...])`.",
+        "extra_toolchains": attr.string_list(
+            default = [],
+            doc = "Toolchain labels appended to the default CC toolchain in the generated pep517_native_whl(...) `toolchains` list. Set via `uv.override_package(toolchains = [...])`.",
         ),
-        "env": attr.string_dict(
-            default = {
-                "AR": "$(AR)",
-                "CC": "$(CC)",
-                "CXX": "$(CC)",
-                "LD": "$(LD)",
-                "STRIP": "$(STRIP)",
-            },
-            doc = "Environment variables for the build action; values may reference $(VAR) make-variables from the listed toolchains. Emitted verbatim — set to {} to strip the default CC env. Set via `uv.override_package(env = {...})`.",
+        "extra_env": attr.string_dict(
+            default = {},
+            doc = "Environment variables merged into the default CC env dict in the generated pep517_native_whl(...) `env` dict. Values may reference $(VAR) make-variables from any toolchain. Set via `uv.override_package(env = {...})`.",
         ),
     },
 )
