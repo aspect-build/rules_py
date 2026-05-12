@@ -361,6 +361,33 @@ gazelle_python_manifest(
 )
 ```
 
+## Troubleshooting
+
+### Verbose logging for uv repository rules
+
+To diagnose issues with source distribution (sdist) builds or git archive fetching,
+set the `RULES_PY_UV_VERBOSE` environment variable to any non-empty value:
+
+```bash
+bazel build --repo_env=RULES_PY_UV_VERBOSE=1 //...
+```
+
+You can also set it in your `.bazelrc` to apply to all builds:
+
+```
+# .bazelrc
+common --repo_env=RULES_PY_UV_VERBOSE=1
+```
+
+When enabled, `rules_py` prints additional diagnostic information during
+repository rule execution, including:
+
+- **Sdist inspection failures** — output from the sdist configure tool when it fails.
+- **Missing archives** — warnings when an archive path cannot be resolved from a source label.
+- **Native source detection** — confirmation when native (non-Python) sources are detected in an sdist.
+- **Pure-Python fallback** — warnings when an sdist cannot be inspected and a pure-Python build is assumed.
+- **Git archive commands** — the exact `git` command executed and its stdout/stderr.
+
 ## Differences and Gotchas
 
 **Lock your build tools**. In order to perform sdist builds and support

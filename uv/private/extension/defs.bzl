@@ -144,6 +144,7 @@ def _parse_projects(module_ctx, hub_specs):
 
     install_cfgs = {}
     install_table = {}
+    override_count = 0
 
     # FIXME: Collect build deps files/annotations
 
@@ -243,7 +244,7 @@ def _parse_projects(module_ctx, hub_specs):
 
                 k = (project_id, normalize_name(override.name), v, "__base__")
                 if has_target:
-                    print("Overriding {}@{} in {} with {}".format(override.name, v, project_name, override.target))
+                    override_count += 1
                     install_table[k] = str(override.target)
 
             # Lazily evaluated cache
@@ -460,6 +461,9 @@ def _parse_projects(module_ctx, hub_specs):
             for package, cfgs in version_activations.items():
                 for cfg in cfgs.keys():
                     hub_cfg.packages.setdefault(package, {})[cfg] = "@{}//:{}".format(project_id, package)
+
+    if override_count:
+        print("uv: {} package(s) overridden".format(override_count))
 
     return struct(
         project_cfgs = project_cfgs,
