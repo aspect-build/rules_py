@@ -335,17 +335,9 @@ def _parse_projects(module_ctx, hub_specs):
 
                 is_no_binary = normalize_name(package["name"]) in no_binary_packages
 
-                # HACK: If there's a -none-any wheel for the package, then
-                # we can actually skip creating the sdist build because
-                # we'll never use it. This allows projects which can do
-                # anyarch builds from bdists to avoid providing build deps.
-                #
-                # FIXME: This condition is actually incomplete, `py2.py3` wheels
-                # match the same condition.
-                has_none_any = any(["-none-any.whl" in it["url"] for it in package.get("wheels", [])])
                 if is_no_binary and not sdist:
                     fail("Package {} is in [tool.uv] no-binary-package but has no sdist in the lockfile".format(package["name"]))
-                if sdist and (is_no_binary or not (has_none_any and project.elide_sbuilds_with_anyarch)):
+                if sdist:
                     # HACK: Note that we resolve these LAZILY so that
                     # bdist-only or fully overridden configurations don't
                     # have to provide the build tools.
@@ -357,21 +349,23 @@ def _parse_projects(module_ctx, hub_specs):
                     ann_key = (project_id, normalize_name(package["name"]), package["version"], "__base__")
                     build_deps = lock_build_dep_anns.get(ann_key) or []
                     if lock_build_deps == None:
+                        # For optional sdist fallbacks (sdist present but a
+                        # wheel will be picked at install time), tolerate a
+                        # lock that doesn't carry `default_build_dependencies`
+                        # — the sbuild target is never selected, so demanding
+                        # the build tools would force every project to pin
+                        # them. Fail eagerly when sbuild is guaranteed to be
+                        # selected: forced builds (`no-binary-package`) or
+                        # sdist-only packages (no wheels in the lock). Other
+                        # platform-mismatch cases can't be detected here
+                        # because we don't know the target build platform.
+                        sbuild_required = is_no_binary or not package.get("wheels", [])
                         lock_build_deps = [
                             it[0]
                             for req in project.default_build_dependencies
-                            for it in extract_requirement_marker_pairs(project.lock, project_id, req, default_versions, package_versions)
+                            for it in extract_requirement_marker_pairs(project.lock, project_id, req, default_versions, package_versions, fail_if_missing = sbuild_required)
                         ]
 
-                    # FIXME: For really old packages that can't use `build`, we
-                    # have to use `setup.py` which checks to see if requirements
-                    # are installed meaning that we need requirements _at build
-                    # time_. Which is a problem from the perspective of our
-                    # build graph since we'd need to lay down a buch of marked
-                    # conditional deps as extracted for this package. Doable,
-                    # but a substantial model shift here.
-                    #
-                    # Forcing users to annotate in extra build deps is way easier.
                     build_deps = sets.to_list(sets.make(build_deps + lock_build_deps))
 
                     # Look up pre-build patches for this package
@@ -627,7 +621,6 @@ _project_tag = tag_class(
         "version": attr.string(mandatory = False),
         "pyproject": attr.label(mandatory = True),
         "lock": attr.label(mandatory = True),
-        "elide_sbuilds_with_anyarch": attr.bool(mandatory = False, default = True),
         "default_build_dependencies": attr.string_list(
             mandatory = False,
             default = [

@@ -1,4 +1,5 @@
 load("@aspect_gazelle_prebuilt//:def.bzl", "aspect_gazelle")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@buildifier_prebuilt//:rules.bzl", "buildifier")
 load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirements")
 load("//uv:defs.bzl", "gazelle_python_manifest")
@@ -65,4 +66,14 @@ compile_pip_requirements(
     extra_args = ["--allow-unsafe"],
     requirements_in = "requirements.in",
     requirements_txt = "requirements.txt",
+)
+
+# Regression test: a package whose lockfile entry has both an sdist *and* a
+# `-none-any.whl` must still emit a `sdist_build__*` repo so the source-build
+# fallback is available for overrides, no-binary settings, and incomplete
+# wheel coverage. bravado 11.0.3 ships both shapes and is in the root lock;
+# building its `:whl` exercises the fallback the extension must preserve.
+build_test(
+    name = "sdist_fallback_with_anyarch_wheel_build_test",
+    targets = ["@sdist_build__aspect_rules_py__bravado__11_0_3//:whl"],
 )
