@@ -66,6 +66,22 @@ demands it.
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(":pep508_evaluate.bzl", _evaluate_marker = "evaluate")
 
+# Marker values use Python runtime strings, while Bazel platform/config
+# values skew toward canonical architecture names. Normalize common
+# synonyms so arm64 wheels selected in uv.lock also match Bazel's
+# aarch64-based platform settings. Includes the uppercase spellings
+# (`AMD64`, `ARM64`) that `platform.machine()` returns on Windows.
+MARKER_ENV_ALIASES = {
+    "platform_machine": {
+        "arm64": "aarch64",
+        "ARM64": "aarch64",
+        "aarch64": "aarch64",
+        "amd64": "x86_64",
+        "AMD64": "x86_64",
+        "x64": "x86_64",
+    },
+}
+
 def _decide_marker_impl(ctx):
     """
     Decide the marker using PEP-508 logic
@@ -111,6 +127,7 @@ def _decide_marker_impl(ctx):
             "platform_python_implementation": _value(ctx.attr.platform_python_implementation),
             "implementation_name": _value(ctx.attr.implementation_name),
             "implementation_version": _value(ctx.attr.implementation_version),
+            "_aliases": MARKER_ENV_ALIASES,
         },
     )
 

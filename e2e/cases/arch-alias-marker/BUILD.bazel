@@ -1,0 +1,17 @@
+# End-to-end regression for the architecture alias normalization in
+# uv/private/markers/defs.bzl. The pyproject lists cowsay under a marker
+# that uses only Python-style arch spellings (arm64/amd64). On every
+# mainstream Bazel host, platform_machine emits aarch64 or x86_64, so the
+# marker only matches once decide_marker normalizes the aliases.
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+py_test(
+    name = "arch_alias_marker",
+    srcs = ["__test__.py"],
+    dep_group = "arch_alias_marker",
+    main = "__test__.py",
+    python_version = "3.11",
+    deps = [
+        "@pypi_arch_alias_marker//cowsay",
+    ],
+)
