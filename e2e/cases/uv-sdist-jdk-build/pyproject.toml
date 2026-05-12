@@ -1,0 +1,14 @@
+[project]
+name = "uv_sdist_jdk_build"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    "build",
+    "jpype1",
+    "scikit-build-core",
+    "setuptools",
+    "wheel",
+]
+
+[tool.uv]
+no-binary-package = ["jpype1"]

@@ -1,0 +1,43 @@
+"""Regression for the per-package toolchain plumbing on
+`uv.override_package`. jpype1 is forced to sdist via
+[tool.uv].no-binary-package; the override replaces the default CC
+toolchain wiring with a JDK runtime so JAVA_HOME / JAVA / JAR reach
+the build env.
+
+Uses its own hub to keep the override and no-binary setting isolated
+from other test cases.
+"""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_sdist_jdk_build")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "setuptools",
+    ],
+    hub_name = "pypi_sdist_jdk_build",
+    lock = "//cases/uv-sdist-jdk-build:uv.lock",
+    pyproject = "//cases/uv-sdist-jdk-build:pyproject.toml",
+)
+uv.unstable_annotate_packages(
+    src = "//cases/uv-sdist-jdk-build:annotations.toml",
+    lock = "//cases/uv-sdist-jdk-build:uv.lock",
+)
+
+# Replace the default CC toolchain plumbing with a JDK-only set. Contrived
+# for jpype1 (its real build does need CC), but exercises the
+# override_package toolchains/env pass-through end-to-end.
+uv.override_package(
+    name = "jpype1",
+    env = {
+        "JAR": "$(JAVABASE)/bin/jar",
+        "JAVA": "$(JAVA)",
+        "JAVA_HOME": "$(JAVABASE)",
+    },
+    lock = "//cases/uv-sdist-jdk-build:uv.lock",
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+)
+
+# Exposed so e2e/BUILD.bazel can snapshot the generated pep517_native_whl
+# call: pins both override flags applied to the same sdist_build repo.
+use_repo(uv, "pypi_sdist_jdk_build", "sdist_build__uv_sdist_jdk_build__jpype1__1_7_1")

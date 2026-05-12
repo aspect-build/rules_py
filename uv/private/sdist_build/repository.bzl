@@ -214,6 +214,33 @@ def _sdist_build_impl(repository_ctx):
             strip = repository_ctx.attr.pre_build_patch_strip,
         )
 
+    # For native builds, emit the toolchains + env exactly as supplied by
+    # the repo rule's attrs. Targets passed via the `toolchains` attribute
+    # expose `TemplateVariableInfo`; the env values below are
+    # make-variable references resolved at action analysis time.
+    #
+    # The defaults on the attrs (the CC toolchain + CC/CXX/AR/LD/STRIP
+    # env) cover the common case for native sdists. To strip CC, opt out
+    # by setting `toolchains = []` and `env = {}` via
+    # `uv.override_package(...)` — empty is honored verbatim. CXX
+    # defaults to $(CC) because most clang/gcc-based toolchains use a
+    # single driver binary for both languages, and meson-python /
+    # cmake-based backends look for CXX independently of CC.
+    toolchain_attrs = ""
+    if is_native:
+        toolchains = repository_ctx.attr.toolchains
+        env = repository_ctx.attr.env
+        toolchain_attrs = """
+    toolchains = [
+{toolchains}
+    ],
+    env = {{
+{env}
+    }},""".format(
+            toolchains = "\n".join(["        \"{}\",".format(t) for t in toolchains]),
+            env = "\n".join(["        \"{}\": \"{}\",".format(k, v) for k, v in sorted(env.items())]),
+        )
+
     repository_ctx.file("BUILD.bazel", content = """
 load("@aspect_rules_py//uv/private/pep517_whl:rule.bzl", "{rule}")
 load("@aspect_rules_py//py:defs.bzl", "py_binary")
@@ -230,7 +257,7 @@ py_binary(
     src = "{src}",
     tool = ":build_tool",
     version = "{version}",
-    args = [],{patch_attrs}
+    args = [],{patch_attrs}{toolchain_attrs}
     visibility = ["//visibility:public"],
 )
 
@@ -244,6 +271,7 @@ exports_files(
         rule = "pep517_native_whl" if is_native else "pep517_whl",
         version = repository_ctx.attr.version,
         patch_attrs = patch_attrs,
+        toolchain_attrs = toolchain_attrs,
     ))
 
 sdist_build = repository_rule(
@@ -268,5 +296,19 @@ sdist_build = repository_rule(
         "version": attr.string(),
         "pre_build_patches": attr.label_list(default = []),
         "pre_build_patch_strip": attr.int(default = 0),
+        "toolchains": attr.string_list(
+            default = ["@bazel_tools//tools/cpp:current_cc_toolchain"],
+            doc = "Toolchain labels forwarded to the generated pep517_native_whl(...) call. Emitted verbatim — set to [] to strip the default CC toolchain. Set via `uv.override_package(toolchains = [...])`.",
+        ),
+        "env": attr.string_dict(
+            default = {
+                "AR": "$(AR)",
+                "CC": "$(CC)",
+                "CXX": "$(CC)",
+                "LD": "$(LD)",
+                "STRIP": "$(STRIP)",
+            },
+            doc = "Environment variables for the build action; values may reference $(VAR) make-variables from the listed toolchains. Emitted verbatim — set to {} to strip the default CC env. Set via `uv.override_package(env = {...})`.",
+        ),
     },
 )
