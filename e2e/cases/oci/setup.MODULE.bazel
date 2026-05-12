@@ -1,0 +1,20 @@
+"""Each OCI sub-case has its own pyproject + lock (colorama dep). They live
+in dedicated hubs alongside the other cases.
+"""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_oci_py_image_layer")
+uv.project(
+    hub_name = "pypi_oci_py_image_layer",
+    lock = "//cases/oci/py_image_layer:uv.lock",
+    pyproject = "//cases/oci/py_image_layer:pyproject.toml",
+)
+use_repo(uv, "pypi_oci_py_image_layer")
+
+uv.declare_hub(hub_name = "pypi_oci_py_venv_image_layer")
+uv.project(
+    hub_name = "pypi_oci_py_venv_image_layer",
+    lock = "//cases/oci/py_venv_image_layer:uv.lock",
+    pyproject = "//cases/oci/py_venv_image_layer:pyproject.toml",
+)
+use_repo(uv, "pypi_oci_py_venv_image_layer")

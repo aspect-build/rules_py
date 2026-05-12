@@ -1,0 +1,11 @@
+"""Regression: namespace packages spanning multiple wheels (#547)."""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_pth_namespace_547")
+uv.project(
+    default_build_dependencies = [],
+    hub_name = "pypi_pth_namespace_547",
+    lock = "//cases/pth-namespace-547:uv.lock",
+    pyproject = "//cases/pth-namespace-547:pyproject.toml",
+)
+use_repo(uv, "pypi_pth_namespace_547")

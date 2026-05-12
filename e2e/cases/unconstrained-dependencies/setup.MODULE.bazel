@@ -1,0 +1,8 @@
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_unconstrained_dependencies")
+uv.project(
+    hub_name = "pypi_unconstrained_dependencies",
+    lock = "//cases/unconstrained-dependencies:uv.lock",
+    pyproject = "//cases/unconstrained-dependencies:pyproject.toml",
+)
+use_repo(uv, "pypi_unconstrained_dependencies")

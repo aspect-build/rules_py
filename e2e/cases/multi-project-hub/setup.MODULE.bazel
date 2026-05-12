@@ -1,0 +1,24 @@
+"""A dedicated multi-`uv.project()` hub used as the baseline for the
+//snapshots multi-project-shape regression checks. Three sub-projects
+(alpha, beta, gamma) all depend on cowsay, exercising N>1 select-arm
+alias emission and dep_group config_setting scaling.
+"""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi")
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/multi-project-hub/alpha:uv.lock",
+    pyproject = "//cases/multi-project-hub/alpha:pyproject.toml",
+)
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/multi-project-hub/beta:uv.lock",
+    pyproject = "//cases/multi-project-hub/beta:pyproject.toml",
+)
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/multi-project-hub/gamma:uv.lock",
+    pyproject = "//cases/multi-project-hub/gamma:pyproject.toml",
+)
+use_repo(uv, "pypi")

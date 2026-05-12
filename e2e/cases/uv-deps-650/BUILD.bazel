@@ -1,0 +1,2 @@
+# Marks cases/uv-deps-650 as a package so e2e/MODULE.bazel can include() its
+# uv-deps-650.MODULE.bazel fragment. Test targets live in subpackages.
