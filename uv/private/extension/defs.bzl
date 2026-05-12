@@ -354,14 +354,16 @@ def _parse_projects(module_ctx, hub_specs):
                         # lock that doesn't carry `default_build_dependencies`
                         # — the sbuild target is never selected, so demanding
                         # the build tools would force every project to pin
-                        # them. For forced sdist builds (`no-binary-package`),
-                        # keep failing here so the missing tool is reported
-                        # at extension-evaluation time rather than surfacing
-                        # later as an opaque `python -m build` failure.
+                        # them. Fail eagerly when sbuild is guaranteed to be
+                        # selected: forced builds (`no-binary-package`) or
+                        # sdist-only packages (no wheels in the lock). Other
+                        # platform-mismatch cases can't be detected here
+                        # because we don't know the target build platform.
+                        sbuild_required = is_no_binary or not package.get("wheels", [])
                         lock_build_deps = [
                             it[0]
                             for req in project.default_build_dependencies
-                            for it in extract_requirement_marker_pairs(project.lock, project_id, req, default_versions, package_versions, fail_if_missing = is_no_binary)
+                            for it in extract_requirement_marker_pairs(project.lock, project_id, req, default_versions, package_versions, fail_if_missing = sbuild_required)
                         ]
 
                     # FIXME: For really old packages that can't use `build`, we
