@@ -67,10 +67,18 @@ def _pep517_native_whl(ctx):
     extra_inputs = []
 
     # Resolve the CC toolchain so setuptools/distutils can find the compiler
-    # rather than falling back to whatever is on the system PATH.
+    # rather than falling back to whatever is on the system PATH. meson-python
+    # and cmake-based backends check several of these vars independently, so
+    # fill in as many as the toolchain exposes.
     cc_toolchain = find_cc_toolchain(ctx, mandatory = False)
     if cc_toolchain:
         env["CC"] = cc_toolchain.compiler_executable
+        env["CXX"] = cc_toolchain.compiler_executable
+        env["AR"] = cc_toolchain.ar_executable
+        env["LD"] = cc_toolchain.ld_executable
+        env["STRIP"] = cc_toolchain.strip_executable
+        if cc_toolchain.sysroot:
+            env["SYSROOT"] = cc_toolchain.sysroot
         extra_inputs.append(cc_toolchain.all_files)
 
     ctx.actions.run(
@@ -139,9 +147,10 @@ Consumes a sdist artifact and performs a build of that artifact with the
 specified Python dependencies under the configured Python toolchain to produce a
 platform-specific bdist we can subsequently install or deploy.
 
-The CC toolchain is resolved and `$CC` is set in the build environment so
-that setuptools/distutils can find the hermetic compiler rather than falling
-back to whatever is on the system PATH.
+The CC toolchain is resolved and `$CC`, `$CXX`, `$AR`, `$LD`, `$STRIP` and
+`$SYSROOT` are set in the build environment so that setuptools/distutils,
+meson-python, cmake, etc. can find the hermetic toolchain rather than
+falling back to whatever is on the system PATH.
 
 The build is guaranteed to occur on an execution platform matching the
 constraints of the target platform.

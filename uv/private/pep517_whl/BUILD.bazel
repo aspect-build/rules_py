@@ -1,4 +1,8 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load(":rule.bzl", "pep517_native_whl")
+load(":test.bzl", "pep517_native_whl_toolchain_env_test")
 
 package(default_visibility = [
     "//uv/private:__subpackages__",
@@ -15,5 +19,58 @@ bzl_library(
     deps = [
         "//py/private/toolchain:types",
         "@bazel_tools//tools/cpp:toolchain_utils.bzl",
+    ],
+)
+
+# --- Analysis test fixtures ----------------------------------------------
+#
+# pep517_native_whl only needs its attrs to type-check at analysis time;
+# the action is never executed. A stub sdist input and a no-op shell tool
+# are enough to materialise the action so we can introspect its env dict.
+
+write_file(
+    name = "__stub_sdist",
+    out = "__stub_sdist.tar.gz",
+    content = [""],
+    tags = ["manual"],
+)
+
+write_file(
+    name = "__stub_tool_sh",
+    out = "__stub_tool.sh",
+    content = [
+        "#!/bin/sh",
+        "exit 0",
+    ],
+    is_executable = True,
+    tags = ["manual"],
+)
+
+sh_binary(
+    name = "__stub_tool",
+    srcs = [":__stub_tool_sh"],
+    tags = ["manual"],
+)
+
+pep517_native_whl(
+    name = "__toolchain_env_fixture",
+    src = ":__stub_sdist",
+    tool = ":__stub_tool",
+    version = "0.0.1",
+    tags = ["manual"],
+)
+
+pep517_native_whl_toolchain_env_test(
+    name = "toolchain_env_test",
+    target_under_test = ":__toolchain_env_fixture",
+)
+
+bzl_library(
+    name = "test",
+    srcs = ["test.bzl"],
+    visibility = ["//uv:__subpackages__"],
+    deps = [
+        ":rule",
+        "@bazel_skylib//lib:unittest",
     ],
 )
