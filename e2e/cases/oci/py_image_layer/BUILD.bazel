@@ -148,7 +148,6 @@ assert_tar_listing(
     actual = [":platform_layers_fp"],
     expected = "my_app_layers_fp_listing.yaml",
     tags = [
-        "skip-on-bazel8",
         "skip-on-bazel9",
     ],
 )
@@ -160,7 +159,6 @@ assert_tar_listing(
     actual = [":platform_layers_multi"],
     expected = "my_app_layers_multi_listing.yaml",
     tags = [
-        "skip-on-bazel8",
         "skip-on-bazel9",
     ],
 )
@@ -204,7 +202,6 @@ container_structure_test(
     image = ":amd64_image",
     platform = "linux/amd64",
     tags = [
-        "skip-on-bazel8",
         "skip-on-bazel9",
     ],
 )

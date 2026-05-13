@@ -136,7 +136,6 @@ container_structure_test(
     image = ":amd64_image",
     platform = "linux/amd64",
     tags = [
-        "skip-on-bazel8",
         "skip-on-bazel9",
     ],
 )
@@ -147,7 +146,6 @@ container_structure_test(
     image = ":amd64_image",
     platform = "linux/amd64",
     tags = [
-        "skip-on-bazel8",
         "skip-on-bazel9",
     ],
     target_compatible_with = [
@@ -167,7 +165,6 @@ container_structure_test(
     image = ":arm64_image",
     platform = "linux/aarch64",
     tags = [
-        "skip-on-bazel8",
         "skip-on-bazel9",
     ],
 )
@@ -178,7 +175,6 @@ container_structure_test(
     image = ":arm64_image",
     platform = "linux/aarch64",
     tags = [
-        "skip-on-bazel8",
         "skip-on-bazel9",
     ],
     target_compatible_with = [
