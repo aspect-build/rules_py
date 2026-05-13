@@ -5,10 +5,12 @@
 repos:
   # Check formatting and lint for starlark code
   - repo: https://github.com/keith/pre-commit-buildifier
-    rev: 7.3.1.1
+    rev: 8.5.1.1
     hooks:
       - id: buildifier
+        exclude: (?:^|/)snapshots/
       - id: buildifier-lint
+        exclude: (?:^|/)snapshots/
 
   # Enforce that commit messages allow for later changelog generation
   - repo: https://github.com/commitizen-tools/commitizen
