@@ -1,5 +1,7 @@
 load("//py:defs.bzl", "py_test")
 
+COMMON_TEST_DEPS = ["@pypi//pytest"]
+
 py_test(
     name = "test_env_vars",
     srcs = ["test_env_vars.py"],
@@ -13,4 +15,18 @@ py_test(
         "LOCATION": "$(location :test_env_vars.py)",
         "DEFINE": "$(SOME_VAR)",
     },
+)
+
+py_test(
+    name = "test_pytest_main_shared_deps_a",
+    srcs = ["test_pytest_main_shared_deps.py"],
+    pytest_main = True,
+    deps = COMMON_TEST_DEPS,
+)
+
+py_test(
+    name = "test_pytest_main_shared_deps_b",
+    srcs = ["test_pytest_main_shared_deps.py"],
+    pytest_main = True,
+    deps = COMMON_TEST_DEPS,
 )
