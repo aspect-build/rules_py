@@ -1,0 +1,9 @@
+[project]
+name = "uv-sdist-python-version-1004"
+version = "0.0.0"
+requires-python = ">=3.10"
+dependencies = [
+    "build",
+    "setuptools",
+    "python-geohash",
+]

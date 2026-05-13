@@ -1,0 +1,24 @@
+"""Regression: when `uv.project()` pins a non-default `python_version`, the
+sdist build helper must run under that same Python so the produced wheel
+carries the right cp tag (and so the build helper resolves build-only
+dependencies for the right interpreter).
+
+The default e2e toolchain is 3.11; this case pins 3.10 on the project and
+its consumer test. Without the fix, the generated build_tool py_binary
+inherits the exec-config default (3.11), produces a cp311 wheel, and the
+3.10 venv install fails to find a matching wheel.
+"""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_uv_sdist_python_version_1004")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "setuptools",
+    ],
+    hub_name = "pypi_uv_sdist_python_version_1004",
+    lock = "//cases/uv-sdist-python-version-1004:uv.lock",
+    pyproject = "//cases/uv-sdist-python-version-1004:pyproject.toml",
+    python_version = "3.10",
+)
+use_repo(uv, "pypi_uv_sdist_python_version_1004")

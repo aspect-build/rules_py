@@ -7,6 +7,7 @@ py_binary(
     main = "@aspect_rules_py//uv/private/pep517_whl:build_helper.py",
     srcs = ["@aspect_rules_py//uv/private/pep517_whl:build_helper.py"],
     deps = ["@@+uv+project__aspect_rules_py//:build", "@@+uv+project__aspect_rules_py//:setuptools", "@@+uv+project__aspect_rules_py//:maturin", "@whl_install__aspect_rules_py__setuptools__80_9_0//:install"],
+    python_version = None,
 )
 
 pep517_whl(

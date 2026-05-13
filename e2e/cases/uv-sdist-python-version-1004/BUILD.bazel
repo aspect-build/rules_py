@@ -1,0 +1,20 @@
+# Regression test for fix(uv): pin sdist build tools to configured Python.
+#
+# The project pins `python_version = "3.10"` on `uv.project()` (see
+# setup.MODULE.bazel). Without the fix, the generated `build_tool`
+# py_binary inherits the exec-config default Python (3.11 in this e2e),
+# stamps a cp311 wheel for the native python-geohash sdist, and the 3.10
+# consumer venv install fails to find a matching wheel. With the fix,
+# python_version is threaded into the build_tool so the wheel is cp310 and
+# the test below runs cleanly under 3.10.
+
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+py_test(
+    name = "test",
+    srcs = ["test_geohash.py"],
+    main = "test_geohash.py",
+    python_version = "3.10",
+    target_compatible_with = ["@platforms//os:linux"],
+    deps = ["@pypi_uv_sdist_python_version_1004//python_geohash"],
+)
