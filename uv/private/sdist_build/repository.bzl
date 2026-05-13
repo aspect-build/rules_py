@@ -60,7 +60,7 @@ def _run_configure_tool(repository_ctx, archive_path):
 
     result = repository_ctx.execute(cmd, timeout = 30)
     if result.return_code != 0:
-        if repository_ctx.os.environ.get("RULES_PY_UV_VERBOSE", ""):
+        if repository_ctx.getenv("RULES_PY_UV_VERBOSE", ""):
             # buildifier: disable=print
             print("WARNING: sdist configure tool failed for {} (exit {}): {}".format(
                 repository_ctx.name,
@@ -137,7 +137,7 @@ def _resolve_archive_path(repository_ctx):
             if name.endswith(".tar.gz") or name.endswith(".tar.bz2") or name.endswith(".tar.xz") or name.endswith(".zip") or name.endswith(".tar"):
                 return child
 
-    if repository_ctx.os.environ.get("RULES_PY_UV_VERBOSE", ""):
+    if repository_ctx.getenv("RULES_PY_UV_VERBOSE", ""):
         # buildifier: disable=print
         print("WARNING: Could not resolve archive path from src label for {}".format(
             repository_ctx.name,
@@ -176,7 +176,7 @@ def _sdist_build_impl(repository_ctx):
                 return
 
             is_native = inspection["is_native"]
-            if is_native and repository_ctx.os.environ.get("RULES_PY_UV_VERBOSE", ""):
+            if is_native and repository_ctx.getenv("RULES_PY_UV_VERBOSE", ""):
                 # buildifier: disable=print
                 print("Detected native sources in {}: {} file(s)".format(
                     repository_ctx.name,
@@ -185,7 +185,7 @@ def _sdist_build_impl(repository_ctx):
         else:
             # No tool or tool failed — assume pure-Python. sdist_build
             # validates -none-any so a wrong guess fails loudly at build time.
-            if repository_ctx.os.environ.get("RULES_PY_UV_VERBOSE", ""):
+            if repository_ctx.getenv("RULES_PY_UV_VERBOSE", ""):
                 # buildifier: disable=print
                 print("WARNING: Could not inspect sdist for {}; assuming pure-Python".format(
                     repository_ctx.name,
