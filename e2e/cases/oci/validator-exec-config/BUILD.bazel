@@ -1,0 +1,56 @@
+"""Regression test: py_image_layer's validator (cfg = "exec") must keep
+running when the rule sits under a `platform_transition_filegroup` whose
+target platform pins `platform_libc=glibc`.
+
+Before the fix in `py/private/interpreter/versions.bzl`, the darwin/windows
+interpreter toolchains required `platform_libc=libsystem`/`msvc` via
+`target_settings`. That flag bled from the linux-glibc target config into
+the exec config Bazel derives for the validator, so on a darwin host the
+darwin interpreter no longer matched, `rules_python`'s auto-registered
+toolchain won by default, and the rules_py venv launcher couldn't bootstrap
+its hermetic interpreter (`ModuleNotFoundError: No module named 'encodings'`).
+
+This `build_test` rebuilds the failing path with no custom Starlark — just
+`py_binary` + `py_image_layer` + `platform_transition_filegroup` — and
+asserts the build completes.
+"""
+
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer")
+load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+
+platform(
+    name = "linux_glibc",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+        # Match the OCI test platforms: rules_rs Rust toolchains for
+        # linux-gnu targets require gnu.2.28.
+        "@llvm//constraints/libc:gnu.2.28",
+    ],
+    # This flag is the trigger: before the fix, it inherited into the
+    # validator's exec config and disqualified the darwin/windows host
+    # interpreter toolchains.
+    flags = ["--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc"],
+)
+
+py_binary(
+    name = "app",
+    srcs = ["app.py"],
+)
+
+py_image_layer(
+    name = "layers",
+    binary = ":app",
+)
+
+platform_transition_filegroup(
+    name = "linux_layers",
+    srcs = [":layers"],
+    target_platform = ":linux_glibc",
+)
+
+build_test(
+    name = "validator_exec_config_test",
+    targets = [":linux_layers"],
+)
