@@ -243,7 +243,8 @@ def _parse_projects(module_ctx, hub_specs):
 
                 k = (project_id, normalize_name(override.name), v, "__base__")
                 if has_target:
-                    print("Overriding {}@{} in {} with {}".format(override.name, v, project_name, override.target))
+                    if module_ctx.getenv("RULES_PY_UV_VERBOSE", ""):
+                        print("Overriding {}@{} in {} with {}".format(override.name, v, project_name, override.target))
                     install_table[k] = str(override.target)
 
             # Lazily evaluated cache
