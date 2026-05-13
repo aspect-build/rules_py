@@ -65,13 +65,16 @@ filegroup(
         cmd,
     )
 
-    if repository_ctx.getenv("RULES_PY_UV_VERBOSE", ""):
-        print("Git exited {}".format(status.return_code))
-
     if status.return_code != 0:
+        fail("Failed to build the requested git archive! Git exited {}\n\nstdout: {}\n\nstderr: {}".format(
+            status.return_code,
+            status.stdout,
+            status.stderr,
+        ))
+
+    if repository_ctx.getenv("RULES_PY_UV_VERBOSE", ""):
         print(status.stdout)
         print(status.stderr)
-        fail("Failed to build the requested git archive!")
 
     if features.external_deps.extension_metadata_has_reproducible:
         if is_reproducible:
