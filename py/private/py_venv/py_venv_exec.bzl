@@ -13,12 +13,6 @@ load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load(":types.bzl", "VirtualenvInfo")
 
-def _dict_to_exports(env):
-    return [
-        "export %s=\"%s\"" % (k, v)
-        for (k, v) in env.items()
-    ]
-
 def _py_venv_exec_impl(ctx):
     # The launcher itself doesn't need a python toolchain — it just
     # exec's the sibling venv's `bin/python`, whose path was already
@@ -40,17 +34,10 @@ def _py_venv_exec_impl(ctx):
         fail("py_binary {}: venv is required.".format(ctx.label))
     vinfo = venv[VirtualenvInfo]
 
-    # Bazel-contextual env vars that the launcher exports via
-    # {{PYTHON_ENV}}.
-    default_env = {
-        "BAZEL_TARGET": str(ctx.label).lstrip("@"),
-        "BAZEL_WORKSPACE": ctx.workspace_name,
-        "BAZEL_TARGET_NAME": ctx.attr.name,
-    }
-
     # Merge env vars: start from the venv's `env` (if any), then
     # overlay the binary's own — binary wins on key conflicts. Same
-    # merge for inherited env-var names.
+    # merge for inherited env-var names. Bazel-contextual identifiers
+    # (BAZEL_TARGET, etc.) overlay last so they aren't overridable.
     passed_env = {}
     inherited_env = []
     if RunEnvironmentInfo in venv:
@@ -63,6 +50,9 @@ def _py_venv_exec_impl(ctx):
             expand_locations(ctx, v, ctx.attr.data),
             attribute_name = "env",
         )
+    passed_env["BAZEL_TARGET"] = str(ctx.label).lstrip("@")
+    passed_env["BAZEL_WORKSPACE"] = ctx.workspace_name
+    passed_env["BAZEL_TARGET_NAME"] = ctx.attr.name
     for name in getattr(ctx.attr, "env_inherit", []):
         if name not in inherited_env:
             inherited_env.append(name)
@@ -82,7 +72,6 @@ def _py_venv_exec_impl(ctx):
             "{{INTERPRETER_FLAGS}}": " ".join(flags),
             "{{ARG_VENV_PYTHON}}": to_rlocation_path(ctx, vinfo.bin_python),
             "{{ENTRYPOINT}}": to_rlocation_path(ctx, main),
-            "{{PYTHON_ENV}}": "\n".join(_dict_to_exports(default_env)).strip(),
         },
         is_executable = True,
     )

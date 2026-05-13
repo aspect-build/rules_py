@@ -15,7 +15,4 @@ VENV_BIN="$(dirname "${VENV_PYTHON}")"
 export VIRTUAL_ENV="$(dirname "${VENV_BIN}")"
 export PATH="${VENV_BIN}:${PATH-}"
 
-# Set all the env vars here, just before we launch
-{{PYTHON_ENV}}
-
 exec "${VENV_PYTHON}" {{INTERPRETER_FLAGS}} "$(rlocation {{ENTRYPOINT}})" "$@"

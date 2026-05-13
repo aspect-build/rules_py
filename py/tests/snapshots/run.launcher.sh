@@ -27,9 +27,4 @@ VENV_BIN="$(dirname "${VENV_PYTHON}")"
 export VIRTUAL_ENV="$(dirname "${VENV_BIN}")"
 export PATH="${VENV_BIN}:${PATH-}"
 
-# Set all the env vars here, just before we launch
-export BAZEL_TARGET="//py/tests:snapshot_exec"
-export BAZEL_WORKSPACE="_main"
-export BAZEL_TARGET_NAME="snapshot_exec"
-
 exec "${VENV_PYTHON}" -B -I "$(rlocation _main/py/tests/main.py)" "$@"
