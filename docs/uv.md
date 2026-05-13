@@ -387,6 +387,7 @@ repository rule execution, including:
 - **Native source detection** — confirmation when native (non-Python) sources are detected in an sdist.
 - **Pure-Python fallback** — warnings when an sdist cannot be inspected and a pure-Python build is assumed.
 - **Git archive commands** — the exact `git` command executed and its stdout/stderr.
+- **Package version overrides** — confirmation when a package version is overridden with a local target.
 
 ## Differences and Gotchas
 
