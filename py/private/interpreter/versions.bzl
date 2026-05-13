@@ -9,6 +9,8 @@ extension evaluation time by downloading the SHA256SUMS file from each release,
 then cached in the MODULE.bazel.lock via the Bazel facts API.
 """
 
+load("//uv/private/constraints/platform:defs.bzl", "PLATFORM_LIBC_FLAG")
+
 DEFAULT_RELEASE_BASE_URL = "https://github.com/astral-sh/python-build-standalone/releases/download"
 
 # Default PBS release dates, ordered newest-first. These are used when the user
@@ -25,8 +27,12 @@ DEFAULT_RELEASE_DATES = [
     "20241002",  # 3.8-3.13
 ]
 
-# The libc flag used to disambiguate glibc vs musl Linux toolchains.
-_PLATFORM_LIBC_FLAG = "@aspect_rules_py//uv/private/constraints/platform:platform_libc"
+# `PLATFORM_LIBC_FLAG` is only applied to linux toolchains below: on
+# darwin/windows there's only one libc (libsystem/msvc), so the constraint
+# disambiguates nothing in target config — and on macOS/Windows hosts it
+# actively breaks cfg=exec toolchain selection when a linux cross-build
+# platform pins `platform_libc=glibc` and that flag inherits into the exec
+# config the host's interpreter is being resolved under.
 
 # Mapping from PBS platform triple to Bazel platform constraints.
 #
@@ -40,9 +46,6 @@ PLATFORMS = {
             "@platforms//os:macos",
             "@platforms//cpu:aarch64",
         ],
-        "target_settings": {
-            _PLATFORM_LIBC_FLAG: "libsystem",
-        },
     },
     "aarch64-unknown-linux-gnu": {
         "compatible_with": [
@@ -50,7 +53,7 @@ PLATFORMS = {
             "@platforms//cpu:aarch64",
         ],
         "target_settings": {
-            _PLATFORM_LIBC_FLAG: "glibc",
+            PLATFORM_LIBC_FLAG: "glibc",
         },
     },
     "aarch64-unknown-linux-musl": {
@@ -59,7 +62,7 @@ PLATFORMS = {
             "@platforms//cpu:aarch64",
         ],
         "target_settings": {
-            _PLATFORM_LIBC_FLAG: "musl",
+            PLATFORM_LIBC_FLAG: "musl",
         },
     },
     "x86_64-apple-darwin": {
@@ -67,9 +70,6 @@ PLATFORMS = {
             "@platforms//os:macos",
             "@platforms//cpu:x86_64",
         ],
-        "target_settings": {
-            _PLATFORM_LIBC_FLAG: "libsystem",
-        },
     },
     "x86_64-unknown-linux-gnu": {
         "compatible_with": [
@@ -77,7 +77,7 @@ PLATFORMS = {
             "@platforms//cpu:x86_64",
         ],
         "target_settings": {
-            _PLATFORM_LIBC_FLAG: "glibc",
+            PLATFORM_LIBC_FLAG: "glibc",
         },
     },
     "x86_64-unknown-linux-musl": {
@@ -86,7 +86,7 @@ PLATFORMS = {
             "@platforms//cpu:x86_64",
         ],
         "target_settings": {
-            _PLATFORM_LIBC_FLAG: "musl",
+            PLATFORM_LIBC_FLAG: "musl",
         },
     },
     "x86_64-pc-windows-msvc": {
@@ -94,27 +94,18 @@ PLATFORMS = {
             "@platforms//os:windows",
             "@platforms//cpu:x86_64",
         ],
-        "target_settings": {
-            _PLATFORM_LIBC_FLAG: "msvc",
-        },
     },
     "aarch64-pc-windows-msvc": {
         "compatible_with": [
             "@platforms//os:windows",
             "@platforms//cpu:aarch64",
         ],
-        "target_settings": {
-            _PLATFORM_LIBC_FLAG: "msvc",
-        },
     },
     "i686-pc-windows-msvc": {
         "compatible_with": [
             "@platforms//os:windows",
             "@platforms//cpu:x86_32",
         ],
-        "target_settings": {
-            _PLATFORM_LIBC_FLAG: "msvc",
-        },
     },
 }
 

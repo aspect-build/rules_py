@@ -118,6 +118,9 @@ def supported_platform(platform_tag):
 # Adapted from rules_python's config_settings.bzl
 MAJOR_MINOR_FLAG = Label("//uv/private/constraints/platform:platform_version")
 
+# String label of the platform_libc string_flag (string not Label so it can be a dict key).
+PLATFORM_LIBC_FLAG = "@aspect_rules_py//uv/private/constraints/platform:platform_libc"
+
 def _platform_version_at_least_impl(ctx):
     flag_value = ctx.attr._major_minor[BuildSettingInfo].value
 

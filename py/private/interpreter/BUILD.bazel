@@ -85,6 +85,12 @@ bzl_library(
 )
 
 bzl_library(
+    name = "versions",
+    srcs = ["versions.bzl"],
+    deps = ["//uv/private/constraints/platform:defs"],
+)
+
+bzl_library(
     name = "resolve",
     srcs = ["resolve.bzl"],
 )
@@ -92,9 +98,4 @@ bzl_library(
 bzl_library(
     name = "version_util",
     srcs = ["version_util.bzl"],
-)
-
-bzl_library(
-    name = "versions",
-    srcs = ["versions.bzl"],
 )

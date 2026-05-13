@@ -33,12 +33,6 @@ config_setting(
 
 
 config_setting(
-    name = "platform_libc_is_libsystem",
-    flag_values = {"@aspect_rules_py//uv/private/constraints/platform:platform_libc": "libsystem"},
-)
-
-
-config_setting(
     name = "platform_libc_is_glibc",
     flag_values = {"@aspect_rules_py//uv/private/constraints/platform:platform_libc": "glibc"},
 )
@@ -47,12 +41,6 @@ config_setting(
 config_setting(
     name = "platform_libc_is_musl",
     flag_values = {"@aspect_rules_py//uv/private/constraints/platform:platform_libc": "musl"},
-)
-
-
-config_setting(
-    name = "platform_libc_is_msvc",
-    flag_values = {"@aspect_rules_py//uv/private/constraints/platform:platform_libc": "msvc"},
 )
 
 
@@ -66,7 +54,7 @@ config_setting(
 toolchain(
     name = "python_3_13_aarch64_apple_darwin",
     target_compatible_with = ["@platforms//os:macos", "@platforms//cpu:aarch64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":platform_libc_is_libsystem"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
     toolchain = "@python_3_13_aarch64_apple_darwin//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
@@ -144,7 +132,7 @@ toolchain(
 toolchain(
     name = "python_3_13_x86_64_apple_darwin",
     target_compatible_with = ["@platforms//os:macos", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":platform_libc_is_libsystem"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
     toolchain = "@python_3_13_x86_64_apple_darwin//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
@@ -222,7 +210,7 @@ toolchain(
 toolchain(
     name = "python_3_13_x86_64_pc_windows_msvc",
     target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":platform_libc_is_msvc"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
     toolchain = "@python_3_13_x86_64_pc_windows_msvc//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
@@ -248,7 +236,7 @@ toolchain(
 toolchain(
     name = "python_3_13_aarch64_pc_windows_msvc",
     target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:aarch64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":platform_libc_is_msvc"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
     toolchain = "@python_3_13_aarch64_pc_windows_msvc//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
@@ -274,7 +262,7 @@ toolchain(
 toolchain(
     name = "python_3_13_i686_pc_windows_msvc",
     target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_32"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":platform_libc_is_msvc"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
     toolchain = "@python_3_13_i686_pc_windows_msvc//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
@@ -300,7 +288,7 @@ toolchain(
 toolchain(
     name = "python_3_13_aarch64_apple_darwin_install_only_stripped",
     target_compatible_with = ["@platforms//os:macos", "@platforms//cpu:aarch64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":platform_libc_is_libsystem"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
     toolchain = "@python_3_13_aarch64_apple_darwin_install_only_stripped//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
@@ -378,7 +366,7 @@ toolchain(
 toolchain(
     name = "python_3_13_x86_64_apple_darwin_install_only_stripped",
     target_compatible_with = ["@platforms//os:macos", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":platform_libc_is_libsystem"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
     toolchain = "@python_3_13_x86_64_apple_darwin_install_only_stripped//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
@@ -456,7 +444,7 @@ toolchain(
 toolchain(
     name = "python_3_13_x86_64_pc_windows_msvc_install_only_stripped",
     target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":platform_libc_is_msvc"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
     toolchain = "@python_3_13_x86_64_pc_windows_msvc_install_only_stripped//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
@@ -482,7 +470,7 @@ toolchain(
 toolchain(
     name = "python_3_13_aarch64_pc_windows_msvc_install_only_stripped",
     target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:aarch64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":platform_libc_is_msvc"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
     toolchain = "@python_3_13_aarch64_pc_windows_msvc_install_only_stripped//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
@@ -508,7 +496,7 @@ toolchain(
 toolchain(
     name = "python_3_13_i686_pc_windows_msvc_install_only_stripped",
     target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_32"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":platform_libc_is_msvc"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
     toolchain = "@python_3_13_i686_pc_windows_msvc_install_only_stripped//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
@@ -534,7 +522,7 @@ toolchain(
 toolchain(
     name = "python_3_13_aarch64_apple_darwin_freethreaded_pgo_lto",
     target_compatible_with = ["@platforms//os:macos", "@platforms//cpu:aarch64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":platform_libc_is_libsystem"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
     toolchain = "@python_3_13_aarch64_apple_darwin_freethreaded_pgo_lto//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
@@ -586,7 +574,7 @@ toolchain(
 toolchain(
     name = "python_3_13_x86_64_apple_darwin_freethreaded_pgo_lto",
     target_compatible_with = ["@platforms//os:macos", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":platform_libc_is_libsystem"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
     toolchain = "@python_3_13_x86_64_apple_darwin_freethreaded_pgo_lto//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
@@ -638,7 +626,7 @@ toolchain(
 toolchain(
     name = "python_3_13_aarch64_apple_darwin_freethreaded_debug",
     target_compatible_with = ["@platforms//os:macos", "@platforms//cpu:aarch64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":platform_libc_is_libsystem"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
     toolchain = "@python_3_13_aarch64_apple_darwin_freethreaded_debug//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
@@ -716,7 +704,7 @@ toolchain(
 toolchain(
     name = "python_3_13_x86_64_apple_darwin_freethreaded_debug",
     target_compatible_with = ["@platforms//os:macos", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":platform_libc_is_libsystem"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
     toolchain = "@python_3_13_x86_64_apple_darwin_freethreaded_debug//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
