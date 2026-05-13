@@ -168,9 +168,9 @@ def _py_venv_rule_impl(ctx):
 
 _attrs = dict({
     "dep_group": attr.string(
+        default = "",
         doc = """The name of a configured dependency group within which to resolve dependencies.
 
-Default value.
 May be overridden with the --@pip//dep_group=<> CLI flag.
 Only works with the experimental Aspect pip machinery.
 """,
