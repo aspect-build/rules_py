@@ -15,8 +15,8 @@ python.toolchain(python_version = "3.9", is_default = True)
 
 load(
     "//py/private:py_image_layer.bzl",
-    _LayerTierInfo = "LayerTierInfo",
-    _layer_tier = "layer_tier",
+    _PyLayerTierInfo = "PyLayerTierInfo",
+    _py_layer_tier = "py_layer_tier",
     _py_image_layer = "py_image_layer",
 )
 load("//py/private:py_library.bzl", _py_library = "py_library")
@@ -42,8 +42,8 @@ py_library = _py_library
 py_unpacked_wheel = _py_unpacked_wheel
 
 py_image_layer = _py_image_layer
-layer_tier = _layer_tier
-LayerTierInfo = _LayerTierInfo
+py_layer_tier = _py_layer_tier
+PyLayerTierInfo = _PyLayerTierInfo
 
 resolutions = _resolutions
 

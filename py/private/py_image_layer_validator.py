@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """py_image_layer_validator — validate pip layer sizing for a py_image_layer target.
 
-Invoked as a Bazel validation action. Fails (exit 1) with actionable `layer_tier` snippets
+Invoked as a Bazel validation action. Fails (exit 1) with actionable `py_layer_tier` snippets
 when the squashed pip layer exceeds a size threshold, when the OCI 127-layer hard limit is
 breached, or when any individual pip package is unusually large.
 
@@ -22,7 +22,7 @@ import sys
 
 _OCI_LAYER_HARD_LIMIT = 127
 _BINARY_GLOBS = {"*.so", "*.so.*", "*.pyd", "*.dylib", "*.dll"}
-_LAYER_TIER_TARGET = "@aspect_rules_py//py:layer_tier"
+_LAYER_TIER_TARGET = "@aspect_rules_py//py:py_layer_tier"
 _DEFAULT_LAYER_TIER_TARGET = "@aspect_rules_py//py/private:default_layer_tier"
 
 _LAYER_COUNT_SUGGESTION_COMMENT = [
@@ -172,7 +172,7 @@ def _suggest_subpath_groups(label, paths, min_file_bytes):
 
 
 class _Suggestions:
-    """Accumulates deduplicated layer_tier suggestions from the various check paths.
+    """Accumulates deduplicated py_layer_tier suggestions from the various check paths.
 
     Keys into group_lines are either a plain label (whole-package) or a `label:glob`
     (subpath). If a subpath entry lands for a label, any earlier whole-package entry
@@ -262,7 +262,7 @@ def main():
         squashed_mb = squashed_total // (1024 * 1024)
         messages.append(
             "ERROR: squashed pip layer is {}MB (threshold {}MB).".format(squashed_mb, args.threshold_mb)
-            + " Promote the largest ungrouped packages below into layer_tier to shrink it."
+            + " Promote the largest ungrouped packages below into py_layer_tier to shrink it."
         )
         for label, size in sorted(pkg_sizes.items(), key=lambda kv: -kv[1])[:15]:
             mb = size // (1024 * 1024)
@@ -290,7 +290,7 @@ def main():
     if binary_below_threshold:
         messages.append(
             "NOTE: the following binary packages (Root-Is-Purelib: false) are in the squashed"
-            " layer. Add them to layer_tier(groups={...}, compression={...}) to promote them"
+            " layer. Add them to py_layer_tier(groups={...}, compression={...}) to promote them"
             " to dedicated, compression-tuned layers:"
         )
         for lbl in sorted(binary_below_threshold):
@@ -301,20 +301,20 @@ def main():
 
     lines = list(messages)
     if suggestions.group_lines or layer_count_comment_lines:
-        lines.append("  Suggested additions to layer_tier(groups=...) to promote these out of the squashed layer:")
+        lines.append("  Suggested additions to py_layer_tier(groups=...) to promote these out of the squashed layer:")
         lines.append("    groups = {")
         lines.extend(layer_count_comment_lines)
         lines.extend(suggestions.group_lines.values())
         lines.append("    }")
     if suggestions.compression:
-        lines.append("  Suggested additions to layer_tier(compression=...) for the packages above")
+        lines.append("  Suggested additions to py_layer_tier(compression=...) for the packages above")
         lines.append("  (binary files compress poorly; level 1 is fastest):")
         lines.append("    compression = {")
         for label, level in suggestions.compression.items():
             lines.append('        "{}": ["gzip", "{}"],'.format(label, level))
         lines.append("    }")
         lines.append(
-            "  Edit the `layer_tier` target your {} label_flag points at (default: {}).".format(
+            "  Edit the `py_layer_tier` target your {} label_flag points at (default: {}).".format(
                 _LAYER_TIER_TARGET, _DEFAULT_LAYER_TIER_TARGET
             )
         )
