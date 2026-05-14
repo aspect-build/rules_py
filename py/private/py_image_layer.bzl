@@ -444,6 +444,12 @@ def _layer_aspect_impl(target, ctx):
                         interp_paths[f.path] = True
 
         runfiles_files = target[DefaultInfo].default_runfiles.files.to_list()
+
+        # Skip py_venv wheel alias dirs (declare_directory symlinks to install_trees).
+        for f in runfiles_files:
+            if f.is_directory and "/_wheels/" in f.short_path:
+                skip_paths[f.path] = True
+
         filtered = [f for f in runfiles_files if f.path not in skip_paths and f.path not in interp_paths]
         if filtered:
             own_source.append(depset(direct = filtered))

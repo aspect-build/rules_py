@@ -1,3 +1,8 @@
+"""Deliberate e2e fixture: a py_library from the @aspect_rules_py module consumed by the
+OCI e2e cases (//cases/oci/py_image_layer) to verify that py_image_layer correctly
+includes cross-module first-party deps. Do not inline into the e2e folder — the point
+is to exercise the external-module runfiles path (aspect_rules_py+/...)."""
+
 load("//py:defs.bzl", "py_library")
 
 py_library(
@@ -7,8 +12,5 @@ py_library(
         "add.py",
     ],
     imports = [".."],
-    # This library contributes to the container test, testing we can pull in and use a library from another
-    # package in the repo. Public so the e2e harness's OCI cases (which live in
-    # a different module under //cases/oci/...) can consume it.
     visibility = ["//visibility:public"],
 )
