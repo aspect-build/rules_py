@@ -84,5 +84,17 @@ write_source_files(
         # arm mapping so a regression that drops source-specificity
         # disambiguation flips ~150 arms to the cp38 wheel in the diff.
         "snapshots/abi3_compat.whl_install.cryptography.BUILD.bazel": "@whl_install__abi3_compat__cryptography__46_0_5//:BUILD.bazel",
+
+        # @sdist_build for jpype1 with uv.override_package toolchains/env
+        # ----------------------------------------------------------------
+        # Covers the override_package -> repo-rule -> BUILD-template
+        # plumbing for the augment-on-defaults `toolchains = [...]` /
+        # `env = {...}`. The override layers a JDK runtime on top of the
+        # default CC toolchain; the snapshot pins both toolchain
+        # references and both env families (CC + JAVA_HOME/JAVA/JAR).
+        # Pairs with the analysis test at
+        # //uv/private/pep517_whl:toolchain_env_test which asserts the
+        # rule expands env keys correctly given an explicit fixture.
+        "snapshots/sdist_build.uv_sdist_jdk_build.jpype1.BUILD.bazel": "@sdist_build__uv_sdist_jdk_build__jpype1__1_7_1//:BUILD.bazel",
     },
 )

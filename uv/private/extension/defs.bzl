@@ -230,7 +230,9 @@ def _parse_projects(module_ctx, hub_specs):
                     override.pre_build_patches or
                     override.post_install_patches or
                     override.extra_deps or
-                    override.extra_data
+                    override.extra_data or
+                    override.toolchains or
+                    override.env
                 )
 
                 if has_target and has_modifications:
@@ -377,6 +379,15 @@ def _parse_projects(module_ctx, hub_specs):
                         pre_build_patches = [str(p) for p in pkg_override.pre_build_patches]
                         pre_build_patch_strip = pkg_override.pre_build_patch_strip
 
+                    # `toolchains` / `env` on `uv.override_package` augment
+                    # the defaults baked into sdist_build's BUILD template —
+                    # they don't replace them. Empty == no augmentation.
+                    extra_toolchains = []
+                    extra_env = {}
+                    if pkg_override:
+                        extra_toolchains = [str(t) for t in pkg_override.toolchains]
+                        extra_env = pkg_override.env
+
                     sbuild_specs[sbuild_id] = struct(
                         src = sdist,
                         deps = ["@{0}//:{1}".format(*it) for it in build_deps],
@@ -386,6 +397,8 @@ def _parse_projects(module_ctx, hub_specs):
                         pre_build_patch_strip = pre_build_patch_strip,
                         available_deps = project_available_deps,
                         configure_command = project.unstable_configure_command,
+                        extra_toolchains = extra_toolchains,
+                        extra_env = extra_env,
                     )
 
                     has_sbuild = True
@@ -569,6 +582,10 @@ def _uv_impl(module_ctx):
         if sbuild_cfg.pre_build_patches:
             sbuild_kwargs["pre_build_patches"] = sbuild_cfg.pre_build_patches
             sbuild_kwargs["pre_build_patch_strip"] = sbuild_cfg.pre_build_patch_strip
+        if sbuild_cfg.extra_toolchains:
+            sbuild_kwargs["extra_toolchains"] = sbuild_cfg.extra_toolchains
+        if sbuild_cfg.extra_env:
+            sbuild_kwargs["extra_env"] = sbuild_cfg.extra_env
         sdist_build(**sbuild_kwargs)
 
     for install_id, install_cfg in cfg.install_cfgs.items():
@@ -664,6 +681,21 @@ _override_package_tag = tag_class(
         # Full replacement: provide a target that substitutes for the package entirely.
         # Mutually exclusive with patch/exclude attributes.
         "target": attr.label(mandatory = False),
+
+        # Per-package toolchain plumbing for native sdist builds. Both
+        # attributes AUGMENT the defaults baked into sdist_build's
+        # generated `pep517_native_whl(...)` call (the CC toolchain +
+        # CC/CXX/AR/LD/STRIP env) — they don't replace them. Use these
+        # to layer extra toolchains (Java runtime, Rust, …) and extra
+        # env vars on top of the defaults.
+        "toolchains": attr.label_list(
+            default = [],
+            doc = "Extra toolchain targets appended to the generated pep517_native_whl(...) call's `toolchains` list. Each target's TemplateVariableInfo make-variables become available for $(VAR) expansion in `env`.",
+        ),
+        "env": attr.string_dict(
+            default = {},
+            doc = "Extra environment variables merged into the build action's `env` dict. Values may reference $(VAR) make-variables sourced from the default CC toolchain or any extra `toolchains` listed above.",
+        ),
 
         # Pre-build patches: applied to extracted sdist source before wheel build.
         "pre_build_patches": attr.label_list(

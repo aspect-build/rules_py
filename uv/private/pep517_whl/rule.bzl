@@ -5,10 +5,7 @@ Uses `python -m build` (the pypa/build frontend) which delegates to whatever
 build backend the sdist declares in its `[build-system]` table.
 """
 
-load("@bazel_tools//tools/cpp:toolchain_utils.bzl", find_cc_toolchain = "find_cpp_toolchain")
 load("//py/private/toolchain:types.bzl", "NATIVE_BUILD_TOOLCHAIN", "PY_TOOLCHAIN")
-
-CC_TOOLCHAIN = "@bazel_tools//tools/cpp:toolchain_type"
 
 def _common_env(ctx):
     return {
@@ -29,6 +26,38 @@ def _patch_args_and_inputs(ctx):
                 patch_args.extend(["--patch", f.path])
                 patch_inputs.append(f)
     return patch_args, patch_inputs
+
+def _collect_toolchain_inputs_and_vars(ctx):
+    """Gather files + Make-variable substitutions from `ctx.attr.toolchains`.
+
+    Each target passed via the rule's `toolchains = [...]` attribute is
+    inspected for three providers:
+      - DefaultInfo            -> files + default_runfiles added to action inputs
+      - ToolchainInfo.all_files -> added to action inputs
+      - TemplateVariableInfo   -> variables collected for `$(VAR)` expansion in `env`
+
+    Pattern mirrors rules_rust's cargo_build_script
+    (see cargo/private/cargo_build_script.bzl).
+    """
+    extra_inputs = []
+    known_variables = {}
+    for target in ctx.attr.toolchains:
+        if DefaultInfo in target:
+            extra_inputs.append(target[DefaultInfo].files)
+
+            # `default_runfiles` can be None on some target types — guard it.
+            default_runfiles = target[DefaultInfo].default_runfiles
+            if default_runfiles:
+                extra_inputs.append(default_runfiles.files)
+        if platform_common.ToolchainInfo in target:
+            all_files = getattr(target[platform_common.ToolchainInfo], "all_files", None)
+            if all_files:
+                if type(all_files) == "list":
+                    all_files = depset(all_files)
+                extra_inputs.append(all_files)
+        if platform_common.TemplateVariableInfo in target:
+            known_variables.update(target[platform_common.TemplateVariableInfo].variables)
+    return extra_inputs, known_variables
 
 def _pep517_whl(ctx):
     archive = ctx.attr.src[DefaultInfo].files.to_list()[0]
@@ -64,14 +93,9 @@ def _pep517_native_whl(ctx):
     patch_args, patch_inputs = _patch_args_and_inputs(ctx)
 
     env = _common_env(ctx)
-    extra_inputs = []
-
-    # Resolve the CC toolchain so setuptools/distutils can find the compiler
-    # rather than falling back to whatever is on the system PATH.
-    cc_toolchain = find_cc_toolchain(ctx, mandatory = False)
-    if cc_toolchain:
-        env["CC"] = cc_toolchain.compiler_executable
-        extra_inputs.append(cc_toolchain.all_files)
+    extra_inputs, known_variables = _collect_toolchain_inputs_and_vars(ctx)
+    for k, v in ctx.attr.env.items():
+        env[k] = ctx.expand_make_variables("env", v, known_variables)
 
     ctx.actions.run(
         mnemonic = "PySdistNativeBuild",
@@ -139,9 +163,12 @@ Consumes a sdist artifact and performs a build of that artifact with the
 specified Python dependencies under the configured Python toolchain to produce a
 platform-specific bdist we can subsequently install or deploy.
 
-The CC toolchain is resolved and `$CC` is set in the build environment so
-that setuptools/distutils can find the hermetic compiler rather than falling
-back to whatever is on the system PATH.
+Toolchains the build action depends on are passed via the standard `toolchains`
+attribute and each target's `DefaultInfo.files`, `ToolchainInfo.all_files`, and
+`TemplateVariableInfo.variables` are forwarded to the action. The `env`
+attribute maps environment variable names to strings that may reference
+`$(VAR)` make-variables sourced from those toolchains. This mirrors the
+pattern used by `rules_rust`'s `cargo_build_script`.
 
 The build is guaranteed to occur on an execution platform matching the
 constraints of the target platform.
@@ -149,8 +176,11 @@ constraints of the target platform.
 """,
     attrs = _pep517_whl_attrs | {
         "args": attr.string_list(),
-        "_cc_toolchain": attr.label(
-            default = Label("@bazel_tools//tools/cpp:current_cc_toolchain"),
+        "env": attr.string_dict(
+            doc = "Environment variables to set on the build action. Values may " +
+                  "contain `$(VAR)` references to make-variables exposed by any " +
+                  "target in the rule's `toolchains` attribute (via " +
+                  "`TemplateVariableInfo`).",
         ),
     },
     exec_groups = {
@@ -171,12 +201,7 @@ constraints of the target platform.
             toolchains = [
                 PY_TOOLCHAIN,
                 NATIVE_BUILD_TOOLCHAIN,
-                CC_TOOLCHAIN,
             ],
         ),
     },
-    toolchains = [
-        config_common.toolchain_type(CC_TOOLCHAIN, mandatory = False),
-    ],
-    fragments = ["cpp"],
 )
