@@ -66,16 +66,11 @@ platform_transition_filegroup(
     target_platform = ":amd64_linux",
 )
 
-# FIXME(Bazel 8+): This listing needs to be updated/
-# Contains old style ~ munging.
 assert_tar_listing(
     name = "my_app_amd64_layers",
     actual = [":amd64_layers"],
-    expected = ":my_app_amd64_layers_listing.yaml",
-    tags = [
-        "skip-on-bazel8",
-        "skip-on-bazel9",
-    ],
+    expected = "my_app_amd64_layers_listing.yaml",
+    tags = ["skip-on-bazel9"],
 )
 
 platform_transition_filegroup(
@@ -84,16 +79,11 @@ platform_transition_filegroup(
     target_platform = ":arm64_linux",
 )
 
-# FIXME(Bazel 8+): This listing needs to be updated/
-# Contains old style ~ munging.
 assert_tar_listing(
     name = "my_app_arm64_layers",
     actual = [":arm64_layers"],
-    expected = ":my_app_arm64_layers_listing.yaml",
-    tags = [
-        "skip-on-bazel8",
-        "skip-on-bazel9",
-    ],
+    expected = "my_app_arm64_layers_listing.yaml",
+    tags = ["skip-on-bazel9"],
 )
 
 oci_image(
