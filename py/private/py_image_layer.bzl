@@ -7,7 +7,7 @@ Two rule-propagated aspects wire onto `py_image_layer.binary`:
      shared across every rule using that package) for solo whole-groups and subpath
      splits. Members of multi-member whole groups get NO per-package tar — intermediate
      elided; they just flag `merge_group` on their _LayerInfo struct. First-party
-     PyInfo targets matched by `layer_tier.groups` are captured as `first_party_layers`
+     PyInfo targets matched by `layer_tier.groups`/`layer_tier.subpath_groups` are captured as `first_party_layers`
      entries (label, files, group) to be tarred per-group at the binary. Produces
      `_LayerInfo`.
 
@@ -65,11 +65,16 @@ def normalize_label(label_str):
     Rewrites whl_install labels to '@pip//<pkg>', strips the '@@//' prefix,
     and expands implicit target names ('//foo/bar' → '//foo/bar:bar').
 
+    This function is idempotent: normalize_label(normalize_label(x)) == normalize_label(x).
+
+    Callers inside aspects pass str(target.label), whose canonical form varies by
+    Bazel version (+/~ separator). The whl_install__ anchor is stable across both.
+
     Args:
-        label_str: Label or string to canonicalize.
+        label_str: str(target.label) from Bazel analysis, or a user-supplied label string.
 
     Returns:
-        The canonicalized label string.
+        The canonicalized label string suitable for dict lookup against layer_tier keys.
     """
     label_str = str(label_str)
     pkg = _extract_whl_install_pkg(label_str)
@@ -105,11 +110,14 @@ def _layer_tier_impl(ctx):
     whole_groups = {}
     subpath_groups = {}
     for key, group_name in ctx.attr.groups.items():
+        if _split_glob_key(key)[1] != None:
+            fail("layer_tier: groups= entry %r contains a glob pattern. Use subpath_groups= for subpath splits." % key)
+        whole_groups[normalize_label(key)] = group_name
+    for key, group_name in ctx.attr.subpath_groups.items():
         label_part, pattern = _split_glob_key(key)
-        if pattern != None:
-            subpath_groups.setdefault(normalize_label(label_part), {}).setdefault(group_name, []).append(pattern)
-        else:
-            whole_groups[normalize_label(key)] = group_name
+        if pattern == None:
+            fail("layer_tier: subpath_groups= entry %r is missing a glob pattern. Format is label:glob (e.g. @pip//torch:*.so)." % key)
+        subpath_groups.setdefault(normalize_label(label_part), {}).setdefault(group_name, []).append(pattern)
 
     group_counts = {}
     for group_name in whole_groups.values():
@@ -129,17 +137,24 @@ layer_tier = rule(
     attrs = {
         "groups": attr.string_dict(
             default = {},
-            doc = ("Maps @pip//package → group name (whole pip package), " +
-                   "@pip//package:glob → group name (pip subpath split), or " +
-                   "//some/first_party:lib → group name (first-party PyInfo target). " +
-                   "First-party main-repo labels may be written as //pkg:name; " +
-                   "fully-qualified forms like @@//pkg:name are also accepted."),
+            doc = ("Maps label → group name for whole pip packages or first-party PyInfo targets. " +
+                   "Keys must not contain glob wildcards — use subpath_groups= for per-file splits. " +
+                   "Examples: {\"@pip//torch\": \"ml\", \"//my/lib\": \"app\"}. " +
+                   "First-party labels may be written as //pkg:name or @@//pkg:name."),
+        ),
+        "subpath_groups": attr.string_dict(
+            default = {},
+            doc = ("Maps label:glob → group name for pip package subpath splits. " +
+                   "Each key must include a colon-separated glob pattern after the label " +
+                   "and must contain a wildcard (* or ?). " +
+                   "Example: {\"@pip//torch:*.so\": \"torch_native\", \"@pip//torch:**/*.py\": \"torch_code\"}. " +
+                   "A pip package may appear in subpath_groups OR groups, not both."),
         ),
         "compression": attr.string_list_dict(
             default = {},
             doc = ("Maps group name → [algorithm, level] for pip-derived layers. " +
                    "Applies to the whole-group tar, each subpath-split tar, and the " +
-                   "multi-member merged tar — anything routed through layer_tier.groups. " +
+                   "multi-member merged tar — anything routed through layer_tier.groups or layer_tier.subpath_groups. " +
                    "Example: {\"heavy_pkgs\": [\"zstd\", \"1\"]}. Untouched groups default to gzip -6."),
         ),
         "interpreter_group": attr.string(
@@ -157,7 +172,7 @@ _LayerInfo = provider(
     fields = {
         "source_files": "depset[File] — ungrouped first-party Python source files.",
         "pip_packages": "depset[struct] — fully transitive pip packages with per-package layers.",
-        "first_party_layers": "depset[struct(label, files, group)] — first-party PyInfo targets matched by layer_tier.groups.",
+        "first_party_layers": "depset[struct(label, files, group)] — first-party PyInfo targets matched by layer_tier.groups or layer_tier.subpath_groups.",
         "interpreter_files": "depset[File] — interpreter runfiles, populated only on the py toolchain pass for the binary-branch skip filter.",
         "interpreter_layer": "struct(tar, group) | None — prebuilt interpreter layer tar + its group name, declared at the toolchain target's namespace so the tar action-shares across every py_image_layer using that toolchain config.",
     },
@@ -704,7 +719,9 @@ def _run_tar_action(ctx, bsdtar, bsdtar_files, tar_out, files_depset, map_each, 
         progress_message = progress_msg,
         execution_requirements = reqs,
         toolchain = _TAR_TOOLCHAIN,
-        use_default_shell_env = True,
+        # awk and sort are POSIX tools assumed present on all exec platforms.
+        # LC_ALL=C is set inline before sort, so no host env var is needed.
+        use_default_shell_env = False,
     )
 
 def _declare_group_tar(ctx, bsdtar, bsdtar_files, out_name, group_name, files, map_each, progress):
@@ -929,7 +946,7 @@ def py_image_layer(
     ## Output layers
 
       1. Non-pip deps listed in `groups` → one rule-created tar per group.
-      2. First-party py_library targets matched by `layer_tier.groups` → one
+      2. First-party py_library targets matched by `layer_tier.groups`/`layer_tier.subpath_groups` → one
          rule-created tar per group (aggregated across all matched targets in the
          binary's dep closure).
       3. Solo-group and subpath-split pip tars — built by `_layer_aspect` at each pip
@@ -966,7 +983,7 @@ def py_image_layer(
         if _split_glob_key(key)[1] != None:
             fail(
                 "py_image_layer.groups no longer supports subpath (glob) keys like %r. " % key +
-                "Move pip subpath grouping to layer_tier(groups = {...}).",
+                "Move pip subpath grouping to layer_tier(subpath_groups = {...}).",
             )
 
     _py_image_layer(

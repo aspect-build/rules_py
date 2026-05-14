@@ -1,5 +1,5 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
-load("//py:defs.bzl", _py_binary_rule = "py_binary")
+load("//py:defs.bzl", _py_binary_rule = "py_binary", _py_test_rule = "py_test")
 load(":py_image_layer.bzl", "layer_tier")
 load(":py_library.bzl", "py_library")
 
@@ -27,6 +27,15 @@ _py_binary_rule(
     srcs = ["py_image_layer_validator.py"],
     main = "py_image_layer_validator.py",
     visibility = ["//visibility:public"],
+)
+
+_py_test_rule(
+    name = "py_image_layer_validator_test",
+    srcs = [
+        "py_image_layer_validator.py",
+        "py_image_layer_validator_test.py",
+    ],
+    main = "py_image_layer_validator_test.py",
 )
 
 layer_tier(

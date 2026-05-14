@@ -21,7 +21,7 @@ import os
 import sys
 
 _OCI_LAYER_HARD_LIMIT = 127
-_BINARY_GLOBS = {"*.so*", "*.pyd", "*.dylib", "*.dll"}
+_BINARY_GLOBS = {"*.so", "*.so.*", "*.pyd", "*.dylib", "*.dll"}
 _LAYER_TIER_TARGET = "@aspect_rules_py//py:layer_tier"
 _DEFAULT_LAYER_TIER_TARGET = "@aspect_rules_py//py/private:default_layer_tier"
 
@@ -36,8 +36,15 @@ _LAYER_COUNT_SUGGESTION_COMMENT = [
 
 
 def _pkg_name_from_label(label):
-    """@@pip//torch:torch → torch (suitable as a Bazel target / group name)."""
-    return label.split("//")[-1].split(":")[0].strip("@").replace("-", "_")
+    """@@pip//torch:torch → torch (suitable as a Bazel target / group name).
+
+    For first-party labels like @@//my/deep/pkg:lib, returns the target name
+    (lib) rather than the path (my/deep/pkg) to avoid slashes in group names.
+    """
+    pkg_and_target = label.split("//")[-1]
+    path_part, _, name_part = pkg_and_target.partition(":")
+    name = name_part if name_part else path_part.rsplit("/", 1)[-1]
+    return name.strip("@").replace("-", "_")
 
 
 def _record_size(pkg_path):
@@ -116,12 +123,20 @@ def _find_large_files(paths, min_bytes):
 
 
 def _glob_for_file(basename):
-    """Return a glob pattern that matches basename (no path separators)."""
+    """Return a glob pattern that matches basename (no path separators).
+
+    Shared libraries are split into two patterns to avoid an overly broad glob:
+      *.so   — unversioned link (e.g. libfoo.so)
+      *.so.* — versioned file   (e.g. libfoo.so.1.2.3)
+    This prevents *.so* from matching unrelated files like README.so.txt.
+    """
     idx = basename.find(".so")
     if idx >= 0:
         suffix = basename[idx + 3:]
-        if suffix == "" or (suffix and suffix[0] == "."):
-            return "*.so*"
+        if suffix == "":
+            return "*.so"
+        if suffix[0] == "." and all(c.isdigit() or c == "." for c in suffix[1:]):
+            return "*.so.*"
     for ext in (".pyd", ".dylib", ".dll"):
         if basename.endswith(ext):
             return "*" + ext
