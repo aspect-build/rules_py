@@ -7,7 +7,7 @@ Two rule-propagated aspects wire onto `py_image_layer.binary`:
      shared across every rule using that package) for solo whole-groups and subpath
      splits. Members of multi-member whole groups get NO per-package tar — intermediate
      elided; they just flag `merge_group` on their _LayerInfo struct. First-party
-     PyInfo targets matched by `layer_tier.groups`/`layer_tier.subpath_groups` are captured as `first_party_layers`
+     PyInfo targets matched by `py_layer_tier.groups`/`py_layer_tier.subpath_groups` are captured as `first_party_layers`
      entries (label, files, group) to be tarred per-group at the binary. Produces
      `_LayerInfo`.
 
@@ -17,10 +17,10 @@ Two rule-propagated aspects wire onto `py_image_layer.binary`:
      raw install_dirs — single pass, no intermediates, content exactly matches closure
      (no dep leak). Produces `_MergedLayerInfo` declared at the binary's output namespace.
 
-Layer tier (groups + compression) is carried by the `layer_tier` rule which produces
-`LayerTierInfo`. Aspects read it via a private `_layer_tier` attr whose default is
-`//py:layer_tier` (a label_flag). Users switch tiers globally via
-`--//py:layer_tier=//path:custom_tier`.
+Layer tier (groups + compression) is carried by the `py_layer_tier` rule which produces
+`PyLayerTierInfo`. Aspects read it via a private `_layer_tier` attr whose default is
+`//py:py_layer_tier` (a label_flag). Users switch tiers globally via
+`--//py:py_layer_tier=//path:custom_tier`.
 
 Sharing model:
   - Solo whole-group + subpath-split pip tars: action-shared across every rule using
@@ -74,7 +74,7 @@ def normalize_label(label_str):
         label_str: str(target.label) from Bazel analysis, or a user-supplied label string.
 
     Returns:
-        The canonicalized label string suitable for dict lookup against layer_tier keys.
+        The canonicalized label string suitable for dict lookup against py_layer_tier keys.
     """
     label_str = str(label_str)
     pkg = _extract_whl_install_pkg(label_str)
@@ -88,7 +88,7 @@ def normalize_label(label_str):
         label_str = label_str + ":" + target_name
     return label_str
 
-LayerTierInfo = provider(
+PyLayerTierInfo = provider(
     doc = "Layer tier for py_image_layer: how pip packages are grouped and compressed.",
     fields = {
         "whole_groups": "dict[str, str] — normalized pip label → group name.",
@@ -106,17 +106,17 @@ def _split_glob_key(key):
         return key[:colon_idx], key[colon_idx + 1:]
     return None, None
 
-def _layer_tier_impl(ctx):
+def _py_layer_tier_impl(ctx):
     whole_groups = {}
     subpath_groups = {}
     for key, group_name in ctx.attr.groups.items():
         if _split_glob_key(key)[1] != None:
-            fail("layer_tier: groups= entry %r contains a glob pattern. Use subpath_groups= for subpath splits." % key)
+            fail("py_layer_tier: groups= entry %r contains a glob pattern. Use subpath_groups= for subpath splits." % key)
         whole_groups[normalize_label(key)] = group_name
     for key, group_name in ctx.attr.subpath_groups.items():
         label_part, pattern = _split_glob_key(key)
         if pattern == None:
-            fail("layer_tier: subpath_groups= entry %r is missing a glob pattern. Format is label:glob (e.g. @pip//torch:*.so)." % key)
+            fail("py_layer_tier: subpath_groups= entry %r is missing a glob pattern. Format is label:glob (e.g. @pip//torch:*.so)." % key)
         subpath_groups.setdefault(normalize_label(label_part), {}).setdefault(group_name, []).append(pattern)
 
     group_counts = {}
@@ -124,7 +124,7 @@ def _layer_tier_impl(ctx):
         group_counts[group_name] = group_counts.get(group_name, 0) + 1
     multi_member_groups = {name: True for name, count in group_counts.items() if count >= 2}
 
-    return [LayerTierInfo(
+    return [PyLayerTierInfo(
         whole_groups = whole_groups,
         subpath_groups = subpath_groups,
         compression = dict(ctx.attr.compression),
@@ -132,8 +132,8 @@ def _layer_tier_impl(ctx):
         interpreter_group = ctx.attr.interpreter_group,
     )]
 
-layer_tier = rule(
-    implementation = _layer_tier_impl,
+py_layer_tier = rule(
+    implementation = _py_layer_tier_impl,
     attrs = {
         "groups": attr.string_dict(
             default = {},
@@ -154,7 +154,7 @@ layer_tier = rule(
             default = {},
             doc = ("Maps group name → [algorithm, level] for pip-derived layers. " +
                    "Applies to the whole-group tar, each subpath-split tar, and the " +
-                   "multi-member merged tar — anything routed through layer_tier.groups or layer_tier.subpath_groups. " +
+                   "multi-member merged tar — anything routed through py_layer_tier.groups or py_layer_tier.subpath_groups. " +
                    "Example: {\"heavy_pkgs\": [\"zstd\", \"1\"]}. Untouched groups default to gzip -6."),
         ),
         "interpreter_group": attr.string(
@@ -164,7 +164,7 @@ layer_tier = rule(
                    "instead of being bundled into the default source layer."),
         ),
     },
-    provides = [LayerTierInfo],
+    provides = [PyLayerTierInfo],
 )
 
 _LayerInfo = provider(
@@ -172,7 +172,7 @@ _LayerInfo = provider(
     fields = {
         "source_files": "depset[File] — ungrouped first-party Python source files.",
         "pip_packages": "depset[struct] — fully transitive pip packages with per-package layers.",
-        "first_party_layers": "depset[struct(label, files, group)] — first-party PyInfo targets matched by layer_tier.groups or layer_tier.subpath_groups.",
+        "first_party_layers": "depset[struct(label, files, group)] — first-party PyInfo targets matched by py_layer_tier.groups or py_layer_tier.subpath_groups.",
         "interpreter_files": "depset[File] — interpreter runfiles, populated only on the py toolchain pass for the binary-branch skip filter.",
         "interpreter_layer": "struct(tar, group) | None — prebuilt interpreter layer tar + its group name, declared at the toolchain target's namespace so the tar action-shares across every py_image_layer using that toolchain config.",
     },
@@ -229,7 +229,7 @@ def _build_pip_layers(ctx, plan, label, install_dir):
     is_multi_member = whole_group != None and whole_group in plan.multi_member_groups
 
     if is_multi_member and subpath_for_this:
-        fail(("layer_tier bug for %s: package is a member of multi-member group %r and " +
+        fail(("py_layer_tier bug for %s: package is a member of multi-member group %r and " +
               "also has subpath_groups. A pip package may be in a multi-member group OR " +
               "have subpath splits, not both.") % (label, whole_group))
 
@@ -310,7 +310,7 @@ def _layer_aspect_impl(target, ctx):
             return []
         direct = [py3.interpreter] if getattr(py3, "interpreter", None) != None else []
         interp_depset = depset(direct = direct, transitive = [py3.files])
-        plan = ctx.attr._layer_tier[LayerTierInfo]
+        plan = ctx.attr._layer_tier[PyLayerTierInfo]
         interp_group = plan.interpreter_group
         interp_layer = None
         if interp_group:
@@ -345,7 +345,7 @@ def _layer_aspect_impl(target, ctx):
     transitive_fp = [info.first_party_layers for info in dep_infos]
 
     if PyWheelsInfo in target and ctx.rule.kind in ("whl_install", "py_unpacked_wheel"):
-        plan = ctx.attr._layer_tier[LayerTierInfo]
+        plan = ctx.attr._layer_tier[PyLayerTierInfo]
         label = normalize_label(str(target.label))
         install_dir = depset([w.install_tree for w in target[PyWheelsInfo].wheels.to_list()])
         layers, merge_group = _build_pip_layers(ctx, plan, label, install_dir)
@@ -397,7 +397,7 @@ def _layer_aspect_impl(target, ctx):
                     own_parts.append(dep[DefaultInfo].files)
         own_depset = depset(transitive = own_parts)
 
-        plan = ctx.attr._layer_tier[LayerTierInfo]
+        plan = ctx.attr._layer_tier[PyLayerTierInfo]
         label_str = normalize_label(str(target.label))
         fp_group = plan.whole_groups.get(label_str, None)
         if fp_group != None:
@@ -471,8 +471,8 @@ _layer_aspect = aspect(
     attr_aspects = ["deps", "data", "actual", "venv"],
     attrs = {
         "_layer_tier": attr.label(
-            default = "//py:layer_tier",
-            providers = [LayerTierInfo],
+            default = "//py:py_layer_tier",
+            providers = [PyLayerTierInfo],
         ),
         "_awk_script": attr.label(
             default = "//py/private:modify_mtree.awk",
@@ -507,7 +507,7 @@ def _merge_aspect_impl(target, ctx):
         return [_MergedLayerInfo(merged_tars = {})]
 
     bsdtar, bsdtar_files = _tar_toolchain(ctx)
-    plan = ctx.attr._layer_tier[LayerTierInfo]
+    plan = ctx.attr._layer_tier[PyLayerTierInfo]
 
     merged_tars = {}
     for group_name in sorted(bucket):
@@ -536,8 +536,8 @@ _merge_aspect = aspect(
     attr_aspects = [],
     attrs = {
         "_layer_tier": attr.label(
-            default = "//py:layer_tier",
-            providers = [LayerTierInfo],
+            default = "//py:py_layer_tier",
+            providers = [PyLayerTierInfo],
         ),
         "_awk_script": attr.label(
             default = "//py/private:modify_mtree.awk",
@@ -682,14 +682,14 @@ def _parse_exec_requirements(entries):
 def _platform_cfg_impl(settings, attr):
     result = {
         "//command_line_option:platforms": [attr.platform] if attr.platform else settings["//command_line_option:platforms"],
-        "@aspect_rules_py//py:layer_tier": str(attr.layer_tier) if attr.layer_tier else settings["@aspect_rules_py//py:layer_tier"],
+        "@aspect_rules_py//py:py_layer_tier": str(attr.py_layer_tier) if attr.py_layer_tier else settings["@aspect_rules_py//py:py_layer_tier"],
     }
     return result
 
 _platform_cfg = transition(
     implementation = _platform_cfg_impl,
-    inputs = ["//command_line_option:platforms", "@aspect_rules_py//py:layer_tier"],
-    outputs = ["//command_line_option:platforms", "@aspect_rules_py//py:layer_tier"],
+    inputs = ["//command_line_option:platforms", "@aspect_rules_py//py:py_layer_tier"],
+    outputs = ["//command_line_option:platforms", "@aspect_rules_py//py:py_layer_tier"],
 )
 
 def _run_tar_action(ctx, bsdtar, bsdtar_files, tar_out, files_depset, map_each, compress, level, reqs, mnemonic, progress_msg):
@@ -811,7 +811,7 @@ def _py_image_layer_impl(ctx):
         if group_name in rule_group_names:
             fail(
                 ("Group %r is declared in both py_image_layer.groups and the active " +
-                 "layer_tier. Pick a unique name — the rule-level group tars ad-hoc " +
+                 "py_layer_tier. Pick a unique name — the rule-level group tars ad-hoc " +
                  "deps with a different file layout than first-party sources, so they " +
                  "cannot share a tar.") % group_name,
             )
@@ -908,7 +908,7 @@ _py_image_layer = rule(
         "root": attr.string(default = "/"),
         "strip_prefix": attr.string(default = ""),
         "platform": attr.string(default = ""),
-        "layer_tier": attr.label(default = None),
+        "py_layer_tier": attr.label(default = None),
         "_validator": attr.label(
             default = "//py/private:py_image_layer_validator",
             executable = True,
@@ -935,18 +935,18 @@ def py_image_layer(
         root = "/",
         strip_prefix = "",
         platform = None,
-        layer_tier = None,
+        py_layer_tier = None,
         **kwargs):
     """Create OCI-compatible tars from a py_binary or py_venv target.
 
-    Pip-package grouping + compression is resolved from the `//py:layer_tier`
-    label_flag. Override globally with `--//py:layer_tier=//path:custom_tier`,
-    or pin a tier to a specific rule via the `layer_tier` attr below.
+    Pip-package grouping + compression is resolved from the `//py:py_layer_tier`
+    label_flag. Override globally with `--//py:py_layer_tier=//path:custom_tier`,
+    or pin a tier to a specific rule via the `py_layer_tier` attr below.
 
     ## Output layers
 
       1. Non-pip deps listed in `groups` → one rule-created tar per group.
-      2. First-party py_library targets matched by `layer_tier.groups`/`layer_tier.subpath_groups` → one
+      2. First-party py_library targets matched by `py_layer_tier.groups`/`py_layer_tier.subpath_groups` → one
          rule-created tar per group (aggregated across all matched targets in the
          binary's dep closure).
       3. Solo-group and subpath-split pip tars — built by `_layer_aspect` at each pip
@@ -961,19 +961,19 @@ def py_image_layer(
         binary: A py_venv or py_binary target.
         groups: Maps a NON-PIP dep label to a group name. Each gets its own rule-created
             tar. All pip-package grouping (whole-package, subpath, multi-member) belongs
-            in layer_tier — subpath glob keys passed here fail loudly.
+            in py_layer_tier — subpath glob keys passed here fail loudly.
         group_execution_requirements: Maps a group name to execution requirement strings.
             The group name "packages" applies to the squashed ungrouped-pip tar.
         group_compress_levels: Maps a group name to a gzip compression level (1-9) for
             rule-created tars (non-pip deps, squashed ungrouped pip tar, source). Default 6.
-            Does NOT apply to aspect-created pip tars (configure via the layer_tier target).
+            Does NOT apply to aspect-created pip tars (configure via the py_layer_tier target).
         warn_remote_cache_threshold_mb: Threshold for large package warnings.
         warn_layer_count: Warn when total layers exceed this. Default: 90.
         root: Root path in image. Default: "/".
         strip_prefix: Prefix stripped from source file paths.
         platform: Platform transition target.
-        layer_tier: Optional layer_tier target pinned for this rule. Sets the
-            `@aspect_rules_py//py:layer_tier` label_flag via the rule transition,
+        py_layer_tier: Optional py_layer_tier target pinned for this rule. Sets the
+            `@aspect_rules_py//py:py_layer_tier` label_flag via the rule transition,
             overriding any command-line value for this rule's subgraph.
         **kwargs: Forwarded to inner rule.
     """
@@ -983,7 +983,7 @@ def py_image_layer(
         if _split_glob_key(key)[1] != None:
             fail(
                 "py_image_layer.groups no longer supports subpath (glob) keys like %r. " % key +
-                "Move pip subpath grouping to layer_tier(subpath_groups = {...}).",
+                "Move pip subpath grouping to py_layer_tier(subpath_groups = {...}).",
             )
 
     _py_image_layer(
@@ -997,7 +997,7 @@ def py_image_layer(
         root = root,
         strip_prefix = strip_prefix,
         platform = platform or "",
-        layer_tier = layer_tier,
+        py_layer_tier = py_layer_tier,
         tags = tags,
         **kwargs
     )
