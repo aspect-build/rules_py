@@ -16,8 +16,8 @@ python.toolchain(python_version = "3.9", is_default = True)
 load(
     "//py/private:py_image_layer.bzl",
     _PyLayerTierInfo = "PyLayerTierInfo",
-    _py_layer_tier = "py_layer_tier",
     _py_image_layer = "py_image_layer",
+    _py_layer_tier = "py_layer_tier",
 )
 load("//py/private:py_library.bzl", _py_library = "py_library")
 load("//py/private:py_pex_binary.bzl", _py_pex_binary = "py_pex_binary")
