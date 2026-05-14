@@ -2,7 +2,8 @@
 # e2e snapshots. Three sub-projects (alpha, beta, gamma) all depend on
 # cowsay, exercising the N>1 select-arm and dep_group config_setting
 # emission that the single-project @pypi_single snapshot cannot cover.
-load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library", "py_test", "py_venv")
+load("@aspect_rules_py//py/private/py_venv:py_venv_exec.bzl", "py_venv_exec_test")
 
 # Alpha defines `[dependency-groups]` (`dev` + hyphenated `unit-tests`)
 # instead of an implicit project-name group, so the snapshot covers both
@@ -49,4 +50,109 @@ py_test(
     deps = [
         "@pypi//cowsay",
     ],
+)
+
+# Within a single uv project, a hub package should be installed once
+# regardless of how many distinct dep_group consumers reach it. Each
+# `record_path_*` binary prints `Path(cowsay.__file__).resolve()` and
+# `:hub_dep_single_compile_test` asserts the recorded paths match.
+[
+    py_binary(
+        name = "record_path_" + group.replace("-", "_"),
+        srcs = ["record_path.py"],
+        dep_group = group,
+        main = "record_path.py",
+        python_version = "3.11",
+        deps = ["@pypi//cowsay"],
+    )
+    for group in [
+        "dev",
+        "unit-tests",
+    ]
+]
+
+py_test(
+    name = "hub_dep_single_compile_test",
+    srcs = ["compare_paths.py"],
+    data = [
+        ":record_path_dev",
+        ":record_path_unit_tests",
+    ],
+    dep_group = "dev",
+    main = "compare_paths.py",
+    python_version = "3.11",
+)
+
+# ---------------------------------------------------------------------------
+# dep_group rule-configuration demos
+#
+# How each public Python rule type wires up `dep_group`. All four
+# variants below import cowsay through alpha's `dev` or `unit-tests`
+# dependency group; passing tests confirm the dep_group was actually
+# applied to the venv that backs the launcher.
+# ---------------------------------------------------------------------------
+
+# 1) py_test — the `dep_group` attr is sugar exposed by the py_test
+#    macro and routed to the auto-generated sibling py_venv.
+py_test(
+    name = "demo_py_test_at_dev",
+    srcs = ["__test__.py"],
+    dep_group = "dev",
+    main = "__test__.py",
+    python_version = "3.11",
+    deps = ["@pypi//cowsay"],
+)
+
+# 2) py_venv — `dep_group` lives natively on py_venv. A single venv
+#    target can be declared once at a chosen dep_group and reused by
+#    multiple launchers (see (3)).
+py_venv(
+    name = "demo_venv_at_unit_tests",
+    testonly = True,
+    srcs = ["__test__.py"],
+    dep_group = "unit-tests",
+    python_version = "3.11",
+    visibility = [":__subpackages__"],
+    deps = ["@pypi//cowsay"],
+)
+
+# 3) py_venv_exec / py_venv_exec_test — the launcher rule does NOT
+#    carry `dep_group` itself; it inherits the dep_group of whatever
+#    `py_venv` it points at via the `venv =` attr. Pointing the same
+#    launcher at a different venv swaps the dep_group with no other
+#    attribute changes.
+py_venv_exec_test(
+    name = "demo_py_venv_exec_test_via_unit_tests",
+    srcs = ["__test__.py"],
+    main = "__test__.py",
+    venv = ":demo_venv_at_unit_tests",
+)
+
+# 4) py_library — no `dep_group` attr at all. A library has no opinion
+#    on dep_group; it is configured under whichever dep_group the
+#    consuming binary / test / venv is built at. The same library is
+#    re-used below by two consumers at distinct dep_groups.
+py_library(
+    name = "demo_lib_carrying_cowsay",
+    srcs = ["__test__.py"],
+    testonly = True,
+    deps = ["@pypi//cowsay"],
+)
+
+py_test(
+    name = "demo_lib_consumed_at_dev",
+    srcs = ["__test__.py"],
+    dep_group = "dev",
+    main = "__test__.py",
+    python_version = "3.11",
+    deps = [":demo_lib_carrying_cowsay"],
+)
+
+py_test(
+    name = "demo_lib_consumed_at_unit_tests",
+    srcs = ["__test__.py"],
+    dep_group = "unit-tests",
+    main = "__test__.py",
+    python_version = "3.11",
+    deps = [":demo_lib_carrying_cowsay"],
 )
