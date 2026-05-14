@@ -1,0 +1,61 @@
+"""Regression test for exec-config Python toolchain selection when target
+config carries a non-host `platform_libc` value.
+
+Setup:
+  - `:linux_glibc` is a `platform()` whose `flags = [...]` pin
+    `platform_libc=glibc`.
+  - `:invoke_tool` is a genrule that runs `:tool` (a `py_binary`) via
+    `tools =`, which puts `:tool` in exec config.
+  - `:invoke_tool_under_glibc` is a `platform_transition_filegroup` that
+    transitions the genrule's target config to `:linux_glibc`. The exec
+    config Bazel derives for the genrule's `tools` then inherits
+    `platform_libc=glibc`.
+
+On a darwin host this triggered the pre-fix bug: aspect_rules_py's darwin
+interpreter required `target_settings: platform_libc=libsystem` and stopped
+matching against the inherited glibc value, so toolchain resolution fell
+through to rules_python's auto-registered toolchain. Its hermetic
+interpreter doesn't bootstrap through the rules_py launcher
+(`ModuleNotFoundError: No module named 'encodings'`).
+
+The fix in `py/private/interpreter/versions.bzl` drops the unnecessary
+`target_settings: platform_libc=libsystem/msvc` from non-linux toolchains.
+"""
+
+load("@aspect_rules_py//py:defs.bzl", "py_binary")
+load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+
+platform(
+    name = "linux_glibc",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    # This flag is what bleeds into the exec config the py_binary gets
+    # resolved under, disqualifying the host's interpreter toolchain pre-fix.
+    flags = ["--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc"],
+)
+
+py_binary(
+    name = "tool",
+    srcs = ["tool.py"],
+)
+
+genrule(
+    name = "invoke_tool",
+    outs = ["invoke_tool.log"],
+    cmd = "$(execpath :tool) --output $@",
+    tools = [":tool"],
+)
+
+platform_transition_filegroup(
+    name = "invoke_tool_under_glibc",
+    srcs = [":invoke_tool"],
+    target_platform = ":linux_glibc",
+)
+
+build_test(
+    name = "interpreter_exec_under_glibc_target_test",
+    targets = [":invoke_tool_under_glibc"],
+)
