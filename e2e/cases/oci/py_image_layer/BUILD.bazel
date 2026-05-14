@@ -70,9 +70,11 @@ layer_tier(
     groups = {
         "//cases/oci/py_image_layer/branding": "branding",
         "@pip//colorama": "colorama",
-        "@pip//colorama:**/*.py": "colorama_code",
     },
     interpreter_group = "interpreter",
+    subpath_groups = {
+        "@pip//colorama:**/*.py": "colorama_code",
+    },
 )
 
 py_image_layer(
