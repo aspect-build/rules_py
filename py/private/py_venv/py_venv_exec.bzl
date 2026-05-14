@@ -13,11 +13,11 @@ load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load(":types.bzl", "VirtualenvInfo")
 
-def _dict_to_exports(env):
-    return [
-        "export %s=\"%s\"" % (k, v)
-        for (k, v) in env.items()
-    ]
+# Identifiers the launcher always sets to the analysing rule's contextual
+# values. Excluded from `inherited_environment` so that a stray
+# `env_inherit` entry can't let an outer shell shadow the contextual
+# label at run time.
+_CONTEXTUAL_ENV_KEYS = ("BAZEL_TARGET", "BAZEL_WORKSPACE", "BAZEL_TARGET_NAME")
 
 def _py_venv_exec_impl(ctx):
     # The launcher itself doesn't need a python toolchain — it just
@@ -40,17 +40,14 @@ def _py_venv_exec_impl(ctx):
         fail("py_binary {}: venv is required.".format(ctx.label))
     vinfo = venv[VirtualenvInfo]
 
-    # Bazel-contextual env vars that the launcher exports via
-    # {{PYTHON_ENV}}.
-    default_env = {
-        "BAZEL_TARGET": str(ctx.label).lstrip("@"),
-        "BAZEL_WORKSPACE": ctx.workspace_name,
-        "BAZEL_TARGET_NAME": ctx.attr.name,
-    }
-
     # Merge env vars: start from the venv's `env` (if any), then
     # overlay the binary's own — binary wins on key conflicts. Same
-    # merge for inherited env-var names.
+    # merge for inherited env-var names. Bazel-contextual identifiers
+    # (BAZEL_TARGET, etc.) overlay last and are stripped from
+    # `inherited_env` so a stray `env_inherit` entry can't let the
+    # caller's shell shadow the contextual label — per
+    # https://bazel.build/rules/lib/providers/RunEnvironmentInfo, an
+    # inherited value wins over `environment` when both are present.
     passed_env = {}
     inherited_env = []
     if RunEnvironmentInfo in venv:
@@ -66,6 +63,10 @@ def _py_venv_exec_impl(ctx):
     for name in getattr(ctx.attr, "env_inherit", []):
         if name not in inherited_env:
             inherited_env.append(name)
+    passed_env["BAZEL_TARGET"] = str(ctx.label).lstrip("@")
+    passed_env["BAZEL_WORKSPACE"] = ctx.workspace_name
+    passed_env["BAZEL_TARGET_NAME"] = ctx.attr.name
+    inherited_env = [n for n in inherited_env if n not in _CONTEXTUAL_ENV_KEYS]
 
     # When `isolated = False`, drop Python's `-I` flag so PYTHONPATH is
     # honored and the script directory is auto-added to sys.path.
@@ -82,7 +83,6 @@ def _py_venv_exec_impl(ctx):
             "{{INTERPRETER_FLAGS}}": " ".join(flags),
             "{{ARG_VENV_PYTHON}}": to_rlocation_path(ctx, vinfo.bin_python),
             "{{ENTRYPOINT}}": to_rlocation_path(ctx, main),
-            "{{PYTHON_ENV}}": "\n".join(_dict_to_exports(default_env)).strip(),
         },
         is_executable = True,
     )

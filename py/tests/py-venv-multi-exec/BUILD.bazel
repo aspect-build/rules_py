@@ -1,6 +1,6 @@
 load("//py:defs.bzl", "py_venv")
 load("//py/private/py_venv:py_venv_exec.bzl", "py_venv_exec_test")
-load(":env_inherit_test.bzl", "env_inherit_test")
+load(":env_inherit_test.bzl", "contextual_keys_not_inherited_test", "env_inherit_test")
 
 # A single py_venv exec'd through multiple py_venv_exec consumers,
 # each differing in `main`, `env`, `args`, `data`, or other launcher-
@@ -281,6 +281,28 @@ py_venv_exec_test(
 env_inherit_test(
     name = "test_env_inherit",
     target_under_test = ":_env_inherit_inner",
+)
+
+# Verifies that the launcher rule strips BAZEL_TARGET / BAZEL_WORKSPACE /
+# BAZEL_TARGET_NAME from `inherited_environment` even when the user puts
+# them in `env_inherit`. Without that filter, an outer `BAZEL_TARGET=...`
+# in the calling shell would shadow the contextual label.
+py_venv_exec_test(
+    name = "_env_inherit_contextual_inner",
+    env_inherit = [
+        "BAZEL_TARGET",
+        "BAZEL_WORKSPACE",
+        "BAZEL_TARGET_NAME",
+        "UNRELATED_INHERIT",
+    ],
+    main = "entry_b.py",
+    tags = ["manual"],
+    venv = ":shared_venv",
+)
+
+contextual_keys_not_inherited_test(
+    name = "test_contextual_keys_not_inherited",
+    target_under_test = ":_env_inherit_contextual_inner",
 )
 
 # `main` is decoupled from the venv's `srcs` — the launcher attaches
