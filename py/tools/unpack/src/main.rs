@@ -9,7 +9,6 @@ use std::{
 };
 
 use clap::Parser;
-use itertools::Itertools;
 use miette::{miette, Context, IntoDiagnostic, Result};
 use percent_encoding::percent_decode_str;
 
@@ -33,20 +32,18 @@ fn unpack_wheel(
     let wheel = if wheel.is_file() {
         wheel.to_owned()
     } else {
-        fs::read_dir(wheel)
+        let mut whls = fs::read_dir(wheel)
             .into_diagnostic()?
             .filter_map(|res| res.ok())
             .map(|dir_entry| dir_entry.path())
-            .filter_map(|path| {
-                if path.extension().map_or(false, |ext| ext == "whl") {
-                    Some(path)
-                } else {
-                    None
-                }
-            })
-            .exactly_one()
-            .into_diagnostic()
-            .wrap_err_with(|| "Didn't find exactly one wheel file to install!")?
+            .filter(|path| path.extension().map_or(false, |ext| ext == "whl"));
+        let first = whls
+            .next()
+            .ok_or_else(|| miette!("Didn't find exactly one wheel file to install!"))?;
+        if whls.next().is_some() {
+            return Err(miette!("Didn't find exactly one wheel file to install!"));
+        }
+        first
     };
     let wheel_file_reader = fs::File::open(&wheel).into_diagnostic()?;
 

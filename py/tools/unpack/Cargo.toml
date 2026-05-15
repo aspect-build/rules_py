@@ -17,7 +17,6 @@ path = "src/main.rs"
 
 [dependencies]
 clap = { workspace = true }
-itertools = { workspace = true }
 miette = { workspace = true }
 percent-encoding = "2.3.1"
 tempfile = { workspace = true }
