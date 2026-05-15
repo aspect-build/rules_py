@@ -10,7 +10,6 @@ rust_binary(
     visibility = ["//visibility:public"],
     deps = [
         "@aspect_rules_py__crates//:clap",
-        "@aspect_rules_py__crates//:itertools",
         "@aspect_rules_py__crates//:miette",
         "@aspect_rules_py__crates//:percent-encoding-2.3.1",
         "@aspect_rules_py__crates//:tempfile",
