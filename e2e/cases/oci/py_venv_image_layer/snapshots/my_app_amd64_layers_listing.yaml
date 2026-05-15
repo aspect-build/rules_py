@@ -2622,7 +2622,7 @@ files:
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./cases/oci/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./cases/oci/py_venv_image_layer/
   - -rwxr-xr-x  0 0      0         390 Jan  1  2023 ./cases/oci/py_venv_image_layer/__main__.py
-  - -rwxr-xr-x  0 0      0        1821 Jan  1  2023 ./cases/oci/py_venv_image_layer/my_app_bin
+  - -rwxr-xr-x  0 0      0        1635 Jan  1  2023 ./cases/oci/py_venv_image_layer/my_app_bin
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./cases/oci/py_venv_image_layer/my_app_bin.runfiles/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./cases/oci/py_venv_image_layer/my_app_bin.runfiles/_main/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./cases/oci/py_venv_image_layer/my_app_bin.runfiles/_main/cases/
@@ -2645,7 +2645,7 @@ files:
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./cases/oci/py_venv_image_layer/my_app_bin.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/lib/python3.11/
   - -rwxr-xr-x  0 0      0         160 Jan  1  2023 ./cases/oci/py_venv_image_layer/my_app_bin.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/pyvenv.cfg
   - -rwxr-xr-x  0 0      0         390 Jan  1  2023 ./cases/oci/py_venv_image_layer/my_app_bin.runfiles/_main/cases/oci/py_venv_image_layer/__main__.py
-  - -rwxr-xr-x  0 0      0        1821 Jan  1  2023 ./cases/oci/py_venv_image_layer/my_app_bin.runfiles/_main/cases/oci/py_venv_image_layer/my_app_bin
+  - -rwxr-xr-x  0 0      0        1635 Jan  1  2023 ./cases/oci/py_venv_image_layer/my_app_bin.runfiles/_main/cases/oci/py_venv_image_layer/my_app_bin
   - -rwxr-xr-x  0 0      0        1278 Jan  1  2023 ./cases/oci/py_venv_image_layer/my_app_bin.runfiles/_main/cases/oci/py_venv_image_layer/my_app_bin.venv
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./cases/oci/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./cases/oci/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/install/
