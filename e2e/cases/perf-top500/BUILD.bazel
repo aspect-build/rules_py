@@ -1,0 +1,7 @@
+# Shared test sources for both perf arms — //rules_py and //rules_python
+# both reference these so the only thing that differs between the two
+# arms is the Bazel rule machinery, not the Python code.
+exports_files([
+    "venv_build_test.py",
+    "venv_import_all_test.py",
+])

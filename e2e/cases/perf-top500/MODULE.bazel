@@ -1,0 +1,86 @@
+"""Isolated perf workspace — same 495 top-PyPI packages benchmarked
+under both rule sets so cold/warm numbers can be compared in a single
+`bazel test` invocation.
+
+  //rules_py:venv_build, //rules_py:venv_import_all
+      built via aspect_rules_py (uv hub from uv.lock)
+
+  //rules_python:venv_build, //rules_python:venv_import_all
+      built via rules_python 2.x (pip.parse from requirements.txt)
+
+Both sub-packages reference the same test sources at the workspace
+root, so the only difference between the two arms is the Bazel rule
+machinery sitting underneath the same Python.
+"""
+
+bazel_dep(name = "aspect_rules_py")
+bazel_dep(name = "rules_python", version = "2.0.1")
+bazel_dep(name = "bazel_features", version = "1.38.0")
+bazel_dep(name = "bazel_skylib", version = "1.4.2")
+bazel_dep(name = "bazel_lib", version = "3.0.0")
+bazel_dep(name = "rules_cc", version = "0.2.16")
+bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "llvm", version = "0.7.1")
+bazel_dep(name = "rules_shell", version = "0.4.1")
+
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../../..",
+)
+
+single_version_override(
+    module_name = "aspect_bazel_lib",
+    version = "2.22.5",
+)
+
+# Python toolchain — provisioned by aspect_rules_py's python_interpreters
+# extension. rules_python's py_test consumes the same toolchain type, so
+# we don't separately register rules_python's `python.toolchain()`.
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+interpreters.configure(
+    releases = [
+        "20260303",
+        "20251031",
+        "20241002",
+    ],
+)
+interpreters.toolchain(
+    is_default = True,
+    python_version = "3.11",
+)
+use_repo(interpreters, "python_interpreters")
+
+register_toolchains("@python_interpreters//:all")
+
+# rules_py sdist toolchain.
+tools = use_extension("@aspect_rules_py//py:extensions.bzl", "py_tools")
+tools.rules_py_tools()
+use_repo(tools, "rules_py_tools")
+
+register_toolchains("@rules_py_tools//:all")
+
+# uv binary toolchain for the aspect_rules_py arm.
+uv_bin = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv_bin")
+uv_bin.toolchain(version = "0.11.6")
+use_repo(uv_bin, "uv")
+
+register_toolchains("@uv//:all")
+
+# ------ aspect_rules_py hub (@pypi_top500) ------
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_top500")
+uv.project(
+    hub_name = "pypi_top500",
+    lock = "//:uv.lock",
+    pyproject = "//:pyproject.toml",
+)
+use_repo(uv, "project__perf_top500", "pypi_top500")
+
+# ------ rules_python hub (@pypi) ------
+pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
+pip.parse(
+    hub_name = "pypi",
+    python_version = "3.11",
+    requirements_lock = "//:requirements.txt",
+)
+use_repo(pip, "pypi")

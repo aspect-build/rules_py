@@ -1,0 +1,65 @@
+"""Isolated workspace for perf-top500 against aspect_rules_py v1.11.5
+(latest BCR release as of 2026-05-16).
+
+Cannot live in the merged sibling MODULE because that one already pins
+aspect_rules_py to the local working copy at HEAD; bzlmod doesn't allow
+two versions of the same module in one resolution.
+
+Shares pyproject.toml / uv.lock / test sources with the parent via
+symlinks so the package set stays identical across all three arms.
+
+In 1.11.5 the uv + python_interpreters extensions live under the
+//{py,uv}/unstable:extension.bzl labels; in HEAD they moved to
+//{py,uv}:extensions.bzl.
+"""
+
+bazel_dep(name = "aspect_rules_py", version = "1.11.5")
+bazel_dep(name = "bazel_features", version = "1.38.0")
+bazel_dep(name = "bazel_skylib", version = "1.4.2")
+bazel_dep(name = "bazel_lib", version = "3.0.0")
+bazel_dep(name = "rules_cc", version = "0.2.16")
+bazel_dep(name = "rules_python", version = "1.0.0")
+bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "llvm", version = "0.7.1")
+bazel_dep(name = "rules_shell", version = "0.4.1")
+
+interpreters = use_extension("@aspect_rules_py//py/unstable:extension.bzl", "python_interpreters")
+interpreters.configure(
+    releases = [
+        "20260303",
+        "20251031",
+        "20241002",
+    ],
+)
+interpreters.toolchain(
+    is_default = True,
+    python_version = "3.11",
+)
+use_repo(interpreters, "python_interpreters")
+
+register_toolchains("@python_interpreters//:all")
+
+tools = use_extension("@aspect_rules_py//py:extensions.bzl", "py_tools")
+tools.rules_py_tools()
+use_repo(tools, "rules_py_tools")
+
+register_toolchains("@rules_py_tools//:all")
+
+uv_bin = use_extension("@aspect_rules_py//uv/unstable:extension.bzl", "uv_bin")
+uv_bin.toolchain(version = "0.11.6")
+use_repo(uv_bin, "uv")
+
+register_toolchains("@uv//:all")
+
+# Cpp toolchain for sdist builds (thrift, etc.). HEAD's MODULE registers
+# this itself; v1.11.5 doesn't, so we wire it from the consumer side.
+register_toolchains("@llvm//toolchain:all")
+
+uv = use_extension("@aspect_rules_py//uv/unstable:extension.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_top500")
+uv.project(
+    hub_name = "pypi_top500",
+    lock = "//:uv.lock",
+    pyproject = "//:pyproject.toml",
+)
+use_repo(uv, "project__perf_top500", "pypi_top500")
