@@ -445,11 +445,6 @@ def _layer_aspect_impl(target, ctx):
 
         runfiles_files = target[DefaultInfo].default_runfiles.files.to_list()
 
-        # Skip py_venv wheel alias dirs (declare_directory symlinks to install_trees).
-        for f in runfiles_files:
-            if f.is_directory and "/_wheels/" in f.short_path:
-                skip_paths[f.path] = True
-
         filtered = [f for f in runfiles_files if f.path not in skip_paths and f.path not in interp_paths]
         if filtered:
             own_source.append(depset(direct = filtered))
@@ -706,7 +701,7 @@ def _run_tar_action(ctx, bsdtar, bsdtar_files, tar_out, files_depset, map_each, 
     mtree_args.set_param_file_format("multiline")
     mtree_args.use_param_file("%s", use_always = True)
     mtree_args.add("#mtree")
-    mtree_args.add_all(files_depset, map_each = map_each, expand_directories = False, allow_closure = True)
+    mtree_args.add_all(files_depset, map_each = map_each, expand_directories = True, allow_closure = True)
 
     awk_script = ctx.file._awk_script
     ctx.actions.run_shell(
