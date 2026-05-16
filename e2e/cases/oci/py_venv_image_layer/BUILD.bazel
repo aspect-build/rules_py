@@ -1,8 +1,16 @@
 load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer")
+load("@bazel_features//:features.bzl", "bazel_features")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@container_structure_test//:defs.bzl", "container_structure_test")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load")
 load("//cases/oci/py_image_layer:asserts.bzl", "assert_tar_listing")
+
+# Bazel 9 stages bzlmod-canonical repo names (e.g. `bazel_tools+`) instead of
+# apparent names in the runfiles tree, so the `runfiles.bash` bootstrap snippet
+# embedded in the launcher fails to locate `bazel_tools/tools/bash/runfiles/
+# runfiles.bash`. Skip the tests that actually exec the binary on Bazel 9 until
+# py_image_layer learns to bridge the two layouts.
+_RUNS_BINARY_INCOMPATIBLE_WITH_BAZEL9 = ["@platforms//:incompatible"] if bazel_features.rules.merkle_cache_v2 else []
 
 platform(
     name = "arm64_linux",
@@ -58,6 +66,9 @@ py_binary(
 py_image_layer(
     name = "my_app_layers",
     binary = ":my_app_bin",
+    # Remap the binary to /app so the launcher sees its runfiles at /app.runfiles/.
+    root = "/app",
+    strip_prefix = "cases/oci/py_venv_image_layer/my_app_bin",
 )
 
 platform_transition_filegroup(
@@ -90,7 +101,7 @@ oci_image(
     name = "image",
     # This is defined by an oci.pull() call in /MODULE.bazel
     base = "@ubuntu",
-    entrypoint = ["/{}/my_app_bin".format(package_name())],
+    entrypoint = ["/app"],
     tars = [":my_app_layers"],
 )
 
@@ -125,7 +136,6 @@ container_structure_test(
     image = ":amd64_image",
     platform = "linux/amd64",
     tags = [
-        "skip-on-bazel8",
         "skip-on-bazel9",
     ],
 )
@@ -136,12 +146,11 @@ container_structure_test(
     image = ":amd64_image",
     platform = "linux/amd64",
     tags = [
-        "skip-on-bazel8",
         "skip-on-bazel9",
     ],
     target_compatible_with = [
         "@platforms//cpu:x86_64",
-    ],
+    ] + _RUNS_BINARY_INCOMPATIBLE_WITH_BAZEL9,
 )
 
 platform_transition_filegroup(
@@ -156,7 +165,6 @@ container_structure_test(
     image = ":arm64_image",
     platform = "linux/aarch64",
     tags = [
-        "skip-on-bazel8",
         "skip-on-bazel9",
     ],
 )
@@ -167,10 +175,9 @@ container_structure_test(
     image = ":arm64_image",
     platform = "linux/aarch64",
     tags = [
-        "skip-on-bazel8",
         "skip-on-bazel9",
     ],
     target_compatible_with = [
         "@platforms//cpu:aarch64",
-    ],
+    ] + _RUNS_BINARY_INCOMPATIBLE_WITH_BAZEL9,
 )
