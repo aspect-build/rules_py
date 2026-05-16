@@ -16,7 +16,7 @@ DIR="${TEST_SRCDIR}/_main/cases/uv-deps-650/crossbuild"
 # Confirm the arm64 layer tarballs were produced. The build of these targets
 # exercises whl_install with compile_pyc=True against an arm64 target platform
 # on whatever host this test runs on.
-if ! ls "$DIR"/arm64_layers* >/dev/null 2>&1; then
+if ! ls "$DIR"/app_layers_*.tar.gz >/dev/null 2>&1; then
     echo "FAIL: arm64 layer outputs not found in $DIR"
     echo "  This likely means the cross-arch whl_install build failed."
     exit 1

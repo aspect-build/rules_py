@@ -2,6 +2,7 @@ load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_image_index")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("//cases/oci/py_image_layer:asserts.bzl", "assert_tar_listing")
 load(":toolchain_test.bzl", "unpack_toolchain_path")
 
 platform(
@@ -41,9 +42,7 @@ platform(
 py_binary(
     name = "app_bin",
     srcs = ["__main__.py"],
-    # TODO: should be "crossbuild" (the pyproject name); "psql" makes the
-    # target incompatible, which is why crossbuild_compile_pyc_test is SKIPPED.
-    dep_group = "psql",
+    dep_group = "crossbuild",
     main = "__main__.py",
     python_version = "3.12",
     deps = [
@@ -62,10 +61,24 @@ platform_transition_filegroup(
     target_platform = ":amd64_linux",
 )
 
+assert_tar_listing(
+    name = "app_amd64_layers",
+    actual = [":amd64_layers"],
+    expected = "app_amd64_layers_listing.yaml",
+    tags = ["skip-on-bazel9"],
+)
+
 platform_transition_filegroup(
     name = "arm64_layers",
     srcs = [":app_layers"],
     target_platform = ":arm64_linux",
+)
+
+assert_tar_listing(
+    name = "app_arm64_layers",
+    actual = [":arm64_layers"],
+    expected = "app_arm64_layers_listing.yaml",
+    tags = ["skip-on-bazel9"],
 )
 
 oci_image(
