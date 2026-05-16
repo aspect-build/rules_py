@@ -1,0 +1,1 @@
+# Shared helpers consumed by //cases/... via load("//tools:...").

@@ -2,7 +2,7 @@ load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@container_structure_test//:defs.bzl", "container_structure_test")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load")
-load("//cases/oci/py_image_layer:asserts.bzl", "assert_tar_listing")
+load("//tools:asserts.bzl", "assert_tar_listing")
 
 platform(
     name = "arm64_linux",
