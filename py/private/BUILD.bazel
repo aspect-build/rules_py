@@ -1,4 +1,6 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
+load("//py:defs.bzl", _py_binary_rule = "py_binary", _py_test_rule = "py_test")
+load(":py_image_layer.bzl", "py_layer_tier")
 load(":py_library.bzl", "py_library")
 
 package(default_visibility = ["//py:__subpackages__"])
@@ -18,6 +20,27 @@ py_library(
     srcs = ["pytest_main.py"],
     visibility = ["//visibility:public"],
     deps = ["//py/private/pytest_shard"],
+)
+
+_py_binary_rule(
+    name = "py_image_layer_validator",
+    srcs = ["py_image_layer_validator.py"],
+    main = "py_image_layer_validator.py",
+    visibility = ["//visibility:public"],
+)
+
+_py_test_rule(
+    name = "py_image_layer_validator_test",
+    srcs = [
+        "py_image_layer_validator.py",
+        "py_image_layer_validator_test.py",
+    ],
+    main = "py_image_layer_validator_test.py",
+)
+
+py_layer_tier(
+    name = "default_layer_tier",
+    visibility = ["//visibility:public"],
 )
 
 bzl_library(
