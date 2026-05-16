@@ -47,7 +47,6 @@ bzl_library(
     name = "py_image_layer",
     srcs = ["py_image_layer.bzl"],
     deps = [
-        ":mtree_preserve_symlinks",
         "@bazel_lib//lib:transitions",
         "@tar.bzl//tar:mtree",
         "@tar.bzl//tar:tar",
@@ -120,11 +119,6 @@ bzl_library(
         "//py/private/toolchain:types",
         "@rules_python//python:defs_bzl",
     ],
-)
-
-bzl_library(
-    name = "mtree_preserve_symlinks",
-    srcs = ["mtree_preserve_symlinks.bzl"],
 )
 
 bzl_library(

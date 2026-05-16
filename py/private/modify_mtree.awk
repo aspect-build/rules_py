@@ -15,9 +15,8 @@
 #   3. Accept `external/<repo>/` paths so symlinks to external-repo
 #      files (e.g. rules_python's interpreter tree) are detected.
 #
-# Retire this file + the `mtree_preserve_symlinks` rule once that PR
-# merges and we bump tar.bzl; py_image_layer reverts to
-# `mtree_mutate(preserve_symlinks = True)`.
+# Retire this file once that PR merges and we bump tar.bzl;
+# py_image_layer reverts to `mtree_mutate(preserve_symlinks = True)`.
 #
 # TODO: PR #107 merged 2026-05-05 but this fork still
 # diverges from upstream — our `else if` between the `bazel-out/` and
@@ -30,9 +29,9 @@
 # bazel-contrib/tar.bzl and bump past the release containing it before
 # retiring this file, otherwise the bug walks back in.
 #
-# Invoked by the `mtree_preserve_symlinks` rule in
-# [mtree_preserve_symlinks.bzl](mtree_preserve_symlinks.bzl), which
-# shells out to the host `awk`. Self-contained, POSIX awk only.
+# Invoked inline from `_run_tar_action` in
+# [py_image_layer.bzl](py_image_layer.bzl), which shells out to the
+# host `awk`. Self-contained, POSIX awk only.
 #
 # Optional -v owner=<n> and -v group=<n> variables stamp uid/gid onto
 # every line. Missing → lines pass through unchanged.
