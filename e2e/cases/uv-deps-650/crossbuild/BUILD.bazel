@@ -1,5 +1,6 @@
 load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_image_index")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//cases/oci/py_image_layer:asserts.bzl", "assert_tar_listing")
@@ -154,4 +155,15 @@ sh_test(
     srcs = ["test_crossbuild_pyc.sh"],
     data = [":arm64_layers"],
     target_compatible_with = ["@platforms//os:linux"],
+)
+
+# Bazel-version-agnostic cross-arch build coverage. The snapshot tests above
+# already build the same layers, but they skip on Bazel 9; this build_test
+# keeps the cross-arch whl_install + compile_pyc path exercised everywhere.
+build_test(
+    name = "crossbuild_build_test",
+    targets = [
+        ":amd64_layers",
+        ":arm64_layers",
+    ],
 )
