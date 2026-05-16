@@ -1,0 +1,26 @@
+# Regression: setup.py-only sdist (no pyproject.toml) routes through
+# `python -m build` rather than `python setup.py bdist_wheel`.
+#
+# pyahocorasick 2.2.0 ships only setup.py + setup.cfg. The umbrella pins it
+# under [tool.uv].no-binary-package, which forces the uv extension to wire
+# it through pep517_whl → build_helper.py → `python -m build --no-isolation`.
+# An over-scoped earlier fix routed setup.py-only packages straight to
+# `python setup.py bdist_wheel`, which triggers setuptools' deprecated
+# fetch_build_eggs path on legacy `setup_requires=` packages (e.g. googlemaps
+# 4.10.0). pyahocorasick itself doesn't carry setup_requires, but a green
+# build via this case confirms the routing collapses back to `python -m build`.
+
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+py_test(
+    name = "pyahocorasick",
+    srcs = ["__test__.py"],
+    dep_group = "uv-pyproject-cases",
+    main = "__test__.py",
+    python_version = "3.11",
+    # Match //cases/uv-sdist-native-build: the native_build_toolchain wiring
+    # for C-extension sdists is linux-only today; on darwin the LLVM gcc
+    # shim isn't reachable from the build_helper sandbox.
+    target_compatible_with = ["@platforms//os:linux"],
+    deps = ["@pypi_uv_pyproject_cases//pyahocorasick"],
+)

@@ -1,0 +1,20 @@
+[project]
+name = "uv-pyproject-cases"
+version = "0.0.0"
+description = "Umbrella project providing common Python deps shared across the pyproject.toml regression cases under //cases/uv-pyproject-cases/."
+requires-python = ">=3.11"
+dependencies = [
+    # Each case lists the package it exercises here; the umbrella exists so a
+    # single uv.lock pins them all. `build` + `setuptools` are the default
+    # build deps for sdist cases (wired via setup.MODULE.bazel).
+    "build",
+    "pyahocorasick==2.2.0",
+    "setuptools",
+]
+
+[tool.uv]
+# Force pyahocorasick from sdist so the pep517_whl build path runs end-to-end
+# (the wheels on PyPI would short-circuit it). The setup.py-only, no-pyproject
+# shape is what makes this case interesting — build_helper.py has to route it
+# through `python -m build` despite the absent pyproject.toml.
+no-binary-package = ["pyahocorasick"]
