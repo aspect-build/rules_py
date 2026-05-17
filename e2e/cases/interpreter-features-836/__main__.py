@@ -1,7 +1,11 @@
 import importlib.util
 import sys
 
+from verify_venv import verify_all
+
 if __name__ == "__main__":
+    verify_all()
+
     turtle_spec = importlib.util.find_spec("turtle")
     turtledemo_spec = importlib.util.find_spec("turtledemo")
 

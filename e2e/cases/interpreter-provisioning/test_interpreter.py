@@ -3,6 +3,8 @@
 import os
 import sys
 
+from verify_venv import verify_all
+
 
 def test_not_rules_python():
     # In a py_venv_test, sys.executable points to the venv bin/python symlink.
@@ -13,7 +15,12 @@ def test_not_rules_python():
     )
 
 
+def test_venv_layout():
+    verify_all()
+
+
 if __name__ == "__main__":
     test_not_rules_python()
+    test_venv_layout()
     real_exe = os.path.realpath(sys.executable)
     print("OK: interpreter is", real_exe)

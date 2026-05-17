@@ -23,6 +23,7 @@ load("@bazel_lib//lib:expand_template.bzl", "expand_template")
             isolated = False,
             main = "expanded_test_{}.py".format(ver.replace(".", "_")),
             python_version = ver,
+            deps = ["//tools/verify_venv"],
         ),
         py_test(
             name = "test_{}_classic".format(ver.replace(".", "_")),
@@ -34,6 +35,7 @@ load("@bazel_lib//lib:expand_template.bzl", "expand_template")
             ],
             main = "expanded_test_{}.py".format(ver.replace(".", "_")),
             python_version = ver,
+            deps = ["//tools/verify_venv"],
         ),
     ]
     for ver in [

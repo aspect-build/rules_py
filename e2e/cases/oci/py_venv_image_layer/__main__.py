@@ -9,7 +9,10 @@ from branding import get_branding
 
 from adder.add import add
 
+from verify_venv import verify_all
+
 if __name__ == "__main__":
+    verify_all(imports=["colorama"])
     print(sys.executable)
     print(sys.prefix)
     print(sys.version)
