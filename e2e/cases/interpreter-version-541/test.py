@@ -3,6 +3,10 @@
 import sys
 import site
 
+from verify_venv import verify_all
+
+verify_all()
+
 print("---")
 print("__file__:", __file__)
 print("sys.prefix:", sys.prefix)

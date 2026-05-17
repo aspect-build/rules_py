@@ -40,6 +40,7 @@ py_binary(
     dep_group = "images",
     deps = [
         "//cases/oci/py_image_layer/branding",
+        "//tools/verify_venv",
         "@aspect_rules_py//py/tests/internal-deps/adder",
         "@pypi_oci_py_image_layer//colorama",
     ],

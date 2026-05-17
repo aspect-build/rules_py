@@ -1,0 +1,23 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library", "py_test")
+
+# Shared helpers for asserting venv / interpreter layout properties from
+# inside a py_binary or py_test. Consumers add this to their py_binary
+# `deps` and call `verify_venv.<check>()`. The colocated py_test
+# exercises the helpers against the default toolchain.
+#
+# Current checks:
+#   * `verify()` — interpreter's `bin/` reachable from `sys.executable`
+#     has exactly one real `python3.<minor>` binary and two symlinks
+#     (`python`, `python3`) resolving to it.
+py_library(
+    name = "verify_venv",
+    srcs = ["verify_venv.py"],
+    imports = ["."],
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "verify_venv_test",
+    srcs = ["verify_venv.py"],
+    main = "verify_venv.py",
+)
