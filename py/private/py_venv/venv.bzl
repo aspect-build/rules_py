@@ -357,39 +357,41 @@ def assemble_venv(
     # For wheels that have a `_wheels/<i>/` alias, the addsitedir target
     # goes through the alias (intra-venv, context-agnostic). For wheels
     # without it, we keep the legacy runfiles-escape form.
-    pth_content_lines = [escape]
-    for imp in imports_depset.to_list():
+    def _format_imp(imp):
         if imp in fully_covered_site_pkgs:
-            continue
+            return None
         if imp.endswith("site-packages"):
             alias_idx = wheel_alias_by_sp.get(imp)
             if alias_idx != None:
-                pth_content_lines.append(
-                    ("import os, sys, site; " +
-                     "site.addsitedir(os.path.normpath(os.path.join(" +
-                     "sys.prefix, \"_wheels\", \"{idx}\", \"lib\", \"{py_ver}\", \"site-packages\")))").format(
-                        idx = alias_idx,
-                        py_ver = wheel_py_ver,
-                    ),
+                return ("import os, sys, site; " +
+                        "site.addsitedir(os.path.normpath(os.path.join(" +
+                        "sys.prefix, \"_wheels\", \"{idx}\", \"lib\", \"{py_ver}\", \"site-packages\")))").format(
+                    idx = alias_idx,
+                    py_ver = wheel_py_ver,
                 )
-            else:
-                pth_content_lines.append(
-                    ("import os, sys, site; " +
-                     "site.addsitedir(os.path.normpath(os.path.join(" +
-                     "sys.prefix, \"{venv_escape}\", \"{imp}\")))").format(
-                        venv_escape = venv_to_runfiles_escape,
-                        imp = imp,
-                    ),
-                )
-        else:
-            pth_content_lines.append("{}/{}".format(escape, imp))
+            return ("import os, sys, site; " +
+                    "site.addsitedir(os.path.normpath(os.path.join(" +
+                    "sys.prefix, \"{venv_escape}\", \"{imp}\")))").format(
+                venv_escape = venv_to_runfiles_escape,
+                imp = imp,
+            )
+        return "{}/{}".format(escape, imp)
+
+    pth_lines = ctx.actions.args()
+    pth_lines.use_param_file("%s", use_always = True)
+    pth_lines.set_param_file_format("multiline")
+    pth_lines.add(escape)
+
+    # allow_closure lets _format_imp capture fully_covered_site_pkgs / wheel_alias_by_sp
+    # so we don't have to materialise imports_depset via .to_list().
+    pth_lines.add_all(imports_depset, map_each = _format_imp, allow_closure = True)
 
     site_packages_pth_file = ctx.actions.declare_file(
         "{}/{}.pth".format(site_packages_rel, safe_name),
     )
     ctx.actions.write(
         output = site_packages_pth_file,
-        content = "\n".join(pth_content_lines) + "\n",
+        content = pth_lines,
     )
     declared.append(site_packages_pth_file)
 
