@@ -92,7 +92,8 @@ PARSER.add_argument("--patch", action="append", default=[], dest="patches", help
 opts, args = PARSER.parse_known_args()
 
 tmp_root = path.abspath(opts.outdir) + ".tmp"
-makedirs(tmp_root, exist_ok=True)
+# Sandboxed/remote actions get a fresh root each run, so we don't expect a stale tmp_root to exist.
+makedirs(tmp_root, exist_ok=False)
 
 t = path.join(tmp_root, "worktree")
 
