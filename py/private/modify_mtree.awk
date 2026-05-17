@@ -19,6 +19,17 @@
 # merges and we bump tar.bzl; py_image_layer reverts to
 # `mtree_mutate(preserve_symlinks = True)`.
 #
+# TODO: PR #107 merged 2026-05-05 but this fork still
+# diverges from upstream — our `else if` between the `bazel-out/` and
+# `external/` sub() calls (see the "Accept absolute paths..." block
+# below) is not yet on tar.bzl's main. Without it, paths that match
+# both regexes (e.g. `bazel-out/<cfg>/bin/external/<repo>/...`, the
+# canonical shape of any generated wheel file) get over-stripped to
+# `external/<repo>/...`, miss the `symlink_map` lookup, and end up as
+# literal dangling targets inside OCI layers. Send a follow-up PR to
+# bazel-contrib/tar.bzl and bump past the release containing it before
+# retiring this file, otherwise the bug walks back in.
+#
 # Invoked by the `mtree_preserve_symlinks` rule in
 # [mtree_preserve_symlinks.bzl](mtree_preserve_symlinks.bzl), which
 # shells out to the host `awk`. Self-contained, POSIX awk only.
@@ -126,14 +137,24 @@ function make_relative_link(path1, path2, i, common, target, relative_path, back
             # under bazel-out). Normalise to the execroot-relative form
             # so `symlink_map` lookups (keyed by the mtree's `content=`
             # field, also execroot-relative) can find a match.
-            if (resolved_path ~ /\/bazel-out\/[^\/]+\/bin\// || \
-                resolved_path ~ /\/external\//) {
+            #
+            # The two branches are mutually exclusive: a generated wheel
+            # file lives at `bazel-out/<cfg>/bin/external/<repo>/...`, so
+            # both regexes match. Prefer the bazel-out form — it's the
+            # canonical key used by symlink_map for generated files —
+            # otherwise we'd over-strip down to `external/<repo>/...`
+            # and miss the lookup, leaving the link as a literal
+            # `external/<repo>/...` that dangles inside an OCI layer.
+            if (resolved_path ~ /\/bazel-out\/[^\/]+\/bin\//) {
                 sub(/^.*\/bazel-out\//, "bazel-out/", resolved_path)
+            } else if (resolved_path ~ /\/external\//) {
                 sub(/^.*\/external\//, "external/", resolved_path)
-                if (path != resolved_path) {
-                    symlink = resolved_path
-                    symlink_content = path
-                }
+            } else {
+                resolved_path = ""
+            }
+            if (resolved_path != "" && path != resolved_path) {
+                symlink = resolved_path
+                symlink_content = path
             }
         }
     }

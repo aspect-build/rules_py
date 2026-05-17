@@ -119,16 +119,12 @@ platform_transition_filegroup(
     target_platform = ":amd64_linux",
 )
 
-# FIXME: yamls hard-code stale `/py/tests/...` paths and old hub name.
 container_structure_test(
     name = "py_amd64_image_content_test",
     configs = ["py_amd64_image_content_test.yaml"],
     image = ":amd64_image",
     platform = "linux/amd64",
-    tags = [
-        "skip-on-bazel8",
-        "skip-on-bazel9",
-    ],
+    tags = ["requires-docker"],
 )
 
 container_structure_test(
@@ -136,10 +132,7 @@ container_structure_test(
     configs = ["py_image_command_test.yaml"],
     image = ":amd64_image",
     platform = "linux/amd64",
-    tags = [
-        "skip-on-bazel8",
-        "skip-on-bazel9",
-    ],
+    tags = ["requires-docker"],
     target_compatible_with = [
         "@platforms//cpu:x86_64",
     ],
@@ -156,10 +149,7 @@ container_structure_test(
     configs = ["py_arm64_image_content_test.yaml"],
     image = ":arm64_image",
     platform = "linux/aarch64",
-    tags = [
-        "skip-on-bazel8",
-        "skip-on-bazel9",
-    ],
+    tags = ["requires-docker"],
 )
 
 container_structure_test(
@@ -167,10 +157,7 @@ container_structure_test(
     configs = ["py_image_command_test.yaml"],
     image = ":arm64_image",
     platform = "linux/aarch64",
-    tags = [
-        "skip-on-bazel8",
-        "skip-on-bazel9",
-    ],
+    tags = ["requires-docker"],
     target_compatible_with = [
         "@platforms//cpu:aarch64",
     ],
