@@ -1,5 +1,6 @@
 load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_test")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("//tools:pth_snapshot.bzl", "extract_venv_pth")
 
 # Coverage test: the `google.*` namespace handling on a real wheel graph.
 #
@@ -89,4 +90,12 @@ genrule(
 build_test(
     name = "test_exec",
     targets = [":run_in_exec"],
+)
+
+# Snapshot fixture: ~8 namespace contributors (google-* family) routed
+# through the addsitedir / sys.path.extend branch of venv.bzl.
+# Pinned at //snapshots/firebase_admin.test_tool.venv.pth.
+extract_venv_pth(
+    name = "test_tool.venv.pth",
+    venv = ":test_tool.venv",
 )
