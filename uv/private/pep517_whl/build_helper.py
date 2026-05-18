@@ -46,17 +46,6 @@ def _load_pyproject_data(worktree):
         return None
 
 
-def _setuptools_backend_with_setup_py(worktree):
-    if not path.exists(path.join(worktree, "setup.py")):
-        return False
-
-    pyproject_data = _load_pyproject_data(worktree)
-    if not pyproject_data:
-        return False
-
-    return pyproject_data.get("build-system", {}).get("build-backend") in _SETUPTOOLS_BACKENDS
-
-
 def _legacy_metadata_conflicts_with_pyproject(worktree):
     setup_py = path.join(worktree, "setup.py")
     pyproject_data = _load_pyproject_data(worktree)
@@ -135,31 +124,20 @@ if _legacy_metadata_conflicts_with_pyproject(t):
         "--dist-dir",
         outdir,
     ]
-elif path.exists(path.join(t, "pyproject.toml")):
-    if _setuptools_backend_with_setup_py(t):
-        cmd = [
-            sys.executable,
-            path.realpath(path.join(t, "setup.py")),
-            "bdist_wheel",
-            "--dist-dir",
-            outdir,
-        ]
-    else:
-        # Prefer the PEP 517 frontend when pyproject metadata is complete.
-        cmd = [
-            sys.executable,
-            "-m", "build",
-            "--wheel",
-            "--no-isolation",
-            "--outdir", outdir,
-        ]
-elif path.exists(path.join(t, "setup.py")):
+elif path.exists(path.join(t, "pyproject.toml")) or path.exists(path.join(t, "setup.py")):
+    # Always use `python -m build` (PEP 517 frontend). For setup.py-only
+    # packages without a pyproject.toml, build creates a minimal PEP 517
+    # shim automatically. --no-isolation ensures it uses the deps we've
+    # already provided in the build venv rather than trying to pip-install.
+    # Routing legacy setup_requires=… packages (e.g. googlemaps 4.10.0)
+    # through setup.py directly triggers setuptools' deprecated
+    # fetch_build_eggs path, which crashes on modern packaging.
     cmd = [
         sys.executable,
-        path.realpath(path.join(t, "setup.py")),
-        "bdist_wheel",
-        "--dist-dir",
-        outdir,
+        "-m", "build",
+        "--wheel",
+        "--no-isolation",
+        "--outdir", outdir,
     ]
 else:
     print("Error: Unable to detect build command! Neither pyproject.toml nor setup.py found!", file=sys.stderr)
