@@ -14,7 +14,12 @@ dependencies = [
 
 [tool.uv]
 # Force pyahocorasick from sdist so the pep517_whl build path runs end-to-end
-# (the wheels on PyPI would short-circuit it). The setup.py-only, no-pyproject
-# shape is what makes this case interesting — build_helper.py has to route it
-# through `python -m build` despite the absent pyproject.toml.
+# (the wheels on PyPI would short-circuit it).
+#
+# Why pyahocorasick==2.2.0 specifically: that sdist ships setup.py + setup.cfg
+# only, with NO pyproject.toml. That's the shape that exercises
+# build_helper.py's "no pyproject — route through `python -m build`" branch
+# (post-dbc4272). If a future pyahocorasick release adds a pyproject.toml,
+# this case will silently stop covering that branch — re-pin to whatever
+# version still has the bare-setup.py shape, or swap in another package.
 no-binary-package = ["pyahocorasick"]

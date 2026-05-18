@@ -25,8 +25,11 @@ through sdist with `[tool.uv].no-binary-package`) and asserts that
 
 ## Existing cases
 
-- `pyahocorasick/` — setup.py + setup.cfg, no pyproject.toml. Regression
-  for `dbc4272`, which narrowed `build_helper.py` so setup.py-only sdists
-  go through `python -m build --no-isolation` instead of `python setup.py
+- `pyahocorasick/` — pinned to **2.2.0** because that sdist ships
+  `setup.py` + `setup.cfg` only, with no `pyproject.toml`. Regression for
+  `dbc4272`, which narrowed `build_helper.py` so setup.py-only sdists go
+  through `python -m build --no-isolation` instead of `python setup.py
   bdist_wheel` directly (the latter blows up on legacy `setup_requires=`
-  packages like googlemaps 4.10.0 via `fetch_build_eggs`).
+  packages like googlemaps 4.10.0 via `fetch_build_eggs`). Re-pin if a
+  later pyahocorasick release adds a `pyproject.toml` — the no-pyproject
+  shape is the whole point of the case.
