@@ -1,0 +1,4 @@
+--index-url https://pypi.org/simple
+
+cowsay==6.1 \
+    --hash=sha256:274b1e6fc1b966d53976333eb90ac94cb07a450a700b455af9fbdf882244b30a
