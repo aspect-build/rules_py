@@ -1,0 +1,24 @@
+"""Regression cases for PEP 517 build-helper dispatch shapes.
+
+The packages here each cover a different sdist shape that
+pep517_whl/build_helper.py has to handle correctly; see the
+per-package BUILD.bazel files under `cdifflib/` and `pyahocorasick/`
+for the specifics.
+
+Uses its own hub so the `no-binary-package` settings stay isolated
+from other test cases.
+"""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_uv_pyproject_cases")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "setuptools",
+        "wheel",
+    ],
+    hub_name = "pypi_uv_pyproject_cases",
+    lock = "//cases/uv-pyproject-cases:uv.lock",
+    pyproject = "//cases/uv-pyproject-cases:pyproject.toml",
+)
+use_repo(uv, "pypi_uv_pyproject_cases")

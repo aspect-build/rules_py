@@ -1,0 +1,10 @@
+# Marker BUILD so this directory is a Bazel package. The test targets
+# live in per-package subdirs (`cdifflib/`, `pyahocorasick/`); this
+# package only has to expose pyproject.toml, uv.lock, and the MODULE
+# fragment so the uv extension and the top-level MODULE include can
+# reference them.
+exports_files([
+    "pyproject.toml",
+    "setup.MODULE.bazel",
+    "uv.lock",
+])

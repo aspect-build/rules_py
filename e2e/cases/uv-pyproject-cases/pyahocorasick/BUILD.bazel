@@ -1,0 +1,36 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+# Regression: pyahocorasick 2.2.0 builds a real C extension from an
+# sdist that contains setup.py + setup.cfg but no pyproject.toml.
+# `no-binary-package = ["pyahocorasick"]` in the parent pyproject.toml
+# forces the resolver to build from sdist, routing the wheel build
+# through pep517_native_whl/build_helper.py.
+#
+# Once a native sdist build is in play, anything path-shaped that
+# `build_helper.py` exports to its compiler subprocess must survive
+# the cwd change into the worktree. That includes `tmp_root` —
+# exported as TMP / TEMP / TEMPDIR and (in the patch chain that
+# layers compiler wrappers on top) used as the parent dir for the
+# wrapper scripts themselves. The upstream form
+#     tmp_root = opts.outdir.lstrip("/") + ".tmp"
+# leaves those values relative; the "prefer setup.py when pyproject
+# metadata is incomplete" patch swaps them to
+#     tmp_root = path.abspath(opts.outdir) + ".tmp"
+# so the references stay valid once the build subprocess descends
+# into the worktree.
+#
+# Constrained to linux for the same reason as uv-sdist-native-build:
+# the host-side cc toolchain plumbing that lets a `setup.py
+# bdist_wheel` actually compile a C extension is only wired up there
+# in this e2e setup.
+py_test(
+    name = "test",
+    srcs = ["__test__.py"],
+    dep_group = "uv_pyproject_cases",
+    main = "__test__.py",
+    python_version = "3.11",
+    target_compatible_with = ["@platforms//os:linux"],
+    deps = [
+        "@pypi_uv_pyproject_cases//pyahocorasick",
+    ],
+)

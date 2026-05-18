@@ -1,0 +1,32 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+# Regression: cdifflib 1.2.9 has both an sdist and per-platform wheels.
+# `no-binary-package = ["cdifflib"]` in the parent pyproject.toml
+# forces the resolver to build from sdist, exercising
+# pep517_whl/build_helper.py.
+#
+# cdifflib's pyproject.toml declares `build-backend =
+# "setuptools.build_meta"` plus a `[build-system].requires` list that
+# duplicates its dev tooling (pytest, ruff, twine, ...). Under the
+# upstream "always `python -m build --no-isolation`" path, `build`
+# *validates* those requirements against the build venv (it only
+# skips the *install* step under --no-isolation) and aborts with:
+#
+#     ERROR Missing dependencies:
+#         twine
+#         pytest
+#         ruff
+#
+# The "prefer setup.py when pyproject metadata is incomplete" patch
+# dispatches this shape to `setup.py bdist_wheel` directly, which
+# never consults `[build-system].requires`, so the build succeeds.
+py_test(
+    name = "test",
+    srcs = ["__test__.py"],
+    dep_group = "uv_pyproject_cases",
+    main = "__test__.py",
+    python_version = "3.11",
+    deps = [
+        "@pypi_uv_pyproject_cases//cdifflib",
+    ],
+)
