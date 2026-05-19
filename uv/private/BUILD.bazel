@@ -1,9 +1,12 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
+load(":normalize_version_test.bzl", "normalize_version_test_suite")
 
 package(default_visibility = [
     "//docs:__pkg__",
     "//uv/private:__subpackages__",
 ])
+
+normalize_version_test_suite()
 
 bzl_library(
     name = "sha1",
