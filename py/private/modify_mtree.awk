@@ -114,79 +114,97 @@ function make_relative_link(path1, path2, i, common, target, relative_path, back
         cmd = "readlink \"" path "\" 2>/dev/null"
         cmd | getline raw_readlink
         close(cmd)
+
+        # In sandboxed execution Bazel mounts each input as a symlink
+        # whose target repeats the input's execroot-relative path under
+        # `/.../execroot/_main/`. That hop is uninformative: it tells us
+        # the file exists in the source execroot but not whether the
+        # source itself is a symlink, which is what we need to classify
+        # rows like rules_python's `bin/python -> python3.11`. Detect
+        # that signature (raw_readlink ends with `/` + path) and follow
+        # once more to see the symlink the action's source actually
+        # wrote. Sandbox-layout-agnostic — works whether Bazel 9 stages
+        # external repos via the content-addressed cache
+        # (`/.../cache/repos/v1/contents/...`) or directly under
+        # `output_base/external/<repo>/`.
+        #
+        # Overwrite raw_readlink unconditionally with the second-hop
+        # result: if the underlying file isn't a symlink in its own
+        # directory (e.g. an INSTALLER that lives inside a parent-dir
+        # symlink chain), the second readlink returns empty, and the
+        # subsequent classification falls through to `readlink -f`
+        # which walks the parent-directory chain to the real target.
+        if (raw_readlink != "" && raw_readlink ~ /^\//) {
+            suffix = "/" path
+            suffix_start = length(raw_readlink) - length(suffix) + 1
+            if (suffix_start > 0 && substr(raw_readlink, suffix_start) == suffix) {
+                cmd = "readlink \"" raw_readlink "\" 2>/dev/null"
+                next_link = ""
+                cmd | getline next_link
+                close(cmd)
+                raw_readlink = next_link
+            }
+        }
+
         resolved_path = ""
         if (raw_readlink != "" && raw_readlink !~ /^\//) {
-            # Relative target — declare_symlink output. Preserve verbatim:
-            # relative targets are calibrated for their location in the
-            # output tree and should land in the tar unchanged.
-            symlink = raw_readlink
-            symlink_content = path
+            # Relative target — declare_symlink output or an intra-dir
+            # chain inside an external repo (e.g. `python -> python3.11`).
+            # Preserve verbatim: relative targets are calibrated for
+            # their location in the output tree.
+            resolved_path = raw_readlink
+        } else if (raw_readlink ~ /\/bazel-out\/[^\/]+\/bin\// || raw_readlink ~ /\/external\//) {
+            # Absolute path inside the Bazel tree — accept directly.
+            # MUST NOT call `readlink -f` on `external/<repo>/...` paths:
+            # under Bazel 9's content-addressed repo layout,
+            # `<output_base>/external/<repo>/` is itself a symlink into
+            # `/.../cache/repos/v1/contents/<sha>/<uuid>/`, and `-f`
+            # would walk through it and yield a path missing the
+            # `external/<repo>/` form `symlink_map` lookups need.
             resolved_path = raw_readlink
         } else {
-            # Empty (not a symlink) or absolute (plain readlink returned
-            # the sandbox→main-execroot mapping, which is uninformative).
-            # Canonicalize via `readlink -f` and classify by where the
-            # final target lives.
+            # Either an absolute target outside the Bazel tree, or no
+            # second-hop result (the underlying file isn't itself a
+            # symlink in its own directory but lives inside a parent-dir
+            # symlink chain — e.g. `_wheels/0/<pkg>/.dist-info/INSTALLER`
+            # where `_wheels/0` is the symlink redirecting into a
+            # wheel-install repo). Canonicalize via `readlink -f`: it
+            # walks the parent-directory chain to the real target,
+            # which lives under `bazel-out/<cfg>/bin/external/<repo>/`
+            # and matches the regex below.
             cmd = "readlink -f \"" path "\" 2>/dev/null"
             cmd | getline resolved_path
             close(cmd)
+        }
 
-            # Accept absolute paths that live under `bazel-out/<cfg>/bin/`
-            # (venv / declare_file outputs), `external/<repo>/` (the
-            # rules_python interpreter tree lives here directly, not
-            # under bazel-out), or the Bazel-9 content-addressable repo
-            # store at `<output_base>/cache/repos/v1/contents/<content
-            # -hash>/<extraction-id>/...`. Normalise to the execroot-
-            # relative form so `symlink_map` lookups (keyed by the
-            # mtree's `content=` field, also execroot-relative) can find
-            # a match.
-            #
-            # The first two branches are mutually exclusive in the
-            # over-strip sense: a generated wheel file lives at
-            # `bazel-out/<cfg>/bin/external/<repo>/...`, so both regexes
-            # match. Prefer the bazel-out form — it's the canonical key
-            # used by symlink_map for generated files — otherwise we'd
-            # over-strip down to `external/<repo>/...` and miss the
-            # lookup, leaving the link as a literal `external/<repo>/...`
-            # that dangles inside an OCI layer.
-            #
-            # The CAS branch handles Bazel 9 specifically: it materialises
-            # external repo content under
-            # `<output_base>/cache/repos/v1/contents/<hash>/<uuid>/...`,
-            # with `<output_base>/external/<repo>` a top-level symlink
-            # pointing at that CAS directory. `readlink -f` walks all the
-            # way through the chain — sandbox→execroot symlink → external
-            # repo symlink → CAS dir → intra-repo relative symlink — and
-            # returns a CAS-absolute path that contains neither `bazel-
-            # out/<cfg>/bin/` nor `/external/`. Without this branch, the
-            # row falls through to the empty `else` and stays as
-            # `type=file`, producing duplicate-content layers (e.g. three
-            # real interpreter binaries `python`, `python3`, `python3.11`
-            # instead of two symlinks + one real file). The CAS path's
-            # repo-relative tail (after the `<hash>/<uuid>/` segments) is
-            # the same suffix the original input had after its
-            # `external/<repo>/` prefix; reattach the input's
-            # `external/<repo>/` so the result matches a `symlink_map`
-            # entry (which is keyed by mtree-form `external/<repo>/...`).
+        # Normalise absolute Bazel-tree paths to the execroot-relative
+        # form `symlink_map` is keyed by (the mtree's `content=` field).
+        # Order matters: a generated wheel file lives at
+        # `bazel-out/<cfg>/bin/external/<repo>/...` so both regexes
+        # match — strip the longer `bazel-out/<cfg>/bin/` prefix first
+        # otherwise we'd over-strip down to `external/<repo>/...` and
+        # miss the lookup, leaving the link as a literal dangling target
+        # inside an OCI layer.
+        if (resolved_path ~ /^\//) {
+            # Absolute path: normalise to execroot-relative if it's
+            # inside the Bazel tree, otherwise drop it (e.g. real files
+            # whose `readlink -f` resolves into Bazel 9's CAS at
+            # `/.../cache/repos/v1/contents/<sha>/<uuid>/` — they are
+            # not symlinks, they are real files reached via a parent-
+            # dir redirect, and emitting them as `type=link` to the
+            # CAS path would produce a dangling link inside the OCI
+            # layer).
             if (resolved_path ~ /\/bazel-out\/[^\/]+\/bin\//) {
                 sub(/^.*\/bazel-out\//, "bazel-out/", resolved_path)
             } else if (resolved_path ~ /\/external\//) {
                 sub(/^.*\/external\//, "external/", resolved_path)
-            } else if (resolved_path ~ /\/cache\/repos\/v1\/contents\/[^\/]+\/[^\/]+\//) {
-                if (match(path, /^external\/[^\/]+\//)) {
-                    repo_prefix = substr(path, RSTART, RLENGTH)
-                    sub(/^.*\/cache\/repos\/v1\/contents\/[^\/]+\/[^\/]+\//, "", resolved_path)
-                    resolved_path = repo_prefix resolved_path
-                } else {
-                    resolved_path = ""
-                }
             } else {
                 resolved_path = ""
             }
-            if (resolved_path != "" && path != resolved_path) {
-                symlink = resolved_path
-                symlink_content = path
-            }
+        }
+        if (resolved_path != "" && path != resolved_path) {
+            symlink = resolved_path
+            symlink_content = path
         }
     }
     if (symlink != "") {
@@ -206,9 +224,27 @@ END {
             field0 = fields[2]
             resolved_path = fields[3]
             if (resolved_path in symlink_map) {
+                # Execroot-relative target that exists as another row in
+                # the layer — rewrite as a relative link inside the tar.
                 mapped_link = symlink_map[resolved_path]
                 linked_to = make_relative_link(mapped_link, field0)
+            } else if (resolved_path ~ /^bazel-out\// || resolved_path ~ /^external\//) {
+                # Execroot-relative target but it's NOT in this layer's
+                # mtree — emitting `type=link link=external/<repo>/...`
+                # would dangle inside the OCI layer. This happens when a
+                # `ctx.actions.symlink` output points at a source file
+                # in another repo whose tree isn't part of the binary's
+                # runfiles — e.g. bzlmod local-override repos where
+                # `external/<repo>` is itself a symlink to the user's
+                # source tree. Drop the classification: keep the row as
+                # the original `type=file content=...` so bsdtar inlines
+                # the target bytes during archive assembly.
+                print original_line
+                continue
             } else {
+                # Bare relative target (e.g. `python3.11`, `../foo`) —
+                # `declare_symlink` output or an intra-directory chain
+                # that doesn't need a `symlink_map` lookup. Use verbatim.
                 linked_to = resolved_path
             }
             sub(/type=[^ ]+/, "type=link", original_line)

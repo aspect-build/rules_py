@@ -26,20 +26,23 @@ for f in $(SRCS); do
   echo "layer: $$iter"
   echo "files:"
   # Redact the size column for known-volatile rows in place, replacing
-  # each digit with `*`. Preserves byte length and column alignment so
-  # the rest of the listing stays comparable across Bazel versions. The
-  # size lives right before the `Jan 1 2023` timestamp that mtree pins
-  # on every entry, so a `<digits> Jan` anchor is unambiguous.
+  # both the right-aligned padding spaces and the digits with a single
+  # ` *` token. Digit-count-agnostic so a single snapshot survives
+  # cross-platform size drift (e.g. `_repo_mapping` rendered as 4 vs 5
+  # digits across builds). The size lives right before the `Jan 1 2023`
+  # timestamp that mtree pins on every entry, so `<spaces><digits> Jan`
+  # is unambiguous. Loses column alignment on the redacted row only —
+  # snapshot diffs are byte-exact, not visual, so alignment doesn't
+  # matter.
   TZ="UTC" LC_ALL="en_US.UTF-8" $(BSDTAR_BIN) -tvf $$f \\
     | awk -v volatile='{volatile}' '
         BEGIN {{ n = split(volatile, paths, "|") }}
         {{
             for (i = 1; i <= n; i++) {{
-                if (paths[i] != "" && index($$0, paths[i]) && match($$0, /[0-9]+ Jan/)) {{
-                    digits = RLENGTH - 4
-                    repl = ""
-                    for (j = 1; j <= digits; j++) repl = repl "*"
-                    $$0 = substr($$0, 1, RSTART - 1) repl substr($$0, RSTART + digits)
+                if (paths[i] != "" && index($$0, paths[i]) && match($$0, /[ ]+[0-9]+ Jan/)) {{
+                    # RLENGTH spans leading spaces + digits + " Jan".
+                    # Keep the " Jan" suffix (4 chars); replace the rest.
+                    $$0 = substr($$0, 1, RSTART - 1) " *" substr($$0, RSTART + RLENGTH - 4)
                     break
                 }}
             }}
