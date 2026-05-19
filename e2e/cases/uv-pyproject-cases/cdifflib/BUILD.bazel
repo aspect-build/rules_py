@@ -1,16 +1,20 @@
 load("@aspect_rules_py//py:defs.bzl", "py_test")
 
-# Regression: cdifflib 1.2.9 has both an sdist and per-platform wheels.
-# `no-binary-package = ["cdifflib"]` in the parent pyproject.toml
-# forces the resolver to build from sdist, exercising
-# pep517_whl/build_helper.py.
+# Regression: cdifflib 1.2.9 exercises pep517_whl/build_helper.py
+# via the parent's `[tool.uv].no-binary-package` setting.
 #
-# cdifflib's pyproject.toml declares `build-backend =
-# "setuptools.build_meta"` plus a `[build-system].requires` list that
-# duplicates its dev tooling (pytest, ruff, twine, ...). Under an
-# unguarded `python -m build --no-isolation`, `build` *validates*
-# those requirements against the build venv (it only skips the
-# *install* step under --no-isolation) and aborts with:
+# Sdist shape (load-bearing — pinned at 1.2.9): pyproject.toml with
+# `build-backend = "setuptools.build_meta"`, a `[project]` table that
+# omits `dependencies`, and a `[build-system].requires` list that
+# piles dev tooling (pytest, ruff, twine) into the build requirements.
+# A future cdifflib release that cleans up `requires` would silently
+# turn this case into a no-op; the version assertion in __test__.py
+# guards against that.
+#
+# Failure mode without the fix: under an unguarded
+# `python -m build --no-isolation`, build *validates* (but does not
+# install) `[build-system].requires` against the build venv and
+# aborts with:
 #
 #     ERROR Missing dependencies:
 #         twine

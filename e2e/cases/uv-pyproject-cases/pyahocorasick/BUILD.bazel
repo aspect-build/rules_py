@@ -1,15 +1,20 @@
 load("@aspect_rules_py//py:defs.bzl", "py_test")
 
-# Regression: pyahocorasick 2.2.0 builds a real C extension from an
-# sdist that contains setup.py + setup.cfg but no pyproject.toml.
-# `no-binary-package = ["pyahocorasick"]` in the parent pyproject.toml
-# forces the resolver to build from sdist, routing the wheel build
-# through pep517_native_whl/build_helper.py.
+# Regression: pyahocorasick 2.2.0 exercises pep517_native_whl /
+# build_helper.py via the parent's `[tool.uv].no-binary-package`
+# setting.
 #
-# Once a native sdist build is in play, every path-shaped thing
-# `build_helper.py` exports to its compiler subprocess must survive
-# the cwd change into the worktree. Two cooperating fixes from the
-# zbarsky-openai patch chain make this work:
+# Sdist shape (load-bearing — pinned at 2.2.0): setup.py + setup.cfg
+# with NO pyproject.toml, and a real C extension (src/pyahocorasick.c).
+# A future release that adds a pyproject.toml would silently flip
+# this case to a different build_helper.py branch; the version
+# assertion in __test__.py guards against that.
+#
+# Failure mode without the fix: once a native sdist build is in play,
+# every path-shaped thing build_helper.py exports to its compiler
+# subprocess must survive the cwd change into the worktree. Two
+# cooperating fixes from the zbarsky-openai patch chain make this
+# work:
 #
 # 1. `tmp_root = path.abspath(opts.outdir) + ".tmp"` (from
 #    `f12313870`). Was relative — `bazel-out/.../whl.tmp` — and

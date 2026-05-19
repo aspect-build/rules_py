@@ -1,59 +1,21 @@
+# Umbrella project for the per-case regression tests under
+# //cases/uv-pyproject-cases/<name>/. Each pinned dep below is a
+# regression fixture; see the case's BUILD.bazel for what shape it
+# covers, what fails without the in-tree fix, and why the version
+# pin is load-bearing.
 [project]
 name = "uv_pyproject_cases"
 version = "0.0.0"
 requires-python = ">=3.11"
-
-# Each package here is a separate regression covering a different
-# shape of pyproject.toml / setup.py that the PEP 517 dispatch in
-# pep517_whl/build_helper.py has to handle:
-#
-# - cdifflib 1.2.9: pyproject.toml + setup.py, setuptools backend,
-#   `[build-system].requires` includes pytest / ruff / twine. Under
-#   the upstream "always `python -m build --no-isolation`" path,
-#   build validates `[build-system].requires` against the build venv
-#   and aborts with:
-#       ERROR Missing dependencies:
-#           pytest
-#           twine
-#           ...
-#
-# - pyahocorasick 2.2.0: setup.py + setup.cfg with NO pyproject.toml,
-#   real C extension. Routes through pep517_native_whl; exercises
-#   that everything `build_helper.py` exports to the compiler
-#   subprocess (TMP / TEMP / TEMPDIR plus, in the patch chain that
-#   adds compiler wrappers, the wrapper script paths themselves)
-#   remains valid after cwd descends into the worktree.
-#
-# Both packages are forced through the sdist path. cdifflib only
-# publishes per-platform wheels for macOS arm64 (and not for the host
-# `Darwin 23.6.0`), so `no-binary-package` is the natural choice;
-# pyahocorasick has full wheel coverage and needs the same setting
-# explicitly to exercise the sdist build at all.
 dependencies = [
     "build",
     "setuptools",
     "wheel",
-    "cdifflib==1.2.9",
-    "pyahocorasick==2.2.0",
+    "cdifflib==1.2.9",        # //cases/uv-pyproject-cases/cdifflib
+    "pyahocorasick==2.2.0",   # //cases/uv-pyproject-cases/pyahocorasick
 ]
 
-# Each version pin below is load-bearing — it picks the *exact* sdist
-# shape the corresponding case relies on. If a future release changes
-# that shape, the case will silently stop covering its branch; re-pin
-# to a version that still exhibits it, or swap in another package.
-#
-# - cdifflib==1.2.9: pyproject.toml carries a `[project]` table with no
-#   `dependencies` AND a `[build-system].requires` list including
-#   pytest / ruff / twine. The combo is what `python -m build
-#   --no-isolation` rejects.
-# - pyahocorasick==2.2.0: sdist ships setup.py + setup.cfg only, with
-#   NO pyproject.toml. That's the shape that exercises
-#   build_helper.py's "no pyproject — route through `python -m build`"
-#   branch.
-
 [tool.uv]
-# Both packages publish per-platform wheels; force sdist so the
-# pep517_whl build path runs end-to-end. (cdifflib's wheels don't
-# match the host platform anyway, but pyahocorasick's do, so the
-# setting needs to be explicit.)
+# Both packages publish wheels; force sdist so the pep517_whl build
+# path runs end-to-end.
 no-binary-package = ["cdifflib", "pyahocorasick"]
