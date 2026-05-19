@@ -52,7 +52,7 @@ a Rust-native Python package resolver.
   [#2410](https://github.com/bazel-contrib/rules_python/issues/2410) open since November 2024)
 - **PEP 735 dependency groups**: Define `prod`, `dev`, `test` dependency groups and switch between them with a flag
 - **Editable requirements**: Override locked packages with local `py_library` targets via `uv.override_package()`
-- **Lazy downloads**: All fetching happens during the build phase, not repository loading—fully compatible with private
+- **Lazy downloads**: Wheel installation happens during the build phase, not repository loading—fully compatible with private
   mirrors and RBE
 
 ### Own Python Interpreter Provisioning
@@ -391,7 +391,7 @@ For detailed migration guidance, see [docs/migrating.md](docs/migrating.md).
 
 - [OpenAI](https://github.com/openai/codex)
 - [Physical Intelligence](https://www.physicalintelligence.company/)
-- [RAI Institute](https://www.rai.ac/)
+- [RAI Institute](https://rai-inst.com/)
 - [NVIDIA OSMO](https://github.com/NVIDIA/OSMO)
 - [ZML](https://github.com/zml/zml)
 - [Eclipse SCORE](https://github.com/eclipse-score/score)
