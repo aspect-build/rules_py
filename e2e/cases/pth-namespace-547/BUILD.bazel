@@ -1,4 +1,5 @@
 load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("//tools:pth_snapshot.bzl", "extract_venv_pth")
 
 # Test namespace package resolution with the symlink-forest venv.
 py_test(
@@ -26,4 +27,12 @@ py_test(
         "@pypi_pth_namespace_547//jaraco_classes",
         "@pypi_pth_namespace_547//jaraco_functools",
     ],
+)
+
+# Snapshot fixture: minimal 2-contributor case (jaraco-classes +
+# jaraco-functools, both PEP 420 under `jaraco/`) for the
+# .pth / addsitedir branch of venv.bzl.
+extract_venv_pth(
+    name = "test.venv.pth",
+    venv = ":test.venv",
 )

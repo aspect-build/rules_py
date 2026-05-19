@@ -1,0 +1,5 @@
+../../../../../../..
+import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "_wheels", "0", "lib", "python3.11", "site-packages")))
+../../../../../../../_main
+../../../../../../../aspect_rules_py++uv+project__pth_namespace_547
+import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "_wheels", "2", "lib", "python3.11", "site-packages")))

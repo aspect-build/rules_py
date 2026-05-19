@@ -32,6 +32,7 @@ platform(
 #   bazel run //:snapshots
 write_source_files(
     name = "snapshots",
+    testonly = True,
     files = {
         # @pypi (multi-project: alpha, beta, gamma)
         # ----------------------------------------------------------------
@@ -96,5 +97,17 @@ write_source_files(
         # //uv/private/pep517_whl:toolchain_env_test which asserts the
         # rule expands env keys correctly given an explicit fixture.
         "snapshots/sdist_build.uv_sdist_jdk_build.jpype1.BUILD.bazel": "@sdist_build__uv_sdist_jdk_build__jpype1__1_7_1//:BUILD.bazel",
+
+        # Venv site-packages .pth for a graph with namespace-package
+        # contributors. Pinned to lock down the format of the
+        # `.pth` lines that assemble_venv emits for wheels routed
+        # through the addsitedir / sys.path.extend branch.
+        # firebase-admin pulls in the google-* family (~8 contributors);
+        # pth-namespace-547 is the minimal 2-contributor case (jaraco-*).
+        # Wheel indices rotate when the lockfile changes; the line
+        # *format* is what regression-testing — any change to
+        # assemble_venv's .pth emission surfaces here.
+        "snapshots/firebase_admin.test_tool.venv.pth": "//cases/firebase-admin-import:test_tool.venv.pth",
+        "snapshots/pth_namespace_547.test.venv.pth": "//cases/pth-namespace-547:test.venv.pth",
     },
 )
