@@ -132,23 +132,54 @@ function make_relative_link(path1, path2, i, common, target, relative_path, back
             close(cmd)
 
             # Accept absolute paths that live under `bazel-out/<cfg>/bin/`
-            # (venv / declare_file outputs) or `external/<repo>/` (the
+            # (venv / declare_file outputs), `external/<repo>/` (the
             # rules_python interpreter tree lives here directly, not
-            # under bazel-out). Normalise to the execroot-relative form
-            # so `symlink_map` lookups (keyed by the mtree's `content=`
-            # field, also execroot-relative) can find a match.
+            # under bazel-out), or the Bazel-9 content-addressable repo
+            # store at `<output_base>/cache/repos/v1/contents/<content
+            # -hash>/<extraction-id>/...`. Normalise to the execroot-
+            # relative form so `symlink_map` lookups (keyed by the
+            # mtree's `content=` field, also execroot-relative) can find
+            # a match.
             #
-            # The two branches are mutually exclusive: a generated wheel
-            # file lives at `bazel-out/<cfg>/bin/external/<repo>/...`, so
-            # both regexes match. Prefer the bazel-out form — it's the
-            # canonical key used by symlink_map for generated files —
-            # otherwise we'd over-strip down to `external/<repo>/...`
-            # and miss the lookup, leaving the link as a literal
-            # `external/<repo>/...` that dangles inside an OCI layer.
+            # The first two branches are mutually exclusive in the
+            # over-strip sense: a generated wheel file lives at
+            # `bazel-out/<cfg>/bin/external/<repo>/...`, so both regexes
+            # match. Prefer the bazel-out form — it's the canonical key
+            # used by symlink_map for generated files — otherwise we'd
+            # over-strip down to `external/<repo>/...` and miss the
+            # lookup, leaving the link as a literal `external/<repo>/...`
+            # that dangles inside an OCI layer.
+            #
+            # The CAS branch handles Bazel 9 specifically: it materialises
+            # external repo content under
+            # `<output_base>/cache/repos/v1/contents/<hash>/<uuid>/...`,
+            # with `<output_base>/external/<repo>` a top-level symlink
+            # pointing at that CAS directory. `readlink -f` walks all the
+            # way through the chain — sandbox→execroot symlink → external
+            # repo symlink → CAS dir → intra-repo relative symlink — and
+            # returns a CAS-absolute path that contains neither `bazel-
+            # out/<cfg>/bin/` nor `/external/`. Without this branch, the
+            # row falls through to the empty `else` and stays as
+            # `type=file`, producing duplicate-content layers (e.g. three
+            # real interpreter binaries `python`, `python3`, `python3.11`
+            # instead of two symlinks + one real file). The CAS path's
+            # repo-relative tail (after the `<hash>/<uuid>/` segments) is
+            # the same suffix the original input had after its
+            # `external/<repo>/` prefix; reattach the input's
+            # `external/<repo>/` so the result matches a `symlink_map`
+            # entry (which is keyed by mtree-form `external/<repo>/...`).
             if (resolved_path ~ /\/bazel-out\/[^\/]+\/bin\//) {
                 sub(/^.*\/bazel-out\//, "bazel-out/", resolved_path)
             } else if (resolved_path ~ /\/external\//) {
                 sub(/^.*\/external\//, "external/", resolved_path)
+            } else if (resolved_path ~ /\/cache\/repos\/v1\/contents\/[^\/]+\/[^\/]+\//) {
+                if (match(path, /^external\/[^\/]+\//)) {
+                    repo_prefix = substr(path, RSTART, RLENGTH)
+                    sub(/^.*\/cache\/repos\/v1\/contents\/[^\/]+\/[^\/]+\//, "", resolved_path)
+                    resolved_path = repo_prefix resolved_path
+                } else {
+                    resolved_path = ""
+                }
             } else {
                 resolved_path = ""
             }
