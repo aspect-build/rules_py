@@ -8,9 +8,10 @@ Mostly exists to allow debugging.
 
 from argparse import ArgumentParser
 import os
+import shlex
 import shutil
 import sys
-from os import listdir, makedirs, path
+from os import chmod, defpath, listdir, makedirs, path, pathsep
 from subprocess import CalledProcessError, check_call, STDOUT, run
 from tempfile import TemporaryFile
 
@@ -24,6 +25,74 @@ _SETUPTOOLS_BACKENDS = (
     "setuptools.build_meta",
     "setuptools.build_meta:__legacy__",
 )
+
+
+# `$(CC)` etc. from the pep517_native_whl rule expands to a Bazel
+# workspace-relative path (e.g. external/llvm+/toolchain/gcc) that
+# resolves from the action execroot but not from the build
+# subprocess's cwd inside the unpacked worktree. To keep CC reachable
+# after that cwd change, we drop a tiny wrapper into tmp_root (which
+# is absolute, so its path survives the cwd change) and point CC /
+# CXX / CPP / LDSHARED / LDCXXSHARED at the wrapper. The wrapper
+# strips `-fdebug-default-version=4` (older toolchains reject it)
+# and then `execvp`s the compiler by basename, picking up the
+# underlying binary via PATH — which we augment with the build
+# venv's bin dir so the venv's Python wrappers are visible too.
+_DEBUG_FLAG = "-fdebug-default-version=4"
+_COMPILER_WRAPPER = """#!/usr/bin/env python3
+import os
+import sys
+
+filtered_args = [arg for arg in sys.argv[1:] if arg != "{debug_flag}"]
+compiler = os.path.basename(sys.argv[0])
+os.execvp(compiler, [compiler] + filtered_args)
+""".format(debug_flag=_DEBUG_FLAG)
+
+
+def _make_compiler_wrapper(tmpdir, name):
+    wrapper = path.join(tmpdir, ".aspect_rules_py_compilers", name)
+    makedirs(path.dirname(wrapper), exist_ok=True)
+    with open(wrapper, "w") as f:
+        f.write(_COMPILER_WRAPPER)
+    chmod(wrapper, 0o755)
+    return wrapper
+
+
+def _override_tool(env, key, wrapper):
+    current = env.get(key)
+    if not current:
+        return
+    parts = shlex.split(current)
+    if parts:
+        parts[0] = wrapper
+        env[key] = shlex.join(parts)
+
+
+def _compiler_env(tmpdir):
+    env = dict(os.environ)
+    env["PATH"] = pathsep.join([
+        path.dirname(sys.executable),
+        env.get("PATH", defpath),
+    ])
+    env["TMP"] = tmpdir
+    env["TEMP"] = tmpdir
+    env["TEMPDIR"] = tmpdir
+
+    cc = _make_compiler_wrapper(tmpdir, "cc")
+    cxx = _make_compiler_wrapper(tmpdir, "c++")
+    env.setdefault("CC", cc)
+    env.setdefault("CXX", cxx)
+    env.setdefault("MPICC", _make_compiler_wrapper(tmpdir, "mpicc"))
+    env.setdefault("AR", "ar")
+    for key, wrapper in [
+        ("CC", cc),
+        ("CXX", cxx),
+        ("CPP", cc),
+        ("LDSHARED", cc),
+        ("LDCXXSHARED", cxx),
+    ]:
+        _override_tool(env, key, wrapper)
+    return env
 
 
 def _load_text(maybe_file):
@@ -103,13 +172,11 @@ if opts.patches:
 # Get a path to the outdir which will be valid after we cd
 outdir = path.abspath(opts.outdir)
 
-# Preserve PATH so native sdist builds can find compilers (clang, gcc).
-build_env = dict(os.environ)
-build_env.update({
-    "TMP": tmp_root,
-    "TEMP": tmp_root,
-    "TEMPDIR": tmp_root,
-})
+# Preserve PATH so native sdist builds can find compilers (clang, gcc),
+# and re-point CC/CXX/etc. through wrapper scripts in tmp_root so the
+# Bazel-supplied workspace-relative compiler paths survive the cwd
+# change into the worktree.
+build_env = _compiler_env(tmp_root)
 
 if _legacy_metadata_conflicts_with_pyproject(t):
     print(

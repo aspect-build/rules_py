@@ -12,7 +12,7 @@ the sdist build succeeded* is the assertion.
 
 ## Cases
 
-### `cdifflib/` — `cdifflib==1.2.9`
+### `cdifflib/` — `cdifflib==1.2.9` *(known-failing under current fix)*
 
 Sdist shape:
 
@@ -41,14 +41,18 @@ Confirmed locally with `bazel build
 
 Related fix: zbarsky-openai/rules_py
 [`f12313870`](https://github.com/zbarsky-openai/rules_py/commit/f12313870283ca6af44393dc730d1ddb2166dc88)
-— "prefer setup.py when pyproject metadata is incomplete". Note
-that the *narrowed* form of the dispatch fix on
-`stack-20260413--8634d49` (commit `fe23cce`) intentionally **does
-not** cover cdifflib's shape: cdifflib's `[project]` table omits
+— "prefer setup.py when pyproject metadata is incomplete".
+
+Status: **known-failing under the minimum fix in tree.** The
+narrowed dispatch this branch carries
+(`_legacy_metadata_conflicts_with_pyproject(...)`) intentionally
+does not cover cdifflib's shape — its `[project]` table omits
 `dependencies` and its `setup.py` has no `install_requires`, so
-`_legacy_metadata_conflicts_with_pyproject(...)` returns False and
-cdifflib still flows through `python -m build`. The Codex original
-(broader) routing is what makes this case pass.
+the detector returns False and cdifflib still flows through
+`python -m build`. The Codex original (broader) routing covers it
+but was deemed too broad. The case is left in CI's default test
+set so the failure stays visible; expect this target to stay red
+until a broader fix lands.
 
 ### `pyahocorasick/` — `pyahocorasick==2.2.0`
 
@@ -59,26 +63,28 @@ Sdist shape:
 
 What it reproduces: native sdists exercise the full
 `pep517_native_whl` action with `cwd=<worktree>` and a compiler
-subprocess. Anything path-shaped that `build_helper.py` exports to
-that subprocess must survive the cwd change. The upstream form
+subprocess. Two cooperating fixes from the zbarsky-openai patch
+chain make this work end-to-end:
 
-```python
-tmp_root = opts.outdir.lstrip("/") + ".tmp"
+1. [`f12313870`](https://github.com/zbarsky-openai/rules_py/commit/f12313870283ca6af44393dc730d1ddb2166dc88)
+   swaps `tmp_root` from a workspace-relative
+   `opts.outdir.lstrip("/") + ".tmp"` to
+   `path.abspath(opts.outdir) + ".tmp"` so `TMP` / `TEMP` /
+   `TEMPDIR` (and the wrapper-script parent dir below) stay valid
+   once the build subprocess descends into the worktree.
+2. [`5d81044`](https://github.com/zbarsky-openai/rules_py/commit/5d81044ec0a2fbcb8f53a198ef3f8e59161bf95c)
+   drops thin compiler-wrapper scripts into
+   `tmp_root/.aspect_rules_py_compilers/` and rewrites `CC` /
+   `CXX` / `CPP` / `LDSHARED` / `LDCXXSHARED` to point at those
+   absolute paths. Needed because `pep517_native_whl` emits
+   `env = {"CC": "$(CC)", ...}` and `$(CC)` expands to a
+   workspace-relative `external/llvm+/toolchain/gcc` that doesn't
+   resolve from inside the worktree.
+
+Without (2), CI fails with:
+
 ```
-
-leaves a *relative* `bazel-out/.../whl.tmp` in `TMP` / `TEMP` /
-`TEMPDIR` — valid from the action execroot but not from the
-compiler's cwd inside the worktree. In the patch chain that
-additionally adds compiler-wrapper scripts (zbarsky-openai
-[`5d81044`](https://github.com/zbarsky-openai/rules_py/commit/5d81044ec0a2fbcb8f53a198ef3f8e59161bf95c)),
-those wrappers are *also* written under `tmp_root`, so the
-wrappers themselves become unreachable when `tmp_root` is
-relative.
-
-The companion fix on the same `f12313870` commit swaps to:
-
-```python
-tmp_root = path.abspath(opts.outdir) + ".tmp"
+error: command 'external/llvm+/toolchain/gcc' failed: No such file or directory
 ```
 
 Constrained to `@platforms//os:linux` to match

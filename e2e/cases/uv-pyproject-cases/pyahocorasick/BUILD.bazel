@@ -6,18 +6,20 @@ load("@aspect_rules_py//py:defs.bzl", "py_test")
 # forces the resolver to build from sdist, routing the wheel build
 # through pep517_native_whl/build_helper.py.
 #
-# Once a native sdist build is in play, anything path-shaped that
+# Once a native sdist build is in play, every path-shaped thing
 # `build_helper.py` exports to its compiler subprocess must survive
-# the cwd change into the worktree. That includes `tmp_root` —
-# exported as TMP / TEMP / TEMPDIR and (in the patch chain that
-# layers compiler wrappers on top) used as the parent dir for the
-# wrapper scripts themselves. The upstream form
-#     tmp_root = opts.outdir.lstrip("/") + ".tmp"
-# leaves those values relative; the "prefer setup.py when pyproject
-# metadata is incomplete" patch swaps them to
-#     tmp_root = path.abspath(opts.outdir) + ".tmp"
-# so the references stay valid once the build subprocess descends
-# into the worktree.
+# the cwd change into the worktree. Two cooperating fixes from the
+# zbarsky-openai patch chain make this work:
+#
+# 1. `tmp_root = path.abspath(opts.outdir) + ".tmp"` (from
+#    `f12313870`). Was relative — `bazel-out/.../whl.tmp` — and
+#    invalid from any cwd other than the action's execroot.
+# 2. CC/CXX wrappers under `tmp_root/.aspect_rules_py_compilers/`
+#    (from `5d81044`), pointed to by `CC` / `CXX` / `CPP` /
+#    `LDSHARED` / `LDCXXSHARED` so the Bazel-relative
+#    `$(CC)`-expansion (e.g. `external/llvm+/toolchain/gcc`) gets
+#    replaced with an absolute wrapper path before setup.py invokes
+#    the compiler from inside the worktree.
 #
 # Constrained to linux for the same reason as uv-sdist-native-build:
 # the host-side cc toolchain plumbing that lets a `setup.py

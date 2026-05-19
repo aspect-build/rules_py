@@ -18,8 +18,15 @@ load("@aspect_rules_py//py:defs.bzl", "py_test")
 #         ruff
 #
 # The "prefer setup.py when pyproject metadata is incomplete" patch
-# dispatches this shape to `setup.py bdist_wheel` directly, which
-# never consults `[build-system].requires`, so the build succeeds.
+# dispatches *some* legacy shapes to `setup.py bdist_wheel` directly,
+# which never consults `[build-system].requires`, so those builds
+# succeed. cdifflib's shape isn't covered by the narrowed dispatch
+# in tree: its `[project]` table has no `dependencies` field and its
+# `setup.py` has no `install_requires`, so
+# `_legacy_metadata_conflicts_with_pyproject(...)` returns False and
+# cdifflib still flows through `python -m build`. The case stays in
+# tree as a live reproducer for the open bug — CI is expected to
+# stay red on this target until a broader fix lands.
 py_test(
     name = "test",
     srcs = ["__test__.py"],
