@@ -60,7 +60,7 @@ def _collect_toolchain_inputs_and_vars(ctx):
     return extra_inputs, known_variables
 
 def _pep517_whl(ctx):
-    archive = ctx.attr.src[DefaultInfo].files.to_list()[0]
+    archive = ctx.file.src
     wheel_dir = ctx.actions.declare_directory("whl")
     patch_args, patch_inputs = _patch_args_and_inputs(ctx)
 
@@ -88,7 +88,7 @@ def _pep517_whl(ctx):
     return [DefaultInfo(files = depset([wheel_dir]))]
 
 def _pep517_native_whl(ctx):
-    archive = ctx.attr.src[DefaultInfo].files.to_list()[0]
+    archive = ctx.file.src
     wheel_dir = ctx.actions.declare_directory("whl")
     patch_args, patch_inputs = _patch_args_and_inputs(ctx)
 
@@ -131,7 +131,7 @@ _PATCH_ATTRS = {
 }
 
 _pep517_whl_attrs = {
-    "src": attr.label(),
+    "src": attr.label(allow_single_file = True),
     "tool": attr.label(executable = True, cfg = "exec"),
     "version": attr.string(),
     "args": attr.string_list(default = ["--validate-anyarch"]),
