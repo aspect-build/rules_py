@@ -61,7 +61,6 @@ assert_tar_listing(
     name = "my_app_layers_test",
     actual = [":platform_layers"],
     expected = "my_app_layers_listing.yaml",
-    tags = ["skip-on-bazel9"],
 )
 
 oci_image(
@@ -96,14 +95,18 @@ platform_transition_filegroup(
     target_platform = ":x86_64_linux",
 )
 
-# FIXME: yaml hard-codes stale `/py/tests/...` paths and old hub name.
 container_structure_test(
-    name = "py_image_test",
-    configs = ["py_image_test.yaml"],
+    name = "py_image_content_test",
+    configs = ["py_image_content_test.yaml"],
     image = ":amd64_image",
     platform = "linux/amd64",
-    tags = [
-        "skip-on-bazel8",
-        "skip-on-bazel9",
-    ],
+    tags = ["requires-docker"],
+)
+
+container_structure_test(
+    name = "py_image_command_test",
+    configs = ["py_image_command_test.yaml"],
+    image = ":amd64_image",
+    platform = "linux/amd64",
+    tags = ["requires-docker"],
 )
