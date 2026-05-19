@@ -61,7 +61,6 @@ assert_tar_listing(
     name = "my_app_layers_test",
     actual = [":platform_layers"],
     expected = "my_app_layers_listing.yaml",
-    tags = ["skip-on-bazel9"],
 )
 
 oci_image(

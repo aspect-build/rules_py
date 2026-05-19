@@ -2650,6 +2650,7 @@ files:
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./cases/oci/py_venv_image_layer/my_app_bin.runfiles/_main/tools/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./cases/oci/py_venv_image_layer/my_app_bin.runfiles/_main/tools/verify_venv/
   - -rwxr-xr-x  0 0      0        5759 Jan  1  2023 ./cases/oci/py_venv_image_layer/my_app_bin.runfiles/_main/tools/verify_venv/verify_venv.py
+  - -rwxr-xr-x  0 0      0       ***** Jan  1  2023 ./cases/oci/py_venv_image_layer/my_app_bin.runfiles/_repo_mapping
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./cases/oci/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./cases/oci/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/install/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./cases/oci/py_venv_image_layer/my_app_bin.runfiles/aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/install/lib/
@@ -2665,4 +2666,4 @@ files:
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./cases/oci/py_venv_image_layer/my_app_bin.runfiles/bazel_tools/tools/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./cases/oci/py_venv_image_layer/my_app_bin.runfiles/bazel_tools/tools/bash/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./cases/oci/py_venv_image_layer/my_app_bin.runfiles/bazel_tools/tools/bash/runfiles/
-  - -rwxr-xr-x  0 0      0       21636 Jan  1  2023 ./cases/oci/py_venv_image_layer/my_app_bin.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash
+  - -rwxr-xr-x  0 0      0       ***** Jan  1  2023 ./cases/oci/py_venv_image_layer/my_app_bin.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash
