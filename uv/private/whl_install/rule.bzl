@@ -5,6 +5,22 @@ load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PY_TOOLCHAIN", "UNPACK_TOOLCHAIN")
 
+_DEP_GROUP_FLAG = "@aspect_rules_py//uv/private/constraints/dep_group:dep_group"
+
+# Wheel installation is dep_group-agnostic: which set of wheels a venv pulls
+# in is the consumer's concern, but the install itself unpacks the same files
+# regardless of which dep_group named this wheel. Canonicalise DEP_GROUP_FLAG
+# on the way in so every consumer reaches the same configured target and the
+# install action runs once per hub repo.
+def _reset_dep_group_impl(_settings, _attr):
+    return {_DEP_GROUP_FLAG: ""}
+
+_reset_dep_group = transition(
+    implementation = _reset_dep_group_impl,
+    inputs = [],
+    outputs = [_DEP_GROUP_FLAG],
+)
+
 def _whl_install(ctx):
     py_toolchain = ctx.toolchains[PY_TOOLCHAIN].py3_runtime
     install_dir = ctx.actions.declare_directory(
@@ -128,6 +144,7 @@ def _whl_install(ctx):
 
 whl_install = rule(
     implementation = _whl_install,
+    cfg = _reset_dep_group,
     doc = """
 Private implementation detail of aspect_rules_py//uv.
 
@@ -139,6 +156,9 @@ to bypass some of the platform checks that UV does to enable crossbuilds, and is
 lighter weight since the toolchain's files aren't inputs.
 """,
     attrs = {
+        "_allowlist_function_transition": attr.label(
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+        ),
         "src": attr.label(
             allow_single_file = True,
             doc = "The wheel to install, or a tree artifact containing exactly one wheel at its root.",
