@@ -12,7 +12,7 @@ the sdist build succeeded* is the assertion.
 
 ## Cases
 
-### `cdifflib/` — `cdifflib==1.2.9` *(known-failing under current fix)*
+### `cdifflib/` — `cdifflib==1.2.9`
 
 Sdist shape:
 
@@ -39,20 +39,15 @@ Error: Build failed!
 Confirmed locally with `bazel build
 //cases/uv-pyproject-cases/cdifflib:test`.
 
-Related fix: zbarsky-openai/rules_py
-[`f12313870`](https://github.com/zbarsky-openai/rules_py/commit/f12313870283ca6af44393dc730d1ddb2166dc88)
-— "prefer setup.py when pyproject metadata is incomplete".
-
-Status: **known-failing under the minimum fix in tree.** The
-narrowed dispatch this branch carries
-(`_legacy_metadata_conflicts_with_pyproject(...)`) intentionally
-does not cover cdifflib's shape — its `[project]` table omits
-`dependencies` and its `setup.py` has no `install_requires`, so
-the detector returns False and cdifflib still flows through
-`python -m build`. The Codex original (broader) routing covers it
-but was deemed too broad. The case is left in CI's default test
-set so the failure stays visible; expect this target to stay red
-until a broader fix lands.
+Fix in tree: `--skip-dependency-check` on the `python -m build`
+invocation in `pep517_whl/build_helper.py`. Under `--no-isolation`
+we already commit to managing the build venv ourselves, so the
+`[build-system].requires` validation step is redundant; skipping
+it lets packages that pile unrelated dev tooling into `requires`
+build cleanly. Background context for the routing trade-offs is
+in [`f12313870`](https://github.com/zbarsky-openai/rules_py/commit/f12313870283ca6af44393dc730d1ddb2166dc88)
+— the broader "prefer setup.py" fix this case originally
+motivated.
 
 ### `pyahocorasick/` — `pyahocorasick==2.2.0`
 

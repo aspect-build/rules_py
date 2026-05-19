@@ -199,11 +199,20 @@ elif path.exists(path.join(t, "pyproject.toml")) or path.exists(path.join(t, "se
     # Routing legacy setup_requires=… packages (e.g. googlemaps 4.10.0)
     # through setup.py directly triggers setuptools' deprecated
     # fetch_build_eggs path, which crashes on modern packaging.
+    #
+    # --skip-dependency-check disables `build`'s validation of
+    # `[build-system].requires` against the active venv. The
+    # validation is redundant under --no-isolation (we already
+    # commit to managing the venv) and rejects packages that pile
+    # unrelated dev tooling into `requires` — cdifflib 1.2.9 lists
+    # pytest/ruff/twine there, none of which are actually needed
+    # to compile its C extension.
     cmd = [
         sys.executable,
         "-m", "build",
         "--wheel",
         "--no-isolation",
+        "--skip-dependency-check",
         "--outdir", outdir,
     ]
 else:

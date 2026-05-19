@@ -7,26 +7,21 @@ load("@aspect_rules_py//py:defs.bzl", "py_test")
 #
 # cdifflib's pyproject.toml declares `build-backend =
 # "setuptools.build_meta"` plus a `[build-system].requires` list that
-# duplicates its dev tooling (pytest, ruff, twine, ...). Under the
-# upstream "always `python -m build --no-isolation`" path, `build`
-# *validates* those requirements against the build venv (it only
-# skips the *install* step under --no-isolation) and aborts with:
+# duplicates its dev tooling (pytest, ruff, twine, ...). Under an
+# unguarded `python -m build --no-isolation`, `build` *validates*
+# those requirements against the build venv (it only skips the
+# *install* step under --no-isolation) and aborts with:
 #
 #     ERROR Missing dependencies:
 #         twine
 #         pytest
 #         ruff
 #
-# The "prefer setup.py when pyproject metadata is incomplete" patch
-# dispatches *some* legacy shapes to `setup.py bdist_wheel` directly,
-# which never consults `[build-system].requires`, so those builds
-# succeed. cdifflib's shape isn't covered by the narrowed dispatch
-# in tree: its `[project]` table has no `dependencies` field and its
-# `setup.py` has no `install_requires`, so
-# `_legacy_metadata_conflicts_with_pyproject(...)` returns False and
-# cdifflib still flows through `python -m build`. The case stays in
-# tree as a live reproducer for the open bug — CI is expected to
-# stay red on this target until a broader fix lands.
+# Fix in tree: `--skip-dependency-check` on the `python -m build`
+# invocation in pep517_whl/build_helper.py. The validation step is
+# redundant once we've committed to managing the build venv
+# ourselves, and skipping it sidesteps packages that pile unrelated
+# dev tooling into `[build-system].requires`.
 py_test(
     name = "test",
     srcs = ["__test__.py"],
