@@ -23,6 +23,7 @@ bazel_dep(name = "rules_python", version = "1.0.0")
 bazel_dep(name = "rules_shell", version = "0.6.1")
 bazel_dep(name = "tar.bzl", version = "0.10.1")
 bazel_dep(name = "with_cfg.bzl", version = "0.14.6")
+bazel_dep(name = "hermetic_launcher", version = "0.0.8")
 
 bazel_lib_toolchains = use_extension("@tar.bzl//tar:extensions.bzl", "toolchains")
 use_repo(bazel_lib_toolchains, "bsd_tar_toolchains")

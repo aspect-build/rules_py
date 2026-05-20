@@ -1,5 +1,12 @@
 """quasi-public types."""
 
+PyExecutableInfo = provider(
+    doc = "Provider emitted by `py_venv_exec` carrying launcher-level metadata that downstream consumers can't infer from the binary itself.",
+    fields = {
+        "entrypoint": "File — the `main` Python file the launcher exec's. Consumers convert to a runfiles path via `to_rlocation_path` at their own analysis time (e.g. `py_pex_binary` uses it to set the pex entrypoint without scraping the launcher).",
+    },
+)
+
 VirtualenvInfo = provider(
     doc = """Provider emitted by `py_venv` identifying a materialised
 virtualenv for downstream consumers.

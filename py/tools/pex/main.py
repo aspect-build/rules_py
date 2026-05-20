@@ -62,14 +62,11 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    "--executable",
-    dest="executable",
-    default=None,
-    metavar="EXECUTABLE",
-    help=(
-        "Set the entry point to an existing local python script. For example: "
-        '"pex --executable bin/my-python-script".'
-    ),
+    "--entrypoint",
+    dest="entrypoint",
+    required=True,
+    metavar="RLOCATION",
+    help="Runfiles path of the Python entry-point script (e.g. _main/py/tests/main.py).",
 )
 
 parser.add_argument(
@@ -142,23 +139,10 @@ pex_builder = PEXBuilder(
 )
 
 
-MAGIC_COMMENT = "# __PEX_PY_BINARY_ENTRYPOINT__ "
-executable = None
+executable = options.entrypoint
 executable_was_set = False
-# set the entrypoint by looking at the generated launcher.
-with open(options.executable, "r") as contents:
-    line = contents.readline()
-    while line:
-        if line.startswith(MAGIC_COMMENT):
-            executable = line[len(MAGIC_COMMENT):].rstrip()
-        if executable:
-            break
-        line = contents.readline()
 
-    if not executable:
-        print("Could not determine the `main` file for the binary. Did run.tmpl.sh change?")
-        sys.exit(1)
-    
+
 pex_builder.set_shebang(options.python_shebang)
 
 pex_info = pex_builder.info

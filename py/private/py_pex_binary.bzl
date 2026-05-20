@@ -18,8 +18,10 @@ py_pex_binary(
 ```
 """
 
+load("@bazel_lib//lib:paths.bzl", "to_rlocation_path")
 load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
+load("//py/private/py_venv:types.bzl", "PyExecutableInfo")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
 
 def _runfiles_path(file, workspace):
@@ -106,7 +108,7 @@ def _py_python_pex_impl(ctx):
         # this is needed to allow passing a lambda (with workspace_name) to map_each
         allow_closure = True,
     )
-    args.add(binary[DefaultInfo].files_to_run.executable, format = "--executable=%s")
+    args.add(to_rlocation_path(ctx, binary[PyExecutableInfo].entrypoint), format = "--entrypoint=%s")
     args.add(ctx.attr.python_shebang, format = "--python-shebang=%s")
 
     if ctx.attr.inherit_path != "":
@@ -137,7 +139,7 @@ def _py_python_pex_impl(ctx):
     ]
 
 _attrs = dict({
-    "binary": attr.label(executable = True, cfg = "target", mandatory = True, doc = "A py_binary target"),
+    "binary": attr.label(executable = True, cfg = "target", mandatory = True, providers = [PyExecutableInfo], doc = "A py_binary target"),
     "inject_env": attr.string_dict(
         doc = "Environment variables to set when running the pex binary.",
         default = {},

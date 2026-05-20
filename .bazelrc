@@ -1,5 +1,10 @@
 import %workspace%/bazel/defaults.bazelrc
 
+# TODO: re-enable once https://github.com/hermeticbuild/hermetic-launcher/pull/34
+# lands — adds the missing toolchain= arg to hermetic_launcher's
+# _compile_stub ctx.actions.run, which currently breaks under this flag.
+common --noincompatible_auto_exec_groups
+
 common --test_output=errors
 common --incompatible_disallow_empty_glob=False
 
