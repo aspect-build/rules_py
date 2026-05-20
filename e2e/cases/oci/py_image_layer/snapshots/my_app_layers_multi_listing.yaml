@@ -88,18 +88,18 @@ files:
   - -rwxr-xr-x  0 0      0         160 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/._my_app_multi_bin.venv/pyvenv.cfg
   - -rwxr-xr-x  0 0      0         276 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/__main__.py
   - -rwxr-xr-x  0 0      0        1280 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/_my_app_multi_bin.venv
-  - -rwxr-xr-x  0 0      0         158 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/2to3
+  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/2to3 -> 2to3-3.11
   - -rwxr-xr-x  0 0      0         158 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/2to3-3.11
-  - -rwxr-xr-x  0 0      0         156 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/idle3
+  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/idle3 -> idle3.11
   - -rwxr-xr-x  0 0      0         156 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/idle3.11
   - -rwxr-xr-x  0 0      0         234 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/pip
   - -rwxr-xr-x  0 0      0         234 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/pip3
   - -rwxr-xr-x  0 0      0         234 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/pip3.11
-  - -rwxr-xr-x  0 0      0         141 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/pydoc3
+  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/pydoc3 -> pydoc3.11
   - -rwxr-xr-x  0 0      0         141 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/pydoc3.11
-  - -rwxr-xr-x  0 0      0    52332240 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/python
-  - -rwxr-xr-x  0 0      0    52332240 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/python3
-  - -rwxr-xr-x  0 0      0        3069 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/python3-config
+  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/python -> python3.11
+  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/python3 -> python3.11
+  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/python3-config -> python3.11-config
   - -rwxr-xr-x  0 0      0    52332240 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/python3.11
   - -rwxr-xr-x  0 0      0        3069 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/python3.11-config
   - -rwxr-xr-x  0 0      0        2854 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/include/python3.11/Python.h
@@ -297,15 +297,15 @@ files:
   - -rwxr-xr-x  0 0      0       12114 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/itcl4.3.5/itclWidget.tcl
   - -rwxr-xr-x  0 0      0      306344 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/itcl4.3.5/libtcl9itcl4.3.5.so
   - -rwxr-xr-x  0 0      0         436 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/itcl4.3.5/pkgIndex.tcl
-  - -rwxr-xr-x  0 0      0    52680520 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/libpython3.11.so
+  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/libpython3.11.so -> libpython3.11.so.1.0
   - -rwxr-xr-x  0 0      0    52680520 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/libpython3.11.so.1.0
   - -rwxr-xr-x  0 0      0       16800 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/libpython3.so
   - -rwxr-xr-x  0 0      0     2385136 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/libtcl9.0.so
   - -rwxr-xr-x  0 0      0     3119304 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/libtcl9tk9.0.so
   - -rwxr-xr-x  0 0      0         312 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/pkgconfig/python-3.11-embed.pc
   - -rwxr-xr-x  0 0      0         285 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/pkgconfig/python-3.11.pc
-  - -rwxr-xr-x  0 0      0         312 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/pkgconfig/python3-embed.pc
-  - -rwxr-xr-x  0 0      0         285 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/pkgconfig/python3.pc
+  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/pkgconfig/python3-embed.pc -> python-3.11-embed.pc
+  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/pkgconfig/python3.pc -> python-3.11.pc
   - -rwxr-xr-x  0 0      0       13936 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/python3.11/LICENSE.txt
   - -rwxr-xr-x  0 0      0        5218 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/python3.11/__future__.py
   - -rwxr-xr-x  0 0      0         227 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/python3.11/__hello__.py
@@ -2401,6 +2401,6 @@ files:
   - -rwxr-xr-x  0 0      0        3894 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/tk9.0/ttk/winTheme.tcl
   - -rwxr-xr-x  0 0      0        3139 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/tk9.0/ttk/xpTheme.tcl
   - -rwxr-xr-x  0 0      0       25855 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/tk9.0/xmfbox.tcl
-  - -rwxr-xr-x  0 0      0       20280 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/share/man/man1/python3.1
+  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/share/man/man1/python3.1 -> python3.11.1
   - -rwxr-xr-x  0 0      0       20280 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/share/man/man1/python3.11.1
   - -rwxr-xr-x  0 0      0 * Jan  1  2023 ./app.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash

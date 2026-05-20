@@ -573,17 +573,14 @@ def _file_to_mtree_entry(f, mode = "0644", strip_prefix = "", root = "/"):
     else:
         dst = "./app.runfiles/_main/" + sp
 
-    # Symlinks (e.g. the venv's site-packages entries pointing at wheel install
-    # trees) are emitted with `content=` (singular) as a marker. A post-process
-    # awk step calls `readlink` on each marked path and rewrites the row to
-    # `type=link link=<target>`. Non-symlinks use `contents=` and pass through.
-    if f.is_symlink:
-        return "{} type=file mode={} uid=0 gid=0 time=1672560000 content={}".format(
-            dst.replace(" ", "\\040"),
-            mode,
-            f.path.replace(" ", "\\040"),
-        )
-    return "{} type=file mode={} uid=0 gid=0 time=1672560000 contents={}".format(
+    # Every row uses `content=` (singular) so the post-process awk step can
+    # `readlink` each path and rewrite real filesystem symlinks into
+    # `type=link link=<target>`. `f.is_symlink` is not a reliable signal — it's
+    # only set for `ctx.actions.declare_symlink` outputs (e.g. the venv's
+    # site-packages entries), NOT for repo-rule-staged symlinks like
+    # rules_python's `bin/python -> python3.11`. Letting awk readlink everything
+    # catches both; non-symlinks short-circuit cheaply and pass through.
+    return "{} type=file mode={} uid=0 gid=0 time=1672560000 content={}".format(
         dst.replace(" ", "\\040"),
         mode,
         f.path.replace(" ", "\\040"),
@@ -693,9 +690,9 @@ _platform_cfg = transition(
 )
 
 def _run_tar_action(ctx, bsdtar, bsdtar_files, tar_out, files_depset, map_each, compress, level, reqs, mnemonic, progress_msg):
-    # Single action chains: emit mtree (param file) → awk resolves
-    # `type=file content=<path>` rows the map_each emitted for `f.is_symlink`
-    # files into `type=link link=<target>` rows → bsdtar reads from stdin.
+    # Single action chains: emit mtree (param file) → awk `readlink`s each
+    # `type=file content=<path>` row and rewrites filesystem symlinks into
+    # `type=link link=<target>` rows → bsdtar reads from stdin.
     mtree_args = ctx.actions.args()
     mtree_args.set_param_file_format("multiline")
     mtree_args.use_param_file("%s", use_always = True)
