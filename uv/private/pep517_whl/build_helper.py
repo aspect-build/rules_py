@@ -8,11 +8,160 @@ Mostly exists to allow debugging.
 
 from argparse import ArgumentParser
 import os
+import shlex
 import shutil
 import sys
-from os import listdir, mkdir, path
+from os import chmod, defpath, listdir, makedirs, path, pathsep
 from subprocess import CalledProcessError, check_call, STDOUT, run
 from tempfile import TemporaryFile
+
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib
+
+_SETUPTOOLS_BACKENDS = (
+    None,
+    "setuptools.build_meta",
+    "setuptools.build_meta:__legacy__",
+)
+
+
+# `$(CC)` etc. from the pep517_native_whl rule expands to a Bazel
+# workspace-relative path (e.g. external/llvm+/toolchain/gcc) that
+# resolves from the action execroot but not from the build
+# subprocess's cwd inside the unpacked worktree. To keep CC reachable
+# after that cwd change, we drop a tiny wrapper into tmp_root (which
+# is absolute, so its path survives the cwd change) and point CC /
+# CXX / CPP / LDSHARED / LDCXXSHARED at the wrapper. The wrapper
+# strips `-fdebug-default-version=4` (older toolchains reject it)
+# and then `execvp`s the compiler by basename, picking up the
+# underlying binary via PATH — which we augment with the build
+# venv's bin dir so the venv's Python wrappers are visible too.
+_DEBUG_FLAG = "-fdebug-default-version=4"
+_COMPILER_WRAPPER = """#!/usr/bin/env python3
+import os
+import sys
+
+filtered_args = [arg for arg in sys.argv[1:] if arg != "{debug_flag}"]
+os.execv("{compiler_path}", ["{name}"] + filtered_args)
+"""
+
+
+def _resolve_compiler_path(env, key, default):
+    """Extract the real compiler from the environment and resolve it to an absolute path."""
+    current = env.get(key)
+    if not current:
+        return default
+    parts = shlex.split(current)
+    if not parts:
+        return default
+    compiler = parts[0]
+    if os.path.isabs(compiler):
+        return compiler
+    return os.path.abspath(compiler)
+
+
+def _make_compiler_wrapper(tmpdir, name, compiler_path):
+    wrapper = path.join(tmpdir, ".aspect_rules_py_compilers", name)
+    makedirs(path.dirname(wrapper), exist_ok=True)
+    with open(wrapper, "w") as f:
+        f.write(_COMPILER_WRAPPER.format(
+            debug_flag=_DEBUG_FLAG,
+            compiler_path=compiler_path,
+            name=name,
+        ))
+    chmod(wrapper, 0o755)
+    return wrapper
+
+
+def _override_tool(env, key, wrapper):
+    current = env.get(key)
+    if not current:
+        return
+    parts = shlex.split(current)
+    if parts:
+        parts[0] = wrapper
+        env[key] = shlex.join(parts)
+
+
+def _compiler_env(tmpdir):
+    env = dict(os.environ)
+    env["PATH"] = pathsep.join([
+        path.dirname(sys.executable),
+        env.get("PATH", defpath),
+    ])
+    env["TMP"] = tmpdir
+    env["TEMP"] = tmpdir
+    env["TEMPDIR"] = tmpdir
+
+    cc_path = _resolve_compiler_path(env, "CC", "cc")
+    cxx_path = _resolve_compiler_path(env, "CXX", "c++")
+
+    cc = _make_compiler_wrapper(tmpdir, "cc", cc_path)
+    cxx = _make_compiler_wrapper(tmpdir, "c++", cxx_path)
+
+    env.setdefault("CC", cc)
+    env.setdefault("CXX", cxx)
+    env.setdefault("MPICC", _make_compiler_wrapper(tmpdir, "mpicc", cc_path))
+    env.setdefault("AR", "ar")
+
+    for key, wrapper in [
+        ("CC", cc),
+        ("CXX", cxx),
+        ("CPP", cc),
+        ("LDSHARED", cc),
+        ("LDCXXSHARED", cxx),
+    ]:
+        _override_tool(env, key, wrapper)
+    return env
+
+
+def _load_text(maybe_file):
+    if not path.exists(maybe_file):
+        return ""
+
+    with open(maybe_file, encoding="utf-8", errors="ignore") as f:
+        return f.read()
+
+
+def _load_pyproject_data(worktree):
+    pyproject = path.join(worktree, "pyproject.toml")
+    if not path.exists(pyproject):
+        return None
+
+    try:
+        with open(pyproject, "rb") as f:
+            return tomllib.load(f)
+    except (OSError, tomllib.TOMLDecodeError):
+        return None
+
+
+def _legacy_metadata_conflicts_with_pyproject(worktree):
+    setup_py = path.join(worktree, "setup.py")
+    pyproject_data = _load_pyproject_data(worktree)
+    if not (pyproject_data and path.exists(setup_py)):
+        return False
+
+    build_backend = pyproject_data.get("build-system", {}).get("build-backend")
+    if build_backend not in _SETUPTOOLS_BACKENDS:
+        return False
+
+    project = pyproject_data.get("project")
+    if not project:
+        return False
+
+    dynamic = set(project.get("dynamic", []))
+    legacy_metadata = _load_text(setup_py) + "\n" + _load_text(path.join(worktree, "setup.cfg"))
+
+    return (
+        ("dependencies" not in project and "dependencies" not in dynamic and "install_requires" in legacy_metadata) or
+        (
+            "optional-dependencies" not in project and
+            "optional-dependencies" not in dynamic and
+            "extras_require" in legacy_metadata
+        )
+    )
 
 PARSER = ArgumentParser()
 PARSER.add_argument("srcarchive")
@@ -22,8 +171,9 @@ PARSER.add_argument("--patch-strip", type=int, default=0, help="Strip count for 
 PARSER.add_argument("--patch", action="append", default=[], dest="patches", help="Patch file to apply (repeatable)")
 opts, args = PARSER.parse_known_args()
 
-tmp_root = opts.outdir.lstrip("/") + ".tmp"
-mkdir(tmp_root)
+tmp_root = path.abspath(opts.outdir) + ".tmp"
+# Sandboxed/remote actions get a fresh root each run, so we don't expect a stale tmp_root to exist.
+makedirs(tmp_root, exist_ok=False)
 
 t = path.join(tmp_root, "worktree")
 
@@ -44,27 +194,49 @@ if opts.patches:
 # Get a path to the outdir which will be valid after we cd
 outdir = path.abspath(opts.outdir)
 
-# Preserve PATH so native sdist builds can find compilers (clang, gcc).
-build_env = dict(os.environ)
-build_env.update({
-    "TMP": tmp_root,
-    "TEMP": tmp_root,
-    "TEMPDIR": tmp_root,
-})
+# Preserve PATH so native sdist builds can find compilers (clang, gcc),
+# and re-point CC/CXX/etc. through wrapper scripts in tmp_root so the
+# Bazel-supplied workspace-relative compiler paths survive the cwd
+# change into the worktree.
+build_env = _compiler_env(tmp_root)
 
-if path.exists(path.join(t, "pyproject.toml")) or path.exists(path.join(t, "setup.py")):
+if _legacy_metadata_conflicts_with_pyproject(t):
+    print(
+        "Warning: falling back to setup.py because pyproject.toml omits dynamic dependency metadata "
+        "that setuptools still reads from setup.py/setup.cfg.",
+        file=sys.stderr,
+    )
+    cmd = [
+        sys.executable,
+        path.realpath(path.join(t, "setup.py")),
+        "bdist_wheel",
+        "--dist-dir",
+        outdir,
+    ]
+elif path.exists(path.join(t, "pyproject.toml")) or path.exists(path.join(t, "setup.py")):
     # Always use `python -m build` (PEP 517 frontend). For setup.py-only
     # packages without a pyproject.toml, build creates a minimal PEP 517
     # shim automatically. --no-isolation ensures it uses the deps we've
     # already provided in the build venv rather than trying to pip-install.
+    # Routing legacy setup_requires=… packages (e.g. googlemaps 4.10.0)
+    # through setup.py directly triggers setuptools' deprecated
+    # fetch_build_eggs path, which crashes on modern packaging.
+    #
+    # --skip-dependency-check disables `build`'s validation of
+    # `[build-system].requires` against the active venv. The
+    # validation is redundant under --no-isolation (we already
+    # commit to managing the venv) and rejects packages that pile
+    # unrelated dev tooling into `requires` — cdifflib 1.2.9 lists
+    # pytest/ruff/twine there, none of which are actually needed
+    # to compile its C extension.
     cmd = [
         sys.executable,
         "-m", "build",
         "--wheel",
         "--no-isolation",
+        "--skip-dependency-check",
         "--outdir", outdir,
     ]
-
 else:
     print("Error: Unable to detect build command! Neither pyproject.toml nor setup.py found!", file=sys.stderr)
     exit(1)
