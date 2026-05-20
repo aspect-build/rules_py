@@ -1898,6 +1898,52 @@ alias(
 )
 
 
+# pkg
+# {
+#     "aspect_rules_py": {
+#         "b441bfc3c3fbed87": {
+#             "": 1,
+#         },
+#     },
+# }
+
+
+alias(
+    name = "_package_pkg_aspect_rules_py",
+    actual = select({
+        "//conditions:default": "//private/sccs:b441bfc3c3fbed87",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
+    name = "_package_pkg_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__pkg__0_2//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
+    name = "pkg",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_pkg_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "pkg_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_pkg_aspect_rules_py_whl",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
 # pluggy
 # {
 #     "aspect_rules_py": {

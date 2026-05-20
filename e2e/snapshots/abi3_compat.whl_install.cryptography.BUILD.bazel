@@ -190,7 +190,7 @@ select_chain(
         "@aspect_rules_py_pip_configurations//:cp38-win_amd64-abi3": "@whl__cryptography__556e106ee01aa134//file"
    },
    default_target = "@@aspect_rules_py++uv+sdist_build__abi3_compat__cryptography__46_0_5//:whl",
-   visibility = ["//visibility:private"],
+   visibility = ["//visibility:public"],
 )
 
 filegroup(

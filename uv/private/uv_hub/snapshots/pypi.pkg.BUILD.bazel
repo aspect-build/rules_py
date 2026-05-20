@@ -9,6 +9,14 @@ alias(
     actual = "pkg",
     visibility = ["//visibility:public"],
 )
+alias(
+    name = "whl",
+    actual = select({
+          "//dep_group:aspect_rules_py": "@project__aspect_rules_py//:pkg_whl",
+      }),
+    target_compatible_with = select(compatible_with(["aspect_rules_py"])),
+    visibility = ["//visibility:public"],
+)
 filegroup(
     name = "dist_info",
     srcs = [":pkg"],
