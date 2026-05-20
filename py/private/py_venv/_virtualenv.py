@@ -3,6 +3,14 @@
 import os
 import sys
 
+# Make wheel-declared console scripts reachable via `subprocess.run("name", ...)`.
+# Use dirname(sys.executable) so this works on Windows too, where the scripts
+# dir is `Scripts/` rather than `bin/`.
+_venv_bin = os.path.dirname(sys.executable)
+if _venv_bin not in os.environ.get("PATH", "").split(os.pathsep):
+    os.environ["PATH"] = _venv_bin + os.pathsep + os.environ.get("PATH", "")
+del _venv_bin
+
 VIRTUALENV_PATCH_FILE = os.path.join(__file__)
 
 

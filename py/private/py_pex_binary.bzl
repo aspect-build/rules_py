@@ -18,6 +18,7 @@ py_pex_binary(
 ```
 """
 
+load("@bazel_lib//lib:paths.bzl", "to_rlocation_path")
 load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
@@ -74,7 +75,15 @@ def _py_python_pex_impl(ctx):
     py_toolchain = _py_semantics.resolve_toolchain(ctx)
 
     binary = ctx.attr.binary
-    runfiles = binary[DefaultInfo].data_runfiles
+    binary_default = binary[DefaultInfo]
+    runfiles = binary_default.data_runfiles
+
+    # py_venv_exec emits depset([launcher, main]) — the non-executable
+    # file is the Python entrypoint the launcher exec's.
+    entrypoint_files = [f for f in binary_default.files.to_list() if f != binary_default.files_to_run.executable]
+    if len(entrypoint_files) != 1:
+        fail("py_pex_binary {}: expected exactly one entrypoint file in `binary` DefaultInfo.files, got {}".format(ctx.label, entrypoint_files))
+    entrypoint = entrypoint_files[0]
 
     output = ctx.actions.declare_file(ctx.attr.name + ".pex")
 
@@ -106,7 +115,7 @@ def _py_python_pex_impl(ctx):
         # this is needed to allow passing a lambda (with workspace_name) to map_each
         allow_closure = True,
     )
-    args.add(binary[DefaultInfo].files_to_run.executable, format = "--executable=%s")
+    args.add(to_rlocation_path(ctx, entrypoint), format = "--entrypoint=%s")
     args.add(ctx.attr.python_shebang, format = "--python-shebang=%s")
 
     if ctx.attr.inherit_path != "":

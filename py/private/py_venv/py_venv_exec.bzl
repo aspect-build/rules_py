@@ -7,7 +7,7 @@ attrs to the auto-generated sibling.
 """
 
 load("@bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
-load("@bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
+load("@hermetic_launcher//launcher:lib.bzl", "launcher")
 load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load(":types.bzl", "VirtualenvInfo")
@@ -73,17 +73,30 @@ def _py_venv_exec_impl(ctx):
     if not ctx.attr.isolated:
         flags = [f for f in flags if f != "-I"]
 
+    # Native launcher via hermetic_launcher. Embedded argv:
+    #   [0]  venv's bin/python (runfiles-resolved)
+    #   [1+] interpreter flags (literal, e.g. -I, -X importtime)
+    #   [N]  main module path (runfiles-resolved)
+    # The launcher runtime resolves transformed-arg positions through
+    # the Bazel runfiles manifest, then `execve`s the venv python.
     executable_launcher = ctx.actions.declare_file(ctx.attr.name)
-    ctx.actions.expand_template(
-        template = ctx.file._run_tmpl,
-        output = executable_launcher,
-        substitutions = {
-            "{{BASH_RLOCATION_FN}}": BASH_RLOCATION_FUNCTION,
-            "{{INTERPRETER_FLAGS}}": " ".join(flags),
-            "{{ARG_VENV_PYTHON}}": to_rlocation_path(ctx, vinfo.bin_python),
-            "{{ENTRYPOINT}}": to_rlocation_path(ctx, main),
-        },
-        is_executable = True,
+    embedded_args, transformed_args = launcher.args_from_entrypoint(vinfo.bin_python)
+    for flag in flags:
+        embedded_args, transformed_args = launcher.append_embedded_arg(
+            arg = flag,
+            embedded_args = embedded_args,
+            transformed_args = transformed_args,
+        )
+    embedded_args, transformed_args = launcher.append_runfile(
+        file = main,
+        embedded_args = embedded_args,
+        transformed_args = transformed_args,
+    )
+    launcher.compile_stub(
+        ctx = ctx,
+        embedded_args = embedded_args,
+        transformed_args = transformed_args,
+        output_file = executable_launcher,
     )
 
     # Merge runfiles, supporting `py_venv_exec(main)` not being in the `py_venv` runfiles.
@@ -176,10 +189,6 @@ sibling venv has `include_user_site_packages = True` set. The deprecated
 `py_venv_binary` / `py_venv_test` aliases default this to False to
 match their historical permissive behaviour.""",
     ),
-    "_run_tmpl": attr.label(
-        allow_single_file = True,
-        default = ":run.tmpl.sh",
-    ),
     # `data` is the only py_library attr the launcher reads (env-var
     # location expansion, runfiles merge, coverage walk). `srcs`,
     # `deps`, `imports`, `resolutions`, and `virtual_deps` are routed
@@ -228,6 +237,7 @@ py_venv_exec = rule(
     implementation = _py_venv_exec_impl,
     attrs = _attrs,
     executable = True,
+    toolchains = [launcher.finalizer_toolchain_type, launcher.template_toolchain_type],
 )
 
 py_venv_exec_test = rule(
@@ -235,4 +245,5 @@ py_venv_exec_test = rule(
     implementation = _py_venv_exec_impl,
     attrs = _attrs | _test_attrs,
     test = True,
+    toolchains = [launcher.finalizer_toolchain_type, launcher.template_toolchain_type],
 )
