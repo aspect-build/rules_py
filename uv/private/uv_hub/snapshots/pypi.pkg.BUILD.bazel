@@ -6,27 +6,22 @@ load("//:defs.bzl", "compatible_with")
 # Dependencies on this target will cause build failures if it's unavailable.
 alias(
     name = "lib",
-    actual = "cowsay",
-    visibility = ["//visibility:public"],
-)
-alias(
-    name = "pkg",
-    actual = "cowsay",
+    actual = "pkg",
     visibility = ["//visibility:public"],
 )
 filegroup(
     name = "dist_info",
-    srcs = [":cowsay"],
+    srcs = [":pkg"],
     visibility = ["//visibility:public"],
 )
 alias(
-    name = "cowsay",
+    name = "pkg",
     actual = select({
-          "//dep_group:single_project_hub": "@project__single_project_hub//:cowsay",
+          "//dep_group:aspect_rules_py": "@project__aspect_rules_py//:pkg",
       },
-        no_match_error = "Available only in dep_groups: single_project_hub",
+        no_match_error = "Available only in dep_groups: aspect_rules_py",
     ),
-    target_compatible_with = select(compatible_with(["single_project_hub"])),
+    target_compatible_with = select(compatible_with(["aspect_rules_py"])),
     visibility = ["//visibility:public"],
 )
 

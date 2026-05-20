@@ -466,6 +466,82 @@ py_library(
 )
 
 
+# scc: 3bf90d5a8d65a96f
+# members:
+# {}
+# deps:
+# {
+#     "bazel_runfiles": {
+#         "": 1,
+#     },
+#     "build": {
+#         "": 1,
+#     },
+#     "click": {
+#         "": 1,
+#     },
+#     "colorama": {
+#         "": 1,
+#     },
+#     "coverage": {
+#         "": 1,
+#     },
+#     "cowsay": {
+#         "": 1,
+#     },
+#     "django": {
+#         "": 1,
+#     },
+#     "ftfy": {
+#         "": 1,
+#     },
+#     "maturin": {
+#         "": 1,
+#     },
+#     "neptune": {
+#         "": 1,
+#     },
+#     "pkg": {
+#         "": 1,
+#     },
+#     "pytest": {
+#         "": 1,
+#     },
+#     "setuptools": {
+#         "": 1,
+#     },
+#     "six": {
+#         "": 1,
+#     },
+#     "snakesay": {
+#         "": 1,
+#     },
+# }
+
+
+py_library(
+    name = "3bf90d5a8d65a96f",
+    deps = [
+        "//:bazel_runfiles",
+        "//:build",
+        "//:click",
+        "//:colorama",
+        "//:coverage",
+        "//:cowsay",
+        "//:django",
+        "//:ftfy",
+        "//:maturin",
+        "//:neptune",
+        "//:pkg",
+        "//:pytest",
+        "//:setuptools",
+        "//:six",
+        "//:snakesay",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
 # scc: 3d28b6e946c58648
 # members:
 # {
@@ -1322,6 +1398,26 @@ py_library(
 )
 
 
+# scc: b441bfc3c3fbed87
+# members:
+# {
+#     "@whl_install__aspect_rules_py__pkg__0_2//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "b441bfc3c3fbed87",
+    deps = [
+        "@whl_install__aspect_rules_py__pkg__0_2//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
 # scc: b614323508da0659
 # members:
 # {
@@ -1843,78 +1939,6 @@ py_library(
     name = "ee63e8df8d3acccd",
     deps = [
         "@whl_install__aspect_rules_py__pyproject_hooks__1_2_0//:install",
-    ],
-    visibility = ["//:__subpackages__"],
-)
-
-
-# scc: eea4088953a3b997
-# members:
-# {}
-# deps:
-# {
-#     "bazel_runfiles": {
-#         "": 1,
-#     },
-#     "build": {
-#         "": 1,
-#     },
-#     "click": {
-#         "": 1,
-#     },
-#     "colorama": {
-#         "": 1,
-#     },
-#     "coverage": {
-#         "": 1,
-#     },
-#     "cowsay": {
-#         "": 1,
-#     },
-#     "django": {
-#         "": 1,
-#     },
-#     "ftfy": {
-#         "": 1,
-#     },
-#     "maturin": {
-#         "": 1,
-#     },
-#     "neptune": {
-#         "": 1,
-#     },
-#     "pytest": {
-#         "": 1,
-#     },
-#     "setuptools": {
-#         "": 1,
-#     },
-#     "six": {
-#         "": 1,
-#     },
-#     "snakesay": {
-#         "": 1,
-#     },
-# }
-
-
-py_library(
-    name = "eea4088953a3b997",
-    deps = [
-        "//:bazel_runfiles",
-        "//:build",
-        "//:click",
-        "//:colorama",
-        "//:coverage",
-        "//:cowsay",
-        "//:django",
-        "//:ftfy",
-        "//:maturin",
-        "//:neptune",
-        "//:pytest",
-        "//:setuptools",
-        "//:six",
-        "//:snakesay",
     ],
     visibility = ["//:__subpackages__"],
 )

@@ -107,6 +107,16 @@ load("//:defs.bzl", "compatible_with")
 
         error = "Available only in dep_groups: " + ", ".join(specs.keys())  # Simplified error string
 
+        # When the package itself is named "pkg", the `:{name}` alias below already
+        # exposes a `pkg` target — emitting a separate `:pkg` alias would collide.
+        pkg_alias = "" if package_name == "pkg" else """\
+alias(
+    name = "pkg",
+    actual = "{name}",
+    visibility = ["//visibility:public"],
+)
+""".format(name = package_name)
+
         # FIXME: Add support for entrypoints?
         # FIXME: Create a narrower dist-info rule
         content.append(
@@ -118,11 +128,7 @@ alias(
     actual = "{name}",
     visibility = ["//visibility:public"],
 )
-alias(
-    name = "pkg",
-    actual = "{name}",
-    visibility = ["//visibility:public"],
-)
+{pkg_alias}\
 filegroup(
     name = "dist_info",
     srcs = [":{name}"],
@@ -143,6 +149,7 @@ exports_files(
 )
 """.format(
                 name = package_name,
+                pkg_alias = pkg_alias,
                 lib_select = indent(pprint(select_spec), "      ").lstrip(),
                 compat = repr(specs.keys()),
                 error = error,

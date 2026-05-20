@@ -12,6 +12,7 @@ dependencies = [
    "pytest",
    "coverage",
    "cowsay",
+   "pkg",
    "snakesay",
    "ftfy==6.2.0",
    "neptune==1.10.2",
