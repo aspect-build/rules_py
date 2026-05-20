@@ -2383,5 +2383,4 @@ files:
   - -rwxr-xr-x  0 0      0       20280 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_aarch64_unknown_linux_gnu/share/man/man1/python3.11.1
   - -rwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/aspect_rules_py+/py/tests/internal-deps/adder/__init__.py
   - -rwxr-xr-x  0 0      0          32 Jan  1  2023 ./app.runfiles/aspect_rules_py+/py/tests/internal-deps/adder/add.py
-  - -rwxr-xr-x  0 0      0 * Jan  1  2023 ./app.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash
   - -rwxr-xr-x  0 0      0        1278 Jan  1  2023 ./app.venv

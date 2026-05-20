@@ -2403,4 +2403,3 @@ files:
   - -rwxr-xr-x  0 0      0       25855 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/tk9.0/xmfbox.tcl
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/share/man/man1/python3.1 -> python3.11.1
   - -rwxr-xr-x  0 0      0       20280 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/share/man/man1/python3.11.1
-  - -rwxr-xr-x  0 0      0 * Jan  1  2023 ./app.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash
