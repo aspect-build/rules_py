@@ -118,6 +118,11 @@ alias(
     actual = "{name}",
     visibility = ["//visibility:public"],
 )
+alias(
+    name = "pkg",
+    actual = "{name}",
+    visibility = ["//visibility:public"],
+)
 filegroup(
     name = "dist_info",
     srcs = [":{name}"],
@@ -186,25 +191,30 @@ def incompatible_with(venvs, extra_constraints = []):
 
     ################################################################################
     # Lay down a requirements.bzl for compatibility with rules_python
+    package_names = sorted(packages.keys())
     content = []
     content.append("""
 load("@rules_python//python:pip.bzl", "pip_utils")
 
-# We arne't compatible with this because it isn't constant over venvs.
-# all_requirements = []
+all_requirements = {all_requirements}
 
-# We aren't compatible with this because it isn't constant over venvs.
-# all_whl_requirements_by_package = {{}}
+all_whl_requirements_by_package = {all_whl_requirements_by_package}
 
-# We aren't compatible with this because it isn't constant over venvs.
-# all_whl_requirements = all_whl_requirements_by_package.values()
+all_whl_requirements = all_whl_requirements_by_package.values()
 
-# We aren't compatible with this because we don't offer separate data targets
-# all_data_requirements = []
+all_data_requirements = all_requirements
 
 def requirement(name):
-    return "@@{repo_name}//{{0}}:{{0}}".format(pip_utils.normalize_name(name))
+    return "@@{repo_name}//{{0}}:pkg".format(pip_utils.normalize_name(name))
 """.format(
+        all_requirements = repr([
+            "@@{0}//{1}:pkg".format(repository_ctx.name, name)
+            for name in package_names
+        ]),
+        all_whl_requirements_by_package = repr({
+            name: "@@{0}//{1}:whl".format(repository_ctx.name, name)
+            for name in package_names
+        }),
         repo_name = repository_ctx.name,
     ))
     repository_ctx.file("requirements.bzl", content = "\n".join(content))
