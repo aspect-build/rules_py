@@ -1,11 +1,11 @@
 ../../../../../../..
 ../../../../../../../_main
 ../../../../../../../aspect_rules_py++uv+project__firebase_admin_import
-import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "_wheels", "8", "lib", "python3.11", "site-packages")))
-import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "_wheels", "9", "lib", "python3.11", "site-packages")))
-import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "_wheels", "15", "lib", "python3.11", "site-packages")))
-import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "_wheels", "16", "lib", "python3.11", "site-packages")))
-import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "_wheels", "26", "lib", "python3.11", "site-packages")))
-import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "_wheels", "27", "lib", "python3.11", "site-packages")))
-import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "_wheels", "28", "lib", "python3.11", "site-packages")))
-import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "_wheels", "30", "lib", "python3.11", "site-packages")))
+import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "../../../..", "aspect_rules_py++uv+whl_install__firebase_admin_import__google_api_core__2_30_3/install/lib/python3.11/site-packages")))
+import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "../../../..", "aspect_rules_py++uv+whl_install__firebase_admin_import__google_auth__2_49_2/install/lib/python3.11/site-packages")))
+import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "../../../..", "aspect_rules_py++uv+whl_install__firebase_admin_import__googleapis_common_protos__1_74_0/install/lib/python3.11/site-packages")))
+import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "../../../..", "aspect_rules_py++uv+whl_install__firebase_admin_import__protobuf__6_33_6/install/lib/python3.11/site-packages")))
+import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "../../../..", "aspect_rules_py++uv+whl_install__firebase_admin_import__google_cloud_firestore__2_27_0/install/lib/python3.11/site-packages")))
+import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "../../../..", "aspect_rules_py++uv+whl_install__firebase_admin_import__google_cloud_core__2_5_1/install/lib/python3.11/site-packages")))
+import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "../../../..", "aspect_rules_py++uv+whl_install__firebase_admin_import__google_cloud_storage__3_10_1/install/lib/python3.11/site-packages")))
+import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "../../../..", "aspect_rules_py++uv+whl_install__firebase_admin_import__google_resumable_media__2_8_2/install/lib/python3.11/site-packages")))

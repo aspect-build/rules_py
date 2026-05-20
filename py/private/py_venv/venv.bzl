@@ -279,71 +279,34 @@ def assemble_venv(
         venv_name = ".{}.venv".format(safe_name)
     site_packages_rel = "{}/lib/{}/site-packages".format(venv_name, venv_py_ver)
 
-    # Two-hop alias for each wheel that carries its install_tree File:
-    #
-    #   Hop 1: <venv>/_wheels/<alias>/  →  <install_tree>   (resolved)
-    #   Hop 2: <venv>/lib/<py>/site-packages/<tl>
-    #            →  ../../../_wheels/<alias>/lib/<py>/site-packages/<tl>
-    #          (intra-venv relative, declare_symlink)
-    #
-    # Hop 1 is a `ctx.actions.symlink(output=declare_directory, target_file=<tree>)`.
-    # In bazel-bin it's a single absolute symlink to the wheel's tree
-    # artifact; in runfiles Bazel materialises it as a real directory with
-    # per-file absolute symlinks inside — same shape the aliased tree
-    # artifact already has in runfiles, so no new materialisation cost.
-    #
-    # Hop 2 is a `declare_symlink` with a relative `target_path`. Relative
-    # depth is identical in bazel-bin and runfiles because the target
-    # stays entirely within the venv's own output tree. This is what
-    # unblocks `py_image_layer` (which walks bazel-bin) and any other
-    # bazel-bin-walking tool.
-    site_packages_to_wheels_alias = "/".join([".."] * 3) + "/_wheels"
-
-    # Map from site_packages_rfpath → alias index (and alias-dir File)
-    # for wheels that carry install_tree. Indexing by rfpath (instead of
-    # label) keeps the mapping deterministic across builds.
-    wheels_with_trees = [w for w in wheels if getattr(w, "install_tree", None) != None]
-    wheel_alias_by_sp = {}
-    for i, w in enumerate(wheels_with_trees):
-        wheel_alias_by_sp[w.site_packages_rfpath] = i
-
     declared = []  # accumulator for all outputs
 
-    # Hop 1: per-wheel directory aliases. Bazel picks an absolute path
-    # under bazel-bin; the output is a tree artifact whose contents
-    # dereference the install_tree.
-    for i, w in enumerate(wheels_with_trees):
-        alias_dir = ctx.actions.declare_directory(
-            "{}/_wheels/{}".format(venv_name, i),
-        )
-        ctx.actions.symlink(
-            output = alias_dir,
-            target_file = w.install_tree,
-        )
-        declared.append(alias_dir)
-
-    # Hop 2 (+ legacy one-hop fallback): per-top-level site-packages
-    # symlinks. If the owning wheel has a `_wheels/<i>/` alias, we route
-    # through it with an intra-venv relative path; otherwise fall back
-    # to the historical runfiles-root-escape unresolved symlink.
+    # Per-top-level site-packages symlinks. Each is a `declare_symlink`
+    # with a `target_path` that escapes from the venv's site-packages
+    # dir up to the runfiles root and then descends into the owning
+    # wheel's `site_packages_rfpath`/<tl>. Same shape for both wheels
+    # that carry an `install_tree` File and rules_python-style pip
+    # wheels that don't — the runfiles tree puts each wheel's content
+    # at its rfpath either way, so a single escape form covers both.
+    #
+    # We deliberately don't declare a `<venv>/_wheels/<i>` alias here.
+    # An earlier version did, to give the venv a self-contained shape
+    # inside `bazel-bin/`; the cost was that the alias tree artifact
+    # also landed in runfiles, where Bazel materialised every wheel
+    # file at the alias path AND at its natural external rfpath —
+    # doubling on-disk runfiles for any uv-built wheel dep. Real
+    # consumers (py_image_layer's mtree walk, py_venv_link, `bazel run`)
+    # all read the runfiles tree, not bazel-bin, so we don't need the
+    # alias for them. `bazel build :foo.venv` lands a venv tree in
+    # bazel-bin whose site-packages symlinks dangle (they expect a
+    # runfiles-shaped layout) — acceptable because nothing's supposed
+    # to follow those symlinks from bazel-bin directly.
     for tl, wheel_site_pkgs in top_level_to_site_pkgs.items():
         out = ctx.actions.declare_symlink("{}/{}".format(site_packages_rel, tl))
-        alias_idx = wheel_alias_by_sp.get(wheel_site_pkgs)
-        if alias_idx != None:
-            ctx.actions.symlink(
-                output = out,
-                target_path = "{}/{}/lib/{}/site-packages/{}".format(
-                    site_packages_to_wheels_alias,
-                    alias_idx,
-                    wheel_py_ver,
-                    tl,
-                ),
-            )
-        else:
-            ctx.actions.symlink(
-                output = out,
-                target_path = "{}/{}/{}".format(escape, wheel_site_pkgs, tl),
-            )
+        ctx.actions.symlink(
+            output = out,
+            target_path = "{}/{}/{}".format(escape, wheel_site_pkgs, tl),
+        )
         declared.append(out)
 
     # .pth for anything NOT handled by the top-level symlinks:
@@ -354,21 +317,15 @@ def assemble_venv(
     #     get the `site.addsitedir(...)` treatment so wheel-internal .pth
     #     files (*-nspkg.pth, editable installs, etc.) run
     #
-    # For wheels that have a `_wheels/<i>/` alias, the addsitedir target
-    # goes through the alias (intra-venv, context-agnostic). For wheels
-    # without it, we keep the legacy runfiles-escape form.
+    # site-packages dirs use sys.prefix-relative `addsitedir` so the
+    # path stays correct under remote-execution sandbox layouts where
+    # the runfiles root isn't at a build-host-fixed location. Non
+    # site-packages imports (first-party py_library `imports`) get a
+    # plain escape-form path.
     def _format_imp(imp):
         if imp in fully_covered_site_pkgs:
             return None
         if imp.endswith("site-packages"):
-            alias_idx = wheel_alias_by_sp.get(imp)
-            if alias_idx != None:
-                return ("import os, sys, site; " +
-                        "site.addsitedir(os.path.normpath(os.path.join(" +
-                        "sys.prefix, \"_wheels\", \"{idx}\", \"lib\", \"{py_ver}\", \"site-packages\")))").format(
-                    idx = alias_idx,
-                    py_ver = wheel_py_ver,
-                )
             return ("import os, sys, site; " +
                     "site.addsitedir(os.path.normpath(os.path.join(" +
                     "sys.prefix, \"{venv_escape}\", \"{imp}\")))").format(
