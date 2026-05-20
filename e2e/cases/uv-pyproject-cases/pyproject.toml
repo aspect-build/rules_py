@@ -1,0 +1,21 @@
+# Umbrella project for the per-case regression tests under
+# //cases/uv-pyproject-cases/<name>/. Each pinned dep below is a
+# regression fixture; see the case's BUILD.bazel for what shape it
+# covers, what fails without the in-tree fix, and why the version
+# pin is load-bearing.
+[project]
+name = "uv_pyproject_cases"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    "build",
+    "setuptools",
+    "wheel",
+    "cdifflib==1.2.9",        # //cases/uv-pyproject-cases/cdifflib
+    "pyahocorasick==2.2.0",   # //cases/uv-pyproject-cases/pyahocorasick
+]
+
+[tool.uv]
+# Both packages publish wheels; force sdist so the pep517_whl build
+# path runs end-to-end.
+no-binary-package = ["cdifflib", "pyahocorasick"]
