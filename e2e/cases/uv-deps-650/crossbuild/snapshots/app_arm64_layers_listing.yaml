@@ -2169,7 +2169,7 @@ files:
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./cases/uv-deps-650/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./cases/uv-deps-650/crossbuild/
   - -rwxr-xr-x  0 0      0          66 Jan  1  2023 ./cases/uv-deps-650/crossbuild/__main__.py
-  - -rwxr-xr-x  0 0      0        1633 Jan  1  2023 ./cases/uv-deps-650/crossbuild/app_bin
+  - -rwxr-xr-x  0 0      0        1564 Jan  1  2023 ./cases/uv-deps-650/crossbuild/app_bin
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./cases/uv-deps-650/crossbuild/app_bin.runfiles/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./cases/uv-deps-650/crossbuild/app_bin.runfiles/_main/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./cases/uv-deps-650/crossbuild/app_bin.runfiles/_main/cases/
@@ -2190,7 +2190,7 @@ files:
   - -rwxr-xr-x  0 0      0         160 Jan  1  2023 ./cases/uv-deps-650/crossbuild/app_bin.runfiles/_main/cases/uv-deps-650/crossbuild/._app_bin.venv/pyvenv.cfg
   - -rwxr-xr-x  0 0      0          66 Jan  1  2023 ./cases/uv-deps-650/crossbuild/app_bin.runfiles/_main/cases/uv-deps-650/crossbuild/__main__.py
   - -rwxr-xr-x  0 0      0        1275 Jan  1  2023 ./cases/uv-deps-650/crossbuild/app_bin.runfiles/_main/cases/uv-deps-650/crossbuild/_app_bin.venv
-  - -rwxr-xr-x  0 0      0        1633 Jan  1  2023 ./cases/uv-deps-650/crossbuild/app_bin.runfiles/_main/cases/uv-deps-650/crossbuild/app_bin
+  - -rwxr-xr-x  0 0      0        1564 Jan  1  2023 ./cases/uv-deps-650/crossbuild/app_bin.runfiles/_main/cases/uv-deps-650/crossbuild/app_bin
   - -rwxr-xr-x  0 0      0 * Jan  1  2023 ./cases/uv-deps-650/crossbuild/app_bin.runfiles/_repo_mapping
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./cases/uv-deps-650/crossbuild/app_bin.runfiles/aspect_rules_py++uv+whl_install__crossbuild__psycopg2_binary__2_9_11/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./cases/uv-deps-650/crossbuild/app_bin.runfiles/aspect_rules_py++uv+whl_install__crossbuild__psycopg2_binary__2_9_11/install/

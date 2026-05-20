@@ -2622,7 +2622,7 @@ files:
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./cases/oci/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./cases/oci/py_image_layer/
   - -rwxr-xr-x  0 0      0         276 Jan  1  2023 ./cases/oci/py_image_layer/__main__.py
-  - -rwxr-xr-x  0 0      0        1624 Jan  1  2023 ./cases/oci/py_image_layer/my_app_bin
+  - -rwxr-xr-x  0 0      0        1555 Jan  1  2023 ./cases/oci/py_image_layer/my_app_bin
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./cases/oci/py_image_layer/my_app_bin.runfiles/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./cases/oci/py_image_layer/my_app_bin.runfiles/_main/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./cases/oci/py_image_layer/my_app_bin.runfiles/_main/cases/
@@ -2645,7 +2645,7 @@ files:
   - -rwxr-xr-x  0 0      0        1274 Jan  1  2023 ./cases/oci/py_image_layer/my_app_bin.runfiles/_main/cases/oci/py_image_layer/_my_app_bin.venv
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./cases/oci/py_image_layer/my_app_bin.runfiles/_main/cases/oci/py_image_layer/branding/
   - -rwxr-xr-x  0 0      0          42 Jan  1  2023 ./cases/oci/py_image_layer/my_app_bin.runfiles/_main/cases/oci/py_image_layer/branding/__init__.py
-  - -rwxr-xr-x  0 0      0        1624 Jan  1  2023 ./cases/oci/py_image_layer/my_app_bin.runfiles/_main/cases/oci/py_image_layer/my_app_bin
+  - -rwxr-xr-x  0 0      0        1555 Jan  1  2023 ./cases/oci/py_image_layer/my_app_bin.runfiles/_main/cases/oci/py_image_layer/my_app_bin
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./cases/oci/py_image_layer/my_app_bin.runfiles/_main/tools/
   - drwxr-xr-x  0 0      0           0 Jan  1  2023 ./cases/oci/py_image_layer/my_app_bin.runfiles/_main/tools/verify_venv/
   - -rwxr-xr-x  0 0      0        5759 Jan  1  2023 ./cases/oci/py_image_layer/my_app_bin.runfiles/_main/tools/verify_venv/verify_venv.py
