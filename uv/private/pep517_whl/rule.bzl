@@ -5,6 +5,7 @@ Uses `python -m build` (the pypa/build frontend) which delegates to whatever
 build backend the sdist declares in its `[build-system]` table.
 """
 
+load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 load("//py/private/toolchain:types.bzl", "NATIVE_BUILD_TOOLCHAIN", "PY_TOOLCHAIN")
 
 def _common_env(ctx):
@@ -31,7 +32,7 @@ def _collect_toolchain_inputs_and_vars(ctx):
     """Gather files + Make-variable substitutions from `ctx.attr.toolchains`.
 
     Each target passed via the rule's `toolchains = [...]` attribute is
-    inspected for three providers:
+    inspected for providers:
       - DefaultInfo            -> files + default_runfiles added to action inputs
       - ToolchainInfo.all_files -> added to action inputs
       - TemplateVariableInfo   -> variables collected for `$(VAR)` expansion in `env`
@@ -58,6 +59,40 @@ def _collect_toolchain_inputs_and_vars(ctx):
         if platform_common.TemplateVariableInfo in target:
             known_variables.update(target[platform_common.TemplateVariableInfo].variables)
     return extra_inputs, known_variables
+
+_BAZEL_CC_WRAPPER_BASENAMES = ["gcc", "g++", "clang", "clang++"]
+
+def _cc_toolchain_inputs_and_compiler(ctx):
+    """Return (depset of CcToolchainInfo files, compiler_file_path or None).
+
+    Uses find_cpp_toolchain so the lookup works for both direct cc_toolchain
+    targets and alias wrappers such as current_cc_toolchain, which Bazel 9 no
+    longer exposes CcToolchainInfo on directly through the alias target.
+    """
+    cc_toolchain = find_cpp_toolchain(ctx)
+    if not cc_toolchain or not hasattr(cc_toolchain, "all_files"):
+        return None, None
+    files = cc_toolchain.all_files
+    compiler_file = None
+    if hasattr(cc_toolchain, "compiler_executable"):
+        compiler_basename = cc_toolchain.compiler_executable.split("/")[-1]
+        for f in files.to_list():
+            if f.basename == compiler_basename:
+                compiler_file = f
+                break
+    if not compiler_file:
+        for f in files.to_list():
+            if f.basename in _BAZEL_CC_WRAPPER_BASENAMES:
+                compiler_file = f
+                break
+    if not compiler_file:
+        for f in files.to_list():
+            if (f.basename.startswith("clang-") or f.basename.startswith("gcc-") or
+                f.basename.startswith("g++-")):
+                compiler_file = f
+                break
+    compiler_path = compiler_file.path if compiler_file else None
+    return files, compiler_path
 
 def _pep517_whl(ctx):
     archive = ctx.file.src
@@ -94,8 +129,17 @@ def _pep517_native_whl(ctx):
 
     env = _common_env(ctx)
     extra_inputs, known_variables = _collect_toolchain_inputs_and_vars(ctx)
+
+    cc_files, cc_compiler = _cc_toolchain_inputs_and_compiler(ctx)
+    if cc_files:
+        extra_inputs.append(cc_files)
+
     for k, v in ctx.attr.env.items():
         env[k] = ctx.expand_make_variables("env", v, known_variables)
+
+    if cc_compiler:
+        env["CC"] = cc_compiler
+        env["CXX"] = cc_compiler
 
     ctx.actions.run(
         mnemonic = "PySdistNativeBuild",
@@ -183,6 +227,9 @@ constraints of the target platform.
                   "`TemplateVariableInfo`).",
         ),
     },
+    toolchains = [
+        "@bazel_tools//tools/cpp:toolchain_type",
+    ],
     exec_groups = {
         # Create an exec group which depends on a toolchain which can only be
         # resolved to exec_compatible_with constraints equal to the target. This
@@ -201,6 +248,7 @@ constraints of the target platform.
             toolchains = [
                 PY_TOOLCHAIN,
                 NATIVE_BUILD_TOOLCHAIN,
+                "@bazel_tools//tools/cpp:toolchain_type",
             ],
         ),
     },

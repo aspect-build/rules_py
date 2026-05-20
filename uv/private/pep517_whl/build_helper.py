@@ -8,11 +8,12 @@ Mostly exists to allow debugging.
 
 from argparse import ArgumentParser
 import os
+import platform as _platform
 import shlex
 import shutil
 import sys
 from os import chmod, defpath, listdir, makedirs, path, pathsep
-from subprocess import CalledProcessError, check_call, STDOUT, run
+from subprocess import CalledProcessError, check_call, check_output, STDOUT, run
 from tempfile import TemporaryFile
 
 try:
@@ -35,25 +36,54 @@ _SETUPTOOLS_BACKENDS = (
 # is absolute, so its path survives the cwd change) and point CC /
 # CXX / CPP / LDSHARED / LDCXXSHARED at the wrapper. The wrapper
 # strips `-fdebug-default-version=4` (older toolchains reject it)
-# and then `execvp`s the compiler by basename, picking up the
-# underlying binary via PATH — which we augment with the build
-# venv's bin dir so the venv's Python wrappers are visible too.
+# and then `execv`s the compiler at its resolved absolute path.
 _DEBUG_FLAG = "-fdebug-default-version=4"
 _COMPILER_WRAPPER = """#!/usr/bin/env python3
 import os
 import sys
 
 filtered_args = [arg for arg in sys.argv[1:] if arg != "{debug_flag}"]
-compiler = os.path.basename(sys.argv[0])
-os.execvp(compiler, [compiler] + filtered_args)
-""".format(debug_flag=_DEBUG_FLAG)
+sysroot = {sysroot!r}
+if sysroot and "-isysroot" not in filtered_args:
+    filtered_args = ["-isysroot", sysroot] + filtered_args
+os.execv("{compiler_path}", [os.path.basename("{compiler_path}")] + filtered_args)
+"""
 
 
-def _make_compiler_wrapper(tmpdir, name):
+def _darwin_sysroot():
+    """Return the macOS SDK path, or None if unavailable."""
+    if _platform.system() != "Darwin":
+        return None
+    try:
+        return check_output(["xcrun", "--show-sdk-path"], text=True).strip()
+    except Exception:
+        return None
+
+
+def _resolve_compiler_path(env, key, default):
+    """Extract the real compiler from the environment and resolve it to an absolute path."""
+    current = env.get(key)
+    if not current:
+        return default
+    parts = shlex.split(current)
+    if not parts:
+        return default
+    compiler = parts[0]
+    if os.path.isabs(compiler):
+        return compiler
+    return os.path.abspath(compiler)
+
+
+def _make_compiler_wrapper(tmpdir, name, compiler_path, sysroot=None):
     wrapper = path.join(tmpdir, ".aspect_rules_py_compilers", name)
     makedirs(path.dirname(wrapper), exist_ok=True)
     with open(wrapper, "w") as f:
-        f.write(_COMPILER_WRAPPER)
+        f.write(_COMPILER_WRAPPER.format(
+            debug_flag=_DEBUG_FLAG,
+            compiler_path=compiler_path,
+            name=name,
+            sysroot=sysroot,
+        ))
     chmod(wrapper, 0o755)
     return wrapper
 
@@ -78,12 +108,19 @@ def _compiler_env(tmpdir):
     env["TEMP"] = tmpdir
     env["TEMPDIR"] = tmpdir
 
-    cc = _make_compiler_wrapper(tmpdir, "cc")
-    cxx = _make_compiler_wrapper(tmpdir, "c++")
+    cc_path = _resolve_compiler_path(env, "CC", "cc")
+    cxx_path = _resolve_compiler_path(env, "CXX", "c++")
+
+    sysroot = _darwin_sysroot()
+
+    cc = _make_compiler_wrapper(tmpdir, "cc", cc_path, sysroot)
+    cxx = _make_compiler_wrapper(tmpdir, "c++", cxx_path, sysroot)
+
     env.setdefault("CC", cc)
     env.setdefault("CXX", cxx)
-    env.setdefault("MPICC", _make_compiler_wrapper(tmpdir, "mpicc"))
+    env.setdefault("MPICC", _make_compiler_wrapper(tmpdir, "mpicc", cc_path, sysroot))
     env.setdefault("AR", "ar")
+
     for key, wrapper in [
         ("CC", cc),
         ("CXX", cxx),
