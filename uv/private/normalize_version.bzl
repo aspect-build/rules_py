@@ -14,4 +14,10 @@ def normalize_version(version):
     Returns:
         a normalized version as a string.
     """
-    return version.replace(".", "_").replace("+", "_")
+    acc = []
+    for c in version.elems():
+        if c.isalnum() or c == "-" or c == "_":
+            acc.append(c)
+        else:
+            acc.append("_")
+    return "".join(acc)
