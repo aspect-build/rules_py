@@ -118,6 +118,11 @@ alias(
     actual = "{name}",
     visibility = ["//visibility:public"],
 )
+alias(
+    name = "pkg",
+    actual = "{name}",
+    visibility = ["//visibility:public"],
+)
 filegroup(
     name = "dist_info",
     srcs = [":{name}"],
@@ -203,7 +208,7 @@ load("@rules_python//python:pip.bzl", "pip_utils")
 # all_data_requirements = []
 
 def requirement(name):
-    return "@@{repo_name}//{{0}}:{{0}}".format(pip_utils.normalize_name(name))
+    return "@@{repo_name}//{{0}}:pkg".format(pip_utils.normalize_name(name))
 """.format(
         repo_name = repository_ctx.name,
     ))

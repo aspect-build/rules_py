@@ -9,6 +9,11 @@ alias(
     actual = "cowsay",
     visibility = ["//visibility:public"],
 )
+alias(
+    name = "pkg",
+    actual = "cowsay",
+    visibility = ["//visibility:public"],
+)
 filegroup(
     name = "dist_info",
     srcs = [":cowsay"],
