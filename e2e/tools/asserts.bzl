@@ -7,8 +7,15 @@ load("@bazel_lib//lib:write_source_files.bzl", "write_source_file")
 # caught) but redact the size column so a single snapshot works across
 # Bazel-version bumps.
 _VOLATILE_SIZE_PATHS = [
-    "/bazel_tools/tools/bash/runfiles/runfiles.bash",
     "/_repo_mapping",
+]
+
+# Paths to drop from the listing entirely. Bazel 8 ships runfiles.bash via
+# @bazel_tools, Bazel 9 routes it through @rules_shell at a different
+# runfiles path — neither this rule nor the user-facing image cares which,
+# so filter the row out so one snapshot works on both.
+_FILTERED_PATHS = [
+    "/bazel_tools/tools/bash/runfiles/runfiles.bash",
 ]
 
 # buildifier: disable=function-docstring
@@ -35,9 +42,16 @@ for f in $(SRCS); do
   # snapshot diffs are byte-exact, not visual, so alignment doesn't
   # matter.
   TZ="UTC" LC_ALL="en_US.UTF-8" $(BSDTAR_BIN) -tvf $$f \\
-    | awk -v volatile='{volatile}' '
-        BEGIN {{ n = split(volatile, paths, "|") }}
+    | awk -v volatile='{volatile}' -v filtered='{filtered}' '
+        BEGIN {{
+            n = split(volatile, paths, "|")
+            nf = split(filtered, fpaths, "|")
+        }}
         {{
+            # Drop rows for Bazel-version-sensitive paths entirely.
+            for (j = 1; j <= nf; j++) {{
+                if (fpaths[j] != "" && index($$0, fpaths[j])) next
+            }}
             for (i = 1; i <= n; i++) {{
                 if (paths[i] != "" && index($$0, paths[i]) && match($$0, /[ ]+[0-9]+ Jan/)) {{
                     # RLENGTH spans leading spaces + digits + " Jan".
@@ -53,6 +67,7 @@ for f in $(SRCS); do
 done > $@
 """.format(
             volatile = "|".join(_VOLATILE_SIZE_PATHS),
+            filtered = "|".join(_FILTERED_PATHS),
         ),
         toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
     )

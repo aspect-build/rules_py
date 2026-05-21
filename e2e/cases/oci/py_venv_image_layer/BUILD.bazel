@@ -89,7 +89,7 @@ oci_image(
     name = "image",
     # This is defined by an oci.pull() call in /MODULE.bazel
     base = "@ubuntu",
-    entrypoint = ["/{}/my_app_bin".format(package_name())],
+    entrypoint = ["/app"],
     tars = [":my_app_layers"],
 )
 
@@ -119,6 +119,7 @@ platform_transition_filegroup(
 
 container_structure_test(
     name = "py_amd64_image_content_test",
+    args = ["--verbosity=debug"],
     configs = ["py_amd64_image_content_test.yaml"],
     image = ":amd64_image",
     platform = "linux/amd64",
@@ -127,10 +128,20 @@ container_structure_test(
 
 container_structure_test(
     name = "py_amd64_image_command_test",
+    args = ["--verbosity=debug"],
     configs = ["py_image_command_test.yaml"],
     image = ":amd64_image",
     platform = "linux/amd64",
-    tags = ["requires-docker"],
+    # `skip-on-bazel9`: the launcher runs `sys.executable` resolution
+    # through the venv's bin/python3 symlink → real interpreter path,
+    # which embeds the canonical repo name. Bazel 8 uses `+` as the
+    # module-extension separator (`aspect_rules_py++python_interpreters+...`);
+    # Bazel 9 switched to `~` (`aspect_rules_py~python_interpreters~...`).
+    # The yaml's expectedOutput strings only match the bazel-8 form.
+    tags = [
+        "requires-docker",
+        "skip-on-bazel9",
+    ],
     target_compatible_with = [
         "@platforms//cpu:x86_64",
     ],
@@ -144,6 +155,7 @@ platform_transition_filegroup(
 
 container_structure_test(
     name = "py_arm64_image_content_test",
+    args = ["--verbosity=debug"],
     configs = ["py_arm64_image_content_test.yaml"],
     image = ":arm64_image",
     platform = "linux/aarch64",
@@ -152,6 +164,7 @@ container_structure_test(
 
 container_structure_test(
     name = "py_arm64_image_command_test",
+    args = ["--verbosity=debug"],
     configs = ["py_image_command_test.yaml"],
     image = ":arm64_image",
     platform = "linux/aarch64",
