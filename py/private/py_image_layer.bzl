@@ -19,8 +19,8 @@ Two rule-propagated aspects wire onto `py_image_layer.binary`:
 
 Layer tier (groups + compression) is carried by the `py_layer_tier` rule which produces
 `PyLayerTierInfo`. Aspects read it via a private `_layer_tier` attr whose default is
-`//py:py_layer_tier` (a label_flag). Users switch tiers globally via
-`--//py:py_layer_tier=//path:custom_tier`.
+`//py:layer_tier` (a label_flag). Users switch tiers globally via
+`--//py:layer_tier=//path:custom_tier`.
 
 Sharing model:
   - Solo whole-group + subpath-split pip tars: action-shared across every rule using
@@ -483,7 +483,7 @@ _layer_aspect = aspect(
     attr_aspects = ["deps", "data", "actual", "venv"],
     attrs = {
         "_layer_tier": attr.label(
-            default = "//py:py_layer_tier",
+            default = "//py:layer_tier",
             providers = [PyLayerTierInfo],
         ),
         "_awk_script": attr.label(
@@ -548,7 +548,7 @@ _merge_aspect = aspect(
     attr_aspects = [],
     attrs = {
         "_layer_tier": attr.label(
-            default = "//py:py_layer_tier",
+            default = "//py:layer_tier",
             providers = [PyLayerTierInfo],
         ),
         "_awk_script": attr.label(
@@ -691,14 +691,14 @@ def _parse_exec_requirements(entries):
 def _platform_cfg_impl(settings, attr):
     result = {
         "//command_line_option:platforms": [attr.platform] if attr.platform else settings["//command_line_option:platforms"],
-        "@aspect_rules_py//py:py_layer_tier": str(attr.py_layer_tier) if attr.py_layer_tier else settings["@aspect_rules_py//py:py_layer_tier"],
+        "@aspect_rules_py//py:layer_tier": str(attr.layer_tier) if attr.layer_tier else settings["@aspect_rules_py//py:layer_tier"],
     }
     return result
 
 _platform_cfg = transition(
     implementation = _platform_cfg_impl,
-    inputs = ["//command_line_option:platforms", "@aspect_rules_py//py:py_layer_tier"],
-    outputs = ["//command_line_option:platforms", "@aspect_rules_py//py:py_layer_tier"],
+    inputs = ["//command_line_option:platforms", "@aspect_rules_py//py:layer_tier"],
+    outputs = ["//command_line_option:platforms", "@aspect_rules_py//py:layer_tier"],
 )
 
 def _run_tar_action(ctx, bsdtar, bsdtar_files, tar_out, files_depset, map_each, compress, level, reqs, mnemonic, progress_msg):
@@ -914,9 +914,9 @@ _py_image_layer = rule(
         "warn_remote_cache_threshold_mb": attr.int(default = 200),
         "warn_layer_count": attr.int(default = 90),
         "platform": attr.string(default = ""),
-        "py_layer_tier": attr.label(default = None),
+        "layer_tier": attr.label(default = None),
         "_layer_tier": attr.label(
-            default = "//py:py_layer_tier",
+            default = "//py:layer_tier",
             providers = [PyLayerTierInfo],
         ),
         "_validator": attr.label(
@@ -943,12 +943,12 @@ def py_image_layer(
         warn_remote_cache_threshold_mb = 200,
         warn_layer_count = 90,
         platform = None,
-        py_layer_tier = None,
+        layer_tier = None,
         **kwargs):
     """Create OCI-compatible tars from a py_binary or py_venv target.
 
-    Pip-package grouping + compression is resolved from the `//py:py_layer_tier`
-    label_flag. Override globally with `--//py:py_layer_tier=//path:custom_tier`,
+    Pip-package grouping + compression is resolved from the `//py:layer_tier`
+    label_flag. Override globally with `--//py:layer_tier=//path:custom_tier`,
     or pin a tier to a specific rule via the `py_layer_tier` attr below.
 
     ## Output layers
@@ -978,8 +978,8 @@ def py_image_layer(
         warn_remote_cache_threshold_mb: Threshold for large package warnings.
         warn_layer_count: Warn when total layers exceed this. Default: 90.
         platform: Platform transition target.
-        py_layer_tier: Optional py_layer_tier target pinned for this rule. Sets the
-            `@aspect_rules_py//py:py_layer_tier` label_flag via the rule transition,
+        layer_tier: Optional py_layer_tier target pinned for this rule. Sets the
+            `@aspect_rules_py//py:layer_tier` label_flag via the rule transition,
             overriding any command-line value for this rule's subgraph.
         **kwargs: Forwarded to inner rule.
     """
@@ -1001,7 +1001,7 @@ def py_image_layer(
         warn_remote_cache_threshold_mb = warn_remote_cache_threshold_mb,
         warn_layer_count = warn_layer_count,
         platform = platform or "",
-        py_layer_tier = py_layer_tier,
+        layer_tier = layer_tier,
         tags = tags,
         **kwargs
     )

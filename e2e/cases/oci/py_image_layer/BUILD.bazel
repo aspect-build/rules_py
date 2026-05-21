@@ -80,7 +80,7 @@ py_layer_tier(
 py_image_layer(
     name = "my_app_layers_fp",
     binary = ":my_app_bin",
-    py_layer_tier = ":my_app_tier",
+    layer_tier = ":my_app_tier",
 )
 
 # Multi-member group coverage: two pip packages mapped to the same group name
@@ -114,7 +114,7 @@ py_layer_tier(
 py_image_layer(
     name = "my_app_multi_layers",
     binary = ":my_app_multi_bin",
-    py_layer_tier = ":my_app_multi_tier",
+    layer_tier = ":my_app_multi_tier",
 )
 
 platform_transition_filegroup(
