@@ -14,4 +14,4 @@ load("@rules_python//python:pip.bzl", "pip_utils")
 # all_data_requirements = []
 
 def requirement(name):
-    return "@@aspect_rules_py++uv+pypi_single//{0}:{0}".format(pip_utils.normalize_name(name))
+    return "@@aspect_rules_py++uv+pypi_single//{0}:pkg".format(pip_utils.normalize_name(name))

@@ -47,6 +47,7 @@ dependencies = [
     { name = "ftfy" },
     { name = "maturin" },
     { name = "neptune" },
+    { name = "pkg" },
     { name = "pytest" },
     { name = "setuptools" },
     { name = "six" },
@@ -65,6 +66,7 @@ requires-dist = [
     { name = "ftfy", specifier = "==6.2.0" },
     { name = "maturin" },
     { name = "neptune", specifier = "==1.10.2" },
+    { name = "pkg" },
     { name = "pytest" },
     { name = "setuptools" },
     { name = "six" },
@@ -733,6 +735,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/35/32/186ec6365fca279e4d70e9fb43f5adea013ec2f020ca03ec2966648573f9/pillow-10.3.0-pp39-pypy39_pp73-manylinux_2_28_aarch64.whl", hash = "sha256:c83341b89884e2b2e55886e8fbbf37c3fa5efd6c8907124aeb72f285ae5696e5", size = 3455842, upload-time = "2024-04-01T12:19:32.412Z" },
     { url = "https://files.pythonhosted.org/packages/36/8d/e312d570c7775576c65c5fc30ca22e2de348e7d7f00566b1087bd4947aef/pillow-10.3.0-pp39-pypy39_pp73-manylinux_2_28_x86_64.whl", hash = "sha256:1a1d1915db1a4fdb2754b9de292642a39a7fb28f1736699527bb649484fb966a", size = 3557549, upload-time = "2024-04-01T12:19:34.444Z" },
     { url = "https://files.pythonhosted.org/packages/a0/bf/8fd4df00e8c33510e24588a807fdad26f8da36e557516a2a1563cd44c101/pillow-10.3.0-pp39-pypy39_pp73-win_amd64.whl", hash = "sha256:a0eaa93d054751ee9964afa21c06247779b90440ca41d184aeb5d410f20ff591", size = 2531815, upload-time = "2024-04-01T12:19:36.473Z" },
+]
+
+[[package]]
+name = "pkg"
+version = "0.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/36/ac/c3fab959d62ed830a807c750596fa07932e6d2bd12b2c2743ae290bd9366/pkg-0.2.tar.gz", hash = "sha256:809e0221e41be4619ae412f56826e5a87c616abf9168838b170ead5db4a4118e", size = 10792, upload-time = "2020-04-06T18:49:49.124Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/41/86/2908a6096a80c519f1ecb7793344a53e127be4ad601864097f72a317f7cf/pkg-0.2-py3-none-any.whl", hash = "sha256:88849f47c7c4f5242f7190da896133613229ff17198c84d463b0ad8d458363f0", size = 15447, upload-time = "2020-04-06T18:49:46.665Z" },
 ]
 
 [[package]]

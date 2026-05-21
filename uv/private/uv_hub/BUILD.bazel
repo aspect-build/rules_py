@@ -40,6 +40,10 @@ write_source_files(
         # `lib`/`dist_info`/select-with-no_match_error layout used by every
         # package alias in the hub.
         "snapshots/pypi.cowsay.BUILD.bazel": "@pypi//cowsay:BUILD.bazel",
+        # uv_hub: regression — a real PyPI distribution literally named "pkg"
+        # collides with the always-emitted `:pkg` alias. Pins that the alias
+        # is suppressed in that case so the BUILD has no duplicate targets.
+        "snapshots/pypi.pkg.BUILD.bazel": "@pypi//pkg:BUILD.bazel",
         # uv_hub: dep_group config_settings. Pins the shape of the public
         # dep_group surface (the `dep_group` alias plus one config_setting
         # per uv.project() call).

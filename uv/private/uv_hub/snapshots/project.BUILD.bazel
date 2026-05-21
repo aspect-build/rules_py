@@ -61,7 +61,7 @@ alias(
 # aspect_rules_py
 # {
 #     "aspect_rules_py": {
-#         "eea4088953a3b997": {
+#         "3bf90d5a8d65a96f": {
 #             "": 1,
 #         },
 #     },
@@ -71,7 +71,7 @@ alias(
 alias(
     name = "_package_aspect_rules_py_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:eea4088953a3b997",
+        "//conditions:default": "//private/sccs:3bf90d5a8d65a96f",
     }),
     visibility = ["//visibility:private"],
 )
@@ -1152,6 +1152,34 @@ alias(
 )
 
 
+# pkg
+# {
+#     "aspect_rules_py": {
+#         "b441bfc3c3fbed87": {
+#             "": 1,
+#         },
+#     },
+# }
+
+
+alias(
+    name = "_package_pkg_aspect_rules_py",
+    actual = select({
+        "//conditions:default": "//private/sccs:b441bfc3c3fbed87",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
+    name = "pkg",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_pkg_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
 # pluggy
 # {
 #     "aspect_rules_py": {
@@ -2095,6 +2123,7 @@ filegroup(
             "//:packaging",
             "//:pandas",
             "//:pillow",
+            "//:pkg",
             "//:pluggy",
             "//:psutil",
             "//:pyjwt",
@@ -2180,6 +2209,7 @@ filegroup(
         "@whl_install__aspect_rules_py__requests_oauthlib__2_0_0//:gazelle_index_whl",
         "@whl_install__aspect_rules_py__s3transfer__0_10_1//:gazelle_index_whl",
         "@whl_install__aspect_rules_py__webcolors__1_13//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__pkg__0_2//:gazelle_index_whl",
         "@whl_install__aspect_rules_py__isoduration__20_11_0//:gazelle_index_whl",
         "@whl_install__aspect_rules_py__bravado_core__6_1_1//:gazelle_index_whl",
         "@whl_install__aspect_rules_py__exceptiongroup__1_3_1//:gazelle_index_whl",
