@@ -68,8 +68,21 @@ function make_relative_link(path1, path2, i, common, target, relative_path, back
 {
     symlink = ""
     symlink_content = ""
-    if ($0 ~ /type=file/ && $0 ~ /content=/) {
-        match($0, /content=[^ ]+/)
+    # Two markers Starlark emits for paths that could be symlinks:
+    #   - `type=link link=<exec_path>` — hot path. `f.is_symlink` was set, so
+    #     `readlink` always returns a target; we just resolve and rewrite.
+    #   - `type=file content=<exec_path>` — slow fallback. Catches files that
+    #     might be symlinks Bazel didn't flag (repo-rule-staged ones like
+    #     rules_python's `bin/python -> python3.11`). Empty `readlink` means
+    #     it's a regular file and the row passes through unchanged.
+    is_hot_path = ($0 ~ /type=link/) && ($0 ~ /link=/)
+    is_slow_path = ($0 ~ /type=file/) && ($0 ~ /content=/)
+    if (is_hot_path || is_slow_path) {
+        if (is_hot_path) {
+            match($0, /link=[^ ]+/)
+        } else {
+            match($0, /content=[^ ]+/)
+        }
         content_field = substr($0, RSTART, RLENGTH)
         split(content_field, parts, "=")
         path = parts[2]
@@ -164,18 +177,25 @@ END {
                 linked_to = make_relative_link(mapped_link, field0)
             } else if (resolved_path ~ /^bazel-out\// || resolved_path ~ /^external\//) {
                 # Classified to a Bazel-tree path but the target row
-                # isn't in this layer's mtree — emitting
-                # `link=external/<repo>/...` would dangle. Keep the
-                # original `type=file content=...` so bsdtar inlines
-                # the target bytes instead.
-                print original_line
-                continue
+                # isn't in this layer's mtree. Slow path falls back to
+                # `type=file content=...` so bsdtar inlines the target
+                # bytes; the hot path has no equivalent (declared
+                # symlinks whose targets aren't in the layer are a
+                # config bug) so we emit a dangling `type=link link=...`
+                # to surface the issue visibly.
+                if (original_line ~ /type=file/) {
+                    print original_line
+                    continue
+                }
+                linked_to = resolved_path
             } else {
                 # Already a relative path
                 linked_to = resolved_path
             }
             sub(/type=[^ ]+/, "type=link", original_line)
-            sub(/content=[^ ]+/, "link=" linked_to, original_line)
+            if (!sub(/content=[^ ]+/, "link=" linked_to, original_line)) {
+                sub(/link=[^ ]+/, "link=" linked_to, original_line)
+            }
             print original_line
         } else {
             print line
