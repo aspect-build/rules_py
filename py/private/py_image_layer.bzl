@@ -96,6 +96,8 @@ PyLayerTierInfo = provider(
         "compression": "dict[str, list[str]] — group name → [algorithm, level].",
         "multi_member_groups": "dict[str, True] — group names with 2+ members in whole_groups.",
         "interpreter_group": "str — group name for the Python interpreter layer; '' disables.",
+        "root": "str — root path in the image (e.g. '/app').",
+        "strip_prefix": "str — prefix stripped from source file paths; empty means use binary short_path.",
     },
 )
 
@@ -130,6 +132,8 @@ def _py_layer_tier_impl(ctx):
         compression = dict(ctx.attr.compression),
         multi_member_groups = multi_member_groups,
         interpreter_group = ctx.attr.interpreter_group,
+        root = ctx.attr.root,
+        strip_prefix = ctx.attr.strip_prefix,
     )]
 
 py_layer_tier = rule(
@@ -162,6 +166,14 @@ py_layer_tier = rule(
             doc = ("When non-empty, the Python interpreter runfiles resolved from the " +
                    "binary's py toolchain are emitted as their own layer under this name " +
                    "instead of being bundled into the default source layer."),
+        ),
+        "root": attr.string(
+            default = "/app",
+            doc = "Root path in the image. Default: '/app'.",
+        ),
+        "strip_prefix": attr.string(
+            default = "",
+            doc = "Prefix stripped from source file paths. Empty means use the binary's short_path.",
         ),
     },
     provides = [PyLayerTierInfo],
@@ -751,20 +763,19 @@ def _py_image_layer_impl(ctx):
             pkg_by_label[pkg.label] = pkg
     all_pkgs = pkg_by_label.values()
 
-    strip_prefix = ctx.attr.strip_prefix
-    root = ctx.attr.root
+    plan = ctx.attr._layer_tier[PyLayerTierInfo]
+    root = plan.root
+    strip_prefix = plan.strip_prefix
 
     # 3p pip layers are action-shared across the graph and hard-code their
     # destination under `./app.runfiles/<repo>/...`, so the consumer's source
     # layer has to land under the same `/app.runfiles/` tree for the launcher
-    # to find them. Default the launcher to `/app` and the binary's
-    # `short_path` to `strip_prefix` so the natural runfile layout maps onto
-    # `./app.runfiles/_main/...` without each caller wiring it up.
+    # to find them. Default the binary's `short_path` to `strip_prefix` so the
+    # natural runfile layout maps onto `./app.runfiles/_main/...` without each
+    # caller wiring it up.
     binary_short_path = ctx.attr.binary[DefaultInfo].files_to_run.executable.short_path
     if not strip_prefix:
         strip_prefix = binary_short_path
-    if root == "/":
-        root = "/app"
 
     all_tars = []
 
@@ -902,10 +913,12 @@ _py_image_layer = rule(
         "group_compress_levels": attr.string_dict(default = {}),
         "warn_remote_cache_threshold_mb": attr.int(default = 200),
         "warn_layer_count": attr.int(default = 90),
-        "root": attr.string(default = "/"),
-        "strip_prefix": attr.string(default = ""),
         "platform": attr.string(default = ""),
         "py_layer_tier": attr.label(default = None),
+        "_layer_tier": attr.label(
+            default = "//py:py_layer_tier",
+            providers = [PyLayerTierInfo],
+        ),
         "_validator": attr.label(
             default = "//py/private:py_image_layer_validator",
             executable = True,
@@ -929,8 +942,6 @@ def py_image_layer(
         group_compress_levels = {},
         warn_remote_cache_threshold_mb = 200,
         warn_layer_count = 90,
-        root = "/",
-        strip_prefix = "",
         platform = None,
         py_layer_tier = None,
         **kwargs):
@@ -966,8 +977,6 @@ def py_image_layer(
             Does NOT apply to aspect-created pip tars (configure via the py_layer_tier target).
         warn_remote_cache_threshold_mb: Threshold for large package warnings.
         warn_layer_count: Warn when total layers exceed this. Default: 90.
-        root: Root path in image. Default: "/".
-        strip_prefix: Prefix stripped from source file paths.
         platform: Platform transition target.
         py_layer_tier: Optional py_layer_tier target pinned for this rule. Sets the
             `@aspect_rules_py//py:py_layer_tier` label_flag via the rule transition,
@@ -991,8 +1000,6 @@ def py_image_layer(
         group_compress_levels = group_compress_levels,
         warn_remote_cache_threshold_mb = warn_remote_cache_threshold_mb,
         warn_layer_count = warn_layer_count,
-        root = root,
-        strip_prefix = strip_prefix,
         platform = platform or "",
         py_layer_tier = py_layer_tier,
         tags = tags,

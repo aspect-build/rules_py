@@ -33,10 +33,6 @@ py_binary(
 py_image_layer(
     name = "layers",
     binary = ":check_no_turtle",
-    # Remap the binary to /app so the launcher can find its venv at
-    # /app.runfiles/_main/cases/interpreter-features-836/._check_no_turtle.venv/.
-    root = "/app",
-    strip_prefix = "cases/interpreter-features-836/check_no_turtle",
 )
 
 platform_transition_filegroup(
