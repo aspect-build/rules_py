@@ -133,7 +133,16 @@ container_structure_test(
     configs = ["py_image_command_test.yaml"],
     image = ":amd64_image",
     platform = "linux/amd64",
-    tags = ["requires-docker"],
+    # `skip-on-bazel9`: the launcher runs `sys.executable` resolution
+    # through the venv's bin/python3 symlink → real interpreter path,
+    # which embeds the canonical repo name. Bazel 8 uses `+` as the
+    # module-extension separator (`aspect_rules_py++python_interpreters+...`);
+    # Bazel 9 switched to `~` (`aspect_rules_py~python_interpreters~...`).
+    # The yaml's expectedOutput strings only match the bazel-8 form.
+    tags = [
+        "requires-docker",
+        "skip-on-bazel9",
+    ],
     target_compatible_with = [
         "@platforms//cpu:x86_64",
     ],

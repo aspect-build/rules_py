@@ -49,6 +49,11 @@ py_binary(
 py_image_layer(
     name = "my_app_layers",
     binary = ":my_app_bin",
+    # Remap the launcher to /app so the container_structure_test can exec
+    # `/app` directly and find its runfiles under /app.runfiles/. Matches
+    # the py_venv_image_layer sibling case.
+    root = "/app",
+    strip_prefix = "cases/oci/py_image_layer/my_app_bin",
 )
 
 # Tier wired into :my_app_layers_fp that exercises every grouping path:
