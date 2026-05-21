@@ -1,11 +1,11 @@
 ../../../../../../..
 ../../../../../../../_main
 ../../../../../../../aspect_rules_py++uv+project__firebase_admin_import
-import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "_wheels", "8", "lib", "python3.11", "site-packages")))
-import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "_wheels", "9", "lib", "python3.11", "site-packages")))
-import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "_wheels", "15", "lib", "python3.11", "site-packages")))
-import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "_wheels", "16", "lib", "python3.11", "site-packages")))
-import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "_wheels", "26", "lib", "python3.11", "site-packages")))
-import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "_wheels", "27", "lib", "python3.11", "site-packages")))
-import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "_wheels", "28", "lib", "python3.11", "site-packages")))
-import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "_wheels", "30", "lib", "python3.11", "site-packages")))
+import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "_wheels", "9d59437d", "lib", "python3.11", "site-packages")))
+import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "_wheels", "7f3e1928", "lib", "python3.11", "site-packages")))
+import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "_wheels", "6a0cbaf1", "lib", "python3.11", "site-packages")))
+import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "_wheels", "656bae2e", "lib", "python3.11", "site-packages")))
+import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "_wheels", "0ad20c61", "lib", "python3.11", "site-packages")))
+import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "_wheels", "5048576e", "lib", "python3.11", "site-packages")))
+import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "_wheels", "40a5b82b", "lib", "python3.11", "site-packages")))
+import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "_wheels", "e371a4a2", "lib", "python3.11", "site-packages")))
