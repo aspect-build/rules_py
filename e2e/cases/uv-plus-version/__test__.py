@@ -1,8 +1,15 @@
 from importlib.metadata import version
 
-# Verify the package is installed in the venv - regression test for versions containing '+'
-# Previously, a version like "0.4.25+cuda11.cudnn86" would produce an invalid Bazel repo
-# name because '+' is not allowed in repo names.
+# Regression test for PEP 440 versions with characters invalid in Bazel repo
+# names. normalize_version must sanitize any character outside [A-Za-z0-9_-]
+# to '_', otherwise the generated repo name is malformed and the build fails.
+#
+#   jaxlib "0.4.25+cuda11.cudnn86" exercises '+' (local-version segment).
+#   metomi-isodatetime "1!3.1.0"   exercises '!' (PEP 440 epoch).
 jaxlib_version = version("jaxlib")
 assert jaxlib_version == "0.4.25+cuda11.cudnn86", "version is " + jaxlib_version
-print("jaxlib (version 0.4.25+cuda11.cudnn86) found - regression test passed!")
+
+isodatetime_version = version("metomi-isodatetime")
+assert isodatetime_version == "1!3.1.0", "version is " + isodatetime_version
+
+print("odd-version regression test passed!")

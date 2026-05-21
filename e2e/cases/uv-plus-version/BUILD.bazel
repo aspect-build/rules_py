@@ -8,6 +8,7 @@ py_test(
     python_version = "3.12",
     deps = [
         "@pypi_uv_plus_version//jaxlib",
+        "@pypi_uv_plus_version//metomi_isodatetime",
     ],
 )
 
@@ -21,5 +22,6 @@ py_test(
     python_version = "3.12",
     deps = [
         "@pypi_uv_plus_version//jaxlib",
+        "@pypi_uv_plus_version//metomi_isodatetime",
     ],
 )

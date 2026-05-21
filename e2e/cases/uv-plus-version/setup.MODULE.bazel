@@ -1,4 +1,4 @@
-"""Versions containing '+' must not produce invalid Bazel repo names."""
+"""PEP 440 versions with chars invalid in Bazel repo names (e.g. '+', '!') must be normalized."""
 
 uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_uv_plus_version")
