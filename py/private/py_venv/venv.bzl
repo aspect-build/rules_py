@@ -174,6 +174,14 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
 
     return top_level_to_site_pkgs, fully_covered, console_scripts_map
 
+def _wheel_key(wheel):
+    """8-hex key derived from the wheel's install_tree.short_path (globally
+    unique among File objects). Same wheel → same key on every build, and
+    adding/removing one wheel doesn't shift the keys of others.
+    """
+    h = "%x" % (hash(wheel.install_tree.short_path) & 0xFFFFFFFF)
+    return "0" * (8 - len(h)) + h
+
 def assemble_venv(
         ctx,
         *,
@@ -279,62 +287,83 @@ def assemble_venv(
         venv_name = ".{}.venv".format(safe_name)
     site_packages_rel = "{}/lib/{}/site-packages".format(venv_name, venv_py_ver)
 
-    # Two-hop alias for each wheel that carries its install_tree File:
+    # Two-hop indirection for each wheel that carries its install_tree File:
     #
-    #   Hop 1: <venv>/_wheels/<alias>/  →  <install_tree>   (resolved)
+    #   Hop 1: <venv>/_wheels/<key>/  →  <install_tree>   (resolved)
     #   Hop 2: <venv>/lib/<py>/site-packages/<tl>
-    #            →  ../../../_wheels/<alias>/lib/<py>/site-packages/<tl>
+    #            →  ../../../_wheels/<key>/lib/<py>/site-packages/<tl>
     #          (intra-venv relative, declare_symlink)
     #
     # Hop 1 is a `ctx.actions.symlink(output=declare_directory, target_file=<tree>)`.
     # In bazel-bin it's a single absolute symlink to the wheel's tree
     # artifact; in runfiles Bazel materialises it as a real directory with
-    # per-file absolute symlinks inside — same shape the aliased tree
-    # artifact already has in runfiles, so no new materialisation cost.
+    # per-file absolute symlinks inside — same shape the tree artifact
+    # already has in runfiles, so no new materialisation cost.
     #
     # Hop 2 is a `declare_symlink` with a relative `target_path`. Relative
     # depth is identical in bazel-bin and runfiles because the target
     # stays entirely within the venv's own output tree. This is what
     # unblocks `py_image_layer` (which walks bazel-bin) and any other
     # bazel-bin-walking tool.
-    site_packages_to_wheels_alias = "/".join([".."] * 3) + "/_wheels"
+    site_packages_to_wheels_root = "/".join([".."] * 3) + "/_wheels"
 
-    # Map from site_packages_rfpath → alias index (and alias-dir File)
-    # for wheels that carry install_tree. Indexing by rfpath (instead of
-    # label) keeps the mapping deterministic across builds.
+    # Map from site_packages_rfpath → wheel key for wheels that carry
+    # install_tree. The key is an 8-hex hash of the wheel's
+    # `install_tree.short_path` (globally unique among File objects), so:
+    #
+    #   * adding/removing a wheel doesn't shift the keys of other wheels
+    #     → unaffected Hop 1 actions and .pth lines stay byte-identical
+    #     → better remote-cache reuse for downstream consumers
+    #     (py_image_layer, py_venv_exec) that take the venv as input;
+    #   * paths are stable across builds for the same wheel, which makes
+    #     debugging (and key-aware tooling) deterministic.
+    #
+    # We fail loudly on the rare 32-bit hash collision; the caller can
+    # widen the key or rename a wheel rule.
     wheels_with_trees = [w for w in wheels if getattr(w, "install_tree", None) != None]
-    wheel_alias_by_sp = {}
-    for i, w in enumerate(wheels_with_trees):
-        wheel_alias_by_sp[w.site_packages_rfpath] = i
+    wheel_key_by_sp = {}
+    wheel_by_key = {}
+    for w in wheels_with_trees:
+        key = _wheel_key(w)
+        prior = wheel_by_key.get(key)
+        if prior != None and prior.install_tree.short_path != w.install_tree.short_path:
+            fail("venv wheel key collision on '{}': {} vs {}".format(
+                key,
+                prior.install_tree.short_path,
+                w.install_tree.short_path,
+            ))
+        wheel_by_key[key] = w
+        wheel_key_by_sp[w.site_packages_rfpath] = key
 
     declared = []  # accumulator for all outputs
 
-    # Hop 1: per-wheel directory aliases. Bazel picks an absolute path
-    # under bazel-bin; the output is a tree artifact whose contents
-    # dereference the install_tree.
-    for i, w in enumerate(wheels_with_trees):
-        alias_dir = ctx.actions.declare_directory(
-            "{}/_wheels/{}".format(venv_name, i),
+    # Hop 1: per-wheel directory under _wheels/<key>/. Bazel picks an
+    # absolute path under bazel-bin; the output is a tree artifact whose
+    # contents dereference the install_tree.
+    for w in wheels_with_trees:
+        key = wheel_key_by_sp[w.site_packages_rfpath]
+        wheel_dir = ctx.actions.declare_directory(
+            "{}/_wheels/{}".format(venv_name, key),
         )
         ctx.actions.symlink(
-            output = alias_dir,
+            output = wheel_dir,
             target_file = w.install_tree,
         )
-        declared.append(alias_dir)
+        declared.append(wheel_dir)
 
     # Hop 2 (+ legacy one-hop fallback): per-top-level site-packages
-    # symlinks. If the owning wheel has a `_wheels/<i>/` alias, we route
-    # through it with an intra-venv relative path; otherwise fall back
-    # to the historical runfiles-root-escape unresolved symlink.
+    # symlinks. If the owning wheel has a `_wheels/<key>/` entry, we
+    # route through it with an intra-venv relative path; otherwise fall
+    # back to the historical runfiles-root-escape unresolved symlink.
     for tl, wheel_site_pkgs in top_level_to_site_pkgs.items():
         out = ctx.actions.declare_symlink("{}/{}".format(site_packages_rel, tl))
-        alias_idx = wheel_alias_by_sp.get(wheel_site_pkgs)
-        if alias_idx != None:
+        key = wheel_key_by_sp.get(wheel_site_pkgs)
+        if key != None:
             ctx.actions.symlink(
                 output = out,
                 target_path = "{}/{}/lib/{}/site-packages/{}".format(
-                    site_packages_to_wheels_alias,
-                    alias_idx,
+                    site_packages_to_wheels_root,
+                    key,
                     wheel_py_ver,
                     tl,
                 ),
@@ -354,19 +383,19 @@ def assemble_venv(
     #     get the `site.addsitedir(...)` treatment so wheel-internal .pth
     #     files (*-nspkg.pth, editable installs, etc.) run
     #
-    # For wheels that have a `_wheels/<i>/` alias, the addsitedir target
-    # goes through the alias (intra-venv, context-agnostic). For wheels
-    # without it, we keep the legacy runfiles-escape form.
+    # For wheels that have a `_wheels/<key>/` entry, the addsitedir
+    # target goes through the key path (intra-venv, context-agnostic).
+    # For wheels without it, we keep the legacy runfiles-escape form.
     def _format_imp(imp):
         if imp in fully_covered_site_pkgs:
             return None
         if imp.endswith("site-packages"):
-            alias_idx = wheel_alias_by_sp.get(imp)
-            if alias_idx != None:
+            key = wheel_key_by_sp.get(imp)
+            if key != None:
                 return ("import os, sys, site; " +
                         "site.addsitedir(os.path.normpath(os.path.join(" +
-                        "sys.prefix, \"_wheels\", \"{idx}\", \"lib\", \"{py_ver}\", \"site-packages\")))").format(
-                    idx = alias_idx,
+                        "sys.prefix, \"_wheels\", \"{key}\", \"lib\", \"{py_ver}\", \"site-packages\")))").format(
+                    key = key,
                     py_ver = wheel_py_ver,
                 )
             return ("import os, sys, site; " +
@@ -382,7 +411,7 @@ def assemble_venv(
     pth_lines.set_param_file_format("multiline")
     pth_lines.add(escape)
 
-    # allow_closure lets _format_imp capture fully_covered_site_pkgs / wheel_alias_by_sp
+    # allow_closure lets _format_imp capture fully_covered_site_pkgs / wheel_key_by_sp
     # so we don't have to materialise imports_depset via .to_list().
     pth_lines.add_all(imports_depset, map_each = _format_imp, allow_closure = True)
 

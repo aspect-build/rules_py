@@ -5,7 +5,7 @@ fileExistenceTests:
     path: /cases/oci/py_venv_image_layer/my_app_bin.runfiles/_main/cases/oci/py_venv_image_layer/__main__.py
 
   - name: runfiles dependencies are present
-    path: /cases/oci/py_venv_image_layer/my_app_bin.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/_wheels/0/lib/python3.11/site-packages/colorama/__init__.py
+    path: /cases/oci/py_venv_image_layer/my_app_bin.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/_wheels/7d3c346c/lib/python3.11/site-packages/colorama/__init__.py
 
   - name: Interpreter executable is present
     path: /cases/oci/py_venv_image_layer/my_app_bin.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/bin/python3
