@@ -194,6 +194,7 @@ platform_transition_filegroup(
 
 container_structure_test(
     name = "py_image_content_test",
+    args = ["--verbosity=debug"],
     configs = ["py_image_content_test.yaml"],
     image = ":amd64_image",
     platform = "linux/amd64",
@@ -202,6 +203,7 @@ container_structure_test(
 
 container_structure_test(
     name = "py_image_command_test",
+    args = ["--verbosity=debug"],
     configs = ["py_image_command_test.yaml"],
     image = ":amd64_image",
     platform = "linux/amd64",

@@ -60,6 +60,7 @@ platform_transition_filegroup(
 
 container_structure_test(
     name = "test",
+    args = ["--verbosity=debug"],
     configs = ["test.yaml"],
     image = ":amd64_image",
     platform = "linux/amd64",
