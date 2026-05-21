@@ -11,8 +11,6 @@ runfiles_export_envvars
 set -o errexit -o nounset -o pipefail
 
 VENV_PYTHON="$(rlocation {{ARG_VENV_PYTHON}})"
-VENV_BIN="$(dirname "${VENV_PYTHON}")"
-export VIRTUAL_ENV="$(dirname "${VENV_BIN}")"
-export PATH="${VENV_BIN}:${PATH-}"
+export PATH="$(dirname "${VENV_PYTHON}"):${PATH-}"
 
 exec "${VENV_PYTHON}" {{INTERPRETER_FLAGS}} "$(rlocation {{ENTRYPOINT}})" "$@"

@@ -123,6 +123,9 @@ def _py_venv_rule_impl(ctx):
         is_executable = True,
     )
 
+    if "VIRTUAL_ENV" in ctx.attr.env:
+        fail("py_venv {}: `VIRTUAL_ENV` is set by the rule and cannot be overridden via `env`.".format(ctx.label))
+
     passed_env = dict(ctx.attr.env)
     for k, v in passed_env.items():
         passed_env[k] = expand_variables(
@@ -130,6 +133,11 @@ def _py_venv_rule_impl(ctx):
             expand_locations(ctx, v, ctx.attr.data),
             attribute_name = "env",
         )
+
+    # `VIRTUAL_ENV` as the venv root's rootpath. `venv.tmpl.sh`
+    # overrides with its own absolute value when invoked directly.
+    # `rsplit` drops the trailing `bin/python` to leave the venv root.
+    passed_env["VIRTUAL_ENV"] = shared.venv.bin_python.short_path.rsplit("/", 2)[0]
 
     return [
         DefaultInfo(
