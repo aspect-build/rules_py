@@ -763,7 +763,8 @@ def _py_image_layer_impl(ctx):
             pkg_by_label[pkg.label] = pkg
     all_pkgs = pkg_by_label.values()
 
-    plan = ctx.attr._layer_tier[PyLayerTierInfo]
+    layer_tier = ctx.attr.layer_tier if ctx.attr.layer_tier else ctx.attr._layer_tier
+    plan = layer_tier[PyLayerTierInfo]
     root = plan.root
     strip_prefix = plan.strip_prefix
 
@@ -914,7 +915,7 @@ _py_image_layer = rule(
         "warn_remote_cache_threshold_mb": attr.int(default = 200),
         "warn_layer_count": attr.int(default = 90),
         "platform": attr.string(default = ""),
-        "layer_tier": attr.label(default = None),
+        "layer_tier": attr.label(default = None, providers = [PyLayerTierInfo]),
         "_layer_tier": attr.label(
             default = "//py:layer_tier",
             providers = [PyLayerTierInfo],
