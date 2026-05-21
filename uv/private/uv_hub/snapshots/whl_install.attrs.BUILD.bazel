@@ -9,7 +9,7 @@ select_chain(
         "@aspect_rules_py_pip_configurations//:py3-any-none": "@whl__attrs__99b87a485a5820b2//file"
    },
    default_target = "@@+uv+sdist_build__aspect_rules_py__attrs__23_2_0//:whl",
-   visibility = ["//visibility:private"],
+   visibility = ["//visibility:public"],
 )
 
 filegroup(

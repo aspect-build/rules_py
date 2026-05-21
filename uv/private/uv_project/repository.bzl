@@ -114,6 +114,14 @@ config_setting(
     content = ["""\
 load("@aspect_rules_py//py:defs.bzl", "py_library")
 
+# Fallback for `:{package}_whl` aliases on workspace / editable packages
+# (which have no underlying whl_install repo to point at).
+filegroup(
+    name = "empty_whl",
+    srcs = [],
+    visibility = ["//visibility:public"],
+)
+
 """]
     for package, cfgs in dep_to_scc.items():
         content.append("""
@@ -121,13 +129,17 @@ load("@aspect_rules_py//py:defs.bzl", "py_library")
 {}
 """.format(package, indent(pprint(cfgs), "# ")))
         main_arms = {}
+        whl_main_arms = {}
 
         # FIXME: Handle markers for distinct versions
         for cfg, scc_cfgs in cfgs.items():
             cfg_name = "_package_{}_{}".format(package, cfg)
             main_arms["//private/dep_group:" + cfg] = ":" + cfg_name
 
+            whl_cfg_name = "_package_{}_{}_whl".format(package, cfg)
+
             cfg_arms = {}
+            whl_cfg_arms = {}
 
             # This is a bit tricky. We're doing choice between several different
             # SCCs possibly encoding different versions or extra specializations
@@ -137,11 +149,24 @@ load("@aspect_rules_py//py:defs.bzl", "py_library")
             # to true. It's a configuration and locking failure for there to be
             # more than one package which resolves at this point. So we just jam all the configurations into a single select.
             for scc, markers in scc_cfgs.items():
+                # Find the whl install for `package` within this SCC's members.
+                # The repo label encodes the package name (e.g.
+                # @whl_install__{stamp}__{name}__{ver}//:install), so we match
+                # by substring with `__{package}__`. Workspace / editable
+                # packages have no whl_install and yield None.
+                whl_for_pkg = None
+                for install_label in scc_graph.get(scc, {}).keys():
+                    if ("__" + package + "__") in install_label:
+                        whl_for_pkg = install_label.replace(":install", ":whl")
+                        break
+
                 if "" in markers:
                     if "//conditions:default" in cfg_arms:
                         fail("Configuration conflict! Package {} specifies two or more default package states!\n{}".format(package, pprint(cfgs)))
 
                     cfg_arms["//conditions:default"] = "//private/sccs:" + scc
+                    if whl_for_pkg:
+                        whl_cfg_arms["//conditions:default"] = whl_for_pkg
 
                 else:
                     for marker in markers.keys():
@@ -150,6 +175,8 @@ load("@aspect_rules_py//py:defs.bzl", "py_library")
                             fail("Configuration conflict! Package {} specifies two or more configurations for the same marker!\n{}".format(package, pprint(cfgs)))
 
                         cfg_arms[marker] = "//private/sccs:" + scc
+                        if whl_for_pkg:
+                            whl_cfg_arms[marker] = whl_for_pkg
 
             # Now we can just build one big choice alias from that arm set.
             content.append("""
@@ -159,6 +186,20 @@ alias(
     visibility = ["//visibility:private"],
 )
 """.format(name = cfg_name, arms = indent(pprint(cfg_arms), " " * 4).lstrip()))
+
+            # Parallel whl-file alias. Workspace / editable packages have no
+            # whl_install, so when no SCC contributed a wheel we fall back
+            # to `:empty_whl` (a filegroup with no srcs).
+            if not whl_cfg_arms:
+                whl_cfg_arms["//conditions:default"] = ":empty_whl"
+            whl_main_arms["//private/dep_group:" + cfg] = ":" + whl_cfg_name
+            content.append("""
+alias(
+    name = "{name}",
+    actual = select({arms}),
+    visibility = ["//visibility:private"],
+)
+""".format(name = whl_cfg_name, arms = indent(pprint(whl_cfg_arms), " " * 4).lstrip()))
 
         # Finally we can render the wrapper over all the component arms
         content.append("""
@@ -170,6 +211,17 @@ alias(
 """.format(
             name = package,
             arms = indent(pprint(main_arms), " " * 4).lstrip(),
+        ))
+
+        content.append("""
+alias(
+    name = "{name}",
+    actual = select({arms}),
+    visibility = ["//visibility:public"],
+)
+""".format(
+            name = package + "_whl",
+            arms = indent(pprint(whl_main_arms), " " * 4).lstrip(),
         ))
 
     # As part of this root repo we also lay down :all_requirements which is slightly tricky because we have to

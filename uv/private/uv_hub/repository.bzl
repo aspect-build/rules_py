@@ -104,6 +104,10 @@ load("//:defs.bzl", "compatible_with")
             "//dep_group:{}".format(cfg): l
             for cfg, l in specs.items()
         }
+        whl_select_spec = {
+            "//dep_group:{}".format(cfg): l + "_whl"
+            for cfg, l in specs.items()
+        }
 
         error = "Available only in dep_groups: " + ", ".join(specs.keys())  # Simplified error string
 
@@ -129,6 +133,12 @@ alias(
     visibility = ["//visibility:public"],
 )
 {pkg_alias}\
+alias(
+    name = "whl",
+    actual = select({whl_select}),
+    target_compatible_with = select(compatible_with({compat})),
+    visibility = ["//visibility:public"],
+)
 filegroup(
     name = "dist_info",
     srcs = [":{name}"],
@@ -151,6 +161,7 @@ exports_files(
                 name = package_name,
                 pkg_alias = pkg_alias,
                 lib_select = indent(pprint(select_spec), "      ").lstrip(),
+                whl_select = indent(pprint(whl_select_spec), "      ").lstrip(),
                 compat = repr(specs.keys()),
                 error = error,
             ),
@@ -198,25 +209,30 @@ def incompatible_with(venvs, extra_constraints = []):
 
     ################################################################################
     # Lay down a requirements.bzl for compatibility with rules_python
+    package_names = sorted(packages.keys())
     content = []
     content.append("""
 load("@rules_python//python:pip.bzl", "pip_utils")
 
-# We arne't compatible with this because it isn't constant over venvs.
-# all_requirements = []
+all_requirements = {all_requirements}
 
-# We aren't compatible with this because it isn't constant over venvs.
-# all_whl_requirements_by_package = {{}}
+all_whl_requirements_by_package = {all_whl_requirements_by_package}
 
-# We aren't compatible with this because it isn't constant over venvs.
-# all_whl_requirements = all_whl_requirements_by_package.values()
+all_whl_requirements = all_whl_requirements_by_package.values()
 
-# We aren't compatible with this because we don't offer separate data targets
-# all_data_requirements = []
+all_data_requirements = all_requirements
 
 def requirement(name):
     return "@@{repo_name}//{{0}}:pkg".format(pip_utils.normalize_name(name))
 """.format(
+        all_requirements = repr([
+            "@@{0}//{1}:pkg".format(repository_ctx.name, name)
+            for name in package_names
+        ]),
+        all_whl_requirements_by_package = repr({
+            name: "@@{0}//{1}:whl".format(repository_ctx.name, name)
+            for name in package_names
+        }),
         repo_name = repository_ctx.name,
     ))
     repository_ctx.file("requirements.bzl", content = "\n".join(content))

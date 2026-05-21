@@ -383,7 +383,7 @@ select_chain(
    name = "whl",
    arms = {arms},
    default_target = {default_target},
-   visibility = ["//visibility:private"],
+   visibility = ["//visibility:public"],
 )
 
 filegroup(

@@ -1,5 +1,13 @@
 load("@aspect_rules_py//py:defs.bzl", "py_library")
 
+# Fallback for `:{package}_whl` aliases on workspace / editable packages
+# (which have no underlying whl_install repo to point at).
+filegroup(
+    name = "empty_whl",
+    srcs = [],
+    visibility = ["//visibility:public"],
+)
+
 
 
 # cowsay
@@ -22,9 +30,27 @@ alias(
 
 
 alias(
+    name = "_package_cowsay_single_project_hub_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__single_project_hub__cowsay__6_1//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "cowsay",
     actual = select({
         "//private/dep_group:single_project_hub": ":_package_cowsay_single_project_hub",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "cowsay_whl",
+    actual = select({
+        "//private/dep_group:single_project_hub": ":_package_cowsay_single_project_hub_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -50,9 +76,27 @@ alias(
 
 
 alias(
+    name = "_package_single_project_hub_single_project_hub_whl",
+    actual = select({
+        "//conditions:default": ":empty_whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "single_project_hub",
     actual = select({
         "//private/dep_group:single_project_hub": ":_package_single_project_hub_single_project_hub",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "single_project_hub_whl",
+    actual = select({
+        "//private/dep_group:single_project_hub": ":_package_single_project_hub_single_project_hub_whl",
     }),
     visibility = ["//visibility:public"],
 )

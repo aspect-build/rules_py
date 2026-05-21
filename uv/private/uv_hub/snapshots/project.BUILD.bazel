@@ -1,5 +1,13 @@
 load("@aspect_rules_py//py:defs.bzl", "py_library")
 
+# Fallback for `:{package}_whl` aliases on workspace / editable packages
+# (which have no underlying whl_install repo to point at).
+filegroup(
+    name = "empty_whl",
+    srcs = [],
+    visibility = ["//visibility:public"],
+)
+
 
 
 # arrow
@@ -22,9 +30,27 @@ alias(
 
 
 alias(
+    name = "_package_arrow_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__arrow__1_3_0//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "arrow",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_arrow_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "arrow_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_arrow_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -50,9 +76,27 @@ alias(
 
 
 alias(
+    name = "_package_asgiref_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__asgiref__3_8_1//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "asgiref",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_asgiref_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "asgiref_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_asgiref_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -78,9 +122,27 @@ alias(
 
 
 alias(
+    name = "_package_aspect_rules_py_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": ":empty_whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "aspect_rules_py",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_aspect_rules_py_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "aspect_rules_py_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_aspect_rules_py_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -106,9 +168,27 @@ alias(
 
 
 alias(
+    name = "_package_attrs_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__attrs__23_2_0//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "attrs",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_attrs_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "attrs_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_attrs_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -134,9 +214,27 @@ alias(
 
 
 alias(
+    name = "_package_bazel_runfiles_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__bazel_runfiles__1_1_0//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "bazel_runfiles",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_bazel_runfiles_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "bazel_runfiles_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_bazel_runfiles_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -162,9 +260,27 @@ alias(
 
 
 alias(
+    name = "_package_boto3_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__boto3__1_34_93//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "boto3",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_boto3_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "boto3_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_boto3_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -190,9 +306,27 @@ alias(
 
 
 alias(
+    name = "_package_botocore_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__botocore__1_34_93//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "botocore",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_botocore_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "botocore_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_botocore_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -218,9 +352,27 @@ alias(
 
 
 alias(
+    name = "_package_bravado_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__bravado__11_0_3//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "bravado",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_bravado_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "bravado_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_bravado_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -246,9 +398,27 @@ alias(
 
 
 alias(
+    name = "_package_bravado_core_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__bravado_core__6_1_1//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "bravado_core",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_bravado_core_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "bravado_core_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_bravado_core_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -274,9 +444,27 @@ alias(
 
 
 alias(
+    name = "_package_build_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__build__1_3_0//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "build",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_build_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "build_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_build_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -302,9 +490,27 @@ alias(
 
 
 alias(
+    name = "_package_certifi_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__certifi__2024_7_4//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "certifi",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_certifi_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "certifi_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_certifi_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -330,9 +536,27 @@ alias(
 
 
 alias(
+    name = "_package_charset_normalizer_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__charset_normalizer__3_3_2//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "charset_normalizer",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_charset_normalizer_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "charset_normalizer_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_charset_normalizer_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -358,9 +582,27 @@ alias(
 
 
 alias(
+    name = "_package_click_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__click__8_1_7//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "click",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_click_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "click_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_click_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -388,9 +630,27 @@ alias(
 
 
 alias(
+    name = "_package_colorama_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__colorama__0_4_6//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "colorama",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_colorama_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "colorama_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_colorama_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -416,9 +676,27 @@ alias(
 
 
 alias(
+    name = "_package_coverage_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__coverage__7_6_10//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "coverage",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_coverage_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "coverage_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_coverage_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -444,9 +722,27 @@ alias(
 
 
 alias(
+    name = "_package_cowsay_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__cowsay__6_1//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "cowsay",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_cowsay_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "cowsay_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_cowsay_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -472,9 +768,27 @@ alias(
 
 
 alias(
+    name = "_package_django_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__django__4_2_15//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "django",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_django_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "django_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_django_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -500,9 +814,27 @@ alias(
 
 
 alias(
+    name = "_package_exceptiongroup_aspect_rules_py_whl",
+    actual = select({
+        "//private/markers:f1406cfc2f85641e883d3ba9c27a964444fb80b1": "@whl_install__aspect_rules_py__exceptiongroup__1_3_1//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "exceptiongroup",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_exceptiongroup_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "exceptiongroup_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_exceptiongroup_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -528,9 +860,27 @@ alias(
 
 
 alias(
+    name = "_package_fqdn_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__fqdn__1_5_1//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "fqdn",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_fqdn_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "fqdn_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_fqdn_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -556,9 +906,27 @@ alias(
 
 
 alias(
+    name = "_package_ftfy_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__ftfy__6_2_0//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "ftfy",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_ftfy_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "ftfy_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_ftfy_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -584,9 +952,27 @@ alias(
 
 
 alias(
+    name = "_package_future_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__future__1_0_0//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "future",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_future_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "future_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_future_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -612,9 +998,27 @@ alias(
 
 
 alias(
+    name = "_package_gitdb_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__gitdb__4_0_12//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "gitdb",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_gitdb_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "gitdb_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_gitdb_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -640,9 +1044,27 @@ alias(
 
 
 alias(
+    name = "_package_gitpython_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__gitpython__3_1_43//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "gitpython",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_gitpython_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "gitpython_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_gitpython_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -668,9 +1090,27 @@ alias(
 
 
 alias(
+    name = "_package_idna_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__idna__3_7//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "idna",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_idna_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "idna_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_idna_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -696,9 +1136,27 @@ alias(
 
 
 alias(
+    name = "_package_importlib_metadata_aspect_rules_py_whl",
+    actual = select({
+        "//private/markers:db384b5a67611795b7cf16442b57a34653387090": "@whl_install__aspect_rules_py__importlib_metadata__8_7_1//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "importlib_metadata",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_importlib_metadata_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "importlib_metadata_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_importlib_metadata_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -724,9 +1182,27 @@ alias(
 
 
 alias(
+    name = "_package_iniconfig_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__iniconfig__2_0_0//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "iniconfig",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_iniconfig_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "iniconfig_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_iniconfig_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -752,9 +1228,27 @@ alias(
 
 
 alias(
+    name = "_package_isoduration_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__isoduration__20_11_0//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "isoduration",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_isoduration_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "isoduration_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_isoduration_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -780,9 +1274,27 @@ alias(
 
 
 alias(
+    name = "_package_jmespath_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__jmespath__1_0_1//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "jmespath",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_jmespath_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "jmespath_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_jmespath_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -808,9 +1320,27 @@ alias(
 
 
 alias(
+    name = "_package_jsonpointer_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__jsonpointer__2_4//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "jsonpointer",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_jsonpointer_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "jsonpointer_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_jsonpointer_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -836,9 +1366,27 @@ alias(
 
 
 alias(
+    name = "_package_jsonref_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__jsonref__1_1_0//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "jsonref",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_jsonref_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "jsonref_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_jsonref_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -864,9 +1412,27 @@ alias(
 
 
 alias(
+    name = "_package_jsonschema_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__jsonschema__4_21_1//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "jsonschema",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_jsonschema_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "jsonschema_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_jsonschema_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -892,9 +1458,27 @@ alias(
 
 
 alias(
+    name = "_package_jsonschema_specifications_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__jsonschema_specifications__2023_12_1//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "jsonschema_specifications",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_jsonschema_specifications_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "jsonschema_specifications_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_jsonschema_specifications_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -920,9 +1504,27 @@ alias(
 
 
 alias(
+    name = "_package_maturin_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__maturin__1_11_5//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "maturin",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_maturin_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "maturin_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_maturin_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -948,9 +1550,27 @@ alias(
 
 
 alias(
+    name = "_package_monotonic_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__monotonic__1_6//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "monotonic",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_monotonic_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "monotonic_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_monotonic_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -976,9 +1596,27 @@ alias(
 
 
 alias(
+    name = "_package_msgpack_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__msgpack__1_0_8//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "msgpack",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_msgpack_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "msgpack_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_msgpack_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -1004,9 +1642,27 @@ alias(
 
 
 alias(
+    name = "_package_neptune_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__neptune__1_10_2//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "neptune",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_neptune_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "neptune_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_neptune_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -1032,9 +1688,27 @@ alias(
 
 
 alias(
+    name = "_package_numpy_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__numpy__1_26_4//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "numpy",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_numpy_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "numpy_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_numpy_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -1060,9 +1734,27 @@ alias(
 
 
 alias(
+    name = "_package_oauthlib_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__oauthlib__3_2_2//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "oauthlib",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_oauthlib_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "oauthlib_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_oauthlib_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -1088,9 +1780,27 @@ alias(
 
 
 alias(
+    name = "_package_packaging_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__packaging__24_0//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "packaging",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_packaging_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "packaging_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_packaging_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -1116,9 +1826,27 @@ alias(
 
 
 alias(
+    name = "_package_pandas_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__pandas__2_2_2//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "pandas",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_pandas_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "pandas_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_pandas_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -1144,9 +1872,27 @@ alias(
 
 
 alias(
+    name = "_package_pillow_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__pillow__10_3_0//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "pillow",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_pillow_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "pillow_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_pillow_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -1172,9 +1918,27 @@ alias(
 
 
 alias(
+    name = "_package_pkg_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__pkg__0_2//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "pkg",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_pkg_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "pkg_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_pkg_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -1200,9 +1964,27 @@ alias(
 
 
 alias(
+    name = "_package_pluggy_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__pluggy__1_4_0//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "pluggy",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_pluggy_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "pluggy_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_pluggy_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -1228,9 +2010,27 @@ alias(
 
 
 alias(
+    name = "_package_psutil_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__psutil__5_9_8//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "psutil",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_psutil_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "psutil_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_psutil_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -1256,9 +2056,27 @@ alias(
 
 
 alias(
+    name = "_package_pyjwt_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__pyjwt__2_8_0//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "pyjwt",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_pyjwt_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "pyjwt_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_pyjwt_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -1284,9 +2102,27 @@ alias(
 
 
 alias(
+    name = "_package_pyproject_hooks_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__pyproject_hooks__1_2_0//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "pyproject_hooks",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_pyproject_hooks_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "pyproject_hooks_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_pyproject_hooks_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -1312,9 +2148,27 @@ alias(
 
 
 alias(
+    name = "_package_pytest_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__pytest__8_1_1//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "pytest",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_pytest_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "pytest_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_pytest_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -1340,9 +2194,27 @@ alias(
 
 
 alias(
+    name = "_package_python_dateutil_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__python_dateutil__2_9_0_post0//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "python_dateutil",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_python_dateutil_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "python_dateutil_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_python_dateutil_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -1368,9 +2240,27 @@ alias(
 
 
 alias(
+    name = "_package_pytz_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__pytz__2024_1//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "pytz",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_pytz_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "pytz_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_pytz_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -1396,9 +2286,27 @@ alias(
 
 
 alias(
+    name = "_package_pyyaml_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__pyyaml__6_0_1//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "pyyaml",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_pyyaml_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "pyyaml_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_pyyaml_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -1424,9 +2332,27 @@ alias(
 
 
 alias(
+    name = "_package_referencing_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__referencing__0_35_0//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "referencing",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_referencing_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "referencing_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_referencing_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -1452,9 +2378,27 @@ alias(
 
 
 alias(
+    name = "_package_requests_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__requests__2_31_0//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "requests",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_requests_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "requests_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_requests_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -1480,9 +2424,27 @@ alias(
 
 
 alias(
+    name = "_package_requests_oauthlib_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__requests_oauthlib__2_0_0//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "requests_oauthlib",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_requests_oauthlib_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "requests_oauthlib_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_requests_oauthlib_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -1508,9 +2470,27 @@ alias(
 
 
 alias(
+    name = "_package_rfc3339_validator_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__rfc3339_validator__0_1_4//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "rfc3339_validator",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_rfc3339_validator_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "rfc3339_validator_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_rfc3339_validator_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -1536,9 +2516,27 @@ alias(
 
 
 alias(
+    name = "_package_rfc3986_validator_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__rfc3986_validator__0_1_1//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "rfc3986_validator",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_rfc3986_validator_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "rfc3986_validator_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_rfc3986_validator_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -1564,9 +2562,27 @@ alias(
 
 
 alias(
+    name = "_package_rpds_py_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__rpds_py__0_18_0//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "rpds_py",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_rpds_py_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "rpds_py_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_rpds_py_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -1592,9 +2608,27 @@ alias(
 
 
 alias(
+    name = "_package_s3transfer_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__s3transfer__0_10_1//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "s3transfer",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_s3transfer_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "s3transfer_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_s3transfer_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -1620,9 +2654,27 @@ alias(
 
 
 alias(
+    name = "_package_setuptools_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__setuptools__80_9_0//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "setuptools",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_setuptools_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "setuptools_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_setuptools_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -1648,9 +2700,27 @@ alias(
 
 
 alias(
+    name = "_package_simplejson_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__simplejson__3_19_2//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "simplejson",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_simplejson_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "simplejson_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_simplejson_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -1676,9 +2746,27 @@ alias(
 
 
 alias(
+    name = "_package_six_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__six__1_16_0//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "six",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_six_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "six_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_six_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -1704,9 +2792,27 @@ alias(
 
 
 alias(
+    name = "_package_smmap_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__smmap__5_0_1//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "smmap",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_smmap_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "smmap_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_smmap_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -1732,9 +2838,27 @@ alias(
 
 
 alias(
+    name = "_package_snakesay_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__snakesay__0_10_3//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "snakesay",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_snakesay_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "snakesay_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_snakesay_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -1760,9 +2884,27 @@ alias(
 
 
 alias(
+    name = "_package_sqlparse_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__sqlparse__0_5_1//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "sqlparse",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_sqlparse_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "sqlparse_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_sqlparse_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -1788,9 +2930,27 @@ alias(
 
 
 alias(
+    name = "_package_swagger_spec_validator_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__swagger_spec_validator__3_0_3//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "swagger_spec_validator",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_swagger_spec_validator_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "swagger_spec_validator_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_swagger_spec_validator_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -1816,9 +2976,27 @@ alias(
 
 
 alias(
+    name = "_package_tomli_aspect_rules_py_whl",
+    actual = select({
+        "//private/markers:f1406cfc2f85641e883d3ba9c27a964444fb80b1": "@whl_install__aspect_rules_py__tomli__2_4_0//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "tomli",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_tomli_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "tomli_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_tomli_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -1844,9 +3022,27 @@ alias(
 
 
 alias(
+    name = "_package_types_python_dateutil_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__types_python_dateutil__2_9_0_20240316//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "types_python_dateutil",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_types_python_dateutil_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "types_python_dateutil_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_types_python_dateutil_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -1873,9 +3069,27 @@ alias(
 
 
 alias(
+    name = "_package_typing_extensions_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__typing_extensions__4_12_2//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "typing_extensions",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_typing_extensions_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "typing_extensions_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_typing_extensions_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -1902,9 +3116,27 @@ alias(
 
 
 alias(
+    name = "_package_tzdata_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__tzdata__2024_1//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "tzdata",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_tzdata_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "tzdata_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_tzdata_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -1930,9 +3162,27 @@ alias(
 
 
 alias(
+    name = "_package_uri_template_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__uri_template__1_3_0//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "uri_template",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_uri_template_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "uri_template_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_uri_template_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -1958,9 +3208,27 @@ alias(
 
 
 alias(
+    name = "_package_urllib3_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__urllib3__1_26_19//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "urllib3",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_urllib3_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "urllib3_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_urllib3_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -1986,9 +3254,27 @@ alias(
 
 
 alias(
+    name = "_package_wcwidth_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__wcwidth__0_2_13//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "wcwidth",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_wcwidth_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "wcwidth_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_wcwidth_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -2014,9 +3300,27 @@ alias(
 
 
 alias(
+    name = "_package_webcolors_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__webcolors__1_13//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "webcolors",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_webcolors_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "webcolors_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_webcolors_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -2042,9 +3346,27 @@ alias(
 
 
 alias(
+    name = "_package_websocket_client_aspect_rules_py_whl",
+    actual = select({
+        "//conditions:default": "@whl_install__aspect_rules_py__websocket_client__1_8_0//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "websocket_client",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_websocket_client_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "websocket_client_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_websocket_client_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -2070,9 +3392,27 @@ alias(
 
 
 alias(
+    name = "_package_zipp_aspect_rules_py_whl",
+    actual = select({
+        "//private/markers:f1406cfc2f85641e883d3ba9c27a964444fb80b1": "@whl_install__aspect_rules_py__zipp__3_23_0//:whl",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
+alias(
     name = "zipp",
     actual = select({
         "//private/dep_group:aspect_rules_py": ":_package_zipp_aspect_rules_py",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+
+alias(
+    name = "zipp_whl",
+    actual = select({
+        "//private/dep_group:aspect_rules_py": ":_package_zipp_aspect_rules_py_whl",
     }),
     visibility = ["//visibility:public"],
 )

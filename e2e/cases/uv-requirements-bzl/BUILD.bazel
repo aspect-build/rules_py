@@ -1,0 +1,105 @@
+"""End-to-end demos for the rules_python-compatible requirements.bzl
+surface and the per-package :pkg / :whl aliases.
+
+Each py_test below exercises one access mechanism; if the targeted surface
+regresses (e.g. requirement() reverts to :{name}, or all_requirements goes
+back to a commented stub) the relevant rule fails at load or analysis.
+"""
+
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+load(
+    "@pypi_requirements_bzl//:requirements.bzl",
+    "all_data_requirements",  # alias of all_requirements; same list by identity
+    "all_requirements",
+    "all_whl_requirements",
+    "all_whl_requirements_by_package",
+    "requirement",
+)
+
+# all_data_requirements == all_requirements (rules_python-compat alias);
+# referenced once so buildifier doesn't strip the load.
+_ALL_DATA_REQUIREMENTS_COUNT = len(all_data_requirements)
+
+# requirement(name) returns the :pkg alias.
+py_test(
+    name = "requirement_helper_test",
+    srcs = ["__test__.py"],
+    dep_group = "requirements-bzl-demo",
+    main = "__test__.py",
+    python_version = "3.12",
+    deps = [requirement("cowsay")],
+)
+
+# :pkg alias resolves to the package's py_library.
+py_test(
+    name = "pkg_alias_test",
+    srcs = ["__test__.py"],
+    dep_group = "requirements-bzl-demo",
+    main = "__test__.py",
+    python_version = "3.12",
+    deps = ["@pypi_requirements_bzl//cowsay:pkg"],
+)
+
+# all_requirements is a populated list of :pkg labels.
+py_test(
+    name = "all_requirements_test",
+    srcs = ["__test__.py"],
+    dep_group = "requirements-bzl-demo",
+    main = "__test__.py",
+    python_version = "3.12",
+    deps = all_requirements,
+)
+
+# :whl resolves to a real wheel file; consumed here as runfiles data.
+py_test(
+    name = "whl_data_test",
+    srcs = ["__whl_test__.py"],
+    data = ["@pypi_requirements_bzl//cowsay:whl"],
+    dep_group = "requirements-bzl-demo",
+    main = "__whl_test__.py",
+    python_version = "3.12",
+)
+
+# all_whl_requirements iterates the :whl labels.
+py_test(
+    name = "all_whl_data_test",
+    srcs = ["__whl_test__.py"],
+    data = all_whl_requirements,
+    dep_group = "requirements-bzl-demo",
+    main = "__whl_test__.py",
+    python_version = "3.12",
+)
+
+# all_whl_requirements_by_package is the {name: :whl} dict.
+py_test(
+    name = "all_whl_by_package_data_test",
+    srcs = ["__whl_test__.py"],
+    data = [whl for whl in all_whl_requirements_by_package.values()],
+    dep_group = "requirements-bzl-demo",
+    main = "__whl_test__.py",
+    python_version = "3.12",
+)
+
+# Multi-package hub: deps = all_requirements pulls in every package
+# (cowsay + python-dateutil + transitive six) so __multi_test__.py can
+# import all three.
+py_test(
+    name = "multi_package_imports_test",
+    srcs = ["__multi_test__.py"],
+    dep_group = "requirements-bzl-demo",
+    main = "__multi_test__.py",
+    python_version = "3.12",
+    deps = all_requirements,
+)
+
+# requirement() normalization: a non-canonical name with mixed case and
+# a dash must resolve to the same py_library as the canonical form. The
+# helper applies pip_utils.normalize_name before label lookup.
+py_test(
+    name = "requirement_normalization_test",
+    srcs = ["__dateutil_test__.py"],
+    dep_group = "requirements-bzl-demo",
+    main = "__dateutil_test__.py",
+    python_version = "3.12",
+    deps = [requirement("Python-DateUtil")],
+)
