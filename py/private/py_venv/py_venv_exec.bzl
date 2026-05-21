@@ -9,7 +9,6 @@ attrs to the auto-generated sibling.
 load("@bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
 load("@bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
 load("@rules_python//python:defs.bzl", "PyInfo")
-load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load(":types.bzl", "VirtualenvInfo")
 
@@ -87,13 +86,12 @@ def _py_venv_exec_impl(ctx):
         is_executable = True,
     )
 
-    runfiles = _py_library.make_merged_runfiles(
-        ctx,
-        extra_runfiles = [main],
-        extra_runfiles_depsets = [
-            ctx.attr._runfiles_lib[DefaultInfo].default_runfiles,
-            venv[DefaultInfo].default_runfiles,
-        ],
+    # Merge runfiles, supporting `py_venv_exec(main)` not being in the `py_venv` runfiles.
+    runfiles = ctx.runfiles(
+        files = ctx.files.data + [main],
+    ).merge_all(
+        [target[DefaultInfo].default_runfiles for target in ctx.attr.data] +
+        [venv[DefaultInfo].default_runfiles],
     )
 
     instrumented_files_info = coverage_common.instrumented_files_info(
@@ -181,9 +179,6 @@ match their historical permissive behaviour.""",
     "_run_tmpl": attr.label(
         allow_single_file = True,
         default = ":run.tmpl.sh",
-    ),
-    "_runfiles_lib": attr.label(
-        default = "@bazel_tools//tools/bash/runfiles",
     ),
     # `data` is the only py_library attr the launcher reads (env-var
     # location expansion, runfiles merge, coverage walk). `srcs`,
