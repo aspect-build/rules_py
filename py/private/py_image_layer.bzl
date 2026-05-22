@@ -735,8 +735,8 @@ def _run_tar_action(ctx, bsdtar, bsdtar_files, tar_out, files_depset, map_each, 
     sorted_mtree = ctx.actions.declare_file(tar_out.basename + ".mtree", sibling = tar_out)
 
     gawk_args = ctx.actions.args()
-    gawk_args.add("-v", "outfile=" + sorted_mtree.path)
-    gawk_args.add("-f", awk_script.path)
+    gawk_args.add("-v", sorted_mtree, format = "outfile=%s")
+    gawk_args.add("-f", awk_script)
     ctx.actions.run(
         executable = awk,
         inputs = depset(direct = [awk_script], transitive = [files_depset]),
@@ -753,11 +753,11 @@ def _run_tar_action(ctx, bsdtar, bsdtar_files, tar_out, files_depset, map_each, 
     tar_args.add("--create")
     tar_args.add("--" + compress)
     tar_args.add("--options", "{}:compression-level={}".format(compress, level))
-    tar_args.add("--file", tar_out.path)
+    tar_args.add("--file", tar_out)
 
     # `@<file>` tells bsdtar to read the named file as an mtree archive
     # (same as `@-` for stdin, just from disk).
-    tar_args.add("@" + sorted_mtree.path)
+    tar_args.add(sorted_mtree, format = "@%s")
     ctx.actions.run(
         executable = bsdtar.binary,
         inputs = depset(direct = [sorted_mtree], transitive = [files_depset, bsdtar_files.files]),
