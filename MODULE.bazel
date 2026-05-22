@@ -249,7 +249,7 @@ uv_bin = use_extension("//uv:extensions.bzl", "uv_bin", dev_dependency = IS_RELE
 uv_bin.toolchain()
 use_repo(uv_bin, "uv")
 
-uv = use_extension("//uv:extensions.bzl", "uv", dev_dependency = IS_RELEASE)
+uv = use_extension("//uv:extensions.bzl", "uv", dev_dependency = IS_RELEASE, isolate = True)
 uv.declare_hub(
     hub_name = "pypi",
 )
