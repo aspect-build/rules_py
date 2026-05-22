@@ -326,7 +326,7 @@ def _layer_aspect_impl(target, ctx):
                 bsdtar_files,
                 interp_tar,
                 interp_depset,
-                _pkg_file_to_mtree,
+                _interpreter_file_to_mtree,
                 algorithm,
                 level,
                 {},
@@ -563,7 +563,7 @@ def _apply_strip_prefix(sp, strip_prefix, root):
         return "." + root + sp[len(prefix):]
     return "./app.runfiles/_main/" + sp
 
-def _file_to_mtree_entry(f, mode = "0644", strip_prefix = "", root = "/"):
+def _file_to_mtree_entry(f, mode = "0644", strip_prefix = "", root = "/", maybe_symlink = False):
     sp = f.short_path
     if sp == "_repo_mapping":
         # Bazel synthesizes a top-level `_repo_mapping` runfile (no `_main/`
@@ -576,35 +576,32 @@ def _file_to_mtree_entry(f, mode = "0644", strip_prefix = "", root = "/"):
     else:
         dst = "./app.runfiles/_main/" + sp
 
-    # Hot path: properly declared symlinks (`ctx.actions.declare_symlink`
-    # outputs, e.g. the venv's site-packages entries pointing at wheel install
-    # trees) go out as `type=link link=<exec_path>`. The post-process awk
-    # readlinks once and rewrites the row to `type=link link=<target>`.
-    # Slow fallback: everything else emits `type=file content=<exec_path>`.
-    # Awk still readlinks `content=` rows to catch repo-rule-staged symlinks
-    # like rules_python's `bin/python -> python3.11` that aren't flagged by
-    # `f.is_symlink`; real files leave the row untouched and bsdtar inlines.
+    # `f.is_symlink` emits `type=link` (awk readlinks once); `maybe_symlink=True`
+    # emits `type=file content=` (awk readlinks to detect repo-rule-staged
+    # symlinks); default emits `type=file contents=` which skips awk entirely.
     if f.is_symlink:
         return "{} type=link mode={} uid=0 gid=0 time=1672560000 link={}".format(
             dst.replace(" ", "\\040"),
             mode,
             f.path.replace(" ", "\\040"),
         )
-    return "{} type=file mode={} uid=0 gid=0 time=1672560000 content={}".format(
+    marker = "content" if maybe_symlink else "contents"
+    return "{} type=file mode={} uid=0 gid=0 time=1672560000 {}={}".format(
         dst.replace(" ", "\\040"),
         mode,
+        marker,
         f.path.replace(" ", "\\040"),
     )
 
-def _source_file_to_mtree(f, dir_expander, strip_prefix, root):
+def _source_file_to_mtree(f, dir_expander, strip_prefix, root, maybe_symlink):
     # 0755 throughout: keeps launcher/interpreter/venv shims executable; Bazel
     # doesn't expose per-input source mode for us to propagate.
     if f.is_directory:
         return [
-            _file_to_mtree_entry(child, "0755", strip_prefix, root)
+            _file_to_mtree_entry(child, "0755", strip_prefix, root, maybe_symlink)
             for child in dir_expander.expand(f)
         ]
-    return _file_to_mtree_entry(f, "0755", strip_prefix, root)
+    return _file_to_mtree_entry(f, "0755", strip_prefix, root, maybe_symlink)
 
 def _user_file_to_mtree(f, dir_expander):
     if f.is_directory:
@@ -628,6 +625,19 @@ def _pkg_file_to_mtree(f, dir_expander):
             lines.append(_file_to_mtree_entry(child, "0755"))
         return lines
     return [_file_to_mtree_entry(f, "0755")]
+
+def _interpreter_file_to_mtree(f, dir_expander):
+    # Interpreter repo stages `bin/python -> python3.11` symlinks `f.is_symlink`
+    # doesn't catch, so opt into awk's readlink scan.
+    if f.is_directory:
+        lines = []
+        for child in dir_expander.expand(f):
+            p = child.path
+            if _should_skip_pkg_path(p):
+                continue
+            lines.append(_file_to_mtree_entry(child, "0755", maybe_symlink = True))
+        return lines
+    return [_file_to_mtree_entry(f, "0755", maybe_symlink = True)]
 
 def _glob_match_chunk(name, chunk):
     if chunk == "*":
@@ -700,12 +710,8 @@ _platform_cfg = transition(
 )
 
 def _run_tar_action(ctx, bsdtar, bsdtar_files, tar_out, files_depset, map_each, compress, level, reqs, mnemonic, progress_msg):
-    # Single action chains: emit mtree (param file) → awk readlinks both the
-    # hot-path `type=link link=<exec_path>` rows (declared symlinks, always
-    # resolve) and the slow `type=file content=<exec_path>` rows (real files
-    # plus repo-rule-staged symlinks), rewriting either form to
-    # `type=link link=<target>` when a symlink target is found → bsdtar reads
-    # from stdin.
+    # mtree (param file) → awk (readlinks `type=link`/`type=file content=`
+    # rows; `contents=` rows pass through) → sort → bsdtar.
     mtree_args = ctx.actions.args()
     mtree_args.set_param_file_format("multiline")
     mtree_args.use_param_file("%s", use_always = True)
@@ -781,8 +787,13 @@ def _py_image_layer_impl(ctx):
 
     all_tars = []
 
+    # Without a dedicated interpreter tar, repo-rule-staged symlinks like
+    # rules_python's `bin/python -> python3.11` end up in the source layer
+    # and need awk's readlink scan to be preserved.
+    source_maybe_symlink = info.interpreter_layer == None
+
     def _source_map(f, d):
-        return _source_file_to_mtree(f, d, strip_prefix, root)
+        return _source_file_to_mtree(f, d, strip_prefix, root, source_maybe_symlink)
 
     rule_group_names = {gname: True for gname in ctx.attr.groups.values()}
     for dep, group_name in ctx.attr.groups.items():
