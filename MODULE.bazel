@@ -11,6 +11,7 @@ IS_RELEASE = False
 bazel_dep(name = "bazel_features", version = "1.38.0")
 bazel_dep(name = "bazel_lib", version = "3.0.0")
 bazel_dep(name = "bazel_skylib", version = "1.4.2")
+bazel_dep(name = "gawk", version = "5.3.2.bcr.7")
 bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "rules_cc", version = "0.2.16")
 bazel_dep(name = "rules_pkg", version = "1.1.0")
@@ -103,7 +104,7 @@ use_repo(tel, "aspect_tools_telemetry_report")
 # Dev deps are the remainder of the file
 
 # LLVM configuration
-bazel_dep(name = "llvm", version = "0.7.1", dev_dependency = IS_RELEASE)
+bazel_dep(name = "llvm", version = "0.8.3", dev_dependency = IS_RELEASE)
 
 # Patch http_bsdtar_archive to tolerate missing `--include` patterns.
 # See https://github.com/hermeticbuild/hermetic-llvm/issues/34.
@@ -111,7 +112,7 @@ single_version_override(
     module_name = "llvm",
     patch_strip = 1,
     patches = ["//bazel/patches/llvm:http_bsdtar_archive_tolerant.patch"],
-    version = "0.7.1",
+    version = "0.8.3",
 )
 
 register_toolchains(

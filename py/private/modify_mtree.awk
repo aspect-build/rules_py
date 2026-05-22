@@ -23,9 +23,9 @@
 # Send a follow-up PR to bazel-contrib/tar.bzl with both once #115
 # lands so this fork can retire.
 #
-# Invoked inline from `_run_tar_action` in
-# [py_image_layer.bzl](py_image_layer.bzl), which shells out to the
-# host `awk`. Self-contained, POSIX awk only.
+# Invoked from `_run_tar_action` in [py_image_layer.bzl](py_image_layer.bzl)
+# via `ctx.executable._awk` pinned to `@gawk` — the END block uses
+# `asort()` and `print > outfile`, both gawk extensions.
 
 function common_sections(path1, path2, i, segments1, segments2, min_length, common_path) {
     gsub(/^\/|\/$/, "", path1)
@@ -165,6 +165,9 @@ function make_relative_link(path1, path2, i, common, target, relative_path, back
 }
 
 END {
+    # Buffer rewritten rows, sort byte-wise (asort under LC_ALL=C, set by
+    # the action env), and write to `outfile`.
+    n = 0
     for (i = 1; i <= NR; i++) {
         line = line_array[i]
         if (index(line, SUBSEP) > 0) {
@@ -184,7 +187,7 @@ END {
                 # config bug) so we emit a dangling `type=link link=...`
                 # to surface the issue visibly.
                 if (original_line ~ /type=file/) {
-                    print original_line
+                    out_lines[++n] = original_line
                     continue
                 }
                 linked_to = resolved_path
@@ -196,9 +199,13 @@ END {
             if (!sub(/content=[^ ]+/, "link=" linked_to, original_line)) {
                 sub(/link=[^ ]+/, "link=" linked_to, original_line)
             }
-            print original_line
+            out_lines[++n] = original_line
         } else {
-            print line
+            out_lines[++n] = line
         }
+    }
+    asort(out_lines)
+    for (i = 1; i <= n; i++) {
+        print out_lines[i] > outfile
     }
 }
