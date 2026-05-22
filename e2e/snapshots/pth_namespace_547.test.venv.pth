@@ -1,5 +1,5 @@
 ../../../../../../..
-import sys; sys.path.append(sys.prefix + "/_wheels/c8dc2569/lib/python3.11/site-packages")
+../../../_wheels/c8dc2569/lib/python3.11/site-packages
 ../../../../../../../_main
 ../../../../../../../aspect_rules_py++uv+project__pth_namespace_547
-import sys; sys.path.append(sys.prefix + "/_wheels/189ba7d9/lib/python3.11/site-packages")
+../../../_wheels/189ba7d9/lib/python3.11/site-packages

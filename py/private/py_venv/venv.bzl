@@ -375,20 +375,22 @@ def assemble_venv(
             )
         declared.append(out)
 
-    # Keyed wheels (have `_wheels/<key>/`) emit `sys.path.append`: safe
-    # because root `*.pth` filenames are depth-1 RECORD entries that
-    # Hop 2 already symlinked at the venv root. Non-keyed wheels
-    # (`py_unpacked_wheel` without `top_levels`) emit `site.addsitedir`
-    # so wheel-root `.pth` shims still fire — a plain path entry would
-    # skip the .pth scan. First-party imports emit a plain path line.
+    # Keyed wheels (have `_wheels/<key>/`) emit a plain relative path:
+    # site.py joins it with the .pth's directory and appends to
+    # sys.path. Safe because root `*.pth` filenames are depth-1 RECORD
+    # entries that Hop 2 already symlinked at the venv root. Non-keyed
+    # wheels (`py_unpacked_wheel` without `top_levels`) emit
+    # `site.addsitedir` so wheel-root `.pth` shims still fire — a
+    # plain path entry would skip the .pth scan. First-party imports
+    # emit a plain path line.
     def _format_imp(imp):
         if imp in fully_covered_site_pkgs:
             return None
         if imp.endswith("site-packages"):
             key = wheel_key_by_sp.get(imp)
             if key != None:
-                return ("import sys; sys.path.append(sys.prefix + " +
-                        "\"/_wheels/{key}/lib/{py_ver}/site-packages\")").format(
+                return "{wheels_root}/{key}/lib/{py_ver}/site-packages".format(
+                    wheels_root = site_packages_to_wheels_root,
                     key = key,
                     py_ver = wheel_py_ver,
                 )
