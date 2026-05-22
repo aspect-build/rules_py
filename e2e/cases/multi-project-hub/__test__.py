@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Smoke test that the multi-project @pypi hub resolves to a working cowsay."""
+"""Smoke test that the multi-project @pypi_multi hub resolves to a working cowsay."""
 
 import cowsay
 

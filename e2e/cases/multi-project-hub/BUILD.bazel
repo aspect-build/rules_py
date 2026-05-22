@@ -1,4 +1,4 @@
-# A multi-`uv.project()` hub (`@pypi`) used as the baseline shape for the
+# A multi-`uv.project()` hub (`@pypi_multi`) used as the baseline shape for the
 # e2e snapshots. Three sub-projects (alpha, beta, gamma) all depend on
 # cowsay, exercising the N>1 select-arm and dep_group config_setting
 # emission that the single-project @pypi_single snapshot cannot cover.
@@ -14,7 +14,7 @@ py_test(
     main = "__test__.py",
     python_version = "3.11",
     deps = [
-        "@pypi//cowsay",
+        "@pypi_multi//cowsay",
     ],
 )
 
@@ -25,7 +25,7 @@ py_test(
     main = "__test__.py",
     python_version = "3.11",
     deps = [
-        "@pypi//cowsay",
+        "@pypi_multi//cowsay",
     ],
 )
 
@@ -36,7 +36,7 @@ py_test(
     main = "__test__.py",
     python_version = "3.11",
     deps = [
-        "@pypi//cowsay",
+        "@pypi_multi//cowsay",
     ],
 )
 
@@ -47,6 +47,6 @@ py_test(
     main = "__test__.py",
     python_version = "3.11",
     deps = [
-        "@pypi//cowsay",
+        "@pypi_multi//cowsay",
     ],
 )

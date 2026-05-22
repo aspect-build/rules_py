@@ -41,15 +41,6 @@ config_setting(
 )
 
 
-config_setting(
-    name = "aspect_rules_py",
-    flag_values = {
-        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "aspect_rules_py",
-    },
-    visibility = ["//visibility:public"],
-)
-
-
 exports_files(
     ["BUILD.bazel"],
     visibility = ["//visibility:public"],

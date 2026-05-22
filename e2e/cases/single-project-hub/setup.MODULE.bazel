@@ -1,6 +1,6 @@
 """A dedicated single-`uv.project()` hub used as the baseline for the
 //snapshots single-project-shape regression checks. Kept in its own hub
-so it doesn't blend into the multi-project @pypi.
+so it doesn't blend into the multi-project @pypi_multi.
 """
 
 uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")

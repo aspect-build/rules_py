@@ -15,11 +15,13 @@ platform(
 # Snapshots of generated repository files emitted by rules_py's repo rules
 # *under the e2e harness*. Two shapes are pinned:
 #
-#   1. Multi-project hub (`@pypi`, see //cases/multi-project-hub): three
+#   1. Multi-project hub (`@pypi_multi`, see //cases/multi-project-hub): three
 #      `uv.project()` calls (alpha/beta/gamma). Catches regressions that
 #      only manifest with N>1 projects (multi-arm package aliases, dep_group
 #      config_setting emission). Each test case lives in its own hub, so
-#      `@pypi` stays focused on the multi-project baseline.
+#      `@pypi_multi` stays focused on the multi-project baseline. The name
+#      avoids bare `pypi` so a local_path_override of rules_py (which
+#      declares its own dev `@pypi`) can't bleed into the snapshot.
 #   2. Single-project hub (`@pypi_single`, see //cases/single-project-hub):
 #      one `uv.project()` call. Mirrors the shape rules_py's own root MODULE
 #      produces, but with a hermetic synthetic lock so the snapshot doesn't
@@ -34,14 +36,14 @@ write_source_files(
     name = "snapshots",
     testonly = True,
     files = {
-        # @pypi (multi-project: alpha, beta, gamma)
+        # @pypi_multi (multi-project: alpha, beta, gamma)
         # ----------------------------------------------------------------
         # Per-package alias with multiple select arms. Catches regressions in
         # multi-project alias emission and the no_match_error message.
-        "snapshots/pypi.cowsay.BUILD.bazel": "@pypi//cowsay:BUILD.bazel",
+        "snapshots/pypi_multi.cowsay.BUILD.bazel": "@pypi_multi//cowsay:BUILD.bazel",
         # `config_setting` rules — one per `uv.project()` call. Catches
         # regressions in the public dep_group surface for N>1 projects.
-        "snapshots/pypi.dep_group.BUILD.bazel": "@pypi//dep_group:BUILD.bazel",
+        "snapshots/pypi_multi.dep_group.BUILD.bazel": "@pypi_multi//dep_group:BUILD.bazel",
 
         # @pypi_single (single-project baseline)
         # ----------------------------------------------------------------
@@ -53,10 +55,10 @@ write_source_files(
         # used by the requirement() helper for a single-project hub.
         "snapshots/pypi_single.requirements.bzl": "@pypi_single//:requirements.bzl",
         # uv_hub: per-package alias with N=1 select arm — the minimal
-        # shape that the multi-arm @pypi//cowsay snapshot generalizes.
+        # shape that the multi-arm @pypi_multi//cowsay snapshot generalizes.
         "snapshots/pypi_single.cowsay.BUILD.bazel": "@pypi_single//cowsay:BUILD.bazel",
         # uv_hub: dep_group config_settings with a single entry — the
-        # minimal shape that the 38-entry @pypi//dep_group snapshot scales.
+        # minimal shape that the 38-entry @pypi_multi//dep_group snapshot scales.
         "snapshots/pypi_single.dep_group.BUILD.bazel": "@pypi_single//dep_group:BUILD.bazel",
         # uv_project: package-name → SCC alias map for one project. Pins
         # how a one-package surface (cowsay only) is wired into the SCC
