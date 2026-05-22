@@ -1,4 +1,5 @@
-load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@aspect_rules_py//py:defs.bzl", "py_test", "py_unpacked_wheel")
+load("//tools:pth_snapshot.bzl", "extract_venv_pth")
 
 # setuptools vendors `packaging` (among others), which collides at
 # the top-level with the real packaging wheel pulled in via pytest.
@@ -36,4 +37,34 @@ py_test(
         "@pypi_uv_include_group//pytest",
         "@pypi_uv_include_group//setuptools",
     ],
+)
+
+# Regression gate for assemble_venv's non-keyed `_format_imp` branch.
+# `py_unpacked_wheel` without `top_levels` emits no PyWheelsInfo, so
+# setuptools' root `distutils-precedence.pth` is only reachable via
+# the wheel's own site-packages — that branch must use
+# `site.addsitedir` (not a plain path entry) or `_distutils_hack`
+# never lands in `sys.modules` at site-init.
+py_unpacked_wheel(
+    name = "setuptools_no_top_levels",
+    src = "@pypi_uv_include_group//setuptools:whl",
+)
+
+py_test(
+    name = "wheel_root_pth_test",
+    srcs = ["wheel_root_pth_test.py"],
+    dep_group = "build",
+    expose_venv = True,
+    isolated = False,
+    main = "wheel_root_pth_test.py",
+    deps = [":setuptools_no_top_levels"],
+)
+
+# Snapshot fixture: pins the `site.addsitedir(...)` line shape that
+# the non-keyed branch must emit. If anyone collapses it back to a
+# plain path entry, this diff surfaces alongside the runtime test
+# failure.
+extract_venv_pth(
+    name = "wheel_root_pth_test.venv.pth",
+    venv = ":wheel_root_pth_test.venv",
 )
