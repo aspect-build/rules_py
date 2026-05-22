@@ -92,9 +92,11 @@ build_test(
     targets = [":run_in_exec"],
 )
 
-# Snapshot fixture: ~8 namespace contributors (google-* family) routed
-# through the addsitedir / sys.path.extend branch of venv.bzl.
-# Pinned at //snapshots/firebase_admin.test_tool.venv.pth.
+# Snapshot fixture: ~8 namespace contributors (google-* family)
+# routed through the keyed `.pth` branch of assemble_venv. Larger
+# scale than pth-namespace-547's 2-contributor minimum — pins the
+# emission shape across many wheels and surfaces any ordering /
+# scale-only regression.
 extract_venv_pth(
     name = "test_tool.venv.pth",
     venv = ":test_tool.venv",

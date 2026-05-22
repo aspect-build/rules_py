@@ -375,26 +375,22 @@ def assemble_venv(
             )
         declared.append(out)
 
-    # .pth for anything NOT handled by the top-level symlinks:
-    #   * runfiles root itself (first line) — needed by rules_python runfiles helper
-    #   * first-party import dirs (workspace roots, py_library imports)
-    #   * wheel site-packages dirs whose owning wheel lacks PyWheelsInfo
-    #     metadata (or whose coverage is partial due to collisions) —
-    #     get the `site.addsitedir(...)` treatment so wheel-internal .pth
-    #     files (*-nspkg.pth, editable installs, etc.) run
-    #
-    # For wheels that have a `_wheels/<key>/` entry, the addsitedir
-    # target goes through the key path (intra-venv, context-agnostic).
-    # For wheels without it, we keep the legacy runfiles-escape form.
+    # Keyed wheels (have `_wheels/<key>/`) emit a plain relative path:
+    # site.py joins it with the .pth's directory and appends to
+    # sys.path. Safe because root `*.pth` filenames are depth-1 RECORD
+    # entries that Hop 2 already symlinked at the venv root. Non-keyed
+    # wheels (`py_unpacked_wheel` without `top_levels`) emit
+    # `site.addsitedir` so wheel-root `.pth` shims still fire — a
+    # plain path entry would skip the .pth scan. First-party imports
+    # emit a plain path line.
     def _format_imp(imp):
         if imp in fully_covered_site_pkgs:
             return None
         if imp.endswith("site-packages"):
             key = wheel_key_by_sp.get(imp)
             if key != None:
-                return ("import os, sys, site; " +
-                        "site.addsitedir(os.path.normpath(os.path.join(" +
-                        "sys.prefix, \"_wheels\", \"{key}\", \"lib\", \"{py_ver}\", \"site-packages\")))").format(
+                return "{wheels_root}/{key}/lib/{py_ver}/site-packages".format(
+                    wheels_root = site_packages_to_wheels_root,
                     key = key,
                     py_ver = wheel_py_ver,
                 )
