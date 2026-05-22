@@ -2,23 +2,30 @@
 //snapshots multi-project-shape regression checks. Three sub-projects
 (alpha, beta, gamma) all depend on cowsay, exercising N>1 select-arm
 alias emission and dep_group config_setting scaling.
+
+The hub is named `pypi_multi` (mirroring the `pypi_single` convention)
+rather than bare `pypi` — under `local_path_override`, a `pypi` hub
+would merge with rules_py's own dev `pypi` hub and pull in the
+`aspect_rules_py` `uv.project()` arm, which then vanishes again on
+BCR where rules_py is consumed as a dep with `dev_dependency = True`.
+A unique hub name keeps the snapshot stable across both modes.
 """
 
 uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
-uv.declare_hub(hub_name = "pypi")
+uv.declare_hub(hub_name = "pypi_multi")
 uv.project(
-    hub_name = "pypi",
+    hub_name = "pypi_multi",
     lock = "//cases/multi-project-hub/alpha:uv.lock",
     pyproject = "//cases/multi-project-hub/alpha:pyproject.toml",
 )
 uv.project(
-    hub_name = "pypi",
+    hub_name = "pypi_multi",
     lock = "//cases/multi-project-hub/beta:uv.lock",
     pyproject = "//cases/multi-project-hub/beta:pyproject.toml",
 )
 uv.project(
-    hub_name = "pypi",
+    hub_name = "pypi_multi",
     lock = "//cases/multi-project-hub/gamma:uv.lock",
     pyproject = "//cases/multi-project-hub/gamma:pyproject.toml",
 )
-use_repo(uv, "pypi")
+use_repo(uv, "pypi_multi")

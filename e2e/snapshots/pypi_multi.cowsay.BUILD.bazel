@@ -17,13 +17,12 @@ alias(
 alias(
     name = "whl",
     actual = select({
-          "//dep_group:aspect_rules_py": "@project__aspect_rules_py//:cowsay_whl",
           "//dep_group:beta": "@project__beta//:cowsay_whl",
           "//dep_group:dev": "@project__alpha//:cowsay_whl",
           "//dep_group:gamma": "@project__gamma//:cowsay_whl",
           "//dep_group:unit-tests": "@project__alpha//:cowsay_whl",
       }),
-    target_compatible_with = select(compatible_with(["aspect_rules_py", "beta", "dev", "gamma", "unit-tests"])),
+    target_compatible_with = select(compatible_with(["beta", "dev", "gamma", "unit-tests"])),
     visibility = ["//visibility:public"],
 )
 filegroup(
@@ -34,15 +33,14 @@ filegroup(
 alias(
     name = "cowsay",
     actual = select({
-          "//dep_group:aspect_rules_py": "@project__aspect_rules_py//:cowsay",
           "//dep_group:beta": "@project__beta//:cowsay",
           "//dep_group:dev": "@project__alpha//:cowsay",
           "//dep_group:gamma": "@project__gamma//:cowsay",
           "//dep_group:unit-tests": "@project__alpha//:cowsay",
       },
-        no_match_error = "Available only in dep_groups: aspect_rules_py, beta, dev, gamma, unit-tests",
+        no_match_error = "Available only in dep_groups: beta, dev, gamma, unit-tests",
     ),
-    target_compatible_with = select(compatible_with(["aspect_rules_py", "beta", "dev", "gamma", "unit-tests"])),
+    target_compatible_with = select(compatible_with(["beta", "dev", "gamma", "unit-tests"])),
     visibility = ["//visibility:public"],
 )
 
