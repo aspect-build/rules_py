@@ -1,0 +1,27 @@
+load("@bazel_env.bzl", "bazel_env")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+bazel_env(
+    name = "python_env",
+    toolchains = {
+        "python": "@python_interpreters//:current_py_toolchain",
+    },
+    tools = {
+        "python3": "$(PYTHON3)",
+    },
+)
+
+exports_files(["test.sh"])
+
+sh_test(
+    name = "test",
+    srcs = ["test.sh"],
+    data = [
+        ":python_env",
+        ":python_env/toolchains/python",
+    ],
+    tags = [
+        "local",
+        "no-sandbox",
+    ],
+)
