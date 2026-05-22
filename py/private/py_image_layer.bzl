@@ -481,6 +481,11 @@ _layer_aspect = aspect(
             default = "//py/private:modify_mtree.awk",
             allow_single_file = True,
         ),
+        "_awk": attr.label(
+            default = "@gawk",
+            cfg = "exec",
+            executable = True,
+        ),
     },
     toolchains = [_TAR_TOOLCHAIN],
     toolchains_aspects = [PY_TOOLCHAIN],
@@ -545,6 +550,11 @@ _merge_aspect = aspect(
         "_awk_script": attr.label(
             default = "//py/private:modify_mtree.awk",
             allow_single_file = True,
+        ),
+        "_awk": attr.label(
+            default = "@gawk",
+            cfg = "exec",
+            executable = True,
         ),
     },
     toolchains = [_TAR_TOOLCHAIN],
@@ -710,8 +720,10 @@ _platform_cfg = transition(
 )
 
 def _run_tar_action(ctx, bsdtar, bsdtar_files, tar_out, files_depset, map_each, compress, level, reqs, mnemonic, progress_msg):
-    # mtree (param file) → awk (readlinks `type=link`/`type=file content=`
-    # rows; `contents=` rows pass through) → sort → bsdtar.
+    # mtree (param file) → gawk (readlinks `type=link`/`type=file content=`
+    # rows; `contents=` rows pass through; END buffers, asort-sorts, and
+    # writes the sorted mtree to a file) → bsdtar consumes the file.
+    # No shell wrapper, no `sort` host dep.
     mtree_args = ctx.actions.args()
     mtree_args.set_param_file_format("multiline")
     mtree_args.use_param_file("%s", use_always = True)
@@ -719,24 +731,42 @@ def _run_tar_action(ctx, bsdtar, bsdtar_files, tar_out, files_depset, map_each, 
     mtree_args.add_all(files_depset, map_each = map_each, expand_directories = False, allow_closure = True)
 
     awk_script = ctx.file._awk_script
-    ctx.actions.run_shell(
-        inputs = depset(direct = [awk_script], transitive = [files_depset, bsdtar_files.files]),
+    awk = ctx.executable._awk
+    sorted_mtree = ctx.actions.declare_file(tar_out.basename + ".mtree", sibling = tar_out)
+
+    gawk_args = ctx.actions.args()
+    gawk_args.add("-v", sorted_mtree, format = "outfile=%s")
+    gawk_args.add("-f", awk_script)
+    ctx.actions.run(
+        executable = awk,
+        inputs = depset(direct = [awk_script], transitive = [files_depset]),
+        outputs = [sorted_mtree],
+        arguments = [gawk_args, mtree_args],
+        # LC_ALL=C makes gawk's asort byte-stable.
+        env = {"LC_ALL": "C"},
+        mnemonic = mnemonic + "Mtree",
+        progress_message = "Resolving symlinks for %{output}",
+        execution_requirements = reqs,
+    )
+
+    tar_args = ctx.actions.args()
+    tar_args.add("--create")
+    tar_args.add("--" + compress)
+    tar_args.add("--options", "{}:compression-level={}".format(compress, level))
+    tar_args.add("--file", tar_out)
+
+    # `@<file>` tells bsdtar to read the named file as an mtree archive
+    # (same as `@-` for stdin, just from disk).
+    tar_args.add(sorted_mtree, format = "@%s")
+    ctx.actions.run(
+        executable = bsdtar.binary,
+        inputs = depset(direct = [sorted_mtree], transitive = [files_depset, bsdtar_files.files]),
         outputs = [tar_out],
-        arguments = [
-            mtree_args,
-            awk_script.path,
-            bsdtar.binary.path,
-            tar_out.path,
-            "--" + compress,
-            "{}:compression-level={}".format(compress, level),
-        ],
-        command = 'awk -f "$2" "$1" | LC_ALL=C sort | "$3" --create "$5" --options "$6" --file "$4" @-',
+        arguments = [tar_args],
         mnemonic = mnemonic,
         progress_message = progress_msg,
         execution_requirements = reqs,
         toolchain = _TAR_TOOLCHAIN,
-        # awk and sort are POSIX tools assumed present on all exec platforms.
-        # LC_ALL=C is set inline before sort, so no host env var is needed.
         use_default_shell_env = False,
     )
 
@@ -941,6 +971,11 @@ _py_image_layer = rule(
         "_awk_script": attr.label(
             default = "//py/private:modify_mtree.awk",
             allow_single_file = True,
+        ),
+        "_awk": attr.label(
+            default = "@gawk",
+            cfg = "exec",
+            executable = True,
         ),
     },
     cfg = _platform_cfg,
