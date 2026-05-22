@@ -60,6 +60,9 @@ use_repo(tools, "rules_py_tools")
 
 register_toolchains("@rules_py_tools//:all")
 
+# CC toolchain for native sdist builds (e.g. cdifflib, pyahocorasick).
+register_toolchains("@llvm//toolchain:all")
+
 # For the OCI tests
 oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
 oci.pull(
