@@ -48,7 +48,7 @@ jobs:
 
   release:
     needs: build
-    uses: bazel-contrib/.github/.github/workflows/release_ruleset.yaml@v7.3.0
+    uses: bazel-contrib/.github/.github/workflows/release_ruleset.yaml@6f477811ffc3ed8a972933cbb43dae0dc051767b # v7.3.0
     with:
       prerelease: false
       release_files: |
