@@ -311,23 +311,20 @@ In v2.0 the venv targets that the v1.x docs auto-emitted alongside every
 `py_binary` are opt-in — declare them on the targets you actually want your
 IDE to follow.
 
+The recommended one-liner:
+
 ```starlark
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_venv_link")
+load("@aspect_rules_py//py:defs.bzl", "py_binary")
 
 py_binary(
     name = "my_app",
     srcs = ["main.py"],
     main = "main.py",
-    expose_venv = True,        # publishes :my_app.venv
-)
-
-py_venv_link(
-    name = "my_app.venv_link",
-    venv = ":my_app.venv",
+    expose_venv_link = True,   # publishes :my_app.venv + :my_app.venv_link
 )
 ```
 
-Two distinct targets, two distinct purposes:
+`expose_venv_link = True` emits two sibling targets:
 
 - `bazel run //:my_app.venv` — drops you into the hermetic interpreter REPL
   with the venv activated. Useful for ad-hoc Python sessions matching your
@@ -342,10 +339,32 @@ Then point your IDE to the symlinked virtualenv:
 - **PyCharm**: Add the symlinked venv as a Python interpreter
 - **Neovim/LSP**: Configure `python-lsp-server` or `pyright` to use the virtualenv
 
+### Underlying mechanism
+
+`expose_venv_link = True` is sugar for the explicit two-target shape:
+
+```starlark
+py_binary(
+    name = "my_app",
+    srcs = ["main.py"],
+    main = "main.py",
+    expose_venv = True,
+)
+
+py_venv_link(
+    name = "my_app.venv_link",
+    venv = ":my_app.venv",
+)
+```
+
+Reach for the explicit form when you want to customise `py_venv_link`'s
+`link_name`, point it at a standalone `py_venv` (declared independently
+of any binary, useful for an IDE-only environment), or selectively skip
+the link target on a subset of binaries.
+
 > **Migrating from v1.x?** `py_binary` no longer auto-emits a `.venv` sibling.
-> The runnable-symlink behavior of v1.x's `bazel run //:my_app.venv` is now
-> split into `expose_venv = True` (publish the venv target) + a separate
-> `py_venv_link` (publish the symlink-creation runnable).
+> Add `expose_venv_link = True` for the equivalent IDE-symlink behavior,
+> or use the explicit two-target form when you want fine-grained control.
 
 ### Debugger Support (VSCode/PyCharm)
 
