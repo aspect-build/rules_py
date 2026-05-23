@@ -313,7 +313,7 @@ def _split_kwargs_for_venv(kwargs):
             venv_kwargs[name] = kwargs[name]
     return venv_kwargs
 
-def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = [], imports = [], tags = None, testonly = None, visibility = None, isolated = True, expose_venv = False, **kwargs):
+def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = [], imports = [], tags = None, testonly = None, visibility = None, isolated = True, expose_venv = None, expose_venv_link = False, **kwargs):
     """Split `py_rule(name, ...)` into a sibling py_venv target + a
     `py_rule` call routed at it via the internal `venv` rule
     attribute. Called for every `py_binary` / `py_test` macro invocation.
@@ -321,12 +321,28 @@ def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = [], im
     `expose_venv = True` emits a public `:{name}.venv` py_venv:
     runnable (`bazel run :{name}.venv` drops into the hermetic
     interpreter) and pairable with `py_venv_link` for IDE integration.
-    The venv inherits the binary's visibility.
+    The venv inherits the binary's visibility. Default `None` (unset);
+    treated as `False` unless `expose_venv_link = True` promotes it.
+
+    `expose_venv_link = True` additionally emits a public
+    `:{name}.venv_link` py_venv_link. `bazel run :{name}.venv_link`
+    materialises a workspace-local symlink at the venv's tree under
+    `bazel-bin`, suitable for pointing an IDE at. Implies
+    `expose_venv = True` — the link target needs a public venv to point
+    at. Passing `expose_venv = False, expose_venv_link = True`
+    explicitly is contradictory and fails.
 
     All venv-shaping attrs (`deps`, `imports`, `package_collisions`,
     `include_*_site_packages`, `interpreter_options`) land on the
     sibling venv.
     """
+    if expose_venv_link:
+        if expose_venv == False:
+            fail("py_binary/py_test {!r}: expose_venv_link = True requires a public venv to link, but expose_venv = False was passed explicitly. Drop expose_venv = False, or set expose_venv_link = False.".format(name))
+        expose_venv = True
+    else:
+        expose_venv = bool(expose_venv)
+
     venv_kwargs = _split_kwargs_for_venv(kwargs)
     venv_kwargs["srcs"] = srcs
     venv_kwargs["deps"] = deps
@@ -352,6 +368,15 @@ def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = [], im
         tags = venv_tags,
         **venv_kwargs
     )
+
+    if expose_venv_link:
+        py_venv_link(
+            name = "{}.venv_link".format(name),
+            venv = ":" + venv_label,
+            tags = tags,
+            testonly = testonly,
+            visibility = visibility,
+        )
 
     py_rule(
         name = name,

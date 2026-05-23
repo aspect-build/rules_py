@@ -51,6 +51,22 @@ py_binary(
     ],
 )
 
+# `expose_venv_link = True` implies `expose_venv = True` and additionally
+# emits a `:{name}.venv_link` py_venv_link.
+py_binary(
+    name = "link_bin",
+    srcs = ["main.py"],
+    expose_venv_link = True,
+    main = "main.py",
+)
+
+py_test(
+    name = "link_test",
+    srcs = ["main.py"],
+    expose_venv_link = True,
+    main = "main.py",
+)
+
 build_test(
     name = "expose_venv_api_build_test",
     targets = [
@@ -62,5 +78,11 @@ build_test(
         ":legacy_shape_bin.venv",
         ":venv_shaping_bin",
         ":venv_shaping_bin.venv",
+        ":link_bin",
+        ":link_bin.venv",
+        ":link_bin.venv_link",
+        ":link_test",
+        ":link_test.venv",
+        ":link_test.venv_link",
     ],
 )
