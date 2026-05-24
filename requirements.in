@@ -4,7 +4,7 @@ django~=4.2.7
 colorama~=0.4.0
 click
 pytest
-coverage
+coverage>=7.10.3
 cowsay
 snakesay
 ftfy==6.2.0
