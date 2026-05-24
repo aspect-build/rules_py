@@ -368,16 +368,25 @@ the link target on a subset of binaries.
 
 ### Debugger Support (VSCode/PyCharm)
 
-Attach debuggers using `debugpy`:
+Attach DAP-compatible debuggers (VSCode, PyCharm, Neovim, etc.) using
+[debugpy](https://github.com/microsoft/debugpy). This requires a wrapper
+entrypoint that starts a debugpy listener before running your application —
+simply adding `debugpy` to `deps` is not enough.
 
-```starlark
-# In debug mode, wraps the binary with debugpy listener
-py_binary(
-    name = "app_debug",
-    srcs = ["main.py"],
-    deps = ["//:lib", "@pypi//debugpy"],
-    env = {"DEBUGPY_WAIT": "1"},  # Wait for IDE attachment
-)
+See the [complete debugger example](examples/debugger/) for a working
+setup, including a `py_debuggable_binary` macro that handles the wrapper
+generation automatically.
+
+Quick overview:
+
+```sh
+cd examples/debugger
+
+# Start with debugpy listener, wait for IDE to attach:
+DEBUGPY_WAIT=1 bazel run //:app
+
+# Release mode — no debugpy, runs directly:
+bazel run //:app --config=release
 ```
 
 VSCode `launch.json`:
