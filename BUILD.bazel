@@ -1,6 +1,4 @@
-load("@aspect_gazelle_prebuilt//:def.bzl", "aspect_gazelle")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
-load("@buildifier_prebuilt//:rules.bzl", "buildifier")
 load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirements")
 load("//uv:defs.bzl", "gazelle_python_manifest")
 
@@ -33,32 +31,14 @@ gazelle_python_manifest(
     ],
 )
 
-aspect_gazelle(
+alias(
     name = "gazelle",
-    languages = ["starlark"],
-    with_check = True,
+    actual = "//tools/gazelle",
 )
 
-# Snapshot directories hold copies of generated repo-rule output and aren't
-# real Starlark sources — see .gitattributes / //uv/private/uv_hub:snapshots.
-_BUILDIFIER_EXCLUDES = [
-    "./uv/private/uv_hub/snapshots/*",
-    "./e2e/snapshots/*",
-]
-
-buildifier(
+alias(
     name = "buildifier",
-    exclude_patterns = _BUILDIFIER_EXCLUDES,
-    lint_mode = "fix",
-    mode = "fix",
-)
-
-buildifier(
-    name = "buildifier.check",
-    exclude_patterns = _BUILDIFIER_EXCLUDES,
-    # TODO: enable lint_mode = "warn" once existing warnings are fixed
-    lint_mode = "",
-    mode = "diff",
+    actual = "//tools/format:buildifier",
 )
 
 compile_pip_requirements(

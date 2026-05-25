@@ -37,14 +37,13 @@ common:release --compilation_mode=opt
 common:release --@rules_rust//rust/settings:lto=fat
 common:release --@rules_rust//:extra_rustc_flags=-Cpanic=abort
 
-# Load any settings specific to the current user.
-# .bazelrc.user should appear in .gitignore so that settings are not shared with team members
-# This needs to be last statement in this
-# config, as the user configuration should be able to overwrite flags from this file.
-# See https://docs.bazel.build/versions/master/best-practices.html#bazelrc
-# (Note that we use .bazelrc.user so the file appears next to .bazelrc in directory listing,
-# rather than user.bazelrc as suggested in the Bazel docs)
-try-import %workspace%/.bazelrc.user
-
 # Uncomment to enable verbose diagnostics for uv repository rules (sdist builds, git archives)
 # common --repo_env=RULES_PY_UV_VERBOSE=1
+
+# Build without the bytes
+common:ci --remote_download_outputs=minimal
+common:ci --nobuild_runfile_links
+
+# Override the preset's `--lockfile_mode=error` on CI since we don't
+# yet commit MODULE.bazel.lock — see .gitignore.
+common:ci --lockfile_mode=off
