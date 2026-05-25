@@ -140,6 +140,7 @@ register_toolchains(
 
 bazel_dep(name = "aspect_gazelle_prebuilt", version = "0.0.8", dev_dependency = True)
 bazel_dep(name = "buildifier_prebuilt", version = "8.5.1.2", dev_dependency = True)
+bazel_dep(name = "aspect_rules_lint", version = "1.13.0", dev_dependency = True)
 
 bazel_dep(name = "bazelrc-preset.bzl", version = "1.9.2", dev_dependency = IS_RELEASE)
 bazel_dep(name = "bazel_env.bzl", version = "0.5.0", dev_dependency = IS_RELEASE)
@@ -288,3 +289,9 @@ http_file(
     sha256 = "0523026398aea9c8b5f7a4a6d5c0829c285b4fbd960c17b5967a369342e21e01",
     urls = ["https://files.pythonhosted.org/packages/10/96/36c136013c4a6ecb8c6aa3eed66e6dcea838f85fd80e1446499f1dabfac7/sqlparse-0.4.0-py3-none-any.whl"],
 )
+
+# Transitive rules_go and rules_nodejs versions reference legacy global
+# symbols (CcInfo, incompatible_use_toolchain_transition) that Bazel 9
+# removed. Pin to versions that load via explicit `load(...)` statements.
+bazel_dep(name = "rules_go", version = "0.60.0", dev_dependency = True)
+bazel_dep(name = "rules_nodejs", version = "6.7.4", dev_dependency = True)

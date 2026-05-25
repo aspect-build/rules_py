@@ -1,0 +1,8 @@
+load("@aspect_gazelle_prebuilt//:def.bzl", "aspect_gazelle")
+
+package(default_visibility = ["//:__subpackages__"])
+
+aspect_gazelle(
+    name = "gazelle",
+    languages = ["starlark"],
+)

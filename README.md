@@ -1,5 +1,9 @@
 # aspect_rules_py
 
+> [!NOTE]
+> This repository uses the [Aspect CLI](https://github.com/aspect-build/aspect-cli) for CI and local development.
+> See the [docs](https://docs.aspect.build/cli/overview) and [install instructions](https://docs.aspect.build/cli/install) to get started.
+
 > [!WARNING]
 > **This is the 2.x ALPHA branch.** APIs and behavior may change without notice. For stable documentation, see the [1.x branch](https://github.com/aspect-build/rules_py/tree/1.x).
 
