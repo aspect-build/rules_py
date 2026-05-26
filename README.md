@@ -306,18 +306,46 @@ bazel build //:image --platforms=//platforms:linux_amd64
 
 ## IDE Integration
 
-`aspect_rules_py` generates standard virtualenv structures that IDEs understand:
+`aspect_rules_py` generates standard virtualenv structures that IDEs understand.
+In v2.0 the venv targets that the v1.x docs auto-emitted alongside every
+`py_binary` are opt-in — declare them on the targets you actually want your
+IDE to follow.
 
-```bash
-# Creates a .venv symlink for the target
-bazel run //:my_app.venv
+```starlark
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_venv_link")
+
+py_binary(
+    name = "my_app",
+    srcs = ["main.py"],
+    main = "main.py",
+    expose_venv = True,        # publishes :my_app.venv
+)
+
+py_venv_link(
+    name = "my_app.venv_link",
+    venv = ":my_app.venv",
+)
 ```
 
-Then point your IDE to the generated virtualenv:
+Two distinct targets, two distinct purposes:
 
-- **VSCode**: Set `python.defaultInterpreterPath` to the `.venv` path
-- **PyCharm**: Add the `.venv` as a Python interpreter
+- `bazel run //:my_app.venv` — drops you into the hermetic interpreter REPL
+  with the venv activated. Useful for ad-hoc Python sessions matching your
+  binary's deps.
+- `bazel run //:my_app.venv_link` — materialises a workspace-local symlink
+  pointing at the venv tree under `bazel-bin`. **This is what your IDE should
+  point at.**
+
+Then point your IDE to the symlinked virtualenv:
+
+- **VSCode**: Set `python.defaultInterpreterPath` to the symlinked path
+- **PyCharm**: Add the symlinked venv as a Python interpreter
 - **Neovim/LSP**: Configure `python-lsp-server` or `pyright` to use the virtualenv
+
+> **Migrating from v1.x?** `py_binary` no longer auto-emits a `.venv` sibling.
+> The runnable-symlink behavior of v1.x's `bazel run //:my_app.venv` is now
+> split into `expose_venv = True` (publish the venv target) + a separate
+> `py_venv_link` (publish the symlink-creation runnable).
 
 ### Debugger Support (VSCode/PyCharm)
 
