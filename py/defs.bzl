@@ -83,7 +83,9 @@ def py_binary(name, srcs = [], main = None, **kwargs):
     rule that exec's that venv's interpreter. Set `expose_venv = True`
     to make the sibling a first-class `:{name}.venv` target — runnable
     (`bazel run :{name}.venv` drops into the hermetic interpreter) and
-    pairable with `py_venv_link` for IDE integration.
+    pairable with `py_venv_link` for IDE integration. For the common
+    case where you want both the venv target *and* an IDE-pointable
+    workspace symlink in one step, set `expose_venv_link = True`.
 
     Args:
         name: Name of the rule.
@@ -100,7 +102,7 @@ def py_binary(name, srcs = [], main = None, **kwargs):
             output happens to be `<name>.py`), the macro can't see that
             and you must pass `main =` explicitly.
         **kwargs: additional named parameters forwarded to the
-            underlying rule and the sibling py_venv. One extra is
+            underlying rule and the sibling py_venv. Two extras are
             handled by this macro:
 
             * `expose_venv` (bool, default `False`) — when `True`, emit
@@ -108,10 +110,17 @@ def py_binary(name, srcs = [], main = None, **kwargs):
               attrs (deps, imports, package_collisions,
               include_*_site_packages, interpreter_options). The `.venv`
               target is runnable (`bazel run :{name}.venv` drops into
-              the hermetic interpreter). To also materialise the venv as
-              a workspace-local symlink for IDE integration, declare an
-              explicit `py_venv_link(name = "...", venv = ":{name}.venv")`
-              target.
+              the hermetic interpreter).
+            * `expose_venv_link` (bool, default `False`) — when `True`,
+              additionally emit a `:{name}.venv_link` py_venv_link.
+              `bazel run :{name}.venv_link` materialises a
+              workspace-local symlink to the venv tree, suitable for an
+              IDE's interpreter setting. Implies `expose_venv = True`;
+              passing `expose_venv = False, expose_venv_link = True`
+              explicitly is rejected with a clear error. Equivalent to
+              declaring an explicit
+              `py_venv_link(name = "{name}.venv_link", venv = ":{name}.venv")`
+              alongside the binary.
     """
 
     # For a clearer DX when updating resolutions, the resolutions dict is "string" -> "label",
