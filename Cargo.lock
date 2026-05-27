@@ -2355,7 +2355,6 @@ name = "unpack"
 version = "0.1.0"
 dependencies = [
  "clap",
- "itertools",
  "miette",
  "percent-encoding",
  "tempfile",

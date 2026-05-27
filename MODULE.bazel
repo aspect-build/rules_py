@@ -140,7 +140,6 @@ register_toolchains(
 
 bazel_dep(name = "aspect_gazelle_prebuilt", version = "0.0.8", dev_dependency = True)
 bazel_dep(name = "buildifier_prebuilt", version = "8.5.1.2", dev_dependency = True)
-bazel_dep(name = "aspect_rules_lint", version = "1.13.0", dev_dependency = True)
 
 bazel_dep(name = "bazelrc-preset.bzl", version = "1.9.2", dev_dependency = IS_RELEASE)
 bazel_dep(name = "bazel_env.bzl", version = "0.5.0", dev_dependency = IS_RELEASE)
