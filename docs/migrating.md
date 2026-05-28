@@ -8,7 +8,7 @@ Migration is a "drop-in replacement" for the majority of use cases.
 Instead of loading from `@rules_python//python:defs.bzl`, load from `@aspect_rules_py//py:defs.bzl`.
 The rest of the BUILD file can remain the same.
 
-If using Gazelle, see the note on [using with Gazelle](/README.md#using-with-gazelle)
+If using Gazelle, see the note on [using with Gazelle](/README.md#gazelle-integration)
 
 ## Remaining notes
 
