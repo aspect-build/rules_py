@@ -62,6 +62,10 @@ jobs:
           test -x "$BIN" || { echo "ERROR: benchmark binary not executable: $BIN"; exit 1; }
           hyperfine --warmup 5 --runs 50 --export-json ../../../bcr.json "$BIN"
 
+          BIN_SP=$(bazel --output_base="$OUT_BASE" cquery //:bench_syspath --disk_cache= --output=starlark --starlark:expr='target.files_to_run.executable.path' | tail -n1)
+          test -x "$BIN_SP" || { echo "ERROR: bench_syspath binary not executable: $BIN_SP"; exit 1; }
+          "$BIN_SP" "$GITHUB_WORKSPACE/bcr-syspath.json"
+
       # ── HEAD main ───────────────────────────────────────────────────────────
       - name: Benchmark HEAD main
         run: |
@@ -82,6 +86,10 @@ jobs:
           test -x "$BIN" || { echo "ERROR: benchmark binary not executable: $BIN"; exit 1; }
           hyperfine --warmup 5 --runs 50 --export-json ../../../main.json "$BIN"
 
+          BIN_SP=$(bazel --output_base="$OUT_BASE" cquery //:bench_syspath --disk_cache= --output=starlark --starlark:expr='target.files_to_run.executable.path' | tail -n1)
+          test -x "$BIN_SP" || { echo "ERROR: bench_syspath binary not executable: $BIN_SP"; exit 1; }
+          "$BIN_SP" "$GITHUB_WORKSPACE/main-syspath.json"
+
       # ── Current commit (PR) ─────────────────────────────────────────────────
       - name: Benchmark current PR
         run: |
@@ -101,6 +109,10 @@ jobs:
           BIN=$(bazel --output_base="$OUT_BASE" cquery //:bench --disk_cache= --output=starlark --starlark:expr='target.files_to_run.executable.path' | tail -n1)
           test -x "$BIN" || { echo "ERROR: benchmark binary not executable: $BIN"; exit 1; }
           hyperfine --warmup 5 --runs 50 --export-json ../../../pr.json "$BIN"
+
+          BIN_SP=$(bazel --output_base="$OUT_BASE" cquery //:bench_syspath --disk_cache= --output=starlark --starlark:expr='target.files_to_run.executable.path' | tail -n1)
+          test -x "$BIN_SP" || { echo "ERROR: bench_syspath binary not executable: $BIN_SP"; exit 1; }
+          "$BIN_SP" "$GITHUB_WORKSPACE/pr-syspath.json"
 
       # ── Compare & gate ──────────────────────────────────────────────────────
       - name: Compare results

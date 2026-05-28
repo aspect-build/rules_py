@@ -5,7 +5,7 @@ module(name = "startup_benchmark")
 bazel_dep(name = "aspect_rules_py")
 local_path_override(
     module_name = "aspect_rules_py",
-    path = "../..",
+    path = "/Users/abel/code/rules_py",
 )
 
 bazel_dep(name = "bazel_features", version = "1.38.0")

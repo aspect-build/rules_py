@@ -73,6 +73,20 @@ def load_build(path: str) -> dict[str, float] | None:
     return {"build_s": ms / 1000.0}
 
 
+def load_syspath(path: str) -> dict[str, int] | None:
+    """Load an optional sys.path quality JSON from syspath_probe.py."""
+    p = Path(path)
+    if not p.exists():
+        return None
+    with p.open() as f:
+        data = json.load(f)
+    return {
+        "total_entries": data.get("total_entries", 0),
+        "distinct_sp_roots": data.get("distinct_sp_roots", 0),
+        "dupe_realpaths": data.get("dupe_realpaths", 0),
+    }
+
+
 def pct(a: float, b: float) -> float:
     """Percentage delta from a to b."""
     if a == 0:
@@ -112,11 +126,16 @@ def main() -> None:
     main_build = load_build(main_path.replace(".json", "-build.json"))
     pr_build = load_build(pr_path.replace(".json", "-build.json"))
 
+    bcr_syspath = load_syspath(bcr_path.replace(".json", "-syspath.json"))
+    main_syspath = load_syspath(main_path.replace(".json", "-syspath.json"))
+    pr_syspath = load_syspath(pr_path.replace(".json", "-syspath.json"))
+
     main_vs_bcr = pct(bcr["mean_ms"], main["mean_ms"])
     pr_vs_bcr = pct(bcr["mean_ms"], pr["mean_ms"])
     pr_vs_main = pct(main["mean_ms"], pr["mean_ms"])
 
     has_build = bcr_build is not None or main_build is not None or pr_build is not None
+    has_syspath = bcr_syspath is not None or main_syspath is not None or pr_syspath is not None
 
     table = "## py_binary startup benchmark\n\n"
     if has_build:
@@ -161,6 +180,29 @@ def main() -> None:
     if has_build:
         table += (
             "> **Build time**: cold `bazel build //:bench` with isolated output base, no disk cache.\n"
+        )
+
+    if has_syspath:
+        table += "\n### sys.path quality\n\n"
+        table += "| Version | sys.path entries | distinct site-packages roots | duplicate realpaths |\n"
+        table += "|---------|-----------------|------------------------------|---------------------|\n"
+
+        def syspath_row(label: str, sp: dict[str, int] | None) -> str:
+            if sp is None:
+                return f"| {label} | — | — | — |\n"
+            dupe_flag = " ⚠️" if sp["dupe_realpaths"] > 0 else ""
+            return (
+                f"| {label} | {sp['total_entries']} | {sp['distinct_sp_roots']} "
+                f"| {sp['dupe_realpaths']}{dupe_flag} |\n"
+            )
+
+        table += syspath_row("BCR 1.11.5 (baseline)", bcr_syspath)
+        table += syspath_row("HEAD main", main_syspath)
+        table += syspath_row("This PR", pr_syspath)
+        table += (
+            "\n> **sys.path quality** measured by `bench_syspath` inside the assembled venv. "
+            "Duplicate realpaths indicate symlink redundancy; many distinct site-packages roots "
+            "suggest an inefficient venv layout.\n"
         )
 
     write_gh_output(table)
