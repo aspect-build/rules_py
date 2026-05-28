@@ -1,0 +1,161 @@
+name: Startup Benchmark
+
+on:
+  pull_request:
+    paths:
+      - "py/private/**"
+      - "benchmark/startup/**"
+  push:
+    branches: [main]
+
+env:
+  BCR_VERSION: "1.11.5"
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          path: rules_py_pr
+
+      - name: Checkout HEAD main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          path: rules_py_main
+
+      - name: Install hyperfine
+        run: |
+          set -euo pipefail
+          HYPERFINE_VERSION="1.18.0"
+          DEB="hyperfine_${HYPERFINE_VERSION}_amd64.deb"
+          URL="https://github.com/sharkdp/hyperfine/releases/download/v${HYPERFINE_VERSION}/${DEB}"
+          wget -qO "$DEB" "$URL"
+          sudo dpkg -i "$DEB"
+          rm -f "$DEB"
+          hyperfine --version
+
+      # ── BCR baseline ────────────────────────────────────────────────────────
+      - name: Benchmark BCR ${{ env.BCR_VERSION }}
+        run: |
+          set -euo pipefail
+          cd rules_py_pr/benchmark/startup
+          python3 generate_module.py bcr --version "${BCR_VERSION}"
+
+          OUT_BASE="/tmp/bazel-bcr"
+          rm -rf "$OUT_BASE"
+
+          START=$(date +%s%N)
+          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= //:bench //:bench_syspath
+          END=$(date +%s%N)
+          BUILD_MS=$(( (END - START) / 1000000 ))
+          echo "{\"build_ms\": $BUILD_MS}" > "../../../bcr-build.json"
+
+          BIN=$(bazel --output_base="$OUT_BASE" cquery //:bench --disk_cache= --output=starlark --starlark:expr='target.files_to_run.executable.path' | tail -n1)
+          test -x "$BIN" || { echo "ERROR: benchmark binary not executable: $BIN"; exit 1; }
+          hyperfine --warmup 5 --runs 50 --export-json ../../../bcr.json "$BIN"
+
+          BIN_SP=$(bazel --output_base="$OUT_BASE" cquery //:bench_syspath --disk_cache= --output=starlark --starlark:expr='target.files_to_run.executable.path' | tail -n1)
+          test -x "$BIN_SP" || { echo "ERROR: bench_syspath binary not executable: $BIN_SP"; exit 1; }
+          "$BIN_SP" "$GITHUB_WORKSPACE/bcr-syspath.json"
+
+      # ── HEAD main ───────────────────────────────────────────────────────────
+      - name: Benchmark HEAD main
+        run: |
+          set -euo pipefail
+          cd rules_py_pr/benchmark/startup
+          python3 generate_module.py local --path "$GITHUB_WORKSPACE/rules_py_main"
+
+          OUT_BASE="/tmp/bazel-main"
+          rm -rf "$OUT_BASE"
+
+          START=$(date +%s%N)
+          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= //:bench //:bench_syspath
+          END=$(date +%s%N)
+          BUILD_MS=$(( (END - START) / 1000000 ))
+          echo "{\"build_ms\": $BUILD_MS}" > "../../../main-build.json"
+
+          BIN=$(bazel --output_base="$OUT_BASE" cquery //:bench --disk_cache= --output=starlark --starlark:expr='target.files_to_run.executable.path' | tail -n1)
+          test -x "$BIN" || { echo "ERROR: benchmark binary not executable: $BIN"; exit 1; }
+          hyperfine --warmup 5 --runs 50 --export-json ../../../main.json "$BIN"
+
+          BIN_SP=$(bazel --output_base="$OUT_BASE" cquery //:bench_syspath --disk_cache= --output=starlark --starlark:expr='target.files_to_run.executable.path' | tail -n1)
+          test -x "$BIN_SP" || { echo "ERROR: bench_syspath binary not executable: $BIN_SP"; exit 1; }
+          "$BIN_SP" "$GITHUB_WORKSPACE/main-syspath.json"
+
+      # ── Current commit (PR) ─────────────────────────────────────────────────
+      - name: Benchmark current PR
+        run: |
+          set -euo pipefail
+          cd rules_py_pr/benchmark/startup
+          python3 generate_module.py local --path "$GITHUB_WORKSPACE/rules_py_pr"
+
+          OUT_BASE="/tmp/bazel-pr"
+          rm -rf "$OUT_BASE"
+
+          START=$(date +%s%N)
+          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= //:bench //:bench_syspath
+          END=$(date +%s%N)
+          BUILD_MS=$(( (END - START) / 1000000 ))
+          echo "{\"build_ms\": $BUILD_MS}" > "../../../pr-build.json"
+
+          BIN=$(bazel --output_base="$OUT_BASE" cquery //:bench --disk_cache= --output=starlark --starlark:expr='target.files_to_run.executable.path' | tail -n1)
+          test -x "$BIN" || { echo "ERROR: benchmark binary not executable: $BIN"; exit 1; }
+          hyperfine --warmup 5 --runs 50 --export-json ../../../pr.json "$BIN"
+
+          BIN_SP=$(bazel --output_base="$OUT_BASE" cquery //:bench_syspath --disk_cache= --output=starlark --starlark:expr='target.files_to_run.executable.path' | tail -n1)
+          test -x "$BIN_SP" || { echo "ERROR: bench_syspath binary not executable: $BIN_SP"; exit 1; }
+          "$BIN_SP" "$GITHUB_WORKSPACE/pr-syspath.json"
+
+      # ── Compare & gate ──────────────────────────────────────────────────────
+      - name: Compare results
+        id: compare
+        run: |
+          set -euo pipefail
+          for f in bcr.json main.json pr.json; do
+            if [[ ! -f "$f" ]]; then
+              echo "ERROR: missing result file: $f"
+              exit 1
+            fi
+          done
+          python3 rules_py_pr/benchmark/startup/compare.py bcr.json main.json pr.json
+
+      - name: Post PR comment
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const header = '<!-- startup-benchmark -->';
+            const body = `${header}\n${process.env.TABLE}`;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body && c.body.includes(header));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: body,
+              });
+              console.log(`Updated comment ${existing.id}`);
+            } else {
+              const { data: created } = await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body,
+              });
+              console.log(`Created comment ${created.id}`);
+            }
+        env:
+          TABLE: ${{ steps.compare.outputs.table }}
