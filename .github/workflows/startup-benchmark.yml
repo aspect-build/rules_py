@@ -53,7 +53,7 @@ jobs:
           rm -rf "$OUT_BASE"
 
           START=$(date +%s%N)
-          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= //:bench
+          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= //:bench //:bench_syspath
           END=$(date +%s%N)
           BUILD_MS=$(( (END - START) / 1000000 ))
           echo "{\"build_ms\": $BUILD_MS}" > "../../../bcr-build.json"
@@ -77,7 +77,7 @@ jobs:
           rm -rf "$OUT_BASE"
 
           START=$(date +%s%N)
-          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= //:bench
+          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= //:bench //:bench_syspath
           END=$(date +%s%N)
           BUILD_MS=$(( (END - START) / 1000000 ))
           echo "{\"build_ms\": $BUILD_MS}" > "../../../main-build.json"
@@ -101,7 +101,7 @@ jobs:
           rm -rf "$OUT_BASE"
 
           START=$(date +%s%N)
-          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= //:bench
+          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= //:bench //:bench_syspath
           END=$(date +%s%N)
           BUILD_MS=$(( (END - START) / 1000000 ))
           echo "{\"build_ms\": $BUILD_MS}" > "../../../pr-build.json"
