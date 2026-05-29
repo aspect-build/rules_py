@@ -88,7 +88,7 @@ files:
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/cases/uv-deps-650/crossbuild/._app_bin.venv/lib/python3.12/site-packages/psycopg2 -> ../../../_wheels/e73c8722/lib/python3.12/site-packages/psycopg2
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/cases/uv-deps-650/crossbuild/._app_bin.venv/lib/python3.12/site-packages/psycopg2_binary-2.9.11.dist-info -> ../../../_wheels/e73c8722/lib/python3.12/site-packages/psycopg2_binary-2.9.11.dist-info
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/cases/uv-deps-650/crossbuild/._app_bin.venv/lib/python3.12/site-packages/psycopg2_binary.libs -> ../../../_wheels/e73c8722/lib/python3.12/site-packages/psycopg2_binary.libs
-  - -rwxr-xr-x  0 0      0         160 Jan  1  2023 ./app.runfiles/_main/cases/uv-deps-650/crossbuild/._app_bin.venv/pyvenv.cfg
+  - -rwxr-xr-x  0 0      0         246 Jan  1  2023 ./app.runfiles/_main/cases/uv-deps-650/crossbuild/._app_bin.venv/pyvenv.cfg
   - -rwxr-xr-x  0 0      0          66 Jan  1  2023 ./app.runfiles/_main/cases/uv-deps-650/crossbuild/__main__.py
   - -rwxr-xr-x  0 0      0        1275 Jan  1  2023 ./app.runfiles/_main/cases/uv-deps-650/crossbuild/_app_bin.venv
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_12_x86_64_unknown_linux_gnu/bin/2to3 -> 2to3-3.12
