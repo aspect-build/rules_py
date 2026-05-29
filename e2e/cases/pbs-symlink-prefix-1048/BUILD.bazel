@@ -1,0 +1,22 @@
+"""Regression tests for issue #1048.
+
+Verify that sys.base_prefix correctly resolves to the PBS installation
+directory in the runfiles tree, not the PBS compile-time /install sentinel.
+Affected: Python 3.11 and 3.12 with python-build-standalone.
+"""
+
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+[
+    py_test(
+        name = "test_{}".format(version.replace(".", "")),
+        srcs = ["test_pbs_prefix.py"],
+        main = "test_pbs_prefix.py",
+        python_version = version,
+        deps = ["//tools/verify_venv"],
+    )
+    for version in [
+        "3.11",
+        "3.12",
+    ]
+]
