@@ -180,7 +180,7 @@ _attrs = dict({
         doc = """The name of a configured dependency group within which to resolve dependencies.
 
 May be overridden with the --@pip//dep_group=<> CLI flag.
-Only works with the experimental Aspect pip machinery.
+Only works with the Aspect rules_py uv machinery.
 """,
     ),
     "python_version": attr.string(

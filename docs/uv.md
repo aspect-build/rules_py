@@ -1,4 +1,4 @@
-# (experimental) `aspect_rules_py//uv`
+# `aspect_rules_py//uv`
 
 `aspect_rules_py` provides an alternative to the venerable `rules_python`
 `pip.parse` implementation, which leverages the
