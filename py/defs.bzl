@@ -50,8 +50,10 @@ PyLayerTierInfo = _PyLayerTierInfo
 resolutions = _resolutions
 
 def _resolve_main(name, srcs, main):
-    """Macro-time fallback for `main`. Mirrors `_determine_main` in
-    py_semantics.bzl, except it operates on label strings instead of
+    """Macro-time fallback for `main`.
+
+    Mirrors `_determine_main` in py_semantics.bzl,
+    except it operates on label strings instead of
     files because srcs no longer reaches the underlying rule. Order:
 
     1. Use `main` if set.
@@ -163,7 +165,7 @@ def py_test(name, srcs = [], main = None, pytest_main = False, **kwargs):
     if resolutions:
         resolutions = resolutions.to_label_keyed_dict()
 
-    deps = kwargs.pop("deps", [])
+    deps = list(kwargs.pop("deps", []))
     if pytest_main:
         if main:
             fail("When pytest_main is set, the main attribute should not be set.")
