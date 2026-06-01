@@ -420,19 +420,29 @@ def assemble_venv(
     )
     declared.append(site_packages_pth_file)
 
-    # pyvenv.cfg. `home = ./bin/` points at the venv's own bin dir
-    # (relative to pyvenv.cfg's location), so Python finds our bin/python
-    # symlink there and follows it to locate the real interpreter and
-    # derive sys.base_prefix.
+    # pyvenv.cfg. For hermetic interpreters, point `home` directly at the PBS
+    # bin/ directory rather than ./bin/ (the venv's own deep runfiles symlink).
+    # Python 3.11/3.12's pure-Python resolvedpath() in getpath.py fails on
+    # multi-hop relative symlinks across repo boundaries, falling back to the
+    # compile-time /install prefix → ModuleNotFoundError: No module named
+    # 'encodings'. One local hop (python → python3.11 within PBS bin/) works.
+    if py_toolchain.runfiles_interpreter:
+        pbs_rlocation = to_rlocation_path(ctx, py_toolchain.python)
+        pbs_bin_dir = "/".join(pbs_rlocation.split("/")[:-1])
+        pyvenv_home = "{}/{}".format(venv_to_runfiles_escape, pbs_bin_dir)
+    else:
+        pyvenv_home = "./bin"
+
     pyvenv_cfg = ctx.actions.declare_file("{}/pyvenv.cfg".format(venv_name))
     ctx.actions.write(
         output = pyvenv_cfg,
-        content = ("home = ./bin/\n" +
+        content = ("home = {home}\n" +
                    "implementation = CPython\n" +
                    "version_info = {major}.{minor}.{micro}\n" +
                    "include-system-site-packages = {include_system}\n" +
                    "aspect-include-user-site-packages = {include_user}\n" +
                    "relocatable = true\n").format(
+            home = pyvenv_home,
             major = py_toolchain.interpreter_version_info.major,
             minor = py_toolchain.interpreter_version_info.minor,
             micro = py_toolchain.interpreter_version_info.micro,

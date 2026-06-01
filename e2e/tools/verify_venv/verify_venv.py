@@ -108,6 +108,26 @@ def verify_in_venv():
     )
 
 
+def verify_base_prefix():
+    """sys.base_prefix must not be the PBS compile-time /install sentinel."""
+    assert sys.base_prefix != "/install", (
+        f"sys.base_prefix is '/install' (the PBS compile-time prefix) instead of "
+        f"the real interpreter installation. Python {sys.version} failed to resolve "
+        f"the runfiles symlink chain in pyvenv.cfg's home= key."
+    )
+    assert os.path.isdir(sys.base_prefix), (
+        f"sys.base_prefix={sys.base_prefix!r} does not exist on disk"
+    )
+    stdlib_dir = os.path.join(
+        sys.base_prefix,
+        "lib",
+        f"python{sys.version_info.major}.{sys.version_info.minor}",
+    )
+    assert os.path.isdir(stdlib_dir), (
+        f"stdlib not found at {stdlib_dir!r} (sys.base_prefix={sys.base_prefix!r})"
+    )
+
+
 def verify_sys_path():
     missing = []
     for p in sys.path:
@@ -139,6 +159,7 @@ def verify_all(imports=()):
     verify_interpreter_symlinks()
     verify_no_dangling_symlinks()
     verify_in_venv()
+    verify_base_prefix()
     verify_sys_path()
     verify_imports(imports)
 
