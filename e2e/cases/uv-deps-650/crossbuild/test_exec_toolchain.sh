@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-# Verifies that UNPACK_TOOLCHAIN always resolves the exec-platform binary,
-# even when the target platform is arm64.
+# Verifies that EXEC_TOOLS_TOOLCHAIN always resolves the exec-platform Python
+# interpreter, even when the target platform is arm64.
 #
-# The whl_install rule uses ctx.toolchains[UNPACK_TOOLCHAIN] directly because
-# UNPACK_TOOLCHAIN is registered with exec_compatible_with, so Bazel always selects
-# the exec-platform binary.
+# The whl_install and py_unpacked_wheel rules use ctx.toolchains[EXEC_TOOLS_TOOLCHAIN]
+# to run unpack.py. That toolchain is registered with exec_compatible_with, so Bazel
+# must always select the interpreter that runs on the build host — never an arm64
+# binary that would fail with "Exec format error" on an amd64 host.
 #
 # This test confirms that: when we transition to an arm64 target platform on
-# an amd64 exec host, the resolved unpack binary path still refers to the amd64
-# binary (not an arm64 binary that would fail with "Exec format error").
+# an amd64 exec host, the resolved Python interpreter path still refers to an
+# amd64 (host) binary.
 set -euo pipefail
 
 DIR="${TEST_SRCDIR}/_main/cases/uv-deps-650/crossbuild"
@@ -29,27 +30,27 @@ fi
 native_path=$(cat "$native_path_file")
 arm64_path=$(cat "$arm64_path_file")
 
-echo "Native unpack path:       $native_path"
-echo "Arm64-target unpack path: $arm64_path"
+echo "Native exec Python path:       $native_path"
+echo "Arm64-target exec Python path: $arm64_path"
 
 # The arm64 platform transition changes the configuration fingerprint (the
-# ST-* hash in the output path) even when the resolved binary is the same
+# ST-* hash in the output path) even when the resolved interpreter is the same
 # exec-platform tool. Path equality is therefore not a valid assertion.
 #
-# What matters is that neither build resolved an arm64/aarch64 binary. If
+# What matters is that neither build resolved an arm64/aarch64 interpreter. If
 # toolchain resolution used the target platform instead of the exec platform,
-# the path would contain "arm64" or "aarch64" and the binary would fail at
+# the path would contain "arm64" or "aarch64" and the interpreter would fail at
 # runtime with "Exec format error".
 if [[ "$arm64_path" == *"arm64"* ]] || [[ "$arm64_path" == *"aarch64"* ]]; then
-    echo "FAIL: arm64-target unpack path contains arm64/aarch64 — exec platform not honoured."
+    echo "FAIL: arm64-target exec Python path contains arm64/aarch64 — exec platform not honoured."
     echo "  Path: $arm64_path"
     exit 1
 fi
 
 if [[ "$native_path" == *"arm64"* ]] || [[ "$native_path" == *"aarch64"* ]]; then
-    echo "FAIL: native unpack path unexpectedly contains arm64/aarch64."
+    echo "FAIL: native exec Python path unexpectedly contains arm64/aarch64."
     echo "  Path: $native_path"
     exit 1
 fi
 
-echo "PASS: UNPACK_TOOLCHAIN resolved exec-platform binary for arm64 target ($(uname -m) host)"
+echo "PASS: EXEC_TOOLS_TOOLCHAIN resolved exec-platform Python for arm64 target ($(uname -m) host)"

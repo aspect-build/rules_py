@@ -1,26 +1,18 @@
 """Declare toolchains"""
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
-load("//py/private/release:version.bzl", "IS_PRERELEASE")
-load("//py/private/toolchain:repo.bzl", "prebuilt_tool_repo", "prerelease_toolchains_repo", "toolchains_repo")
-load("//py/private/toolchain:tools.bzl", "TOOLCHAIN_PLATFORMS")
+load("//py/private/toolchain:repo.bzl", "toolchains_repo")
 
 DEFAULT_TOOLS_REPOSITORY = "rules_py_tools"
 
-def rules_py_toolchains(name = DEFAULT_TOOLS_REPOSITORY, is_prerelease = IS_PRERELEASE):
-    """Create a downloaded toolchain for every tool under every supported platform.
+def rules_py_toolchains(name = DEFAULT_TOOLS_REPOSITORY, **kwargs):
+    """Create toolchain repositories for rules_py.
 
     Args:
         name: prefix used in created repositories
-        is_prerelease: True iff there are no pre-built tool binaries for this version of rules_py
+        **kwargs: unused, retained for backwards compatibility
     """
-
-    if is_prerelease:
-        prerelease_toolchains_repo(name = name)
-    else:
-        for platform in TOOLCHAIN_PLATFORMS.keys():
-            prebuilt_tool_repo(name = ".".join([name, platform]), platform = platform)
-        toolchains_repo(name = name, user_repository_name = name)
+    toolchains_repo(name = name, user_repository_name = name)
 
     http_file(
         name = "rules_py_pex_2_3_1",
