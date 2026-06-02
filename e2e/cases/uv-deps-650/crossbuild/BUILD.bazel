@@ -4,21 +4,17 @@ load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_image_index")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//tools:asserts.bzl", "assert_tar_listing")
-load(":toolchain_test.bzl", "unpack_toolchain_path")
+load(":toolchain_test.bzl", "exec_python_path")
 
 platform(
     name = "arm64_linux",
     constraint_values = [
         "@platforms//os:linux",
         "@platforms//cpu:aarch64",
-        # rules_rs Rust toolchains for linux-gnu targets require gnu.2.28.
-        "@llvm//constraints/libc:gnu.2.28",
     ],
     flags = [
         "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
         "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.39",
-        "--@rules_rust//:extra_rustc_flag=-Cstrip=debuginfo",
-        "--@rules_rust//rust/settings:lto=fat",
         "--stripopt=--strip-all",
     ],
 )
@@ -28,14 +24,10 @@ platform(
     constraint_values = [
         "@platforms//os:linux",
         "@platforms//cpu:x86_64",
-        # rules_rs Rust toolchains for linux-gnu targets require gnu.2.28.
-        "@llvm//constraints/libc:gnu.2.28",
     ],
     flags = [
         "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
         "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.39",
-        "--@rules_rust//:extra_rustc_flag=-Cstrip=debuginfo",
-        "--@rules_rust//rust/settings:lto=fat",
         "--stripopt=--strip-all",
     ],
 )
@@ -110,20 +102,21 @@ oci_image_index(
     ],
 )
 
-# ── Test: UNPACK_TOOLCHAIN resolves exec-platform binary (analysis-time) ──
+# ── Test: EXEC_TOOLS_TOOLCHAIN resolves exec-platform Python (analysis-time) ──
 #
-# Verifies that ctx.toolchains[UNPACK_TOOLCHAIN] selects the exec-platform
-# binary even when the target platform is arm64. The unpack toolchain is
-# registered with exec_compatible_with.
+# Verifies that ctx.toolchains[EXEC_TOOLS_TOOLCHAIN] selects the exec-platform
+# Python interpreter even when the target platform is arm64. The unpack.py
+# script runs on this interpreter, so exec-platform resolution is the critical
+# invariant for hermetic cross-arch wheel installs.
 
-unpack_toolchain_path(
+exec_python_path(
     name = "unpack_path",
 )
 
 # A second rule instance whose output is named unpack_path_for_arm64.txt.
 # platform_transition_filegroup re-exports its srcs' files unchanged, so the
 # source rule's name determines the filename visible in the test's runfiles.
-unpack_toolchain_path(
+exec_python_path(
     name = "unpack_path_for_arm64",
 )
 

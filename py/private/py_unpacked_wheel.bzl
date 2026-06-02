@@ -5,15 +5,17 @@ load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/private:pth.bzl", "make_imports_depset")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
-load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "UNPACK_TOOLCHAIN")
+load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PY_TOOLCHAIN")
 
 def _py_unpacked_wheel_impl(ctx):
     py_toolchain = _py_semantics.resolve_toolchain(ctx)
-    unpack_toolchain = ctx.toolchains[UNPACK_TOOLCHAIN]
+    exec_runtime = ctx.toolchains[EXEC_TOOLS_TOOLCHAIN].exec_tools.exec_runtime
+    unpack_script = ctx.file._unpack_script
 
     unpack_directory = ctx.actions.declare_directory("{}".format(ctx.attr.name))
 
     args = ctx.actions.args()
+    args.add(unpack_script)
     args.add_all([unpack_directory], expand_directories = False, before_each = "--into")
     args.add("--wheel", ctx.file.src)
     args.add("--python-version-major", py_toolchain.interpreter_version_info.major)
@@ -21,13 +23,16 @@ def _py_unpacked_wheel_impl(ctx):
 
     ctx.actions.run(
         outputs = [unpack_directory],
-        inputs = depset([ctx.file.src], transitive = [py_toolchain.files]),
-        executable = unpack_toolchain.bin.bin,
+        inputs = depset(
+            [ctx.file.src, unpack_script, exec_runtime.interpreter],
+            transitive = [py_toolchain.files, exec_runtime.files],
+        ),
+        executable = exec_runtime.interpreter,
         arguments = [args],
         execution_requirements = {"supports-path-mapping": "1"},
         mnemonic = "PyUnpackedWheel",
         progress_message = "Unpacking wheel {}".format(ctx.file.src.basename),
-        toolchain = UNPACK_TOOLCHAIN,
+        toolchain = EXEC_TOOLS_TOOLCHAIN,
     )
 
     py_ver_dir = "python{}.{}".format(
@@ -89,6 +94,10 @@ def _py_unpacked_wheel_impl(ctx):
     return providers
 
 _attrs = {
+    "_unpack_script": attr.label(
+        default = "//py/tools/unpack:unpack.py",
+        allow_single_file = True,
+    ),
     "src": attr.label(
         doc = "The Wheel file, as defined by https://packaging.python.org/en/latest/specifications/binary-distribution-format/#binary-distribution-format",
         allow_single_file = [".whl"],
@@ -136,6 +145,6 @@ py_unpacked_wheel = rule(
     provides = [PyInfo],
     toolchains = [
         PY_TOOLCHAIN,
-        UNPACK_TOOLCHAIN,
+        EXEC_TOOLS_TOOLCHAIN,
     ],
 )

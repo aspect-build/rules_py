@@ -1,11 +1,6 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load(":tools.bzl", "dummy_toolchain")
 
-toolchain_type(
-    name = "unpack_exec_toolchain_type",
-    visibility = ["//visibility:public"],
-)
-
 # Dummy toolchain backing target — no binary, used as a sentinel.
 # Public so the generated @rules_py_tools repo can reference it for
 # native_build toolchain entries.
@@ -28,25 +23,16 @@ bzl_library(
     name = "repo",
     srcs = ["repo.bzl"],
     visibility = ["//py:__subpackages__"],
-    deps = [
-        ":tools",
-        "//py/private/release:integrity",
-        "//py/private/release:version",
-    ],
+    deps = [":tools"],
 )
 
 bzl_library(
     name = "tools",
     srcs = ["tools.bzl"],
-    visibility = [
-        "//py:__subpackages__",
-    ],
-    deps = [
-        ":types",
-        "@bazel_skylib//lib:structs",
-    ],
+    visibility = ["//py:__subpackages__"],
 )
 
+# gazelle:ignore
 bzl_library(
     name = "types",
     srcs = ["types.bzl"],
@@ -54,5 +40,4 @@ bzl_library(
         "//py:__subpackages__",
         "//uv:__subpackages__",
     ],
-    deps = [],
 )

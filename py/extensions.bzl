@@ -3,7 +3,6 @@
 load("@aspect_tools_telemetry_report//:defs.bzl", "TELEMETRY")  # buildifier: disable=load
 load("@bazel_features//:features.bzl", features = "bazel_features")
 load("//py/private/interpreter:extension.bzl", _python_interpreters = "python_interpreters")
-load("//py/private/release:version.bzl", "IS_PRERELEASE")
 load(":toolchains.bzl", "DEFAULT_TOOLS_REPOSITORY", "rules_py_toolchains")
 
 python_interpreters = _python_interpreters
@@ -13,10 +12,6 @@ py_toolchain = tag_class(attrs = {
 Base name for generated repositories, allowing more than one toolchain to be registered.
 Overriding the default is only permitted in the root module.
 """, default = DEFAULT_TOOLS_REPOSITORY),
-    "is_prerelease": attr.bool(
-        doc = "True iff there are no pre-built tool binaries for this version of rules_py",
-        default = IS_PRERELEASE,
-    ),
 })
 
 def _toolchains_extension_impl(module_ctx):
@@ -32,7 +27,7 @@ def _toolchains_extension_impl(module_ctx):
 
             # Ensure the root wins in case of differences
             if mod.is_root:
-                rules_py_toolchains(toolchain.name, is_prerelease = toolchain.is_prerelease)
+                rules_py_toolchains(toolchain.name)
                 root_name = toolchain.name
             else:
                 registrations.append(toolchain.name)

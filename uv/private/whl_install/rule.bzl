@@ -3,34 +3,28 @@
 
 load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private:providers.bzl", "PyWheelsInfo")
-load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PY_TOOLCHAIN", "UNPACK_TOOLCHAIN")
+load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PY_TOOLCHAIN")
 
 def _whl_install(ctx):
     py_toolchain = ctx.toolchains[PY_TOOLCHAIN].py3_runtime
+    exec_runtime = ctx.toolchains[EXEC_TOOLS_TOOLCHAIN].exec_tools.exec_runtime
     install_dir = ctx.actions.declare_directory(
         "install",
     )
 
     archive = ctx.file.src
-
+    unpack_script = ctx.file._unpack_script
     arguments = ctx.actions.args()
-
-    # Pass File objects (not .path strings) so Bazel can rewrite paths for
-    # remote-cache deduplication when supports-path-mapping is set.
-    #
-    # Both install_dir and archive may be tree artifacts (install_dir is always
-    # a declare_directory; archive is a tree when src is a directory containing
-    # a single wheel). Args#add rejects directories
-    # outright; Args#add_all with expand_directories=False passes the directory
-    # path itself without enumerating its contents.
-    # https://bazel.build/versions/7.1.0/rules/lib/builtins/Args#add
-    # https://bazel.build/versions/7.1.0/rules/lib/builtins/Args#add_all
+    arguments.add(unpack_script)
     arguments.add_all([install_dir], expand_directories = False, before_each = "--into")
     arguments.add_all([archive], expand_directories = False, before_each = "--wheel")
     arguments.add("--python-version-major", py_toolchain.interpreter_version_info.major)
     arguments.add("--python-version-minor", py_toolchain.interpreter_version_info.minor)
 
-    transitive_inputs = [depset([archive])]
+    transitive_inputs = [
+        depset([archive, unpack_script, exec_runtime.interpreter]),
+        exec_runtime.files,
+    ]
 
     # Patch application (happens before pyc compilation).
     patch_files = [f for t in ctx.attr.patches for f in t[DefaultInfo].files.to_list()]
@@ -44,17 +38,14 @@ def _whl_install(ctx):
     # builds work (the target interpreter isn't runnable on the build host). This is
     # safe because .pyc bytecode varies by Python version, not by architecture.
     if ctx.attr.compile_pyc:
-        exec_runtime = ctx.toolchains[EXEC_TOOLS_TOOLCHAIN].exec_tools.exec_runtime
         arguments.add("--compile-pyc")
         arguments.add("--pyc-invalidation-mode", ctx.attr.pyc_invalidation_mode)
         arguments.add("--python", exec_runtime.interpreter)
-        transitive_inputs.append(depset([exec_runtime.interpreter], transitive = [exec_runtime.files]))
 
-    unpack = ctx.toolchains[UNPACK_TOOLCHAIN].bin.bin
     ctx.actions.run(
         mnemonic = "WhlInstall",
-        executable = unpack,
-        toolchain = UNPACK_TOOLCHAIN,
+        executable = exec_runtime.interpreter,
+        toolchain = EXEC_TOOLS_TOOLCHAIN,
         arguments = [arguments],
         inputs = depset(transitive = transitive_inputs),
         outputs = [
@@ -139,6 +130,10 @@ to bypass some of the platform checks that UV does to enable crossbuilds, and is
 lighter weight since the toolchain's files aren't inputs.
 """,
     attrs = {
+        "_unpack_script": attr.label(
+            default = "//py/tools/unpack:unpack.py",
+            allow_single_file = True,
+        ),
         "src": attr.label(
             allow_single_file = True,
             doc = "The wheel to install, or a tree artifact containing exactly one wheel at its root.",
@@ -199,7 +194,6 @@ machinery merges the contributions at runtime.
     },
     toolchains = [
         PY_TOOLCHAIN,
-        UNPACK_TOOLCHAIN,
         EXEC_TOOLS_TOOLCHAIN,
     ],
     provides = [

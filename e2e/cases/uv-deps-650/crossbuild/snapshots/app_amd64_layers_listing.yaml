@@ -57,9 +57,9 @@ files:
   - -rwxr-xr-x  0 0      0        6316 Jan  1  2023 ./app.runfiles/_main/cases/uv-deps-650/crossbuild/._app_bin.venv/_wheels/e73c8722/lib/python3.12/site-packages/psycopg2/pool.py
   - -rwxr-xr-x  0 0      0       14779 Jan  1  2023 ./app.runfiles/_main/cases/uv-deps-650/crossbuild/._app_bin.venv/_wheels/e73c8722/lib/python3.12/site-packages/psycopg2/sql.py
   - -rwxr-xr-x  0 0      0        4870 Jan  1  2023 ./app.runfiles/_main/cases/uv-deps-650/crossbuild/._app_bin.venv/_wheels/e73c8722/lib/python3.12/site-packages/psycopg2/tz.py
-  - -rwxr-xr-x  0 0      0          14 Jan  1  2023 ./app.runfiles/_main/cases/uv-deps-650/crossbuild/._app_bin.venv/_wheels/e73c8722/lib/python3.12/site-packages/psycopg2_binary-2.9.11.dist-info/INSTALLER
+  - -rwxr-xr-x  0 0      0          15 Jan  1  2023 ./app.runfiles/_main/cases/uv-deps-650/crossbuild/._app_bin.venv/_wheels/e73c8722/lib/python3.12/site-packages/psycopg2_binary-2.9.11.dist-info/INSTALLER
   - -rwxr-xr-x  0 0      0        4936 Jan  1  2023 ./app.runfiles/_main/cases/uv-deps-650/crossbuild/._app_bin.venv/_wheels/e73c8722/lib/python3.12/site-packages/psycopg2_binary-2.9.11.dist-info/METADATA
-  - -rwxr-xr-x  0 0      0        3050 Jan  1  2023 ./app.runfiles/_main/cases/uv-deps-650/crossbuild/._app_bin.venv/_wheels/e73c8722/lib/python3.12/site-packages/psycopg2_binary-2.9.11.dist-info/RECORD
+  - -rwxr-xr-x  0 0      0        3083 Jan  1  2023 ./app.runfiles/_main/cases/uv-deps-650/crossbuild/._app_bin.venv/_wheels/e73c8722/lib/python3.12/site-packages/psycopg2_binary-2.9.11.dist-info/RECORD
   - -rwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/cases/uv-deps-650/crossbuild/._app_bin.venv/_wheels/e73c8722/lib/python3.12/site-packages/psycopg2_binary-2.9.11.dist-info/REQUESTED
   - -rwxr-xr-x  0 0      0         151 Jan  1  2023 ./app.runfiles/_main/cases/uv-deps-650/crossbuild/._app_bin.venv/_wheels/e73c8722/lib/python3.12/site-packages/psycopg2_binary-2.9.11.dist-info/WHEEL
   - -rwxr-xr-x  0 0      0        2238 Jan  1  2023 ./app.runfiles/_main/cases/uv-deps-650/crossbuild/._app_bin.venv/_wheels/e73c8722/lib/python3.12/site-packages/psycopg2_binary-2.9.11.dist-info/licenses/LICENSE
