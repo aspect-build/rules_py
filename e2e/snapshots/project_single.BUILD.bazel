@@ -42,6 +42,7 @@ alias(
     name = "cowsay",
     actual = select({
         "//private/dep_group:single_project_hub": ":_package_cowsay_single_project_hub",
+        "//conditions:default": ":_package_cowsay_single_project_hub",
     }),
     visibility = ["//visibility:public"],
 )
@@ -51,6 +52,7 @@ alias(
     name = "cowsay_whl",
     actual = select({
         "//private/dep_group:single_project_hub": ":_package_cowsay_single_project_hub_whl",
+        "//conditions:default": ":_package_cowsay_single_project_hub_whl",
     }),
     visibility = ["//visibility:public"],
 )
@@ -88,6 +90,7 @@ alias(
     name = "single_project_hub",
     actual = select({
         "//private/dep_group:single_project_hub": ":_package_single_project_hub_single_project_hub",
+        "//conditions:default": ":_package_single_project_hub_single_project_hub",
     }),
     visibility = ["//visibility:public"],
 )
@@ -97,6 +100,7 @@ alias(
     name = "single_project_hub_whl",
     actual = select({
         "//private/dep_group:single_project_hub": ":_package_single_project_hub_single_project_hub_whl",
+        "//conditions:default": ":_package_single_project_hub_single_project_hub_whl",
     }),
     visibility = ["//visibility:public"],
 )
