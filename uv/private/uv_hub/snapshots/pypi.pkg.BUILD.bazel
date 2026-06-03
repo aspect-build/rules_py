@@ -13,6 +13,7 @@ alias(
     name = "whl",
     actual = select({
           "//dep_group:aspect_rules_py": "@project__aspect_rules_py//:pkg_whl",
+          "//conditions:default": "@project__aspect_rules_py//:pkg_whl",
       }),
     target_compatible_with = select(compatible_with(["aspect_rules_py"])),
     visibility = ["//visibility:public"],
@@ -26,6 +27,7 @@ alias(
     name = "pkg",
     actual = select({
           "//dep_group:aspect_rules_py": "@project__aspect_rules_py//:pkg",
+          "//conditions:default": "@project__aspect_rules_py//:pkg",
       },
         no_match_error = "Available only in dep_groups: aspect_rules_py",
     ),

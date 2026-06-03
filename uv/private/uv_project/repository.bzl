@@ -201,6 +201,14 @@ alias(
 )
 """.format(name = whl_cfg_name, arms = indent(pprint(whl_cfg_arms), " " * 4).lstrip()))
 
+        # When a package is only available in a single virtualenv, allow it to
+        # resolve without an explicit dep_group selection.
+        if len(cfgs) == 1:
+            single_cfg = list(cfgs.keys())[0]
+            single_cfg_name = "_package_{}_{}".format(package, single_cfg)
+            main_arms["//conditions:default"] = ":" + single_cfg_name
+            whl_main_arms["//conditions:default"] = ":" + single_cfg_name + "_whl"
+
         # Finally we can render the wrapper over all the component arms
         content.append("""
 alias(

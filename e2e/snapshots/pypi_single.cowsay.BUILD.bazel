@@ -18,6 +18,7 @@ alias(
     name = "whl",
     actual = select({
           "//dep_group:single_project_hub": "@project__single_project_hub//:cowsay_whl",
+          "//conditions:default": "@project__single_project_hub//:cowsay_whl",
       }),
     target_compatible_with = select(compatible_with(["single_project_hub"])),
     visibility = ["//visibility:public"],
@@ -31,6 +32,7 @@ alias(
     name = "cowsay",
     actual = select({
           "//dep_group:single_project_hub": "@project__single_project_hub//:cowsay",
+          "//conditions:default": "@project__single_project_hub//:cowsay",
       },
         no_match_error = "Available only in dep_groups: single_project_hub",
     ),
