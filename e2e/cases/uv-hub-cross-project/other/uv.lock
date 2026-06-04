@@ -11,7 +11,7 @@ wheels = [
 ]
 
 [[package]]
-name = "other"
+name = "other-project"
 version = "0.0.0"
 source = { virtual = "." }
 dependencies = [

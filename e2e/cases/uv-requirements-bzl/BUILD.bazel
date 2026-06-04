@@ -24,7 +24,7 @@ _ALL_DATA_REQUIREMENTS_COUNT = len(all_data_requirements)
 py_test(
     name = "requirement_helper_test",
     srcs = ["__test__.py"],
-    dep_group = "requirements-bzl-demo",
+    dep_group = "requirements_bzl_demo",
     main = "__test__.py",
     python_version = "3.12",
     deps = [requirement("cowsay")],
@@ -34,7 +34,7 @@ py_test(
 py_test(
     name = "pkg_alias_test",
     srcs = ["__test__.py"],
-    dep_group = "requirements-bzl-demo",
+    dep_group = "requirements_bzl_demo",
     main = "__test__.py",
     python_version = "3.12",
     deps = ["@pypi_requirements_bzl//cowsay:pkg"],
@@ -44,7 +44,7 @@ py_test(
 py_test(
     name = "all_requirements_test",
     srcs = ["__test__.py"],
-    dep_group = "requirements-bzl-demo",
+    dep_group = "requirements_bzl_demo",
     main = "__test__.py",
     python_version = "3.12",
     deps = all_requirements,
@@ -55,7 +55,7 @@ py_test(
     name = "whl_data_test",
     srcs = ["__whl_test__.py"],
     data = ["@pypi_requirements_bzl//cowsay:whl"],
-    dep_group = "requirements-bzl-demo",
+    dep_group = "requirements_bzl_demo",
     main = "__whl_test__.py",
     python_version = "3.12",
 )
@@ -65,7 +65,7 @@ py_test(
     name = "all_whl_data_test",
     srcs = ["__whl_test__.py"],
     data = all_whl_requirements,
-    dep_group = "requirements-bzl-demo",
+    dep_group = "requirements_bzl_demo",
     main = "__whl_test__.py",
     python_version = "3.12",
 )
@@ -75,7 +75,7 @@ py_test(
     name = "all_whl_by_package_data_test",
     srcs = ["__whl_test__.py"],
     data = [whl for whl in all_whl_requirements_by_package.values()],
-    dep_group = "requirements-bzl-demo",
+    dep_group = "requirements_bzl_demo",
     main = "__whl_test__.py",
     python_version = "3.12",
 )
@@ -86,7 +86,7 @@ py_test(
 py_test(
     name = "multi_package_imports_test",
     srcs = ["__multi_test__.py"],
-    dep_group = "requirements-bzl-demo",
+    dep_group = "requirements_bzl_demo",
     main = "__multi_test__.py",
     python_version = "3.12",
     deps = all_requirements,
@@ -98,7 +98,7 @@ py_test(
 py_test(
     name = "requirement_normalization_test",
     srcs = ["__dateutil_test__.py"],
-    dep_group = "requirements-bzl-demo",
+    dep_group = "requirements_bzl_demo",
     main = "__dateutil_test__.py",
     python_version = "3.12",
     deps = [requirement("Python-DateUtil")],

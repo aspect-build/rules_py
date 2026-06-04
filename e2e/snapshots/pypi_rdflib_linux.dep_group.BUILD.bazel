@@ -6,15 +6,6 @@ alias(
 
 
 config_setting(
-    name = "other",
-    flag_values = {
-        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "other",
-    },
-    visibility = ["//visibility:public"],
-)
-
-
-config_setting(
     name = "rdflib_linux",
     flag_values = {
         "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "rdflib_linux",

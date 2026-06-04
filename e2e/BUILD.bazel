@@ -36,14 +36,7 @@ write_source_files(
     name = "snapshots",
     testonly = True,
     files = {
-        # @pypi_rdflib_linux — regression: hyphen/underscore normalization in dep_group names.
-        # ----------------------------------------------------------------
-        # The project is named "rdflib-linux" (hyphens, Python convention). uv_hub
-        # currently emits config_setting(name = "rdflib-linux") using the raw name,
-        # so dep_group = "rdflib_linux" (underscore, Bazel convention) never matches
-        # → @@platforms//:incompatible. The fix must normalize the name to underscores.
-        # This snapshot pins the DESIRED (fixed) state; it FAILS today and PASSES once
-        # uv_hub normalises dep_group names via normalize_name().
+        # @pypi_rdflib_linux — dep_group names must be underscore-normalized.
         "snapshots/pypi_rdflib_linux.dep_group.BUILD.bazel": "@pypi_rdflib_linux//dep_group:BUILD.bazel",
 
         # @pypi_multi (multi-project: alpha, beta, gamma)

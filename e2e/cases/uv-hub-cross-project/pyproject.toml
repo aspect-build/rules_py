@@ -1,8 +1,8 @@
 [project]
-name = "other"
+name = "rdflib-project"
 version = "0.0.0"
 authors = []
 requires-python = ">=3.11"
 dependencies = [
-    "cowsay",
+    "rdflib>=7.0.0",
 ]
