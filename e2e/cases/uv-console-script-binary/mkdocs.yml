@@ -1,0 +1,10 @@
+site_name: rules_py e2e
+docs_dir: docs
+
+plugins:
+  # Provided by mkdocs-github-admonitions-plugin, which is only reachable via
+  # the `deps` attribute of py_console_script_binary.
+  - gh-admonitions
+
+markdown_extensions:
+  - admonition
