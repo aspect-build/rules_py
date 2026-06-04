@@ -49,7 +49,23 @@ def py_console_script_binary(
         name,
         pkg,
         script = None,
+        deps = [],
+        venv = None,
         visibility = ["//visibility:public"]):
+    """Build a binary for a console_script entrypoint of a package.
+
+    Args:
+        name: Name of the binary target.
+        pkg: The package providing the console script (e.g. `@pypi//mkdocs`).
+        script: Name of the console script as declared in the package's
+            entry points. Defaults to `name`.
+        deps: Additional dependencies made available at runtime, beyond `pkg`
+            and its own dependencies. Used for packages discovered dynamically
+            via entry points, such as mkdocs or pytest plugins.
+        venv: The virtualenv within which to resolve dependencies, forwarded
+            to the underlying `py_venv_binary` targets.
+        visibility: Visibility of the binary target.
+    """
     main = "_{}_entrypoint".format(name)
     tmpl = Label("@aspect_rules_py//uv/private/py_entrypoint_binary:entrypoint.tmpl")
 
@@ -62,6 +78,7 @@ def py_console_script_binary(
         deps = [pkg],
         main = search_py,
         srcs = [search_py],
+        venv = venv,
     )
 
     native.genrule(
@@ -82,6 +99,7 @@ def py_console_script_binary(
         name = name,
         main = search,
         srcs = [search],
-        deps = [pkg],
+        deps = [pkg] + deps,
+        venv = venv,
         visibility = visibility,
     )
