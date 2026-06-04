@@ -1,0 +1,23 @@
+# Two regression vectors for @@platforms//:incompatible on rdflib:
+#
+# 1. Hyphen/underscore mismatch: pyproject.toml name = "rdflib-linux" (hyphens).
+#    uv_hub emits config_setting(name = "rdflib-linux") with the raw name.
+#    dep_group = "rdflib_linux" (underscore) doesn't match → incompatible.
+#
+# 2. Multi-project hub: "other" project shares the hub but has no rdflib dep.
+#    Building with dep_group = "other" causes rdflib alias to fall through to
+#    //conditions:default → @@platforms//:incompatible.
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_rdflib_linux")
+uv.project(
+    hub_name = "pypi_rdflib_linux",
+    lock = "//cases/rdflib-linux:uv.lock",
+    pyproject = "//cases/rdflib-linux:pyproject.toml",
+)
+uv.project(
+    hub_name = "pypi_rdflib_linux",
+    lock = "//cases/rdflib-linux/other:uv.lock",
+    pyproject = "//cases/rdflib-linux/other:pyproject.toml",
+)
+use_repo(uv, "pypi_rdflib_linux")

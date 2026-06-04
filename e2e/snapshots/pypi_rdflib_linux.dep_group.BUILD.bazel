@@ -1,0 +1,29 @@
+alias(
+    name = "dep_group",
+    actual = "@aspect_rules_py//uv/private/constraints/dep_group:dep_group",
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "other",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "other",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "rdflib_linux",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "rdflib_linux",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//visibility:public"],
+)

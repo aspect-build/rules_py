@@ -1,0 +1,58 @@
+# Regression: pyproject.toml name = "rdflib-linux" (hyphens, standard Python convention)
+# causes uv_hub to emit config_setting(name = "rdflib-linux", ...) with the raw name.
+# A user writing dep_group = "rdflib_linux" (underscores, natural Bazel convention)
+# gets a mismatch: flag "rdflib_linux" ≠ config_setting "rdflib-linux", so
+# compatible_with() falls through to //conditions:default and emits
+# @@platforms//:incompatible for the entire rdflib alias.
+#
+# Fix: normalize dep_group names in uv_hub (replace "-" → "_") before emitting
+# config_setting targets and flag_values.
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+# This sh_test reads the hub's generated dep_group/BUILD.bazel via exports_files()
+# — a source-file target that carries NO target_compatible_with, so incompatibility
+# does NOT propagate here. The test runs in //... and FAILS while the bug exists.
+#
+# Root cause it checks: uv_hub emits config_setting(name = "rdflib-linux") using the
+# raw pyproject.toml [project].name. A user writing dep_group = "rdflib_linux"
+# (underscore, Bazel convention) gets no match → @@platforms//:incompatible.
+# Fix: normalize dep_group names with normalize_name() in uv_hub/repository.bzl.
+sh_test(
+    name = "dep_group_names_normalized",
+    srcs = ["check_dep_group_names.sh"],
+    args = ["$(location @pypi_rdflib_linux//dep_group:BUILD.bazel)"],
+    data = ["@pypi_rdflib_linux//dep_group:BUILD.bazel"],
+    target_compatible_with = ["@platforms//os:linux"],
+)
+
+# Vector 1: hyphen/underscore mismatch.
+# pyproject.toml name = "rdflib-linux" → hub config_setting = "rdflib-linux".
+# dep_group = "rdflib_linux" (underscore) doesn't match → @@platforms//:incompatible.
+py_test(
+    name = "rdflib_linux",
+    srcs = ["__test__.py"],
+    dep_group = "rdflib_linux",
+    main = "__test__.py",
+    python_version = "3.11",
+    target_compatible_with = ["@platforms//os:linux"],
+    deps = [
+        "@pypi_rdflib_linux//rdflib",
+    ],
+)
+
+# Vector 2: multi-project hub, rdflib only in one project.
+# "other" project shares @pypi_rdflib_linux but has no rdflib dependency.
+# Building with dep_group = "other" → rdflib alias has no matching arm
+# for "other" → //conditions:default → @@platforms//:incompatible.
+py_test(
+    name = "rdflib_wrong_dep_group",
+    srcs = ["__test__.py"],
+    dep_group = "other",
+    main = "__test__.py",
+    python_version = "3.11",
+    target_compatible_with = ["@platforms//os:linux"],
+    deps = [
+        "@pypi_rdflib_linux//rdflib",
+    ],
+)
