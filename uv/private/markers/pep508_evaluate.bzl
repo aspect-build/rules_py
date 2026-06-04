@@ -95,6 +95,9 @@ def tokenize(marker):
 
         char = marker[0]
         if char in _BRACKETS:
+            if state in [_STATE.VAR, _STATE.OP]:
+                state = _STATE.NONE
+                continue  # Re-process this char after emitting the token
             state = _STATE.NONE
             token = char
         elif state == _STATE.STRING and char in _QUOTES:

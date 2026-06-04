@@ -189,7 +189,7 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
 
         for spec in resolved_specs:
             for dep, _marker in extract_requirement_marker_pairs(projectfile, lock_id, spec, default_versions, package_versions, group_preferences):
-                group_preferences[dep[1]] = (dep[0], dep[1], dep[2], "__base__")
+                group_preferences.setdefault(dep[1], (dep[0], dep[1], dep[2], "__base__"))
 
         all_group_preferences[group_name] = group_preferences
 

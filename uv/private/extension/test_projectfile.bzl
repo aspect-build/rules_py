@@ -200,6 +200,63 @@ collect_activated_extras_transitive_remap_test = unittest.make(
     _collect_activated_extras_transitive_remap_test_impl,
 )
 
+def _collect_activated_extras_setdefault_preserves_first_resolution_test_impl(ctx):
+    env = unittest.begin(ctx)
+
+    project_data = {
+        "project": {"name": "myapp"},
+        "dependency-groups": {
+            "base": ["requests"],
+            "dev": [
+                {"include-group": "base"},
+                "requests",  # requests appears a second time via direct inclusion
+            ],
+        },
+    }
+    lock_data = {
+        "manifest": {"members": ["myapp"]},
+        "package": [{
+            "name": "myapp",
+            "version": "0.0.0",
+            "source": {"virtual": "."},
+            "dev-dependencies": {
+                # The lockfile pins requests at 2.28.0 for both groups.
+                "base": [{"name": "requests", "version": "2.28.0"}],
+                "dev": [{"name": "requests", "version": "2.28.0"}],
+            },
+        }],
+    }
+    graph = {
+        ("lock", "requests", "2.28.0", "__base__"): {},
+        ("lock", "requests", "2.31.0", "__base__"): {},
+    }
+    package_versions = {
+        "requests": {"2.28.0": 1, "2.31.0": 1},
+    }
+
+    _cfg_names, activated_extras = collect_activated_extras(
+        "//:pyproject.toml",
+        "lock",
+        project_data,
+        lock_data,
+        {},
+        graph,
+        package_versions,
+    )
+
+    req_2280 = ("lock", "requests", "2.28.0", "__base__")
+    req_2310 = ("lock", "requests", "2.31.0", "__base__")
+
+    # requests==2.28.0 (lockfile-pinned) must be activated; 2.31.0 must not.
+    asserts.true(env, req_2280 in activated_extras)
+    asserts.false(env, req_2310 in activated_extras)
+
+    return unittest.end(env)
+
+collect_activated_extras_setdefault_preserves_first_resolution_test = unittest.make(
+    _collect_activated_extras_setdefault_preserves_first_resolution_test_impl,
+)
+
 def projectfile_test_suite():
     unittest.suite(
         "extract_requirement_marker_pairs_tests",
@@ -210,4 +267,5 @@ def projectfile_test_suite():
         extract_requirement_marker_pairs_preferred_overrides_version_map_test,
         extract_requirement_marker_pairs_preferred_overrides_multi_version_test,
         collect_activated_extras_transitive_remap_test,
+        collect_activated_extras_setdefault_preserves_first_resolution_test,
     )

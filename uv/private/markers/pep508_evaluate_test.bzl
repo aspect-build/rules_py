@@ -59,6 +59,20 @@ def _evaluate_test_impl(ctx):
     asserts.true(env, evaluate("((sys_platform == 'linux'))", env = _LINUX_ENV))
     asserts.true(env, evaluate("((sys_platform == 'linux') and (platform_machine == 'x86_64')) or sys_platform == 'win32'", env = _LINUX_ENV))
 
+    # Bracket immediately following a variable name without whitespace (tokenizer bug fix).
+    # e.g. `'linux' in sys_platform)` would lose `sys_platform` and crash.
+    asserts.true(env, evaluate("('linux' in sys_platform)", env = _LINUX_ENV))
+    asserts.false(env, evaluate("('linux' in sys_platform)", env = _WINDOWS_ENV))
+    asserts.true(env, evaluate("('win32' not in sys_platform)", env = _LINUX_ENV))
+    asserts.false(env, evaluate("('win32' not in sys_platform)", env = _WINDOWS_ENV))
+    asserts.true(env, evaluate("(sys_platform == 'linux')", env = _LINUX_ENV))
+    asserts.false(env, evaluate("(sys_platform == 'linux')", env = _WINDOWS_ENV))
+    asserts.true(env, evaluate("sys_platform == 'linux' and ('linux' in sys_platform)", env = _LINUX_ENV))
+    asserts.false(env, evaluate("sys_platform == 'linux' and ('linux' in sys_platform)", env = _WINDOWS_ENV))
+    asserts.true(env, evaluate("(sys_platform == 'linux' or sys_platform == 'win32')", env = _LINUX_ENV))
+    asserts.true(env, evaluate("(sys_platform == 'linux' or sys_platform == 'win32')", env = _WINDOWS_ENV))
+    asserts.false(env, evaluate("(sys_platform == 'darwin' or sys_platform == 'win32')", env = _LINUX_ENV))
+
     return unittest.end(env)
 
 evaluate_test = unittest.make(

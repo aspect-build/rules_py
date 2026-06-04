@@ -360,6 +360,7 @@ def _parse_projects(module_ctx, hub_specs):
                         lock_build_deps = [
                             it[0]
                             for req in project.default_build_dependencies
+                            if normalize_name(req.split(";")[0].split("[")[0].split(">")[0].split("<")[0].split("=")[0].split("!")[0].split("~")[0].split(" ")[0].strip()) in package_versions
                             for it in extract_requirement_marker_pairs(project.lock, project_id, req, default_versions, package_versions)
                         ]
 
@@ -391,6 +392,7 @@ def _parse_projects(module_ctx, hub_specs):
                         pre_build_patch_strip = pre_build_patch_strip,
                         available_deps = project_available_deps,
                         configure_command = project.unstable_configure_command,
+                        subdirectory = package.get("source", {}).get("subdirectory", ""),
                     )
 
                     has_sbuild = True
@@ -574,6 +576,8 @@ def _uv_impl(module_ctx):
         if sbuild_cfg.pre_build_patches:
             sbuild_kwargs["pre_build_patches"] = sbuild_cfg.pre_build_patches
             sbuild_kwargs["pre_build_patch_strip"] = sbuild_cfg.pre_build_patch_strip
+        if sbuild_cfg.subdirectory:
+            sbuild_kwargs["subdirectory"] = sbuild_cfg.subdirectory
         sdist_build(**sbuild_kwargs)
 
     for install_id, install_cfg in cfg.install_cfgs.items():
@@ -628,6 +632,8 @@ _project_tag = tag_class(
             mandatory = False,
             default = [
                 "build",
+                "setuptools",
+                "wheel",
             ],
         ),
         "unstable_configure_command": attr.string_list(

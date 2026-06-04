@@ -151,6 +151,10 @@ pub fn create_symlinks(
         // `__init__.py` files in the root site-packages directory. The site-packages directory
         // itself is not a regular package and is not supposed to have an `__init__.py` file.
         if path.is_dir() {
+            // Skip __pycache__ directories entirely. .pyc bytecode caches embed
+            if path.file_name().map_or(false, |n| n == "__pycache__") {
+                continue;
+            }
             create_symlinks(&path, root_dir, dst_dir, collision_strategy)?;
         }
         // rules_python runfiles helper needs some special handling when consumed as pip dependency.

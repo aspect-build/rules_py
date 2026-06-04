@@ -35,13 +35,18 @@ if "COVERAGE_MANIFEST" in os.environ:
     try:
         import coverage
         # The lines are files that matched the --instrumentation_filter flag
-        with open(os.getenv("COVERAGE_MANIFEST"), "r") as mf:
-            manifest_entries = mf.read().splitlines()
-            cov = coverage.Coverage(include = manifest_entries)
-            # coveragepy incorrectly converts our entries by following symlinks
-            # record a mapping of their conversion so we can undo it later in reporting the coverage
-            coveragepy_absfile_mapping = {coverage.files.abs_file(mfe): mfe for mfe in manifest_entries}
-        cov.start()
+
+        existing_cov = coverage.Coverage.current()
+        if existing_cov is not None:
+            cov = existing_cov
+        else:
+            with open(os.getenv("COVERAGE_MANIFEST"), "r") as mf:
+                manifest_entries = mf.read().splitlines()
+                cov = coverage.Coverage(include = manifest_entries)
+                # coveragepy incorrectly converts our entries by following symlinks
+                # record a mapping of their conversion so we can undo it later in reporting the coverage
+                coveragepy_absfile_mapping = {coverage.files.abs_file(mfe): mfe for mfe in manifest_entries}
+            cov.start()
     except ModuleNotFoundError as e:
         print("WARNING: python coverage setup failed. Do you need to include the 'coverage' package as a dependency of py_pytest_main?", e)
         pass
@@ -58,6 +63,8 @@ if __name__ == "__main__":
     args = [
         "--verbose",
         "--ignore=external/",
+        "-p",
+        "no:anyio",
         # Avoid loading of the plugin "cacheprovider".
         "-p",
         "no:cacheprovider",
@@ -108,12 +115,16 @@ if __name__ == "__main__":
         # https://bazel.build/configure/coverage
         coverage_output_file = os.getenv("COVERAGE_OUTPUT_FILE")
 
-        unfixed_dat = coverage_output_file + ".tmp"
+        # postprocessor action writes to COVERAGE_OUTPUT_FILE. Write coverage data to
+        # COVERAGE_DIR so the postprocessor finds it; otherwise write directly.
+        coverage_dir = os.environ.get("COVERAGE_DIR")
+        target_dat = os.path.join(coverage_dir, "python_coverage.dat") if coverage_dir else coverage_output_file
+        unfixed_dat = target_dat + ".tmp"
         cov.lcov_report(outfile = unfixed_dat)
         cov.save()
-        
+
         with open(unfixed_dat, "r") as unfixed:
-          with open(coverage_output_file, "w") as output_file:
+          with open(target_dat, "w") as output_file:
             for line in unfixed:
               # Workaround https://github.com/nedbat/coveragepy/issues/963
               # by mapping SF: records to un-do the symlink-following

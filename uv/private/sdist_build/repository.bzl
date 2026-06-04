@@ -87,10 +87,23 @@ def _resolve_extra_deps(repository_ctx, inspection):
     if repository_ctx.attr.available_deps:
         available_deps = json.decode(repository_ctx.attr.available_deps)
 
+    # Extract package names already provided by the explicit deps to avoid
+    # collisions (e.g. alias-based //:setuptools vs direct whl_install).
+    provided_pkg_names = {}
+    for dep_label in repository_ctx.attr.deps:
+        # Labels like "@@...project__test_project//:setuptools" - extract the
+        # target name as the package name.
+        dep_str = str(dep_label)
+        if "//:" in dep_str:
+            pkg_name = dep_str.split("//:")[-1]
+            provided_pkg_names[normalize_name(pkg_name)] = True
+
     resolved = []
     unresolvable = []
     for name in extra_dep_names:
         normalized = normalize_name(name)
+        if normalized in provided_pkg_names:
+            continue  # already provided via default deps alias
         label = available_deps.get(normalized)
         if label:
             resolved.append(label)
@@ -211,6 +224,10 @@ def _sdist_build_impl(repository_ctx):
             strip = repository_ctx.attr.pre_build_patch_strip,
         )
 
+    subdir_args = ""
+    if repository_ctx.attr.subdirectory:
+        subdir_args = '"--subdirectory={}"'.format(repository_ctx.attr.subdirectory)
+
     repository_ctx.file("BUILD.bazel", content = """
 load("@aspect_rules_py//uv/private/pep517_whl:rule.bzl", "{rule}")
 load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_binary")
@@ -227,7 +244,7 @@ py_venv_binary(
     src = "{src}",
     tool = ":build_tool",
     version = "{version}",
-    args = [],{patch_attrs}
+    args = [{subdir_args}],{patch_attrs}
     visibility = ["//visibility:public"],
 )
 """.format(
@@ -236,6 +253,7 @@ py_venv_binary(
         rule = "pep517_native_whl" if is_native else "pep517_whl",
         version = repository_ctx.attr.version,
         patch_attrs = patch_attrs,
+        subdir_args = subdir_args,
     ))
 
 sdist_build = repository_rule(
@@ -258,6 +276,10 @@ sdist_build = repository_rule(
                   "two arguments. See //uv/private/sdist_configure:defs.bzl.",
         ),
         "version": attr.string(),
+        "subdirectory": attr.string(
+            default = "",
+            doc = "Subdirectory within the archive containing pyproject.toml.",
+        ),
         "pre_build_patches": attr.label_list(default = []),
         "pre_build_patch_strip": attr.int(default = 0),
     },

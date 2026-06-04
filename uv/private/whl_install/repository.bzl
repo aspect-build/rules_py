@@ -203,7 +203,7 @@ filegroup(
 select_chain(
    name = "whl",
    arms = {arms},
-   visibility = ["//visibility:private"],
+   visibility = ["//visibility:public"],
 )
 
 filegroup(

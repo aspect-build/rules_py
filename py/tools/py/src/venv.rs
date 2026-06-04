@@ -514,7 +514,10 @@ fn walk_skip_venvs(root: &Path) -> impl Iterator<Item = walkdir::DirEntry> {
         .into_iter()
         .filter_entry(|e| {
             if e.file_type().is_dir() {
-                !e.path().join("pyvenv.cfg").exists()
+                let name = e.file_name().to_string_lossy();
+                // Skip virtual environments and __pycache__ directories.
+                // __pycache__ contains .pyc bytecode caches that embed the source
+                !e.path().join("pyvenv.cfg").exists() && name != "__pycache__"
             } else {
                 true
             }
