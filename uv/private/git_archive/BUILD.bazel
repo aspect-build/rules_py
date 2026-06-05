@@ -1,5 +1,13 @@
+load("@bazel_lib//:bzl_library.bzl", "bzl_library")
+
 # TOOLCHAIN: Unused
 # Visible to the private extension package
 package(default_visibility = ["//uv/private/extension:__pkg__"])
 
 exports_files(["defs.bzl"])
+
+bzl_library(
+    name = "repository",
+    srcs = ["repository.bzl"],
+    deps = ["@bazel_features//:features"],
+)

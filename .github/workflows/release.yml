@@ -13,10 +13,10 @@ permissions:
   contents: write
 jobs:
   build:
-    runs-on: ubuntu-22.04-32core
+    runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Build Rust Binaries
         env:
@@ -40,7 +40,7 @@ jobs:
             bazel $FLAGS run $target -- $(realpath ${{ env.DEST }})
           done
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: artifacts-ubuntu
           path: artifacts/
@@ -48,7 +48,11 @@ jobs:
 
   release:
     needs: build
-    uses: bazel-contrib/.github/.github/workflows/release_ruleset.yaml@v7.3.0
+    # SLSA trusted-builder reusable workflows MUST be referenced by a semantic
+    # version tag, not a commit SHA: slsa-verifier reads the builder ref from the
+    # provenance and rejects a bare SHA ("unexpected ref type"), which breaks the
+    # release-artifact attestations that BCR's presubmit verifies. Do not SHA-pin.
+    uses: bazel-contrib/.github/.github/workflows/release_ruleset.yaml@v7.6.0
     with:
       prerelease: false
       release_files: |

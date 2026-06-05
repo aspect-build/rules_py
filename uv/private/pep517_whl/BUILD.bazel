@@ -1,3 +1,5 @@
+load("@bazel_lib//:bzl_library.bzl", "bzl_library")
+
 package(default_visibility = [
     "//uv/private:__subpackages__",
 ])
@@ -5,4 +7,13 @@ package(default_visibility = [
 exports_files(
     ["build_helper.py"],
     visibility = ["//visibility:public"],
+)
+
+bzl_library(
+    name = "rule",
+    srcs = ["rule.bzl"],
+    deps = [
+        "//py/private/toolchain:types",
+        "@bazel_tools//tools/cpp:toolchain_utils.bzl",
+    ],
 )

@@ -1,3 +1,4 @@
+load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
 load(":defs.bzl", "configurable_string", "decide_marker")
 load(":pep508_evaluate_test.bzl", "pep508_evaluate_test_suite")
@@ -215,3 +216,28 @@ decide_marker(
 # { name = "tzdata", marker = "sys_platform == 'win32'" },
 # { name = "fasteners", marker = "sys_platform != 'emscripten'" },
 # { name = "cffi", marker = "platform_python_implementation == 'PyPy'" },
+
+bzl_library(
+    name = "defs",
+    srcs = ["defs.bzl"],
+    visibility = ["//uv:__subpackages__"],
+    deps = [
+        ":pep508_evaluate",
+        "@bazel_skylib//rules:common_settings",
+    ],
+)
+
+bzl_library(
+    name = "pep508_evaluate",
+    srcs = ["pep508_evaluate.bzl"],
+    visibility = ["//uv:__subpackages__"],
+    deps = [
+        ":semver",
+    ],
+)
+
+bzl_library(
+    name = "semver",
+    srcs = ["semver.bzl"],
+    visibility = ["//uv:__subpackages__"],
+)

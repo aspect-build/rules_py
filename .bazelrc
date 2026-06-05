@@ -37,6 +37,14 @@ common:release --compilation_mode=opt
 common:release --@rules_rust//rust/settings:lto=fat
 common:release --@rules_rust//:extra_rustc_flags=-Cpanic=abort
 
+# Build without the bytes
+common:ci --remote_download_outputs=minimal
+common:ci --nobuild_runfile_links
+
+# Override the preset's `--lockfile_mode=error` on CI since we don't
+# yet commit MODULE.bazel.lock — see .gitignore.
+common:ci --lockfile_mode=off
+
 # Load any settings specific to the current user.
 # .bazelrc.user should appear in .gitignore so that settings are not shared with team members
 # This needs to be last statement in this

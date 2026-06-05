@@ -5,15 +5,12 @@ package(
 )
 
 bzl_library(
-    name = "version",
-    srcs = [
-        "version.bzl",
-    ],
+    name = "integrity",
+    srcs = ["integrity.bzl"],
+    deps = ["//py/private/toolchain:tools"],
 )
 
 bzl_library(
-    name = "integrity",
-    srcs = [
-        "integrity.bzl",
-    ],
+    name = "version",
+    srcs = ["version.bzl"],
 )
