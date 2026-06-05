@@ -72,6 +72,21 @@ def _py_venv_base_impl(ctx):
         extra_imports_depsets = virtual_resolution.imports,
     )
 
+    static_pth_import_hook_file = None
+    if ctx.attr.mode == "static-pth":
+        static_pth_import_hook_file = ctx.actions.declare_file(
+            "{}.static_pth_import_hook/sitecustomize.py".format(ctx.attr.name),
+        )
+        ctx.actions.symlink(
+            output = static_pth_import_hook_file,
+            target_file = ctx.file._static_pth_import_hook,
+        )
+        static_pth_import_hook_path = _to_rlocation_path(ctx.workspace_name, static_pth_import_hook_file)
+        imports_depset = depset(
+            direct = [static_pth_import_hook_path[:-len("/sitecustomize.py")]],
+            transitive = [imports_depset],
+        )
+
     site_packages_pth_file = write_pth_file(ctx, ctx.attr.name, imports_depset)
 
     env_file = ctx.actions.declare_file("{}.env".format(ctx.attr.name))
@@ -153,25 +168,31 @@ def _py_venv_base_impl(ctx):
     if ctx.attr._freethreaded_flag[BuildSettingInfo].value:
         args.add("--freethreaded")
 
+    action_input_runfiles = [
+        ctx.runfiles(files = [site_packages_pth_file, env_file, venv_tool]),
+        py_shim.default_info.default_runfiles,
+    ]
+    if ctx.attr.mode != "static-pth":
+        action_input_runfiles.append(rfs)
+        action_input_runfiles.append(ctx.runfiles(transitive_files = py_toolchain.files))
+
     ctx.actions.run(
         executable = venv_tool,
         arguments = [args],
-        inputs = rfs.merge_all([
-            ctx.runfiles(
-                files = [site_packages_pth_file, env_file, venv_tool],
-                transitive_files = py_toolchain.files,
-            ),
-            py_shim.default_info.default_runfiles,
-        ]).files,
+        inputs = ctx.runfiles().merge_all(action_input_runfiles).files,
         outputs = [
             venv_dir,
         ],
         toolchain = VENV_EXEC_TOOLCHAIN,
     )
 
+    venv_runfiles = [venv_dir]
+    if static_pth_import_hook_file:
+        venv_runfiles.append(static_pth_import_hook_file)
+
     return venv_dir, rfs.merge_all([
         ctx.runfiles(
-            files = [venv_dir],
+            files = venv_runfiles,
             transitive_files = py_toolchain.files,
         ),
         ctx.attr._runfiles_lib[DefaultInfo].default_runfiles,
@@ -333,6 +354,10 @@ proper package metadata and console scripts work correctly.
     "_run_tmpl": attr.label(
         allow_single_file = True,
         default = "//py/private/py_venv:entrypoint.tmpl.sh",
+    ),
+    "_static_pth_import_hook": attr.label(
+        allow_single_file = True,
+        default = "//py/private/py_venv:static_pth_import_hook.py",
     ),
     "_runfiles_lib": attr.label(
         default = "@bazel_tools//tools/bash/runfiles",

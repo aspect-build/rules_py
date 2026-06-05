@@ -7,6 +7,7 @@ package(default_visibility = ["//py:__subpackages__"])
 exports_files([
     "entrypoint.tmpl.sh",
     "link.py",
+    "static_pth_import_hook.py",
 ])
 
 bool_flag(
