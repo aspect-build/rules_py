@@ -60,11 +60,14 @@ jobs:
 
           BIN=$(bazel --output_base="$OUT_BASE" cquery //:bench --disk_cache= --output=starlark --starlark:expr='target.files_to_run.executable.path' | tail -n1)
           test -x "$BIN" || { echo "ERROR: benchmark binary not executable: $BIN"; exit 1; }
-          hyperfine --warmup 5 --runs 50 --export-json ../../../bcr.json "$BIN"
+          # Set RUNFILES_DIR as `bazel run` would. Without it, launchers fall back to
+          # the sibling .runfiles_manifest, whose unresolved-symlink entries (the venv
+          # python) are relative link targets that cannot be exec'd.
+          RUNFILES_DIR="$PWD/$BIN.runfiles" hyperfine --warmup 5 --runs 50 --export-json ../../../bcr.json "$BIN"
 
           BIN_SP=$(bazel --output_base="$OUT_BASE" cquery //:bench_syspath --disk_cache= --output=starlark --starlark:expr='target.files_to_run.executable.path' | tail -n1)
           test -x "$BIN_SP" || { echo "ERROR: bench_syspath binary not executable: $BIN_SP"; exit 1; }
-          "$BIN_SP" "$GITHUB_WORKSPACE/bcr-syspath.json"
+          RUNFILES_DIR="$PWD/$BIN_SP.runfiles" "$BIN_SP" "$GITHUB_WORKSPACE/bcr-syspath.json"
 
       # ── HEAD main ───────────────────────────────────────────────────────────
       - name: Benchmark HEAD main
@@ -84,11 +87,12 @@ jobs:
 
           BIN=$(bazel --output_base="$OUT_BASE" cquery //:bench --disk_cache= --output=starlark --starlark:expr='target.files_to_run.executable.path' | tail -n1)
           test -x "$BIN" || { echo "ERROR: benchmark binary not executable: $BIN"; exit 1; }
-          hyperfine --warmup 5 --runs 50 --export-json ../../../main.json "$BIN"
+          # See the RUNFILES_DIR comment in the BCR step.
+          RUNFILES_DIR="$PWD/$BIN.runfiles" hyperfine --warmup 5 --runs 50 --export-json ../../../main.json "$BIN"
 
           BIN_SP=$(bazel --output_base="$OUT_BASE" cquery //:bench_syspath --disk_cache= --output=starlark --starlark:expr='target.files_to_run.executable.path' | tail -n1)
           test -x "$BIN_SP" || { echo "ERROR: bench_syspath binary not executable: $BIN_SP"; exit 1; }
-          "$BIN_SP" "$GITHUB_WORKSPACE/main-syspath.json"
+          RUNFILES_DIR="$PWD/$BIN_SP.runfiles" "$BIN_SP" "$GITHUB_WORKSPACE/main-syspath.json"
 
       # ── Current commit (PR) ─────────────────────────────────────────────────
       - name: Benchmark current PR
@@ -108,11 +112,12 @@ jobs:
 
           BIN=$(bazel --output_base="$OUT_BASE" cquery //:bench --disk_cache= --output=starlark --starlark:expr='target.files_to_run.executable.path' | tail -n1)
           test -x "$BIN" || { echo "ERROR: benchmark binary not executable: $BIN"; exit 1; }
-          hyperfine --warmup 5 --runs 50 --export-json ../../../pr.json "$BIN"
+          # See the RUNFILES_DIR comment in the BCR step.
+          RUNFILES_DIR="$PWD/$BIN.runfiles" hyperfine --warmup 5 --runs 50 --export-json ../../../pr.json "$BIN"
 
           BIN_SP=$(bazel --output_base="$OUT_BASE" cquery //:bench_syspath --disk_cache= --output=starlark --starlark:expr='target.files_to_run.executable.path' | tail -n1)
           test -x "$BIN_SP" || { echo "ERROR: bench_syspath binary not executable: $BIN_SP"; exit 1; }
-          "$BIN_SP" "$GITHUB_WORKSPACE/pr-syspath.json"
+          RUNFILES_DIR="$PWD/$BIN_SP.runfiles" "$BIN_SP" "$GITHUB_WORKSPACE/pr-syspath.json"
 
       # ── Compare & gate ──────────────────────────────────────────────────────
       - name: Compare results
