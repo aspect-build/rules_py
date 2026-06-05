@@ -1,3 +1,4 @@
+load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
 load(":exclude_feature.bzl", "exclude_feature_flag")
 load(":version_util_test.bzl", "version_util_test_suite")
@@ -56,3 +57,43 @@ bool_flag(
 )
 
 version_util_test_suite()
+
+bzl_library(
+    name = "extension",
+    srcs = ["extension.bzl"],
+    deps = [
+        ":repository",
+        ":version_util",
+        ":versions",
+    ],
+)
+
+# keep
+bzl_library(
+    name = "exclude_feature_bzl",
+    srcs = ["exclude_feature.bzl"],
+)
+
+bzl_library(
+    name = "repository",
+    srcs = ["repository.bzl"],
+    deps = [
+        ":exclude_feature_bzl",  # keep
+        "@bazel_features//:features",
+    ],
+)
+
+bzl_library(
+    name = "resolve",
+    srcs = ["resolve.bzl"],
+)
+
+bzl_library(
+    name = "version_util",
+    srcs = ["version_util.bzl"],
+)
+
+bzl_library(
+    name = "versions",
+    srcs = ["versions.bzl"],
+)

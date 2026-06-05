@@ -1,0 +1,61 @@
+name: CI - Aspect Workflows
+
+on:
+    push:
+        branches: [1.x]
+    pull_request:
+        branches: [1.x]
+    workflow_dispatch:
+
+permissions:
+    id-token: write
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+    cancel-in-progress: true
+
+jobs:
+    buildifier:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v6
+            - uses: aspect-build/setup-aspect@c22a8f64fb38f82f59ce809cd7eb9f8ae096da44 # v2026.23.2
+              with:
+                aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
+            - name: Buildifier
+              run: aspect buildifier --task-key=buildifier
+    gazelle:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v6
+            - uses: aspect-build/setup-aspect@c22a8f64fb38f82f59ce809cd7eb9f8ae096da44 # v2026.23.2
+              with:
+                aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
+            - name: Gazelle
+              run: aspect gazelle --task-key=gazelle
+    test:
+        name: test (${{ matrix.workspace.path }}, ${{ matrix.bazel.id }})
+        runs-on: ${{ matrix.workspace.runner }}
+        strategy:
+            fail-fast: false
+            matrix:
+                workspace:
+                - { path: ".", slug: "root", runner: "ubuntu-latest" }
+                # e2e is the large workspace; give it a beefier runner.
+                - { path: "e2e", slug: "e2e", runner: "ubuntu-22.04-32core" }
+                - { path: "examples/uv_pip_compile", slug: "examples-uv_pip_compile", runner: "ubuntu-latest" }
+                bazel:
+                - { id: "bazel-8", version: "8.x", flags: "--bazel-flag=--test_tag_filters=-skip-on-bazel8" }
+                - { id: "bazel-9", version: "9.x", flags: "--bazel-flag=--test_tag_filters=-skip-on-bazel9" }
+                exclude:
+                - { workspace: { slug: "examples-uv_pip_compile" }, bazel: { id: "bazel-9" } }
+        env:
+            USE_BAZEL_VERSION: ${{ matrix.bazel.version }}
+        steps:
+            - uses: actions/checkout@v6
+            - uses: aspect-build/setup-aspect@c22a8f64fb38f82f59ce809cd7eb9f8ae096da44 # v2026.23.2
+              with:
+                aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
+            - name: Test
+              working-directory: ${{ matrix.workspace.path }}
+              run: aspect test --task-key=test-${{ matrix.workspace.slug }}-${{ matrix.bazel.id }} ${{ matrix.bazel.flags }} -- //...

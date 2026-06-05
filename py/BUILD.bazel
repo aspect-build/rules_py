@@ -21,6 +21,7 @@ bzl_library(
         "//py/private:py_wheel",
         "//py/private:virtual",
         "//py/private/py_venv",
+        "//py/private/py_venv:defs",
         "@bazel_lib//lib:utils",
     ],
 )

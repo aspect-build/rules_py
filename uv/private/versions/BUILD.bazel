@@ -1,5 +1,19 @@
+load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load(":versions_test.bzl", "versions_test_suite")
 
 exports_files(["defs.bzl"])
 
 versions_test_suite()
+
+bzl_library(
+    name = "defs",
+    srcs = ["defs.bzl"],
+    visibility = ["//uv:__subpackages__"],
+    deps = [":versions"],
+)
+
+bzl_library(
+    name = "versions",
+    srcs = ["versions.bzl"],
+    visibility = ["//uv:__subpackages__"],
+)

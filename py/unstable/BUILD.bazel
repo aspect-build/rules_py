@@ -8,3 +8,10 @@ bzl_library(
         "//py/private/py_venv:defs",
     ],
 )
+
+bzl_library(
+    name = "extension",
+    srcs = ["extension.bzl"],
+    visibility = ["//visibility:public"],
+    deps = ["//py/private/interpreter:extension"],
+)

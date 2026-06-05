@@ -1,3 +1,4 @@
+load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load("//py/unstable:defs.bzl", "py_venv_test")
 
 package(default_visibility = [
@@ -17,4 +18,9 @@ py_venv_test(
     ],
     imports = ["../../.."],
     main = "detect_native_test.py",
+)
+
+bzl_library(
+    name = "defs",
+    srcs = ["defs.bzl"],
 )
