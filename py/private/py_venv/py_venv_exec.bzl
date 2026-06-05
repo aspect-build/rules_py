@@ -53,6 +53,13 @@ def _py_venv_exec_impl(ctx):
         venv_env = venv[RunEnvironmentInfo]
         passed_env = dict(venv_env.environment)
         inherited_env = list(venv_env.inherited_environment)
+
+    # `VIRTUAL_ENV` as the venv root's rootpath. The executable venv
+    # variant publishes the same value via its RunEnvironmentInfo, but
+    # the non-executable variant (default `expose_venv = False`) has no
+    # RunEnvironmentInfo — compute it here so every binary/test gets it.
+    # `rsplit` drops the trailing `bin/python` to leave the venv root.
+    passed_env["VIRTUAL_ENV"] = vinfo.bin_python.short_path.rsplit("/", 2)[0]
     for k, v in ctx.attr.env.items():
         passed_env[k] = expand_variables(
             ctx,
