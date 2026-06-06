@@ -15,10 +15,13 @@ Downstream rules (notably `py_binary`) use this to create one
 executable wrappers under `<venv>/bin/<name>` for console scripts.
 """,
     fields = {
-        "wheels": """Depset of `struct(top_levels, namespace_top_levels, site_packages_rfpath, console_scripts)`
+        "wheels": """Depset of `struct(top_levels, namespace_top_levels, namespace_entries, site_packages_rfpath, console_scripts)`
 — one per wheel in the transitive closure. Fields:
   * `top_levels`: tuple[str] — top-level names the wheel installs into site-packages.
   * `namespace_top_levels`: tuple[str] — subset of top_levels that are PEP 420 namespace packages.
+  * `namespace_entries`: tuple[str] — `/`-joined paths of the concrete entries beneath
+    the namespace top-levels (e.g. `jaraco/functools`), used to materialise a merged
+    namespace directory out of per-entry symlinks.
   * `site_packages_rfpath`: str — runfiles-root-relative path to the wheel's site-packages.
   * `console_scripts`: tuple[str] — entry points encoded as `"name=module:func"`.
 """,

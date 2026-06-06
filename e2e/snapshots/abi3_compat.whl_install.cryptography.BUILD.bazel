@@ -216,6 +216,7 @@ whl_install(
     }),
     top_levels = ["cryptography", "cryptography-46.0.5.dist-info", "cryptography.libs"],
     namespace_top_levels = ["cryptography.libs"],
+    namespace_entries = ["cryptography.libs/libgcc_s-0cd532bd.so.1", "cryptography.libs/libgcc_s-2d945d6c.so.1"],
     console_scripts = [],
     visibility = ["//visibility:private"],
 )

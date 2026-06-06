@@ -106,11 +106,14 @@ write_source_files(
         # install_tree.short_path — stable across unrelated lockfile
         # churn; only added/removed/version-bumped wheels rotate them.
         #
-        # * pth_namespace_547 — keyed branch, minimal 2-contributor
-        #   namespace case (jaraco-*).
-        # * firebase_admin — keyed branch at scale (~8 google-*
-        #   namespace contributors); catches ordering / scale-only
-        #   regressions that the 2-line minimum can't.
+        # * pth_namespace_547 — minimal 2-contributor namespace case
+        #   (jaraco-*). The concrete per-entry namespace merge fully
+        #   covers both wheels, so the snapshot pins that neither
+        #   appears in the .pth fallback.
+        # * firebase_admin — namespace merge at scale (~8 google-*
+        #   contributors, nested google/cloud namespace); catches
+        #   ordering / scale-only regressions that the 2-wheel
+        #   minimum can't.
         # * wheel_root_pth — non-keyed branch via `py_unpacked_wheel`
         #   without `top_levels`; pins the `site.addsitedir(...)`
         #   shape so wheel-root `.pth` shims keep running.

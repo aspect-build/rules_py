@@ -23,6 +23,9 @@ distutils, etc.) treat it as a real venv:
         _virtualenv.py                          distutils-compat shim
         _virtualenv.pth                         loads the shim at site init
         <top_level>                             symlink to a wheel's subdir
+        <ns_pkg>/<entry>                        merged PEP 420 namespace: real
+                                                <ns_pkg>/ dir, per-entry symlinks
+                                                into each contributing wheel
         <dist>-<ver>.dist-info                  symlink to a wheel's dist-info
 
 The whole tree is declared at analysis time as individual
@@ -57,19 +60,29 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
     * **Top-level in site-packages.** Multiple wheels claiming the same
       top-level name. When ALL contributing wheels flag the name as a
       PEP 420 namespace package (no `__init__.py` at that level), the
-      collision is benign — skip the per-top-level symlink and let each
-      wheel's site-packages fall through to `.pth` + `addsitedir`, where
-      Python's namespace machinery merges contributions natively.
-      Otherwise apply `package_collisions` policy.
+      collision is benign — merge the namespace CONCRETELY: a real
+      `site-packages/<tl>/` directory whose members are per-entry
+      symlinks into each contributing wheel (from the wheels'
+      `namespace_entries` metadata). Runtime imports would also work via
+      `.pth` + `addsitedir` alone, but tools that inspect site-packages
+      directly — mypy, pyright — never execute `.pth` files, so without
+      a concrete entry they miss the package and its `py.typed` markers
+      entirely. Wheels lacking entry metadata (hand-written
+      `py_unpacked_wheel`) keep the historical `.pth`-only fallback,
+      where Python's namespace machinery merges contributions at
+      runtime. Otherwise apply `package_collisions` policy.
 
     * **Console-script name in bin/.** Apply `package_collisions` directly
       — no namespace equivalent.
 
     Returns:
-      top_level_to_site_pkgs: dict {top_level_name: site_packages_rfpath}
+      top_level_to_site_pkgs: dict {site_packages_relative_path: site_packages_rfpath}
+          — keys are top-level names, plus `/`-joined deeper paths (e.g.
+          `jaraco/functools`) for merged namespace packages.
       fully_covered_site_pkgs: dict[str, True] — site-packages paths whose
-          declared top-levels ALL ended up claimed by them — safe to drop
-          from the .pth fallback.
+          declared top-levels ALL ended up claimed by them (directly or
+          via a complete namespace merge) — safe to drop from the .pth
+          fallback.
       console_scripts_map: dict {script_name: struct(module, func)} after
           collision resolution.
     """
@@ -89,14 +102,18 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
             print(msg)
 
     # Pass 1: bucket claimants per top-level / per console-script name.
-    tl_claimants = {}  # tl -> list of struct(site_packages, is_ns)
+    tl_claimants = {}  # tl -> list of struct(site_packages, is_ns, ns_entries)
     cs_claimants = {}  # name -> list of struct(site_packages, module, func)
     for w in wheels:
         ns_set = {tl: True for tl in getattr(w, "namespace_top_levels", ())}
+        ns_entries_by_tl = {}
+        for entry in getattr(w, "namespace_entries", ()):
+            ns_entries_by_tl.setdefault(entry.split("/")[0], []).append(entry)
         for tl in w.top_levels:
             tl_claimants.setdefault(tl, []).append(struct(
                 site_packages = w.site_packages_rfpath,
                 is_ns = tl in ns_set,
+                ns_entries = tuple(ns_entries_by_tl.get(tl, [])),
             ))
         for entry in getattr(w, "console_scripts", ()):
             # Entry encoding from the repo rule: "name=module:func".
@@ -118,9 +135,12 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
             ))
 
     # Pass 2: resolve top-levels. Track which (site_packages, tl) pairs
-    # we SKIPPED so pass 3 can decide which wheels are fully covered.
+    # we SKIPPED (left to the .pth fallback) and which namespace claims
+    # were fully COVERED by per-entry symlinks, so pass 3 can decide
+    # which wheels are fully covered.
     top_level_to_site_pkgs = {}
     skipped_per_wheel = {}
+    ns_covered_per_wheel = {}
     for tl, claimants in tl_claimants.items():
         distinct_sp = {c.site_packages: c for c in claimants}
         if len(distinct_sp) == 1:
@@ -129,8 +149,59 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
 
         all_namespace = all([c.is_ns for c in claimants])
         if all_namespace:
-            for c in claimants:
-                skipped_per_wheel.setdefault(c.site_packages, {})[tl] = True
+            unique_claimants = distinct_sp.values()
+
+            # Entry metadata is optional (hand-written py_unpacked_wheel).
+            # A complete merge needs it from EVERY claimant; otherwise
+            # keep the historical .pth-only fallback for all of them.
+            if any([not c.ns_entries for c in unique_claimants]):
+                for c in unique_claimants:
+                    skipped_per_wheel.setdefault(c.site_packages, {})[tl] = True
+                continue
+
+            # Per-entry merge: first wheel to claim an entry wins. A later
+            # distinct wheel shipping the same entry is a genuine
+            # collision (same subpackage twice) — complain per policy and
+            # leave the loser on the .pth path.
+            entry_owner = {}
+            for c in unique_claimants:
+                for entry in c.ns_entries:
+                    prior = entry_owner.get(entry)
+                    if prior == None:
+                        entry_owner[entry] = c
+                    elif prior.site_packages != c.site_packages:
+                        _complain("namespace entry", entry, prior.site_packages, c.site_packages)
+                        skipped_per_wheel.setdefault(c.site_packages, {})[tl] = True
+
+            # A nested-namespace mismatch (wheel A ships
+            # `google/cloud/__init__.py` while wheel B treats
+            # `google/cloud` as a namespace and ships
+            # `google/cloud/bigquery`) yields an entry that is a
+            # path-prefix of another — two declared outputs at
+            # conflicting paths. Keep the shallower entry (its symlink
+            # subsumes the deeper region) and leave the deeper wheel on
+            # the .pth path.
+            for entry in entry_owner.keys():
+                segments = entry.split("/")
+                for depth in range(2, len(segments)):
+                    shallower = entry_owner.get("/".join(segments[:depth]))
+                    if shallower == None:
+                        continue
+                    loser = entry_owner.pop(entry)
+                    if shallower.site_packages != loser.site_packages:
+                        _complain("namespace entry", entry, shallower.site_packages, loser.site_packages)
+                        skipped_per_wheel.setdefault(loser.site_packages, {})[tl] = True
+                    break
+
+            for entry, c in entry_owner.items():
+                top_level_to_site_pkgs[entry] = c.site_packages
+
+            # Claimants that kept every one of their entries are fully
+            # represented by the merged directory; record per-wheel
+            # coverage so pass 3 can drop them from the .pth fallback.
+            for c in unique_claimants:
+                if tl not in skipped_per_wheel.get(c.site_packages, {}):
+                    ns_covered_per_wheel.setdefault(c.site_packages, {})[tl] = True
             continue
 
         first = claimants[0]
@@ -160,13 +231,18 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
             _complain("console script", name, first.site_packages, c.site_packages)
             seen_losers[c.site_packages] = True
 
-    # Pass 3: wheels fully covered by direct symlinks.
+    # Pass 3: wheels fully covered by direct (or complete per-entry
+    # namespace) symlinks.
     fully_covered = {}
     for w in wheels:
         skipped = skipped_per_wheel.get(w.site_packages_rfpath, {})
+        ns_covered = ns_covered_per_wheel.get(w.site_packages_rfpath, {})
         covered = True
         for tl in w.top_levels:
-            if tl in skipped or top_level_to_site_pkgs.get(tl) != w.site_packages_rfpath:
+            if tl in skipped:
+                covered = False
+                break
+            if top_level_to_site_pkgs.get(tl) != w.site_packages_rfpath and tl not in ns_covered:
                 covered = False
                 break
         if covered:
@@ -355,13 +431,18 @@ def assemble_venv(
     # symlinks. If the owning wheel has a `_wheels/<key>/` entry, we
     # route through it with an intra-venv relative path; otherwise fall
     # back to the historical runfiles-root-escape unresolved symlink.
+    # Keys may be `/`-joined paths below the site-packages root (merged
+    # namespace packages, e.g. `jaraco/functools`); each extra path
+    # segment needs one more `..` to escape back up.
     for tl, wheel_site_pkgs in top_level_to_site_pkgs.items():
         out = ctx.actions.declare_symlink("{}/{}".format(site_packages_rel, tl))
+        extra_up = "../" * tl.count("/")
         key = wheel_key_by_sp.get(wheel_site_pkgs)
         if key != None:
             ctx.actions.symlink(
                 output = out,
-                target_path = "{}/{}/lib/{}/site-packages/{}".format(
+                target_path = "{}{}/{}/lib/{}/site-packages/{}".format(
+                    extra_up,
                     site_packages_to_wheels_root,
                     key,
                     wheel_py_ver,
@@ -371,7 +452,7 @@ def assemble_venv(
         else:
             ctx.actions.symlink(
                 output = out,
-                target_path = "{}/{}/{}".format(escape, wheel_site_pkgs, tl),
+                target_path = "{}{}/{}/{}".format(extra_up, escape, wheel_site_pkgs, tl),
             )
         declared.append(out)
 

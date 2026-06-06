@@ -74,6 +74,7 @@ whl_install(
     }),
     top_levels = ["grpc", "grpcio-1.80.0.dist-info"],
     namespace_top_levels = [],
+    namespace_entries = [],
     console_scripts = [],
     visibility = ["//visibility:private"],
 )
