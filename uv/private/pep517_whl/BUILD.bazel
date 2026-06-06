@@ -1,6 +1,7 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("//py:defs.bzl", "py_test")
 load(":rule.bzl", "pep517_native_whl")
 load(":test.bzl", "pep517_native_whl_toolchain_env_test")
 
@@ -11,6 +12,15 @@ package(default_visibility = [
 exports_files(
     ["build_helper.py"],
     visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "build_helper_test",
+    srcs = [
+        "build_helper.py",
+        "build_helper_test.py",
+    ],
+    main = "build_helper_test.py",
 )
 
 bzl_library(

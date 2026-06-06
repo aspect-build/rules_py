@@ -19,7 +19,12 @@ from tempfile import TemporaryFile
 try:
     import tomllib
 except ModuleNotFoundError:
-    import tomli as tomllib
+    try:
+        import tomli as tomllib
+    except ModuleNotFoundError:
+        # Only needed for the legacy-metadata fallback check below; real
+        # builds on Python < 3.11 get tomli through the build venv deps.
+        tomllib = None
 
 _SETUPTOOLS_BACKENDS = (
     None,
@@ -98,8 +103,88 @@ def _override_tool(env, key, wrapper):
         env[key] = shlex.join(parts)
 
 
+# Compiler/linker flags whose *next* token is a filesystem path.
+_PATH_ARG_FLAGS = ("-I", "-L", "-isystem", "-iquote", "-idirafter", "-B", "-include", "--sysroot")
+
+# Flag prefixes with the path attached to the flag itself (-Iexternal/...).
+_PATH_PREFIX_FLAGS = ("--sysroot=", "-isystem", "-iquote", "-idirafter", "-I", "-L", "-B")
+
+
+def _abs_if_execroot_relative(p, require_sep=False):
+    """Absolutize `p` if it is a relative path that exists under the cwd.
+
+    With require_sep, plain words like "ar" (resolved via PATH) are left
+    alone and only multi-component paths are considered.
+    """
+    if not p or path.isabs(p):
+        return p
+    if require_sep and "/" not in p and os.sep not in p:
+        return p
+    if not path.exists(p):
+        return p
+    return path.abspath(p)
+
+
+def _absolutize_token(tok):
+    for flag in _PATH_PREFIX_FLAGS:
+        if tok.startswith(flag) and len(tok) > len(flag):
+            return flag + _abs_if_execroot_relative(tok[len(flag):])
+    return _abs_if_execroot_relative(tok, require_sep=True)
+
+
+def _absolutize_env_paths(env):
+    """Rewrite execroot-relative paths in env values to absolute paths.
+
+    Bazel expands make-variables like $(AR) or $(JAVABASE) and user-supplied
+    -I/-L flags to execroot-relative paths (e.g. external/llvm+/bin/ar). The
+    PEP 517 build backend runs with cwd inside the unpacked sdist worktree,
+    where those paths no longer resolve for native build hooks (setup.py,
+    meson, cmake, ...). Must be called while cwd is still the execroot.
+    """
+    for key, value in env.items():
+        if not value:
+            continue
+
+        # Whole value is a single path (may contain spaces, e.g. JAVA_HOME).
+        if not path.isabs(value) and ("/" in value or os.sep in value) and path.exists(value):
+            env[key] = path.abspath(value)
+            continue
+
+        # PATH-style list (CPATH, LIBRARY_PATH, PKG_CONFIG_PATH, ...).
+        if pathsep in value:
+            env[key] = pathsep.join(
+                _abs_if_execroot_relative(p, require_sep=True)
+                for p in value.split(pathsep)
+            )
+            continue
+
+        # Flag/argument string (CFLAGS, LDFLAGS, CC with extra args, ...).
+        try:
+            tokens = shlex.split(value)
+        except ValueError:
+            continue
+        new_tokens = []
+        path_arg = False
+        for tok in tokens:
+            if path_arg:
+                new_tokens.append(_abs_if_execroot_relative(tok))
+                path_arg = False
+            elif tok in _PATH_ARG_FLAGS:
+                new_tokens.append(tok)
+                path_arg = True
+            else:
+                new_tokens.append(_absolutize_token(tok))
+        if new_tokens != tokens:
+            env[key] = shlex.join(new_tokens)
+
+
 def _compiler_env(tmpdir):
     env = dict(os.environ)
+
+    # Re-root execroot-relative env paths onto absolute ones while cwd is
+    # still the execroot; the build subprocess below changes cwd into the
+    # unpacked worktree where they would no longer resolve.
+    _absolutize_env_paths(env)
     env["PATH"] = pathsep.join([
         path.dirname(sys.executable),
         env.get("PATH", defpath),
@@ -148,7 +233,7 @@ def _load_text(maybe_file):
 
 def _load_pyproject_data(worktree):
     pyproject = path.join(worktree, "pyproject.toml")
-    if not path.exists(pyproject):
+    if tomllib is None or not path.exists(pyproject):
         return None
 
     try:
