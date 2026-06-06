@@ -1,0 +1,36 @@
+# Regression test: uv emits multiple [[package]] records for the same
+# package/version when the resolution forks (resolution-markers), each record
+# carrying only the wheels chosen for its fork. The uv extension must merge
+# the wheel sets of duplicate records instead of keeping only the first one.
+#
+# The lockfile forks markupsafe three ways (win32, darwin, the rest) so that
+# losing the later records is observable on every platform. Note the lost
+# wheels would NOT fail the build outright — the install degrades to an
+# incompatible `whl_missing` target — so the regression assertion is on the
+# dependency graph shape via genquery rather than on a build of the package.
+
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+genquery(
+    name = "markupsafe_targets",
+    expression = "deps(@pypi_uv_dup_lock_records//markupsafe)",
+    scope = ["@pypi_uv_dup_lock_records//markupsafe"],
+)
+
+py_test(
+    name = "test_merged_wheels",
+    srcs = ["test_merged_wheels.py"],
+    data = [":markupsafe_targets"],
+    main = "test_merged_wheels.py",
+    deps = ["@bazel_tools//tools/python/runfiles"],
+)
+
+# End-to-end proof: the wheel for the host platform installs and imports,
+# whichever fork record it came from.
+py_test(
+    name = "test_import",
+    srcs = ["test_import.py"],
+    dep_group = "dup-lock-records",
+    main = "test_import.py",
+    deps = ["@pypi_uv_dup_lock_records//markupsafe"],
+)
