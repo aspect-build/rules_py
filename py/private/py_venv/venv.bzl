@@ -420,18 +420,20 @@ def assemble_venv(
     )
     declared.append(site_packages_pth_file)
 
-    # pyvenv.cfg. For hermetic interpreters, point `home` directly at the PBS
-    # bin/ directory rather than ./bin/ (the venv's own deep runfiles symlink).
-    # Python 3.11/3.12's pure-Python resolvedpath() in getpath.py fails on
-    # multi-hop relative symlinks across repo boundaries, falling back to the
-    # compile-time /install prefix → ModuleNotFoundError: No module named
-    # 'encodings'. One local hop (python → python3.11 within PBS bin/) works.
+    # pyvenv.cfg. `home` must name the BASE interpreter's bin/ — never the
+    # venv's own bin/ (./bin), or CPython is left chasing the venv's python
+    # symlinks and can fall back to the compile-time prefix (PBS: /install) →
+    # ModuleNotFoundError: 'encodings'. Hermetic interpreters: point directly
+    # at the PBS bin/, since 3.11/3.12's getpath.py resolvedpath() fails on
+    # multi-hop relative symlinks across repo boundaries. System interpreters
+    # (py_runtime(interpreter_path)): the dirname of the absolute interpreter
+    # path — the same value `python -m venv` writes.
     if py_toolchain.runfiles_interpreter:
         pbs_rlocation = to_rlocation_path(ctx, py_toolchain.python)
         pbs_bin_dir = "/".join(pbs_rlocation.split("/")[:-1])
         pyvenv_home = "{}/{}".format(venv_to_runfiles_escape, pbs_bin_dir)
     else:
-        pyvenv_home = "./bin"
+        pyvenv_home = py_toolchain.python.path.rsplit("/", 1)[0]
 
     pyvenv_cfg = ctx.actions.declare_file("{}/pyvenv.cfg".format(venv_name))
     ctx.actions.write(
