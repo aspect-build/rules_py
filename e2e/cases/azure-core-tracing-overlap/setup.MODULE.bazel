@@ -1,0 +1,20 @@
+"""Regression: overlapping regular-package trees across wheels.
+
+azure-core owns the regular package `azure/core/` (and
+`azure/core/tracing/`); azure-core-tracing-opentelemetry installs
+`azure/core/tracing/ext/` into that same tree from a separate wheel.
+"""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_azure_core_tracing")
+uv.project(
+    hub_name = "pypi_azure_core_tracing",
+    lock = "//cases/azure-core-tracing-overlap:uv.lock",
+    pyproject = "//cases/azure-core-tracing-overlap:pyproject.toml",
+)
+use_repo(uv, "pypi_azure_core_tracing")
+
+# Exposed so e2e/BUILD.bazel can snapshot the namespace_dirs / regular_roots
+# metadata the whl_install repo rule emits for this overlapping pair.
+use_repo(uv, "whl_install__azure_core_tracing_import__azure_core__1_38_0")
+use_repo(uv, "whl_install__azure_core_tracing_import__azure_core_tracing_opentelemetry__1_0_0b11")
