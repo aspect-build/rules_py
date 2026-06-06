@@ -34,20 +34,21 @@ def _platform(rctx):
 
         out = res.stdout.lower()
 
-        # - Alpine: "musl libc\nversion <ver>\n ..."
+        # - Alpine: "musl libc ...\nversion <ver>\n ..."
         if "musl" in out:
             ver = res.stdout.split("\n")[1].split(" ")[-1].split(".")
             return "musl", "{}.{}".format(ver[0], ver[1])
 
             # - Amazon Linux: "ldd (gnu libc ...) <ver>\n..."
             # - Arch Linux: "ldd (gnu libc ...) <ver>\n..."
-            # - Debian: "ldd (debian glibc ...) <ver>\n..."
+            # - Debian: "ldd (debian glibc <ver><platformver>) <ver>\n..."
             # - Fedora: "ldd (gnu libc ...) <ver>\n..."
+            # - Gentoo: "ldd (gentoo <ver><platformver>) <ver>\n..."
             # - Oracle Linux: "ldd (gnu libc ...) <ver>\n..."
-            # - Ubuntu: "ldd (ubuntu glibc ...) <ver>\n..."
+            # - Ubuntu: "ldd (ubuntu glibc <ver><platformver>) <ver>\n..."
 
-        elif "glibc" in out or "gnu libc" in out:
-            ver = res.stdout.split("\n")[0].split(")")[1].strip().split(".")
+        elif "glibc" in out or "gnu libc" in out or "gentoo" in out:
+            ver = res.stdout.split("\n")[0].split(")")[-1].strip().split(".")
             major = ver[0]
             minor = ver[1]
             return "glibc", "{}.{}".format(major, minor)
