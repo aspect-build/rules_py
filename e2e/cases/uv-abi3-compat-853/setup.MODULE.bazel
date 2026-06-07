@@ -14,5 +14,10 @@ uv.project(
 use_repo(
     uv,
     "pypi_uv_abi3_compat_853",
+    # cffi ships per-platform C-extension top-levels
+    # (`_cffi_backend.cpython-312-*.so`/`.pyd`), so its whl_install BUILD
+    # pins that wheel metadata stays keyed per wheel instead of leaking
+    # across platform configurations — see e2e/BUILD.bazel snapshots.
+    "whl_install__abi3_compat__cffi__2_0_0",
     "whl_install__abi3_compat__cryptography__46_0_5",
 )

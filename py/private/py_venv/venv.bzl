@@ -23,6 +23,9 @@ distutils, etc.) treat it as a real venv:
         _virtualenv.py                          distutils-compat shim
         _virtualenv.pth                         loads the shim at site init
         <top_level>                             symlink to a wheel's subdir
+        <ns_pkg>/<entry>                        merged PEP 420 namespace: real
+                                                <ns_pkg>/ dir, per-entry symlinks
+                                                into each contributing wheel
         <dist>-<ver>.dist-info                  symlink to a wheel's dist-info
 
 The whole tree is declared at analysis time as individual
@@ -33,6 +36,7 @@ Bazel's action cache treats each piece independently (no tree-artifact
 
 load("@bazel_lib//lib:paths.bzl", "to_rlocation_path")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
+load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN")
 
 # Template for console-script wrappers under <venv>/bin/<name>. A tiny shell
 # script that execs the venv's own bin/python with an inline `-c` to import
@@ -57,21 +61,48 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
     * **Top-level in site-packages.** Multiple wheels claiming the same
       top-level name. When ALL contributing wheels flag the name as a
       PEP 420 namespace package (no `__init__.py` at that level), the
-      collision is benign — skip the per-top-level symlink and let each
-      wheel's site-packages fall through to `.pth` + `addsitedir`, where
-      Python's namespace machinery merges contributions natively.
-      Otherwise apply `package_collisions` policy.
+      collision is benign — merge the namespace CONCRETELY: a real
+      `site-packages/<tl>/` directory whose members are per-entry
+      symlinks into each contributing wheel (from the wheels'
+      `namespace_entries` metadata). Runtime imports would also work via
+      `.pth` + `addsitedir` alone, but tools that inspect site-packages
+      directly — mypy, pyright — never execute `.pth` files, so without
+      a concrete entry they miss the package and its `py.typed` markers
+      entirely. Wheels lacking entry metadata (hand-written
+      `py_unpacked_wheel`) keep the historical `.pth`-only fallback,
+      where Python's namespace machinery merges contributions at
+      runtime. Otherwise apply `package_collisions` policy.
+
+      Within an all-namespace top-level there's one shape `.pth` +
+      `addsitedir` cannot handle: a REGULAR package spanning wheels.
+      E.g. azure-core owns `azure/core/` (has `__init__.py`) while
+      azure-core-tracing-opentelemetry installs
+      `azure/core/tracing/ext/opentelemetry_span/` into that same tree.
+      Python locks a regular package's `__path__` to the first
+      directory found, so the second wheel's graft is unreachable. We
+      detect this by cross-referencing each wheel's `regular_roots`
+      against the other claimants' `namespace_dirs` skeletons, and
+      return the minimal conflicted roots as `merge_groups` — the
+      caller physically merges those subtrees (what a flat
+      `pip install` would have produced).
 
     * **Console-script name in bin/.** Apply `package_collisions` directly
       — no namespace equivalent.
 
     Returns:
-      top_level_to_site_pkgs: dict {top_level_name: site_packages_rfpath}
+      top_level_to_site_pkgs: dict {site_packages_relative_path: site_packages_rfpath}
+          — keys are top-level names, plus `/`-joined deeper paths (e.g.
+          `jaraco/functools`) for merged namespace packages.
       fully_covered_site_pkgs: dict[str, True] — site-packages paths whose
-          declared top-levels ALL ended up claimed by them — safe to drop
-          from the .pth fallback.
+          declared top-levels ALL ended up claimed by them (directly or
+          via a complete namespace merge) — safe to drop from the .pth
+          fallback.
       console_scripts_map: dict {script_name: struct(module, func)} after
           collision resolution.
+      merge_groups: list of struct(root, site_packages_list) — regular
+          package dirs (site-packages-relative paths) that span wheels
+          and need a physical merge, with the contributing wheels'
+          site-packages paths in first-wins priority order.
     """
 
     def _complain(what, name, a, b):
@@ -89,14 +120,20 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
             print(msg)
 
     # Pass 1: bucket claimants per top-level / per console-script name.
-    tl_claimants = {}  # tl -> list of struct(site_packages, is_ns)
+    tl_claimants = {}  # tl -> list of struct(site_packages, is_ns, ns_entries)
     cs_claimants = {}  # name -> list of struct(site_packages, module, func)
+    wheel_by_sp = {}  # site_packages_rfpath -> wheel struct
     for w in wheels:
+        wheel_by_sp[w.site_packages_rfpath] = w
         ns_set = {tl: True for tl in getattr(w, "namespace_top_levels", ())}
+        ns_entries_by_tl = {}
+        for entry in getattr(w, "namespace_entries", ()):
+            ns_entries_by_tl.setdefault(entry.split("/")[0], []).append(entry)
         for tl in w.top_levels:
             tl_claimants.setdefault(tl, []).append(struct(
                 site_packages = w.site_packages_rfpath,
                 is_ns = tl in ns_set,
+                ns_entries = tuple(ns_entries_by_tl.get(tl, [])),
             ))
         for entry in getattr(w, "console_scripts", ()):
             # Entry encoding from the repo rule: "name=module:func".
@@ -118,9 +155,14 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
             ))
 
     # Pass 2: resolve top-levels. Track which (site_packages, tl) pairs
-    # we SKIPPED so pass 3 can decide which wheels are fully covered.
+    # we SKIPPED (left to the .pth fallback) and which namespace claims
+    # were fully COVERED by per-entry symlinks, so pass 3 can decide
+    # which wheels are fully covered.
     top_level_to_site_pkgs = {}
     skipped_per_wheel = {}
+    ns_covered_per_wheel = {}
+    conflicted_roots = {}  # root path -> True (regular package spanning wheels)
+    ns_claimant_sps = {}  # sp -> True, wheels in any all-namespace collision
     for tl, claimants in tl_claimants.items():
         distinct_sp = {c.site_packages: c for c in claimants}
         if len(distinct_sp) == 1:
@@ -129,8 +171,97 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
 
         all_namespace = all([c.is_ns for c in claimants])
         if all_namespace:
-            for c in claimants:
-                skipped_per_wheel.setdefault(c.site_packages, {})[tl] = True
+            # Deep-overlap scan first: a regular root of one claimant
+            # appearing in another claimant's namespace skeleton (B
+            # installs files below it) or as another's own regular root
+            # marks a REGULAR package spanning wheels (azure-core +
+            # azure-core-tracing-opentelemetry). Python locks a regular
+            # package's __path__ to one directory, so neither .pth nor a
+            # per-entry symlink can merge it — collect the roots for the
+            # physical merge in pass 2a, and record every all-namespace
+            # claimant sp.
+            tl_prefix = tl + "/"
+            tl_conflicted = False
+            for sp_a in distinct_sp.keys():
+                ns_claimant_sps[sp_a] = True
+                w_a = wheel_by_sp[sp_a]
+                for root in getattr(w_a, "regular_roots", ()):
+                    if not root.startswith(tl_prefix):
+                        continue
+                    for sp_b in distinct_sp.keys():
+                        if sp_b == sp_a:
+                            continue
+                        w_b = wheel_by_sp[sp_b]
+                        if (root in getattr(w_b, "namespace_dirs", ()) or
+                            root in getattr(w_b, "regular_roots", ())):
+                            conflicted_roots[root] = True
+                            tl_conflicted = True
+
+            unique_claimants = distinct_sp.values()
+
+            # When a regular package spans wheels under this top-level the
+            # physical merge (pass 2a -> merge_groups) owns the conflicted
+            # subtree and the remaining namespace portions fall through to
+            # .pth. Don't ALSO lay per-entry symlinks for this top-level:
+            # they'd collide with the merged directory and can't represent
+            # a regular package anyway.
+            if tl_conflicted:
+                for c in unique_claimants:
+                    skipped_per_wheel.setdefault(c.site_packages, {})[tl] = True
+                continue
+
+            # Pure PEP 420 namespace (no regular package spanning wheels).
+            # Entry metadata is optional (hand-written py_unpacked_wheel).
+            # A complete merge needs it from EVERY claimant; otherwise
+            # keep the historical .pth-only fallback for all of them.
+            if any([not c.ns_entries for c in unique_claimants]):
+                for c in unique_claimants:
+                    skipped_per_wheel.setdefault(c.site_packages, {})[tl] = True
+                continue
+
+            # Per-entry merge: first wheel to claim an entry wins. A later
+            # distinct wheel shipping the same entry is a genuine
+            # collision (same subpackage twice) — complain per policy and
+            # leave the loser on the .pth path.
+            entry_owner = {}
+            for c in unique_claimants:
+                for entry in c.ns_entries:
+                    prior = entry_owner.get(entry)
+                    if prior == None:
+                        entry_owner[entry] = c
+                    elif prior.site_packages != c.site_packages:
+                        _complain("namespace entry", entry, prior.site_packages, c.site_packages)
+                        skipped_per_wheel.setdefault(c.site_packages, {})[tl] = True
+
+            # A nested-namespace mismatch (wheel A ships
+            # `google/cloud/__init__.py` while wheel B treats
+            # `google/cloud` as a namespace and ships
+            # `google/cloud/bigquery`) yields an entry that is a
+            # path-prefix of another — two declared outputs at
+            # conflicting paths. Keep the shallower entry (its symlink
+            # subsumes the deeper region) and leave the deeper wheel on
+            # the .pth path.
+            for entry in entry_owner.keys():
+                segments = entry.split("/")
+                for depth in range(2, len(segments)):
+                    shallower = entry_owner.get("/".join(segments[:depth]))
+                    if shallower == None:
+                        continue
+                    loser = entry_owner.pop(entry)
+                    if shallower.site_packages != loser.site_packages:
+                        _complain("namespace entry", entry, shallower.site_packages, loser.site_packages)
+                        skipped_per_wheel.setdefault(loser.site_packages, {})[tl] = True
+                    break
+
+            for entry, c in entry_owner.items():
+                top_level_to_site_pkgs[entry] = c.site_packages
+
+            # Claimants that kept every one of their entries are fully
+            # represented by the merged directory; record per-wheel
+            # coverage so pass 3 can drop them from the .pth fallback.
+            for c in unique_claimants:
+                if tl not in skipped_per_wheel.get(c.site_packages, {}):
+                    ns_covered_per_wheel.setdefault(c.site_packages, {})[tl] = True
             continue
 
         first = claimants[0]
@@ -142,6 +273,35 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
             _complain("top-level", tl, first.site_packages, c.site_packages)
             seen_losers[c.site_packages] = True
             skipped_per_wheel.setdefault(c.site_packages, {})[tl] = True
+
+    # Pass 2a: fold conflicted roots into merge groups. Keep only the
+    # minimal (shallowest) roots — a conflicted root nested inside
+    # another conflicted root is covered by merging the outer one. For
+    # each root, the contributors are every namespace-claimant wheel
+    # that has the root in its skeleton (content below it) or as its
+    # own regular root, in wheel order (= first-wins priority).
+    merge_groups = []
+    minimal_roots = []
+    for root in sorted(conflicted_roots.keys()):
+        nested = False
+        for outer in minimal_roots:
+            if root == outer or root.startswith(outer + "/"):
+                nested = True
+                break
+        if not nested:
+            minimal_roots.append(root)
+    for root in minimal_roots:
+        group_sps = []
+        for sp in ns_claimant_sps.keys():
+            w = wheel_by_sp[sp]
+            if (root in getattr(w, "regular_roots", ()) or
+                root in getattr(w, "namespace_dirs", ())):
+                group_sps.append(sp)
+        if len(group_sps) >= 2:
+            merge_groups.append(struct(
+                root = root,
+                site_packages_list = group_sps,
+            ))
 
     # Pass 2b: console scripts.
     console_scripts_map = {}
@@ -160,19 +320,24 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
             _complain("console script", name, first.site_packages, c.site_packages)
             seen_losers[c.site_packages] = True
 
-    # Pass 3: wheels fully covered by direct symlinks.
+    # Pass 3: wheels fully covered by direct (or complete per-entry
+    # namespace) symlinks.
     fully_covered = {}
     for w in wheels:
         skipped = skipped_per_wheel.get(w.site_packages_rfpath, {})
+        ns_covered = ns_covered_per_wheel.get(w.site_packages_rfpath, {})
         covered = True
         for tl in w.top_levels:
-            if tl in skipped or top_level_to_site_pkgs.get(tl) != w.site_packages_rfpath:
+            if tl in skipped:
+                covered = False
+                break
+            if top_level_to_site_pkgs.get(tl) != w.site_packages_rfpath and tl not in ns_covered:
                 covered = False
                 break
         if covered:
             fully_covered[w.site_packages_rfpath] = True
 
-    return top_level_to_site_pkgs, fully_covered, console_scripts_map
+    return top_level_to_site_pkgs, fully_covered, console_scripts_map, merge_groups
 
 def _wheel_key(wheel):
     """8-hex key derived from the wheel's install_tree.short_path (globally
@@ -194,6 +359,7 @@ def assemble_venv(
         default_env = {},
         venv_activate_tmpl,
         virtualenv_shim_py,
+        site_merge_script_py = None,
         venv_name = None):
     """Declare every file + symlink that makes up a venv for a target.
 
@@ -217,6 +383,11 @@ def assemble_venv(
         `ctx.file._venv_activate_tmpl`).
       virtualenv_shim_py: File — the `_virtualenv.py` distutils shim
         source (usually `ctx.file._virtualenv_shim`).
+      site_merge_script_py: File — the site_merge.py tool source
+        (usually `ctx.file._site_merge_script`). Only needed when the
+        wheel graph contains a regular package spanning wheels; the
+        merge action also requires the rule to declare the (optional)
+        EXEC_TOOLS_TOOLCHAIN for an exec-configuration interpreter.
       venv_name: Optional str — explicit venv dir basename. Defaults to
         "." + safe_name + ".venv" when unset.
 
@@ -234,7 +405,7 @@ def assemble_venv(
 
     wheels_depset = _py_library.make_wheels_depset(ctx)
     wheels = wheels_depset.to_list()
-    top_level_to_site_pkgs, fully_covered_site_pkgs, console_scripts_map = _resolve_wheel_collisions(
+    top_level_to_site_pkgs, fully_covered_site_pkgs, console_scripts_map, merge_groups = _resolve_wheel_collisions(
         ctx,
         wheels,
         package_collisions,
@@ -355,13 +526,18 @@ def assemble_venv(
     # symlinks. If the owning wheel has a `_wheels/<key>/` entry, we
     # route through it with an intra-venv relative path; otherwise fall
     # back to the historical runfiles-root-escape unresolved symlink.
+    # Keys may be `/`-joined paths below the site-packages root (merged
+    # namespace packages, e.g. `jaraco/functools`); each extra path
+    # segment needs one more `..` to escape back up.
     for tl, wheel_site_pkgs in top_level_to_site_pkgs.items():
         out = ctx.actions.declare_symlink("{}/{}".format(site_packages_rel, tl))
+        extra_up = "../" * tl.count("/")
         key = wheel_key_by_sp.get(wheel_site_pkgs)
         if key != None:
             ctx.actions.symlink(
                 output = out,
-                target_path = "{}/{}/lib/{}/site-packages/{}".format(
+                target_path = "{}{}/{}/lib/{}/site-packages/{}".format(
+                    extra_up,
                     site_packages_to_wheels_root,
                     key,
                     wheel_py_ver,
@@ -371,9 +547,82 @@ def assemble_venv(
         else:
             ctx.actions.symlink(
                 output = out,
-                target_path = "{}/{}/{}".format(escape, wheel_site_pkgs, tl),
+                target_path = "{}{}/{}/{}".format(extra_up, escape, wheel_site_pkgs, tl),
             )
         declared.append(out)
+
+    # Physical merges for regular packages that span wheels (see
+    # _resolve_wheel_collisions). Each group's subtree is copied from
+    # every contributing wheel into a real directory inside our
+    # site-packages — the layout a flat `pip install` produces. The
+    # venv's own site-packages precedes the per-wheel `.pth` entries on
+    # sys.path, so the merged copy is the one Python binds the regular
+    # package's `__path__` to; the per-wheel originals are shadowed.
+    #
+    # The merge runs as a build action under the exec-configuration
+    # interpreter (same shape as WhlInstall's unpack action). Wheels
+    # without an install_tree (legacy py_unpacked_wheel) can't
+    # contribute — they also never carry the metadata that forms a
+    # merge group, so they can't appear here.
+    for group in merge_groups:
+        if site_merge_script_py == None:
+            fail(("{}: wheels {} all contribute to the regular package `{}` — merging it " +
+                  "requires the venv rule to supply the site_merge tool.").format(
+                ctx.label,
+                group.site_packages_list,
+                group.root,
+            ))
+        exec_toolchain = ctx.toolchains[EXEC_TOOLS_TOOLCHAIN]
+        exec_runtime = exec_toolchain.exec_tools.exec_runtime if exec_toolchain else None
+        if exec_runtime == None:
+            fail(("{}: wheels {} all contribute to the regular package `{}` — merging it " +
+                  "requires an exec-configuration Python interpreter, but no `{}` toolchain " +
+                  "was registered.").format(
+                ctx.label,
+                group.site_packages_list,
+                group.root,
+                EXEC_TOOLS_TOOLCHAIN,
+            ))
+
+        merged_dir = ctx.actions.declare_directory(
+            "{}/{}".format(site_packages_rel, group.root),
+        )
+        arguments = ctx.actions.args()
+        arguments.add(site_merge_script_py)
+        arguments.add_all([merged_dir], expand_directories = False, before_each = "--into")
+        arguments.add("--collision-policy", package_collisions)
+        trees = []
+        for sp in group.site_packages_list:
+            key = wheel_key_by_sp.get(sp)
+            if key == None:
+                fail("{}: wheel at {} contributes to merged package `{}` but has no install_tree.".format(
+                    ctx.label,
+                    sp,
+                    group.root,
+                ))
+            tree = wheel_by_key[key].install_tree
+            trees.append(tree)
+            arguments.add_all(
+                [tree],
+                expand_directories = False,
+                before_each = "--src",
+                format_each = "%s/lib/{}/site-packages/{}".format(wheel_py_ver, group.root),
+            )
+        ctx.actions.run(
+            mnemonic = "PySiteMerge",
+            executable = exec_runtime.interpreter,
+            toolchain = EXEC_TOOLS_TOOLCHAIN,
+            arguments = [arguments],
+            inputs = depset(
+                direct = [site_merge_script_py] + trees,
+                transitive = [exec_runtime.files],
+            ),
+            outputs = [merged_dir],
+            execution_requirements = {
+                "supports-path-mapping": "1",
+            },
+        )
+        declared.append(merged_dir)
 
     # Keyed wheels (have `_wheels/<key>/`) emit a plain relative path:
     # site.py joins it with the .pth's directory and appends to

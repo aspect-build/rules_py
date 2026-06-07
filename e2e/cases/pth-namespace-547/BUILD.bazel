@@ -30,8 +30,9 @@ py_test(
 )
 
 # Snapshot fixture: minimal 2-contributor case (jaraco-classes +
-# jaraco-functools, both PEP 420 under `jaraco/`) for the
-# .pth / addsitedir branch of venv.bzl.
+# jaraco-functools, both PEP 420 under `jaraco/`). Both wheels are
+# fully covered by the concrete per-entry namespace merge, so the
+# snapshot pins that NEITHER appears in the .pth fallback.
 extract_venv_pth(
     name = "test.venv.pth",
     venv = ":test.venv",

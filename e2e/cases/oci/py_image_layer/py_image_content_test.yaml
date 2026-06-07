@@ -5,7 +5,7 @@ fileExistenceTests:
     path: /app.runfiles/_main/cases/oci/py_image_layer/__main__.py
 
   - name: runfiles dependencies are present
-    path: /app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/install/lib/python3.11/site-packages/colorama/__init__.py
+    path: /app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/__init__.py
 
   - name: launcher is present at the entrypoint
     path: /app
