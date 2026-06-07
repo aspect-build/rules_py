@@ -1,7 +1,10 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
+load(":test_annotations.bzl", "annotations_test_suite")
 load(":test_defs.bzl", "defs_test_suite")
 load(":test_graph_utils.bzl", "graph_utils_test_suite")
 load(":test_projectfile.bzl", "projectfile_test_suite")
+
+annotations_test_suite()
 
 defs_test_suite()
 
@@ -10,10 +13,17 @@ graph_utils_test_suite()
 projectfile_test_suite()
 
 bzl_library(
+    name = "annotations",
+    srcs = ["annotations.bzl"],
+    visibility = ["//uv:__subpackages__"],
+)
+
+bzl_library(
     name = "defs",
     srcs = ["defs.bzl"],
     visibility = ["//uv:__subpackages__"],
     deps = [
+        ":annotations",
         ":graph_utils",
         ":lockfile",
         ":projectfile",
@@ -69,6 +79,16 @@ bzl_library(
         ":dep_groups",
         "//uv/private:normalize_name",
         "//uv/private/versions",
+    ],
+)
+
+bzl_library(
+    name = "test_annotations",
+    srcs = ["test_annotations.bzl"],
+    visibility = ["//uv:__subpackages__"],
+    deps = [
+        ":annotations",
+        "@bazel_skylib//lib:unittest",
     ],
 )
 

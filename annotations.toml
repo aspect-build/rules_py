@@ -10,12 +10,21 @@
 #
 # Takes the place of giant MODULE.bazel annotation tables.
 #
+# See //uv/private/extension:annotations.bzl for the file format spec.
+#
 # In future this machinery may allow for annotating requirements with
 # Bazel-managed dependencies (C libraries, etc.) by label. The exact semantics
 # there are TBD.
 
 # We version lockfiles and support semver semantics here
 version = "0.0.0"
+
+# Packages may also be annotated with `native = true` (or `false`) to
+# explicitly mark whether their sdist contains native (C/C++/Cython/Rust/...)
+# sources, overriding the automatic detection performed by the sdist configure
+# tool. `native = true` forces a `pep517_native_whl` build with the CC
+# toolchain plumbed in; `native = false` forces a pure-Python `pep517_whl`
+# build.
 
 # Bravado doesn't have bdists, need to build it. Mark explicitly that we need
 # wheel setuptools and build in order to do so; build being the standard build
@@ -28,12 +37,15 @@ build-dependencies = [
 ]
 
 # We can also annotate packages as providing console scripts we care about.
-# Declared console scripts will have Bazel targets generated for them.
 #
 # Unlike `rules_python` which sees post-install package contents,
 # `aspect_rules_py//uv` doesn't and so can't discover entrypoints to generate
 # Bazel targets ahead of time. They have to be predeclared if you want to
 # reference them as targets.
+#
+# NOTE: This table is currently reserved and NOT consumed — the
+# `declare_entrypoint` tag is not yet enabled (see
+# //uv/private/extension:defs.bzl). It's kept here as the intended shape.
 [[package]]
 name = "pytest"
 

@@ -1,0 +1,18 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+# Regression coverage for `native = true` package annotations on sdist
+# builds. cowsay is pure Python, so the auto-detection configure tool says
+# `is_native = false` — only the annotation can flip the generated repo to
+# `pep517_native_whl`. The structural assertion lives in e2e/BUILD.bazel as
+# a snapshot of the generated sdist_build BUILD.bazel; this test exercises
+# the forced-native build end-to-end at runtime.
+py_test(
+    name = "test",
+    srcs = ["__test__.py"],
+    dep_group = "uv_sdist_native_annotation",
+    main = "__test__.py",
+    python_version = "3.11",
+    deps = [
+        "@pypi_sdist_native_annotation//cowsay",
+    ],
+)

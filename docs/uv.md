@@ -429,6 +429,18 @@ some key information. Such as what requirements apply when performing sdist
 builds. Annotations are the current workaround for how to associate such
 required but nonstandardized and missing dependency data with requirements.
 
+Each `[[package]]` entry in an annotations file may carry:
+
+- `build-dependencies` — packages (by name, resolved against the lockfile)
+  made available when building the package's sdist.
+- `native = true|false` — explicitly mark whether the sdist contains native
+  (C/C++/Cython/Rust/...) sources. This overrides the automatic detection
+  performed by the sdist configure tool: `true` forces the platform-specific
+  `pep517_native_whl` build (CC toolchain plumbed into the build), `false`
+  forces a pure-Python `pep517_whl` build. When omitted, detection decides.
+
+See `//uv/private/extension:annotations.bzl` for the full file format spec.
+
 **Why aren't entrypoints automatically created?** `pip.parse` performs library
 installs at repository time, which allows it to inspect the installed files and
 detect entrypoints. Because uv does installs using normal build actions it has
