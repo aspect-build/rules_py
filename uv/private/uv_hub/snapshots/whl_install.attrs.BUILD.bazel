@@ -33,9 +33,15 @@ whl_install(
         "@aspect_rules_py//uv/private/pyc:is_timestamp": "timestamp",
         "//conditions:default": "checked-hash",
     }),
-    top_levels = ["attr", "attrs", "attrs-23.2.0.dist-info"],
-    namespace_top_levels = [],
-    console_scripts = [],
+    top_levels = {
+        "attrs-23.2.0-py3-none-any.whl": [
+            "attr",
+            "attrs",
+            "attrs-23.2.0.dist-info",
+        ],
+    },
+    namespace_top_levels = {},
+    console_scripts = {},
     visibility = ["//visibility:private"],
 )
 

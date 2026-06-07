@@ -88,6 +88,15 @@ write_source_files(
         # disambiguation flips ~150 arms to the cp38 wheel in the diff.
         "snapshots/abi3_compat.whl_install.cryptography.BUILD.bazel": "@whl_install__abi3_compat__cryptography__46_0_5//:BUILD.bazel",
 
+        # whl_install for cffi 2.0.0, whose platform wheels each install a
+        # DIFFERENT C-extension top-level (`_cffi_backend.cpython-312-
+        # darwin.so` vs `...-x86_64-linux-gnu.so` vs win `.pyd`). Pins that
+        # top-level / console-script metadata is keyed per wheel file, so a
+        # regression back to unioning across platform wheels (which leaks an
+        # inactive wheel's package surface into the active configuration)
+        # shows up as the per-wheel dicts collapsing into one merged list.
+        "snapshots/abi3_compat.whl_install.cffi.BUILD.bazel": "@whl_install__abi3_compat__cffi__2_0_0//:BUILD.bazel",
+
         # @sdist_build for jpype1 with uv.override_package toolchains/env
         # ----------------------------------------------------------------
         # Covers the override_package -> repo-rule -> BUILD-template

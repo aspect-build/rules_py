@@ -8,8 +8,12 @@ load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PY_TOOLCHAIN")
 def _whl_install(ctx):
     py_toolchain = ctx.toolchains[PY_TOOLCHAIN].py3_runtime
     exec_runtime = ctx.toolchains[EXEC_TOOLS_TOOLCHAIN].exec_tools.exec_runtime
+
+    # Name the install tree after the target rather than a fixed "install"
+    # so several whl_install targets can coexist in one package without
+    # declaring conflicting outputs.
     install_dir = ctx.actions.declare_directory(
-        "install",
+        ctx.label.name + ".install",
     )
 
     archive = ctx.file.src
@@ -57,10 +61,17 @@ def _whl_install(ctx):
         },
     )
 
-    site_packages_rfpath = ctx.label.repo_name + "/install/lib/python{}.{}/site-packages".format(
+    # Runfiles-root-relative path to the install tree's site-packages.
+    # Derived from the same label components as `install_dir` above so the
+    # two can never drift apart.
+    site_packages_rfpath = "/".join([
+        segment
+        for segment in [ctx.label.repo_name, ctx.label.package, ctx.label.name + ".install"]
+        if segment
+    ] + ["lib/python{}.{}/site-packages".format(
         py_toolchain.interpreter_version_info.major,
         py_toolchain.interpreter_version_info.minor,
-    )
+    )])
 
     providers = [
         DefaultInfo(
@@ -89,21 +100,37 @@ def _whl_install(ctx):
         ),
     ]
 
-    if ctx.attr.top_levels or ctx.attr.console_scripts:
+    # Per-configuration metadata selection: `src` resolves (through the
+    # repo rule's select_chain) to exactly one wheel for the active
+    # configuration, and the metadata attrs are dicts keyed by wheel file
+    # basename. Looking up the resolved wheel at analysis time limits the
+    # advertised package surface (top-levels, console scripts) to the
+    # wheel that is actually installed — metadata from inactive platform
+    # wheels must not leak in (e.g. another platform's C-extension
+    # suffix, or a console script shipped only by the win32 wheel).
+    # A lookup miss (sbuild fallback, failed extraction at repo-fetch
+    # time) emits no PyWheelsInfo and consumers fall back to .pth-based
+    # resolution.
+    whl_basename = ctx.file.src.basename
+    top_levels = ctx.attr.top_levels.get(whl_basename, [])
+    namespace_top_levels = ctx.attr.namespace_top_levels.get(whl_basename, [])
+    console_scripts = ctx.attr.console_scripts.get(whl_basename, [])
+
+    if top_levels or console_scripts:
         providers.append(PyWheelsInfo(
             wheels = depset(direct = [struct(
-                top_levels = tuple(ctx.attr.top_levels),
+                top_levels = tuple(top_levels),
                 # PEP 420 namespace packages this wheel contributes to.
                 # When multiple wheels claim the same top-level and ALL of
                 # them flag it as namespace, py_binary treats the
                 # collision as benign and falls back to .pth-based
                 # resolution so Python's namespace-package machinery
                 # merges contributions across wheels.
-                namespace_top_levels = tuple(ctx.attr.namespace_top_levels),
+                namespace_top_levels = tuple(namespace_top_levels),
                 site_packages_rfpath = site_packages_rfpath,
                 # Each entry is "name=module:func"; py_binary parses into
                 # wrapper scripts at <venv>/bin/<name> at analysis time.
-                console_scripts = tuple(ctx.attr.console_scripts),
+                console_scripts = tuple(console_scripts),
                 # Tree artifact holding this wheel's installed file tree
                 # (`install/`, whose internal shape is
                 # `lib/python<M>.<m>/site-packages/...`). Downstream
@@ -156,31 +183,38 @@ lighter weight since the toolchain's files aren't inputs.
             values = ["checked-hash", "unchecked-hash", "timestamp"],
             doc = "PEP 552 invalidation mode for pre-compiled .pyc files.",
         ),
-        "top_levels": attr.string_list(
-            doc = """Names of the top-level packages / modules / *.dist-info directories this wheel installs into its site-packages.
+        "top_levels": attr.string_list_dict(
+            doc = """Per-wheel top-level names, keyed by wheel file basename.
 
-When set, the target emits a `PyWheelsInfo` provider describing this wheel.
-Downstream rules (such as `py_binary`) can consume this to assemble a merged
-`site-packages/` tree via `ctx.actions.symlink` instead of relying on `.pth`
-entries. Empty default preserves existing `.pth`-based behavior.
+Each value lists the top-level packages / modules / *.dist-info directories
+that wheel installs into its site-packages. At analysis time the entry whose
+key matches the basename of the wheel `src` resolved to (the selected wheel
+for the active configuration) is used; entries for other platform wheels are
+ignored so their package surface cannot leak into this configuration.
 
-Typically populated automatically by the `whl_install` repo rule from the
-wheel's `*.dist-info/top_level.txt` or `RECORD` at repo-fetch time.
+When the lookup hits, the target emits a `PyWheelsInfo` provider describing
+the selected wheel. Downstream rules (such as `py_binary`) consume this to
+assemble a merged `site-packages/` tree via `ctx.actions.symlink` instead of
+relying on `.pth` entries. A miss preserves the `.pth`-based behavior.
+
+Typically populated automatically by the `whl_install` repo rule from each
+wheel's `*.dist-info/RECORD` at repo-fetch time.
 """,
-            default = [],
+            default = {},
         ),
-        "console_scripts": attr.string_list(
-            doc = """Console-script entry points declared by this wheel, in the form `"name=module:func"`.
+        "console_scripts": attr.string_list_dict(
+            doc = """Per-wheel console-script entry points (`"name=module:func"`), keyed by wheel file basename.
 
-Populated from the wheel's `*.dist-info/entry_points.txt` `[console_scripts]`
-section by the `whl_install` repo rule at repo-fetch time. `py_binary`
-consumes these via `PyWheelsInfo` to generate executable wrappers under
-`<venv>/bin/<name>` so `subprocess.run(["<name>", ...])` works.
+Populated from each wheel's `*.dist-info/entry_points.txt`
+`[console_scripts]` section by the `whl_install` repo rule at repo-fetch
+time. Only the entry matching the selected wheel (see `top_levels`) is used.
+`py_binary` consumes these via `PyWheelsInfo` to generate executable wrappers
+under `<venv>/bin/<name>` so `subprocess.run(["<name>", ...])` works.
 """,
-            default = [],
+            default = {},
         ),
-        "namespace_top_levels": attr.string_list(
-            doc = """Subset of `top_levels` that are PEP 420 namespace packages.
+        "namespace_top_levels": attr.string_list_dict(
+            doc = """Per-wheel subset of `top_levels` that are PEP 420 namespace packages, keyed by wheel file basename.
 
 A top-level is a namespace if the wheel's RECORD shows no
 `<toplevel>/__init__.py`. When multiple wheels contribute to the same
@@ -189,7 +223,7 @@ namespace (e.g. `jaraco-classes` and `jaraco-functools` both claim
 benign and falls back to `.pth`-based resolution so Python's namespace
 machinery merges the contributions at runtime.
 """,
-            default = [],
+            default = {},
         ),
     },
     toolchains = [

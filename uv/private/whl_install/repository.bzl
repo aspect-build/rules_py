@@ -57,9 +57,7 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
         * regular_top_levels_set: subset that had an `__init__.py` at
           depth 1, i.e. regular packages. Its complement (within
           top_levels_set, minus `.dist-info/`) is the PEP 420 namespace
-          set. Returned separately so callers can union regular/top sets
-          across multiple platform wheels before deriving namespaces —
-          a top-level is a namespace only if NO wheel has it as regular.
+          set for this wheel.
         * console_scripts_set: dict[script_name → "name=module:func"].
       All empty on any failure — callers tolerate empty and fall back.
     """
@@ -146,9 +144,6 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
             # Normalise to "name=module:func" so downstream parsing is trivial.
             console_scripts[name] = "{}={}".format(name, target)
 
-    # Return raw sets (not the final namespace derivation) so callers can
-    # union across multiple platform wheels before deciding namespace
-    # status — see the caller in `_whl_install_repo_impl`.
     return top_levels_set, regular_top_levels, console_scripts
 
 def indent(text, space = " "):
@@ -318,6 +313,11 @@ def _whl_install_impl(repository_ctx):
     # Strip the bookkeeping specificity score; downstream only needs the target.
     select_arms = {k: v[1] for k, v in select_arms.items()}
 
+    # Wheel targets that survived platform/interpreter filtering — the only
+    # wheels the select chain below can ever resolve to. Used to limit
+    # metadata extraction to selectable wheels.
+    arm_targets = {v: True for v in select_arms.values()}
+
     # Unfortunately the way that Bazel decides ambiguous selects is explicitly
     # NOT designed to allow for the implementation of ranges. Because that would
     # be too easy. The disambiguation criteria is based on the number of
@@ -415,46 +415,64 @@ filegroup(
         "//conditions:default": "checked-hash",
     })"""
 
-    # Peek into each wheel to extract the top-level names it installs AND
-    # its `[console_scripts]` entry points. This powers PyWheelsInfo,
-    # which py_binary uses to build a merged site-packages tree via
-    # ctx.actions.symlink and to wrap console scripts into <venv>/bin/.
-    # Falls back gracefully to [] if extraction fails; consumers tolerate it.
+    # Peek into each selectable wheel to extract the top-level names it
+    # installs AND its `[console_scripts]` entry points, keyed by the
+    # wheel's file basename. This powers PyWheelsInfo, which py_binary
+    # uses to build a merged site-packages tree via ctx.actions.symlink
+    # and to wrap console scripts into <venv>/bin/.
+    #
+    # Metadata is kept per wheel rather than unioned across the platform
+    # wheels: the `whl_install` build rule looks up the entry whose key
+    # matches the basename of the wheel the select chain resolved to for
+    # the active configuration. A union would leak an inactive wheel's
+    # package surface into the active one — e.g. cffi's macOS
+    # `_cffi_backend.cpython-312-darwin.so` top-level showing up (as a
+    # dangling site-packages symlink) in a Linux build, or a console
+    # script shipped only by the win32 wheel getting a `<venv>/bin/`
+    # wrapper pointing at a module that doesn't exist on Linux.
+    #
+    # Wheels that didn't make it into the select chain (unsupported
+    # platform/interpreter) are skipped — they can never be the active
+    # wheel, and peeking at them would force a useless download.
+    #
+    # Falls back gracefully: a wheel without an entry (extraction failed,
+    # or the sbuild fallback whose contents are unknowable until build
+    # time) emits no PyWheelsInfo and consumers use .pth-based resolution.
     #
     # We read from `whl_files` (a real label_list) rather than `whls` (a
     # JSON-encoded string of labels) because only the former adds the
-    # wheel repos to our visibility so `rctx.path(Label(...))` can resolve.
-    #
-    # Union across all platform wheels — same-python-version wheels for
-    # a given package share their pure-Python top-levels but have
-    # DIFFERENT C-extension filenames (e.g. cffi's `_cffi_backend` ships
-    # as `_cffi_backend.cpython-311-darwin.so` on macOS and
-    # `_cffi_backend.cpython-311-x86_64-linux-gnu.so` on Linux). Picking
-    # only one wheel bakes in that wheel's suffix; at build time on a
-    # different platform, the venv's top-level symlink points at a file
-    # that doesn't exist in the actually-installed wheel. Unioning lets
-    # every platform see its own suffix in top_levels — the dangling
-    # symlinks for other platforms' suffixes are invisible to Python's
-    # importer (it matches by the current interpreter's exact suffix).
-    top_levels_set = {}
-    regular_top_levels_set = {}
-    console_scripts_set = {}
-    for whl_file in repository_ctx.attr.whl_files:
-        tls, reg, css = _extract_wheel_metadata(repository_ctx, whl_file)
-        top_levels_set.update(tls)
-        regular_top_levels_set.update(reg)
-        console_scripts_set.update(css)
+    # wheel repos to our visibility so `rctx.path(Label(...))` can
+    # resolve. `whl_files` mirrors the truthy `whls` values in order, so
+    # pair them up by index to recover the filename ↔ label association.
+    whl_file_labels = {}
+    whl_file_index = 0
+    for target in prebuilds.values():
+        if not target:
+            continue
+        whl_file_labels[target] = repository_ctx.attr.whl_files[whl_file_index]
+        whl_file_index += 1
 
-    # Namespace derivation happens AFTER the union: a top-level counts as
-    # a PEP 420 namespace only if NO extracted wheel had `__init__.py` at
-    # depth 1 for it. If any wheel flagged it regular, it's regular.
-    top_levels = sorted(top_levels_set.keys())
-    namespace_top_levels = sorted([
-        tl
-        for tl in top_levels_set
-        if tl not in regular_top_levels_set and not tl.endswith(".dist-info")
-    ])
-    console_scripts = sorted(console_scripts_set.values())
+    top_levels_by_whl = {}
+    namespace_top_levels_by_whl = {}
+    console_scripts_by_whl = {}
+    for whl_name, target in prebuilds.items():
+        if not target or target not in arm_targets:
+            continue
+        tls, regular, css = _extract_wheel_metadata(repository_ctx, whl_file_labels[target])
+        if tls:
+            top_levels_by_whl[whl_name] = sorted(tls.keys())
+
+            # A top-level counts as a PEP 420 namespace for this wheel if
+            # its RECORD shows no `<toplevel>/__init__.py` at depth 1.
+            namespaces = sorted([
+                tl
+                for tl in tls
+                if tl not in regular and not tl.endswith(".dist-info")
+            ])
+            if namespaces:
+                namespace_top_levels_by_whl[whl_name] = namespaces
+        if css:
+            console_scripts_by_whl[whl_name] = sorted(css.values())
 
     install_attrs = """
     src = ":whl",
@@ -465,9 +483,9 @@ filegroup(
     console_scripts = {console_scripts},""".format(
         compile_pyc = compile_pyc_select,
         pyc_invalidation_mode = pyc_invalidation_mode_select,
-        top_levels = repr(top_levels),
-        namespace_top_levels = repr(namespace_top_levels),
-        console_scripts = repr(console_scripts),
+        top_levels = indent(pprint(top_levels_by_whl), " " * 4).lstrip(),
+        namespace_top_levels = indent(pprint(namespace_top_levels_by_whl), " " * 4).lstrip(),
+        console_scripts = indent(pprint(console_scripts_by_whl), " " * 4).lstrip(),
     )
 
     if post_install_patches:
@@ -534,7 +552,7 @@ whl_install = repository_rule(
         # label_list so Bazel adds those repos to this repo's visibility
         # mapping. Needed so that `repository_ctx.path(Label(...))` can
         # resolve any one of them at repo-rule time to peek at the wheel's
-        # `*.dist-info/RECORD` — see `_extract_top_levels` above.
+        # `*.dist-info/RECORD` — see `_extract_wheel_metadata` above.
         "whl_files": attr.label_list(allow_files = [".whl"]),
         "sbuild": attr.label(),
         "post_install_patches": attr.string(default = ""),
