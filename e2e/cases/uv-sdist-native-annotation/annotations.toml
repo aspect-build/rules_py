@@ -1,0 +1,10 @@
+# Regression: `native = true` package annotations must be honored for sdist
+# builds. cowsay is pure Python, so the auto-detection configure tool reports
+# `is_native = false`; this annotation forces the generated sdist_build repo
+# to use `pep517_native_whl` regardless. Before the fix the extension ignored
+# the annotation and always passed `is_native = "auto"` to sdist_build.
+version = "0.0.0"
+
+[[package]]
+name = "cowsay"
+native = true

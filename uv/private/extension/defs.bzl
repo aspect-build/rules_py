@@ -66,6 +66,7 @@ load("//uv/private/tomltool:toml.bzl", "toml")
 load("//uv/private/uv_hub:repository.bzl", "uv_hub")
 load("//uv/private/uv_project:repository.bzl", "uv_project")
 load("//uv/private/whl_install:repository.bzl", "whl_install")
+load(":annotations.bzl", "parse_annotations")
 load(":graph_utils.bzl", "activate_extras", "collect_sccs")
 load(":lockfile.bzl", "build_marker_graph", "collect_bdists", "collect_configurations", "collect_markers", "collect_sdists", "normalize_deps")
 load(":projectfile.bzl", "collate_versions_by_name", "collect_activated_extras", "extract_requirement_marker_pairs")
@@ -187,25 +188,21 @@ def _parse_projects(module_ctx, hub_specs):
                         fail("Unable to identify id for package {} for lock {}\n{}".format(package, project.lock, pprint(default_versions)))
                     return None
 
+            def _resolve_optional(package):
+                return _resolve(package, fail_if_missing = False)
+
+            # See annotations.bzl for the annotations file format spec.
             lock_build_dep_anns = {}
+            lock_native_anns = {}
             for ann in mod.tags.unstable_annotate_packages:
                 if ann.lock == project.lock:
-                    annotations = toml.decode_file(module_ctx, ann.src)
-                    for package in annotations.get("package", []):
-                        k = _resolve(package, fail_if_missing = False)
-                        if k == None:
-                            # Allow a shared annotation file to include entries for other locks.
-                            continue
-                        deps = []
-                        skip = False
-                        for dep in package.get("build-dependencies", []):
-                            resolved = _resolve(dep, fail_if_missing = False)
-                            if resolved == None:
-                                skip = True
-                                break
-                            deps.append(resolved)
-                        if not skip:
-                            lock_build_dep_anns[k] = deps
+                    anns = parse_annotations(
+                        toml.decode_file(module_ctx, ann.src),
+                        _resolve_optional,
+                        src = str(ann.src),
+                    )
+                    lock_build_dep_anns.update(anns.build_deps)
+                    lock_native_anns.update(anns.native)
 
             # Collect package overrides, validating no duplicates per (lock, name, version).
             package_overrides = {}
@@ -351,6 +348,13 @@ def _parse_projects(module_ctx, hub_specs):
                     # could do pyproject.toml introspection.
                     ann_key = (project_id, normalize_name(package["name"]), package["version"], "__base__")
                     build_deps = lock_build_dep_anns.get(ann_key) or []
+
+                    # An explicit `native = true/false` annotation overrides
+                    # the configure tool's auto-detection.
+                    ann_native = lock_native_anns.get(ann_key)
+                    is_native = "auto"
+                    if ann_native != None:
+                        is_native = "true" if ann_native else "false"
                     if lock_build_deps == None:
                         # For optional sdist fallbacks (sdist present but a
                         # wheel will be picked at install time), tolerate a
@@ -391,7 +395,7 @@ def _parse_projects(module_ctx, hub_specs):
                     sbuild_specs[sbuild_id] = struct(
                         src = sdist,
                         deps = ["@{0}//:{1}".format(*it) for it in build_deps],
-                        is_native = "auto",
+                        is_native = is_native,
                         version = package["version"],
                         pre_build_patches = pre_build_patches,
                         pre_build_patch_strip = pre_build_patch_strip,
@@ -659,8 +663,15 @@ _project_tag = tag_class(
 _annotations_tag = tag_class(
     attrs = {
         "lock": attr.label(mandatory = True),
-        "src": attr.label(mandatory = True),
+        "src": attr.label(
+            mandatory = True,
+            doc = "A TOML annotations file associating build metadata " +
+                  "(`build-dependencies`, `native`) with packages in `lock`. " +
+                  "See //uv/private/extension:annotations.bzl for the format spec.",
+        ),
     },
+    doc = "Annotate packages in a lockfile with rules_py-specific build metadata. " +
+          "See //uv/private/extension:annotations.bzl for the file format spec.",
 )
 
 _declare_entrypoint_tag = tag_class(

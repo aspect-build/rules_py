@@ -1,0 +1,28 @@
+"""Regression: `native = true` package annotations must be honored for
+sdist builds. cowsay is pure Python so auto-detection reports it as
+non-native; the annotation forces the generated sdist_build repo to use
+`pep517_native_whl`. The pyproject's `no-binary-package` setting forces
+the source-build path so the annotated repo is actually built. Uses its
+own hub to keep the annotation and no-binary setting isolated.
+"""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_sdist_native_annotation")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "setuptools",
+    ],
+    hub_name = "pypi_sdist_native_annotation",
+    lock = "//cases/uv-sdist-native-annotation:uv.lock",
+    pyproject = "//cases/uv-sdist-native-annotation:pyproject.toml",
+)
+uv.unstable_annotate_packages(
+    src = "//cases/uv-sdist-native-annotation:annotations.toml",
+    lock = "//cases/uv-sdist-native-annotation:uv.lock",
+)
+
+# The sdist_build repo is exposed so e2e/BUILD.bazel can snapshot its
+# generated BUILD.bazel: pins that the `native = true` annotation flips
+# the build rule to pep517_native_whl.
+use_repo(uv, "pypi_sdist_native_annotation", "sdist_build__uv_sdist_native_annotation__cowsay__6_0")

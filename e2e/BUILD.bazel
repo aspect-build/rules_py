@@ -100,6 +100,16 @@ write_source_files(
         # rule expands env keys correctly given an explicit fixture.
         "snapshots/sdist_build.uv_sdist_jdk_build.jpype1.BUILD.bazel": "@sdist_build__uv_sdist_jdk_build__jpype1__1_7_1//:BUILD.bazel",
 
+        # @sdist_build for cowsay with a `native = true` annotation
+        # ----------------------------------------------------------------
+        # Regression for `native = true` package annotations on sdist
+        # builds (see cases/uv-sdist-native-annotation). cowsay is pure
+        # Python, so auto-detection reports non-native; only the
+        # annotation can flip the generated repo to pep517_native_whl.
+        # Pins that the forced-native BUILD uses pep517_native_whl with
+        # the default CC toolchain/env block.
+        "snapshots/sdist_build.uv_sdist_native_annotation.cowsay.BUILD.bazel": "@sdist_build__uv_sdist_native_annotation__cowsay__6_0//:BUILD.bazel",
+
         # Venv site-packages .pth files. Pin the line shapes that
         # assemble_venv emits, so any change to `.pth` emission
         # surfaces here. Wheel keys are an 8-hex hash of the wheel's
