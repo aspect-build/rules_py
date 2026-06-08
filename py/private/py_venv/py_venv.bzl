@@ -382,6 +382,12 @@ def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = [], im
         name = name,
         main = main,
         srcs = srcs,
+        # `data` lands on both targets: the venv merges it into the
+        # runfiles every consumer inherits, while the launcher needs it
+        # directly so `args` / `env` `$(location :data_file)` expansion
+        # and the coverage walk can resolve the label (srcs are kept on
+        # the launcher for the same reason).
+        data = data,
         tags = tags,
         testonly = testonly,
         visibility = visibility,
