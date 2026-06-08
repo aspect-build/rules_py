@@ -84,7 +84,10 @@ def url_basename(url):
     Returns:
         the file name as a string, e.g. "foo-1.0.0-py3-none-any.whl".
     """
-    return url.split("/")[-1].split("?")[0].split("#")[0]
+    basename = url.split("/")[-1].split("?")[0].split("#")[0]
+    if not basename:
+        fail("Invalid distribution URL (no file name): " + url)
+    return basename
 
 def _merge_scc_dep_markers_by_surface_package(marked_deps):
     merged = {}
