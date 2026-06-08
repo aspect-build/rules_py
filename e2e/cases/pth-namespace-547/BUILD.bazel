@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@aspect_rules_py//py:defs.bzl", "py_test", "py_unpacked_wheel")
 load("//tools:pth_snapshot.bzl", "extract_venv_pth")
 
 # Test namespace package resolution with the symlink-forest venv.
@@ -14,6 +14,34 @@ py_test(
     deps = [
         "@pypi_pth_namespace_547//jaraco_classes",
         "@pypi_pth_namespace_547//jaraco_functools",
+    ],
+)
+
+# Gap-1 fixture: hand-written `py_unpacked_wheel` contributing to the
+# `jaraco` namespace WITHOUT `namespace_entries` (metadata we can't
+# synthesise for an arbitrary wheel). It must not poison the entried
+# `jaraco.classes` contributor's concrete merge.
+py_unpacked_wheel(
+    name = "jaraco_functools_no_entries",
+    src = "@pypi_pth_namespace_547//jaraco_functools:whl",
+    namespace_top_levels = ["jaraco"],
+    top_levels = ["jaraco"],
+)
+
+py_test(
+    name = "test_partial_merge",
+    srcs = ["partial_merge_test.py"],
+    dep_group = "pth-namespace-547",
+    expose_venv = True,
+    isolated = False,
+    main = "partial_merge_test.py",
+    package_collisions = "warning",
+    python_version = "3.11",
+    deps = [
+        # entried (uv whl_install, carries namespace_entries)
+        "@pypi_pth_namespace_547//jaraco_classes",
+        # entryless (hand-written, no namespace_entries)
+        ":jaraco_functools_no_entries",
     ],
 )
 

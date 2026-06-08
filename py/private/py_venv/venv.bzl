@@ -151,20 +151,34 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
         if all_namespace:
             unique_claimants = distinct_sp.values()
 
-            # Entry metadata is optional (hand-written py_unpacked_wheel).
-            # A complete merge needs it from EVERY claimant; otherwise
-            # keep the historical .pth-only fallback for all of them.
-            if any([not c.ns_entries for c in unique_claimants]):
-                for c in unique_claimants:
+            # Entry metadata is optional (hand-written py_unpacked_wheel
+            # may omit it). Merge the claimants that HAVE entries
+            # concretely, and route the entryless ones to the .pth
+            # fallback: a concrete `site-packages/<tl>/` directory (no
+            # `__init__.py`) and a .pth/addsitedir portion both
+            # contribute to the same PEP 420 namespace at runtime, so the
+            # well-formed wheels stay visible to static tools (mypy,
+            # pyright) while the entryless wheel still resolves at import
+            # time. Only when NO claimant has entries do we keep the
+            # historical .pth-only fallback for the whole group.
+            entried = [c for c in unique_claimants if c.ns_entries]
+            for c in unique_claimants:
+                if not c.ns_entries:
                     skipped_per_wheel.setdefault(c.site_packages, {})[tl] = True
+            if not entried:
                 continue
 
-            # Per-entry merge: first wheel to claim an entry wins. A later
-            # distinct wheel shipping the same entry is a genuine
-            # collision (same subpackage twice) — complain per policy and
-            # leave the loser on the .pth path.
+            # Per-entry merge over the entries-bearing claimants: first
+            # wheel to claim an entry wins. A later distinct wheel
+            # shipping the same entry is a genuine collision (same
+            # subpackage twice) — complain per policy and leave the loser
+            # on the .pth path. (An entryless claimant shipping the same
+            # subpackage can't be detected here; the concrete symlink
+            # wins deterministically over its .pth portion, which is the
+            # same first-on-path resolution the old all-.pth path gave,
+            # only now order-independent.)
             entry_owner = {}
-            for c in unique_claimants:
+            for c in entried:
                 for entry in c.ns_entries:
                     prior = entry_owner.get(entry)
                     if prior == None:
@@ -181,6 +195,21 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
             # conflicting paths. Keep the shallower entry (its symlink
             # subsumes the deeper region) and leave the deeper wheel on
             # the .pth path.
+            #
+            # KNOWN LIMITATION: this is a heuristic, not a full merge.
+            # When the shallower entry is a REGULAR package (A's
+            # `google/cloud/__init__.py`), `google.cloud` is not a
+            # namespace at runtime, so B's `.pth`-routed
+            # `google/cloud/bigquery` is shadowed and won't import — a
+            # flat `pip install` would instead overlay both into one
+            # `google/cloud/` directory. Correctly handling that needs a
+            # recursive merge at the conflict depth (symlink A's
+            # `__init__.py` + members AND B's subpackages into a concrete
+            # `google/cloud/`), which in turn needs per-member metadata
+            # we don't currently emit. We surface the conflict via
+            # `package_collisions` rather than silently mis-merging. No
+            # wheel set in our fixtures hits this (every google-* wheel
+            # treats `google/cloud` as a namespace); it's defensive.
             for entry in entry_owner.keys():
                 segments = entry.split("/")
                 for depth in range(2, len(segments)):
@@ -196,10 +225,12 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
             for entry, c in entry_owner.items():
                 top_level_to_site_pkgs[entry] = c.site_packages
 
-            # Claimants that kept every one of their entries are fully
-            # represented by the merged directory; record per-wheel
-            # coverage so pass 3 can drop them from the .pth fallback.
-            for c in unique_claimants:
+            # Entries-bearing claimants that kept every one of their
+            # entries are fully represented by the merged directory;
+            # record per-wheel coverage so pass 3 can drop them from the
+            # .pth fallback. Entryless claimants stay in skipped_per_wheel
+            # (routed to .pth above) and are intentionally excluded.
+            for c in entried:
                 if tl not in skipped_per_wheel.get(c.site_packages, {}):
                     ns_covered_per_wheel.setdefault(c.site_packages, {})[tl] = True
             continue
