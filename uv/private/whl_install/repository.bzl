@@ -111,9 +111,20 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
             segments = path.split("/")
             first_segment = segments[0]
 
-            # `*.data/` files (PEP 427) aren't installed to site-packages;
-            # they're routed to data/scripts/headers/purelib/etc. under
-            # sys.prefix. Exclude from site-packages top-level list.
+            # `*.data/` files (PEP 427) are routed to
+            # data/scripts/headers/purelib/platlib under sys.prefix at
+            # install time. Exclude from the site-packages top-level list.
+            #
+            # KNOWN LIMITATION: `*.data/purelib/` and `*.data/platlib/`
+            # ARE overlaid into site-packages on a real install, so a wheel
+            # that ships a namespace contribution there (e.g.
+            # `foo.data/purelib/ns/sub/`) won't have `ns` discovered as a
+            # top-level or `ns/sub` as a namespace entry — that
+            # contribution stays invisible to the concrete merge (and to
+            # static tools). Rare in practice (wheels overwhelmingly ship
+            # packages at the archive root); handling it would mean
+            # rewriting the `*.data/{purelib,platlib}/` prefix to
+            # site-packages-relative before deriving top-levels/entries.
             if first_segment.endswith(".data"):
                 continue
 
