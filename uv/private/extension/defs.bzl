@@ -70,6 +70,25 @@ load(":graph_utils.bzl", "activate_extras", "collect_sccs")
 load(":lockfile.bzl", "build_marker_graph", "collect_bdists", "collect_configurations", "collect_markers", "collect_sdists", "normalize_deps")
 load(":projectfile.bzl", "collate_versions_by_name", "collect_activated_extras", "extract_requirement_marker_pairs")
 
+def url_basename(url):
+    """Returns the trailing file name of a distribution URL.
+
+    Lockfile wheel and sdist URLs name the distribution file in the last path
+    segment, but registries may append a query string (e.g. signed/expiring
+    download links) and/or a fragment (e.g. PEP 503 `#sha256=...` hashes).
+    Neither is part of the file name, so both are stripped.
+
+    Args:
+        url: str, the URL of a distribution file.
+
+    Returns:
+        the file name as a string, e.g. "foo-1.0.0-py3-none-any.whl".
+    """
+    basename = url.split("/")[-1].split("?")[0].split("#")[0]
+    if not basename:
+        fail("Invalid distribution URL (no file name): " + url)
+    return basename
+
 def _merge_scc_dep_markers_by_surface_package(marked_deps):
     merged = {}
     for dep, markers in marked_deps.items():
@@ -316,7 +335,10 @@ def _parse_projects(module_ctx, hub_specs):
             # Translate the package lock into installs for this project
             for package in lock_data.get("package", []):
                 install_key = (project_id, package["name"], package["version"], "__base__")
-                if install_key in install_table:
+                k = "whl_install__{}__{}__{}".format(project_stamp, package["name"], normalize_version(package["version"]))
+                install_target = "@{}//:install".format(k)
+                existing_target = install_table.get(install_key)
+                if existing_target != None and existing_target != install_target:
                     # Case of an overridden package
                     continue
                 elif "editable" in package["source"] or "virtual" in package["source"]:
@@ -327,8 +349,7 @@ def _parse_projects(module_ctx, hub_specs):
                     else:
                         fail("Virtual package {} in lockfile {} doesn't have a mandatory `uv.override_package()` annotation!".format(package["name"], project.lock))
 
-                k = "whl_install__{}__{}__{}".format(project_stamp, package["name"], normalize_version(package["version"]))
-                install_table[install_key] = "@{}//:install".format(k)
+                install_table[install_key] = install_target
                 sbuild_id = "sdist_build__{}__{}__{}".format(project_stamp, package["name"], normalize_version(package["version"]))
                 sdist = sdist_table.get(sbuild_id)
 
@@ -415,11 +436,21 @@ def _parse_projects(module_ctx, hub_specs):
                     extra_deps = [str(d) for d in pkg_override.extra_deps]
                     extra_data = [str(d) for d in pkg_override.extra_data]
 
+                # uv can emit multiple lock records for the same package/version
+                # (e.g. resolution-marker forks), each carrying a different
+                # subset of wheels. Merge with any previously translated record
+                # for the same install instead of overwriting (and thus
+                # dropping) it.
+                whls = {}
+                if not is_no_binary:
+                    prev_cfg = install_cfgs.get(k)
+                    if prev_cfg:
+                        whls.update(prev_cfg.whls)
+                    for whl in package.get("wheels", []):
+                        whls[url_basename(whl["url"])] = bdist_table.get(whl["url"])
+
                 install_cfgs[k] = struct(
-                    whls = {} if is_no_binary else {
-                        whl["url"].split("/")[-1].split("?")[0].split("#")[0]: bdist_table.get(whl["url"])
-                        for whl in package.get("wheels", [])
-                    },
+                    whls = whls,
                     sbuild = "@{}//:whl".format(sbuild_id) if has_sbuild else None,
                     post_install_patches = post_install_patches,
                     post_install_patch_strip = post_install_patch_strip,
@@ -525,7 +556,7 @@ def _uv_impl(module_ctx):
                 name = sdist_name,
                 url = sdist_cfg["url"],
                 sha256 = sha256,
-                downloaded_file_path = sdist_cfg["url"].split("/")[-1].split("?")[0].split("#")[0],
+                downloaded_file_path = url_basename(sdist_cfg["url"]),
             )
 
         elif "git" in sdist_cfg:
@@ -549,7 +580,7 @@ def _uv_impl(module_ctx):
             name = bdist_name,
             url = bdist_cfg["url"],
             sha256 = sha256,
-            downloaded_file_path = bdist_cfg["url"].split("/")[-1].split("?")[0].split("#")[0],
+            downloaded_file_path = url_basename(bdist_cfg["url"]),
         )
 
     # Resolve the sdist configure tool. The default is our bundled

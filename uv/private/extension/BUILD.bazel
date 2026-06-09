@@ -1,6 +1,9 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
+load(":test_defs.bzl", "defs_test_suite")
 load(":test_graph_utils.bzl", "graph_utils_test_suite")
 load(":test_projectfile.bzl", "projectfile_test_suite")
+
+defs_test_suite()
 
 graph_utils_test_suite()
 
@@ -66,6 +69,16 @@ bzl_library(
         ":dep_groups",
         "//uv/private:normalize_name",
         "//uv/private/versions",
+    ],
+)
+
+bzl_library(
+    name = "test_defs",
+    srcs = ["test_defs.bzl"],
+    visibility = ["//uv:__subpackages__"],
+    deps = [
+        ":defs",
+        "@bazel_skylib//lib:unittest",
     ],
 )
 
