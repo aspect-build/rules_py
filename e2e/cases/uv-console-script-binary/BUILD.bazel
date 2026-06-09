@@ -3,19 +3,34 @@ load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 py_console_script_binary(
     name = "whoowns",
+    dep_group = "uv-console-script-binary",
     pkg = "@pypi_uv_console_script_binary//whoowns",
 )
 
 py_console_script_binary(
     name = "whoowns_explicit",
+    dep_group = "uv-console-script-binary",
     pkg = "@pypi_uv_console_script_binary//whoowns",
     script = "whoowns",
+)
+
+py_console_script_binary(
+    name = "mkdocs",
+    dep_group = "uv-console-script-binary",
+    pkg = "@pypi_uv_console_script_binary//mkdocs",
+    script = "mkdocs",
+    deps = [
+        "@pypi_uv_console_script_binary//mkdocs_github_admonitions_plugin",
+    ],
 )
 
 sh_test(
     name = "test",
     srcs = ["test.sh"],
     data = [
+        "docs/index.md",
+        "mkdocs.yml",
+        ":mkdocs",
         ":whoowns",
         ":whoowns_explicit",
     ],
