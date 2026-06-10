@@ -1,20 +1,33 @@
-"""Regression test: anyio pytest plugin must be disabled when anyio is installed.
+"""Regression test: disabling the anyio pytest plugin via the args attribute.
 
 When anyio is a direct or transitive dependency, it auto-registers its pytest
-plugin via the pytest11 entry point. Without explicitly disabling it with
-'-p no:anyio', the plugin interferes with test collection and execution.
+plugin via the pytest11 entry point. Without opting out, the plugin can
+interfere with test collection and execution (e.g. when combined with other
+async frameworks or when async tests are not intended to run under anyio).
+
+To disable it, pass the opt-out flag through the Bazel args attribute:
+
+    py_test(
+        name = "my_test",
+        pytest_main = True,
+        args = ["-p", "no:anyio"],
+        deps = ["@pypi//anyio", "@pypi//pytest"],
+        ...
+    )
+
+rules_py forwards Bazel's args to pytest via sys.argv, so this is equivalent
+to running `pytest -p no:anyio` on the command line.
 """
 
 
 def test_anyio_plugin_is_disabled(pytestconfig):
-    """The anyio pytest plugin must not be active in the test session.
+    """Verify anyio plugin is not active when opted out via args = ["-p", "no:anyio"].
 
-    If this test fails with 'anyio pytest plugin is active', the fix is to add
-    '-p no:anyio' to the args list in py/private/pytest.py.tmpl.
+    Without the opt-out, get_plugin("anyio") returns the anyio.pytest_plugin
+    module. With it, the plugin is blocked before registration and returns None.
     """
     plugin = pytestconfig.pluginmanager.get_plugin("anyio")
     assert plugin is None, (
-        "anyio pytest plugin is active but should be disabled. "
-        "When anyio is installed, it auto-registers via pytest11 entry point "
-        "and can interfere with async test collection and execution."
+        "anyio pytest plugin is active. "
+        "Add args = [\"-p\", \"no:anyio\"] to your py_test to disable it."
     )
