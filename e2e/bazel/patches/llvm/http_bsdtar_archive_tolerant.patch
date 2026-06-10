@@ -1,0 +1,22 @@
+Tolerate bsdtar's "Not found in archive" warnings.
+See https://github.com/hermeticbuild/hermetic-llvm/issues/34.
+
+--- a/http_bsdtar_archive.bzl
++++ b/http_bsdtar_archive.bzl
+@@ -187,7 +187,16 @@
+
+     host_bsdtar = _host_bsdtar_label(rctx)
+     res = rctx.execute([rctx.path(host_bsdtar)] + args)
++
++    benign = False
+     if res.return_code != 0:
++        stderr_lines = [l for l in res.stderr.strip().splitlines() if l.strip()]
++        benign = bool(stderr_lines) and all([
++            ("Not found in archive" in l) or ("Error exit delayed from previous errors" in l)
++            for l in stderr_lines
++        ])
++
++    if res.return_code != 0 and not benign:
+         fail("Failed to extract archive: {}\n{}".format(res.stderr, res.stdout))
+
+     if keep_file:

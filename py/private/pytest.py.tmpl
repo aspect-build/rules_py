@@ -58,6 +58,8 @@ if __name__ == "__main__":
     args = [
         "--verbose",
         "--ignore=external/",
+        "-p",
+        "no:anyio",
         # Avoid loading of the plugin "cacheprovider".
         "-p",
         "no:cacheprovider",

@@ -1,0 +1,8 @@
+# Patches applied to the `llvm` Bazel module via single_version_override
+# in //MODULE.bazel.
+exports_files(
+    [
+        "http_bsdtar_archive_tolerant.patch",
+    ],
+    visibility = ["//visibility:public"],
+)

@@ -57,6 +57,8 @@ if __name__ == "__main__":
     plugins = []
     args = [
         "--verbose",
+        "-p",
+        "no:anyio",
         # Avoid loading of the plugin "cacheprovider".
         "-p",
         "no:cacheprovider",
