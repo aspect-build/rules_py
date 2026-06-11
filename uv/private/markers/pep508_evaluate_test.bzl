@@ -59,6 +59,11 @@ def _evaluate_test_impl(ctx):
     asserts.true(env, evaluate("((sys_platform == 'linux'))", env = _LINUX_ENV))
     asserts.true(env, evaluate("((sys_platform == 'linux') and (platform_machine == 'x86_64')) or sys_platform == 'win32'", env = _LINUX_ENV))
 
+    asserts.true(env, evaluate("extra == 'dev'", env = dict(_LINUX_ENV, extra = "dev")))
+    asserts.false(env, evaluate("extra == 'dev'", env = dict(_LINUX_ENV, extra = "other")))
+    asserts.false(env, evaluate("extra == 'dev'", env = dict(_LINUX_ENV, extra = "")))
+    asserts.false(env, evaluate("extra == 'dev'", env = dict(_LINUX_ENV, extra = "dev,other")))
+
     return unittest.end(env)
 
 evaluate_test = unittest.make(

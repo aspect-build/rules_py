@@ -170,6 +170,27 @@ decide_marker(
 
 # { name = "psutil", marker = "sys_platform != 'cygwin'" },
 
+decide_marker(
+    name = "test_extra_single_match",
+    extras = ["dev"],
+    marker = "extra == 'dev'",
+)
+
+decide_marker(
+    name = "test_extra_multi_match",
+    extras = [
+        "dev",
+        "other",
+    ],
+    marker = "extra == 'dev'",
+)
+
+decide_marker(
+    name = "test_extra_no_match",
+    extras = ["other"],
+    marker = "extra == 'dev'",
+)
+
 # { name = "gpustat", marker = "extra == 'dev'" },
 
 # { name = "ipython", marker = "extra == 'dev'" },
