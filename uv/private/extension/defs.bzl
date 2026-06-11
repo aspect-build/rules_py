@@ -628,6 +628,8 @@ _project_tag = tag_class(
             mandatory = False,
             default = [
                 "build",
+                "setuptools",
+                "wheel",
             ],
         ),
         "unstable_configure_command": attr.string_list(
