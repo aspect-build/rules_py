@@ -514,7 +514,15 @@ fn walk_skip_venvs(root: &Path) -> impl Iterator<Item = walkdir::DirEntry> {
         .into_iter()
         .filter_entry(|e| {
             if e.file_type().is_dir() {
-                !e.path().join("pyvenv.cfg").exists()
+                let name = e.file_name().to_string_lossy();
+                // Skip virtual environments and __pycache__ directories.
+                // __pycache__ contains .pyc bytecode caches that embed the source
+                // file path in their headers. When multiple packages provide the
+                // same namespace package (e.g. bosdyn/__init__.py), the .pyc files
+                // will differ even though the source is identical, causing spurious
+                // collision errors. Python regenerates .pyc files on demand so
+                // omitting them from the venv is safe.
+                !e.path().join("pyvenv.cfg").exists() && name != "__pycache__"
             } else {
                 true
             }
@@ -1349,5 +1357,44 @@ mod tests {
         assert!(is_installed_wheel(Path::new(
             "external/pip_complex/lib/python3.11/site-packages/pkg/sub/deep"
         )));
+    }
+
+    #[test]
+    fn pycache_dirs_skipped_during_venv_walk() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+
+        // Simulate a namespace package (e.g. bosdyn) installed from two sources.
+        // Each source tree has a __pycache__ dir with a .pyc whose content differs
+        // because it embeds the source file path — the canonical collision scenario.
+        for pkg in ["pkg_a", "pkg_b"] {
+            let ns = root.join(pkg).join("bosdyn");
+            std::fs::create_dir_all(&ns).unwrap();
+            std::fs::write(ns.join("__init__.py"), b"").unwrap();
+
+            let cache = ns.join("__pycache__");
+            std::fs::create_dir_all(&cache).unwrap();
+            std::fs::write(
+                cache.join("__init__.cpython-311.pyc"),
+                format!("bytecode-for-{pkg}").as_bytes(),
+            )
+            .unwrap();
+        }
+
+        let paths: Vec<_> = walk_skip_venvs(root)
+            .map(|e| e.into_path())
+            .collect();
+
+        let has_pycache = paths.iter().any(|p| {
+            p.components().any(|c| c.as_os_str() == "__pycache__")
+        });
+        assert!(
+            !has_pycache,
+            "__pycache__ entries must not appear in walk_skip_venvs output; got: {paths:?}"
+        );
+
+        // The source .py files must still be present.
+        let py_files: Vec<_> = paths.iter().filter(|p| p.extension().map_or(false, |e| e == "py")).collect();
+        assert_eq!(py_files.len(), 2, "expected two __init__.py files; got: {py_files:?}");
     }
 }
