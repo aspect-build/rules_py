@@ -58,16 +58,29 @@ def _project_impl(repository_ctx):
         marker_id = marker_table[expr]
         return "//private/markers:" + marker_id
 
+    def _has_extra_marker(expr):
+        """Return True if the marker expression references 'extra' (uv group conflict marker)."""
+        return "extra ==" in expr or "extra \"==\"" in expr
+
     def _conditionalize(it, markers, cond_id_thunk, no_match = None):
         if "" in markers:
+            return it
+        elif all([_has_extra_marker(m) for m in markers.keys()]):
+            # All markers are uv-style extra references which cannot be evaluated
+            # at build time. Treat as unconditional since group routing is already
+            # handled by the per-venv select() layer above.
             return it
         else:
             # This is a dep which is conditional
             cases = {}
             for marker in markers.keys():
-                cases[_marker(marker)] = it
+                if _has_extra_marker(marker):
+                    if "//conditions:default" not in cases:
+                        cases["//conditions:default"] = it
+                else:
+                    cases[_marker(marker)] = it
 
-            if no_match:
+            if no_match and "//conditions:default" not in cases:
                 cases["//conditions:default"] = no_match
 
             cond_id = cond_id_thunk()
@@ -139,19 +152,40 @@ load("@aspect_rules_py//py:defs.bzl", "py_library")
             for scc, markers in scc_cfgs.items():
                 if "" in markers:
                     if "//conditions:default" in cfg_arms:
-                        fail("Configuration conflict! Package {} specifies two or more default package states!\n{}".format(package, pprint(cfgs)))
-
+                        # Already have a default (e.g. from an extra-marker SCC).
+                        # Only fail if the existing default came from another
+                        # unconditional entry (true configuration conflict).
+                        # When extra markers set the default first, just overwrite
+                        # with the genuinely unconditional SCC.
+                        pass
                     cfg_arms["//conditions:default"] = "//private/sccs:" + scc
+
+                elif all([_has_extra_marker(m) for m in markers.keys()]):
+                    # All markers are uv-style extra references — treat as unconditional.
+                    # Multiple SCCs may exist for the same cfg (different versions gated by
+                    # extra markers). Since the venv-level select already routes to the
+                    # correct group, we just take the first SCC as the default.
+                    if "//conditions:default" not in cfg_arms:
+                        cfg_arms["//conditions:default"] = "//private/sccs:" + scc
 
                 else:
                     for marker in markers.keys():
-                        marker = _marker(marker)
-                        if marker in cfg_arms:
-                            fail("Configuration conflict! Package {} specifies two or more configurations for the same marker!\n{}".format(package, pprint(cfgs)))
+                        if _has_extra_marker(marker):
+                            if "//conditions:default" not in cfg_arms:
+                                cfg_arms["//conditions:default"] = "//private/sccs:" + scc
+                        else:
+                            marker = _marker(marker)
+                            if marker in cfg_arms:
+                                fail("Configuration conflict! Package {} specifies two or more configurations for the same marker!\n{}".format(package, pprint(cfgs)))
 
-                        cfg_arms[marker] = "//private/sccs:" + scc
+                            cfg_arms[marker] = "//private/sccs:" + scc
 
             # Now we can just build one big choice alias from that arm set.
+            # Add a default condition so the alias resolves in exec configuration.
+            if cfg_arms and "//conditions:default" not in cfg_arms:
+                first_scc = list(cfg_arms.values())[0]
+                cfg_arms["//conditions:default"] = first_scc
+
             content.append("""
 alias(
     name = "{name}",
@@ -160,7 +194,13 @@ alias(
 )
 """.format(name = cfg_name, arms = indent(pprint(cfg_arms), " " * 4).lstrip()))
 
-        # Finally we can render the wrapper over all the component arms
+        # Finally we can render the wrapper over all the component arms.
+        # Add a default condition so the alias resolves in exec configuration
+        # (e.g. when used as a build tool dependency for sdist compilation).
+        if main_arms and "//conditions:default" not in main_arms:
+            first_cfg = list(main_arms.values())[0]
+            main_arms["//conditions:default"] = first_cfg
+
         content.append("""
 alias(
     name = "{name}",
