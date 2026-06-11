@@ -442,10 +442,6 @@ uv.project(
 # python-geohash is sdist-only and contains a C++ extension (_geohash).
 # {{{
 uv.project(
-    default_build_dependencies = [
-        "build",
-        "setuptools",
-    ],
     hub_name = "pypi",
     lock = "//cases/uv-sdist-native-build:uv.lock",
     pyproject = "//cases/uv-sdist-native-build:pyproject.toml",
