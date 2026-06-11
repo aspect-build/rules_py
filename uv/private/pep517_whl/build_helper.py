@@ -50,6 +50,9 @@ build_env.update({
     "TMP": tmp_root,
     "TEMP": tmp_root,
     "TEMPDIR": tmp_root,
+    # Bazel sets file timestamps to epoch 0 for reproducibility. wheel < 0.38
+    # fails when creating ZIP files with timestamps before 1980-01-01.
+    "SOURCE_DATE_EPOCH": "315532800",
 })
 
 if path.exists(path.join(t, "pyproject.toml")) or path.exists(path.join(t, "setup.py")):
@@ -62,6 +65,7 @@ if path.exists(path.join(t, "pyproject.toml")) or path.exists(path.join(t, "setu
         "-m", "build",
         "--wheel",
         "--no-isolation",
+        "--skip-dependency-check",
         "--outdir", outdir,
     ]
 
