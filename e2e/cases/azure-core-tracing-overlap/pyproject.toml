@@ -1,0 +1,20 @@
+[project]
+name = "azure-core-tracing-import"
+version = "0.0.0"
+# azure-core ships `azure/core/` as a REGULAR package (it has an
+# `__init__.py`, only the `azure/` top level is a PEP 420 namespace).
+# azure-core-tracing-opentelemetry contributes `azure/core/tracing/ext/`
+# INSIDE that regular package from a separate wheel. Regular packages
+# don't merge `__path__` across sys.path entries, so this pair only
+# works if venv assembly physically merges the overlapping directory
+# trees — the namespace `.pth` machinery cannot help here.
+requires-python = ">=3.11"
+dependencies = [
+    # `build` + `setuptools` match the hub's default_build_dependencies
+    # declared in //MODULE.bazel. The uv extension expects every project
+    # lockfile to be able to resolve them.
+    "build",
+    "setuptools",
+    "azure-core==1.38.0",
+    "azure-core-tracing-opentelemetry==1.0.0b11",
+]
