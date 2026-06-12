@@ -14,3 +14,15 @@ py_test(
         "@pypi_single//cowsay",
     ],
 )
+
+# Verifies @hub//project/<stamp>:<pkg> resolves correctly.
+py_test(
+    name = "single_project_hub_qualified_label",
+    srcs = ["__test__.py"],
+    dep_group = "single_project_hub",
+    main = "__test__.py",
+    python_version = "3.11",
+    deps = [
+        "@pypi_single//project/single_project_hub:cowsay",
+    ],
+)
