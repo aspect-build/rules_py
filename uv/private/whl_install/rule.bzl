@@ -96,10 +96,17 @@ def _whl_install(ctx):
                 # PEP 420 namespace packages this wheel contributes to.
                 # When multiple wheels claim the same top-level and ALL of
                 # them flag it as namespace, py_binary treats the
-                # collision as benign and falls back to .pth-based
-                # resolution so Python's namespace-package machinery
-                # merges contributions across wheels.
+                # collision as benign: it merges the namespace concretely
+                # from `namespace_entries` symlinks (so tools that inspect
+                # site-packages directly — mypy, pyright — see the
+                # packages and their py.typed markers), falling back to
+                # .pth-based resolution when entry metadata is missing.
                 namespace_top_levels = tuple(ctx.attr.namespace_top_levels),
+                # Concrete per-wheel paths beneath namespace top-levels
+                # (e.g. `jaraco/functools`, `google/cloud/storage`) that
+                # venv assembly symlinks individually to materialise a
+                # merged namespace directory.
+                namespace_entries = tuple(ctx.attr.namespace_entries),
                 site_packages_rfpath = site_packages_rfpath,
                 # Each entry is "name=module:func"; py_binary parses into
                 # wrapper scripts at <venv>/bin/<name> at analysis time.
@@ -186,8 +193,26 @@ A top-level is a namespace if the wheel's RECORD shows no
 `<toplevel>/__init__.py`. When multiple wheels contribute to the same
 namespace (e.g. `jaraco-classes` and `jaraco-functools` both claim
 `jaraco`), `py_binary`'s collision detector treats the overlap as
-benign and falls back to `.pth`-based resolution so Python's namespace
-machinery merges the contributions at runtime.
+benign and merges the contributions into one concrete namespace
+directory via the per-entry symlinks described by `namespace_entries`
+(falling back to `.pth`-based resolution when that metadata is absent).
+""",
+            default = [],
+        ),
+        "namespace_entries": attr.string_list(
+            doc = """Concrete entries this wheel installs beneath its `namespace_top_levels`.
+
+Each entry is a `/`-joined site-packages-relative path to the
+shallowest non-namespace member: a package directory holding a direct
+`__init__.py` (`jaraco/functools`, `google/cloud/storage` — nested
+namespaces are recursed through), or a plain module / data file
+(`jaraco/context.py`). Venv assembly symlinks each entry individually,
+materialising a merged namespace directory in `site-packages/` so
+tools that inspect it directly (mypy, pyright) see every contribution
+— and its `py.typed` markers — without executing `.pth` files.
+
+Populated from the wheel's RECORD by the `whl_install` repo rule at
+repo-fetch time.
 """,
             default = [],
         ),

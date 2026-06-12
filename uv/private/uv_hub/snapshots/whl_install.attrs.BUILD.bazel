@@ -35,6 +35,7 @@ whl_install(
     }),
     top_levels = ["attr", "attrs", "attrs-23.2.0.dist-info"],
     namespace_top_levels = [],
+    namespace_entries = [],
     console_scripts = [],
     visibility = ["//visibility:private"],
 )
