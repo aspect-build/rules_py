@@ -19,6 +19,14 @@ executable wrappers under `<venv>/bin/<name>` for console scripts.
 — one per wheel in the transitive closure. Fields:
   * `top_levels`: tuple[str] — top-level names the wheel installs into site-packages.
   * `namespace_top_levels`: tuple[str] — subset of top_levels that are PEP 420 namespace packages.
+  * `namespace_dirs`: tuple[str] — implicit-namespace directory skeleton under the
+    namespace top-levels (site-packages-relative `/`-joined paths). May be absent
+    on structs from older producers; consumers use `getattr` with a `()` default.
+  * `regular_roots`: tuple[str] — minimal directories under the namespace
+    top-levels carrying an `__init__.py`. Cross-referencing a wheel's
+    `regular_roots` with another wheel's `namespace_dirs` detects regular
+    packages spanning wheels, which venv assembly must physically merge.
+    May be absent on structs from older producers.
   * `site_packages_rfpath`: str — runfiles-root-relative path to the wheel's site-packages.
   * `console_scripts`: tuple[str] — entry points encoded as `"name=module:func"`.
 """,

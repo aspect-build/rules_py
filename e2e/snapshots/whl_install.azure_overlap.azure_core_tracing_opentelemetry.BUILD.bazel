@@ -1,0 +1,54 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library")
+load("@aspect_rules_py//uv/private/whl_install:defs.bzl", "select_chain")
+load("@aspect_rules_py//uv/private/whl_install:rule.bzl", "whl_install")
+load("@bazel_skylib//lib:selects.bzl", "selects")
+
+select_chain(
+   name = "whl",
+   arms = {
+        "@aspect_rules_py_pip_configurations//:py3-any-none": "@whl__azure_core_tracing_opentelemetry__016cefcaff2900fb//file"
+   },
+   default_target = "@@aspect_rules_py++uv+sdist_build__azure_core_tracing_import__azure_core_tracing_opentelemetry__1_0_0b11//:whl",
+   visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "gazelle_index_whl",
+    srcs = [
+        "@whl__azure_core_tracing_opentelemetry__016cefcaff2900fb//file",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+
+whl_install(
+    name = "actual_install",
+    src = ":whl",
+    compile_pyc = select({
+        "@aspect_rules_py//uv/private/pyc:is_precompile": True,
+        "//conditions:default": False,
+    }),
+    pyc_invalidation_mode = select({
+        "@aspect_rules_py//uv/private/pyc:is_unchecked_hash": "unchecked-hash",
+        "@aspect_rules_py//uv/private/pyc:is_timestamp": "timestamp",
+        "//conditions:default": "checked-hash",
+    }),
+    top_levels = ["azure", "azure_core_tracing_opentelemetry-1.0.0b11.dist-info"],
+    namespace_top_levels = ["azure"],
+    console_scripts = [],
+    namespace_dirs = ["azure/core", "azure/core/tracing", "azure/core/tracing/ext"],
+    regular_roots = ["azure/core/tracing/ext/opentelemetry_span"],
+    visibility = ["//visibility:private"],
+)
+
+alias(
+    name = "install",
+    actual = ":actual_install",
+    visibility = ["//visibility:public"],
+)
+
+
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//visibility:public"],
+)

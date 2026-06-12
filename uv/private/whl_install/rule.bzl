@@ -100,6 +100,14 @@ def _whl_install(ctx):
                 # resolution so Python's namespace-package machinery
                 # merges contributions across wheels.
                 namespace_top_levels = tuple(ctx.attr.namespace_top_levels),
+                # Directory skeleton under namespace top-levels: which
+                # dirs are implicit-namespace portions and which are the
+                # minimal regular-package roots. venv assembly uses the
+                # cross-wheel combination to detect regular packages
+                # spanning wheels (which need a physical merge — Python
+                # can't merge a regular package's __path__ at runtime).
+                namespace_dirs = tuple(ctx.attr.namespace_dirs),
+                regular_roots = tuple(ctx.attr.regular_roots),
                 site_packages_rfpath = site_packages_rfpath,
                 # Each entry is "name=module:func"; py_binary parses into
                 # wrapper scripts at <venv>/bin/<name> at analysis time.
@@ -188,6 +196,32 @@ namespace (e.g. `jaraco-classes` and `jaraco-functools` both claim
 `jaraco`), `py_binary`'s collision detector treats the overlap as
 benign and falls back to `.pth`-based resolution so Python's namespace
 machinery merges the contributions at runtime.
+""",
+            default = [],
+        ),
+        "namespace_dirs": attr.string_list(
+            doc = """Implicit-namespace directory skeleton under the wheel's namespace top-levels.
+
+Every directory (as a `/`-joined path relative to site-packages) that
+the wheel installs files under without an `__init__.py` anywhere on the
+path. E.g. azure-core-tracing-opentelemetry: `["azure", "azure/core",
+"azure/core/tracing", "azure/core/tracing/ext"]`.
+
+Populated from the wheel's RECORD by the `whl_install` repo rule.
+venv assembly cross-references this with other wheels' `regular_roots`
+to find regular packages that span wheels.
+""",
+            default = [],
+        ),
+        "regular_roots": attr.string_list(
+            doc = """Minimal regular-package directories under the wheel's namespace top-levels.
+
+The shallowest directories (as `/`-joined paths relative to
+site-packages) carrying an `__init__.py`. E.g. azure-core:
+`["azure/core"]`. When such a root shows up in another wheel's
+`namespace_dirs`, that other wheel grafts content inside this regular
+package — venv assembly must physically merge the subtree since
+Python locks a regular package's `__path__` to one directory.
 """,
             default = [],
         ),
