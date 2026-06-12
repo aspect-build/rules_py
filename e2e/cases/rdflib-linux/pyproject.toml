@@ -1,0 +1,8 @@
+[project]
+name = "rdflib-linux"
+version = "0.0.0"
+authors = []
+requires-python = ">=3.11"
+dependencies = [
+    "rdflib>=7.0.0",
+]

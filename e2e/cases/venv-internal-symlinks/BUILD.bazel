@@ -3,7 +3,7 @@ load("@aspect_rules_py//py:defs.bzl", "py_test")
 py_test(
     name = "test_internal_symlinks",
     srcs = ["test_babel.py"],
-    dep_group = "venv-internal-symlinks",
+    dep_group = "venv_internal_symlinks",
     expose_venv = True,
     isolated = False,
     main = "test_babel.py",
@@ -16,7 +16,7 @@ py_test(
 py_test(
     name = "test_internal_symlinks_legacy",
     srcs = ["test_babel.py"],
-    dep_group = "venv-internal-symlinks",
+    dep_group = "venv_internal_symlinks",
     main = "test_babel.py",
     deps = [
         "@pypi_venv_internal_symlinks//babel",

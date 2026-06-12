@@ -1,0 +1,22 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+# Regression: hyphenated [project].name caused config_setting names with hyphens,
+# breaking dep_group = "rdflib_linux" (underscore) matching. Fix: normalize_name().
+sh_test(
+    name = "dep_group_names_normalized",
+    srcs = ["check_dep_group_names.sh"],
+    args = ["$(location @pypi_rdflib_linux//dep_group:BUILD.bazel)"],
+    data = ["@pypi_rdflib_linux//dep_group:BUILD.bazel"],
+    target_compatible_with = ["@platforms//os:linux"],
+)
+
+py_test(
+    name = "rdflib_linux",
+    srcs = ["__test__.py"],
+    dep_group = "rdflib_linux",
+    main = "__test__.py",
+    python_version = "3.11",
+    target_compatible_with = ["@platforms//os:linux"],
+    deps = ["@pypi_rdflib_linux//rdflib"],
+)
