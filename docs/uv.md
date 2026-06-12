@@ -296,6 +296,13 @@ An sdist (if available) will be built into a wheel for installation if no wheels
 are available, or no wheels matching the target configuration are found. Sdist
 builds occur using the configured Python and Cc toolchains.
 
+Packages sourced from git repositories that live in a subdirectory of the
+repository (common in monorepos) are supported. When uv resolves such a
+dependency — e.g. `pkg @ git+https://github.com/org/repo.git#subdirectory=packages/pkg`
+— the `subdirectory` field recorded in `uv.lock` is automatically forwarded to
+the build backend so that `pyproject.toml` is found in the correct location
+within the archive.
+
 ## Best practices
 
 **Consolidate your hubs**. In `rules_python`, environments with multiple depsets

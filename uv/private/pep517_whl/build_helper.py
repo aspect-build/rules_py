@@ -20,6 +20,7 @@ PARSER.add_argument("outdir")
 PARSER.add_argument("--validate-anyarch", action="store_true")
 PARSER.add_argument("--patch-strip", type=int, default=0, help="Strip count for patch (-p)")
 PARSER.add_argument("--patch", action="append", default=[], dest="patches", help="Patch file to apply (repeatable)")
+PARSER.add_argument("--subdirectory", default="", help="Subdirectory within the archive containing pyproject.toml")
 opts, args = PARSER.parse_known_args()
 
 tmp_root = opts.outdir.lstrip("/") + ".tmp"
@@ -33,6 +34,9 @@ shutil.unpack_archive(opts.srcarchive, t)
 # accordingly. Not worth the eng effort to prevent creating this dir.
 t = path.join(t, listdir(t)[0])
 
+if opts.subdirectory:
+    t = path.join(t, opts.subdirectory)
+
 if opts.patches:
     for patch_file in opts.patches:
         check_call(
@@ -43,6 +47,12 @@ if opts.patches:
 
 # Get a path to the outdir which will be valid after we cd
 outdir = path.abspath(opts.outdir)
+
+# Resolve CC/CXX to absolute paths so they remain valid after cwd changes
+# into the extracted source tree (Bazel sets these as exec-root-relative).
+for _cc_var in ("CC", "CXX"):
+    if _cc_var in os.environ and not path.isabs(os.environ[_cc_var]):
+        os.environ[_cc_var] = path.abspath(os.environ[_cc_var])
 
 # Preserve PATH so native sdist builds can find compilers (clang, gcc).
 build_env = dict(os.environ)

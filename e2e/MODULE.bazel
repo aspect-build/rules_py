@@ -49,7 +49,13 @@ interpreters.toolchain(
 interpreters.toolchain(
     python_version = "3.13",
 )
-use_repo(interpreters, "python_interpreters")
+use_repo(
+    interpreters,
+    "python_3_13_aarch64_apple_darwin",
+    "python_3_13_aarch64_unknown_linux_gnu",
+    "python_3_13_x86_64_unknown_linux_gnu",
+    "python_interpreters",
+)
 
 register_toolchains("@python_interpreters//:all")
 

@@ -391,6 +391,7 @@ def _parse_projects(module_ctx, hub_specs):
                         pre_build_patch_strip = pre_build_patch_strip,
                         available_deps = project_available_deps,
                         configure_command = project.unstable_configure_command,
+                        subdirectory = package.get("source", {}).get("subdirectory", ""),
                     )
 
                     has_sbuild = True
@@ -574,6 +575,8 @@ def _uv_impl(module_ctx):
         if sbuild_cfg.pre_build_patches:
             sbuild_kwargs["pre_build_patches"] = sbuild_cfg.pre_build_patches
             sbuild_kwargs["pre_build_patch_strip"] = sbuild_cfg.pre_build_patch_strip
+        if sbuild_cfg.subdirectory:
+            sbuild_kwargs["subdirectory"] = sbuild_cfg.subdirectory
         sdist_build(**sbuild_kwargs)
 
     for install_id, install_cfg in cfg.install_cfgs.items():
