@@ -43,6 +43,8 @@ def _python_interpreter_impl(rctx):
         micro = micro,
         python_bin = python_bin,
         is_windows = is_windows,
+        is_macos = "darwin" in platform or "apple" in platform,
+        freethreaded = rctx.attr.freethreaded,
     ))
 
     if not features.external_deps.extension_metadata_has_reproducible:
@@ -84,10 +86,47 @@ filegroup(
 
     return "\n".join(lines), all_excludes
 
-def _build_file_content(major, minor, micro, python_bin, is_windows):
+def _build_file_content(major, minor, micro, python_bin, is_windows, is_macos = False, freethreaded = False):
     """Generate the full BUILD.bazel content for an interpreter repo."""
 
     feature_targets, feature_excludes = _feature_filegroups(major, minor, is_windows)
+
+    # Freethreaded builds suffix the version with "t" (the ABI flag) in both the
+    # include dir and the shared-library names, e.g. python3.13t / libpython3.13t.
+    abi_suffix = "t" if freethreaded else ""
+
+    # Directory holding the C headers (Python.h, etc.). PBS lays these out as
+    # include/python{major}.{minor} (and include/python{major}.{minor}t for
+    # freethreaded builds) on POSIX, and include/ on Windows.
+    if is_windows:
+        headers_include_dir = "include"
+    else:
+        headers_include_dir = "include/python{major}.{minor}{suffix}".format(
+            major = major,
+            minor = minor,
+            suffix = abi_suffix,
+        )
+
+    # Shared library / import library for linking against the interpreter. Used
+    # by @rules_python//python/cc:current_py_cc_libs and required to link native
+    # extensions on Windows. PBS lays these out per-OS; each interpreter repo is
+    # single-platform, so we emit the exact files (no select()).
+    if is_windows:
+        libpython_srcs = [
+            "python3{abi}.dll".format(abi = abi_suffix),
+            "python{major}{minor}{abi}.dll".format(major = major, minor = minor, abi = abi_suffix),
+            "libs/python{major}{minor}{abi}.lib".format(major = major, minor = minor, abi = abi_suffix),
+            "libs/python3{abi}.lib".format(abi = abi_suffix),
+        ]
+    elif is_macos:
+        libpython_srcs = [
+            "lib/libpython{major}.{minor}{abi}.dylib".format(major = major, minor = minor, abi = abi_suffix),
+        ]
+    else:  # linux
+        libpython_srcs = [
+            "lib/libpython{major}.{minor}{abi}.so".format(major = major, minor = minor, abi = abi_suffix),
+            "lib/libpython{major}.{minor}{abi}.so.1.0".format(major = major, minor = minor, abi = abi_suffix),
+        ]
 
     if is_windows:
         core_include = '["**/*.py", "**/*.pyd", "**/*.dll", "**/*.exe", "include/**", "Lib/**"]'
@@ -116,8 +155,10 @@ def _build_file_content(major, minor, micro, python_bin, is_windows):
 """.format(feature = feature_name)
 
     return """\
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_python//python:py_runtime.bzl", "py_runtime")
 load("@rules_python//python:py_runtime_pair.bzl", "py_runtime_pair")
+load("@rules_python//python/cc:py_cc_toolchain.bzl", "py_cc_toolchain")
 load("@aspect_rules_py//py/private/exec_tools:defs.bzl", "py_exec_tools_toolchain")
 
 package(default_visibility = ["//visibility:public"])
@@ -163,6 +204,34 @@ py_runtime_pair(
 py_exec_tools_toolchain(
     name = "exec_tools_toolchain",
 )
+
+# Python C/C++ headers, consumed by native extensions (nanobind, pybind11, ...)
+# via @rules_python//python/cc:current_py_cc_headers. The PBS interpreter already
+# ships these under {headers_include_dir}.
+cc_library(
+    name = "python_headers",
+    hdrs = glob(["include/**/*.h"], allow_empty = True),
+    includes = ["{headers_include_dir}"],
+)
+
+# Python shared/import library, consumed via
+# @rules_python//python/cc:current_py_cc_libs.
+cc_library(
+    name = "libpython",
+    srcs = {libpython_srcs},
+)
+
+# py_cc toolchain so that @rules_python//python/cc:toolchain_type resolves when
+# python_interpreters is the only registered toolchain provider. Without this,
+# building any native Python extension fails at analysis time with
+# "No matching toolchains found for types: .../python/cc:toolchain_type".
+py_cc_toolchain(
+    name = "py_cc_toolchain",
+    headers = ":python_headers",
+    headers_abi3 = ":python_headers",
+    libs = ":libpython",
+    python_version = "{major}.{minor}",
+)
 """.format(
         python_bin = python_bin,
         major = major,
@@ -172,6 +241,8 @@ py_exec_tools_toolchain(
         feature_selects = feature_selects,
         core_include = core_include,
         core_exclude = core_exclude,
+        headers_include_dir = headers_include_dir,
+        libpython_srcs = repr(libpython_srcs),
     )
 
 python_interpreter = repository_rule(
@@ -314,6 +385,31 @@ config_setting(
         target_compatible_with = info["compatible_with"] + extra_target_compatible
         exec_compatible_with = info["compatible_with"] + extra_exec_compatible
 
+        # py_cc toolchain registration, only for interpreters whose repo defines
+        # a py_cc_toolchain target (PBS interpreters). Local/system interpreters
+        # don't ship a Bazel-managed include/ layout, so we skip it for them.
+        py_cc_toolchain_block = ""
+        if info.get("py_cc", False):
+            py_cc_toolchain_block = """
+# Python C/C++ headers toolchain (@rules_python//python/cc:toolchain_type).
+# Selected by the TARGET platform, like the runtime toolchain: native extensions
+# are compiled against the headers of the interpreter they run on. Registering it
+# here lets python_interpreters fully replace rules_python's python.toolchain(),
+# which registers this same toolchain type via python_register_toolchains.
+toolchain(
+    name = "{name}_py_cc",
+    target_compatible_with = {target_compatible_with},
+    target_settings = {target_settings},
+    toolchain = "@{repo}//:py_cc_toolchain",
+    toolchain_type = "@rules_python//python/cc:toolchain_type",
+)
+""".format(
+                name = info["name"],
+                repo = info["repo"],
+                target_compatible_with = target_compatible_with,
+                target_settings = target_settings,
+            )
+
         content.append("""
 # The Python interpreter toolchain has no exec_compatible_with: the interpreter
 # runs on the TARGET platform (inside the virtualenv), not on the exec host.
@@ -329,7 +425,7 @@ toolchain(
     toolchain = "@{repo}//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
-
+{py_cc_toolchain_block}
 # Exec tools toolchain: selected by exec platform (not target platform) so
 # that build actions using the interpreter (e.g. compileall) get a runnable
 # binary on the build host regardless of the target platform being built for.
@@ -345,6 +441,7 @@ toolchain(
             exec_compatible_with = exec_compatible_with,
             target_compatible_with = target_compatible_with,
             target_settings = target_settings,
+            py_cc_toolchain_block = py_cc_toolchain_block,
         ))
 
     content.append("""
