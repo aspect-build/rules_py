@@ -48,7 +48,7 @@ if "COVERAGE_MANIFEST" in os.environ:
 
 from pytest_shard import ShardPlugin
 
-if __name__ == "__main__":
+def main():
     # This statement will be replaced if the user provides a chdir path
     _ = 0  # no-op
 
@@ -155,4 +155,8 @@ if __name__ == "__main__":
               output_file.write(line)
         os.unlink(unfixed_dat)
 
-    sys.exit(exit_code)
+    return exit_code
+
+
+if __name__ == "__main__":
+    sys.exit(main())
