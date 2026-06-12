@@ -151,6 +151,9 @@ pub fn create_symlinks(
         // `__init__.py` files in the root site-packages directory. The site-packages directory
         // itself is not a regular package and is not supposed to have an `__init__.py` file.
         if path.is_dir() {
+            if path.file_name().map_or(false, |n| n == "__pycache__") {
+                continue;
+            }
             create_symlinks(&path, root_dir, dst_dir, collision_strategy)?;
         }
         // rules_python runfiles helper needs some special handling when consumed as pip dependency.
@@ -298,4 +301,42 @@ fn is_same_file(p1: &Path, p2: &Path) -> miette::Result<bool> {
     }
 
     return Ok(true);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
+    fn make_namespace_pkg(base: &Path, py_content: &str, pyc_content: &str) -> PathBuf {
+        let sp = base.join("site-packages");
+        let pkg_dir = sp.join("jaraco");
+        fs::create_dir_all(&pkg_dir).unwrap();
+        fs::write(pkg_dir.join("__init__.py"), py_content).unwrap();
+
+        let cache_dir = pkg_dir.join("__pycache__");
+        fs::create_dir_all(&cache_dir).unwrap();
+        fs::write(
+            cache_dir.join("__init__.cpython-310.pyc"),
+            pyc_content,
+        )
+        .unwrap();
+        sp
+    }
+
+    #[test]
+    fn pycache_dirs_skipped_during_namespace_merge() {
+        let tmp = TempDir::new().unwrap();
+
+        let sp1 = make_namespace_pkg(&tmp.path().join("pkg1"), "# namespace", "pyc_from_pkg1");
+        let sp2 = make_namespace_pkg(&tmp.path().join("pkg2"), "# namespace", "pyc_from_pkg2");
+        let dst = tmp.path().join("dst").join("site-packages");
+        fs::create_dir_all(&dst).unwrap();
+
+        create_symlinks(&sp1, &sp1, &dst, &CollisionResolutionStrategy::Error).unwrap();
+
+        create_symlinks(&sp2, &sp2, &dst, &CollisionResolutionStrategy::Error)
+            .expect("__pycache__ directories must be skipped; no collision expected");
+    }
 }
