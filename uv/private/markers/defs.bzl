@@ -74,7 +74,6 @@ def _decide_marker_impl(ctx):
     FeatureFlagInfo = config_common.FeatureFlagInfo
 
     extras = sorted(ctx.attr.extras)
-    extra = ",".join(extras)
     dependency_groups = sorted(ctx.attr.dependency_groups)
 
     # Hide the differences between string flags and our custom build settings so
@@ -87,32 +86,40 @@ def _decide_marker_impl(ctx):
         else:
             fail("Unable to deref %r" % it)
 
-    res = _evaluate_marker(
-        marker = ctx.attr.marker,
-        env = {
-            # FIXME: Technically these aren't always defined... but this
-            # implementation will have them present. [1]
-            #
-            # [1] https://packaging.python.org/en/latest/specifications/dependency-specifiers/#environment-markers
-            #
-            # {{{
-            "extra": extra,
-            "extras": extras,
-            "dependency_groups": dependency_groups,
-            # }}}
-            "python_version": _value(ctx.attr.python_version),
-            "python_full_version": _value(ctx.attr.python_full_version),
-            "os_name": _value(ctx.attr.os_name),
-            "sys_platform": _value(ctx.attr.sys_platform),
-            "os_release": _value(ctx.attr.os_release),
-            "platform_machine": _value(ctx.attr.platform_machine),
-            "platform_system": _value(ctx.attr.platform_system),
-            "platform_version": _value(ctx.attr.platform_version),
-            "platform_python_implementation": _value(ctx.attr.platform_python_implementation),
-            "implementation_name": _value(ctx.attr.implementation_name),
-            "implementation_version": _value(ctx.attr.implementation_version),
-        },
-    )
+    venv_name = _value(ctx.attr._venv)
+    if not extras and venv_name and "extra" in ctx.attr.marker:
+        venv_name_normalized = venv_name.replace("_", "-")
+        seen = {}
+        for token in ctx.attr.marker.replace("(", " ").replace(")", " ").split("'"):
+            if token.endswith(venv_name_normalized) and token not in seen:
+                seen[token] = True
+        extras = sorted(seen.keys())
+
+    eval_extras = extras if extras else [""]
+
+    res = False
+    for extra in eval_extras:
+        if _evaluate_marker(
+            marker = ctx.attr.marker,
+            env = {
+                "extra": extra,
+                "extras": extras,
+                "dependency_groups": dependency_groups,
+                "python_version": _value(ctx.attr.python_version),
+                "python_full_version": _value(ctx.attr.python_full_version),
+                "os_name": _value(ctx.attr.os_name),
+                "sys_platform": _value(ctx.attr.sys_platform),
+                "os_release": _value(ctx.attr.os_release),
+                "platform_machine": _value(ctx.attr.platform_machine),
+                "platform_system": _value(ctx.attr.platform_system),
+                "platform_version": _value(ctx.attr.platform_version),
+                "platform_python_implementation": _value(ctx.attr.platform_python_implementation),
+                "implementation_name": _value(ctx.attr.implementation_name),
+                "implementation_version": _value(ctx.attr.implementation_version),
+            },
+        ):
+            res = True
+            break
 
     # print(ctx.label, ctx.attr.marker, "->", res)
 
@@ -126,6 +133,7 @@ _decide_marker = rule(
         "marker": attr.string(),
         "extras": attr.string_list(default = []),
         "dependency_groups": attr.string_list(default = []),
+        "_venv": attr.label(default = Label("@aspect_rules_py//uv/private/constraints/venv:venv")),
         "python_version": attr.label(default = Label(":python_version")),
         "python_full_version": attr.label(default = Label(":python_full_version")),
         "os_name": attr.label(default = Label(":os_name")),
