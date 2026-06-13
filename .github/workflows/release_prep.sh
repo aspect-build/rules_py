@@ -20,6 +20,16 @@ git archive --format=tar --prefix=${PREFIX}/ ${TAG} > $ARCHIVE_TMP
 # Delete the placeholder file
 tar --file $ARCHIVE_TMP --delete ${PREFIX}/py/private/release/integrity.bzl
 
+# download-artifact extracts a single artifact flat into the workspace root
+# rather than into artifacts-<name>/ (actions/download-artifact#455).
+# Move the files where the glob below and release_files expect them.
+if compgen -G '*.sha256' >/dev/null; then
+  mkdir -p artifacts-prebuilt
+  for f in *.sha256; do
+    mv "$f" "${f%.sha256}" artifacts-prebuilt/
+  done
+fi
+
 # Generate an updated integrity hash set
 mkdir -p ${PREFIX}/py/private/release
 cat >${PREFIX}/py/private/release/integrity.bzl <<EOF
