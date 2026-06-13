@@ -3,6 +3,7 @@
 """
 
 load("@bazel_features//:features.bzl", features = "bazel_features")
+load("//uv/private:compat.bzl", "new_set", "set_add")
 load("//uv/private:sha1.bzl", "sha1")
 load("//uv/private/pprint:defs.bzl", "pprint")
 
@@ -90,10 +91,10 @@ alias(
     venv_content = []
 
     # Collect all unique cfgs first
-    all_cfgs = set()
+    all_cfgs = new_set()
     for dep, cfgs in dep_to_scc.items():
         for cfg in cfgs.keys():
-            all_cfgs.add(cfg)
+            set_add(all_cfgs, cfg)
 
     for cfg_name in all_cfgs:
         venv_content.append(

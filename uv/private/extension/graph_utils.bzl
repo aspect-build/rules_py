@@ -1,3 +1,4 @@
+load("//uv/private:compat.bzl", "new_set", "set_add")
 load("//uv/private:sha1.bzl", "sha1")
 load("//uv/private/graph:sccs.bzl", "sccs")
 
@@ -22,11 +23,11 @@ def collect_sccs(marker_graph):
           dependencies.
     """
 
-    all_nodes = set()
+    all_nodes = new_set()
     for pkg, deps in marker_graph.items():
-        all_nodes.add(pkg)
+        set_add(all_nodes, pkg)
         for dep in deps.keys():
-            all_nodes.add(dep)
+            set_add(all_nodes, dep)
 
     simplified_graph = {node: [] for node in all_nodes}
     for pkg, deps in marker_graph.items():

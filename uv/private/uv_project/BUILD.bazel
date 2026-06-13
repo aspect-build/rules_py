@@ -9,6 +9,7 @@ bzl_library(
     name = "repository",
     srcs = ["repository.bzl"],
     deps = [
+        "//uv/private:compat",
         "//uv/private:sha1",
         "//uv/private/pprint:defs",
         "@bazel_features//:features",
