@@ -6,8 +6,3 @@ py_binary(
     main = "devserver.py",
 )
 
-py_binary(
-    name = "integrity",
-    srcs = ["devintegrity.py"],
-    main = "devintegrity.py",
-)
