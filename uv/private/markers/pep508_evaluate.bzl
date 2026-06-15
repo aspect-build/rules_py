@@ -20,6 +20,7 @@ Vendored and used here with thanks.
 """
 
 load("@rules_python//python/private:enum.bzl", "enum")
+load("//uv/private/versions:versions.bzl", "version_satisfies")
 load(":semver.bzl", "semver")
 
 # The expression parsing and resolution for the PEP508 is below
@@ -348,6 +349,9 @@ def _env_expr(left, op, right):
 
 def _version_expr(left, op, right):
     """Evaluate a version comparison expression"""
+    if op in ["==", "!="] and right.endswith(".*"):
+        return version_satisfies(left, op + right)
+
     left = semver(left)
     right = semver(right)
     _left = left.key()
