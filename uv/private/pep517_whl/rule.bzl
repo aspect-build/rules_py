@@ -6,6 +6,8 @@ build backend the sdist declares in its `[build-system]` table.
 """
 
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", find_cc_toolchain = "find_cpp_toolchain")
+load("@rules_cc//cc:action_names.bzl", "C_COMPILE_ACTION_NAME")
+load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
 load("//py/private/toolchain:types.bzl", "NATIVE_BUILD_TOOLCHAIN", "PY_TOOLCHAIN")
 
 CC_TOOLCHAIN = "@bazel_tools//tools/cpp:toolchain_type"
@@ -70,8 +72,29 @@ def _pep517_native_whl(ctx):
     # rather than falling back to whatever is on the system PATH.
     cc_toolchain = find_cc_toolchain(ctx, mandatory = False)
     if cc_toolchain:
-        env["CC"] = cc_toolchain.compiler_executable
+        feature_configuration = cc_common.configure_features(
+            ctx = ctx,
+            cc_toolchain = cc_toolchain,
+        )
+        c_compiler_path = cc_common.get_tool_for_action(
+            feature_configuration = feature_configuration,
+            action_name = C_COMPILE_ACTION_NAME,
+        )
+
+        # Note that these paths are relative to the bazel exec root,
+        # and they need to be absolutized if they're to be invoked from any
+        # other working directory. (e.g. in build_helper.py for sdist builds.)
+        env["CC"] = c_compiler_path
         extra_inputs.append(cc_toolchain.all_files)
+
+        # We can extract the relative path to the @llvm-provided sysroot from
+        # the list of include directories.
+        # It still needs to be absolutized, so we can't add it directly to
+        # CFLAGS here.
+        for c in cc_toolchain.built_in_include_directories:
+            if c.endswith("sysroot"):
+                env["SYSROOT"] = c
+                break
 
     ctx.actions.run(
         mnemonic = "PySdistNativeBuild",
