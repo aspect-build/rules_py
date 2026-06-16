@@ -6,16 +6,16 @@ load("@bazel_skylib//lib:selects.bzl", "selects")
 select_chain(
    name = "whl",
    arms = {
-        "@aspect_rules_py_pip_configurations//:py3-any-none": "@whl__attrs__99b87a485a5820b2//file"
+        "@aspect_rules_py_pip_configurations//:py3-any-none": "@whl__azure_core_tracing_opentelemetry__016cefcaff2900fb//file"
    },
-   default_target = "@@+uv+sdist_build__aspect_rules_py__attrs__23_2_0//:whl",
+   default_target = "@@aspect_rules_py++uv+sdist_build__azure_core_tracing_import__azure_core_tracing_opentelemetry__1_0_0b11//:whl",
    visibility = ["//visibility:public"],
 )
 
 filegroup(
     name = "gazelle_index_whl",
     srcs = [
-        "@whl__attrs__99b87a485a5820b2//file",
+        "@whl__azure_core_tracing_opentelemetry__016cefcaff2900fb//file",
     ],
     visibility = ["//visibility:public"],
 )
@@ -34,14 +34,34 @@ whl_install(
         "//conditions:default": "checked-hash",
     }),
     top_levels = {
-        "attrs-23.2.0-py3-none-any.whl": [
-            "attr",
-            "attrs",
-            "attrs-23.2.0.dist-info",
+        "azure_core_tracing_opentelemetry-1.0.0b11-py3-none-any.whl": [
+            "azure",
+            "azure_core_tracing_opentelemetry-1.0.0b11.dist-info",
         ],
     },
-    namespace_top_levels = {},
+    namespace_top_levels = {
+        "azure_core_tracing_opentelemetry-1.0.0b11-py3-none-any.whl": [
+            "azure",
+        ],
+    },
     console_scripts = {},
+    namespace_entries = {
+        "azure_core_tracing_opentelemetry-1.0.0b11-py3-none-any.whl": [
+            "azure/core/tracing/ext/opentelemetry_span",
+        ],
+    },
+    namespace_dirs = {
+        "azure_core_tracing_opentelemetry-1.0.0b11-py3-none-any.whl": [
+            "azure/core",
+            "azure/core/tracing",
+            "azure/core/tracing/ext",
+        ],
+    },
+    regular_roots = {
+        "azure_core_tracing_opentelemetry-1.0.0b11-py3-none-any.whl": [
+            "azure/core/tracing/ext/opentelemetry_span",
+        ],
+    },
     visibility = ["//visibility:private"],
 )
 

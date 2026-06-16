@@ -84,6 +84,7 @@ def _py_unpacked_wheel_impl(ctx):
             wheels = depset(direct = [struct(
                 top_levels = tuple(ctx.attr.top_levels),
                 namespace_top_levels = tuple(ctx.attr.namespace_top_levels),
+                namespace_entries = tuple(ctx.attr.namespace_entries),
                 site_packages_rfpath = site_packages_rfpath,
                 console_scripts = tuple(ctx.attr.console_scripts),
                 # See whl_install rule for the rationale.
@@ -134,6 +135,18 @@ See the equivalent attribute on the `whl_install` rule for the full
 story; short version: names listed here suppress collision errors when
 multiple wheels claim the same top-level, because Python's namespace
 machinery is meant to merge their contributions.
+""",
+        default = [],
+    ),
+    "namespace_entries": attr.string_list(
+        doc = """Concrete entries this wheel installs beneath its `namespace_top_levels`.
+
+See the equivalent attribute on the `whl_install` rule for the full
+story; short version: `/`-joined paths like `jaraco/functools` that
+let venv assembly materialise a merged namespace directory out of
+per-entry symlinks, so static tools that inspect `site-packages/`
+directly see the package. When empty, namespace merging falls back to
+`.pth`-based resolution (runtime-only).
 """,
         default = [],
     ),

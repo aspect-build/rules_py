@@ -29,7 +29,7 @@ load("@bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path"
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private:transitions.bzl", "python_version_transition")
-load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
+load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PY_TOOLCHAIN")
 load(":py_venv_exec.bzl", _py_venv_exec = "py_venv_exec")
 load(":types.bzl", "VirtualenvInfo")
 load(":venv.bzl", "assemble_venv")
@@ -80,6 +80,7 @@ def _assemble_shared(ctx):
         default_env = default_env,
         venv_activate_tmpl = ctx.file._venv_activate_tmpl,
         virtualenv_shim_py = ctx.file._virtualenv_shim,
+        site_merge_script_py = ctx.file._site_merge_script,
         venv_name = ".{}".format(safe_name),
     )
 
@@ -251,6 +252,13 @@ environment. Forwarded to the sibling py_binary/py_test consumer
         allow_single_file = True,
         default = ":_virtualenv.py",
     ),
+    # Tool for physically merging a regular package that spans wheels
+    # (e.g. azure-core + azure-core-tracing-opentelemetry both
+    # installing into `azure/core/tracing/`) — see assemble_venv.
+    "_site_merge_script": attr.label(
+        allow_single_file = True,
+        default = "//py/tools/site_merge:site_merge.py",
+    ),
 })
 
 _attrs.update(**_py_library.attrs)
@@ -259,7 +267,14 @@ _py_venv = rule(
     doc = """Build a Python virtual environment and execute its interpreter.""",
     implementation = _py_venv_rule_impl,
     attrs = _attrs,
-    toolchains = [PY_TOOLCHAIN],
+    toolchains = [
+        PY_TOOLCHAIN,
+        # Optional: only consulted when a regular package spans wheels
+        # and assemble_venv needs an exec-config interpreter to run the
+        # site_merge action. Optional so venvs keep analyzing in setups
+        # that never registered rules_py's exec-tools toolchain.
+        config_common.toolchain_type(EXEC_TOOLS_TOOLCHAIN, mandatory = False),
+    ],
     executable = True,
     cfg = python_version_transition,
 )
