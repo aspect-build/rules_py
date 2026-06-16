@@ -36,6 +36,9 @@ write_source_files(
     name = "snapshots",
     testonly = True,
     files = {
+        # @pypi_rdflib_linux — dep_group names must be underscore-normalized.
+        "snapshots/pypi_rdflib_linux.dep_group.BUILD.bazel": "@pypi_rdflib_linux//dep_group:BUILD.bazel",
+
         # @pypi_multi (multi-project: alpha, beta, gamma)
         # ----------------------------------------------------------------
         # Per-package alias with multiple select arms. Catches regressions in

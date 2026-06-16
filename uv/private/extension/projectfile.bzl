@@ -172,9 +172,11 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
           `{dep: {cfg: {extra_dep: {marker: 1}}}}`.
     """
 
-    # If no dependency-groups are specified, use the lock members manifest, or just the self-list
+    # Normalize the synthesized group key so config_setting names use underscores.
+    # Raw [project].name may contain hyphens; a mismatch with dep_group = "foo_bar"
+    # silently marks every hub package as @@platforms//:incompatible.
     dep_groups = project_data.get("dependency-groups", {
-        project_data["project"]["name"]: lock_data.get("manifest", {}).get("members", [
+        normalize_name(project_data["project"]["name"]): lock_data.get("manifest", {}).get("members", [
             project_data["project"]["name"],
         ]),
     })

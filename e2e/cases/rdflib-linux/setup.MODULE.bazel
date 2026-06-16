@@ -1,0 +1,10 @@
+# Regression: hyphenated [project].name → config_setting name mismatch → @@platforms//:incompatible.
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_rdflib_linux")
+uv.project(
+    hub_name = "pypi_rdflib_linux",
+    lock = "//cases/rdflib-linux:uv.lock",
+    pyproject = "//cases/rdflib-linux:pyproject.toml",
+)
+use_repo(uv, "pypi_rdflib_linux")

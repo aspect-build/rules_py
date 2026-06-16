@@ -1,0 +1,12 @@
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+# Regression: packages must be isolated to the dep_group of the project that declares them.
+# rdflib is in rdflib-project; other-project has cowsay only. The rdflib hub alias
+# must not contain an other_project arm (cross-project contamination).
+sh_test(
+    name = "cross_project_isolation",
+    srcs = ["check_cross_project_isolation.sh"],
+    args = ["$(location @pypi_cross_hub//rdflib:BUILD.bazel)"],
+    data = ["@pypi_cross_hub//rdflib:BUILD.bazel"],
+    target_compatible_with = ["@platforms//os:linux"],
+)

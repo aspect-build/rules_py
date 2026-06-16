@@ -1,0 +1,15 @@
+# Regression: cross-project dep_group isolation in a multi-project hub.
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_cross_hub")
+uv.project(
+    hub_name = "pypi_cross_hub",
+    lock = "//cases/uv-hub-cross-project:uv.lock",
+    pyproject = "//cases/uv-hub-cross-project:pyproject.toml",
+)
+uv.project(
+    hub_name = "pypi_cross_hub",
+    lock = "//cases/uv-hub-cross-project/other:uv.lock",
+    pyproject = "//cases/uv-hub-cross-project/other:pyproject.toml",
+)
+use_repo(uv, "pypi_cross_hub")
