@@ -1,0 +1,22 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+# Regression test: when anyio is installed, its pytest plugin auto-registers via
+# the pytest11 entry point and can interfere with test collection and execution.
+#
+# Users can opt out by passing "-p no:anyio" via the args attribute, which
+# rules_py forwards to pytest through sys.argv. This test documents and verifies
+# that pattern.
+py_test(
+    name = "test_anyio_plugin",
+    srcs = ["test_anyio_plugin.py"],
+    args = [
+        "-p",
+        "no:anyio",
+    ],
+    dep_group = "pytest-anyio-plugin",
+    pytest_main = True,
+    deps = [
+        "@pypi_pytest_anyio_plugin//anyio",
+        "@pypi_pytest_anyio_plugin//pytest",
+    ],
+)
