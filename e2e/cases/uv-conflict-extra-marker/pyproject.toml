@@ -1,0 +1,18 @@
+[project]
+name = "uv-conflict-extra-marker"
+version = "0.0.0"
+requires-python = "==3.10.19"
+dependencies = []
+
+[dependency-groups]
+group-a = ["packaging==24.0"]
+group-b = ["packaging==21.3"]
+# shared references a package that has conflicting versions across group-a/group-b.
+# uv encodes this ambiguity in the lock file using `extra == 'group-24-...'` markers
+# which cannot be evaluated as Bazel config_settings.
+shared  = ["packaging>=20.0"]
+
+[tool.uv]
+conflicts = [
+    [{ group = "group-a" }, { group = "group-b" }]
+]

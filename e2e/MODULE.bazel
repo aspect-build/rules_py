@@ -273,6 +273,17 @@ uv.project(
 )
 # }}}
 
+# For cases/uv-conflict-extra-marker
+# Regression: shared dependency group whose resolved entries carry uv-internal
+# `extra == 'group-24-...'` markers must not fail Bazel hub analysis.
+# {{{
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/uv-conflict-extra-marker:uv.lock",
+    pyproject = "//cases/uv-conflict-extra-marker:pyproject.toml",
+)
+# }}}
+
 # For cases/uv-patching-829
 # {{{
 uv.project(

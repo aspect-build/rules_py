@@ -1,0 +1,36 @@
+load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
+
+py_venv_test(
+    name = "test_a",
+    srcs = ["test_a.py"],
+    main = "test_a.py",
+    venv = "group-a",
+    deps = [
+        "@pypi//packaging",
+    ],
+)
+
+py_venv_test(
+    name = "test_b",
+    srcs = ["test_b.py"],
+    main = "test_b.py",
+    venv = "group-b",
+    deps = [
+        "@pypi//packaging",
+    ],
+)
+
+# Regression test: a dependency group whose lock entries carry uv-internal
+# `extra == 'group-24-...'` conflict-routing markers must not break Bazel
+# hub analysis.  Without the fix in uv_project/repository.bzl, Bazel would
+# try to create a decide_marker config_setting for these pseudo-markers,
+# and the alias select() would fail to resolve.
+py_venv_test(
+    name = "test_shared",
+    srcs = ["test_shared.py"],
+    main = "test_shared.py",
+    venv = "shared",
+    deps = [
+        "@pypi//packaging",
+    ],
+)
