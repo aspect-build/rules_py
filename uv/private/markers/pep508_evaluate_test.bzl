@@ -5,6 +5,7 @@ load(":defs.bzl", "MARKER_ENV_ALIASES")
 load(":pep508_evaluate.bzl", "evaluate")
 
 _LINUX_ENV = {
+    "implementation_version": "3.12.12",
     "platform_machine": "x86_64",
     "python_full_version": "3.11.0",
     "python_version": "3.11",
@@ -58,6 +59,10 @@ def _evaluate_test_impl(ctx):
     asserts.false(env, evaluate("python_version >= '3.12'", env = _LINUX_ENV))
     asserts.true(env, evaluate("python_full_version < '3.12.0'", env = _LINUX_ENV))
     asserts.false(env, evaluate("python_full_version < '3.10.0'", env = _LINUX_ENV))
+    asserts.true(env, evaluate("implementation_version == '3.12.*'", env = _LINUX_ENV))
+    asserts.false(env, evaluate("implementation_version != '3.12.*'", env = _LINUX_ENV))
+    asserts.false(env, evaluate("implementation_version == '3.1.*'", env = _LINUX_ENV))
+    asserts.true(env, evaluate("implementation_version != '3.11.*'", env = _LINUX_ENV))
 
     # 'and' / 'or' combinations
     asserts.true(env, evaluate("sys_platform == 'linux' and python_version >= '3.10'", env = _LINUX_ENV))
