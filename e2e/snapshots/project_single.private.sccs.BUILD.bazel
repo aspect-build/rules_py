@@ -6,7 +6,8 @@ py_library(
     srcs = [],
     deps = [],
     imports = [],
-    visibility = ["//visibility:private"],
+    # Generated package aliases in the parent package select this target.
+    visibility = ["//:__pkg__"],
 )
 
 

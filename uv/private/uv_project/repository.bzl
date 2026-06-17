@@ -178,6 +178,10 @@ filegroup(
                         if whl_for_pkg:
                             whl_cfg_arms[marker] = whl_for_pkg
 
+            # Marker-only SCCs need an inactive value when no marker matches.
+            if "//conditions:default" not in cfg_arms:
+                cfg_arms["//conditions:default"] = "//private/sccs:empty"
+
             # Now we can just build one big choice alias from that arm set.
             content.append("""
 alias(
@@ -187,10 +191,10 @@ alias(
 )
 """.format(name = cfg_name, arms = indent(pprint(cfg_arms), " " * 4).lstrip()))
 
-            # Parallel whl-file alias. Workspace / editable packages have no
-            # whl_install, so when no SCC contributed a wheel we fall back
-            # to `:empty_whl` (a filegroup with no srcs).
-            if not whl_cfg_arms:
+            # Parallel whl-file alias. Workspace/editable packages have no
+            # whl_install, and marker-only wheels may be inactive. In either
+            # case the fallback is a filegroup with no srcs.
+            if "//conditions:default" not in whl_cfg_arms:
                 whl_cfg_arms["//conditions:default"] = ":empty_whl"
             whl_main_arms["//private/dep_group:" + cfg] = ":" + whl_cfg_name
             content.append("""
@@ -265,7 +269,8 @@ py_library(
     srcs = [],
     deps = [],
     imports = [],
-    visibility = ["//visibility:private"],
+    # Generated package aliases in the parent package select this target.
+    visibility = ["//:__pkg__"],
 )
 """]
 
