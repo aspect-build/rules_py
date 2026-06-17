@@ -134,8 +134,9 @@ _TOP_LEVELS = {
     ],
 }
 
-_NAMESPACE_TOP_LEVELS = {
-    _MACOS_WHL: ["demo_ns"],
+_DIRECTORY_TOP_LEVELS = {
+    _LINUX_WHL: ["demo", "demo-1.0.0.dist-info"],
+    _MACOS_WHL: ["demo", "demo-1.0.0.dist-info", "demo_ns"],
 }
 
 _CONSOLE_SCRIPTS = {
@@ -155,7 +156,7 @@ def _metadata_selection_test_impl(ctx):
 
     wheel = wheels[0]
     asserts.equals(env, tuple(ctx.attr.expected_top_levels), wheel.top_levels)
-    asserts.equals(env, tuple(ctx.attr.expected_namespace_top_levels), wheel.namespace_top_levels)
+    asserts.equals(env, tuple(ctx.attr.expected_directory_top_levels), wheel.directory_top_levels)
     asserts.equals(env, tuple(ctx.attr.expected_console_scripts), wheel.console_scripts)
 
     # Explicit leak checks: surface belonging to the OTHER (inactive)
@@ -179,7 +180,7 @@ _metadata_selection_test = analysistest.make(
     _metadata_selection_test_impl,
     attrs = {
         "expected_top_levels": attr.string_list(),
-        "expected_namespace_top_levels": attr.string_list(),
+        "expected_directory_top_levels": attr.string_list(),
         "expected_console_scripts": attr.string_list(),
         "leaked_top_levels": attr.string_list(),
         "leaked_console_scripts": attr.string_list(),
@@ -190,12 +191,16 @@ def _metadata_miss_test_impl(ctx):
     env = analysistest.begin(ctx)
     target = analysistest.target_under_test(env)
 
-    asserts.false(
+    asserts.true(
         env,
         PyWheelsInfo in target,
-        "a wheel without a metadata entry (sbuild fallback) must not emit PyWheelsInfo",
+        "a wheel without metadata must still expose its install tree",
     )
-
+    wheels = target[PyWheelsInfo].wheels.to_list()
+    asserts.equals(env, 1, len(wheels))
+    asserts.equals(env, (), wheels[0].top_levels)
+    asserts.equals(env, (), wheels[0].console_scripts)
+    asserts.true(env, wheels[0].install_tree != None)
     return analysistest.end(env)
 
 _metadata_miss_test = analysistest.make(_metadata_miss_test_impl)
@@ -226,7 +231,7 @@ def metadata_selection_test_suite(name):
             name = fixture_name,
             src = src,
             top_levels = _TOP_LEVELS,
-            namespace_top_levels = _NAMESPACE_TOP_LEVELS,
+            directory_top_levels = _DIRECTORY_TOP_LEVELS,
             console_scripts = _CONSOLE_SCRIPTS,
             tags = ["manual"],
         )
@@ -235,7 +240,7 @@ def metadata_selection_test_suite(name):
         name = name + "_linux_test",
         target_under_test = ":__metadata_linux_fixture",
         expected_top_levels = _TOP_LEVELS[_LINUX_WHL],
-        expected_namespace_top_levels = [],
+        expected_directory_top_levels = _DIRECTORY_TOP_LEVELS[_LINUX_WHL],
         expected_console_scripts = _CONSOLE_SCRIPTS[_LINUX_WHL],
         leaked_top_levels = [
             "_demo_backend.cpython-311-darwin.so",
@@ -248,7 +253,7 @@ def metadata_selection_test_suite(name):
         name = name + "_macos_test",
         target_under_test = ":__metadata_macos_fixture",
         expected_top_levels = _TOP_LEVELS[_MACOS_WHL],
-        expected_namespace_top_levels = _NAMESPACE_TOP_LEVELS[_MACOS_WHL],
+        expected_directory_top_levels = _DIRECTORY_TOP_LEVELS[_MACOS_WHL],
         expected_console_scripts = _CONSOLE_SCRIPTS[_MACOS_WHL],
         leaked_top_levels = ["_demo_backend.cpython-311-x86_64-linux-gnu.so"],
         leaked_console_scripts = [],

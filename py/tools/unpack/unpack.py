@@ -16,6 +16,7 @@ import argparse
 import configparser
 import csv
 import hashlib
+import json
 import os
 import subprocess
 import zipfile
@@ -46,6 +47,44 @@ def _write_executable(path, content):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(content)
     path.chmod(0o755)
+
+
+def _entry_point_scripts(site_packages, sections):
+    scripts = {}
+    for ep_path in site_packages.glob("*.dist-info/entry_points.txt"):
+        cp = configparser.ConfigParser(strict=False)
+        cp.optionxform = str
+        cp.read(str(ep_path), encoding="utf-8")
+        for section in sections:
+            if section not in cp:
+                continue
+            for raw_name, raw_ep in cp[section].items():
+                module, _, func_extras = raw_ep.strip().partition(":")
+                func = func_extras.split("[")[0].strip()
+                name = raw_name.strip()
+                if name and module.strip() and func:
+                    scripts[name] = "{}={}:{}".format(name, module.strip(), func)
+    return scripts
+
+
+def _validate_metadata(site_packages, expected):
+    actual = {
+        "console_scripts": sorted(
+            _entry_point_scripts(site_packages, ("console_scripts",)).values()
+        ),
+        "top_levels": {
+            entry.name: "directory" if entry.is_dir() else "file"
+            for entry in site_packages.iterdir()
+        },
+    }
+    if actual != expected:
+        raise SystemExit(
+            "Installed wheel metadata changed after repository analysis:\n"
+            "expected {}\nactual {}".format(
+                json.dumps(expected, sort_keys=True),
+                json.dumps(actual, sort_keys=True),
+            )
+        )
 
 
 def install_wheel(version_major, version_minor, into, wheel_path):
@@ -114,25 +153,26 @@ def install_wheel(version_major, version_minor, into, wheel_path):
             if not member.endswith("/RECORD"):
                 installed.append(dest)
 
-    for ep_path in site_packages.glob("*.dist-info/entry_points.txt"):
-        cp = configparser.ConfigParser(strict=False)
-        cp.read(str(ep_path), encoding="utf-8")
-        for section in ("console_scripts", "gui_scripts"):
-            if section not in cp:
-                continue
-            for raw_name, raw_ep in cp[section].items():
-                module, _, func_extras = raw_ep.strip().partition(":")
-                func = func_extras.split("[")[0].strip()
-                script_path = bin_dir / raw_name.strip()
-                wrapper = (
-                    _RELOCATABLE_SHEBANG
-                    + "# -*- coding: utf-8 -*-\n"
-                    + "import re\nimport sys\n"
-                    + "from {} import {}\n".format(module.strip(), func)
-                    + "sys.exit({}())\n".format(func)
-                )
-                _write_executable(script_path, wrapper.encode())
-                installed.append(script_path)
+    for encoded in _entry_point_scripts(
+        site_packages,
+        ("console_scripts", "gui_scripts"),
+    ).values():
+        name, _, target = encoded.partition("=")
+        module, _, func = target.partition(":")
+        script_path = bin_dir / name
+        wrapper = (
+            _RELOCATABLE_SHEBANG
+            + "# -*- coding: utf-8 -*-\n"
+            + "import sys\n"
+            + "from importlib import import_module\n"
+            + "from operator import attrgetter\n"
+            + "sys.exit(attrgetter({!r})(import_module({!r}))())\n".format(
+                func,
+                module,
+            )
+        )
+        _write_executable(script_path, wrapper.encode())
+        installed.append(script_path)
 
     for record_path in site_packages.glob("*.dist-info/RECORD"):
         dist_info = record_path.parent
@@ -171,6 +211,8 @@ def main():
     ap.add_argument("--pyc-invalidation-mode", default="checked-hash",
                     choices=["checked-hash", "unchecked-hash", "timestamp"])
     ap.add_argument("--python", type=Path)
+    ap.add_argument("--expected-metadata", type=json.loads)
+    ap.add_argument("--metadata-unavailable", action="store_true")
     args = ap.parse_args()
 
     install_wheel(
@@ -188,14 +230,23 @@ def main():
         if r.returncode != 0:
             raise SystemExit("patch failed ({}) for {}".format(r.returncode, patch_file))
 
+    site_packages = (
+        args.into / "lib"
+        / "python{}.{}".format(args.python_version_major, args.python_version_minor)
+        / "site-packages"
+    )
+    if args.metadata_unavailable and _entry_point_scripts(
+        site_packages,
+        ("console_scripts",),
+    ):
+        raise SystemExit(
+            "Source-built wheels with console scripts are unsupported because "
+            "their names are unavailable during Bazel analysis."
+        )
+
     if args.compile_pyc:
         if not args.python:
             raise SystemExit("--python is required when --compile-pyc is set")
-        site_packages = (
-            args.into / "lib"
-            / "python{}.{}".format(args.python_version_major, args.python_version_minor)
-            / "site-packages"
-        )
         subprocess.run(
             [
                 str(args.python), "-m", "compileall", "-q",
@@ -203,6 +254,9 @@ def main():
                 str(site_packages),
             ]
         )
+
+    if args.expected_metadata is not None:
+        _validate_metadata(site_packages, args.expected_metadata)
 
 
 if __name__ == "__main__":

@@ -1,78 +1,6 @@
 ---
 layer: 0
 files:
-  - -rwxr-xr-x  0 0      0       17158 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama-0.4.6.dist-info/METADATA
-  - -rwxr-xr-x  0 0      0        1491 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama-0.4.6.dist-info/licenses/LICENSE.txt
-  - -rwxr-xr-x  0 0      0         266 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/__init__.py
-  - -rwxr-xr-x  0 0      0        2522 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/ansi.py
-  - -rwxr-xr-x  0 0      0       11128 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/ansitowin32.py
-  - -rwxr-xr-x  0 0      0        3325 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/initialise.py
-  - -rwxr-xr-x  0 0      0          75 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/tests/__init__.py
-  - -rwxr-xr-x  0 0      0        2839 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/tests/ansi_test.py
-  - -rwxr-xr-x  0 0      0       10678 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/tests/ansitowin32_test.py
-  - -rwxr-xr-x  0 0      0        6741 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/tests/initialise_test.py
-  - -rwxr-xr-x  0 0      0        1866 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/tests/isatty_test.py
-  - -rwxr-xr-x  0 0      0        1079 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/tests/utils.py
-  - -rwxr-xr-x  0 0      0        3709 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/tests/winterm_test.py
-  - -rwxr-xr-x  0 0      0        6181 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/win32.py
-  - -rwxr-xr-x  0 0      0        7134 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/winterm.py
----
-layer: 1
-files:
-  - -rwxr-xr-x  0 0      0       18704 Jan  1  2023 ./app
-  - -rwxr-xr-x  0 0      0          42 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/branding/__init__.py
-  - -rwxr-xr-x  0 0      0          31 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/branding/palette.txt
-  - -rwxr-xr-x  0 0      0       18704 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv.runtime-python
-  - -rwxr-xr-x  0 0      0        6069 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/.bootstrap/bin/launcher_bootstrap.py
-  - -rwxr-xr-x  0 0      0          15 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/_wheels/df4f08a6/lib/python3.11/site-packages/colorama-0.4.6.dist-info/INSTALLER
-  - -rwxr-xr-x  0 0      0       17158 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/_wheels/df4f08a6/lib/python3.11/site-packages/colorama-0.4.6.dist-info/METADATA
-  - -rwxr-xr-x  0 0      0        1568 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/_wheels/df4f08a6/lib/python3.11/site-packages/colorama-0.4.6.dist-info/RECORD
-  - -rwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/_wheels/df4f08a6/lib/python3.11/site-packages/colorama-0.4.6.dist-info/REQUESTED
-  - -rwxr-xr-x  0 0      0         105 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/_wheels/df4f08a6/lib/python3.11/site-packages/colorama-0.4.6.dist-info/WHEEL
-  - -rwxr-xr-x  0 0      0        1491 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/_wheels/df4f08a6/lib/python3.11/site-packages/colorama-0.4.6.dist-info/licenses/LICENSE.txt
-  - -rwxr-xr-x  0 0      0         266 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/_wheels/df4f08a6/lib/python3.11/site-packages/colorama/__init__.py
-  - -rwxr-xr-x  0 0      0         645 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/_wheels/df4f08a6/lib/python3.11/site-packages/colorama/__pycache__/__init__.cpython-311.pyc
-  - -rwxr-xr-x  0 0      0        4643 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/_wheels/df4f08a6/lib/python3.11/site-packages/colorama/__pycache__/ansi.cpython-311.pyc
-  - -rwxr-xr-x  0 0      0       16289 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/_wheels/df4f08a6/lib/python3.11/site-packages/colorama/__pycache__/ansitowin32.cpython-311.pyc
-  - -rwxr-xr-x  0 0      0        4006 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/_wheels/df4f08a6/lib/python3.11/site-packages/colorama/__pycache__/initialise.cpython-311.pyc
-  - -rwxr-xr-x  0 0      0        7994 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/_wheels/df4f08a6/lib/python3.11/site-packages/colorama/__pycache__/win32.cpython-311.pyc
-  - -rwxr-xr-x  0 0      0        9220 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/_wheels/df4f08a6/lib/python3.11/site-packages/colorama/__pycache__/winterm.cpython-311.pyc
-  - -rwxr-xr-x  0 0      0        2522 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/_wheels/df4f08a6/lib/python3.11/site-packages/colorama/ansi.py
-  - -rwxr-xr-x  0 0      0       11128 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/_wheels/df4f08a6/lib/python3.11/site-packages/colorama/ansitowin32.py
-  - -rwxr-xr-x  0 0      0        3325 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/_wheels/df4f08a6/lib/python3.11/site-packages/colorama/initialise.py
-  - -rwxr-xr-x  0 0      0          75 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/_wheels/df4f08a6/lib/python3.11/site-packages/colorama/tests/__init__.py
-  - -rwxr-xr-x  0 0      0         276 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/_wheels/df4f08a6/lib/python3.11/site-packages/colorama/tests/__pycache__/__init__.cpython-311.pyc
-  - -rwxr-xr-x  0 0      0        5921 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/_wheels/df4f08a6/lib/python3.11/site-packages/colorama/tests/__pycache__/ansi_test.cpython-311.pyc
-  - -rwxr-xr-x  0 0      0       21588 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/_wheels/df4f08a6/lib/python3.11/site-packages/colorama/tests/__pycache__/ansitowin32_test.cpython-311.pyc
-  - -rwxr-xr-x  0 0      0       14215 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/_wheels/df4f08a6/lib/python3.11/site-packages/colorama/tests/__pycache__/initialise_test.cpython-311.pyc
-  - -rwxr-xr-x  0 0      0        6780 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/_wheels/df4f08a6/lib/python3.11/site-packages/colorama/tests/__pycache__/isatty_test.cpython-311.pyc
-  - -rwxr-xr-x  0 0      0        2955 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/_wheels/df4f08a6/lib/python3.11/site-packages/colorama/tests/__pycache__/utils.cpython-311.pyc
-  - -rwxr-xr-x  0 0      0        7308 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/_wheels/df4f08a6/lib/python3.11/site-packages/colorama/tests/__pycache__/winterm_test.cpython-311.pyc
-  - -rwxr-xr-x  0 0      0        2839 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/_wheels/df4f08a6/lib/python3.11/site-packages/colorama/tests/ansi_test.py
-  - -rwxr-xr-x  0 0      0       10678 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/_wheels/df4f08a6/lib/python3.11/site-packages/colorama/tests/ansitowin32_test.py
-  - -rwxr-xr-x  0 0      0        6741 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/_wheels/df4f08a6/lib/python3.11/site-packages/colorama/tests/initialise_test.py
-  - -rwxr-xr-x  0 0      0        1866 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/_wheels/df4f08a6/lib/python3.11/site-packages/colorama/tests/isatty_test.py
-  - -rwxr-xr-x  0 0      0        1079 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/_wheels/df4f08a6/lib/python3.11/site-packages/colorama/tests/utils.py
-  - -rwxr-xr-x  0 0      0        3709 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/_wheels/df4f08a6/lib/python3.11/site-packages/colorama/tests/winterm_test.py
-  - -rwxr-xr-x  0 0      0        6181 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/_wheels/df4f08a6/lib/python3.11/site-packages/colorama/win32.py
-  - -rwxr-xr-x  0 0      0        7134 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/_wheels/df4f08a6/lib/python3.11/site-packages/colorama/winterm.py
-  - -rwxr-xr-x  0 0      0        2493 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/bin/activate
-  - -rwxr-xr-x  0 0      0        1126 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/bin/python
-  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/bin/python3 -> python
-  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/bin/python3.11 -> python
-  - -rwxr-xr-x  0 0      0          71 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/lib/python3.11/site-packages/00_aspect_rules_py_startup.pth
-  - -rwxr-xr-x  0 0      0          71 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/lib/python3.11/site-packages/01_aspect_rules_py_imports.pth
-  - -rwxr-xr-x  0 0      0       11054 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/lib/python3.11/site-packages/_aspect_rules_py_imports.py
-  - -rwxr-xr-x  0 0      0         174 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/lib/python3.11/site-packages/_aspect_rules_py_imports.txt
-  - -rwxr-xr-x  0 0      0        1191 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/lib/python3.11/site-packages/_aspect_rules_py_startup.py
-  - -rwxr-xr-x  0 0      0          19 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/lib/python3.11/site-packages/_virtualenv.pth
-  - -rwxr-xr-x  0 0      0        4745 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/lib/python3.11/site-packages/_virtualenv.py
-  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/lib/python3.11/site-packages/colorama -> ../../../_wheels/df4f08a6/lib/python3.11/site-packages/colorama
-  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/lib/python3.11/site-packages/colorama-0.4.6.dist-info -> ../../../_wheels/df4f08a6/lib/python3.11/site-packages/colorama-0.4.6.dist-info
-  - -rwxr-xr-x  0 0      0         327 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/lib/python3.11/site-packages/my_app_bin.venv.pth
-  - -rwxr-xr-x  0 0      0         160 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/pyvenv.cfg
-  - -rwxr-xr-x  0 0      0         463 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/__main__.py
-  - -rwxr-xr-x  0 0      0        6570 Jan  1  2023 ./app.runfiles/_main/tools/verify_venv/verify_venv.py
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/2to3 -> 2to3-3.11
   - -rwxr-xr-x  0 0      0         158 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/2to3-3.11
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/idle3 -> idle3.11
@@ -2388,7 +2316,53 @@ files:
   - -rwxr-xr-x  0 0      0       25855 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/tk9.0/xmfbox.tcl
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/share/man/man1/python3.1 -> python3.11.1
   - -rwxr-xr-x  0 0      0       20280 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/share/man/man1/python3.11.1
-  - -rwxr-xr-x  0 0      0        6069 Jan  1  2023 ./app.runfiles/aspect_rules_py+/py/private/py_venv/launcher_bootstrap.py
+---
+layer: 1
+files:
+  - -rwxr-xr-x  0 0      0       17158 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama-0.4.6.dist-info/METADATA
+  - -rwxr-xr-x  0 0      0        1491 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama-0.4.6.dist-info/licenses/LICENSE.txt
+  - -rwxr-xr-x  0 0      0         266 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/__init__.py
+  - -rwxr-xr-x  0 0      0        2522 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/ansi.py
+  - -rwxr-xr-x  0 0      0       11128 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/ansitowin32.py
+  - -rwxr-xr-x  0 0      0        3325 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/initialise.py
+  - -rwxr-xr-x  0 0      0          75 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/tests/__init__.py
+  - -rwxr-xr-x  0 0      0        2839 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/tests/ansi_test.py
+  - -rwxr-xr-x  0 0      0       10678 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/tests/ansitowin32_test.py
+  - -rwxr-xr-x  0 0      0        6741 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/tests/initialise_test.py
+  - -rwxr-xr-x  0 0      0        1866 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/tests/isatty_test.py
+  - -rwxr-xr-x  0 0      0        1079 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/tests/utils.py
+  - -rwxr-xr-x  0 0      0        3709 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/tests/winterm_test.py
+  - -rwxr-xr-x  0 0      0        6181 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/win32.py
+  - -rwxr-xr-x  0 0      0        7134 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/winterm.py
+---
+layer: 2
+files:
+  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/lib/python3.11/site-packages/colorama -> ../../../../../../../../aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama
+  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/lib/python3.11/site-packages/colorama-0.4.6.dist-info -> ../../../../../../../../aspect_rules_py++uv+whl_install__venv_images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama-0.4.6.dist-info
+---
+layer: 3
+files:
+  - -rwxr-xr-x  0 0      0       18704 Jan  1  2023 ./app
+  - -rwxr-xr-x  0 0      0          42 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/branding/__init__.py
+  - -rwxr-xr-x  0 0      0          31 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/branding/palette.txt
+  - -rwxr-xr-x  0 0      0       18704 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv.runtime-python
+  - -rwxr-xr-x  0 0      0        5087 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/.bootstrap/bin/launcher_bootstrap.py
+  - -rwxr-xr-x  0 0      0        2493 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/bin/activate
+  - -rwxr-xr-x  0 0      0        1412 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/bin/python
+  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/bin/python3 -> python
+  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/bin/python3.11 -> python
+  - -rwxr-xr-x  0 0      0          71 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/lib/python3.11/site-packages/00_aspect_rules_py_startup.pth
+  - -rwxr-xr-x  0 0      0          71 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/lib/python3.11/site-packages/01_aspect_rules_py_imports.pth
+  - -rwxr-xr-x  0 0      0       10772 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/lib/python3.11/site-packages/_aspect_rules_py_imports.py
+  - -rwxr-xr-x  0 0      0         174 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/lib/python3.11/site-packages/_aspect_rules_py_imports.txt
+  - -rwxr-xr-x  0 0      0         833 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/lib/python3.11/site-packages/_aspect_rules_py_startup.py
+  - -rwxr-xr-x  0 0      0          19 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/lib/python3.11/site-packages/_virtualenv.pth
+  - -rwxr-xr-x  0 0      0        4745 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/lib/python3.11/site-packages/_virtualenv.py
+  - -rwxr-xr-x  0 0      0         327 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/lib/python3.11/site-packages/my_app_bin.venv.pth
+  - -rwxr-xr-x  0 0      0         160 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/.my_app_bin.venv/pyvenv.cfg
+  - -rwxr-xr-x  0 0      0         463 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_venv_image_layer/__main__.py
+  - -rwxr-xr-x  0 0      0        6570 Jan  1  2023 ./app.runfiles/_main/tools/verify_venv/verify_venv.py
+  - -rwxr-xr-x  0 0      0        5087 Jan  1  2023 ./app.runfiles/aspect_rules_py+/py/private/py_venv/launcher_bootstrap.py
   - -rwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/aspect_rules_py+/py/tests/internal-deps/adder/__init__.py
   - -rwxr-xr-x  0 0      0          32 Jan  1  2023 ./app.runfiles/aspect_rules_py+/py/tests/internal-deps/adder/add.py
   - -rwxr-xr-x  0 0      0        1278 Jan  1  2023 ./app.venv

@@ -83,15 +83,8 @@ write_source_files(
         "snapshots/whl_install.bare_linux_wheels.grpcio.BUILD.bazel": "@whl_install__uv_bare_linux_wheels__grpcio__1_80_0//:BUILD.bazel",
 
         # whl_install for the azure-core / azure-core-tracing-opentelemetry
-        # pair (cases/azure-core-tracing-overlap). Pins the namespace_dirs /
-        # regular_roots metadata emission for both sides of a regular
-        # package spanning wheels: azure-core's `regular_roots =
-        # ["azure/core"]` vs the tracing wheel's 4-dir namespace skeleton
-        # reaching down to `azure/core/tracing/ext`. A regression that
-        # stops emitting either attr silently degrades the venv's
-        # PySiteMerge trigger back to the broken `.pth`-only behaviour —
-        # the runtime test would catch that too, but the snapshot shows
-        # WHICH side of the metadata went missing.
+        # pair (cases/azure-core-tracing-overlap). Pins both wheels' `azure`
+        # directory metadata, which triggers one complete top-level merge.
         "snapshots/whl_install.azure_overlap.azure_core.BUILD.bazel": "@whl_install__azure_core_tracing_import__azure_core__1_38_0//:BUILD.bazel",
         "snapshots/whl_install.azure_overlap.azure_core_tracing_opentelemetry.BUILD.bazel": "@whl_install__azure_core_tracing_import__azure_core_tracing_opentelemetry__1_0_0b11//:BUILD.bazel",
 
@@ -128,17 +121,13 @@ write_source_files(
         # install_tree.short_path — stable across unrelated lockfile
         # churn; only added/removed/version-bumped wheels rotate them.
         #
-        # * pth_namespace_547 — minimal 2-contributor namespace case
-        #   (jaraco-*). The concrete per-entry namespace merge fully
-        #   covers both wheels, so the snapshot pins that neither
-        #   appears in the .pth fallback.
-        # * firebase_admin — namespace merge at scale (~8 google-*
-        #   contributors, nested google/cloud namespace); catches
-        #   ordering / scale-only regressions that the 2-wheel
-        #   minimum can't.
-        # * wheel_root_pth — non-keyed branch via `py_unpacked_wheel`
-        #   without `top_levels`; pins the `site.addsitedir(...)`
-        #   shape so wheel-root `.pth` shims keep running.
+        # * pth_namespace_547 — minimal two-wheel shared-directory case
+        #   (jaraco-*). The concrete merge fully covers both wheels.
+        # * firebase_admin — shared-directory merges at scale (~8 google-*
+        #   contributors); catches ordering and scale-only regressions.
+        # * wheel_root_pth — `py_unpacked_wheel` without `top_levels`;
+        #   pins the `site.addsitedir(...)` shape that executes root `.pth`
+        #   files.
         "snapshots/pth_namespace_547.test.venv.pth": "//cases/pth-namespace-547:test.venv.pth",
         "snapshots/firebase_admin.test_tool.venv.pth": "//cases/firebase-admin-import:test_tool.venv.pth",
         "snapshots/wheel_root_pth.venv.pth": "//cases/uv-include-group:wheel_root_pth_test.venv.pth",

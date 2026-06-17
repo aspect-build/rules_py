@@ -3,7 +3,7 @@
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py:defs.bzl", "py_binary", "py_image_layer", "py_venv")
-load("//py/private:providers.bzl", "PyWheelsInfo")
+load("//py/private:providers.bzl", "PyVenvLayoutInfo", "PyWheelsInfo")
 
 def _wheel_impl(ctx):
     install_tree = ctx.actions.declare_directory(ctx.label.name + ".install")
@@ -20,9 +20,10 @@ def _wheel_impl(ctx):
     ])
     wheel = {
         "console_scripts": (),
+        "directory_top_levels": tuple(ctx.attr.directory_top_levels),
         "namespace_dirs": tuple(ctx.attr.namespace_dirs),
-        "namespace_entries": tuple(ctx.attr.namespace_dirs),
-        "namespace_top_levels": tuple(ctx.attr.top_levels),
+        "namespace_entries": tuple(ctx.attr.namespace_entries),
+        "namespace_top_levels": tuple(ctx.attr.namespace_top_levels),
         "regular_roots": tuple(ctx.attr.regular_roots),
         "site_packages_rfpath": site_packages,
         "top_levels": tuple(ctx.attr.top_levels),
@@ -32,11 +33,10 @@ def _wheel_impl(ctx):
     return [
         DefaultInfo(
             files = depset([install_tree]),
-            runfiles = ctx.runfiles(files = [install_tree]),
         ),
         PyInfo(
-            imports = depset(),
-            transitive_sources = depset([install_tree]),
+            imports = depset([site_packages]),
+            transitive_sources = depset(),
             has_py2_only_sources = False,
             has_py3_only_sources = True,
             uses_shared_libraries = False,
@@ -44,11 +44,15 @@ def _wheel_impl(ctx):
         PyWheelsInfo(wheels = depset([struct(**wheel)])),
     ]
 
-_wheel = rule(
+# Match the production wheel producer kind consumed by _layer_aspect.
+whl_install = rule(
     implementation = _wheel_impl,
     attrs = {
         "expose_install_tree": attr.bool(default = True),
+        "directory_top_levels": attr.string_list(),
         "namespace_dirs": attr.string_list(),
+        "namespace_entries": attr.string_list(),
+        "namespace_top_levels": attr.string_list(),
         "regular_roots": attr.string_list(),
         "top_levels": attr.string_list(),
     },
@@ -63,16 +67,38 @@ def _merge_outputs_test_impl(ctx):
         if action.mnemonic == "PySiteMerge"
     ]
 
-    asserts.equals(env, 2, len(merge_actions))
+    asserts.equals(env, 3, len(merge_actions))
     outputs = [
         output
         for action in merge_actions
         for output in action.outputs.to_list()
     ]
-    asserts.equals(env, 2, len(outputs))
-    if len(outputs) == 2:
+    asserts.equals(env, 3, len(outputs))
+    if len(outputs) == 3:
         paths = [output.short_path for output in outputs]
         runfiles = target[DefaultInfo].default_runfiles.files.to_list()
+        wheel_targets = [
+            file
+            for file in runfiles
+            if file.basename.endswith(".install")
+        ]
+        asserts.equals(env, 5, len(wheel_targets))
+
+        pth_actions = [
+            action
+            for action in analysistest.target_actions(env)
+            if any([
+                output.basename == target.label.name + ".pth"
+                for output in action.outputs.to_list()
+            ])
+        ]
+        asserts.equals(env, 1, len(pth_actions))
+        if len(pth_actions) == 1:
+            if ctx.attr.expected_wheel_aliases:
+                asserts.true(env, "site.addsitedir" in pth_actions[0].content)
+                asserts.true(env, '"_wheels"' in pth_actions[0].content)
+            else:
+                asserts.true(env, "site.addsitedir" in pth_actions[0].content)
         asserts.true(env, all([output.is_directory for output in outputs]))
         asserts.true(env, all([output in runfiles for output in outputs]))
         merge_keys = {
@@ -80,13 +106,43 @@ def _merge_outputs_test_impl(ctx):
             for path in paths
             if "/_merged/" in path
         }
-        asserts.equals(env, {"alpha": True, "beta": True}, merge_keys)
+        asserts.equals(env, {
+            "alpha/left": True,
+            "alpha/right": True,
+            "beta/root": True,
+        }, merge_keys)
 
-        dependency_files = target[OutputGroupInfo]._venv_dependency_files.to_list()
+        layout = target[PyVenvLayoutInfo]
+        wheel_aliases = layout.wheel_aliases.to_list()
+        asserts.equals(env, ctx.attr.expected_wheel_aliases, len(wheel_aliases))
+        dependency_files = layout.dependency_files.to_list()
         asserts.equals(env, {output.path: True for output in outputs}, {
             output.path: True
             for output in dependency_files
         })
+        wheel_links = layout.wheel_links.to_list()
+        asserts.equals(env, ctx.attr.expected_wheel_links, len(wheel_links))
+        metadata_links = [
+            link
+            for link in wheel_links
+            if link.link.basename == "direct-1.0.dist-info"
+        ]
+        asserts.equals(env, ctx.attr.expected_metadata_links, len(metadata_links))
+        direct_links = [link for link in wheel_links if link.link.basename == "gamma"]
+        asserts.equals(env, 1, len(direct_links))
+        if len(direct_links) == 1:
+            direct_target = [file for file in wheel_targets if file.basename == "_merge_wheel_direct.install"]
+            asserts.equals(env, 1, len(direct_target))
+            if len(direct_target) == 1:
+                asserts.equals(env, direct_target[0], direct_links[0].install_tree)
+            asserts.true(env, direct_links[0].link.is_symlink)
+            asserts.true(env, direct_links[0].install_path.endswith("/site-packages/gamma"))
+        sibling_links = [
+            link
+            for link in wheel_links
+            if link.install_path.endswith("/site-packages/alpha/other")
+        ]
+        asserts.equals(env, 1, len(sibling_links))
 
         source_counts = {}
         for action in merge_actions:
@@ -101,19 +157,11 @@ def _merge_outputs_test_impl(ctx):
                 for arg in action.argv
                 if arg == "--src"
             ])
-        asserts.equals(env, {"alpha": 3, "beta": 2}, source_counts)
-        alpha_action = [
-            action
-            for action in merge_actions
-            if any([arg.endswith("/alpha") for arg in action.argv])
-        ][0]
-        asserts.true(env, any([
-            "_merge_wheel_extra.install" in arg
-            for arg in alpha_action.argv
-        ]))
+        asserts.equals(env, {"left": 2, "right": 2, "root": 2}, source_counts)
         asserts.false(env, any([
-            "_merge_wheel_legacy.install" in arg
-            for arg in alpha_action.argv
+            "_merge_wheel_extra.install" in arg
+            for action in merge_actions
+            for arg in action.argv
         ]))
         all_output_paths = [
             output.short_path
@@ -123,13 +171,56 @@ def _merge_outputs_test_impl(ctx):
         merged_links = {
             path.rsplit("/site-packages/", 1)[-1]: True
             for path in all_output_paths
-            if path.endswith("/site-packages/alpha") or path.endswith("/site-packages/beta")
+            if "/site-packages/" in path and path.rsplit("/site-packages/", 1)[-1] in (
+                "alpha/left",
+                "alpha/right",
+                "beta/root",
+            )
         }
-        asserts.equals(env, {"alpha": True, "beta": True}, merged_links)
+        asserts.equals(env, merge_keys, merged_links)
 
     return analysistest.end(env)
 
-_merge_outputs_test = analysistest.make(_merge_outputs_test_impl)
+_merge_outputs_test = analysistest.make(
+    _merge_outputs_test_impl,
+    attrs = {
+        "expected_metadata_links": attr.int(mandatory = True),
+        "expected_wheel_aliases": attr.int(mandatory = True),
+        "expected_wheel_links": attr.int(mandatory = True),
+    },
+)
+
+def _exposed_layout_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    target = analysistest.target_under_test(env)
+    asserts.true(env, PyVenvLayoutInfo in target)
+    if PyVenvLayoutInfo in target:
+        layout = target[PyVenvLayoutInfo]
+        asserts.equals(env, 5, len(layout.wheel_aliases.to_list()))
+        asserts.equals(env, 4, len(layout.wheel_links.to_list()))
+    return analysistest.end(env)
+
+_exposed_layout_test = analysistest.make(_exposed_layout_test_impl)
+
+def _native_sibling_layout_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    target = analysistest.target_under_test(env)
+    merge_actions = [
+        action
+        for action in analysistest.target_actions(env)
+        if action.mnemonic == "PySiteMerge"
+    ]
+    asserts.equals(env, 0, len(merge_actions))
+    links = target[PyVenvLayoutInfo].wheel_links.to_list()
+    link_basenames = [link.link.basename for link in links]
+    asserts.equals(env, 1, len([name for name in link_basenames if name == "cv2"]))
+    asserts.true(env, "opencv_python.libs" in link_basenames)
+    asserts.true(env, "opencv_python_headless.libs" in link_basenames)
+    return analysistest.end(env)
+
+_native_sibling_layout_test = analysistest.make(
+    _native_sibling_layout_test_impl,
+)
 
 def _merge_layer_outputs_test_impl(ctx):
     env = analysistest.begin(ctx)
@@ -144,18 +235,56 @@ def _merge_layer_outputs_test_impl(ctx):
         for action in actions
         if any([output.basename.endswith("_default.tar.gz") for output in action.outputs.to_list()])
     ]
+    overlay_actions = [
+        action
+        for action in actions
+        if any([output.basename.endswith("_venv.tar.gz") for output in action.outputs.to_list()])
+    ]
+    overlay_mtree_actions = [
+        action
+        for action in actions
+        if any([output.basename.endswith("_venv.tar.gz.mtree") for output in action.outputs.to_list()])
+    ]
+    tar_actions = [
+        action
+        for action in actions
+        if any([
+            output.basename.endswith(".tar.gz") or output.basename.endswith(".tar.zst")
+            for output in action.outputs.to_list()
+        ])
+    ]
 
     asserts.equals(env, 1, len(dependency_actions))
     asserts.equals(env, 1, len(source_actions))
-    if len(dependency_actions) == 1 and len(source_actions) == 1:
+    asserts.equals(env, 1, len(overlay_actions))
+    asserts.equals(env, 1, len(overlay_mtree_actions))
+    asserts.true(env, len(tar_actions) > 0)
+    if len(dependency_actions) == 1 and len(source_actions) == 1 and len(overlay_actions) == 1:
         dependency_inputs = [file.path for file in dependency_actions[0].inputs.to_list()]
         source_inputs = [file.path for file in source_actions[0].inputs.to_list()]
-        asserts.equals(env, 2, len([path for path in dependency_inputs if "/_merged/" in path]))
+        overlay_inputs = [file.path for file in overlay_actions[0].inputs.to_list()]
+        asserts.equals(env, 3, len([path for path in dependency_inputs if "/_merged/" in path]))
         asserts.false(env, any(["/_merged/" in path for path in source_inputs]))
+        asserts.false(env, any(["/_wheels/" in path for path in source_inputs]))
+        asserts.false(env, any([path.endswith("/site-packages/gamma") for path in source_inputs]))
+        asserts.false(env, any([path.endswith(".install") for path in overlay_inputs]))
+        asserts.false(env, any([path.endswith("/site-packages/gamma") for path in overlay_inputs]))
+    if len(overlay_mtree_actions) == 1:
+        link_lines = [
+            line
+            for line in overlay_mtree_actions[0].content.splitlines()
+            if " type=link " in line
+        ]
+        asserts.equals(env, ctx.attr.expected_link_count, len(link_lines))
+        asserts.true(env, any(["/site-packages/gamma " in line for line in link_lines]))
+        asserts.true(env, any(["/site-packages/alpha/other " in line for line in link_lines]))
 
     return analysistest.end(env)
 
-_merge_layer_outputs_test = analysistest.make(_merge_layer_outputs_test_impl)
+_merge_layer_outputs_test = analysistest.make(
+    _merge_layer_outputs_test_impl,
+    attrs = {"expected_link_count": attr.int(mandatory = True)},
+)
 
 def _missing_install_tree_test_impl(ctx):
     env = analysistest.begin(ctx)
@@ -169,42 +298,50 @@ _missing_install_tree_test = analysistest.make(
 
 def merge_outputs_test_suite():
     merge_deps = [
+        ":_merge_wheel_direct",
         ":_merge_wheel_grafts",
         ":_merge_wheel_extra",
-        ":_merge_wheel_legacy",
+        ":_merge_wheel_metadata_miss",
         ":_merge_wheel_regular",
     ]
-    _wheel(
+    whl_install(
+        name = "_merge_wheel_direct",
+        directory_top_levels = ["direct-1.0.dist-info"],
+        top_levels = [
+            "direct-1.0.dist-info",
+            "gamma",
+        ],
+        tags = ["manual"],
+    )
+    whl_install(
         name = "_merge_wheel_regular",
-        regular_roots = [
-            "alpha/left",
-            "alpha/right",
-            "beta/root",
-        ],
+        directory_top_levels = ["alpha", "beta"],
+        namespace_entries = ["alpha/left", "alpha/right", "beta/root"],
+        namespace_top_levels = ["alpha", "beta"],
+        regular_roots = ["alpha/left", "alpha/right", "beta/root"],
         top_levels = ["alpha", "beta"],
         tags = ["manual"],
     )
-    _wheel(
+    whl_install(
         name = "_merge_wheel_grafts",
-        namespace_dirs = [
-            "alpha/left",
-            "alpha/right",
-            "beta/root",
-        ],
+        directory_top_levels = ["alpha", "beta"],
+        namespace_dirs = ["alpha/left", "alpha/right", "beta/root"],
+        namespace_entries = ["alpha/left/graft", "alpha/right/graft", "beta/root/graft"],
+        namespace_top_levels = ["alpha", "beta"],
         top_levels = ["alpha", "beta"],
         tags = ["manual"],
     )
-    _wheel(
+    whl_install(
         name = "_merge_wheel_extra",
+        directory_top_levels = ["alpha"],
         namespace_dirs = ["alpha/other"],
+        namespace_entries = ["alpha/other"],
+        namespace_top_levels = ["alpha"],
         top_levels = ["alpha"],
         tags = ["manual"],
     )
-    _wheel(
-        name = "_merge_wheel_legacy",
-        expose_install_tree = False,
-        namespace_dirs = ["alpha/legacy"],
-        top_levels = ["alpha"],
+    whl_install(
+        name = "_merge_wheel_metadata_miss",
         tags = ["manual"],
     )
     py_binary(
@@ -219,34 +356,103 @@ def merge_outputs_test_suite():
         deps = merge_deps,
         tags = ["manual"],
     )
+    py_binary(
+        name = "_merge_outputs_exposed_binary",
+        srcs = ["merge_outputs_test.py"],
+        deps = merge_deps,
+        expose_venv = True,
+        tags = ["manual"],
+    )
     py_image_layer(
         name = "_merge_outputs_layers",
         binary = ":_merge_outputs_binary",
         tags = ["manual"],
     )
+    py_image_layer(
+        name = "_merge_outputs_exposed_layers",
+        binary = ":_merge_outputs_exposed_binary",
+        tags = ["manual"],
+    )
     _merge_outputs_test(
         name = "merge_outputs_test",
+        expected_metadata_links = 0,
+        expected_wheel_aliases = 0,
+        expected_wheel_links = 2,
         target_under_test = ":_merge_outputs_binary",
     )
     _merge_outputs_test(
         name = "merge_outputs_venv_test",
+        expected_metadata_links = 1,
+        expected_wheel_aliases = 5,
+        expected_wheel_links = 4,
         target_under_test = ":_merge_outputs_venv",
+    )
+    _exposed_layout_test(
+        name = "exposed_layout_test",
+        target_under_test = ":_merge_outputs_exposed_binary",
     )
     _merge_layer_outputs_test(
         name = "merge_layer_outputs_test",
+        expected_link_count = 2,
         target_under_test = ":_merge_outputs_layers",
     )
+    _merge_layer_outputs_test(
+        name = "merge_exposed_layer_outputs_test",
+        expected_link_count = 4,
+        target_under_test = ":_merge_outputs_exposed_layers",
+    )
 
-    _wheel(
+    whl_install(
+        name = "_native_wheel_full",
+        directory_top_levels = [
+            "cv2",
+            "opencv_python.libs",
+        ],
+        top_levels = [
+            "cv2",
+            "opencv_python.libs",
+        ],
+        tags = ["manual"],
+    )
+    whl_install(
+        name = "_native_wheel_headless",
+        directory_top_levels = [
+            "cv2",
+            "opencv_python_headless.libs",
+        ],
+        top_levels = [
+            "cv2",
+            "opencv_python_headless.libs",
+        ],
+        tags = ["manual"],
+    )
+    py_binary(
+        name = "_native_sibling_binary",
+        srcs = ["merge_outputs_test.py"],
+        deps = [":_native_wheel_full", ":_native_wheel_headless"],
+        tags = ["manual"],
+    )
+    _native_sibling_layout_test(
+        name = "native_sibling_layout_test",
+        target_under_test = ":_native_sibling_binary",
+    )
+
+    whl_install(
         name = "_missing_tree_regular",
+        directory_top_levels = ["conflict"],
         expose_install_tree = False,
+        namespace_entries = ["conflict/root"],
+        namespace_top_levels = ["conflict"],
         regular_roots = ["conflict/root"],
         top_levels = ["conflict"],
         tags = ["manual"],
     )
-    _wheel(
+    whl_install(
         name = "_missing_tree_graft",
+        directory_top_levels = ["conflict"],
         namespace_dirs = ["conflict/root"],
+        namespace_entries = ["conflict/root/graft"],
+        namespace_top_levels = ["conflict"],
         top_levels = ["conflict"],
         tags = ["manual"],
     )

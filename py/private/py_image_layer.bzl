@@ -29,12 +29,13 @@ Sharing model:
     mtree, fixed bsdtar options) → remote CAS / OCI registry dedupe by digest.
   - First-party grouped tars: per-binary action, one tar per group, collected from
     matched py_library targets in the binary's dep closure.
-  - Ungrouped pip packages and generated venv dependency overlays: squashed
-    by the rule into one per-rule tar.
+  - Ungrouped pip packages and generated venv dependency files: squashed by the
+    rule into one per-rule tar.
+  - Venv wheel links: a metadata-only overlay of symlinks into the pip layers.
 """
 
 load("@rules_python//python:defs.bzl", "PyInfo")
-load("//py/private:providers.bzl", "PyWheelsInfo")
+load("//py/private:providers.bzl", "PyVenvLayoutInfo", "PyWheelsInfo")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
 
 _TAR_TOOLCHAIN = "@tar.bzl//tar/toolchain:type"
@@ -177,6 +178,8 @@ _LayerInfo = provider(
         "source_files": "depset[File] — ungrouped first-party Python source files.",
         "pip_packages": "depset[struct] — fully transitive pip packages with per-package layers.",
         "venv_dependency_files": "depset[File] — generated third-party overlays owned by a venv-producing rule.",
+        "venv_wheel_aliases": "depset[File] — physical venv aliases excluded from image layers.",
+        "venv_wheel_links": "depset[struct(link, install_tree, install_path)] — venv links whose targets belong to pip layers.",
         "first_party_layers": "depset[struct(label, files, group)] — first-party PyInfo targets matched by py_layer_tier.groups.",
         "interpreter_files": "depset[File] — interpreter runfiles, populated only on the py toolchain pass for the binary-branch skip filter.",
         "interpreter_layer": "struct(tar, group) | None — prebuilt interpreter layer tar + its group name, declared at the toolchain target's namespace so the tar action-shares across every py_image_layer using that toolchain config.",
@@ -338,6 +341,8 @@ def _layer_aspect_impl(target, ctx):
             source_files = depset(),
             pip_packages = depset(),
             venv_dependency_files = depset(),
+            venv_wheel_aliases = depset(),
+            venv_wheel_links = depset(),
             first_party_layers = depset(),
             interpreter_files = interp_depset,
             interpreter_layer = interp_layer,
@@ -347,12 +352,36 @@ def _layer_aspect_impl(target, ctx):
     transitive_source = [info.source_files for info in dep_infos]
     transitive_pkgs = [info.pip_packages for info in dep_infos]
     transitive_venv_dependency_files = [info.venv_dependency_files for info in dep_infos]
+    transitive_venv_wheel_aliases = [info.venv_wheel_aliases for info in dep_infos]
+    transitive_venv_wheel_links = [info.venv_wheel_links for info in dep_infos]
     transitive_fp = [info.first_party_layers for info in dep_infos]
+    kind = ctx.rule.kind
 
-    if PyWheelsInfo in target and ctx.rule.kind in ("whl_install", "py_unpacked_wheel"):
+    # Aliases (and other pure-forwarding wrappers) forward DefaultInfo from
+    # `actual`. Reading `target[DefaultInfo].files` here for an alias of a
+    # wheel target would re-introduce the install_tree as a source file — but
+    # it is already captured upstream as a pip package via the wheel leaf.
+    if kind == "alias":
+        return [_LayerInfo(
+            source_files = depset(transitive = transitive_source),
+            pip_packages = depset(transitive = transitive_pkgs),
+            venv_dependency_files = depset(transitive = transitive_venv_dependency_files),
+            venv_wheel_aliases = depset(transitive = transitive_venv_wheel_aliases),
+            venv_wheel_links = depset(transitive = transitive_venv_wheel_links),
+            first_party_layers = depset(transitive = transitive_fp),
+        )]
+
+    install_trees = []
+    if PyWheelsInfo in target and kind in ("whl_install", "py_unpacked_wheel"):
+        install_trees = [
+            wheel.install_tree
+            for wheel in target[PyWheelsInfo].wheels.to_list()
+            if getattr(wheel, "install_tree", None) != None
+        ]
+    if install_trees:
         plan = ctx.attr._layer_tier[PyLayerTierInfo]
         label = normalize_label(str(target.label))
-        install_dir = depset([w.install_tree for w in target[PyWheelsInfo].wheels.to_list()])
+        install_dir = depset(install_trees)
         layers, merge_group = _build_pip_layers(ctx, plan, label, install_dir)
 
         return [_LayerInfo(
@@ -367,39 +396,36 @@ def _layer_aspect_impl(target, ctx):
                 transitive = transitive_pkgs,
             ),
             venv_dependency_files = depset(transitive = transitive_venv_dependency_files),
+            venv_wheel_aliases = depset(transitive = transitive_venv_wheel_aliases),
+            venv_wheel_links = depset(transitive = transitive_venv_wheel_links),
             first_party_layers = depset(transitive = transitive_fp),
         )]
 
     own_source = []
     own_fp = []
     own_venv_dependency_files = []
-    if OutputGroupInfo in target:
-        files = getattr(target[OutputGroupInfo], "_venv_dependency_files", None)
-        if files != None:
-            own_venv_dependency_files.append(files)
+    own_venv_wheel_aliases = []
+    own_venv_wheel_links = []
+    if PyVenvLayoutInfo in target:
+        layout = target[PyVenvLayoutInfo]
+        own_venv_dependency_files.append(layout.dependency_files)
+        own_venv_wheel_aliases.append(layout.wheel_aliases)
+        own_venv_wheel_links.append(layout.wheel_links)
     interpreter_layer = None
-    kind = ctx.rule.kind
     is_binary = (
         PyInfo in target and
         DefaultInfo in target and
         target[DefaultInfo].files_to_run.executable != None
     )
 
-    # Aliases (and other pure-forwarding wrappers) forward DefaultInfo from
-    # `actual`. Reading `target[DefaultInfo].files` here for an alias of a
-    # wheel target would re-introduce the install_tree as a source file — but
-    # it is already captured upstream as a pip package via the wheel-leaf
-    # branch. Just propagate transitively for these targets.
-    if kind == "alias":
-        return [_LayerInfo(
-            source_files = depset(transitive = transitive_source),
-            pip_packages = depset(transitive = transitive_pkgs),
-            venv_dependency_files = depset(transitive = transitive_venv_dependency_files),
-            first_party_layers = depset(transitive = transitive_fp),
-        )]
-
     venv_dependency_files = depset(
         transitive = transitive_venv_dependency_files + own_venv_dependency_files,
+    )
+    venv_wheel_aliases = depset(
+        transitive = transitive_venv_wheel_aliases + own_venv_wheel_aliases,
+    )
+    venv_wheel_links = depset(
+        transitive = transitive_venv_wheel_links + own_venv_wheel_links,
     )
 
     # Skip PyInfo deps (including wheel-leaf targets, which also emit PyInfo) —
@@ -445,6 +471,10 @@ def _layer_aspect_impl(target, ctx):
                     skip_paths[f.path] = True
         for f in venv_dependency_files.to_list():
             skip_paths[f.path] = True
+        for f in venv_wheel_aliases.to_list():
+            skip_paths[f.path] = True
+        for wheel_link in venv_wheel_links.to_list():
+            skip_paths[wheel_link.link.path] = True
 
         # Opt-in interpreter layer. The aspect fires on the py toolchain via
         # `toolchains_aspects` and declares the tar there; we just read the
@@ -485,6 +515,8 @@ def _layer_aspect_impl(target, ctx):
         source_files = depset(transitive = transitive_source + own_source),
         pip_packages = depset(transitive = transitive_pkgs),
         venv_dependency_files = venv_dependency_files,
+        venv_wheel_aliases = venv_wheel_aliases,
+        venv_wheel_links = venv_wheel_links,
         first_party_layers = depset(direct = own_fp, transitive = transitive_fp),
         interpreter_layer = interpreter_layer,
     )]
@@ -593,18 +625,20 @@ def _apply_strip_prefix(sp, strip_prefix, root):
         return "." + root + sp[len(prefix):]
     return "./app.runfiles/_main/" + sp
 
-def _file_to_mtree_entry(f, mode = "0644", strip_prefix = "", root = "/", maybe_symlink = False):
+def _image_path(f, strip_prefix = "", root = "/"):
     sp = f.short_path
     if sp == "_repo_mapping":
         # Bazel synthesizes a top-level `_repo_mapping` runfile (no `_main/`
         # prefix); replicate that placement so runfiles.bash can find it.
-        dst = "./app.runfiles/_repo_mapping"
-    elif sp.startswith("../"):
-        dst = "./app.runfiles/" + sp[3:]
-    elif strip_prefix:
-        dst = _apply_strip_prefix(sp, strip_prefix, root)
-    else:
-        dst = "./app.runfiles/_main/" + sp
+        return "./app.runfiles/_repo_mapping"
+    if sp.startswith("../"):
+        return "./app.runfiles/" + sp[3:]
+    if strip_prefix:
+        return _apply_strip_prefix(sp, strip_prefix, root)
+    return "./app.runfiles/_main/" + sp
+
+def _file_to_mtree_entry(f, mode = "0644", strip_prefix = "", root = "/", maybe_symlink = False):
+    dst = _image_path(f, strip_prefix, root)
 
     # `f.is_symlink` emits `type=link` (awk readlinks once); `maybe_symlink=True`
     # emits `type=file content=` (awk readlinks to detect repo-rule-staged
@@ -769,6 +803,21 @@ def _run_tar_action(ctx, bsdtar, bsdtar_files, tar_out, files_depset, map_each, 
         execution_requirements = reqs,
     )
 
+    _run_tar_from_mtree(
+        ctx,
+        bsdtar,
+        bsdtar_files,
+        tar_out,
+        sorted_mtree,
+        files_depset,
+        compress,
+        level,
+        reqs,
+        mnemonic,
+        progress_msg,
+    )
+
+def _run_tar_from_mtree(ctx, bsdtar, bsdtar_files, tar_out, mtree, inputs, compress, level, reqs, mnemonic, progress_msg):
     tar_args = ctx.actions.args()
     tar_args.add("--create")
     tar_args.add("--" + compress)
@@ -777,10 +826,10 @@ def _run_tar_action(ctx, bsdtar, bsdtar_files, tar_out, files_depset, map_each, 
 
     # `@<file>` tells bsdtar to read the named file as an mtree archive
     # (same as `@-` for stdin, just from disk).
-    tar_args.add(sorted_mtree, format = "@%s")
+    tar_args.add(mtree, format = "@%s")
     ctx.actions.run(
         executable = bsdtar.binary,
-        inputs = depset(direct = [sorted_mtree], transitive = [files_depset, bsdtar_files.files]),
+        inputs = depset(direct = [mtree], transitive = [inputs, bsdtar_files.files]),
         outputs = [tar_out],
         arguments = [tar_args],
         mnemonic = mnemonic,
@@ -929,6 +978,80 @@ def _py_image_layer_impl(ctx):
             ),
         )
         all_tars.append(squashed_tar)
+
+    # Direct venv links may be unresolved outside a runfiles tree. Their
+    # structured targets let us emit archive-relative links without either the
+    # declared link or the wheel tree becoming an input to this overlay action.
+    pip_file_paths = {}
+    for pkg in all_pkgs:
+        for file in pkg.files.to_list():
+            pip_file_paths[file.path] = True
+    wheel_link_by_path = {}
+    for wheel_link in info.venv_wheel_links.to_list():
+        prior = wheel_link_by_path.get(wheel_link.link.path)
+        if prior != None and (
+            prior.install_tree.path != wheel_link.install_tree.path or
+            prior.install_path != wheel_link.install_path
+        ):
+            fail("{}: venv link {} has conflicting targets {}/{} and {}/{}".format(
+                ctx.label,
+                wheel_link.link.path,
+                prior.install_tree.path,
+                prior.install_path,
+                wheel_link.install_tree.path,
+                wheel_link.install_path,
+            ))
+        if wheel_link.install_tree.path not in pip_file_paths:
+            fail("{}: venv link {} targets {}, which is not owned by a pip layer".format(
+                ctx.label,
+                wheel_link.link.path,
+                wheel_link.install_tree.path,
+            ))
+        wheel_link_by_path[wheel_link.link.path] = wheel_link
+    if wheel_link_by_path:
+        mtree_lines = ["#mtree"]
+        for path in sorted(wheel_link_by_path):
+            wheel_link = wheel_link_by_path[path]
+            link = _image_path(wheel_link.link, strip_prefix, root)
+            # Pip trees use their runfiles paths regardless of the binary's
+            # source-layer strip_prefix; match _pkg_file_to_mtree exactly.
+            target = _image_path(wheel_link.install_tree)
+            if wheel_link.install_path:
+                target += "/" + wheel_link.install_path
+            target_parts = (target[2:] if target.startswith("./") else target).split("/")
+            link_path = link[2:] if link.startswith("./") else link
+            link_parent_parts = link_path.rsplit("/", 1)[0].split("/")
+            common = 0
+            for i in range(min(len(target_parts), len(link_parent_parts))):
+                if target_parts[i] != link_parent_parts[i]:
+                    break
+                common += 1
+            relative_target = "../" * (len(link_parent_parts) - common) + "/".join(target_parts[common:])
+            mtree_lines.append(
+                "{} type=link mode=0755 uid=0 gid=0 time=1672560000 link={}".format(
+                    link.replace(" ", "\\040"),
+                    relative_target.replace(" ", "\\040"),
+                ),
+            )
+
+        venv_tar = ctx.actions.declare_file(ctx.attr.name + "_venv.tar.gz")
+        venv_mtree = ctx.actions.declare_file(venv_tar.basename + ".mtree", sibling = venv_tar)
+        ctx.actions.write(output = venv_mtree, content = "\n".join(mtree_lines) + "\n")
+        group_name = "packages"
+        _run_tar_from_mtree(
+            ctx,
+            bsdtar,
+            bsdtar_files,
+            venv_tar,
+            venv_mtree,
+            depset(),
+            "gzip",
+            ctx.attr.group_compress_levels.get(group_name, "6"),
+            _parse_exec_requirements(ctx.attr.group_execution_requirements.get(group_name, [])),
+            "PyImageVenvLayer",
+            "Creating venv overlay for %s" % ctx.label,
+        )
+        all_tars.append(venv_tar)
 
     # dep_tars is identical to all_tars except for the source layer appended below;
     # snapshot here to avoid double-bookkeeping during construction.

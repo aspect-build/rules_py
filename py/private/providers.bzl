@@ -15,25 +15,31 @@ Downstream rules (notably `py_binary`) use this to create one
 executable wrappers under `<venv>/bin/<name>` for console scripts.
 """,
     fields = {
-        "wheels": """Depset of `struct(top_levels, namespace_top_levels, namespace_entries, site_packages_rfpath, console_scripts)`
-— one per wheel in the transitive closure. Fields:
+        "wheels": """Depset of wheel metadata structs, one per wheel in the transitive closure. Fields:
   * `top_levels`: tuple[str] — top-level names the wheel installs into site-packages.
+  * `directory_top_levels`: tuple[str] — subset of top_levels installed as directories.
   * `namespace_top_levels`: tuple[str] — subset of top_levels that are PEP 420 namespace packages.
   * `namespace_entries`: tuple[str] — `/`-joined paths of the concrete entries beneath
-    the namespace top-levels (e.g. `jaraco/functools`), used to materialise a merged
-    namespace directory out of per-entry symlinks. May be absent on structs from
-    older producers; consumers use `getattr` with a `()` default.
+    namespace top-levels, used to materialize a merged namespace directory from
+    per-entry symlinks.
   * `namespace_dirs`: tuple[str] — implicit-namespace directory skeleton under the
-    namespace top-levels (site-packages-relative `/`-joined paths). May be absent
-    on structs from older producers; consumers use `getattr` with a `()` default.
-  * `regular_roots`: tuple[str] — minimal directories under the namespace
-    top-levels carrying an `__init__.py`. Cross-referencing a wheel's
-    `regular_roots` with another wheel's `namespace_dirs` detects regular
-    packages spanning wheels, which venv assembly must physically merge.
-    May be absent on structs from older producers.
+    namespace top-levels.
+  * `regular_roots`: tuple[str] — minimal directories under namespace top-levels
+    carrying an `__init__.py`. Cross-referencing these with another wheel's
+    `namespace_dirs` identifies regular packages that span wheels.
   * `site_packages_rfpath`: str — runfiles-root-relative path to the wheel's site-packages.
   * `console_scripts`: tuple[str] — entry points encoded as `"name=module:func"`.
+  * `install_tree`: File — the complete installed wheel tree.
 """,
+    },
+)
+
+PyVenvLayoutInfo = provider(
+    doc = "Private ownership metadata for files generated while assembling a venv.",
+    fields = {
+        "dependency_files": "depset[File] — generated dependency content that does not belong in a first-party source layer.",
+        "wheel_aliases": "depset[File] — physical wheel-tree aliases that packaging rules must exclude without archiving.",
+        "wheel_links": "depset[struct(link, install_tree, install_path)] — venv site-packages links and their paths within wheel install trees.",
     },
 )
 
