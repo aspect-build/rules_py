@@ -131,6 +131,95 @@ def _parse_hubs(module_ctx):
 
     return hub_specs
 
+def _canonical_built_wheel_metadata(declaration):
+    key = (normalize_name(declaration.name), declaration.version.strip())
+    if not key[0] or not key[1]:
+        fail("uv.built_wheel_metadata(): name and version must not be empty")
+
+    def _unique_sorted(values, field):
+        seen = {}
+        duplicates = []
+        for value in values:
+            if value in seen:
+                duplicates.append(value)
+            seen[value] = True
+        if duplicates:
+            fail("uv.built_wheel_metadata() for '{}=={}': duplicate {} entries: {}".format(
+                key[0],
+                key[1],
+                field,
+                sorted(duplicates),
+            ))
+        return sorted(values)
+
+    top_levels = _unique_sorted(declaration.top_levels, "top_levels")
+    directory_top_levels = _unique_sorted(
+        declaration.directory_top_levels,
+        "directory_top_levels",
+    )
+    console_scripts = _unique_sorted(declaration.console_scripts, "console_scripts")
+    if not top_levels:
+        fail("uv.built_wheel_metadata() for '{}=={}': top_levels must not be empty".format(*key))
+    invalid_top_levels = [name for name in top_levels if name in ("", ".", "..") or "/" in name or "\\" in name]
+    if invalid_top_levels:
+        fail("uv.built_wheel_metadata() for '{}=={}': top_levels entries must be immediate site-packages names: {}".format(
+            key[0],
+            key[1],
+            invalid_top_levels,
+        ))
+    invalid_directories = [name for name in directory_top_levels if name not in top_levels]
+    if invalid_directories:
+        fail("uv.built_wheel_metadata() for '{}=={}': directory_top_levels entries are absent from top_levels: {}".format(
+            key[0],
+            key[1],
+            invalid_directories,
+        ))
+    invalid_scripts = []
+    for script in console_scripts:
+        name, separator, entrypoint = script.partition("=")
+        module, colon, function = entrypoint.partition(":")
+        name = name.strip()
+        if (
+            name in ("", ".", "..") or
+            "/" in name or
+            "\\" in name or
+            not separator or
+            not module.strip() or
+            not colon or
+            not function.strip()
+        ):
+            invalid_scripts.append(script)
+    if invalid_scripts:
+        fail("uv.built_wheel_metadata() for '{}=={}': console_scripts entries must use name=module:function: {}".format(
+            key[0],
+            key[1],
+            invalid_scripts,
+        ))
+
+    return key, struct(
+        console_scripts = console_scripts,
+        directory_top_levels = directory_top_levels,
+        top_levels = top_levels,
+    )
+
+def _parse_built_wheel_metadata(module_ctx):
+    declarations = {}
+    origins = {}
+    for mod in module_ctx.modules:
+        for declaration in mod.tags.built_wheel_metadata:
+            key, metadata = _canonical_built_wheel_metadata(declaration)
+            prior = declarations.get(key)
+            if prior != None and prior != metadata:
+                fail("Conflicting uv.built_wheel_metadata() declarations for '{}=={}' from modules '{}' and '{}'".format(
+                    key[0],
+                    key[1],
+                    origins[key],
+                    mod.name,
+                ))
+            declarations[key] = metadata
+            origins[key] = mod.name
+    return declarations
+
 def _parse_projects(module_ctx, hub_specs):
     """Parses all `uv.project()` declarations from all modules.
 
@@ -164,6 +253,9 @@ def _parse_projects(module_ctx, hub_specs):
 
     install_cfgs = {}
     install_table = {}
+
+    built_wheel_metadata = _parse_built_wheel_metadata(module_ctx)
+    built_wheel_metadata_sources = {}
 
     # FIXME: Collect build deps files/annotations
 
@@ -360,6 +452,33 @@ def _parse_projects(module_ctx, hub_specs):
                 install_table[install_key] = install_target
                 sbuild_id = "sdist_build__{}__{}__{}".format(project_stamp, package["name"], normalize_version(package["version"]))
                 sdist = sdist_table.get(sbuild_id)
+                pkg_override = package_overrides.get((normalize_name(package["name"]), package["version"]))
+                pkg_built_wheel_metadata = built_wheel_metadata.get((
+                    normalize_name(package["name"]),
+                    package["version"],
+                ))
+                if pkg_built_wheel_metadata and sdist:
+                    package_key = (
+                        normalize_name(package["name"]),
+                        package["version"],
+                    )
+                    source = package.get("sdist")
+                    if source:
+                        source_identity = ("hash", source["hash"]) if source.get("hash") else ("url", source["url"])
+                    else:
+                        source_identity = ("git", package["source"]["git"])
+                    prior = built_wheel_metadata_sources.get(package_key)
+                    if prior != None and prior.identity != source_identity:
+                        fail("uv.built_wheel_metadata() for '{}=={}' matches different sources in locks '{}' and '{}'".format(
+                            package_key[0],
+                            package_key[1],
+                            prior.lock,
+                            project.lock,
+                        ))
+                    built_wheel_metadata_sources[package_key] = struct(
+                        identity = source_identity,
+                        lock = project.lock,
+                    )
 
                 # WARNING: Loop invariant; this flag needs to be False by
                 # default and set if we do a build.
@@ -401,7 +520,6 @@ def _parse_projects(module_ctx, hub_specs):
                     build_deps = sets.to_list(sets.make(build_deps + lock_build_deps))
 
                     # Look up pre-build patches for this package
-                    pkg_override = package_overrides.get((normalize_name(package["name"]), package["version"]))
                     pre_build_patches = []
                     pre_build_patch_strip = 0
                     if pkg_override and pkg_override.pre_build_patches:
@@ -414,10 +532,17 @@ def _parse_projects(module_ctx, hub_specs):
                     extra_toolchains = []
                     extra_env = {}
                     build_memory_mb = 0
+                    built_wheel_console_scripts = []
+                    built_wheel_directory_top_levels = []
+                    built_wheel_top_levels = []
                     if pkg_override:
                         extra_toolchains = [str(t) for t in pkg_override.toolchains]
                         extra_env = pkg_override.env
                         build_memory_mb = pkg_override.build_memory_mb
+                    if pkg_built_wheel_metadata:
+                        built_wheel_console_scripts = pkg_built_wheel_metadata.console_scripts
+                        built_wheel_directory_top_levels = pkg_built_wheel_metadata.directory_top_levels
+                        built_wheel_top_levels = pkg_built_wheel_metadata.top_levels
 
                     sbuild_specs[sbuild_id] = struct(
                         src = sdist,
@@ -431,12 +556,14 @@ def _parse_projects(module_ctx, hub_specs):
                         extra_toolchains = extra_toolchains,
                         extra_env = extra_env,
                         build_memory_mb = build_memory_mb,
+                        built_wheel_console_scripts = built_wheel_console_scripts,
+                        built_wheel_directory_top_levels = built_wheel_directory_top_levels,
+                        built_wheel_top_levels = built_wheel_top_levels,
                     )
 
                     has_sbuild = True
 
                 # Look up post-install patches and BUILD modifications
-                pkg_override = package_overrides.get((normalize_name(package["name"]), package["version"]))
                 post_install_patches = []
                 post_install_patch_strip = 0
                 extra_deps = []
@@ -645,6 +772,10 @@ def _uv_impl(module_ctx):
             sbuild_kwargs["extra_env"] = sbuild_cfg.extra_env
         if sbuild_cfg.build_memory_mb:
             sbuild_kwargs["build_memory_mb"] = sbuild_cfg.build_memory_mb
+        if sbuild_cfg.built_wheel_top_levels:
+            sbuild_kwargs["built_wheel_console_scripts"] = sbuild_cfg.built_wheel_console_scripts
+            sbuild_kwargs["built_wheel_directory_top_levels"] = sbuild_cfg.built_wheel_directory_top_levels
+            sbuild_kwargs["built_wheel_top_levels"] = sbuild_cfg.built_wheel_top_levels
         sdist_build(**sbuild_kwargs)
 
     for install_id, install_cfg in cfg.install_cfgs.items():
@@ -732,6 +863,24 @@ _declare_entrypoint_tag = tag_class(
     },
 )
 
+_built_wheel_metadata_tag = tag_class(
+    attrs = {
+        "name": attr.string(mandatory = True),
+        "version": attr.string(mandatory = True),
+        "console_scripts": attr.string_list(
+            doc = "Console entry points in the built wheel, encoded as name=module:function.",
+        ),
+        "directory_top_levels": attr.string_list(
+            doc = "Complete directory subset of top_levels.",
+        ),
+        "top_levels": attr.string_list(
+            mandatory = True,
+            doc = "Complete, configuration-invariant list of immediate site-packages entries in wheels built from this package version's sdist.",
+        ),
+    },
+    doc = "Declare analysis-time metadata shared by every sdist build of one package version.",
+)
+
 _override_package_tag = tag_class(
     attrs = {
         "lock": attr.label(mandatory = True),
@@ -816,6 +965,7 @@ all other modification attributes.""",
 uv = module_extension(
     implementation = _uv_impl,
     tag_classes = {
+        "built_wheel_metadata": _built_wheel_metadata_tag,
         "declare_hub": _hub_tag,
         "project": _project_tag,
         "unstable_annotate_packages": _annotations_tag,

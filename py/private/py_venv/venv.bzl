@@ -135,12 +135,15 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
     for w in wheels:
         wheel_by_sp[w.site_packages_rfpath] = w
         ns_set = {tl: True for tl in getattr(w, "namespace_top_levels", ())}
+        directory_set = {tl: True for tl in getattr(w, "directory_top_levels", ())}
         ns_entries_by_tl = {}
         for entry in getattr(w, "namespace_entries", ()):
             ns_entries_by_tl.setdefault(entry.split("/")[0], []).append(entry)
         for tl in w.top_levels:
             tl_claimants.setdefault(tl, []).append(struct(
                 site_packages = w.site_packages_rfpath,
+                is_directory = tl in directory_set,
+                topology_known = getattr(w, "topology_known", True),
                 is_ns = tl in ns_set,
                 ns_entries = tuple(ns_entries_by_tl.get(tl, [])),
             ))
@@ -176,6 +179,14 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
         distinct_sp = {c.site_packages: c for c in claimants}
         if len(distinct_sp) == 1:
             top_level_to_site_pkgs[tl] = claimants[0].site_packages
+            continue
+
+        if (
+            all([c.is_directory for c in distinct_sp.values()]) and
+            not all([c.topology_known for c in distinct_sp.values()])
+        ):
+            for c in distinct_sp.values():
+                skipped_per_wheel.setdefault(c.site_packages, {})[tl] = True
             continue
 
         all_namespace = all([c.is_ns for c in claimants])

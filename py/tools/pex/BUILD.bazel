@@ -16,6 +16,7 @@ py_unpacked_wheel(
         "pex",
         "pex-2.3.1.dist-info",
     ],
+    topology_known = True,
 )
 
 py_binary(

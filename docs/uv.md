@@ -294,6 +294,41 @@ An sdist (if available) will be built into a wheel for installation if no wheels
 are available, or no wheels matching the target configuration are found. Sdist
 builds occur using the configured Python and Cc toolchains.
 
+A wheel built from an sdist does not exist until execution, after Bazel has
+finished analysis. When its final topology is independent of the target
+configuration, declare that package-version metadata once so every matching
+lock can expose console scripts and merge package roots during analysis:
+
+```starlark
+uv.built_wheel_metadata(
+    name = "cowsay",
+    version = "6.0",
+    top_levels = [
+        "cowsay",
+        "cowsay-6.0.dist-info",
+    ],
+    directory_top_levels = [
+        "cowsay",
+        "cowsay-6.0.dist-info",
+    ],
+    console_scripts = [
+        "cowsay=cowsay.__main__:cli",
+    ],
+)
+```
+
+`top_levels` must list every immediate entry that the wheel installs into
+`site-packages`; `directory_top_levels` is the complete directory subset. The
+unpack action compares the declaration with each built wheel and fails on
+drift. Every source-buildable match must refer to the same source hash, URL, or
+Git source; the module extension rejects conflicting sources. Lock-specific
+pre-build patches must preserve the declared topology.
+
+Do not declare metadata when topology can vary by target configuration, such
+as a native extension whose filename contains an ABI-specific suffix. The
+package then uses the source-wheel fallback instead of exposing incomplete
+analysis-time metadata.
+
 ## Best practices
 
 **Consolidate your hubs**. In `rules_python`, environments with multiple depsets

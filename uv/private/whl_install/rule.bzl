@@ -4,6 +4,7 @@
 load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PY_TOOLCHAIN")
+load("//uv/private/pep517_whl:providers.bzl", "BuiltWheelMetadataInfo")
 
 def _whl_install(ctx):
     py_toolchain = ctx.toolchains[PY_TOOLCHAIN].py3_runtime
@@ -18,14 +19,25 @@ def _whl_install(ctx):
 
     archive = ctx.file.src
     whl_basename = archive.basename
-    top_levels = list(ctx.attr.top_levels.get(whl_basename, []))
-    directory_top_levels = list(ctx.attr.directory_top_levels.get(whl_basename, []))
-    namespace_top_levels = ctx.attr.namespace_top_levels.get(whl_basename, [])
-    namespace_entries = ctx.attr.namespace_entries.get(whl_basename, [])
-    namespace_dirs = ctx.attr.namespace_dirs.get(whl_basename, [])
-    regular_roots = ctx.attr.regular_roots.get(whl_basename, [])
-    console_scripts = ctx.attr.console_scripts.get(whl_basename, [])
-    metadata_known = whl_basename in ctx.attr.top_levels
+    if BuiltWheelMetadataInfo in ctx.attr.src:
+        built_metadata = ctx.attr.src[BuiltWheelMetadataInfo]
+        top_levels = list(built_metadata.top_levels)
+        directory_top_levels = list(built_metadata.directory_top_levels)
+        namespace_top_levels = []
+        namespace_entries = []
+        namespace_dirs = []
+        regular_roots = []
+        console_scripts = list(built_metadata.console_scripts)
+        metadata_known = True
+    else:
+        top_levels = list(ctx.attr.top_levels.get(whl_basename, []))
+        directory_top_levels = list(ctx.attr.directory_top_levels.get(whl_basename, []))
+        namespace_top_levels = list(ctx.attr.namespace_top_levels.get(whl_basename, []))
+        namespace_entries = ctx.attr.namespace_entries.get(whl_basename, [])
+        namespace_dirs = ctx.attr.namespace_dirs.get(whl_basename, [])
+        regular_roots = ctx.attr.regular_roots.get(whl_basename, [])
+        console_scripts = ctx.attr.console_scripts.get(whl_basename, [])
+        metadata_known = whl_basename in ctx.attr.top_levels
     if (metadata_known and ctx.attr.compile_pyc and
         any([name.endswith(".py") for name in top_levels]) and
         "__pycache__" not in top_levels):
@@ -134,15 +146,21 @@ def _whl_install(ctx):
     # wheel that is actually installed — metadata from inactive platform
     # wheels must not leak in (e.g. another platform's C-extension
     # suffix, or a console script shipped only by the win32 wheel).
-    # A lookup miss (sbuild fallback, failed extraction at repo-fetch
-    # time) leaves the package metadata empty, so consumers fall back to
-    # .pth-based resolution. The wheel still emits PyWheelsInfo because
-    # downstream venvs must own its install tree independently of whether
-    # repository-time metadata extraction succeeded.
+    # Source-build targets may carry declared metadata through
+    # BuiltWheelMetadataInfo. Otherwise, a lookup miss leaves the package
+    # metadata empty, so consumers fall back to .pth-based resolution. The
+    # wheel still emits PyWheelsInfo because downstream venvs must own its
+    # install tree independently of whether analysis-time metadata exists.
     #
     # A source-built wheel's topology does not exist until this action runs.
     # Its fallback root preserves ordinary imports, but analysis cannot merge
     # an unknown contribution into a regular package owned by another wheel.
+    # Post-install patches may also change package boundaries.
+    topology_known = (
+        metadata_known and
+        BuiltWheelMetadataInfo not in ctx.attr.src and
+        not patch_files
+    )
     providers.append(PyWheelsInfo(
         wheels = depset(direct = [struct(
             top_levels = tuple(top_levels),
@@ -151,6 +169,7 @@ def _whl_install(ctx):
             namespace_entries = tuple(namespace_entries),
             namespace_dirs = tuple(namespace_dirs),
             regular_roots = tuple(regular_roots),
+            topology_known = topology_known,
             site_packages_rfpath = site_packages_rfpath,
             # Each entry is "name=module:func"; py_binary parses into
             # wrapper scripts at <venv>/bin/<name> at analysis time.

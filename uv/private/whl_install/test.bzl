@@ -147,6 +147,13 @@ _CONSOLE_SCRIPTS = {
     ],
 }
 
+_BUILT_WHEEL_TOP_LEVELS = [
+    "demo",
+    "demo-1.0.0.dist-info",
+]
+
+_BUILT_WHEEL_CONSOLE_SCRIPTS = ["demo=demo.cli:main"]
+
 def _metadata_selection_test_impl(ctx):
     env = analysistest.begin(ctx)
     target = analysistest.target_under_test(env)
@@ -157,6 +164,7 @@ def _metadata_selection_test_impl(ctx):
     wheel = wheels[0]
     asserts.equals(env, tuple(ctx.attr.expected_top_levels), wheel.top_levels)
     asserts.equals(env, tuple(ctx.attr.expected_directory_top_levels), wheel.directory_top_levels)
+    asserts.equals(env, tuple(ctx.attr.expected_namespace_top_levels), wheel.namespace_top_levels)
     asserts.equals(env, tuple(ctx.attr.expected_console_scripts), wheel.console_scripts)
 
     # Explicit leak checks: surface belonging to the OTHER (inactive)
@@ -181,6 +189,7 @@ _metadata_selection_test = analysistest.make(
     attrs = {
         "expected_top_levels": attr.string_list(),
         "expected_directory_top_levels": attr.string_list(),
+        "expected_namespace_top_levels": attr.string_list(),
         "expected_console_scripts": attr.string_list(),
         "leaked_top_levels": attr.string_list(),
         "leaked_console_scripts": attr.string_list(),
@@ -236,6 +245,26 @@ def metadata_selection_test_suite(name):
             tags = ["manual"],
         )
 
+    native.alias(
+        name = "__metadata_declared_sbuild_selected",
+        actual = "//uv/private/pep517_whl:__built_wheel_metadata_fixture",
+        tags = ["manual"],
+    )
+
+    whl_install(
+        name = "__metadata_declared_sbuild_fixture",
+        src = ":__metadata_declared_sbuild_selected",
+        tags = ["manual"],
+    )
+
+    whl_install(
+        name = "__metadata_compile_pyc_fixture",
+        src = _LINUX_WHL,
+        compile_pyc = True,
+        top_levels = {_LINUX_WHL: ["demo.py"]},
+        tags = ["manual"],
+    )
+
     _metadata_selection_test(
         name = name + "_linux_test",
         target_under_test = ":__metadata_linux_fixture",
@@ -262,6 +291,27 @@ def metadata_selection_test_suite(name):
     _metadata_miss_test(
         name = name + "_sbuild_fallback_test",
         target_under_test = ":__metadata_sbuild_fixture",
+    )
+
+    _metadata_selection_test(
+        name = name + "_compile_pyc_test",
+        target_under_test = ":__metadata_compile_pyc_fixture",
+        expected_console_scripts = [],
+        expected_directory_top_levels = ["__pycache__"],
+        expected_namespace_top_levels = ["__pycache__"],
+        expected_top_levels = ["demo.py", "__pycache__"],
+        leaked_console_scripts = [],
+        leaked_top_levels = [],
+    )
+
+    _metadata_selection_test(
+        name = name + "_declared_sbuild_test",
+        expected_console_scripts = _BUILT_WHEEL_CONSOLE_SCRIPTS,
+        expected_directory_top_levels = _BUILT_WHEEL_TOP_LEVELS,
+        expected_top_levels = _BUILT_WHEEL_TOP_LEVELS,
+        leaked_console_scripts = [],
+        leaked_top_levels = [],
+        target_under_test = ":__metadata_declared_sbuild_fixture",
     )
 
 def whl_install_suite():

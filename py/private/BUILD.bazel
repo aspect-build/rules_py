@@ -1,7 +1,10 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//py:defs.bzl", _py_binary_rule = "py_binary", _py_test_rule = "py_test")
 load(":py_image_layer.bzl", "py_layer_tier")
 load(":py_library.bzl", "py_library")
+load(":py_unpacked_wheel.bzl", "py_unpacked_wheel")
+load(":py_unpacked_wheel_test.bzl", "py_unpacked_wheel_topology_test")
 
 package(default_visibility = ["//py:__subpackages__"])
 
@@ -110,6 +113,42 @@ bzl_library(
         "//py/private/toolchain:types",
         "@bazel_skylib//lib:paths",
     ],
+)
+
+write_file(
+    name = "_empty_wheel",
+    out = "_empty.whl",
+    content = [""],
+    tags = ["manual"],
+)
+
+py_unpacked_wheel(
+    name = "_regular_wheel_known",
+    src = ":_empty_wheel",
+    directory_top_levels = ["regular_package"],
+    tags = ["manual"],
+    top_levels = ["regular_package"],
+    topology_known = True,
+)
+
+py_unpacked_wheel(
+    name = "_regular_wheel_unknown",
+    src = ":_empty_wheel",
+    directory_top_levels = ["regular_package"],
+    tags = ["manual"],
+    top_levels = ["regular_package"],
+)
+
+py_unpacked_wheel_topology_test(
+    name = "regular_wheel_topology_known_test",
+    expected = True,
+    target_under_test = ":_regular_wheel_known",
+)
+
+py_unpacked_wheel_topology_test(
+    name = "regular_wheel_topology_unknown_test",
+    expected = False,
+    target_under_test = ":_regular_wheel_unknown",
 )
 
 bzl_library(

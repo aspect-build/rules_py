@@ -9,7 +9,10 @@ package(default_visibility = [
 bzl_library(
     name = "rule",
     srcs = ["rule.bzl"],
-    deps = ["@rules_python//python:defs_bzl"],
+    deps = [
+        "//uv/private/pep517_whl:providers",
+        "@rules_python//python:defs_bzl",
+    ],
 )
 
 bzl_library(
@@ -40,6 +43,7 @@ bzl_library(
     deps = [
         ":repository",
         ":rule",
+        "//uv/private/pep517_whl:rule",
         "@bazel_skylib//lib:unittest",
         "@bazel_skylib//rules:write_file",
     ],

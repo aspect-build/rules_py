@@ -95,6 +95,7 @@ py_unpacked_wheel(
         "Django-4.2.4.dist-info",
         "django",
     ],
+    topology_known = True,
 )
 
 py_binary(
