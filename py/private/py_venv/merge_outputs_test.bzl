@@ -207,14 +207,14 @@ def merge_outputs_test_suite():
         top_levels = ["alpha"],
         tags = ["manual"],
     )
-    py_venv(
-        name = "_merge_outputs_venv",
+    py_binary(
+        name = "_merge_outputs_binary",
         srcs = ["merge_outputs_test.py"],
         deps = merge_deps,
         tags = ["manual"],
     )
-    py_binary(
-        name = "_merge_outputs_binary",
+    py_venv(
+        name = "_merge_outputs_venv",
         srcs = ["merge_outputs_test.py"],
         deps = merge_deps,
         tags = ["manual"],
@@ -226,6 +226,10 @@ def merge_outputs_test_suite():
     )
     _merge_outputs_test(
         name = "merge_outputs_test",
+        target_under_test = ":_merge_outputs_binary",
+    )
+    _merge_outputs_test(
+        name = "merge_outputs_venv_test",
         target_under_test = ":_merge_outputs_venv",
     )
     _merge_layer_outputs_test(
@@ -246,8 +250,8 @@ def merge_outputs_test_suite():
         top_levels = ["conflict"],
         tags = ["manual"],
     )
-    py_venv(
-        name = "_missing_tree_venv",
+    py_binary(
+        name = "_missing_tree_binary",
         srcs = ["merge_outputs_test.py"],
         deps = [
             ":_missing_tree_graft",
@@ -257,5 +261,5 @@ def merge_outputs_test_suite():
     )
     _missing_install_tree_test(
         name = "missing_install_tree_test",
-        target_under_test = ":_missing_tree_venv",
+        target_under_test = ":_missing_tree_binary",
     )

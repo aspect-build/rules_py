@@ -24,10 +24,7 @@ def _python_transition_impl(settings, attr):
     acc[PYTHON_VERSION_FLAG] = version
     acc[_RPY_VERSION_FLAG] = version
 
-    # Set the dep_group transition. The attr is only present on `py_venv`
-    # (rules without it propagate the inherited setting; `py_venv_exec`
-    # is config-agnostic — its runfiles inherit the venv's wheels at
-    # whatever DEP_GROUP_FLAG the venv resolved under).
+    # Set the dependency-group transition on both direct and exposed targets.
     dep_group = getattr(attr, "dep_group", None)
     if dep_group:
         acc[DEP_GROUP_FLAG] = str(dep_group)
