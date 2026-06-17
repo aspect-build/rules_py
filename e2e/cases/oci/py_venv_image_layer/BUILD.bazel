@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer")
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_layer_tier")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@container_structure_test//:defs.bzl", "container_structure_test")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load")
@@ -56,9 +56,15 @@ py_binary(
     ],
 )
 
+py_layer_tier(
+    name = "my_app_tier",
+    interpreter_group = "interpreter",
+)
+
 py_image_layer(
     name = "my_app_layers",
     binary = ":my_app_bin",
+    layer_tier = ":my_app_tier",
 )
 
 platform_transition_filegroup(

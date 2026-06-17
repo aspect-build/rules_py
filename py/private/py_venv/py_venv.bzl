@@ -7,12 +7,12 @@
   into the hermetic interpreter with the venv activated — useful for
   interactive Python sessions.
 
-- `py_binary_with_venv` — shared helper invoked by
-  `py_binary(expose_venv = True, ...)` / `py_test(expose_venv = True, ...)`.
-  Splits the call into a sibling `:<name>.venv` `py_venv` + a
-  `py_binary` / `py_test` rule that consumes it via the internal
-  `venv` attribute. `bazel run :<name>.venv` drops into the
-  interpreter.
+- `py_binary_with_venv` — shared helper invoked by `py_binary` and
+  `py_test`. Ordinary targets remain one direct configured target that
+  owns a private runtime venv. When `expose_venv = True`, the helper
+  instead splits the call into a sibling `:<name>.venv` `py_venv` +
+  a launcher rule that consumes it via the internal `venv` attribute.
+  `bazel run :<name>.venv` drops into the interpreter.
 
 - `py_venv_link` — opt-in macro that emits a runnable target whose
   `bazel run` materialises a workspace-local symlink to an existing
@@ -31,7 +31,7 @@ load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private:transitions.bzl", "python_version_transition")
 load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PY_TOOLCHAIN")
-load(":py_venv_exec.bzl", _py_venv_exec = "py_venv_exec")
+load(":py_venv_exec.bzl", _py_venv_link_exec = "py_venv_link_exec")
 load(":types.bzl", "VirtualenvInfo")
 load(":venv.bzl", "assemble_venv")
 
@@ -335,12 +335,14 @@ _VENV_ONLY_ATTRS = [
     "package_collisions",
     "include_system_site_packages",
     "include_user_site_packages",
-    "python_version",
-    "dep_group",
     "env",
     "env_inherit",
 ]
 _SHARED_ATTRS = [
+    # The launcher resolves configurable srcs/main/data in its own
+    # configuration, so it must match the sibling venv.
+    "python_version",
+    "dep_group",
     # Launcher constructs `python <flags> main.py`; venv forwards them
     # to its REPL so `bazel run :name.venv` matches the binary's flags.
     "interpreter_options",
@@ -360,10 +362,9 @@ def _split_kwargs_for_venv(kwargs):
             venv_kwargs[name] = kwargs[name]
     return venv_kwargs
 
-def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = [], imports = [], tags = None, testonly = None, visibility = None, isolated = True, expose_venv = None, expose_venv_link = False, **kwargs):
-    """Split `py_rule(name, ...)` into a sibling py_venv target + a
-    `py_rule` call routed at it via the internal `venv` rule
-    attribute. Called for every `py_binary` / `py_test` macro invocation.
+def py_binary_with_venv(py_rule, direct_rule, name, main, srcs = [], deps = [], data = [], imports = [], tags = None, testonly = None, visibility = None, isolated = True, expose_venv = None, expose_venv_link = False, **kwargs):
+    """Create a direct Python target, or a sibling physical venv plus
+    launcher when `expose_venv = True`.
 
     `expose_venv = True` emits a public `:{name}.venv` py_venv:
     runnable (`bazel run :{name}.venv` drops into the hermetic
@@ -379,9 +380,9 @@ def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = [], im
     at. Passing `expose_venv = False, expose_venv_link = True`
     explicitly is contradictory and fails.
 
-    All venv-shaping attrs (`deps`, `imports`, `package_collisions`,
-    `include_*_site_packages`, `interpreter_options`) land on the
-    sibling venv.
+    In the exposed form, all venv-shaping attrs (`deps`, `imports`,
+    `package_collisions`, `include_*_site_packages`,
+    `interpreter_options`) land on the sibling venv.
     """
     if expose_venv_link:
         if expose_venv == False:
@@ -390,29 +391,34 @@ def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = [], im
     else:
         expose_venv = bool(expose_venv)
 
+    if not expose_venv:
+        direct_rule(
+            name = name,
+            main = main,
+            srcs = srcs,
+            deps = deps,
+            data = data,
+            imports = imports,
+            tags = tags,
+            testonly = testonly,
+            visibility = visibility,
+            isolated = isolated,
+            **kwargs
+        )
+        return
+
     venv_kwargs = _split_kwargs_for_venv(kwargs)
     venv_kwargs["srcs"] = srcs
     venv_kwargs["deps"] = deps
     venv_kwargs["imports"] = imports
     venv_kwargs["data"] = data
 
-    # Target names can contain `/` (Bazel allows it), but venv labels
-    # and the on-disk venv basename must be slash-free.
-    safe_name = name.replace("/", "_")
-    if expose_venv:
-        venv_label = "{}.venv".format(name)
-        venv_visibility = visibility
-        venv_tags = None
-    else:
-        venv_label = "_{}.venv".format(safe_name)
-        venv_visibility = ["//visibility:private"]
-        venv_tags = ["manual"]
-
+    venv_label = "{}.venv".format(name)
     py_venv(
         name = venv_label,
         testonly = testonly,
-        visibility = venv_visibility,
-        tags = venv_tags,
+        visibility = visibility,
+        tags = tags,
         **venv_kwargs
     )
 
@@ -463,10 +469,10 @@ def py_venv_link(name, venv, link_name = None, **kwargs):
         link_name: Workspace-relative basename for the created
             symlink. Defaults to a safely-escaped version of the
             target's package + venv name.
-        **kwargs: Forwarded to the underlying `py_binary`.
+        **kwargs: Forwarded to the internal launcher rule.
     """
     link_script = str(Label(":link.py"))
-    _py_venv_exec(
+    _py_venv_link_exec(
         name = name,
         main = link_script,
         srcs = [link_script],

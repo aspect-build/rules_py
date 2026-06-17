@@ -1,6 +1,29 @@
 load("@aspect_rules_py//py:defs.bzl", "py_test")
 load("@bazel_lib//lib:expand_template.bzl", "expand_template")
 
+config_setting(
+    name = "configured_launcher",
+    flag_values = {
+        "@aspect_rules_py//py/private/interpreter:python_version": "3.11",
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "launcher-transition",
+    },
+)
+
+py_test(
+    name = "configured_main_venv",
+    srcs = [
+        "configured_main.py",
+        "wrong_main.py",
+    ],
+    dep_group = "launcher-transition",
+    expose_venv = True,
+    main = select({
+        ":configured_launcher": "configured_main.py",
+        "//conditions:default": "wrong_main.py",
+    }),
+    python_version = "3.11",
+)
+
 [
     [
         expand_template(
