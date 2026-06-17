@@ -1,0 +1,19 @@
+load("//uv/private/pep517_whl:rule.bzl", "pep517_native_whl")
+load("//uv/private/pep517_whl:test.bzl", "hostile_python_env_target")
+
+pep517_native_whl(
+    name = "fixture",
+    src = "//uv/private/pep517_whl:__stub_sdist",
+    args = ["/explicit/path"],
+    env = {"PYTHONPATH": "/explicit/path"},
+    tags = ["manual"],
+    tool = "//uv/private/pep517_whl:__python_env_tool",
+    version = "0.0.1",
+)
+
+hostile_python_env_target(
+    name = "under_hostile_config",
+    tags = ["manual"],
+    target = ":fixture",
+    visibility = ["//uv/private/pep517_whl:__pkg__"],
+)
