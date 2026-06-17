@@ -8,4 +8,5 @@ dependencies = [
     # emits aarch64/x86_64, so without the alias normalization in
     # uv/private/markers/defs.bzl this dep is never pulled in on any host.
     "cowsay; platform_machine == 'arm64' or platform_machine == 'amd64'",
+    "colorama; sys_platform == 'win32'",
 ]
