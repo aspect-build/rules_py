@@ -3,7 +3,7 @@
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts", "unittest")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//py/private:providers.bzl", "PyWheelsInfo")
-load(":repository.bzl", "compatible_python_tags", "select_key", "sort_select_arms", "source_specificity")
+load(":repository.bzl", "compatible_python_tags", "parse_record_path", "select_key", "sort_select_arms", "source_specificity")
 load(":rule.bzl", "whl_install")
 
 def _whl_sorting_test_impl(ctx):
@@ -82,6 +82,25 @@ def _source_specificity_test_impl(ctx):
 source_specificity_test = unittest.make(
     _source_specificity_test_impl,
 )
+
+def _record_path_test_impl(ctx):
+    env = unittest.begin(ctx)
+
+    asserts.equals(env, "plain.py", parse_record_path("plain.py,sha256=abc,1"))
+    asserts.equals(
+        env,
+        "torch/__init__.py",
+        parse_record_path("\"torch/__init__.py\",sha256=abc,1"),
+    )
+    asserts.equals(
+        env,
+        "package/a,b\"c.py",
+        parse_record_path("\"package/a,b\"\"c.py\",,"),
+    )
+
+    return unittest.end(env)
+
+record_path_test = unittest.make(_record_path_test_impl)
 
 # --- whl_install metadata selection ---------------------------------------
 #
@@ -252,4 +271,8 @@ def whl_install_suite():
     unittest.suite(
         "source_specificity_tests",
         source_specificity_test,
+    )
+    unittest.suite(
+        "record_path_tests",
+        record_path_test,
     )
