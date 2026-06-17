@@ -52,6 +52,7 @@ py_unpacked_wheel(
         "Django-4.2.4.dist-info",
         "django",
     ],
+    topology_known = True,
 )
 
 # bazel run //py/tests/virtual/django:manage.override_django -- --version

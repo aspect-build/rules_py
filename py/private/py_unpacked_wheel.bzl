@@ -111,6 +111,7 @@ def _py_unpacked_wheel_impl(ctx):
             namespace_entries = tuple(ctx.attr.namespace_entries),
             namespace_dirs = tuple(ctx.attr.namespace_dirs),
             regular_roots = tuple(ctx.attr.regular_roots),
+            topology_known = ctx.attr.topology_known,
             site_packages_rfpath = site_packages_rfpath,
             console_scripts = tuple(ctx.attr.console_scripts),
             # See whl_install rule for the rationale.
@@ -171,6 +172,13 @@ wrappers under `<venv>/bin/<name>`. Typically populated from the wheel's
     "regular_roots": attr.string_list(
         doc = "Minimal regular-package roots beneath namespace top-levels.",
         default = [],
+    ),
+    "topology_known": attr.bool(
+        doc = """Whether the topology attributes completely describe the wheel.
+
+Set this for regular-only wheels as well as namespace wheels. When false,
+directory collisions use the complete-wheel fallback because analysis cannot
+distinguish an empty topology from omitted metadata.""",
     ),
 }
 

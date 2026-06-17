@@ -1,6 +1,10 @@
 uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_uv_patching_829")
 uv.project(
+    default_build_dependencies = [
+        "build",
+        "setuptools",
+    ],
     hub_name = "pypi_uv_patching_829",
     lock = "//cases/uv-patching-829:uv.lock",
     pyproject = "//cases/uv-patching-829:pyproject.toml",

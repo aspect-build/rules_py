@@ -25,6 +25,7 @@ def _wheel_impl(ctx):
         "namespace_entries": tuple(ctx.attr.namespace_entries),
         "namespace_top_levels": tuple(ctx.attr.namespace_top_levels),
         "regular_roots": tuple(ctx.attr.regular_roots),
+        "topology_known": ctx.attr.topology_known,
         "site_packages_rfpath": site_packages,
         "top_levels": tuple(ctx.attr.top_levels),
     }
@@ -55,6 +56,7 @@ whl_install = rule(
         "namespace_top_levels": attr.string_list(),
         "regular_roots": attr.string_list(),
         "top_levels": attr.string_list(),
+        "topology_known": attr.bool(default = True),
     },
 )
 
@@ -220,6 +222,37 @@ def _native_sibling_layout_test_impl(ctx):
 
 _native_sibling_layout_test = analysistest.make(
     _native_sibling_layout_test_impl,
+)
+
+def _unknown_topology_fallback_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    target = analysistest.target_under_test(env)
+    actions = analysistest.target_actions(env)
+    asserts.false(env, any([
+        action.mnemonic == "PySiteMerge"
+        for action in actions
+    ]))
+    links = target[PyVenvLayoutInfo].wheel_links.to_list()
+    asserts.false(env, any([
+        link.link.basename == "shared"
+        for link in links
+    ]))
+    pth_actions = [
+        action
+        for action in actions
+        if any([
+            output.basename == target.label.name + ".pth"
+            for output in action.outputs.to_list()
+        ])
+    ]
+    asserts.equals(env, 1, len(pth_actions))
+    if len(pth_actions) == 1:
+        asserts.true(env, "_unknown_topology_known.install" in pth_actions[0].content)
+        asserts.true(env, "_unknown_topology_source.install" in pth_actions[0].content)
+    return analysistest.end(env)
+
+_unknown_topology_fallback_test = analysistest.make(
+    _unknown_topology_fallback_test_impl,
 )
 
 def _merge_layer_outputs_test_impl(ctx):
@@ -435,6 +468,35 @@ def merge_outputs_test_suite():
     _native_sibling_layout_test(
         name = "native_sibling_layout_test",
         target_under_test = ":_native_sibling_binary",
+    )
+
+    whl_install(
+        name = "_unknown_topology_known",
+        directory_top_levels = ["shared"],
+        namespace_entries = ["shared/known"],
+        namespace_top_levels = ["shared"],
+        top_levels = ["shared"],
+        tags = ["manual"],
+    )
+    whl_install(
+        name = "_unknown_topology_source",
+        directory_top_levels = ["shared"],
+        top_levels = ["shared"],
+        topology_known = False,
+        tags = ["manual"],
+    )
+    py_binary(
+        name = "_unknown_topology_binary",
+        srcs = ["merge_outputs_test.py"],
+        deps = [
+            ":_unknown_topology_known",
+            ":_unknown_topology_source",
+        ],
+        tags = ["manual"],
+    )
+    _unknown_topology_fallback_test(
+        name = "unknown_topology_fallback_test",
+        target_under_test = ":_unknown_topology_binary",
     )
 
     whl_install(

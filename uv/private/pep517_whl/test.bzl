@@ -12,6 +12,7 @@ load(
     "tool",
     "tool_path",
 )
+load(":providers.bzl", "BuiltWheelMetadataInfo")
 
 _ACTION_ENV = "//command_line_option:action_env"
 _HOST_PYTHON_ENV = [
@@ -62,6 +63,38 @@ _COMPILER_COMMAND_KEYS = ["CC", "CXX"]
 _JDK_ENV_KEYS = ["JAVA_HOME", "JAVA", "JAR"]
 
 _REQUIRED_ENV_KEYS = _CC_ENV_KEYS + _JDK_ENV_KEYS
+
+def _built_wheel_metadata_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    target = analysistest.target_under_test(env)
+    asserts.true(env, BuiltWheelMetadataInfo in target)
+    if BuiltWheelMetadataInfo in target:
+        metadata = target[BuiltWheelMetadataInfo]
+        asserts.equals(env, tuple(ctx.attr.expected_top_levels), metadata.top_levels)
+        asserts.equals(env, tuple(ctx.attr.expected_directory_top_levels), metadata.directory_top_levels)
+        asserts.equals(env, tuple(ctx.attr.expected_console_scripts), metadata.console_scripts)
+    return analysistest.end(env)
+
+built_wheel_metadata_test = analysistest.make(
+    _built_wheel_metadata_test_impl,
+    attrs = {
+        "expected_console_scripts": attr.string_list(),
+        "expected_directory_top_levels": attr.string_list(),
+        "expected_top_levels": attr.string_list(),
+    },
+)
+
+def _built_wheel_metadata_failure_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    asserts.expect_failure(env, ctx.attr.expected_error)
+    return analysistest.end(env)
+
+built_wheel_metadata_failure_test = analysistest.make(
+    _built_wheel_metadata_failure_test_impl,
+    attrs = {"expected_error": attr.string()},
+    expect_failure = True,
+)
+
 def _same_driver_gcc_toolchain_config_impl(ctx):
     driver = ctx.executable.driver.basename
     return cc_common.create_cc_toolchain_config_info(
@@ -113,13 +146,13 @@ same_driver_gcc_toolchain_config = rule(
     provides = [CcToolchainConfigInfo],
 )
 
-
 def _declares_path(inputs, candidate):
     for file in inputs:
         if file.path == candidate:
             return True
         if file.path.startswith(candidate + "/"):
             return True
+
         # is_directory reflects ctx.actions.declare_directory(), not the
         # filesystem type of source inputs such as repository directories:
         # https://bazel.build/rules/lib/builtins/File#is_directory
@@ -171,6 +204,14 @@ def _toolchain_env_test_impl(ctx):
         asserts.true(env, command, "missing configured {} command".format(key))
         if command:
             asserts.true(
+                env,
+                _declares_path(inputs, command[0]),
+                "configured {} executable must be a declared action input; got {}".format(
+                    key,
+                    command[0],
+                ),
+            )
+
     if ctx.attr.expect_same_driver:
         asserts.equals(
             env,
@@ -183,14 +224,6 @@ def _toolchain_env_test_impl(ctx):
             "--driver-mode=g++" in commands["CXX"],
             "GCC must not receive Clang driver-mode flags",
         )
-
-                env,
-                _declares_path(inputs, command[0]),
-                "configured {} executable must be a declared action input; got {}".format(
-                    key,
-                    command[0],
-                ),
-            )
 
     for input_root in compiler_config["input_roots"]:
         asserts.true(

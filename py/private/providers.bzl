@@ -27,6 +27,8 @@ executable wrappers under `<venv>/bin/<name>` for console scripts.
   * `regular_roots`: tuple[str] — minimal directories under namespace top-levels
     carrying an `__init__.py`. Cross-referencing these with another wheel's
     `namespace_dirs` identifies regular packages that span wheels.
+  * `topology_known`: bool — whether namespace and regular-package shape
+    metadata describes the installed wheel.
   * `site_packages_rfpath`: str — runfiles-root-relative path to the wheel's site-packages.
   * `console_scripts`: tuple[str] — entry points encoded as `"name=module:func"`.
   * `install_tree`: File — the complete installed wheel tree.

@@ -8,6 +8,7 @@ build backend the sdist declares in its `[build-system]` table.
 load("@bazel_lib//lib:resource_sets.bzl", "resource_set_for")
 load("@rules_cc//cc:action_names.bzl", "ACTION_NAMES")
 load("//py/private/toolchain:types.bzl", "NATIVE_BUILD_TOOLCHAIN", "PY_TOOLCHAIN")
+load(":providers.bzl", "BuiltWheelMetadataInfo")
 
 _CC_TOOLCHAIN_TYPE = "@bazel_tools//tools/cpp:toolchain_type"
 
@@ -41,6 +42,27 @@ def _patch_args_and_inputs(ctx):
                 patch_args.extend(["--patch", f.path])
                 patch_inputs.append(f)
     return patch_args, patch_inputs
+
+def _built_wheel_metadata(ctx):
+    invalid_directories = [
+        name
+        for name in ctx.attr.built_wheel_directory_top_levels
+        if name not in ctx.attr.built_wheel_top_levels
+    ]
+    if invalid_directories:
+        fail("{}: built_wheel_directory_top_levels entries are absent from built_wheel_top_levels: {}".format(
+            ctx.label,
+            invalid_directories,
+        ))
+    if ctx.attr.built_wheel_console_scripts and not ctx.attr.built_wheel_top_levels:
+        fail("{}: built_wheel_console_scripts requires complete built_wheel_top_levels metadata".format(ctx.label))
+    if not ctx.attr.built_wheel_top_levels:
+        return []
+    return [BuiltWheelMetadataInfo(
+        console_scripts = tuple(ctx.attr.built_wheel_console_scripts),
+        directory_top_levels = tuple(ctx.attr.built_wheel_directory_top_levels),
+        top_levels = tuple(ctx.attr.built_wheel_top_levels),
+    )]
 
 def _collect_toolchain_inputs_and_vars(ctx):
     """Gather files + Make-variable substitutions from `ctx.attr.toolchains`.
@@ -169,7 +191,7 @@ def _cc_toolchain_inputs_and_commands(ctx):
 
 def _pep517_whl(ctx):
     archive = ctx.file.src
-    wheel_dir = ctx.actions.declare_directory("whl")
+    wheel_dir = ctx.actions.declare_directory(ctx.label.name)
     patch_args, patch_inputs = _patch_args_and_inputs(ctx)
 
     # The build tool is a py_binary wrapping build_helper.py. Using it as
@@ -194,11 +216,11 @@ def _pep517_whl(ctx):
         resource_set = resource_set_for(mem_mb = ctx.attr.build_memory_mb),
     )
 
-    return [DefaultInfo(files = depset([wheel_dir]))]
+    return [DefaultInfo(files = depset([wheel_dir]))] + _built_wheel_metadata(ctx)
 
 def _pep517_native_whl(ctx):
     archive = ctx.file.src
-    wheel_dir = ctx.actions.declare_directory("whl")
+    wheel_dir = ctx.actions.declare_directory(ctx.label.name)
     patch_args, patch_inputs = _patch_args_and_inputs(ctx)
 
     env = _common_env(ctx)
@@ -236,7 +258,7 @@ def _pep517_native_whl(ctx):
         resource_set = resource_set_for(mem_mb = ctx.attr.build_memory_mb),
     )
 
-    return [DefaultInfo(files = depset([wheel_dir]))]
+    return [DefaultInfo(files = depset([wheel_dir]))] + _built_wheel_metadata(ctx)
 
 _PATCH_ATTRS = {
     "pre_build_patches": attr.label_list(
@@ -251,6 +273,15 @@ _PATCH_ATTRS = {
 }
 
 _pep517_whl_attrs = {
+    "built_wheel_console_scripts": attr.string_list(
+        doc = "Console entry points in the built wheel, encoded as name=module:func. Requires complete built_wheel_top_levels metadata.",
+    ),
+    "built_wheel_directory_top_levels": attr.string_list(
+        doc = "Complete subset of built_wheel_top_levels installed as directories.",
+    ),
+    "built_wheel_top_levels": attr.string_list(
+        doc = "Complete, configuration-invariant list of immediate site-packages entries in the built wheel. Leave empty when the final topology varies by target configuration.",
+    ),
     "build_memory_mb": attr.int(
         default = 0,
         doc = "Estimated peak memory in MB for local wheel builds. Bazel rounds " +

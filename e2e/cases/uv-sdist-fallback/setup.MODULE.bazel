@@ -16,4 +16,18 @@ uv.project(
     lock = "//cases/uv-sdist-fallback:uv.lock",
     pyproject = "//cases/uv-sdist-fallback:pyproject.toml",
 )
+uv.built_wheel_metadata(
+    # This also covers the separate cowsay 6.0 lock in uv-patching-829.
+    name = "cowsay",
+    console_scripts = ["cowsay=cowsay.__main__:cli"],
+    directory_top_levels = [
+        "cowsay",
+        "cowsay-6.0.dist-info",
+    ],
+    top_levels = [
+        "cowsay",
+        "cowsay-6.0.dist-info",
+    ],
+    version = "6.0",
+)
 use_repo(uv, "pypi_sdist_fallback")

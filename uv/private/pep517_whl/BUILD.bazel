@@ -7,6 +7,8 @@ load("//py:defs.bzl", "py_library", "py_test")
 load(":rule.bzl", "pep517_native_whl", "pep517_whl")
 load(
     ":test.bzl",
+    "built_wheel_metadata_failure_test",
+    "built_wheel_metadata_test",
     "hostile_python_env_target",
     "pep517_native_whl_same_driver_gcc_test",
     "pep517_native_whl_toolchain_env_test",
@@ -26,6 +28,7 @@ bzl_library(
     name = "rule",
     srcs = ["rule.bzl"],
     deps = [
+        ":providers",
         "//py/private/toolchain:types",
         "@bazel_lib//lib:resource_sets",
         "@rules_cc//cc:action_names_bzl",
@@ -50,6 +53,7 @@ bzl_library(
     srcs = ["test.bzl"],
     visibility = ["//uv:__subpackages__"],
     deps = [
+        ":providers",
         ":rule",
         "@bazel_skylib//lib:unittest",
         "@rules_cc//cc:bzl_srcs",
@@ -93,6 +97,71 @@ sh_binary(
 )
 
 pep517_whl(
+    name = "__built_wheel_metadata_fixture",
+    src = ":__stub_sdist",
+    args = ["absent"],
+    built_wheel_console_scripts = ["demo=demo.cli:main"],
+    built_wheel_directory_top_levels = [
+        "demo",
+        "demo-1.0.0.dist-info",
+    ],
+    built_wheel_top_levels = [
+        "demo",
+        "demo-1.0.0.dist-info",
+    ],
+    tags = ["manual"],
+    tool = ":__stub_tool",
+    version = "1.0.0",
+)
+
+built_wheel_metadata_test(
+    name = "built_wheel_metadata_test",
+    expected_console_scripts = ["demo=demo.cli:main"],
+    expected_directory_top_levels = [
+        "demo",
+        "demo-1.0.0.dist-info",
+    ],
+    expected_top_levels = [
+        "demo",
+        "demo-1.0.0.dist-info",
+    ],
+    target_under_test = ":__built_wheel_metadata_fixture",
+)
+
+pep517_whl(
+    name = "__invalid_built_wheel_directory_fixture",
+    src = ":__stub_sdist",
+    args = ["absent"],
+    built_wheel_directory_top_levels = ["other"],
+    built_wheel_top_levels = ["demo"],
+    tags = ["manual"],
+    tool = ":__stub_tool",
+    version = "1.0.0",
+)
+
+built_wheel_metadata_failure_test(
+    name = "invalid_built_wheel_directory_test",
+    expected_error = "built_wheel_directory_top_levels entries are absent from built_wheel_top_levels",
+    target_under_test = ":__invalid_built_wheel_directory_fixture",
+)
+
+pep517_whl(
+    name = "__missing_built_wheel_top_levels_fixture",
+    src = ":__stub_sdist",
+    args = ["absent"],
+    built_wheel_console_scripts = ["demo=demo.cli:main"],
+    tags = ["manual"],
+    tool = ":__stub_tool",
+    version = "1.0.0",
+)
+
+built_wheel_metadata_failure_test(
+    name = "missing_built_wheel_top_levels_test",
+    expected_error = "built_wheel_console_scripts requires complete built_wheel_top_levels metadata",
+    target_under_test = ":__missing_built_wheel_top_levels_fixture",
+)
+
+pep517_whl(
     name = "__ambient_env_fixture",
     src = ":__stub_sdist",
     args = ["absent"],
@@ -121,6 +190,9 @@ build_test(
 pep517_native_whl(
     name = "__toolchain_env_fixture",
     src = ":__stub_sdist",
+    built_wheel_console_scripts = ["native-demo=native_demo:main"],
+    built_wheel_directory_top_levels = ["native_demo"],
+    built_wheel_top_levels = ["native_demo"],
     env = {
         "AR": "$(AR)",
         "LD": "$(LD)",
@@ -140,6 +212,14 @@ pep517_native_whl(
 
 pep517_native_whl_toolchain_env_test(
     name = "toolchain_env_test",
+    target_under_test = ":__toolchain_env_fixture",
+)
+
+built_wheel_metadata_test(
+    name = "native_built_wheel_metadata_test",
+    expected_console_scripts = ["native-demo=native_demo:main"],
+    expected_directory_top_levels = ["native_demo"],
+    expected_top_levels = ["native_demo"],
     target_under_test = ":__toolchain_env_fixture",
 )
 
@@ -181,4 +261,9 @@ pep517_native_whl_same_driver_gcc_test(
     name = "same_driver_gcc_test",
     expect_same_driver = True,
     target_under_test = ":__toolchain_env_fixture",
+)
+
+bzl_library(
+    name = "providers",
+    srcs = ["providers.bzl"],
 )

@@ -254,6 +254,17 @@ def _sdist_build_impl(repository_ctx):
     if repository_ctx.attr.build_memory_mb:
         memory_attr = "\n    build_memory_mb = {},".format(repository_ctx.attr.build_memory_mb)
 
+    built_wheel_metadata_attrs = ""
+    if repository_ctx.attr.built_wheel_top_levels:
+        built_wheel_metadata_attrs = """
+    built_wheel_console_scripts = {console_scripts},
+    built_wheel_directory_top_levels = {directory_top_levels},
+    built_wheel_top_levels = {top_levels},""".format(
+            console_scripts = repr(repository_ctx.attr.built_wheel_console_scripts),
+            directory_top_levels = repr(repository_ctx.attr.built_wheel_directory_top_levels),
+            top_levels = repr(repository_ctx.attr.built_wheel_top_levels),
+        )
+
     repository_ctx.file("BUILD.bazel", content = """
 load("@aspect_rules_py//uv/private/pep517_whl:rule.bzl", "{rule}")
 load("@aspect_rules_py//py:defs.bzl", "py_binary")
@@ -270,7 +281,7 @@ py_binary(
     src = "{src}",
     tool = ":build_tool",
     version = "{version}",
-    args = [],{memory_attr}{patch_attrs}{toolchain_attrs}
+    args = [],{memory_attr}{built_wheel_metadata_attrs}{patch_attrs}{toolchain_attrs}
     visibility = ["//visibility:public"],
 )
 
@@ -284,6 +295,7 @@ exports_files(
         rule = "pep517_native_whl" if is_native else "pep517_whl",
         version = repository_ctx.attr.version,
         memory_attr = memory_attr,
+        built_wheel_metadata_attrs = built_wheel_metadata_attrs,
         patch_attrs = patch_attrs,
         toolchain_attrs = toolchain_attrs,
     ))
@@ -311,6 +323,15 @@ sdist_build = repository_rule(
         "build_memory_mb": attr.int(
             default = 0,
             doc = "Estimated peak memory in MB for local wheel builds. Set via uv.override_package(build_memory_mb = ...).",
+        ),
+        "built_wheel_console_scripts": attr.string_list(
+            doc = "Console entry points in the built wheel, encoded as name=module:func.",
+        ),
+        "built_wheel_directory_top_levels": attr.string_list(
+            doc = "Complete directory subset of built_wheel_top_levels.",
+        ),
+        "built_wheel_top_levels": attr.string_list(
+            doc = "Complete, configuration-invariant immediate site-packages entries in the built wheel.",
         ),
         "pre_build_patches": attr.label_list(default = []),
         "pre_build_patch_strip": attr.int(default = 0),
