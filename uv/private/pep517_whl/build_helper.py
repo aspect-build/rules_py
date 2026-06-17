@@ -118,7 +118,13 @@ def _compiler_env(tmpdir):
 
     env.setdefault("CC", cc)
     env.setdefault("CXX", cxx)
-    env.setdefault("MPICC", _make_compiler_wrapper(tmpdir, "mpicc", cc_path, sysroot))
+
+    # MPI builds (e.g. mpi4py) consult $MPICC before searching PATH, so a
+    # plain C compiler here would shadow the real mpicc. Only set it when
+    # a system mpicc exists, wrapped to keep the debug-flag stripping.
+    mpicc_path = shutil.which("mpicc", path=env["PATH"])
+    if mpicc_path:
+        env.setdefault("MPICC", _make_compiler_wrapper(tmpdir, "mpicc", mpicc_path, sysroot))
     env.setdefault("AR", "ar")
 
     for key, wrapper in [
