@@ -309,8 +309,16 @@ t = path.join(t, listdir(t)[0])
 
 if opts.patches:
     for patch_file in opts.patches:
+        # Patched source trees must not include backups of mismatched hunks:
+        # https://www.gnu.org/software/diffutils/manual/html_node/patch-Options.html
         check_call(
-            ["patch", "-p{}".format(opts.patch_strip), "-i", path.abspath(patch_file)],
+            [
+                "patch",
+                "--no-backup-if-mismatch",
+                "-p{}".format(opts.patch_strip),
+                "-i",
+                path.abspath(patch_file),
+            ],
             cwd=t,
         )
 

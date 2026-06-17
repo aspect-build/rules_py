@@ -127,16 +127,18 @@ def main() -> None:
                 env={"PYTHONPATH": str(site_packages)},
             )
 
-        patch = root / "add-top-level.patch"
-        site_packages_rel = (
+        patch = root / "add-entry-point.patch"
+        entry_points_rel = (
             f"lib/python{sys.version_info.major}.{sys.version_info.minor}"
-            "/site-packages/added.py"
+            "/site-packages/fixture-1.0.dist-info/entry_points.txt"
         )
         patch.write_text(
-            "--- /dev/null\n"
-            f"+++ b/{site_packages_rel}\n"
-            "@@ -0,0 +1 @@\n"
-            "+VALUE = 1\n"
+            f"--- a/{entry_points_rel}\n"
+            f"+++ b/{entry_points_rel}\n"
+            "@@ -1,2 +1,3 @@\n"
+            " [console_scripts]\n"
+            " fixture-cli = fixture:commands.main\n"
+            "+added-cli = fixture:commands.main\n"
         )
         changed = subprocess.run(
             [
@@ -161,7 +163,59 @@ def main() -> None:
             text=True,
         )
         assert changed.returncode != 0
-        assert "Installed wheel metadata changed" in changed.stderr
+        assert "Installed wheel metadata changed" in changed.stderr, (
+            changed.stdout + changed.stderr
+        )
+
+        offset_patch = root / "offset.patch"
+        package_rel = (
+            f"lib/python{sys.version_info.major}.{sys.version_info.minor}"
+            "/site-packages/fixture/__init__.py"
+        )
+        offset_patch.write_text(
+            f"--- a/{package_rel}\n"
+            f"+++ b/{package_rel}\n"
+            "@@ -3,4 +3,4 @@\n"
+            " class commands:\n"
+            "     @staticmethod\n"
+            "     def main():\n"
+            "-        return 0\n"
+            "+        return 1\n"
+        )
+        offset_output = root / "offset-install"
+        subprocess.run(
+            [
+                sys.executable,
+                str(unpack),
+                "--into",
+                str(offset_output),
+                "--wheel",
+                str(wheel),
+                "--python-version-major",
+                str(sys.version_info.major),
+                "--python-version-minor",
+                str(sys.version_info.minor),
+                "--expected-metadata",
+                expected_metadata,
+                "--patch",
+                str(offset_patch),
+                "--patch-strip",
+                "1",
+            ],
+            check=True,
+        )
+        offset_package = (
+            offset_output
+            / "lib"
+            / f"python{sys.version_info.major}.{sys.version_info.minor}"
+            / "site-packages"
+            / "fixture"
+        )
+        assert "return 1" in (offset_package / "__init__.py").read_text()
+        assert {path.name for path in offset_package.iterdir()} == {
+            "__init__.py",
+            "executable",
+        }
 
         unknown_scripts = subprocess.run(
             [

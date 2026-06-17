@@ -223,8 +223,16 @@ def main():
     )
 
     for patch_file in args.patches:
+        # Patched wheel contents must not include backups of mismatched hunks:
+        # https://www.gnu.org/software/diffutils/manual/html_node/patch-Options.html
         r = subprocess.run(
-            [str(args.patch_tool), "-p{}".format(args.patch_strip), "-d", str(args.into)],
+            [
+                str(args.patch_tool),
+                "--no-backup-if-mismatch",
+                "-p{}".format(args.patch_strip),
+                "-d",
+                str(args.into),
+            ],
             stdin=patch_file.open("rb"),
         )
         if r.returncode != 0:
