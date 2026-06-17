@@ -23,11 +23,11 @@ uv.unstable_annotate_packages(
     lock = "//cases/uv-sdist-jdk-build:uv.lock",
 )
 
-# Layer a JDK runtime toolchain into the build env. `toolchains` and
-# `env` here are additive — these entries are appended to whatever
-# sdist_build's BUILD template emits by default.
+# Reserve local build memory and layer a JDK runtime toolchain into the build
+# env. `toolchains` and `env` are additive to sdist_build's defaults.
 uv.override_package(
     name = "jpype1",
+    build_memory_mb = 2048,
     env = {
         "JAR": "$(JAVABASE)/bin/jar",
         "JAVA": "$(JAVA)",

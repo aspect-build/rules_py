@@ -13,8 +13,10 @@ import shlex
 import shutil
 import sys
 from os import chmod, defpath, listdir, makedirs, path, pathsep
-from subprocess import CalledProcessError, check_call, check_output, STDOUT, run
+from subprocess import CalledProcessError, check_call, check_output, STDOUT
 from tempfile import TemporaryFile
+
+from uv.private.pep517_whl.memory_monitor import run_with_memory_profile
 
 try:
     import tomllib
@@ -264,7 +266,13 @@ else:
 
 with TemporaryFile(mode="w+") as build_log:
     try:
-        run(cmd, cwd=t, env=build_env, stdout=build_log, stderr=STDOUT, check=True)
+        run_with_memory_profile(
+            cmd,
+            cwd=t,
+            env=build_env,
+            stdout=build_log,
+            wheel=path.basename(opts.srcarchive),
+        )
     except CalledProcessError:
         build_log.seek(0)
         output = build_log.read()

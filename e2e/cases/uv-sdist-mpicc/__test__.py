@@ -76,10 +76,14 @@ def make_sdist(workdir):
 
 
 def run_helper(helper, sdist, outdir, path_entries, expect):
+    rules_py_root = os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.dirname(helper)))
+    )
     env = {
         "MPICC_TEST_EXPECT": expect,
         "PATH": os.pathsep.join(path_entries),
         "HOME": os.environ.get("TEST_TMPDIR", "/tmp"),
+        "PYTHONPATH": rules_py_root,
     }
     cc = shutil.which("cc") or "/usr/bin/cc"
     if os.path.exists(cc):

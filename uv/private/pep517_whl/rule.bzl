@@ -5,6 +5,7 @@ Uses `python -m build` (the pypa/build frontend) which delegates to whatever
 build backend the sdist declares in its `[build-system]` table.
 """
 
+load("@bazel_lib//lib:resource_sets.bzl", "resource_set_for")
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 load("//py/private/toolchain:types.bzl", "NATIVE_BUILD_TOOLCHAIN", "PY_TOOLCHAIN")
 
@@ -118,6 +119,7 @@ def _pep517_whl(ctx):
         outputs = [wheel_dir],
         env = _common_env(ctx),
         exec_group = "target",
+        resource_set = resource_set_for(mem_mb = ctx.attr.build_memory_mb),
     )
 
     return [DefaultInfo(files = depset([wheel_dir]))]
@@ -158,6 +160,7 @@ def _pep517_native_whl(ctx):
         outputs = [wheel_dir],
         env = env,
         exec_group = "target",
+        resource_set = resource_set_for(mem_mb = ctx.attr.build_memory_mb),
     )
 
     return [DefaultInfo(files = depset([wheel_dir]))]
@@ -175,6 +178,12 @@ _PATCH_ATTRS = {
 }
 
 _pep517_whl_attrs = {
+    "build_memory_mb": attr.int(
+        default = 0,
+        doc = "Estimated peak memory in MB for local wheel builds. Bazel rounds " +
+              "this up to the next resource class supported by bazel_lib. Zero " +
+              "uses Bazel's default estimate.",
+    ),
     "src": attr.label(allow_single_file = True),
     "tool": attr.label(executable = True, cfg = "exec"),
     "version": attr.string(),
