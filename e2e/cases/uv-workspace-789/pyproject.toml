@@ -1,10 +1,12 @@
 [project]
 name = "workspace"
 version = "0.0.0"
-dependencies = []
+requires-python = ">=3.11"
+dependencies = ["dependency-bag"]
 
 [tool.uv.sources]
 workspace = { workspace = true }
+dependency-bag = { workspace = true }
 foo = { workspace = true }
 pi = { workspace = true }
 

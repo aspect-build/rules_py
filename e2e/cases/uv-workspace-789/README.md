@@ -1,6 +1,10 @@
-# Editable internal dependencies; #789
+# Workspace dependencies; #789
 
-UV workspaces allow for packages within the workspace to depend on each other.
-The UV extension needs to force the user to provide an override target mapping
-for each such target, and dependencies BETWEEN these projects' Bazel targets
-need to work. Dependencies taken via the UV hub need to work as well.
+The `foo` and `pi` workspace members contain installable code, so their
+`uv.override_package()` annotations map them to Bazel targets. The generated
+dependency graph must preserve dependencies between those targets and packages
+from the uv hub.
+
+The `dependency-bag` member has `package = false`, so uv records it as virtual.
+It contributes `humanize` to the dependency graph without requiring an override
+target of its own.
