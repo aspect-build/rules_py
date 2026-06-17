@@ -3,7 +3,7 @@
 load("@bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
 load("@hermetic_launcher//launcher:lib.bzl", "launcher")
 load("@rules_python//python:defs.bzl", "PyInfo")
-load("//py/private:providers.bzl", "PyWheelsInfo")
+load("//py/private:providers.bzl", "PyVenvLayoutInfo", "PyWheelsInfo")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private:transitions.bzl", "python_version_transition")
@@ -48,6 +48,7 @@ def _py_direct_impl(ctx):
             "BAZEL_TARGET_NAME": ctx.attr.name,
             "BAZEL_WORKSPACE": ctx.workspace_name,
         },
+        materialize_wheel_tree_aliases = False,
         launcher_bootstrap_py = ctx.file._launcher_bootstrap,
         python_wrapper_tmpl = ctx.file._python_wrapper_tmpl,
         standalone_interpreter = not is_windows,
@@ -115,8 +116,10 @@ def _py_direct_impl(ctx):
             executable = executable_launcher,
             runfiles = runfiles,
         ),
-        OutputGroupInfo(
-            _venv_dependency_files = depset(venv.dependency_files),
+        PyVenvLayoutInfo(
+            dependency_files = depset(venv.dependency_files),
+            wheel_aliases = depset(venv.wheel_aliases),
+            wheel_links = depset(venv.wheel_links),
         ),
         PyInfo(
             imports = imports_depset,
@@ -152,6 +155,7 @@ def _py_venv_exec_impl(ctx):
     if not venv:
         fail("py_binary {}: venv is required.".format(ctx.label))
     vinfo = venv[VirtualenvInfo]
+    layout = venv[PyVenvLayoutInfo]
 
     # Merge env vars: start from the venv's `env` (if any), then
     # overlay the binary's own — binary wins on key conflicts. Same
@@ -234,6 +238,11 @@ def _py_venv_exec_impl(ctx):
             executable = executable_launcher,
             runfiles = runfiles,
         ),
+        PyVenvLayoutInfo(
+            dependency_files = layout.dependency_files,
+            wheel_aliases = layout.wheel_aliases,
+            wheel_links = layout.wheel_links,
+        ),
         PyInfo(
             # Surface the venv's imports + transitive_sources through
             # PyInfo so downstream consumers (e.g. py_pex_binary's
@@ -277,7 +286,7 @@ be deprecated in the future.
 """,
     ),
     "venv": attr.label(
-        providers = [[VirtualenvInfo]],
+        providers = [[VirtualenvInfo, PyVenvLayoutInfo]],
         mandatory = True,
         doc = """Internal: set by the `py_binary_with_venv` macro when
 `expose_venv = True` splits a public `py_binary` / `py_test` into a

@@ -40,7 +40,18 @@ py_binary(
 # pip install repository rules.
 py_unpacked_wheel(
     name = "django_4_2_4",
+    console_scripts = [
+        "django-admin=django.core.management:execute_from_command_line",
+    ],
+    directory_top_levels = [
+        "Django-4.2.4.dist-info",
+        "django",
+    ],
     src = "@django_4_2_4//file",
+    top_levels = [
+        "Django-4.2.4.dist-info",
+        "django",
+    ],
 )
 
 # bazel run //py/tests/virtual/django:manage.override_django -- --version

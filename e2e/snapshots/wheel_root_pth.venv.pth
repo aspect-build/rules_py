@@ -1,3 +1,3 @@
 ../../../../../../..
-import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "../../../..", "_main/cases/uv-include-group/setuptools_no_top_levels/lib/python3.11/site-packages")))
+import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "_wheels", "e2be200b", "lib", "python3.11", "site-packages")))
 ../../../../../../../_main

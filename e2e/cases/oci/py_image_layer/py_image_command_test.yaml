@@ -5,3 +5,9 @@ commandTests:
     exitCode: 0
     command: /app
     expectedOutput: ["Hello rules_py - 3.14"]
+
+  - name: can import wheel through venv
+    exitCode: 0
+    command: /app.runfiles/_main/cases/oci/py_image_layer/._my_app_bin.venv/bin/python
+    args: ["-c", "import colorama; print(colorama.__version__)"]
+    expectedOutput: ["0.4.6"]

@@ -17,15 +17,19 @@ py_test(
     ],
 )
 
-# Gap-1 fixture: hand-written `py_unpacked_wheel` contributing to the
-# `jaraco` namespace WITHOUT `namespace_entries` (metadata we can't
-# synthesise for an arbitrary wheel). It must not poison the entried
-# `jaraco.classes` contributor's concrete merge.
+# Hand-written wheel metadata must participate in the same complete directory
+# merge as uv-generated metadata.
 py_unpacked_wheel(
-    name = "jaraco_functools_no_entries",
+    name = "jaraco_functools_manual_metadata",
     src = "@pypi_pth_namespace_547//jaraco_functools:whl",
-    namespace_top_levels = ["jaraco"],
-    top_levels = ["jaraco"],
+    directory_top_levels = [
+        "jaraco",
+        "jaraco_functools-4.4.0.dist-info",
+    ],
+    top_levels = [
+        "jaraco",
+        "jaraco_functools-4.4.0.dist-info",
+    ],
 )
 
 py_test(
@@ -38,10 +42,8 @@ py_test(
     package_collisions = "warning",
     python_version = "3.11",
     deps = [
-        # entried (uv whl_install, carries namespace_entries)
+        ":jaraco_functools_manual_metadata",
         "@pypi_pth_namespace_547//jaraco_classes",
-        # entryless (hand-written, no namespace_entries)
-        ":jaraco_functools_no_entries",
     ],
 )
 
@@ -59,7 +61,7 @@ py_test(
 
 # Snapshot fixture: minimal 2-contributor case (jaraco-classes +
 # jaraco-functools, both PEP 420 under `jaraco/`). Both wheels are
-# fully covered by the concrete per-entry namespace merge, so the
+# fully covered by the complete directory merge, so the
 # snapshot pins that NEITHER appears in the .pth fallback.
 extract_venv_pth(
     name = "test.venv.pth",

@@ -1,6 +1,7 @@
-"""Reproduction: wheel-root `.pth` not processed when the wheel goes
-through assemble_venv's legacy non-keyed fallback (e.g. a
-`py_unpacked_wheel` declared without `top_levels`).
+"""Exercise a root `.pth` file from a wheel with unknown topology.
+
+`py_unpacked_wheel` without `top_levels` keeps its complete site-packages
+directory under the venv's `_wheels` aliases.
 
 The setuptools wheel ships `distutils-precedence.pth` at its
 site-packages root. Body:

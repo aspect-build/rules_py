@@ -3,6 +3,19 @@ load("//py:defs.bzl", "py_binary", "py_unpacked_wheel")
 py_unpacked_wheel(
     name = "pex_unpacked",
     src = "@rules_py_pex_2_3_1//file",
+    console_scripts = [
+        "pex=pex.bin.pex:main",
+        "pex-tools=pex.tools.main:main",
+        "pex3=pex.cli.pex:main",
+    ],
+    directory_top_levels = [
+        "pex",
+        "pex-2.3.1.dist-info",
+    ],
+    top_levels = [
+        "pex",
+        "pex-2.3.1.dist-info",
+    ],
 )
 
 py_binary(

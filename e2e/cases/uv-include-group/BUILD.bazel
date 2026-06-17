@@ -39,12 +39,10 @@ py_test(
     ],
 )
 
-# Regression gate for assemble_venv's non-keyed `_format_imp` branch.
-# `py_unpacked_wheel` without `top_levels` emits no PyWheelsInfo, so
-# setuptools' root `distutils-precedence.pth` is only reachable via
-# the wheel's own site-packages — that branch must use
-# `site.addsitedir` (not a plain path entry) or `_distutils_hack`
-# never lands in `sys.modules` at site-init.
+# Regression gate for a `py_unpacked_wheel` without `top_levels`.
+# Its complete site-packages directory must remain available through
+# `site.addsitedir` (not a plain path entry) so setuptools' root
+# `distutils-precedence.pth` executes during site initialization.
 py_unpacked_wheel(
     name = "setuptools_no_top_levels",
     src = "@pypi_uv_include_group//setuptools:whl",
@@ -60,10 +58,7 @@ py_test(
     deps = [":setuptools_no_top_levels"],
 )
 
-# Snapshot fixture: pins the `site.addsitedir(...)` line shape that
-# the non-keyed branch must emit. If anyone collapses it back to a
-# plain path entry, this diff surfaces alongside the runtime test
-# failure.
+# Snapshot fixture for the `site.addsitedir(...)` line shape.
 extract_venv_pth(
     name = "wheel_root_pth_test.venv.pth",
     venv = ":wheel_root_pth_test.venv",

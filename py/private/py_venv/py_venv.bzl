@@ -27,6 +27,7 @@ layout details.
 load("@bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
 load("@bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
 load("@hermetic_launcher//launcher:lib.bzl", "launcher")
+load("//py/private:providers.bzl", "PyVenvLayoutInfo")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private:transitions.bzl", "python_version_transition")
@@ -82,6 +83,7 @@ def _assemble_shared(ctx):
         include_system_site_packages = ctx.attr.include_system_site_packages,
         include_user_site_packages = ctx.attr.include_user_site_packages,
         default_env = default_env,
+        materialize_wheel_tree_aliases = True,
         launcher_bootstrap_py = ctx.file._launcher_bootstrap,
         python_wrapper_tmpl = ctx.file._python_wrapper_tmpl,
         standalone_interpreter = not is_windows,
@@ -155,8 +157,10 @@ def _py_venv_rule_impl(ctx):
             executable = ctx.outputs.executable,
             runfiles = shared.runfiles,
         ),
-        OutputGroupInfo(
-            _venv_dependency_files = depset(shared.venv.dependency_files),
+        PyVenvLayoutInfo(
+            dependency_files = depset(shared.venv.dependency_files),
+            wheel_aliases = depset(shared.venv.wheel_aliases),
+            wheel_links = depset(shared.venv.wheel_links),
         ),
         # Does not provide PyInfo because venvs are terminal artifacts —
         # a py_binary consumer would see this as "the binary to run",
@@ -302,9 +306,9 @@ _py_venv = rule(
         launcher.finalizer_toolchain_type,
         launcher.template_toolchain_type,
         # Optional: only consulted when a regular package spans wheels and
-        # assemble_venv needs an exec-config interpreter to run the site_merge
-        # action. Optional so venvs keep analyzing in setups that never
-        # registered rules_py's exec-tools toolchain.
+        # assemble_venv needs an exec-config interpreter to run the
+        # site_merge action. Optional so venvs keep analyzing in setups that
+        # never registered rules_py's exec-tools toolchain.
         config_common.toolchain_type(EXEC_TOOLS_TOOLCHAIN, mandatory = False),
     ],
     executable = True,

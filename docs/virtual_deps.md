@@ -73,7 +73,9 @@ http_file(
 )
 ```
 
-Then in a `BUILD` file, extract it to a directory:
+Then in a `BUILD` file, extract it to a directory. `top_levels` and
+`directory_top_levels` describe the wheel's complete `site-packages` layout;
+rules_py validates them while unpacking the wheel.
 
 ```
 load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_unpacked_wheel")
@@ -81,7 +83,18 @@ load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_unpacked_wheel")
 # Extract the downloaded wheel to a directory
 py_unpacked_wheel(
     name = "django_4_2_4",
+    console_scripts = [
+        "django-admin=django.core.management:execute_from_command_line",
+    ],
+    directory_top_levels = [
+        "Django-4.2.4.dist-info",
+        "django",
+    ],
     src = "@django_4_2_4//file",
+    top_levels = [
+        "Django-4.2.4.dist-info",
+        "django",
+    ],
 )
 
 py_binary(
