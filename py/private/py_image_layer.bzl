@@ -29,7 +29,8 @@ Sharing model:
     mtree, fixed bsdtar options) → remote CAS / OCI registry dedupe by digest.
   - First-party grouped tars: per-binary action, one tar per group, collected from
     matched py_library targets in the binary's dep closure.
-  - Ungrouped pip packages: squashed by the rule into one per-rule tar.
+  - Ungrouped pip packages and generated venv dependency overlays: squashed
+    by the rule into one per-rule tar.
 """
 
 load("@rules_python//python:defs.bzl", "PyInfo")
@@ -175,6 +176,7 @@ _LayerInfo = provider(
     fields = {
         "source_files": "depset[File] — ungrouped first-party Python source files.",
         "pip_packages": "depset[struct] — fully transitive pip packages with per-package layers.",
+        "venv_dependency_files": "depset[File] — generated third-party overlays owned by a venv-producing rule.",
         "first_party_layers": "depset[struct(label, files, group)] — first-party PyInfo targets matched by py_layer_tier.groups.",
         "interpreter_files": "depset[File] — interpreter runfiles, populated only on the py toolchain pass for the binary-branch skip filter.",
         "interpreter_layer": "struct(tar, group) | None — prebuilt interpreter layer tar + its group name, declared at the toolchain target's namespace so the tar action-shares across every py_image_layer using that toolchain config.",
@@ -335,6 +337,7 @@ def _layer_aspect_impl(target, ctx):
         return [_LayerInfo(
             source_files = depset(),
             pip_packages = depset(),
+            venv_dependency_files = depset(),
             first_party_layers = depset(),
             interpreter_files = interp_depset,
             interpreter_layer = interp_layer,
@@ -343,6 +346,7 @@ def _layer_aspect_impl(target, ctx):
     dep_infos = _collect_from_deps(ctx, _LayerInfo)
     transitive_source = [info.source_files for info in dep_infos]
     transitive_pkgs = [info.pip_packages for info in dep_infos]
+    transitive_venv_dependency_files = [info.venv_dependency_files for info in dep_infos]
     transitive_fp = [info.first_party_layers for info in dep_infos]
 
     if PyWheelsInfo in target and ctx.rule.kind in ("whl_install", "py_unpacked_wheel"):
@@ -362,11 +366,17 @@ def _layer_aspect_impl(target, ctx):
                 )],
                 transitive = transitive_pkgs,
             ),
+            venv_dependency_files = depset(transitive = transitive_venv_dependency_files),
             first_party_layers = depset(transitive = transitive_fp),
         )]
 
     own_source = []
     own_fp = []
+    own_venv_dependency_files = []
+    if OutputGroupInfo in target:
+        files = getattr(target[OutputGroupInfo], "_venv_dependency_files", None)
+        if files != None:
+            own_venv_dependency_files.append(files)
     interpreter_layer = None
     kind = ctx.rule.kind
     is_binary = (
@@ -383,8 +393,13 @@ def _layer_aspect_impl(target, ctx):
         return [_LayerInfo(
             source_files = depset(transitive = transitive_source),
             pip_packages = depset(transitive = transitive_pkgs),
+            venv_dependency_files = depset(transitive = transitive_venv_dependency_files),
             first_party_layers = depset(transitive = transitive_fp),
         )]
+
+    venv_dependency_files = depset(
+        transitive = transitive_venv_dependency_files + own_venv_dependency_files,
+    )
 
     # Skip PyInfo deps (including wheel-leaf targets, which also emit PyInfo) —
     # they self-capture via the aspect.
@@ -427,6 +442,8 @@ def _layer_aspect_impl(target, ctx):
             for entry in fp_depset.to_list():
                 for f in entry.files.to_list():
                     skip_paths[f.path] = True
+        for f in venv_dependency_files.to_list():
+            skip_paths[f.path] = True
 
         # Opt-in interpreter layer. The aspect fires on the py toolchain via
         # `toolchains_aspects` and declares the tar there; we just read the
@@ -466,6 +483,7 @@ def _layer_aspect_impl(target, ctx):
     return [_LayerInfo(
         source_files = depset(transitive = transitive_source + own_source),
         pip_packages = depset(transitive = transitive_pkgs),
+        venv_dependency_files = venv_dependency_files,
         first_party_layers = depset(direct = own_fp, transitive = transitive_fp),
         interpreter_layer = interpreter_layer,
     )]
@@ -890,16 +908,24 @@ def _py_image_layer_impl(ctx):
         all_tars.append(merged_tar)
 
     ungrouped_pkgs = [p for p in all_pkgs if len(p.layers) == 0 and p.merge_group == None]
-    if ungrouped_pkgs:
+    venv_dependency_files = info.venv_dependency_files.to_list()
+    if ungrouped_pkgs or venv_dependency_files:
         squashed_tar = _declare_group_tar(
             ctx,
             bsdtar,
             bsdtar_files,
             "{}_squashed.tar.gz".format(ctx.attr.name),
             "packages",
-            depset(transitive = [p.files for p in ungrouped_pkgs]),
+            depset(
+                direct = venv_dependency_files,
+                transitive = [p.files for p in ungrouped_pkgs],
+            ),
             _pkg_file_to_mtree,
-            "Creating squashed pip layer (%d ungrouped packages) for %s" % (len(ungrouped_pkgs), ctx.label),
+            "Creating squashed dependency layer (%d packages, %d venv overlays) for %s" % (
+                len(ungrouped_pkgs),
+                len(venv_dependency_files),
+                ctx.label,
+            ),
         )
         all_tars.append(squashed_tar)
 
@@ -1010,7 +1036,8 @@ def py_image_layer(
          target's own namespace; globally shared across every rule using that package.
       4. Multi-member merged tars — one per group, built by `_merge_aspect` at the
          binary's namespace from the closure-filtered union of member install_dirs.
-      5. Ungrouped pip packages → one squashed rule-created tar.
+      5. Ungrouped pip packages and generated venv dependency overlays → one
+         squashed rule-created tar.
       6. Remaining first-party Python source files → the "default" layer.
 
     Args:
