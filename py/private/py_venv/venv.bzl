@@ -46,7 +46,11 @@ load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN")
 # called function sees the script's own name.
 _CONSOLE_SCRIPT_TEMPLATE = """\
 #!/bin/sh
-exec "$(dirname "$0")/python" -c 'import sys; from {module} import {func}; sys.argv[0] = "{name}"; sys.exit({func}())' "$@"
+case $0 in
+    */*) script_dir=${{0%/*}} ;;
+    *) script_dir=. ;;
+esac
+exec "${{script_dir}}/python" -c 'import sys; from {module} import {func}; sys.argv[0] = "{name}"; sys.exit({func}())' "$@"
 """
 
 def _dict_to_exports(env):
