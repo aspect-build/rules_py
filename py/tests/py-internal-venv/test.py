@@ -3,6 +3,7 @@
 import os
 import sys
 import site
+import subprocess
 
 print("---")
 print("__file__:", __file__)
@@ -30,3 +31,18 @@ assert site.PREFIXES[0] == sys.prefix
 
 # The virtualenv also changes the sys.executable (if we've done this right)
 assert sys.executable.startswith(sys.prefix + "/bin/python"), sys.executable
+
+if os.name != "nt":
+    child_cwd, child_executable, child_base_prefix = subprocess.check_output(
+        [
+            sys.executable,
+            "-c",
+            "import cowsay, os, sys; print(os.getcwd()); print(sys.executable); "
+            "print(sys.base_prefix)",
+        ],
+        env={},
+        text=True,
+    ).splitlines()
+    assert child_cwd == os.getcwd(), (child_cwd, os.getcwd())
+    assert child_executable == sys.executable, (child_executable, sys.executable)
+    assert child_base_prefix != "/install", child_base_prefix

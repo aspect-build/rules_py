@@ -14,7 +14,7 @@ distutils, etc.) treat it as a real venv:
       pyvenv.cfg
       _merged/<package_root>/<package_root>        cross-wheel regular package
       bin/
-        python                                  symlink -> py_toolchain.python
+        python                                    standalone wrapper or launcher
         python3                                 symlink -> python
         python3.<MAJ>.<MIN>                     symlink -> python
         activate                                bash/zsh activation script
@@ -33,7 +33,8 @@ packages follow the configured collision policy and retain one wheel-local
 winner.
 """
 
-load("@bazel_lib//lib:paths.bzl", "to_rlocation_path")
+load("@bazel_lib//lib:paths.bzl", "relative_file", "to_rlocation_path")
+load("@hermetic_launcher//launcher:lib.bzl", "launcher")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN")
 
@@ -384,7 +385,11 @@ def assemble_venv(
         include_system_site_packages = False,
         include_user_site_packages = False,
         default_env = {},
+        launcher_bootstrap_py,
+        python_wrapper_tmpl,
+        standalone_interpreter,
         runfiles_imports_py,
+        venv_startup_py,
         venv_activate_tmpl,
         virtualenv_shim_py,
         site_merge_script_py = None,
@@ -407,8 +412,15 @@ def assemble_venv(
         `aspect-include-user-site-packages` key.
       default_env: Dict of env-var name → value. Exported at the top of
         the generated activate script and unset in `deactivate`.
+      launcher_bootstrap_py: File — bootstrap that restores venv identity after
+        the native launcher resolves the PBS interpreter through runfiles.
+      python_wrapper_tmpl: File — standalone bin/python wrapper template.
+      standalone_interpreter: Bool — whether bin/python may use the POSIX
+        standalone wrapper instead of the native runfiles launcher.
       runfiles_imports_py: File — site startup helper that resolves first-party
         modules from a runfiles manifest when no directory tree exists.
+      venv_startup_py: File — site startup helper that restores virtualenv
+        process state passed by the native launcher.
       venv_activate_tmpl: File — the activate-script template (usually
         `ctx.file._venv_activate_tmpl`).
       virtualenv_shim_py: File — the `_virtualenv.py` distutils shim
@@ -424,10 +436,9 @@ def assemble_venv(
     Returns:
       struct with:
         venv_name: str — the venv dir's basename (default "." + safe_name + ".venv").
-        bin_python: File — the venv's bin/python symlink, for launchers
-            to rlocation-resolve and exec.
-        all_files: list[File] — every declared output, ready for runfiles
-            / DefaultInfo aggregation.
+        bin_python: File — the user-facing venv interpreter.
+        runtime_python: File — runfiles-aware interpreter for binary launchers.
+        all_files: list[File] — every file needed in the venv runfiles.
         dependency_files: list[File] — generated third-party overlays that
             packaging rules must keep out of first-party source layers.
         site_packages_pth_file: File — the main .pth (useful if the
@@ -539,7 +550,7 @@ def assemble_venv(
         wheel_by_key[key] = w
         wheel_key_by_sp[w.site_packages_rfpath] = key
 
-    declared = []  # accumulator for all outputs
+    declared = []  # accumulator for venv outputs and launcher runfiles
 
     # Hop 1: per-wheel directory under _wheels/<key>/. Bazel picks an
     # absolute path under bazel-bin; the output is a tree artifact whose
@@ -710,6 +721,20 @@ def assemble_venv(
     def _format_first_party_imp(imp):
         return None if imp.endswith("site-packages") else imp
 
+    venv_startup = ctx.actions.declare_file(
+        "{}/_aspect_rules_py_startup.py".format(site_packages_rel),
+    )
+    ctx.actions.symlink(
+        output = venv_startup,
+        target_file = venv_startup_py,
+    )
+    venv_startup_pth = ctx.actions.declare_file(
+        "{}/00_aspect_rules_py_startup.pth".format(site_packages_rel),
+    )
+    ctx.actions.write(
+        output = venv_startup_pth,
+        content = "import _aspect_rules_py_startup; _aspect_rules_py_startup.initialize()\n",
+    )
     runfiles_imports = ctx.actions.declare_file(
         "{}/_aspect_rules_py_imports.py".format(site_packages_rel),
     )
@@ -735,13 +760,15 @@ def assemble_venv(
         content = runfiles_import_root_lines,
     )
     runfiles_imports_pth = ctx.actions.declare_file(
-        "{}/00_aspect_rules_py_imports.pth".format(site_packages_rel),
+        "{}/01_aspect_rules_py_imports.pth".format(site_packages_rel),
     )
     ctx.actions.write(
         output = runfiles_imports_pth,
         content = "import _aspect_rules_py_imports; _aspect_rules_py_imports.initialize()\n",
     )
     declared.extend([
+        venv_startup,
+        venv_startup_pth,
         runfiles_imports,
         runfiles_import_roots,
         runfiles_imports_pth,
@@ -765,18 +792,12 @@ def assemble_venv(
     )
     declared.append(site_packages_pth_file)
 
-    # pyvenv.cfg. `home` must name the BASE interpreter's bin/ — never the
-    # venv's own bin/ (./bin), or CPython is left chasing the venv's python
-    # symlinks and can fall back to the compile-time prefix (PBS: /install) →
-    # ModuleNotFoundError: 'encodings'. Hermetic interpreters: point directly
-    # at the PBS bin/, since 3.11/3.12's getpath.py resolvedpath() fails on
-    # multi-hop relative symlinks across repo boundaries. System interpreters
-    # (py_runtime(interpreter_path)): the dirname of the absolute interpreter
-    # path — the same value `python -m venv` writes.
+    # Python 3.11/3.12 resolve relative `home` values from cwd. The PBS
+    # launcher bootstrap enters the base interpreter's bin directory before
+    # startup, then this relative path identifies that same directory. See:
+    # https://github.com/aspect-build/rules_py/issues/1048
     if py_toolchain.runfiles_interpreter:
-        pbs_rlocation = to_rlocation_path(ctx, py_toolchain.python)
-        pbs_bin_dir = "/".join(pbs_rlocation.split("/")[:-1])
-        pyvenv_home = "{}/{}".format(venv_to_runfiles_escape, pbs_bin_dir)
+        pyvenv_home = "../bin"
     else:
         pyvenv_home = py_toolchain.python.path.rsplit("/", 1)[0]
 
@@ -799,43 +820,79 @@ def assemble_venv(
     )
     declared.append(pyvenv_cfg)
 
-    # bin/python — the symlink the launcher exec's and that Python reads
-    # to compute sys.base_prefix. We emit an UNRESOLVED symlink
-    # (`declare_symlink` + `target_path`) with an explicit relative
-    # target rather than a `declare_file` + `target_file` on
-    # `py_toolchain.python` for two reasons:
-    #
-    #  1. `target_file` lets Bazel pick the symlink target, and the
-    #     choice differs across Bazel versions (Bazel 8 tends to write
-    #     relative, Bazel 9 absolute). Downstream tools that repack the
-    #     tar (`py_image_layer`) need a stable, runfiles-correct target.
-    #  2. Absolute targets bake in the build-host execroot path — in an
-    #     OCI container that path doesn't exist, bin/python becomes a
-    #     dangling symlink, Python falls back to its compile-time
-    #     `/install` base_prefix, then fails to locate the stdlib.
-    #
-    # From `<venv>/bin/`, walk up to the runfiles root (`.runfiles/`)
-    # and then down through the interpreter's rlocation path — which is
-    # exactly the shape `runfiles` libraries would compute. Up count:
-    # 1 (bin) + 1 (venv) + package_depth + 1 (workspace) = 3 + pkg.
-    # For system-interpreter (no runfiles_interpreter), fall back to the
-    # absolute path — these are already non-hermetic by construction.
-    bin_python = ctx.actions.declare_symlink("{}/bin/python".format(venv_name))
     if py_toolchain.runfiles_interpreter:
-        bin_to_runfiles_root = "/".join([".."] * (3 + package_depth))
-        ctx.actions.symlink(
-            output = bin_python,
-            target_path = "{}/{}".format(
-                bin_to_runfiles_root,
-                to_rlocation_path(ctx, py_toolchain.python),
-            ),
+        runtime_python = ctx.actions.declare_file(
+            "{}.runtime-python".format(venv_name) if standalone_interpreter else "{}/bin/python".format(venv_name),
         )
+        embedded_args, transformed_args = launcher.args_from_entrypoint(
+            py_toolchain.python,
+        )
+        for arg in ["-I", "-S"]:
+            embedded_args, transformed_args = launcher.append_embedded_arg(
+                arg = arg,
+                embedded_args = embedded_args,
+                transformed_args = transformed_args,
+            )
+        for file in [launcher_bootstrap_py, py_toolchain.python, pyvenv_cfg]:
+            embedded_args, transformed_args = launcher.append_runfile(
+                file = file,
+                embedded_args = embedded_args,
+                transformed_args = transformed_args,
+            )
+        launcher.compile_stub(
+            ctx = ctx,
+            embedded_args = embedded_args,
+            transformed_args = transformed_args,
+            output_file = runtime_python,
+        )
+        declared.append(launcher_bootstrap_py)
+        if standalone_interpreter:
+            declared.append(runtime_python)
+            bin_python = ctx.actions.declare_file("{}/bin/python".format(venv_name))
+
+            physical_bootstrap = ctx.actions.declare_file(
+                "{}/.bootstrap/bin/launcher_bootstrap.py".format(venv_name),
+            )
+
+            # A child process may re-exec sys.executable after the native
+            # launcher has established the venv. Depending on the runfiles
+            # strategy, bin/python then lives in a runfiles tree or at its
+            # Bazel output path. File.path is relative to the execution root:
+            # https://bazel.build/rules/lib/builtins/File#path
+            # Give the wrapper a path for each layout instead of relying on an
+            # interpreter symlink surviving remote transport.
+            ctx.actions.expand_template(
+                template = python_wrapper_tmpl,
+                output = bin_python,
+                substitutions = {
+                    "{{EXECROOT_INTERPRETER}}": relative_file(
+                        py_toolchain.python.path,
+                        bin_python.path,
+                    ),
+                    "{{RUNFILES_INTERPRETER}}": "{}/{}".format(
+                        venv_to_runfiles_escape,
+                        to_rlocation_path(ctx, py_toolchain.python),
+                    ),
+                },
+                is_executable = True,
+            )
+            ctx.actions.expand_template(
+                template = launcher_bootstrap_py,
+                output = physical_bootstrap,
+                substitutions = {},
+            )
+            declared.extend([bin_python, physical_bootstrap])
+        else:
+            bin_python = runtime_python
+            declared.append(bin_python)
     else:
+        bin_python = ctx.actions.declare_symlink("{}/bin/python".format(venv_name))
         ctx.actions.symlink(
             output = bin_python,
             target_path = py_toolchain.python.path,
         )
-    declared.append(bin_python)
+        runtime_python = bin_python
+        declared.append(bin_python)
 
     # Versioned python symlinks: python3, python3.<MAJ>.<MIN>, and on
     # freethreaded interpreters also python3.<MAJ>.<MIN>t (the name the
@@ -913,6 +970,7 @@ def assemble_venv(
     return struct(
         venv_name = venv_name,
         bin_python = bin_python,
+        runtime_python = runtime_python,
         all_files = declared,
         dependency_files = dependency_files,
         site_packages_pth_file = site_packages_pth_file,

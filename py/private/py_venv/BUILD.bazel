@@ -7,8 +7,11 @@ package(default_visibility = ["//py:__subpackages__"])
 
 exports_files([
     "_virtualenv.py",
+    "launcher_bootstrap.py",
     "link.py",
+    "python_wrapper.sh.tmpl",
     "runfiles_imports.py",
+    "venv_startup.py",
     "venv.tmpl.sh",
     "venv_activate.tmpl.sh",
 ])
@@ -49,6 +52,7 @@ bzl_library(
     deps = [
         "//py/private:py_library",
         "@bazel_lib//lib:paths",
+        "@hermetic_launcher//launcher:lib_bzl",
     ],
 )
 
@@ -78,7 +82,18 @@ bzl_library(
         "//py/private/toolchain:types",
         "@bazel_lib//lib:expand_make_vars",
         "@bazel_lib//lib:paths",
+        "@hermetic_launcher//launcher:lib_bzl",
     ],
+)
+
+py_test(
+    name = "launcher_bootstrap_test",
+    srcs = [
+        "launcher_bootstrap.py",
+        "launcher_bootstrap_test.py",
+    ],
+    imports = ["."],
+    main = "launcher_bootstrap_test.py",
 )
 
 py_test(
@@ -103,6 +118,17 @@ py_test(
     python_version = "3.12",
 )
 
+py_test(
+    name = "venv_startup_test",
+    srcs = [
+        "venv_startup.py",
+        "venv_startup_test.py",
+    ],
+    imports = ["."],
+    main = "venv_startup_test.py",
+)
+
+py_test(
     name = "test_link",
     srcs = [
         "link.py",

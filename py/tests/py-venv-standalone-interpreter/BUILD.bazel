@@ -17,6 +17,24 @@ py_binary(
     ],
     isolated = False,
     main = "ex.py",
+    python_version = "3.9",
+    deps = [
+        "@pypi//cowsay",
+    ],
+)
+
+py_binary(
+    name = "ex_3_12",
+    srcs = [
+        "ex.py",
+    ],
+    expose_venv = True,
+    imports = [
+        ".",
+    ],
+    isolated = False,
+    main = "ex.py",
+    python_version = "3.12",
     deps = [
         "@pypi//cowsay",
     ],
@@ -29,5 +47,6 @@ sh_test(
     ],
     data = [
         ":ex",
+        ":ex_3_12",
     ],
 )
