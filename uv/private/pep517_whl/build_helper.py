@@ -7,6 +7,7 @@ Mostly exists to allow debugging.
 """
 
 from argparse import ArgumentParser
+import json
 import os
 import platform as _platform
 import shlex
@@ -30,26 +31,42 @@ _SETUPTOOLS_BACKENDS = (
 )
 
 
-# `$(CC)` etc. from the pep517_native_whl rule expands to a Bazel
-# workspace-relative path (e.g. external/llvm+/toolchain/gcc) that
-# resolves from the action execroot but not from the build
-# subprocess's cwd inside the unpacked worktree. To keep CC reachable
-# after that cwd change, we drop a tiny wrapper into tmp_root (which
-# is absolute, so its path survives the cwd change) and point CC /
-# CXX / CPP / LDSHARED / LDCXXSHARED at the wrapper. The wrapper
-# strips `-fdebug-default-version=4` (older toolchains reject it)
-# and then `execv`s the compiler at its resolved absolute path.
+# Configured compiler commands may contain paths relative to Bazel's execroot,
+# while build backends run from the unpacked source tree. Each default wrapper
+# embeds the complete command, with toolchain paths made absolute, so target,
+# sysroot, and compiler-driver selection survive the cwd change.
 _DEBUG_FLAG = "-fdebug-default-version=4"
 _COMPILER_WRAPPER = """#!/usr/bin/env python3
 import os
 import sys
 
-filtered_args = [arg for arg in sys.argv[1:] if arg != "{debug_flag}"]
+command = {command!r}
+environment = {environment!r}
+filtered_args = [
+    arg
+    for arg in command[1:] + sys.argv[1:]
+    if arg != {debug_flag!r}
+]
 sysroot = {sysroot!r}
-if sysroot and "-isysroot" not in filtered_args:
+has_sysroot = any(
+    arg in ("-isysroot", "--sysroot")
+    or arg.startswith("-isysroot")
+    or arg.startswith("--sysroot=")
+    for arg in filtered_args
+)
+if sysroot and not has_sysroot:
     filtered_args = ["-isysroot", sysroot] + filtered_args
-os.execv("{compiler_path}", [os.path.basename("{compiler_path}")] + filtered_args)
+child_env = os.environ.copy()
+child_env.update(environment)
+# Preserve the configured command's driver identity. Some toolchains expose
+# clang and clang++ as different entry points into one multicall binary.
+os.execve(command[0], [command[0]] + filtered_args, child_env)
 """
+
+_DEFAULT_COMPILER_COMMANDS = {
+    "CC": ["cc"],
+    "CXX": ["c++"],
+}
 
 
 def _darwin_sysroot():
@@ -62,45 +79,92 @@ def _darwin_sysroot():
         return None
 
 
-def _resolve_compiler_path(env, key, default):
-    """Extract the real compiler from the environment and resolve it to an absolute path."""
+def _absolutize_input_roots(value, action_root, input_roots):
+    """Relocate every relative toolchain-root token through a cwd change."""
+    result = []
+    position = 0
+    while position < len(value):
+        matches = [
+            (index, root)
+            for root in input_roots
+            if (index := value.find(root, position)) >= 0
+        ]
+        if not matches:
+            result.append(value[position:])
+            break
+        root_index, root = min(matches, key=lambda match: (match[0], -len(match[1])))
+        token_start = max(
+            value.rfind(delimiter, position, root_index)
+            for delimiter in " =,:;\"'"
+        )
+        suffix = value[root_index + len(root):]
+        if "/" not in value[token_start + 1:root_index] and (
+            not suffix or suffix[0] in "/:;, \"'"
+        ):
+            result.append(value[position:root_index])
+            result.append(path.join(action_root, root))
+            position = root_index + len(root)
+        else:
+            result.append(value[position:root_index + 1])
+            position = root_index + 1
+    return "".join(result)
+
+
+def _compiler_command(env, key, default, action_root, input_roots):
+    """Select an explicit or toolchain-provided compiler command."""
     current = env.get(key)
-    if not current:
-        return default
-    parts = shlex.split(current)
-    if not parts:
-        return default
-    compiler = parts[0]
-    if os.path.isabs(compiler):
-        return compiler
-    return os.path.abspath(compiler)
+    command = shlex.split(current) if current else list(default)
+    if not command:
+        raise ValueError("{} compiler command is empty".format(key))
+
+    command = [
+        _absolutize_input_roots(argument, action_root, input_roots)
+        for argument in command
+    ]
+
+    executable = command[0]
+    if not path.isabs(executable):
+        if path.dirname(executable):
+            command[0] = path.join(action_root, executable)
+        else:
+            resolved = shutil.which(executable)
+            if resolved is None:
+                raise FileNotFoundError(
+                    "compiler not found on PATH: {}".format(executable),
+                )
+            command[0] = resolved
+    return command
 
 
-def _make_compiler_wrapper(tmpdir, name, compiler_path, sysroot=None):
-    wrapper = path.join(tmpdir, ".aspect_rules_py_compilers", name)
+def _visible_compiler_command(command, sysroot):
+    command = [argument for argument in command if argument != _DEBUG_FLAG]
+    has_sysroot = any(
+        argument in ("-isysroot", "--sysroot")
+        or argument.startswith("-isysroot")
+        or argument.startswith("--sysroot=")
+        for argument in command[1:]
+    )
+    if sysroot and not has_sysroot:
+        command[1:1] = ["-isysroot", sysroot]
+    return shlex.join(command)
+
+
+def _make_compiler_wrapper(tmpdir, name, command, environment, sysroot):
+    wrapper_dir = path.join(tmpdir, ".aspect_rules_py_compilers")
+    wrapper = path.join(wrapper_dir, name)
     makedirs(path.dirname(wrapper), exist_ok=True)
     with open(wrapper, "w") as f:
         f.write(_COMPILER_WRAPPER.format(
+            command=command,
             debug_flag=_DEBUG_FLAG,
-            compiler_path=compiler_path,
-            name=name,
+            environment=environment,
             sysroot=sysroot,
         ))
     chmod(wrapper, 0o755)
     return wrapper
 
 
-def _override_tool(env, key, wrapper):
-    current = env.get(key)
-    if not current:
-        return
-    parts = shlex.split(current)
-    if parts:
-        parts[0] = wrapper
-        env[key] = shlex.join(parts)
-
-
-def _compiler_env(tmpdir):
+def _compiler_env(tmpdir, compiler_config, action_root):
     env = dict(os.environ)
     env["PATH"] = pathsep.join([
         path.dirname(sys.executable),
@@ -110,33 +174,67 @@ def _compiler_env(tmpdir):
     env["TEMP"] = tmpdir
     env["TEMPDIR"] = tmpdir
 
-    cc_path = _resolve_compiler_path(env, "CC", "cc")
-    cxx_path = _resolve_compiler_path(env, "CXX", "c++")
-
+    default_commands = compiler_config.get("commands", {})
+    default_environments = compiler_config.get("environments", {})
+    input_roots = sorted(compiler_config.get("input_roots", ()), key=len, reverse=True)
     sysroot = _darwin_sysroot()
-
-    cc = _make_compiler_wrapper(tmpdir, "cc", cc_path, sysroot)
-    cxx = _make_compiler_wrapper(tmpdir, "c++", cxx_path, sysroot)
-
-    env.setdefault("CC", cc)
-    env.setdefault("CXX", cxx)
-
-    # MPI builds (e.g. mpi4py) consult $MPICC before searching PATH, so a
-    # plain C compiler here would shadow the real mpicc. Only set it when
-    # a system mpicc exists, wrapped to keep the debug-flag stripping.
-    mpicc_path = shutil.which("mpicc", path=env["PATH"])
-    if mpicc_path:
-        env.setdefault("MPICC", _make_compiler_wrapper(tmpdir, "mpicc", mpicc_path, sysroot))
-    env.setdefault("AR", "ar")
-
-    for key, wrapper in [
-        ("CC", cc),
-        ("CXX", cxx),
-        ("CPP", cc),
-        ("LDSHARED", cc),
-        ("LDCXXSHARED", cxx),
+    compiler_commands = {}
+    for key, name in [
+        ("CC", "cc"),
+        ("CXX", "c++"),
     ]:
-        _override_tool(env, key, wrapper)
+        explicit = bool(env.get(key))
+        command = _compiler_command(
+            env,
+            key,
+            default_commands.get(key, _DEFAULT_COMPILER_COMMANDS[key]),
+            action_root,
+            input_roots,
+        )
+        if explicit:
+            compiler_commands[key] = _visible_compiler_command(command, sysroot)
+        else:
+            compiler_commands[key] = _make_compiler_wrapper(
+                tmpdir,
+                name,
+                command,
+                {
+                    env_name: _absolutize_input_roots(value, action_root, input_roots)
+                    for env_name, value in default_environments.get(key, {}).items()
+                },
+                sysroot,
+            )
+        env[key] = compiler_commands[key]
+
+    for key in ("LDSHARED", "LDCXXSHARED"):
+        if not env.get(key):
+            continue
+        command = _compiler_command(
+            env,
+            key,
+            [],
+            action_root,
+            input_roots,
+        )
+        env[key] = _visible_compiler_command(command, sysroot)
+
+    if env.get("CPP"):
+        command = _compiler_command(
+            env,
+            "CPP",
+            [],
+            action_root,
+            input_roots,
+        )
+        env["CPP"] = _visible_compiler_command(command, sysroot)
+
+    if not env.get("MPICC"):
+        mpicc = shutil.which("mpicc", path=env["PATH"])
+        if mpicc:
+            env["MPICC"] = _make_compiler_wrapper(
+                tmpdir, "mpicc", [mpicc], {}, sysroot
+            )
+    env.setdefault("AR", "ar")
     return env
 
 
@@ -189,11 +287,14 @@ def _legacy_metadata_conflicts_with_pyproject(worktree):
 PARSER = ArgumentParser()
 PARSER.add_argument("srcarchive")
 PARSER.add_argument("outdir")
+PARSER.add_argument("--compiler-config")
 PARSER.add_argument("--validate-anyarch", action="store_true")
 PARSER.add_argument("--patch-strip", type=int, default=0, help="Strip count for patch (-p)")
 PARSER.add_argument("--patch", action="append", default=[], dest="patches", help="Patch file to apply (repeatable)")
 opts, args = PARSER.parse_known_args()
 
+action_root = path.abspath(os.curdir)
+compiler_config = json.loads(opts.compiler_config) if opts.compiler_config else {}
 tmp_root = path.abspath(opts.outdir) + ".tmp"
 # Sandboxed/remote actions get a fresh root each run, so we don't expect a stale tmp_root to exist.
 makedirs(tmp_root, exist_ok=False)
@@ -232,11 +333,9 @@ if opts.patches:
 # Get a path to the outdir which will be valid after we cd
 outdir = path.abspath(opts.outdir)
 
-# Preserve PATH so native sdist builds can find compilers (clang, gcc),
-# and re-point CC/CXX/etc. through wrapper scripts in tmp_root so the
-# Bazel-supplied workspace-relative compiler paths survive the cwd
-# change into the worktree.
-build_env = _compiler_env(tmp_root)
+# Preserve configured compiler and linker commands through the cwd change into
+# the worktree.
+build_env = _compiler_env(tmp_root, compiler_config, action_root)
 
 if _legacy_metadata_conflicts_with_pyproject(t):
     print(

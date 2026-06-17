@@ -5,6 +5,12 @@ python-geohash is sdist-only and contains a C++ extension (_geohash).
 
 uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_uv_sdist_native_build")
+uv.override_package(
+    name = "python-geohash",
+    lock = "//cases/uv-sdist-native-build:uv.lock",
+    pre_build_patch_strip = 1,
+    pre_build_patches = ["//cases/uv-sdist-native-build:require_cxx_driver.patch"],
+)
 uv.project(
     default_build_dependencies = [
         "build",
