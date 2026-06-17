@@ -30,7 +30,7 @@ import shutil
 from pathlib import Path
 
 
-def merge(into, sources, collision_policy):
+def merge(into, sources):
     into.mkdir(parents=True, exist_ok=True)
     owners = {}
     conflicts = []
@@ -41,11 +41,24 @@ def merge(into, sources, collision_policy):
         for root, dirs, files in os.walk(src):
             rel_root = Path(root).relative_to(src)
             for d in sorted(dirs):
-                (into / rel_root / d).mkdir(parents=True, exist_ok=True)
+                dest_dir = into / rel_root / d
+                if dest_dir.exists() and not dest_dir.is_dir():
+                    raise ValueError(
+                        "Type conflict at {}: was a file (from {}), now a directory (from {}).".format(
+                            rel_root / d, owners.get(rel_root / d, "unknown"), src
+                        )
+                    )
+                dest_dir.mkdir(parents=True, exist_ok=True)
             for f in sorted(files):
                 rel = rel_root / f
                 dest = into / rel
                 src_file = Path(root) / f
+                if dest.is_dir():
+                    raise ValueError(
+                        "Type conflict at {}: was a directory, now a file (from {}).".format(
+                            rel, src
+                        )
+                    )
                 prior = owners.get(rel)
                 if prior is not None:
                     # First wheel wins; byte-identical duplicates (e.g.
@@ -71,7 +84,13 @@ def main():
     )
     args = ap.parse_args()
 
-    conflicts = merge(args.into, args.sources, args.collision_policy)
+    try:
+        conflicts = merge(args.into, args.sources)
+    except ValueError as exc:
+        if args.collision_policy == "error":
+            raise SystemExit(str(exc))
+        print(str(exc))
+        conflicts = []
 
     if conflicts and args.collision_policy != "ignore":
         for rel, winner, loser in conflicts:

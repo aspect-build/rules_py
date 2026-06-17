@@ -199,15 +199,34 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
 
             unique_claimants = distinct_sp.values()
 
-            # When a regular package spans wheels under this top-level the
-            # physical merge (pass 2a -> merge_groups) owns the conflicted
-            # subtree and the remaining namespace portions fall through to
-            # .pth. Don't ALSO lay per-entry symlinks for this top-level:
-            # they'd collide with the merged directory and can't represent
-            # a regular package anyway.
+            # Regular-span conflict: PySiteMerge owns the conflicted roots;
+            # all claimants fall back to .pth. Sibling namespace entries
+            # outside the conflict still get concrete per-entry symlinks.
             if tl_conflicted:
                 for c in unique_claimants:
                     skipped_per_wheel.setdefault(c.site_packages, {})[tl] = True
+
+                entried = [c for c in unique_claimants if c.ns_entries]
+                if entried:
+                    entry_owner = {}
+                    for c in entried:
+                        for entry in c.ns_entries:
+                            # Skip entries inside a conflicted root —
+                            # the physical merge owns those.
+                            under_conflict = False
+                            for root in conflicted_roots:
+                                if entry == root or entry.startswith(root + "/"):
+                                    under_conflict = True
+                                    break
+                            if under_conflict:
+                                continue
+                            prior = entry_owner.get(entry)
+                            if prior == None:
+                                entry_owner[entry] = c
+                            elif prior.site_packages != c.site_packages:
+                                _complain("namespace entry", entry, prior.site_packages, c.site_packages)
+                    for entry, c in entry_owner.items():
+                        top_level_to_site_pkgs[entry] = c.site_packages
                 continue
 
             # Pure PEP 420 namespace (no regular package spanning wheels).

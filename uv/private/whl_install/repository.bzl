@@ -551,6 +551,9 @@ filegroup(
     # wheel repos to our visibility so `rctx.path(Label(...))` can
     # resolve. `whl_files` mirrors the truthy `whls` values in order, so
     # pair them up by index to recover the filename ↔ label association.
+    # Both lists are generated together by the hub rule from the same
+    # source data, so the ordering invariant is maintained at the point
+    # of production and does not depend on runtime dict iteration order.
     whl_file_labels = {}
     whl_file_index = 0
     for target in prebuilds.values():
