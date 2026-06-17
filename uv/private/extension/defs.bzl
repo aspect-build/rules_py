@@ -341,13 +341,17 @@ def _parse_projects(module_ctx, hub_specs):
                 if existing_target != None and existing_target != install_target:
                     # Case of an overridden package
                     continue
-                elif "editable" in package["source"] or "virtual" in package["source"]:
+                elif "virtual" in package["source"]:
+                    override_key = (normalize_name(package["name"]), package["version"])
+                    if override_key in package_overrides:
+                        fail("Virtual package {} in lockfile {} cannot use a modification-only `uv.override_package()` annotation because it is not installed.".format(package["name"], project.lock))
+                    continue
+                elif "editable" in package["source"]:
                     # Case of the workspace self-package
-                    # FIXME: Workspace packages can have srcs? It's a bit weird
                     if normalize_name(package["name"]) == normalize_name(project_name):
                         continue
                     else:
-                        fail("Virtual package {} in lockfile {} doesn't have a mandatory `uv.override_package()` annotation!".format(package["name"], project.lock))
+                        fail("Editable package {} in lockfile {} doesn't have a mandatory `uv.override_package(target = ...)` annotation!".format(package["name"], project.lock))
 
                 install_table[install_key] = install_target
                 sbuild_id = "sdist_build__{}__{}__{}".format(project_stamp, package["name"], normalize_version(package["version"]))

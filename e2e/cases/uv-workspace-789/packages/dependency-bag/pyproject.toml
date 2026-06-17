@@ -1,0 +1,7 @@
+[project]
+name = "dependency-bag"
+version = "0.0.0"
+dependencies = ["humanize"]
+
+[tool.uv]
+package = false
