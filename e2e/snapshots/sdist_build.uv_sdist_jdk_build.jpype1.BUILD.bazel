@@ -6,7 +6,7 @@ py_binary(
     name = "build_tool",
     main = "@aspect_rules_py//uv/private/pep517_whl:build_helper.py",
     srcs = ["@aspect_rules_py//uv/private/pep517_whl:build_helper.py"],
-    deps = ["@@aspect_rules_py++uv+project__uv_sdist_jdk_build//:scikit_build_core", "@@aspect_rules_py++uv+project__uv_sdist_jdk_build//:setuptools", "@@aspect_rules_py++uv+project__uv_sdist_jdk_build//:wheel", "@@aspect_rules_py++uv+project__uv_sdist_jdk_build//:build", "@whl_install__uv_sdist_jdk_build__scikit_build_core__0_12_2//:install"],
+    deps = ["@aspect_rules_py//uv/private/pep517_whl:memory_monitor", "@@aspect_rules_py++uv+project__uv_sdist_jdk_build//:scikit_build_core", "@@aspect_rules_py++uv+project__uv_sdist_jdk_build//:setuptools", "@@aspect_rules_py++uv+project__uv_sdist_jdk_build//:wheel", "@@aspect_rules_py++uv+project__uv_sdist_jdk_build//:build", "@whl_install__uv_sdist_jdk_build__scikit_build_core__0_12_2//:install"],
 )
 
 pep517_native_whl(
@@ -15,6 +15,7 @@ pep517_native_whl(
     tool = ":build_tool",
     version = "1.7.1",
     args = [],
+    build_memory_mb = 2048,
     toolchains = [
         "@bazel_tools//tools/cpp:current_cc_toolchain",
         "@@bazel_tools//tools/jdk:current_java_runtime",

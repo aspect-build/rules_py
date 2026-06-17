@@ -83,6 +83,25 @@ Pre-build patches are applied to the extracted source tree after archive extract
 - Removing problematic native build dependencies
 - Patching source code that affects the build output
 
+### Allocating wheel build memory
+
+Set `build_memory_mb` to the expected peak memory of a local sdist build so
+Bazel can limit concurrent wheel builds:
+
+```starlark
+uv.override_package(
+    lock = "//:uv.lock",
+    name = "native-package",
+    build_memory_mb = 6144,
+)
+```
+
+Bazel rounds the estimate up to one of its supported resource classes. On
+Linux, the wheel action also samples aggregate resident memory for the build
+process and its descendants. Periodic and final measurements appear in the
+action log so the estimate can be adjusted after an out-of-memory failure.
+Platforms without Linux procfs report the measurement as unavailable.
+
 ### Adding extra dependencies or data
 
 Some packages have implicit runtime dependencies that aren't declared in their metadata:
