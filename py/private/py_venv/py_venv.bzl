@@ -147,6 +147,9 @@ def _py_venv_rule_impl(ctx):
             executable = ctx.outputs.executable,
             runfiles = shared.runfiles,
         ),
+        OutputGroupInfo(
+            _venv_dependency_files = depset(shared.venv.dependency_files),
+        ),
         # Does not provide PyInfo because venvs are terminal artifacts —
         # a py_binary consumer would see this as "the binary to run",
         # not "a source of imports".
@@ -257,9 +260,7 @@ environment. Forwarded to the sibling py_binary/py_test consumer
         allow_single_file = True,
         default = ":_virtualenv.py",
     ),
-    # Tool for physically merging a regular package that spans wheels
-    # (e.g. azure-core + azure-core-tracing-opentelemetry both
-    # installing into `azure/core/tracing/`) — see assemble_venv.
+    # Tool for physically merging regular-package subtrees across wheels.
     "_site_merge_script": attr.label(
         allow_single_file = True,
         default = "//py/tools/site_merge:site_merge.py",
@@ -274,10 +275,10 @@ _py_venv = rule(
     attrs = _attrs,
     toolchains = [
         PY_TOOLCHAIN,
-        # Optional: only consulted when a regular package spans wheels
-        # and assemble_venv needs an exec-config interpreter to run the
-        # site_merge action. Optional so venvs keep analyzing in setups
-        # that never registered rules_py's exec-tools toolchain.
+        # Optional: only consulted when a regular package spans wheels and
+        # assemble_venv needs an exec-config interpreter to run the site_merge
+        # action. Optional so venvs keep analyzing in setups that never
+        # registered rules_py's exec-tools toolchain.
         config_common.toolchain_type(EXEC_TOOLS_TOOLCHAIN, mandatory = False),
     ],
     executable = True,
