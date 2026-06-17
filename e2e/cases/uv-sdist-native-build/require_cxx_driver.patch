@@ -1,0 +1,19 @@
+diff --git a/src/geohash.cpp b/src/geohash.cpp
+--- a/src/geohash.cpp
++++ b/src/geohash.cpp
+@@ -0,0 +1,15 @@
++#include <typeinfo>
++
++namespace {
++class native_build_base {
++  public:
++    virtual ~native_build_base() = default;
++};
++
++class native_build_derived : public native_build_base {};
++}  // namespace
++
++extern "C" const std::type_info *native_build_cxx_runtime_probe(void) {
++    return &typeid(native_build_derived);
++}
++

@@ -117,10 +117,9 @@ write_source_files(
         # plumbing for `build_memory_mb`, `toolchains = [...]`, and
         # `env = {...}`. The override layers a JDK runtime on top of the
         # default CC toolchain; the snapshot pins the memory declaration,
-        # toolchain references, and both env families (CC + JAVA_HOME/JAVA/JAR).
-        # Pairs with the analysis test at
-        # //uv/private/pep517_whl:toolchain_env_test which asserts the
-        # rule expands env keys correctly given an explicit fixture.
+        # toolchain references, and non-compiler environment. Separate analysis
+        # fixtures under //uv/private/pep517_whl cover default compiler driver
+        # arguments and one-sided package overrides.
         "snapshots/sdist_build.uv_sdist_jdk_build.jpype1.BUILD.bazel": "@sdist_build__uv_sdist_jdk_build__jpype1__1_7_1//:BUILD.bazel",
 
         # Venv site-packages .pth files. Pin the line shapes that
