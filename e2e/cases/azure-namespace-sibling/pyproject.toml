@@ -1,0 +1,11 @@
+[project]
+name = "azure-namespace-sibling"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    "build",
+    "setuptools",
+    "azure-core==1.38.0",
+    "azure-core-tracing-opentelemetry==1.0.0b11",
+    "azure-identity==1.21.0",
+]
