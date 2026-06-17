@@ -1,0 +1,8 @@
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_azure_namespace_sibling")
+uv.project(
+    hub_name = "pypi_azure_namespace_sibling",
+    lock = "//cases/azure-namespace-sibling:uv.lock",
+    pyproject = "//cases/azure-namespace-sibling:pyproject.toml",
+)
+use_repo(uv, "pypi_azure_namespace_sibling")

@@ -91,6 +91,8 @@ uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 
 # Per-case MODULE fragments. Each redeclares its own use_extension(...) proxies.
 include("//cases/arch-alias-marker:setup.MODULE.bazel")
+include("//cases/azure-core-tracing-overlap:setup.MODULE.bazel")
+include("//cases/azure-namespace-sibling:setup.MODULE.bazel")
 include("//cases/cross-repo-610:setup.MODULE.bazel")
 include("//cases/current-py-toolchain-bazel-env-896:setup.MODULE.bazel")
 include("//cases/firebase-admin-import:setup.MODULE.bazel")
