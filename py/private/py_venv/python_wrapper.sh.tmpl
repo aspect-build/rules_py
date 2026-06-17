@@ -1,0 +1,42 @@
+#!/bin/sh
+original_cwd=$(pwd -L)
+case $0 in
+    /*) wrapper=$0 ;;
+    */*) wrapper=${original_cwd}/$0 ;;
+    *)
+        wrapper=$(command -v "$0")
+        case ${wrapper} in
+            /*) ;;
+            *) wrapper=${original_cwd}/${wrapper} ;;
+        esac
+        ;;
+esac
+base_python=
+find_base_python() {
+    venv_bin=$(CDPATH= cd "$1" 2>/dev/null && pwd -P) || return
+    venv=${venv_bin%/*}
+    for candidate in \
+        "${venv}/{{RUNFILES_INTERPRETER}}" \
+        "${venv_bin}/{{EXECROOT_INTERPRETER}}"
+    do
+        if [ -x "${candidate}" ]; then
+            base_python=${candidate}
+            break
+        fi
+    done
+}
+find_base_python "${wrapper%/*}"
+if [ -z "${base_python}" ]; then
+    # If the physical runfiles layout lacks the external interpreter tree, the
+    # adjacent native launcher can resolve that interpreter through runfiles.
+    runtime_python="${venv}.runtime-python"
+    if [ -x "${runtime_python}" ]; then
+        exec "${runtime_python}" "$@"
+    fi
+    echo "rules_py: invoke bin/python through its venv;" \
+        "symlink the venv root, not bin/python" >&2
+    exit 1
+fi
+exec "${base_python}" -I -S \
+    "${venv}/.bootstrap/bin/launcher_bootstrap.py" \
+    "${base_python}" "${venv}/pyvenv.cfg" "$@"

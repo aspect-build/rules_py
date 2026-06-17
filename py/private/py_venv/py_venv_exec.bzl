@@ -19,10 +19,10 @@ load(":types.bzl", "VirtualenvInfo")
 _CONTEXTUAL_ENV_KEYS = ("BAZEL_TARGET", "BAZEL_WORKSPACE", "BAZEL_TARGET_NAME")
 
 def _py_venv_exec_impl(ctx):
-    # The launcher itself doesn't need a python toolchain — it just
-    # exec's the sibling venv's `bin/python`, whose path was already
-    # resolved when the venv was analysed. Default interpreter flags
-    # come from a shared constant.
+    # The launcher itself doesn't need a python toolchain — it executes
+    # the sibling venv's runfiles-aware interpreter, whose path was already
+    # resolved when the venv was analysed. Default interpreter flags come
+    # from a shared constant.
     #
     # The macro layer routes srcs / deps to the sibling py_venv (always
     # set as `venv`) and passes an explicit `main =` to the rule.
@@ -80,7 +80,7 @@ def _py_venv_exec_impl(ctx):
     # The launcher runtime resolves transformed-arg positions through
     # the Bazel runfiles manifest, then `execve`s the venv python.
     executable_launcher = ctx.actions.declare_file(ctx.attr.name)
-    embedded_args, transformed_args = launcher.args_from_entrypoint(vinfo.bin_python)
+    embedded_args, transformed_args = launcher.args_from_entrypoint(vinfo.runtime_python)
     for flag in flags:
         embedded_args, transformed_args = launcher.append_embedded_arg(
             arg = flag,
@@ -170,9 +170,9 @@ call into a py_venv target + a rule call routed at it). Not a
 user-facing attribute — direct settings on the rule are blocked at
 the macro layer in `//py:defs.bzl`.
 
-The binary's launcher exec's the referenced venv's `bin/python`; its
-runfiles inherit the venv's default_runfiles so all wheels and first-
-party sources land at their usual rlocation paths.
+The binary's launcher exec's the referenced venv's runfiles-aware
+interpreter; its runfiles inherit the venv's default_runfiles so all
+wheels and first-party sources land at their usual rlocation paths.
 """,
     ),
     "interpreter_options": attr.string_list(

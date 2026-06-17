@@ -26,6 +26,7 @@ layout details.
 
 load("@bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
 load("@bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
+load("@hermetic_launcher//launcher:lib.bzl", "launcher")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private:transitions.bzl", "python_version_transition")
@@ -68,6 +69,9 @@ def _assemble_shared(ctx):
     }
 
     safe_name = ctx.attr.name.replace("/", "_")
+    is_windows = ctx.target_platform_has_constraint(
+        ctx.attr._windows_constraint[platform_common.ConstraintValueInfo],
+    )
 
     venv = assemble_venv(
         ctx,
@@ -78,7 +82,11 @@ def _assemble_shared(ctx):
         include_system_site_packages = ctx.attr.include_system_site_packages,
         include_user_site_packages = ctx.attr.include_user_site_packages,
         default_env = default_env,
+        launcher_bootstrap_py = ctx.file._launcher_bootstrap,
+        python_wrapper_tmpl = ctx.file._python_wrapper_tmpl,
+        standalone_interpreter = not is_windows,
         runfiles_imports_py = ctx.file._runfiles_imports,
+        venv_startup_py = ctx.file._venv_startup,
         venv_activate_tmpl = ctx.file._venv_activate_tmpl,
         virtualenv_shim_py = ctx.file._virtualenv_shim,
         site_merge_script_py = ctx.file._site_merge_script,
@@ -155,6 +163,7 @@ def _py_venv_rule_impl(ctx):
         # not "a source of imports".
         VirtualenvInfo(
             bin_python = shared.venv.bin_python,
+            runtime_python = shared.venv.runtime_python,
             venv_name = shared.venv.venv_name,
             imports = shared.imports_depset,
             wheels = shared.wheels_depset,
@@ -247,9 +256,21 @@ environment. Forwarded to the sibling py_binary/py_test consumer
     "_freethreaded_flag": attr.label(
         default = "//py/private/interpreter:freethreaded",
     ),
+    "_launcher_bootstrap": attr.label(
+        allow_single_file = True,
+        default = ":launcher_bootstrap.py",
+    ),
+    "_python_wrapper_tmpl": attr.label(
+        allow_single_file = True,
+        default = ":python_wrapper.sh.tmpl",
+    ),
     "_runfiles_imports": attr.label(
         allow_single_file = True,
         default = ":runfiles_imports.py",
+    ),
+    "_venv_startup": attr.label(
+        allow_single_file = True,
+        default = ":venv_startup.py",
     ),
     # Shared with py_binary via the venv-assembly helper.
     "_venv_activate_tmpl": attr.label(
@@ -259,6 +280,9 @@ environment. Forwarded to the sibling py_binary/py_test consumer
     "_virtualenv_shim": attr.label(
         allow_single_file = True,
         default = ":_virtualenv.py",
+    ),
+    "_windows_constraint": attr.label(
+        default = "@platforms//os:windows",
     ),
     # Tool for physically merging regular-package subtrees across wheels.
     "_site_merge_script": attr.label(
@@ -275,6 +299,8 @@ _py_venv = rule(
     attrs = _attrs,
     toolchains = [
         PY_TOOLCHAIN,
+        launcher.finalizer_toolchain_type,
+        launcher.template_toolchain_type,
         # Optional: only consulted when a regular package spans wheels and
         # assemble_venv needs an exec-config interpreter to run the site_merge
         # action. Optional so venvs keep analyzing in setups that never
