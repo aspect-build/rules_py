@@ -78,6 +78,7 @@ def _assemble_shared(ctx):
         include_system_site_packages = ctx.attr.include_system_site_packages,
         include_user_site_packages = ctx.attr.include_user_site_packages,
         default_env = default_env,
+        runfiles_imports_py = ctx.file._runfiles_imports,
         venv_activate_tmpl = ctx.file._venv_activate_tmpl,
         virtualenv_shim_py = ctx.file._virtualenv_shim,
         site_merge_script_py = ctx.file._site_merge_script,
@@ -242,6 +243,10 @@ environment. Forwarded to the sibling py_binary/py_test consumer
     # at `lib/python<M>.<m>t/site-packages/`, not the default `.../python<M>.<m>/`.
     "_freethreaded_flag": attr.label(
         default = "//py/private/interpreter:freethreaded",
+    ),
+    "_runfiles_imports": attr.label(
+        allow_single_file = True,
+        default = ":runfiles_imports.py",
     ),
     # Shared with py_binary via the venv-assembly helper.
     "_venv_activate_tmpl": attr.label(

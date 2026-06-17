@@ -7,6 +7,7 @@ package(default_visibility = ["//py:__subpackages__"])
 exports_files([
     "_virtualenv.py",
     "link.py",
+    "runfiles_imports.py",
     "venv.tmpl.sh",
     "venv_activate.tmpl.sh",
 ])
@@ -44,7 +45,10 @@ bzl_library(
 bzl_library(
     name = "venv",
     srcs = ["venv.bzl"],
-    deps = ["//py/private:py_library"],
+    deps = [
+        "//py/private:py_library",
+        "@bazel_lib//lib:paths",
+    ],
 )
 
 bzl_library(
@@ -77,6 +81,27 @@ bzl_library(
 )
 
 py_test(
+    name = "runfiles_imports_test",
+    srcs = [
+        "runfiles_imports.py",
+        "runfiles_imports_test.py",
+    ],
+    imports = ["."],
+    main = "runfiles_imports_test.py",
+    deps = ["@pypi//importlib_metadata"],
+)
+
+py_test(
+    name = "runfiles_imports_py312_test",
+    srcs = [
+        "runfiles_imports.py",
+        "runfiles_imports_test.py",
+    ],
+    imports = ["."],
+    main = "runfiles_imports_test.py",
+    python_version = "3.12",
+)
+
     name = "test_link",
     srcs = [
         "link.py",
