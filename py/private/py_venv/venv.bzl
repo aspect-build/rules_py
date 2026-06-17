@@ -406,6 +406,7 @@ def assemble_venv(
         include_system_site_packages = False,
         include_user_site_packages = False,
         default_env = {},
+        runfiles_imports_py,
         venv_activate_tmpl,
         virtualenv_shim_py,
         site_merge_script_py = None,
@@ -428,6 +429,8 @@ def assemble_venv(
         `aspect-include-user-site-packages` key.
       default_env: Dict of env-var name → value. Exported at the top of
         the generated activate script and unset in `deactivate`.
+      runfiles_imports_py: File — site startup helper that resolves first-party
+        modules from a runfiles manifest when no directory tree exists.
       venv_activate_tmpl: File — the activate-script template (usually
         `ctx.file._venv_activate_tmpl`).
       virtualenv_shim_py: File — the `_virtualenv.py` distutils shim
@@ -699,6 +702,45 @@ def assemble_venv(
                 imp = imp,
             )
         return "{}/{}".format(escape, imp)
+
+    def _format_first_party_imp(imp):
+        return None if imp.endswith("site-packages") else imp
+
+    runfiles_imports = ctx.actions.declare_file(
+        "{}/_aspect_rules_py_imports.py".format(site_packages_rel),
+    )
+    ctx.actions.symlink(
+        output = runfiles_imports,
+        target_file = runfiles_imports_py,
+    )
+    runfiles_import_roots = ctx.actions.declare_file(
+        "{}/_aspect_rules_py_imports.txt".format(site_packages_rel),
+    )
+    runfiles_import_root_lines = ctx.actions.args()
+    runfiles_import_root_lines.use_param_file("%s", use_always = True)
+    runfiles_import_root_lines.set_param_file_format("multiline")
+    runfiles_import_root_lines.add(venv_to_runfiles_escape)
+    runfiles_import_root_lines.add_all(
+        imports_depset,
+        map_each = _format_first_party_imp,
+        allow_closure = True,
+    )
+    ctx.actions.write(
+        output = runfiles_import_roots,
+        content = runfiles_import_root_lines,
+    )
+    runfiles_imports_pth = ctx.actions.declare_file(
+        "{}/00_aspect_rules_py_imports.pth".format(site_packages_rel),
+    )
+    ctx.actions.write(
+        output = runfiles_imports_pth,
+        content = "import _aspect_rules_py_imports; _aspect_rules_py_imports.initialize()\n",
+    )
+    declared.extend([
+        runfiles_imports,
+        runfiles_import_roots,
+        runfiles_imports_pth,
+    ])
 
     pth_lines = ctx.actions.args()
     pth_lines.use_param_file("%s", use_always = True)

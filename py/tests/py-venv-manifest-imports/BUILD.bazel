@@ -1,0 +1,18 @@
+load("//py:defs.bzl", "py_test")
+
+genrule(
+    name = "generated",
+    outs = ["pkg/generated.py"],
+    cmd = "echo 'VALUE = 42' > $@",
+)
+
+py_test(
+    name = "test",
+    srcs = [
+        "app.py",
+        "pkg/__init__.py",
+        ":generated",
+    ],
+    imports = ["."],
+    main = "app.py",
+)
