@@ -59,3 +59,21 @@ jobs:
             - name: Test
               working-directory: ${{ matrix.workspace.path }}
               run: aspect test --task-key=test-${{ matrix.workspace.slug }}-${{ matrix.bazel.id }} ${{ matrix.bazel.flags }} -- //...
+            # Standalone scripts that drive bazel directly (e.g. asserting a
+            # build *fails*), so they can't be an `sh_test` under `//...` above.
+            - name: e2e standalone test.sh scripts
+              if: matrix.workspace.slug == 'e2e'
+              run: |
+                set -uo pipefail
+                status=0
+                for script in e2e/cases/*/test.sh; do
+                    echo "::group::${script}"
+                    if bash "${script}"; then
+                        echo "PASS: ${script}"
+                    else
+                        echo "FAIL: ${script}"
+                        status=1
+                    fi
+                    echo "::endgroup::"
+                done
+                exit "${status}"

@@ -1,0 +1,7 @@
+--- a/marker.txt
++++ b/marker.txt
+@@ -20,3 +20,4 @@
+ MARKER_LINE_A
+ MARKER_LINE_B
++PATCHED_WITH_OFFSET
+ MARKER_LINE_C

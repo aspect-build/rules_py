@@ -11,11 +11,11 @@ bazel_env(
     },
 )
 
-exports_files(["test.sh"])
+exports_files(["test_bazel_env_toolchain.sh"])
 
 sh_test(
     name = "test",
-    srcs = ["test.sh"],
+    srcs = ["test_bazel_env_toolchain.sh"],
     data = [
         ":python_env",
         ":python_env/toolchains/python",
