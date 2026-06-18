@@ -11,7 +11,7 @@ Invoked by Bazel as::
     <exec_python> site_merge.py --into <dir> [--collision-policy P] --src <dir> [--src <dir> ...]
 
 Each ``--src`` is one wheel's copy of the package subtree, in
-priority order: on file-level conflicts the first wheel providing a
+installation order: on file-level conflicts the last wheel providing a
 path wins. Every requested source must exist; otherwise the venv would
 silently omit a directory that analysis marked as fully represented by
 the merged output.
@@ -45,10 +45,10 @@ def merge(into, sources):
                 prior = owners.get(rel)
                 if dest.exists() and not dest.is_dir():
                     conflicts.append((rel, prior, src))
-                    continue
+                    dest.unlink()
                 if not dest.exists():
                     dest.mkdir(parents=True)
-                    owners[rel] = src
+                owners[rel] = src
                 kept_dirs.append(d)
             dirs[:] = kept_dirs
             for f in sorted(files):
@@ -58,14 +58,16 @@ def merge(into, sources):
                 prior = owners.get(rel)
                 if dest.is_dir():
                     conflicts.append((rel, prior, src))
-                    continue
+                    shutil.rmtree(dest)
                 if dest.exists():
-                    # First wheel wins; byte-identical duplicates (e.g.
+                    # Byte-identical duplicates (e.g.
                     # an empty __init__.py or py.typed shipped by both
                     # wheels) are benign and not reported.
                     if not filecmp.cmp(str(src_file), str(dest), shallow=False):
                         conflicts.append((rel, prior, src))
-                    continue
+                    else:
+                        owners[rel] = src
+                        continue
                 shutil.copy(str(src_file), str(dest))
                 owners[rel] = src
 
