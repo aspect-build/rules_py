@@ -211,8 +211,8 @@ See `py_binary`'s attribute of the same name for full semantics — the
 two rules share the underlying collision detector.
 
 * "error": Fail analysis.
-* "warning" (default): Print a warning; first-seen wins.
-* "ignore": First-seen wins silently.
+* "warning" (default): Print a warning; last-seen wins.
+* "ignore": Last-seen wins silently.
 """,
         default = "warning",
         values = ["error", "warning", "ignore"],

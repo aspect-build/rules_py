@@ -213,11 +213,24 @@ def _native_sibling_layout_test_impl(ctx):
         if action.mnemonic == "PySiteMerge"
     ]
     asserts.equals(env, 0, len(merge_actions))
-    links = target[PyVenvLayoutInfo].wheel_links.to_list()
-    link_basenames = [link.link.basename for link in links]
-    asserts.equals(env, 1, len([name for name in link_basenames if name == "cv2"]))
-    asserts.true(env, "opencv_python.libs" in link_basenames)
-    asserts.true(env, "opencv_python_headless.libs" in link_basenames)
+    links = {
+        link.install_path.rsplit("/site-packages/", 1)[-1]: link
+        for link in target[PyVenvLayoutInfo].wheel_links.to_list()
+    }
+    asserts.true(env, "cv2" in links)
+    if "cv2" in links:
+        asserts.equals(env, "_native_wheel_headless.install", links["cv2"].install_tree.basename)
+    asserts.true(env, "opencv_python.libs" in links)
+    asserts.true(env, "opencv_python_headless.libs" in links)
+    asserts.equals(env, {
+        "shared/common.pyi": "_native_wheel_headless.install",
+        "shared/from_full.pyi": "_native_wheel_full.install",
+        "shared/from_headless.pyi": "_native_wheel_headless.install",
+    }, {
+        path: link.install_tree.basename
+        for path, link in links.items()
+        if path.startswith("shared/")
+    })
     return analysistest.end(env)
 
 _native_sibling_layout_test = analysistest.make(
@@ -440,10 +453,17 @@ def merge_outputs_test_suite():
         directory_top_levels = [
             "cv2",
             "opencv_python.libs",
+            "shared",
         ],
+        namespace_entries = [
+            "shared/common.pyi",
+            "shared/from_full.pyi",
+        ],
+        namespace_top_levels = ["shared"],
         top_levels = [
             "cv2",
             "opencv_python.libs",
+            "shared",
         ],
         tags = ["manual"],
     )
@@ -452,10 +472,17 @@ def merge_outputs_test_suite():
         directory_top_levels = [
             "cv2",
             "opencv_python_headless.libs",
+            "shared",
         ],
+        namespace_entries = [
+            "shared/common.pyi",
+            "shared/from_headless.pyi",
+        ],
+        namespace_top_levels = ["shared"],
         top_levels = [
             "cv2",
             "opencv_python_headless.libs",
+            "shared",
         ],
         tags = ["manual"],
     )
