@@ -13,7 +13,6 @@ distutils, etc.) treat it as a real venv:
 
     <venv_name>/
       pyvenv.cfg
-      _merged/<package_root>/<package_root>        cross-wheel regular package
       bin/
         python                                    standalone wrapper or launcher
         python3                                 symlink -> python
@@ -90,10 +89,11 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
       Python locks a regular package's `__path__` to the first
       directory found, so the second wheel's graft is unreachable. We
       detect this by cross-referencing each wheel's `regular_roots`
-      against the other claimants' `namespace_dirs` skeletons, and
-      return the minimal conflicted roots as `merge_groups` — the
-      caller physically merges those subtrees (what a flat
-      `pip install` would have produced).
+      against the other claimants' `namespace_dirs` skeletons, then
+      merge the complete top-level namespace from every materialized
+      claimant. This produces one concrete overlay following wheel
+      dependency precedence, remains visible to static tools, and gives
+      Bazel one owned output instead of nested sibling outputs.
 
     * **Console-script name in bin/.** Apply `package_collisions` directly
       — no namespace equivalent.
@@ -108,10 +108,11 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
           fallback.
       console_scripts_map: dict {script_name: struct(module, func)} after
           collision resolution.
-      merge_groups: list of struct(root, site_packages_list) — regular
-          package dirs (site-packages-relative paths) that span wheels
-          and need a physical merge, with the contributing wheels'
-          site-packages paths in last-wins priority order.
+      merge_groups: list of struct(root, site_packages_list,
+          missing_required_site_packages) — top-level namespace package
+          dirs containing a regular package that spans wheels, with every
+          materialized claimant's site-packages path in last-wins priority
+          order and any required claimant that cannot be materialized.
     """
 
     def _complain(what, name, a, b):
@@ -173,8 +174,7 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
     top_level_to_site_pkgs = {}
     skipped_per_wheel = {}
     ns_covered_per_wheel = {}
-    conflicted_roots = {}  # root path -> True (regular package spanning wheels)
-    ns_claimant_sps = {}  # sp -> True, wheels in any all-namespace collision
+    conflicted_top_levels = {}  # top-level -> merge group
     for tl, claimants in tl_claimants.items():
         distinct_sp = {c.site_packages: c for c in claimants}
         if len(distinct_sp) == 1:
@@ -198,12 +198,10 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
             # azure-core-tracing-opentelemetry). Python locks a regular
             # package's __path__ to one directory, so neither .pth nor a
             # per-entry symlink can merge it — collect the roots for the
-            # physical merge in pass 2a, and record every all-namespace
-            # claimant sp.
+            # physical merge in pass 2a.
             tl_prefix = tl + "/"
-            tl_conflicted = False
+            required_site_packages = {}
             for sp_a in distinct_sp.keys():
-                ns_claimant_sps[sp_a] = True
                 w_a = wheel_by_sp[sp_a]
                 for root in getattr(w_a, "regular_roots", ()):
                     if not root.startswith(tl_prefix):
@@ -214,40 +212,34 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
                         w_b = wheel_by_sp[sp_b]
                         if (root in getattr(w_b, "namespace_dirs", ()) or
                             root in getattr(w_b, "regular_roots", ())):
-                            conflicted_roots[root] = True
-                            tl_conflicted = True
+                            required_site_packages[sp_a] = True
+                            required_site_packages[sp_b] = True
 
             unique_claimants = distinct_sp.values()
 
-            # Regular-span conflict: PySiteMerge owns the conflicted roots;
-            # all claimants fall back to .pth. Sibling namespace entries
-            # outside the conflict still get concrete per-entry symlinks.
-            if tl_conflicted:
+            # One physical merge owns the complete top-level whenever a
+            # regular package spans wheels below it. Include every claimant
+            # with an install tree so unrelated namespace portions remain
+            # visible to static tools and no sibling action shares the output
+            # directory. An unrelated legacy claimant can remain on .pth, but
+            # a claimant involved in the conflict must be materialized.
+            if required_site_packages:
+                materialized = []
+                missing_required = []
                 for c in unique_claimants:
-                    skipped_per_wheel.setdefault(c.site_packages, {})[tl] = True
-
-                entried = [c for c in unique_claimants if c.ns_entries]
-                if entried:
-                    entry_owner = {}
-                    for c in entried:
-                        for entry in c.ns_entries:
-                            # Skip entries inside a conflicted root —
-                            # the physical merge owns those.
-                            under_conflict = False
-                            for root in conflicted_roots:
-                                if entry == root or entry.startswith(root + "/"):
-                                    under_conflict = True
-                                    break
-                            if under_conflict:
-                                continue
-                            prior = entry_owner.get(entry)
-                            if prior == None:
-                                entry_owner[entry] = c
-                            elif prior.site_packages != c.site_packages:
-                                _complain("namespace entry", entry, prior.site_packages, c.site_packages)
-                                entry_owner[entry] = c
-                    for entry, c in entry_owner.items():
-                        top_level_to_site_pkgs[entry] = c.site_packages
+                    wheel = wheel_by_sp[c.site_packages]
+                    if getattr(wheel, "install_tree", None) != None:
+                        materialized.append(c.site_packages)
+                        ns_covered_per_wheel.setdefault(c.site_packages, {})[tl] = True
+                    else:
+                        skipped_per_wheel.setdefault(c.site_packages, {})[tl] = True
+                        if c.site_packages in required_site_packages:
+                            missing_required.append(c.site_packages)
+                conflicted_top_levels[tl] = struct(
+                    missing_required_site_packages = missing_required,
+                    root = tl,
+                    site_packages_list = materialized,
+                )
                 continue
 
             # Pure PEP 420 namespace (no regular package spanning wheels).
@@ -345,39 +337,10 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
             seen[c.site_packages] = True
         top_level_to_site_pkgs[tl] = winner.site_packages
 
-    # Pass 2a: fold conflicted roots into merge groups. Keep only the
-    # minimal (shallowest) roots — a conflicted root nested inside
-    # another conflicted root is covered by merging the outer one. For
-    # each root, the contributors are every namespace-claimant wheel
-    # that has the root in its skeleton (content below it) or as its
-    # own regular root, in wheel order (= last-wins priority).
-    merge_groups = []
-    minimal_roots = []
-    for root in sorted(conflicted_roots.keys()):
-        nested = False
-        for outer in minimal_roots:
-            if root == outer or root.startswith(outer + "/"):
-                nested = True
-                break
-        if not nested:
-            minimal_roots.append(root)
-    for root in minimal_roots:
-        group_sps = []
-        missing_required = []
-        for sp in ns_claimant_sps.keys():
-            w = wheel_by_sp[sp]
-            if (root in getattr(w, "regular_roots", ()) or
-                root in getattr(w, "namespace_dirs", ())):
-                if getattr(w, "install_tree", None) == None:
-                    missing_required.append(sp)
-                else:
-                    group_sps.append(sp)
-        if len(group_sps) + len(missing_required) >= 2:
-            merge_groups.append(struct(
-                missing_required_site_packages = missing_required,
-                root = root,
-                site_packages_list = group_sps,
-            ))
+    # Pass 2a: one concrete output per conflicted top-level namespace. Merging
+    # every claimant preserves unrelated namespace portions for static tools
+    # and avoids sibling actions materializing a shared parent directory.
+    merge_groups = [conflicted_top_levels[root] for root in sorted(conflicted_top_levels.keys())]
 
     # Pass 2b: console scripts.
     console_scripts_map = {}
@@ -643,20 +606,21 @@ def assemble_venv(
             ))
         declared.append(out)
 
-    # A regular package spanning namespace wheels becomes one TreeArtifact
-    # under _merged, with a site-packages symlink for static tools. The
-    # explicit boundary lets packaging consumers classify derived wheel
-    # content without guessing from ordinary venv paths.
+    # A regular package spanning namespace wheels makes its complete top-level
+    # package one TreeArtifact directly under site-packages. This gives Bazel
+    # one action owner for the namespace directory, while provider metadata
+    # classifies the generated content for packaging consumers.
     #
     # The merge runs as a build action under the exec-configuration
-    # interpreter (same shape as WhlInstall's unpack action). Every claimant
-    # needs an install tree because omitting one would silently produce an
-    # incomplete directory.
+    # interpreter (same shape as WhlInstall's unpack action). A claimant
+    # involved in the conflict needs an install tree because omitting it would
+    # silently produce an incomplete directory; unrelated legacy claimants
+    # remain on the .pth fallback.
     manifest_only_import_roots = []
     dependency_files = []
     for group in merge_groups:
         if group.missing_required_site_packages:
-            fail(("{}: wheels {} are required to merge the regular package `{}` " +
+            fail(("{}: wheels {} are required to merge the top-level package `{}` " +
                   "but do not expose install_tree outputs.").format(
                 ctx.label,
                 group.missing_required_site_packages,
@@ -681,16 +645,13 @@ def assemble_venv(
                 EXEC_TOOLS_TOOLCHAIN,
             ))
 
-        merged_tree = ctx.actions.declare_directory(
-            "{}/_merged/{}".format(venv_name, group.root),
-        )
+        merged_tree = ctx.actions.declare_directory("{}/{}".format(site_packages_rel, group.root))
         arguments = ctx.actions.args()
         arguments.add(site_merge_script_py)
         arguments.add_all(
             [merged_tree],
             expand_directories = False,
             before_each = "--into",
-            format_each = "%s/" + group.root,
         )
         arguments.add("--collision-policy", package_collisions)
         trees = []
@@ -724,24 +685,16 @@ def assemble_venv(
                 "supports-path-mapping": "1",
             },
         )
-        merged_link = ctx.actions.declare_symlink("{}/{}".format(site_packages_rel, group.root))
-        extra_up = "../" * group.root.count("/")
-        ctx.actions.symlink(
-            output = merged_link,
-            target_path = "{}{}/_merged/{}/{}".format(
-                extra_up,
-                site_packages_to_venv_root,
-                group.root,
-                group.root,
-            ),
-        )
-        declared.extend([merged_tree, merged_link])
+        declared.append(merged_tree)
         dependency_files.append(merged_tree)
 
-        # Directory runfiles reach the merge through the site-packages symlink.
-        # Manifest-only runfiles need a synthetic import root because a tree
-        # artifact cannot be traversed through that logical symlink.
-        manifest_only_import_roots.append(to_rlocation_path(ctx, merged_tree))
+        # Directory runfiles expose the venv's site-packages normally.
+        # Manifest-only runfiles need one synthetic parent import root whose
+        # entries include every merged top-level TreeArtifact.
+        if not manifest_only_import_roots:
+            manifest_only_import_roots.append("/".join(
+                to_rlocation_path(ctx, merged_tree).split("/")[:-1],
+            ))
 
     # Physical venvs use their alias-relative wheel roots. Ordinary targets use
     # site.addsitedir so root-level .pth shims execute through runfiles. Direct

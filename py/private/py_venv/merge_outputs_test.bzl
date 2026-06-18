@@ -37,7 +37,7 @@ def _wheel_impl(ctx):
         ),
         PyInfo(
             imports = depset([site_packages]),
-            transitive_sources = depset(),
+            transitive_sources = depset([install_tree]),
             has_py2_only_sources = False,
             has_py3_only_sources = True,
             uses_shared_libraries = False,
@@ -69,14 +69,14 @@ def _merge_outputs_test_impl(ctx):
         if action.mnemonic == "PySiteMerge"
     ]
 
-    asserts.equals(env, 3, len(merge_actions))
+    asserts.equals(env, 2, len(merge_actions))
     outputs = [
         output
         for action in merge_actions
         for output in action.outputs.to_list()
     ]
-    asserts.equals(env, 3, len(outputs))
-    if len(outputs) == 3:
+    asserts.equals(env, 2, len(outputs))
+    if len(outputs) == 2:
         paths = [output.short_path for output in outputs]
         runfiles = target[DefaultInfo].default_runfiles.files.to_list()
         wheel_targets = [
@@ -84,7 +84,7 @@ def _merge_outputs_test_impl(ctx):
             for file in runfiles
             if file.basename.endswith(".install")
         ]
-        asserts.equals(env, 5, len(wheel_targets))
+        asserts.equals(env, 6, len(wheel_targets))
 
         pth_actions = [
             action
@@ -101,17 +101,17 @@ def _merge_outputs_test_impl(ctx):
                 asserts.true(env, '"_wheels"' in pth_actions[0].content)
             else:
                 asserts.true(env, "site.addsitedir" in pth_actions[0].content)
+            asserts.true(env, "_merge_wheel_legacy.install" in pth_actions[0].content)
         asserts.true(env, all([output.is_directory for output in outputs]))
         asserts.true(env, all([output in runfiles for output in outputs]))
         merge_keys = {
-            path.split("/_merged/", 1)[1]: True
+            path.rsplit("/site-packages/", 1)[1]: True
             for path in paths
-            if "/_merged/" in path
+            if "/site-packages/" in path
         }
         asserts.equals(env, {
-            "alpha/left": True,
-            "alpha/right": True,
-            "beta/root": True,
+            "alpha": True,
+            "beta": True,
         }, merge_keys)
 
         layout = target[PyVenvLayoutInfo]
@@ -144,7 +144,26 @@ def _merge_outputs_test_impl(ctx):
             for link in wheel_links
             if link.install_path.endswith("/site-packages/alpha/other")
         ]
-        asserts.equals(env, 1, len(sibling_links))
+        asserts.equals(env, 0, len(sibling_links))
+
+        import_root_actions = [
+            action
+            for action in analysistest.target_actions(env)
+            if any([
+                output.basename == "_aspect_rules_py_imports.txt"
+                for output in action.outputs.to_list()
+            ])
+        ]
+        asserts.equals(env, 1, len(import_root_actions))
+        if len(import_root_actions) == 1:
+            manifest_roots = [
+                line
+                for line in import_root_actions[0].content.splitlines()
+                if line.startswith("manifest-only:")
+            ]
+            asserts.equals(env, 1, len(manifest_roots))
+            if len(manifest_roots) == 1:
+                asserts.true(env, manifest_roots[0].endswith("/site-packages"))
 
         source_counts = {}
         for action in merge_actions:
@@ -159,27 +178,17 @@ def _merge_outputs_test_impl(ctx):
                 for arg in action.argv
                 if arg == "--src"
             ])
-        asserts.equals(env, {"left": 2, "right": 2, "root": 2}, source_counts)
-        asserts.false(env, any([
+        asserts.equals(env, {"alpha": 3, "beta": 2}, source_counts)
+        asserts.true(env, any([
             "_merge_wheel_extra.install" in arg
             for action in merge_actions
             for arg in action.argv
         ]))
-        all_output_paths = [
-            output.short_path
-            for action in analysistest.target_actions(env)
-            for output in action.outputs.to_list()
-        ]
-        merged_links = {
-            path.rsplit("/site-packages/", 1)[-1]: True
-            for path in all_output_paths
-            if "/site-packages/" in path and path.rsplit("/site-packages/", 1)[-1] in (
-                "alpha/left",
-                "alpha/right",
-                "beta/root",
-            )
-        }
-        asserts.equals(env, merge_keys, merged_links)
+        asserts.false(env, any([
+            "_merge_wheel_legacy.install" in arg
+            for action in merge_actions
+            for arg in action.argv
+        ]))
 
     return analysistest.end(env)
 
@@ -199,7 +208,7 @@ def _exposed_layout_test_impl(ctx):
     if PyVenvLayoutInfo in target:
         layout = target[PyVenvLayoutInfo]
         asserts.equals(env, 5, len(layout.wheel_aliases.to_list()))
-        asserts.equals(env, 4, len(layout.wheel_links.to_list()))
+        asserts.equals(env, 3, len(layout.wheel_links.to_list()))
     return analysistest.end(env)
 
 _exposed_layout_test = analysistest.make(_exposed_layout_test_impl)
@@ -309,8 +318,14 @@ def _merge_layer_outputs_test_impl(ctx):
         dependency_inputs = [file.path for file in dependency_actions[0].inputs.to_list()]
         source_inputs = [file.path for file in source_actions[0].inputs.to_list()]
         overlay_inputs = [file.path for file in overlay_actions[0].inputs.to_list()]
-        asserts.equals(env, 3, len([path for path in dependency_inputs if "/_merged/" in path]))
-        asserts.false(env, any(["/_merged/" in path for path in source_inputs]))
+        merged_dependencies = [
+            path
+            for path in dependency_inputs
+            if path.endswith("/site-packages/alpha") or path.endswith("/site-packages/beta")
+        ]
+        asserts.equals(env, 2, len(merged_dependencies))
+        merged_dependency_paths = {path: True for path in merged_dependencies}
+        asserts.false(env, any([path in merged_dependency_paths for path in source_inputs]))
         asserts.false(env, any(["/_wheels/" in path for path in source_inputs]))
         asserts.false(env, any([path.endswith("/site-packages/gamma") for path in source_inputs]))
         asserts.false(env, any([path.endswith(".install") for path in overlay_inputs]))
@@ -323,7 +338,7 @@ def _merge_layer_outputs_test_impl(ctx):
         ]
         asserts.equals(env, ctx.attr.expected_link_count, len(link_lines))
         asserts.true(env, any(["/site-packages/gamma " in line for line in link_lines]))
-        asserts.true(env, any(["/site-packages/alpha/other " in line for line in link_lines]))
+        asserts.false(env, any(["/site-packages/alpha/other " in line for line in link_lines]))
 
     return analysistest.end(env)
 
@@ -347,6 +362,7 @@ def merge_outputs_test_suite():
         ":_merge_wheel_direct",
         ":_merge_wheel_grafts",
         ":_merge_wheel_extra",
+        ":_merge_wheel_legacy",
         ":_merge_wheel_metadata_miss",
         ":_merge_wheel_regular",
     ]
@@ -382,6 +398,15 @@ def merge_outputs_test_suite():
         directory_top_levels = ["alpha"],
         namespace_dirs = ["alpha/other"],
         namespace_entries = ["alpha/other"],
+        namespace_top_levels = ["alpha"],
+        top_levels = ["alpha"],
+        tags = ["manual"],
+    )
+    whl_install(
+        name = "_merge_wheel_legacy",
+        directory_top_levels = ["alpha"],
+        expose_install_tree = False,
+        namespace_entries = ["alpha/legacy"],
         namespace_top_levels = ["alpha"],
         top_levels = ["alpha"],
         tags = ["manual"],
@@ -423,14 +448,14 @@ def merge_outputs_test_suite():
         name = "merge_outputs_test",
         expected_metadata_links = 0,
         expected_wheel_aliases = 0,
-        expected_wheel_links = 2,
+        expected_wheel_links = 1,
         target_under_test = ":_merge_outputs_binary",
     )
     _merge_outputs_test(
         name = "merge_outputs_venv_test",
         expected_metadata_links = 1,
         expected_wheel_aliases = 5,
-        expected_wheel_links = 4,
+        expected_wheel_links = 3,
         target_under_test = ":_merge_outputs_venv",
     )
     _exposed_layout_test(
@@ -439,12 +464,12 @@ def merge_outputs_test_suite():
     )
     _merge_layer_outputs_test(
         name = "merge_layer_outputs_test",
-        expected_link_count = 2,
+        expected_link_count = 1,
         target_under_test = ":_merge_outputs_layers",
     )
     _merge_layer_outputs_test(
         name = "merge_exposed_layer_outputs_test",
-        expected_link_count = 4,
+        expected_link_count = 3,
         target_under_test = ":_merge_outputs_exposed_layers",
     )
 
