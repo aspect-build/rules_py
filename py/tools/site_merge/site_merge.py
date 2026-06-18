@@ -21,7 +21,29 @@ import argparse
 import filecmp
 import os
 import shutil
+import stat
 from pathlib import Path
+
+
+def _remove(path):
+    """Remove copied Bazel inputs, including read-only files on Windows."""
+
+    def retry_readonly(function, candidate, exc_info):
+        error = exc_info[1]
+        if not isinstance(error, PermissionError):
+            raise error
+        candidate = Path(candidate)
+        candidate.chmod(candidate.stat().st_mode | stat.S_IWRITE)
+        function(candidate)
+
+    if path.is_dir():
+        shutil.rmtree(path, onerror=retry_readonly)
+        return
+    try:
+        path.unlink()
+    except PermissionError:
+        path.chmod(path.stat().st_mode | stat.S_IWRITE)
+        path.unlink()
 
 
 def merge(into, sources):
@@ -45,7 +67,7 @@ def merge(into, sources):
                 prior = owners.get(rel)
                 if dest.exists() and not dest.is_dir():
                     conflicts.append((rel, prior, src))
-                    dest.unlink()
+                    _remove(dest)
                 if not dest.exists():
                     dest.mkdir(parents=True)
                 owners[rel] = src
@@ -58,16 +80,19 @@ def merge(into, sources):
                 prior = owners.get(rel)
                 if dest.is_dir():
                     conflicts.append((rel, prior, src))
-                    shutil.rmtree(dest)
+                    _remove(dest)
                 if dest.exists():
                     # Byte-identical duplicates (e.g.
                     # an empty __init__.py or py.typed shipped by both
                     # wheels) are benign and not reported.
-                    if not filecmp.cmp(str(src_file), str(dest), shallow=False):
-                        conflicts.append((rel, prior, src))
-                    else:
+                    if filecmp.cmp(str(src_file), str(dest), shallow=False):
                         owners[rel] = src
                         continue
+                    conflicts.append((rel, prior, src))
+                    # Bazel inputs are commonly read-only, and shutil.copy
+                    # preserves that mode. Unlink before installing the later
+                    # winner so it does not need write access to the old file.
+                    _remove(dest)
                 shutil.copy(str(src_file), str(dest))
                 owners[rel] = src
 

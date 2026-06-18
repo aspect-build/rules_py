@@ -64,7 +64,9 @@ class SiteMergeTest(unittest.TestCase):
             second = root / "second"
             output = root / "output"
             first.mkdir()
-            (first / "entry").write_text("first")
+            first_entry = first / "entry"
+            first_entry.write_text("first")
+            first_entry.chmod(0o444)
             (second / "entry").mkdir(parents=True)
             (second / "entry/child.py").write_text("second")
 
@@ -80,7 +82,9 @@ class SiteMergeTest(unittest.TestCase):
             second = root / "second"
             output = root / "output"
             (first / "entry").mkdir(parents=True)
-            (first / "entry/child.py").write_text("first")
+            first_child = first / "entry/child.py"
+            first_child.write_text("first")
+            first_child.chmod(0o444)
             second.mkdir()
             (second / "entry").write_text("second")
 
@@ -97,8 +101,11 @@ class SiteMergeTest(unittest.TestCase):
             output = root / "output"
             first.mkdir()
             second.mkdir()
-            (first / "entry").write_text("first")
-            (second / "entry").write_text("second")
+            first_entry = first / "entry"
+            second_entry = second / "entry"
+            first_entry.write_text("first")
+            first_entry.chmod(0o444)
+            second_entry.write_text("second")
 
             conflicts = merge(output, [first, second])
 
