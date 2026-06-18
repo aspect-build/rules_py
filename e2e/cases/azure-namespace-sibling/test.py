@@ -25,7 +25,7 @@ def test_sibling_entry_is_concrete_in_site_packages():
     identity_dir = os.path.join(azure_dir, "identity")
     assert os.path.isdir(identity_dir), (
         f"site-packages/azure/identity/ is missing — sibling namespace entry "
-        f"lost its concrete symlink due to tl_conflicted. "
+        f"was omitted from the complete top-level merge. "
         f"azure/ holds: {sorted(os.listdir(azure_dir))}"
     )
     assert os.path.isfile(os.path.join(identity_dir, "__init__.py")), (
