@@ -42,7 +42,8 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
       * `*.dist-info/RECORD` (mandatory per PEP 427) to get top-level names.
       * `*.dist-info/entry_points.txt` (optional) to get `[console_scripts]`.
 
-    Both reads go through `unzip -p` (stdout, no disk writes).
+    Fails if the archive cannot be inspected, so package collision and
+    console-script handling never silently depend on host tooling.
 
     Args:
       repository_ctx: The repo rule context.
@@ -73,19 +74,55 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
           directly contain an `__init__.py` (regular packages). Powers
           the per-wheel namespace_dirs / regular_roots derivation, which
           venv assembly uses to detect regular packages spanning wheels.
-      All empty on any failure — callers tolerate empty and fall back.
     """
-    unzip = repository_ctx.which("unzip")
-    if not unzip:
-        return {}, {}, {}, {}, {}, {}
-
     whl_path = _find_whl_file(repository_ctx, whl_label)
     if whl_path == None:
-        return {}, {}, {}, {}, {}, {}
+        fail("{}: could not find wheel for {}".format(repository_ctx.name, whl_label))
+
+    metadata_directory = repository_ctx.attr.metadata_directory
+    if not metadata_directory:
+        fail("{}: no metadata directory is known for wheel {}".format(
+            repository_ctx.name,
+            whl_path,
+        ))
+    if not metadata_directory.endswith(".dist-info"):
+        fail("{}: invalid metadata directory {} for wheel {}".format(
+            repository_ctx.name,
+            metadata_directory,
+            whl_path,
+        ))
+
+    # `extract` infers archive type from the extension, so symlink the
+    # wheel to a `.zip` name to extract it as the ZIP it is. Drop this once
+    # the min Bazel includes .whl detection (bazelbuild/bazel@d9634ca1c143136ef3b02b5ad8876a62368762b5).
+    metadata_dir = "_wheel_metadata"
+    metadata_archive = "_wheel_metadata.zip"
+    repository_ctx.delete(metadata_dir)
+    repository_ctx.delete(metadata_archive)
+    repository_ctx.symlink(whl_path, metadata_archive)
+    repository_ctx.extract(
+        archive = metadata_archive,
+        output = metadata_dir,
+        strip_prefix = metadata_directory,
+    )
+    repository_ctx.delete(metadata_archive)
+    metadata_path = repository_ctx.path(metadata_dir)
+    record_path = metadata_path.get_child("RECORD")
+    if not record_path.exists:
+        fail("{}: wheel {} has no {}/RECORD".format(
+            repository_ctx.name,
+            whl_path,
+            metadata_directory,
+        ))
+    record = repository_ctx.read(record_path)
+    entry_points = ""
+    entry_points_path = metadata_path.get_child("entry_points.txt")
+    if entry_points_path.exists:
+        entry_points = repository_ctx.read(entry_points_path)
+    repository_ctx.delete(metadata_dir)
 
     # RECORD: authoritative list of every installed file. First path segment
     # = top-level name, excluding the wheel's `*.data/` staging area.
-    record = repository_ctx.execute([unzip, "-p", str(whl_path), "*.dist-info/RECORD"])
     top_levels_set = {}
 
     # Tracks which top-levels contain a direct `<toplevel>/__init__.py` —
@@ -100,8 +137,8 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
     record_segments = []
     dirs_set = {}
     init_dirs = {}
-    if record.return_code == 0 and record.stdout:
-        for line in record.stdout.splitlines():
+    if record:
+        for line in record.splitlines():
             line = line.strip()
             if not line:
                 continue
@@ -180,11 +217,10 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
     # entry_points.txt: INI-style file. Only `[console_scripts]` interests
     # us — pip/uv synthesize executables under `bin/<name>` from those at
     # install time. Missing file is normal (lots of libs have no scripts).
-    ep = repository_ctx.execute([unzip, "-p", str(whl_path), "*.dist-info/entry_points.txt"])
     console_scripts = {}
-    if ep.return_code == 0 and ep.stdout:
+    if entry_points:
         in_console_scripts = False
-        for raw_line in ep.stdout.splitlines():
+        for raw_line in entry_points.splitlines():
             # Strip comments (`;` or `#`) and whitespace.
             line = raw_line.split(";", 1)[0].split("#", 1)[0].strip()
             if not line:
@@ -542,9 +578,9 @@ filegroup(
     # platform/interpreter) are skipped — they can never be the active
     # wheel, and peeking at them would force a useless download.
     #
-    # Falls back gracefully: a wheel without an entry (extraction failed,
-    # or the sbuild fallback whose contents are unknowable until build
-    # time) emits no PyWheelsInfo and consumers use .pth-based resolution.
+    # The sbuild fallback, whose contents are unknowable until build time,
+    # is never peeked at here: it emits no PyWheelsInfo and consumers use
+    # .pth-based resolution.
     #
     # We read from `whl_files` (a real label_list) rather than `whls` (a
     # JSON-encoded string of labels) because only the former adds the
@@ -701,6 +737,9 @@ exports_files(
 whl_install = repository_rule(
     implementation = _whl_install_impl,
     attrs = {
+        # `<project>-<version>.dist-info`, the directory `_extract_wheel_metadata`
+        # strips to when extracting RECORD/entry_points.txt out of the wheel.
+        "metadata_directory": attr.string(),
         "whls": attr.string(),
         # Mirror of the http_file labels from `whls`, declared as a real
         # label_list so Bazel adds those repos to this repo's visibility
