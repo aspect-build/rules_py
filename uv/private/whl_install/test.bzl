@@ -104,8 +104,22 @@ def _record_path_test_impl(ctx):
         parse_record_path("\"package/a,b\"\"c.py\",,"),
     )
 
-    # Blank / whitespace-only lines yield no path (caller skips them).
-    asserts.equals(env, "", parse_record_path("   "))
+    # Empty first field (blank line, or a leading comma) yields no path; the
+    # caller skips falsy paths.
+    asserts.equals(env, "", parse_record_path(""))
+    asserts.equals(env, "", parse_record_path(",sha256=abc,1"))
+
+    # Byte-faithful to csv.reader on malformed-but-parseable rows (these don't
+    # occur in valid RECORD files, but we match the reader rather than guess):
+    #
+    #   text after a closing quote concatenates literally,
+    asserts.equals(env, "abcdef", parse_record_path("\"abc\"def,1"))
+    #   with quotes in that trailing text staying literal,
+    asserts.equals(env, "abcdef\"ghi\"", parse_record_path("\"abc\"def\"ghi\",1"))
+    #   a `"` that does not open the field is a literal character,
+    asserts.equals(env, "a\"b\"c", parse_record_path("a\"b\"c,1"))
+    #   and an unterminated quote consumes the rest of the row.
+    asserts.equals(env, "unterminated,1", parse_record_path("\"unterminated,1"))
 
     return unittest.end(env)
 

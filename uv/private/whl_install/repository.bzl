@@ -17,39 +17,58 @@ load("//uv/private/pprint:defs.bzl", "pprint")
 def parse_record_path(line):
     """Return the path field from one CSV-encoded wheel RECORD row.
 
-    RECORD is a CSV file in Python's default `csv` reader dialect: `,`
-    delimiter, `"` quote char, `""` -> `"` escaping. A path is quoted only
-    when it contains a comma (or quote). See:
+    RECORD is a CSV file in Python's default `csv` reader dialect (`,`
+    delimiter, `"` quote char, `""` -> `"` escaping, no whitespace trimming):
     https://packaging.python.org/en/latest/specifications/recording-installed-packages/#the-record-file
+    https://docs.python.org/3/library/csv.html#csv.reader
 
-    NOTE: the caller splits RECORD on line boundaries before calling this, so
-    a path containing an embedded newline inside a quoted field (legal on
-    POSIX, vanishingly rare) is not handled.
+    Parses the first field of one row the way `csv.reader` would, matching
+    CPython's RECORD reader `importlib.metadata.Distribution.files` (which also
+    does `read_text("RECORD").splitlines()` then `csv.reader` per line):
+    https://github.com/python/cpython/blob/main/Lib/importlib/metadata/__init__.py
+
+    NOTE: because RECORD is split per line before this is called, a quoted path
+    containing an embedded newline (legal but vanishingly rare) is not handled
+    -- the same limitation `importlib.metadata` has.
     """
-    line = line.strip()
-    if not line:
-        return ""
-    if not line.startswith("\""):
-        return line.split(",", 1)[0]
-
     path = []
-    skip_quote = False
-    for index in range(1, len(line)):
-        if skip_quote:
-            skip_quote = False
-            continue
-        char = line[index]
-        if char != "\"":
-            path.append(char)
-        elif index + 1 < len(line) and line[index + 1] == "\"":
-            path.append("\"")
-            skip_quote = True
-        else:
-            if index + 1 < len(line) and line[index + 1] != ",":
-                fail("invalid wheel RECORD row: unexpected text after quoted path")
-            return "".join(path)
 
-    fail("invalid wheel RECORD row: unterminated quoted path")
+    # States mirror csv.reader's field parser:
+    #   start       - at the field boundary, before any character
+    #   unquoted    - inside an unquoted field; `"` is a literal character
+    #   quoted      - inside a quoted field; `,` is a literal character
+    #   after_quote - just saw a `"` while quoted; decide escape vs. close
+    state = "start"
+    for index in range(len(line)):
+        char = line[index]
+        if state == "start":
+            if char == ",":
+                return ""
+            elif char == "\"":
+                state = "quoted"
+            else:
+                path.append(char)
+                state = "unquoted"
+        elif state == "unquoted":
+            if char == ",":
+                return "".join(path)
+            path.append(char)
+        elif state == "quoted":
+            if char == "\"":
+                state = "after_quote"
+            else:
+                path.append(char)
+        else:  # after_quote
+            if char == "\"":
+                path.append("\"")  # doubled quote -> literal `"`
+                state = "quoted"
+            elif char == ",":
+                return "".join(path)
+            else:
+                path.append(char)  # text after a closing quote
+                state = "unquoted"
+
+    return "".join(path)
 
 def _find_whl_file(repository_ctx, whl_label):
     """Resolve an http_file-style wheel label to the actual .whl path on disk.
