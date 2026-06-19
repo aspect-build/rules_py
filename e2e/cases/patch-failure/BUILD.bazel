@@ -1,0 +1,52 @@
+# Fixtures for the package-patch failure regression test (driven by ./test.sh).
+# Tagged `manual` so `bazel build //...` never trips over `broken_patch`, which
+# deliberately fails to apply; test.sh builds them explicitly.
+#
+# gazelle:ignore
+
+load("@aspect_rules_py//uv/private/whl_install:rule.bzl", "whl_install")
+
+# A minimal wheel. The patch targets a `.data/data/` file, which installs to the
+# install-tree root (`<into>/marker.txt`) — no python-version path component, so
+# the patch doesn't depend on which py toolchain resolves.
+genrule(
+    name = "fake_wheel",
+    outs = ["fakepkg-1.0.0-py3-none-any.whl"],
+    cmd = "\n".join([
+        "set -e",
+        'stage="$@.unpacked"',
+        'rm -rf "$$stage"',
+        'mkdir -p "$$stage/fakepkg" "$$stage/fakepkg-1.0.0.data/data" "$$stage/fakepkg-1.0.0.dist-info"',
+        "printf '# fakepkg\\n' > \"$$stage/fakepkg/__init__.py\"",
+        "printf 'MARKER_LINE_A\\nMARKER_LINE_B\\nMARKER_LINE_C\\n' > \"$$stage/fakepkg-1.0.0.data/data/marker.txt\"",
+        "printf 'Metadata-Version: 2.1\\nName: fakepkg\\nVersion: 1.0.0\\n' > \"$$stage/fakepkg-1.0.0.dist-info/METADATA\"",
+        "printf 'Wheel-Version: 1.0\\nGenerator: rules_py_patch_test\\nRoot-Is-Purelib: true\\nTag: py3-none-any\\n' > \"$$stage/fakepkg-1.0.0.dist-info/WHEEL\"",
+        ': > "$$stage/fakepkg-1.0.0.dist-info/RECORD"',
+        'out="$$(pwd)/$@"',
+        '(cd "$$stage" && zip -q -X -r "$$out" .)',
+        'rm -rf "$$stage"',
+    ]),
+    tags = ["manual"],
+)
+
+# A patch whose hunk applies with a large offset (its header claims line 20 but
+# the context lives at line 1). GNU patch's default would drop a `.orig` backup
+# here; the fix passes --no-backup-if-mismatch so it must not.
+whl_install(
+    name = "offset_patch",
+    src = ":fake_wheel",
+    patch_strip = 1,
+    patches = ["offset.patch"],
+    tags = ["manual"],
+)
+
+# Deletes a line that does not exist. `patch`'s fuzz only relaxes context lines,
+# never `-` lines, so this is rejected regardless of fuzz factor/version (a
+# context-only mismatch would be silently absorbed by GNU patch's default fuzz).
+whl_install(
+    name = "broken_patch",
+    src = ":fake_wheel",
+    patch_strip = 1,
+    patches = ["broken.patch"],
+    tags = ["manual"],
+)

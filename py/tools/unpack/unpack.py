@@ -181,12 +181,25 @@ def main():
     )
 
     for patch_file in args.patches:
-        r = subprocess.run(
-            [str(args.patch_tool), "-p{}".format(args.patch_strip), "-d", str(args.into)],
-            stdin=patch_file.open("rb"),
-        )
+        # --no-backup-if-mismatch: a fuzz/offset apply otherwise drops a
+        # `<file>.orig` into the install tree, leaking into every consuming venv.
+        with patch_file.open("rb") as patch_stream:
+            r = subprocess.run(
+                [
+                    str(args.patch_tool),
+                    "--no-backup-if-mismatch",
+                    "-p{}".format(args.patch_strip),
+                    "-d",
+                    str(args.into),
+                ],
+                stdin=patch_stream,
+            )
+        # patch's rejected-hunk details go to the inherited stderr; fail the
+        # action rather than emit a half-patched wheel.
         if r.returncode != 0:
-            raise SystemExit("patch failed ({}) for {}".format(r.returncode, patch_file))
+            raise SystemExit(
+                "Error: failed to apply patch {} (patch exited {}).".format(patch_file, r.returncode)
+            )
 
     if args.compile_pyc:
         if not args.python:
