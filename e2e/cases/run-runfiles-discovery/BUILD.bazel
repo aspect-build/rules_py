@@ -19,5 +19,4 @@ sh_test(
     srcs = ["run_it.sh"],
     args = ["$(rootpath :hello)"],
     data = [":hello"],
-    tags = ["manual"],
 )
