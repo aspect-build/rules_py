@@ -157,6 +157,8 @@ def install_wheel(version_major, version_minor, into, wheel_path):
 
 
 def main():
+    os.umask(0o022)
+
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--into", required=True, type=Path)
     ap.add_argument("--wheel", required=True, type=Path)
