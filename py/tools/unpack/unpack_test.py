@@ -15,9 +15,9 @@ def _write_member(archive: zipfile.ZipFile, name: str, data: bytes, mode: int) -
 def _build_wheel(path: Path, *, broken: bool) -> None:
     body = b"def f(\n" if broken else b"def f():\n    return 1\n"
     with zipfile.ZipFile(path, "w") as archive:
-        _write_member(archive, "fixture/__init__.py", b"VALUE = 1\n")
-        _write_member(archive, "fixture/mod.py", body)
-        _write_member(archive, "fixture-1.0.dist-info/RECORD", b"")
+        _write_member(archive, "fixture/__init__.py", b"VALUE = 1\n", 0o644)
+        _write_member(archive, "fixture/mod.py", body, 0o644)
+        _write_member(archive, "fixture-1.0.dist-info/RECORD", b"", 0o644)
 
 def _mode(path: Path) -> int:
     return stat.S_IMODE(path.stat().st_mode)
@@ -69,6 +69,7 @@ def main() -> None:
         assert bad.returncode != 0, "expected non-zero exit on compile failure"
         assert "compileall failed" in bad.stderr, bad.stderr
 
+        wheel = root / "fixture-1.0-py3-none-any.whl"
         with zipfile.ZipFile(wheel, "w") as archive:
             _write_member(archive, "fixture/__init__.py", b"VALUE = 1\n", 0o600)
             _write_member(archive, "fixture/executable", b"payload\n", 0o700)
