@@ -27,7 +27,7 @@ files:
 ---
 layer: 3
 files:
-  - -rwxr-xr-x  0 0      0       18704 Jan  1  2023 ./app
+  - -rwxr-xr-x  0 0      0       17400 Jan  1  2023 ./app
   - -rwxr-xr-x  0 0      0          15 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/._my_app_bin.venv/_wheels/3b1f634a/lib/python3.11/site-packages/colorama-0.4.6.dist-info/INSTALLER
   - -rwxr-xr-x  0 0      0       17158 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/._my_app_bin.venv/_wheels/3b1f634a/lib/python3.11/site-packages/colorama-0.4.6.dist-info/METADATA
   - -rwxr-xr-x  0 0      0        1568 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/._my_app_bin.venv/_wheels/3b1f634a/lib/python3.11/site-packages/colorama-0.4.6.dist-info/RECORD
