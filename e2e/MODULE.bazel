@@ -18,6 +18,12 @@ local_path_override(
     path = "..",
 )
 
+git_override(
+    module_name = "hermetic_launcher",
+    commit = "4e855d2d57b7f4491faf83253842985b6b5f9093",
+    remote = "https://github.com/hermeticbuild/hermetic-launcher",
+)
+
 # Ensure any transitive "aspect_bazel_lib" is latest to be forward compatible with bazel_lib 3+
 single_version_override(
     module_name = "aspect_bazel_lib",
