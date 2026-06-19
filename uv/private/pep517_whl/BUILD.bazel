@@ -16,7 +16,10 @@ exports_files(
 bzl_library(
     name = "rule",
     srcs = ["rule.bzl"],
-    deps = ["//py/private/toolchain:types"],
+    deps = [
+        "//py/private/toolchain:types",
+        "@bazel_lib//lib:resource_sets",
+    ],
 )
 
 bzl_library(

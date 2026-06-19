@@ -1,6 +1,12 @@
 """Verify that native_build_toolchain_type is registered via @rules_py_tools//:all
 so that sdist packages with C extensions can be built with pep517_native_whl.
 python-geohash is sdist-only and contains a C++ extension (_geohash).
+
+Also exercises `uv.override_package(resource_set = ...)`: the chosen bazel-lib
+resource set must thread through the extension and sdist_build's generated
+pep517_native_whl(...) call so the native build action carries a local memory
+reservation (honored under --experimental_action_resource_set, set in the e2e
+.bazelrc). The geohash wheel must still build and import.
 """
 
 uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
@@ -13,5 +19,10 @@ uv.project(
     hub_name = "pypi_uv_sdist_native_build",
     lock = "//cases/uv-sdist-native-build:uv.lock",
     pyproject = "//cases/uv-sdist-native-build:pyproject.toml",
+)
+uv.override_package(
+    name = "python-geohash",
+    lock = "//cases/uv-sdist-native-build:uv.lock",
+    resource_set = "mem_4g",
 )
 use_repo(uv, "pypi_uv_sdist_native_build")

@@ -5,6 +5,7 @@ Uses `python -m build` (the pypa/build frontend) which delegates to whatever
 build backend the sdist declares in its `[build-system]` table.
 """
 
+load("@bazel_lib//lib:resource_sets.bzl", "resource_set", "resource_set_attr")
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 load("//py/private/toolchain:types.bzl", "NATIVE_BUILD_TOOLCHAIN", "PY_TOOLCHAIN")
 
@@ -118,6 +119,7 @@ def _pep517_whl(ctx):
         outputs = [wheel_dir],
         env = _common_env(ctx),
         exec_group = "target",
+        resource_set = resource_set(ctx.attr),
     )
 
     return [DefaultInfo(files = depset([wheel_dir]))]
@@ -158,6 +160,7 @@ def _pep517_native_whl(ctx):
         outputs = [wheel_dir],
         env = env,
         exec_group = "target",
+        resource_set = resource_set(ctx.attr),
     )
 
     return [DefaultInfo(files = depset([wheel_dir]))]
@@ -179,7 +182,7 @@ _pep517_whl_attrs = {
     "tool": attr.label(executable = True, cfg = "exec"),
     "version": attr.string(),
     "args": attr.string_list(default = ["--validate-anyarch"]),
-} | _PATCH_ATTRS
+} | _PATCH_ATTRS | resource_set_attr
 
 pep517_whl = rule(
     implementation = _pep517_whl,

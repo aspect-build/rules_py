@@ -100,6 +100,30 @@ uv.override_package(
 )
 ```
 
+### Reserving wheel build resources
+
+Native sdist builds can be memory-hungry. Without a hint, Bazel assumes the
+default per-action estimate (~1 CPU, 250 MB) and may schedule several heavy
+builds at once, leading to OOM kills on the local machine. Set `resource_set`
+to reserve more RAM (or CPU) for a package's wheel build so Bazel limits how
+many run concurrently:
+
+```starlark
+uv.override_package(
+    lock = "//:uv.lock",
+    name = "native-package",
+    resource_set = "mem_8g",
+)
+```
+
+`resource_set` accepts bazel-lib's predefined values — the same vocabulary
+`ts_project` uses: `"mem_512m"`, `"mem_1g"`, `"mem_2g"`, `"mem_4g"`,
+`"mem_8g"`, `"mem_16g"`, `"mem_32g"`, `"cpu_2"`, `"cpu_4"`, or `"default"`
+(reserve nothing extra). A memory request is rounded up to the named bucket.
+
+Resource reservations are only honored when Bazel runs with
+`--experimental_action_resource_set`; add it to your `.bazelrc`.
+
 ### Full replacement
 
 To replace a package entirely with a custom target (existing functionality):

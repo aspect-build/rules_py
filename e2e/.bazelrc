@@ -33,6 +33,12 @@ common --java_runtime_version=remotejdk_11
 # configuration-stripped cache keys; those that don't still work normally.
 build --experimental_output_paths=strip
 
+# Honor resource_set on actions so cases/uv-sdist-native-build's
+# uv.override_package(resource_set = ...) actually reserves local memory for
+# the geohash native build. Without this flag the reservation is silently
+# ignored (the build still succeeds).
+common --experimental_action_resource_set
+
 # Build without the bytes
 common:ci --remote_download_outputs=minimal
 common:ci --nobuild_runfile_links
