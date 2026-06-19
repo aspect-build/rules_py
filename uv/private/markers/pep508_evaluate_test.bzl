@@ -5,15 +5,25 @@ load(":defs.bzl", "MARKER_ENV_ALIASES")
 load(":pep508_evaluate.bzl", "evaluate")
 
 _LINUX_ENV = {
+    "implementation_name": "cpython",
     "implementation_version": "3.12.12",
+    "os_name": "posix",
     "platform_machine": "x86_64",
+    "platform_python_implementation": "CPython",
+    "platform_release": "6.1.0",
+    "platform_system": "Linux",
     "python_full_version": "3.11.0",
     "python_version": "3.11",
     "sys_platform": "linux",
 }
 
 _WINDOWS_ENV = {
+    "implementation_name": "cpython",
+    "os_name": "nt",
     "platform_machine": "x86_64",
+    "platform_python_implementation": "CPython",
+    "platform_release": "10",
+    "platform_system": "Windows",
     "python_full_version": "3.11.0",
     "python_version": "3.11",
     "sys_platform": "win32",
@@ -63,6 +73,31 @@ def _evaluate_test_impl(ctx):
     asserts.false(env, evaluate("implementation_version != '3.12.*'", env = _LINUX_ENV))
     asserts.false(env, evaluate("implementation_version == '3.1.*'", env = _LINUX_ENV))
     asserts.true(env, evaluate("implementation_version != '3.11.*'", env = _LINUX_ENV))
+
+    # Non-version string variables beyond sys_platform. These all evaluate via
+    # _env_expr (string ==/!=/in/not in), so each is exercised in both the
+    # active and inactive direction.
+    asserts.true(env, evaluate("os_name == 'posix'", env = _LINUX_ENV))
+    asserts.false(env, evaluate("os_name == 'nt'", env = _LINUX_ENV))
+    asserts.true(env, evaluate("os_name == 'nt'", env = _WINDOWS_ENV))
+
+    asserts.true(env, evaluate("platform_system == 'Linux'", env = _LINUX_ENV))
+    asserts.false(env, evaluate("platform_system == 'Windows'", env = _LINUX_ENV))
+    asserts.true(env, evaluate("platform_system == 'Windows'", env = _WINDOWS_ENV))
+
+    asserts.true(env, evaluate("implementation_name == 'cpython'", env = _LINUX_ENV))
+    asserts.false(env, evaluate("implementation_name == 'pypy'", env = _LINUX_ENV))
+    asserts.true(env, evaluate("implementation_name != 'pypy'", env = _LINUX_ENV))
+
+    asserts.true(env, evaluate("platform_python_implementation == 'CPython'", env = _LINUX_ENV))
+    asserts.false(env, evaluate("platform_python_implementation == 'PyPy'", env = _LINUX_ENV))
+
+    # platform_release is a NON-version variable (string compare), despite
+    # looking version-like -- so '==' is exact-string, not semver matching.
+    asserts.true(env, evaluate("platform_release == '6.1.0'", env = _LINUX_ENV))
+    asserts.false(env, evaluate("platform_release == '6.1'", env = _LINUX_ENV))
+    asserts.true(env, evaluate("'6.1' in platform_release", env = _LINUX_ENV))
+    asserts.false(env, evaluate("'5.10' in platform_release", env = _LINUX_ENV))
 
     # 'and' / 'or' combinations
     asserts.true(env, evaluate("sys_platform == 'linux' and python_version >= '3.10'", env = _LINUX_ENV))

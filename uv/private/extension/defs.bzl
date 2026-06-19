@@ -57,6 +57,7 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 load("//py/private/interpreter:resolve.bzl", "resolve_host_interpreter_label")
 load("//uv/private:normalize_name.bzl", "normalize_name")
 load("//uv/private:normalize_version.bzl", "normalize_version")
+load("//uv/private:parse_whl_name.bzl", "parse_whl_name")
 load("//uv/private/constraints:repository.bzl", "configurations_hub")
 load("//uv/private/git_archive:repository.bzl", "git_archive")
 load("//uv/private/pprint:defs.bzl", "pprint")
@@ -446,14 +447,41 @@ def _parse_projects(module_ctx, hub_specs):
                 # for the same install instead of overwriting (and thus
                 # dropping) it.
                 whls = {}
+                metadata_directory = None
                 if not is_no_binary:
                     prev_cfg = install_cfgs.get(k)
                     if prev_cfg:
                         whls.update(prev_cfg.whls)
+                        metadata_directory = prev_cfg.metadata_directory
                     for whl in package.get("wheels", []):
-                        whls[url_basename(whl["url"])] = bdist_table.get(whl["url"])
+                        basename = url_basename(whl["url"])
+                        whls[basename] = bdist_table.get(whl["url"])
+
+                        # Every wheel of a package/version installs the same
+                        # `<project>-<version>.dist-info` directory, so the
+                        # repo rule only needs one name to `extract` the
+                        # metadata regardless of which platform wheel is
+                        # selected. A divergence means our derivation is wrong.
+                        #
+                        # Derive both halves from the wheel filename: it and
+                        # the dist-info dir share the build backend's escaping,
+                        # so `1.0+cu118` correctly yields `1.0_cu118` and the
+                        # build tag (absent from dist-info) is dropped.
+                        whl_name = parse_whl_name(basename)
+                        candidate = "{}-{}.dist-info".format(
+                            whl_name.project,
+                            whl_name.version,
+                        )
+                        if metadata_directory != None and candidate != metadata_directory:
+                            fail("wheel metadata directory mismatch for {}: {} vs {}".format(
+                                k,
+                                metadata_directory,
+                                candidate,
+                            ))
+                        metadata_directory = candidate
 
                 install_cfgs[k] = struct(
+                    metadata_directory = metadata_directory or "",
                     whls = whls,
                     sbuild = "@{}//:whl".format(sbuild_id) if has_sbuild else None,
                     post_install_patches = post_install_patches,
@@ -625,6 +653,7 @@ def _uv_impl(module_ctx):
 
     for install_id, install_cfg in cfg.install_cfgs.items():
         install_kwargs = {
+            "metadata_directory": install_cfg.metadata_directory,
             "name": install_id,
             "sbuild": install_cfg.sbuild,
             "whls": json.encode(install_cfg.whls),

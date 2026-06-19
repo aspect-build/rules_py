@@ -157,6 +157,8 @@ def install_wheel(version_major, version_minor, into, wheel_path):
 
 
 def main():
+    os.umask(0o022)
+
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--into", required=True, type=Path)
     ap.add_argument("--wheel", required=True, type=Path)
@@ -207,13 +209,15 @@ def main():
             / "python{}.{}".format(args.python_version_major, args.python_version_minor)
             / "site-packages"
         )
-        subprocess.run(
+        r = subprocess.run(
             [
                 str(args.python), "-m", "compileall", "-q",
                 "--invalidation-mode", args.pyc_invalidation_mode,
                 str(site_packages),
             ]
         )
+        if r.returncode != 0:
+            raise SystemExit("compileall failed ({}) for {}".format(r.returncode, site_packages))
 
 
 if __name__ == "__main__":
