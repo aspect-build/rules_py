@@ -14,6 +14,43 @@ load("//uv/private/constraints/platform:defs.bzl", "supported_platform")
 load("//uv/private/constraints/python:defs.bzl", "supported_python")
 load("//uv/private/pprint:defs.bzl", "pprint")
 
+def parse_record_path(line):
+    """Return the path field from one CSV-encoded wheel RECORD row.
+
+    RECORD is a CSV file in Python's default `csv` reader dialect: `,`
+    delimiter, `"` quote char, `""` -> `"` escaping. A path is quoted only
+    when it contains a comma (or quote). See:
+    https://packaging.python.org/en/latest/specifications/recording-installed-packages/#the-record-file
+
+    NOTE: the caller splits RECORD on line boundaries before calling this, so
+    a path containing an embedded newline inside a quoted field (legal on
+    POSIX, vanishingly rare) is not handled.
+    """
+    line = line.strip()
+    if not line:
+        return ""
+    if not line.startswith("\""):
+        return line.split(",", 1)[0]
+
+    path = []
+    skip_quote = False
+    for index in range(1, len(line)):
+        if skip_quote:
+            skip_quote = False
+            continue
+        char = line[index]
+        if char != "\"":
+            path.append(char)
+        elif index + 1 < len(line) and line[index + 1] == "\"":
+            path.append("\"")
+            skip_quote = True
+        else:
+            if index + 1 < len(line) and line[index + 1] != ",":
+                fail("invalid wheel RECORD row: unexpected text after quoted path")
+            return "".join(path)
+
+    fail("invalid wheel RECORD row: unterminated quoted path")
+
 def _find_whl_file(repository_ctx, whl_label):
     """Resolve an http_file-style wheel label to the actual .whl path on disk.
 
@@ -139,10 +176,7 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
     init_dirs = {}
     if record:
         for line in record.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            path = line.split(",", 1)[0]
+            path = parse_record_path(line)
             if not path:
                 continue
             segments = path.split("/")
