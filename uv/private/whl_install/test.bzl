@@ -3,7 +3,7 @@
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts", "unittest")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//py/private:providers.bzl", "PyWheelsInfo")
-load(":repository.bzl", "compatible_python_tags", "select_key", "sort_select_arms", "source_specificity")
+load(":repository.bzl", "compatible_python_tags", "parse_record_path", "select_key", "sort_select_arms", "source_specificity")
 load(":rule.bzl", "whl_install")
 
 def _whl_sorting_test_impl(ctx):
@@ -82,6 +82,51 @@ def _source_specificity_test_impl(ctx):
 source_specificity_test = unittest.make(
     _source_specificity_test_impl,
 )
+
+def _record_path_test_impl(ctx):
+    env = unittest.begin(ctx)
+
+    # Unquoted: the common case.
+    asserts.equals(env, "plain.py", parse_record_path("plain.py,sha256=abc,1"))
+
+    # Quoted because the path contains a comma (the reason a real wheel
+    # quotes a RECORD path at all).
+    asserts.equals(
+        env,
+        "pkg/data/sample,1.csv",
+        parse_record_path("\"pkg/data/sample,1.csv\",sha256=abc,1"),
+    )
+
+    # Quoted with both an embedded comma and a doubled-quote escape ("" -> ").
+    asserts.equals(
+        env,
+        "package/a,b\"c.py",
+        parse_record_path("\"package/a,b\"\"c.py\",,"),
+    )
+
+    # Empty first field (blank line, or a leading comma) yields no path; the
+    # caller skips falsy paths.
+    asserts.equals(env, "", parse_record_path(""))
+    asserts.equals(env, "", parse_record_path(",sha256=abc,1"))
+
+    # Byte-faithful to csv.reader on malformed-but-parseable rows (these don't
+    # occur in valid RECORD files, but we match the reader rather than guess):
+    #
+    #   text after a closing quote concatenates literally,
+    asserts.equals(env, "abcdef", parse_record_path("\"abc\"def,1"))
+
+    #   with quotes in that trailing text staying literal,
+    asserts.equals(env, "abcdef\"ghi\"", parse_record_path("\"abc\"def\"ghi\",1"))
+
+    #   a `"` that does not open the field is a literal character,
+    asserts.equals(env, "a\"b\"c", parse_record_path("a\"b\"c,1"))
+
+    #   and an unterminated quote consumes the rest of the row.
+    asserts.equals(env, "unterminated,1", parse_record_path("\"unterminated,1"))
+
+    return unittest.end(env)
+
+record_path_test = unittest.make(_record_path_test_impl)
 
 # --- whl_install metadata selection ---------------------------------------
 #
@@ -252,4 +297,8 @@ def whl_install_suite():
     unittest.suite(
         "source_specificity_tests",
         source_specificity_test,
+    )
+    unittest.suite(
+        "record_path_tests",
+        record_path_test,
     )
