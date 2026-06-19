@@ -6,7 +6,7 @@ py_library(
     srcs = [],
     deps = [],
     imports = [],
-    visibility = ["//visibility:private"],
+    visibility = ["//:__subpackages__"],
 )
 
 

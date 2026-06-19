@@ -1,0 +1,31 @@
+# Regression for inactive marker-only dependency components
+# (uv/private/uv_project/repository.bzl). Each dep is gated behind a marker that
+# is false under the test toolchain, so its generated package/wheel alias must
+# fall back to the empty SCC rather than emit a non-total select. The three deps
+# cover distinct reasons a component is inactive: a simple platform marker
+# (iniconfig), a compound platform+version marker (six), and a transitive marker
+# on a dependency of an active package (tqdm's Windows-only colorama).
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+# Depending on the inactive deps must build (the selects are total) yet expose
+# nothing importable. The parallel :whl defaults are snapshot-tested in the main
+# module instead: they can't be pulled in here since dep_group transitions
+# `deps`, not `data`.
+py_test(
+    name = "inactive_marker_test",
+    srcs = ["inactive_marker_test.py"],
+    dep_group = "inactive_marker",
+    main = "inactive_marker_test.py",
+    python_version = "3.11",
+    # On Windows the markers are active and the packages ARE importable, which
+    # the test treats as a failure. Skip there; the inactive path is the point.
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "@pypi_inactive_marker//iniconfig",
+        "@pypi_inactive_marker//six",
+        "@pypi_inactive_marker//tqdm",
+    ],
+)
