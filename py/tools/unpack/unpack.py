@@ -196,13 +196,15 @@ def main():
             / "python{}.{}".format(args.python_version_major, args.python_version_minor)
             / "site-packages"
         )
-        subprocess.run(
+        r = subprocess.run(
             [
                 str(args.python), "-m", "compileall", "-q",
                 "--invalidation-mode", args.pyc_invalidation_mode,
                 str(site_packages),
             ]
         )
+        if r.returncode != 0:
+            raise SystemExit("compileall failed ({}) for {}".format(r.returncode, site_packages))
 
 
 if __name__ == "__main__":

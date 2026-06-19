@@ -7,6 +7,7 @@ exports_files(
 
 py_test(
     name = "unpack_test",
+    size = "small",
     srcs = ["unpack_test.py"],
     args = ["$(rootpath :unpack.py)"],
     data = [":unpack.py"],
