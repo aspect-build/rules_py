@@ -20,8 +20,6 @@ pep517_native_whl(
     ],
     env = {
         "AR": "$(AR)",
-        "CC": "$(CC)",
-        "CXX": "$(CC)",
         "JAR": "$(JAVABASE)/bin/jar",
         "JAVA": "$(JAVA)",
         "JAVA_HOME": "$(JAVABASE)",

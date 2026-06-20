@@ -1,0 +1,24 @@
+# Regression test for compiler-driver selection in pep517_native_whl.
+#
+# python-geohash is sdist-only and ships a C++ extension (_geohash). The
+# pre-build patch (require_cxx_driver.patch) introduces a C++ standard-library
+# dependency (typeid / RTTI on a polymorphic type), so linking the extension
+# fails unless the build helper invokes the configured compiler in C++ driver
+# mode rather than C. This exercises the fix that preserves the configured
+# compiler command — including `--driver-mode=g++` for a shared Clang driver —
+# all the way through the native wheel build.
+#
+# Intentionally not constrained to Linux: the regression is most visible with
+# the shared clang driver used on macOS.
+
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+exports_files(["require_cxx_driver.patch"])
+
+py_test(
+    name = "test",
+    srcs = ["test_geohash.py"],
+    dep_group = "uv-sdist-cxx-driver",
+    main = "test_geohash.py",
+    deps = ["@pypi_uv_sdist_cxx_driver//python_geohash"],
+)
