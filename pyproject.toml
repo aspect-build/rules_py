@@ -19,4 +19,7 @@ dependencies = [
    "six",
    "bazel-runfiles",
    "maturin",
+
+   # This installs tomli ONLY if the user runs Python lower than 3.11
+   "tomli>=2.0.1; python_version < '3.11'",
 ]
