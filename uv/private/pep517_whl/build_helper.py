@@ -16,6 +16,9 @@ from os import chmod, defpath, listdir, makedirs, path, pathsep
 from subprocess import CalledProcessError, check_call, check_output, STDOUT, run
 from tempfile import TemporaryFile
 
+
+print("🔥 USING MY LOCAL BUILD_HELPER.PY 🔥", file=sys.stderr)
+
 try:
     import tomllib
 except ModuleNotFoundError:
