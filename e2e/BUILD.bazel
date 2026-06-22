@@ -44,6 +44,12 @@ write_source_files(
         # `config_setting` rules — one per `uv.project()` call. Catches
         # regressions in the public dep_group surface for N>1 projects.
         "snapshots/pypi_multi.dep_group.BUILD.bazel": "@pypi_multi//dep_group:BUILD.bazel",
+        # uv_hub: rules_py-native helpers for a multi-project hub. Pins the
+        # group_deps() select() — the per-group package lists that discriminate
+        # between projects (the single-project pypi_single.defs.bzl snapshot
+        # collapses this to one all-inclusive group, so only this entry
+        # exercises the per-dep_group membership filter).
+        "snapshots/pypi_multi.defs.bzl": "@pypi_multi//:defs.bzl",
 
         # @pypi_single (single-project baseline)
         # ----------------------------------------------------------------

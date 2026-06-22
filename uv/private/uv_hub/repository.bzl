@@ -23,6 +23,7 @@ def _hub_impl(repository_ctx):
 
     # {requirement: {cfg: target}}
     packages = json.decode(repository_ctx.attr.packages)
+    package_names = sorted(packages.keys())
 
     ################################################################################
     # Lay down the //dep_group:BUILD.bazel file with config flags
@@ -171,45 +172,77 @@ exports_files(
 
     ################################################################################
     # Lay down //:defs.bzl
+
+    # Invert the sparse package->group membership (`packages` is keyed
+    # {name: {group: target}}) into group->[canonical :pkg labels] in a single
+    # pass, rather than rescanning every package once per group. Seed every
+    # known group so a group with no packages still gets an (empty) select arm.
+    deps_by_group = {group: [] for group in sorted(repository_ctx.attr.configurations)}
+    for name in package_names:  # sorted, so each group's label list stays sorted
+        label = "@@{}//{}:pkg".format(repository_ctx.name, name)
+        for group in packages[name]:
+            if group in deps_by_group:
+                deps_by_group[group].append(label)
+
+    # The emitted `_GROUP_DEPS` is a module-level select() built once at load.
+    # Its keys use `Label(...)` so they resolve relative to this hub repo rather
+    # than the consuming package that loads `group_deps()`.
     content = [
-        """
+        """\
 VIRTUALENVS = {configurations}
-_repo = {repo_name}
 
 def compatible_with(venvs, extra_constraints = []):
-  for v in venvs:
-    if v not in VIRTUALENVS:
-      fail("Errant virtualenv reference %r" % v)
+    for v in venvs:
+        if v not in VIRTUALENVS:
+            fail("Errant virtualenv reference %r" % v)
 
-  return {{
-    Label("//dep_group:" + it): extra_constraints
-    for it in venvs
-  }} | {{
-    "//conditions:default": ["@platforms//:incompatible"],
-  }}
+    return {{
+        Label("//dep_group:" + it): extra_constraints
+        for it in venvs
+    }} | {{
+        "//conditions:default": ["@platforms//:incompatible"],
+    }}
 
 def incompatible_with(venvs, extra_constraints = []):
-  for v in venvs:
-    if v not in VIRTUALENVS:
-      fail("Errant virtualenv reference %r" % v)
+    for v in venvs:
+        if v not in VIRTUALENVS:
+            fail("Errant virtualenv reference %r" % v)
 
-  return {{
-    Label("//dep_group:" + it): ["@platforms//:incompatible"]
-    for it in venvs
-  }} | {{
-    "//conditions:default": extra_constraints,
-  }}
+    return {{
+        Label("//dep_group:" + it): ["@platforms//:incompatible"]
+        for it in venvs
+    }} | {{
+        "//conditions:default": extra_constraints,
+    }}
+
+_DEPS_BY_GROUP = {deps_by_group}
+
+_GROUP_DEPS = select(
+    {{
+        Label("//dep_group:" + group): deps
+        for group, deps in _DEPS_BY_GROUP.items()
+    }},
+    no_match_error = {no_match_error},
+)
+
+def group_deps():
+    return _GROUP_DEPS
 """.format(
             configurations = pprint(repository_ctx.attr.configurations.keys()),
-            repo_name = repr(repository_ctx.name),
+            deps_by_group = pprint(deps_by_group),
+            no_match_error = repr(
+                "no dep_group selected; set the dep_group attribute on the consuming target to one of: " +
+                ", ".join(sorted(repository_ctx.attr.configurations)),
+            ),
         ),
     ]
 
     repository_ctx.file("defs.bzl", content = "\n".join(content))
 
     ################################################################################
-    # Lay down a requirements.bzl for compatibility with rules_python
-    package_names = sorted(packages.keys())
+    # Lay down a requirements.bzl for compatibility with rules_python. Keep this
+    # file's surface aligned with rules_python's generated requirements.bzl; any
+    # rules_py-specific additions belong in defs.bzl instead.
     content = []
     content.append("""
 load("@rules_python//python:pip.bzl", "pip_utils")
@@ -247,6 +280,29 @@ def requirement(name):
 
 uv_hub = repository_rule(
     doc = """
+    Generates the surface hub repository exposed to the build.
+
+    Lays down two loadable files:
+
+    - `defs.bzl` (rules_py-native): the `group_deps()` helper plus the
+      `compatible_with` / `incompatible_with` constraint helpers and the
+      `VIRTUALENVS` list.
+    - `requirements.bzl`: a rules_python-compatibility shim (`all_requirements`,
+      `requirement()`, and friends).
+
+    `group_deps()` returns the dependency list for whichever dependency group
+    the consuming target selects via its `dep_group` attribute. A hub spanning
+    multiple projects has an `all_requirements` union whose members are
+    incompatible under any single `dep_group`; `group_deps()` resolves instead
+    to just the subset valid for the active group. Because `dep_group` drives an
+    incoming transition, the returned `select()` is evaluated under the chosen
+    group, so it is used directly without repeating the group name:
+
+        deps = group_deps()
+
+    It is a function rather than a value so that future options -- such as
+    PEP 508 package extras -- can be added as keyword arguments without breaking
+    callers.
     """,
     implementation = _hub_impl,
     attrs = {
