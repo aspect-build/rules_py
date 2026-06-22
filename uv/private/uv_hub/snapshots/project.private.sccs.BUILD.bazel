@@ -1,12 +1,11 @@
 load("@aspect_rules_py//py:defs.bzl", "py_library")
 
-# A dummy target so we can select to nothing when no markers match.
 py_library(
     name = "empty",
     srcs = [],
     deps = [],
     imports = [],
-    visibility = ["//visibility:private"],
+    visibility = ["//:__subpackages__"],
 )
 
 
