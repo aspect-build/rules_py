@@ -1,6 +1,19 @@
 """Test helper"""
 
+load("@aspect_rules_py//py:defs.bzl", "py_test")
 load("@bazel_lib//lib:write_source_files.bzl", "write_source_file")
+
+# Path substrings that must never appear in any image layer. These ship via
+# the venv/runfiles source layer only if something bypasses the pip-package
+# layer's `_should_skip_pkg_path` filter — e.g. a reintroduced
+# `_wheels/<key>` intermediate tree, which also re-duplicates wheel files.
+# Asserted by a Docker-free py_test (see assert_tar_listing); intentionally an
+# invariant, not exact bytes, so it survives snapshot regeneration.
+_FORBIDDEN_LAYER_PATHS = [
+    "__pycache__",
+    ".pyc",
+    "/_wheels/",
+]
 
 # Paths whose byte size varies across Bazel releases or builds. We keep
 # the rows in the listing (so a missing/renamed file would still be
@@ -78,4 +91,17 @@ done > $@
         out_file = "snapshots/{}".format(expected),
         testonly = True,
         **kwargs
+    )
+
+    # Docker-free invariant guard over the same listing: assert the stripped
+    # bytecode/metadata (and any `_wheels/<key>` smuggling tree) never reappear
+    # in a layer. Complements the byte-exact snapshot above — regenerating the
+    # snapshot can't make this pass.
+    py_test(
+        name = "{}_no_forbidden_paths".format(name),
+        srcs = ["//tools:assert_absent.py"],
+        main = "//tools:assert_absent.py",
+        args = ["$(rootpath :{})".format(actual_listing)] + _FORBIDDEN_LAYER_PATHS,
+        data = [":{}".format(actual_listing)],
+        testonly = True,
     )

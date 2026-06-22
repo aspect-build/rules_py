@@ -153,11 +153,12 @@ def _whl_install(ctx):
                 console_scripts = tuple(console_scripts),
                 # Tree artifact holding this wheel's installed file tree
                 # (`install/`, whose internal shape is
-                # `lib/python<M>.<m>/site-packages/...`). Downstream
-                # venv-assembly uses this as a `target_file` for a
-                # per-wheel directory symlink, so the per-top-level
-                # symlinks inside the venv can be intra-venv relative
-                # (identical resolution in bazel-bin and runfiles).
+                # `lib/python<M>.<m>/site-packages/...`). Consumed by
+                # venv assembly's physical merge action (regular packages
+                # spanning wheels) and by py_image_layer's pip-package
+                # layer; the per-top-level venv symlinks reference each
+                # wheel by its natural runfiles path rather than through
+                # this File.
                 install_tree = install_dir,
             )]),
         ))
