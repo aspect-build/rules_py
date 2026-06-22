@@ -1,1 +1,5 @@
 # Shared helpers consumed by //cases/... via load("//tools:...").
+
+# Consumed cross-package by the `assert_tar_listing` macro (//tools:asserts.bzl),
+# which declares a py_test with this script as `main` in the caller's package.
+exports_files(["assert_absent.py"])

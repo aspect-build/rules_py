@@ -400,14 +400,6 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
 
     return top_level_to_site_pkgs, fully_covered, console_scripts_map, merge_groups
 
-def _wheel_key(wheel):
-    """8-hex key derived from the wheel's install_tree.short_path (globally
-    unique among File objects). Same wheel → same key on every build, and
-    adding/removing one wheel doesn't shift the keys of others.
-    """
-    h = "%x" % (hash(wheel.install_tree.short_path) & 0xFFFFFFFF)
-    return "0" * (8 - len(h)) + h
-
 def assemble_venv(
         ctx,
         *,
@@ -519,108 +511,35 @@ def assemble_venv(
         venv_name = ".{}.venv".format(safe_name)
     site_packages_rel = "{}/lib/{}/site-packages".format(venv_name, venv_py_ver)
 
-    # Two-hop indirection for each wheel that carries its install_tree File:
-    #
-    #   Hop 1: <venv>/_wheels/<key>/  →  <install_tree>   (resolved)
-    #   Hop 2: <venv>/lib/<py>/site-packages/<tl>
-    #            →  ../../../_wheels/<key>/lib/<py>/site-packages/<tl>
-    #          (intra-venv relative, declare_symlink)
-    #
-    # Hop 1 is a `ctx.actions.symlink(output=declare_directory, target_file=<tree>)`.
-    # In bazel-bin it's a single absolute symlink to the wheel's tree
-    # artifact; in runfiles Bazel materialises it as a real directory with
-    # per-file absolute symlinks inside — same shape the tree artifact
-    # already has in runfiles, so no new materialisation cost.
-    #
-    # Hop 2 is a `declare_symlink` with a relative `target_path`. Relative
-    # depth is identical in bazel-bin and runfiles because the target
-    # stays entirely within the venv's own output tree. This is what
-    # unblocks `py_image_layer` (which walks bazel-bin) and any other
-    # bazel-bin-walking tool.
-    site_packages_to_wheels_root = "/".join([".."] * 3) + "/_wheels"
+    # site_packages_rfpath → install_tree, used only by the regular-package
+    # merge action below. The per-top-level symlinks and .pth lines locate
+    # each wheel by its runfiles path directly, not through this map.
+    wheels_with_trees = [w for w in wheels if getattr(w, "install_tree", None) != None]
+    tree_by_sp = {w.site_packages_rfpath: w.install_tree for w in wheels_with_trees}
 
-    # Map from site_packages_rfpath → wheel key for wheels whose analysis-time
-    # metadata lets the venv project entries or scripts. Metadata-free wheel
-    # records retain their runfiles path and do not need another tree symlink.
-    # The key is an 8-hex hash of the wheel's
-    # `install_tree.short_path` (globally unique among File objects), so:
-    #
-    #   * adding/removing a wheel doesn't shift the keys of other wheels
-    #     → unaffected Hop 1 actions and .pth lines stay byte-identical
-    #     → better remote-cache reuse for downstream consumers
-    #     (py_image_layer, py_venv_exec) that take the venv as input;
-    #   * paths are stable across builds for the same wheel, which makes
-    #     debugging (and key-aware tooling) deterministic.
-    #
-    # We fail loudly on the rare 32-bit hash collision; the caller can
-    # widen the key or rename a wheel rule.
-    localized_wheels = [
-        w
-        for w in wheels
-        if getattr(w, "install_tree", None) != None and (w.top_levels or w.console_scripts)
-    ]
-    known_layout_site_pkgs = {
-        w.site_packages_rfpath: True
-        for w in wheels
-        if w.top_levels
-    }
-    wheel_key_by_sp = {}
-    wheel_by_key = {}
-    for w in localized_wheels:
-        key = _wheel_key(w)
-        prior = wheel_by_key.get(key)
-        if prior != None and prior.install_tree.short_path != w.install_tree.short_path:
-            fail("venv wheel key collision on '{}': {} vs {}".format(
-                key,
-                prior.install_tree.short_path,
-                w.install_tree.short_path,
-            ))
-        wheel_by_key[key] = w
-        wheel_key_by_sp[w.site_packages_rfpath] = key
+    # site_packages_rfpath → True for wheels whose top-level layout is known
+    # (they declare `top_levels`), so the per-top-level symlink loop projects
+    # their root entries — including any root `.pth` files — into the venv
+    # site-packages. Wheels that carry only `console_scripts` (e.g. source-built
+    # scripts) leave `top_levels` empty: nothing is projected for them, so their
+    # `.pth` line must use `site.addsitedir` (see `_format_imp`).
+    known_layout_site_pkgs = {w.site_packages_rfpath: True for w in wheels if w.top_levels}
 
     declared = []  # accumulator for all outputs
 
-    # Hop 1: per-wheel directory under _wheels/<key>/. Bazel picks an
-    # absolute path under bazel-bin; the output is a tree artifact whose
-    # contents dereference the install_tree.
-    for w in localized_wheels:
-        key = wheel_key_by_sp[w.site_packages_rfpath]
-        wheel_dir = ctx.actions.declare_directory(
-            "{}/_wheels/{}".format(venv_name, key),
-        )
-        ctx.actions.symlink(
-            output = wheel_dir,
-            target_file = w.install_tree,
-        )
-        declared.append(wheel_dir)
-
-    # Hop 2 (+ legacy one-hop fallback): per-top-level site-packages
-    # symlinks. If the owning wheel has a `_wheels/<key>/` entry, we
-    # route through it with an intra-venv relative path; otherwise fall
-    # back to the historical runfiles-root-escape unresolved symlink.
-    # Keys may be `/`-joined paths below the site-packages root (merged
-    # namespace packages, e.g. `jaraco/functools`); each extra path
-    # segment needs one more `..` to escape back up.
+    # Per-top-level site-packages symlink: a relative symlink escaping from
+    # site-packages up to the runfiles root, then down into the owning
+    # wheel's `site_packages_rfpath`/<tl>. Works for both install_tree and
+    # rules_python pip wheels (both stage content at their rfpath).
+    # `/`-joined top-levels (merged namespace packages, e.g.
+    # `jaraco/functools`) need one extra `..` per segment.
     for tl, wheel_site_pkgs in top_level_to_site_pkgs.items():
         out = ctx.actions.declare_symlink("{}/{}".format(site_packages_rel, tl))
         extra_up = "../" * tl.count("/")
-        key = wheel_key_by_sp.get(wheel_site_pkgs)
-        if key != None:
-            ctx.actions.symlink(
-                output = out,
-                target_path = "{}{}/{}/lib/{}/site-packages/{}".format(
-                    extra_up,
-                    site_packages_to_wheels_root,
-                    key,
-                    wheel_py_ver,
-                    tl,
-                ),
-            )
-        else:
-            ctx.actions.symlink(
-                output = out,
-                target_path = "{}{}/{}/{}".format(extra_up, escape, wheel_site_pkgs, tl),
-            )
+        ctx.actions.symlink(
+            output = out,
+            target_path = "{}{}/{}/{}".format(extra_up, escape, wheel_site_pkgs, tl),
+        )
         declared.append(out)
 
     # Physical merges for regular packages that span wheels (see
@@ -665,14 +584,13 @@ def assemble_venv(
         arguments.add("--collision-policy", package_collisions)
         trees = []
         for sp in group.site_packages_list:
-            key = wheel_key_by_sp.get(sp)
-            if key == None:
+            tree = tree_by_sp.get(sp)
+            if tree == None:
                 fail("{}: wheel at {} contributes to merged package `{}` but has no install_tree.".format(
                     ctx.label,
                     sp,
                     group.root,
                 ))
-            tree = wheel_by_key[key].install_tree
             trees.append(tree)
             arguments.add_all(
                 [tree],
@@ -696,33 +614,20 @@ def assemble_venv(
         )
         declared.append(merged_dir)
 
-    # A key only means that a wheel has an install tree. Wheels may emit
-    # PyWheelsInfo for console scripts while leaving `top_levels` empty, so
-    # their immediate layout is unknown and no root entries were projected by
-    # Hop 2. Those wheels need `site.addsitedir` to process root `.pth` files.
-    # Known layouts use a plain path because their root `.pth` files were
-    # already projected or deliberately suppressed by collision resolution.
+    # A wheel-root `.pth` shim only fires when its file sits in the venv's own
+    # site-packages. Wheels that declare `top_levels` (known layout) had their
+    # root entries — including any root `.pth` files — projected there by the
+    # per-top-level symlink loop above, so they emit a plain path line;
+    # `site.addsitedir` would re-scan the wheel root and run the shim a second
+    # time. Wheels with no projected layout (console-script-only, e.g.
+    # source-built scripts, or metadata-free `py_unpacked_wheel`s) fall back to
+    # `site.addsitedir` so their site-packages joins sys.path and root `.pth`
+    # shims run at all; the path is sys.prefix-relative to survive RBE sandbox
+    # layouts.
     def _format_imp(imp):
         if imp in fully_covered_site_pkgs:
             return None
-        if imp.endswith("site-packages"):
-            key = wheel_key_by_sp.get(imp)
-            if imp in known_layout_site_pkgs:
-                if key != None:
-                    return "{wheels_root}/{key}/lib/{py_ver}/site-packages".format(
-                        wheels_root = site_packages_to_wheels_root,
-                        key = key,
-                        py_ver = wheel_py_ver,
-                    )
-                return "{}/{}".format(escape, imp)
-            if key != None:
-                return ("import os, sys, site; " +
-                        "site.addsitedir(os.path.normpath(os.path.join(" +
-                        "sys.prefix, \"_wheels\", \"{key}\", \"lib\", " +
-                        "\"{py_ver}\", \"site-packages\")))").format(
-                    key = key,
-                    py_ver = wheel_py_ver,
-                )
+        if imp.endswith("site-packages") and imp not in known_layout_site_pkgs:
             return ("import os, sys, site; " +
                     "site.addsitedir(os.path.normpath(os.path.join(" +
                     "sys.prefix, \"{venv_escape}\", \"{imp}\")))").format(
@@ -736,8 +641,9 @@ def assemble_venv(
     pth_lines.set_param_file_format("multiline")
     pth_lines.add(escape)
 
-    # allow_closure lets _format_imp capture the wheel metadata maps so we
-    # don't have to materialise imports_depset via .to_list().
+    # allow_closure lets _format_imp capture fully_covered_site_pkgs /
+    # known_layout_site_pkgs so we don't have to materialise imports_depset
+    # via .to_list().
     pth_lines.add_all(imports_depset, map_each = _format_imp, allow_closure = True)
 
     site_packages_pth_file = ctx.actions.declare_file(
