@@ -5,6 +5,7 @@
 load("@bazel_features//:features.bzl", features = "bazel_features")
 load("//uv/private:sha1.bzl", "sha1")
 load("//uv/private/pprint:defs.bzl", "pprint")
+load("//uv/private/uv_project:select_gen.bzl", "build_package_select_arms")
 
 def indent(text, space = " "):
     return "\n".join(["{}{}".format(space, l) for l in text.splitlines()])
@@ -138,52 +139,13 @@ filegroup(
 
             whl_cfg_name = "_package_{}_{}_whl".format(package, cfg)
 
-            cfg_arms = {}
-            whl_cfg_arms = {}
+            cfg_arms, whl_cfg_arms = build_package_select_arms(
+                scc_cfgs = scc_cfgs,
+                scc_graph = scc_graph,
+                package = package,
+                marker_fn = _marker,
+            )
 
-            # This is a bit tricky. We're doing choice between several different
-            # SCCs possibly encoding different versions or extra specializations
-            # of a package "at once" depending on the venv + marker set.
-            # Consequently this second-level choice is actually the MERGE
-            # between the individual cases under which specific markers evaluate
-            # to true. It's a configuration and locking failure for there to be
-            # more than one package which resolves at this point. So we just jam all the configurations into a single select.
-            for scc, markers in scc_cfgs.items():
-                # Find the whl install for `package` within this SCC's members.
-                # The repo label encodes the package name (e.g.
-                # @whl_install__{stamp}__{name}__{ver}//:install), so we match
-                # by substring with `__{package}__`. Workspace / editable
-                # packages have no whl_install and yield None.
-                whl_for_pkg = None
-                for install_label in scc_graph.get(scc, {}).keys():
-                    if ("__" + package + "__") in install_label:
-                        whl_for_pkg = install_label.replace(":install", ":whl")
-                        break
-
-                if "" in markers:
-                    if "//conditions:default" in cfg_arms:
-                        fail("Configuration conflict! Package {} specifies two or more default package states!\n{}".format(package, pprint(cfgs)))
-
-                    cfg_arms["//conditions:default"] = "//private/sccs:" + scc
-                    if whl_for_pkg:
-                        whl_cfg_arms["//conditions:default"] = whl_for_pkg
-
-                else:
-                    for marker in markers.keys():
-                        marker = _marker(marker)
-                        if marker in cfg_arms:
-                            fail("Configuration conflict! Package {} specifies two or more configurations for the same marker!\n{}".format(package, pprint(cfgs)))
-
-                        cfg_arms[marker] = "//private/sccs:" + scc
-                        if whl_for_pkg:
-                            whl_cfg_arms[marker] = whl_for_pkg
-
-            # Marker-only components have no unconditional arm; resolve them to
-            # the empty SCC when no marker matches (an absent dep, not an error).
-            if "//conditions:default" not in cfg_arms:
-                cfg_arms["//conditions:default"] = "//private/sccs:empty"
-
-            # Now we can just build one big choice alias from that arm set.
             content.append("""
 alias(
     name = "{name}",
@@ -191,13 +153,6 @@ alias(
     visibility = ["//visibility:private"],
 )
 """.format(name = cfg_name, arms = indent(pprint(cfg_arms), " " * 4).lstrip()))
-
-            # Parallel whl-file alias. Workspace/editable packages have no
-            # whl_install, and marker-only wheels may be inactive; both fall back
-            # to a filegroup with no srcs. Guard on the default arm (not emptiness)
-            # so marker-only wheels with no matching arm still get a default.
-            if "//conditions:default" not in whl_cfg_arms:
-                whl_cfg_arms["//conditions:default"] = ":empty_whl"
             whl_main_arms["//private/dep_group:" + cfg] = ":" + whl_cfg_name
             content.append("""
 alias(
@@ -207,7 +162,6 @@ alias(
 )
 """.format(name = whl_cfg_name, arms = indent(pprint(whl_cfg_arms), " " * 4).lstrip()))
 
-        # Finally we can render the wrapper over all the component arms
         content.append("""
 alias(
     name = "{name}",
@@ -230,7 +184,6 @@ alias(
             arms = indent(pprint(whl_main_arms), " " * 4).lstrip(),
         ))
 
-    # As part of this root repo we also lay down :all_requirements which is slightly tricky because we have to
     all_requirements = {}
     for package, cfgs in dep_to_scc.items():
         for cfg in cfgs.keys():
@@ -262,12 +215,11 @@ exports_files(
     ################################0################################################
     # Now the slightly harder bit -- lay down the SCCs
 
-    # The `empty` target is the inactive-marker fallback selected by root-package
-    # aliases, so its visibility matches the real SCC targets (`//:__subpackages__`).
+    # `empty` is selected by root-package aliases when no marker matches.
+    # Visibility must be //:__subpackages__ because those aliases live in //:.
     content = ["""\
 load("@aspect_rules_py//py:defs.bzl", "py_library")
 
-# A dummy target so we can select to nothing when no markers match.
 py_library(
     name = "empty",
     srcs = [],

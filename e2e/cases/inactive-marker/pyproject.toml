@@ -4,19 +4,7 @@ version = "0.0.0"
 authors = []
 requires-python = ">=3.11"
 dependencies = [
-    # Each dep is inactive on a non-Windows host, exercising a distinct reason a
-    # marker-only component resolves to the empty fallback (see BUILD.bazel and
-    # uv/private/uv_project/repository.bzl):
-    #
-    #   1. Simple marker. iniconfig is gated on a single sys_platform clause.
     "iniconfig; sys_platform == 'win32'",
-    #   2. Compound marker. six is gated on platform AND version — independent
-    #      dimensions uv can't collapse (3.11 satisfies requires-python but not
-    #      the >=3.12 clause), so the resolved marker stays compound. Never active
-    #      under the test toolchain, so it always takes the empty fallback.
     "six; sys_platform == 'win32' and python_version >= '3.12'",
-    #   3. Transitive marker. tqdm is active and imports fine, but its only
-    #      dependency (colorama) is gated on Windows, so within tqdm's SCC the
-    #      transitive edge resolves to empty rather than pulling colorama in.
     "tqdm",
 ]

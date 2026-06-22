@@ -286,6 +286,19 @@ over the dependency group targets in which that requirement is defined.
 Hub requirement targets are _incompatible_ with dependency group configurations in which the
 requirement in question is not defined.
 
+### Conditional dependencies and the empty target
+
+When a package is gated entirely behind an environment marker (e.g.
+`iniconfig; sys_platform == 'win32'`), the hub generates a `select()` alias
+with one arm per marker expression plus a `//conditions:default` arm that
+resolves to an internal empty `py_library`. This makes the `select()` total on
+all platforms: on non-Windows hosts the alias selects the empty library, which
+contributes no sources and no transitive deps, rather than failing analysis.
+
+If you inspect the generated BUILD files under the hub repository you will see
+targets named `empty` and `empty_whl` — these are intentional stubs and not a
+sign of a missing dependency.
+
 Each dependency group requirement is backed by a `whl_install` rule which chooses among
 prebuilt wheels listed in the lockfile to produce the equivalent of a
 `py_library`.

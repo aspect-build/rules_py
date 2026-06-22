@@ -1,31 +1,48 @@
-# Regression for inactive marker-only dependency components
-# (uv/private/uv_project/repository.bzl). Each dep is gated behind a marker that
-# is false under the test toolchain, so its generated package/wheel alias must
-# fall back to the empty SCC rather than emit a non-total select. The three deps
-# cover distinct reasons a component is inactive: a simple platform marker
-# (iniconfig), a compound platform+version marker (six), and a transitive marker
-# on a dependency of an active package (tqdm's Windows-only colorama).
+# Regression test for inactive marker-only dependency components.
+# Each dep is gated behind a marker that is false on the test toolchain
+# (non-Windows, CPython 3.11/3.13), so the generated alias must fall back
+# to the empty SCC instead of emitting a non-total select().
+#
+# Covered cases:
+#   - Simple marker: iniconfig (sys_platform == 'win32')
+#   - Compound AND marker: six (sys_platform == 'win32' and python_version >= '3.12')
+#   - Transitive marker: tqdm's Windows-only colorama dependency
+#
+# OR markers are covered by generator-level unit tests at
+# //uv/private/uv_project:select_gen_tests.
 load("@aspect_rules_py//py:defs.bzl", "py_test")
 
-# Depending on the inactive deps must build (the selects are total) yet expose
-# nothing importable. The parallel :whl defaults are snapshot-tested in the main
-# module instead: they can't be pulled in here since dep_group transitions
-# `deps`, not `data`.
+_COMMON_DEPS = [
+    "@pypi_inactive_marker//iniconfig",
+    "@pypi_inactive_marker//six",
+    "@pypi_inactive_marker//tqdm",
+]
+
+_NOT_WINDOWS = select({
+    "@platforms//os:windows": ["@platforms//:incompatible"],
+    "//conditions:default": [],
+})
+
+# The inactive deps must build (selects are total) but expose nothing importable.
 py_test(
     name = "inactive_marker_test",
     srcs = ["inactive_marker_test.py"],
     dep_group = "inactive_marker",
     main = "inactive_marker_test.py",
     python_version = "3.11",
-    # On Windows the markers are active and the packages ARE importable, which
-    # the test treats as a failure. Skip there; the inactive path is the point.
-    target_compatible_with = select({
-        "@platforms//os:windows": ["@platforms//:incompatible"],
-        "//conditions:default": [],
-    }),
-    deps = [
-        "@pypi_inactive_marker//iniconfig",
-        "@pypi_inactive_marker//six",
-        "@pypi_inactive_marker//tqdm",
-    ],
+    # On Windows the markers are active, so the test would fail; skip it there.
+    target_compatible_with = _NOT_WINDOWS,
+    deps = _COMMON_DEPS,
+)
+
+# Same assertions at Python 3.13: AND-marker packages must stay inactive because
+# sys_platform == 'win32' is still false on Linux.
+py_test(
+    name = "inactive_marker_test_py313",
+    srcs = ["inactive_marker_test.py"],
+    dep_group = "inactive_marker",
+    main = "inactive_marker_test.py",
+    python_version = "3.13",
+    target_compatible_with = _NOT_WINDOWS,
+    deps = _COMMON_DEPS,
 )
