@@ -3,12 +3,14 @@
 # TODO: Deprecated API, need an alternative
 import pkgutil
 
-# airflow's install path sits under a dot-prefixed venv dir in this
-# test's package. The venv basename varies by rule variant (py_test
-# vs. py_venv_test), so match on the package path + hidden dir
-# structure rather than the specific basename.
+# `airflow` resolves to the providing wheel's natural runfiles path; the venv
+# references wheels there rather than copying them into its own tree. `airflow`
+# is a top-level collision across many apache-airflow-* wheels, so resolution
+# must pick airflow-core (the wheel that owns `airflow/__init__.py`), not a
+# provider.
 _airflow_file = pkgutil.get_loader("airflow").get_filename()
-assert "/cases/uv-deps-650/airflow/." in _airflow_file, _airflow_file
+assert _airflow_file.endswith("/site-packages/airflow/__init__.py"), _airflow_file
+assert "apache_airflow_core" in _airflow_file, _airflow_file
 
 import sys
 assert sys.version_info.major == 3
