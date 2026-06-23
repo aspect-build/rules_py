@@ -234,15 +234,19 @@ under `<venv>/bin/<name>` so `subprocess.run(["<name>", ...])` works.
 """,
             default = {},
         ),
+        "directory_top_levels": attr.string_list_dict(
+            doc = "Per-wheel subset of `top_levels` installed as directories.",
+            default = {},
+        ),
         "namespace_top_levels": attr.string_list_dict(
             doc = """Per-wheel subset of `top_levels` that are PEP 420 namespace packages, keyed by wheel file basename.
 
-A top-level is a namespace if the wheel's RECORD shows no
-`<toplevel>/__init__.py`. When multiple wheels contribute to the same
-namespace (e.g. `jaraco-classes` and `jaraco-functools` both claim
-`jaraco`), `py_binary`'s collision detector treats the overlap as
-benign and falls back to `.pth`-based resolution so Python's namespace
-machinery merges the contributions at runtime.
+A top-level is a namespace if the wheel's RECORD shows no recognized package
+initializer directly beneath it. When multiple wheels contribute to the same
+namespace (e.g. `jaraco-classes` and `jaraco-functools` both claim `jaraco`),
+`py_binary`'s collision detector treats the overlap as benign and falls back to
+`.pth`-based resolution so Python's namespace machinery merges the
+contributions at runtime.
 """,
             default = {},
         ),
@@ -250,14 +254,13 @@ machinery merges the contributions at runtime.
             doc = """Per-wheel concrete entries beneath the wheel's `namespace_top_levels`, keyed by wheel file basename.
 
 Each entry is a `/`-joined site-packages-relative path to the shallowest
-non-namespace member: a package directory holding a direct `__init__.py`
-(`jaraco/functools`, `google/cloud/storage` — nested namespaces are
-recursed through), or a plain module / data file (`jaraco/context.py`).
-venv assembly symlinks each entry individually, materialising a merged
-namespace directory in `site-packages/` so tools that inspect it directly
-(mypy, pyright) see every contribution — and its `py.typed` markers —
-without executing `.pth` files. Only the entry matching the selected wheel
-(see `top_levels`) is used.
+non-namespace member: a package directory holding a direct recognized
+initializer (`jaraco/functools`, `google/cloud/storage` — nested namespaces are
+recursed through), or a plain module / data file (`jaraco/context.py`). venv
+assembly symlinks each entry individually, materialising a merged namespace
+directory in `site-packages/` so tools that inspect it directly (mypy, pyright)
+see every contribution — and its `py.typed` markers — without executing `.pth`
+files. Only the entry matching the selected wheel (see `top_levels`) is used.
 """,
             default = {},
         ),
@@ -265,7 +268,7 @@ without executing `.pth` files. Only the entry matching the selected wheel
             doc = """Per-wheel implicit-namespace directory skeleton under the wheel's namespace top-levels, keyed by wheel file basename.
 
 Every directory (as a `/`-joined path relative to site-packages) the wheel
-installs files under without an `__init__.py` anywhere on the path. E.g.
+installs files under without crossing a recognized package initializer. E.g.
 azure-core-tracing-opentelemetry: `["azure/core", "azure/core/tracing",
 "azure/core/tracing/ext"]`. venv assembly cross-references this with other
 wheels' `regular_roots` to find regular packages that span wheels.
@@ -276,11 +279,11 @@ wheels' `regular_roots` to find regular packages that span wheels.
             doc = """Per-wheel minimal regular-package directories under the wheel's namespace top-levels, keyed by wheel file basename.
 
 The shallowest directories (as `/`-joined paths relative to site-packages)
-carrying an `__init__.py`. E.g. azure-core: `["azure/core"]`. When such a
-root shows up in another wheel's `namespace_dirs`, that other wheel grafts
-content inside this regular package — venv assembly must physically merge
-the subtree since Python locks a regular package's `__path__` to one
-directory.
+carrying a recognized package initializer. E.g. azure-core:
+`["azure/core"]`. When such a root shows up in another wheel's
+`namespace_dirs`, that other wheel grafts content inside this regular package —
+venv assembly must physically merge the subtree since Python locks a regular
+package's `__path__` to one directory.
 """,
             default = {},
         ),

@@ -40,6 +40,13 @@ whl_install(
             "attrs-23.2.0.dist-info",
         ],
     },
+    directory_top_levels = {
+        "attrs-23.2.0-py3-none-any.whl": [
+            "attr",
+            "attrs",
+            "attrs-23.2.0.dist-info",
+        ],
+    },
     namespace_top_levels = {},
     console_scripts = {},
     visibility = ["//visibility:private"],
