@@ -290,7 +290,7 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
             # Normalise to "name=module:func" so downstream parsing is trivial.
             console_scripts[name] = "{}={}".format(name, target)
 
-    return top_levels_set, regular_top_levels, console_scripts, namespace_entries, dirs_set, init_dirs
+    return whl_path.basename, top_levels_set, regular_top_levels, console_scripts, namespace_entries, dirs_set, init_dirs
 
 def _namespace_dirs_and_roots(dirs_set, init_dirs, namespace_top_levels_set):
     """Split a wheel's directory skeleton into the implicit-namespace dirs
@@ -635,7 +635,7 @@ filegroup(
     # JSON-encoded string of labels) because only the former adds the
     # wheel repos to our visibility so `rctx.path(Label(...))` can
     # resolve. `whl_files` mirrors the truthy `whls` values in order, so
-    # pair them up by index to recover the filename ↔ label association.
+    # pair them up by index to recover the target ↔ label association.
     # Both lists are generated together by the hub rule from the same
     # source data, so the ordering invariant is maintained at the point
     # of production and does not depend on runtime dict iteration order.
@@ -653,12 +653,12 @@ filegroup(
     namespace_dirs_by_whl = {}
     regular_roots_by_whl = {}
     console_scripts_by_whl = {}
-    for whl_name, target in prebuilds.items():
-        if not target or target not in arm_targets:
+    for target, whl_file_label in whl_file_labels.items():
+        if target not in arm_targets:
             continue
-        tls, regular, css, ns_entries, dirs_set, init_dirs = _extract_wheel_metadata(
+        whl_name, tls, regular, css, ns_entries, dirs_set, init_dirs = _extract_wheel_metadata(
             repository_ctx,
-            whl_file_labels[target],
+            whl_file_label,
         )
         if tls:
             top_levels_by_whl[whl_name] = sorted(tls.keys())
