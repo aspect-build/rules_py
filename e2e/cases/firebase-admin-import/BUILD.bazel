@@ -1,5 +1,6 @@
 load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_test")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("//tools:action_mnemonic_test.bzl", "action_mnemonic_count_test")
 load("//tools:pth_snapshot.bzl", "extract_venv_pth")
 
 # Coverage test: the `google.*` namespace handling on a real wheel graph.
@@ -7,27 +8,10 @@ load("//tools:pth_snapshot.bzl", "extract_venv_pth")
 # firebase-admin 6.6.0 pulls in google-auth, google-api-core, google-cloud-*
 # — every one of them contributing to the PEP 420 `google` namespace — and
 # its own `__init__.py` does `from google.auth.credentials import ...` at
-# import time. That makes it a compact stress test for whether our
-# venv-assembly correctly merges contributions across namespace wheels.
-# All three variants below pass as shipped.
-#
-# Context: we built this case from a downstream report of a
-# `ModuleNotFoundError: No module named 'google.auth'` on exactly this
-# package. On investigation the downstream repo turned out to be using
-# rules_python's pip.parse (repos named `rules_python++pip+pystar_311_*`),
-# NOT rules_py's uv extension — and the failure reproduces reliably under
-# rules_python but NOT under rules_py. Root cause: google-auth 2.49.2's
-# wheel ships a `google/__init__.py`, which promotes `google` to a regular
-# package instead of a namespace. When that __init__.py wins in sys.path,
-# sibling `google.*` contributors become unreachable.
-#
-# rules_py sidesteps this because `whl_install`'s RECORD-based metadata
-# extraction marks `google` as a namespace in every wheel that doesn't
-# ship the `__init__.py`, and the `.pth` + `addsitedir` fallback we apply
-# to partial coverage promotes each wheel's site-packages to a site
-# directory — which reinvokes Python's PEP 420 namespace machinery and
-# merges contributions. rules_python's plain `PYTHONPATH` setup doesn't
-# get that second-pass behaviour, so the first `__init__.py` wins.
+# import time. This is a real, larger wheel graph whose downloaded wheels have
+# pairwise-disjoint `google` entries. Venv assembly should project those entries
+# directly, with no full-top-level merge action, while keeping every
+# contribution concrete and `google` itself a PEP 420 namespace.
 #
 # Variants:
 #   :test       — rules_py py_test + uv wheels, target config
@@ -92,12 +76,17 @@ build_test(
     targets = [":run_in_exec"],
 )
 
-# Snapshot fixture: ~8 namespace contributors (google-* family)
-# routed through the keyed `.pth` branch of assemble_venv. Larger
-# scale than pth-namespace-547's 2-contributor minimum — pins the
-# emission shape across many wheels and surfaces any ordering /
-# scale-only regression.
+# Snapshot fixture: ~8 namespace contributors (google-* family). Larger than
+# pth-namespace-547's two-contributor minimum; no individual wheel root should
+# remain on `.pth` after disjoint entry projection.
 extract_venv_pth(
     name = "test_tool.venv.pth",
     venv = ":test_tool.venv",
+)
+
+action_mnemonic_count_test(
+    name = "disjoint_namespace_avoids_merge_test",
+    expected_count = 0,
+    mnemonic = "PySiteMerge",
+    target_under_test = ":test_tool.venv",
 )

@@ -1,16 +1,9 @@
-"""Gap-1 regression: a namespace with a mix of entried and entryless wheels.
+"""Incomplete hand-written topology selects a complete namespace merge.
 
-`jaraco.classes` arrives via a uv `whl_install` (carries `namespace_entries`,
-so it merges concretely into site-packages). `jaraco.functools` arrives via a
-hand-written `py_unpacked_wheel` that deliberately omits `namespace_entries`
-(simulating metadata we can't synthesise). Both claim the `jaraco` PEP 420
-namespace.
-
-The entryless contributor must NOT poison the well-formed one: `jaraco.classes`
-has to stay concretely visible in site-packages (the mypy/pyright view), while
-`jaraco.functools` still resolves at import time through the `.pth` fallback.
-A concrete namespace portion and a `.pth`/addsitedir portion merge into one
-`jaraco.__path__` at runtime.
+`jaraco.functools` arrives through a hand-written `py_unpacked_wheel` that only
+declares complete top-level metadata but no trusted nested entries. Its install
+tree lets venv assembly merge the complete `jaraco` top-level alongside
+`jaraco.classes` and remove both wheel roots from `.pth`.
 """
 
 import os
@@ -30,31 +23,29 @@ def test_both_contributors_import():
     assert not hasattr(jaraco, "__file__") or jaraco.__file__ is None, (
         f"jaraco should stay a namespace package, got __file__={jaraco.__file__}"
     )
-    # Both contributions are present in the merged __path__.
-    assert len(jaraco.__path__) >= 2, (
-        f"expected jaraco.__path__ to merge >=2 portions, got {list(jaraco.__path__)}"
+    assert len(jaraco.__path__) == 1, (
+        f"expected one concrete jaraco portion, got {list(jaraco.__path__)}"
     )
 
 
-def test_entried_contributor_is_concrete():
-    """The uv (entried) wheel's subpackage must be reachable by plain
-    directory traversal of site-packages — the way mypy/pyright see it —
-    even though it shares the namespace with an entryless wheel."""
+def test_both_contributors_are_concrete_and_not_pth_backed():
     site_packages = sysconfig.get_paths()["purelib"]
-    classes_init = os.path.join(site_packages, "jaraco", "classes", "__init__.py")
-    assert os.path.isfile(classes_init), (
-        f"jaraco/classes/__init__.py not concrete at {classes_init}; the "
-        "entryless functools contributor poisoned the well-formed classes "
-        "wheel (gap-1 regression)"
-    )
-    assert os.path.isfile(
-        os.path.join(site_packages, "jaraco", "classes", "py.typed")
-    ), "jaraco/classes/py.typed not reachable via site-packages"
-    # jaraco/ itself must stay init-less so PEP 420 merges the .pth portion.
+    for package in ("classes", "functools"):
+        package_dir = os.path.join(site_packages, "jaraco", package)
+        assert os.path.isfile(os.path.join(package_dir, "__init__.py")), package_dir
+        assert os.path.isfile(os.path.join(package_dir, "py.typed")), package_dir
     assert not os.path.exists(os.path.join(site_packages, "jaraco", "__init__.py"))
+
+    pth = "\n".join(
+        open(os.path.join(site_packages, name), encoding="utf-8").read()
+        for name in os.listdir(site_packages)
+        if name.endswith(".pth")
+    )
+    assert "jaraco_functools_no_entries" not in pth, pth
+    assert "jaraco_classes" not in pth, pth
 
 
 if __name__ == "__main__":
     test_both_contributors_import()
-    test_entried_contributor_is_concrete()
-    print("PASS: entried contributor stays concrete; entryless merges via .pth")
+    test_both_contributors_are_concrete_and_not_pth_backed()
+    print("PASS: known-layout namespace contributors merge concretely")

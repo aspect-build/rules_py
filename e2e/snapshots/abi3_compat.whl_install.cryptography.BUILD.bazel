@@ -450,20 +450,6 @@ whl_install(
             "cryptography-46.0.5.dist-info",
         ],
     },
-    namespace_top_levels = {
-        "cryptography-46.0.5-cp311-abi3-musllinux_1_2_aarch64.whl": [
-            "cryptography.libs",
-        ],
-        "cryptography-46.0.5-cp311-abi3-musllinux_1_2_x86_64.whl": [
-            "cryptography.libs",
-        ],
-        "cryptography-46.0.5-cp38-abi3-musllinux_1_2_aarch64.whl": [
-            "cryptography.libs",
-        ],
-        "cryptography-46.0.5-cp38-abi3-musllinux_1_2_x86_64.whl": [
-            "cryptography.libs",
-        ],
-    },
     console_scripts = {
         "cryptography-46.0.5-cp311-abi3-macosx_10_9_universal2.whl": [],
         "cryptography-46.0.5-cp311-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.whl": [],
@@ -506,6 +492,20 @@ whl_install(
         ],
         "cryptography-46.0.5-cp38-abi3-musllinux_1_2_x86_64.whl": [
             "cryptography.libs/libgcc_s-0cd532bd.so.1",
+        ],
+    },
+    namespace_top_levels = {
+        "cryptography-46.0.5-cp311-abi3-musllinux_1_2_aarch64.whl": [
+            "cryptography.libs",
+        ],
+        "cryptography-46.0.5-cp311-abi3-musllinux_1_2_x86_64.whl": [
+            "cryptography.libs",
+        ],
+        "cryptography-46.0.5-cp38-abi3-musllinux_1_2_aarch64.whl": [
+            "cryptography.libs",
+        ],
+        "cryptography-46.0.5-cp38-abi3-musllinux_1_2_x86_64.whl": [
+            "cryptography.libs",
         ],
     },
     visibility = ["//visibility:private"],

@@ -14,7 +14,7 @@ uv.project(
 )
 use_repo(uv, "pypi_azure_core_tracing")
 
-# Exposed so e2e/BUILD.bazel can snapshot the namespace_dirs / regular_roots
-# metadata the whl_install repo rule emits for this overlapping pair.
+# Exposed so e2e/BUILD.bazel can snapshot the shared PEP 420 top-level
+# classification emitted for this overlapping pair.
 use_repo(uv, "whl_install__azure_core_tracing_import__azure_core__1_38_0")
 use_repo(uv, "whl_install__azure_core_tracing_import__azure_core_tracing_opentelemetry__1_0_0b11")

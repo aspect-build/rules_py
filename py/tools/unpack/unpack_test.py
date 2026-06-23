@@ -214,6 +214,44 @@ def main() -> None:
         assert "expected " in changed_layout.stderr
         assert "actual " in changed_layout.stderr
 
+        namespace_wheel = root / "namespace-1.0-py3-none-any.whl"
+        _write_wheel(
+            namespace_wheel,
+            "namespace",
+            {"namespace_pkg/module.py": b"VALUE = 1\n"},
+        )
+        namespace_metadata = {"namespace_top_levels": ["namespace_pkg"]}
+        namespace_ok = _run_unpack(
+            unpack,
+            namespace_wheel,
+            root / "namespace",
+            expected_metadata=namespace_metadata,
+        )
+        assert namespace_ok.returncode == 0, namespace_ok.stderr
+
+        namespace_patch = root / "make-namespace-regular.patch"
+        namespace_init_rel = (
+            f"lib/python{sys.version_info.major}.{sys.version_info.minor}"
+            "/site-packages/namespace_pkg/__init__.py"
+        )
+        namespace_patch.write_text(
+            "--- /dev/null\n"
+            f"+++ b/{namespace_init_rel}\n"
+            "@@ -0,0 +1 @@\n"
+            "+# regular package\n"
+        )
+        changed_namespace = _run_unpack(
+            unpack,
+            namespace_wheel,
+            root / "changed-namespace",
+            expected_metadata=namespace_metadata,
+            expected_metadata_origin="uv.built_wheel_metadata()",
+            patch=namespace_patch,
+        )
+        assert changed_namespace.returncode != 0
+        assert "uv.built_wheel_metadata()" in changed_namespace.stderr
+        assert '"namespace_top_levels": []' in changed_namespace.stderr
+
 
 if __name__ == "__main__":
     main()

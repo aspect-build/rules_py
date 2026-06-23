@@ -14,9 +14,8 @@ def _metadata_test_impl(ctx):
     asserts.equals(env, tuple(ctx.attr.top_levels), wheel.top_levels)
     asserts.equals(env, tuple(ctx.attr.directory_top_levels), wheel.directory_top_levels)
     asserts.equals(env, tuple(ctx.attr.namespace_top_levels), wheel.namespace_top_levels)
-    asserts.equals(env, tuple(ctx.attr.namespace_entries), wheel.namespace_entries)
-    asserts.equals(env, (), wheel.namespace_dirs)
-    asserts.equals(env, (), wheel.regular_roots)
+    asserts.equals(env, (), wheel.namespace_entries)
+    asserts.false(env, wheel.namespace_entries_known)
     asserts.equals(env, tuple(ctx.attr.console_scripts), wheel.console_scripts)
     asserts.equals(env, ctx.attr.scripts_known, wheel.scripts_known)
     actions = [action for action in target.actions if action.mnemonic == "PyUnpackedWheel"]
@@ -39,6 +38,13 @@ def _metadata_test_impl(ctx):
         if metadata_args:
             expected = json.decode(metadata_args[0])
             asserts.equals(env, ctx.attr.layout_known, "top_levels" in expected)
+            asserts.equals(env, ctx.attr.layout_known, "namespace_top_levels" in expected)
+            if ctx.attr.layout_known:
+                asserts.equals(
+                    env,
+                    sorted(ctx.attr.namespace_top_levels),
+                    expected["namespace_top_levels"],
+                )
             asserts.equals(
                 env,
                 ctx.attr.scripts_known,
@@ -54,7 +60,6 @@ _metadata_test = analysistest.make(
         "console_scripts": attr.string_list(),
         "directory_top_levels": attr.string_list(),
         "layout_known": attr.bool(mandatory = True),
-        "namespace_entries": attr.string_list(),
         "namespace_top_levels": attr.string_list(),
         "scripts_known": attr.bool(mandatory = True),
         "top_levels": attr.string_list(),
@@ -96,7 +101,6 @@ def py_unpacked_wheel_test_suite():
         src = ":_py_unpacked_wheel_fixture_file",
         console_scripts_known = True,
         directory_top_levels = ["fixture", "fixture_ns"],
-        namespace_entries = ["fixture_ns/package"],
         namespace_top_levels = ["fixture_ns"],
         tags = ["manual"],
         top_levels = ["fixture", "fixture_ns"],
@@ -105,7 +109,6 @@ def py_unpacked_wheel_test_suite():
         name = "py_unpacked_wheel_empty_scripts_test",
         directory_top_levels = ["fixture", "fixture_ns"],
         layout_known = True,
-        namespace_entries = ["fixture_ns/package"],
         namespace_top_levels = ["fixture_ns"],
         scripts_known = True,
         target_under_test = ":_py_unpacked_wheel_empty_scripts_fixture",

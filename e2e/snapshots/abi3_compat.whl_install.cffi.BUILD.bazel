@@ -157,7 +157,6 @@ whl_install(
             "cffi-2.0.0.dist-info",
         ],
     },
-    namespace_top_levels = {},
     console_scripts = {
         "cffi-2.0.0-cp312-cp312-macosx_10_13_x86_64.whl": [],
         "cffi-2.0.0-cp312-cp312-macosx_11_0_arm64.whl": [],

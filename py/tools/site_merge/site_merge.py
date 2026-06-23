@@ -1,17 +1,12 @@
 """Site-packages subtree merger for aspect_rules_py venv assembly.
 
-Physically merges one package directory contributed by multiple wheels
+Physically merges one top-level directory contributed by multiple wheels
 into a single output directory — the shape a flat `pip install` into one
 site-packages would produce.
 
-Needed when a *regular* package (one with an `__init__.py`) spans
-wheels: e.g. azure-core owns `azure/core/` while
-azure-core-tracing-opentelemetry installs
-`azure/core/tracing/ext/opentelemetry_span/` into that same tree.
-Python locks a regular package's `__path__` to the first directory
-found on `sys.path`, so unlike PEP 420 namespace portions the
-contributions cannot be merged at import time — they have to be merged
-on disk.
+Used for a top-level that every claimant identifies as a PEP 420 namespace.
+The complete top-level is the ownership unit, including regular packages and
+namespace directories nested beneath it.
 
 Invoked by Bazel as::
 
@@ -19,8 +14,7 @@ Invoked by Bazel as::
 
 Each ``--src`` is one wheel's copy of the package directory, in
 installation order: on file-level conflicts the last wheel providing a
-path wins. Sources that don't exist are skipped (platform wheels for
-other architectures may not ship the directory).
+path wins. Every declared source must be an existing directory.
 """
 
 import argparse
@@ -53,13 +47,18 @@ def _remove(path):
 
 
 def merge(into, sources):
+    missing = [src for src in sources if not src.is_dir()]
+    if missing:
+        raise FileNotFoundError(
+            "declared merge source is not a directory: {}".format(
+                ", ".join(str(src) for src in missing)
+            )
+        )
     into.mkdir(parents=True, exist_ok=True)
     owners = {}
     conflicts = []
 
     for src in sources:
-        if not src.is_dir():
-            continue
         for root, dirs, files in os.walk(src):
             rel_root = Path(root).relative_to(src)
             for d in sorted(dirs):

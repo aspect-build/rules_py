@@ -1,8 +1,26 @@
 uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_azure_namespace_sibling")
 uv.project(
+    default_build_dependencies = [
+        "build",
+        "setuptools",
+    ],
     hub_name = "pypi_azure_namespace_sibling",
     lock = "//cases/azure-namespace-sibling:uv.lock",
     pyproject = "//cases/azure-namespace-sibling:pyproject.toml",
+)
+uv.built_wheel_metadata(
+    name = "azure-identity",
+    directory_top_levels = [
+        "azure",
+        "azure_identity-1.21.0.dist-info",
+    ],
+    lock = "//cases/azure-namespace-sibling:uv.lock",
+    namespace_top_levels = ["azure"],
+    top_levels = [
+        "azure",
+        "azure_identity-1.21.0.dist-info",
+    ],
+    version = "1.21.0",
 )
 use_repo(uv, "pypi_azure_namespace_sibling")

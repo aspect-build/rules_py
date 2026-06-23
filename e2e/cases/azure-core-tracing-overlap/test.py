@@ -7,17 +7,11 @@ level is a PEP 420 namespace. azure-core-tracing-opentelemetry
 subpackage nested inside a regular package owned by a *different*
 wheel.
 
-Regular packages do not merge `__path__` across sys.path entries, so
-the namespace `.pth` + addsitedir machinery (see
-cases/firebase-admin-import, cases/pth-namespace-547) cannot make
-`azure.core.tracing.ext` reachable: once Python resolves
-`azure.core.tracing` to azure-core's directory, the `ext/` directory
-contributed by the other wheel is invisible unless venv assembly
-physically merges the two trees the way a flat `pip install` into one
-site-packages would.
-
-Reported by OpenAI from their `oai_otel_init` package, which uses this
-exact Azure package pair.
+Regular packages do not merge `__path__` across sys.path entries. The
+second wheel's entry is nested beneath the first wheel's regular
+`azure/core` package, so the entries cannot be projected as disjoint
+symlinks. Venv assembly must merge the complete `azure` top-level the
+way a flat `pip install` into one site-packages would.
 """
 
 import sys

@@ -396,7 +396,6 @@ whl_install(
             "grpcio-1.80.0.dist-info",
         ],
     },
-    namespace_top_levels = {},
     console_scripts = {
         "grpcio-1.80.0-cp311-cp311-linux_armv7l.whl": [],
         "grpcio-1.80.0-cp311-cp311-macosx_11_0_universal2.whl": [],

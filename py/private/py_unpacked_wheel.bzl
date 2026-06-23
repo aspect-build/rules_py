@@ -39,6 +39,7 @@ def _py_unpacked_wheel_impl(ctx):
             name: "directory" if name in directory_set else "file"
             for name in ctx.attr.top_levels
         }
+        expected_metadata["namespace_top_levels"] = sorted(ctx.attr.namespace_top_levels)
     if scripts_known:
         expected_metadata["console_scripts"] = sorted(ctx.attr.console_scripts)
     if expected_metadata:
@@ -110,9 +111,8 @@ def _py_unpacked_wheel_impl(ctx):
             directory_top_levels = tuple(ctx.attr.directory_top_levels),
             layout_known = layout_known,
             namespace_top_levels = tuple(ctx.attr.namespace_top_levels),
-            namespace_entries = tuple(ctx.attr.namespace_entries),
-            namespace_dirs = (),
-            regular_roots = (),
+            namespace_entries = (),
+            namespace_entries_known = False,
             site_packages_rfpath = site_packages_rfpath,
             console_scripts = tuple(ctx.attr.console_scripts),
             scripts_known = scripts_known,
@@ -167,23 +167,9 @@ list that may be empty.
         doc = """Subset of `top_levels` that are PEP 420 namespace packages.
 
 See the equivalent attribute on the `whl_install` rule for the full
-story; short version: names listed here suppress collision errors when
-multiple wheels claim the same top-level, because Python's namespace
-machinery is meant to merge their contributions. This hint is not
-validated against the wheel's nested package layout.
-""",
-        default = [],
-    ),
-    "namespace_entries": attr.string_list(
-        doc = """Concrete entries this wheel installs beneath its `namespace_top_levels`.
-
-See the equivalent attribute on the `whl_install` rule for the full
-story; short version: `/`-joined paths like `jaraco/functools` that
-let venv assembly materialise a merged namespace directory out of
-per-entry symlinks, so static tools that inspect `site-packages/`
-directly see the package. When empty, namespace merging falls back to
-`.pth`-based resolution (runtime-only). These hints are not validated
-against the wheel's nested package layout.
+story; short version: hand-written wheels do not carry trusted nested entry
+metadata, so a shared namespace named here uses a complete top-level
+`site_merge`. The classification itself is validated after unpacking.
 """,
         default = [],
     ),

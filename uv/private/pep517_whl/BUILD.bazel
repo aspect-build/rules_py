@@ -151,6 +151,7 @@ pep517_whl(
         "demo",
         "demo-1.0.0.dist-info",
     ],
+    built_wheel_namespace_top_levels = ["demo"],
     built_wheel_top_levels = [
         "demo",
         "demo-1.0.0.dist-info",

@@ -47,7 +47,6 @@ whl_install(
             "attrs-23.2.0.dist-info",
         ],
     },
-    namespace_top_levels = {},
     console_scripts = {
         "attrs-23.2.0-py3-none-any.whl": [],
     },

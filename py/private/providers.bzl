@@ -8,7 +8,7 @@ target: its known `site-packages` layout, runfiles-root-relative package path,
 and known console-script entry points.
 
 Downstream rules (notably `py_binary`) use complete immediate layouts to link
-top-level names, merge downloaded-wheel namespace metadata when available, and
+top-level names, merge complete PEP 420 top-level directories, and
 generate executable wrappers under `<venv>/bin/<name>` for known scripts.
 """,
     fields = {
@@ -20,18 +20,16 @@ generate executable wrappers under `<venv>/bin/<name>` for known scripts.
     completely describe the installed wheel's immediate site-packages layout.
   * `namespace_top_levels`: tuple[str] — subset of top_levels classified as PEP
     420 namespace packages.
-  * `namespace_entries`: tuple[str] — `/`-joined paths of concrete entries
-    beneath namespace top-levels.
-  * `namespace_dirs`: tuple[str] — producer-classified implicit-namespace
-    directory skeleton under namespace top-levels.
-  * `regular_roots`: tuple[str] — producer-classified minimal regular-package
-    roots beneath namespace top-levels. An initializer may be source, bytecode,
-    stub, or an extension module.
+  * `namespace_entries`: tuple[str] — RECORD-derived shallowest regular package
+    roots or direct files beneath namespace top-levels.
+  * `namespace_entries_known`: bool — whether namespace_entries completely
+    describes this wheel's selected, unpatched layout.
   * `site_packages_rfpath`: str — runfiles-root-relative path to the wheel's site-packages.
   * `console_scripts`: tuple[str] — entry points encoded as `"name=module:func"`.
   * `scripts_known`: bool — whether `console_scripts` completely describes the
     installed wheel, including when it is empty.
-  * `install_tree`: File — the complete installed wheel tree.
+  * `install_tree`: File or None — the complete installed wheel tree. Required
+    to merge a shared PEP 420 top-level.
 """,
     },
 )

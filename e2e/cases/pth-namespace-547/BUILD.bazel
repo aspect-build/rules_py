@@ -1,4 +1,5 @@
 load("@aspect_rules_py//py:defs.bzl", "py_test", "py_unpacked_wheel")
+load("//tools:action_mnemonic_test.bzl", "action_mnemonic_count_test")
 load("//tools:pth_snapshot.bzl", "extract_venv_pth")
 
 # Test namespace package resolution with the symlink-forest venv.
@@ -17,10 +18,9 @@ py_test(
     ],
 )
 
-# Gap-1 fixture: hand-written `py_unpacked_wheel` contributing to the
-# `jaraco` namespace WITHOUT `namespace_entries` (metadata we can't
-# synthesise for an arbitrary wheel). It must not poison the entried
-# `jaraco.classes` contributor's concrete merge.
+# A hand-written `py_unpacked_wheel` has only top-level classification and an
+# install tree. Its incomplete entry topology deliberately selects a complete
+# `jaraco` top-level merge with the downloaded contributor.
 py_unpacked_wheel(
     name = "jaraco_functools_no_entries",
     src = "@pypi_pth_namespace_547//jaraco_functools:whl",
@@ -45,10 +45,8 @@ py_test(
     package_collisions = "warning",
     python_version = "3.11",
     deps = [
-        # entried (uv whl_install, carries namespace_entries)
-        "@pypi_pth_namespace_547//jaraco_classes",
-        # entryless (hand-written, no namespace_entries)
         ":jaraco_functools_no_entries",
+        "@pypi_pth_namespace_547//jaraco_classes",
     ],
 )
 
@@ -66,9 +64,23 @@ py_test(
 
 # Snapshot fixture: minimal 2-contributor case (jaraco-classes +
 # jaraco-functools, both PEP 420 under `jaraco/`). Both wheels are
-# fully covered by the concrete per-entry namespace merge, so the
+# fully covered by disjoint nested entry projection, so the
 # snapshot pins that NEITHER appears in the .pth fallback.
 extract_venv_pth(
     name = "test.venv.pth",
     venv = ":test.venv",
+)
+
+action_mnemonic_count_test(
+    name = "disjoint_namespace_avoids_merge_test",
+    expected_count = 0,
+    mnemonic = "PySiteMerge",
+    target_under_test = ":test.venv",
+)
+
+action_mnemonic_count_test(
+    name = "incomplete_namespace_requires_merge_test",
+    expected_count = 1,
+    mnemonic = "PySiteMerge",
+    target_under_test = ":test_partial_merge.venv",
 )

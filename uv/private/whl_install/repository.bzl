@@ -245,52 +245,6 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
         console_scripts,
     )
 
-def _namespace_dirs_and_roots(dirs_set, init_dirs, namespace_top_levels_set):
-    """Split a wheel's directory skeleton into the implicit-namespace dirs
-    and the minimal regular-package roots, restricted to the wheel's
-    namespace top-levels.
-
-    Walking from the top, content is an implicit-namespace portion until
-    the first directory carrying a CPython package initializer — that
-    directory is a "regular root" and everything below it is interior to a
-    regular package.
-
-      * namespace_dirs: the implicit-namespace skeleton, minus the depth-1
-        entries already covered by namespace_top_levels
-        (azure-core → []; azure-core-tracing-opentelemetry →
-        ["azure/core", "azure/core/tracing", "azure/core/tracing/ext"]).
-      * regular_roots: the minimal regular-package dirs (azure-core →
-        ["azure/core"]).
-
-    venv assembly cross-references these across wheels: a regular root
-    appearing in another wheel's namespace skeleton means a regular
-    package SPANS wheels — Python's namespace machinery cannot merge that,
-    so the subtree must be physically merged. Dirs under regular
-    top-levels are skipped (handled by the top-level collision policy).
-    """
-    namespace_dirs = []
-    regular_roots = []
-    for d in sorted(dirs_set.keys()):
-        segments = d.split("/")
-        if segments[0] not in namespace_top_levels_set:
-            continue
-        boundary = None
-        for i in range(len(segments)):
-            prefix = "/".join(segments[:i + 1])
-            if prefix in init_dirs:
-                boundary = prefix
-                break
-        if boundary == None:
-            # Depth-1 entries are redundant with namespace_top_levels
-            # (regular roots are always depth >= 2, so the cross-wheel
-            # scan never consults them) — dropping them keeps wheels with
-            # only a `<pkg>.libs/` shared-library dir attr-free.
-            if len(segments) >= 2:
-                namespace_dirs.append(d)
-        elif boundary == d:
-            regular_roots.append(d)
-    return namespace_dirs, regular_roots
-
 def _is_package_initializer(name):
     """Whether a RECORD basename might make its directory a regular package.
 
@@ -327,7 +281,6 @@ def wheel_layout_from_record(record, data_directory):
     directory_top_levels = {}
     regular_top_levels = {}
     record_segments = []
-    dirs_set = {}
     init_dirs = {}
     for line in record.splitlines():
         path = parse_record_path(line)
@@ -360,8 +313,6 @@ def wheel_layout_from_record(record, data_directory):
             regular_top_levels[first_segment] = True
 
         record_segments.append(segments)
-        for i in range(1, len(segments)):
-            dirs_set["/".join(segments[:i])] = True
         if len(segments) >= 2 and _is_package_initializer(segments[-1]):
             init_dirs["/".join(segments[:-1])] = True
 
@@ -384,17 +335,10 @@ def wheel_layout_from_record(record, data_directory):
                 namespace_entries_set[prefix] = True
                 break
 
-    namespace_dirs, regular_roots = _namespace_dirs_and_roots(
-        dirs_set,
-        init_dirs,
-        namespace_set,
-    )
     return struct(
         directory_top_levels = sorted(directory_top_levels.keys()),
-        namespace_dirs = namespace_dirs,
         namespace_entries = sorted(namespace_entries_set.keys()),
         namespace_top_levels = namespace_top_levels,
-        regular_roots = regular_roots,
         top_levels = sorted(top_levels_set.keys()),
     )
 
@@ -710,10 +654,8 @@ filegroup(
 
     top_levels_by_whl = {}
     directory_top_levels_by_whl = {}
-    namespace_top_levels_by_whl = {}
     namespace_entries_by_whl = {}
-    namespace_dirs_by_whl = {}
-    regular_roots_by_whl = {}
+    namespace_top_levels_by_whl = {}
     console_scripts_by_whl = {}
     for target, whl_file_label in whl_file_labels.items():
         if target not in arm_targets:
@@ -728,12 +670,7 @@ filegroup(
             directory_top_levels_by_whl[whl_name] = layout.directory_top_levels
         if layout.namespace_top_levels:
             namespace_top_levels_by_whl[whl_name] = layout.namespace_top_levels
-        if layout.namespace_entries:
             namespace_entries_by_whl[whl_name] = layout.namespace_entries
-        if layout.namespace_dirs:
-            namespace_dirs_by_whl[whl_name] = layout.namespace_dirs
-        if layout.regular_roots:
-            regular_roots_by_whl[whl_name] = layout.regular_roots
         console_scripts_by_whl[whl_name] = css
 
     install_attrs = """
@@ -742,30 +679,20 @@ filegroup(
     pyc_invalidation_mode = {pyc_invalidation_mode},
     top_levels = {top_levels},
     directory_top_levels = {directory_top_levels},
-    namespace_top_levels = {namespace_top_levels},
     console_scripts = {console_scripts},""".format(
         compile_pyc = compile_pyc_select,
         pyc_invalidation_mode = pyc_invalidation_mode_select,
         top_levels = indent(pprint(top_levels_by_whl), " " * 4).lstrip(),
         directory_top_levels = indent(pprint(directory_top_levels_by_whl), " " * 4).lstrip(),
-        namespace_top_levels = indent(pprint(namespace_top_levels_by_whl), " " * 4).lstrip(),
         console_scripts = indent(pprint(console_scripts_by_whl), " " * 4).lstrip(),
     )
 
-    # Only emitted for wheels that contribute to a namespace — keeps the
-    # generated BUILD files (and their e2e snapshots) unchanged for the
-    # common regular-top-level-only case.
-    if namespace_entries_by_whl:
+    if namespace_top_levels_by_whl:
         install_attrs += """
-    namespace_entries = {namespace_entries},""".format(
+    namespace_entries = {namespace_entries},
+    namespace_top_levels = {namespace_top_levels},""".format(
             namespace_entries = indent(pprint(namespace_entries_by_whl), " " * 4).lstrip(),
-        )
-    if namespace_dirs_by_whl or regular_roots_by_whl:
-        install_attrs += """
-    namespace_dirs = {namespace_dirs},
-    regular_roots = {regular_roots},""".format(
-            namespace_dirs = indent(pprint(namespace_dirs_by_whl), " " * 4).lstrip(),
-            regular_roots = indent(pprint(regular_roots_by_whl), " " * 4).lstrip(),
+            namespace_top_levels = indent(pprint(namespace_top_levels_by_whl), " " * 4).lstrip(),
         )
 
     if post_install_patches:

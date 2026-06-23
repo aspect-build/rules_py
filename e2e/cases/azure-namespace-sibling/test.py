@@ -24,14 +24,20 @@ def test_sibling_entry_is_concrete_in_site_packages():
 
     identity_dir = os.path.join(azure_dir, "identity")
     assert os.path.isdir(identity_dir), (
-        f"site-packages/azure/identity/ is missing — sibling namespace entry "
-        f"lost its concrete symlink due to tl_conflicted. "
+        f"site-packages/azure/identity/ is missing from the complete merge. "
         f"azure/ holds: {sorted(os.listdir(azure_dir))}"
     )
     assert os.path.isfile(os.path.join(identity_dir, "__init__.py")), (
         f"azure/identity/__init__.py not found; "
         f"identity/ holds: {sorted(os.listdir(identity_dir))}"
     )
+
+    pth = "\n".join(
+        open(os.path.join(site_packages, name), encoding="utf-8").read()
+        for name in os.listdir(site_packages)
+        if name.endswith(".pth")
+    )
+    assert "azure_identity" not in pth, pth
 
 
 def test_conflicted_root_is_physically_merged():

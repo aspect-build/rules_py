@@ -24,10 +24,9 @@ def _whl_install(ctx):
         built_metadata = ctx.attr.src[BuiltWheelMetadataInfo]
         top_levels = list(built_metadata.top_levels)
         directory_top_levels = list(built_metadata.directory_top_levels)
-        namespace_top_levels = []
+        namespace_top_levels = list(built_metadata.namespace_top_levels)
         namespace_entries = []
-        namespace_dirs = []
-        regular_roots = []
+        namespace_entries_known = False
         console_scripts = list(built_metadata.console_scripts)
         layout_known = bool(top_levels)
         scripts_known = True
@@ -36,9 +35,11 @@ def _whl_install(ctx):
         top_levels = list(ctx.attr.top_levels.get(whl_basename, []))
         directory_top_levels = list(ctx.attr.directory_top_levels.get(whl_basename, []))
         namespace_top_levels = list(ctx.attr.namespace_top_levels.get(whl_basename, []))
-        namespace_entries = ctx.attr.namespace_entries.get(whl_basename, [])
-        namespace_dirs = ctx.attr.namespace_dirs.get(whl_basename, [])
-        regular_roots = ctx.attr.regular_roots.get(whl_basename, [])
+        namespace_entries = list(ctx.attr.namespace_entries.get(whl_basename, []))
+        namespace_entries_known = (
+            whl_basename in ctx.attr.namespace_entries and
+            not ctx.attr.patches
+        )
         console_scripts = ctx.attr.console_scripts.get(whl_basename, [])
         layout_known = whl_basename in ctx.attr.top_levels
         scripts_known = whl_basename in ctx.attr.console_scripts
@@ -56,6 +57,7 @@ def _whl_install(ctx):
             name: "directory" if name in directory_set else "file"
             for name in top_levels
         }
+        expected_metadata["namespace_top_levels"] = sorted(namespace_top_levels)
     if scripts_known:
         expected_metadata["console_scripts"] = sorted(console_scripts)
     if expected_metadata:
@@ -154,30 +156,12 @@ def _whl_install(ctx):
             top_levels = tuple(top_levels),
             directory_top_levels = tuple(directory_top_levels),
             layout_known = layout_known,
-            # PEP 420 namespace packages this wheel contributes to.
-            # When multiple wheels claim the same top-level and ALL of
-            # them flag it as namespace, py_binary merges the namespace
-            # CONCRETELY from `namespace_entries` per-entry symlinks
-            # (so tools that inspect site-packages directly — mypy,
-            # pyright — see the packages and their py.typed markers),
-            # unless a regular package spans the wheels (detected via
-            # `regular_roots` × `namespace_dirs`), which needs a
-            # physical merge instead. Falls back to .pth-based
-            # resolution when entry metadata is missing.
+            # Shared PEP 420 top-levels project complete, disjoint downloaded
+            # entries directly; incomplete or overlapping topology uses a
+            # complete site_merge action.
             namespace_top_levels = tuple(namespace_top_levels),
-            # Concrete per-wheel paths beneath namespace top-levels
-            # (e.g. `jaraco/functools`) that venv assembly symlinks
-            # individually to materialise a merged namespace directory.
             namespace_entries = tuple(namespace_entries),
-            # Directory skeleton under namespace top-levels: which dirs
-            # are implicit-namespace portions (`namespace_dirs`) and
-            # which are the minimal regular-package roots
-            # (`regular_roots`). venv assembly cross-references these
-            # across wheels to detect a regular package spanning wheels
-            # (Python can't merge a regular package's __path__ at
-            # runtime, so the subtree is physically merged).
-            namespace_dirs = tuple(namespace_dirs),
-            regular_roots = tuple(regular_roots),
+            namespace_entries_known = namespace_entries_known,
             site_packages_rfpath = site_packages_rfpath,
             # Each entry is "name=module:func"; py_binary parses into
             # wrapper scripts at <venv>/bin/<name> at analysis time.
@@ -186,9 +170,8 @@ def _whl_install(ctx):
             # Tree artifact holding this wheel's installed file tree
             # (`install/`, whose internal shape is
             # `lib/python<M>.<m>/site-packages/...`). Consumed by
-            # venv assembly's physical merge action (regular packages
-            # spanning wheels) and by py_image_layer's pip-package
-            # layer; the per-top-level venv symlinks reference each
+            # venv assembly's namespace merge actions and by py_image_layer's
+            # pip-package layer; direct symlinks reference each
             # wheel by its natural runfiles path rather than through
             # this File.
             install_tree = install_dir,
@@ -275,46 +258,18 @@ under `<venv>/bin/<name>` so `subprocess.run(["<name>", ...])` works.
 A top-level is a namespace if the wheel's RECORD shows no recognized package
 initializer directly beneath it. When multiple wheels contribute to the same
 namespace (e.g. `jaraco-classes` and `jaraco-functools` both claim `jaraco`),
-`py_binary`'s collision detector treats the overlap as benign and falls back to
-`.pth`-based resolution so Python's namespace machinery merges the
-contributions at runtime.
+`py_binary` projects pairwise-disjoint entries directly when every claimant has
+complete metadata. Prefix overlaps, patched wheels, and incomplete metadata use
+a complete top-level `site_merge` instead.
 """,
             default = {},
         ),
         "namespace_entries": attr.string_list_dict(
-            doc = """Per-wheel concrete entries beneath the wheel's `namespace_top_levels`, keyed by wheel file basename.
+            doc = """Per-wheel entries beneath PEP 420 top-levels, keyed by wheel file basename.
 
-Each entry is a `/`-joined site-packages-relative path to the shallowest
-non-namespace member: a package directory holding a direct recognized
-initializer (`jaraco/functools`, `google/cloud/storage` — nested namespaces are
-recursed through), or a plain module / data file (`jaraco/context.py`). venv
-assembly symlinks each entry individually, materialising a merged namespace
-directory in `site-packages/` so tools that inspect it directly (mypy, pyright)
-see every contribution — and its `py.typed` markers — without executing `.pth`
-files. Only the entry matching the selected wheel (see `top_levels`) is used.
-""",
-            default = {},
-        ),
-        "namespace_dirs": attr.string_list_dict(
-            doc = """Per-wheel implicit-namespace directory skeleton under the wheel's namespace top-levels, keyed by wheel file basename.
-
-Every directory (as a `/`-joined path relative to site-packages) the wheel
-installs files under without crossing a recognized package initializer. E.g.
-azure-core-tracing-opentelemetry: `["azure/core", "azure/core/tracing",
-"azure/core/tracing/ext"]`. venv assembly cross-references this with other
-wheels' `regular_roots` to find regular packages that span wheels.
-""",
-            default = {},
-        ),
-        "regular_roots": attr.string_list_dict(
-            doc = """Per-wheel minimal regular-package directories under the wheel's namespace top-levels, keyed by wheel file basename.
-
-The shallowest directories (as `/`-joined paths relative to site-packages)
-carrying a recognized package initializer. E.g. azure-core:
-`["azure/core"]`. When such a root shows up in another wheel's
-`namespace_dirs`, that other wheel grafts content inside this regular package —
-venv assembly must physically merge the subtree since Python locks a regular
-package's `__path__` to one directory.
+Each value contains the RECORD-derived shallowest regular package roots or
+direct files. Presence of a wheel's key means the repository rule completely
+classified its namespace entries. Post-install patches invalidate that claim.
 """,
             default = {},
         ),

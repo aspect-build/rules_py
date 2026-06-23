@@ -9,3 +9,6 @@ dependencies = [
     "azure-core-tracing-opentelemetry==1.0.0b11",
     "azure-identity==1.21.0",
 ]
+
+[tool.uv]
+no-binary-package = ["azure-identity"]

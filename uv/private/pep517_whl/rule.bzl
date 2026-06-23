@@ -60,6 +60,7 @@ def _built_wheel_metadata(ctx):
         ctx.attr.built_wheel_metadata_declared or
         ctx.attr.built_wheel_console_scripts or
         ctx.attr.built_wheel_directory_top_levels or
+        ctx.attr.built_wheel_namespace_top_levels or
         ctx.attr.built_wheel_top_levels
     ):
         return []
@@ -74,9 +75,20 @@ def _built_wheel_metadata(ctx):
             ctx.label,
             invalid_directories,
         ))
+    invalid_namespaces = [
+        name
+        for name in ctx.attr.built_wheel_namespace_top_levels
+        if name not in ctx.attr.built_wheel_directory_top_levels
+    ]
+    if invalid_namespaces:
+        fail("{}: built_wheel_namespace_top_levels entries are absent from built_wheel_directory_top_levels: {}".format(
+            ctx.label,
+            invalid_namespaces,
+        ))
     return [BuiltWheelMetadataInfo(
         console_scripts = tuple(ctx.attr.built_wheel_console_scripts),
         directory_top_levels = tuple(ctx.attr.built_wheel_directory_top_levels),
+        namespace_top_levels = tuple(ctx.attr.built_wheel_namespace_top_levels),
         origin = ctx.attr.built_wheel_metadata_origin or "PEP 517 rule attributes",
         top_levels = tuple(ctx.attr.built_wheel_top_levels),
     )]
@@ -261,6 +273,9 @@ _pep517_whl_attrs = {
     ),
     "built_wheel_directory_top_levels": attr.string_list(
         doc = "Complete subset of built_wheel_top_levels installed as directories.",
+    ),
+    "built_wheel_namespace_top_levels": attr.string_list(
+        doc = "Complete PEP 420 subset of built_wheel_directory_top_levels.",
     ),
     "built_wheel_top_levels": attr.string_list(
         doc = "Complete, configuration-invariant list of immediate site-packages entries when nonempty. Empty means the final layout is unknown.",

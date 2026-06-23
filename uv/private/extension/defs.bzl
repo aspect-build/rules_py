@@ -166,6 +166,11 @@ def _canonical_built_wheel_metadata(declaration):
         "directory_top_levels",
         key,
     )
+    namespace_top_levels = _unique_sorted_built_wheel_metadata(
+        declaration.namespace_top_levels,
+        "namespace_top_levels",
+        key,
+    )
     console_scripts = _unique_sorted_built_wheel_metadata(
         declaration.console_scripts,
         "console_scripts",
@@ -187,6 +192,15 @@ def _canonical_built_wheel_metadata(declaration):
             name,
             version,
             invalid_directories,
+        ))
+    directory_top_level_set = set(directory_top_levels)
+    invalid_namespaces = [name for name in namespace_top_levels if name not in directory_top_level_set]
+    if invalid_namespaces:
+        fail("uv.built_wheel_metadata() for lock '{}' and '{}=={}': namespace_top_levels entries are absent from directory_top_levels: {}".format(
+            declaration.lock,
+            name,
+            version,
+            invalid_namespaces,
         ))
     invalid_scripts = []
     canonical_console_scripts = []
@@ -245,6 +259,7 @@ def _canonical_built_wheel_metadata(declaration):
     return key, struct(
         console_scripts = sorted(canonical_console_scripts),
         directory_top_levels = directory_top_levels,
+        namespace_top_levels = namespace_top_levels,
         origin = "uv.built_wheel_metadata() for lock '{}' and '{}=={}'".format(
             declaration.lock,
             name,
@@ -839,6 +854,7 @@ def _uv_impl(module_ctx):
             sbuild_kwargs["built_wheel_metadata_declared"] = True
             sbuild_kwargs["built_wheel_console_scripts"] = sbuild_cfg.built_wheel_metadata.console_scripts
             sbuild_kwargs["built_wheel_directory_top_levels"] = sbuild_cfg.built_wheel_metadata.directory_top_levels
+            sbuild_kwargs["built_wheel_namespace_top_levels"] = sbuild_cfg.built_wheel_metadata.namespace_top_levels
             sbuild_kwargs["built_wheel_metadata_origin"] = sbuild_cfg.built_wheel_metadata.origin
             sbuild_kwargs["built_wheel_top_levels"] = sbuild_cfg.built_wheel_metadata.top_levels
         sdist_build(**sbuild_kwargs)
@@ -939,8 +955,11 @@ _built_wheel_metadata_tag = tag_class(
         "directory_top_levels": attr.string_list(
             doc = "Complete directory subset of top_levels.",
         ),
+        "namespace_top_levels": attr.string_list(
+            doc = "Complete PEP 420 subset of directory_top_levels.",
+        ),
         "top_levels": attr.string_list(
-            doc = "Complete, configuration-invariant list of immediate site-packages entries when nonempty. Empty means layout is unknown; nested namespace topology is always unknown.",
+            doc = "Complete, configuration-invariant list of immediate site-packages entries when nonempty. Empty means layout is unknown.",
         ),
     },
     doc = "Declare analysis-time metadata for one package version in one lock.",

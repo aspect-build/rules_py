@@ -9,6 +9,24 @@ from site_merge import merge
 
 
 class SiteMergeTest(unittest.TestCase):
+    def run_strict_merge(self, root, first, second):
+        return subprocess.run(
+            [
+                sys.executable,
+                str(Path(__file__).with_name("site_merge.py")),
+                "--into",
+                str(root / "output"),
+                "--collision-policy",
+                "error",
+                "--src",
+                str(first),
+                "--src",
+                str(second),
+            ],
+            capture_output=True,
+            text=True,
+        )
+
     def test_last_file_wins_over_read_only_file(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -96,25 +114,64 @@ class SiteMergeTest(unittest.TestCase):
             (first / "entry").write_text("first")
             (second / "entry").write_text("second")
 
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    str(Path(__file__).with_name("site_merge.py")),
-                    "--into",
-                    str(root / "output"),
-                    "--collision-policy",
-                    "error",
-                    "--src",
-                    str(first),
-                    "--src",
-                    str(second),
-                ],
-                capture_output=True,
-                text=True,
-            )
+            result = self.run_strict_merge(root, first, second)
 
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("Package collision", result.stdout)
+
+    def test_error_policy_accepts_identical_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            first = root / "first"
+            second = root / "second"
+            first.mkdir()
+            second.mkdir()
+            (first / "entry").write_text("identical")
+            (second / "entry").write_text("identical")
+
+            result = self.run_strict_merge(root, first, second)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_error_policy_unions_disjoint_directories(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            first = root / "first"
+            second = root / "second"
+            (first / "one").mkdir(parents=True)
+            (second / "two").mkdir(parents=True)
+            (first / "one/module.py").write_text("one")
+            (second / "two/module.py").write_text("two")
+
+            result = self.run_strict_merge(root, first, second)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual((root / "output/one/module.py").read_text(), "one")
+            self.assertEqual((root / "output/two/module.py").read_text(), "two")
+
+    def test_error_policy_rejects_file_directory_conflict(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            first = root / "first"
+            second = root / "second"
+            first.mkdir()
+            (second / "entry").mkdir(parents=True)
+            (first / "entry").write_text("file")
+
+            result = self.run_strict_merge(root, first, second)
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Package collision", result.stdout)
+
+    def test_missing_source_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            with self.assertRaisesRegex(
+                FileNotFoundError,
+                "declared merge source is not a directory",
+            ):
+                merge(root / "output", [root / "missing"])
 
 
 if __name__ == "__main__":

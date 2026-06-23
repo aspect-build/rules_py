@@ -360,10 +360,16 @@ uv.built_wheel_metadata(
 ```
 
 `top_levels` must list every immediate entry installed under `site-packages`,
-and `directory_top_levels` must be its complete directory subset. An empty
-`top_levels` means that the layout is unknown. `console_scripts` must contain
-every console entry point as `name=module:function`; an omitted or empty list
-means that the wheel is known to have none.
+and `directory_top_levels` must be its complete directory subset.
+`namespace_top_levels` must list the PEP 420 subset of those directories. An
+empty `top_levels` means that the layout is unknown. `console_scripts` must
+contain every console entry point as `name=module:function`; an omitted or
+empty list means that the wheel is known to have none.
+
+Downloaded wheels also carry RECORD-derived namespace entry topology, allowing
+pairwise-disjoint portions to be projected directly. Source-built declarations
+do not carry that nested topology, so shared namespace top-levels are merged in
+full from their install trees.
 
 The declaration is keyed by lockfile, normalized package name, and exact
 version. It must match a lock record with a source distribution, and it must

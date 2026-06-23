@@ -15,10 +15,14 @@ def _wheel_impl(ctx):
         command = """
 set -eu
 site="$1/lib/python$2.$3/site-packages"
-mkdir -p "$site/collision_namespace"
+mkdir -p "$site/atomic" "$site/collision_namespace" "$site/$5_sibling"
 printf 'VALUE = %s\n\ndef main():\n    print(VALUE)\n' "$4" > "$site/collision_order.py"
+printf '' > "$site/atomic/__init__.py"
+printf 'VALUE = %s\n' "$4" > "$site/atomic/shared.py"
+printf 'VALUE = %s\n' "$4" > "$site/atomic/only_$5.py"
 printf 'VALUE = %s\n' "$4" > "$site/collision_namespace/shared.py"
 printf 'VALUE = %s\n' "$4" > "$site/collision_namespace/$5.py"
+printf 'VALUE = %s\n' "$4" > "$site/$5_sibling/value.py"
 """
         arguments = [
             install_tree.path,
@@ -27,16 +31,26 @@ printf 'VALUE = %s\n' "$4" > "$site/collision_namespace/$5.py"
             json.encode(ctx.attr.value),
             ctx.attr.value,
         ]
-        top_levels = ("collision_namespace", "collision_order.py")
-        directory_top_levels = ("collision_namespace",)
+        top_levels = ("atomic", "collision_namespace", "collision_order.py", "{}_sibling".format(ctx.attr.value))
+        directory_top_levels = ("atomic", "collision_namespace", "{}_sibling".format(ctx.attr.value))
         namespace_top_levels = ("collision_namespace",)
         namespace_entries = (
             "collision_namespace/shared.py",
             "collision_namespace/{}.py".format(ctx.attr.value),
         )
-        namespace_dirs = ()
-        regular_roots = ()
         console_scripts = ("collision-order=collision_order:main",)
+    elif ctx.attr.kind == "console":
+        command = """
+set -eu
+site="$1/lib/python$2.$3/site-packages"
+printf 'def main():\n    return 0\n' > "$site/$5.py"
+"""
+        arguments = [install_tree.path, str(major), str(minor), json.encode(ctx.attr.value), ctx.attr.value]
+        top_levels = ("{}.py".format(ctx.attr.value),)
+        directory_top_levels = ()
+        namespace_top_levels = ()
+        namespace_entries = ()
+        console_scripts = ("shared-script={}:main".format(ctx.attr.value),)
     elif ctx.attr.kind == "other":
         command = """
 set -eu
@@ -49,8 +63,31 @@ printf 'VALUE = %s\n' "$4" > "$site/other/from_other.py"
         directory_top_levels = top_levels
         namespace_top_levels = top_levels
         namespace_entries = ("other/from_other.py",)
-        namespace_dirs = ()
-        regular_roots = ()
+        console_scripts = ()
+    elif ctx.attr.kind in ("deep", "shallow"):
+        command = """
+set -eu
+site="$1/lib/python$2.$3/site-packages"
+mkdir -p "$site/prefix_namespace/package/deep"
+printf 'VALUE = %%s\n' "$4" > "$site/prefix_namespace/package/%s.py"
+""" % ("deep/value" if ctx.attr.kind == "deep" else "shallow")
+        if ctx.attr.kind == "deep":
+            # This sibling sorts between `package` and `package/deep/value.py`.
+            # Prefix detection must therefore check ancestors, not just
+            # lexicographically adjacent entries.
+            command += "printf 'VALUE = %s\n' \"$4\" > \"$site/prefix_namespace/package.py\"\n"
+        if ctx.attr.kind == "shallow":
+            command += "printf '' > \"$site/prefix_namespace/package/__init__.py\"\n"
+        arguments = [install_tree.path, str(major), str(minor), json.encode(ctx.attr.value)]
+        top_levels = ("prefix_namespace",)
+        directory_top_levels = top_levels
+        namespace_top_levels = top_levels
+        namespace_entries = (
+            "prefix_namespace/package/deep/value.py",
+            "prefix_namespace/package.py",
+        ) if ctx.attr.kind == "deep" else (
+            "prefix_namespace/package",
+        )
         console_scripts = ()
     elif ctx.attr.kind == "regular":
         command = """
@@ -64,14 +101,8 @@ printf 'VALUE = %s\n' "$4" > "$site/mixed/sibling.py"
         arguments = [install_tree.path, str(major), str(minor), json.encode(ctx.attr.value)]
         top_levels = ("mixed",)
         directory_top_levels = top_levels
-        namespace_top_levels = top_levels
-        namespace_entries = (
-            "mixed/root/__init__.py",
-            "mixed/root/collision.py",
-            "mixed/sibling.py",
-        )
-        namespace_dirs = ()
-        regular_roots = ("mixed/root",)
+        namespace_top_levels = ()
+        namespace_entries = ()
         console_scripts = ()
     else:
         command = """
@@ -91,8 +122,6 @@ printf 'VALUE = %s\n' "$4" > "$site/other/from_graft.py"
             "mixed/sibling.py",
             "other/from_graft.py",
         )
-        namespace_dirs = ("mixed/root",)
-        regular_roots = ()
         console_scripts = ()
     ctx.actions.run_shell(
         outputs = [install_tree],
@@ -114,12 +143,11 @@ printf 'VALUE = %s\n' "$4" > "$site/other/from_graft.py"
         layout_known = True,
         namespace_top_levels = namespace_top_levels,
         namespace_entries = namespace_entries,
-        namespace_dirs = namespace_dirs,
-        regular_roots = regular_roots,
+        namespace_entries_known = ctx.attr.namespace_entries_known,
         site_packages_rfpath = site_packages,
         console_scripts = console_scripts,
         scripts_known = True,
-        install_tree = install_tree,
+        install_tree = install_tree if ctx.attr.provide_install_tree else None,
     )
     return [
         DefaultInfo(
@@ -141,8 +169,10 @@ _wheel = rule(
     attrs = {
         "kind": attr.string(
             mandatory = True,
-            values = ["graft", "other", "regular", "simple"],
+            values = ["console", "deep", "graft", "other", "regular", "shallow", "simple"],
         ),
+        "namespace_entries_known": attr.bool(default = True),
+        "provide_install_tree": attr.bool(default = True),
         "value": attr.string(mandatory = True),
     },
     toolchains = [PY_TOOLCHAIN],
@@ -150,11 +180,32 @@ _wheel = rule(
 
 def _collision_error_test_impl(ctx):
     env = analysistest.begin(ctx)
-    asserts.expect_failure(env, "namespace entry `collision_namespace/shared.py`")
+    asserts.expect_failure(env, "top-level `atomic`")
     return analysistest.end(env)
 
 _collision_error_test = analysistest.make(
     _collision_error_test_impl,
+    expect_failure = True,
+)
+
+def _console_collision_error_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    asserts.expect_failure(env, "console script `shared-script`")
+    return analysistest.end(env)
+
+_console_collision_error_test = analysistest.make(
+    _console_collision_error_test_impl,
+    expect_failure = True,
+)
+
+def _missing_install_tree_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    asserts.expect_failure(env, "requires a full merge because namespace entries `other/from_other.py` and `other/from_other.py` overlap")
+    asserts.expect_failure(env, "have no install_tree")
+    return analysistest.end(env)
+
+_missing_install_tree_test = analysistest.make(
+    _missing_install_tree_test_impl,
     expect_failure = True,
 )
 
@@ -212,6 +263,84 @@ def collision_order_test_suite():
     )
 
     _wheel(
+        name = "_console_first",
+        kind = "console",
+        value = "console_first",
+        tags = ["manual"],
+    )
+    _wheel(
+        name = "_console_second",
+        kind = "console",
+        value = "console_second",
+        tags = ["manual"],
+    )
+    py_binary(
+        name = "_console_collision_error_binary",
+        srcs = ["test_namespace_prefix.py"],
+        deps = [
+            ":_console_first",
+            ":_console_second",
+        ],
+        package_collisions = "error",
+        tags = ["manual"],
+    )
+    _console_collision_error_test(
+        name = "console_collision_error_test",
+        target_under_test = ":_console_collision_error_binary",
+    )
+
+    _wheel(
+        name = "_missing_tree_first",
+        kind = "other",
+        provide_install_tree = False,
+        value = "missing",
+        tags = ["manual"],
+    )
+    _wheel(
+        name = "_missing_tree_second",
+        kind = "other",
+        value = "present",
+        tags = ["manual"],
+    )
+    py_binary(
+        name = "_missing_install_tree_binary",
+        srcs = ["test_namespace_prefix.py"],
+        deps = [
+            ":_missing_tree_first",
+            ":_missing_tree_second",
+        ],
+        package_collisions = "ignore",
+        tags = ["manual"],
+    )
+    _missing_install_tree_test(
+        name = "missing_install_tree_test",
+        target_under_test = ":_missing_install_tree_binary",
+    )
+
+    _wheel(
+        name = "_prefix_shallow",
+        kind = "shallow",
+        value = "shallow",
+        tags = ["manual"],
+    )
+    _wheel(
+        name = "_prefix_deep",
+        kind = "deep",
+        value = "deep",
+        tags = ["manual"],
+    )
+    for name, deps in {
+        "deep_then_shallow": [":_prefix_deep", ":_prefix_shallow"],
+        "shallow_then_deep": [":_prefix_shallow", ":_prefix_deep"],
+    }.items():
+        py_test(
+            name = "namespace_prefix_{}_test".format(name),
+            srcs = ["test_namespace_prefix.py"],
+            deps = deps,
+            package_collisions = "warning" if name == "deep_then_shallow" else "ignore",
+        )
+
+    _wheel(
         name = "_mixed_other",
         kind = "other",
         value = "other",
@@ -229,15 +358,25 @@ def collision_order_test_suite():
         value = "graft",
         tags = ["manual"],
     )
-    for kind in ["merge", "sibling"]:
-        py_test(
-            name = "regular_span_{}_collision_order_test".format(kind),
-            srcs = ["test_regular_span_collision_order.py"],
-            args = [kind],
-            deps = [
-                ":_mixed_other",
-                ":_mixed_regular",
-                ":_mixed_graft",
-            ],
-            package_collisions = "ignore",
-        )
+    py_test(
+        name = "mixed_regular_namespace_graft_wins_test",
+        srcs = ["test_regular_span_collision_order.py"],
+        args = ["graft"],
+        deps = [
+            ":_mixed_other",
+            ":_mixed_regular",
+            ":_mixed_graft",
+        ],
+        package_collisions = "ignore",
+    )
+    py_test(
+        name = "mixed_regular_namespace_regular_wins_test",
+        srcs = ["test_regular_span_collision_order.py"],
+        args = ["regular"],
+        deps = [
+            ":_mixed_other",
+            ":_mixed_graft",
+            ":_mixed_regular",
+        ],
+        package_collisions = "ignore",
+    )

@@ -45,11 +45,6 @@ whl_install(
             "azure_core-1.38.0.dist-info",
         ],
     },
-    namespace_top_levels = {
-        "azure_core-1.38.0-py3-none-any.whl": [
-            "azure",
-        ],
-    },
     console_scripts = {
         "azure_core-1.38.0-py3-none-any.whl": [],
     },
@@ -58,10 +53,9 @@ whl_install(
             "azure/core",
         ],
     },
-    namespace_dirs = {},
-    regular_roots = {
+    namespace_top_levels = {
         "azure_core-1.38.0-py3-none-any.whl": [
-            "azure/core",
+            "azure",
         ],
     },
     visibility = ["//visibility:private"],

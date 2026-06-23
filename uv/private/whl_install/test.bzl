@@ -266,15 +266,6 @@ def _wheel_layout_metadata_test_impl(ctx):
         "namespace/pyw_plugin",
         "namespace/windows_plugin",
     ], layout.namespace_entries)
-    asserts.equals(env, ["namespace/plain"], layout.namespace_dirs)
-    asserts.equals(env, [
-        "namespace/framework_plugin",
-        "namespace/native_plugin",
-        "namespace/pyc_plugin",
-        "namespace/pyi_plugin",
-        "namespace/pyw_plugin",
-        "namespace/windows_plugin",
-    ], layout.regular_roots)
     return unittest.end(env)
 
 wheel_layout_metadata_test = unittest.make(_wheel_layout_metadata_test_impl)
@@ -324,14 +315,6 @@ _NAMESPACE_ENTRIES = {
     _MACOS_WHL: ["demo_ns/plugin"],
 }
 
-_NAMESPACE_DIRS = {
-    _MACOS_WHL: ["demo_ns/shared"],
-}
-
-_REGULAR_ROOTS = {
-    _MACOS_WHL: ["demo_ns/plugin"],
-}
-
 _CONSOLE_SCRIPTS = {
     _LINUX_WHL: [],
     _MACOS_WHL: [
@@ -361,8 +344,7 @@ def _metadata_selection_test_impl(ctx):
     asserts.equals(env, ctx.attr.expected_layout_known, wheel.layout_known)
     asserts.equals(env, tuple(ctx.attr.expected_namespace_top_levels), wheel.namespace_top_levels)
     asserts.equals(env, tuple(ctx.attr.expected_namespace_entries), wheel.namespace_entries)
-    asserts.equals(env, tuple(ctx.attr.expected_namespace_dirs), wheel.namespace_dirs)
-    asserts.equals(env, tuple(ctx.attr.expected_regular_roots), wheel.regular_roots)
+    asserts.equals(env, ctx.attr.expected_namespace_entries_known, wheel.namespace_entries_known)
     asserts.equals(env, tuple(ctx.attr.expected_console_scripts), wheel.console_scripts)
     asserts.equals(env, ctx.attr.expected_scripts_known, wheel.scripts_known)
 
@@ -398,7 +380,14 @@ def _metadata_selection_test_impl(ctx):
     if len(metadata_args) == 1:
         expected_metadata = json.decode(metadata_args[0])
         asserts.equals(env, ctx.attr.expected_layout_known, "top_levels" in expected_metadata)
+        asserts.equals(env, ctx.attr.expected_layout_known, "namespace_top_levels" in expected_metadata)
         asserts.equals(env, ctx.attr.expected_scripts_known, "console_scripts" in expected_metadata)
+        if ctx.attr.expected_layout_known:
+            asserts.equals(
+                env,
+                sorted(ctx.attr.expected_namespace_top_levels),
+                expected_metadata["namespace_top_levels"],
+            )
         if ctx.attr.expect_empty_scripts_validation:
             asserts.equals(env, [], expected_metadata.get("console_scripts"))
 
@@ -410,10 +399,9 @@ _metadata_selection_test = analysistest.make(
         "expected_top_levels": attr.string_list(),
         "expected_directory_top_levels": attr.string_list(),
         "expected_layout_known": attr.bool(default = True),
-        "expected_namespace_top_levels": attr.string_list(),
         "expected_namespace_entries": attr.string_list(),
-        "expected_namespace_dirs": attr.string_list(),
-        "expected_regular_roots": attr.string_list(),
+        "expected_namespace_entries_known": attr.bool(),
+        "expected_namespace_top_levels": attr.string_list(),
         "expected_console_scripts": attr.string_list(),
         "expected_scripts_known": attr.bool(default = True),
         "expect_empty_scripts_validation": attr.bool(),
@@ -470,10 +458,8 @@ def metadata_selection_test_suite(name):
             src = src,
             top_levels = _TOP_LEVELS,
             directory_top_levels = _DIRECTORY_TOP_LEVELS,
-            namespace_top_levels = _NAMESPACE_TOP_LEVELS,
             namespace_entries = _NAMESPACE_ENTRIES,
-            namespace_dirs = _NAMESPACE_DIRS,
-            regular_roots = _REGULAR_ROOTS,
+            namespace_top_levels = _NAMESPACE_TOP_LEVELS,
             console_scripts = _CONSOLE_SCRIPTS,
             tags = ["manual"],
         )
@@ -546,10 +532,8 @@ def metadata_selection_test_suite(name):
         src = _MACOS_WHL,
         console_scripts = {_MACOS_WHL: []},
         directory_top_levels = _DIRECTORY_TOP_LEVELS,
-        namespace_top_levels = _NAMESPACE_TOP_LEVELS,
         namespace_entries = _NAMESPACE_ENTRIES,
-        namespace_dirs = _NAMESPACE_DIRS,
-        regular_roots = _REGULAR_ROOTS,
+        namespace_top_levels = _NAMESPACE_TOP_LEVELS,
         patches = [":__metadata_empty_scripts_patch"],
         tags = ["manual"],
         top_levels = _TOP_LEVELS,
@@ -573,10 +557,9 @@ def metadata_selection_test_suite(name):
         target_under_test = ":__metadata_macos_fixture",
         expected_top_levels = _TOP_LEVELS[_MACOS_WHL],
         expected_directory_top_levels = _DIRECTORY_TOP_LEVELS[_MACOS_WHL],
-        expected_namespace_dirs = _NAMESPACE_DIRS[_MACOS_WHL],
         expected_namespace_entries = _NAMESPACE_ENTRIES[_MACOS_WHL],
+        expected_namespace_entries_known = True,
         expected_namespace_top_levels = _NAMESPACE_TOP_LEVELS[_MACOS_WHL],
-        expected_regular_roots = _REGULAR_ROOTS[_MACOS_WHL],
         expected_console_scripts = _CONSOLE_SCRIPTS[_MACOS_WHL],
         leaked_top_levels = ["_demo_backend.cpython-311-x86_64-linux-gnu.so"],
         leaked_console_scripts = [],
@@ -587,10 +570,9 @@ def metadata_selection_test_suite(name):
         expect_empty_scripts_validation = True,
         expected_console_scripts = [],
         expected_directory_top_levels = _DIRECTORY_TOP_LEVELS[_MACOS_WHL],
-        expected_namespace_dirs = _NAMESPACE_DIRS[_MACOS_WHL],
         expected_namespace_entries = _NAMESPACE_ENTRIES[_MACOS_WHL],
+        expected_namespace_entries_known = False,
         expected_namespace_top_levels = _NAMESPACE_TOP_LEVELS[_MACOS_WHL],
-        expected_regular_roots = _REGULAR_ROOTS[_MACOS_WHL],
         expected_top_levels = _TOP_LEVELS[_MACOS_WHL],
         leaked_console_scripts = _CONSOLE_SCRIPTS[_MACOS_WHL],
         leaked_top_levels = [],
@@ -643,6 +625,7 @@ def metadata_selection_test_suite(name):
         name = name + "_declared_sbuild_test",
         expected_console_scripts = _BUILT_WHEEL_CONSOLE_SCRIPTS,
         expected_directory_top_levels = _BUILT_WHEEL_TOP_LEVELS,
+        expected_namespace_top_levels = ["demo"],
         expected_top_levels = _BUILT_WHEEL_TOP_LEVELS,
         leaked_console_scripts = [],
         leaked_top_levels = [],

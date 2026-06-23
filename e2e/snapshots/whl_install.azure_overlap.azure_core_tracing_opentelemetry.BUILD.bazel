@@ -45,11 +45,6 @@ whl_install(
             "azure_core_tracing_opentelemetry-1.0.0b11.dist-info",
         ],
     },
-    namespace_top_levels = {
-        "azure_core_tracing_opentelemetry-1.0.0b11-py3-none-any.whl": [
-            "azure",
-        ],
-    },
     console_scripts = {
         "azure_core_tracing_opentelemetry-1.0.0b11-py3-none-any.whl": [],
     },
@@ -58,16 +53,9 @@ whl_install(
             "azure/core/tracing/ext/opentelemetry_span",
         ],
     },
-    namespace_dirs = {
+    namespace_top_levels = {
         "azure_core_tracing_opentelemetry-1.0.0b11-py3-none-any.whl": [
-            "azure/core",
-            "azure/core/tracing",
-            "azure/core/tracing/ext",
-        ],
-    },
-    regular_roots = {
-        "azure_core_tracing_opentelemetry-1.0.0b11-py3-none-any.whl": [
-            "azure/core/tracing/ext/opentelemetry_span",
+            "azure",
         ],
     },
     visibility = ["//visibility:private"],

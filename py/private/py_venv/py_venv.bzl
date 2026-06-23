@@ -193,9 +193,18 @@ Only works with the Aspect rules_py uv machinery.
 See `py_binary`'s attribute of the same name for full semantics — the
 two rules share the underlying collision detector.
 
-* "error": Fail analysis.
-* "warning" (default): Print a warning; last-seen wins.
-* "ignore": Last-seen wins silently.
+Collision ownership is atomic per top-level, not per distribution. Ordinary
+top-level and console-script collisions fail analysis under "error"; otherwise
+the last postorder claimant wins. A shared PEP 420 directory top-level projects
+complete pairwise-disjoint downloaded entries directly. Overlapping,
+source-built, patched, and hand-written portions merge the complete top-level;
+namespace-internal conflicts are checked by that merge action.
+
+* "error": Fail ordinary collisions at analysis and namespace-internal
+  conflicts at execution.
+* "warning" (default): Print analysis-visible collision and namespace-merge
+  warnings; later namespace files win at execution.
+* "ignore": Resolve collisions silently.
 
 Wheel metadata uses postorder: a dependency's transitive wheels precede its
 own wheel, while sibling dependencies retain their declared order.
@@ -255,9 +264,8 @@ environment. Forwarded to the sibling py_binary/py_test consumer
         allow_single_file = True,
         default = ":_virtualenv.py",
     ),
-    # Tool for physically merging a regular package that spans wheels
-    # (e.g. azure-core + azure-core-tracing-opentelemetry both
-    # installing into `azure/core/tracing/`) — see assemble_venv.
+    # Tool for merging complete PEP 420 top-levels when nested entries overlap
+    # or a claimant lacks trusted entry metadata — see assemble_venv.
     "_site_merge_script": attr.label(
         allow_single_file = True,
         default = "//py/tools/site_merge:site_merge.py",
@@ -272,10 +280,10 @@ _py_venv = rule(
     attrs = _attrs,
     toolchains = [
         PY_TOOLCHAIN,
-        # Optional: only consulted when a regular package spans wheels
-        # and assemble_venv needs an exec-config interpreter to run the
-        # site_merge action. Optional so venvs keep analyzing in setups
-        # that never registered rules_py's exec-tools toolchain.
+        # Optional: only consulted when assemble_venv needs an exec-config
+        # interpreter to merge a complete PEP 420 top-level. Optional so venvs
+        # keep analyzing when no merge is needed and no exec-tools toolchain is
+        # registered.
         config_common.toolchain_type(EXEC_TOOLS_TOOLCHAIN, mandatory = False),
     ],
     executable = True,

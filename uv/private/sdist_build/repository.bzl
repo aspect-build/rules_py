@@ -254,9 +254,11 @@ def _sdist_build_impl(repository_ctx):
     built_wheel_metadata_origin = {origin},
     built_wheel_console_scripts = {console_scripts},
     built_wheel_directory_top_levels = {directory_top_levels},
+    built_wheel_namespace_top_levels = {namespace_top_levels},
     built_wheel_top_levels = {top_levels},""".format(
             console_scripts = repr(repository_ctx.attr.built_wheel_console_scripts),
             directory_top_levels = repr(repository_ctx.attr.built_wheel_directory_top_levels),
+            namespace_top_levels = repr(repository_ctx.attr.built_wheel_namespace_top_levels),
             origin = repr(repository_ctx.attr.built_wheel_metadata_origin),
             top_levels = repr(repository_ctx.attr.built_wheel_top_levels),
         )
@@ -331,6 +333,9 @@ sdist_build = repository_rule(
         ),
         "built_wheel_directory_top_levels": attr.string_list(
             doc = "Directory subset of built_wheel_top_levels.",
+        ),
+        "built_wheel_namespace_top_levels": attr.string_list(
+            doc = "PEP 420 subset of built_wheel_directory_top_levels.",
         ),
         "built_wheel_metadata_origin": attr.string(
             doc = "Concrete uv.built_wheel_metadata() declaration for execution-time mismatch diagnostics.",

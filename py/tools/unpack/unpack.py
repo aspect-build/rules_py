@@ -67,6 +67,33 @@ def _entry_point_scripts(site_packages, sections):
     return scripts
 
 
+def _is_package_initializer(name):
+    # Keep this conservative cross-platform set aligned with the RECORD
+    # classifier in uv/private/whl_install/repository.bzl.
+    lower_name = name.lower()
+    return (
+        lower_name
+        in (
+            "__init__.py",
+            "__init__.pyc",
+            "__init__.pyi",
+            "__init__.pyw",
+        )
+        or lower_name.startswith("__init__.")
+        and lower_name.endswith((".so", ".pyd", ".fwork"))
+    )
+
+
+def _namespace_top_levels(site_packages):
+    namespaces = []
+    for entry in site_packages.iterdir():
+        if not entry.is_dir() or entry.name.endswith(".dist-info"):
+            continue
+        if not any(_is_package_initializer(child.name) for child in entry.iterdir()):
+            namespaces.append(entry.name)
+    return sorted(namespaces)
+
+
 def _validate_metadata(site_packages, expected, origin):
     actual = {}
     if "console_scripts" in expected:
@@ -78,6 +105,8 @@ def _validate_metadata(site_packages, expected, origin):
             entry.name: "directory" if entry.is_dir() else "file"
             for entry in site_packages.iterdir()
         }
+    if "namespace_top_levels" in expected:
+        actual["namespace_top_levels"] = _namespace_top_levels(site_packages)
     if actual != expected:
         raise SystemExit(
             "Installed wheel metadata did not match {}:\n"
