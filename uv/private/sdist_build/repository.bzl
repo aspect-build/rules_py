@@ -208,6 +208,9 @@ def _sdist_build_impl(repository_ctx):
 
     # Merge explicit deps with auto-discovered deps
     all_deps = [str(d) for d in repository_ctx.attr.deps] + extra_dep_labels
+    build_tool_deps = [
+        "@aspect_rules_py//uv/private/pep517_whl:memory_monitor",
+    ] + all_deps
 
     pre_build_patches = repository_ctx.attr.pre_build_patches
     patch_attrs = ""
@@ -285,7 +288,7 @@ exports_files(
 )
 """.format(
         src = repository_ctx.attr.src,
-        deps = repr(all_deps),
+        deps = repr(build_tool_deps),
         rule = "pep517_native_whl" if is_native else "pep517_whl",
         version = repository_ctx.attr.version,
         resource_set_attr = resource_set_attr,

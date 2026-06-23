@@ -76,10 +76,18 @@ def make_sdist(workdir):
 
 
 def run_helper(helper, sdist, outdir, path_entries, expect):
+    from pathlib import Path as _Path
+
+    helper_path = _Path(helper)
+    assert helper_path.parts[-4:] == ("uv", "private", "pep517_whl", "build_helper.py"), (
+        "Unexpected helper path structure: {}".format(helper)
+    )
+    rules_py_root = str(helper_path.parents[3])
     env = {
         "MPICC_TEST_EXPECT": expect,
         "PATH": os.pathsep.join(path_entries),
         "HOME": os.environ.get("TEST_TMPDIR", "/tmp"),
+        "PYTHONPATH": rules_py_root,
     }
     cc = shutil.which("cc") or "/usr/bin/cc"
     if os.path.exists(cc):

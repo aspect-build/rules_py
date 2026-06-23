@@ -1,8 +1,12 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
-load(":rule.bzl", "pep517_native_whl")
-load(":test.bzl", "pep517_native_whl_toolchain_env_test")
+load("//py:defs.bzl", "py_library", "py_test")
+load(":rule.bzl", "pep517_native_whl", "pep517_whl")
+load(
+    ":test.bzl",
+    "pep517_native_whl_toolchain_env_test",
+)
 
 package(default_visibility = [
     "//uv/private:__subpackages__",
@@ -20,6 +24,19 @@ bzl_library(
         "//py/private/toolchain:types",
         "@bazel_lib//lib:resource_sets",
     ],
+)
+
+py_library(
+    name = "memory_monitor",
+    srcs = ["memory_monitor.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "memory_monitor_test",
+    srcs = ["memory_monitor_test.py"],
+    main = "memory_monitor_test.py",
+    deps = [":memory_monitor"],
 )
 
 bzl_library(
@@ -90,4 +107,9 @@ pep517_native_whl(
 pep517_native_whl_toolchain_env_test(
     name = "toolchain_env_test",
     target_under_test = ":__toolchain_env_fixture",
+)
+
+bzl_library(
+    name = "build_memory",
+    srcs = ["build_memory.bzl"],
 )

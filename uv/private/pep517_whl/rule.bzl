@@ -29,6 +29,9 @@ def _patch_args_and_inputs(ctx):
                 patch_inputs.append(f)
     return patch_args, patch_inputs
 
+def _memory_args(ctx):
+    return ["--monitor-memory"] if ctx.attr.resource_set != "default" else []
+
 def _collect_toolchain_inputs_and_vars(ctx):
     """Gather files + Make-variable substitutions from `ctx.attr.toolchains`.
 
@@ -97,7 +100,7 @@ def _cc_toolchain_inputs_and_compiler(ctx):
 
 def _pep517_whl(ctx):
     archive = ctx.file.src
-    wheel_dir = ctx.actions.declare_directory("whl")
+    wheel_dir = ctx.actions.declare_directory(ctx.label.name)
     patch_args, patch_inputs = _patch_args_and_inputs(ctx)
 
     # The build tool is a py_binary wrapping build_helper.py. Using it as
@@ -110,7 +113,7 @@ def _pep517_whl(ctx):
         progress_message = "Source compiling {} to a whl".format(archive.basename),
         executable = ctx.executable.tool,
         toolchain = None,
-        arguments = ctx.attr.args + patch_args + [
+        arguments = ctx.attr.args + patch_args + _memory_args(ctx) + [
             archive.path,
             wheel_dir.path,
         ],
@@ -126,7 +129,7 @@ def _pep517_whl(ctx):
 
 def _pep517_native_whl(ctx):
     archive = ctx.file.src
-    wheel_dir = ctx.actions.declare_directory("whl")
+    wheel_dir = ctx.actions.declare_directory(ctx.label.name)
     patch_args, patch_inputs = _patch_args_and_inputs(ctx)
 
     env = _common_env(ctx)
@@ -148,7 +151,7 @@ def _pep517_native_whl(ctx):
         progress_message = "Native source compiling {} to a whl".format(archive.basename),
         executable = ctx.executable.tool,
         toolchain = None,
-        arguments = ctx.attr.args + patch_args + [
+        arguments = ctx.attr.args + patch_args + _memory_args(ctx) + [
             archive.path,
             wheel_dir.path,
         ],

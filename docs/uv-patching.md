@@ -83,6 +83,23 @@ Pre-build patches are applied to the extracted source tree after archive extract
 - Removing problematic native build dependencies
 - Patching source code that affects the build output
 
+### Measuring wheel build memory
+
+On Linux, when `resource_set` is set, rules_py samples the aggregate resident
+memory of the build process and its descendants and reports the peak to stderr:
+
+```starlark
+uv.override_package(
+    lock = "//:uv.lock",
+    name = "native-package",
+    resource_set = "mem_2g",
+)
+```
+
+A measurement appears whenever the sampled peak crosses another 256 MiB
+threshold and once when the build finishes. If procfs is unavailable or cannot
+be read, the final measurement is reported as unavailable.
+
 ### Adding extra dependencies or data
 
 Some packages have implicit runtime dependencies that aren't declared in their metadata:
