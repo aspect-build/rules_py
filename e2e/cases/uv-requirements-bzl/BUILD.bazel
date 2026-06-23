@@ -8,6 +8,18 @@ back to a commented stub) the relevant rule fails at load or analysis.
 
 load("@aspect_rules_py//py:defs.bzl", "py_test")
 load(
+    # The per-dep_group API lives in the rules_py-native defs.bzl, not the
+    # rules_python-compat requirements.bzl. group_deps() returns a select() that
+    # follows the consuming target's dep_group, so the group name is never
+    # repeated in deps.
+    "@pypi_requirements_by_dep_group//:defs.bzl",
+    multi_group_deps = "group_deps",
+)
+load(
+    "@pypi_requirements_bzl//:defs.bzl",
+    single_group_deps = "group_deps",
+)
+load(
     "@pypi_requirements_bzl//:requirements.bzl",
     "all_data_requirements",  # alias of all_requirements; same list by identity
     "all_requirements",
@@ -80,16 +92,54 @@ py_test(
     python_version = "3.12",
 )
 
-# Multi-package hub: deps = all_requirements pulls in every package
-# (cowsay + python-dateutil + transitive six) so __multi_test__.py can
-# import all three.
+# Single-project hub: group_deps() resolves to the sole group's list
+# (cowsay + python-dateutil + transitive six) -- the degenerate one-arm select.
 py_test(
     name = "multi_package_imports_test",
     srcs = ["__multi_test__.py"],
     dep_group = "requirements-bzl-demo",
     main = "__multi_test__.py",
     python_version = "3.12",
-    deps = all_requirements,
+    deps = single_group_deps(),
+)
+
+# Multi-project hub, empty group. group_deps() resolves to just this project's
+# own package. If the hub union leaked in, its members would be incompatible
+# under this dep_group and analysis would fail.
+py_test(
+    name = "empty_group_test",
+    srcs = ["__empty_test__.py"],
+    dep_group = "requirements-bzl-empty",
+    main = "__empty_test__.py",
+    python_version = "3.12",
+    deps = multi_group_deps(),
+)
+
+# group_deps(): the SAME function used under two different dep_group attrs must
+# resolve to each group's list, with the group name never repeated in deps.
+# demo -> cowsay (shared with group-b) + python-dateutil + six (exclusive to
+# demo). group-b's exclusive wcwidth must NOT appear here, or it is incompatible
+# under this dep_group and analysis fails.
+py_test(
+    name = "group_deps_demo_test",
+    srcs = ["__multi_test__.py"],
+    dep_group = "requirements-bzl-demo",
+    main = "__multi_test__.py",
+    python_version = "3.12",
+    deps = multi_group_deps(),
+)
+
+# group-b -> cowsay (shared) + wcwidth (exclusive). Same function as above; if
+# the select did not track the active dep_group it would resolve to demo's
+# incompatible list and analysis would fail. Together these pin bidirectional
+# exclusion plus the shared-package overlap (cowsay in both groups' lists).
+py_test(
+    name = "group_deps_group_b_test",
+    srcs = ["__group_b_test__.py"],
+    dep_group = "requirements-bzl-group-b",
+    main = "__group_b_test__.py",
+    python_version = "3.12",
+    deps = multi_group_deps(),
 )
 
 # requirement() normalization: a non-canonical name with mixed case and

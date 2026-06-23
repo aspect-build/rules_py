@@ -134,6 +134,33 @@ py_binary(
 )
 ```
 
+Targets that need every dependency in one dependency group can use the
+group-specific lists generated in `defs.bzl`. The `group_deps()` helper follows
+the consuming target's `dep_group`, so the group name is never repeated:
+
+```starlark
+load("@pypi//:defs.bzl", "group_deps")
+
+py_binary(
+    name = "all_vendored",
+    dep_group = "vendored_say",
+    deps = group_deps(),  # resolves to vendored_say's dependencies
+)
+```
+
+`group_deps()` returns a `select()` keyed on the active `dep_group`; if no
+`dep_group` is set it fails with the list of known groups. It is a function so
+future options (such as PEP 508 package extras) can be added as arguments
+without breaking callers.
+
+`all_requirements` (in `requirements.bzl`) remains the hub-wide union for
+compatibility with `rules_python`. Under a dependency-group transition, that
+union may contain targets which are incompatible with the selected group, so
+use the group-specific helpers above when the consuming target sets
+`dep_group`. This per-group API has no `rules_python` equivalent, so it lives
+in the rules_py native `defs.bzl` rather than the `rules_python`-compatible
+`requirements.bzl`.
+
 ## The `uv` toolchain
 
 `uv_bin.toolchain()` fetches the UV binary for the required platform(s) and

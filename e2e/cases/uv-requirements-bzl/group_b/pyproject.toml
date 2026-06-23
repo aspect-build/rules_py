@@ -1,0 +1,8 @@
+[project]
+name = "requirements-bzl-group-b"
+version = "0.0.0"
+requires-python = ">=3.12"
+dependencies = [
+    "cowsay==6.1",
+    "wcwidth",
+]
