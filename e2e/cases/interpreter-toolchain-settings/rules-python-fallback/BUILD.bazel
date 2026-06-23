@@ -1,0 +1,21 @@
+load("@aspect_rules_py//uv/private/constraints/python:defs.bzl", "is_python_version_at_least")
+load("@non_root//:transition_test.bzl", "version_transition_check")
+
+version_transition_check(
+    name = "rules_python_fallback",
+    expected = "3.11",
+)
+
+is_python_version_at_least(
+    name = "python_at_least_311",
+    version = "3.11",
+    visibility = ["//visibility:private"],
+)
+
+filegroup(
+    name = "uv_constraint_uses_rules_python_fallback",
+    srcs = select({
+        ":python_at_least_311": ["rules_python_selected.txt"],
+        "//conditions:default": [],
+    }),
+)

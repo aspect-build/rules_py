@@ -14,11 +14,6 @@ toolchain_type(
     visibility = ["//visibility:public"],
 )
 
-toolchain_type(
-    name = "exec_tools_toolchain_type",
-    visibility = ["//visibility:public"],
-)
-
 bzl_library(
     name = "repo",
     srcs = ["repo.bzl"],

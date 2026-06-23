@@ -1,7 +1,56 @@
 """Tests for version_util.bzl."""
 
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load("//py/private/interpreter:version_util.bzl", "is_pre_release", "version_gt", "version_key")
+load("//py/private/interpreter:version_util.bzl", "is_pre_release", "is_valid_python_tag", "is_valid_python_version", "version_gt", "version_key")
+
+def _is_valid_python_tag_test_impl(ctx):
+    env = unittest.begin(ctx)
+
+    for version in [
+        "3.14",
+        "3.14.3",
+        "3.15.0a6",
+        "3.14.0b1",
+        "3.14.0rc2",
+    ]:
+        asserts.true(env, is_valid_python_tag(version), version)
+
+    for version in [
+        "3",
+        "3.14.3.1",
+        "3.14.3garbage",
+        "3.14.0a",
+        "3.14.0rc1garbage",
+    ]:
+        asserts.false(env, is_valid_python_tag(version), version)
+
+    return unittest.end(env)
+
+is_valid_python_tag_test = unittest.make(_is_valid_python_tag_test_impl)
+
+def _is_valid_python_version_test_impl(ctx):
+    env = unittest.begin(ctx)
+
+    for version in [
+        "3.14.3",
+        "3.15.0a6",
+        "3.14.0b1",
+        "3.14.0rc2",
+    ]:
+        asserts.true(env, is_valid_python_version(version), version)
+
+    for version in [
+        "3.14",
+        "3.14.3.1",
+        "3.14.3garbage",
+        "3.14.0a",
+        "3.14.0rc1garbage",
+    ]:
+        asserts.false(env, is_valid_python_version(version), version)
+
+    return unittest.end(env)
+
+is_valid_python_version_test = unittest.make(_is_valid_python_version_test_impl)
 
 def _version_key_test_impl(ctx):
     env = unittest.begin(ctx)
@@ -106,6 +155,8 @@ is_pre_release_test = unittest.make(_is_pre_release_test_impl)
 def version_util_test_suite():
     unittest.suite(
         "version_util_tests",
+        is_valid_python_tag_test,
+        is_valid_python_version_test,
         version_key_test,
         version_gt_basic_test,
         version_gt_prerelease_test,

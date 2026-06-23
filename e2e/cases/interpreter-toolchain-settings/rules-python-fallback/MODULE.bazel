@@ -1,0 +1,19 @@
+module(name = "interpreter_toolchain_settings_rules_python_fallback")
+
+bazel_dep(name = "aspect_rules_py")
+bazel_dep(name = "non_root", version = "1.0")
+bazel_dep(name = "rules_python", version = "1.9.1")
+
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../../../..",
+)
+
+local_path_override(
+    module_name = "non_root",
+    path = "../non_root",
+)
+
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+interpreters.configure(releases = ["20260303"])
+use_repo(interpreters, "python_interpreters")

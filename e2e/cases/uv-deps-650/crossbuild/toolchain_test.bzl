@@ -5,7 +5,7 @@ path into a file, so sh_test scripts can verify which interpreter was selected
 under cross-compilation (target platform ≠ exec platform).
 """
 
-EXEC_TOOLS_TOOLCHAIN = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type"
+EXEC_TOOLS_TOOLCHAIN = "@rules_python//python:exec_tools_toolchain_type"
 
 def _exec_python_path_impl(ctx):
     exec_runtime = ctx.toolchains[EXEC_TOOLS_TOOLCHAIN].exec_tools.exec_runtime

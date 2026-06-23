@@ -1,0 +1,18 @@
+module(name = "interpreter_toolchain_settings_multiple_defaults")
+
+bazel_dep(name = "aspect_rules_py")
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../../../..",
+)
+
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+interpreters.toolchain(
+    is_default = True,
+    python_version = "3.11",
+)
+interpreters.toolchain(
+    is_default = True,
+    python_version = "3.12",
+)
+use_repo(interpreters, "python_interpreters")

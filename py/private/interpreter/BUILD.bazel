@@ -1,11 +1,9 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
-load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 load(":exclude_feature.bzl", "exclude_feature_flag")
 load(":version_util_test.bzl", "version_util_test_suite")
 
 package(default_visibility = ["//visibility:public"])
-
-exports_files(["probe_interpreter.py"])
 
 bzl_library(
     name = "current_py_toolchain",
@@ -24,9 +22,14 @@ bzl_library(
     ],
 )
 
-string_flag(
+bzl_library(
+    name = "interpreter_executable",
+    srcs = ["interpreter_executable.bzl"],
+)
+
+alias(
     name = "python_version",
-    build_setting_default = "",
+    actual = "@python_interpreters//:python_version",
 )
 
 # Interpreter feature exclusions. Pass one or more --exclude_feature flags to

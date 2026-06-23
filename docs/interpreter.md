@@ -17,9 +17,9 @@ it — no repinning, no manifest regeneration.
 Any version published in a PBS release is available. Need Python 3.8? Add an
 older release date that includes it.
 
-**Windows and cross-platform support.** 9 platforms are registered out of the
-box, including Windows (x86_64, aarch64, i686), Linux (glibc and musl), and
-macOS.
+**Windows and cross-platform support.** Runtime and C toolchains are registered
+for nine PBS target platforms, including Windows (x86_64, aarch64, i686), Linux
+(glibc and musl), and macOS.
 
 ## Quickstart
 
@@ -28,18 +28,15 @@ macOS.
 bazel_dep(name = "aspect_rules_py", version = "1.6.7")  # Or later
 
 interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
-interpreters.toolchain(
-    is_default = True,
-    python_version = "3.12",
-)
+interpreters.toolchain(python_version = "3.12", is_default = True)
 interpreters.toolchain(python_version = "3.11")
 use_repo(interpreters, "python_interpreters")
 register_toolchains("@python_interpreters//:all")
 ```
 
-That's all you need. The extension uses a set of default PBS release dates that
-cover Python 3.8 through 3.15. The newest available build for each requested
-version is selected automatically.
+The extension uses a set of PBS release dates that cover Python 3.8 through
+3.15. The newest available build for each requested version is selected
+automatically.
 
 ## Configuring releases
 
@@ -61,9 +58,9 @@ register_toolchains("@python_interpreters//:all")
 ```
 
 When multiple releases contain the same Python minor version, the newest release
-is preferred. Only one `configure()` tag is allowed per module graph, and only
-the root module's tag is honored — dependency modules may include `configure()`
-without error, but it will be silently ignored.
+is preferred. Only one root-module `configure()` tag is allowed. Dependency
+modules may include any number of `configure()` tags without error; they are
+silently ignored.
 
 ## Using the latest release
 
@@ -95,17 +92,18 @@ The `base_url` must point to a directory structure matching PBS releases, where
 
 ## Module scoping
 
-The `configure()` tag and the `is_default` / `pre_release` flags on `toolchain()`
-are only honored from the root module. This gives the root module full control
-over the build environment while allowing dependency modules to declare which
-Python versions they need.
+The `configure()` tag, `is_default`, the `pre_release` flag, and additional
+toolchain settings are only honored from the root module. This gives the root
+module control over the build environment while allowing dependency modules to
+declare which Python versions they need.
 
-| Setting                           | Root module                          | Non-root module    |
-| --------------------------------- | ------------------------------------ | ------------------ |
-| `configure()`                     | Sets release search space and mirror | Silently ignored   |
-| `toolchain(python_version = ...)` | Adds to global set                   | Adds to global set |
-| `toolchain(is_default = True)`    | Honored                              | Silently ignored   |
-| `toolchain(pre_release = True)`   | Honored                              | Silently ignored   |
+| Setting                                              | Root module                          | Non-root module    |
+| ---------------------------------------------------- | ------------------------------------ | ------------------ |
+| `configure()`                                        | Sets release search space and mirror | Silently ignored   |
+| `toolchain(python_version = ...)`                    | Adds to global set                   | Adds to global set |
+| `toolchain(is_default = True)`                       | Selects the default                  | Silently ignored   |
+| `toolchain(pre_release = True)`                      | Honored                              | Silently ignored   |
+| `config_settings` and compatibility constraint lists | Honored                              | Silently ignored   |
 
 If a dependency module requests a Python version that isn't available in any
 release configured by the root module, the build will fail with a clear error
@@ -113,28 +111,48 @@ message identifying which module requested it.
 
 ## Selecting Python versions
 
-There are three layers of version control, from broadest to most specific.
+The extension creates `@python_interpreters//:python_version` with the root
+module's selected default. If the root requests one distinct version, that
+version is implicitly the default. If it requests multiple distinct versions,
+exactly one distinct version must be marked with `is_default = True`. Repeated
+tags that normalize to the same `major.minor` may all mark that version as the
+default when their toolchain settings agree. Transitive requests never
+determine the default.
 
-### 1. The default version (MODULE.bazel)
+Requested versions must be either `major.minor` or a complete PBS version:
+`major.minor.patch`, `major.minor.patchaN`, `major.minor.patchbN`, or
+`major.minor.patchrcN`. The extension validates this grammar before reducing a
+request to `major.minor`.
 
-The `is_default = True` toolchain is what Bazel selects when nothing else
-overrides it:
+Declaring any root `toolchain()` tag opts the root into Aspect version
+selection. Its implicit or explicit default applies while `rules_python`'s
+version flag is empty. If the root declares no `toolchain()` tags, the Aspect
+default remains empty; transitive requests still provision toolchains, and
+`rules_python`'s flag can select among them.
+
+There are three layers of version selection.
+
+### 1. The root default (MODULE.bazel)
 
 ```starlark
 interpreters.toolchain(python_version = "3.12", is_default = True)
+interpreters.toolchain(python_version = "3.14")
 ```
 
-### 2. A build-wide default (.bazelrc)
+### 2. An Aspect build-wide version (.bazelrc)
 
-Set `--@aspect_rules_py//py:python_version` in `.bazelrc` to lock the
-entire build to a specific version. This is a good practice even when it matches
-the `is_default` toolchain — it makes the choice explicit and visible in version
-control:
+Set `--@aspect_rules_py//py:python_version` in `.bazelrc` to select the version
+for Aspect rules and make the choice visible in version control:
 
 ```
 # .bazelrc
 common --@aspect_rules_py//py:python_version=3.12
 ```
+
+For Aspect rules, this is the build-wide version unless a target sets
+`python_version`. In other configurations it is only a fallback while
+`rules_python`'s version is empty; it does not lock every target in a mixed
+Aspect and `rules_python` graph.
 
 This flag can also be overridden on the command line for one-off testing against
 a different version:
@@ -175,52 +193,78 @@ versions:
 
 ### Precedence
 
-| Mechanism                               | Scope                  | Set by                     |
-| --------------------------------------- | ---------------------- | -------------------------- |
-| `is_default = True` on `toolchain()`    | Whole build (fallback) | `MODULE.bazel`             |
-| `--@aspect_rules_py//py:python_version` | Whole build            | `.bazelrc` or command line |
-| `python_version` attribute              | Single target          | `BUILD.bazel`              |
+| Mechanism                               | Scope                                          | Set by                     |
+| --------------------------------------- | ---------------------------------------------- | -------------------------- |
+| `is_default = True` on `toolchain()`    | Aspect; fallback while rules_python is empty   | `MODULE.bazel`             |
+| `--@aspect_rules_py//py:python_version` | Aspect; fallback while rules_python is empty   | `.bazelrc` or command line |
+| `python_version` attribute              | Single Aspect target                           | `BUILD.bazel`              |
 
-The most specific wins: attribute > flag > default toolchain.
+Aspect rules choose their target attribute first, then the Aspect flag or its
+generated root default, and finally `rules_python`'s version flag when the
+Aspect value is empty. Their transitions copy the result into both flags.
+
+`rules_python` rules instead set only their own version flag. Any nonempty value
+there takes precedence during toolchain selection, so a `rules_python` target's
+`python_version` attribute overrides the generated Aspect root default.
 
 ## Build configurations
 
-PBS provides several build configurations. The default is `install_only`, which
-is PGO+LTO optimized on platforms that support it. You can select a different
-configuration per toolchain:
+The extension registers one normal PBS build for each available version and
+platform. It also registers a free-threaded build when the selected PBS release
+publishes that version and platform combination:
 
-```starlark
-interpreters.toolchain(
-    python_version = "3.12",
-    build_config = "install_only_stripped",  # Smaller, debug symbols removed
-)
-```
+- `install_only` is the normal build.
+- `freethreaded` is selected with
+  `--@aspect_rules_py//py/private/interpreter:freethreaded=true`.
 
-Available configurations:
+For a target platform, the runtime and C registrations point into the same
+repository created from one exact PBS archive. They share target platform,
+libc, `major.minor`, free-threaded mode, and root-supplied settings.
 
-- `install_only` — Standard optimized build (default)
-- `install_only_stripped` — Same but with debug symbols stripped
-- `freethreaded+pgo+lto` — Free-threaded (no GIL) with PGO+LTO optimization
-- `freethreaded+debug` — Free-threaded debug build
+Exec-tools registrations resolve independently for the executor platform. They
+match `major.minor`, free-threaded mode, and root-supplied settings, but their
+PBS archive is selected for the executor rather than inherited from the target
+runtime.
+
+On Linux, only GNU PBS artifacts are registered as exec tools, and Linux
+execution platforms must provide glibc. Musl remains supported as a target: a
+musl target resolves musl runtime and C toolchains while build actions use GNU
+exec tools. `PLATFORM_LIBC_FLAG` is a target configuration setting; it cannot
+constrain an execution platform. The generated Linux exec registrations
+therefore constrain only OS and CPU. Registering a Linux execution platform is
+an explicit promise that its host provides glibc.
+
+Bazel resolves the runtime, C, and exec-tools toolchain types independently.
+The shared settings align registrations emitted by this extension, but Bazel
+does not bind all three toolchain types into one selection.
 
 ## Platforms
 
-The following platforms are registered by default:
+The following PBS platforms are registered by default:
 
-| Platform                     | OS            | Architecture |
-| ---------------------------- | ------------- | ------------ |
-| `aarch64-apple-darwin`       | macOS         | ARM64        |
-| `x86_64-apple-darwin`        | macOS         | x86_64       |
-| `aarch64-unknown-linux-gnu`  | Linux (glibc) | ARM64        |
-| `x86_64-unknown-linux-gnu`   | Linux (glibc) | x86_64       |
-| `aarch64-unknown-linux-musl` | Linux (musl)  | ARM64        |
-| `x86_64-unknown-linux-musl`  | Linux (musl)  | x86_64       |
-| `x86_64-pc-windows-msvc`     | Windows       | x86_64       |
-| `aarch64-pc-windows-msvc`    | Windows       | ARM64        |
-| `i686-pc-windows-msvc`       | Windows       | x86 (32-bit) |
+| Platform                     | OS            | Architecture | Toolchains    |
+| ---------------------------- | ------------- | ------------ | ------------- |
+| `aarch64-apple-darwin`       | macOS         | ARM64        | Target + exec |
+| `x86_64-apple-darwin`        | macOS         | x86_64       | Target + exec |
+| `aarch64-unknown-linux-gnu`  | Linux (glibc) | ARM64        | Target + exec |
+| `x86_64-unknown-linux-gnu`   | Linux (glibc) | x86_64       | Target + exec |
+| `aarch64-unknown-linux-musl` | Linux (musl)  | ARM64        | Target only   |
+| `x86_64-unknown-linux-musl`  | Linux (musl)  | x86_64       | Target only   |
+| `x86_64-pc-windows-msvc`     | Windows       | x86_64       | Target + exec |
+| `aarch64-pc-windows-msvc`    | Windows       | ARM64        | Target + exec |
+| `i686-pc-windows-msvc`       | Windows       | x86 (32-bit) | Target + exec |
 
 Not all Python versions are available on all platforms. Unavailable combinations
 are silently skipped during toolchain resolution.
+
+## Migrating local interpreters
+
+Version 2 removes the `interpreters.local()` tag. It could pair an arbitrary
+runtime with headers and libraries supplied independently, so the extension
+could not guarantee that Python extension modules used one ABI-compatible
+toolchain. Use `interpreters.toolchain()` for a matched PBS runtime and C
+toolchain. Projects that intentionally require a system interpreter can
+register it through `rules_python` instead of this extension.
 
 ## Compatibility with rules_python
 
@@ -228,11 +272,24 @@ This interpreter provisioning is designed to coexist with `rules_python`:
 
 - The standard `@bazel_tools//tools/python:toolchain_type` is used for toolchain
   registration, so these interpreters work with all existing Python rules.
-- The `@rules_python//python/config_settings:python_version` flag is kept in
-  sync with our own version flag via build transitions.
+- A nonempty `@rules_python//python/config_settings:python_version` value takes
+  precedence over the generated root default, so `rules_python` per-target
+  `python_version` transitions select the requested interpreter. The generated
+  `@python_interpreters//:python_version` flag supplies the default while the
+  `rules_python` flag is empty.
+- Transitions used by this repository set both version flags to the same value,
+  so their explicit target version remains authoritative.
 - `py_runtime` and `py_runtime_pair` from `rules_python` are used to create
   the runtime providers.
 
 You can migrate incrementally: replace `python.toolchain()` calls with
 `interpreters.toolchain()` and remove the `rules_python` interpreter
 configuration while keeping everything else.
+
+The interpreter extension is also usable without the `py_binary` and `py_test`
+rules in this repository: register `@python_interpreters//:all` and select the
+generated flag directly. The compatibility label
+`@aspect_rules_py//py:python_version` is a build-setting alias and requires the
+extension repository to be imported as `python_interpreters`, as shown above.
+Older Bazel releases that do not support setting a build-setting alias must use
+`--@python_interpreters//:python_version` instead.

@@ -1,0 +1,11 @@
+constraint_setting(name = "ignored_setting")
+
+constraint_value(
+    name = "ignored_constraint",
+    constraint_setting = ":ignored_setting",
+)
+
+config_setting(
+    name = "ignored_config",
+    define_values = {"interpreter_setting": "ignored"},
+)

@@ -1,0 +1,25 @@
+module(
+    name = "non_root",
+    version = "1.0",
+)
+
+bazel_dep(name = "aspect_rules_py")
+bazel_dep(name = "bazel_skylib", version = "1.9.0")
+bazel_dep(name = "rules_python", version = "1.9.1")
+
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+interpreters.toolchain(
+    config_settings = ["//:ignored_config"],
+    exec_compatible_with = ["//:ignored_constraint"],
+    is_default = True,
+    python_version = "3.11",
+    target_compatible_with = ["//:ignored_constraint"],
+)
+use_repo(interpreters, "python_interpreters")
+
+interpreters.toolchain(
+    config_settings = ["//:ignored_config"],
+    exec_compatible_with = ["//:ignored_constraint"],
+    python_version = "3.12",
+    target_compatible_with = ["//:ignored_constraint"],
+)

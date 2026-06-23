@@ -1,11 +1,15 @@
 """Module extension for provisioning Python interpreters from python-build-standalone."""
 
-load(":repository.bzl", "local_python_interpreter", "python_interpreter", "python_toolchains")
-load(":version_util.bzl", "is_pre_release", "version_gt")
+load(":repository.bzl", "python_interpreter", "python_toolchains")
+load(":version_util.bzl", "is_pre_release", "is_valid_python_tag", "is_valid_python_version", "version_gt")
 load(":versions.bzl", "BUILD_CONFIGS", "DEFAULT_RELEASE_BASE_URL", "DEFAULT_RELEASE_DATES", "PLATFORMS")
 
 # The GitHub API endpoint for resolving "latest" releases.
 _GITHUB_API_LATEST = "https://api.github.com/repos/{owner}/{repo}/releases/latest"
+
+# Facts can outlive an extension implementation change, so matching changes
+# must use a new key rather than accepting the old index shape.
+_RELEASE_INDEX_SCHEMA = 1
 
 def _sanitize(s):
     """Replace characters that are invalid in Bazel repo names."""
@@ -24,53 +28,142 @@ def _parse_sha256sums(content, release_date):
     newest is kept.
     """
     index = {}
+    seen_assets = {}
+    asset_matchers = {}
 
-    for line in content.split("\n"):
-        line = line.strip()
-        if not line or not line[0].isalnum():
+    config_names = sorted(BUILD_CONFIGS.keys())
+    for platform, platform_info in PLATFORMS.items():
+        asset_suffixes = platform_info.get("asset_suffixes", {})
+        if sorted(asset_suffixes.keys()) != config_names:
+            fail(
+                "PBS platform {} must define exactly these logical build configs: {}; got {}".format(
+                    platform,
+                    config_names,
+                    sorted(asset_suffixes.keys()),
+                ),
+            )
+
+        for config_name, config_info in BUILD_CONFIGS.items():
+            suffix = asset_suffixes[config_name]
+            if not suffix:
+                fail("PBS platform {} has an empty asset suffix for {}".format(platform, config_name))
+            asset_tail = "{}-{}.{}".format(platform, suffix, config_info["extension"])
+            if asset_tail in asset_matchers:
+                other = asset_matchers[asset_tail]
+                fail(
+                    "Ambiguous PBS asset matcher {} for {}/{} and {}/{}".format(
+                        asset_tail,
+                        other[0],
+                        other[1],
+                        platform,
+                        config_name,
+                    ),
+                )
+            asset_matchers[asset_tail] = (platform, config_name)
+
+    for line_number, raw_line in enumerate(content.split("\n")):
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
             continue
 
-        parts = line.split("  ", 1)
+        parts = [part for part in line.replace("\t", " ").split(" ") if part]
         if len(parts) != 2:
-            parts = line.split(" ", 1)
-            if len(parts) != 2:
-                continue
+            for asset_tail in asset_matchers:
+                if line.endswith("-" + asset_tail):
+                    fail(
+                        "Malformed configured PBS asset on line {} of release {}: {}".format(
+                            line_number + 1,
+                            release_date,
+                            line,
+                        ),
+                    )
+            continue
 
         sha256 = parts[0].strip()
         filename = parts[1].strip()
+        if filename.startswith("*"):
+            filename = filename[1:]
 
         if not filename.startswith("cpython-"):
             continue
 
-        # Parse: cpython-{version}+{date}-{platform}-{suffix}.{ext}
-        plus_idx = filename.find("+")
-        if plus_idx < 0:
+        matches = []
+        for asset_tail, matcher in asset_matchers.items():
+            if filename.endswith("-" + asset_tail):
+                matches.append((asset_tail, matcher))
+
+        if not matches:
             continue
+        if len(matches) != 1:
+            fail(
+                "Ambiguous configured PBS asset on line {} of release {}: {} matches {}".format(
+                    line_number + 1,
+                    release_date,
+                    filename,
+                    [match[0] for match in matches],
+                ),
+            )
+
+        asset_tail, (matched_platform, matched_config) = matches[0]
+
+        # Parse exactly: cpython-{version}+{date}-{platform}-{suffix}.{ext}
+        plus_idx = filename.find("+")
+        expected_remainder = "{}-{}".format(release_date, asset_tail)
+        if plus_idx < len("cpython-") or filename[plus_idx + 1:] != expected_remainder:
+            fail(
+                "Malformed configured PBS asset on line {} of release {}: expected cpython-{{version}}+{}, got {}".format(
+                    line_number + 1,
+                    release_date,
+                    expected_remainder,
+                    filename,
+                ),
+            )
         version = filename[len("cpython-"):plus_idx]
 
+        if not is_valid_python_version(version):
+            fail(
+                "Malformed Python version '{}' in configured PBS asset on line {} of release {}: {}".format(
+                    version,
+                    line_number + 1,
+                    release_date,
+                    filename,
+                ),
+            )
         version_parts = version.split(".")
-        if len(version_parts) < 2:
-            continue
         major_minor = "{}.{}".format(version_parts[0], version_parts[1])
 
-        # Match against known build configs (check suffix + extension)
-        remainder = filename[plus_idx + 1 + len(release_date) + 1:]  # skip "{date}-"
-        matched_config = None
-        matched_platform = None
-
-        for config_name, config_info in BUILD_CONFIGS.items():
-            expected_tail = "-{}.{}".format(config_info["suffix"], config_info["extension"])
-            if remainder.endswith(expected_tail):
-                platform_str = remainder[:len(remainder) - len(expected_tail)]
-                if platform_str in PLATFORMS:
-                    matched_config = config_name
-                    matched_platform = platform_str
-                    break
-
-        if not matched_config:
-            continue
+        valid_sha256 = len(sha256) == 64
+        for char in sha256.elems():
+            if char not in "0123456789abcdefABCDEF":
+                valid_sha256 = False
+        if not valid_sha256:
+            fail(
+                "Malformed SHA256 for configured PBS asset on line {} of release {}: {}".format(
+                    line_number + 1,
+                    release_date,
+                    line,
+                ),
+            )
+        sha256 = sha256.lower()
 
         key = "{}/{}/{}".format(major_minor, matched_platform, matched_config)
+        version_key = (key, version)
+        prior_asset = seen_assets.get(version_key)
+        if prior_asset:
+            if filename == prior_asset["filename"] and sha256 == prior_asset["sha256"]:
+                continue
+            fail(
+                "Ambiguous PBS assets for {} in release {}: {} and {}".format(
+                    key,
+                    release_date,
+                    prior_asset["filename"],
+                    filename,
+                ),
+            )
+        seen_assets[version_key] = {
+            "filename": filename,
+            "sha256": sha256,
+        }
 
         # Keep the newest patch version
         existing = index.get(key)
@@ -84,6 +177,9 @@ def _parse_sha256sums(content, release_date):
         }
 
     return index
+
+def _release_index_facts_key(release_date, base_url):
+    return "release_index_v{}_{}_{}".format(_RELEASE_INDEX_SCHEMA, release_date, base_url)
 
 def _owner_repo_from_base_url(base_url):
     """Extract GitHub owner/repo from a base URL like https://github.com/{owner}/{repo}/releases/download."""
@@ -126,7 +222,7 @@ def _fetch_release_index(module_ctx, release_date, base_url, facts):
 
     Returns the parsed index dict for this release date.
     """
-    facts_key = "release_index_{}_{}".format(release_date, base_url)
+    facts_key = _release_index_facts_key(release_date, base_url)
     cached = facts.get(facts_key)
     if cached:
         return cached
@@ -175,7 +271,7 @@ def _python_interpreters_impl(module_ctx):
                 continue
             if has_configure:
                 fail(
-                    "Only one interpreters.configure() tag is allowed. " +
+                    "Only one root-module interpreters.configure() tag is allowed. " +
                     "Pass all release dates as a single list.",
                 )
             has_configure = True
@@ -198,30 +294,49 @@ def _python_interpreters_impl(module_ctx):
     release_dates = sorted(release_dates, reverse = True)
 
     # Collect all requested Python versions. Any module can request a version,
-    # but only the root module's is_default and pre_release flags are honored.
-    default_version = None
+    # but only the root module's default, pre-release policy, and toolchain
+    # settings are honored.
     requested_versions = []
     version_sources = {}  # major_minor -> list of module names (for error messages)
     allow_pre_release = {}  # major_minor -> bool
+    root_settings = {}  # major_minor -> root-owned toolchain settings
+    root_versions = {}  # major_minor -> True
+    explicit_defaults = {}
 
     for mod in module_ctx.modules:
         for tag in mod.tags.toolchain:
             version = tag.python_version
 
             # Normalize: "3.11.14" -> major_minor "3.11"
+            if not is_valid_python_tag(version):
+                fail(
+                    "python_version must be major.minor or a final, alpha, beta, " +
+                    "or release-candidate version, got '{}'".format(version),
+                )
             parts = version.split(".")
-            if len(parts) < 2:
-                fail("python_version must be at least major.minor, got '{}'".format(version))
             major_minor = "{}.{}".format(parts[0], parts[1])
 
-            # is_default is root-module-only
-            if tag.is_default and mod.is_root:
-                if default_version and default_version != major_minor:
-                    fail("Multiple default Python versions specified: {} and {}".format(
-                        default_version,
-                        major_minor,
-                    ))
-                default_version = major_minor
+            if mod.is_root:
+                root_versions[major_minor] = True
+                if tag.is_default:
+                    explicit_defaults[major_minor] = True
+                settings = {
+                    "config_settings": sorted([str(label) for label in tag.config_settings]),
+                    "exec_compatible_with": sorted([str(label) for label in tag.exec_compatible_with]),
+                    "target_compatible_with": sorted([str(label) for label in tag.target_compatible_with]),
+                }
+                if major_minor in root_settings and root_settings[major_minor] != settings:
+                    fail(
+                        "Conflicting root toolchain settings for Python {}: {} and {}. ".format(
+                            major_minor,
+                            root_settings[major_minor],
+                            settings,
+                        ) +
+                        "Tags whose python_version values normalize to the same major.minor " +
+                        "must use identical config_settings, target_compatible_with, and " +
+                        "exec_compatible_with.",
+                    )
+                root_settings[major_minor] = settings
 
             if major_minor not in requested_versions:
                 requested_versions.append(major_minor)
@@ -236,100 +351,54 @@ def _python_interpreters_impl(module_ctx):
             elif major_minor not in allow_pre_release:
                 allow_pre_release[major_minor] = False
 
-    # Check if any local interpreter tags exist
-    has_local_tags = False
-    for mod in module_ctx.modules:
-        if mod.is_root and mod.tags.local:
-            has_local_tags = True
-            break
+    if len(explicit_defaults) > 1:
+        fail(
+            "Multiple root interpreters.toolchain() tags set is_default = True: {}. ".format(
+                ", ".join(sorted(explicit_defaults.keys())),
+            ) +
+            "Exactly one distinct default version is allowed.",
+        )
 
-    if not requested_versions and not has_local_tags:
+    default_version = sorted(explicit_defaults.keys())[0] if explicit_defaults else ""
+    if len(root_versions) == 1 and not default_version:
+        default_version = root_versions.keys()[0]
+    elif len(root_versions) > 1 and not default_version:
+        fail(
+            "Multiple Python versions were requested by the root module: {}. ".format(
+                ", ".join(sorted(root_versions.keys())),
+            ) +
+            "Set is_default = True on exactly one root interpreters.toolchain() tag.",
+        )
+
+    if not requested_versions:
         return _return_metadata(module_ctx, has_facts, facts, is_reproducible, resolved_latest)
 
     new_facts = {}
-    ordered_versions = []
 
-    if requested_versions:
-        # If no default, pick the first one
-        if not default_version:
-            default_version = sorted(requested_versions)[0]
+    # Fetch and parse release indices (cached via facts)
+    release_indices = {}
 
-        # Fetch and parse release indices (cached via facts)
-        release_indices = {}
+    for date in release_dates:
+        base_url = release_base_urls.get(date, DEFAULT_RELEASE_BASE_URL)
+        index = _fetch_release_index(module_ctx, date, base_url, facts)
+        release_indices[date] = index
 
-        for date in release_dates:
-            base_url = release_base_urls.get(date, DEFAULT_RELEASE_BASE_URL)
-            index = _fetch_release_index(module_ctx, date, base_url, facts)
-            release_indices[date] = index
-
-            # Cache in facts for next run — but never cache under "latest"
-            facts_key = "release_index_{}_{}".format(date, base_url)
-            new_facts[facts_key] = index
-
-        # Order: default version first, then sorted
-        for version in sorted(requested_versions):
-            if version == default_version:
-                ordered_versions.insert(0, version)
-            else:
-                ordered_versions.append(version)
-    else:
-        release_indices = {}
+        # Cache in facts for next run — but never cache under "latest"
+        facts_key = _release_index_facts_key(date, base_url)
+        new_facts[facts_key] = index
 
     # Create per-platform, per-build-config interpreter repos and collect
-    # toolchain entries.  Non-freethreaded configs are registered first so
-    # they win by default when the freethreaded flag is not set.
+    # toolchain entries.
     toolchain_entries = []
 
-    # Process local interpreter tags first — they get higher toolchain
-    # resolution priority than PBS interpreters.
-    for mod in module_ctx.modules:
-        if not mod.is_root:
-            continue
-        for tag in mod.tags.local:
-            if not tag.interpreter_path and not tag.env:
-                fail("interpreters.local() requires either interpreter_path or env")
-
-            # Build a deterministic repo name from the path or env var
-            if tag.interpreter_path:
-                repo_name = "local_python_" + _sanitize(tag.interpreter_path.split("/")[-1])
-            else:
-                repo_name = "local_python_" + _sanitize(tag.env.lower())
-
-            local_python_interpreter(
-                name = repo_name,
-                interpreter_path = tag.interpreter_path,
-                env = tag.env,
-                python_version = tag.python_version,
-            )
-
-            # Normalize python_version to major.minor if provided
-            local_version = ""
-            if tag.python_version:
-                parts = tag.python_version.split(".")
-                if len(parts) >= 2:
-                    local_version = "{}.{}".format(parts[0], parts[1])
-
-            toolchain_entries.append(json.encode({
-                "name": repo_name,
-                "repo": repo_name,
-                "python_version": local_version,
-                "freethreaded": False,
-                "compatible_with": [],
-                "platform_target_settings": {},
-                "config_settings": tag.config_settings,
-                "target_compatible_with": tag.target_compatible_with,
-                "exec_compatible_with": tag.exec_compatible_with,
-            }))
-
-    # Order build configs: non-freethreaded first (default wins), then freethreaded
-    ordered_configs = (
-        [(name, cfg) for name, cfg in BUILD_CONFIGS.items() if not cfg["freethreaded"]] +
-        [(name, cfg) for name, cfg in BUILD_CONFIGS.items() if cfg["freethreaded"]]
-    )
-
-    for major_minor in ordered_versions:
+    for major_minor in sorted(requested_versions):
         version_found = False
-        for config_name, config_info in ordered_configs:
+        settings = root_settings.get(major_minor, {
+            "config_settings": [],
+            "exec_compatible_with": [],
+            "target_compatible_with": [],
+        })
+        for config_name, config_info in BUILD_CONFIGS.items():
             for platform_triple, platform_info in PLATFORMS.items():
                 repo_name = "python_{}_{}".format(
                     _sanitize(major_minor),
@@ -377,13 +446,15 @@ def _python_interpreters_impl(module_ctx):
                 toolchain_entries.append(json.encode({
                     "name": repo_name,
                     "repo": repo_name,
+                    "py_cc_toolchain": "@{}//:py_cc_toolchain".format(repo_name),
                     "python_version": major_minor,
                     "freethreaded": config_info["freethreaded"],
                     "compatible_with": platform_info["compatible_with"],
+                    "register_exec_tools": platform_info["register_exec_tools"],
                     "platform_target_settings": platform_info.get("target_settings", {}),
-                    "config_settings": tag.config_settings,
-                    "target_compatible_with": tag.target_compatible_with,
-                    "exec_compatible_with": tag.exec_compatible_with,
+                    "config_settings": settings["config_settings"],
+                    "target_compatible_with": settings["target_compatible_with"],
+                    "exec_compatible_with": settings["exec_compatible_with"],
                 }))
 
         if not version_found:
@@ -399,6 +470,7 @@ def _python_interpreters_impl(module_ctx):
     # Create the toolchains hub repo
     python_toolchains(
         name = "python_interpreters",
+        default_python_version = default_version,
         toolchains = toolchain_entries,
     )
 
@@ -476,18 +548,20 @@ without error, but it will be silently ignored.
 
 _toolchain_tag = tag_class(
     attrs = {
-        "config_settings": attr.string_list(
+        "config_settings": attr.label_list(
             default = [],
             doc = """\
-Additional config_setting labels that must match for this toolchain to be selected.
-Use this to gate a toolchain on a custom flag, e.g.
-["@//:use_hermetic_python"]. The settings are added to the toolchain's
-target_settings alongside the version and platform constraints.
+Additional config_setting labels that must match for this Python version's
+runtime, C, and exec-tools registrations. Use this to gate a toolchain on a
+custom flag, e.g. ["//:use_hermetic_python"]. The settings are added to each
+registration's target_settings alongside the version and free-threaded mode.
+Platform-specific target settings apply only to the runtime and C
+registrations.
 
 Only honored from the root module.
 """,
         ),
-        "exec_compatible_with": attr.string_list(
+        "exec_compatible_with": attr.label_list(
             default = [],
             doc = """\
 Additional exec platform constraints appended to each platform variant's
@@ -498,7 +572,13 @@ Only honored from the root module.
         ),
         "is_default": attr.bool(
             default = False,
-            doc = "Only honored from the root module.",
+            doc = """\
+Select this Python version when no target attribute or command-line flag does.
+
+Only honored from the root module. A single distinct version requested by the
+root is implicitly the default. If the root requests multiple distinct
+versions, exactly one tag must set is_default = True.
+""",
         ),
         "pre_release": attr.bool(
             default = False,
@@ -514,9 +594,9 @@ Only honored from the root module.
         ),
         "python_version": attr.string(
             mandatory = True,
-            doc = "Python version to provision, e.g. '3.11' or '3.11.14'. The newest available patch version is used.",
+            doc = "Python version to provision as major.minor or a full final/a/b/rc version. The newest available patch version is used.",
         ),
-        "target_compatible_with": attr.string_list(
+        "target_compatible_with": attr.label_list(
             default = [],
             doc = """\
 Additional target platform constraints appended to each platform variant's
@@ -528,60 +608,10 @@ Only honored from the root module.
     },
 )
 
-_local_tag = tag_class(
-    attrs = {
-        "config_settings": attr.string_list(
-            default = [],
-            doc = "Additional config_setting labels required for this toolchain to be selected.",
-        ),
-        "env": attr.string(
-            default = "",
-            doc = """\
-Environment variable pointing to a Python prefix directory (e.g. "VIRTUAL_ENV").
-The interpreter is resolved as $ENV/bin/python3 (or $ENV/Scripts/python.exe on Windows).
-If the variable is unset, the toolchain is registered but inactive (never matches).
-""",
-        ),
-        "exec_compatible_with": attr.string_list(
-            default = [],
-            doc = "Additional exec platform constraints for this toolchain.",
-        ),
-        "interpreter_path": attr.string(
-            default = "",
-            doc = "Absolute path to a Python interpreter binary.",
-        ),
-        "python_version": attr.string(
-            default = "",
-            doc = """\
-Override the detected Python version. If omitted, the interpreter is probed
-at repository-rule evaluation time to determine its version.
-""",
-        ),
-        "target_compatible_with": attr.string_list(
-            default = [],
-            doc = "Additional target platform constraints for this toolchain.",
-        ),
-    },
-    doc = """\
-Register a local (non-PBS) Python interpreter as a toolchain.
-
-Exactly one of interpreter_path or env must be set. The interpreter is
-probed for version info at repository-rule time. If the interpreter is
-unavailable (path missing, env var unset), the toolchain is registered
-but inactive — it will never match during toolchain resolution.
-
-Local toolchains are registered before PBS toolchains, giving them higher
-priority. Use config_settings to gate activation on a custom flag.
-
-Only honored from the root module.
-""",
-)
-
 python_interpreters = module_extension(
     implementation = _python_interpreters_impl,
     tag_classes = {
         "configure": _configure_tag,
-        "local": _local_tag,
         "toolchain": _toolchain_tag,
     },
 )

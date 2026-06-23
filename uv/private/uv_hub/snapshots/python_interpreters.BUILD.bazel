@@ -1,22 +1,32 @@
+load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
 load("@bazel_skylib//lib:selects.bzl", "selects")
 load("@aspect_rules_py//py/private/interpreter:current_py_toolchain.bzl", "current_py_toolchain")
 package(default_visibility = ["//visibility:public"])
+string_flag(
+    name = "python_version",
+    build_setting_default = "3.13",
+)
 
+# rules_python target transitions set only their own flag. Prefer a nonempty
+# rules_python value; use the generated root default only while it is empty.
 config_setting(
-    name = "_python_version_is_3_13_our_major_minor",
-    flag_values = {"@aspect_rules_py//py/private/interpreter:python_version": "3.13"},
+    name = "_python_version_is_3_13_rpy",
+    flag_values = {"@rules_python//python/config_settings:python_version_major_minor": "3.13"},
 )
 
 config_setting(
-    name = "_python_version_is_3_13_rpy_major_minor",
-    flag_values = {"@rules_python//python/config_settings:python_version": "3.13"},
+    name = "_python_version_is_3_13_our_fallback",
+    flag_values = {
+        ":python_version": "3.13",
+        "@rules_python//python/config_settings:python_version_major_minor": "",
+    },
 )
 
 selects.config_setting_group(
     name = "python_version_is_3_13",
     match_any = [
-        ":_python_version_is_3_13_our_major_minor",
-        ":_python_version_is_3_13_rpy_major_minor",
+        ":_python_version_is_3_13_rpy",
+        ":_python_version_is_3_13_our_fallback",
     ],
 )
 
@@ -60,14 +70,24 @@ toolchain(
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
 
+toolchain(
+    name = "py_cc_python_3_13_aarch64_apple_darwin",
+    target_compatible_with = ["@platforms//os:macos", "@platforms//cpu:aarch64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
+    toolchain = "@python_3_13_aarch64_apple_darwin//:py_cc_toolchain",
+    toolchain_type = "@rules_python//python/cc:toolchain_type",
+)
+
+
 # Exec tools toolchain: selected by exec platform (not target platform) so
 # that build actions using the interpreter (e.g. compileall) get a runnable
 # binary on the build host regardless of the target platform being built for.
 toolchain(
     name = "python_3_13_aarch64_apple_darwin_exec_tools",
     exec_compatible_with = ["@platforms//os:macos", "@platforms//cpu:aarch64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
     toolchain = "@python_3_13_aarch64_apple_darwin//:exec_tools_toolchain",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
 )
 
 
@@ -86,14 +106,24 @@ toolchain(
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
 
+toolchain(
+    name = "py_cc_python_3_13_aarch64_unknown_linux_gnu",
+    target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":platform_libc_is_glibc"],
+    toolchain = "@python_3_13_aarch64_unknown_linux_gnu//:py_cc_toolchain",
+    toolchain_type = "@rules_python//python/cc:toolchain_type",
+)
+
+
 # Exec tools toolchain: selected by exec platform (not target platform) so
 # that build actions using the interpreter (e.g. compileall) get a runnable
 # binary on the build host regardless of the target platform being built for.
 toolchain(
     name = "python_3_13_aarch64_unknown_linux_gnu_exec_tools",
     exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
     toolchain = "@python_3_13_aarch64_unknown_linux_gnu//:exec_tools_toolchain",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
 )
 
 
@@ -112,14 +142,12 @@ toolchain(
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
 
-# Exec tools toolchain: selected by exec platform (not target platform) so
-# that build actions using the interpreter (e.g. compileall) get a runnable
-# binary on the build host regardless of the target platform being built for.
 toolchain(
-    name = "python_3_13_aarch64_unknown_linux_musl_exec_tools",
-    exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
-    toolchain = "@python_3_13_aarch64_unknown_linux_musl//:exec_tools_toolchain",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    name = "py_cc_python_3_13_aarch64_unknown_linux_musl",
+    target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":platform_libc_is_musl"],
+    toolchain = "@python_3_13_aarch64_unknown_linux_musl//:py_cc_toolchain",
+    toolchain_type = "@rules_python//python/cc:toolchain_type",
 )
 
 
@@ -138,14 +166,24 @@ toolchain(
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
 
+toolchain(
+    name = "py_cc_python_3_13_x86_64_apple_darwin",
+    target_compatible_with = ["@platforms//os:macos", "@platforms//cpu:x86_64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
+    toolchain = "@python_3_13_x86_64_apple_darwin//:py_cc_toolchain",
+    toolchain_type = "@rules_python//python/cc:toolchain_type",
+)
+
+
 # Exec tools toolchain: selected by exec platform (not target platform) so
 # that build actions using the interpreter (e.g. compileall) get a runnable
 # binary on the build host regardless of the target platform being built for.
 toolchain(
     name = "python_3_13_x86_64_apple_darwin_exec_tools",
     exec_compatible_with = ["@platforms//os:macos", "@platforms//cpu:x86_64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
     toolchain = "@python_3_13_x86_64_apple_darwin//:exec_tools_toolchain",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
 )
 
 
@@ -164,14 +202,24 @@ toolchain(
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
 
+toolchain(
+    name = "py_cc_python_3_13_x86_64_unknown_linux_gnu",
+    target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":platform_libc_is_glibc"],
+    toolchain = "@python_3_13_x86_64_unknown_linux_gnu//:py_cc_toolchain",
+    toolchain_type = "@rules_python//python/cc:toolchain_type",
+)
+
+
 # Exec tools toolchain: selected by exec platform (not target platform) so
 # that build actions using the interpreter (e.g. compileall) get a runnable
 # binary on the build host regardless of the target platform being built for.
 toolchain(
     name = "python_3_13_x86_64_unknown_linux_gnu_exec_tools",
     exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
     toolchain = "@python_3_13_x86_64_unknown_linux_gnu//:exec_tools_toolchain",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
 )
 
 
@@ -190,14 +238,12 @@ toolchain(
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
 
-# Exec tools toolchain: selected by exec platform (not target platform) so
-# that build actions using the interpreter (e.g. compileall) get a runnable
-# binary on the build host regardless of the target platform being built for.
 toolchain(
-    name = "python_3_13_x86_64_unknown_linux_musl_exec_tools",
-    exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
-    toolchain = "@python_3_13_x86_64_unknown_linux_musl//:exec_tools_toolchain",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    name = "py_cc_python_3_13_x86_64_unknown_linux_musl",
+    target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":platform_libc_is_musl"],
+    toolchain = "@python_3_13_x86_64_unknown_linux_musl//:py_cc_toolchain",
+    toolchain_type = "@rules_python//python/cc:toolchain_type",
 )
 
 
@@ -216,14 +262,24 @@ toolchain(
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
 
+toolchain(
+    name = "py_cc_python_3_13_x86_64_pc_windows_msvc",
+    target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
+    toolchain = "@python_3_13_x86_64_pc_windows_msvc//:py_cc_toolchain",
+    toolchain_type = "@rules_python//python/cc:toolchain_type",
+)
+
+
 # Exec tools toolchain: selected by exec platform (not target platform) so
 # that build actions using the interpreter (e.g. compileall) get a runnable
 # binary on the build host regardless of the target platform being built for.
 toolchain(
     name = "python_3_13_x86_64_pc_windows_msvc_exec_tools",
     exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
     toolchain = "@python_3_13_x86_64_pc_windows_msvc//:exec_tools_toolchain",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
 )
 
 
@@ -242,14 +298,24 @@ toolchain(
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
 
+toolchain(
+    name = "py_cc_python_3_13_aarch64_pc_windows_msvc",
+    target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:aarch64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
+    toolchain = "@python_3_13_aarch64_pc_windows_msvc//:py_cc_toolchain",
+    toolchain_type = "@rules_python//python/cc:toolchain_type",
+)
+
+
 # Exec tools toolchain: selected by exec platform (not target platform) so
 # that build actions using the interpreter (e.g. compileall) get a runnable
 # binary on the build host regardless of the target platform being built for.
 toolchain(
     name = "python_3_13_aarch64_pc_windows_msvc_exec_tools",
     exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:aarch64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
     toolchain = "@python_3_13_aarch64_pc_windows_msvc//:exec_tools_toolchain",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
 )
 
 
@@ -268,14 +334,24 @@ toolchain(
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
 
+toolchain(
+    name = "py_cc_python_3_13_i686_pc_windows_msvc",
+    target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_32"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
+    toolchain = "@python_3_13_i686_pc_windows_msvc//:py_cc_toolchain",
+    toolchain_type = "@rules_python//python/cc:toolchain_type",
+)
+
+
 # Exec tools toolchain: selected by exec platform (not target platform) so
 # that build actions using the interpreter (e.g. compileall) get a runnable
 # binary on the build host regardless of the target platform being built for.
 toolchain(
     name = "python_3_13_i686_pc_windows_msvc_exec_tools",
     exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_32"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
     toolchain = "@python_3_13_i686_pc_windows_msvc//:exec_tools_toolchain",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
 )
 
 
@@ -287,21 +363,31 @@ toolchain(
 # satisfy the arm64 exec constraint.  The target_compatible_with constraint is
 # sufficient to pick the right interpreter for the target.
 toolchain(
-    name = "python_3_13_aarch64_apple_darwin_install_only_stripped",
+    name = "python_3_13_aarch64_apple_darwin_freethreaded",
     target_compatible_with = ["@platforms//os:macos", "@platforms//cpu:aarch64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
-    toolchain = "@python_3_13_aarch64_apple_darwin_install_only_stripped//:runtime_pair",
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
+    toolchain = "@python_3_13_aarch64_apple_darwin_freethreaded//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
+
+toolchain(
+    name = "py_cc_python_3_13_aarch64_apple_darwin_freethreaded",
+    target_compatible_with = ["@platforms//os:macos", "@platforms//cpu:aarch64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
+    toolchain = "@python_3_13_aarch64_apple_darwin_freethreaded//:py_cc_toolchain",
+    toolchain_type = "@rules_python//python/cc:toolchain_type",
+)
+
 
 # Exec tools toolchain: selected by exec platform (not target platform) so
 # that build actions using the interpreter (e.g. compileall) get a runnable
 # binary on the build host regardless of the target platform being built for.
 toolchain(
-    name = "python_3_13_aarch64_apple_darwin_install_only_stripped_exec_tools",
+    name = "python_3_13_aarch64_apple_darwin_freethreaded_exec_tools",
     exec_compatible_with = ["@platforms//os:macos", "@platforms//cpu:aarch64"],
-    toolchain = "@python_3_13_aarch64_apple_darwin_install_only_stripped//:exec_tools_toolchain",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
+    toolchain = "@python_3_13_aarch64_apple_darwin_freethreaded//:exec_tools_toolchain",
+    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
 )
 
 
@@ -313,21 +399,31 @@ toolchain(
 # satisfy the arm64 exec constraint.  The target_compatible_with constraint is
 # sufficient to pick the right interpreter for the target.
 toolchain(
-    name = "python_3_13_aarch64_unknown_linux_gnu_install_only_stripped",
+    name = "python_3_13_aarch64_unknown_linux_gnu_freethreaded",
     target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":platform_libc_is_glibc"],
-    toolchain = "@python_3_13_aarch64_unknown_linux_gnu_install_only_stripped//:runtime_pair",
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":platform_libc_is_glibc"],
+    toolchain = "@python_3_13_aarch64_unknown_linux_gnu_freethreaded//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
+
+toolchain(
+    name = "py_cc_python_3_13_aarch64_unknown_linux_gnu_freethreaded",
+    target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":platform_libc_is_glibc"],
+    toolchain = "@python_3_13_aarch64_unknown_linux_gnu_freethreaded//:py_cc_toolchain",
+    toolchain_type = "@rules_python//python/cc:toolchain_type",
+)
+
 
 # Exec tools toolchain: selected by exec platform (not target platform) so
 # that build actions using the interpreter (e.g. compileall) get a runnable
 # binary on the build host regardless of the target platform being built for.
 toolchain(
-    name = "python_3_13_aarch64_unknown_linux_gnu_install_only_stripped_exec_tools",
+    name = "python_3_13_aarch64_unknown_linux_gnu_freethreaded_exec_tools",
     exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
-    toolchain = "@python_3_13_aarch64_unknown_linux_gnu_install_only_stripped//:exec_tools_toolchain",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
+    toolchain = "@python_3_13_aarch64_unknown_linux_gnu_freethreaded//:exec_tools_toolchain",
+    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
 )
 
 
@@ -339,21 +435,19 @@ toolchain(
 # satisfy the arm64 exec constraint.  The target_compatible_with constraint is
 # sufficient to pick the right interpreter for the target.
 toolchain(
-    name = "python_3_13_aarch64_unknown_linux_musl_install_only_stripped",
+    name = "python_3_13_aarch64_unknown_linux_musl_freethreaded",
     target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":platform_libc_is_musl"],
-    toolchain = "@python_3_13_aarch64_unknown_linux_musl_install_only_stripped//:runtime_pair",
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":platform_libc_is_musl"],
+    toolchain = "@python_3_13_aarch64_unknown_linux_musl_freethreaded//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
 
-# Exec tools toolchain: selected by exec platform (not target platform) so
-# that build actions using the interpreter (e.g. compileall) get a runnable
-# binary on the build host regardless of the target platform being built for.
 toolchain(
-    name = "python_3_13_aarch64_unknown_linux_musl_install_only_stripped_exec_tools",
-    exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
-    toolchain = "@python_3_13_aarch64_unknown_linux_musl_install_only_stripped//:exec_tools_toolchain",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    name = "py_cc_python_3_13_aarch64_unknown_linux_musl_freethreaded",
+    target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":platform_libc_is_musl"],
+    toolchain = "@python_3_13_aarch64_unknown_linux_musl_freethreaded//:py_cc_toolchain",
+    toolchain_type = "@rules_python//python/cc:toolchain_type",
 )
 
 
@@ -365,21 +459,31 @@ toolchain(
 # satisfy the arm64 exec constraint.  The target_compatible_with constraint is
 # sufficient to pick the right interpreter for the target.
 toolchain(
-    name = "python_3_13_x86_64_apple_darwin_install_only_stripped",
+    name = "python_3_13_x86_64_apple_darwin_freethreaded",
     target_compatible_with = ["@platforms//os:macos", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
-    toolchain = "@python_3_13_x86_64_apple_darwin_install_only_stripped//:runtime_pair",
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
+    toolchain = "@python_3_13_x86_64_apple_darwin_freethreaded//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
+
+toolchain(
+    name = "py_cc_python_3_13_x86_64_apple_darwin_freethreaded",
+    target_compatible_with = ["@platforms//os:macos", "@platforms//cpu:x86_64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
+    toolchain = "@python_3_13_x86_64_apple_darwin_freethreaded//:py_cc_toolchain",
+    toolchain_type = "@rules_python//python/cc:toolchain_type",
+)
+
 
 # Exec tools toolchain: selected by exec platform (not target platform) so
 # that build actions using the interpreter (e.g. compileall) get a runnable
 # binary on the build host regardless of the target platform being built for.
 toolchain(
-    name = "python_3_13_x86_64_apple_darwin_install_only_stripped_exec_tools",
+    name = "python_3_13_x86_64_apple_darwin_freethreaded_exec_tools",
     exec_compatible_with = ["@platforms//os:macos", "@platforms//cpu:x86_64"],
-    toolchain = "@python_3_13_x86_64_apple_darwin_install_only_stripped//:exec_tools_toolchain",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
+    toolchain = "@python_3_13_x86_64_apple_darwin_freethreaded//:exec_tools_toolchain",
+    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
 )
 
 
@@ -391,21 +495,31 @@ toolchain(
 # satisfy the arm64 exec constraint.  The target_compatible_with constraint is
 # sufficient to pick the right interpreter for the target.
 toolchain(
-    name = "python_3_13_x86_64_unknown_linux_gnu_install_only_stripped",
+    name = "python_3_13_x86_64_unknown_linux_gnu_freethreaded",
     target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":platform_libc_is_glibc"],
-    toolchain = "@python_3_13_x86_64_unknown_linux_gnu_install_only_stripped//:runtime_pair",
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":platform_libc_is_glibc"],
+    toolchain = "@python_3_13_x86_64_unknown_linux_gnu_freethreaded//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
+
+toolchain(
+    name = "py_cc_python_3_13_x86_64_unknown_linux_gnu_freethreaded",
+    target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":platform_libc_is_glibc"],
+    toolchain = "@python_3_13_x86_64_unknown_linux_gnu_freethreaded//:py_cc_toolchain",
+    toolchain_type = "@rules_python//python/cc:toolchain_type",
+)
+
 
 # Exec tools toolchain: selected by exec platform (not target platform) so
 # that build actions using the interpreter (e.g. compileall) get a runnable
 # binary on the build host regardless of the target platform being built for.
 toolchain(
-    name = "python_3_13_x86_64_unknown_linux_gnu_install_only_stripped_exec_tools",
+    name = "python_3_13_x86_64_unknown_linux_gnu_freethreaded_exec_tools",
     exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
-    toolchain = "@python_3_13_x86_64_unknown_linux_gnu_install_only_stripped//:exec_tools_toolchain",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
+    toolchain = "@python_3_13_x86_64_unknown_linux_gnu_freethreaded//:exec_tools_toolchain",
+    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
 )
 
 
@@ -417,21 +531,19 @@ toolchain(
 # satisfy the arm64 exec constraint.  The target_compatible_with constraint is
 # sufficient to pick the right interpreter for the target.
 toolchain(
-    name = "python_3_13_x86_64_unknown_linux_musl_install_only_stripped",
+    name = "python_3_13_x86_64_unknown_linux_musl_freethreaded",
     target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":platform_libc_is_musl"],
-    toolchain = "@python_3_13_x86_64_unknown_linux_musl_install_only_stripped//:runtime_pair",
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":platform_libc_is_musl"],
+    toolchain = "@python_3_13_x86_64_unknown_linux_musl_freethreaded//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
 
-# Exec tools toolchain: selected by exec platform (not target platform) so
-# that build actions using the interpreter (e.g. compileall) get a runnable
-# binary on the build host regardless of the target platform being built for.
 toolchain(
-    name = "python_3_13_x86_64_unknown_linux_musl_install_only_stripped_exec_tools",
-    exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
-    toolchain = "@python_3_13_x86_64_unknown_linux_musl_install_only_stripped//:exec_tools_toolchain",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    name = "py_cc_python_3_13_x86_64_unknown_linux_musl_freethreaded",
+    target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":platform_libc_is_musl"],
+    toolchain = "@python_3_13_x86_64_unknown_linux_musl_freethreaded//:py_cc_toolchain",
+    toolchain_type = "@rules_python//python/cc:toolchain_type",
 )
 
 
@@ -443,21 +555,31 @@ toolchain(
 # satisfy the arm64 exec constraint.  The target_compatible_with constraint is
 # sufficient to pick the right interpreter for the target.
 toolchain(
-    name = "python_3_13_x86_64_pc_windows_msvc_install_only_stripped",
+    name = "python_3_13_x86_64_pc_windows_msvc_freethreaded",
     target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
-    toolchain = "@python_3_13_x86_64_pc_windows_msvc_install_only_stripped//:runtime_pair",
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
+    toolchain = "@python_3_13_x86_64_pc_windows_msvc_freethreaded//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
+
+toolchain(
+    name = "py_cc_python_3_13_x86_64_pc_windows_msvc_freethreaded",
+    target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
+    toolchain = "@python_3_13_x86_64_pc_windows_msvc_freethreaded//:py_cc_toolchain",
+    toolchain_type = "@rules_python//python/cc:toolchain_type",
+)
+
 
 # Exec tools toolchain: selected by exec platform (not target platform) so
 # that build actions using the interpreter (e.g. compileall) get a runnable
 # binary on the build host regardless of the target platform being built for.
 toolchain(
-    name = "python_3_13_x86_64_pc_windows_msvc_install_only_stripped_exec_tools",
+    name = "python_3_13_x86_64_pc_windows_msvc_freethreaded_exec_tools",
     exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_64"],
-    toolchain = "@python_3_13_x86_64_pc_windows_msvc_install_only_stripped//:exec_tools_toolchain",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
+    toolchain = "@python_3_13_x86_64_pc_windows_msvc_freethreaded//:exec_tools_toolchain",
+    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
 )
 
 
@@ -469,21 +591,31 @@ toolchain(
 # satisfy the arm64 exec constraint.  The target_compatible_with constraint is
 # sufficient to pick the right interpreter for the target.
 toolchain(
-    name = "python_3_13_aarch64_pc_windows_msvc_install_only_stripped",
+    name = "python_3_13_aarch64_pc_windows_msvc_freethreaded",
     target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:aarch64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
-    toolchain = "@python_3_13_aarch64_pc_windows_msvc_install_only_stripped//:runtime_pair",
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
+    toolchain = "@python_3_13_aarch64_pc_windows_msvc_freethreaded//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
+
+toolchain(
+    name = "py_cc_python_3_13_aarch64_pc_windows_msvc_freethreaded",
+    target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:aarch64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
+    toolchain = "@python_3_13_aarch64_pc_windows_msvc_freethreaded//:py_cc_toolchain",
+    toolchain_type = "@rules_python//python/cc:toolchain_type",
+)
+
 
 # Exec tools toolchain: selected by exec platform (not target platform) so
 # that build actions using the interpreter (e.g. compileall) get a runnable
 # binary on the build host regardless of the target platform being built for.
 toolchain(
-    name = "python_3_13_aarch64_pc_windows_msvc_install_only_stripped_exec_tools",
+    name = "python_3_13_aarch64_pc_windows_msvc_freethreaded_exec_tools",
     exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:aarch64"],
-    toolchain = "@python_3_13_aarch64_pc_windows_msvc_install_only_stripped//:exec_tools_toolchain",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
+    toolchain = "@python_3_13_aarch64_pc_windows_msvc_freethreaded//:exec_tools_toolchain",
+    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
 )
 
 
@@ -495,281 +627,31 @@ toolchain(
 # satisfy the arm64 exec constraint.  The target_compatible_with constraint is
 # sufficient to pick the right interpreter for the target.
 toolchain(
-    name = "python_3_13_i686_pc_windows_msvc_install_only_stripped",
+    name = "python_3_13_i686_pc_windows_msvc_freethreaded",
     target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_32"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
-    toolchain = "@python_3_13_i686_pc_windows_msvc_install_only_stripped//:runtime_pair",
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
+    toolchain = "@python_3_13_i686_pc_windows_msvc_freethreaded//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
+
+toolchain(
+    name = "py_cc_python_3_13_i686_pc_windows_msvc_freethreaded",
+    target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_32"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
+    toolchain = "@python_3_13_i686_pc_windows_msvc_freethreaded//:py_cc_toolchain",
+    toolchain_type = "@rules_python//python/cc:toolchain_type",
+)
+
 
 # Exec tools toolchain: selected by exec platform (not target platform) so
 # that build actions using the interpreter (e.g. compileall) get a runnable
 # binary on the build host regardless of the target platform being built for.
 toolchain(
-    name = "python_3_13_i686_pc_windows_msvc_install_only_stripped_exec_tools",
+    name = "python_3_13_i686_pc_windows_msvc_freethreaded_exec_tools",
     exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_32"],
-    toolchain = "@python_3_13_i686_pc_windows_msvc_install_only_stripped//:exec_tools_toolchain",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
-)
-
-
-# The Python interpreter toolchain has no exec_compatible_with: the interpreter
-# runs on the TARGET platform (inside the virtualenv), not on the exec host.
-# Setting exec_compatible_with = platform_constraints would prevent this
-# toolchain from being selected during cross-compilation (e.g. building an
-# arm64 image on an amd64 host), because the exec platform (amd64) would not
-# satisfy the arm64 exec constraint.  The target_compatible_with constraint is
-# sufficient to pick the right interpreter for the target.
-toolchain(
-    name = "python_3_13_aarch64_apple_darwin_freethreaded_pgo_lto",
-    target_compatible_with = ["@platforms//os:macos", "@platforms//cpu:aarch64"],
     target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
-    toolchain = "@python_3_13_aarch64_apple_darwin_freethreaded_pgo_lto//:runtime_pair",
-    toolchain_type = "@bazel_tools//tools/python:toolchain_type",
-)
-
-# Exec tools toolchain: selected by exec platform (not target platform) so
-# that build actions using the interpreter (e.g. compileall) get a runnable
-# binary on the build host regardless of the target platform being built for.
-toolchain(
-    name = "python_3_13_aarch64_apple_darwin_freethreaded_pgo_lto_exec_tools",
-    exec_compatible_with = ["@platforms//os:macos", "@platforms//cpu:aarch64"],
-    toolchain = "@python_3_13_aarch64_apple_darwin_freethreaded_pgo_lto//:exec_tools_toolchain",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
-)
-
-
-# The Python interpreter toolchain has no exec_compatible_with: the interpreter
-# runs on the TARGET platform (inside the virtualenv), not on the exec host.
-# Setting exec_compatible_with = platform_constraints would prevent this
-# toolchain from being selected during cross-compilation (e.g. building an
-# arm64 image on an amd64 host), because the exec platform (amd64) would not
-# satisfy the arm64 exec constraint.  The target_compatible_with constraint is
-# sufficient to pick the right interpreter for the target.
-toolchain(
-    name = "python_3_13_aarch64_unknown_linux_gnu_freethreaded_pgo_lto",
-    target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":platform_libc_is_glibc"],
-    toolchain = "@python_3_13_aarch64_unknown_linux_gnu_freethreaded_pgo_lto//:runtime_pair",
-    toolchain_type = "@bazel_tools//tools/python:toolchain_type",
-)
-
-# Exec tools toolchain: selected by exec platform (not target platform) so
-# that build actions using the interpreter (e.g. compileall) get a runnable
-# binary on the build host regardless of the target platform being built for.
-toolchain(
-    name = "python_3_13_aarch64_unknown_linux_gnu_freethreaded_pgo_lto_exec_tools",
-    exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
-    toolchain = "@python_3_13_aarch64_unknown_linux_gnu_freethreaded_pgo_lto//:exec_tools_toolchain",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
-)
-
-
-# The Python interpreter toolchain has no exec_compatible_with: the interpreter
-# runs on the TARGET platform (inside the virtualenv), not on the exec host.
-# Setting exec_compatible_with = platform_constraints would prevent this
-# toolchain from being selected during cross-compilation (e.g. building an
-# arm64 image on an amd64 host), because the exec platform (amd64) would not
-# satisfy the arm64 exec constraint.  The target_compatible_with constraint is
-# sufficient to pick the right interpreter for the target.
-toolchain(
-    name = "python_3_13_x86_64_apple_darwin_freethreaded_pgo_lto",
-    target_compatible_with = ["@platforms//os:macos", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
-    toolchain = "@python_3_13_x86_64_apple_darwin_freethreaded_pgo_lto//:runtime_pair",
-    toolchain_type = "@bazel_tools//tools/python:toolchain_type",
-)
-
-# Exec tools toolchain: selected by exec platform (not target platform) so
-# that build actions using the interpreter (e.g. compileall) get a runnable
-# binary on the build host regardless of the target platform being built for.
-toolchain(
-    name = "python_3_13_x86_64_apple_darwin_freethreaded_pgo_lto_exec_tools",
-    exec_compatible_with = ["@platforms//os:macos", "@platforms//cpu:x86_64"],
-    toolchain = "@python_3_13_x86_64_apple_darwin_freethreaded_pgo_lto//:exec_tools_toolchain",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
-)
-
-
-# The Python interpreter toolchain has no exec_compatible_with: the interpreter
-# runs on the TARGET platform (inside the virtualenv), not on the exec host.
-# Setting exec_compatible_with = platform_constraints would prevent this
-# toolchain from being selected during cross-compilation (e.g. building an
-# arm64 image on an amd64 host), because the exec platform (amd64) would not
-# satisfy the arm64 exec constraint.  The target_compatible_with constraint is
-# sufficient to pick the right interpreter for the target.
-toolchain(
-    name = "python_3_13_x86_64_unknown_linux_gnu_freethreaded_pgo_lto",
-    target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":platform_libc_is_glibc"],
-    toolchain = "@python_3_13_x86_64_unknown_linux_gnu_freethreaded_pgo_lto//:runtime_pair",
-    toolchain_type = "@bazel_tools//tools/python:toolchain_type",
-)
-
-# Exec tools toolchain: selected by exec platform (not target platform) so
-# that build actions using the interpreter (e.g. compileall) get a runnable
-# binary on the build host regardless of the target platform being built for.
-toolchain(
-    name = "python_3_13_x86_64_unknown_linux_gnu_freethreaded_pgo_lto_exec_tools",
-    exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
-    toolchain = "@python_3_13_x86_64_unknown_linux_gnu_freethreaded_pgo_lto//:exec_tools_toolchain",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
-)
-
-
-# The Python interpreter toolchain has no exec_compatible_with: the interpreter
-# runs on the TARGET platform (inside the virtualenv), not on the exec host.
-# Setting exec_compatible_with = platform_constraints would prevent this
-# toolchain from being selected during cross-compilation (e.g. building an
-# arm64 image on an amd64 host), because the exec platform (amd64) would not
-# satisfy the arm64 exec constraint.  The target_compatible_with constraint is
-# sufficient to pick the right interpreter for the target.
-toolchain(
-    name = "python_3_13_aarch64_apple_darwin_freethreaded_debug",
-    target_compatible_with = ["@platforms//os:macos", "@platforms//cpu:aarch64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
-    toolchain = "@python_3_13_aarch64_apple_darwin_freethreaded_debug//:runtime_pair",
-    toolchain_type = "@bazel_tools//tools/python:toolchain_type",
-)
-
-# Exec tools toolchain: selected by exec platform (not target platform) so
-# that build actions using the interpreter (e.g. compileall) get a runnable
-# binary on the build host regardless of the target platform being built for.
-toolchain(
-    name = "python_3_13_aarch64_apple_darwin_freethreaded_debug_exec_tools",
-    exec_compatible_with = ["@platforms//os:macos", "@platforms//cpu:aarch64"],
-    toolchain = "@python_3_13_aarch64_apple_darwin_freethreaded_debug//:exec_tools_toolchain",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
-)
-
-
-# The Python interpreter toolchain has no exec_compatible_with: the interpreter
-# runs on the TARGET platform (inside the virtualenv), not on the exec host.
-# Setting exec_compatible_with = platform_constraints would prevent this
-# toolchain from being selected during cross-compilation (e.g. building an
-# arm64 image on an amd64 host), because the exec platform (amd64) would not
-# satisfy the arm64 exec constraint.  The target_compatible_with constraint is
-# sufficient to pick the right interpreter for the target.
-toolchain(
-    name = "python_3_13_aarch64_unknown_linux_gnu_freethreaded_debug",
-    target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":platform_libc_is_glibc"],
-    toolchain = "@python_3_13_aarch64_unknown_linux_gnu_freethreaded_debug//:runtime_pair",
-    toolchain_type = "@bazel_tools//tools/python:toolchain_type",
-)
-
-# Exec tools toolchain: selected by exec platform (not target platform) so
-# that build actions using the interpreter (e.g. compileall) get a runnable
-# binary on the build host regardless of the target platform being built for.
-toolchain(
-    name = "python_3_13_aarch64_unknown_linux_gnu_freethreaded_debug_exec_tools",
-    exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
-    toolchain = "@python_3_13_aarch64_unknown_linux_gnu_freethreaded_debug//:exec_tools_toolchain",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
-)
-
-
-# The Python interpreter toolchain has no exec_compatible_with: the interpreter
-# runs on the TARGET platform (inside the virtualenv), not on the exec host.
-# Setting exec_compatible_with = platform_constraints would prevent this
-# toolchain from being selected during cross-compilation (e.g. building an
-# arm64 image on an amd64 host), because the exec platform (amd64) would not
-# satisfy the arm64 exec constraint.  The target_compatible_with constraint is
-# sufficient to pick the right interpreter for the target.
-toolchain(
-    name = "python_3_13_aarch64_unknown_linux_musl_freethreaded_debug",
-    target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":platform_libc_is_musl"],
-    toolchain = "@python_3_13_aarch64_unknown_linux_musl_freethreaded_debug//:runtime_pair",
-    toolchain_type = "@bazel_tools//tools/python:toolchain_type",
-)
-
-# Exec tools toolchain: selected by exec platform (not target platform) so
-# that build actions using the interpreter (e.g. compileall) get a runnable
-# binary on the build host regardless of the target platform being built for.
-toolchain(
-    name = "python_3_13_aarch64_unknown_linux_musl_freethreaded_debug_exec_tools",
-    exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
-    toolchain = "@python_3_13_aarch64_unknown_linux_musl_freethreaded_debug//:exec_tools_toolchain",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
-)
-
-
-# The Python interpreter toolchain has no exec_compatible_with: the interpreter
-# runs on the TARGET platform (inside the virtualenv), not on the exec host.
-# Setting exec_compatible_with = platform_constraints would prevent this
-# toolchain from being selected during cross-compilation (e.g. building an
-# arm64 image on an amd64 host), because the exec platform (amd64) would not
-# satisfy the arm64 exec constraint.  The target_compatible_with constraint is
-# sufficient to pick the right interpreter for the target.
-toolchain(
-    name = "python_3_13_x86_64_apple_darwin_freethreaded_debug",
-    target_compatible_with = ["@platforms//os:macos", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
-    toolchain = "@python_3_13_x86_64_apple_darwin_freethreaded_debug//:runtime_pair",
-    toolchain_type = "@bazel_tools//tools/python:toolchain_type",
-)
-
-# Exec tools toolchain: selected by exec platform (not target platform) so
-# that build actions using the interpreter (e.g. compileall) get a runnable
-# binary on the build host regardless of the target platform being built for.
-toolchain(
-    name = "python_3_13_x86_64_apple_darwin_freethreaded_debug_exec_tools",
-    exec_compatible_with = ["@platforms//os:macos", "@platforms//cpu:x86_64"],
-    toolchain = "@python_3_13_x86_64_apple_darwin_freethreaded_debug//:exec_tools_toolchain",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
-)
-
-
-# The Python interpreter toolchain has no exec_compatible_with: the interpreter
-# runs on the TARGET platform (inside the virtualenv), not on the exec host.
-# Setting exec_compatible_with = platform_constraints would prevent this
-# toolchain from being selected during cross-compilation (e.g. building an
-# arm64 image on an amd64 host), because the exec platform (amd64) would not
-# satisfy the arm64 exec constraint.  The target_compatible_with constraint is
-# sufficient to pick the right interpreter for the target.
-toolchain(
-    name = "python_3_13_x86_64_unknown_linux_gnu_freethreaded_debug",
-    target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":platform_libc_is_glibc"],
-    toolchain = "@python_3_13_x86_64_unknown_linux_gnu_freethreaded_debug//:runtime_pair",
-    toolchain_type = "@bazel_tools//tools/python:toolchain_type",
-)
-
-# Exec tools toolchain: selected by exec platform (not target platform) so
-# that build actions using the interpreter (e.g. compileall) get a runnable
-# binary on the build host regardless of the target platform being built for.
-toolchain(
-    name = "python_3_13_x86_64_unknown_linux_gnu_freethreaded_debug_exec_tools",
-    exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
-    toolchain = "@python_3_13_x86_64_unknown_linux_gnu_freethreaded_debug//:exec_tools_toolchain",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
-)
-
-
-# The Python interpreter toolchain has no exec_compatible_with: the interpreter
-# runs on the TARGET platform (inside the virtualenv), not on the exec host.
-# Setting exec_compatible_with = platform_constraints would prevent this
-# toolchain from being selected during cross-compilation (e.g. building an
-# arm64 image on an amd64 host), because the exec platform (amd64) would not
-# satisfy the arm64 exec constraint.  The target_compatible_with constraint is
-# sufficient to pick the right interpreter for the target.
-toolchain(
-    name = "python_3_13_x86_64_unknown_linux_musl_freethreaded_debug",
-    target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":platform_libc_is_musl"],
-    toolchain = "@python_3_13_x86_64_unknown_linux_musl_freethreaded_debug//:runtime_pair",
-    toolchain_type = "@bazel_tools//tools/python:toolchain_type",
-)
-
-# Exec tools toolchain: selected by exec platform (not target platform) so
-# that build actions using the interpreter (e.g. compileall) get a runnable
-# binary on the build host regardless of the target platform being built for.
-toolchain(
-    name = "python_3_13_x86_64_unknown_linux_musl_freethreaded_debug_exec_tools",
-    exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
-    toolchain = "@python_3_13_x86_64_unknown_linux_musl_freethreaded_debug//:exec_tools_toolchain",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain = "@python_3_13_i686_pc_windows_msvc_freethreaded//:exec_tools_toolchain",
+    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
 )
 
 

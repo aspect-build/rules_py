@@ -3,7 +3,7 @@
 DEP_GROUP_FLAG = "@aspect_rules_py//uv/private/constraints/dep_group:dep_group"
 
 # Our own python_version flag, replacing the rules_python one.
-PYTHON_VERSION_FLAG = "@aspect_rules_py//py/private/interpreter:python_version"
+PYTHON_VERSION_FLAG = "@python_interpreters//:python_version"
 
 # rules_python's flag, kept for backward compatibility during migration.
 _RPY_VERSION_FLAG = "@rules_python//python/config_settings:python_version"

@@ -1,0 +1,294 @@
+load("@aspect_rules_py//uv/private/constraints/python:defs.bzl", "is_python_version_at_least")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_python//python:defs.bzl", rules_python_py_binary = "py_binary")
+load(":toolchain_test.bzl", "cross_platform_interpreter_check", "interpreter_toolchain_check", "version_transition_check", "windows_repository_check")
+
+package(default_visibility = ["//visibility:public"])
+
+constraint_setting(name = "target_compatibility")
+
+constraint_value(
+    name = "target_compatible",
+    constraint_setting = ":target_compatibility",
+)
+
+constraint_setting(name = "exec_compatibility")
+
+constraint_value(
+    name = "exec_compatible",
+    constraint_setting = ":exec_compatibility",
+)
+
+platform(
+    name = "target_only_platform",
+    constraint_values = [":target_compatible"],
+    parents = ["@platforms//host"],
+)
+
+platform(
+    name = "exec_only_platform",
+    constraint_values = [":exec_compatible"],
+    parents = ["@platforms//host"],
+)
+
+platform(
+    name = "linux_x86_64_gnu_target_platform",
+    constraint_values = [
+        ":target_compatible",
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+    flags = ["--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc"],
+)
+
+platform(
+    name = "linux_x86_64_musl_target_platform",
+    constraint_values = [
+        ":target_compatible",
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+    flags = ["--@aspect_rules_py//uv/private/constraints/platform:platform_libc=musl"],
+)
+
+platform(
+    # This name records the support boundary; Bazel has no executor-libc
+    # constraint corresponding to the target-only platform_libc flag.
+    name = "linux_x86_64_glibc_exec_platform",
+    constraint_values = [
+        ":exec_compatible",
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+)
+
+platform(
+    name = "macos_aarch64_exec_platform",
+    constraint_values = [
+        ":exec_compatible",
+        "@platforms//cpu:aarch64",
+        "@platforms//os:macos",
+    ],
+)
+
+platform(
+    name = "windows_x86_64_target_platform",
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:windows",
+    ],
+)
+
+config_setting(
+    name = "config_311",
+    define_values = {"interpreter_setting": "311"},
+)
+
+config_setting(
+    name = "config_311_secondary",
+    define_values = {"interpreter_setting_secondary": "311"},
+)
+
+config_setting(
+    name = "config_314",
+    define_values = {"interpreter_setting": "314"},
+)
+
+config_setting(
+    name = "config_315",
+    define_values = {"interpreter_setting": "315"},
+)
+
+cc_binary(
+    name = "python_h_smoke",
+    srcs = ["python_h_smoke.cc"],
+    deps = [
+        "@rules_python//python/cc:current_py_cc_headers",
+        "@rules_python//python/cc:current_py_cc_libs",
+    ],
+)
+
+interpreter_toolchain_check(
+    name = "resolved_311",
+    abi_flags = "",
+    micro = 15,
+    python_version = "3.11",
+    releaselevel = "final",
+    serial = 0,
+)
+
+interpreter_toolchain_check(
+    name = "resolved_312",
+    abi_flags = "",
+    micro = 13,
+    python_version = "3.12",
+    releaselevel = "final",
+    serial = 0,
+)
+
+interpreter_toolchain_check(
+    name = "resolved_313",
+    abi_flags = "",
+    micro = 12,
+    python_version = "3.13",
+    releaselevel = "final",
+    serial = 0,
+)
+
+cross_platform_interpreter_check(
+    name = "cross_platform_312",
+    abi_flags = "",
+    exec_repository_platform = "aarch64_apple_darwin",
+    micro = 13,
+    python_version = "3.12",
+    releaselevel = "final",
+    runtime_repository_platform = "x86_64_unknown_linux_gnu",
+    serial = 0,
+)
+
+cross_platform_interpreter_check(
+    name = "linux_gnu_target_exec_312",
+    abi_flags = "",
+    exec_repository_platform = "x86_64_unknown_linux_gnu",
+    micro = 13,
+    python_version = "3.12",
+    releaselevel = "final",
+    runtime_repository_platform = "x86_64_unknown_linux_gnu",
+    serial = 0,
+)
+
+cross_platform_interpreter_check(
+    name = "linux_musl_target_gnu_exec_312",
+    abi_flags = "",
+    exec_repository_platform = "x86_64_unknown_linux_gnu",
+    micro = 13,
+    python_version = "3.12",
+    releaselevel = "final",
+    runtime_repository_platform = "x86_64_unknown_linux_musl",
+    serial = 0,
+)
+
+cross_platform_interpreter_check(
+    name = "linux_musl_target_gnu_exec_314_freethreaded",
+    abi_flags = "t",
+    exec_repository_platform = "x86_64_unknown_linux_gnu_freethreaded",
+    micro = 3,
+    python_version = "3.14",
+    releaselevel = "final",
+    runtime_repository_platform = "x86_64_unknown_linux_musl_freethreaded",
+    serial = 0,
+)
+
+cross_platform_interpreter_check(
+    name = "windows_target_macos_exec_314_freethreaded",
+    abi_flags = "t",
+    exec_repository_platform = "aarch64_apple_darwin_freethreaded",
+    micro = 3,
+    python_version = "3.14",
+    releaselevel = "final",
+    runtime_repository_platform = "x86_64_pc_windows_msvc_freethreaded",
+    serial = 0,
+)
+
+version_transition_check(
+    name = "default_transition",
+    expected = "3.13",
+)
+
+version_transition_check(
+    name = "aspect_flag_transition",
+    expected = "3.14",
+)
+
+rules_python_py_binary(
+    name = "rules_python_target_31213",
+    srcs = ["rules_python_version_test.py"],
+    env = select({
+        ":python_at_least_313": {
+            "EXPECTED_PYTHON_VERSION": "3.12.13",
+            "UV_CONSTRAINT_AT_LEAST_313": "yes",
+        },
+        "//conditions:default": {
+            "EXPECTED_PYTHON_VERSION": "3.12.13",
+            "UV_CONSTRAINT_AT_LEAST_313": "no",
+        },
+    }),
+    main = "rules_python_version_test.py",
+    python_version = "3.12.13",
+)
+
+version_transition_check(
+    name = "aspect_full_version_transition",
+    expected = "3.12.13",
+    python_version = "3.12.13",
+)
+
+is_python_version_at_least(
+    name = "python_at_least_313",
+    version = "3.13",
+    visibility = ["//visibility:private"],
+)
+
+is_python_version_at_least(
+    name = "python_at_least_314",
+    version = "3.14",
+    visibility = ["//visibility:private"],
+)
+
+filegroup(
+    name = "uv_constraint_prefers_rules_python",
+    srcs = select({
+        ":python_at_least_314": ["aspect_selected.txt"],
+        "//conditions:default": ["rules_python_selected.txt"],
+    }),
+)
+
+filegroup(
+    name = "uv_constraint_uses_aspect_fallback",
+    srcs = select({
+        ":python_at_least_313": ["aspect_selected.txt"],
+        "//conditions:default": [],
+    }),
+)
+
+interpreter_toolchain_check(
+    name = "resolved_314_freethreaded",
+    abi_flags = "t",
+    micro = 3,
+    python_version = "3.14",
+    releaselevel = "final",
+    serial = 0,
+)
+
+interpreter_toolchain_check(
+    name = "resolved_315_prerelease",
+    abi_flags = "",
+    micro = 0,
+    python_version = "3.15",
+    releaselevel = "alpha",
+    serial = 6,
+)
+
+windows_repository_check(
+    name = "windows_repository",
+    abi3_dll = "python3.dll",
+    abi3_headers = "@python_3_14_x86_64_pc_windows_msvc//:python_headers_abi3",
+    abi3_import_library = "python3.lib",
+    full_dll = "python314.dll",
+    full_headers = "@python_3_14_x86_64_pc_windows_msvc//:python_headers",
+    full_import_library = "python314.lib",
+    libs = "@python_3_14_x86_64_pc_windows_msvc//:libpython",
+    runtime_files = "@python_3_14_x86_64_pc_windows_msvc//:files",
+)
+
+windows_repository_check(
+    name = "freethreaded_windows_repository",
+    abi3_dll = "python3t.dll",
+    abi3_headers = "@python_3_14_x86_64_pc_windows_msvc_freethreaded//:python_headers_abi3",
+    abi3_import_library = "python3t.lib",
+    full_dll = "python314t.dll",
+    full_headers = "@python_3_14_x86_64_pc_windows_msvc_freethreaded//:python_headers",
+    full_import_library = "python314t.lib",
+    libs = "@python_3_14_x86_64_pc_windows_msvc_freethreaded//:libpython",
+    runtime_files = "@python_3_14_x86_64_pc_windows_msvc_freethreaded//:files",
+)

@@ -1,0 +1,6 @@
+load("@non_root//:transition_test.bzl", "version_transition_check")
+
+version_transition_check(
+    name = "implicit_default",
+    expected = "3.14",
+)

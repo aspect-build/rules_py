@@ -1,15 +1,64 @@
-# FIXME(bzlmod): Need to sort out why this is failing now
-#
-# # Test that cc targets can be used as deps for py targets.
-# # We only add a very simple test to not pull in all the deps
-# # to build proper py-bindings.
-# cc_library(
-#     name = "example_library",
-#     srcs = ["example_library.cpp"],
-# )
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("//py:defs.bzl", "py_test")
 
-# py_test(
-#     name = "test_smoke",
-#     srcs = ["test_smoke.py"],
-#     deps = [":example_library"],
-# )
+_NON_WINDOWS = select({
+    "@platforms//os:windows": ["@platforms//:incompatible"],
+    "//conditions:default": [],
+})
+
+_WINDOWS_ONLY = select({
+    "@platforms//os:windows": [],
+    "//conditions:default": ["@platforms//:incompatible"],
+})
+
+_PYTHON_CC_DEPS = [
+    "@rules_python//python/cc:current_py_cc_headers",
+    "@rules_python//python/cc:current_py_cc_libs",
+]
+
+cc_binary(
+    name = "native_module.so",
+    testonly = True,
+    srcs = ["example_library.cpp"],
+    linkshared = True,
+    target_compatible_with = _NON_WINDOWS,
+    deps = _PYTHON_CC_DEPS,
+)
+
+cc_binary(
+    name = "native_module.dll",
+    testonly = True,
+    srcs = ["example_library.cpp"],
+    linkshared = True,
+    target_compatible_with = _WINDOWS_ONLY,
+    deps = _PYTHON_CC_DEPS,
+)
+
+copy_file(
+    name = "_native_module_pyd",
+    testonly = True,
+    src = ":native_module.dll",
+    out = "native_module.pyd",
+    target_compatible_with = _WINDOWS_ONLY,
+)
+
+alias(
+    name = "native_module",
+    testonly = True,
+    actual = select({
+        "@platforms//os:windows": ":_native_module_pyd",
+        "//conditions:default": ":native_module.so",
+    }),
+)
+
+py_test(
+    name = "test_smoke",
+    srcs = ["test_smoke.py"],
+    data = [":native_module"],
+    imports = ["."],
+    # Only python_interpreters registers 3.13 in this workspace, so this
+    # exercises both generated toolchains.
+    python_version = "3.13",
+    deps = ["@rules_python//python/runfiles"],
+)
