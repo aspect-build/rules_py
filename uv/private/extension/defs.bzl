@@ -446,6 +446,9 @@ def _parse_projects(module_ctx, hub_specs):
                     extra_deps = [str(d) for d in pkg_override.extra_deps]
                     extra_data = [str(d) for d in pkg_override.extra_data]
 
+                if pkg_override and pkg_override.resource_set != "default" and not has_sbuild:
+                    fail("uv.override_package() for '{}': `resource_set` reserves resources for the sdist wheel-build action, but this package resolves to a prebuilt wheel (there is no sdist build to reserve for). Remove `resource_set`, or force a source build via `[tool.uv] no-binary-package`.".format(pkg_override.name))
+
                 # uv can emit multiple lock records for the same package/version
                 # (e.g. resolution-marker forks), each carrying a different
                 # subset of wheels. Merge with any previously translated record

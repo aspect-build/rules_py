@@ -124,6 +124,11 @@ uv.override_package(
 Resource reservations are only honored when Bazel runs with
 `--experimental_action_resource_set`; add it to your `.bazelrc`.
 
+`resource_set` only applies to packages built from an sdist. Setting it on a
+package that resolves to a prebuilt wheel (no source build) fails the build
+rather than silently dropping the reservation — force a source build with
+`[tool.uv] no-binary-package` if you need the reservation to apply.
+
 ### Full replacement
 
 To replace a package entirely with a custom target (existing functionality):

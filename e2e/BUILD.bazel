@@ -122,6 +122,15 @@ write_source_files(
         # rule expands env keys correctly given an explicit fixture.
         "snapshots/sdist_build.uv_sdist_jdk_build.jpype1.BUILD.bazel": "@sdist_build__uv_sdist_jdk_build__jpype1__1_7_1//:BUILD.bazel",
 
+        # @sdist_build for python-geohash with uv.override_package(resource_set)
+        # ----------------------------------------------------------------------
+        # Covers the override_package -> repo-rule -> BUILD-template plumbing
+        # for `resource_set`. The runtime //cases/uv-sdist-native-build:test
+        # only proves the wheel still builds; this snapshot pins that
+        # `resource_set = "mem_4g"` actually lands on the generated
+        # pep517_native_whl(...) call so the reservation reaches the action.
+        "snapshots/sdist_build.uv_sdist_native_build.python_geohash.BUILD.bazel": "@sdist_build__uv_sdist_native_build__python_geohash__0_8_5//:BUILD.bazel",
+
         # Venv site-packages .pth files. Pin the line shapes that
         # assemble_venv emits, so any change to `.pth` emission
         # surfaces here. Wheel keys are an 8-hex hash of the wheel's

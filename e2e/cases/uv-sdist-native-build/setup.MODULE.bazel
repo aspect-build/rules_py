@@ -25,4 +25,12 @@ uv.override_package(
     lock = "//cases/uv-sdist-native-build:uv.lock",
     resource_set = "mem_4g",
 )
-use_repo(uv, "pypi_uv_sdist_native_build")
+
+# Expose the sdist_build repo so e2e/BUILD.bazel can snapshot the generated
+# pep517_native_whl call and pin that `resource_set = "mem_4g"` actually
+# threads onto the build action (not just that the wheel still builds).
+use_repo(
+    uv,
+    "pypi_uv_sdist_native_build",
+    "sdist_build__uv_sdist_native_build__python_geohash__0_8_5",
+)

@@ -172,6 +172,11 @@ def _sdist_build_impl(repository_ctx):
             # If the tool provided complete build file content, use it directly.
             build_file_content = inspection.get("build_file_content")
             if build_file_content:
+                if repository_ctx.attr.resource_set != "default":
+                    fail("sdist_build for '{}': the configure tool returned complete `build_file_content`, which bypasses the generated `pep517_*whl(...)` call, so `resource_set = \"{}\"` cannot be applied. Drop `resource_set` from the override, or have the configure tool set `resource_set` in its own `build_file_content`.".format(
+                        repository_ctx.name,
+                        repository_ctx.attr.resource_set,
+                    ))
                 repository_ctx.file("BUILD.bazel", content = build_file_content)
                 return
 
