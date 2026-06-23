@@ -174,7 +174,7 @@ class ProcessTreeRssTest(unittest.TestCase):
                             "os.kill(os.getppid(), int(sys.argv[2])); "
                             "time.sleep(60)",
                             str(pids_file),
-                            str(interrupt_signal),
+                            str(int(interrupt_signal)),
                         ],
                         cwd=None,
                         env=os.environ.copy(),
