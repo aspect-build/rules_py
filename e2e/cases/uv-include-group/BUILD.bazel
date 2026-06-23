@@ -1,4 +1,5 @@
 load("@aspect_rules_py//py:defs.bzl", "py_test", "py_unpacked_wheel")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//tools:pth_snapshot.bzl", "extract_venv_pth")
 
 # setuptools vendors `packaging` (among others), which collides at
@@ -54,10 +55,16 @@ py_test(
     name = "wheel_root_pth_test",
     srcs = ["wheel_root_pth_test.py"],
     dep_group = "build",
-    expose_venv = True,
+    expose_venv_link = True,
     isolated = False,
     main = "wheel_root_pth_test.py",
     deps = [":setuptools_no_top_levels"],
+)
+
+sh_test(
+    name = "wheel_root_pth_link_test",
+    srcs = ["wheel_root_pth_link_test.sh"],
+    data = [":wheel_root_pth_test.venv_link"],
 )
 
 # Snapshot fixture: pins the `site.addsitedir(...)` line shape that
