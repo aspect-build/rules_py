@@ -15,7 +15,6 @@ pep517_native_whl(
     tool = ":build_tool",
     version = "1.7.1",
     args = [],
-    build_memory_mb = 2048,
     toolchains = [
         "@bazel_tools//tools/cpp:current_cc_toolchain",
         "@@bazel_tools//tools/jdk:current_java_runtime",
