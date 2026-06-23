@@ -7,6 +7,45 @@ build to verify the env wiring.
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 
+_ACTION_ENV = "//command_line_option:action_env"
+_HOST_PYTHON_ENV = [
+    "PYTHONHOME=/host/home",
+    "PYTHONPATH=/host/path",
+    "PYTHONPLATLIBDIR=host-lib",
+    "PYTHONSAFEPATH=1",
+]
+
+def _hostile_python_env_transition_impl(settings, _attr):
+    names = {entry.split("=", 1)[0]: True for entry in _HOST_PYTHON_ENV}
+    action_env = [
+        entry
+        for entry in settings[_ACTION_ENV]
+        if entry.split("=", 1)[0].upper() not in names
+    ]
+    return {_ACTION_ENV: action_env + _HOST_PYTHON_ENV}
+
+_hostile_python_env_transition = transition(
+    implementation = _hostile_python_env_transition_impl,
+    inputs = [_ACTION_ENV],
+    outputs = [_ACTION_ENV],
+)
+
+def _hostile_python_env_target_impl(ctx):
+    return [DefaultInfo(files = ctx.attr.target[0][DefaultInfo].files)]
+
+hostile_python_env_target = rule(
+    implementation = _hostile_python_env_target_impl,
+    attrs = {
+        "target": attr.label(
+            cfg = _hostile_python_env_transition,
+            mandatory = True,
+        ),
+        "_allowlist_function_transition": attr.label(
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+        ),
+    },
+)
+
 # Env vars sourced from the CC toolchain's TemplateVariableInfo. SYSROOT is
 # omitted because some toolchains legitimately have an empty sysroot and
 # it isn't exposed as a TemplateVariableInfo make variable today.
