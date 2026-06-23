@@ -83,27 +83,22 @@ Pre-build patches are applied to the extracted source tree after archive extract
 - Removing problematic native build dependencies
 - Patching source code that affects the build output
 
-### Allocating wheel build memory
+### Measuring wheel build memory
 
-Set `build_memory_mb` to the expected peak memory of a local sdist build so
-Bazel can limit concurrent wheel builds:
+On Linux, when `resource_set` is set, rules_py samples the aggregate resident
+memory of the build process and its descendants and reports the peak to stderr:
 
 ```starlark
 uv.override_package(
     lock = "//:uv.lock",
     name = "native-package",
-    build_memory_mb = 6144,
+    resource_set = "mem_2g",
 )
 ```
 
-Bazel rounds the estimate up to one of its supported resource classes. On
-Linux, setting a nonzero estimate also enables aggregate resident-memory
-sampling for the build process and its descendants. Estimates above 32768 MiB
-are rejected because bazel-lib 3.2 would otherwise clamp them to 32768 MiB and
-silently under-reserve the action. A measurement appears whenever the sampled
-peak crosses another 256 MiB threshold and once when the build finishes. If
-procfs is unavailable or cannot be read, the final measurement is reported as
-unavailable.
+A measurement appears whenever the sampled peak crosses another 256 MiB
+threshold and once when the build finishes. If procfs is unavailable or cannot
+be read, the final measurement is reported as unavailable.
 
 ### Adding extra dependencies or data
 

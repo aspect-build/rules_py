@@ -5,10 +5,9 @@ Uses `python -m build` (the pypa/build frontend) which delegates to whatever
 build backend the sdist declares in its `[build-system]` table.
 """
 
-load("@bazel_lib//lib:resource_sets.bzl", "resource_set", "resource_set_attr", "resource_set_for")
+load("@bazel_lib//lib:resource_sets.bzl", "resource_set", "resource_set_attr")
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 load("//py/private/toolchain:types.bzl", "NATIVE_BUILD_TOOLCHAIN", "PY_TOOLCHAIN")
-load(":build_memory.bzl", "validate_build_memory_mb")
 
 def _common_env(ctx):
     return {
@@ -31,13 +30,7 @@ def _patch_args_and_inputs(ctx):
     return patch_args, patch_inputs
 
 def _memory_args(ctx):
-    return ["--monitor-memory"] if ctx.attr.build_memory_mb else []
-
-def _build_resource_set(ctx):
-    validate_build_memory_mb(ctx.attr.build_memory_mb, ctx.label)
-    if ctx.attr.build_memory_mb:
-        return resource_set_for(mem_mb = ctx.attr.build_memory_mb)
-    return resource_set(ctx.attr)
+    return ["--monitor-memory"] if ctx.attr.resource_set != "default" else []
 
 def _collect_toolchain_inputs_and_vars(ctx):
     """Gather files + Make-variable substitutions from `ctx.attr.toolchains`.
@@ -129,7 +122,7 @@ def _pep517_whl(ctx):
         outputs = [wheel_dir],
         env = _common_env(ctx),
         exec_group = "target",
-        resource_set = _build_resource_set(ctx),
+        resource_set = resource_set(ctx.attr),
     )
 
     return [DefaultInfo(files = depset([wheel_dir]))]
@@ -170,7 +163,7 @@ def _pep517_native_whl(ctx):
         outputs = [wheel_dir],
         env = env,
         exec_group = "target",
-        resource_set = _build_resource_set(ctx),
+        resource_set = resource_set(ctx.attr),
     )
 
     return [DefaultInfo(files = depset([wheel_dir]))]
@@ -188,12 +181,6 @@ _PATCH_ATTRS = {
 }
 
 _pep517_whl_attrs = {
-    "build_memory_mb": attr.int(
-        default = 0,
-        doc = "Estimated peak memory in MB for local wheel builds, from 0 to " +
-              "32768. Bazel rounds this up to the next resource class supported " +
-              "by bazel_lib. Zero uses Bazel's default estimate.",
-    ),
     "src": attr.label(allow_single_file = True),
     "tool": attr.label(executable = True, cfg = "exec"),
     "version": attr.string(),

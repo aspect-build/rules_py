@@ -262,10 +262,6 @@ def _sdist_build_impl(repository_ctx):
     if repository_ctx.attr.resource_set != "default":
         resource_set_attr = "\n    resource_set = \"{}\",".format(repository_ctx.attr.resource_set)
 
-    memory_attr = ""
-    if repository_ctx.attr.build_memory_mb:
-        memory_attr = "\n    build_memory_mb = {},".format(repository_ctx.attr.build_memory_mb)
-
     repository_ctx.file("BUILD.bazel", content = """
 load("@aspect_rules_py//uv/private/pep517_whl:rule.bzl", "{rule}")
 load("@aspect_rules_py//py:defs.bzl", "py_binary")
@@ -282,7 +278,7 @@ py_binary(
     src = "{src}",
     tool = ":build_tool",
     version = "{version}",
-    args = [],{resource_set_attr}{memory_attr}{patch_attrs}{toolchain_attrs}
+    args = [],{resource_set_attr}{patch_attrs}{toolchain_attrs}
     visibility = ["//visibility:public"],
 )
 
@@ -296,7 +292,6 @@ exports_files(
         rule = "pep517_native_whl" if is_native else "pep517_whl",
         version = repository_ctx.attr.version,
         resource_set_attr = resource_set_attr,
-        memory_attr = memory_attr,
         patch_attrs = patch_attrs,
         toolchain_attrs = toolchain_attrs,
     ))
@@ -326,10 +321,6 @@ sdist_build = repository_rule(
             doc = "bazel-lib resource_set name forwarded to the generated pep517_*whl(...) " +
                   "`resource_set` attribute, reserving local RAM/CPU for the wheel build " +
                   "action. Set via `uv.override_package(resource_set = ...)`.",
-        ),
-        "build_memory_mb": attr.int(
-            default = 0,
-            doc = "Estimated peak memory in MB for local wheel builds, from 0 to 32768. Set via uv.override_package(build_memory_mb = ...).",
         ),
         "pre_build_patches": attr.label_list(default = []),
         "pre_build_patch_strip": attr.int(default = 0),

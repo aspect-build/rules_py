@@ -5,8 +5,6 @@ load("//py:defs.bzl", "py_library", "py_test")
 load(":rule.bzl", "pep517_native_whl", "pep517_whl")
 load(
     ":test.bzl",
-    "build_memory_failure_test",
-    "build_memory_test",
     "pep517_native_whl_toolchain_env_test",
 )
 
@@ -23,7 +21,6 @@ bzl_library(
     name = "rule",
     srcs = ["rule.bzl"],
     deps = [
-        ":build_memory",
         "//py/private/toolchain:types",
         "@bazel_lib//lib:resource_sets",
     ],
@@ -82,35 +79,6 @@ sh_binary(
     tags = ["manual"],
 )
 
-pep517_whl(
-    name = "__excessive_memory_fixture",
-    src = ":__stub_sdist",
-    build_memory_mb = 32769,
-    tags = ["manual"],
-    tool = ":__stub_tool",
-    version = "0.0.1",
-)
-
-build_memory_failure_test(
-    name = "build_memory_limit_test",
-    expected_error = "build_memory_mb must be between 0 and 32768",
-    target_under_test = ":__excessive_memory_fixture",
-)
-
-pep517_whl(
-    name = "__maximum_memory_fixture",
-    src = ":__stub_sdist",
-    build_memory_mb = 32768,
-    tags = ["manual"],
-    tool = ":__stub_tool",
-    version = "0.0.1",
-)
-
-build_memory_test(
-    name = "build_memory_maximum_test",
-    target_under_test = ":__maximum_memory_fixture",
-)
-
 # Fixture replicates the toolchains + env defaults emitted by sdist_build's
 # BUILD template (see uv/private/sdist_build/repository.bzl). The analysis
 # test below asserts these expand to non-empty toolchain paths.
@@ -141,7 +109,3 @@ pep517_native_whl_toolchain_env_test(
     target_under_test = ":__toolchain_env_fixture",
 )
 
-bzl_library(
-    name = "build_memory",
-    srcs = ["build_memory.bzl"],
-)
