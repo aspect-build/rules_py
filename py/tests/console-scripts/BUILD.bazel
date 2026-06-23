@@ -25,6 +25,7 @@ py_unpacked_wheel(
     name = "dotted_entry",
     src = ":dotted_entry-1.0-py3-none-any.whl",
     console_scripts = ["Dotted-Entry=dotted_entry:Commands.main"],
+    directory_top_levels = ["dotted_entry-1.0.dist-info"],
     top_levels = [
         "dotted_entry.py",
         "dotted_entry-1.0.dist-info",

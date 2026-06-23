@@ -12,6 +12,17 @@ def _py_unpacked_wheel_impl(ctx):
     exec_runtime = ctx.toolchains[EXEC_TOOLS_TOOLCHAIN].exec_tools.exec_runtime
     unpack_script = ctx.file._unpack_script
 
+    invalid_directory_top_levels = [
+        name
+        for name in ctx.attr.directory_top_levels
+        if name not in ctx.attr.top_levels
+    ]
+    if invalid_directory_top_levels:
+        fail("{}: directory_top_levels entries are absent from top_levels: {}".format(
+            ctx.label,
+            invalid_directory_top_levels,
+        ))
+
     unpack_directory = ctx.actions.declare_directory("{}".format(ctx.attr.name))
 
     args = ctx.actions.args()
@@ -20,6 +31,19 @@ def _py_unpacked_wheel_impl(ctx):
     args.add("--wheel", ctx.file.src)
     args.add("--python-version-major", py_toolchain.interpreter_version_info.major)
     args.add("--python-version-minor", py_toolchain.interpreter_version_info.minor)
+    expected_metadata = {}
+    scripts_known = bool(ctx.attr.console_scripts) or ctx.attr.console_scripts_known
+    if ctx.attr.top_levels:
+        directory_set = {name: True for name in ctx.attr.directory_top_levels}
+        expected_metadata["top_levels"] = {
+            name: "directory" if name in directory_set else "file"
+            for name in ctx.attr.top_levels
+        }
+    if scripts_known:
+        expected_metadata["console_scripts"] = sorted(ctx.attr.console_scripts)
+    if expected_metadata:
+        args.add("--expected-metadata", json.encode(expected_metadata))
+        args.add("--expected-metadata-origin", str(ctx.label))
 
     ctx.actions.run(
         outputs = [unpack_directory],
@@ -79,18 +103,22 @@ def _py_unpacked_wheel_impl(ctx):
         ),
     ]
 
-    if ctx.attr.top_levels or ctx.attr.console_scripts:
-        providers.append(PyWheelsInfo(
-            wheels = depset(direct = [struct(
-                top_levels = tuple(ctx.attr.top_levels),
-                namespace_top_levels = tuple(ctx.attr.namespace_top_levels),
-                namespace_entries = tuple(ctx.attr.namespace_entries),
-                site_packages_rfpath = site_packages_rfpath,
-                console_scripts = tuple(ctx.attr.console_scripts),
-                # See whl_install rule for the rationale.
-                install_tree = unpack_directory,
-            )]),
-        ))
+    layout_known = bool(ctx.attr.top_levels)
+    if layout_known or scripts_known:
+        providers.append(PyWheelsInfo(wheels = depset(direct = [struct(
+            top_levels = tuple(ctx.attr.top_levels),
+            directory_top_levels = tuple(ctx.attr.directory_top_levels),
+            layout_known = layout_known,
+            namespace_top_levels = tuple(ctx.attr.namespace_top_levels),
+            namespace_entries = tuple(ctx.attr.namespace_entries),
+            namespace_dirs = (),
+            regular_roots = (),
+            site_packages_rfpath = site_packages_rfpath,
+            console_scripts = tuple(ctx.attr.console_scripts),
+            scripts_known = scripts_known,
+            # See whl_install rule for the rationale.
+            install_tree = unpack_directory,
+        )])))
 
     return providers
 
@@ -105,17 +133,14 @@ _attrs = {
         mandatory = True,
     ),
     "top_levels": attr.string_list(
-        doc = """Names of the top-level packages / modules / *.dist-info directories the wheel installs into its site-packages.
+        doc = """Complete list of every immediate file or directory the wheel installs into its site-packages.
 
-When set, the target emits a `PyWheelsInfo` provider describing this wheel.
-Downstream rules (such as `py_binary`) can consume this to assemble a merged
-`site-packages/` tree via `ctx.actions.symlink` instead of relying on `.pth`
-entries. If left empty (the default), the target behaves as before — other
-rules fall back to `.pth`-based import resolution.
+Downstream rules (such as `py_binary`) use these names to assemble a merged
+`site-packages/` tree via `ctx.actions.symlink`. If left empty, they preserve
+the complete wheel root so imports and `.pth` files remain available.
 
 Typically populated by the `uv` wheel-install repo rule. Hand-written
-`py_unpacked_wheel` targets may populate this to opt into symlink-based
-venv assembly.
+`py_unpacked_wheel` targets may populate this to use per-name symlinks.
 """,
         default = [],
     ),
@@ -124,8 +149,18 @@ venv assembly.
 
 `py_binary` consumes these via `PyWheelsInfo` to generate executable
 wrappers under `<venv>/bin/<name>`. Typically populated from the wheel's
-`*.dist-info/entry_points.txt` `[console_scripts]` section.
+`*.dist-info/entry_points.txt` `[console_scripts]` section. A nonempty list is
+validated against the wheel. Set `console_scripts_known` to validate a complete
+list that may be empty.
 """,
+        default = [],
+    ),
+    "console_scripts_known": attr.bool(
+        doc = "Whether `console_scripts` is a complete list, including when empty.",
+        default = False,
+    ),
+    "directory_top_levels": attr.string_list(
+        doc = "Complete subset of `top_levels` installed as directories.",
         default = [],
     ),
     "namespace_top_levels": attr.string_list(
@@ -134,7 +169,8 @@ wrappers under `<venv>/bin/<name>`. Typically populated from the wheel's
 See the equivalent attribute on the `whl_install` rule for the full
 story; short version: names listed here suppress collision errors when
 multiple wheels claim the same top-level, because Python's namespace
-machinery is meant to merge their contributions.
+machinery is meant to merge their contributions. This hint is not
+validated against the wheel's nested package layout.
 """,
         default = [],
     ),
@@ -146,7 +182,8 @@ story; short version: `/`-joined paths like `jaraco/functools` that
 let venv assembly materialise a merged namespace directory out of
 per-entry symlinks, so static tools that inspect `site-packages/`
 directly see the package. When empty, namespace merging falls back to
-`.pth`-based resolution (runtime-only).
+`.pth`-based resolution (runtime-only). These hints are not validated
+against the wheel's nested package layout.
 """,
         default = [],
     ),

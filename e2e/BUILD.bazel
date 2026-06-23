@@ -154,7 +154,7 @@ write_source_files(
         # * wheel_root_pth — `py_unpacked_wheel` without `top_levels`;
         #   pins the `site.addsitedir(...)` shape so wheel-root `.pth`
         #   shims keep running.
-        # * pth_install_tree_fallback — two install_tree wheels colliding
+        # * pth_install_tree_fallback — two complete-layout wheels colliding
         #   on a top-level; the collision loser reaches `_format_imp`'s
         #   site-packages branch and must emit a PLAIN escape path (not
         #   `site.addsitedir`, which would re-run its already-projected

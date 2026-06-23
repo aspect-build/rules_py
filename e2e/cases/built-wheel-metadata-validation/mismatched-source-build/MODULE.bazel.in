@@ -1,0 +1,51 @@
+module(name = "built_wheel_metadata_mismatched_source_build")
+
+bazel_dep(name = "aspect_rules_py")
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "__RULES_PY_ROOT__",
+)
+
+git_override(
+    module_name = "hermetic_launcher",
+    commit = "a74f1e6ed715b1fb333ea4198a57329daf83954f",
+    remote = "https://github.com/tamird/hermetic-launcher.git",
+)
+
+new_local_repository = use_repo_rule(
+    "@bazel_tools//tools/build_defs/repo:local.bzl",
+    "new_local_repository",
+)
+
+new_local_repository(
+    name = "fixture",
+    build_file_content = "exports_files([\"uv.lock\"])",
+    path = "fixture",
+)
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "validation")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "setuptools",
+    ],
+    hub_name = "validation",
+    lock = "@fixture//:uv.lock",
+    pyproject = "//:pyproject.toml",
+)
+uv.override_package(
+    name = "cowsay",
+    env = {
+        "CC": "/usr/bin/cc",
+        "CXX": "/usr/bin/c++",
+    },
+    lock = "@fixture//:uv.lock",
+)
+uv.built_wheel_metadata(
+    name = "cowsay",
+    console_scripts = ["cowsay-tool=cowsay.__main__:cli"],
+    lock = "@fixture//:uv.lock",
+    version = "6.0",
+)
+use_repo(uv, "validation")

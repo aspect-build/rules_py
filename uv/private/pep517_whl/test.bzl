@@ -5,6 +5,7 @@ build to verify the command and environment wiring.
 """
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
+load(":providers.bzl", "BuiltWheelMetadataInfo")
 
 _ACTION_ENV = "//command_line_option:action_env"
 _HOST_PYTHON_ENV = [
@@ -67,6 +68,32 @@ def _analysis_failure_test_impl(ctx):
     env = analysistest.begin(ctx)
     asserts.expect_failure(env, ctx.attr.expected_error)
     return analysistest.end(env)
+
+def _built_wheel_metadata_present_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    target = analysistest.target_under_test(env)
+    asserts.true(env, BuiltWheelMetadataInfo in target)
+    return analysistest.end(env)
+
+built_wheel_metadata_present_test = analysistest.make(
+    _built_wheel_metadata_present_test_impl,
+)
+
+def _built_wheel_metadata_absent_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    target = analysistest.target_under_test(env)
+    asserts.false(env, BuiltWheelMetadataInfo in target)
+    return analysistest.end(env)
+
+built_wheel_metadata_absent_test = analysistest.make(
+    _built_wheel_metadata_absent_test_impl,
+)
+
+built_wheel_metadata_failure_test = analysistest.make(
+    _analysis_failure_test_impl,
+    attrs = {"expected_error": attr.string()},
+    expect_failure = True,
+)
 
 pep517_whl_toolchain_env_failure_test = analysistest.make(
     _analysis_failure_test_impl,

@@ -4,35 +4,34 @@ PyWheelsInfo = provider(
     doc = """Per-wheel metadata used to assemble a Python venv via symlinks at build time.
 
 Each element of `wheels` describes one wheel in the transitive closure of a
-target: the top-level names (packages / modules / *.dist-info directories)
-it installs into `site-packages`, which of those are PEP 420 namespace
-packages, the runfiles-root-relative path to the wheel's site-packages,
-and the wheel's declared console-script entry points.
+target: its known `site-packages` layout, runfiles-root-relative package path,
+and known console-script entry points.
 
-Downstream rules (notably `py_binary`) use this to create one
-`ctx.actions.symlink` per top-level name, merging wheels into a single
-`site-packages/` tree without invoking a runtime tool, and to generate
-executable wrappers under `<venv>/bin/<name>` for console scripts.
+Downstream rules (notably `py_binary`) use complete immediate layouts to link
+top-level names, merge downloaded-wheel namespace metadata when available, and
+generate executable wrappers under `<venv>/bin/<name>` for known scripts.
 """,
     fields = {
-        "wheels": """Depset of `struct(top_levels, namespace_top_levels, namespace_entries, site_packages_rfpath, console_scripts)`
-— one per wheel in the transitive closure. Fields:
-  * `top_levels`: tuple[str] — top-level names the wheel installs into site-packages.
-  * `namespace_top_levels`: tuple[str] — subset of top_levels that are PEP 420 namespace packages.
-  * `namespace_entries`: tuple[str] — `/`-joined paths of the concrete entries beneath
-    the namespace top-levels (e.g. `jaraco/functools`), used to materialise a merged
-    namespace directory out of per-entry symlinks. May be absent on structs from
-    older producers; consumers use `getattr` with a `()` default.
-  * `namespace_dirs`: tuple[str] — implicit-namespace directory skeleton under the
-    namespace top-levels (site-packages-relative `/`-joined paths). May be absent
-    on structs from older producers; consumers use `getattr` with a `()` default.
-  * `regular_roots`: tuple[str] — minimal directories under the namespace
-    top-levels carrying a recognized package initializer. Cross-referencing a
-    wheel's `regular_roots` with another wheel's `namespace_dirs` detects
-    regular packages spanning wheels, which venv assembly must physically
-    merge. May be absent on structs from older producers.
+        "wheels": """Depset of wheel metadata structs, one per wheel in the transitive closure. Fields:
+  * `top_levels`: tuple[str] — every immediate entry the wheel installs into
+    site-packages when `layout_known` is true, including files and directories.
+  * `directory_top_levels`: tuple[str] — subset of top_levels installed as directories.
+  * `layout_known`: bool — whether `top_levels` and `directory_top_levels`
+    completely describe the installed wheel's immediate site-packages layout.
+  * `namespace_top_levels`: tuple[str] — subset of top_levels classified as PEP
+    420 namespace packages.
+  * `namespace_entries`: tuple[str] — `/`-joined paths of concrete entries
+    beneath namespace top-levels.
+  * `namespace_dirs`: tuple[str] — producer-classified implicit-namespace
+    directory skeleton under namespace top-levels.
+  * `regular_roots`: tuple[str] — producer-classified minimal regular-package
+    roots beneath namespace top-levels. An initializer may be source, bytecode,
+    stub, or an extension module.
   * `site_packages_rfpath`: str — runfiles-root-relative path to the wheel's site-packages.
   * `console_scripts`: tuple[str] — entry points encoded as `"name=module:func"`.
+  * `scripts_known`: bool — whether `console_scripts` completely describes the
+    installed wheel, including when it is empty.
+  * `install_tree`: File — the complete installed wheel tree.
 """,
     },
 )

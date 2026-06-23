@@ -1,0 +1,19 @@
+module(name = "built_wheel_metadata_duplicate_top_level")
+
+bazel_dep(name = "aspect_rules_py")
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "__RULES_PY_ROOT__",
+)
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.built_wheel_metadata(
+    name = "metadata-package",
+    lock = "//:MODULE.bazel",
+    top_levels = [
+        "metadata_package",
+        "metadata_package",
+    ],
+    version = "1.0",
+)
+use_repo(uv, validation = "aspect_rules_py_pip_configurations")

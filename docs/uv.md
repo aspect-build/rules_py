@@ -334,6 +334,43 @@ An sdist (if available) will be built into a wheel for installation if no wheels
 are available, or no wheels matching the target configuration are found. Sdist
 builds occur using the configured Python and Cc toolchains.
 
+### Declaring source-built wheel metadata
+
+Downloaded wheels can be inspected while repositories are generated. A wheel
+built from an sdist does not exist until its build action runs, after analysis
+has already determined how to assemble the Python environment. Use
+`uv.built_wheel_metadata()` to declare the information that analysis needs from
+a source-built wheel:
+
+```starlark
+uv.built_wheel_metadata(
+    lock = "//:uv.lock",
+    name = "example-package",
+    version = "1.2.3",
+    top_levels = [
+        "example_package",
+        "example_package-1.2.3.dist-info",
+    ],
+    directory_top_levels = [
+        "example_package",
+        "example_package-1.2.3.dist-info",
+    ],
+    console_scripts = ["example=example_package.cli:main"],
+)
+```
+
+`top_levels` must list every immediate entry installed under `site-packages`,
+and `directory_top_levels` must be its complete directory subset. An empty
+`top_levels` means that the layout is unknown. `console_scripts` must contain
+every console entry point as `name=module:function`; an omitted or empty list
+means that the wheel is known to have none.
+
+The declaration is keyed by lockfile, normalized package name, and exact
+version. It must match a lock record with a source distribution, and it must
+hold for every configuration that can build that source distribution. The
+install action checks the declared layout and scripts after post-install
+patches are applied and before bytecode compilation.
+
 ## Best practices
 
 **Consolidate your hubs**. In `rules_python`, environments with multiple depsets
@@ -456,15 +493,15 @@ some key information. Such as what requirements apply when performing sdist
 builds. Annotations are the current workaround for how to associate such
 required but nonstandardized and missing dependency data with requirements.
 
-**Why aren't entrypoints automatically created?** `pip.parse` performs library
-installs at repository time, which allows it to inspect the installed files and
-detect entrypoints. Because uv does installs using normal build actions it has
-no way to see what binaries may be created or what `.dist-info/entry_points.txt`
-records exist.
+**Why aren't entrypoints automatically created?** Downloaded-wheel entrypoints
+are discovered while repositories are generated. Source-built wheels do not
+exist until execution, so their entrypoints must be exposed to analysis with
+`uv.built_wheel_metadata()`.
 
-If you need a given entrypoint as a Bazel target, it needs to be manually
-declared. In most cases of normal entrypoints this is quite easy. Tools like
-`ruff` which distribute binaries as "wheels" are tricky and not yet supported.
+Wheel metadata does not create Bazel targets. If you need a given entrypoint as
+a target, it must still be manually declared. In most cases of normal
+entrypoints this is quite easy. Tools like `ruff` which distribute binaries as
+"wheels" are tricky and not yet supported.
 
 ## Acknowledgements
 

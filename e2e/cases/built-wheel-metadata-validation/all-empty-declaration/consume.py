@@ -1,0 +1,3 @@
+import setuptools
+
+assert setuptools

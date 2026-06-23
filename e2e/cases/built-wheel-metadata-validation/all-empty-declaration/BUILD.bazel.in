@@ -1,0 +1,11 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+exports_files(["pyproject.toml"])
+
+py_test(
+    name = "consume",
+    srcs = ["consume.py"],
+    dep_group = "metadata",
+    python_version = "3.13",
+    deps = ["@validation//setuptools"],
+)

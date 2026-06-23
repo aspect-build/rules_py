@@ -1,0 +1,45 @@
+module(name = "built_wheel_metadata_matching_sdist")
+
+bazel_dep(name = "aspect_rules_py")
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "__RULES_PY_ROOT__",
+)
+
+new_local_repository = use_repo_rule(
+    "@bazel_tools//tools/build_defs/repo:local.bzl",
+    "new_local_repository",
+)
+
+new_local_repository(
+    name = "fixture",
+    build_file_content = "exports_files([\"uv.lock\"])",
+    path = "fixture",
+)
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "validation")
+uv.project(
+    hub_name = "validation",
+    lock = "@fixture//:uv.lock",
+    pyproject = "//:pyproject.toml",
+)
+uv.built_wheel_metadata(
+    name = "cowsay",
+    console_scripts = ["cowsay=cowsay.__main__:cli"],
+    directory_top_levels = [
+        "cowsay",
+        "cowsay-6.0.dist-info",
+    ],
+    lock = "@fixture//:uv.lock",
+    top_levels = [
+        "cowsay",
+        "cowsay-6.0.dist-info",
+    ],
+    version = "6.0",
+)
+use_repo(
+    uv,
+    "sdist_build__uv_sdist_fallback__cowsay__6_0",
+    "validation",
+)

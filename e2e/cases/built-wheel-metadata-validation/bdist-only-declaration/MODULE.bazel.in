@@ -1,0 +1,36 @@
+module(name = "built_wheel_metadata_bdist_only_declaration")
+
+bazel_dep(name = "aspect_rules_py")
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "__RULES_PY_ROOT__",
+)
+
+new_local_repository = use_repo_rule(
+    "@bazel_tools//tools/build_defs/repo:local.bzl",
+    "new_local_repository",
+)
+
+new_local_repository(
+    name = "fixture",
+    build_file_content = "exports_files([\"pyproject.toml\", \"uv.lock\"])",
+    path = "fixture",
+)
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "validation")
+uv.project(
+    hub_name = "validation",
+    lock = "@fixture//:uv.lock",
+    pyproject = "@fixture//:pyproject.toml",
+)
+uv.built_wheel_metadata(
+    name = "pywin32",
+    console_scripts = [
+        "pywin32_postinstall=win32.scripts.pywin32_postinstall:main",
+        "pywin32_testall=win32.scripts.pywin32_testall:main",
+    ],
+    lock = "@fixture//:uv.lock",
+    version = "311",
+)
+use_repo(uv, "validation")

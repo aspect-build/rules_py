@@ -53,11 +53,18 @@ genrule(
 py_unpacked_wheel(
     name = "pthtest_a",
     src = ":pthtest_a-1.0-py3-none-any.whl",
+    console_scripts_known = True,
+    directory_top_levels = [
+        "apkg",
+        "pthtest_a-1.0.dist-info",
+        "shared",
+    ],
     # `a_marker.pth` is a depth-1 RECORD entry, so a real wheel-install
     # lists it among the top-levels; declaring it here projects it into
     # the venv site-packages exactly as uv's whl_install would.
     top_levels = [
         "apkg",
+        "pthtest_a-1.0.dist-info",
         "shared",
         "a_marker.pth",
     ],
@@ -66,11 +73,25 @@ py_unpacked_wheel(
 py_unpacked_wheel(
     name = "pthtest_b",
     src = ":pthtest_b-1.0-py3-none-any.whl",
+    console_scripts_known = True,
+    directory_top_levels = [
+        "bpkg",
+        "pthtest_b-1.0.dist-info",
+        "shared",
+    ],
     top_levels = [
         "bpkg",
+        "pthtest_b-1.0.dist-info",
         "shared",
         "b_marker.pth",
     ],
+)
+
+py_unpacked_wheel(
+    name = "pthtest_unknown_layout",
+    src = ":pthtest_a-1.0-py3-none-any.whl",
+    # Emit PyWheelsInfo while leaving the immediate layout unknown.
+    console_scripts_known = True,
 )
 
 py_test(
@@ -88,4 +109,12 @@ py_test(
         ":pthtest_a",
         ":pthtest_b",
     ],
+)
+
+py_test(
+    name = "unknown_layout_pth_test",
+    srcs = ["unknown_layout_pth_test.py"],
+    isolated = False,
+    main = "unknown_layout_pth_test.py",
+    deps = [":pthtest_unknown_layout"],
 )

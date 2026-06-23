@@ -21,4 +21,12 @@ uv.project(
     lock = "//cases/uv-pyproject-cases:uv.lock",
     pyproject = "//cases/uv-pyproject-cases:pyproject.toml",
 )
+
+# Omitted metadata lists declare known-empty scripts and unknown wheel layout.
+uv.built_wheel_metadata(
+    name = "cdifflib",
+    lock = "//cases/uv-pyproject-cases:uv.lock",
+    version = "1.2.9",
+)
 use_repo(uv, "pypi_uv_pyproject_cases")
+use_repo(uv, "whl_install__uv_pyproject_cases__cdifflib__1_2_9")

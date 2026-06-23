@@ -1,0 +1,21 @@
+module(name = "built_wheel_metadata_malformed_console_script")
+
+bazel_dep(name = "aspect_rules_py")
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "__RULES_PY_ROOT__",
+)
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.built_wheel_metadata(
+    name = "metadata-package",
+    console_scripts = [
+        "extra-colon=metadata.main:run:extra",
+        "extra-equals=metadata=main:run",
+        "extra=metadata.main:run[feature]",
+        "metadata-tool=metadata.main:run[extra",
+    ],
+    lock = "//:MODULE.bazel",
+    version = "1.0",
+)
+use_repo(uv, validation = "aspect_rules_py_pip_configurations")

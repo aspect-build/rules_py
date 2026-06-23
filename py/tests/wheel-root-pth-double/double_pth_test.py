@@ -1,18 +1,16 @@
-"""Regression: a known (install_tree) wheel forced onto assemble_venv's
-`site.addsitedir` fallback must not execute its root `.pth` files more
-than a wheel that stayed on the direct-symlink path.
+"""A complete-layout wheel reaching _format_imp must not rescan root .pth.
 
-The hazard: if `_format_imp` uses `site.addsitedir()` on a known wheel's
-natural root, its root `.pth` files are already projected into the venv
-by `top_level_to_site_pkgs`, so site startup executes the projected copy
-and then `addsitedir()` executes the original — a double execution.
+The hazard: if `_format_imp` uses `site.addsitedir()` on a wheel with a
+complete immediate layout, its root `.pth` files were already routed through
+collision resolution and may be projected into the venv. Site startup then
+executes the projected copy before `addsitedir()` executes the original.
 
 Setup: two `py_unpacked_wheel`s, each emitting `PyWheelsInfo` (they set
 `top_levels`), each carrying a distinct root `.pth` that appends a unique
 sentinel to `sys.path`. Both wheels claim the top-level `shared`, so one
 of them loses that collision and is no longer "fully covered" by direct
 per-top-level symlinks — the loser is routed through `_format_imp`'s
-`site.addsitedir` fallback. The winner keeps a plain projected layout.
+site-packages branch. The winner keeps a plain projected layout.
 
 What we assert: each wheel's root `.pth` must fire the SAME number of
 times, regardless of which one lost the collision. We do not assert an
@@ -25,9 +23,9 @@ winner's 2). Asserting symmetry isolates that regression and is
 independent of the launcher's per-site-dir scan count and of which wheel
 happens to lose.
 
-A known install_tree wheel routed onto the fallback path must emit a
-plain path entry (never re-scanned), not `site.addsitedir`, so its root
-`.pth` count matches a wheel that stayed on the direct-symlink path.
+A complete-layout wheel routed through `_format_imp` must emit a plain path
+entry, not `site.addsitedir`, so its root `.pth` count matches a wheel that
+stayed on the direct-symlink path.
 """
 
 import sys
@@ -59,8 +57,8 @@ def main():
             f"({SENTINEL_A}={count_a}, {SENTINEL_B}={count_b}). The collision "
             "loser was routed through site.addsitedir(), which re-scanned its "
             "wheel root and re-executed a root .pth already projected into the "
-            "venv site-packages. A known install_tree wheel on the fallback "
-            "path must use a plain path entry, not addsitedir."
+            "venv site-packages. A complete-layout wheel reaching _format_imp "
+            "must use a plain path entry, not addsitedir."
         )
         sys.exit(1)
 

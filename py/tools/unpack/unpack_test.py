@@ -1,10 +1,12 @@
 import hashlib
+import json
 import subprocess
 import sys
 import tempfile
 import zipfile
 from base64 import urlsafe_b64encode
 from pathlib import Path
+from typing import Optional
 
 
 def _write_member(archive: zipfile.ZipFile, name: str, data: bytes) -> None:
@@ -48,23 +50,37 @@ def _build_wheel(path: Path, *, broken: bool) -> None:
     })
 
 
-def _run_unpack(unpack: Path, wheel: Path, output: Path) -> subprocess.CompletedProcess:
+def _run_unpack(
+    unpack: Path,
+    wheel: Path,
+    output: Path,
+    expected_metadata: Optional[dict[str, object]] = None,
+    expected_metadata_origin: Optional[str] = None,
+    patch: Optional[Path] = None,
+) -> subprocess.CompletedProcess:
+    command = [
+        sys.executable,
+        str(unpack),
+        "--into",
+        str(output),
+        "--wheel",
+        str(wheel),
+        "--python-version-major",
+        str(sys.version_info.major),
+        "--python-version-minor",
+        str(sys.version_info.minor),
+        "--compile-pyc",
+        "--python",
+        sys.executable,
+    ]
+    if expected_metadata is not None:
+        command.extend(["--expected-metadata", json.dumps(expected_metadata)])
+    if expected_metadata_origin is not None:
+        command.extend(["--expected-metadata-origin", expected_metadata_origin])
+    if patch is not None:
+        command.extend(["--patch", str(patch), "--patch-strip", "1"])
     return subprocess.run(
-        [
-            sys.executable,
-            str(unpack),
-            "--into",
-            str(output),
-            "--wheel",
-            str(wheel),
-            "--python-version-major",
-            str(sys.version_info.major),
-            "--python-version-minor",
-            str(sys.version_info.minor),
-            "--compile-pyc",
-            "--python",
-            sys.executable,
-        ],
+        command,
         capture_output=True,
         text=True,
     )
@@ -137,6 +153,66 @@ def main() -> None:
             check=True,
             env={"PYTHONPATH": str(site_packages)},
         )
+
+        metadata = {
+            "console_scripts": ["Fixture-Cli=fixture:Commands.main"],
+            "top_levels": {
+                "entry_point-1.0.dist-info": "directory",
+                "fixture": "directory",
+            },
+        }
+        matching = _run_unpack(
+            unpack,
+            entry_point_wheel,
+            root / "matching-metadata",
+            expected_metadata=metadata,
+        )
+        assert matching.returncode == 0, matching.stderr
+
+        layout_only = _run_unpack(
+            unpack,
+            entry_point_wheel,
+            root / "unknown-scripts",
+            expected_metadata={"top_levels": metadata["top_levels"]},
+        )
+        assert layout_only.returncode == 0, layout_only.stderr
+
+        known_empty_scripts = _run_unpack(
+            unpack,
+            entry_point_wheel,
+            root / "known-empty-scripts",
+            expected_metadata={"console_scripts": []},
+            expected_metadata_origin="uv.built_wheel_metadata()",
+        )
+        assert known_empty_scripts.returncode != 0
+        assert "uv.built_wheel_metadata()" in known_empty_scripts.stderr
+        assert "expected " in known_empty_scripts.stderr
+        assert "actual " in known_empty_scripts.stderr
+
+        patch = root / "add-top-level.patch"
+        site_packages_rel = (
+            f"lib/python{sys.version_info.major}.{sys.version_info.minor}"
+            "/site-packages/added.py"
+        )
+        patch.write_text(
+            "--- /dev/null\n"
+            f"+++ b/{site_packages_rel}\n"
+            "@@ -0,0 +1 @@\n"
+            "+VALUE = 1\n"
+        )
+        changed_layout = _run_unpack(
+            unpack,
+            entry_point_wheel,
+            root / "changed-layout",
+            expected_metadata=metadata,
+            patch=patch,
+        )
+        assert changed_layout.returncode != 0
+        assert "Installed wheel metadata did not match repository analysis" in (
+            changed_layout.stderr
+        )
+        assert "expected " in changed_layout.stderr
+        assert "actual " in changed_layout.stderr
 
 
 if __name__ == "__main__":

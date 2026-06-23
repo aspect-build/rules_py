@@ -45,6 +45,13 @@ Where `patches/nvidia-strip-init.patch` might look like:
 +# Stripped by aspect_rules_py override
 ```
 
+Post-install patches run before installed-wheel metadata validation. When a
+downloaded wheel has discovered metadata, or a source-built wheel has metadata
+declared with `uv.built_wheel_metadata()`, the patch must preserve its immediate
+`site-packages` entries and console scripts. A mismatch fails the install
+action before bytecode compilation; source-built failures name the declaration
+that supplied the expectation.
+
 ### Applying the same patch to multiple packages
 
 Use a Starlark list comprehension:

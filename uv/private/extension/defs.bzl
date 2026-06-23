@@ -132,6 +132,146 @@ def _parse_hubs(module_ctx):
 
     return hub_specs
 
+def _unique_sorted_built_wheel_metadata(values, field, key):
+    seen = set()
+    duplicates = set()
+    for value in values:
+        if value in seen:
+            duplicates.add(value)
+        seen.add(value)
+    if duplicates:
+        fail("uv.built_wheel_metadata() for lock '{}' and '{}=={}': duplicate {} entries: {}".format(
+            key[0],
+            key[1],
+            key[2],
+            field,
+            sorted(duplicates),
+        ))
+    return sorted(seen)
+
+def _canonical_built_wheel_metadata(declaration):
+    name = normalize_name(declaration.name)
+    version = declaration.version.strip()
+    key = (declaration.lock, name, version)
+    if not name or not version:
+        fail("uv.built_wheel_metadata(): name and version must not be empty")
+
+    top_levels = _unique_sorted_built_wheel_metadata(
+        declaration.top_levels,
+        "top_levels",
+        key,
+    )
+    directory_top_levels = _unique_sorted_built_wheel_metadata(
+        declaration.directory_top_levels,
+        "directory_top_levels",
+        key,
+    )
+    console_scripts = _unique_sorted_built_wheel_metadata(
+        declaration.console_scripts,
+        "console_scripts",
+        key,
+    )
+    invalid_top_levels = [name for name in top_levels if name in ("", ".", "..") or "/" in name or "\\" in name]
+    if invalid_top_levels:
+        fail("uv.built_wheel_metadata() for lock '{}' and '{}=={}': top_levels entries must be immediate site-packages names: {}".format(
+            declaration.lock,
+            name,
+            version,
+            invalid_top_levels,
+        ))
+    top_level_set = set(top_levels)
+    invalid_directories = [name for name in directory_top_levels if name not in top_level_set]
+    if invalid_directories:
+        fail("uv.built_wheel_metadata() for lock '{}' and '{}=={}': directory_top_levels entries are absent from top_levels: {}".format(
+            declaration.lock,
+            name,
+            version,
+            invalid_directories,
+        ))
+    invalid_scripts = []
+    canonical_console_scripts = []
+    script_names = set()
+    duplicate_script_names = set()
+    for script in console_scripts:
+        script_name, separator, entrypoint = script.partition("=")
+        module, colon, raw_function = entrypoint.partition(":")
+        script_name = script_name.strip()
+        module = module.strip()
+        function = raw_function.strip()
+        if (
+            script_name in ("", ".", "..") or
+            "/" in script_name or
+            "\\" in script_name or
+            not separator or
+            "=" in entrypoint or
+            not module or
+            ":" in module or
+            "[" in module or
+            "]" in module or
+            any([whitespace in module for whitespace in [" ", "\t", "\n", "\r"]]) or
+            not colon or
+            ":" in function or
+            not function or
+            "=" in function or
+            "[" in function or
+            "]" in function or
+            any([whitespace in function for whitespace in [" ", "\t", "\n", "\r"]])
+        ):
+            invalid_scripts.append(script)
+        elif script_name.lower() in script_names:
+            duplicate_script_names.add(script_name.lower())
+        else:
+            canonical_console_scripts.append("{}={}:{}".format(
+                script_name,
+                module,
+                function,
+            ))
+        script_names.add(script_name.lower())
+    if invalid_scripts:
+        fail("uv.built_wheel_metadata() for lock '{}' and '{}=={}': console_scripts entries must use name=module:function: {}".format(
+            declaration.lock,
+            name,
+            version,
+            invalid_scripts,
+        ))
+    if duplicate_script_names:
+        fail("uv.built_wheel_metadata() for lock '{}' and '{}=={}': duplicate console script names: {}".format(
+            declaration.lock,
+            name,
+            version,
+            sorted(duplicate_script_names),
+        ))
+
+    return key, struct(
+        console_scripts = sorted(canonical_console_scripts),
+        directory_top_levels = directory_top_levels,
+        origin = "uv.built_wheel_metadata() for lock '{}' and '{}=={}'".format(
+            declaration.lock,
+            name,
+            version,
+        ),
+        top_levels = top_levels,
+    )
+
+def _parse_built_wheel_metadata(module_ctx):
+    declarations = {}
+    origins = {}
+    for mod in module_ctx.modules:
+        for declaration in mod.tags.built_wheel_metadata:
+            key, metadata = _canonical_built_wheel_metadata(declaration)
+            prior = declarations.get(key)
+            if prior != None and prior != metadata:
+                fail("Conflicting uv.built_wheel_metadata() declarations for lock '{}' and '{}=={}' from modules '{}' and '{}'".format(
+                    key[0],
+                    key[1],
+                    key[2],
+                    origins[key],
+                    mod.name,
+                ))
+            declarations[key] = metadata
+            origins[key] = mod.name
+    return declarations
+
 def _parse_projects(module_ctx, hub_specs):
     """Parses all `uv.project()` declarations from all modules.
 
@@ -166,6 +306,8 @@ def _parse_projects(module_ctx, hub_specs):
     install_cfgs = {}
     install_table = {}
 
+    built_wheel_metadata = _parse_built_wheel_metadata(module_ctx)
+    used_built_wheel_metadata = set()
     # FIXME: Collect build deps files/annotations
 
     # Collect all hubs, ensure we have no dupes
@@ -379,6 +521,12 @@ def _parse_projects(module_ctx, hub_specs):
                             project.lock,
                             ", ".join(build_only_attrs),
                         ))
+                built_wheel_metadata_key = (
+                    project.lock,
+                    normalize_name(package["name"]),
+                    package["version"],
+                )
+                pkg_built_wheel_metadata = built_wheel_metadata.get(built_wheel_metadata_key)
 
                 # WARNING: Loop invariant; this flag needs to be False by
                 # default and set if we do a build.
@@ -389,6 +537,9 @@ def _parse_projects(module_ctx, hub_specs):
                 if is_no_binary and not sdist:
                     fail("Package {} is in [tool.uv] no-binary-package but has no sdist in the lockfile".format(package["name"]))
                 if sdist:
+                    if pkg_built_wheel_metadata != None:
+                        used_built_wheel_metadata.add(built_wheel_metadata_key)
+
                     # HACK: Note that we resolve these LAZILY so that
                     # bdist-only or fully overridden configurations don't
                     # have to provide the build tools.
@@ -448,6 +599,7 @@ def _parse_projects(module_ctx, hub_specs):
                         extra_toolchains = extra_toolchains,
                         extra_env = extra_env,
                         resource_set = resource_set,
+                        built_wheel_metadata = pkg_built_wheel_metadata,
                     )
 
                     has_sbuild = True
@@ -559,6 +711,16 @@ def _parse_projects(module_ctx, hub_specs):
             for package, cfgs in version_activations.items():
                 for cfg in cfgs.keys():
                     hub_cfg.packages.setdefault(package, {})[cfg] = "@{}//:{}".format(project_id, package)
+
+    unused_built_wheel_metadata = sorted([
+        "{}:{}=={}".format(*key)
+        for key in built_wheel_metadata.keys()
+        if key not in used_built_wheel_metadata
+    ])
+    if unused_built_wheel_metadata:
+        fail("uv.built_wheel_metadata() declarations do not match lock records with source distributions: {}".format(
+            ", ".join(unused_built_wheel_metadata),
+        ))
 
     return struct(
         project_cfgs = project_cfgs,
@@ -673,6 +835,12 @@ def _uv_impl(module_ctx):
             sbuild_kwargs["extra_env"] = sbuild_cfg.extra_env
         if sbuild_cfg.resource_set != "default":
             sbuild_kwargs["resource_set"] = sbuild_cfg.resource_set
+        if sbuild_cfg.built_wheel_metadata != None:
+            sbuild_kwargs["built_wheel_metadata_declared"] = True
+            sbuild_kwargs["built_wheel_console_scripts"] = sbuild_cfg.built_wheel_metadata.console_scripts
+            sbuild_kwargs["built_wheel_directory_top_levels"] = sbuild_cfg.built_wheel_metadata.directory_top_levels
+            sbuild_kwargs["built_wheel_metadata_origin"] = sbuild_cfg.built_wheel_metadata.origin
+            sbuild_kwargs["built_wheel_top_levels"] = sbuild_cfg.built_wheel_metadata.top_levels
         sdist_build(**sbuild_kwargs)
 
     for install_id, install_cfg in cfg.install_cfgs.items():
@@ -758,6 +926,24 @@ _declare_entrypoint_tag = tag_class(
         "name": attr.string(mandatory = True),
         "entrypoint": attr.string(mandatory = True),
     },
+)
+
+_built_wheel_metadata_tag = tag_class(
+    attrs = {
+        "lock": attr.label(mandatory = True),
+        "name": attr.string(mandatory = True),
+        "version": attr.string(mandatory = True),
+        "console_scripts": attr.string_list(
+            doc = "Complete console entry points in the built wheel, encoded as name=module:function. Omitted means known empty.",
+        ),
+        "directory_top_levels": attr.string_list(
+            doc = "Complete directory subset of top_levels.",
+        ),
+        "top_levels": attr.string_list(
+            doc = "Complete, configuration-invariant list of immediate site-packages entries when nonempty. Empty means layout is unknown; nested namespace topology is always unknown.",
+        ),
+    },
+    doc = "Declare analysis-time metadata for one package version in one lock.",
 )
 
 _override_package_tag = tag_class(
@@ -851,6 +1037,7 @@ modification attributes.""",
 uv = module_extension(
     implementation = _uv_impl,
     tag_classes = {
+        "built_wheel_metadata": _built_wheel_metadata_tag,
         "declare_hub": _hub_tag,
         "project": _project_tag,
         "unstable_annotate_packages": _annotations_tag,

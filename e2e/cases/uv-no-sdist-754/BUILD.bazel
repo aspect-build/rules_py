@@ -8,6 +8,14 @@
 
 load("@aspect_rules_py//py:defs.bzl", "py_test")
 
+exports_files(
+    [
+        "pyproject.toml",
+        "uv.lock",
+    ],
+    visibility = ["//cases/built-wheel-metadata-validation:__pkg__"],
+)
+
 # Expose @pypi//pywin32's deps so the test can assert the generated
 # whl_install BUILD shape (whl_missing default, select_chain arm count).
 genquery(

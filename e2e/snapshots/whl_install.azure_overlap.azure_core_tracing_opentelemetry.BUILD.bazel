@@ -50,7 +50,9 @@ whl_install(
             "azure",
         ],
     },
-    console_scripts = {},
+    console_scripts = {
+        "azure_core_tracing_opentelemetry-1.0.0b11-py3-none-any.whl": [],
+    },
     namespace_entries = {
         "azure_core_tracing_opentelemetry-1.0.0b11-py3-none-any.whl": [
             "azure/core/tracing/ext/opentelemetry_span",

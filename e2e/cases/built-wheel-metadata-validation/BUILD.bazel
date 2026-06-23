@@ -1,0 +1,19 @@
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+# The manual target mirrors the standalone CI invocation while supplying the
+# source files through runfiles.
+sh_test(
+    name = "test",
+    srcs = ["test.sh"],
+    data = glob(["*/*"]) + [
+        "//cases/uv-no-sdist-754:pyproject.toml",
+        "//cases/uv-no-sdist-754:uv.lock",
+        "//cases/uv-sdist-fallback:uv.lock",
+    ],
+    env_inherit = ["PATH"],
+    tags = [
+        "local",
+        "manual",
+        "no-sandbox",
+    ],
+)

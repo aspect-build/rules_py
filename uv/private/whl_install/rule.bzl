@@ -4,6 +4,7 @@
 load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PY_TOOLCHAIN")
+load("//uv/private/pep517_whl:providers.bzl", "BuiltWheelMetadataInfo")
 
 def _whl_install(ctx):
     py_toolchain = ctx.toolchains[PY_TOOLCHAIN].py3_runtime
@@ -17,6 +18,30 @@ def _whl_install(ctx):
     )
 
     archive = ctx.file.src
+    whl_basename = archive.basename
+    expected_metadata_origin = None
+    if BuiltWheelMetadataInfo in ctx.attr.src:
+        built_metadata = ctx.attr.src[BuiltWheelMetadataInfo]
+        top_levels = list(built_metadata.top_levels)
+        directory_top_levels = list(built_metadata.directory_top_levels)
+        namespace_top_levels = []
+        namespace_entries = []
+        namespace_dirs = []
+        regular_roots = []
+        console_scripts = list(built_metadata.console_scripts)
+        layout_known = bool(top_levels)
+        scripts_known = True
+        expected_metadata_origin = built_metadata.origin
+    else:
+        top_levels = list(ctx.attr.top_levels.get(whl_basename, []))
+        directory_top_levels = list(ctx.attr.directory_top_levels.get(whl_basename, []))
+        namespace_top_levels = list(ctx.attr.namespace_top_levels.get(whl_basename, []))
+        namespace_entries = ctx.attr.namespace_entries.get(whl_basename, [])
+        namespace_dirs = ctx.attr.namespace_dirs.get(whl_basename, [])
+        regular_roots = ctx.attr.regular_roots.get(whl_basename, [])
+        console_scripts = ctx.attr.console_scripts.get(whl_basename, [])
+        layout_known = whl_basename in ctx.attr.top_levels
+        scripts_known = whl_basename in ctx.attr.console_scripts
     unpack_script = ctx.file._unpack_script
     arguments = ctx.actions.args()
     arguments.add(unpack_script)
@@ -24,6 +49,19 @@ def _whl_install(ctx):
     arguments.add_all([archive], expand_directories = False, before_each = "--wheel")
     arguments.add("--python-version-major", py_toolchain.interpreter_version_info.major)
     arguments.add("--python-version-minor", py_toolchain.interpreter_version_info.minor)
+    expected_metadata = {}
+    if layout_known:
+        directory_set = {name: True for name in directory_top_levels}
+        expected_metadata["top_levels"] = {
+            name: "directory" if name in directory_set else "file"
+            for name in top_levels
+        }
+    if scripts_known:
+        expected_metadata["console_scripts"] = sorted(console_scripts)
+    if expected_metadata:
+        arguments.add("--expected-metadata", json.encode(expected_metadata))
+        if expected_metadata_origin:
+            arguments.add("--expected-metadata-origin", expected_metadata_origin)
 
     transitive_inputs = [
         depset([archive, unpack_script, exec_runtime.interpreter]),
@@ -108,60 +146,53 @@ def _whl_install(ctx):
     # wheel that is actually installed — metadata from inactive platform
     # wheels must not leak in (e.g. another platform's C-extension
     # suffix, or a console script shipped only by the win32 wheel).
-    # A lookup miss (sbuild fallback, failed extraction at repo-fetch
-    # time) emits no PyWheelsInfo and consumers fall back to .pth-based
-    # resolution.
-    whl_basename = ctx.file.src.basename
-    top_levels = ctx.attr.top_levels.get(whl_basename, [])
-    namespace_top_levels = ctx.attr.namespace_top_levels.get(whl_basename, [])
-    namespace_entries = ctx.attr.namespace_entries.get(whl_basename, [])
-    namespace_dirs = ctx.attr.namespace_dirs.get(whl_basename, [])
-    regular_roots = ctx.attr.regular_roots.get(whl_basename, [])
-    console_scripts = ctx.attr.console_scripts.get(whl_basename, [])
-
-    if top_levels or console_scripts:
-        providers.append(PyWheelsInfo(
-            wheels = depset(direct = [struct(
-                top_levels = tuple(top_levels),
-                # PEP 420 namespace packages this wheel contributes to.
-                # When multiple wheels claim the same top-level and ALL of
-                # them flag it as namespace, py_binary merges the namespace
-                # CONCRETELY from `namespace_entries` per-entry symlinks
-                # (so tools that inspect site-packages directly — mypy,
-                # pyright — see the packages and their py.typed markers),
-                # unless a regular package spans the wheels (detected via
-                # `regular_roots` × `namespace_dirs`), which needs a
-                # physical merge instead. Falls back to .pth-based
-                # resolution when entry metadata is missing.
-                namespace_top_levels = tuple(namespace_top_levels),
-                # Concrete per-wheel paths beneath namespace top-levels
-                # (e.g. `jaraco/functools`) that venv assembly symlinks
-                # individually to materialise a merged namespace directory.
-                namespace_entries = tuple(namespace_entries),
-                # Directory skeleton under namespace top-levels: which dirs
-                # are implicit-namespace portions (`namespace_dirs`) and
-                # which are the minimal regular-package roots
-                # (`regular_roots`). venv assembly cross-references these
-                # across wheels to detect a regular package spanning wheels
-                # (Python can't merge a regular package's __path__ at
-                # runtime, so the subtree is physically merged).
-                namespace_dirs = tuple(namespace_dirs),
-                regular_roots = tuple(regular_roots),
-                site_packages_rfpath = site_packages_rfpath,
-                # Each entry is "name=module:func"; py_binary parses into
-                # wrapper scripts at <venv>/bin/<name> at analysis time.
-                console_scripts = tuple(console_scripts),
-                # Tree artifact holding this wheel's installed file tree
-                # (`install/`, whose internal shape is
-                # `lib/python<M>.<m>/site-packages/...`). Consumed by
-                # venv assembly's physical merge action (regular packages
-                # spanning wheels) and by py_image_layer's pip-package
-                # layer; the per-top-level venv symlinks reference each
-                # wheel by its natural runfiles path rather than through
-                # this File.
-                install_tree = install_dir,
-            )]),
-        ))
+    # Source-build targets may carry declared metadata through
+    # BuiltWheelMetadataInfo. Otherwise, a lookup miss leaves the package
+    # metadata empty and consumers retain the existing .pth fallback.
+    if layout_known or scripts_known:
+        providers.append(PyWheelsInfo(wheels = depset(direct = [struct(
+            top_levels = tuple(top_levels),
+            directory_top_levels = tuple(directory_top_levels),
+            layout_known = layout_known,
+            # PEP 420 namespace packages this wheel contributes to.
+            # When multiple wheels claim the same top-level and ALL of
+            # them flag it as namespace, py_binary merges the namespace
+            # CONCRETELY from `namespace_entries` per-entry symlinks
+            # (so tools that inspect site-packages directly — mypy,
+            # pyright — see the packages and their py.typed markers),
+            # unless a regular package spans the wheels (detected via
+            # `regular_roots` × `namespace_dirs`), which needs a
+            # physical merge instead. Falls back to .pth-based
+            # resolution when entry metadata is missing.
+            namespace_top_levels = tuple(namespace_top_levels),
+            # Concrete per-wheel paths beneath namespace top-levels
+            # (e.g. `jaraco/functools`) that venv assembly symlinks
+            # individually to materialise a merged namespace directory.
+            namespace_entries = tuple(namespace_entries),
+            # Directory skeleton under namespace top-levels: which dirs
+            # are implicit-namespace portions (`namespace_dirs`) and
+            # which are the minimal regular-package roots
+            # (`regular_roots`). venv assembly cross-references these
+            # across wheels to detect a regular package spanning wheels
+            # (Python can't merge a regular package's __path__ at
+            # runtime, so the subtree is physically merged).
+            namespace_dirs = tuple(namespace_dirs),
+            regular_roots = tuple(regular_roots),
+            site_packages_rfpath = site_packages_rfpath,
+            # Each entry is "name=module:func"; py_binary parses into
+            # wrapper scripts at <venv>/bin/<name> at analysis time.
+            console_scripts = tuple(console_scripts),
+            scripts_known = scripts_known,
+            # Tree artifact holding this wheel's installed file tree
+            # (`install/`, whose internal shape is
+            # `lib/python<M>.<m>/site-packages/...`). Consumed by
+            # venv assembly's physical merge action (regular packages
+            # spanning wheels) and by py_image_layer's pip-package
+            # layer; the per-top-level venv symlinks reference each
+            # wheel by its natural runfiles path rather than through
+            # this File.
+            install_tree = install_dir,
+        )])))
 
     return providers
 
@@ -189,7 +220,7 @@ lighter weight since the toolchain's files aren't inputs.
         "patches": attr.label_list(
             default = [],
             allow_files = [".patch", ".diff"],
-            doc = "Patch files to apply after installation, in order.",
+            doc = "Patch files to apply after installation, in order. Patches must preserve all advertised package topology and console scripts.",
         ),
         "patch_strip": attr.int(
             default = 0,

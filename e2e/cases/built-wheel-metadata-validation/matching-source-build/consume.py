@@ -1,0 +1,3 @@
+import cowsay
+
+assert cowsay

@@ -179,6 +179,8 @@ def _sdist_build_impl(repository_ctx):
                     bypassed_attrs.append("env")
                 if repository_ctx.attr.extra_toolchains:
                     bypassed_attrs.append("toolchains")
+                if repository_ctx.attr.built_wheel_metadata_declared:
+                    bypassed_attrs.append("built wheel metadata")
                 if bypassed_attrs:
                     fail("sdist configure tool for {} returned build_file_content while {} is configured. Return is_native and extra_deps instead so rules_py can generate the wheel-build target with those attributes.".format(
                         repository_ctx.name,
@@ -245,6 +247,20 @@ def _sdist_build_impl(repository_ctx):
     if repository_ctx.attr.resource_set != "default":
         resource_set_attr = "\n    resource_set = \"{}\",".format(repository_ctx.attr.resource_set)
 
+    built_wheel_metadata_attrs = ""
+    if repository_ctx.attr.built_wheel_metadata_declared:
+        built_wheel_metadata_attrs = """
+    built_wheel_metadata_declared = True,
+    built_wheel_metadata_origin = {origin},
+    built_wheel_console_scripts = {console_scripts},
+    built_wheel_directory_top_levels = {directory_top_levels},
+    built_wheel_top_levels = {top_levels},""".format(
+            console_scripts = repr(repository_ctx.attr.built_wheel_console_scripts),
+            directory_top_levels = repr(repository_ctx.attr.built_wheel_directory_top_levels),
+            origin = repr(repository_ctx.attr.built_wheel_metadata_origin),
+            top_levels = repr(repository_ctx.attr.built_wheel_top_levels),
+        )
+
     repository_ctx.file("BUILD.bazel", content = """
 load("@aspect_rules_py//uv/private/pep517_whl:rule.bzl", "{rule}")
 load("@aspect_rules_py//py:defs.bzl", "py_binary")
@@ -261,7 +277,7 @@ py_binary(
     src = "{src}",
     tool = ":build_tool",
     version = "{version}",
-    args = {args},{resource_set_attr}{patch_attrs}{build_toolchain_attrs}
+    args = {args},{resource_set_attr}{built_wheel_metadata_attrs}{patch_attrs}{build_toolchain_attrs}
     visibility = ["//visibility:public"],
 )
 
@@ -276,6 +292,7 @@ exports_files(
         rule = "pep517_native_whl" if is_native else "pep517_whl",
         version = repository_ctx.attr.version,
         resource_set_attr = resource_set_attr,
+        built_wheel_metadata_attrs = built_wheel_metadata_attrs,
         patch_attrs = patch_attrs,
         build_toolchain_attrs = build_toolchain_attrs,
     ))
@@ -305,6 +322,21 @@ sdist_build = repository_rule(
             doc = "bazel-lib resource_set name forwarded to the generated pep517_*whl(...) " +
                   "`resource_set` attribute, reserving local RAM/CPU for the wheel build " +
                   "action. Set via `uv.override_package(resource_set = ...)`.",
+        ),
+        "built_wheel_metadata_declared": attr.bool(
+            doc = "Whether uv.built_wheel_metadata() declared metadata, including an all-empty declaration.",
+        ),
+        "built_wheel_console_scripts": attr.string_list(
+            doc = "Complete console entry points in the built wheel, encoded as name=module:func.",
+        ),
+        "built_wheel_directory_top_levels": attr.string_list(
+            doc = "Directory subset of built_wheel_top_levels.",
+        ),
+        "built_wheel_metadata_origin": attr.string(
+            doc = "Concrete uv.built_wheel_metadata() declaration for execution-time mismatch diagnostics.",
+        ),
+        "built_wheel_top_levels": attr.string_list(
+            doc = "Complete, configuration-invariant immediate site-packages entries when nonempty. Empty means the layout is unknown.",
         ),
         "pre_build_patches": attr.label_list(default = []),
         "pre_build_patch_strip": attr.int(default = 0),

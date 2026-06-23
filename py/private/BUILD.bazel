@@ -2,6 +2,7 @@ load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load("//py:defs.bzl", _py_binary_rule = "py_binary", _py_test_rule = "py_test")
 load(":py_image_layer.bzl", "py_layer_tier")
 load(":py_library.bzl", "py_library")
+load(":py_unpacked_wheel_test.bzl", "py_unpacked_wheel_test_suite")
 
 package(default_visibility = ["//py:__subpackages__"])
 
@@ -43,6 +44,8 @@ py_layer_tier(
     name = "default_layer_tier",
     visibility = ["//visibility:public"],
 )
+
+py_unpacked_wheel_test_suite()
 
 bzl_library(
     name = "py_image_layer",
@@ -109,6 +112,15 @@ bzl_library(
         ":py_semantics",
         "//py/private/toolchain:types",
         "@bazel_skylib//lib:paths",
+    ],
+)
+
+bzl_library(
+    name = "py_unpacked_wheel_test",
+    deps = [
+        ":py_unpacked_wheel",
+        "@bazel_skylib//lib:unittest",
+        "@bazel_skylib//rules:write_file",
     ],
 )
 

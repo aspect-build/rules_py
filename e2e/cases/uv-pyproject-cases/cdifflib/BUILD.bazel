@@ -1,4 +1,5 @@
 load("@aspect_rules_py//py:defs.bzl", "py_test")
+load(":metadata_test.bzl", "built_wheel_metadata_state_test")
 
 # Regression: cdifflib 1.2.9 exercises pep517_whl/build_helper.py
 # via the parent's `[tool.uv].no-binary-package` setting.
@@ -35,4 +36,9 @@ py_test(
     deps = [
         "@pypi_uv_pyproject_cases//cdifflib",
     ],
+)
+
+built_wheel_metadata_state_test(
+    name = "built_wheel_metadata_state_test",
+    target_under_test = "@whl_install__uv_pyproject_cases__cdifflib__1_2_9//:install",
 )

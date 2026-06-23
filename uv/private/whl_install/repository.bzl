@@ -109,6 +109,26 @@ def parse_console_script(line):
         return None
     return name, "{}={}:{}".format(name, module, function)
 
+def parse_console_scripts(entry_points):
+    """Return canonical console-script entries from entry_points.txt text."""
+    console_scripts = {}
+    in_console_scripts = False
+    for raw_line in entry_points.splitlines():
+        line = raw_line.split(";", 1)[0].split("#", 1)[0].strip()
+        if not line:
+            continue
+        if line.startswith("[") and line.endswith("]"):
+            in_console_scripts = line[1:-1].strip() == "console_scripts"
+            continue
+        if not in_console_scripts:
+            continue
+        entry = parse_console_script(line)
+        if entry == None:
+            continue
+        name, normalised = entry
+        console_scripts[name] = normalised
+    return sorted(console_scripts.values())
+
 def _find_whl_file(repository_ctx, whl_label):
     """Resolve an http_file-style wheel label to the actual .whl path on disk.
 
@@ -215,34 +235,14 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
     data_directory = metadata_directory[:-len(".dist-info")] + ".data"
     layout = wheel_layout_from_record(record, data_directory)
 
-    # entry_points.txt: INI-style file. Only `[console_scripts]` interests
-    # us — pip/uv synthesize executables under `bin/<name>` from those at
-    # install time. Missing file is normal (lots of libs have no scripts).
-    console_scripts = {}
-    if entry_points:
-        in_console_scripts = False
-        for raw_line in entry_points.splitlines():
-            # Strip comments (`;` or `#`) and whitespace.
-            line = raw_line.split(";", 1)[0].split("#", 1)[0].strip()
-            if not line:
-                continue
-            if line.startswith("[") and line.endswith("]"):
-                in_console_scripts = line[1:-1].strip() == "console_scripts"
-                continue
-            if not in_console_scripts:
-                continue
-
-            # Normalise to "name=module:func" so downstream parsing is trivial.
-            entry = parse_console_script(line)
-            if entry == None:
-                continue
-            name, normalised = entry
-            console_scripts[name] = normalised
+    # Legacy entry-point extras may be parsed and ignored:
+    # https://packaging.python.org/en/latest/specifications/entry-points/#data-model
+    console_scripts = parse_console_scripts(entry_points)
 
     return (
         whl_path.basename,
         layout,
-        sorted(console_scripts.values()),
+        console_scripts,
     )
 
 def _namespace_dirs_and_roots(dirs_set, init_dirs, namespace_top_levels_set):
@@ -250,10 +250,10 @@ def _namespace_dirs_and_roots(dirs_set, init_dirs, namespace_top_levels_set):
     and the minimal regular-package roots, restricted to the wheel's
     namespace top-levels.
 
-    Walking from the top, content is an implicit-namespace portion until the
-    first directory carrying a recognized package initializer. That directory
-    is a "regular root" and everything below it is interior to a regular
-    package.
+    Walking from the top, content is an implicit-namespace portion until
+    the first directory carrying a CPython package initializer — that
+    directory is a "regular root" and everything below it is interior to a
+    regular package.
 
       * namespace_dirs: the implicit-namespace skeleton, minus the depth-1
         entries already covered by namespace_top_levels
@@ -688,9 +688,9 @@ filegroup(
     # wheel, and peeking at them would force a useless download.
     #
     # The sbuild fallback, whose contents are unknowable until build time,
-    # is never peeked at here and therefore retains no analysis-time
-    # metadata. Consumers preserve the complete wheel through .pth-based
-    # resolution.
+    # is never peeked at here. Its build target carries declared metadata
+    # into whl_install; without declared top-levels, consumers preserve the
+    # complete wheel through .pth-based resolution.
     #
     # We read from `whl_files` (a real label_list) rather than `whls` (a
     # JSON-encoded string of labels) because only the former adds the
@@ -734,8 +734,7 @@ filegroup(
             namespace_dirs_by_whl[whl_name] = layout.namespace_dirs
         if layout.regular_roots:
             regular_roots_by_whl[whl_name] = layout.regular_roots
-        if css:
-            console_scripts_by_whl[whl_name] = css
+        console_scripts_by_whl[whl_name] = css
 
     install_attrs = """
     src = ":whl",

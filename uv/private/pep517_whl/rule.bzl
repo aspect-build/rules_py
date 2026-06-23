@@ -7,6 +7,7 @@ build backend the sdist declares in its `[build-system]` table.
 
 load("@bazel_lib//lib:resource_sets.bzl", "resource_set", "resource_set_attr")
 load("//py/private/toolchain:types.bzl", "NATIVE_BUILD_TOOLCHAIN", "PY_TOOLCHAIN")
+load(":providers.bzl", "BuiltWheelMetadataInfo")
 
 _INHERITED_ENV_EXCLUSIONS = (
     "AR",
@@ -53,6 +54,32 @@ def _patch_args_and_inputs(ctx):
                 patch_args.extend(["--patch", f.path])
                 patch_inputs.append(f)
     return patch_args, patch_inputs
+
+def _built_wheel_metadata(ctx):
+    if not (
+        ctx.attr.built_wheel_metadata_declared or
+        ctx.attr.built_wheel_console_scripts or
+        ctx.attr.built_wheel_directory_top_levels or
+        ctx.attr.built_wheel_top_levels
+    ):
+        return []
+
+    invalid_directories = [
+        name
+        for name in ctx.attr.built_wheel_directory_top_levels
+        if name not in ctx.attr.built_wheel_top_levels
+    ]
+    if invalid_directories:
+        fail("{}: built_wheel_directory_top_levels entries are absent from built_wheel_top_levels: {}".format(
+            ctx.label,
+            invalid_directories,
+        ))
+    return [BuiltWheelMetadataInfo(
+        console_scripts = tuple(ctx.attr.built_wheel_console_scripts),
+        directory_top_levels = tuple(ctx.attr.built_wheel_directory_top_levels),
+        origin = ctx.attr.built_wheel_metadata_origin or "PEP 517 rule attributes",
+        top_levels = tuple(ctx.attr.built_wheel_top_levels),
+    )]
 
 def _collect_build_toolchain_inputs_and_vars(ctx):
     """Gather files and Make variables from `ctx.attr.build_toolchains`.
@@ -171,7 +198,7 @@ def _pep517_whl(ctx):
         resource_set = resource_set(ctx.attr),
     )
 
-    return [DefaultInfo(files = depset([wheel_dir]))]
+    return [DefaultInfo(files = depset([wheel_dir]))] + _built_wheel_metadata(ctx)
 
 def _pep517_native_whl(ctx):
     archive = ctx.file.src
@@ -204,7 +231,7 @@ def _pep517_native_whl(ctx):
         resource_set = resource_set(ctx.attr),
     )
 
-    return [DefaultInfo(files = depset([wheel_dir]))]
+    return [DefaultInfo(files = depset([wheel_dir]))] + _built_wheel_metadata(ctx)
 
 _PATCH_ATTRS = {
     "pre_build_patches": attr.label_list(
@@ -222,6 +249,21 @@ _pep517_whl_attrs = {
     "build_toolchains": attr.label_list(
         cfg = config.exec("target"),
         doc = "Build-tool targets analyzed for the wheel-build action's execution platform. Their files become action inputs and their TemplateVariableInfo values are available to env.",
+    ),
+    "built_wheel_metadata_declared": attr.bool(
+        doc = "Whether built-wheel metadata was explicitly declared, including an all-empty declaration.",
+    ),
+    "built_wheel_metadata_origin": attr.string(
+        doc = "Human-readable declaration origin for execution-time mismatch diagnostics.",
+    ),
+    "built_wheel_console_scripts": attr.string_list(
+        doc = "Complete console entry points in the built wheel, encoded as name=module:func.",
+    ),
+    "built_wheel_directory_top_levels": attr.string_list(
+        doc = "Complete subset of built_wheel_top_levels installed as directories.",
+    ),
+    "built_wheel_top_levels": attr.string_list(
+        doc = "Complete, configuration-invariant list of immediate site-packages entries when nonempty. Empty means the final layout is unknown.",
     ),
     "env": attr.string_dict(
         doc = "Environment variables to set on the build action. Values may " +
