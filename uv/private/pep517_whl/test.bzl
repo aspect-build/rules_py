@@ -17,6 +17,26 @@ _JDK_ENV_KEYS = ["JAVA_HOME", "JAVA", "JAR"]
 
 _REQUIRED_ENV_KEYS = _CC_ENV_KEYS + _JDK_ENV_KEYS
 
+def _analysis_failure_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    asserts.expect_failure(env, ctx.attr.expected_error)
+    return analysistest.end(env)
+
+build_memory_failure_test = analysistest.make(
+    _analysis_failure_test_impl,
+    attrs = {"expected_error": attr.string()},
+    expect_failure = True,
+)
+
+def _build_memory_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    target = analysistest.target_under_test(env)
+    actions = [action for action in target.actions if action.mnemonic == "PySdistBuild"]
+    asserts.equals(env, 1, len(actions))
+    return analysistest.end(env)
+
+build_memory_test = analysistest.make(_build_memory_test_impl)
+
 def _toolchain_env_test_impl(ctx):
     env = analysistest.begin(ctx)
     target = analysistest.target_under_test(env)
