@@ -1,0 +1,4 @@
+Wheel-Version: 1.0
+Generator: rules_py test
+Root-Is-Purelib: true
+Tag: py3-none-any

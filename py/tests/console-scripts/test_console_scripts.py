@@ -44,6 +44,22 @@ class ConsoleScriptsTest(unittest.TestCase):
         )
         self.assertIn("subprocess-invocation-worked", result.stdout)
 
+    def test_wrapper_invokes_dotted_entry_point(self):
+        result = subprocess.run(
+            ["Dotted-Entry"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            result.returncode,
+            0,
+            "dotted wrapper failed: stdout={!r} stderr={!r}".format(
+                result.stdout, result.stderr
+            ),
+        )
+        self.assertEqual("dotted-entry-worked\n", result.stdout)
+
 
 if __name__ == "__main__":
     sys.exit(unittest.main())
