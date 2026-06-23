@@ -759,16 +759,15 @@ _override_package_tag = tag_class(
         # Per-package local execution resources for the wheel build action.
         # Uses bazel-lib's predefined resource_set vocabulary (the same enum
         # `ts_project` accepts), so Bazel reserves the named amount of RAM/CPU
-        # and won't overschedule concurrent native wheel builds. Honored only
-        # under `--experimental_action_resource_set`; `"default"` reserves
-        # nothing extra.
+        # and won't overschedule concurrent native wheel builds. `"default"`
+        # reserves nothing extra.
         "resource_set": attr.string(
             default = "default",
             values = resource_set_values,
             doc = "Local execution resources to reserve for this package's wheel build action. " +
                   "One of bazel-lib's predefined resource sets ('mem_512m', 'mem_1g', … 'mem_32g', " +
                   "'cpu_2', 'cpu_4', 'default'). Bazel rounds a memory request up to the named " +
-                  "bucket. Requires `--experimental_action_resource_set`.",
+                  "bucket.",
         ),
 
         # Per-package toolchain plumbing for native sdist builds. Both

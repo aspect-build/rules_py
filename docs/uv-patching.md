@@ -121,9 +121,6 @@ uv.override_package(
 `"mem_8g"`, `"mem_16g"`, `"mem_32g"`, `"cpu_2"`, `"cpu_4"`, or `"default"`
 (reserve nothing extra). A memory request is rounded up to the named bucket.
 
-Resource reservations are only honored when Bazel runs with
-`--experimental_action_resource_set`; add it to your `.bazelrc`.
-
 `resource_set` only applies to packages built from an sdist. Setting it on a
 package that resolves to a prebuilt wheel (no source build) fails the build
 rather than silently dropping the reservation — force a source build with
