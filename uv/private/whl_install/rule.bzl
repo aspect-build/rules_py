@@ -192,7 +192,7 @@ def _whl_install(ctx):
             # wheel by its natural runfiles path rather than through
             # this File.
             install_tree = install_dir,
-        )])))
+        )], order = "postorder")))
 
     return providers
 

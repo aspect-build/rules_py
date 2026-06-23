@@ -118,7 +118,7 @@ def _py_unpacked_wheel_impl(ctx):
             scripts_known = scripts_known,
             # See whl_install rule for the rationale.
             install_tree = unpack_directory,
-        )])))
+        )], order = "postorder")))
 
     return providers
 

@@ -112,7 +112,13 @@ def _make_wheels_depset(ctx, extra_transitive = []):
 
     Used by downstream rules that want a flat list of wheels (with their
     declared top-level names) in the transitive closure, for building a
-    merged site-packages via symlinks.
+    merged site-packages via symlinks. Postorder makes permissive collision
+    precedence explicit: a dependency's transitive wheels precede its own
+    wheel, while sibling dependencies retain their declared order.
+
+    Bazel defines postorder as a left-to-right traversal of transitive children
+    before direct elements:
+    https://bazel.build/rules/lib/builtins/depset#order
     """
     transitive = [
         target[PyWheelsInfo].wheels
@@ -123,7 +129,7 @@ def _make_wheels_depset(ctx, extra_transitive = []):
         if PyWheelsInfo in target:
             transitive.append(target[PyWheelsInfo].wheels)
     transitive.extend(extra_transitive)
-    return depset(transitive = transitive)
+    return depset(order = "postorder", transitive = transitive)
 
 def _make_merged_runfiles(ctx, extra_depsets = [], extra_runfiles = [], extra_runfiles_depsets = []):
     runfiles_targets = getattr(ctx.attr, "deps", []) + getattr(ctx.attr, "data", [])

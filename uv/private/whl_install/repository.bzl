@@ -266,7 +266,7 @@ def _namespace_dirs_and_roots(dirs_set, init_dirs, namespace_top_levels_set):
     appearing in another wheel's namespace skeleton means a regular
     package SPANS wheels — Python's namespace machinery cannot merge that,
     so the subtree must be physically merged. Dirs under regular
-    top-levels are skipped (handled by the top-level first-wins policy).
+    top-levels are skipped (handled by the top-level collision policy).
     """
     namespace_dirs = []
     regular_roots = []

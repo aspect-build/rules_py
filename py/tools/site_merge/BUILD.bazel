@@ -1,4 +1,16 @@
+load("//py:defs.bzl", "py_test")
+
 exports_files(
     ["site_merge.py"],
     visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "site_merge_test",
+    srcs = [
+        "site_merge.py",
+        "site_merge_test.py",
+    ],
+    imports = ["."],
+    main = "site_merge_test.py",
 )

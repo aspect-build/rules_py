@@ -18,7 +18,7 @@ Invoked by Bazel as::
     <exec_python> site_merge.py --into <dir> [--collision-policy P] --src <dir> [--src <dir> ...]
 
 Each ``--src`` is one wheel's copy of the package directory, in
-priority order: on file-level conflicts the first wheel providing a
+installation order: on file-level conflicts the last wheel providing a
 path wins. Sources that don't exist are skipped (platform wheels for
 other architectures may not ship the directory).
 """
@@ -27,7 +27,29 @@ import argparse
 import filecmp
 import os
 import shutil
+import stat
 from pathlib import Path
+
+
+def _remove(path):
+    """Remove outputs whose modes may have been copied from read-only inputs."""
+
+    def retry_readonly(function, candidate, exc_info):
+        error = exc_info[1]
+        if not isinstance(error, PermissionError):
+            raise error
+        candidate = Path(candidate)
+        candidate.chmod(candidate.stat().st_mode | stat.S_IWRITE)
+        function(candidate)
+
+    if path.is_dir():
+        shutil.rmtree(path, onerror=retry_readonly)
+        return
+    try:
+        path.unlink()
+    except PermissionError:
+        path.chmod(path.stat().st_mode | stat.S_IWRITE)
+        path.unlink()
 
 
 def merge(into, sources):
@@ -43,30 +65,31 @@ def merge(into, sources):
             for d in sorted(dirs):
                 dest_dir = into / rel_root / d
                 if dest_dir.exists() and not dest_dir.is_dir():
-                    raise ValueError(
-                        "Type conflict at {}: was a file (from {}), now a directory (from {}).".format(
-                            rel_root / d, owners.get(rel_root / d, "unknown"), src
-                        )
-                    )
+                    conflicts.append((rel_root / d, owners.get(rel_root / d), src))
+                    _remove(dest_dir)
                 dest_dir.mkdir(parents=True, exist_ok=True)
+                owners[rel_root / d] = src
             for f in sorted(files):
                 rel = rel_root / f
                 dest = into / rel
                 src_file = Path(root) / f
                 if dest.is_dir():
-                    raise ValueError(
-                        "Type conflict at {}: was a directory, now a file (from {}).".format(
-                            rel, src
-                        )
-                    )
+                    conflicts.append((rel, owners.get(rel), src))
+                    _remove(dest)
                 prior = owners.get(rel)
-                if prior is not None:
-                    # First wheel wins; byte-identical duplicates (e.g.
+                if dest.exists():
+                    # Byte-identical duplicates (e.g.
                     # an empty __init__.py or py.typed shipped by both
                     # wheels) are benign and not reported.
-                    if not filecmp.cmp(str(src_file), str(dest), shallow=False):
-                        conflicts.append((rel, prior, src))
-                    continue
+                    if filecmp.cmp(str(src_file), str(dest), shallow=False):
+                        shutil.copymode(str(src_file), str(dest))
+                        owners[rel] = src
+                        continue
+                    conflicts.append((rel, prior, src))
+                    # Bazel inputs are commonly read-only, and shutil.copy
+                    # preserves that mode. Unlink before installing the later
+                    # winner so it does not need write access to the old file.
+                    _remove(dest)
                 shutil.copy(str(src_file), str(dest))
                 owners[rel] = src
 
@@ -84,13 +107,7 @@ def main():
     )
     args = ap.parse_args()
 
-    try:
-        conflicts = merge(args.into, args.sources)
-    except ValueError as exc:
-        if args.collision_policy == "error":
-            raise SystemExit(str(exc))
-        print(str(exc))
-        conflicts = []
+    conflicts = merge(args.into, args.sources)
 
     if conflicts and args.collision_policy != "ignore":
         for rel, winner, loser in conflicts:

@@ -12,7 +12,7 @@ top-level names, merge downloaded-wheel namespace metadata when available, and
 generate executable wrappers under `<venv>/bin/<name>` for known scripts.
 """,
     fields = {
-        "wheels": """Depset of wheel metadata structs, one per wheel in the transitive closure. Fields:
+        "wheels": """Postorder depset of wheel metadata structs, one per wheel in the transitive closure. A dependency's transitive wheels precede its own wheel. Fields:
   * `top_levels`: tuple[str] — every immediate entry the wheel installs into
     site-packages when `layout_known` is true, including files and directories.
   * `directory_top_levels`: tuple[str] — subset of top_levels installed as directories.
