@@ -1,8 +1,12 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
-load(":rule.bzl", "pep517_native_whl")
-load(":test.bzl", "pep517_native_whl_toolchain_env_test")
+load("@tar.bzl//tar:mtree.bzl", "mtree_mutate", "mtree_spec")
+load("@tar.bzl//tar:tar.bzl", "tar_rule")
+load("//py:defs.bzl", "py_binary")
+load(":rule.bzl", "pep517_native_whl", "pep517_whl")
+load(":test.bzl", "hostile_python_env_target", "pep517_native_whl_toolchain_env_test")
 
 package(default_visibility = [
     "//uv/private:__subpackages__",
@@ -20,6 +24,37 @@ bzl_library(
         "//py/private/toolchain:types",
         "@bazel_lib//lib:resource_sets",
     ],
+)
+
+py_binary(
+    name = "__build_helper",
+    srcs = ["build_helper.py"],
+    main = "build_helper.py",
+    tags = ["manual"],
+    deps = ["@pypi//build"],
+)
+
+_PYTHON_ENV_BACKEND_SRCS = glob(["python_env_backend/*"])
+
+mtree_spec(
+    name = "__python_env_sdist_mtree_raw",
+    srcs = _PYTHON_ENV_BACKEND_SRCS,
+    include_runfiles = False,
+    tags = ["manual"],
+)
+
+mtree_mutate(
+    name = "__python_env_sdist_mtree",
+    mtree = ":__python_env_sdist_mtree_raw",
+    strip_prefix = package_name(),
+    tags = ["manual"],
+)
+
+tar_rule(
+    name = "__python_env_sdist",
+    srcs = _PYTHON_ENV_BACKEND_SRCS,
+    mtree = ":__python_env_sdist_mtree",
+    tags = ["manual"],
 )
 
 bzl_library(
@@ -60,6 +95,29 @@ sh_binary(
     name = "__stub_tool",
     srcs = [":__stub_tool_sh"],
     tags = ["manual"],
+)
+
+pep517_whl(
+    name = "__ambient_env_fixture",
+    src = ":__python_env_sdist",
+    tags = ["manual"],
+    tool = ":__build_helper",
+    version = "0.0.1",
+)
+
+hostile_python_env_target(
+    name = "__ambient_env_under_hostile_config",
+    tags = ["manual"],
+    target = ":__ambient_env_fixture",
+)
+
+build_test(
+    name = "python_env_test",
+    targets = [
+        ":__ambient_env_under_hostile_config",
+        "//uv/private/pep517_whl/explicit_env:under_hostile_config",
+    ],
+    visibility = ["//visibility:public"],
 )
 
 # Fixture replicates the toolchains + env defaults emitted by sdist_build's

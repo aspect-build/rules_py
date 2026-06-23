@@ -9,14 +9,31 @@ load("@bazel_lib//lib:resource_sets.bzl", "resource_set", "resource_set_attr")
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 load("//py/private/toolchain:types.bzl", "NATIVE_BUILD_TOOLCHAIN", "PY_TOOLCHAIN")
 
+_INHERITED_PYTHON_ENV = (
+    "PYTHONHOME",
+    "PYTHONPATH",
+    "PYTHONPLATLIBDIR",
+)
+
 def _common_env(ctx):
+    # pyproject_hooks copies the build process environment and launches its
+    # Python executable without -I:
+    # https://github.com/pypa/pyproject-hooks/blob/4b7c6d113fb89b755d762a88712c8a6873cddd47/src/pyproject_hooks/_impl.py#L70-L83
+    # https://github.com/pypa/pyproject-hooks/blob/4b7c6d113fb89b755d762a88712c8a6873cddd47/src/pyproject_hooks/_impl.py#L378-L396
+    # Host settings therefore must not replace that child's venv or stdlib.
+    # https://docs.python.org/3/using/cmdline.html#environment-variables
+    default_shell_env = {
+        key: value
+        for key, value in ctx.configuration.default_shell_env.items()
+        if key.upper() not in _INHERITED_PYTHON_ENV
+    }
     return {
         "SETUPTOOLS_SCM_PRETEND_VERSION": ctx.attr.version,
         # Determinism: fix hash seed so dict/set iteration order is stable
         "PYTHONHASHSEED": "0",
         # Determinism: reproducible timestamps in archives
         "SOURCE_DATE_EPOCH": "0",
-    } | ctx.configuration.default_shell_env
+    } | default_shell_env
 
 def _patch_args_and_inputs(ctx):
     patch_args = []
