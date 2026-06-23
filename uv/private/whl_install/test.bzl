@@ -3,7 +3,7 @@
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts", "unittest")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//py/private:providers.bzl", "PyWheelsInfo")
-load(":repository.bzl", "compatible_python_tags", "parse_record_path", "select_key", "sort_select_arms", "source_specificity")
+load(":repository.bzl", "compatible_python_tags", "parse_record_path", "select_key", "site_packages_segments", "sort_select_arms", "source_specificity")
 load(":rule.bzl", "whl_install")
 
 def _whl_sorting_test_impl(ctx):
@@ -127,6 +127,25 @@ def _record_path_test_impl(ctx):
     return unittest.end(env)
 
 record_path_test = unittest.make(_record_path_test_impl)
+
+def _site_packages_segments_test_impl(ctx):
+    env = unittest.begin(ctx)
+    data = "Legacy.Name-1.0.data"
+    asserts.equals(env, ["pkg", "module.py"], site_packages_segments(
+        data + "/purelib/pkg/module.py",
+        data,
+    ))
+    asserts.equals(env, ["pkg", "native.so"], site_packages_segments(
+        data + "/platlib/pkg/native.so",
+        data,
+    ))
+    asserts.equals(env, [], site_packages_segments(
+        data + "/scripts/tool",
+        data,
+    ))
+    return unittest.end(env)
+
+site_packages_segments_test = unittest.make(_site_packages_segments_test_impl)
 
 # --- whl_install metadata selection ---------------------------------------
 #
@@ -301,4 +320,8 @@ def whl_install_suite():
     unittest.suite(
         "record_path_tests",
         record_path_test,
+    )
+    unittest.suite(
+        "site_packages_segments_tests",
+        site_packages_segments_test,
     )

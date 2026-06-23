@@ -1,0 +1,10 @@
+"""Regression for wheels whose packages are stored under `.data/purelib`."""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_uv_data_purelib")
+uv.project(
+    hub_name = "pypi_uv_data_purelib",
+    lock = "//cases/uv-data-purelib:uv.lock",
+    pyproject = "//cases/uv-data-purelib:pyproject.toml",
+)
+use_repo(uv, "pypi_uv_data_purelib")

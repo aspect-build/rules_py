@@ -1,0 +1,12 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+py_test(
+    name = "test",
+    srcs = ["test.py"],
+    dep_group = "uv-data-purelib",
+    main = "test.py",
+    deps = [
+        "@pypi_uv_data_purelib//protobuf",
+        "@pypi_uv_data_purelib//tritonclient",
+    ],
+)
