@@ -89,6 +89,17 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
             path = line.split(",", 1)[0]
             if not path:
                 continue
+
+            # Some ass top_level contains 
+            # "functorch/__init__.py",sha256=...,1037
+            # "torch/__init__.py",sha256=...,12345
+            # instead of
+            # functorch/__init__.py,sha256=...,1037
+            # torch/__init__.py,sha256=...,12345
+            # which split by / will get a leftover '"torch' and '__init__.py"'
+            # So if line is from CSV. If a path was wrapped in double quotes
+            path = path.strip('"')
+
             segments = path.split("/")
             first_segment = segments[0]
 
