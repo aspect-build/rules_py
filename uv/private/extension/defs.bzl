@@ -473,12 +473,12 @@ def _parse_projects(module_ctx, hub_specs):
                         #
                         # Derive both halves from the wheel filename: it and
                         # the dist-info dir share the build backend's escaping,
-                        # so `1.0+cu118` correctly yields `1.0_cu118` and the
-                        # build tag (absent from dist-info) is dropped.
+                        # and URL-encoded `+` is literal in the archive member.
+                        # The build tag (absent from dist-info) is dropped.
                         whl_name = parse_whl_name(basename)
                         candidate = "{}-{}.dist-info".format(
                             whl_name.project,
-                            whl_name.version,
+                            whl_name.version.replace("%2B", "+").replace("%2b", "+"),
                         )
                         if metadata_directory != None and candidate != metadata_directory:
                             fail("wheel metadata directory mismatch for {}: {} vs {}".format(
