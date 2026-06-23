@@ -1,0 +1,103 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test", "py_unpacked_wheel")
+load("//tools:pth_snapshot.bzl", "extract_venv_pth")
+
+# Snapshot fixture for assemble_venv's `_format_imp` install_tree branch.
+#
+# Two hand-built wheels, each carrying PyWheelsInfo (they set `top_levels`,
+# so each gets an `install_tree`) and each shipping a distinct root `.pth`.
+# Both claim the top-level `shared`, so the collision loser is NOT fully
+# covered and surfaces as a site-packages line in the venv `.pth`.
+#
+# That line is exactly the one `_format_imp` must emit as a PLAIN escape
+# path, not `site.addsitedir(...)`: the loser's root `.pth` was already
+# projected into the venv site-packages by the per-top-level symlinks, so
+# `addsitedir` would re-run it (see the runtime guard at
+# @aspect_rules_py//py/tests/wheel-root-pth-double). The pinned snapshot
+# makes that line shape visible — reverting to `addsitedir` changes it.
+
+# A wheel is just a zip; build minimal ones with the prebuilt zipper so the
+# fixture needs no pip / uv environment. Internal layout mirrors what the
+# unpacker expects: top-level entries at the archive root plus a
+# `<name>-<version>.dist-info/` directory.
+genrule(
+    name = "wheel_a",
+    srcs = [
+        "a/apkg/__init__.py",
+        "a/shared/__init__.py",
+        "a/marker.pth",
+        "a/METADATA",
+    ],
+    outs = ["itfa-1.0-py3-none-any.whl"],
+    cmd = " ".join([
+        "$(execpath @bazel_tools//tools/zip:zipper) c $@",
+        "apkg/__init__.py=$(execpath a/apkg/__init__.py)",
+        "shared/__init__.py=$(execpath a/shared/__init__.py)",
+        "marker.pth=$(execpath a/marker.pth)",
+        "itfa-1.0.dist-info/METADATA=$(execpath a/METADATA)",
+    ]),
+    tools = ["@bazel_tools//tools/zip:zipper"],
+)
+
+genrule(
+    name = "wheel_b",
+    srcs = [
+        "b/bpkg/__init__.py",
+        "b/shared/__init__.py",
+        "b/marker.pth",
+        "b/METADATA",
+    ],
+    outs = ["itfb-1.0-py3-none-any.whl"],
+    cmd = " ".join([
+        "$(execpath @bazel_tools//tools/zip:zipper) c $@",
+        "bpkg/__init__.py=$(execpath b/bpkg/__init__.py)",
+        "shared/__init__.py=$(execpath b/shared/__init__.py)",
+        "marker.pth=$(execpath b/marker.pth)",
+        "itfb-1.0.dist-info/METADATA=$(execpath b/METADATA)",
+    ]),
+    tools = ["@bazel_tools//tools/zip:zipper"],
+)
+
+py_unpacked_wheel(
+    name = "itfa",
+    src = ":itfa-1.0-py3-none-any.whl",
+    # `marker.pth` is a depth-1 RECORD entry, so a real wheel-install lists
+    # it among the top-levels; declaring it projects it into the venv
+    # site-packages exactly as uv's whl_install would.
+    top_levels = [
+        "apkg",
+        "shared",
+        "marker.pth",
+    ],
+)
+
+py_unpacked_wheel(
+    name = "itfb",
+    src = ":itfb-1.0-py3-none-any.whl",
+    top_levels = [
+        "bpkg",
+        "shared",
+        "marker.pth",
+    ],
+)
+
+py_test(
+    name = "test",
+    srcs = ["__test__.py"],
+    expose_venv = True,
+    isolated = False,
+    main = "__test__.py",
+    # The two wheels collide on `shared`; downgrade so the build doesn't
+    # fail before the venv is assembled.
+    package_collisions = "warning",
+    # Pin the interpreter so the snapshot's `lib/pythonX.Y` path is stable.
+    python_version = "3.11",
+    deps = [
+        ":itfa",
+        ":itfb",
+    ],
+)
+
+extract_venv_pth(
+    name = "test.venv.pth",
+    venv = ":test.venv",
+)
