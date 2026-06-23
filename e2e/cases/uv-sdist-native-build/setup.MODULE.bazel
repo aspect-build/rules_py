@@ -1,15 +1,25 @@
-"""Verify that native_build_toolchain_type is registered via @rules_py_tools//:all
-so that sdist packages with C extensions can be built with pep517_native_whl.
-python-geohash is sdist-only and contains a C++ extension (_geohash).
+"""Build python-geohash from source with explicit compiler commands.
 
-Also exercises `uv.override_package(resource_set = ...)`: the chosen bazel-lib
-resource set must thread through the extension and sdist_build's generated
-pep517_native_whl(...) call so the native build action carries a local memory
-reservation. The geohash wheel must still build and import.
+The patch adds a C++ standard-library dependency to the package's extension,
+so the build must use a C++ linker driver. The package override supplies the
+compiler environment instead of relying on rules_py to infer commands from a
+Bazel C++ toolchain. It also retains the existing local memory reservation.
 """
 
 uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_uv_sdist_native_build")
+uv.override_package(
+    name = "python-geohash",
+    env = {
+        "CC": "cc",
+        "CXX": "c++",
+        "LDSHARED": "c++ -shared",
+    },
+    lock = "//cases/uv-sdist-native-build:uv.lock",
+    pre_build_patch_strip = 1,
+    pre_build_patches = ["//cases/uv-sdist-native-build:require_cxx_driver.patch"],
+    resource_set = "mem_4g",
+)
 uv.project(
     default_build_dependencies = [
         "build",
@@ -19,15 +29,8 @@ uv.project(
     lock = "//cases/uv-sdist-native-build:uv.lock",
     pyproject = "//cases/uv-sdist-native-build:pyproject.toml",
 )
-uv.override_package(
-    name = "python-geohash",
-    lock = "//cases/uv-sdist-native-build:uv.lock",
-    resource_set = "mem_4g",
-)
 
-# Expose the sdist_build repo so e2e/BUILD.bazel can snapshot the generated
-# pep517_native_whl call and pin that `resource_set = "mem_4g"` actually
-# threads onto the build action (not just that the wheel still builds).
+# Expose the generated wheel-build repository for snapshot coverage.
 use_repo(
     uv,
     "pypi_uv_sdist_native_build",

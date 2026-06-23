@@ -15,20 +15,8 @@ pep517_native_whl(
     tool = ":build_tool",
     version = "1.7.1",
     args = [],
-    toolchains = [
-        "@bazel_tools//tools/cpp:current_cc_toolchain",
-        "@@bazel_tools//tools/jdk:current_java_runtime",
-    ],
-    env = {
-        "AR": "$(AR)",
-        "CC": "$(CC)",
-        "CXX": "$(CC)",
-        "JAR": "$(JAVABASE)/bin/jar",
-        "JAVA": "$(JAVA)",
-        "JAVA_HOME": "$(JAVABASE)",
-        "LD": "$(LD)",
-        "STRIP": "$(STRIP)",
-    },
+    build_toolchains = ["@@bazel_tools//tools/jdk:current_java_runtime"],
+    env = {"JAVA": "$(JAVA)", "JAVA_HOME": "$(JAVABASE)"},
     visibility = ["//visibility:public"],
 )
 

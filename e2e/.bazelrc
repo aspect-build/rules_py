@@ -2,11 +2,10 @@ common --incompatible_enable_cc_toolchain_resolution
 common --@llvm//config:experimental_stub_libgcc_s
 common --@rules_cc//cc/toolchains/args/archiver_flags:use_libtool_on_macos=false
 
-# Match Bazel 9's default. Without this, PySdistNativeBuild actions on
-# Bazel 8 run without a default PATH, and clang's compiled-in default
-# linker (`ld`, not bundled with the hermetic LLVM toolchain) can't be
-# located. With it on, Bazel injects a static PATH=/bin:/usr/bin:/usr/local/bin
-# so clang's PATH search hits the runner's /usr/bin/ld.
+# Match Bazel 9's default. Without this, PEP 517 source builds on Bazel 8
+# receive no default PATH, so backends cannot discover ambient compilers and
+# linkers. Bazel supplies a deterministic system PATH when strict action
+# environments are enabled.
 common --incompatible_strict_action_env
 
 # Don't try and auto detect the cc toolchain, as we use our own llvm toolchains.

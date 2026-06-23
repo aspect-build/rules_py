@@ -4,13 +4,41 @@ load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("@tar.bzl//tar:mtree.bzl", "mtree_mutate", "mtree_spec")
 load("@tar.bzl//tar:tar.bzl", "tar_rule")
-load("//py:defs.bzl", "py_binary")
+load("//py:defs.bzl", "py_binary", "py_test")
 load(":rule.bzl", "pep517_native_whl", "pep517_whl")
-load(":test.bzl", "hostile_python_env_target", "pep517_native_whl_toolchain_env_test")
+load(
+    ":test.bzl",
+    "hostile_python_env_target",
+    "pep517_native_whl_toolchain_env_test",
+    "pep517_whl_exec_configuration_test",
+    "pep517_whl_toolchain_env_failure_test",
+    "pep517_whl_toolchain_env_test",
+    "template_variable_tool",
+)
 
 package(default_visibility = [
     "//uv/private:__subpackages__",
 ])
+
+constraint_setting(
+    name = "__configuration_role",
+)
+
+constraint_value(
+    name = "__target_configuration",
+    constraint_setting = ":__configuration_role",
+)
+
+platform(
+    name = "__cross_target_platform",
+    constraint_values = [":__target_configuration"],
+    parents = ["@platforms//host"],
+)
+
+config_setting(
+    name = "__is_target_configuration",
+    constraint_values = [":__target_configuration"],
+)
 
 exports_files(
     ["build_helper.py"],
@@ -55,6 +83,18 @@ tar_rule(
     srcs = _PYTHON_ENV_BACKEND_SRCS,
     mtree = ":__python_env_sdist_mtree",
     tags = ["manual"],
+)
+
+py_test(
+    name = "build_helper_native_tools_test",
+    srcs = ["build_helper_native_tools_test.py"],
+    data = [
+        ":build_helper.py",
+    ],
+    deps = [
+        "@pypi//build",
+        "@pypi//setuptools",
+    ],
 )
 
 bzl_library(
@@ -120,32 +160,181 @@ build_test(
     visibility = ["//visibility:public"],
 )
 
-# Fixture replicates the toolchains + env defaults emitted by sdist_build's
-# BUILD template (see uv/private/sdist_build/repository.bzl). The analysis
-# test below asserts these expand to non-empty toolchain paths.
-pep517_native_whl(
-    name = "__toolchain_env_fixture",
+template_variable_tool(
+    name = "__template_variable_tool",
+    srcs = ["build_helper.py"],
+    all_files = ["python_env_backend/backend.py"],
+    runfiles = ["python_env_backend/pyproject.toml"],
+    tags = ["manual"],
+    variables = {
+        "ALL_FILES_TOOL": "uv/private/pep517_whl/python_env_backend/backend.py",
+        "DEFAULT_TOOL": "uv/private/pep517_whl/build_helper.py",
+        "MISSING_TOOL": "uv/private/pep517_whl/missing-tool",
+        "RUNFILE_TOOL": "uv/private/pep517_whl/python_env_backend/pyproject.toml",
+    },
+)
+
+filegroup(
+    name = "__input_only_tool",
+    srcs = ["build_helper_native_tools_test.py"],
+    tags = ["manual"],
+)
+
+template_variable_tool(
+    name = "__conflicting_template_variable_tool",
+    tags = ["manual"],
+    variables = {
+        "DEFAULT_TOOL": "different",
+    },
+)
+
+template_variable_tool(
+    name = "__exec_configuration_tool",
+    srcs = select({
+        ":__is_target_configuration": ["python_env_backend/backend.py"],
+        "//conditions:default": ["build_helper.py"],
+    }),
+    tags = ["manual"],
+    variables = select({
+        ":__is_target_configuration": {
+            "BUILD_TOOLCHAIN_PATH": "uv/private/pep517_whl/python_env_backend/backend.py",
+        },
+        "//conditions:default": {
+            "BUILD_TOOLCHAIN_PATH": "uv/private/pep517_whl/build_helper.py",
+        },
+    }),
+)
+
+pep517_whl(
+    name = "__conflicting_template_variable_fixture",
     src = ":__stub_sdist",
+    build_toolchains = [
+        ":__template_variable_tool",
+        ":__conflicting_template_variable_tool",
+    ],
+    tags = ["manual"],
+    tool = ":__stub_tool",
+    version = "0.0.1",
+)
+
+pep517_whl_toolchain_env_failure_test(
+    name = "conflicting_template_variable_test",
+    expected_error = "TemplateVariableInfo variable 'DEFAULT_TOOL' with different values",
+    target_under_test = ":__conflicting_template_variable_fixture",
+)
+
+pep517_whl(
+    name = "__pure_toolchain_env_fixture",
+    src = ":__stub_sdist",
+    build_toolchains = [
+        ":__input_only_tool",
+        ":__template_variable_tool",
+    ],
     env = {
-        "CC": "$(CC)",
-        "CXX": "$(CC)",
-        "AR": "$(AR)",
-        "LD": "$(LD)",
-        "STRIP": "$(STRIP)",
-        "JAVA_HOME": "$(JAVABASE)",
-        "JAVA": "$(JAVA)",
-        "JAR": "$(JAVABASE)/bin/jar",
+        "SOURCE_DATE_EPOCH": "explicit",
+        "ALL_FILES_TOOL": "$(ALL_FILES_TOOL)",
+        "DEFAULT_TOOL": "$(DEFAULT_TOOL)",
+        "RUNFILE_TOOL": "$(RUNFILE_TOOL)",
     },
     tags = ["manual"],
     tool = ":__stub_tool",
-    toolchains = [
-        "@bazel_tools//tools/cpp:current_cc_toolchain",
+    version = "0.0.1",
+)
+
+pep517_whl_toolchain_env_test(
+    name = "pure_toolchain_env_test",
+    target_under_test = ":__pure_toolchain_env_fixture",
+)
+
+pep517_whl(
+    name = "__exec_configuration_fixture",
+    src = ":__stub_sdist",
+    build_toolchains = [":__exec_configuration_tool"],
+    env = {
+        "BUILD_TOOLCHAIN_PATH": "$(BUILD_TOOLCHAIN_PATH)",
+    },
+    tags = ["manual"],
+    tool = ":__stub_tool",
+    version = "0.0.1",
+)
+
+pep517_whl_exec_configuration_test(
+    name = "build_toolchains_exec_configuration_test",
+    target_under_test = ":__exec_configuration_fixture",
+)
+
+pep517_whl(
+    name = "__missing_toolchain_env_fixture",
+    src = ":__stub_sdist",
+    build_toolchains = [":__template_variable_tool"],
+    env = {"MISSING_TOOL": "$(MISSING_TOOL)"},
+    tags = ["manual"],
+    tool = ":__stub_tool",
+    version = "0.0.1",
+)
+
+pep517_whl_toolchain_env_failure_test(
+    name = "missing_toolchain_env_input_test",
+    expected_error = "MISSING_TOOL = $(MISSING_TOOL) expands to 'uv/private/pep517_whl/missing-tool', which is not covered by files from the rule's build_toolchains attribute",
+    target_under_test = ":__missing_toolchain_env_fixture",
+)
+
+# Replicate the extra toolchain and package env emitted by sdist_build's BUILD
+# template (see uv/private/sdist_build/repository.bzl).
+pep517_native_whl(
+    name = "__toolchain_env_fixture",
+    src = ":__stub_sdist",
+    build_toolchains = [
         "@bazel_tools//tools/jdk:current_java_runtime",
     ],
+    env = {
+        "JAVA_HOME": "$(JAVABASE)",
+        "JAVA": "$(JAVA)",
+    },
+    tags = ["manual"],
+    tool = ":__stub_tool",
     version = "0.0.1",
 )
 
 pep517_native_whl_toolchain_env_test(
     name = "toolchain_env_test",
+    expected_package_path_env = [
+        "JAVA_HOME",
+        "JAVA",
+    ],
     target_under_test = ":__toolchain_env_fixture",
+)
+
+pep517_native_whl(
+    name = "__toolchain_env_override_fixture",
+    src = ":__stub_sdist",
+    build_toolchains = [
+        "@bazel_tools//tools/jdk:current_java_runtime",
+    ],
+    env = {
+        "AR": "explicit-ar",
+        "CXX": "explicit-cxx --flag",
+        "JAVA_HOME": "$(JAVABASE)",
+        "JAVA": "$(JAVA)",
+        "LD": "explicit-ld",
+        "MPICC": "explicit-mpicc",
+    },
+    tags = ["manual"],
+    tool = ":__stub_tool",
+    version = "0.0.1",
+)
+
+pep517_native_whl_toolchain_env_test(
+    name = "toolchain_env_override_test",
+    expected_env = {
+        "AR": "explicit-ar",
+        "CXX": "explicit-cxx --flag",
+        "LD": "explicit-ld",
+        "MPICC": "explicit-mpicc",
+    },
+    expected_package_path_env = [
+        "JAVA_HOME",
+        "JAVA",
+    ],
+    target_under_test = ":__toolchain_env_override_fixture",
 )

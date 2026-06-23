@@ -261,7 +261,7 @@ def _parse_projects(module_ctx, hub_specs):
                     fail("uv.override_package() for '{}': `target` is mutually exclusive with modification attributes. Use `target` for full replacement OR build, patch, and data attributes for modifications, not both.".format(override.name))
 
                 if not has_target and not has_modifications:
-                    fail("uv.override_package() for '{}': must specify either `target` for full replacement or at least one modification attribute (pre_build_patches, post_install_patches, extra_deps, extra_data, toolchains, env, resource_set).".format(override.name))
+                    fail("uv.override_package() for '{}': must specify either `target` for full replacement or at least one build, patch, or data modification attribute.".format(override.name))
 
                 package_overrides[override_key] = override
 
@@ -359,6 +359,26 @@ def _parse_projects(module_ctx, hub_specs):
                 install_table[install_key] = install_target
                 sbuild_id = "sdist_build__{}__{}__{}".format(project_stamp, package["name"], normalize_version(package["version"]))
                 sdist = sdist_table.get(sbuild_id)
+                pkg_override = package_overrides.get((normalize_name(package["name"]), package["version"]))
+                if pkg_override and not sdist:
+                    build_only_attrs = []
+                    if pkg_override.resource_set != "default":
+                        build_only_attrs.append("resource_set")
+                    if pkg_override.env:
+                        build_only_attrs.append("env")
+                    if pkg_override.pre_build_patches:
+                        build_only_attrs.append("pre_build_patches")
+                    if pkg_override.pre_build_patch_strip:
+                        build_only_attrs.append("pre_build_patch_strip")
+                    if pkg_override.toolchains:
+                        build_only_attrs.append("toolchains")
+                    if build_only_attrs:
+                        fail("uv.override_package() for '{}=={}' in lock '{}': build-only attributes require a source distribution, but the lock record has only wheels: {}".format(
+                            package["name"],
+                            package["version"],
+                            project.lock,
+                            ", ".join(build_only_attrs),
+                        ))
 
                 # WARNING: Loop invariant; this flag needs to be False by
                 # default and set if we do a build.
@@ -400,16 +420,14 @@ def _parse_projects(module_ctx, hub_specs):
                     build_deps = sets.to_list(sets.make(build_deps + lock_build_deps))
 
                     # Look up pre-build patches for this package
-                    pkg_override = package_overrides.get((normalize_name(package["name"]), package["version"]))
                     pre_build_patches = []
                     pre_build_patch_strip = 0
                     if pkg_override and pkg_override.pre_build_patches:
                         pre_build_patches = [str(p) for p in pkg_override.pre_build_patches]
                         pre_build_patch_strip = pkg_override.pre_build_patch_strip
 
-                    # `toolchains` / `env` on `uv.override_package` augment
-                    # the defaults baked into sdist_build's BUILD template —
-                    # they don't replace them. Empty == no augmentation.
+                    # Source-build toolchains supply action inputs and make
+                    # variables. Package env overrides the common action env.
                     extra_toolchains = []
                     extra_env = {}
                     resource_set = "default"
@@ -435,7 +453,6 @@ def _parse_projects(module_ctx, hub_specs):
                     has_sbuild = True
 
                 # Look up post-install patches and BUILD modifications
-                pkg_override = package_overrides.get((normalize_name(package["name"]), package["version"]))
                 post_install_patches = []
                 post_install_patch_strip = 0
                 extra_deps = []
@@ -445,9 +462,6 @@ def _parse_projects(module_ctx, hub_specs):
                     post_install_patch_strip = pkg_override.post_install_patch_strip
                     extra_deps = [str(d) for d in pkg_override.extra_deps]
                     extra_data = [str(d) for d in pkg_override.extra_data]
-
-                if pkg_override and pkg_override.resource_set != "default" and not has_sbuild:
-                    fail("uv.override_package() for '{}': `resource_set` reserves resources for the sdist wheel-build action, but this package resolves to a prebuilt wheel (there is no sdist build to reserve for). Remove `resource_set`, or force a source build via `[tool.uv] no-binary-package`.".format(pkg_override.name))
 
                 # uv can emit multiple lock records for the same package/version
                 # (e.g. resolution-marker forks), each carrying a different
@@ -753,7 +767,7 @@ _override_package_tag = tag_class(
         "version": attr.string(mandatory = False),
 
         # Full replacement: provide a target that substitutes for the package entirely.
-        # Mutually exclusive with patch/exclude attributes.
+        # Mutually exclusive with build, patch, and data modifications.
         "target": attr.label(mandatory = False),
 
         # Per-package local execution resources for the wheel build action.
@@ -770,21 +784,15 @@ _override_package_tag = tag_class(
                   "bucket.",
         ),
 
-        # Per-package toolchain plumbing for native sdist builds. Both
-        # attributes AUGMENT the defaults baked into sdist_build's
-        # generated `pep517_native_whl(...)` call (the CC toolchain +
-        # CC/CXX/AR/LD/STRIP env) — they don't replace them. Use these
-        # to layer extra toolchains (Java runtime, Rust, …) and extra
-        # env vars on top of the defaults.
+        # These settings apply to every source build.
         "toolchains": attr.label_list(
             default = [],
-            doc = "Extra toolchain targets appended to the generated pep517_native_whl(...) call's `toolchains` list. Each target's TemplateVariableInfo make-variables become available for $(VAR) expansion in `env`.",
+            doc = "Extra toolchain targets passed to the generated PEP 517 wheel-build rule. Their files become action inputs, and TemplateVariableInfo make-variables become available for $(VAR) expansion in `env`.",
         ),
         "env": attr.string_dict(
             default = {},
-            doc = "Extra environment variables merged into the build action's `env` dict. Values may reference $(VAR) make-variables sourced from the default CC toolchain or any extra `toolchains` listed above.",
+            doc = "Environment variables merged over the common source-build environment. Values may reference $(VAR) make-variables sourced from the `toolchains` listed above.",
         ),
-
         # Pre-build patches: applied to extracted sdist source before wheel build.
         "pre_build_patches": attr.label_list(
             default = [],
@@ -835,9 +843,9 @@ _override_package_tag = tag_class(
     },
     doc = """Override or modify a Python package resolved from a lockfile.
 
-Use `target` for full replacement, or use the patch/exclude attributes
-for surgical modifications. Specifying `target` is mutually exclusive with
-all other modification attributes.""",
+Use `target` for full replacement, or use the build, patch, and data attributes
+for modifications. Specifying `target` is mutually exclusive with all other
+modification attributes.""",
 )
 
 uv = module_extension(

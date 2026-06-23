@@ -63,8 +63,14 @@ name = "uv-sdist-native-build"
 version = "0.0.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "build" },
     { name = "python-geohash" },
+    { name = "setuptools" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "python-geohash" }]
+requires-dist = [
+    { name = "build", specifier = "==1.4.0" },
+    { name = "python-geohash" },
+    { name = "setuptools", specifier = "==75.8.2" },
+]

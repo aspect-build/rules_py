@@ -6,13 +6,21 @@ build backend the sdist declares in its `[build-system]` table.
 """
 
 load("@bazel_lib//lib:resource_sets.bzl", "resource_set", "resource_set_attr")
-load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 load("//py/private/toolchain:types.bzl", "NATIVE_BUILD_TOOLCHAIN", "PY_TOOLCHAIN")
 
-_INHERITED_PYTHON_ENV = (
+_INHERITED_ENV_EXCLUSIONS = (
+    "AR",
+    "CC",
+    "CPP",
+    "CXX",
+    "LD",
+    "LDCXXSHARED",
+    "LDSHARED",
+    "MPICC",
     "PYTHONHOME",
     "PYTHONPATH",
     "PYTHONPLATLIBDIR",
+    "STRIP",
 )
 
 def _common_env(ctx):
@@ -25,7 +33,7 @@ def _common_env(ctx):
     default_shell_env = {
         key: value
         for key, value in ctx.configuration.default_shell_env.items()
-        if key.upper() not in _INHERITED_PYTHON_ENV
+        if key.upper() not in _INHERITED_ENV_EXCLUSIONS
     }
     return {
         "SETUPTOOLS_SCM_PRETEND_VERSION": ctx.attr.version,
@@ -46,10 +54,10 @@ def _patch_args_and_inputs(ctx):
                 patch_inputs.append(f)
     return patch_args, patch_inputs
 
-def _collect_toolchain_inputs_and_vars(ctx):
-    """Gather files + Make-variable substitutions from `ctx.attr.toolchains`.
+def _collect_build_toolchain_inputs_and_vars(ctx):
+    """Gather files and Make variables from `ctx.attr.build_toolchains`.
 
-    Each target passed via the rule's `toolchains = [...]` attribute is
+    Each target passed via the rule's `build_toolchains = [...]` attribute is
     inspected for providers:
       - DefaultInfo            -> files + default_runfiles added to action inputs
       - ToolchainInfo.all_files -> added to action inputs
@@ -60,7 +68,8 @@ def _collect_toolchain_inputs_and_vars(ctx):
     """
     extra_inputs = []
     known_variables = {}
-    for target in ctx.attr.toolchains:
+    known_variable_owners = {}
+    for target in ctx.attr.build_toolchains:
         if DefaultInfo in target:
             extra_inputs.append(target[DefaultInfo].files)
 
@@ -75,47 +84,67 @@ def _collect_toolchain_inputs_and_vars(ctx):
                     all_files = depset(all_files)
                 extra_inputs.append(all_files)
         if platform_common.TemplateVariableInfo in target:
-            known_variables.update(target[platform_common.TemplateVariableInfo].variables)
+            for name, value in target[platform_common.TemplateVariableInfo].variables.items():
+                if name in known_variables and known_variables[name] != value:
+                    fail((
+                        "{}: build_toolchains {} and {} expose TemplateVariableInfo " +
+                        "variable '{}' with different values: '{}' and '{}'"
+                    ).format(
+                        ctx.label,
+                        known_variable_owners[name],
+                        target.label,
+                        name,
+                        known_variables[name],
+                        value,
+                    ))
+                if name not in known_variables:
+                    known_variables[name] = value
+                    known_variable_owners[name] = target.label
     return extra_inputs, known_variables
 
-_BAZEL_CC_WRAPPER_BASENAMES = ["gcc", "g++", "clang", "clang++"]
+def _path_is_materialized(path_value, inputs, allow_directory):
+    return any([
+        path_value == f.path or
+        (f.is_directory and path_value.startswith(f.path + "/")) or
+        (allow_directory and f.path.startswith(path_value + "/"))
+        for f in inputs
+    ])
 
-def _cc_toolchain_inputs_and_compiler(ctx):
-    """Return (depset of CcToolchainInfo files, compiler_file_path or None).
+def _package_env(ctx, known_variables, build_toolchain_inputs):
+    """Expand package env and mark whole toolchain paths for cwd repair."""
+    env = {}
+    path_references = []
+    for key, value in ctx.attr.env.items():
+        expanded = ctx.expand_make_variables("env", value, known_variables)
+        env[key] = expanded
+        for variable in known_variables:
+            if value != "$({})".format(variable):
+                continue
+            path_references.append((key, variable, expanded))
+            break
 
-    Uses find_cpp_toolchain so the lookup works for both direct cc_toolchain
-    targets and alias wrappers such as current_cc_toolchain, which Bazel 9 no
-    longer exposes CcToolchainInfo on directly through the alias target.
-    """
-    cc_toolchain = find_cpp_toolchain(ctx)
-    if not cc_toolchain or not hasattr(cc_toolchain, "all_files"):
-        return None, None
-    files = cc_toolchain.all_files
-    compiler_file = None
-    if hasattr(cc_toolchain, "compiler_executable"):
-        compiler_basename = cc_toolchain.compiler_executable.split("/")[-1]
-        for f in files.to_list():
-            if f.basename == compiler_basename:
-                compiler_file = f
-                break
-    if not compiler_file:
-        for f in files.to_list():
-            if f.basename in _BAZEL_CC_WRAPPER_BASENAMES:
-                compiler_file = f
-                break
-    if not compiler_file:
-        for f in files.to_list():
-            if (f.basename.startswith("clang-") or f.basename.startswith("gcc-") or
-                f.basename.startswith("g++-")):
-                compiler_file = f
-                break
-    compiler_path = compiler_file.path if compiler_file else None
-    return files, compiler_path
+    if not path_references:
+        return env, []
+
+    absolutize_args = []
+    input_files = depset(transitive = build_toolchain_inputs).to_list()
+    for key, variable, expanded in path_references:
+        if not _path_is_materialized(expanded, input_files, True):
+            fail((
+                "{}: env value {} = $({}) expands to '{}', which is not " +
+                "covered by files from the rule's build_toolchains attribute"
+            ).format(ctx.label, key, variable, expanded))
+        absolutize_args.extend(["--absolutize-toolchain-env", key])
+    return env, absolutize_args
 
 def _pep517_whl(ctx):
     archive = ctx.file.src
-    wheel_dir = ctx.actions.declare_directory("whl")
+    wheel_dir = ctx.actions.declare_directory(ctx.label.name)
     patch_args, patch_inputs = _patch_args_and_inputs(ctx)
+    extra_inputs, known_variables = _collect_build_toolchain_inputs_and_vars(ctx)
+    env = _common_env(ctx)
+    package_env, toolchain_env_args = _package_env(ctx, known_variables, extra_inputs)
+    env.update(package_env)
 
     # The build tool is a py_binary wrapping build_helper.py. Using it as
     # a tool (not just an input) causes Bazel to materialize its runfiles in
@@ -127,14 +156,17 @@ def _pep517_whl(ctx):
         progress_message = "Source compiling {} to a whl".format(archive.basename),
         executable = ctx.executable.tool,
         toolchain = None,
-        arguments = ctx.attr.args + patch_args + [
+        arguments = ctx.attr.args + patch_args + toolchain_env_args + [
             archive.path,
             wheel_dir.path,
         ],
-        inputs = [archive] + patch_inputs,
+        inputs = depset(
+            [archive] + patch_inputs,
+            transitive = extra_inputs,
+        ),
         tools = [ctx.attr.tool[DefaultInfo].files_to_run],
         outputs = [wheel_dir],
-        env = _common_env(ctx),
+        env = env,
         exec_group = "target",
         resource_set = resource_set(ctx.attr),
     )
@@ -143,29 +175,21 @@ def _pep517_whl(ctx):
 
 def _pep517_native_whl(ctx):
     archive = ctx.file.src
-    wheel_dir = ctx.actions.declare_directory("whl")
+    wheel_dir = ctx.actions.declare_directory(ctx.label.name)
     patch_args, patch_inputs = _patch_args_and_inputs(ctx)
 
     env = _common_env(ctx)
-    extra_inputs, known_variables = _collect_toolchain_inputs_and_vars(ctx)
+    extra_inputs, known_variables = _collect_build_toolchain_inputs_and_vars(ctx)
 
-    cc_files, cc_compiler = _cc_toolchain_inputs_and_compiler(ctx)
-    if cc_files:
-        extra_inputs.append(cc_files)
-
-    for k, v in ctx.attr.env.items():
-        env[k] = ctx.expand_make_variables("env", v, known_variables)
-
-    if cc_compiler:
-        env["CC"] = cc_compiler
-        env["CXX"] = cc_compiler
+    package_env, toolchain_env_args = _package_env(ctx, known_variables, extra_inputs)
+    env.update(package_env)
 
     ctx.actions.run(
         mnemonic = "PySdistNativeBuild",
         progress_message = "Native source compiling {} to a whl".format(archive.basename),
         executable = ctx.executable.tool,
         toolchain = None,
-        arguments = ctx.attr.args + patch_args + [
+        arguments = ctx.attr.args + patch_args + toolchain_env_args + [
             archive.path,
             wheel_dir.path,
         ],
@@ -195,8 +219,25 @@ _PATCH_ATTRS = {
 }
 
 _pep517_whl_attrs = {
+    "build_toolchains": attr.label_list(
+        cfg = config.exec("target"),
+        doc = "Build-tool targets analyzed for the wheel-build action's execution platform. Their files become action inputs and their TemplateVariableInfo values are available to env.",
+    ),
+    "env": attr.string_dict(
+        doc = "Environment variables to set on the build action. Values may " +
+              "contain `$(VAR)` references to make-variables exposed by any " +
+              "target in the rule's `build_toolchains` attribute (via " +
+              "`TemplateVariableInfo`). An exact whole-value reference is " +
+              "treated as an action-input path, validated against the " +
+              "toolchain files, and made absolute before the backend changes " +
+              "directory. Other values are not path-rewritten after " +
+              "expansion.",
+    ),
     "src": attr.label(allow_single_file = True),
-    "tool": attr.label(executable = True, cfg = "exec"),
+    # The build actions use the target execution group, so their frontend must
+    # be built for the same execution platform:
+    # https://bazel.build/extending/exec-groups#defining-execution-groups
+    "tool": attr.label(executable = True, cfg = config.exec("target")),
     "version": attr.string(),
     "args": attr.string_list(default = ["--validate-anyarch"]),
 } | _PATCH_ATTRS | resource_set_attr
@@ -207,6 +248,15 @@ pep517_whl = rule(
 
 Consumes a sdist artifact and performs a build of that artifact with the
 specified Python dependencies under the configured Python toolchain.
+
+Build-tool targets are passed via `build_toolchains` and analyzed for the
+wheel-build action's execution platform. Each target's `DefaultInfo.files`,
+`ToolchainInfo.all_files`, and `TemplateVariableInfo.variables` are forwarded
+to the action. The `env`
+attribute maps environment variable names to strings that may reference
+`$(VAR)` make-variables sourced from those targets. Exact whole-value
+references identify action-input paths that remain valid when the build helper
+changes directory. Other strings are opaque and are not path-rewritten.
 
 """,
     attrs = _pep517_whl_attrs,
@@ -227,12 +277,19 @@ Consumes a sdist artifact and performs a build of that artifact with the
 specified Python dependencies under the configured Python toolchain to produce a
 platform-specific bdist we can subsequently install or deploy.
 
-Toolchains the build action depends on are passed via the standard `toolchains`
-attribute and each target's `DefaultInfo.files`, `ToolchainInfo.all_files`, and
-`TemplateVariableInfo.variables` are forwarded to the action. The `env`
+Build-tool targets are passed via `build_toolchains` and analyzed for the
+wheel-build action's execution platform. Each target's `DefaultInfo.files`,
+`ToolchainInfo.all_files`, and `TemplateVariableInfo.variables` are forwarded
+to the action. The `env`
 attribute maps environment variable names to strings that may reference
-`$(VAR)` make-variables sourced from those toolchains. This mirrors the
-pattern used by `rules_rust`'s `cargo_build_script`.
+`$(VAR)` make-variables sourced from those targets. This mirrors the
+pattern used by `rules_rust`'s `cargo_build_script`. Exact whole-value
+references identify action-input paths that remain valid when the build helper
+changes directory; other environment strings remain opaque.
+
+Compiler commands are not inferred from `CcToolchainInfo`. Packages that need
+a particular compiler must declare it in `env` and provide any required action
+inputs through `build_toolchains`.
 
 The build is guaranteed to occur on an execution platform matching the
 constraints of the target platform.
@@ -240,16 +297,7 @@ constraints of the target platform.
 """,
     attrs = _pep517_whl_attrs | {
         "args": attr.string_list(),
-        "env": attr.string_dict(
-            doc = "Environment variables to set on the build action. Values may " +
-                  "contain `$(VAR)` references to make-variables exposed by any " +
-                  "target in the rule's `toolchains` attribute (via " +
-                  "`TemplateVariableInfo`).",
-        ),
     },
-    toolchains = [
-        "@bazel_tools//tools/cpp:toolchain_type",
-    ],
     exec_groups = {
         # Create an exec group which depends on a toolchain which can only be
         # resolved to exec_compatible_with constraints equal to the target. This
@@ -268,7 +316,6 @@ constraints of the target platform.
             toolchains = [
                 PY_TOOLCHAIN,
                 NATIVE_BUILD_TOOLCHAIN,
-                "@bazel_tools//tools/cpp:toolchain_type",
             ],
         ),
     },

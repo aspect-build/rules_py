@@ -14,7 +14,7 @@ pep517_whl(
     src = "@@+uv+sdist__bravado_core__8cf1f7bbac2f7c69//file:file",
     tool = ":build_tool",
     version = "6.1.1",
-    args = [],
+    args = ["--validate-anyarch"],
     visibility = ["//visibility:public"],
 )
 

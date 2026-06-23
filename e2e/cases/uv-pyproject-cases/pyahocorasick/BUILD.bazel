@@ -1,35 +1,19 @@
 load("@aspect_rules_py//py:defs.bzl", "py_test")
 
-# Regression: pyahocorasick 2.2.0 exercises pep517_native_whl /
-# build_helper.py via the parent's `[tool.uv].no-binary-package`
-# setting.
+# Regression: pyahocorasick 2.2.0 exercises pep517_native_whl and
+# build_helper.py via the parent's `[tool.uv].no-binary-package` setting.
 #
-# Sdist shape (load-bearing — pinned at 2.2.0): setup.py + setup.cfg
-# with NO pyproject.toml, and a real C extension (src/pyahocorasick.c).
-# A future release that adds a pyproject.toml would silently flip
-# this case to a different build_helper.py branch; the version
-# assertion in __test__.py guards against that.
+# Sdist shape (load-bearing, pinned at 2.2.0): setup.py + setup.cfg with no
+# pyproject.toml, and a real C extension (src/pyahocorasick.c). This covers the
+# setup.py-only PEP 517 route and verifies that the backend can discover and
+# execute its compiler from the ambient PATH after build_helper.py changes into
+# the unpacked source tree. rules_py does not project Bazel C++ toolchain
+# commands into the backend environment.
 #
-# Failure mode without the fix: once a native sdist build is in play,
-# every path-shaped thing build_helper.py exports to its compiler
-# subprocess must survive the cwd change into the worktree. Two
-# cooperating fixes from the zbarsky-openai patch chain make this
-# work:
-#
-# 1. `tmp_root = path.abspath(opts.outdir) + ".tmp"` (from
-#    `f12313870`). Was relative — `bazel-out/.../whl.tmp` — and
-#    invalid from any cwd other than the action's execroot.
-# 2. CC/CXX wrappers under `tmp_root/.aspect_rules_py_compilers/`
-#    (from `5d81044`), pointed to by `CC` / `CXX` / `CPP` /
-#    `LDSHARED` / `LDCXXSHARED` so the Bazel-relative
-#    `$(CC)`-expansion (e.g. `external/llvm+/toolchain/gcc`) gets
-#    replaced with an absolute wrapper path before setup.py invokes
-#    the compiler from inside the worktree.
-#
-# Constrained to linux for the same reason as uv-sdist-native-build:
-# the host-side cc toolchain plumbing that lets a `setup.py
-# bdist_wheel` actually compile a C extension is only wired up there
-# in this e2e setup.
+# A future release that adds pyproject.toml would select a different
+# build_helper.py branch; the version assertion in __test__.py protects this
+# coverage. The test is Linux-only because it relies on a matching native-build
+# execution platform and a usable system compiler on the action PATH.
 py_test(
     name = "test",
     srcs = ["__test__.py"],

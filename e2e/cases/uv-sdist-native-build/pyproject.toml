@@ -3,5 +3,9 @@ name = "uv-sdist-native-build"
 version = "0.0.0"
 requires-python = ">=3.11"
 dependencies = [
+    # Source-build dependencies need project graph edges so the generated
+    # project repository exposes aliases used by default_build_dependencies.
+    "build==1.4.0",
     "python-geohash",
+    "setuptools==75.8.2",
 ]
