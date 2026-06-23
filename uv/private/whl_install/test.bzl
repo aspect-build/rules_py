@@ -3,7 +3,7 @@
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts", "unittest")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//py/private:providers.bzl", "PyWheelsInfo")
-load(":repository.bzl", "compatible_python_tags", "parse_console_script", "parse_record_path", "select_key", "site_packages_segments", "sort_select_arms", "source_specificity")
+load(":repository.bzl", "compatible_python_tags", "parse_console_script", "parse_record_path", "select_key", "site_packages_segments", "sort_select_arms", "source_specificity", "wheel_layout_from_record")
 load(":rule.bzl", "whl_install")
 
 def _whl_sorting_test_impl(ctx):
@@ -143,6 +143,18 @@ def _site_packages_segments_test_impl(ctx):
         data + "/scripts/tool",
         data,
     ))
+    asserts.equals(env, [], site_packages_segments(
+        data + "/headers/pkg/header.h",
+        data,
+    ))
+    asserts.equals(env, [], site_packages_segments(
+        data + "/data/config.json",
+        data,
+    ))
+    asserts.equals(env, ["custom", "pkg", "module.py"], site_packages_segments(
+        data + "/custom/pkg/module.py",
+        data,
+    ))
     return unittest.end(env)
 
 site_packages_segments_test = unittest.make(_site_packages_segments_test_impl)
@@ -188,6 +200,65 @@ def _console_script_test_impl(ctx):
     return unittest.end(env)
 
 console_script_test = unittest.make(_console_script_test_impl)
+
+def _wheel_layout_metadata_test_impl(ctx):
+    env = unittest.begin(ctx)
+    layout = wheel_layout_from_record(
+        "\n".join([
+            # Repository classification deliberately covers possible target
+            # loaders and static tooling, not only the repository host's
+            # active FileFinder suffixes.
+            "top_source/__init__.py,,",
+            "top_pyi/__init__.pyi,,",
+            "top_pyw/__init__.pyw,,",
+            "top_pyc/__init__.pyc,,",
+            "top_case/__INIT__.Py,,",
+            "top_native/__init__.cpython-311-x86_64-linux-gnu.so,,",
+            "namespace/framework_plugin/__INIT__.cpython-314-ios-arm64.FWORK,,",
+            "namespace/pyi_plugin/__init__.pyi,,",
+            "namespace/pyw_plugin/__init__.pyw,,",
+            "namespace/pyc_plugin/__init__.pyc,,",
+            "namespace/native_plugin/__init__.abi3.so,,",
+            "namespace/windows_plugin/__init__.cp311-win_amd64.pyd,,",
+            "namespace/plain/module.py,,",
+            "demo-1.0.dist-info/RECORD,,",
+        ]),
+        "demo-1.0.data",
+    )
+
+    asserts.equals(env, [
+        "demo-1.0.dist-info",
+        "namespace",
+        "top_case",
+        "top_native",
+        "top_pyc",
+        "top_pyi",
+        "top_pyw",
+        "top_source",
+    ], layout.top_levels)
+    asserts.equals(env, layout.top_levels, layout.directory_top_levels)
+    asserts.equals(env, ["namespace"], layout.namespace_top_levels)
+    asserts.equals(env, [
+        "namespace/framework_plugin",
+        "namespace/native_plugin",
+        "namespace/plain/module.py",
+        "namespace/pyc_plugin",
+        "namespace/pyi_plugin",
+        "namespace/pyw_plugin",
+        "namespace/windows_plugin",
+    ], layout.namespace_entries)
+    asserts.equals(env, ["namespace/plain"], layout.namespace_dirs)
+    asserts.equals(env, [
+        "namespace/framework_plugin",
+        "namespace/native_plugin",
+        "namespace/pyc_plugin",
+        "namespace/pyi_plugin",
+        "namespace/pyw_plugin",
+        "namespace/windows_plugin",
+    ], layout.regular_roots)
+    return unittest.end(env)
+
+wheel_layout_metadata_test = unittest.make(_wheel_layout_metadata_test_impl)
 
 # --- whl_install metadata selection ---------------------------------------
 #
@@ -370,4 +441,8 @@ def whl_install_suite():
     unittest.suite(
         "console_script_tests",
         console_script_test,
+    )
+    unittest.suite(
+        "wheel_layout_metadata_tests",
+        wheel_layout_metadata_test,
     )
