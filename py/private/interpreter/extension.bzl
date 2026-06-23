@@ -198,8 +198,7 @@ def _python_interpreters_impl(module_ctx):
     release_dates = sorted(release_dates, reverse = True)
 
     # Collect all requested Python versions. Any module can request a version,
-    # but only the root module's is_default and pre_release flags are honored.
-    default_version = None
+    # but only the root module's pre_release flag is honored.
     requested_versions = []
     version_sources = {}  # major_minor -> list of module names (for error messages)
     allow_pre_release = {}  # major_minor -> bool
@@ -213,15 +212,6 @@ def _python_interpreters_impl(module_ctx):
             if len(parts) < 2:
                 fail("python_version must be at least major.minor, got '{}'".format(version))
             major_minor = "{}.{}".format(parts[0], parts[1])
-
-            # is_default is root-module-only
-            if tag.is_default and mod.is_root:
-                if default_version and default_version != major_minor:
-                    fail("Multiple default Python versions specified: {} and {}".format(
-                        default_version,
-                        major_minor,
-                    ))
-                default_version = major_minor
 
             if major_minor not in requested_versions:
                 requested_versions.append(major_minor)
@@ -247,13 +237,7 @@ def _python_interpreters_impl(module_ctx):
         return _return_metadata(module_ctx, has_facts, facts, is_reproducible, resolved_latest)
 
     new_facts = {}
-    ordered_versions = []
-
     if requested_versions:
-        # If no default, pick the first one
-        if not default_version:
-            default_version = sorted(requested_versions)[0]
-
         # Fetch and parse release indices (cached via facts)
         release_indices = {}
 
@@ -266,22 +250,15 @@ def _python_interpreters_impl(module_ctx):
             facts_key = "release_index_{}_{}".format(date, base_url)
             new_facts[facts_key] = index
 
-        # Order: default version first, then sorted
-        for version in sorted(requested_versions):
-            if version == default_version:
-                ordered_versions.insert(0, version)
-            else:
-                ordered_versions.append(version)
     else:
         release_indices = {}
 
     # Create per-platform, per-build-config interpreter repos and collect
-    # toolchain entries.  Non-freethreaded configs are registered first so
-    # they win by default when the freethreaded flag is not set.
+    # toolchain entries. Version and freethreaded target settings determine
+    # which entries are eligible.
     toolchain_entries = []
 
-    # Process local interpreter tags first — they get higher toolchain
-    # resolution priority than PBS interpreters.
+    # Collect local interpreter tags before PBS entries.
     for mod in module_ctx.modules:
         if not mod.is_root:
             continue
@@ -321,13 +298,16 @@ def _python_interpreters_impl(module_ctx):
                 "exec_compatible_with": tag.exec_compatible_with,
             }))
 
-    # Order build configs: non-freethreaded first (default wins), then freethreaded
+    # Keep generated output stable: regular configs, then freethreaded configs.
     ordered_configs = (
         [(name, cfg) for name, cfg in BUILD_CONFIGS.items() if not cfg["freethreaded"]] +
         [(name, cfg) for name, cfg in BUILD_CONFIGS.items() if cfg["freethreaded"]]
     )
 
-    for major_minor in ordered_versions:
+    # Target-pattern registration orders toolchains lexicographically by name,
+    # so BUILD declaration order cannot select a default toolchain:
+    # https://bazel.build/extending/toolchains#registering-building-toolchains
+    for major_minor in sorted(requested_versions):
         version_found = False
         for config_name, config_info in ordered_configs:
             for platform_triple, platform_info in PLATFORMS.items():
@@ -496,10 +476,6 @@ exec_compatible_with list.
 Only honored from the root module.
 """,
         ),
-        "is_default": attr.bool(
-            default = False,
-            doc = "Only honored from the root module.",
-        ),
         "pre_release": attr.bool(
             default = False,
             doc = """\
@@ -570,8 +546,7 @@ probed for version info at repository-rule time. If the interpreter is
 unavailable (path missing, env var unset), the toolchain is registered
 but inactive — it will never match during toolchain resolution.
 
-Local toolchains are registered before PBS toolchains, giving them higher
-priority. Use config_settings to gate activation on a custom flag.
+Use config_settings to gate a local toolchain on a custom flag.
 
 Only honored from the root module.
 """,

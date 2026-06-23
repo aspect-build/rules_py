@@ -40,7 +40,6 @@ interpreters.toolchain(
     python_version = "3.10",
 )
 interpreters.toolchain(
-    is_default = True,
     python_version = "3.11",
 )
 interpreters.toolchain(
