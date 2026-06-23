@@ -1,0 +1,31 @@
+# Regression fixture for `parse_console_script`
+# (//uv/private/whl_install:repository.bzl).
+#
+# A legacy `[console_scripts]` entry point may carry an extras suffix
+# (`name = module:func [extra]`). The repo rule must normalise it to
+# `name=module:func`, dropping the `[extra]`. See the entry-points spec:
+# https://packaging.python.org/en/latest/specifications/entry-points/#data-model
+#
+# Each dependency is PINNED to a version whose published wheel still ships the
+# legacy extras syntax. DO NOT bump these casually: modern releases tend to
+# migrate to PEP 621 `[project.scripts]`, which cannot express extras. If a
+# pinned wheel stops shipping `[extra]`, the matching metadata test in
+# BUILD.bazel keeps passing but no longer reproduces the strip (old and new
+# parsing then agree). Real wheels shipping this are rare — verified examples
+# as of 2026-06: black, google-auth-oauthlib, watchdog, mcp.
+[project]
+name = "console-script-extras"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    # black 26.5.1 ships TWO console scripts in one wheel, exercising both the
+    # plain (unchanged) and extras-stripped paths in a single assertion:
+    #   black  = black:patched_main        -> black=black:patched_main
+    #   blackd = blackd:patched_main [d]   -> blackd=blackd:patched_main  ([d] dropped)
+    "black==26.5.1",
+    # google-auth-oauthlib 1.4.0 is a single py3-none-any wheel (no platform
+    # selection), reproducing the strip on the simplest possible wheel:
+    #   google-oauthlib-tool = google_auth_oauthlib.tool.__main__:main [tool]
+    #       -> google-oauthlib-tool=google_auth_oauthlib.tool.__main__:main  ([tool] dropped)
+    "google-auth-oauthlib==1.4.0",
+]

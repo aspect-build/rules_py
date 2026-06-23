@@ -1,0 +1,19 @@
+"""Regression: `parse_console_script` must strip the legacy extras suffix
+(`name = module:func [extra]`) from `[console_scripts]` entry points so the
+normalised `name=module:func` reaches PyWheelsInfo. Asserted by the
+console_scripts_metadata_test targets in BUILD.bazel against real pinned wheels.
+"""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_uv_console_script_extras")
+uv.project(
+    hub_name = "pypi_uv_console_script_extras",
+    lock = "//cases/uv-console-script-extras:uv.lock",
+    pyproject = "//cases/uv-console-script-extras:pyproject.toml",
+)
+use_repo(uv, "pypi_uv_console_script_extras")
+
+# Expose the per-wheel install repos so the console_scripts_metadata_test
+# targets in BUILD.bazel can reference them directly.
+use_repo(uv, "whl_install__console_script_extras__black__26_5_1")
+use_repo(uv, "whl_install__console_script_extras__google_auth_oauthlib__1_4_0")
