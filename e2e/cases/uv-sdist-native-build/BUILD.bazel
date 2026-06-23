@@ -1,26 +1,29 @@
 # Regression test: python-geohash (sdist-only, C++ extension) must be buildable
-# when native_build_toolchain_type is registered via @rules_py_tools//:all.
+# with native_build_toolchain_type registered via @rules_py_tools//:all.
 #
 # The pep517_native_whl rule requires the native_build_toolchain_type to resolve,
-# asserting that the exec and target platforms match. This test verifies that the
-# per-platform toolchain entries generated into @rules_py_tools are reachable.
+# asserting that the exec and target platforms match. The source patch also
+# introduces a C++ standard-library dependency, so linking fails if the helper
+# invokes the configured compiler in C rather than C++ driver mode.
 
 load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+exports_files(["require_cxx_driver.patch"])
 
 py_test(
     name = "test",
     srcs = ["test_geohash.py"],
+    dep_group = "uv-sdist-native-build",
     main = "test_geohash.py",
-    target_compatible_with = ["@platforms//os:linux"],
     deps = ["@pypi_uv_sdist_native_build//python_geohash"],
 )
 
 py_test(
     name = "venv_test",
     srcs = ["test_geohash.py"],
+    dep_group = "uv-sdist-native-build",
     expose_venv = True,
     isolated = False,
     main = "test_geohash.py",
-    target_compatible_with = ["@platforms//os:linux"],
     deps = ["@pypi_uv_sdist_native_build//python_geohash"],
 )

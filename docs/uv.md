@@ -20,10 +20,14 @@ configurations, such as going from a Darwin macbook to a Linux container image
 using only the normal Bazel `platforms` machinery.
 
 **Correct source builds** - Because uv performs package source builds as a
-normal part of your build, it's able to use hermetic or even source built Python
-toolchains in addition to Bazel-defined dependencies and C compilers. Future
-support for sysroots is planned. Due to its phasing, `pip.parse` is stuck doing
-all this non-hermetically.
+normal part of your build, it can use hermetic or even source-built Python
+toolchains in addition to Bazel-defined dependencies. Native builds select the
+C and C++ tools from Bazel's configured compile actions, but do not reuse their
+action flags or environment because PEP 517 backends own the compile and link
+commands. Tools that require target, sysroot, resource, wrapper, or environment
+configuration must provide a backend-compatible command through the package
+`env`; generic C++ toolchain projection is not supported. Due to its phasing,
+`pip.parse` is stuck doing all this non-hermetically.
 
 **Editable requirements** - Uv provides an `uv.override_requirement()` tag which
 allows locked requirements to be replaced with 1stparty Bazel `py_library`

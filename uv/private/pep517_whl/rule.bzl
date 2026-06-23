@@ -6,8 +6,16 @@ build backend the sdist declares in its `[build-system]` table.
 """
 
 load("@bazel_lib//lib:resource_sets.bzl", "resource_set", "resource_set_attr")
-load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
+load(
+    "@rules_cc//cc:action_names.bzl",
+    "CPP_COMPILE_ACTION_NAME",
+    "CPP_LINK_STATIC_LIBRARY_ACTION_NAME",
+    "C_COMPILE_ACTION_NAME",
+    "STRIP_ACTION_NAME",
+)
 load("//py/private/toolchain:types.bzl", "NATIVE_BUILD_TOOLCHAIN", "PY_TOOLCHAIN")
+
+_CC_TOOLCHAIN_TYPE = "@bazel_tools//tools/cpp:toolchain_type"
 
 def _common_env(ctx):
     return {
@@ -61,43 +69,108 @@ def _collect_toolchain_inputs_and_vars(ctx):
             known_variables.update(target[platform_common.TemplateVariableInfo].variables)
     return extra_inputs, known_variables
 
-_BAZEL_CC_WRAPPER_BASENAMES = ["gcc", "g++", "clang", "clang++"]
+def _tool_is_input(tool_path, inputs):
+    return any([
+        tool_path == f.path or tool_path.startswith(f.path + "/")
+        for f in inputs
+    ])
 
-def _cc_toolchain_inputs_and_compiler(ctx):
-    """Return (depset of CcToolchainInfo files, compiler_file_path or None).
+def _cc_toolchain_inputs_and_tools(ctx, overrides):
+    """Return the target exec group's C++ inputs and native build tools."""
+    toolchain = ctx.exec_groups["target"].toolchains[_CC_TOOLCHAIN_TYPE]
+    cc_toolchain = toolchain.cc if hasattr(toolchain, "cc_provider_in_toolchain") else toolchain
+    feature_configuration = cc_common.configure_features(
+        ctx = ctx,
+        cc_toolchain = cc_toolchain,
+        requested_features = ctx.features,
+        unsupported_features = ctx.disabled_features,
+    )
+    cc_files = cc_toolchain.all_files
+    cc_inputs = cc_files.to_list()
 
-    Uses find_cpp_toolchain so the lookup works for both direct cc_toolchain
-    targets and alias wrappers such as current_cc_toolchain, which Bazel 9 no
-    longer exposes CcToolchainInfo on directly through the alias target.
-    """
-    cc_toolchain = find_cpp_toolchain(ctx)
-    if not cc_toolchain or not hasattr(cc_toolchain, "all_files"):
-        return None, None
-    files = cc_toolchain.all_files
-    compiler_file = None
-    if hasattr(cc_toolchain, "compiler_executable"):
-        compiler_basename = cc_toolchain.compiler_executable.split("/")[-1]
-        for f in files.to_list():
-            if f.basename == compiler_basename:
-                compiler_file = f
-                break
-    if not compiler_file:
-        for f in files.to_list():
-            if f.basename in _BAZEL_CC_WRAPPER_BASENAMES:
-                compiler_file = f
-                break
-    if not compiler_file:
-        for f in files.to_list():
-            if (f.basename.startswith("clang-") or f.basename.startswith("gcc-") or
-                f.basename.startswith("g++-")):
-                compiler_file = f
-                break
-    compiler_path = compiler_file.path if compiler_file else None
-    return files, compiler_path
+    # Query action configs rather than CcToolchainInfo's legacy executable
+    # fields. rules_cc fabricates paths when tool_paths are omitted:
+    # https://github.com/bazelbuild/rules_cc/blob/0.2.16/cc/private/rules_impl/cc_toolchain_provider_helper.bzl#L77-L101
+    #
+    # These tools run outside Bazel's configured C++ actions, so they must be
+    # present in all_files to be available in the wheel-build action.
+    # Do not reuse the configured action argv or environment here. Those are
+    # parameterized for one Bazel compile action, while PEP 517 backends reuse
+    # CC and CXX for their own compile and link commands. Package env remains
+    # the explicit interface for additional driver flags.
+    compile_tools = {}
+    tool_config = {}
+    for key, action_name in {
+        "CC": C_COMPILE_ACTION_NAME,
+        "CXX": CPP_COMPILE_ACTION_NAME,
+    }.items():
+        if not cc_common.action_is_enabled(
+            action_name = action_name,
+            feature_configuration = feature_configuration,
+        ):
+            if not overrides.get(key):
+                message = "C++ toolchain does not enable the {} action required for {}".format(action_name, key)
+                if key == "CXX":
+                    tool_config[key] = {"error": message}
+                else:
+                    fail(message)
+            continue
+        tool = cc_common.get_tool_for_action(
+            action_name = action_name,
+            feature_configuration = feature_configuration,
+        )
+        compile_tools[key] = tool
+        if not _tool_is_input(tool, cc_inputs):
+            if not overrides.get(key):
+                message = "C++ toolchain {} tool is absent from all_files: {}".format(key, tool)
+                if key == "CXX":
+                    tool_config[key] = {"error": message}
+                else:
+                    fail(message)
+            continue
+        if not overrides.get(key):
+            tool_config[key] = [tool]
+
+    for key, action_name in {
+        "AR": CPP_LINK_STATIC_LIBRARY_ACTION_NAME,
+        "STRIP": STRIP_ACTION_NAME,
+    }.items():
+        if overrides.get(key):
+            continue
+        if not cc_common.action_is_enabled(
+            action_name = action_name,
+            feature_configuration = feature_configuration,
+        ):
+            continue
+        tool = cc_common.get_tool_for_action(
+            action_name = action_name,
+            feature_configuration = feature_configuration,
+        )
+        if _tool_is_input(tool, cc_inputs):
+            tool_config[key] = [tool]
+
+    # LD has no single C++ action equivalent: executable and shared-library
+    # links may select different drivers. Preserve only an explicit override.
+    cc = compile_tools.get("CC")
+    cxx = compile_tools.get("CXX")
+    if not overrides.get("CXX") and cc != None and cc == cxx:
+        if cc_toolchain.compiler == "clang":
+            # Clang documents this as equivalent to invoking clang++:
+            # https://clang.llvm.org/docs/UsersManual.html#cmdoption-driver-mode
+            tool_config["CXX"] = [cxx, "--driver-mode=g++"]
+        else:
+            # Clang is the only shared driver with a documented generic C++
+            # mode. GCC requires g++ for C++ mode and libstdc++ linkage, and
+            # custom drivers likewise need an explicit CXX command:
+            # https://gcc.gnu.org/onlinedocs/gcc/Invoking-G_002b_002b.html
+            tool_config["CXX"] = {
+                "error": "C++ toolchain '{}' uses '{}' for both CC and CXX; set an explicit CXX override".format(cc_toolchain.compiler, cxx),
+            }
+    return cc_files, tool_config
 
 def _pep517_whl(ctx):
     archive = ctx.file.src
-    wheel_dir = ctx.actions.declare_directory("whl")
+    wheel_dir = ctx.actions.declare_directory(ctx.label.name)
     patch_args, patch_inputs = _patch_args_and_inputs(ctx)
 
     # The build tool is a py_binary wrapping build_helper.py. Using it as
@@ -126,22 +199,21 @@ def _pep517_whl(ctx):
 
 def _pep517_native_whl(ctx):
     archive = ctx.file.src
-    wheel_dir = ctx.actions.declare_directory("whl")
+    wheel_dir = ctx.actions.declare_directory(ctx.label.name)
     patch_args, patch_inputs = _patch_args_and_inputs(ctx)
 
     env = _common_env(ctx)
     extra_inputs, known_variables = _collect_toolchain_inputs_and_vars(ctx)
 
-    cc_files, cc_compiler = _cc_toolchain_inputs_and_compiler(ctx)
-    if cc_files:
-        extra_inputs.append(cc_files)
-
+    # Package overrides belong in this rule's env attribute. Do not let an
+    # ambient shell compiler replace the configured target toolchain.
+    for key in ["AR", "CC", "CPP", "CXX", "LD", "LDCXXSHARED", "LDSHARED", "MPICC", "STRIP"]:
+        env.pop(key, None)
     for k, v in ctx.attr.env.items():
         env[k] = ctx.expand_make_variables("env", v, known_variables)
 
-    if cc_compiler:
-        env["CC"] = cc_compiler
-        env["CXX"] = cc_compiler
+    cc_files, native_tool_config = _cc_toolchain_inputs_and_tools(ctx, env)
+    extra_inputs.append(cc_files)
 
     ctx.actions.run(
         mnemonic = "PySdistNativeBuild",
@@ -149,6 +221,8 @@ def _pep517_native_whl(ctx):
         executable = ctx.executable.tool,
         toolchain = None,
         arguments = ctx.attr.args + patch_args + [
+            "--native-tool-config",
+            json.encode(native_tool_config),
             archive.path,
             wheel_dir.path,
         ],
@@ -179,7 +253,10 @@ _PATCH_ATTRS = {
 
 _pep517_whl_attrs = {
     "src": attr.label(allow_single_file = True),
-    "tool": attr.label(executable = True, cfg = "exec"),
+    # The build actions use the target execution group, so their frontend must
+    # be built for the same execution platform:
+    # https://bazel.build/extending/exec-groups#defining-execution-groups
+    "tool": attr.label(executable = True, cfg = config.exec("target")),
     "version": attr.string(),
     "args": attr.string_list(default = ["--validate-anyarch"]),
 } | _PATCH_ATTRS | resource_set_attr
@@ -230,6 +307,7 @@ constraints of the target platform.
                   "`TemplateVariableInfo`).",
         ),
     },
+    fragments = ["cpp"],
     toolchains = [
         "@bazel_tools//tools/cpp:toolchain_type",
     ],

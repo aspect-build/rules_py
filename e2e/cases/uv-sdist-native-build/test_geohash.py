@@ -1,9 +1,11 @@
 """Verify that python-geohash (built from sdist via pep517_native_whl) is importable."""
 
 import geohash
+import _geohash
 
 
 def test_encode_decode():
+    assert _geohash.native_probe() == 42
     lat, lon = 37.7749, -122.4194
     encoded = geohash.encode(lat, lon)
     assert encoded, "geohash.encode should return a non-empty string"

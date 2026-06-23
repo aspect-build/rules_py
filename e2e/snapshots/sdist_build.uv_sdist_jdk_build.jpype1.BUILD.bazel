@@ -20,14 +20,9 @@ pep517_native_whl(
         "@@bazel_tools//tools/jdk:current_java_runtime",
     ],
     env = {
-        "AR": "$(AR)",
-        "CC": "$(CC)",
-        "CXX": "$(CC)",
         "JAR": "$(JAVABASE)/bin/jar",
         "JAVA": "$(JAVA)",
         "JAVA_HOME": "$(JAVABASE)",
-        "LD": "$(LD)",
-        "STRIP": "$(STRIP)",
     },
     visibility = ["//visibility:public"],
 )

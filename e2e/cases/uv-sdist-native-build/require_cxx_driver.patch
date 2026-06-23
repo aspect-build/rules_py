@@ -1,0 +1,30 @@
+diff --git a/setup.py b/setup.py
+--- a/setup.py
++++ b/setup.py
+@@ -9,0 +10 @@ c1=Extension('_geohash',
++c1.sources.append('src/native_probe.c')
+diff --git a/src/geohash.cpp b/src/geohash.cpp
+--- a/src/geohash.cpp
++++ b/src/geohash.cpp
+@@ -19,0 +20,4 @@
++#include <string>
++
++extern "C" int native_c_probe(void);
++
+@@ -725,0 +731,6 @@
++
++static PyObject *py_native_probe(PyObject *, PyObject *) {
++	std::string suffix = "++";
++	return PyLong_FromLong(native_c_probe() + suffix.size());
++}
++
+@@ -732,0 +745 @@
++	{"native_probe", py_native_probe, METH_NOARGS, "exercise C and C++ compilation and linkage"},
+diff --git a/src/native_probe.c b/src/native_probe.c
+new file mode 100644
+--- /dev/null
++++ b/src/native_probe.c
+@@ -0,0 +1,3 @@
++int native_c_probe(void) {
++    return 40;
++}

@@ -407,9 +407,9 @@ def _parse_projects(module_ctx, hub_specs):
                         pre_build_patches = [str(p) for p in pkg_override.pre_build_patches]
                         pre_build_patch_strip = pkg_override.pre_build_patch_strip
 
-                    # `toolchains` / `env` on `uv.override_package` augment
-                    # the defaults baked into sdist_build's BUILD template —
-                    # they don't replace them. Empty == no augmentation.
+                    # `toolchains` on `uv.override_package` extends the
+                    # defaults baked into sdist_build's BUILD template. `env`
+                    # is merged over those defaults, replacing named values.
                     extra_toolchains = []
                     extra_env = {}
                     resource_set = "default"
@@ -782,7 +782,7 @@ _override_package_tag = tag_class(
         ),
         "env": attr.string_dict(
             default = {},
-            doc = "Extra environment variables merged into the build action's `env` dict. Values may reference $(VAR) make-variables sourced from the default CC toolchain or any extra `toolchains` listed above.",
+            doc = "Environment variables merged over the native-build defaults. Values may reference $(VAR) make-variables sourced from the default CC toolchain or any extra `toolchains` listed above.",
         ),
 
         # Pre-build patches: applied to extracted sdist source before wheel build.
