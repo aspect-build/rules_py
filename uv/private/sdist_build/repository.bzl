@@ -219,31 +219,19 @@ def _sdist_build_impl(repository_ctx):
             strip = repository_ctx.attr.pre_build_patch_strip,
         )
 
-    # For native builds, emit a baked-in CC toolchain + CC/CXX/AR/LD/STRIP
-    # env block. Targets in `toolchains` expose `TemplateVariableInfo`;
-    # the env values below are make-variable references resolved at
-    # action analysis time.
+    # For native builds, emit a C++ toolchain target for its action inputs and
+    # make variables. pep517_native_whl derives CC/CXX and available AR/STRIP
+    # defaults from the selected CcToolchainInfo; extra_env contains package
+    # overrides and variables supplied by extra_toolchains.
     #
-    # CXX defaults to $(CC) because most clang/gcc-based toolchains use
-    # a single driver binary for both languages, and meson-python /
-    # cmake-based backends look for CXX independently of CC.
-    #
-    # `extra_toolchains` and `extra_env` augment (do not replace) the
-    # defaults — set via `uv.override_package(toolchains = [...],
-    # env = {...})` to layer JDK / Rust / etc. plumbing on top.
+    # `extra_toolchains` extend the defaults. `extra_env` is merged over
+    # them so a package can replace a named compiler or tool variable.
     toolchain_attrs = ""
     if is_native:
         toolchains = [
             "@bazel_tools//tools/cpp:current_cc_toolchain",
         ] + list(repository_ctx.attr.extra_toolchains)
-        env = {
-            "AR": "$(AR)",
-            "CC": "$(CC)",
-            "CXX": "$(CC)",
-            "LD": "$(LD)",
-            "STRIP": "$(STRIP)",
-        }
-        env.update(repository_ctx.attr.extra_env)
+        env = dict(repository_ctx.attr.extra_env)
         toolchain_attrs = """
     toolchains = [
 {toolchains}
@@ -327,7 +315,7 @@ sdist_build = repository_rule(
         ),
         "extra_env": attr.string_dict(
             default = {},
-            doc = "Environment variables merged into the default CC env dict in the generated pep517_native_whl(...) `env` dict. Values may reference $(VAR) make-variables from any toolchain. Set via `uv.override_package(env = {...})`.",
+            doc = "Native-build environment overrides emitted in the generated pep517_native_whl(...) `env` dict. Values may reference $(VAR) make-variables from any toolchain. Set via `uv.override_package(env = {...})`.",
         ),
     },
 )

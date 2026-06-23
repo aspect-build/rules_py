@@ -16,15 +16,13 @@ pep517_native_whl(
     version = "0.8.5",
     args = [],
     resource_set = "mem_4g",
+    pre_build_patches = ["@@//cases/uv-sdist-native-build:require_cxx_driver.patch"],
+    pre_build_patch_strip = 1,
     toolchains = [
         "@bazel_tools//tools/cpp:current_cc_toolchain",
     ],
     env = {
-        "AR": "$(AR)",
-        "CC": "$(CC)",
-        "CXX": "$(CC)",
-        "LD": "$(LD)",
-        "STRIP": "$(STRIP)",
+
     },
     visibility = ["//visibility:public"],
 )

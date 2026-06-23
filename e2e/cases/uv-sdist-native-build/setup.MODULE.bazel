@@ -22,6 +22,8 @@ uv.project(
 uv.override_package(
     name = "python-geohash",
     lock = "//cases/uv-sdist-native-build:uv.lock",
+    pre_build_patch_strip = 1,
+    pre_build_patches = ["//cases/uv-sdist-native-build:require_cxx_driver.patch"],
     resource_set = "mem_4g",
 )
 

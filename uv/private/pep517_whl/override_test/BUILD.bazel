@@ -1,0 +1,30 @@
+load("//uv/private/pep517_whl:rule.bzl", "pep517_native_whl")
+load("//uv/private/pep517_whl:test.bzl", "pep517_native_whl_toolchain_env_test")
+
+pep517_native_whl(
+    name = "__toolchain_env_override_fixture",
+    src = "//uv/private/pep517_whl:__stub_sdist",
+    env = {
+        "CC": "ccache clang --target=aarch64-linux-gnu",
+        "LDCXXSHARED": "clang++ -shared",
+        "JAVA_HOME": "$(JAVABASE)",
+        "JAVA": "$(JAVA)",
+        "JAR": "$(JAVABASE)/bin/jar",
+    },
+    tags = ["manual"],
+    tool = "//uv/private/pep517_whl:__stub_tool",
+    toolchains = [
+        "@bazel_tools//tools/cpp:current_cc_toolchain",
+        "@bazel_tools//tools/jdk:current_java_runtime",
+    ],
+    version = "0.0.1",
+)
+
+pep517_native_whl_toolchain_env_test(
+    name = "toolchain_env_override_test",
+    expected_env = {
+        "CC": "ccache clang --target=aarch64-linux-gnu",
+        "LDCXXSHARED": "clang++ -shared",
+    },
+    target_under_test = ":__toolchain_env_override_fixture",
+)
