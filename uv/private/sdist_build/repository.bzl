@@ -172,6 +172,11 @@ def _sdist_build_impl(repository_ctx):
             # If the tool provided complete build file content, use it directly.
             build_file_content = inspection.get("build_file_content")
             if build_file_content:
+                if repository_ctx.attr.resource_set != "default":
+                    fail("sdist_build for '{}': the configure tool returned complete `build_file_content`, which bypasses the generated `pep517_*whl(...)` call, so `resource_set = \"{}\"` cannot be applied. Drop `resource_set` from the override, or have the configure tool set `resource_set` in its own `build_file_content`.".format(
+                        repository_ctx.name,
+                        repository_ctx.attr.resource_set,
+                    ))
                 repository_ctx.file("BUILD.bazel", content = build_file_content)
                 return
 
@@ -250,6 +255,10 @@ def _sdist_build_impl(repository_ctx):
             env = "\n".join(["        \"{}\": \"{}\",".format(k, v) for k, v in sorted(env.items())]),
         )
 
+    resource_set_attr = ""
+    if repository_ctx.attr.resource_set != "default":
+        resource_set_attr = "\n    resource_set = \"{}\",".format(repository_ctx.attr.resource_set)
+
     repository_ctx.file("BUILD.bazel", content = """
 load("@aspect_rules_py//uv/private/pep517_whl:rule.bzl", "{rule}")
 load("@aspect_rules_py//py:defs.bzl", "py_binary")
@@ -266,7 +275,7 @@ py_binary(
     src = "{src}",
     tool = ":build_tool",
     version = "{version}",
-    args = [],{patch_attrs}{toolchain_attrs}
+    args = [],{resource_set_attr}{patch_attrs}{toolchain_attrs}
     visibility = ["//visibility:public"],
 )
 
@@ -279,6 +288,7 @@ exports_files(
         deps = repr(all_deps),
         rule = "pep517_native_whl" if is_native else "pep517_whl",
         version = repository_ctx.attr.version,
+        resource_set_attr = resource_set_attr,
         patch_attrs = patch_attrs,
         toolchain_attrs = toolchain_attrs,
     ))
@@ -303,6 +313,12 @@ sdist_build = repository_rule(
                   "two arguments. See //uv/private/sdist_configure:defs.bzl.",
         ),
         "version": attr.string(),
+        "resource_set": attr.string(
+            default = "default",
+            doc = "bazel-lib resource_set name forwarded to the generated pep517_*whl(...) " +
+                  "`resource_set` attribute, reserving local RAM/CPU for the wheel build " +
+                  "action. Set via `uv.override_package(resource_set = ...)`.",
+        ),
         "pre_build_patches": attr.label_list(default = []),
         "pre_build_patch_strip": attr.int(default = 0),
         "extra_toolchains": attr.string_list(

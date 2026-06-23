@@ -30,6 +30,7 @@ bzl_library(
         "//uv/private/uv_project:repository",
         "//uv/private/whl_install:repository",
         "@bazel_features//:features",
+        "@bazel_lib//lib:resource_sets",
         "@bazel_skylib//lib:sets",
         "@bazel_tools//tools/build_defs/repo:http.bzl",
     ],

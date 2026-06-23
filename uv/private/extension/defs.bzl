@@ -52,6 +52,7 @@ resolved dependencies available in the `@uv` repository.
 """
 
 load("@bazel_features//:features.bzl", features = "bazel_features")
+load("@bazel_lib//lib:resource_sets.bzl", "resource_set_values")
 load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 load("//py/private/interpreter:resolve.bzl", "resolve_host_interpreter_label")
@@ -252,14 +253,15 @@ def _parse_projects(module_ctx, hub_specs):
                     override.extra_deps or
                     override.extra_data or
                     override.toolchains or
-                    override.env
+                    override.env or
+                    override.resource_set != "default"
                 )
 
                 if has_target and has_modifications:
-                    fail("uv.override_package() for '{}': `target` is mutually exclusive with patch/exclude attributes. Use `target` for full replacement OR patch/exclude attributes for modifications, not both.".format(override.name))
+                    fail("uv.override_package() for '{}': `target` is mutually exclusive with modification attributes. Use `target` for full replacement OR build, patch, and data attributes for modifications, not both.".format(override.name))
 
                 if not has_target and not has_modifications:
-                    fail("uv.override_package() for '{}': must specify either `target` for full replacement or at least one modification attribute (pre_build_patches, post_install_patches, extra_deps, extra_data).".format(override.name))
+                    fail("uv.override_package() for '{}': must specify either `target` for full replacement or at least one modification attribute (pre_build_patches, post_install_patches, extra_deps, extra_data, toolchains, env, resource_set).".format(override.name))
 
                 package_overrides[override_key] = override
 
@@ -410,9 +412,11 @@ def _parse_projects(module_ctx, hub_specs):
                     # they don't replace them. Empty == no augmentation.
                     extra_toolchains = []
                     extra_env = {}
+                    resource_set = "default"
                     if pkg_override:
                         extra_toolchains = [str(t) for t in pkg_override.toolchains]
                         extra_env = pkg_override.env
+                        resource_set = pkg_override.resource_set
 
                     sbuild_specs[sbuild_id] = struct(
                         src = sdist,
@@ -425,6 +429,7 @@ def _parse_projects(module_ctx, hub_specs):
                         configure_command = project.unstable_configure_command,
                         extra_toolchains = extra_toolchains,
                         extra_env = extra_env,
+                        resource_set = resource_set,
                     )
 
                     has_sbuild = True
@@ -440,6 +445,9 @@ def _parse_projects(module_ctx, hub_specs):
                     post_install_patch_strip = pkg_override.post_install_patch_strip
                     extra_deps = [str(d) for d in pkg_override.extra_deps]
                     extra_data = [str(d) for d in pkg_override.extra_data]
+
+                if pkg_override and pkg_override.resource_set != "default" and not has_sbuild:
+                    fail("uv.override_package() for '{}': `resource_set` reserves resources for the sdist wheel-build action, but this package resolves to a prebuilt wheel (there is no sdist build to reserve for). Remove `resource_set`, or force a source build via `[tool.uv] no-binary-package`.".format(pkg_override.name))
 
                 # uv can emit multiple lock records for the same package/version
                 # (e.g. resolution-marker forks), each carrying a different
@@ -649,6 +657,8 @@ def _uv_impl(module_ctx):
             sbuild_kwargs["extra_toolchains"] = sbuild_cfg.extra_toolchains
         if sbuild_cfg.extra_env:
             sbuild_kwargs["extra_env"] = sbuild_cfg.extra_env
+        if sbuild_cfg.resource_set != "default":
+            sbuild_kwargs["resource_set"] = sbuild_cfg.resource_set
         sdist_build(**sbuild_kwargs)
 
     for install_id, install_cfg in cfg.install_cfgs.items():
@@ -745,6 +755,20 @@ _override_package_tag = tag_class(
         # Full replacement: provide a target that substitutes for the package entirely.
         # Mutually exclusive with patch/exclude attributes.
         "target": attr.label(mandatory = False),
+
+        # Per-package local execution resources for the wheel build action.
+        # Uses bazel-lib's predefined resource_set vocabulary (the same enum
+        # `ts_project` accepts), so Bazel reserves the named amount of RAM/CPU
+        # and won't overschedule concurrent native wheel builds. `"default"`
+        # reserves nothing extra.
+        "resource_set": attr.string(
+            default = "default",
+            values = resource_set_values,
+            doc = "Local execution resources to reserve for this package's wheel build action. " +
+                  "One of bazel-lib's predefined resource sets ('mem_512m', 'mem_1g', … 'mem_32g', " +
+                  "'cpu_2', 'cpu_4', 'default'). Bazel rounds a memory request up to the named " +
+                  "bucket.",
+        ),
 
         # Per-package toolchain plumbing for native sdist builds. Both
         # attributes AUGMENT the defaults baked into sdist_build's
