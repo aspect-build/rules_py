@@ -26,7 +26,7 @@ py_console_script_binary(
 
 sh_test(
     name = "test",
-    srcs = ["test.sh"],
+    srcs = ["test_console_scripts.sh"],
     data = [
         "docs/index.md",
         "mkdocs.yml",

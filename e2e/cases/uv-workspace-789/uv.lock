@@ -4,6 +4,7 @@ requires-python = ">=3.11"
 
 [manifest]
 members = [
+    "dependency-bag",
     "foo",
     "pi",
     "workspace",
@@ -92,6 +93,17 @@ wheels = [
 ]
 
 [[package]]
+name = "dependency-bag"
+version = "0.0.0"
+source = { virtual = "packages/dependency-bag" }
+dependencies = [
+    { name = "humanize" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "humanize" }]
+
+[[package]]
 name = "foo"
 version = "0.0.0"
 source = { editable = "packages/foo" }
@@ -101,6 +113,15 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [{ name = "pi", editable = "packages/pi" }]
+
+[[package]]
+name = "humanize"
+version = "4.15.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ba/66/a3921783d54be8a6870ac4ccffcd15c4dc0dd7fcce51c6d63b8c63935276/humanize-4.15.0.tar.gz", hash = "sha256:1dd098483eb1c7ee8e32eb2e99ad1910baefa4b75c3aff3a82f4d78688993b10", size = 83599, upload-time = "2025-12-20T20:16:13.19Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c5/7b/bca5613a0c3b542420cf92bd5e5fb8ebd5435ce1011a091f66bb7693285e/humanize-4.15.0-py3-none-any.whl", hash = "sha256:b1186eb9f5a9749cd9cb8565aee77919dd7c8d076161cf44d70e59e3301e1769", size = 132203, upload-time = "2025-12-20T20:16:11.67Z" },
+]
 
 [[package]]
 name = "idna"
@@ -150,3 +171,9 @@ wheels = [
 name = "workspace"
 version = "0.0.0"
 source = { virtual = "." }
+dependencies = [
+    { name = "dependency-bag" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "dependency-bag", virtual = "packages/dependency-bag" }]

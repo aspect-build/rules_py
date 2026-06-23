@@ -1,0 +1,38 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+# Regression: azure-core + azure-core-tracing-opentelemetry create a
+# regular-span conflict under the `azure` PEP 420 namespace (tl_conflicted).
+# azure-identity contributes a sibling entry `azure/identity/` that must still
+# receive a concrete per-entry symlink — without the fix, the whole `azure`
+# top-level falls back to .pth and mypy/pyright cannot see azure.identity.
+#
+# test     — .pth strategy (verifies runtime imports)
+# test_venv — symlink-forest venv (verifies concrete site-packages/azure/identity/)
+
+py_test(
+    name = "test",
+    srcs = ["test.py"],
+    dep_group = "azure-namespace-sibling",
+    main = "test.py",
+    deps = [
+        "@pypi_azure_namespace_sibling//azure_core",
+        "@pypi_azure_namespace_sibling//azure_core_tracing_opentelemetry",
+        "@pypi_azure_namespace_sibling//azure_identity",
+    ],
+)
+
+py_test(
+    name = "test_venv",
+    srcs = ["test.py"],
+    dep_group = "azure-namespace-sibling",
+    expose_venv = True,
+    isolated = False,
+    main = "test.py",
+    package_collisions = "warning",
+    python_version = "3.11",
+    deps = [
+        "@pypi_azure_namespace_sibling//azure_core",
+        "@pypi_azure_namespace_sibling//azure_core_tracing_opentelemetry",
+        "@pypi_azure_namespace_sibling//azure_identity",
+    ],
+)

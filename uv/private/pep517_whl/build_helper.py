@@ -123,7 +123,13 @@ def _compiler_env(tmpdir):
 
     env.setdefault("CC", cc)
     env.setdefault("CXX", cxx)
-    env.setdefault("MPICC", _make_compiler_wrapper(tmpdir, "mpicc", cc_path, sysroot))
+
+    # MPI builds (e.g. mpi4py) consult $MPICC before searching PATH, so a
+    # plain C compiler here would shadow the real mpicc. Only set it when
+    # a system mpicc exists, wrapped to keep the debug-flag stripping.
+    mpicc_path = shutil.which("mpicc", path=env["PATH"])
+    if mpicc_path:
+        env.setdefault("MPICC", _make_compiler_wrapper(tmpdir, "mpicc", mpicc_path, sysroot))
     env.setdefault("AR", "ar")
 
     for key, wrapper in [
@@ -205,10 +211,25 @@ t = path.join(t, listdir(t)[0])
 
 if opts.patches:
     for patch_file in opts.patches:
-        check_call(
-            ["patch", "-p{}".format(opts.patch_strip), "-i", path.abspath(patch_file)],
-            cwd=t,
-        )
+        abs_patch = path.abspath(patch_file)
+        # --no-backup-if-mismatch: a fuzz/offset apply otherwise drops a
+        # `<file>.orig` into the worktree that gets swept into the built wheel.
+        patch_cmd = [
+            "patch",
+            "--no-backup-if-mismatch",
+            "-p{}".format(opts.patch_strip),
+            "-i",
+            abs_patch,
+        ]
+        try:
+            check_call(patch_cmd, cwd=t)
+        except CalledProcessError as exc:
+            # Fail with a concise reason on stderr instead of a Python traceback.
+            print(
+                "Error: failed to apply patch {} (patch exited {}).".format(abs_patch, exc.returncode),
+                file=sys.stderr,
+            )
+            exit(1)
 
 
 # Get a path to the outdir which will be valid after we cd

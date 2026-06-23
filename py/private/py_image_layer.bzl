@@ -183,8 +183,6 @@ _LayerInfo = provider(
 
 _PY_VENV_KINDS = ("py_venv", "_py_venv")
 
-_PY_BINARY_KINDS = ("py_binary", "py_test", "_py_venv_binary", "_py_venv_test", "py_venv_binary", "py_venv_test", "py_venv_exec", "py_venv_exec_test")
-
 def _collect_from_deps(ctx, provider):
     """Walk deps/data/actual/venv and return a list of provider values from each matching dep."""
     results = []
@@ -371,7 +369,10 @@ def _layer_aspect_impl(target, ctx):
     own_fp = []
     interpreter_layer = None
     kind = ctx.rule.kind
-    is_binary = kind in _PY_BINARY_KINDS
+    is_binary = (
+        PyInfo in target and
+        target[DefaultInfo].files_to_run.executable != None
+    )
 
     # Aliases (and other pure-forwarding wrappers) forward DefaultInfo from
     # `actual`. Reading `target[DefaultInfo].files` here for an alias of a

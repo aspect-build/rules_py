@@ -808,6 +808,7 @@ alias(
     name = "_package_exceptiongroup_aspect_rules_py",
     actual = select({
         "//private/markers:f1406cfc2f85641e883d3ba9c27a964444fb80b1": "//private/sccs:ba5e2f6d3abc42ae",
+        "//conditions:default": "//private/sccs:empty",
     }),
     visibility = ["//visibility:private"],
 )
@@ -817,6 +818,7 @@ alias(
     name = "_package_exceptiongroup_aspect_rules_py_whl",
     actual = select({
         "//private/markers:f1406cfc2f85641e883d3ba9c27a964444fb80b1": "@whl_install__aspect_rules_py__exceptiongroup__1_3_1//:whl",
+        "//conditions:default": ":empty_whl",
     }),
     visibility = ["//visibility:private"],
 )
@@ -1130,6 +1132,7 @@ alias(
     name = "_package_importlib_metadata_aspect_rules_py",
     actual = select({
         "//private/markers:db384b5a67611795b7cf16442b57a34653387090": "//private/sccs:755a2d8d1d107b02",
+        "//conditions:default": "//private/sccs:empty",
     }),
     visibility = ["//visibility:private"],
 )
@@ -1139,6 +1142,7 @@ alias(
     name = "_package_importlib_metadata_aspect_rules_py_whl",
     actual = select({
         "//private/markers:db384b5a67611795b7cf16442b57a34653387090": "@whl_install__aspect_rules_py__importlib_metadata__8_7_1//:whl",
+        "//conditions:default": ":empty_whl",
     }),
     visibility = ["//visibility:private"],
 )
@@ -2970,6 +2974,7 @@ alias(
     name = "_package_tomli_aspect_rules_py",
     actual = select({
         "//private/markers:f1406cfc2f85641e883d3ba9c27a964444fb80b1": "//private/sccs:c586b17b00ce1e93",
+        "//conditions:default": "//private/sccs:empty",
     }),
     visibility = ["//visibility:private"],
 )
@@ -2979,6 +2984,7 @@ alias(
     name = "_package_tomli_aspect_rules_py_whl",
     actual = select({
         "//private/markers:f1406cfc2f85641e883d3ba9c27a964444fb80b1": "@whl_install__aspect_rules_py__tomli__2_4_0//:whl",
+        "//conditions:default": ":empty_whl",
     }),
     visibility = ["//visibility:private"],
 )
@@ -3386,6 +3392,7 @@ alias(
     name = "_package_zipp_aspect_rules_py",
     actual = select({
         "//private/markers:f1406cfc2f85641e883d3ba9c27a964444fb80b1": "//private/sccs:0dfe8750086323f2",
+        "//conditions:default": "//private/sccs:empty",
     }),
     visibility = ["//visibility:private"],
 )
@@ -3395,6 +3402,7 @@ alias(
     name = "_package_zipp_aspect_rules_py_whl",
     actual = select({
         "//private/markers:f1406cfc2f85641e883d3ba9c27a964444fb80b1": "@whl_install__aspect_rules_py__zipp__3_23_0//:whl",
+        "//conditions:default": ":empty_whl",
     }),
     visibility = ["//visibility:private"],
 )
