@@ -70,6 +70,15 @@ def parse_record_path(line):
 
     return "".join(path)
 
+def site_packages_segments(path, data_directory):
+    """Map a RECORD path to its installed site-packages segments."""
+    segments = path.split("/")
+    if segments[0] != data_directory:
+        return segments
+    if len(segments) < 3 or segments[1] not in ("purelib", "platlib"):
+        return []
+    return segments[2:]
+
 def _find_whl_file(repository_ctx, whl_label):
     """Resolve an http_file-style wheel label to the actual .whl path on disk.
 
@@ -176,9 +185,10 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
     if entry_points_path.exists:
         entry_points = repository_ctx.read(entry_points_path)
     repository_ctx.delete(metadata_dir)
+    data_directory = metadata_directory[:-len(".dist-info")] + ".data"
 
     # RECORD: authoritative list of every installed file. First path segment
-    # = top-level name, excluding the wheel's `*.data/` staging area.
+    # = top-level name after translating wheel install-scheme paths.
     top_levels_set = {}
 
     # Tracks which top-levels contain a direct `<toplevel>/__init__.py` —
@@ -198,25 +208,11 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
             path = parse_record_path(line)
             if not path:
                 continue
-            segments = path.split("/")
-            first_segment = segments[0]
-
-            # `*.data/` files (PEP 427) are routed to
-            # data/scripts/headers/purelib/platlib under sys.prefix at
-            # install time. Exclude from the site-packages top-level list.
-            #
-            # KNOWN LIMITATION: `*.data/purelib/` and `*.data/platlib/`
-            # ARE overlaid into site-packages on a real install, so a wheel
-            # that ships a namespace contribution there (e.g.
-            # `foo.data/purelib/ns/sub/`) won't have `ns` discovered as a
-            # top-level or `ns/sub` as a namespace entry — that
-            # contribution stays invisible to the concrete merge (and to
-            # static tools). Rare in practice (wheels overwhelmingly ship
-            # packages at the archive root); handling it would mean
-            # rewriting the `*.data/{purelib,platlib}/` prefix to
-            # site-packages-relative before deriving top-levels/entries.
-            if first_segment.endswith(".data"):
+            segments = site_packages_segments(path, data_directory)
+            if not segments:
                 continue
+
+            first_segment = segments[0]
 
             # Filter RECORD entries that escape the install root. Some
             # wheels (notably setuptools-family) emit lines like

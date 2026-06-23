@@ -1,0 +1,9 @@
+[project]
+name = "uv-data-purelib"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    # tritonclient imports protobuf but does not declare it.
+    "protobuf",
+    "tritonclient[grpc]==2.41.0",
+]
