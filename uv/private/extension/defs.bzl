@@ -297,9 +297,17 @@ def _parse_projects(module_ctx, hub_specs):
 
             # Mapping from package to cfg to the SCC for that package in that cfg
             package_cfg_sccs = {}
+
+            # Memoize collect_sccs() across configurations with identical graphs.
+            scc_cache = {}
             for cfg in configuration_names:
                 cfgd_marker_graph = activate_extras(marker_graph, activated_extras, cfg)
-                cfgd_dep_to_scc, cfgd_scc_graph, cfgd_scc_deps = collect_sccs(cfgd_marker_graph)
+                cfg_key = repr(cfgd_marker_graph)
+                cached = scc_cache.get(cfg_key)
+                if cached == None:
+                    cached = collect_sccs(cfgd_marker_graph)
+                    scc_cache[cfg_key] = cached
+                cfgd_dep_to_scc, cfgd_scc_graph, cfgd_scc_deps = cached
 
                 # Aggregate the dependency graphs Note that this may be overly
                 # simplistic, since markers COULD vary per configured graph;
