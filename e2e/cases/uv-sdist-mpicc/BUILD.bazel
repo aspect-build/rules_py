@@ -9,7 +9,10 @@ load("@aspect_rules_py//py:defs.bzl", "py_test")
 py_test(
     name = "test",
     srcs = ["__test__.py"],
-    data = ["@aspect_rules_py//uv/private/pep517_whl:build_helper.py"],
+    data = [
+        "@aspect_rules_py//uv/private/pep517_whl:build_helper.py",
+        "@aspect_rules_py//uv/private/pep517_whl:memory_monitor",
+    ],
     dep_group = "uv_sdist_mpicc",
     main = "__test__.py",
     python_version = "3.11",

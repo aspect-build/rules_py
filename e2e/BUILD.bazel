@@ -110,13 +110,14 @@ write_source_files(
         # shows up as the per-wheel dicts collapsing into one merged list.
         "snapshots/abi3_compat.whl_install.cffi.BUILD.bazel": "@whl_install__abi3_compat__cffi__2_0_0//:BUILD.bazel",
 
-        # @sdist_build for jpype1 with uv.override_package toolchains/env
+        # @sdist_build for jpype1 with uv.override_package build resources,
+        # toolchains, and env
         # ----------------------------------------------------------------
         # Covers the override_package -> repo-rule -> BUILD-template
-        # plumbing for the augment-on-defaults `toolchains = [...]` /
+        # plumbing for `build_memory_mb`, `toolchains = [...]`, and
         # `env = {...}`. The override layers a JDK runtime on top of the
-        # default CC toolchain; the snapshot pins both toolchain
-        # references and both env families (CC + JAVA_HOME/JAVA/JAR).
+        # default CC toolchain; the snapshot pins the memory declaration,
+        # toolchain references, and both env families (CC + JAVA_HOME/JAVA/JAR).
         # Pairs with the analysis test at
         # //uv/private/pep517_whl:toolchain_env_test which asserts the
         # rule expands env keys correctly given an explicit fixture.
