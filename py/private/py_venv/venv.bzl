@@ -44,10 +44,12 @@ load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN")
 # tokenisation quirks with `$` in strings, and the inline Python is short
 # enough that not having a real `__file__` doesn't matter in practice.
 # `"$@"` preserves the original argv, while sys.argv[0] is patched so the
-# called function sees the script's own name.
+# called function sees the script's own name. Entry-point object references
+# may contain dotted attributes:
+# https://packaging.python.org/en/latest/specifications/entry-points/#data-model
 _CONSOLE_SCRIPT_TEMPLATE = """\
 #!/bin/sh
-exec "$(dirname "$0")/python" -c 'import sys; from {module} import {func}; sys.argv[0] = "{name}"; sys.exit({func}())' "$@"
+exec "$(dirname "$0")/python" -c 'import sys; from importlib import import_module; from operator import attrgetter; sys.argv[0] = "{name}"; sys.exit(attrgetter("{func}")(import_module("{module}"))())' "$@"
 """
 
 def _dict_to_exports(env):

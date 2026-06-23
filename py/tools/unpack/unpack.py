@@ -116,6 +116,7 @@ def install_wheel(version_major, version_minor, into, wheel_path):
 
     for ep_path in site_packages.glob("*.dist-info/entry_points.txt"):
         cp = configparser.ConfigParser(strict=False)
+        cp.optionxform = str
         cp.read(str(ep_path), encoding="utf-8")
         for section in ("console_scripts", "gui_scripts"):
             if section not in cp:
@@ -123,13 +124,23 @@ def install_wheel(version_major, version_minor, into, wheel_path):
             for raw_name, raw_ep in cp[section].items():
                 module, _, func_extras = raw_ep.strip().partition(":")
                 func = func_extras.split("[")[0].strip()
-                script_path = bin_dir / raw_name.strip()
+                name = raw_name.strip()
+                module = module.strip()
+                if not name or not module or not func:
+                    continue
+                script_path = bin_dir / name
+                # Entry-point object references may contain dotted attributes:
+                # https://packaging.python.org/en/latest/specifications/entry-points/#data-model
                 wrapper = (
                     _RELOCATABLE_SHEBANG
                     + "# -*- coding: utf-8 -*-\n"
-                    + "import re\nimport sys\n"
-                    + "from {} import {}\n".format(module.strip(), func)
-                    + "sys.exit({}())\n".format(func)
+                    + "import sys\n"
+                    + "from importlib import import_module\n"
+                    + "from operator import attrgetter\n"
+                    + "sys.exit(attrgetter({!r})(import_module({!r}))())\n".format(
+                        func,
+                        module,
+                    )
                 )
                 _write_executable(script_path, wrapper.encode())
                 installed.append(script_path)
