@@ -79,6 +79,28 @@ def site_packages_segments(path, data_directory):
         return []
     return segments[2:]
 
+def parse_console_script(line):
+    """Parse one `[console_scripts]` entry into a canonical `name=module:func`.
+
+    `line` is a single `name = module:func [extras]` assignment; section
+    headers, comments, and blank lines are filtered by the caller. Returns a
+    `(name, "name=module:func")` tuple, or None when the entry has no `=` or
+    is missing a name, module, or function.
+
+    Legacy entry-point extras (the trailing `[...]`) are parsed and ignored:
+    https://packaging.python.org/en/latest/specifications/entry-points/#data-model
+    """
+    name, sep, target = line.partition("=")
+    if not sep:
+        return None
+    name = name.strip()
+    module, _, function_and_extras = target.partition(":")
+    function = function_and_extras.split("[")[0].strip()
+    module = module.strip()
+    if not name or not module or not function:
+        return None
+    return name, "{}={}:{}".format(name, module, function)
+
 def _find_whl_file(repository_ctx, whl_label):
     """Resolve an http_file-style wheel label to the actual .whl path on disk.
 
@@ -279,16 +301,13 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
                 continue
             if not in_console_scripts:
                 continue
-            if "=" not in line:
-                continue
-            name, _, target = line.partition("=")
-            name = name.strip()
-            target = target.strip()
-            if not name or ":" not in target:
-                continue
 
             # Normalise to "name=module:func" so downstream parsing is trivial.
-            console_scripts[name] = "{}={}".format(name, target)
+            entry = parse_console_script(line)
+            if entry == None:
+                continue
+            name, normalised = entry
+            console_scripts[name] = normalised
 
     return whl_path.basename, top_levels_set, regular_top_levels, console_scripts, namespace_entries, dirs_set, init_dirs
 

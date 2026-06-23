@@ -3,7 +3,7 @@
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts", "unittest")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//py/private:providers.bzl", "PyWheelsInfo")
-load(":repository.bzl", "compatible_python_tags", "parse_record_path", "select_key", "site_packages_segments", "sort_select_arms", "source_specificity")
+load(":repository.bzl", "compatible_python_tags", "parse_console_script", "parse_record_path", "select_key", "site_packages_segments", "sort_select_arms", "source_specificity")
 load(":rule.bzl", "whl_install")
 
 def _whl_sorting_test_impl(ctx):
@@ -146,6 +146,48 @@ def _site_packages_segments_test_impl(ctx):
     return unittest.end(env)
 
 site_packages_segments_test = unittest.make(_site_packages_segments_test_impl)
+
+def _console_script_test_impl(ctx):
+    env = unittest.begin(ctx)
+
+    # Plain entry: normalised to "name=module:func".
+    asserts.equals(
+        env,
+        ("foo", "foo=pkg.mod:main"),
+        parse_console_script("foo = pkg.mod:main"),
+    )
+
+    # Legacy extras (`[...]`) are parsed and dropped from the function.
+    asserts.equals(
+        env,
+        ("foo", "foo=pkg.mod:main"),
+        parse_console_script("foo = pkg.mod:main [extra1,extra2]"),
+    )
+
+    # Surrounding whitespace on every component is stripped, including a
+    # space-separated extras suffix.
+    asserts.equals(
+        env,
+        ("foo", "foo=pkg.mod:main"),
+        parse_console_script("  foo  =  pkg.mod : main  [ a , b ]  "),
+    )
+
+    # Missing function (bare module, or trailing colon) is rejected — a
+    # console script must name a callable.
+    asserts.equals(env, None, parse_console_script("foo = pkg.mod"))
+    asserts.equals(env, None, parse_console_script("foo = pkg.mod:"))
+    asserts.equals(env, None, parse_console_script("foo = pkg.mod: [extra]"))
+
+    # Missing module or name is rejected.
+    asserts.equals(env, None, parse_console_script("foo = :main"))
+    asserts.equals(env, None, parse_console_script(" = pkg.mod:main"))
+
+    # No `=` at all is not an assignment.
+    asserts.equals(env, None, parse_console_script("pkg.mod:main"))
+
+    return unittest.end(env)
+
+console_script_test = unittest.make(_console_script_test_impl)
 
 # --- whl_install metadata selection ---------------------------------------
 #
@@ -324,4 +366,8 @@ def whl_install_suite():
     unittest.suite(
         "site_packages_segments_tests",
         site_packages_segments_test,
+    )
+    unittest.suite(
+        "console_script_tests",
+        console_script_test,
     )
