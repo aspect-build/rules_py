@@ -203,6 +203,9 @@ def _sdist_build_impl(repository_ctx):
 
     # Merge explicit deps with auto-discovered deps
     all_deps = [str(d) for d in repository_ctx.attr.deps] + extra_dep_labels
+    build_tool_deps = [
+        "@aspect_rules_py//uv/private/pep517_whl:memory_monitor",
+    ] + all_deps
 
     pre_build_patches = repository_ctx.attr.pre_build_patches
     patch_attrs = ""
@@ -250,6 +253,10 @@ def _sdist_build_impl(repository_ctx):
             env = "\n".join(["        \"{}\": \"{}\",".format(k, v) for k, v in sorted(env.items())]),
         )
 
+    memory_attr = ""
+    if repository_ctx.attr.build_memory_mb:
+        memory_attr = "\n    build_memory_mb = {},".format(repository_ctx.attr.build_memory_mb)
+
     repository_ctx.file("BUILD.bazel", content = """
 load("@aspect_rules_py//uv/private/pep517_whl:rule.bzl", "{rule}")
 load("@aspect_rules_py//py:defs.bzl", "py_binary")
@@ -266,7 +273,7 @@ py_binary(
     src = "{src}",
     tool = ":build_tool",
     version = "{version}",
-    args = [],{patch_attrs}{toolchain_attrs}
+    args = [],{memory_attr}{patch_attrs}{toolchain_attrs}
     visibility = ["//visibility:public"],
 )
 
@@ -276,9 +283,10 @@ exports_files(
 )
 """.format(
         src = repository_ctx.attr.src,
-        deps = repr(all_deps),
+        deps = repr(build_tool_deps),
         rule = "pep517_native_whl" if is_native else "pep517_whl",
         version = repository_ctx.attr.version,
+        memory_attr = memory_attr,
         patch_attrs = patch_attrs,
         toolchain_attrs = toolchain_attrs,
     ))
@@ -303,6 +311,10 @@ sdist_build = repository_rule(
                   "two arguments. See //uv/private/sdist_configure:defs.bzl.",
         ),
         "version": attr.string(),
+        "build_memory_mb": attr.int(
+            default = 0,
+            doc = "Estimated peak memory in MB for local wheel builds, from 0 to 32768. Set via uv.override_package(build_memory_mb = ...).",
+        ),
         "pre_build_patches": attr.label_list(default = []),
         "pre_build_patch_strip": attr.int(default = 0),
         "extra_toolchains": attr.string_list(

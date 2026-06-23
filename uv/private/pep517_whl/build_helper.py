@@ -13,8 +13,10 @@ import shlex
 import shutil
 import sys
 from os import chmod, defpath, listdir, makedirs, path, pathsep
-from subprocess import CalledProcessError, check_call, check_output, STDOUT, run
+from subprocess import CalledProcessError, check_call, check_output, STDOUT
 from tempfile import TemporaryFile
+
+from uv.private.pep517_whl.memory_monitor import run_with_memory_profile
 
 try:
     import tomllib
@@ -187,6 +189,7 @@ def _legacy_metadata_conflicts_with_pyproject(worktree):
 PARSER = ArgumentParser()
 PARSER.add_argument("srcarchive")
 PARSER.add_argument("outdir")
+PARSER.add_argument("--monitor-memory", action="store_true")
 PARSER.add_argument("--validate-anyarch", action="store_true")
 PARSER.add_argument("--patch-strip", type=int, default=0, help="Strip count for patch (-p)")
 PARSER.add_argument("--patch", action="append", default=[], dest="patches", help="Patch file to apply (repeatable)")
@@ -279,7 +282,14 @@ else:
 
 with TemporaryFile(mode="w+") as build_log:
     try:
-        run(cmd, cwd=t, env=build_env, stdout=build_log, stderr=STDOUT, check=True)
+        run_with_memory_profile(
+            cmd,
+            cwd=t,
+            env=build_env,
+            stdout=build_log,
+            wheel=path.basename(opts.srcarchive),
+            monitor=opts.monitor_memory,
+        )
     except CalledProcessError:
         build_log.seek(0)
         output = build_log.read()

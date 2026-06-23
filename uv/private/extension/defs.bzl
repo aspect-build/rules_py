@@ -60,6 +60,7 @@ load("//uv/private:normalize_version.bzl", "normalize_version")
 load("//uv/private:parse_whl_name.bzl", "parse_whl_name")
 load("//uv/private/constraints:repository.bzl", "configurations_hub")
 load("//uv/private/git_archive:repository.bzl", "git_archive")
+load("//uv/private/pep517_whl:build_memory.bzl", "validate_build_memory_mb")
 load("//uv/private/pprint:defs.bzl", "pprint")
 load("//uv/private/sdist_build:repository.bzl", "sdist_build")
 load("//uv/private/sdist_configure:defs.bzl", "DEFAULT_CONFIGURE_SCRIPT")
@@ -246,20 +247,25 @@ def _parse_projects(module_ctx, hub_specs):
                     ))
 
                 has_target = override.target != None
+                validate_build_memory_mb(
+                    override.build_memory_mb,
+                    "uv.override_package() for '{}'".format(override.name),
+                )
                 has_modifications = (
                     override.pre_build_patches or
                     override.post_install_patches or
                     override.extra_deps or
                     override.extra_data or
                     override.toolchains or
-                    override.env
+                    override.env or
+                    override.build_memory_mb
                 )
 
                 if has_target and has_modifications:
-                    fail("uv.override_package() for '{}': `target` is mutually exclusive with patch/exclude attributes. Use `target` for full replacement OR patch/exclude attributes for modifications, not both.".format(override.name))
+                    fail("uv.override_package() for '{}': `target` is mutually exclusive with modification attributes. Use `target` for full replacement OR build, patch, and data attributes for modifications, not both.".format(override.name))
 
                 if not has_target and not has_modifications:
-                    fail("uv.override_package() for '{}': must specify either `target` for full replacement or at least one modification attribute (pre_build_patches, post_install_patches, extra_deps, extra_data).".format(override.name))
+                    fail("uv.override_package() for '{}': must specify either `target` for full replacement or at least one build, patch, or data modification attribute.".format(override.name))
 
                 package_overrides[override_key] = override
 
@@ -410,9 +416,11 @@ def _parse_projects(module_ctx, hub_specs):
                     # they don't replace them. Empty == no augmentation.
                     extra_toolchains = []
                     extra_env = {}
+                    build_memory_mb = 0
                     if pkg_override:
                         extra_toolchains = [str(t) for t in pkg_override.toolchains]
                         extra_env = pkg_override.env
+                        build_memory_mb = pkg_override.build_memory_mb
 
                     sbuild_specs[sbuild_id] = struct(
                         src = sdist,
@@ -425,6 +433,7 @@ def _parse_projects(module_ctx, hub_specs):
                         configure_command = project.unstable_configure_command,
                         extra_toolchains = extra_toolchains,
                         extra_env = extra_env,
+                        build_memory_mb = build_memory_mb,
                     )
 
                     has_sbuild = True
@@ -649,6 +658,8 @@ def _uv_impl(module_ctx):
             sbuild_kwargs["extra_toolchains"] = sbuild_cfg.extra_toolchains
         if sbuild_cfg.extra_env:
             sbuild_kwargs["extra_env"] = sbuild_cfg.extra_env
+        if sbuild_cfg.build_memory_mb:
+            sbuild_kwargs["build_memory_mb"] = sbuild_cfg.build_memory_mb
         sdist_build(**sbuild_kwargs)
 
     for install_id, install_cfg in cfg.install_cfgs.items():
@@ -746,12 +757,16 @@ _override_package_tag = tag_class(
         # Mutually exclusive with patch/exclude attributes.
         "target": attr.label(mandatory = False),
 
-        # Per-package toolchain plumbing for native sdist builds. Both
-        # attributes AUGMENT the defaults baked into sdist_build's
+        # Per-package resource and toolchain settings for sdist builds.
+        # toolchains and env AUGMENT the defaults baked into sdist_build's
         # generated `pep517_native_whl(...)` call (the CC toolchain +
         # CC/CXX/AR/LD/STRIP env) — they don't replace them. Use these
         # to layer extra toolchains (Java runtime, Rust, …) and extra
         # env vars on top of the defaults.
+        "build_memory_mb": attr.int(
+            default = 0,
+            doc = "Estimated peak memory in MB for this package's local wheel build, from 0 to 32768. Bazel rounds up to a supported resource class; zero uses its default estimate.",
+        ),
         "toolchains": attr.label_list(
             default = [],
             doc = "Extra toolchain targets appended to the generated pep517_native_whl(...) call's `toolchains` list. Each target's TemplateVariableInfo make-variables become available for $(VAR) expansion in `env`.",
@@ -760,7 +775,6 @@ _override_package_tag = tag_class(
             default = {},
             doc = "Extra environment variables merged into the build action's `env` dict. Values may reference $(VAR) make-variables sourced from the default CC toolchain or any extra `toolchains` listed above.",
         ),
-
         # Pre-build patches: applied to extracted sdist source before wheel build.
         "pre_build_patches": attr.label_list(
             default = [],
