@@ -52,6 +52,7 @@ dependencies = [
     { name = "setuptools" },
     { name = "six" },
     { name = "snakesay" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
 ]
 
 [package.metadata]
@@ -71,6 +72,7 @@ requires-dist = [
     { name = "setuptools" },
     { name = "six" },
     { name = "snakesay" },
+    { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0.1" },
 ]
 
 [[package]]
