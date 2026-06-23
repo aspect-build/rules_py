@@ -1,7 +1,7 @@
 load("@aspect_rules_py//uv/private/constraints/python:defs.bzl", "is_python_version_at_least")
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_python//python:defs.bzl", rules_python_py_binary = "py_binary")
-load(":toolchain_test.bzl", "cross_platform_interpreter_check", "interpreter_toolchain_check", "version_transition_check", "windows_repository_check")
+load(":toolchain_test.bzl", "cross_platform_interpreter_check", "exec_tools_check", "interpreter_toolchain_check", "version_transition_check", "windows_repository_check")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -117,6 +117,10 @@ interpreter_toolchain_check(
     serial = 0,
 )
 
+exec_tools_check(
+    name = "exec_tools_only_311",
+)
+
 interpreter_toolchain_check(
     name = "resolved_312",
     abi_flags = "",
@@ -192,7 +196,6 @@ cross_platform_interpreter_check(
 
 version_transition_check(
     name = "default_transition",
-    expected = "3.13",
 )
 
 version_transition_check(

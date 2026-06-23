@@ -1,6 +1,7 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 load(":exclude_feature.bzl", "exclude_feature_flag")
+load(":selection_test.bzl", "selection_test_suite")
 load(":version_util_test.bzl", "version_util_test_suite")
 
 package(default_visibility = ["//visibility:public"])
@@ -17,14 +18,10 @@ bzl_library(
     deps = [
         ":exclude_feature_bzl",
         ":repository",
+        ":selection",
         ":version_util",
         ":versions",
     ],
-)
-
-bzl_library(
-    name = "interpreter_executable",
-    srcs = ["interpreter_executable.bzl"],
 )
 
 alias(
@@ -78,6 +75,8 @@ bool_flag(
 
 version_util_test_suite()
 
+selection_test_suite()
+
 # keep
 bzl_library(
     name = "exclude_feature_bzl",
@@ -97,6 +96,20 @@ bzl_library(
     name = "versions",
     srcs = ["versions.bzl"],
     deps = ["//uv/private/constraints/platform:defs"],
+)
+
+bzl_library(
+    name = "selection",
+    srcs = ["selection.bzl"],
+    deps = [
+        ":version_util",
+        ":versions",
+    ],
+)
+
+bzl_library(
+    name = "interpreter_executable",
+    srcs = ["interpreter_executable.bzl"],
 )
 
 bzl_library(

@@ -42,6 +42,24 @@ def _whl_install(ctx):
     # builds work (the target interpreter isn't runnable on the build host). This is
     # safe because .pyc bytecode varies by Python version, not by architecture.
     if ctx.attr.compile_pyc:
+        target_version = py_toolchain.interpreter_version_info
+        exec_version = exec_runtime.interpreter_version_info
+        mismatches = [
+            "{}: target={}, exec={}".format(
+                field,
+                getattr(target_version, field),
+                getattr(exec_version, field),
+            )
+            for field in ["major", "minor", "micro", "releaselevel", "serial"]
+            if getattr(target_version, field) != getattr(exec_version, field)
+        ]
+        if mismatches:
+            fail(
+                (
+                    "{} cannot compile .pyc files with a different exec Python " +
+                    "version; {}"
+                ).format(ctx.label, ", ".join(mismatches)),
+            )
         arguments.add("--compile-pyc")
         arguments.add("--pyc-invalidation-mode", ctx.attr.pyc_invalidation_mode)
         arguments.add("--python", exec_runtime.interpreter)

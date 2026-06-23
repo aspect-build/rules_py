@@ -44,14 +44,77 @@ config_setting(
 
 
 config_setting(
-    name = "platform_libc_is_glibc",
+    name = "target_platform_is_aarch64_apple_darwin",
+    constraint_values = ["@platforms//os:macos", "@platforms//cpu:aarch64"],
+    flag_values = {},
+)
+
+
+config_setting(
+    name = "target_platform_is_aarch64_unknown_linux_gnu",
+    constraint_values = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
     flag_values = {"@aspect_rules_py//uv/private/constraints/platform:platform_libc": "glibc"},
 )
 
 
 config_setting(
-    name = "platform_libc_is_musl",
+    name = "target_platform_is_aarch64_unknown_linux_musl",
+    constraint_values = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
     flag_values = {"@aspect_rules_py//uv/private/constraints/platform:platform_libc": "musl"},
+)
+
+
+config_setting(
+    name = "target_platform_is_x86_64_apple_darwin",
+    constraint_values = ["@platforms//os:macos", "@platforms//cpu:x86_64"],
+    flag_values = {},
+)
+
+
+config_setting(
+    name = "target_platform_is_x86_64_unknown_linux_gnu",
+    constraint_values = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
+    flag_values = {"@aspect_rules_py//uv/private/constraints/platform:platform_libc": "glibc"},
+)
+
+
+config_setting(
+    name = "target_platform_is_x86_64_unknown_linux_musl",
+    constraint_values = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
+    flag_values = {"@aspect_rules_py//uv/private/constraints/platform:platform_libc": "musl"},
+)
+
+
+config_setting(
+    name = "target_platform_is_x86_64_pc_windows_msvc",
+    constraint_values = ["@platforms//os:windows", "@platforms//cpu:x86_64"],
+    flag_values = {},
+)
+
+
+config_setting(
+    name = "target_platform_is_aarch64_pc_windows_msvc",
+    constraint_values = ["@platforms//os:windows", "@platforms//cpu:aarch64"],
+    flag_values = {},
+)
+
+
+config_setting(
+    name = "target_platform_is_i686_pc_windows_msvc",
+    constraint_values = ["@platforms//os:windows", "@platforms//cpu:x86_32"],
+    flag_values = {},
+)
+
+
+selects.config_setting_group(
+    name = "cohort_3_13_20260303_3_13_12_install_only",
+    match_any = [":target_platform_is_aarch64_apple_darwin", ":target_platform_is_aarch64_unknown_linux_gnu", ":target_platform_is_aarch64_unknown_linux_musl", ":target_platform_is_x86_64_apple_darwin", ":target_platform_is_x86_64_unknown_linux_gnu", ":target_platform_is_x86_64_unknown_linux_musl", ":target_platform_is_x86_64_pc_windows_msvc", ":target_platform_is_aarch64_pc_windows_msvc", ":target_platform_is_i686_pc_windows_msvc"],
+)
+
+
+selects.config_setting_group(
+    name = "cohort_3_13_20260303_3_13_12_freethreaded",
+    match_any = [":target_platform_is_aarch64_apple_darwin", ":target_platform_is_aarch64_unknown_linux_gnu", ":target_platform_is_aarch64_unknown_linux_musl", ":target_platform_is_x86_64_apple_darwin", ":target_platform_is_x86_64_unknown_linux_gnu", ":target_platform_is_x86_64_unknown_linux_musl", ":target_platform_is_x86_64_pc_windows_msvc", ":target_platform_is_aarch64_pc_windows_msvc", ":target_platform_is_i686_pc_windows_msvc"],
 )
 
 
@@ -65,7 +128,7 @@ config_setting(
 toolchain(
     name = "python_3_13_aarch64_apple_darwin",
     target_compatible_with = ["@platforms//os:macos", "@platforms//cpu:aarch64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":target_platform_is_aarch64_apple_darwin"],
     toolchain = "@python_3_13_aarch64_apple_darwin//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
@@ -73,21 +136,9 @@ toolchain(
 toolchain(
     name = "py_cc_python_3_13_aarch64_apple_darwin",
     target_compatible_with = ["@platforms//os:macos", "@platforms//cpu:aarch64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":target_platform_is_aarch64_apple_darwin"],
     toolchain = "@python_3_13_aarch64_apple_darwin//:py_cc_toolchain",
     toolchain_type = "@rules_python//python/cc:toolchain_type",
-)
-
-
-# Exec tools toolchain: selected by exec platform (not target platform) so
-# that build actions using the interpreter (e.g. compileall) get a runnable
-# binary on the build host regardless of the target platform being built for.
-toolchain(
-    name = "python_3_13_aarch64_apple_darwin_exec_tools",
-    exec_compatible_with = ["@platforms//os:macos", "@platforms//cpu:aarch64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
-    toolchain = "@python_3_13_aarch64_apple_darwin//:exec_tools_toolchain",
-    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
 )
 
 
@@ -101,7 +152,7 @@ toolchain(
 toolchain(
     name = "python_3_13_aarch64_unknown_linux_gnu",
     target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":platform_libc_is_glibc"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":target_platform_is_aarch64_unknown_linux_gnu"],
     toolchain = "@python_3_13_aarch64_unknown_linux_gnu//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
@@ -109,21 +160,9 @@ toolchain(
 toolchain(
     name = "py_cc_python_3_13_aarch64_unknown_linux_gnu",
     target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":platform_libc_is_glibc"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":target_platform_is_aarch64_unknown_linux_gnu"],
     toolchain = "@python_3_13_aarch64_unknown_linux_gnu//:py_cc_toolchain",
     toolchain_type = "@rules_python//python/cc:toolchain_type",
-)
-
-
-# Exec tools toolchain: selected by exec platform (not target platform) so
-# that build actions using the interpreter (e.g. compileall) get a runnable
-# binary on the build host regardless of the target platform being built for.
-toolchain(
-    name = "python_3_13_aarch64_unknown_linux_gnu_exec_tools",
-    exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
-    toolchain = "@python_3_13_aarch64_unknown_linux_gnu//:exec_tools_toolchain",
-    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
 )
 
 
@@ -137,7 +176,7 @@ toolchain(
 toolchain(
     name = "python_3_13_aarch64_unknown_linux_musl",
     target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":platform_libc_is_musl"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":target_platform_is_aarch64_unknown_linux_musl"],
     toolchain = "@python_3_13_aarch64_unknown_linux_musl//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
@@ -145,7 +184,7 @@ toolchain(
 toolchain(
     name = "py_cc_python_3_13_aarch64_unknown_linux_musl",
     target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":platform_libc_is_musl"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":target_platform_is_aarch64_unknown_linux_musl"],
     toolchain = "@python_3_13_aarch64_unknown_linux_musl//:py_cc_toolchain",
     toolchain_type = "@rules_python//python/cc:toolchain_type",
 )
@@ -161,7 +200,7 @@ toolchain(
 toolchain(
     name = "python_3_13_x86_64_apple_darwin",
     target_compatible_with = ["@platforms//os:macos", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":target_platform_is_x86_64_apple_darwin"],
     toolchain = "@python_3_13_x86_64_apple_darwin//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
@@ -169,21 +208,9 @@ toolchain(
 toolchain(
     name = "py_cc_python_3_13_x86_64_apple_darwin",
     target_compatible_with = ["@platforms//os:macos", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":target_platform_is_x86_64_apple_darwin"],
     toolchain = "@python_3_13_x86_64_apple_darwin//:py_cc_toolchain",
     toolchain_type = "@rules_python//python/cc:toolchain_type",
-)
-
-
-# Exec tools toolchain: selected by exec platform (not target platform) so
-# that build actions using the interpreter (e.g. compileall) get a runnable
-# binary on the build host regardless of the target platform being built for.
-toolchain(
-    name = "python_3_13_x86_64_apple_darwin_exec_tools",
-    exec_compatible_with = ["@platforms//os:macos", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
-    toolchain = "@python_3_13_x86_64_apple_darwin//:exec_tools_toolchain",
-    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
 )
 
 
@@ -197,7 +224,7 @@ toolchain(
 toolchain(
     name = "python_3_13_x86_64_unknown_linux_gnu",
     target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":platform_libc_is_glibc"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":target_platform_is_x86_64_unknown_linux_gnu"],
     toolchain = "@python_3_13_x86_64_unknown_linux_gnu//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
@@ -205,21 +232,9 @@ toolchain(
 toolchain(
     name = "py_cc_python_3_13_x86_64_unknown_linux_gnu",
     target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":platform_libc_is_glibc"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":target_platform_is_x86_64_unknown_linux_gnu"],
     toolchain = "@python_3_13_x86_64_unknown_linux_gnu//:py_cc_toolchain",
     toolchain_type = "@rules_python//python/cc:toolchain_type",
-)
-
-
-# Exec tools toolchain: selected by exec platform (not target platform) so
-# that build actions using the interpreter (e.g. compileall) get a runnable
-# binary on the build host regardless of the target platform being built for.
-toolchain(
-    name = "python_3_13_x86_64_unknown_linux_gnu_exec_tools",
-    exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
-    toolchain = "@python_3_13_x86_64_unknown_linux_gnu//:exec_tools_toolchain",
-    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
 )
 
 
@@ -233,7 +248,7 @@ toolchain(
 toolchain(
     name = "python_3_13_x86_64_unknown_linux_musl",
     target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":platform_libc_is_musl"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":target_platform_is_x86_64_unknown_linux_musl"],
     toolchain = "@python_3_13_x86_64_unknown_linux_musl//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
@@ -241,7 +256,7 @@ toolchain(
 toolchain(
     name = "py_cc_python_3_13_x86_64_unknown_linux_musl",
     target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":platform_libc_is_musl"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":target_platform_is_x86_64_unknown_linux_musl"],
     toolchain = "@python_3_13_x86_64_unknown_linux_musl//:py_cc_toolchain",
     toolchain_type = "@rules_python//python/cc:toolchain_type",
 )
@@ -257,7 +272,7 @@ toolchain(
 toolchain(
     name = "python_3_13_x86_64_pc_windows_msvc",
     target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":target_platform_is_x86_64_pc_windows_msvc"],
     toolchain = "@python_3_13_x86_64_pc_windows_msvc//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
@@ -265,21 +280,9 @@ toolchain(
 toolchain(
     name = "py_cc_python_3_13_x86_64_pc_windows_msvc",
     target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":target_platform_is_x86_64_pc_windows_msvc"],
     toolchain = "@python_3_13_x86_64_pc_windows_msvc//:py_cc_toolchain",
     toolchain_type = "@rules_python//python/cc:toolchain_type",
-)
-
-
-# Exec tools toolchain: selected by exec platform (not target platform) so
-# that build actions using the interpreter (e.g. compileall) get a runnable
-# binary on the build host regardless of the target platform being built for.
-toolchain(
-    name = "python_3_13_x86_64_pc_windows_msvc_exec_tools",
-    exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
-    toolchain = "@python_3_13_x86_64_pc_windows_msvc//:exec_tools_toolchain",
-    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
 )
 
 
@@ -293,7 +296,7 @@ toolchain(
 toolchain(
     name = "python_3_13_aarch64_pc_windows_msvc",
     target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:aarch64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":target_platform_is_aarch64_pc_windows_msvc"],
     toolchain = "@python_3_13_aarch64_pc_windows_msvc//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
@@ -301,21 +304,9 @@ toolchain(
 toolchain(
     name = "py_cc_python_3_13_aarch64_pc_windows_msvc",
     target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:aarch64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":target_platform_is_aarch64_pc_windows_msvc"],
     toolchain = "@python_3_13_aarch64_pc_windows_msvc//:py_cc_toolchain",
     toolchain_type = "@rules_python//python/cc:toolchain_type",
-)
-
-
-# Exec tools toolchain: selected by exec platform (not target platform) so
-# that build actions using the interpreter (e.g. compileall) get a runnable
-# binary on the build host regardless of the target platform being built for.
-toolchain(
-    name = "python_3_13_aarch64_pc_windows_msvc_exec_tools",
-    exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:aarch64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
-    toolchain = "@python_3_13_aarch64_pc_windows_msvc//:exec_tools_toolchain",
-    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
 )
 
 
@@ -329,7 +320,7 @@ toolchain(
 toolchain(
     name = "python_3_13_i686_pc_windows_msvc",
     target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_32"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":target_platform_is_i686_pc_windows_msvc"],
     toolchain = "@python_3_13_i686_pc_windows_msvc//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
@@ -337,21 +328,9 @@ toolchain(
 toolchain(
     name = "py_cc_python_3_13_i686_pc_windows_msvc",
     target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_32"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":target_platform_is_i686_pc_windows_msvc"],
     toolchain = "@python_3_13_i686_pc_windows_msvc//:py_cc_toolchain",
     toolchain_type = "@rules_python//python/cc:toolchain_type",
-)
-
-
-# Exec tools toolchain: selected by exec platform (not target platform) so
-# that build actions using the interpreter (e.g. compileall) get a runnable
-# binary on the build host regardless of the target platform being built for.
-toolchain(
-    name = "python_3_13_i686_pc_windows_msvc_exec_tools",
-    exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_32"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
-    toolchain = "@python_3_13_i686_pc_windows_msvc//:exec_tools_toolchain",
-    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
 )
 
 
@@ -365,7 +344,7 @@ toolchain(
 toolchain(
     name = "python_3_13_aarch64_apple_darwin_freethreaded",
     target_compatible_with = ["@platforms//os:macos", "@platforms//cpu:aarch64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":target_platform_is_aarch64_apple_darwin"],
     toolchain = "@python_3_13_aarch64_apple_darwin_freethreaded//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
@@ -373,21 +352,9 @@ toolchain(
 toolchain(
     name = "py_cc_python_3_13_aarch64_apple_darwin_freethreaded",
     target_compatible_with = ["@platforms//os:macos", "@platforms//cpu:aarch64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":target_platform_is_aarch64_apple_darwin"],
     toolchain = "@python_3_13_aarch64_apple_darwin_freethreaded//:py_cc_toolchain",
     toolchain_type = "@rules_python//python/cc:toolchain_type",
-)
-
-
-# Exec tools toolchain: selected by exec platform (not target platform) so
-# that build actions using the interpreter (e.g. compileall) get a runnable
-# binary on the build host regardless of the target platform being built for.
-toolchain(
-    name = "python_3_13_aarch64_apple_darwin_freethreaded_exec_tools",
-    exec_compatible_with = ["@platforms//os:macos", "@platforms//cpu:aarch64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
-    toolchain = "@python_3_13_aarch64_apple_darwin_freethreaded//:exec_tools_toolchain",
-    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
 )
 
 
@@ -401,7 +368,7 @@ toolchain(
 toolchain(
     name = "python_3_13_aarch64_unknown_linux_gnu_freethreaded",
     target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":platform_libc_is_glibc"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":target_platform_is_aarch64_unknown_linux_gnu"],
     toolchain = "@python_3_13_aarch64_unknown_linux_gnu_freethreaded//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
@@ -409,21 +376,9 @@ toolchain(
 toolchain(
     name = "py_cc_python_3_13_aarch64_unknown_linux_gnu_freethreaded",
     target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":platform_libc_is_glibc"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":target_platform_is_aarch64_unknown_linux_gnu"],
     toolchain = "@python_3_13_aarch64_unknown_linux_gnu_freethreaded//:py_cc_toolchain",
     toolchain_type = "@rules_python//python/cc:toolchain_type",
-)
-
-
-# Exec tools toolchain: selected by exec platform (not target platform) so
-# that build actions using the interpreter (e.g. compileall) get a runnable
-# binary on the build host regardless of the target platform being built for.
-toolchain(
-    name = "python_3_13_aarch64_unknown_linux_gnu_freethreaded_exec_tools",
-    exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
-    toolchain = "@python_3_13_aarch64_unknown_linux_gnu_freethreaded//:exec_tools_toolchain",
-    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
 )
 
 
@@ -437,7 +392,7 @@ toolchain(
 toolchain(
     name = "python_3_13_aarch64_unknown_linux_musl_freethreaded",
     target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":platform_libc_is_musl"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":target_platform_is_aarch64_unknown_linux_musl"],
     toolchain = "@python_3_13_aarch64_unknown_linux_musl_freethreaded//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
@@ -445,7 +400,7 @@ toolchain(
 toolchain(
     name = "py_cc_python_3_13_aarch64_unknown_linux_musl_freethreaded",
     target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":platform_libc_is_musl"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":target_platform_is_aarch64_unknown_linux_musl"],
     toolchain = "@python_3_13_aarch64_unknown_linux_musl_freethreaded//:py_cc_toolchain",
     toolchain_type = "@rules_python//python/cc:toolchain_type",
 )
@@ -461,7 +416,7 @@ toolchain(
 toolchain(
     name = "python_3_13_x86_64_apple_darwin_freethreaded",
     target_compatible_with = ["@platforms//os:macos", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":target_platform_is_x86_64_apple_darwin"],
     toolchain = "@python_3_13_x86_64_apple_darwin_freethreaded//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
@@ -469,21 +424,9 @@ toolchain(
 toolchain(
     name = "py_cc_python_3_13_x86_64_apple_darwin_freethreaded",
     target_compatible_with = ["@platforms//os:macos", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":target_platform_is_x86_64_apple_darwin"],
     toolchain = "@python_3_13_x86_64_apple_darwin_freethreaded//:py_cc_toolchain",
     toolchain_type = "@rules_python//python/cc:toolchain_type",
-)
-
-
-# Exec tools toolchain: selected by exec platform (not target platform) so
-# that build actions using the interpreter (e.g. compileall) get a runnable
-# binary on the build host regardless of the target platform being built for.
-toolchain(
-    name = "python_3_13_x86_64_apple_darwin_freethreaded_exec_tools",
-    exec_compatible_with = ["@platforms//os:macos", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
-    toolchain = "@python_3_13_x86_64_apple_darwin_freethreaded//:exec_tools_toolchain",
-    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
 )
 
 
@@ -497,7 +440,7 @@ toolchain(
 toolchain(
     name = "python_3_13_x86_64_unknown_linux_gnu_freethreaded",
     target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":platform_libc_is_glibc"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":target_platform_is_x86_64_unknown_linux_gnu"],
     toolchain = "@python_3_13_x86_64_unknown_linux_gnu_freethreaded//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
@@ -505,21 +448,9 @@ toolchain(
 toolchain(
     name = "py_cc_python_3_13_x86_64_unknown_linux_gnu_freethreaded",
     target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":platform_libc_is_glibc"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":target_platform_is_x86_64_unknown_linux_gnu"],
     toolchain = "@python_3_13_x86_64_unknown_linux_gnu_freethreaded//:py_cc_toolchain",
     toolchain_type = "@rules_python//python/cc:toolchain_type",
-)
-
-
-# Exec tools toolchain: selected by exec platform (not target platform) so
-# that build actions using the interpreter (e.g. compileall) get a runnable
-# binary on the build host regardless of the target platform being built for.
-toolchain(
-    name = "python_3_13_x86_64_unknown_linux_gnu_freethreaded_exec_tools",
-    exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
-    toolchain = "@python_3_13_x86_64_unknown_linux_gnu_freethreaded//:exec_tools_toolchain",
-    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
 )
 
 
@@ -533,7 +464,7 @@ toolchain(
 toolchain(
     name = "python_3_13_x86_64_unknown_linux_musl_freethreaded",
     target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":platform_libc_is_musl"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":target_platform_is_x86_64_unknown_linux_musl"],
     toolchain = "@python_3_13_x86_64_unknown_linux_musl_freethreaded//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
@@ -541,7 +472,7 @@ toolchain(
 toolchain(
     name = "py_cc_python_3_13_x86_64_unknown_linux_musl_freethreaded",
     target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":platform_libc_is_musl"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":target_platform_is_x86_64_unknown_linux_musl"],
     toolchain = "@python_3_13_x86_64_unknown_linux_musl_freethreaded//:py_cc_toolchain",
     toolchain_type = "@rules_python//python/cc:toolchain_type",
 )
@@ -557,7 +488,7 @@ toolchain(
 toolchain(
     name = "python_3_13_x86_64_pc_windows_msvc_freethreaded",
     target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":target_platform_is_x86_64_pc_windows_msvc"],
     toolchain = "@python_3_13_x86_64_pc_windows_msvc_freethreaded//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
@@ -565,21 +496,9 @@ toolchain(
 toolchain(
     name = "py_cc_python_3_13_x86_64_pc_windows_msvc_freethreaded",
     target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":target_platform_is_x86_64_pc_windows_msvc"],
     toolchain = "@python_3_13_x86_64_pc_windows_msvc_freethreaded//:py_cc_toolchain",
     toolchain_type = "@rules_python//python/cc:toolchain_type",
-)
-
-
-# Exec tools toolchain: selected by exec platform (not target platform) so
-# that build actions using the interpreter (e.g. compileall) get a runnable
-# binary on the build host regardless of the target platform being built for.
-toolchain(
-    name = "python_3_13_x86_64_pc_windows_msvc_freethreaded_exec_tools",
-    exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
-    toolchain = "@python_3_13_x86_64_pc_windows_msvc_freethreaded//:exec_tools_toolchain",
-    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
 )
 
 
@@ -593,7 +512,7 @@ toolchain(
 toolchain(
     name = "python_3_13_aarch64_pc_windows_msvc_freethreaded",
     target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:aarch64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":target_platform_is_aarch64_pc_windows_msvc"],
     toolchain = "@python_3_13_aarch64_pc_windows_msvc_freethreaded//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
@@ -601,21 +520,9 @@ toolchain(
 toolchain(
     name = "py_cc_python_3_13_aarch64_pc_windows_msvc_freethreaded",
     target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:aarch64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":target_platform_is_aarch64_pc_windows_msvc"],
     toolchain = "@python_3_13_aarch64_pc_windows_msvc_freethreaded//:py_cc_toolchain",
     toolchain_type = "@rules_python//python/cc:toolchain_type",
-)
-
-
-# Exec tools toolchain: selected by exec platform (not target platform) so
-# that build actions using the interpreter (e.g. compileall) get a runnable
-# binary on the build host regardless of the target platform being built for.
-toolchain(
-    name = "python_3_13_aarch64_pc_windows_msvc_freethreaded_exec_tools",
-    exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:aarch64"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
-    toolchain = "@python_3_13_aarch64_pc_windows_msvc_freethreaded//:exec_tools_toolchain",
-    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
 )
 
 
@@ -629,7 +536,7 @@ toolchain(
 toolchain(
     name = "python_3_13_i686_pc_windows_msvc_freethreaded",
     target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_32"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":target_platform_is_i686_pc_windows_msvc"],
     toolchain = "@python_3_13_i686_pc_windows_msvc_freethreaded//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
@@ -637,19 +544,147 @@ toolchain(
 toolchain(
     name = "py_cc_python_3_13_i686_pc_windows_msvc_freethreaded",
     target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_32"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":target_platform_is_i686_pc_windows_msvc"],
     toolchain = "@python_3_13_i686_pc_windows_msvc_freethreaded//:py_cc_toolchain",
     toolchain_type = "@rules_python//python/cc:toolchain_type",
 )
 
 
-# Exec tools toolchain: selected by exec platform (not target platform) so
-# that build actions using the interpreter (e.g. compileall) get a runnable
-# binary on the build host regardless of the target platform being built for.
 toolchain(
-    name = "python_3_13_i686_pc_windows_msvc_freethreaded_exec_tools",
+    name = "cohort_3_13_20260303_3_13_12_install_only_on_aarch64_apple_darwin_exec_tools",
+    exec_compatible_with = ["@platforms//os:macos", "@platforms//cpu:aarch64"],
+    target_compatible_with = [],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":cohort_3_13_20260303_3_13_12_install_only"],
+    toolchain = "@python_3_13_aarch64_apple_darwin//:exec_tools_toolchain",
+    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
+)
+
+
+toolchain(
+    name = "cohort_3_13_20260303_3_13_12_install_only_on_aarch64_unknown_linux_gnu_exec_tools",
+    exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
+    target_compatible_with = [],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":cohort_3_13_20260303_3_13_12_install_only"],
+    toolchain = "@python_3_13_aarch64_unknown_linux_gnu//:exec_tools_toolchain",
+    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
+)
+
+
+toolchain(
+    name = "cohort_3_13_20260303_3_13_12_install_only_on_x86_64_apple_darwin_exec_tools",
+    exec_compatible_with = ["@platforms//os:macos", "@platforms//cpu:x86_64"],
+    target_compatible_with = [],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":cohort_3_13_20260303_3_13_12_install_only"],
+    toolchain = "@python_3_13_x86_64_apple_darwin//:exec_tools_toolchain",
+    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
+)
+
+
+toolchain(
+    name = "cohort_3_13_20260303_3_13_12_install_only_on_x86_64_unknown_linux_gnu_exec_tools",
+    exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
+    target_compatible_with = [],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":cohort_3_13_20260303_3_13_12_install_only"],
+    toolchain = "@python_3_13_x86_64_unknown_linux_gnu//:exec_tools_toolchain",
+    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
+)
+
+
+toolchain(
+    name = "cohort_3_13_20260303_3_13_12_install_only_on_x86_64_pc_windows_msvc_exec_tools",
+    exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_64"],
+    target_compatible_with = [],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":cohort_3_13_20260303_3_13_12_install_only"],
+    toolchain = "@python_3_13_x86_64_pc_windows_msvc//:exec_tools_toolchain",
+    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
+)
+
+
+toolchain(
+    name = "cohort_3_13_20260303_3_13_12_install_only_on_aarch64_pc_windows_msvc_exec_tools",
+    exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:aarch64"],
+    target_compatible_with = [],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":cohort_3_13_20260303_3_13_12_install_only"],
+    toolchain = "@python_3_13_aarch64_pc_windows_msvc//:exec_tools_toolchain",
+    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
+)
+
+
+toolchain(
+    name = "cohort_3_13_20260303_3_13_12_install_only_on_i686_pc_windows_msvc_exec_tools",
     exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_32"],
-    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
+    target_compatible_with = [],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":cohort_3_13_20260303_3_13_12_install_only"],
+    toolchain = "@python_3_13_i686_pc_windows_msvc//:exec_tools_toolchain",
+    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
+)
+
+
+toolchain(
+    name = "cohort_3_13_20260303_3_13_12_freethreaded_on_aarch64_apple_darwin_exec_tools",
+    exec_compatible_with = ["@platforms//os:macos", "@platforms//cpu:aarch64"],
+    target_compatible_with = [],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":cohort_3_13_20260303_3_13_12_freethreaded"],
+    toolchain = "@python_3_13_aarch64_apple_darwin_freethreaded//:exec_tools_toolchain",
+    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
+)
+
+
+toolchain(
+    name = "cohort_3_13_20260303_3_13_12_freethreaded_on_aarch64_unknown_linux_gnu_exec_tools",
+    exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
+    target_compatible_with = [],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":cohort_3_13_20260303_3_13_12_freethreaded"],
+    toolchain = "@python_3_13_aarch64_unknown_linux_gnu_freethreaded//:exec_tools_toolchain",
+    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
+)
+
+
+toolchain(
+    name = "cohort_3_13_20260303_3_13_12_freethreaded_on_x86_64_apple_darwin_exec_tools",
+    exec_compatible_with = ["@platforms//os:macos", "@platforms//cpu:x86_64"],
+    target_compatible_with = [],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":cohort_3_13_20260303_3_13_12_freethreaded"],
+    toolchain = "@python_3_13_x86_64_apple_darwin_freethreaded//:exec_tools_toolchain",
+    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
+)
+
+
+toolchain(
+    name = "cohort_3_13_20260303_3_13_12_freethreaded_on_x86_64_unknown_linux_gnu_exec_tools",
+    exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
+    target_compatible_with = [],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":cohort_3_13_20260303_3_13_12_freethreaded"],
+    toolchain = "@python_3_13_x86_64_unknown_linux_gnu_freethreaded//:exec_tools_toolchain",
+    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
+)
+
+
+toolchain(
+    name = "cohort_3_13_20260303_3_13_12_freethreaded_on_x86_64_pc_windows_msvc_exec_tools",
+    exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_64"],
+    target_compatible_with = [],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":cohort_3_13_20260303_3_13_12_freethreaded"],
+    toolchain = "@python_3_13_x86_64_pc_windows_msvc_freethreaded//:exec_tools_toolchain",
+    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
+)
+
+
+toolchain(
+    name = "cohort_3_13_20260303_3_13_12_freethreaded_on_aarch64_pc_windows_msvc_exec_tools",
+    exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:aarch64"],
+    target_compatible_with = [],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":cohort_3_13_20260303_3_13_12_freethreaded"],
+    toolchain = "@python_3_13_aarch64_pc_windows_msvc_freethreaded//:exec_tools_toolchain",
+    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
+)
+
+
+toolchain(
+    name = "cohort_3_13_20260303_3_13_12_freethreaded_on_i686_pc_windows_msvc_exec_tools",
+    exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_32"],
+    target_compatible_with = [],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":cohort_3_13_20260303_3_13_12_freethreaded"],
     toolchain = "@python_3_13_i686_pc_windows_msvc_freethreaded//:exec_tools_toolchain",
     toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
 )

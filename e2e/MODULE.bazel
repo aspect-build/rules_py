@@ -4,6 +4,7 @@ bazel_dep(name = "aspect_rules_py")
 bazel_dep(name = "bazel_features", version = "1.38.0")
 bazel_dep(name = "bazel_skylib", version = "1.4.2")
 bazel_dep(name = "bazel_lib", version = "3.0.0")
+bazel_dep(name = "non_root", version = "1.0")
 bazel_dep(name = "rules_cc", version = "0.2.16")
 bazel_dep(name = "tar.bzl", version = "0.10.1")
 bazel_dep(name = "rules_python", version = "1.9.1")
@@ -16,6 +17,11 @@ bazel_dep(name = "rules_shell", version = "0.4.1")
 local_path_override(
     module_name = "aspect_rules_py",
     path = "..",
+)
+
+local_path_override(
+    module_name = "non_root",
+    path = "cases/interpreter-toolchain-settings/non_root",
 )
 
 # Ensure any transitive "aspect_bazel_lib" is latest to be forward compatible with bazel_lib 3+
@@ -52,7 +58,13 @@ interpreters.toolchain(
 interpreters.toolchain(
     python_version = "3.14",
 )
-use_repo(interpreters, "python_interpreters")
+use_repo(
+    interpreters,
+    "python_3_14_x86_64_pc_windows_msvc",
+    "python_3_14_x86_64_pc_windows_msvc_freethreaded",
+    "python_3_14_x86_64_unknown_linux_musl_freethreaded",
+    "python_interpreters",
+)
 
 register_toolchains("@python_interpreters//:all")
 

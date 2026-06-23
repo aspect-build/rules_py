@@ -232,7 +232,9 @@ py_runtime(
     }},
     abi_flags = "{abi_flags}",
     implementation_name = "cpython",
-    pyc_tag = "cpython-{major}{minor}{abi_flags}",
+    # Free-threaded CPython keeps the same cache tag without a `t` ABI flag:
+    # https://github.com/python/cpython/blob/v3.15.0a5/Python/sysmodule.c#L3570-L3576
+    pyc_tag = "cpython-{major}{minor}",
     python_version = "PY3",
 )
 
@@ -316,14 +318,11 @@ python_interpreter = repository_rule(
     },
 )
 
-def _platform_setting_name(flag, value):
-    """Generate a unique config_setting name for a flag/value pair."""
+def _sanitize(value):
+    return value.replace(".", "_").replace("-", "_").replace("+", "_")
 
-    # Extract the last path component of the flag label as a readable prefix,
-    # e.g. "@aspect_rules_py//uv/private/constraints/platform:platform_libc"
-    # -> "platform_libc_glibc"
-    name = flag.split(":")[-1] if ":" in flag else flag.split("/")[-1]
-    return "{}_is_{}".format(name, value)
+def _target_platform_setting_name(platform):
+    return "target_platform_is_" + _sanitize(platform)
 
 def _version_setting_name(major_minor):
     """Generate config_setting name for a Python version."""
@@ -346,28 +345,31 @@ def _python_toolchains_impl(rctx):
 )""".format(default_python_version = repr(rctx.attr.default_python_version)),
     ]
 
-    # First pass: collect all unique flag/value pairs and version/freethreaded
-    # combos so we generate each config_setting exactly once.
-    seen_settings = {}  # name -> (flag, value)
+    # Collect each target platform and version/config combination once.
+    target_platforms = {}
     seen_versions = {}  # major_minor -> True
     seen_freethreaded = {}  # bool -> True
-    toolchain_infos = []
+    target_toolchain_infos = []
+    exec_toolchain_infos = [json.decode(entry) for entry in rctx.attr.exec_toolchains]
 
-    for entry in rctx.attr.toolchains:
+    for entry in rctx.attr.target_toolchains:
         info = json.decode(entry)
-        platform_settings = info.get("platform_target_settings", {})
-        setting_names = []
-        for flag, value in platform_settings.items():
-            name = _platform_setting_name(flag, value)
-            if name not in seen_settings:
-                seen_settings[name] = (flag, value)
-            setting_names.append(name)
-
+        platform = info["platform"]
+        platform_info = {
+            "compatible_with": info["compatible_with"],
+            "target_settings": info.get("platform_target_settings", {}),
+        }
+        if platform in target_platforms and target_platforms[platform] != platform_info:
+            fail("Conflicting target platform settings for {}".format(platform))
+        target_platforms[platform] = platform_info
         python_version = info["python_version"]
         seen_versions[python_version] = True
         seen_freethreaded[info.get("freethreaded", False)] = True
+        target_toolchain_infos.append(info)
 
-        toolchain_infos.append((info, setting_names))
+    for info in exec_toolchain_infos:
+        seen_versions[info["python_version"]] = True
+        seen_freethreaded[info.get("freethreaded", False)] = True
 
     # Emit hub-local version config_settings so toolchain resolution doesn't
     # need to fetch individual interpreter repos.
@@ -417,34 +419,59 @@ config_setting(
             value = "true" if value else "false",
         ))
 
-    # Emit config_settings for platform target settings
-    for name, (flag, value) in seen_settings.items():
+    # A cohort is a set of disjoint target platforms. Combining constraints and
+    # target flags in one setting keeps libc target-side while still separating
+    # GNU and musl Linux targets.
+    for platform, platform_info in target_platforms.items():
         content.append("""
 config_setting(
     name = "{name}",
-    flag_values = {{"{flag}": "{value}"}},
+    constraint_values = {constraint_values},
+    flag_values = {flag_values},
 )
-""".format(name = name, flag = flag, value = value))
+""".format(
+            name = _target_platform_setting_name(platform),
+            constraint_values = platform_info["compatible_with"],
+            flag_values = platform_info["target_settings"],
+        ))
 
-    # Second pass: emit toolchain() registrations
-    for info, platform_setting_names in toolchain_infos:
+    seen_cohorts = {}
+    for info in exec_toolchain_infos:
+        cohort = info["cohort"]
+        target_platform_names = [
+            _target_platform_setting_name(platform)
+            for platform in info["target_platforms"]
+        ]
+        if cohort in seen_cohorts:
+            if seen_cohorts[cohort] != target_platform_names:
+                fail("Conflicting target platforms for cohort {}".format(cohort))
+            continue
+        seen_cohorts[cohort] = target_platform_names
+        content.append("""
+selects.config_setting_group(
+    name = "{name}",
+    match_any = {target_platforms},
+)
+""".format(
+            name = cohort,
+            target_platforms = [":" + name for name in target_platform_names],
+        ))
+
+    # Target runtime and C registrations retain their stable names and exact
+    # target-platform compatibility.
+    for info in target_toolchain_infos:
         extra_config_settings = info.get("config_settings", [])
         extra_target_compatible = info.get("target_compatible_with", [])
-        extra_exec_compatible = info.get("exec_compatible_with", [])
 
         version_setting = ":" + _version_setting_name(info["python_version"])
         freethreaded_setting = ":" + _freethreaded_setting_name(info.get("freethreaded", False))
-
-        common_target_settings = [
+        target_settings = [
             version_setting,
             freethreaded_setting,
-        ]
-        target_settings = common_target_settings + [":" + name for name in platform_setting_names] + extra_config_settings
-        exec_target_settings = common_target_settings + extra_config_settings
+            ":" + _target_platform_setting_name(info["platform"]),
+        ] + extra_config_settings
 
         target_compatible_with = info["compatible_with"] + extra_target_compatible
-        exec_compatible_with = info["compatible_with"] + extra_exec_compatible
-
         py_cc_name = "py_cc_" + info["name"]
 
         content.append("""
@@ -479,24 +506,33 @@ toolchain(
             py_cc_toolchain = info["py_cc_toolchain"],
         ))
 
-        if info["register_exec_tools"]:
-            content.append("""
-# Exec tools toolchain: selected by exec platform (not target platform) so
-# that build actions using the interpreter (e.g. compileall) get a runnable
-# binary on the build host regardless of the target platform being built for.
+    # Each exact target cohort gets at most one registration per supported
+    # executor platform. The cohort group selects all target platforms sharing
+    # the release, full version, and logical build configuration.
+    for info in exec_toolchain_infos:
+        exec_target_settings = [
+            ":" + _version_setting_name(info["python_version"]),
+            ":" + _freethreaded_setting_name(info.get("freethreaded", False)),
+            ":" + info["cohort"],
+        ] + info.get("config_settings", [])
+        exec_compatible_with = info["compatible_with"] + info.get("exec_compatible_with", [])
+        target_compatible_with = info.get("target_compatible_with", [])
+        content.append("""
 toolchain(
     name = "{name}_exec_tools",
     exec_compatible_with = {exec_compatible_with},
+    target_compatible_with = {target_compatible_with},
     target_settings = {exec_target_settings},
     toolchain = "@{repo}//:exec_tools_toolchain",
     toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
 )
 """.format(
-                name = info["name"],
-                repo = info["repo"],
-                exec_compatible_with = exec_compatible_with,
-                exec_target_settings = exec_target_settings,
-            ))
+            name = info["name"],
+            repo = info["repo"],
+            exec_compatible_with = exec_compatible_with,
+            target_compatible_with = target_compatible_with,
+            exec_target_settings = exec_target_settings,
+        ))
 
     content.append("""
 exports_files(
@@ -519,6 +555,7 @@ python_toolchains = repository_rule(
     implementation = _python_toolchains_impl,
     attrs = {
         "default_python_version": attr.string(),
-        "toolchains": attr.string_list(),
+        "exec_toolchains": attr.string_list(),
+        "target_toolchains": attr.string_list(),
     },
 )

@@ -60,24 +60,22 @@ check_platform_toolchains() {
         || fail "${target} did not resolve the expected target and exec interpreters"
 }
 
-"$BAZEL" query --lockfile_mode=off -- \
-    '@python_interpreters//:python_3_12_x86_64_unknown_linux_gnu_exec_tools' \
-    >/dev/null \
-    || fail "the normal GNU Linux exec-tools registration is missing"
-"$BAZEL" query --lockfile_mode=off -- \
-    '@python_interpreters//:python_3_14_x86_64_unknown_linux_gnu_freethreaded_exec_tools' \
-    >/dev/null \
-    || fail "the free-threaded GNU Linux exec-tools registration is missing"
-if "$BAZEL" query --lockfile_mode=off -- \
-    '@python_interpreters//:python_3_12_x86_64_unknown_linux_musl_exec_tools' \
-    >"$failure_log" 2>&1; then
-    fail "a normal musl Linux exec-tools registration was generated"
-fi
-if "$BAZEL" query --lockfile_mode=off -- \
-    '@python_interpreters//:python_3_14_x86_64_unknown_linux_musl_freethreaded_exec_tools' \
-    >"$failure_log" 2>&1; then
-    fail "a free-threaded musl Linux exec-tools registration was generated"
-fi
+exec_toolchains="$("$BAZEL" query \
+    --lockfile_mode=off \
+    --output=label \
+    'filter("_exec_tools$", @python_interpreters//:all)')" \
+    || fail "could not enumerate exec-tools registrations"
+case "$exec_toolchains" in
+    *cohort_3_12_20260303_3_12_13_install_only_on_x86_64_unknown_linux_gnu_exec_tools*) ;;
+    *) fail "the normal GNU Linux exec-tools registration is missing" ;;
+esac
+case "$exec_toolchains" in
+    *cohort_3_14_20260303_3_14_3_freethreaded_on_x86_64_unknown_linux_gnu_exec_tools*) ;;
+    *) fail "the free-threaded GNU Linux exec-tools registration is missing" ;;
+esac
+case "$exec_toolchains" in
+    *musl*) fail "a musl Linux exec-tools registration was generated" ;;
+esac
 
 "$BAZEL" build \
     --lockfile_mode=off \
@@ -152,6 +150,17 @@ expect_toolchain_failure \
     --define=interpreter_setting_secondary=311 \
     --platforms=//:exec_only_platform \
     --extra_execution_platforms=//:exec_only_platform
+if "$BAZEL" build \
+    --lockfile_mode=off \
+    --@aspect_rules_py//py:python_version=3.11 \
+    --@rules_python//python/config_settings:python_version= \
+    --define=interpreter_setting=311 \
+    --define=interpreter_setting_secondary=311 \
+    --platforms=//:exec_only_platform \
+    --extra_execution_platforms=//:exec_only_platform \
+    -- //:exec_tools_only_311 >"$failure_log" 2>&1; then
+    fail "target_compatible_with was not enforced on the exec-tools registration"
+fi
 expect_toolchain_failure \
     exec_compatible_with \
     --define=interpreter_setting=311 \

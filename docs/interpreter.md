@@ -57,10 +57,15 @@ use_repo(interpreters, "python_interpreters")
 register_toolchains("@python_interpreters//:all")
 ```
 
+Explicit release identifiers use PBS's eight-digit `YYYYMMDD` format. The
+special value `latest` resolves to one of those release dates.
+
 When multiple releases contain the same Python minor version, the newest release
-is preferred. Only one root-module `configure()` tag is allowed. Dependency
-modules may include any number of `configure()` tags without error; they are
-silently ignored.
+is preferred. If that release contains several full versions for one platform
+and build configuration, the newest full version is the target. Older full
+versions remain available for exact executor companion lookup. Only one
+root-module `configure()` tag is allowed. Dependency modules may include any
+number of `configure()` tags without error; they are silently ignored.
 
 ## Using the latest release
 
@@ -219,12 +224,14 @@ publishes that version and platform combination:
 
 For a target platform, the runtime and C registrations point into the same
 repository created from one exact PBS archive. They share target platform,
-libc, `major.minor`, free-threaded mode, and root-supplied settings.
+libc, complete Python version, build configuration, and root-supplied settings.
 
-Exec-tools registrations resolve independently for the executor platform. They
-match `major.minor`, free-threaded mode, and root-supplied settings, but their
-PBS archive is selected for the executor rather than inherited from the target
-runtime.
+Target platforms selected from the same PBS release date, complete Python
+version, and logical build configuration form a cohort. Exec tools are selected
+from that exact cohort for the executor platform. If the release does not
+contain the exact companion archive for one executor platform, only that
+cohort/executor pairing is omitted; target runtime and C registrations remain
+available.
 
 On Linux, only GNU PBS artifacts are registered as exec tools, and Linux
 execution platforms must provide glibc. Musl remains supported as a target: a
@@ -235,8 +242,8 @@ therefore constrain only OS and CPU. Registering a Linux execution platform is
 an explicit promise that its host provides glibc.
 
 Bazel resolves the runtime, C, and exec-tools toolchain types independently.
-The shared settings align registrations emitted by this extension, but Bazel
-does not bind all three toolchain types into one selection.
+Each exec registration is constrained to a disjoint target cohort, so a
+resolved set uses one release date, complete version, and build configuration.
 
 ## Platforms
 

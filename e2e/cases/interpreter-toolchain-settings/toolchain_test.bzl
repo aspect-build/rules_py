@@ -51,7 +51,7 @@ def _check_runtime_mode(name, runtime, python_version, abi_flags):
     _assert_equal("{} ABI flags".format(name), abi_flags, runtime.abi_flags)
     _assert_equal(
         "{} pyc tag".format(name),
-        "cpython-{}{}".format(python_version.replace(".", ""), abi_flags),
+        "cpython-{}".format(python_version.replace(".", "")),
         runtime.pyc_tag,
     )
     return version_info
@@ -61,6 +61,15 @@ def _check_runtime(name, runtime, python_version, micro, releaselevel, serial, a
     _assert_equal("{} micro".format(name), micro, version_info.micro)
     _assert_equal("{} release level".format(name), releaselevel, version_info.releaselevel)
     _assert_equal("{} release serial".format(name), serial, version_info.serial)
+    return version_info
+
+def _check_matching_versions(target_version, exec_version):
+    for field in ["major", "minor", "micro", "releaselevel", "serial"]:
+        _assert_equal(
+            "target/exec {}".format(field),
+            getattr(target_version, field),
+            getattr(exec_version, field),
+        )
 
 def _check_cc_toolchain(name, cc, python_version, runtime_repo):
     _assert_equal("{} version".format(name), python_version, cc.python_version)
@@ -95,7 +104,7 @@ def _interpreter_toolchain_check_impl(ctx):
     exec_tools = ctx.toolchains[_EXEC_TOOLS_TOOLCHAIN].exec_tools
     exec_runtime = exec_tools.exec_runtime
 
-    _check_runtime(
+    target_version = _check_runtime(
         "runtime toolchain",
         runtime,
         ctx.attr.python_version,
@@ -104,12 +113,16 @@ def _interpreter_toolchain_check_impl(ctx):
         ctx.attr.serial,
         ctx.attr.abi_flags,
     )
-    _check_runtime_mode(
+    exec_version = _check_runtime(
         "exec-tools runtime",
         exec_runtime,
         ctx.attr.python_version,
+        ctx.attr.micro,
+        ctx.attr.releaselevel,
+        ctx.attr.serial,
         ctx.attr.abi_flags,
     )
+    _check_matching_versions(target_version, exec_version)
     runtime_repo = _repository(runtime.interpreter)
     exec_runtime_repo = _repository(exec_runtime.interpreter)
     _check_cc_toolchain("C toolchain", cc, ctx.attr.python_version, runtime_repo)
@@ -154,13 +167,26 @@ interpreter_toolchain_check = rule(
     ],
 )
 
+def _exec_tools_check_impl(ctx):
+    runtime = ctx.toolchains[_EXEC_TOOLS_TOOLCHAIN].exec_tools.exec_runtime
+    if runtime == None or runtime.interpreter == None:
+        fail("exec-tools check did not resolve a hermetic Python runtime")
+    out = ctx.actions.declare_file(ctx.label.name + ".txt")
+    ctx.actions.write(out, str(runtime.interpreter_version_info))
+    return [DefaultInfo(files = depset([out]))]
+
+exec_tools_check = rule(
+    implementation = _exec_tools_check_impl,
+    toolchains = [_EXEC_TOOLS_TOOLCHAIN],
+)
+
 def _cross_platform_interpreter_check_impl(ctx):
     runtime = ctx.toolchains[_RUNTIME_TOOLCHAIN].py3_runtime
     cc = ctx.toolchains[_CC_TOOLCHAIN].py_cc_toolchain
     exec_tools = ctx.toolchains[_EXEC_TOOLS_TOOLCHAIN].exec_tools
     exec_runtime = exec_tools.exec_runtime
 
-    _check_runtime(
+    target_version = _check_runtime(
         "runtime toolchain",
         runtime,
         ctx.attr.python_version,
@@ -169,12 +195,16 @@ def _cross_platform_interpreter_check_impl(ctx):
         ctx.attr.serial,
         ctx.attr.abi_flags,
     )
-    _check_runtime_mode(
+    exec_version = _check_runtime(
         "exec-tools runtime",
         exec_runtime,
         ctx.attr.python_version,
+        ctx.attr.micro,
+        ctx.attr.releaselevel,
+        ctx.attr.serial,
         ctx.attr.abi_flags,
     )
+    _check_matching_versions(target_version, exec_version)
 
     runtime_repo = _repository(runtime.interpreter)
     exec_runtime_repo = _repository(exec_runtime.interpreter)
@@ -306,20 +336,22 @@ def _version_transition_check_impl(ctx):
     if len(ctx.attr.probe) != 1:
         fail("expected one transitioned version probe, got {}".format(len(ctx.attr.probe)))
     values = ctx.attr.probe[0][_VersionValuesInfo]
-    _assert_equal("Aspect version after transition", ctx.attr.expected, values.aspect)
-    _assert_equal("rules_python version after transition", ctx.attr.expected, values.rules_python)
+    expected = ctx.attr.expected or ctx.attr._aspect[BuildSettingInfo].value
+    _assert_equal("Aspect version after transition", expected, values.aspect)
+    _assert_equal("rules_python version after transition", expected, values.rules_python)
     return []
 
 _version_transition_check = rule(
     implementation = _version_transition_check_impl,
     attrs = {
-        "expected": attr.string(mandatory = True),
+        "expected": attr.string(),
         "probe": attr.label(cfg = python_transition, mandatory = True),
         "python_version": attr.string(),
+        "_aspect": attr.label(default = "@python_interpreters//:python_version"),
     },
 )
 
-def version_transition_check(name, expected, python_version = ""):
+def version_transition_check(name, expected = "", python_version = ""):
     probe_name = name + "_probe"
     _version_probe(name = probe_name)
     _version_transition_check(

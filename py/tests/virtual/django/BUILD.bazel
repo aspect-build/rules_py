@@ -28,6 +28,7 @@ py_binary(
     name = "manage",
     srcs = ["proj/manage.py"],
     package_collisions = "warning",
+    python_version = "3.9",
     # Resolve django to the "standard" one from our requirements.txt
     resolutions = django_resolutions,
     deps = [
@@ -48,6 +49,7 @@ py_unpacked_wheel(
 py_binary(
     name = "manage.override_django",
     srcs = ["proj/manage.py"],
+    python_version = "3.9",
     # package_collisions = "warning",
     # Install the dependencies that the pip_parse rule defined as defaults...
     resolutions = django_resolutions.override({
@@ -72,6 +74,7 @@ py_binary(
     name = "manage.remove_django",
     srcs = ["proj/manage.py"],
     package_collisions = "warning",
+    python_version = "3.9",
     resolutions = django_resolutions.override({
         # Replace the resolution of django with an empty folder
         "django": ":empty",

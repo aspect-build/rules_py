@@ -1,7 +1,8 @@
 """Module extension for provisioning Python interpreters from python-build-standalone."""
 
 load(":repository.bzl", "python_interpreter", "python_toolchains")
-load(":version_util.bzl", "is_pre_release", "is_valid_python_tag", "is_valid_python_version", "version_gt")
+load(":selection.bzl", "build_toolchain_plan", "parse_sha256sums")
+load(":version_util.bzl", "is_pre_release", "is_valid_python_tag")
 load(":versions.bzl", "BUILD_CONFIGS", "DEFAULT_RELEASE_BASE_URL", "DEFAULT_RELEASE_DATES", "PLATFORMS")
 
 # The GitHub API endpoint for resolving "latest" releases.
@@ -9,174 +10,7 @@ _GITHUB_API_LATEST = "https://api.github.com/repos/{owner}/{repo}/releases/lates
 
 # Facts can outlive an extension implementation change, so matching changes
 # must use a new key rather than accepting the old index shape.
-_RELEASE_INDEX_SCHEMA = 1
-
-def _sanitize(s):
-    """Replace characters that are invalid in Bazel repo names."""
-    return s.replace(".", "_").replace("-", "_").replace("+", "_")
-
-def _parse_sha256sums(content, release_date):
-    """Parse a SHA256SUMS file into a structured index.
-
-    Returns a dict mapping (major_minor, platform, build_config) -> {
-        "sha256": str,
-        "filename": str,
-        "full_version": str,
-    }
-
-    When multiple patch versions exist for the same major.minor, only the
-    newest is kept.
-    """
-    index = {}
-    seen_assets = {}
-    asset_matchers = {}
-
-    config_names = sorted(BUILD_CONFIGS.keys())
-    for platform, platform_info in PLATFORMS.items():
-        asset_suffixes = platform_info.get("asset_suffixes", {})
-        if sorted(asset_suffixes.keys()) != config_names:
-            fail(
-                "PBS platform {} must define exactly these logical build configs: {}; got {}".format(
-                    platform,
-                    config_names,
-                    sorted(asset_suffixes.keys()),
-                ),
-            )
-
-        for config_name, config_info in BUILD_CONFIGS.items():
-            suffix = asset_suffixes[config_name]
-            if not suffix:
-                fail("PBS platform {} has an empty asset suffix for {}".format(platform, config_name))
-            asset_tail = "{}-{}.{}".format(platform, suffix, config_info["extension"])
-            if asset_tail in asset_matchers:
-                other = asset_matchers[asset_tail]
-                fail(
-                    "Ambiguous PBS asset matcher {} for {}/{} and {}/{}".format(
-                        asset_tail,
-                        other[0],
-                        other[1],
-                        platform,
-                        config_name,
-                    ),
-                )
-            asset_matchers[asset_tail] = (platform, config_name)
-
-    for line_number, raw_line in enumerate(content.split("\n")):
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-
-        parts = [part for part in line.replace("\t", " ").split(" ") if part]
-        if len(parts) != 2:
-            for asset_tail in asset_matchers:
-                if line.endswith("-" + asset_tail):
-                    fail(
-                        "Malformed configured PBS asset on line {} of release {}: {}".format(
-                            line_number + 1,
-                            release_date,
-                            line,
-                        ),
-                    )
-            continue
-
-        sha256 = parts[0].strip()
-        filename = parts[1].strip()
-        if filename.startswith("*"):
-            filename = filename[1:]
-
-        if not filename.startswith("cpython-"):
-            continue
-
-        matches = []
-        for asset_tail, matcher in asset_matchers.items():
-            if filename.endswith("-" + asset_tail):
-                matches.append((asset_tail, matcher))
-
-        if not matches:
-            continue
-        if len(matches) != 1:
-            fail(
-                "Ambiguous configured PBS asset on line {} of release {}: {} matches {}".format(
-                    line_number + 1,
-                    release_date,
-                    filename,
-                    [match[0] for match in matches],
-                ),
-            )
-
-        asset_tail, (matched_platform, matched_config) = matches[0]
-
-        # Parse exactly: cpython-{version}+{date}-{platform}-{suffix}.{ext}
-        plus_idx = filename.find("+")
-        expected_remainder = "{}-{}".format(release_date, asset_tail)
-        if plus_idx < len("cpython-") or filename[plus_idx + 1:] != expected_remainder:
-            fail(
-                "Malformed configured PBS asset on line {} of release {}: expected cpython-{{version}}+{}, got {}".format(
-                    line_number + 1,
-                    release_date,
-                    expected_remainder,
-                    filename,
-                ),
-            )
-        version = filename[len("cpython-"):plus_idx]
-
-        if not is_valid_python_version(version):
-            fail(
-                "Malformed Python version '{}' in configured PBS asset on line {} of release {}: {}".format(
-                    version,
-                    line_number + 1,
-                    release_date,
-                    filename,
-                ),
-            )
-        version_parts = version.split(".")
-        major_minor = "{}.{}".format(version_parts[0], version_parts[1])
-
-        valid_sha256 = len(sha256) == 64
-        for char in sha256.elems():
-            if char not in "0123456789abcdefABCDEF":
-                valid_sha256 = False
-        if not valid_sha256:
-            fail(
-                "Malformed SHA256 for configured PBS asset on line {} of release {}: {}".format(
-                    line_number + 1,
-                    release_date,
-                    line,
-                ),
-            )
-        sha256 = sha256.lower()
-
-        key = "{}/{}/{}".format(major_minor, matched_platform, matched_config)
-        version_key = (key, version)
-        prior_asset = seen_assets.get(version_key)
-        if prior_asset:
-            if filename == prior_asset["filename"] and sha256 == prior_asset["sha256"]:
-                continue
-            fail(
-                "Ambiguous PBS assets for {} in release {}: {} and {}".format(
-                    key,
-                    release_date,
-                    prior_asset["filename"],
-                    filename,
-                ),
-            )
-        seen_assets[version_key] = {
-            "filename": filename,
-            "sha256": sha256,
-        }
-
-        # Keep the newest patch version
-        existing = index.get(key)
-        if existing and not version_gt(version, existing["full_version"]):
-            continue
-
-        index[key] = {
-            "sha256": sha256,
-            "filename": filename,
-            "full_version": version,
-        }
-
-    return index
+_RELEASE_INDEX_SCHEMA = 2
 
 def _release_index_facts_key(release_date, base_url):
     return "release_index_v{}_{}_{}".format(_RELEASE_INDEX_SCHEMA, release_date, base_url)
@@ -237,7 +71,7 @@ def _fetch_release_index(module_ctx, release_date, base_url, facts):
     )
     content = module_ctx.read(sha256sums_path)
 
-    index = _parse_sha256sums(content, release_date)
+    index = parse_sha256sums(content, release_date)
     if not index:
         fail(
             "No CPython assets found in SHA256SUMS for release date \"{}\". ".format(release_date) +
@@ -281,6 +115,8 @@ def _python_interpreters_impl(module_ctx):
                     is_reproducible = False
                     date = _resolve_latest(module_ctx, base_url)
                     resolved_latest = date
+                if len(date) != 8 or any([char not in "0123456789" for char in date.elems()]):
+                    fail("PBS releases must be eight-digit dates, got '{}'".format(date))
                 if date not in release_dates:
                     release_dates.append(date)
                     release_base_urls[date] = base_url
@@ -387,9 +223,8 @@ def _python_interpreters_impl(module_ctx):
         facts_key = _release_index_facts_key(date, base_url)
         new_facts[facts_key] = index
 
-    # Create per-platform, per-build-config interpreter repos and collect
-    # toolchain entries.
-    toolchain_entries = []
+    target_toolchain_entries = []
+    exec_toolchain_entries = []
 
     for major_minor in sorted(requested_versions):
         version_found = False
@@ -398,64 +233,29 @@ def _python_interpreters_impl(module_ctx):
             "exec_compatible_with": [],
             "target_compatible_with": [],
         })
-        for config_name, config_info in BUILD_CONFIGS.items():
-            for platform_triple, platform_info in PLATFORMS.items():
-                repo_name = "python_{}_{}".format(
-                    _sanitize(major_minor),
-                    _sanitize(platform_triple),
-                )
-                if config_name != "install_only":
-                    repo_name += "_" + _sanitize(config_name)
-
-                # Find the best release for this version/platform/config
-                asset_info = _find_asset(
-                    major_minor,
-                    platform_triple,
-                    config_name,
-                    release_dates,
-                    release_indices,
-                )
-
-                if not asset_info:
-                    # Version/platform/config combo doesn't exist — skip it
-                    # rather than registering a stub toolchain.
-                    continue
-
-                # Skip pre-release versions unless explicitly allowed
-                if is_pre_release(asset_info["full_version"]) and not allow_pre_release.get(major_minor, False):
-                    continue
-
-                version_found = True
-
-                base_url = release_base_urls.get(asset_info["release_date"], DEFAULT_RELEASE_BASE_URL)
-                url = "{}/{}/{}".format(
-                    base_url,
-                    asset_info["release_date"],
-                    asset_info["filename"],
-                )
-                python_interpreter(
-                    name = repo_name,
-                    python_version = asset_info["full_version"],
-                    platform = platform_triple,
-                    url = url,
-                    sha256 = asset_info["sha256"],
-                    strip_prefix = config_info["strip_prefix"],
-                    freethreaded = config_info["freethreaded"],
-                )
-
-                toolchain_entries.append(json.encode({
-                    "name": repo_name,
-                    "repo": repo_name,
-                    "py_cc_toolchain": "@{}//:py_cc_toolchain".format(repo_name),
-                    "python_version": major_minor,
-                    "freethreaded": config_info["freethreaded"],
-                    "compatible_with": platform_info["compatible_with"],
-                    "register_exec_tools": platform_info["register_exec_tools"],
-                    "platform_target_settings": platform_info.get("target_settings", {}),
-                    "config_settings": settings["config_settings"],
-                    "target_compatible_with": settings["target_compatible_with"],
-                    "exec_compatible_with": settings["exec_compatible_with"],
-                }))
+        plan = build_toolchain_plan(
+            major_minor = major_minor,
+            release_dates = release_dates,
+            release_indices = release_indices,
+            platforms = PLATFORMS,
+            build_configs = BUILD_CONFIGS,
+            allow_pre_release = allow_pre_release.get(major_minor, False),
+            settings = settings,
+        )
+        version_found = bool(plan["targets"])
+        for repository in plan["repositories"]:
+            base_url = release_base_urls.get(repository["release_date"], DEFAULT_RELEASE_BASE_URL)
+            python_interpreter(
+                name = repository["name"],
+                python_version = repository["full_version"],
+                platform = repository["platform"],
+                url = "{}/{}/{}".format(base_url, repository["release_date"], repository["filename"]),
+                sha256 = repository["sha256"],
+                strip_prefix = repository["strip_prefix"],
+                freethreaded = repository["freethreaded"],
+            )
+        target_toolchain_entries.extend([json.encode(entry) for entry in plan["targets"]])
+        exec_toolchain_entries.extend([json.encode(entry) for entry in plan["execs"]])
 
         if not version_found:
             sources = version_sources.get(major_minor, ["unknown"])
@@ -471,25 +271,11 @@ def _python_interpreters_impl(module_ctx):
     python_toolchains(
         name = "python_interpreters",
         default_python_version = default_version,
-        toolchains = toolchain_entries,
+        exec_toolchains = exec_toolchain_entries,
+        target_toolchains = target_toolchain_entries,
     )
 
     return _return_metadata(module_ctx, has_facts, new_facts, is_reproducible, resolved_latest)
-
-def _find_asset(major_minor, platform, build_config, release_dates, release_indices):
-    """Find the best asset across releases, preferring newer releases."""
-    for date in release_dates:
-        index = release_indices.get(date, {})
-        key = "{}/{}/{}".format(major_minor, platform, build_config)
-        entry = index.get(key)
-        if entry:
-            return {
-                "release_date": date,
-                "sha256": entry["sha256"],
-                "filename": entry["filename"],
-                "full_version": entry["full_version"],
-            }
-    return None
 
 def _return_metadata(module_ctx, has_facts, facts, is_reproducible, resolved_latest):
     """Return extension_metadata with facts and reproducibility info."""
@@ -527,9 +313,9 @@ Only honored from the root module.
         "releases": attr.string_list(
             mandatory = True,
             doc = """\
-List of python-build-standalone release dates to search for interpreters,
-e.g. ["20260303", "20241002"]. Newer releases are preferred when multiple
-contain the same Python minor version.
+List of eight-digit python-build-standalone release dates (`YYYYMMDD`) to search
+for interpreters, e.g. ["20260303", "20241002"]. Newer releases are preferred
+when multiple contain the same Python minor version.
 
 The special value "latest" resolves to the newest release via the GitHub
 releases API. This makes the extension non-reproducible: Bazel will
@@ -555,8 +341,8 @@ Additional config_setting labels that must match for this Python version's
 runtime, C, and exec-tools registrations. Use this to gate a toolchain on a
 custom flag, e.g. ["//:use_hermetic_python"]. The settings are added to each
 registration's target_settings alongside the version and free-threaded mode.
-Platform-specific target settings apply only to the runtime and C
-registrations.
+Platform-specific target settings also select the exact target cohort for
+exec-tools registrations.
 
 Only honored from the root module.
 """,
@@ -600,7 +386,7 @@ Only honored from the root module.
             default = [],
             doc = """\
 Additional target platform constraints appended to each platform variant's
-target_compatible_with list.
+runtime, C, and exec-tools target_compatible_with list.
 
 Only honored from the root module.
 """,
