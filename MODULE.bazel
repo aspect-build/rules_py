@@ -12,11 +12,7 @@ bazel_dep(name = "gawk", version = "5.3.2.bcr.7")
 bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "rules_cc", version = "0.2.16")
 bazel_dep(name = "rules_pkg", version = "1.1.0")
-
-# TODO: when bumping to 1.9.0+, replace py/private/exec_tools/defs.bzl with
-# rules_python's public py_exec_tools_toolchain and PyExecToolsInfo, and switch
-# EXEC_TOOLS_TOOLCHAIN back to @rules_python//python:exec_tools_toolchain_type.
-bazel_dep(name = "rules_python", version = "1.0.0")
+bazel_dep(name = "rules_python", version = "1.9.0")
 bazel_dep(name = "rules_shell", version = "0.6.1")
 bazel_dep(name = "tar.bzl", version = "0.10.1")
 bazel_dep(name = "with_cfg.bzl", version = "0.14.6")
