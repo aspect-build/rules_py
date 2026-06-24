@@ -215,6 +215,11 @@ The following platforms are registered by default:
 Not all Python versions are available on all platforms. Unavailable combinations
 are silently skipped during toolchain resolution.
 
+All listed PBS platforms emit Python runtime registrations. PBS exec-tools
+registrations are emitted only for supported execution platforms: macOS,
+Windows, and GNU Linux. PBS-backed Linux exec registrations support glibc; musl
+interpreters remain available as Linux target runtimes.
+
 ## Compatibility with rules_python
 
 This interpreter provisioning is designed to coexist with `rules_python`:
