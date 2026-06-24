@@ -178,11 +178,26 @@ uv.override_package(
 ## Constraints
 
 - Each `(lock, name, version)` triple may only have one `override_package` declaration. Duplicates are an error.
+- `lock` must identify a `uv.project()` declared by the same module.
 - `target` is mutually exclusive with all other modification attributes. Use `target` for full replacement OR the patch/modification attributes, not both.
 - The `version` attribute is optional and defaults to whatever version the lockfile resolves.
 - `console_scripts` applies only when the lock record has a source
   distribution. Prebuilt wheels use their inspected metadata.
-- Pre-build patches only apply to packages that have a source distribution in the lockfile. If a package only has pre-built wheels, `pre_build_patches` has no effect.
+- An explicit `version` must match a record for that package in the lockfile.
+- Modification attributes cannot apply to virtual packages or the project's
+  editable workspace package because neither produces an installed wheel.
+- `pre_build_patch_strip` requires `pre_build_patches`, and
+  `post_install_patch_strip` requires `post_install_patches`.
+- `pre_build_patches`, `toolchains`, `env`, `monitor_memory`, and non-default
+  `resource_set` values require a source distribution. An override that applies
+  them to a wheel-only lock record is rejected.
+- A configure tool that returns complete `build_file_content` receives
+  `pre_build_patches` and `pre_build_patch_strip` in its context and owns
+  applying them. `toolchains`, `env`, `monitor_memory`, and non-default
+  `resource_set` values are rejected because the configure context cannot
+  convey them.
+- Generated pure-Python builds reject `toolchains` and `env`; those attributes
+  augment the native build toolchain and environment.
 
 ## Future work
 

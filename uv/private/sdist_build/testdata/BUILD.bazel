@@ -1,0 +1,11 @@
+exports_files([
+    "configure_custom.sh",
+    "configure_pure.sh",
+    "editable.pyproject.toml",
+    "editable.uv.lock",
+    "fixture.tar.gz",
+    "fixture.whl",
+    "noop.patch",
+    "registry.pyproject.toml",
+    "registry.uv.lock",
+])

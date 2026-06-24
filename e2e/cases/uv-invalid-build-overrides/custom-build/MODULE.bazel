@@ -1,0 +1,43 @@
+module(name = "custom_build_invalid_overrides")
+
+bazel_dep(name = "aspect_rules_py")
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../../../..",
+)
+
+sdist_build = use_repo_rule(
+    "@aspect_rules_py//uv/private/sdist_build:repository.bzl",
+    "sdist_build",
+)
+
+sdist_build(
+    name = "custom_patches",
+    src = "@aspect_rules_py//uv/private/sdist_build/testdata:fixture.tar.gz",
+    configure_command = ["$(location @aspect_rules_py//uv/private/sdist_build/testdata:configure_custom.sh)"],
+    pre_build_patch_strip = 1,
+    pre_build_patches = ["@aspect_rules_py//uv/private/sdist_build/testdata:noop.patch"],
+    version = "1.0.0",
+)
+
+sdist_build(
+    name = "custom_unsupported",
+    src = "@aspect_rules_py//uv/private/sdist_build/testdata:fixture.tar.gz",
+    configure_command = ["$(location @aspect_rules_py//uv/private/sdist_build/testdata:configure_custom.sh)"],
+    extra_env = {"DEMO": "1"},
+    extra_toolchains = ["@bazel_tools//tools/cpp:current_cc_toolchain"],
+    monitor_memory = True,
+    pre_build_patch_strip = 1,
+    pre_build_patches = ["@aspect_rules_py//uv/private/sdist_build/testdata:noop.patch"],
+    resource_set = "mem_1g",
+    version = "1.0.0",
+)
+
+sdist_build(
+    name = "pure_unsupported",
+    src = "@aspect_rules_py//uv/private/sdist_build/testdata:fixture.tar.gz",
+    configure_command = ["$(location @aspect_rules_py//uv/private/sdist_build/testdata:configure_pure.sh)"],
+    extra_env = {"DEMO": "1"},
+    extra_toolchains = ["@bazel_tools//tools/cpp:current_cc_toolchain"],
+    version = "1.0.0",
+)

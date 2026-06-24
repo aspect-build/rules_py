@@ -1,0 +1,22 @@
+module(name = "version_mismatch_invalid_override")
+
+bazel_dep(name = "aspect_rules_py")
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../../../..",
+)
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "invalid_version_override")
+uv.project(
+    hub_name = "invalid_version_override",
+    lock = "@aspect_rules_py//uv/private/sdist_build/testdata:registry.uv.lock",
+    pyproject = "@aspect_rules_py//uv/private/sdist_build/testdata:registry.pyproject.toml",
+)
+uv.override_package(
+    name = "demo",
+    env = {"DEMO": "1"},
+    lock = "@aspect_rules_py//uv/private/sdist_build/testdata:registry.uv.lock",
+    version = "2.0.0",
+)
+use_repo(uv, "invalid_version_override")

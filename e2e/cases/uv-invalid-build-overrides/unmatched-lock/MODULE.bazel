@@ -1,0 +1,21 @@
+module(name = "unmatched_lock_invalid_override")
+
+bazel_dep(name = "aspect_rules_py")
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../../../..",
+)
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "unmatched_lock_override")
+uv.project(
+    hub_name = "unmatched_lock_override",
+    lock = "@aspect_rules_py//uv/private/sdist_build/testdata:registry.uv.lock",
+    pyproject = "@aspect_rules_py//uv/private/sdist_build/testdata:registry.pyproject.toml",
+)
+uv.override_package(
+    name = "demo",
+    env = {"DEMO": "1"},
+    lock = "@aspect_rules_py//uv/private/sdist_build/testdata:editable.uv.lock",
+)
+use_repo(uv, "unmatched_lock_override")

@@ -1,0 +1,21 @@
+module(name = "editable_self_invalid_overrides")
+
+bazel_dep(name = "aspect_rules_py")
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../../../..",
+)
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "invalid_editable_overrides")
+uv.project(
+    hub_name = "invalid_editable_overrides",
+    lock = "@aspect_rules_py//uv/private/sdist_build/testdata:editable.uv.lock",
+    pyproject = "@aspect_rules_py//uv/private/sdist_build/testdata:editable.pyproject.toml",
+)
+uv.override_package(
+    name = "editable-self-invalid-overrides",
+    env = {"DEMO": "1"},
+    lock = "@aspect_rules_py//uv/private/sdist_build/testdata:editable.uv.lock",
+)
+use_repo(uv, "invalid_editable_overrides")
