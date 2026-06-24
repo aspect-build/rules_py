@@ -259,6 +259,8 @@ def _sdist_build_impl(repository_ctx):
     if repository_ctx.attr.resource_set != "default":
         resource_set_attr = "\n    resource_set = \"{}\",".format(repository_ctx.attr.resource_set)
 
+    # Leave args unset: the pure rule validates anyarch wheels by default,
+    # while the native rule defaults to no validation.
     repository_ctx.file("BUILD.bazel", content = """
 load("@aspect_rules_py//uv/private/pep517_whl:rule.bzl", "{rule}")
 load("@aspect_rules_py//py:defs.bzl", "py_binary")
@@ -274,8 +276,7 @@ py_binary(
     name = "whl",
     src = "{src}",
     tool = ":build_tool",
-    version = "{version}",
-    args = [],{resource_set_attr}{patch_attrs}{toolchain_attrs}
+    version = "{version}",{resource_set_attr}{patch_attrs}{toolchain_attrs}
     visibility = ["//visibility:public"],
 )
 
