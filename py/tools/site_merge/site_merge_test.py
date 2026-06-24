@@ -24,13 +24,17 @@ class SiteMergeTest(unittest.TestCase):
             output = root / "output"
 
             _write(first / "distinct", "first", 0o444)
-            _write(first / "identical", "same", 0o444)
+            _write(first / "identical", "same", 0o644)
+            _write(first / "identical_executable", "same", 0o700)
+            _write(first / "executable_changed", "same", 0o644)
             _write(first / "file_to_directory", "first", 0o444)
             _write(first / "directory_to_file/child.py", "first", 0o444)
             _write(first / "union/first.py", "first")
 
             _write(second / "distinct", "second")
-            _write(second / "identical", "same", 0o755)
+            _write(second / "identical", "same", 0o600)
+            _write(second / "identical_executable", "same", 0o711)
+            _write(second / "executable_changed", "same", 0o755)
             _write(second / "file_to_directory/child.py", "second")
             _write(second / "directory_to_file", "second")
             _write(second / "union/second.py", "second")
@@ -46,6 +50,7 @@ class SiteMergeTest(unittest.TestCase):
                     (Path("distinct"), "first", "second"),
                     (Path("file_to_directory"), "first", "second"),
                     (Path("directory_to_file"), "first", "second"),
+                    (Path("executable_changed"), "first", "second"),
                 },
             )
             self.assertEqual((output / "distinct").read_text(), "second")
@@ -57,6 +62,14 @@ class SiteMergeTest(unittest.TestCase):
             self.assertEqual((output / "union/second.py").read_text(), "second")
             self.assertEqual(
                 stat.S_IMODE((output / "identical").stat().st_mode),
+                0o600,
+            )
+            self.assertEqual(
+                stat.S_IMODE((output / "identical_executable").stat().st_mode),
+                0o711,
+            )
+            self.assertEqual(
+                stat.S_IMODE((output / "executable_changed").stat().st_mode),
                 0o755,
             )
 
