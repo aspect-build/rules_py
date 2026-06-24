@@ -1,0 +1,38 @@
+module(name = "interpreter_toolchain_settings")
+
+bazel_dep(name = "aspect_rules_py")
+bazel_dep(name = "platforms", version = "1.1.0")
+
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../../..",
+)
+
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+interpreters.configure(releases = ["20260303"])
+interpreters.toolchain(
+    config_settings = [
+        "//:config_311",
+        "//:config_311_secondary",
+    ],
+    python_version = "3.11",
+)
+interpreters.toolchain(
+    config_settings = [
+        "//:config_311_secondary",
+        "//:config_311",
+    ],
+    python_version = "3.11.14",
+)
+interpreters.toolchain(
+    config_settings = ["//:config_312"],
+    python_version = "3.12",
+)
+use_repo(
+    interpreters,
+    "python_3_11_x86_64_unknown_linux_gnu",
+    "python_3_12_x86_64_unknown_linux_gnu",
+    "python_interpreters",
+)
+
+register_toolchains("@python_interpreters//:all")

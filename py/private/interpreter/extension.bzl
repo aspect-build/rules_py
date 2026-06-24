@@ -198,10 +198,12 @@ def _python_interpreters_impl(module_ctx):
     release_dates = sorted(release_dates, reverse = True)
 
     # Collect all requested Python versions. Any module can request a version,
-    # but only the root module's pre_release flag is honored.
+    # but only the root module's pre_release flag and toolchain settings are
+    # honored.
     requested_versions = []
     version_sources = {}  # major_minor -> list of module names (for error messages)
     allow_pre_release = {}  # major_minor -> bool
+    root_settings = {}  # major_minor -> root-owned toolchain settings
 
     for mod in module_ctx.modules:
         for tag in mod.tags.toolchain:
@@ -212,6 +214,25 @@ def _python_interpreters_impl(module_ctx):
             if len(parts) < 2:
                 fail("python_version must be at least major.minor, got '{}'".format(version))
             major_minor = "{}.{}".format(parts[0], parts[1])
+
+            if mod.is_root:
+                settings = {
+                    "config_settings": sorted([str(label) for label in tag.config_settings]),
+                    "exec_compatible_with": sorted([str(label) for label in tag.exec_compatible_with]),
+                    "target_compatible_with": sorted([str(label) for label in tag.target_compatible_with]),
+                }
+                if major_minor in root_settings and root_settings[major_minor] != settings:
+                    fail(
+                        "Conflicting root toolchain settings for Python {}: {} and {}. ".format(
+                            major_minor,
+                            root_settings[major_minor],
+                            settings,
+                        ) +
+                        "Tags whose python_version values normalize to the same major.minor " +
+                        "must use identical config_settings, target_compatible_with, and " +
+                        "exec_compatible_with.",
+                    )
+                root_settings[major_minor] = settings
 
             if major_minor not in requested_versions:
                 requested_versions.append(major_minor)
@@ -310,6 +331,11 @@ def _python_interpreters_impl(module_ctx):
     # https://bazel.build/extending/toolchains#registering-building-toolchains
     for major_minor in sorted(requested_versions):
         version_found = False
+        settings = root_settings.get(major_minor, {
+            "config_settings": [],
+            "exec_compatible_with": [],
+            "target_compatible_with": [],
+        })
         for config_name, config_info in ordered_configs:
             for platform_triple, platform_info in PLATFORMS.items():
                 repo_name = "python_{}_{}".format(
@@ -362,9 +388,9 @@ def _python_interpreters_impl(module_ctx):
                     "freethreaded": config_info["freethreaded"],
                     "compatible_with": platform_info["compatible_with"],
                     "platform_target_settings": platform_info.get("target_settings", {}),
-                    "config_settings": tag.config_settings,
-                    "target_compatible_with": tag.target_compatible_with,
-                    "exec_compatible_with": tag.exec_compatible_with,
+                    "config_settings": settings["config_settings"],
+                    "target_compatible_with": settings["target_compatible_with"],
+                    "exec_compatible_with": settings["exec_compatible_with"],
                     "register_exec_tools": platform_info["register_exec_tools"],
                 }))
 
@@ -458,18 +484,18 @@ without error, but it will be silently ignored.
 
 _toolchain_tag = tag_class(
     attrs = {
-        "config_settings": attr.string_list(
+        "config_settings": attr.label_list(
             default = [],
             doc = """\
 Additional config_setting labels that must match for this toolchain to be selected.
 Use this to gate a toolchain on a custom flag, e.g.
-["@//:use_hermetic_python"]. The settings are added to the toolchain's
+["//:use_hermetic_python"]. The settings are added to the toolchain's
 target_settings alongside the version and platform constraints.
 
 Only honored from the root module.
 """,
         ),
-        "exec_compatible_with": attr.string_list(
+        "exec_compatible_with": attr.label_list(
             default = [],
             doc = """\
 Additional exec platform constraints appended to each platform variant's
@@ -494,7 +520,7 @@ Only honored from the root module.
             mandatory = True,
             doc = "Python version to provision, e.g. '3.11' or '3.11.14'. The newest available patch version is used.",
         ),
-        "target_compatible_with": attr.string_list(
+        "target_compatible_with": attr.label_list(
             default = [],
             doc = """\
 Additional target platform constraints appended to each platform variant's
