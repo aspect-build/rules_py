@@ -241,6 +241,7 @@ def _metadata_selection_test_impl(ctx):
     asserts.equals(env, 1, len(wheels), "expected exactly one wheel struct in PyWheelsInfo")
 
     wheel = wheels[0]
+    asserts.true(env, wheel.install_tree != None, "wheel record must retain its install tree")
     asserts.equals(env, tuple(ctx.attr.expected_top_levels), wheel.top_levels)
     asserts.equals(env, tuple(ctx.attr.expected_namespace_top_levels), wheel.namespace_top_levels)
     asserts.equals(env, tuple(ctx.attr.expected_console_scripts), wheel.console_scripts)
@@ -272,20 +273,6 @@ _metadata_selection_test = analysistest.make(
         "leaked_console_scripts": attr.string_list(),
     },
 )
-
-def _metadata_miss_test_impl(ctx):
-    env = analysistest.begin(ctx)
-    target = analysistest.target_under_test(env)
-
-    asserts.false(
-        env,
-        PyWheelsInfo in target,
-        "a wheel without a metadata entry (sbuild fallback) must not emit PyWheelsInfo",
-    )
-
-    return analysistest.end(env)
-
-_metadata_miss_test = analysistest.make(_metadata_miss_test_impl)
 
 def metadata_selection_test_suite(name):
     """Fixtures + analysis tests for per-configuration metadata selection.
@@ -341,9 +328,14 @@ def metadata_selection_test_suite(name):
         leaked_console_scripts = [],
     )
 
-    _metadata_miss_test(
+    _metadata_selection_test(
         name = name + "_sbuild_fallback_test",
         target_under_test = ":__metadata_sbuild_fixture",
+        expected_top_levels = [],
+        expected_namespace_top_levels = [],
+        expected_console_scripts = [],
+        leaked_top_levels = [],
+        leaked_console_scripts = [],
     )
 
 def whl_install_suite():

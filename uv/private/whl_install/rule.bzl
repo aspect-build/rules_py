@@ -108,9 +108,10 @@ def _whl_install(ctx):
     # wheel that is actually installed — metadata from inactive platform
     # wheels must not leak in (e.g. another platform's C-extension
     # suffix, or a console script shipped only by the win32 wheel).
-    # A lookup miss (sbuild fallback, failed extraction at repo-fetch
-    # time) emits no PyWheelsInfo and consumers fall back to .pth-based
-    # resolution.
+    # A lookup miss (sbuild fallback, failed extraction at repo-fetch time)
+    # leaves the metadata empty. PyWheelsInfo still carries the install tree:
+    # venv assembly treats empty top_levels as an unknown layout, while image
+    # layering uses install_tree to retain the wheel as a package leaf.
     whl_basename = ctx.file.src.basename
     top_levels = ctx.attr.top_levels.get(whl_basename, [])
     namespace_top_levels = ctx.attr.namespace_top_levels.get(whl_basename, [])
@@ -119,48 +120,47 @@ def _whl_install(ctx):
     regular_roots = ctx.attr.regular_roots.get(whl_basename, [])
     console_scripts = ctx.attr.console_scripts.get(whl_basename, [])
 
-    if top_levels or console_scripts:
-        providers.append(PyWheelsInfo(
-            wheels = depset(direct = [struct(
-                top_levels = tuple(top_levels),
-                # PEP 420 namespace packages this wheel contributes to.
-                # When multiple wheels claim the same top-level and ALL of
-                # them flag it as namespace, py_binary merges the namespace
-                # CONCRETELY from `namespace_entries` per-entry symlinks
-                # (so tools that inspect site-packages directly — mypy,
-                # pyright — see the packages and their py.typed markers),
-                # unless a regular package spans the wheels (detected via
-                # `regular_roots` × `namespace_dirs`), which needs a
-                # physical merge instead. Falls back to .pth-based
-                # resolution when entry metadata is missing.
-                namespace_top_levels = tuple(namespace_top_levels),
-                # Concrete per-wheel paths beneath namespace top-levels
-                # (e.g. `jaraco/functools`) that venv assembly symlinks
-                # individually to materialise a merged namespace directory.
-                namespace_entries = tuple(namespace_entries),
-                # Directory skeleton under namespace top-levels: which dirs
-                # are implicit-namespace portions (`namespace_dirs`) and
-                # which are the minimal regular-package roots
-                # (`regular_roots`). venv assembly cross-references these
-                # across wheels to detect a regular package spanning wheels
-                # (Python can't merge a regular package's __path__ at
-                # runtime, so the subtree is physically merged).
-                namespace_dirs = tuple(namespace_dirs),
-                regular_roots = tuple(regular_roots),
-                site_packages_rfpath = site_packages_rfpath,
-                # Each entry is "name=module:func"; py_binary parses into
-                # wrapper scripts at <venv>/bin/<name> at analysis time.
-                console_scripts = tuple(console_scripts),
-                # Tree artifact holding this wheel's installed file tree
-                # (`install/`, whose internal shape is
-                # `lib/python<M>.<m>/site-packages/...`). Downstream
-                # venv-assembly uses this as a `target_file` for a
-                # per-wheel directory symlink, so the per-top-level
-                # symlinks inside the venv can be intra-venv relative
-                # (identical resolution in bazel-bin and runfiles).
-                install_tree = install_dir,
-            )]),
-        ))
+    providers.append(PyWheelsInfo(
+        wheels = depset(direct = [struct(
+            top_levels = tuple(top_levels),
+            # PEP 420 namespace packages this wheel contributes to.
+            # When multiple wheels claim the same top-level and ALL of
+            # them flag it as namespace, py_binary merges the namespace
+            # CONCRETELY from `namespace_entries` per-entry symlinks
+            # (so tools that inspect site-packages directly — mypy,
+            # pyright — see the packages and their py.typed markers),
+            # unless a regular package spans the wheels (detected via
+            # `regular_roots` × `namespace_dirs`), which needs a
+            # physical merge instead. Falls back to .pth-based
+            # resolution when entry metadata is missing.
+            namespace_top_levels = tuple(namespace_top_levels),
+            # Concrete per-wheel paths beneath namespace top-levels
+            # (e.g. `jaraco/functools`) that venv assembly symlinks
+            # individually to materialise a merged namespace directory.
+            namespace_entries = tuple(namespace_entries),
+            # Directory skeleton under namespace top-levels: which dirs
+            # are implicit-namespace portions (`namespace_dirs`) and
+            # which are the minimal regular-package roots
+            # (`regular_roots`). venv assembly cross-references these
+            # across wheels to detect a regular package spanning wheels
+            # (Python can't merge a regular package's __path__ at
+            # runtime, so the subtree is physically merged).
+            namespace_dirs = tuple(namespace_dirs),
+            regular_roots = tuple(regular_roots),
+            site_packages_rfpath = site_packages_rfpath,
+            # Each entry is "name=module:func"; py_binary parses into
+            # wrapper scripts at <venv>/bin/<name> at analysis time.
+            console_scripts = tuple(console_scripts),
+            # Tree artifact holding this wheel's installed file tree
+            # (`install/`, whose internal shape is
+            # `lib/python<M>.<m>/site-packages/...`). Downstream
+            # venv-assembly uses this as a `target_file` for a
+            # per-wheel directory symlink, so the per-top-level
+            # symlinks inside the venv can be intra-venv relative
+            # (identical resolution in bazel-bin and runfiles).
+            install_tree = install_dir,
+        )]),
+    ))
 
     return providers
 
@@ -212,10 +212,11 @@ key matches the basename of the wheel `src` resolved to (the selected wheel
 for the active configuration) is used; entries for other platform wheels are
 ignored so their package surface cannot leak into this configuration.
 
-When the lookup hits, the target emits a `PyWheelsInfo` provider describing
-the selected wheel. Downstream rules (such as `py_binary`) consume this to
-assemble a merged `site-packages/` tree via `ctx.actions.symlink` instead of
-relying on `.pth` entries. A miss preserves the `.pth`-based behavior.
+When the lookup hits, the selected wheel's `PyWheelsInfo` record carries this
+layout and downstream rules can assemble a merged `site-packages/` tree via
+`ctx.actions.symlink`. A miss leaves the layout unknown and preserves
+`.pth`-based import behavior; the record still identifies the install tree for
+consumers such as image layering.
 
 Typically populated automatically by the `whl_install` repo rule from each
 wheel's `*.dist-info/RECORD` at repo-fetch time.
