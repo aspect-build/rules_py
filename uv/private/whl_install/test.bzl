@@ -143,6 +143,18 @@ def _site_packages_segments_test_impl(ctx):
         data + "/scripts/tool",
         data,
     ))
+    asserts.equals(env, [], site_packages_segments(
+        data + "/headers/pkg/header.h",
+        data,
+    ))
+    asserts.equals(env, [], site_packages_segments(
+        data + "/data/config.json",
+        data,
+    ))
+    asserts.equals(env, ["custom", "pkg", "module.py"], site_packages_segments(
+        data + "/custom/pkg/module.py",
+        data,
+    ))
     return unittest.end(env)
 
 site_packages_segments_test = unittest.make(_site_packages_segments_test_impl)

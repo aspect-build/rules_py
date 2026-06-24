@@ -75,9 +75,17 @@ def site_packages_segments(path, data_directory):
     segments = path.split("/")
     if segments[0] != data_directory:
         return segments
-    if len(segments) < 3 or segments[1] not in ("purelib", "platlib"):
+    if len(segments) < 3:
         return []
-    return segments[2:]
+    category = segments[1]
+    if category in ("purelib", "platlib"):
+        return segments[2:]
+    if category in ("data", "headers", "scripts"):
+        return []
+
+    # Keep this in sync with py/tools/unpack/unpack.py: unknown categories
+    # retain their category prefix under site-packages.
+    return segments[1:]
 
 def parse_console_script(line):
     """Parse one `[console_scripts]` entry into a canonical `name=module:func`.
