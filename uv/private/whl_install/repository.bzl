@@ -490,7 +490,7 @@ def _whl_install_impl(repository_ctx):
     content = [
         "load(\"@aspect_rules_py//py:defs.bzl\", \"py_library\")",
         "load(\"@aspect_rules_py//uv/private/whl_install:defs.bzl\", \"select_chain\")",
-        "load(\"@aspect_rules_py//uv/private/whl_install:rule.bzl\", \"whl_install\")",
+        "load(\"@aspect_rules_py//uv/private/whl_install:rule.bzl\", \"source_built_wheel\", \"whl_install\")",
         "load(\"@bazel_skylib//lib:selects.bzl\", \"selects\")",
     ]
 
@@ -566,7 +566,23 @@ def _whl_install_impl(repository_ctx):
         for k, v in select_arms.items()
     }
 
-    default_target = str(repository_ctx.attr.sbuild) if repository_ctx.attr.sbuild else None
+    sbuild_target = str(repository_ctx.attr.sbuild) if repository_ctx.attr.sbuild else None
+    default_target = sbuild_target
+    if sbuild_target:
+        default_target = ":source_built_wheel"
+        content.append(
+            """
+source_built_wheel(
+    name = "source_built_wheel",
+    src = {src},
+    console_scripts = {console_scripts},
+    visibility = ["//visibility:private"],
+)
+""".format(
+                src = repr(sbuild_target),
+                console_scripts = repr(repository_ctx.attr.sbuild_console_scripts),
+            ),
+        )
 
     if (select_arms or prebuilds) and not default_target:
         default_target = ":whl_missing"
@@ -647,9 +663,10 @@ filegroup(
     # wheel, and peeking at them would force a useless download.
     #
     # The sbuild fallback, whose contents are unknowable until build time, is
-    # never peeked at here. Its PyWheelsInfo record has unknown metadata, so
-    # venv consumers use .pth-based resolution while image layering still
-    # retains the installed wheel tree.
+    # never peeked at here. Its layout remains unknown; a user declaration may
+    # attach console scripts only to that select arm. Venv consumers retain the
+    # complete wheel through .pth-based resolution while image layering keeps
+    # the installed wheel tree.
     #
     # We read from `whl_files` (a real label_list) rather than `whls` (a
     # JSON-encoded string of labels) because only the former adds the
@@ -817,6 +834,7 @@ whl_install = repository_rule(
         # `*.dist-info/RECORD` — see `_extract_wheel_metadata` above.
         "whl_files": attr.label_list(allow_files = [".whl"]),
         "sbuild": attr.label(),
+        "sbuild_console_scripts": attr.string_list(),
         "post_install_patches": attr.string(default = ""),
         "post_install_patch_strip": attr.int(default = 0),
         "extra_deps": attr.string(default = ""),

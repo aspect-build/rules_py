@@ -10,7 +10,10 @@ There are three kinds of overrides:
 - **Pre-build patches** (`pre_build_patches`): Patch the extracted source distribution before building a wheel. Useful for fixing build scripts or source code.
 - **Post-install patches** (`post_install_patches`): Patch the installed package tree after wheel unpacking. Useful for fixing installed library code.
 
-Additionally, `extra_deps` and `extra_data` allow adding dependencies or data files to the generated `py_library` target for a package.
+Additionally, `extra_deps` and `extra_data` allow adding dependencies or data
+files to the generated `py_library` target for a package.
+`console_scripts` declares the complete script map for a wheel built from an
+sdist so venv assembly can create wrappers during analysis.
 
 ## Prerequisites
 
@@ -177,6 +180,8 @@ uv.override_package(
 - Each `(lock, name, version)` triple may only have one `override_package` declaration. Duplicates are an error.
 - `target` is mutually exclusive with all other modification attributes. Use `target` for full replacement OR the patch/modification attributes, not both.
 - The `version` attribute is optional and defaults to whatever version the lockfile resolves.
+- `console_scripts` applies only when the lock record has a source
+  distribution. Prebuilt wheels use their inspected metadata.
 - Pre-build patches only apply to packages that have a source distribution in the lockfile. If a package only has pre-built wheels, `pre_build_patches` has no effect.
 
 ## Future work

@@ -4,7 +4,7 @@ load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts", "unittest")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//py/private:providers.bzl", "PyWheelsInfo")
 load(":repository.bzl", "compatible_python_tags", "parse_console_script", "parse_record_path", "select_key", "site_packages_segments", "sort_select_arms", "source_specificity")
-load(":rule.bzl", "whl_install")
+load(":rule.bzl", "source_built_wheel", "whl_install")
 
 def _whl_sorting_test_impl(ctx):
     env = unittest.begin(ctx)
@@ -206,6 +206,7 @@ _MACOS_WHL = "demo-1.0.0-cp311-cp311-macosx_11_0_arm64.whl"
 # Built-from-source fallback: contents are unknowable at repo-fetch time, so
 # no metadata entry exists for it.
 _SBUILD_WHL = "demo-1.0.0-py3-none-any.whl"
+_DECLARED_SBUILD_CONSOLE_SCRIPTS = ["declared=demo.cli:main"]
 
 _TOP_LEVELS = {
     _LINUX_WHL: [
@@ -291,19 +292,46 @@ def metadata_selection_test_suite(name):
             tags = ["manual"],
         )
 
+    source_built_wheel(
+        name = "__metadata_sbuild_wheel",
+        testonly = True,
+        src = _SBUILD_WHL,
+        console_scripts = [],
+        tags = ["manual"],
+    )
+
+    source_built_wheel(
+        name = "__metadata_declared_sbuild_wheel",
+        testonly = True,
+        src = _LINUX_WHL,
+        console_scripts = _DECLARED_SBUILD_CONSOLE_SCRIPTS,
+        tags = ["manual"],
+    )
+
     for fixture_name, src in [
         ("__metadata_linux_fixture", _LINUX_WHL),
         ("__metadata_macos_fixture", _MACOS_WHL),
-        ("__metadata_sbuild_fixture", _SBUILD_WHL),
+        ("__metadata_sbuild_fixture", ":__metadata_sbuild_wheel"),
     ]:
         whl_install(
             name = fixture_name,
+            testonly = True,
             src = src,
             top_levels = _TOP_LEVELS,
             namespace_top_levels = _NAMESPACE_TOP_LEVELS,
             console_scripts = _CONSOLE_SCRIPTS,
             tags = ["manual"],
         )
+
+    whl_install(
+        name = "__metadata_declared_sbuild_fixture",
+        testonly = True,
+        src = ":__metadata_declared_sbuild_wheel",
+        top_levels = _TOP_LEVELS,
+        namespace_top_levels = _NAMESPACE_TOP_LEVELS,
+        console_scripts = _CONSOLE_SCRIPTS,
+        tags = ["manual"],
+    )
 
     _metadata_selection_test(
         name = name + "_linux_test",
@@ -336,6 +364,16 @@ def metadata_selection_test_suite(name):
         expected_console_scripts = [],
         leaked_top_levels = [],
         leaked_console_scripts = [],
+    )
+
+    _metadata_selection_test(
+        name = name + "_declared_sbuild_test",
+        target_under_test = ":__metadata_declared_sbuild_fixture",
+        expected_top_levels = [],
+        expected_namespace_top_levels = [],
+        expected_console_scripts = _DECLARED_SBUILD_CONSOLE_SCRIPTS,
+        leaked_top_levels = _TOP_LEVELS[_LINUX_WHL],
+        leaked_console_scripts = _CONSOLE_SCRIPTS[_LINUX_WHL],
     )
 
 def whl_install_suite():

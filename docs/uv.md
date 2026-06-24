@@ -334,6 +334,30 @@ An sdist (if available) will be built into a wheel for installation if no wheels
 are available, or no wheels matching the target configuration are found. Sdist
 builds occur using the configured Python and Cc toolchains.
 
+### Declaring source-built console scripts
+
+Downloaded wheels expose their console scripts while repositories are
+generated. A wheel built from an sdist does not exist until execution, after
+analysis has already assembled console-script wrappers. Declare the complete,
+nonempty script map on that package's override:
+
+```starlark
+uv.override_package(
+    lock = "//:uv.lock",
+    name = "example-package",
+    console_scripts = {
+        "example": "example_package.cli:main",
+    },
+)
+```
+
+The optional `version` on `override_package` follows the existing override
+rules: omit it when the lock resolves one version of the package. The
+declaration is attached only to the source-build select arm. If a prebuilt
+wheel is selected instead, its inspected metadata remains authoritative. The
+package layout remains unknown at analysis time, so the complete source-built
+wheel still participates in the normal `.pth` fallback.
+
 ## Best practices
 
 **Consolidate your hubs**. In `rules_python`, environments with multiple depsets
@@ -456,11 +480,10 @@ some key information. Such as what requirements apply when performing sdist
 builds. Annotations are the current workaround for how to associate such
 required but nonstandardized and missing dependency data with requirements.
 
-**Why aren't entrypoints automatically created?** `pip.parse` performs library
-installs at repository time, which allows it to inspect the installed files and
-detect entrypoints. Because uv does installs using normal build actions it has
-no way to see what binaries may be created or what `.dist-info/entry_points.txt`
-records exist.
+**Why aren't entrypoints automatically created?** Downloaded-wheel entrypoints
+are discovered while repositories are generated. Source-built wheels do not
+exist until execution, so declare their console scripts with
+`uv.override_package(console_scripts = {...})`.
 
 If you need a given entrypoint as a Bazel target, it needs to be manually
 declared. In most cases of normal entrypoints this is quite easy. Tools like

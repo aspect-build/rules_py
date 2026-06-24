@@ -18,6 +18,7 @@ uv.project(
 )
 uv.override_package(
     name = "cowsay",
+    console_scripts = {"cowsay": "cowsay.__main__:cli"},
     lock = "//cases/uv-sdist-fallback:uv.lock",
     monitor_memory = True,
 )

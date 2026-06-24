@@ -1,14 +1,22 @@
 load("@aspect_rules_py//py:defs.bzl", "py_library")
 load("@aspect_rules_py//uv/private/whl_install:defs.bzl", "select_chain")
-load("@aspect_rules_py//uv/private/whl_install:rule.bzl", "whl_install")
+load("@aspect_rules_py//uv/private/whl_install:rule.bzl", "source_built_wheel", "whl_install")
 load("@bazel_skylib//lib:selects.bzl", "selects")
+
+source_built_wheel(
+    name = "source_built_wheel",
+    src = "@@+uv+sdist_build__aspect_rules_py__attrs__23_2_0//:whl",
+    console_scripts = [],
+    visibility = ["//visibility:private"],
+)
+
 
 select_chain(
    name = "whl",
    arms = {
         "@aspect_rules_py_pip_configurations//:py3-any-none": "@whl__attrs__99b87a485a5820b2//file"
    },
-   default_target = "@@+uv+sdist_build__aspect_rules_py__attrs__23_2_0//:whl",
+   default_target = ":source_built_wheel",
    visibility = ["//visibility:public"],
 )
 
