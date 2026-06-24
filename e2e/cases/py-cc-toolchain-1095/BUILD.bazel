@@ -1,0 +1,72 @@
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+# Reproduces https://github.com/aspect-build/rules_py/issues/1095
+#
+# The `python_interpreters` module extension is positioned as a drop-in
+# replacement for rules_python's `python.toolchain()`: it sources hermetic PBS
+# interpreters and registers Python toolchains, so a project can drop the
+# `rules_python` dependency. But the hub repo it generates
+# (`@python_interpreters//:BUILD.bazel`) registers only two toolchain types per
+# platform:
+#
+#   - @bazel_tools//tools/python:toolchain_type                      (runtime)
+#   - @aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type (exec tools)
+#
+# It never registers a Python C/C++ headers toolchain
+# (`@rules_python//python/cc:toolchain_type`), which `python_register_toolchains`
+# in rules_python *does* register. nanobind-bazel and pybind11 resolve Python
+# headers through `@rules_python//python/cc:current_py_cc_headers`, which consumes
+# `@rules_python//python/cc:toolchain_type`. With only `python_interpreters` in
+# play, that toolchain type has no registered toolchain and native extension
+# builds fail at analysis time with:
+#
+#   ERROR: .../external/rules_python+/python/cc/BUILD.bazel:15:22: While resolving
+#   toolchains for target @@rules_python+//python/cc:current_py_cc_headers: No
+#   matching toolchains found for types:
+#     @@rules_python+//python/cc:toolchain_type
+#
+# The PBS interpreters already ship the `include/` headers, so (per the issue)
+# "the missing piece is purely the registration".
+#
+# This test captures the contents of the generated hub BUILD file and asserts it
+# registers a `@rules_python//python/cc:toolchain_type` toolchain. It FAILS today
+# (reproducing the bug) and should PASS once `python_interpreters` registers a
+# py_cc toolchain per platform.
+#
+# NOTE: We assert on the registration rather than building a real native
+# extension because, in a graph that still has `rules_python` present, the gap is
+# masked: rules_python's own MODULE.bazel auto-registers py_cc toolchains for its
+# default interpreters, so `current_py_cc_headers` resolves to *those* instead of
+# failing. The registration is the thing `python_interpreters` is missing and the
+# thing it must add to be a true replacement.
+
+genrule(
+    name = "hub_build",
+    srcs = ["@python_interpreters//:BUILD.bazel"],
+    outs = ["hub_build.txt"],
+    cmd = "cp $< $@",
+)
+
+sh_test(
+    name = "test",
+    srcs = ["test.sh"],
+    data = [":hub_build"],
+)
+
+# End-to-end guard: compiling against <Python.h> through
+# @rules_python//python/cc:current_py_cc_headers (exactly how nanobind/pybind11
+# resolve Python headers) requires the py_cc toolchain registered by
+# python_interpreters. This is the concrete native-extension build the issue is
+# about.
+cc_library(
+    name = "python_h_smoke",
+    srcs = ["python_h_smoke.cc"],
+    deps = ["@rules_python//python/cc:current_py_cc_headers"],
+)
+
+build_test(
+    name = "python_h_smoke_test",
+    targets = [":python_h_smoke"],
+)

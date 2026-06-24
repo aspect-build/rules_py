@@ -364,6 +364,10 @@ def _python_interpreters_impl(module_ctx):
                     "config_settings": tag.config_settings,
                     "target_compatible_with": tag.target_compatible_with,
                     "exec_compatible_with": tag.exec_compatible_with,
+                    # PBS interpreters ship a Bazel-controlled include/ layout, so
+                    # the interpreter repo defines a py_cc_toolchain. Local/system
+                    # interpreters do not (their headers aren't Bazel-managed).
+                    "py_cc": True,
                 }))
 
         if not version_found:
