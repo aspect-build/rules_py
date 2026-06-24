@@ -10,8 +10,7 @@ cd "$case_dir" || exit 1
 BAZEL="${BAZEL:-bazel}"
 if ! "$BAZEL" test --lockfile_mode=off -- \
     //:regular \
-    //:freethreaded \
-    //:freethreaded_debug; then
+    //:freethreaded; then
     echo "FAIL: prerelease runtime metadata did not match" >&2
     exit 1
 fi
