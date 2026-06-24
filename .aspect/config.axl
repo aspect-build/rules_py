@@ -42,6 +42,13 @@ buildifier = format.alias(
             "**/*.bzl",
             "**/*.star",
         ],
+        # Snapshot files under **/snapshots/ are generated test fixtures
+        # (golden BUILD.bazel / *.bzl output) and must match the rules'
+        # emitted formatting verbatim, not buildifier's. Drop them from the
+        # file list before the formatter runs.
+        "exclude_patterns": [
+            "**/snapshots/**",
+        ],
     },
     summary = "Format Starlark files using buildifier.",
 )
