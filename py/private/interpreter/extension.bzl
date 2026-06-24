@@ -296,6 +296,7 @@ def _python_interpreters_impl(module_ctx):
                 "config_settings": tag.config_settings,
                 "target_compatible_with": tag.target_compatible_with,
                 "exec_compatible_with": tag.exec_compatible_with,
+                "register_exec_tools": True,
             }))
 
     # Keep generated output stable: regular configs, then freethreaded configs.
@@ -364,6 +365,7 @@ def _python_interpreters_impl(module_ctx):
                     "config_settings": tag.config_settings,
                     "target_compatible_with": tag.target_compatible_with,
                     "exec_compatible_with": tag.exec_compatible_with,
+                    "register_exec_tools": platform_info["register_exec_tools"],
                 }))
 
         if not version_found:

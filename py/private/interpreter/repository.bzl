@@ -329,8 +329,15 @@ toolchain(
     toolchain = "@{repo}//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
+""".format(
+            name = info["name"],
+            repo = info["repo"],
+            target_compatible_with = target_compatible_with,
+            target_settings = target_settings,
+        ))
 
-# Exec tools toolchain: selected by exec platform (not target platform) so
+        if info["register_exec_tools"]:
+            content.append("""# Exec tools toolchain: selected by exec platform (not target platform) so
 # that build actions using the interpreter (e.g. compileall) get a runnable
 # binary on the build host regardless of the target platform being built for.
 toolchain(
@@ -340,12 +347,10 @@ toolchain(
     toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 """.format(
-            name = info["name"],
-            repo = info["repo"],
-            exec_compatible_with = exec_compatible_with,
-            target_compatible_with = target_compatible_with,
-            target_settings = target_settings,
-        ))
+                name = info["name"],
+                repo = info["repo"],
+                exec_compatible_with = exec_compatible_with,
+            ))
 
     content.append("""
 exports_files(

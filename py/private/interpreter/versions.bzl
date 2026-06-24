@@ -38,6 +38,13 @@ DEFAULT_RELEASE_DATES = [
 #
 # - compatible_with: constraint_values for exec_compatible_with / target_compatible_with
 # - target_settings: additional config_settings the toolchain must match (optional)
+# - register_exec_tools: whether the hub emits the platform's exec registration
+#
+# `platform_libc` is a target flag, so GNU and musl have identical exec OS/CPU
+# constraints. The default target-pattern registration expands
+# lexicographically, so GNU currently wins only by registration order. PBS
+# Linux exec registrations support glibc hosts, so only GNU emits one:
+# https://bazel.build/extending/toolchains#registering-building-toolchains
 #
 # buildifier: disable=unsorted-dict-items
 PLATFORMS = {
@@ -46,6 +53,7 @@ PLATFORMS = {
             "@platforms//os:macos",
             "@platforms//cpu:aarch64",
         ],
+        "register_exec_tools": True,
     },
     "aarch64-unknown-linux-gnu": {
         "compatible_with": [
@@ -55,6 +63,7 @@ PLATFORMS = {
         "target_settings": {
             PLATFORM_LIBC_FLAG: "glibc",
         },
+        "register_exec_tools": True,
     },
     "aarch64-unknown-linux-musl": {
         "compatible_with": [
@@ -64,12 +73,14 @@ PLATFORMS = {
         "target_settings": {
             PLATFORM_LIBC_FLAG: "musl",
         },
+        "register_exec_tools": False,
     },
     "x86_64-apple-darwin": {
         "compatible_with": [
             "@platforms//os:macos",
             "@platforms//cpu:x86_64",
         ],
+        "register_exec_tools": True,
     },
     "x86_64-unknown-linux-gnu": {
         "compatible_with": [
@@ -79,6 +90,7 @@ PLATFORMS = {
         "target_settings": {
             PLATFORM_LIBC_FLAG: "glibc",
         },
+        "register_exec_tools": True,
     },
     "x86_64-unknown-linux-musl": {
         "compatible_with": [
@@ -88,24 +100,28 @@ PLATFORMS = {
         "target_settings": {
             PLATFORM_LIBC_FLAG: "musl",
         },
+        "register_exec_tools": False,
     },
     "x86_64-pc-windows-msvc": {
         "compatible_with": [
             "@platforms//os:windows",
             "@platforms//cpu:x86_64",
         ],
+        "register_exec_tools": True,
     },
     "aarch64-pc-windows-msvc": {
         "compatible_with": [
             "@platforms//os:windows",
             "@platforms//cpu:aarch64",
         ],
+        "register_exec_tools": True,
     },
     "i686-pc-windows-msvc": {
         "compatible_with": [
             "@platforms//os:windows",
             "@platforms//cpu:x86_32",
         ],
+        "register_exec_tools": True,
     },
 }
 
