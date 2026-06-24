@@ -5,6 +5,7 @@ Includes rules for downloading PBS interpreters and registering local interprete
 
 load("@bazel_features//:features.bzl", features = "bazel_features")
 load(":exclude_feature.bzl", "INTERPRETER_FEATURES")
+load(":version_util.bzl", "parse_version")
 
 _PYTHON_VERSION_FLAG = "@aspect_rules_py//py/private/interpreter:python_version"
 _RPY_VERSION_FLAG = "@rules_python//python/config_settings:python_version"
@@ -28,21 +29,20 @@ def _python_interpreter_impl(rctx):
     # Determine the Python binary path
     is_windows = "windows" in platform
     python_bin = "python.exe" if is_windows else "bin/python3"
-    version_parts = python_version.split(".")
-    major = version_parts[0]
-    minor = version_parts[1]
-    micro = version_parts[2] if len(version_parts) > 2 else "0"
+
+    # py_runtime models the five sys.version_info fields separately and
+    # converts micro and serial to integers:
+    # https://github.com/bazel-contrib/rules_python/blob/1.9.0/python/private/py_runtime_rule.bzl#L278-L291
+    version_info = parse_version(python_version)
 
     # Delete terminfo symlink loops on newer PBS releases (linux only)
     if "linux" in platform:
         rctx.delete("share/terminfo")
 
     rctx.file("BUILD.bazel", content = _build_file_content(
-        major = major,
-        minor = minor,
-        micro = micro,
         python_bin = python_bin,
         is_windows = is_windows,
+        version_info = version_info,
     ))
 
     if not features.external_deps.extension_metadata_has_reproducible:
@@ -84,10 +84,24 @@ filegroup(
 
     return "\n".join(lines), all_excludes
 
-def _build_file_content(major, minor, micro, python_bin, is_windows):
+def _build_file_content(python_bin, is_windows, version_info):
     """Generate the full BUILD.bazel content for an interpreter repo."""
 
+    major = str(version_info.major)
+    minor = str(version_info.minor)
+    micro = str(version_info.micro)
+
     feature_targets, feature_excludes = _feature_filegroups(major, minor, is_windows)
+
+    pre_release_version_info = ""
+    if version_info.releaselevel != "final":
+        pre_release_version_info = """\
+        "releaselevel": "{releaselevel}",
+        "serial": "{serial}",
+""".format(
+            releaselevel = version_info.releaselevel,
+            serial = version_info.serial,
+        )
 
     if is_windows:
         core_include = '["**/*.py", "**/*.pyd", "**/*.dll", "**/*.exe", "include/**", "Lib/**"]'
@@ -150,7 +164,7 @@ py_runtime(
         "major": "{major}",
         "minor": "{minor}",
         "micro": "{micro}",
-    }},
+{pre_release_version_info}    }},
     python_version = "PY3",
 )
 
@@ -168,6 +182,7 @@ py_exec_tools_toolchain(
         major = major,
         minor = minor,
         micro = micro,
+        pre_release_version_info = pre_release_version_info,
         feature_targets = feature_targets,
         feature_selects = feature_selects,
         core_include = core_include,

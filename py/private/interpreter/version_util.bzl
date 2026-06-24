@@ -1,6 +1,6 @@
 """Version comparison utilities for python-build-standalone version strings.
 
-Handles PEP 440-style versions including pre-release suffixes:
+Handles PBS release and pre-release version forms:
   3.12.3, 3.13.0a6, 3.14.0b1, 3.14.0rc2
 
 Pre-release ordering: alpha < beta < rc < release.
@@ -14,6 +14,7 @@ _PRE_RELEASE_ORDER = {
     "rc": 2,
 }
 _RELEASE_ORDER = 3  # No suffix = final release
+_RELEASE_LEVELS = ["alpha", "beta", "candidate", "final"]
 
 def is_decimal(value):
     """Whether value consists of one or more ASCII decimal digits."""
@@ -44,20 +45,28 @@ def _parse_pre_release(s):
             return (num, _PRE_RELEASE_ORDER[tag], phase_num)
     return (int(s), _RELEASE_ORDER, 0)
 
-def version_key(v):
-    """Convert a version string to a comparable tuple.
-
-    Args:
-        v: A version string like "3.12.3" or "3.15.0a6".
-
-    Returns:
-        A tuple that can be compared with < and > operators.
-    """
+def parse_version(v):
+    """Parse a PBS version for comparison and sys.version_info metadata."""
     parts = v.split(".")
-    result = []
-    for p in parts:
-        result.append(_parse_pre_release(p))
-    return result
+    if len(parts) < 2 or len(parts) > 3:
+        fail("Python version must have two or three components, got '{}'".format(v))
+
+    components = [_parse_pre_release(part) for part in parts]
+    if (
+        components[0][1] != _RELEASE_ORDER or
+        components[1][1] != _RELEASE_ORDER
+    ):
+        fail("Python prerelease suffix must follow the micro version, got '{}'".format(v))
+
+    micro, release_order, serial = components[2] if len(components) == 3 else (0, _RELEASE_ORDER, 0)
+    return struct(
+        components = components,
+        major = components[0][0],
+        micro = micro,
+        minor = components[1][0],
+        releaselevel = _RELEASE_LEVELS[release_order],
+        serial = serial,
+    )
 
 def is_pre_release(v):
     """Returns True if version string v is a pre-release (alpha, beta, or rc).
@@ -68,10 +77,7 @@ def is_pre_release(v):
     Returns:
         True if v contains a pre-release suffix.
     """
-    for tag in ["rc", "b", "a"]:
-        if tag in v:
-            return True
-    return False
+    return parse_version(v).releaselevel != "final"
 
 def version_gt(a, b):
     """Returns True if version string a > b.
@@ -86,8 +92,8 @@ def version_gt(a, b):
     Returns:
         True if a is strictly greater than b.
     """
-    a_key = version_key(a)
-    b_key = version_key(b)
+    a_key = parse_version(a).components
+    b_key = parse_version(b).components
 
     # Pad to equal length with (0, RELEASE, 0)
     max_len = max(len(a_key), len(b_key))

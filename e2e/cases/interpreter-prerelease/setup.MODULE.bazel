@@ -1,0 +1,5 @@
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+interpreters.toolchain(
+    pre_release = True,
+    python_version = "3.15",
+)

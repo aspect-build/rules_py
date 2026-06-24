@@ -86,6 +86,7 @@ bzl_library(
     srcs = ["repository.bzl"],
     deps = [
         ":exclude_feature_bzl",  # keep
+        ":version_util",
         "@bazel_features//:features",
     ],
 )

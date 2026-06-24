@@ -1,0 +1,14 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+load(":version_info_check.bzl", "version_info_check")
+
+version_info_check(
+    name = "version_info",
+    python_version = "3.15",
+)
+
+py_test(
+    name = "test",
+    srcs = ["test.py"],
+    data = [":version_info"],
+    python_version = "3.15",
+)
