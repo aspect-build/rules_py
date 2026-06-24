@@ -237,9 +237,9 @@ def _sdist_build_impl(repository_ctx):
     # a single driver binary for both languages, and meson-python /
     # cmake-based backends look for CXX independently of CC.
     #
-    # `extra_toolchains` and `extra_env` augment (do not replace) the
-    # defaults — set via `uv.override_package(toolchains = [...],
-    # env = {...})` to layer JDK / Rust / etc. plumbing on top.
+    # `extra_toolchains` extends the defaults. `extra_env` is merged over the
+    # default environment, so matching keys replace generated values. Both are
+    # set via `uv.override_package(toolchains = [...], env = {...})`.
     toolchain_attrs = ""
     if is_native:
         toolchains = [
@@ -342,7 +342,7 @@ sdist_build = repository_rule(
         ),
         "extra_env": attr.string_dict(
             default = {},
-            doc = "Environment variables merged into the default CC env dict in the generated pep517_native_whl(...) `env` dict. Values may reference $(VAR) make-variables from any toolchain. Set via `uv.override_package(env = {...})`.",
+            doc = "Environment variables merged into the default CC env dict in the generated pep517_native_whl(...) `env` dict, replacing generated values with matching names. Values may reference $(VAR) make-variables from any toolchain. Set via `uv.override_package(env = {...})`.",
         ),
     },
 )

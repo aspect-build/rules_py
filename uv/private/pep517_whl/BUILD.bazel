@@ -135,15 +135,13 @@ build_test(
     visibility = ["//visibility:public"],
 )
 
-# Fixture replicates the toolchains + env defaults emitted by sdist_build's
-# BUILD template (see uv/private/sdist_build/repository.bzl). The analysis
-# test below asserts these expand to non-empty toolchain paths.
+# Fixture combines pep517_native_whl's compiler defaults with the toolchain and
+# env defaults emitted by sdist_build's BUILD template. The analysis test below
+# asserts that all of them resolve to non-empty toolchain paths.
 pep517_native_whl(
     name = "__toolchain_env_fixture",
     src = ":__stub_sdist",
     env = {
-        "CC": "$(CC)",
-        "CXX": "$(CC)",
         "AR": "$(AR)",
         "LD": "$(LD)",
         "STRIP": "$(STRIP)",

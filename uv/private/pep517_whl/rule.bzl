@@ -155,13 +155,12 @@ def _pep517_native_whl(ctx):
     cc_files, cc_compiler = _cc_toolchain_inputs_and_compiler(ctx)
     if cc_files:
         extra_inputs.append(cc_files)
-
-    for k, v in ctx.attr.env.items():
-        env[k] = ctx.expand_make_variables("env", v, known_variables)
-
     if cc_compiler:
         env["CC"] = cc_compiler
         env["CXX"] = cc_compiler
+
+    for k, v in ctx.attr.env.items():
+        env[k] = ctx.expand_make_variables("env", v, known_variables)
 
     ctx.actions.run(
         mnemonic = "PySdistNativeBuild",
@@ -251,7 +250,8 @@ constraints of the target platform.
             doc = "Environment variables to set on the build action. Values may " +
                   "contain `$(VAR)` references to make-variables exposed by any " +
                   "target in the rule's `toolchains` attribute (via " +
-                  "`TemplateVariableInfo`).",
+                  "`TemplateVariableInfo`). Matching names replace generated " +
+                  "defaults, including `CC` and `CXX`.",
         ),
     },
     toolchains = [

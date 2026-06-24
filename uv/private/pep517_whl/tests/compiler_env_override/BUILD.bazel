@@ -1,0 +1,21 @@
+load("//uv/private/pep517_whl:rule.bzl", "pep517_native_whl")
+load("//uv/private/pep517_whl:test.bzl", "pep517_native_whl_compiler_env_override_test")
+
+pep517_native_whl(
+    name = "fixture",
+    testonly = True,
+    src = "//uv/private/pep517_whl:__stub_sdist",
+    env = {
+        "CC": "$(CC) -DEXPLICIT_CC=1",
+        "CXX": "$(CC) -DEXPLICIT_CXX=1",
+    },
+    tags = ["manual"],
+    tool = "//uv/private/pep517_whl:__stub_tool",
+    toolchains = ["@bazel_tools//tools/cpp:current_cc_toolchain"],
+    version = "0.0.1",
+)
+
+pep517_native_whl_compiler_env_override_test(
+    name = "test",
+    target_under_test = ":fixture",
+)

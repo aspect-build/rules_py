@@ -782,19 +782,18 @@ _override_package_tag = tag_class(
                   "bucket.",
         ),
 
-        # Per-package toolchain plumbing for native sdist builds. Both
-        # attributes AUGMENT the defaults baked into sdist_build's
-        # generated `pep517_native_whl(...)` call (the CC toolchain +
-        # CC/CXX/AR/LD/STRIP env) — they don't replace them. Use these
-        # to layer extra toolchains (Java runtime, Rust, …) and extra
-        # env vars on top of the defaults.
+        # Per-package toolchain and environment plumbing for native sdist builds.
+        # Toolchains are appended to the defaults baked into sdist_build's
+        # generated `pep517_native_whl(...)` call. Environment variables are
+        # merged over its CC/CXX/AR/LD/STRIP defaults, so matching names
+        # replace the generated value.
         "toolchains": attr.label_list(
             default = [],
             doc = "Extra toolchain targets appended to the generated pep517_native_whl(...) call's `toolchains` list. Each target's TemplateVariableInfo make-variables become available for $(VAR) expansion in `env`.",
         ),
         "env": attr.string_dict(
             default = {},
-            doc = "Extra environment variables merged into the build action's `env` dict. Values may reference $(VAR) make-variables sourced from the default CC toolchain or any extra `toolchains` listed above.",
+            doc = "Environment variables merged into the build action's `env` dict, replacing generated defaults with matching names. Values may reference $(VAR) make-variables sourced from the default CC toolchain or any extra `toolchains` listed above.",
         ),
 
         # Pre-build patches: applied to extracted sdist source before wheel build.

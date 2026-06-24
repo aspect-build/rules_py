@@ -46,9 +46,10 @@ hostile_python_env_target = rule(
     },
 )
 
-# Env vars sourced from the CC toolchain's TemplateVariableInfo. SYSROOT is
-# omitted because some toolchains legitimately have an empty sysroot and
-# it isn't exposed as a TemplateVariableInfo make variable today.
+# CC and CXX default to the resolved C++ toolchain compiler. The other values
+# come from its TemplateVariableInfo. SYSROOT is omitted because some
+# toolchains legitimately have an empty sysroot and do not expose it as a
+# make variable today.
 _CC_ENV_KEYS = ["CC", "CXX", "AR", "LD", "STRIP"]
 
 # Env vars sourced from the Java runtime toolchain's TemplateVariableInfo.
@@ -83,9 +84,8 @@ def _toolchain_env_test_impl(ctx):
             "${} should resolve to a non-empty toolchain path".format(key),
         )
 
-    # CC and CXX both derive from cc_toolchain's $(CC) make variable today.
-    # If we ever switch CXX to a c++ compile driver (e.g. via a custom
-    # TemplateVariableInfo shim), this assertion can be relaxed.
+    # CC and CXX both default to the compiler discovered from the resolved C++
+    # toolchain. If the defaults diverge in the future, relax this assertion.
     asserts.equals(
         env,
         action_env.get("CC"),
@@ -103,3 +103,31 @@ def _toolchain_env_test_impl(ctx):
     return analysistest.end(env)
 
 pep517_native_whl_toolchain_env_test = analysistest.make(_toolchain_env_test_impl)
+
+def _compiler_env_override_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    target = analysistest.target_under_test(env)
+
+    build_actions = [a for a in target.actions if a.mnemonic == "PySdistNativeBuild"]
+    asserts.equals(
+        env,
+        1,
+        len(build_actions),
+        "expected exactly one PySdistNativeBuild action",
+    )
+
+    action_env = build_actions[0].env
+    asserts.true(
+        env,
+        action_env.get("CC", "").endswith(" -DEXPLICIT_CC=1"),
+        "explicit CC command was overwritten: {}".format(action_env.get("CC")),
+    )
+    asserts.true(
+        env,
+        action_env.get("CXX", "").endswith(" -DEXPLICIT_CXX=1"),
+        "explicit CXX command was overwritten: {}".format(action_env.get("CXX")),
+    )
+
+    return analysistest.end(env)
+
+pep517_native_whl_compiler_env_override_test = analysistest.make(_compiler_env_override_test_impl)
