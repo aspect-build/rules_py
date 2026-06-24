@@ -95,6 +95,11 @@ bzl_library(
 )
 
 bzl_library(
+    name = "interpreter_executable",
+    srcs = ["interpreter_executable.bzl"],
+)
+
+bzl_library(
     name = "resolve",
     srcs = ["resolve.bzl"],
 )

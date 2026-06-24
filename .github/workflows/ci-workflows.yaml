@@ -60,6 +60,22 @@ jobs:
             - name: Test
               working-directory: ${{ matrix.workspace.path }}
               run: aspect test --task-key=test-${{ matrix.workspace.slug }}-${{ matrix.bazel.id }} ${{ matrix.bazel.flags }} -- //...
+            # This fixture's root toolchain declarations live in its own module,
+            # not the parent e2e module used by the matrix entry above.
+            - name: Interpreter toolchain settings
+              if: matrix.workspace.slug == 'e2e'
+              working-directory: e2e/cases/interpreter-toolchain-settings
+              run: |
+                aspect test \
+                  --task-key=test-interpreter-toolchain-settings-${{ matrix.bazel.id }} \
+                  ${{ matrix.bazel.flags }} \
+                  --bazel-flag=--lockfile_mode=off \
+                  -- \
+                  //:resolved_311_test \
+                  //:resolved_312_test \
+                  //:resolved_313_freethreaded_test \
+                  //:resolved_313_glibc_test \
+                  //:resolved_313_musl_test
             # Standalone scripts that drive bazel directly (e.g. asserting a
             # build *fails*), so they can't be an `sh_test` under `//...` above.
             - name: e2e standalone test.sh scripts

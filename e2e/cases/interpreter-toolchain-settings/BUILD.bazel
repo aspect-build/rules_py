@@ -1,30 +1,110 @@
-load(":toolchain_test.bzl", "interpreter_toolchain_check")
+load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
+load(":toolchain_test.bzl", "exec_toolchain_check", "interpreter_toolchain_check", "toolchain_resolution_test")
+
+string_flag(
+    name = "interpreter_setting",
+    build_setting_default = "",
+)
+
+string_flag(
+    name = "interpreter_setting_secondary",
+    build_setting_default = "",
+)
 
 config_setting(
     name = "config_311",
-    define_values = {"interpreter_setting": "311"},
+    flag_values = {":interpreter_setting": "311"},
 )
 
 config_setting(
     name = "config_311_secondary",
-    define_values = {"interpreter_setting_secondary": "311"},
+    flag_values = {":interpreter_setting_secondary": "311"},
 )
 
 config_setting(
     name = "config_312",
-    define_values = {"interpreter_setting": "312"},
+    flag_values = {":interpreter_setting": "312"},
+)
+
+constraint_setting(name = "python_target")
+
+constraint_setting(name = "python_exec")
+
+constraint_value(
+    name = "python_exec_supported",
+    constraint_setting = ":python_exec",
+    visibility = ["//visibility:public"],
+)
+
+constraint_value(
+    name = "python_target_supported",
+    constraint_setting = ":python_target",
+    visibility = ["//visibility:public"],
+)
+
+constraint_value(
+    name = "python_target_unsupported",
+    constraint_setting = ":python_target",
+    visibility = ["//visibility:public"],
 )
 
 platform(
     name = "linux_x86_64",
+    constraint_values = [
+        ":python_target_supported",
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+)
+
+platform(
+    name = "linux_x86_64_exec",
     constraint_values = [
         "@platforms//cpu:x86_64",
         "@platforms//os:linux",
     ],
 )
 
+platform(
+    name = "linux_x86_64_exec_supported",
+    constraint_values = [
+        ":python_exec_supported",
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+)
+
+platform(
+    name = "linux_aarch64",
+    constraint_values = [
+        ":python_target_supported",
+        "@platforms//cpu:aarch64",
+        "@platforms//os:linux",
+    ],
+)
+
+platform(
+    name = "linux_x86_64_unsupported",
+    constraint_values = [
+        ":python_target_unsupported",
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+)
+
+# This package is also visible from the parent e2e workspace, whose module does
+# not declare these root toolchain settings. CI names the tests explicitly from
+# this fixture's module; `manual` keeps parent-workspace wildcards from selecting
+# their checks or wrappers under the wrong module graph.
 interpreter_toolchain_check(
     name = "resolved_311",
+    expected_interpreter = "@python_3_11_x86_64_unknown_linux_gnu//:bin/python3",
+    python_version = "3.11",
+    tags = ["manual"],
+)
+
+exec_toolchain_check(
+    name = "resolved_311_exec",
     expected_interpreter = "@python_3_11_x86_64_unknown_linux_gnu//:bin/python3",
     python_version = "3.11",
     tags = ["manual"],
@@ -35,4 +115,77 @@ interpreter_toolchain_check(
     expected_interpreter = "@python_3_12_x86_64_unknown_linux_gnu//:bin/python3",
     python_version = "3.12",
     tags = ["manual"],
+)
+
+exec_toolchain_check(
+    name = "resolved_312_exec",
+    expected_interpreter = "@python_3_12_x86_64_unknown_linux_gnu//:bin/python3",
+    python_version = "3.12",
+    tags = ["manual"],
+)
+
+exec_toolchain_check(
+    name = "resolved_313_exec",
+    expected_interpreter = "@python_3_13_x86_64_unknown_linux_gnu//:bin/python3",
+    python_version = "3.13",
+    tags = ["manual"],
+)
+
+exec_toolchain_check(
+    name = "resolved_313_freethreaded_exec",
+    expected_interpreter = "@python_3_13_x86_64_unknown_linux_gnu_freethreaded//:bin/python3",
+    freethreaded = True,
+    python_version = "3.13",
+    tags = ["manual"],
+)
+
+toolchain_resolution_test(
+    name = "resolved_311_test",
+    checks = [
+        ":resolved_311",
+        ":resolved_311_exec",
+    ],
+    execution_platform = ":linux_x86_64_exec",
+    interpreter_setting = "311",
+    interpreter_setting_secondary = "311",
+    python_version = "3.11",
+    target_platform = ":linux_x86_64",
+)
+
+toolchain_resolution_test(
+    name = "resolved_312_test",
+    checks = [
+        ":resolved_312",
+        ":resolved_312_exec",
+    ],
+    execution_platform = ":linux_x86_64_exec",
+    interpreter_setting = "312",
+    python_version = "3.12",
+    target_platform = ":linux_x86_64",
+)
+
+toolchain_resolution_test(
+    name = "resolved_313_glibc_test",
+    checks = [":resolved_313_exec"],
+    execution_platform = ":linux_x86_64_exec_supported",
+    python_version = "3.13",
+    target_platform = ":linux_aarch64",
+)
+
+toolchain_resolution_test(
+    name = "resolved_313_musl_test",
+    checks = [":resolved_313_exec"],
+    execution_platform = ":linux_x86_64_exec_supported",
+    libc = "musl",
+    python_version = "3.13",
+    target_platform = ":linux_aarch64",
+)
+
+toolchain_resolution_test(
+    name = "resolved_313_freethreaded_test",
+    checks = [":resolved_313_freethreaded_exec"],
+    execution_platform = ":linux_x86_64_exec_supported",
+    freethreaded = True,
+    python_version = "3.13",
+    target_platform = ":linux_aarch64",
 )

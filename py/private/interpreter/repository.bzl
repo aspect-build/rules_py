@@ -182,6 +182,7 @@ cc_library(
     return """\
 load("@rules_cc//cc:cc_import.bzl", "cc_import")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@aspect_rules_py//py/private/interpreter:interpreter_executable.bzl", "interpreter_executable")
 load("@rules_python//python:py_runtime.bzl", "py_runtime")
 load("@rules_python//python:py_runtime_pair.bzl", "py_runtime_pair")
 load("@rules_python//python:py_exec_tools_toolchain.bzl", "py_exec_tools_toolchain")
@@ -246,8 +247,15 @@ py_runtime_pair(
     py3_runtime = ":py3_runtime",
 )
 
+interpreter_executable(
+    name = "exec_interpreter",
+    runtime_pair = ":runtime_pair",
+    visibility = ["//visibility:private"],
+)
+
 py_exec_tools_toolchain(
     name = "exec_tools_toolchain",
+    exec_interpreter = ":exec_interpreter",
 )
 
 py_cc_toolchain(
@@ -401,13 +409,30 @@ config_setting(
         version_setting = ":" + _version_setting_name(info["python_version"])
         freethreaded_setting = ":" + _freethreaded_setting_name(info.get("freethreaded", False))
 
-        target_settings = [
+        python_target_settings = [
             version_setting,
             freethreaded_setting,
-        ] + [":" + name for name in platform_setting_names] + extra_config_settings
+        ]
+        runtime_target_settings = (
+            python_target_settings +
+            [":" + name for name in platform_setting_names] +
+            extra_config_settings
+        )
 
-        target_compatible_with = info["compatible_with"] + extra_target_compatible
+        # target_settings are evaluated against the target configuration even
+        # for a toolchain whose implementation runs on the execution platform:
+        # https://bazel.build/reference/be/general#toolchain.target_settings
+        # Select the requested Python version and mode, but do not require the
+        # execution interpreter to match target-platform settings such as libc.
+        exec_target_settings = python_target_settings + extra_config_settings
+
+        runtime_target_compatible_with = info["compatible_with"] + extra_target_compatible
         exec_compatible_with = info["compatible_with"] + extra_exec_compatible
+
+        # Root target constraints describe which targets may use the exec
+        # toolchain. PBS OS/CPU constraints describe only its exec platform:
+        # https://bazel.build/reference/be/general#toolchain.target_compatible_with
+        exec_target_compatible_with = extra_target_compatible
 
         content.append("""
 # The Python interpreter toolchain has no exec_compatible_with: the interpreter
@@ -419,33 +444,34 @@ config_setting(
 # sufficient to pick the right interpreter for the target.
 toolchain(
     name = "{name}",
-    target_compatible_with = {target_compatible_with},
-    target_settings = {target_settings},
+    target_compatible_with = {runtime_target_compatible_with},
+    target_settings = {runtime_target_settings},
     toolchain = "@{repo}//:runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
 
 toolchain(
     name = "{name}_py_cc",
-    target_compatible_with = {target_compatible_with},
-    target_settings = {target_settings},
+    target_compatible_with = {runtime_target_compatible_with},
+    target_settings = {runtime_target_settings},
     toolchain = "@{repo}//:py_cc_toolchain",
     toolchain_type = "@rules_python//python/cc:toolchain_type",
 )
 """.format(
             name = info["name"],
             repo = info["repo"],
-            target_compatible_with = target_compatible_with,
-            target_settings = target_settings,
+            runtime_target_settings = runtime_target_settings,
+            runtime_target_compatible_with = runtime_target_compatible_with,
         ))
 
         if info["register_exec_tools"]:
-            content.append("""# Exec tools toolchain: selected by exec platform (not target platform) so
-# that build actions using the interpreter (e.g. compileall) get a runnable
-# binary on the build host regardless of the target platform being built for.
-toolchain(
+            # Exec tools run on the selected execution platform for the
+            # target's Python mode.
+            content.append("""toolchain(
     name = "{name}_exec_tools",
     exec_compatible_with = {exec_compatible_with},
+    target_compatible_with = {exec_target_compatible_with},
+    target_settings = {exec_target_settings},
     toolchain = "@{repo}//:exec_tools_toolchain",
     toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
 )
@@ -453,6 +479,8 @@ toolchain(
                 name = info["name"],
                 repo = info["repo"],
                 exec_compatible_with = exec_compatible_with,
+                exec_target_compatible_with = exec_target_compatible_with,
+                exec_target_settings = exec_target_settings,
             ))
 
     content.append("""
