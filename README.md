@@ -70,9 +70,14 @@ interpreter extension—rules_python is not required as a toolchain provider.
 
 ```python
 interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
-interpreters.toolchain(python_version = "3.12", is_default = True)
+interpreters.toolchain(python_version = "3.12")
 use_repo(interpreters, "python_interpreters")
 register_toolchains("@python_interpreters//:all")
+```
+
+```text
+# .bazelrc
+common --@aspect_rules_py//py:python_version=3.12
 ```
 
 This enables cross-compilation from any host to any target without host-installed Python, and is the foundation for

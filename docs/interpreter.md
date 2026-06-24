@@ -29,12 +29,17 @@ bazel_dep(name = "aspect_rules_py", version = "1.6.7")  # Or later
 
 interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
 interpreters.toolchain(
-    is_default = True,
     python_version = "3.12",
 )
 interpreters.toolchain(python_version = "3.11")
 use_repo(interpreters, "python_interpreters")
 register_toolchains("@python_interpreters//:all")
+```
+
+Select the build-wide Python version in `.bazelrc`:
+
+```text
+common --@aspect_rules_py//py:python_version=3.12
 ```
 
 That's all you need. The extension uses a set of default PBS release dates that
@@ -53,7 +58,7 @@ interpreters.configure(
     releases = ["20260303", "20241002"],
 )
 
-interpreters.toolchain(python_version = "3.12", is_default = True)
+interpreters.toolchain(python_version = "3.12")
 interpreters.toolchain(python_version = "3.8")  # Resolved from 20241002
 
 use_repo(interpreters, "python_interpreters")
@@ -95,16 +100,15 @@ The `base_url` must point to a directory structure matching PBS releases, where
 
 ## Module scoping
 
-The `configure()` tag and the `is_default` / `pre_release` flags on `toolchain()`
-are only honored from the root module. This gives the root module full control
-over the build environment while allowing dependency modules to declare which
-Python versions they need.
+The `configure()` tag and the `pre_release` flag on `toolchain()` are only
+honored from the root module. This gives the root module full control over the
+build environment while allowing dependency modules to declare which Python
+versions they need.
 
 | Setting                           | Root module                          | Non-root module    |
 | --------------------------------- | ------------------------------------ | ------------------ |
 | `configure()`                     | Sets release search space and mirror | Silently ignored   |
 | `toolchain(python_version = ...)` | Adds to global set                   | Adds to global set |
-| `toolchain(is_default = True)`    | Honored                              | Silently ignored   |
 | `toolchain(pre_release = True)`   | Honored                              | Silently ignored   |
 
 If a dependency module requests a Python version that isn't available in any
@@ -113,22 +117,12 @@ message identifying which module requested it.
 
 ## Selecting Python versions
 
-There are three layers of version control, from broadest to most specific.
+There are two layers of version control, from broadest to most specific.
 
-### 1. The default version (MODULE.bazel)
-
-The `is_default = True` toolchain is what Bazel selects when nothing else
-overrides it:
-
-```starlark
-interpreters.toolchain(python_version = "3.12", is_default = True)
-```
-
-### 2. A build-wide default (.bazelrc)
+### 1. A build-wide version (.bazelrc)
 
 Set `--@aspect_rules_py//py:python_version` in `.bazelrc` to lock the
-entire build to a specific version. This is a good practice even when it matches
-the `is_default` toolchain — it makes the choice explicit and visible in version
+entire build to a specific version and keep the selection explicit in version
 control:
 
 ```
@@ -144,7 +138,7 @@ a different version:
 bazel test //... --@aspect_rules_py//py:python_version=3.11
 ```
 
-### 3. Per-target overrides (python_version attribute)
+### 2. Per-target overrides (python_version attribute)
 
 Individual `py_binary`, `py_venv_binary`, `py_test`, and `py_venv_test` targets
 can pin to a specific version using the `python_version` attribute. This takes
@@ -177,11 +171,10 @@ versions:
 
 | Mechanism                               | Scope                  | Set by                     |
 | --------------------------------------- | ---------------------- | -------------------------- |
-| `is_default = True` on `toolchain()`    | Whole build (fallback) | `MODULE.bazel`             |
 | `--@aspect_rules_py//py:python_version` | Whole build            | `.bazelrc` or command line |
 | `python_version` attribute              | Single target          | `BUILD.bazel`              |
 
-The most specific wins: attribute > flag > default toolchain.
+The target attribute takes precedence over the build-wide flag.
 
 ## Build configurations
 
