@@ -1,8 +1,10 @@
+import hashlib
 import shutil
 import subprocess
 import sys
 import tempfile
 import zipfile
+from base64 import urlsafe_b64encode
 from pathlib import Path
 
 
@@ -12,16 +14,47 @@ def _write_member(archive: zipfile.ZipFile, name: str, data: bytes) -> None:
     archive.writestr(info, data)
 
 
+def _write_wheel(path: Path, distribution: str, members: dict[str, bytes]) -> None:
+    dist_info = f"{distribution}-1.0.dist-info"
+    members = dict(members)
+    members[f"{dist_info}/METADATA"] = (
+        "Metadata-Version: 2.1\n"
+        f"Name: {distribution.replace('_', '-')}\n"
+        "Version: 1.0\n"
+    ).encode()
+    members[f"{dist_info}/WHEEL"] = (
+        "Wheel-Version: 1.0\n"
+        "Generator: rules_py test\n"
+        "Root-Is-Purelib: true\n"
+        "Tag: py3-none-any\n"
+    ).encode()
+    record_path = f"{dist_info}/RECORD"
+    record = []
+    for name, data in sorted(members.items()):
+        digest = urlsafe_b64encode(hashlib.sha256(data).digest()).decode().rstrip("=")
+        record.append(f"{name},sha256={digest},{len(data)}")
+    record.append(f"{record_path},,")
+    members[record_path] = ("\n".join(record) + "\n").encode()
+
+    with zipfile.ZipFile(path, "w") as archive:
+        for name, data in members.items():
+            _write_member(archive, name, data)
+
+
 def _build_wheel(path: Path, *, legacy_syntax: bool) -> None:
     body = (
         b"raise RuntimeError, None, None\n"
         if legacy_syntax
         else b"def f():\n    return 1\n"
     )
-    with zipfile.ZipFile(path, "w") as archive:
-        _write_member(archive, "fixture/__init__.py", b"VALUE = 1\n")
-        _write_member(archive, "fixture/mod.py", body)
-        _write_member(archive, "fixture-1.0.dist-info/RECORD", b"")
+    _write_wheel(
+        path,
+        "fixture",
+        {
+            "fixture/__init__.py": b"VALUE = 1\n",
+            "fixture/mod.py": body,
+        },
+    )
 
 
 def _run_unpack(
@@ -104,6 +137,46 @@ def main() -> None:
         )
         assert failed.returncode != 0, "expected child interpreter failure"
         assert "CalledProcessError" in failed.stderr
+
+        entry_point_wheel = root / "entry_point-1.0-py3-none-any.whl"
+        _write_wheel(
+            entry_point_wheel,
+            "entry_point",
+            {
+                "fixture/__init__.py": b"class Commands:\n"
+                b"    @staticmethod\n"
+                b"    def main():\n"
+                b"        return 0\n",
+                "entry_point-1.0.dist-info/entry_points.txt": (
+                    b"[console_scripts]\n"
+                    b"Fixture-Cli = fixture:Commands.main [extra]\n"
+                ),
+            },
+        )
+
+        entry_point_out = root / "entry-point"
+        entry_point = _run_unpack(
+            unpack,
+            entry_point_wheel,
+            entry_point_out,
+            Path(sys.executable),
+        )
+        assert entry_point.returncode == 0, entry_point.stderr
+        assert {entry.name for entry in (entry_point_out / "bin").iterdir()} == {
+            "Fixture-Cli",
+        }, "console-script name was not preserved"
+        script = entry_point_out / "bin" / "Fixture-Cli"
+        site_packages = (
+            entry_point_out
+            / "lib"
+            / f"python{sys.version_info.major}.{sys.version_info.minor}"
+            / "site-packages"
+        )
+        subprocess.run(
+            [sys.executable, str(script)],
+            check=True,
+            env={"PYTHONPATH": str(site_packages)},
+        )
 
 
 if __name__ == "__main__":

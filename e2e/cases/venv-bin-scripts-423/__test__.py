@@ -41,5 +41,24 @@ assert output.startswith("[") and output.endswith("]"), (
 value = int(output[1:-1])
 assert 1 <= value <= 6, f"Expected roll result 1-6, got {value}"
 
+invoke_script = os.path.join(bin_dir, "invoke")
+assert os.path.exists(invoke_script), f"Expected 'invoke' script at {invoke_script}"
+assert os.access(invoke_script, os.X_OK), (
+    f"'invoke' script at {invoke_script} is not executable"
+)
+
+# Invoke publishes `invoke.main:program.run`, which requires resolving the
+# dotted object path after importing the module.
+invoke_result = subprocess.run(
+    [invoke_script, "--version"],
+    capture_output=True,
+    text=True,
+)
+assert invoke_result.returncode == 0, (
+    f"'invoke --version' failed with rc={invoke_result.returncode}: "
+    f"{invoke_result.stderr}"
+)
+assert invoke_result.stdout.strip() == "Invoke 2.2.0", invoke_result.stdout
+
 print(f"roll 1d6 = {value}")
 print("All venv bin script tests passed.")
