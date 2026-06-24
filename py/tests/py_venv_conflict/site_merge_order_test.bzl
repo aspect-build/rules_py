@@ -36,11 +36,13 @@ site="$1/lib/python$2.$3/site-packages"
 mkdir -p "$site/mixed/root"
 printf '' > "$site/mixed/root/__init__.py"
 printf 'VALUE = %s\n' "$4" > "$site/mixed/root/collision.py"
+printf 'VALUE = %s\n' "$4" > "$site/mixed/sibling.py"
 """
             top_levels = ("mixed",)
             namespace_entries = (
                 "mixed/root/__init__.py",
                 "mixed/root/collision.py",
+                "mixed/sibling.py",
             )
             namespace_dirs = ()
             regular_roots = ("mixed/root",)
@@ -51,11 +53,13 @@ site="$1/lib/python$2.$3/site-packages"
 mkdir -p "$site/mixed/root"
 printf 'VALUE = %s\n' "$4" > "$site/mixed/root/collision.py"
 printf 'VALUE = %s\n' "$4" > "$site/mixed/root/graft_unique.py"
+printf 'VALUE = %s\n' "$4" > "$site/mixed/sibling.py"
 """
             top_levels = ("mixed",)
             namespace_entries = (
                 "mixed/root/collision.py",
                 "mixed/root/graft_unique.py",
+                "mixed/sibling.py",
             )
             namespace_dirs = ("mixed/root",)
             regular_roots = ()
@@ -66,12 +70,14 @@ site="$1/lib/python$2.$3/site-packages"
 mkdir -p "$site/mixed/root" "$site/other"
 printf 'VALUE = %s\n' "$4" > "$site/mixed/root/collision.py"
 printf 'VALUE = %s\n' "$4" > "$site/mixed/root/final_unique.py"
+printf 'VALUE = %s\n' "$4" > "$site/mixed/sibling.py"
 printf 'VALUE = %s\n' "$4" > "$site/other/from_final.py"
 """
             top_levels = ("mixed", "other")
             namespace_entries = (
                 "mixed/root/collision.py",
                 "mixed/root/final_unique.py",
+                "mixed/sibling.py",
                 "other/from_final.py",
             )
             namespace_dirs = ("mixed/root",)

@@ -188,14 +188,20 @@ Only works with the Aspect rules_py uv machinery.
         doc = """Whether to build this target and its transitive deps for a specific python version.""",
     ),
     "package_collisions": attr.string(
-        doc = """What to do when two wheels both claim the same top-level or console-script name.
+        doc = """What to do when metadata-resolved wheel contents collide.
 
-See `py_binary`'s attribute of the same name for full semantics — the
-two rules share the underlying collision detector.
+See `py_binary`'s attribute of the same name for full semantics — the two rules
+share the underlying collision detector. PEP 420 namespace top-levels merge.
+For ordinary top-levels, exact namespace entries, and console scripts,
+permissive modes select the last distinct claimant in the postorder wheel
+sequence. Regular-package spans overlay in that sequence; incompatible
+namespace prefixes retain the shallower entry. Wheels not represented in
+`PyWheelsInfo` remain on the `.pth` fallback. A duplicate dependency edge does
+not reinsert a wheel.
 
-* "error": Fail analysis.
-* "warning" (default): Print a warning; first-seen wins.
-* "ignore": First-seen wins silently.
+* "error": Fail analysis or the physical merge action.
+* "warning" (default): Print a warning and apply the permissive behavior above.
+* "ignore": Apply the permissive behavior silently.
 """,
         default = "warning",
         values = ["error", "warning", "ignore"],

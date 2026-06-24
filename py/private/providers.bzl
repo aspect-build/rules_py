@@ -16,7 +16,11 @@ executable wrappers under `<venv>/bin/<name>` for console scripts.
 """,
     fields = {
         "wheels": """Depset of `struct(top_levels, namespace_top_levels, namespace_entries, site_packages_rfpath, console_scripts)`
-— one per wheel in the transitive closure. Fields:
+— one per wheel in the transitive closure. rules_py aggregates this field in
+postorder. Producers must use `default` or `postorder`, the orders Bazel permits
+in that aggregate. For collision classes that select one claimant, permissive
+handling gives the later distinct element in the flattened sequence precedence.
+Duplicate dependency edges do not create another precedence position. Fields:
   * `top_levels`: tuple[str] — top-level names the wheel installs into site-packages.
   * `namespace_top_levels`: tuple[str] — subset of top_levels that are PEP 420 namespace packages.
   * `namespace_entries`: tuple[str] — `/`-joined paths of the concrete entries beneath

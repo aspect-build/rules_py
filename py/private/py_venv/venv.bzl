@@ -225,6 +225,7 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
                                 entry_owner[entry] = c
                             elif prior.site_packages != c.site_packages:
                                 _complain("namespace entry", entry, prior.site_packages, c.site_packages)
+                                entry_owner[entry] = c
                     for entry, c in entry_owner.items():
                         top_level_to_site_pkgs[entry] = c.site_packages
                 continue
@@ -247,14 +248,13 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
             if not entried:
                 continue
 
-            # Per-entry merge over the entries-bearing claimants: first
-            # wheel to claim an entry wins. A later distinct wheel shipping
+            # Per-entry merge over the entries-bearing claimants: the last
+            # distinct wheel to claim an entry wins. An earlier wheel shipping
             # the same entry is a genuine collision (same subpackage twice)
-            # — complain per policy and leave the loser on the .pth path.
+            # — complain per policy and leave the earlier claimant on the
+            # .pth path.
             # (An entryless claimant shipping the same subpackage can't be
-            # detected here; the concrete symlink wins deterministically
-            # over its .pth portion — the same first-on-path resolution the
-            # old all-.pth path gave, only now order-independent.)
+            # detected here; the concrete symlink wins over its .pth portion.)
             entry_owner = {}
             for c in entried:
                 for entry in c.ns_entries:
@@ -263,7 +263,8 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
                         entry_owner[entry] = c
                     elif prior.site_packages != c.site_packages:
                         _complain("namespace entry", entry, prior.site_packages, c.site_packages)
-                        skipped_per_wheel.setdefault(c.site_packages, {})[tl] = True
+                        skipped_per_wheel.setdefault(prior.site_packages, {})[tl] = True
+                        entry_owner[entry] = c
 
             # A nested-namespace mismatch (wheel A ships
             # `google/cloud/__init__.py` while wheel B treats
@@ -313,15 +314,16 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
                     ns_covered_per_wheel.setdefault(c.site_packages, {})[tl] = True
             continue
 
-        first = claimants[0]
-        top_level_to_site_pkgs[tl] = first.site_packages
-        seen_losers = {}
+        winner = claimants[0]
+        seen = {winner.site_packages: True}
         for c in claimants[1:]:
-            if c.site_packages == first.site_packages or c.site_packages in seen_losers:
+            if c.site_packages in seen:
                 continue
-            _complain("top-level", tl, first.site_packages, c.site_packages)
-            seen_losers[c.site_packages] = True
-            skipped_per_wheel.setdefault(c.site_packages, {})[tl] = True
+            _complain("top-level", tl, winner.site_packages, c.site_packages)
+            skipped_per_wheel.setdefault(winner.site_packages, {})[tl] = True
+            winner = c
+            seen[c.site_packages] = True
+        top_level_to_site_pkgs[tl] = winner.site_packages
 
     # Pass 2a: fold conflicted roots into merge groups. Keep only the
     # minimal (shallowest) roots — a conflicted root nested inside
@@ -365,14 +367,15 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
             c = claimants[0]
             console_scripts_map[name] = struct(module = c.module, func = c.func)
             continue
-        first = claimants[0]
-        console_scripts_map[name] = struct(module = first.module, func = first.func)
-        seen_losers = {}
+        winner = claimants[0]
+        seen = {winner.site_packages: True}
         for c in claimants[1:]:
-            if c.site_packages == first.site_packages or c.site_packages in seen_losers:
+            if c.site_packages in seen:
                 continue
-            _complain("console script", name, first.site_packages, c.site_packages)
-            seen_losers[c.site_packages] = True
+            _complain("console script", name, winner.site_packages, c.site_packages)
+            winner = c
+            seen[c.site_packages] = True
+        console_scripts_map[name] = struct(module = winner.module, func = winner.func)
 
     # Pass 3: wheels fully covered by direct (or complete per-entry
     # namespace) symlinks.

@@ -4,8 +4,8 @@ load("//tools:pth_snapshot.bzl", "extract_venv_pth")
 # setuptools vendors `packaging` (among others), which collides at
 # the top-level with the real packaging wheel pulled in via pytest.
 # Not a PEP 420 namespace on either side, so our analysis-time check
-# flags it — but first-seen wins is correct here (vendored copy
-# stays invisible). Downgrade to warning.
+# flags it. This fixture permits the known overlap while continuing
+# to require both setuptools and pytest to import.
 
 py_test(
     name = "include_group",
