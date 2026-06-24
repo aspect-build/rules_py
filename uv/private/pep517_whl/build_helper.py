@@ -100,6 +100,20 @@ def _override_tool(env, key, wrapper):
 
 def _compiler_env(tmpdir):
     env = dict(os.environ)
+    # The helper's launcher exports RUNFILES_DIR, RUNFILES_MANIFEST_FILE, and
+    # JAVA_RUNFILES:
+    # https://github.com/hermeticbuild/hermetic-launcher/blob/381814d0818af0573263323dc0dd0e4e208fc3fa/README.md#runfiles-discovery
+    # Bazel adds RUNFILES_MANIFEST_ONLY when runfiles trees are disabled:
+    # https://github.com/bazelbuild/bazel/blob/9.1.1/src/main/java/com/google/devtools/build/lib/bazel/rules/BazelRuleClassProvider.java#L192-L201
+    # Nested Bazel executables check that inherited state before adjacent
+    # runfiles, so remove the parent's identity before package code runs.
+    for key in (
+        "JAVA_RUNFILES",
+        "RUNFILES_DIR",
+        "RUNFILES_MANIFEST_FILE",
+        "RUNFILES_MANIFEST_ONLY",
+    ):
+        env.pop(key, None)
     env["PATH"] = pathsep.join([
         path.dirname(sys.executable),
         env.get("PATH", defpath),

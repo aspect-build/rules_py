@@ -13,9 +13,19 @@ _DIST_INFO = "python_env_backend-0.0.1.dist-info"
 
 
 def _check_environment() -> None:
-    for name in ("PYTHONHOME", "PYTHONPLATLIBDIR"):
+    # JAVA_RUNFILES is Bazel's legacy runfiles locator, not a Java toolchain
+    # variable. Compiler and Java tool variables remain available to backends;
+    # only the parent launcher's runfiles identity must be removed.
+    for name in (
+        "JAVA_RUNFILES",
+        "PYTHONHOME",
+        "PYTHONPLATLIBDIR",
+        "RUNFILES_DIR",
+        "RUNFILES_MANIFEST_FILE",
+        "RUNFILES_MANIFEST_ONLY",
+    ):
         if name in os.environ:
-            raise RuntimeError(f"host {name} reached the PEP 517 backend")
+            raise RuntimeError(f"inherited {name} reached the PEP 517 backend")
 
     expected_pythonpath = os.environ.get("EXPECTED_PYTHONPATH")
     if expected_pythonpath is None:
