@@ -32,10 +32,10 @@ expect_failure() {
 
 expect_failure \
     root-invalid-python \
-    "module 'root_invalid_python' requested invalid python_version '3.14.3garbage'"
+    "module 'root_invalid_python' requested invalid python_version '3.14.3'; expected major.minor"
 expect_failure \
     dependency-invalid-python \
-    "module 'invalid_python_dependency' requested invalid python_version '3.14.3.1'"
+    "module 'invalid_python_dependency' requested invalid python_version '3.14.3.1'; expected major.minor"
 expect_failure \
     root-invalid-release \
     "PBS release identifiers must be eight decimal digits, got '2026-03-03'"
