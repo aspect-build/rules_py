@@ -46,11 +46,11 @@ fi
 if (cd conflict && "$BAZEL" query \
     --lockfile_mode=off \
     -- '@python_interpreters//:*') >"$failure_log" 2>&1; then
-    fail "conflicting normalized root declarations were accepted"
+    fail "conflicting duplicate root declarations were accepted"
 fi
 if ! grep -q "Conflicting root toolchain settings for Python 3.11" "$failure_log"; then
     cat "$failure_log" >&2
-    fail "conflicting normalized root declarations lacked a clear diagnostic"
+    fail "conflicting duplicate root declarations lacked a clear diagnostic"
 fi
 
 echo "PASS: each Python version retained its root toolchain settings"

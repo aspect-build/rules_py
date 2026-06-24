@@ -239,7 +239,7 @@ def _python_interpreters_impl(module_ctx):
                             root_settings[major_minor],
                             settings,
                         ) +
-                        "Tags whose python_version values normalize to the same major.minor " +
+                        "Tags requesting the same Python version " +
                         "must use identical config_settings, target_compatible_with, and " +
                         "exec_compatible_with.",
                     )
