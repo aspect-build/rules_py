@@ -1,12 +1,30 @@
 """Regression: a package whose lockfile entry has both an sdist *and* a
 `-none-any.whl` must still be source-buildable. cowsay 6.0 has both
 shapes; the pyproject's `no-binary-package` setting forces the source
-build path at runtime. Uses its own hub to keep the no-binary setting
-isolated from the shared `pypi` hub.
+build path at runtime. A source patch makes the backend verify paths supplied
+by an explicit JDK build-tool target and execute a declared tool with runfiles,
+covering build-tool plumbing on the pure rule. Uses its own hub to keep the
+no-binary setting isolated from the shared `pypi` hub.
 """
 
 uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_sdist_fallback")
+uv.override_package(
+    name = "cowsay",
+    build_tool_env = {
+        "//cases/uv-sdist-fallback:build_env_tool": "BUILD_ENV_TOOL",
+    },
+    build_tools = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    console_scripts = {"cowsay": "cowsay.__main__:cli"},
+    lock = "//cases/uv-sdist-fallback:uv.lock",
+    monitor_memory = True,
+    path_env = {
+        "JAVA": "$(JAVA)",
+        "JAVA_HOME": "$(JAVABASE)",
+    },
+    pre_build_patch_strip = 1,
+    pre_build_patches = ["//cases/uv-sdist-fallback:verify_build_env.patch"],
+)
 uv.project(
     default_build_dependencies = [
         "build",
@@ -15,12 +33,6 @@ uv.project(
     hub_name = "pypi_sdist_fallback",
     lock = "//cases/uv-sdist-fallback:uv.lock",
     pyproject = "//cases/uv-sdist-fallback:pyproject.toml",
-)
-uv.override_package(
-    name = "cowsay",
-    console_scripts = {"cowsay": "cowsay.__main__:cli"},
-    lock = "//cases/uv-sdist-fallback:uv.lock",
-    monitor_memory = True,
 )
 use_repo(
     uv,

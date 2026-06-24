@@ -1,11 +1,23 @@
 load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_test")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 
+exports_files(["verify_build_env.patch"])
+
+py_binary(
+    name = "build_env_tool",
+    srcs = ["build_env_tool.py"],
+    data = ["build_env_tool.txt"],
+    main = "build_env_tool.py",
+    visibility = ["//visibility:public"],
+)
+
 # Regression coverage for the sdist-fallback behavior preserved by the
 # "always keep sdist fallbacks when sources exist" fix. cowsay 6.0 has both
 # an sdist and a `-none-any.whl`; the pyproject's `no-binary-package` setting
-# forces the resolver to build it from source, exercising the sbuild path at
-# runtime.
+# forces the resolver to build it from source. The source patch also makes the
+# backend consume explicit paths from a JDK build-tool target and execute a
+# declared tool with runfiles, covering the pure wheel-build rule's source-build
+# tool interface at runtime.
 py_test(
     name = "test",
     srcs = ["__test__.py"],

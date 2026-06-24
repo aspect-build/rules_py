@@ -1,0 +1,15 @@
+diff --git a/setup.py b/setup.py
+--- a/setup.py
++++ b/setup.py
+@@ -0,0 +1,11 @@
++import os
++import subprocess
++
++java = os.environ["JAVA"]
++java_home = os.environ["JAVA_HOME"]
++if not os.path.isfile(java):
++    raise RuntimeError("JAVA does not name a file: " + java)
++if not os.path.isdir(java_home):
++    raise RuntimeError("JAVA_HOME does not name a directory: " + java_home)
++subprocess.run([os.environ["BUILD_ENV_TOOL"]], check=True)
++

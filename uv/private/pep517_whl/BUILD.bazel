@@ -6,11 +6,39 @@ load("@tar.bzl//tar:mtree.bzl", "mtree_mutate", "mtree_spec")
 load("@tar.bzl//tar:tar.bzl", "tar_rule")
 load("//py:defs.bzl", "py_binary", "py_library", "py_test")
 load(":rule.bzl", "pep517_native_whl", "pep517_whl")
-load(":test.bzl", "hostile_python_env_target", "pep517_native_whl_toolchain_env_test")
+load(
+    ":test.bzl",
+    "hostile_python_env_target",
+    "pep517_native_whl_build_tool_env_test",
+    "pep517_whl_build_tool_env_failure_test",
+    "pep517_whl_build_tool_env_test",
+    "pep517_whl_build_tool_exec_configuration_test",
+    "template_variable_tool",
+)
 
 package(default_visibility = [
     "//uv/private:__subpackages__",
 ])
+
+constraint_setting(
+    name = "__configuration_role",
+)
+
+constraint_value(
+    name = "__target_configuration",
+    constraint_setting = ":__configuration_role",
+)
+
+platform(
+    name = "__cross_target_platform",
+    constraint_values = [":__target_configuration"],
+    parents = ["@platforms//host"],
+)
+
+config_setting(
+    name = "__is_target_configuration",
+    constraint_values = [":__target_configuration"],
+)
 
 exports_files(
     ["build_helper.py"],
@@ -135,32 +163,227 @@ build_test(
     visibility = ["//visibility:public"],
 )
 
-# Fixture replicates the toolchains + env defaults emitted by sdist_build's
-# BUILD template (see uv/private/sdist_build/repository.bzl). The analysis
-# test below asserts these expand to non-empty toolchain paths.
-pep517_native_whl(
-    name = "__toolchain_env_fixture",
-    src = ":__stub_sdist",
-    env = {
-        "CC": "$(CC)",
-        "CXX": "$(CC)",
-        "AR": "$(AR)",
-        "LD": "$(LD)",
-        "STRIP": "$(STRIP)",
-        "JAVA_HOME": "$(JAVABASE)",
-        "JAVA": "$(JAVA)",
-        "JAR": "$(JAVABASE)/bin/jar",
+template_variable_tool(
+    name = "__template_variable_tool",
+    testonly = True,
+    srcs = ["build_helper.py"],
+    all_files = ["tests/python_env_backend/backend.py"],
+    runfiles = ["tests/python_env_backend/pyproject.toml"],
+    tags = ["manual"],
+    variables = {
+        "ALL_FILES_TOOL": "uv/private/pep517_whl/tests/python_env_backend/backend.py",
+        "DEFAULT_TOOL": "uv/private/pep517_whl/build_helper.py",
+        "MODE": "uv/private",
+        "RUNFILE_TOOL": "uv/private/pep517_whl/tests/python_env_backend/pyproject.toml",
     },
+)
+
+template_variable_tool(
+    name = "__conflicting_template_variable_tool",
+    testonly = True,
+    tags = ["manual"],
+    variables = {
+        "DEFAULT_TOOL": "different",
+    },
+)
+
+template_variable_tool(
+    name = "__native_template_variable_tool",
+    testonly = True,
+    srcs = ["tests/python_env_backend/backend.py"],
+    tags = ["manual"],
+    variables = {
+        "NATIVE_TOOLCHAIN_TOOL": "uv/private/pep517_whl/tests/python_env_backend/backend.py",
+    },
+)
+
+pep517_whl(
+    name = "__conflicting_template_variable_fixture",
+    testonly = True,
+    src = ":__stub_sdist",
+    build_tools = [
+        ":__template_variable_tool",
+        ":__conflicting_template_variable_tool",
+    ],
     tags = ["manual"],
     tool = ":__stub_tool",
-    toolchains = [
-        "@bazel_tools//tools/cpp:current_cc_toolchain",
-        "@bazel_tools//tools/jdk:current_java_runtime",
-    ],
     version = "0.0.1",
 )
 
-pep517_native_whl_toolchain_env_test(
-    name = "toolchain_env_test",
-    target_under_test = ":__toolchain_env_fixture",
+pep517_whl_build_tool_env_failure_test(
+    name = "conflicting_template_variable_test",
+    expected_error = "TemplateVariableInfo variable 'DEFAULT_TOOL' with different values",
+    target_under_test = ":__conflicting_template_variable_fixture",
+)
+
+pep517_whl(
+    name = "__pure_build_tool_env_fixture",
+    testonly = True,
+    src = ":__stub_sdist",
+    build_tool_env = {
+        ":__stub_tool_sh": "DIRECT_TOOL",
+    },
+    build_tools = [":__template_variable_tool"],
+    env = {
+        "COMMAND": "run $(DEFAULT_TOOL) --mode=$(MODE)",
+        "MODE": "$(MODE)",
+        "OPAQUE_PATH": "$(DEFAULT_TOOL)",
+        "SOURCE_DATE_EPOCH": "explicit",
+    },
+    path_env = {
+        "ALL_FILES_TOOL": "$(ALL_FILES_TOOL)",
+        "DEFAULT_TOOL": "$(DEFAULT_TOOL)",
+        "RUNFILE_TOOL": "$(RUNFILE_TOOL)",
+        "TOOL_DIR": "uv/private/pep517_whl",
+    },
+    tags = ["manual"],
+    tool = ":__stub_tool",
+    version = "0.0.1",
+)
+
+pep517_whl_build_tool_env_test(
+    name = "pure_build_tool_env_test",
+    target_under_test = ":__pure_build_tool_env_fixture",
+)
+
+pep517_native_whl(
+    name = "__build_tool_env_fixture",
+    testonly = True,
+    src = ":__stub_sdist",
+    build_tools = [":__template_variable_tool"],
+    env = {
+        "CC": "explicit-cc --flag",
+        "COMMAND": "run $(DEFAULT_TOOL) --mode=$(MODE)",
+        "MODE": "$(MODE)",
+        "NATIVE_TOOLCHAIN_TOOL": "$(NATIVE_TOOLCHAIN_TOOL)",
+        "OPAQUE_PATH": "$(DEFAULT_TOOL)",
+    },
+    path_env = {
+        "DEFAULT_TOOL": "$(DEFAULT_TOOL)",
+    },
+    tags = ["manual"],
+    tool = ":__stub_tool",
+    toolchains = [":__native_template_variable_tool"],
+    version = "0.0.1",
+)
+
+pep517_native_whl_build_tool_env_test(
+    name = "build_tool_env_test",
+    target_under_test = ":__build_tool_env_fixture",
+)
+
+pep517_whl(
+    name = "__uncovered_path_env_fixture",
+    testonly = True,
+    src = ":__stub_sdist",
+    build_tools = [":__template_variable_tool"],
+    path_env = {
+        "MISSING_TOOL": "uv/private/pep517_whl/tests/missing/tool",
+    },
+    tags = ["manual"],
+    tool = ":__stub_tool",
+    version = "0.0.1",
+)
+
+pep517_whl_build_tool_env_failure_test(
+    name = "uncovered_path_env_test",
+    expected_error = "path_env value for 'MISSING_TOOL' expands to 'uv/private/pep517_whl/tests/missing/tool', which is not materialized by declared build tools",
+    target_under_test = ":__uncovered_path_env_fixture",
+)
+
+pep517_whl(
+    name = "__overlapping_env_fixture",
+    testonly = True,
+    src = ":__stub_sdist",
+    build_tools = [":__template_variable_tool"],
+    env = {
+        "DEFAULT_TOOL": "opaque",
+    },
+    path_env = {
+        "DEFAULT_TOOL": "$(DEFAULT_TOOL)",
+    },
+    tags = ["manual"],
+    tool = ":__stub_tool",
+    version = "0.0.1",
+)
+
+pep517_whl_build_tool_env_failure_test(
+    name = "overlapping_env_test",
+    expected_error = "env and path_env keys overlap: DEFAULT_TOOL",
+    target_under_test = ":__overlapping_env_fixture",
+)
+
+pep517_whl(
+    name = "__overlapping_build_tool_env_fixture",
+    testonly = True,
+    src = ":__stub_sdist",
+    build_tool_env = {
+        ":__stub_tool_sh": "DIRECT_TOOL",
+    },
+    env = {
+        "DIRECT_TOOL": "opaque",
+    },
+    tags = ["manual"],
+    tool = ":__stub_tool",
+    version = "0.0.1",
+)
+
+pep517_whl_build_tool_env_failure_test(
+    name = "overlapping_build_tool_env_test",
+    expected_error = "build_tool_env and env keys overlap: DIRECT_TOOL",
+    target_under_test = ":__overlapping_build_tool_env_fixture",
+)
+
+pep517_whl(
+    name = "__invalid_build_tool_env_fixture",
+    testonly = True,
+    src = ":__stub_sdist",
+    build_tool_env = {
+        ":__stub_tool_sh": "BAD-NAME",
+    },
+    tags = ["manual"],
+    tool = ":__stub_tool",
+    version = "0.0.1",
+)
+
+pep517_whl_build_tool_env_failure_test(
+    name = "invalid_build_tool_env_test",
+    expected_error = "build_tool_env value 'BAD-NAME' must match [A-Za-z_][A-Za-z0-9_]*",
+    target_under_test = ":__invalid_build_tool_env_fixture",
+)
+
+template_variable_tool(
+    name = "__exec_configuration_tool",
+    testonly = True,
+    srcs = select({
+        ":__is_target_configuration": ["tests/python_env_backend/backend.py"],
+        "//conditions:default": ["build_helper.py"],
+    }),
+    tags = ["manual"],
+    variables = select({
+        ":__is_target_configuration": {
+            "BUILD_TOOL_PATH": "uv/private/pep517_whl/tests/python_env_backend/backend.py",
+        },
+        "//conditions:default": {
+            "BUILD_TOOL_PATH": "uv/private/pep517_whl/build_helper.py",
+        },
+    }),
+)
+
+pep517_whl(
+    name = "__build_tool_exec_configuration_fixture",
+    testonly = True,
+    src = ":__stub_sdist",
+    build_tools = [":__exec_configuration_tool"],
+    path_env = {
+        "BUILD_TOOL_PATH": "$(BUILD_TOOL_PATH)",
+    },
+    tags = ["manual"],
+    tool = ":__stub_tool",
+    version = "0.0.1",
+)
+
+pep517_whl_build_tool_exec_configuration_test(
+    name = "build_tool_exec_configuration_test",
+    target_under_test = ":__build_tool_exec_configuration_fixture",
 )

@@ -1,7 +1,7 @@
-"""Regression for the per-package toolchain plumbing on
+"""Regression for the per-package build-tool target plumbing on
 `uv.override_package`. jpype1 is forced to sdist via
 [tool.uv].no-binary-package; the override layers a JDK runtime
-toolchain into the build env so JAVA_HOME / JAVA / JAR are exported.
+target into the build env so JAVA_HOME and JAVA are exported.
 
 Uses its own hub to keep the override and no-binary setting isolated
 from other test cases.
@@ -23,18 +23,15 @@ uv.unstable_annotate_packages(
     lock = "//cases/uv-sdist-jdk-build:uv.lock",
 )
 
-# Layer a JDK runtime toolchain into the build env. `toolchains` and
-# `env` here are additive — these entries are appended to whatever
-# sdist_build's BUILD template emits by default.
+# Supply the JDK runtime target and the paths that JPype's backend consumes.
 uv.override_package(
     name = "jpype1",
-    env = {
-        "JAR": "$(JAVABASE)/bin/jar",
+    build_tools = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    lock = "//cases/uv-sdist-jdk-build:uv.lock",
+    path_env = {
         "JAVA": "$(JAVA)",
         "JAVA_HOME": "$(JAVABASE)",
     },
-    lock = "//cases/uv-sdist-jdk-build:uv.lock",
-    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
 # Exposed so e2e/BUILD.bazel can snapshot the generated pep517_native_whl

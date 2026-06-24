@@ -174,16 +174,18 @@ def _sdist_build_impl(repository_ctx):
             build_file_content = inspection.get("build_file_content")
             if build_file_content:
                 bypassed_attrs = unsupported_build_attrs(
+                    build_tool_env = repository_ctx.attr.extra_build_tool_env,
+                    build_tools = repository_ctx.attr.extra_build_tools,
                     resource_set = repository_ctx.attr.resource_set,
                     env = repository_ctx.attr.extra_env,
                     monitor_memory = repository_ctx.attr.monitor_memory,
+                    path_env = repository_ctx.attr.extra_path_env,
                     pre_build_patches = repository_ctx.attr.pre_build_patches,
                     pre_build_patch_strip = repository_ctx.attr.pre_build_patch_strip,
                     supported = [
                         "pre_build_patches",
                         "pre_build_patch_strip",
                     ],
-                    toolchains = repository_ctx.attr.extra_toolchains,
                 )
                 if bypassed_attrs:
                     fail("sdist_build for '{}': the configure tool returned complete `build_file_content`, which bypasses the generated `pep517_*whl(...)` call, so these attributes cannot be applied: {}. Drop them from the override, or have the configure tool set them in its own `build_file_content`.".format(
@@ -212,27 +214,6 @@ def _sdist_build_impl(repository_ctx):
     else:
         is_native = is_native_override == "true"
 
-    if not is_native:
-        unsupported_attrs = unsupported_build_attrs(
-            resource_set = repository_ctx.attr.resource_set,
-            env = repository_ctx.attr.extra_env,
-            monitor_memory = repository_ctx.attr.monitor_memory,
-            pre_build_patches = repository_ctx.attr.pre_build_patches,
-            pre_build_patch_strip = repository_ctx.attr.pre_build_patch_strip,
-            supported = [
-                "monitor_memory",
-                "pre_build_patches",
-                "pre_build_patch_strip",
-                "resource_set",
-            ],
-            toolchains = repository_ctx.attr.extra_toolchains,
-        )
-        if unsupported_attrs:
-            fail("sdist_build for '{}': the generated pure-Python `pep517_whl(...)` call cannot apply these native-build attributes: {}. Remove them, or configure this source distribution as native.".format(
-                repository_ctx.name,
-                ", ".join(unsupported_attrs),
-            ))
-
     # Resolve additional deps discovered by the configure tool
     extra_dep_labels = _resolve_extra_deps(repository_ctx, inspection)
 
@@ -260,40 +241,35 @@ def _sdist_build_impl(repository_ctx):
             strip = repository_ctx.attr.pre_build_patch_strip,
         )
 
-    # For native builds, emit a baked-in CC toolchain + CC/CXX/AR/LD/STRIP
-    # env block. Targets in `toolchains` expose `TemplateVariableInfo`;
-    # the env values below are make-variable references resolved at
-    # action analysis time.
-    #
-    # CXX defaults to $(CC) because most clang/gcc-based toolchains use
-    # a single driver binary for both languages, and meson-python /
-    # cmake-based backends look for CXX independently of CC.
-    #
-    # `extra_toolchains` and `extra_env` augment (do not replace) the
-    # defaults — set via `uv.override_package(toolchains = [...],
-    # env = {...})` to layer JDK / Rust / etc. plumbing on top.
+    # The native rule supplies compiler defaults. Package declarations augment
+    # or override them and use the same interface for pure builds.
+    build_attrs = ""
+    if repository_ctx.attr.extra_build_tool_env:
+        build_attrs += "\n    build_tool_env = {},".format(repr({
+            str(target): env_name
+            for target, env_name in repository_ctx.attr.extra_build_tool_env.items()
+        }))
+    build_tools = list(repository_ctx.attr.extra_build_tools)
+    env = dict(repository_ctx.attr.extra_env)
     toolchain_attrs = ""
     if is_native:
-        toolchains = [
-            "@bazel_tools//tools/cpp:current_cc_toolchain",
-        ] + list(repository_ctx.attr.extra_toolchains)
-        env = {
-            "AR": "$(AR)",
-            "CC": "$(CC)",
-            "CXX": "$(CC)",
-            "LD": "$(LD)",
-            "STRIP": "$(STRIP)",
-        }
-        env.update(repository_ctx.attr.extra_env)
-        toolchain_attrs = """
-    toolchains = [
-{toolchains}
-    ],
-    env = {{
-{env}
-    }},""".format(
-            toolchains = "\n".join(["        \"{}\",".format(t) for t in toolchains]),
-            env = "\n".join(["        \"{}\": \"{}\",".format(k, v) for k, v in sorted(env.items())]),
+        # Expose C++ Make variables to explicit package overrides. Do not use
+        # them as compiler defaults: compatibility paths such as $(CC) are not
+        # guaranteed to be among the toolchain's declared action inputs. The
+        # native rule selects a materialized compiler instead.
+        # https://bazel.build/reference/be/common-definitions#common.toolchains
+        toolchain_attrs = '\n    toolchains = ["@bazel_tools//tools/cpp:current_cc_toolchain"],'
+    if build_tools:
+        build_attrs += "\n    build_tools = {},".format(
+            repr(build_tools),
+        )
+    if env:
+        build_attrs += "\n    env = {},".format(
+            repr(env),
+        )
+    if repository_ctx.attr.extra_path_env:
+        build_attrs += "\n    path_env = {},".format(
+            repr(dict(repository_ctx.attr.extra_path_env)),
         )
 
     resource_set_attr = ""
@@ -317,7 +293,7 @@ py_binary(
     name = "whl",
     src = "{src}",
     tool = ":build_tool",
-    version = "{version}",{monitor_memory_attr}{resource_set_attr}{patch_attrs}{toolchain_attrs}
+    version = "{version}",{monitor_memory_attr}{resource_set_attr}{patch_attrs}{toolchain_attrs}{build_attrs}
     visibility = ["//visibility:public"],
 )
 
@@ -334,6 +310,7 @@ exports_files(
         resource_set_attr = resource_set_attr,
         patch_attrs = patch_attrs,
         toolchain_attrs = toolchain_attrs,
+        build_attrs = build_attrs,
     ))
 
 sdist_build = repository_rule(
@@ -368,13 +345,21 @@ sdist_build = repository_rule(
         ),
         "pre_build_patches": attr.label_list(default = []),
         "pre_build_patch_strip": attr.int(default = 0),
-        "extra_toolchains": attr.string_list(
+        "extra_build_tool_env": attr.label_keyed_string_dict(
+            default = {},
+            doc = "Executable or single-file build targets mapped to path-valued environment variable names in the generated PEP 517 wheel-build rule's `build_tool_env` attribute. Set via `uv.override_package(build_tool_env = {...})`.",
+        ),
+        "extra_build_tools": attr.string_list(
             default = [],
-            doc = "Toolchain labels appended to the default CC toolchain in the generated pep517_native_whl(...) `toolchains` list. Set via `uv.override_package(toolchains = [...])`.",
+            doc = "Build-tool target labels passed to the generated PEP 517 wheel-build rule's `build_tools` attribute. Set via `uv.override_package(build_tools = [...])`.",
         ),
         "extra_env": attr.string_dict(
             default = {},
-            doc = "Environment variables merged into the default CC env dict in the generated pep517_native_whl(...) `env` dict. Values may reference $(VAR) make-variables from any toolchain. Set via `uv.override_package(env = {...})`.",
+            doc = "Opaque environment overrides emitted in the generated PEP 517 wheel-build rule's `env` dict after make-variable expansion. Set via `uv.override_package(env = {...})`.",
+        ),
+        "extra_path_env": attr.string_dict(
+            default = {},
+            doc = "Path-valued environment overrides emitted in the generated PEP 517 wheel-build rule's `path_env` dict. Values must resolve to paths materialized by declared build-tool targets and are made absolute for the backend working-directory change. Set via `uv.override_package(path_env = {...})`.",
         ),
     },
 )

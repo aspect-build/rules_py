@@ -1,15 +1,9 @@
-# Regression test for the JDK toolchain wiring in pep517_native_whl,
-# layered with the `uv.override_package(toolchains = [...], env = {...})`
-# plumbing (see setup.MODULE.bazel). The test target is tagged `manual` —
-# jpype1's scikit-build-core / cmake / ninja chain doesn't actually
-# compile inside the Bazel sandbox today, so the regression coverage
-# lives in:
-#
-#   - //uv/private/pep517_whl:toolchain_env_test  (analysis-level)
-#   - //:snapshots_*_test                          (BUILD-template output)
-#
-# This target stays in the repo as the entry point for any future work
-# to make the full sdist compile succeed end-to-end.
+# Manual entry point for the JDK build-tool wiring in pep517_native_whl,
+# layered with the `uv.override_package(build_tools = [...], path_env = {...})`
+# plumbing (see setup.MODULE.bazel). The generated native-rule wiring is
+# snapshotted by //:snapshots_*_test; //cases/uv-sdist-fallback:test exercises
+# the same JDK path contract through a pure source build. This target remains
+# manual because JPype's CMake build does not complete in the Bazel sandbox.
 
 load("@aspect_rules_py//py:defs.bzl", "py_test")
 

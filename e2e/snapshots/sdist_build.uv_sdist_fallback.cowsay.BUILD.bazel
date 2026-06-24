@@ -15,6 +15,11 @@ pep517_whl(
     tool = ":build_tool",
     version = "6.0",
     monitor_memory = True,
+    pre_build_patches = ["@@//cases/uv-sdist-fallback:verify_build_env.patch"],
+    pre_build_patch_strip = 1,
+    build_tool_env = {"@@//cases/uv-sdist-fallback:build_env_tool": "BUILD_ENV_TOOL"},
+    build_tools = ["@@bazel_tools//tools/jdk:current_java_runtime"],
+    path_env = {"JAVA": "$(JAVA)", "JAVA_HOME": "$(JAVABASE)"},
     visibility = ["//visibility:public"],
 )
 

@@ -116,16 +116,12 @@ write_source_files(
         # shows up as the per-wheel dicts collapsing into one merged list.
         "snapshots/abi3_compat.whl_install.cffi.BUILD.bazel": "@whl_install__abi3_compat__cffi__2_0_0//:BUILD.bazel",
 
-        # @sdist_build for jpype1 with uv.override_package toolchains/env
-        # ----------------------------------------------------------------
+        # @sdist_build for jpype1 with build_tools/path_env
+        # -------------------------------------------------
         # Covers the override_package -> repo-rule -> BUILD-template
-        # plumbing for the augment-on-defaults `toolchains = [...]` /
-        # `env = {...}`. The override layers a JDK runtime on top of the
-        # default CC toolchain; the snapshot pins both toolchain
-        # references and both env families (CC + JAVA_HOME/JAVA/JAR).
-        # Pairs with the analysis test at
-        # //uv/private/pep517_whl:toolchain_env_test which asserts the
-        # rule expands env keys correctly given an explicit fixture.
+        # plumbing for `build_tools = [...]` / `path_env = {...}`. The
+        # snapshot pins the generated native rule interface; the cowsay source
+        # build exercises the same JDK path contract through the pure rule.
         "snapshots/sdist_build.uv_sdist_jdk_build.jpype1.BUILD.bazel": "@sdist_build__uv_sdist_jdk_build__jpype1__1_7_1//:BUILD.bazel",
 
         # @sdist_build for cowsay with uv.override_package(monitor_memory)
@@ -136,13 +132,11 @@ write_source_files(
         # can load the conditional monitor dependency and complete the wheel.
         "snapshots/sdist_build.uv_sdist_fallback.cowsay.BUILD.bazel": "@sdist_build__uv_sdist_fallback__cowsay__6_0//:BUILD.bazel",
 
-        # @sdist_build for python-geohash with uv.override_package(resource_set)
-        # ----------------------------------------------------------------------
+        # @sdist_build for python-geohash with explicit compiler env
+        # -----------------------------------------------------------
         # Covers the override_package -> repo-rule -> BUILD-template plumbing
-        # for `resource_set`. The runtime //cases/uv-sdist-native-build:test
-        # only proves the wheel still builds; this snapshot pins that
-        # `resource_set = "mem_4g"` actually lands on the generated
-        # pep517_native_whl(...) call so the reservation reaches the action.
+        # for compiler env, pre-build patches, and `resource_set`. The runtime
+        # test proves the patched mixed C/C++ extension builds and loads.
         "snapshots/sdist_build.uv_sdist_native_build.python_geohash.BUILD.bazel": "@sdist_build__uv_sdist_native_build__python_geohash__0_8_5//:BUILD.bazel",
 
         # Venv site-packages .pth files. Pin the line shapes that

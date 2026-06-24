@@ -21,9 +21,9 @@ using only the normal Bazel `platforms` machinery.
 
 **Correct source builds** - Because uv performs package source builds as a
 normal part of your build, it's able to use hermetic or even source built Python
-toolchains in addition to Bazel-defined dependencies and C compilers. Future
-support for sysroots is planned. Due to its phasing, `pip.parse` is stuck doing
-all this non-hermetically.
+toolchains in addition to Bazel-defined dependencies, C compilers, and
+explicitly declared build tools. Future support for sysroots is planned. Due to
+its phasing, `pip.parse` is stuck doing all this non-hermetically.
 
 **Editable requirements** - Uv provides an `uv.override_requirement()` tag which
 allows locked requirements to be replaced with 1stparty Bazel `py_library`
@@ -332,7 +332,8 @@ prebuilt wheels listed in the lockfile to produce the equivalent of a
 
 An sdist (if available) will be built into a wheel for installation if no wheels
 are available, or no wheels matching the target configuration are found. Sdist
-builds occur using the configured Python and Cc toolchains.
+builds use the configured Python and C++ toolchains. Additional build tools and
+environment variables can be declared with `uv.override_package`.
 
 ### Declaring source-built console scripts
 

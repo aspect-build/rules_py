@@ -1,8 +1,7 @@
-"""Verify that jpype1 (built from sdist via pep517_native_whl with
-needs-jdk = true) is importable.
+"""Verify that jpype1 built with an explicit JDK build-tool target is importable.
 
-If `needs-jdk` doesn't propagate, the sdist build fails because JPype1's
-setup.py can't find <jni.h>, and this test never gets a chance to run.
+If the configured JAVA_HOME does not reach the backend, the sdist build fails
+because JPype1's setup.py cannot find <jni.h>.
 """
 
 import jpype

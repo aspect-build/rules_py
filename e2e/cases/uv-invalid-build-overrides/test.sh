@@ -46,7 +46,7 @@ expect_failure() {
 expect_failure \
     wheel-only \
     '@invalid_overrides//:*' \
-    'build-only attributes require a source distribution, but the lock record has only wheels: resource_set, env, monitor_memory, pre_build_patches, pre_build_patch_strip, toolchains'
+    'build-only attributes require a source distribution, but the lock record has only wheels: build_tools, resource_set, env, monitor_memory, pre_build_patches, pre_build_patch_strip'
 expect_failure \
     editable-self \
     '@invalid_editable_overrides//:*' \
@@ -64,10 +64,6 @@ expect_success custom-build '@custom_patches//:whl'
 expect_failure \
     custom-build \
     '@custom_unsupported//:*' \
-    'complete `build_file_content`, which bypasses the generated `pep517_*whl(...)` call, so these attributes cannot be applied: resource_set, env, monitor_memory, toolchains'
-expect_failure \
-    custom-build \
-    '@pure_unsupported//:*' \
-    'generated pure-Python `pep517_whl(...)` call cannot apply these native-build attributes: env, toolchains'
+    'complete `build_file_content`, which bypasses the generated `pep517_*whl(...)` call, so these attributes cannot be applied: build_tools, resource_set, env, monitor_memory'
 
 echo "PASS: build overrides are consumed or rejected at the owning path"

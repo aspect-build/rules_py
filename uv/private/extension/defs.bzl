@@ -316,9 +316,11 @@ def _parse_projects(module_ctx, hub_specs):
                     override.post_install_patches or
                     override.extra_deps or
                     override.extra_data or
-                    override.toolchains or
+                    override.build_tool_env or
+                    override.build_tools or
                     override.env or
                     override.monitor_memory or
+                    override.path_env or
                     override.resource_set != "default"
                 )
 
@@ -326,7 +328,7 @@ def _parse_projects(module_ctx, hub_specs):
                     fail("uv.override_package() for '{}': `target` is mutually exclusive with modification attributes. Use `target` for full replacement OR build, patch, and data attributes for modifications, not both.".format(override.name))
 
                 if not has_target and not has_modifications:
-                    fail("uv.override_package() for '{}': must specify either `target` for full replacement or at least one modification attribute (console_scripts, pre_build_patches, post_install_patches, extra_deps, extra_data, toolchains, env, monitor_memory, resource_set).".format(override.name))
+                    fail("uv.override_package() for '{}': must specify either `target` for full replacement or at least one modification attribute (console_scripts, pre_build_patches, post_install_patches, extra_deps, extra_data, build_tool_env, build_tools, env, path_env, monitor_memory, resource_set).".format(override.name))
 
                 package_overrides[override_key] = override
                 package_console_scripts[override_key] = console_scripts
@@ -448,13 +450,15 @@ def _parse_projects(module_ctx, hub_specs):
                     fail("Package {} is in [tool.uv] no-binary-package but has no sdist in the lockfile".format(package["name"]))
                 if pkg_override and not sdist:
                     build_only_attrs = unsupported_build_attrs(
+                        build_tool_env = pkg_override.build_tool_env,
+                        build_tools = pkg_override.build_tools,
                         resource_set = pkg_override.resource_set,
                         env = pkg_override.env,
                         monitor_memory = pkg_override.monitor_memory,
+                        path_env = pkg_override.path_env,
                         pre_build_patches = pkg_override.pre_build_patches,
                         pre_build_patch_strip = pkg_override.pre_build_patch_strip,
                         supported = [],
-                        toolchains = pkg_override.toolchains,
                     )
                     if build_only_attrs:
                         fail("uv.override_package() for '{}=={}' in lock '{}': build-only attributes require a source distribution, but the lock record has only wheels: {}".format(
@@ -501,17 +505,22 @@ def _parse_projects(module_ctx, hub_specs):
                         pre_build_patches = [str(p) for p in pkg_override.pre_build_patches]
                         pre_build_patch_strip = pkg_override.pre_build_patch_strip
 
-                    # `toolchains` / `env` on `uv.override_package` augment
-                    # the defaults baked into sdist_build's BUILD template —
-                    # they don't replace them. Empty == no augmentation.
-                    extra_toolchains = []
+                    # Source-build tools supply action inputs and make
+                    # variables. Package env values are opaque after expansion;
+                    # path_env values name tool files that must remain valid
+                    # after the backend changes its working directory.
+                    extra_build_tool_env = {}
+                    extra_build_tools = []
                     extra_env = {}
                     monitor_memory = False
+                    extra_path_env = {}
                     resource_set = "default"
                     if pkg_override:
-                        extra_toolchains = [str(t) for t in pkg_override.toolchains]
+                        extra_build_tool_env = pkg_override.build_tool_env
+                        extra_build_tools = [str(t) for t in pkg_override.build_tools]
                         extra_env = pkg_override.env
                         monitor_memory = pkg_override.monitor_memory
+                        extra_path_env = pkg_override.path_env
                         resource_set = pkg_override.resource_set
 
                     sbuild_specs[sbuild_id] = struct(
@@ -523,9 +532,11 @@ def _parse_projects(module_ctx, hub_specs):
                         pre_build_patch_strip = pre_build_patch_strip,
                         available_deps = project_available_deps,
                         configure_command = project.unstable_configure_command,
-                        extra_toolchains = extra_toolchains,
+                        extra_build_tool_env = extra_build_tool_env,
+                        extra_build_tools = extra_build_tools,
                         extra_env = extra_env,
                         monitor_memory = monitor_memory,
+                        extra_path_env = extra_path_env,
                         resource_set = resource_set,
                     )
 
@@ -747,12 +758,16 @@ def _uv_impl(module_ctx):
         if sbuild_cfg.pre_build_patches:
             sbuild_kwargs["pre_build_patches"] = sbuild_cfg.pre_build_patches
             sbuild_kwargs["pre_build_patch_strip"] = sbuild_cfg.pre_build_patch_strip
-        if sbuild_cfg.extra_toolchains:
-            sbuild_kwargs["extra_toolchains"] = sbuild_cfg.extra_toolchains
+        if sbuild_cfg.extra_build_tool_env:
+            sbuild_kwargs["extra_build_tool_env"] = sbuild_cfg.extra_build_tool_env
+        if sbuild_cfg.extra_build_tools:
+            sbuild_kwargs["extra_build_tools"] = sbuild_cfg.extra_build_tools
         if sbuild_cfg.extra_env:
             sbuild_kwargs["extra_env"] = sbuild_cfg.extra_env
         if sbuild_cfg.monitor_memory:
             sbuild_kwargs["monitor_memory"] = True
+        if sbuild_cfg.extra_path_env:
+            sbuild_kwargs["extra_path_env"] = sbuild_cfg.extra_path_env
         if sbuild_cfg.resource_set != "default":
             sbuild_kwargs["resource_set"] = sbuild_cfg.resource_set
         sdist_build(**sbuild_kwargs)
@@ -874,19 +889,22 @@ _override_package_tag = tag_class(
                   "bucket.",
         ),
 
-        # Per-package toolchain plumbing for native sdist builds. Both
-        # attributes AUGMENT the defaults baked into sdist_build's
-        # generated `pep517_native_whl(...)` call (the CC toolchain +
-        # CC/CXX/AR/LD/STRIP env) — they don't replace them. Use these
-        # to layer extra toolchains (Java runtime, Rust, …) and extra
-        # env vars on top of the defaults.
-        "toolchains": attr.label_list(
+        # These settings apply to every source build.
+        "build_tool_env": attr.label_keyed_string_dict(
+            default = {},
+            doc = "Map visible executable or single-file build targets to path-valued environment variable names matching [A-Za-z_][A-Za-z0-9_]*. The names are also available as $(VAR) expansions in `env` and `path_env`.",
+        ),
+        "build_tools": attr.label_list(
             default = [],
-            doc = "Extra toolchain targets appended to the generated pep517_native_whl(...) call's `toolchains` list. Each target's TemplateVariableInfo make-variables become available for $(VAR) expansion in `env`.",
+            doc = "Build-tool targets passed to the generated PEP 517 wheel-build rule. Their files become action inputs, executable runfiles are materialized, and TemplateVariableInfo make-variables become available for $(VAR) expansion in `env` and `path_env`.",
         ),
         "env": attr.string_dict(
             default = {},
-            doc = "Extra environment variables merged into the build action's `env` dict. Values may reference $(VAR) make-variables sourced from the default CC toolchain or any extra `toolchains` listed above.",
+            doc = "Opaque environment values merged over the common source-build environment after expanding $(VAR) make-variables sourced from `build_tools`.",
+        ),
+        "path_env": attr.string_dict(
+            default = {},
+            doc = "Path-valued environment variables. Values may reference $(VAR) expansions from `build_tools`, must resolve to paths materialized by those targets, and are made absolute before the build backend changes its working directory. Use `build_tool_env` for a target's direct location.",
         ),
 
         # Pre-build patches: applied to extracted sdist source before wheel build.

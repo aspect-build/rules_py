@@ -15,12 +15,12 @@ uv.project(
 )
 uv.override_package(
     name = "demo",
+    build_tools = ["@bazel_tools//tools/cpp:current_cc_toolchain"],
     env = {"DEMO": "1"},
     lock = "@aspect_rules_py//uv/private/sdist_build/testdata:registry.uv.lock",
     monitor_memory = True,
     pre_build_patch_strip = 1,
     pre_build_patches = ["@aspect_rules_py//uv/private/sdist_build/testdata:noop.patch"],
     resource_set = "mem_1g",
-    toolchains = ["@bazel_tools//tools/cpp:current_cc_toolchain"],
 )
 use_repo(uv, "invalid_overrides")

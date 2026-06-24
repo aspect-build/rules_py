@@ -86,6 +86,55 @@ Pre-build patches are applied to the extracted source tree after archive extract
 - Removing problematic native build dependencies
 - Patching source code that affects the build output
 
+### Configuring source-build tools
+
+Source builds can declare the tools and environment consumed by their PEP 517
+backend:
+
+```starlark
+uv.override_package(
+    lock = "//:uv.lock",
+    name = "jpype1",
+    build_tools = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    path_env = {
+        "JAVA": "$(JAVA)",
+        "JAVA_HOME": "$(JAVABASE)",
+    },
+)
+```
+
+The declared files from `build_tools` become wheel-build action inputs, and
+executable targets retain their runfiles. Targets such as the JDK runtime can
+expose `TemplateVariableInfo` values for `$(VAR)` expansion in `env` and
+`path_env`. To assign an executable or file target directly to an environment
+variable, use the label-keyed `build_tool_env` map:
+
+```starlark
+uv.override_package(
+    lock = "//:uv.lock",
+    name = "native-package",
+    build_tool_env = {
+        "//tools:cmake": "CMAKE",
+    },
+)
+```
+
+Use `env` for opaque values such as flags, commands found on `PATH`, and scalar
+settings. Use `path_env` for file or directory paths materialized by the
+declared targets. Those values are checked against the action inputs and made
+absolute before the backend changes into the extracted source tree. Native
+builds infer compiler commands from the configured C++ toolchain; declared
+environment values override those defaults. A command found only through
+`PATH` is not a declared Bazel input; use `build_tool_env` when the tool must
+be hermetic.
+Names introduced by `build_tool_env` can be reused as `$(VAR)` expansions in
+`env` and `path_env`, so they must match `[A-Za-z_][A-Za-z0-9_]*`. The target
+must be visible to the generated sdist repository, normally through
+`//visibility:public`.
+
+Each environment variable name must appear in only one of `build_tool_env`,
+`env`, or `path_env`.
+
 ### Adding extra dependencies or data
 
 Some packages have implicit runtime dependencies that aren't declared in their metadata:
@@ -188,16 +237,15 @@ uv.override_package(
   editable workspace package because neither produces an installed wheel.
 - `pre_build_patch_strip` requires `pre_build_patches`, and
   `post_install_patch_strip` requires `post_install_patches`.
-- `pre_build_patches`, `toolchains`, `env`, `monitor_memory`, and non-default
-  `resource_set` values require a source distribution. An override that applies
-  them to a wheel-only lock record is rejected.
+- `pre_build_patches`, `build_tool_env`, `build_tools`, `env`, `path_env`,
+  `monitor_memory`, and non-default `resource_set` values require a source
+  distribution. An override that applies them to a wheel-only lock record is
+  rejected.
 - A configure tool that returns complete `build_file_content` receives
   `pre_build_patches` and `pre_build_patch_strip` in its context and owns
-  applying them. `toolchains`, `env`, `monitor_memory`, and non-default
-  `resource_set` values are rejected because the configure context cannot
-  convey them.
-- Generated pure-Python builds reject `toolchains` and `env`; those attributes
-  augment the native build toolchain and environment.
+  applying them. `build_tool_env`, `build_tools`, `env`, `path_env`,
+  `monitor_memory`, and non-default `resource_set` values are rejected because
+  the configure context cannot convey them.
 
 ## Future work
 

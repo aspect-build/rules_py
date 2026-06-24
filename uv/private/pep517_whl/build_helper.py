@@ -27,16 +27,6 @@ _SETUPTOOLS_BACKENDS = (
     "setuptools.build_meta:__legacy__",
 )
 
-
-# `$(CC)` etc. from the pep517_native_whl rule expands to a Bazel
-# workspace-relative path (e.g. external/llvm+/toolchain/gcc) that
-# resolves from the action execroot but not from the build
-# subprocess's cwd inside the unpacked worktree. To keep CC reachable
-# after that cwd change, we drop a tiny wrapper into tmp_root (which
-# is absolute, so its path survives the cwd change) and point CC /
-# CXX / CPP / LDSHARED / LDCXXSHARED at the wrapper. The wrapper
-# strips `-fdebug-default-version=4` (older toolchains reject it)
-# and then `execv`s the compiler at its resolved absolute path.
 _DEBUG_FLAG = "-fdebug-default-version=4"
 _COMPILER_WRAPPER = """#!/usr/bin/env python3
 import os
@@ -61,16 +51,16 @@ def _darwin_sysroot():
 
 
 def _resolve_compiler_path(env, key, default):
-    """Extract the real compiler from the environment and resolve it to an absolute path."""
-    current = env.get(key)
-    if not current:
-        return default
+    """Resolve the compiler command's executable from the action root."""
+    current = env.get(key, default)
     parts = shlex.split(current)
     if not parts:
-        return default
+        parts = [default]
     compiler = parts[0]
     if os.path.isabs(compiler):
         return compiler
+    if resolved := shutil.which(compiler, path=env.get("PATH")):
+        return os.path.abspath(resolved)
     return os.path.abspath(compiler)
 
 
@@ -81,7 +71,6 @@ def _make_compiler_wrapper(tmpdir, name, compiler_path, sysroot=None):
         f.write(_COMPILER_WRAPPER.format(
             debug_flag=_DEBUG_FLAG,
             compiler_path=compiler_path,
-            name=name,
             sysroot=sysroot,
         ))
     chmod(wrapper, 0o755)
@@ -98,7 +87,7 @@ def _override_tool(env, key, wrapper):
         env[key] = shlex.join(parts)
 
 
-def _compiler_env(tmpdir):
+def _build_env(tmpdir, absolutize_env, action_root, configure_compiler):
     env = dict(os.environ)
     # The helper's launcher exports RUNFILES_DIR, RUNFILES_MANIFEST_FILE, and
     # JAVA_RUNFILES:
@@ -114,6 +103,9 @@ def _compiler_env(tmpdir):
         "RUNFILES_MANIFEST_ONLY",
     ):
         env.pop(key, None)
+    for key in absolutize_env:
+        if not path.isabs(env[key]):
+            env[key] = path.abspath(path.join(action_root, env[key]))
     env["PATH"] = pathsep.join([
         path.dirname(sys.executable),
         env.get("PATH", defpath),
@@ -122,33 +114,32 @@ def _compiler_env(tmpdir):
     env["TEMP"] = tmpdir
     env["TEMPDIR"] = tmpdir
 
-    cc_path = _resolve_compiler_path(env, "CC", "cc")
-    cxx_path = _resolve_compiler_path(env, "CXX", "c++")
+    if configure_compiler:
+        cc_path = _resolve_compiler_path(env, "CC", "cc")
+        cxx_path = _resolve_compiler_path(env, "CXX", "c++")
+        sysroot = _darwin_sysroot()
+        cc = _make_compiler_wrapper(tmpdir, "cc", cc_path, sysroot)
+        cxx = _make_compiler_wrapper(tmpdir, "c++", cxx_path, sysroot)
 
-    sysroot = _darwin_sysroot()
+        env.setdefault("CC", cc)
+        env.setdefault("CXX", cxx)
 
-    cc = _make_compiler_wrapper(tmpdir, "cc", cc_path, sysroot)
-    cxx = _make_compiler_wrapper(tmpdir, "c++", cxx_path, sysroot)
+        # MPI builds consult $MPICC before PATH. Only set it when a real mpicc
+        # is discoverable so a plain C compiler never shadows package discovery.
+        mpicc_path = shutil.which("mpicc", path=env["PATH"])
+        if mpicc_path:
+            env.setdefault("MPICC", _make_compiler_wrapper(tmpdir, "mpicc", mpicc_path, sysroot))
+        env.setdefault("AR", "ar")
 
-    env.setdefault("CC", cc)
-    env.setdefault("CXX", cxx)
+        for key, wrapper in [
+            ("CC", cc),
+            ("CXX", cxx),
+            ("CPP", cc),
+            ("LDSHARED", cc),
+            ("LDCXXSHARED", cxx),
+        ]:
+            _override_tool(env, key, wrapper)
 
-    # MPI builds (e.g. mpi4py) consult $MPICC before searching PATH, so a
-    # plain C compiler here would shadow the real mpicc. Only set it when
-    # a system mpicc exists, wrapped to keep the debug-flag stripping.
-    mpicc_path = shutil.which("mpicc", path=env["PATH"])
-    if mpicc_path:
-        env.setdefault("MPICC", _make_compiler_wrapper(tmpdir, "mpicc", mpicc_path, sysroot))
-    env.setdefault("AR", "ar")
-
-    for key, wrapper in [
-        ("CC", cc),
-        ("CXX", cxx),
-        ("CPP", cc),
-        ("LDSHARED", cc),
-        ("LDCXXSHARED", cxx),
-    ]:
-        _override_tool(env, key, wrapper)
     return env
 
 
@@ -201,12 +192,15 @@ def _legacy_metadata_conflicts_with_pyproject(worktree):
 PARSER = ArgumentParser()
 PARSER.add_argument("srcarchive")
 PARSER.add_argument("outdir")
+PARSER.add_argument("--absolutize-env", action="append", default=[])
+PARSER.add_argument("--configure-compiler", action="store_true")
 PARSER.add_argument("--monitor-memory", action="store_true")
 PARSER.add_argument("--validate-anyarch", action="store_true")
 PARSER.add_argument("--patch-strip", type=int, default=0, help="Strip count for patch (-p)")
 PARSER.add_argument("--patch", action="append", default=[], dest="patches", help="Patch file to apply (repeatable)")
 opts, args = PARSER.parse_known_args()
 
+action_root = path.abspath(os.curdir)
 tmp_root = path.abspath(opts.outdir) + ".tmp"
 # Sandboxed/remote actions get a fresh root each run, so we don't expect a stale tmp_root to exist.
 makedirs(tmp_root, exist_ok=False)
@@ -245,11 +239,13 @@ if opts.patches:
 # Get a path to the outdir which will be valid after we cd
 outdir = path.abspath(opts.outdir)
 
-# Preserve PATH so native sdist builds can find compilers (clang, gcc),
-# and re-point CC/CXX/etc. through wrapper scripts in tmp_root so the
-# Bazel-supplied workspace-relative compiler paths survive the cwd
-# change into the worktree.
-build_env = _compiler_env(tmp_root)
+# Preserve declared input paths through the cwd change into the worktree.
+build_env = _build_env(
+    tmp_root,
+    opts.absolutize_env,
+    action_root,
+    opts.configure_compiler,
+)
 
 if _legacy_metadata_conflicts_with_pyproject(t):
     print(

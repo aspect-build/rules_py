@@ -85,7 +85,7 @@ def run_helper(helper, sdist, outdir, path_entries, expect):
     if os.path.exists(cc):
         env["CC"] = cc
     result = subprocess.run(
-        [sys.executable, helper, sdist, outdir],
+        [sys.executable, helper, "--configure-compiler", sdist, outdir],
         capture_output=True,
         text=True,
         env=env,
