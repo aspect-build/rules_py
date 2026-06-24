@@ -65,6 +65,7 @@ py_unpacked_wheel(
     # site-packages exactly as uv's whl_install would.
     top_levels = [
         "apkg",
+        "itfa-1.0.dist-info",
         "shared",
         "marker.pth",
     ],
@@ -75,6 +76,7 @@ py_unpacked_wheel(
     src = ":itfb-1.0-py3-none-any.whl",
     top_levels = [
         "bpkg",
+        "itfb-1.0.dist-info",
         "shared",
         "marker.pth",
     ],

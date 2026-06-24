@@ -105,13 +105,14 @@ _attrs = {
         mandatory = True,
     ),
     "top_levels": attr.string_list(
-        doc = """Names of the top-level packages / modules / *.dist-info directories the wheel installs into its site-packages.
+        doc = """Complete list of immediate entries the wheel installs into site-packages.
 
 When set, the target emits a `PyWheelsInfo` provider describing this wheel.
 Downstream rules (such as `py_binary`) can consume this to assemble a merged
 `site-packages/` tree via `ctx.actions.symlink` instead of relying on `.pth`
-entries. If left empty (the default), the target behaves as before — other
-rules fall back to `.pth`-based import resolution.
+entries. The list must include packages, modules, `.pth` files, and
+`*.dist-info` directories. If left empty (the default), other rules preserve
+the complete wheel root and fall back to `.pth`-based import resolution.
 
 Typically populated by the `uv` wheel-install repo rule. Hand-written
 `py_unpacked_wheel` targets may populate this to opt into symlink-based

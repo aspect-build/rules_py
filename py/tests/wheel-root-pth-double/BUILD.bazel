@@ -18,6 +18,7 @@ genrule(
         "a/apkg/__init__.py",
         "a/shared/__init__.py",
         "a/a_marker.pth",
+        "a/entry_points.txt",
         "a/METADATA",
     ],
     outs = ["pthtest_a-1.0-py3-none-any.whl"],
@@ -26,6 +27,7 @@ genrule(
         "apkg/__init__.py=$(execpath a/apkg/__init__.py)",
         "shared/__init__.py=$(execpath a/shared/__init__.py)",
         "a_marker.pth=$(execpath a/a_marker.pth)",
+        "pthtest_a-1.0.dist-info/entry_points.txt=$(execpath a/entry_points.txt)",
         "pthtest_a-1.0.dist-info/METADATA=$(execpath a/METADATA)",
     ]),
     tools = ["@bazel_tools//tools/zip:zipper"],
@@ -58,6 +60,7 @@ py_unpacked_wheel(
     # the venv site-packages exactly as uv's whl_install would.
     top_levels = [
         "apkg",
+        "pthtest_a-1.0.dist-info",
         "shared",
         "a_marker.pth",
     ],
@@ -68,9 +71,18 @@ py_unpacked_wheel(
     src = ":pthtest_b-1.0-py3-none-any.whl",
     top_levels = [
         "bpkg",
+        "pthtest_b-1.0.dist-info",
         "shared",
         "b_marker.pth",
     ],
+)
+
+py_unpacked_wheel(
+    name = "pthtest_unknown_layout",
+    src = ":pthtest_a-1.0-py3-none-any.whl",
+    # Console scripts make this target emit PyWheelsInfo, while omitting
+    # top_levels requires venv assembly to preserve the complete wheel root.
+    console_scripts = ["pthtest=apkg:main"],
 )
 
 py_test(
@@ -88,4 +100,12 @@ py_test(
         ":pthtest_a",
         ":pthtest_b",
     ],
+)
+
+py_test(
+    name = "unknown_layout_pth_test",
+    srcs = ["unknown_layout_pth_test.py"],
+    isolated = False,
+    main = "unknown_layout_pth_test.py",
+    deps = [":pthtest_unknown_layout"],
 )
