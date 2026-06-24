@@ -2,7 +2,7 @@ import os
 import sys
 
 
-expected = tuple(int(part) for part in os.environ["EXPECTED_PYTHON_VERSION"].split("."))
+expected = tuple(int(part) for part in sys.argv[1].split("."))
 if sys.version_info[:2] != expected:
     raise AssertionError(f"expected Python {expected}, got {sys.version_info[:2]}")
 

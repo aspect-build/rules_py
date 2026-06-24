@@ -5,9 +5,6 @@ DEP_GROUP_FLAG = "@aspect_rules_py//uv/private/constraints/dep_group:dep_group"
 # Shared with rules_python so every Python rule observes one version setting.
 PYTHON_VERSION_FLAG = "@rules_python//python/config_settings:python_version"
 
-# Public alias retained for backward compatibility.
-RPY_VERSION_FLAG = PYTHON_VERSION_FLAG
-
 # Interpreter feature flags that must be propagated through transitions.
 _FREETHREADED_FLAG = "@aspect_rules_py//py/private/interpreter:freethreaded"
 

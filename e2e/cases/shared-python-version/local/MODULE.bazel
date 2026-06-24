@@ -1,4 +1,4 @@
-module(name = "local_version_precedence")
+module(name = "shared_python_version_local")
 
 bazel_dep(name = "aspect_rules_py")
 local_path_override(

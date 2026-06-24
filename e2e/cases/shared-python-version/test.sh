@@ -14,9 +14,9 @@ LOCAL_VERSION="--@aspect_rules_py//py:python_version=3.13.1"
 if ! "$BAZEL" test \
     "$BUILD_WIDE_VERSION" \
     -- \
-    //cases/rules-python-version-precedence:aspect_attribute \
-    //cases/rules-python-version-precedence:aspect_no_attribute \
-    //cases/rules-python-version-precedence:rules_python_attribute; then
+    //cases/shared-python-version:aspect_attribute \
+    //cases/shared-python-version:aspect_no_attribute \
+    //cases/shared-python-version:rules_python_attribute; then
     echo "FAIL: Python rules did not share one version setting" >&2
     exit 1
 fi
