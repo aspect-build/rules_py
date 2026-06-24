@@ -1,0 +1,6 @@
+module(name = "invalid_release_dependency")
+
+bazel_dep(name = "aspect_rules_py")
+
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+interpreters.configure(releases = ["not-a-date"])

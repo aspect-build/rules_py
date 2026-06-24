@@ -1,7 +1,7 @@
 """Module extension for provisioning Python interpreters from python-build-standalone."""
 
 load(":repository.bzl", "local_python_interpreter", "python_interpreter", "python_toolchains")
-load(":version_util.bzl", "is_pre_release", "version_gt")
+load(":version_util.bzl", "is_decimal", "is_pre_release", "version_gt")
 load(":versions.bzl", "BUILD_CONFIGS", "DEFAULT_RELEASE_BASE_URL", "DEFAULT_RELEASE_DATES", "PLATFORMS")
 
 # The GitHub API endpoint for resolving "latest" releases.
@@ -185,6 +185,10 @@ def _python_interpreters_impl(module_ctx):
                     is_reproducible = False
                     date = _resolve_latest(module_ctx, base_url)
                     resolved_latest = date
+                if len(date) != 8 or not is_decimal(date):
+                    fail(
+                        "PBS release identifiers must be eight decimal digits, got '{}'".format(date),
+                    )
                 if date not in release_dates:
                     release_dates.append(date)
                     release_base_urls[date] = base_url
@@ -209,11 +213,18 @@ def _python_interpreters_impl(module_ctx):
         for tag in mod.tags.toolchain:
             version = tag.python_version
 
-            # Normalize: "3.11.14" -> major_minor "3.11"
             parts = version.split(".")
-            if len(parts) < 2:
-                fail("python_version must be at least major.minor, got '{}'".format(version))
-            major_minor = "{}.{}".format(parts[0], parts[1])
+            if len(parts) != 2 or not is_decimal(parts[0]) or not is_decimal(parts[1]):
+                fail(
+                    (
+                        "module '{}' requested invalid python_version '{}'; expected " +
+                        "major.minor"
+                    ).format(
+                        mod.name,
+                        version,
+                    ),
+                )
+            major_minor = version
 
             if mod.is_root:
                 settings = {
@@ -240,9 +251,9 @@ def _python_interpreters_impl(module_ctx):
             version_sources[major_minor].append(mod.name)
 
             # Pre-release policy is root-module-only. A non-root module
-            # requesting "3.15.0a2" will need the root to also allow
-            # pre-releases for that version.
-            if mod.is_root and (tag.pre_release or is_pre_release(version)):
+            # requesting 3.15 needs the root to allow pre-releases for that
+            # version.
+            if mod.is_root and tag.pre_release:
                 allow_pre_release[major_minor] = True
             elif major_minor not in allow_pre_release:
                 allow_pre_release[major_minor] = False
@@ -518,7 +529,11 @@ Only honored from the root module.
         ),
         "python_version": attr.string(
             mandatory = True,
-            doc = "Python version to provision, e.g. '3.11' or '3.11.14'. The newest available patch version is used.",
+            doc = """\
+Python major.minor version to request, such as 3.11. The newest available patch
+version is provisioned. Set pre_release to allow alpha, beta, or
+release-candidate versions.
+""",
         ),
         "target_compatible_with": attr.label_list(
             default = [],

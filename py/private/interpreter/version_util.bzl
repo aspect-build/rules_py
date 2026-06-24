@@ -15,6 +15,15 @@ _PRE_RELEASE_ORDER = {
 }
 _RELEASE_ORDER = 3  # No suffix = final release
 
+def is_decimal(value):
+    """Whether value consists of one or more ASCII decimal digits."""
+    if not value:
+        return False
+    for char in value.elems():
+        if char not in "0123456789":
+            return False
+    return True
+
 def _parse_pre_release(s):
     """Parse a version component that may contain a pre-release suffix.
 

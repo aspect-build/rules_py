@@ -1,0 +1,11 @@
+module(name = "root_invalid_python")
+
+bazel_dep(name = "aspect_rules_py")
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../../../..",
+)
+
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+interpreters.toolchain(python_version = "3.14.3")
+use_repo(interpreters, "python_interpreters")
