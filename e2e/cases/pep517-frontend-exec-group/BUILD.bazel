@@ -1,0 +1,71 @@
+load("@aspect_rules_py//uv/private/pep517_whl:rule.bzl", "pep517_native_whl")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
+platform(
+    name = "linux_aarch64",
+    constraint_values = [
+        "@platforms//cpu:aarch64",
+        "@platforms//os:linux",
+    ],
+)
+
+platform(
+    name = "linux_x86_64",
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+)
+
+config_setting(
+    name = "linux_aarch64_config",
+    constraint_values = [
+        "@platforms//cpu:aarch64",
+        "@platforms//os:linux",
+    ],
+)
+
+config_setting(
+    name = "linux_x86_64_config",
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+)
+
+write_file(
+    name = "frontend_script",
+    out = "frontend.sh",
+    content = [
+        "#!/usr/bin/env bash",
+        "set -euo pipefail",
+        "wheel_dir=\"${!#}\"",
+        "mkdir -p \"${wheel_dir}\"",
+    ] + select({
+        ":linux_aarch64_config": ["printf 'aarch64\\n' >\"${wheel_dir}/frontend_exec_platform.txt\""],
+        ":linux_x86_64_config": ["printf 'x86_64\\n' >\"${wheel_dir}/frontend_exec_platform.txt\""],
+        "//conditions:default": ["printf 'default\\n' >\"${wheel_dir}/frontend_exec_platform.txt\""],
+    }),
+    is_executable = True,
+)
+
+sh_binary(
+    name = "frontend",
+    srcs = [":frontend_script"],
+)
+
+write_file(
+    name = "stub_sdist",
+    out = "stub.tar.gz",
+    content = ["unused"],
+)
+
+pep517_native_whl(
+    name = "wheel",
+    src = ":stub_sdist",
+    args = [],
+    tags = ["manual"],
+    tool = ":frontend",
+    version = "0.0.0",
+)
