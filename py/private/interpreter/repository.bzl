@@ -8,6 +8,76 @@ _RPY_VERSION_FLAG = "@rules_python//python/config_settings:python_version"
 _FREETHREADING_FLAG = "@aspect_rules_py//py/private/interpreter:freethreaded"
 _EXCLUDE_FEATURE_FLAG = "@aspect_rules_py//py/private/interpreter:exclude_feature"
 
+# CPython through 3.13 defines the bytecode magic in the frozen importlib
+# source. Python 3.14 moved its authoritative value to an internal header:
+# https://github.com/python/cpython/blob/v3.13.2/Lib/importlib/_bootstrap_external.py
+# https://github.com/python/cpython/blob/v3.14.0/Include/internal/pycore_magic_number.h
+def _parse_pyc_magic_number(content, source_kind, description):
+    matches = []
+    for raw_line in content.splitlines():
+        line = raw_line.strip()
+        if source_kind == "header":
+            tokens = [
+                token
+                for token in line.replace("\t", " ").split(" ")
+                if token
+            ]
+            if tokens[:2] == ["#define", "PYC_MAGIC_NUMBER"]:
+                if len(tokens) < 3:
+                    fail("{} has a malformed definition: {}".format(description, repr(raw_line)))
+                matches.append((tokens[2], raw_line))
+        else:
+            source_prefix = "MAGIC_NUMBER = ("
+            if line.startswith(source_prefix):
+                value = line[len(source_prefix):]
+                if ")" not in value:
+                    fail("{} has a malformed assignment: {}".format(description, repr(raw_line)))
+                matches.append((value.split(")")[0], raw_line))
+
+    if len(matches) != 1:
+        fail("{} must contain exactly one PYC_MAGIC_NUMBER, found {}".format(
+            description,
+            len(matches),
+        ))
+
+    value, raw_line = matches[0]
+    if not value or not all([char in "0123456789" for char in value.elems()]):
+        fail("{} has a non-decimal value: {}".format(description, repr(raw_line)))
+
+    magic_number = int(value)
+    if magic_number > 0xffff:
+        fail("{} has a value outside the 16-bit range: {}".format(description, magic_number))
+    return magic_number
+
+def _read_pyc_magic_number(rctx, major, minor, abi_flags, is_windows):
+    version = "{}.{}{}".format(major, minor, abi_flags)
+    if is_windows:
+        paths = [
+            "include/internal/pycore_magic_number.h",
+            "Lib/importlib/_bootstrap_external.py",
+        ]
+    else:
+        paths = [
+            "include/python{}/internal/pycore_magic_number.h".format(version),
+            "lib/python{}/importlib/_bootstrap_external.py".format(version),
+        ]
+
+    mode = "free-threaded" if "t" in abi_flags else "regular"
+    description = "PBS Python {} for {} ({})".format(
+        rctx.attr.python_version,
+        rctx.attr.platform,
+        mode,
+    )
+    for path, source_kind in [(paths[0], "header"), (paths[1], "source")]:
+        if rctx.path(path).exists:
+            return _parse_pyc_magic_number(
+                rctx.read(path),
+                source_kind,
+                "{} {}".format(description, path),
+            )
+
+    fail("{} contains neither {} nor {}".format(description, paths[0], paths[1]))
+
 def _python_interpreter_impl(rctx):
     """Downloads and extracts a Python interpreter from PBS."""
     url = rctx.attr.url
@@ -38,6 +108,13 @@ def _python_interpreter_impl(rctx):
             micro = micro[:marker_index] or "0"
             releaselevel = level
             break
+    pyc_magic_number = _read_pyc_magic_number(
+        rctx,
+        major,
+        minor,
+        rctx.attr.abi_flags,
+        is_windows,
+    )
 
     # Delete terminfo symlink loops on newer PBS releases (linux only)
     if "linux" in platform:
@@ -49,6 +126,7 @@ def _python_interpreter_impl(rctx):
         minor = minor,
         micro = micro,
         python_bin = python_bin,
+        pyc_magic_number = pyc_magic_number,
         is_windows = is_windows,
         releaselevel = releaselevel,
         serial = serial,
@@ -93,7 +171,7 @@ filegroup(
 
     return "\n".join(lines), all_excludes
 
-def _build_file_content(major, minor, micro, python_bin, is_windows, abi_flags, releaselevel, serial):
+def _build_file_content(major, minor, micro, python_bin, pyc_magic_number, is_windows, abi_flags, releaselevel, serial):
     """Generate the full BUILD.bazel content for an interpreter repo."""
 
     feature_targets, feature_excludes = _feature_filegroups(major, minor, is_windows)
@@ -182,8 +260,8 @@ cc_library(
     return """\
 load("@rules_cc//cc:cc_import.bzl", "cc_import")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@aspect_rules_py//py/private/interpreter:pbs_runtime_pair.bzl", "pbs_runtime_pair")
 load("@rules_python//python:py_runtime.bzl", "py_runtime")
-load("@rules_python//python:py_runtime_pair.bzl", "py_runtime_pair")
 load("@rules_python//python:py_exec_tools_toolchain.bzl", "py_exec_tools_toolchain")
 load("@rules_python//python/cc:py_cc_toolchain.bzl", "py_cc_toolchain")
 
@@ -240,9 +318,9 @@ py_runtime(
     python_version = "PY3",
 )
 
-py_runtime_pair(
+pbs_runtime_pair(
     name = "runtime_pair",
-    py2_runtime = None,
+    pyc_magic_number = {pyc_magic_number},
     py3_runtime = ":py3_runtime",
 )
 
@@ -269,6 +347,7 @@ py_cc_toolchain(
         micro = micro,
         releaselevel = releaselevel,
         serial = serial,
+        pyc_magic_number = pyc_magic_number,
         feature_targets = feature_targets,
         feature_selects = feature_selects,
         core_include = core_include,
