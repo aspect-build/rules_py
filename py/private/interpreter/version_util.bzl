@@ -15,6 +15,40 @@ _PRE_RELEASE_ORDER = {
 }
 _RELEASE_ORDER = 3  # No suffix = final release
 
+def _is_decimal(value):
+    if not value:
+        return False
+    for char in value.elems():
+        if char not in "0123456789":
+            return False
+    return True
+
+def is_valid_python_version(version):
+    """Whether a PBS Python version is final, alpha, beta, or release candidate."""
+    parts = version.split(".")
+    if len(parts) != 3 or not _is_decimal(parts[0]) or not _is_decimal(parts[1]):
+        return False
+
+    patch = parts[2]
+    if _is_decimal(patch):
+        return True
+
+    for marker in ["rc", "b", "a"]:
+        marker_index = patch.find(marker)
+        if marker_index > 0:
+            return (
+                _is_decimal(patch[:marker_index]) and
+                _is_decimal(patch[marker_index + len(marker):])
+            )
+    return False
+
+def is_valid_python_tag(version):
+    """Whether a requested version is major.minor or a valid PBS version."""
+    parts = version.split(".")
+    if len(parts) == 2:
+        return _is_decimal(parts[0]) and _is_decimal(parts[1])
+    return is_valid_python_version(version)
+
 def _parse_pre_release(s):
     """Parse a version component that may contain a pre-release suffix.
 

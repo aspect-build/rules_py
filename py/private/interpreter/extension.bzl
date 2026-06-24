@@ -1,7 +1,7 @@
 """Module extension for provisioning Python interpreters from python-build-standalone."""
 
 load(":repository.bzl", "local_python_interpreter", "python_interpreter", "python_toolchains")
-load(":version_util.bzl", "is_pre_release", "version_gt")
+load(":version_util.bzl", "is_pre_release", "is_valid_python_tag", "version_gt")
 load(":versions.bzl", "BUILD_CONFIGS", "DEFAULT_RELEASE_BASE_URL", "DEFAULT_RELEASE_DATES", "PLATFORMS")
 
 # The GitHub API endpoint for resolving "latest" releases.
@@ -185,6 +185,14 @@ def _python_interpreters_impl(module_ctx):
                     is_reproducible = False
                     date = _resolve_latest(module_ctx, base_url)
                     resolved_latest = date
+                invalid_release = len(date) != 8
+                for char in date.elems():
+                    if char not in "0123456789":
+                        invalid_release = True
+                if invalid_release:
+                    fail(
+                        "PBS release identifiers must be eight decimal digits, got '{}'".format(date),
+                    )
                 if date not in release_dates:
                     release_dates.append(date)
                     release_base_urls[date] = base_url
@@ -209,9 +217,17 @@ def _python_interpreters_impl(module_ctx):
             version = tag.python_version
 
             # Normalize: "3.11.14" -> major_minor "3.11"
+            if not is_valid_python_tag(version):
+                fail(
+                    (
+                        "module '{}' requested invalid python_version '{}'; expected " +
+                        "major.minor or a full final, alpha, beta, or release-candidate version"
+                    ).format(
+                        mod.name,
+                        version,
+                    ),
+                )
             parts = version.split(".")
-            if len(parts) < 2:
-                fail("python_version must be at least major.minor, got '{}'".format(version))
             major_minor = "{}.{}".format(parts[0], parts[1])
 
             # is_default is root-module-only
@@ -514,7 +530,11 @@ Only honored from the root module.
         ),
         "python_version": attr.string(
             mandatory = True,
-            doc = "Python version to provision, e.g. '3.11' or '3.11.14'. The newest available patch version is used.",
+            doc = """\
+Python version to request as major.minor or a full final/a/b/rc version. Full
+versions are normalized to major.minor; a pre-release version also enables
+pre-release selection. The newest available patch version is provisioned.
+""",
         ),
         "target_compatible_with": attr.string_list(
             default = [],
