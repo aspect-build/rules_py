@@ -2,6 +2,7 @@ module(name = "interpreter_toolchain_settings")
 
 bazel_dep(name = "aspect_rules_py")
 bazel_dep(name = "platforms", version = "1.1.0")
+bazel_dep(name = "rules_python", version = "1.9.0")
 
 local_path_override(
     module_name = "aspect_rules_py",
@@ -28,10 +29,17 @@ interpreters.toolchain(
     config_settings = ["//:config_312"],
     python_version = "3.12",
 )
+interpreters.toolchain(
+    exec_compatible_with = ["//:python_exec_supported"],
+    python_version = "3.13",
+    target_compatible_with = ["//:python_target_supported"],
+)
 use_repo(
     interpreters,
     "python_3_11_x86_64_unknown_linux_gnu",
     "python_3_12_x86_64_unknown_linux_gnu",
+    "python_3_13_x86_64_unknown_linux_gnu",
+    "python_3_13_x86_64_unknown_linux_gnu_freethreaded",
     "python_interpreters",
 )
 
