@@ -13,6 +13,6 @@ interpreters.toolchain(
 )
 interpreters.toolchain(
     config_settings = ["//:second"],
-    python_version = "3.11.14",
+    python_version = "3.11",
 )
 use_repo(interpreters, "python_interpreters")
