@@ -36,7 +36,7 @@ py_runtime_pair(
 config_setting(
     name = "is_sentinel_python_version",
     flag_values = {
-        "@aspect_rules_py//py/private/interpreter:python_version": "3.94",
+        "@rules_python//python/config_settings:python_version_major_minor": "3.94",
     },
 )
 

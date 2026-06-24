@@ -6,8 +6,7 @@ Includes rules for downloading PBS interpreters and registering local interprete
 load("@bazel_features//:features.bzl", features = "bazel_features")
 load(":exclude_feature.bzl", "INTERPRETER_FEATURES")
 
-_PYTHON_VERSION_FLAG = "@aspect_rules_py//py/private/interpreter:python_version"
-_RPY_VERSION_FLAG = "@rules_python//python/config_settings:python_version"
+_RPY_VERSION_MAJOR_MINOR_FLAG = "@rules_python//python/config_settings:python_version_major_minor"
 _FREETHREADING_FLAG = "@aspect_rules_py//py/private/interpreter:freethreaded"
 _EXCLUDE_FEATURE_FLAG = "@aspect_rules_py//py/private/interpreter:exclude_feature"
 
@@ -206,7 +205,6 @@ def _freethreaded_setting_name(value):
 def _python_toolchains_impl(rctx):
     """Creates toolchain() registrations pointing to interpreter repos."""
     content = [
-        'load("@bazel_skylib//lib:selects.bzl", "selects")',
         'load("@aspect_rules_py//py/private/interpreter:current_py_toolchain.bzl", "current_py_toolchain")',
         'package(default_visibility = ["//visibility:public"])',
     ]
@@ -243,27 +241,13 @@ def _python_toolchains_impl(rctx):
         group_name = _version_setting_name(major_minor)
         content.append("""
 config_setting(
-    name = "_{group}_our_major_minor",
-    flag_values = {{"{our_flag}": "{major_minor}"}},
-)
-
-config_setting(
-    name = "_{group}_rpy_major_minor",
-    flag_values = {{"{rpy_flag}": "{major_minor}"}},
-)
-
-selects.config_setting_group(
     name = "{group}",
-    match_any = [
-        ":_{group}_our_major_minor",
-        ":_{group}_rpy_major_minor",
-    ],
+    flag_values = {{"{rpy_major_minor_flag}": "{major_minor}"}},
 )
 """.format(
             group = group_name,
             major_minor = major_minor,
-            our_flag = _PYTHON_VERSION_FLAG,
-            rpy_flag = _RPY_VERSION_FLAG,
+            rpy_major_minor_flag = _RPY_VERSION_MAJOR_MINOR_FLAG,
         ))
 
     # Emit hub-local freethreaded config_settings
@@ -427,54 +411,20 @@ def _local_python_interpreter_impl(rctx):
         major = parts[0]
         minor = parts[1]
         micro = parts[2] if len(parts) > 2 else micro
-    else:
-        python_version = "{}.{}.{}".format(major, minor, micro)
 
     major_minor = "{}.{}".format(major, minor)
 
     rctx.file("BUILD.bazel", content = """\
 load("@rules_python//python:py_runtime.bzl", "py_runtime")
 load("@rules_python//python:py_runtime_pair.bzl", "py_runtime_pair")
-load("@bazel_skylib//lib:selects.bzl", "selects")
 
 package(default_visibility = ["//visibility:public"])
 
 config_setting(
-    name = "_is_our_major_minor",
-    flag_values = {{
-        "{our_flag}": "{major_minor}",
-    }},
-)
-
-config_setting(
-    name = "_is_our_major_minor_micro",
-    flag_values = {{
-        "{our_flag}": "{version}",
-    }},
-)
-
-config_setting(
-    name = "_is_rpy_major_minor",
-    flag_values = {{
-        "{rpy_flag}": "{major_minor}",
-    }},
-)
-
-config_setting(
-    name = "_is_rpy_major_minor_micro",
-    flag_values = {{
-        "{rpy_flag}": "{version}",
-    }},
-)
-
-selects.config_setting_group(
     name = "is_matching_python_version",
-    match_any = [
-        ":_is_our_major_minor",
-        ":_is_our_major_minor_micro",
-        ":_is_rpy_major_minor",
-        ":_is_rpy_major_minor_micro",
-    ],
+    flag_values = {{
+        "{rpy_major_minor_flag}": "{major_minor}",
+    }},
 )
 
 config_setting(
@@ -501,10 +451,8 @@ py_runtime_pair(
     py3_runtime = ":py3_runtime",
 )
 """.format(
-        our_flag = _PYTHON_VERSION_FLAG,
-        rpy_flag = _RPY_VERSION_FLAG,
+        rpy_major_minor_flag = _RPY_VERSION_MAJOR_MINOR_FLAG,
         freethreaded_flag = _FREETHREADING_FLAG,
-        version = python_version,
         major_minor = major_minor,
         interpreter_path = interpreter_path,
         major = major,
@@ -515,24 +463,15 @@ py_runtime_pair(
 def _write_inactive_build(rctx, reason):
     """Write a BUILD file for an inactive/unavailable local interpreter."""
     rctx.file("BUILD.bazel", content = """\
-load("@bazel_skylib//lib:selects.bzl", "selects")
-
 package(default_visibility = ["//visibility:public"])
 
 # Inactive local interpreter: {reason}
 
-# Version config_settings that never match (empty flag value won't match
-# any real version string).
 config_setting(
-    name = "_is_our_major_minor",
-    flag_values = {{
-        "{our_flag}": "INACTIVE_LOCAL_INTERPRETER",
-    }},
-)
-
-selects.config_setting_group(
     name = "is_matching_python_version",
-    match_any = [":_is_our_major_minor"],
+    flag_values = {{
+        "{rpy_major_minor_flag}": "INACTIVE_LOCAL_INTERPRETER",
+    }},
 )
 
 config_setting(
@@ -548,7 +487,7 @@ filegroup(
 )
 """.format(
         reason = reason,
-        our_flag = _PYTHON_VERSION_FLAG,
+        rpy_major_minor_flag = _RPY_VERSION_MAJOR_MINOR_FLAG,
         freethreaded_flag = _FREETHREADING_FLAG,
     ))
 

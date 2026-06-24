@@ -1,0 +1,14 @@
+module(name = "local_version_precedence")
+
+bazel_dep(name = "aspect_rules_py")
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../../../..",
+)
+
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+interpreters.local(
+    interpreter_path = "/usr/bin/python3",
+    python_version = "3.13",
+)
+use_repo(interpreters, "local_python_python3")

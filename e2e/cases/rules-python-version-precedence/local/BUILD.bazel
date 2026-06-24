@@ -1,0 +1,7 @@
+filegroup(
+    name = "local_version_matches",
+    srcs = select({
+        "@local_python_python3//:is_matching_python_version": ["local_selected.txt"],
+        "//conditions:default": [],
+    }),
+)

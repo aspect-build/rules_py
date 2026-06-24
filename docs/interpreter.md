@@ -121,28 +121,33 @@ There are two layers of version control, from broadest to most specific.
 
 ### 1. A build-wide version (.bazelrc)
 
-Set `--@aspect_rules_py//py:python_version` in `.bazelrc` to lock the
-entire build to a specific version and keep the selection explicit in version
-control:
+Set the public rules_py version flag in `.bazelrc` to keep the build-wide
+selection explicit in version control:
 
 ```
 # .bazelrc
 common --@aspect_rules_py//py:python_version=3.12
 ```
 
-This flag can also be overridden on the command line for one-off testing against
-a different version:
+This flag can also be overridden on the command line for one-off testing
+against a different version:
 
 ```sh
 # Quick smoke-test on 3.11 without editing any files
 bazel test //... --@aspect_rules_py//py:python_version=3.11
 ```
 
+This public target aliases the `rules_python` version setting, so both rule
+sets observe the same build-wide value and target-specific transitions. If the
+flag is unset, the default configured by `rules_python` determines selection.
+Registering an interpreter with `interpreters.toolchain()` makes it available;
+it does not change that default.
+
 ### 2. Per-target overrides (python_version attribute)
 
 Individual `py_binary`, `py_venv_binary`, `py_test`, and `py_venv_test` targets
-can pin to a specific version using the `python_version` attribute. This takes
-precedence over the flag:
+can pin to a specific version using the `python_version` attribute. Its target
+transition overrides the build-wide value for that target:
 
 ```starlark
 load("@aspect_rules_py//py:defs.bzl", "py_binary")
@@ -167,14 +172,17 @@ versions:
 ) for v in ["3.11", "3.12", "3.13"]]
 ```
 
-### Precedence
+### Selection
 
-| Mechanism                               | Scope                  | Set by                     |
-| --------------------------------------- | ---------------------- | -------------------------- |
-| `--@aspect_rules_py//py:python_version` | Whole build            | `.bazelrc` or command line |
-| `python_version` attribute              | Single target          | `BUILD.bazel`              |
+| Mechanism                               | Scope         | Set by                     |
+| --------------------------------------- | ------------- | -------------------------- |
+| `--@aspect_rules_py//py:python_version` | Whole build   | `.bazelrc` or command line |
+| `python_version` attribute              | Single target | `BUILD.bazel`              |
 
-The target attribute takes precedence over the build-wide flag.
+Both mechanisms write the canonical
+`@rules_python//python/config_settings:python_version` setting. Matching uses
+its derived major/minor value, so `3.12.4` selects a `3.12` toolchain rather
+than pinning a specific PBS patch artifact.
 
 ## Build configurations
 
@@ -221,11 +229,12 @@ This interpreter provisioning is designed to coexist with `rules_python`:
 
 - The standard `@bazel_tools//tools/python:toolchain_type` is used for toolchain
   registration, so these interpreters work with all existing Python rules.
-- The `@rules_python//python/config_settings:python_version` flag is kept in
-  sync with our own version flag via build transitions.
+- `@aspect_rules_py//py:python_version` aliases the canonical `rules_python`
+  setting, and both projects' target transitions update that shared setting.
 - `py_runtime` and `py_runtime_pair` from `rules_python` are used to create
   the runtime providers.
 
-You can migrate incrementally: replace `python.toolchain()` calls with
-`interpreters.toolchain()` and remove the `rules_python` interpreter
-configuration while keeping everything else.
+You can migrate incrementally: replace explicit root `python.toolchain()` calls
+with `interpreters.toolchain()` while keeping everything else. Set the public
+version flag explicitly when the desired version differs from the transitive
+`rules_python` default.

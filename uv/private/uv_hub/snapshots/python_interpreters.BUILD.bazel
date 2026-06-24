@@ -1,23 +1,9 @@
-load("@bazel_skylib//lib:selects.bzl", "selects")
 load("@aspect_rules_py//py/private/interpreter:current_py_toolchain.bzl", "current_py_toolchain")
 package(default_visibility = ["//visibility:public"])
 
 config_setting(
-    name = "_python_version_is_3_13_our_major_minor",
-    flag_values = {"@aspect_rules_py//py/private/interpreter:python_version": "3.13"},
-)
-
-config_setting(
-    name = "_python_version_is_3_13_rpy_major_minor",
-    flag_values = {"@rules_python//python/config_settings:python_version": "3.13"},
-)
-
-selects.config_setting_group(
     name = "python_version_is_3_13",
-    match_any = [
-        ":_python_version_is_3_13_our_major_minor",
-        ":_python_version_is_3_13_rpy_major_minor",
-    ],
+    flag_values = {"@rules_python//python/config_settings:python_version_major_minor": "3.13"},
 )
 
 

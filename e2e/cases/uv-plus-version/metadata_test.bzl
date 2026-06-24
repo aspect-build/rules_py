@@ -3,8 +3,7 @@
 load("@aspect_rules_py//py/private:providers.bzl", "PyWheelsInfo")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 
-_PYTHON_VERSION_FLAG = str(Label("@aspect_rules_py//py/private/interpreter:python_version"))
-_RULES_PYTHON_VERSION_FLAG = str(Label("@rules_python//python/config_settings:python_version"))
+_PYTHON_VERSION_FLAG = str(Label("@rules_python//python/config_settings:python_version"))
 _TARGET_PLATFORM = str(Label("//cases/uv-plus-version:linux_x86_64"))
 
 def _wheel_metadata_test_impl(ctx):
@@ -23,6 +22,5 @@ wheel_metadata_test = analysistest.make(
     config_settings = {
         "//command_line_option:platforms": _TARGET_PLATFORM,
         _PYTHON_VERSION_FLAG: "3.12",
-        _RULES_PYTHON_VERSION_FLAG: "3.12",
     },
 )

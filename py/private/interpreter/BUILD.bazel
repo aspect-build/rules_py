@@ -1,5 +1,5 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
-load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 load(":exclude_feature.bzl", "exclude_feature_flag")
 load(":version_util_test.bzl", "version_util_test_suite")
 
@@ -24,9 +24,12 @@ bzl_library(
     ],
 )
 
-string_flag(
+# Preserve the released rules_py label without maintaining separate state.
+# Bazel follows alias chains when parsing command-line build settings:
+# https://github.com/bazelbuild/bazel/blob/c8217fdd2f20e4a061122c0af0417380d09e9480/src/main/java/com/google/devtools/build/lib/runtime/StarlarkOptionsParser.java#L304-L376
+alias(
     name = "python_version",
-    build_setting_default = "",
+    actual = "@rules_python//python/config_settings:python_version",
 )
 
 # Interpreter feature exclusions. Pass one or more --exclude_feature flags to
