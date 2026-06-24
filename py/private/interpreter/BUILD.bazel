@@ -1,6 +1,7 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
 load(":exclude_feature.bzl", "exclude_feature_flag")
+load(":release_index_test.bzl", "release_index_test_suite")
 load(":version_util_test.bzl", "version_util_test_suite")
 
 package(default_visibility = ["//visibility:public"])
@@ -18,6 +19,7 @@ bzl_library(
     srcs = ["extension.bzl"],
     deps = [
         ":exclude_feature_bzl",
+        ":release_index",
         ":repository",
         ":version_util",
         ":versions",
@@ -73,6 +75,8 @@ bool_flag(
     build_setting_default = False,
 )
 
+release_index_test_suite()
+
 version_util_test_suite()
 
 # keep
@@ -87,6 +91,15 @@ bzl_library(
     deps = [
         ":exclude_feature_bzl",  # keep
         "@bazel_features//:features",
+    ],
+)
+
+bzl_library(
+    name = "release_index",
+    srcs = ["release_index.bzl"],
+    deps = [
+        ":version_util",
+        ":versions",
     ],
 )
 

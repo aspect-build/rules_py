@@ -1,89 +1,17 @@
 """Module extension for provisioning Python interpreters from python-build-standalone."""
 
+load(":release_index.bzl", "find_asset", "parse_sha256sums")
 load(":repository.bzl", "local_python_interpreter", "python_interpreter", "python_toolchains")
-load(":version_util.bzl", "is_pre_release", "version_gt")
+load(":version_util.bzl", "is_pre_release")
 load(":versions.bzl", "BUILD_CONFIGS", "DEFAULT_RELEASE_BASE_URL", "DEFAULT_RELEASE_DATES", "PLATFORMS")
 
 # The GitHub API endpoint for resolving "latest" releases.
 _GITHUB_API_LATEST = "https://api.github.com/repos/{owner}/{repo}/releases/latest"
+_RELEASE_INDEX_SCHEMA = 1
 
 def _sanitize(s):
     """Replace characters that are invalid in Bazel repo names."""
     return s.replace(".", "_").replace("-", "_").replace("+", "_")
-
-def _parse_sha256sums(content, release_date):
-    """Parse a SHA256SUMS file into a structured index.
-
-    Returns a dict mapping (major_minor, platform, build_config) -> {
-        "sha256": str,
-        "filename": str,
-        "full_version": str,
-    }
-
-    When multiple patch versions exist for the same major.minor, only the
-    newest is kept.
-    """
-    index = {}
-
-    for line in content.split("\n"):
-        line = line.strip()
-        if not line or not line[0].isalnum():
-            continue
-
-        parts = line.split("  ", 1)
-        if len(parts) != 2:
-            parts = line.split(" ", 1)
-            if len(parts) != 2:
-                continue
-
-        sha256 = parts[0].strip()
-        filename = parts[1].strip()
-
-        if not filename.startswith("cpython-"):
-            continue
-
-        # Parse: cpython-{version}+{date}-{platform}-{suffix}.{ext}
-        plus_idx = filename.find("+")
-        if plus_idx < 0:
-            continue
-        version = filename[len("cpython-"):plus_idx]
-
-        version_parts = version.split(".")
-        if len(version_parts) < 2:
-            continue
-        major_minor = "{}.{}".format(version_parts[0], version_parts[1])
-
-        # Match against known build configs (check suffix + extension)
-        remainder = filename[plus_idx + 1 + len(release_date) + 1:]  # skip "{date}-"
-        matched_config = None
-        matched_platform = None
-
-        for config_name, config_info in BUILD_CONFIGS.items():
-            expected_tail = "-{}.{}".format(config_info["suffix"], config_info["extension"])
-            if remainder.endswith(expected_tail):
-                platform_str = remainder[:len(remainder) - len(expected_tail)]
-                if platform_str in PLATFORMS:
-                    matched_config = config_name
-                    matched_platform = platform_str
-                    break
-
-        if not matched_config:
-            continue
-
-        key = "{}/{}/{}".format(major_minor, matched_platform, matched_config)
-
-        # Keep the newest patch version
-        existing = index.get(key)
-        if existing and not version_gt(version, existing["full_version"]):
-            continue
-
-        index[key] = {
-            "sha256": sha256,
-            "filename": filename,
-            "full_version": version,
-        }
-
-    return index
 
 def _owner_repo_from_base_url(base_url):
     """Extract GitHub owner/repo from a base URL like https://github.com/{owner}/{repo}/releases/download."""
@@ -121,12 +49,15 @@ def _resolve_latest(module_ctx, base_url):
         fail('Could not resolve "latest" release from {}'.format(api_url))
     return tag
 
+def _release_index_facts_key(release_date, base_url):
+    return "release_index_v{}_{}_{}".format(_RELEASE_INDEX_SCHEMA, release_date, base_url)
+
 def _fetch_release_index(module_ctx, release_date, base_url, facts):
     """Fetch and parse SHA256SUMS for a release, using facts as cache.
 
     Returns the parsed index dict for this release date.
     """
-    facts_key = "release_index_{}_{}".format(release_date, base_url)
+    facts_key = _release_index_facts_key(release_date, base_url)
     cached = facts.get(facts_key)
     if cached:
         return cached
@@ -141,7 +72,7 @@ def _fetch_release_index(module_ctx, release_date, base_url, facts):
     )
     content = module_ctx.read(sha256sums_path)
 
-    index = _parse_sha256sums(content, release_date)
+    index = parse_sha256sums(content, release_date)
     if not index:
         fail(
             "No CPython assets found in SHA256SUMS for release date \"{}\". ".format(release_date) +
@@ -247,7 +178,7 @@ def _python_interpreters_impl(module_ctx):
             release_indices[date] = index
 
             # Cache in facts for next run — but never cache under "latest"
-            facts_key = "release_index_{}_{}".format(date, base_url)
+            facts_key = _release_index_facts_key(date, base_url)
             new_facts[facts_key] = index
 
     else:
@@ -319,7 +250,7 @@ def _python_interpreters_impl(module_ctx):
                     repo_name += "_" + _sanitize(config_name)
 
                 # Find the best release for this version/platform/config
-                asset_info = _find_asset(
+                asset_info = find_asset(
                     major_minor,
                     platform_triple,
                     config_name,
@@ -383,21 +314,6 @@ def _python_interpreters_impl(module_ctx):
     )
 
     return _return_metadata(module_ctx, has_facts, new_facts, is_reproducible, resolved_latest)
-
-def _find_asset(major_minor, platform, build_config, release_dates, release_indices):
-    """Find the best asset across releases, preferring newer releases."""
-    for date in release_dates:
-        index = release_indices.get(date, {})
-        key = "{}/{}/{}".format(major_minor, platform, build_config)
-        entry = index.get(key)
-        if entry:
-            return {
-                "release_date": date,
-                "sha256": entry["sha256"],
-                "filename": entry["filename"],
-                "full_version": entry["full_version"],
-            }
-    return None
 
 def _return_metadata(module_ctx, has_facts, facts, is_reproducible, resolved_latest):
     """Return extension_metadata with facts and reproducibility info."""
