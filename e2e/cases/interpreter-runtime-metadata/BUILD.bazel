@@ -1,0 +1,22 @@
+load(":runtime_metadata_test.bzl", "runtime_metadata_test")
+
+runtime_metadata_test(
+    name = "regular",
+    abi_flags = "",
+    runtime = "@python_3_15_x86_64_unknown_linux_gnu//:py3_runtime",
+    tags = ["manual"],
+)
+
+runtime_metadata_test(
+    name = "freethreaded",
+    abi_flags = "t",
+    runtime = "@python_3_15_x86_64_unknown_linux_gnu_freethreaded_pgo_lto//:py3_runtime",
+    tags = ["manual"],
+)
+
+runtime_metadata_test(
+    name = "freethreaded_debug",
+    abi_flags = "td",
+    runtime = "@python_3_15_x86_64_unknown_linux_gnu_freethreaded_debug//:py3_runtime",
+    tags = ["manual"],
+)
