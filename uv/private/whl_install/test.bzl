@@ -3,7 +3,7 @@
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts", "unittest")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//py/private:providers.bzl", "PyWheelsInfo")
-load(":repository.bzl", "compatible_python_tags", "parse_console_script", "parse_record_path", "select_key", "site_packages_segments", "sort_select_arms", "source_specificity")
+load(":repository.bzl", "compatible_python_tags", "parse_console_script", "parse_record_path", "select_key", "site_packages_segments", "sort_select_arms", "source_specificity", "wheel_layout_from_record")
 load(":rule.bzl", "whl_install")
 
 def _whl_sorting_test_impl(ctx):
@@ -201,6 +201,50 @@ def _console_script_test_impl(ctx):
 
 console_script_test = unittest.make(_console_script_test_impl)
 
+def _wheel_layout_metadata_test_impl(ctx):
+    env = unittest.begin(ctx)
+    layout = wheel_layout_from_record(
+        "\n".join([
+            "top_regular/__init__.py,,",
+            "top_stub/__init__.pyi,,",
+            "top_native_like/__init__.bogus.so,,",
+            "namespace/regular_plugin/__init__.py,,",
+            "namespace/stub_plugin/__init__.pyi,,",
+            "namespace/plain/module.py,,",
+            "demo-1.0.dist-info/RECORD,,",
+        ]),
+        "demo-1.0.data",
+    )
+
+    asserts.equals(env, [
+        "demo-1.0.dist-info",
+        "namespace",
+        "top_native_like",
+        "top_regular",
+        "top_stub",
+    ], layout.top_levels)
+    asserts.equals(env, layout.top_levels, layout.directory_top_levels)
+    asserts.equals(env, [
+        "namespace",
+        "top_native_like",
+        "top_stub",
+    ], layout.namespace_top_levels)
+    asserts.equals(env, [
+        "namespace/plain/module.py",
+        "namespace/regular_plugin",
+        "namespace/stub_plugin/__init__.pyi",
+        "top_native_like/__init__.bogus.so",
+        "top_stub/__init__.pyi",
+    ], layout.namespace_entries)
+    asserts.equals(env, [
+        "namespace/plain",
+        "namespace/stub_plugin",
+    ], layout.namespace_dirs)
+    asserts.equals(env, ["namespace/regular_plugin"], layout.regular_roots)
+    return unittest.end(env)
+
+wheel_layout_metadata_test = unittest.make(_wheel_layout_metadata_test_impl)
+
 # --- whl_install metadata selection ---------------------------------------
 #
 # Regression: the package surface advertised via PyWheelsInfo (top-levels,
@@ -233,6 +277,18 @@ _TOP_LEVELS = {
     ],
 }
 
+_DIRECTORY_TOP_LEVELS = {
+    _LINUX_WHL: [
+        "demo",
+        "demo-1.0.0.dist-info",
+    ],
+    _MACOS_WHL: [
+        "demo",
+        "demo-1.0.0.dist-info",
+        "demo_ns",
+    ],
+}
+
 _NAMESPACE_TOP_LEVELS = {
     _MACOS_WHL: ["demo_ns"],
 }
@@ -254,6 +310,7 @@ def _metadata_selection_test_impl(ctx):
 
     wheel = wheels[0]
     asserts.equals(env, tuple(ctx.attr.expected_top_levels), wheel.top_levels)
+    asserts.equals(env, tuple(ctx.attr.expected_directory_top_levels), wheel.directory_top_levels)
     asserts.equals(env, tuple(ctx.attr.expected_namespace_top_levels), wheel.namespace_top_levels)
     asserts.equals(env, tuple(ctx.attr.expected_console_scripts), wheel.console_scripts)
 
@@ -277,6 +334,7 @@ def _metadata_selection_test_impl(ctx):
 _metadata_selection_test = analysistest.make(
     _metadata_selection_test_impl,
     attrs = {
+        "expected_directory_top_levels": attr.string_list(),
         "expected_top_levels": attr.string_list(),
         "expected_namespace_top_levels": attr.string_list(),
         "expected_console_scripts": attr.string_list(),
@@ -324,6 +382,7 @@ def metadata_selection_test_suite(name):
         whl_install(
             name = fixture_name,
             src = src,
+            directory_top_levels = _DIRECTORY_TOP_LEVELS,
             top_levels = _TOP_LEVELS,
             namespace_top_levels = _NAMESPACE_TOP_LEVELS,
             console_scripts = _CONSOLE_SCRIPTS,
@@ -333,6 +392,7 @@ def metadata_selection_test_suite(name):
     _metadata_selection_test(
         name = name + "_linux_test",
         target_under_test = ":__metadata_linux_fixture",
+        expected_directory_top_levels = _DIRECTORY_TOP_LEVELS[_LINUX_WHL],
         expected_top_levels = _TOP_LEVELS[_LINUX_WHL],
         expected_namespace_top_levels = [],
         expected_console_scripts = _CONSOLE_SCRIPTS[_LINUX_WHL],
@@ -346,6 +406,7 @@ def metadata_selection_test_suite(name):
     _metadata_selection_test(
         name = name + "_macos_test",
         target_under_test = ":__metadata_macos_fixture",
+        expected_directory_top_levels = _DIRECTORY_TOP_LEVELS[_MACOS_WHL],
         expected_top_levels = _TOP_LEVELS[_MACOS_WHL],
         expected_namespace_top_levels = _NAMESPACE_TOP_LEVELS[_MACOS_WHL],
         expected_console_scripts = _CONSOLE_SCRIPTS[_MACOS_WHL],
@@ -382,4 +443,8 @@ def whl_install_suite():
     unittest.suite(
         "console_script_tests",
         console_script_test,
+    )
+    unittest.suite(
+        "wheel_layout_metadata_tests",
+        wheel_layout_metadata_test,
     )

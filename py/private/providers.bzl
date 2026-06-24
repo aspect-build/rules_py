@@ -15,13 +15,16 @@ Downstream rules (notably `py_binary`) use this to create one
 executable wrappers under `<venv>/bin/<name>` for console scripts.
 """,
     fields = {
-        "wheels": """Depset of `struct(top_levels, namespace_top_levels, namespace_entries, site_packages_rfpath, console_scripts)`
+        "wheels": """Depset of `struct(top_levels, directory_top_levels, namespace_top_levels, namespace_entries, site_packages_rfpath, console_scripts)`
 — one per wheel in the transitive closure. rules_py aggregates this field in
 postorder. Producers must use `default` or `postorder`, the orders Bazel permits
 in that aggregate. For collision classes that select one claimant, permissive
 handling gives the later distinct element in the flattened sequence precedence.
 Duplicate dependency edges do not create another precedence position. Fields:
   * `top_levels`: tuple[str] — top-level names the wheel installs into site-packages.
+  * `directory_top_levels`: tuple[str] — complete subset of top_levels installed
+    as directories when nonempty; an empty or absent tuple means entry types are
+    unknown.
   * `namespace_top_levels`: tuple[str] — subset of top_levels that are PEP 420 namespace packages.
   * `namespace_entries`: tuple[str] — `/`-joined paths of the concrete entries beneath
     the namespace top-levels (e.g. `jaraco/functools`), used to materialise a merged
@@ -31,10 +34,10 @@ Duplicate dependency edges do not create another precedence position. Fields:
     namespace top-levels (site-packages-relative `/`-joined paths). May be absent
     on structs from older producers; consumers use `getattr` with a `()` default.
   * `regular_roots`: tuple[str] — minimal directories under the namespace
-    top-levels carrying an `__init__.py`. Cross-referencing a wheel's
-    `regular_roots` with another wheel's `namespace_dirs` detects regular
-    packages spanning wheels, which venv assembly must physically merge.
-    May be absent on structs from older producers.
+    top-levels carrying a direct `__init__.py`. Cross-referencing a
+    wheel's `regular_roots` with another wheel's `namespace_dirs` detects
+    regular packages spanning wheels, which venv assembly must physically
+    merge. May be absent on structs from older producers.
   * `site_packages_rfpath`: str — runfiles-root-relative path to the wheel's site-packages.
   * `console_scripts`: tuple[str] — entry points encoded as `"name=module:func"`.
 """,

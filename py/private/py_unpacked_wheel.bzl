@@ -83,6 +83,7 @@ def _py_unpacked_wheel_impl(ctx):
         providers.append(PyWheelsInfo(
             wheels = depset(direct = [struct(
                 top_levels = tuple(ctx.attr.top_levels),
+                directory_top_levels = tuple(ctx.attr.directory_top_levels),
                 namespace_top_levels = tuple(ctx.attr.namespace_top_levels),
                 namespace_entries = tuple(ctx.attr.namespace_entries),
                 site_packages_rfpath = site_packages_rfpath,
@@ -126,6 +127,10 @@ venv assembly.
 wrappers under `<venv>/bin/<name>`. Typically populated from the wheel's
 `*.dist-info/entry_points.txt` `[console_scripts]` section.
 """,
+        default = [],
+    ),
+    "directory_top_levels": attr.string_list(
+        doc = "Nonempty complete subset of `top_levels` installed as directories. Leave empty when entry types are unknown.",
         default = [],
     ),
     "namespace_top_levels": attr.string_list(
