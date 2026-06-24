@@ -15,9 +15,10 @@
   interpreter.
 
 - `py_venv_link` — opt-in macro that emits a runnable target whose
-  `bazel run` materialises a workspace-local symlink to an existing
-  `py_venv`'s tree. Pair with `py_binary(expose_venv = True)` to hand
-  your IDE a stable `.venv` symlink to point at.
+  `bazel run` links the target's complete runfiles tree into the
+  workspace and prints the nested `py_venv` path. Pair with
+  `py_binary(expose_venv = True)` to give your IDE a stable interpreter
+  path.
 
 Shared venv-assembly logic lives in
 `//py/private/py_venv:venv.bzl::assemble_venv`. See that file's header for the
@@ -341,10 +342,10 @@ def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = [], im
 
     `expose_venv_link = True` additionally emits a public
     `:{name}.venv_link` py_venv_link. `bazel run :{name}.venv_link`
-    materialises a workspace-local symlink at the venv's tree under
-    `bazel-bin`, suitable for pointing an IDE at. Implies
-    `expose_venv = True` — the link target needs a public venv to point
-    at. Passing `expose_venv = False, expose_venv_link = True`
+    materialises a workspace-local symlink to the target's runfiles tree and
+    prints the venv path below that link, suitable for pointing an IDE at.
+    Implies `expose_venv = True` — the link target needs a public venv to
+    point at. Passing `expose_venv = False, expose_venv_link = True`
     explicitly is contradictory and fails.
 
     All venv-shaping attrs (`deps`, `imports`, `package_collisions`,
@@ -415,21 +416,21 @@ def py_venv_link(name, venv, link_name = None, **kwargs):
     """Emit a runnable target that materialises `venv` into the workspace.
 
     `bazel run :<name>` creates a symlink in `$BUILD_WORKING_DIRECTORY`
-    (typically the workspace root) that points at `venv`'s materialised
-    venv tree in bazel-bin, so IDEs / LSPs can resolve interpreter and
-    site-packages via a stable workspace-local path.
+    (typically the workspace root) that points at the target's complete
+    runfiles tree. The command prints `venv`'s nested path below that link;
+    preserving the runfiles directory layout keeps the venv's relative paths
+    valid for Python and IDEs. This requires directory-based runfiles; a
+    manifest alone cannot expose a runfiles tree.
 
     Args:
         name: Runnable target name. `bazel run :<name>` materialises
-            the symlink; pick something like `<something>.venv` by
-            convention so `python.defaultInterpreterPath` readers
-            recognise it, but any label works.
+            the runfiles symlink.
         venv: Label of a `py_venv` target to link. Typically the
             `:<binary_name>.venv` target auto-emitted by
             `py_binary(expose_venv = True, ...)`, or a standalone
             `py_venv` shared across many binaries.
         link_name: Workspace-relative basename for the created
-            symlink. Defaults to a safely-escaped version of the
+            runfiles symlink. Defaults to a safely-escaped version of the
             target's package + venv name.
         **kwargs: Forwarded to the underlying `py_binary`.
     """

@@ -113,12 +113,13 @@ def py_binary(name, srcs = [], main = None, **kwargs):
               the hermetic interpreter).
             * `expose_venv_link` (bool, default `False`) — when `True`,
               additionally emit a `:{name}.venv_link` py_venv_link.
-              `bazel run :{name}.venv_link` materialises a
-              workspace-local symlink to the venv tree, suitable for an
-              IDE's interpreter setting. Implies `expose_venv = True`;
-              passing `expose_venv = False, expose_venv_link = True`
-              explicitly is rejected with a clear error. Equivalent to
-              declaring an explicit
+              `bazel run :{name}.venv_link` links the target's runfiles
+              tree into the workspace and prints the nested venv path
+              suitable for an IDE's interpreter setting. Implies
+              `expose_venv = True`; passing
+              `expose_venv = False, expose_venv_link = True` explicitly
+              is rejected with a clear error. Equivalent to declaring an
+              explicit
               `py_venv_link(name = "{name}.venv_link", venv = ":{name}.venv")`
               alongside the binary.
     """

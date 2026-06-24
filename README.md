@@ -335,13 +335,13 @@ py_binary(
   with the venv activated. Useful for ad-hoc Python sessions matching your
   binary's deps.
 - `bazel run //:my_app.venv_link` — materialises a workspace-local symlink
-  pointing at the venv tree under `bazel-bin`. **This is what your IDE should
-  point at.**
+  pointing at the target's complete runfiles tree and prints the venv's nested
+  path below that link. **Point your IDE at the printed venv path.**
 
-Then point your IDE to the symlinked virtualenv:
+Then point your IDE to the virtualenv path printed by the command:
 
-- **VSCode**: Set `python.defaultInterpreterPath` to the symlinked path
-- **PyCharm**: Add the symlinked venv as a Python interpreter
+- **VSCode**: Set `python.defaultInterpreterPath` to the printed path
+- **PyCharm**: Add the printed venv path as a Python interpreter
 - **Neovim/LSP**: Configure `python-lsp-server` or `pyright` to use the virtualenv
 
 ### Underlying mechanism
