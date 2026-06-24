@@ -1,5 +1,8 @@
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("//py:defs.bzl", "py_library", "py_test", "py_venv")
+load("//py/tests/py_venv_conflict:site_merge_order_test.bzl", "site_merge_order_test_suite")
+
+site_merge_order_test_suite()
 
 py_library(
     name = "lib",

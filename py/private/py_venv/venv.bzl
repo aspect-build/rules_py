@@ -102,7 +102,7 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
       merge_groups: list of struct(root, site_packages_list) — regular
           package dirs (site-packages-relative paths) that span wheels
           and need a physical merge, with the contributing wheels'
-          site-packages paths in first-wins priority order.
+          site-packages paths in wheel traversal order.
     """
 
     def _complain(what, name, a, b):
@@ -328,7 +328,7 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
     # another conflicted root is covered by merging the outer one. For
     # each root, the contributors are every namespace-claimant wheel
     # that has the root in its skeleton (content below it) or as its
-    # own regular root, in wheel order (= first-wins priority).
+    # own regular root, in wheel traversal order.
     merge_groups = []
     minimal_roots = []
     for root in sorted(conflicted_roots.keys()):
@@ -341,7 +341,12 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
             minimal_roots.append(root)
     for root in minimal_roots:
         group_sps = []
-        for sp in ns_claimant_sps.keys():
+        group_sps_seen = {}
+        for ordered_w in wheels:
+            sp = ordered_w.site_packages_rfpath
+            if sp in group_sps_seen or sp not in ns_claimant_sps:
+                continue
+            group_sps_seen[sp] = True
             w = wheel_by_sp[sp]
             if (root in getattr(w, "regular_roots", ()) or
                 root in getattr(w, "namespace_dirs", ())):
