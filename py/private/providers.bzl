@@ -18,8 +18,11 @@ postorder. Producers must use `default` or `postorder`, the orders Bazel permits
 in that aggregate. For collision classes that select one claimant, permissive
 handling gives the later distinct element in the flattened sequence precedence.
 Duplicate dependency edges do not create another precedence position. Fields:
-  * `top_levels`: tuple[str] — complete set of immediate `site-packages`
-    entry names when nonempty; an empty tuple means the layout is unknown.
+  * `top_levels`: tuple[str] — immediate `site-packages` entry names observed
+    during repository analysis.
+  * `layout_complete`: bool — whether the layout fields completely describe
+    the installed tree. False retains observed topology for collision planning
+    while requiring whole-wheel fallback for imports.
   * `namespace_top_levels`: tuple[str] — subset of top_levels that are PEP 420 namespace packages.
   * `namespace_entries`: tuple[str] — `/`-joined paths of the concrete entries beneath
     the namespace top-levels (e.g. `jaraco/functools`), used to materialise a merged

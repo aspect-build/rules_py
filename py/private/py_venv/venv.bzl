@@ -132,7 +132,7 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
 
     # Pass 1: bucket claimants per import root, distribution metadata entry,
     # and console-script name.
-    tl_claimants = {}  # tl -> list of struct(site_packages, is_ns, ns_entries)
+    tl_claimants = {}  # tl -> list of struct(site_packages, layout_complete, is_ns, ns_entries)
     metadata_claimants = {}  # metadata entry -> ordered site_packages paths
     cs_claimants = {}  # name -> list of struct(site_packages, module, func)
     wheel_by_sp = {}  # site_packages_rfpath -> wheel struct
@@ -148,6 +148,7 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
                 continue
             tl_claimants.setdefault(tl, []).append(struct(
                 site_packages = w.site_packages_rfpath,
+                layout_complete = w.layout_complete,
                 is_ns = tl in ns_set,
                 ns_entries = tuple(ns_entries_by_tl.get(tl, [])),
             ))
@@ -181,8 +182,14 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
     ns_claimant_sps = {}  # sp -> True, wheels in any all-namespace collision
     for tl, claimants in tl_claimants.items():
         distinct_sp = {c.site_packages: c for c in claimants}
+
+        # site.addsitedir processes only non-hidden names ending in `.pth`:
+        # https://github.com/python/cpython/blob/v3.11.9/Lib/site.py#L233-L236
+        site_processed_pth = tl.endswith(".pth") and not tl.startswith(".")
         if len(distinct_sp) == 1:
-            top_level_to_site_pkgs[tl] = claimants[0].site_packages
+            claimant = claimants[0]
+            if not site_processed_pth or claimant.layout_complete:
+                top_level_to_site_pkgs[tl] = claimant.site_packages
             continue
 
         all_namespace = all([c.is_ns for c in claimants])
@@ -330,16 +337,34 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
                     ns_covered_per_wheel.setdefault(c.site_packages, {})[tl] = True
             continue
 
-        winner = claimants[0]
-        seen = {winner.site_packages: True}
-        for c in claimants[1:]:
+        ordered_claimants = []
+        seen = {}
+        for c in claimants:
             if c.site_packages in seen:
                 continue
+            ordered_claimants.append(c)
+            seen[c.site_packages] = True
+
+        if site_processed_pth:
+            final_winner = ordered_claimants[-1]
+            for c in ordered_claimants[:-1]:
+                if not c.layout_complete:
+                    fail(("{}: root `.pth` file `{}` selects {}, but losing " +
+                          "claimant {} has an incomplete layout and remains on " +
+                          "whole-wheel fallback.").format(
+                        ctx.label,
+                        tl,
+                        final_winner.site_packages,
+                        c.site_packages,
+                    ))
+
+        winner = ordered_claimants[0]
+        for c in ordered_claimants[1:]:
             _complain("top-level", tl, winner.site_packages, c.site_packages)
             skipped_per_wheel.setdefault(winner.site_packages, {})[tl] = True
             winner = c
-            seen[c.site_packages] = True
-        top_level_to_site_pkgs[tl] = winner.site_packages
+        if not site_processed_pth or winner.layout_complete:
+            top_level_to_site_pkgs[tl] = winner.site_packages
 
     # Pass 2a: fold conflicted roots into merge groups. Keep only the
     # minimal (shallowest) roots — a conflicted root nested inside
@@ -393,11 +418,13 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
             seen[c.site_packages] = True
         console_scripts_map[name] = struct(module = winner.module, func = winner.func)
 
-    # Pass 3: wheels fully covered by direct (or complete per-entry
-    # namespace) symlinks.
+    # Pass 3: complete wheel layouts fully covered by direct (or complete
+    # per-entry namespace) symlinks. Incomplete layouts retain their observed
+    # claims for collision and merge planning but always keep whole-wheel
+    # fallback.
     fully_covered = {}
     for w in wheels:
-        if not w.top_levels:
+        if not w.layout_complete:
             continue
         skipped = skipped_per_wheel.get(w.site_packages_rfpath, {})
         ns_covered = ns_covered_per_wheel.get(w.site_packages_rfpath, {})
@@ -566,14 +593,11 @@ def assemble_venv(
     # each wheel by its runfiles path directly, not through this map.
     wheels_with_trees = [w for w in wheels if getattr(w, "install_tree", None) != None]
     tree_by_sp = {w.site_packages_rfpath: w.install_tree for w in wheels_with_trees}
-
-    # site_packages_rfpath → True for wheels whose top-level layout is known
-    # (they declare `top_levels`), so the per-top-level symlink loop projects
-    # their root entries — including any root `.pth` files — into the venv
-    # site-packages. Wheels that carry only `console_scripts` (e.g. source-built
-    # scripts) leave `top_levels` empty: nothing is projected for them, so their
-    # `.pth` line must use `site.addsitedir` (see `_format_imp`).
-    known_layout_site_pkgs = {w.site_packages_rfpath: True for w in wheels if w.top_levels}
+    known_layout_site_pkgs = {
+        w.site_packages_rfpath: True
+        for w in wheels
+        if w.layout_complete
+    }
 
     declared = []  # accumulator for all outputs
 
@@ -582,7 +606,10 @@ def assemble_venv(
     # wheel's `site_packages_rfpath`/<tl>. Works for both install_tree and
     # rules_python pip wheels (both stage content at their rfpath).
     # `/`-joined top-levels (merged namespace packages, e.g.
-    # `jaraco/functools`) need one extra `..` per segment.
+    # `jaraco/functools`) need one extra `..` per segment. Collision planning
+    # omits observed root `.pth` files from incomplete layouts so whole-wheel
+    # fallback is their only runtime owner and can also discover added `.pth`
+    # files.
     for tl, wheel_site_pkgs in top_level_to_site_pkgs.items():
         out = ctx.actions.declare_symlink("{}/{}".format(site_packages_rel, tl))
         extra_up = "../" * tl.count("/")
@@ -664,16 +691,10 @@ def assemble_venv(
         )
         declared.append(merged_dir)
 
-    # A wheel-root `.pth` shim only fires when its file sits in the venv's own
-    # site-packages. Wheels that declare `top_levels` (known layout) had their
-    # root entries — including any root `.pth` files — projected there by the
-    # per-top-level symlink loop above, so they emit a plain path line;
-    # `site.addsitedir` would re-scan the wheel root and run the shim a second
-    # time. Wheels with no projected layout (console-script-only, e.g.
-    # source-built scripts, or metadata-free `py_unpacked_wheel`s) fall back to
-    # `site.addsitedir` so their site-packages joins sys.path and root `.pth`
-    # shims run at all; the path is sys.prefix-relative to survive RBE sandbox
-    # layouts.
+    # Incomplete layouts use `site.addsitedir` so patch-added root `.pth` files
+    # are processed. Complete layouts use a plain path because their observed
+    # root `.pth` files were projected or deliberately suppressed by collision
+    # resolution.
     def _format_imp(imp):
         if imp in fully_covered_site_pkgs:
             return None

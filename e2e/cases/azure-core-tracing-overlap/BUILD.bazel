@@ -18,12 +18,15 @@ load("@aspect_rules_py//py:defs.bzl", "py_test")
 # Variants:
 #   :test       — py_test default (.pth strategy)
 #   :test_tool  — py_venv_test variant (symlink-forest venv)
+# Both use Python 3.11 because post_install.patch names the interpreter-specific
+# lib/python3.11/site-packages install path.
 
 py_test(
     name = "test",
     srcs = ["test.py"],
     dep_group = "azure-core-tracing-import",
     main = "test.py",
+    python_version = "3.11",
     deps = [
         "@pypi_azure_core_tracing//azure_core",
         "@pypi_azure_core_tracing//azure_core_tracing_opentelemetry",

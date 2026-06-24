@@ -106,6 +106,7 @@ printf 'VALUE = %s\n' "$4" > "$site/other/from_final.py"
         site_packages_paths.append(site_packages)
         wheels.append(struct(
             top_levels = top_levels,
+            layout_complete = True,
             namespace_top_levels = top_levels,
             namespace_entries = namespace_entries,
             namespace_dirs = namespace_dirs,

@@ -1,0 +1,4 @@
+--- /dev/null
++++ b/lib/python3.11/site-packages/azure/core/patched_marker.py
+@@ -0,0 +1 @@
++PATCHED = True
