@@ -2,10 +2,14 @@
 
 load(":repository.bzl", "python_interpreter", "python_toolchains")
 load(":version_util.bzl", "is_decimal", "is_pre_release", "version_gt")
-load(":versions.bzl", "BUILD_CONFIGS", "DEFAULT_RELEASE_BASE_URL", "DEFAULT_RELEASE_DATES", "PLATFORMS")
+load(":versions.bzl", "DEFAULT_RELEASE_BASE_URL", "DEFAULT_RELEASE_DATES", "PLATFORMS", "RUNTIME_MODES")
 
 # The GitHub API endpoint for resolving "latest" releases.
 _GITHUB_API_LATEST = "https://api.github.com/repos/{owner}/{repo}/releases/latest"
+
+# Facts can outlive an extension implementation change, so index shape changes
+# must use a new key rather than accepting cached data from the old schema.
+_RELEASE_INDEX_SCHEMA = 1
 
 def _sanitize(s):
     """Replace characters that are invalid in Bazel repo names."""
@@ -14,7 +18,7 @@ def _sanitize(s):
 def _parse_sha256sums(content, release_date):
     """Parse a SHA256SUMS file into a structured index.
 
-    Returns a dict mapping (major_minor, platform, build_config) -> {
+    Returns a dict mapping (major_minor, platform, runtime_mode) -> {
         "sha256": str,
         "filename": str,
         "full_version": str,
@@ -24,6 +28,16 @@ def _parse_sha256sums(content, release_date):
     newest is kept.
     """
     index = {}
+    configured_assets = {}
+
+    for platform, platform_info in PLATFORMS.items():
+        for mode_name, mode_info in RUNTIME_MODES.items():
+            asset = "{}-{}.{}".format(
+                platform,
+                platform_info["asset_suffixes"][mode_name],
+                mode_info["extension"],
+            )
+            configured_assets[asset] = (platform, mode_name)
 
     for line in content.split("\n"):
         line = line.strip()
@@ -53,24 +67,14 @@ def _parse_sha256sums(content, release_date):
             continue
         major_minor = "{}.{}".format(version_parts[0], version_parts[1])
 
-        # Match against known build configs (check suffix + extension)
+        # Match the complete platform, suffix, and extension.
         remainder = filename[plus_idx + 1 + len(release_date) + 1:]  # skip "{date}-"
-        matched_config = None
-        matched_platform = None
-
-        for config_name, config_info in BUILD_CONFIGS.items():
-            expected_tail = "-{}.{}".format(config_info["suffix"], config_info["extension"])
-            if remainder.endswith(expected_tail):
-                platform_str = remainder[:len(remainder) - len(expected_tail)]
-                if platform_str in PLATFORMS:
-                    matched_config = config_name
-                    matched_platform = platform_str
-                    break
-
-        if not matched_config:
+        matched_asset = configured_assets.get(remainder)
+        if not matched_asset:
             continue
+        matched_platform, matched_mode = matched_asset
 
-        key = "{}/{}/{}".format(major_minor, matched_platform, matched_config)
+        key = "{}/{}/{}".format(major_minor, matched_platform, matched_mode)
 
         # Keep the newest patch version
         existing = index.get(key)
@@ -84,6 +88,9 @@ def _parse_sha256sums(content, release_date):
         }
 
     return index
+
+def _release_index_facts_key(release_date, base_url):
+    return "release_index_v{}_{}_{}".format(_RELEASE_INDEX_SCHEMA, release_date, base_url)
 
 def _owner_repo_from_base_url(base_url):
     """Extract GitHub owner/repo from a base URL like https://github.com/{owner}/{repo}/releases/download."""
@@ -126,7 +133,7 @@ def _fetch_release_index(module_ctx, release_date, base_url, facts):
 
     Returns the parsed index dict for this release date.
     """
-    facts_key = "release_index_{}_{}".format(release_date, base_url)
+    facts_key = _release_index_facts_key(release_date, base_url)
     cached = facts.get(facts_key)
     if cached:
         return cached
@@ -270,18 +277,18 @@ def _python_interpreters_impl(module_ctx):
         release_indices[date] = index
 
         # Cache in facts for next run — but never cache under "latest"
-        facts_key = "release_index_{}_{}".format(date, base_url)
+        facts_key = _release_index_facts_key(date, base_url)
         new_facts[facts_key] = index
 
-    # Create per-platform, per-build-config interpreter repos and collect
+    # Create per-platform, per-runtime-mode interpreter repos and collect
     # toolchain entries. Version and freethreaded target settings determine
     # which entries are eligible.
     toolchain_entries = []
 
-    # Keep generated output stable: regular configs, then freethreaded configs.
-    ordered_configs = (
-        [(name, cfg) for name, cfg in BUILD_CONFIGS.items() if not cfg["freethreaded"]] +
-        [(name, cfg) for name, cfg in BUILD_CONFIGS.items() if cfg["freethreaded"]]
+    # Keep generated output stable: regular modes, then freethreaded modes.
+    ordered_modes = (
+        [(name, mode) for name, mode in RUNTIME_MODES.items() if not mode["freethreaded"]] +
+        [(name, mode) for name, mode in RUNTIME_MODES.items() if mode["freethreaded"]]
     )
 
     # Target-pattern registration orders toolchains lexicographically by name,
@@ -294,26 +301,26 @@ def _python_interpreters_impl(module_ctx):
             "exec_compatible_with": [],
             "target_compatible_with": [],
         })
-        for config_name, config_info in ordered_configs:
+        for mode_name, mode_info in ordered_modes:
             for platform_triple, platform_info in PLATFORMS.items():
                 repo_name = "python_{}_{}".format(
                     _sanitize(major_minor),
                     _sanitize(platform_triple),
                 )
-                if config_name != "install_only":
-                    repo_name += "_" + _sanitize(config_name)
+                if mode_name != "install_only":
+                    repo_name += "_" + _sanitize(mode_name)
 
-                # Find the best release for this version/platform/config
+                # Find the best release for this version/platform/mode
                 asset_info = _find_asset(
                     major_minor,
                     platform_triple,
-                    config_name,
+                    mode_name,
                     release_dates,
                     release_indices,
                 )
 
                 if not asset_info:
-                    # Version/platform/config combo doesn't exist — skip it
+                    # Version/platform/mode combo doesn't exist — skip it
                     # rather than registering a stub toolchain.
                     continue
 
@@ -331,20 +338,20 @@ def _python_interpreters_impl(module_ctx):
                 )
                 python_interpreter(
                     name = repo_name,
-                    abi_flags = config_info["abi_flags"],
+                    abi_flags = mode_info["abi_flags"],
                     python_version = asset_info["full_version"],
                     platform = platform_triple,
                     url = url,
                     sha256 = asset_info["sha256"],
-                    strip_prefix = config_info["strip_prefix"],
-                    freethreaded = config_info["freethreaded"],
+                    strip_prefix = mode_info["strip_prefix"],
+                    freethreaded = mode_info["freethreaded"],
                 )
 
                 toolchain_entries.append(json.encode({
                     "name": repo_name,
                     "repo": repo_name,
                     "python_version": major_minor,
-                    "freethreaded": config_info["freethreaded"],
+                    "freethreaded": mode_info["freethreaded"],
                     "compatible_with": platform_info["compatible_with"],
                     "platform_target_settings": platform_info.get("target_settings", {}),
                     "config_settings": settings["config_settings"],
@@ -371,11 +378,11 @@ def _python_interpreters_impl(module_ctx):
 
     return _return_metadata(module_ctx, has_facts, new_facts, is_reproducible, resolved_latest)
 
-def _find_asset(major_minor, platform, build_config, release_dates, release_indices):
+def _find_asset(major_minor, platform, runtime_mode, release_dates, release_indices):
     """Find the best asset across releases, preferring newer releases."""
     for date in release_dates:
         index = release_indices.get(date, {})
-        key = "{}/{}/{}".format(major_minor, platform, build_config)
+        key = "{}/{}/{}".format(major_minor, platform, runtime_mode)
         entry = index.get(key)
         if entry:
             return {

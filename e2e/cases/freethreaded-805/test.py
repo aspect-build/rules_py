@@ -12,6 +12,11 @@ class FreethreadedTest(unittest.TestCase):
         gil_disabled = sysconfig.get_config_var("Py_GIL_DISABLED")
         self.assertEqual(gil_disabled, 1, "Expected Py_GIL_DISABLED=1 for a freethreaded build")
 
+    def test_interpreter_is_optimized(self):
+        """The interpreter must not be a debug build."""
+        py_debug = sysconfig.get_config_var("Py_DEBUG")
+        self.assertEqual(py_debug, 0, "Expected Py_DEBUG=0 for an optimized build")
+
     def test_abi_tag_contains_t(self):
         """The SOABI should contain 't' indicating the freethreaded ABI."""
         soabi = sysconfig.get_config_var("SOABI") or ""
