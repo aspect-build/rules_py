@@ -4,7 +4,7 @@ load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("@tar.bzl//tar:mtree.bzl", "mtree_mutate", "mtree_spec")
 load("@tar.bzl//tar:tar.bzl", "tar_rule")
-load("//py:defs.bzl", "py_binary")
+load("//py:defs.bzl", "py_binary", "py_library", "py_test")
 load(":rule.bzl", "pep517_native_whl", "pep517_whl")
 load(":test.bzl", "hostile_python_env_target", "pep517_native_whl_toolchain_env_test")
 
@@ -24,6 +24,19 @@ bzl_library(
         "//py/private/toolchain:types",
         "@bazel_lib//lib:resource_sets",
     ],
+)
+
+py_library(
+    name = "memory_monitor",
+    srcs = ["memory_monitor.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "memory_monitor_test",
+    srcs = ["memory_monitor_test.py"],
+    main = "memory_monitor_test.py",
+    deps = [":memory_monitor"],
 )
 
 py_binary(

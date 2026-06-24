@@ -172,6 +172,8 @@ def _sdist_build_impl(repository_ctx):
             # If the tool provided complete build file content, use it directly.
             build_file_content = inspection.get("build_file_content")
             if build_file_content:
+                if repository_ctx.attr.monitor_memory:
+                    fail("sdist_build for '{}': the configure tool returned complete `build_file_content`, which bypasses the generated `pep517_*whl(...)` call, so `monitor_memory` cannot be applied. Drop `monitor_memory` from the override, or add equivalent monitoring to the configure tool's `build_file_content`.".format(repository_ctx.name))
                 if repository_ctx.attr.resource_set != "default":
                     fail("sdist_build for '{}': the configure tool returned complete `build_file_content`, which bypasses the generated `pep517_*whl(...)` call, so `resource_set = \"{}\"` cannot be applied. Drop `resource_set` from the override, or have the configure tool set `resource_set` in its own `build_file_content`.".format(
                         repository_ctx.name,
@@ -208,6 +210,13 @@ def _sdist_build_impl(repository_ctx):
 
     # Merge explicit deps with auto-discovered deps
     all_deps = [str(d) for d in repository_ctx.attr.deps] + extra_dep_labels
+
+    monitor_memory_attr = ""
+    if repository_ctx.attr.monitor_memory:
+        all_deps = [
+            "@aspect_rules_py//uv/private/pep517_whl:memory_monitor",
+        ] + all_deps
+        monitor_memory_attr = "\n    monitor_memory = True,"
 
     pre_build_patches = repository_ctx.attr.pre_build_patches
     patch_attrs = ""
@@ -276,7 +285,7 @@ py_binary(
     name = "whl",
     src = "{src}",
     tool = ":build_tool",
-    version = "{version}",{resource_set_attr}{patch_attrs}{toolchain_attrs}
+    version = "{version}",{monitor_memory_attr}{resource_set_attr}{patch_attrs}{toolchain_attrs}
     visibility = ["//visibility:public"],
 )
 
@@ -287,6 +296,7 @@ exports_files(
 """.format(
         src = repository_ctx.attr.src,
         deps = repr(all_deps),
+        monitor_memory_attr = monitor_memory_attr,
         rule = "pep517_native_whl" if is_native else "pep517_whl",
         version = repository_ctx.attr.version,
         resource_set_attr = resource_set_attr,
@@ -314,6 +324,10 @@ sdist_build = repository_rule(
                   "two arguments. See //uv/private/sdist_configure:defs.bzl.",
         ),
         "version": attr.string(),
+        "monitor_memory": attr.bool(
+            default = False,
+            doc = "Whether to report approximate Linux process-tree RSS for the wheel build.",
+        ),
         "resource_set": attr.string(
             default = "default",
             doc = "bazel-lib resource_set name forwarded to the generated pep517_*whl(...) " +
