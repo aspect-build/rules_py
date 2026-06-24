@@ -1,0 +1,21 @@
+module(name = "interpreter_bytecode_magic")
+
+bazel_dep(name = "aspect_rules_py")
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../../..",
+)
+
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+interpreters.configure(releases = ["20260303"])
+interpreters.toolchain(python_version = "3.13")
+interpreters.toolchain(python_version = "3.14")
+use_repo(
+    interpreters,
+    "python_3_13_x86_64_pc_windows_msvc",
+    "python_3_13_x86_64_unknown_linux_gnu",
+    "python_3_13_x86_64_unknown_linux_gnu_freethreaded",
+    "python_3_14_x86_64_pc_windows_msvc",
+    "python_3_14_x86_64_unknown_linux_gnu",
+    "python_3_14_x86_64_unknown_linux_gnu_freethreaded",
+)
