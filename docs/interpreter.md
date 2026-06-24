@@ -21,6 +21,12 @@ older release date that includes it.
 box, including Windows (x86_64, aarch64, i686), Linux (glibc and musl), and
 macOS.
 
+**Native extension toolchains.** Each PBS interpreter repository defines a
+`rules_python` C toolchain over that archive's headers and required Windows
+import libraries. Regular runtimes also expose stable-ABI headers.
+Free-threaded runtimes expose only the full ABI; the `abi3t` ABI introduced
+by [PEP 803](https://peps.python.org/pep-0803/) is not yet modeled.
+
 ## Quickstart
 
 ```starlark

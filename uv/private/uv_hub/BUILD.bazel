@@ -62,8 +62,8 @@ write_source_files(
         # used by whl_install to pick the right pre-built wheel. Largest
         # snapshot (~1200 lines) — the resolver's flattened output shape.
         "snapshots/pip_configurations.BUILD.bazel": "@aspect_rules_py_pip_configurations//:BUILD.bazel",
-        # python_toolchains: interpreter toolchain hub. Pins runtime rules for
-        # every PBS platform and exec_tools rules for supported exec platforms.
+        # python_toolchains: interpreter toolchain hub. Pins runtime and C
+        # toolchains for every PBS platform plus supported exec toolchains.
         "snapshots/python_interpreters.BUILD.bazel": "@python_interpreters//:BUILD.bazel",
         # whl_install: per-wheel install BUILD. attrs is a stable
         # pure-Python wheel — pins the select_chain + gazelle_index_whl

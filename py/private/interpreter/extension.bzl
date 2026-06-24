@@ -344,7 +344,6 @@ def _python_interpreters_impl(module_ctx):
                     url = url,
                     sha256 = asset_info["sha256"],
                     strip_prefix = mode_info["strip_prefix"],
-                    freethreaded = mode_info["freethreaded"],
                 )
 
                 toolchain_entries.append(json.encode({
@@ -465,7 +464,8 @@ Only honored from the root module.
             default = [],
             doc = """\
 Additional exec platform constraints appended to each platform variant's
-exec_compatible_with list.
+exec-tools registration. Target runtime and C toolchains do not run on the
+execution platform.
 
 Only honored from the root module.
 """,
