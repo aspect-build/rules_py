@@ -79,18 +79,17 @@ def _py_unpacked_wheel_impl(ctx):
         ),
     ]
 
-    if ctx.attr.top_levels or ctx.attr.console_scripts:
-        providers.append(PyWheelsInfo(
-            wheels = depset(direct = [struct(
-                top_levels = tuple(ctx.attr.top_levels),
-                namespace_top_levels = tuple(ctx.attr.namespace_top_levels),
-                namespace_entries = tuple(ctx.attr.namespace_entries),
-                site_packages_rfpath = site_packages_rfpath,
-                console_scripts = tuple(ctx.attr.console_scripts),
-                # See whl_install rule for the rationale.
-                install_tree = unpack_directory,
-            )]),
-        ))
+    providers.append(PyWheelsInfo(
+        wheels = depset(direct = [struct(
+            top_levels = tuple(ctx.attr.top_levels),
+            namespace_top_levels = tuple(ctx.attr.namespace_top_levels),
+            namespace_entries = tuple(ctx.attr.namespace_entries),
+            site_packages_rfpath = site_packages_rfpath,
+            console_scripts = tuple(ctx.attr.console_scripts),
+            # See whl_install rule for the rationale.
+            install_tree = unpack_directory,
+        )]),
+    ))
 
     return providers
 
@@ -107,12 +106,11 @@ _attrs = {
     "top_levels": attr.string_list(
         doc = """Complete list of immediate entries the wheel installs into site-packages.
 
-When set, the target emits a `PyWheelsInfo` provider describing this wheel.
-Downstream rules (such as `py_binary`) can consume this to assemble a merged
-`site-packages/` tree via `ctx.actions.symlink` instead of relying on `.pth`
-entries. The list must include packages, modules, `.pth` files, and
-`*.dist-info` directories. If left empty (the default), other rules preserve
-the complete wheel root and fall back to `.pth`-based import resolution.
+When set, downstream rules can assemble a merged `site-packages/` tree via
+`ctx.actions.symlink` instead of relying on `.pth` entries. The list must
+include packages, modules, `.pth` files, and `*.dist-info` directories. If left
+empty (the default), other rules preserve the complete wheel root and fall back
+to `.pth`-based import resolution.
 
 Typically populated by the `uv` wheel-install repo rule. Hand-written
 `py_unpacked_wheel` targets may populate this to opt into symlink-based

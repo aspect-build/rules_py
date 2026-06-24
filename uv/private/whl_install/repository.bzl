@@ -646,9 +646,10 @@ filegroup(
     # platform/interpreter) are skipped — they can never be the active
     # wheel, and peeking at them would force a useless download.
     #
-    # The sbuild fallback, whose contents are unknowable until build time,
-    # is never peeked at here: it emits no PyWheelsInfo and consumers use
-    # .pth-based resolution.
+    # The sbuild fallback, whose contents are unknowable until build time, is
+    # never peeked at here. Its PyWheelsInfo record has unknown metadata, so
+    # venv consumers use .pth-based resolution while image layering still
+    # retains the installed wheel tree.
     #
     # We read from `whl_files` (a real label_list) rather than `whls` (a
     # JSON-encoded string of labels) because only the former adds the

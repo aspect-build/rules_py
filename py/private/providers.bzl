@@ -1,26 +1,24 @@
 """Providers to share information between targets in the graph."""
 
 PyWheelsInfo = provider(
-    doc = """Per-wheel metadata used to assemble a Python venv via symlinks at build time.
+    doc = """Installed wheel records used by venv assembly and image layering.
 
 Each element of `wheels` describes one wheel in the transitive closure of a
-target: the top-level names (packages / modules / *.dist-info directories)
-it installs into `site-packages`, which of those are PEP 420 namespace
-packages, the runfiles-root-relative path to the wheel's site-packages,
-and the wheel's declared console-script entry points.
+target. Every record carries the complete installed tree. Repository-inspected
+wheels also carry their site-packages layout and console scripts; source-built
+wheels may leave that analysis-time metadata empty.
 
-Downstream rules (notably `py_binary`) use this to create one
-`ctx.actions.symlink` per top-level name, merging wheels into a single
-`site-packages/` tree without invoking a runtime tool, and to generate
-executable wrappers under `<venv>/bin/<name>` for console scripts.
+Venv rules project known layouts and generate console-script wrappers. Image
+rules use `install_tree` to retain each wheel as a package leaf independently
+of whether its metadata was available during analysis.
 """,
     fields = {
-        "wheels": """Depset of `struct(top_levels, namespace_top_levels, namespace_entries, site_packages_rfpath, console_scripts)`
-— one per wheel in the transitive closure. rules_py aggregates this field in
-postorder. Producers must use `default` or `postorder`, the orders Bazel permits
-in that aggregate. For collision classes that select one claimant, permissive
-handling gives the later distinct element in the flattened sequence precedence.
-Duplicate dependency edges do not create another precedence position. Fields:
+        "wheels": """Depset of wheel record structs, one per wheel in the transitive
+closure. rules_py aggregates this field in postorder. Producers must use
+`default` or `postorder`, the orders Bazel permits in that aggregate. For
+collision classes that select one claimant, permissive handling gives the later
+distinct element in the flattened sequence precedence. Duplicate dependency
+edges do not create another precedence position. Fields:
   * `top_levels`: tuple[str] — complete set of immediate `site-packages`
     entry names when nonempty; an empty tuple means the layout is unknown.
   * `namespace_top_levels`: tuple[str] — subset of top_levels that are PEP 420 namespace packages.
@@ -38,6 +36,7 @@ Duplicate dependency edges do not create another precedence position. Fields:
     May be absent on structs from older producers.
   * `site_packages_rfpath`: str — runfiles-root-relative path to the wheel's site-packages.
   * `console_scripts`: tuple[str] — entry points encoded as `"name=module:func"`.
+  * `install_tree`: File — complete installed wheel tree.
 """,
     },
 )

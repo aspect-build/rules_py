@@ -539,8 +539,10 @@ def assemble_venv(
     # bazel-bin-walking tool.
     site_packages_to_wheels_root = "/".join([".."] * 3) + "/_wheels"
 
-    # Map from site_packages_rfpath → wheel key for wheels that carry
-    # install_tree. The key is an 8-hex hash of the wheel's
+    # Map from site_packages_rfpath → wheel key for wheels whose analysis-time
+    # metadata lets the venv project entries or scripts. Metadata-free wheel
+    # records retain their runfiles path and do not need another tree symlink.
+    # The key is an 8-hex hash of the wheel's
     # `install_tree.short_path` (globally unique among File objects), so:
     #
     #   * adding/removing a wheel doesn't shift the keys of other wheels
@@ -552,7 +554,11 @@ def assemble_venv(
     #
     # We fail loudly on the rare 32-bit hash collision; the caller can
     # widen the key or rename a wheel rule.
-    wheels_with_trees = [w for w in wheels if getattr(w, "install_tree", None) != None]
+    localized_wheels = [
+        w
+        for w in wheels
+        if getattr(w, "install_tree", None) != None and (w.top_levels or w.console_scripts)
+    ]
     known_layout_site_pkgs = {
         w.site_packages_rfpath: True
         for w in wheels
@@ -560,7 +566,7 @@ def assemble_venv(
     }
     wheel_key_by_sp = {}
     wheel_by_key = {}
-    for w in wheels_with_trees:
+    for w in localized_wheels:
         key = _wheel_key(w)
         prior = wheel_by_key.get(key)
         if prior != None and prior.install_tree.short_path != w.install_tree.short_path:
@@ -577,7 +583,7 @@ def assemble_venv(
     # Hop 1: per-wheel directory under _wheels/<key>/. Bazel picks an
     # absolute path under bazel-bin; the output is a tree artifact whose
     # contents dereference the install_tree.
-    for w in wheels_with_trees:
+    for w in localized_wheels:
         key = wheel_key_by_sp[w.site_packages_rfpath]
         wheel_dir = ctx.actions.declare_directory(
             "{}/_wheels/{}".format(venv_name, key),

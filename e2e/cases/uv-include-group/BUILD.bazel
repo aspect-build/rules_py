@@ -41,9 +41,9 @@ py_test(
 )
 
 # Regression gate for assemble_venv's non-keyed `_format_imp` branch.
-# `py_unpacked_wheel` without `top_levels` emits no PyWheelsInfo, so
-# setuptools' root `distutils-precedence.pth` is only reachable via
-# the wheel's own site-packages — that branch must use
+# `py_unpacked_wheel` without `top_levels` carries an unknown layout, so
+# setuptools' root `distutils-precedence.pth` is only reachable via the
+# wheel's own site-packages — that branch must use
 # `site.addsitedir` (not a plain path entry) or `_distutils_hack`
 # never lands in `sys.modules` at site-init.
 py_unpacked_wheel(

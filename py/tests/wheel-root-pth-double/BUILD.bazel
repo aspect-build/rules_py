@@ -1,4 +1,5 @@
 load("//py:defs.bzl", "py_test", "py_unpacked_wheel")
+load(":metadata_test.bzl", "metadata_free_wheel_test")
 
 # Regression gate for assemble_venv's `_format_imp` fallback (see
 # double_pth_test.py). Two hand-built wheels, each emitting PyWheelsInfo
@@ -80,9 +81,20 @@ py_unpacked_wheel(
 py_unpacked_wheel(
     name = "pthtest_unknown_layout",
     src = ":pthtest_a-1.0-py3-none-any.whl",
-    # Console scripts make this target emit PyWheelsInfo, while omitting
-    # top_levels requires venv assembly to preserve the complete wheel root.
+    # Omitting top_levels requires venv assembly to preserve the complete wheel
+    # root; the script still gets a wrapper from the observed metadata.
     console_scripts = ["pthtest=apkg:main"],
+)
+
+py_unpacked_wheel(
+    name = "pthtest_metadata_free",
+    src = ":pthtest_a-1.0-py3-none-any.whl",
+    tags = ["manual"],
+)
+
+metadata_free_wheel_test(
+    name = "metadata_free_wheel_test",
+    target_under_test = ":pthtest_metadata_free",
 )
 
 py_test(
