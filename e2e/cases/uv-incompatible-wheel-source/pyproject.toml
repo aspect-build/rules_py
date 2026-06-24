@@ -1,0 +1,7 @@
+[project]
+name = "uv-incompatible-wheel-source"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    "aenum==3.1.15",
+]

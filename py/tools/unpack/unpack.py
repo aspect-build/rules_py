@@ -207,15 +207,23 @@ def main():
             / "python{}.{}".format(args.python_version_major, args.python_version_minor)
             / "site-packages"
         )
-        r = subprocess.run(
+        # Wheels may retain source for older Python versions. Match pip by
+        # retaining compileall's diagnostics while ignoring its aggregate
+        # false result; check=True still rejects abnormal interpreter exits.
+        # https://github.com/pypa/pip/blob/c8651d86d2d080c1936974873ab162f9c2507666/src/pip/_internal/operations/install/wheel.py#L623-L639
+        subprocess.run(
             [
-                str(args.python), "-m", "compileall", "-q",
-                "--invalidation-mode", args.pyc_invalidation_mode,
+                str(args.python),
+                "-c",
+                "import compileall; compileall.main()",
+                "-q",
+                "--invalidation-mode",
+                args.pyc_invalidation_mode,
+                "--",
                 str(site_packages),
-            ]
+            ],
+            check=True,
         )
-        if r.returncode != 0:
-            raise SystemExit("compileall failed ({}) for {}".format(r.returncode, site_packages))
 
 
 if __name__ == "__main__":
