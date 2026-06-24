@@ -1,0 +1,279 @@
+load("@aspect_rules_py//py/private/interpreter:interpreter_executable.bzl", "interpreter_executable")
+load("@aspect_rules_py//uv/private/whl_install:rule.bzl", "whl_install")
+load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load("@rules_python//python:py_exec_tools_toolchain.bzl", "py_exec_tools_toolchain")
+load("@rules_python//python:py_runtime.bzl", "py_runtime")
+load("@rules_python//python:py_runtime_pair.bzl", "py_runtime_pair")
+load(
+    ":tests.bzl",
+    "compatible_metadata_test",
+    "compile_disabled_test",
+    "exec_runtime_only_test",
+    "magic_mismatch_test",
+    "missing_exec_magic_test",
+    "missing_target_magic_test",
+    "ordinary_runtime_pairs_test",
+    "test_exec_tools",
+    "test_runtime_pair",
+    "unbound_exec_identity_test",
+)
+
+_TARGET_VERSION = {
+    "major": "3",
+    "micro": "1",
+    "minor": "13",
+    "releaselevel": "final",
+    "serial": "0",
+}
+
+_EXEC_VERSION = {
+    "major": "3",
+    "micro": "2",
+    "minor": "13",
+    "releaselevel": "final",
+    "serial": "0",
+}
+
+string_flag(
+    name = "scenario",
+    build_setting_default = "compatible_metadata",
+    tags = ["manual"],
+)
+
+config_setting(
+    name = "compatible_metadata",
+    flag_values = {":scenario": "compatible_metadata"},
+)
+
+config_setting(
+    name = "compile_disabled",
+    flag_values = {":scenario": "compile_disabled"},
+)
+
+config_setting(
+    name = "magic_mismatch",
+    flag_values = {":scenario": "magic_mismatch"},
+)
+
+config_setting(
+    name = "exec_runtime_only",
+    flag_values = {":scenario": "exec_runtime_only"},
+)
+
+config_setting(
+    name = "ordinary_runtime_pairs",
+    flag_values = {":scenario": "ordinary_runtime_pairs"},
+)
+
+config_setting(
+    name = "missing_exec_magic",
+    flag_values = {":scenario": "missing_exec_magic"},
+)
+
+config_setting(
+    name = "missing_target_magic",
+    flag_values = {":scenario": "missing_target_magic"},
+)
+
+config_setting(
+    name = "unbound_exec_identity",
+    flag_values = {":scenario": "unbound_exec_identity"},
+)
+
+write_file(
+    name = "target_interpreter",
+    out = "target-python",
+    content = ["#!/usr/bin/env sh"],
+    is_executable = True,
+    tags = ["manual"],
+)
+
+write_file(
+    name = "exec_interpreter_file",
+    out = "exec-python",
+    content = ["#!/usr/bin/env sh"],
+    is_executable = True,
+    tags = ["manual"],
+)
+
+write_file(
+    name = "wheel",
+    out = "demo-1.0-py3-none-any.whl",
+    tags = ["manual"],
+)
+
+py_runtime(
+    name = "target_runtime",
+    interpreter = ":target_interpreter",
+    interpreter_version_info = _TARGET_VERSION,
+    python_version = "PY3",
+    tags = ["manual"],
+)
+
+py_runtime(
+    name = "exec_runtime",
+    abi_flags = select({
+        ":compatible_metadata": "t",
+        "//conditions:default": "",
+    }),
+    interpreter = ":exec_interpreter_file",
+    interpreter_version_info = select({
+        ":compatible_metadata": _EXEC_VERSION,
+        "//conditions:default": _TARGET_VERSION,
+    }),
+    python_version = "PY3",
+    tags = ["manual"],
+)
+
+py_runtime_pair(
+    name = "_target_runtime_pair",
+    py3_runtime = ":target_runtime",
+    tags = ["manual"],
+)
+
+py_runtime_pair(
+    name = "_exec_runtime_pair",
+    py3_runtime = ":exec_runtime",
+    tags = ["manual"],
+)
+
+test_runtime_pair(
+    name = "target_runtime_pair",
+    pyc_magic_number = select({
+        ":missing_target_magic": -1,
+        "//conditions:default": 3571,
+    }),
+    runtime = ":target_runtime",
+    tags = ["manual"],
+)
+
+test_runtime_pair(
+    name = "exec_runtime_pair",
+    pyc_magic_number = select({
+        ":compile_disabled": 3572,
+        ":magic_mismatch": 3572,
+        ":missing_exec_magic": -1,
+        "//conditions:default": 3571,
+    }),
+    runtime = ":exec_runtime",
+    tags = ["manual"],
+)
+
+interpreter_executable(
+    name = "exec_interpreter",
+    runtime_pair = select({
+        ":ordinary_runtime_pairs": ":_exec_runtime_pair",
+        "//conditions:default": ":exec_runtime_pair",
+    }),
+    tags = ["manual"],
+)
+
+interpreter_executable(
+    name = "unbound_exec_interpreter",
+    runtime_pair = ":target_runtime_pair",
+    tags = ["manual"],
+)
+
+py_exec_tools_toolchain(
+    name = "exec_tools",
+    exec_interpreter = ":exec_interpreter",
+    tags = ["manual"],
+)
+
+test_exec_tools(
+    name = "exec_runtime_only_tools",
+    runtime = ":exec_runtime",
+    tags = ["manual"],
+)
+
+test_exec_tools(
+    name = "unbound_exec_tools",
+    exec_interpreter = ":unbound_exec_interpreter",
+    runtime = ":exec_runtime",
+    tags = ["manual"],
+)
+
+toolchain(
+    name = "target_toolchain",
+    tags = ["manual"],
+    toolchain = select({
+        ":exec_runtime_only": ":_target_runtime_pair",
+        ":ordinary_runtime_pairs": ":_target_runtime_pair",
+        "//conditions:default": ":target_runtime_pair",
+    }),
+    toolchain_type = "@bazel_tools//tools/python:toolchain_type",
+)
+
+toolchain(
+    name = "exec_toolchain",
+    tags = ["manual"],
+    toolchain = select({
+        ":exec_runtime_only": ":exec_runtime_only_tools",
+        ":unbound_exec_identity": ":unbound_exec_tools",
+        "//conditions:default": ":exec_tools",
+    }),
+    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
+)
+
+whl_install(
+    name = "fixture",
+    src = ":wheel",
+    compile_pyc = select({
+        ":compile_disabled": False,
+        "//conditions:default": True,
+    }),
+    tags = ["manual"],
+)
+
+magic_mismatch_test(
+    name = "magic_mismatch_test",
+    expected_failure = "PYC_MAGIC_NUMBER target=3571, exec=3572",
+    tags = ["manual"],
+    target_under_test = ":fixture",
+)
+
+missing_exec_magic_test(
+    name = "missing_exec_magic_test",
+    expected_failure = "exec runtime does not declare pyc_magic_number",
+    tags = ["manual"],
+    target_under_test = ":fixture",
+)
+
+missing_target_magic_test(
+    name = "missing_target_magic_test",
+    expected_failure = "target runtime does not declare pyc_magic_number",
+    tags = ["manual"],
+    target_under_test = ":fixture",
+)
+
+unbound_exec_identity_test(
+    name = "unbound_exec_identity_test",
+    expected_failure = "exec_interpreter bytecode identity is not bound to exec_runtime",
+    tags = ["manual"],
+    target_under_test = ":fixture",
+)
+
+compatible_metadata_test(
+    name = "compatible_metadata_test",
+    tags = ["manual"],
+    target_under_test = ":fixture",
+)
+
+exec_runtime_only_test(
+    name = "exec_runtime_only_test",
+    tags = ["manual"],
+    target_under_test = ":fixture",
+)
+
+compile_disabled_test(
+    name = "compile_disabled_test",
+    tags = ["manual"],
+    target_under_test = ":fixture",
+)
+
+ordinary_runtime_pairs_test(
+    name = "ordinary_runtime_pairs_test",
+    tags = ["manual"],
+    target_under_test = ":fixture",
+)

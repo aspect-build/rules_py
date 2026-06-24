@@ -38,8 +38,10 @@ source_built_wheel = rule(
 )
 
 def _whl_install(ctx):
-    py_toolchain = ctx.toolchains[PY_TOOLCHAIN].py3_runtime
-    exec_runtime = ctx.toolchains[EXEC_TOOLS_TOOLCHAIN].exec_tools.exec_runtime
+    target_toolchain = ctx.toolchains[PY_TOOLCHAIN]
+    py_toolchain = target_toolchain.py3_runtime
+    exec_tools = ctx.toolchains[EXEC_TOOLS_TOOLCHAIN].exec_tools
+    exec_runtime = exec_tools.exec_runtime
 
     # Name the install tree after the target rather than a fixed "install"
     # so several whl_install targets can coexist in one package without
@@ -71,9 +73,34 @@ def _whl_install(ctx):
 
     # Optional .pyc pre-compilation (runs after patching).
     # Use the exec-configured interpreter from EXEC_TOOLS_TOOLCHAIN so cross-arch
-    # builds work (the target interpreter isn't runnable on the build host). This is
-    # safe because .pyc bytecode varies by Python version, not by architecture.
+    # builds work (the target interpreter isn't runnable on the build host).
     if ctx.attr.compile_pyc:
+        target_magic = getattr(target_toolchain, "pyc_magic_number", None)
+        exec_interpreter = exec_tools.exec_interpreter
+        exec_toolchain = None
+        if exec_interpreter != None and platform_common.ToolchainInfo in exec_interpreter:
+            exec_toolchain = exec_interpreter[platform_common.ToolchainInfo]
+        exec_magic = getattr(exec_toolchain, "pyc_magic_number", None) if exec_toolchain != None else None
+
+        if exec_magic != None and getattr(exec_toolchain, "py3_runtime", None) != exec_runtime:
+            fail("{} cannot compile .pyc files: exec_interpreter bytecode identity is not bound to exec_runtime".format(ctx.label))
+
+        # Standard rules_python runtime pairs do not expose bytecode identity:
+        # https://github.com/bazel-contrib/rules_python/blob/1.9.0/python/private/py_runtime_pair_rule.bzl#L43-L51
+        # Preserve that existing path when neither side opts in, but reject
+        # partial metadata rather than treating it as compatible.
+        if target_magic != None or exec_magic != None:
+            if target_magic == None:
+                fail("{} cannot compile .pyc files: target runtime does not declare pyc_magic_number".format(ctx.label))
+            if exec_magic == None:
+                fail("{} cannot compile .pyc files: exec runtime does not declare pyc_magic_number".format(ctx.label))
+            if target_magic != exec_magic:
+                fail("{} cannot compile .pyc files: PYC_MAGIC_NUMBER target={}, exec={}".format(
+                    ctx.label,
+                    target_magic,
+                    exec_magic,
+                ))
+
         arguments.add("--compile-pyc")
         arguments.add("--pyc-invalidation-mode", ctx.attr.pyc_invalidation_mode)
         arguments.add("--python", exec_runtime.interpreter)

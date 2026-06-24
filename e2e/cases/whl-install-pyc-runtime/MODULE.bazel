@@ -1,0 +1,15 @@
+module(name = "whl_install_pyc_runtime")
+
+bazel_dep(name = "aspect_rules_py")
+bazel_dep(name = "bazel_skylib", version = "1.9.0")
+bazel_dep(name = "rules_python", version = "1.9.0")
+
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../../..",
+)
+
+register_toolchains(
+    "//:exec_toolchain",
+    "//:target_toolchain",
+)

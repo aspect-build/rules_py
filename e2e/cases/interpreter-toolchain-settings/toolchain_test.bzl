@@ -74,6 +74,11 @@ def _exec_toolchain_check_impl(ctx):
                 exec_tools.exec_runtime.interpreter,
             ),
         )
+    exec_runtime_pair = exec_tools.exec_interpreter[platform_common.ToolchainInfo]
+    if getattr(exec_runtime_pair, "pyc_magic_number", None) == None:
+        fail("PBS exec toolchain did not forward its bytecode identity")
+    if exec_runtime_pair.py3_runtime != exec_tools.exec_runtime:
+        fail("PBS exec toolchain identity is not bound to its runtime")
 
     output = ctx.actions.declare_file(ctx.label.name + ".txt")
     ctx.actions.run(
