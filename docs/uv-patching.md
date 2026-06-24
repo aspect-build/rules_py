@@ -126,6 +126,40 @@ package that resolves to a prebuilt wheel (no source build) fails the build
 rather than silently dropping the reservation — force a source build with
 `[tool.uv] no-binary-package` if you need the reservation to apply.
 
+### Monitoring wheel build memory
+
+Set `monitor_memory` to report the memory observed while building a wheel from
+an sdist:
+
+```starlark
+uv.override_package(
+    lock = "//:uv.lock",
+    name = "native-package",
+    monitor_memory = True,
+)
+```
+
+On Linux, rules_py reports the first sample, each 256 MiB high-water crossing,
+and the final peak. Reports are flushed as the build runs, so an earlier
+high-water mark can remain in the action log when an OOM kills the build.
+
+The measurement is a best-effort sum of `/proc` RSS for the build process and
+its descendants. It can double-count shared pages and miss short-lived
+processes. On other platforms it is reported as unavailable.
+
+`monitor_memory` is diagnostic only. It neither limits memory nor reserves
+scheduler capacity, and can be enabled independently from `resource_set`.
+
+Monitoring runs only when the source-build target is selected. A package with
+both an sdist and a compatible wheel produces no report when the wheel is
+selected; use `[tool.uv] no-binary-package` to force the monitored source build.
+A package with no sdist rejects the override.
+
+A custom sdist configure tool that returns complete `build_file_content` owns
+the wheel action itself. Such content must add its own monitoring; combining
+that replacement with `monitor_memory` is rejected rather than silently
+dropping the diagnostic.
+
 ### Full replacement
 
 To replace a package entirely with a custom target (existing functionality):

@@ -46,6 +46,9 @@ def _patch_args_and_inputs(ctx):
                 patch_inputs.append(f)
     return patch_args, patch_inputs
 
+def _memory_args(ctx):
+    return ["--monitor-memory"] if ctx.attr.monitor_memory else []
+
 def _collect_toolchain_inputs_and_vars(ctx):
     """Gather files + Make-variable substitutions from `ctx.attr.toolchains`.
 
@@ -127,7 +130,7 @@ def _pep517_whl(ctx):
         progress_message = "Source compiling {} to a whl".format(archive.basename),
         executable = ctx.executable.tool,
         toolchain = None,
-        arguments = ctx.attr.args + patch_args + [
+        arguments = ctx.attr.args + patch_args + _memory_args(ctx) + [
             archive.path,
             wheel_dir.path,
         ],
@@ -165,7 +168,7 @@ def _pep517_native_whl(ctx):
         progress_message = "Native source compiling {} to a whl".format(archive.basename),
         executable = ctx.executable.tool,
         toolchain = None,
-        arguments = ctx.attr.args + patch_args + [
+        arguments = ctx.attr.args + patch_args + _memory_args(ctx) + [
             archive.path,
             wheel_dir.path,
         ],
@@ -199,6 +202,10 @@ _pep517_whl_attrs = {
     "tool": attr.label(executable = True, cfg = "exec"),
     "version": attr.string(),
     "args": attr.string_list(default = ["--validate-anyarch"]),
+    "monitor_memory": attr.bool(
+        default = False,
+        doc = "Report approximate Linux process-tree RSS while building the wheel.",
+    ),
 } | _PATCH_ATTRS | resource_set_attr
 
 pep517_whl = rule(

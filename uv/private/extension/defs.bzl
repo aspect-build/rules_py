@@ -254,6 +254,7 @@ def _parse_projects(module_ctx, hub_specs):
                     override.extra_data or
                     override.toolchains or
                     override.env or
+                    override.monitor_memory or
                     override.resource_set != "default"
                 )
 
@@ -261,7 +262,7 @@ def _parse_projects(module_ctx, hub_specs):
                     fail("uv.override_package() for '{}': `target` is mutually exclusive with modification attributes. Use `target` for full replacement OR build, patch, and data attributes for modifications, not both.".format(override.name))
 
                 if not has_target and not has_modifications:
-                    fail("uv.override_package() for '{}': must specify either `target` for full replacement or at least one modification attribute (pre_build_patches, post_install_patches, extra_deps, extra_data, toolchains, env, resource_set).".format(override.name))
+                    fail("uv.override_package() for '{}': must specify either `target` for full replacement or at least one modification attribute (pre_build_patches, post_install_patches, extra_deps, extra_data, toolchains, env, monitor_memory, resource_set).".format(override.name))
 
                 package_overrides[override_key] = override
 
@@ -412,10 +413,12 @@ def _parse_projects(module_ctx, hub_specs):
                     # they don't replace them. Empty == no augmentation.
                     extra_toolchains = []
                     extra_env = {}
+                    monitor_memory = False
                     resource_set = "default"
                     if pkg_override:
                         extra_toolchains = [str(t) for t in pkg_override.toolchains]
                         extra_env = pkg_override.env
+                        monitor_memory = pkg_override.monitor_memory
                         resource_set = pkg_override.resource_set
 
                     sbuild_specs[sbuild_id] = struct(
@@ -429,6 +432,7 @@ def _parse_projects(module_ctx, hub_specs):
                         configure_command = project.unstable_configure_command,
                         extra_toolchains = extra_toolchains,
                         extra_env = extra_env,
+                        monitor_memory = monitor_memory,
                         resource_set = resource_set,
                     )
 
@@ -448,6 +452,8 @@ def _parse_projects(module_ctx, hub_specs):
 
                 if pkg_override and pkg_override.resource_set != "default" and not has_sbuild:
                     fail("uv.override_package() for '{}': `resource_set` reserves resources for the sdist wheel-build action, but this package resolves to a prebuilt wheel (there is no sdist build to reserve for). Remove `resource_set`, or force a source build via `[tool.uv] no-binary-package`.".format(pkg_override.name))
+                if pkg_override and pkg_override.monitor_memory and not has_sbuild:
+                    fail("uv.override_package() for '{}': `monitor_memory` observes the sdist wheel-build action, but this package resolves to a prebuilt wheel. Remove `monitor_memory`, or force a source build via `[tool.uv] no-binary-package`.".format(pkg_override.name))
 
                 # uv can emit multiple lock records for the same package/version
                 # (e.g. resolution-marker forks), each carrying a different
@@ -657,6 +663,8 @@ def _uv_impl(module_ctx):
             sbuild_kwargs["extra_toolchains"] = sbuild_cfg.extra_toolchains
         if sbuild_cfg.extra_env:
             sbuild_kwargs["extra_env"] = sbuild_cfg.extra_env
+        if sbuild_cfg.monitor_memory:
+            sbuild_kwargs["monitor_memory"] = True
         if sbuild_cfg.resource_set != "default":
             sbuild_kwargs["resource_set"] = sbuild_cfg.resource_set
         sdist_build(**sbuild_kwargs)
@@ -755,6 +763,10 @@ _override_package_tag = tag_class(
         # Full replacement: provide a target that substitutes for the package entirely.
         # Mutually exclusive with patch/exclude attributes.
         "target": attr.label(mandatory = False),
+        "monitor_memory": attr.bool(
+            default = False,
+            doc = "Report approximate Linux process-tree RSS while building this package's wheel.",
+        ),
 
         # Per-package local execution resources for the wheel build action.
         # Uses bazel-lib's predefined resource_set vocabulary (the same enum
