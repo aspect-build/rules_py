@@ -5,8 +5,6 @@ load(":version_util_test.bzl", "version_util_test_suite")
 
 package(default_visibility = ["//visibility:public"])
 
-exports_files(["probe_interpreter.py"])
-
 bzl_library(
     name = "current_py_toolchain",
     srcs = ["current_py_toolchain.bzl"],

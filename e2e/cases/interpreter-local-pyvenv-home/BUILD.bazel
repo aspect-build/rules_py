@@ -3,9 +3,9 @@ load("@rules_python//python:py_runtime.bzl", "py_runtime")
 load("@rules_python//python:py_runtime_pair.bzl", "py_runtime_pair")
 
 # Regression test: a venv built under a system-interpreter toolchain
-# (`py_runtime(interpreter_path = ...)`, the `interpreters.local(...)`
-# shape) must write pyvenv.cfg `home` as the interpreter's bin dir, not
-# `./bin` — the venv's own bin, which left CPython chasing the venv's
+# (`py_runtime(interpreter_path = ...)`) must write pyvenv.cfg `home`
+# as the interpreter's bin dir, not `./bin` — the venv's own bin, which
+# left CPython chasing the venv's
 # symlinks and falling back to its compile-time prefix (PBS: /install,
 # no `encodings`) when that fails.
 #

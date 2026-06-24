@@ -1,6 +1,6 @@
 """Module extension for provisioning Python interpreters from python-build-standalone."""
 
-load(":repository.bzl", "local_python_interpreter", "python_interpreter", "python_toolchains")
+load(":repository.bzl", "python_interpreter", "python_toolchains")
 load(":version_util.bzl", "is_decimal", "is_pre_release", "version_gt")
 load(":versions.bzl", "BUILD_CONFIGS", "DEFAULT_RELEASE_BASE_URL", "DEFAULT_RELEASE_DATES", "PLATFORMS")
 
@@ -258,78 +258,25 @@ def _python_interpreters_impl(module_ctx):
             elif major_minor not in allow_pre_release:
                 allow_pre_release[major_minor] = False
 
-    # Check if any local interpreter tags exist
-    has_local_tags = False
-    for mod in module_ctx.modules:
-        if mod.is_root and mod.tags.local:
-            has_local_tags = True
-            break
-
-    if not requested_versions and not has_local_tags:
+    if not requested_versions:
         return _return_metadata(module_ctx, has_facts, facts, is_reproducible, resolved_latest)
 
     new_facts = {}
-    if requested_versions:
-        # Fetch and parse release indices (cached via facts)
-        release_indices = {}
+    release_indices = {}
 
-        for date in release_dates:
-            base_url = release_base_urls.get(date, DEFAULT_RELEASE_BASE_URL)
-            index = _fetch_release_index(module_ctx, date, base_url, facts)
-            release_indices[date] = index
+    for date in release_dates:
+        base_url = release_base_urls.get(date, DEFAULT_RELEASE_BASE_URL)
+        index = _fetch_release_index(module_ctx, date, base_url, facts)
+        release_indices[date] = index
 
-            # Cache in facts for next run — but never cache under "latest"
-            facts_key = "release_index_{}_{}".format(date, base_url)
-            new_facts[facts_key] = index
-
-    else:
-        release_indices = {}
+        # Cache in facts for next run — but never cache under "latest"
+        facts_key = "release_index_{}_{}".format(date, base_url)
+        new_facts[facts_key] = index
 
     # Create per-platform, per-build-config interpreter repos and collect
     # toolchain entries. Version and freethreaded target settings determine
     # which entries are eligible.
     toolchain_entries = []
-
-    # Collect local interpreter tags before PBS entries.
-    for mod in module_ctx.modules:
-        if not mod.is_root:
-            continue
-        for tag in mod.tags.local:
-            if not tag.interpreter_path and not tag.env:
-                fail("interpreters.local() requires either interpreter_path or env")
-
-            # Build a deterministic repo name from the path or env var
-            if tag.interpreter_path:
-                repo_name = "local_python_" + _sanitize(tag.interpreter_path.split("/")[-1])
-            else:
-                repo_name = "local_python_" + _sanitize(tag.env.lower())
-
-            local_python_interpreter(
-                name = repo_name,
-                interpreter_path = tag.interpreter_path,
-                env = tag.env,
-                python_version = tag.python_version,
-            )
-
-            # Normalize python_version to major.minor if provided
-            local_version = ""
-            if tag.python_version:
-                parts = tag.python_version.split(".")
-                if len(parts) >= 2:
-                    local_version = "{}.{}".format(parts[0], parts[1])
-
-            toolchain_entries.append(json.encode({
-                "name": repo_name,
-                "repo": repo_name,
-                "python_version": local_version,
-                "freethreaded": False,
-                "compatible_with": [],
-                "platform_target_settings": {},
-                "config_settings": tag.config_settings,
-                "target_compatible_with": tag.target_compatible_with,
-                "exec_compatible_with": tag.exec_compatible_with,
-                "register_exec_tools": True,
-            }))
 
     # Keep generated output stable: regular configs, then freethreaded configs.
     ordered_configs = (
@@ -547,59 +494,10 @@ Only honored from the root module.
     },
 )
 
-_local_tag = tag_class(
-    attrs = {
-        "config_settings": attr.string_list(
-            default = [],
-            doc = "Additional config_setting labels required for this toolchain to be selected.",
-        ),
-        "env": attr.string(
-            default = "",
-            doc = """\
-Environment variable pointing to a Python prefix directory (e.g. "VIRTUAL_ENV").
-The interpreter is resolved as $ENV/bin/python3 (or $ENV/Scripts/python.exe on Windows).
-If the variable is unset, the toolchain is registered but inactive (never matches).
-""",
-        ),
-        "exec_compatible_with": attr.string_list(
-            default = [],
-            doc = "Additional exec platform constraints for this toolchain.",
-        ),
-        "interpreter_path": attr.string(
-            default = "",
-            doc = "Absolute path to a Python interpreter binary.",
-        ),
-        "python_version": attr.string(
-            default = "",
-            doc = """\
-Override the detected Python version. If omitted, the interpreter is probed
-at repository-rule evaluation time to determine its version.
-""",
-        ),
-        "target_compatible_with": attr.string_list(
-            default = [],
-            doc = "Additional target platform constraints for this toolchain.",
-        ),
-    },
-    doc = """\
-Register a local (non-PBS) Python interpreter as a toolchain.
-
-Exactly one of interpreter_path or env must be set. The interpreter is
-probed for version info at repository-rule time. If the interpreter is
-unavailable (path missing, env var unset), the toolchain is registered
-but inactive — it will never match during toolchain resolution.
-
-Use config_settings to gate a local toolchain on a custom flag.
-
-Only honored from the root module.
-""",
-)
-
 python_interpreters = module_extension(
     implementation = _python_interpreters_impl,
     tag_classes = {
         "configure": _configure_tag,
-        "local": _local_tag,
         "toolchain": _toolchain_tag,
     },
 )
