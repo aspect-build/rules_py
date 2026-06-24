@@ -25,7 +25,10 @@ py_unpacked_wheel(
     name = "jaraco_functools_no_entries",
     src = "@pypi_pth_namespace_547//jaraco_functools:whl",
     namespace_top_levels = ["jaraco"],
-    top_levels = ["jaraco"],
+    top_levels = [
+        "jaraco",
+        "jaraco_functools-4.4.0.dist-info",
+    ],
 )
 
 py_test(

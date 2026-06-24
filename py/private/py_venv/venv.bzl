@@ -383,6 +383,8 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
     # namespace) symlinks.
     fully_covered = {}
     for w in wheels:
+        if not w.top_levels:
+            continue
         skipped = skipped_per_wheel.get(w.site_packages_rfpath, {})
         ns_covered = ns_covered_per_wheel.get(w.site_packages_rfpath, {})
         covered = True
@@ -551,6 +553,11 @@ def assemble_venv(
     # We fail loudly on the rare 32-bit hash collision; the caller can
     # widen the key or rename a wheel rule.
     wheels_with_trees = [w for w in wheels if getattr(w, "install_tree", None) != None]
+    known_layout_site_pkgs = {
+        w.site_packages_rfpath: True
+        for w in wheels
+        if w.top_levels
+    }
     wheel_key_by_sp = {}
     wheel_by_key = {}
     for w in wheels_with_trees:
@@ -683,22 +690,30 @@ def assemble_venv(
         )
         declared.append(merged_dir)
 
-    # Keyed wheels (have `_wheels/<key>/`) emit a plain relative path:
-    # site.py joins it with the .pth's directory and appends to
-    # sys.path. Safe because root `*.pth` filenames are depth-1 RECORD
-    # entries that Hop 2 already symlinked at the venv root. Non-keyed
-    # wheels (`py_unpacked_wheel` without `top_levels`) emit
-    # `site.addsitedir` so wheel-root `.pth` shims still fire — a
-    # plain path entry would skip the .pth scan. First-party imports
-    # emit a plain path line.
+    # A key only means that a wheel has an install tree. Wheels may emit
+    # PyWheelsInfo for console scripts while leaving `top_levels` empty, so
+    # their immediate layout is unknown and no root entries were projected by
+    # Hop 2. Those wheels need `site.addsitedir` to process root `.pth` files.
+    # Known layouts use a plain path because their root `.pth` files were
+    # already projected or deliberately suppressed by collision resolution.
     def _format_imp(imp):
         if imp in fully_covered_site_pkgs:
             return None
         if imp.endswith("site-packages"):
             key = wheel_key_by_sp.get(imp)
+            if imp in known_layout_site_pkgs:
+                if key != None:
+                    return "{wheels_root}/{key}/lib/{py_ver}/site-packages".format(
+                        wheels_root = site_packages_to_wheels_root,
+                        key = key,
+                        py_ver = wheel_py_ver,
+                    )
+                return "{}/{}".format(escape, imp)
             if key != None:
-                return "{wheels_root}/{key}/lib/{py_ver}/site-packages".format(
-                    wheels_root = site_packages_to_wheels_root,
+                return ("import os, sys, site; " +
+                        "site.addsitedir(os.path.normpath(os.path.join(" +
+                        "sys.prefix, \"_wheels\", \"{key}\", \"lib\", " +
+                        "\"{py_ver}\", \"site-packages\")))").format(
                     key = key,
                     py_ver = wheel_py_ver,
                 )
@@ -715,8 +730,8 @@ def assemble_venv(
     pth_lines.set_param_file_format("multiline")
     pth_lines.add(escape)
 
-    # allow_closure lets _format_imp capture fully_covered_site_pkgs / wheel_key_by_sp
-    # so we don't have to materialise imports_depset via .to_list().
+    # allow_closure lets _format_imp capture the wheel metadata maps so we
+    # don't have to materialise imports_depset via .to_list().
     pth_lines.add_all(imports_depset, map_each = _format_imp, allow_closure = True)
 
     site_packages_pth_file = ctx.actions.declare_file(
