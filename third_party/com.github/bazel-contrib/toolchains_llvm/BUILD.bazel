@@ -1,4 +1,0 @@
-exports_files(
-    ["clang_ldd.patch"],
-    visibility = ["//visibility:public"],
-)
