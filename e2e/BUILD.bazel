@@ -147,9 +147,9 @@ write_source_files(
 
         # Venv site-packages .pth files. Pin the line shapes that
         # assemble_venv emits, so any change to `.pth` emission
-        # surfaces here. Wheel keys are an 8-hex hash of the wheel's
-        # install_tree.short_path — stable across unrelated lockfile
-        # churn; only added/removed/version-bumped wheels rotate them.
+        # surfaces here. Wheel site-packages dirs are referenced by
+        # their natural runfiles path via `site.addsitedir(...)`; the
+        # venv carries no intermediate `_wheels/<key>` alias.
         #
         # * pth_namespace_547 — minimal 2-contributor namespace case
         #   (jaraco-*). The concrete per-entry namespace merge fully
@@ -159,9 +159,9 @@ write_source_files(
         #   contributors, nested google/cloud namespace); catches
         #   ordering / scale-only regressions that the 2-wheel
         #   minimum can't.
-        # * wheel_root_pth — non-keyed branch via `py_unpacked_wheel`
-        #   without `top_levels`; pins the `site.addsitedir(...)`
-        #   shape so wheel-root `.pth` shims keep running.
+        # * wheel_root_pth — `py_unpacked_wheel` without `top_levels`;
+        #   pins the `site.addsitedir(...)` shape so wheel-root `.pth`
+        #   shims keep running.
         # * pth_install_tree_fallback — two install_tree wheels colliding
         #   on a top-level; the collision loser reaches `_format_imp`'s
         #   site-packages branch and must emit a PLAIN escape path (not
