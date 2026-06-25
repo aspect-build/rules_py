@@ -1,0 +1,22 @@
+"Example: rules_py consuming protobuf-generated Python code"
+
+# A rules_py target consumes the py_library that protobuf's py_proto_library
+# generates. rules_python is named nowhere here or in BUILD.bazel — it is only
+# pulled in transitively, and even the interpreter toolchain is provisioned
+# through rules_py's own python_interpreters extension.
+
+bazel_dep(name = "aspect_rules_py")
+bazel_dep(name = "protobuf", version = "33.4")
+
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../..",
+)
+
+# Provision a Python interpreter through rules_py's own extension rather than
+# calling rules_python's python.toolchain directly.
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+interpreters.toolchain(python_version = "3.11")
+use_repo(interpreters, "python_interpreters")
+
+register_toolchains("@python_interpreters//:all")
