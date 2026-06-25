@@ -36,6 +36,12 @@ if [[ "$(uname -s)" == "Linux" ]]; then
     host_flags+=(--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc)
 fi
 
+"$BAZEL" test \
+    --lockfile_mode=off \
+    --@rules_python//python/config_settings:python_version=3.13 \
+    "${host_flags[@]}" \
+    -- //cases/pbs-cc-toolchain:embed_python_test
+
 if [[ "$(uname -s)" == "Darwin" ]]; then
     library_target="@aspect_rules_py//py/tests/cc-deps:example_library.so"
     "$BAZEL" build \

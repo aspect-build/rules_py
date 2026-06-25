@@ -1,4 +1,19 @@
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 load(":toolchain_test.bzl", "pbs_toolchain_check")
+
+cc_test(
+    name = "embed_python_test",
+    srcs = ["embed_python.cc"],
+    tags = ["manual"],
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "@rules_python//python/cc:current_py_cc_headers",
+        "@rules_python//python/cc:current_py_cc_libs",
+    ],
+)
 
 platform(
     name = "linux_x86_64",
