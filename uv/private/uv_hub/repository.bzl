@@ -217,18 +217,23 @@ def incompatible_with(venvs, extra_constraints = []):
 
 _DEPS_BY_GROUP = {deps_by_group}
 
+_GROUP_DEP_LABELS = {{
+    group: [Label(dep) for dep in deps]
+    for group, deps in _DEPS_BY_GROUP.items()
+}}
+
 _GROUP_DEPS = select(
     {{
         Label("//dep_group:" + group): deps
-        for group, deps in _DEPS_BY_GROUP.items()
+        for group, deps in _GROUP_DEP_LABELS.items()
     }},
     no_match_error = {no_match_error},
 )
 
 def group_dep_labels(group):
-    if group not in _DEPS_BY_GROUP:
-        fail("unknown dep_group %r; expected one of: %s" % (group, ", ".join(sorted(_DEPS_BY_GROUP))))
-    return [Label(dep) for dep in _DEPS_BY_GROUP[group]]
+    if group not in _GROUP_DEP_LABELS:
+        fail("unknown dep_group %r; expected one of: %s" % (group, ", ".join(sorted(_GROUP_DEP_LABELS))))
+    return _GROUP_DEP_LABELS[group]
 
 def group_deps():
     return _GROUP_DEPS
@@ -312,7 +317,9 @@ uv_hub = repository_rule(
     `group_dep_labels(name)` returns the membership list for an explicit group
     as sorted `Label` values. This supports macros that must inspect normalized
     package names during package loading. The aliases still resolve under the
-    active `dep_group`, so consuming targets must use the matching group.
+    active `dep_group`, so consuming targets must use the matching group. It is
+    the only public accessor for the per-group membership; the underlying table
+    is built once at load and shared with the `group_deps()` select.
     """,
     implementation = _hub_impl,
     attrs = {
