@@ -1,4 +1,4 @@
-"""Tests for permissive wheel-collision precedence."""
+"""Tests for permissive wheel-collision behavior."""
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("@rules_python//python:defs.bzl", "PyInfo")
@@ -14,18 +14,38 @@ def _wheel_impl(ctx):
     command = """
 set -eu
 site="$1/lib/python$2.$3/site-packages"
+mkdir -p "$site"
+"""
+    top_levels = ()
+    namespace_top_levels = ()
+    namespace_entries = ()
+    console_scripts = ()
+    if ctx.attr.kind in ("namespace", "ordered"):
+        command += """
 mkdir -p "$site/collision_namespace"
 printf 'VALUE = %s\n' "$4" > "$site/collision_namespace/shared.py"
 printf 'VALUE = %s\n\ndef main():\n    print(VALUE)\n' "$4" > "$site/collision_namespace/$5.py"
 """
-    top_levels = ("collision_namespace",)
-    console_scripts = ()
-    if ctx.attr.ordinary:
-        command += """
-printf 'VALUE = %s\n' "$4" > "$site/collision_order.py"
-"""
-        top_levels += ("collision_order.py",)
+        top_levels = ("collision_namespace",)
+        namespace_top_levels = top_levels
+        namespace_entries = (
+            "collision_namespace/shared.py",
+            "collision_namespace/{}.py".format(ctx.attr.value),
+        )
+    if ctx.attr.kind == "ordered":
         console_scripts = ("collision-order=collision_namespace.{}:main".format(ctx.attr.value),)
+    elif ctx.attr.kind == "regular":
+        command += """
+mkdir -p "$site/collision_order"
+printf '' > "$site/collision_order/__init__.py"
+printf 'VALUE = %s\n' "$4" > "$site/collision_order/$5.py"
+"""
+        top_levels = ("collision_order",)
+    elif ctx.attr.kind == "file":
+        command += """
+printf 'VALUE = %s\n' "$4" > "$site/collision_file.py"
+"""
+        top_levels = ("collision_file.py",)
     ctx.actions.run_shell(
         outputs = [install_tree],
         command = command,
@@ -48,11 +68,8 @@ printf 'VALUE = %s\n' "$4" > "$site/collision_order.py"
     ] + ["lib/python{}.{}/site-packages".format(major, minor)])
     wheel = struct(
         top_levels = top_levels,
-        namespace_top_levels = ("collision_namespace",),
-        namespace_entries = (
-            "collision_namespace/shared.py",
-            "collision_namespace/{}.py".format(ctx.attr.value),
-        ),
+        namespace_top_levels = namespace_top_levels,
+        namespace_entries = namespace_entries,
         namespace_dirs = (),
         regular_roots = (),
         site_packages_rfpath = site_packages,
@@ -77,7 +94,7 @@ printf 'VALUE = %s\n' "$4" > "$site/collision_order.py"
 _wheel = rule(
     implementation = _wheel_impl,
     attrs = {
-        "ordinary": attr.bool(),
+        "kind": attr.string(mandatory = True, values = ["file", "namespace", "ordered", "regular"]),
         "value": attr.string(mandatory = True),
     },
     toolchains = [PY_TOOLCHAIN],
@@ -96,13 +113,13 @@ _collision_error_test = analysistest.make(
 def collision_order_test_suite():
     _wheel(
         name = "_collision_first",
-        ordinary = True,
+        kind = "ordered",
         value = "first",
         tags = ["manual"],
     )
     _wheel(
         name = "_collision_second",
-        ordinary = True,
+        kind = "ordered",
         value = "second",
         tags = ["manual"],
     )
@@ -151,11 +168,13 @@ def collision_order_test_suite():
 
     _wheel(
         name = "_namespace_first",
+        kind = "namespace",
         value = "first",
         tags = ["manual"],
     )
     _wheel(
         name = "_namespace_second",
+        kind = "namespace",
         value = "second",
         tags = ["manual"],
     )
@@ -171,5 +190,50 @@ def collision_order_test_suite():
         deps = [
             ":_namespace_first",
             ":_namespace_second",
+        ],
+    )
+
+    _wheel(
+        name = "_regular_first",
+        kind = "regular",
+        value = "first",
+        tags = ["manual"],
+    )
+    _wheel(
+        name = "_regular_second",
+        kind = "regular",
+        value = "second",
+        tags = ["manual"],
+    )
+    py_test(
+        name = "regular_directory_union_test",
+        srcs = ["test_collision_union.py"],
+        package_collisions = "ignore",
+        deps = [
+            ":_regular_first",
+            ":_regular_second",
+        ],
+    )
+
+    _wheel(
+        name = "_file_first",
+        kind = "file",
+        value = "first",
+        tags = ["manual"],
+    )
+    _wheel(
+        name = "_file_second",
+        kind = "file",
+        value = "second",
+        tags = ["manual"],
+    )
+    py_binary(
+        name = "_file_collision_binary",
+        srcs = ["test_collision_union.py"],
+        package_collisions = "ignore",
+        tags = ["manual"],
+        deps = [
+            ":_file_first",
+            ":_file_second",
         ],
     )

@@ -1,16 +1,25 @@
 #!/usr/bin/env python3
 
-# TODO: Deprecated API, need an alternative
-import pkgutil
+from importlib.util import find_spec
 
-# `airflow` resolves to the providing wheel's natural runfiles path; the venv
-# references wheels there rather than copying them into its own tree. `airflow`
-# is a top-level collision across many apache-airflow-* wheels, so resolution
-# must pick airflow-core (the wheel that owns `airflow/__init__.py`), not a
-# provider.
-_airflow_file = pkgutil.get_loader("airflow").get_filename()
-assert _airflow_file.endswith("/site-packages/airflow/__init__.py"), _airflow_file
-assert "apache_airflow_core" in _airflow_file, _airflow_file
+# `airflow` is a regular package whose contents span apache-airflow-core and
+# several provider wheels. The venv must expose one merged package without
+# dropping provider subpackages.
+airflow_spec = find_spec("airflow")
+assert airflow_spec is not None
+assert airflow_spec.origin is not None
+assert airflow_spec.origin.endswith("/site-packages/airflow/__init__.py"), (
+    airflow_spec.origin
+)
+for provider in (
+    "airflow.providers.common.compat",
+    "airflow.providers.common.io",
+    "airflow.providers.common.sql",
+    "airflow.providers.smtp",
+    "airflow.providers.standard",
+    "airflow.sdk",
+):
+    assert find_spec(provider) is not None, provider
 
 import sys
 assert sys.version_info.major == 3
