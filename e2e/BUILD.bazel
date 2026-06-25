@@ -162,14 +162,12 @@ write_source_files(
         # * wheel_root_pth — `py_unpacked_wheel` without `top_levels`;
         #   pins the `site.addsitedir(...)` shape so wheel-root `.pth`
         #   shims keep running.
-        # * pth_install_tree_fallback — two install_tree wheels colliding
-        #   on a top-level; the collision loser reaches `_format_imp`'s
-        #   site-packages branch and must emit a PLAIN escape path (not
-        #   `site.addsitedir`, which would re-run its already-projected
-        #   root `.pth`). Reverting that branch changes this snapshot.
+        # * pth_install_tree_union — two install_tree wheels whose
+        #   compatible top-level directories are unioned. Both wheel roots
+        #   are fully covered, so neither appears in the .pth fallback.
         "snapshots/pth_namespace_547.test.venv.pth": "//cases/pth-namespace-547:test.venv.pth",
         "snapshots/firebase_admin.test_tool.venv.pth": "//cases/firebase-admin-import:test_tool.venv.pth",
         "snapshots/wheel_root_pth.venv.pth": "//cases/uv-include-group:wheel_root_pth_test.venv.pth",
-        "snapshots/pth_install_tree_fallback.venv.pth": "//cases/pth-install-tree-fallback:test.venv.pth",
+        "snapshots/pth_install_tree_union.venv.pth": "//cases/pth-install-tree-union:test.venv.pth",
     },
 )

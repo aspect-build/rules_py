@@ -8,121 +8,103 @@ from pathlib import Path
 from site_merge import merge
 
 
-def _write(path, content, mode=None):
+def _write(path, content, mode=0o644):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content)
-    if mode is not None:
-        path.chmod(mode)
+    path.chmod(mode)
+
+
+def _snapshot(path):
+    if path.is_file():
+        return (
+            "file",
+            path.read_bytes(),
+            stat.S_IMODE(path.stat().st_mode) & 0o111,
+        )
+    return (
+        "directory",
+        tuple((child.name, _snapshot(child)) for child in sorted(path.iterdir())),
+    )
 
 
 class SiteMergeTest(unittest.TestCase):
-    def test_later_source_overlays_earlier_source(self):
+    def test_unions_directories_independently_of_source_order(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             first = root / "first"
             second = root / "second"
-            output = root / "output"
+            _write(first / "shared/identical.py", "same", 0o755)
+            _write(first / "first.py", "first")
+            _write(second / "shared/identical.py", "same", 0o755)
+            _write(second / "shared/second.py", "second")
+            (first / "link").symlink_to("shared/identical.py")
+            (second / "link").symlink_to("shared/identical.py")
 
-            _write(first / "distinct", "first", 0o444)
-            _write(first / "identical", "same", 0o644)
-            _write(first / "identical_executable", "same", 0o700)
-            _write(first / "executable_changed", "same", 0o644)
-            _write(first / "file_to_directory", "first", 0o444)
-            _write(first / "directory_to_file/child.py", "first", 0o444)
-            _write(first / "union/first.py", "first")
+            forward = root / "forward"
+            reverse = root / "reverse"
+            merge(forward, [first, second])
+            merge(reverse, [second, first])
 
-            _write(second / "distinct", "second")
-            _write(second / "identical", "same", 0o600)
-            _write(second / "identical_executable", "same", 0o711)
-            _write(second / "executable_changed", "same", 0o755)
-            _write(second / "file_to_directory/child.py", "second")
-            _write(second / "directory_to_file", "second")
-            _write(second / "union/second.py", "second")
+            self.assertEqual(_snapshot(forward), _snapshot(reverse))
+            self.assertEqual((forward / "first.py").read_text(), "first")
+            self.assertEqual((forward / "shared/second.py").read_text(), "second")
 
-            conflicts = merge(output, [first, second])
+    def test_conflicts_report_path_owners_and_reason(self):
+        cases = {
+            "content": ("regular file contents differ", "file", "file"),
+            "executable": ("executable bits differ", "executable", "executable"),
+            "file_directory": ("type differs", "file", "directory"),
+        }
+        for name, (reason, first_kind, second_kind) in cases.items():
+            with self.subTest(name=name):
+                with tempfile.TemporaryDirectory() as temporary_directory:
+                    root = Path(temporary_directory)
+                    first = root / "first"
+                    second = root / "second"
+                    self._make_conflict(first, first_kind, first=True)
+                    self._make_conflict(second, second_kind, first=False)
 
-            self.assertEqual(
-                {
-                    (path, previous.name, current.name)
-                    for path, previous, current in conflicts
-                },
-                {
-                    (Path("distinct"), "first", "second"),
-                    (Path("file_to_directory"), "first", "second"),
-                    (Path("directory_to_file"), "first", "second"),
-                    (Path("executable_changed"), "first", "second"),
-                },
-            )
-            self.assertEqual((output / "distinct").read_text(), "second")
-            self.assertEqual(
-                (output / "file_to_directory/child.py").read_text(), "second"
-            )
-            self.assertEqual((output / "directory_to_file").read_text(), "second")
-            self.assertEqual((output / "union/first.py").read_text(), "first")
-            self.assertEqual((output / "union/second.py").read_text(), "second")
-            self.assertEqual(
-                stat.S_IMODE((output / "identical").stat().st_mode),
-                0o600,
-            )
-            self.assertEqual(
-                stat.S_IMODE((output / "identical_executable").stat().st_mode),
-                0o711,
-            )
-            self.assertEqual(
-                stat.S_IMODE((output / "executable_changed").stat().st_mode),
-                0o755,
-            )
+                    result = subprocess.run(
+                        [
+                            sys.executable,
+                            str(Path(__file__).with_name("site_merge.py")),
+                            "--into",
+                            str(root / "output"),
+                            "--src",
+                            str(second),
+                            "--src",
+                            str(first),
+                        ],
+                        capture_output=True,
+                        text=True,
+                    )
 
-            self.assertEqual((first / "distinct").read_text(), "first")
-            self.assertEqual(
-                (first / "directory_to_file/child.py").read_text(), "first"
-            )
-            self.assertEqual(stat.S_IMODE((first / "distinct").stat().st_mode), 0o444)
-
-    def test_collision_policy_controls_reporting_and_status(self):
-        for policy in ("warning", "ignore", "error"):
-            with (
-                self.subTest(policy=policy),
-                tempfile.TemporaryDirectory() as temporary_directory,
-            ):
-                root = Path(temporary_directory)
-                first = root / "first"
-                second = root / "second"
-                output = root / "output"
-                _write(first / "entry", "first")
-                _write(second / "entry/child.py", "second")
-
-                result = subprocess.run(
-                    [
-                        sys.executable,
-                        str(Path(__file__).with_name("site_merge.py")),
-                        "--into",
-                        str(output),
-                        "--collision-policy",
-                        policy,
-                        "--src",
-                        str(first),
-                        "--src",
-                        str(second),
-                    ],
-                    capture_output=True,
-                    text=True,
-                )
-
-                self.assertEqual(result.stdout, "")
-                if policy == "ignore":
-                    self.assertEqual(result.returncode, 0)
-                    self.assertEqual(result.stderr, "")
-                else:
-                    self.assertIn("Package collision", result.stderr)
+                    self.assertNotEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(result.stdout, "")
+                    self.assertIn("entry", result.stderr)
                     self.assertIn(str(first), result.stderr)
                     self.assertIn(str(second), result.stderr)
-                    if policy == "warning":
-                        self.assertEqual(result.returncode, 0)
-                    else:
-                        self.assertNotEqual(result.returncode, 0)
-                if policy != "error":
-                    self.assertEqual((output / "entry/child.py").read_text(), "second")
+                    self.assertIn(reason, result.stderr)
+                    self.assertFalse((root / "output").exists())
+
+    def test_rejects_non_directory_source(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            source = root / "source.py"
+            _write(source, "contents")
+
+            with self.assertRaisesRegex(ValueError, "only directories can be merged"):
+                merge(root / "output", [source])
+
+    @staticmethod
+    def _make_conflict(root, kind, first):
+        path = root / "entry"
+        if kind == "file":
+            _write(path, "first" if first else "second")
+        elif kind == "executable":
+            _write(path, "same", 0o755 if first else 0o644)
+        else:
+            path.mkdir(parents=True)
 
 
 if __name__ == "__main__":

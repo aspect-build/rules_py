@@ -1,4 +1,4 @@
-"""End-to-end coverage for regular-package physical merge order."""
+"""End-to-end coverage for an order-independent regular-package union."""
 
 load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py:defs.bzl", "py_test")
@@ -13,9 +13,6 @@ def _wheel_set_impl(ctx):
     site_packages_paths = []
     wheels = []
 
-    # `final` also claims the earlier `other` bucket. A global claimant map
-    # therefore moves it ahead of the regular-package contributors, while the
-    # canonical wheel sequence below keeps it last.
     for kind in ["other", "regular", "graft", "final"]:
         install_tree = ctx.actions.declare_directory("{}.install".format(kind))
         if kind == "other":
@@ -35,13 +32,15 @@ set -eu
 site="$1/lib/python$2.$3/site-packages"
 mkdir -p "$site/mixed/root"
 printf '' > "$site/mixed/root/__init__.py"
-printf 'VALUE = %s\n' "$4" > "$site/mixed/root/collision.py"
-printf 'VALUE = %s\n' "$4" > "$site/mixed/sibling.py"
+printf 'VALUE = "shared"\n' > "$site/mixed/root/shared.py"
+printf 'VALUE = %s\n' "$4" > "$site/mixed/root/regular_unique.py"
+printf 'VALUE = "sibling"\n' > "$site/mixed/sibling.py"
 """
             top_levels = ("mixed",)
             namespace_entries = (
                 "mixed/root/__init__.py",
-                "mixed/root/collision.py",
+                "mixed/root/shared.py",
+                "mixed/root/regular_unique.py",
                 "mixed/sibling.py",
             )
             namespace_dirs = ()
@@ -51,15 +50,13 @@ printf 'VALUE = %s\n' "$4" > "$site/mixed/sibling.py"
 set -eu
 site="$1/lib/python$2.$3/site-packages"
 mkdir -p "$site/mixed/root"
-printf 'VALUE = %s\n' "$4" > "$site/mixed/root/collision.py"
+printf 'VALUE = "shared"\n' > "$site/mixed/root/shared.py"
 printf 'VALUE = %s\n' "$4" > "$site/mixed/root/graft_unique.py"
-printf 'VALUE = %s\n' "$4" > "$site/mixed/sibling.py"
 """
             top_levels = ("mixed",)
             namespace_entries = (
-                "mixed/root/collision.py",
+                "mixed/root/shared.py",
                 "mixed/root/graft_unique.py",
-                "mixed/sibling.py",
             )
             namespace_dirs = ("mixed/root",)
             regular_roots = ()
@@ -68,16 +65,14 @@ printf 'VALUE = %s\n' "$4" > "$site/mixed/sibling.py"
 set -eu
 site="$1/lib/python$2.$3/site-packages"
 mkdir -p "$site/mixed/root" "$site/other"
-printf 'VALUE = %s\n' "$4" > "$site/mixed/root/collision.py"
+printf 'VALUE = "shared"\n' > "$site/mixed/root/shared.py"
 printf 'VALUE = %s\n' "$4" > "$site/mixed/root/final_unique.py"
-printf 'VALUE = %s\n' "$4" > "$site/mixed/sibling.py"
 printf 'VALUE = %s\n' "$4" > "$site/other/from_final.py"
 """
             top_levels = ("mixed", "other")
             namespace_entries = (
-                "mixed/root/collision.py",
+                "mixed/root/shared.py",
                 "mixed/root/final_unique.py",
-                "mixed/sibling.py",
                 "other/from_final.py",
             )
             namespace_dirs = ("mixed/root",)

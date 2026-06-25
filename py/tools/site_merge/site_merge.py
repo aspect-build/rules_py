@@ -1,26 +1,14 @@
-"""Site-packages subtree merger for aspect_rules_py venv assembly.
-
-Physically merges one package directory contributed by multiple wheels
-into a single output directory — the shape a flat `pip install` into one
-site-packages would produce.
-
-Needed when a *regular* package (one with an `__init__.py`) spans
-wheels: e.g. azure-core owns `azure/core/` while
-azure-core-tracing-opentelemetry installs
-`azure/core/tracing/ext/opentelemetry_span/` into that same tree.
-Python locks a regular package's `__path__` to the first directory
-found on `sys.path`, so unlike PEP 420 namespace portions the
-contributions cannot be merged at import time — they have to be merged
-on disk.
+"""Merge compatible package directories into one action-owned output.
 
 Invoked by Bazel as::
 
-    <exec_python> site_merge.py --into <dir> [--collision-policy P] --src <dir> [--src <dir> ...]
+    <exec_python> site_merge.py --into <dir> --src <path> [--src <path> ...]
 
-Each ``--src`` is one wheel's copy of the package directory, in overlay
-order: on conflicts the later wheel overlays the earlier one. Sources
-that don't exist are skipped (platform wheels for other architectures
-may not ship the directory).
+Sources must be directories. Their disjoint entries form a union, while
+overlapping claims must have the same type and value. Bazel may present
+tree-artifact files as sandbox symlinks; these are dereferenced before
+comparison and copying. Sources that do not exist are skipped
+(platform-specific inputs may be absent on the current platform).
 """
 
 import argparse
@@ -29,103 +17,134 @@ import os
 import shutil
 import stat
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 
-def _remove(path):
-    """Remove an output copied from a potentially read-only input."""
+@dataclass(frozen=True)
+class Claim:
+    kind: str
+    owner: Path
+    source: Path
 
-    def retry_readonly(function, candidate, exc_info):
-        error = exc_info[1]
-        if not isinstance(error, PermissionError):
-            raise error
-        candidate = Path(candidate)
-        candidate.chmod(candidate.stat().st_mode | stat.S_IWRITE)
-        function(candidate)
 
+class MergeConflict(ValueError):
+    pass
+
+
+def _kind(path):
+    if path.is_file():
+        return "regular file"
     if path.is_dir():
-        shutil.rmtree(path, onerror=retry_readonly)
-        return
-    try:
-        path.unlink()
-    except PermissionError:
-        path.chmod(path.stat().st_mode | stat.S_IWRITE)
-        path.unlink()
+        return "directory"
+    return "unsupported file type"
+
+
+def _executable_bits(path):
+    return stat.S_IMODE(path.stat().st_mode) & 0o111
+
+
+def _conflict(relative, first, second, reason):
+    raise MergeConflict(
+        "merge conflict at {}: owners {} and {}: {}".format(
+            relative, first.owner, second.owner, reason
+        )
+    )
+
+
+def _compare_claims(relative, first, second):
+    if first.kind != second.kind:
+        _conflict(
+            relative,
+            first,
+            second,
+            "type differs ({} vs {})".format(first.kind, second.kind),
+        )
+    if first.kind == "regular file":
+        if not filecmp.cmp(first.source, second.source, shallow=False):
+            _conflict(relative, first, second, "regular file contents differ")
+        first_executable = _executable_bits(first.source)
+        second_executable = _executable_bits(second.source)
+        if first_executable != second_executable:
+            _conflict(
+                relative,
+                first,
+                second,
+                "executable bits differ ({:03o} vs {:03o})".format(
+                    first_executable, second_executable
+                ),
+            )
+
+
+def _record(claims, relative, owner, source):
+    claim = Claim(_kind(source), owner, source)
+    if claim.kind == "unsupported file type":
+        raise MergeConflict(
+            "merge conflict at {}: owner {}: unsupported file type".format(
+                relative, owner
+            )
+        )
+    previous = claims.get(relative)
+    if previous is None:
+        claims[relative] = claim
+    else:
+        _compare_claims(relative, previous, claim)
+
+    if claim.kind == "directory":
+        for child in sorted(source.iterdir(), key=lambda path: path.name):
+            _record(claims, relative / child.name, owner, child)
+
+
+def _materialize(into, claims):
+    into.mkdir(parents=True, exist_ok=True)
+    if any(into.iterdir()):
+        raise ValueError("output directory is not empty: {}".format(into))
+
+    for relative, claim in sorted(
+        claims.items(), key=lambda item: (len(item[0].parts), item[0].parts)
+    ):
+        destination = into / relative
+        if claim.kind == "directory":
+            destination.mkdir()
+        elif claim.kind == "regular file":
+            shutil.copyfile(claim.source, destination)
+            shutil.copymode(claim.source, destination)
+        else:
+            raise AssertionError("unexpected claim kind: {}".format(claim.kind))
 
 
 def merge(into, sources):
-    into.mkdir(parents=True, exist_ok=True)
-    owners = {}
-    conflicts = []
-
-    for src in sources:
-        if not src.is_dir():
+    claims = {}
+    found_source = False
+    for source in sorted(sources, key=os.fspath):
+        if not os.path.lexists(source):
             continue
-        for root, dirs, files in os.walk(src):
-            dirs.sort()
-            files.sort()
-            rel_root = Path(root).relative_to(src)
-            for d in dirs:
-                rel = rel_root / d
-                dest_dir = into / rel_root / d
-                if dest_dir.exists() and not dest_dir.is_dir():
-                    conflicts.append((rel, owners.get(rel), src))
-                    _remove(dest_dir)
-                dest_dir.mkdir(parents=True, exist_ok=True)
-                owners[rel] = src
-            for f in files:
-                rel = rel_root / f
-                dest = into / rel
-                src_file = Path(root) / f
-                if dest.is_dir():
-                    conflicts.append((rel, owners.get(rel), src))
-                    _remove(dest)
-                prior = owners.get(rel)
-                if dest.exists():
-                    # The wheel extractor treats any execute bit as executable
-                    # (py/tools/unpack/unpack.py). Other mode differences may
-                    # reflect executor umask and are benign for identical data.
-                    if filecmp.cmp(str(src_file), str(dest), shallow=False):
-                        src_executable = bool(src_file.stat().st_mode & 0o111)
-                        dest_executable = bool(dest.stat().st_mode & 0o111)
-                        if src_executable != dest_executable:
-                            conflicts.append((rel, prior, src))
-                        shutil.copymode(str(src_file), str(dest))
-                        owners[rel] = src
-                        continue
-                    conflicts.append((rel, prior, src))
-                    _remove(dest)
-                shutil.copy(str(src_file), str(dest))
-                owners[rel] = src
+        found_source = True
+        if not source.is_dir():
+            raise MergeConflict(
+                "merge source {} is a {}; only directories can be merged".format(
+                    source, _kind(source)
+                )
+            )
+        for child in sorted(source.iterdir(), key=lambda path: path.name):
+            _record(claims, Path(child.name), source, child)
 
-    return conflicts
+    if not found_source:
+        raise ValueError("no source paths exist")
+    _materialize(into, claims)
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--into", required=True, type=Path)
-    ap.add_argument("--src", dest="sources", action="append", default=[], type=Path)
-    ap.add_argument(
-        "--collision-policy",
-        default="warning",
-        choices=["error", "warning", "ignore"],
-    )
-    args = ap.parse_args()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--into", required=True, type=Path)
+    parser.add_argument("--src", dest="sources", action="append", default=[], type=Path)
+    args = parser.parse_args()
 
-    conflicts = merge(args.into, args.sources)
-
-    if conflicts and args.collision_policy != "ignore":
-        for rel, previous, current in conflicts:
-            print(
-                "Package collision while merging {}: `{}` is provided by both {} and {}.".format(
-                    args.into, rel, previous, current
-                ),
-                file=sys.stderr,
-            )
-        if args.collision_policy == "error":
-            raise SystemExit(
-                'Set `package_collisions = "warning"` or "ignore" to downgrade.'
-            )
+    try:
+        merge(args.into, args.sources)
+    except (MergeConflict, ValueError) as error:
+        print(error, file=sys.stderr)
+        raise SystemExit(1) from error
 
 
 if __name__ == "__main__":

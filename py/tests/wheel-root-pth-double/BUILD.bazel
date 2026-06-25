@@ -3,10 +3,9 @@ load("//py:defs.bzl", "py_test", "py_unpacked_wheel")
 # Regression gate for assemble_venv's `_format_imp` fallback (see
 # double_pth_test.py). Two hand-built wheels, each emitting PyWheelsInfo
 # (they set `top_levels`) and each shipping a distinct root `.pth` that
-# appends a unique sentinel to sys.path. Both claim the top-level
-# `shared`, so the collision loser is forced through the
-# `site.addsitedir` fallback — where a wheel-root `.pth` whose top-level
-# was also projected into the venv would otherwise fire twice.
+# appends a unique sentinel to sys.path. Both contribute compatible files to
+# the top-level `shared`, so venv assembly unions the directory and accounts
+# for both wheel roots without a `site.addsitedir` fallback.
 
 # A wheel is just a zip; build minimal ones with the prebuilt zipper so
 # the test needs no pip / uv environment. Internal layout mirrors what
@@ -93,8 +92,8 @@ py_test(
     # isolated launcher suppresses.
     isolated = False,
     main = "double_pth_test.py",
-    # The two wheels collide on `shared`; downgrade so the build doesn't
-    # fail before the venv is assembled.
+    # The two wheels collide on `shared`; permissive mode unions compatible
+    # directory contents.
     package_collisions = "warning",
     deps = [
         ":pthtest_a",

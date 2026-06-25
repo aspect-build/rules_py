@@ -193,12 +193,15 @@ Only works with the Aspect rules_py uv machinery.
 
 See `py_binary`'s attribute of the same name for full semantics — the two rules
 share the underlying collision detector. PEP 420 namespace top-levels merge.
-For ordinary top-levels, exact namespace entries, and console scripts,
-permissive modes select the last distinct claimant in the postorder wheel
-sequence. Regular-package spans overlay in that sequence; incompatible
-namespace prefixes retain the shallower entry. Wheels not represented in
-`PyWheelsInfo` remain on the `.pth` fallback. A duplicate dependency edge does
-not reinsert a wheel.
+For ordinary top-level directories and regular-package spans, permissive modes
+union all contributors. Disjoint entries and identical files within those
+directories are accepted. File-valued top-level collisions, differing contents
+or executable bits, and file/directory conflicts fail rather than selecting
+code by dependency-graph order. Exact namespace entries and console scripts
+select the last distinct claimant in the postorder wheel sequence;
+incompatible namespace prefixes retain the shallower entry. Wheels not
+represented in `PyWheelsInfo` remain on the `.pth` fallback. A duplicate
+dependency edge does not reinsert a wheel.
 
 * "error": Fail analysis or the physical merge action.
 * "warning" (default): Print a warning and apply the permissive behavior above.
@@ -259,9 +262,8 @@ environment. Forwarded to the sibling py_binary/py_test consumer
         allow_single_file = True,
         default = ":_virtualenv.py",
     ),
-    # Tool for physically merging a regular package that spans wheels
-    # (e.g. azure-core + azure-core-tracing-opentelemetry both
-    # installing into `azure/core/tracing/`) — see assemble_venv.
+    # Tool for unioning compatible package directories from multiple wheels —
+    # see assemble_venv.
     "_site_merge_script": attr.label(
         allow_single_file = True,
         default = "//py/tools/site_merge:site_merge.py",
