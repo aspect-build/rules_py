@@ -1,0 +1,7 @@
+schemaVersion: 2.0.0
+
+commandTests:
+  - name: server binary runs correctly (issue #1120 regression)
+    exitCode: 0
+    command: /app
+    expectedOutput: ["server ok"]

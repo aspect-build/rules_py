@@ -568,9 +568,7 @@ def _apply_strip_prefix(sp, strip_prefix, root):
     if sp == prefix:
         return "." + root
 
-    # `prefix + "."` catches the binary's own `*.runfiles/...` tree; `prefix + "/"`
-    # catches files actually under a directory named `prefix`.
-    if sp.startswith(prefix + ".") or sp.startswith(prefix + "/"):
+    if sp.startswith(prefix + ".runfiles/") or sp.startswith(prefix + "/"):
         return "." + root + sp[len(prefix):]
     return "./app.runfiles/_main/" + sp
 
