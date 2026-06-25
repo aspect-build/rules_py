@@ -17,6 +17,5 @@ interpreters.toolchain(
 use_repo(
     interpreters,
     "python_3_15_x86_64_unknown_linux_gnu",
-    "python_3_15_x86_64_unknown_linux_gnu_freethreaded_debug",
-    "python_3_15_x86_64_unknown_linux_gnu_freethreaded_pgo_lto",
+    "python_3_15_x86_64_unknown_linux_gnu_freethreaded",
 )

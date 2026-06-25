@@ -1,3 +1,4 @@
+#define Py_LIMITED_API 0x03080000
 #include <Python.h>
 
 static PyObject *add(PyObject *, PyObject *args) {
@@ -9,20 +10,14 @@ static PyObject *add(PyObject *, PyObject *args) {
   return PyLong_FromLong(left + right);
 }
 
-static PyObject *version_hex(PyObject *, PyObject *) {
-  return PyLong_FromUnsignedLong(PY_VERSION_HEX);
-}
-
 static PyMethodDef methods[] = {
     {"add", add, METH_VARARGS, "Add two integers."},
-    {"version_hex", version_hex, METH_NOARGS,
-     "Return the Python header version used to compile this module."},
     {nullptr, nullptr, 0, nullptr},
 };
 
 static PyModuleDef module = {
     PyModuleDef_HEAD_INIT,
-    "example_library",
+    "limited_api_library",
     nullptr,
     -1,
     methods,
@@ -30,6 +25,8 @@ static PyModuleDef module = {
 
 extern "C" {
 
-PyMODINIT_FUNC PyInit_example_library() { return PyModule_Create(&module); }
+PyMODINIT_FUNC PyInit_limited_api_library() {
+  return PyModule_Create(&module);
+}
 
 }

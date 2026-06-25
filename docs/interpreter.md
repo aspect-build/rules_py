@@ -21,6 +21,12 @@ older release date that includes it.
 box, including Windows (x86_64, aarch64, i686), Linux (glibc and musl), and
 macOS.
 
+**Native extension toolchains.** Each PBS interpreter repository defines a
+`rules_python` C toolchain over that archive's headers and required Windows
+import libraries. Regular runtimes also expose stable-ABI headers.
+Free-threaded runtimes expose only the full ABI; the `abi3t` ABI introduced
+by [PEP 803](https://peps.python.org/pep-0803/) is not yet modeled.
+
 ## Quickstart
 
 ```starlark
@@ -176,25 +182,22 @@ versions:
 
 The target attribute takes precedence over the build-wide flag.
 
-## Build configurations
+## Runtime modes
 
-PBS provides several build configurations. The default is `install_only`, which
-is PGO+LTO optimized on platforms that support it. You can select a different
-configuration per toolchain:
+The extension registers one normal `install_only` PBS archive for each
+available Python version and platform. It also registers an optimized
+free-threaded archive where PBS publishes one, currently for Python 3.13 and
+newer. Normal mode is selected by default. Select free-threaded mode with the
+build setting:
 
-```starlark
-interpreters.toolchain(
-    python_version = "3.12",
-    build_config = "install_only_stripped",  # Smaller, debug symbols removed
-)
+```shell
+bazel build \
+    --@aspect_rules_py//py/private/interpreter:freethreaded=true \
+    //...
 ```
 
-Available configurations:
-
-- `install_only` — Standard optimized build (default)
-- `install_only_stripped` — Same but with debug symbols stripped
-- `freethreaded+pgo+lto` — Free-threaded (no GIL) with PGO+LTO optimization
-- `freethreaded+debug` — Free-threaded debug build
+`interpreters.toolchain()` chooses Python versions; the build setting above
+selects runtime mode.
 
 ## Platforms
 
