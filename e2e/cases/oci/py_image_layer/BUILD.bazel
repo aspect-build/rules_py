@@ -206,3 +206,40 @@ container_structure_test(
         "skip-on-bazel9",
     ],
 )
+
+# Regression test for https://github.com/aspect-build/rules_py/issues/1120
+# When the binary name matches the source file name (e.g. "server" / "server.py"),
+# py_image_layer used to incorrectly rename the source file.
+py_binary(
+    name = "server",
+    srcs = ["server.py"],
+)
+
+py_image_layer(
+    name = "server_layers",
+    binary = ":server",
+)
+
+oci_image(
+    name = "server_image",
+    base = "@ubuntu",
+    entrypoint = ["/app"],
+    tars = [":server_layers"],
+)
+
+platform_transition_filegroup(
+    name = "amd64_server_image",
+    srcs = [":server_image"],
+    target_platform = ":x86_64_linux",
+)
+
+container_structure_test(
+    name = "server_image_command_test",
+    args = ["--verbosity=debug"],
+    configs = ["server_image_command_test.yaml"],
+    image = ":amd64_server_image",
+    platform = "linux/amd64",
+    tags = [
+        "requires-docker",
+    ],
+)
