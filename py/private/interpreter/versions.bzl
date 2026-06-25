@@ -130,28 +130,33 @@ PLATFORMS = {
 # - extension: the archive file extension
 # - strip_prefix: the prefix to strip when extracting
 # - freethreaded: whether this is a free-threaded build
+# - abi_flags: CPython ABI flags for the build
 #
 # buildifier: disable=unsorted-dict-items
 BUILD_CONFIGS = {
     "install_only": {
+        "abi_flags": "",
         "suffix": "install_only",
         "extension": "tar.gz",
         "strip_prefix": "python",
         "freethreaded": False,
     },
     "install_only_stripped": {
+        "abi_flags": "",
         "suffix": "install_only_stripped",
         "extension": "tar.gz",
         "strip_prefix": "python",
         "freethreaded": False,
     },
     "freethreaded+pgo+lto": {
+        "abi_flags": "t",
         "suffix": "freethreaded+pgo+lto-full",
         "extension": "tar.zst",
         "strip_prefix": "python/install",
         "freethreaded": True,
     },
     "freethreaded+debug": {
+        "abi_flags": "td",
         "suffix": "freethreaded+debug-full",
         "extension": "tar.zst",
         "strip_prefix": "python/install",

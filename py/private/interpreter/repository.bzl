@@ -29,17 +29,29 @@ def _python_interpreter_impl(rctx):
     major = version_parts[0]
     minor = version_parts[1]
     micro = version_parts[2] if len(version_parts) > 2 else "0"
+    releaselevel = "final"
+    serial = "0"
+    for marker, level in [("rc", "candidate"), ("b", "beta"), ("a", "alpha")]:
+        marker_index = micro.find(marker)
+        if marker_index >= 0:
+            serial = micro[marker_index + len(marker):] or "0"
+            micro = micro[:marker_index] or "0"
+            releaselevel = level
+            break
 
     # Delete terminfo symlink loops on newer PBS releases (linux only)
     if "linux" in platform:
         rctx.delete("share/terminfo")
 
     rctx.file("BUILD.bazel", content = _build_file_content(
+        abi_flags = rctx.attr.abi_flags,
         major = major,
         minor = minor,
         micro = micro,
         python_bin = python_bin,
         is_windows = is_windows,
+        releaselevel = releaselevel,
+        serial = serial,
     ))
 
     if not features.external_deps.extension_metadata_has_reproducible:
@@ -81,7 +93,7 @@ filegroup(
 
     return "\n".join(lines), all_excludes
 
-def _build_file_content(major, minor, micro, python_bin, is_windows):
+def _build_file_content(major, minor, micro, python_bin, is_windows, abi_flags, releaselevel, serial):
     """Generate the full BUILD.bazel content for an interpreter repo."""
 
     feature_targets, feature_excludes = _feature_filegroups(major, minor, is_windows)
@@ -141,12 +153,15 @@ filegroup(
 
 py_runtime(
     name = "py3_runtime",
+    abi_flags = "{abi_flags}",
     files = [":files"],
     interpreter = "{python_bin}",
     interpreter_version_info = {{
         "major": "{major}",
         "minor": "{minor}",
         "micro": "{micro}",
+        "releaselevel": "{releaselevel}",
+        "serial": "{serial}",
     }},
     python_version = "PY3",
 )
@@ -161,10 +176,13 @@ py_exec_tools_toolchain(
     name = "exec_tools_toolchain",
 )
 """.format(
+        abi_flags = abi_flags,
         python_bin = python_bin,
         major = major,
         minor = minor,
         micro = micro,
+        releaselevel = releaselevel,
+        serial = serial,
         feature_targets = feature_targets,
         feature_selects = feature_selects,
         core_include = core_include,
@@ -174,6 +192,7 @@ py_exec_tools_toolchain(
 python_interpreter = repository_rule(
     implementation = _python_interpreter_impl,
     attrs = {
+        "abi_flags": attr.string(default = ""),
         "freethreaded": attr.bool(default = False),
         "platform": attr.string(mandatory = True),
         "python_version": attr.string(default = ""),
