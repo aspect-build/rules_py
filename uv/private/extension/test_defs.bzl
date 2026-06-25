@@ -1,7 +1,7 @@
 """Unit tests for helpers in defs.bzl"""
 
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load(":defs.bzl", "url_basename")
+load(":defs.bzl", "parse_declared_console_script", "url_basename")
 
 def _url_basename_test_impl(ctx):
     env = unittest.begin(ctx)
@@ -52,8 +52,31 @@ def _url_basename_test_impl(ctx):
 
 url_basename_test = unittest.make(_url_basename_test_impl)
 
+def _declared_console_script_test_impl(ctx):
+    env = unittest.begin(ctx)
+
+    asserts.equals(
+        env,
+        "tool=package.cli:commands.main",
+        parse_declared_console_script("tool", "package.cli:commands.main"),
+    )
+    asserts.equals(
+        env,
+        None,
+        parse_declared_console_script("tool=other", "package.cli:main"),
+        "an equals sign in the script name must not change the encoded assignment",
+    )
+
+    return unittest.end(env)
+
+declared_console_script_test = unittest.make(_declared_console_script_test_impl)
+
 def defs_test_suite():
     unittest.suite(
         "url_basename_tests",
         url_basename_test,
+    )
+    unittest.suite(
+        "declared_console_script_tests",
+        declared_console_script_test,
     )

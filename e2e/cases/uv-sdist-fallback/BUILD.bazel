@@ -1,4 +1,5 @@
-load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_test")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
 
 # Regression coverage for the sdist-fallback behavior preserved by the
 # "always keep sdist fallbacks when sources exist" fix. cowsay 6.0 has both
@@ -14,4 +15,47 @@ py_test(
     deps = [
         "@pypi_sdist_fallback//cowsay",
     ],
+)
+
+# Repository analysis cannot inspect source-built cowsay's wheel metadata.
+# Image layering must still discover its install tree through PyWheelsInfo.
+py_binary(
+    name = "image_bin",
+    testonly = True,
+    srcs = ["__test__.py"],
+    dep_group = "uv_sdist_fallback",
+    main = "__test__.py",
+    python_version = "3.11",
+    deps = ["@pypi_sdist_fallback//cowsay"],
+)
+
+py_image_layer(
+    name = "image_layers",
+    testonly = True,
+    binary = ":image_bin",
+)
+
+filegroup(
+    name = "image_dependency_layers",
+    testonly = True,
+    srcs = [":image_layers"],
+    output_group = "deps",
+)
+
+genrule(
+    name = "source_wheel_image_contents",
+    testonly = True,
+    srcs = [":image_dependency_layers"],
+    outs = ["source_wheel_image_contents.txt"],
+    cmd = """
+for layer in $(SRCS); do
+  $(BSDTAR_BIN) -tf "$$layer"
+done | grep -F '/site-packages/cowsay/__init__.py' > $@
+""",
+    toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
+)
+
+build_test(
+    name = "source_wheel_image_test",
+    targets = [":source_wheel_image_contents"],
 )

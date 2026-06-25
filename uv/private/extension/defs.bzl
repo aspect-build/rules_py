@@ -67,7 +67,7 @@ load("//uv/private/sdist_configure:defs.bzl", "DEFAULT_CONFIGURE_SCRIPT")
 load("//uv/private/tomltool:toml.bzl", "toml")
 load("//uv/private/uv_hub:repository.bzl", "uv_hub")
 load("//uv/private/uv_project:repository.bzl", "uv_project")
-load("//uv/private/whl_install:repository.bzl", "whl_install")
+load("//uv/private/whl_install:repository.bzl", "parse_console_script", "whl_install")
 load(":graph_utils.bzl", "activate_extras", "collect_sccs")
 load(":lockfile.bzl", "build_marker_graph", "collect_bdists", "collect_configurations", "collect_markers", "collect_sdists", "normalize_deps")
 load(":projectfile.bzl", "collate_versions_by_name", "collect_activated_extras", "extract_requirement_marker_pairs")
@@ -90,6 +90,32 @@ def url_basename(url):
     if not basename:
         fail("Invalid distribution URL (no file name): " + url)
     return basename
+
+def parse_declared_console_script(name, entry_point):
+    """Canonicalize one override_package console-script declaration.
+
+    Args:
+        name: Script name installed under the venv's bin directory.
+        entry_point: Python entry point encoded as module:object.
+
+    Returns:
+        The canonical name=module:object string, or None when invalid.
+    """
+    whitespace = [" ", "\t", "\n", "\r"]
+    if (
+        name in ("", ".", "..") or
+        "/" in name or
+        "\\" in name or
+        "=" in name or
+        "=" in entry_point or
+        "[" in entry_point or
+        "]" in entry_point or
+        len(entry_point.split(":")) != 2 or
+        any([char in name or char in entry_point for char in whitespace])
+    ):
+        return None
+    parsed = parse_console_script("{}={}".format(name, entry_point))
+    return parsed[1] if parsed != None else None
 
 def _merge_scc_dep_markers_by_surface_package(marked_deps):
     merged = {}
@@ -230,6 +256,7 @@ def _parse_projects(module_ctx, hub_specs):
 
             # Collect package overrides, validating no duplicates per (lock, name, version).
             package_overrides = {}
+            package_console_scripts = {}
             for override in mod.tags.override_package:
                 if override.lock != project.lock:
                     continue
@@ -246,8 +273,22 @@ def _parse_projects(module_ctx, hub_specs):
                         project.lock,
                     ))
 
+                console_scripts = []
+                for raw_script_name, raw_entry_point in sorted(override.console_scripts.items()):
+                    console_script = parse_declared_console_script(raw_script_name, raw_entry_point)
+                    if console_script == None:
+                        fail("uv.override_package() for '{}=={}' in lock '{}': `console_scripts` must map valid script names to `module:object` entry points; got {} = {}".format(
+                            override.name,
+                            v,
+                            project.lock,
+                            repr(raw_script_name),
+                            repr(raw_entry_point),
+                        ))
+                    console_scripts.append(console_script)
+
                 has_target = override.target != None
                 has_modifications = (
+                    override.console_scripts or
                     override.pre_build_patches or
                     override.post_install_patches or
                     override.extra_deps or
@@ -262,9 +303,10 @@ def _parse_projects(module_ctx, hub_specs):
                     fail("uv.override_package() for '{}': `target` is mutually exclusive with modification attributes. Use `target` for full replacement OR build, patch, and data attributes for modifications, not both.".format(override.name))
 
                 if not has_target and not has_modifications:
-                    fail("uv.override_package() for '{}': must specify either `target` for full replacement or at least one modification attribute (pre_build_patches, post_install_patches, extra_deps, extra_data, toolchains, env, monitor_memory, resource_set).".format(override.name))
+                    fail("uv.override_package() for '{}': must specify either `target` for full replacement or at least one modification attribute (console_scripts, pre_build_patches, post_install_patches, extra_deps, extra_data, toolchains, env, monitor_memory, resource_set).".format(override.name))
 
                 package_overrides[override_key] = override
+                package_console_scripts[override_key] = console_scripts
 
                 k = (project_id, normalize_name(override.name), v, "__base__")
                 if has_target:
@@ -360,6 +402,15 @@ def _parse_projects(module_ctx, hub_specs):
                 install_table[install_key] = install_target
                 sbuild_id = "sdist_build__{}__{}__{}".format(project_stamp, package["name"], normalize_version(package["version"]))
                 sdist = sdist_table.get(sbuild_id)
+                override_key = (normalize_name(package["name"]), package["version"])
+                pkg_override = package_overrides.get(override_key)
+                sbuild_console_scripts = package_console_scripts.get(override_key, [])
+                if sbuild_console_scripts and not sdist:
+                    fail("uv.override_package() for '{}=={}' in lock '{}': `console_scripts` requires a source distribution, but the lock record has only wheels".format(
+                        package["name"],
+                        package["version"],
+                        project.lock,
+                    ))
 
                 # WARNING: Loop invariant; this flag needs to be False by
                 # default and set if we do a build.
@@ -401,7 +452,6 @@ def _parse_projects(module_ctx, hub_specs):
                     build_deps = sets.to_list(sets.make(build_deps + lock_build_deps))
 
                     # Look up pre-build patches for this package
-                    pkg_override = package_overrides.get((normalize_name(package["name"]), package["version"]))
                     pre_build_patches = []
                     pre_build_patch_strip = 0
                     if pkg_override and pkg_override.pre_build_patches:
@@ -439,7 +489,6 @@ def _parse_projects(module_ctx, hub_specs):
                     has_sbuild = True
 
                 # Look up post-install patches and BUILD modifications
-                pkg_override = package_overrides.get((normalize_name(package["name"]), package["version"]))
                 post_install_patches = []
                 post_install_patch_strip = 0
                 extra_deps = []
@@ -498,6 +547,7 @@ def _parse_projects(module_ctx, hub_specs):
                     metadata_directory = metadata_directory or "",
                     whls = whls,
                     sbuild = "@{}//:whl".format(sbuild_id) if has_sbuild else None,
+                    sbuild_console_scripts = sbuild_console_scripts,
                     post_install_patches = post_install_patches,
                     post_install_patch_strip = post_install_patch_strip,
                     extra_deps = extra_deps,
@@ -674,6 +724,7 @@ def _uv_impl(module_ctx):
             "metadata_directory": install_cfg.metadata_directory,
             "name": install_id,
             "sbuild": install_cfg.sbuild,
+            "sbuild_console_scripts": install_cfg.sbuild_console_scripts,
             "whls": json.encode(install_cfg.whls),
             # Parallel list of the same wheel labels as a real label_list,
             # so the whl_install repo rule can `rctx.path()` them to peek
@@ -763,6 +814,9 @@ _override_package_tag = tag_class(
         # Full replacement: provide a target that substitutes for the package entirely.
         # Mutually exclusive with patch/exclude attributes.
         "target": attr.label(mandatory = False),
+        "console_scripts": attr.string_dict(
+            doc = "Complete console scripts for a source-built wheel, mapping script names to module:object entry points.",
+        ),
         "monitor_memory": attr.bool(
             default = False,
             doc = "Report approximate Linux process-tree RSS while building this package's wheel.",

@@ -1,7 +1,15 @@
 load("@aspect_rules_py//py:defs.bzl", "py_library")
 load("@aspect_rules_py//uv/private/whl_install:defs.bzl", "select_chain")
-load("@aspect_rules_py//uv/private/whl_install:rule.bzl", "whl_install")
+load("@aspect_rules_py//uv/private/whl_install:rule.bzl", "source_built_wheel", "whl_install")
 load("@bazel_skylib//lib:selects.bzl", "selects")
+
+source_built_wheel(
+    name = "source_built_wheel",
+    src = "@@aspect_rules_py++uv+sdist_build__abi3_compat__cryptography__46_0_5//:whl",
+    console_scripts = [],
+    visibility = ["//visibility:private"],
+)
+
 
 select_chain(
    name = "whl",
@@ -189,7 +197,7 @@ select_chain(
         "@aspect_rules_py_pip_configurations//:cp38-win32-abi3": "@whl__cryptography__02f547fce831f509//file",
         "@aspect_rules_py_pip_configurations//:cp38-win_amd64-abi3": "@whl__cryptography__556e106ee01aa134//file"
    },
-   default_target = "@@aspect_rules_py++uv+sdist_build__abi3_compat__cryptography__46_0_5//:whl",
+   default_target = ":source_built_wheel",
    visibility = ["//visibility:public"],
 )
 

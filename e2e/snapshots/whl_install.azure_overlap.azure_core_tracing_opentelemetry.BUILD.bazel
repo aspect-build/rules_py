@@ -1,14 +1,22 @@
 load("@aspect_rules_py//py:defs.bzl", "py_library")
 load("@aspect_rules_py//uv/private/whl_install:defs.bzl", "select_chain")
-load("@aspect_rules_py//uv/private/whl_install:rule.bzl", "whl_install")
+load("@aspect_rules_py//uv/private/whl_install:rule.bzl", "source_built_wheel", "whl_install")
 load("@bazel_skylib//lib:selects.bzl", "selects")
+
+source_built_wheel(
+    name = "source_built_wheel",
+    src = "@@aspect_rules_py++uv+sdist_build__azure_core_tracing_import__azure_core_tracing_opentelemetry__1_0_0b11//:whl",
+    console_scripts = [],
+    visibility = ["//visibility:private"],
+)
+
 
 select_chain(
    name = "whl",
    arms = {
         "@aspect_rules_py_pip_configurations//:py3-any-none": "@whl__azure_core_tracing_opentelemetry__016cefcaff2900fb//file"
    },
-   default_target = "@@aspect_rules_py++uv+sdist_build__azure_core_tracing_import__azure_core_tracing_opentelemetry__1_0_0b11//:whl",
+   default_target = ":source_built_wheel",
    visibility = ["//visibility:public"],
 )
 
