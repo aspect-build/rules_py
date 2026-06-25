@@ -44,6 +44,7 @@ jobs:
                 # e2e is the large workspace; give it a beefier runner.
                 - { path: "e2e", slug: "e2e", runner: "ubuntu-22.04-32core" }
                 - { path: "examples/uv_pip_compile", slug: "examples-uv_pip_compile", runner: "ubuntu-latest" }
+                - { path: "examples/protobuf", slug: "examples-protobuf", runner: "ubuntu-22.04-32core" }
                 bazel:
                 - { id: "bazel-8", version: "8.x", flags: "--bazel-flag=--test_tag_filters=-skip-on-bazel8" }
                 - { id: "bazel-9", version: "9.x", flags: "--bazel-flag=--test_tag_filters=-skip-on-bazel9" }

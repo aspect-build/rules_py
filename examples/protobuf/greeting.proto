@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package example.protobuf;
+
+// A trivial message used to prove the generated `*_pb2` module — produced by
+// protobuf's `py_proto_library` and backed by the protobuf Python runtime —
+// can be imported and round-tripped from a rules_py target.
+message Greeting {
+  string recipient = 1;
+  int32 times = 2;
+}
