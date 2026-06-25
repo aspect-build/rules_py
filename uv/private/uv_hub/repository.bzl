@@ -225,6 +225,11 @@ _GROUP_DEPS = select(
     no_match_error = {no_match_error},
 )
 
+def group_dep_labels(group):
+    if group not in _DEPS_BY_GROUP:
+        fail("unknown dep_group %r; expected one of: %s" % (group, ", ".join(sorted(_DEPS_BY_GROUP))))
+    return [Label(dep) for dep in _DEPS_BY_GROUP[group]]
+
 def group_deps():
     return _GROUP_DEPS
 """.format(
@@ -284,9 +289,9 @@ uv_hub = repository_rule(
 
     Lays down two loadable files:
 
-    - `defs.bzl` (rules_py-native): the `group_deps()` helper plus the
-      `compatible_with` / `incompatible_with` constraint helpers and the
-      `VIRTUALENVS` list.
+    - `defs.bzl` (rules_py-native): the `group_deps()` and
+      `group_dep_labels()` helpers plus the `compatible_with` /
+      `incompatible_with` constraint helpers and the `VIRTUALENVS` list.
     - `requirements.bzl`: a rules_python-compatibility shim (`all_requirements`,
       `requirement()`, and friends).
 
@@ -303,6 +308,11 @@ uv_hub = repository_rule(
     It is a function rather than a value so that future options -- such as
     PEP 508 package extras -- can be added as keyword arguments without breaking
     callers.
+
+    `group_dep_labels(name)` returns the membership list for an explicit group
+    as sorted `Label` values. This supports macros that must inspect normalized
+    package names during package loading. The aliases still resolve under the
+    active `dep_group`, so consuming targets must use the matching group.
     """,
     implementation = _hub_impl,
     attrs = {

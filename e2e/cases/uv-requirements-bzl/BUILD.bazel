@@ -13,6 +13,7 @@ load(
     # follows the consuming target's dep_group, so the group name is never
     # repeated in deps.
     "@pypi_requirements_by_dep_group//:defs.bzl",
+    "group_dep_labels",
     multi_group_deps = "group_deps",
 )
 load(
@@ -31,6 +32,21 @@ load(
 # all_data_requirements == all_requirements (rules_python-compat alias);
 # referenced once so buildifier doesn't strip the load.
 _ALL_DATA_REQUIREMENTS_COUNT = len(all_data_requirements)
+
+_EXPLICIT_DEMO_DEPS = group_dep_labels("requirements-bzl-demo")
+
+_EXPECTED_EXPLICIT_DEMO_PACKAGES = [
+    "cowsay",
+    "python_dateutil",
+    "requirements_bzl_demo",
+    "six",
+]
+
+_EXPLICIT_DEMO_PACKAGES = [dep.package for dep in _EXPLICIT_DEMO_DEPS]
+
+_EXPLICIT_DEMO_DEPS_CHECK = None if _EXPLICIT_DEMO_PACKAGES == _EXPECTED_EXPLICIT_DEMO_PACKAGES else fail(
+    "unexpected explicit demo dependencies: {}".format(_EXPLICIT_DEMO_DEPS),
+)
 
 # requirement(name) returns the :pkg alias.
 py_test(
@@ -115,11 +131,9 @@ py_test(
     deps = multi_group_deps(),
 )
 
-# group_deps(): the SAME function used under two different dep_group attrs must
-# resolve to each group's list, with the group name never repeated in deps.
-# demo -> cowsay (shared with group-b) + python-dateutil + six (exclusive to
-# demo). group-b's exclusive wcwidth must NOT appear here, or it is incompatible
-# under this dep_group and analysis fails.
+# group_deps(): the same function resolves to the demo group's dependencies
+# under this target's dep_group. Together with the group-b target below, this
+# pins both populated select arms and their shared cowsay dependency.
 py_test(
     name = "group_deps_demo_test",
     srcs = ["__multi_test__.py"],
@@ -129,10 +143,19 @@ py_test(
     deps = multi_group_deps(),
 )
 
-# group-b -> cowsay (shared) + wcwidth (exclusive). Same function as above; if
-# the select did not track the active dep_group it would resolve to demo's
-# incompatible list and analysis would fail. Together these pin bidirectional
-# exclusion plus the shared-package overlap (cowsay in both groups' lists).
+# group_dep_labels(): macros can inspect one explicit group's membership before
+# target configuration. Analyze these aliases under the matching dep_group.
+py_test(
+    name = "group_dep_labels_demo_test",
+    srcs = ["__multi_test__.py"],
+    dep_group = "requirements-bzl-demo",
+    main = "__multi_test__.py",
+    python_version = "3.12",
+    deps = _EXPLICIT_DEMO_DEPS,
+)
+
+# group-b -> cowsay (shared) + wcwidth (exclusive). Resolving to the demo arm
+# would introduce incompatible python-dateutil and six targets.
 py_test(
     name = "group_deps_group_b_test",
     srcs = ["__group_b_test__.py"],
