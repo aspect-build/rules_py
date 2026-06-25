@@ -82,10 +82,14 @@ def merge(into, sources):
                     _remove(dest)
                 prior = owners.get(rel)
                 if dest.exists():
-                    # Byte-identical duplicates (e.g.
-                    # an empty __init__.py or py.typed shipped by both
-                    # wheels) are benign and not reported.
+                    # The wheel extractor treats any execute bit as executable
+                    # (py/tools/unpack/unpack.py). Other mode differences may
+                    # reflect executor umask and are benign for identical data.
                     if filecmp.cmp(str(src_file), str(dest), shallow=False):
+                        src_executable = bool(src_file.stat().st_mode & 0o111)
+                        dest_executable = bool(dest.stat().st_mode & 0o111)
+                        if src_executable != dest_executable:
+                            conflicts.append((rel, prior, src))
                         shutil.copymode(str(src_file), str(dest))
                         owners[rel] = src
                         continue
