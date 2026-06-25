@@ -6,6 +6,89 @@ load("//py:defs.bzl", "py_binary", "py_library", "py_test")
 load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
 
+def _mixed_wheel_impl(ctx):
+    """Synthetic wheel for mixed namespace/regular collision tests.
+
+    The 'regular' kind ships `mixed_top/__init__.py` (making `mixed_top` a
+    regular package in that wheel), while the 'namespace' kind ships only
+    `mixed_top/from_namespace.py` with no `__init__.py` at the top level
+    (PEP 420 namespace). Without the mixed-collision fix both would have
+    claimed the same concrete symlink and one would shadow the other.
+    """
+    py_runtime = ctx.toolchains[PY_TOOLCHAIN].py3_runtime
+    install_tree = ctx.actions.declare_directory(ctx.label.name + ".install")
+    major = py_runtime.interpreter_version_info.major
+    minor = py_runtime.interpreter_version_info.minor
+    if ctx.attr.kind == "regular":
+        command = """
+set -eu
+site="$1/lib/python$2.$3/site-packages"
+mkdir -p "$site/mixed_top"
+printf '' > "$site/mixed_top/__init__.py"
+printf 'VALUE = "regular"\n' > "$site/mixed_top/from_regular.py"
+"""
+        top_levels = ("mixed_top",)
+        namespace_top_levels = ()
+        namespace_entries = ()
+        namespace_dirs = ()
+        regular_roots = ()
+    else:
+        command = """
+set -eu
+site="$1/lib/python$2.$3/site-packages"
+mkdir -p "$site/mixed_top"
+printf 'VALUE = "namespace"\n' > "$site/mixed_top/from_namespace.py"
+"""
+        top_levels = ("mixed_top",)
+        namespace_top_levels = ("mixed_top",)
+        namespace_entries = ("mixed_top/from_namespace.py",)
+        namespace_dirs = ()
+        regular_roots = ()
+    ctx.actions.run_shell(
+        outputs = [install_tree],
+        command = command,
+        arguments = [install_tree.path, str(major), str(minor)],
+    )
+    site_packages = "/".join([
+        segment
+        for segment in [
+            ctx.label.repo_name or ctx.workspace_name,
+            ctx.label.package,
+            install_tree.basename,
+        ]
+        if segment
+    ] + ["lib/python{}.{}/site-packages".format(major, minor)])
+    wheel = struct(
+        top_levels = top_levels,
+        namespace_top_levels = namespace_top_levels,
+        namespace_entries = namespace_entries,
+        namespace_dirs = namespace_dirs,
+        regular_roots = regular_roots,
+        site_packages_rfpath = site_packages,
+        console_scripts = (),
+        install_tree = install_tree,
+    )
+    return [
+        DefaultInfo(
+            files = depset([install_tree]),
+            runfiles = ctx.runfiles(files = [install_tree]),
+        ),
+        PyInfo(
+            imports = depset([site_packages]),
+            transitive_sources = depset([install_tree]),
+            has_py2_only_sources = False,
+            has_py3_only_sources = True,
+            uses_shared_libraries = False,
+        ),
+        PyWheelsInfo(wheels = depset([wheel])),
+    ]
+
+_mixed_wheel = rule(
+    implementation = _mixed_wheel_impl,
+    attrs = {"kind": attr.string(mandatory = True)},
+    toolchains = [PY_TOOLCHAIN],
+)
+
 def _wheel_impl(ctx):
     py_runtime = ctx.toolchains[PY_TOOLCHAIN].py3_runtime
     install_tree = ctx.actions.declare_directory(ctx.label.name + ".install")
@@ -237,5 +320,30 @@ def collision_order_test_suite():
         deps = [
             ":_namespace_first",
             ":_namespace_second",
+        ],
+    )
+
+    # Mixed namespace/regular collision: one wheel ships mixed_top/__init__.py
+    # (regular), another ships mixed_top/from_namespace.py (namespace). Both
+    # sub-modules must be importable after the physical merge. Regression for
+    # https://github.com/aspect-build/rules_py/issues/1118.
+    _mixed_wheel(
+        name = "_mixed_regular_wheel",
+        kind = "regular",
+        tags = ["manual"],
+    )
+    _mixed_wheel(
+        name = "_mixed_namespace_wheel",
+        kind = "namespace",
+        tags = ["manual"],
+    )
+    py_test(
+        name = "mixed_ns_regular_test",
+        srcs = ["test_mixed_ns_regular.py"],
+        main = "test_mixed_ns_regular.py",
+        package_collisions = "warning",
+        deps = [
+            ":_mixed_namespace_wheel",
+            ":_mixed_regular_wheel",
         ],
     )
