@@ -14,7 +14,7 @@ def _wheel_impl(ctx):
     command = """
 set -eu
 site="$1/lib/python$2.$3/site-packages"
-metadata="$site/$6"
+metadata="$site/$7"
 mkdir -p "$metadata"
 printf 'Metadata-Version: 2.1\nName: collision-%s\nVersion: 1.0\n' "$5" > "$metadata/METADATA"
 """
@@ -41,6 +41,11 @@ printf 'VALUE = %s\n' "$4" > "$site/collision_order.py"
 """
         top_levels += ("collision_order.py",)
         console_scripts = ("collision-order=collision_namespace.{}:main".format(ctx.attr.value),)
+    if ctx.attr.root_pth_name:
+        command += """
+printf 'import sys; sys.path.append("rules_py_pth_%s")\n' "$5" > "$site/$6.pth"
+"""
+        top_levels += (ctx.attr.root_pth_name + ".pth",)
     ctx.actions.run_shell(
         outputs = [install_tree],
         command = command,
@@ -50,6 +55,7 @@ printf 'VALUE = %s\n' "$4" > "$site/collision_order.py"
             str(minor),
             json.encode(ctx.attr.value),
             ctx.attr.value,
+            ctx.attr.root_pth_name,
             metadata_name,
         ],
     )
@@ -64,6 +70,7 @@ printf 'VALUE = %s\n' "$4" > "$site/collision_order.py"
     ] + ["lib/python{}.{}/site-packages".format(major, minor)])
     wheel = struct(
         top_levels = top_levels,
+        layout_complete = ctx.attr.layout_complete,
         namespace_top_levels = namespace_top_levels,
         namespace_entries = namespace_entries,
         namespace_dirs = (),
@@ -90,9 +97,11 @@ printf 'VALUE = %s\n' "$4" > "$site/collision_order.py"
 _wheel = rule(
     implementation = _wheel_impl,
     attrs = {
-        "metadata_name": attr.string(),
+        "layout_complete": attr.bool(default = True),
         "metadata_only": attr.bool(),
+        "metadata_name": attr.string(),
         "ordinary": attr.bool(),
+        "root_pth_name": attr.string(),
         "value": attr.string(mandatory = True),
     },
     toolchains = [PY_TOOLCHAIN],
@@ -211,6 +220,86 @@ def collision_order_test_suite():
         deps = [
             ":_metadata_suppressible_first",
             ":_metadata_suppressible_second",
+        ],
+    )
+
+    _wheel(
+        name = "_collision_incomplete",
+        layout_complete = False,
+        ordinary = True,
+        tags = ["manual"],
+        value = "incomplete",
+    )
+    py_binary(
+        name = "_incomplete_collision_error_binary",
+        srcs = ["test_collision_order.py"],
+        main = "test_collision_order.py",
+        package_collisions = "error",
+        tags = ["manual"],
+        deps = [
+            ":_collision_first",
+            ":_collision_incomplete",
+        ],
+    )
+    _collision_error_test(
+        name = "incomplete_collision_error_test",
+        expected_error = "namespace entry `collision_namespace/shared.py`",
+        target_under_test = ":_incomplete_collision_error_binary",
+    )
+
+    _wheel(
+        name = "_pth_collision_complete",
+        root_pth_name = "collision_marker",
+        tags = ["manual"],
+        value = "complete",
+    )
+    _wheel(
+        name = "_pth_collision_incomplete",
+        layout_complete = False,
+        root_pth_name = "collision_marker",
+        tags = ["manual"],
+        value = "pth_incomplete",
+    )
+    py_binary(
+        name = "_incomplete_pth_collision_error_binary",
+        srcs = ["test_namespace_fallback.py"],
+        main = "test_namespace_fallback.py",
+        package_collisions = "ignore",
+        tags = ["manual"],
+        deps = [
+            ":_pth_collision_incomplete",
+            ":_pth_collision_complete",
+        ],
+    )
+    _collision_error_test(
+        name = "incomplete_pth_collision_error_test",
+        expected_error = "root `.pth` file `collision_marker.pth` selects",
+        target_under_test = ":_incomplete_pth_collision_error_binary",
+    )
+
+    _wheel(
+        name = "_pth_runtime_complete_loser",
+        root_pth_name = "runtime_collision_marker",
+        tags = ["manual"],
+        value = "suppressed",
+    )
+    _wheel(
+        name = "_pth_runtime_incomplete",
+        layout_complete = False,
+        root_pth_name = "runtime_collision_marker",
+        tags = ["manual"],
+        value = "incomplete",
+    )
+    py_test(
+        name = "incomplete_layout_pth_test",
+        srcs = ["test_incomplete_layout_pth.py"],
+        isolated = False,
+        main = "test_incomplete_layout_pth.py",
+        package_collisions = "ignore",
+        deps = [
+            ":_pth_collision_complete",
+            ":_pth_runtime_complete_loser",
+            ":_pth_runtime_incomplete",
         ],
     )
 

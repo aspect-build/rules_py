@@ -21,6 +21,7 @@ exact Azure package pair.
 """
 
 import sys
+from importlib.metadata import distributions
 
 
 def test_azure_core_tracing_ext_import():
@@ -42,6 +43,19 @@ def test_azure_core_still_intact():
     assert SpanKind is not None
 
 
+def test_patched_azure_core_still_merges():
+    from azure.core.patched_marker import PATCHED
+    from azure.core.tracing.ext.opentelemetry_span import OpenTelemetrySpan
+
+    assert PATCHED is True
+    assert OpenTelemetrySpan is not None
+
+
+def test_patched_azure_core_metadata_is_not_duplicated():
+    matches = list(distributions(name="azure-core"))
+    assert len(matches) == 1, [str(match.locate_file("")) for match in matches]
+
+
 def test_azure_core_tracing_is_regular_package():
     """Guard the premise of this test case.
 
@@ -60,6 +74,8 @@ def test_azure_core_tracing_is_regular_package():
 if __name__ == "__main__":
     test_azure_core_tracing_ext_import()
     test_azure_core_still_intact()
+    test_patched_azure_core_still_merges()
+    test_patched_azure_core_metadata_is_not_duplicated()
     test_azure_core_tracing_is_regular_package()
     print("PASS: azure.core.tracing.ext imports correctly")
     sys.exit(0)

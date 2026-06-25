@@ -24,6 +24,7 @@ py_test(
     srcs = ["test.py"],
     dep_group = "azure-core-tracing-import",
     main = "test.py",
+    python_version = "3.11",
     deps = [
         "@pypi_azure_core_tracing//azure_core",
         "@pypi_azure_core_tracing//azure_core_tracing_opentelemetry",

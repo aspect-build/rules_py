@@ -176,6 +176,7 @@ def main():
     ap.add_argument("--patch", dest="patches", action="append", default=[], type=Path)
     ap.add_argument("--patch-strip", type=int, default=0)
     ap.add_argument("--patch-tool", type=Path, default=Path("patch"))
+    ap.add_argument("--preserve-path", action="append", default=[])
     ap.add_argument("--compile-pyc", action="store_true")
     ap.add_argument("--pyc-invalidation-mode", default="checked-hash",
                     choices=["checked-hash", "unchecked-hash", "timestamp"])
@@ -188,6 +189,27 @@ def main():
         args.into,
         args.wheel,
     )
+
+    site_packages = (
+        args.into / "lib"
+        / "python{}.{}".format(args.python_version_major, args.python_version_minor)
+        / "site-packages"
+    )
+    # Analysis uses these paths for collision and merge planning. Snapshot their
+    # installed shape here, where both the before and after states are available.
+    observed_files = []
+    observed_directory_init = {}
+    for relative_string in args.preserve_path:
+        relative = Path(relative_string)
+        if relative.is_absolute() or ".." in relative.parts:
+            raise SystemExit("Invalid preserved wheel path: {}".format(relative))
+        path = site_packages / relative
+        if path.is_dir():
+            observed_directory_init[relative] = (path / "__init__.py").is_file()
+        elif path.is_file():
+            observed_files.append(relative)
+        else:
+            raise SystemExit("Preserved wheel path does not exist: {}".format(relative))
 
     for patch_file in args.patches:
         # --no-backup-if-mismatch: a fuzz/offset apply otherwise drops a
@@ -210,14 +232,25 @@ def main():
                 "Error: failed to apply patch {} (patch exited {}).".format(patch_file, r.returncode)
             )
 
+    for relative in observed_files:
+        if not (site_packages / relative).is_file():
+            raise SystemExit(
+                "Post-install patch changed observed wheel file: {}".format(relative)
+            )
+    for relative, had_init in observed_directory_init.items():
+        directory = site_packages / relative
+        if not directory.is_dir():
+            raise SystemExit(
+                "Post-install patch changed observed wheel directory: {}".format(relative)
+            )
+        if (directory / "__init__.py").is_file() != had_init:
+            raise SystemExit(
+                "Post-install patch changed observed package classification: {}".format(relative)
+            )
+
     if args.compile_pyc:
         if not args.python:
             raise SystemExit("--python is required when --compile-pyc is set")
-        site_packages = (
-            args.into / "lib"
-            / "python{}.{}".format(args.python_version_major, args.python_version_minor)
-            / "site-packages"
-        )
         # Wheels may retain source for older Python versions. Match pip by
         # retaining compileall's diagnostics while ignoring its aggregate
         # false result; check=True still rejects abnormal interpreter exits.

@@ -62,23 +62,26 @@ def _run_unpack(
     wheel: Path,
     output: Path,
     python: Path,
+    extra_args: tuple[str, ...] = (),
 ) -> subprocess.CompletedProcess:
+    command = [
+        sys.executable,
+        str(unpack),
+        "--into",
+        str(output),
+        "--wheel",
+        str(wheel),
+        "--python-version-major",
+        str(sys.version_info.major),
+        "--python-version-minor",
+        str(sys.version_info.minor),
+        "--compile-pyc",
+        "--python",
+        str(python),
+        *extra_args,
+    ]
     return subprocess.run(
-        [
-            sys.executable,
-            str(unpack),
-            "--into",
-            str(output),
-            "--wheel",
-            str(wheel),
-            "--python-version-major",
-            str(sys.version_info.major),
-            "--python-version-minor",
-            str(sys.version_info.minor),
-            "--compile-pyc",
-            "--python",
-            str(python),
-        ],
+        command,
         capture_output=True,
         text=True,
     )
@@ -103,6 +106,118 @@ def main() -> None:
             / "site-packages"
         )
         assert next((site_packages / "fixture" / "__pycache__").glob("*.pyc"))
+
+        site_packages_relative = (
+            f"lib/python{sys.version_info.major}.{sys.version_info.minor}/site-packages"
+        )
+        namespace_wheel = root / "namespace_fixture-1.0-py3-none-any.whl"
+        _write_wheel(
+            namespace_wheel,
+            "namespace_fixture",
+            {"fixture_ns/mod.py": b"VALUE = 1\n"},
+        )
+        add_init_patch = root / "add-init.patch"
+        add_init_patch.write_text(
+            f"""\
+--- /dev/null
++++ b/{site_packages_relative}/fixture_ns/__init__.py
+@@ -0,0 +1 @@
++VALUE = 1
+"""
+        )
+        reclassified = _run_unpack(
+            unpack,
+            namespace_wheel,
+            root / "reclassified-layout",
+            Path(sys.executable),
+            (
+                "--patch",
+                str(add_init_patch),
+                "--patch-strip",
+                "1",
+                "--preserve-path",
+                "fixture_ns",
+            ),
+        )
+        assert reclassified.returncode != 0, reclassified.stdout + reclassified.stderr
+        assert "changed observed package classification: fixture_ns" in reclassified.stderr
+
+        # BSD and GNU patch differ in whether a deletion diff removes the empty
+        # file. Use a controlled patch executable for topology transitions that
+        # must behave identically on every test host.
+        mutation_tool = root / "mutate_tree.py"
+        mutation_tool.write_text(
+            f"""#!{sys.executable}
+import shutil
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[sys.argv.index("-d") + 1])
+operation, relative = sys.stdin.read().splitlines()
+target = root / relative
+if operation == "unlink":
+    target.unlink()
+elif operation == "file-to-directory":
+    target.unlink()
+    target.mkdir()
+elif operation == "directory-to-file":
+    shutil.rmtree(target)
+    target.write_text("replacement\\n")
+else:
+    raise SystemExit(f"unknown operation: {{operation}}")
+"""
+        )
+        mutation_tool.chmod(0o755)
+        for name, operation, changed_path, preserved_path, expected_error in [
+            (
+                "removed-file",
+                "unlink",
+                "fixture/mod.py",
+                "fixture/mod.py",
+                "changed observed wheel file: fixture/mod.py",
+            ),
+            (
+                "file-to-directory",
+                "file-to-directory",
+                "fixture/mod.py",
+                "fixture/mod.py",
+                "changed observed wheel file: fixture/mod.py",
+            ),
+            (
+                "regular-to-namespace",
+                "unlink",
+                "fixture/__init__.py",
+                "fixture",
+                "changed observed package classification: fixture",
+            ),
+            (
+                "directory-to-file",
+                "directory-to-file",
+                "fixture",
+                "fixture",
+                "changed observed wheel directory: fixture",
+            ),
+        ]:
+            mutation = root / f"{name}.patch"
+            mutation.write_text(
+                f"{operation}\n{site_packages_relative}/{changed_path}\n"
+            )
+            rejected = _run_unpack(
+                unpack,
+                good_wheel,
+                root / name,
+                Path(sys.executable),
+                (
+                    "--patch",
+                    str(mutation),
+                    "--patch-tool",
+                    str(mutation_tool),
+                    "--preserve-path",
+                    preserved_path,
+                ),
+            )
+            assert rejected.returncode != 0, rejected.stdout + rejected.stderr
+            assert expected_error in rejected.stderr
 
         # Wheels may retain source for older interpreters. Compatible modules
         # still compile, while the incompatible file remains diagnostic.

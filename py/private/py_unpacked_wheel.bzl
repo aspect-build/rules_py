@@ -83,6 +83,7 @@ def _py_unpacked_wheel_impl(ctx):
         providers.append(PyWheelsInfo(
             wheels = depset(direct = [struct(
                 top_levels = tuple(ctx.attr.top_levels),
+                layout_complete = True,
                 namespace_top_levels = tuple(ctx.attr.namespace_top_levels),
                 namespace_entries = tuple(ctx.attr.namespace_entries),
                 site_packages_rfpath = site_packages_rfpath,

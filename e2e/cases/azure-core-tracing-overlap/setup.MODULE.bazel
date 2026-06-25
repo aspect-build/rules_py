@@ -12,6 +12,12 @@ uv.project(
     lock = "//cases/azure-core-tracing-overlap:uv.lock",
     pyproject = "//cases/azure-core-tracing-overlap:pyproject.toml",
 )
+uv.override_package(
+    name = "azure-core",
+    lock = "//cases/azure-core-tracing-overlap:uv.lock",
+    post_install_patch_strip = 1,
+    post_install_patches = ["//cases/azure-core-tracing-overlap/patches:post_install.patch"],
+)
 use_repo(uv, "pypi_azure_core_tracing")
 
 # Exposed so e2e/BUILD.bazel can snapshot the namespace_dirs / regular_roots

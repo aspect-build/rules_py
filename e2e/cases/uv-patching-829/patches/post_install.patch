@@ -6,3 +6,15 @@
  from .main import (
 
      __version__,
+--- /dev/null
++++ b/lib/python3.11/site-packages/patched_top_level.py
+@@ -0,0 +1 @@
++PATCHED = True
+--- /dev/null
++++ b/lib/python3.11/site-packages/patched_path.pth
+@@ -0,0 +1 @@
++cowsay
+--- /dev/null
++++ b/lib/python3.11/site-packages/cowsay/patched_via_pth.py
+@@ -0,0 +1 @@
++PATCHED = True

@@ -56,6 +56,8 @@ whl_install(
             "azure/core",
         ],
     },
+    patches = ["@@//cases/azure-core-tracing-overlap/patches:post_install.patch"],
+    patch_strip = 1,
     visibility = ["//visibility:private"],
 )
 

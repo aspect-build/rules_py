@@ -45,6 +45,10 @@ Where `patches/nvidia-strip-init.patch` might look like:
 +# Stripped by aspect_rules_py override
 ```
 
+The file remains in place, so `nvidia` stays a regular package. Post-install
+patches may not remove package roots or change regular packages into namespace
+packages; use full replacement when the installed topology itself must change.
+
 ### Applying the same patch to multiple packages
 
 Use a Starlark list comprehension:
@@ -178,6 +182,21 @@ uv.override_package(
 - `target` is mutually exclusive with all other modification attributes. Use `target` for full replacement OR the patch/modification attributes, not both.
 - The `version` attribute is optional and defaults to whatever version the lockfile resolves.
 - Pre-build patches only apply to packages that have a source distribution in the lockfile. If a package only has pre-built wheels, `pre_build_patches` has no effect.
+- Post-install patches may add paths, but they must preserve every original
+  path used for collision and regular-package merge planning, including its
+  file-or-directory kind and regular-versus-namespace classification. Patched
+  wheels retain whole-wheel import fallback while that original topology
+  participates in analysis. Added paths are not visible during analysis; do
+  not add paths that collide with another wheel. Original root `.pth` files
+  execute through the fallback rather than through projected copies. The
+  fallback also owns original `*.dist-info` and `*.egg-info` entries, so
+  metadata scanners observe each distribution once. Collision resolution can
+  suppress complete-layout losers, but rejects a losing root `.pth` or
+  distribution-metadata claimant that remains on whole-wheel fallback.
+- Console-script declarations are extracted before post-install patches run.
+  Do not use post-install patches to modify `[console_scripts]` in
+  `.dist-info/entry_points.txt`; generated wrappers continue to reflect the
+  original wheel metadata.
 
 ## Future work
 
