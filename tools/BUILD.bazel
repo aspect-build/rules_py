@@ -1,9 +1,32 @@
 load("@bazel_env.bzl", "bazel_env")
 load("@multitool//:tools.bzl", MULTITOOL_TOOLS = "TOOLS")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 
 bazel_env(
     name = "bazel_env",
     tools = {
         "uv": "@uv",
     } | MULTITOOL_TOOLS,
+)
+
+py_binary(
+    name = "buildifier",
+    srcs = ["buildifier.py"],
+    data = ["@buildifier_prebuilt//buildifier"],
+    deps = ["@rules_python//python/runfiles"],
+)
+
+py_test(
+    name = "buildifier_test",
+    srcs = [
+        "__init__.py",
+        "buildifier.py",
+        "buildifier_test.py",
+    ],
+    data = [":buildifier"],
+    env = {
+        "RULES_PY_BUILDIFIER": "$(rlocationpath :buildifier)",
+    },
+    main = "buildifier_test.py",
+    deps = ["@rules_python//python/runfiles"],
 )
