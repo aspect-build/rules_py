@@ -153,6 +153,14 @@ py_binary(
 future options (such as PEP 508 package extras) can be added as arguments
 without breaking callers.
 
+Macros that must inspect dependency labels while loading a BUILD file can use
+`group_dep_labels(name)` instead. It returns the frozen membership list for one
+explicit group as sorted `Label` values and fails if the group is unknown.
+These aliases still resolve according to the active `dep_group`, so analyze
+them only under the matching group. Prefer `group_deps()` for ordinary rule
+attributes so the dependency list follows the consuming target's group
+automatically.
+
 `all_requirements` (in `requirements.bzl`) remains the hub-wide union for
 compatibility with `rules_python`. Under a dependency-group transition, that
 union may contain targets which are incompatible with the selected group, so
