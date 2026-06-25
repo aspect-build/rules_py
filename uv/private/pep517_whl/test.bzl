@@ -8,24 +8,25 @@ build to verify the env wiring.
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 
 _ACTION_ENV = "//command_line_option:action_env"
-_HOST_PYTHON_ENV = [
+_HOST_ENV = [
     "PYTHONHOME=/host/home",
     "PYTHONPATH=/host/path",
     "PYTHONPLATLIBDIR=host-lib",
     "PYTHONSAFEPATH=1",
+    "RUNFILES_MANIFEST_ONLY=1",
 ]
 
-def _hostile_python_env_transition_impl(settings, _attr):
-    names = {entry.split("=", 1)[0]: True for entry in _HOST_PYTHON_ENV}
+def _hostile_env_transition_impl(settings, _attr):
+    names = {entry.split("=", 1)[0]: True for entry in _HOST_ENV}
     action_env = [
         entry
         for entry in settings[_ACTION_ENV]
         if entry.split("=", 1)[0].upper() not in names
     ]
-    return {_ACTION_ENV: action_env + _HOST_PYTHON_ENV}
+    return {_ACTION_ENV: action_env + _HOST_ENV}
 
-_hostile_python_env_transition = transition(
-    implementation = _hostile_python_env_transition_impl,
+_hostile_env_transition = transition(
+    implementation = _hostile_env_transition_impl,
     inputs = [_ACTION_ENV],
     outputs = [_ACTION_ENV],
 )
@@ -37,7 +38,7 @@ hostile_python_env_target = rule(
     implementation = _hostile_python_env_target_impl,
     attrs = {
         "target": attr.label(
-            cfg = _hostile_python_env_transition,
+            cfg = _hostile_env_transition,
             mandatory = True,
         ),
         "_allowlist_function_transition": attr.label(
