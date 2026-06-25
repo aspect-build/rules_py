@@ -147,6 +147,7 @@ def _whl_install(ctx):
     # consumers retain the wheel.
     if SourceBuiltWheelInfo in ctx.attr.src:
         top_levels = []
+        regular_directory_top_levels = []
         namespace_top_levels = []
         namespace_entries = []
         namespace_dirs = []
@@ -155,6 +156,9 @@ def _whl_install(ctx):
     else:
         whl_basename = ctx.file.src.basename
         top_levels = ctx.attr.top_levels.get(whl_basename, [])
+        regular_directory_top_levels = (
+            [] if patch_files else ctx.attr.regular_directory_top_levels.get(whl_basename, [])
+        )
         namespace_top_levels = ctx.attr.namespace_top_levels.get(whl_basename, [])
         namespace_entries = ctx.attr.namespace_entries.get(whl_basename, [])
         namespace_dirs = ctx.attr.namespace_dirs.get(whl_basename, [])
@@ -164,6 +168,7 @@ def _whl_install(ctx):
     providers.append(PyWheelsInfo(
         wheels = depset(direct = [struct(
             top_levels = tuple(top_levels),
+            regular_directory_top_levels = tuple(regular_directory_top_levels),
             # PEP 420 namespace packages this wheel contributes to.
             # When multiple wheels claim the same top-level and ALL of
             # them flag it as namespace, py_binary merges the namespace
@@ -262,6 +267,16 @@ consumers such as image layering.
 
 Typically populated automatically by the `whl_install` repo rule from each
 wheel's `*.dist-info/RECORD` at repo-fetch time.
+""",
+            default = {},
+        ),
+        "regular_directory_top_levels": attr.string_list_dict(
+            doc = """Per-wheel regular top-level packages that are directories, keyed by wheel file basename.
+
+The repository rule derives this positive evidence from each wheel archive's
+`RECORD`. It is discarded when post-install patches may invalidate the
+archive topology. Only the entry matching the selected wheel (see `top_levels`)
+is used.
 """,
             default = {},
         ),

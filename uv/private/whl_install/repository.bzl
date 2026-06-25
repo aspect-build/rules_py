@@ -685,6 +685,7 @@ filegroup(
         whl_file_index += 1
 
     top_levels_by_whl = {}
+    regular_directory_top_levels_by_whl = {}
     namespace_top_levels_by_whl = {}
     namespace_entries_by_whl = {}
     namespace_dirs_by_whl = {}
@@ -699,6 +700,13 @@ filegroup(
         )
         if tls:
             top_levels_by_whl[whl_name] = sorted(tls.keys())
+            regular_directories = sorted([
+                tl
+                for tl in tls
+                if tl in regular and tl in dirs_set
+            ])
+            if regular_directories:
+                regular_directory_top_levels_by_whl[whl_name] = regular_directories
 
             # A top-level counts as a PEP 420 namespace for this wheel if
             # its RECORD shows no `<toplevel>/__init__.py` at depth 1.
@@ -734,16 +742,24 @@ filegroup(
         if css:
             console_scripts_by_whl[whl_name] = sorted(css.values())
 
+    regular_directory_top_levels_attr = ""
+    if regular_directory_top_levels_by_whl:
+        regular_directory_top_levels_attr = """
+    regular_directory_top_levels = {regular_directory_top_levels},""".format(
+            regular_directory_top_levels = indent(pprint(regular_directory_top_levels_by_whl), " " * 4).lstrip(),
+        )
+
     install_attrs = """
     src = ":whl",
     compile_pyc = {compile_pyc},
     pyc_invalidation_mode = {pyc_invalidation_mode},
-    top_levels = {top_levels},
+    top_levels = {top_levels},{regular_directory_top_levels_attr}
     namespace_top_levels = {namespace_top_levels},
     console_scripts = {console_scripts},""".format(
         compile_pyc = compile_pyc_select,
         pyc_invalidation_mode = pyc_invalidation_mode_select,
         top_levels = indent(pprint(top_levels_by_whl), " " * 4).lstrip(),
+        regular_directory_top_levels_attr = regular_directory_top_levels_attr,
         namespace_top_levels = indent(pprint(namespace_top_levels_by_whl), " " * 4).lstrip(),
         console_scripts = indent(pprint(console_scripts_by_whl), " " * 4).lstrip(),
     )

@@ -20,6 +20,9 @@ handling gives the later distinct element in the flattened sequence precedence.
 Duplicate dependency edges do not create another precedence position. Fields:
   * `top_levels`: tuple[str] — complete set of immediate `site-packages`
     entry names when nonempty; an empty tuple means the layout is unknown.
+  * `regular_directory_top_levels`: tuple[str] — regular top-level packages
+    positively known to be directories in the inspected wheel archive. An
+    unlisted name or absent field is unknown, not evidence of a file.
   * `namespace_top_levels`: tuple[str] — subset of top_levels that are PEP 420 namespace packages.
   * `namespace_entries`: tuple[str] — `/`-joined paths of the concrete entries beneath
     the namespace top-levels (e.g. `jaraco/functools`), used to materialise a merged

@@ -222,6 +222,11 @@ _TOP_LEVELS = {
     ],
 }
 
+_REGULAR_DIRECTORY_TOP_LEVELS = {
+    _LINUX_WHL: ["demo"],
+    _MACOS_WHL: ["demo"],
+}
+
 _NAMESPACE_TOP_LEVELS = {
     _MACOS_WHL: ["demo_ns"],
 }
@@ -244,6 +249,11 @@ def _metadata_selection_test_impl(ctx):
     wheel = wheels[0]
     asserts.true(env, wheel.install_tree != None, "wheel record must retain its install tree")
     asserts.equals(env, tuple(ctx.attr.expected_top_levels), wheel.top_levels)
+    asserts.equals(
+        env,
+        tuple(ctx.attr.expected_regular_directory_top_levels),
+        wheel.regular_directory_top_levels,
+    )
     asserts.equals(env, tuple(ctx.attr.expected_namespace_top_levels), wheel.namespace_top_levels)
     asserts.equals(env, tuple(ctx.attr.expected_console_scripts), wheel.console_scripts)
 
@@ -267,6 +277,7 @@ def _metadata_selection_test_impl(ctx):
 _metadata_selection_test = analysistest.make(
     _metadata_selection_test_impl,
     attrs = {
+        "expected_regular_directory_top_levels": attr.string_list(),
         "expected_top_levels": attr.string_list(),
         "expected_namespace_top_levels": attr.string_list(),
         "expected_console_scripts": attr.string_list(),
@@ -300,6 +311,13 @@ def metadata_selection_test_suite(name):
         tags = ["manual"],
     )
 
+    write_file(
+        name = "__metadata_noop_patch",
+        out = "metadata_noop.patch",
+        content = [""],
+        tags = ["manual"],
+    )
+
     source_built_wheel(
         name = "__metadata_declared_sbuild_wheel",
         testonly = True,
@@ -317,6 +335,7 @@ def metadata_selection_test_suite(name):
             name = fixture_name,
             testonly = True,
             src = src,
+            regular_directory_top_levels = _REGULAR_DIRECTORY_TOP_LEVELS,
             top_levels = _TOP_LEVELS,
             namespace_top_levels = _NAMESPACE_TOP_LEVELS,
             console_scripts = _CONSOLE_SCRIPTS,
@@ -324,9 +343,20 @@ def metadata_selection_test_suite(name):
         )
 
     whl_install(
+        name = "__metadata_patched_fixture",
+        testonly = True,
+        src = _MACOS_WHL,
+        patches = [":__metadata_noop_patch"],
+        regular_directory_top_levels = _REGULAR_DIRECTORY_TOP_LEVELS,
+        top_levels = _TOP_LEVELS,
+        tags = ["manual"],
+    )
+
+    whl_install(
         name = "__metadata_declared_sbuild_fixture",
         testonly = True,
         src = ":__metadata_declared_sbuild_wheel",
+        regular_directory_top_levels = _REGULAR_DIRECTORY_TOP_LEVELS,
         top_levels = _TOP_LEVELS,
         namespace_top_levels = _NAMESPACE_TOP_LEVELS,
         console_scripts = _CONSOLE_SCRIPTS,
@@ -336,6 +366,7 @@ def metadata_selection_test_suite(name):
     _metadata_selection_test(
         name = name + "_linux_test",
         target_under_test = ":__metadata_linux_fixture",
+        expected_regular_directory_top_levels = _REGULAR_DIRECTORY_TOP_LEVELS[_LINUX_WHL],
         expected_top_levels = _TOP_LEVELS[_LINUX_WHL],
         expected_namespace_top_levels = [],
         expected_console_scripts = _CONSOLE_SCRIPTS[_LINUX_WHL],
@@ -349,6 +380,7 @@ def metadata_selection_test_suite(name):
     _metadata_selection_test(
         name = name + "_macos_test",
         target_under_test = ":__metadata_macos_fixture",
+        expected_regular_directory_top_levels = _REGULAR_DIRECTORY_TOP_LEVELS[_MACOS_WHL],
         expected_top_levels = _TOP_LEVELS[_MACOS_WHL],
         expected_namespace_top_levels = _NAMESPACE_TOP_LEVELS[_MACOS_WHL],
         expected_console_scripts = _CONSOLE_SCRIPTS[_MACOS_WHL],
@@ -359,6 +391,7 @@ def metadata_selection_test_suite(name):
     _metadata_selection_test(
         name = name + "_sbuild_fallback_test",
         target_under_test = ":__metadata_sbuild_fixture",
+        expected_regular_directory_top_levels = [],
         expected_top_levels = [],
         expected_namespace_top_levels = [],
         expected_console_scripts = [],
@@ -369,11 +402,23 @@ def metadata_selection_test_suite(name):
     _metadata_selection_test(
         name = name + "_declared_sbuild_test",
         target_under_test = ":__metadata_declared_sbuild_fixture",
+        expected_regular_directory_top_levels = [],
         expected_top_levels = [],
         expected_namespace_top_levels = [],
         expected_console_scripts = _DECLARED_SBUILD_CONSOLE_SCRIPTS,
         leaked_top_levels = _TOP_LEVELS[_LINUX_WHL],
         leaked_console_scripts = _CONSOLE_SCRIPTS[_LINUX_WHL],
+    )
+
+    _metadata_selection_test(
+        name = name + "_patched_test",
+        target_under_test = ":__metadata_patched_fixture",
+        expected_regular_directory_top_levels = [],
+        expected_top_levels = _TOP_LEVELS[_MACOS_WHL],
+        expected_namespace_top_levels = [],
+        expected_console_scripts = [],
+        leaked_top_levels = [],
+        leaked_console_scripts = [],
     )
 
 def whl_install_suite():
