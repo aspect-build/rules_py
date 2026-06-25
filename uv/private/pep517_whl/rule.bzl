@@ -199,7 +199,10 @@ _PATCH_ATTRS = {
 
 _pep517_whl_attrs = {
     "src": attr.label(allow_single_file = True),
-    "tool": attr.label(executable = True, cfg = "exec"),
+    # The wheel action uses the named group below, so its frontend must use the
+    # same execution platform:
+    # https://bazel.build/extending/exec-groups#defining-exec-groups
+    "tool": attr.label(executable = True, cfg = config.exec("target")),
     "version": attr.string(),
     "args": attr.string_list(default = ["--validate-anyarch"]),
     "monitor_memory": attr.bool(
