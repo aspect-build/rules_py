@@ -26,7 +26,8 @@ distutils, etc.) treat it as a real venv:
         <ns_pkg>/<entry>                        merged PEP 420 namespace: real
                                                 <ns_pkg>/ dir, per-entry symlinks
                                                 into each contributing wheel
-        <dist>-<ver>.dist-info                  symlink to a wheel's dist-info
+        <dist>-<ver>.dist-info                  symlink when the wheel needs no
+                                                whole-wheel fallback
 
 The whole tree is declared at analysis time as individual
 `ctx.actions.declare_file` / `ctx.actions.declare_symlink` outputs so
@@ -58,7 +59,7 @@ def _dict_to_exports(env):
 def _resolve_wheel_collisions(ctx, wheels, package_collisions):
     """Walk PyWheelsInfo.wheels and produce merge plans for site-packages + bin/.
 
-    Two kinds of collision get checked:
+    Three kinds of collision get checked:
 
     * **Top-level in site-packages.** Multiple wheels claiming the same
       top-level name. When ALL contributing wheels flag the name as a
@@ -88,15 +89,22 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
       caller physically merges those subtrees (what a flat
       `pip install` would have produced).
 
+    * **Distribution metadata in site-packages.** Metadata discovery scans
+      every `sys.path` entry instead of stopping at the first match. Project
+      the selected `*.dist-info` and `*.egg-info` entries only when that wheel
+      needs no whole-wheel fallback. Reject a collision when a losing claimant
+      remains on fallback and therefore cannot be suppressed.
+
     * **Console-script name in bin/.** Apply `package_collisions` directly
       — no namespace equivalent.
 
     Returns:
       top_level_to_site_pkgs: dict {site_packages_relative_path: site_packages_rfpath}
-          — keys are top-level names, plus `/`-joined deeper paths (e.g.
-          `jaraco/functools`) for merged namespace packages.
+          — keys are import roots, `/`-joined deeper paths (e.g.
+          `jaraco/functools`) for merged namespace packages, and distribution
+          metadata entries owned by fully covered wheels.
       fully_covered_site_pkgs: dict[str, True] — site-packages paths whose
-          declared top-levels ALL ended up claimed by them (directly or
+          declared import roots ALL ended up claimed by them (directly or
           via a complete namespace merge) — safe to drop from the .pth
           fallback.
       console_scripts_map: dict {script_name: struct(module, func)} after
@@ -121,8 +129,10 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
             # buildifier: disable=print
             print(msg)
 
-    # Pass 1: bucket claimants per top-level / per console-script name.
+    # Pass 1: bucket claimants per import root, distribution metadata entry,
+    # and console-script name.
     tl_claimants = {}  # tl -> list of struct(site_packages, is_ns, ns_entries)
+    metadata_claimants = {}  # metadata entry -> ordered site_packages paths
     cs_claimants = {}  # name -> list of struct(site_packages, module, func)
     wheel_by_sp = {}  # site_packages_rfpath -> wheel struct
     for w in wheels:
@@ -132,6 +142,9 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
         for entry in getattr(w, "namespace_entries", ()):
             ns_entries_by_tl.setdefault(entry.split("/")[0], []).append(entry)
         for tl in w.top_levels:
+            if tl.endswith(".dist-info") or tl.endswith(".egg-info"):
+                metadata_claimants.setdefault(tl, []).append(w.site_packages_rfpath)
+                continue
             tl_claimants.setdefault(tl, []).append(struct(
                 site_packages = w.site_packages_rfpath,
                 is_ns = tl in ns_set,
@@ -387,6 +400,8 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
         ns_covered = ns_covered_per_wheel.get(w.site_packages_rfpath, {})
         covered = True
         for tl in w.top_levels:
+            if tl in metadata_claimants:
+                continue
             if tl in skipped:
                 covered = False
                 break
@@ -395,6 +410,31 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
                 break
         if covered:
             fully_covered[w.site_packages_rfpath] = True
+
+    # Metadata discovery scans every sys.path entry. Resolve duplicate metadata
+    # names with normal collision precedence, but reject a losing claimant that
+    # remains on whole-wheel fallback because it cannot be suppressed. Project
+    # the winner only when its fallback is gone.
+    for tl, claimants in metadata_claimants.items():
+        winner = claimants[0]
+        seen = {winner: True}
+        for site_packages in claimants[1:]:
+            if site_packages in seen:
+                continue
+            _complain("distribution metadata entry", tl, winner, site_packages)
+            winner = site_packages
+            seen[site_packages] = True
+        for site_packages in seen:
+            if site_packages != winner and site_packages not in fully_covered:
+                fail(("{}: distribution metadata entry `{}` selects {}, but " +
+                      "losing claimant {} remains on whole-wheel fallback.").format(
+                    ctx.label,
+                    tl,
+                    winner,
+                    site_packages,
+                ))
+        if winner in fully_covered:
+            top_level_to_site_pkgs[tl] = winner
 
     return top_level_to_site_pkgs, fully_covered, console_scripts_map, merge_groups
 
@@ -422,8 +462,8 @@ def assemble_venv(
       imports_depset: Depset of first-party + transitive wheel import
         paths (as returned by py_library_utils.make_imports_depset).
       package_collisions: "error" / "warning" / "ignore" — policy applied
-        when two wheels claim the same top-level (non-namespace case) or
-        the same console-script name.
+        when two wheels claim the same top-level (non-namespace case),
+        distribution metadata entry, or console-script name.
       include_system_site_packages: Value for pyvenv.cfg's
         `include-system-site-packages` key.
       include_user_site_packages: Value for the Aspect extension

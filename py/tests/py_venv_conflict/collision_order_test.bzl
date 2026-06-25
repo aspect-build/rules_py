@@ -14,12 +14,27 @@ def _wheel_impl(ctx):
     command = """
 set -eu
 site="$1/lib/python$2.$3/site-packages"
+metadata="$site/$6"
+mkdir -p "$metadata"
+printf 'Metadata-Version: 2.1\nName: collision-%s\nVersion: 1.0\n' "$5" > "$metadata/METADATA"
+"""
+    metadata_name = ctx.attr.metadata_name or "collision_{}-1.0.dist-info".format(ctx.attr.value)
+    top_levels = (metadata_name,)
+    namespace_top_levels = ()
+    namespace_entries = ()
+    console_scripts = ()
+    if not ctx.attr.metadata_only:
+        command += """
 mkdir -p "$site/collision_namespace"
 printf 'VALUE = %s\n' "$4" > "$site/collision_namespace/shared.py"
 printf 'VALUE = %s\n\ndef main():\n    print(VALUE)\n' "$4" > "$site/collision_namespace/$5.py"
 """
-    top_levels = ("collision_namespace",)
-    console_scripts = ()
+        top_levels = ("collision_namespace", metadata_name)
+        namespace_top_levels = ("collision_namespace",)
+        namespace_entries = (
+            "collision_namespace/shared.py",
+            "collision_namespace/{}.py".format(ctx.attr.value),
+        )
     if ctx.attr.ordinary:
         command += """
 printf 'VALUE = %s\n' "$4" > "$site/collision_order.py"
@@ -35,6 +50,7 @@ printf 'VALUE = %s\n' "$4" > "$site/collision_order.py"
             str(minor),
             json.encode(ctx.attr.value),
             ctx.attr.value,
+            metadata_name,
         ],
     )
     site_packages = "/".join([
@@ -48,11 +64,8 @@ printf 'VALUE = %s\n' "$4" > "$site/collision_order.py"
     ] + ["lib/python{}.{}/site-packages".format(major, minor)])
     wheel = struct(
         top_levels = top_levels,
-        namespace_top_levels = ("collision_namespace",),
-        namespace_entries = (
-            "collision_namespace/shared.py",
-            "collision_namespace/{}.py".format(ctx.attr.value),
-        ),
+        namespace_top_levels = namespace_top_levels,
+        namespace_entries = namespace_entries,
         namespace_dirs = (),
         regular_roots = (),
         site_packages_rfpath = site_packages,
@@ -77,6 +90,8 @@ printf 'VALUE = %s\n' "$4" > "$site/collision_order.py"
 _wheel = rule(
     implementation = _wheel_impl,
     attrs = {
+        "metadata_name": attr.string(),
+        "metadata_only": attr.bool(),
         "ordinary": attr.bool(),
         "value": attr.string(mandatory = True),
     },
@@ -85,11 +100,14 @@ _wheel = rule(
 
 def _collision_error_test_impl(ctx):
     env = analysistest.begin(ctx)
-    asserts.expect_failure(env, "namespace entry `collision_namespace/shared.py`")
+    asserts.expect_failure(env, ctx.attr.expected_error)
     return analysistest.end(env)
 
 _collision_error_test = analysistest.make(
     _collision_error_test_impl,
+    attrs = {
+        "expected_error": attr.string(mandatory = True),
+    },
     expect_failure = True,
 )
 
@@ -146,7 +164,54 @@ def collision_order_test_suite():
     )
     _collision_error_test(
         name = "collision_error_test",
+        expected_error = "namespace entry `collision_namespace/shared.py`",
         target_under_test = ":_collision_error_binary",
+    )
+
+    _wheel(
+        name = "_metadata_collision_second",
+        metadata_name = "collision_first-1.0.dist-info",
+        tags = ["manual"],
+        value = "metadata_second",
+    )
+    py_binary(
+        name = "_metadata_collision_error_binary",
+        srcs = ["test_namespace_fallback.py"],
+        main = "test_namespace_fallback.py",
+        package_collisions = "ignore",
+        tags = ["manual"],
+        deps = [
+            ":_collision_first",
+            ":_metadata_collision_second",
+        ],
+    )
+    _collision_error_test(
+        name = "metadata_collision_error_test",
+        expected_error = "distribution metadata entry `collision_first-1.0.dist-info` selects",
+        target_under_test = ":_metadata_collision_error_binary",
+    )
+
+    _wheel(
+        name = "_metadata_suppressible_first",
+        metadata_only = True,
+        tags = ["manual"],
+        value = "metadata_shared",
+    )
+    _wheel(
+        name = "_metadata_suppressible_second",
+        metadata_only = True,
+        tags = ["manual"],
+        value = "metadata_shared",
+    )
+    py_test(
+        name = "metadata_collision_suppression_test",
+        srcs = ["test_metadata_collision_suppression.py"],
+        main = "test_metadata_collision_suppression.py",
+        package_collisions = "ignore",
+        deps = [
+            ":_metadata_suppressible_first",
+            ":_metadata_suppressible_second",
+        ],
     )
 
     _wheel(
