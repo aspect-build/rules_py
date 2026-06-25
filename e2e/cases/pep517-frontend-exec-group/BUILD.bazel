@@ -1,12 +1,23 @@
 load("@aspect_rules_py//uv/private/pep517_whl:rule.bzl", "pep517_native_whl")
+load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
+# Keep the host first so the default exec group selects it. The native wheel's
+# `target` exec group requires the transitioned target constraints and selects
+# the second platform instead. Platform flags are applied in the configuration
+# that selects the platform:
+# https://bazel.build/reference/be/platforms-and-toolchains#platform
 platform(
     name = "linux_aarch64",
     constraint_values = [
         "@platforms//cpu:aarch64",
         "@platforms//os:linux",
+    ],
+    flags = [
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
+        "--extra_execution_platforms=@platforms//host,//cases/pep517-frontend-exec-group:linux_aarch64",
     ],
 )
 
@@ -15,6 +26,10 @@ platform(
     constraint_values = [
         "@platforms//cpu:x86_64",
         "@platforms//os:linux",
+    ],
+    flags = [
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
+        "--extra_execution_platforms=@platforms//host,//cases/pep517-frontend-exec-group:linux_x86_64",
     ],
 )
 
@@ -40,13 +55,19 @@ write_file(
     content = [
         "#!/usr/bin/env bash",
         "set -euo pipefail",
+    ] + select({
+        ":linux_aarch64_config": ["actual=aarch64"],
+        ":linux_x86_64_config": ["actual=x86_64"],
+        "//conditions:default": ["actual=default"],
+    }) + [
+        "expected=\"$1\"",
+        "if [[ \"${actual}\" != \"${expected}\" ]]; then",
+        "  echo \"frontend used ${actual}; expected ${expected}\" >&2",
+        "  exit 1",
+        "fi",
         "wheel_dir=\"${!#}\"",
         "mkdir -p \"${wheel_dir}\"",
-    ] + select({
-        ":linux_aarch64_config": ["printf 'aarch64\\n' >\"${wheel_dir}/frontend_exec_platform.txt\""],
-        ":linux_x86_64_config": ["printf 'x86_64\\n' >\"${wheel_dir}/frontend_exec_platform.txt\""],
-        "//conditions:default": ["printf 'default\\n' >\"${wheel_dir}/frontend_exec_platform.txt\""],
-    }),
+    ],
     is_executable = True,
 )
 
@@ -64,8 +85,31 @@ write_file(
 pep517_native_whl(
     name = "wheel",
     src = ":stub_sdist",
-    args = [],
+    args = select({
+        ":linux_aarch64_config": ["aarch64"],
+        ":linux_x86_64_config": ["x86_64"],
+    }),
     tags = ["manual"],
     tool = ":frontend",
     version = "0.0.0",
+)
+
+platform_transition_filegroup(
+    name = "wheel_linux_aarch64",
+    srcs = [":wheel"],
+    target_platform = ":linux_aarch64",
+)
+
+platform_transition_filegroup(
+    name = "wheel_linux_x86_64",
+    srcs = [":wheel"],
+    target_platform = ":linux_x86_64",
+)
+
+build_test(
+    name = "frontend_exec_platform_test",
+    targets = [
+        ":wheel_linux_aarch64",
+        ":wheel_linux_x86_64",
+    ],
 )
