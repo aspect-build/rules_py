@@ -2,14 +2,11 @@ name: Startup Benchmark
 
 on:
   pull_request:
-    paths:
-      - "py/private/**"
-      - "benchmark/startup/**"
   push:
     branches: [main]
 
 env:
-  BCR_VERSION: "1.11.5"
+  BCR_VERSION: "1.11.7"
 
 jobs:
   benchmark:
