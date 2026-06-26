@@ -20,6 +20,10 @@ handling gives the later distinct element in the flattened sequence precedence.
 Duplicate dependency edges do not create another precedence position. Fields:
   * `top_levels`: tuple[str] — complete set of immediate `site-packages`
     entry names when nonempty; an empty tuple means the layout is unknown.
+  * `top_level_dirs`: tuple[str] — subset of non-metadata top_levels that
+    are directories in the RECORD-derived install tree rather than single-file
+    modules. May be absent on structs from older producers; consumers use
+    `getattr` with a `()` default.
   * `namespace_top_levels`: tuple[str] — subset of top_levels that are PEP 420 namespace packages.
   * `namespace_entries`: tuple[str] — `/`-joined paths of the concrete entries beneath
     the namespace top-levels (e.g. `jaraco/functools`), used to materialise a merged
@@ -33,6 +37,11 @@ Duplicate dependency edges do not create another precedence position. Fields:
     `regular_roots` with another wheel's `namespace_dirs` detects regular
     packages spanning wheels, which venv assembly must physically merge.
     May be absent on structs from older producers.
+  * `native_roots`: tuple[str] — collision-relevant top-level directories,
+    namespace directories, and regular roots containing RECORD entries with
+    native-library suffixes. A colliding root in this set cannot be copied
+    into a merge tree without changing the library's physical origin. May be
+    absent on structs from older producers.
   * `site_packages_rfpath`: str — runfiles-root-relative path to the wheel's site-packages.
   * `console_scripts`: tuple[str] — entry points encoded as `"name=module:func"`.
   * `install_tree`: File — complete installed wheel tree.

@@ -58,18 +58,22 @@ def _whl_install(ctx):
     # configuration; metadata from inactive platform wheels must not leak in.
     if SourceBuiltWheelInfo in ctx.attr.src:
         top_levels = []
+        top_level_dirs = []
         namespace_top_levels = []
         namespace_entries = []
         namespace_dirs = []
         regular_roots = []
+        native_roots = []
         console_scripts = ctx.attr.src[SourceBuiltWheelInfo].console_scripts
     else:
         whl_basename = archive.basename
         top_levels = ctx.attr.top_levels.get(whl_basename, [])
+        top_level_dirs = ctx.attr.top_level_dirs.get(whl_basename, [])
         namespace_top_levels = ctx.attr.namespace_top_levels.get(whl_basename, [])
         namespace_entries = ctx.attr.namespace_entries.get(whl_basename, [])
         namespace_dirs = ctx.attr.namespace_dirs.get(whl_basename, [])
         regular_roots = ctx.attr.regular_roots.get(whl_basename, [])
+        native_roots = ctx.attr.native_roots.get(whl_basename, [])
         console_scripts = ctx.attr.console_scripts.get(whl_basename, [])
 
     arguments = ctx.actions.args()
@@ -166,6 +170,10 @@ def _whl_install(ctx):
     providers.append(PyWheelsInfo(
         wheels = depset(direct = [struct(
             top_levels = tuple(top_levels),
+            # Directory-valued top-level entries from the RECORD skeleton.
+            # Single-file modules are excluded so venv assembly only
+            # physically merges directory claimants.
+            top_level_dirs = tuple(top_level_dirs),
             # PEP 420 namespace packages this wheel contributes to.
             # When multiple wheels claim the same top-level and ALL of
             # them flag it as namespace, py_binary merges the namespace
@@ -190,6 +198,10 @@ def _whl_install(ctx):
             # runtime, so the subtree is physically merged).
             namespace_dirs = tuple(namespace_dirs),
             regular_roots = tuple(regular_roots),
+            # Collision-relevant top-level directories, namespace dirs, and
+            # regular roots containing native-library RECORD entries. Copying
+            # one into a venv merge tree changes the library's physical origin.
+            native_roots = tuple(native_roots),
             site_packages_rfpath = site_packages_rfpath,
             # Each entry is "name=module:func"; py_binary parses into
             # wrapper scripts at <venv>/bin/<name> at analysis time.
@@ -278,6 +290,16 @@ under `<venv>/bin/<name>` so `subprocess.run(["<name>", ...])` works.
 """,
             default = {},
         ),
+        "top_level_dirs": attr.string_list_dict(
+            doc = """Per-wheel subset of non-metadata top_levels that are directories, keyed by wheel file basename.
+
+The wheel RECORD must contain an entry below the top-level directory.
+Single-file modules are not included. venv assembly uses this distinction to
+physically merge only colliding directories while preserving ordinary
+file-collision precedence.
+""",
+            default = {},
+        ),
         "namespace_top_levels": attr.string_list_dict(
             doc = """Per-wheel subset of `top_levels` that are PEP 420 namespace packages, keyed by wheel file basename.
 
@@ -325,6 +347,16 @@ root shows up in another wheel's `namespace_dirs`, that other wheel grafts
 content inside this regular package — venv assembly must physically merge
 the subtree since Python locks a regular package's `__path__` to one
 directory.
+""",
+            default = {},
+        ),
+        "native_roots": attr.string_list_dict(
+            doc = """Per-wheel collision roots containing native-library RECORD entries, keyed by wheel file basename.
+
+Each value is a top-level directory, namespace directory, or regular-package
+root containing a file ending in `.so`, versioned `.so.*`, `.pyd`, `.dylib`,
+or `.dll`. venv assembly avoids physically merging a colliding root listed
+here because relocation can break the library's origin-relative sibling lookup.
 """,
             default = {},
         ),
