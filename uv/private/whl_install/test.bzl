@@ -234,6 +234,44 @@ _CONSOLE_SCRIPTS = {
     ],
 }
 
+_NAMESPACE_ENTRIES = {
+    _MACOS_WHL: [
+        "demo_ns/part",
+        "demo_ns/plain.py",
+    ],
+}
+
+_NAMESPACE_DIRS = {
+    _MACOS_WHL: ["demo_ns/nested"],
+}
+
+_REGULAR_ROOTS = {
+    # Deliberately duplicates a namespace entry; the action should preserve
+    # each analysis-visible path exactly once.
+    _MACOS_WHL: ["demo_ns/part"],
+}
+
+_PATCHED_TOP_LEVELS = {
+    _MACOS_WHL: _TOP_LEVELS[_MACOS_WHL] + ["demo.egg-info"],
+}
+
+_PATCHED_NAMESPACE_ENTRIES = {
+    # Metadata roots are opaque to venv analysis even if a producer includes
+    # their children in namespace metadata.
+    _MACOS_WHL: _NAMESPACE_ENTRIES[_MACOS_WHL] + ["demo.egg-info/PKG-INFO"],
+}
+
+_PATCHED_PRESERVE_PATHS = [
+    "_demo_backend.cpython-311-darwin.so",
+    "demo",
+    "demo-1.0.0.dist-info",
+    "demo.egg-info",
+    "demo_ns",
+    "demo_ns/nested",
+    "demo_ns/part",
+    "demo_ns/plain.py",
+]
+
 def _metadata_selection_test_impl(ctx):
     env = analysistest.begin(ctx)
     target = analysistest.target_under_test(env)
@@ -262,6 +300,17 @@ def _metadata_selection_test_impl(ctx):
             "console script '{}' from an inactive platform wheel leaked into the selected wheel's surface".format(leaked),
         )
 
+    if ctx.attr.expected_preserve_paths:
+        build_actions = [a for a in target.actions if a.mnemonic == "WhlInstall"]
+        asserts.equals(env, 1, len(build_actions), "expected exactly one WhlInstall action")
+        argv = build_actions[0].argv
+        preserve_paths = [
+            argv[i + 1]
+            for i in range(len(argv) - 1)
+            if argv[i] == "--preserve-path"
+        ]
+        asserts.equals(env, ctx.attr.expected_preserve_paths, preserve_paths)
+
     return analysistest.end(env)
 
 _metadata_selection_test = analysistest.make(
@@ -272,6 +321,7 @@ _metadata_selection_test = analysistest.make(
         "expected_console_scripts": attr.string_list(),
         "leaked_top_levels": attr.string_list(),
         "leaked_console_scripts": attr.string_list(),
+        "expected_preserve_paths": attr.string_list(),
     },
 )
 
@@ -306,6 +356,25 @@ def metadata_selection_test_suite(name):
         src = _LINUX_WHL,
         console_scripts = _DECLARED_SBUILD_CONSOLE_SCRIPTS,
         tags = ["manual"],
+    )
+
+    write_file(
+        name = "__metadata_noop_patch",
+        out = "metadata_noop.patch",
+        content = [""],
+        tags = ["manual"],
+    )
+    whl_install(
+        name = "__metadata_patched_fixture",
+        src = _MACOS_WHL,
+        console_scripts = _CONSOLE_SCRIPTS,
+        namespace_dirs = _NAMESPACE_DIRS,
+        namespace_entries = _PATCHED_NAMESPACE_ENTRIES,
+        namespace_top_levels = _NAMESPACE_TOP_LEVELS,
+        patches = [":__metadata_noop_patch"],
+        regular_roots = _REGULAR_ROOTS,
+        tags = ["manual"],
+        top_levels = _PATCHED_TOP_LEVELS,
     )
 
     for fixture_name, src in [
@@ -374,6 +443,17 @@ def metadata_selection_test_suite(name):
         expected_console_scripts = _DECLARED_SBUILD_CONSOLE_SCRIPTS,
         leaked_top_levels = _TOP_LEVELS[_LINUX_WHL],
         leaked_console_scripts = _CONSOLE_SCRIPTS[_LINUX_WHL],
+    )
+
+    _metadata_selection_test(
+        name = name + "_patched_test",
+        target_under_test = ":__metadata_patched_fixture",
+        expected_console_scripts = _CONSOLE_SCRIPTS[_MACOS_WHL],
+        expected_namespace_top_levels = _NAMESPACE_TOP_LEVELS[_MACOS_WHL],
+        expected_preserve_paths = _PATCHED_PRESERVE_PATHS,
+        expected_top_levels = _PATCHED_TOP_LEVELS[_MACOS_WHL],
+        leaked_console_scripts = [],
+        leaked_top_levels = [],
     )
 
 def whl_install_suite():

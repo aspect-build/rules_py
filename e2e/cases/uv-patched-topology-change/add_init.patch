@@ -1,0 +1,4 @@
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ b/lib/python3.11/site-packages/zope/__init__.py	2026-06-26 00:00:00.000000000 +0000
+@@ -0,0 +1 @@
++# Invalidates the observed namespace-package classification.

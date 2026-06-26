@@ -48,6 +48,11 @@ Where `patches/nvidia-strip-init.patch` might look like:
 +# Stripped by aspect_rules_py override
 ```
 
+The file remains in place, so `nvidia` stays a regular package. Post-install
+patches may not remove package roots or change a package between regular and
+namespace forms; use full replacement when the installed topology itself must
+change.
+
 ### Applying the same patch to multiple packages
 
 Use a Starlark list comprehension:
@@ -183,6 +188,12 @@ uv.override_package(
 - `console_scripts` applies only when the lock record has a source
   distribution. Prebuilt wheels use their inspected metadata.
 - Pre-build patches only apply to packages that have a source distribution in the lockfile. If a package only has pre-built wheels, `pre_build_patches` has no effect.
+- Post-install patches to prebuilt wheels must preserve every original path
+  used for collision and regular-package merge planning, including its
+  file-or-directory kind and package classification. Ordinary added paths are
+  not enumerated by this validation and may not be visible to venv consumers.
+  Source-built wheel topology is unavailable during analysis and remains
+  unvalidated.
 
 ## Future work
 
