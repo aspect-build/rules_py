@@ -1,0 +1,16 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+exports_files([
+    "add_init.patch",
+    "pyproject.toml",
+    "uv.lock",
+])
+
+py_test(
+    name = "consumer",
+    srcs = ["main.py"],
+    dep_group = "patched-topology-change",
+    python_version = "3.11",
+    tags = ["manual"],
+    deps = ["@pypi_uv_patched_topology_change//zope_event"],
+)
