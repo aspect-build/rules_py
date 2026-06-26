@@ -23,6 +23,7 @@ def _python_interpreter_impl(rctx):
     )
 
     # Determine the Python binary path
+    is_macos = "apple-darwin" in platform
     is_windows = "windows" in platform
     python_bin = "python.exe" if is_windows else "bin/python3"
     version_parts = python_version.split(".")
@@ -49,6 +50,7 @@ def _python_interpreter_impl(rctx):
         minor = minor,
         micro = micro,
         python_bin = python_bin,
+        is_macos = is_macos,
         is_windows = is_windows,
         releaselevel = releaselevel,
         serial = serial,
@@ -93,7 +95,7 @@ filegroup(
 
     return "\n".join(lines), all_excludes
 
-def _build_file_content(major, minor, micro, python_bin, is_windows, abi_flags, releaselevel, serial):
+def _build_file_content(major, minor, micro, python_bin, is_macos, is_windows, abi_flags, releaselevel, serial):
     """Generate the full BUILD.bazel content for an interpreter repo."""
 
     feature_targets, feature_excludes = _feature_filegroups(major, minor, is_windows)
@@ -102,7 +104,7 @@ def _build_file_content(major, minor, micro, python_bin, is_windows, abi_flags, 
     if not is_windows:
         include_dirs.append("include/python{}.{}{}".format(major, minor, abi_flags))
 
-    interface_targets = ""
+    library_targets = ""
     header_interface_deps = []
     abi3_header_target = ""
     headers_abi3_attr = ""
@@ -117,7 +119,7 @@ def _build_file_content(major, minor, micro, python_bin, is_windows, abi_flags, 
         # Windows extensions link an import library. Regular stable-ABI
         # extensions use python3.lib.
         # https://docs.python.org/3.13/c-api/stable.html#stable-application-binary-interface
-        interface_targets = """\
+        library_targets = """\
 cc_import(
     name = "interface",
     interface_library = "libs/python{major}{minor}{abi_flags}.lib",
@@ -132,7 +134,7 @@ cc_import(
         libs_attr = "    libs = \":interface\",\n"
         header_interface_deps = [":interface"]
         if abi_flags == "":
-            interface_targets += """
+            library_targets += """
 cc_import(
     name = "abi3_interface",
     interface_library = "libs/python3.lib",
@@ -150,8 +152,28 @@ cc_library(
 )
 """.format(include_dirs = repr(include_dirs))
             headers_abi3_attr = "    headers_abi3 = \":python_headers_abi3\",\n"
-    elif abi_flags == "":
-        headers_abi3_attr = "    headers_abi3 = \":python_headers\",\n"
+    else:
+        # rules_python exposes this target through current_py_cc_libs for
+        # embedding consumers. Keep it separate from python_headers so Python
+        # extension modules do not acquire a libpython dependency.
+        # https://rules-python.readthedocs.io/en/latest/toolchains.html#consuming-python-c-headers-and-libraries
+        if is_macos:
+            libpython_srcs = ["lib/libpython{}.{}{}.dylib".format(major, minor, abi_flags)]
+        else:
+            libpython_srcs = [
+                "lib/libpython{}.{}{}.so".format(major, minor, abi_flags),
+                "lib/libpython{}.{}{}.so.1.0".format(major, minor, abi_flags),
+            ]
+        library_targets = """\
+cc_library(
+    name = "libpython",
+    srcs = {libpython_srcs},
+    visibility = ["//visibility:private"],
+)
+""".format(libpython_srcs = repr(libpython_srcs))
+        libs_attr = "    libs = \":libpython\",\n"
+        if abi_flags == "":
+            headers_abi3_attr = "    headers_abi3 = \":python_headers\",\n"
 
     if is_windows:
         core_include = '["**/*.py", "**/*.pyd", "**/*.dll", "**/*.exe", "include/**", "Lib/**"]'
@@ -211,7 +233,7 @@ filegroup(
 
 # --- Python C toolchain ---
 
-{interface_targets}filegroup(
+{library_targets}filegroup(
     name = "includes",
     srcs = glob(["include/**/*.h"], allow_empty = False),
     visibility = ["//visibility:private"],
@@ -261,7 +283,7 @@ py_cc_toolchain(
         header_interface_deps = repr(header_interface_deps),
         headers_abi3_attr = headers_abi3_attr,
         include_dirs = repr(include_dirs),
-        interface_targets = interface_targets,
+        library_targets = library_targets,
         libs_attr = libs_attr,
         python_bin = python_bin,
         major = major,

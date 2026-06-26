@@ -77,8 +77,6 @@ def _check_cc_toolchain(ctx, cc_toolchain):
         if cc_toolchain.headers_abi3 != None:
             _check_windows_libraries(ctx, cc_toolchain.headers_abi3, "stable-ABI headers", stable_abi = True)
     else:
-        if cc_toolchain.libs != None:
-            fail("Python {} POSIX C toolchain unexpectedly exposes link libraries".format(ctx.attr.python_version))
         for description, headers in [
             ("full-ABI headers", cc_toolchain.headers),
             ("stable-ABI headers", cc_toolchain.headers_abi3),
