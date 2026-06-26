@@ -150,11 +150,14 @@ def _resolve_archive_path(repository_ctx):
 def _sdist_build_impl(repository_ctx):
     """Prepares a repository for building a wheel from a source distribution (sdist).
 
-    When `is_native` is "auto" (the default), a configure tool is run to
-    inspect the sdist archive. The tool may return:
+    A configure tool may inspect the sdist archive and return:
     - `build_file_content`: used verbatim as the BUILD.bazel
     - `is_native` + `extra_deps`: used to generate a standard build file
       with the appropriate rule and resolved dependencies
+
+    An explicit `is_native` selects the generated rule while preserving
+    configure-discovered deps. It conflicts with complete `build_file_content`,
+    which is otherwise used verbatim.
 
     See //uv/private/sdist_configure:defs.bzl for the tool contract.
 
@@ -163,15 +166,16 @@ def _sdist_build_impl(repository_ctx):
     """
 
     is_native_override = repository_ctx.attr.is_native
-    inspection = None
+    archive_path = _resolve_archive_path(repository_ctx)
+    inspection = _run_configure_tool(repository_ctx, archive_path) if archive_path else None
+    build_file_content = inspection.get("build_file_content") if inspection else None
+
+    if build_file_content and is_native_override != "auto":
+        fail("sdist_build for '{}': explicit `is_native = \"{}\"` requests a generated `pep517_*whl(...)` call, but the configure tool returned complete `build_file_content`; remove the native annotation, or have the configure tool select the build rule.".format(repository_ctx.name, is_native_override))
 
     if is_native_override == "auto":
-        archive_path = _resolve_archive_path(repository_ctx)
-        inspection = _run_configure_tool(repository_ctx, archive_path) if archive_path else None
-
         if inspection != None:
             # If the tool provided complete build file content, use it directly.
-            build_file_content = inspection.get("build_file_content")
             if build_file_content:
                 validate_build_attrs(
                     console_scripts = [],

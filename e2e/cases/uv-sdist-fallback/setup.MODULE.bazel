@@ -16,6 +16,14 @@ uv.project(
     lock = "//cases/uv-sdist-fallback:uv.lock",
     pyproject = "//cases/uv-sdist-fallback:pyproject.toml",
 )
+uv.unstable_annotate_packages(
+    src = "//cases/uv-sdist-fallback:annotations.toml",
+    lock = "//cases/uv-sdist-fallback:uv.lock",
+)
+uv.unstable_annotate_packages(
+    src = "//cases/uv-sdist-fallback:native_annotations.toml",
+    lock = "//cases/uv-sdist-fallback:uv.lock",
+)
 uv.override_package(
     name = "cowsay",
     console_scripts = {"cowsay": "cowsay.__main__:cli"},

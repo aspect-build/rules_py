@@ -488,6 +488,8 @@ support this.
 some key information. Such as what requirements apply when performing sdist
 builds. Annotations are the current workaround for how to associate such
 required but nonstandardized and missing dependency data with requirements.
+Set `native = true|false` on a package annotation to override automatic sdist
+native detection and select the native or pure-Python wheel build path.
 
 **Why aren't entrypoints automatically created?** Downloaded-wheel entrypoints
 are discovered while repositories are generated. Source-built wheels do not
