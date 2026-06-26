@@ -179,6 +179,7 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
     ns_covered_per_wheel = {}
     conflicted_roots = {}  # root path -> True (regular package spanning wheels)
     ns_claimant_sps = {}  # sp -> True, wheels in any all-namespace collision
+    mixed_tl_merges = {}  # tl -> list of sp, mixed namespace/regular top-level collisions
     for tl, claimants in tl_claimants.items():
         distinct_sp = {c.site_packages: c for c in claimants}
         if len(distinct_sp) == 1:
@@ -330,6 +331,27 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
                     ns_covered_per_wheel.setdefault(c.site_packages, {})[tl] = True
             continue
 
+        # Mixed collision: some wheels declare tl as a PEP 420 namespace
+        # (no __init__.py), others declare it as a regular package (have
+        # __init__.py). E.g. opentelemetry-sdk treats `opentelemetry` as a
+        # namespace while xds_protos ships `opentelemetry/__init__.py`.
+        # Only do a physical merge when the regular wheel has an EMPTY
+        # __init__.py (0 bytes — a legacy namespace stub with no extend_path),
+        # because "last winner wins" would then hide namespace subpackages.
+        # A non-empty __init__.py (e.g. airflow's extend_path-based one)
+        # handles runtime merging itself — the symlink approach still works.
+        if any([c.is_ns for c in claimants]):
+            needs_merge = False
+            for c in distinct_sp.values():
+                if not c.is_ns and tl in getattr(wheel_by_sp[c.site_packages], "empty_init_top_levels", ()):
+                    needs_merge = True
+                    break
+            if needs_merge:
+                for c in distinct_sp.values():
+                    skipped_per_wheel.setdefault(c.site_packages, {})[tl] = True
+                mixed_tl_merges[tl] = [c.site_packages for c in distinct_sp.values()]
+                continue
+
         winner = claimants[0]
         seen = {winner.site_packages: True}
         for c in claimants[1:]:
@@ -372,6 +394,26 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
         if len(group_sps) >= 2:
             merge_groups.append(struct(
                 root = root,
+                site_packages_list = group_sps,
+            ))
+
+    # Append merge groups for mixed namespace/regular top-level collisions.
+    # Each entry in mixed_tl_merges maps a top-level name to the list of
+    # contributing site-packages paths (already distinct). Reconstruct in
+    # wheel traversal order so the merge overlays wheels consistently.
+    for tl, sp_list in mixed_tl_merges.items():
+        sp_set = {sp: True for sp in sp_list}
+        group_sps = []
+        group_sps_seen = {}
+        for ordered_w in wheels:
+            sp = ordered_w.site_packages_rfpath
+            if sp in group_sps_seen or sp not in sp_set:
+                continue
+            group_sps_seen[sp] = True
+            group_sps.append(sp)
+        if len(group_sps) >= 2:
+            merge_groups.append(struct(
+                root = tl,
                 site_packages_list = group_sps,
             ))
 
