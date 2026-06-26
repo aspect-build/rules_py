@@ -33,6 +33,11 @@ Duplicate dependency edges do not create another precedence position. Fields:
     `regular_roots` with another wheel's `namespace_dirs` detects regular
     packages spanning wheels, which venv assembly must physically merge.
     May be absent on structs from older producers.
+  * `empty_init_top_levels`: tuple[str] — subset of top-level regular
+    packages whose `__init__.py` is 0 bytes (a legacy namespace stub, no
+    extend_path). When these clash with namespace wheels a physical merge is
+    required. May be absent on structs from older producers; consumers use
+    `getattr` with a `()` default.
   * `site_packages_rfpath`: str — runfiles-root-relative path to the wheel's site-packages.
   * `console_scripts`: tuple[str] — entry points encoded as `"name=module:func"`.
   * `install_tree`: File — complete installed wheel tree.

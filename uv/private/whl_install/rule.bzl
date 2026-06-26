@@ -62,6 +62,7 @@ def _whl_install(ctx):
         namespace_entries = []
         namespace_dirs = []
         regular_roots = []
+        empty_init_top_levels = []
         console_scripts = ctx.attr.src[SourceBuiltWheelInfo].console_scripts
     else:
         whl_basename = archive.basename
@@ -70,6 +71,7 @@ def _whl_install(ctx):
         namespace_entries = ctx.attr.namespace_entries.get(whl_basename, [])
         namespace_dirs = ctx.attr.namespace_dirs.get(whl_basename, [])
         regular_roots = ctx.attr.regular_roots.get(whl_basename, [])
+        empty_init_top_levels = ctx.attr.empty_init_top_levels.get(whl_basename, [])
         console_scripts = ctx.attr.console_scripts.get(whl_basename, [])
 
     arguments = ctx.actions.args()
@@ -190,6 +192,7 @@ def _whl_install(ctx):
             # runtime, so the subtree is physically merged).
             namespace_dirs = tuple(namespace_dirs),
             regular_roots = tuple(regular_roots),
+            empty_init_top_levels = tuple(empty_init_top_levels),
             site_packages_rfpath = site_packages_rfpath,
             # Each entry is "name=module:func"; py_binary parses into
             # wrapper scripts at <venv>/bin/<name> at analysis time.
@@ -325,6 +328,16 @@ root shows up in another wheel's `namespace_dirs`, that other wheel grafts
 content inside this regular package — venv assembly must physically merge
 the subtree since Python locks a regular package's `__path__` to one
 directory.
+""",
+            default = {},
+        ),
+        "empty_init_top_levels": attr.string_list_dict(
+            doc = """Per-wheel top-level regular packages whose `__init__.py` is 0 bytes, keyed by wheel file basename.
+
+A 0-byte `__init__.py` is a legacy namespace stub. The wheel cannot extend
+the package's `__path__` at runtime, so when it clashes with genuine
+namespace wheels a physical merge is required. Only present for the rare
+wheels (e.g. xds-protos) that ship an empty init as a namespace compat shim.
 """,
             default = {},
         ),

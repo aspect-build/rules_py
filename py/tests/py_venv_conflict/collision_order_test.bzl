@@ -32,6 +32,7 @@ printf 'VALUE = "regular"\n' > "$site/mixed_top/from_regular.py"
         namespace_entries = ()
         namespace_dirs = ()
         regular_roots = ()
+        empty_init_top_levels = ("mixed_top",)  # printf '' creates a 0-byte file
     else:
         command = """
 set -eu
@@ -44,6 +45,7 @@ printf 'VALUE = "namespace"\n' > "$site/mixed_top/from_namespace.py"
         namespace_entries = ("mixed_top/from_namespace.py",)
         namespace_dirs = ()
         regular_roots = ()
+        empty_init_top_levels = ()
     ctx.actions.run_shell(
         outputs = [install_tree],
         command = command,
@@ -64,6 +66,7 @@ printf 'VALUE = "namespace"\n' > "$site/mixed_top/from_namespace.py"
         namespace_entries = namespace_entries,
         namespace_dirs = namespace_dirs,
         regular_roots = regular_roots,
+        empty_init_top_levels = empty_init_top_levels,
         site_packages_rfpath = site_packages,
         console_scripts = (),
         install_tree = install_tree,

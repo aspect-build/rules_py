@@ -219,6 +219,11 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
     # packages that expect to be merged across wheels.
     regular_top_levels = {}
 
+    # Subset of regular_top_levels whose `__init__.py` is 0 bytes (a legacy
+    # namespace stub that cannot use extend_path). When these collide with
+    # genuine namespace wheels, a physical merge is required.
+    empty_init_top_levels = {}
+
     # Raw material for the namespace derivations below: every kept RECORD
     # path (as segment lists) plus the full directory skeleton and the set
     # of directories that hold a direct `__init__.py` at any depth.
@@ -255,6 +260,13 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
             # namespace packages — treat them as regular.
             if len(segments) == 1 or (len(segments) >= 2 and segments[1] == "__init__.py"):
                 regular_top_levels[first_segment] = True
+                if len(segments) == 2:
+                    # Track zero-byte __init__.py files: they are legacy
+                    # namespace stubs with no extend_path. RECORD format is
+                    # `path,hash,size`; a 0-byte file has size field "0".
+                    record_parts = line.split(",")
+                    if len(record_parts) >= 3 and record_parts[2].strip() == "0":
+                        empty_init_top_levels[first_segment] = True
 
             record_segments.append(segments)
 
@@ -309,7 +321,7 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
             name, normalised = entry
             console_scripts[name] = normalised
 
-    return whl_path.basename, top_levels_set, regular_top_levels, console_scripts, namespace_entries, dirs_set, init_dirs
+    return whl_path.basename, top_levels_set, regular_top_levels, empty_init_top_levels, console_scripts, namespace_entries, dirs_set, init_dirs
 
 def _namespace_dirs_and_roots(dirs_set, init_dirs, namespace_top_levels_set):
     """Split a wheel's directory skeleton into the implicit-namespace dirs
@@ -689,11 +701,12 @@ filegroup(
     namespace_entries_by_whl = {}
     namespace_dirs_by_whl = {}
     regular_roots_by_whl = {}
+    empty_init_top_levels_by_whl = {}
     console_scripts_by_whl = {}
     for target, whl_file_label in whl_file_labels.items():
         if target not in arm_targets:
             continue
-        whl_name, tls, regular, css, ns_entries, dirs_set, init_dirs = _extract_wheel_metadata(
+        whl_name, tls, regular, empty_init_tls, css, ns_entries, dirs_set, init_dirs = _extract_wheel_metadata(
             repository_ctx,
             whl_file_label,
         )
@@ -733,6 +746,8 @@ filegroup(
                     namespace_dirs_by_whl[whl_name] = ndirs
                 if rroots:
                     regular_roots_by_whl[whl_name] = rroots
+        if empty_init_tls:
+            empty_init_top_levels_by_whl[whl_name] = sorted(empty_init_tls.keys())
         if css:
             console_scripts_by_whl[whl_name] = sorted(css.values())
 
@@ -764,6 +779,15 @@ filegroup(
     regular_roots = {regular_roots},""".format(
             namespace_dirs = indent(pprint(namespace_dirs_by_whl), " " * 4).lstrip(),
             regular_roots = indent(pprint(regular_roots_by_whl), " " * 4).lstrip(),
+        )
+
+    # Only emitted for wheels with a 0-byte __init__.py at a top-level —
+    # the rare legacy namespace stub. Omitting it in the common case keeps
+    # generated BUILD files (and e2e snapshots) unchanged.
+    if empty_init_top_levels_by_whl:
+        install_attrs += """
+    empty_init_top_levels = {empty_init_top_levels},""".format(
+            empty_init_top_levels = indent(pprint(empty_init_top_levels_by_whl), " " * 4).lstrip(),
         )
 
     if post_install_patches:
