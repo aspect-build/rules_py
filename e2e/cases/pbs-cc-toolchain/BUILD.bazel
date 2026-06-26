@@ -1,18 +1,31 @@
-load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load(":toolchain_test.bzl", "pbs_toolchain_check")
 
-cc_test(
-    name = "embed_python_test",
+_WINDOWS_INCOMPATIBLE = select({
+    "@platforms//os:windows": ["@platforms//:incompatible"],
+    "//conditions:default": [],
+})
+
+cc_binary(
+    name = "embed_python",
+    testonly = True,
     srcs = ["embed_python.cc"],
-    tags = ["manual"],
-    target_compatible_with = select({
-        "@platforms//os:windows": ["@platforms//:incompatible"],
-        "//conditions:default": [],
-    }),
+    target_compatible_with = _WINDOWS_INCOMPATIBLE,
     deps = [
         "@rules_python//python/cc:current_py_cc_headers",
         "@rules_python//python/cc:current_py_cc_libs",
     ],
+)
+
+py_test(
+    name = "embed_python_test",
+    srcs = ["embed_python_test.py"],
+    args = ["$(location :embed_python)"],
+    data = [":embed_python"],
+    main = "embed_python_test.py",
+    python_version = "3.13",
+    target_compatible_with = _WINDOWS_INCOMPATIBLE,
 )
 
 platform(

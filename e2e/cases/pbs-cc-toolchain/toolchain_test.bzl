@@ -77,18 +77,8 @@ def _check_cc_toolchain(ctx, cc_toolchain):
         if cc_toolchain.headers_abi3 != None:
             _check_windows_libraries(ctx, cc_toolchain.headers_abi3, "stable-ABI headers", stable_abi = True)
     else:
-        if cc_toolchain.libs == None:
-            fail("Python {} POSIX C toolchain has no libpython".format(ctx.attr.python_version))
-        suffix = "t" if ctx.attr.freethreaded else ""
-        stem = "libpython{}{}".format(ctx.attr.python_version, suffix)
-        is_macos = ctx.target_platform_has_constraint(ctx.attr._macos_constraint[platform_common.ConstraintValueInfo])
-        expected = [stem + ".dylib"] if is_macos else [
-            stem + ".so",
-            stem + ".so.1.0",
-        ]
-        libraries = sorted([artifact.basename for artifact in _link_library_files(cc_toolchain.libs)])
-        if libraries != expected:
-            fail("expected POSIX libpython files {}, got {}".format(expected, libraries))
+        if cc_toolchain.libs != None:
+            fail("Python {} POSIX C toolchain unexpectedly exposes link libraries".format(ctx.attr.python_version))
         for description, headers in [
             ("full-ABI headers", cc_toolchain.headers),
             ("stable-ABI headers", cc_toolchain.headers_abi3),
@@ -134,7 +124,6 @@ _CC_ATTRS = {
     "expected_interpreter": attr.label(allow_single_file = True, mandatory = True),
     "freethreaded": attr.bool(mandatory = True),
     "python_version": attr.string(mandatory = True),
-    "_macos_constraint": attr.label(default = "@platforms//os:macos"),
     "_windows_constraint": attr.label(default = "@platforms//os:windows"),
 }
 
