@@ -8,6 +8,7 @@ py_test(
     python_version = "3.11",
     deps = [
         "@pypi_venv_bin_scripts_423//dice",
+        "@pypi_venv_bin_scripts_423//invoke",
     ],
 )
 
@@ -20,6 +21,7 @@ py_test(
     python_version = "3.11",
     deps = [
         "@pypi_venv_bin_scripts_423//dice",
+        "@pypi_venv_bin_scripts_423//invoke",
     ],
 )
 
@@ -33,5 +35,6 @@ py_test(
     python_version = "3.11",
     deps = [
         "@pypi_venv_bin_scripts_423//dice",
+        "@pypi_venv_bin_scripts_423//invoke",
     ],
 )

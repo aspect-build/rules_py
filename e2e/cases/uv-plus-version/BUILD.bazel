@@ -1,4 +1,18 @@
 load("@aspect_rules_py//py:defs.bzl", "py_test")
+load(":metadata_test.bzl", "wheel_metadata_test")
+
+platform(
+    name = "linux_x86_64",
+    constraint_values = [
+        "@llvm//constraints/libc:gnu.2.28",
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+    flags = [
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.39",
+    ],
+)
 
 py_test(
     name = "test",
@@ -10,6 +24,16 @@ py_test(
         "@pypi_uv_plus_version//jaxlib",
         "@pypi_uv_plus_version//metomi_isodatetime",
     ],
+)
+
+wheel_metadata_test(
+    name = "literal_plus_metadata_test",
+    target_under_test = "@whl_install__plus_version__jaxlib__0_4_25_cuda11_cudnn86//:install",
+)
+
+wheel_metadata_test(
+    name = "encoded_plus_metadata_test",
+    target_under_test = "@whl_install__plus_version_encoded__jaxlib__0_4_25_cuda11_cudnn86//:install",
 )
 
 py_test(

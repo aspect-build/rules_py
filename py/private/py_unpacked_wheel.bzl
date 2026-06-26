@@ -79,17 +79,17 @@ def _py_unpacked_wheel_impl(ctx):
         ),
     ]
 
-    if ctx.attr.top_levels or ctx.attr.console_scripts:
-        providers.append(PyWheelsInfo(
-            wheels = depset(direct = [struct(
-                top_levels = tuple(ctx.attr.top_levels),
-                namespace_top_levels = tuple(ctx.attr.namespace_top_levels),
-                site_packages_rfpath = site_packages_rfpath,
-                console_scripts = tuple(ctx.attr.console_scripts),
-                # See whl_install rule for the rationale.
-                install_tree = unpack_directory,
-            )]),
-        ))
+    providers.append(PyWheelsInfo(
+        wheels = depset(direct = [struct(
+            top_levels = tuple(ctx.attr.top_levels),
+            namespace_top_levels = tuple(ctx.attr.namespace_top_levels),
+            namespace_entries = tuple(ctx.attr.namespace_entries),
+            site_packages_rfpath = site_packages_rfpath,
+            console_scripts = tuple(ctx.attr.console_scripts),
+            # See whl_install rule for the rationale.
+            install_tree = unpack_directory,
+        )]),
+    ))
 
     return providers
 
@@ -104,13 +104,13 @@ _attrs = {
         mandatory = True,
     ),
     "top_levels": attr.string_list(
-        doc = """Names of the top-level packages / modules / *.dist-info directories the wheel installs into its site-packages.
+        doc = """Complete list of immediate entries the wheel installs into site-packages.
 
-When set, the target emits a `PyWheelsInfo` provider describing this wheel.
-Downstream rules (such as `py_binary`) can consume this to assemble a merged
-`site-packages/` tree via `ctx.actions.symlink` instead of relying on `.pth`
-entries. If left empty (the default), the target behaves as before — other
-rules fall back to `.pth`-based import resolution.
+When set, downstream rules can assemble a merged `site-packages/` tree via
+`ctx.actions.symlink` instead of relying on `.pth` entries. The list must
+include packages, modules, `.pth` files, and `*.dist-info` directories. If left
+empty (the default), other rules preserve the complete wheel root and fall back
+to `.pth`-based import resolution.
 
 Typically populated by the `uv` wheel-install repo rule. Hand-written
 `py_unpacked_wheel` targets may populate this to opt into symlink-based
@@ -134,6 +134,18 @@ See the equivalent attribute on the `whl_install` rule for the full
 story; short version: names listed here suppress collision errors when
 multiple wheels claim the same top-level, because Python's namespace
 machinery is meant to merge their contributions.
+""",
+        default = [],
+    ),
+    "namespace_entries": attr.string_list(
+        doc = """Concrete entries this wheel installs beneath its `namespace_top_levels`.
+
+See the equivalent attribute on the `whl_install` rule for the full
+story; short version: `/`-joined paths like `jaraco/functools` that
+let venv assembly materialise a merged namespace directory out of
+per-entry symlinks, so static tools that inspect `site-packages/`
+directly see the package. When empty, namespace merging falls back to
+`.pth`-based resolution (runtime-only).
 """,
         default = [],
     ),

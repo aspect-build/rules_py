@@ -157,7 +157,7 @@ def main() -> None:
         return line
 
     table += row(
-        "BCR 1.11.5 (baseline)", bcr, bcr_build, "—", "—"
+        "BCR 1.11.7 (baseline)", bcr, bcr_build, "—", "—"
     )
     table += row(
         "HEAD main", main, main_build,
@@ -196,7 +196,7 @@ def main() -> None:
                 f"| {sp['dupe_realpaths']}{dupe_flag} |\n"
             )
 
-        table += syspath_row("BCR 1.11.5 (baseline)", bcr_syspath)
+        table += syspath_row("BCR 1.11.7 (baseline)", bcr_syspath)
         table += syspath_row("HEAD main", main_syspath)
         table += syspath_row("This PR", pr_syspath)
         table += (

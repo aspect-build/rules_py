@@ -10,7 +10,10 @@ There are three kinds of overrides:
 - **Pre-build patches** (`pre_build_patches`): Patch the extracted source distribution before building a wheel. Useful for fixing build scripts or source code.
 - **Post-install patches** (`post_install_patches`): Patch the installed package tree after wheel unpacking. Useful for fixing installed library code.
 
-Additionally, `extra_deps` and `extra_data` allow adding dependencies or data files to the generated `py_library` target for a package.
+Additionally, `extra_deps` and `extra_data` allow adding dependencies or data
+files to the generated `py_library` target for a package.
+`console_scripts` declares the complete script map for a wheel built from an
+sdist so venv assembly can create wrappers during analysis.
 
 ## Prerequisites
 
@@ -44,6 +47,11 @@ Where `patches/nvidia-strip-init.patch` might look like:
 -__all__ = [...]
 +# Stripped by aspect_rules_py override
 ```
+
+The file remains in place, so `nvidia` stays a regular package. Post-install
+patches may not remove package roots or change a package between regular and
+namespace forms; use full replacement when the installed topology itself must
+change.
 
 ### Applying the same patch to multiple packages
 
@@ -100,6 +108,66 @@ uv.override_package(
 )
 ```
 
+### Reserving wheel build resources
+
+Native sdist builds can be memory-hungry. Without a hint, Bazel assumes the
+default per-action estimate (~1 CPU, 250 MB) and may schedule several heavy
+builds at once, leading to OOM kills on the local machine. Set `resource_set`
+to reserve more RAM (or CPU) for a package's wheel build so Bazel limits how
+many run concurrently:
+
+```starlark
+uv.override_package(
+    lock = "//:uv.lock",
+    name = "native-package",
+    resource_set = "mem_8g",
+)
+```
+
+`resource_set` accepts bazel-lib's predefined values — the same vocabulary
+`ts_project` uses: `"mem_512m"`, `"mem_1g"`, `"mem_2g"`, `"mem_4g"`,
+`"mem_8g"`, `"mem_16g"`, `"mem_32g"`, `"cpu_2"`, `"cpu_4"`, or `"default"`
+(reserve nothing extra). A memory request is rounded up to the named bucket.
+
+`resource_set` only applies to packages built from an sdist. Setting it on a
+package that resolves to a prebuilt wheel (no source build) fails the build
+rather than silently dropping the reservation — force a source build with
+`[tool.uv] no-binary-package` if you need the reservation to apply.
+
+### Monitoring wheel build memory
+
+Set `monitor_memory` to report the memory observed while building a wheel from
+an sdist:
+
+```starlark
+uv.override_package(
+    lock = "//:uv.lock",
+    name = "native-package",
+    monitor_memory = True,
+)
+```
+
+On Linux, rules_py reports the first sample, each 256 MiB high-water crossing,
+and the final peak. Reports are flushed as the build runs, so an earlier
+high-water mark can remain in the action log when an OOM kills the build.
+
+The measurement is a best-effort sum of `/proc` RSS for the build process and
+its descendants. It can double-count shared pages and miss short-lived
+processes. On other platforms it is reported as unavailable.
+
+`monitor_memory` is diagnostic only. It neither limits memory nor reserves
+scheduler capacity, and can be enabled independently from `resource_set`.
+
+Monitoring runs only when the source-build target is selected. A package with
+both an sdist and a compatible wheel produces no report when the wheel is
+selected; use `[tool.uv] no-binary-package` to force the monitored source build.
+A package with no sdist rejects the override.
+
+A custom sdist configure tool that returns complete `build_file_content` owns
+the wheel action itself. Such content must add its own monitoring; combining
+that replacement with `monitor_memory` is rejected rather than silently
+dropping the diagnostic.
+
 ### Full replacement
 
 To replace a package entirely with a custom target (existing functionality):
@@ -115,9 +183,32 @@ uv.override_package(
 ## Constraints
 
 - Each `(lock, name, version)` triple may only have one `override_package` declaration. Duplicates are an error.
+- `lock` must identify a `uv.project()` declared by the same module.
 - `target` is mutually exclusive with all other modification attributes. Use `target` for full replacement OR the patch/modification attributes, not both.
 - The `version` attribute is optional and defaults to whatever version the lockfile resolves.
-- Pre-build patches only apply to packages that have a source distribution in the lockfile. If a package only has pre-built wheels, `pre_build_patches` has no effect.
+- `console_scripts` applies only when the lock record has a source
+  distribution. Prebuilt wheels use their inspected metadata.
+- An explicit `version` must match a record for that package in the lockfile.
+- Modification attributes cannot apply to virtual packages or the project's
+  editable workspace package because neither produces an installed wheel.
+- `pre_build_patch_strip` requires `pre_build_patches`, and
+  `post_install_patch_strip` requires `post_install_patches`.
+- `pre_build_patches`, `toolchains`, `env`, `monitor_memory`, and non-default
+  `resource_set` values require a source distribution. An override that applies
+  them to a wheel-only lock record is rejected.
+- A configure tool that returns complete `build_file_content` receives
+  `pre_build_patches` and `pre_build_patch_strip` in its context and owns
+  applying them. `toolchains`, `env`, `monitor_memory`, and non-default
+  `resource_set` values are rejected because the configure context cannot
+  convey them.
+- Generated pure-Python builds reject `toolchains` and `env`; those attributes
+  augment the native build toolchain and environment.
+- Post-install patches to prebuilt wheels must preserve every original path
+  used for collision and regular-package merge planning, including its
+  file-or-directory kind and package classification. Ordinary added paths are
+  not enumerated by this validation and may not be visible to venv consumers.
+  Source-built wheel topology is unavailable during analysis and remains
+  unvalidated.
 
 ## Future work
 

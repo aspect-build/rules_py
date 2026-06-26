@@ -4,6 +4,20 @@
 # mainstream Bazel host, platform_machine emits aarch64 or x86_64, so the
 # marker only matches once decide_marker normalizes the aliases.
 load("@aspect_rules_py//py:defs.bzl", "py_test")
+load(":inactive_marker_test.bzl", "inactive_marker_package_test", "inactive_marker_wheel_test")
+
+platform(
+    name = "inactive_linux_x86_64",
+    constraint_values = [
+        "@llvm//constraints/libc:gnu.2.28",
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+    flags = [
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.28",
+    ],
+)
 
 py_test(
     name = "arch_alias_marker",
@@ -14,4 +28,16 @@ py_test(
     deps = [
         "@pypi_arch_alias_marker//cowsay",
     ],
+)
+
+# colorama is Windows-only, so this Linux platform selects the empty package
+# and wheel defaults generated for an inactive marker-only SCC.
+inactive_marker_package_test(
+    name = "inactive_marker_package_test",
+    target_under_test = "@pypi_arch_alias_marker//colorama",
+)
+
+inactive_marker_wheel_test(
+    name = "inactive_marker_wheel_test",
+    target_under_test = "@pypi_arch_alias_marker//colorama:whl",
 )

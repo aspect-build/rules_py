@@ -52,23 +52,71 @@ resolved dependencies available in the `@uv` repository.
 """
 
 load("@bazel_features//:features.bzl", features = "bazel_features")
+load("@bazel_lib//lib:resource_sets.bzl", "resource_set_values")
 load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 load("//py/private/interpreter:resolve.bzl", "resolve_host_interpreter_label")
 load("//uv/private:normalize_name.bzl", "normalize_name")
 load("//uv/private:normalize_version.bzl", "normalize_version")
+load("//uv/private:parse_whl_name.bzl", "parse_whl_name")
 load("//uv/private/constraints:repository.bzl", "configurations_hub")
 load("//uv/private/git_archive:repository.bzl", "git_archive")
 load("//uv/private/pprint:defs.bzl", "pprint")
+load("//uv/private/sdist_build:attrs.bzl", "validate_build_attrs")
 load("//uv/private/sdist_build:repository.bzl", "sdist_build")
 load("//uv/private/sdist_configure:defs.bzl", "DEFAULT_CONFIGURE_SCRIPT")
 load("//uv/private/tomltool:toml.bzl", "toml")
 load("//uv/private/uv_hub:repository.bzl", "uv_hub")
 load("//uv/private/uv_project:repository.bzl", "uv_project")
-load("//uv/private/whl_install:repository.bzl", "whl_install")
+load("//uv/private/whl_install:repository.bzl", "parse_console_script", "whl_install")
 load(":graph_utils.bzl", "activate_extras", "collect_sccs")
 load(":lockfile.bzl", "build_marker_graph", "collect_bdists", "collect_configurations", "collect_markers", "collect_sdists", "normalize_deps")
 load(":projectfile.bzl", "collate_versions_by_name", "collect_activated_extras", "extract_requirement_marker_pairs")
+
+def url_basename(url):
+    """Returns the trailing file name of a distribution URL.
+
+    Lockfile wheel and sdist URLs name the distribution file in the last path
+    segment, but registries may append a query string (e.g. signed/expiring
+    download links) and/or a fragment (e.g. PEP 503 `#sha256=...` hashes).
+    Neither is part of the file name, so both are stripped.
+
+    Args:
+        url: str, the URL of a distribution file.
+
+    Returns:
+        the file name as a string, e.g. "foo-1.0.0-py3-none-any.whl".
+    """
+    basename = url.split("/")[-1].split("?")[0].split("#")[0]
+    if not basename:
+        fail("Invalid distribution URL (no file name): " + url)
+    return basename
+
+def parse_declared_console_script(name, entry_point):
+    """Canonicalize one override_package console-script declaration.
+
+    Args:
+        name: Script name installed under the venv's bin directory.
+        entry_point: Python entry point encoded as module:object.
+
+    Returns:
+        The canonical name=module:object string, or None when invalid.
+    """
+    whitespace = [" ", "\t", "\n", "\r"]
+    if (
+        name in ("", ".", "..") or
+        "/" in name or
+        "\\" in name or
+        "=" in name or
+        "=" in entry_point or
+        "[" in entry_point or
+        "]" in entry_point or
+        len(entry_point.split(":")) != 2 or
+        any([char in name or char in entry_point for char in whitespace])
+    ):
+        return None
+    parsed = parse_console_script("{}={}".format(name, entry_point))
+    return parsed[1] if parsed != None else None
 
 def _merge_scc_dep_markers_by_surface_package(marked_deps):
     merged = {}
@@ -149,6 +197,15 @@ def _parse_projects(module_ctx, hub_specs):
 
     # Collect all hubs, ensure we have no dupes
     for mod in module_ctx.modules:
+        project_locks = {project.lock: True for project in mod.tags.project}
+        for override in mod.tags.override_package:
+            if override.lock not in project_locks:
+                fail("uv.override_package() for '{}' refers to lock '{}', but module '{}' has no uv.project() for that lock.".format(
+                    override.name,
+                    override.lock,
+                    mod.name,
+                ))
+
         for project in mod.tags.project:
             project_data = toml.decode_file(module_ctx, project.pyproject)
             lock_data = toml.decode_file(module_ctx, project.lock)
@@ -209,15 +266,25 @@ def _parse_projects(module_ctx, hub_specs):
 
             # Collect package overrides, validating no duplicates per (lock, name, version).
             package_overrides = {}
+            package_console_scripts = {}
             for override in mod.tags.override_package:
                 if override.lock != project.lock:
                     continue
 
-                v = override.version or default_versions.get(normalize_name(override.name), (None, None, None, None))[2]
+                name = normalize_name(override.name)
+                v = override.version or default_versions.get(name, (None, None, None, None))[2]
                 if not v:
                     fail("Overridden project {} neither specifies a version nor has an implied singular version in the lockfile!".format(override.name, project.lock))
+                available_versions = package_versions.get(name, {})
+                if v not in available_versions:
+                    fail("uv.override_package() for package '{}' selects version '{}', which is absent from lock '{}'; available versions: {}".format(
+                        override.name,
+                        v,
+                        project.lock,
+                        sorted(available_versions.keys()),
+                    ))
 
-                override_key = (normalize_name(override.name), v)
+                override_key = (name, v)
                 if override_key in package_overrides:
                     fail("Duplicate uv.override_package() for package '{}' version '{}' in lock '{}'. Each (lock, name, version) triple may only be overridden once.".format(
                         override.name,
@@ -225,23 +292,44 @@ def _parse_projects(module_ctx, hub_specs):
                         project.lock,
                     ))
 
+                console_scripts = []
+                for raw_script_name, raw_entry_point in sorted(override.console_scripts.items()):
+                    console_script = parse_declared_console_script(raw_script_name, raw_entry_point)
+                    if console_script == None:
+                        fail("uv.override_package() for '{}=={}' in lock '{}': `console_scripts` must map valid script names to `module:object` entry points; got {} = {}".format(
+                            override.name,
+                            v,
+                            project.lock,
+                            repr(raw_script_name),
+                            repr(raw_entry_point),
+                        ))
+                    console_scripts.append(console_script)
+
                 has_target = override.target != None
+                if override.pre_build_patch_strip and not override.pre_build_patches:
+                    fail("uv.override_package() for '{}': `pre_build_patch_strip` requires `pre_build_patches`.".format(override.name))
+                if override.post_install_patch_strip and not override.post_install_patches:
+                    fail("uv.override_package() for '{}': `post_install_patch_strip` requires `post_install_patches`.".format(override.name))
                 has_modifications = (
+                    override.console_scripts or
                     override.pre_build_patches or
                     override.post_install_patches or
                     override.extra_deps or
                     override.extra_data or
                     override.toolchains or
-                    override.env
+                    override.env or
+                    override.monitor_memory or
+                    override.resource_set != "default"
                 )
 
                 if has_target and has_modifications:
-                    fail("uv.override_package() for '{}': `target` is mutually exclusive with patch/exclude attributes. Use `target` for full replacement OR patch/exclude attributes for modifications, not both.".format(override.name))
+                    fail("uv.override_package() for '{}': `target` is mutually exclusive with modification attributes. Use `target` for full replacement OR build, patch, and data attributes for modifications, not both.".format(override.name))
 
                 if not has_target and not has_modifications:
-                    fail("uv.override_package() for '{}': must specify either `target` for full replacement or at least one modification attribute (pre_build_patches, post_install_patches, extra_deps, extra_data).".format(override.name))
+                    fail("uv.override_package() for '{}': must specify either `target` for full replacement or at least one modification attribute (console_scripts, pre_build_patches, post_install_patches, extra_deps, extra_data, toolchains, env, monitor_memory, resource_set).".format(override.name))
 
                 package_overrides[override_key] = override
+                package_console_scripts[override_key] = console_scripts
 
                 k = (project_id, normalize_name(override.name), v, "__base__")
                 if has_target:
@@ -316,21 +404,33 @@ def _parse_projects(module_ctx, hub_specs):
             # Translate the package lock into installs for this project
             for package in lock_data.get("package", []):
                 install_key = (project_id, package["name"], package["version"], "__base__")
-                if install_key in install_table:
+                k = "whl_install__{}__{}__{}".format(project_stamp, package["name"], normalize_version(package["version"]))
+                install_target = "@{}//:install".format(k)
+                existing_target = install_table.get(install_key)
+                if existing_target != None and existing_target != install_target:
                     # Case of an overridden package
                     continue
-                elif "editable" in package["source"] or "virtual" in package["source"]:
+                elif "virtual" in package["source"]:
+                    override_key = (normalize_name(package["name"]), package["version"])
+                    if override_key in package_overrides:
+                        fail("Virtual package {} in lockfile {} cannot use a modification-only `uv.override_package()` annotation because it is not installed.".format(package["name"], project.lock))
+                    continue
+                elif "editable" in package["source"]:
                     # Case of the workspace self-package
-                    # FIXME: Workspace packages can have srcs? It's a bit weird
                     if normalize_name(package["name"]) == normalize_name(project_name):
+                        override_key = (normalize_name(package["name"]), package["version"])
+                        if override_key in package_overrides:
+                            fail("Editable project package {} in lockfile {} cannot use a modification-only `uv.override_package()` annotation because the workspace supplies it.".format(package["name"], project.lock))
                         continue
                     else:
-                        fail("Virtual package {} in lockfile {} doesn't have a mandatory `uv.override_package()` annotation!".format(package["name"], project.lock))
+                        fail("Editable package {} in lockfile {} doesn't have a mandatory `uv.override_package(target = ...)` annotation!".format(package["name"], project.lock))
 
-                k = "whl_install__{}__{}__{}".format(project_stamp, package["name"], normalize_version(package["version"]))
-                install_table[install_key] = "@{}//:install".format(k)
+                install_table[install_key] = install_target
                 sbuild_id = "sdist_build__{}__{}__{}".format(project_stamp, package["name"], normalize_version(package["version"]))
                 sdist = sdist_table.get(sbuild_id)
+                override_key = (normalize_name(package["name"]), package["version"])
+                pkg_override = package_overrides.get(override_key)
+                sbuild_console_scripts = package_console_scripts.get(override_key, [])
 
                 # WARNING: Loop invariant; this flag needs to be False by
                 # default and set if we do a build.
@@ -340,6 +440,22 @@ def _parse_projects(module_ctx, hub_specs):
 
                 if is_no_binary and not sdist:
                     fail("Package {} is in [tool.uv] no-binary-package but has no sdist in the lockfile".format(package["name"]))
+                if pkg_override and not sdist:
+                    validate_build_attrs(
+                        console_scripts = sbuild_console_scripts,
+                        resource_set = pkg_override.resource_set,
+                        env = pkg_override.env,
+                        error = "uv.override_package() for '{}=={}' in lock '{}': build-only attributes require a source distribution, but the lock record has only wheels: {{}}".format(
+                            package["name"],
+                            package["version"],
+                            project.lock,
+                        ),
+                        monitor_memory = pkg_override.monitor_memory,
+                        pre_build_patches = pkg_override.pre_build_patches,
+                        pre_build_patch_strip = pkg_override.pre_build_patch_strip,
+                        supported = [],
+                        toolchains = pkg_override.toolchains,
+                    )
                 if sdist:
                     # HACK: Note that we resolve these LAZILY so that
                     # bdist-only or fully overridden configurations don't
@@ -372,7 +488,6 @@ def _parse_projects(module_ctx, hub_specs):
                     build_deps = sets.to_list(sets.make(build_deps + lock_build_deps))
 
                     # Look up pre-build patches for this package
-                    pkg_override = package_overrides.get((normalize_name(package["name"]), package["version"]))
                     pre_build_patches = []
                     pre_build_patch_strip = 0
                     if pkg_override and pkg_override.pre_build_patches:
@@ -384,9 +499,13 @@ def _parse_projects(module_ctx, hub_specs):
                     # they don't replace them. Empty == no augmentation.
                     extra_toolchains = []
                     extra_env = {}
+                    monitor_memory = False
+                    resource_set = "default"
                     if pkg_override:
                         extra_toolchains = [str(t) for t in pkg_override.toolchains]
                         extra_env = pkg_override.env
+                        monitor_memory = pkg_override.monitor_memory
+                        resource_set = pkg_override.resource_set
 
                     sbuild_specs[sbuild_id] = struct(
                         src = sdist,
@@ -399,12 +518,13 @@ def _parse_projects(module_ctx, hub_specs):
                         configure_command = project.unstable_configure_command,
                         extra_toolchains = extra_toolchains,
                         extra_env = extra_env,
+                        monitor_memory = monitor_memory,
+                        resource_set = resource_set,
                     )
 
                     has_sbuild = True
 
                 # Look up post-install patches and BUILD modifications
-                pkg_override = package_overrides.get((normalize_name(package["name"]), package["version"]))
                 post_install_patches = []
                 post_install_patch_strip = 0
                 extra_deps = []
@@ -415,12 +535,50 @@ def _parse_projects(module_ctx, hub_specs):
                     extra_deps = [str(d) for d in pkg_override.extra_deps]
                     extra_data = [str(d) for d in pkg_override.extra_data]
 
+                # uv can emit multiple lock records for the same package/version
+                # (e.g. resolution-marker forks), each carrying a different
+                # subset of wheels. Merge with any previously translated record
+                # for the same install instead of overwriting (and thus
+                # dropping) it.
+                whls = {}
+                metadata_directory = None
+                if not is_no_binary:
+                    prev_cfg = install_cfgs.get(k)
+                    if prev_cfg:
+                        whls.update(prev_cfg.whls)
+                        metadata_directory = prev_cfg.metadata_directory
+                    for whl in package.get("wheels", []):
+                        basename = url_basename(whl["url"])
+                        whls[basename] = bdist_table.get(whl["url"])
+
+                        # Every wheel of a package/version installs the same
+                        # `<project>-<version>.dist-info` directory, so the
+                        # repo rule only needs one name to `extract` the
+                        # metadata regardless of which platform wheel is
+                        # selected. A divergence means our derivation is wrong.
+                        #
+                        # Derive both halves from the wheel filename: it and
+                        # the dist-info dir share the build backend's escaping,
+                        # and URL-encoded `+` is literal in the archive member.
+                        # The build tag (absent from dist-info) is dropped.
+                        whl_name = parse_whl_name(basename)
+                        candidate = "{}-{}.dist-info".format(
+                            whl_name.project,
+                            whl_name.version.replace("%2B", "+").replace("%2b", "+"),
+                        )
+                        if metadata_directory != None and candidate != metadata_directory:
+                            fail("wheel metadata directory mismatch for {}: {} vs {}".format(
+                                k,
+                                metadata_directory,
+                                candidate,
+                            ))
+                        metadata_directory = candidate
+
                 install_cfgs[k] = struct(
-                    whls = {} if is_no_binary else {
-                        whl["url"].split("/")[-1].split("?")[0].split("#")[0]: bdist_table.get(whl["url"])
-                        for whl in package.get("wheels", [])
-                    },
+                    metadata_directory = metadata_directory or "",
+                    whls = whls,
                     sbuild = "@{}//:whl".format(sbuild_id) if has_sbuild else None,
+                    sbuild_console_scripts = sbuild_console_scripts,
                     post_install_patches = post_install_patches,
                     post_install_patch_strip = post_install_patch_strip,
                     extra_deps = extra_deps,
@@ -525,7 +683,7 @@ def _uv_impl(module_ctx):
                 name = sdist_name,
                 url = sdist_cfg["url"],
                 sha256 = sha256,
-                downloaded_file_path = sdist_cfg["url"].split("/")[-1].split("?")[0].split("#")[0],
+                downloaded_file_path = url_basename(sdist_cfg["url"]),
             )
 
         elif "git" in sdist_cfg:
@@ -549,7 +707,7 @@ def _uv_impl(module_ctx):
             name = bdist_name,
             url = bdist_cfg["url"],
             sha256 = sha256,
-            downloaded_file_path = bdist_cfg["url"].split("/")[-1].split("?")[0].split("#")[0],
+            downloaded_file_path = url_basename(bdist_cfg["url"]),
         )
 
     # Resolve the sdist configure tool. The default is our bundled
@@ -586,12 +744,18 @@ def _uv_impl(module_ctx):
             sbuild_kwargs["extra_toolchains"] = sbuild_cfg.extra_toolchains
         if sbuild_cfg.extra_env:
             sbuild_kwargs["extra_env"] = sbuild_cfg.extra_env
+        if sbuild_cfg.monitor_memory:
+            sbuild_kwargs["monitor_memory"] = True
+        if sbuild_cfg.resource_set != "default":
+            sbuild_kwargs["resource_set"] = sbuild_cfg.resource_set
         sdist_build(**sbuild_kwargs)
 
     for install_id, install_cfg in cfg.install_cfgs.items():
         install_kwargs = {
+            "metadata_directory": install_cfg.metadata_directory,
             "name": install_id,
             "sbuild": install_cfg.sbuild,
+            "sbuild_console_scripts": install_cfg.sbuild_console_scripts,
             "whls": json.encode(install_cfg.whls),
             # Parallel list of the same wheel labels as a real label_list,
             # so the whl_install repo rule can `rctx.path()` them to peek
@@ -681,6 +845,27 @@ _override_package_tag = tag_class(
         # Full replacement: provide a target that substitutes for the package entirely.
         # Mutually exclusive with patch/exclude attributes.
         "target": attr.label(mandatory = False),
+        "console_scripts": attr.string_dict(
+            doc = "Complete console scripts for a source-built wheel, mapping script names to module:object entry points.",
+        ),
+        "monitor_memory": attr.bool(
+            default = False,
+            doc = "Report approximate Linux process-tree RSS while building this package's wheel.",
+        ),
+
+        # Per-package local execution resources for the wheel build action.
+        # Uses bazel-lib's predefined resource_set vocabulary (the same enum
+        # `ts_project` accepts), so Bazel reserves the named amount of RAM/CPU
+        # and won't overschedule concurrent native wheel builds. `"default"`
+        # reserves nothing extra.
+        "resource_set": attr.string(
+            default = "default",
+            values = resource_set_values,
+            doc = "Local execution resources to reserve for this package's wheel build action. " +
+                  "One of bazel-lib's predefined resource sets ('mem_512m', 'mem_1g', … 'mem_32g', " +
+                  "'cpu_2', 'cpu_4', 'default'). Bazel rounds a memory request up to the named " +
+                  "bucket.",
+        ),
 
         # Per-package toolchain plumbing for native sdist builds. Both
         # attributes AUGMENT the defaults baked into sdist_build's

@@ -14,3 +14,12 @@ py_test(
         "DEFINE": "$(SOME_VAR)",
     },
 )
+
+# `expose_venv = True` counterpart of the VIRTUAL_ENV assertion in
+# :test_env_vars — exercises the public-venv path, where the venv's own
+# RunEnvironmentInfo also feeds the merged runtime env.
+py_test(
+    name = "test_virtual_env_exposed",
+    srcs = ["test_virtual_env_exposed.py"],
+    expose_venv = True,
+)

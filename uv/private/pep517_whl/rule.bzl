@@ -5,17 +5,37 @@ Uses `python -m build` (the pypa/build frontend) which delegates to whatever
 build backend the sdist declares in its `[build-system]` table.
 """
 
-load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
+load("@bazel_lib//lib:resource_sets.bzl", "resource_set", "resource_set_attr")
 load("//py/private/toolchain:types.bzl", "NATIVE_BUILD_TOOLCHAIN", "PY_TOOLCHAIN")
 
+_CC_TOOLCHAIN_TYPE = Label("@bazel_tools//tools/cpp:toolchain_type")
+_TARGET_EXEC_GROUP = "target"
+
+_INHERITED_PYTHON_ENV = (
+    "PYTHONHOME",
+    "PYTHONPATH",
+    "PYTHONPLATLIBDIR",
+)
+
 def _common_env(ctx):
+    # pyproject_hooks copies the build process environment and launches its
+    # Python executable without -I:
+    # https://github.com/pypa/pyproject-hooks/blob/4b7c6d113fb89b755d762a88712c8a6873cddd47/src/pyproject_hooks/_impl.py#L70-L83
+    # https://github.com/pypa/pyproject-hooks/blob/4b7c6d113fb89b755d762a88712c8a6873cddd47/src/pyproject_hooks/_impl.py#L378-L396
+    # Host settings therefore must not replace that child's venv or stdlib.
+    # https://docs.python.org/3/using/cmdline.html#environment-variables
+    default_shell_env = {
+        key: value
+        for key, value in ctx.configuration.default_shell_env.items()
+        if key.upper() not in _INHERITED_PYTHON_ENV
+    }
     return {
         "SETUPTOOLS_SCM_PRETEND_VERSION": ctx.attr.version,
         # Determinism: fix hash seed so dict/set iteration order is stable
         "PYTHONHASHSEED": "0",
         # Determinism: reproducible timestamps in archives
         "SOURCE_DATE_EPOCH": "0",
-    } | ctx.configuration.default_shell_env
+    } | default_shell_env
 
 def _patch_args_and_inputs(ctx):
     patch_args = []
@@ -27,6 +47,9 @@ def _patch_args_and_inputs(ctx):
                 patch_args.extend(["--patch", f.path])
                 patch_inputs.append(f)
     return patch_args, patch_inputs
+
+def _memory_args(ctx):
+    return ["--monitor-memory"] if ctx.attr.monitor_memory else []
 
 def _collect_toolchain_inputs_and_vars(ctx):
     """Gather files + Make-variable substitutions from `ctx.attr.toolchains`.
@@ -63,13 +86,10 @@ def _collect_toolchain_inputs_and_vars(ctx):
 _BAZEL_CC_WRAPPER_BASENAMES = ["gcc", "g++", "clang", "clang++"]
 
 def _cc_toolchain_inputs_and_compiler(ctx):
-    """Return (depset of CcToolchainInfo files, compiler_file_path or None).
-
-    Uses find_cpp_toolchain so the lookup works for both direct cc_toolchain
-    targets and alias wrappers such as current_cc_toolchain, which Bazel 9 no
-    longer exposes CcToolchainInfo on directly through the alias target.
-    """
-    cc_toolchain = find_cpp_toolchain(ctx)
+    """Return the target execution group's C++ files and compiler path."""
+    cc_toolchain = ctx.exec_groups[_TARGET_EXEC_GROUP].toolchains[_CC_TOOLCHAIN_TYPE]
+    if hasattr(cc_toolchain, "cc_provider_in_toolchain") and hasattr(cc_toolchain, "cc"):
+        cc_toolchain = cc_toolchain.cc
     if not cc_toolchain or not hasattr(cc_toolchain, "all_files"):
         return None, None
     files = cc_toolchain.all_files
@@ -109,7 +129,7 @@ def _pep517_whl(ctx):
         progress_message = "Source compiling {} to a whl".format(archive.basename),
         executable = ctx.executable.tool,
         toolchain = None,
-        arguments = ctx.attr.args + patch_args + [
+        arguments = ctx.attr.args + patch_args + _memory_args(ctx) + [
             archive.path,
             wheel_dir.path,
         ],
@@ -117,7 +137,8 @@ def _pep517_whl(ctx):
         tools = [ctx.attr.tool[DefaultInfo].files_to_run],
         outputs = [wheel_dir],
         env = _common_env(ctx),
-        exec_group = "target",
+        exec_group = _TARGET_EXEC_GROUP,
+        resource_set = resource_set(ctx.attr),
     )
 
     return [DefaultInfo(files = depset([wheel_dir]))]
@@ -146,7 +167,7 @@ def _pep517_native_whl(ctx):
         progress_message = "Native source compiling {} to a whl".format(archive.basename),
         executable = ctx.executable.tool,
         toolchain = None,
-        arguments = ctx.attr.args + patch_args + [
+        arguments = ctx.attr.args + patch_args + _memory_args(ctx) + [
             archive.path,
             wheel_dir.path,
         ],
@@ -157,7 +178,8 @@ def _pep517_native_whl(ctx):
         tools = [ctx.attr.tool[DefaultInfo].files_to_run],
         outputs = [wheel_dir],
         env = env,
-        exec_group = "target",
+        exec_group = _TARGET_EXEC_GROUP,
+        resource_set = resource_set(ctx.attr),
     )
 
     return [DefaultInfo(files = depset([wheel_dir]))]
@@ -176,10 +198,17 @@ _PATCH_ATTRS = {
 
 _pep517_whl_attrs = {
     "src": attr.label(allow_single_file = True),
-    "tool": attr.label(executable = True, cfg = "exec"),
+    # The wheel action uses the named group below, so its frontend must use the
+    # same execution platform:
+    # https://bazel.build/extending/exec-groups#defining-exec-groups
+    "tool": attr.label(executable = True, cfg = config.exec(_TARGET_EXEC_GROUP)),
     "version": attr.string(),
     "args": attr.string_list(default = ["--validate-anyarch"]),
-} | _PATCH_ATTRS
+    "monitor_memory": attr.bool(
+        default = False,
+        doc = "Report approximate Linux process-tree RSS while building the wheel.",
+    ),
+} | _PATCH_ATTRS | resource_set_attr
 
 pep517_whl = rule(
     implementation = _pep517_whl,
@@ -191,7 +220,7 @@ specified Python dependencies under the configured Python toolchain.
 """,
     attrs = _pep517_whl_attrs,
     exec_groups = {
-        "target": exec_group(
+        _TARGET_EXEC_GROUP: exec_group(
             toolchains = [
                 PY_TOOLCHAIN,
             ],
@@ -227,9 +256,6 @@ constraints of the target platform.
                   "`TemplateVariableInfo`).",
         ),
     },
-    toolchains = [
-        "@bazel_tools//tools/cpp:toolchain_type",
-    ],
     exec_groups = {
         # Create an exec group which depends on a toolchain which can only be
         # resolved to exec_compatible_with constraints equal to the target. This
@@ -244,11 +270,11 @@ constraints of the target platform.
         # would need to encode the target platform with no upstream tooling
         # support. Packages that need cross-compiled native extensions should
         # publish pre-built wheels for their target platforms instead.
-        "target": exec_group(
+        _TARGET_EXEC_GROUP: exec_group(
             toolchains = [
                 PY_TOOLCHAIN,
                 NATIVE_BUILD_TOOLCHAIN,
-                "@bazel_tools//tools/cpp:toolchain_type",
+                _CC_TOOLCHAIN_TYPE,
             ],
         ),
     },

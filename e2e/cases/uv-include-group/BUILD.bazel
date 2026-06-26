@@ -1,11 +1,12 @@
 load("@aspect_rules_py//py:defs.bzl", "py_test", "py_unpacked_wheel")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//tools:pth_snapshot.bzl", "extract_venv_pth")
 
 # setuptools vendors `packaging` (among others), which collides at
 # the top-level with the real packaging wheel pulled in via pytest.
 # Not a PEP 420 namespace on either side, so our analysis-time check
-# flags it — but first-seen wins is correct here (vendored copy
-# stays invisible). Downgrade to warning.
+# flags it. This fixture permits the known overlap while continuing
+# to require both setuptools and pytest to import.
 
 py_test(
     name = "include_group",
@@ -40,9 +41,9 @@ py_test(
 )
 
 # Regression gate for assemble_venv's non-keyed `_format_imp` branch.
-# `py_unpacked_wheel` without `top_levels` emits no PyWheelsInfo, so
-# setuptools' root `distutils-precedence.pth` is only reachable via
-# the wheel's own site-packages — that branch must use
+# `py_unpacked_wheel` without `top_levels` carries an unknown layout, so
+# setuptools' root `distutils-precedence.pth` is only reachable via the
+# wheel's own site-packages — that branch must use
 # `site.addsitedir` (not a plain path entry) or `_distutils_hack`
 # never lands in `sys.modules` at site-init.
 py_unpacked_wheel(
@@ -54,10 +55,16 @@ py_test(
     name = "wheel_root_pth_test",
     srcs = ["wheel_root_pth_test.py"],
     dep_group = "build",
-    expose_venv = True,
+    expose_venv_link = True,
     isolated = False,
     main = "wheel_root_pth_test.py",
     deps = [":setuptools_no_top_levels"],
+)
+
+sh_test(
+    name = "wheel_root_pth_link_test",
+    srcs = ["wheel_root_pth_link_test.sh"],
+    data = [":wheel_root_pth_test.venv_link"],
 )
 
 # Snapshot fixture: pins the `site.addsitedir(...)` line shape that

@@ -7,10 +7,10 @@ attrs to the auto-generated sibling.
 """
 
 load("@bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
-load("@bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
+load("@hermetic_launcher//launcher:lib.bzl", "launcher")
 load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
-load(":types.bzl", "VirtualenvInfo")
+load(":types.bzl", "VirtualenvInfo", "venv_root")
 
 # Identifiers the launcher always sets to the analysing rule's contextual
 # values. Excluded from `inherited_environment` so that a stray
@@ -53,13 +53,22 @@ def _py_venv_exec_impl(ctx):
         venv_env = venv[RunEnvironmentInfo]
         passed_env = dict(venv_env.environment)
         inherited_env = list(venv_env.inherited_environment)
+
+    # Owned by the rule. The lib venv variant carries no `env` to guard,
+    # so guard here to match the executable variant's check.
+    if "VIRTUAL_ENV" in ctx.attr.env:
+        fail("py_binary/py_test {}: `VIRTUAL_ENV` is set by the rule and cannot be overridden via `env`.".format(ctx.label))
+
+    # Set here so it's present even for the lib venv variant, which has
+    # no RunEnvironmentInfo to carry it.
+    passed_env["VIRTUAL_ENV"] = venv_root(vinfo.bin_python)
     for k, v in ctx.attr.env.items():
         passed_env[k] = expand_variables(
             ctx,
             expand_locations(ctx, v, ctx.attr.data),
             attribute_name = "env",
         )
-    for name in getattr(ctx.attr, "env_inherit", []):
+    for name in ctx.attr.env_inherit:
         if name not in inherited_env:
             inherited_env.append(name)
     passed_env["BAZEL_TARGET"] = str(ctx.label).lstrip("@")
@@ -73,17 +82,30 @@ def _py_venv_exec_impl(ctx):
     if not ctx.attr.isolated:
         flags = [f for f in flags if f != "-I"]
 
+    # Native launcher via hermetic_launcher. Embedded argv:
+    #   [0]  venv's bin/python (runfiles-resolved)
+    #   [1+] interpreter flags (literal, e.g. -I, -X importtime)
+    #   [N]  main module path (runfiles-resolved)
+    # The launcher runtime resolves transformed-arg positions through
+    # the Bazel runfiles manifest, then `execve`s the venv python.
     executable_launcher = ctx.actions.declare_file(ctx.attr.name)
-    ctx.actions.expand_template(
-        template = ctx.file._run_tmpl,
-        output = executable_launcher,
-        substitutions = {
-            "{{BASH_RLOCATION_FN}}": BASH_RLOCATION_FUNCTION,
-            "{{INTERPRETER_FLAGS}}": " ".join(flags),
-            "{{ARG_VENV_PYTHON}}": to_rlocation_path(ctx, vinfo.bin_python),
-            "{{ENTRYPOINT}}": to_rlocation_path(ctx, main),
-        },
-        is_executable = True,
+    embedded_args, transformed_args = launcher.args_from_entrypoint(vinfo.bin_python)
+    for flag in flags:
+        embedded_args, transformed_args = launcher.append_embedded_arg(
+            arg = flag,
+            embedded_args = embedded_args,
+            transformed_args = transformed_args,
+        )
+    embedded_args, transformed_args = launcher.append_runfile(
+        file = main,
+        embedded_args = embedded_args,
+        transformed_args = transformed_args,
+    )
+    launcher.compile_stub(
+        ctx = ctx,
+        embedded_args = embedded_args,
+        transformed_args = transformed_args,
+        output_file = executable_launcher,
     )
 
     # Merge runfiles, supporting `py_venv_exec(main)` not being in the `py_venv` runfiles.
@@ -131,6 +153,10 @@ _attrs = dict({
         doc = "Environment variables to set when running the binary.",
         default = {},
     ),
+    "env_inherit": attr.string_list(
+        doc = "Names of environment variables to pass through from the invoking environment.",
+        default = [],
+    ),
     "main": attr.label(
         allow_single_file = True,
         doc = """
@@ -176,10 +202,6 @@ sibling venv has `include_user_site_packages = True` set. The deprecated
 `py_venv_binary` / `py_venv_test` aliases default this to False to
 match their historical permissive behaviour.""",
     ),
-    "_run_tmpl": attr.label(
-        allow_single_file = True,
-        default = ":run.tmpl.sh",
-    ),
     # `data` is the only py_library attr the launcher reads (env-var
     # location expansion, runfiles merge, coverage walk). `srcs`,
     # `deps`, `imports`, `resolutions`, and `virtual_deps` are routed
@@ -207,10 +229,6 @@ https://pypi.org/project/bazel-runfiles/.
 })
 
 _test_attrs = dict({
-    "env_inherit": attr.string_list(
-        doc = "Specifies additional environment variables to inherit from the external environment when the test is executed by bazel test.",
-        default = [],
-    ),
     # Magic attribute to make coverage --combined_report flag work.
     # There's no docs about this.
     # See https://github.com/bazelbuild/bazel/blob/fde4b67009d377a3543a3dc8481147307bd37d36/tools/test/collect_coverage.sh#L186-L194
@@ -228,6 +246,7 @@ py_venv_exec = rule(
     implementation = _py_venv_exec_impl,
     attrs = _attrs,
     executable = True,
+    toolchains = [launcher.finalizer_toolchain_type, launcher.template_toolchain_type],
 )
 
 py_venv_exec_test = rule(
@@ -235,4 +254,5 @@ py_venv_exec_test = rule(
     implementation = _py_venv_exec_impl,
     attrs = _attrs | _test_attrs,
     test = True,
+    toolchains = [launcher.finalizer_toolchain_type, launcher.template_toolchain_type],
 )

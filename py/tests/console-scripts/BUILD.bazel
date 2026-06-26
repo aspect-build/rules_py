@@ -1,4 +1,35 @@
-load("//py:defs.bzl", "py_test")
+load("//py:defs.bzl", "py_test", "py_unpacked_wheel")
+
+genrule(
+    name = "dotted_entry_wheel",
+    srcs = [
+        "dotted_entry/METADATA",
+        "dotted_entry/RECORD",
+        "dotted_entry/WHEEL",
+        "dotted_entry/dotted_entry.py",
+        "dotted_entry/entry_points.txt",
+    ],
+    outs = ["dotted_entry-1.0-py3-none-any.whl"],
+    cmd = " ".join([
+        "$(execpath @bazel_tools//tools/zip:zipper) c $@",
+        "dotted_entry.py=$(execpath dotted_entry/dotted_entry.py)",
+        "dotted_entry-1.0.dist-info/METADATA=$(execpath dotted_entry/METADATA)",
+        "dotted_entry-1.0.dist-info/RECORD=$(execpath dotted_entry/RECORD)",
+        "dotted_entry-1.0.dist-info/WHEEL=$(execpath dotted_entry/WHEEL)",
+        "dotted_entry-1.0.dist-info/entry_points.txt=$(execpath dotted_entry/entry_points.txt)",
+    ]),
+    tools = ["@bazel_tools//tools/zip:zipper"],
+)
+
+py_unpacked_wheel(
+    name = "dotted_entry",
+    src = ":dotted_entry-1.0-py3-none-any.whl",
+    console_scripts = ["Dotted-Entry=dotted_entry:Commands.main"],
+    top_levels = [
+        "dotted_entry.py",
+        "dotted_entry-1.0.dist-info",
+    ],
+)
 
 # Exercises the console-script wrappers that py_binary/py_test generate under
 # <venv>/bin/<name> from each wheel's `[console_scripts]` entry points, and
@@ -13,6 +44,7 @@ py_test(
     name = "test_console_scripts",
     srcs = ["test_console_scripts.py"],
     deps = [
+        ":dotted_entry",
         # cowsay declares a `cowsay` console-script entry point in its wheel.
         "@pypi//cowsay",
     ],

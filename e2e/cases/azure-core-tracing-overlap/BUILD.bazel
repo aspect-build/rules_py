@@ -1,0 +1,48 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+# Regression test: overlapping regular-package trees across wheels.
+#
+# azure-core owns `azure/core/` and `azure/core/tracing/` as regular
+# packages (both ship an `__init__.py`); azure-core-tracing-opentelemetry
+# installs `azure/core/tracing/ext/` into that same tree from a separate
+# wheel. Unlike the PEP 420 namespace cases (pth-namespace-547,
+# firebase-admin-import), regular packages don't merge `__path__` across
+# sys.path entries — venv assembly has to physically merge the
+# overlapping directories or `azure.core.tracing.ext` is unreachable.
+#
+# Reported by OpenAI: their `oai_otel_init` package hit
+#   ModuleNotFoundError: No module named 'azure.core.tracing.ext.opentelemetry_span'
+# under rules_py while the same pair works in any flat site-packages
+# install.
+#
+# Variants:
+#   :test       — py_test default (.pth strategy)
+#   :test_tool  — py_venv_test variant (symlink-forest venv)
+
+py_test(
+    name = "test",
+    srcs = ["test.py"],
+    dep_group = "azure-core-tracing-import",
+    main = "test.py",
+    deps = [
+        "@pypi_azure_core_tracing//azure_core",
+        "@pypi_azure_core_tracing//azure_core_tracing_opentelemetry",
+    ],
+)
+
+# Naming: `test_tool` (not `test_venv`) to avoid the tree-artifact /
+# internal-venv-dir prefix collision described in
+# cases/firebase-admin-import/BUILD.bazel.
+py_test(
+    name = "test_tool",
+    srcs = ["test.py"],
+    dep_group = "azure-core-tracing-import",
+    expose_venv = True,
+    isolated = False,
+    main = "test.py",
+    python_version = "3.11",
+    deps = [
+        "@pypi_azure_core_tracing//azure_core",
+        "@pypi_azure_core_tracing//azure_core_tracing_opentelemetry",
+    ],
+)

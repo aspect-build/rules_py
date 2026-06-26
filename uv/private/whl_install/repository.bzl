@@ -14,6 +14,93 @@ load("//uv/private/constraints/platform:defs.bzl", "supported_platform")
 load("//uv/private/constraints/python:defs.bzl", "supported_python")
 load("//uv/private/pprint:defs.bzl", "pprint")
 
+def parse_record_path(line):
+    """Return the path field from one CSV-encoded wheel RECORD row.
+
+    RECORD is a CSV file in Python's default `csv` reader dialect (`,`
+    delimiter, `"` quote char, `""` -> `"` escaping, no whitespace trimming):
+    https://packaging.python.org/en/latest/specifications/recording-installed-packages/#the-record-file
+    https://docs.python.org/3/library/csv.html#csv.reader
+
+    Parses the first field of one row the way `csv.reader` would, matching
+    CPython's RECORD reader `importlib.metadata.Distribution.files` (which also
+    does `read_text("RECORD").splitlines()` then `csv.reader` per line):
+    https://github.com/python/cpython/blob/main/Lib/importlib/metadata/__init__.py
+
+    NOTE: because RECORD is split per line before this is called, a quoted path
+    containing an embedded newline (legal but vanishingly rare) is not handled
+    -- the same limitation `importlib.metadata` has.
+    """
+    path = []
+
+    # States mirror csv.reader's field parser:
+    #   start       - at the field boundary, before any character
+    #   unquoted    - inside an unquoted field; `"` is a literal character
+    #   quoted      - inside a quoted field; `,` is a literal character
+    #   after_quote - just saw a `"` while quoted; decide escape vs. close
+    state = "start"
+    for index in range(len(line)):
+        char = line[index]
+        if state == "start":
+            if char == ",":
+                return ""
+            elif char == "\"":
+                state = "quoted"
+            else:
+                path.append(char)
+                state = "unquoted"
+        elif state == "unquoted":
+            if char == ",":
+                return "".join(path)
+            path.append(char)
+        elif state == "quoted":
+            if char == "\"":
+                state = "after_quote"
+            else:
+                path.append(char)
+        else:  # after_quote
+            if char == "\"":
+                path.append("\"")  # doubled quote -> literal `"`
+                state = "quoted"
+            elif char == ",":
+                return "".join(path)
+            else:
+                path.append(char)  # text after a closing quote
+                state = "unquoted"
+
+    return "".join(path)
+
+def site_packages_segments(path, data_directory):
+    """Map a RECORD path to its installed site-packages segments."""
+    segments = path.split("/")
+    if segments[0] != data_directory:
+        return segments
+    if len(segments) < 3 or segments[1] not in ("purelib", "platlib"):
+        return []
+    return segments[2:]
+
+def parse_console_script(line):
+    """Parse one `[console_scripts]` entry into a canonical `name=module:func`.
+
+    `line` is a single `name = module:func [extras]` assignment; section
+    headers, comments, and blank lines are filtered by the caller. Returns a
+    `(name, "name=module:func")` tuple, or None when the entry has no `=` or
+    is missing a name, module, or function.
+
+    Legacy entry-point extras (the trailing `[...]`) are parsed and ignored:
+    https://packaging.python.org/en/latest/specifications/entry-points/#data-model
+    """
+    name, sep, target = line.partition("=")
+    if not sep:
+        return None
+    name = name.strip()
+    module, _, function_and_extras = target.partition(":")
+    function = function_and_extras.split("[")[0].strip()
+    module = module.strip()
+    if not name or not module or not function:
+        return None
+    return name, "{}={}:{}".format(name, module, function)
+
 def _find_whl_file(repository_ctx, whl_label):
     """Resolve an http_file-style wheel label to the actual .whl path on disk.
 
@@ -42,7 +129,8 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
       * `*.dist-info/RECORD` (mandatory per PEP 427) to get top-level names.
       * `*.dist-info/entry_points.txt` (optional) to get `[console_scripts]`.
 
-    Both reads go through `unzip -p` (stdout, no disk writes).
+    Fails if the archive cannot be inspected, so package collision and
+    console-script handling never silently depend on host tooling.
 
     Args:
       repository_ctx: The repo rule context.
@@ -51,29 +139,78 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
                  label_list attr so Bazel wires up repo visibility.
 
     Returns:
-      Tuple (top_levels_set, regular_top_levels_set, console_scripts_set):
+      Tuple (top_levels_set, regular_top_levels_set, console_scripts_set,
+             namespace_entries_set, dirs_set, init_dirs_set):
         * top_levels_set: dict[name → True] — all first-path-segment
           names in RECORD (excluding `*.data/` staging entries).
         * regular_top_levels_set: subset that had an `__init__.py` at
           depth 1, i.e. regular packages. Its complement (within
           top_levels_set, minus `.dist-info/`) is the PEP 420 namespace
-          set. Returned separately so callers can union regular/top sets
-          across multiple platform wheels before deriving namespaces —
-          a top-level is a namespace only if NO wheel has it as regular.
+          set for this wheel.
         * console_scripts_set: dict[script_name → "name=module:func"].
-      All empty on any failure — callers tolerate empty and fall back.
+        * namespace_entries_set: dict[path → True] — for each top-level
+          that looks like a PEP 420 namespace in THIS wheel, the
+          `/`-joined paths of the concrete entries beneath it: the
+          shallowest directory holding a direct `__init__.py` (recursing
+          through nested namespace dirs like `google/cloud/`), or the
+          file itself for plain modules / data files. Lets venv assembly
+          materialise a merged namespace dir out of per-entry symlinks.
+        * dirs_set: dict[path → True] — every directory implied by a
+          RECORD entry, as a `/`-joined relative path.
+        * init_dirs_set: dict[path → True] — subset of dirs_set that
+          directly contain an `__init__.py` (regular packages). Powers
+          the per-wheel namespace_dirs / regular_roots derivation, which
+          venv assembly uses to detect regular packages spanning wheels.
     """
-    unzip = repository_ctx.which("unzip")
-    if not unzip:
-        return {}, {}, {}
-
     whl_path = _find_whl_file(repository_ctx, whl_label)
     if whl_path == None:
-        return {}, {}, {}
+        fail("{}: could not find wheel for {}".format(repository_ctx.name, whl_label))
+
+    metadata_directory = repository_ctx.attr.metadata_directory
+    if not metadata_directory:
+        fail("{}: no metadata directory is known for wheel {}".format(
+            repository_ctx.name,
+            whl_path,
+        ))
+    if not metadata_directory.endswith(".dist-info"):
+        fail("{}: invalid metadata directory {} for wheel {}".format(
+            repository_ctx.name,
+            metadata_directory,
+            whl_path,
+        ))
+
+    # `extract` infers archive type from the extension, so symlink the
+    # wheel to a `.zip` name to extract it as the ZIP it is. Drop this once
+    # the min Bazel includes .whl detection (bazelbuild/bazel@d9634ca1c143136ef3b02b5ad8876a62368762b5).
+    metadata_dir = "_wheel_metadata"
+    metadata_archive = "_wheel_metadata.zip"
+    repository_ctx.delete(metadata_dir)
+    repository_ctx.delete(metadata_archive)
+    repository_ctx.symlink(whl_path, metadata_archive)
+    repository_ctx.extract(
+        archive = metadata_archive,
+        output = metadata_dir,
+        strip_prefix = metadata_directory,
+    )
+    repository_ctx.delete(metadata_archive)
+    metadata_path = repository_ctx.path(metadata_dir)
+    record_path = metadata_path.get_child("RECORD")
+    if not record_path.exists:
+        fail("{}: wheel {} has no {}/RECORD".format(
+            repository_ctx.name,
+            whl_path,
+            metadata_directory,
+        ))
+    record = repository_ctx.read(record_path)
+    entry_points = ""
+    entry_points_path = metadata_path.get_child("entry_points.txt")
+    if entry_points_path.exists:
+        entry_points = repository_ctx.read(entry_points_path)
+    repository_ctx.delete(metadata_dir)
+    data_directory = metadata_directory[:-len(".dist-info")] + ".data"
 
     # RECORD: authoritative list of every installed file. First path segment
-    # = top-level name, excluding the wheel's `*.data/` staging area.
-    record = repository_ctx.execute([unzip, "-p", str(whl_path), "*.dist-info/RECORD"])
+    # = top-level name after translating wheel install-scheme paths.
     top_levels_set = {}
 
     # Tracks which top-levels contain a direct `<toplevel>/__init__.py` —
@@ -81,22 +218,23 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
     # appear with an `__init__.py` at depth 1) are PEP 420 namespace
     # packages that expect to be merged across wheels.
     regular_top_levels = {}
-    if record.return_code == 0 and record.stdout:
-        for line in record.stdout.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            path = line.split(",", 1)[0]
+
+    # Raw material for the namespace derivations below: every kept RECORD
+    # path (as segment lists) plus the full directory skeleton and the set
+    # of directories that hold a direct `__init__.py` at any depth.
+    record_segments = []
+    dirs_set = {}
+    init_dirs = {}
+    if record:
+        for line in record.splitlines():
+            path = parse_record_path(line)
             if not path:
                 continue
-            segments = path.split("/")
-            first_segment = segments[0]
-
-            # `*.data/` files (PEP 427) aren't installed to site-packages;
-            # they're routed to data/scripts/headers/purelib/etc. under
-            # sys.prefix. Exclude from site-packages top-level list.
-            if first_segment.endswith(".data"):
+            segments = site_packages_segments(path, data_directory)
+            if not segments:
                 continue
+
+            first_segment = segments[0]
 
             # Filter RECORD entries that escape the install root. Some
             # wheels (notably setuptools-family) emit lines like
@@ -118,14 +256,42 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
             if len(segments) == 1 or (len(segments) >= 2 and segments[1] == "__init__.py"):
                 regular_top_levels[first_segment] = True
 
+            record_segments.append(segments)
+
+            # Record every directory along the path, and which of them
+            # directly contain an `__init__.py`.
+            for i in range(1, len(segments)):
+                dirs_set["/".join(segments[:i])] = True
+            if len(segments) >= 2 and segments[-1] == "__init__.py":
+                init_dirs["/".join(segments[:-1])] = True
+
+    # Namespace entries: for each path under a (per-this-wheel) namespace
+    # top-level, descend until hitting the shallowest concrete prefix — a
+    # directory with a direct `__init__.py`, or the file itself when no
+    # such directory exists on the way down (plain modules like
+    # `jaraco/context.py`, or bare data files). Nested namespaces
+    # (`google/cloud/storage/…`) recurse naturally: `google/cloud` has no
+    # `__init__.py`, so the walk continues to `google/cloud/storage`.
+    # Entries for top-levels that turn out regular are filtered out here.
+    namespace_entries = {}
+    for segments in record_segments:
+        if segments[0] in regular_top_levels or segments[0].endswith(".dist-info"):
+            continue
+        if len(segments) < 2:
+            continue
+        for depth in range(2, len(segments) + 1):
+            prefix = "/".join(segments[:depth])
+            if depth == len(segments) or prefix in init_dirs:
+                namespace_entries[prefix] = True
+                break
+
     # entry_points.txt: INI-style file. Only `[console_scripts]` interests
     # us — pip/uv synthesize executables under `bin/<name>` from those at
     # install time. Missing file is normal (lots of libs have no scripts).
-    ep = repository_ctx.execute([unzip, "-p", str(whl_path), "*.dist-info/entry_points.txt"])
     console_scripts = {}
-    if ep.return_code == 0 and ep.stdout:
+    if entry_points:
         in_console_scripts = False
-        for raw_line in ep.stdout.splitlines():
+        for raw_line in entry_points.splitlines():
             # Strip comments (`;` or `#`) and whitespace.
             line = raw_line.split(";", 1)[0].split("#", 1)[0].strip()
             if not line:
@@ -135,21 +301,61 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
                 continue
             if not in_console_scripts:
                 continue
-            if "=" not in line:
-                continue
-            name, _, target = line.partition("=")
-            name = name.strip()
-            target = target.strip()
-            if not name or ":" not in target:
-                continue
 
             # Normalise to "name=module:func" so downstream parsing is trivial.
-            console_scripts[name] = "{}={}".format(name, target)
+            entry = parse_console_script(line)
+            if entry == None:
+                continue
+            name, normalised = entry
+            console_scripts[name] = normalised
 
-    # Return raw sets (not the final namespace derivation) so callers can
-    # union across multiple platform wheels before deciding namespace
-    # status — see the caller in `_whl_install_repo_impl`.
-    return top_levels_set, regular_top_levels, console_scripts
+    return whl_path.basename, top_levels_set, regular_top_levels, console_scripts, namespace_entries, dirs_set, init_dirs
+
+def _namespace_dirs_and_roots(dirs_set, init_dirs, namespace_top_levels_set):
+    """Split a wheel's directory skeleton into the implicit-namespace dirs
+    and the minimal regular-package roots, restricted to the wheel's
+    namespace top-levels.
+
+    Walking from the top, content is an implicit-namespace portion until
+    the first directory carrying an `__init__.py` — that directory is a
+    "regular root" and everything below it is interior to a regular
+    package.
+
+      * namespace_dirs: the implicit-namespace skeleton, minus the depth-1
+        entries already covered by namespace_top_levels
+        (azure-core → []; azure-core-tracing-opentelemetry →
+        ["azure/core", "azure/core/tracing", "azure/core/tracing/ext"]).
+      * regular_roots: the minimal regular-package dirs (azure-core →
+        ["azure/core"]).
+
+    venv assembly cross-references these across wheels: a regular root
+    appearing in another wheel's namespace skeleton means a regular
+    package SPANS wheels — Python's namespace machinery cannot merge that,
+    so the subtree must be physically merged. Dirs under regular
+    top-levels are skipped (handled by the top-level collision policy).
+    """
+    namespace_dirs = []
+    regular_roots = []
+    for d in sorted(dirs_set.keys()):
+        segments = d.split("/")
+        if segments[0] not in namespace_top_levels_set:
+            continue
+        boundary = None
+        for i in range(len(segments)):
+            prefix = "/".join(segments[:i + 1])
+            if prefix in init_dirs:
+                boundary = prefix
+                break
+        if boundary == None:
+            # Depth-1 entries are redundant with namespace_top_levels
+            # (regular roots are always depth >= 2, so the cross-wheel
+            # scan never consults them) — dropping them keeps wheels with
+            # only a `<pkg>.libs/` shared-library dir attr-free.
+            if len(segments) >= 2:
+                namespace_dirs.append(d)
+        elif boundary == d:
+            regular_roots.append(d)
+    return namespace_dirs, regular_roots
 
 def indent(text, space = " "):
     return "\n".join(["{}{}".format(space, l) for l in text.splitlines()])
@@ -284,7 +490,7 @@ def _whl_install_impl(repository_ctx):
     content = [
         "load(\"@aspect_rules_py//py:defs.bzl\", \"py_library\")",
         "load(\"@aspect_rules_py//uv/private/whl_install:defs.bzl\", \"select_chain\")",
-        "load(\"@aspect_rules_py//uv/private/whl_install:rule.bzl\", \"whl_install\")",
+        "load(\"@aspect_rules_py//uv/private/whl_install:rule.bzl\", \"source_built_wheel\", \"whl_install\")",
         "load(\"@bazel_skylib//lib:selects.bzl\", \"selects\")",
     ]
 
@@ -317,6 +523,11 @@ def _whl_install_impl(repository_ctx):
 
     # Strip the bookkeeping specificity score; downstream only needs the target.
     select_arms = {k: v[1] for k, v in select_arms.items()}
+
+    # Wheel targets that survived platform/interpreter filtering — the only
+    # wheels the select chain below can ever resolve to. Used to limit
+    # metadata extraction to selectable wheels.
+    arm_targets = {v: True for v in select_arms.values()}
 
     # Unfortunately the way that Bazel decides ambiguous selects is explicitly
     # NOT designed to allow for the implementation of ranges. Because that would
@@ -355,7 +566,23 @@ def _whl_install_impl(repository_ctx):
         for k, v in select_arms.items()
     }
 
-    default_target = str(repository_ctx.attr.sbuild) if repository_ctx.attr.sbuild else None
+    sbuild_target = str(repository_ctx.attr.sbuild) if repository_ctx.attr.sbuild else None
+    default_target = sbuild_target
+    if sbuild_target:
+        default_target = ":source_built_wheel"
+        content.append(
+            """
+source_built_wheel(
+    name = "source_built_wheel",
+    src = {src},
+    console_scripts = {console_scripts},
+    visibility = ["//visibility:private"],
+)
+""".format(
+                src = repr(sbuild_target),
+                console_scripts = repr(repository_ctx.attr.sbuild_console_scripts),
+            ),
+        )
 
     if (select_arms or prebuilds) and not default_target:
         default_target = ":whl_missing"
@@ -415,46 +642,99 @@ filegroup(
         "//conditions:default": "checked-hash",
     })"""
 
-    # Peek into each wheel to extract the top-level names it installs AND
-    # its `[console_scripts]` entry points. This powers PyWheelsInfo,
-    # which py_binary uses to build a merged site-packages tree via
-    # ctx.actions.symlink and to wrap console scripts into <venv>/bin/.
-    # Falls back gracefully to [] if extraction fails; consumers tolerate it.
+    # Peek into each selectable wheel to extract the top-level names it
+    # installs AND its `[console_scripts]` entry points, keyed by the
+    # wheel's file basename. This powers PyWheelsInfo, which py_binary
+    # uses to build a merged site-packages tree via ctx.actions.symlink
+    # and to wrap console scripts into <venv>/bin/.
+    #
+    # Metadata is kept per wheel rather than unioned across the platform
+    # wheels: the `whl_install` build rule looks up the entry whose key
+    # matches the basename of the wheel the select chain resolved to for
+    # the active configuration. A union would leak an inactive wheel's
+    # package surface into the active one — e.g. cffi's macOS
+    # `_cffi_backend.cpython-312-darwin.so` top-level showing up (as a
+    # dangling site-packages symlink) in a Linux build, or a console
+    # script shipped only by the win32 wheel getting a `<venv>/bin/`
+    # wrapper pointing at a module that doesn't exist on Linux.
+    #
+    # Wheels that didn't make it into the select chain (unsupported
+    # platform/interpreter) are skipped — they can never be the active
+    # wheel, and peeking at them would force a useless download.
+    #
+    # The sbuild fallback, whose contents are unknowable until build time, is
+    # never peeked at here. Its layout remains unknown; a user declaration may
+    # attach console scripts only to that select arm. Venv consumers retain the
+    # complete wheel through .pth-based resolution while image layering keeps
+    # the installed wheel tree.
     #
     # We read from `whl_files` (a real label_list) rather than `whls` (a
     # JSON-encoded string of labels) because only the former adds the
-    # wheel repos to our visibility so `rctx.path(Label(...))` can resolve.
-    #
-    # Union across all platform wheels — same-python-version wheels for
-    # a given package share their pure-Python top-levels but have
-    # DIFFERENT C-extension filenames (e.g. cffi's `_cffi_backend` ships
-    # as `_cffi_backend.cpython-311-darwin.so` on macOS and
-    # `_cffi_backend.cpython-311-x86_64-linux-gnu.so` on Linux). Picking
-    # only one wheel bakes in that wheel's suffix; at build time on a
-    # different platform, the venv's top-level symlink points at a file
-    # that doesn't exist in the actually-installed wheel. Unioning lets
-    # every platform see its own suffix in top_levels — the dangling
-    # symlinks for other platforms' suffixes are invisible to Python's
-    # importer (it matches by the current interpreter's exact suffix).
-    top_levels_set = {}
-    regular_top_levels_set = {}
-    console_scripts_set = {}
-    for whl_file in repository_ctx.attr.whl_files:
-        tls, reg, css = _extract_wheel_metadata(repository_ctx, whl_file)
-        top_levels_set.update(tls)
-        regular_top_levels_set.update(reg)
-        console_scripts_set.update(css)
+    # wheel repos to our visibility so `rctx.path(Label(...))` can
+    # resolve. `whl_files` mirrors the truthy `whls` values in order, so
+    # pair them up by index to recover the target ↔ label association.
+    # Both lists are generated together by the hub rule from the same
+    # source data, so the ordering invariant is maintained at the point
+    # of production and does not depend on runtime dict iteration order.
+    whl_file_labels = {}
+    whl_file_index = 0
+    for target in prebuilds.values():
+        if not target:
+            continue
+        whl_file_labels[target] = repository_ctx.attr.whl_files[whl_file_index]
+        whl_file_index += 1
 
-    # Namespace derivation happens AFTER the union: a top-level counts as
-    # a PEP 420 namespace only if NO extracted wheel had `__init__.py` at
-    # depth 1 for it. If any wheel flagged it regular, it's regular.
-    top_levels = sorted(top_levels_set.keys())
-    namespace_top_levels = sorted([
-        tl
-        for tl in top_levels_set
-        if tl not in regular_top_levels_set and not tl.endswith(".dist-info")
-    ])
-    console_scripts = sorted(console_scripts_set.values())
+    top_levels_by_whl = {}
+    namespace_top_levels_by_whl = {}
+    namespace_entries_by_whl = {}
+    namespace_dirs_by_whl = {}
+    regular_roots_by_whl = {}
+    console_scripts_by_whl = {}
+    for target, whl_file_label in whl_file_labels.items():
+        if target not in arm_targets:
+            continue
+        whl_name, tls, regular, css, ns_entries, dirs_set, init_dirs = _extract_wheel_metadata(
+            repository_ctx,
+            whl_file_label,
+        )
+        if tls:
+            top_levels_by_whl[whl_name] = sorted(tls.keys())
+
+            # A top-level counts as a PEP 420 namespace for this wheel if
+            # its RECORD shows no `<toplevel>/__init__.py` at depth 1.
+            namespaces = sorted([
+                tl
+                for tl in tls
+                if (tl not in regular and
+                    not tl.endswith(".dist-info") and
+                    not tl.endswith(".egg-info"))
+            ])
+            if namespaces:
+                namespace_top_levels_by_whl[whl_name] = namespaces
+                namespace_set = {tl: True for tl in namespaces}
+
+                # Concrete entries beneath this wheel's namespace
+                # top-levels (`jaraco/functools`) — for the per-entry
+                # symlink merge that makes the namespace mypy/pyright
+                # visible.
+                entries = sorted([
+                    entry
+                    for entry in ns_entries
+                    if entry.split("/")[0] in namespace_set
+                ])
+                if entries:
+                    namespace_entries_by_whl[whl_name] = entries
+
+                # Implicit-namespace dir skeleton + minimal regular roots
+                # under this wheel's namespace top-levels — for detecting
+                # a regular package that spans wheels (azure-core case).
+                ndirs, rroots = _namespace_dirs_and_roots(dirs_set, init_dirs, namespace_set)
+                if ndirs:
+                    namespace_dirs_by_whl[whl_name] = ndirs
+                if rroots:
+                    regular_roots_by_whl[whl_name] = rroots
+        if css:
+            console_scripts_by_whl[whl_name] = sorted(css.values())
 
     install_attrs = """
     src = ":whl",
@@ -465,10 +745,26 @@ filegroup(
     console_scripts = {console_scripts},""".format(
         compile_pyc = compile_pyc_select,
         pyc_invalidation_mode = pyc_invalidation_mode_select,
-        top_levels = repr(top_levels),
-        namespace_top_levels = repr(namespace_top_levels),
-        console_scripts = repr(console_scripts),
+        top_levels = indent(pprint(top_levels_by_whl), " " * 4).lstrip(),
+        namespace_top_levels = indent(pprint(namespace_top_levels_by_whl), " " * 4).lstrip(),
+        console_scripts = indent(pprint(console_scripts_by_whl), " " * 4).lstrip(),
     )
+
+    # Only emitted for wheels that contribute to a namespace — keeps the
+    # generated BUILD files (and their e2e snapshots) unchanged for the
+    # common regular-top-level-only case.
+    if namespace_entries_by_whl:
+        install_attrs += """
+    namespace_entries = {namespace_entries},""".format(
+            namespace_entries = indent(pprint(namespace_entries_by_whl), " " * 4).lstrip(),
+        )
+    if namespace_dirs_by_whl or regular_roots_by_whl:
+        install_attrs += """
+    namespace_dirs = {namespace_dirs},
+    regular_roots = {regular_roots},""".format(
+            namespace_dirs = indent(pprint(namespace_dirs_by_whl), " " * 4).lstrip(),
+            regular_roots = indent(pprint(regular_roots_by_whl), " " * 4).lstrip(),
+        )
 
     if post_install_patches:
         install_attrs += """
@@ -529,14 +825,18 @@ exports_files(
 whl_install = repository_rule(
     implementation = _whl_install_impl,
     attrs = {
+        # `<project>-<version>.dist-info`, the directory `_extract_wheel_metadata`
+        # strips to when extracting RECORD/entry_points.txt out of the wheel.
+        "metadata_directory": attr.string(),
         "whls": attr.string(),
         # Mirror of the http_file labels from `whls`, declared as a real
         # label_list so Bazel adds those repos to this repo's visibility
         # mapping. Needed so that `repository_ctx.path(Label(...))` can
         # resolve any one of them at repo-rule time to peek at the wheel's
-        # `*.dist-info/RECORD` — see `_extract_top_levels` above.
+        # `*.dist-info/RECORD` — see `_extract_wheel_metadata` above.
         "whl_files": attr.label_list(allow_files = [".whl"]),
         "sbuild": attr.label(),
+        "sbuild_console_scripts": attr.string_list(),
         "post_install_patches": attr.string(default = ""),
         "post_install_patch_strip": attr.int(default = 0),
         "extra_deps": attr.string(default = ""),

@@ -1,5 +1,6 @@
 e2e/
 examples/dev_deps/
 examples/debugger/
+examples/protobuf/
 examples/uv_pip_compile/
 benchmark/

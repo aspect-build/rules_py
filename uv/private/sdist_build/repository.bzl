@@ -7,6 +7,7 @@ appropriate backend-specific build rule (e.g. pep517_whl, maturin_whl).
 """
 
 load("//uv/private:normalize_name.bzl", "normalize_name")
+load(":attrs.bzl", "validate_build_attrs")
 
 # --- Configure tool invocation ---
 
@@ -172,6 +173,20 @@ def _sdist_build_impl(repository_ctx):
             # If the tool provided complete build file content, use it directly.
             build_file_content = inspection.get("build_file_content")
             if build_file_content:
+                validate_build_attrs(
+                    console_scripts = [],
+                    resource_set = repository_ctx.attr.resource_set,
+                    env = repository_ctx.attr.extra_env,
+                    error = "sdist_build for '{}': the configure tool returned complete `build_file_content`, which bypasses the generated `pep517_*whl(...)` call, so these attributes cannot be applied: {{}}. Drop them from the override, or have the configure tool set them in its own `build_file_content`.".format(repository_ctx.name),
+                    monitor_memory = repository_ctx.attr.monitor_memory,
+                    pre_build_patches = repository_ctx.attr.pre_build_patches,
+                    pre_build_patch_strip = repository_ctx.attr.pre_build_patch_strip,
+                    supported = [
+                        "pre_build_patches",
+                        "pre_build_patch_strip",
+                    ],
+                    toolchains = repository_ctx.attr.extra_toolchains,
+                )
                 repository_ctx.file("BUILD.bazel", content = build_file_content)
                 return
 
@@ -194,6 +209,24 @@ def _sdist_build_impl(repository_ctx):
     else:
         is_native = is_native_override == "true"
 
+    if not is_native:
+        validate_build_attrs(
+            console_scripts = [],
+            resource_set = repository_ctx.attr.resource_set,
+            env = repository_ctx.attr.extra_env,
+            error = "sdist_build for '{}': the generated pure-Python `pep517_whl(...)` call cannot apply these native-build attributes: {{}}. Remove them, or configure this source distribution as native.".format(repository_ctx.name),
+            monitor_memory = repository_ctx.attr.monitor_memory,
+            pre_build_patches = repository_ctx.attr.pre_build_patches,
+            pre_build_patch_strip = repository_ctx.attr.pre_build_patch_strip,
+            supported = [
+                "monitor_memory",
+                "pre_build_patches",
+                "pre_build_patch_strip",
+                "resource_set",
+            ],
+            toolchains = repository_ctx.attr.extra_toolchains,
+        )
+
     # Resolve additional deps discovered by the configure tool
     extra_dep_labels = _resolve_extra_deps(repository_ctx, inspection)
 
@@ -203,6 +236,13 @@ def _sdist_build_impl(repository_ctx):
 
     # Merge explicit deps with auto-discovered deps
     all_deps = [str(d) for d in repository_ctx.attr.deps] + extra_dep_labels
+
+    monitor_memory_attr = ""
+    if repository_ctx.attr.monitor_memory:
+        all_deps = [
+            "@aspect_rules_py//uv/private/pep517_whl:memory_monitor",
+        ] + all_deps
+        monitor_memory_attr = "\n    monitor_memory = True,"
 
     pre_build_patches = repository_ctx.attr.pre_build_patches
     patch_attrs = ""
@@ -250,6 +290,12 @@ def _sdist_build_impl(repository_ctx):
             env = "\n".join(["        \"{}\": \"{}\",".format(k, v) for k, v in sorted(env.items())]),
         )
 
+    resource_set_attr = ""
+    if repository_ctx.attr.resource_set != "default":
+        resource_set_attr = "\n    resource_set = \"{}\",".format(repository_ctx.attr.resource_set)
+
+    # Leave args unset: the pure rule validates anyarch wheels by default,
+    # while the native rule defaults to no validation.
     repository_ctx.file("BUILD.bazel", content = """
 load("@aspect_rules_py//uv/private/pep517_whl:rule.bzl", "{rule}")
 load("@aspect_rules_py//py:defs.bzl", "py_binary")
@@ -265,8 +311,7 @@ py_binary(
     name = "whl",
     src = "{src}",
     tool = ":build_tool",
-    version = "{version}",
-    args = [],{patch_attrs}{toolchain_attrs}
+    version = "{version}",{monitor_memory_attr}{resource_set_attr}{patch_attrs}{toolchain_attrs}
     visibility = ["//visibility:public"],
 )
 
@@ -277,8 +322,10 @@ exports_files(
 """.format(
         src = repository_ctx.attr.src,
         deps = repr(all_deps),
+        monitor_memory_attr = monitor_memory_attr,
         rule = "pep517_native_whl" if is_native else "pep517_whl",
         version = repository_ctx.attr.version,
+        resource_set_attr = resource_set_attr,
         patch_attrs = patch_attrs,
         toolchain_attrs = toolchain_attrs,
     ))
@@ -303,6 +350,16 @@ sdist_build = repository_rule(
                   "two arguments. See //uv/private/sdist_configure:defs.bzl.",
         ),
         "version": attr.string(),
+        "monitor_memory": attr.bool(
+            default = False,
+            doc = "Whether to report approximate Linux process-tree RSS for the wheel build.",
+        ),
+        "resource_set": attr.string(
+            default = "default",
+            doc = "bazel-lib resource_set name forwarded to the generated pep517_*whl(...) " +
+                  "`resource_set` attribute, reserving local RAM/CPU for the wheel build " +
+                  "action. Set via `uv.override_package(resource_set = ...)`.",
+        ),
         "pre_build_patches": attr.label_list(default = []),
         "pre_build_patch_strip": attr.int(default = 0),
         "extra_toolchains": attr.string_list(

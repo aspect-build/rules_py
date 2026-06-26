@@ -1,0 +1,7 @@
+[project]
+name = "patched-topology-change"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    "zope-event==6.1",
+]

@@ -100,6 +100,20 @@ def _override_tool(env, key, wrapper):
 
 def _compiler_env(tmpdir):
     env = dict(os.environ)
+    # The helper's launcher exports RUNFILES_DIR, RUNFILES_MANIFEST_FILE, and
+    # JAVA_RUNFILES:
+    # https://github.com/hermeticbuild/hermetic-launcher/blob/381814d0818af0573263323dc0dd0e4e208fc3fa/README.md#runfiles-discovery
+    # Bazel adds RUNFILES_MANIFEST_ONLY when runfiles trees are disabled:
+    # https://github.com/bazelbuild/bazel/blob/9.1.1/src/main/java/com/google/devtools/build/lib/bazel/rules/BazelRuleClassProvider.java#L192-L201
+    # Nested Bazel executables check that inherited state before adjacent
+    # runfiles, so remove the parent's identity before package code runs.
+    for key in (
+        "JAVA_RUNFILES",
+        "RUNFILES_DIR",
+        "RUNFILES_MANIFEST_FILE",
+        "RUNFILES_MANIFEST_ONLY",
+    ):
+        env.pop(key, None)
     env["PATH"] = pathsep.join([
         path.dirname(sys.executable),
         env.get("PATH", defpath),
@@ -118,7 +132,13 @@ def _compiler_env(tmpdir):
 
     env.setdefault("CC", cc)
     env.setdefault("CXX", cxx)
-    env.setdefault("MPICC", _make_compiler_wrapper(tmpdir, "mpicc", cc_path, sysroot))
+
+    # MPI builds (e.g. mpi4py) consult $MPICC before searching PATH, so a
+    # plain C compiler here would shadow the real mpicc. Only set it when
+    # a system mpicc exists, wrapped to keep the debug-flag stripping.
+    mpicc_path = shutil.which("mpicc", path=env["PATH"])
+    if mpicc_path:
+        env.setdefault("MPICC", _make_compiler_wrapper(tmpdir, "mpicc", mpicc_path, sysroot))
     env.setdefault("AR", "ar")
 
     for key, wrapper in [
@@ -181,6 +201,7 @@ def _legacy_metadata_conflicts_with_pyproject(worktree):
 PARSER = ArgumentParser()
 PARSER.add_argument("srcarchive")
 PARSER.add_argument("outdir")
+PARSER.add_argument("--monitor-memory", action="store_true")
 PARSER.add_argument("--validate-anyarch", action="store_true")
 PARSER.add_argument("--patch-strip", type=int, default=0, help="Strip count for patch (-p)")
 PARSER.add_argument("--patch", action="append", default=[], dest="patches", help="Patch file to apply (repeatable)")
@@ -200,10 +221,25 @@ t = path.join(t, listdir(t)[0])
 
 if opts.patches:
     for patch_file in opts.patches:
-        check_call(
-            ["patch", "-p{}".format(opts.patch_strip), "-i", path.abspath(patch_file)],
-            cwd=t,
-        )
+        abs_patch = path.abspath(patch_file)
+        # --no-backup-if-mismatch: a fuzz/offset apply otherwise drops a
+        # `<file>.orig` into the worktree that gets swept into the built wheel.
+        patch_cmd = [
+            "patch",
+            "--no-backup-if-mismatch",
+            "-p{}".format(opts.patch_strip),
+            "-i",
+            abs_patch,
+        ]
+        try:
+            check_call(patch_cmd, cwd=t)
+        except CalledProcessError as exc:
+            # Fail with a concise reason on stderr instead of a Python traceback.
+            print(
+                "Error: failed to apply patch {} (patch exited {}).".format(abs_patch, exc.returncode),
+                file=sys.stderr,
+            )
+            exit(1)
 
 
 # Get a path to the outdir which will be valid after we cd
@@ -258,7 +294,20 @@ else:
 
 with TemporaryFile(mode="w+") as build_log:
     try:
-        run(cmd, cwd=t, env=build_env, stdout=build_log, stderr=STDOUT, check=True)
+        if opts.monitor_memory:
+            # Generated build tools include this dependency only when the
+            # corresponding wheel opts into monitoring.
+            from uv.private.pep517_whl.memory_monitor import run_with_memory_monitor
+
+            run_with_memory_monitor(
+                cmd,
+                cwd=t,
+                env=build_env,
+                stdout=build_log,
+                wheel=path.basename(opts.srcarchive),
+            )
+        else:
+            run(cmd, cwd=t, env=build_env, stdout=build_log, stderr=STDOUT, check=True)
     except CalledProcessError:
         build_log.seek(0)
         output = build_log.read()

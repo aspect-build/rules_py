@@ -134,6 +134,42 @@ py_binary(
 )
 ```
 
+Targets that need every dependency in one dependency group can use the
+group-specific lists generated in `defs.bzl`. The `group_deps()` helper follows
+the consuming target's `dep_group`, so the group name is never repeated:
+
+```starlark
+load("@pypi//:defs.bzl", "group_deps")
+
+py_binary(
+    name = "all_vendored",
+    dep_group = "vendored_say",
+    deps = group_deps(),  # resolves to vendored_say's dependencies
+)
+```
+
+`group_deps()` returns a `select()` keyed on the active `dep_group`; if no
+`dep_group` is set it fails with the list of known groups. It is a function so
+future options (such as PEP 508 package extras) can be added as arguments
+without breaking callers.
+
+Macros that must inspect membership while loading a BUILD file can use
+`group_deps_for(name)`, which returns the membership of one explicit group as
+sorted `Label` values and fails if the group is unknown. Read `Label.package`
+off the results for normalized names, or pass the labels as `deps` to pin one
+group. The aliases still resolve according to the active `dep_group`, so a
+target using these labels as `deps` must set the matching group itself. Prefer
+`group_deps()` for ordinary rule attributes so the dependency list follows the
+consuming target's group automatically.
+
+`all_requirements` (in `requirements.bzl`) remains the hub-wide union for
+compatibility with `rules_python`. Under a dependency-group transition, that
+union may contain targets which are incompatible with the selected group, so
+use the group-specific helpers above when the consuming target sets
+`dep_group`. This per-group API has no `rules_python` equivalent, so it lives
+in the rules_py native `defs.bzl` rather than the `rules_python`-compatible
+`requirements.bzl`.
+
 ## The `uv` toolchain
 
 `uv_bin.toolchain()` fetches the UV binary for the required platform(s) and
@@ -305,6 +341,19 @@ deps = ["@pypi//project/my_project:requests"]
 The `<stamp>` in `//project/<stamp>` is the [PEP 503-normalised](https://peps.python.org/pep-0503/#normalized-names)
 form of the `[project].name` declared in that project's `pyproject.toml`.
 
+### Conditional dependencies and the empty target
+
+When a package is gated entirely behind an environment marker (e.g.
+`iniconfig; sys_platform == 'win32'`), the hub generates a `select()` alias
+with one arm per marker expression plus a `//conditions:default` arm that
+resolves to an internal empty `py_library`. This makes the `select()` total on
+all platforms: on non-Windows hosts the alias selects the empty library, which
+contributes no sources and no transitive deps, rather than failing analysis.
+
+If you inspect the generated BUILD files under the hub repository you will see
+targets named `empty` and `empty_whl` — these are intentional stubs and not a
+sign of a missing dependency.
+
 Each dependency group requirement is backed by a `whl_install` rule which chooses among
 prebuilt wheels listed in the lockfile to produce the equivalent of a
 `py_library`.
@@ -312,6 +361,30 @@ prebuilt wheels listed in the lockfile to produce the equivalent of a
 An sdist (if available) will be built into a wheel for installation if no wheels
 are available, or no wheels matching the target configuration are found. Sdist
 builds occur using the configured Python and Cc toolchains.
+
+### Declaring source-built console scripts
+
+Downloaded wheels expose their console scripts while repositories are
+generated. A wheel built from an sdist does not exist until execution, after
+analysis has already assembled console-script wrappers. Declare the complete,
+nonempty script map on that package's override:
+
+```starlark
+uv.override_package(
+    lock = "//:uv.lock",
+    name = "example-package",
+    console_scripts = {
+        "example": "example_package.cli:main",
+    },
+)
+```
+
+The optional `version` on `override_package` follows the existing override
+rules: omit it when the lock resolves one version of the package. The
+declaration is attached only to the source-build select arm. If a prebuilt
+wheel is selected instead, its inspected metadata remains authoritative. The
+package layout remains unknown at analysis time, so the complete source-built
+wheel still participates in the normal `.pth` fallback.
 
 ## Best practices
 
@@ -435,11 +508,10 @@ some key information. Such as what requirements apply when performing sdist
 builds. Annotations are the current workaround for how to associate such
 required but nonstandardized and missing dependency data with requirements.
 
-**Why aren't entrypoints automatically created?** `pip.parse` performs library
-installs at repository time, which allows it to inspect the installed files and
-detect entrypoints. Because uv does installs using normal build actions it has
-no way to see what binaries may be created or what `.dist-info/entry_points.txt`
-records exist.
+**Why aren't entrypoints automatically created?** Downloaded-wheel entrypoints
+are discovered while repositories are generated. Source-built wheels do not
+exist until execution, so declare their console scripts with
+`uv.override_package(console_scripts = {...})`.
 
 If you need a given entrypoint as a Bazel target, it needs to be manually
 declared. In most cases of normal entrypoints this is quite easy. Tools like

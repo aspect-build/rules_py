@@ -1,7 +1,15 @@
 load("@aspect_rules_py//py:defs.bzl", "py_library")
 load("@aspect_rules_py//uv/private/whl_install:defs.bzl", "select_chain")
-load("@aspect_rules_py//uv/private/whl_install:rule.bzl", "whl_install")
+load("@aspect_rules_py//uv/private/whl_install:rule.bzl", "source_built_wheel", "whl_install")
 load("@bazel_skylib//lib:selects.bzl", "selects")
+
+source_built_wheel(
+    name = "source_built_wheel",
+    src = "@@aspect_rules_py++uv+sdist_build__uv_bare_linux_wheels__grpcio__1_80_0//:whl",
+    console_scripts = [],
+    visibility = ["//visibility:private"],
+)
+
 
 select_chain(
    name = "whl",
@@ -47,7 +55,7 @@ select_chain(
         "@aspect_rules_py_pip_configurations//:cp311-win32-cp311": "@whl__grpcio__51b4a7189b0bef2a//file",
         "@aspect_rules_py_pip_configurations//:cp311-win_amd64-cp311": "@whl__grpcio__02e64bb0bb2da14d//file"
    },
-   default_target = "@@aspect_rules_py++uv+sdist_build__uv_bare_linux_wheels__grpcio__1_80_0//:whl",
+   default_target = ":source_built_wheel",
    visibility = ["//visibility:public"],
 )
 
@@ -72,9 +80,170 @@ whl_install(
         "@aspect_rules_py//uv/private/pyc:is_timestamp": "timestamp",
         "//conditions:default": "checked-hash",
     }),
-    top_levels = ["grpc", "grpcio-1.80.0.dist-info"],
-    namespace_top_levels = [],
-    console_scripts = [],
+    top_levels = {
+        "grpcio-1.80.0-cp311-cp311-linux_armv7l.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp311-cp311-macosx_11_0_universal2.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp311-cp311-manylinux2014_i686.manylinux_2_17_i686.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp311-cp311-musllinux_1_2_aarch64.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp311-cp311-musllinux_1_2_i686.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp311-cp311-musllinux_1_2_x86_64.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp311-cp311-win32.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp311-cp311-win_amd64.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp312-cp312-linux_armv7l.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp312-cp312-macosx_11_0_universal2.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp312-cp312-manylinux2014_i686.manylinux_2_17_i686.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp312-cp312-musllinux_1_2_aarch64.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp312-cp312-musllinux_1_2_i686.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp312-cp312-musllinux_1_2_x86_64.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp312-cp312-win32.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp312-cp312-win_amd64.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp313-cp313-linux_armv7l.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp313-cp313-macosx_11_0_universal2.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp313-cp313-manylinux2014_i686.manylinux_2_17_i686.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp313-cp313-musllinux_1_2_aarch64.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp313-cp313-musllinux_1_2_i686.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp313-cp313-musllinux_1_2_x86_64.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp313-cp313-win32.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp313-cp313-win_amd64.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp314-cp314-linux_armv7l.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp314-cp314-macosx_11_0_universal2.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp314-cp314-manylinux2014_aarch64.manylinux_2_17_aarch64.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp314-cp314-manylinux2014_i686.manylinux_2_17_i686.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp314-cp314-musllinux_1_2_aarch64.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp314-cp314-musllinux_1_2_i686.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp314-cp314-musllinux_1_2_x86_64.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp314-cp314-win32.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+        "grpcio-1.80.0-cp314-cp314-win_amd64.whl": [
+            "grpc",
+            "grpcio-1.80.0.dist-info",
+        ],
+    },
+    namespace_top_levels = {},
+    console_scripts = {},
     visibility = ["//visibility:private"],
 )
 

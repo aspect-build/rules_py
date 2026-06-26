@@ -15,9 +15,10 @@
   interpreter.
 
 - `py_venv_link` — opt-in macro that emits a runnable target whose
-  `bazel run` materialises a workspace-local symlink to an existing
-  `py_venv`'s tree. Pair with `py_binary(expose_venv = True)` to hand
-  your IDE a stable `.venv` symlink to point at.
+  `bazel run` links the target's complete runfiles tree into the
+  workspace and prints the nested `py_venv` path. Pair with
+  `py_binary(expose_venv = True)` to give your IDE a stable interpreter
+  path.
 
 Shared venv-assembly logic lives in
 `//py/private/py_venv:venv.bzl::assemble_venv`. See that file's header for the
@@ -29,9 +30,9 @@ load("@bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path"
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private:transitions.bzl", "python_version_transition")
-load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
+load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PY_TOOLCHAIN")
 load(":py_venv_exec.bzl", _py_venv_exec = "py_venv_exec")
-load(":types.bzl", "VirtualenvInfo")
+load(":types.bzl", "VirtualenvInfo", "venv_root")
 load(":venv.bzl", "assemble_venv")
 
 def _interpreter_flags(ctx, include_main = False):
@@ -80,6 +81,7 @@ def _assemble_shared(ctx):
         default_env = default_env,
         venv_activate_tmpl = ctx.file._venv_activate_tmpl,
         virtualenv_shim_py = ctx.file._virtualenv_shim,
+        site_merge_script_py = ctx.file._site_merge_script,
         venv_name = ".{}".format(safe_name),
     )
 
@@ -136,8 +138,7 @@ def _py_venv_rule_impl(ctx):
 
     # `VIRTUAL_ENV` as the venv root's rootpath. `venv.tmpl.sh`
     # overrides with its own absolute value when invoked directly.
-    # `rsplit` drops the trailing `bin/python` to leave the venv root.
-    passed_env["VIRTUAL_ENV"] = shared.venv.bin_python.short_path.rsplit("/", 2)[0]
+    passed_env["VIRTUAL_ENV"] = venv_root(shared.venv.bin_python)
 
     return [
         DefaultInfo(
@@ -174,7 +175,9 @@ def _py_venv_rule_impl(ctx):
         ),
     ]
 
-_attrs = dict({
+# Attrs read by both the executable and lib variants — venv assembly,
+# package-collision detection, py_library inputs.
+_lib_attrs = dict({
     "dep_group": attr.string(
         default = "",
         doc = """The name of a configured dependency group within which to resolve dependencies.
@@ -187,21 +190,23 @@ Only works with the Aspect rules_py uv machinery.
         doc = """Whether to build this target and its transitive deps for a specific python version.""",
     ),
     "package_collisions": attr.string(
-        doc = """What to do when two wheels both claim the same top-level or console-script name.
+        doc = """What to do when metadata-resolved wheel contents collide.
 
-See `py_binary`'s attribute of the same name for full semantics — the
-two rules share the underlying collision detector.
+See `py_binary`'s attribute of the same name for full semantics — the two rules
+share the underlying collision detector. PEP 420 namespace top-levels merge.
+For ordinary top-levels, exact namespace entries, and console scripts,
+permissive modes select the last distinct claimant in the postorder wheel
+sequence. Regular-package spans overlay in that sequence; incompatible
+namespace prefixes retain the shallower entry. Wheels not represented in
+`PyWheelsInfo` remain on the `.pth` fallback. A duplicate dependency edge does
+not reinsert a wheel.
 
-* "error": Fail analysis.
-* "warning" (default): Print a warning; first-seen wins.
-* "ignore": First-seen wins silently.
+* "error": Fail analysis or the physical merge action.
+* "warning" (default): Print a warning and apply the permissive behavior above.
+* "ignore": Apply the permissive behavior silently.
 """,
         default = "warning",
         values = ["error", "warning", "ignore"],
-    ),
-    "interpreter_options": attr.string_list(
-        doc = "Additional options to pass to the Python interpreter.",
-        default = [],
     ),
     "include_system_site_packages": attr.bool(
         default = False,
@@ -211,28 +216,9 @@ two rules share the underlying collision detector.
         default = False,
         doc = """`pyvenv.cfg` feature flag for the `aspect-include-user-site-packages` extension key.""",
     ),
-    "debug": attr.bool(
-        default = False,
-    ),
-    "env": attr.string_dict(
-        doc = """Environment variables to set when running the venv (and the
-sibling py_binary/py_test consumer when `expose_venv = True` is used).
-Binary-level `env` wins on key conflicts.""",
-        default = {},
-    ),
-    "env_inherit": attr.string_list(
-        doc = """Names of environment variables to pass through from the invoking
-environment. Forwarded to the sibling py_binary/py_test consumer
-(when `expose_venv = True` is used) alongside `env`.""",
-        default = [],
-    ),
     # Required for py_version attribute
     "_allowlist_function_transition": attr.label(
         default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
-    ),
-    "_run_tmpl": attr.label(
-        allow_single_file = True,
-        default = ":venv.tmpl.sh",
     ),
     "_runfiles_lib": attr.label(
         default = "@bazel_tools//tools/bash/runfiles",
@@ -251,16 +237,96 @@ environment. Forwarded to the sibling py_binary/py_test consumer
         allow_single_file = True,
         default = ":_virtualenv.py",
     ),
+    # Tool for physically merging a regular package that spans wheels
+    # (e.g. azure-core + azure-core-tracing-opentelemetry both
+    # installing into `azure/core/tracing/`) — see assemble_venv.
+    "_site_merge_script": attr.label(
+        allow_single_file = True,
+        default = "//py/tools/site_merge:site_merge.py",
+    ),
 })
 
-_attrs.update(**_py_library.attrs)
+_lib_attrs.update(**_py_library.attrs)
+
+# Attrs only the executable variant reads — launcher template, REPL
+# flags, env vars forwarded via RunEnvironmentInfo.
+_attrs = _lib_attrs | dict({
+    "interpreter_options": attr.string_list(
+        doc = "Additional options to pass to the Python interpreter.",
+        default = [],
+    ),
+    "debug": attr.bool(
+        default = False,
+    ),
+    "env": attr.string_dict(
+        doc = """Environment variables to set when running the venv (and the
+sibling py_binary/py_test consumer when `expose_venv = True` is used).
+Binary-level `env` wins on key conflicts.""",
+        default = {},
+    ),
+    "env_inherit": attr.string_list(
+        doc = """Names of environment variables to pass through from the invoking
+environment. Forwarded to the sibling py_binary/py_test consumer
+(when `expose_venv = True` is used) alongside `env`.""",
+        default = [],
+    ),
+    "_run_tmpl": attr.label(
+        allow_single_file = True,
+        default = ":venv.tmpl.sh",
+    ),
+})
 
 _py_venv = rule(
     doc = """Build a Python virtual environment and execute its interpreter.""",
     implementation = _py_venv_rule_impl,
     attrs = _attrs,
-    toolchains = [PY_TOOLCHAIN],
+    toolchains = [
+        PY_TOOLCHAIN,
+        # Optional: only consulted when a regular package spans wheels
+        # and assemble_venv needs an exec-config interpreter to run the
+        # site_merge action. Optional so venvs keep analyzing in setups
+        # that never registered rules_py's exec-tools toolchain.
+        config_common.toolchain_type(EXEC_TOOLS_TOOLCHAIN, mandatory = False),
+    ],
     executable = True,
+    cfg = python_version_transition,
+)
+
+def _py_venv_lib_rule_impl(ctx):
+    """Non-executable variant of `_py_venv` — same providers but no
+    launcher and no RunEnvironmentInfo (Bazel rejects it on
+    non-executable targets; py_venv_exec.bzl gates its read on
+    `if RunEnvironmentInfo in venv`)."""
+    shared = _assemble_shared(ctx)
+    return [
+        DefaultInfo(runfiles = shared.runfiles),
+        VirtualenvInfo(
+            bin_python = shared.venv.bin_python,
+            venv_name = shared.venv.venv_name,
+            imports = shared.imports_depset,
+            wheels = shared.wheels_depset,
+            transitive_sources = shared.srcs_depset,
+        ),
+        coverage_common.instrumented_files_info(
+            ctx,
+            source_attributes = ["srcs"],
+            dependency_attributes = ["deps"],
+            extensions = ["py"],
+        ),
+    ]
+
+# Internal-only non-executable variant. Uses `_lib_attrs` — the
+# launcher-only attrs (`debug`, `interpreter_options`, `_run_tmpl`,
+# `env`, `env_inherit`) aren't part of its rule contract.
+_py_venv_lib = rule(
+    implementation = _py_venv_lib_rule_impl,
+    attrs = _lib_attrs,
+    toolchains = [
+        PY_TOOLCHAIN,
+        # Same optional exec-tools dependency as `_py_venv`: assemble_venv
+        # needs it to run the site_merge action when a package spans wheels.
+        config_common.toolchain_type(EXEC_TOOLS_TOOLCHAIN, mandatory = False),
+    ],
     cfg = python_version_transition,
 )
 
@@ -290,27 +356,36 @@ _VENV_ONLY_ATTRS = [
     "include_user_site_packages",
     "python_version",
     "dep_group",
-    "env",
-    "env_inherit",
 ]
+
+# Shared attrs are only forwarded when the venv is the executable
+# variant (`expose_venv = True`). The lib variant doesn't read them, so
+# leave them on the launcher kwargs only.
 _SHARED_ATTRS = [
     # Launcher constructs `python <flags> main.py`; venv forwards them
     # to its REPL so `bazel run :name.venv` matches the binary's flags.
     "interpreter_options",
+    # Forwarded so `bazel run :name.venv` sees the same env as `bazel
+    # run :name`. The launcher reads venv's RunEnvironmentInfo too, so
+    # the duplicate set is harmless (same keys, same values).
+    "env",
+    "env_inherit",
 ]
 
-def _split_kwargs_for_venv(kwargs):
-    """Build the kwargs dict to pass to `py_venv`. `kwargs` is mutated:
-    venv-only attrs are popped; shared attrs are copied (left in
-    `kwargs` so they also reach the launcher).
+def _split_kwargs_for_venv(kwargs, expose_venv):
+    """Build the kwargs dict to pass to the venv rule. `kwargs` is
+    mutated: venv-only attrs are popped; shared attrs are copied (left
+    in `kwargs` so they also reach the launcher) — but only for the
+    executable variant.
     """
     venv_kwargs = {}
     for name in _VENV_ONLY_ATTRS:
         if name in kwargs:
             venv_kwargs[name] = kwargs.pop(name)
-    for name in _SHARED_ATTRS:
-        if name in kwargs:
-            venv_kwargs[name] = kwargs[name]
+    if expose_venv:
+        for name in _SHARED_ATTRS:
+            if name in kwargs:
+                venv_kwargs[name] = kwargs[name]
     return venv_kwargs
 
 def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = [], imports = [], tags = None, testonly = None, visibility = None, isolated = True, expose_venv = None, expose_venv_link = False, **kwargs):
@@ -326,10 +401,10 @@ def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = [], im
 
     `expose_venv_link = True` additionally emits a public
     `:{name}.venv_link` py_venv_link. `bazel run :{name}.venv_link`
-    materialises a workspace-local symlink at the venv's tree under
-    `bazel-bin`, suitable for pointing an IDE at. Implies
-    `expose_venv = True` — the link target needs a public venv to point
-    at. Passing `expose_venv = False, expose_venv_link = True`
+    materialises a workspace-local symlink to the target's runfiles tree and
+    prints the venv path below that link, suitable for pointing an IDE at.
+    Implies `expose_venv = True` — the link target needs a public venv to
+    point at. Passing `expose_venv = False, expose_venv_link = True`
     explicitly is contradictory and fails.
 
     All venv-shaping attrs (`deps`, `imports`, `package_collisions`,
@@ -343,7 +418,7 @@ def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = [], im
     else:
         expose_venv = bool(expose_venv)
 
-    venv_kwargs = _split_kwargs_for_venv(kwargs)
+    venv_kwargs = _split_kwargs_for_venv(kwargs, expose_venv)
     venv_kwargs["srcs"] = srcs
     venv_kwargs["deps"] = deps
     venv_kwargs["imports"] = imports
@@ -356,12 +431,14 @@ def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = [], im
         venv_label = "{}.venv".format(name)
         venv_visibility = visibility
         venv_tags = None
+        venv_rule = py_venv
     else:
         venv_label = "_{}.venv".format(safe_name)
         venv_visibility = ["//visibility:private"]
         venv_tags = ["manual"]
+        venv_rule = _py_venv_lib
 
-    py_venv(
+    venv_rule(
         name = venv_label,
         testonly = testonly,
         visibility = venv_visibility,
@@ -382,6 +459,12 @@ def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = [], im
         name = name,
         main = main,
         srcs = srcs,
+        # `data` lands on both targets: the venv merges it into the
+        # runfiles every consumer inherits, while the launcher needs it
+        # directly so `args` / `env` `$(location :data_file)` expansion
+        # and the coverage walk can resolve the label (srcs are kept on
+        # the launcher for the same reason).
+        data = data,
         tags = tags,
         testonly = testonly,
         visibility = visibility,
@@ -394,21 +477,21 @@ def py_venv_link(name, venv, link_name = None, **kwargs):
     """Emit a runnable target that materialises `venv` into the workspace.
 
     `bazel run :<name>` creates a symlink in `$BUILD_WORKING_DIRECTORY`
-    (typically the workspace root) that points at `venv`'s materialised
-    venv tree in bazel-bin, so IDEs / LSPs can resolve interpreter and
-    site-packages via a stable workspace-local path.
+    (typically the workspace root) that points at the target's complete
+    runfiles tree. The command prints `venv`'s nested path below that link;
+    preserving the runfiles directory layout keeps the venv's relative paths
+    valid for Python and IDEs. This requires directory-based runfiles; a
+    manifest alone cannot expose a runfiles tree.
 
     Args:
         name: Runnable target name. `bazel run :<name>` materialises
-            the symlink; pick something like `<something>.venv` by
-            convention so `python.defaultInterpreterPath` readers
-            recognise it, but any label works.
+            the runfiles symlink.
         venv: Label of a `py_venv` target to link. Typically the
             `:<binary_name>.venv` target auto-emitted by
             `py_binary(expose_venv = True, ...)`, or a standalone
             `py_venv` shared across many binaries.
         link_name: Workspace-relative basename for the created
-            symlink. Defaults to a safely-escaped version of the
+            runfiles symlink. Defaults to a safely-escaped version of the
             target's package + venv name.
         **kwargs: Forwarded to the underlying `py_binary`.
     """

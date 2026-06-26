@@ -70,9 +70,14 @@ interpreter extension—rules_python is not required as a toolchain provider.
 
 ```python
 interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
-interpreters.toolchain(python_version = "3.12", is_default = True)
+interpreters.toolchain(python_version = "3.12")
 use_repo(interpreters, "python_interpreters")
 register_toolchains("@python_interpreters//:all")
+```
+
+```text
+# .bazelrc
+common --@aspect_rules_py//py:python_version=3.12
 ```
 
 This enables cross-compilation from any host to any target without host-installed Python, and is the foundation for
@@ -330,13 +335,13 @@ py_binary(
   with the venv activated. Useful for ad-hoc Python sessions matching your
   binary's deps.
 - `bazel run //:my_app.venv_link` — materialises a workspace-local symlink
-  pointing at the venv tree under `bazel-bin`. **This is what your IDE should
-  point at.**
+  pointing at the target's complete runfiles tree and prints the venv's nested
+  path below that link. **Point your IDE at the printed venv path.**
 
-Then point your IDE to the symlinked virtualenv:
+Then point your IDE to the virtualenv path printed by the command:
 
-- **VSCode**: Set `python.defaultInterpreterPath` to the symlinked path
-- **PyCharm**: Add the symlinked venv as a Python interpreter
+- **VSCode**: Set `python.defaultInterpreterPath` to the printed path
+- **PyCharm**: Add the printed venv path as a Python interpreter
 - **Neovim/LSP**: Configure `python-lsp-server` or `pyright` to use the virtualenv
 
 ### Underlying mechanism
@@ -368,16 +373,25 @@ the link target on a subset of binaries.
 
 ### Debugger Support (VSCode/PyCharm)
 
-Attach debuggers using `debugpy`:
+Attach DAP-compatible debuggers (VSCode, PyCharm, Neovim, etc.) using
+[debugpy](https://github.com/microsoft/debugpy). This requires a wrapper
+entrypoint that starts a debugpy listener before running your application —
+simply adding `debugpy` to `deps` is not enough.
 
-```starlark
-# In debug mode, wraps the binary with debugpy listener
-py_binary(
-    name = "app_debug",
-    srcs = ["main.py"],
-    deps = ["//:lib", "@pypi//debugpy"],
-    env = {"DEBUGPY_WAIT": "1"},  # Wait for IDE attachment
-)
+See the [complete debugger example](examples/debugger/) for a working
+setup, including a `py_debuggable_binary` macro that handles the wrapper
+generation automatically.
+
+Quick overview:
+
+```sh
+cd examples/debugger
+
+# Start with debugpy listener, wait for IDE to attach:
+DEBUGPY_WAIT=1 bazel run //:app
+
+# Release mode — no debugpy, runs directly:
+bazel run //:app --config=release
 ```
 
 VSCode `launch.json`:

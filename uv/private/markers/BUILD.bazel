@@ -253,6 +253,7 @@ bzl_library(
     visibility = ["//uv:__subpackages__"],
     deps = [
         ":semver",
+        "//uv/private/versions",
     ],
 )
 

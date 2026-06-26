@@ -1,5 +1,5 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
-load(":test.bzl", "whl_install_suite")
+load(":test.bzl", "metadata_selection_test_suite", "whl_install_suite")
 
 package(default_visibility = [
     "//docs:__pkg__",
@@ -32,11 +32,15 @@ bzl_library(
 
 whl_install_suite()
 
+metadata_selection_test_suite(name = "metadata_selection")
+
 bzl_library(
     name = "test",
     srcs = ["test.bzl"],
     deps = [
         ":repository",
+        ":rule",
         "@bazel_skylib//lib:unittest",
+        "@bazel_skylib//rules:write_file",
     ],
 )

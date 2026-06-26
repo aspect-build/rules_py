@@ -1,7 +1,4 @@
-"""Repository rules for Python interpreter toolchains.
-
-Includes rules for downloading PBS interpreters and registering local interpreters.
-"""
+"""Repository rules for Python interpreter toolchains."""
 
 load("@bazel_features//:features.bzl", features = "bazel_features")
 load(":exclude_feature.bzl", "INTERPRETER_FEATURES")
@@ -26,23 +23,37 @@ def _python_interpreter_impl(rctx):
     )
 
     # Determine the Python binary path
+    is_macos = "apple-darwin" in platform
     is_windows = "windows" in platform
     python_bin = "python.exe" if is_windows else "bin/python3"
     version_parts = python_version.split(".")
     major = version_parts[0]
     minor = version_parts[1]
     micro = version_parts[2] if len(version_parts) > 2 else "0"
+    releaselevel = "final"
+    serial = "0"
+    for marker, level in [("rc", "candidate"), ("b", "beta"), ("a", "alpha")]:
+        marker_index = micro.find(marker)
+        if marker_index >= 0:
+            serial = micro[marker_index + len(marker):] or "0"
+            micro = micro[:marker_index] or "0"
+            releaselevel = level
+            break
 
     # Delete terminfo symlink loops on newer PBS releases (linux only)
     if "linux" in platform:
         rctx.delete("share/terminfo")
 
     rctx.file("BUILD.bazel", content = _build_file_content(
+        abi_flags = rctx.attr.abi_flags,
         major = major,
         minor = minor,
         micro = micro,
         python_bin = python_bin,
+        is_macos = is_macos,
         is_windows = is_windows,
+        releaselevel = releaselevel,
+        serial = serial,
     ))
 
     if not features.external_deps.extension_metadata_has_reproducible:
@@ -84,10 +95,85 @@ filegroup(
 
     return "\n".join(lines), all_excludes
 
-def _build_file_content(major, minor, micro, python_bin, is_windows):
+def _build_file_content(major, minor, micro, python_bin, is_macos, is_windows, abi_flags, releaselevel, serial):
     """Generate the full BUILD.bazel content for an interpreter repo."""
 
     feature_targets, feature_excludes = _feature_filegroups(major, minor, is_windows)
+
+    include_dirs = ["include"]
+    if not is_windows:
+        include_dirs.append("include/python{}.{}{}".format(major, minor, abi_flags))
+
+    library_targets = ""
+    header_interface_deps = []
+    abi3_header_target = ""
+    headers_abi3_attr = ""
+    libs_attr = ""
+
+    # Unlike POSIX, Windows extensions must link a Python import library:
+    # https://docs.python.org/3/extending/windows.html#differences-between-unix-and-windows
+    #
+    # Free-threaded CPython 3.13 rejects the regular stable ABI:
+    # https://github.com/python/cpython/blob/v3.13.5/Include/Python.h#L53-L56
+    if is_windows:
+        # Windows extensions link an import library. Regular stable-ABI
+        # extensions use python3.lib.
+        # https://docs.python.org/3.13/c-api/stable.html#stable-application-binary-interface
+        library_targets = """\
+cc_import(
+    name = "interface",
+    interface_library = "libs/python{major}{minor}{abi_flags}.lib",
+    system_provided = True,
+    visibility = ["//visibility:private"],
+)
+""".format(
+            abi_flags = abi_flags,
+            major = major,
+            minor = minor,
+        )
+        libs_attr = "    libs = \":interface\",\n"
+        header_interface_deps = [":interface"]
+        if abi_flags == "":
+            library_targets += """
+cc_import(
+    name = "abi3_interface",
+    interface_library = "libs/python3.lib",
+    system_provided = True,
+    visibility = ["//visibility:private"],
+)
+"""
+            abi3_header_target = """\
+cc_library(
+    name = "python_headers_abi3",
+    hdrs = [":includes"],
+    includes = {include_dirs},
+    visibility = ["//visibility:private"],
+    deps = [":abi3_interface"],
+)
+""".format(include_dirs = repr(include_dirs))
+            headers_abi3_attr = "    headers_abi3 = \":python_headers_abi3\",\n"
+    else:
+        # rules_python exposes this target through current_py_cc_libs for
+        # embedding consumers. Keep it separate from python_headers so Python
+        # extension modules do not acquire a libpython dependency.
+        # https://rules-python.readthedocs.io/en/latest/toolchains.html#consuming-python-c-headers-and-libraries
+        if is_macos:
+            libpython_srcs = ["lib/libpython{}.{}{}.dylib".format(major, minor, abi_flags)]
+        else:
+            libpython_srcs = [
+                "lib/libpython{}.{}{}.so".format(major, minor, abi_flags),
+                "lib/libpython{}.{}{}.so.1.0".format(major, minor, abi_flags),
+            ]
+        library_targets = """\
+cc_library(
+    name = "libpython",
+    srcs = {libpython_srcs},
+    visibility = ["//visibility:private"],
+)
+""".format(libpython_srcs = repr(libpython_srcs))
+        libs_attr = "    libs = \":libpython\",\n"
+        if abi_flags == "":
+            headers_abi3_attr = "    headers_abi3 = \":python_headers\",\n"
 
     if is_windows:
         core_include = '["**/*.py", "**/*.pyd", "**/*.dll", "**/*.exe", "include/**", "Lib/**"]'
@@ -116,9 +202,12 @@ def _build_file_content(major, minor, micro, python_bin, is_windows):
 """.format(feature = feature_name)
 
     return """\
+load("@rules_cc//cc:cc_import.bzl", "cc_import")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_python//python:py_runtime.bzl", "py_runtime")
 load("@rules_python//python:py_runtime_pair.bzl", "py_runtime_pair")
-load("@aspect_rules_py//py/private/exec_tools:defs.bzl", "py_exec_tools_toolchain")
+load("@rules_python//python:py_exec_tools_toolchain.bzl", "py_exec_tools_toolchain")
+load("@rules_python//python/cc:py_cc_toolchain.bzl", "py_cc_toolchain")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -142,14 +231,33 @@ filegroup(
 {feature_selects}    ,
 )
 
+# --- Python C toolchain ---
+
+{library_targets}filegroup(
+    name = "includes",
+    srcs = glob(["include/**/*.h"], allow_empty = False),
+    visibility = ["//visibility:private"],
+)
+
+{abi3_header_target}cc_library(
+    name = "python_headers",
+    hdrs = [":includes"],
+    includes = {include_dirs},
+    visibility = ["//visibility:private"],
+    deps = {header_interface_deps},
+)
+
 py_runtime(
     name = "py3_runtime",
+    abi_flags = "{abi_flags}",
     files = [":files"],
     interpreter = "{python_bin}",
     interpreter_version_info = {{
         "major": "{major}",
         "minor": "{minor}",
         "micro": "{micro}",
+        "releaselevel": "{releaselevel}",
+        "serial": "{serial}",
     }},
     python_version = "PY3",
 )
@@ -163,11 +271,26 @@ py_runtime_pair(
 py_exec_tools_toolchain(
     name = "exec_tools_toolchain",
 )
+
+py_cc_toolchain(
+    name = "py_cc_toolchain",
+    headers = ":python_headers",
+{headers_abi3_attr}{libs_attr}    python_version = "{major}.{minor}",
+)
 """.format(
+        abi_flags = abi_flags,
+        abi3_header_target = abi3_header_target,
+        header_interface_deps = repr(header_interface_deps),
+        headers_abi3_attr = headers_abi3_attr,
+        include_dirs = repr(include_dirs),
+        library_targets = library_targets,
+        libs_attr = libs_attr,
         python_bin = python_bin,
         major = major,
         minor = minor,
         micro = micro,
+        releaselevel = releaselevel,
+        serial = serial,
         feature_targets = feature_targets,
         feature_selects = feature_selects,
         core_include = core_include,
@@ -177,7 +300,7 @@ py_exec_tools_toolchain(
 python_interpreter = repository_rule(
     implementation = _python_interpreter_impl,
     attrs = {
-        "freethreaded": attr.bool(default = False),
+        "abi_flags": attr.string(mandatory = True),
         "platform": attr.string(mandatory = True),
         "python_version": attr.string(default = ""),
         "sha256": attr.string(default = ""),
@@ -229,11 +352,9 @@ def _python_toolchains_impl(rctx):
             setting_names.append(name)
 
         # Track version/freethreaded for hub-local config_settings
-        python_version = info.get("python_version", "")
-        if python_version:
-            seen_versions[python_version] = True
-        freethreaded = info.get("freethreaded", False)
-        seen_freethreaded[freethreaded] = True
+        python_version = info["python_version"]
+        seen_versions[python_version] = True
+        seen_freethreaded[info.get("freethreaded", False)] = True
 
         toolchain_infos.append((info, setting_names))
 
@@ -289,22 +410,18 @@ config_setting(
 )
 """.format(name = name, flag = flag, value = value))
 
-    # Second pass: emit toolchain() registrations
+    # Bazel resolves each toolchain type independently. Give the runtime and C
+    # registrations identical compatibility predicates so each PBS entry
+    # offers a matching pair: https://github.com/aspect-build/rules_py/issues/1095
+    #
+    # Second pass: emit toolchain() registrations.
     for info, platform_setting_names in toolchain_infos:
         extra_config_settings = info.get("config_settings", [])
         extra_target_compatible = info.get("target_compatible_with", [])
         extra_exec_compatible = info.get("exec_compatible_with", [])
 
-        # Use hub-local config_settings for version/freethreaded when available,
-        # fall back to repo-local settings for local interpreters without version info.
-        python_version = info.get("python_version", "")
-        if python_version:
-            version_setting = ":" + _version_setting_name(python_version)
-            freethreaded_setting = ":" + _freethreaded_setting_name(info.get("freethreaded", False))
-        else:
-            # Local interpreters without known version — must reference repo-local settings
-            version_setting = "@{repo}//:is_matching_python_version".format(repo = info["repo"])
-            freethreaded_setting = "@{repo}//:is_matching_freethreaded".format(repo = info["repo"])
+        version_setting = ":" + _version_setting_name(info["python_version"])
+        freethreaded_setting = ":" + _freethreaded_setting_name(info.get("freethreaded", False))
 
         target_settings = [
             version_setting,
@@ -330,22 +447,35 @@ toolchain(
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
 
-# Exec tools toolchain: selected by exec platform (not target platform) so
+toolchain(
+    name = "{name}_py_cc",
+    target_compatible_with = {target_compatible_with},
+    target_settings = {target_settings},
+    toolchain = "@{repo}//:py_cc_toolchain",
+    toolchain_type = "@rules_python//python/cc:toolchain_type",
+)
+""".format(
+            name = info["name"],
+            repo = info["repo"],
+            target_compatible_with = target_compatible_with,
+            target_settings = target_settings,
+        ))
+
+        if info["register_exec_tools"]:
+            content.append("""# Exec tools toolchain: selected by exec platform (not target platform) so
 # that build actions using the interpreter (e.g. compileall) get a runnable
 # binary on the build host regardless of the target platform being built for.
 toolchain(
     name = "{name}_exec_tools",
     exec_compatible_with = {exec_compatible_with},
     toolchain = "@{repo}//:exec_tools_toolchain",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
 )
 """.format(
-            name = info["name"],
-            repo = info["repo"],
-            exec_compatible_with = exec_compatible_with,
-            target_compatible_with = target_compatible_with,
-            target_settings = target_settings,
-        ))
+                name = info["name"],
+                repo = info["repo"],
+                exec_compatible_with = exec_compatible_with,
+            ))
 
     content.append("""
 exports_files(
@@ -369,209 +499,4 @@ python_toolchains = repository_rule(
     attrs = {
         "toolchains": attr.string_list(),
     },
-)
-
-def _local_python_interpreter_impl(rctx):
-    """Probes and registers a local (non-PBS) Python interpreter."""
-
-    # Resolve the interpreter binary path
-    interpreter_path = rctx.attr.interpreter_path
-    env_var = rctx.attr.env
-
-    if not interpreter_path and not env_var:
-        fail("Either interpreter_path or env must be set")
-    if interpreter_path and env_var:
-        fail("Only one of interpreter_path or env may be set")
-
-    if env_var:
-        env_value = rctx.os.environ.get(env_var, "")
-        if not env_value:
-            _write_inactive_build(rctx, "Environment variable {} is not set".format(env_var))
-            return
-
-        # Resolve the python3 binary within the environment prefix
-        is_windows = "win" in rctx.os.name.lower()
-        if is_windows:
-            interpreter_path = env_value + "/Scripts/python.exe"
-        else:
-            interpreter_path = env_value + "/bin/python3"
-
-    # Check the interpreter exists
-    path = rctx.path(interpreter_path)
-    if not path.exists:
-        _write_inactive_build(rctx, "Interpreter not found at {}".format(interpreter_path))
-        return
-
-    # Probe the interpreter for version info
-    probe_script = rctx.attr._probe_script
-    result = rctx.execute(
-        [interpreter_path, rctx.path(probe_script)],
-        timeout = 10,
-    )
-    if result.return_code != 0:
-        _write_inactive_build(
-            rctx,
-            "Probe failed (exit {}): {}".format(result.return_code, result.stderr),
-        )
-        return
-
-    probe = json.decode(result.stdout)
-    major = str(probe["major"])
-    minor = str(probe["minor"])
-    micro = str(probe["micro"])
-
-    # Allow explicit version override
-    python_version = rctx.attr.python_version
-    if python_version:
-        parts = python_version.split(".")
-        major = parts[0]
-        minor = parts[1]
-        micro = parts[2] if len(parts) > 2 else micro
-    else:
-        python_version = "{}.{}.{}".format(major, minor, micro)
-
-    major_minor = "{}.{}".format(major, minor)
-
-    rctx.file("BUILD.bazel", content = """\
-load("@rules_python//python:py_runtime.bzl", "py_runtime")
-load("@rules_python//python:py_runtime_pair.bzl", "py_runtime_pair")
-load("@bazel_skylib//lib:selects.bzl", "selects")
-
-package(default_visibility = ["//visibility:public"])
-
-config_setting(
-    name = "_is_our_major_minor",
-    flag_values = {{
-        "{our_flag}": "{major_minor}",
-    }},
-)
-
-config_setting(
-    name = "_is_our_major_minor_micro",
-    flag_values = {{
-        "{our_flag}": "{version}",
-    }},
-)
-
-config_setting(
-    name = "_is_rpy_major_minor",
-    flag_values = {{
-        "{rpy_flag}": "{major_minor}",
-    }},
-)
-
-config_setting(
-    name = "_is_rpy_major_minor_micro",
-    flag_values = {{
-        "{rpy_flag}": "{version}",
-    }},
-)
-
-selects.config_setting_group(
-    name = "is_matching_python_version",
-    match_any = [
-        ":_is_our_major_minor",
-        ":_is_our_major_minor_micro",
-        ":_is_rpy_major_minor",
-        ":_is_rpy_major_minor_micro",
-    ],
-)
-
-config_setting(
-    name = "is_matching_freethreaded",
-    flag_values = {{
-        "{freethreaded_flag}": "false",
-    }},
-)
-
-py_runtime(
-    name = "py3_runtime",
-    interpreter_path = "{interpreter_path}",
-    interpreter_version_info = {{
-        "major": "{major}",
-        "minor": "{minor}",
-        "micro": "{micro}",
-    }},
-    python_version = "PY3",
-)
-
-py_runtime_pair(
-    name = "runtime_pair",
-    py2_runtime = None,
-    py3_runtime = ":py3_runtime",
-)
-""".format(
-        our_flag = _PYTHON_VERSION_FLAG,
-        rpy_flag = _RPY_VERSION_FLAG,
-        freethreaded_flag = _FREETHREADING_FLAG,
-        version = python_version,
-        major_minor = major_minor,
-        interpreter_path = interpreter_path,
-        major = major,
-        minor = minor,
-        micro = micro,
-    ))
-
-def _write_inactive_build(rctx, reason):
-    """Write a BUILD file for an inactive/unavailable local interpreter."""
-    rctx.file("BUILD.bazel", content = """\
-load("@bazel_skylib//lib:selects.bzl", "selects")
-
-package(default_visibility = ["//visibility:public"])
-
-# Inactive local interpreter: {reason}
-
-# Version config_settings that never match (empty flag value won't match
-# any real version string).
-config_setting(
-    name = "_is_our_major_minor",
-    flag_values = {{
-        "{our_flag}": "INACTIVE_LOCAL_INTERPRETER",
-    }},
-)
-
-selects.config_setting_group(
-    name = "is_matching_python_version",
-    match_any = [":_is_our_major_minor"],
-)
-
-config_setting(
-    name = "is_matching_freethreaded",
-    flag_values = {{
-        "{freethreaded_flag}": "false",
-    }},
-)
-
-filegroup(
-    name = "runtime_pair",
-    srcs = [],
-)
-""".format(
-        reason = reason,
-        our_flag = _PYTHON_VERSION_FLAG,
-        freethreaded_flag = _FREETHREADING_FLAG,
-    ))
-
-local_python_interpreter = repository_rule(
-    implementation = _local_python_interpreter_impl,
-    attrs = {
-        "env": attr.string(
-            default = "",
-            doc = "Environment variable pointing to a Python prefix (e.g. VIRTUAL_ENV).",
-        ),
-        "interpreter_path": attr.string(
-            default = "",
-            doc = "Absolute path to a Python interpreter binary.",
-        ),
-        "python_version": attr.string(
-            default = "",
-            doc = "Override the detected Python version (major.minor or major.minor.micro).",
-        ),
-        "_probe_script": attr.label(
-            allow_single_file = True,
-            default = Label(":probe_interpreter.py"),
-        ),
-    },
-    environ = ["VIRTUAL_ENV"],
-    doc = "Register a local (non-downloaded) Python interpreter as a toolchain.",
 )

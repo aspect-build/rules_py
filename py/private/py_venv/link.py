@@ -2,7 +2,7 @@
 
 """%(prog)s [options]
 
-Helper to create a symlink to a virtualenv in the source tree.
+Helper to link a target's runfiles tree into the source tree.
 """
 
 import argparse
@@ -21,9 +21,28 @@ def munge_venv_name(target_package, virtualenv_name):
     
 
 if __name__ == "__main__":
-    virtualenv_home = os.path.normpath(os.environ["VIRTUAL_ENV"])
-    virtualenv_name = os.path.basename(virtualenv_home)
-    runfiles_dir = os.path.normpath(os.environ["RUNFILES_DIR"])
+    try:
+        runfiles_dir = Path(os.path.abspath(os.environ["RUNFILES_DIR"]))
+    except KeyError:
+        raise SystemExit(
+            "py_venv_link requires directory-based runfiles (RUNFILES_DIR)"
+        ) from None
+    if not runfiles_dir.is_dir():
+        raise SystemExit(
+            "py_venv_link RUNFILES_DIR is not a directory: {}".format(runfiles_dir)
+        )
+
+    virtualenv_relative = Path(
+        os.environ["BAZEL_WORKSPACE"],
+        os.environ["VIRTUAL_ENV"],
+    )
+    virtualenv_home = runfiles_dir / virtualenv_relative
+    if not virtualenv_home.is_dir():
+        raise SystemExit(
+            "py_venv_link virtualenv is not a directory: {}".format(virtualenv_home)
+        )
+
+    virtualenv_name = virtualenv_home.name
     builddir = os.path.normpath(os.environ["BUILD_WORKING_DIRECTORY"])
     target_package, target_name = os.environ["BAZEL_TARGET"].split("//", 1)[1].split(":")
 
@@ -37,38 +56,45 @@ if __name__ == "__main__":
         "--dest",
         dest="dest",
         default=builddir,
-        help="Dir to link the virtualenv into. Default is $BUILD_WORKING_DIRECTORY.",
+        help="Directory in which to create the runfiles link. Default is $BUILD_WORKING_DIRECTORY.",
     )
 
     PARSER.add_argument(
         "--name",
         dest="name",
         default=munge_venv_name(target_package, virtualenv_name),
-        help="Name to link the virtualenv as.",
+        help="Name of the workspace-local runfiles link.",
     )
     
     opts = PARSER.parse_args()
-    dest = Path(os.path.join(opts.dest, opts.name))
+    runfiles_link = Path(opts.dest, opts.name)
+    virtualenv_path = runfiles_link / virtualenv_relative
     print("""
 
-Linking: {venv_home} -> {venv_path}
+Linking runfiles: {runfiles_dir} -> {runfiles_link}
+Virtualenv: {venv_path}
 """.format(
-    venv_home = virtualenv_home,
-    venv_path = dest,
+    runfiles_dir = runfiles_dir,
+    runfiles_link = runfiles_link,
+    venv_path = virtualenv_path,
 ))
 
-    if dest.exists() and dest.is_symlink() and dest.readlink() == Path(virtualenv_home):
+    if (
+        runfiles_link.exists()
+        and runfiles_link.is_symlink()
+        and runfiles_link.readlink() == runfiles_dir
+    ):
         print("Link is up to date!")
 
     else:
         try:
-            dest.lstat()
-            dest.unlink()
+            runfiles_link.lstat()
+            runfiles_link.unlink()
         except FileNotFoundError:
             pass
 
         # From -> to
-        dest.symlink_to(virtualenv_home, target_is_directory=True)
+        runfiles_link.symlink_to(runfiles_dir, target_is_directory=True)
         print("Link created!")
 
     print("""
@@ -85,7 +111,6 @@ To activate the virtualenv in your shell run
 virtualenvwrapper users may further want to
     $ ln -s {venv_path} $WORKON_HOME/{venv_name}
 """.format(
-    venv_home = virtualenv_home,
     venv_name = opts.name,
-    venv_path = dest,
+    venv_path = virtualenv_path,
 ))

@@ -1,0 +1,35 @@
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("//py:defs.bzl", "py_binary", "py_test")
+
+# Regression: `data` on py_binary / py_test must reach the generated
+# launcher rule, not only the sibling py_venv. The launcher needs it for
+# `$(location :data_file)` expansion in `args` (analysis fails without
+# it) and so its own runfiles carry the files. read_data.py asserts the
+# file is present at runtime; the `args` attribute below asserts the
+# expansion resolves at analysis time.
+
+py_test(
+    name = "test_data_on_test",
+    srcs = ["read_data.py"],
+    args = ["$(location :data.txt)"],
+    data = ["data.txt"],
+    env = {
+        "DATA_LOCATION": "$(location :data.txt)",
+    },
+    main = "read_data.py",
+)
+
+py_binary(
+    name = "bin_data",
+    srcs = ["read_data.py"],
+    args = ["$(location :data.txt)"],
+    data = ["data.txt"],
+    main = "read_data.py",
+)
+
+# Run the binary launcher as a test — read_data.py asserts internally.
+sh_test(
+    name = "test_data_on_binary",
+    srcs = ["check_binary.sh"],
+    data = [":bin_data"],
+)

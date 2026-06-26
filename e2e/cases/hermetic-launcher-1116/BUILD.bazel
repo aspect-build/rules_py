@@ -1,0 +1,24 @@
+# Fixture for the hermetic-launcher `bazel run` regression (driven by ./test.sh).
+#
+# Regression for https://github.com/aspect-build/rules_py/issues/1116: after the
+# move to hermetic-launcher (#1045), `bazel run` on a minimal py_binary failed at
+# runtime with `execve failed with errno 2`. The bug only surfaces when the
+# launcher is the top-level `bazel run` process and must self-locate its runfiles
+# (falling back to the sibling `.runfiles_manifest`, whose venv-python entry is a
+# relative symlink that the 0.0.9 launcher couldn't `execve`). A normal `sh_test`
+# under `//...` inherits a materialized `RUNFILES_DIR` and never hits that path,
+# so this is driven by ./test.sh which runs `bazel run` directly. Fixed in
+# hermetic-launcher 0.0.11.
+#
+# Mirrors the issue's repro (lucidsoftware/rules_py_hermetic_launcher_repro): a
+# single source, no deps. Tagged `manual` so it's a fixture, not part of `//...`.
+#
+# gazelle:ignore
+
+load("@aspect_rules_py//py:defs.bzl", "py_binary")
+
+py_binary(
+    name = "hello",
+    srcs = ["hello.py"],
+    tags = ["manual"],
+)

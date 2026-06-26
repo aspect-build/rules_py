@@ -1,0 +1,37 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_test")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@protobuf//bazel:py_proto_library.bzl", "py_proto_library")
+
+# A plain proto_library — the language-agnostic descriptor.
+proto_library(
+    name = "greeting_proto",
+    srcs = ["greeting.proto"],
+)
+
+# protobuf's py_proto_library generates `greeting_pb2.py` as a py_library and
+# brings in the protobuf Python runtime.
+py_proto_library(
+    name = "greeting_py_proto",
+    deps = [":greeting_proto"],
+)
+
+# rules_py py_binary consuming the generated proto library.
+py_binary(
+    name = "app",
+    srcs = ["app.py"],
+    main = "app.py",
+    deps = [":greeting_py_proto"],
+)
+
+# rules_py py_test proving the generated module imports and round-trips under
+# a rules_py venv.
+py_test(
+    name = "app_test",
+    size = "small",
+    srcs = [
+        "app.py",
+        "app_test.py",
+    ],
+    main = "app_test.py",
+    deps = [":greeting_py_proto"],
+)

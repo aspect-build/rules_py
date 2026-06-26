@@ -1,4 +1,19 @@
+load("//py:defs.bzl", "py_test")
+
 exports_files(
     ["unpack.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "unpack_test",
+    size = "small",
+    srcs = ["unpack_test.py"],
+    args = ["$(rootpath :unpack.py)"],
+    data = [":unpack.py"],
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:public"],
 )

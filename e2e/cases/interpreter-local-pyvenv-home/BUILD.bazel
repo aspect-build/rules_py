@@ -1,0 +1,59 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test", "py_venv")
+load("@rules_python//python:py_runtime.bzl", "py_runtime")
+load("@rules_python//python:py_runtime_pair.bzl", "py_runtime_pair")
+
+# Regression test: a venv built under a system-interpreter toolchain
+# (`py_runtime(interpreter_path = ...)`) must write pyvenv.cfg `home`
+# as the interpreter's bin dir, not `./bin` — the venv's own bin, which
+# left CPython chasing the venv's
+# symlinks and falling back to its compile-time prefix (PBS: /install,
+# no `encodings`) when that fails.
+#
+# `:venv_sys` transitions python_version to the sentinel `3.94`, which
+# only this toolchain's target_settings match, so regular resolution
+# picks it (registered in setup.MODULE.bazel). The interpreter path is
+# fake — the venv is built, never executed — and `:test_pyvenv_home`
+# (default hermetic toolchain) reads the built pyvenv.cfg from its
+# runfiles.
+
+py_runtime(
+    name = "system_py3_runtime",
+    interpreter_path = "/opt/fake-python/bin/python3",
+    interpreter_version_info = {
+        "major": "3",
+        "minor": "94",
+        "micro": "0",
+    },
+    python_version = "PY3",
+)
+
+py_runtime_pair(
+    name = "system_runtime_pair",
+    py2_runtime = None,
+    py3_runtime = ":system_py3_runtime",
+)
+
+config_setting(
+    name = "is_sentinel_python_version",
+    flag_values = {
+        "@aspect_rules_py//py/private/interpreter:python_version": "3.94",
+    },
+)
+
+toolchain(
+    name = "system_python_toolchain",
+    target_settings = [":is_sentinel_python_version"],
+    toolchain = ":system_runtime_pair",
+    toolchain_type = "@bazel_tools//tools/python:toolchain_type",
+)
+
+py_venv(
+    name = "venv_sys",
+    python_version = "3.94",
+)
+
+py_test(
+    name = "test_pyvenv_home",
+    srcs = ["test_pyvenv_home.py"],
+    data = [":venv_sys"],
+)

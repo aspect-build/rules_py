@@ -43,12 +43,13 @@ jobs:
                 - { path: ".", slug: "root", runner: "ubuntu-latest" }
                 # e2e is the large workspace; give it a beefier runner.
                 - { path: "e2e", slug: "e2e", runner: "ubuntu-22.04-32core" }
+                - { path: "examples/debugger", slug: "examples-debugger", runner: "ubuntu-latest" }
+                - { path: "examples/dev_deps", slug: "examples-dev_deps", runner: "ubuntu-latest" }
                 - { path: "examples/uv_pip_compile", slug: "examples-uv_pip_compile", runner: "ubuntu-latest" }
+                - { path: "examples/protobuf", slug: "examples-protobuf", runner: "ubuntu-22.04-32core" }
                 bazel:
                 - { id: "bazel-8", version: "8.x", flags: "--bazel-flag=--test_tag_filters=-skip-on-bazel8" }
                 - { id: "bazel-9", version: "9.x", flags: "--bazel-flag=--test_tag_filters=-skip-on-bazel9" }
-                exclude:
-                - { workspace: { slug: "examples-uv_pip_compile" }, bazel: { id: "bazel-9" } }
         env:
             USE_BAZEL_VERSION: ${{ matrix.bazel.version }}
         steps:
@@ -59,3 +60,21 @@ jobs:
             - name: Test
               working-directory: ${{ matrix.workspace.path }}
               run: aspect test --task-key=test-${{ matrix.workspace.slug }}-${{ matrix.bazel.id }} ${{ matrix.bazel.flags }} -- //...
+            # Standalone scripts that drive bazel directly (e.g. asserting a
+            # build *fails*), so they can't be an `sh_test` under `//...` above.
+            - name: e2e standalone test.sh scripts
+              if: matrix.workspace.slug == 'e2e'
+              run: |
+                set -uo pipefail
+                status=0
+                for script in e2e/cases/*/test.sh; do
+                    echo "::group::${script}"
+                    if bash "${script}"; then
+                        echo "PASS: ${script}"
+                    else
+                        echo "FAIL: ${script}"
+                        status=1
+                    fi
+                    echo "::endgroup::"
+                done
+                exit "${status}"

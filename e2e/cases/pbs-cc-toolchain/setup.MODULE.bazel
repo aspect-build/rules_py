@@ -1,0 +1,8 @@
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+use_repo(
+    interpreters,
+    "python_3_13_x86_64_pc_windows_msvc",
+    "python_3_13_x86_64_pc_windows_msvc_freethreaded",
+    "python_3_13_x86_64_unknown_linux_gnu",
+    "python_3_13_x86_64_unknown_linux_gnu_freethreaded",
+)

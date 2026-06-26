@@ -1,0 +1,35 @@
+load(":metadata_test.bzl", "console_scripts_metadata_test")
+
+# Each target pins a REAL wheel that ships the legacy console-script extras
+# syntax in its `entry_points.txt`, and asserts `parse_console_script`
+# normalised it (dropping the `[extra]` suffix). Before the fix the suffix
+# leaked into the value, so these assertions would fail.
+#
+# Keep the dependency versions pinned (see pyproject.toml): if a release stops
+# shipping the extras suffix, the matching assertion still passes but no longer
+# reproduces the strip.
+
+# black 26.5.1 — two console scripts in one wheel:
+#   black  = black:patched_main         -> black=black:patched_main      (plain, unchanged)
+#   blackd = blackd:patched_main [d]    -> blackd=blackd:patched_main    ([d] extra stripped)
+# The `[d]` extra gates black's optional HTTP-daemon dependencies (aiohttp).
+console_scripts_metadata_test(
+    name = "black_console_scripts_test",
+    expected_console_scripts = [
+        "black=black:patched_main",
+        "blackd=blackd:patched_main",
+    ],
+    target_under_test = "@whl_install__console_script_extras__black__26_5_1//:install",
+)
+
+# google-auth-oauthlib 1.4.0 — single py3-none-any wheel, one console script:
+#   google-oauthlib-tool = google_auth_oauthlib.tool.__main__:main [tool]
+#       -> google-oauthlib-tool=google_auth_oauthlib.tool.__main__:main  ([tool] stripped)
+# The `[tool]` extra gates the optional click dependency for the CLI.
+console_scripts_metadata_test(
+    name = "google_auth_oauthlib_console_scripts_test",
+    expected_console_scripts = [
+        "google-oauthlib-tool=google_auth_oauthlib.tool.__main__:main",
+    ],
+    target_under_test = "@whl_install__console_script_extras__google_auth_oauthlib__1_4_0//:install",
+)

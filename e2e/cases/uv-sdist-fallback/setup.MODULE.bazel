@@ -16,4 +16,14 @@ uv.project(
     lock = "//cases/uv-sdist-fallback:uv.lock",
     pyproject = "//cases/uv-sdist-fallback:pyproject.toml",
 )
-use_repo(uv, "pypi_sdist_fallback")
+uv.override_package(
+    name = "cowsay",
+    console_scripts = {"cowsay": "cowsay.__main__:cli"},
+    lock = "//cases/uv-sdist-fallback:uv.lock",
+    monitor_memory = True,
+)
+use_repo(
+    uv,
+    "pypi_sdist_fallback",
+    "sdist_build__uv_sdist_fallback__cowsay__6_0",
+)

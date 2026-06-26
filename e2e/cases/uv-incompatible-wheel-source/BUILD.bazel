@@ -1,0 +1,10 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+py_test(
+    name = "test",
+    srcs = ["test.py"],
+    dep_group = "uv-incompatible-wheel-source",
+    main = "test.py",
+    python_version = "3.11",
+    deps = ["@pypi_uv_incompatible_wheel_source//aenum"],
+)

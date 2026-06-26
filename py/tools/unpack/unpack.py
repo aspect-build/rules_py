@@ -116,6 +116,7 @@ def install_wheel(version_major, version_minor, into, wheel_path):
 
     for ep_path in site_packages.glob("*.dist-info/entry_points.txt"):
         cp = configparser.ConfigParser(strict=False)
+        cp.optionxform = str
         cp.read(str(ep_path), encoding="utf-8")
         for section in ("console_scripts", "gui_scripts"):
             if section not in cp:
@@ -123,13 +124,23 @@ def install_wheel(version_major, version_minor, into, wheel_path):
             for raw_name, raw_ep in cp[section].items():
                 module, _, func_extras = raw_ep.strip().partition(":")
                 func = func_extras.split("[")[0].strip()
-                script_path = bin_dir / raw_name.strip()
+                name = raw_name.strip()
+                module = module.strip()
+                if not name or not module or not func:
+                    continue
+                script_path = bin_dir / name
+                # Entry-point object references may contain dotted attributes:
+                # https://packaging.python.org/en/latest/specifications/entry-points/#data-model
                 wrapper = (
                     _RELOCATABLE_SHEBANG
                     + "# -*- coding: utf-8 -*-\n"
-                    + "import re\nimport sys\n"
-                    + "from {} import {}\n".format(module.strip(), func)
-                    + "sys.exit({}())\n".format(func)
+                    + "import sys\n"
+                    + "from importlib import import_module\n"
+                    + "from operator import attrgetter\n"
+                    + "sys.exit(attrgetter({!r})(import_module({!r}))())\n".format(
+                        func,
+                        module,
+                    )
                 )
                 _write_executable(script_path, wrapper.encode())
                 installed.append(script_path)
@@ -165,6 +176,7 @@ def main():
     ap.add_argument("--patch", dest="patches", action="append", default=[], type=Path)
     ap.add_argument("--patch-strip", type=int, default=0)
     ap.add_argument("--patch-tool", type=Path, default=Path("patch"))
+    ap.add_argument("--preserve-path", action="append", default=[])
     ap.add_argument("--compile-pyc", action="store_true")
     ap.add_argument("--pyc-invalidation-mode", default="checked-hash",
                     choices=["checked-hash", "unchecked-hash", "timestamp"])
@@ -178,28 +190,87 @@ def main():
         args.wheel,
     )
 
+    site_packages = (
+        args.into / "lib"
+        / "python{}.{}".format(args.python_version_major, args.python_version_minor)
+        / "site-packages"
+    )
+    # Analysis uses these paths for collision and merge planning. Snapshot their
+    # installed shape here, where both the before and after states are available.
+    observed_files = []
+    observed_directory_init = {}
+    for relative_string in args.preserve_path:
+        relative = Path(relative_string)
+        if relative.is_absolute() or ".." in relative.parts:
+            raise SystemExit("Invalid preserved wheel path: {}".format(relative))
+        path = site_packages / relative
+        if path.is_dir():
+            observed_directory_init[relative] = (
+                None
+                if relative.name.endswith((".dist-info", ".egg-info"))
+                else (path / "__init__.py").is_file()
+            )
+        elif path.is_file():
+            observed_files.append(relative)
+        else:
+            raise SystemExit("Preserved wheel path does not exist: {}".format(relative))
+
     for patch_file in args.patches:
-        r = subprocess.run(
-            [str(args.patch_tool), "-p{}".format(args.patch_strip), "-d", str(args.into)],
-            stdin=patch_file.open("rb"),
-        )
+        # --no-backup-if-mismatch: a fuzz/offset apply otherwise drops a
+        # `<file>.orig` into the install tree, leaking into every consuming venv.
+        with patch_file.open("rb") as patch_stream:
+            r = subprocess.run(
+                [
+                    str(args.patch_tool),
+                    "--no-backup-if-mismatch",
+                    "-p{}".format(args.patch_strip),
+                    "-d",
+                    str(args.into),
+                ],
+                stdin=patch_stream,
+            )
+        # patch's rejected-hunk details go to the inherited stderr; fail the
+        # action rather than emit a half-patched wheel.
         if r.returncode != 0:
-            raise SystemExit("patch failed ({}) for {}".format(r.returncode, patch_file))
+            raise SystemExit(
+                "Error: failed to apply patch {} (patch exited {}).".format(patch_file, r.returncode)
+            )
+
+    for relative in observed_files:
+        if not (site_packages / relative).is_file():
+            raise SystemExit(
+                "Post-install patch changed observed wheel file: {}".format(relative)
+            )
+    for relative, had_init in observed_directory_init.items():
+        directory = site_packages / relative
+        if not directory.is_dir():
+            raise SystemExit(
+                "Post-install patch changed observed wheel directory: {}".format(relative)
+            )
+        if had_init is not None and (directory / "__init__.py").is_file() != had_init:
+            raise SystemExit(
+                "Post-install patch changed observed package classification: {}".format(relative)
+            )
 
     if args.compile_pyc:
         if not args.python:
             raise SystemExit("--python is required when --compile-pyc is set")
-        site_packages = (
-            args.into / "lib"
-            / "python{}.{}".format(args.python_version_major, args.python_version_minor)
-            / "site-packages"
-        )
+        # Wheels may retain source for older Python versions. Match pip by
+        # retaining compileall's diagnostics while ignoring its aggregate
+        # false result; check=True still rejects abnormal interpreter exits.
+        # https://github.com/pypa/pip/blob/c8651d86d2d080c1936974873ab162f9c2507666/src/pip/_internal/operations/install/wheel.py#L623-L639
         subprocess.run(
             [
-                str(args.python), "-m", "compileall", "-q",
-                "--invalidation-mode", args.pyc_invalidation_mode,
+                str(args.python),
+                "-c",
+                "import compileall; compileall.main()",
+                "-q",
+                "--invalidation-mode",
+                args.pyc_invalidation_mode,
+                "--",
                 str(site_packages),
-            ]
+            ],
+            check=True,
         )
 
 

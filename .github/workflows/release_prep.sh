@@ -13,31 +13,6 @@ ARCHIVE_TMP=$(mktemp)
 # NB: configuration for 'git archive' is in /.gitattributes
 git archive --format=tar --prefix=${PREFIX}/ ${TAG} > $ARCHIVE_TMP
 
-############
-# BEGIN archive patching
-
-## Generate release hashes
-# Delete the placeholder file
-tar --file $ARCHIVE_TMP --delete ${PREFIX}/py/private/release/integrity.bzl
-
-# Generate an updated integrity hash set
-mkdir -p ${PREFIX}/py/private/release
-cat >${PREFIX}/py/private/release/integrity.bzl <<EOF
-"Generated during release by release_prep.sh, using integrity.jq"
-
-RELEASED_BINARY_INTEGRITY = $(jq \
-  --from-file .github/workflows/integrity.jq \
-  --slurp \
-  --raw-input artifacts*/*.sha256 \
-)
-EOF
-
-# Append that generated file back into the archive
-tar --file $ARCHIVE_TMP --append ${PREFIX}/py/private/release/integrity.bzl
-
-# END patch up the archive
-############
-
 gzip < $ARCHIVE_TMP > $ARCHIVE
 SHA=$(shasum -a 256 $ARCHIVE | awk '{print $1}')
 

@@ -1,3 +1,4 @@
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
 load(":defs.bzl", "py_dev_binary")
 
@@ -42,4 +43,11 @@ py_dev_binary(
     deps = [
         "@pypi//flask",
     ],
+)
+
+# Ensure the example binary builds on CI (it is a long-running Flask server,
+# so it can't be run as a test).
+build_test(
+    name = "app_build_test",
+    targets = [":app"],
 )

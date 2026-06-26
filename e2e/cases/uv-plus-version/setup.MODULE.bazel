@@ -8,3 +8,13 @@ uv.project(
     pyproject = "//cases/uv-plus-version:pyproject.toml",
 )
 use_repo(uv, "pypi_uv_plus_version")
+use_repo(uv, "whl_install__plus_version__jaxlib__0_4_25_cuda11_cudnn86")
+
+uv.declare_hub(hub_name = "pypi_uv_encoded_plus_version")
+uv.project(
+    hub_name = "pypi_uv_encoded_plus_version",
+    lock = "//cases/uv-plus-version:uv-encoded.lock",
+    pyproject = "//cases/uv-plus-version:pyproject-encoded.toml",
+)
+use_repo(uv, "pypi_uv_encoded_plus_version")
+use_repo(uv, "whl_install__plus_version_encoded__jaxlib__0_4_25_cuda11_cudnn86")

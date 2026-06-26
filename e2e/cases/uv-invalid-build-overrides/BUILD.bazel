@@ -1,0 +1,6 @@
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+
+build_test(
+    name = "custom_patches_test",
+    targets = ["@sdist_build__uv_invalid_build_overrides_custom__cowsay__6_0//:whl"],
+)

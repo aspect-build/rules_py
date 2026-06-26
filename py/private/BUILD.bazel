@@ -18,6 +18,7 @@ py_library(
     name = "default_pytest_main",
     testonly = True,
     srcs = ["pytest_main.py"],
+    imports = ["."],
     visibility = ["//visibility:public"],
     deps = ["//py/private/pytest_shard"],
 )

@@ -15,3 +15,8 @@ test_env('DEFINE', "SOME_VALUE")
 test_env('BAZEL_TARGET', "//py/tests/py-test:test_env_vars")
 test_env('BAZEL_WORKSPACE', "_main")
 test_env('BAZEL_TARGET_NAME', "test_env_vars")
+
+# Every binary/test must see VIRTUAL_ENV pointing at the sibling
+# venv's root (rootpath form), including the default
+# `expose_venv = False` path where the venv target is private.
+test_env('VIRTUAL_ENV', "py/tests/py-test/._test_env_vars.venv")
