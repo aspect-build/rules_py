@@ -59,7 +59,7 @@ _GROUP_DEPS = select(
     no_match_error = "no dep_group selected; set the dep_group attribute on the consuming target to one of: beta, dev, gamma, unit-tests",
 )
 
-def group_dep_labels(group):
+def group_deps_for(group):
     if group not in _GROUP_DEP_LABELS:
         fail("unknown dep_group %r; expected one of: %s" % (group, ", ".join(sorted(_GROUP_DEP_LABELS))))
     return _GROUP_DEP_LABELS[group]

@@ -13,7 +13,7 @@ load(
     # follows the consuming target's dep_group, so the group name is never
     # repeated in deps.
     "@pypi_requirements_by_dep_group//:defs.bzl",
-    "group_dep_labels",
+    "group_deps_for",
     multi_group_deps = "group_deps",
 )
 load(
@@ -33,7 +33,9 @@ load(
 # referenced once so buildifier doesn't strip the load.
 _ALL_DATA_REQUIREMENTS_COUNT = len(all_data_requirements)
 
-_EXPLICIT_DEMO_DEPS = group_dep_labels("requirements-bzl-demo")
+# group_deps_for(): macros can inspect one explicit group's membership at load
+# time and read normalized package names off the returned Labels.
+_EXPLICIT_DEMO_DEPS = group_deps_for("requirements-bzl-demo")
 
 _EXPECTED_EXPLICIT_DEMO_PACKAGES = [
     "cowsay",
@@ -143,10 +145,11 @@ py_test(
     deps = multi_group_deps(),
 )
 
-# group_dep_labels(): macros can inspect one explicit group's membership before
-# target configuration. Analyze these aliases under the matching dep_group.
+# group_deps_for(): escape hatch that pins one explicit group's deps as Labels.
+# Unlike group_deps(), it does not track the consuming target's dep_group, so
+# this target must set the matching group itself or analysis fails.
 py_test(
-    name = "group_dep_labels_demo_test",
+    name = "group_deps_for_demo_test",
     srcs = ["__multi_test__.py"],
     dep_group = "requirements-bzl-demo",
     main = "__multi_test__.py",

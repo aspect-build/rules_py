@@ -230,7 +230,7 @@ _GROUP_DEPS = select(
     no_match_error = {no_match_error},
 )
 
-def group_dep_labels(group):
+def group_deps_for(group):
     if group not in _GROUP_DEP_LABELS:
         fail("unknown dep_group %r; expected one of: %s" % (group, ", ".join(sorted(_GROUP_DEP_LABELS))))
     return _GROUP_DEP_LABELS[group]
@@ -294,9 +294,9 @@ uv_hub = repository_rule(
 
     Lays down two loadable files:
 
-    - `defs.bzl` (rules_py-native): the `group_deps()` and
-      `group_dep_labels()` helpers plus the `compatible_with` /
-      `incompatible_with` constraint helpers and the `VIRTUALENVS` list.
+    - `defs.bzl` (rules_py-native): the `group_deps()` and `group_deps_for()`
+      helpers plus the `compatible_with` / `incompatible_with` constraint
+      helpers and the `VIRTUALENVS` list.
     - `requirements.bzl`: a rules_python-compatibility shim (`all_requirements`,
       `requirement()`, and friends).
 
@@ -314,12 +314,13 @@ uv_hub = repository_rule(
     PEP 508 package extras -- can be added as keyword arguments without breaking
     callers.
 
-    `group_dep_labels(name)` returns the membership list for an explicit group
-    as sorted `Label` values. This supports macros that must inspect normalized
-    package names during package loading. The aliases still resolve under the
-    active `dep_group`, so consuming targets must use the matching group. It is
-    the only public accessor for the per-group membership; the underlying table
-    is built once at load and shared with the `group_deps()` select.
+    `group_deps_for(name)` returns the membership of one explicit group as
+    sorted `Label` values, for macros that must inspect package names (via
+    `Label.package`) during package loading or deliberately pin one group's
+    deps. The aliases still resolve under the active `dep_group`, so a consuming
+    target that uses these labels as `deps` must set the matching group itself.
+    It is the only public accessor for the per-group membership; the underlying
+    table is built once at load and shared with the `group_deps()` select.
     """,
     implementation = _hub_impl,
     attrs = {
