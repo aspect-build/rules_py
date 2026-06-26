@@ -107,6 +107,84 @@ def main() -> None:
         )
         assert next((site_packages / "fixture" / "__pycache__").glob("*.pyc"))
 
+        for case, member, escaped_name in [
+            (
+                "roottraversal",
+                "../../../../root-escaped.py",
+                "root-escaped.py",
+            ),
+            (
+                "rootabsolute",
+                str(root / "absolute-escaped.py"),
+                "absolute-escaped.py",
+            ),
+            (
+                "rootdrive",
+                "C:/root-drive-escaped.py",
+                "root-drive-escaped.py",
+            ),
+            (
+                "rootnesteddrive",
+                "fixture/D:/root-nested-drive-escaped.py",
+                "root-nested-drive-escaped.py",
+            ),
+            (
+                "rootunc",
+                "//server/share/root-unc-escaped.py",
+                "root-unc-escaped.py",
+            ),
+            (
+                "rootbackslash",
+                "fixture\\root-backslash-escaped.py",
+                "root-backslash-escaped.py",
+            ),
+            (
+                "datatraversal",
+                "datatraversal-1.0.data/data/../data-escaped.py",
+                "data-escaped.py",
+            ),
+            (
+                "dataabsolute",
+                "dataabsolute-1.0.data/data//data-absolute-escaped.py",
+                "data-absolute-escaped.py",
+            ),
+            (
+                "datadrive",
+                "datadrive-1.0.data/data/C:/data-drive-escaped.py",
+                "data-drive-escaped.py",
+            ),
+            (
+                "datanesteddrive",
+                "datanesteddrive-1.0.data/data/fixture/D:/data-nested-drive-escaped.py",
+                "data-nested-drive-escaped.py",
+            ),
+            (
+                "dataunc",
+                "dataunc-1.0.data/data///server/share/data-unc-escaped.py",
+                "data-unc-escaped.py",
+            ),
+            (
+                "databackslash",
+                "databackslash-1.0.data/data/fixture\\data-backslash-escaped.py",
+                "data-backslash-escaped.py",
+            ),
+        ]:
+            traversal_wheel = root / f"{case}-1.0-py3-none-any.whl"
+            _write_wheel(traversal_wheel, case, {member: b"escaped\n"})
+            rejected = _run_unpack(
+                unpack,
+                traversal_wheel,
+                root / f"{case}-out",
+                Path(sys.executable),
+            )
+            assert rejected.returncode != 0, "{} was accepted\n{}{}".format(
+                case,
+                rejected.stdout,
+                rejected.stderr,
+            )
+            assert "Invalid wheel member path" in rejected.stderr
+            assert not (root / escaped_name).exists()
+
         site_packages_relative = (
             f"lib/python{sys.version_info.major}.{sys.version_info.minor}/site-packages"
         )
@@ -374,6 +452,43 @@ else:
             check=True,
             env={"PYTHONPATH": str(site_packages)},
         )
+
+        for case, name in [
+            ("traversal", "../../entry-point-escaped"),
+            ("absolute", "/entry-point-escaped"),
+            ("drive", "C:/entry-point-escaped"),
+            ("nested-drive", "fixture/D:entry-point-escaped"),
+            ("unc", "//server/share/entry-point-escaped"),
+            ("backslash", "fixture\\entry-point-escaped"),
+            ("nested", "fixture/entry-point-escaped"),
+        ]:
+            distribution = "entry_point_{}".format(case)
+            entry_point_wheel = root / f"{distribution}-1.0-py3-none-any.whl"
+            _write_wheel(
+                entry_point_wheel,
+                distribution,
+                {
+                    "fixture/__init__.py": b"def main():\n    return 0\n",
+                    f"{distribution}-1.0.dist-info/entry_points.txt": (
+                        "[console_scripts]\n{} = fixture:main\n".format(name).encode()
+                    ),
+                },
+            )
+            rejected_entry_point = _run_unpack(
+                unpack,
+                entry_point_wheel,
+                root / f"entry-point-{case}-out",
+                Path(sys.executable),
+            )
+            assert rejected_entry_point.returncode != 0, (
+                "{} was accepted\n{}{}".format(
+                    case,
+                    rejected_entry_point.stdout,
+                    rejected_entry_point.stderr,
+                )
+            )
+            assert "Invalid console script name" in rejected_entry_point.stderr
+            assert not (root / "entry-point-escaped").exists()
 
 
 if __name__ == "__main__":
