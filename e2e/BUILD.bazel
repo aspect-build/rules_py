@@ -171,5 +171,11 @@ write_source_files(
         "snapshots/firebase_admin.test_tool.venv.pth": "//cases/firebase-admin-import:test_tool.venv.pth",
         "snapshots/wheel_root_pth.venv.pth": "//cases/uv-include-group:wheel_root_pth_test.venv.pth",
         "snapshots/pth_install_tree_fallback.venv.pth": "//cases/pth-install-tree-fallback:test.venv.pth",
+
+        # PBS pyvenv.cfg home handling (cases/pbs-symlink-prefix-1048).
+        # 3.11 is inside the narrow empty-home gate; 3.13 proves the normal
+        # retained-home line stays intact outside it.
+        "snapshots/pbs_symlink_prefix_1048.python311.pyvenv.cfg": "//cases/pbs-symlink-prefix-1048:action_probe_311.venv.cfg",
+        "snapshots/pbs_symlink_prefix_1048.python313.pyvenv.cfg": "//cases/pbs-symlink-prefix-1048:action_probe_313.venv.cfg",
     },
 )
