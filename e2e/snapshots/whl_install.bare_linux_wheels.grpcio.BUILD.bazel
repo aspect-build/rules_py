@@ -244,6 +244,250 @@ whl_install(
     },
     namespace_top_levels = {},
     console_scripts = {},
+    top_level_dirs = {
+        "grpcio-1.80.0-cp311-cp311-linux_armv7l.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp311-cp311-macosx_11_0_universal2.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp311-cp311-manylinux2014_i686.manylinux_2_17_i686.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp311-cp311-musllinux_1_2_aarch64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp311-cp311-musllinux_1_2_i686.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp311-cp311-musllinux_1_2_x86_64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp311-cp311-win32.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp311-cp311-win_amd64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp312-cp312-linux_armv7l.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp312-cp312-macosx_11_0_universal2.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp312-cp312-manylinux2014_i686.manylinux_2_17_i686.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp312-cp312-musllinux_1_2_aarch64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp312-cp312-musllinux_1_2_i686.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp312-cp312-musllinux_1_2_x86_64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp312-cp312-win32.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp312-cp312-win_amd64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp313-cp313-linux_armv7l.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp313-cp313-macosx_11_0_universal2.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp313-cp313-manylinux2014_i686.manylinux_2_17_i686.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp313-cp313-musllinux_1_2_aarch64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp313-cp313-musllinux_1_2_i686.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp313-cp313-musllinux_1_2_x86_64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp313-cp313-win32.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp313-cp313-win_amd64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp314-cp314-linux_armv7l.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp314-cp314-macosx_11_0_universal2.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp314-cp314-manylinux2014_aarch64.manylinux_2_17_aarch64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp314-cp314-manylinux2014_i686.manylinux_2_17_i686.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp314-cp314-musllinux_1_2_aarch64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp314-cp314-musllinux_1_2_i686.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp314-cp314-musllinux_1_2_x86_64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp314-cp314-win32.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp314-cp314-win_amd64.whl": [
+            "grpc",
+        ],
+    },
+    native_roots = {
+        "grpcio-1.80.0-cp311-cp311-linux_armv7l.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp311-cp311-macosx_11_0_universal2.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp311-cp311-manylinux2014_i686.manylinux_2_17_i686.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp311-cp311-musllinux_1_2_aarch64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp311-cp311-musllinux_1_2_i686.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp311-cp311-musllinux_1_2_x86_64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp311-cp311-win32.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp311-cp311-win_amd64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp312-cp312-linux_armv7l.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp312-cp312-macosx_11_0_universal2.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp312-cp312-manylinux2014_i686.manylinux_2_17_i686.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp312-cp312-musllinux_1_2_aarch64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp312-cp312-musllinux_1_2_i686.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp312-cp312-musllinux_1_2_x86_64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp312-cp312-win32.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp312-cp312-win_amd64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp313-cp313-linux_armv7l.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp313-cp313-macosx_11_0_universal2.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp313-cp313-manylinux2014_i686.manylinux_2_17_i686.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp313-cp313-musllinux_1_2_aarch64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp313-cp313-musllinux_1_2_i686.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp313-cp313-musllinux_1_2_x86_64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp313-cp313-win32.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp313-cp313-win_amd64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp314-cp314-linux_armv7l.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp314-cp314-macosx_11_0_universal2.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp314-cp314-manylinux2014_aarch64.manylinux_2_17_aarch64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp314-cp314-manylinux2014_i686.manylinux_2_17_i686.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp314-cp314-musllinux_1_2_aarch64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp314-cp314-musllinux_1_2_i686.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp314-cp314-musllinux_1_2_x86_64.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp314-cp314-win32.whl": [
+            "grpc",
+        ],
+        "grpcio-1.80.0-cp314-cp314-win_amd64.whl": [
+            "grpc",
+        ],
+    },
     visibility = ["//visibility:private"],
 )
 

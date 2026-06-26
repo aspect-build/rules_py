@@ -1,0 +1,17 @@
+[project]
+name = "google-native-overlay"
+version = "0.0.0"
+# google 1.9.3 ships a regular google/__init__.py, while protobuf 6.33.5
+# ships a namespace-only google/ tree containing _upb/_message native code.
+# Keep google first in BUILD.bazel so the test exercises regular-first
+# collision precedence.
+requires-python = ">=3.9"
+dependencies = [
+    # build + setuptools match the hub's default_build_dependencies declared
+    # in //MODULE.bazel. The uv extension expects every project lockfile to
+    # be able to resolve them.
+    "build",
+    "setuptools",
+    "google==1.9.3",
+    "protobuf==6.33.5",
+]

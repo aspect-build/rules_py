@@ -1,0 +1,10 @@
+"""Regression: regular google package before namespace-native protobuf."""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_google_native_overlay")
+uv.project(
+    hub_name = "pypi_google_native_overlay",
+    lock = "//cases/google-native-overlay:uv.lock",
+    pyproject = "//cases/google-native-overlay:pyproject.toml",
+)
+use_repo(uv, "pypi_google_native_overlay")

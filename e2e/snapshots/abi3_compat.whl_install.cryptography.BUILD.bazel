@@ -355,6 +355,96 @@ whl_install(
         ],
     },
     console_scripts = {},
+    top_level_dirs = {
+        "cryptography-46.0.5-cp311-abi3-macosx_10_9_universal2.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp311-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp311-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp311-abi3-manylinux_2_28_aarch64.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp311-abi3-manylinux_2_28_ppc64le.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp311-abi3-manylinux_2_28_x86_64.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp311-abi3-manylinux_2_31_armv7l.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp311-abi3-manylinux_2_34_aarch64.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp311-abi3-manylinux_2_34_ppc64le.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp311-abi3-manylinux_2_34_x86_64.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp311-abi3-musllinux_1_2_aarch64.whl": [
+            "cryptography",
+            "cryptography.libs",
+        ],
+        "cryptography-46.0.5-cp311-abi3-musllinux_1_2_x86_64.whl": [
+            "cryptography",
+            "cryptography.libs",
+        ],
+        "cryptography-46.0.5-cp311-abi3-win32.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp311-abi3-win_amd64.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp38-abi3-macosx_10_9_universal2.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp38-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp38-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp38-abi3-manylinux_2_28_aarch64.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp38-abi3-manylinux_2_28_ppc64le.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp38-abi3-manylinux_2_28_x86_64.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp38-abi3-manylinux_2_31_armv7l.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp38-abi3-manylinux_2_34_aarch64.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp38-abi3-manylinux_2_34_ppc64le.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp38-abi3-manylinux_2_34_x86_64.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp38-abi3-musllinux_1_2_aarch64.whl": [
+            "cryptography",
+            "cryptography.libs",
+        ],
+        "cryptography-46.0.5-cp38-abi3-musllinux_1_2_x86_64.whl": [
+            "cryptography",
+            "cryptography.libs",
+        ],
+        "cryptography-46.0.5-cp38-abi3-win32.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp38-abi3-win_amd64.whl": [
+            "cryptography",
+        ],
+    },
     namespace_entries = {
         "cryptography-46.0.5-cp311-abi3-musllinux_1_2_aarch64.whl": [
             "cryptography.libs/libgcc_s-2d945d6c.so.1",
@@ -367,6 +457,96 @@ whl_install(
         ],
         "cryptography-46.0.5-cp38-abi3-musllinux_1_2_x86_64.whl": [
             "cryptography.libs/libgcc_s-0cd532bd.so.1",
+        ],
+    },
+    native_roots = {
+        "cryptography-46.0.5-cp311-abi3-macosx_10_9_universal2.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp311-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp311-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp311-abi3-manylinux_2_28_aarch64.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp311-abi3-manylinux_2_28_ppc64le.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp311-abi3-manylinux_2_28_x86_64.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp311-abi3-manylinux_2_31_armv7l.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp311-abi3-manylinux_2_34_aarch64.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp311-abi3-manylinux_2_34_ppc64le.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp311-abi3-manylinux_2_34_x86_64.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp311-abi3-musllinux_1_2_aarch64.whl": [
+            "cryptography",
+            "cryptography.libs",
+        ],
+        "cryptography-46.0.5-cp311-abi3-musllinux_1_2_x86_64.whl": [
+            "cryptography",
+            "cryptography.libs",
+        ],
+        "cryptography-46.0.5-cp311-abi3-win32.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp311-abi3-win_amd64.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp38-abi3-macosx_10_9_universal2.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp38-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp38-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp38-abi3-manylinux_2_28_aarch64.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp38-abi3-manylinux_2_28_ppc64le.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp38-abi3-manylinux_2_28_x86_64.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp38-abi3-manylinux_2_31_armv7l.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp38-abi3-manylinux_2_34_aarch64.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp38-abi3-manylinux_2_34_ppc64le.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp38-abi3-manylinux_2_34_x86_64.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp38-abi3-musllinux_1_2_aarch64.whl": [
+            "cryptography",
+            "cryptography.libs",
+        ],
+        "cryptography-46.0.5-cp38-abi3-musllinux_1_2_x86_64.whl": [
+            "cryptography",
+            "cryptography.libs",
+        ],
+        "cryptography-46.0.5-cp38-abi3-win32.whl": [
+            "cryptography",
+        ],
+        "cryptography-46.0.5-cp38-abi3-win_amd64.whl": [
+            "cryptography",
         ],
     },
     visibility = ["//visibility:private"],
