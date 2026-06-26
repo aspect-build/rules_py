@@ -33,18 +33,23 @@ _DEPS_BY_GROUP = {
     ],
 }
 
+_GROUP_DEP_LABELS = {
+    group: [Label(dep) for dep in deps]
+    for group, deps in _DEPS_BY_GROUP.items()
+}
+
 _GROUP_DEPS = select(
     {
         Label("//dep_group:" + group): deps
-        for group, deps in _DEPS_BY_GROUP.items()
+        for group, deps in _GROUP_DEP_LABELS.items()
     },
     no_match_error = "no dep_group selected; set the dep_group attribute on the consuming target to one of: single_project_hub",
 )
 
 def group_dep_labels(group):
-    if group not in _DEPS_BY_GROUP:
-        fail("unknown dep_group %r; expected one of: %s" % (group, ", ".join(sorted(_DEPS_BY_GROUP))))
-    return [Label(dep) for dep in _DEPS_BY_GROUP[group]]
+    if group not in _GROUP_DEP_LABELS:
+        fail("unknown dep_group %r; expected one of: %s" % (group, ", ".join(sorted(_GROUP_DEP_LABELS))))
+    return _GROUP_DEP_LABELS[group]
 
 def group_deps():
     return _GROUP_DEPS
