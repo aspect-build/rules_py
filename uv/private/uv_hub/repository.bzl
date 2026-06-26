@@ -171,6 +171,56 @@ exports_files(
         repository_ctx.file(package_name + "/BUILD.bazel", content = "\n".join(content))
 
     ################################################################################
+    # Lay down //project/<stamp>/BUILD.bazel — project-qualified labels
+    # (@hub//project/<stamp>:<pkg> scopes the select to one project, avoiding
+    # "multiple keys match" in multi-project hubs with shared package names.)
+    per_project = {}
+    for pkg_name, cfgs in packages.items():
+        for cfg, target in cfgs.items():
+            proj_id = target[1:].split("//")[0]  # "@project__<stamp>//:pkg" → "project__<stamp>"
+            per_project.setdefault(proj_id, {}).setdefault(pkg_name, {})[cfg] = target
+
+    for proj_id, proj_pkgs in sorted(per_project.items()):
+        stamp = proj_id[len("project__"):]
+        proj_cfg_set = {}
+        for pkg_cfgs in proj_pkgs.values():
+            for cfg in pkg_cfgs.keys():
+                proj_cfg_set[cfg] = 1
+        proj_cfg_names = sorted(proj_cfg_set.keys())
+
+        p_content = [
+            """\
+load("@aspect_rules_py//py:defs.bzl", "py_library")
+load("//:defs.bzl", "compatible_with")
+""",
+        ]
+
+        for pkg_name, pkg_cfgs in sorted(proj_pkgs.items()):
+            select_spec = {
+                "//dep_group:{}".format(cfg): tgt
+                for cfg, tgt in pkg_cfgs.items()
+            }
+            p_content.append(
+                """
+alias(
+    name = "{name}",
+    actual = select({select}),
+    target_compatible_with = select(compatible_with({compat})),
+    visibility = ["//visibility:public"],
+)
+""".format(
+                    name = pkg_name,
+                    select = indent(pprint(select_spec), "      ").lstrip(),
+                    compat = repr(proj_cfg_names),
+                ),
+            )
+
+        repository_ctx.file(
+            "project/{}/BUILD.bazel".format(stamp),
+            "\n".join(p_content),
+        )
+
+    ################################################################################
     # Lay down //:defs.bzl
 
     # Invert the sparse package->group membership (`packages` is keyed
