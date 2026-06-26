@@ -5,8 +5,8 @@
 # compile inside the Bazel sandbox today, so the regression coverage
 # lives in:
 #
-#   - //uv/private/pep517_whl:toolchain_env_test  (analysis-level)
-#   - //:snapshots_*_test                          (BUILD-template output)
+#   - //uv/private/pep517_whl/override_test:toolchain_env_override_test  (analysis-level)
+#   - //:snapshots_*_test                                                (BUILD-template output)
 #
 # This target stays in the repo as the entry point for any future work
 # to make the full sdist compile succeed end-to-end.

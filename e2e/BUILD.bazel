@@ -121,11 +121,10 @@ write_source_files(
         # Covers the override_package -> repo-rule -> BUILD-template
         # plumbing for the augment-on-defaults `toolchains = [...]` /
         # `env = {...}`. The override layers a JDK runtime on top of the
-        # default CC toolchain; the snapshot pins both toolchain
-        # references and both env families (CC + JAVA_HOME/JAVA/JAR).
-        # Pairs with the analysis test at
-        # //uv/private/pep517_whl:toolchain_env_test which asserts the
-        # rule expands env keys correctly given an explicit fixture.
+        # default CC toolchain; the snapshot pins the toolchain
+        # references and non-compiler environment. Separate analysis
+        # fixtures under //uv/private/pep517_whl cover default compiler driver
+        # arguments and one-sided package overrides.
         "snapshots/sdist_build.uv_sdist_jdk_build.jpype1.BUILD.bazel": "@sdist_build__uv_sdist_jdk_build__jpype1__1_7_1//:BUILD.bazel",
 
         # @sdist_build for cowsay with uv.override_package(monitor_memory)

@@ -1,0 +1,27 @@
+"""Regression for compiler-driver selection in pep517_native_whl.
+
+python-geohash is sdist-only and contains a C++ extension (_geohash). A
+pre-build patch adds a C++ standard-library dependency to the extension
+source, so the wheel only links if the build helper drives the configured
+compiler in C++ mode. Uses its own hub to keep the override isolated from
+other test cases.
+"""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_uv_sdist_cxx_driver")
+uv.override_package(
+    name = "python-geohash",
+    lock = "//cases/uv-sdist-cxx-driver:uv.lock",
+    pre_build_patch_strip = 1,
+    pre_build_patches = ["//cases/uv-sdist-cxx-driver:require_cxx_driver.patch"],
+)
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "setuptools",
+    ],
+    hub_name = "pypi_uv_sdist_cxx_driver",
+    lock = "//cases/uv-sdist-cxx-driver:uv.lock",
+    pyproject = "//cases/uv-sdist-cxx-driver:pyproject.toml",
+)
+use_repo(uv, "pypi_uv_sdist_cxx_driver")

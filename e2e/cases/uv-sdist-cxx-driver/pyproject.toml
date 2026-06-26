@@ -1,0 +1,9 @@
+[project]
+name = "uv-sdist-cxx-driver"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    "build==1.4.0",
+    "python-geohash",
+    "setuptools==75.8.2",
+]

@@ -6,8 +6,11 @@ build backend the sdist declares in its `[build-system]` table.
 """
 
 load("@bazel_lib//lib:resource_sets.bzl", "resource_set", "resource_set_attr")
-load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
+load("@rules_cc//cc:action_names.bzl", "ACTION_NAMES")
+load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
 load("//py/private/toolchain:types.bzl", "NATIVE_BUILD_TOOLCHAIN", "PY_TOOLCHAIN")
+
+_CC_TOOLCHAIN_TYPE = "@bazel_tools//tools/cpp:toolchain_type"
 
 _INHERITED_PYTHON_ENV = (
     "PYTHONHOME",
@@ -81,39 +84,123 @@ def _collect_toolchain_inputs_and_vars(ctx):
             known_variables.update(target[platform_common.TemplateVariableInfo].variables)
     return extra_inputs, known_variables
 
-_BAZEL_CC_WRAPPER_BASENAMES = ["gcc", "g++", "clang", "clang++"]
+def _cc_action(feature_configuration, action_name, variables):
+    return struct(
+        command = [cc_common.get_tool_for_action(
+            action_name = action_name,
+            feature_configuration = feature_configuration,
+        )] + cc_common.get_memory_inefficient_command_line(
+            action_name = action_name,
+            feature_configuration = feature_configuration,
+            variables = variables,
+        ),
+        environment = cc_common.get_environment_variables(
+            action_name = action_name,
+            feature_configuration = feature_configuration,
+            variables = variables,
+        ),
+    )
 
-def _cc_toolchain_inputs_and_compiler(ctx):
-    """Return (depset of CcToolchainInfo files, compiler_file_path or None).
+def _cc_toolchain_inputs_and_commands(ctx):
+    """Return the target exec group's C++ inputs and compiler commands."""
+    toolchain = ctx.exec_groups["target"].toolchains[_CC_TOOLCHAIN_TYPE]
+    cc_toolchain = toolchain.cc if hasattr(toolchain, "cc_provider_in_toolchain") else toolchain
+    feature_configuration = cc_common.configure_features(
+        ctx = ctx,
+        cc_toolchain = cc_toolchain,
+        requested_features = ctx.features,
+        unsupported_features = ctx.disabled_features,
+    )
+    compile_variables = cc_common.create_compile_variables(
+        cc_toolchain = cc_toolchain,
+        feature_configuration = feature_configuration,
+        use_pic = True,
+    )
 
-    Uses find_cpp_toolchain so the lookup works for both direct cc_toolchain
-    targets and alias wrappers such as current_cc_toolchain, which Bazel 9 no
-    longer exposes CcToolchainInfo on directly through the alias target.
-    """
-    cc_toolchain = find_cpp_toolchain(ctx)
-    if not cc_toolchain or not hasattr(cc_toolchain, "all_files"):
-        return None, None
-    files = cc_toolchain.all_files
-    compiler_file = None
-    if hasattr(cc_toolchain, "compiler_executable"):
-        compiler_basename = cc_toolchain.compiler_executable.split("/")[-1]
-        for f in files.to_list():
-            if f.basename == compiler_basename:
-                compiler_file = f
-                break
-    if not compiler_file:
-        for f in files.to_list():
-            if f.basename in _BAZEL_CC_WRAPPER_BASENAMES:
-                compiler_file = f
-                break
-    if not compiler_file:
-        for f in files.to_list():
-            if (f.basename.startswith("clang-") or f.basename.startswith("gcc-") or
-                f.basename.startswith("g++-")):
-                compiler_file = f
-                break
-    compiler_path = compiler_file.path if compiler_file else None
-    return files, compiler_path
+    # A configured compiler action is a command, not merely an executable.
+    # Preserve flags selected by the toolchain, including target and sysroot.
+    # Python's compiler abstraction supplies the platform-specific extension
+    # linker flags and replaces only their compiler driver for C++ targets:
+    # https://github.com/pypa/setuptools/blob/84ed5913724df5a12dc804e1d5efe12508e706d2/setuptools/_distutils/sysconfig.py#L306-L373
+    # https://github.com/pypa/setuptools/blob/84ed5913724df5a12dc804e1d5efe12508e706d2/setuptools/_distutils/compilers/C/unix.py#L285-L305
+    # Bazel's generic dynamic-library action has different semantics, notably
+    # `-shared` instead of `-bundle` on macOS.
+    # https://bazel.build/rules/lib/toplevel/cc_common#get_memory_inefficient_command_line
+    cc_action = _cc_action(
+        feature_configuration,
+        ACTION_NAMES.c_compile,
+        compile_variables,
+    )
+    cxx_action = _cc_action(
+        feature_configuration,
+        ACTION_NAMES.cpp_compile,
+        compile_variables,
+    )
+    commands = {
+        "CC": cc_action.command,
+        "CXX": cxx_action.command,
+    }
+    if (commands["CC"][0] == commands["CXX"][0] and
+        cc_action.environment == cxx_action.environment and not any([
+        argument.startswith("--driver-mode=")
+        for argument in commands["CXX"][1:]
+    ])):
+        if cc_toolchain.compiler == "clang":
+            # A shared Clang entry point otherwise links C++ extensions as C.
+            # https://clang.llvm.org/docs/UsersManual.html#cmdoption-driver-mode
+            commands["CXX"].insert(1, "--driver-mode=g++")
+    environments = {
+        "CC": cc_action.environment,
+        "CXX": cxx_action.environment,
+    }
+
+    # distutils links extensions through LDSHARED / LDCXXSHARED. Deriving those
+    # from the compile command (distutils' default, by swapping the driver into
+    # sysconfig's LDSHARED) links against the wrong (or, on a hermetic toolchain,
+    # missing) CRT and libc: the compile action carries no library search paths,
+    # `-B` prefix, sysroot-for-linking or linker selection. Supply the
+    # toolchain's dynamic-library link command — which includes those and the
+    # shared-link flag — so it survives the cwd change. Setting LDSHARED makes
+    # distutils use it verbatim and append only objects, `-l`/`-L` and `-o`.
+    link_variables = cc_common.create_link_variables(
+        cc_toolchain = cc_toolchain,
+        feature_configuration = feature_configuration,
+        is_using_linker = True,
+        is_linking_dynamic_library = True,
+    )
+    link_action = _cc_action(
+        feature_configuration,
+        ACTION_NAMES.cpp_link_nodeps_dynamic_library,
+        link_variables,
+    )
+    link_commands = {
+        "LDSHARED": link_action.command,
+        "LDCXXSHARED": link_action.command,
+    }
+
+    candidate_roots = {}
+    all_files = cc_toolchain.all_files
+    for file in all_files.to_list():
+        parts = file.path.split("/")
+        if parts[0] == "external" and len(parts) >= 2:
+            candidate = "/".join(parts[:2])
+        elif parts[0] == "bazel-out" and len(parts) >= 3:
+            candidate = "/".join(parts[:3])
+        elif len(parts) >= 2:
+            candidate = "/".join(parts[:2])
+        else:
+            candidate = file.path
+        candidate_roots[candidate] = True
+    return all_files, {
+        "commands": commands,
+        "environments": environments,
+        "link_commands": link_commands,
+        # The helper changes cwd before invoking the compiler. Supplying the
+        # small deduplicated set of all toolchain roots lets it relocate every
+        # occurrence in commands and environment values without duplicating
+        # path-token parsing in Starlark.
+        "input_roots": sorted(candidate_roots.keys(), key = len, reverse = True),
+    }
 
 def _pep517_whl(ctx):
     archive = ctx.file.src
@@ -152,16 +239,15 @@ def _pep517_native_whl(ctx):
     env = _common_env(ctx)
     extra_inputs, known_variables = _collect_toolchain_inputs_and_vars(ctx)
 
-    cc_files, cc_compiler = _cc_toolchain_inputs_and_compiler(ctx)
-    if cc_files:
-        extra_inputs.append(cc_files)
+    cc_files, compiler_config = _cc_toolchain_inputs_and_commands(ctx)
+    extra_inputs.append(cc_files)
 
+    # Package overrides belong in this rule's env attribute. Do not let an
+    # ambient shell compiler replace the configured target toolchain.
+    for key in ["CC", "CXX", "CPP", "LDSHARED", "LDCXXSHARED", "MPICC"]:
+        env.pop(key, None)
     for k, v in ctx.attr.env.items():
         env[k] = ctx.expand_make_variables("env", v, known_variables)
-
-    if cc_compiler:
-        env["CC"] = cc_compiler
-        env["CXX"] = cc_compiler
 
     ctx.actions.run(
         mnemonic = "PySdistNativeBuild",
@@ -169,6 +255,8 @@ def _pep517_native_whl(ctx):
         executable = ctx.executable.tool,
         toolchain = None,
         arguments = ctx.attr.args + patch_args + _memory_args(ctx) + [
+            "--compiler-config",
+            json.encode(compiler_config),
             archive.path,
             wheel_dir.path,
         ],
@@ -257,6 +345,7 @@ constraints of the target platform.
                   "`TemplateVariableInfo`).",
         ),
     },
+    fragments = ["cpp"],
     toolchains = [
         "@bazel_tools//tools/cpp:toolchain_type",
     ],
