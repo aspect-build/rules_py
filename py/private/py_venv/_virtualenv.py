@@ -11,6 +11,84 @@ if _venv_bin not in os.environ.get("PATH", "").split(os.pathsep):
     os.environ["PATH"] = _venv_bin + os.pathsep + os.environ.get("PATH", "")
 del _venv_bin
 
+
+def _bazel_runfiles_root_from_env():
+    runfiles_dir = os.environ.get("RUNFILES_DIR")
+    if runfiles_dir:
+        return runfiles_dir
+
+    manifest = os.environ.get("RUNFILES_MANIFEST_FILE")
+    if not manifest:
+        return None
+    if manifest.endswith("/MANIFEST") or manifest.endswith("\\MANIFEST"):
+        return manifest[: -len("/MANIFEST")]
+    if manifest.endswith(".runfiles_manifest"):
+        return manifest[: -len("_manifest")]
+    return None
+
+
+def _patch_bazel_runfiles_module(bazel_runfiles):
+    original = getattr(bazel_runfiles, "_FindPythonRunfilesRoot", None)
+    if original is None or getattr(original, "_rules_py_env_patch", False):
+        return
+
+    def _find_python_runfiles_root():
+        return _bazel_runfiles_root_from_env() or original()
+
+    _find_python_runfiles_root._rules_py_env_patch = True
+    bazel_runfiles._FindPythonRunfilesRoot = _find_python_runfiles_root
+
+
+class _BazelRunfilesFinder:
+    fullname = None
+
+    def find_spec(self, fullname, path, target=None):  # noqa: ARG002
+        if fullname != "runfiles.runfiles" or self.fullname is not None:
+            return None
+
+        from functools import partial
+        from importlib.util import find_spec
+
+        self.fullname = fullname
+        try:
+            spec = find_spec(fullname, path)
+            if spec is None or spec.loader is None:
+                return spec
+            func_name = "exec_module" if hasattr(spec.loader, "exec_module") else "load_module"
+            old = getattr(spec.loader, func_name)
+            func = self.exec_module if func_name == "exec_module" else self.load_module
+            if old is not func:
+                setattr(spec.loader, func_name, partial(func, old))
+            return spec
+        finally:
+            self.fullname = None
+
+    @staticmethod
+    def exec_module(old, module):
+        old(module)
+        _patch_bazel_runfiles_module(module)
+
+    @staticmethod
+    def load_module(old, name):
+        module = old(name)
+        _patch_bazel_runfiles_module(module)
+        return module
+
+
+def _patch_bazel_runfiles_root():
+    if not _bazel_runfiles_root_from_env():
+        return
+
+    module = sys.modules.get("runfiles.runfiles")
+    if module is not None:
+        _patch_bazel_runfiles_module(module)
+        return
+
+    sys.meta_path.insert(0, _BazelRunfilesFinder())
+
+
+_patch_bazel_runfiles_root()
+
 VIRTUALENV_PATCH_FILE = os.path.join(__file__)
 
 

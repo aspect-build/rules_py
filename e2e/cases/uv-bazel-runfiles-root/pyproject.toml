@@ -1,0 +1,8 @@
+[project]
+name = "bazel-runfiles-root"
+version = "0.0.0"
+authors = []
+requires-python = ">=3.11"
+dependencies = [
+    "bazel-runfiles==1.1.0",
+]

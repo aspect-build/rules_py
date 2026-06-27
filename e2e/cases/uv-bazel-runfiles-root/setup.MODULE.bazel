@@ -1,0 +1,8 @@
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_uv_bazel_runfiles_root")
+uv.project(
+    hub_name = "pypi_uv_bazel_runfiles_root",
+    lock = "//cases/uv-bazel-runfiles-root:uv.lock",
+    pyproject = "//cases/uv-bazel-runfiles-root:pyproject.toml",
+)
+use_repo(uv, "pypi_uv_bazel_runfiles_root")
