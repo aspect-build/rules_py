@@ -62,6 +62,7 @@ load("//uv/private:parse_whl_name.bzl", "parse_whl_name")
 load("//uv/private/constraints:repository.bzl", "configurations_hub")
 load("//uv/private/git_archive:repository.bzl", "git_archive")
 load("//uv/private/pprint:defs.bzl", "pprint")
+load("//uv/private/sdist_build:attrs.bzl", "validate_build_attrs")
 load("//uv/private/sdist_build:repository.bzl", "sdist_build")
 load("//uv/private/sdist_configure:defs.bzl", "DEFAULT_CONFIGURE_SCRIPT")
 load("//uv/private/tomltool:toml.bzl", "toml")
@@ -264,6 +265,15 @@ def _parse_projects(module_ctx, hub_specs):
 
     # Collect all hubs, ensure we have no dupes
     for mod in module_ctx.modules:
+        project_locks = {project.lock: True for project in mod.tags.project}
+        for override in mod.tags.override_package:
+            if override.lock not in project_locks:
+                fail("uv.override_package() for '{}' refers to lock '{}', but module '{}' has no uv.project() for that lock.".format(
+                    override.name,
+                    override.lock,
+                    mod.name,
+                ))
+
         for project in mod.tags.project:
             project_data = toml.decode_file(module_ctx, project.pyproject)
             lock_data = toml.decode_file(module_ctx, project.lock)
@@ -327,11 +337,20 @@ def _parse_projects(module_ctx, hub_specs):
                 if override.lock != project.lock:
                     continue
 
-                v = override.version or default_versions.get(normalize_name(override.name), (None, None, None, None))[2]
+                name = normalize_name(override.name)
+                v = override.version or default_versions.get(name, (None, None, None, None))[2]
                 if not v:
                     fail("Overridden project {} neither specifies a version nor has an implied singular version in the lockfile!".format(override.name, project.lock))
+                available_versions = package_versions.get(name, {})
+                if v not in available_versions:
+                    fail("uv.override_package() for package '{}' selects version '{}', which is absent from lock '{}'; available versions: {}".format(
+                        override.name,
+                        v,
+                        project.lock,
+                        sorted(available_versions.keys()),
+                    ))
 
-                override_key = (normalize_name(override.name), v)
+                override_key = (name, v)
                 if override_key in package_overrides:
                     fail("Duplicate uv.override_package() for package '{}' version '{}' in lock '{}'. Each (lock, name, version) triple may only be overridden once.".format(
                         override.name,
@@ -353,6 +372,10 @@ def _parse_projects(module_ctx, hub_specs):
                     console_scripts.append(console_script)
 
                 has_target = override.target != None
+                if override.pre_build_patch_strip and not override.pre_build_patches:
+                    fail("uv.override_package() for '{}': `pre_build_patch_strip` requires `pre_build_patches`.".format(override.name))
+                if override.post_install_patch_strip and not override.post_install_patches:
+                    fail("uv.override_package() for '{}': `post_install_patch_strip` requires `post_install_patches`.".format(override.name))
                 has_modifications = (
                     override.console_scripts or
                     override.pre_build_patches or
@@ -474,6 +497,9 @@ def _parse_projects(module_ctx, hub_specs):
                 elif "editable" in package["source"]:
                     # Case of the workspace self-package
                     if normalize_name(package["name"]) == normalize_name(project_name):
+                        override_key = (normalize_name(package["name"]), package["version"])
+                        if override_key in package_overrides:
+                            fail("Editable project package {} in lockfile {} cannot use a modification-only `uv.override_package()` annotation because the workspace supplies it.".format(package["name"], project.lock))
                         continue
                     else:
                         fail("Editable package {} in lockfile {} doesn't have a mandatory `uv.override_package(target = ...)` annotation!".format(package["name"], project.lock))
@@ -484,12 +510,6 @@ def _parse_projects(module_ctx, hub_specs):
                 override_key = (normalize_name(package["name"]), package["version"])
                 pkg_override = package_overrides.get(override_key)
                 sbuild_console_scripts = package_console_scripts.get(override_key, [])
-                if sbuild_console_scripts and not sdist:
-                    fail("uv.override_package() for '{}=={}' in lock '{}': `console_scripts` requires a source distribution, but the lock record has only wheels".format(
-                        package["name"],
-                        package["version"],
-                        project.lock,
-                    ))
 
                 # WARNING: Loop invariant; this flag needs to be False by
                 # default and set if we do a build.
@@ -499,6 +519,22 @@ def _parse_projects(module_ctx, hub_specs):
 
                 if is_no_binary and not sdist:
                     fail("Package {} is in [tool.uv] no-binary-package but has no sdist in the lockfile".format(package["name"]))
+                if pkg_override and not sdist:
+                    validate_build_attrs(
+                        console_scripts = sbuild_console_scripts,
+                        resource_set = pkg_override.resource_set,
+                        env = pkg_override.env,
+                        error = "uv.override_package() for '{}=={}' in lock '{}': build-only attributes require a source distribution, but the lock record has only wheels: {{}}".format(
+                            package["name"],
+                            package["version"],
+                            project.lock,
+                        ),
+                        monitor_memory = pkg_override.monitor_memory,
+                        pre_build_patches = pkg_override.pre_build_patches,
+                        pre_build_patch_strip = pkg_override.pre_build_patch_strip,
+                        supported = [],
+                        toolchains = pkg_override.toolchains,
+                    )
                 if sdist:
                     # HACK: Note that we resolve these LAZILY so that
                     # bdist-only or fully overridden configurations don't
@@ -590,11 +626,6 @@ def _parse_projects(module_ctx, hub_specs):
                     post_install_patch_strip = pkg_override.post_install_patch_strip
                     extra_deps = [str(d) for d in pkg_override.extra_deps]
                     extra_data = [str(d) for d in pkg_override.extra_data]
-
-                if pkg_override and pkg_override.resource_set != "default" and not has_sbuild:
-                    fail("uv.override_package() for '{}': `resource_set` reserves resources for the sdist wheel-build action, but this package resolves to a prebuilt wheel (there is no sdist build to reserve for). Remove `resource_set`, or force a source build via `[tool.uv] no-binary-package`.".format(pkg_override.name))
-                if pkg_override and pkg_override.monitor_memory and not has_sbuild:
-                    fail("uv.override_package() for '{}': `monitor_memory` observes the sdist wheel-build action, but this package resolves to a prebuilt wheel. Remove `monitor_memory`, or force a source build via `[tool.uv] no-binary-package`.".format(pkg_override.name))
 
                 # uv can emit multiple lock records for the same package/version
                 # (e.g. resolution-marker forks), each carrying a different

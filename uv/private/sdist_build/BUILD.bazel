@@ -8,5 +8,13 @@ package(default_visibility = [
 bzl_library(
     name = "repository",
     srcs = ["repository.bzl"],
-    deps = ["//uv/private:normalize_name"],
+    deps = [
+        ":attrs",
+        "//uv/private:normalize_name",
+    ],
+)
+
+bzl_library(
+    name = "attrs",
+    srcs = ["attrs.bzl"],
 )

@@ -1,0 +1,27 @@
+module(name = "wheel_only_invalid_overrides")
+
+bazel_dep(name = "aspect_rules_py")
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../../../..",
+)
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "invalid_overrides")
+uv.project(
+    hub_name = "invalid_overrides",
+    lock = "//:uv.lock",
+    pyproject = "//:pyproject.toml",
+)
+uv.override_package(
+    name = "demo",
+    console_scripts = {"demo": "demo:main"},
+    env = {"DEMO": "1"},
+    lock = "//:uv.lock",
+    monitor_memory = True,
+    pre_build_patch_strip = 1,
+    pre_build_patches = ["//:noop.patch"],
+    resource_set = "mem_1g",
+    toolchains = ["@bazel_tools//tools/cpp:current_cc_toolchain"],
+)
+use_repo(uv, "invalid_overrides")

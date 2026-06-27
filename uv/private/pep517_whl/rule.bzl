@@ -6,8 +6,10 @@ build backend the sdist declares in its `[build-system]` table.
 """
 
 load("@bazel_lib//lib:resource_sets.bzl", "resource_set", "resource_set_attr")
-load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 load("//py/private/toolchain:types.bzl", "NATIVE_BUILD_TOOLCHAIN", "PY_TOOLCHAIN")
+
+_CC_TOOLCHAIN_TYPE = Label("@bazel_tools//tools/cpp:toolchain_type")
+_TARGET_EXEC_GROUP = "target"
 
 _INHERITED_PYTHON_ENV = (
     "PYTHONHOME",
@@ -84,13 +86,10 @@ def _collect_toolchain_inputs_and_vars(ctx):
 _BAZEL_CC_WRAPPER_BASENAMES = ["gcc", "g++", "clang", "clang++"]
 
 def _cc_toolchain_inputs_and_compiler(ctx):
-    """Return (depset of CcToolchainInfo files, compiler_file_path or None).
-
-    Uses find_cpp_toolchain so the lookup works for both direct cc_toolchain
-    targets and alias wrappers such as current_cc_toolchain, which Bazel 9 no
-    longer exposes CcToolchainInfo on directly through the alias target.
-    """
-    cc_toolchain = find_cpp_toolchain(ctx)
+    """Return the target execution group's C++ files and compiler path."""
+    cc_toolchain = ctx.exec_groups[_TARGET_EXEC_GROUP].toolchains[_CC_TOOLCHAIN_TYPE]
+    if hasattr(cc_toolchain, "cc_provider_in_toolchain") and hasattr(cc_toolchain, "cc"):
+        cc_toolchain = cc_toolchain.cc
     if not cc_toolchain or not hasattr(cc_toolchain, "all_files"):
         return None, None
     files = cc_toolchain.all_files
@@ -138,7 +137,7 @@ def _pep517_whl(ctx):
         tools = [ctx.attr.tool[DefaultInfo].files_to_run],
         outputs = [wheel_dir],
         env = _common_env(ctx),
-        exec_group = "target",
+        exec_group = _TARGET_EXEC_GROUP,
         resource_set = resource_set(ctx.attr),
     )
 
@@ -179,7 +178,7 @@ def _pep517_native_whl(ctx):
         tools = [ctx.attr.tool[DefaultInfo].files_to_run],
         outputs = [wheel_dir],
         env = env,
-        exec_group = "target",
+        exec_group = _TARGET_EXEC_GROUP,
         resource_set = resource_set(ctx.attr),
     )
 
@@ -202,7 +201,7 @@ _pep517_whl_attrs = {
     # The wheel action uses the named group below, so its frontend must use the
     # same execution platform:
     # https://bazel.build/extending/exec-groups#defining-exec-groups
-    "tool": attr.label(executable = True, cfg = config.exec("target")),
+    "tool": attr.label(executable = True, cfg = config.exec(_TARGET_EXEC_GROUP)),
     "version": attr.string(),
     "args": attr.string_list(default = ["--validate-anyarch"]),
     "monitor_memory": attr.bool(
@@ -221,7 +220,7 @@ specified Python dependencies under the configured Python toolchain.
 """,
     attrs = _pep517_whl_attrs,
     exec_groups = {
-        "target": exec_group(
+        _TARGET_EXEC_GROUP: exec_group(
             toolchains = [
                 PY_TOOLCHAIN,
             ],
@@ -257,9 +256,6 @@ constraints of the target platform.
                   "`TemplateVariableInfo`).",
         ),
     },
-    toolchains = [
-        "@bazel_tools//tools/cpp:toolchain_type",
-    ],
     exec_groups = {
         # Create an exec group which depends on a toolchain which can only be
         # resolved to exec_compatible_with constraints equal to the target. This
@@ -274,11 +270,11 @@ constraints of the target platform.
         # would need to encode the target platform with no upstream tooling
         # support. Packages that need cross-compiled native extensions should
         # publish pre-built wheels for their target platforms instead.
-        "target": exec_group(
+        _TARGET_EXEC_GROUP: exec_group(
             toolchains = [
                 PY_TOOLCHAIN,
                 NATIVE_BUILD_TOOLCHAIN,
-                "@bazel_tools//tools/cpp:toolchain_type",
+                _CC_TOOLCHAIN_TYPE,
             ],
         ),
     },

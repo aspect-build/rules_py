@@ -3,6 +3,9 @@ load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load(":toolchain.bzl", "fake_cc_toolchain")
+
+_CC_TOOLCHAIN = "//cases/pep517-frontend-exec-group:cc_toolchain"
 
 # Keep the host first so the default exec group selects it. The native wheel's
 # `target` exec group requires the transitioned target constraints and selects
@@ -18,6 +21,7 @@ platform(
     flags = [
         "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
         "--extra_execution_platforms=@platforms//host,//cases/pep517-frontend-exec-group:linux_aarch64",
+        "--extra_toolchains=" + _CC_TOOLCHAIN,
     ],
 )
 
@@ -30,6 +34,7 @@ platform(
     flags = [
         "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
         "--extra_execution_platforms=@platforms//host,//cases/pep517-frontend-exec-group:linux_x86_64",
+        "--extra_toolchains=" + _CC_TOOLCHAIN,
     ],
 )
 
@@ -50,6 +55,44 @@ config_setting(
 )
 
 write_file(
+    name = "linux_aarch64_compiler",
+    out = "linux_aarch64_compiler.sh",
+    content = [
+        "#!/usr/bin/env bash",
+        "printf '%s\\n' aarch64",
+    ],
+    is_executable = True,
+)
+
+write_file(
+    name = "linux_x86_64_compiler",
+    out = "linux_x86_64_compiler.sh",
+    content = [
+        "#!/usr/bin/env bash",
+        "printf '%s\\n' x86_64",
+    ],
+    is_executable = True,
+)
+
+fake_cc_toolchain(
+    name = "cc",
+    compiler = select({
+        ":linux_aarch64_config": ":linux_aarch64_compiler",
+        ":linux_x86_64_config": ":linux_x86_64_compiler",
+        "//conditions:default": ":linux_x86_64_compiler",
+    }),
+)
+
+# The toolchain target is configured for its execution platform. Resolving it
+# in the default group therefore exposes the host compiler, while resolving it
+# in the native wheel's target group exposes the transitioned target compiler.
+toolchain(
+    name = "cc_toolchain",
+    toolchain = ":cc",
+    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+)
+
+write_file(
     name = "frontend_script",
     out = "frontend.sh",
     content = [
@@ -63,6 +106,11 @@ write_file(
         "expected=\"$1\"",
         "if [[ \"${actual}\" != \"${expected}\" ]]; then",
         "  echo \"frontend used ${actual}; expected ${expected}\" >&2",
+        "  exit 1",
+        "fi",
+        "compiler_actual=\"$(\"${CC}\")\"",
+        "if [[ \"${compiler_actual}\" != \"${expected}\" ]]; then",
+        "  echo \"compiler ${CC} reported ${compiler_actual}; expected ${expected}\" >&2",
         "  exit 1",
         "fi",
         "wheel_dir=\"${!#}\"",

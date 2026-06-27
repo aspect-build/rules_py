@@ -7,6 +7,7 @@ appropriate backend-specific build rule (e.g. pep517_whl, maturin_whl).
 """
 
 load("//uv/private:normalize_name.bzl", "normalize_name")
+load(":attrs.bzl", "validate_build_attrs")
 
 # --- Configure tool invocation ---
 
@@ -172,13 +173,20 @@ def _sdist_build_impl(repository_ctx):
             # If the tool provided complete build file content, use it directly.
             build_file_content = inspection.get("build_file_content")
             if build_file_content:
-                if repository_ctx.attr.monitor_memory:
-                    fail("sdist_build for '{}': the configure tool returned complete `build_file_content`, which bypasses the generated `pep517_*whl(...)` call, so `monitor_memory` cannot be applied. Drop `monitor_memory` from the override, or add equivalent monitoring to the configure tool's `build_file_content`.".format(repository_ctx.name))
-                if repository_ctx.attr.resource_set != "default":
-                    fail("sdist_build for '{}': the configure tool returned complete `build_file_content`, which bypasses the generated `pep517_*whl(...)` call, so `resource_set = \"{}\"` cannot be applied. Drop `resource_set` from the override, or have the configure tool set `resource_set` in its own `build_file_content`.".format(
-                        repository_ctx.name,
-                        repository_ctx.attr.resource_set,
-                    ))
+                validate_build_attrs(
+                    console_scripts = [],
+                    resource_set = repository_ctx.attr.resource_set,
+                    env = repository_ctx.attr.extra_env,
+                    error = "sdist_build for '{}': the configure tool returned complete `build_file_content`, which bypasses the generated `pep517_*whl(...)` call, so these attributes cannot be applied: {{}}. Drop them from the override, or have the configure tool set them in its own `build_file_content`.".format(repository_ctx.name),
+                    monitor_memory = repository_ctx.attr.monitor_memory,
+                    pre_build_patches = repository_ctx.attr.pre_build_patches,
+                    pre_build_patch_strip = repository_ctx.attr.pre_build_patch_strip,
+                    supported = [
+                        "pre_build_patches",
+                        "pre_build_patch_strip",
+                    ],
+                    toolchains = repository_ctx.attr.extra_toolchains,
+                )
                 repository_ctx.file("BUILD.bazel", content = build_file_content)
                 return
 
@@ -200,6 +208,24 @@ def _sdist_build_impl(repository_ctx):
             is_native = False
     else:
         is_native = is_native_override == "true"
+
+    if not is_native:
+        validate_build_attrs(
+            console_scripts = [],
+            resource_set = repository_ctx.attr.resource_set,
+            env = repository_ctx.attr.extra_env,
+            error = "sdist_build for '{}': the generated pure-Python `pep517_whl(...)` call cannot apply these native-build attributes: {{}}. Remove them, or configure this source distribution as native.".format(repository_ctx.name),
+            monitor_memory = repository_ctx.attr.monitor_memory,
+            pre_build_patches = repository_ctx.attr.pre_build_patches,
+            pre_build_patch_strip = repository_ctx.attr.pre_build_patch_strip,
+            supported = [
+                "monitor_memory",
+                "pre_build_patches",
+                "pre_build_patch_strip",
+                "resource_set",
+            ],
+            toolchains = repository_ctx.attr.extra_toolchains,
+        )
 
     # Resolve additional deps discovered by the configure tool
     extra_dep_labels = _resolve_extra_deps(repository_ctx, inspection)

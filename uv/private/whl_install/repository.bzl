@@ -705,7 +705,9 @@ filegroup(
             namespaces = sorted([
                 tl
                 for tl in tls
-                if tl not in regular and not tl.endswith(".dist-info")
+                if (tl not in regular and
+                    not tl.endswith(".dist-info") and
+                    not tl.endswith(".egg-info"))
             ])
             if namespaces:
                 namespace_top_levels_by_whl[whl_name] = namespaces
