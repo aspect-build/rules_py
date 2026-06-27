@@ -9,11 +9,22 @@ load("@aspect_rules_py//py:defs.bzl", "py_test")
 # test     — .pth strategy (verifies runtime imports)
 # test_venv — symlink-forest venv (verifies concrete site-packages/azure/identity/)
 
+# azure-identity pulls in cryptography, which only publishes a macOS wheel for
+# arm64 (no macosx_*_x86_64). On Intel macOS uv falls back to the sdist and the
+# native build fails (needs a Rust toolchain + OpenSSL). Require arm64 on macOS
+# so the BCR Intel-macOS runner skips these instead of building cryptography;
+# Linux/Windows and Apple-silicon macOS keep full coverage.
+_NO_INTEL_MACOS = select({
+    "@platforms//os:macos": ["@platforms//cpu:arm64"],
+    "//conditions:default": [],
+})
+
 py_test(
     name = "test",
     srcs = ["test.py"],
     dep_group = "azure-namespace-sibling",
     main = "test.py",
+    target_compatible_with = _NO_INTEL_MACOS,
     deps = [
         "@pypi_azure_namespace_sibling//azure_core",
         "@pypi_azure_namespace_sibling//azure_core_tracing_opentelemetry",
@@ -30,6 +41,7 @@ py_test(
     main = "test.py",
     package_collisions = "warning",
     python_version = "3.11",
+    target_compatible_with = _NO_INTEL_MACOS,
     deps = [
         "@pypi_azure_namespace_sibling//azure_core",
         "@pypi_azure_namespace_sibling//azure_core_tracing_opentelemetry",
