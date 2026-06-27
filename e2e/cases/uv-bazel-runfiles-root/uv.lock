@@ -1,0 +1,22 @@
+version = 1
+revision = 3
+requires-python = ">=3.11"
+
+[[package]]
+name = "bazel-runfiles"
+version = "1.1.0"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/37/b3/5297a3337fc3a49e647a73b0213926a7fa5b95cb241802d454299866e17c/bazel_runfiles-1.1.0-py3-none-any.whl", hash = "sha256:37f59ea505b86ada391ef94e0949ff38a6fd6c111c9a8338065b16b355d0efae", size = 7562, upload-time = "2025-01-17T00:12:09.566Z" },
+]
+
+[[package]]
+name = "bazel-runfiles-root"
+version = "0.0.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "bazel-runfiles" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "bazel-runfiles", specifier = "==1.1.0" }]

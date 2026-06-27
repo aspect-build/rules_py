@@ -1,0 +1,10 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+py_test(
+    name = "test_runfiles_root",
+    srcs = ["test_runfiles_root.py"],
+    data = ["runfiles_root_data.txt"],
+    dep_group = "bazel-runfiles-root",
+    main = "test_runfiles_root.py",
+    deps = ["@pypi_uv_bazel_runfiles_root//bazel_runfiles"],
+)
