@@ -1,0 +1,16 @@
+[project]
+name = "proj-a-848"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    "pytest",
+]
+
+# Two groups:
+#   - "shared": same name as proj-b-848's "shared". Both projects provide
+#     pytest in this group, exercising the cross-project ambiguity path.
+#   - "a_only": unique to proj-a-848. Setting dep_group=a_only routes
+#     @hub//pytest to proj_a's pytest unambiguously.
+[dependency-groups]
+shared = ["proj-a-848"]
+a_only = ["proj-a-848"]

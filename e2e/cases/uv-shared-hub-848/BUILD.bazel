@@ -1,0 +1,88 @@
+# Shared-hub regression tests.
+#
+# Hub `pypi_shared_848` has two projects (proj-a-848, proj-b-848), each with a
+# `shared` group containing `pytest` (pinned to the same version in both) and
+# a project-unique `<x>_only` group also containing `pytest`. This shape
+# exercises:
+#
+#   - Multi-project hub coexistence (same hub, same-named "shared" group)
+#   - Version-equality dedup: when both projects provide `pytest` in `shared`
+#     at the same version, the unqualified `@hub//pytest` resolves to one
+#     canonical project's target rather than tripping Bazel's "multiple keys
+#     match" (which would only fire on a real version conflict).
+#   - Project-qualified labels (`@hub//.<project>:pytest`) routing
+#     deterministically per project regardless of overlap.
+#   - Unqualified labels under unique-owner groups (a_only, b_only).
+
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+# Qualified labels, dep_group=shared. The qualified target under
+# //.proj_a_848/.proj_b_848 selects only over its own project's groups, so it
+# is unambiguous regardless of cross-project overlap.
+py_test(
+    name = "test_qualified_a_shared",
+    srcs = ["test_pytest_import.py"],
+    dep_group = "shared",
+    main = "test_pytest_import.py",
+    deps = ["@pypi_shared_848//project/proj_a_848:pytest"],
+)
+
+py_test(
+    name = "test_qualified_b_shared",
+    srcs = ["test_pytest_import.py"],
+    dep_group = "shared",
+    main = "test_pytest_import.py",
+    deps = ["@pypi_shared_848//project/proj_b_848:pytest"],
+)
+
+# Version-equality dedup: both proj_a_848 and proj_b_848 pin pytest at the
+# same version in their `shared` group. The hub's unqualified //pytest alias
+# emits one arm per (group, versions) cluster — same-version clusters
+# collapse to a single canonical arm, so dep_group=shared resolves cleanly
+# instead of multi-matching.
+py_test(
+    name = "test_unqualified_shared_dedupes",
+    srcs = ["test_pytest_import.py"],
+    dep_group = "shared",
+    main = "test_pytest_import.py",
+    deps = ["@pypi_shared_848//pytest"],
+)
+
+# Unqualified label, dep_group=a_only. Only proj_a_848 defines an `a_only`
+# group, so its select arm is the only match.
+py_test(
+    name = "test_unqualified_a_only",
+    srcs = ["test_pytest_import.py"],
+    dep_group = "a_only",
+    main = "test_pytest_import.py",
+    deps = ["@pypi_shared_848//pytest"],
+)
+
+py_test(
+    name = "test_unqualified_b_only",
+    srcs = ["test_pytest_import.py"],
+    dep_group = "b_only",
+    main = "test_pytest_import.py",
+    deps = ["@pypi_shared_848//pytest"],
+)
+
+# Per-project qualified flag form: `dep_group = "<stamp>/<group>"`
+# narrows the activation to a single project's group regardless of
+# cross-project overlap. The unqualified `@hub//pytest` resolves
+# unambiguously because only that project's qualified config_setting
+# matches.
+py_test(
+    name = "test_qualified_flag_a_shared",
+    srcs = ["test_pytest_import.py"],
+    dep_group = "proj_a_848/shared",
+    main = "test_pytest_import.py",
+    deps = ["@pypi_shared_848//pytest"],
+)
+
+py_test(
+    name = "test_qualified_flag_b_shared",
+    srcs = ["test_pytest_import.py"],
+    dep_group = "proj_b_848/shared",
+    main = "test_pytest_import.py",
+    deps = ["@pypi_shared_848//pytest"],
+)

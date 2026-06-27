@@ -1,0 +1,6 @@
+# Marker package so the uv extension can resolve //cases/uv-shared-hub-848/proj_a:pyproject.toml.
+
+exports_files([
+    "pyproject.toml",
+    "uv.lock",
+])

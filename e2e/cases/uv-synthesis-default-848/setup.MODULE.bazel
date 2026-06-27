@@ -1,0 +1,12 @@
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+
+# Single-project hub whose pyproject.toml has no [dependency-groups] table.
+# Exercises the synthesis fallback (empty-keyed group + `<name>` alias)
+# and the zero-config path where dep_group="" resolves without any .bazelrc entry.
+uv.declare_hub(hub_name = "pypi_synth_848")
+uv.project(
+    hub_name = "pypi_synth_848",
+    lock = "//cases/uv-synthesis-default-848:uv.lock",
+    pyproject = "//cases/uv-synthesis-default-848:pyproject.toml",
+)
+use_repo(uv, "pypi_synth_848")

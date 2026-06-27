@@ -6,7 +6,7 @@ alias(
 
 
 config_setting(
-    name = "dev",
+    name = "alpha__dev",
     flag_values = {
         "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "dev",
     },
@@ -15,7 +15,16 @@ config_setting(
 
 
 config_setting(
-    name = "unit-tests",
+    name = "alpha__q__dev",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "alpha/dev",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "alpha__unit-tests",
     flag_values = {
         "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "unit-tests",
     },
@@ -24,7 +33,25 @@ config_setting(
 
 
 config_setting(
-    name = "beta",
+    name = "alpha__q__unit-tests",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "alpha/unit-tests",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "beta__",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "beta__beta",
     flag_values = {
         "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "beta",
     },
@@ -33,7 +60,16 @@ config_setting(
 
 
 config_setting(
-    name = "gamma",
+    name = "gamma__",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "gamma__gamma",
     flag_values = {
         "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "gamma",
     },
