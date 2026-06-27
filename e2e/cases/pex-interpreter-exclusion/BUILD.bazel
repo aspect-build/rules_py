@@ -1,0 +1,19 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_pex_binary", "py_test")
+
+py_binary(
+    name = "app",
+    srcs = ["app.py"],
+)
+
+py_pex_binary(
+    name = "app_pex",
+    binary = ":app",
+    python_interpreter_constraints = [],
+)
+
+py_test(
+    name = "test_pex_excludes_interpreter",
+    srcs = ["test_pex_excludes_interpreter.py"],
+    data = [":app_pex"],
+    main = "test_pex_excludes_interpreter.py",
+)

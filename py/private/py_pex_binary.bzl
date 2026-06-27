@@ -39,6 +39,9 @@ exclude_paths = [
     # these will match in bzlmod setup with --incompatible_use_plus_in_repo_names flag flipped.
     "rules_python++python+",
     "aspect_rules_py+/py/tools/",
+    # The hermetic interpreter repo includes bundled pip/setuptools site-packages.
+    "aspect_rules_py++python_interpreters+",
+    "aspect_rules_py~~python_interpreters~",
     # Skip the sibling py_venv's tree (`.<name>.venv/`) — its `.pth`
     # and pyvenv.cfg are launcher plumbing; pex discovers wheels via
     # `--dep`, not by walking the venv.
