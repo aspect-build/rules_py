@@ -194,12 +194,12 @@ Only works with the Aspect rules_py uv machinery.
 
 See `py_binary`'s attribute of the same name for full semantics — the two rules
 share the underlying collision detector. PEP 420 namespace top-levels merge.
-For ordinary top-levels, exact namespace entries, and console scripts,
-permissive modes select the last distinct claimant in the postorder wheel
-sequence. Regular-package spans overlay in that sequence; incompatible
+Ordinary directory-valued top-levels and regular-package spans overlay in
+the postorder wheel sequence. Other ordinary top-levels, exact namespace
+entries, and console scripts select the last distinct claimant; incompatible
 namespace prefixes retain the shallower entry. Wheels not represented in
-`PyWheelsInfo` remain on the `.pth` fallback. A duplicate dependency edge does
-not reinsert a wheel.
+`PyWheelsInfo` remain on the `.pth` fallback. A duplicate dependency edge
+does not reinsert a wheel.
 
 * "error": Fail analysis or the physical merge action.
 * "warning" (default): Print a warning and apply the permissive behavior above.
@@ -237,7 +237,8 @@ not reinsert a wheel.
         allow_single_file = True,
         default = ":_virtualenv.py",
     ),
-    # Tool for physically merging a regular package that spans wheels
+    # Tool for physically merging a regular package that spans wheels or
+    # collides as a top-level directory
     # (e.g. azure-core + azure-core-tracing-opentelemetry both
     # installing into `azure/core/tracing/`) — see assemble_venv.
     "_site_merge_script": attr.label(
@@ -282,7 +283,7 @@ _py_venv = rule(
     attrs = _attrs,
     toolchains = [
         PY_TOOLCHAIN,
-        # Optional: only consulted when a regular package spans wheels
+        # Optional: only consulted when a regular package needs a physical merge
         # and assemble_venv needs an exec-config interpreter to run the
         # site_merge action. Optional so venvs keep analyzing in setups
         # that never registered rules_py's exec-tools toolchain.
@@ -324,7 +325,7 @@ _py_venv_lib = rule(
     toolchains = [
         PY_TOOLCHAIN,
         # Same optional exec-tools dependency as `_py_venv`: assemble_venv
-        # needs it to run the site_merge action when a package spans wheels.
+        # needs it to run the site_merge action when a package needs a merge.
         config_common.toolchain_type(EXEC_TOOLS_TOOLCHAIN, mandatory = False),
     ],
     cfg = python_version_transition,

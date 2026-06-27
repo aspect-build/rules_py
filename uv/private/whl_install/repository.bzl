@@ -79,6 +79,35 @@ def site_packages_segments(path, data_directory):
         return []
     return segments[2:]
 
+def native_roots_for_segments(segments, collision_roots = ()):
+    """Return collision roots whose relocation can break a native file.
+
+    A native library resolves sibling assets from its on-disk origin. Every
+    top-level directory containing one is collision-relevant, as is any
+    RECORD-derived namespace directory or regular root beneath a namespace
+    that contains it.
+    Top-level native modules have no directory root and never participate in
+    directory merges.
+    """
+    if len(segments) < 2:
+        return []
+    filename = segments[-1]
+    _, so_separator, so_version = filename.partition(".so.")
+    if not (
+        filename.endswith(".so") or
+        (so_separator and so_version and so_version[0] in "0123456789") or
+        filename.endswith(".pyd") or
+        filename.endswith(".dylib") or
+        filename.endswith(".dll")
+    ):
+        return []
+    path = "/".join(segments)
+    roots = [segments[0]]
+    for root in collision_roots:
+        if path.startswith(root + "/"):
+            roots.append(root)
+    return roots
+
 def parse_console_script(line):
     """Parse one `[console_scripts]` entry into a canonical `name=module:func`.
 
@@ -140,7 +169,8 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
 
     Returns:
       Tuple (top_levels_set, regular_top_levels_set, console_scripts_set,
-             namespace_entries_set, dirs_set, init_dirs_set):
+             namespace_entries_set, dirs_set, init_dirs_set,
+             native_segments_list):
         * top_levels_set: dict[name → True] — all first-path-segment
           names in RECORD (excluding `*.data/` staging entries).
         * regular_top_levels_set: subset that had an `__init__.py` at
@@ -161,6 +191,10 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
           directly contain an `__init__.py` (regular packages). Powers
           the per-wheel namespace_dirs / regular_roots derivation, which
           venv assembly uses to detect regular packages spanning wheels.
+        * native_segments_list: list[list[str]] — site-packages segments for
+          RECORD files with native-library suffixes. The caller combines these
+          with the wheel's namespace directories and regular roots to emit only
+          collision-relevant roots.
     """
     whl_path = _find_whl_file(repository_ctx, whl_label)
     if whl_path == None:
@@ -225,6 +259,7 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
     record_segments = []
     dirs_set = {}
     init_dirs = {}
+    native_segments = []
     if record:
         for line in record.splitlines():
             path = parse_record_path(line)
@@ -257,6 +292,8 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
                 regular_top_levels[first_segment] = True
 
             record_segments.append(segments)
+            if native_roots_for_segments(segments):
+                native_segments.append(segments)
 
             # Record every directory along the path, and which of them
             # directly contain an `__init__.py`.
@@ -309,7 +346,7 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
             name, normalised = entry
             console_scripts[name] = normalised
 
-    return whl_path.basename, top_levels_set, regular_top_levels, console_scripts, namespace_entries, dirs_set, init_dirs
+    return whl_path.basename, top_levels_set, regular_top_levels, console_scripts, namespace_entries, dirs_set, init_dirs, native_segments
 
 def _namespace_dirs_and_roots(dirs_set, init_dirs, namespace_top_levels_set):
     """Split a wheel's directory skeleton into the implicit-namespace dirs
@@ -685,20 +722,37 @@ filegroup(
         whl_file_index += 1
 
     top_levels_by_whl = {}
+    top_level_dirs_by_whl = {}
     namespace_top_levels_by_whl = {}
     namespace_entries_by_whl = {}
     namespace_dirs_by_whl = {}
     regular_roots_by_whl = {}
+    native_roots_by_whl = {}
     console_scripts_by_whl = {}
     for target, whl_file_label in whl_file_labels.items():
         if target not in arm_targets:
             continue
-        whl_name, tls, regular, css, ns_entries, dirs_set, init_dirs = _extract_wheel_metadata(
+        whl_name, tls, regular, css, ns_entries, dirs_set, init_dirs, native_segments = _extract_wheel_metadata(
             repository_ctx,
             whl_file_label,
         )
+        ndirs = []
+        rroots = []
         if tls:
             top_levels_by_whl[whl_name] = sorted(tls.keys())
+
+            # The RECORD-derived directory skeleton distinguishes
+            # directory-valued top-levels from single-file modules without
+            # changing the separate regular-vs-namespace classification.
+            top_level_dirs = sorted([
+                tl
+                for tl in tls
+                if (tl in dirs_set and
+                    not tl.endswith(".dist-info") and
+                    not tl.endswith(".egg-info"))
+            ])
+            if top_level_dirs:
+                top_level_dirs_by_whl[whl_name] = top_level_dirs
 
             # A top-level counts as a PEP 420 namespace for this wheel if
             # its RECORD shows no `<toplevel>/__init__.py` at depth 1.
@@ -733,6 +787,12 @@ filegroup(
                     namespace_dirs_by_whl[whl_name] = ndirs
                 if rroots:
                     regular_roots_by_whl[whl_name] = rroots
+        native_roots = {}
+        for segments in native_segments:
+            for root in native_roots_for_segments(segments, ndirs + rroots):
+                native_roots[root] = True
+        if native_roots:
+            native_roots_by_whl[whl_name] = sorted(native_roots.keys())
         if css:
             console_scripts_by_whl[whl_name] = sorted(css.values())
 
@@ -750,6 +810,12 @@ filegroup(
         console_scripts = indent(pprint(console_scripts_by_whl), " " * 4).lstrip(),
     )
 
+    if top_level_dirs_by_whl:
+        install_attrs += """
+    top_level_dirs = {top_level_dirs},""".format(
+            top_level_dirs = indent(pprint(top_level_dirs_by_whl), " " * 4).lstrip(),
+        )
+
     # Only emitted for wheels that contribute to a namespace — keeps the
     # generated BUILD files (and their e2e snapshots) unchanged for the
     # common regular-top-level-only case.
@@ -764,6 +830,11 @@ filegroup(
     regular_roots = {regular_roots},""".format(
             namespace_dirs = indent(pprint(namespace_dirs_by_whl), " " * 4).lstrip(),
             regular_roots = indent(pprint(regular_roots_by_whl), " " * 4).lstrip(),
+        )
+    if native_roots_by_whl:
+        install_attrs += """
+    native_roots = {native_roots},""".format(
+            native_roots = indent(pprint(native_roots_by_whl), " " * 4).lstrip(),
         )
 
     if post_install_patches:

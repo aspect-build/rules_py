@@ -53,6 +53,11 @@ whl_install(
         ],
     },
     console_scripts = {},
+    top_level_dirs = {
+        "azure_core-1.38.0-py3-none-any.whl": [
+            "azure",
+        ],
+    },
     namespace_entries = {
         "azure_core-1.38.0-py3-none-any.whl": [
             "azure/core",
