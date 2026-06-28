@@ -173,10 +173,30 @@ def collision_order_test_suite():
         name = "_metadata_collision_second",
         metadata_name = "collision_first-1.0.dist-info",
         tags = ["manual"],
-        value = "metadata_second",
+        value = "first",
+    )
+    py_test(
+        name = "metadata_collision_single_fallback_test",
+        srcs = ["test_metadata_collision_suppression.py"],
+        args = [
+            "collision-first",
+            "_collision_first",
+        ],
+        main = "test_metadata_collision_suppression.py",
+        package_collisions = "ignore",
+        deps = [
+            ":_collision_first",
+            ":_metadata_collision_second",
+        ],
+    )
+    _wheel(
+        name = "_metadata_collision_third",
+        metadata_name = "collision_first-1.0.dist-info",
+        tags = ["manual"],
+        value = "first",
     )
     py_binary(
-        name = "_metadata_collision_error_binary",
+        name = "_metadata_collision_multi_fallback_error_binary",
         srcs = ["test_namespace_fallback.py"],
         main = "test_namespace_fallback.py",
         package_collisions = "ignore",
@@ -184,12 +204,13 @@ def collision_order_test_suite():
         deps = [
             ":_collision_first",
             ":_metadata_collision_second",
+            ":_metadata_collision_third",
         ],
     )
     _collision_error_test(
-        name = "metadata_collision_error_test",
-        expected_error = "distribution metadata entry `collision_first-1.0.dist-info` selects",
-        target_under_test = ":_metadata_collision_error_binary",
+        name = "metadata_collision_multi_fallback_error_test",
+        expected_error = "multiple claimants remain on whole-wheel fallback",
+        target_under_test = ":_metadata_collision_multi_fallback_error_binary",
     )
 
     _wheel(
@@ -204,9 +225,29 @@ def collision_order_test_suite():
         tags = ["manual"],
         value = "metadata_shared",
     )
+    py_binary(
+        name = "_metadata_collision_policy_error_binary",
+        srcs = ["test_metadata_collision_suppression.py"],
+        main = "test_metadata_collision_suppression.py",
+        package_collisions = "error",
+        tags = ["manual"],
+        deps = [
+            ":_metadata_suppressible_first",
+            ":_metadata_suppressible_second",
+        ],
+    )
+    _collision_error_test(
+        name = "metadata_collision_policy_error_test",
+        expected_error = "distribution metadata entry `collision_metadata_shared-1.0.dist-info`",
+        target_under_test = ":_metadata_collision_policy_error_binary",
+    )
     py_test(
         name = "metadata_collision_suppression_test",
         srcs = ["test_metadata_collision_suppression.py"],
+        args = [
+            "collision-metadata-shared",
+            "_metadata_suppressible_second",
+        ],
         main = "test_metadata_collision_suppression.py",
         package_collisions = "ignore",
         deps = [

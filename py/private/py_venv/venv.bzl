@@ -91,10 +91,10 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
 
     * **Declared distribution metadata in site-packages.** Metadata discovery
       scans every `sys.path` entry instead of stopping at the first match.
-      Preserve the existing exact-entry collision precedence, but project the
-      selected `*.dist-info` and `*.egg-info` entry only when that wheel needs
-      no whole-wheel fallback. Reject an exact-entry collision when a losing
-      claimant remains on fallback and therefore cannot be suppressed.
+      Apply exact-entry collision policy first. When no claimant remains on
+      whole-wheel fallback, project the normal winner. When exactly one
+      remains, project nothing and let that sole fallback copy own discovery.
+      Reject multiple fallback copies because they cannot be suppressed.
 
     * **Console-script name in bin/.** Apply `package_collisions` directly
       — no namespace equivalent.
@@ -414,12 +414,9 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
         if covered:
             fully_covered[w.site_packages_rfpath] = True
 
-    # Metadata discovery scans every sys.path entry. Resolve duplicate declared
-    # metadata entries with the existing collision precedence, but first reject
-    # a losing claimant that remains on whole-wheel fallback because downgrading
-    # the collision cannot suppress that copy. Project the winner only when its
-    # fallback is gone. Wheels without declared layout metadata remain on the
-    # existing whole-wheel fallback and cannot be classified here.
+    # Metadata discovery scans every sys.path entry. After collision policy,
+    # no fallback projects the normal winner, one fallback owns discovery
+    # without a projection, and multiple fallback copies remain ambiguous.
     for tl, claimants in metadata_claimants.items():
         winner = claimants[0]
         seen = {winner: True}
@@ -428,15 +425,6 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
                 continue
             winner = site_packages
             seen[site_packages] = True
-        for site_packages in seen:
-            if site_packages != winner and site_packages not in fully_covered:
-                fail(("{}: distribution metadata entry `{}` selects {}, but " +
-                      "losing claimant {} remains on whole-wheel fallback.").format(
-                    ctx.label,
-                    tl,
-                    winner,
-                    site_packages,
-                ))
         prior = claimants[0]
         complained = {prior: True}
         for site_packages in claimants[1:]:
@@ -445,7 +433,20 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
             _complain("distribution metadata entry", tl, prior, site_packages)
             prior = site_packages
             complained[site_packages] = True
-        if winner in fully_covered:
+        fallback_claimants = [
+            site_packages
+            for site_packages in seen
+            if site_packages not in fully_covered
+        ]
+        if len(fallback_claimants) > 1:
+            fail(("{}: distribution metadata entry `{}` selects {}, but " +
+                  "multiple claimants remain on whole-wheel fallback: {}.").format(
+                ctx.label,
+                tl,
+                winner,
+                sorted(fallback_claimants),
+            ))
+        if not fallback_claimants:
             top_level_to_site_pkgs[tl] = winner
 
     return top_level_to_site_pkgs, fully_covered, console_scripts_map, merge_groups
