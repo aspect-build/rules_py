@@ -1,0 +1,11 @@
+diff --git a/src/geohash.cpp b/src/geohash.cpp
+--- a/src/geohash.cpp
++++ b/src/geohash.cpp
+@@ -1,0 +1,7 @@
++#include <string>
++
++extern "C" const char *rules_py_cxx_runtime_probe(void) {
++    static const std::string value = "rules_py";
++    return value.c_str();
++}
++
