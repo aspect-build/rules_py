@@ -44,6 +44,19 @@ class ConsoleScriptsTest(unittest.TestCase):
         )
         self.assertIn("subprocess-invocation-worked", result.stdout)
 
+    def test_wrapper_needs_only_venv_bin_on_path(self):
+        wrapper = shutil.which("cowsay")
+        self.assertIsNotNone(wrapper)
+        result = subprocess.run(
+            [wrapper, "-t", "restricted-path-worked"],
+            capture_output=True,
+            env={**os.environ, "PATH": os.path.dirname(wrapper)},
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("restricted-path-worked", result.stdout)
+
     def test_wrapper_invokes_dotted_entry_point(self):
         result = subprocess.run(
             ["Dotted-Entry"],
