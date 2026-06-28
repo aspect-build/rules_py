@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_test", "py_unpacked_wheel")
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_test", "py_unpacked_wheel")
 load("//tools:pth_snapshot.bzl", "extract_venv_pth")
 
 # Test namespace package resolution with the symlink-forest venv.
@@ -15,6 +15,31 @@ py_test(
         "@pypi_pth_namespace_547//jaraco_classes",
         "@pypi_pth_namespace_547//jaraco_functools",
     ],
+)
+
+# Regression: a py_binary must forward its sibling venv wheel records when it
+# is a dep of another Python target. Without them, the outer venv loses the
+# concrete jaraco namespace projection pinned by __test__.py.
+py_binary(
+    name = "nested_binary",
+    testonly = True,
+    srcs = ["__test__.py"],
+    dep_group = "pth-namespace-547",
+    main = "__test__.py",
+    python_version = "3.11",
+    deps = [
+        "@pypi_pth_namespace_547//jaraco_classes",
+        "@pypi_pth_namespace_547//jaraco_functools",
+    ],
+)
+
+py_test(
+    name = "test_nested_binary",
+    srcs = ["__test__.py"],
+    dep_group = "pth-namespace-547",
+    main = "__test__.py",
+    python_version = "3.11",
+    deps = [":nested_binary"],
 )
 
 # Gap-1 fixture: hand-written `py_unpacked_wheel` contributing to the

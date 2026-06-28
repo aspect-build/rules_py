@@ -9,6 +9,7 @@ attrs to the auto-generated sibling.
 load("@bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
 load("@hermetic_launcher//launcher:lib.bzl", "launcher")
 load("@rules_python//python:defs.bzl", "PyInfo")
+load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load(":types.bzl", "VirtualenvInfo", "venv_root")
 
@@ -140,6 +141,12 @@ def _py_venv_exec_impl(ctx):
             has_py2_only_sources = False,
             has_py3_only_sources = True,
             uses_shared_libraries = False,
+        ),
+        PyWheelsInfo(
+            # The launcher owns no deps itself; forward the sibling venv's
+            # wheel records so an outer py_binary / py_test can assemble the
+            # same package overlays when this executable appears in deps.
+            wheels = vinfo.wheels,
         ),
         instrumented_files_info,
         RunEnvironmentInfo(
