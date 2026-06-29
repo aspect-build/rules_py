@@ -20,21 +20,17 @@ PARSER.add_argument("--template")
 PARSER.add_argument("--script")
 opts, args = PARSER.parse_known_args()
 
-print(repr(opts), file=sys.stderr)
-
 entrypoint = None
 for e in sys.path:
     if entrypoint:
         break
     
-    print("{}:".format(e), file=sys.stderr)
     for entrypoints in Path(e).glob("*.dist-info/entry_points.txt"):        
         cp = CaseSensitiveConfigParser(delimiters=('=',))
         cp.read([entrypoints])
 
         if "console_scripts" in cp:
             for e in cp["console_scripts"]:
-                print(entrypoints, e, cp["console_scripts"][e], file=sys.stderr)
                 if e == opts.script:
                     entrypoint = cp["console_scripts"][e]
                     break
