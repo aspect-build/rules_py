@@ -50,6 +50,12 @@ whl_install(
     },
     namespace_top_levels = {},
     console_scripts = {},
+    top_level_dirs = {
+        "attrs-23.2.0-py3-none-any.whl": [
+            "attr",
+            "attrs",
+        ],
+    },
     visibility = ["//visibility:private"],
 )
 

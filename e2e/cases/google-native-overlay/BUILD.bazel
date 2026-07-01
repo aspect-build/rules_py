@@ -1,0 +1,30 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+# Regression test: a regular top-level package followed by a namespace-only
+# native graft. google 1.9.3 owns google/__init__.py; protobuf 6.33.5
+# contributes google/_upb/_message without a top-level __init__.py.
+#
+# Python keeps searching after the projected namespace directory and then
+# binds the fallback regular package. The venv projection must choose that
+# same regular owner, while protobuf stays on whole-wheel fallback.
+py_test(
+    name = "test",
+    srcs = ["test.py"],
+    dep_group = "google-native-overlay",
+    expose_venv = True,
+    isolated = False,
+    main = "test.py",
+    package_collisions = "warning",
+    # Protobuf publishes native CPython 3.9 wheels for glibc Linux, macOS,
+    # and Windows. It has no musllinux wheel, so do not let this native-root
+    # regression silently select protobuf's pure-Python fallback there.
+    python_version = "3.9",
+    target_compatible_with = select({
+        "@aspect_rules_py//uv/private/constraints/platform:is_musl": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "@pypi_google_native_overlay//google",
+        "@pypi_google_native_overlay//protobuf",
+    ],
+)
