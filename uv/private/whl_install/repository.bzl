@@ -118,6 +118,25 @@ def _find_whl_file(repository_ctx, whl_label):
             return entry
     return None
 
+def _whl_file_label_keys(whl_file_label):
+    label_str = str(whl_file_label)
+    keys = {label_str: True}
+    canonical_prefix = "@" + "@"
+    if not label_str.startswith(canonical_prefix) or "//" not in label_str:
+        return keys
+
+    repo, pkg_target = label_str[len(canonical_prefix):].split("//", 1)
+    apparent_repo = repo.split("+")[-1]
+    apparent_label = "@{}//{}".format(apparent_repo, pkg_target)
+    keys[apparent_label] = True
+
+    if ":" in pkg_target:
+        pkg, target_name = pkg_target.rsplit(":", 1)
+        if pkg == target_name:
+            keys["@{}//{}".format(apparent_repo, pkg)] = True
+
+    return keys
+
 def _extract_wheel_metadata(repository_ctx, whl_label):
     """Peek inside a wheel to discover top-level names and console scripts.
 
@@ -669,20 +688,15 @@ filegroup(
     # the installed wheel tree.
     #
     # We read from `whl_files` (a real label_list) rather than `whls` (a
-    # JSON-encoded string of labels) because only the former adds the
-    # wheel repos to our visibility so `rctx.path(Label(...))` can
-    # resolve. `whl_files` mirrors the truthy `whls` values in order, so
-    # pair them up by index to recover the target ↔ label association.
-    # Both lists are generated together by the hub rule from the same
-    # source data, so the ordering invariant is maintained at the point
-    # of production and does not depend on runtime dict iteration order.
+    # JSON-encoded string of labels) because only the former adds the wheel
+    # repos to our visibility so `rctx.path(Label(...))` can resolve. Multiple
+    # lockfile wheel entries can resolve to the same target, but Bazel label_list
+    # attrs reject duplicates, so map the deduplicated labels back by canonical
+    # label string instead of pairing by list index.
     whl_file_labels = {}
-    whl_file_index = 0
-    for target in prebuilds.values():
-        if not target:
-            continue
-        whl_file_labels[target] = repository_ctx.attr.whl_files[whl_file_index]
-        whl_file_index += 1
+    for whl_file_label in repository_ctx.attr.whl_files:
+        for key in _whl_file_label_keys(whl_file_label):
+            whl_file_labels[key] = whl_file_label
 
     top_levels_by_whl = {}
     namespace_top_levels_by_whl = {}
@@ -690,9 +704,10 @@ filegroup(
     namespace_dirs_by_whl = {}
     regular_roots_by_whl = {}
     console_scripts_by_whl = {}
-    for target, whl_file_label in whl_file_labels.items():
+    for target in prebuilds.values():
         if target not in arm_targets:
             continue
+        whl_file_label = whl_file_labels[target]
         whl_name, tls, regular, css, ns_entries, dirs_set, init_dirs = _extract_wheel_metadata(
             repository_ctx,
             whl_file_label,

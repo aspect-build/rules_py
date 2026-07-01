@@ -92,6 +92,17 @@ def url_basename(url):
         fail("Invalid distribution URL (no file name): " + url)
     return basename
 
+def _deduplicate_whl_files(whls):
+    """Returns unique non-empty wheel labels while preserving order."""
+    whl_files = []
+    seen = {}
+    for whl in whls:
+        if not whl or whl in seen:
+            continue
+        seen[whl] = True
+        whl_files.append(whl)
+    return whl_files
+
 def parse_declared_console_script(name, entry_point):
     """Canonicalize one override_package console-script declaration.
 
@@ -760,7 +771,7 @@ def _uv_impl(module_ctx):
             # Parallel list of the same wheel labels as a real label_list,
             # so the whl_install repo rule can `rctx.path()` them to peek
             # at `*.dist-info/RECORD` for top-level metadata.
-            "whl_files": [v for v in install_cfg.whls.values() if v],
+            "whl_files": _deduplicate_whl_files(install_cfg.whls.values()),
         }
         if install_cfg.post_install_patches:
             install_kwargs["post_install_patches"] = json.encode(install_cfg.post_install_patches)
