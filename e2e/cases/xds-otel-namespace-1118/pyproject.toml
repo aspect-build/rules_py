@@ -1,0 +1,8 @@
+[project]
+name = "xds-otel-namespace-1118"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    "opentelemetry-sdk==1.39.0",
+    "xds-protos==1.73.1",
+]

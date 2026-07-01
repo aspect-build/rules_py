@@ -1,0 +1,35 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+# Regression: xds-protos ships opentelemetry/__init__.py (0 bytes, legacy
+# namespace stub) while opentelemetry-sdk treats `opentelemetry` as a PEP 420
+# namespace. Rules_py must physically merge the top-level directory so both
+# wheels' content is reachable — matching the behaviour of a flat pip install.
+#
+# test      — verifies runtime imports work
+# test_venv — expose_venv mode; verifies the merged layout in site-packages
+
+py_test(
+    name = "test",
+    srcs = ["test.py"],
+    dep_group = "xds-otel-namespace-1118",
+    main = "test.py",
+    deps = [
+        "@pypi_xds_otel_namespace_1118//opentelemetry_sdk",
+        "@pypi_xds_otel_namespace_1118//xds_protos",
+    ],
+)
+
+py_test(
+    name = "test_venv",
+    srcs = ["test.py"],
+    dep_group = "xds-otel-namespace-1118",
+    expose_venv = True,
+    isolated = False,
+    main = "test.py",
+    package_collisions = "warning",
+    python_version = "3.11",
+    deps = [
+        "@pypi_xds_otel_namespace_1118//opentelemetry_sdk",
+        "@pypi_xds_otel_namespace_1118//xds_protos",
+    ],
+)
