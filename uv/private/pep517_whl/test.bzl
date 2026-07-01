@@ -5,7 +5,8 @@ Inspecting the action at analysis time avoids actually running a PEP 517
 build to verify the env wiring.
 """
 
-load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
+load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts", "unittest")
+load("//uv/private/pep517_whl:compiler.bzl", "compiler_driver_paths")
 
 _ACTION_ENV = "//command_line_option:action_env"
 _HOST_ENV = [
@@ -84,14 +85,19 @@ def _toolchain_env_test_impl(ctx):
             "${} should resolve to a non-empty toolchain path".format(key),
         )
 
-    # CC and CXX both derive from cc_toolchain's $(CC) make variable today.
-    # If we ever switch CXX to a c++ compile driver (e.g. via a custom
-    # TemplateVariableInfo shim), this assertion can be relaxed.
+    action_inputs = [f.path for f in build_actions[0].inputs.to_list()]
+    asserts.true(
+        env,
+        action_env.get("CXX") in action_inputs,
+        "CXX should come from the selected toolchain inputs",
+    )
+    cc = action_env.get("CC")
+    driver_paths = compiler_driver_paths(cc, {path: True for path in action_inputs})
     asserts.equals(
         env,
-        action_env.get("CC"),
+        driver_paths.cxx if driver_paths else cc,
         action_env.get("CXX"),
-        "CC and CXX should point at the same compiler driver",
+        "CXX should use the declared companion or selected compiler fallback",
     )
 
     # JAR is constructed from $(JAVABASE)/bin/jar — sanity-check the suffix.
@@ -104,3 +110,34 @@ def _toolchain_env_test_impl(ctx):
     return analysistest.end(env)
 
 pep517_native_whl_toolchain_env_test = analysistest.make(_toolchain_env_test_impl)
+
+def _compiler_driver_paths_test_impl(ctx):
+    env = unittest.begin(ctx)
+    exact = compiler_driver_paths("gcc", {"gcc": True, "g++": True})
+    asserts.equals(env, "g++", exact.cxx)
+
+    versioned = compiler_driver_paths(
+        "toolchain/bin/clang-22",
+        {
+            "toolchain/bin/clang-22": True,
+            "toolchain/bin/clang++-22": True,
+        },
+    )
+    asserts.equals(env, "toolchain/bin/clang++-22", versioned.cxx)
+
+    for near_miss in ["clang-cl", "clang-format", "gcc-ar"]:
+        asserts.equals(
+            env,
+            None,
+            compiler_driver_paths(near_miss, {near_miss: True}),
+            "{} should not be treated as a compiler driver".format(near_miss),
+        )
+
+    fallback = compiler_driver_paths("toolchain/bin/gcc", {"toolchain/bin/gcc": True})
+    asserts.equals(env, "toolchain/bin/gcc", fallback.cxx)
+    return unittest.end(env)
+
+compiler_driver_paths_test = unittest.make(_compiler_driver_paths_test_impl)
+
+def compiler_driver_test_suite(name):
+    unittest.suite(name, compiler_driver_paths_test)

@@ -6,7 +6,12 @@ load("@tar.bzl//tar:mtree.bzl", "mtree_mutate", "mtree_spec")
 load("@tar.bzl//tar:tar.bzl", "tar_rule")
 load("//py:defs.bzl", "py_binary", "py_library", "py_test")
 load(":rule.bzl", "pep517_native_whl", "pep517_whl")
-load(":test.bzl", "hostile_python_env_target", "pep517_native_whl_toolchain_env_test")
+load(
+    ":test.bzl",
+    "compiler_driver_test_suite",
+    "hostile_python_env_target",
+    "pep517_native_whl_toolchain_env_test",
+)
 
 package(default_visibility = [
     "//uv/private:__subpackages__",
@@ -21,6 +26,7 @@ bzl_library(
     name = "rule",
     srcs = ["rule.bzl"],
     deps = [
+        ":compiler",
         "//py/private/toolchain:types",
         "@bazel_lib//lib:resource_sets",
     ],
@@ -75,10 +81,13 @@ bzl_library(
     srcs = ["test.bzl"],
     visibility = ["//uv:__subpackages__"],
     deps = [
+        ":compiler",
         ":rule",
         "@bazel_skylib//lib:unittest",
     ],
 )
+
+compiler_driver_test_suite(name = "compiler_driver_test")
 
 # --- Analysis test fixtures ----------------------------------------------
 #
@@ -163,4 +172,9 @@ pep517_native_whl(
 pep517_native_whl_toolchain_env_test(
     name = "toolchain_env_test",
     target_under_test = ":__toolchain_env_fixture",
+)
+
+bzl_library(
+    name = "compiler",
+    srcs = ["compiler.bzl"],
 )

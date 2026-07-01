@@ -7,6 +7,7 @@ build backend the sdist declares in its `[build-system]` table.
 
 load("@bazel_lib//lib:resource_sets.bzl", "resource_set", "resource_set_attr")
 load("//py/private/toolchain:types.bzl", "NATIVE_BUILD_TOOLCHAIN", "PY_TOOLCHAIN")
+load("//uv/private/pep517_whl:compiler.bzl", "compiler_driver_paths")
 
 _CC_TOOLCHAIN_TYPE = Label("@bazel_tools//tools/cpp:toolchain_type")
 _TARGET_EXEC_GROUP = "target"
@@ -83,36 +84,35 @@ def _collect_toolchain_inputs_and_vars(ctx):
             known_variables.update(target[platform_common.TemplateVariableInfo].variables)
     return extra_inputs, known_variables
 
-_BAZEL_CC_WRAPPER_BASENAMES = ["gcc", "g++", "clang", "clang++"]
-
-def _cc_toolchain_inputs_and_compiler(ctx):
-    """Return the target execution group's C++ files and compiler path."""
+def _cc_toolchain_inputs_and_compilers(ctx):
+    """Return the target execution group's C++ files and C/C++ drivers."""
     cc_toolchain = ctx.exec_groups[_TARGET_EXEC_GROUP].toolchains[_CC_TOOLCHAIN_TYPE]
     if hasattr(cc_toolchain, "cc_provider_in_toolchain") and hasattr(cc_toolchain, "cc"):
         cc_toolchain = cc_toolchain.cc
     if not cc_toolchain or not hasattr(cc_toolchain, "all_files"):
-        return None, None
+        return None, None, None
     files = cc_toolchain.all_files
+    files_list = files.to_list()
+    files_by_path = {f.path: f for f in files_list}
     compiler_file = None
     if hasattr(cc_toolchain, "compiler_executable"):
         compiler_basename = cc_toolchain.compiler_executable.split("/")[-1]
-        for f in files.to_list():
+        for f in files_list:
             if f.basename == compiler_basename:
                 compiler_file = f
                 break
     if not compiler_file:
-        for f in files.to_list():
-            if f.basename in _BAZEL_CC_WRAPPER_BASENAMES:
+        for f in files_list:
+            if compiler_driver_paths(f.path, files_by_path) != None:
                 compiler_file = f
                 break
-    if not compiler_file:
-        for f in files.to_list():
-            if (f.basename.startswith("clang-") or f.basename.startswith("gcc-") or
-                f.basename.startswith("g++-")):
-                compiler_file = f
-                break
+
+    # Preserve the current same-driver behavior when the selected toolchain
+    # files do not expose a matching same-directory C++ companion.
     compiler_path = compiler_file.path if compiler_file else None
-    return files, compiler_path
+    driver_paths = compiler_driver_paths(compiler_path, files_by_path) if compiler_path else None
+    cxx_path = driver_paths.cxx if driver_paths else compiler_path
+    return files, compiler_path, cxx_path
 
 def _pep517_whl(ctx):
     archive = ctx.file.src
@@ -151,7 +151,7 @@ def _pep517_native_whl(ctx):
     env = _common_env(ctx)
     extra_inputs, known_variables = _collect_toolchain_inputs_and_vars(ctx)
 
-    cc_files, cc_compiler = _cc_toolchain_inputs_and_compiler(ctx)
+    cc_files, cc_compiler, cxx_compiler = _cc_toolchain_inputs_and_compilers(ctx)
     if cc_files:
         extra_inputs.append(cc_files)
 
@@ -160,7 +160,8 @@ def _pep517_native_whl(ctx):
 
     if cc_compiler:
         env["CC"] = cc_compiler
-        env["CXX"] = cc_compiler
+    if cxx_compiler:
+        env["CXX"] = cxx_compiler
 
     ctx.actions.run(
         mnemonic = "PySdistNativeBuild",
