@@ -44,7 +44,7 @@ files:
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/cases/uv-deps-650/crossbuild/._app_bin.venv/lib/python3.12/site-packages/psycopg2 -> ../../../../../../../../aspect_rules_py++uv+whl_install__crossbuild__psycopg2_binary__2_9_11/actual_install.install/lib/python3.12/site-packages/psycopg2
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/cases/uv-deps-650/crossbuild/._app_bin.venv/lib/python3.12/site-packages/psycopg2_binary-2.9.11.dist-info -> ../../../../../../../../aspect_rules_py++uv+whl_install__crossbuild__psycopg2_binary__2_9_11/actual_install.install/lib/python3.12/site-packages/psycopg2_binary-2.9.11.dist-info
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/cases/uv-deps-650/crossbuild/._app_bin.venv/lib/python3.12/site-packages/psycopg2_binary.libs -> ../../../../../../../../aspect_rules_py++uv+whl_install__crossbuild__psycopg2_binary__2_9_11/actual_install.install/lib/python3.12/site-packages/psycopg2_binary.libs
-  - -rwxr-xr-x  0 0      0         246 Jan  1  2023 ./app.runfiles/_main/cases/uv-deps-650/crossbuild/._app_bin.venv/pyvenv.cfg
+  - -rwxr-xr-x  0 0      0         153 Jan  1  2023 ./app.runfiles/_main/cases/uv-deps-650/crossbuild/._app_bin.venv/pyvenv.cfg
   - -rwxr-xr-x  0 0      0          66 Jan  1  2023 ./app.runfiles/_main/cases/uv-deps-650/crossbuild/__main__.py
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_12_x86_64_unknown_linux_gnu/bin/2to3 -> 2to3-3.12
   - -rwxr-xr-x  0 0      0         158 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_12_x86_64_unknown_linux_gnu/bin/2to3-3.12

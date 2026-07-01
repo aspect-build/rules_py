@@ -13,5 +13,5 @@ cfg = os.path.join(
 with open(cfg) as f:
     content = f.read()
 
-assert "home = /opt/fake-python/bin\n" in content, content
+assert "home = /opt/{fake-python}/bin\n" in content, content
 print("OK")

@@ -29,7 +29,7 @@ files:
   - -rwxr-xr-x  0 0      0        4745 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/._my_app_bin.venv/lib/python3.11/site-packages/_virtualenv.py
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/._my_app_bin.venv/lib/python3.11/site-packages/colorama -> ../../../../../../../../aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/._my_app_bin.venv/lib/python3.11/site-packages/colorama-0.4.6.dist-info -> ../../../../../../../../aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama-0.4.6.dist-info
-  - -rwxr-xr-x  0 0      0         246 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/._my_app_bin.venv/pyvenv.cfg
+  - -rwxr-xr-x  0 0      0         153 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/._my_app_bin.venv/pyvenv.cfg
   - -rwxr-xr-x  0 0      0         276 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/__main__.py
   - -rwxr-xr-x  0 0      0          42 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/branding/__init__.py
   - -rwxr-xr-x  0 0      0          31 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/branding/palette.txt
