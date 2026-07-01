@@ -6,7 +6,16 @@ alias(
 
 
 config_setting(
-    name = "single_project_hub",
+    name = "single_project_hub__",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "single_project_hub__single_project_hub",
     flag_values = {
         "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "single_project_hub",
     },

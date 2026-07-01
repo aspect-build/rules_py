@@ -26,7 +26,7 @@ _LINUX_X86_64 = [
 py_test(
     name = "test_bin",
     srcs = ["test.py"],
-    dep_group = "freethreaded-test",
+    dep_group = "freethreaded_test",
     main = "test.py",
     python_version = "3.13",
     tags = ["manual"],
@@ -46,7 +46,7 @@ platform_transition_test(
 py_test(
     name = "venv_test_bin",
     srcs = ["test.py"],
-    dep_group = "freethreaded-test",
+    dep_group = "freethreaded_test",
     expose_venv = True,
     isolated = False,
     main = "test.py",

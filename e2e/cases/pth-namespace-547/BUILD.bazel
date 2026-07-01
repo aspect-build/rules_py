@@ -5,7 +5,7 @@ load("//tools:pth_snapshot.bzl", "extract_venv_pth")
 py_test(
     name = "test",
     srcs = ["__test__.py"],
-    dep_group = "pth-namespace-547",
+    dep_group = "pth_namespace_547",
     expose_venv = True,
     isolated = False,
     main = "__test__.py",
@@ -52,7 +52,7 @@ py_test(
 py_test(
     name = "test_legacy",
     srcs = ["__test__.py"],
-    dep_group = "pth-namespace-547",
+    dep_group = "pth_namespace_547",
     main = "__test__.py",
     deps = [
         "@pypi_pth_namespace_547//jaraco_classes",

@@ -1,0 +1,17 @@
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+
+# Distinct hub registering two projects with overlapping group names ("shared")
+# and project-unique groups ("a_only", "b_only"). Exercises the namespacing
+# paths added in v2.0.
+uv.declare_hub(hub_name = "pypi_shared_848")
+uv.project(
+    hub_name = "pypi_shared_848",
+    lock = "//cases/uv-shared-hub-848/proj_a:uv.lock",
+    pyproject = "//cases/uv-shared-hub-848/proj_a:pyproject.toml",
+)
+uv.project(
+    hub_name = "pypi_shared_848",
+    lock = "//cases/uv-shared-hub-848/proj_b:uv.lock",
+    pyproject = "//cases/uv-shared-hub-848/proj_b:pyproject.toml",
+)
+use_repo(uv, "pypi_shared_848")

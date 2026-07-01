@@ -6,7 +6,16 @@ alias(
 
 
 config_setting(
-    name = "aspect_rules_py",
+    name = "aspect_rules_py__",
+    flag_values = {
+        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "",
+    },
+    visibility = ["//visibility:public"],
+)
+
+
+config_setting(
+    name = "aspect_rules_py__aspect_rules_py",
     flag_values = {
         "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "aspect_rules_py",
     },
