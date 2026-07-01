@@ -1,0 +1,14 @@
+"""Regression: mixed namespace/regular top-level collision (#1118).
+
+xds-protos ships opentelemetry/__init__.py (empty stub) while opentelemetry-sdk
+treats `opentelemetry` as a PEP 420 namespace package.
+"""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_xds_otel_namespace_1118")
+uv.project(
+    hub_name = "pypi_xds_otel_namespace_1118",
+    lock = "//cases/xds-otel-namespace-1118:uv.lock",
+    pyproject = "//cases/xds-otel-namespace-1118:pyproject.toml",
+)
+use_repo(uv, "pypi_xds_otel_namespace_1118")
