@@ -1,16 +1,26 @@
 #!/usr/bin/env python3
 
-# TODO: Deprecated API, need an alternative
-import pkgutil
+# airflow is a top-level collision across many apache-airflow-* wheels.
+# apache-airflow-core owns airflow/__init__.py (non-namespace); provider wheels
+# contribute content under airflow/ without an __init__.py.
 
-# `airflow` resolves to the providing wheel's natural runfiles path; the venv
-# references wheels there rather than copying them into its own tree. `airflow`
-# is a top-level collision across many apache-airflow-* wheels, so resolution
-# must pick airflow-core (the wheel that owns `airflow/__init__.py`), not a
-# provider.
-_airflow_file = pkgutil.get_loader("airflow").get_filename()
-assert _airflow_file.endswith("/site-packages/airflow/__init__.py"), _airflow_file
-assert "apache_airflow_core" in _airflow_file, _airflow_file
+import os
+
+# Airflow's initialization tries to create $AIRFLOW_HOME (default ~/airflow).
+# Point it at Bazel's writable scratch dir so sandbox runs don't fail.
+os.environ.setdefault("AIRFLOW_HOME", os.environ.get("TEST_TMPDIR", "/tmp"))
+
+# apache-airflow-core: the wheel that owns airflow/__init__.py
+from airflow.models import DAG
+
+assert DAG is not None
+
+# apache-airflow-providers-common-sql is a transitive dep of core.
+# Importing from it exercises that provider content is accessible alongside
+# core's airflow/__init__.py under the mixed regular/namespace topology.
+from airflow.providers.common.sql.hooks.sql import DbApiHook
+
+assert DbApiHook is not None
 
 import sys
 assert sys.version_info.major == 3

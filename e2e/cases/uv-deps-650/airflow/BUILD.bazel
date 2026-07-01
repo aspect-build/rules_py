@@ -10,6 +10,7 @@ py_test(
     python_version = "3.13",
     deps = [
         "@pypi_uv_deps_650//apache_airflow",
+        "@pypi_uv_deps_650//apache_airflow_providers_common_sql",
     ],
 )
 
@@ -25,5 +26,6 @@ py_test(
     python_version = "3.13",
     deps = [
         "@pypi_uv_deps_650//apache_airflow",
+        "@pypi_uv_deps_650//apache_airflow_providers_common_sql",
     ],
 )
