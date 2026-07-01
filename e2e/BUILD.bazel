@@ -128,12 +128,14 @@ write_source_files(
         # rule expands env keys correctly given an explicit fixture.
         "snapshots/sdist_build.uv_sdist_jdk_build.jpype1.BUILD.bazel": "@sdist_build__uv_sdist_jdk_build__jpype1__1_7_1//:BUILD.bazel",
 
-        # @sdist_build for cowsay with uv.override_package(monitor_memory)
-        # ----------------------------------------------------------------
-        # Covers the override_package -> repo-rule -> BUILD-template plumbing
-        # for a monitor-only source build. The runtime
-        # //cases/uv-sdist-fallback:test proves that the generated build tool
-        # can load the conditional monitor dependency and complete the wheel.
+        # @sdist_build for cowsay with native annotation and monitor_memory
+        # ------------------------------------------------------------------
+        # cowsay is pure Python, so only `native = true` can select
+        # pep517_native_whl. Its build and native annotations are split so the
+        # snapshot also pins that a native-only annotation preserves explicit
+        # and configure-discovered build deps. This retains the monitor-only
+        # source-build coverage. The runtime //cases/uv-sdist-fallback:test
+        # proves that the forced-native build produces a working wheel.
         "snapshots/sdist_build.uv_sdist_fallback.cowsay.BUILD.bazel": "@sdist_build__uv_sdist_fallback__cowsay__6_0//:BUILD.bazel",
 
         # @sdist_build for python-geohash with uv.override_package(resource_set)

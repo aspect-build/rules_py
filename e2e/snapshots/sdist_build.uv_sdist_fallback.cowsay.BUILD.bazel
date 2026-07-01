@@ -1,20 +1,30 @@
 
-load("@aspect_rules_py//uv/private/pep517_whl:rule.bzl", "pep517_whl")
+load("@aspect_rules_py//uv/private/pep517_whl:rule.bzl", "pep517_native_whl")
 load("@aspect_rules_py//py:defs.bzl", "py_binary")
 
 py_binary(
     name = "build_tool",
     main = "@aspect_rules_py//uv/private/pep517_whl:build_helper.py",
     srcs = ["@aspect_rules_py//uv/private/pep517_whl:build_helper.py"],
-    deps = ["@aspect_rules_py//uv/private/pep517_whl:memory_monitor", "@@aspect_rules_py++uv+project__uv_sdist_fallback//:build", "@@aspect_rules_py++uv+project__uv_sdist_fallback//:setuptools", "@whl_install__uv_sdist_fallback__setuptools__80_10_2//:install"],
+    deps = ["@aspect_rules_py//uv/private/pep517_whl:memory_monitor", "@@aspect_rules_py++uv+project__uv_sdist_fallback//:packaging", "@@aspect_rules_py++uv+project__uv_sdist_fallback//:build", "@@aspect_rules_py++uv+project__uv_sdist_fallback//:setuptools", "@whl_install__uv_sdist_fallback__setuptools__80_10_2//:install"],
 )
 
-pep517_whl(
+pep517_native_whl(
     name = "whl",
     src = "@@aspect_rules_py++uv+sdist__cowsay__47445cb273684618//file:file",
     tool = ":build_tool",
     version = "6.0",
     monitor_memory = True,
+    toolchains = [
+        "@bazel_tools//tools/cpp:current_cc_toolchain",
+    ],
+    env = {
+        "AR": "$(AR)",
+        "CC": "$(CC)",
+        "CXX": "$(CC)",
+        "LD": "$(LD)",
+        "STRIP": "$(STRIP)",
+    },
     visibility = ["//visibility:public"],
 )
 
