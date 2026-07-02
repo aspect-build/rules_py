@@ -50,7 +50,11 @@ load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN")
 # https://packaging.python.org/en/latest/specifications/entry-points/#data-model
 _CONSOLE_SCRIPT_TEMPLATE = """\
 #!/bin/sh
-exec "$(dirname "$0")/python" -c 'import sys; from importlib import import_module; from operator import attrgetter; sys.argv[0] = "{name}"; sys.exit(attrgetter("{func}")(import_module("{module}"))())' "$@"
+case $0 in
+    */*) script_dir=${{0%/*}} ;;
+    *) script_dir=. ;;
+esac
+exec "${{script_dir}}/python" -c 'import sys; from importlib import import_module; from operator import attrgetter; sys.argv[0] = "{name}"; sys.exit(attrgetter("{func}")(import_module("{module}"))())' "$@"
 """
 
 def _dict_to_exports(env):
