@@ -336,7 +336,10 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
             # __init__.py here while others treat it as a PEP 420 namespace.
             # pip handles this by physically merging all contributing directories;
             # we do the same via PySiteMerge.
-            unique_claimants = distinct_sp.values()
+            unique_claimants = list(distinct_sp.values())
+            first = unique_claimants[0]
+            for c in unique_claimants[1:]:
+                _complain("top-level", tl, first.site_packages, c.site_packages)
             for c in unique_claimants:
                 skipped_per_wheel.setdefault(c.site_packages, {})[tl] = True
             top_level_merges[tl] = [
@@ -394,12 +397,12 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
     # Pass 2c: build merge groups for mixed regular/namespace top-levels.
     # The entire top-level directory is merged (root = tl itself). No
     # shallowest-root filtering is needed since top-level names have no "/".
+    # sorted() ensures deterministic merge_groups order across builds.
     for tl, sps in sorted(top_level_merges.items()):
-        if len(sps) >= 2:
-            merge_groups.append(struct(
-                root = tl,
-                site_packages_list = sps,
-            ))
+        merge_groups.append(struct(
+            root = tl,
+            site_packages_list = sps,
+        ))
 
     # Pass 2b: console scripts.
     console_scripts_map = {}

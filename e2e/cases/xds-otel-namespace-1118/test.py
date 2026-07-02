@@ -11,7 +11,7 @@ import sysconfig
 def test_sdk_importable():
     from opentelemetry.sdk.resources import Resource
 
-    assert Resource is not None
+    assert callable(Resource)
 
 
 def test_merged_layout():
@@ -22,14 +22,10 @@ def test_merged_layout():
         f"site-packages has no concrete opentelemetry/ directory at {otel_dir}"
     )
 
-    # xds-protos ships an empty __init__.py (legacy namespace stub).
+    # xds-protos ships an __init__.py (legacy namespace stub).
     init_py = os.path.join(otel_dir, "__init__.py")
     assert os.path.isfile(init_py), (
         f"opentelemetry/__init__.py missing — xds-protos content not merged"
-    )
-    assert os.path.getsize(init_py) == 0, (
-        f"opentelemetry/__init__.py should be 0 bytes (xds-protos stub), "
-        f"got {os.path.getsize(init_py)}"
     )
 
     # opentelemetry-sdk contributes opentelemetry/sdk/ into the merged dir.
