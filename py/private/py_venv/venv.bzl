@@ -397,8 +397,7 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
     # Pass 2c: build merge groups for mixed regular/namespace top-levels.
     # The entire top-level directory is merged (root = tl itself). No
     # shallowest-root filtering is needed since top-level names have no "/".
-    # sorted() ensures deterministic merge_groups order across builds.
-    for tl, sps in sorted(top_level_merges.items()):
+    for tl, sps in top_level_merges.items():
         merge_groups.append(struct(
             root = tl,
             site_packages_list = sps,
