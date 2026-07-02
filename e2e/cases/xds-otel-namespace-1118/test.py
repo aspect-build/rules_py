@@ -1,7 +1,7 @@
-"""Regression test for #1118: xds-protos ships opentelemetry/__init__.py
-(empty, legacy namespace stub) while opentelemetry-sdk treats `opentelemetry`
-as a PEP 420 namespace. Without the fix the regular-package claim wins the
-top-level symlink and opentelemetry.sdk.* is unreachable.
+"""Regression test for #1118: xds-protos ships opentelemetry/__init__.py while
+opentelemetry-sdk treats `opentelemetry` as a PEP 420 namespace. Without the
+fix the regular-package claim wins the top-level symlink and
+opentelemetry.sdk.* is unreachable.
 """
 
 import os
