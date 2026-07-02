@@ -186,7 +186,9 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
             top_level_to_site_pkgs[tl] = claimants[0].site_packages
             continue
 
-        all_namespace = all([c.is_ns for c in claimants])
+        is_ns = [c.is_ns for c in claimants]
+        all_namespace = all(is_ns)
+        any_namespace = any(is_ns)
         if all_namespace:
             # Deep-overlap scan first: a regular root of one claimant
             # appearing in another claimant's namespace skeleton (B
@@ -331,7 +333,7 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
                     ns_covered_per_wheel.setdefault(c.site_packages, {})[tl] = True
             continue
 
-        elif any([c.is_ns for c in claimants]):
+        elif any_namespace:
             # Mixed regular/namespace at this top-level: some wheels ship
             # __init__.py here while others treat it as a PEP 420 namespace.
             # pip handles this by physically merging all contributing directories;
