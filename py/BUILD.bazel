@@ -1,4 +1,5 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
+load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
 
 # Users can set, e.g. --@aspect_rules_py//py:python_version=3.12
 alias(
@@ -12,6 +13,19 @@ alias(
 label_flag(
     name = "layer_tier",
     build_setting_default = "//py/private:default_layer_tier",
+    visibility = ["//visibility:public"],
+)
+
+# Users can set --@aspect_rules_py//py:layer_compression=zstd to change the
+# default compression py_image_layer uses for any layer that doesn't pin its
+# own algorithm via py_layer_tier.compression.
+string_flag(
+    name = "layer_compression",
+    build_setting_default = "gzip",
+    values = [
+        "gzip",
+        "zstd",
+    ],
     visibility = ["//visibility:public"],
 )
 
