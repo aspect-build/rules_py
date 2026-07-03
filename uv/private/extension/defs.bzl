@@ -245,6 +245,7 @@ def _parse_projects(module_ctx, hub_specs):
                     return None
 
             lock_build_dep_anns = {}
+            lock_native_anns = {}
             for ann in mod.tags.unstable_annotate_packages:
                 if ann.lock == project.lock:
                     annotations = toml.decode_file(module_ctx, ann.src)
@@ -253,16 +254,21 @@ def _parse_projects(module_ctx, hub_specs):
                         if k == None:
                             # Allow a shared annotation file to include entries for other locks.
                             continue
-                        deps = []
-                        skip = False
-                        for dep in package.get("build-dependencies", []):
-                            resolved = _resolve(dep, fail_if_missing = False)
-                            if resolved == None:
-                                skip = True
-                                break
-                            deps.append(resolved)
-                        if not skip:
-                            lock_build_dep_anns[k] = deps
+                        if "native" in package:
+                            if type(package["native"]) != "bool":
+                                fail("Annotation `native` for package {} in {} must be a boolean, got {}".format(package["name"], ann.src, repr(package["native"])))
+                            lock_native_anns[k] = package["native"]
+                        if "build-dependencies" in package:
+                            deps = []
+                            skip = False
+                            for dep in package["build-dependencies"]:
+                                resolved = _resolve(dep, fail_if_missing = False)
+                                if resolved == None:
+                                    skip = True
+                                    break
+                                deps.append(resolved)
+                            if not skip:
+                                lock_build_dep_anns[k] = deps
 
             # Collect package overrides, validating no duplicates per (lock, name, version).
             package_overrides = {}
@@ -467,6 +473,9 @@ def _parse_projects(module_ctx, hub_specs):
                     # could do pyproject.toml introspection.
                     ann_key = (project_id, normalize_name(package["name"]), package["version"], "__base__")
                     build_deps = lock_build_dep_anns.get(ann_key) or []
+                    is_native = "auto"
+                    if ann_key in lock_native_anns:
+                        is_native = "true" if lock_native_anns[ann_key] else "false"
                     if lock_build_deps == None:
                         # For optional sdist fallbacks (sdist present but a
                         # wheel will be picked at install time), tolerate a
@@ -510,7 +519,7 @@ def _parse_projects(module_ctx, hub_specs):
                     sbuild_specs[sbuild_id] = struct(
                         src = sdist,
                         deps = ["@{0}//:{1}".format(*it) for it in build_deps],
-                        is_native = "auto",
+                        is_native = is_native,
                         version = package["version"],
                         pre_build_patches = pre_build_patches,
                         pre_build_patch_strip = pre_build_patch_strip,
