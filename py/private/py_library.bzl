@@ -6,9 +6,9 @@ without binding them to a particular version of that package.
 
 load("@bazel_skylib//lib:new_sets.bzl", "sets")
 load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
-load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private:providers.bzl", "PyVirtualInfo", "PyWheelsInfo")
 load("//py/private:pth.bzl", "make_imports_depset")
+load("//py/private:py_info.bzl", "PyInfo")
 
 def _make_instrumented_files_info(ctx, extra_source_attributes = [], extra_dependency_attributes = []):
     return coverage_common.instrumented_files_info(

@@ -1,7 +1,7 @@
 """Helper functions for creating Python .pth files and building imports depsets."""
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
-load("@rules_python//python:defs.bzl", "PyInfo")
+load("//py/private:py_info.bzl", "PyInfo")
 
 def _make_import_path(label, workspace, imp):
     if imp.startswith("/"):

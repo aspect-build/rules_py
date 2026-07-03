@@ -1,7 +1,7 @@
 """Analysis tests for inactive marker-only package and wheel aliases."""
 
+load("@aspect_rules_py//py:defs.bzl", "PyInfo")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
-load("@rules_python//python:defs.bzl", "PyInfo")
 
 _CONFIG_SETTINGS = {
     "//command_line_option:platforms": str(Label("//cases/arch-alias-marker:inactive_linux_x86_64")),

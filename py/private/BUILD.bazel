@@ -48,6 +48,7 @@ bzl_library(
     name = "py_image_layer",
     srcs = ["py_image_layer.bzl"],
     deps = [
+        ":py_info",
         "@bazel_lib//lib:transitions",
         "@tar.bzl//tar:mtree",
         "@tar.bzl//tar:tar",
@@ -58,8 +59,8 @@ bzl_library(
     name = "pth",
     srcs = ["pth.bzl"],
     deps = [
+        ":py_info",
         "@bazel_skylib//lib:paths",
-        "@rules_python//python:defs_bzl",
     ],
 )
 
@@ -69,11 +70,11 @@ bzl_library(
     deps = [
         ":providers",
         ":pth",
+        ":py_info",
         ":py_semantics",
         ":py_wheel",
         "@bazel_skylib//lib:new_sets",
         "@bazel_skylib//lib:types",
-        "@rules_python//python:defs_bzl",
     ],
 )
 
@@ -105,6 +106,7 @@ bzl_library(
     srcs = ["py_unpacked_wheel.bzl"],
     deps = [
         ":pth",
+        ":py_info",
         ":py_library",
         ":py_semantics",
         "//py/private/toolchain:types",
@@ -116,10 +118,19 @@ bzl_library(
     name = "py_pex_binary",
     srcs = ["py_pex_binary.bzl"],
     deps = [
+        ":py_info",
         ":py_semantics",
         "//py/private/toolchain:types",
-        "@rules_python//python:defs_bzl",
     ],
+)
+
+bzl_library(
+    name = "py_info",
+    srcs = ["py_info.bzl"],
+    # PyInfo is re-exported as public API from //py:defs.bzl, so its bzl_library
+    # is public too, allowing sibling trees (e.g. //uv) to depend on it.
+    visibility = ["//visibility:public"],
+    deps = ["@rules_python//python:defs_bzl"],
 )
 
 bzl_library(

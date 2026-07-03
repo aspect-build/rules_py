@@ -32,8 +32,8 @@ Sharing model:
   - Ungrouped pip packages: squashed by the rule into one per-rule tar.
 """
 
-load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private:providers.bzl", "PyWheelsInfo")
+load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
 
 _TAR_TOOLCHAIN = "@tar.bzl//tar/toolchain:type"

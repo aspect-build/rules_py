@@ -19,7 +19,7 @@ py_pex_binary(
 """
 
 load("@bazel_lib//lib:paths.bzl", "to_rlocation_path")
-load("@rules_python//python:defs.bzl", "PyInfo")
+load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
 
