@@ -144,11 +144,3 @@ def make_wheel_record(
         metadata_top_levels = tuple(metadata_top_levels),
         cs_claims = tuple(cs_claims),
     )
-
-PyVirtualInfo = provider(
-    doc = "FIXME",
-    fields = {
-        "dependencies": "Depset of required virtual dependencies, independent of their resolution status",
-        "resolutions": "FIXME",
-    },
-)

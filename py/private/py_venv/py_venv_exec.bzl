@@ -136,6 +136,8 @@ def _py_venv_exec_impl(ctx):
             # sibling venv, not on this rule.
             imports = vinfo.imports,
             transitive_sources = vinfo.transitive_sources,
+            virtual_dependencies = depset(),
+            virtual_resolutions = depset(),
         ),
         instrumented_files_info,
         RunEnvironmentInfo(
