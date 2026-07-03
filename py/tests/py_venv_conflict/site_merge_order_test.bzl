@@ -122,6 +122,8 @@ printf 'VALUE = %s\n' "$4" > "$site/other/from_final.py"
         PyInfo(
             imports = depset(site_packages_paths),
             transitive_sources = depset(install_trees),
+            virtual_dependencies = depset(),
+            virtual_resolutions = depset(),
         ),
         PyWheelsInfo(wheels = depset(direct = wheels, order = "postorder")),
     ]
@@ -229,9 +231,8 @@ printf 'VALUE = %s\n' "$4" > "$site/mixed/sibling.py"
         PyInfo(
             imports = depset(site_packages_paths),
             transitive_sources = depset(install_trees),
-            has_py2_only_sources = False,
-            has_py3_only_sources = True,
-            uses_shared_libraries = False,
+            virtual_dependencies = depset(),
+            virtual_resolutions = depset(),
         ),
         PyWheelsInfo(wheels = depset(direct = wheels, order = "postorder")),
     ]

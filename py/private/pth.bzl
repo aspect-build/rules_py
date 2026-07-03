@@ -1,7 +1,7 @@
 """Helper functions for building imports depsets."""
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
-load("//py/private:py_info.bzl", "PyInfo")
+load("//py/private:py_info_interop.bzl", "get_py_info", "has_py_info")
 
 def _make_import_path(label, workspace, imp):
     if imp.startswith("/"):
@@ -72,11 +72,15 @@ def make_imports_depset(deps, imports, workspace_name, label = None, extra_impor
     if label and label.workspace_name:
         import_paths.append(label.workspace_name)
 
+    # `deps` may carry rules_py's PyInfo or native @rules_python's; both expose
+    # `imports`. See py_info_interop.bzl.
+    transitive = [
+        get_py_info(target).imports
+        for target in deps
+        if has_py_info(target)
+    ]
+
     return depset(
         direct = import_paths,
-        transitive = [
-            target[PyInfo].imports
-            for target in deps
-            if PyInfo in target
-        ] + extra_imports_depsets,
+        transitive = transitive + extra_imports_depsets,
     )

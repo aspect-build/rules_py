@@ -161,6 +161,8 @@ def _whl_install(ctx):
                 install_dir,
             ]),
             imports = depset([site_packages_rfpath]),
+            virtual_dependencies = depset(),
+            virtual_resolutions = depset(),
         ),
     ]
 
