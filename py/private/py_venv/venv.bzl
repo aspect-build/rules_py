@@ -183,13 +183,16 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
     ns_covered_per_wheel = {}
     conflicted_roots = {}  # root path -> True (regular package spanning wheels)
     ns_claimant_sps = {}  # sp -> True, wheels in any all-namespace collision
+    top_level_merges = {}  # tl -> [site_packages_rfpath, ...] for mixed regular/namespace
     for tl, claimants in tl_claimants.items():
         distinct_sp = {c.site_packages: c for c in claimants}
         if len(distinct_sp) == 1:
             top_level_to_site_pkgs[tl] = claimants[0].site_packages
             continue
 
-        all_namespace = all([c.is_ns for c in claimants])
+        is_ns = [c.is_ns for c in claimants]
+        all_namespace = all(is_ns)
+        any_namespace = any(is_ns)
         if all_namespace:
             # Deep-overlap scan first: a regular root of one claimant
             # appearing in another claimant's namespace skeleton (B
@@ -334,6 +337,24 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
                     ns_covered_per_wheel.setdefault(c.site_packages, {})[tl] = True
             continue
 
+        elif any_namespace:
+            # Mixed regular/namespace at this top-level: some wheels ship
+            # __init__.py here while others treat it as a PEP 420 namespace.
+            # pip handles this by physically merging all contributing directories;
+            # we do the same via PySiteMerge.
+            unique_claimants = list(distinct_sp.values())
+            first = unique_claimants[0]
+            for c in unique_claimants[1:]:
+                _complain("top-level", tl, first.site_packages, c.site_packages)
+            for c in unique_claimants:
+                skipped_per_wheel.setdefault(c.site_packages, {})[tl] = True
+            top_level_merges[tl] = [
+                ordered_w.site_packages_rfpath
+                for ordered_w in wheels
+                if ordered_w.site_packages_rfpath in distinct_sp
+            ]
+            continue
+
         winner = claimants[0]
         seen = {winner.site_packages: True}
         for c in claimants[1:]:
@@ -378,6 +399,15 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
                 root = root,
                 site_packages_list = group_sps,
             ))
+
+    # Pass 2c: build merge groups for mixed regular/namespace top-levels.
+    # The entire top-level directory is merged (root = tl itself). No
+    # shallowest-root filtering is needed since top-level names have no "/".
+    for tl, sps in top_level_merges.items():
+        merge_groups.append(struct(
+            root = tl,
+            site_packages_list = sps,
+        ))
 
     # Pass 2b: console scripts.
     console_scripts_map = {}
