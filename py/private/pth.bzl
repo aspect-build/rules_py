@@ -96,7 +96,7 @@ def write_pth_file(ctx, name, imports_depset, escape = None):
     The `escape` value is the relative path from `site-packages` back to the
     runfiles root (e.g. `../../../../..`). By writing it as the first line, the
     runfiles root itself becomes importable, which is required by a few targets
-    (notably `@rules_python//python/runfiles`) that rely on the root being on
+    (notably `@bazel_tools//tools/python/runfiles`) that rely on the root being on
     `sys.path` but have no `imports` attribute to hint that they need it.
 
     Args:

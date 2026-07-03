@@ -8,7 +8,7 @@ py_binary(
         "TEST": "1",
     },
     deps = [
-        "@bazel_tools//tools/python/runfiles",
+        "@pypi//bazel_runfiles",
         "@pypi//cowsay",
     ],
 )

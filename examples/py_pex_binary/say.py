@@ -1,7 +1,7 @@
 import cowsay
 import sys
 import os
-from bazel_tools.tools.python.runfiles import runfiles
+import runfiles
 
 print("sys.path entries:")
 for p in sys.path:

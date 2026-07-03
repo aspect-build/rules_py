@@ -9,9 +9,9 @@ py_binary(
     srcs = ["print_modules.py"],
     data = ["data.txt"],
     deps = [
+        "@pypi//bazel_runfiles",
         "@pypi//cowsay",
         "@pypi//six",
-        "@rules_python//python/runfiles",
     ],
 )
 

@@ -49,6 +49,6 @@ py_test(
     name = "test_can_import_runfiles_helper",
     srcs = ["test_can_import_runfiles_helper.py"],
     deps = [
-        "@bazel_tools//tools/python/runfiles",
+        "@pypi//bazel_runfiles",
     ],
 )

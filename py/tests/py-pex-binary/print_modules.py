@@ -1,7 +1,7 @@
 import sys
 import cowsay
 import six
-from python.runfiles import runfiles
+import runfiles
 
 
 r = runfiles.Create()
