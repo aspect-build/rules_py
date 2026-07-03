@@ -71,7 +71,11 @@ def _can_resolve_path_in_workspace_test_impl(ctx):
     # Note that under bzlmod the import_dep's repo is _main.
     # We can't override or force this because we're using a real label below.
     asserts.equals(env, "{}/py/tests/import-pathing/baz".format(ctx.workspace_name), imports[0])
-    asserts.equals(env, "aspect_rules_py/foo", imports[1])
+
+    # The dep is a rules_py py_library, which appends the workspace root to its
+    # own imports, so that entry is carried transitively too.
+    asserts.equals(env, ctx.workspace_name, imports[1])
+    asserts.equals(env, "aspect_rules_py/foo", imports[2])
 
     return unittest.end(env)
 
@@ -79,7 +83,7 @@ _can_resolve_path_in_workspace_test = unittest.make(
     _can_resolve_path_in_workspace_test_impl,
     attrs = {
         "import_dep": attr.label(
-            default = "@//py/tests/import-pathing:__native_rule_import_list_for_test",
+            default = "@//py/tests/import-pathing:__import_list_for_test",
         ),
     },
 )

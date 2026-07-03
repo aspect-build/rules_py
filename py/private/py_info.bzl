@@ -1,11 +1,17 @@
-"""The `PyInfo` provider used by rules_py.
+"""The `PyInfo` provider produced and consumed by rules_py targets.
 
-This is the single seam through which rules_py imports `PyInfo`. Today it simply
-re-exports `@rules_python//python:defs.bzl%PyInfo`; centralising the import here
-means a future change to rules_py's own provider only touches this file, not
-every load site. Re-exported from `//py:defs.bzl` as public API.
+`PyInfo` carries the two pieces of information rules_py needs to assemble a
+target's dependency closure: the transitive set of first-party Python sources,
+and the import roots to place on `sys.path`. Targets in a dependency graph
+aggregate these fields from their deps to build the eventual venv or wheel.
+
+Defined here in one module and re-exported from `//py:defs.bzl` as public API.
 """
 
-load("@rules_python//python:defs.bzl", _PyInfo = "PyInfo")
-
-PyInfo = _PyInfo
+PyInfo = provider(
+    doc = "Python source and import-path information for a target's dependency closure.",
+    fields = {
+        "transitive_sources": "depset[File] — postorder depset of first-party `.py` sources in the transitive closure.",
+        "imports": "depset[str] — import roots to place on `sys.path` (rlocation-root-relative).",
+    },
+)
