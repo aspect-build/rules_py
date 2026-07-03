@@ -43,6 +43,7 @@ jobs:
                 - { path: ".", slug: "root", runner: "ubuntu-latest" }
                 # e2e is the large workspace; give it a beefier runner.
                 - { path: "e2e", slug: "e2e", runner: "ubuntu-22.04-32core" }
+                - { path: "e2e/rules-proto-grpc-python", slug: "rules-proto-grpc-python", runner: "ubuntu-latest" }
                 - { path: "examples/debugger", slug: "examples-debugger", runner: "ubuntu-latest" }
                 - { path: "examples/dev_deps", slug: "examples-dev_deps", runner: "ubuntu-latest" }
                 - { path: "examples/uv_pip_compile", slug: "examples-uv_pip_compile", runner: "ubuntu-latest" }

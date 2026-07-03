@@ -1,0 +1,30 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@rules_proto_grpc_python//:defs.bzl", "python_proto_library")
+
+# A plain proto_library — the language-agnostic descriptor. Living at the
+# module root keeps the generated module a clean top-level `greeting_pb2`.
+proto_library(
+    name = "greeting_proto",
+    srcs = ["greeting.proto"],
+)
+
+# rules_proto_grpc_python's python_proto_library generates `greeting_pb2.py` as
+# a rules_python py_library (advertising the upstream PyInfo provider) and wires
+# in the protobuf runtime through @protobuf//:protobuf_python.
+python_proto_library(
+    name = "greeting_py_proto",
+    protos = [":greeting_proto"],
+)
+
+# rules_py py_test proving the generated bindings import and round-trip under a
+# rules_py venv. If rules_py's PyInfo seam (#1223) stops being wire-compatible
+# with rules_python's PyInfo, the generated sources and protobuf runtime fall
+# out of the venv and this import fails at runtime.
+py_test(
+    name = "test",
+    size = "small",
+    srcs = ["test.py"],
+    main = "test.py",
+    deps = [":greeting_py_proto"],
+)
