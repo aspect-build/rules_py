@@ -1,9 +1,9 @@
 """Tests for permissive wheel-collision precedence."""
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
-load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py:defs.bzl", "py_binary", "py_library", "py_test")
 load("//py/private:providers.bzl", "PyWheelsInfo")
+load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
 
 def _mixed_wheel_impl(ctx):

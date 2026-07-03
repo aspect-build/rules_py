@@ -19,6 +19,7 @@ load(
     _py_image_layer = "py_image_layer",
     _py_layer_tier = "py_layer_tier",
 )
+load("//py/private:py_info.bzl", _PyInfo = "PyInfo")
 load("//py/private:py_library.bzl", _py_library = "py_library")
 load("//py/private:py_pex_binary.bzl", _py_pex_binary = "py_pex_binary")
 load("//py/private:py_pytest_main.bzl", _py_pytest_main = "py_pytest_main", _pytest_paths = "pytest_paths")
@@ -46,6 +47,9 @@ py_unpacked_wheel = _py_unpacked_wheel
 py_image_layer = _py_image_layer
 py_layer_tier = _py_layer_tier
 PyLayerTierInfo = _PyLayerTierInfo
+
+# The PyInfo provider used by rules_py
+PyInfo = _PyInfo
 
 resolutions = _resolutions
 
