@@ -35,7 +35,7 @@ _ALL_DATA_REQUIREMENTS_COUNT = len(all_data_requirements)
 
 # group_deps_for(): macros can inspect one explicit group's membership at load
 # time and read normalized package names off the returned Labels.
-_EXPLICIT_DEMO_DEPS = group_deps_for("requirements-bzl-demo")
+_EXPLICIT_DEMO_DEPS = group_deps_for("requirements_bzl_demo")
 
 _EXPECTED_EXPLICIT_DEMO_PACKAGES = [
     "cowsay",
@@ -54,7 +54,7 @@ _EXPLICIT_DEMO_DEPS_CHECK = None if _EXPLICIT_DEMO_PACKAGES == _EXPECTED_EXPLICI
 py_test(
     name = "requirement_helper_test",
     srcs = ["__test__.py"],
-    dep_group = "requirements-bzl-demo",
+    dep_group = "requirements_bzl_demo",
     main = "__test__.py",
     python_version = "3.12",
     deps = [requirement("cowsay")],
@@ -64,7 +64,7 @@ py_test(
 py_test(
     name = "pkg_alias_test",
     srcs = ["__test__.py"],
-    dep_group = "requirements-bzl-demo",
+    dep_group = "requirements_bzl_demo",
     main = "__test__.py",
     python_version = "3.12",
     deps = ["@pypi_requirements_bzl//cowsay:pkg"],
@@ -74,7 +74,7 @@ py_test(
 py_test(
     name = "all_requirements_test",
     srcs = ["__test__.py"],
-    dep_group = "requirements-bzl-demo",
+    dep_group = "requirements_bzl_demo",
     main = "__test__.py",
     python_version = "3.12",
     deps = all_requirements,
@@ -85,7 +85,7 @@ py_test(
     name = "whl_data_test",
     srcs = ["__whl_test__.py"],
     data = ["@pypi_requirements_bzl//cowsay:whl"],
-    dep_group = "requirements-bzl-demo",
+    dep_group = "requirements_bzl_demo",
     main = "__whl_test__.py",
     python_version = "3.12",
 )
@@ -95,7 +95,7 @@ py_test(
     name = "all_whl_data_test",
     srcs = ["__whl_test__.py"],
     data = all_whl_requirements,
-    dep_group = "requirements-bzl-demo",
+    dep_group = "requirements_bzl_demo",
     main = "__whl_test__.py",
     python_version = "3.12",
 )
@@ -105,7 +105,7 @@ py_test(
     name = "all_whl_by_package_data_test",
     srcs = ["__whl_test__.py"],
     data = [whl for whl in all_whl_requirements_by_package.values()],
-    dep_group = "requirements-bzl-demo",
+    dep_group = "requirements_bzl_demo",
     main = "__whl_test__.py",
     python_version = "3.12",
 )
@@ -115,7 +115,7 @@ py_test(
 py_test(
     name = "multi_package_imports_test",
     srcs = ["__multi_test__.py"],
-    dep_group = "requirements-bzl-demo",
+    dep_group = "requirements_bzl_demo",
     main = "__multi_test__.py",
     python_version = "3.12",
     deps = single_group_deps(),
@@ -127,7 +127,7 @@ py_test(
 py_test(
     name = "empty_group_test",
     srcs = ["__empty_test__.py"],
-    dep_group = "requirements-bzl-empty",
+    dep_group = "requirements_bzl_empty",
     main = "__empty_test__.py",
     python_version = "3.12",
     deps = multi_group_deps(),
@@ -139,7 +139,7 @@ py_test(
 py_test(
     name = "group_deps_demo_test",
     srcs = ["__multi_test__.py"],
-    dep_group = "requirements-bzl-demo",
+    dep_group = "requirements_bzl_demo",
     main = "__multi_test__.py",
     python_version = "3.12",
     deps = multi_group_deps(),
@@ -151,7 +151,7 @@ py_test(
 py_test(
     name = "group_deps_for_demo_test",
     srcs = ["__multi_test__.py"],
-    dep_group = "requirements-bzl-demo",
+    dep_group = "requirements_bzl_demo",
     main = "__multi_test__.py",
     python_version = "3.12",
     deps = _EXPLICIT_DEMO_DEPS,
@@ -162,7 +162,7 @@ py_test(
 py_test(
     name = "group_deps_group_b_test",
     srcs = ["__group_b_test__.py"],
-    dep_group = "requirements-bzl-group-b",
+    dep_group = "requirements_bzl_group_b",
     main = "__group_b_test__.py",
     python_version = "3.12",
     deps = multi_group_deps(),
@@ -174,7 +174,7 @@ py_test(
 py_test(
     name = "requirement_normalization_test",
     srcs = ["__dateutil_test__.py"],
-    dep_group = "requirements-bzl-demo",
+    dep_group = "requirements_bzl_demo",
     main = "__dateutil_test__.py",
     python_version = "3.12",
     deps = [requirement("Python-DateUtil")],

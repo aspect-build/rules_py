@@ -1,0 +1,13 @@
+[project]
+name = "synth-default-848"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    "pytest",
+]
+
+# Deliberately NO [dependency-groups] table — exercises the extension's
+# synthesis fallback, which produces a single group named "default" from
+# the project's lock manifest. With the dep_group flag's `build_setting_default`
+# also set to "default", this project should resolve labels with no
+# explicit `dep_group=` attribute and no .bazelrc entry.

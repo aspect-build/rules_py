@@ -1,35 +1,55 @@
-VIRTUALENVS = [
-    "dev",
-    "unit-tests",
+DEP_GROUPS = [
     "beta",
+    "dev",
     "gamma",
+    "unit-tests",
 ]
+PROJECTS_BY_GROUP = {
+    "dev": [
+        "alpha",
+    ],
+    "unit-tests": [
+        "alpha",
+    ],
+    "beta": [
+        "beta",
+    ],
+    "gamma": [
+        "gamma",
+    ],
+}
+_repo = "aspect_rules_py++uv+pypi_multi"
 
-def compatible_with(venvs, extra_constraints = []):
-    for v in venvs:
-        if v not in VIRTUALENVS:
-            fail("Errant virtualenv reference %r" % v)
+def compatible_with(groups, extra_constraints = []):
+    for g in groups:
+        if g not in PROJECTS_BY_GROUP:
+            fail("Errant dep_group reference %r — known groups: %r" % (g, DEP_GROUPS))
 
-    return {
-        Label("//dep_group:" + it): extra_constraints
-        for it in venvs
-    } | {
-        "//conditions:default": ["@platforms//:incompatible"],
-    }
+    result = {}
+    for grp in groups:
+        for stamp in PROJECTS_BY_GROUP[grp]:
+            result[Label("//dep_group:" + stamp + "__" + grp)] = extra_constraints
+    result["//conditions:default"] = ["@platforms//:incompatible"]
+    return result
 
-def incompatible_with(venvs, extra_constraints = []):
-    for v in venvs:
-        if v not in VIRTUALENVS:
-            fail("Errant virtualenv reference %r" % v)
+def incompatible_with(groups, extra_constraints = []):
+    for g in groups:
+        if g not in PROJECTS_BY_GROUP:
+            fail("Errant dep_group reference %r — known groups: %r" % (g, DEP_GROUPS))
 
-    return {
-        Label("//dep_group:" + it): ["@platforms//:incompatible"]
-        for it in venvs
-    } | {
-        "//conditions:default": extra_constraints,
-    }
+    result = {}
+    for grp in groups:
+        for stamp in PROJECTS_BY_GROUP[grp]:
+            result[Label("//dep_group:" + stamp + "__" + grp)] = ["@platforms//:incompatible"]
+    result["//conditions:default"] = extra_constraints
+    return result
 
 _DEPS_BY_GROUP = {
+    "": [
+        "@@aspect_rules_py++uv+pypi_multi//beta:pkg",
+        "@@aspect_rules_py++uv+pypi_multi//cowsay:pkg",
+        "@@aspect_rules_py++uv+pypi_multi//gamma:pkg",
+    ],
     "beta": [
         "@@aspect_rules_py++uv+pypi_multi//beta:pkg",
         "@@aspect_rules_py++uv+pypi_multi//cowsay:pkg",
@@ -51,10 +71,41 @@ _GROUP_DEP_LABELS = {
     for group, deps in _DEPS_BY_GROUP.items()
 }
 
+_GROUP_DEPS_RAW = {
+    "//dep_group:alpha__dev": [
+        "@@aspect_rules_py++uv+pypi_multi//cowsay:pkg",
+    ],
+    "//dep_group:alpha__q__dev": [
+        "@@aspect_rules_py++uv+pypi_multi//cowsay:pkg",
+    ],
+    "//dep_group:alpha__unit-tests": [
+        "@@aspect_rules_py++uv+pypi_multi//cowsay:pkg",
+    ],
+    "//dep_group:alpha__q__unit-tests": [
+        "@@aspect_rules_py++uv+pypi_multi//cowsay:pkg",
+    ],
+    "//dep_group:beta__": [
+        "@@aspect_rules_py++uv+pypi_multi//beta:pkg",
+        "@@aspect_rules_py++uv+pypi_multi//cowsay:pkg",
+    ],
+    "//dep_group:beta__beta": [
+        "@@aspect_rules_py++uv+pypi_multi//beta:pkg",
+        "@@aspect_rules_py++uv+pypi_multi//cowsay:pkg",
+    ],
+    "//dep_group:gamma__": [
+        "@@aspect_rules_py++uv+pypi_multi//cowsay:pkg",
+        "@@aspect_rules_py++uv+pypi_multi//gamma:pkg",
+    ],
+    "//dep_group:gamma__gamma": [
+        "@@aspect_rules_py++uv+pypi_multi//cowsay:pkg",
+        "@@aspect_rules_py++uv+pypi_multi//gamma:pkg",
+    ],
+}
+
 _GROUP_DEPS = select(
     {
-        Label("//dep_group:" + group): deps
-        for group, deps in _GROUP_DEP_LABELS.items()
+        Label(cfg): [Label(dep) for dep in deps]
+        for cfg, deps in _GROUP_DEPS_RAW.items()
     },
     no_match_error = "no dep_group selected; set the dep_group attribute on the consuming target to one of: beta, dev, gamma, unit-tests",
 )

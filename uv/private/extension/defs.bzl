@@ -118,6 +118,74 @@ def parse_declared_console_script(name, entry_point):
     parsed = parse_console_script("{}={}".format(name, entry_point))
     return parsed[1] if parsed != None else None
 
+def _activate_default_build_deps(
+        projectfile,
+        lock_id,
+        default_versions,
+        package_versions,
+        marker_graph,
+        configuration_names,
+        activated_extras,
+        default_build_dependencies):
+    """Activates `default_build_dependencies` into every cfg of the project.
+
+    `uv.project(default_build_dependencies = ["build", "setuptools"])`
+    declares the build-system tools used by sdist builds. Each sdist build
+    references `@<project_id>//:setuptools` (and friends) to resolve those
+    tools, but the names are build-system-only — no `[dependency-group]`'s
+    runtime activation reaches them through normal graph traversal. We BFS
+    out from the build deps along the marker graph and seed every cfg in
+    `activated_extras` so the project repo emits the surface aliases.
+
+    Gated by the caller to projects WITHOUT explicit `[dependency-groups]`:
+    those projects own their build-tool version pinning (often via
+    `[tool.uv.conflicts]`) and a forced extra activation can conflict with
+    a per-group pin.
+
+    Mutates `activated_extras` in place.
+    """
+    starting_points = []
+    for req in default_build_dependencies:
+        # Coarse name extraction matching extract_requirement_marker_pairs:
+        # strip at the first non-name char. Used only to pre-skip reqs
+        # missing from the lockfile (which would cause extract to fail).
+        bare_name = req
+        for sep in [";", "[", ">", "<", "=", "!", "~", " ", "@"]:
+            idx = bare_name.find(sep)
+            if idx >= 0:
+                bare_name = bare_name[:idx]
+        bare_name = normalize_name(bare_name.strip())
+        if bare_name not in default_versions and bare_name not in package_versions:
+            continue
+        for it, _marker in extract_requirement_marker_pairs(projectfile, lock_id, req, default_versions, package_versions):
+            starting_points.append(it)
+
+    # Activate starting points unconditionally (they are the declared build tools).
+    # Transitive deps keep their conditional markers from the marker_graph edges —
+    # marking them unconditional would incorrectly activate platform-only packages
+    # (e.g. colorama on Windows) in all configurations.
+    visited = {}
+    for sp in starting_points:
+        visited[sp] = 1
+        base = (sp[0], sp[1], sp[2], "__base__")
+        for cfg in configuration_names.keys():
+            activated_extras.setdefault(base, {}).setdefault(cfg, {}).setdefault(sp, {}).update({"": 1})
+
+    worklist = list(starting_points)
+    bfs_idx = 0
+    for _ in range(1000000):
+        if bfs_idx == len(worklist):
+            break
+        it = worklist[bfs_idx]
+        bfs_idx += 1
+        for next_dep, markers in marker_graph.get(it, {}).items():
+            next_base = (next_dep[0], next_dep[1], next_dep[2], "__base__")
+            for cfg in configuration_names.keys():
+                activated_extras.setdefault(next_base, {}).setdefault(cfg, {}).setdefault(next_dep, {}).update(markers)
+            if next_dep not in visited:
+                visited[next_dep] = 1
+                worklist.append(next_dep)
+
 def _merge_scc_dep_markers_by_surface_package(marked_deps):
     merged = {}
     for dep, markers in marked_deps.items():
@@ -210,10 +278,8 @@ def _parse_projects(module_ctx, hub_specs):
             project_data = toml.decode_file(module_ctx, project.pyproject)
             lock_data = toml.decode_file(module_ctx, project.lock)
 
-            # This SHOULD be stable enough.
-            # We'll rebuild the lock hub whenever the toml changes.
-            # Reusing the name is fine.
-            # project_stamp = sha1(str(project.pyproject))[:16]
+            # PEP 503 normalized [project].name. User-facing token in
+            # `@<hub>//project/<stamp>:<pkg>` and `dep_group=project/<stamp>`.
             project_stamp = normalize_name(project_data["project"]["name"])
             project_id = "project__" + project_stamp
 
@@ -343,7 +409,7 @@ def _parse_projects(module_ctx, hub_specs):
                         print("Overriding {}@{} in {} with {}".format(override.name, v, project_name, override.target))
                     install_table[k] = str(override.target)
 
-            # Lazily evaluated cache
+            # Lazily evaluated cache — populated on first sdist encounter.
             lock_build_deps = None
 
             marker_graph = build_marker_graph(project_id, lock_data)
@@ -361,6 +427,19 @@ def _parse_projects(module_ctx, hub_specs):
             whl_configurations.update(collect_configurations(lock_data))
 
             configuration_names, activated_extras = collect_activated_extras(project.lock, project_id, project_data, lock_data, default_versions, marker_graph, package_versions)
+
+            if "dependency-groups" not in project_data and project.default_build_dependencies:
+                _activate_default_build_deps(
+                    projectfile = project.lock,
+                    lock_id = project_id,
+                    default_versions = default_versions,
+                    package_versions = package_versions,
+                    marker_graph = marker_graph,
+                    configuration_names = configuration_names,
+                    activated_extras = activated_extras,
+                    default_build_dependencies = project.default_build_dependencies,
+                )
+
             version_activations = collate_versions_by_name(activated_extras)
 
             # Mapping from SCC ID to marked SCC members
@@ -494,6 +573,19 @@ def _parse_projects(module_ctx, hub_specs):
                             for it in extract_requirement_marker_pairs(project.lock, project_id, req, default_versions, package_versions, fail_if_missing = sbuild_required)
                         ]
 
+                        # For projects with explicit [dependency-groups], build
+                        # tools are only in dep_to_scc if declared inside a
+                        # group. Filter out any that aren't — referencing a
+                        # missing alias would fail at analysis time.
+                        # package_cfg_sccs is keyed by dep_id tuples, so we
+                        # check the full tuple (not just the name string).
+                        if "dependency-groups" in project_data:
+                            lock_build_deps = [
+                                dep_id
+                                for dep_id in lock_build_deps
+                                if dep_id in package_cfg_sccs
+                            ]
+
                     build_deps = sets.to_list(sets.make(build_deps + lock_build_deps))
 
                     # Look up pre-build patches for this package
@@ -601,6 +693,7 @@ def _parse_projects(module_ctx, hub_specs):
             #
             # FIXME: Can we make a re-keying helper?
             project_cfgs[project_id] = struct(
+                stamp = project_stamp,
                 dep_to_scc = marked_package_cfg_sccs,
                 scc_deps = {
                     k: {
@@ -623,24 +716,68 @@ def _parse_projects(module_ctx, hub_specs):
             )
 
             hub_cfg = hub_cfgs.setdefault(project.hub_name, struct(
-                configurations = {},
-                packages = {},
+                # {project_id: {"stamp": ..., "groups": [...], "packages": {pkg: {group: [version, ...]}}}}
+                projects = {},
+                # {package: [project_id, ...]} — drives version-cluster dedup
+                # of the unqualified hub label.
+                package_owners = {},
             ))
 
-            for cfg in configuration_names.keys():
-                if cfg in hub_cfg.configurations:
-                    fail("Conflict on configuration name {} in hub {}".format(cfg, project.hub_name))
+            if project_id in hub_cfg.projects:
+                fail("Project {} declared more than once in hub {}".format(project_id, project.hub_name))
 
-            # Build a mapping from configurations to the project containing that configuration
-            hub_cfg.configurations.update({
-                name: project_id
-                for name in configuration_names.keys()
-            })
+            # {pkg: {group: sorted_unique_versions}}. Drives the unqualified
+            # hub label's version-equality dedup.
+            project_packages = {}
 
-            # Build a {requirement: {cfg: target mapping}}
+            # `dep_id` tuples are (lock_id, name, version, marker_tag). A
+            # package may be activated under multiple markers in one group;
+            # we project to the version field and dedupe.
+            _DEP_ID_VERSION = 2
+
             for package, cfgs in version_activations.items():
-                for cfg in cfgs.keys():
-                    hub_cfg.packages.setdefault(package, {})[cfg] = "@{}//:{}".format(project_id, package)
+                # dict-keys for set semantics (no set comprehension in Starlark).
+                project_packages[package] = {
+                    group: sorted({dep_id[_DEP_ID_VERSION]: True for dep_id in dep_ids.keys()}.keys())
+                    for group, dep_ids in cfgs.items()
+                }
+                owners = hub_cfg.package_owners.setdefault(package, [])
+                if project_id not in owners:
+                    owners.append(project_id)
+
+            hub_cfg.projects[project_id] = struct(
+                stamp = project_stamp,
+                groups = list(configuration_names.keys()),
+                packages = project_packages,
+            )
+
+    # Collision check: a project's stamp shares the global flag-value
+    # namespace with every group name in the hub. If a different project
+    # in the same hub declares a group named identically to project P's
+    # stamp, `dep_group=<stamp>` simultaneously activates P's synthesized
+    # alias AND the other project's group — same broad semantics, but the
+    # mental model breaks. Both namespaces are user-controlled and
+    # locally adjustable, so we fail loudly and let the user rename one.
+    for hub_id, hub_cfg in hub_cfgs.items():
+        stamps_by_id = {pid: p.stamp for pid, p in hub_cfg.projects.items()}
+        for pid, p in hub_cfg.projects.items():
+            for grp in p.groups:
+                for other_pid, other_stamp in stamps_by_id.items():
+                    if other_pid == pid:
+                        continue
+                    if grp == other_stamp:
+                        fail((
+                            "In hub '{hub}': project '{pid}' declares dep_group " +
+                            "'{grp}' which collides with project '{other}' (stamp " +
+                            "'{stamp}'). Both share the global dep_group flag-value " +
+                            "namespace. Rename either the dep_group or the project."
+                        ).format(
+                            hub = hub_id,
+                            pid = pid,
+                            grp = grp,
+                            other = other_pid,
+                            stamp = other_stamp,
+                        ))
 
     return struct(
         project_cfgs = project_cfgs,
@@ -783,16 +920,28 @@ def _uv_impl(module_ctx):
     for project_id, project_cfg in cfg.project_cfgs.items():
         uv_project(
             name = project_id,
+            project_stamp = project_cfg.stamp,
             dep_to_scc = json.encode(project_cfg.dep_to_scc),
             scc_deps = json.encode(project_cfg.scc_deps),
             scc_graph = json.encode(project_cfg.scc_graph),
         )
 
     for hub_id, hub_cfg in cfg.hub_cfgs.items():
+        # Repository rules can't take nested string_dicts; flatten to JSON.
+        # Struct fields are pulled into plain dicts since json.encode
+        # doesn't traverse structs.
+        projects_json = {
+            project_id: {
+                "stamp": p.stamp,
+                "groups": p.groups,
+                "packages": p.packages,
+            }
+            for project_id, p in hub_cfg.projects.items()
+        }
         uv_hub(
             name = hub_id,
-            configurations = hub_cfg.configurations,
-            packages = json.encode(hub_cfg.packages),
+            projects = json.encode(projects_json),
+            package_owners = json.encode(hub_cfg.package_owners),
         )
 
     if not features.external_deps.extension_metadata_has_reproducible:

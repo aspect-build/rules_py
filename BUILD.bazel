@@ -27,7 +27,7 @@ gazelle_python_manifest(
     name = "gazelle_python_manifest",
     hub = "pypi",
     venvs = [
-        "aspect_rules_py",
+        "",
     ],
 )
 
