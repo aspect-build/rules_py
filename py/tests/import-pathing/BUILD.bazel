@@ -1,9 +1,11 @@
-load("@rules_python//python:defs.bzl", "py_library")
+load("//py:defs.bzl", "py_library")
 load(":tests.bzl", "py_library_import_pathing_test_suite")
 
-# This is used in the py_library import pathing tests
+# Used by the import-pathing tests to verify a dep's `imports` merge
+# transitively. A rules_py py_library: rules_py reads import roots only from its
+# own PyInfo, so transitive-imports coverage uses a rules_py dep.
 py_library(
-    name = "__native_rule_import_list_for_test",
+    name = "__import_list_for_test",
     imports = ["baz"],
     tags = ["manual"],
 )

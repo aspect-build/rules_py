@@ -75,6 +75,7 @@ bzl_library(
         ":transitions",
         "@bazel_skylib//lib:new_sets",
         "@bazel_skylib//lib:types",
+        "@rules_python//python:defs_bzl",
     ],
 )
 

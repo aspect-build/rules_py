@@ -6,6 +6,11 @@ without binding them to a particular version of that package.
 
 load("@bazel_skylib//lib:new_sets.bzl", "sets")
 load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+
+# rules_python's PyInfo, referenced ONLY in the `deps` provider constraint so
+# native `@rules_python` targets are still accepted as deps. rules_py emits and
+# reads its own PyInfo (py_info.bzl).
+load("@rules_python//python:defs.bzl", RulesPythonPyInfo = "PyInfo")
 load("//py/private:providers.bzl", "PyVirtualInfo", "PyWheelsInfo")
 load("//py/private:pth.bzl", "make_imports_depset")
 load("//py/private:py_info.bzl", "PyInfo")
@@ -162,9 +167,6 @@ def _py_library_impl(ctx):
         PyInfo(
             imports = imports,
             transitive_sources = transitive_srcs,
-            has_py2_only_sources = False,
-            has_py3_only_sources = True,
-            uses_shared_libraries = False,
         ),
         PyVirtualInfo(
             dependencies = virtuals,
@@ -183,7 +185,7 @@ _attrs = dict({
     ),
     "deps": attr.label_list(
         doc = "Targets that produce Python code, commonly `py_library` rules.",
-        providers = [[PyInfo], [PyVirtualInfo], [CcInfo]],
+        providers = [[PyInfo], [RulesPythonPyInfo], [PyVirtualInfo], [CcInfo]],
     ),
     "data": attr.label_list(
         doc = """Runtime dependencies of the program.
