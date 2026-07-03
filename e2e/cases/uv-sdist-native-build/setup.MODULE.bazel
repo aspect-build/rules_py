@@ -16,12 +16,12 @@ uv.project(
         "setuptools",
     ],
     hub_name = "pypi_uv_sdist_native_build",
-    lock = "//cases/uv-sdist-native-build:uv.lock",
-    pyproject = "//cases/uv-sdist-native-build:pyproject.toml",
+    lock = "//uv-sdist-native-build:uv.lock",
+    pyproject = "//uv-sdist-native-build:pyproject.toml",
 )
 uv.override_package(
     name = "python-geohash",
-    lock = "//cases/uv-sdist-native-build:uv.lock",
+    lock = "//uv-sdist-native-build:uv.lock",
     resource_set = "mem_4g",
 )
 

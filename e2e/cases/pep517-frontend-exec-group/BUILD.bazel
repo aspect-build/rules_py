@@ -5,7 +5,7 @@ load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load(":toolchain.bzl", "fake_cc_toolchain")
 
-_CC_TOOLCHAIN = "//cases/pep517-frontend-exec-group:cc_toolchain"
+_CC_TOOLCHAIN = "//pep517-frontend-exec-group:cc_toolchain"
 
 # Keep the host first so the default exec group selects it. The native wheel's
 # `target` exec group requires the transitioned target constraints and selects
@@ -20,7 +20,7 @@ platform(
     ],
     flags = [
         "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
-        "--extra_execution_platforms=@platforms//host,//cases/pep517-frontend-exec-group:linux_aarch64",
+        "--extra_execution_platforms=@platforms//host,//pep517-frontend-exec-group:linux_aarch64",
         "--extra_toolchains=" + _CC_TOOLCHAIN,
     ],
 )
@@ -33,7 +33,7 @@ platform(
     ],
     flags = [
         "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
-        "--extra_execution_platforms=@platforms//host,//cases/pep517-frontend-exec-group:linux_x86_64",
+        "--extra_execution_platforms=@platforms//host,//pep517-frontend-exec-group:linux_x86_64",
         "--extra_toolchains=" + _CC_TOOLCHAIN,
     ],
 )

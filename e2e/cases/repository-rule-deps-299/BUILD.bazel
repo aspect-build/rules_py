@@ -8,8 +8,8 @@ all_modules = [
 ]
 
 always_deps = [
-    "//cases/repository-rule-deps-299/direct/directmod",
-    "//cases/repository-rule-deps-299/toplevel",
+    "//repository-rule-deps-299/direct/directmod",
+    "//repository-rule-deps-299/toplevel",
 ]
 
 py_test(
@@ -28,7 +28,7 @@ py_test(
     args = all_modules,
     main = "test.py",
     deps = always_deps + [
-        "//cases/repository-rule-deps-299/imported:subdir",
-        "//cases/repository-rule-deps-299/imported/flat",
+        "//repository-rule-deps-299/imported:subdir",
+        "//repository-rule-deps-299/imported/flat",
     ],
 )

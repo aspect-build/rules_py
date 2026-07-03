@@ -11,7 +11,7 @@
 # test runs) is the assertion. No runtime logic is needed.
 set -euo pipefail
 
-DIR="${TEST_SRCDIR}/_main/cases/uv-deps-650/crossbuild"
+DIR="${TEST_SRCDIR}/_main/uv-deps-650/crossbuild"
 
 # Confirm the arm64 layer tarballs were produced. The build of these targets
 # exercises whl_install with compile_pyc=True against an arm64 target platform

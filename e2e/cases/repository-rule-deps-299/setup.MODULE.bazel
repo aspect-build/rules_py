@@ -1,2 +1,2 @@
-importer = use_extension("//cases/repository-rule-deps-299/rules:import.bzl", "importer")
+importer = use_extension("//repository-rule-deps-299/rules:import.bzl", "importer")
 use_repo(importer, "myrepo")

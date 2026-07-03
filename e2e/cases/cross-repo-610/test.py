@@ -23,7 +23,7 @@ assert "_virtualenv" in sys.modules
 # (py_test uses `.<name>_venv/`, py_venv_test uses `.<name>/`), so
 # assert on the structural invariant rather than the specific name.
 _prefix_parent, _prefix_basename = os.path.split(sys.prefix.rstrip("/"))
-assert _prefix_parent.endswith("/cases/cross-repo-610"), sys.prefix
+assert _prefix_parent.endswith("/cross-repo-610"), sys.prefix
 assert _prefix_basename.startswith("."), sys.prefix
 
 # That prefix should also be "the" prefix per site.PREFIXES

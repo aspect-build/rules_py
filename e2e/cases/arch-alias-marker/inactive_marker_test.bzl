@@ -4,7 +4,7 @@ load("@aspect_rules_py//py:defs.bzl", "PyInfo")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 
 _CONFIG_SETTINGS = {
-    "//command_line_option:platforms": str(Label("//cases/arch-alias-marker:inactive_linux_x86_64")),
+    "//command_line_option:platforms": str(Label("//arch-alias-marker:inactive_linux_x86_64")),
     str(Label("@aspect_rules_py//uv/private/constraints/dep_group:dep_group")): "arch_alias_marker",
 }
 

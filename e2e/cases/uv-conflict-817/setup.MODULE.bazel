@@ -2,7 +2,7 @@ uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_uv_conflict_817")
 uv.project(
     hub_name = "pypi_uv_conflict_817",
-    lock = "//cases/uv-conflict-817:uv.lock",
-    pyproject = "//cases/uv-conflict-817:pyproject.toml",
+    lock = "//uv-conflict-817:uv.lock",
+    pyproject = "//uv-conflict-817:pyproject.toml",
 )
 use_repo(uv, "pypi_uv_conflict_817")

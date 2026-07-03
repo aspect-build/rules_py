@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DIR="$(cd "$TEST_SRCDIR/_main/cases/uv-console-script-binary" && pwd)"
+DIR="$(cd "$TEST_SRCDIR/_main/uv-console-script-binary" && pwd)"
 DEFAULT_BIN="${DIR}/whoowns"
 EXPLICIT_BIN="${DIR}/whoowns_explicit"
 MKDOCS_BIN="${DIR}/mkdocs"

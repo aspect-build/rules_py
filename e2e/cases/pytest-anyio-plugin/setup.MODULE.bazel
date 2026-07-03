@@ -4,7 +4,7 @@ uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_pytest_anyio_plugin")
 uv.project(
     hub_name = "pypi_pytest_anyio_plugin",
-    lock = "//cases/pytest-anyio-plugin:uv.lock",
-    pyproject = "//cases/pytest-anyio-plugin:pyproject.toml",
+    lock = "//pytest-anyio-plugin:uv.lock",
+    pyproject = "//pytest-anyio-plugin:pyproject.toml",
 )
 use_repo(uv, "pypi_pytest_anyio_plugin")

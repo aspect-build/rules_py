@@ -2,13 +2,13 @@ uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_uv_patched_topology_change")
 uv.project(
     hub_name = "pypi_uv_patched_topology_change",
-    lock = "//cases/uv-patched-topology-change:uv.lock",
-    pyproject = "//cases/uv-patched-topology-change:pyproject.toml",
+    lock = "//uv-patched-topology-change:uv.lock",
+    pyproject = "//uv-patched-topology-change:pyproject.toml",
 )
 uv.override_package(
     name = "zope-event",
-    lock = "//cases/uv-patched-topology-change:uv.lock",
+    lock = "//uv-patched-topology-change:uv.lock",
     post_install_patch_strip = 1,
-    post_install_patches = ["//cases/uv-patched-topology-change:add_init.patch"],
+    post_install_patches = ["//uv-patched-topology-change:add_init.patch"],
 )
 use_repo(uv, "pypi_uv_patched_topology_change")

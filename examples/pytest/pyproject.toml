@@ -1,0 +1,10 @@
+[project]
+name = "pytest-example"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    "pytest",
+    "coverage",
+    "ftfy==6.2.0",
+    "neptune==1.10.2",
+]

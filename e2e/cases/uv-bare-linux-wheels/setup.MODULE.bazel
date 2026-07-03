@@ -4,8 +4,8 @@ uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi-bare-linux-wheels")
 uv.project(
     hub_name = "pypi-bare-linux-wheels",
-    lock = "//cases/uv-bare-linux-wheels:uv.lock",
-    pyproject = "//cases/uv-bare-linux-wheels:pyproject.toml",
+    lock = "//uv-bare-linux-wheels:uv.lock",
+    pyproject = "//uv-bare-linux-wheels:pyproject.toml",
 )
 use_repo(uv, "pypi-bare-linux-wheels")
 

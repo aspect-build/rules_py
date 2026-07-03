@@ -1,2 +1,2 @@
-# Marks cases/oci as a package so e2e/MODULE.bazel can include() its
-# oci.MODULE.bazel fragment.
+# Marks this dir as a package so the workspace MODULE.bazel can include() its
+# setup.MODULE.bazel fragment.

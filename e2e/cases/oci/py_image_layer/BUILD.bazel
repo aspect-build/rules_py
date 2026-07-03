@@ -39,7 +39,7 @@ py_binary(
     srcs = ["__main__.py"],
     dep_group = "images",
     deps = [
-        "//cases/oci/py_image_layer/branding",
+        "//oci/py_image_layer/branding",
         "//tools/verify_venv",
         "@aspect_rules_py//py/tests/internal-deps/adder",
         "@pypi_oci_py_image_layer//colorama",
@@ -63,7 +63,7 @@ py_test(
     dep_group = "images",
     main = "__main__.py",
     deps = [
-        "//cases/oci/py_image_layer/branding",
+        "//oci/py_image_layer/branding",
         "//tools/verify_venv",
         "@aspect_rules_py//py/tests/internal-deps/adder",
         "@pypi_oci_py_image_layer//colorama",
@@ -71,7 +71,7 @@ py_test(
 )
 
 # Tier wired into :my_app_layers_fp that exercises every grouping path:
-#   - //cases/oci/py_image_layer/branding (first-party py_library, incl. `data`) → "branding"
+#   - //oci/py_image_layer/branding (first-party py_library, incl. `data`) → "branding"
 #   - @pip//colorama (third-party pip package)                                   → "colorama" rest
 #   - @pip//colorama:**/*.py                                                     → "colorama_code"
 #   - Python interpreter (pulled from py3 toolchain)                             → "interpreter"
@@ -87,7 +87,7 @@ py_layer_tier(
         ],
     },
     groups = {
-        "//cases/oci/py_image_layer/branding": "branding",
+        "//oci/py_image_layer/branding": "branding",
         "@pip//colorama": "colorama",
         "@pip//colorama:**/*.py": "colorama_code",
     },
@@ -190,7 +190,7 @@ platform_transition_filegroup(
 )
 
 # To build the image and load it into it into a local runtime:
-# $ bazel run //cases/oci/py_image_layer:image_load
+# $ bazel run //oci/py_image_layer:image_load
 # $ docker run --rm gcr.io/oci_python_hello_world:latest
 oci_load(
     name = "image_load",

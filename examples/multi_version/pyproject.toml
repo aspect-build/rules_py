@@ -1,0 +1,8 @@
+[project]
+name = "multi-version-example"
+version = "0.0.0"
+requires-python = ">=3.9"
+dependencies = [
+    "cowsay",
+    "pytest",
+]

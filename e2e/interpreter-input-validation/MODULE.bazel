@@ -1,0 +1,9 @@
+module(name = "interpreter_input_validation")
+
+bazel_dep(name = "aspect_rules_py")
+bazel_dep(name = "bazel_skylib", version = "1.4.2")
+
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../..",
+)

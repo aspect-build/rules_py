@@ -2,7 +2,7 @@ uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_inactive_marker")
 uv.project(
     hub_name = "pypi_inactive_marker",
-    lock = "//cases/inactive-marker:uv.lock",
-    pyproject = "//cases/inactive-marker:pyproject.toml",
+    lock = "//inactive-marker:uv.lock",
+    pyproject = "//inactive-marker:pyproject.toml",
 )
 use_repo(uv, "pypi_inactive_marker")

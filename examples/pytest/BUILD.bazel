@@ -4,7 +4,7 @@ load("@rules_shell//shell:sh_test.bzl", "sh_test")
 py_library(
     name = "lib",
     srcs = ["foo.py"],
-    imports = ["../.."],
+    imports = ["."],
 )
 
 py_test(
@@ -17,7 +17,7 @@ py_test(
     exec_properties = {
         "test.foo": "bar",
     },
-    imports = ["../.."],
+    imports = ["."],
     package_collisions = "warning",
     pytest_main = True,
     deps = [
@@ -33,7 +33,7 @@ py_test(
     # NB: name contains a slash as regression test for #483
     name = "sharded/test",
     srcs = ["sharding_test.py"],
-    imports = ["../.."],
+    imports = ["."],
     package_collisions = "warning",
     pytest_main = True,
     shard_count = 2,
@@ -46,7 +46,7 @@ py_test(
         "__init__.py",
         "main_test.py",
     ],
-    main = "//examples/pytest:main_test.py",
+    main = "//:main_test.py",
 )
 
 py_test(
@@ -64,13 +64,13 @@ py_test(
 # pointing at the requested directory. chdir_test.py then verifies
 # that a relative open("hello.json") resolves without needing an
 # absolute runfiles path.
-# After chdir into examples/pytest/fixtures/, pytest can't auto-discover
+# After chdir into fixtures/, pytest can't auto-discover
 # the test file (chdir_test.py lives one level up). Pass a path that
 # resolves from the post-chdir cwd so pytest collects the intended test.
 py_pytest_main(
     name = "chdir_main",
     args = ["../chdir_test.py"],
-    chdir = "examples/pytest/fixtures",
+    chdir = "fixtures",
 )
 
 py_test(
@@ -100,7 +100,7 @@ py_test(
         ":test_naming_723_main",
     ],
     data = glob(["fixtures/*.json"]),
-    imports = ["../.."],
+    imports = ["."],
     main = ":__test__test_naming_723_main__.py",
     package_collisions = "warning",
     deps = [
@@ -131,7 +131,7 @@ genrule(
     # The path format here is what bazel itself would write into
     # COVERAGE_MANIFEST for an instrumented py_test — runfiles-relative
     # paths, one per line.
-    cmd = "echo 'examples/pytest/foo.py' > $@",
+    cmd = "echo 'foo.py' > $@",
 )
 
 py_test(
@@ -147,7 +147,7 @@ py_test(
         # set by Bazel's test runner and collected as outputs).
         "COVERAGE_OUTPUT_FILE": "coverage_setup_test.lcov",
     },
-    imports = ["../.."],
+    imports = ["."],
     package_collisions = "warning",
     pytest_main = True,
     # Mark manual so `bazel test //...` doesn't double-run this; the

@@ -5,7 +5,7 @@ load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 
 _PYTHON_VERSION_FLAG = str(Label("@aspect_rules_py//py/private/interpreter:python_version"))
 _RULES_PYTHON_VERSION_FLAG = str(Label("@rules_python//python/config_settings:python_version"))
-_TARGET_PLATFORM = str(Label("//cases/uv-plus-version:linux_x86_64"))
+_TARGET_PLATFORM = str(Label("//uv-plus-version:linux_x86_64"))
 
 def _wheel_metadata_test_impl(ctx):
     env = analysistest.begin(ctx)

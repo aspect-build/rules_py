@@ -8,8 +8,8 @@ uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_uv_console_script_extras")
 uv.project(
     hub_name = "pypi_uv_console_script_extras",
-    lock = "//cases/uv-console-script-extras:uv.lock",
-    pyproject = "//cases/uv-console-script-extras:pyproject.toml",
+    lock = "//uv-console-script-extras:uv.lock",
+    pyproject = "//uv-console-script-extras:pyproject.toml",
 )
 use_repo(uv, "pypi_uv_console_script_extras")
 

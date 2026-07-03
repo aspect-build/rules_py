@@ -1,0 +1,31 @@
+"Multiple Python versions example"
+
+bazel_dep(name = "aspect_rules_py")
+bazel_dep(name = "rules_python", version = "1.9.0")
+
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../..",
+)
+
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+
+# Default toolchain (targets without an explicit python_version resolve here).
+python.toolchain(
+    is_default = True,
+    python_version = "3.9",
+)
+
+# A second registered version, selectable via `python_version = "3.12"`.
+python.toolchain(
+    python_version = "3.12",
+)
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi")
+uv.project(
+    hub_name = "pypi",
+    lock = "//:uv.lock",
+    pyproject = "//:pyproject.toml",
+)
+use_repo(uv, "pypi")
