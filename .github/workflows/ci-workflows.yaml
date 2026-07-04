@@ -75,10 +75,6 @@ jobs:
                 if [ -f test.sh ]; then
                     bash test.sh
                 fi
-    # Aggregate gate: a single stable required status check that succeeds only
-    # when every `test` matrix job succeeds. Depend on this in branch protection
-    # instead of the per-workspace `test (...)` contexts, which change whenever
-    # the matrix above is edited.
     test-all:
         name: test-all
         runs-on: ubuntu-latest
