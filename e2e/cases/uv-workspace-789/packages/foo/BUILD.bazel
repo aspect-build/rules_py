@@ -6,6 +6,6 @@ py_library(
     imports = ["src"],
     visibility = ["//visibility:public"],
     deps = [
-        "//cases/uv-workspace-789/packages/pi",
+        "//uv-workspace-789/packages/pi",
     ],
 )

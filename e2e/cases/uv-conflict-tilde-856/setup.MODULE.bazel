@@ -2,7 +2,7 @@ uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_uv_conflict_tilde_856")
 uv.project(
     hub_name = "pypi_uv_conflict_tilde_856",
-    lock = "//cases/uv-conflict-tilde-856:uv.lock",
-    pyproject = "//cases/uv-conflict-tilde-856:pyproject.toml",
+    lock = "//uv-conflict-tilde-856:uv.lock",
+    pyproject = "//uv-conflict-tilde-856:pyproject.toml",
 )
 use_repo(uv, "pypi_uv_conflict_tilde_856")

@@ -1,5 +1,5 @@
 # Umbrella project for the per-case regression tests under
-# //cases/uv-pyproject-cases/<name>/. Each pinned dep below is a
+# //uv-pyproject-cases/<name>/. Each pinned dep below is a
 # regression fixture; see the case's BUILD.bazel for what shape it
 # covers, what fails without the in-tree fix, and why the version
 # pin is load-bearing.
@@ -11,8 +11,8 @@ dependencies = [
     "build",
     "setuptools",
     "wheel",
-    "cdifflib==1.2.9",        # //cases/uv-pyproject-cases/cdifflib
-    "pyahocorasick==2.2.0",   # //cases/uv-pyproject-cases/pyahocorasick
+    "cdifflib==1.2.9",        # //uv-pyproject-cases/cdifflib
+    "pyahocorasick==2.2.0",   # //uv-pyproject-cases/pyahocorasick
 ]
 
 [tool.uv]

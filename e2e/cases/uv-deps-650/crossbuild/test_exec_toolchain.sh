@@ -12,7 +12,7 @@
 # amd64 (host) binary.
 set -euo pipefail
 
-DIR="${TEST_SRCDIR}/_main/cases/uv-deps-650/crossbuild"
+DIR="${TEST_SRCDIR}/_main/uv-deps-650/crossbuild"
 
 native_path_file="$DIR/unpack_path.txt"
 arm64_path_file="$DIR/unpack_path_for_arm64.txt"

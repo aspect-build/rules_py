@@ -7,7 +7,7 @@ class WhlInstallShapeTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         r = runfiles.Create()
-        path = r.Rlocation("_main/cases/uv-no-sdist-754/pywin32_targets")
+        path = r.Rlocation("_main/uv-no-sdist-754/pywin32_targets")
         with open(path) as f:
             cls.targets = {line.strip() for line in f if line.strip()}
 

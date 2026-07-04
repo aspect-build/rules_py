@@ -5,10 +5,10 @@
 # `manual`-tagged). Run from the e2e workspace root; override bazel with $BAZEL.
 set -uo pipefail
 
-cd "$(dirname "$0")/../.."  # e2e workspace root
+cd "$(dirname "$0")/.."  # e2e/cases workspace root
 
 BAZEL="${BAZEL:-bazel}"
-PKG="//cases/patch-failure"
+PKG="//patch-failure"
 # install_dir is in an output group — request it so the patch action runs.
 OG="--output_groups=install_dir"
 
@@ -37,7 +37,7 @@ if ! "$BAZEL" build "$OG" "${PKG}:offset_patch" >/dev/null 2>"$stderr_log"; then
     fail "expected build of ${PKG}:offset_patch to succeed"
 fi
 
-tree="$("$BAZEL" info bazel-bin 2>/dev/null)/cases/patch-failure/offset_patch.install"
+tree="$("$BAZEL" info bazel-bin 2>/dev/null)/patch-failure/offset_patch.install"
 if [ -n "$(find "$tree" -name '*.orig' -print)" ]; then
     fail "patch left .orig backups behind in ${tree}"
 fi

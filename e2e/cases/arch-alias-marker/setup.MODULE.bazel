@@ -9,7 +9,7 @@ uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_arch_alias_marker")
 uv.project(
     hub_name = "pypi_arch_alias_marker",
-    lock = "//cases/arch-alias-marker:uv.lock",
-    pyproject = "//cases/arch-alias-marker:pyproject.toml",
+    lock = "//arch-alias-marker:uv.lock",
+    pyproject = "//arch-alias-marker:pyproject.toml",
 )
 use_repo(uv, "pypi_arch_alias_marker")

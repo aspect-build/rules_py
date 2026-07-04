@@ -27,7 +27,7 @@ myrepo = repository_rule(
 def _importer_impl(_):
     myrepo(
         name = "myrepo",
-        path = "cases/repository-rule-deps-299/imported",
+        path = "repository-rule-deps-299/imported",
     )
 
 importer = module_extension(

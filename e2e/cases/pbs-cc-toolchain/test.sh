@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-cd "$(dirname "$0")/../.."  # e2e workspace root
+cd "$(dirname "$0")/.."  # e2e/cases workspace root
 
 BAZEL="${BAZEL:-bazel}"
 
@@ -22,14 +22,14 @@ check_toolchain() {
         "--@rules_python//python/config_settings:python_version=${version}" \
         "--@aspect_rules_py//py/private/interpreter:freethreaded=${freethreaded}" \
         "${platform_flags[@]}" \
-        "--platforms=//cases/pbs-cc-toolchain:${platform}" \
+        "--platforms=//pbs-cc-toolchain:${platform}" \
         -- "$@"
 }
 
-check_toolchain 3.13 false linux_x86_64 //cases/pbs-cc-toolchain:regular_313
-check_toolchain 3.13 true linux_x86_64 //cases/pbs-cc-toolchain:freethreaded_313
-check_toolchain 3.13 false windows_x86_64 //cases/pbs-cc-toolchain:windows_regular_313
-check_toolchain 3.13 true windows_x86_64 //cases/pbs-cc-toolchain:windows_freethreaded_313
+check_toolchain 3.13 false linux_x86_64 //pbs-cc-toolchain:regular_313
+check_toolchain 3.13 true linux_x86_64 //pbs-cc-toolchain:freethreaded_313
+check_toolchain 3.13 false windows_x86_64 //pbs-cc-toolchain:windows_regular_313
+check_toolchain 3.13 true windows_x86_64 //pbs-cc-toolchain:windows_freethreaded_313
 
 host_flags=()
 if [[ "$(uname -s)" == "Linux" ]]; then

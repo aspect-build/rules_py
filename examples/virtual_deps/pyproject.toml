@@ -1,0 +1,11 @@
+[project]
+name = "virtual-deps-example"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    "cowsay",
+    "snakesay",
+    "pytest",
+    "build",
+    "setuptools",
+]

@@ -13,7 +13,7 @@ trap 'rm -f "$stderr_log"' EXIT
 
 if "$BAZEL" test \
     -- \
-    //cases/uv-patched-topology-change:consumer \
+    //uv-patched-topology-change:consumer \
     > /dev/null 2> "$stderr_log"; then
     echo "FAIL: expected the topology-changing wheel patch to fail" >&2
     exit 1

@@ -15,17 +15,17 @@ uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_multi")
 uv.project(
     hub_name = "pypi_multi",
-    lock = "//cases/multi-project-hub/alpha:uv.lock",
-    pyproject = "//cases/multi-project-hub/alpha:pyproject.toml",
+    lock = "//multi-project-hub/alpha:uv.lock",
+    pyproject = "//multi-project-hub/alpha:pyproject.toml",
 )
 uv.project(
     hub_name = "pypi_multi",
-    lock = "//cases/multi-project-hub/beta:uv.lock",
-    pyproject = "//cases/multi-project-hub/beta:pyproject.toml",
+    lock = "//multi-project-hub/beta:uv.lock",
+    pyproject = "//multi-project-hub/beta:pyproject.toml",
 )
 uv.project(
     hub_name = "pypi_multi",
-    lock = "//cases/multi-project-hub/gamma:uv.lock",
-    pyproject = "//cases/multi-project-hub/gamma:pyproject.toml",
+    lock = "//multi-project-hub/gamma:uv.lock",
+    pyproject = "//multi-project-hub/gamma:pyproject.toml",
 )
 use_repo(uv, "pypi_multi")

@@ -9,8 +9,8 @@ uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_azure_core_tracing")
 uv.project(
     hub_name = "pypi_azure_core_tracing",
-    lock = "//cases/azure-core-tracing-overlap:uv.lock",
-    pyproject = "//cases/azure-core-tracing-overlap:pyproject.toml",
+    lock = "//azure-core-tracing-overlap:uv.lock",
+    pyproject = "//azure-core-tracing-overlap:pyproject.toml",
 )
 use_repo(uv, "pypi_azure_core_tracing")
 

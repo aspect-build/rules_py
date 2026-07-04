@@ -1,0 +1,7 @@
+[project]
+name = "django-example"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    "django~=4.2.7",
+]

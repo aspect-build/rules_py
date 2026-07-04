@@ -5,7 +5,7 @@ uv.declare_hub(hub_name = "pypi_pth_namespace_547")
 uv.project(
     default_build_dependencies = [],
     hub_name = "pypi_pth_namespace_547",
-    lock = "//cases/pth-namespace-547:uv.lock",
-    pyproject = "//cases/pth-namespace-547:pyproject.toml",
+    lock = "//pth-namespace-547:uv.lock",
+    pyproject = "//pth-namespace-547:pyproject.toml",
 )
 use_repo(uv, "pypi_pth_namespace_547")

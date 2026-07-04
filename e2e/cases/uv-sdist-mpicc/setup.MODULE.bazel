@@ -10,7 +10,7 @@ uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_sdist_mpicc")
 uv.project(
     hub_name = "pypi_sdist_mpicc",
-    lock = "//cases/uv-sdist-mpicc:uv.lock",
-    pyproject = "//cases/uv-sdist-mpicc:pyproject.toml",
+    lock = "//uv-sdist-mpicc:uv.lock",
+    pyproject = "//uv-sdist-mpicc:pyproject.toml",
 )
 use_repo(uv, "pypi_sdist_mpicc")

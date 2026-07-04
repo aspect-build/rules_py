@@ -10,10 +10,10 @@
 # Run from the e2e workspace root; override bazel with $BAZEL.
 set -uo pipefail
 
-cd "$(dirname "$0")/../.."  # e2e workspace root
+cd "$(dirname "$0")/.."  # e2e/cases workspace root
 
 BAZEL="${BAZEL:-bazel}"
-TARGET="//cases/hermetic-launcher-1116:hello"
+TARGET="//hermetic-launcher-1116:hello"
 
 fail() {
     echo "FAIL: $*" >&2

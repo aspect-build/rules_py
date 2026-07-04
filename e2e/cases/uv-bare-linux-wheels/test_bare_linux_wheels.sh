@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-TARGETS_FILE="${TEST_SRCDIR}/_main/cases/uv-bare-linux-wheels/grpcio_targets"
+TARGETS_FILE="${TEST_SRCDIR}/_main/uv-bare-linux-wheels/grpcio_targets"
 TARGETS="$(cat "$TARGETS_FILE")"
 
 if ! grep -q 'constraints/platform:linux_armv7l' <<< "$TARGETS"; then

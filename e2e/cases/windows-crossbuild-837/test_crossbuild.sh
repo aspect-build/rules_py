@@ -4,7 +4,7 @@ set -euo pipefail
 # Windows cross-build test: verify that interpreter provisioning works
 # correctly for Windows targets from a Linux host.
 
-DIR="${TEST_SRCDIR}/_main/cases/windows-crossbuild-837"
+DIR="${TEST_SRCDIR}/_main/windows-crossbuild-837"
 
 WIN_X64_DEPS="$(cat "$DIR/windows_x64_toolchain_deps")"
 WIN_ARM64_DEPS="$(cat "$DIR/windows_arm64_toolchain_deps")"

@@ -9,7 +9,7 @@ py_library(
         "urls.py",
         "wsgi.py",
     ],
-    visibility = ["//examples/django:__pkg__"],
+    visibility = ["//:__pkg__"],
     deps = [
         "@pypi//django",
     ],

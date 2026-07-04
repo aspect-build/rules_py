@@ -7,7 +7,7 @@ uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_single")
 uv.project(
     hub_name = "pypi_single",
-    lock = "//cases/single-project-hub:uv.lock",
-    pyproject = "//cases/single-project-hub:pyproject.toml",
+    lock = "//single-project-hub:uv.lock",
+    pyproject = "//single-project-hub:pyproject.toml",
 )
 use_repo(uv, "project__single_project_hub", "pypi_single")

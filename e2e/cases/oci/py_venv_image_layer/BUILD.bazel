@@ -49,7 +49,7 @@ py_binary(
     # full py_image_layer pipeline.
     tags = ["manual"],
     deps = [
-        "//cases/oci/py_image_layer/branding",
+        "//oci/py_image_layer/branding",
         "//tools/verify_venv",
         "@aspect_rules_py//py/tests/internal-deps/adder",
         "@pypi_oci_py_venv_image_layer//colorama",
@@ -72,7 +72,7 @@ py_test(
     dep_group = "venv_images",
     main = "__main__.py",
     deps = [
-        "//cases/oci/py_image_layer/branding",
+        "//oci/py_image_layer/branding",
         "//tools/verify_venv",
         "@aspect_rules_py//py/tests/internal-deps/adder",
         "@pypi_oci_py_venv_image_layer//colorama",
@@ -121,7 +121,7 @@ platform_transition_filegroup(
 )
 
 # To build the image and load it into it into a local runtime:
-# $ bazel run //cases/oci/py_venv_image_layer:image_load
+# $ bazel run //oci/py_venv_image_layer:image_load
 # $ docker run --rm gcr.io/oci_python_venv_hello_world:latest
 oci_load(
     name = "image_load",
