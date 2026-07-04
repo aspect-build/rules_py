@@ -4,7 +4,7 @@ py_venv_test(
     name = "include_group_versions_build",
     srcs = ["__test__.py"],
     main = "__test__.py",
-    python_version = "3.10.19",
+    python_version = "3.10",
     venv = "igv-build",
     deps = ["@pypi//packaging"],
 )
@@ -14,7 +14,7 @@ py_venv_test(
     srcs = ["__test__.py"],
     args = ["igv-test"],
     main = "__test__.py",
-    python_version = "3.10.19",
+    python_version = "3.10",
     venv = "igv-test",
     deps = ["@pypi//packaging"],
 )
