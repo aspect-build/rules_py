@@ -1,19 +1,19 @@
 [project]
 name = "include-group-versions-test"
 version = "0.0.0"
-requires-python = ">=3.11"
+requires-python = "== 3.10.19"
 dependencies = []
 
 [dependency-groups]
-versions-build = [
-    "colorama",
-    "setuptools",
-]
-versions-test = [
-    "pytest",
-]
-versions-dev = [
-    {include-group = "versions-build"},
-    {include-group = "versions-test"},
-    "colorama>=0.4.6",
+base-build = ["packaging==24.0"]
+base-test = ["packaging==21.3"]
+build = [{include-group = "base-build"}]
+test = [{include-group = "base-test"}]
+
+[tool.uv]
+conflicts = [
+    [{ group = "base-build" }, { group = "base-test" }],
+    [{ group = "build" }, { group = "test" }],
+    [{ group = "base-build" }, { group = "test" }],
+    [{ group = "base-test" }, { group = "build" }],
 ]

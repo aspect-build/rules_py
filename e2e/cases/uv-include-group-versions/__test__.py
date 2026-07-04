@@ -1,25 +1,33 @@
 #!/usr/bin/env python3
-"""Test that version preferences from included dependency groups are preserved.
+"""Test that PEP 735 include-group version preferences are preserved.
 
-uv.lock pins colorama to 0.4.6 for the versions-dev group, which includes
-versions-build and versions-test. versions-dev also adds a direct
-colorama>=0.4.6 constraint, while versions-build references colorama without a
-version specifier.
+This project declares two pairs of conflicting dependency groups:
+- base-build / build use packaging==24.0
+- base-test / test use packaging==21.3
 
-This test verifies that rules_py installs exactly the version uv.lock selected
-for versions-dev, not a version that would result from resolving the
-unconstrained reference in versions-build.
+Each outer group includes its base group via {include-group = ...}. uv.lock
+records a different packaging version for each group. This test verifies that
+rules_py installs the per-group version selected by uv.lock.
 """
 
-import colorama
-print(f"colorama: {colorama.__file__}")
-print(f"colorama version: {colorama.__version__}")
-assert colorama.__version__ == "0.4.6", (
-    f"Expected colorama ==0.4.6 for versions-dev group, got {colorama.__version__}"
-)
+import sys
+from importlib.metadata import version
 
-import setuptools
-print(f"setuptools: {setuptools.__file__}")
+GROUPS = {
+    "build": "24.0",
+    "test": "21.3",
+}
 
-import pytest
-print(f"pytest: {pytest.__file__}")
+
+def main():
+    group = sys.argv[1] if len(sys.argv) > 1 else "build"
+    expected = GROUPS[group]
+    actual = version("packaging")
+    print(f"{group}/packaging: {actual} (expected {expected})")
+    assert actual == expected, (
+        f"Expected packaging=={expected} for {group} group, got {actual}"
+    )
+
+
+if __name__ == "__main__":
+    main()
