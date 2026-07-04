@@ -346,6 +346,19 @@ uv.unstable_annotate_packages(
 )
 # }}}
 
+# For cases/uv-include-group-versions (PEP 735 include-group version preference)
+# {{{
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/uv-include-group-versions:uv.lock",
+    pyproject = "//cases/uv-include-group-versions:pyproject.toml",
+)
+uv.unstable_annotate_packages(
+    src = "//cases/uv-legacy-deps-750:annotations.toml",
+    lock = "//cases/uv-include-group-versions:uv.lock",
+)
+# }}}
+
 # For cases/uv-abi3-compat-853
 # Regression: abi3 wheel compatibility must propagate to newer Python minors.
 # {{{

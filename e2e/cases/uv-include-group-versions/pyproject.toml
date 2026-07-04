@@ -1,0 +1,19 @@
+[project]
+name = "include-group-versions-test"
+version = "0.0.0"
+requires-python = "== 3.10.19"
+dependencies = []
+
+[dependency-groups]
+igv-build-base = ["packaging==24.0"]
+igv-test-base = ["packaging==21.3"]
+igv-build = [{include-group = "igv-build-base"}]
+igv-test = [{include-group = "igv-test-base"}]
+
+[tool.uv]
+conflicts = [
+    [{ group = "igv-build-base" }, { group = "igv-test-base" }],
+    [{ group = "igv-build" }, { group = "igv-test" }],
+    [{ group = "igv-build-base" }, { group = "igv-test" }],
+    [{ group = "igv-test-base" }, { group = "igv-build" }],
+]

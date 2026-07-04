@@ -1,0 +1,20 @@
+load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
+
+py_venv_test(
+    name = "include_group_versions_build",
+    srcs = ["__test__.py"],
+    main = "__test__.py",
+    python_version = "3.10",
+    venv = "igv-build",
+    deps = ["@pypi//packaging"],
+)
+
+py_venv_test(
+    name = "include_group_versions_test",
+    srcs = ["__test__.py"],
+    args = ["igv-test"],
+    main = "__test__.py",
+    python_version = "3.10",
+    venv = "igv-test",
+    deps = ["@pypi//packaging"],
+)
