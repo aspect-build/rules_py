@@ -2,17 +2,17 @@ version = 1
 revision = 3
 requires-python = "==3.10.19"
 conflicts = [[
-    { package = "include-group-versions-test", group = "base-build" },
-    { package = "include-group-versions-test", group = "base-test" },
+    { package = "include-group-versions-test", group = "igv-build-base" },
+    { package = "include-group-versions-test", group = "igv-test-base" },
 ], [
-    { package = "include-group-versions-test", group = "build" },
-    { package = "include-group-versions-test", group = "test" },
+    { package = "include-group-versions-test", group = "igv-build" },
+    { package = "include-group-versions-test", group = "igv-test" },
 ], [
-    { package = "include-group-versions-test", group = "base-build" },
-    { package = "include-group-versions-test", group = "test" },
+    { package = "include-group-versions-test", group = "igv-build-base" },
+    { package = "include-group-versions-test", group = "igv-test" },
 ], [
-    { package = "include-group-versions-test", group = "base-test" },
-    { package = "include-group-versions-test", group = "build" },
+    { package = "include-group-versions-test", group = "igv-build" },
+    { package = "include-group-versions-test", group = "igv-test-base" },
 ]]
 
 [[package]]
@@ -21,26 +21,26 @@ version = "0.0.0"
 source = { virtual = "." }
 
 [package.dev-dependencies]
-base-build = [
+igv-build = [
     { name = "packaging", version = "24.0", source = { registry = "https://pypi.org/simple" } },
 ]
-base-test = [
+igv-build-base = [
+    { name = "packaging", version = "24.0", source = { registry = "https://pypi.org/simple" } },
+]
+igv-test = [
     { name = "packaging", version = "21.3", source = { registry = "https://pypi.org/simple" } },
 ]
-build = [
-    { name = "packaging", version = "24.0", source = { registry = "https://pypi.org/simple" } },
-]
-test = [
+igv-test-base = [
     { name = "packaging", version = "21.3", source = { registry = "https://pypi.org/simple" } },
 ]
 
 [package.metadata]
 
 [package.metadata.requires-dev]
-base-build = [{ name = "packaging", specifier = "==24.0" }]
-base-test = [{ name = "packaging", specifier = "==21.3" }]
-build = [{ name = "packaging", specifier = "==24.0" }]
-test = [{ name = "packaging", specifier = "==21.3" }]
+igv-build = [{ name = "packaging", specifier = "==24.0" }]
+igv-build-base = [{ name = "packaging", specifier = "==24.0" }]
+igv-test = [{ name = "packaging", specifier = "==21.3" }]
+igv-test-base = [{ name = "packaging", specifier = "==21.3" }]
 
 [[package]]
 name = "packaging"

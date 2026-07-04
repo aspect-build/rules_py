@@ -5,15 +5,15 @@ requires-python = "== 3.10.19"
 dependencies = []
 
 [dependency-groups]
-base-build = ["packaging==24.0"]
-base-test = ["packaging==21.3"]
-build = [{include-group = "base-build"}]
-test = [{include-group = "base-test"}]
+igv-build-base = ["packaging==24.0"]
+igv-test-base = ["packaging==21.3"]
+igv-build = [{include-group = "igv-build-base"}]
+igv-test = [{include-group = "igv-test-base"}]
 
 [tool.uv]
 conflicts = [
-    [{ group = "base-build" }, { group = "base-test" }],
-    [{ group = "build" }, { group = "test" }],
-    [{ group = "base-build" }, { group = "test" }],
-    [{ group = "base-test" }, { group = "build" }],
+    [{ group = "igv-build-base" }, { group = "igv-test-base" }],
+    [{ group = "igv-build" }, { group = "igv-test" }],
+    [{ group = "igv-build-base" }, { group = "igv-test" }],
+    [{ group = "igv-test-base" }, { group = "igv-build" }],
 ]

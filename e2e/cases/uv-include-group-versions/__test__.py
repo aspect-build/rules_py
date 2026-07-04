@@ -2,8 +2,8 @@
 """Test that PEP 735 include-group version preferences are preserved.
 
 This project declares two pairs of conflicting dependency groups:
-- base-build / build use packaging==24.0
-- base-test / test use packaging==21.3
+- igv-build-base / igv-build use packaging==24.0
+- igv-test-base / igv-test use packaging==21.3
 
 Each outer group includes its base group via {include-group = ...}. uv.lock
 records a different packaging version for each group. This test verifies that
@@ -14,13 +14,13 @@ import sys
 from importlib.metadata import version
 
 GROUPS = {
-    "build": "24.0",
-    "test": "21.3",
+    "igv-build": "24.0",
+    "igv-test": "21.3",
 }
 
 
 def main():
-    group = sys.argv[1] if len(sys.argv) > 1 else "build"
+    group = sys.argv[1] if len(sys.argv) > 1 else "igv-build"
     expected = GROUPS[group]
     actual = version("packaging")
     print(f"{group}/packaging: {actual} (expected {expected})")
