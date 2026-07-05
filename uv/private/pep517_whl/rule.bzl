@@ -11,6 +11,11 @@ load("//py/private/toolchain:types.bzl", "NATIVE_BUILD_TOOLCHAIN", "PY_TOOLCHAIN
 _CC_TOOLCHAIN_TYPE = Label("@bazel_tools//tools/cpp:toolchain_type")
 _TARGET_EXEC_GROUP = "target"
 
+# `$(EXECROOT)` expands to this marker, which build_helper replaces with the
+# absolute execroot at build time — the execroot isn't known at analysis. Lets
+# an `env` path opt into anchoring so it survives the backend's chdir.
+_EXECROOT_MARKER = "__ASPECT_RULES_PY_EXECROOT__"
+
 _INHERITED_PYTHON_ENV = (
     "PYTHONHOME",
     "PYTHONPATH",
@@ -151,6 +156,15 @@ def _pep517_native_whl(ctx):
     env = _common_env(ctx)
     extra_inputs, known_variables = _collect_toolchain_inputs_and_vars(ctx)
 
+    # `EXECROOT` is reserved for the anchor below. If a toolchain already
+    # exports it, `$(EXECROOT)` would expand to that value instead of our
+    # marker and anchoring would silently no-op, so fail loudly instead.
+    if "EXECROOT" in known_variables:
+        fail("A toolchain listed in `toolchains` exports a reserved `EXECROOT` " +
+             "make-variable, which collides with the `$(EXECROOT)` anchor used to " +
+             "absolutize workspace-relative env paths. Rename that toolchain's variable.")
+    known_variables["EXECROOT"] = _EXECROOT_MARKER
+
     cc_files, cc_compiler = _cc_toolchain_inputs_and_compiler(ctx)
     if cc_files:
         extra_inputs.append(cc_files)
@@ -168,6 +182,8 @@ def _pep517_native_whl(ctx):
         executable = ctx.executable.tool,
         toolchain = None,
         arguments = ctx.attr.args + patch_args + _memory_args(ctx) + [
+            "--execroot-marker",
+            _EXECROOT_MARKER,
             archive.path,
             wheel_dir.path,
         ],
@@ -253,7 +269,10 @@ constraints of the target platform.
             doc = "Environment variables to set on the build action. Values may " +
                   "contain `$(VAR)` references to make-variables exposed by any " +
                   "target in the rule's `toolchains` attribute (via " +
-                  "`TemplateVariableInfo`).",
+                  "`TemplateVariableInfo`). Prefix a workspace-relative path with " +
+                  "`$(EXECROOT)/` (e.g. `-I$(EXECROOT)/$(DEP_INC)`) to anchor it to " +
+                  "an absolute path so it survives the build backend's chdir into " +
+                  "the sdist worktree.",
         ),
     },
     exec_groups = {

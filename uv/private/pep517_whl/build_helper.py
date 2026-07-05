@@ -98,7 +98,7 @@ def _override_tool(env, key, wrapper):
         env[key] = shlex.join(parts)
 
 
-def _compiler_env(tmpdir):
+def _compiler_env(tmpdir, execroot_marker=None):
     env = dict(os.environ)
     # The helper's launcher exports RUNFILES_DIR, RUNFILES_MANIFEST_FILE, and
     # JAVA_RUNFILES:
@@ -149,6 +149,11 @@ def _compiler_env(tmpdir):
         ("LDCXXSHARED", cxx),
     ]:
         _override_tool(env, key, wrapper)
+
+    # Anchor `$(EXECROOT)` paths: our cwd is the execroot (the backend chdir happens later, in a subprocess).
+    if execroot_marker:
+        root = os.getcwd()
+        env = {key: value.replace(execroot_marker, root) for key, value in env.items()}
     return env
 
 
@@ -205,6 +210,7 @@ PARSER.add_argument("--monitor-memory", action="store_true")
 PARSER.add_argument("--validate-anyarch", action="store_true")
 PARSER.add_argument("--patch-strip", type=int, default=0, help="Strip count for patch (-p)")
 PARSER.add_argument("--patch", action="append", default=[], dest="patches", help="Patch file to apply (repeatable)")
+PARSER.add_argument("--execroot-marker", default=None, help="Token in env values to replace with the absolute execroot")
 opts, args = PARSER.parse_known_args()
 
 tmp_root = path.abspath(opts.outdir) + ".tmp"
@@ -249,7 +255,7 @@ outdir = path.abspath(opts.outdir)
 # and re-point CC/CXX/etc. through wrapper scripts in tmp_root so the
 # Bazel-supplied workspace-relative compiler paths survive the cwd
 # change into the worktree.
-build_env = _compiler_env(tmp_root)
+build_env = _compiler_env(tmp_root, opts.execroot_marker)
 
 if _legacy_metadata_conflicts_with_pyproject(t):
     print(

@@ -888,7 +888,7 @@ _override_package_tag = tag_class(
         ),
         "env": attr.string_dict(
             default = {},
-            doc = "Extra environment variables merged into the build action's `env` dict. Values may reference $(VAR) make-variables sourced from the default CC toolchain or any extra `toolchains` listed above.",
+            doc = "Extra environment variables merged into the build action's `env` dict. Values may reference $(VAR) make-variables sourced from the default CC toolchain or any extra `toolchains` listed above. Prefix a workspace-relative path with `$(EXECROOT)/` (e.g. `-I$(EXECROOT)/$(DEP_INC)`) to anchor it to an absolute path so it survives the build backend's chdir into the sdist worktree.",
         ),
 
         # Pre-build patches: applied to extracted sdist source before wheel build.

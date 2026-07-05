@@ -51,8 +51,8 @@ pep517_native_whl(
     testonly = True,
     src = ":sdist",
     env = {
-        "CPPFLAGS": "-I$(DEP_INC)",
-        "LDFLAGS": "$(DEP_LIB_A)",
+        "CPPFLAGS": "-I$(EXECROOT)/$(DEP_INC)",
+        "LDFLAGS": "$(EXECROOT)/$(DEP_LIB_A)",
     },
     tags = ["manual"],
     tool = "//uv/private/pep517_whl:__build_helper",
