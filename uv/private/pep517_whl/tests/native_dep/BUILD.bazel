@@ -1,0 +1,66 @@
+# Regression: a native sdist consuming an in-repo cc_library via
+# override_package(env=/toolchains=) must build. The dep's include dir and
+# static archive reach the build as workspace-relative paths, which resolve
+# from the execroot but not the PEP 517 backend's worktree cwd.
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@tar.bzl//tar:mtree.bzl", "mtree_mutate", "mtree_spec")
+load("@tar.bzl//tar:tar.bzl", "tar_rule")
+load("//uv/private/pep517_whl:rule.bzl", "pep517_native_whl")
+load(":defs.bzl", "dep_makevars")
+
+cc_library(
+    name = "dep",
+    testonly = True,
+    srcs = ["dep.c"],
+    hdrs = ["dep.h"],
+)
+
+dep_makevars(
+    name = "dep_makevars",
+    testonly = True,
+    hdr = "dep.h",
+    lib = ":dep",
+)
+
+_SDIST_SRCS = glob(["sdist/**"])
+
+mtree_spec(
+    name = "sdist_mtree_raw",
+    testonly = True,
+    srcs = _SDIST_SRCS,
+    include_runfiles = False,
+)
+
+mtree_mutate(
+    name = "sdist_mtree",
+    testonly = True,
+    mtree = ":sdist_mtree_raw",
+    strip_prefix = package_name(),
+)
+
+tar_rule(
+    name = "sdist",
+    testonly = True,
+    srcs = _SDIST_SRCS,
+    mtree = ":sdist_mtree",
+)
+
+pep517_native_whl(
+    name = "whl",
+    testonly = True,
+    src = ":sdist",
+    env = {
+        "CPPFLAGS": "-I$(DEP_INC)",
+        "LDFLAGS": "$(DEP_LIB_A)",
+    },
+    tags = ["manual"],
+    tool = "//uv/private/pep517_whl:__build_helper",
+    toolchains = [":dep_makevars"],
+    version = "0.0.1",
+)
+
+build_test(
+    name = "native_dep_env_test",
+    targets = [":whl"],
+)
