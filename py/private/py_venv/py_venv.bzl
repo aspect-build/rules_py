@@ -75,6 +75,9 @@ def _assemble_shared(ctx):
         safe_name = safe_name,
         py_toolchain = py_toolchain,
         imports_depset = imports_depset,
+        is_windows = ctx.target_platform_has_constraint(
+            ctx.attr._windows_constraint[platform_common.ConstraintValueInfo],
+        ),
         package_collisions = ctx.attr.package_collisions,
         include_system_site_packages = ctx.attr.include_system_site_packages,
         include_user_site_packages = ctx.attr.include_user_site_packages,
@@ -236,6 +239,9 @@ not reinsert a wheel.
     "_virtualenv_shim": attr.label(
         allow_single_file = True,
         default = ":_virtualenv.py",
+    ),
+    "_windows_constraint": attr.label(
+        default = "@platforms//os:windows",
     ),
     # Tool for physically merging a regular package that spans wheels
     # (e.g. azure-core + azure-core-tracing-opentelemetry both

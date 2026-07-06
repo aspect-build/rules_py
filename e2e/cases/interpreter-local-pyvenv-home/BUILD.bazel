@@ -18,7 +18,8 @@ load("@rules_python//python:py_runtime_pair.bzl", "py_runtime_pair")
 
 py_runtime(
     name = "system_py3_runtime",
-    interpreter_path = "/opt/fake-python/bin/python3",
+    # Braces make sure the generated home line is not formatted a second time.
+    interpreter_path = "/opt/{fake-python}/bin/python3",
     interpreter_version_info = {
         "major": "3",
         "minor": "94",
