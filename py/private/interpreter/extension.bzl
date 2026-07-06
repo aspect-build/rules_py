@@ -167,7 +167,6 @@ def _python_interpreters_impl(module_ctx):
     # Track whether the extension is reproducible. Using "latest" as a release
     # date makes it non-reproducible since the resolution depends on when it runs.
     is_reproducible = True
-    resolved_latest = None
 
     # Collect release configuration from the root module only.
     # Non-root configure() tags are silently ignored — this allows rules_py
@@ -191,7 +190,6 @@ def _python_interpreters_impl(module_ctx):
                 if date == "latest":
                     is_reproducible = False
                     date = _resolve_latest(module_ctx, base_url)
-                    resolved_latest = date
                 if len(date) != 8 or not is_decimal(date):
                     fail(
                         "PBS release identifiers must be eight decimal digits, got '{}'".format(date),
@@ -262,11 +260,9 @@ def _python_interpreters_impl(module_ctx):
             # version.
             if mod.is_root and tag.pre_release:
                 allow_pre_release[major_minor] = True
-            elif major_minor not in allow_pre_release:
-                allow_pre_release[major_minor] = False
 
     if not requested_versions:
-        return _return_metadata(module_ctx, has_facts, facts, is_reproducible, resolved_latest)
+        return _return_metadata(module_ctx, has_facts, facts, is_reproducible)
 
     new_facts = {}
     release_indices = {}
@@ -375,7 +371,7 @@ def _python_interpreters_impl(module_ctx):
         toolchains = toolchain_entries,
     )
 
-    return _return_metadata(module_ctx, has_facts, new_facts, is_reproducible, resolved_latest)
+    return _return_metadata(module_ctx, has_facts, new_facts, is_reproducible)
 
 def _find_asset(major_minor, platform, runtime_mode, release_dates, release_indices):
     """Find the best asset across releases, preferring newer releases."""
@@ -392,23 +388,18 @@ def _find_asset(major_minor, platform, runtime_mode, release_dates, release_indi
             }
     return None
 
-def _return_metadata(module_ctx, has_facts, facts, is_reproducible, resolved_latest):
-    """Return extension_metadata with facts and reproducibility info."""
+def _return_metadata(module_ctx, has_facts, facts, is_reproducible):
+    """Return extension_metadata with facts and reproducibility info.
+
+    Non-reproducible means "latest" was used: signal this to Bazel so it
+    warns the user and doesn't cache the extension evaluation.
+    """
     if not has_facts or not hasattr(module_ctx, "extension_metadata"):
         return None
 
-    if not is_reproducible:
-        # Non-reproducible: "latest" was used. Signal this to Bazel so it
-        # warns the user and doesn't cache the extension evaluation.
-        # Include the resolved date in the reproducibility report.
-        return module_ctx.extension_metadata(
-            facts = facts,
-            reproducible = False,
-        )
-
     return module_ctx.extension_metadata(
         facts = facts,
-        reproducible = True,
+        reproducible = is_reproducible,
     )
 
 _configure_tag = tag_class(

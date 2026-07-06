@@ -37,40 +37,6 @@ _LEGACY_ALIASES = {
     "manylinux2014_x86_64": "manylinux_2_17_x86_64",
 }
 
-def parse_abi_feature_flags(tag):
-    """Parse an ABI flag to extract the feature flags.
-
-    Args:
-        tag (str): An interpreter tag which may contain feature flags.
-
-    Returns:
-        A struct containing the extracted and canoncalized feature flags, the
-        original tag and the "stripped" tag without any feature flags.
-    """
-
-    flags = {
-        "d": False,
-        "m": False,
-        "u": False,
-        "t": False,
-    }
-    found = False
-    for cursor in [-1, -2, -3, -4]:
-        if tag[cursor] in flags:
-            flags[tag[cursor]] = True
-            found = True
-        else:
-            break
-
-    return struct(
-        pydebug = flags["d"],
-        pymalloc = flags["m"],
-        freethreading = flags["t"],
-        unicode = flags["u"],
-        stripped = tag[:cursor + 1] if found else cursor,  # buildifier: disable=uninitialized
-        full = tag,
-    )
-
 def normalize_abi_tag(tag):
     """Normalize feature flag order in ABI tags.
 

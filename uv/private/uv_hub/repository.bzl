@@ -91,8 +91,6 @@ exports_files(
 
     ################################################################################
     # Lay down the hub aliases
-    entrypoints = {}
-
     for package_name, specs in packages.items():
         content = [
             """\
@@ -279,10 +277,6 @@ def requirement(name):
         repo_name = repository_ctx.name,
     ))
     repository_ctx.file("requirements.bzl", content = "\n".join(content))
-
-    ################################################################################
-    # Lay down the hub aliases
-    entrypoints = {}
 
     if not features.external_deps.extension_metadata_has_reproducible:
         return None

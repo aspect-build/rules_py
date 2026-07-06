@@ -39,10 +39,4 @@ toolchain(
 toolchains_repo = repository_rule(
     _toolchains_repo_impl,
     doc = "Creates a repository with native_build toolchain entries for all supported platforms.",
-    attrs = {
-        "user_repository_name": attr.string(mandatory = True, doc = """\
-        What the user chose for the base name.
-        Needed since bzlmod apparent name has extra tilde segments.
-        """),
-    },
 )

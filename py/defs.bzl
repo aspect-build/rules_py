@@ -54,9 +54,8 @@ PyInfo = _PyInfo
 resolutions = _resolutions
 
 def _resolve_main(name, srcs, main):
-    """Macro-time fallback for `main`. Mirrors `_determine_main` in
-    py_semantics.bzl, except it operates on label strings instead of
-    files because srcs no longer reaches the underlying rule. Order:
+    """Macro-time fallback for `main`. Operates on label strings instead
+    of files because srcs no longer reaches the underlying rule. Order:
 
     1. Use `main` if set.
     2. If `srcs` has exactly one entry, use it.

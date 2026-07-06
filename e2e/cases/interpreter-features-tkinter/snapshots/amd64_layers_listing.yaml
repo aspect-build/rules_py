@@ -2,7 +2,7 @@
 layer: 0
 files:
   - -rwxr-xr-x  0 0      0       17400 Jan  1  2023 ./app
-  - -rwxr-xr-x  0 0      0        2506 Jan  1  2023 ./app.runfiles/_main/interpreter-features-tkinter/._check_no_tkinter.venv/bin/activate
+  - -rwxr-xr-x  0 0      0        2124 Jan  1  2023 ./app.runfiles/_main/interpreter-features-tkinter/._check_no_tkinter.venv/bin/activate
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/interpreter-features-tkinter/._check_no_tkinter.venv/bin/python -> ../../../../aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/python3
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/interpreter-features-tkinter/._check_no_tkinter.venv/bin/python3 -> python
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/interpreter-features-tkinter/._check_no_tkinter.venv/bin/python3.11 -> python

@@ -12,7 +12,7 @@ def rules_py_toolchains(name = DEFAULT_TOOLS_REPOSITORY, **kwargs):
         name: prefix used in created repositories
         **kwargs: unused, retained for backwards compatibility
     """
-    toolchains_repo(name = name, user_repository_name = name)
+    toolchains_repo(name = name)
 
     http_file(
         name = "rules_py_pex_2_3_1",

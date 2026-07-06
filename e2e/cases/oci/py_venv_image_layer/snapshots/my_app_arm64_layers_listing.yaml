@@ -22,7 +22,7 @@ files:
   - -rwxr-xr-x  0 0      0       16560 Jan  1  2023 ./app
   - -rwxr-xr-x  0 0      0          42 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/branding/__init__.py
   - -rwxr-xr-x  0 0      0          31 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/branding/palette.txt
-  - -rwxr-xr-x  0 0      0        2487 Jan  1  2023 ./app.runfiles/_main/oci/py_venv_image_layer/.my_app_bin.venv/bin/activate
+  - -rwxr-xr-x  0 0      0        2105 Jan  1  2023 ./app.runfiles/_main/oci/py_venv_image_layer/.my_app_bin.venv/bin/activate
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_venv_image_layer/.my_app_bin.venv/bin/python -> ../../../../../aspect_rules_py++python_interpreters+python_3_11_aarch64_unknown_linux_gnu/bin/python3
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_venv_image_layer/.my_app_bin.venv/bin/python3 -> python
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_venv_image_layer/.my_app_bin.venv/bin/python3.11 -> python

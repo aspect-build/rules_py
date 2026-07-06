@@ -47,7 +47,7 @@ def _py_unpacked_wheel_impl(ctx):
         "site-packages",
     )
     imports = make_imports_depset(
-        deps = getattr(ctx.attr, "deps", []),
+        deps = [],
         imports = [import_path],
         workspace_name = ctx.workspace_name,
         label = ctx.label,

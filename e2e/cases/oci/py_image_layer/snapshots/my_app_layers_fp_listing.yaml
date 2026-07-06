@@ -28,7 +28,7 @@ files:
 layer: 3
 files:
   - -rwxr-xr-x  0 0      0       17400 Jan  1  2023 ./app
-  - -rwxr-xr-x  0 0      0        2484 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_bin.venv/bin/activate
+  - -rwxr-xr-x  0 0      0        2102 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_bin.venv/bin/activate
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_bin.venv/bin/python -> ../../../../../aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/python3
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_bin.venv/bin/python3 -> python
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_bin.venv/bin/python3.11 -> python

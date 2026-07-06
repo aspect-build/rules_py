@@ -48,11 +48,10 @@ exclude_paths = [
     ".venv/",
 ]
 
-# determines if the given file is a `distinfo`, `dep` or a `source`
+# determines if the given file is a `dep` or a `source`
 # this required to allow PEX to put files into different places.
 #
 # --dep:        into `<PEX_UNPACK_ROOT>/.deps/<name_of_the_package>`
-# --distinfo:   is only used for determining package metadata
 # --source:     into `<PEX_UNPACK_ROOT>/<relative_path_to_workspace_root>/<file_name>`
 def _map_srcs(f, workspace):
     dest_path = _runfiles_path(f, workspace)
@@ -64,10 +63,12 @@ def _map_srcs(f, workspace):
 
     site_packages_i = f.path.find("site-packages")
 
-    # If the path contains 'site-packages', treat it as a third party dep
+    # If the path contains 'site-packages', treat it as a third party dep.
+    # Top-level dist-info files contribute nothing: pex reads the package
+    # metadata itself via Distribution.load() on the `--dep` directory.
     if site_packages_i != -1:
         if f.path.find("dist-info", site_packages_i) != -1 and f.path.count("/", site_packages_i) == 2:
-            return ["--distinfo={}".format(f.dirname)]
+            return []
 
         return ["--dep={}".format(f.path[:site_packages_i + len("site-packages")])]
 

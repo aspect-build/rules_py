@@ -7,8 +7,6 @@ Helper to link a target's runfiles tree into the source tree.
 
 import argparse
 import os
-import sys
-import site
 from pathlib import Path
 
 

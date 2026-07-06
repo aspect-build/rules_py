@@ -98,21 +98,18 @@ def sha1(input):
         e = h4
 
         for t in range(80):
-            if 0 <= t and t <= 19:
+            if t <= 19:
                 f = (b & c) | ((~b) & d)
                 kt = k[0]
-            elif 20 <= t and t <= 39:
+            elif t <= 39:
                 f = b ^ c ^ d
                 kt = k[1]
-            elif 40 <= t and t <= 59:
+            elif t <= 59:
                 f = (b & c) | (b & d) | (c & d)
                 kt = k[2]
-            elif 60 <= t and t <= 79:
+            else:
                 f = b ^ c ^ d
                 kt = k[3]
-            else:
-                # FIXME: Error?
-                pass
 
             temp = (rotl32(a, 5) + f + e + kt + w[t]) & 0xFFFFFFFF
 
