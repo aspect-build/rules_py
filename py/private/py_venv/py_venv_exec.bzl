@@ -35,8 +35,6 @@ def _py_venv_exec_impl(ctx):
         fail("main must end in '.py', got: " + main.basename)
 
     venv = ctx.attr.venv
-    if not venv:
-        fail("py_binary {}: venv is required.".format(ctx.label))
     vinfo = venv[VirtualenvInfo]
 
     # Merge env vars: start from the venv's `env` (if any), then

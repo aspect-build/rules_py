@@ -11,7 +11,7 @@ PARSER.add_argument("--dir", type=str)
 PARSER.add_argument("--background", action="store_true", default=False)
 PARSER.add_argument("--pidfile", type=str, default=None)
 
-opts, args = PARSER.parse_known_args()
+opts, _ = PARSER.parse_known_args()
 
 class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):

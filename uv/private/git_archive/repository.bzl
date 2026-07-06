@@ -33,8 +33,6 @@ def _git_archive_impl(repository_ctx):
             resolved_commit = result.stdout.split()[0]
             is_reproducible = False
         else:
-            # If we can't resolve it, it's definitely not reproducible
-            is_reproducible = False
             fail("Unable to resolve remote ref {} {}".format(remote, ref))
 
     archive_path = "archive.tar"

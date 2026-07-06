@@ -25,7 +25,6 @@ from email.parser import Parser
 from io import StringIO
 from typing import Optional, Set, List, Tuple
 from collections import defaultdict
-from pprint import pprint
 
 def normalize_name(name):
     """normalize a PyPI package name and return a valid bazel label.
@@ -153,8 +152,8 @@ def identify_modules(whl_path: Path, package_name: str) -> dict[str, str]:
     try:
         with ZipFile(whl_path, 'r') as zf:
             for member in zf.namelist():
-                # Skip files inside dist-info, test, or example directories
-                if any(p in member for p in ['.dist-info/']):
+                # Skip files inside dist-info directories
+                if '.dist-info/' in member:
                     continue
 
                 # Check for importable file types

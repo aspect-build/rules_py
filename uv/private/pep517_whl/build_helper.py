@@ -81,7 +81,6 @@ def _make_compiler_wrapper(tmpdir, name, compiler_path, sysroot=None):
         f.write(_COMPILER_WRAPPER.format(
             debug_flag=_DEBUG_FLAG,
             compiler_path=compiler_path,
-            name=name,
             sysroot=sysroot,
         ))
     chmod(wrapper, 0o755)
@@ -205,7 +204,7 @@ PARSER.add_argument("--monitor-memory", action="store_true")
 PARSER.add_argument("--validate-anyarch", action="store_true")
 PARSER.add_argument("--patch-strip", type=int, default=0, help="Strip count for patch (-p)")
 PARSER.add_argument("--patch", action="append", default=[], dest="patches", help="Patch file to apply (repeatable)")
-opts, args = PARSER.parse_known_args()
+opts, _ = PARSER.parse_known_args()
 
 tmp_root = path.abspath(opts.outdir) + ".tmp"
 # Sandboxed/remote actions get a fresh root each run, so we don't expect a stale tmp_root to exist.

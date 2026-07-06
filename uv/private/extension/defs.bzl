@@ -61,7 +61,6 @@ load("//uv/private:normalize_version.bzl", "normalize_version")
 load("//uv/private:parse_whl_name.bzl", "parse_whl_name")
 load("//uv/private/constraints:repository.bzl", "configurations_hub")
 load("//uv/private/git_archive:repository.bzl", "git_archive")
-load("//uv/private/pprint:defs.bzl", "pprint")
 load("//uv/private/sdist_build:attrs.bzl", "validate_build_attrs")
 load("//uv/private/sdist_build:repository.bzl", "sdist_build")
 load("//uv/private/sdist_configure:defs.bzl", "DEFAULT_CONFIGURE_SCRIPT")
@@ -70,7 +69,7 @@ load("//uv/private/uv_hub:repository.bzl", "uv_hub")
 load("//uv/private/uv_project:repository.bzl", "uv_project")
 load("//uv/private/whl_install:repository.bzl", "parse_console_script", "whl_install")
 load(":graph_utils.bzl", "activate_extras", "collect_sccs")
-load(":lockfile.bzl", "build_marker_graph", "collect_bdists", "collect_configurations", "collect_markers", "collect_sdists", "normalize_deps")
+load(":lockfile.bzl", "build_marker_graph", "collect_bdists", "collect_configurations", "collect_sdists", "normalize_deps")
 load(":projectfile.bzl", "collate_versions_by_name", "collect_activated_extras", "extract_requirement_marker_pairs")
 
 def url_basename(url):
@@ -190,7 +189,6 @@ def _parse_projects(module_ctx, hub_specs):
 
     hub_cfgs = {}
     project_cfgs = {}
-    marker_specs = {}
     whl_configurations = {}
 
     sdist_specs = {}
@@ -244,16 +242,13 @@ def _parse_projects(module_ctx, hub_specs):
 
             default_versions, package_versions, lock_data = normalize_deps(project_id, lock_data)
 
-            def _resolve(package, fail_if_missing = True):
+            def _resolve(package):
                 name = normalize_name(package["name"])
                 if "version" in package:
                     return (project_id, name, package["version"], "__base__")
                 elif name in default_versions:
                     return default_versions[name]
-                else:
-                    if fail_if_missing:
-                        fail("Unable to identify id for package {} for lock {}\n{}".format(package, project.lock, pprint(default_versions)))
-                    return None
+                return None
 
             lock_build_dep_anns = {}
             lock_native_anns = {}
@@ -261,7 +256,7 @@ def _parse_projects(module_ctx, hub_specs):
                 if ann.lock == project.lock:
                     annotations = toml.decode_file(module_ctx, ann.src)
                     for package in annotations.get("package", []):
-                        k = _resolve(package, fail_if_missing = False)
+                        k = _resolve(package)
                         if k == None:
                             # Allow a shared annotation file to include entries for other locks.
                             continue
@@ -273,7 +268,7 @@ def _parse_projects(module_ctx, hub_specs):
                             deps = []
                             skip = False
                             for dep in package["build-dependencies"]:
-                                resolved = _resolve(dep, fail_if_missing = False)
+                                resolved = _resolve(dep)
                                 if resolved == None:
                                     skip = True
                                     break
@@ -358,8 +353,6 @@ def _parse_projects(module_ctx, hub_specs):
             lock_build_deps = None
 
             marker_graph = build_marker_graph(project_id, lock_data)
-
-            marker_specs.update(collect_markers(marker_graph))
 
             bd, bt = collect_bdists(lock_data)
             bdist_specs.update(bd)
@@ -614,12 +607,7 @@ def _parse_projects(module_ctx, hub_specs):
             project_cfgs[project_id] = struct(
                 dep_to_scc = marked_package_cfg_sccs,
                 scc_deps = {
-                    k: {
-                        dep_name: markers
-                        for dep_name, markers in _merge_scc_dep_markers_by_surface_package(
-                            deps,
-                        ).items()
-                    }
+                    k: _merge_scc_dep_markers_by_surface_package(deps)
                     for k, deps in scc_deps.items()
                 },
                 scc_graph = {
@@ -658,7 +646,6 @@ def _parse_projects(module_ctx, hub_specs):
         hub_cfgs = hub_cfgs,
         install_cfgs = install_cfgs,
         sbuild_cfgs = sbuild_specs,
-        marker_cfgs = marker_specs,
         whl_cfgs = whl_configurations,
         sdist_cfgs = sdist_specs,
         bdist_cfgs = bdist_specs,
@@ -689,7 +676,6 @@ def _uv_impl(module_ctx):
     configurations_hub(
         name = "aspect_rules_py_pip_configurations",
         configurations = cfg.whl_cfgs,
-        markers = {},
     )
 
     for sdist_name, sdist_cfg in cfg.sdist_cfgs.items():
@@ -847,15 +833,6 @@ _annotations_tag = tag_class(
     },
 )
 
-_declare_entrypoint_tag = tag_class(
-    attrs = {
-        "package": attr.string(mandatory = True),
-        "version": attr.string(mandatory = False),
-        "name": attr.string(mandatory = True),
-        "entrypoint": attr.string(mandatory = True),
-    },
-)
-
 _override_package_tag = tag_class(
     attrs = {
         "lock": attr.label(mandatory = True),
@@ -964,6 +941,5 @@ uv = module_extension(
         "project": _project_tag,
         "unstable_annotate_packages": _annotations_tag,
         "override_package": _override_package_tag,
-        # "declare_entrypoint": _declare_entrypoint_tag,
     },
 )

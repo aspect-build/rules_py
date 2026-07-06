@@ -13,7 +13,7 @@ from pex.inherit_path import InheritPath
 from pex.interpreter_constraints import InterpreterConstraint
 from pex.layout import Layout
 from pex.dist_metadata import Distribution
-from argparse import Action, ArgumentParser
+from argparse import Action, ArgumentError, ArgumentParser
 
 class InjectEnvAction(Action):
     def __call__(self, parser, namespace, value, option_str=None):
@@ -72,13 +72,6 @@ parser.add_argument(
 parser.add_argument(
     "--dependency",
     dest="dependencies",
-    default=[],
-    action="append",
-)
-
-parser.add_argument(
-    "--distinfo",
-    dest="distinfos",
     default=[],
     action="append",
 )

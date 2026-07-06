@@ -34,13 +34,6 @@ deactivate () {
     # Unset Bazel-injected vars
 {{ENVVARS_UNSET}}
 
-    # Unset vars we set with the runfiles interpreter. Note that this needs to
-    # be conditional so we don't throw this state out under tests or run.
-    if [ "${_OLD_RUNFILES_DIR:-}" = "_activate_undef" ]; then
-        unset RUNFILES_DIR
-        unset RUNFILES_MANIFEST_FILE
-    fi
-
     if [ ! "${1:-}" = "nondestructive" ] ; then
     # Self destruct!
         unset -f deactivate
@@ -66,7 +59,6 @@ unset PYTHONHOME
 _OLD_VIRTUAL_PATH="$PATH"
 
 # Aspect additions
-# We set these before runfiles initialization so that we can use it as part of a fallback path
 {{ENVVARS}}
 
 # Now we can put the venv's absolute bin on the path

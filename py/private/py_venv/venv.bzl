@@ -532,14 +532,10 @@ def assemble_venv(
 
     Returns:
       struct with:
-        venv_name: str — the venv dir's basename (default "." + safe_name + ".venv").
         bin_python: File — the venv's bin/python symlink, for launchers
             to rlocation-resolve and exec.
         all_files: list[File] — every declared output, ready for runfiles
             / DefaultInfo aggregation.
-        site_packages_pth_file: File — the main .pth (useful if the
-            caller needs to know its runfiles path).
-        pyvenv_cfg: File — declared pyvenv.cfg.
     """
 
     wheels_depset = _py_library.make_wheels_depset(ctx)
@@ -903,9 +899,6 @@ def assemble_venv(
         declared.append(script)
 
     return struct(
-        venv_name = venv_name,
         bin_python = bin_python,
         all_files = declared,
-        site_packages_pth_file = site_packages_pth_file,
-        pyvenv_cfg = pyvenv_cfg,
     )

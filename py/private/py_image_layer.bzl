@@ -416,8 +416,6 @@ def _layer_aspect_impl(target, ctx):
     # Binaries walk their runfiles for the source layer, filtering out bytes already
     # shipping in their own pip / fp-group / interpreter layers.
     if is_binary:
-        if PyInfo not in target:
-            own_source.append(target[DefaultInfo].files)
         skip_paths = {}
         for pkg_depset in transitive_pkgs:
             for pkg in pkg_depset.to_list():
