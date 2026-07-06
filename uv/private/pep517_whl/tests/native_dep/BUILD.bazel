@@ -1,3 +1,5 @@
+load("@bazel_lib//:bzl_library.bzl", "bzl_library")
+
 # Regression: a native sdist consuming an in-repo cc_library via
 # override_package(env=/toolchains=) must build. The dep's include dir and
 # static archive reach the build as workspace-relative paths, which resolve
@@ -63,4 +65,11 @@ pep517_native_whl(
 build_test(
     name = "native_dep_env_test",
     targets = [":whl"],
+)
+
+bzl_library(
+    name = "defs",
+    srcs = ["defs.bzl"],
+    visibility = ["//uv:__subpackages__"],
+    deps = ["@rules_cc//cc/common:cc_info"],
 )
