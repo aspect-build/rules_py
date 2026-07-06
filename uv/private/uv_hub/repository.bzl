@@ -62,18 +62,14 @@ exports_files(
 
     ################################################################################
     # Lay down the //:BUILD.bazel file
-    content = [
-        """\
-load("@aspect_rules_py//py:defs.bzl", "py_library")
-""",
-    ]
+    content = []
 
     index_select_clauses = {
         "//dep_group:" + cfg: ["@{}//:gazelle_index_whls".format(project_id)]
         for cfg, project_id in repository_ctx.attr.configurations.items()
     }
 
-    content.append("""
+    content.append("""\
 filegroup(
     name = "gazelle_index_whls",
     srcs = select({index_select_clauses},
@@ -94,7 +90,6 @@ exports_files(
     for package_name, specs in packages.items():
         content = [
             """\
-load("@aspect_rules_py//py:defs.bzl", "py_library")
 load("//:defs.bzl", "compatible_with")
 """,
         ]

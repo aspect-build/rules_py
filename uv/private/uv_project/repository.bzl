@@ -106,8 +106,6 @@ config_setting(
     ################################################################################
     # Lay down the surface-level targets
     content = ["""\
-load("@aspect_rules_py//py:defs.bzl", "py_library")
-
 # Fallback for `:{package}_whl` aliases on workspace / editable packages
 # (which have no underlying whl_install repo to point at).
 filegroup(

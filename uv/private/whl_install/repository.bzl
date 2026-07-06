@@ -517,7 +517,6 @@ def _whl_install_impl(repository_ctx):
         "load(\"@aspect_rules_py//py:defs.bzl\", \"py_library\")",
         "load(\"@aspect_rules_py//uv/private/whl_install:defs.bzl\", \"select_chain\")",
         "load(\"@aspect_rules_py//uv/private/whl_install:rule.bzl\", \"source_built_wheel\", \"whl_install\")",
-        "load(\"@bazel_skylib//lib:selects.bzl\", \"selects\")",
     ]
 
     # During expansion the value is (source_specificity, target). When two
