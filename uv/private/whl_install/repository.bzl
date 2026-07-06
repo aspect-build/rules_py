@@ -119,13 +119,20 @@ def _find_whl_file(repository_ctx, whl_label):
     return None
 
 def _whl_file_label_keys(whl_file_label):
+    """Returns the set of label strings a wheel-file label can be looked up by.
+
+    `whl_files` labels stringify to canonical form (`@@repo+...//pkg:target`),
+    but the `prebuilds` target strings we match against may use the apparent
+    repo name (`@repo//pkg:target`) or the abbreviated form that drops a
+    target name equal to the package basename (`@repo//pkg`). Emit a key for
+    each equivalent form so lookups succeed regardless of which one appears.
+    """
     label_str = str(whl_file_label)
     keys = {label_str: True}
-    canonical_prefix = "@" + "@"
-    if not label_str.startswith(canonical_prefix) or "//" not in label_str:
+    if not label_str.startswith("@@") or "//" not in label_str:
         return keys
 
-    repo, pkg_target = label_str[len(canonical_prefix):].split("//", 1)
+    repo, pkg_target = label_str[len("@@"):].split("//", 1)
     apparent_repo = repo.split("+")[-1]
     apparent_label = "@{}//{}".format(apparent_repo, pkg_target)
     keys[apparent_label] = True
@@ -704,9 +711,15 @@ filegroup(
     namespace_dirs_by_whl = {}
     regular_roots_by_whl = {}
     console_scripts_by_whl = {}
+
+    # `prebuilds.values()` can repeat a target when several lockfile wheel
+    # entries resolve to the same wheel repo, so track which targets we've
+    # already peeked at to keep metadata extraction once-per-unique-wheel.
+    extracted_targets = {}
     for target in prebuilds.values():
-        if target not in arm_targets:
+        if target not in arm_targets or target in extracted_targets:
             continue
+        extracted_targets[target] = True
         whl_file_label = whl_file_labels[target]
         whl_name, tls, regular, css, ns_entries, dirs_set, init_dirs = _extract_wheel_metadata(
             repository_ctx,
