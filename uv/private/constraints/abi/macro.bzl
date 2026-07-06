@@ -83,21 +83,13 @@ def generate(
 
     native.alias(
         name = "abi3",
-        actual = "is_py33",
+        actual = "//uv/private/constraints/python:py33",
         visibility = visibility,
     )
 
     for interpreter in INTERPRETERS:
         for major in MAJORS:
             for minor in MINORS:
-                selects.config_setting_group(
-                    name = "is_{}{}{}".format(interpreter, major, minor),
-                    match_all = [
-                        "//uv/private/constraints/python:py{}{}".format(major, minor),
-                    ],
-                    visibility = visibility,
-                )
-
                 for d in [False, True]:
                     for m in [False, True]:
                         for t in [False, True]:
@@ -114,7 +106,7 @@ def generate(
                                     ),
                                     match_all = (
                                         [
-                                            ":is_{}{}{}".format(interpreter, major, minor),
+                                            "//uv/private/constraints/python:py{}{}".format(major, minor),
                                         ] +
                                         ([":pydebug_enabled"] if d else [":pydebug_disabled"]) +
                                         ([":pymalloc_enabled"] if m else [":pymalloc_disabled"]) +
