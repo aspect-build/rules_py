@@ -57,6 +57,12 @@ INTERPRETER_FEATURES = {
         "include": [
             "lib/python{major}.{minor}/tkinter/**",
             "lib/python{major}.{minor}/lib-dynload/_tkinter*",
+            "lib/libtcl*",
+            "lib/libtk*",
+            "lib/tcl*/**",
+            "lib/tk*/**",
+            "lib/itcl*/**",
+            "lib/thread*/**",
         ],
         "doc": "Tk GUI bindings",
     },

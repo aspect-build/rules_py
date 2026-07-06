@@ -1,0 +1,72 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_test", "py_venv")
+load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
+load("@container_structure_test//:defs.bzl", "container_structure_test")
+load("@rules_oci//oci:defs.bzl", "oci_image")
+load("//tools:asserts.bzl", "assert_tar_listing")
+
+platform(
+    name = "exclude_tkinter_linux_amd64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+        "@llvm//constraints/libc:gnu.2.28",
+    ],
+    flags = [
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
+        "--@aspect_rules_py//py/private/interpreter:exclude_feature=tkinter",
+    ],
+)
+
+py_binary(
+    name = "check_no_tkinter",
+    srcs = ["__main__.py"],
+    main = "__main__.py",
+    python_version = "3.11",
+    tags = ["manual"],
+    deps = ["//tools/verify_venv"],
+)
+
+py_image_layer(
+    name = "layers",
+    binary = ":check_no_tkinter",
+)
+
+platform_transition_filegroup(
+    name = "amd64_layers",
+    srcs = [":layers"],
+    target_platform = ":exclude_tkinter_linux_amd64",
+)
+
+assert_tar_listing(
+    name = "amd64_layers_listing",
+    actual = [":amd64_layers"],
+    expected = "amd64_layers_listing.yaml",
+)
+
+oci_image(
+    name = "image",
+    base = "@ubuntu",
+    entrypoint = ["/app"],
+    tars = [":layers"],
+)
+
+platform_transition_filegroup(
+    name = "amd64_image",
+    srcs = [":image"],
+    target_platform = ":exclude_tkinter_linux_amd64",
+)
+
+container_structure_test(
+    name = "test",
+    args = ["--verbosity=debug"],
+    configs = ["test.yaml"],
+    image = ":amd64_image",
+    platform = "linux/amd64",
+    tags = [
+        "requires-docker",
+        "skip-on-bazel9",
+    ],
+    target_compatible_with = [
+        "@platforms//cpu:x86_64",
+    ],
+)
