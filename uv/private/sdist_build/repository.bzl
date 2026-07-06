@@ -101,9 +101,9 @@ def _resolve_extra_deps(repository_ctx, inspection):
 
     if unresolvable:
         fail(
-            "sdist configure tool for {} reported build deps that are not in " +
-            "the lockfile: {}. Add these packages to your lockfile or provide " +
-            "them via uv.unstable_annotate_packages().".format(
+            ("sdist configure tool for {} reported build deps that are not in " +
+             "the lockfile: {}. Add these packages to your lockfile or provide " +
+             "them via uv.unstable_annotate_packages().").format(
                 repository_ctx.name,
                 ", ".join(unresolvable),
             ),
