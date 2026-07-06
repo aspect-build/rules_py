@@ -1,7 +1,6 @@
 load("@aspect_rules_py//py:defs.bzl", "py_library")
 load("@aspect_rules_py//uv/private/whl_install:defs.bzl", "select_chain")
 load("@aspect_rules_py//uv/private/whl_install:rule.bzl", "source_built_wheel", "whl_install")
-load("@bazel_skylib//lib:selects.bzl", "selects")
 
 source_built_wheel(
     name = "source_built_wheel",
