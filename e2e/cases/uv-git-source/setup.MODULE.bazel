@@ -1,0 +1,23 @@
+"""Coverage for git-sourced lockfile packages: six resolves from a
+`source = { git = ... }` entry (uv-generated URL with query params and a
+pinned commit fragment), which is converted to an http_archive of the
+GitHub tarball and built from source. Uses its own hub to keep the git
+source isolated from the shared `pypi` hub.
+"""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_git_source")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "setuptools",
+    ],
+    hub_name = "pypi_git_source",
+    lock = "//uv-git-source:uv.lock",
+    pyproject = "//uv-git-source:pyproject.toml",
+)
+use_repo(
+    uv,
+    "pypi_git_source",
+    "sdist_build__uv_git_source__six__1_17_0",
+)

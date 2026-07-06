@@ -1,9 +1,12 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load(":test_defs.bzl", "defs_test_suite")
+load(":test_git_utils.bzl", "git_utils_test_suite")
 load(":test_graph_utils.bzl", "graph_utils_test_suite")
 load(":test_projectfile.bzl", "projectfile_test_suite")
 
 defs_test_suite()
+
+git_utils_test_suite()
 
 graph_utils_test_suite()
 
@@ -80,6 +83,16 @@ bzl_library(
     visibility = ["//uv:__subpackages__"],
     deps = [
         ":defs",
+        "@bazel_skylib//lib:unittest",
+    ],
+)
+
+bzl_library(
+    name = "test_git_utils",
+    srcs = ["test_git_utils.bzl"],
+    visibility = ["//uv:__subpackages__"],
+    deps = [
+        ":git_utils",
         "@bazel_skylib//lib:unittest",
     ],
 )
