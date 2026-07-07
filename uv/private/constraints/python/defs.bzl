@@ -33,8 +33,7 @@ def supported_python(python_tag):
 _PYTHON_VERSION_MAJOR_MINOR_FLAG = Label("@rules_python//python/config_settings:python_version_major_minor")
 _ARPY_PYTHON_VERSION_FLAG = Label("@aspect_rules_py//py/private/interpreter:python_version")
 
-def is_python_version_at_least(name, version = None, visibility = visibility, **kwargs):
-    version = version or name
+def is_python_version_at_least(name, version, visibility, **kwargs):
     flag_name = "_{}_flag".format(name)
     native.config_setting(
         name = name,
