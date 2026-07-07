@@ -1,5 +1,6 @@
 load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_layer_tier", "py_test")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@container_structure_test//:defs.bzl", "container_structure_test")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load")
 load("//tools:asserts.bzl", "assert_tar_listing")
@@ -224,6 +225,18 @@ container_structure_test(
         #TODO(bazel9): runfiles changed?
         "skip-on-bazel9",
     ],
+)
+
+# `platform` must resolve relative to the calling repo, not aspect_rules_py.
+py_image_layer(
+    name = "server_platform_layers",
+    binary = ":server",
+    platform = "//oci/py_image_layer:x86_64_linux",
+)
+
+build_test(
+    name = "server_platform_layers_test",
+    targets = [":server_platform_layers"],
 )
 
 # Regression test for https://github.com/aspect-build/rules_py/issues/1120
