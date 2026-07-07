@@ -66,6 +66,17 @@ write_source_files(
         # lower-bound check that the file still gets emitted with no entries.
         "snapshots/project_single.private.markers.BUILD.bazel": "@project__single_project_hub//private/markers:BUILD.bazel",
 
+        # uv_project: extra activated through a dependency group. The `ci`
+        # group requests the project's own `build` extra (extra-marker[build]),
+        # which pulls in colorama gated by `extra == 'build'`. That marker is
+        # tautological once the extra is active and must be resolved away, or
+        # colorama gets dropped at runtime. This snapshot pins the resolved
+        # shape: the sccs file depends on `//:colorama` directly. Regressing the
+        # fix reintroduces the `extra == 'build'` marker and a `select(... :empty)`
+        # gate, so it shows up here as a diff. (The markers-file shape — no
+        # decide_marker emitted — is already pinned by project_single above.)
+        "snapshots/extra_marker.private.sccs.BUILD.bazel": "@project__extra_marker//private/sccs:BUILD.bazel",
+
         # @whl_install for grpcio with bare linux_* wheels
         # ----------------------------------------------------------------
         # grpcio 1.80.0 ships bare linux_armv7l wheels alongside manylinux/

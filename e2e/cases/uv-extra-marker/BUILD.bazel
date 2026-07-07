@@ -1,0 +1,14 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+py_test(
+    name = "extra_marker",
+    srcs = [
+        "__test__.py",
+    ],
+    dep_group = "ci",
+    main = "__test__.py",
+    python_version = "3.11",
+    deps = [
+        "@pypi_uv_extra_marker//colorama",
+    ],
+)

@@ -1,0 +1,65 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library")
+
+py_library(
+    name = "empty",
+    srcs = [],
+    deps = [],
+    imports = [],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: colorama__0_4_6
+# members:
+# {
+#     "@whl_install__extra_marker__colorama__0_4_6//:install": {
+#         "": 1,
+#     },
+# }
+# deps:
+# {}
+
+
+py_library(
+    name = "colorama__0_4_6",
+    deps = [
+        "@whl_install__extra_marker__colorama__0_4_6//:install",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+# scc: extra_marker__0_0_0
+# members:
+# {}
+# deps:
+# {
+#     "colorama": {
+#         "extra == 'build'": 1,
+#     },
+# }
+
+
+alias(
+    name = "_maybe__extra_marker__0_0_0__colorama",
+    actual = select({
+        "//private/markers:marker_0": "//:colorama",
+        "//conditions:default": ":empty",
+    }),
+    visibility = ["//:__subpackages__"],
+)
+
+
+py_library(
+    name = "extra_marker__0_0_0",
+    deps = [
+        ":_maybe__extra_marker__0_0_0__colorama",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//visibility:public"],
+)

@@ -1,0 +1,8 @@
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_uv_extra_marker")
+uv.project(
+    hub_name = "pypi_uv_extra_marker",
+    lock = "//uv-extra-marker:uv.lock",
+    pyproject = "//uv-extra-marker:pyproject.toml",
+)
+use_repo(uv, "project__extra_marker", "pypi_uv_extra_marker")

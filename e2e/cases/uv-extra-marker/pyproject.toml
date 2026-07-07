@@ -1,0 +1,15 @@
+[project]
+name = "extra-marker"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+build = [
+    "colorama",
+]
+
+[dependency-groups]
+ci = [
+    "extra-marker[build]",
+]
