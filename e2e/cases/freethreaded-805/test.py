@@ -1,6 +1,7 @@
 """Test that a freethreaded interpreter can import native extensions built for the 't' ABI."""
 
 import os
+import subprocess
 import sys
 import sysconfig
 import unittest
@@ -31,6 +32,31 @@ class FreethreadedTest(unittest.TestCase):
         self.assertIsNotNone(m)
         self.assertEqual(m.group(1), "Hello")
         self.assertEqual(m.group(2), "World")
+
+    def test_venv_site_packages_uses_t_suffix(self):
+        """The venv must place site-packages under lib/python3.<m>t, the only
+        location a freethreaded interpreter searches."""
+        self.assertTrue(sys.prefix.endswith(".venv"), sys.prefix)
+        minor = sys.version_info.minor
+        t_dir = os.path.join(sys.prefix, "lib", f"python3.{minor}t", "site-packages")
+        self.assertTrue(os.path.isdir(t_dir), f"missing {t_dir}")
+        plain_dir = os.path.join(sys.prefix, "lib", f"python3.{minor}", "site-packages")
+        self.assertFalse(os.path.isdir(plain_dir), f"unexpected non-t dir {plain_dir}")
+        # The interpreter's own purelib lookup must land on the t dir.
+        purelib = sysconfig.get_path("purelib")
+        self.assertEqual(os.path.realpath(purelib), os.path.realpath(t_dir))
+
+    def test_venv_bin_has_t_symlink(self):
+        """bin/python3.<m>t is the name the interpreter looks itself up under."""
+        minor = sys.version_info.minor
+        t_python = os.path.join(sys.prefix, "bin", f"python3.{minor}t")
+        self.assertTrue(os.path.lexists(t_python), f"missing {t_python}")
+        out = subprocess.run(
+            [t_python, "-c", "import sysconfig; print(sysconfig.get_config_var('Py_GIL_DISABLED'))"],
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(out.stdout.strip(), "1", out.stderr)
 
     def test_regex_native_extension_is_freethreaded(self):
         """The regex C extension .so must be the freethreaded variant."""
