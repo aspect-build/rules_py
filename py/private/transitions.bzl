@@ -51,6 +51,3 @@ python_transition = transition(
         _FREETHREADED_FLAG,
     ],
 )
-
-# The old name, FIXME: refactor this out
-python_version_transition = python_transition

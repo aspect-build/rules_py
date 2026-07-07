@@ -53,7 +53,6 @@ def _resolve_toolchain(ctx):
 
     py3_toolchain = toolchain_info.py3_runtime
 
-    interpreter = None
     runfiles_interpreter = True
 
     if py3_toolchain.interpreter != None:
@@ -67,14 +66,10 @@ def _resolve_toolchain(ctx):
         files = depset([])
         runfiles_interpreter = False
 
-    # Bazel 7 has this field on the PyRuntimeInfo
-    if hasattr(py3_toolchain, "interpreter_version_info"):
-        for attr in ["major", "minor", "micro"]:
-            if not hasattr(py3_toolchain.interpreter_version_info, attr):
-                fail(_MUST_SET_TOOLCHAIN_INTERPRETER_VERSION_INFO)
-        interpreter_version_info = py3_toolchain.interpreter_version_info
-    else:
-        fail(_MUST_SET_TOOLCHAIN_INTERPRETER_VERSION_INFO)
+    for attr in ["major", "minor", "micro"]:
+        if not hasattr(py3_toolchain.interpreter_version_info, attr):
+            fail(_MUST_SET_TOOLCHAIN_INTERPRETER_VERSION_INFO)
+    interpreter_version_info = py3_toolchain.interpreter_version_info
 
     # Read the freethreaded build setting if the consuming rule exposed
     # the attr. Freethreaded Python uses `lib/python<M>.<m>t/site-packages/`

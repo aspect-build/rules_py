@@ -5,12 +5,11 @@ load("//py/private/toolchain:repo.bzl", "toolchains_repo")
 
 DEFAULT_TOOLS_REPOSITORY = "rules_py_tools"
 
-def rules_py_toolchains(name = DEFAULT_TOOLS_REPOSITORY, **kwargs):
+def rules_py_toolchains(name = DEFAULT_TOOLS_REPOSITORY):
     """Create toolchain repositories for rules_py.
 
     Args:
         name: prefix used in created repositories
-        **kwargs: unused, retained for backwards compatibility
     """
     toolchains_repo(name = name)
 
