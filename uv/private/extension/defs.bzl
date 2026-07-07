@@ -149,18 +149,15 @@ def _parse_hubs(module_ctx):
         module_ctx: The Bazel module context.
 
     Returns:
-        A dictionary of hub specifications, where the keys are hub names and the
-        values are dictionaries of module names that declared the hub.
+        A dictionary of hub specifications, keyed by hub name.
     """
 
     # As with `rules_python` hub names have to be globally unique :/
     hub_specs = {}
 
-    # Collect all hubs, ensure we have no dupes
     for mod in module_ctx.modules:
         for hub in mod.tags.declare_hub:
-            hub_specs.setdefault(hub.hub_name, {})
-            hub_specs[hub.hub_name][mod.name] = 1
+            hub_specs[hub.hub_name] = True
 
     # Note that we ARE NOT validating that the same hub name is registered by
     # one and only one repository. This allows `@pypi` which we think should be

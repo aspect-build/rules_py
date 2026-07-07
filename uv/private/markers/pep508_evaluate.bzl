@@ -157,26 +157,6 @@ def evaluate(marker, *, env, strict = True, **kwargs):
 
     fail("Could not evaluate: {}".format(marker))
 
-_STRING_REPLACEMENTS = {
-    "!=": "neq",
-    "(": "_",
-    ")": "_",
-    "<": "lt",
-    "<=": "lteq",
-    "==": "eq",
-    "===": "eeq",
-    ">": "gt",
-    ">=": "gteq",
-    "not in": "not_in",
-    "~==": "cmp",
-}
-
-def to_string(marker):
-    return "_".join([
-        _STRING_REPLACEMENTS.get(t, t)
-        for t in tokenize(marker)
-    ]).replace("\"", "")
-
 def _and_fn(x, y):
     """Our custom `and` evaluation function.
 

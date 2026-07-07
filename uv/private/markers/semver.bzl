@@ -39,15 +39,6 @@ def _key(version):
         version.build,
     )
 
-def _to_dict(self):
-    return {
-        "build": self.build,
-        "major": self.major,
-        "minor": self.minor,
-        "patch": self.patch,
-        "pre_release": self.pre_release,
-    }
-
 def _upper(self):
     major = self.major
     minor = self.minor
@@ -62,7 +53,7 @@ def _upper(self):
     elif minor != None:
         major = major + 1
         minor = 0
-    elif minor == None:
+    else:
         major = major + 1
 
     return _new(
@@ -86,7 +77,6 @@ def _new(*, major, minor, patch, pre_release, build, version = None):
         # buildifier: disable=uninitialized
         key = lambda: _key(self),
         str = lambda: version,
-        to_dict = lambda: _to_dict(self),
         upper = lambda: _upper(self),
     )
     return self

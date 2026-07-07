@@ -28,7 +28,6 @@ bzl_library(
         "//uv/private:normalize_version",
         "//uv/private/constraints:repository",
         "//uv/private/git_archive:repository",
-        "//uv/private/pprint:defs",
         "//uv/private/sdist_build:attrs",
         "//uv/private/sdist_build:repository",
         "//uv/private/sdist_configure:defs",

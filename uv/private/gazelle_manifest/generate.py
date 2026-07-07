@@ -6,8 +6,6 @@
 #
 # The strategy is simple.
 # - Accept an args file containing paths to wheel (.whl) files or directories containing .whl files
-# - A path to a lockfile
-# - A path to a file containing an integrity shasum
 #
 # - For each whl file
 #   - open it with a zip reader, extract the .dist-info/METADATA` file and use that to grab the package name
@@ -15,7 +13,7 @@
 #   - strip out `_` prefixed modules and packages
 #   - enter each module into a mapping from module name to requirement name
 #
-# - Write a YAML format manifest file {manifest: {modules_mapping: <mapping>, pip_repository: <hub name>}, integrity: <integrity>}
+# - Write a YAML format manifest file {manifest: {modules_mapping: <mapping>, pip_repository: <hub name>}}
 
 import argparse
 import sys
@@ -174,7 +172,7 @@ def identify_modules(whl_path: Path, package_name: str) -> dict[str, str]:
 
 def write_manifest(module_mapping: dict[str, str],
                    output_path: Path,
-                   pip_repository_name: str = "pypi") -> None:
+                   pip_repository_name: str) -> None:
     """
     Formats the module mapping into a YAML-like string and
     writes it to the specified output path. No pyyaml is used.
