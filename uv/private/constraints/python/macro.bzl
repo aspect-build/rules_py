@@ -9,18 +9,35 @@ load(":defs.bzl", "is_python_version_at_least")
 # buildifier: disable=function-docstring
 def generate(
         visibility):
-    # FIXME: Needs to generate a cascade.
-    for interpreter in INTERPRETERS:
-        for major in MAJORS:
+    for major in MAJORS:
+        is_python_version_at_least(
+            name = "py{}".format(major),
+            version = "{}.0".format(major),
+            visibility = visibility,
+        )
+
+        for minor in MINORS:
             is_python_version_at_least(
+                name = "py{}{}".format(major, minor),
+                version = "{}.{}".format(major, minor),
+                visibility = visibility,
+            )
+
+    # The settings check only the interpreter version, so every non-generic
+    # tag (cp312, ...) evaluates identically to its py equivalent.
+    for interpreter in INTERPRETERS:
+        if interpreter == "py":
+            continue
+        for major in MAJORS:
+            native.alias(
                 name = "{}{}".format(interpreter, major),
-                version = "{}.0".format(major),
+                actual = ":py{}".format(major),
                 visibility = visibility,
             )
 
             for minor in MINORS:
-                is_python_version_at_least(
+                native.alias(
                     name = "{}{}{}".format(interpreter, major, minor),
-                    version = "{}.{}".format(major, minor),
+                    actual = ":py{}{}".format(major, minor),
                     visibility = visibility,
                 )
