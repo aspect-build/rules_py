@@ -3,7 +3,6 @@
 """
 
 load("@bazel_features//:features.bzl", features = "bazel_features")
-load("//uv/private:sha1.bzl", "sha1")
 load("//uv/private/pprint:defs.bzl", "pprint")
 load("//uv/private/uv_project:select_gen.bzl", "build_package_select_arms")
 
@@ -46,11 +45,20 @@ def _project_impl(repository_ctx):
         """
         Given a marker expression, get a label for it.
         Interns the marker expression into the marker table as needed.
+        The id is only referenced within this generated repository, and the
+        decide_marker() it names carries the full expression.
         """
         if expr not in marker_table:
-            marker_table[expr] = sha1(expr)
+            marker_table[expr] = "marker_{}".format(len(marker_table))
         marker_id = marker_table[expr]
         return "//private/markers:" + marker_id
+
+    def _safe_name(s):
+        """Project a label or package string into a target-name-safe string."""
+        acc = []
+        for c in s.elems():
+            acc.append(c if c.isalnum() or c in "._-" else "_")
+        return "".join(acc)
 
     def _conditionalize(it, markers, cond_id_thunk, no_match = None):
         if "" in markers:
@@ -235,7 +243,7 @@ py_library(
             deps.append(_conditionalize(
                 member,
                 markers,
-                lambda: "_maybe__{}__{}".format(scc_id, sha1(member)[:16]),
+                lambda: "_maybe__{}__{}".format(scc_id, _safe_name(member)),
                 no_match = ":empty",
             ))
 
@@ -244,7 +252,7 @@ py_library(
                 # Note that we map these back to surface packages
                 "//:" + dep,
                 markers,
-                lambda: "_maybe__{}__{}".format(scc_id, sha1(dep)[:16]),
+                lambda: "_maybe__{}__{}".format(scc_id, _safe_name(dep)),
                 no_match = ":empty",
             ))
 
