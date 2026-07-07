@@ -33,6 +33,15 @@ jobs:
                 aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
             - name: Gazelle
               run: aspect gazelle --task-key=gazelle
+    docs:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v6
+            - uses: aspect-build/setup-aspect@c22a8f64fb38f82f59ce809cd7eb9f8ae096da44 # v2026.23.2
+              with:
+                aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
+            - name: Build API docs
+              run: bash .github/workflows/release_docs.sh "$RUNNER_TEMP/rules_py-docs.tar.gz"
     test:
         name: test (${{ matrix.workspace.path }}, ${{ matrix.bazel.id }})
         runs-on: ${{ matrix.workspace.runner }}
