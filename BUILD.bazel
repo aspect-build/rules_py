@@ -1,5 +1,4 @@
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
-load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirements")
 load("//uv:defs.bzl", "gazelle_python_manifest")
 
 # Gazelle manages the bzl_library graph for the public //py/... and //uv/...
@@ -39,13 +38,6 @@ alias(
 alias(
     name = "buildifier",
     actual = "@buildifier_prebuilt//buildifier",
-)
-
-compile_pip_requirements(
-    name = "requirements",
-    extra_args = ["--allow-unsafe"],
-    requirements_in = "requirements.in",
-    requirements_txt = "requirements.txt",
 )
 
 # Regression test: a package whose lockfile entry has both an sdist *and* a
