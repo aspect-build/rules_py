@@ -56,7 +56,7 @@ def _py_pytest_main_impl(ctx):
     }
 
     ctx.actions.expand_template(
-        template = ctx.file.template,
+        template = ctx.file._template,
         output = ctx.outputs.out,
         substitutions = dict(substitutions, **ctx.var),
         is_executable = False,
@@ -76,14 +76,10 @@ _py_pytest_main = rule(
             doc = "The output file.",
             mandatory = True,
         ),
-        "template": attr.label(
-            doc = """INTERNAL USE ONLY.
-            A python script to be called as the pytest main.
-            Default values in the template are replaced before executing the script.
-            This is not considered a Public API. Replacements may change without warning.
-            """,
+        "_template": attr.label(
+            doc = "The pytest main script; substitution markers are replaced before use.",
             allow_single_file = True,
-            default = Label("//py/private:pytest.py.tmpl"),
+            default = Label("//py/private:pytest_main.py"),
         ),
     },
 )

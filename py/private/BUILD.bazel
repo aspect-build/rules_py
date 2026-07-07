@@ -7,7 +7,6 @@ package(default_visibility = ["//py:__subpackages__"])
 
 exports_files(
     [
-        "pytest.py.tmpl",
         "pytest_main.py",
         "modify_mtree.awk",
     ],
