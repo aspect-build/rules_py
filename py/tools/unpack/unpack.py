@@ -42,6 +42,23 @@ def _has_python_shebang(data):
     return data.startswith(b"#!") and b"python" in data.split(b"\n", 1)[0]
 
 
+def _is_native_library(path):
+    name = path.name
+    _, so_separator, so_version = name.partition(".so.")
+    return (
+        name.endswith((".so", ".pyd", ".dylib", ".dll"))
+        or (so_separator and so_version and so_version[0].isdigit())
+    )
+
+
+def _native_descendants(directory):
+    return tuple(sorted(
+        path.relative_to(directory).as_posix()
+        for path in directory.rglob("*")
+        if path.is_file() and _is_native_library(path)
+    ))
+
+
 def _write_executable(path, content):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(content)
@@ -198,17 +215,20 @@ def main():
     # Analysis uses these paths for collision and merge planning. Snapshot their
     # installed shape here, where both the before and after states are available.
     observed_files = []
-    observed_directory_init = {}
+    observed_directories = {}
     for relative_string in args.preserve_path:
         relative = Path(relative_string)
         if relative.is_absolute() or ".." in relative.parts:
             raise SystemExit("Invalid preserved wheel path: {}".format(relative))
         path = site_packages / relative
         if path.is_dir():
-            observed_directory_init[relative] = (
-                None
-                if relative.name.endswith((".dist-info", ".egg-info"))
-                else (path / "__init__.py").is_file()
+            observed_directories[relative] = (
+                (
+                    None
+                    if relative.name.endswith((".dist-info", ".egg-info"))
+                    else (path / "__init__.py").is_file()
+                ),
+                _native_descendants(path),
             )
         elif path.is_file():
             observed_files.append(relative)
@@ -241,7 +261,7 @@ def main():
             raise SystemExit(
                 "Post-install patch changed observed wheel file: {}".format(relative)
             )
-    for relative, had_init in observed_directory_init.items():
+    for relative, (had_init, native_descendants) in observed_directories.items():
         directory = site_packages / relative
         if not directory.is_dir():
             raise SystemExit(
@@ -250,6 +270,10 @@ def main():
         if had_init is not None and (directory / "__init__.py").is_file() != had_init:
             raise SystemExit(
                 "Post-install patch changed observed package classification: {}".format(relative)
+            )
+        if _native_descendants(directory) != native_descendants:
+            raise SystemExit(
+                "Post-install patch changed observed native files: {}".format(relative)
             )
 
     if args.compile_pyc:

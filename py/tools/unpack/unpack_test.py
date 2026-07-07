@@ -205,14 +205,27 @@ elif operation == "file-to-directory":
 elif operation == "directory-to-file":
     shutil.rmtree(target)
     target.write_text("replacement\\n")
+elif operation == "write-native":
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(b"native")
 else:
     raise SystemExit(f"unknown operation: {{operation}}")
 """
         )
         mutation_tool.chmod(0o755)
-        for name, operation, changed_path, preserved_path, expected_error in [
+        native_wheel = root / "native_fixture-1.0-py3-none-any.whl"
+        _write_wheel(
+            native_wheel,
+            "native_fixture",
+            {
+                "fixture/__init__.py": b"VALUE = 1\n",
+                "fixture/native_extension.so": b"native",
+            },
+        )
+        for name, wheel, operation, changed_path, preserved_path, expected_error in [
             (
                 "removed-file",
+                good_wheel,
                 "unlink",
                 "fixture/mod.py",
                 "fixture/mod.py",
@@ -220,6 +233,7 @@ else:
             ),
             (
                 "file-to-directory",
+                good_wheel,
                 "file-to-directory",
                 "fixture/mod.py",
                 "fixture/mod.py",
@@ -227,6 +241,7 @@ else:
             ),
             (
                 "regular-to-namespace",
+                good_wheel,
                 "unlink",
                 "fixture/__init__.py",
                 "fixture",
@@ -234,10 +249,35 @@ else:
             ),
             (
                 "directory-to-file",
+                good_wheel,
                 "directory-to-file",
                 "fixture",
                 "fixture",
                 "changed observed wheel directory: fixture",
+            ),
+            (
+                "added-native",
+                good_wheel,
+                "write-native",
+                "fixture/native_extension.so",
+                "fixture",
+                "changed observed native files: fixture",
+            ),
+            (
+                "removed-native",
+                native_wheel,
+                "unlink",
+                "fixture/native_extension.so",
+                "fixture",
+                "changed observed native files: fixture",
+            ),
+            (
+                "added-nested-native",
+                native_wheel,
+                "write-native",
+                "fixture/nested/new_extension.so",
+                "fixture",
+                "changed observed native files: fixture",
             ),
         ]:
             mutation = root / f"{name}.patch"
@@ -246,7 +286,7 @@ else:
             )
             rejected = _run_unpack(
                 unpack,
-                good_wheel,
+                wheel,
                 root / name,
                 Path(sys.executable),
                 (

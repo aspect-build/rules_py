@@ -1,0 +1,11 @@
+[project]
+name = "jwt-regular-collision"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    # Both distributions install a regular jwt/ directory, but each owns
+    # modules that the other does not. Keep the versions pinned so the
+    # collision shape remains the test's source of truth.
+    "PyJWT==2.13.0",
+    "jwt==1.4.0",
+]
