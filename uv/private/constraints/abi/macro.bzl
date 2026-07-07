@@ -2,7 +2,7 @@
 Generate interpreter ABI config_settings for wheel selection.
 
 Each ABI tag from a wheel filename (e.g. cp312, cp312t, cp312dmu) maps to a
-config_setting_group that combines a Python version check with interpreter
+config_setting whose flag_values AND a Python version check with interpreter
 feature flag checks. The feature flags are backed by bool_flags defined in
 //py/private/interpreter:BUILD.bazel and are set by the interpreter toolchain
 provisioning system.
@@ -35,66 +35,24 @@ def generate(
         ],
     )
 
-    # Interpreter feature flag config_settings. Each pair (enabled/disabled)
-    # checks the corresponding bool_flag from //py/private/interpreter.
-    native.config_setting(
-        name = "pydebug_enabled",
-        flag_values = {_PYDEBUG_FLAG: "true"},
-        visibility = visibility,
-    )
-    native.config_setting(
-        name = "pydebug_disabled",
-        flag_values = {_PYDEBUG_FLAG: "false"},
-        visibility = visibility,
-    )
-
-    native.config_setting(
-        name = "pymalloc_enabled",
-        flag_values = {_PYMALLOC_FLAG: "true"},
-        visibility = visibility,
-    )
-    native.config_setting(
-        name = "pymalloc_disabled",
-        flag_values = {_PYMALLOC_FLAG: "false"},
-        visibility = visibility,
-    )
-
-    native.config_setting(
-        name = "freethreading_enabled",
-        flag_values = {_FREETHREADING_FLAG: "true"},
-        visibility = visibility,
-    )
-    native.config_setting(
-        name = "freethreading_disabled",
-        flag_values = {_FREETHREADING_FLAG: "false"},
-        visibility = visibility,
-    )
-
-    native.config_setting(
-        name = "wide_unicode_enabled",
-        flag_values = {_WIDE_UNICODE_FLAG: "true"},
-        visibility = visibility,
-    )
-    native.config_setting(
-        name = "wide_unicode_disabled",
-        flag_values = {_WIDE_UNICODE_FLAG: "false"},
-        visibility = visibility,
-    )
-
     native.alias(
         name = "abi3",
         actual = "//uv/private/constraints/python:py33",
         visibility = visibility,
     )
 
+    # A native config_setting ANDs all of its flag_values entries, so each
+    # abi tag is one target instead of a config_setting_group chain — this
+    # loop emits 1344 tags, so the per-tag target count matters.
     for interpreter in INTERPRETERS:
         for major in MAJORS:
             for minor in MINORS:
+                version_flag = "//uv/private/constraints/python:_py{}{}_flag".format(major, minor)
                 for d in [False, True]:
                     for m in [False, True]:
                         for t in [False, True]:
                             for u in [False, True]:
-                                selects.config_setting_group(
+                                native.config_setting(
                                     name = "{0}{1}{2}{3}{4}{5}{6}".format(
                                         interpreter,
                                         major,
@@ -104,14 +62,12 @@ def generate(
                                         "t" if t else "",
                                         "u" if u else "",
                                     ),
-                                    match_all = (
-                                        [
-                                            "//uv/private/constraints/python:py{}{}".format(major, minor),
-                                        ] +
-                                        ([":pydebug_enabled"] if d else [":pydebug_disabled"]) +
-                                        ([":pymalloc_enabled"] if m else [":pymalloc_disabled"]) +
-                                        ([":freethreading_enabled"] if t else [":freethreading_disabled"]) +
-                                        ([":wide_unicode_enabled"] if u else [":wide_unicode_disabled"])
-                                    ),
+                                    flag_values = {
+                                        version_flag: "yes",
+                                        _PYDEBUG_FLAG: "true" if d else "false",
+                                        _PYMALLOC_FLAG: "true" if m else "false",
+                                        _FREETHREADING_FLAG: "true" if t else "false",
+                                        _WIDE_UNICODE_FLAG: "true" if u else "false",
+                                    },
                                     visibility = visibility,
                                 )

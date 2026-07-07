@@ -46,7 +46,9 @@ def is_python_version_at_least(name, version = None, visibility = visibility, **
     _python_version_at_least(
         name = flag_name,
         at_least = version,
-        visibility = ["//visibility:private"],
+        # The abi package's config_settings check this flag directly in
+        # their flag_values, ANDed with the interpreter feature flags.
+        visibility = ["//uv/private/constraints:__subpackages__"],
         **kwargs
     )
 
