@@ -229,9 +229,83 @@ evaluate_test = unittest.make(
     _evaluate_test_impl,
 )
 
+def _version_ops_test_impl(ctx):
+    env = unittest.begin(ctx)
+
+    # '~=' compatible release: >= right and < right.upper().
+    asserts.true(env, evaluate("python_full_version ~= '3.11.0'", env = _LINUX_ENV))
+    asserts.false(env, evaluate("python_full_version ~= '3.10.2'", env = _LINUX_ENV))
+    asserts.false(env, evaluate("python_full_version ~= '3.12.0'", env = _LINUX_ENV))
+
+    # Two-segment '~=' bumps the major for its upper bound (3.11 < 4.0).
+    asserts.true(env, evaluate("python_version ~= '3.10'", env = _LINUX_ENV))
+    asserts.false(env, evaluate("python_version ~= '3.12'", env = _LINUX_ENV))
+
+    # Single-segment right side: upper bound is the next major.
+    asserts.true(env, evaluate("python_version ~= '3'", env = _LINUX_ENV))
+
+    # '===' strict matching compares the full version key, so a pre-release
+    # or differing patch breaks equality while '3.11' == '3.11.0' holds
+    # (missing segments normalize to 0 in the key).
+    asserts.true(env, evaluate("python_full_version === '3.11.0'", env = _LINUX_ENV))
+    asserts.true(env, evaluate("python_full_version === '3.11'", env = _LINUX_ENV))
+    asserts.false(env, evaluate("python_full_version === '3.11.1'", env = _LINUX_ENV))
+    asserts.false(env, evaluate("python_full_version === '3.11.0-rc1'", env = _LINUX_ENV))
+
+    # Pre-release versions order below the final release.
+    asserts.true(env, evaluate("python_full_version > '3.11.0-rc1'", env = _LINUX_ENV))
+    asserts.false(env, evaluate("python_full_version < '3.11.0-rc1'", env = _LINUX_ENV))
+
+    # A variable that is neither a known string var nor *_version evaluates
+    # to False rather than failing, even when the values would match.
+    weird_env = dict(_LINUX_ENV)
+    weird_env["weird_var"] = "x"
+    asserts.false(env, evaluate("weird_var == 'x'", env = weird_env))
+
+    return unittest.end(env)
+
+version_ops_test = unittest.make(
+    _version_ops_test_impl,
+)
+
+def _partial_evaluate_test_impl(ctx):
+    env = unittest.begin(ctx)
+
+    # With strict = False an expression over env vars that are absent is
+    # returned as a normalized string instead of failing.
+    asserts.equals(env, 'extra == "tls"', evaluate("extra == 'tls'", env = {}, strict = False))
+
+    # 'and': a True side reduces to the unknown side; a False side wins.
+    asserts.equals(env, 'extra == "tls"', evaluate("sys_platform == 'linux' and extra == 'tls'", env = _LINUX_ENV, strict = False))
+    asserts.equals(env, 'extra == "tls"', evaluate("extra == 'tls' and sys_platform == 'linux'", env = _LINUX_ENV, strict = False))
+    asserts.false(env, evaluate("sys_platform == 'win32' and extra == 'tls'", env = _LINUX_ENV, strict = False))
+    asserts.equals(env, 'extra == "a" and extra2 == "b"', evaluate("extra == 'a' and extra2 == 'b'", env = {}, strict = False))
+
+    # 'or': a True side makes the unknown side irrelevant (empty string); a
+    # False side reduces to the unknown side.
+    asserts.equals(env, "", evaluate("extra == 'tls' or sys_platform == 'linux'", env = _LINUX_ENV, strict = False))
+    asserts.equals(env, "", evaluate("sys_platform == 'linux' or extra == 'tls'", env = _LINUX_ENV, strict = False))
+    asserts.equals(env, 'extra == "tls"', evaluate("extra == 'tls' or sys_platform == 'win32'", env = _LINUX_ENV, strict = False))
+    asserts.equals(env, 'extra == "tls"', evaluate("sys_platform == 'win32' or extra == 'tls'", env = _LINUX_ENV, strict = False))
+    asserts.equals(env, 'extra == "a" or extra2 == "b"', evaluate("extra == 'a' or extra2 == 'b'", env = {}, strict = False))
+
+    # 'not' over an unknown expression is preserved as a string.
+    asserts.equals(env, 'not extra == "tls"', evaluate("not extra == 'tls'", env = {}, strict = False))
+
+    # Unknown expressions inside parentheses keep their grouping.
+    asserts.equals(env, '(extra == "tls")', evaluate("(extra == 'tls') and sys_platform == 'linux'", env = _LINUX_ENV, strict = False))
+
+    return unittest.end(env)
+
+partial_evaluate_test = unittest.make(
+    _partial_evaluate_test_impl,
+)
+
 def pep508_evaluate_test_suite():
     unittest.suite(
         "pep508_evaluate_tests",
         evaluate_test,
+        partial_evaluate_test,
         tokenize_test,
+        version_ops_test,
     )
