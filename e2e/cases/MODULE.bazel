@@ -145,5 +145,3 @@ include("//uv-workspace-789:setup.MODULE.bazel")
 include("//venv-bin-scripts-423:setup.MODULE.bazel")
 include("//venv-internal-symlinks:setup.MODULE.bazel")
 include("//xds-otel-namespace-1118:setup.MODULE.bazel")
-
-register_toolchains("@uv//:all")

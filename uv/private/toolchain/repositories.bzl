@@ -1,27 +1,5 @@
 """Repository rules for downloading UV binaries."""
 
-def _platform_constraints(platform):
-    parts = platform.split("-")
-    arch = parts[0]
-
-    if arch == "aarch64":
-        cpu = "@platforms//cpu:aarch64"
-    elif arch == "x86_64":
-        cpu = "@platforms//cpu:x86_64"
-    elif arch == "i686":
-        cpu = "@platforms//cpu:x86_32"
-    else:
-        cpu = "@platforms//cpu:{}".format(arch)
-
-    if platform.endswith("apple-darwin"):
-        os_constraint = "@platforms//os:macos"
-    elif "windows" in platform:
-        os_constraint = "@platforms//os:windows"
-    else:
-        os_constraint = "@platforms//os:linux"
-
-    return "[\"{}\", \"{}\"]".format(os_constraint, cpu)
-
 def _detect_host_platform(rctx):
     arch_map = {
         "amd64": "x86_64",
@@ -73,15 +51,7 @@ def _uv_repository_impl(ctx):
         stripPrefix = strip_prefix,
     )
 
-    ctx.file("BUILD.bazel", '''load("@aspect_rules_py//uv/private/toolchain:types.bzl", "uv_tool_toolchain")
-
-exports_files(["{uv_binary}"])
-
-uv_tool_toolchain(
-    name = "toolchain_impl",
-    bin = "{uv_binary}",
-    visibility = ["//visibility:public"],
-)
+    ctx.file("BUILD.bazel", '''exports_files(["{uv_binary}"])
 '''.format(uv_binary = uv_binary))
 
     # Support bazel <v8.3 by returning None if repo_metadata is not defined
@@ -121,19 +91,7 @@ alias(
     name = "uv",
     actual = "@{host_repo}//:{host_uv_binary}",
 )
-
 '''.format(host_repo = host_repo, host_uv_binary = host_uv_binary)
-
-    for platform in rctx.attr.platforms:
-        repo = "{}{}".format(repo_prefix, platform.replace("-", "_"))
-        build += '''toolchain(
-    name = "{platform}_toolchain",
-    exec_compatible_with = {constraints},
-    toolchain = "@{repo}//:toolchain_impl",
-    toolchain_type = "@aspect_rules_py//uv/private/toolchain:toolchain_type",
-)
-
-'''.format(platform = platform, repo = repo, constraints = _platform_constraints(platform))
 
     rctx.file("BUILD.bazel", build)
 
