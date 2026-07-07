@@ -71,5 +71,5 @@ bzl_library(
     name = "defs",
     srcs = ["defs.bzl"],
     visibility = ["//uv:__subpackages__"],
-    deps = ["@rules_cc//cc/common:cc_info"],
+    deps = ["@rules_cc//cc/common:cc_info.bzl"],
 )
