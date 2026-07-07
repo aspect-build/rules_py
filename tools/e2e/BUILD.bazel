@@ -1,7 +1,0 @@
-load("//py:defs.bzl", "py_binary")
-
-py_binary(
-    name = "fileserver",
-    srcs = ["devserver.py"],
-    main = "devserver.py",
-)
