@@ -1,3 +1,4 @@
+pub mod namespace;
 pub mod pth;
 pub mod unpack;
 pub mod venv;

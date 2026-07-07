@@ -6,7 +6,6 @@ use indexmap::IndexMap;
 use itertools::Itertools;
 use miette::{miette, Context, IntoDiagnostic};
 use pathdiff::diff_paths;
-use sha256::try_digest;
 use std::{
     env::current_dir,
     fs::{self, File},
@@ -266,17 +265,19 @@ fn copy_and_patch_shebang(
 ///
 /// The tree we want to create is as follows:
 ///
-///     ./<venv>/
-///       ./pyvenv.cfg                  t
-///       ./bin/
-///         ./python                    l ${PYTHON}
-///         ./python3                   l ./python
-///         ./python3.${VERSION_MINOR}  l ./python
-///       ./lib                         d
-///         ./python3.${VERSION_MINOR}  d
-///           ./site-packages           d
-///             ./_virtualenv.py        t
-///             ./_virtualenv.pth       t
+/// ```text
+/// ./<venv>/
+///   ./pyvenv.cfg                  t
+///   ./bin/
+///     ./python                    l ${PYTHON}
+///     ./python3                   l ./python
+///     ./python3.${VERSION_MINOR}  l ./python
+///   ./lib                         d
+///     ./python3.${VERSION_MINOR}  d
+///       ./site-packages           d
+///         ./_virtualenv.py        t
+///         ./_virtualenv.pth       t
+/// ```
 ///
 ///
 /// Issues:
@@ -1043,27 +1044,28 @@ pub fn populate_venv(
 
         // Handle duplicates
         if sources.len() > 1 {
-            // Hash input files so we can ignore instances where we had
-            // identical inputs.
-            //
-            // FIXME: Need to generate some sort of error if there's more than
-            // one command of the same type pointing to the same destination
-            // because then last wins doesn't actually work.
-            if sources
+            // Ignore duplicates when all concrete sources are equivalent.
+            // Namespace package `__init__.py` stubs are treated as equivalent even
+            // if their bytes differ by comments, whitespace, or quote style.
+            let src_paths: Vec<&Path> = sources
                 .iter()
                 .filter_map(|it| match it {
                     Command::Copy { src, .. }
                     | Command::CopyAndPatch { src, .. }
                     | Command::Symlink { src, .. }
-                    | Command::SymlinkDir { src, .. } => Some(try_digest(src)),
+                    | Command::SymlinkDir { src, .. } => Some(src.as_path()),
                     _ => None,
                 })
-                .filter_map(|it| if let Ok(it) = it { Some(it) } else { None })
-                .counts()
-                .len()
-                == 1
-            {
-                // We have hash-identical inputs; doesn't matter which one we choose. We can safely ignore this collision.
+                .collect();
+
+            let all_equivalent = src_paths.iter().enumerate().all(|(i, p1)| {
+                src_paths
+                    .iter()
+                    .skip(i + 1)
+                    .all(|p2| crate::namespace::are_files_equivalent(p1, p2).unwrap_or(false))
+            });
+
+            if all_equivalent {
                 continue;
             }
 

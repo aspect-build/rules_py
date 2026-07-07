@@ -4,6 +4,7 @@ rust_library(
     name = "py",
     srcs = [
         "src/lib.rs",
+        "src/namespace.rs",
         "src/pth.rs",
         "src/unpack.rs",
         "src/venv.rs",
@@ -24,7 +25,6 @@ rust_library(
         "@aspect_rules_py__crates//:miette",
         "@aspect_rules_py__crates//:pathdiff",
         "@aspect_rules_py__crates//:percent-encoding-2.3.1",
-        "@aspect_rules_py__crates//:sha256",
         "@aspect_rules_py__crates//:tempfile",
         "@aspect_rules_py__crates//:uv-cache",
         "@aspect_rules_py__crates//:uv-distribution-filename",

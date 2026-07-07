@@ -1,6 +1,6 @@
 use std::{
     fs::{self, DirEntry, File},
-    io::{BufRead, BufReader, BufWriter, Read, Write},
+    io::{BufRead, BufReader, BufWriter, Write},
     path::{Path, PathBuf},
 };
 
@@ -279,28 +279,7 @@ fn create_symlink(
 }
 
 fn is_same_file(p1: &Path, p2: &Path) -> miette::Result<bool> {
-    let f1 = File::open(p1)
-        .into_diagnostic()
-        .wrap_err(format!("Unable to open file {}", p1.to_string_lossy()))?;
-    let f2 = File::open(p2)
-        .into_diagnostic()
-        .wrap_err(format!("Unable to open file {}", p2.to_string_lossy()))?;
-
-    // Check file size is the same.
-    if f1.metadata().unwrap().len() != f2.metadata().unwrap().len() {
-        return Ok(false);
-    }
-
-    // Compare bytes from the two files in pairs, given that they have the same number of bytes.
-    let buf1 = BufReader::new(f1);
-    let buf2 = BufReader::new(f2);
-    for (b1, b2) in buf1.bytes().zip(buf2.bytes()) {
-        if b1.unwrap() != b2.unwrap() {
-            return Ok(false);
-        }
-    }
-
-    return Ok(true);
+    crate::namespace::are_files_equivalent(p1, p2)
 }
 
 #[cfg(test)]
@@ -338,5 +317,29 @@ mod tests {
 
         create_symlinks(&sp2, &sp2, &dst, &CollisionResolutionStrategy::Error)
             .expect("__pycache__ directories must be skipped; no collision expected");
+    }
+
+    #[test]
+    fn namespace_init_stubs_with_different_comments_do_not_collide() {
+        let tmp = TempDir::new().unwrap();
+
+        let sp1 = make_namespace_pkg(
+            &tmp.path().join("pkg1"),
+            "__path__ = __import__('pkgutil').extend_path(__path__, __name__)\n",
+            "pyc_from_pkg1",
+        );
+        let sp2 = make_namespace_pkg(
+            &tmp.path().join("pkg2"),
+            "# namespace package\n__path__ = __import__(\"pkgutil\").extend_path(__path__, __name__)\n",
+            "pyc_from_pkg2",
+        );
+        let dst = tmp.path().join("dst").join("site-packages");
+        fs::create_dir_all(&dst).unwrap();
+
+        create_symlinks(&sp1, &sp1, &dst, &CollisionResolutionStrategy::Error).unwrap();
+
+        create_symlinks(&sp2, &sp2, &dst, &CollisionResolutionStrategy::Error).expect(
+            "namespace package stubs must not collide when only comments/whitespace differ",
+        );
     }
 }
