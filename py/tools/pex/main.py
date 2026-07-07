@@ -39,9 +39,8 @@ parser.add_argument(
     "-o",
     "--output-file",
     dest="pex_name",
-    default=None,
-    help="The name of the generated .pex file: Omitting this will run PEX "
-    "immediately and not save it to a file.",
+    required=True,
+    help="The name of the generated .pex file.",
 )
 
 parser.add_argument(
