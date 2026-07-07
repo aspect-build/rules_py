@@ -113,12 +113,6 @@ multitool = use_extension("@rules_multitool//multitool:extension.bzl", "multitoo
 multitool.hub(lockfile = "//tools:tools.lock.json")
 use_repo(multitool, "multitool")
 
-# TODO: Replace with bazel_features?
-# cf. https://github.com/bazel-contrib/bazelrc-preset.bzl/blob/main/MODULE.bazel#L8C1-L10C70
-
-version = use_extension("@bazel_features//private:extensions.bzl", "version_extension")
-use_repo(version, "bazel_features_globals", "bazel_features_version")
-
 # rules_oci and friends
 
 # rules_python and friends
