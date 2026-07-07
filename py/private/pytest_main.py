@@ -37,11 +37,22 @@ if "COVERAGE_MANIFEST" in os.environ:
         # The lines are files that matched the --instrumentation_filter flag
         with open(os.getenv("COVERAGE_MANIFEST"), "r") as mf:
             manifest_entries = mf.read().splitlines()
-            cov = coverage.Coverage(include = manifest_entries)
+            cov = coverage.Coverage(include = manifest_entries, data_suffix = True, config_file = False)
             # coveragepy incorrectly converts our entries by following symlinks
             # record a mapping of their conversion so we can undo it later in reporting the coverage
             coveragepy_absfile_mapping = {coverage.files.abs_file(mfe): mfe for mfe in manifest_entries}
         cov.start()
+        # Propagate coverage config to subprocesses (e.g. pytest-xdist
+        # workers).  We write a .pth file so that every Python subprocess
+        # sharing this venv calls coverage.process_startup() at interpreter
+        # init.  Combined with COVERAGE_PROCESS_CONFIG, the subprocess
+        # automatically starts its own Coverage instance and writes a
+        # per-process data file that we combine() during teardown.
+        import sysconfig
+        _subprocess_pth = os.path.join(sysconfig.get_path("purelib"), "_coverage_subprocess.pth")
+        with open(_subprocess_pth, "w") as _f:
+            _f.write("import coverage; coverage.process_startup()\n")
+        os.environ["COVERAGE_PROCESS_CONFIG"] = cov.config.serialize()
     except ModuleNotFoundError as e:
         print("WARNING: python coverage setup failed. Do you need to include the 'coverage' package as a dependency of py_pytest_main?", e)
         pass
@@ -128,13 +139,14 @@ def main():
         print("Ran pytest.main with " + str(args), file=sys.stderr)
     elif cov:
         cov.stop()
+        cov.save()
+        cov.combine()
         # https://bazel.build/configure/coverage
         coverage_output_file = os.getenv("COVERAGE_OUTPUT_FILE")
 
         unfixed_dat = coverage_output_file + ".tmp"
         cov.lcov_report(outfile = unfixed_dat)
-        cov.save()
-        
+
         with open(unfixed_dat, "r") as unfixed:
           with open(coverage_output_file, "w") as output_file:
             for line in unfixed:

@@ -170,3 +170,38 @@ sh_test(
         ":coverage_setup_test",
     ],
 )
+
+# ─── Subprocess coverage regression ────────────────────────────────────
+#
+# Verifies that coverage data is captured from Python subprocesses
+# (e.g. pytest-xdist workers, subprocess.Popen). The test calls
+# foo.subtract() in a subprocess; the LCOV should include DA hits for
+# both add() (in-process) and subtract() (subprocess).
+
+py_test(
+    name = "subprocess_coverage_setup_test",
+    srcs = ["subprocess_coverage_test.py"],
+    data = [":coverage_manifest"],
+    env = {
+        "COVERAGE_MANIFEST": "$(rootpath :coverage_manifest)",
+        "COVERAGE_OUTPUT_FILE": "subprocess_coverage_setup_test.lcov",
+    },
+    imports = ["../.."],
+    package_collisions = "warning",
+    pytest_main = True,
+    tags = ["manual"],
+    deps = [
+        ":lib",
+        "@pypi//coverage",
+        "@pypi//pytest",
+    ],
+)
+
+sh_test(
+    name = "subprocess_coverage_lcov_test",
+    srcs = ["run_subprocess_coverage_check.sh"],
+    data = [
+        ":coverage_manifest",
+        ":subprocess_coverage_setup_test",
+    ],
+)
