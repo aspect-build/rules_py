@@ -101,8 +101,6 @@ uv.override_package(
 
 # This one hub now has two configurations ("dependency groups") available
 use_repo(uv, "pypi")
-
-register_toolchains("@uv//:all")
 ```
 
 We can configure a default dependency group by setting the `dep_group` flag on our hub as part of the `.bazelrc`.
@@ -170,14 +168,13 @@ use the group-specific helpers above when the consuming target sets
 in the rules_py native `defs.bzl` rather than the `rules_python`-compatible
 `requirements.bzl`.
 
-## The `uv` toolchain
+## The `uv` binary
 
 `uv_bin.toolchain()` fetches the UV binary for the required platform(s) and
 publishes `@uv`:
 
 - `@uv//:uv` — host-platform alias for ad-hoc use (`bazel run @uv`,
   `genrule(tools=…)`, `sh_binary(data=…)`).
-- `@uv//:all` — per-platform toolchains for `register_toolchains`.
 
 Optional attributes:
 

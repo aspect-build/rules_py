@@ -107,5 +107,5 @@ uv_bin = module_extension(
     tag_classes = {
         "toolchain": _toolchain_tag,
     },
-    doc = "Downloads UV binaries and registers `@uv//:all` toolchains.",
+    doc = "Downloads UV binaries and publishes the `@uv` hub repo.",
 )
