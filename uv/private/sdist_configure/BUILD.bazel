@@ -17,6 +17,9 @@ py_test(
         "detect_native_test.py",
     ],
     main = "detect_native_test.py",
+    # detect_native.py requires Python >= 3.11 (tomllib); at fetch time it
+    # runs under the PBS interpreter provisioned for sdist inspection.
+    python_version = "3.13",
 )
 
 bzl_library(

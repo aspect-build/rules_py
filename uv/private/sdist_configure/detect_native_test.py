@@ -1,7 +1,6 @@
 """Tests for detect_native.py sdist configure tool."""
 
 import io
-import json
 import os
 import sys
 import tarfile
@@ -9,26 +8,6 @@ import tempfile
 import zipfile
 
 from uv.private.sdist_configure.detect_native import detect
-
-try:
-    import tomllib
-    HAS_TOMLLIB = True
-except ModuleNotFoundError:
-    HAS_TOMLLIB = False
-
-
-class _Skip(Exception):
-    """Raised to skip a test."""
-
-
-def requires_tomllib(fn):
-    """Skip test if tomllib is not available (Python < 3.11)."""
-    def wrapper():
-        if not HAS_TOMLLIB:
-            raise _Skip("requires Python >= 3.11 (tomllib)")
-        return fn()
-    wrapper.__name__ = fn.__name__
-    return wrapper
 
 
 def _make_tar_gz(members):
@@ -142,7 +121,6 @@ def test_rust():
 # --- pyproject.toml parsing ---
 
 
-@requires_tomllib
 def test_pyproject_build_requires():
     pyproject = """\
 [build-system]
@@ -158,6 +136,25 @@ build-backend = "setuptools.build_meta"
     assert "setuptools" in result["build_requires"]
     assert "wheel" in result["build_requires"]
     assert "cython" in result["build_requires"]
+
+
+def test_pyproject_degrades_without_tomllib():
+    """On a pre-3.11 interpreter, pyproject parsing is skipped with a warning
+    while the rest of the tool (native detection etc.) keeps working."""
+    from uv.private.sdist_configure import detect_native
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/pyproject.toml": '[build-system]\nrequires = ["cython"]\n',
+        "pkg-1.0/pkg/fast.pyx": "# cython source",
+    })
+    saved = detect_native.tomllib
+    detect_native.tomllib = None
+    try:
+        result = detect(archive, {})
+    finally:
+        detect_native.tomllib = saved
+    assert result["build_requires"] == []
+    assert result["is_native"] is True
 
 
 # --- setup.cfg parsing ---
@@ -195,7 +192,6 @@ def test_legacy_setup_py_infers_setuptools():
     assert "wheel" in result["build_requires"]
 
 
-@requires_tomllib
 def test_pyproject_does_not_infer_setuptools():
     """A package with pyproject.toml should NOT get implicit setuptools."""
     archive = _make_tar_gz({
@@ -215,7 +211,6 @@ def test_pyproject_does_not_infer_setuptools():
 # --- extra_deps resolution ---
 
 
-@requires_tomllib
 def test_extra_deps_resolved_from_available():
     """Declared build deps that exist in available_deps become extra_deps."""
     pyproject = """\
@@ -240,7 +235,6 @@ build-backend = "setuptools.build_meta"
     assert "cython" in result["extra_deps"]
 
 
-@requires_tomllib
 def test_extra_deps_excludes_already_provided():
     """Deps already in the explicit deps list are not reported as extra."""
     pyproject = """\
@@ -266,7 +260,6 @@ build-backend = "setuptools.build_meta"
     assert "cython" in result["extra_deps"]
 
 
-@requires_tomllib
 def test_extra_deps_unresolvable_not_included():
     """Deps not in available_deps are silently omitted from extra_deps."""
     pyproject = """\
@@ -324,7 +317,6 @@ def test_zip_archive():
     assert "pkg-1.0/pkg/ext.c" in result["native_files"]
 
 
-@requires_tomllib
 def test_zip_archive_with_pyproject():
     archive = _make_zip({
         "pkg-1.0/pkg/__init__.py": "",
@@ -342,7 +334,6 @@ def test_zip_archive_with_pyproject():
 # --- Config files at root (no top-level directory) ---
 
 
-@requires_tomllib
 def test_flat_archive():
     """Some archives don't have a top-level directory prefix."""
     archive = _make_tar_gz({
@@ -757,22 +748,18 @@ def test_setup_cfg_and_setup_py_merged():
 
 if __name__ == "__main__":
     failures = []
-    skipped = []
     test_fns = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     for fn in test_fns:
         try:
             fn()
             print(f"  PASS  {fn.__name__}")
-        except _Skip as e:
-            print(f"  SKIP  {fn.__name__}: {e}")
-            skipped.append(fn.__name__)
         except Exception as e:
             print(f"  FAIL  {fn.__name__}: {e}")
             failures.append(fn.__name__)
 
     total = len(test_fns)
-    passed = total - len(failures) - len(skipped)
-    print(f"\n{passed} passed, {len(skipped)} skipped, {len(failures)} failed (of {total})")
+    passed = total - len(failures)
+    print(f"\n{passed} passed, {len(failures)} failed (of {total})")
     if failures:
         print(f"Failures: {', '.join(failures)}")
         sys.exit(1)
