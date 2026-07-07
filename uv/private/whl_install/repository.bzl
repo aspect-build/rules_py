@@ -12,7 +12,7 @@ load("//uv/private:parse_whl_name.bzl", "parse_whl_name")
 load("//uv/private/constraints:defs.bzl", "MAJORS", "MINORS")
 load("//uv/private/constraints/platform:defs.bzl", "supported_platform")
 load("//uv/private/constraints/python:defs.bzl", "supported_python")
-load("//uv/private/pprint:defs.bzl", "pprint")
+load("//uv/private/pprint:defs.bzl", "indent", "pprint")
 
 def parse_record_path(line):
     """Return the path field from one CSV-encoded wheel RECORD row.
@@ -383,14 +383,6 @@ def _namespace_dirs_and_roots(dirs_set, init_dirs, namespace_top_levels_set):
             regular_roots.append(d)
     return namespace_dirs, regular_roots
 
-def indent(text, space = " "):
-    return "\n".join(["{}{}".format(space, l) for l in text.splitlines()])
-
-def _format_arms(d):
-    content = ["        \"{}\": \"{}\"".format(k, v) for k, v in d.items()]
-    content = ",\n".join(content)
-    return "{\n" + content + "\n   }"
-
 def select_key(triple):
     """Force (triple, target) pairs into a orderable form.
 
@@ -634,7 +626,7 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 """.format(
-            arms = _format_arms(select_arms),
+            arms = indent(pprint(select_arms), "   ").lstrip(),
             default_target = repr(default_target),
             index_whl = indent(pprint([str(gazelle_index_whl)]), " " * 4).lstrip(),
         ),

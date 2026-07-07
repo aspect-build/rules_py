@@ -1,7 +1,8 @@
 """Unit tests for helpers in defs.bzl"""
 
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load(":defs.bzl", "parse_declared_console_script", "url_basename")
+load(":defs.bzl", "parse_declared_console_script")
+load(":lockfile.bzl", "url_basename")
 
 def _url_basename_test_impl(ctx):
     env = unittest.begin(ctx)

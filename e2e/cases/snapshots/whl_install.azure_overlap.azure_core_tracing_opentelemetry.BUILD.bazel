@@ -13,7 +13,7 @@ source_built_wheel(
 select_chain(
    name = "whl",
    arms = {
-        "@aspect_rules_py_pip_configurations//:py3-any-none": "@whl__azure_core_tracing_opentelemetry__016cefcaff2900fb//file"
+       "@aspect_rules_py_pip_configurations//:py3-any-none": "@whl__azure_core_tracing_opentelemetry__016cefcaff2900fb//file",
    },
    default_target = ":source_built_wheel",
    visibility = ["//visibility:public"],

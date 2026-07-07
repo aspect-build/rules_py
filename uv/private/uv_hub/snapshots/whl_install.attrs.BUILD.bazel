@@ -13,7 +13,7 @@ source_built_wheel(
 select_chain(
    name = "whl",
    arms = {
-        "@aspect_rules_py_pip_configurations//:py3-any-none": "@whl__attrs__99b87a485a5820b2//file"
+       "@aspect_rules_py_pip_configurations//:py3-any-none": "@whl__attrs__99b87a485a5820b2//file",
    },
    default_target = ":source_built_wheel",
    visibility = ["//visibility:public"],

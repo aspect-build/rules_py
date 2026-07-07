@@ -11,6 +11,35 @@ load("//uv/private/constraints/python:defs.bzl", "supported_python")
 load("//uv/private/whl_install:repository.bzl", "compatible_python_tags")
 load(":git_utils.bzl", "parse_git_url", "try_git_to_http_archive")
 
+def url_basename(url):
+    """Returns the trailing file name of a distribution URL.
+
+    Lockfile wheel and sdist URLs name the distribution file in the last path
+    segment, but registries may append a query string (e.g. signed/expiring
+    download links) and/or a fragment (e.g. PEP 503 `#sha256=...` hashes).
+    Neither is part of the file name, so both are stripped.
+
+    Args:
+        url: str, the URL of a distribution file.
+
+    Returns:
+        the file name as a string, e.g. "foo-1.0.0-py3-none-any.whl".
+    """
+    basename = url.split("/")[-1].split("?")[0].split("#")[0]
+    if not basename:
+        fail("Invalid distribution URL (no file name): " + url)
+    return basename
+
+def _dist_identifier(dist):
+    """Stable short id for a wheel/sdist repo name.
+
+    Lockfile sources without a `hash` field (e.g. find-links registries)
+    fall back to hashing the URL, the only field guaranteed present.
+    """
+    if "hash" in dist:
+        return dist["hash"].split(":")[1][:16]
+    return sha1(dist["url"])[:16]
+
 def normalize_deps(lock_id, lock_data):
     """Normalizes dependency specifications in a lockfile.
 
@@ -136,9 +165,7 @@ def collect_configurations(lock):
 
     for package in lock.get("package", []):
         for whl in package.get("wheels", []):
-            url = whl["url"]
-            wheel_name = url.split("/")[-1]  # Find the trailing file name
-            wheel_files[wheel_name] = 1
+            wheel_files[url_basename(whl["url"])] = 1
 
     abi_tags = {}
     platform_tags = {}
@@ -200,15 +227,7 @@ def collect_bdists(lock_data):
     bdist_table = {}
     for package in lock_data.get("package", []):
         for bdist in package.get("wheels", []):
-            # Some lockfile sources (e.g. find-links registries) emit wheel
-            # entries without a `hash` field. Fall back to hashing the URL so
-            # the repo name is still stable; key the table by URL since that
-            # is the only field guaranteed to be present.
-            if "hash" in bdist:
-                identifier = bdist["hash"].split(":")[1][:16]
-            else:
-                identifier = sha1(bdist["url"])[:16]
-            bdist_repo_name = "whl__{}__{}".format(package["name"], identifier)
+            bdist_repo_name = "whl__{}__{}".format(package["name"], _dist_identifier(bdist))
             bdist_specs[bdist_repo_name] = bdist
             bdist_table[bdist["url"]] = "@{}//file".format(bdist_repo_name)
 
@@ -238,13 +257,7 @@ def collect_sdists(
         if "sdist" in package:
             sdist = package["sdist"]
 
-            identifier = None
-            if "hash" in sdist:
-                identifier = sdist["hash"].split(":")[1][:16]
-            else:
-                identifier = sha1(sdist["url"])[:16]
-
-            sdist_repo_name = "sdist__{}__{}".format(package["name"], identifier)
+            sdist_repo_name = "sdist__{}__{}".format(package["name"], _dist_identifier(sdist))
             sdist_specs[sdist_repo_name] = {"file": sdist}
             sdist_table[k] = "@{}//file".format(sdist_repo_name)
 
