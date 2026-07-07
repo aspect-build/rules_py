@@ -1,3 +1,7 @@
+def indent(text, space):
+    """Prefix every line of `text` with `space`."""
+    return "\n".join(["{}{}".format(space, l) for l in text.splitlines()])
+
 def pprint(val, indent = "    "):
     # Each entry: [object, indent_level, state, optional_data]
     # States:

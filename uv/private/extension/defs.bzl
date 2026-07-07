@@ -69,27 +69,13 @@ load("//uv/private/uv_hub:repository.bzl", "uv_hub")
 load("//uv/private/uv_project:repository.bzl", "uv_project")
 load("//uv/private/whl_install:repository.bzl", "parse_console_script", "whl_install")
 load(":graph_utils.bzl", "activate_extras", "collect_sccs")
-load(":lockfile.bzl", "build_marker_graph", "collect_bdists", "collect_configurations", "collect_sdists", "normalize_deps")
+load(":lockfile.bzl", "build_marker_graph", "collect_bdists", "collect_configurations", "collect_sdists", "normalize_deps", "url_basename")
 load(":projectfile.bzl", "collate_versions_by_name", "collect_activated_extras", "extract_requirement_marker_pairs")
 
-def url_basename(url):
-    """Returns the trailing file name of a distribution URL.
-
-    Lockfile wheel and sdist URLs name the distribution file in the last path
-    segment, but registries may append a query string (e.g. signed/expiring
-    download links) and/or a fragment (e.g. PEP 503 `#sha256=...` hashes).
-    Neither is part of the file name, so both are stripped.
-
-    Args:
-        url: str, the URL of a distribution file.
-
-    Returns:
-        the file name as a string, e.g. "foo-1.0.0-py3-none-any.whl".
-    """
-    basename = url.split("/")[-1].split("?")[0].split("#")[0]
-    if not basename:
-        fail("Invalid distribution URL (no file name): " + url)
-    return basename
+def _dist_sha256(dist):
+    """The distribution's sha256 for http_file, or None for other hash algorithms."""
+    hash = dist.get("hash", "")
+    return hash[len("sha256:"):] if hash.startswith("sha256:") else None
 
 def _deduplicate_whl_files(whls):
     """Returns unique non-empty wheel labels while preserving order."""
@@ -681,14 +667,10 @@ def _uv_impl(module_ctx):
     for sdist_name, sdist_cfg in cfg.sdist_cfgs.items():
         if "file" in sdist_cfg:
             sdist_cfg = sdist_cfg["file"]
-            sha256 = None
-            if "hash" in sdist_cfg:
-                sha256 = sdist_cfg["hash"][len("sha256:"):]
-
             http_file(
                 name = sdist_name,
                 url = sdist_cfg["url"],
-                sha256 = sha256,
+                sha256 = _dist_sha256(sdist_cfg),
                 downloaded_file_path = url_basename(sdist_cfg["url"]),
             )
 
@@ -705,14 +687,10 @@ def _uv_impl(module_ctx):
             fail("Unsupported archive! {}".format(repr(sdist_cfg)))
 
     for bdist_name, bdist_cfg in cfg.bdist_cfgs.items():
-        sha256 = None
-        if "hash" in bdist_cfg and bdist_cfg["hash"].startswith("sha256:"):
-            sha256 = bdist_cfg["hash"][len("sha256:"):]
-
         http_file(
             name = bdist_name,
             url = bdist_cfg["url"],
-            sha256 = sha256,
+            sha256 = _dist_sha256(bdist_cfg),
             downloaded_file_path = url_basename(bdist_cfg["url"]),
         )
 

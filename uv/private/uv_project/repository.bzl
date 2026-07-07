@@ -3,11 +3,8 @@
 """
 
 load("@bazel_features//:features.bzl", features = "bazel_features")
-load("//uv/private/pprint:defs.bzl", "pprint")
+load("//uv/private/pprint:defs.bzl", "indent", "pprint")
 load("//uv/private/uv_project:select_gen.bzl", "build_package_select_arms")
-
-def indent(text, space = " "):
-    return "\n".join(["{}{}".format(space, l) for l in text.splitlines()])
 
 def _project_impl(repository_ctx):
     """Materializes the dependency graph for a single project.

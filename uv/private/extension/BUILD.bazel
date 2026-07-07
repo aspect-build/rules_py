@@ -86,6 +86,7 @@ bzl_library(
     visibility = ["//uv:__subpackages__"],
     deps = [
         ":defs",
+        ":lockfile",
         "@bazel_skylib//lib:unittest",
     ],
 )

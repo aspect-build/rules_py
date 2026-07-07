@@ -3,10 +3,7 @@
 """
 
 load("@bazel_features//:features.bzl", features = "bazel_features")
-load("//uv/private/pprint:defs.bzl", "pprint")
-
-def indent(text, space = "    "):
-    return "\n".join(["{}{}".format(space, l) for l in text.splitlines()])
+load("//uv/private/pprint:defs.bzl", "indent", "pprint")
 
 def _hub_impl(repository_ctx):
     """Generates the central hub repository that exposes resolved dependencies to the build.
