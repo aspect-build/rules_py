@@ -8,6 +8,7 @@ misleading because transitive dependency versions drift between releases.
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import sys
@@ -110,13 +111,17 @@ def warn(delta: float) -> str:
 
 
 def main() -> None:
-    if len(sys.argv) != 4:
-        msg = f"Usage: {sys.argv[0]} <bcr.json> <main.json> <pr.json>"
-        print(msg, file=sys.stderr)
-        write_gh_output(f"❌ {msg}")
-        sys.exit(2)
+    parser = argparse.ArgumentParser(description="Compare startup benchmark results")
+    parser.add_argument("bcr", help="BCR hyperfine JSON")
+    parser.add_argument("main", help="HEAD main hyperfine JSON")
+    parser.add_argument("pr", help="PR hyperfine JSON")
+    parser.add_argument(
+        "--output-table",
+        help="Write only the markdown table to this file instead of stdout",
+    )
+    args = parser.parse_args()
 
-    bcr_path, main_path, pr_path = sys.argv[1], sys.argv[2], sys.argv[3]
+    bcr_path, main_path, pr_path = args.bcr, args.main, args.pr
 
     bcr = load_runtime(bcr_path)
     main = load_runtime(main_path)
@@ -206,7 +211,11 @@ def main() -> None:
         )
 
     write_gh_output(table)
-    print(table)
+
+    if args.output_table:
+        Path(args.output_table).write_text(table)
+    else:
+        print(table)
 
     if pr_vs_main > THRESHOLD_REGRESSION_PCT:
         print(
