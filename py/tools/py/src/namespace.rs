@@ -1,4 +1,4 @@
-use std::{fs::File, io::Read, path::Path};
+use std::{ffi::OsStr, path::Path};
 
 use miette::{Context, IntoDiagnostic, Result};
 
@@ -41,8 +41,8 @@ fn normalize_init_content(content: &str) -> String {
 
 /// Return `true` if `content` belongs to an `__init__.py` that contains only a
 /// known namespace package stub.
-fn is_namespace_init_content(filename: Option<&std::ffi::OsStr>, content: &str) -> bool {
-    if filename != Some(std::ffi::OsStr::new("__init__.py")) {
+fn is_namespace_init_content(filename: Option<&OsStr>, content: &str) -> bool {
+    if filename != Some(OsStr::new("__init__.py")) {
         return false;
     }
     let normalized = normalize_init_content(content);
@@ -61,39 +61,6 @@ pub fn is_namespace_init(path: &Path) -> Result<bool> {
     Ok(is_namespace_init_content(path.file_name(), &content))
 }
 
-/// Compare two files byte-for-byte.
-fn files_are_byte_equal(p1: &Path, p2: &Path) -> Result<bool> {
-    let mut f1 = File::open(p1)
-        .into_diagnostic()
-        .wrap_err(format!("Unable to open file {}", p1.display()))?;
-    let mut f2 = File::open(p2)
-        .into_diagnostic()
-        .wrap_err(format!("Unable to open file {}", p2.display()))?;
-
-    let len1 = f1.metadata().into_diagnostic()?.len();
-    let len2 = f2.metadata().into_diagnostic()?.len();
-    if len1 != len2 {
-        return Ok(false);
-    }
-
-    let mut buf1 = [0u8; 8192];
-    let mut buf2 = [0u8; 8192];
-
-    loop {
-        let n1 = f1.read(&mut buf1).into_diagnostic()?;
-        let n2 = f2.read(&mut buf2).into_diagnostic()?;
-        if n1 != n2 {
-            return Ok(false);
-        }
-        if n1 == 0 {
-            return Ok(true);
-        }
-        if buf1[..n1] != buf2[..n2] {
-            return Ok(false);
-        }
-    }
-}
-
 /// Return `true` if two files should be considered the same for collision
 /// detection purposes.
 ///
@@ -106,16 +73,29 @@ pub fn are_files_equivalent(p1: &Path, p2: &Path) -> Result<bool> {
         return Ok(true);
     }
 
-    let content1 = std::fs::read_to_string(p1).unwrap_or_default();
-    let content2 = std::fs::read_to_string(p2).unwrap_or_default();
+    let bytes1 = std::fs::read(p1)
+        .into_diagnostic()
+        .wrap_err(format!("Unable to read file {}", p1.display()))?;
+    let bytes2 = std::fs::read(p2)
+        .into_diagnostic()
+        .wrap_err(format!("Unable to read file {}", p2.display()))?;
 
-    if is_namespace_init_content(p1.file_name(), &content1)
-        && is_namespace_init_content(p2.file_name(), &content2)
-    {
-        return Ok(true);
+    let both_init = p1.file_name() == Some(OsStr::new("__init__.py"))
+        && p2.file_name() == Some(OsStr::new("__init__.py"));
+
+    if both_init {
+        if let (Ok(content1), Ok(content2)) =
+            (std::str::from_utf8(&bytes1), std::str::from_utf8(&bytes2))
+        {
+            if is_namespace_init_content(p1.file_name(), content1)
+                && is_namespace_init_content(p2.file_name(), content2)
+            {
+                return Ok(true);
+            }
+        }
     }
 
-    files_are_byte_equal(p1, p2)
+    Ok(bytes1 == bytes2)
 }
 
 #[cfg(test)]
