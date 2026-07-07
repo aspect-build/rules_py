@@ -1,7 +1,7 @@
 """Tests for version_util.bzl."""
 
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load("//py/private/interpreter:version_util.bzl", "is_pre_release", "version_gt", "version_key")
+load("//py/private/interpreter:version_util.bzl", "is_decimal", "is_pre_release", "version_gt", "version_key")
 
 def _version_key_test_impl(ctx):
     env = unittest.begin(ctx)
@@ -103,6 +103,21 @@ def _is_pre_release_test_impl(ctx):
 
 is_pre_release_test = unittest.make(_is_pre_release_test_impl)
 
+def _is_decimal_test_impl(ctx):
+    env = unittest.begin(ctx)
+
+    asserts.true(env, is_decimal("0"))
+    asserts.true(env, is_decimal("20260303"))
+
+    asserts.false(env, is_decimal(""))
+    asserts.false(env, is_decimal("3.12"))
+    asserts.false(env, is_decimal("12a"))
+    asserts.false(env, is_decimal("latest"))
+
+    return unittest.end(env)
+
+is_decimal_test = unittest.make(_is_decimal_test_impl)
+
 def version_util_test_suite():
     unittest.suite(
         "version_util_tests",
@@ -110,5 +125,6 @@ def version_util_test_suite():
         version_gt_basic_test,
         version_gt_prerelease_test,
         version_gt_padding_test,
+        is_decimal_test,
         is_pre_release_test,
     )
