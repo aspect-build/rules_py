@@ -104,6 +104,29 @@ def _assemble_shared(ctx):
         srcs_depset = srcs_depset,
     )
 
+def _common_providers(ctx, shared, executable = None):
+    """Providers emitted by both the executable and lib variants."""
+    return [
+        DefaultInfo(
+            files = depset([executable]) if executable != None else None,
+            executable = executable,
+            runfiles = shared.runfiles,
+        ),
+        # Deliberately no PyInfo: a venv is a terminal artifact, not a source of imports.
+        VirtualenvInfo(
+            bin_python = shared.venv.bin_python,
+            imports = shared.imports_depset,
+            transitive_sources = shared.srcs_depset,
+        ),
+        # `bazel coverage` finds this by walking the consumer's `venv` attr.
+        coverage_common.instrumented_files_info(
+            ctx,
+            source_attributes = ["srcs"],
+            dependency_attributes = ["deps"],
+            extensions = ["py"],
+        ),
+    ]
+
 def _py_venv_rule_impl(ctx):
     """A virtualenv target whose own executable activates the venv and
     exec's the interpreter — a `bazel run :name`-able venv."""
@@ -137,36 +160,12 @@ def _py_venv_rule_impl(ctx):
     # overrides with its own absolute value when invoked directly.
     passed_env["VIRTUAL_ENV"] = venv_root(shared.venv.bin_python)
 
-    return [
-        DefaultInfo(
-            files = depset([ctx.outputs.executable]),
-            executable = ctx.outputs.executable,
-            runfiles = shared.runfiles,
-        ),
-        # Does not provide PyInfo because venvs are terminal artifacts —
-        # a py_binary consumer would see this as "the binary to run",
-        # not "a source of imports".
-        VirtualenvInfo(
-            bin_python = shared.venv.bin_python,
-            imports = shared.imports_depset,
-            transitive_sources = shared.srcs_depset,
-        ),
-        # Forwarded to the sibling py_binary/py_test consumer (created
-        # by `expose_venv = True`) so env vars declared on the venv
-        # apply to the binary using it. The binary's own `env` wins on
-        # key conflicts; see py_venv_exec.bzl.
+    return _common_providers(ctx, shared, executable = ctx.outputs.executable) + [
+        # Read by the sibling `expose_venv = True` py_binary/py_test;
+        # the binary's own `env` wins on key conflicts (py_venv_exec.bzl).
         RunEnvironmentInfo(
             environment = passed_env,
             inherited_environment = ctx.attr.env_inherit,
-        ),
-        # `bazel coverage` walks the binary's `venv` attr to
-        # pick this up — the venv carries the test's `srcs` and
-        # first-party `deps`, so this is where instrumentation belongs.
-        coverage_common.instrumented_files_info(
-            ctx,
-            source_attributes = ["srcs"],
-            dependency_attributes = ["deps"],
-            extensions = ["py"],
         ),
     ]
 
@@ -296,20 +295,7 @@ def _py_venv_lib_rule_impl(ctx):
     non-executable targets; py_venv_exec.bzl gates its read on
     `if RunEnvironmentInfo in venv`)."""
     shared = _assemble_shared(ctx)
-    return [
-        DefaultInfo(runfiles = shared.runfiles),
-        VirtualenvInfo(
-            bin_python = shared.venv.bin_python,
-            imports = shared.imports_depset,
-            transitive_sources = shared.srcs_depset,
-        ),
-        coverage_common.instrumented_files_info(
-            ctx,
-            source_attributes = ["srcs"],
-            dependency_attributes = ["deps"],
-            extensions = ["py"],
-        ),
-    ]
+    return _common_providers(ctx, shared)
 
 # Internal-only non-executable variant. Uses `_lib_attrs` — the
 # launcher-only attrs (`debug`, `interpreter_options`, `_run_tmpl`,
