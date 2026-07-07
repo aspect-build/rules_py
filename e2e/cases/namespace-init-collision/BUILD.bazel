@@ -1,0 +1,14 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+py_test(
+    name = "test",
+    srcs = ["__test__.py"],
+    dep_group = "namespace-init-collision",
+    main = "__test__.py",
+    package_collisions = "error",
+    python_version = "3.11",
+    deps = [
+        "@pypi_namespace_init_collision//backports_shutil_get_terminal_size",
+        "@pypi_namespace_init_collision//backports_weakref",
+    ],
+)

@@ -1,0 +1,36 @@
+version = 1
+revision = 3
+requires-python = ">=3.11"
+
+[[package]]
+name = "backports-shutil-get-terminal-size"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ec/9c/368086faa9c016efce5da3e0e13ba392c9db79e3ab740b763fe28620b18b/backports.shutil_get_terminal_size-1.0.0.tar.gz", hash = "sha256:713e7a8228ae80341c70586d1cc0a8caa5207346927e23d09dcbcaf18eadec80", size = 4279, upload-time = "2014-08-19T18:42:49.082Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7d/cd/1750d6c35fe86d35f8562091737907f234b78fdffab42b29c72b1dd861f4/backports.shutil_get_terminal_size-1.0.0-py2.py3-none-any.whl", hash = "sha256:0975ba55054c15e346944b38956a4c9cbee9009391e41b86c68990effb8c1f64", size = 6497, upload-time = "2014-08-19T18:42:51.908Z" },
+]
+
+[[package]]
+name = "backports-weakref"
+version = "1.0.post1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/12/ab/cf35cf43a4a6215e3255cf2e49c77d5ba1e9c733af2aa3ec1ca9c4d02592/backports.weakref-1.0.post1.tar.gz", hash = "sha256:bc4170a29915f8b22c9e7c4939701859650f2eb84184aee80da329ac0b9825c2", size = 10574, upload-time = "2017-09-17T20:58:21.892Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/88/ec/f598b633c3d5ffe267aaada57d961c94fdfa183c5c3ebda2b6d151943db6/backports.weakref-1.0.post1-py2.py3-none-any.whl", hash = "sha256:81bc9b51c0abc58edc76aefbbc68c62a787918ffe943a37947e162c3f8e19e82", size = 5237, upload-time = "2017-09-17T20:58:26.557Z" },
+]
+
+[[package]]
+name = "namespace-init-collision"
+version = "0.0.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "backports-shutil-get-terminal-size" },
+    { name = "backports-weakref" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "backports-shutil-get-terminal-size" },
+    { name = "backports-weakref" },
+]

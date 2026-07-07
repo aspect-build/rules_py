@@ -1,0 +1,8 @@
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_namespace_init_collision")
+uv.project(
+    hub_name = "pypi_namespace_init_collision",
+    lock = "//namespace-init-collision:uv.lock",
+    pyproject = "//namespace-init-collision:pyproject.toml",
+)
+use_repo(uv, "pypi_namespace_init_collision")
