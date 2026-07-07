@@ -120,7 +120,8 @@ def _cc_toolchain_inputs_and_compilers(ctx):
     cxx_path = driver_paths.cxx if driver_paths else compiler_path
     return files, compiler_path, cxx_path
 
-def _pep517_whl(ctx):
+def _run_whl_build(ctx, mnemonic, progress_message, env, extra_inputs = []):
+    """Declare the wheel output directory and run the sdist-build tool."""
     archive = ctx.file.src
     wheel_dir = ctx.actions.declare_directory("whl")
     patch_args, patch_inputs = _patch_args_and_inputs(ctx)
@@ -131,47 +132,8 @@ def _pep517_whl(ctx):
     # via the standard runfiles mechanism regardless of whether the interpreter
     # comes from an external repo or the main workspace.
     ctx.actions.run(
-        mnemonic = "PySdistBuild",
-        progress_message = "Source compiling {} to a whl".format(archive.basename),
-        executable = ctx.executable.tool,
-        toolchain = None,
-        arguments = ctx.attr.args + patch_args + _memory_args(ctx) + [
-            archive.path,
-            wheel_dir.path,
-        ],
-        inputs = [archive] + patch_inputs,
-        tools = [ctx.attr.tool[DefaultInfo].files_to_run],
-        outputs = [wheel_dir],
-        env = _common_env(ctx),
-        exec_group = _TARGET_EXEC_GROUP,
-        resource_set = resource_set(ctx.attr),
-    )
-
-    return [DefaultInfo(files = depset([wheel_dir]))]
-
-def _pep517_native_whl(ctx):
-    archive = ctx.file.src
-    wheel_dir = ctx.actions.declare_directory("whl")
-    patch_args, patch_inputs = _patch_args_and_inputs(ctx)
-
-    env = _common_env(ctx)
-    extra_inputs, known_variables = _collect_toolchain_inputs_and_vars(ctx)
-
-    cc_files, cc_compiler, cxx_compiler = _cc_toolchain_inputs_and_compilers(ctx)
-    if cc_files:
-        extra_inputs.append(cc_files)
-
-    for k, v in ctx.attr.env.items():
-        env[k] = ctx.expand_make_variables("env", v, known_variables)
-
-    if cc_compiler:
-        env["CC"] = cc_compiler
-    if cxx_compiler:
-        env["CXX"] = cxx_compiler
-
-    ctx.actions.run(
-        mnemonic = "PySdistNativeBuild",
-        progress_message = "Native source compiling {} to a whl".format(archive.basename),
+        mnemonic = mnemonic,
+        progress_message = progress_message.format(archive.basename),
         executable = ctx.executable.tool,
         toolchain = None,
         arguments = ctx.attr.args + patch_args + _memory_args(ctx) + [
@@ -190,6 +152,38 @@ def _pep517_native_whl(ctx):
     )
 
     return [DefaultInfo(files = depset([wheel_dir]))]
+
+def _pep517_whl(ctx):
+    return _run_whl_build(
+        ctx,
+        mnemonic = "PySdistBuild",
+        progress_message = "Source compiling {} to a whl",
+        env = _common_env(ctx),
+    )
+
+def _pep517_native_whl(ctx):
+    env = _common_env(ctx)
+    extra_inputs, known_variables = _collect_toolchain_inputs_and_vars(ctx)
+
+    cc_files, cc_compiler, cxx_compiler = _cc_toolchain_inputs_and_compilers(ctx)
+    if cc_files:
+        extra_inputs.append(cc_files)
+
+    for k, v in ctx.attr.env.items():
+        env[k] = ctx.expand_make_variables("env", v, known_variables)
+
+    if cc_compiler:
+        env["CC"] = cc_compiler
+    if cxx_compiler:
+        env["CXX"] = cxx_compiler
+
+    return _run_whl_build(
+        ctx,
+        mnemonic = "PySdistNativeBuild",
+        progress_message = "Native source compiling {} to a whl",
+        env = env,
+        extra_inputs = extra_inputs,
+    )
 
 _PATCH_ATTRS = {
     "pre_build_patches": attr.label_list(
