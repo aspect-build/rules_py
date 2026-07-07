@@ -11,7 +11,7 @@ filegroup(
 # cowsay
 # {
 #     "single_project_hub": {
-#         "aee49c8f5bedac06": {
+#         "cowsay__6_1": {
 #             "": 1,
 #         },
 #     },
@@ -21,7 +21,7 @@ filegroup(
 alias(
     name = "_package_cowsay_single_project_hub",
     actual = select({
-        "//conditions:default": "//private/sccs:aee49c8f5bedac06",
+        "//conditions:default": "//private/sccs:cowsay__6_1",
     }),
     visibility = ["//visibility:private"],
 )
@@ -57,7 +57,7 @@ alias(
 # single_project_hub
 # {
 #     "single_project_hub": {
-#         "b3c9a68bcea9c616": {
+#         "single_project_hub__0_0_0": {
 #             "": 1,
 #         },
 #     },
@@ -67,7 +67,7 @@ alias(
 alias(
     name = "_package_single_project_hub_single_project_hub",
     actual = select({
-        "//conditions:default": "//private/sccs:b3c9a68bcea9c616",
+        "//conditions:default": "//private/sccs:single_project_hub__0_0_0",
     }),
     visibility = ["//visibility:private"],
 )

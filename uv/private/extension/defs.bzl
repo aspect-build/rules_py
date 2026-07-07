@@ -372,9 +372,13 @@ def _parse_projects(module_ctx, hub_specs):
 
             # Mapping from package to cfg to the SCC for that package in that cfg
             package_cfg_sccs = {}
+
+            # Shared across configurations so identical SCC content keeps one
+            # id while content differing only in deps/markers stays distinct.
+            scc_id_state = {}
             for cfg in configuration_names:
                 cfgd_marker_graph = activate_extras(marker_graph, activated_extras, cfg)
-                cfgd_dep_to_scc, cfgd_scc_graph, cfgd_scc_deps = collect_sccs(cfgd_marker_graph)
+                cfgd_dep_to_scc, cfgd_scc_graph, cfgd_scc_deps = collect_sccs(cfgd_marker_graph, scc_id_state)
 
                 # Aggregate the dependency graphs Note that this may be overly
                 # simplistic, since markers COULD vary per configured graph;

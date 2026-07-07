@@ -195,6 +195,37 @@ collect_sccs_empty_graph_test = unittest.make(
     _collect_sccs_empty_graph_test_impl,
 )
 
+def _collect_sccs_id_state_test_impl(ctx):
+    env = unittest.begin(ctx)
+
+    pkg = ("lock", "cowsay", "6.1", "__base__")
+    dep_a = ("lock", "requests", "2.0", "__base__")
+    dep_b = ("lock", "urllib3", "1.26", "__base__")
+
+    id_state = {}
+    ids_cfg1, _, _ = collect_sccs({pkg: {dep_a: {"": 1}}, dep_a: {}}, id_state)
+    ids_cfg2, _, _ = collect_sccs({pkg: {dep_a: {"": 1}}, dep_a: {}}, id_state)
+
+    # A lone base package gets a readable name__version id
+    asserts.equals(env, "cowsay__6_1", ids_cfg1[pkg])
+
+    # Identical SCC content across configurations reuses the same id
+    asserts.equals(env, ids_cfg1[pkg], ids_cfg2[pkg])
+
+    # Same members but different external deps/markers gets a distinct id
+    ids_cfg3, _, _ = collect_sccs({pkg: {dep_b: {"sys_platform == 'linux'": 1}}, dep_b: {}}, id_state)
+    asserts.equals(env, "cowsay__6_1__v1", ids_cfg3[pkg])
+
+    # A genuine cycle is named by its member packages
+    cycle_ids, _, _ = collect_sccs({pkg: {dep_a: {"": 1}}, dep_a: {pkg: {"": 1}}}, {})
+    asserts.equals(env, "cycle__cowsay__requests", cycle_ids[pkg])
+
+    return unittest.end(env)
+
+collect_sccs_id_state_test = unittest.make(
+    _collect_sccs_id_state_test_impl,
+)
+
 def _collect_sccs_linear_graph_test_impl(ctx):
     env = unittest.begin(ctx)
     marker_graph = {
@@ -374,6 +405,7 @@ def graph_utils_test_suite():
         "collect_sccs_tests",
         collect_sccs_test,
         collect_sccs_empty_graph_test,
+        collect_sccs_id_state_test,
         collect_sccs_linear_graph_test,
         collect_sccs_disconnected_graph_test,
         collect_sccs_single_node_graph_test,

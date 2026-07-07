@@ -47,7 +47,7 @@ bzl_library(
     srcs = ["graph_utils.bzl"],
     visibility = ["//uv:__subpackages__"],
     deps = [
-        "//uv/private:sha1",
+        "//uv/private:normalize_version",
         "//uv/private/graph:sccs",
     ],
 )
