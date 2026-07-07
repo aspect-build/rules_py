@@ -134,6 +134,19 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
             # buildifier: disable=print
             print(msg)
 
+    def _distinct_claimants(keys):
+        """Dedup ordered claimant keys, preserving first-claim order.
+
+        Collision precedence is "last distinct claimant wins": the final
+        element is the winner, everything before it is a loser.
+        """
+        return {k: True for k in keys}.keys()
+
+    def _complain_chain(what, name, distinct):
+        """Complain once per takeover along a distinct-claimant chain."""
+        for i in range(1, len(distinct)):
+            _complain(what, name, distinct[i - 1], distinct[i])
+
     # Pass 1: bucket claimants per import root, distribution metadata entry,
     # and console-script name.
     tl_claimants = {}  # tl -> list of struct(site_packages, is_ns, ns_entries)
@@ -355,16 +368,11 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
             ]
             continue
 
-        winner = claimants[0]
-        seen = {winner.site_packages: True}
-        for c in claimants[1:]:
-            if c.site_packages in seen:
-                continue
-            _complain("top-level", tl, winner.site_packages, c.site_packages)
-            skipped_per_wheel.setdefault(winner.site_packages, {})[tl] = True
-            winner = c
-            seen[c.site_packages] = True
-        top_level_to_site_pkgs[tl] = winner.site_packages
+        distinct = distinct_sp.keys()
+        _complain_chain("top-level", tl, distinct)
+        for loser in distinct[:-1]:
+            skipped_per_wheel.setdefault(loser, {})[tl] = True
+        top_level_to_site_pkgs[tl] = distinct[-1]
 
     # Pass 2a: fold conflicted roots into merge groups. Keep only the
     # minimal (shallowest) roots — a conflicted root nested inside
@@ -417,14 +425,9 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
             c = claimants[0]
             console_scripts_map[name] = struct(module = c.module, func = c.func)
             continue
-        winner = claimants[0]
-        seen = {winner.site_packages: True}
-        for c in claimants[1:]:
-            if c.site_packages in seen:
-                continue
-            _complain("console script", name, winner.site_packages, c.site_packages)
-            winner = c
-            seen[c.site_packages] = True
+        distinct = distinct_sp.keys()
+        _complain_chain("console script", name, distinct)
+        winner = distinct_sp[distinct[-1]]
         console_scripts_map[name] = struct(module = winner.module, func = winner.func)
 
     # Pass 3: wheels fully covered by direct (or complete per-entry
@@ -455,15 +458,13 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
     # fallback is gone. Wheels without declared layout metadata remain on the
     # existing whole-wheel fallback and cannot be classified here.
     for tl, claimants in metadata_claimants.items():
-        winner = claimants[0]
-        seen = {winner: True}
-        for site_packages in claimants[1:]:
-            if site_packages in seen:
-                continue
-            winner = site_packages
-            seen[site_packages] = True
-        for site_packages in seen:
-            if site_packages != winner and site_packages not in fully_covered:
+        distinct = _distinct_claimants(claimants)
+        winner = distinct[-1]
+
+        # The explicit fail must precede the _complain calls so it wins
+        # over _complain's generic error under package_collisions = "error".
+        for site_packages in distinct[:-1]:
+            if site_packages not in fully_covered:
                 fail(("{}: distribution metadata entry `{}` selects {}, but " +
                       "losing claimant {} remains on whole-wheel fallback.").format(
                     ctx.label,
@@ -471,14 +472,7 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
                     winner,
                     site_packages,
                 ))
-        prior = claimants[0]
-        complained = {prior: True}
-        for site_packages in claimants[1:]:
-            if site_packages in complained:
-                continue
-            _complain("distribution metadata entry", tl, prior, site_packages)
-            prior = site_packages
-            complained[site_packages] = True
+        _complain_chain("distribution metadata entry", tl, distinct)
         if winner in fully_covered:
             top_level_to_site_pkgs[tl] = winner
 
