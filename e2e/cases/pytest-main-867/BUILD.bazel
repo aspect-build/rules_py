@@ -44,6 +44,28 @@ py_test(
     deps = ["@pypi_pytest_main_867//pytest"],
 )
 
+# Regression test: py_pytest_main output must expose an importable main()
+# (#1094) so a custom test main can wrap it with setup/teardown logic.
+py_pytest_main(
+    name = "wrap_main",
+    tags = ["manual"],
+)
+
+py_test(
+    name = "test_wrapped_main",
+    srcs = [
+        "test_wrapped.py",
+        "wrapped_main.py",
+    ],
+    dep_group = "pytest-main-867",
+    imports = ["."],
+    main = "wrapped_main.py",
+    deps = [
+        ":wrap_main",
+        "@pypi_pytest_main_867//pytest",
+    ],
+)
+
 # Regression test for #723 via direct py_pytest_main() with test_* name
 # (cross-repo). Validates that the dunder-wrapped output (__test__<name>__.py)
 # is not discovered by pytest even in cross-repo usage.
