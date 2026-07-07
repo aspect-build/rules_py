@@ -286,7 +286,7 @@ def _parse_projects(module_ctx, hub_specs):
                 name = normalize_name(override.name)
                 v = override.version or default_versions.get(name, (None, None, None, None))[2]
                 if not v:
-                    fail("Overridden project {} neither specifies a version nor has an implied singular version in the lockfile!".format(override.name, project.lock))
+                    fail("Overridden project {} neither specifies a version nor has an implied singular version in lock {}!".format(override.name, project.lock))
                 available_versions = package_versions.get(name, {})
                 if v not in available_versions:
                     fail("uv.override_package() for package '{}' selects version '{}', which is absent from lock '{}'; available versions: {}".format(
