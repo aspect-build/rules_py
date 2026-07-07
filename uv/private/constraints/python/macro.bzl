@@ -9,7 +9,6 @@ load(":defs.bzl", "is_python_version_at_least")
 # buildifier: disable=function-docstring
 def generate(
         visibility):
-    # FIXME: Needs to generate a cascade.
     for major in MAJORS:
         is_python_version_at_least(
             name = "py{}".format(major),
