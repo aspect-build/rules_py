@@ -263,9 +263,8 @@ def _sdist_build_impl(repository_ctx):
     # the env values below are make-variable references resolved at
     # action analysis time.
     #
-    # CXX defaults to $(CC) because most clang/gcc-based toolchains use
-    # a single driver binary for both languages, and meson-python /
-    # cmake-based backends look for CXX independently of CC.
+    # CXX starts at $(CC); pep517_native_whl replaces it with a matching
+    # same-directory clang++ / g++ from the selected toolchain when present.
     #
     # `extra_toolchains` and `extra_env` augment (do not replace) the
     # defaults — set via `uv.override_package(toolchains = [...],

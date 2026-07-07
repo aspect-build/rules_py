@@ -7,6 +7,8 @@
 
 load("@aspect_rules_py//py:defs.bzl", "py_test")
 
+exports_files(["require_cxx_driver.patch"])
+
 py_test(
     name = "test",
     srcs = ["test_geohash.py"],
