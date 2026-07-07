@@ -1,0 +1,18 @@
+[project]
+name = "uv_git_source"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    # `build` and `setuptools` surface in the project repo as deps of the
+    # pep517_whl build_tool that builds six from its git source tree.
+    "build",
+    "setuptools",
+    "six",
+]
+
+# six is resolved from git rather than a registry, exercising the
+# `source = { git = ... }` lockfile pathway: parse_git_url on the
+# uv-generated URL (query params + pinned commit fragment) and the
+# git-to-http_archive conversion for GitHub remotes.
+[tool.uv.sources]
+six = { git = "https://github.com/benjaminp/six", tag = "1.17.0" }
