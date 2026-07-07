@@ -964,7 +964,7 @@ _py_image_layer = rule(
         "group_compress_levels": attr.string_dict(default = {}),
         "warn_remote_cache_threshold_mb": attr.int(default = 200),
         "warn_layer_count": attr.int(default = 90),
-        "platform": attr.string(default = ""),
+        "platform": attr.label(default = None, providers = [platform_common.PlatformInfo]),
         "layer_tier": attr.label(default = None, providers = [PyLayerTierInfo]),
         "_layer_tier": attr.label(
             default = "//py:layer_tier",
@@ -1056,7 +1056,7 @@ def py_image_layer(
         group_compress_levels = group_compress_levels,
         warn_remote_cache_threshold_mb = warn_remote_cache_threshold_mb,
         warn_layer_count = warn_layer_count,
-        platform = platform or "",
+        platform = platform,
         layer_tier = layer_tier,
         tags = tags,
         **kwargs
