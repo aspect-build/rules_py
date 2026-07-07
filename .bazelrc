@@ -9,7 +9,6 @@ common --define=SOME_VAR=SOME_VALUE
 # Set the default virtualenv to 'default'
 common --@pypi//dep_group=aspect_rules_py
 
-common --incompatible_enable_cc_toolchain_resolution
 common --@llvm//config:experimental_stub_libgcc_s
 common --@rules_cc//cc/toolchains/args/archiver_flags:use_libtool_on_macos=false
 
