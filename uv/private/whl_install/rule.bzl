@@ -59,6 +59,7 @@ def _whl_install(ctx):
     if SourceBuiltWheelInfo in ctx.attr.src:
         top_levels = []
         namespace_top_levels = []
+        pkgutil_namespace_top_levels = []
         namespace_entries = []
         namespace_dirs = []
         regular_roots = []
@@ -67,6 +68,7 @@ def _whl_install(ctx):
         whl_basename = archive.basename
         top_levels = ctx.attr.top_levels.get(whl_basename, [])
         namespace_top_levels = ctx.attr.namespace_top_levels.get(whl_basename, [])
+        pkgutil_namespace_top_levels = ctx.attr.pkgutil_namespace_top_levels.get(whl_basename, [])
         namespace_entries = ctx.attr.namespace_entries.get(whl_basename, [])
         namespace_dirs = ctx.attr.namespace_dirs.get(whl_basename, [])
         regular_roots = ctx.attr.regular_roots.get(whl_basename, [])
@@ -177,6 +179,12 @@ def _whl_install(ctx):
             # physical merge instead. Falls back to .pth-based
             # resolution when entry metadata is missing.
             namespace_top_levels = tuple(namespace_top_levels),
+            # pkgutil/pkg_resources-style namespace packages this wheel
+            # contributes to. Like PEP 420 namespaces, these are merged
+            # across wheels; unlike PEP 420 namespaces, the stub
+            # `__init__.py` is symlinked into the merged directory so
+            # the namespace package is importable.
+            pkgutil_namespace_top_levels = tuple(pkgutil_namespace_top_levels),
             # Concrete per-wheel paths beneath namespace top-levels
             # (e.g. `jaraco/functools`) that venv assembly symlinks
             # individually to materialise a merged namespace directory.
@@ -279,14 +287,24 @@ under `<venv>/bin/<name>` so `subprocess.run(["<name>", ...])` works.
             default = {},
         ),
         "namespace_top_levels": attr.string_list_dict(
-            doc = """Per-wheel subset of `top_levels` that are PEP 420 namespace packages, keyed by wheel file basename.
+            doc = """Per-wheel subset of `top_levels` that are namespace packages, keyed by wheel file basename.
 
-A top-level is a namespace if the wheel's RECORD shows no
-`<toplevel>/__init__.py`. When multiple wheels contribute to the same
-namespace (e.g. `jaraco-classes` and `jaraco-functools` both claim
-`jaraco`), `py_binary`'s collision detector treats the overlap as
-benign and falls back to `.pth`-based resolution so Python's namespace
-machinery merges the contributions at runtime.
+A top-level is a namespace if the wheel's RECORD shows no regular
+`<toplevel>/__init__.py`. pkgutil/pkg_resources-style namespace packages
+(those whose `__init__.py` only calls `pkgutil.extend_path` or
+`pkg_resources.declare_namespace`) are also included. When multiple wheels
+contribute to the same namespace (e.g. `jaraco-classes` and
+`jaraco-functools` both claim `jaraco`), `py_binary`'s collision detector
+treats the overlap as benign and merges the contributions concretely.
+""",
+            default = {},
+        ),
+        "pkgutil_namespace_top_levels": attr.string_list_dict(
+            doc = """Per-wheel subset of `namespace_top_levels` that carry a pkgutil-style `__init__.py`, keyed by wheel file basename.
+
+These top-levels are merged across wheels like PEP 420 namespaces, but
+venv assembly also symlinks the stub `__init__.py` into the merged
+directory so the namespace package is importable at runtime.
 """,
             default = {},
         ),

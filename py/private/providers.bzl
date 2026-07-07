@@ -20,7 +20,12 @@ handling gives the later distinct element in the flattened sequence precedence.
 Duplicate dependency edges do not create another precedence position. Fields:
   * `top_levels`: tuple[str] — complete set of immediate `site-packages`
     entry names when nonempty; an empty tuple means the layout is unknown.
-  * `namespace_top_levels`: tuple[str] — subset of top_levels that are PEP 420 namespace packages.
+  * `namespace_top_levels`: tuple[str] — subset of top_levels that are PEP 420 namespace packages
+    (no `<toplevel>/__init__.py`) or pkgutil-style namespace packages (an `__init__.py` that
+    only calls `pkgutil.extend_path` / `pkg_resources.declare_namespace`).
+  * `pkgutil_namespace_top_levels`: tuple[str] — subset of `namespace_top_levels` that carry a
+    pkgutil-style `__init__.py`. venv assembly symlinks this `__init__.py` into the merged
+    namespace directory; may be absent on structs from older producers.
   * `namespace_entries`: tuple[str] — `/`-joined paths of the concrete entries beneath
     the namespace top-levels (e.g. `jaraco/functools`), used to materialise a merged
     namespace directory out of per-entry symlinks. May be absent on structs from

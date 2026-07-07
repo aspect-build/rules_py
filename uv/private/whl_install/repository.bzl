@@ -144,6 +144,28 @@ def _whl_file_label_keys(whl_file_label):
 
     return keys
 
+def _is_pkgutil_namespace_init(content):
+    """Return True if an __init__.py only declares a pkgutil/pkg_resources namespace.
+
+    pkgutil-style namespace packages carry an `__init__.py` that calls
+    `pkgutil.extend_path(__path__, __name__)`; setuptools-style namespace
+    packages call `pkg_resources.declare_namespace(__name__)`. Both are
+    semantically namespace declarations: multiple wheels can legitimately
+    ship the same `__init__.py` for the same top-level, and the venv should
+    merge the directories rather than treating the top-level as a collision.
+    """
+    normalized = []
+    for line in content.splitlines():
+        # Strip comments and whitespace.
+        line = line.split("#", 1)[0].strip()
+        if line:
+            normalized.append(line)
+    normalized = " ".join(normalized)
+    return (
+        ("extend_path" in normalized and "__path__" in normalized) or
+        ("declare_namespace" in normalized and "__name__" in normalized)
+    )
+
 def _extract_wheel_metadata(repository_ctx, whl_label):
     """Peek inside a wheel to discover top-level names and console scripts.
 
@@ -154,6 +176,9 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
     Reads:
       * `*.dist-info/RECORD` (mandatory per PEP 427) to get top-level names.
       * `*.dist-info/entry_points.txt` (optional) to get `[console_scripts]`.
+      * every `<toplevel>/__init__.py` to detect pkgutil/pkg_resources-style
+        namespace packages, which are then treated like PEP 420 namespaces for
+        collision purposes.
 
     Fails if the archive cannot be inspected, so package collision and
     console-script handling never silently depend on host tooling.
@@ -165,22 +190,26 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
                  label_list attr so Bazel wires up repo visibility.
 
     Returns:
-      Tuple (top_levels_set, regular_top_levels_set, console_scripts_set,
-             namespace_entries_set, dirs_set, init_dirs_set):
+      Tuple (top_levels_set, regular_top_levels_set, pkgutil_namespace_top_levels_set,
+             console_scripts_set, namespace_entries_set, dirs_set, init_dirs_set):
         * top_levels_set: dict[name → True] — all first-path-segment
           names in RECORD (excluding `*.data/` staging entries).
         * regular_top_levels_set: subset that had an `__init__.py` at
-          depth 1, i.e. regular packages. Its complement (within
-          top_levels_set, minus `.dist-info/`) is the PEP 420 namespace
-          set for this wheel.
+          depth 1 which is NOT a pkgutil/pkg_resources namespace stub.
+        * pkgutil_namespace_top_levels_set: subset that had an
+          `<toplevel>/__init__.py` declaring a pkgutil/pkg_resources namespace.
+          These top-levels are also considered namespace packages and are
+          excluded from `regular_top_levels_set`.
         * console_scripts_set: dict[script_name → "name=module:func"].
         * namespace_entries_set: dict[path → True] — for each top-level
-          that looks like a PEP 420 namespace in THIS wheel, the
-          `/`-joined paths of the concrete entries beneath it: the
-          shallowest directory holding a direct `__init__.py` (recursing
-          through nested namespace dirs like `google/cloud/`), or the
-          file itself for plain modules / data files. Lets venv assembly
-          materialise a merged namespace dir out of per-entry symlinks.
+          that looks like a namespace in THIS wheel, the `/`-joined paths
+          of the concrete entries beneath it: the shallowest directory
+          holding a direct `__init__.py` (recursing through nested namespace
+          dirs like `google/cloud/`), or the file itself for plain modules /
+          data files. Lets venv assembly materialise a merged namespace dir
+          out of per-entry symlinks. The stub `__init__.py` of a pkgutil
+          namespace top-level is intentionally omitted here; venv assembly
+          symlinks it separately.
         * dirs_set: dict[path → True] — every directory implied by a
           RECORD entry, as a `/`-joined relative path.
         * init_dirs_set: dict[path → True] — subset of dirs_set that
@@ -216,11 +245,11 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
     repository_ctx.extract(
         archive = metadata_archive,
         output = metadata_dir,
-        strip_prefix = metadata_directory,
     )
     repository_ctx.delete(metadata_archive)
     metadata_path = repository_ctx.path(metadata_dir)
-    record_path = metadata_path.get_child("RECORD")
+    dist_info_path = metadata_path.get_child(metadata_directory)
+    record_path = dist_info_path.get_child("RECORD")
     if not record_path.exists:
         fail("{}: wheel {} has no {}/RECORD".format(
             repository_ctx.name,
@@ -229,20 +258,19 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
         ))
     record = repository_ctx.read(record_path)
     entry_points = ""
-    entry_points_path = metadata_path.get_child("entry_points.txt")
+    entry_points_path = dist_info_path.get_child("entry_points.txt")
     if entry_points_path.exists:
         entry_points = repository_ctx.read(entry_points_path)
-    repository_ctx.delete(metadata_dir)
     data_directory = metadata_directory[:-len(".dist-info")] + ".data"
 
     # RECORD: authoritative list of every installed file. First path segment
     # = top-level name after translating wheel install-scheme paths.
     top_levels_set = {}
 
-    # Tracks which top-levels contain a direct `<toplevel>/__init__.py` —
-    # i.e., are regular packages. The complement (top_levels that never
-    # appear with an `__init__.py` at depth 1) are PEP 420 namespace
-    # packages that expect to be merged across wheels.
+    # Tracks which top-levels contain a direct `<toplevel>/__init__.py`.
+    # A top-level is "regular" only if that `__init__.py` is NOT a pkgutil
+    # or pkg_resources namespace stub; otherwise it is tracked in
+    # pkgutil_namespace_top_levels below.
     regular_top_levels = {}
 
     # Raw material for the namespace derivations below: every kept RECORD
@@ -291,6 +319,17 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
             if len(segments) >= 2 and segments[-1] == "__init__.py":
                 init_dirs["/".join(segments[:-1])] = True
 
+    pkgutil_namespace_top_levels = {}
+    for tl in list(regular_top_levels.keys()):
+        init_path = metadata_path.get_child(tl).get_child("__init__.py")
+        if init_path.exists:
+            content = repository_ctx.read(init_path)
+            if _is_pkgutil_namespace_init(content):
+                pkgutil_namespace_top_levels[tl] = True
+                regular_top_levels.pop(tl, None)
+
+    repository_ctx.delete(metadata_dir)
+
     # Namespace entries: for each path under a (per-this-wheel) namespace
     # top-level, descend until hitting the shallowest concrete prefix — a
     # directory with a direct `__init__.py`, or the file itself when no
@@ -299,6 +338,9 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
     # (`google/cloud/storage/…`) recurse naturally: `google/cloud` has no
     # `__init__.py`, so the walk continues to `google/cloud/storage`.
     # Entries for top-levels that turn out regular are filtered out here.
+    # For pkgutil namespace top-levels, the stub `__init__.py` itself is
+    # intentionally excluded; venv assembly symlinks it separately so the
+    # namespace directory is importable.
     namespace_entries = {}
     for segments in record_segments:
         if segments[0] in regular_top_levels or segments[0].endswith(".dist-info"):
@@ -308,6 +350,11 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
         for depth in range(2, len(segments) + 1):
             prefix = "/".join(segments[:depth])
             if depth == len(segments) or prefix in init_dirs:
+                if (
+                    segments[0] in pkgutil_namespace_top_levels and
+                    prefix == segments[0] + "/__init__.py"
+                ):
+                    break
                 namespace_entries[prefix] = True
                 break
 
@@ -335,7 +382,7 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
             name, normalised = entry
             console_scripts[name] = normalised
 
-    return whl_path.basename, top_levels_set, regular_top_levels, console_scripts, namespace_entries, dirs_set, init_dirs
+    return whl_path.basename, top_levels_set, regular_top_levels, pkgutil_namespace_top_levels, console_scripts, namespace_entries, dirs_set, init_dirs
 
 def _namespace_dirs_and_roots(dirs_set, init_dirs, namespace_top_levels_set):
     """Split a wheel's directory skeleton into the implicit-namespace dirs
@@ -696,6 +743,7 @@ filegroup(
 
     top_levels_by_whl = {}
     namespace_top_levels_by_whl = {}
+    pkgutil_namespace_top_levels_by_whl = {}
     namespace_entries_by_whl = {}
     namespace_dirs_by_whl = {}
     regular_roots_by_whl = {}
@@ -710,15 +758,16 @@ filegroup(
             continue
         extracted_targets[target] = True
         whl_file_label = whl_file_labels[target]
-        whl_name, tls, regular, css, ns_entries, dirs_set, init_dirs = _extract_wheel_metadata(
+        whl_name, tls, regular, pkgutil_ns, css, ns_entries, dirs_set, init_dirs = _extract_wheel_metadata(
             repository_ctx,
             whl_file_label,
         )
         if tls:
             top_levels_by_whl[whl_name] = sorted(tls.keys())
 
-            # A top-level counts as a PEP 420 namespace for this wheel if
-            # its RECORD shows no `<toplevel>/__init__.py` at depth 1.
+            # A top-level counts as a namespace for this wheel if its RECORD
+            # shows no regular `<toplevel>/__init__.py` at depth 1. pkgutil
+            # namespace stubs are also treated as namespace packages.
             namespaces = sorted([
                 tl
                 for tl in tls
@@ -729,6 +778,9 @@ filegroup(
             if namespaces:
                 namespace_top_levels_by_whl[whl_name] = namespaces
                 namespace_set = {tl: True for tl in namespaces}
+
+                if pkgutil_ns:
+                    pkgutil_namespace_top_levels_by_whl[whl_name] = sorted(pkgutil_ns.keys())
 
                 # Concrete entries beneath this wheel's namespace
                 # top-levels (`jaraco/functools`) — for the per-entry
@@ -770,6 +822,11 @@ filegroup(
     # Only emitted for wheels that contribute to a namespace — keeps the
     # generated BUILD files (and their e2e snapshots) unchanged for the
     # common regular-top-level-only case.
+    if pkgutil_namespace_top_levels_by_whl:
+        install_attrs += """
+    pkgutil_namespace_top_levels = {pkgutil_namespace_top_levels},""".format(
+            pkgutil_namespace_top_levels = indent(pprint(pkgutil_namespace_top_levels_by_whl), " " * 4).lstrip(),
+        )
     if namespace_entries_by_whl:
         install_attrs += """
     namespace_entries = {namespace_entries},""".format(

@@ -124,6 +124,67 @@ class SiteMergeTest(unittest.TestCase):
                 if policy != "error":
                     self.assertEqual((output / "entry/child.py").read_text(), "second")
 
+    def test_namespace_init_stubs_treated_as_equivalent(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            first = root / "first"
+            second = root / "second"
+            output = root / "output"
+
+            _write(
+                first / "backports/__init__.py",
+                "from pkgutil import extend_path\n__path__ = extend_path(__path__, __name__)\n",
+            )
+            _write(
+                first / "backports/weakref.py",
+                "VALUE = 'first'\n",
+            )
+            _write(
+                second / "backports/__init__.py",
+                "# See https://pypi.python.org/pypi/backports\n\n"
+                "from pkgutil import extend_path\n"
+                "__path__ = extend_path(__path__, __name__)\n",
+            )
+            _write(
+                second / "backports/shutil_get_terminal_size.py",
+                "VALUE = 'second'\n",
+            )
+
+            conflicts = merge(output, [first, second])
+
+            self.assertEqual(conflicts, [])
+            self.assertEqual(
+                (output / "backports/weakref.py").read_text(),
+                "VALUE = 'first'\n",
+            )
+            self.assertEqual(
+                (output / "backports/shutil_get_terminal_size.py").read_text(),
+                "VALUE = 'second'\n",
+            )
+
+    def test_namespace_init_stub_with_extra_code_is_collision(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            first = root / "first"
+            second = root / "second"
+            output = root / "output"
+
+            _write(
+                first / "backports/__init__.py",
+                "from pkgutil import extend_path\n__path__ = extend_path(__path__, __name__)\n",
+            )
+            _write(
+                second / "backports/__init__.py",
+                "from pkgutil import extend_path\n__path__ = extend_path(__path__, __name__)\nX = 1\n",
+            )
+
+            conflicts = merge(output, [first, second])
+
+            self.assertEqual(
+                {path.name for path, _previous, _current in conflicts},
+                {"__init__.py"},
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
