@@ -11,9 +11,6 @@ _RPY_VERSION_FLAG = "@rules_python//python/config_settings:python_version"
 # Interpreter feature flags that must be propagated through transitions.
 _FREETHREADED_FLAG = "@aspect_rules_py//py/private/interpreter:freethreaded"
 
-# Public alias for backward compatibility
-RPY_VERSION_FLAG = _RPY_VERSION_FLAG
-
 def _python_transition_impl(settings, attr):
     acc = {}
     if attr.python_version:
@@ -54,6 +51,3 @@ python_transition = transition(
         _FREETHREADED_FLAG,
     ],
 )
-
-# The old name, FIXME: refactor this out
-python_version_transition = python_transition

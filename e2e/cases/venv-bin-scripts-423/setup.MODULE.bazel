@@ -2,7 +2,7 @@ uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_venv_bin_scripts_423")
 uv.project(
     hub_name = "pypi_venv_bin_scripts_423",
-    lock = "//cases/venv-bin-scripts-423:uv.lock",
-    pyproject = "//cases/venv-bin-scripts-423:pyproject.toml",
+    lock = "//venv-bin-scripts-423:uv.lock",
+    pyproject = "//venv-bin-scripts-423:pyproject.toml",
 )
 use_repo(uv, "pypi_venv_bin_scripts_423")

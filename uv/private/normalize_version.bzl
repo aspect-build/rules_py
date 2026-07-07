@@ -16,7 +16,7 @@ def normalize_version(version):
     """
     acc = []
     for c in version.elems():
-        if c.isalnum() or c == "-" or c == "_":
+        if c.isalnum() or c == "-":
             acc.append(c)
         else:
             acc.append("_")

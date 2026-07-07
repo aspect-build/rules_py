@@ -2,7 +2,7 @@ uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_venv_internal_symlinks")
 uv.project(
     hub_name = "pypi_venv_internal_symlinks",
-    lock = "//cases/venv-internal-symlinks:uv.lock",
-    pyproject = "//cases/venv-internal-symlinks:pyproject.toml",
+    lock = "//venv-internal-symlinks:uv.lock",
+    pyproject = "//venv-internal-symlinks:pyproject.toml",
 )
 use_repo(uv, "pypi_venv_internal_symlinks")

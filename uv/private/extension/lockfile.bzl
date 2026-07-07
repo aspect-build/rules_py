@@ -67,8 +67,6 @@ def normalize_deps(lock_id, lock_data):
 
     return default_versions, package_versions, lock_data
 
-MAGIC_ACTIVATE_BASE_MARKER = "magic_activate_base == 1"
-
 def build_marker_graph(lock_id, lock_data):
     """Builds a dependency graph from a lockfile.
 
@@ -264,22 +262,3 @@ def collect_sdists(
                 sdist_specs[sdist_repo_name] = {"git": git_cfg}
 
     return sdist_specs, sdist_table
-
-def collect_markers(graph):
-    """Collects all unique marker expressions from the dependency graph.
-
-    Args:
-        graph: The dependency graph.
-
-    Returns:
-        A dictionary mapping each unique marker expression to its SHA-1 hash.
-    """
-    acc = {}
-    for _dep, nexts in graph.items():
-        for _next, markers in nexts.items():
-            for marker in markers.keys():
-                # sha1 is "expensive" so we minimize it
-                if marker and marker not in acc:
-                    acc[marker] = sha1(marker)
-
-    return acc

@@ -69,7 +69,7 @@ _modules_mapping = rule(
 
 update = Label(":update.sh")
 
-def gazelle_python_manifest(name, hub, venvs = [], lockfile = None):
+def gazelle_python_manifest(name, hub, venvs = []):
     file = "gazelle_python.yaml"
     hub = hub.lstrip("@")
 

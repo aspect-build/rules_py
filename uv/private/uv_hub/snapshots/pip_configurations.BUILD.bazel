@@ -1,5 +1,4 @@
 load("@bazel_skylib//lib:selects.bzl", "selects")
-load("@aspect_rules_py//uv/private/markers:defs.bzl", "decide_marker")
 
 selects.config_setting_group(
     name = "py3-any-none",

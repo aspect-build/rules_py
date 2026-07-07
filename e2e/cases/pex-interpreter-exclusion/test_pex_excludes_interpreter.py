@@ -2,7 +2,7 @@ import os
 import zipfile
 from pathlib import Path
 
-PEX = "_main/cases/pex-interpreter-exclusion/app_pex.pex"
+PEX = "_main/pex-interpreter-exclusion/app_pex.pex"
 INTERPRETER_REPO_MARKERS = (
     "aspect_rules_py++python_interpreters+",
     "aspect_rules_py~~python_interpreters~",

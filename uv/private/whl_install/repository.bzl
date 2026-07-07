@@ -118,6 +118,32 @@ def _find_whl_file(repository_ctx, whl_label):
             return entry
     return None
 
+def _whl_file_label_keys(whl_file_label):
+    """Returns the set of label strings a wheel-file label can be looked up by.
+
+    `whl_files` labels stringify to canonical form (`@@repo+...//pkg:target`),
+    but the `prebuilds` target strings we match against may use the apparent
+    repo name (`@repo//pkg:target`) or the abbreviated form that drops a
+    target name equal to the package basename (`@repo//pkg`). Emit a key for
+    each equivalent form so lookups succeed regardless of which one appears.
+    """
+    label_str = str(whl_file_label)
+    keys = {label_str: True}
+    if not label_str.startswith("@@") or "//" not in label_str:
+        return keys
+
+    repo, pkg_target = label_str[len("@@"):].split("//", 1)
+    apparent_repo = repo.split("+")[-1]
+    apparent_label = "@{}//{}".format(apparent_repo, pkg_target)
+    keys[apparent_label] = True
+
+    if ":" in pkg_target:
+        pkg, target_name = pkg_target.rsplit(":", 1)
+        if pkg == target_name:
+            keys["@{}//{}".format(apparent_repo, pkg)] = True
+
+    return keys
+
 def _extract_wheel_metadata(repository_ctx, whl_label):
     """Peek inside a wheel to discover top-level names and console scripts.
 
@@ -426,19 +452,9 @@ def compatible_python_tags(python_tag, abi_tag):
 
     major = int(python_tag[2])
     minor = int(python_tag[3:]) if python_tag[3:] else 0
-    compatible = []
-    for candidate_major in MAJORS:
-        if candidate_major != major:
-            continue
-        for candidate_minor in MINORS:
-            if candidate_minor < minor:
-                continue
-
-            candidate = "cp{}{}".format(candidate_major, candidate_minor)
-            if supported_python(candidate):
-                compatible.append(candidate)
-
-    return compatible if compatible else [python_tag]
+    if major not in MAJORS:
+        return [python_tag]
+    return ["cp{}{}".format(major, m) for m in MINORS if m >= minor] or [python_tag]
 
 def source_specificity(python_tag):
     """Score how specific a wheel's source python_tag is.
@@ -491,7 +507,6 @@ def _whl_install_impl(repository_ctx):
         "load(\"@aspect_rules_py//py:defs.bzl\", \"py_library\")",
         "load(\"@aspect_rules_py//uv/private/whl_install:defs.bzl\", \"select_chain\")",
         "load(\"@aspect_rules_py//uv/private/whl_install:rule.bzl\", \"source_built_wheel\", \"whl_install\")",
-        "load(\"@bazel_skylib//lib:selects.bzl\", \"selects\")",
     ]
 
     # During expansion the value is (source_specificity, target). When two
@@ -567,9 +582,8 @@ def _whl_install_impl(repository_ctx):
     }
 
     sbuild_target = str(repository_ctx.attr.sbuild) if repository_ctx.attr.sbuild else None
-    default_target = sbuild_target
+    default_target = ":source_built_wheel" if sbuild_target else None
     if sbuild_target:
-        default_target = ":source_built_wheel"
         content.append(
             """
 source_built_wheel(
@@ -584,7 +598,8 @@ source_built_wheel(
             ),
         )
 
-    if (select_arms or prebuilds) and not default_target:
+    # select_arms derives from prebuilds, so prebuilds alone decides.
+    if prebuilds and not default_target:
         default_target = ":whl_missing"
         content.append(
             """
@@ -669,20 +684,15 @@ filegroup(
     # the installed wheel tree.
     #
     # We read from `whl_files` (a real label_list) rather than `whls` (a
-    # JSON-encoded string of labels) because only the former adds the
-    # wheel repos to our visibility so `rctx.path(Label(...))` can
-    # resolve. `whl_files` mirrors the truthy `whls` values in order, so
-    # pair them up by index to recover the target ↔ label association.
-    # Both lists are generated together by the hub rule from the same
-    # source data, so the ordering invariant is maintained at the point
-    # of production and does not depend on runtime dict iteration order.
+    # JSON-encoded string of labels) because only the former adds the wheel
+    # repos to our visibility so `rctx.path(Label(...))` can resolve. Multiple
+    # lockfile wheel entries can resolve to the same target, but Bazel label_list
+    # attrs reject duplicates, so map the deduplicated labels back by canonical
+    # label string instead of pairing by list index.
     whl_file_labels = {}
-    whl_file_index = 0
-    for target in prebuilds.values():
-        if not target:
-            continue
-        whl_file_labels[target] = repository_ctx.attr.whl_files[whl_file_index]
-        whl_file_index += 1
+    for whl_file_label in repository_ctx.attr.whl_files:
+        for key in _whl_file_label_keys(whl_file_label):
+            whl_file_labels[key] = whl_file_label
 
     top_levels_by_whl = {}
     namespace_top_levels_by_whl = {}
@@ -690,9 +700,16 @@ filegroup(
     namespace_dirs_by_whl = {}
     regular_roots_by_whl = {}
     console_scripts_by_whl = {}
-    for target, whl_file_label in whl_file_labels.items():
-        if target not in arm_targets:
+
+    # `prebuilds.values()` can repeat a target when several lockfile wheel
+    # entries resolve to the same wheel repo, so track which targets we've
+    # already peeked at to keep metadata extraction once-per-unique-wheel.
+    extracted_targets = {}
+    for target in prebuilds.values():
+        if target not in arm_targets or target in extracted_targets:
             continue
+        extracted_targets[target] = True
+        whl_file_label = whl_file_labels[target]
         whl_name, tls, regular, css, ns_entries, dirs_set, init_dirs = _extract_wheel_metadata(
             repository_ctx,
             whl_file_label,

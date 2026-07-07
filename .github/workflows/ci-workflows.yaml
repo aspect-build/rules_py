@@ -41,11 +41,21 @@ jobs:
             matrix:
                 workspace:
                 - { path: ".", slug: "root", runner: "ubuntu-latest" }
-                # e2e is the large workspace; give it a beefier runner.
-                - { path: "e2e", slug: "e2e", runner: "ubuntu-22.04-32core" }
+                - { path: "e2e/cases", slug: "e2e", runner: "ubuntu-22.04-32core" }
+                - { path: "e2e/interpreter-runtime-metadata", slug: "e2e-interpreter-runtime-metadata", runner: "ubuntu-latest" }
+                - { path: "e2e/interpreter-toolchain-settings", slug: "e2e-interpreter-toolchain-settings", runner: "ubuntu-latest" }
+                - { path: "e2e/interpreter-input-validation", slug: "e2e-interpreter-input-validation", runner: "ubuntu-latest" }
+                - { path: "e2e/rules-proto-grpc-python", slug: "e2e-rules-proto-grpc-python", runner: "ubuntu-22.04-32core" }
                 - { path: "examples/debugger", slug: "examples-debugger", runner: "ubuntu-latest" }
                 - { path: "examples/dev_deps", slug: "examples-dev_deps", runner: "ubuntu-latest" }
+                - { path: "examples/django", slug: "examples-django", runner: "ubuntu-latest" }
+                - { path: "examples/multi_version", slug: "examples-multi_version", runner: "ubuntu-latest" }
+                - { path: "examples/py_binary", slug: "examples-py_binary", runner: "ubuntu-latest" }
+                - { path: "examples/py_pex_binary", slug: "examples-py_pex_binary", runner: "ubuntu-latest" }
+                - { path: "examples/py_venv", slug: "examples-py_venv", runner: "ubuntu-latest" }
+                - { path: "examples/pytest", slug: "examples-pytest", runner: "ubuntu-latest" }
                 - { path: "examples/uv_pip_compile", slug: "examples-uv_pip_compile", runner: "ubuntu-latest" }
+                - { path: "examples/virtual_deps", slug: "examples-virtual_deps", runner: "ubuntu-latest" }
                 - { path: "examples/protobuf", slug: "examples-protobuf", runner: "ubuntu-22.04-32core" }
                 bazel:
                 - { id: "bazel-8", version: "8.x", flags: "--bazel-flag=--test_tag_filters=-skip-on-bazel8" }
@@ -57,24 +67,23 @@ jobs:
             - uses: aspect-build/setup-aspect@c22a8f64fb38f82f59ce809cd7eb9f8ae096da44 # v2026.23.2
               with:
                 aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
+            # Run `test //...`, then the workspace's test.sh if it has one
             - name: Test
               working-directory: ${{ matrix.workspace.path }}
-              run: aspect test --task-key=test-${{ matrix.workspace.slug }}-${{ matrix.bazel.id }} ${{ matrix.bazel.flags }} -- //...
-            # Standalone scripts that drive bazel directly (e.g. asserting a
-            # build *fails*), so they can't be an `sh_test` under `//...` above.
-            - name: e2e standalone test.sh scripts
-              if: matrix.workspace.slug == 'e2e'
               run: |
-                set -uo pipefail
-                status=0
-                for script in e2e/cases/*/test.sh; do
-                    echo "::group::${script}"
-                    if bash "${script}"; then
-                        echo "PASS: ${script}"
-                    else
-                        echo "FAIL: ${script}"
-                        status=1
-                    fi
-                    echo "::endgroup::"
-                done
-                exit "${status}"
+                aspect test --task-key=test-${{ matrix.workspace.slug }}-${{ matrix.bazel.id }} ${{ matrix.bazel.flags }} -- //...
+                if [ -f test.sh ]; then
+                    bash test.sh
+                fi
+    test-all:
+        name: test-all
+        runs-on: ubuntu-latest
+        needs: test
+        if: always()
+        steps:
+            - name: All test matrix jobs succeeded
+              run: |
+                if [ "${{ needs.test.result }}" != "success" ]; then
+                    echo "One or more test matrix jobs did not succeed: ${{ needs.test.result }}"
+                    exit 1
+                fi

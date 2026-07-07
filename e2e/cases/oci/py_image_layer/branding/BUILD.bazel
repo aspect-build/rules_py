@@ -10,7 +10,7 @@ py_library(
     data = ["palette.txt"],
     imports = [".."],
     visibility = [
-        "//cases/oci/py_image_layer:__pkg__",
-        "//cases/oci/py_venv_image_layer:__pkg__",
+        "//oci/py_image_layer:__pkg__",
+        "//oci/py_venv_image_layer:__pkg__",
     ],
 )

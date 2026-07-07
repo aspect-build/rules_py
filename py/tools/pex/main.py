@@ -13,7 +13,7 @@ from pex.inherit_path import InheritPath
 from pex.interpreter_constraints import InterpreterConstraint
 from pex.layout import Layout
 from pex.dist_metadata import Distribution
-from argparse import Action, ArgumentParser
+from argparse import Action, ArgumentError, ArgumentParser
 
 class InjectEnvAction(Action):
     def __call__(self, parser, namespace, value, option_str=None):
@@ -39,9 +39,8 @@ parser.add_argument(
     "-o",
     "--output-file",
     dest="pex_name",
-    default=None,
-    help="The name of the generated .pex file: Omitting this will run PEX "
-    "immediately and not save it to a file.",
+    required=True,
+    help="The name of the generated .pex file.",
 )
 
 parser.add_argument(
@@ -72,13 +71,6 @@ parser.add_argument(
 parser.add_argument(
     "--dependency",
     dest="dependencies",
-    default=[],
-    action="append",
-)
-
-parser.add_argument(
-    "--distinfo",
-    dest="distinfos",
     default=[],
     action="append",
 )

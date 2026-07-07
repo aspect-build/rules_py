@@ -3,7 +3,7 @@ uv.declare_hub(hub_name = "pypi_freethreaded_805")
 uv.project(
     default_build_dependencies = [],
     hub_name = "pypi_freethreaded_805",
-    lock = "//cases/freethreaded-805:uv.lock",
-    pyproject = "//cases/freethreaded-805:pyproject.toml",
+    lock = "//freethreaded-805:uv.lock",
+    pyproject = "//freethreaded-805:pyproject.toml",
 )
 use_repo(uv, "pypi_freethreaded_805")

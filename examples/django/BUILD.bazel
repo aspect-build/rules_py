@@ -1,10 +1,17 @@
 load("@aspect_rules_py//py:defs.bzl", "py_binary")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
 
 py_binary(
     name = "django",
     srcs = ["manage.py"],
     deps = [
-        "//examples/django/mysite",
+        "//mysite",
         "@pypi//django",
     ],
+)
+
+# So `bazel test //...` has a target: verify the app builds.
+build_test(
+    name = "build_test",
+    targets = [":django"],
 )

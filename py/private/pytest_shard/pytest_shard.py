@@ -58,7 +58,7 @@ class ShardPlugin:
         shard_total = config.getoption("num_shards")
         if shard_id >= shard_total:
             raise ValueError(
-                "shard_num = f{shard_num} must be less than shard_total = f{shard_total}"
+                f"shard_id = {shard_id} must be less than num_shards = {shard_total}"
             )
 
         items[:] = filter_items_by_shard(items, shard_id, shard_total)

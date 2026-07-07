@@ -4,7 +4,7 @@ uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_uv_platform_filter_844")
 uv.project(
     hub_name = "pypi_uv_platform_filter_844",
-    lock = "//cases/uv-platform-filter-844:uv.lock",
-    pyproject = "//cases/uv-platform-filter-844:pyproject.toml",
+    lock = "//uv-platform-filter-844:uv.lock",
+    pyproject = "//uv-platform-filter-844:pyproject.toml",
 )
 use_repo(uv, "pypi_uv_platform_filter_844")

@@ -8,8 +8,8 @@ uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_uv_abi3_compat_853")
 uv.project(
     hub_name = "pypi_uv_abi3_compat_853",
-    lock = "//cases/uv-abi3-compat-853:uv.lock",
-    pyproject = "//cases/uv-abi3-compat-853:pyproject.toml",
+    lock = "//uv-abi3-compat-853:uv.lock",
+    pyproject = "//uv-abi3-compat-853:pyproject.toml",
 )
 use_repo(
     uv,

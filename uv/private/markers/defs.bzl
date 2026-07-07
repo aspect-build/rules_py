@@ -89,9 +89,7 @@ def _decide_marker_impl(ctx):
 
     FeatureFlagInfo = config_common.FeatureFlagInfo
 
-    extras = sorted(ctx.attr.extras)
-    extra = ",".join(extras)
-    dependency_groups = sorted(ctx.attr.dependency_groups)
+    extra = ",".join(sorted(ctx.attr.extras))
 
     # Hide the differences between string flags and our custom build settings so
     # we can use them interchangeably.
@@ -113,14 +111,11 @@ def _decide_marker_impl(ctx):
             #
             # {{{
             "extra": extra,
-            "extras": extras,
-            "dependency_groups": dependency_groups,
             # }}}
             "python_version": _value(ctx.attr.python_version),
             "python_full_version": _value(ctx.attr.python_full_version),
             "os_name": _value(ctx.attr.os_name),
             "sys_platform": _value(ctx.attr.sys_platform),
-            "os_release": _value(ctx.attr.os_release),
             "platform_machine": _value(ctx.attr.platform_machine),
             "platform_system": _value(ctx.attr.platform_system),
             "platform_version": _value(ctx.attr.platform_version),
@@ -142,12 +137,10 @@ _decide_marker = rule(
     attrs = {
         "marker": attr.string(),
         "extras": attr.string_list(default = []),
-        "dependency_groups": attr.string_list(default = []),
         "python_version": attr.label(default = Label(":python_version")),
         "python_full_version": attr.label(default = Label(":python_full_version")),
         "os_name": attr.label(default = Label(":os_name")),
         "sys_platform": attr.label(default = Label(":sys_platform")),
-        "os_release": attr.label(default = Label(":os_release")),
         "platform_system": attr.label(default = Label(":platform_system")),
         "platform_version": attr.label(default = Label(":platform_version")),
         "platform_machine": attr.label(default = Label(":platform_machine")),
@@ -161,7 +154,6 @@ def decide_marker(
         name,
         marker,
         extras = [],
-        dependency_groups = [],
         visibility = None,
         **kwargs):
     flag_name = "_{}_impl".format(name)
@@ -176,7 +168,6 @@ def decide_marker(
         name = flag_name,
         marker = marker,
         extras = extras,
-        dependency_groups = dependency_groups,
         visibility = ["//visibility:private"],
         **kwargs
     )

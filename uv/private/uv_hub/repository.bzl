@@ -62,18 +62,14 @@ exports_files(
 
     ################################################################################
     # Lay down the //:BUILD.bazel file
-    content = [
-        """\
-load("@aspect_rules_py//py:defs.bzl", "py_library")
-""",
-    ]
+    content = []
 
     index_select_clauses = {
         "//dep_group:" + cfg: ["@{}//:gazelle_index_whls".format(project_id)]
         for cfg, project_id in repository_ctx.attr.configurations.items()
     }
 
-    content.append("""
+    content.append("""\
 filegroup(
     name = "gazelle_index_whls",
     srcs = select({index_select_clauses},
@@ -91,12 +87,9 @@ exports_files(
 
     ################################################################################
     # Lay down the hub aliases
-    entrypoints = {}
-
     for package_name, specs in packages.items():
         content = [
             """\
-load("@aspect_rules_py//py:defs.bzl", "py_library")
 load("//:defs.bzl", "compatible_with")
 """,
         ]
@@ -279,10 +272,6 @@ def requirement(name):
         repo_name = repository_ctx.name,
     ))
     repository_ctx.file("requirements.bzl", content = "\n".join(content))
-
-    ################################################################################
-    # Lay down the hub aliases
-    entrypoints = {}
 
     if not features.external_deps.extension_metadata_has_reproducible:
         return None

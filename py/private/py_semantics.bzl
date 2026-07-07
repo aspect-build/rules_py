@@ -53,14 +53,12 @@ def _resolve_toolchain(ctx):
 
     py3_toolchain = toolchain_info.py3_runtime
 
-    interpreter = None
     runfiles_interpreter = True
 
     if py3_toolchain.interpreter != None:
         files = depset([py3_toolchain.interpreter], transitive = [py3_toolchain.files])
         interpreter = py3_toolchain.interpreter
     else:
-        files = py3_toolchain.files
         interpreter = struct(
             path = py3_toolchain.interpreter_path,
             short_path = py3_toolchain.interpreter_path,
@@ -68,14 +66,10 @@ def _resolve_toolchain(ctx):
         files = depset([])
         runfiles_interpreter = False
 
-    # Bazel 7 has this field on the PyRuntimeInfo
-    if hasattr(py3_toolchain, "interpreter_version_info"):
-        for attr in ["major", "minor", "micro"]:
-            if not hasattr(py3_toolchain.interpreter_version_info, attr):
-                fail(_MUST_SET_TOOLCHAIN_INTERPRETER_VERSION_INFO)
-        interpreter_version_info = py3_toolchain.interpreter_version_info
-    else:
-        fail(_MUST_SET_TOOLCHAIN_INTERPRETER_VERSION_INFO)
+    for attr in ["major", "minor", "micro"]:
+        if not hasattr(py3_toolchain.interpreter_version_info, attr):
+            fail(_MUST_SET_TOOLCHAIN_INTERPRETER_VERSION_INFO)
+    interpreter_version_info = py3_toolchain.interpreter_version_info
 
     # Read the freethreaded build setting if the consuming rule exposed
     # the attr. Freethreaded Python uses `lib/python<M>.<m>t/site-packages/`
@@ -95,61 +89,7 @@ def _resolve_toolchain(ctx):
         freethreaded = freethreaded,
     )
 
-def _csv(values):
-    """Convert a list of strings to comma separated value string."""
-    return ", ".join(sorted(values))
-
-def _path_endswith(path, endswith):
-    # Use slash to anchor each path to prevent e.g.
-    # "ab/c.py".endswith("b/c.py") from incorrectly matching.
-    return ("/" + path).endswith("/" + endswith)
-
-def _determine_main(ctx):
-    """Determine the main entry point .py source file.
-
-    Args:
-        ctx: The rule ctx.
-
-    Returns:
-        Artifact; the main file. If one can't be found, an error is raised.
-    """
-    if ctx.attr.main:
-        # Check the resolved file, not the label name — the label may be a generator.
-        if not ctx.file.main.basename.endswith(".py"):
-            fail("main must end in '.py', got: " + ctx.file.main.basename)
-
-        # Short circuit; if the user gave us a label, believe them.
-        return ctx.file.main
-
-    elif len(ctx.files.srcs) == 1:
-        # If the user only provided one src, take that
-        return ctx.files.srcs[0]
-
-    else:
-        # Legacy rule name based searching :/
-        if ctx.label.name.endswith(".py"):
-            fail("name must not end in '.py'")
-        proposed_main = ctx.label.name + ".py"
-
-        main_files = [src for src in ctx.files.srcs if _path_endswith(src.short_path, proposed_main)]
-
-        if len(main_files) > 1:
-            fail(("file name '{}' specified by 'main' attributes matches multiple files. " +
-                  "Matches: {}").format(
-                proposed_main,
-                _csv([f.short_path for f in main_files]),
-            ))
-
-        elif len(main_files) == 1:
-            return main_files[0]
-
-        else:
-            fail("{} does not specify main=, and has multiple sources. Disambiguate the entrypoint".format(
-                ctx.label,
-            ))
-
 semantics = struct(
     interpreter_flags = _INTERPRETER_FLAGS,
     resolve_toolchain = _resolve_toolchain,
-    determine_main = _determine_main,
 )

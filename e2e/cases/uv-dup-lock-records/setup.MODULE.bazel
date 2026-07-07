@@ -2,7 +2,7 @@ uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_uv_dup_lock_records")
 uv.project(
     hub_name = "pypi_uv_dup_lock_records",
-    lock = "//cases/uv-dup-lock-records:uv.lock",
-    pyproject = "//cases/uv-dup-lock-records:pyproject.toml",
+    lock = "//uv-dup-lock-records:uv.lock",
+    pyproject = "//uv-dup-lock-records:pyproject.toml",
 )
 use_repo(uv, "pypi_uv_dup_lock_records")

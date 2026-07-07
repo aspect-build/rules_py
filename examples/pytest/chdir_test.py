@@ -1,6 +1,6 @@
 """Regression test for py_pytest_main(chdir = "...").
 
-The test target below is configured with chdir = "examples/pytest/fixtures",
+The test target below is configured with chdir = "fixtures",
 so the interpreter's working directory at test-start time should be that
 directory — opening "hello.json" as a relative path should resolve to
 the committed fixture, with no need for a runfiles-based absolute path.
@@ -16,8 +16,8 @@ import os
 
 def test_cwd_is_fixtures_dir():
     cwd = os.getcwd()
-    assert cwd.endswith("/examples/pytest/fixtures"), (
-        f"expected chdir into examples/pytest/fixtures, got {cwd!r}"
+    assert cwd.endswith("/fixtures"), (
+        f"expected chdir into fixtures, got {cwd!r}"
     )
 
 

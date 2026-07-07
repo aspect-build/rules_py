@@ -6,8 +6,8 @@
 
 set -euo pipefail
 
-LAUNCHER="$TEST_SRCDIR/_main/examples/pytest/coverage_setup_test"
-MANIFEST="$TEST_SRCDIR/_main/examples/pytest/coverage_manifest.txt"
+LAUNCHER="$TEST_SRCDIR/_main/coverage_setup_test"
+MANIFEST="$TEST_SRCDIR/_main/coverage_manifest.txt"
 
 [[ -x "$LAUNCHER" ]] || { echo "launcher not found or not executable: $LAUNCHER" >&2; exit 1; }
 [[ -f "$MANIFEST" ]] || { echo "manifest not found: $MANIFEST" >&2; exit 1; }
@@ -34,9 +34,9 @@ COVERAGE_MANIFEST="$MANIFEST" \
 # SF: records should name the file(s) listed in the manifest. The
 # absolute-path → manifest-path fixup in pytest_main.py should have
 # rewritten coverage.py's follow-symlinks absolute path back to the
-# original "examples/pytest/foo.py" entry.
-grep -qE '^SF:.*examples/pytest/foo\.py$' "$LCOV" || {
-  echo "Expected SF: record for examples/pytest/foo.py not found in LCOV." >&2
+# original "foo.py" entry.
+grep -qE '^SF:.*foo\.py$' "$LCOV" || {
+  echo "Expected SF: record for foo.py not found in LCOV." >&2
   echo "LCOV contents:" >&2
   cat "$LCOV" >&2
   exit 1

@@ -175,11 +175,6 @@ use_repo(
     "whl_install__aspect_rules_py__attrs__23_2_0",
 )
 
-register_toolchains(
-    "@uv//:all",
-    dev_dependency = True,
-)
-
 http_file(
     name = "django_4_2_4",
     dev_dependency = True,

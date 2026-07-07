@@ -3,7 +3,7 @@
 
 set -euo pipefail
 
-python_path_file="${TEST_SRCDIR}/_main/cases/current-py-toolchain-896/python_path.txt"
+python_path_file="${TEST_SRCDIR}/_main/current-py-toolchain-896/python_path.txt"
 
 python_path="$(cat "$python_path_file" | tr -d '[:space:]')"
 

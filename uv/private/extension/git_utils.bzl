@@ -3,19 +3,19 @@ Utilities for parsing git URLs and converting them to http_archive.
 """
 
 def ensure_ref(maybe_ref):
-    """Ensures a git ref starts with "ref/".
+    """Ensures a git ref starts with "refs/".
 
     Args:
         maybe_ref: The git ref string.
 
     Returns:
-        The git ref string, prefixed with "ref/" if it is not already.
+        The git ref string, prefixed with "refs/" if it is not already.
     """
     if maybe_ref == None:
         return None
 
-    if not maybe_ref.startswith("ref/"):
-        return "ref/" + maybe_ref
+    if not maybe_ref.startswith("refs/"):
+        return "refs/" + maybe_ref
 
     return maybe_ref
 
@@ -98,7 +98,7 @@ def try_git_to_http_archive(git_cfg):
                 "url": url,
             }
         elif "ref" in git_cfg:
-            url = "{}/archive/{}.tar.gz".format(url, git_cfg["tag"])
+            url = "{}/archive/{}.tar.gz".format(url, git_cfg["ref"])
             return {
                 "url": url,
             }

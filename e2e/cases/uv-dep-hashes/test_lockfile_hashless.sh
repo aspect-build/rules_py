@@ -6,7 +6,7 @@ set -euo pipefail
 # regression test (test_import) doesn't silently stop exercising the
 # hashless-wheel code path.
 
-LOCK="${TEST_SRCDIR}/_main/cases/uv-dep-hashes/uv.lock"
+LOCK="${TEST_SRCDIR}/_main/uv-dep-hashes/uv.lock"
 
 # Extract the colorama [[package]] block, then check its wheel line for `hash`.
 block="$(awk '/^\[\[package\]\]/{flag=0} /^name = "colorama"/{flag=1} flag' "$LOCK")"

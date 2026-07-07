@@ -16,23 +16,11 @@ like:
 will match if "headers" is among the accumulated --exclude_feature values.
 """
 
-_VALID_FEATURES = [
-    "headers",
-    "docs",
-    "tkinter",
-    "idle",
-    "ensurepip",
-    "config",
-    "pydoc",
-    "lib2to3",
-    "turtle",
-]
-
 def _exclude_feature_flag_impl(ctx):
     values = ctx.build_setting_value
     for v in values:
-        if v and v not in _VALID_FEATURES:
-            fail("Invalid exclude_feature '{}'. Valid values: {}".format(v, ", ".join(_VALID_FEATURES)))
+        if v and v not in INTERPRETER_FEATURES:
+            fail("Invalid exclude_feature '{}'. Valid values: {}".format(v, ", ".join(INTERPRETER_FEATURES.keys())))
     return []
 
 exclude_feature_flag = rule(
@@ -57,6 +45,12 @@ INTERPRETER_FEATURES = {
         "include": [
             "lib/python{major}.{minor}/tkinter/**",
             "lib/python{major}.{minor}/lib-dynload/_tkinter*",
+            "lib/libtcl*",
+            "lib/libtk*",
+            "lib/tcl*/**",
+            "lib/tk*/**",
+            "lib/itcl*/**",
+            "lib/thread*/**",
         ],
         "doc": "Tk GUI bindings",
     },

@@ -4,7 +4,7 @@ uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_pytest_mock_530")
 uv.project(
     hub_name = "pypi_pytest_mock_530",
-    lock = "//cases/pytest-mock-530:uv.lock",
-    pyproject = "//cases/pytest-mock-530:pyproject.toml",
+    lock = "//pytest-mock-530:uv.lock",
+    pyproject = "//pytest-mock-530:pyproject.toml",
 )
 use_repo(uv, "pypi_pytest_mock_530")

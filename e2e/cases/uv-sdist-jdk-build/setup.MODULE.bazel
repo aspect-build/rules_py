@@ -15,12 +15,12 @@ uv.project(
         "setuptools",
     ],
     hub_name = "pypi_sdist_jdk_build",
-    lock = "//cases/uv-sdist-jdk-build:uv.lock",
-    pyproject = "//cases/uv-sdist-jdk-build:pyproject.toml",
+    lock = "//uv-sdist-jdk-build:uv.lock",
+    pyproject = "//uv-sdist-jdk-build:pyproject.toml",
 )
 uv.unstable_annotate_packages(
-    src = "//cases/uv-sdist-jdk-build:annotations.toml",
-    lock = "//cases/uv-sdist-jdk-build:uv.lock",
+    src = "//uv-sdist-jdk-build:annotations.toml",
+    lock = "//uv-sdist-jdk-build:uv.lock",
 )
 
 # Layer a JDK runtime toolchain into the build env. `toolchains` and
@@ -33,7 +33,7 @@ uv.override_package(
         "JAVA": "$(JAVA)",
         "JAVA_HOME": "$(JAVABASE)",
     },
-    lock = "//cases/uv-sdist-jdk-build:uv.lock",
+    lock = "//uv-sdist-jdk-build:uv.lock",
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 

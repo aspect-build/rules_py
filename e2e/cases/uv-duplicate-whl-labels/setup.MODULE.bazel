@@ -1,0 +1,8 @@
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_uv_duplicate_whl_labels")
+uv.project(
+    hub_name = "pypi_uv_duplicate_whl_labels",
+    lock = "//uv-duplicate-whl-labels:uv.lock",
+    pyproject = "//uv-duplicate-whl-labels:pyproject.toml",
+)
+use_repo(uv, "pypi_uv_duplicate_whl_labels")

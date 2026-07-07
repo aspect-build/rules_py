@@ -81,20 +81,22 @@ def tokenize(marker):
     token = ""
     state = _STATE.NONE
     char = ""
+    n = len(marker)
+    pos = 0
 
     # Due to the `continue` in the loop, we will be processing chars at a slower pace
-    for _ in range(2 * len(marker)):
-        if token and (state == _STATE.NONE or not marker):
+    for _ in range(2 * n):
+        if token and (state == _STATE.NONE or pos >= n):
             if tokens and token == "in" and tokens[-1] == _NOT:
                 tokens[-1] += " " + token
             else:
                 tokens.append(token)
             token = ""
 
-        if not marker:
+        if pos >= n:
             return tokens
 
-        char = marker[0]
+        char = marker[pos]
         if state == _STATE.STRING and char in _QUOTES:
             state = _STATE.NONE
             token = '"{}"'.format(token)
@@ -125,9 +127,9 @@ def tokenize(marker):
             token += char
 
         # Consume the char
-        marker = marker[1:]
+        pos += 1
 
-    return fail("BUG: failed to process the marker in allocated cycles: {}".format(marker))
+    return fail("BUG: failed to process the marker in allocated cycles: {}".format(marker[pos:]))
 
 def evaluate(marker, *, env, strict = True, **kwargs):
     """Evaluate the marker against a given env.
@@ -143,13 +145,14 @@ def evaluate(marker, *, env, strict = True, **kwargs):
     """
     tokens = tokenize(marker)
     ast = _new_expr(**kwargs)
+    pos = 0
     for _ in range(len(tokens) * 2):
-        if not tokens:
+        if pos >= len(tokens):
             break
 
-        tokens = ast.parse(env = env, tokens = tokens, strict = strict)
+        pos = ast.parse(env = env, tokens = tokens, pos = pos, strict = strict)
 
-    if not tokens:
+    if pos >= len(tokens):
         return ast.value()
 
     fail("Could not evaluate: {}".format(marker))
@@ -241,26 +244,31 @@ def _new_expr(
     )
     return self
 
-def _parse(self, *, env, tokens, strict = False):
-    """The parse function takes the consumed tokens and returns the remaining."""
-    token, remaining = tokens[0], tokens[1:]
+def _parse(self, *, env, tokens, pos, strict = False):
+    """The parse function takes the token cursor and returns the new position."""
+    token = tokens[pos]
 
     if token == "(":
         expr = _open_parenthesis(self)
+        pos += 1
     elif token == ")":
         expr = _close_parenthesis(self)
+        pos += 1
     elif token == _AND:
         expr = _and_expr(self)
+        pos += 1
     elif token == _OR:
         expr = _or_expr(self)
+        pos += 1
     elif token == _NOT:
         expr = _not_expr(self)
+        pos += 1
     else:
-        expr = marker_expr(env = env, strict = strict, *tokens[:3])
-        remaining = tokens[3:]
+        expr = marker_expr(env = env, strict = strict, *tokens[pos:pos + 3])
+        pos += 3
 
     _append(self, expr)
-    return remaining
+    return pos
 
 def _value(self):
     """Evaluate the expression tree"""

@@ -1,4 +1,3 @@
-load("@aspect_rules_py//py:defs.bzl", "py_library")
 load("//:defs.bzl", "compatible_with")
 
 

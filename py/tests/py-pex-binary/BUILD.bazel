@@ -1,7 +1,7 @@
 load("@bazel_lib//lib:testing.bzl", "assert_contains")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_binary")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
-load("//py:defs.bzl", "py_binary", "py_pex_binary")
+load("//py:defs.bzl", "py_binary", "py_pex_binary", "py_test")
 
 # Test that both single-file modules (six) and multi-file modules (cowsay) work with py_pex_binary.
 py_binary(
@@ -9,9 +9,9 @@ py_binary(
     srcs = ["print_modules.py"],
     data = ["data.txt"],
     deps = [
+        "@pypi//bazel_runfiles",
         "@pypi//cowsay",
         "@pypi//six",
-        "@rules_python//python/runfiles",
     ],
 )
 
@@ -33,6 +33,54 @@ assert_contains(
     name = "test__print_modules_pex",
     actual = "print_modules_pex.out",
     expected = "Mooo!,cowsay-6.1/cowsay/__init__.py,six-1.16.0/six.py",
+)
+
+# Assert py_pex_binary attrs land in the built artifact: the shebang line,
+# PEX-INFO inherit_path, and interpreter_constraints (including the default
+# constraint's {major}/{minor}/{patch} placeholder substitution from the
+# resolved toolchain version). Uses a dependency-free binary so each pex
+# only carries the entrypoint.
+py_binary(
+    name = "noop_bin",
+    srcs = ["noop.py"],
+)
+
+py_pex_binary(
+    name = "defaults_pex",
+    binary = ":noop_bin",
+)
+
+py_pex_binary(
+    name = "custom_pex",
+    binary = ":noop_bin",
+    inherit_path = "prefer",
+    python_interpreter_constraints = ["CPython=={major}.{minor}.{patch}"],
+    python_shebang = "#!/opt/custom/bin/python3",
+)
+
+py_pex_binary(
+    name = "inherit_fallback_pex",
+    binary = ":noop_bin",
+    inherit_path = "fallback",
+)
+
+py_pex_binary(
+    name = "inherit_false_pex",
+    binary = ":noop_bin",
+    inherit_path = "false",
+)
+
+py_test(
+    name = "pex_info_test",
+    srcs = ["pex_info_test.py"],
+    data = [
+        ":custom_pex",
+        ":defaults_pex",
+        ":inherit_fallback_pex",
+        ":inherit_false_pex",
+    ],
+    main = "pex_info_test.py",
+    deps = ["@pypi//bazel_runfiles"],
 )
 
 # Verify PEX building works under a platform transition. The PEX builder must

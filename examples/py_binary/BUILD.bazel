@@ -1,5 +1,6 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary")
 load("@bazel_lib//lib:expand_template.bzl", "expand_template")
-load("//py:defs.bzl", "py_binary")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
 
 expand_template(
     name = "stamped",
@@ -15,4 +16,10 @@ py_binary(
     deps = [
         "@pypi//cowsay",
     ],
+)
+
+# So `bazel test //...` has a target: verify the binary builds.
+build_test(
+    name = "build_test",
+    targets = [":py_binary"],
 )

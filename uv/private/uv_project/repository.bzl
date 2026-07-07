@@ -10,13 +10,6 @@ load("//uv/private/uv_project:select_gen.bzl", "build_package_select_arms")
 def indent(text, space = " "):
     return "\n".join(["{}{}".format(space, l) for l in text.splitlines()])
 
-def name(quad):
-    _lock, package_name, package_version, package_extra = quad.split(",")
-    if package_extra == "__base__":
-        return "{}__{}".format(package_name, package_version)
-    else:
-        return "{}__{}__extra__{}".format(package_name, package_version, package_extra)
-
 def _project_impl(repository_ctx):
     """Materializes the dependency graph for a single project.
 
@@ -113,8 +106,6 @@ config_setting(
     ################################################################################
     # Lay down the surface-level targets
     content = ["""\
-load("@aspect_rules_py//py:defs.bzl", "py_library")
-
 # Fallback for `:{package}_whl` aliases on workspace / editable packages
 # (which have no underlying whl_install repo to point at).
 filegroup(

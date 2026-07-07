@@ -1,0 +1,49 @@
+load("//:defs.bzl", "compatible_with")
+
+
+# This target is for a "hard" dependency.
+# Dependencies on this target will cause build failures if it's unavailable.
+alias(
+    name = "lib",
+    actual = "cowsay",
+    visibility = ["//visibility:public"],
+)
+alias(
+    name = "pkg",
+    actual = "cowsay",
+    visibility = ["//visibility:public"],
+)
+alias(
+    name = "whl",
+    actual = select({
+          "//dep_group:beta": "@project__beta//:cowsay_whl",
+          "//dep_group:dev": "@project__alpha//:cowsay_whl",
+          "//dep_group:gamma": "@project__gamma//:cowsay_whl",
+          "//dep_group:unit-tests": "@project__alpha//:cowsay_whl",
+      }),
+    target_compatible_with = select(compatible_with(["beta", "dev", "gamma", "unit-tests"])),
+    visibility = ["//visibility:public"],
+)
+filegroup(
+    name = "dist_info",
+    srcs = [":cowsay"],
+    visibility = ["//visibility:public"],
+)
+alias(
+    name = "cowsay",
+    actual = select({
+          "//dep_group:beta": "@project__beta//:cowsay",
+          "//dep_group:dev": "@project__alpha//:cowsay",
+          "//dep_group:gamma": "@project__gamma//:cowsay",
+          "//dep_group:unit-tests": "@project__alpha//:cowsay",
+      },
+        no_match_error = "Available only in dep_groups: beta, dev, gamma, unit-tests",
+    ),
+    target_compatible_with = select(compatible_with(["beta", "dev", "gamma", "unit-tests"])),
+    visibility = ["//visibility:public"],
+)
+
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//visibility:public"],
+)

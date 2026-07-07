@@ -6,15 +6,15 @@ without binding them to a particular version of that package.
 
 load("@bazel_skylib//lib:new_sets.bzl", "sets")
 load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
-load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private:providers.bzl", "PyVirtualInfo", "PyWheelsInfo")
 load("//py/private:pth.bzl", "make_imports_depset")
+load("//py/private:py_info.bzl", "PyInfo")
 
-def _make_instrumented_files_info(ctx, extra_source_attributes = [], extra_dependency_attributes = []):
+def _make_instrumented_files_info(ctx):
     return coverage_common.instrumented_files_info(
         ctx,
-        source_attributes = ["srcs"] + extra_source_attributes,
-        dependency_attributes = ["data", "deps"] + extra_dependency_attributes,
+        source_attributes = ["srcs"],
+        dependency_attributes = ["data", "deps"],
         extensions = ["py"],
     )
 
@@ -64,7 +64,7 @@ def _make_virtual_resolutions_depset(ctx):
         ],
     )
 
-def _resolve_virtuals(ctx, ignore_missing = False):
+def _resolve_virtuals(ctx):
     virtual = _make_virtual_depset(ctx).to_list()
     resolutions = _make_virtual_resolutions_depset(ctx).to_list()
 
@@ -88,26 +88,25 @@ def _resolve_virtuals(ctx, ignore_missing = False):
             v_imports.append(resolution.target[PyInfo].imports)
 
     missing = sets.to_list(sets.difference(sets.make(virtual), sets.make(seen.keys())))
-    if len(missing) > 0 and not ignore_missing:
+    if len(missing) > 0:
         fail("The following dependencies were marked as virtual, but no concrete label providing them was given: {}".format(", ".join(missing)))
 
     return struct(
         srcs = v_srcs,
         runfiles = v_runfiles,
         imports = v_imports,
-        missing = missing,
     )
 
-def _make_imports_depset(ctx, imports = [], extra_imports_depsets = []):
+def _make_imports_depset(ctx, extra_imports_depsets = []):
     return make_imports_depset(
         deps = getattr(ctx.attr, "deps", []),
-        imports = getattr(ctx.attr, "imports", imports),
+        imports = getattr(ctx.attr, "imports", []),
         workspace_name = ctx.workspace_name,
         label = ctx.label,
         extra_imports_depsets = extra_imports_depsets,
     )
 
-def _make_wheels_depset(ctx, extra_transitive = []):
+def _make_wheels_depset(ctx):
     """Collect PyWheelsInfo.wheels across deps + resolutions.
 
     Used by downstream rules that want a flat list of wheels (with their
@@ -127,7 +126,6 @@ def _make_wheels_depset(ctx, extra_transitive = []):
     for target in getattr(ctx.attr, "resolutions", {}).keys():
         if PyWheelsInfo in target:
             transitive.append(target[PyWheelsInfo].wheels)
-    transitive.extend(extra_transitive)
     return depset(order = "postorder", transitive = transitive)
 
 def _make_merged_runfiles(ctx, extra_depsets = [], extra_runfiles = [], extra_runfiles_depsets = []):
@@ -216,7 +214,6 @@ py_library_utils = struct(
     attrs = _attrs,
     implementation = _py_library_impl,
     make_imports_depset = _make_imports_depset,
-    make_instrumented_files_info = _make_instrumented_files_info,
     make_merged_runfiles = _make_merged_runfiles,
     make_srcs_depset = _make_srcs_depset,
     make_wheels_depset = _make_wheels_depset,

@@ -1,0 +1,9 @@
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+
+# Smoke test so `bazel test //...` has a target here. The real checks are in
+# test.sh, which invokes each invalid-config subdir as its own nested module and
+# asserts the module-extension evaluation fails (not expressible as an sh_test).
+build_test(
+    name = "smoke_test",
+    targets = [":BUILD.bazel"],
+)

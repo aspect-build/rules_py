@@ -18,7 +18,7 @@ uv.project(
         "wheel",
     ],
     hub_name = "pypi_uv_pyproject_cases",
-    lock = "//cases/uv-pyproject-cases:uv.lock",
-    pyproject = "//cases/uv-pyproject-cases:pyproject.toml",
+    lock = "//uv-pyproject-cases:uv.lock",
+    pyproject = "//uv-pyproject-cases:pyproject.toml",
 )
 use_repo(uv, "pypi_uv_pyproject_cases")

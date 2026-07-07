@@ -27,19 +27,19 @@ files:
 layer: 1
 files:
   - -rwxr-xr-x  0 0      0       17400 Jan  1  2023 ./app
-  - -rwxr-xr-x  0 0      0        2502 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/._my_app_multi_bin.venv/bin/activate
-  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/._my_app_multi_bin.venv/bin/python -> ../../../../../../aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/python3
-  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/._my_app_multi_bin.venv/bin/python3 -> python
-  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/._my_app_multi_bin.venv/bin/python3.11 -> python
-  - -rwxr-xr-x  0 0      0         114 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/._my_app_multi_bin.venv/lib/python3.11/site-packages/_my_app_multi_bin.venv.pth
-  - -rwxr-xr-x  0 0      0          19 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/._my_app_multi_bin.venv/lib/python3.11/site-packages/_virtualenv.pth
-  - -rwxr-xr-x  0 0      0        4745 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/._my_app_multi_bin.venv/lib/python3.11/site-packages/_virtualenv.py
-  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/._my_app_multi_bin.venv/lib/python3.11/site-packages/colorama -> ../../../../../../../../aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama
-  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/._my_app_multi_bin.venv/lib/python3.11/site-packages/colorama-0.4.6.dist-info -> ../../../../../../../../aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama-0.4.6.dist-info
-  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/._my_app_multi_bin.venv/lib/python3.11/site-packages/pyproject_hooks -> ../../../../../../../../aspect_rules_py++uv+whl_install__images__pyproject_hooks__1_2_0/actual_install.install/lib/python3.11/site-packages/pyproject_hooks
-  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/._my_app_multi_bin.venv/lib/python3.11/site-packages/pyproject_hooks-1.2.0.dist-info -> ../../../../../../../../aspect_rules_py++uv+whl_install__images__pyproject_hooks__1_2_0/actual_install.install/lib/python3.11/site-packages/pyproject_hooks-1.2.0.dist-info
-  - -rwxr-xr-x  0 0      0         246 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/._my_app_multi_bin.venv/pyvenv.cfg
-  - -rwxr-xr-x  0 0      0         276 Jan  1  2023 ./app.runfiles/_main/cases/oci/py_image_layer/__main__.py
+  - -rwxr-xr-x  0 0      0        2114 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_multi_bin.venv/bin/activate
+  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_multi_bin.venv/bin/python -> ../../../../../aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/python3
+  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_multi_bin.venv/bin/python3 -> python
+  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_multi_bin.venv/bin/python3.11 -> python
+  - -rwxr-xr-x  0 0      0         105 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_multi_bin.venv/lib/python3.11/site-packages/_my_app_multi_bin.venv.pth
+  - -rwxr-xr-x  0 0      0          19 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_multi_bin.venv/lib/python3.11/site-packages/_virtualenv.pth
+  - -rwxr-xr-x  0 0      0        4745 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_multi_bin.venv/lib/python3.11/site-packages/_virtualenv.py
+  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_multi_bin.venv/lib/python3.11/site-packages/colorama -> ../../../../../../../aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama
+  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_multi_bin.venv/lib/python3.11/site-packages/colorama-0.4.6.dist-info -> ../../../../../../../aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama-0.4.6.dist-info
+  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_multi_bin.venv/lib/python3.11/site-packages/pyproject_hooks -> ../../../../../../../aspect_rules_py++uv+whl_install__images__pyproject_hooks__1_2_0/actual_install.install/lib/python3.11/site-packages/pyproject_hooks
+  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_multi_bin.venv/lib/python3.11/site-packages/pyproject_hooks-1.2.0.dist-info -> ../../../../../../../aspect_rules_py++uv+whl_install__images__pyproject_hooks__1_2_0/actual_install.install/lib/python3.11/site-packages/pyproject_hooks-1.2.0.dist-info
+  - -rwxr-xr-x  0 0      0         153 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_multi_bin.venv/pyvenv.cfg
+  - -rwxr-xr-x  0 0      0         276 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/__main__.py
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/2to3 -> 2to3-3.11
   - -rwxr-xr-x  0 0      0         158 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/2to3-3.11
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/idle3 -> idle3.11
@@ -247,6 +247,8 @@ files:
   - -rwxr-xr-x  0 0      0        2886 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/itcl4.3.5/itclConfig.sh
   - -rwxr-xr-x  0 0      0       19378 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/itcl4.3.5/itclHullCmds.tcl
   - -rwxr-xr-x  0 0      0       12114 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/itcl4.3.5/itclWidget.tcl
+  - -rwxr-xr-x  0 0      0        2348 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/itcl4.3.5/libitclstub.a
+  - -rwxr-xr-x  0 0      0        2348 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/itcl4.3.5/libitclstub4.3.5.a
   - -rwxr-xr-x  0 0      0      306344 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/itcl4.3.5/libtcl9itcl4.3.5.so
   - -rwxr-xr-x  0 0      0         436 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/itcl4.3.5/pkgIndex.tcl
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/libpython3.11.so -> libpython3.11.so.1.0

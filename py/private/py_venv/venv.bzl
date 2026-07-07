@@ -490,14 +490,15 @@ def assemble_venv(
         safe_name,
         py_toolchain,
         imports_depset,
-        package_collisions = "error",
-        include_system_site_packages = False,
-        include_user_site_packages = False,
-        default_env = {},
+        is_windows,
+        package_collisions,
+        include_system_site_packages,
+        include_user_site_packages,
+        default_env,
         venv_activate_tmpl,
         virtualenv_shim_py,
-        site_merge_script_py = None,
-        venv_name = None):
+        site_merge_script_py,
+        venv_name):
     """Declare every file + symlink that makes up a venv for a target.
 
     Args:
@@ -507,6 +508,7 @@ def assemble_venv(
       py_toolchain: Resolved Python toolchain struct from py_semantics.
       imports_depset: Depset of first-party + transitive wheel import
         paths (as returned by py_library_utils.make_imports_depset).
+      is_windows: Bool — whether the venv targets Windows.
       package_collisions: "error" / "warning" / "ignore" — policy applied
         when two wheels claim the same top-level (non-namespace case),
         distribution metadata entry, or console-script name.
@@ -521,23 +523,18 @@ def assemble_venv(
       virtualenv_shim_py: File — the `_virtualenv.py` distutils shim
         source (usually `ctx.file._virtualenv_shim`).
       site_merge_script_py: File — the site_merge.py tool source
-        (usually `ctx.file._site_merge_script`). Only needed when the
+        (usually `ctx.file._site_merge_script`). Only used when the
         wheel graph contains a regular package spanning wheels; the
         merge action also requires the rule to declare the (optional)
         EXEC_TOOLS_TOOLCHAIN for an exec-configuration interpreter.
-      venv_name: Optional str — explicit venv dir basename. Defaults to
-        "." + safe_name + ".venv" when unset.
+      venv_name: str — the venv dir basename (e.g. "." + safe_name).
 
     Returns:
       struct with:
-        venv_name: str — the venv dir's basename (default "." + safe_name + ".venv").
         bin_python: File — the venv's bin/python symlink, for launchers
             to rlocation-resolve and exec.
         all_files: list[File] — every declared output, ready for runfiles
             / DefaultInfo aggregation.
-        site_packages_pth_file: File — the main .pth (useful if the
-            caller needs to know its runfiles path).
-        pyvenv_cfg: File — declared pyvenv.cfg.
     """
 
     wheels_depset = _py_library.make_wheels_depset(ctx)
@@ -583,23 +580,19 @@ def assemble_venv(
     # From venv root (= sys.prefix at runtime) up to runfiles root.
     venv_to_runfiles_escape = "/".join([".."] * (2 + package_depth))
 
-    # Default basename is `.{name}.venv/` — the Pythonic name that
-    # IDEs auto-detect. The leading dot also keeps this distinct from
-    # a sibling py_venv target at `:<name>.venv` (auto-emitted when
-    # `expose_venv = True` is set): the sibling's launcher file lands
-    # at `bazel-bin/<pkg>/<name>.venv`, while any internal venv tree
-    # lives under `bazel-bin/<pkg>/.<name>.venv/`. Different
-    # filesystem paths, no collision. Callers can override via the
-    # `venv_name` parameter.
-    if venv_name == None:
-        venv_name = ".{}.venv".format(safe_name)
+    # The leading-dot basename (e.g. `.{name}.venv/`) is the Pythonic
+    # name that IDEs auto-detect. The leading dot also keeps this
+    # distinct from a sibling py_venv target at `:<name>.venv`
+    # (auto-emitted when `expose_venv = True` is set): the sibling's
+    # launcher file lands at `bazel-bin/<pkg>/<name>.venv`, while any
+    # internal venv tree lives under `bazel-bin/<pkg>/.<name>.venv/`.
+    # Different filesystem paths, no collision.
     site_packages_rel = "{}/lib/{}/site-packages".format(venv_name, venv_py_ver)
 
     # site_packages_rfpath → install_tree, used only by the regular-package
     # merge action below. The per-top-level symlinks and .pth lines locate
     # each wheel by its runfiles path directly, not through this map.
-    wheels_with_trees = [w for w in wheels if getattr(w, "install_tree", None) != None]
-    tree_by_sp = {w.site_packages_rfpath: w.install_tree for w in wheels_with_trees}
+    tree_by_sp = {w.site_packages_rfpath: w.install_tree for w in wheels}
 
     # site_packages_rfpath → True for wheels whose top-level layout is known
     # (they declare `top_levels`), so the per-top-level symlink loop projects
@@ -635,18 +628,10 @@ def assemble_venv(
     # package's `__path__` to; the per-wheel originals are shadowed.
     #
     # The merge runs as a build action under the exec-configuration
-    # interpreter (same shape as WhlInstall's unpack action). Wheels
-    # without an install_tree (legacy py_unpacked_wheel) can't
-    # contribute — they also never carry the metadata that forms a
-    # merge group, so they can't appear here.
+    # interpreter (same shape as WhlInstall's unpack action). Every
+    # PyWheelsInfo record carries an install_tree (see providers.bzl),
+    # so each contributing wheel resolves in tree_by_sp.
     for group in merge_groups:
-        if site_merge_script_py == None:
-            fail(("{}: wheels {} all contribute to the regular package `{}` — merging it " +
-                  "requires the venv rule to supply the site_merge tool.").format(
-                ctx.label,
-                group.site_packages_list,
-                group.root,
-            ))
         exec_toolchain = ctx.toolchains[EXEC_TOOLS_TOOLCHAIN]
         exec_runtime = exec_toolchain.exec_tools.exec_runtime if exec_toolchain else None
         if exec_runtime == None:
@@ -668,13 +653,7 @@ def assemble_venv(
         arguments.add("--collision-policy", package_collisions)
         trees = []
         for sp in group.site_packages_list:
-            tree = tree_by_sp.get(sp)
-            if tree == None:
-                fail("{}: wheel at {} contributes to merged package `{}` but has no install_tree.".format(
-                    ctx.label,
-                    sp,
-                    group.root,
-                ))
+            tree = tree_by_sp[sp]
             trees.append(tree)
             arguments.add_all(
                 [tree],
@@ -739,15 +718,30 @@ def assemble_venv(
     )
     declared.append(site_packages_pth_file)
 
-    # pyvenv.cfg. `home` must name the BASE interpreter's bin/ — never the
-    # venv's own bin/ (./bin), or CPython is left chasing the venv's python
-    # symlinks and can fall back to the compile-time prefix (PBS: /install) →
-    # ModuleNotFoundError: 'encodings'. Hermetic interpreters: point directly
-    # at the PBS bin/, since 3.11/3.12's getpath.py resolvedpath() fails on
-    # multi-hop relative symlinks across repo boundaries. System interpreters
-    # (py_runtime(interpreter_path)): the dirname of the absolute interpreter
-    # path — the same value `python -m venv` writes.
-    if py_toolchain.runfiles_interpreter:
+    # `relocatable = true` below is a rules_py extension: for an in-build
+    # CPython 3.11/3.12 runtime that supports build-time venvs, keep `home`
+    # empty so getpath resolves the relocatable bin/python symlink into the
+    # base executable without forcing prefix discovery from a relative path.
+    # Omitting the key leaves sys._base_executable at the outer venv symlink,
+    # so a stdlib-created nested venv writes the outer venv's bin/ as home.
+    # A relative `home` instead resolves from the startup cwd:
+    # https://github.com/python/cpython/blob/3bb231a6/Modules/getpath.py#L362-L365
+    # https://github.com/python/cpython/blob/3bb231a6/Modules/getpath.py#L431-L432
+    # https://github.com/python/cpython/blob/3bb231a6/Lib/venv/__init__.py#L158-L166
+    # Direct runtimes use that symlink. The capability also permits wrappers
+    # that set PYTHONEXECUTABLE to preserve the underlying base executable:
+    # https://github.com/bazel-contrib/rules_python/blob/bac54949/python/private/py_runtime_info.bzl#L316-L337
+    use_empty_venv_home = (
+        py_toolchain.runfiles_interpreter and
+        not is_windows and
+        getattr(py_toolchain.toolchain, "implementation_name", None) == "cpython" and
+        getattr(py_toolchain.toolchain, "supports_build_time_venv", False) and
+        py_toolchain.interpreter_version_info.major == 3 and
+        py_toolchain.interpreter_version_info.minor in [11, 12]
+    )
+    if use_empty_venv_home:
+        pyvenv_home = ""
+    elif py_toolchain.runfiles_interpreter:
         pbs_rlocation = to_rlocation_path(ctx, py_toolchain.python)
         pbs_bin_dir = "/".join(pbs_rlocation.split("/")[:-1])
         pyvenv_home = "{}/{}".format(venv_to_runfiles_escape, pbs_bin_dir)
@@ -755,15 +749,16 @@ def assemble_venv(
         pyvenv_home = py_toolchain.python.path.rsplit("/", 1)[0]
 
     pyvenv_cfg = ctx.actions.declare_file("{}/pyvenv.cfg".format(venv_name))
+    home_line = "home =\n" if pyvenv_home == "" else "home = {}\n".format(pyvenv_home)
     ctx.actions.write(
         output = pyvenv_cfg,
-        content = ("home = {home}\n" +
-                   "implementation = CPython\n" +
-                   "version_info = {major}.{minor}.{micro}\n" +
-                   "include-system-site-packages = {include_system}\n" +
-                   "aspect-include-user-site-packages = {include_user}\n" +
-                   "relocatable = true\n").format(
-            home = pyvenv_home,
+        content = home_line + (
+            "implementation = CPython\n" +
+            "version_info = {major}.{minor}.{micro}\n" +
+            "include-system-site-packages = {include_system}\n" +
+            "aspect-include-user-site-packages = {include_user}\n" +
+            "relocatable = true\n"
+        ).format(
             major = py_toolchain.interpreter_version_info.major,
             minor = py_toolchain.interpreter_version_info.minor,
             micro = py_toolchain.interpreter_version_info.micro,
@@ -885,9 +880,6 @@ def assemble_venv(
         declared.append(script)
 
     return struct(
-        venv_name = venv_name,
         bin_python = bin_python,
         all_files = declared,
-        site_packages_pth_file = site_packages_pth_file,
-        pyvenv_cfg = pyvenv_cfg,
     )

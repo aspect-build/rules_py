@@ -8,7 +8,7 @@ uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_firebase_admin_import")
 uv.project(
     hub_name = "pypi_firebase_admin_import",
-    lock = "//cases/firebase-admin-import:uv.lock",
-    pyproject = "//cases/firebase-admin-import:pyproject.toml",
+    lock = "//firebase-admin-import:uv.lock",
+    pyproject = "//firebase-admin-import:pyproject.toml",
 )
 use_repo(uv, "pypi_firebase_admin_import")

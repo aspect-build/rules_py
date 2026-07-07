@@ -4,7 +4,7 @@ uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_uv_incompatible_wheel_source")
 uv.project(
     hub_name = "pypi_uv_incompatible_wheel_source",
-    lock = "//cases/uv-incompatible-wheel-source:uv.lock",
-    pyproject = "//cases/uv-incompatible-wheel-source:pyproject.toml",
+    lock = "//uv-incompatible-wheel-source:uv.lock",
+    pyproject = "//uv-incompatible-wheel-source:pyproject.toml",
 )
 use_repo(uv, "pypi_uv_incompatible_wheel_source")

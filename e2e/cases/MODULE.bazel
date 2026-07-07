@@ -1,0 +1,147 @@
+"Bazel dependencies"
+
+bazel_dep(name = "aspect_rules_py")
+bazel_dep(name = "bazel_features", version = "1.38.0")
+bazel_dep(name = "bazel_skylib", version = "1.4.2")
+bazel_dep(name = "bazel_lib", version = "3.0.0")
+bazel_dep(name = "rules_cc", version = "0.2.16")
+bazel_dep(name = "tar.bzl", version = "0.10.1")
+bazel_dep(name = "rules_python", version = "1.9.0")
+bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "llvm", version = "0.8.3")
+bazel_dep(name = "rules_oci", version = "2.2.7")
+bazel_dep(name = "rules_rust", version = "0.68.1")
+bazel_dep(name = "rules_shell", version = "0.4.1")
+
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../..",
+)
+
+# Ensure any transitive "aspect_bazel_lib" is latest to be forward compatible with bazel_lib 3+
+single_version_override(
+    module_name = "aspect_bazel_lib",
+    version = "2.22.5",
+)
+
+# Python interpreters provisioned from python-build-standalone via aspect_rules_py
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+interpreters.configure(
+    releases = [
+        "20260303",
+        "20251031",
+        "20241002",
+    ],
+)
+interpreters.toolchain(
+    python_version = "3.9",
+)
+interpreters.toolchain(
+    python_version = "3.10",
+)
+interpreters.toolchain(
+    python_version = "3.11",
+)
+interpreters.toolchain(
+    python_version = "3.12",
+)
+interpreters.toolchain(
+    python_version = "3.13",
+)
+use_repo(interpreters, "python_interpreters")
+
+register_toolchains("@python_interpreters//:all")
+
+# rules_py tools — provides the native_build_toolchain entries for sdist builds.
+tools = use_extension("@aspect_rules_py//py:extensions.bzl", "py_tools")
+tools.rules_py_tools()
+use_repo(tools, "rules_py_tools")
+
+register_toolchains("@rules_py_tools//:all")
+
+# CC toolchain for native sdist builds (e.g. cdifflib, pyahocorasick).
+register_toolchains("@llvm//toolchain:all")
+
+# For the OCI tests
+oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
+oci.pull(
+    name = "ubuntu",
+    digest = "sha256:c35e29c9450151419d9448b0fd75374fec4fff364a27f176fb458d472dfc9e54",
+    image = "public.ecr.aws/docker/library/ubuntu",
+    platforms = [
+        "linux/arm64/v8",
+        "linux/amd64",
+    ],
+    tag = "latest",
+)
+use_repo(oci, "ubuntu", "ubuntu_linux_amd64", "ubuntu_linux_arm64_v8")
+
+bazel_dep(name = "container_structure_test", version = "1.22.1")
+
+bazel_lib_toolchains = use_extension("@tar.bzl//tar:extensions.bzl", "toolchains", dev_dependency = True)
+use_repo(bazel_lib_toolchains, "bsd_tar_toolchains")
+
+# Default uv toolchain used by every uv-based case.
+uv_bin = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv_bin")
+uv_bin.toolchain(version = "0.11.6")
+use_repo(uv_bin, "uv")
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+
+# Per-case MODULE fragments. Each redeclares its own use_extension(...) proxies.
+include("//arch-alias-marker:setup.MODULE.bazel")
+include("//azure-core-tracing-overlap:setup.MODULE.bazel")
+include("//azure-namespace-sibling:setup.MODULE.bazel")
+include("//cross-repo-610:setup.MODULE.bazel")
+include("//current-py-toolchain-bazel-env-896:setup.MODULE.bazel")
+include("//firebase-admin-import:setup.MODULE.bazel")
+include("//freethreaded-805:setup.MODULE.bazel")
+include("//inactive-marker:setup.MODULE.bazel")
+include("//interpreter-local-pyvenv-home:setup.MODULE.bazel")
+include("//multi-project-hub:setup.MODULE.bazel")
+include("//oci:setup.MODULE.bazel")
+include("//pbs-cc-toolchain:setup.MODULE.bazel")
+include("//pth-namespace-547:setup.MODULE.bazel")
+include("//pytest-anyio-plugin:setup.MODULE.bazel")
+include("//pytest-main-867:setup.MODULE.bazel")
+include("//pytest-mock-530:setup.MODULE.bazel")
+include("//pytest-subdir-imports:setup.MODULE.bazel")
+include("//pytest-xdist-integration:setup.MODULE.bazel")
+include("//repository-rule-deps-299:setup.MODULE.bazel")
+include("//single-project-hub:setup.MODULE.bazel")
+include("//unconstrained-dependencies:setup.MODULE.bazel")
+include("//uv-abi3-compat-853:setup.MODULE.bazel")
+include("//uv-bare-linux-wheels:setup.MODULE.bazel")
+include("//uv-conflict-817:setup.MODULE.bazel")
+include("//uv-conflict-gte:setup.MODULE.bazel")
+include("//uv-conflict-max-863:setup.MODULE.bazel")
+include("//uv-conflict-tilde-856:setup.MODULE.bazel")
+include("//uv-console-script-binary:setup.MODULE.bazel")
+include("//uv-console-script-extras:setup.MODULE.bazel")
+include("//uv-dep-hashes:setup.MODULE.bazel")
+include("//uv-deps-650:setup.MODULE.bazel")
+include("//uv-data-purelib:setup.MODULE.bazel")
+include("//uv-dup-lock-records:setup.MODULE.bazel")
+include("//uv-duplicate-whl-labels:setup.MODULE.bazel")
+include("//uv-git-source:setup.MODULE.bazel")
+include("//uv-include-group:setup.MODULE.bazel")
+include("//uv-incompatible-wheel-source:setup.MODULE.bazel")
+include("//uv-invalid-build-overrides:setup.MODULE.bazel")
+include("//uv-legacy-deps-750:setup.MODULE.bazel")
+include("//uv-no-sdist-754:setup.MODULE.bazel")
+include("//uv-patched-topology-change:setup.MODULE.bazel")
+include("//uv-patching-829:setup.MODULE.bazel")
+include("//uv-platform-filter-844:setup.MODULE.bazel")
+include("//uv-plus-version:setup.MODULE.bazel")
+include("//uv-pyproject-cases:setup.MODULE.bazel")
+include("//uv-requirements-bzl:setup.MODULE.bazel")
+include("//uv-sdist-fallback:setup.MODULE.bazel")
+include("//uv-sdist-jdk-build:setup.MODULE.bazel")
+include("//uv-sdist-mpicc:setup.MODULE.bazel")
+include("//uv-sdist-native-build:setup.MODULE.bazel")
+include("//uv-toolchain:setup.MODULE.bazel")
+include("//uv-whl-install-output-group:setup.MODULE.bazel")
+include("//uv-workspace-789:setup.MODULE.bazel")
+include("//venv-bin-scripts-423:setup.MODULE.bazel")
+include("//venv-internal-symlinks:setup.MODULE.bazel")
+include("//xds-otel-namespace-1118:setup.MODULE.bazel")

@@ -4,7 +4,7 @@ set -o errexit -o nounset -o pipefail
 
 execroot="${TEST_SRCDIR%/bazel-out/*}"
 
-status_script="${execroot}/bazel-out/bazel_env-opt/bin/cases/current-py-toolchain-bazel-env-896/python_env.sh"
+status_script="${execroot}/bazel-out/bazel_env-opt/bin/current-py-toolchain-bazel-env-896/python_env.sh"
 if [[ ! -f "${status_script}" ]]; then
     echo "ERROR: status script not found at ${status_script}"
     exit 1
@@ -18,7 +18,7 @@ else
     exit 1
 fi
 
-toolchain_symlink="${execroot}/bazel-out/bazel_env-opt/bin/cases/current-py-toolchain-bazel-env-896/python_env/toolchains/python"
+toolchain_symlink="${execroot}/bazel-out/bazel_env-opt/bin/current-py-toolchain-bazel-env-896/python_env/toolchains/python"
 if [[ ! -L "${toolchain_symlink}" ]]; then
     echo "ERROR: toolchain symlink not found at ${toolchain_symlink}"
     exit 1

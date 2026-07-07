@@ -18,7 +18,7 @@ class CaseSensitiveConfigParser(configparser.ConfigParser):
 PARSER = argparse.ArgumentParser()
 PARSER.add_argument("--template")
 PARSER.add_argument("--script")
-opts, args = PARSER.parse_known_args()
+opts = PARSER.parse_args()
 
 entrypoint = None
 for e in sys.path:
@@ -47,7 +47,6 @@ if "." in symbol:
     alias = "{fn} = {fn}.{tail}\n".format(fn = fn, tail = tail)
 else:
     fn = symbol
-    tail = ""
     alias = ""
     
 with open(opts.template, "r") as fp:

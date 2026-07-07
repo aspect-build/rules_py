@@ -52,6 +52,7 @@ bzl_library(
     srcs = ["py_venv_exec.bzl"],
     deps = [
         ":types",
+        "//py/private:py_info",
         "//py/private:py_library",
         "//py/private:py_semantics",
         "@bazel_lib//lib:expand_make_vars",

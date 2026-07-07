@@ -4,7 +4,7 @@ uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi-pytorch")
 uv.project(
     hub_name = "pypi-pytorch",
-    lock = "//cases/uv-dep-hashes:uv.lock",
-    pyproject = "//cases/uv-dep-hashes:pyproject.toml",
+    lock = "//uv-dep-hashes:uv.lock",
+    pyproject = "//uv-dep-hashes:pyproject.toml",
 )
 use_repo(uv, "pypi-pytorch")

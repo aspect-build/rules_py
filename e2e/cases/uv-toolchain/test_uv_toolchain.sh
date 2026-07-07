@@ -7,7 +7,7 @@ set -euo pipefail
 check() {
     local hub="$1" expected="$2"
     local out
-    out="$(cat "${TEST_SRCDIR}/_main/cases/uv-toolchain/${hub}_version.txt")"
+    out="$(cat "${TEST_SRCDIR}/_main/uv-toolchain/${hub}_version.txt")"
     if [[ "$out" != *"$expected"* ]]; then
         echo "FAIL: @${hub} — expected to contain '${expected}', got: ${out}" >&2
         exit 1

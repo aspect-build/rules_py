@@ -2,11 +2,11 @@ uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_uv_include_group")
 uv.project(
     hub_name = "pypi_uv_include_group",
-    lock = "//cases/uv-include-group:uv.lock",
-    pyproject = "//cases/uv-include-group:pyproject.toml",
+    lock = "//uv-include-group:uv.lock",
+    pyproject = "//uv-include-group:pyproject.toml",
 )
 uv.unstable_annotate_packages(
-    src = "//cases/uv-legacy-deps-750:annotations.toml",
-    lock = "//cases/uv-include-group:uv.lock",
+    src = "//uv-legacy-deps-750:annotations.toml",
+    lock = "//uv-include-group:uv.lock",
 )
 use_repo(uv, "pypi_uv_include_group")

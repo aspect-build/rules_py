@@ -7,7 +7,7 @@ uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_uv_whl_install_output_group")
 uv.project(
     hub_name = "pypi_uv_whl_install_output_group",
-    lock = "//cases/uv-whl-install-output-group:uv.lock",
-    pyproject = "//cases/uv-whl-install-output-group:pyproject.toml",
+    lock = "//uv-whl-install-output-group:uv.lock",
+    pyproject = "//uv-whl-install-output-group:pyproject.toml",
 )
 use_repo(uv, "pypi_uv_whl_install_output_group")

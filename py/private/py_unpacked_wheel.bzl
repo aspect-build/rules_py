@@ -1,9 +1,9 @@
 """Unpacks a Python wheel into a directory and returns a PyInfo provider that represents that wheel"""
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
-load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/private:pth.bzl", "make_imports_depset")
+load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PY_TOOLCHAIN")
 
@@ -47,7 +47,7 @@ def _py_unpacked_wheel_impl(ctx):
         "site-packages",
     )
     imports = make_imports_depset(
-        deps = getattr(ctx.attr, "deps", []),
+        deps = [],
         imports = [import_path],
         workspace_name = ctx.workspace_name,
         label = ctx.label,

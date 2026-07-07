@@ -9,11 +9,11 @@ Inspects a source distribution archive and reports:
 
 See //uv/private/sdist_configure:defs.bzl for the full interface contract.
 
-Requires Python >= 3.11 (for tomllib).
+Requires Python >= 3.11 (tomllib) to parse pyproject.toml; on older
+interpreters [build-system] metadata is skipped with a warning.
 """
 
 import configparser
-import importlib
 import os
 import importlib.abc
 import importlib.machinery
@@ -112,6 +112,12 @@ def _parse_pyproject_build_system(content):
     - backend_path: the backend-path list, or None
     """
     if tomllib is None:
+        print(
+            "WARNING: pyproject.toml present but tomllib is unavailable "
+            "(Python < 3.11); [build-system] build requires will be missed. "
+            "Run the sdist configure tool with Python >= 3.11.",
+            file=sys.stderr,
+        )
         return [], None, None
     data = tomllib.loads(content)
     build_system = data.get("build-system", {})

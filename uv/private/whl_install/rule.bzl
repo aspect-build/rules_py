@@ -1,8 +1,8 @@
 """
 """
 
-load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py/private:providers.bzl", "PyWheelsInfo")
+load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PY_TOOLCHAIN")
 
 SourceBuiltWheelInfo = provider(

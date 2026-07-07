@@ -1,3 +1,3 @@
-from examples.virtual_deps.greet import greet
+from greet import greet
 
 print(greet("Hello virtual_deps!"))

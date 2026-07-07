@@ -1,8 +1,8 @@
 """End-to-end coverage for regular-package physical merge order."""
 
-load("@rules_python//python:defs.bzl", "PyInfo")
 load("//py:defs.bzl", "py_test")
 load("//py/private:providers.bzl", "PyWheelsInfo")
+load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
 
 def _wheel_set_impl(ctx):

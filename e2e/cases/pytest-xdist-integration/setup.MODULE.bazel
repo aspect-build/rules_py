@@ -6,7 +6,7 @@ uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_pytest_xdist_integration")
 uv.project(
     hub_name = "pypi_pytest_xdist_integration",
-    lock = "//cases/pytest-xdist-integration:uv.lock",
-    pyproject = "//cases/pytest-xdist-integration:pyproject.toml",
+    lock = "//pytest-xdist-integration:uv.lock",
+    pyproject = "//pytest-xdist-integration:pyproject.toml",
 )
 use_repo(uv, "pypi_pytest_xdist_integration")

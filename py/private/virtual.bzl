@@ -29,7 +29,7 @@ def _make_resolutions(base, requirement_fn = lambda r: r):
 
     return struct(
         resolutions = _resolutions,
-        override = lambda overrides, **kwargs: _make_resolutions(_make_overrides(_resolutions, overrides)),
+        override = lambda overrides: _make_resolutions(_make_overrides(_resolutions, overrides)),
         to_label_keyed_dict = lambda: dict({v.requirement: v.name for k, v in _resolutions.items() if k != _RESOLUTION_SENTINEL_KEY}),
     )
 
@@ -67,5 +67,4 @@ def _from_requirements(base, requirement_fn = lambda r: r):
 
 resolutions = struct(
     from_requirements = _from_requirements,
-    empty = lambda: _make_resolutions({}),
 )

@@ -29,24 +29,20 @@ load("@bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variabl
 load("@bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
-load("//py/private:transitions.bzl", "python_version_transition")
+load("//py/private:transitions.bzl", "python_transition")
 load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PY_TOOLCHAIN")
 load(":py_venv_exec.bzl", _py_venv_exec = "py_venv_exec")
 load(":types.bzl", "VirtualenvInfo", "venv_root")
 load(":venv.bzl", "assemble_venv")
 
-def _interpreter_flags(ctx, include_main = False):
-    py_toolchain = _py_semantics.resolve_toolchain(ctx)
-    args = py_toolchain.flags + ctx.attr.interpreter_options
+def _interpreter_flags(ctx):
+    args = _py_semantics.interpreter_flags + ctx.attr.interpreter_options
 
     # py_venv strips `-I` so the interpreter picks up PYTHONPATH and
     # script dir — useful when users `bazel run` the venv for an
     # interactive python session and want their shell's env to apply.
     # The per-binary py_binary launcher keeps `-I` (see py_venv_exec.bzl).
     args = [it for it in args if it not in ["-I"]]
-
-    if include_main and hasattr(ctx.file, "main") and ctx.file.main:
-        args.append("\"$(rlocation {})\"".format(to_rlocation_path(ctx, ctx.file.main)))
 
     return args
 
@@ -60,7 +56,6 @@ def _assemble_shared(ctx):
         ctx,
         extra_imports_depsets = virtual_resolution.imports,
     )
-    wheels_depset = _py_library.make_wheels_depset(ctx)
 
     default_env = {
         "BAZEL_TARGET": str(ctx.label).lstrip("@"),
@@ -75,6 +70,9 @@ def _assemble_shared(ctx):
         safe_name = safe_name,
         py_toolchain = py_toolchain,
         imports_depset = imports_depset,
+        is_windows = ctx.target_platform_has_constraint(
+            ctx.attr._windows_constraint[platform_common.ConstraintValueInfo],
+        ),
         package_collisions = ctx.attr.package_collisions,
         include_system_site_packages = ctx.attr.include_system_site_packages,
         include_user_site_packages = ctx.attr.include_user_site_packages,
@@ -103,7 +101,6 @@ def _assemble_shared(ctx):
         venv = venv,
         runfiles = runfiles,
         imports_depset = imports_depset,
-        wheels_depset = wheels_depset,
         srcs_depset = srcs_depset,
     )
 
@@ -151,9 +148,7 @@ def _py_venv_rule_impl(ctx):
         # not "a source of imports".
         VirtualenvInfo(
             bin_python = shared.venv.bin_python,
-            venv_name = shared.venv.venv_name,
             imports = shared.imports_depset,
-            wheels = shared.wheels_depset,
             transitive_sources = shared.srcs_depset,
         ),
         # Forwarded to the sibling py_binary/py_test consumer (created
@@ -237,6 +232,9 @@ not reinsert a wheel.
         allow_single_file = True,
         default = ":_virtualenv.py",
     ),
+    "_windows_constraint": attr.label(
+        default = "@platforms//os:windows",
+    ),
     # Tool for physically merging a regular package that spans wheels
     # (e.g. azure-core + azure-core-tracing-opentelemetry both
     # installing into `azure/core/tracing/`) — see assemble_venv.
@@ -289,7 +287,7 @@ _py_venv = rule(
         config_common.toolchain_type(EXEC_TOOLS_TOOLCHAIN, mandatory = False),
     ],
     executable = True,
-    cfg = python_version_transition,
+    cfg = python_transition,
 )
 
 def _py_venv_lib_rule_impl(ctx):
@@ -302,9 +300,7 @@ def _py_venv_lib_rule_impl(ctx):
         DefaultInfo(runfiles = shared.runfiles),
         VirtualenvInfo(
             bin_python = shared.venv.bin_python,
-            venv_name = shared.venv.venv_name,
             imports = shared.imports_depset,
-            wheels = shared.wheels_depset,
             transitive_sources = shared.srcs_depset,
         ),
         coverage_common.instrumented_files_info(
@@ -327,7 +323,7 @@ _py_venv_lib = rule(
         # needs it to run the site_merge action when a package spans wheels.
         config_common.toolchain_type(EXEC_TOOLS_TOOLCHAIN, mandatory = False),
     ],
-    cfg = python_version_transition,
+    cfg = python_transition,
 )
 
 def _wrap_with_debug(rule):
@@ -347,8 +343,6 @@ py_venv = _wrap_with_debug(_py_venv)
 # shared (copied into venv kwargs but kept in kwargs so they also reach
 # the launcher rule).
 _VENV_ONLY_ATTRS = [
-    "deps",
-    "imports",
     "resolutions",
     "virtual_deps",
     "package_collisions",

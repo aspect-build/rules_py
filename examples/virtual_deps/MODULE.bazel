@@ -1,0 +1,29 @@
+"Virtual (swappable) dependencies example"
+
+bazel_dep(name = "aspect_rules_py")
+bazel_dep(name = "rules_python", version = "1.9.0")
+
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../..",
+)
+
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+interpreters.toolchain(python_version = "3.11")
+use_repo(interpreters, "python_interpreters")
+
+register_toolchains("@python_interpreters//:all")
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi")
+uv.project(
+    # snakesay ships only an sdist, so it is built from source with build+setuptools.
+    default_build_dependencies = [
+        "build",
+        "setuptools",
+    ],
+    hub_name = "pypi",
+    lock = "//:uv.lock",
+    pyproject = "//:pyproject.toml",
+)
+use_repo(uv, "pypi")
