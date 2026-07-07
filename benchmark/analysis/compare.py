@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Parse hyperfine JSON output, build a markdown table, exit 1 on regression.
+"""Parse hyperfine JSON output for `bazel build --nobuild //...`, build a markdown
+ table, and exit 1 on regression.
 
 The regression gate compares PR against HEAD main (not BCR).
 BCR is kept as a historical baseline for context, but gating against it is
@@ -23,7 +24,7 @@ def write_gh_output(text: str) -> None:
     gh_output = os.environ.get("GITHUB_OUTPUT")
     if gh_output:
         with open(gh_output, "a") as f:
-            f.write("table<<EOF\n")
+            f.write("table\u003c\u003cEOF\n")
             f.write(text)
             f.write("EOF\n")
 
@@ -63,29 +64,13 @@ def load_runtime(path: str) -> dict[str, Any]:
     }
 
 
-def load_build(path: str) -> dict[str, float] | None:
-    """Load an optional build-time JSON ({build_ms: int})."""
+def load_auxiliary(path: str) -> dict[str, Any] | None:
+    """Load optional auxiliary metrics JSON emitted by the benchmark harness."""
     p = Path(path)
     if not p.exists():
         return None
     with p.open() as f:
-        data = json.load(f)
-    ms = data.get("build_ms", 0)
-    return {"build_s": ms / 1000.0}
-
-
-def load_syspath(path: str) -> dict[str, int] | None:
-    """Load an optional sys.path quality JSON from syspath_probe.py."""
-    p = Path(path)
-    if not p.exists():
-        return None
-    with p.open() as f:
-        data = json.load(f)
-    return {
-        "total_entries": data.get("total_entries", 0),
-        "distinct_sp_roots": data.get("distinct_sp_roots", 0),
-        "dupe_realpaths": data.get("dupe_realpaths", 0),
-    }
+        return json.load(f)
 
 
 def pct(a: float, b: float) -> float:
@@ -100,18 +85,13 @@ def fmt(val: float) -> str:
     return f"{val:.3f}"
 
 
-def fmt_s(val: float) -> str:
-    """Format seconds with sensible precision."""
-    return f"{val:.2f}"
-
-
 def warn(delta: float) -> str:
     """Return warning emoji if delta exceeds threshold."""
     return "⚠️" if delta > THRESHOLD_REGRESSION_PCT else ""
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Compare startup benchmark results")
+    parser = argparse.ArgumentParser(description="Compare analysis benchmark results")
     parser.add_argument("bcr", help="BCR hyperfine JSON")
     parser.add_argument("main", help="HEAD main hyperfine JSON")
     parser.add_argument("pr", help="PR hyperfine JSON")
@@ -127,88 +107,93 @@ def main() -> None:
     main = load_runtime(main_path)
     pr = load_runtime(pr_path)
 
-    bcr_build = load_build(bcr_path.replace(".json", "-build.json"))
-    main_build = load_build(main_path.replace(".json", "-build.json"))
-    pr_build = load_build(pr_path.replace(".json", "-build.json"))
-
-    bcr_syspath = load_syspath(bcr_path.replace(".json", "-syspath.json"))
-    main_syspath = load_syspath(main_path.replace(".json", "-syspath.json"))
-    pr_syspath = load_syspath(pr_path.replace(".json", "-syspath.json"))
+    bcr_aux = load_auxiliary(bcr_path.replace(".json", "-aux.json"))
+    main_aux = load_auxiliary(main_path.replace(".json", "-aux.json"))
+    pr_aux = load_auxiliary(pr_path.replace(".json", "-aux.json"))
 
     main_vs_bcr = pct(bcr["mean_ms"], main["mean_ms"])
     pr_vs_bcr = pct(bcr["mean_ms"], pr["mean_ms"])
     pr_vs_main = pct(main["mean_ms"], pr["mean_ms"])
 
-    has_build = bcr_build is not None or main_build is not None or pr_build is not None
-    has_syspath = bcr_syspath is not None or main_syspath is not None or pr_syspath is not None
+    has_aux = bcr_aux is not None or main_aux is not None or pr_aux is not None
 
-    table = "## py_binary startup benchmark\n\n"
-    if has_build:
-        table += "| Version | Mean (ms) | Median (ms) | ± stddev | vs BCR | vs main | Build (s) |\n"
-        table += "|---------|-----------|-------------|----------|--------|---------|-----------|\n"
+    table = "## Bazel analysis benchmark\n\n"
+    if has_aux:
+        table += "| Version | Mean (ms) | Median (ms) | ± stddev | vs BCR | vs main | Packages | Targets |\n"
+        table += "|---------|-----------|-------------|----------|--------|---------|----------|----------|\n"
     else:
         table += "| Version | Mean (ms) | Median (ms) | ± stddev | vs BCR | vs main |\n"
         table += "|---------|-----------|-------------|----------|--------|---------|\n"
 
-    def row(label: str, d: dict[str, Any], d_build: dict[str, float] | None, vs_bcr: str, vs_main: str) -> str:
+    def aux_cell(aux: dict[str, Any] | None) -> str:
+        if aux is None:
+            return "— | —"
+        packages = aux.get("packages", "—")
+        targets = aux.get("targets", "—")
+        return f"{packages} | {targets}"
+
+    def row(
+        label: str,
+        d: dict[str, Any],
+        vs_bcr: str,
+        vs_main: str,
+        aux: dict[str, Any] | None,
+    ) -> str:
         line = (
             f"| {label} | {fmt(d['mean_ms'])} | {fmt(d['median_ms'])} | "
             f"±{fmt(d['stddev_ms'])} | {vs_bcr} | {vs_main}"
         )
-        if has_build:
-            b = fmt_s(d_build["build_s"]) if d_build else "—"
-            line += f" | {b}"
+        if has_aux:
+            line += f" | {aux_cell(aux)}"
         line += " |\n"
         return line
 
     table += row(
-        "BCR 1.11.7 (baseline)", bcr, bcr_build, "—", "—"
+        "BCR 2.0.0-alpha.4 (baseline)", bcr, "—", "—", bcr_aux
     )
     table += row(
-        "HEAD main", main, main_build,
-        f"{main_vs_bcr:+.1f}% {warn(main_vs_bcr)}", "—"
+        "HEAD main",
+        main,
+        f"{main_vs_bcr:+.1f}% {warn(main_vs_bcr)}",
+        "—",
+        main_aux,
     )
     table += row(
-        "This PR", pr, pr_build,
+        "This PR",
+        pr,
         f"{pr_vs_bcr:+.1f}% {warn(pr_vs_bcr)}",
-        f"{pr_vs_main:+.1f}% {warn(pr_vs_main)}"
+        f"{pr_vs_main:+.1f}% {warn(pr_vs_main)}",
+        pr_aux,
     )
 
     table += (
-        f"\n> Measured with `hyperfine --warmup 5 --runs 50` on "
+        f"\n> Measured with `hyperfine --warmup 1 --runs 10` on "
         f"`{os.environ.get('RUNNER_OS', 'local')}`\n"
     )
     table += (
         f"> **Gate**: PR vs HEAD main (threshold: {THRESHOLD_REGRESSION_PCT}%). "
         f"BCR is shown only as a historical baseline.\n"
     )
-    if has_build:
+    table += (
+        "> **Command**: cold `bazel build --nobuild //workspace/...` with isolated output base, "
+        "no disk cache.\n"
+    )
+
+    if has_aux:
         table += (
-            "> **Build time**: cold `bazel build //:bench` with isolated output base, no disk cache.\n"
+            "\n### Auxiliary metrics\n\n"
+            "| Version | Loaded packages | Configured targets |\n"
+            "|---------|-----------------|---------------------|\n"
         )
 
-    if has_syspath:
-        table += "\n### sys.path quality\n\n"
-        table += "| Version | sys.path entries | distinct site-packages roots | duplicate realpaths |\n"
-        table += "|---------|-----------------|------------------------------|---------------------|\n"
+        def aux_row(label: str, aux: dict[str, Any] | None) -> str:
+            if aux is None:
+                return f"| {label} | — | — |\n"
+            return f"| {label} | {aux.get('packages', '—')} | {aux.get('targets', '—')} |\n"
 
-        def syspath_row(label: str, sp: dict[str, int] | None) -> str:
-            if sp is None:
-                return f"| {label} | — | — | — |\n"
-            dupe_flag = " ⚠️" if sp["dupe_realpaths"] > 0 else ""
-            return (
-                f"| {label} | {sp['total_entries']} | {sp['distinct_sp_roots']} "
-                f"| {sp['dupe_realpaths']}{dupe_flag} |\n"
-            )
-
-        table += syspath_row("BCR 1.11.7 (baseline)", bcr_syspath)
-        table += syspath_row("HEAD main", main_syspath)
-        table += syspath_row("This PR", pr_syspath)
-        table += (
-            "\n> **sys.path quality** measured by `bench_syspath` inside the assembled venv. "
-            "Duplicate realpaths indicate symlink redundancy; many distinct site-packages roots "
-            "suggest an inefficient venv layout.\n"
-        )
+        table += aux_row("BCR 2.0.0-alpha.4 (baseline)", bcr_aux)
+        table += aux_row("HEAD main", main_aux)
+        table += aux_row("This PR", pr_aux)
 
     write_gh_output(table)
 
