@@ -6,40 +6,6 @@ files:
 ---
 layer: 1
 files:
-  - -rwxr-xr-x  0 0      0         266 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/__init__.py
-  - -rwxr-xr-x  0 0      0        2522 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/ansi.py
-  - -rwxr-xr-x  0 0      0       11128 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/ansitowin32.py
-  - -rwxr-xr-x  0 0      0        3325 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/initialise.py
-  - -rwxr-xr-x  0 0      0          75 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/tests/__init__.py
-  - -rwxr-xr-x  0 0      0        2839 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/tests/ansi_test.py
-  - -rwxr-xr-x  0 0      0       10678 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/tests/ansitowin32_test.py
-  - -rwxr-xr-x  0 0      0        6741 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/tests/initialise_test.py
-  - -rwxr-xr-x  0 0      0        1866 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/tests/isatty_test.py
-  - -rwxr-xr-x  0 0      0        1079 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/tests/utils.py
-  - -rwxr-xr-x  0 0      0        3709 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/tests/winterm_test.py
-  - -rwxr-xr-x  0 0      0        6181 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/win32.py
-  - -rwxr-xr-x  0 0      0        7134 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/winterm.py
----
-layer: 2
-files:
-  - -rwxr-xr-x  0 0      0       17158 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama-0.4.6.dist-info/METADATA
-  - -rwxr-xr-x  0 0      0        1491 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama-0.4.6.dist-info/licenses/LICENSE.txt
----
-layer: 3
-files:
-  - -rwxr-xr-x  0 0      0       17400 Jan  1  2023 ./app
-  - -rwxr-xr-x  0 0      0        2102 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_bin.venv/bin/activate
-  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_bin.venv/bin/python -> ../../../../../aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/python3
-  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_bin.venv/bin/python3 -> python
-  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_bin.venv/bin/python3.11 -> python
-  - -rwxr-xr-x  0 0      0         295 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_bin.venv/lib/python3.11/site-packages/_my_app_bin.venv.pth
-  - -rwxr-xr-x  0 0      0          19 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_bin.venv/lib/python3.11/site-packages/_virtualenv.pth
-  - -rwxr-xr-x  0 0      0        4745 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_bin.venv/lib/python3.11/site-packages/_virtualenv.py
-  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_bin.venv/lib/python3.11/site-packages/colorama -> ../../../../../../../aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama
-  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_bin.venv/lib/python3.11/site-packages/colorama-0.4.6.dist-info -> ../../../../../../../aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama-0.4.6.dist-info
-  - -rwxr-xr-x  0 0      0         153 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_bin.venv/pyvenv.cfg
-  - -rwxr-xr-x  0 0      0         276 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/__main__.py
-  - -rwxr-xr-x  0 0      0        6570 Jan  1  2023 ./app.runfiles/_main/tools/verify_venv/verify_venv.py
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/2to3 -> 2to3-3.11
   - -rwxr-xr-x  0 0      0         158 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/2to3-3.11
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/idle3 -> idle3.11
@@ -2357,5 +2323,42 @@ files:
   - -rwxr-xr-x  0 0      0       25855 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/tk9.0/xmfbox.tcl
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/share/man/man1/python3.1 -> python3.11.1
   - -rwxr-xr-x  0 0      0       20280 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/share/man/man1/python3.11.1
+---
+layer: 2
+files:
+  - -rwxr-xr-x  0 0      0         266 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/__init__.py
+  - -rwxr-xr-x  0 0      0        2522 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/ansi.py
+  - -rwxr-xr-x  0 0      0       11128 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/ansitowin32.py
+  - -rwxr-xr-x  0 0      0        3325 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/initialise.py
+  - -rwxr-xr-x  0 0      0          75 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/tests/__init__.py
+  - -rwxr-xr-x  0 0      0        2839 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/tests/ansi_test.py
+  - -rwxr-xr-x  0 0      0       10678 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/tests/ansitowin32_test.py
+  - -rwxr-xr-x  0 0      0        6741 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/tests/initialise_test.py
+  - -rwxr-xr-x  0 0      0        1866 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/tests/isatty_test.py
+  - -rwxr-xr-x  0 0      0        1079 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/tests/utils.py
+  - -rwxr-xr-x  0 0      0        3709 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/tests/winterm_test.py
+  - -rwxr-xr-x  0 0      0        6181 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/win32.py
+  - -rwxr-xr-x  0 0      0        7134 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/winterm.py
+---
+layer: 3
+files:
+  - -rwxr-xr-x  0 0      0       17158 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama-0.4.6.dist-info/METADATA
+  - -rwxr-xr-x  0 0      0        1491 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama-0.4.6.dist-info/licenses/LICENSE.txt
+---
+layer: 4
+files:
+  - -rwxr-xr-x  0 0      0       17400 Jan  1  2023 ./app
+  - -rwxr-xr-x  0 0      0        2102 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_bin.venv/bin/activate
+  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_bin.venv/bin/python -> ../../../../../aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/python3
+  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_bin.venv/bin/python3 -> python
+  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_bin.venv/bin/python3.11 -> python
+  - -rwxr-xr-x  0 0      0         295 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_bin.venv/lib/python3.11/site-packages/_my_app_bin.venv.pth
+  - -rwxr-xr-x  0 0      0          19 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_bin.venv/lib/python3.11/site-packages/_virtualenv.pth
+  - -rwxr-xr-x  0 0      0        4745 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_bin.venv/lib/python3.11/site-packages/_virtualenv.py
+  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_bin.venv/lib/python3.11/site-packages/colorama -> ../../../../../../../aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama
+  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_bin.venv/lib/python3.11/site-packages/colorama-0.4.6.dist-info -> ../../../../../../../aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama-0.4.6.dist-info
+  - -rwxr-xr-x  0 0      0         153 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_bin.venv/pyvenv.cfg
+  - -rwxr-xr-x  0 0      0         276 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/__main__.py
+  - -rwxr-xr-x  0 0      0        6570 Jan  1  2023 ./app.runfiles/_main/tools/verify_venv/verify_venv.py
   - -rwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/aspect_rules_py+/py/tests/internal-deps/adder/__init__.py
   - -rwxr-xr-x  0 0      0          32 Jan  1  2023 ./app.runfiles/aspect_rules_py+/py/tests/internal-deps/adder/add.py
