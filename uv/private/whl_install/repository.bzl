@@ -452,19 +452,9 @@ def compatible_python_tags(python_tag, abi_tag):
 
     major = int(python_tag[2])
     minor = int(python_tag[3:]) if python_tag[3:] else 0
-    compatible = []
-    for candidate_major in MAJORS:
-        if candidate_major != major:
-            continue
-        for candidate_minor in MINORS:
-            if candidate_minor < minor:
-                continue
-
-            candidate = "cp{}{}".format(candidate_major, candidate_minor)
-            if supported_python(candidate):
-                compatible.append(candidate)
-
-    return compatible if compatible else [python_tag]
+    if major not in MAJORS:
+        return [python_tag]
+    return ["cp{}{}".format(major, m) for m in MINORS if m >= minor] or [python_tag]
 
 def source_specificity(python_tag):
     """Score how specific a wheel's source python_tag is.
@@ -592,9 +582,8 @@ def _whl_install_impl(repository_ctx):
     }
 
     sbuild_target = str(repository_ctx.attr.sbuild) if repository_ctx.attr.sbuild else None
-    default_target = sbuild_target
+    default_target = ":source_built_wheel" if sbuild_target else None
     if sbuild_target:
-        default_target = ":source_built_wheel"
         content.append(
             """
 source_built_wheel(
@@ -609,7 +598,8 @@ source_built_wheel(
             ),
         )
 
-    if (select_arms or prebuilds) and not default_target:
+    # select_arms derives from prebuilds, so prebuilds alone decides.
+    if prebuilds and not default_target:
         default_target = ":whl_missing"
         content.append(
             """
