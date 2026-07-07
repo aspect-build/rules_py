@@ -1,0 +1,14 @@
+load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
+
+py_venv_test(
+    name = "test",
+    srcs = ["__test__.py"],
+    main = "__test__.py",
+    package_collisions = "error",
+    python_version = "3.11",
+    venv = "namespace-init-collision",
+    deps = [
+        "@pypi//backports_shutil_get_terminal_size",
+        "@pypi//backports_weakref",
+    ],
+)

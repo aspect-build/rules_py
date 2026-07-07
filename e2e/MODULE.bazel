@@ -387,6 +387,18 @@ uv.project(
 )
 # }}}
 
+# For cases/namespace-init-collision
+# Regression: namespace package __init__.py stubs that differ only in
+# comments/whitespace must not be reported as collisions.
+# {{{
+uv.project(
+    default_build_dependencies = [],
+    hub_name = "pypi",
+    lock = "//cases/namespace-init-collision:uv.lock",
+    pyproject = "//cases/namespace-init-collision:pyproject.toml",
+)
+# }}}
+
 # For cases/pytest-main-867
 # Cross-repo pytest_main=True regression test.
 # {{{
