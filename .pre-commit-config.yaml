@@ -33,12 +33,3 @@ repos:
             examples/django/mysite/settings.py|
             gazelle_python.yaml
           )
-
-  - repo: local
-    hooks:
-      - id: check-requirements-lock
-        name: Update requirements lock
-        # Note that we use a nested shell to discard $@, which is the file list
-        entry: /bin/sh -c '/usr/bin/env bazel run //:requirements.update'
-        language: script
-        require_serial: true
