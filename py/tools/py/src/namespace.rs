@@ -39,20 +39,26 @@ fn normalize_init_content(content: &str) -> String {
         .collect()
 }
 
+/// Return `true` if `content` belongs to an `__init__.py` that contains only a
+/// known namespace package stub.
+fn is_namespace_init_content(filename: Option<&std::ffi::OsStr>, content: &str) -> bool {
+    if filename != Some(std::ffi::OsStr::new("__init__.py")) {
+        return false;
+    }
+    let normalized = normalize_init_content(content);
+    NAMESPACE_INIT_PATTERNS
+        .iter()
+        .any(|pattern| normalized == *pattern)
+}
+
 /// Return `true` if `path` is a `__init__.py` that contains only a known
 /// namespace package stub.
 pub fn is_namespace_init(path: &Path) -> Result<bool> {
-    if path.file_name() != Some(std::ffi::OsStr::new("__init__.py")) {
-        return Ok(false);
-    }
     let content = match std::fs::read_to_string(path) {
         Ok(c) => c,
         Err(_) => return Ok(false),
     };
-    let normalized = normalize_init_content(&content);
-    Ok(NAMESPACE_INIT_PATTERNS
-        .iter()
-        .any(|pattern| normalized == *pattern))
+    Ok(is_namespace_init_content(path.file_name(), &content))
 }
 
 /// Compare two files byte-for-byte.
@@ -100,7 +106,12 @@ pub fn are_files_equivalent(p1: &Path, p2: &Path) -> Result<bool> {
         return Ok(true);
     }
 
-    if is_namespace_init(p1)? && is_namespace_init(p2)? {
+    let content1 = std::fs::read_to_string(p1).unwrap_or_default();
+    let content2 = std::fs::read_to_string(p2).unwrap_or_default();
+
+    if is_namespace_init_content(p1.file_name(), &content1)
+        && is_namespace_init_content(p2.file_name(), &content2)
+    {
         return Ok(true);
     }
 
