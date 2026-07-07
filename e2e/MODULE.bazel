@@ -346,6 +346,17 @@ uv.unstable_annotate_packages(
 )
 # }}}
 
+# For cases/uv-extra-marker
+# Regression: extra-only markers must not evaluate to false when the active
+# dependency group (venv) has a different name than the extra.
+# {{{
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/uv-extra-marker:uv.lock",
+    pyproject = "//cases/uv-extra-marker:pyproject.toml",
+)
+# }}}
+
 # For cases/uv-abi3-compat-853
 # Regression: abi3 wheel compatibility must propagate to newer Python minors.
 # {{{
