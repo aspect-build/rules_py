@@ -177,11 +177,11 @@ _LayerInfo = provider(
         "pip_packages": "depset[struct] — fully transitive pip packages with per-package layers.",
         "first_party_layers": "depset[struct(label, files, group)] — first-party PyInfo targets matched by py_layer_tier.groups.",
         "interpreter_files": "depset[File] — interpreter runfiles, populated only on the py toolchain pass for the binary-branch skip filter.",
-        "interpreter_layer": "struct(tar, group) | None — prebuilt interpreter layer tar + its group name, declared at the toolchain target's namespace so the tar action-shares across every py_image_layer using that toolchain config.",
+        "interpreter_layer": "struct(tar, group, interpreter_files) | None — prebuilt interpreter layer tar + its group name + the files used to build it, declared at the toolchain target's namespace so the tar action-shares across every py_image_layer using that toolchain config.",
     },
 )
 
-_PY_VENV_KINDS = ("py_venv", "_py_venv")
+_PY_VENV_KINDS = ("py_venv", "_py_venv", "_py_venv_lib")
 
 def _collect_from_deps(ctx, provider):
     """Walk deps/data/actual/venv and return a list of provider values from each matching dep."""
@@ -331,7 +331,7 @@ def _layer_aspect_impl(target, ctx):
                 "PyImagePkgLayer",
                 "Creating interpreter layer %s" % target.label,
             )
-            interp_layer = struct(tar = interp_tar, group = interp_group)
+            interp_layer = struct(tar = interp_tar, group = interp_group, interpreter_files = interp_depset)
         return [_LayerInfo(
             source_files = depset(),
             pip_packages = depset(),
@@ -344,6 +344,7 @@ def _layer_aspect_impl(target, ctx):
     transitive_source = [info.source_files for info in dep_infos]
     transitive_pkgs = [info.pip_packages for info in dep_infos]
     transitive_fp = [info.first_party_layers for info in dep_infos]
+    transitive_interp = [info.interpreter_layer for info in dep_infos if info.interpreter_layer != None]
 
     if PyWheelsInfo in target and ctx.rule.kind in ("whl_install", "py_unpacked_wheel"):
         plan = ctx.attr._layer_tier[PyLayerTierInfo]
@@ -363,11 +364,14 @@ def _layer_aspect_impl(target, ctx):
                 transitive = transitive_pkgs,
             ),
             first_party_layers = depset(transitive = transitive_fp),
+            interpreter_files = depset(),
+            interpreter_layer = None,
         )]
 
     own_source = []
     own_fp = []
     interpreter_layer = None
+    interpreter_files = None
     kind = ctx.rule.kind
     is_binary = (
         PyInfo in target and
@@ -384,6 +388,8 @@ def _layer_aspect_impl(target, ctx):
             source_files = depset(transitive = transitive_source),
             pip_packages = depset(transitive = transitive_pkgs),
             first_party_layers = depset(transitive = transitive_fp),
+            interpreter_files = depset(),
+            interpreter_layer = None,
         )]
 
     # Skip PyInfo deps (including wheel-leaf targets, which also emit PyInfo) —
@@ -413,6 +419,15 @@ def _layer_aspect_impl(target, ctx):
         else:
             own_source.append(own_depset)
 
+    if kind in _PY_VENV_KINDS:
+        if PY_TOOLCHAIN in ctx.rule.toolchains:
+            py_tc = ctx.rule.toolchains[PY_TOOLCHAIN]
+            if _LayerInfo in py_tc:
+                tc_info = py_tc[_LayerInfo]
+                if tc_info.interpreter_layer != None:
+                    interpreter_layer = tc_info.interpreter_layer
+                    interpreter_files = tc_info.interpreter_files
+
     # Binaries walk their runfiles for the source layer, filtering out bytes already
     # shipping in their own pip / fp-group / interpreter layers.
     if is_binary:
@@ -427,23 +442,17 @@ def _layer_aspect_impl(target, ctx):
                     skip_paths[f.path] = True
 
         # Opt-in interpreter layer. The aspect fires on the py toolchain via
-        # `toolchains_aspects` and declares the tar there; we just read the
-        # pre-built File out of the toolchain's _LayerInfo via ctx.rule.toolchains
-        # (NOT ctx.toolchains, which would pick the exec interpreter under
-        # cross-platform transitions) and propagate it up to the rule impl.
+        # `toolchains_aspects` and declares the tar there; the venv propagates
+        # that layer (and its file list) so the binary uses the exact interpreter
+        # that built the venv rather than relying on its own toolchain resolution.
         interp_paths = {}
-        if PY_TOOLCHAIN in ctx.rule.toolchains:
-            py_tc = ctx.rule.toolchains[PY_TOOLCHAIN]
-            if _LayerInfo in py_tc:
-                tc_info = py_tc[_LayerInfo]
-                interpreter_layer = tc_info.interpreter_layer
-
-                # Only skip interpreter paths from the source layer when there
-                # IS a separate interpreter tar to route them to; otherwise the
-                # interpreter belongs in the default layer.
-                if interpreter_layer != None:
-                    for f in tc_info.interpreter_files.to_list():
-                        interp_paths[f.path] = True
+        for interp_layer in transitive_interp:
+            if interp_layer.interpreter_files != None:
+                for f in interp_layer.interpreter_files.to_list():
+                    interp_paths[f.path] = True
+        if transitive_interp:
+            interpreter_layer = transitive_interp[0]
+            interpreter_files = transitive_interp[0].interpreter_files
 
         runfiles_files = target[DefaultInfo].default_runfiles.files.to_list()
         filtered = [f for f in runfiles_files if f.path not in skip_paths and f.path not in interp_paths]
@@ -465,6 +474,7 @@ def _layer_aspect_impl(target, ctx):
         source_files = depset(transitive = transitive_source + own_source),
         pip_packages = depset(transitive = transitive_pkgs),
         first_party_layers = depset(direct = own_fp, transitive = transitive_fp),
+        interpreter_files = interpreter_files,
         interpreter_layer = interpreter_layer,
     )]
 
