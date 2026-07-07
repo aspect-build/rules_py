@@ -1,0 +1,4 @@
+# Generated synthetic workload; do not edit manually.
+src/
+tests/
+BUILD.bazel

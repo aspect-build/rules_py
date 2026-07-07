@@ -1,0 +1,145 @@
+name: Analysis Benchmark
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+env:
+  BCR_VERSION: "2.0.0-alpha.4"
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          path: rules_py_pr
+
+      - name: Checkout HEAD main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          path: rules_py_main
+
+      - name: Install hyperfine
+        run: |
+          set -euo pipefail
+          HYPERFINE_VERSION="1.18.0"
+          DEB="hyperfine_${HYPERFINE_VERSION}_amd64.deb"
+          URL="https://github.com/sharkdp/hyperfine/releases/download/v${HYPERFINE_VERSION}/${DEB}"
+          wget -qO "$DEB" "$URL"
+          sudo dpkg -i "$DEB"
+          rm -f "$DEB"
+          hyperfine --version
+
+      # ── BCR baseline ────────────────────────────────────────────────────────
+      - name: Benchmark BCR ${{ env.BCR_VERSION }}
+        run: |
+          set -euo pipefail
+          cd rules_py_pr/benchmark/analysis
+          python3 generate_module.py bcr --version "${BCR_VERSION}"
+          python3 workspace/generate_workspace.py --root workspace --packages 50
+
+          OUT_BASE="/tmp/bazel-bcr"
+          rm -rf "$OUT_BASE"
+
+          # Populate repository cache so the measured runs are analysis-only.
+          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc fetch //workspace/...
+
+          hyperfine --warmup 1 --runs 10 \
+            --prepare 'rm -rf /tmp/bazel-bcr-analysis' \
+            --export-json "${GITHUB_WORKSPACE}/bcr.json" \
+            'bazel --output_base=/tmp/bazel-bcr-analysis --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= --nobuild //workspace/...'
+
+          # Auxiliary metrics: loaded packages and discovered targets.
+          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc query //workspace/... --output=package > /tmp/bcr-packages.txt
+          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc query //workspace/... > /tmp/bcr-targets.txt
+          echo "{\"packages\": $(wc -l < /tmp/bcr-packages.txt | tr -d ' '), \"targets\": $(wc -l < /tmp/bcr-targets.txt | tr -d ' ')}" > "${GITHUB_WORKSPACE}/bcr-aux.json"
+
+      # ── HEAD main ───────────────────────────────────────────────────────────
+      - name: Benchmark HEAD main
+        run: |
+          set -euo pipefail
+          cd rules_py_pr/benchmark/analysis
+          python3 generate_module.py local --path "$GITHUB_WORKSPACE/rules_py_main"
+          python3 workspace/generate_workspace.py --root workspace --packages 50
+
+          OUT_BASE="/tmp/bazel-main"
+          rm -rf "$OUT_BASE"
+
+          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc fetch //workspace/...
+
+          hyperfine --warmup 1 --runs 10 \
+            --prepare 'rm -rf /tmp/bazel-main-analysis' \
+            --export-json "${GITHUB_WORKSPACE}/main.json" \
+            'bazel --output_base=/tmp/bazel-main-analysis --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= --nobuild //workspace/...'
+
+          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc query //workspace/... --output=package > /tmp/main-packages.txt
+          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc query //workspace/... > /tmp/main-targets.txt
+          echo "{\"packages\": $(wc -l < /tmp/main-packages.txt | tr -d ' '), \"targets\": $(wc -l < /tmp/main-targets.txt | tr -d ' ')}" > "${GITHUB_WORKSPACE}/main-aux.json"
+
+      # ── Current commit (PR) ─────────────────────────────────────────────────
+      - name: Benchmark current PR
+        run: |
+          set -euo pipefail
+          cd rules_py_pr/benchmark/analysis
+          python3 generate_module.py local --path "$GITHUB_WORKSPACE/rules_py_pr"
+          python3 workspace/generate_workspace.py --root workspace --packages 50
+
+          OUT_BASE="/tmp/bazel-pr"
+          rm -rf "$OUT_BASE"
+
+          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc fetch //workspace/...
+
+          hyperfine --warmup 1 --runs 10 \
+            --prepare 'rm -rf /tmp/bazel-pr-analysis' \
+            --export-json "${GITHUB_WORKSPACE}/pr.json" \
+            'bazel --output_base=/tmp/bazel-pr-analysis --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= --nobuild //workspace/...'
+
+          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc query //workspace/... --output=package > /tmp/pr-packages.txt
+          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc query //workspace/... > /tmp/pr-targets.txt
+          echo "{\"packages\": $(wc -l < /tmp/pr-packages.txt | tr -d ' '), \"targets\": $(wc -l < /tmp/pr-targets.txt | tr -d ' ')}" > "${GITHUB_WORKSPACE}/pr-aux.json"
+
+      # ── Compare & gate ──────────────────────────────────────────────────────
+      - name: Compare results
+        id: compare
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          for f in bcr.json main.json pr.json; do
+            if [[ ! -f "$f" ]]; then
+              echo "ERROR: missing result file: $f"
+              exit 1
+            fi
+          done
+          python3 rules_py_pr/benchmark/analysis/compare.py bcr.json main.json pr.json | tee benchmark-table.txt
+
+      - name: Save PR number
+        if: github.event_name == 'pull_request'
+        run: echo "${{ github.event.pull_request.number }}" > pr-number.txt
+
+      - name: Upload benchmark artifacts
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: analysis-benchmark-results
+          path: |
+            bcr.json
+            main.json
+            pr.json
+            bcr-aux.json
+            main-aux.json
+            pr-aux.json
+            benchmark-table.txt
+            pr-number.txt
+          if-no-files-found: warn
+
+      - name: Fail on regression
+        if: steps.compare.outcome == 'failure'
+        run: exit 1
