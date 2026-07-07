@@ -9,7 +9,7 @@ py_library(
 )
 
 
-# scc: aee49c8f5bedac06
+# scc: cowsay__6_1
 # members:
 # {
 #     "@whl_install__single_project_hub__cowsay__6_1//:install": {
@@ -21,7 +21,7 @@ py_library(
 
 
 py_library(
-    name = "aee49c8f5bedac06",
+    name = "cowsay__6_1",
     deps = [
         "@whl_install__single_project_hub__cowsay__6_1//:install",
     ],
@@ -29,7 +29,7 @@ py_library(
 )
 
 
-# scc: b3c9a68bcea9c616
+# scc: single_project_hub__0_0_0
 # members:
 # {}
 # deps:
@@ -41,7 +41,7 @@ py_library(
 
 
 py_library(
-    name = "b3c9a68bcea9c616",
+    name = "single_project_hub__0_0_0",
     deps = [
         "//:cowsay",
     ],

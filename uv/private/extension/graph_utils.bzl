@@ -1,7 +1,26 @@
-load("//uv/private:sha1.bzl", "sha1")
+load("//uv/private:normalize_version.bzl", "normalize_version")
 load("//uv/private/graph:sccs.bzl", "sccs")
 
-def collect_sccs(marker_graph):
+def _derive_scc_id(scc_members, stems):
+    """Derive a deterministic, readable SCC id from the SCC's members.
+
+    A lone base package (the overwhelmingly common case) gets
+    `<name>__<version>`; a genuine cycle is named by its member packages.
+    `stems` disambiguates repeat stems with a `__v<n>` suffix.
+    """
+    if len(scc_members) == 1 and scc_members[0][3] == "__base__":
+        member = scc_members[0]
+        stem = "{}__{}".format(member[1], normalize_version(member[2]))
+    else:
+        names = sorted([m[1] for m in scc_members])
+        if len(names) > 4:
+            names = names[:4] + ["and_{}_more".format(len(scc_members) - 4)]
+        stem = "cycle__" + "__".join(names)
+    n = stems.get(stem, 0)
+    stems[stem] = n + 1
+    return stem if n == 0 else "{}__v{}".format(stem, n)
+
+def collect_sccs(marker_graph, id_state = None):
     """Computes Strongly Connected Components (SCCs) for a dependency marker_graph.
 
     This function takes a dependency marker_graph and identifies all the SCCs, which
@@ -10,6 +29,10 @@ def collect_sccs(marker_graph):
     Args:
         marker_graph: The dependency marker_graph, as returned by `_build_marker_graph`.
         {pkg: {dep: {marker: 1}}}
+        id_state: dict carrying SCC id intern state. Pass the same dict for
+        every configuration of one project: identical SCC content reuses one
+        id (the caller aggregates by id), while an SCC with the same members
+        but different external deps/markers gets a distinct id.
 
     Returns:
         A tuple containing:
@@ -49,11 +72,19 @@ def collect_sccs(marker_graph):
     dep_to_scc = {}
     final_scc_deps = {}  # This will store the scc_deps with the new keys
 
+    if id_state == None:
+        id_state = {}
+    interned_ids = id_state.setdefault("ids", {})
+    id_stems = id_state.setdefault("stems", {})
+
     for scc_members, raw_scc_deps in scc_info_list:
-        # Generate the new scc_id
-        # We need to sort the raw_scc_deps.items() to ensure consistent hashing
-        sorted_raw_scc_deps_repr = repr(sorted(raw_scc_deps.items()))
-        new_scc_id = sha1(repr(sorted(scc_members)) + ";" + sorted_raw_scc_deps_repr)[:16]
+        # Intern the scc_id by full content: distinct (members, deps, markers)
+        # content must map to distinct ids, identical content to one id.
+        content_key = repr(sorted(scc_members)) + ";" + repr(sorted(raw_scc_deps.items()))
+        new_scc_id = interned_ids.get(content_key)
+        if new_scc_id == None:
+            new_scc_id = _derive_scc_id(scc_members, id_stems)
+            interned_ids[content_key] = new_scc_id
 
         # Build the new scc_graph entry
         new_scc_graph[new_scc_id] = {m: {} for m in scc_members}

@@ -19,28 +19,28 @@ decide_marker(
 
 decide_marker(
     name = "marker_2",
-    marker = "sys_platform == 'win32'",
-    visibility = ["//:__subpackages__"],
-)
-
-
-decide_marker(
-    name = "marker_3",
-    marker = "(python_full_version < '3.10.2') and (python_full_version < '3.11')",
-    visibility = ["//:__subpackages__"],
-)
-
-
-decide_marker(
-    name = "marker_4",
     marker = "os_name == 'nt'",
     visibility = ["//:__subpackages__"],
 )
 
 
 decide_marker(
-    name = "marker_5",
+    name = "marker_3",
+    marker = "sys_platform == 'win32'",
+    visibility = ["//:__subpackages__"],
+)
+
+
+decide_marker(
+    name = "marker_4",
     marker = "(python_full_version < '3.11') and (python_full_version < '3.11')",
+    visibility = ["//:__subpackages__"],
+)
+
+
+decide_marker(
+    name = "marker_5",
+    marker = "(python_full_version < '3.10.2') and (python_full_version < '3.11')",
     visibility = ["//:__subpackages__"],
 )
 

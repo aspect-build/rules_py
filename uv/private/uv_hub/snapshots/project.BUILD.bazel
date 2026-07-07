@@ -11,7 +11,7 @@ filegroup(
 # arrow
 # {
 #     "aspect_rules_py": {
-#         "66db1ee5578c91b3": {
+#         "arrow__1_3_0": {
 #             "": 1,
 #         },
 #     },
@@ -21,7 +21,7 @@ filegroup(
 alias(
     name = "_package_arrow_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:66db1ee5578c91b3",
+        "//conditions:default": "//private/sccs:arrow__1_3_0",
     }),
     visibility = ["//visibility:private"],
 )
@@ -57,7 +57,7 @@ alias(
 # asgiref
 # {
 #     "aspect_rules_py": {
-#         "02c60fe71555dbc6": {
+#         "asgiref__3_8_1": {
 #             "": 1,
 #         },
 #     },
@@ -67,7 +67,7 @@ alias(
 alias(
     name = "_package_asgiref_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:02c60fe71555dbc6",
+        "//conditions:default": "//private/sccs:asgiref__3_8_1",
     }),
     visibility = ["//visibility:private"],
 )
@@ -103,7 +103,7 @@ alias(
 # aspect_rules_py
 # {
 #     "aspect_rules_py": {
-#         "3bf90d5a8d65a96f": {
+#         "aspect_rules_py__0_0_0": {
 #             "": 1,
 #         },
 #     },
@@ -113,7 +113,7 @@ alias(
 alias(
     name = "_package_aspect_rules_py_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:3bf90d5a8d65a96f",
+        "//conditions:default": "//private/sccs:aspect_rules_py__0_0_0",
     }),
     visibility = ["//visibility:private"],
 )
@@ -149,7 +149,7 @@ alias(
 # attrs
 # {
 #     "aspect_rules_py": {
-#         "7dc7776b98af97fb": {
+#         "attrs__23_2_0": {
 #             "": 1,
 #         },
 #     },
@@ -159,7 +159,7 @@ alias(
 alias(
     name = "_package_attrs_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:7dc7776b98af97fb",
+        "//conditions:default": "//private/sccs:attrs__23_2_0",
     }),
     visibility = ["//visibility:private"],
 )
@@ -195,7 +195,7 @@ alias(
 # bazel_runfiles
 # {
 #     "aspect_rules_py": {
-#         "36263f2e745aec68": {
+#         "bazel_runfiles__1_1_0": {
 #             "": 1,
 #         },
 #     },
@@ -205,7 +205,7 @@ alias(
 alias(
     name = "_package_bazel_runfiles_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:36263f2e745aec68",
+        "//conditions:default": "//private/sccs:bazel_runfiles__1_1_0",
     }),
     visibility = ["//visibility:private"],
 )
@@ -241,7 +241,7 @@ alias(
 # boto3
 # {
 #     "aspect_rules_py": {
-#         "d062f9c8da4486d0": {
+#         "boto3__1_34_93": {
 #             "": 1,
 #         },
 #     },
@@ -251,7 +251,7 @@ alias(
 alias(
     name = "_package_boto3_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:d062f9c8da4486d0",
+        "//conditions:default": "//private/sccs:boto3__1_34_93",
     }),
     visibility = ["//visibility:private"],
 )
@@ -287,7 +287,7 @@ alias(
 # botocore
 # {
 #     "aspect_rules_py": {
-#         "1a9692ca440d40f6": {
+#         "botocore__1_34_93": {
 #             "": 1,
 #         },
 #     },
@@ -297,7 +297,7 @@ alias(
 alias(
     name = "_package_botocore_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:1a9692ca440d40f6",
+        "//conditions:default": "//private/sccs:botocore__1_34_93",
     }),
     visibility = ["//visibility:private"],
 )
@@ -333,7 +333,7 @@ alias(
 # bravado
 # {
 #     "aspect_rules_py": {
-#         "5ad4c33225a6c315": {
+#         "bravado__11_0_3": {
 #             "": 1,
 #         },
 #     },
@@ -343,7 +343,7 @@ alias(
 alias(
     name = "_package_bravado_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:5ad4c33225a6c315",
+        "//conditions:default": "//private/sccs:bravado__11_0_3",
     }),
     visibility = ["//visibility:private"],
 )
@@ -379,7 +379,7 @@ alias(
 # bravado_core
 # {
 #     "aspect_rules_py": {
-#         "b852273138dfaef1": {
+#         "bravado_core__6_1_1": {
 #             "": 1,
 #         },
 #     },
@@ -389,7 +389,7 @@ alias(
 alias(
     name = "_package_bravado_core_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:b852273138dfaef1",
+        "//conditions:default": "//private/sccs:bravado_core__6_1_1",
     }),
     visibility = ["//visibility:private"],
 )
@@ -425,7 +425,7 @@ alias(
 # build
 # {
 #     "aspect_rules_py": {
-#         "a6e543d0278612c3": {
+#         "build__1_3_0": {
 #             "": 1,
 #         },
 #     },
@@ -435,7 +435,7 @@ alias(
 alias(
     name = "_package_build_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:a6e543d0278612c3",
+        "//conditions:default": "//private/sccs:build__1_3_0",
     }),
     visibility = ["//visibility:private"],
 )
@@ -471,7 +471,7 @@ alias(
 # certifi
 # {
 #     "aspect_rules_py": {
-#         "3d28b6e946c58648": {
+#         "certifi__2024_7_4": {
 #             "": 1,
 #         },
 #     },
@@ -481,7 +481,7 @@ alias(
 alias(
     name = "_package_certifi_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:3d28b6e946c58648",
+        "//conditions:default": "//private/sccs:certifi__2024_7_4",
     }),
     visibility = ["//visibility:private"],
 )
@@ -517,7 +517,7 @@ alias(
 # charset_normalizer
 # {
 #     "aspect_rules_py": {
-#         "7a5508482ee7c7ef": {
+#         "charset_normalizer__3_3_2": {
 #             "": 1,
 #         },
 #     },
@@ -527,7 +527,7 @@ alias(
 alias(
     name = "_package_charset_normalizer_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:7a5508482ee7c7ef",
+        "//conditions:default": "//private/sccs:charset_normalizer__3_3_2",
     }),
     visibility = ["//visibility:private"],
 )
@@ -563,7 +563,7 @@ alias(
 # click
 # {
 #     "aspect_rules_py": {
-#         "17569fac0688142c": {
+#         "click__8_1_7": {
 #             "": 1,
 #         },
 #     },
@@ -573,7 +573,7 @@ alias(
 alias(
     name = "_package_click_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:17569fac0688142c",
+        "//conditions:default": "//private/sccs:click__8_1_7",
     }),
     visibility = ["//visibility:private"],
 )
@@ -609,7 +609,7 @@ alias(
 # colorama
 # {
 #     "aspect_rules_py": {
-#         "da61d1b3f896ca29": {
+#         "colorama__0_4_6": {
 #             "": 1,
 #             "os_name == 'nt'": 1,
 #             "sys_platform == 'win32'": 1,
@@ -621,7 +621,7 @@ alias(
 alias(
     name = "_package_colorama_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:da61d1b3f896ca29",
+        "//conditions:default": "//private/sccs:colorama__0_4_6",
     }),
     visibility = ["//visibility:private"],
 )
@@ -657,7 +657,7 @@ alias(
 # coverage
 # {
 #     "aspect_rules_py": {
-#         "75d05c99d874710d": {
+#         "coverage__7_6_10": {
 #             "": 1,
 #         },
 #     },
@@ -667,7 +667,7 @@ alias(
 alias(
     name = "_package_coverage_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:75d05c99d874710d",
+        "//conditions:default": "//private/sccs:coverage__7_6_10",
     }),
     visibility = ["//visibility:private"],
 )
@@ -703,7 +703,7 @@ alias(
 # cowsay
 # {
 #     "aspect_rules_py": {
-#         "47a07453022c3f00": {
+#         "cowsay__6_1": {
 #             "": 1,
 #         },
 #     },
@@ -713,7 +713,7 @@ alias(
 alias(
     name = "_package_cowsay_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:47a07453022c3f00",
+        "//conditions:default": "//private/sccs:cowsay__6_1",
     }),
     visibility = ["//visibility:private"],
 )
@@ -749,7 +749,7 @@ alias(
 # django
 # {
 #     "aspect_rules_py": {
-#         "be4598f5093464bc": {
+#         "django__4_2_15": {
 #             "": 1,
 #         },
 #     },
@@ -759,7 +759,7 @@ alias(
 alias(
     name = "_package_django_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:be4598f5093464bc",
+        "//conditions:default": "//private/sccs:django__4_2_15",
     }),
     visibility = ["//visibility:private"],
 )
@@ -795,7 +795,7 @@ alias(
 # exceptiongroup
 # {
 #     "aspect_rules_py": {
-#         "ba5e2f6d3abc42ae": {
+#         "exceptiongroup__1_3_1": {
 #             "python_full_version < '3.11'": 1,
 #         },
 #     },
@@ -805,7 +805,7 @@ alias(
 alias(
     name = "_package_exceptiongroup_aspect_rules_py",
     actual = select({
-        "//private/markers:marker_0": "//private/sccs:ba5e2f6d3abc42ae",
+        "//private/markers:marker_0": "//private/sccs:exceptiongroup__1_3_1",
         "//conditions:default": "//private/sccs:empty",
     }),
     visibility = ["//visibility:private"],
@@ -843,7 +843,7 @@ alias(
 # fqdn
 # {
 #     "aspect_rules_py": {
-#         "be422b5bb805eb81": {
+#         "fqdn__1_5_1": {
 #             "": 1,
 #         },
 #     },
@@ -853,7 +853,7 @@ alias(
 alias(
     name = "_package_fqdn_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:be422b5bb805eb81",
+        "//conditions:default": "//private/sccs:fqdn__1_5_1",
     }),
     visibility = ["//visibility:private"],
 )
@@ -889,7 +889,7 @@ alias(
 # ftfy
 # {
 #     "aspect_rules_py": {
-#         "f3fc9e72edf46a94": {
+#         "ftfy__6_2_0": {
 #             "": 1,
 #         },
 #     },
@@ -899,7 +899,7 @@ alias(
 alias(
     name = "_package_ftfy_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:f3fc9e72edf46a94",
+        "//conditions:default": "//private/sccs:ftfy__6_2_0",
     }),
     visibility = ["//visibility:private"],
 )
@@ -935,7 +935,7 @@ alias(
 # future
 # {
 #     "aspect_rules_py": {
-#         "0bf957689dc8a17a": {
+#         "future__1_0_0": {
 #             "": 1,
 #         },
 #     },
@@ -945,7 +945,7 @@ alias(
 alias(
     name = "_package_future_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:0bf957689dc8a17a",
+        "//conditions:default": "//private/sccs:future__1_0_0",
     }),
     visibility = ["//visibility:private"],
 )
@@ -981,7 +981,7 @@ alias(
 # gitdb
 # {
 #     "aspect_rules_py": {
-#         "57bbb1e13328c57d": {
+#         "gitdb__4_0_12": {
 #             "": 1,
 #         },
 #     },
@@ -991,7 +991,7 @@ alias(
 alias(
     name = "_package_gitdb_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:57bbb1e13328c57d",
+        "//conditions:default": "//private/sccs:gitdb__4_0_12",
     }),
     visibility = ["//visibility:private"],
 )
@@ -1027,7 +1027,7 @@ alias(
 # gitpython
 # {
 #     "aspect_rules_py": {
-#         "0b3eac9fa46ed553": {
+#         "gitpython__3_1_43": {
 #             "": 1,
 #         },
 #     },
@@ -1037,7 +1037,7 @@ alias(
 alias(
     name = "_package_gitpython_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:0b3eac9fa46ed553",
+        "//conditions:default": "//private/sccs:gitpython__3_1_43",
     }),
     visibility = ["//visibility:private"],
 )
@@ -1073,7 +1073,7 @@ alias(
 # idna
 # {
 #     "aspect_rules_py": {
-#         "e32f72aa83d0aa19": {
+#         "idna__3_7": {
 #             "": 1,
 #         },
 #     },
@@ -1083,7 +1083,7 @@ alias(
 alias(
     name = "_package_idna_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:e32f72aa83d0aa19",
+        "//conditions:default": "//private/sccs:idna__3_7",
     }),
     visibility = ["//visibility:private"],
 )
@@ -1119,7 +1119,7 @@ alias(
 # importlib_metadata
 # {
 #     "aspect_rules_py": {
-#         "755a2d8d1d107b02": {
+#         "importlib_metadata__8_7_1": {
 #             "python_full_version < '3.10.2'": 1,
 #         },
 #     },
@@ -1129,7 +1129,7 @@ alias(
 alias(
     name = "_package_importlib_metadata_aspect_rules_py",
     actual = select({
-        "//private/markers:marker_1": "//private/sccs:755a2d8d1d107b02",
+        "//private/markers:marker_1": "//private/sccs:importlib_metadata__8_7_1",
         "//conditions:default": "//private/sccs:empty",
     }),
     visibility = ["//visibility:private"],
@@ -1167,7 +1167,7 @@ alias(
 # iniconfig
 # {
 #     "aspect_rules_py": {
-#         "a645893aac936c2f": {
+#         "iniconfig__2_0_0": {
 #             "": 1,
 #         },
 #     },
@@ -1177,7 +1177,7 @@ alias(
 alias(
     name = "_package_iniconfig_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:a645893aac936c2f",
+        "//conditions:default": "//private/sccs:iniconfig__2_0_0",
     }),
     visibility = ["//visibility:private"],
 )
@@ -1213,7 +1213,7 @@ alias(
 # isoduration
 # {
 #     "aspect_rules_py": {
-#         "b614323508da0659": {
+#         "isoduration__20_11_0": {
 #             "": 1,
 #         },
 #     },
@@ -1223,7 +1223,7 @@ alias(
 alias(
     name = "_package_isoduration_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:b614323508da0659",
+        "//conditions:default": "//private/sccs:isoduration__20_11_0",
     }),
     visibility = ["//visibility:private"],
 )
@@ -1259,7 +1259,7 @@ alias(
 # jmespath
 # {
 #     "aspect_rules_py": {
-#         "0122121f49196a45": {
+#         "jmespath__1_0_1": {
 #             "": 1,
 #         },
 #     },
@@ -1269,7 +1269,7 @@ alias(
 alias(
     name = "_package_jmespath_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:0122121f49196a45",
+        "//conditions:default": "//private/sccs:jmespath__1_0_1",
     }),
     visibility = ["//visibility:private"],
 )
@@ -1305,7 +1305,7 @@ alias(
 # jsonpointer
 # {
 #     "aspect_rules_py": {
-#         "f562ebd179f2bb77": {
+#         "jsonpointer__2_4": {
 #             "": 1,
 #         },
 #     },
@@ -1315,7 +1315,7 @@ alias(
 alias(
     name = "_package_jsonpointer_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:f562ebd179f2bb77",
+        "//conditions:default": "//private/sccs:jsonpointer__2_4",
     }),
     visibility = ["//visibility:private"],
 )
@@ -1351,7 +1351,7 @@ alias(
 # jsonref
 # {
 #     "aspect_rules_py": {
-#         "c9bd99220bf6a1cc": {
+#         "jsonref__1_1_0": {
 #             "": 1,
 #         },
 #     },
@@ -1361,7 +1361,7 @@ alias(
 alias(
     name = "_package_jsonref_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:c9bd99220bf6a1cc",
+        "//conditions:default": "//private/sccs:jsonref__1_1_0",
     }),
     visibility = ["//visibility:private"],
 )
@@ -1397,7 +1397,7 @@ alias(
 # jsonschema
 # {
 #     "aspect_rules_py": {
-#         "83c2335691aac8c7": {
+#         "jsonschema__4_21_1": {
 #             "": 1,
 #         },
 #     },
@@ -1407,7 +1407,7 @@ alias(
 alias(
     name = "_package_jsonschema_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:83c2335691aac8c7",
+        "//conditions:default": "//private/sccs:jsonschema__4_21_1",
     }),
     visibility = ["//visibility:private"],
 )
@@ -1443,7 +1443,7 @@ alias(
 # jsonschema_specifications
 # {
 #     "aspect_rules_py": {
-#         "7b750f6dabe77708": {
+#         "jsonschema_specifications__2023_12_1": {
 #             "": 1,
 #         },
 #     },
@@ -1453,7 +1453,7 @@ alias(
 alias(
     name = "_package_jsonschema_specifications_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:7b750f6dabe77708",
+        "//conditions:default": "//private/sccs:jsonschema_specifications__2023_12_1",
     }),
     visibility = ["//visibility:private"],
 )
@@ -1489,7 +1489,7 @@ alias(
 # maturin
 # {
 #     "aspect_rules_py": {
-#         "3efdd519ba908a3d": {
+#         "maturin__1_11_5": {
 #             "": 1,
 #         },
 #     },
@@ -1499,7 +1499,7 @@ alias(
 alias(
     name = "_package_maturin_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:3efdd519ba908a3d",
+        "//conditions:default": "//private/sccs:maturin__1_11_5",
     }),
     visibility = ["//visibility:private"],
 )
@@ -1535,7 +1535,7 @@ alias(
 # monotonic
 # {
 #     "aspect_rules_py": {
-#         "645e8b10704343f3": {
+#         "monotonic__1_6": {
 #             "": 1,
 #         },
 #     },
@@ -1545,7 +1545,7 @@ alias(
 alias(
     name = "_package_monotonic_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:645e8b10704343f3",
+        "//conditions:default": "//private/sccs:monotonic__1_6",
     }),
     visibility = ["//visibility:private"],
 )
@@ -1581,7 +1581,7 @@ alias(
 # msgpack
 # {
 #     "aspect_rules_py": {
-#         "57db4c17774c1aff": {
+#         "msgpack__1_0_8": {
 #             "": 1,
 #         },
 #     },
@@ -1591,7 +1591,7 @@ alias(
 alias(
     name = "_package_msgpack_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:57db4c17774c1aff",
+        "//conditions:default": "//private/sccs:msgpack__1_0_8",
     }),
     visibility = ["//visibility:private"],
 )
@@ -1627,7 +1627,7 @@ alias(
 # neptune
 # {
 #     "aspect_rules_py": {
-#         "0c448469fc42e513": {
+#         "neptune__1_10_2": {
 #             "": 1,
 #         },
 #     },
@@ -1637,7 +1637,7 @@ alias(
 alias(
     name = "_package_neptune_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:0c448469fc42e513",
+        "//conditions:default": "//private/sccs:neptune__1_10_2",
     }),
     visibility = ["//visibility:private"],
 )
@@ -1673,7 +1673,7 @@ alias(
 # numpy
 # {
 #     "aspect_rules_py": {
-#         "f729005acfb43d98": {
+#         "numpy__1_26_4": {
 #             "": 1,
 #         },
 #     },
@@ -1683,7 +1683,7 @@ alias(
 alias(
     name = "_package_numpy_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:f729005acfb43d98",
+        "//conditions:default": "//private/sccs:numpy__1_26_4",
     }),
     visibility = ["//visibility:private"],
 )
@@ -1719,7 +1719,7 @@ alias(
 # oauthlib
 # {
 #     "aspect_rules_py": {
-#         "abf028a68f5c5ef2": {
+#         "oauthlib__3_2_2": {
 #             "": 1,
 #         },
 #     },
@@ -1729,7 +1729,7 @@ alias(
 alias(
     name = "_package_oauthlib_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:abf028a68f5c5ef2",
+        "//conditions:default": "//private/sccs:oauthlib__3_2_2",
     }),
     visibility = ["//visibility:private"],
 )
@@ -1765,7 +1765,7 @@ alias(
 # packaging
 # {
 #     "aspect_rules_py": {
-#         "faab7792fab0e0c3": {
+#         "packaging__24_0": {
 #             "": 1,
 #         },
 #     },
@@ -1775,7 +1775,7 @@ alias(
 alias(
     name = "_package_packaging_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:faab7792fab0e0c3",
+        "//conditions:default": "//private/sccs:packaging__24_0",
     }),
     visibility = ["//visibility:private"],
 )
@@ -1811,7 +1811,7 @@ alias(
 # pandas
 # {
 #     "aspect_rules_py": {
-#         "e585531523a85c06": {
+#         "pandas__2_2_2": {
 #             "": 1,
 #         },
 #     },
@@ -1821,7 +1821,7 @@ alias(
 alias(
     name = "_package_pandas_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:e585531523a85c06",
+        "//conditions:default": "//private/sccs:pandas__2_2_2",
     }),
     visibility = ["//visibility:private"],
 )
@@ -1857,7 +1857,7 @@ alias(
 # pillow
 # {
 #     "aspect_rules_py": {
-#         "1ab32a29e45cda88": {
+#         "pillow__10_3_0": {
 #             "": 1,
 #         },
 #     },
@@ -1867,7 +1867,7 @@ alias(
 alias(
     name = "_package_pillow_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:1ab32a29e45cda88",
+        "//conditions:default": "//private/sccs:pillow__10_3_0",
     }),
     visibility = ["//visibility:private"],
 )
@@ -1903,7 +1903,7 @@ alias(
 # pkg
 # {
 #     "aspect_rules_py": {
-#         "b441bfc3c3fbed87": {
+#         "pkg__0_2": {
 #             "": 1,
 #         },
 #     },
@@ -1913,7 +1913,7 @@ alias(
 alias(
     name = "_package_pkg_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:b441bfc3c3fbed87",
+        "//conditions:default": "//private/sccs:pkg__0_2",
     }),
     visibility = ["//visibility:private"],
 )
@@ -1949,7 +1949,7 @@ alias(
 # pluggy
 # {
 #     "aspect_rules_py": {
-#         "94204164e2a95885": {
+#         "pluggy__1_4_0": {
 #             "": 1,
 #         },
 #     },
@@ -1959,7 +1959,7 @@ alias(
 alias(
     name = "_package_pluggy_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:94204164e2a95885",
+        "//conditions:default": "//private/sccs:pluggy__1_4_0",
     }),
     visibility = ["//visibility:private"],
 )
@@ -1995,7 +1995,7 @@ alias(
 # psutil
 # {
 #     "aspect_rules_py": {
-#         "605ce566dcea5c6e": {
+#         "psutil__5_9_8": {
 #             "": 1,
 #         },
 #     },
@@ -2005,7 +2005,7 @@ alias(
 alias(
     name = "_package_psutil_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:605ce566dcea5c6e",
+        "//conditions:default": "//private/sccs:psutil__5_9_8",
     }),
     visibility = ["//visibility:private"],
 )
@@ -2041,7 +2041,7 @@ alias(
 # pyjwt
 # {
 #     "aspect_rules_py": {
-#         "188d1bae875e01c5": {
+#         "pyjwt__2_8_0": {
 #             "": 1,
 #         },
 #     },
@@ -2051,7 +2051,7 @@ alias(
 alias(
     name = "_package_pyjwt_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:188d1bae875e01c5",
+        "//conditions:default": "//private/sccs:pyjwt__2_8_0",
     }),
     visibility = ["//visibility:private"],
 )
@@ -2087,7 +2087,7 @@ alias(
 # pyproject_hooks
 # {
 #     "aspect_rules_py": {
-#         "ee63e8df8d3acccd": {
+#         "pyproject_hooks__1_2_0": {
 #             "": 1,
 #         },
 #     },
@@ -2097,7 +2097,7 @@ alias(
 alias(
     name = "_package_pyproject_hooks_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:ee63e8df8d3acccd",
+        "//conditions:default": "//private/sccs:pyproject_hooks__1_2_0",
     }),
     visibility = ["//visibility:private"],
 )
@@ -2133,7 +2133,7 @@ alias(
 # pytest
 # {
 #     "aspect_rules_py": {
-#         "1e0e56026e400a78": {
+#         "pytest__8_1_1": {
 #             "": 1,
 #         },
 #     },
@@ -2143,7 +2143,7 @@ alias(
 alias(
     name = "_package_pytest_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:1e0e56026e400a78",
+        "//conditions:default": "//private/sccs:pytest__8_1_1",
     }),
     visibility = ["//visibility:private"],
 )
@@ -2179,7 +2179,7 @@ alias(
 # python_dateutil
 # {
 #     "aspect_rules_py": {
-#         "fe2c2ebbba7146e6": {
+#         "python_dateutil__2_9_0_post0": {
 #             "": 1,
 #         },
 #     },
@@ -2189,7 +2189,7 @@ alias(
 alias(
     name = "_package_python_dateutil_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:fe2c2ebbba7146e6",
+        "//conditions:default": "//private/sccs:python_dateutil__2_9_0_post0",
     }),
     visibility = ["//visibility:private"],
 )
@@ -2225,7 +2225,7 @@ alias(
 # pytz
 # {
 #     "aspect_rules_py": {
-#         "e676cae8276d8ac5": {
+#         "pytz__2024_1": {
 #             "": 1,
 #         },
 #     },
@@ -2235,7 +2235,7 @@ alias(
 alias(
     name = "_package_pytz_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:e676cae8276d8ac5",
+        "//conditions:default": "//private/sccs:pytz__2024_1",
     }),
     visibility = ["//visibility:private"],
 )
@@ -2271,7 +2271,7 @@ alias(
 # pyyaml
 # {
 #     "aspect_rules_py": {
-#         "0d90a0107911e2ee": {
+#         "pyyaml__6_0_1": {
 #             "": 1,
 #         },
 #     },
@@ -2281,7 +2281,7 @@ alias(
 alias(
     name = "_package_pyyaml_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:0d90a0107911e2ee",
+        "//conditions:default": "//private/sccs:pyyaml__6_0_1",
     }),
     visibility = ["//visibility:private"],
 )
@@ -2317,7 +2317,7 @@ alias(
 # referencing
 # {
 #     "aspect_rules_py": {
-#         "79d80fb738204348": {
+#         "referencing__0_35_0": {
 #             "": 1,
 #         },
 #     },
@@ -2327,7 +2327,7 @@ alias(
 alias(
     name = "_package_referencing_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:79d80fb738204348",
+        "//conditions:default": "//private/sccs:referencing__0_35_0",
     }),
     visibility = ["//visibility:private"],
 )
@@ -2363,7 +2363,7 @@ alias(
 # requests
 # {
 #     "aspect_rules_py": {
-#         "e5244e9a2665fdb2": {
+#         "requests__2_31_0": {
 #             "": 1,
 #         },
 #     },
@@ -2373,7 +2373,7 @@ alias(
 alias(
     name = "_package_requests_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:e5244e9a2665fdb2",
+        "//conditions:default": "//private/sccs:requests__2_31_0",
     }),
     visibility = ["//visibility:private"],
 )
@@ -2409,7 +2409,7 @@ alias(
 # requests_oauthlib
 # {
 #     "aspect_rules_py": {
-#         "ad22749935bebfb1": {
+#         "requests_oauthlib__2_0_0": {
 #             "": 1,
 #         },
 #     },
@@ -2419,7 +2419,7 @@ alias(
 alias(
     name = "_package_requests_oauthlib_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:ad22749935bebfb1",
+        "//conditions:default": "//private/sccs:requests_oauthlib__2_0_0",
     }),
     visibility = ["//visibility:private"],
 )
@@ -2455,7 +2455,7 @@ alias(
 # rfc3339_validator
 # {
 #     "aspect_rules_py": {
-#         "501678eadc2406c8": {
+#         "rfc3339_validator__0_1_4": {
 #             "": 1,
 #         },
 #     },
@@ -2465,7 +2465,7 @@ alias(
 alias(
     name = "_package_rfc3339_validator_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:501678eadc2406c8",
+        "//conditions:default": "//private/sccs:rfc3339_validator__0_1_4",
     }),
     visibility = ["//visibility:private"],
 )
@@ -2501,7 +2501,7 @@ alias(
 # rfc3986_validator
 # {
 #     "aspect_rules_py": {
-#         "7e2655fa19c9381e": {
+#         "rfc3986_validator__0_1_1": {
 #             "": 1,
 #         },
 #     },
@@ -2511,7 +2511,7 @@ alias(
 alias(
     name = "_package_rfc3986_validator_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:7e2655fa19c9381e",
+        "//conditions:default": "//private/sccs:rfc3986_validator__0_1_1",
     }),
     visibility = ["//visibility:private"],
 )
@@ -2547,7 +2547,7 @@ alias(
 # rpds_py
 # {
 #     "aspect_rules_py": {
-#         "daf8d376b4a8df52": {
+#         "rpds_py__0_18_0": {
 #             "": 1,
 #         },
 #     },
@@ -2557,7 +2557,7 @@ alias(
 alias(
     name = "_package_rpds_py_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:daf8d376b4a8df52",
+        "//conditions:default": "//private/sccs:rpds_py__0_18_0",
     }),
     visibility = ["//visibility:private"],
 )
@@ -2593,7 +2593,7 @@ alias(
 # s3transfer
 # {
 #     "aspect_rules_py": {
-#         "b21aa6f0da345f65": {
+#         "s3transfer__0_10_1": {
 #             "": 1,
 #         },
 #     },
@@ -2603,7 +2603,7 @@ alias(
 alias(
     name = "_package_s3transfer_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:b21aa6f0da345f65",
+        "//conditions:default": "//private/sccs:s3transfer__0_10_1",
     }),
     visibility = ["//visibility:private"],
 )
@@ -2639,7 +2639,7 @@ alias(
 # setuptools
 # {
 #     "aspect_rules_py": {
-#         "f16968e1474c15d5": {
+#         "setuptools__80_9_0": {
 #             "": 1,
 #         },
 #     },
@@ -2649,7 +2649,7 @@ alias(
 alias(
     name = "_package_setuptools_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:f16968e1474c15d5",
+        "//conditions:default": "//private/sccs:setuptools__80_9_0",
     }),
     visibility = ["//visibility:private"],
 )
@@ -2685,7 +2685,7 @@ alias(
 # simplejson
 # {
 #     "aspect_rules_py": {
-#         "64670a6ca059db08": {
+#         "simplejson__3_19_2": {
 #             "": 1,
 #         },
 #     },
@@ -2695,7 +2695,7 @@ alias(
 alias(
     name = "_package_simplejson_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:64670a6ca059db08",
+        "//conditions:default": "//private/sccs:simplejson__3_19_2",
     }),
     visibility = ["//visibility:private"],
 )
@@ -2731,7 +2731,7 @@ alias(
 # six
 # {
 #     "aspect_rules_py": {
-#         "4e0c8fcba708bfaa": {
+#         "six__1_16_0": {
 #             "": 1,
 #         },
 #     },
@@ -2741,7 +2741,7 @@ alias(
 alias(
     name = "_package_six_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:4e0c8fcba708bfaa",
+        "//conditions:default": "//private/sccs:six__1_16_0",
     }),
     visibility = ["//visibility:private"],
 )
@@ -2777,7 +2777,7 @@ alias(
 # smmap
 # {
 #     "aspect_rules_py": {
-#         "d2e5aa217f8d6e1c": {
+#         "smmap__5_0_1": {
 #             "": 1,
 #         },
 #     },
@@ -2787,7 +2787,7 @@ alias(
 alias(
     name = "_package_smmap_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:d2e5aa217f8d6e1c",
+        "//conditions:default": "//private/sccs:smmap__5_0_1",
     }),
     visibility = ["//visibility:private"],
 )
@@ -2823,7 +2823,7 @@ alias(
 # snakesay
 # {
 #     "aspect_rules_py": {
-#         "813a1389613cfa27": {
+#         "snakesay__0_10_3": {
 #             "": 1,
 #         },
 #     },
@@ -2833,7 +2833,7 @@ alias(
 alias(
     name = "_package_snakesay_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:813a1389613cfa27",
+        "//conditions:default": "//private/sccs:snakesay__0_10_3",
     }),
     visibility = ["//visibility:private"],
 )
@@ -2869,7 +2869,7 @@ alias(
 # sqlparse
 # {
 #     "aspect_rules_py": {
-#         "f4309313f08dd20b": {
+#         "sqlparse__0_5_1": {
 #             "": 1,
 #         },
 #     },
@@ -2879,7 +2879,7 @@ alias(
 alias(
     name = "_package_sqlparse_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:f4309313f08dd20b",
+        "//conditions:default": "//private/sccs:sqlparse__0_5_1",
     }),
     visibility = ["//visibility:private"],
 )
@@ -2915,7 +2915,7 @@ alias(
 # swagger_spec_validator
 # {
 #     "aspect_rules_py": {
-#         "cf43c11aa7568cfc": {
+#         "swagger_spec_validator__3_0_3": {
 #             "": 1,
 #         },
 #     },
@@ -2925,7 +2925,7 @@ alias(
 alias(
     name = "_package_swagger_spec_validator_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:cf43c11aa7568cfc",
+        "//conditions:default": "//private/sccs:swagger_spec_validator__3_0_3",
     }),
     visibility = ["//visibility:private"],
 )
@@ -2961,7 +2961,7 @@ alias(
 # tomli
 # {
 #     "aspect_rules_py": {
-#         "c586b17b00ce1e93": {
+#         "tomli__2_4_0": {
 #             "python_full_version < '3.11'": 1,
 #         },
 #     },
@@ -2971,7 +2971,7 @@ alias(
 alias(
     name = "_package_tomli_aspect_rules_py",
     actual = select({
-        "//private/markers:marker_0": "//private/sccs:c586b17b00ce1e93",
+        "//private/markers:marker_0": "//private/sccs:tomli__2_4_0",
         "//conditions:default": "//private/sccs:empty",
     }),
     visibility = ["//visibility:private"],
@@ -3009,7 +3009,7 @@ alias(
 # types_python_dateutil
 # {
 #     "aspect_rules_py": {
-#         "1126c4a05de455bd": {
+#         "types_python_dateutil__2_9_0_20240316": {
 #             "": 1,
 #         },
 #     },
@@ -3019,7 +3019,7 @@ alias(
 alias(
     name = "_package_types_python_dateutil_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:1126c4a05de455bd",
+        "//conditions:default": "//private/sccs:types_python_dateutil__2_9_0_20240316",
     }),
     visibility = ["//visibility:private"],
 )
@@ -3055,7 +3055,7 @@ alias(
 # typing_extensions
 # {
 #     "aspect_rules_py": {
-#         "532dae902462bf54": {
+#         "typing_extensions__4_12_2": {
 #             "": 1,
 #             "python_full_version < '3.11'": 1,
 #         },
@@ -3066,7 +3066,7 @@ alias(
 alias(
     name = "_package_typing_extensions_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:532dae902462bf54",
+        "//conditions:default": "//private/sccs:typing_extensions__4_12_2",
     }),
     visibility = ["//visibility:private"],
 )
@@ -3102,7 +3102,7 @@ alias(
 # tzdata
 # {
 #     "aspect_rules_py": {
-#         "e75ced7ea0bca451": {
+#         "tzdata__2024_1": {
 #             "": 1,
 #             "sys_platform == 'win32'": 1,
 #         },
@@ -3113,7 +3113,7 @@ alias(
 alias(
     name = "_package_tzdata_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:e75ced7ea0bca451",
+        "//conditions:default": "//private/sccs:tzdata__2024_1",
     }),
     visibility = ["//visibility:private"],
 )
@@ -3149,7 +3149,7 @@ alias(
 # uri_template
 # {
 #     "aspect_rules_py": {
-#         "8c7876aa6947b426": {
+#         "uri_template__1_3_0": {
 #             "": 1,
 #         },
 #     },
@@ -3159,7 +3159,7 @@ alias(
 alias(
     name = "_package_uri_template_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:8c7876aa6947b426",
+        "//conditions:default": "//private/sccs:uri_template__1_3_0",
     }),
     visibility = ["//visibility:private"],
 )
@@ -3195,7 +3195,7 @@ alias(
 # urllib3
 # {
 #     "aspect_rules_py": {
-#         "5fc6ecd45601013d": {
+#         "urllib3__1_26_19": {
 #             "": 1,
 #         },
 #     },
@@ -3205,7 +3205,7 @@ alias(
 alias(
     name = "_package_urllib3_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:5fc6ecd45601013d",
+        "//conditions:default": "//private/sccs:urllib3__1_26_19",
     }),
     visibility = ["//visibility:private"],
 )
@@ -3241,7 +3241,7 @@ alias(
 # wcwidth
 # {
 #     "aspect_rules_py": {
-#         "a42101321901faea": {
+#         "wcwidth__0_2_13": {
 #             "": 1,
 #         },
 #     },
@@ -3251,7 +3251,7 @@ alias(
 alias(
     name = "_package_wcwidth_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:a42101321901faea",
+        "//conditions:default": "//private/sccs:wcwidth__0_2_13",
     }),
     visibility = ["//visibility:private"],
 )
@@ -3287,7 +3287,7 @@ alias(
 # webcolors
 # {
 #     "aspect_rules_py": {
-#         "b2c4b8d6df4d741c": {
+#         "webcolors__1_13": {
 #             "": 1,
 #         },
 #     },
@@ -3297,7 +3297,7 @@ alias(
 alias(
     name = "_package_webcolors_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:b2c4b8d6df4d741c",
+        "//conditions:default": "//private/sccs:webcolors__1_13",
     }),
     visibility = ["//visibility:private"],
 )
@@ -3333,7 +3333,7 @@ alias(
 # websocket_client
 # {
 #     "aspect_rules_py": {
-#         "c8fdcb8672c8c446": {
+#         "websocket_client__1_8_0": {
 #             "": 1,
 #         },
 #     },
@@ -3343,7 +3343,7 @@ alias(
 alias(
     name = "_package_websocket_client_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:c8fdcb8672c8c446",
+        "//conditions:default": "//private/sccs:websocket_client__1_8_0",
     }),
     visibility = ["//visibility:private"],
 )
@@ -3379,7 +3379,7 @@ alias(
 # zipp
 # {
 #     "aspect_rules_py": {
-#         "0dfe8750086323f2": {
+#         "zipp__3_23_0": {
 #             "python_full_version < '3.11'": 1,
 #         },
 #     },
@@ -3389,7 +3389,7 @@ alias(
 alias(
     name = "_package_zipp_aspect_rules_py",
     actual = select({
-        "//private/markers:marker_0": "//private/sccs:0dfe8750086323f2",
+        "//private/markers:marker_0": "//private/sccs:zipp__3_23_0",
         "//conditions:default": "//private/sccs:empty",
     }),
     visibility = ["//visibility:private"],
@@ -3509,79 +3509,79 @@ filegroup(
 filegroup(
     name = "gazelle_index_whls",
     srcs = [
-        "@whl_install__aspect_rules_py__jmespath__1_0_1//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__asgiref__3_8_1//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__gitpython__3_1_43//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__future__1_0_0//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__neptune__1_10_2//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__pyyaml__6_0_1//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__zipp__3_23_0//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__types_python_dateutil__2_9_0_20240316//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__click__8_1_7//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__pyjwt__2_8_0//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__botocore__1_34_93//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__pillow__10_3_0//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__pytest__8_1_1//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__bazel_runfiles__1_1_0//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__certifi__2024_7_4//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__maturin__1_11_5//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__cowsay__6_1//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__six__1_16_0//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__rfc3339_validator__0_1_4//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__typing_extensions__4_12_2//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__gitdb__4_0_12//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__msgpack__1_0_8//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__bravado__11_0_3//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__urllib3__1_26_19//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__psutil__5_9_8//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__monotonic__1_6//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__simplejson__3_19_2//:gazelle_index_whl",
         "@whl_install__aspect_rules_py__arrow__1_3_0//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__importlib_metadata__8_7_1//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__coverage__7_6_10//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__referencing__0_35_0//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__charset_normalizer__3_3_2//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__jsonschema_specifications__2023_12_1//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__asgiref__3_8_1//:gazelle_index_whl",
         "@whl_install__aspect_rules_py__attrs__23_2_0//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__rfc3986_validator__0_1_1//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__snakesay__0_10_3//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__jsonschema__4_21_1//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__uri_template__1_3_0//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__pluggy__1_4_0//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__wcwidth__0_2_13//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__iniconfig__2_0_0//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__build__1_3_0//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__oauthlib__3_2_2//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__requests_oauthlib__2_0_0//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__s3transfer__0_10_1//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__webcolors__1_13//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__pkg__0_2//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__isoduration__20_11_0//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__bazel_runfiles__1_1_0//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__boto3__1_34_93//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__botocore__1_34_93//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__bravado__11_0_3//:gazelle_index_whl",
         "@whl_install__aspect_rules_py__bravado_core__6_1_1//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__build__1_3_0//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__certifi__2024_7_4//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__charset_normalizer__3_3_2//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__click__8_1_7//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__colorama__0_4_6//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__coverage__7_6_10//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__cowsay__6_1//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__django__4_2_15//:gazelle_index_whl",
         "@whl_install__aspect_rules_py__exceptiongroup__1_3_1//:gazelle_index_whl",
         "@whl_install__aspect_rules_py__fqdn__1_5_1//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__django__4_2_15//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__tomli__2_4_0//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__websocket_client__1_8_0//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__jsonref__1_1_0//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__swagger_spec_validator__3_0_3//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__boto3__1_34_93//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__smmap__5_0_1//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__colorama__0_4_6//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__rpds_py__0_18_0//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__idna__3_7//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__requests__2_31_0//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__pandas__2_2_2//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__pytz__2024_1//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__tzdata__2024_1//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__pyproject_hooks__1_2_0//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__setuptools__80_9_0//:gazelle_index_whl",
         "@whl_install__aspect_rules_py__ftfy__6_2_0//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__sqlparse__0_5_1//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__future__1_0_0//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__gitdb__4_0_12//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__gitpython__3_1_43//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__idna__3_7//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__importlib_metadata__8_7_1//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__iniconfig__2_0_0//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__isoduration__20_11_0//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__jmespath__1_0_1//:gazelle_index_whl",
         "@whl_install__aspect_rules_py__jsonpointer__2_4//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__jsonref__1_1_0//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__jsonschema__4_21_1//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__jsonschema_specifications__2023_12_1//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__maturin__1_11_5//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__monotonic__1_6//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__msgpack__1_0_8//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__neptune__1_10_2//:gazelle_index_whl",
         "@whl_install__aspect_rules_py__numpy__1_26_4//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__oauthlib__3_2_2//:gazelle_index_whl",
         "@whl_install__aspect_rules_py__packaging__24_0//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__pandas__2_2_2//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__pillow__10_3_0//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__pkg__0_2//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__pluggy__1_4_0//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__psutil__5_9_8//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__pyjwt__2_8_0//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__pyproject_hooks__1_2_0//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__pytest__8_1_1//:gazelle_index_whl",
         "@whl_install__aspect_rules_py__python_dateutil__2_9_0_post0//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__pytz__2024_1//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__pyyaml__6_0_1//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__referencing__0_35_0//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__requests__2_31_0//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__requests_oauthlib__2_0_0//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__rfc3339_validator__0_1_4//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__rfc3986_validator__0_1_1//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__rpds_py__0_18_0//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__s3transfer__0_10_1//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__setuptools__80_9_0//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__simplejson__3_19_2//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__six__1_16_0//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__smmap__5_0_1//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__snakesay__0_10_3//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__sqlparse__0_5_1//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__swagger_spec_validator__3_0_3//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__tomli__2_4_0//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__types_python_dateutil__2_9_0_20240316//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__typing_extensions__4_12_2//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__tzdata__2024_1//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__uri_template__1_3_0//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__urllib3__1_26_19//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__wcwidth__0_2_13//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__webcolors__1_13//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__websocket_client__1_8_0//:gazelle_index_whl",
+        "@whl_install__aspect_rules_py__zipp__3_23_0//:gazelle_index_whl",
     ],
     visibility = ["//visibility:public"],
 )
