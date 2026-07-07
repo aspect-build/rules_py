@@ -149,13 +149,14 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
 
     # Pass 1: bucket claimants per import root, distribution metadata entry,
     # and console-script name.
-    tl_claimants = {}  # tl -> list of struct(site_packages, is_ns, ns_entries)
+    tl_claimants = {}  # tl -> list of struct(site_packages, is_ns, is_pkgutil_ns, ns_entries)
     metadata_claimants = {}  # metadata entry -> ordered site_packages paths
     cs_claimants = {}  # name -> list of struct(site_packages, module, func)
     wheel_by_sp = {}  # site_packages_rfpath -> wheel struct
     for w in wheels:
         wheel_by_sp[w.site_packages_rfpath] = w
         ns_set = {tl: True for tl in getattr(w, "namespace_top_levels", ())}
+        pkgutil_ns_set = {tl: True for tl in getattr(w, "pkgutil_namespace_top_levels", ())}
         ns_entries_by_tl = {}
         for entry in getattr(w, "namespace_entries", ()):
             ns_entries_by_tl.setdefault(entry.split("/")[0], []).append(entry)
@@ -166,6 +167,7 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
             tl_claimants.setdefault(tl, []).append(struct(
                 site_packages = w.site_packages_rfpath,
                 is_ns = tl in ns_set,
+                is_pkgutil_ns = tl in pkgutil_ns_set,
                 ns_entries = tuple(ns_entries_by_tl.get(tl, [])),
             ))
         for entry in getattr(w, "console_scripts", ()):
@@ -264,6 +266,11 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
                                 entry_owner[entry] = c
                     for entry, c in entry_owner.items():
                         top_level_to_site_pkgs[entry] = c.site_packages
+
+                    for c in unique_claimants:
+                        if c.is_pkgutil_ns:
+                            top_level_to_site_pkgs[tl + "/__init__.py"] = c.site_packages
+                            break
                 continue
 
             # Pure PEP 420 namespace (no regular package spanning wheels).
@@ -339,6 +346,13 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
 
             for entry, c in entry_owner.items():
                 top_level_to_site_pkgs[entry] = c.site_packages
+
+            init_owner = None
+            for c in unique_claimants:
+                if c.is_pkgutil_ns:
+                    init_owner = c
+            if init_owner:
+                top_level_to_site_pkgs[tl + "/__init__.py"] = init_owner.site_packages
 
             # Entries-bearing claimants that kept every one of their
             # entries are fully represented by the merged directory; record

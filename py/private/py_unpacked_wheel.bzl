@@ -83,6 +83,7 @@ def _py_unpacked_wheel_impl(ctx):
         wheels = depset(direct = [struct(
             top_levels = tuple(ctx.attr.top_levels),
             namespace_top_levels = tuple(ctx.attr.namespace_top_levels),
+            pkgutil_namespace_top_levels = tuple(ctx.attr.pkgutil_namespace_top_levels),
             namespace_entries = tuple(ctx.attr.namespace_entries),
             site_packages_rfpath = site_packages_rfpath,
             console_scripts = tuple(ctx.attr.console_scripts),
@@ -128,12 +129,24 @@ wrappers under `<venv>/bin/<name>`. Typically populated from the wheel's
         default = [],
     ),
     "namespace_top_levels": attr.string_list(
-        doc = """Subset of `top_levels` that are PEP 420 namespace packages.
+        doc = """Subset of `top_levels` that are namespace packages.
 
+Includes both PEP 420 namespaces (no `__init__.py`) and
+pkgutil/pkg_resources-style namespaces (an `__init__.py` that only
+calls `pkgutil.extend_path` or `pkg_resources.declare_namespace`).
 See the equivalent attribute on the `whl_install` rule for the full
 story; short version: names listed here suppress collision errors when
 multiple wheels claim the same top-level, because Python's namespace
 machinery is meant to merge their contributions.
+""",
+        default = [],
+    ),
+    "pkgutil_namespace_top_levels": attr.string_list(
+        doc = """Subset of `namespace_top_levels` that carry a pkgutil-style `__init__.py`.
+
+These top-levels are merged across wheels like PEP 420 namespaces, but
+venv assembly also symlinks the stub `__init__.py` into the merged
+directory so the namespace package is importable at runtime.
 """,
         default = [],
     ),
