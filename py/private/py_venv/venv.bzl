@@ -148,44 +148,20 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
             _complain(what, name, distinct[i - 1], distinct[i])
 
     # Pass 1: bucket claimants per import root, distribution metadata entry,
-    # and console-script name.
+    # and console-script name. The per-wheel claim structs are precomputed
+    # by make_wheel_record, so this pass only merges them per closure.
     tl_claimants = {}  # tl -> list of struct(site_packages, is_ns, ns_entries)
     metadata_claimants = {}  # metadata entry -> ordered site_packages paths
     cs_claimants = {}  # name -> list of struct(site_packages, module, func)
     wheel_by_sp = {}  # site_packages_rfpath -> wheel struct
     for w in wheels:
         wheel_by_sp[w.site_packages_rfpath] = w
-        ns_set = {tl: True for tl in getattr(w, "namespace_top_levels", ())}
-        ns_entries_by_tl = {}
-        for entry in getattr(w, "namespace_entries", ()):
-            ns_entries_by_tl.setdefault(entry.split("/")[0], []).append(entry)
-        for tl in w.top_levels:
-            if tl.endswith(".dist-info") or tl.endswith(".egg-info"):
-                metadata_claimants.setdefault(tl, []).append(w.site_packages_rfpath)
-                continue
-            tl_claimants.setdefault(tl, []).append(struct(
-                site_packages = w.site_packages_rfpath,
-                is_ns = tl in ns_set,
-                ns_entries = tuple(ns_entries_by_tl.get(tl, [])),
-            ))
-        for entry in getattr(w, "console_scripts", ()):
-            # Entry encoding from the repo rule: "name=module:func".
-            if "=" not in entry:
-                continue
-            name, _, target = entry.partition("=")
-            if ":" not in target:
-                continue
-            module, _, func = target.partition(":")
-            name = name.strip()
-            module = module.strip()
-            func = func.strip()
-            if not name or not module or not func:
-                continue
-            cs_claimants.setdefault(name, []).append(struct(
-                site_packages = w.site_packages_rfpath,
-                module = module,
-                func = func,
-            ))
+        for tl in w.metadata_top_levels:
+            metadata_claimants.setdefault(tl, []).append(w.site_packages_rfpath)
+        for tl, claim in w.tl_claims:
+            tl_claimants.setdefault(tl, []).append(claim)
+        for name, claim in w.cs_claims:
+            cs_claimants.setdefault(name, []).append(claim)
 
     # Pass 2: resolve top-levels. Track which (site_packages, tl) pairs
     # we SKIPPED (left to the .pth fallback) and which namespace claims
@@ -221,15 +197,15 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
             for sp_a in distinct_sp.keys():
                 ns_claimant_sps[sp_a] = True
                 w_a = wheel_by_sp[sp_a]
-                for root in getattr(w_a, "regular_roots", ()):
+                for root in w_a.regular_roots:
                     if not root.startswith(tl_prefix):
                         continue
                     for sp_b in distinct_sp.keys():
                         if sp_b == sp_a:
                             continue
                         w_b = wheel_by_sp[sp_b]
-                        if (root in getattr(w_b, "namespace_dirs", ()) or
-                            root in getattr(w_b, "regular_roots", ())):
+                        if (root in w_b.namespace_dirs or
+                            root in w_b.regular_roots):
                             conflicted_roots[root] = True
                             tl_conflicted = True
 
@@ -399,8 +375,7 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
                 continue
             group_sps_seen[sp] = True
             w = wheel_by_sp[sp]
-            if (root in getattr(w, "regular_roots", ()) or
-                root in getattr(w, "namespace_dirs", ())):
+            if root in w.regular_roots or root in w.namespace_dirs:
                 group_sps.append(sp)
         if len(group_sps) >= 2:
             merge_groups.append(struct(
@@ -439,9 +414,9 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
         skipped = skipped_per_wheel.get(w.site_packages_rfpath, {})
         ns_covered = ns_covered_per_wheel.get(w.site_packages_rfpath, {})
         covered = True
-        for tl in w.top_levels:
-            if tl in metadata_claimants:
-                continue
+
+        # tl_claims carries exactly the non-metadata top-levels.
+        for tl, _ in w.tl_claims:
             if tl in skipped:
                 covered = False
                 break
