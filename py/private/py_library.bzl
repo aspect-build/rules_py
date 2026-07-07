@@ -214,7 +214,6 @@ py_library_utils = struct(
     attrs = _attrs,
     implementation = _py_library_impl,
     make_imports_depset = _make_imports_depset,
-    make_instrumented_files_info = _make_instrumented_files_info,
     make_merged_runfiles = _make_merged_runfiles,
     make_srcs_depset = _make_srcs_depset,
     make_wheels_depset = _make_wheels_depset,

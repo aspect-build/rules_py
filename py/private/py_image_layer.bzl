@@ -441,7 +441,7 @@ def _layer_aspect_impl(target, ctx):
                 # Only skip interpreter paths from the source layer when there
                 # IS a separate interpreter tar to route them to; otherwise the
                 # interpreter belongs in the default layer.
-                if interpreter_layer != None and tc_info.interpreter_files != None:
+                if interpreter_layer != None:
                     for f in tc_info.interpreter_files.to_list():
                         interp_paths[f.path] = True
 
@@ -797,8 +797,9 @@ def _py_image_layer_impl(ctx):
             pkg_by_label[pkg.label] = pkg
     all_pkgs = pkg_by_label.values()
 
-    layer_tier = ctx.attr.layer_tier if ctx.attr.layer_tier else ctx.attr._layer_tier
-    plan = layer_tier[PyLayerTierInfo]
+    # `_platform_cfg` rewrites the `//py:layer_tier` flag from `attr.layer_tier`,
+    # so `_layer_tier` always resolves to the effective tier.
+    plan = ctx.attr._layer_tier[PyLayerTierInfo]
     root = plan.root
     strip_prefix = plan.strip_prefix
 

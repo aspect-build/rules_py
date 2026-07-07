@@ -29,7 +29,7 @@ load("@bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variabl
 load("@bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
-load("//py/private:transitions.bzl", "python_version_transition")
+load("//py/private:transitions.bzl", "python_transition")
 load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PY_TOOLCHAIN")
 load(":py_venv_exec.bzl", _py_venv_exec = "py_venv_exec")
 load(":types.bzl", "VirtualenvInfo", "venv_root")
@@ -287,7 +287,7 @@ _py_venv = rule(
         config_common.toolchain_type(EXEC_TOOLS_TOOLCHAIN, mandatory = False),
     ],
     executable = True,
-    cfg = python_version_transition,
+    cfg = python_transition,
 )
 
 def _py_venv_lib_rule_impl(ctx):
@@ -323,7 +323,7 @@ _py_venv_lib = rule(
         # needs it to run the site_merge action when a package spans wheels.
         config_common.toolchain_type(EXEC_TOOLS_TOOLCHAIN, mandatory = False),
     ],
-    cfg = python_version_transition,
+    cfg = python_transition,
 )
 
 def _wrap_with_debug(rule):

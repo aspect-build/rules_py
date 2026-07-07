@@ -491,14 +491,14 @@ def assemble_venv(
         py_toolchain,
         imports_depset,
         is_windows,
-        package_collisions = "error",
-        include_system_site_packages = False,
-        include_user_site_packages = False,
-        default_env = {},
+        package_collisions,
+        include_system_site_packages,
+        include_user_site_packages,
+        default_env,
         venv_activate_tmpl,
         virtualenv_shim_py,
-        site_merge_script_py = None,
-        venv_name = None):
+        site_merge_script_py,
+        venv_name):
     """Declare every file + symlink that makes up a venv for a target.
 
     Args:
@@ -523,12 +523,11 @@ def assemble_venv(
       virtualenv_shim_py: File — the `_virtualenv.py` distutils shim
         source (usually `ctx.file._virtualenv_shim`).
       site_merge_script_py: File — the site_merge.py tool source
-        (usually `ctx.file._site_merge_script`). Only needed when the
+        (usually `ctx.file._site_merge_script`). Only used when the
         wheel graph contains a regular package spanning wheels; the
         merge action also requires the rule to declare the (optional)
         EXEC_TOOLS_TOOLCHAIN for an exec-configuration interpreter.
-      venv_name: Optional str — explicit venv dir basename. Defaults to
-        "." + safe_name + ".venv" when unset.
+      venv_name: str — the venv dir basename (e.g. "." + safe_name).
 
     Returns:
       struct with:
@@ -581,23 +580,19 @@ def assemble_venv(
     # From venv root (= sys.prefix at runtime) up to runfiles root.
     venv_to_runfiles_escape = "/".join([".."] * (2 + package_depth))
 
-    # Default basename is `.{name}.venv/` — the Pythonic name that
-    # IDEs auto-detect. The leading dot also keeps this distinct from
-    # a sibling py_venv target at `:<name>.venv` (auto-emitted when
-    # `expose_venv = True` is set): the sibling's launcher file lands
-    # at `bazel-bin/<pkg>/<name>.venv`, while any internal venv tree
-    # lives under `bazel-bin/<pkg>/.<name>.venv/`. Different
-    # filesystem paths, no collision. Callers can override via the
-    # `venv_name` parameter.
-    if venv_name == None:
-        venv_name = ".{}.venv".format(safe_name)
+    # The leading-dot basename (e.g. `.{name}.venv/`) is the Pythonic
+    # name that IDEs auto-detect. The leading dot also keeps this
+    # distinct from a sibling py_venv target at `:<name>.venv`
+    # (auto-emitted when `expose_venv = True` is set): the sibling's
+    # launcher file lands at `bazel-bin/<pkg>/<name>.venv`, while any
+    # internal venv tree lives under `bazel-bin/<pkg>/.<name>.venv/`.
+    # Different filesystem paths, no collision.
     site_packages_rel = "{}/lib/{}/site-packages".format(venv_name, venv_py_ver)
 
     # site_packages_rfpath → install_tree, used only by the regular-package
     # merge action below. The per-top-level symlinks and .pth lines locate
     # each wheel by its runfiles path directly, not through this map.
-    wheels_with_trees = [w for w in wheels if getattr(w, "install_tree", None) != None]
-    tree_by_sp = {w.site_packages_rfpath: w.install_tree for w in wheels_with_trees}
+    tree_by_sp = {w.site_packages_rfpath: w.install_tree for w in wheels}
 
     # site_packages_rfpath → True for wheels whose top-level layout is known
     # (they declare `top_levels`), so the per-top-level symlink loop projects
@@ -633,18 +628,10 @@ def assemble_venv(
     # package's `__path__` to; the per-wheel originals are shadowed.
     #
     # The merge runs as a build action under the exec-configuration
-    # interpreter (same shape as WhlInstall's unpack action). Wheels
-    # without an install_tree (legacy py_unpacked_wheel) can't
-    # contribute — they also never carry the metadata that forms a
-    # merge group, so they can't appear here.
+    # interpreter (same shape as WhlInstall's unpack action). Every
+    # PyWheelsInfo record carries an install_tree (see providers.bzl),
+    # so each contributing wheel resolves in tree_by_sp.
     for group in merge_groups:
-        if site_merge_script_py == None:
-            fail(("{}: wheels {} all contribute to the regular package `{}` — merging it " +
-                  "requires the venv rule to supply the site_merge tool.").format(
-                ctx.label,
-                group.site_packages_list,
-                group.root,
-            ))
         exec_toolchain = ctx.toolchains[EXEC_TOOLS_TOOLCHAIN]
         exec_runtime = exec_toolchain.exec_tools.exec_runtime if exec_toolchain else None
         if exec_runtime == None:
@@ -666,13 +653,7 @@ def assemble_venv(
         arguments.add("--collision-policy", package_collisions)
         trees = []
         for sp in group.site_packages_list:
-            tree = tree_by_sp.get(sp)
-            if tree == None:
-                fail("{}: wheel at {} contributes to merged package `{}` but has no install_tree.".format(
-                    ctx.label,
-                    sp,
-                    group.root,
-                ))
+            tree = tree_by_sp[sp]
             trees.append(tree)
             arguments.add_all(
                 [tree],
