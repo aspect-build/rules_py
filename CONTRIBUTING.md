@@ -39,15 +39,15 @@ Run `bazel run //:gazelle` to keep them up-to-date.
 ## Using this as a development dependency of other rules
 
 You'll commonly find that you develop in another Bazel module, such as
-some other ruleset that depends on rules_py, or in a nested module in
-the integration_tests folder.
+some other ruleset that depends on rules_py, or in a nested module under
+the `e2e/` folder.
 
 To always tell Bazel to use this directory rather than some release
-artifact or a version fetched from the internet, run this from this
-directory:
+artifact or a version fetched from the internet, run this from the
+root of the rules_py checkout:
 
 ```sh
-OVERRIDE="--override_module=aspect_rules_py=$(pwd)/rules_py"
+OVERRIDE="--override_module=aspect_rules_py=$(pwd)"
 echo "common $OVERRIDE" >> ~/.bazelrc
 ```
 
@@ -70,8 +70,8 @@ version configured in `MODULE.bazel`.
 
 ### On your `$PATH` via `bazel_env.bzl`
 
-`//tools:bazel_env` maps `uv` (and `cargo`, `rustc`, `rustfmt`, multitool
-binaries) to Bazel labels and materializes them into
+`//tools:bazel_env` maps `uv` (and the multitool binaries) to Bazel
+labels and materializes them into
 `bazel-out/bazel_env-opt/bin/tools/bazel_env/bin/`. Pair it with
 [direnv](https://direnv.net/):
 

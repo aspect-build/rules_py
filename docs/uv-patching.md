@@ -27,7 +27,7 @@ The patching features require a `patch` binary (from diffutils) available on the
 The most common case is fixing an installed package. For example, many NVIDIA packages ship a conflicting `nvidia/__init__.py` that causes import errors when multiple NVIDIA packages are installed together:
 
 ```starlark
-uv = use_extension("@aspect_rules_py//uv:extension.bzl", "uv")
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 
 uv.override_package(
     lock = "//:uv.lock",
