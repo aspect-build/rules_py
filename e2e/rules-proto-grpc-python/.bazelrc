@@ -7,11 +7,6 @@ import %workspace%/../../bazel/defaults.bazelrc
 common:ci --remote_download_outputs=minimal
 common:ci --nobuild_runfile_links
 
-# This module does not commit a MODULE.bazel.lock — see the repo-root
-# .gitignore. Overrides the preset's `common:ci --lockfile_mode=error`, so it
-# must come after the import above.
-common:ci --lockfile_mode=off
-
 # protobuf's prebuilt-protoc toolchain (@protobuf//bazel/private/oss/toolchains/
 # prebuilt) calls ctx.actions.run_shell without a `toolchain` parameter, which
 # fails analysis under the preset's --incompatible_auto_exec_groups. The other
