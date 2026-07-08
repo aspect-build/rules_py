@@ -703,12 +703,22 @@ def assemble_venv(
     # rules_python pip wheels (both stage content at their rfpath).
     # `/`-joined top-levels (merged namespace packages, e.g.
     # `jaraco/functools`) need one extra `..` per segment.
+    # This loop runs per (binary x top-level); build the target paths from
+    # a cached per-wheel prefix rather than formatting every component.
+    site_packages_prefix = site_packages_rel + "/"
+    target_prefix_by_sp = {}
     for tl, wheel_site_pkgs in top_level_to_site_pkgs.items():
-        out = ctx.actions.declare_symlink("{}/{}".format(site_packages_rel, tl))
-        extra_up = "../" * tl.count("/")
+        out = ctx.actions.declare_symlink(site_packages_prefix + tl)
+        target_prefix = target_prefix_by_sp.get(wheel_site_pkgs)
+        if target_prefix == None:
+            target_prefix = escape + "/" + wheel_site_pkgs + "/"
+            target_prefix_by_sp[wheel_site_pkgs] = target_prefix
+        target_path = target_prefix + tl
+        if "/" in tl:
+            target_path = "../" * tl.count("/") + target_path
         ctx.actions.symlink(
             output = out,
-            target_path = "{}{}/{}/{}".format(extra_up, escape, wheel_site_pkgs, tl),
+            target_path = target_path,
         )
         declared.append(out)
 
