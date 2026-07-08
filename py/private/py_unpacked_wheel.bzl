@@ -1,7 +1,7 @@
 """Unpacks a Python wheel into a directory and returns a PyInfo provider that represents that wheel"""
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
-load("//py/private:providers.bzl", "PyWheelsInfo")
+load("//py/private:providers.bzl", "PyWheelsInfo", "make_wheel_record")
 load("//py/private:pth.bzl", "make_imports_depset")
 load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
@@ -80,12 +80,12 @@ def _py_unpacked_wheel_impl(ctx):
     ]
 
     providers.append(PyWheelsInfo(
-        wheels = depset(direct = [struct(
-            top_levels = tuple(ctx.attr.top_levels),
-            namespace_top_levels = tuple(ctx.attr.namespace_top_levels),
-            namespace_entries = tuple(ctx.attr.namespace_entries),
+        wheels = depset(direct = [make_wheel_record(
+            top_levels = ctx.attr.top_levels,
+            namespace_top_levels = ctx.attr.namespace_top_levels,
+            namespace_entries = ctx.attr.namespace_entries,
             site_packages_rfpath = site_packages_rfpath,
-            console_scripts = tuple(ctx.attr.console_scripts),
+            console_scripts = ctx.attr.console_scripts,
             # See whl_install rule for the rationale.
             install_tree = unpack_directory,
         )]),

@@ -2,7 +2,7 @@
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("//py:defs.bzl", "py_binary", "py_library", "py_test")
-load("//py/private:providers.bzl", "PyWheelsInfo")
+load("//py/private:providers.bzl", "PyWheelsInfo", "make_wheel_record")
 load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
 
@@ -50,14 +50,13 @@ printf 'VALUE = "namespace"\n' > "$site/mixed_top/from_namespace.py"
         ]
         if segment
     ] + ["lib/python{}.{}/site-packages".format(major, minor)])
-    wheel = struct(
+    wheel = make_wheel_record(
         top_levels = top_levels,
         namespace_top_levels = namespace_top_levels,
         namespace_entries = namespace_entries,
         namespace_dirs = namespace_dirs,
         regular_roots = regular_roots,
         site_packages_rfpath = site_packages,
-        console_scripts = (),
         install_tree = install_tree,
     )
     return [
@@ -138,12 +137,10 @@ printf 'VALUE = %s\n' "$4" > "$site/collision_order.py"
         ]
         if segment
     ] + ["lib/python{}.{}/site-packages".format(major, minor)])
-    wheel = struct(
+    wheel = make_wheel_record(
         top_levels = top_levels,
         namespace_top_levels = namespace_top_levels,
         namespace_entries = namespace_entries,
-        namespace_dirs = (),
-        regular_roots = (),
         site_packages_rfpath = site_packages,
         console_scripts = console_scripts,
         install_tree = install_tree,
