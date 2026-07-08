@@ -455,6 +455,44 @@ def collision_order_test_suite():
         ],
     )
 
+    # Distinct-metadata native collision: the losing native claimant must
+    # keep its .pth fallback (so the regular winner's extend_path __init__
+    # can reach the graft) even when a third wheel places it before the
+    # end of the global metadata-claimant order. Guards against computing
+    # duplicate-metadata losers across all entries instead of per entry.
+    _wheel(
+        name = "_distinct_graft_regular",
+        extend_path = True,
+        metadata_only = True,
+        regular = True,
+        value = "dfirst",
+        tags = ["manual"],
+    )
+    _wheel(
+        name = "_distinct_graft_native",
+        metadata_only = True,
+        native_namespace = True,
+        value = "dsecond",
+        tags = ["manual"],
+    )
+    _wheel(
+        name = "_distinct_graft_third",
+        metadata_only = True,
+        value = "dthird",
+        tags = ["manual"],
+    )
+    py_test(
+        name = "distinct_metadata_graft_test",
+        srcs = ["test_distinct_graft.py"],
+        main = "test_distinct_graft.py",
+        package_collisions = "ignore",
+        deps = [
+            ":_distinct_graft_regular",
+            ":_distinct_graft_native",
+            ":_distinct_graft_third",
+        ],
+    )
+
     _wheel(
         name = "_native_duplicate_graft_first",
         metadata_name = "collision_native_graft-1.0.dist-info",
