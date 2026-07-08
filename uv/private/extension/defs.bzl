@@ -212,9 +212,6 @@ def _parse_projects(module_ctx, hub_specs):
             # Read these from the project or honor the module state
             project_name = project.name or project_data["project"]["name"]
 
-            # FIXME: Error if this wasn't provided and the version is marked as dynamic
-            project_version = project.version or project_data["project"]["version"]
-
             if project.hub_name not in hub_specs:
                 fail("Project {} in {} refers to hub {} which is not configured for that module. Please declare it.".format(project_name, mod.name, project.hub_name))
 

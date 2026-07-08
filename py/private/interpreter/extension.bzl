@@ -1,6 +1,7 @@
 """Module extension for provisioning Python interpreters from python-build-standalone."""
 
 load(":repository.bzl", "python_interpreter", "python_toolchains")
+load(":sanitize.bzl", "sanitize")
 load(":version_util.bzl", "is_decimal", "is_pre_release", "version_gt")
 load(":versions.bzl", "DEFAULT_RELEASE_BASE_URL", "DEFAULT_RELEASE_DATES", "PLATFORMS", "RUNTIME_MODES")
 
@@ -10,10 +11,6 @@ _GITHUB_API_LATEST = "https://api.github.com/repos/{owner}/{repo}/releases/lates
 # Facts can outlive an extension implementation change, so index shape changes
 # must use a new key rather than accepting cached data from the old schema.
 _RELEASE_INDEX_SCHEMA = 1
-
-def _sanitize(s):
-    """Replace characters that are invalid in Bazel repo names."""
-    return s.replace(".", "_").replace("-", "_").replace("+", "_")
 
 def _parse_sha256sums(content, release_date):
     """Parse a SHA256SUMS file into a structured index.
@@ -300,11 +297,11 @@ def _python_interpreters_impl(module_ctx):
         for mode_name, mode_info in ordered_modes:
             for platform_triple, platform_info in PLATFORMS.items():
                 repo_name = "python_{}_{}".format(
-                    _sanitize(major_minor),
-                    _sanitize(platform_triple),
+                    sanitize(major_minor),
+                    sanitize(platform_triple),
                 )
                 if mode_name != "install_only":
-                    repo_name += "_" + _sanitize(mode_name)
+                    repo_name += "_" + sanitize(mode_name)
 
                 # Find the best release for this version/platform/mode
                 asset_info = _find_asset(

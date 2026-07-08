@@ -17,6 +17,7 @@ bzl_library(
     deps = [
         ":exclude_feature_bzl",
         ":repository",
+        ":sanitize",
         ":version_util",
         ":versions",
     ],
@@ -97,6 +98,12 @@ bzl_library(
 bzl_library(
     name = "resolve",
     srcs = ["resolve.bzl"],
+    deps = [":sanitize"],
+)
+
+bzl_library(
+    name = "sanitize",
+    srcs = ["sanitize.bzl"],
 )
 
 bzl_library(
