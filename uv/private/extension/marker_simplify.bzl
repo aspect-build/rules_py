@@ -43,7 +43,8 @@ def simplify_extra_marker(marker, extras):
                 # reduced to true but other terms were unresolved.
                 seen_true = True
                 break
-            residuals.append(result)
+            if result not in residuals:
+                residuals.append(result)
         else:
             fail("Unexpected marker evaluation result for {}: {}".format(marker, result))
 

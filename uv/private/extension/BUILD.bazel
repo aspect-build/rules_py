@@ -1,8 +1,11 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load(":test_graph_utils.bzl", "graph_utils_test_suite")
+load(":test_marker_simplify.bzl", "marker_simplify_test_suite")
 load(":test_projectfile.bzl", "projectfile_test_suite")
 
 graph_utils_test_suite()
+
+marker_simplify_test_suite()
 
 projectfile_test_suite()
 
@@ -74,6 +77,16 @@ bzl_library(
     visibility = ["//uv:__subpackages__"],
     deps = [
         ":graph_utils",
+        "@bazel_skylib//lib:unittest",
+    ],
+)
+
+bzl_library(
+    name = "test_marker_simplify",
+    srcs = ["test_marker_simplify.bzl"],
+    visibility = ["//uv:__subpackages__"],
+    deps = [
+        ":marker_simplify",
         "@bazel_skylib//lib:unittest",
     ],
 )
