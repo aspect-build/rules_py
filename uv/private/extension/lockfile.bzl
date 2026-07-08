@@ -235,9 +235,7 @@ def collect_bdists(lock_data):
 
 def collect_sdists(
         lock_id,
-        lock_data,
-        # FIXME: Need some sort of policy engine/input here
-        allow_git_to_http_conversion = True):
+        lock_data):
     """Collects all source distributions (sdists) from a lockfile.
 
     Args:
@@ -268,7 +266,7 @@ def collect_sdists(
 
             sdist_table[k] = "@{}//file".format(sdist_repo_name)
             sdist_cfg = try_git_to_http_archive(git_cfg)
-            if allow_git_to_http_conversion and sdist_cfg:
+            if sdist_cfg:
                 sdist_specs[sdist_repo_name] = {"file": sdist_cfg}
 
             else:

@@ -6,13 +6,11 @@ module-extension time (or repository-rule time) when a Python interpreter is
 needed for repo-phase tooling such as sdist inspection.
 """
 
+load(":sanitize.bzl", "sanitize")
+
 # The Python version to resolve. Must be configured via the
 # python_interpreters extension in the root MODULE.bazel.
 _PBS_PYTHON_VERSION = "3.13"
-
-def _sanitize(s):
-    """Replace characters invalid in Bazel repo names with underscores."""
-    return s.replace(".", "_").replace("-", "_").replace("+", "_")
 
 def _host_platform_triple(ctx):
     """Determine the PBS platform triple for the current host.
@@ -73,7 +71,7 @@ def resolve_host_interpreter_label(ctx):
     binary = "python.exe" if is_windows else "bin/python3"
 
     repo_name = "python_{}_{}".format(
-        _sanitize(_PBS_PYTHON_VERSION),
-        _sanitize(triple),
+        sanitize(_PBS_PYTHON_VERSION),
+        sanitize(triple),
     )
     return Label("@{}//:{}".format(repo_name, binary))

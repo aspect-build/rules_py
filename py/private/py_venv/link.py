@@ -42,7 +42,7 @@ if __name__ == "__main__":
 
     virtualenv_name = virtualenv_home.name
     builddir = os.path.normpath(os.environ["BUILD_WORKING_DIRECTORY"])
-    target_package, target_name = os.environ["BAZEL_TARGET"].split("//", 1)[1].split(":")
+    target_package = os.environ["BAZEL_TARGET"].split("//", 1)[1].split(":")[0]
 
     PARSER = argparse.ArgumentParser(
         prog="link",

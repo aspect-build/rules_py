@@ -85,7 +85,6 @@ def _resolve_toolchain(ctx):
         python = interpreter,
         interpreter_version_info = interpreter_version_info,
         runfiles_interpreter = runfiles_interpreter,
-        flags = _INTERPRETER_FLAGS,
         freethreaded = freethreaded,
     )
 
