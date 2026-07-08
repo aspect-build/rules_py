@@ -167,14 +167,19 @@ def collect_configurations(lock):
         for whl in package.get("wheels", []):
             wheel_files[url_basename(whl["url"])] = 1
 
-    abi_tags = {}
-    platform_tags = {}
-    python_tags = {}
+    # Configurations depend only on a wheel's trailing tag triple
+    # ({python}-{abi}-{platform}.whl); a large lock has thousands of wheel
+    # files but only a few dozen distinct triples, so parse and expand one
+    # representative wheel per triple.
+    tag_triples = {}
+    for wheel_name in wheel_files.keys():
+        parts = wheel_name.rsplit("-", 3)
+        tag_triples["-".join(parts[1:]) if len(parts) == 4 else wheel_name] = wheel_name
 
     # Platform definitions from groups of configs
     configurations = {}
 
-    for wheel_name in wheel_files.keys():
+    for wheel_name in tag_triples.values():
         parsed_wheel = parse_whl_name(wheel_name)
         for python_tag in parsed_wheel.python_tags:
             # Ignore configurations for unsupported interpreters
@@ -186,17 +191,11 @@ def collect_configurations(lock):
                 if not supported_platform(platform_tag):
                     continue
 
-                platform_tags[platform_tag] = 1
-
                 for abi_tag in parsed_wheel.abi_tags:
-                    abi_tags[abi_tag] = 1
-
                     # Mirror the abi3 expansion `_whl_install_impl` does
                     # via `compatible_python_tags`, so every triple it
                     # references has a matching config_setting here.
                     for cfg_python_tag in compatible_python_tags(python_tag, abi_tag):
-                        python_tags[cfg_python_tag] = 1
-
                         # Note that we are NOT filtering out
                         # impossible/unsatisfiable python+abi tag
                         # possibilities. It's not aesthetic but it is
