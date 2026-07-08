@@ -110,3 +110,10 @@ bzl_library(
     srcs = ["git_utils.bzl"],
     visibility = ["//uv:__subpackages__"],
 )
+
+bzl_library(
+    name = "marker_simplify",
+    srcs = ["marker_simplify.bzl"],
+    visibility = ["//uv:__subpackages__"],
+    deps = ["//uv/private/markers:pep508_evaluate"],
+)
