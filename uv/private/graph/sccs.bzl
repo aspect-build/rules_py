@@ -27,24 +27,29 @@ def sccs(graph):
     visited = {node: 0 for node in nodes}
     for node in nodes:
         if visited[node] == 0:
-            stack = [node]
+            # Stack frames are [node, cursor] so neighbor scans resume
+            # where they left off, keeping the traversal O(V + E).
+            stack = [[node, 0]]
             visited[node] = 1
             for _ in range(bound):
                 if not stack:
                     break
 
-                current_node = stack[-1]
+                frame = stack[-1]
+                current_node = frame[0]
+                neighbors = graph.get(current_node, [])
 
-                # Find an unvisited neighbor
+                # Find an unvisited neighbor, starting from the cursor
                 unvisited_neighbor = None
-                for neighbor in graph.get(current_node, []):
-                    if visited[neighbor] == 0:
-                        unvisited_neighbor = neighbor
+                for i in range(frame[1], len(neighbors)):
+                    if visited[neighbors[i]] == 0:
+                        unvisited_neighbor = neighbors[i]
+                        frame[1] = i + 1
                         break
 
                 if unvisited_neighbor:
                     visited[unvisited_neighbor] = 1
-                    stack.append(unvisited_neighbor)
+                    stack.append([unvisited_neighbor, 0])
                 else:
                     # All neighbors visited, so we are done with this node
                     stack.pop()

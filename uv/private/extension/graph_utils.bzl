@@ -57,16 +57,18 @@ def collect_sccs(marker_graph, id_state = None):
 
     graph_components = sccs(simplified_graph)
 
-    # Now we need to rebuild markers for intra-scc deps
-    # Data structure to hold scc_members and their raw deps
+    # Split each SCC's edges into external deps and intra-member deps in
+    # one pass, merging markers per target.
     scc_info_list = []
     for scc_members in graph_components:
+        member_set = {m: True for m in scc_members}
         raw_scc_deps = {}
+        intra_deps = {}
         for member in scc_members:
             for dep, markers in marker_graph.get(member, {}).items():
-                if dep not in scc_members:  # Only consider external dependencies
-                    raw_scc_deps.setdefault(dep, {}).update(markers)
-        scc_info_list.append((scc_members, raw_scc_deps))
+                target = intra_deps if dep in member_set else raw_scc_deps
+                target.setdefault(dep, {}).update(markers)
+        scc_info_list.append((scc_members, raw_scc_deps, intra_deps))
 
     new_scc_graph = {}
     dep_to_scc = {}
@@ -77,7 +79,7 @@ def collect_sccs(marker_graph, id_state = None):
     interned_ids = id_state.setdefault("ids", {})
     id_stems = id_state.setdefault("stems", {})
 
-    for scc_members, raw_scc_deps in scc_info_list:
+    for scc_members, raw_scc_deps, intra_deps in scc_info_list:
         # Intern the scc_id by full content: distinct (members, deps, markers)
         # content must map to distinct ids, identical content to one id.
         content_key = repr(sorted(scc_members)) + ";" + repr(sorted(raw_scc_deps.items()))
@@ -96,14 +98,9 @@ def collect_sccs(marker_graph, id_state = None):
         # Populate final_scc_deps
         final_scc_deps[new_scc_id] = raw_scc_deps
 
-        # Now, rebuild markers for intra-scc deps for the new_scc_graph
-        for start in scc_members:
-            for next in scc_members:
-                # Note that we DO NOT provide a default marker here because this
-                # is a dependency edge which may not actually exist and we don't
-                # want to falsely insert edges/markers.
-                next_marks = marker_graph.get(start, {}).get(next, {})
-                new_scc_graph[new_scc_id][next].update(next_marks)
+        # Merge the intra-member markers collected in the split above.
+        for next, next_marks in intra_deps.items():
+            new_scc_graph[new_scc_id][next].update(next_marks)
 
         # Ensure that everything has at least the no-op marker
         for next in scc_members:
