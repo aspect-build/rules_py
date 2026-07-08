@@ -5,6 +5,7 @@ Machinery specific to interacting with a pyproject.toml
 load("//uv/private:normalize_name.bzl", "normalize_name")
 load("//uv/private/versions:versions.bzl", "find_matching_version")
 load(":dep_groups.bzl", "resolve_dependency_group_specs")
+load(":marker_simplify.bzl", "simplify_markers_for_extras")
 
 def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_map, package_versions = {}, preferred_versions = {}):
     """Parses a requirement string into a list of dependency-marker pairs.
@@ -214,6 +215,10 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
             it = worklist[idx]
             visited[it] = 1
 
+            # If we reached this node via an extra, any `extra == '...'` marker
+            # on outgoing edges can be resolved using that extra.
+            origin_extra = it[3] if it[3] != "__base__" else None
+
             for next_dep, markers in graph.get(it, {}).items():
                 pkg_name = next_dep[1]
                 pref = group_prefs.get(pkg_name)
@@ -223,7 +228,8 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
 
                 base = (target_dep[0], target_dep[1], target_dep[2], "__base__")
 
-                activated_extras.setdefault(base, {}).setdefault(group_name, {}).setdefault(target_dep, {}).update(markers)
+                simplified_markers = simplify_markers_for_extras(markers, [origin_extra]) if origin_extra else markers
+                activated_extras.setdefault(base, {}).setdefault(group_name, {}).setdefault(target_dep, {}).update(simplified_markers)
                 if target_dep not in visited:
                     visited[target_dep] = 1
                     worklist.append(target_dep)

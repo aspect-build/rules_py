@@ -1,5 +1,6 @@
 load("//uv/private:sha1.bzl", "sha1")
 load("//uv/private/graph:sccs.bzl", "sccs")
+load(":marker_simplify.bzl", "simplify_markers_for_extras")
 
 def collect_sccs(marker_graph):
     """Computes Strongly Connected Components (SCCs) for a dependency marker_graph.
@@ -139,11 +140,24 @@ def activate_extras(marker_graph, activated_extras, cfg):
         # For the current (base!) package, look up the closure of activated
         # extras and merge the _dependencies_ of those extras in.
         extras = activated_extras.get(pkg, {}).get(cfg, {})
+
+        # Collect the names of every extra that is active for this package in
+        # this configuration. We use them to resolve `extra == '...'` markers
+        # that come from optional dependencies, since at this point we already
+        # know which extras were requested.
+        active_extra_names = [dep[3] for dep in extras.keys() if dep[3] != "__base__"]
+
         for extra, extra_markers in extras.items():
             # Merge in deps from the requested extra
             for implied_dep, implied_markers in marker_graph.get(extra, {}).items():
                 # Normalize since the source graph isn't
                 normalized_implied_dep = (implied_dep[0], implied_dep[1], implied_dep[2], "__base__")
-                acc[pkg].setdefault(normalized_implied_dep, {}).update(combine_markers(extra_markers, implied_markers))
+
+                # Resolve any `extra` markers using the extras we know are
+                # active. This avoids relying on the venv-name heuristic in
+                # decide_marker later.
+                simplified_implied_markers = simplify_markers_for_extras(implied_markers, active_extra_names)
+                if simplified_implied_markers:
+                    acc[pkg].setdefault(normalized_implied_dep, {}).update(combine_markers(extra_markers, simplified_implied_markers))
 
     return acc

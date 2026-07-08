@@ -5,6 +5,7 @@
 load("@bazel_features//:features.bzl", features = "bazel_features")
 load("//uv/private:sha1.bzl", "sha1")
 load("//uv/private/pprint:defs.bzl", "pprint")
+load("//uv/private/extension:marker_simplify.bzl", "is_extra_only_marker")
 
 def indent(text, space = " "):
     return "\n".join(["{}{}".format(space, l) for l in text.splitlines()])
@@ -61,13 +62,24 @@ def _project_impl(repository_ctx):
     def _conditionalize(it, markers, cond_id_thunk, no_match = None):
         if "" in markers:
             return it
+        elif all([is_extra_only_marker(m) for m in markers.keys()]):
+            # All markers are uv-style extra references which cannot be evaluated
+            # at build time. Treat as unconditional since group/extra routing is
+            # already handled by the per-venv select() layer above.
+            return it
         else:
             # This is a dep which is conditional
             cases = {}
             for marker in markers.keys():
-                cases[_marker(marker)] = it
+                if is_extra_only_marker(marker):
+                    # Extra-only markers are resolved by the active venv, so they
+                    # match the default case.
+                    if "//conditions:default" not in cases:
+                        cases["//conditions:default"] = it
+                else:
+                    cases[_marker(marker)] = it
 
-            if no_match:
+            if no_match and "//conditions:default" not in cases:
                 cases["//conditions:default"] = no_match
 
             cond_id = cond_id_thunk()
@@ -143,13 +155,30 @@ load("@aspect_rules_py//py:defs.bzl", "py_library")
 
                     cfg_arms["//conditions:default"] = "//private/sccs:" + scc
 
+                elif all([is_extra_only_marker(m) for m in markers.keys()]):
+                    # Extra-only markers cannot be evaluated at build time; they
+                    # are already resolved by the active venv. Treat the SCC as
+                    # the default for this configuration.
+                    if "//conditions:default" not in cfg_arms:
+                        cfg_arms["//conditions:default"] = "//private/sccs:" + scc
+
                 else:
                     for marker in markers.keys():
-                        marker = _marker(marker)
-                        if marker in cfg_arms:
-                            fail("Configuration conflict! Package {} specifies two or more configurations for the same marker!\n{}".format(package, pprint(cfgs)))
+                        if is_extra_only_marker(marker):
+                            # Already resolved by the active venv.
+                            if "//conditions:default" not in cfg_arms:
+                                cfg_arms["//conditions:default"] = "//private/sccs:" + scc
+                        else:
+                            marker = _marker(marker)
+                            if marker in cfg_arms:
+                                fail("Configuration conflict! Package {} specifies two or more configurations for the same marker!\n{}".format(package, pprint(cfgs)))
 
-                        cfg_arms[marker] = "//private/sccs:" + scc
+                            cfg_arms[marker] = "//private/sccs:" + scc
+
+            # Ensure the alias resolves in exec configurations where the venv
+            # flag is not set. Pick any available arm as the default.
+            if cfg_arms and "//conditions:default" not in cfg_arms:
+                cfg_arms["//conditions:default"] = list(cfg_arms.values())[0]
 
             # Now we can just build one big choice alias from that arm set.
             content.append("""
@@ -160,7 +189,12 @@ alias(
 )
 """.format(name = cfg_name, arms = indent(pprint(cfg_arms), " " * 4).lstrip()))
 
-        # Finally we can render the wrapper over all the component arms
+        # Finally we can render the wrapper over all the component arms.
+        # Add a default condition so the alias resolves in exec configuration
+        # (e.g. when used as a build tool dependency for sdist compilation).
+        if main_arms and "//conditions:default" not in main_arms:
+            main_arms["//conditions:default"] = list(main_arms.values())[0]
+
         content.append("""
 alias(
     name = "{name}",
