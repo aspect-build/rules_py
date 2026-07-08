@@ -150,6 +150,15 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
         """
         return {k: True for k in keys}.keys()
 
+    def _distinct_by_sp(claimants):
+        """Last claim struct per claimant, keyed in first-claim (precedence) order.
+
+        Starlark dicts preserve insertion order and overwriting a key keeps
+        its position, so .keys() is exactly the distinct-claimant precedence
+        chain (last element wins) and .values() the matching claim structs.
+        """
+        return {c.site_packages: c for c in claimants}
+
     def _complain_chain(what, name, distinct):
         """Complain once per takeover along a distinct-claimant chain."""
         for i in range(1, len(distinct)):
@@ -159,6 +168,13 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
         """True when path equals or sits below any of roots."""
         for root in roots:
             if path == root or path.startswith(root + "/"):
+                return True
+        return False
+
+    def _covers(root, paths):
+        """True when any of paths equals or sits below root."""
+        for p in paths:
+            if p == root or p.startswith(root + "/"):
                 return True
         return False
 
@@ -214,7 +230,7 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
     conflicted_roots = {}  # root path -> True (regular package spanning wheels)
     ns_claimant_sps = {}  # sp -> True, wheels in any all-namespace collision
     for tl, claimants in tl_claimants.items():
-        distinct_sp = {c.site_packages: c for c in claimants}
+        distinct_sp = _distinct_by_sp(claimants)
         if len(distinct_sp) == 1:
             top_level_to_site_pkgs[tl] = claimants[0].site_packages
             continue
@@ -250,12 +266,11 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
 
             unique_claimants = distinct_sp.values()
 
-            native_candidates = {
-                root: True
+            native_candidates = [
+                root
                 for root in tl_conflicted_roots
-                for c in unique_claimants
-                if root in wheel_by_sp[c.site_packages].native_roots
-            }
+                if any([root in wheel_by_sp[c.site_packages].native_roots for c in unique_claimants])
+            ]
 
             # A native root owns every overlapping descendant. If a pure
             # conflicted root contains a native candidate, promote the outer
@@ -264,7 +279,7 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
             native_conflicted_roots = _shallowest([
                 root
                 for root in tl_conflicted_roots
-                if any([_under(nc, [root]) for nc in native_candidates])
+                if _covers(root, native_candidates)
             ])
 
             for root in tl_conflicted_roots:
@@ -301,8 +316,9 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
                     ]
                     if not regulars:
                         fail("{}: native conflicted root {} has no regular claimant.".format(ctx.label, root))
-                    top_level_to_site_pkgs[root] = regulars[-1].site_packages
-                    native_winner_by_root[root] = regulars[-1].site_packages
+                    winner_sp = regulars[-1].site_packages
+                    top_level_to_site_pkgs[root] = winner_sp
+                    native_winner_by_root[root] = winner_sp
 
                 for c in unique_claimants:
                     w = wheel_by_sp[c.site_packages]
@@ -310,7 +326,7 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
                         contributes = (
                             root in w.regular_roots or
                             root in w.namespace_dirs or
-                            any([_under(entry, [root]) for entry in c.ns_entries])
+                            _covers(root, c.ns_entries)
                         )
                         if contributes:
                             if (c.site_packages != winner_sp and
@@ -422,9 +438,6 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
                     covered_per_wheel.setdefault(c.site_packages, {})[tl] = True
             continue
 
-        # distinct_sp preserves first-claim order (overwriting a key keeps
-        # its position) while holding each claimant's last claim struct, so
-        # its keys are exactly the distinct-claimant precedence chain.
         _complain_chain("top-level", tl, distinct_sp.keys())
         distinct_claimants = distinct_sp.values()
 
@@ -489,7 +502,7 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
     # Pass 2b: console scripts.
     console_scripts_map = {}
     for name, claimants in cs_claimants.items():
-        distinct_sp = {c.site_packages: c for c in claimants}
+        distinct_sp = _distinct_by_sp(claimants)
         _complain_chain("console script", name, distinct_sp.keys())
         winner = distinct_sp.values()[-1]
         console_scripts_map[name] = struct(module = winner.module, func = winner.func)
