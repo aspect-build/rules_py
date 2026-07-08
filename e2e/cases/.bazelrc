@@ -35,7 +35,3 @@ build --experimental_output_paths=strip
 # Build without the bytes
 common:ci --remote_download_outputs=minimal
 common:ci --nobuild_runfile_links
-
-# Don't require a committed lockfile on CI — this workspace doesn't
-# commit MODULE.bazel.lock; see the root .gitignore.
-common:ci --lockfile_mode=off

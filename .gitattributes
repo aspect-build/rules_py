@@ -10,3 +10,6 @@ py/private/release/version.bzl export-subst
 # is data-only (the write_source_files rule lives in the parent BUILD.bazel),
 # so the whole tree can be marked generated.
 **/snapshots/** linguist-generated
+
+# MODULE lock files are generated
+MODULE.bazel.lock linguist-generated
