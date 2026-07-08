@@ -197,8 +197,6 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
     # entry makes every losing fallback unsound because metadata discovery
     # scans every sys.path entry. Cover only prior duplicate-metadata
     # claimants; the selected claimant still keeps fallback when needed.
-    # Losers are computed per entry: wheels that never share a declared
-    # entry are not duplicate-metadata losers.
     duplicate_metadata_loser_sps = {
         loser: True
         for claimants in metadata_claimants.values()
