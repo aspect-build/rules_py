@@ -3,7 +3,7 @@
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts", "unittest")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//py/private:providers.bzl", "PyWheelsInfo")
-load(":repository.bzl", "compatible_python_tags", "parse_console_script", "parse_record_path", "select_key", "site_packages_segments", "sort_select_arms", "source_specificity")
+load(":repository.bzl", "compatible_python_tags", "native_roots_for_segments", "parse_console_script", "parse_record_path", "select_key", "site_packages_segments", "sort_select_arms", "source_specificity")
 load(":rule.bzl", "source_built_wheel", "whl_install")
 
 def _whl_sorting_test_impl(ctx):
@@ -147,6 +147,51 @@ def _site_packages_segments_test_impl(ctx):
 
 site_packages_segments_test = unittest.make(_site_packages_segments_test_impl)
 
+def _native_roots_test_impl(ctx):
+    env = unittest.begin(ctx)
+    asserts.equals(
+        env,
+        ["cv2"],
+        native_roots_for_segments(["cv2", "cv2.abi3.so"]),
+    )
+    asserts.equals(
+        env,
+        ["pkg"],
+        native_roots_for_segments(["pkg", "native", "libfoo.so.1"]),
+    )
+
+    # Keep only roots exposed to collision planning. These stand in for a
+    # namespace skeleton root and a nested regular root; arbitrary directory
+    # ancestors are intentionally not emitted.
+    asserts.equals(
+        env,
+        ["pkg", "pkg/native", "pkg/native/deeper"],
+        native_roots_for_segments(
+            ["pkg", "native", "deeper", "libfoo.so.1"],
+            ["pkg/native", "pkg/native/deeper"],
+        ),
+    )
+    asserts.equals(
+        env,
+        ["pkg"],
+        native_roots_for_segments(["pkg", "native.pyd"]),
+    )
+    asserts.equals(
+        env,
+        ["pkg"],
+        native_roots_for_segments(["pkg", "native.dylib"]),
+    )
+    asserts.equals(
+        env,
+        ["pkg"],
+        native_roots_for_segments(["pkg", "native.dll"]),
+    )
+    asserts.equals(env, [], native_roots_for_segments(["native.so"]))
+    asserts.equals(env, [], native_roots_for_segments(["pkg", "native.so.txt"]))
+    return unittest.end(env)
+
+native_roots_test = unittest.make(_native_roots_test_impl)
+
 def _console_script_test_impl(ctx):
     env = unittest.begin(ctx)
 
@@ -222,6 +267,11 @@ _TOP_LEVELS = {
     ],
 }
 
+_TOP_LEVEL_DIRS = {
+    _LINUX_WHL: ["demo"],
+    _MACOS_WHL: ["demo", "demo_ns"],
+}
+
 _NAMESPACE_TOP_LEVELS = {
     _MACOS_WHL: ["demo_ns"],
 }
@@ -249,6 +299,14 @@ _REGULAR_ROOTS = {
     # Deliberately duplicates a namespace entry; the action should preserve
     # each analysis-visible path exactly once.
     _MACOS_WHL: ["demo_ns/part"],
+}
+
+_NATIVE_ROOTS = {
+    _LINUX_WHL: ["demo"],
+    _MACOS_WHL: [
+        "demo_ns",
+        "demo_ns/nested",
+    ],
 }
 
 _PATCHED_TOP_LEVELS = {
@@ -282,7 +340,9 @@ def _metadata_selection_test_impl(ctx):
     wheel = wheels[0]
     asserts.true(env, wheel.install_tree != None, "wheel record must retain its install tree")
     asserts.equals(env, tuple(ctx.attr.expected_top_levels), wheel.top_levels)
+    asserts.equals(env, tuple(ctx.attr.expected_top_level_dirs), wheel.top_level_dirs)
     asserts.equals(env, tuple(ctx.attr.expected_namespace_top_levels), wheel.namespace_top_levels)
+    asserts.equals(env, tuple(ctx.attr.expected_native_roots), wheel.native_roots)
     asserts.equals(env, tuple(ctx.attr.expected_console_scripts), wheel.console_scripts)
 
     # Explicit leak checks: surface belonging to the OTHER (inactive)
@@ -298,6 +358,12 @@ def _metadata_selection_test_impl(ctx):
             env,
             leaked in wheel.console_scripts,
             "console script '{}' from an inactive platform wheel leaked into the selected wheel's surface".format(leaked),
+        )
+    for leaked in ctx.attr.leaked_native_roots:
+        asserts.false(
+            env,
+            leaked in wheel.native_roots,
+            "native root '{}' from an inactive platform wheel leaked into the selected wheel's surface".format(leaked),
         )
 
     if ctx.attr.expected_preserve_paths:
@@ -317,9 +383,12 @@ _metadata_selection_test = analysistest.make(
     _metadata_selection_test_impl,
     attrs = {
         "expected_top_levels": attr.string_list(),
+        "expected_top_level_dirs": attr.string_list(),
         "expected_namespace_top_levels": attr.string_list(),
+        "expected_native_roots": attr.string_list(),
         "expected_console_scripts": attr.string_list(),
         "leaked_top_levels": attr.string_list(),
+        "leaked_native_roots": attr.string_list(),
         "leaked_console_scripts": attr.string_list(),
         "expected_preserve_paths": attr.string_list(),
     },
@@ -371,7 +440,9 @@ def metadata_selection_test_suite(name):
         namespace_dirs = _NAMESPACE_DIRS,
         namespace_entries = _PATCHED_NAMESPACE_ENTRIES,
         namespace_top_levels = _NAMESPACE_TOP_LEVELS,
+        native_roots = _NATIVE_ROOTS,
         patches = [":__metadata_noop_patch"],
+        top_level_dirs = _TOP_LEVEL_DIRS,
         regular_roots = _REGULAR_ROOTS,
         tags = ["manual"],
         top_levels = _PATCHED_TOP_LEVELS,
@@ -387,7 +458,9 @@ def metadata_selection_test_suite(name):
             testonly = True,
             src = src,
             top_levels = _TOP_LEVELS,
+            top_level_dirs = _TOP_LEVEL_DIRS,
             namespace_top_levels = _NAMESPACE_TOP_LEVELS,
+            native_roots = _NATIVE_ROOTS,
             console_scripts = _CONSOLE_SCRIPTS,
             tags = ["manual"],
         )
@@ -397,7 +470,9 @@ def metadata_selection_test_suite(name):
         testonly = True,
         src = ":__metadata_declared_sbuild_wheel",
         top_levels = _TOP_LEVELS,
+        top_level_dirs = _TOP_LEVEL_DIRS,
         namespace_top_levels = _NAMESPACE_TOP_LEVELS,
+        native_roots = _NATIVE_ROOTS,
         console_scripts = _CONSOLE_SCRIPTS,
         tags = ["manual"],
     )
@@ -406,12 +481,15 @@ def metadata_selection_test_suite(name):
         name = name + "_linux_test",
         target_under_test = ":__metadata_linux_fixture",
         expected_top_levels = _TOP_LEVELS[_LINUX_WHL],
+        expected_top_level_dirs = _TOP_LEVEL_DIRS[_LINUX_WHL],
         expected_namespace_top_levels = [],
+        expected_native_roots = _NATIVE_ROOTS[_LINUX_WHL],
         expected_console_scripts = _CONSOLE_SCRIPTS[_LINUX_WHL],
         leaked_top_levels = [
             "_demo_backend.cpython-311-darwin.so",
             "demo_ns",
         ],
+        leaked_native_roots = ["demo_ns/nested"],
         leaked_console_scripts = ["demo-mac=demo.cli:mac_main"],
     )
 
@@ -419,9 +497,12 @@ def metadata_selection_test_suite(name):
         name = name + "_macos_test",
         target_under_test = ":__metadata_macos_fixture",
         expected_top_levels = _TOP_LEVELS[_MACOS_WHL],
+        expected_top_level_dirs = _TOP_LEVEL_DIRS[_MACOS_WHL],
         expected_namespace_top_levels = _NAMESPACE_TOP_LEVELS[_MACOS_WHL],
+        expected_native_roots = _NATIVE_ROOTS[_MACOS_WHL],
         expected_console_scripts = _CONSOLE_SCRIPTS[_MACOS_WHL],
         leaked_top_levels = ["_demo_backend.cpython-311-x86_64-linux-gnu.so"],
+        leaked_native_roots = ["demo"],
         leaked_console_scripts = [],
     )
 
@@ -429,9 +510,12 @@ def metadata_selection_test_suite(name):
         name = name + "_sbuild_fallback_test",
         target_under_test = ":__metadata_sbuild_fixture",
         expected_top_levels = [],
+        expected_top_level_dirs = [],
         expected_namespace_top_levels = [],
+        expected_native_roots = [],
         expected_console_scripts = [],
         leaked_top_levels = [],
+        leaked_native_roots = [],
         leaked_console_scripts = [],
     )
 
@@ -439,9 +523,12 @@ def metadata_selection_test_suite(name):
         name = name + "_declared_sbuild_test",
         target_under_test = ":__metadata_declared_sbuild_fixture",
         expected_top_levels = [],
+        expected_top_level_dirs = [],
         expected_namespace_top_levels = [],
+        expected_native_roots = [],
         expected_console_scripts = _DECLARED_SBUILD_CONSOLE_SCRIPTS,
         leaked_top_levels = _TOP_LEVELS[_LINUX_WHL],
+        leaked_native_roots = _NATIVE_ROOTS[_LINUX_WHL],
         leaked_console_scripts = _CONSOLE_SCRIPTS[_LINUX_WHL],
     )
 
@@ -450,9 +537,12 @@ def metadata_selection_test_suite(name):
         target_under_test = ":__metadata_patched_fixture",
         expected_console_scripts = _CONSOLE_SCRIPTS[_MACOS_WHL],
         expected_namespace_top_levels = _NAMESPACE_TOP_LEVELS[_MACOS_WHL],
+        expected_native_roots = _NATIVE_ROOTS[_MACOS_WHL],
         expected_preserve_paths = _PATCHED_PRESERVE_PATHS,
         expected_top_levels = _PATCHED_TOP_LEVELS[_MACOS_WHL],
+        expected_top_level_dirs = _TOP_LEVEL_DIRS[_MACOS_WHL],
         leaked_console_scripts = [],
+        leaked_native_roots = [],
         leaked_top_levels = [],
     )
 
@@ -476,6 +566,10 @@ def whl_install_suite():
     unittest.suite(
         "site_packages_segments_tests",
         site_packages_segments_test,
+    )
+    unittest.suite(
+        "native_roots_tests",
+        native_roots_test,
     )
     unittest.suite(
         "console_script_tests",

@@ -1,0 +1,20 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+# PyJWT and jwt both ship a regular jwt/ package. PyJWT contributes
+# jwt/api_jwt.py while jwt contributes jwt/jwa.py. A winner-only top-level
+# symlink hides one side; a flat install and rules_py's physical merge keep
+# both modules reachable.
+py_test(
+    name = "test",
+    srcs = ["test.py"],
+    dep_group = "jwt-regular-collision",
+    expose_venv = True,
+    isolated = False,
+    main = "test.py",
+    package_collisions = "warning",
+    python_version = "3.11",
+    deps = [
+        "@pypi_jwt_regular_collision//jwt",
+        "@pypi_jwt_regular_collision//pyjwt",
+    ],
+)

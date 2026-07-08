@@ -1,0 +1,10 @@
+"""Regression: two real regular jwt/ packages must merge."""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_jwt_regular_collision")
+uv.project(
+    hub_name = "pypi_jwt_regular_collision",
+    lock = "//jwt-regular-collision:uv.lock",
+    pyproject = "//jwt-regular-collision:pyproject.toml",
+)
+use_repo(uv, "pypi_jwt_regular_collision")

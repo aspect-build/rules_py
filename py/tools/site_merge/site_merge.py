@@ -5,7 +5,8 @@ into a single output directory — the shape a flat `pip install` into one
 site-packages would produce.
 
 Needed when a *regular* package (one with an `__init__.py`) spans
-wheels: e.g. azure-core owns `azure/core/` while
+wheels or multiple wheels claim the same top-level package directory.
+For example, azure-core owns `azure/core/` while
 azure-core-tracing-opentelemetry installs
 `azure/core/tracing/ext/opentelemetry_span/` into that same tree.
 Python locks a regular package's `__path__` to the first directory
