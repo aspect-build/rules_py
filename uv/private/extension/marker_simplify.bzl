@@ -117,6 +117,7 @@ def is_extra_only_marker(marker):
         if token.startswith('"'):
             # Quoted string literal.
             continue
+
         # Any other token is an environment variable or unknown operator.
         return False
 

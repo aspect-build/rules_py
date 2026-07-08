@@ -4,8 +4,8 @@
 
 load("@bazel_features//:features.bzl", features = "bazel_features")
 load("//uv/private:sha1.bzl", "sha1")
-load("//uv/private/pprint:defs.bzl", "pprint")
 load("//uv/private/extension:marker_simplify.bzl", "is_extra_only_marker")
+load("//uv/private/pprint:defs.bzl", "pprint")
 
 def indent(text, space = " "):
     return "\n".join(["{}{}".format(space, l) for l in text.splitlines()])
