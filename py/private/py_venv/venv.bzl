@@ -229,6 +229,33 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
     merge_groups = []
     conflicted_roots = {}  # root path -> True (regular package spanning wheels)
     ns_claimant_sps = {}  # sp -> True, wheels in any all-namespace collision
+
+    def _own_entries(claimants_with_entries, tl, exclude_roots):
+        """Per-entry merge over the entries-bearing claimants of tl.
+
+        The last distinct wheel to claim an entry wins. An earlier wheel
+        shipping the same entry is a genuine collision (same subpackage
+        twice) — complain per policy and leave the earlier claimant on
+        the .pth path. Entries under exclude_roots are owned by either a
+        direct native projection or a physical merge and are not merged
+        here.
+        (An entryless claimant shipping the same subpackage can't be
+        detected here; the concrete symlink wins over its .pth portion.)
+        """
+        entry_owner = {}
+        for c in claimants_with_entries:
+            for entry in c.ns_entries:
+                if _under(entry, exclude_roots):
+                    continue
+                prior = entry_owner.get(entry)
+                if prior == None:
+                    entry_owner[entry] = c
+                elif prior.site_packages != c.site_packages:
+                    _complain("namespace entry", entry, prior.site_packages, c.site_packages)
+                    skipped_per_wheel.setdefault(prior.site_packages, {})[tl] = True
+                    entry_owner[entry] = c
+        return entry_owner
+
     for tl, claimants in tl_claimants.items():
         distinct_sp = _distinct_by_sp(claimants)
         if len(distinct_sp) == 1:
@@ -297,7 +324,7 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
             # concrete per-entry symlinks. Metadata-unknown wheels also need
             # .pth.
             if tl_conflicted_roots:
-                entried = [c for c in unique_claimants if c.ns_entries]
+                claimants_with_entries = [c for c in unique_claimants if c.ns_entries]
                 for c in unique_claimants:
                     if not c.ns_entries:
                         skipped_per_wheel.setdefault(c.site_packages, {})[tl] = True
@@ -333,23 +360,11 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
                                 c.site_packages not in duplicate_metadata_loser_sps):
                                 skipped_per_wheel.setdefault(c.site_packages, {})[tl] = True
 
-                if entried:
-                    entry_owner = {}
-                    for c in entried:
-                        for entry in c.ns_entries:
-                            # Skip entries owned by either a direct native
-                            # projection or a physical merge.
-                            if _under(entry, tl_conflicted_roots):
-                                continue
-                            prior = entry_owner.get(entry)
-                            if prior == None:
-                                entry_owner[entry] = c
-                            elif prior.site_packages != c.site_packages:
-                                _complain("namespace entry", entry, prior.site_packages, c.site_packages)
-                                entry_owner[entry] = c
+                if claimants_with_entries:
+                    entry_owner = _own_entries(claimants_with_entries, tl, tl_conflicted_roots)
                     for entry, c in entry_owner.items():
                         top_level_to_site_pkgs[entry] = c.site_packages
-                    for c in entried:
+                    for c in claimants_with_entries:
                         if tl not in skipped_per_wheel.get(c.site_packages, {}):
                             covered_per_wheel.setdefault(c.site_packages, {})[tl] = True
                 continue
@@ -365,30 +380,14 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
             # entryless wheel still resolves at import time. Only when NO
             # claimant has entries do we keep the historical .pth-only
             # fallback for the whole group.
-            entried = [c for c in unique_claimants if c.ns_entries]
+            claimants_with_entries = [c for c in unique_claimants if c.ns_entries]
             for c in unique_claimants:
                 if not c.ns_entries:
                     skipped_per_wheel.setdefault(c.site_packages, {})[tl] = True
-            if not entried:
+            if not claimants_with_entries:
                 continue
 
-            # Per-entry merge over the entries-bearing claimants: the last
-            # distinct wheel to claim an entry wins. An earlier wheel shipping
-            # the same entry is a genuine collision (same subpackage twice)
-            # — complain per policy and leave the earlier claimant on the
-            # .pth path.
-            # (An entryless claimant shipping the same subpackage can't be
-            # detected here; the concrete symlink wins over its .pth portion.)
-            entry_owner = {}
-            for c in entried:
-                for entry in c.ns_entries:
-                    prior = entry_owner.get(entry)
-                    if prior == None:
-                        entry_owner[entry] = c
-                    elif prior.site_packages != c.site_packages:
-                        _complain("namespace entry", entry, prior.site_packages, c.site_packages)
-                        skipped_per_wheel.setdefault(prior.site_packages, {})[tl] = True
-                        entry_owner[entry] = c
+            entry_owner = _own_entries(claimants_with_entries, tl, [])
 
             # A nested-namespace mismatch (wheel A ships
             # `google/cloud/__init__.py` while wheel B treats
@@ -433,7 +432,7 @@ def _resolve_wheel_collisions(ctx, wheels, package_collisions):
             # per-wheel coverage so pass 3 can drop them from the .pth
             # fallback. Entryless claimants stay in skipped_per_wheel
             # (routed to .pth above) and are intentionally excluded.
-            for c in entried:
+            for c in claimants_with_entries:
                 if tl not in skipped_per_wheel.get(c.site_packages, {}):
                     covered_per_wheel.setdefault(c.site_packages, {})[tl] = True
             continue
