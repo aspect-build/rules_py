@@ -149,7 +149,15 @@ def _extract_lockfile_group_versions(lock_id, lock_data):
                     result.setdefault(group_name, {})[pkg_name] = (lock_id, pkg_name, dep["version"], "__base__")
     return result
 
-def collect_activated_extras(projectfile, lock_id, project_data, lock_data, default_versions, graph, package_versions = {}):
+def collect_activated_extras(
+        projectfile,
+        lock_id,
+        project_data,
+        lock_data,
+        default_versions,
+        graph,
+        package_versions = {},
+        include_project_dependencies = True):
     """Collects the set of transitively activated extras for each configuration.
 
     This function determines the full set of extras that are activated for each
@@ -162,6 +170,10 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
         default_versions: A dictionary mapping package names to their default
             version dependency tuples.
         graph: The dependency graph, as returned by `build_marker_graph`.
+        include_project_dependencies: Whether requirements from
+            `project.dependencies` are included in every explicit dependency
+            group. Set to false to make named groups expose only their own
+            resolved requirements.
 
     Returns:
         A tuple containing:
@@ -172,12 +184,19 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
           `{dep: {cfg: {extra_dep: {marker: 1}}}}`.
     """
 
-    # If no dependency-groups are specified, use the lock members manifest, or just the self-list
+    # If no dependency-groups are specified, use the lock members manifest, or just the self-list.
+    # Otherwise, project dependencies are the common base of every explicit group
+    # unless the project explicitly opts out.
+    # PEP 735 groups add requirements to a project; they do not replace
+    # `project.dependencies`.
     dep_groups = project_data.get("dependency-groups", {
         project_data["project"]["name"]: lock_data.get("manifest", {}).get("members", [
             project_data["project"]["name"],
         ]),
     })
+    default_specs = project_data["project"].get("dependencies", []) if (
+        include_project_dependencies and "dependency-groups" in project_data
+    ) else []
 
     # Normalize dep groups to our dependency triples (graph keys)
     normalized_dep_groups = {}
@@ -190,7 +209,7 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
     lockfile_group_versions = _extract_lockfile_group_versions(lock_id, lock_data)
 
     for group_name in dep_groups.keys():
-        resolved_specs = resolve_dependency_group_specs(dep_groups, group_name)
+        resolved_specs = default_specs + resolve_dependency_group_specs(dep_groups, group_name)
 
         group_preferences = dict(lockfile_group_versions.get(group_name, {}))
 

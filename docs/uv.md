@@ -103,9 +103,14 @@ uv.override_package(
 use_repo(uv, "pypi")
 ```
 
-We can configure a default dependency group by setting the `dep_group` flag on our hub as part of the `.bazelrc`.
-Each `[dependency-group]` of the `pyproject.toml` is registered as a named dependency group.
-If no dependency groups are listed, an implicit default group with the name of the project itself is created.
+We can configure a default dependency group by setting the `dep_group` flag on
+our hub as part of the `.bazelrc`. Each entry in `[dependency-groups]` of the
+`pyproject.toml` is registered as a named dependency group. Requirements in
+`project.dependencies` remain available in every named group; each dependency
+group adds its own requirements to that shared base. Set
+`include_project_dependencies = False` on `uv.project()` when named groups
+should expose only their own requirements. If no dependency groups are listed,
+an implicit default group with the name of the project itself is created.
 
 ```
 # .bazelrc
