@@ -3,7 +3,7 @@
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts", "unittest")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//py/private:providers.bzl", "PyWheelsInfo")
-load(":repository.bzl", "compatible_python_tags", "parse_console_script", "parse_record_path", "select_key", "site_packages_segments", "sort_select_arms", "source_specificity")
+load(":repository.bzl", "compatible_python_tags", "parse_console_script", "parse_record_path", "pick_gazelle_index_whl", "select_key", "site_packages_segments", "sort_select_arms", "source_specificity")
 load(":rule.bzl", "source_built_wheel", "whl_install")
 
 def _whl_sorting_test_impl(ctx):
@@ -456,6 +456,145 @@ def metadata_selection_test_suite(name):
         leaked_top_levels = [],
     )
 
+# --- gazelle_index_whl host-aware selection ---------------------------------
+
+def _pick_gazelle_index_whl_prefers_any_test_impl(ctx):
+    env = unittest.begin(ctx)
+
+    prebuilds = {
+        "pkg-1.0-cp311-cp311-manylinux_2_17_x86_64.whl": "@linux//file",
+        "pkg-1.0-py3-none-any.whl": "@any//file",
+        "pkg-1.0-cp311-cp311-macosx_11_0_arm64.whl": "@mac//file",
+    }
+    asserts.equals(
+        env,
+        "@any//file",
+        pick_gazelle_index_whl(None, prebuilds, host_os = "linux", host_arch = "x86_64"),
+    )
+
+    return unittest.end(env)
+
+pick_gazelle_index_whl_prefers_any_test = unittest.make(
+    _pick_gazelle_index_whl_prefers_any_test_impl,
+)
+
+def _pick_gazelle_index_whl_linux_test_impl(ctx):
+    env = unittest.begin(ctx)
+
+    # Prefers the host-arch manylinux wheel over a foreign macOS wheel.
+    prebuilds_manylinux = {
+        "pkg-1.0-cp311-cp311-macosx_11_0_arm64.whl": "@mac//file",
+        "pkg-1.0-cp311-cp311-manylinux_2_17_x86_64.whl": "@linux//file",
+    }
+    asserts.equals(
+        env,
+        "@linux//file",
+        pick_gazelle_index_whl(None, prebuilds_manylinux, host_os = "linux", host_arch = "x86_64"),
+    )
+
+    # musllinux also matches a Linux host.
+    prebuilds_musl = {
+        "pkg-1.0-cp311-cp311-musllinux_1_2_aarch64.whl": "@musl//file",
+        "pkg-1.0-cp311-cp311-manylinux_2_17_x86_64.whl": "@linux//file",
+    }
+    asserts.equals(
+        env,
+        "@musl//file",
+        pick_gazelle_index_whl(None, prebuilds_musl, host_os = "linux", host_arch = "aarch64"),
+    )
+
+    # bare linux_* tag.
+    prebuilds_bare = {
+        "pkg-1.0-cp311-cp311-linux_aarch64.whl": "@bare//file",
+    }
+    asserts.equals(
+        env,
+        "@bare//file",
+        pick_gazelle_index_whl(None, prebuilds_bare, host_os = "linux", host_arch = "aarch64"),
+    )
+
+    return unittest.end(env)
+
+pick_gazelle_index_whl_linux_test = unittest.make(
+    _pick_gazelle_index_whl_linux_test_impl,
+)
+
+def _pick_gazelle_index_whl_macos_test_impl(ctx):
+    env = unittest.begin(ctx)
+
+    # arm64 host prefers the arm64-specific wheel.
+    prebuilds_arm = {
+        "pkg-1.0-cp311-cp311-macosx_10_9_x86_64.whl": "@mac_x86//file",
+        "pkg-1.0-cp311-cp311-macosx_11_0_arm64.whl": "@mac_arm//file",
+    }
+    asserts.equals(
+        env,
+        "@mac_arm//file",
+        pick_gazelle_index_whl(None, prebuilds_arm, host_os = "macos", host_arch = "aarch64"),
+    )
+
+    # universal2 covers both architectures.
+    prebuilds_universal = {
+        "pkg-1.0-cp311-cp311-macosx_11_0_universal2.whl": "@mac_univ//file",
+        "pkg-1.0-cp311-cp311-macosx_11_0_arm64.whl": "@mac_arm//file",
+    }
+    asserts.equals(
+        env,
+        "@mac_univ//file",
+        pick_gazelle_index_whl(None, prebuilds_universal, host_os = "macos", host_arch = "x86_64"),
+    )
+
+    return unittest.end(env)
+
+pick_gazelle_index_whl_macos_test = unittest.make(
+    _pick_gazelle_index_whl_macos_test_impl,
+)
+
+def _pick_gazelle_index_whl_windows_test_impl(ctx):
+    env = unittest.begin(ctx)
+
+    prebuilds = {
+        "pkg-1.0-cp311-cp311-win_amd64.whl": "@win_amd64//file",
+        "pkg-1.0-cp311-cp311-win_arm64.whl": "@win_arm64//file",
+        "pkg-1.0-cp311-cp311-win32.whl": "@win32//file",
+    }
+    asserts.equals(
+        env,
+        "@win_amd64//file",
+        pick_gazelle_index_whl(None, prebuilds, host_os = "windows", host_arch = "x86_64"),
+    )
+    asserts.equals(
+        env,
+        "@win_arm64//file",
+        pick_gazelle_index_whl(None, prebuilds, host_os = "windows", host_arch = "aarch64"),
+    )
+
+    return unittest.end(env)
+
+pick_gazelle_index_whl_windows_test = unittest.make(
+    _pick_gazelle_index_whl_windows_test_impl,
+)
+
+def _pick_gazelle_index_whl_fallback_test_impl(ctx):
+    env = unittest.begin(ctx)
+
+    # No host match: falls back to the first wheel in the lockfile order.
+    prebuilds = {
+        "pkg-1.0-cp311-cp311-macosx_11_0_arm64.whl": "@mac//file",
+        "pkg-1.0-cp311-cp311-win_amd64.whl": "@win//file",
+    }
+    asserts.equals(
+        env,
+        "@mac//file",
+        pick_gazelle_index_whl(None, prebuilds, host_os = "linux", host_arch = "x86_64"),
+    )
+
+    return unittest.end(env)
+
+pick_gazelle_index_whl_fallback_test = unittest.make(
+    _pick_gazelle_index_whl_fallback_test_impl,
+)
+
 def whl_install_suite():
     unittest.suite(
         "whl_sorting_tests",
@@ -480,4 +619,12 @@ def whl_install_suite():
     unittest.suite(
         "console_script_tests",
         console_script_test,
+    )
+    unittest.suite(
+        "pick_gazelle_index_whl_tests",
+        pick_gazelle_index_whl_prefers_any_test,
+        pick_gazelle_index_whl_linux_test,
+        pick_gazelle_index_whl_macos_test,
+        pick_gazelle_index_whl_windows_test,
+        pick_gazelle_index_whl_fallback_test,
     )

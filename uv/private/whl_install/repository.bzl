@@ -10,7 +10,7 @@ produce a filegroup/TreeArtifact.
 load("@bazel_features//:features.bzl", features = "bazel_features")
 load("//uv/private:parse_whl_name.bzl", "parse_whl_name")
 load("//uv/private/constraints:defs.bzl", "MAJORS", "MINORS")
-load("//uv/private/constraints/platform:defs.bzl", "supported_platform")
+load("//uv/private/constraints/platform:defs.bzl", "MACOS_ARCH_GROUPS", "WINDOWS_PLATFORMS", "supported_platform")
 load("//uv/private/constraints/python:defs.bzl", "supported_python")
 load("//uv/private/pprint:defs.bzl", "pprint")
 
@@ -446,6 +446,127 @@ def sort_select_arms(arms):
     pairs = sorted(arms.items(), key = lambda kv: select_key(kv[0]), reverse = True)
     return {a: b for a, b in pairs}
 
+def _detect_host_os(os_name):
+    """Map repository_ctx.os.name to a wheel-platform family."""
+    if os_name == "linux":
+        return "linux"
+    if os_name == "mac os x":
+        return "macos"
+    if os_name.startswith("windows"):
+        return "windows"
+    return None
+
+def _detect_host_arch(arch):
+    """Map repository_ctx.os.arch to the canonical wheel architecture suffix."""
+    return {
+        "amd64": "x86_64",
+        "x86_64": "x86_64",
+        "aarch64": "aarch64",
+        "arm64": "aarch64",
+    }.get(arch)
+
+def _platform_tag_arch(platform_tag):
+    """Extract the canonical CPU architecture from a wheel platform tag.
+
+    Returns None for tags that do not carry a parseable architecture (e.g.
+    bare "win32" or "any").
+    """
+    if platform_tag == "any":
+        return None
+
+    # linux_x86_64, linux_aarch64, ...
+    if platform_tag.startswith("linux_"):
+        arch = platform_tag[len("linux_"):]
+    else:
+        # manylinux_2_17_x86_64, musllinux_1_2_aarch64, macosx_11_0_arm64, ...
+        parts = platform_tag.split("_", 3)
+        if len(parts) == 4:
+            arch = parts[3]
+        else:
+            return None
+
+    # Normalize aliases so macOS "arm64" matches host "aarch64" and friends.
+    return {
+        "amd64": "x86_64",
+        "x86_64": "x86_64",
+        "aarch64": "aarch64",
+        "arm64": "aarch64",
+    }.get(arch, arch)
+
+def _platform_tag_matches_host(platform_tag, host_os, host_arch):
+    """Return True if a wheel platform tag is compatible with the host platform."""
+    if platform_tag == "any":
+        return True
+
+    if host_os == "linux":
+        if platform_tag.startswith("linux_"):
+            return _platform_tag_arch(platform_tag) == host_arch
+        if platform_tag.startswith("manylinux_") or platform_tag.startswith("musllinux_"):
+            return _platform_tag_arch(platform_tag) == host_arch
+        return False
+
+    if host_os == "macos":
+        if not platform_tag.startswith("macosx_"):
+            return False
+        arch = _platform_tag_arch(platform_tag)
+        if arch == host_arch:
+            return True
+        group_arches = MACOS_ARCH_GROUPS.get(arch)
+        if group_arches:
+            return host_arch in group_arches
+        return False
+
+    if host_os == "windows":
+        wheel_arch = WINDOWS_PLATFORMS.get(platform_tag)
+        return wheel_arch == host_arch
+
+    return False
+
+def pick_gazelle_index_whl(repository_ctx, prebuilds, host_os = None, host_arch = None):
+    """Pick a wheel for Gazelle indexing without fetching foreign platforms.
+
+    Any wheel of the package works for indexing, but prefer:
+      1. A pure-Python ``any`` wheel — small and platform-independent.
+      2. A wheel whose platform tags match the host OS/arch, because the build
+         or test is very likely to download that wheel already.
+      3. The first wheel in the lockfile as a deterministic fallback.
+
+    Args:
+      repository_ctx: the repository rule context (used for host detection when
+        ``host_os``/``host_arch`` are not supplied).
+      prebuilds: dict mapping wheel filename to wheel-file target label.
+      host_os: optional override for the host OS family ("linux", "macos",
+        "windows"); used by tests.
+      host_arch: optional override for the host CPU architecture ("x86_64",
+        "aarch64"); used by tests.
+
+    Returns:
+      The selected target label string.
+    """
+    if host_os == None:
+        host_os = _detect_host_os(repository_ctx.os.name)
+    if host_arch == None:
+        host_arch = _detect_host_arch(repository_ctx.os.arch)
+
+    any_wheel = None
+    host_wheel = None
+
+    for whl, target in prebuilds.items():
+        parsed = parse_whl_name(whl)
+        for platform_tag in parsed.platform_tags:
+            if platform_tag == "any":
+                if any_wheel == None:
+                    any_wheel = target
+            elif host_os and host_arch and _platform_tag_matches_host(platform_tag, host_os, host_arch):
+                if host_wheel == None:
+                    host_wheel = target
+                    break
+        if any_wheel and host_wheel:
+            # ``any`` is the cheapest possible index wheel; stop looking.
+            break
+
+    return any_wheel or host_wheel or prebuilds.values()[0]
+
 def compatible_python_tags(python_tag, abi_tag):
     if abi_tag != "abi3" or not python_tag.startswith("cp"):
         return [python_tag]
@@ -613,7 +734,7 @@ py_library(
         )
 
     if prebuilds:
-        gazelle_index_whl = prebuilds.values()[0]  # Effectively random choice :shrug:
+        gazelle_index_whl = pick_gazelle_index_whl(repository_ctx, prebuilds)
     elif default_target:
         gazelle_index_whl = default_target
     else:
