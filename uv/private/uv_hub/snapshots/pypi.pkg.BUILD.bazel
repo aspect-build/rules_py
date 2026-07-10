@@ -1,8 +1,6 @@
 load("//:defs.bzl", "compatible_with")
 
 
-# This target is for a "hard" dependency.
-# Dependencies on this target will cause build failures if it's unavailable.
 alias(
     name = "lib",
     actual = "pkg",
