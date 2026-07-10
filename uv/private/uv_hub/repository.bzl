@@ -245,7 +245,7 @@ def group_deps():
     # rules_py-specific additions belong in defs.bzl instead.
     content = []
     content.append("""
-load("@rules_python//python:pip.bzl", "pip_utils")
+load("@aspect_rules_py//uv/private:normalize_name.bzl", "normalize_name")
 
 all_requirements = {all_requirements}
 
@@ -256,7 +256,7 @@ all_whl_requirements = all_whl_requirements_by_package.values()
 all_data_requirements = all_requirements
 
 def requirement(name):
-    return "@@{repo_name}//{{0}}:pkg".format(pip_utils.normalize_name(name))
+    return "@@{repo_name}//{{0}}:pkg".format(normalize_name(name))
 """.format(
         all_requirements = repr([
             "@@{0}//{1}:pkg".format(repository_ctx.name, name)

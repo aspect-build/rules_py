@@ -19,7 +19,6 @@ Authored by Ignas, released as part of rules_python.
 Vendored and used here with thanks.
 """
 
-load("@rules_python//python/private:enum.bzl", "enum")
 load("//uv/private/versions:versions.bzl", "version_satisfies")
 load(":semver.bzl", "semver")
 
@@ -38,7 +37,7 @@ _VERSION_CMP = sorted(
     key = lambda x: (-len(x), x),
 )
 
-_STATE = enum(
+_STATE = struct(
     STRING = "string",
     VAR = "var",
     OP = "op",
