@@ -158,7 +158,6 @@ pep517_native_whl(
         "STRIP": "$(STRIP)",
         "JAVA_HOME": "$(JAVABASE)",
         "JAVA": "$(JAVA)",
-        "JAR": "$(JAVABASE)/bin/jar",
     },
     tags = ["manual"],
     tool = ":__stub_tool",
