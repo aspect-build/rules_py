@@ -18,7 +18,7 @@ file:
 
 ```starlark
 uv = use_extension("@aspect_rules_py//uv:extension.bzl", "uv")
-uv.hub(name = "uv")
+uv.declare_hub(hub_name = "uv")
 uv.project(
     hub_name = "uv",
     name = "my_project",
@@ -115,59 +115,66 @@ def parse_declared_console_script(name, entry_point):
     return parsed[1] if parsed != None else None
 
 def _merge_scc_dep_markers_by_surface_package(marked_deps):
+    """Merge SCC dep markers, re-keyed from lock tuple to surface package name.
+
+    SCC external deps are keyed by the fully versioned lock tuple, but the
+    generated hub targets key on the surface package alias. Merging across all
+    versions lets split dependencies (e.g. chdb -> pyarrow) preserve their full
+    platform coverage instead of overwriting each other.
+    """
     merged = {}
     for dep, markers in marked_deps.items():
-        # SCC external deps are keyed by the fully versioned lock tuple, but the
-        # generated hub targets depend on the surface package alias. Merge
-        # markers for all versions so split dependencies like chdb -> pyarrow
-        # preserve their full platform coverage instead of overwriting each other.
         merged.setdefault(dep[1], {}).update(markers)
     return merged
 
 def _parse_hubs(module_ctx):
-    """Parses `uv.hub()` declarations from all modules.
+    """Collect the set of hub names declared across all modules.
 
-    This function iterates through all the modules in the Bazel dependency graph
-    and collects the `uv.hub()` declarations. It produces a dictionary of hub
-    specifications that is used to validate project registrations.
+    The result is used only to validate that each `uv.project()` refers to a
+    declared hub. Uniqueness across repositories is deliberately NOT enforced:
+    the conventional `@pypi` hub may be referenced by many modules, since build
+    configuration is disambiguated on the venv, not the hub.
 
     Args:
         module_ctx: The Bazel module context.
 
     Returns:
-        A dictionary of hub specifications, keyed by hub name.
+        A dict whose keys are declared hub names (values are unused).
     """
-
-    # As with `rules_python` hub names have to be globally unique :/
     hub_specs = {}
 
     for mod in module_ctx.modules:
         for hub in mod.tags.declare_hub:
             hub_specs[hub.hub_name] = True
 
-    # Note that we ARE NOT validating that the same hub name is registered by
-    # one and only one repository. This allows `@pypi` which we think should be
-    # the one and only conventional hub to be referenced by many modules since
-    # we disambiguate the build configuration on the "venv" not the hub.
-
     return hub_specs
 
 def _parse_projects(module_ctx, hub_specs):
-    """Parses all `uv.project()` declarations from all modules.
+    """Resolve every `uv.project()` declaration into repository-rule inputs.
 
-    This function is the core of the module extension's logic. It iterates
-    through all the `uv.project()` declarations, parses the `pyproject.toml` and
-    `uv.lock` files, and builds up the complete dependency graph.
+    For each project the `pyproject.toml` and `uv.lock` are decoded, the
+    dependency graph and its strongly connected components are computed, and the
+    per-package install/build/override configuration is assembled.
 
     Args:
         module_ctx: The Bazel module context.
-        hub_specs: A dictionary of hub specifications, as returned by
-            `_parse_hubs`.
+        hub_specs: Hub names known to be declared, as returned by `_parse_hubs`;
+            used to reject projects that reference an undeclared hub.
 
     Returns:
-        A struct containing all the parsed information, including the dependency
-        graph, SCCs, and configurations for all the repository rules that need
-        to be generated.
+        A struct of the inputs consumed by `_uv_impl`, with fields:
+
+          - project_cfgs: `{project_id -> {dep_to_scc, scc_deps, scc_graph}}`
+            graph data, JSON-encoded downstream.
+          - hub_cfgs: `{hub_name -> {configurations, packages}}` aggregated
+            per-hub configuration/package surface.
+          - install_cfgs: `{whl_install key -> install struct}` wiring each
+            resolved package to its wheels, optional sbuild and patches.
+          - sbuild_cfgs: `{sbuild_id -> sdist_build struct}` for packages that
+            may build a wheel from source.
+          - whl_cfgs: platform configuration matrix for `configurations_hub`.
+          - sdist_cfgs / bdist_cfgs: `{name -> fetch spec}` for `http_file` /
+            `git_archive` downloads.
     """
 
     hub_cfgs = {}
@@ -186,8 +193,6 @@ def _parse_projects(module_ctx, hub_specs):
     install_table = {}
 
     # FIXME: Collect build deps files/annotations
-
-    # Collect all hubs, ensure we have no dupes
     for mod in module_ctx.modules:
         project_locks = {project.lock: True for project in mod.tags.project}
         for override in mod.tags.override_package:
@@ -202,14 +207,12 @@ def _parse_projects(module_ctx, hub_specs):
             project_data = toml.decode_file(module_ctx, project.pyproject)
             lock_data = toml.decode_file(module_ctx, project.lock)
 
-            # This SHOULD be stable enough.
-            # We'll rebuild the lock hub whenever the toml changes.
-            # Reusing the name is fine.
-            # project_stamp = sha1(str(project.pyproject))[:16]
+            # The stamp derives from the project name: stable across reloads and
+            # unique within a hub. Repository keys are rebuilt whenever the toml
+            # changes, so a human-readable stamp is safe to reuse.
             project_stamp = normalize_name(project_data["project"]["name"])
             project_id = "project__" + project_stamp
 
-            # Read these from the project or honor the module state
             project_name = project.name or project_data["project"]["name"]
 
             if project.hub_name not in hub_specs:
@@ -256,7 +259,6 @@ def _parse_projects(module_ctx, hub_specs):
                             if not skip:
                                 lock_build_dep_anns[k] = deps
 
-            # Collect package overrides, validating no duplicates per (lock, name, version).
             package_overrides = {}
             package_console_scripts = {}
             for override in mod.tags.override_package:
@@ -329,7 +331,6 @@ def _parse_projects(module_ctx, hub_specs):
                         print("Overriding {}@{} in {} with {}".format(override.name, v, project_name, override.target))
                     install_table[k] = str(override.target)
 
-            # Lazily evaluated cache
             lock_build_deps = None
 
             marker_graph = build_marker_graph(project_id, lock_data)
@@ -347,29 +348,26 @@ def _parse_projects(module_ctx, hub_specs):
             configuration_names, activated_extras = collect_activated_extras(project.lock, project_id, project_data, lock_data, default_versions, marker_graph, package_versions)
             version_activations = collate_versions_by_name(activated_extras)
 
-            # Mapping from SCC ID to marked SCC members
+            # SCC graph shapes:
+            #   scc_graph:        {scc_id -> {member -> markers}}
+            #   scc_deps:         {scc_id -> {dep -> markers}}
+            #   package_cfg_sccs: {package -> {cfg -> scc_id}}
             scc_graph = {}
-
-            # Mapping from SCC ID to marked SCC dependencies
             scc_deps = {}
-
-            # Mapping from package to cfg to the SCC for that package in that cfg
             package_cfg_sccs = {}
 
-            # Shared across configurations so identical SCC content keeps one
-            # id while content differing only in deps/markers stays distinct.
+            # Shared across configurations so SCCs with identical content share
+            # one id; content differing only in deps/markers stays distinct.
             scc_id_state = {}
             for cfg in configuration_names:
                 cfgd_marker_graph = activate_extras(marker_graph, activated_extras, cfg)
                 cfgd_dep_to_scc, cfgd_scc_graph, cfgd_scc_deps = collect_sccs(cfgd_marker_graph, scc_id_state)
 
-                # Aggregate the dependency graphs Note that this may be overly
-                # simplistic, since markers COULD vary per configured graph;
-                # ignoring that for now.
+                # Aggregated across configurations; markers that vary per graph
+                # are intentionally flattened here.
                 scc_graph.update(cfgd_scc_graph)
                 scc_deps.update(cfgd_scc_deps)
 
-                # This one's slightly tricky
                 for package, scc in cfgd_dep_to_scc.items():
                     package_cfg_sccs.setdefault(package, {})[cfg] = scc
 
@@ -377,7 +375,6 @@ def _parse_projects(module_ctx, hub_specs):
             for package, cfgs in version_activations.items():
                 for cfg, versions in cfgs.items():
                     for version, markers in versions.items():
-                        # Map the version to a scc in this configuration, while collecting version conditional markers
                         marked_package_cfg_sccs.setdefault(package, {}).setdefault(cfg, {}).setdefault(package_cfg_sccs[version][cfg], {}).update(markers)
 
             # Pre-build the per-project available_deps mapping from the
@@ -395,14 +392,13 @@ def _parse_projects(module_ctx, hub_specs):
                 )
                 project_available_deps[pkg_name] = "@{}//:install".format(pkg_stamp)
 
-            # Translate the package lock into installs for this project
             for package in lock_data.get("package", []):
                 install_key = (project_id, package["name"], package["version"], "__base__")
                 k = "whl_install__{}__{}__{}".format(project_stamp, package["name"], normalize_version(package["version"]))
                 install_target = "@{}//:install".format(k)
                 existing_target = install_table.get(install_key)
                 if existing_target != None and existing_target != install_target:
-                    # Case of an overridden package
+                    # Already populated by a uv.override_package(target=...); skip.
                     continue
                 elif "virtual" in package["source"]:
                     override_key = (normalize_name(package["name"]), package["version"])
@@ -410,7 +406,6 @@ def _parse_projects(module_ctx, hub_specs):
                         fail("Virtual package {} in lockfile {} cannot use a modification-only `uv.override_package()` annotation because it is not installed.".format(package["name"], project.lock))
                     continue
                 elif "editable" in package["source"]:
-                    # Case of the workspace self-package
                     if normalize_name(package["name"]) == normalize_name(project_name):
                         override_key = (normalize_name(package["name"]), package["version"])
                         if override_key in package_overrides:
@@ -484,7 +479,6 @@ def _parse_projects(module_ctx, hub_specs):
 
                     build_deps = sets.to_list(sets.make(build_deps + lock_build_deps))
 
-                    # Look up pre-build patches for this package
                     pre_build_patches = []
                     pre_build_patch_strip = 0
                     if pkg_override and pkg_override.pre_build_patches:
@@ -521,7 +515,6 @@ def _parse_projects(module_ctx, hub_specs):
 
                     has_sbuild = True
 
-                # Look up post-install patches and BUILD modifications
                 post_install_patches = []
                 post_install_patch_strip = 0
                 extra_deps = []
@@ -582,12 +575,11 @@ def _parse_projects(module_ctx, hub_specs):
                     extra_data = extra_data,
                 )
 
-            # Frustratingly we have to re-key all these structures so that they
-            # can be jsonified later. Note that the _key is a structured string
-            # which we can re-parse on the other side (sigh) so we DO NOT mangle
-            # them at all. Mangling will be done as needed on the other side(s).
+            # These structures are re-keyed into JSON-serializable shapes for the
+            # repo-rule boundary. Structured keys are preserved verbatim and
+            # re-parsed on the other side; mangling happens there as needed.
             #
-            # FIXME: Can we make a re-keying helper?
+            # FIXME: extract a re-keying helper.
             project_cfgs[project_id] = struct(
                 dep_to_scc = marked_package_cfg_sccs,
                 scc_deps = {
@@ -614,7 +606,6 @@ def _parse_projects(module_ctx, hub_specs):
                 if cfg in hub_cfg.configurations:
                     fail("Conflict on configuration name {} in hub {}".format(cfg, project.hub_name))
 
-            # Build a mapping from configurations to the project containing that configuration
             hub_cfg.configurations.update({
                 name: project_id
                 for name in configuration_names.keys()
@@ -640,7 +631,7 @@ def _uv_impl(module_ctx):
 
     This function is the main entry point for the module extension. It orchestrates
     the entire dependency resolution process, which includes:
-    - Parsing `uv.hub()` and `uv.project()` declarations.
+    - Parsing `uv.declare_hub()` and `uv.project()` declarations.
     - Generating repository rules for fetching and building all the declared
       dependencies.
     - Generating a `uv_project` repository rule for each pyproject.toml, which
@@ -711,7 +702,6 @@ def _uv_impl(module_ctx):
             "version": sbuild_cfg.version,
         }
 
-        # Use per-project custom configure command if provided, otherwise the default.
         if sbuild_cfg.configure_command:
             sbuild_kwargs["configure_command"] = sbuild_cfg.configure_command
         elif default_configure_command:
@@ -776,20 +766,39 @@ _hub_tag = tag_class(
     attrs = {
         "hub_name": attr.string(mandatory = True),
     },
+    doc = """Declare a named hub: a shared dependency namespace that `uv.project()` registrations bind to.""",
 )
 
 _project_tag = tag_class(
     attrs = {
-        "hub_name": attr.string(mandatory = True),
-        "name": attr.string(mandatory = False),
-        "version": attr.string(mandatory = False),
-        "pyproject": attr.label(mandatory = True),
-        "lock": attr.label(mandatory = True),
+        "hub_name": attr.string(
+            mandatory = True,
+            doc = "Name of a hub previously declared with `uv.declare_hub`.",
+        ),
+        "name": attr.string(
+            mandatory = False,
+            doc = "Override the project name; defaults to `[project].name` in `pyproject.toml`.",
+        ),
+        "version": attr.string(
+            mandatory = False,
+            doc = "Override the project version; defaults to `[project].version` in `pyproject.toml`.",
+        ),
+        "pyproject": attr.label(
+            mandatory = True,
+            doc = "The `pyproject.toml` describing this project.",
+        ),
+        "lock": attr.label(
+            mandatory = True,
+            doc = "The `uv.lock` pinning this project's dependency graph.",
+        ),
         "default_build_dependencies": attr.string_list(
             mandatory = False,
             default = [
                 "build",
             ],
+            doc = "Requirement names resolved from the lock and injected as build tools " +
+                  "for sdists that build a wheel. Only demanded when an sbuild is " +
+                  "guaranteed to be selected (forced builds or sdist-only packages).",
         ),
         "unstable_configure_command": attr.string_list(
             mandatory = False,
@@ -800,13 +809,21 @@ _project_tag = tag_class(
                   "See //uv/private/sdist_configure:defs.bzl for the contract.",
         ),
     },
+    doc = """Register a `pyproject.toml` + `uv.lock` pair into a hub, resolving the project's locked dependency graph.""",
 )
 
 _annotations_tag = tag_class(
     attrs = {
-        "lock": attr.label(mandatory = True),
-        "src": attr.label(mandatory = True),
+        "lock": attr.label(
+            mandatory = True,
+            doc = "The `uv.lock` these annotations apply to.",
+        ),
+        "src": attr.label(
+            mandatory = True,
+            doc = "TOML file of per-package annotations (`[package]` tables carrying `native` and/or `build-dependencies`).",
+        ),
     },
+    doc = """Attach per-package build annotations (native flag, extra build-dependencies) from a TOML file to a specific lock.""",
 )
 
 _override_package_tag = tag_class(
@@ -814,10 +831,11 @@ _override_package_tag = tag_class(
         "lock": attr.label(mandatory = True),
         "name": attr.string(mandatory = True),
         "version": attr.string(mandatory = False),
-
-        # Full replacement: provide a target that substitutes for the package entirely.
-        # Mutually exclusive with patch/exclude attributes.
-        "target": attr.label(mandatory = False),
+        "target": attr.label(
+            mandatory = False,
+            doc = "Full replacement: a target that substitutes for the package entirely. " +
+                  "Mutually exclusive with all patch/data modification attributes.",
+        ),
         "console_scripts": attr.string_dict(
             doc = "Complete console scripts for a source-built wheel, mapping script names to module:object entry points.",
         ),
@@ -825,12 +843,6 @@ _override_package_tag = tag_class(
             default = False,
             doc = "Report approximate Linux process-tree RSS while building this package's wheel.",
         ),
-
-        # Per-package local execution resources for the wheel build action.
-        # Uses bazel-lib's predefined resource_set vocabulary (the same enum
-        # `ts_project` accepts), so Bazel reserves the named amount of RAM/CPU
-        # and won't overschedule concurrent native wheel builds. `"default"`
-        # reserves nothing extra.
         "resource_set": attr.string(
             default = "default",
             values = resource_set_values,
@@ -839,13 +851,6 @@ _override_package_tag = tag_class(
                   "'cpu_2', 'cpu_4', 'default'). Bazel rounds a memory request up to the named " +
                   "bucket.",
         ),
-
-        # Per-package toolchain plumbing for native sdist builds. Both
-        # attributes AUGMENT the defaults baked into sdist_build's
-        # generated `pep517_native_whl(...)` call (the CC toolchain +
-        # CC/CXX/AR/LD/STRIP env) — they don't replace them. Use these
-        # to layer extra toolchains (Java runtime, Rust, …) and extra
-        # env vars on top of the defaults.
         "toolchains": attr.label_list(
             default = [],
             doc = "Extra toolchain targets appended to the generated pep517_native_whl(...) call's `toolchains` list. Each target's TemplateVariableInfo make-variables become available for $(VAR) expansion in `env`.",
@@ -854,8 +859,6 @@ _override_package_tag = tag_class(
             default = {},
             doc = "Extra environment variables merged into the build action's `env` dict. Values may reference $(VAR) make-variables sourced from the default CC toolchain or any extra `toolchains` listed above.",
         ),
-
-        # Pre-build patches: applied to extracted sdist source before wheel build.
         "pre_build_patches": attr.label_list(
             default = [],
             allow_files = [".patch", ".diff"],
@@ -865,8 +868,6 @@ _override_package_tag = tag_class(
             default = 0,
             doc = "Strip count for pre-build patches (-p flag to the patch tool).",
         ),
-
-        # Post-install patches: applied to the installed tree artifact after wheel unpacking.
         "post_install_patches": attr.label_list(
             default = [],
             allow_files = [".patch", ".diff"],
@@ -877,8 +878,6 @@ _override_package_tag = tag_class(
             doc = "Strip count for post-install patches (-p flag to the patch tool).",
         ),
 
-        # BUILD-level modifications to the generated py_library target.
-        #
         # FIXME: srcs_exclude_glob and data_exclude_glob are not yet implemented.
         # Implementing them requires either extending the Rust unpack tool to
         # accept exclusion patterns at install time, or adding a post-install
@@ -905,7 +904,7 @@ _override_package_tag = tag_class(
     },
     doc = """Override or modify a Python package resolved from a lockfile.
 
-Use `target` for full replacement, or use the patch/exclude attributes
+Use `target` for full replacement, or use the patch/data attributes
 for surgical modifications. Specifying `target` is mutually exclusive with
 all other modification attributes.""",
 )
