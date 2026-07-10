@@ -438,7 +438,7 @@ bazel run //:gazelle
 
 1. **Swap the rules**: Load `py_binary`, `py_library`, `py_test` from `@aspect_rules_py//py:defs.bzl` instead of
    `@rules_python//python:defs.bzl`
-2. **Migrate dependencies**: Replace `pip.parse` with `uv.hub` and generate a `uv.lock`
+2. **Migrate dependencies**: Replace `pip.parse` with `uv.declare_hub` and generate a `uv.lock`
 3. **Optionally migrate toolchains**: Replace `rules_python` interpreter provisioning with
    the `aspect_rules_py` interpreter extension for fully independent hermetic interpreters
 
