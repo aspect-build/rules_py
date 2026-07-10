@@ -97,6 +97,14 @@ def _override_tool(env, key, wrapper):
         env[key] = shlex.join(parts)
 
 
+def _absolutize_java_tool_paths(env):
+    """Keep Bazel's Java toolchain paths valid after the backend cwd change."""
+    for key in ("JAVA_HOME", "JAVA"):
+        value = env.get(key)
+        if value and not path.isabs(value) and path.exists(value):
+            env[key] = path.abspath(value)
+
+
 def _compiler_env(tmpdir):
     env = dict(os.environ)
     # The helper's launcher exports RUNFILES_DIR, RUNFILES_MANIFEST_FILE, and
@@ -120,6 +128,11 @@ def _compiler_env(tmpdir):
     env["TMP"] = tmpdir
     env["TEMP"] = tmpdir
     env["TEMPDIR"] = tmpdir
+
+    # The Java toolchain expands its paths relative to the execroot. Resolve
+    # them while the helper still runs there; the PEP 517 backend later runs
+    # inside the unpacked source tree.
+    _absolutize_java_tool_paths(env)
 
     cc_path = _resolve_compiler_path(env, "CC", "cc")
     cxx_path = _resolve_compiler_path(env, "CXX", "c++")

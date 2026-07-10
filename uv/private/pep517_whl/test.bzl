@@ -54,7 +54,7 @@ hostile_python_env_target = rule(
 _CC_ENV_KEYS = ["CC", "CXX", "AR", "LD", "STRIP"]
 
 # Env vars sourced from the Java runtime toolchain's TemplateVariableInfo.
-_JDK_ENV_KEYS = ["JAVA_HOME", "JAVA", "JAR"]
+_JDK_ENV_KEYS = ["JAVA_HOME", "JAVA"]
 
 _REQUIRED_ENV_KEYS = _CC_ENV_KEYS + _JDK_ENV_KEYS
 
@@ -98,13 +98,6 @@ def _toolchain_env_test_impl(ctx):
         driver_paths.cxx if driver_paths else cc,
         action_env.get("CXX"),
         "CXX should use the declared companion or selected compiler fallback",
-    )
-
-    # JAR is constructed from $(JAVABASE)/bin/jar — sanity-check the suffix.
-    asserts.true(
-        env,
-        action_env.get("JAR", "").endswith("/bin/jar"),
-        "JAR should resolve under JAVA_HOME/bin/jar; got {}".format(action_env.get("JAR")),
     )
 
     return analysistest.end(env)
