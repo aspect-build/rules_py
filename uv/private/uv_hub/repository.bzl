@@ -1,31 +1,35 @@
-"""
+"""Repository rule implementation for the uv hub.
 
+The hub exposes resolved Python dependencies to the build as Bazel aliases.
+It produces:
+
+- `//:defs.bzl`: helper functions for dependency-group constraints and
+  `group_deps()` / `group_deps_for()` accessors.
+- `//:requirements.bzl`: a rules_python compatibility shim.
+- `//dep_group`: config_setting targets for each dependency group.
+- `//<package>`: per-package aliases for the library, wheel, dist-info and
+  `pkg` targets.
+- `//project/<stamp>`: project-scoped aliases that resolve ambiguity when
+  multiple projects share a package name.
 """
 
 load("@bazel_features//:features.bzl", features = "bazel_features")
 load("//uv/private/pprint:defs.bzl", "indent", "pprint")
 
 def _hub_impl(repository_ctx):
-    """Generates the central hub repository that exposes resolved dependencies to the build.
+    """Generate the central hub repository.
 
-    - Defines a helper alias for configuring the active [dependency-group]
-    - Defines aliases for every package in any component project
-
-    This "surface" hub is dead easy, as it just wraps up project hubs which are
-    responsible for all the heavy lifting.
+    The hub is a thin surface over per-project hubs. It writes BUILD files and
+    .bzl files that route dependency-group selections to the correct underlying
+    project targets.
 
     Args:
-        repository_ctx: The repository context.
+        repository_ctx: The repository rule context.
     """
 
-    # {requirement: {cfg: target}}
     packages = json.decode(repository_ctx.attr.packages)
     package_names = sorted(packages.keys())
 
-    ################################################################################
-    # Lay down the //dep_group:BUILD.bazel file with config flags
-    #
-    # We do this first because everything else hangs off of these config_settings.
     content = [
         """\
 alias(
@@ -36,7 +40,6 @@ alias(
 """,
     ]
 
-    # Lay down the dep_group config settings
     for name in repository_ctx.attr.configurations:
         content.append(
             """
@@ -57,8 +60,6 @@ exports_files(
 """)
     repository_ctx.file("dep_group/BUILD.bazel", content = "\n".join(content))
 
-    ################################################################################
-    # Lay down the //:BUILD.bazel file
     content = []
 
     index_select_clauses = {
@@ -82,8 +83,6 @@ exports_files(
 
     repository_ctx.file("BUILD.bazel", "\n".join(content))
 
-    ################################################################################
-    # Lay down the hub aliases
     for package_name, specs in packages.items():
         content = [
             """\
@@ -100,10 +99,8 @@ load("//:defs.bzl", "compatible_with")
             for cfg, l in specs.items()
         }
 
-        error = "Available only in dep_groups: " + ", ".join(specs.keys())  # Simplified error string
+        error = "Available only in dep_groups: " + ", ".join(specs.keys())
 
-        # When the package itself is named "pkg", the `:{name}` alias below already
-        # exposes a `pkg` target — emitting a separate `:pkg` alias would collide.
         pkg_alias = "" if package_name == "pkg" else """\
 alias(
     name = "pkg",
@@ -112,12 +109,8 @@ alias(
 )
 """.format(name = package_name)
 
-        # FIXME: Add support for entrypoints?
-        # FIXME: Create a narrower dist-info rule
         content.append(
             """
-# This target is for a "hard" dependency.
-# Dependencies on this target will cause build failures if it's unavailable.
 alias(
     name = "lib",
     actual = "{name}",
@@ -160,23 +153,59 @@ exports_files(
 
         repository_ctx.file(package_name + "/BUILD.bazel", content = "\n".join(content))
 
-    ################################################################################
-    # Lay down //:defs.bzl
+    per_project = {}
+    for pkg_name, cfgs in packages.items():
+        for cfg, target in cfgs.items():
+            proj_id = target[1:].split("//")[0]
+            per_project.setdefault(proj_id, {}).setdefault(pkg_name, {})[cfg] = target
 
-    # Invert the sparse package->group membership (`packages` is keyed
-    # {name: {group: target}}) into group->[canonical :pkg labels] in a single
-    # pass, rather than rescanning every package once per group. Seed every
-    # known group so a group with no packages still gets an (empty) select arm.
+    for proj_id, proj_pkgs in sorted(per_project.items()):
+        stamp = proj_id[len("project__"):]
+        proj_cfg_set = {}
+        for pkg_cfgs in proj_pkgs.values():
+            for cfg in pkg_cfgs.keys():
+                proj_cfg_set[cfg] = 1
+        proj_cfg_names = sorted(proj_cfg_set.keys())
+
+        p_content = [
+            """\
+load("@aspect_rules_py//py:defs.bzl", "py_library")
+load("//:defs.bzl", "compatible_with")
+""",
+        ]
+
+        for pkg_name, pkg_cfgs in sorted(proj_pkgs.items()):
+            select_spec = {
+                "//dep_group:{}".format(cfg): tgt
+                for cfg, tgt in pkg_cfgs.items()
+            }
+            p_content.append(
+                """
+alias(
+    name = "{name}",
+    actual = select({select}),
+    target_compatible_with = select(compatible_with({compat})),
+    visibility = ["//visibility:public"],
+)
+""".format(
+                    name = pkg_name,
+                    select = indent(pprint(select_spec), "      ").lstrip(),
+                    compat = repr(proj_cfg_names),
+                ),
+            )
+
+        repository_ctx.file(
+            "project/{}/BUILD.bazel".format(stamp),
+            "\n".join(p_content),
+        )
+
     deps_by_group = {group: [] for group in sorted(repository_ctx.attr.configurations)}
-    for name in package_names:  # sorted, so each group's label list stays sorted
+    for name in package_names:
         label = "@@{}//{}:pkg".format(repository_ctx.name, name)
         for group in packages[name]:
             if group in deps_by_group:
                 deps_by_group[group].append(label)
 
-    # The emitted `_GROUP_DEPS` is a module-level select() built once at load.
-    # Its keys use `Label(...)` so they resolve relative to this hub repo rather
-    # than the consuming package that loads `group_deps()`.
     content = [
         """\
 VIRTUALENVS = {configurations}
@@ -239,10 +268,6 @@ def group_deps():
 
     repository_ctx.file("defs.bzl", content = "\n".join(content))
 
-    ################################################################################
-    # Lay down a requirements.bzl for compatibility with rules_python. Keep this
-    # file's surface aligned with rules_python's generated requirements.bzl; any
-    # rules_py-specific additions belong in defs.bzl instead.
     content = []
     content.append("""
 load("@aspect_rules_py//uv/private:normalize_name.bzl", "normalize_name")
@@ -312,12 +337,18 @@ uv_hub = repository_rule(
     attrs = {
         "configurations": attr.string_dict(
             doc = """
-            Mapping of configuration name to a project _containing_ that configuration.
+            Mapping from dependency-group name to the project id that owns the
+            group. Each key becomes a public `//dep_group:<name>` config_setting
+            and a select arm in the generated aliases.
             """,
         ),
         "packages": attr.string(
             doc = """
-            JSON blob mapping packages to configurations to projects.
+            JSON-encoded dictionary `{package: {group: target}}` describing every
+            resolved package. `package` is the PEP 503-normalized distribution
+            name, `group` is a key from `configurations`, and `target` is the
+            fully qualified label of the underlying project hub target that
+            provides that package under that group.
             """,
         ),
     },
