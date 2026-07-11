@@ -106,6 +106,12 @@ config_setting(
 )
 """.format(name = cfg_name),
         )
+    venv_content.append("""
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//visibility:public"],
+)
+""")
     repository_ctx.file("private/dep_group/BUILD.bazel", content = "\n".join(venv_content))
 
     ################################################################################
