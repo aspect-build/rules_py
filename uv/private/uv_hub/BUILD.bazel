@@ -18,9 +18,7 @@ bzl_library(
 # Snapshots of generated repository files produced by rules_py's repo rules.
 # Acts as a regression check on the public surface those rules emit so changes
 # show up as a reviewable diff. Each entry below documents *what* shape the
-# snapshot pins down. Multi-project shape (cowsay BUILD with N>1 select arms,
-# dep_group with N>1 config_settings) is exercised by the e2e snapshots
-# instead — see //:test in the e2e workspace.
+# snapshot pins down.
 #
 # Source files live in snapshots/ which is a data-only directory (no BUILD
 # inside) so the entire dir can be marked linguist-generated in .gitattributes.
@@ -48,16 +46,6 @@ write_source_files(
         # dep_group surface (the `dep_group` alias plus one config_setting
         # per uv.project() call).
         "snapshots/pypi.dep_group.BUILD.bazel": "@pypi//dep_group:BUILD.bazel",
-        # uv_project: package-name → SCC alias map. Pins how surface
-        # packages are wired into the SCC-partitioned graph for one project.
-        "snapshots/project.BUILD.bazel": "@project__aspect_rules_py//:BUILD.bazel",
-        # uv_project: py_library SCC definitions with wheel installs and
-        # cross-SCC deps. Pins the resolved dep graph at 78-package scale —
-        # the most precise check on the partitioning algorithm.
-        "snapshots/project.private.sccs.BUILD.bazel": "@project__aspect_rules_py//private/sccs:BUILD.bazel",
-        # uv_project: decide_marker rules keyed by SHA1 of the marker
-        # expression. Pins marker emission and the hashing scheme.
-        "snapshots/project.private.markers.BUILD.bazel": "@project__aspect_rules_py//private/markers:BUILD.bazel",
         # configurations_hub: Python platform-triple config_setting_groups
         # used by whl_install to pick the right pre-built wheel. Largest
         # snapshot (~1200 lines) — the resolver's flattened output shape.
