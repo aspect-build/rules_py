@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Move the `uv_project` generated BUILD snapshots from `uv/private/uv_hub/snapshots/` into `uv/private/uv_project/snapshots/`, add the missing `private/dep_group` snapshot, and update both `BUILD.bazel` files so each package owns its own snapshots.
+**Goal:** Move the `uv_project` generated BUILD snapshots from `uv/private/uv_hub/snapshots/` into `uv/private/uv_project/snapshots/`, add the missing `private/dep_group` snapshot, update `uv/private/uv_project/repository.bzl` to expose the generated `private/dep_group/BUILD.bazel`, and update both `BUILD.bazel` files so each package owns its own snapshots.
 
 **Architecture:** Use Bazel's `write_source_files` rule in `uv/private/uv_project/BUILD.bazel` to pin the four repository outputs produced by the `uv_project` repository rule. Remove the corresponding entries from `uv/private/uv_hub/BUILD.bazel` so the `uv_hub` package only snapshots hub-level outputs.
 
@@ -21,6 +21,7 @@
 | File | Responsibility |
 |---|---|
 | `uv/private/uv_project/snapshots/` (new dir) | Data-only directory holding the four `uv_project` snapshot files. |
+| `uv/private/uv_project/repository.bzl` | Adds `exports_files(["BUILD.bazel"], ...)` to the generated `private/dep_group/BUILD.bazel` so it can be snapshotted. |
 | `uv/private/uv_project/BUILD.bazel` | Defines the `write_source_files` target named `snapshots` for the `uv_project` package. |
 | `uv/private/uv_hub/BUILD.bazel` | Existing `write_source_files` target; remove the four `uv_project`-related entries. |
 
@@ -74,9 +75,10 @@ git commit -m "refactor: move uv_project snapshots into uv_project package"
 
 ---
 
-### Task 2: Populate `uv_project`'s `write_source_files` and add the missing `dep_group` snapshot
+### Task 2: Add `write_source_files` to `uv_project`, expose `dep_group` BUILD file, and add the missing snapshot
 
 **Files:**
+- Modify: `uv/private/uv_project/repository.bzl`
 - Modify: `uv/private/uv_project/BUILD.bazel`
 - Create: `uv/private/uv_project/snapshots/project.private.dep_group.BUILD.bazel`
 
@@ -91,13 +93,15 @@ Run:
 cat uv/private/uv_project/BUILD.bazel
 ```
 
-Confirm the file ends with an empty `write_source_files()` call.
+Confirm the file loads `write_source_files` but does not yet define a target.
 
-- [ ] **Step 2: Replace the empty `write_source_files` block**
+- [ ] **Step 2: Add the `write_source_files` load and target**
 
-Edit `uv/private/uv_project/BUILD.bazel` so that the empty block becomes:
+Edit `uv/private/uv_project/BUILD.bazel` to add:
 
 ```starlark
+load("@bazel_lib//lib:write_source_files.bzl", "write_source_files")
+
 write_source_files(
     name = "snapshots",
     files = {
@@ -109,7 +113,21 @@ write_source_files(
 )
 ```
 
-- [ ] **Step 3: Generate the new `dep_group` snapshot**
+- [ ] **Step 3: Expose the generated `private/dep_group/BUILD.bazel`**
+
+Edit `uv/private/uv_project/repository.bzl` so the generated `private/dep_group/BUILD.bazel` ends with an `exports_files` block:
+
+```starlark
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//visibility:public"],
+)
+```
+
+This is required so the snapshot target can read
+`@project__aspect_rules_py//private/dep_group:BUILD.bazel`.
+
+- [ ] **Step 4: Generate the new `dep_group` snapshot**
 
 Run:
 ```bash
@@ -118,25 +136,25 @@ bazel run //uv/private/uv_project:snapshots
 
 Expected: The command succeeds and creates/updates all four snapshot files, including the new `snapshots/project.private.dep_group.BUILD.bazel`.
 
-- [ ] **Step 4: Inspect the generated `dep_group` snapshot**
+- [ ] **Step 5: Inspect the generated `dep_group` snapshot**
 
 Run:
 ```bash
 cat uv/private/uv_project/snapshots/project.private.dep_group.BUILD.bazel
 ```
 
-Expected: It contains a `config_setting` named `aspect_rules_py` (or the relevant dependency-group name) that references the `dep_group` flag.
+Expected: It contains a `config_setting` named `aspect_rules_py` (or the relevant dependency-group name) that references the `dep_group` flag, followed by an `exports_files` block.
 
-- [ ] **Step 5: Run the new snapshot test**
+- [ ] **Step 6: Run the new snapshot test**
 
 Run:
 ```bash
-bazel test //uv/private/uv_project:snapshots
+bazel test //uv/private/uv_project:snapshots_tests
 ```
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add -A
@@ -199,7 +217,7 @@ Replace the comment block above `write_source_files` so it no longer says that m
 
 Run:
 ```bash
-bazel test //uv/private/uv_hub:snapshots
+bazel test //uv/private/uv_hub:snapshots_tests
 ```
 
 Expected: PASS.
@@ -226,7 +244,7 @@ git commit -m "refactor: remove uv_project snapshots from uv_hub package"
 
 Run:
 ```bash
-bazel test //uv/private/uv_project:snapshots //uv/private/uv_hub:snapshots
+bazel test //uv/private/uv_project:snapshots_tests //uv/private/uv_hub:snapshots_tests
 ```
 
 Expected: Both tests PASS.
@@ -273,6 +291,7 @@ git add -A && git commit -m "fixup: address verification findings"
 - Create `uv/private/uv_project/snapshots/` → Task 1.
 - Move three existing snapshots → Task 1.
 - Add `project.private.dep_group.BUILD.bazel` → Task 2.
+- Update `uv/private/uv_project/repository.bzl` → Task 2.
 - Update `uv/private/uv_project/BUILD.bazel` → Task 2.
 - Update `uv/private/uv_hub/BUILD.bazel` → Task 3.
 - Verification commands → Task 4.
