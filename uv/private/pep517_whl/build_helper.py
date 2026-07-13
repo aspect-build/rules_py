@@ -98,10 +98,20 @@ def _override_tool(env, key, wrapper):
 
 
 def _absolutize_java_tool_paths(env):
-    """Keep Bazel's Java toolchain paths valid after the backend cwd change."""
+    """Resolve Bazel's Java toolchain paths while the helper still runs from
+    the action execroot.
+
+    $(JAVA)/$(JAVABASE) expand workspace-relative; the PEP 517 backend later
+    chdirs into the unpacked sdist, which would invalidate those refs.
+    Absolutize unconditionally when the value isn't already absolute,
+    matching _resolve_compiler_path's handling of CC/CXX. The JDK inputs
+    are declared via the rule's `toolchains` attr (see
+    _collect_toolchain_inputs_and_vars), so a missing path fails loudly in
+    the backend rather than silently shipping a broken relative env.
+    """
     for key in ("JAVA_HOME", "JAVA"):
         value = env.get(key)
-        if value and not path.isabs(value) and path.exists(value):
+        if value and not path.isabs(value):
             env[key] = path.abspath(value)
 
 
