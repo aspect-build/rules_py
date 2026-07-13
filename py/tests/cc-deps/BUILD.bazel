@@ -31,20 +31,22 @@ cc_binary(
     deps = ["@rules_python//python/cc:current_py_cc_headers_abi3"],
 )
 
+# Python extensions retain the terminal's interpreter configuration through
+# deps so their headers match the runtime that imports them.
 py_test(
     name = "test_smoke",
     srcs = ["test_smoke.py"],
-    data = [":example_library.so"],
     imports = ["."],
     python_version = "3.13",
     target_compatible_with = _WINDOWS_INCOMPATIBLE,
+    deps = [":example_library.so"],
 )
 
 py_test(
     name = "test_limited_api",
     srcs = ["test_limited_api.py"],
-    data = [":limited_api_library.so"],
     imports = ["."],
     python_version = "3.13",
     target_compatible_with = _WINDOWS_INCOMPATIBLE,
+    deps = [":limited_api_library.so"],
 )
