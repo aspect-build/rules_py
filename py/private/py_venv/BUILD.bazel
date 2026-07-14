@@ -55,6 +55,7 @@ bzl_library(
         "//py/private:py_info",
         "//py/private:py_library",
         "//py/private:py_semantics",
+        "//py/private:transitions",
         "@bazel_lib//lib:expand_make_vars",
         "@bazel_lib//lib:paths",
         "@hermetic_launcher//launcher:lib_bzl",

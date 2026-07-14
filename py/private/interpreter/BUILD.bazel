@@ -28,6 +28,21 @@ string_flag(
     build_setting_default = "",
 )
 
+# Internal transition scratch state. Python terminals capture the version
+# settings they inherited before applying their own python_version attr, then
+# data edges use them to return runtime files to the caller's configuration.
+string_flag(
+    name = "baseline_python_version",
+    build_setting_default = "<unset>",
+    visibility = ["//py:__subpackages__"],
+)
+
+string_flag(
+    name = "baseline_rules_python_version",
+    build_setting_default = "<unset>",
+    visibility = ["//py:__subpackages__"],
+)
+
 # Interpreter feature exclusions. Pass one or more --exclude_feature flags to
 # strip optional components from interpreter filegroups. Supported values:
 #   headers, docs, tkinter, idle, ensurepip, config, pydoc, lib2to3, turtle

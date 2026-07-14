@@ -10,6 +10,7 @@ load("@bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variabl
 load("@hermetic_launcher//launcher:lib.bzl", "launcher")
 load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
+load("//py/private:transitions.bzl", "reset_python_flags_transition")
 load(":types.bzl", "VirtualenvInfo", "venv_root")
 
 # Identifiers the launcher always sets to the analysing rule's contextual
@@ -212,8 +213,11 @@ The transitive closure of the `data` dependencies will be available in
 the `.runfiles` folder for this binary/test. The program may optionally
 use the Runfiles lookup library to locate the data files, see
 https://pypi.org/project/bazel-runfiles/.
+Data is analyzed in the inherited caller configuration. Put artifacts
+that must match the terminal's Python environment in `deps`.
 """,
         allow_files = True,
+        cfg = reset_python_flags_transition,
     ),
     # Forwarded to the sibling py_venv (which is where srcs actually
     # feed sys.path). Carried on the launcher only so Bazel's `args`
@@ -223,6 +227,9 @@ https://pypi.org/project/bazel-runfiles/.
     "srcs": attr.label_list(
         doc = "Python source files. Forwarded to the sibling py_venv.",
         allow_files = [".py"],
+    ),
+    "_allowlist_function_transition": attr.label(
+        default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
     ),
 })
 

@@ -9,6 +9,7 @@ load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 load("//py/private:providers.bzl", "PyVirtualInfo", "PyWheelsInfo")
 load("//py/private:pth.bzl", "make_imports_depset")
 load("//py/private:py_info.bzl", "PyInfo")
+load("//py/private:transitions.bzl", "reset_python_flags_transition")
 
 def _make_instrumented_files_info(ctx):
     return coverage_common.instrumented_files_info(
@@ -190,8 +191,11 @@ _attrs = dict({
         The transitive closure of the `data` dependencies will be available in the `.runfiles`
         folder for this binary/test. The program may optionally use the Runfiles lookup library to
         locate the data files, see https://pypi.org/project/bazel-runfiles/.
+        Data is analyzed in the inherited caller configuration. Put artifacts
+        that must match the terminal's Python environment in `deps`.
         """,
         allow_files = True,
+        cfg = reset_python_flags_transition,
     ),
     "imports": attr.string_list(
         doc = "List of import directories to be added to the PYTHONPATH.",

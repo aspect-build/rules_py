@@ -1,0 +1,78 @@
+load("//py:defs.bzl", "py_binary", "py_library", "py_venv")
+load(":tests.bzl", "probe", "reset_data_edges_test_suite", "root", "terminal")
+
+probe(name = "probe")
+
+# The launcher's data edge is reached through each parent venv's deps edge.
+py_binary(
+    name = "launcher",
+    srcs = ["main.py"],
+    data = [":probe"],
+    main = "main.py",
+    tags = ["manual"],
+)
+
+py_library(
+    name = "library",
+    srcs = ["main.py"],
+    data = [":probe"],
+    tags = ["manual"],
+)
+
+py_venv(
+    name = "first",
+    srcs = ["main.py"],
+    data = [":probe"],
+    dep_group = "first",
+    python_version = "3.12",
+    tags = ["manual"],
+    deps = [
+        ":launcher",
+        ":library",
+    ],
+)
+
+# Nested terminal transitions must keep the baseline inherited above their
+# parent, not recapture the parent's selected environment.
+terminal(
+    name = "parent_terminal",
+    data = [":probe"],
+    dep_group = "parent",
+    python_version = "3.12",
+    tags = ["manual"],
+    deps = [":nested_terminal"],
+)
+
+terminal(
+    name = "nested_terminal",
+    data = [":probe"],
+    dep_group = "nested",
+    python_version = "3.9",
+    tags = ["manual"],
+)
+
+py_venv(
+    name = "second",
+    srcs = ["main.py"],
+    data = [":probe"],
+    dep_group = "second",
+    python_version = "3.12",
+    tags = ["manual"],
+    deps = [
+        ":launcher",
+        ":library",
+    ],
+)
+
+root(
+    name = "root",
+    tags = ["manual"],
+    deps = [
+        ":first",
+        ":parent_terminal",
+        ":probe",
+        ":second",
+    ],
+)
+
+reset_data_edges_test_suite()

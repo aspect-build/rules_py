@@ -10,3 +10,13 @@ string_flag(
     scope = "universal",
     visibility = ["//visibility:public"],
 )
+
+# Internal transition scratch state. Python terminals capture the dep group
+# they inherited before applying their own dep_group attr, then data edges use
+# it to return runtime files to the caller's configuration.
+string_flag(
+    name = "baseline",
+    build_setting_default = "<unset>",
+    scope = "universal",
+    visibility = ["//py:__subpackages__"],
+)
