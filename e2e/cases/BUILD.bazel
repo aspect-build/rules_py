@@ -126,6 +126,12 @@ write_source_files(
         # proves that the forced-native build produces a working wheel.
         "snapshots/sdist_build.uv_sdist_fallback.cowsay.BUILD.bazel": "@sdist_build__uv_sdist_fallback__cowsay__6_0//:BUILD.bazel",
 
+        # @sdist_build for tqdm with tool.uv.extra-build-dependencies
+        # -----------------------------------------------------------
+        # Pins the uv-native annotation path independently of cowsay's legacy
+        # annotations.toml entry.
+        "snapshots/sdist_build.uv_sdist_fallback.tqdm.BUILD.bazel": "@sdist_build__uv_sdist_fallback__tqdm__4_52_0//:BUILD.bazel",
+
         # @sdist_build for python-geohash with uv.override_package(resource_set)
         # ----------------------------------------------------------------------
         # Covers the override_package -> repo-rule -> BUILD-template plumbing

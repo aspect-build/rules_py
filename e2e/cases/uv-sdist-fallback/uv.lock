@@ -63,6 +63,15 @@ wheels = [
 ]
 
 [[package]]
+name = "tqdm"
+version = "4.52.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/9f/30/8c8015735a54e13444a3d4982a7a9538bde27f8b3bd35203f9e920f0d78c/tqdm-4.52.0.tar.gz", hash = "sha256:18d6a615aedd09ec8456d9524489dab330af4bd5c2a14a76eb3f9a0e14471afe", size = 180391, upload-time = "2020-11-16T14:19:13.746Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/dc/7e/bc84ebdb47cfc1f643d026570cb24dd40c2b7a29e167ea101f1702717658/tqdm-4.52.0-py2.py3-none-any.whl", hash = "sha256:80d9d5165d678dbd027dd102dfb99f71bf05f333b61fb761dbba13b4ab719ead", size = 71328, upload-time = "2020-11-16T14:19:11.069Z" },
+]
+
+[[package]]
 name = "uv-sdist-fallback"
 version = "0.0.0"
 source = { virtual = "." }
@@ -70,6 +79,7 @@ dependencies = [
     { name = "build" },
     { name = "cowsay" },
     { name = "setuptools" },
+    { name = "tqdm" },
 ]
 
 [package.metadata]
@@ -77,4 +87,5 @@ requires-dist = [
     { name = "build" },
     { name = "cowsay", specifier = "==6.0" },
     { name = "setuptools" },
+    { name = "tqdm", specifier = "==4.52.0" },
 ]

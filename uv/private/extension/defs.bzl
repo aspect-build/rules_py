@@ -230,6 +230,7 @@ def _parse_projects(module_ctx, hub_specs):
 
         for project in mod.tags.project:
             project_data = toml.decode_file(module_ctx, project.pyproject)
+            tool_uv = project_data.get("tool", {}).get("uv", {})
             lock_data = toml.decode_file(module_ctx, project.lock)
 
             # The stamp derives from the project name: stable across reloads and
@@ -245,44 +246,70 @@ def _parse_projects(module_ctx, hub_specs):
 
             no_binary_packages = {
                 normalize_name(p): True
-                for p in project_data.get("tool", {}).get("uv", {}).get("no-binary-package", [])
+                for p in tool_uv.get("no-binary-package", [])
             }
 
             default_versions, package_versions, lock_data = normalize_deps(project_id, lock_data)
 
-            def _resolve(package):
-                name = normalize_name(package["name"])
-                if "version" in package:
-                    return (project_id, name, package["version"], "__base__")
+            def _resolve(name, version):
+                name = normalize_name(name)
+                if version:
+                    return (project_id, name, version, "__base__")
                 elif name in default_versions:
                     return default_versions[name]
                 return None
 
             lock_build_dep_anns = {}
             lock_native_anns = {}
+            extra_build_dependencies = tool_uv.get("extra-build-dependencies", {})
+            for package, extra_deps in extra_build_dependencies.items():
+                target = _resolve(package, None)
+                if target == None:
+                    # Allow a shared annotation file to include entries for other locks.
+                    continue
+                deps = []
+                skip = False
+                for dep in extra_deps:
+                    resolved_deps = extract_requirement_marker_pairs(
+                        project.lock,
+                        project_id,
+                        dep,
+                        default_versions,
+                        package_versions,
+                        fail_if_missing = False
+                    )
+                    if resolved_deps == None:
+                        skip = True
+                        break
+                    # TODO(konsti): Consider the marker too - we shouldn't inject build deps on platforms where they are
+                    # declared.
+                    deps.extend([resolved for resolved, _marker in resolved_deps])
+                if not skip:
+                    lock_build_dep_anns[target] = deps
+
             for ann in mod.tags.unstable_annotate_packages:
                 if ann.lock == project.lock:
                     annotations = toml.decode_file(module_ctx, ann.src)
                     for package in annotations.get("package", []):
-                        k = _resolve(package)
-                        if k == None:
+                        target = _resolve(package["name"], package.get("version"))
+                        if target == None:
                             # Allow a shared annotation file to include entries for other locks.
                             continue
                         if "native" in package:
                             if type(package["native"]) != "bool":
                                 fail("Annotation `native` for package {} in {} must be a boolean, got {}".format(package["name"], ann.src, repr(package["native"])))
-                            lock_native_anns[k] = package["native"]
+                            lock_native_anns[target] = package["native"]
                         if "build-dependencies" in package:
                             deps = []
                             skip = False
                             for dep in package["build-dependencies"]:
-                                resolved = _resolve(dep)
+                                resolved = _resolve(dep["name"], dep.get("version"))
                                 if resolved == None:
                                     skip = True
                                     break
                                 deps.append(resolved)
                             if not skip:
-                                lock_build_dep_anns[k] = deps
+                                lock_build_dep_anns[target] = deps
 
             package_overrides = {}
             package_console_scripts = {}

@@ -61,3 +61,12 @@ extra-paths = ["py/private/pytest_shard"]
 [tool.ty.rules]
 missing-type-argument = "error"
 possibly-unresolved-reference = "warn"
+
+# bravado-core 6.1.1. doesn't have a wheel, need to build it. Mark explicitly
+# that we need setuptools and build in order to do so; build being the
+# standard build tool driver.
+[tool.uv.extra-build-dependencies]
+bravado-core = [
+   "build",
+   "setuptools",
+]

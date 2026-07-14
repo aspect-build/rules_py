@@ -2,9 +2,9 @@ load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_pex_bin
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 
 # Regression coverage for the sdist-fallback behavior preserved by the
-# "always keep sdist fallbacks when sources exist" fix. cowsay 6.0 has both
-# an sdist and a `-none-any.whl`; the pyproject's `no-binary-package` setting
-# forces the resolver to build it from source, exercising the sbuild path at
+# "always keep sdist fallbacks when sources exist" fix. cowsay and tqdm both
+# have an sdist and a `-none-any.whl`; the pyproject's `no-binary-package`
+# setting forces both source builds, exercising the two annotation paths at
 # runtime.
 py_test(
     name = "test",
@@ -14,6 +14,7 @@ py_test(
     python_version = "3.11",
     deps = [
         "@pypi_sdist_fallback//cowsay",
+        "@pypi_sdist_fallback//tqdm",
     ],
 )
 
@@ -26,7 +27,10 @@ py_binary(
     dep_group = "uv_sdist_fallback",
     main = "__test__.py",
     python_version = "3.11",
-    deps = ["@pypi_sdist_fallback//cowsay"],
+    deps = [
+        "@pypi_sdist_fallback//cowsay",
+        "@pypi_sdist_fallback//tqdm",
+    ],
 )
 
 py_image_layer(
