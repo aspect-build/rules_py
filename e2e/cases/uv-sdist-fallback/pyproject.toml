@@ -10,11 +10,18 @@ dependencies = [
     "build",
     "setuptools",
     "cowsay==6.0",
+    "tqdm==4.52.0",
 ]
 
-# cowsay 6.0 ships both an sdist and a `py3-none-any.whl`. Forcing it to
-# build from source via `no-binary-package` exercises the source-build
-# pathway end-to-end for a package whose lockfile entry has a matching
-# anyarch wheel.
+# cowsay and tqdm both ship an sdist and a `py3-none-any.whl`. Forcing them to
+# build from source exercises both annotation styles end-to-end.
 [tool.uv]
-no-binary-package = ["cowsay"]
+no-binary-package = ["cowsay", "tqdm"]
+
+[tool.uv.extra-build-dependencies]
+# `packaging` is intentionally absent from `default_build_dependencies`, so
+# the tqdm snapshot catches a broken uv-native annotation path.
+tqdm = [
+    "setuptools==80.10.2",
+    "packaging",
+]
