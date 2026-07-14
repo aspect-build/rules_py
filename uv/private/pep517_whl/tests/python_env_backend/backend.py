@@ -37,6 +37,12 @@ def _check_environment() -> None:
     if os.environ.get("PYTHONSAFEPATH") != "1":
         raise RuntimeError("unrelated PYTHONSAFEPATH was not preserved")
 
+    if os.environ.get("EXPECT_JAVA_TOOL_PATHS") == "1":
+        for name in ("JAVA_HOME", "JAVA"):
+            value = os.environ.get(name)
+            if not value or not os.path.isabs(value) or not os.path.exists(value):
+                raise RuntimeError(f"{name} is not an absolute existing path: {value!r}")
+
 
 def get_requires_for_build_wheel(
     config_settings: dict[str, object] | None = None,

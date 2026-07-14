@@ -122,7 +122,7 @@ write_source_files(
         # plumbing for the augment-on-defaults `toolchains = [...]` /
         # `env = {...}`. The override layers a JDK runtime on top of the
         # default CC toolchain; the snapshot pins both toolchain
-        # references and both env families (CC + JAVA_HOME/JAVA/JAR).
+        # references and both env families (CC + JAVA_HOME/JAVA).
         # Pairs with the analysis test at
         # //uv/private/pep517_whl:toolchain_env_test which asserts the
         # rule expands env keys correctly given an explicit fixture.

@@ -60,6 +60,18 @@ def _darwin_sysroot():
         return None
 
 
+def _absolutize_path(value):
+    """Resolve a relative path to absolute, leaving absolute/empty values untouched.
+
+    Shared by _resolve_compiler_path (CC/CXX) and _absolutize_java_tool_paths
+    (JAVA_HOME/JAVA): both toolchains expand workspace-relative refs from the
+    action execroot, which break once the PEP 517 backend chdirs into the
+    unpacked sdist. Centralizing the policy keeps the two paths in lockstep
+    and gives future toolchains (FC, RUSTC, ...) a single primitive to call.
+    """
+    return path.abspath(value) if value and not path.isabs(value) else value
+
+
 def _resolve_compiler_path(env, key, default):
     """Extract the real compiler from the environment and resolve it to an absolute path."""
     current = env.get(key)
@@ -68,10 +80,7 @@ def _resolve_compiler_path(env, key, default):
     parts = shlex.split(current)
     if not parts:
         return default
-    compiler = parts[0]
-    if os.path.isabs(compiler):
-        return compiler
-    return os.path.abspath(compiler)
+    return _absolutize_path(parts[0])
 
 
 def _make_compiler_wrapper(tmpdir, name, compiler_path, sysroot=None):
@@ -97,6 +106,22 @@ def _override_tool(env, key, wrapper):
         env[key] = shlex.join(parts)
 
 
+def _absolutize_java_tool_paths(env):
+    """Resolve Bazel's Java toolchain paths while the helper still runs from
+    the action execroot.
+
+    $(JAVA)/$(JAVABASE) expand workspace-relative; the PEP 517 backend later
+    chdirs into the unpacked sdist, which would invalidate those refs. The
+    JDK inputs are declared via the rule's `toolchains` attr (see
+    _collect_toolchain_inputs_and_vars), so a missing path fails loudly in
+    the backend rather than silently shipping a broken relative env.
+    """
+    for key in ("JAVA_HOME", "JAVA"):
+        value = env.get(key)
+        if value:
+            env[key] = _absolutize_path(value)
+
+
 def _compiler_env(tmpdir):
     env = dict(os.environ)
     # The helper's launcher exports RUNFILES_DIR, RUNFILES_MANIFEST_FILE, and
@@ -120,6 +145,11 @@ def _compiler_env(tmpdir):
     env["TMP"] = tmpdir
     env["TEMP"] = tmpdir
     env["TEMPDIR"] = tmpdir
+
+    # The Java toolchain expands its paths relative to the execroot. Resolve
+    # them while the helper still runs there; the PEP 517 backend later runs
+    # inside the unpacked source tree.
+    _absolutize_java_tool_paths(env)
 
     cc_path = _resolve_compiler_path(env, "CC", "cc")
     cxx_path = _resolve_compiler_path(env, "CXX", "c++")
