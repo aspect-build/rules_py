@@ -928,12 +928,15 @@ def assemble_venv(
     declared.append(bin_activate)
 
     # _virtualenv.py + _virtualenv.pth — distutils shim for pip interop.
+    # Materialised as a real file, not a symlink into the rules_py source
+    # tree, so tar/OCI/rsync etc. consumers of the venv can resolve the file.
     virtualenv_shim_py_out = ctx.actions.declare_file(
         "{}/_virtualenv.py".format(site_packages_rel),
     )
-    ctx.actions.symlink(
+    ctx.actions.expand_template(
+        template = virtualenv_shim_py,
         output = virtualenv_shim_py_out,
-        target_file = virtualenv_shim_py,
+        substitutions = {},
     )
     declared.append(virtualenv_shim_py_out)
 
