@@ -9,30 +9,6 @@ common --define=SOME_VAR=SOME_VALUE
 # Set the default virtualenv to 'default'
 common --@pypi//dep_group=aspect_rules_py
 
-common --@llvm//config:experimental_stub_libgcc_s
-common --@rules_cc//cc/toolchains/args/archiver_flags:use_libtool_on_macos=false
-
-# TODO(bzlmod): Don't break proto
-common --per_file_copt=external/.*protobuf.*@--PROTOBUF_WAS_NOT_SUPPOSED_TO_BE_BUILT
-common --host_per_file_copt=external/.*protobuf.*@--PROTOBUF_WAS_NOT_SUPPOSED_TO_BE_BUILT
-
-# Don't try and auto detect the cc toolchain, as we use our own llvm toolchains.
-common --repo_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
-common --repo_env=BAZEL_NO_APPLE_CPP_TOOLCHAIN=1
-
-common:ci --toolchain_resolution_debug='@@bazel_tools//tools/cpp:toolchain_type'
-
-# Use a custom Linux platform that adds the gnu.2.28 libc constraint so the LLVM
-# toolchain selects the correct sysroot. Inherits cpu/os from the auto-detected host,
-# so it works on both x86_64 and aarch64 builders without separate entries.
-# --enable_platform_specific_config (in defaults.bazelrc) activates this on Linux.
-common:linux --platforms=//bazel/platforms:linux_gnu
-common:linux --host_platform=//bazel/platforms:linux_gnu
-
-common:release --build_tag_filters=release
-common:release --stamp
-common:release --compilation_mode=opt
-
 # Uncomment to enable verbose diagnostics for uv repository rules (sdist builds, git archives)
 # common --repo_env=RULES_PY_UV_VERBOSE=1
 
