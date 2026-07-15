@@ -1,7 +1,7 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 
-package(default_visibility = ["//py:__subpackages__"])
+package(default_visibility = ["//visibility:private"])
 
 exports_files([
     "templates/_virtualenv.py",
@@ -21,23 +21,8 @@ config_setting(
     flag_values = {
         ":debug_venv": "True",
     },
-    # This needs to be set public for global use since we select() on it from
-    # macros which analyze visibility wrt the expanding package.
-    #
-    # TODO: Eliminate this in favor of a proper bool flag or something.
     visibility = [
         "//visibility:public",
-    ],
-)
-
-bzl_library(
-    name = "types",
-    srcs = ["types.bzl"],
-    visibility = [
-        "//py/private:__subpackages__",
-        "//uv/private:__subpackages__",
-    ],
-    deps = [
     ],
 )
 
@@ -89,6 +74,22 @@ bzl_library(
         "@bazel_lib//lib:expand_make_vars",
         "@bazel_lib//lib:paths",
     ],
+)
+
+bzl_library(
+    name = "defs",
+    srcs = ["defs.bzl"],
+    visibility = ["//py:__subpackages__"],
+    deps = [
+        ":py_venv",
+        ":py_venv_exec",
+        ":types",
+    ],
+)
+
+bzl_library(
+    name = "types",
+    srcs = ["types.bzl"],
 )
 
 bzl_library(

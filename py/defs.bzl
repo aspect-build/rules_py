@@ -27,12 +27,13 @@ load("//py/private:py_unpacked_wheel.bzl", _py_unpacked_wheel = "py_unpacked_whe
 load("//py/private:virtual.bzl", _resolutions = "resolutions")
 load("//py/private/interpreter:current_py_toolchain.bzl", _current_py_toolchain = "current_py_toolchain")
 load(
-    "//py/private/py_venv:py_venv.bzl",
+    "//py/private/py_venv:defs.bzl",
     _py_binary_with_venv = "py_binary_with_venv",
     _py_venv = "py_venv",
+    _py_venv_exec = "py_venv_exec",
+    _py_venv_exec_test = "py_venv_exec_test",
     _py_venv_link = "py_venv_link",
 )
-load("//py/private/py_venv:py_venv_exec.bzl", _py_venv_exec = "py_venv_exec", _py_venv_exec_test = "py_venv_exec_test")
 
 current_py_toolchain = _current_py_toolchain
 py_pex_binary = _py_pex_binary
