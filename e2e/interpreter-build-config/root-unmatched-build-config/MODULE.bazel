@@ -1,0 +1,19 @@
+# Designed to FAIL extension evaluation: valid build_config that PBS never
+# publishes. test.sh asserts the error message.
+module(name = "root_unmatched_build_config")
+
+bazel_dep(name = "aspect_rules_py")
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../../..",
+)
+
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+interpreters.configure(
+    # 3.13 has free-threaded archives, but they must not mask the missing
+    # default mode: zero default-mode platforms is an eager failure.
+    build_config = "debug+lto-full",
+    releases = ["20260303"],
+)
+interpreters.toolchain(python_version = "3.13")
+use_repo(interpreters, "python_interpreters")

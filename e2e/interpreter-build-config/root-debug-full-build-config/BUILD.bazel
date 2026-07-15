@@ -1,0 +1,12 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+# The only runtime coverage for a "-full" default mode: tar.zst extraction with
+# strip_prefix python/install, and abi_flags "d" flowing into the repo's
+# include/lib paths. Kept to one fixture because full archives are large
+# downloads.
+py_test(
+    name = "check",
+    srcs = ["check_debug_interpreter.py"],
+    main = "check_debug_interpreter.py",
+    python_version = "3.13",
+)

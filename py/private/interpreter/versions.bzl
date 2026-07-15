@@ -1,6 +1,6 @@
 """Python-build-standalone release metadata.
 
-This file contains platform mappings and runtime mode definitions for CPython
+This file contains platform mappings and build-configuration parsing for CPython
 interpreters built by the python-build-standalone project
 (https://github.com/astral-sh/python-build-standalone).
 
@@ -40,7 +40,9 @@ DEFAULT_RELEASE_DATES = [
 # https://github.com/astral-sh/python-build-standalone/releases/download/20260303/SHA256SUMS
 # https://github.com/astral-sh/python-build-standalone/releases/download/20251031/SHA256SUMS
 #
-# - asset_suffixes: exact PBS filename suffix for each logical runtime mode
+# - freethreaded_suffix: exact PBS filename suffix for the free-threaded archive
+#   (the non-free-threaded archive's suffix is chosen by the hub-level
+#   build_config; see parse_build_config)
 # - compatible_with: constraint_values for exec_compatible_with / target_compatible_with
 # - target_settings: additional config_settings the toolchain must match (optional)
 # - register_exec_tools: whether the hub emits the platform's exec registration
@@ -54,10 +56,7 @@ DEFAULT_RELEASE_DATES = [
 # buildifier: disable=unsorted-dict-items
 PLATFORMS = {
     "aarch64-apple-darwin": {
-        "asset_suffixes": {
-            "install_only": "install_only",
-            "freethreaded": "freethreaded+pgo+lto-full",
-        },
+        "freethreaded_suffix": "freethreaded+pgo+lto-full",
         "compatible_with": [
             "@platforms//os:macos",
             "@platforms//cpu:aarch64",
@@ -65,10 +64,7 @@ PLATFORMS = {
         "register_exec_tools": True,
     },
     "aarch64-unknown-linux-gnu": {
-        "asset_suffixes": {
-            "install_only": "install_only",
-            "freethreaded": "freethreaded+pgo+lto-full",
-        },
+        "freethreaded_suffix": "freethreaded+pgo+lto-full",
         "compatible_with": [
             "@platforms//os:linux",
             "@platforms//cpu:aarch64",
@@ -79,10 +75,7 @@ PLATFORMS = {
         "register_exec_tools": True,
     },
     "aarch64-unknown-linux-musl": {
-        "asset_suffixes": {
-            "install_only": "install_only",
-            "freethreaded": "freethreaded+lto-full",
-        },
+        "freethreaded_suffix": "freethreaded+lto-full",
         "compatible_with": [
             "@platforms//os:linux",
             "@platforms//cpu:aarch64",
@@ -93,10 +86,7 @@ PLATFORMS = {
         "register_exec_tools": False,
     },
     "x86_64-apple-darwin": {
-        "asset_suffixes": {
-            "install_only": "install_only",
-            "freethreaded": "freethreaded+pgo+lto-full",
-        },
+        "freethreaded_suffix": "freethreaded+pgo+lto-full",
         "compatible_with": [
             "@platforms//os:macos",
             "@platforms//cpu:x86_64",
@@ -104,10 +94,7 @@ PLATFORMS = {
         "register_exec_tools": True,
     },
     "x86_64-unknown-linux-gnu": {
-        "asset_suffixes": {
-            "install_only": "install_only",
-            "freethreaded": "freethreaded+pgo+lto-full",
-        },
+        "freethreaded_suffix": "freethreaded+pgo+lto-full",
         "compatible_with": [
             "@platforms//os:linux",
             "@platforms//cpu:x86_64",
@@ -118,10 +105,7 @@ PLATFORMS = {
         "register_exec_tools": True,
     },
     "x86_64-unknown-linux-musl": {
-        "asset_suffixes": {
-            "install_only": "install_only",
-            "freethreaded": "freethreaded+lto-full",
-        },
+        "freethreaded_suffix": "freethreaded+lto-full",
         "compatible_with": [
             "@platforms//os:linux",
             "@platforms//cpu:x86_64",
@@ -132,10 +116,7 @@ PLATFORMS = {
         "register_exec_tools": False,
     },
     "x86_64-pc-windows-msvc": {
-        "asset_suffixes": {
-            "install_only": "install_only",
-            "freethreaded": "freethreaded+pgo-full",
-        },
+        "freethreaded_suffix": "freethreaded+pgo-full",
         "compatible_with": [
             "@platforms//os:windows",
             "@platforms//cpu:x86_64",
@@ -143,10 +124,7 @@ PLATFORMS = {
         "register_exec_tools": True,
     },
     "aarch64-pc-windows-msvc": {
-        "asset_suffixes": {
-            "install_only": "install_only",
-            "freethreaded": "freethreaded+pgo-full",
-        },
+        "freethreaded_suffix": "freethreaded+pgo-full",
         "compatible_with": [
             "@platforms//os:windows",
             "@platforms//cpu:aarch64",
@@ -154,10 +132,7 @@ PLATFORMS = {
         "register_exec_tools": True,
     },
     "i686-pc-windows-msvc": {
-        "asset_suffixes": {
-            "install_only": "install_only",
-            "freethreaded": "freethreaded+pgo-full",
-        },
+        "freethreaded_suffix": "freethreaded+pgo-full",
         "compatible_with": [
             "@platforms//os:windows",
             "@platforms//cpu:x86_32",
@@ -166,24 +141,122 @@ PLATFORMS = {
     },
 }
 
-# Logical runtime modes registered by this extension. Each mode specifies:
-# - extension: the archive file extension
-# - strip_prefix: the prefix to strip when extracting
-# - freethreaded: whether this is a free-threaded build
-# - abi_flags: CPython ABI flags used in header and Windows import-library paths
-#
-# buildifier: disable=unsorted-dict-items
-RUNTIME_MODES = {
-    "install_only": {
-        "abi_flags": "",
-        "extension": "tar.gz",
-        "strip_prefix": "python",
-        "freethreaded": False,
-    },
-    "freethreaded": {
-        "abi_flags": "t",
+# Tokens permitted in a "-full" build configuration suffix, ranked by PBS's
+# canonical filename order (e.g. "pgo+lto-full", "freethreaded+debug-full",
+# "lto+static-full"). Manifests only ever use this order, so misordered or
+# duplicated tokens can never match an asset and are rejected at parse time.
+_FULL_TOKEN_RANK = {
+    "freethreaded": 0,
+    "debug": 1,
+    "noopt": 2,
+    "pgo": 3,
+    "lto": 4,
+    "static": 5,
+}
+
+def parse_build_config(suffix):
+    """Decode a python-build-standalone build configuration suffix.
+
+    PBS asset filenames end in a build configuration suffix drawn from a fixed
+    grammar visible in the SHA256SUMS manifests. This parses that suffix into
+    the archive and ABI properties a toolchain needs, without enumerating every
+    published combination:
+
+        install_only[_stripped]                    redistributable, tar.gz
+        [freethreaded+]<opt...>[+static]-full      full archive,     tar.zst
+
+    where each <opt> component is one of debug, noopt, pgo, lto, in that
+    order (e.g. "pgo+lto-full", "debug-full", "freethreaded+pgo+lto-full").
+
+    Availability of a given suffix for a specific version/platform is a
+    separate question, resolved against the release manifest.
+
+    Args:
+        suffix: a PBS build configuration suffix, e.g. "install_only".
+
+    Returns:
+        None if the suffix does not match the grammar, else a dict with:
+            suffix:        the input, unchanged (the exact filename suffix)
+            extension:     archive extension ("tar.gz" or "tar.zst")
+            strip_prefix:  extraction prefix ("python" or "python/install")
+            abi_flags:     CPython ABI flags ("", "t", "d", or "td")
+            freethreaded:  whether this is a free-threaded build
+            debug:         whether this is a Py_DEBUG build
+            static:        whether libpython is statically linked
+    """
+    if suffix in ("install_only", "install_only_stripped"):
+        return {
+            "suffix": suffix,
+            "extension": "tar.gz",
+            "strip_prefix": "python",
+            "abi_flags": "",
+            "freethreaded": False,
+            "debug": False,
+            "static": False,
+        }
+
+    if not suffix.endswith("-full"):
+        return None
+
+    tokens = suffix[:-len("-full")].split("+")
+    last_rank = -1
+    for token in tokens:
+        rank = _FULL_TOKEN_RANK.get(token)
+        if rank == None or rank <= last_rank:
+            return None
+        last_rank = rank
+    freethreaded = "freethreaded" in tokens
+    debug = "debug" in tokens
+    static = "static" in tokens
+
+    return {
+        "suffix": suffix,
         "extension": "tar.zst",
         "strip_prefix": "python/install",
-        "freethreaded": True,
-    },
-}
+        "abi_flags": ("t" if freethreaded else "") + ("d" if debug else ""),
+        "freethreaded": freethreaded,
+        "debug": debug,
+        "static": static,
+    }
+
+def validate_build_config(suffix):
+    """Validate a hub-level build_config.
+
+    Fails with an actionable message when the configuration is unrecognized or
+    cannot back a working non-free-threaded runtime toolchain.
+
+    Args:
+        suffix: the build_config attribute value from interpreters.configure().
+
+    Returns:
+        The parse_build_config() dict for the suffix.
+    """
+    parsed = parse_build_config(suffix)
+    if parsed == None:
+        fail(
+            "Unrecognized PBS build_config '{}'. ".format(suffix) +
+            "Expected 'install_only', 'install_only_stripped', or a " +
+            "'<opt>[+<opt>...]-full' suffix where each component is one of " +
+            "debug, noopt, pgo, lto — at most once and in that order, as PBS " +
+            "publishes them (e.g. 'pgo+lto-full', 'debug-full'). " +
+            "See https://github.com/astral-sh/python-build-standalone/releases.",
+        )
+    if parsed["static"]:
+        fail(
+            "build_config '{}' selects a statically linked libpython. ".format(suffix) +
+            "Extension modules resolve Python symbols from the loading " +
+            "interpreter, so a static build cannot back a runtime toolchain. " +
+            "Use a non-static build configuration.",
+        )
+    if parsed["freethreaded"]:
+        # Bare "freethreaded-full" has no non-free-threaded counterpart, so
+        # only offer an example when dropping the token leaves a valid suffix.
+        alternative = suffix.replace("freethreaded+", "")
+        example = " (e.g. '{}')".format(alternative) if alternative != suffix else ""
+        fail(
+            "build_config '{}' must not select free-threading. ".format(suffix) +
+            "Free-threading is an orthogonal axis chosen at build time via " +
+            "--@aspect_rules_py//py/private/interpreter:freethreaded; pass the " +
+            "non-free-threaded suffix instead{}.".format(example),
+        )
+    return parsed

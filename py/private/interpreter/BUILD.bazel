@@ -1,7 +1,9 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
 load(":exclude_feature.bzl", "exclude_feature_flag")
+load(":extension_test.bzl", "extension_test_suite")
 load(":version_util_test.bzl", "version_util_test_suite")
+load(":versions_test.bzl", "versions_test_suite")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -87,7 +89,11 @@ bool_flag(
     build_setting_default = False,
 )
 
+extension_test_suite()
+
 version_util_test_suite()
+
+versions_test_suite()
 
 # keep
 bzl_library(

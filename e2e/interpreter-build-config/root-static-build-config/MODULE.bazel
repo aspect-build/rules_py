@@ -1,0 +1,17 @@
+# Designed to FAIL extension evaluation: statically linked build_config.
+# test.sh asserts the error message.
+module(name = "root_static_build_config")
+
+bazel_dep(name = "aspect_rules_py")
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../../..",
+)
+
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+interpreters.configure(
+    build_config = "lto+static-full",
+    releases = ["20260303"],
+)
+interpreters.toolchain(python_version = "3.13")
+use_repo(interpreters, "python_interpreters")

@@ -1,18 +1,55 @@
 """Module extension for provisioning Python interpreters from python-build-standalone."""
 
-load(":repository.bzl", "python_interpreter", "python_toolchains")
+load(":repository.bzl", "python_interpreter", "python_interpreter_unavailable", "python_toolchains")
 load(":sanitize.bzl", "sanitize")
 load(":version_util.bzl", "is_decimal", "is_pre_release", "version_gt")
-load(":versions.bzl", "DEFAULT_RELEASE_BASE_URL", "DEFAULT_RELEASE_DATES", "PLATFORMS", "RUNTIME_MODES")
+load(":versions.bzl", "DEFAULT_RELEASE_BASE_URL", "DEFAULT_RELEASE_DATES", "PLATFORMS", "parse_build_config", "validate_build_config")
 
 # The GitHub API endpoint for resolving "latest" releases.
 _GITHUB_API_LATEST = "https://api.github.com/repos/{owner}/{repo}/releases/latest"
 
+# Default hub-level build configuration: the optimized, minimal redistributable.
+_DEFAULT_BUILD_CONFIG = "install_only"
+
 # Facts can outlive an extension implementation change, so index shape changes
 # must use a new key rather than accepting cached data from the old schema.
-_RELEASE_INDEX_SCHEMA = 1
+# v2: mode keys became "default"/"freethreaded" and the default mode's archive
+# suffix is build_config-dependent (folded into the facts key).
+_RELEASE_INDEX_SCHEMA = 2
 
-def _parse_sha256sums(content, release_date):
+def _resolve_modes(build_config):
+    """Build the ordered list of runtime modes to provision.
+
+    "default" uses the hub-level build_config's archive on every platform;
+    "freethreaded" parses each platform's own freethreaded_suffix, so
+    free-threading stays a build-time select() (see the freethreaded
+    config_setting in repository.bzl). Order is default-then-freethreaded to
+    keep generated output stable.
+
+    Each mode maps platform -> parse_build_config() dict (suffix, extension,
+    strip_prefix, abi_flags, ...) in config_for_platform.
+    """
+    default = validate_build_config(build_config)
+
+    return [
+        {
+            "name": "default",
+            "repo_suffix": "",  # the default mode owns the unsuffixed repo name
+            "freethreaded": False,
+            "config_for_platform": {platform: default for platform in PLATFORMS},
+        },
+        {
+            "name": "freethreaded",
+            "repo_suffix": "freethreaded",
+            "freethreaded": True,
+            "config_for_platform": {
+                platform: parse_build_config(info["freethreaded_suffix"])
+                for platform, info in PLATFORMS.items()
+            },
+        },
+    ]
+
+def _parse_sha256sums(content, release_date, modes):
     """Parse a SHA256SUMS file into a structured index.
 
     Returns a dict mapping (major_minor, platform, runtime_mode) -> {
@@ -21,20 +58,21 @@ def _parse_sha256sums(content, release_date):
         "full_version": str,
     }
 
-    When multiple patch versions exist for the same major.minor, only the
-    newest is kept.
+    where runtime_mode is a mode name from _resolve_modes ("default" or
+    "freethreaded"). When multiple patch versions exist for the same
+    major.minor, only the newest is kept.
     """
     index = {}
     configured_assets = {}
 
-    for platform, platform_info in PLATFORMS.items():
-        for mode_name, mode_info in RUNTIME_MODES.items():
+    for mode in modes:
+        for platform, config in mode["config_for_platform"].items():
             asset = "{}-{}.{}".format(
                 platform,
-                platform_info["asset_suffixes"][mode_name],
-                mode_info["extension"],
+                config["suffix"],
+                config["extension"],
             )
-            configured_assets[asset] = (platform, mode_name)
+            configured_assets[asset] = (platform, mode["name"])
 
     for line in content.split("\n"):
         line = line.strip()
@@ -86,8 +124,10 @@ def _parse_sha256sums(content, release_date):
 
     return index
 
-def _release_index_facts_key(release_date, base_url):
-    return "release_index_v{}_{}_{}".format(_RELEASE_INDEX_SCHEMA, release_date, base_url)
+def _release_index_facts_key(release_date, base_url, build_config):
+    # build_config selects the default mode's archive, so it changes the parsed
+    # index contents and must scope the cache key.
+    return "release_index_v{}_{}_{}_{}".format(_RELEASE_INDEX_SCHEMA, release_date, base_url, build_config)
 
 def _owner_repo_from_base_url(base_url):
     """Extract GitHub owner/repo from a base URL like https://github.com/{owner}/{repo}/releases/download."""
@@ -125,12 +165,12 @@ def _resolve_latest(module_ctx, base_url):
         fail('Could not resolve "latest" release from {}'.format(api_url))
     return tag
 
-def _fetch_release_index(module_ctx, release_date, base_url, facts):
+def _fetch_release_index(module_ctx, release_date, base_url, build_config, modes, facts):
     """Fetch and parse SHA256SUMS for a release, using facts as cache.
 
     Returns the parsed index dict for this release date.
     """
-    facts_key = _release_index_facts_key(release_date, base_url)
+    facts_key = _release_index_facts_key(release_date, base_url, build_config)
     cached = facts.get(facts_key)
     if cached:
         return cached
@@ -145,7 +185,7 @@ def _fetch_release_index(module_ctx, release_date, base_url, facts):
     )
     content = module_ctx.read(sha256sums_path)
 
-    index = _parse_sha256sums(content, release_date)
+    index = _parse_sha256sums(content, release_date, modes)
     if not index:
         fail(
             "No CPython assets found in SHA256SUMS for release date \"{}\". ".format(release_date) +
@@ -168,6 +208,7 @@ def _python_interpreters_impl(module_ctx):
     # to carry a configure() for development without breaking downstream users.
     release_dates = []
     release_base_urls = {}  # date -> base_url
+    build_config = _DEFAULT_BUILD_CONFIG
     has_configure = False
 
     for mod in module_ctx.modules:
@@ -180,6 +221,7 @@ def _python_interpreters_impl(module_ctx):
                     "Pass all release dates as a single list.",
                 )
             has_configure = True
+            build_config = tag.build_config
             base_url = tag.base_url if tag.base_url else DEFAULT_RELEASE_BASE_URL
             for date in tag.releases:
                 if date == "latest":
@@ -200,6 +242,10 @@ def _python_interpreters_impl(module_ctx):
 
     # Sort newest-first for "prefer newest release" semantics
     release_dates = sorted(release_dates, reverse = True)
+
+    # Resolve the runtime modes to provision. Validates build_config eagerly so
+    # a typo fails before any downloads happen.
+    modes = _resolve_modes(build_config)
 
     # Collect all requested Python versions. Any module can request a version,
     # but only the root module's pre_release flag and toolchain settings are
@@ -267,11 +313,11 @@ def _python_interpreters_impl(module_ctx):
 
     for date in release_dates:
         base_url = release_base_urls.get(date, DEFAULT_RELEASE_BASE_URL)
-        index = _fetch_release_index(module_ctx, date, base_url, facts)
+        index = _fetch_release_index(module_ctx, date, base_url, build_config, modes, facts)
         release_indices[date] = index
 
         # Cache in facts for next run — but never cache under "latest"
-        facts_key = _release_index_facts_key(date, base_url)
+        facts_key = _release_index_facts_key(date, base_url, build_config)
         new_facts[facts_key] = index
 
     # Create per-platform, per-runtime-mode interpreter repos and collect
@@ -279,50 +325,65 @@ def _python_interpreters_impl(module_ctx):
     # which entries are eligible.
     toolchain_entries = []
 
-    # Keep generated output stable: regular modes, then freethreaded modes.
-    ordered_modes = (
-        [(name, mode) for name, mode in RUNTIME_MODES.items() if not mode["freethreaded"]] +
-        [(name, mode) for name, mode in RUNTIME_MODES.items() if mode["freethreaded"]]
-    )
-
     # Target-pattern registration orders toolchains lexicographically by name,
     # so BUILD declaration order cannot select a default toolchain:
     # https://bazel.build/extending/toolchains#registering-building-toolchains
     for major_minor in sorted(requested_versions):
         version_found = False
+        default_mode_found = False
+        pre_release_versions = {}  # full_version -> True, rejected by the pre_release gate
         settings = root_settings.get(major_minor, {
             "config_settings": [],
             "exec_compatible_with": [],
             "target_compatible_with": [],
         })
-        for mode_name, mode_info in ordered_modes:
+        for mode in modes:
             for platform_triple, platform_info in PLATFORMS.items():
+                config = mode["config_for_platform"][platform_triple]
                 repo_name = "python_{}_{}".format(
                     sanitize(major_minor),
                     sanitize(platform_triple),
                 )
-                if mode_name != "install_only":
-                    repo_name += "_" + sanitize(mode_name)
+                if mode["repo_suffix"]:
+                    repo_name += "_" + sanitize(mode["repo_suffix"])
 
                 # Find the best release for this version/platform/mode
                 asset_info = _find_asset(
                     major_minor,
                     platform_triple,
-                    mode_name,
+                    mode["name"],
                     release_dates,
                     release_indices,
                 )
 
+                unavailable = None
                 if not asset_info:
-                    # Version/platform/mode combo doesn't exist — skip it
-                    # rather than registering a stub toolchain.
-                    continue
+                    unavailable = "No CPython {} '{}' archive for {} in the configured PBS releases ({}).".format(
+                        major_minor,
+                        config["suffix"],
+                        platform_triple,
+                        ", ".join(release_dates),
+                    )
+                elif is_pre_release(asset_info["full_version"]) and not allow_pre_release.get(major_minor, False):
+                    pre_release_versions[asset_info["full_version"]] = True
+                    unavailable = "CPython {} for {} is a pre-release ({}) not enabled via interpreters.toolchain(pre_release = True).".format(
+                        major_minor,
+                        platform_triple,
+                        asset_info["full_version"],
+                    )
 
-                # Skip pre-release versions unless explicitly allowed
-                if is_pre_release(asset_info["full_version"]) and not allow_pre_release.get(major_minor, False):
+                if unavailable:
+                    # No toolchain, but the repo name must still exist so
+                    # use_repo() imports stay valid for every build_config.
+                    python_interpreter_unavailable(
+                        name = repo_name,
+                        message = unavailable,
+                    )
                     continue
 
                 version_found = True
+                if mode["name"] == "default":
+                    default_mode_found = True
 
                 base_url = release_base_urls.get(asset_info["release_date"], DEFAULT_RELEASE_BASE_URL)
                 url = "{}/{}/{}".format(
@@ -332,19 +393,19 @@ def _python_interpreters_impl(module_ctx):
                 )
                 python_interpreter(
                     name = repo_name,
-                    abi_flags = mode_info["abi_flags"],
+                    abi_flags = config["abi_flags"],
                     python_version = asset_info["full_version"],
                     platform = platform_triple,
                     url = url,
                     sha256 = asset_info["sha256"],
-                    strip_prefix = mode_info["strip_prefix"],
+                    strip_prefix = config["strip_prefix"],
                 )
 
                 toolchain_entries.append(json.encode({
                     "name": repo_name,
                     "repo": repo_name,
                     "python_version": major_minor,
-                    "freethreaded": mode_info["freethreaded"],
+                    "freethreaded": mode["freethreaded"],
                     "compatible_with": platform_info["compatible_with"],
                     "platform_target_settings": platform_info.get("target_settings", {}),
                     "config_settings": settings["config_settings"],
@@ -353,13 +414,36 @@ def _python_interpreters_impl(module_ctx):
                     "register_exec_tools": platform_info["register_exec_tools"],
                 }))
 
-        if not version_found:
+        # A version backed only by free-threaded toolchains is unusable in the
+        # default runtime mode, so a build_config with no matching platform is
+        # an eager failure, not a hub of stubs.
+        if not version_found or not default_mode_found:
             sources = version_sources.get(major_minor, ["unknown"])
+            if version_found:
+                what = "No CPython {} '{}' archives found for any platform in the configured PBS releases. ".format(major_minor, build_config)
+            else:
+                what = "No CPython {} builds found in any configured PBS release. ".format(major_minor)
+            if pre_release_versions:
+                hint = (
+                    "CPython {} exists only as a pre-release ({}); enable it with ".format(major_minor, ", ".join(sorted(pre_release_versions))) +
+                    "interpreters.toolchain(pre_release = True). "
+                )
+            elif build_config != _DEFAULT_BUILD_CONFIG:
+                hint = (
+                    "PBS publishes build_config '{}' only for some ".format(build_config) +
+                    "version/platform combinations; check the release SHA256SUMS " +
+                    "manifests or use 'install_only'. "
+                )
+            else:
+                hint = (
+                    "The root module's interpreters.configure(releases = [...]) must include " +
+                    "a release that contains this version. "
+                )
             fail(
-                "No CPython {} builds found in any configured PBS release. ".format(major_minor) +
+                what +
                 "Requested by module(s): {}. ".format(", ".join(sources)) +
-                "The root module's interpreters.configure(releases = [...]) must include " +
-                "a release that contains this version. Configured releases: " +
+                hint +
+                "Configured releases: " +
                 ", ".join(release_dates),
             )
 
@@ -393,6 +477,28 @@ def _find_asset(major_minor, platform, runtime_mode, release_dates, release_indi
 
 _configure_tag = tag_class(
     attrs = {
+        "build_config": attr.string(
+            default = _DEFAULT_BUILD_CONFIG,
+            doc = """\
+python-build-standalone build configuration for the non-free-threaded
+interpreter, hub-wide. This is the archive suffix PBS publishes, and selects
+size/optimization/debug tradeoffs for every provisioned version and platform.
+
+Supported values:
+  - "install_only" (default): optimized, minimal redistributable (tar.gz).
+  - "install_only_stripped": same as install_only with debug symbols removed
+    (smallest download).
+  - "<opt>[+<opt>...]-full": a full archive, where each component is one of
+    debug, noopt, pgo, lto, in that order. Examples: "pgo+lto-full",
+    "lto-full", "noopt-full", "debug-full".
+
+Per-platform availability of the "-full" flavors, the "+static" and
+"freethreaded" exclusions, and the Py_DEBUG caveat are documented in
+docs/interpreter.md under "Build configuration".
+
+Only honored from the root module.
+""",
+        ),
         "base_url": attr.string(
             default = "",
             doc = """\
@@ -488,4 +594,10 @@ python_interpreters = module_extension(
         "configure": _configure_tag,
         "toolchain": _toolchain_tag,
     },
+)
+
+# Exposed for unit tests only.
+extension_testlib = struct(
+    parse_sha256sums = _parse_sha256sums,
+    resolve_modes = _resolve_modes,
 )

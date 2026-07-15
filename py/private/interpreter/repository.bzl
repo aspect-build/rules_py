@@ -306,6 +306,22 @@ python_interpreter = repository_rule(
     },
 )
 
+def _python_interpreter_unavailable_impl(rctx):
+    rctx.file("BUILD.bazel", content = "fail({})\n".format(repr(rctx.attr.message)))
+    return rctx.repo_metadata(reproducible = True)
+
+# Stub for version/platform/mode combos with no usable PBS asset. The extension
+# must generate every repo name regardless of build_config so use_repo()
+# imports stay valid. The repo fetches cleanly (eager fetchers like
+# `bazel fetch --all` and `bazel vendor` must not break); referencing any
+# target in it fails at load time with the message.
+python_interpreter_unavailable = repository_rule(
+    implementation = _python_interpreter_unavailable_impl,
+    attrs = {
+        "message": attr.string(mandatory = True),
+    },
+)
+
 def _platform_setting_name(flag, value):
     """Generate a unique config_setting name for a flag/value pair."""
 
