@@ -1,0 +1,44 @@
+load("@bazel_lib//:bzl_library.bzl", "bzl_library")
+load("@bazel_lib//lib:write_source_files.bzl", "write_source_files")
+load("//py/private/py_venv:defs.bzl", "py_venv", "py_venv_exec")
+load(":venv_tree_snap.bzl", "venv_tree_snap")
+
+py_venv(
+    name = "snapshot_venv",
+    srcs = ["main.py"],
+    deps = ["@pypi//cowsay"],
+)
+
+py_venv_exec(
+    name = "snapshot_exec",
+    srcs = ["main.py"],
+    main = "main.py",
+    venv = ":snapshot_venv",
+)
+
+genrule(
+    name = "extract_venv_launcher",
+    outs = ["venv.launcher.snap.sh"],
+    cmd = "cp $(execpath :snapshot_venv) $@",
+    tools = [":snapshot_venv"],
+)
+
+venv_tree_snap(
+    name = "venv_tree",
+    venv = ":snapshot_venv",
+)
+
+write_source_files(
+    name = "snapshots",
+    files = {
+        "snapshots/venv.launcher.sh": ":extract_venv_launcher",
+        "snapshots/venv.tree.snap": ":venv_tree",
+    },
+)
+
+bzl_library(
+    name = "venv_tree_snap",
+    srcs = ["venv_tree_snap.bzl"],
+    visibility = ["//py:__subpackages__"],
+    deps = ["//py/private/py_venv:defs"],
+)

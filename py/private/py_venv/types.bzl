@@ -18,5 +18,6 @@ binary's launcher exec's the venv's `bin_python`.
         "bin_python": "File — the venv's bin/python symlink. Callers needing a launcher target point here.",
         "imports": "depset[str] — rlocation-root-relative import paths covered by this venv. Mirrors `PyInfo.imports` of the venv's dep closure.",
         "transitive_sources": "depset[File] — first-party Python sources carried by this venv (its own `srcs` plus those of any `deps` that emit `PyInfo`). Surfaced by py_binary as `PyInfo.transitive_sources` so downstream consumers see the same source closure they'd see if srcs/deps lived on the binary directly.",
+        "all_files": "depset[File] — every file and symlink declared by `assemble_venv`, for snapshot/test consumers that need the full venv output set.",
     },
 )

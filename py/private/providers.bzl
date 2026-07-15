@@ -152,26 +152,3 @@ PyVirtualInfo = provider(
         "resolutions": "FIXME",
     },
 )
-
-PyWheelPlanInfo = provider(
-    doc = """Pre-computed wheel collision plan for a transitive wheel closure.
-
-    Emitted by ``py_library`` (and other wheel-carrying rules) so that
-    downstream ``py_venv`` targets can skip re-running
-    ``resolve_wheel_collisions`` when the wheel set hasn't changed.
-
-    Bazel's skyframe analyses each provider-producing target once; when
-    multiple binaries share the same library dep, the plan is computed
-    once and reused.
-    """,
-    fields = {
-        "wheel_fingerprints": "tuple[str] — sorted site_packages_rfpaths, for matching",
-        "top_level_to_site_pkgs": "dict — from resolve_wheel_collisions",
-        "fully_covered": "dict — from resolve_wheel_collisions",
-        "console_scripts_map": "dict — from resolve_wheel_collisions",
-        "merge_groups": "list — from resolve_wheel_collisions",
-        "tree_by_sp": "dict — from _build_wheel_lookups",
-        "known_layout": "dict — from _build_wheel_lookups",
-        "collisions": "list[struct] — recorded collisions for policy enforcement",
-    },
-)
