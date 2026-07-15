@@ -36,31 +36,11 @@ Bazel's action cache treats each piece independently (no tree-artifact
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN")
 load(":toolchains_resolver.bzl", "resolve_venv_toolchain")
-load(":virtuals_resolvers.bzl", "resolve_wheel_collisions")
+load(":virtuals_resolvers.bzl", "compute_wheel_plan", "enforce_collision_policy")
 
 def _dict_to_exports(env):
     """Render an env dict as ``export KEY="VALUE"`` shell lines."""
     return ["export %s=\"%s\"" % (k, v) for (k, v) in env.items()]
-
-def _build_wheel_lookups(wheels):
-    """Build ``install_tree`` and known-layout lookups in a single pass.
-
-    Returns ``(tree_by_sp, known_layout_site_pkgs)``:
-
-    * ``tree_by_sp`` maps each wheel's ``site_packages_rfpath`` to its
-      ``install_tree`` File, consumed by ``PySiteMerge`` actions.
-    * ``known_layout_site_pkgs`` flags wheels that declare ``top_levels``,
-      so ``_make_pth_formatter`` can emit plain path lines for them and
-      reserve ``site.addsitedir`` for layout-unknown wheels.
-    """
-    tree_by_sp = {}
-    known_layout = {}
-    for w in wheels:
-        sp = w.site_packages_rfpath
-        tree_by_sp[sp] = w.install_tree
-        if w.top_levels:
-            known_layout[sp] = True
-    return tree_by_sp, known_layout
 
 def _make_pth_formatter(fully_covered, known_layout, escape, venv_escape):
     """Build a ``map_each`` closure for ``.pth`` import formatting.
@@ -314,11 +294,15 @@ def assemble_venv(
         venv_name = venv_name,
     )
 
-    wheels = _py_library.make_wheels_depset(ctx).to_list()
-    top_level_to_site_pkgs, fully_covered, console_scripts_map, merge_groups = \
-        resolve_wheel_collisions(ctx, wheels, package_collisions)
+    plan = compute_wheel_plan(ctx, _py_library.make_wheels_depset(ctx).to_list())
+    enforce_collision_policy(plan.collisions, package_collisions)
 
-    tree_by_sp, known_layout = _build_wheel_lookups(wheels)
+    top_level_to_site_pkgs = plan.top_level_to_site_pkgs
+    fully_covered = plan.fully_covered
+    console_scripts_map = plan.console_scripts_map
+    merge_groups = plan.merge_groups
+    tree_by_sp = plan.tree_by_sp
+    known_layout = plan.known_layout
     declared = []
 
     _declare_toplevel_symlinks(ctx, top_level_to_site_pkgs, tc, declared)

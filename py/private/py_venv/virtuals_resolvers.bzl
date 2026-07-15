@@ -97,22 +97,18 @@ def _cover_all_clean(claimants, state, tl):
     for c in claimants:
         _cover_if_clean(state, c.site_packages, tl)
 
-def _make_complainer(ctx, package_collisions):
-    """Build a closure that reports collisions per *package_collisions* policy."""
+def _make_collision_recorder(ctx, collisions):
+    """Build a closure that records collisions into *collisions* for later
+    policy enforcement by ``enforce_collision_policy``."""
 
     def _complain(what, name, a, b):
-        msg = "Package collision in {target}: {what} `{name}` is provided by both {a} and {b}.".format(
-            target = str(ctx.label),
+        collisions.append(struct(
+            label = str(ctx.label),
             what = what,
             name = name,
             a = a,
             b = b,
-        )
-        if package_collisions == "error":
-            fail(msg + "\nSet `package_collisions = \"warning\"` or \"ignore\" to downgrade.")
-        elif package_collisions == "warning":
-            # buildifier: disable=print
-            print(msg)
+        ))
 
     return _complain
 
@@ -499,32 +495,18 @@ def _resolve_metadata_collisions(metadata_claimants, state, fully_covered, compl
         if winner in fully_covered:
             state.top_level_to_site_pkgs[tl] = winner
 
-def resolve_wheel_collisions(ctx, wheels, package_collisions):
+def resolve_wheel_collisions(ctx, wheels):
     """Walk ``PyWheelsInfo.wheels`` and produce merge plans for site-packages + bin/.
 
-    Three kinds of collision are checked:
-
-    * **Top-level in site-packages.**  Multiple wheels claiming the same
-      top-level name.  When all flag the name as a PEP 420 namespace
-      package, the collision is benign and the namespace is merged
-      concretely with per-entry symlinks.  When a regular package spans
-      wheels (e.g. azure-core + azure-core-tracing-opentelemetry), the
-      conflicted subtrees are physically merged via ``PySiteMerge``.
-      Native roots stay on direct wheel projections.  Otherwise the
-      ``package_collisions`` policy decides.
-
-    * **Declared distribution metadata.**  Resolved with the same
-      last-distinct-wins precedence, but a losing claimant remaining on
-      whole-wheel fallback is rejected because metadata discovery scans
-      every ``sys.path`` entry.
-
-    * **Console-script names.**  Last distinct wheel wins; no namespace
-      equivalent.
+    Policy-agnostic: collisions are recorded, not reported.  The caller
+    must call ``enforce_collision_policy`` to apply error/warning/ignore.
 
     Returns:
-      (top_level_to_site_pkgs, fully_covered, console_scripts_map, merge_groups)
+      (top_level_to_site_pkgs, fully_covered, console_scripts_map,
+       merge_groups, collisions)
     """
-    complain = _make_complainer(ctx, package_collisions)
+    collisions = []
+    complain = _make_collision_recorder(ctx, collisions)
     state = _new_state()
 
     tl_claimants = {}
@@ -567,4 +549,55 @@ def resolve_wheel_collisions(ctx, wheels, package_collisions):
         fully_covered,
         console_scripts_map,
         state.merge_groups,
+        collisions,
     )
+
+def _build_wheel_lookups(wheels):
+    """Build ``install_tree`` and known-layout lookups in a single pass."""
+    tree_by_sp = {}
+    known_layout = {}
+    for w in wheels:
+        sp = w.site_packages_rfpath
+        tree_by_sp[sp] = w.install_tree
+        if w.top_levels:
+            known_layout[sp] = True
+    return tree_by_sp, known_layout
+
+def compute_wheel_plan(ctx, wheels):
+    """Compute the full collision resolution + lookup tables for a wheel set.
+
+    Returns a struct with all fields needed by ``PyWheelPlanInfo``:
+    ``wheel_fingerprints``, ``top_level_to_site_pkgs``, ``fully_covered``,
+    ``console_scripts_map``, ``merge_groups``, ``tree_by_sp``,
+    ``known_layout``, ``collisions``.
+    """
+    top_level, fully_covered, cs_map, merge_groups, collisions = \
+        resolve_wheel_collisions(ctx, wheels)
+    tree_by_sp, known_layout = _build_wheel_lookups(wheels)
+    fingerprints = tuple(sorted([w.site_packages_rfpath for w in wheels]))
+    return struct(
+        wheel_fingerprints = fingerprints,
+        top_level_to_site_pkgs = top_level,
+        fully_covered = fully_covered,
+        console_scripts_map = cs_map,
+        merge_groups = merge_groups,
+        tree_by_sp = tree_by_sp,
+        known_layout = known_layout,
+        collisions = collisions,
+    )
+
+def enforce_collision_policy(collisions, package_collisions):
+    """Apply error/warning/ignore to a list of recorded collisions."""
+    for c in collisions:
+        msg = "Package collision in {label}: {what} `{name}` is provided by both {a} and {b}.".format(
+            label = c.label,
+            what = c.what,
+            name = c.name,
+            a = c.a,
+            b = c.b,
+        )
+        if package_collisions == "error":
+            fail(msg + "\nSet `package_collisions = \"warning\"` or \"ignore\" to downgrade.")
+        elif package_collisions == "warning":
+            # buildifier: disable=print
+            print(msg)
