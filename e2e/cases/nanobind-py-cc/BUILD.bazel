@@ -1,0 +1,28 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@nanobind_bazel//:build_defs.bzl", "nanobind_extension")
+
+# Regression coverage for https://github.com/aspect-build/rules_py/issues/1095:
+# a nanobind_extension resolves Python headers through
+# @rules_python//python/cc:current_py_cc_headers, so it only analyzes if
+# python_interpreters registers the py_cc toolchain over the PBS interpreter.
+
+nanobind_extension(
+    name = "example_ext",
+    srcs = ["example_ext.cpp"],
+)
+
+build_test(
+    name = "example_ext_build_test",
+    targets = [":example_ext"],
+)
+
+py_test(
+    name = "example_ext_test",
+    size = "small",
+    srcs = ["example_ext_test.py"],
+    imports = ["."],  # so `import example_ext` finds the .so
+    main = "example_ext_test.py",
+    python_version = "3.13",
+    deps = [":example_ext"],
+)
