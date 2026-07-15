@@ -1,0 +1,15 @@
+load("//py:defs.bzl", "py_test")
+load("@bazel_skylib//lib:unittest.bzl", "unittest")
+load(":virtuals_resolvers_test.bzl", "virtuals_resolvers_test_suite")
+
+py_test(
+    name = "test_link",
+    srcs = [
+        "//py/private/py_venv:templates/link.py",
+        "test_link.py",
+    ],
+    imports = ["../templates"],
+    main = "test_link.py",
+)
+
+virtuals_resolvers_test_suite(name = "virtuals_resolvers_tests")

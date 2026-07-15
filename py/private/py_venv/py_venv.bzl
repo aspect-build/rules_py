@@ -21,8 +21,8 @@
   path.
 
 Shared venv-assembly logic lives in
-`//py/private/py_venv:venv.bzl::assemble_venv`. See that file's header for the
-layout details.
+`//py/private/py_venv:assemble_venv.bzl::assemble_venv`. See that file's
+header for the layout details.
 """
 
 load("@bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
@@ -33,7 +33,7 @@ load("//py/private:transitions.bzl", "python_transition")
 load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PY_TOOLCHAIN")
 load(":py_venv_exec.bzl", _py_venv_exec = "py_venv_exec")
 load(":types.bzl", "VirtualenvInfo", "venv_root")
-load(":venv.bzl", "assemble_venv")
+load(":assemble_venv.bzl", "assemble_venv")
 
 def _interpreter_flags(ctx):
     args = _py_semantics.interpreter_flags + ctx.attr.interpreter_options
@@ -80,6 +80,7 @@ def _assemble_shared(ctx):
         venv_activate_tmpl = ctx.file._venv_activate_tmpl,
         virtualenv_shim_py = ctx.file._virtualenv_shim,
         site_merge_script_py = ctx.file._site_merge_script,
+        console_script_tmpl = ctx.file._console_script_tmpl,
         venv_name = ".{}".format(safe_name),
     )
 
@@ -225,11 +226,15 @@ does not reinsert a wheel.
     # Shared with py_binary via the venv-assembly helper.
     "_venv_activate_tmpl": attr.label(
         allow_single_file = True,
-        default = ":venv_activate.tmpl.sh",
+        default = "templates/venv_activate.tmpl.sh",
     ),
     "_virtualenv_shim": attr.label(
         allow_single_file = True,
-        default = ":_virtualenv.py",
+        default = "templates/_virtualenv.py",
+    ),
+    "_console_script_tmpl": attr.label(
+        allow_single_file = True,
+        default = "templates/console_script.tmpl.sh",
     ),
     "_windows_constraint": attr.label(
         default = "@platforms//os:windows",
@@ -270,7 +275,7 @@ environment. Forwarded to the sibling py_binary/py_test consumer
     ),
     "_run_tmpl": attr.label(
         allow_single_file = True,
-        default = ":venv.tmpl.sh",
+        default = "templates/venv.tmpl.sh",
     ),
 })
 
@@ -476,7 +481,7 @@ def py_venv_link(name, venv, link_name = None, **kwargs):
             target's package + venv name.
         **kwargs: Forwarded to the underlying `py_binary`.
     """
-    link_script = str(Label(":link.py"))
+    link_script = str(Label("templates/link.py"))
     _py_venv_exec(
         name = name,
         main = link_script,
