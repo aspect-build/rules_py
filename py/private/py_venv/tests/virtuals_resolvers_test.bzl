@@ -64,7 +64,9 @@ def _single_wheel_test_impl(ctx):
         ),
     ]
     top_level, fully_covered, cs_map, merge_groups = resolve_wheel_collisions(
-        mock_ctx, wheels, "warning",
+        mock_ctx,
+        wheels,
+        "warning",
     )
     asserts.equals(env, "external/pypi_foo/site-packages", top_level["foo"])
     asserts.true(env, "external/pypi_foo/site-packages" in fully_covered)
@@ -99,7 +101,9 @@ def _namespace_merge_test_impl(ctx):
         ),
     ]
     top_level, fully_covered, cs_map, merge_groups = resolve_wheel_collisions(
-        mock_ctx, wheels, "warning",
+        mock_ctx,
+        wheels,
+        "warning",
     )
     asserts.equals(env, sp_a, top_level["ns/sub_a"])
     asserts.equals(env, sp_b, top_level["ns/sub_b"])
@@ -128,7 +132,9 @@ def _console_script_collision_test_impl(ctx):
         ),
     ]
     _, _, cs_map, _ = resolve_wheel_collisions(
-        mock_ctx, wheels, "ignore",
+        mock_ctx,
+        wheels,
+        "ignore",
     )
     asserts.equals(env, "pkg_b.cli", cs_map["tool"].module)
     return unittest.end(env)

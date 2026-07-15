@@ -31,9 +31,9 @@ load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private:transitions.bzl", "python_transition")
 load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PY_TOOLCHAIN")
+load(":assemble_venv.bzl", "assemble_venv")
 load(":py_venv_exec.bzl", _py_venv_exec = "py_venv_exec")
 load(":types.bzl", "VirtualenvInfo", "venv_root")
-load(":assemble_venv.bzl", "assemble_venv")
 
 def _interpreter_flags(ctx):
     args = _py_semantics.interpreter_flags + ctx.attr.interpreter_options
