@@ -78,15 +78,9 @@ class _Finder:
                     spec = find_spec(fullname, path)
                     if spec is not None:
                         # https://www.python.org/dev/peps/pep-0451/#how-loading-will-work
-                        is_new_api = hasattr(spec.loader, "exec_module")
-                        func_name = "exec_module" if is_new_api else "load_module"
-                        old = getattr(spec.loader, func_name)
-                        func = self.exec_module if is_new_api else self.load_module
-                        if old is not func:
-                            try:  # noqa: SIM105
-                                setattr(spec.loader, func_name, partial(func, old))
-                            except AttributeError:
-                                pass  # C-Extension loaders are r/o such as zipimporter with <3.7
+                        old = spec.loader.exec_module
+                        if old is not self.exec_module:
+                            spec.loader.exec_module = partial(self.exec_module, old)
                         return spec
                 finally:
                     self.fullname = None
@@ -97,13 +91,6 @@ class _Finder:
         old(module)
         if module.__name__ in _DISTUTILS_PATCH:
             patch_dist(module)
-
-    @staticmethod
-    def load_module(old, name):
-        module = old(name)
-        if module.__name__ in _DISTUTILS_PATCH:
-            patch_dist(module)
-        return module
 
 
 sys.meta_path.insert(0, _Finder())

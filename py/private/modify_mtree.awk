@@ -3,24 +3,17 @@
 # following and inlining the target bytes.
 #
 # Forked from @tar.bzl//tar/private:preserve_symlinks.awk and tracking
-# https://github.com/bazel-contrib/tar.bzl/pull/115. Two behavioural
-# differences remain:
+# https://github.com/bazel-contrib/tar.bzl/pull/115. One behavioural
+# difference remains:
 #
-#   1. `bazel-out/` vs `external/` strip is exclusive (`if` / `else if`)
-#      rather than two sequential `sub`s. Without this, paths matching
-#      both regexes — e.g. `bazel-out/<cfg>/bin/external/<repo>/...`,
-#      the canonical shape of a generated wheel file — get
-#      over-stripped down to `external/<repo>/...`, miss the
-#      `symlink_map` lookup, and dangle inside the OCI layer.
-#   2. Classified `bazel-out/` or `external/` targets NOT in the
-#      layer's mtree fall back to `type=file content=...` (bsdtar
-#      inlines the bytes) instead of being written as a dangling
-#      `type=link link=external/<repo>/...`. Exercised by py_venv's
-#      `_virtualenv.py` symlink into the rules_py source tree, which
-#      under bzlmod's `external/aspect_rules_py+/...` layout isn't a
-#      separate tar entry.
+#   The `bazel-out/` vs `external/` strip is exclusive (`if` / `else if`)
+#   rather than two sequential `sub`s. Without this, paths matching
+#   both regexes — e.g. `bazel-out/<cfg>/bin/external/<repo>/...`,
+#   the canonical shape of a generated wheel file — get
+#   over-stripped down to `external/<repo>/...`, miss the
+#   `symlink_map` lookup, and dangle inside the OCI layer.
 #
-# Send a follow-up PR to bazel-contrib/tar.bzl with both once #115
+# Send a follow-up PR to bazel-contrib/tar.bzl once #115
 # lands so this fork can retire.
 #
 # Invoked from `_run_tar_action` in [py_image_layer.bzl](py_image_layer.bzl)
@@ -180,16 +173,8 @@ END {
                 linked_to = make_relative_link(mapped_link, field0)
             } else if (resolved_path ~ /^bazel-out\// || resolved_path ~ /^external\//) {
                 # Classified to a Bazel-tree path but the target row
-                # isn't in this layer's mtree. Slow path falls back to
-                # `type=file content=...` so bsdtar inlines the target
-                # bytes; the hot path has no equivalent (declared
-                # symlinks whose targets aren't in the layer are a
-                # config bug) so we emit a dangling `type=link link=...`
-                # to surface the issue visibly.
-                if (original_line ~ /type=file/) {
-                    out_lines[++n] = original_line
-                    continue
-                }
+                # isn't in this layer's mtree — a config bug. Emit a
+                # dangling `type=link link=...` to surface it visibly.
                 linked_to = resolved_path
             } else {
                 # Already a relative path
