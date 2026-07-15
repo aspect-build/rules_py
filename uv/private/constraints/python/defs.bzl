@@ -63,16 +63,8 @@ def _python_version_at_least_impl(ctx):
         if len(parts) >= 2:
             arpy_value = "{}.{}".format(parts[0], parts[1])
 
-    # Error on disagreement when both are set
-    if arpy_value and rpy_value and arpy_value != rpy_value:
-        fail(
-            "Python version mismatch: " +
-            "@aspect_rules_py//py/private/interpreter:python_version is {}, ".format(arpy_value) +
-            "but @rules_python python_version_major_minor is {}. ".format(rpy_value) +
-            "These must agree.",
-        )
-
-    # Aspect flag is authoritative; rules_python is fallback
+    # rules_python always supplies a default, so it cannot distinguish an
+    # explicit conflict from untouched state. Our flag is authoritative.
     flag_value = arpy_value or rpy_value
 
     if not flag_value:

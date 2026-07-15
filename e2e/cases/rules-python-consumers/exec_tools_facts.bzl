@@ -22,7 +22,7 @@ exec_tools_facts = rule(
 )
 
 def _set_python_version_impl(settings, attr):
-    # Both flags together so the uv constraints mismatch guard stays satisfied.
+    # Keep the rules_python toolchain consumer on the same interpreter.
     return {
         "@aspect_rules_py//py/private/interpreter:python_version": attr.python_version,
         "@rules_python//python/config_settings:python_version": attr.python_version,

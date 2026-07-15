@@ -32,6 +32,17 @@ platform(
     ],
 )
 
+# The uv constraint is selected by a downstream target rather than built
+# directly, so this fails if the public rules_py selector is not propagated.
+filegroup(
+    name = "uv_constraint_selected",
+    srcs = ["BUILD.bazel"],
+    target_compatible_with = select({
+        "@aspect_rules_py//uv/private/constraints/python:py312": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+)
+
 interpreter_toolchain_check(
     name = "resolved_311",
     expected_interpreter = "@python_3_11_x86_64_unknown_linux_gnu//:bin/python3",
