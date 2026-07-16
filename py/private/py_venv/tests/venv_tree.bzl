@@ -8,7 +8,7 @@ as a reviewable diff.
 
 load("//py/private/py_venv:defs.bzl", "VirtualenvInfo")
 
-def _venv_tree_snap_impl(ctx):
+def _venv_tree_impl(ctx):
     output = ctx.actions.declare_file(ctx.label.name + ".snap")
     bin_python = ctx.attr.venv[VirtualenvInfo].bin_python
     ctx.actions.run_shell(
@@ -50,8 +50,8 @@ def _venv_tree_snap_impl(ctx):
     )
     return DefaultInfo(files = depset([output]))
 
-venv_tree_snap = rule(
-    implementation = _venv_tree_snap_impl,
+venv_tree = rule(
+    implementation = _venv_tree_impl,
     attrs = {
         "venv": attr.label(
             providers = [VirtualenvInfo],

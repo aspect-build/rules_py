@@ -63,9 +63,9 @@ unset PYTHONHOME
 _OLD_VIRTUAL_PATH="$PATH"
 
 # Aspect additions
-export BAZEL_TARGET="//py/private/py_venv/snapshots:snapshot_venv"
+export BAZEL_TARGET="//py/private/py_venv/tests:venv"
 export BAZEL_WORKSPACE="_main"
-export BAZEL_TARGET_NAME="snapshot_venv"
+export BAZEL_TARGET_NAME="venv"
 
 # Now we can put the venv's absolute bin on the path
 PATH="$VIRTUAL_ENV/bin:$PATH"
@@ -192,7 +192,7 @@ sys.meta_path.insert(0, _Finder())
 ---
 LINK lib/python3.9/site-packages/cowsay -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__cowsay__6_1/actual_install.install/lib/python3.9/site-packages/cowsay
 LINK lib/python3.9/site-packages/cowsay-6.1.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__cowsay__6_1/actual_install.install/lib/python3.9/site-packages/cowsay-6.1.dist-info
-FILE lib/python3.9/site-packages/snapshot_venv.pth
+FILE lib/python3.9/site-packages/venv.pth
 ---
 ../../../../../../../../..
 ../../../../../../../../../_main

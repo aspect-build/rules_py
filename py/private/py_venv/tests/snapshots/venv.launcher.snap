@@ -20,7 +20,7 @@ runfiles_export_envvars
 
 set -o errexit -o nounset -o pipefail
 
-VENV_PYTHON="$(rlocation _main/py/private/py_venv/snapshots/.snapshot_venv/bin/python)"
+VENV_PYTHON="$(rlocation _main/py/private/py_venv/tests/.venv/bin/python)"
 VENV_BIN="$(dirname "${VENV_PYTHON}")"
 VENV_HOME="$(dirname "${VENV_BIN}")"
 

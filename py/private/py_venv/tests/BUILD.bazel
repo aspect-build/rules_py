@@ -1,6 +1,59 @@
+load("@bazel_lib//:bzl_library.bzl", "bzl_library")
+load("@bazel_lib//lib:write_source_files.bzl", "write_source_files")
 load("@bazel_skylib//lib:unittest.bzl", "unittest")
 load("//py:defs.bzl", "py_test")
+load("//py/private/py_venv:defs.bzl", "py_venv", "py_venv_exec")
+load(":venv_tree.bzl", "venv_tree")
 load(":virtuals_resolvers_test.bzl", "virtuals_resolvers_test_suite")
+
+bzl_library(
+    name = "venv_tree",
+    srcs = ["venv_tree.bzl"],
+    visibility = ["//py/private/py_venv:__subpackages__"],
+    deps = ["//py/private/py_venv:defs"],
+)
+
+py_venv(
+    name = "venv",
+    testonly = True,
+    srcs = ["main.py"],
+    tags = ["manual"],
+    deps = ["@pypi//cowsay"],
+)
+
+py_venv_exec(
+    name = "exec",
+    testonly = True,
+    srcs = ["main.py"],
+    main = "main.py",
+    tags = ["manual"],
+    venv = ":venv",
+)
+
+genrule(
+    name = "venv_launcher_snap",
+    testonly = True,
+    outs = ["venv.launcher.snap"],
+    cmd = "cp $(execpath :venv) $@",
+    tags = ["manual"],
+    tools = [":venv"],
+)
+
+venv_tree(
+    name = "venv_tree_snap",
+    testonly = True,
+    tags = ["manual"],
+    venv = ":venv",
+)
+
+write_source_files(
+    name = "snapshots",
+    testonly = True,
+    files = {
+        "snapshots/venv.launcher.snap": ":venv_launcher_snap",
+        "snapshots/venv.tree.snap": ":venv_tree_snap",
+    },
+)
 
 py_test(
     name = "test_link",

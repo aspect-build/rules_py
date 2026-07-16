@@ -10,8 +10,6 @@ platform(
     constraint_values = [
         "@platforms//os:linux",
         "@platforms//cpu:aarch64",
-        # rules_rs Rust toolchains for linux-gnu targets require gnu.2.28.
-        "@llvm//constraints/libc:gnu.2.28",
     ],
     # aspect_rules_py's interpreter toolchains are gated on the
     # `platform_libc` flag; pin glibc here so cross-builds from a darwin host
@@ -27,8 +25,6 @@ platform(
     constraint_values = [
         "@platforms//os:linux",
         "@platforms//cpu:x86_64",
-        # rules_rs Rust toolchains for linux-gnu targets require gnu.2.28.
-        "@llvm//constraints/libc:gnu.2.28",
     ],
     flags = [
         "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
