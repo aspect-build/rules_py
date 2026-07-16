@@ -4,10 +4,10 @@ load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 package(default_visibility = ["//py:__subpackages__"])
 
 exports_files([
-    "_virtualenv.py",
-    "link.py",
-    "venv.tmpl.sh",
-    "venv_activate.tmpl.sh",
+    "templates/_virtualenv.py",
+    "templates/link.py",
+    "templates/venv.tmpl.sh",
+    "templates/venv_activate.tmpl.sh",
 ])
 
 bool_flag(
