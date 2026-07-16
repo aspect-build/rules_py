@@ -1,13 +1,14 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 
-package(default_visibility = ["//py:__subpackages__"])
+package(default_visibility = ["//visibility:private"])
 
 exports_files([
     "templates/_virtualenv.py",
     "templates/link.py",
     "templates/venv.tmpl.sh",
     "templates/venv_activate.tmpl.sh",
+    "templates/console_script.tmpl.sh",
 ])
 
 bool_flag(
@@ -20,40 +21,28 @@ config_setting(
     flag_values = {
         ":debug_venv": "True",
     },
-    # This needs to be set public for global use since we select() on it from
-    # macros which analyze visibility wrt the expanding package.
-    #
-    # TODO: Eliminate this in favor of a proper bool flag or something.
     visibility = [
         "//visibility:public",
     ],
 )
 
 bzl_library(
-    name = "types",
-    srcs = ["types.bzl"],
-    visibility = [
-        "//py/private:__subpackages__",
-        "//uv/private:__subpackages__",
-    ],
+    name = "toolchains_resolver",
+    srcs = ["toolchains_resolver.bzl"],
     deps = [
+        "@bazel_lib//lib:paths",
     ],
 )
 
 bzl_library(
-    name = "venv",
-    srcs = ["venv.bzl"],
+    name = "assemble_venv",
+    srcs = ["assemble_venv.bzl"],
     deps = [
         ":toolchains_resolver",
         ":virtuals_resolvers",
         "//py/private:py_library",
+        "//py/private/toolchain:types",
     ],
-)
-
-bzl_library(
-    name = "toolchains_resolver",
-    srcs = ["toolchains_resolver.bzl"],
-    deps = ["@bazel_lib//lib:paths"],
 )
 
 bzl_library(
@@ -75,9 +64,9 @@ bzl_library(
     name = "py_venv",
     srcs = ["py_venv.bzl"],
     deps = [
+        ":assemble_venv",
         ":py_venv_exec",
         ":types",
-        ":venv",
         "//py/private:py_library",
         "//py/private:py_semantics",
         "//py/private:transitions",
@@ -90,14 +79,17 @@ bzl_library(
 bzl_library(
     name = "defs",
     srcs = ["defs.bzl"],
-    visibility = [
-        "//py:__subpackages__",
-    ],
+    visibility = ["//py:__subpackages__"],
     deps = [
         ":py_venv",
         ":py_venv_exec",
         ":types",
     ],
+)
+
+bzl_library(
+    name = "types",
+    srcs = ["types.bzl"],
 )
 
 bzl_library(
