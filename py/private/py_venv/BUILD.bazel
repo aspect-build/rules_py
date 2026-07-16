@@ -45,6 +45,7 @@ bzl_library(
     srcs = ["venv.bzl"],
     deps = [
         ":toolchains_resolver",
+        ":virtuals_resolvers",
         "//py/private:py_library",
     ],
 )
@@ -97,4 +98,9 @@ bzl_library(
         ":py_venv_exec",
         ":types",
     ],
+)
+
+bzl_library(
+    name = "virtuals_resolvers",
+    srcs = ["virtuals_resolvers.bzl"],
 )

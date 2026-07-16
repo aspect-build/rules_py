@@ -3,6 +3,7 @@ load("@bazel_lib//lib:write_source_files.bzl", "write_source_files")
 load("//py:defs.bzl", "py_test")
 load("//py/private/py_venv:defs.bzl", "py_venv", "py_venv_exec")
 load(":venv_tree.bzl", "venv_tree")
+load(":virtuals_resolvers_test.bzl", "virtuals_resolvers_test_suite")
 
 bzl_library(
     name = "venv_tree",
@@ -71,3 +72,5 @@ py_test(
     imports = ["../templates"],
     main = "//py/private/py_venv/tests:test_link.py",
 )
+
+virtuals_resolvers_test_suite(name = "virtuals_resolvers_tests")
