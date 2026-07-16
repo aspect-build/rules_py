@@ -1,7 +1,15 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load("@bazel_lib//lib:write_source_files.bzl", "write_source_files")
+load("//py:defs.bzl", "py_test")
 load("//py/private/py_venv:defs.bzl", "py_venv", "py_venv_exec")
 load(":venv_tree.bzl", "venv_tree")
+
+bzl_library(
+    name = "venv_tree",
+    srcs = ["venv_tree.bzl"],
+    visibility = ["//py/private/py_venv:__subpackages__"],
+    deps = ["//py/private/py_venv:defs"],
+)
 
 py_venv(
     name = "venv",
@@ -45,9 +53,12 @@ write_source_files(
     },
 )
 
-bzl_library(
-    name = "venv_tree",
-    srcs = ["venv_tree.bzl"],
-    visibility = ["//py/private/py_venv:__subpackages__"],
-    deps = ["//py/private/py_venv:defs"],
+py_test(
+    name = "test_link",
+    srcs = [
+        "//py/private/py_venv:link.py",
+        "//py/private/py_venv/tests:test_link.py",
+    ],
+    imports = [".."],
+    main = "//py/private/py_venv/tests:test_link.py",
 )
