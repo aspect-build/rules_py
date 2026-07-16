@@ -1,17 +1,5 @@
 load("@bazel_lib//lib:write_source_files.bzl", "write_source_files")
 
-# A host-compatible Linux platform with glibc 2.28+, used as the build target
-# and exec platform on Linux. Inherits cpu/os from the auto-detected host so
-# it works on both x86_64 and aarch64 builders without separate entries.
-platform(
-    name = "linux_gnu",
-    constraint_values = [
-        "@llvm//constraints/libc:gnu.2.28",
-    ],
-    parents = ["@platforms//host"],
-    visibility = ["//:__subpackages__"],
-)
-
 # Snapshots of generated repository files emitted by rules_py's repo rules
 # *under the e2e harness*. Two shapes are pinned:
 #
