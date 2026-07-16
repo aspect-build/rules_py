@@ -3,11 +3,11 @@ load(":runtime_metadata_test.bzl", "runtime_metadata_test")
 runtime_metadata_test(
     name = "regular",
     abi_flags = "",
-    runtime = "@python_3_15_x86_64_unknown_linux_gnu//:py3_runtime",
+    runtime = "@python_3_15_x86_64_unknown_linux_gnu//:runtime",
 )
 
 runtime_metadata_test(
     name = "freethreaded",
     abi_flags = "t",
-    runtime = "@python_3_15_x86_64_unknown_linux_gnu_freethreaded//:py3_runtime",
+    runtime = "@python_3_15_x86_64_unknown_linux_gnu_freethreaded//:runtime",
 )

@@ -1,6 +1,6 @@
 """Checks metadata on a provisioned PBS Python runtime."""
 
-load("@rules_python//python:py_runtime_info.bzl", "PyRuntimeInfo")
+load("@aspect_rules_py//py:defs.bzl", "PyRuntimeInfo")
 
 def _assert_equal(description, expected, actual):
     if actual != expected:

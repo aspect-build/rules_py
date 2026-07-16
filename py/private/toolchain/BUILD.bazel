@@ -14,6 +14,13 @@ toolchain_type(
     visibility = ["//visibility:public"],
 )
 
+# Resolved by exec platform to provide an interpreter for build actions
+# (wheel unpacking, site-packages merging) under cross-compilation.
+toolchain_type(
+    name = "exec_tools_toolchain_type",
+    visibility = ["//visibility:public"],
+)
+
 bzl_library(
     name = "repo",
     srcs = ["repo.bzl"],

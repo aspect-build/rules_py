@@ -1,19 +1,15 @@
 """Materialises the resolved exec-tools toolchain payload for assertion.
 
-Reads the fields rules_python's consumers access — `exec_tools.exec_runtime`
-and `exec_tools.precompiler` — so the test pins that rules_py's registration
-under rules_python's toolchain type keeps their expected shape.
+Reads the runtime from rules_py's exec-tools toolchain type so the test pins
+that it serves a rules_py-provisioned interpreter.
 """
 
-EXEC_TOOLS_TOOLCHAIN = "@rules_python//python:exec_tools_toolchain_type"
+EXEC_TOOLS_TOOLCHAIN = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type"
 
 def _exec_tools_facts_impl(ctx):
-    exec_tools = ctx.toolchains[EXEC_TOOLS_TOOLCHAIN].exec_tools
+    exec_runtime = ctx.toolchains[EXEC_TOOLS_TOOLCHAIN].exec_runtime
     out = ctx.actions.declare_file(ctx.label.name + ".txt")
-    ctx.actions.write(out, "{}\n{}\n".format(
-        exec_tools.exec_runtime.interpreter.path,
-        exec_tools.precompiler,
-    ))
+    ctx.actions.write(out, exec_runtime.interpreter.path + "\n")
     return [DefaultInfo(files = depset([out]))]
 
 exec_tools_facts = rule(

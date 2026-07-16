@@ -173,7 +173,7 @@ def assemble_venv(
     # so each contributing wheel resolves in tree_by_sp.
     for group in merge_groups:
         exec_toolchain = ctx.toolchains[EXEC_TOOLS_TOOLCHAIN]
-        exec_runtime = exec_toolchain.exec_tools.exec_runtime if exec_toolchain else None
+        exec_runtime = exec_toolchain.exec_runtime if exec_toolchain else None
         if exec_runtime == None:
             fail(("{}: wheels {} all contribute to the regular package `{}` — merging it " +
                   "requires an exec-configuration Python interpreter, but no `{}` toolchain " +

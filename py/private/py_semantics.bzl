@@ -14,15 +14,9 @@ _INTERPRETER_FLAGS = [
 ]
 
 _MUST_SET_TOOLCHAIN_INTERPRETER_VERSION_INFO = """
-ERROR: In Bazel 7.x and later, the python toolchain py_runtime interpreter_version_info must be set \
-to a dict with keys "major", "minor", and "micro".
-
-`PyRuntimeInfo` requires that this field contains the static version information for the given
-interpreter. This can be set via `py_runtime` when registering an interpreter toolchain, and will
-done automatically for the builtin interpreter versions registered via `python_register_toolchains`.
-Note that this only available on the Starlark implementation of the provider.
-
-For example:
+ERROR: The resolved Python toolchain's py3_runtime must set interpreter_version_info to \
+a dict with keys "major", "minor", and "micro". Set it on the py_runtime when registering \
+an interpreter toolchain, for example:
 
     py_runtime(
         name = "system_runtime",
@@ -51,25 +45,25 @@ def _resolve_toolchain(ctx):
     if not toolchain_info.py3_runtime:
         fail("A py3_runtime must be set on the Python toolchain")
 
-    py3_toolchain = toolchain_info.py3_runtime
+    py3_runtime = toolchain_info.py3_runtime
 
     runfiles_interpreter = True
 
-    if py3_toolchain.interpreter != None:
-        files = depset([py3_toolchain.interpreter], transitive = [py3_toolchain.files])
-        interpreter = py3_toolchain.interpreter
+    if py3_runtime.interpreter != None:
+        files = depset([py3_runtime.interpreter], transitive = [py3_runtime.files])
+        interpreter = py3_runtime.interpreter
     else:
         interpreter = struct(
-            path = py3_toolchain.interpreter_path,
-            short_path = py3_toolchain.interpreter_path,
+            path = py3_runtime.interpreter_path,
+            short_path = py3_runtime.interpreter_path,
         )
         files = depset([])
         runfiles_interpreter = False
 
     for attr in ["major", "minor", "micro"]:
-        if not hasattr(py3_toolchain.interpreter_version_info, attr):
+        if not hasattr(py3_runtime.interpreter_version_info, attr):
             fail(_MUST_SET_TOOLCHAIN_INTERPRETER_VERSION_INFO)
-    interpreter_version_info = py3_toolchain.interpreter_version_info
+    interpreter_version_info = py3_runtime.interpreter_version_info
 
     # Read the freethreaded build setting if the consuming rule exposed
     # the attr. Freethreaded Python uses `lib/python<M>.<m>t/site-packages/`
@@ -80,7 +74,7 @@ def _resolve_toolchain(ctx):
         freethreaded = ctx.attr._freethreaded_flag[BuildSettingInfo].value
 
     return struct(
-        toolchain = py3_toolchain,
+        toolchain = py3_runtime,
         files = files,
         python = interpreter,
         interpreter_version_info = interpreter_version_info,

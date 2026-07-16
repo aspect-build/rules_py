@@ -64,6 +64,7 @@ bzl_library(
         "//py/private:py_wheel",
         "//py/private:virtual",
         "//py/private/interpreter:current_py_toolchain",
+        "//py/private/interpreter:runtime",
         "//py/private/py_venv:defs",
         "@bazel_lib//lib:utils",
         "@rules_python//python:packaging_bzl",

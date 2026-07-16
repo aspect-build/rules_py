@@ -79,3 +79,15 @@ rules_py_test(
     main = "pip_deps_test.py",
     deps = ["@pip//six"],
 )
+
+# Deps from a rules_py uv hub: whl_install's exec-tools requirement must be
+# satisfiable with only rules_python-provisioned target interpreters, via
+# the exec-tools fallback of the PBS hub bundled in rules_py's own MODULE.
+rules_py_test(
+    name = "uv_deps_test",
+    srcs = ["uv_deps_test.py"],
+    dep_group = "py-binary-example",
+    main = "uv_deps_test.py",
+    python_version = "3.12",
+    deps = ["@rpy_pypi//cowsay"],
+)

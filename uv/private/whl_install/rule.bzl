@@ -37,9 +37,21 @@ source_built_wheel = rule(
     provides = [SourceBuiltWheelInfo],
 )
 
+def pyc_compile_version_compatible(exec_info, target_info):
+    """Whether .pyc built by `exec_info` is loadable by `target_info`.
+
+    Requires the full version to match: CPython changes the bytecode magic
+    number even between same-minor prereleases (e.g. 3.15.0a2 vs 3.15.0a6).
+    """
+
+    def tuple_of(info):
+        return (info.major, info.minor, info.micro, info.releaselevel, info.serial)
+
+    return tuple_of(exec_info) == tuple_of(target_info)
+
 def _whl_install(ctx):
     py_toolchain = ctx.toolchains[PY_TOOLCHAIN].py3_runtime
-    exec_runtime = ctx.toolchains[EXEC_TOOLS_TOOLCHAIN].exec_tools.exec_runtime
+    exec_runtime = ctx.toolchains[EXEC_TOOLS_TOOLCHAIN].exec_runtime
 
     # Name the install tree after the target rather than a fixed "install"
     # so several whl_install targets can coexist in one package without
@@ -105,10 +117,17 @@ def _whl_install(ctx):
         transitive_inputs.append(depset(patch_files))
 
     # Optional .pyc pre-compilation (runs after patching).
-    # Use the exec-configured interpreter from EXEC_TOOLS_TOOLCHAIN so cross-arch
-    # builds work (the target interpreter isn't runnable on the build host). This is
-    # safe because .pyc bytecode varies by Python version, not by architecture.
-    if ctx.attr.compile_pyc:
+    # Use the exec-configured interpreter from the exec-tools toolchain so cross-arch
+    # builds work (the target interpreter isn't runnable on the build host). Skip it
+    # when the exec runtime isn't the exact same interpreter version as the target:
+    # CPython changes the bytecode magic number even between same-minor prereleases
+    # (e.g. 3.15.0a2 vs 3.15.0a6), so a mismatched exec runtime writes .pyc unusable
+    # by the target under lib/python{version}/.
+    exec_matches_target = pyc_compile_version_compatible(
+        exec_runtime.interpreter_version_info,
+        py_toolchain.interpreter_version_info,
+    )
+    if ctx.attr.compile_pyc and exec_matches_target:
         arguments.add("--compile-pyc")
         arguments.add("--pyc-invalidation-mode", ctx.attr.pyc_invalidation_mode)
         arguments.add("--python", exec_runtime.interpreter)

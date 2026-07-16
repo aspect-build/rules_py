@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# report_exec_version resolves rules_python's exec-tools toolchain without the
+# report_exec_version resolves rules_py's exec-tools toolchain without the
 # py_* version transition, so it prints the requested version only if the
 # version flag is authoritative in the interpreter hub. Both the native flag
 # and @rules_python's fallback must select the requested version.
