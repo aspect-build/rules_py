@@ -13,8 +13,20 @@ cc_binary(
     srcs = ["embed_python.cc"],
     target_compatible_with = _WINDOWS_INCOMPATIBLE,
     deps = [
-        "@rules_python//python/cc:current_py_cc_headers",
-        "@rules_python//python/cc:current_py_cc_libs",
+        "@aspect_rules_py//py:current_py_cc_headers",
+        "@aspect_rules_py//py:current_py_cc_libs",
+    ],
+)
+
+cc_binary(
+    name = "embed_python_abi3",
+    testonly = True,
+    srcs = ["embed_python.cc"],
+    copts = ["-DPy_LIMITED_API=0x03080000"],
+    target_compatible_with = _WINDOWS_INCOMPATIBLE,
+    deps = [
+        "@aspect_rules_py//py:current_py_cc_headers_abi3",
+        "@aspect_rules_py//py:current_py_cc_libs",
     ],
 )
 

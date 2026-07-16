@@ -28,4 +28,18 @@ facts = read("exec_tools_facts.txt").splitlines()
 assert "python_interpreters+" in facts[0], facts
 assert facts[1] == "None", facts
 
+assert read("python_launcher.txt") == "3.11"
+
+wheel_root = os.path.join(
+    os.environ["TEST_SRCDIR"],
+    os.environ["TEST_WORKSPACE"],
+    "rules-python-consumers",
+    "compat_wheel_files",
+)
+assert any(
+    name.endswith("consumers_test.py")
+    for _, _, files in os.walk(wheel_root)
+    for name in files
+), wheel_root
+
 print("OK")

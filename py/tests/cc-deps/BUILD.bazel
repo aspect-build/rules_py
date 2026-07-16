@@ -18,7 +18,7 @@ cc_binary(
     linkopts = _EXTENSION_LINKOPTS,
     linkshared = True,
     target_compatible_with = _WINDOWS_INCOMPATIBLE,
-    deps = ["@rules_python//python/cc:current_py_cc_headers"],
+    deps = ["//py:current_py_cc_headers"],
 )
 
 cc_binary(
@@ -28,7 +28,7 @@ cc_binary(
     linkopts = _EXTENSION_LINKOPTS,
     linkshared = True,
     target_compatible_with = _WINDOWS_INCOMPATIBLE,
-    deps = ["@rules_python//python/cc:current_py_cc_headers_abi3"],
+    deps = ["//py:current_py_cc_headers_abi3"],
 )
 
 # Python extensions retain the terminal's interpreter configuration through

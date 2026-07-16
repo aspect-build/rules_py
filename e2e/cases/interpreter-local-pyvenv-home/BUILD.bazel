@@ -1,6 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_test", "py_venv")
-load("@rules_python//python:py_runtime.bzl", "py_runtime")
-load("@rules_python//python:py_runtime_pair.bzl", "py_runtime_pair")
+load("@aspect_rules_py//py:defs.bzl", "py_runtime", "py_runtime_pair", "py_test", "py_venv")
 
 # Regression test: a venv built under a system-interpreter toolchain
 # (`py_runtime(interpreter_path = ...)`) must write pyvenv.cfg `home`
