@@ -7,16 +7,21 @@ config_setting(
     flag_values = {"@aspect_rules_py//py/private/interpreter:python_version": "3.13"},
 )
 
+# rules_python's flag is a fallback: it selects only when our own flag is
+# unset, so setting our flag always wins and rpy's default can't shadow it.
 config_setting(
-    name = "_python_version_is_3_13_rpy_major_minor",
-    flag_values = {"@rules_python//python/config_settings:python_version": "3.13"},
+    name = "_python_version_is_3_13_rpy_fallback",
+    flag_values = {
+        "@aspect_rules_py//py/private/interpreter:python_version": "",
+        "@rules_python//python/config_settings:python_version": "3.13",
+    },
 )
 
 selects.config_setting_group(
     name = "python_version_is_3_13",
     match_any = [
         ":_python_version_is_3_13_our_major_minor",
-        ":_python_version_is_3_13_rpy_major_minor",
+        ":_python_version_is_3_13_rpy_fallback",
     ],
 )
 
