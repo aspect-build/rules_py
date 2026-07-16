@@ -71,26 +71,37 @@ def stats_ms(values_ms: list[float]) -> dict[str, float]:
     }
 
 
-def aggregate_starlark(star_runs: list[dict[str, float]]) -> list[dict[str, Any]]:
-    """Aggregate per-run {fn: ms} dicts into per-function mean CPU ms.
+def aggregate_starlark(star_runs: list[dict[str, float]]) -> dict[str, Any]:
+    """Aggregate per-run {fn: ms} dicts into per-function stats + a run-level total.
 
-    Returns ALL functions (sorted desc), not a top-N: truncation happens only at
-    render time in compare.py. Truncating here would make the comparator treat a
-    function below one side's cutoff as absent (0.0) and misreport it as new.
+    Returns {'total': {mean_ms, stddev_ms, runs}, 'functions': [...]}. ALL
+    functions are kept (truncation is render-time in compare.py) and each carries
+    its stddev across runs so the comparator can flag only statistically
+    significant deltas instead of run-to-run sampling noise.
     """
+    runs = len(star_runs)
     names: set[str] = set()
     for d in star_runs:
         names.update(d.keys())
-    rows: list[dict[str, Any]] = []
+    functions: list[dict[str, Any]] = []
     for name in names:
         series = [d.get(name, 0.0) for d in star_runs]
-        rows.append({"name": name, "mean_ms": statistics.mean(series)})
-    total = sum(r["mean_ms"] for r in rows) or 1.0
-    for r in rows:
-        r["pct"] = r["mean_ms"] / total * 100.0
-        r["runs"] = len(star_runs)
-    rows.sort(key=lambda r: r["mean_ms"], reverse=True)
-    return rows
+        functions.append({
+            "name": name,
+            "mean_ms": statistics.mean(series),
+            "stddev_ms": statistics.stdev(series) if len(series) > 1 else 0.0,
+        })
+    totals = [sum(d.values()) for d in star_runs]
+    total_mean = statistics.mean(totals)
+    total_std = statistics.stdev(totals) if len(totals) > 1 else 0.0
+    for r in functions:
+        r["pct"] = (r["mean_ms"] / total_mean * 100.0) if total_mean else 0.0
+        r["runs"] = runs
+    functions.sort(key=lambda r: r["mean_ms"], reverse=True)
+    return {
+        "total": {"mean_ms": total_mean, "stddev_ms": total_std, "runs": runs},
+        "functions": functions,
+    }
 
 
 def substitute(command: list[str], replacements: dict[str, str]) -> list[str]:

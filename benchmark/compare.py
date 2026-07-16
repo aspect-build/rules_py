@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import sys
 from pathlib import Path
@@ -21,6 +22,9 @@ from typing import Any
 
 THRESHOLD_REGRESSION_PCT = 10
 EM = "\u2014"  # em dash; module constant so it can appear inside f-string expressions
+TOTAL_SIGMA = 2.0
+FN_SIGMA = 3.0
+HOTSPOT_MIN_PCT = 1.0
 
 
 def write_gh_output(text: str) -> None:
@@ -91,55 +95,93 @@ def _short(name: str, limit: int = 48) -> str:
 
 
 def _starlark_section(main_result: dict[str, Any], pr_result: dict[str, Any]) -> str:
-    """Diagnostic 'where is the problem' diff of per-function Starlark CPU.
+    """Diagnostic Starlark CPU diff (PR vs main). Informational, not a gate.
 
-    Informational only -- does not affect the gate. Requires both main and PR to
-    carry a starlark_fn breakdown.
+    Two layers of noise control so the section stays quiet on a no-op PR:
+      - Total-level gate: only render the movers table when the PR's total
+        Starlark CPU is significantly above main's (TOTAL_SIGMA). The total
+        aggregates every sample, so its variance is small and the test is
+        robust without the multiple-comparisons problem.
+      - Per-function flagging: a mover is only marked significant when its delta
+        exceeds FN_SIGMA * combined stderr, surviving ~100 comparisons.
+    Hotspots (big, stable functions) are always shown.
     """
-    main_fn = main_result.get("starlark_fn") or []
-    pr_fn = pr_result.get("starlark_fn") or []
-    if not main_fn or not pr_fn:
-        return ""
+    main_sf = main_result.get("starlark_fn")
+    pr_sf = pr_result.get("starlark_fn")
+    if not isinstance(main_sf, dict) or not isinstance(pr_sf, dict):
+        return ""  # missing or old (pre-stddev) schema -- can't do significance
 
-    main_map = {r["name"]: r["mean_ms"] for r in main_fn}
-    pr_map = {r["name"]: r["mean_ms"] for r in pr_fn}
-    pr_pct = {r["name"]: r.get("pct", 0.0) for r in pr_fn}
+    main_total = main_sf.get("total", {})
+    pr_total = pr_sf.get("total", {})
+    main_fns = {r["name"]: r for r in main_sf.get("functions", [])}
+    pr_fns = {r["name"]: r for r in pr_sf.get("functions", [])}
 
-    movers = []
-    for name, pr_ms in pr_map.items():
-        m_ms = main_map.get(name, 0.0)
-        delta = pr_ms - m_ms
-        if delta > 0:
-            movers.append((name, m_ms, pr_ms, delta))
-    movers.sort(key=lambda x: x[3], reverse=True)
+    runs = main_total.get("runs") or pr_total.get("runs") or 1
+    n = max(runs, 1)
+
+    def combined_se(m_std: float, p_std: float) -> float:
+        # Standard error of the difference of two independent means: each side
+        # contributes stddev/sqrt(n). Buggy /(n) would shrink the noise band
+        # ~sqrt(n)x and flag sampling jitter as significant.
+        sn = math.sqrt(n)
+        return math.sqrt((m_std / sn) ** 2 + (p_std / sn) ** 2)
+
+    total_se = combined_se(main_total.get("stddev_ms", 0.0), pr_total.get("stddev_ms", 0.0))
+    main_total_ms = main_total.get("mean_ms", 0.0)
+    pr_total_ms = pr_total.get("mean_ms", 0.0)
+    delta_total = pr_total_ms - main_total_ms
+    pct_total = pct(main_total_ms, pr_total_ms) if main_total_ms else 0.0
+    total_significant = total_se > 0 and delta_total > TOTAL_SIGMA * total_se
 
     out = "\n### \U0001f50d Starlark CPU \u2014 where the problem is (PR vs main)\n\n"
-    if movers:
-        out += "**Top movers (biggest regression \u0394ms):**\n\n"
-        out += "| Function | main ms | PR ms | \u0394 ms | \u0394 % |\n|---|---|---|---|---|\n"
-        for name, m_ms, pr_ms, delta in movers[:10]:
+    out += (
+        f"**Total Starlark CPU:** main {main_total_ms:.0f} ms, PR {pr_total_ms:.0f} ms "
+        f"(\u0394 {delta_total:+.0f} ms, {pct_total:+.1f}%, "
+        f"\u00b1{total_se:.0f} ms stderr over {runs} runs).\n\n"
+    )
+
+    if not total_significant:
+        out += (
+            "\u2705 **No significant Starlark CPU change** \u2014 the total is within "
+            "run-to-run noise, so per-function deltas are hidden (they are sampling "
+            "jitter, not signal).\n"
+        )
+    else:
+        movers = []
+        for name, pr_r in pr_fns.items():
+            m_r = main_fns.get(name)
+            m_ms = m_r["mean_ms"] if m_r else 0.0
+            d = pr_r["mean_ms"] - m_ms
+            if d <= 0:
+                continue
+            se = combined_se(m_r.get("stddev_ms", 0.0) if m_r else 0.0, pr_r.get("stddev_ms", 0.0))
+            movers.append((name, m_ms, pr_r["mean_ms"], d, se))
+        movers.sort(key=lambda x: x[3], reverse=True)
+
+        out += "**Top movers (candidates, \u0394 > 3\u03c3 marked):**\n\n"
+        out += "| Function | main ms | PR ms | \u0394 ms | \u00b1 stderr | \u0394 % |\n|---|---|---|---|---|---|\n"
+        for name, m_ms, pr_ms, d, se in movers[:10]:
             if m_ms > 0:
-                dpct = f"+{delta / m_ms * 100:.0f}%"
+                dpct = f"+{d / m_ms * 100:.0f}%"
             else:
                 dpct = "new"
-            flag = " \u26a0\ufe0f" if (m_ms > 0 and delta / m_ms * 100 > THRESHOLD_REGRESSION_PCT) else ""
+            flag = " \u26a0\ufe0f" if (se > 0 and d > FN_SIGMA * se) else ""
             out += (
                 f"| `{_short(name)}` | {m_ms:.1f} | {pr_ms:.1f} | "
-                f"+{delta:.1f} | {dpct}{flag} |\n"
+                f"+{d:.1f} | \u00b1{se:.1f} | {dpct}{flag} |\n"
             )
-    else:
-        out += "_No movers (no function got slower in PR)._ \n"
 
-    abs_top = sorted(pr_map.items(), key=lambda kv: kv[1], reverse=True)[:10]
-    out += "\n**Top by absolute time (PR):**\n\n"
-    out += "| Function | PR ms | % of total |\n|---|---|---|\n"
-    for name, ms in abs_top:
-        out += f"| `{_short(name)}` | {ms:.1f} | {pr_pct.get(name, 0.0):.1f}% |\n"
+    hot = [r for r in pr_fns.values() if r.get("pct", 0.0) >= HOTSPOT_MIN_PCT][:10]
+    if hot:
+        out += "\n**Top by absolute time (PR):**\n\n"
+        out += "| Function | PR ms | % of total |\n|---|---|---|\n"
+        for r in hot:
+            out += f"| `{_short(r['name'])}` | {r['mean_ms']:.1f} | {r.get('pct', 0.0):.1f}% |\n"
 
     out += (
         "\n> Sample-based attribution (Starlark CPU across the whole `--nobuild` run: "
-        "bzlmod loading + analysis). Noisy for small functions; builtins are "
-        "attributed to the caller.\n"
+        "bzlmod loading + analysis). Significance is run-to-run stderr \u00d7 sigma; "
+        "builtins are attributed to the caller.\n"
     )
     return out
 
