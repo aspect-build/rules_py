@@ -1,4 +1,14 @@
-load("//py:defs.bzl", "py_test")
+load("//py:defs.bzl", "py_test", "py_venv")
+load(
+    ":venv_symlinks_test.bzl",
+    "explicit_venv_symlinks_test",
+    "exposed_venv_symlinks_test",
+    "no_runtime_toolchain",
+    "no_runtime_venv_symlinks_test",
+    "no_runtime_wheel",
+    "private_venv_symlinks_test",
+    "windows_private_venv_symlinks_test",
+)
 
 # Two variants of the same test: `test` uses `py_test` defaults
 # (`isolated = True`); `test_non_isolated` flips `isolated = False`.
@@ -17,6 +27,74 @@ py_test(
     deps = [
         "@pypi//cowsay",
     ],
+)
+
+py_test(
+    name = "_exposed_test",
+    srcs = ["test.py"],
+    expose_venv = True,
+    imports = ["."],
+    main = "test.py",
+    tags = ["manual"],
+    deps = ["@pypi//cowsay"],
+)
+
+py_venv(
+    name = "_explicit_venv",
+    tags = ["manual"],
+    deps = ["@pypi//cowsay"],
+)
+
+platform(
+    name = "_windows_x86_64",
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:windows",
+    ],
+)
+
+no_runtime_toolchain(name = "_no_runtime_toolchain_impl")
+
+no_runtime_wheel(name = "_no_runtime_wheel")
+
+py_test(
+    name = "_no_runtime_test",
+    srcs = ["test.py"],
+    imports = ["."],
+    main = "test.py",
+    tags = ["manual"],
+    deps = [":_no_runtime_wheel"],
+)
+
+toolchain(
+    name = "_no_runtime_toolchain",
+    toolchain = ":_no_runtime_toolchain_impl",
+    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
+)
+
+private_venv_symlinks_test(
+    name = "private_venv_symlinks_test",
+    target_under_test = ":_test.venv",
+)
+
+exposed_venv_symlinks_test(
+    name = "exposed_venv_symlinks_test",
+    target_under_test = ":_exposed_test.venv",
+)
+
+explicit_venv_symlinks_test(
+    name = "explicit_venv_symlinks_test",
+    target_under_test = ":_explicit_venv",
+)
+
+windows_private_venv_symlinks_test(
+    name = "windows_private_venv_symlinks_test",
+    target_under_test = ":_test.venv",
+)
+
+no_runtime_venv_symlinks_test(
+    name = "no_runtime_venv_symlinks_test",
+    target_under_test = ":__no_runtime_test.venv",
 )
 
 py_test(

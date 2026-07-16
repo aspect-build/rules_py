@@ -7,6 +7,7 @@ exports_files([
     "templates/_virtualenv.py",
     "templates/console_script.tmpl.sh",
     "templates/link.py",
+    "templates/symlinks.py",
     "templates/venv.tmpl.sh",
     "templates/venv_activate.tmpl.sh",
 ])

@@ -46,7 +46,7 @@ def _interpreter_flags(ctx):
 
     return args
 
-def _assemble_shared(ctx):
+def _assemble_shared(ctx, venv_symlinks_script_py):
     """Resolve the py toolchain, virtual deps, imports depset — then run
     the shared venv-assembly helper.
     """
@@ -80,6 +80,7 @@ def _assemble_shared(ctx):
         venv_activate_tmpl = ctx.file._venv_activate_tmpl,
         virtualenv_shim_py = ctx.file._virtualenv_shim,
         site_merge_script_py = ctx.file._site_merge_script,
+        venv_symlinks_script_py = venv_symlinks_script_py,
         console_script_tmpl = ctx.file._console_script_tmpl,
         venv_name = ".{}".format(safe_name),
     )
@@ -132,7 +133,7 @@ def _py_venv_rule_impl(ctx):
     """A virtualenv target whose own executable activates the venv and
     exec's the interpreter — a `bazel run :name`-able venv."""
 
-    shared = _assemble_shared(ctx)
+    shared = _assemble_shared(ctx, None)
 
     ctx.actions.expand_template(
         template = ctx.file._run_tmpl,
@@ -247,6 +248,10 @@ does not reinsert a wheel.
         allow_single_file = True,
         default = "//py/private/py_venv:templates/console_script.tmpl.sh",
     ),
+    "_venv_symlinks_script": attr.label(
+        allow_single_file = True,
+        default = "//py/private/py_venv:templates/symlinks.py",
+    ),
 })
 
 _lib_attrs.update(**_py_library.attrs)
@@ -300,7 +305,7 @@ def _py_venv_lib_rule_impl(ctx):
     launcher and no RunEnvironmentInfo (Bazel rejects it on
     non-executable targets; py_venv_exec.bzl gates its read on
     `if RunEnvironmentInfo in venv`)."""
-    shared = _assemble_shared(ctx)
+    shared = _assemble_shared(ctx, ctx.file._venv_symlinks_script)
     return _common_providers(ctx, shared)
 
 # Internal-only non-executable variant. Uses `_lib_attrs` — the

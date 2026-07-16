@@ -73,4 +73,14 @@ py_test(
     main = "//py/private/py_venv/tests:test_link.py",
 )
 
+py_test(
+    name = "test_symlinks",
+    srcs = [
+        "//py/private/py_venv:templates/symlinks.py",
+        "//py/private/py_venv/tests:test_symlinks.py",
+    ],
+    imports = ["../templates"],
+    main = "//py/private/py_venv/tests:test_symlinks.py",
+)
+
 virtuals_resolvers_test_suite(name = "virtuals_resolvers_tests")

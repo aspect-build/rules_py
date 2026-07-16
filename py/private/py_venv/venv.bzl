@@ -30,9 +30,9 @@ distutils, etc.) treat it as a real venv:
                                                 whole-wheel fallback
 
 The whole tree is declared at analysis time as individual
-`ctx.actions.declare_file` / `ctx.actions.declare_symlink` outputs so
-Bazel's action cache treats each piece independently (no tree-artifact
-+ remote-exec materialisation surprises).
+`ctx.actions.declare_file` / `ctx.actions.declare_symlink` outputs (no
+tree-artifact + remote-exec materialisation surprises). Private non-Windows
+venvs can materialize projected site-packages symlinks in one action.
 """
 
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
@@ -57,6 +57,7 @@ def assemble_venv(
         venv_activate_tmpl,
         virtualenv_shim_py,
         site_merge_script_py,
+        venv_symlinks_script_py,
         console_script_tmpl,
         venv_name):
     """Declare every file + symlink that makes up a venv for a target.
@@ -87,6 +88,8 @@ def assemble_venv(
         wheel graph contains a regular package needing a physical merge; the
         merge action also requires the rule to declare the (optional)
         EXEC_TOOLS_TOOLCHAIN for an exec-configuration interpreter.
+      venv_symlinks_script_py: Optional File — materializes projected
+        site-packages symlinks in one action for private non-Windows venvs.
       console_script_tmpl: File — the console-script wrapper template
         (usually `ctx.file._console_script_tmpl`).
       venv_name: str — the venv dir basename (e.g. "." + safe_name).
@@ -143,6 +146,15 @@ def assemble_venv(
     # a cached per-wheel prefix rather than formatting every component.
     site_packages_prefix = site_packages_rel + "/"
     target_prefix_by_sp = {}
+    exec_runtime = None
+    if not is_windows and venv_symlinks_script_py != None:
+        exec_toolchain = ctx.toolchains[EXEC_TOOLS_TOOLCHAIN]
+        exec_runtime = exec_toolchain.exec_tools.exec_runtime if exec_toolchain else None
+    symlink_outputs = []
+    if exec_runtime:
+        symlink_arguments = ctx.actions.args()
+        symlink_arguments.use_param_file("%s", use_always = True)
+        symlink_arguments.set_param_file_format("multiline")
     for tl, wheel_site_pkgs in top_level_to_site_pkgs.items():
         out = ctx.actions.declare_symlink(site_packages_prefix + tl)
         target_prefix = target_prefix_by_sp.get(wheel_site_pkgs)
@@ -152,11 +164,29 @@ def assemble_venv(
         target_path = target_prefix + tl
         if "/" in tl:
             target_path = "../" * tl.count("/") + target_path
-        ctx.actions.symlink(
-            output = out,
-            target_path = target_path,
-        )
+        if exec_runtime:
+            symlink_arguments.add(out.path)
+            symlink_arguments.add(target_path)
+            symlink_outputs.append(out)
+        else:
+            ctx.actions.symlink(
+                output = out,
+                target_path = target_path,
+            )
         declared.append(out)
+
+    if symlink_outputs:
+        ctx.actions.run(
+            mnemonic = "PyVenvSymlinks",
+            executable = exec_runtime.interpreter,
+            toolchain = EXEC_TOOLS_TOOLCHAIN,
+            arguments = [venv_symlinks_script_py.path, symlink_arguments],
+            inputs = depset(
+                direct = [venv_symlinks_script_py],
+                transitive = [exec_runtime.files],
+            ),
+            outputs = symlink_outputs,
+        )
 
     # Physical merges for regular packages that span wheels or collide at the
     # top level (see
