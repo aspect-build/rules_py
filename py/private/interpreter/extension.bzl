@@ -155,11 +155,9 @@ def _fetch_release_index(module_ctx, release_date, base_url, facts):
     return index
 
 def _python_interpreters_impl(module_ctx):
-    has_facts = hasattr(module_ctx, "facts")
-
     # Facts is a special Bazel type that supports .get() but is not iterable.
     # We read from it with .get(key) and build a new dict for output.
-    facts = module_ctx.facts if has_facts else {}
+    facts = module_ctx.facts
 
     # Track whether the extension is reproducible. Using "latest" as a release
     # date makes it non-reproducible since the resolution depends on when it runs.
@@ -259,7 +257,10 @@ def _python_interpreters_impl(module_ctx):
                 allow_pre_release[major_minor] = True
 
     if not requested_versions:
-        return _return_metadata(module_ctx, has_facts, facts, is_reproducible)
+        return module_ctx.extension_metadata(
+            facts = facts,
+            reproducible = is_reproducible,
+        )
 
     new_facts = {}
     release_indices = {}
@@ -368,7 +369,12 @@ def _python_interpreters_impl(module_ctx):
         toolchains = toolchain_entries,
     )
 
-    return _return_metadata(module_ctx, has_facts, new_facts, is_reproducible)
+    # Non-reproducible means "latest" was used: signal this to Bazel so it
+    # warns the user and doesn't cache the extension evaluation.
+    return module_ctx.extension_metadata(
+        facts = new_facts,
+        reproducible = is_reproducible,
+    )
 
 def _find_asset(major_minor, platform, runtime_mode, release_dates, release_indices):
     """Find the best asset across releases, preferring newer releases."""
@@ -384,20 +390,6 @@ def _find_asset(major_minor, platform, runtime_mode, release_dates, release_indi
                 "full_version": entry["full_version"],
             }
     return None
-
-def _return_metadata(module_ctx, has_facts, facts, is_reproducible):
-    """Return extension_metadata with facts and reproducibility info.
-
-    Non-reproducible means "latest" was used: signal this to Bazel so it
-    warns the user and doesn't cache the extension evaluation.
-    """
-    if not has_facts or not hasattr(module_ctx, "extension_metadata"):
-        return None
-
-    return module_ctx.extension_metadata(
-        facts = facts,
-        reproducible = is_reproducible,
-    )
 
 _configure_tag = tag_class(
     attrs = {
