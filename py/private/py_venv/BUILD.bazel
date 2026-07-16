@@ -78,6 +78,19 @@ bzl_library(
     ],
 )
 
+bzl_library(
+    name = "defs",
+    srcs = ["defs.bzl"],
+    visibility = [
+        "//py:__subpackages__",
+    ],
+    deps = [
+        ":py_venv",
+        ":py_venv_exec",
+        ":types",
+    ],
+)
+
 py_test(
     name = "test_link",
     srcs = [
