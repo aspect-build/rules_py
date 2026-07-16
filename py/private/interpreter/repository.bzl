@@ -381,16 +381,21 @@ config_setting(
     flag_values = {{"{our_flag}": "{major_minor}"}},
 )
 
+# rules_python's flag is a fallback: it selects only when our own flag is
+# unset, so setting our flag always wins and rpy's default can't shadow it.
 config_setting(
-    name = "_{group}_rpy_major_minor",
-    flag_values = {{"{rpy_flag}": "{major_minor}"}},
+    name = "_{group}_rpy_fallback",
+    flag_values = {{
+        "{our_flag}": "",
+        "{rpy_flag}": "{major_minor}",
+    }},
 )
 
 selects.config_setting_group(
     name = "{group}",
     match_any = [
         ":_{group}_our_major_minor",
-        ":_{group}_rpy_major_minor",
+        ":_{group}_rpy_fallback",
     ],
 )
 """.format(

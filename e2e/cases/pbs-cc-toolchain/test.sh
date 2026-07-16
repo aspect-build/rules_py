@@ -19,7 +19,7 @@ check_toolchain() {
 
     "$BAZEL" build \
         --lockfile_mode=off \
-        "--@rules_python//python/config_settings:python_version=${version}" \
+        "--@aspect_rules_py//py:python_version=${version}" \
         "--@aspect_rules_py//py/private/interpreter:freethreaded=${freethreaded}" \
         "${platform_flags[@]}" \
         "--platforms=//pbs-cc-toolchain:${platform}" \
@@ -40,11 +40,11 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
     library_target="@aspect_rules_py//py/tests/cc-deps:example_library.so"
     "$BAZEL" build \
         --lockfile_mode=off \
-        --@rules_python//python/config_settings:python_version=3.13 \
+        --@aspect_rules_py//py:python_version=3.13 \
         -- "$library_target"
     library="$("$BAZEL" cquery \
         --lockfile_mode=off \
-        --@rules_python//python/config_settings:python_version=3.13 \
+        --@aspect_rules_py//py:python_version=3.13 \
         --output=files \
         -- "$library_target")"
     if otool -L "$library" | grep -Fq 'libpython'; then
@@ -58,7 +58,7 @@ fi
 # free-threaded runtime and C toolchains selected from the PBS archive.
 "$BAZEL" test \
     --lockfile_mode=off \
-    --@rules_python//python/config_settings:python_version=3.13 \
+    --@aspect_rules_py//py:python_version=3.13 \
     --@aspect_rules_py//py/private/interpreter:freethreaded=true \
     "${host_flags[@]}" \
     -- @aspect_rules_py//py/tests/cc-deps:test_smoke
