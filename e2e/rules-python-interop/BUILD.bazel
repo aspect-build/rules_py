@@ -1,0 +1,81 @@
+load("@aspect_rules_py//py:defs.bzl", "current_py_toolchain", "py_venv", rules_py_test = "py_test")
+load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
+load("@rules_python//python:py_test.bzl", rules_python_test = "py_test")
+
+# The only interpreter in this module comes from rules_python (see
+# MODULE.bazel); each test asserts the resolved binary's repo path.
+
+# Default toolchain resolution: no python_version set.
+rules_py_test(
+    name = "rules_py_default_test",
+    srcs = ["shared_interpreter_test.py"],
+    main = "shared_interpreter_test.py",
+)
+
+# Versioned resolution: the python_version transition also sets the
+# rules_python version flag, selecting rules_python's 3.12 toolchain.
+rules_py_test(
+    name = "rules_py_versioned_test",
+    srcs = ["shared_interpreter_test.py"],
+    main = "shared_interpreter_test.py",
+    python_version = "3.12",
+)
+
+rules_python_test(
+    name = "rules_python_test",
+    srcs = ["shared_interpreter_test.py"],
+    main = "shared_interpreter_test.py",
+)
+
+# Build-time identity check: each ruleset's current_py_toolchain expands
+# $(PYTHON3) to its resolved toolchain's interpreter File.path; the diff
+# proves both toolchain resolutions yield the same artifact.
+
+current_py_toolchain(
+    name = "rules_py_current_toolchain",
+)
+
+genrule(
+    name = "rules_py_interpreter_path",
+    outs = ["rules_py_interpreter_path.txt"],
+    cmd = "echo '$(PYTHON3)' > $@",
+    toolchains = [":rules_py_current_toolchain"],
+)
+
+genrule(
+    name = "rules_python_interpreter_path",
+    outs = ["rules_python_interpreter_path.txt"],
+    cmd = "echo '$(PYTHON3)' > $@",
+    toolchains = ["@rules_python//python:current_py_toolchain"],
+)
+
+diff_test(
+    name = "same_interpreter_location_test",
+    file1 = ":rules_py_interpreter_path",
+    file2 = ":rules_python_interpreter_path",
+)
+
+# A standalone venv laid out over the foreign runtime. Consumed as data so
+# the assertions pin the built tree's shape, not just launcher behavior.
+py_venv(
+    name = "venv",
+    testonly = True,
+    srcs = ["shared_interpreter_test.py"],
+)
+
+rules_py_test(
+    name = "venv_structure_test",
+    srcs = ["venv_structure_test.py"],
+    data = [":venv"],
+    main = "venv_structure_test.py",
+)
+
+# Deps from rules_python's pip.parse hub — the common migration state where
+# rules moved to rules_py while third-party packages still come from a pip
+# hub — so the venv builder must accept the hub's provider shape.
+rules_py_test(
+    name = "pip_deps_test",
+    srcs = ["pip_deps_test.py"],
+    main = "pip_deps_test.py",
+    deps = ["@pip//six"],
+)
