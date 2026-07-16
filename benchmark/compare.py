@@ -94,6 +94,38 @@ def _short(name: str, limit: int = 48) -> str:
     return name
 
 
+# Top-level dirs in the rules_py repo; used to reduce noisy pprof file paths
+# (external repo or absolute checkout paths) to a repo-relative, clickable path.
+_RULES_PY_ROOTS = ("py/", "uv/", "docs/", "e2e/", "examples/", "tools/")
+
+
+def _relpath(file: str | None, limit: int = 56) -> str:
+    """Reduce a pprof source file to something locatable.
+
+    <builtin> -> "builtin"; a bzlmod MODULE.bazel URL -> "bzlmod"; otherwise try
+    to find a rules_py top-level dir and return from there (works for both the
+    bzlmod external path and an absolute local-checkout path).
+    """
+    if not file or file in ("<unknown>", ""):
+        return ""
+    if file == "<builtin>":
+        return "builtin"
+    if file.startswith("http"):
+        return "bzlmod"
+    for root in _RULES_PY_ROOTS:
+        idx = file.find("/" + root)
+        if idx != -1:
+            rel = file[idx + 1:]
+            return rel if len(rel) <= limit else rel[: limit - 1] + "\u2026"
+    if "/external/" in file:
+        after = file.split("/external/", 1)[1]
+        parts = after.split("/", 1)
+        rel = parts[1] if len(parts) > 1 else after
+        return rel if len(rel) <= limit else rel[: limit - 1] + "\u2026"
+    base = os.path.basename(file)
+    return base if len(base) <= limit else base[: limit - 1] + "\u2026"
+
+
 def _starlark_section(main_result: dict[str, Any], pr_result: dict[str, Any]) -> str:
     """Diagnostic Starlark CPU diff (PR vs main). Informational, not a gate.
 
@@ -159,7 +191,7 @@ def _starlark_section(main_result: dict[str, Any], pr_result: dict[str, Any]) ->
         movers.sort(key=lambda x: x[3], reverse=True)
 
         out += "**Top movers (candidates, \u0394 > 3\u03c3 marked):**\n\n"
-        out += "| Function | main ms | PR ms | \u0394 ms | \u00b1 stderr | \u0394 % |\n|---|---|---|---|---|---|\n"
+        out += "| Function | File | main ms | PR ms | \u0394 ms | \u00b1 stderr | \u0394 % |\n|---|---|---|---|---|---|---|\n"
         for name, m_ms, pr_ms, d, se in movers[:10]:
             if m_ms > 0:
                 dpct = f"+{d / m_ms * 100:.0f}%"
@@ -167,16 +199,19 @@ def _starlark_section(main_result: dict[str, Any], pr_result: dict[str, Any]) ->
                 dpct = "new"
             flag = " \u26a0\ufe0f" if (se > 0 and d > FN_SIGMA * se) else ""
             out += (
-                f"| `{_short(name)}` | {m_ms:.1f} | {pr_ms:.1f} | "
-                f"+{d:.1f} | \u00b1{se:.1f} | {dpct}{flag} |\n"
+                f"| `{_short(name)}` | `{_relpath(pr_fns[name].get('file'))}` | {m_ms:.1f} | "
+                f"{pr_ms:.1f} | +{d:.1f} | \u00b1{se:.1f} | {dpct}{flag} |\n"
             )
 
     hot = [r for r in pr_fns.values() if r.get("pct", 0.0) >= HOTSPOT_MIN_PCT][:10]
     if hot:
         out += "\n**Top by absolute time (PR):**\n\n"
-        out += "| Function | PR ms | % of total |\n|---|---|---|\n"
+        out += "| Function | File | PR ms | % of total |\n|---|---|---|---|\n"
         for r in hot:
-            out += f"| `{_short(r['name'])}` | {r['mean_ms']:.1f} | {r.get('pct', 0.0):.1f}% |\n"
+            out += (
+                f"| `{_short(r['name'])}` | `{_relpath(r.get('file'))}` | "
+                f"{r['mean_ms']:.1f} | {r.get('pct', 0.0):.1f}% |\n"
+            )
 
     out += (
         "\n> Sample-based attribution (Starlark CPU across the whole `--nobuild` run: "

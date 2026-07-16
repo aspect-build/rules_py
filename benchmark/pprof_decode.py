@@ -87,10 +87,12 @@ def _read_payload(path: str) -> bytes:
         return open(path, "rb").read()
 
 
-def decode_starlark_pprof(path: str) -> dict[str, float]:
-    """Return {function_name: cpu_ms} aggregated by leaf Starlark function.
+def decode_starlark_pprof(path: str) -> dict[str, tuple[float, str]]:
+    """Return {function_name: (cpu_ms, source_file)} aggregated by leaf function.
 
-    Returns {} if the profile is missing or unparseable (fail-open).
+    source_file is the pprof Function.filename (e.g. an external repo path, or
+    ``<builtin>`` for native rules/methods). Returns {} on missing/unparseable
+    profile (fail-open).
     """
     data = _read_payload(path)
     top = _fields(data)
@@ -120,13 +122,14 @@ def decode_starlark_pprof(path: str) -> dict[str, float]:
         elif unit == "nanoseconds":
             val_idx, divisor = i, 1000000.0
 
-    # function: id -> name index
+    # function: id -> (name index, filename index)
     fn_name: dict[int, int] = {}
+    fn_file: dict[int, int] = {}
     for chunk in top.get(5, []):
         f = _fields(chunk)
         fid = f.get(1, [0])[0]
-        name_idx = f.get(2, [0])[0]
-        fn_name[fid] = name_idx
+        fn_name[fid] = f.get(2, [0])[0]
+        fn_file[fid] = f.get(4, [0])[0]
 
     # location: id -> leaf function id (first line)
     loc_to_fn: dict[int, int] = {}
@@ -139,6 +142,7 @@ def decode_starlark_pprof(path: str) -> dict[str, float]:
             loc_to_fn[lid] = line.get(1, [0])[0]
 
     totals: dict[str, float] = defaultdict(float)
+    files: dict[str, str] = {}
     for chunk in top.get(2, []):
         loc_ids = _parse_packed_or_singles(chunk, 1)
         values = _parse_packed_or_singles(chunk, 2)
@@ -148,14 +152,15 @@ def decode_starlark_pprof(path: str) -> dict[str, float]:
         fid = loc_to_fn.get(leaf)
         if fid is None:
             continue
-        name_idx = fn_name.get(fid)
-        totals[s(name_idx)] += values[val_idx] / divisor
+        name = s(fn_name.get(fid))
+        totals[name] += values[val_idx] / divisor
+        files.setdefault(name, s(fn_file.get(fid)))
 
-    return dict(totals)
+    return {name: (ms, files.get(name, "<unknown>")) for name, ms in totals.items()}
 
 
 if __name__ == "__main__":
     import sys
-    rows = sorted(decode_starlark_pprof(sys.argv[1]).items(), key=lambda kv: -kv[1])
-    for name, ms in rows[:25]:
-        print(f"{ms:9.2f} ms  {name}")
+    rows = sorted(decode_starlark_pprof(sys.argv[1]).items(), key=lambda kv: -kv[1][0])
+    for name, (ms, _file) in rows[:25]:
+        print(f"{ms:9.2f} ms  {name}  [{_file}]")

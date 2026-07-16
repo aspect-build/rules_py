@@ -71,13 +71,13 @@ def stats_ms(values_ms: list[float]) -> dict[str, float]:
     }
 
 
-def aggregate_starlark(star_runs: list[dict[str, float]]) -> dict[str, Any]:
-    """Aggregate per-run {fn: ms} dicts into per-function stats + a run-level total.
+def aggregate_starlark(star_runs: list[dict[str, tuple[float, str]]]) -> dict[str, Any]:
+    """Aggregate per-run {fn: (ms, file)} dicts into per-function stats + total.
 
     Returns {'total': {mean_ms, stddev_ms, runs}, 'functions': [...]}. ALL
     functions are kept (truncation is render-time in compare.py) and each carries
-    its stddev across runs so the comparator can flag only statistically
-    significant deltas instead of run-to-run sampling noise.
+    its stddev across runs and source file so the comparator can flag only
+    statistically significant deltas and point at where to read the code.
     """
     runs = len(star_runs)
     names: set[str] = set()
@@ -85,13 +85,15 @@ def aggregate_starlark(star_runs: list[dict[str, float]]) -> dict[str, Any]:
         names.update(d.keys())
     functions: list[dict[str, Any]] = []
     for name in names:
-        series = [d.get(name, 0.0) for d in star_runs]
+        series = [d[name][0] for d in star_runs if name in d]
+        file = next((d[name][1] for d in star_runs if name in d and d[name][1]), "<unknown>")
         functions.append({
             "name": name,
+            "file": file,
             "mean_ms": statistics.mean(series),
             "stddev_ms": statistics.stdev(series) if len(series) > 1 else 0.0,
         })
-    totals = [sum(d.values()) for d in star_runs]
+    totals = [sum(ms for (ms, _f) in d.values()) for d in star_runs]
     total_mean = statistics.mean(totals)
     total_std = statistics.stdev(totals) if len(totals) > 1 else 0.0
     for r in functions:
