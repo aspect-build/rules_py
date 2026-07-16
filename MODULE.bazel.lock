@@ -33,7 +33,6 @@
     "https://bcr.bazel.build/modules/bazel_features/1.30.0/MODULE.bazel": "a14b62d05969a293b80257e72e597c2da7f717e1e69fa8b339703ed6731bec87",
     "https://bcr.bazel.build/modules/bazel_features/1.31.0/MODULE.bazel": "eca40770b202b2161c1e20be7f1c323c8836dc959ae48dcf02ee7a051ffe4e8e",
     "https://bcr.bazel.build/modules/bazel_features/1.34.0/MODULE.bazel": "e8475ad7c8965542e0c7aac8af68eb48c4af904be3d614b6aa6274c092c2ea1e",
-    "https://bcr.bazel.build/modules/bazel_features/1.38.0/MODULE.bazel": "f9b8a9c890ebd216b4049fd12a31d3c2602e3403c7af636b04fbbd7453edc9c9",
     "https://bcr.bazel.build/modules/bazel_features/1.4.1/MODULE.bazel": "e45b6bb2350aff3e442ae1111c555e27eac1d915e77775f6fdc4b351b758b5d7",
     "https://bcr.bazel.build/modules/bazel_features/1.42.0/MODULE.bazel": "e8ca15cb2639c5f12183db6dcb678735555d0cdd739b32a0418b6532b5e565f8",
     "https://bcr.bazel.build/modules/bazel_features/1.43.0/MODULE.bazel": "defa2226f06ba20550d6548c3a2ea2a7929634437a52973869c20c225450eb91",

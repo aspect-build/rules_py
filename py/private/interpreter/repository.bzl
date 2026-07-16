@@ -1,6 +1,5 @@
 """Repository rules for Python interpreter toolchains."""
 
-load("@bazel_features//:features.bzl", features = "bazel_features")
 load(":exclude_feature.bzl", "INTERPRETER_FEATURES")
 
 _PYTHON_VERSION_FLAG = "@aspect_rules_py//py/private/interpreter:python_version"
@@ -56,8 +55,6 @@ def _python_interpreter_impl(rctx):
         serial = serial,
     ))
 
-    if not features.external_deps.extension_metadata_has_reproducible:
-        return None
     return rctx.repo_metadata(reproducible = True)
 
 def _feature_filegroups(major, minor, is_windows):
@@ -490,8 +487,6 @@ current_py_toolchain(
 
     rctx.file("BUILD.bazel", content = "\n".join(content))
 
-    if not features.external_deps.extension_metadata_has_reproducible:
-        return None
     return rctx.repo_metadata(reproducible = True)
 
 python_toolchains = repository_rule(
