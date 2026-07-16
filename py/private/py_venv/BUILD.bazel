@@ -43,7 +43,16 @@ bzl_library(
 bzl_library(
     name = "venv",
     srcs = ["venv.bzl"],
-    deps = ["//py/private:py_library"],
+    deps = [
+        ":toolchains_resolver",
+        "//py/private:py_library",
+    ],
+)
+
+bzl_library(
+    name = "toolchains_resolver",
+    srcs = ["toolchains_resolver.bzl"],
+    deps = ["@bazel_lib//lib:paths"],
 )
 
 bzl_library(
