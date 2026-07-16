@@ -30,6 +30,19 @@ check_toolchain() {
 check_toolchain 3.11 311 --define=interpreter_setting_secondary=311
 check_toolchain 3.12 312
 
+"$BAZEL" build \
+    --lockfile_mode=off \
+    --@aspect_rules_py//py:python_version=3.12 \
+    --@rules_python//python/config_settings:python_version=3.11 \
+    -- //:uv_constraint_selected \
+    || fail "rules_py Python version did not take precedence over rules_python"
+
+"$BAZEL" build \
+    --lockfile_mode=off \
+    --@rules_python//python/config_settings:python_version=3.12 \
+    -- //:uv_constraint_selected \
+    || fail "rules_python Python version did not remain the uv fallback"
+
 failure_log="$(mktemp)"
 trap 'rm -f "$failure_log"' EXIT
 
