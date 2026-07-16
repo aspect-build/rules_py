@@ -167,7 +167,6 @@ def _common_providers(ctx, shared, executable = None):
             bin_python = shared.venv.bin_python,
             imports = shared.imports_depset,
             transitive_sources = shared.srcs_depset,
-            all_files = depset(shared.venv.all_files),
         ),
         coverage_common.instrumented_files_info(
             ctx,
