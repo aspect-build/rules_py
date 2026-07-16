@@ -37,6 +37,15 @@ genrule(
     tools = [":venv"],
 )
 
+# venv_tree pins the snapshot here so every host regenerates identical bytes.
+platform(
+    name = "snapshot_platform",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+)
+
 venv_tree(
     name = "venv_tree_snap",
     testonly = True,

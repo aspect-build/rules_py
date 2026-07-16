@@ -4,15 +4,30 @@ Produces a deterministic text file listing every symlink (with target)
 and text file (with content) inside a ``py_venv`` target's output tree.
 Used via ``write_source_files`` so changes to the venv assembly surface
 as a reviewable diff.
+
+The venv is transitioned to a fixed platform so interpreter repo names
+and pyvenv.cfg contents are identical on every host.
 """
 
 load("//py/private/py_venv:defs.bzl", "VirtualenvInfo")
 
+def _snapshot_platform_transition_impl(_settings, _attr):
+    return {
+        "//command_line_option:platforms": "//py/private/py_venv/tests:snapshot_platform",
+    }
+
+_snapshot_platform_transition = transition(
+    implementation = _snapshot_platform_transition_impl,
+    inputs = [],
+    outputs = ["//command_line_option:platforms"],
+)
+
 def _venv_tree_impl(ctx):
     output = ctx.actions.declare_file(ctx.label.name + ".snap")
-    bin_python = ctx.attr.venv[VirtualenvInfo].bin_python
+    venv = ctx.attr.venv[0]
+    bin_python = venv[VirtualenvInfo].bin_python
     ctx.actions.run_shell(
-        inputs = ctx.attr.venv[VirtualenvInfo].all_files,
+        inputs = venv[DefaultInfo].default_runfiles.files,
         outputs = [output],
         arguments = [output.path, bin_python.path],
         command = r"""
@@ -56,7 +71,11 @@ venv_tree = rule(
         "venv": attr.label(
             providers = [VirtualenvInfo],
             mandatory = True,
+            cfg = _snapshot_platform_transition,
             doc = "A `py_venv` target whose venv tree to snapshot.",
+        ),
+        "_allowlist_function_transition": attr.label(
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
         ),
     },
 )
