@@ -20,6 +20,12 @@ load(
     _py_layer_tier = "py_layer_tier",
 )
 load("//py/private:py_info.bzl", _PyInfo = "PyInfo")
+load(
+    "//py/private:py_info_interop.bzl",
+    _RulesPythonPyInfo = "RulesPythonPyInfo",
+    _get_py_info = "get_py_info",
+    _has_py_info = "has_py_info",
+)
 load("//py/private:py_library.bzl", _py_library = "py_library")
 load("//py/private:py_pex_binary.bzl", _py_pex_binary = "py_pex_binary")
 load("//py/private:py_pytest_main.bzl", _py_pytest_main = "py_pytest_main", _pytest_paths = "pytest_paths")
@@ -51,6 +57,9 @@ PyLayerTierInfo = _PyLayerTierInfo
 
 # The PyInfo provider used by rules_py
 PyInfo = _PyInfo
+RulesPythonPyInfo = _RulesPythonPyInfo
+get_py_info = _get_py_info
+has_py_info = _has_py_info
 
 resolutions = _resolutions
 

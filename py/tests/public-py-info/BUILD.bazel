@@ -1,0 +1,67 @@
+load("@rules_python//python:defs.bzl", rules_python_py_library = "py_library")
+load("//py:defs.bzl", "py_library", "py_test")
+load(":interop.bzl", "dual_py_info", "public_py_info_consumer")
+
+genrule(
+    name = "generated_source",
+    outs = ["native_root/generated_lib.py"],
+    cmd = "printf 'VALUE = 42\\n' > $@",
+)
+
+genrule(
+    name = "generated_stub",
+    outs = ["native_root/generated_lib.pyi"],
+    cmd = "printf 'VALUE: int\\n' > $@",
+)
+
+rules_python_py_library(
+    name = "native_library",
+    srcs = [":generated_source"],
+    imports = ["native_root"],
+    pyi_srcs = [":generated_stub"],
+)
+
+py_library(
+    name = "rules_library",
+    srcs = ["rules_root/rules_lib.py"],
+    imports = ["rules_root"],
+)
+
+dual_py_info(
+    name = "dual_library",
+    native = ":native_library",
+    rules = ":rules_library",
+)
+
+public_py_info_consumer(
+    name = "native_consumer",
+    dep = ":native_library",
+    expected_import = "native_root",
+    expected_source = "generated_lib.py",
+    expected_stub = "generated_lib.pyi",
+)
+
+public_py_info_consumer(
+    name = "rules_consumer",
+    dep = ":rules_library",
+    expected_import = "rules_root",
+    expected_source = "rules_lib.py",
+)
+
+public_py_info_consumer(
+    name = "dual_consumer",
+    dep = ":dual_library",
+    expected_import = "rules_root",
+    expected_source = "rules_lib.py",
+    expected_stub = "generated_lib.pyi",
+)
+
+py_test(
+    name = "test",
+    srcs = ["test.py"],
+    deps = [
+        ":dual_consumer",
+        ":native_consumer",
+        ":rules_consumer",
+    ],
+)
