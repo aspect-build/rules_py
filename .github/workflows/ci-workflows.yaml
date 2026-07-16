@@ -45,6 +45,7 @@ jobs:
                 - { path: "e2e/interpreter-runtime-metadata", slug: "e2e-interpreter-runtime-metadata", runner: "ubuntu-latest" }
                 - { path: "e2e/interpreter-toolchain-settings", slug: "e2e-interpreter-toolchain-settings", runner: "ubuntu-latest" }
                 - { path: "e2e/interpreter-input-validation", slug: "e2e-interpreter-input-validation", runner: "ubuntu-latest" }
+                - { path: "e2e/interpreter-build-config", slug: "e2e-interpreter-build-config", runner: "ubuntu-latest" }
                 - { path: "e2e/rules-python-interop", slug: "e2e-rules-python-interop", runner: "ubuntu-latest" }
                 - { path: "e2e/rules-proto-grpc-python", slug: "e2e-rules-proto-grpc-python", runner: "ubuntu-22.04-32core" }
                 - { path: "examples/debugger", slug: "examples-debugger", runner: "ubuntu-latest" }

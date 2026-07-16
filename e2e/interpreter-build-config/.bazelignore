@@ -1,0 +1,5 @@
+root-debug-full-build-config
+root-misordered-build-config
+root-static-build-config
+root-freethreaded-build-config
+root-unmatched-build-config
