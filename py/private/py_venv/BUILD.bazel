@@ -5,6 +5,7 @@ package(default_visibility = ["//py:__subpackages__"])
 
 exports_files([
     "templates/_virtualenv.py",
+    "templates/console_script.tmpl.sh",
     "templates/link.py",
     "templates/venv.tmpl.sh",
     "templates/venv_activate.tmpl.sh",
