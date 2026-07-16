@@ -2,8 +2,6 @@
 A repository rule for creating an archive from a remote git repository.
 """
 
-load("@bazel_features//:features.bzl", features = "bazel_features")
-
 def _is_sha1(s):
     """Check if a string is a 40-character hex string (SHA-1)."""
     if len(s) != 40:
@@ -74,14 +72,12 @@ filegroup(
         print(status.stdout)
         print(status.stderr)
 
-    if features.external_deps.repo_metadata_has_reproducible:
-        if is_reproducible:
-            return repository_ctx.repo_metadata(reproducible = True)
-        else:
-            return repository_ctx.repo_metadata(
-                reproducible = False,
-                attrs_for_reproducibility = {"commit": resolved_commit},
-            )
+    if is_reproducible:
+        return repository_ctx.repo_metadata(reproducible = True)
+    return repository_ctx.repo_metadata(
+        reproducible = False,
+        attrs_for_reproducibility = {"commit": resolved_commit},
+    )
 
 git_archive = repository_rule(
     implementation = _git_archive_impl,

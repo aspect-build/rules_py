@@ -15,7 +15,6 @@ bzl_library(
         ":select_gen",
         "//uv/private:sha1",
         "//uv/private/pprint:defs",
-        "@bazel_features//:features",
     ],
 )
 

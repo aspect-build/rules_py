@@ -4,7 +4,6 @@ Generates native_build toolchain entries — one per supported platform — that
 back pep517_whl's cross-compilation guard (see NATIVE_BUILD_TOOLCHAIN in types.bzl).
 """
 
-load("@bazel_features//:features.bzl", features = "bazel_features")
 load("//py/private/toolchain:tools.bzl", "TOOLCHAIN_PLATFORMS")
 
 def _toolchains_repo_impl(repository_ctx):
@@ -32,8 +31,6 @@ toolchain(
 
     repository_ctx.file("BUILD.bazel", build_content)
 
-    if not features.external_deps.repo_metadata_has_reproducible:
-        return None
     return repository_ctx.repo_metadata(reproducible = True)
 
 toolchains_repo = repository_rule(

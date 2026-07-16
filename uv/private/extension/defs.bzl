@@ -51,7 +51,6 @@ resolved dependencies available in the `@uv` repository.
 [2] https://peps.python.org/pep-0751/#locking-build-requirements-for-sdists
 """
 
-load("@bazel_features//:features.bzl", features = "bazel_features")
 load("@bazel_lib//lib:resource_sets.bzl", "resource_set_values")
 load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
@@ -758,8 +757,6 @@ def _uv_impl(module_ctx):
             packages = json.encode(hub_cfg.packages),
         )
 
-    if not features.external_deps.extension_metadata_has_reproducible:
-        return None
     return module_ctx.extension_metadata(reproducible = True)
 
 _hub_tag = tag_class(
