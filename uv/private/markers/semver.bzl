@@ -91,11 +91,46 @@ def semver(version):
         A {type}`struct` with `major`, `minor`, `patch` and `build` attributes.
     """
 
-    # Implement the https://semver.org/ spec
     major, _, tail = version.partition(".")
+    tail, _, build = tail.partition("+")
     minor, _, tail = tail.partition(".")
-    patch, _, build = tail.partition("+")
-    patch, _, pre_release = patch.partition("-")
+    patch, _, pre_release = tail.partition("-")
+
+    release = patch or minor
+    suffix = pre_release
+    split_release = False
+    if not pre_release and not release.isdigit():
+        end = 0
+        for char in release.elems():
+            if not char.isdigit():
+                break
+            end += 1
+
+        suffix = release[end:].lower().strip("-_.")
+        split_release = True
+
+    if suffix:
+        suffix = suffix.lower().strip("-_.")
+        for spelling, normalized in [
+            ("alpha", "a"),
+            ("beta", "b"),
+            ("preview", "rc"),
+            ("pre", "rc"),
+            ("rc", "rc"),
+            ("c", "rc"),
+            ("a", "a"),
+            ("b", "b"),
+        ]:
+            if suffix.startswith(spelling):
+                number = suffix[len(spelling):].strip("-_.") or "0"
+                if number.isdigit():
+                    pre_release = "{}.{}".format(normalized, int(number))
+                    if split_release:
+                        if patch:
+                            patch = patch[:end]
+                        else:
+                            minor = minor[:end]
+                    break
 
     return _new(
         major = int(major),

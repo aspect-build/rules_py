@@ -344,6 +344,8 @@ def _version_expr(left, op, right):
     _left = left.key()
     _right = right.key()
     if op == "<":
+        if left.pre_release and not right.pre_release and _left[:3] == _right[:3]:
+            return False
         return _left < _right
     elif op == ">":
         return _left > _right
@@ -351,11 +353,15 @@ def _version_expr(left, op, right):
         return _left <= _right
     elif op == ">=":
         return _left >= _right
-    elif op == "!=":
-        return _left != _right
-    elif op == "==":
-        # Matching of major, minor, patch only
-        return _left[:3] == _right[:3]
+    elif op in ["==", "!="]:
+        equal = _left[:5] == _right[:5]
+        if equal and right.build:
+            left_build = left.build.lower().replace("-", ".").replace("_", ".")
+            right_build = right.build.lower().replace("-", ".").replace("_", ".")
+            left_build = [int(part) if part.isdigit() else part for part in left_build.split(".")]
+            right_build = [int(part) if part.isdigit() else part for part in right_build.split(".")]
+            equal = left_build == right_build
+        return equal if op == "==" else not equal
     elif op == "~=":
         right_plus = right.upper()
         _right_plus = right_plus.key()

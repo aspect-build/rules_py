@@ -1,4 +1,13 @@
+load(":marker_dependency_test.bzl", "marker_dependency_check")
 load(":runtime_metadata_test.bzl", "runtime_metadata_test")
+
+platform(
+    name = "linux_x86_64",
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+)
 
 runtime_metadata_test(
     name = "regular",
@@ -10,4 +19,9 @@ runtime_metadata_test(
     name = "freethreaded",
     abi_flags = "t",
     runtime = "@python_3_15_x86_64_unknown_linux_gnu_freethreaded//:runtime",
+)
+
+marker_dependency_check(
+    name = "prerelease_dependency_not_selected",
+    dep = "@pypi_prerelease_marker//six",
 )
