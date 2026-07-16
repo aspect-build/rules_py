@@ -6,9 +6,12 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  pull-requests: write
+
 env:
-  BCR_VERSION: "1.11.7"
-  ANALYSIS_BCR_VERSION: "2.0.0-alpha.4"
+  BCR_VERSION: "2.0.0-alpha.4"
+  PACKAGES: "50"
 
 jobs:
   startup:
@@ -39,77 +42,59 @@ jobs:
           rm -f "$DEB"
           hyperfine --version
 
+      - name: Generate workspace
+        run: |
+          set -euo pipefail
+          cd rules_py_pr/benchmark/workspace
+          python3 generate_workspace.py --root . --packages "${PACKAGES}"
+
       # ── BCR baseline ────────────────────────────────────────────────────────
       - name: Benchmark BCR ${{ env.BCR_VERSION }}
         run: |
           set -euo pipefail
-          cd rules_py_pr/benchmark/startup
+          cd rules_py_pr/benchmark/workspace
           python3 generate_module.py bcr --version "${BCR_VERSION}"
 
           OUT_BASE="/tmp/bazel-bcr"
           rm -rf "$OUT_BASE"
-
-          START=$(date +%s%N)
-          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= //:bench //:bench_syspath
-          END=$(date +%s%N)
-          BUILD_MS=$(( (END - START) / 1000000 ))
-          echo "{\"build_ms\": $BUILD_MS}" > "${GITHUB_WORKSPACE}/bcr-build.json"
+          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= //:bench
 
           BIN=$(bazel --output_base="$OUT_BASE" cquery //:bench --disk_cache= --output=starlark --starlark:expr='target.files_to_run.executable.path' | tail -n1)
-          test -x "$BIN" || { echo "ERROR: benchmark binary not executable: $BIN"; exit 1; }
+          test -x "$BIN" || { echo "ERROR: bench binary not executable: $BIN"; exit 1; }
           RUNFILES_DIR="$PWD/$BIN.runfiles" hyperfine --warmup 5 --runs 50 --export-json "${GITHUB_WORKSPACE}/bcr.json" "$BIN"
-
-          BIN_SP=$(bazel --output_base="$OUT_BASE" cquery //:bench_syspath --disk_cache= --output=starlark --starlark:expr='target.files_to_run.executable.path' | tail -n1)
-          test -x "$BIN_SP" || { echo "ERROR: bench_syspath binary not executable: $BIN_SP"; exit 1; }
-          RUNFILES_DIR="$PWD/$BIN_SP.runfiles" "$BIN_SP" "$GITHUB_WORKSPACE/bcr-syspath.json"
+          RUNFILES_DIR="$PWD/$BIN.runfiles" "$BIN" "${GITHUB_WORKSPACE}/bcr-syspath.json"
 
       # ── HEAD main ───────────────────────────────────────────────────────────
       - name: Benchmark HEAD main
         run: |
           set -euo pipefail
-          cd rules_py_pr/benchmark/startup
+          cd rules_py_pr/benchmark/workspace
           python3 generate_module.py local --path "$GITHUB_WORKSPACE/rules_py_main"
 
           OUT_BASE="/tmp/bazel-main"
           rm -rf "$OUT_BASE"
-
-          START=$(date +%s%N)
-          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= //:bench //:bench_syspath
-          END=$(date +%s%N)
-          BUILD_MS=$(( (END - START) / 1000000 ))
-          echo "{\"build_ms\": $BUILD_MS}" > "${GITHUB_WORKSPACE}/main-build.json"
+          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= //:bench
 
           BIN=$(bazel --output_base="$OUT_BASE" cquery //:bench --disk_cache= --output=starlark --starlark:expr='target.files_to_run.executable.path' | tail -n1)
-          test -x "$BIN" || { echo "ERROR: benchmark binary not executable: $BIN"; exit 1; }
+          test -x "$BIN" || { echo "ERROR: bench binary not executable: $BIN"; exit 1; }
           RUNFILES_DIR="$PWD/$BIN.runfiles" hyperfine --warmup 5 --runs 50 --export-json "${GITHUB_WORKSPACE}/main.json" "$BIN"
-
-          BIN_SP=$(bazel --output_base="$OUT_BASE" cquery //:bench_syspath --disk_cache= --output=starlark --starlark:expr='target.files_to_run.executable.path' | tail -n1)
-          test -x "$BIN_SP" || { echo "ERROR: bench_syspath binary not executable: $BIN_SP"; exit 1; }
-          RUNFILES_DIR="$PWD/$BIN_SP.runfiles" "$BIN_SP" "$GITHUB_WORKSPACE/main-syspath.json"
+          RUNFILES_DIR="$PWD/$BIN.runfiles" "$BIN" "${GITHUB_WORKSPACE}/main-syspath.json"
 
       # ── Current commit (PR) ─────────────────────────────────────────────────
       - name: Benchmark current PR
         run: |
           set -euo pipefail
-          cd rules_py_pr/benchmark/startup
+          cd rules_py_pr/benchmark/workspace
           python3 generate_module.py local --path "$GITHUB_WORKSPACE/rules_py_pr"
 
           OUT_BASE="/tmp/bazel-pr"
           rm -rf "$OUT_BASE"
-
-          START=$(date +%s%N)
-          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= //:bench //:bench_syspath
-          END=$(date +%s%N)
-          BUILD_MS=$(( (END - START) / 1000000 ))
-          echo "{\"build_ms\": $BUILD_MS}" > "${GITHUB_WORKSPACE}/pr-build.json"
+          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= //:bench
 
           BIN=$(bazel --output_base="$OUT_BASE" cquery //:bench --disk_cache= --output=starlark --starlark:expr='target.files_to_run.executable.path' | tail -n1)
-          test -x "$BIN" || { echo "ERROR: benchmark binary not executable: $BIN"; exit 1; }
+          test -x "$BIN" || { echo "ERROR: bench binary not executable: $BIN"; exit 1; }
           RUNFILES_DIR="$PWD/$BIN.runfiles" hyperfine --warmup 5 --runs 50 --export-json "${GITHUB_WORKSPACE}/pr.json" "$BIN"
-
-          BIN_SP=$(bazel --output_base="$OUT_BASE" cquery //:bench_syspath --disk_cache= --output=starlark --starlark:expr='target.files_to_run.executable.path' | tail -n1)
-          test -x "$BIN_SP" || { echo "ERROR: bench_syspath binary not executable: $BIN_SP"; exit 1; }
-          RUNFILES_DIR="$PWD/$BIN_SP.runfiles" "$BIN_SP" "$GITHUB_WORKSPACE/pr-syspath.json"
+          RUNFILES_DIR="$PWD/$BIN.runfiles" "$BIN" "${GITHUB_WORKSPACE}/pr-syspath.json"
 
       # ── Compare ─────────────────────────────────────────────────────────────
       - name: Compare startup results
@@ -117,7 +102,7 @@ jobs:
         continue-on-error: true
         run: |
           set -euo pipefail
-          python3 rules_py_pr/benchmark/startup/compare.py \
+          python3 rules_py_pr/benchmark/compare.py startup \
             --output-table startup-table.txt \
             bcr.json main.json pr.json
 
@@ -156,84 +141,79 @@ jobs:
           ref: main
           path: rules_py_main
 
-      - name: Install hyperfine
-        run: |
-          set -euo pipefail
-          HYPERFINE_VERSION="1.18.0"
-          DEB="hyperfine_${HYPERFINE_VERSION}_amd64.deb"
-          URL="https://github.com/sharkdp/hyperfine/releases/download/v${HYPERFINE_VERSION}/${DEB}"
-          wget -qO "$DEB" "$URL"
-          sudo dpkg -i "$DEB"
-          rm -f "$DEB"
-          hyperfine --version
-
       - name: Generate workspace
         run: |
           set -euo pipefail
-          cd rules_py_pr/benchmark/analysis
-          python3 workspace/generate_workspace.py --root workspace --packages 50
+          cd rules_py_pr/benchmark/workspace
+          python3 generate_workspace.py --root . --packages "${PACKAGES}"
 
       # ── BCR baseline ────────────────────────────────────────────────────────
-      - name: Benchmark BCR ${{ env.ANALYSIS_BCR_VERSION }}
+      - name: Benchmark BCR ${{ env.BCR_VERSION }}
         run: |
           set -euo pipefail
-          cd rules_py_pr/benchmark/analysis
-          python3 generate_module.py bcr --version "${ANALYSIS_BCR_VERSION}"
+          cd rules_py_pr/benchmark/workspace
+          python3 generate_module.py bcr --version "${BCR_VERSION}"
 
           OUT_BASE="/tmp/bazel-bcr"
           rm -rf "$OUT_BASE"
+          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc fetch //...
 
-          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc fetch //workspace/...
-
-          hyperfine --warmup 1 --runs 10 \
+          python3 ../profile_benchmark.py \
+            --runs 10 --warmup 1 \
             --prepare 'rm -rf /tmp/bazel-bcr-analysis' \
-            --export-json "${GITHUB_WORKSPACE}/bcr.json" \
-            'bazel --output_base=/tmp/bazel-bcr-analysis --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= --nobuild //workspace/...'
+            --output "${GITHUB_WORKSPACE}/bcr.json" \
+            --save-profile "${GITHUB_WORKSPACE}/profiles/bcr-profile.gz" \
+            --save-starlark "${GITHUB_WORKSPACE}/profiles/bcr-starlark.pprof.gz" \
+            -- bazel --output_base=/tmp/bazel-bcr-analysis --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= --nobuild --profile={PROFILE} --starlark_cpu_profile={STARPROFILE} //...
 
-          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc query //workspace/... --output=package > /tmp/bcr-packages.txt
-          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc query //workspace/... > /tmp/bcr-targets.txt
+          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc query //... --output=package > /tmp/bcr-packages.txt
+          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc query //... > /tmp/bcr-targets.txt
           echo "{\"packages\": $(wc -l < /tmp/bcr-packages.txt | tr -d ' '), \"targets\": $(wc -l < /tmp/bcr-targets.txt | tr -d ' ')}" > "${GITHUB_WORKSPACE}/bcr-aux.json"
 
       # ── HEAD main ───────────────────────────────────────────────────────────
       - name: Benchmark HEAD main
         run: |
           set -euo pipefail
-          cd rules_py_pr/benchmark/analysis
+          cd rules_py_pr/benchmark/workspace
           python3 generate_module.py local --path "$GITHUB_WORKSPACE/rules_py_main"
 
           OUT_BASE="/tmp/bazel-main"
           rm -rf "$OUT_BASE"
+          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc fetch //...
 
-          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc fetch //workspace/...
-
-          hyperfine --warmup 1 --runs 10 \
+          python3 ../profile_benchmark.py \
+            --runs 10 --warmup 1 \
             --prepare 'rm -rf /tmp/bazel-main-analysis' \
-            --export-json "${GITHUB_WORKSPACE}/main.json" \
-            'bazel --output_base=/tmp/bazel-main-analysis --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= --nobuild //workspace/...'
+            --output "${GITHUB_WORKSPACE}/main.json" \
+            --save-profile "${GITHUB_WORKSPACE}/profiles/main-profile.gz" \
+            --save-starlark "${GITHUB_WORKSPACE}/profiles/main-starlark.pprof.gz" \
+            -- bazel --output_base=/tmp/bazel-main-analysis --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= --nobuild --profile={PROFILE} --starlark_cpu_profile={STARPROFILE} //...
 
-          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc query //workspace/... --output=package > /tmp/main-packages.txt
-          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc query //workspace/... > /tmp/main-targets.txt
+          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc query //... --output=package > /tmp/main-packages.txt
+          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc query //... > /tmp/main-targets.txt
           echo "{\"packages\": $(wc -l < /tmp/main-packages.txt | tr -d ' '), \"targets\": $(wc -l < /tmp/main-targets.txt | tr -d ' ')}" > "${GITHUB_WORKSPACE}/main-aux.json"
 
       # ── Current commit (PR) ─────────────────────────────────────────────────
       - name: Benchmark current PR
         run: |
           set -euo pipefail
-          cd rules_py_pr/benchmark/analysis
+          cd rules_py_pr/benchmark/workspace
           python3 generate_module.py local --path "$GITHUB_WORKSPACE/rules_py_pr"
 
           OUT_BASE="/tmp/bazel-pr"
           rm -rf "$OUT_BASE"
+          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc fetch //...
 
-          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc fetch //workspace/...
-
-          hyperfine --warmup 1 --runs 10 \
+          python3 ../profile_benchmark.py \
+            --runs 10 --warmup 1 \
             --prepare 'rm -rf /tmp/bazel-pr-analysis' \
-            --export-json "${GITHUB_WORKSPACE}/pr.json" \
-            'bazel --output_base=/tmp/bazel-pr-analysis --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= --nobuild //workspace/...'
+            --output "${GITHUB_WORKSPACE}/pr.json" \
+            --save-profile "${GITHUB_WORKSPACE}/profiles/pr-profile.gz" \
+            --save-starlark "${GITHUB_WORKSPACE}/profiles/pr-starlark.pprof.gz" \
+            -- bazel --output_base=/tmp/bazel-pr-analysis --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= --nobuild --profile={PROFILE} --starlark_cpu_profile={STARPROFILE} //...
 
-          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc query //workspace/... --output=package > /tmp/pr-packages.txt
-          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc query //workspace/... > /tmp/pr-targets.txt
+          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc query //... --output=package > /tmp/pr-packages.txt
+          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc query //... > /tmp/pr-targets.txt
           echo "{\"packages\": $(wc -l < /tmp/pr-packages.txt | tr -d ' '), \"targets\": $(wc -l < /tmp/pr-targets.txt | tr -d ' ')}" > "${GITHUB_WORKSPACE}/pr-aux.json"
 
       # ── Compare ─────────────────────────────────────────────────────────────
@@ -242,7 +222,7 @@ jobs:
         continue-on-error: true
         run: |
           set -euo pipefail
-          python3 rules_py_pr/benchmark/analysis/compare.py \
+          python3 rules_py_pr/benchmark/compare.py analysis \
             --output-table analysis-table.txt \
             bcr.json main.json pr.json
 
@@ -253,6 +233,7 @@ jobs:
           name: analysis-benchmark-results
           path: |
             analysis-table.txt
+            profiles/
           if-no-files-found: warn
 
       - name: Fail on regression
