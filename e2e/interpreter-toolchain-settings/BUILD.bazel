@@ -1,4 +1,6 @@
+load("@aspect_rules_py//uv/private/markers:defs.bzl", "decide_marker")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load(":marker_dependency_test.bzl", "marker_dependency_check")
 load(":toolchain_test.bzl", "interpreter_toolchain_check")
 
 # Smoke test so `bazel test //...` has a target here. The real checks are in
@@ -39,6 +41,85 @@ filegroup(
     srcs = ["BUILD.bazel"],
     target_compatible_with = select({
         "@aspect_rules_py//uv/private/constraints/python:py312": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+)
+
+marker_dependency_check(
+    name = "uv_dependency_selected",
+    dep = "@pypi_marker//six",
+    present = True,
+)
+
+marker_dependency_check(
+    name = "uv_dependency_not_selected",
+    dep = "@pypi_marker//six",
+    present = False,
+)
+
+decide_marker(
+    name = "_python_version_312",
+    marker = "python_version == '3.12'",
+)
+
+decide_marker(
+    name = "_python_full_version_312",
+    marker = "python_full_version >= '3.12' and python_full_version < '3.13'",
+)
+
+decide_marker(
+    name = "_implementation_version_312",
+    marker = "implementation_version >= '3.12' and implementation_version < '3.13'",
+)
+
+decide_marker(
+    name = "_python_full_version_patch",
+    marker = "python_full_version == '3.12.7'",
+)
+
+decide_marker(
+    name = "_implementation_version_patch",
+    marker = "implementation_version == '3.12.7'",
+)
+
+filegroup(
+    name = "uv_markers_selected",
+    srcs = ["BUILD.bazel"],
+    target_compatible_with = select({
+        ":_python_version_312": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }) + select({
+        ":_python_full_version_312": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }) + select({
+        ":_implementation_version_312": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+)
+
+filegroup(
+    name = "uv_markers_not_selected",
+    srcs = ["BUILD.bazel"],
+    target_compatible_with = select({
+        ":_python_version_312": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }) + select({
+        ":_python_full_version_312": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }) + select({
+        ":_implementation_version_312": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+)
+
+filegroup(
+    name = "uv_patch_markers_selected",
+    srcs = ["BUILD.bazel"],
+    target_compatible_with = select({
+        ":_python_full_version_patch": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }) + select({
+        ":_implementation_version_patch": [],
         "//conditions:default": ["@platforms//:incompatible"],
     }),
 )

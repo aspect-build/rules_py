@@ -1,22 +1,23 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
 load("//py:defs.bzl", "py_test")
-load(":defs.bzl", "configurable_string", "decide_marker")
+load(":defs.bzl", "configurable_python_version", "configurable_string", "decide_marker")
 load(":pep508_evaluate_test.bzl", "pep508_evaluate_test_suite")
 
 # 'python_version'
 #   {major}.{minor}
-alias(
+configurable_python_version(
     name = "python_version",
-    actual = "@rules_python//python/config_settings:python_version_major_minor",
+    rules_python = "@rules_python//python/config_settings:python_version_major_minor",
     visibility = ["//visibility:public"],
 )
 
 # 'python_full_version'
 #   {major}.{minor}.{patch}[...]
-alias(
+configurable_python_version(
     name = "python_full_version",
-    actual = "@rules_python//python/config_settings:python_version",
+    full = True,
+    rules_python = "@rules_python//python/config_settings:python_version",
     visibility = ["//visibility:public"],
 )
 

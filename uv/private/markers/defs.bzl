@@ -183,3 +183,27 @@ configurable_string = rule(
         "value": attr.string(),
     },
 )
+
+def _configurable_python_version_impl(ctx):
+    rules_python = ctx.attr.rules_python[config_common.FeatureFlagInfo].value
+    aspect = ctx.attr._aspect_python_version[BuildSettingInfo].value
+
+    if not ctx.attr.full and aspect:
+        aspect = ".".join(aspect.split(".")[:2])
+    elif aspect and (rules_python == aspect or rules_python.startswith(aspect + ".")):
+        # Keep the selected interpreter's patch version when both flags agree.
+        aspect = rules_python
+
+    # Aspect identifies a minor version. When the flags select different
+    # minors, the rules_python patch belongs to the wrong interpreter.
+
+    return [config_common.FeatureFlagInfo(value = aspect or rules_python)]
+
+configurable_python_version = rule(
+    implementation = _configurable_python_version_impl,
+    attrs = {
+        "full": attr.bool(),
+        "rules_python": attr.label(mandatory = True),
+        "_aspect_python_version": attr.label(default = "@aspect_rules_py//py/private/interpreter:python_version"),
+    },
+)
