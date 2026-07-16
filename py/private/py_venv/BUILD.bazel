@@ -42,8 +42,8 @@ bzl_library(
 )
 
 bzl_library(
-    name = "venv",
-    srcs = ["venv.bzl"],
+    name = "assemble_venv",
+    srcs = ["assemble_venv.bzl"],
     deps = [
         ":toolchains_resolver",
         ":virtuals_resolvers",
@@ -76,9 +76,9 @@ bzl_library(
     name = "py_venv",
     srcs = ["py_venv.bzl"],
     deps = [
+        ":assemble_venv",
         ":py_venv_exec",
         ":types",
-        ":venv",
         "//py/private:py_library",
         "//py/private:py_semantics",
         "//py/private:transitions",
