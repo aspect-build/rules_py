@@ -40,24 +40,6 @@ load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN")
 load(":toolchains_resolver.bzl", "resolve_venv_toolchain")
 load(":virtuals_resolvers.bzl", "enforce_collision_policy", "resolve_wheel_collisions")
 
-# Template for console-script wrappers under <venv>/bin/<name>. A tiny shell
-# script that execs the venv's own bin/python with an inline `-c` to import
-# the entry point and call it. Keeping this as pure sh (no polyglot) sidesteps
-# tokenisation quirks with `$` in strings, and the inline Python is short
-# enough that not having a real `__file__` doesn't matter in practice.
-# `"$@"` preserves the original argv, while sys.argv[0] is patched so the
-# called function sees the script's own name. Entry-point object references
-# may contain dotted attributes:
-# https://packaging.python.org/en/latest/specifications/entry-points/#data-model
-_CONSOLE_SCRIPT_TEMPLATE = """\
-#!/bin/sh
-case $0 in
-    */*) script_dir=${{0%/*}} ;;
-    *) script_dir=. ;;
-esac
-exec "${{script_dir}}/python" -c 'import sys; from importlib import import_module; from operator import attrgetter; sys.argv[0] = "{name}"; sys.exit(attrgetter("{func}")(import_module("{module}"))())' "$@"
-"""
-
 def _dict_to_exports(env):
     return ["export %s=\"%s\"" % (k, v) for (k, v) in env.items()]
 
@@ -75,6 +57,7 @@ def assemble_venv(
         venv_activate_tmpl,
         virtualenv_shim_py,
         site_merge_script_py,
+        console_script_tmpl,
         venv_name):
     """Declare every file + symlink that makes up a venv for a target.
 
@@ -104,6 +87,8 @@ def assemble_venv(
         wheel graph contains a regular package needing a physical merge; the
         merge action also requires the rule to declare the (optional)
         EXEC_TOOLS_TOOLCHAIN for an exec-configuration interpreter.
+      console_script_tmpl: File — the console-script wrapper template
+        (usually `ctx.file._console_script_tmpl`).
       venv_name: str — the venv dir basename (e.g. "." + safe_name).
 
     Returns:
@@ -359,13 +344,14 @@ def assemble_venv(
     # Console-script wrappers under <venv>/bin/<name>.
     for name, target in console_scripts_map.items():
         script = ctx.actions.declare_file("{}/bin/{}".format(venv_name, name))
-        ctx.actions.write(
+        ctx.actions.expand_template(
+            template = console_script_tmpl,
             output = script,
-            content = _CONSOLE_SCRIPT_TEMPLATE.format(
-                name = name,
-                module = target.module,
-                func = target.func,
-            ),
+            substitutions = {
+                "{{name}}": name,
+                "{{module}}": target.module,
+                "{{func}}": target.func,
+            },
             is_executable = True,
         )
         declared.append(script)

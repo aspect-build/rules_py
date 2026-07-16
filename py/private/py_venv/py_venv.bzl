@@ -80,6 +80,7 @@ def _assemble_shared(ctx):
         venv_activate_tmpl = ctx.file._venv_activate_tmpl,
         virtualenv_shim_py = ctx.file._virtualenv_shim,
         site_merge_script_py = ctx.file._site_merge_script,
+        console_script_tmpl = ctx.file._console_script_tmpl,
         venv_name = ".{}".format(safe_name),
     )
 
@@ -241,6 +242,10 @@ does not reinsert a wheel.
     "_site_merge_script": attr.label(
         allow_single_file = True,
         default = "//py/tools/site_merge:site_merge.py",
+    ),
+    "_console_script_tmpl": attr.label(
+        allow_single_file = True,
+        default = "//py/private/py_venv:templates/console_script.tmpl.sh",
     ),
 })
 
