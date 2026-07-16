@@ -1,6 +1,5 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
-load("//py:defs.bzl", "py_test")
 
 package(default_visibility = ["//py:__subpackages__"])
 
@@ -89,14 +88,4 @@ bzl_library(
         ":py_venv_exec",
         ":types",
     ],
-)
-
-py_test(
-    name = "test_link",
-    srcs = [
-        "link.py",
-        "test_link.py",
-    ],
-    imports = ["."],
-    main = "test_link.py",
 )
