@@ -68,11 +68,11 @@ write_source_files(
 py_test(
     name = "test_link",
     srcs = [
-        "test_link.py",
         "//py/private/py_venv:templates/link.py",
+        "//py/private/py_venv/tests:test_link.py",
     ],
     imports = ["../templates"],
-    main = "test_link.py",
+    main = "//py/private/py_venv/tests:test_link.py",
 )
 
 virtuals_resolvers_test_suite(name = "virtuals_resolvers_tests")
