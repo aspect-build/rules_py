@@ -2,7 +2,6 @@
 
 """
 
-load("@bazel_features//:features.bzl", features = "bazel_features")
 load("//uv/private/pprint:defs.bzl", "indent", "pprint")
 load("//uv/private/uv_project:select_gen.bzl", "build_package_select_arms")
 
@@ -298,8 +297,6 @@ exports_files(
 
     repository_ctx.file("private/markers/BUILD.bazel", "\n".join(content))
 
-    if not features.external_deps.extension_metadata_has_reproducible:
-        return None
     return repository_ctx.repo_metadata(reproducible = True)
 
 uv_project = repository_rule(

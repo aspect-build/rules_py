@@ -1,0 +1,12 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+# build_config = "install_only_stripped" (set in MODULE.bazel): the smaller,
+# symbol-stripped redistributable. It is functionally identical to install_only,
+# so this asserts the archive resolves and runs as a regular (non-debug) 3.13
+# interpreter under a plain `bazel test //...`.
+py_test(
+    name = "check",
+    srcs = ["check_interpreter.py"],
+    main = "check_interpreter.py",
+    python_version = "3.13",
+)

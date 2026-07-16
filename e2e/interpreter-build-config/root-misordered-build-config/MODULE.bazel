@@ -1,0 +1,18 @@
+# Designed to FAIL extension evaluation: build_config tokens out of PBS's
+# canonical order. test.sh asserts the error message.
+module(name = "root_misordered_build_config")
+
+bazel_dep(name = "aspect_rules_py")
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../../..",
+)
+
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+interpreters.configure(
+    # PBS publishes "pgo+lto-full"; the reversed spelling can never match.
+    build_config = "lto+pgo-full",
+    releases = ["20260303"],
+)
+interpreters.toolchain(python_version = "3.13")
+use_repo(interpreters, "python_interpreters")

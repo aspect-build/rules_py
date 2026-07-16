@@ -26,7 +26,6 @@ bzl_library(
         "//uv/private/constraints/platform:defs",
         "//uv/private/constraints/python:defs",
         "//uv/private/pprint:defs",
-        "@bazel_features//:features",
     ],
 )
 

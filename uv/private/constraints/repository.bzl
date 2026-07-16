@@ -10,8 +10,6 @@ and makes debugging easier as well as the generated selections more meaningful.
 
 """
 
-load("@bazel_features//:features.bzl", features = "bazel_features")
-
 def _format_list(items):
     return "[\n" + "".join(["    {},\n".format(repr(it)) for it in items]) + "]"
 
@@ -57,8 +55,6 @@ exports_files(
 
     repository_ctx.file("BUILD.bazel", content = "\n".join(content))
 
-    if not features.external_deps.extension_metadata_has_reproducible:
-        return None
     return repository_ctx.repo_metadata(reproducible = True)
 
 configurations_hub = repository_rule(
