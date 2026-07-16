@@ -1,0 +1,10 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary")
+
+# Deliberately no python_version attr: the version is inherited from whichever
+# version flag the caller sets. test.sh `bazel run`s this under each flag and
+# every provisioned version, passing the expected version as the argument.
+py_binary(
+    name = "version_check",
+    srcs = ["version_check.py"],
+    main = "version_check.py",
+)
