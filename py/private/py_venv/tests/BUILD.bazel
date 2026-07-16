@@ -65,9 +65,9 @@ write_source_files(
 py_test(
     name = "test_link",
     srcs = [
-        "//py/private/py_venv:link.py",
+        "//py/private/py_venv:templates/link.py",
         "//py/private/py_venv/tests:test_link.py",
     ],
-    imports = [".."],
+    imports = ["../templates"],
     main = "//py/private/py_venv/tests:test_link.py",
 )
