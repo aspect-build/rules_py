@@ -1,4 +1,4 @@
-load("//py/private/py_venv:py_venv_exec.bzl", "py_venv_exec_test")
+load("//py/private/py_venv:defs.bzl", "py_venv_exec_test")
 
 # A py_venv_exec_test consuming a `:shared_venv` defined in a sibling
 # package. Exercises cross-package visibility of the venv label and

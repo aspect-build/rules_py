@@ -36,8 +36,7 @@ bzl_library(
         "//py/private:py_wheel",
         "//py/private:virtual",
         "//py/private/interpreter:current_py_toolchain",
-        "//py/private/py_venv",
-        "//py/private/py_venv:py_venv_exec",
+        "//py/private/py_venv:defs",
         "@bazel_lib//lib:utils",
     ],
 )

@@ -1,5 +1,5 @@
 load("//py:defs.bzl", "py_venv")
-load("//py/private/py_venv:py_venv_exec.bzl", "py_venv_exec_test")
+load("//py/private/py_venv:defs.bzl", "py_venv_exec_test")
 load(":env_inherit_test.bzl", "contextual_keys_not_inherited_test", "env_inherit_test")
 
 # A single py_venv exec'd through multiple py_venv_exec consumers,
