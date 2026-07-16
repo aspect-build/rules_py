@@ -72,7 +72,12 @@ def stats_ms(values_ms: list[float]) -> dict[str, float]:
 
 
 def aggregate_starlark(star_runs: list[dict[str, float]]) -> list[dict[str, Any]]:
-    """Aggregate per-run {fn: ms} dicts into the top functions by mean CPU ms."""
+    """Aggregate per-run {fn: ms} dicts into per-function mean CPU ms.
+
+    Returns ALL functions (sorted desc), not a top-N: truncation happens only at
+    render time in compare.py. Truncating here would make the comparator treat a
+    function below one side's cutoff as absent (0.0) and misreport it as new.
+    """
     names: set[str] = set()
     for d in star_runs:
         names.update(d.keys())
@@ -85,7 +90,7 @@ def aggregate_starlark(star_runs: list[dict[str, float]]) -> list[dict[str, Any]
         r["pct"] = r["mean_ms"] / total * 100.0
         r["runs"] = len(star_runs)
     rows.sort(key=lambda r: r["mean_ms"], reverse=True)
-    return rows[:20]
+    return rows
 
 
 def substitute(command: list[str], replacements: dict[str, str]) -> list[str]:
