@@ -48,6 +48,7 @@ bzl_library(
         ":toolchains_resolver",
         ":virtuals_resolvers",
         "//py/private:py_library",
+        "//py/private/toolchain:types",
     ],
 )
 
