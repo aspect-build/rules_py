@@ -71,7 +71,7 @@ def _relative_path(value, what):
     if (
         not value
         or "\\" in value
-        or any(part in ("", ".", "..") or ":" in part for part in parts)
+        or any(not part or part.endswith((" ", ".")) or ":" in part for part in parts)
     ):
         raise SystemExit("Invalid {}: {}".format(what, value))
     return Path(*parts)

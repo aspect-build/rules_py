@@ -114,12 +114,14 @@ def main() -> None:
             ("rootnesteddrive", "fixture/D:/escaped.py"),
             ("rootunc", "//server/share/escaped.py"),
             ("rootbackslash", "fixture\\escaped.py"),
+            ("roottrailing", "fixture/.. /escaped.py"),
             ("datatraversal", "datatraversal-1.0.data/data/../escaped.py"),
             ("dataabsolute", "dataabsolute-1.0.data/data//escaped.py"),
             ("datadrive", "datadrive-1.0.data/data/C:/escaped.py"),
             ("datanesteddrive", "datanesteddrive-1.0.data/data/fixture/D:/escaped.py"),
             ("dataunc", "dataunc-1.0.data/data///server/share/escaped.py"),
             ("databackslash", "databackslash-1.0.data/data/fixture\\escaped.py"),
+            ("datatrailing", "datatrailing-1.0.data/data/.. ./escaped.py"),
         ]:
             traversal_wheel = root / f"{case}-1.0-py3-none-any.whl"
             _write_wheel(traversal_wheel, case, {member: b"escaped\n"})
@@ -412,6 +414,7 @@ else:
             ("unc", "//server/share/entry-point-escaped"),
             ("backslash", "fixture\\entry-point-escaped"),
             ("nested", "fixture/entry-point-escaped"),
+            ("trailing", "entry-point-escaped. "),
         ]:
             distribution = "entry_point_{}".format(case)
             entry_point_wheel = root / f"{distribution}-1.0-py3-none-any.whl"
