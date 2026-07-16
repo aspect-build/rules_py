@@ -35,9 +35,9 @@ Bazel's action cache treats each piece independently (no tree-artifact
 + remote-exec materialisation surprises).
 """
 
-load("@bazel_lib//lib:paths.bzl", "to_rlocation_path")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN")
+load(":toolchains_resolver.bzl", "resolve_venv_toolchain")
 
 # Template for console-script wrappers under <venv>/bin/<name>. A tiny shell
 # script that execs the venv's own bin/python with an inline `-c` to import
@@ -615,49 +615,19 @@ def assemble_venv(
         package_collisions,
     )
 
-    # Layout + escape math — the venv is a sibling of the target's
-    # declared outputs at <pkg>/<venv_name>/, so from the .pth / symlinks
-    # inside site-packages we need to walk up to the runfiles root before
-    # descending into an external wheel repo.
-    #
-    # Components below the runfiles root, from the .pth's directory:
-    #   1 workspace
-    # + N package segments
-    # + 1 venv segment
-    # + 3 (lib, python<MAJ>.<MIN>, site-packages)
-    # `py_ver` controls two distinct layouts that agree most of the time
-    # but diverge for freethreaded interpreters:
-    #
-    # * `venv_py_ver` — the lib-dir name inside OUR venv. Freethreaded
-    #   Python 3.13+ (and onwards) expects its site-packages at
-    #   `lib/python<M>.<m>t/site-packages/`. If we put ours at
-    #   `python<M>.<m>/`, the interpreter never finds our symlinks.
-    # * `wheel_py_ver` — the lib-dir name inside a wheel's `install_tree`.
-    #   The unpacker hardcodes `lib/python<M>.<m>/site-packages/`
-    #   regardless of freethreaded status (same wheel install layout for
-    #   both non-t and t interpreters). Keep this without the `t`.
-    wheel_py_ver = "python{}.{}".format(
-        py_toolchain.interpreter_version_info.major,
-        py_toolchain.interpreter_version_info.minor,
+    # All toolchain-derived path/flag math (runfiles escape arithmetic,
+    # wheel/venv lib-dir names, pyvenv.cfg home, versioned python names,
+    # bin/python target_path) is concentrated in resolve_venv_toolchain.
+    tc = resolve_venv_toolchain(
+        ctx,
+        py_toolchain = py_toolchain,
+        is_windows = is_windows,
+        venv_name = venv_name,
     )
-    venv_py_ver = wheel_py_ver + ("t" if py_toolchain.freethreaded else "")
-    package_depth = len(ctx.label.package.split("/")) if ctx.label.package else 0
-
-    # From .pth / symlink dir up to runfiles root.
-    escape_count = 1 + package_depth + 1 + 3
-    escape = "/".join([".."] * escape_count)
-
-    # From venv root (= sys.prefix at runtime) up to runfiles root.
-    venv_to_runfiles_escape = "/".join([".."] * (2 + package_depth))
-
-    # The leading-dot basename (e.g. `.{name}.venv/`) is the Pythonic
-    # name that IDEs auto-detect. The leading dot also keeps this
-    # distinct from a sibling py_venv target at `:<name>.venv`
-    # (auto-emitted when `expose_venv = True` is set): the sibling's
-    # launcher file lands at `bazel-bin/<pkg>/<name>.venv`, while any
-    # internal venv tree lives under `bazel-bin/<pkg>/.<name>.venv/`.
-    # Different filesystem paths, no collision.
-    site_packages_rel = "{}/lib/{}/site-packages".format(venv_name, venv_py_ver)
+    escape = tc.escape
+    venv_to_runfiles_escape = tc.venv_to_runfiles_escape
+    wheel_py_ver = tc.wheel_py_ver
+    site_packages_rel = tc.site_packages_rel
 
     # site_packages_rfpath → install_tree, used only by the regular-package
     # merge action below. The per-top-level symlinks and .pth lines locate
@@ -799,38 +769,8 @@ def assemble_venv(
     )
     declared.append(site_packages_pth_file)
 
-    # `relocatable = true` below is a rules_py extension: for an in-build
-    # CPython 3.11/3.12 runtime that supports build-time venvs, keep `home`
-    # empty so getpath resolves the relocatable bin/python symlink into the
-    # base executable without forcing prefix discovery from a relative path.
-    # Omitting the key leaves sys._base_executable at the outer venv symlink,
-    # so a stdlib-created nested venv writes the outer venv's bin/ as home.
-    # A relative `home` instead resolves from the startup cwd:
-    # https://github.com/python/cpython/blob/3bb231a6/Modules/getpath.py#L362-L365
-    # https://github.com/python/cpython/blob/3bb231a6/Modules/getpath.py#L431-L432
-    # https://github.com/python/cpython/blob/3bb231a6/Lib/venv/__init__.py#L158-L166
-    # Direct runtimes use that symlink. The capability also permits wrappers
-    # that set PYTHONEXECUTABLE to preserve the underlying base executable:
-    # https://github.com/bazel-contrib/rules_python/blob/bac54949/python/private/py_runtime_info.bzl#L316-L337
-    use_empty_venv_home = (
-        py_toolchain.runfiles_interpreter and
-        not is_windows and
-        getattr(py_toolchain.toolchain, "implementation_name", None) == "cpython" and
-        getattr(py_toolchain.toolchain, "supports_build_time_venv", False) and
-        py_toolchain.interpreter_version_info.major == 3 and
-        py_toolchain.interpreter_version_info.minor in [11, 12]
-    )
-    if use_empty_venv_home:
-        pyvenv_home = ""
-    elif py_toolchain.runfiles_interpreter:
-        pbs_rlocation = to_rlocation_path(ctx, py_toolchain.python)
-        pbs_bin_dir = "/".join(pbs_rlocation.split("/")[:-1])
-        pyvenv_home = "{}/{}".format(venv_to_runfiles_escape, pbs_bin_dir)
-    else:
-        pyvenv_home = py_toolchain.python.path.rsplit("/", 1)[0]
-
     pyvenv_cfg = ctx.actions.declare_file("{}/pyvenv.cfg".format(venv_name))
-    home_line = "home =\n" if pyvenv_home == "" else "home = {}\n".format(pyvenv_home)
+    home_line = "home =\n" if tc.pyvenv_home == "" else "home = {}\n".format(tc.pyvenv_home)
     ctx.actions.write(
         output = pyvenv_cfg,
         content = home_line + (
@@ -849,60 +789,23 @@ def assemble_venv(
     )
     declared.append(pyvenv_cfg)
 
-    # bin/python — the symlink the launcher exec's and that Python reads
-    # to compute sys.base_prefix. We emit an UNRESOLVED symlink
-    # (`declare_symlink` + `target_path`) with an explicit relative
-    # target rather than a `declare_file` + `target_file` on
-    # `py_toolchain.python` for two reasons:
-    #
-    #  1. `target_file` lets Bazel pick the symlink target, and the
-    #     choice differs across Bazel versions (Bazel 8 tends to write
-    #     relative, Bazel 9 absolute). Downstream tools that repack the
-    #     tar (`py_image_layer`) need a stable, runfiles-correct target.
-    #  2. Absolute targets bake in the build-host execroot path — in an
-    #     OCI container that path doesn't exist, bin/python becomes a
-    #     dangling symlink, Python falls back to its compile-time
-    #     `/install` base_prefix, then fails to locate the stdlib.
-    #
-    # From `<venv>/bin/`, walk up to the runfiles root (`.runfiles/`)
-    # and then down through the interpreter's rlocation path — which is
-    # exactly the shape `runfiles` libraries would compute. Up count:
-    # 1 (bin) + 1 (venv) + package_depth + 1 (workspace) = 3 + pkg.
-    # For system-interpreter (no runfiles_interpreter), fall back to the
-    # absolute path — these are already non-hermetic by construction.
+    # bin/python — unresolved symlink (declare_symlink + target_path)
+    # rather than declare_file + target_file: target_file lets Bazel pick
+    # relative vs absolute per version (Bazel 8 rel, Bazel 9 abs), and an
+    # absolute target bakes in the build-host execroot path that does not
+    # exist inside an OCI container, leaving a dangling symlink. The
+    # target path itself is computed by resolve_venv_toolchain.
     bin_python = ctx.actions.declare_symlink("{}/bin/python".format(venv_name))
-    if py_toolchain.runfiles_interpreter:
-        bin_to_runfiles_root = "/".join([".."] * (3 + package_depth))
-        ctx.actions.symlink(
-            output = bin_python,
-            target_path = "{}/{}".format(
-                bin_to_runfiles_root,
-                to_rlocation_path(ctx, py_toolchain.python),
-            ),
-        )
-    else:
-        ctx.actions.symlink(
-            output = bin_python,
-            target_path = py_toolchain.python.path,
-        )
+    ctx.actions.symlink(
+        output = bin_python,
+        target_path = tc.bin_python_target_path,
+    )
     declared.append(bin_python)
 
-    # Versioned python symlinks: python3, python3.<MAJ>.<MIN>, and on
-    # freethreaded interpreters also python3.<MAJ>.<MIN>t (the name the
-    # interpreter looks itself up under). All point at the sibling `python`.
-    versioned_names = [
-        "python{}".format(py_toolchain.interpreter_version_info.major),
-        "python{}.{}".format(
-            py_toolchain.interpreter_version_info.major,
-            py_toolchain.interpreter_version_info.minor,
-        ),
-    ]
-    if py_toolchain.freethreaded:
-        versioned_names.append("python{}.{}t".format(
-            py_toolchain.interpreter_version_info.major,
-            py_toolchain.interpreter_version_info.minor,
-        ))
-    for versioned_name in versioned_names:
+    # Versioned python symlinks (python3, python3.<MAJ>.<MIN>, and
+    # python3.<MAJ>.<MIN>t for freethreaded) all point at the sibling
+    # `python`; names resolved by resolve_venv_toolchain.
+    for versioned_name in tc.versioned_python_names:
         sym = ctx.actions.declare_symlink("{}/bin/{}".format(venv_name, versioned_name))
         ctx.actions.symlink(
             output = sym,
