@@ -298,7 +298,7 @@ exports_files(
 
     repository_ctx.file("private/markers/BUILD.bazel", "\n".join(content))
 
-    if not features.external_deps.extension_metadata_has_reproducible:
+    if not features.external_deps.repo_metadata_has_reproducible:
         return None
     return repository_ctx.repo_metadata(reproducible = True)
 

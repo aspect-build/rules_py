@@ -74,7 +74,7 @@ filegroup(
         print(status.stdout)
         print(status.stderr)
 
-    if features.external_deps.extension_metadata_has_reproducible:
+    if features.external_deps.repo_metadata_has_reproducible:
         if is_reproducible:
             return repository_ctx.repo_metadata(reproducible = True)
         else:

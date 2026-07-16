@@ -56,7 +56,7 @@ def _python_interpreter_impl(rctx):
         serial = serial,
     ))
 
-    if not features.external_deps.extension_metadata_has_reproducible:
+    if not features.external_deps.repo_metadata_has_reproducible:
         return None
     return rctx.repo_metadata(reproducible = True)
 
@@ -490,7 +490,7 @@ current_py_toolchain(
 
     rctx.file("BUILD.bazel", content = "\n".join(content))
 
-    if not features.external_deps.extension_metadata_has_reproducible:
+    if not features.external_deps.repo_metadata_has_reproducible:
         return None
     return rctx.repo_metadata(reproducible = True)
 

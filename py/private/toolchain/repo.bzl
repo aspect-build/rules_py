@@ -32,7 +32,7 @@ toolchain(
 
     repository_ctx.file("BUILD.bazel", build_content)
 
-    if not features.external_deps.extension_metadata_has_reproducible:
+    if not features.external_deps.repo_metadata_has_reproducible:
         return None
     return repository_ctx.repo_metadata(reproducible = True)
 
