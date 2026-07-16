@@ -29,6 +29,10 @@ _RELOCATABLE_SHEBANG = """\
 ' '''
 """
 
+_WINDOWS_RESERVED = {"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$"} | {
+    prefix + suffix for prefix in ("COM", "LPT") for suffix in "123456789¹²³"
+}
+
 
 def _sha256(path):
     h = hashlib.sha256()
@@ -71,7 +75,13 @@ def _relative_path(value, what):
     if (
         not value
         or "\\" in value
-        or any(not part or part.endswith((" ", ".")) or ":" in part for part in parts)
+        or any(
+            not part
+            or part.endswith((" ", "."))
+            or ":" in part
+            or part.partition(".")[0].rstrip(" ").upper() in _WINDOWS_RESERVED
+            for part in parts
+        )
     ):
         raise SystemExit("Invalid {}: {}".format(what, value))
     return Path(*parts)

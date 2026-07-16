@@ -115,6 +115,8 @@ def main() -> None:
             ("rootunc", "//server/share/escaped.py"),
             ("rootbackslash", "fixture\\escaped.py"),
             ("roottrailing", "fixture/.. /escaped.py"),
+            ("rootreserved", "fixture/NuL .txt/escaped.py"),
+            ("rootconin", "fixture/cOnIn$.txt/escaped.py"),
             ("datatraversal", "datatraversal-1.0.data/data/../escaped.py"),
             ("dataabsolute", "dataabsolute-1.0.data/data//escaped.py"),
             ("datadrive", "datadrive-1.0.data/data/C:/escaped.py"),
@@ -122,6 +124,8 @@ def main() -> None:
             ("dataunc", "dataunc-1.0.data/data///server/share/escaped.py"),
             ("databackslash", "databackslash-1.0.data/data/fixture\\escaped.py"),
             ("datatrailing", "datatrailing-1.0.data/data/.. ./escaped.py"),
+            ("datareserved", "datareserved-1.0.data/data/fixture/lPt9.log/escaped.py"),
+            ("dataconout", "dataconout-1.0.data/data/fixture/ConOut$.log/escaped.py"),
         ]:
             traversal_wheel = root / f"{case}-1.0-py3-none-any.whl"
             _write_wheel(traversal_wheel, case, {member: b"escaped\n"})
@@ -378,6 +382,9 @@ else:
                 "entry_point-1.0.dist-info/entry_points.txt": (
                     b"[console_scripts]\n"
                     b"Fixture-Cli = fixture:Commands.main [extra]\n"
+                    b"COM10 = fixture:Commands.main\n"
+                    b"LPT0 = fixture:Commands.main\n"
+                    b"NULled = fixture:Commands.main\n"
                 ),
             },
         )
@@ -391,7 +398,10 @@ else:
         )
         assert entry_point.returncode == 0, entry_point.stderr
         assert {entry.name for entry in (entry_point_out / "bin").iterdir()} == {
+            "COM10",
             "Fixture-Cli",
+            "LPT0",
+            "NULled",
         }, "console-script name was not preserved"
         script = entry_point_out / "bin" / "Fixture-Cli"
         site_packages = (
@@ -415,6 +425,7 @@ else:
             ("backslash", "fixture\\entry-point-escaped"),
             ("nested", "fixture/entry-point-escaped"),
             ("trailing", "entry-point-escaped. "),
+            ("reserved", "cOm¹.exe"),
         ]:
             distribution = "entry_point_{}".format(case)
             entry_point_wheel = root / f"{distribution}-1.0-py3-none-any.whl"
