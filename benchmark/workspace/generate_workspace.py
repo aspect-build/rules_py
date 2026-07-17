@@ -212,12 +212,19 @@ def generate_root_build(root: Path, package_count: int) -> None:
 
     //:bench depends on every local py_library so its venv scales with
     package_count; bench_main.py is import-free (see BENCH_MAIN_TEMPLATE).
+
+    //:all_group_deps closes the benchmark's hub-coverage gap: it depends on the
+    whole active dep_group via group_deps(), which forces Bazel to load and
+    analyze every @pypi hub alias + the project repo graph -- the path real
+    py_venv consumers hit. Without it, //:bench's direct @pypi//<dep> labels only
+    load the reachable subset and hub/project over-generation stays inert.
     """
     pkg_libs = [f"//src/pkg_{i}:pkg_{i}" for i in range(package_count)]
     pkg_bins = [f"//src/pkg_{i}:pkg_{i}_bin" for i in range(package_count)]
     lines = [
-        'load("@aspect_rules_py//py:defs.bzl", "py_binary")\n',
-        'load("@bazel_skylib//rules:build_test.bzl", "build_test")\n\n',
+        'load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library")\n',
+        'load("@bazel_skylib//rules:build_test.bzl", "build_test")\n',
+        'load("@pypi//:defs.bzl", "group_deps")\n\n',
         'build_test(\n',
         '    name = "all_bins",\n',
         f'    targets = {pkg_bins},\n',
@@ -227,6 +234,13 @@ def generate_root_build(root: Path, package_count: int) -> None:
         '    srcs = ["bench_main.py"],\n',
         '    main = "bench_main.py",\n',
         f'    deps = {pkg_libs},\n',
+        ')\n\n',
+        '# Forces analysis of the full @pypi hub + project graph for the active\n',
+        '# dep_group (the realistic py_venv consumer path).\n',
+        'py_library(\n',
+        '    name = "all_group_deps",\n',
+        '    deps = group_deps(),\n',
+        '    visibility = ["//visibility:public"],\n',
         ')\n',
     ]
     (root / "BUILD.bazel").write_text("".join(lines))
