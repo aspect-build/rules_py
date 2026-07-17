@@ -1,0 +1,14 @@
+module(name = "all_lock_override_target")
+
+bazel_dep(name = "aspect_rules_py")
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../../../..",
+)
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.override_package(
+    name = "demo",
+    target = "@aspect_rules_py//e2e/cases/uv-all-lock-overrides:pyproject.toml",
+)
+use_repo(uv, "target_hub")

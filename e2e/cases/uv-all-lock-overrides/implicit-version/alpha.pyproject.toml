@@ -1,0 +1,5 @@
+[project]
+name = "implicit-version-alpha"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = ["boltons==25.0.0"]

@@ -1,0 +1,31 @@
+"""Applies one post-install patch across matching project locks."""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_all_lock_overrides")
+uv.project(
+    hub_name = "pypi_all_lock_overrides",
+    lock = "//uv-all-lock-overrides/alpha:uv.lock",
+    pyproject = "//uv-all-lock-overrides/alpha:pyproject.toml",
+)
+uv.project(
+    hub_name = "pypi_all_lock_overrides",
+    lock = "//uv-all-lock-overrides/beta:uv.lock",
+    pyproject = "//uv-all-lock-overrides/beta:pyproject.toml",
+)
+uv.project(
+    hub_name = "pypi_all_lock_overrides",
+    lock = "//uv-all-lock-overrides/gamma:uv.lock",
+    pyproject = "//uv-all-lock-overrides/gamma:pyproject.toml",
+)
+uv.project(
+    hub_name = "pypi_all_lock_overrides",
+    lock = "//uv-all-lock-overrides/delta:uv.lock",
+    pyproject = "//uv-all-lock-overrides/delta:pyproject.toml",
+)
+uv.override_package(
+    name = "boltons",
+    post_install_patch_strip = 1,
+    post_install_patches = ["//uv-all-lock-overrides:post_install.patch"],
+    version = "25.0.0",
+)
+use_repo(uv, "pypi_all_lock_overrides")
