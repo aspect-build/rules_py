@@ -323,6 +323,23 @@ def _version_ops_test_impl(ctx):
     dev_env["python_full_version"] = "3.15.0-alpha.dev.foo"
     asserts.true(env, evaluate("python_full_version < '3.15.1'", env = dev_env))
     asserts.true(env, evaluate("python_full_version < '3.15.0-alpha.dev.foo.bar'", env = dev_env))
+    dev_env["python_full_version"] = "3.15.0-foo"
+    asserts.true(env, evaluate("python_full_version < '3.15.0-foo.1'", env = dev_env))
+    asserts.true(env, evaluate("python_full_version <= '3.15.0-foo.1'", env = dev_env))
+    dev_env["python_full_version"] = "3.15.0-foo.1"
+    asserts.true(env, evaluate("python_full_version > '3.15.0-foo'", env = dev_env))
+    asserts.true(env, evaluate("python_full_version >= '3.15.0-foo'", env = dev_env))
+    for prefix in ["a.foo", "b.foo", "rc.foo", "a.dev.foo"]:
+        dev_env["python_full_version"] = "3.15.0-{}".format(prefix)
+        asserts.true(env, evaluate("python_full_version < '3.15.0-{}.1'".format(prefix), env = dev_env))
+        asserts.true(env, evaluate("python_full_version <= '3.15.0-{}.1'".format(prefix), env = dev_env))
+        dev_env["python_full_version"] = "3.15.0-{}.1".format(prefix)
+        asserts.true(env, evaluate("python_full_version > '3.15.0-{}'".format(prefix), env = dev_env))
+        asserts.true(env, evaluate("python_full_version >= '3.15.0-{}'".format(prefix), env = dev_env))
+    dev_env["python_full_version"] = "3.15.0-foo.10"
+    asserts.true(env, evaluate("python_full_version < '3.15.0-foo.dev.2'", env = dev_env))
+    dev_env["python_full_version"] = "3.15.0-a.foo.10"
+    asserts.true(env, evaluate("python_full_version < '3.15.0-a.foo.dev.2'", env = dev_env))
 
     # Alpha, beta, and release-candidate suffixes compare numerically and in
     # PEP 440 order, including the accepted long-form spellings.
@@ -355,12 +372,46 @@ def _version_ops_test_impl(ctx):
     asserts.true(env, evaluate("python_full_version == '3.15.0'", env = prerelease_env))
     asserts.false(env, evaluate("python_full_version != '3.15.0'", env = prerelease_env))
 
+    # Ordered and compatible-release specifiers cannot contain local labels.
+    # A candidate local label is ignored for inclusive bounds, while exclusive
+    # bounds still exclude the matching public release.
+    asserts.false(env, evaluate("python_full_version < '3.15.0'", env = prerelease_env))
+    asserts.true(env, evaluate("python_full_version <= '3.15.0'", env = prerelease_env))
+    asserts.false(env, evaluate("python_full_version > '3.15.0'", env = prerelease_env))
+    asserts.true(env, evaluate("python_full_version >= '3.15.0'", env = prerelease_env))
+    asserts.true(env, evaluate("python_full_version < '3.15.1'", env = prerelease_env))
+    asserts.true(env, evaluate("python_full_version ~= '3.15.0'", env = prerelease_env))
+    asserts.false(env, evaluate("python_full_version ~= '3.14.9'", env = prerelease_env))
+    asserts.false(env, evaluate("'3.15.0' <= python_full_version", env = prerelease_env))
+    asserts.false(env, evaluate("'3.15.0' >= python_full_version", env = prerelease_env))
+    asserts.true(env, evaluate("python_full_version <= '3.15.0+bar'", env = prerelease_env))
+    asserts.true(env, evaluate("python_full_version >= '3.15.0+bar'", env = prerelease_env))
+    asserts.true(env, evaluate("'3.15.0+bar' <= python_full_version", env = prerelease_env))
+    asserts.true(env, evaluate("'3.15.0+bar' >= python_full_version", env = prerelease_env))
+
+    public_env = dict(_LINUX_ENV)
+    public_env["python_full_version"] = "3.15.0"
+    asserts.false(env, evaluate("python_full_version < '3.15.0+bar'", env = public_env))
+    asserts.false(env, evaluate("python_full_version <= '3.15.0+bar'", env = public_env))
+    asserts.false(env, evaluate("python_full_version > '3.15.0+bar'", env = public_env))
+    asserts.false(env, evaluate("python_full_version >= '3.15.0+bar'", env = public_env))
+    asserts.false(env, evaluate("python_full_version ~= '3.15.0+bar'", env = public_env))
+    asserts.true(env, evaluate("'3.15.0+bar' <= python_full_version", env = public_env))
+    asserts.true(env, evaluate("'3.15.0+bar' >= python_full_version", env = public_env))
+
+    prerelease_env["python_full_version"] = "3.15.1+bar"
+    asserts.true(env, evaluate("python_full_version > '3.15.0'", env = prerelease_env))
+
     prerelease_env["python_full_version"] = "3.15.0+foo.bar"
     asserts.true(env, evaluate("python_full_version == '3.15.0+FOO-BAR'", env = prerelease_env))
     asserts.false(env, evaluate("python_full_version != '3.15.0+FOO-BAR'", env = prerelease_env))
     prerelease_env["python_full_version"] = "3.15.0+foo.01"
     asserts.true(env, evaluate("python_full_version == '3.15.0+FOO-1'", env = prerelease_env))
     asserts.false(env, evaluate("python_full_version != '3.15.0+FOO-1'", env = prerelease_env))
+    asserts.false(env, evaluate("python_full_version <= '3.15.0+FOO-1'", env = prerelease_env))
+    asserts.false(env, evaluate("python_full_version >= '3.15.0+FOO-1'", env = prerelease_env))
+    asserts.false(env, evaluate("'3.15.0+FOO-1' <= python_full_version", env = prerelease_env))
+    asserts.false(env, evaluate("'3.15.0+FOO-1' >= python_full_version", env = prerelease_env))
 
     # A variable that is neither a known string var nor *_version evaluates
     # to False rather than failing, even when the values would match.

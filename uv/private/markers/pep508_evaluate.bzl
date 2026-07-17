@@ -339,10 +339,18 @@ def _version_expr(left, op, right):
     if op in ["==", "!="] and right.endswith(".*"):
         return version_satisfies(left, op + right)
 
+    raw_left = left
+    raw_right = right
     left = semver(left)
     right = semver(right)
     _left = left.key()
     _right = right.key()
+    if op in ["<", ">", "<=", ">=", "~="]:
+        if right.build:
+            return raw_left == raw_right if op in ["<=", ">="] else False
+        _left = _left[:5]
+        _right = _right[:5]
+
     if op == "<":
         if left.pre_release and not right.pre_release and _left[:3] == _right[:3]:
             return False
@@ -364,7 +372,7 @@ def _version_expr(left, op, right):
         return equal if op == "==" else not equal
     elif op == "~=":
         right_plus = right.upper()
-        _right_plus = right_plus.key()
+        _right_plus = right_plus.key()[:5]
         if left.pre_release and _left[:3] == _right_plus[:3]:
             return False
         return _left >= _right and _left < _right_plus

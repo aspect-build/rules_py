@@ -22,21 +22,20 @@ Removed in 1.5.0, so vendored and used here with thanks.
 def _key(version):
     pre_release = version.pre_release
     dev = None
-    legacy_dev = False
     if pre_release.startswith("dev."):
         dev_suffix = pre_release[len("dev."):]
         if dev_suffix.isdigit():
             dev = int(dev_suffix)
             pre_release = ""
-        else:
-            legacy_dev = True
     elif ".dev." in pre_release:
         prefix, _, dev_suffix = pre_release.partition(".dev.")
-        if dev_suffix.isdigit():
+        pre_kind, _, pre_number = prefix.partition(".")
+        if dev_suffix.isdigit() and pre_kind in ["a", "b", "rc"] and pre_number.isdigit():
             dev = int(dev_suffix)
             pre_release = prefix
-        else:
-            legacy_dev = True
+
+    pre_kind, _, pre_number = pre_release.partition(".")
+    pep440_pre = dev != None or (pre_kind in ["a", "b", "rc"] and pre_number.isdigit())
 
     return (
         version.major,
@@ -52,9 +51,9 @@ def _key(version):
                 int(i) if i.isdigit() else 0,
             )
             for i in pre_release.split(".")
-        ] + ([] if legacy_dev else [
+        ] + ([
             ("", dev) if dev != None else ("~", 0),
-        ])) if version.pre_release else None,
+        ] if pep440_pre else [])) if version.pre_release else None,
         # And build info is just alphabetic
         version.build,
     )
