@@ -57,6 +57,7 @@ def _whl_install(ctx):
     install_dir = ctx.actions.declare_directory(
         ctx.label.name + ".install",
     )
+    unpack_dir = ctx.actions.declare_directory(ctx.label.name + ".unfiltered.install") if ctx.attr.exclude_glob else install_dir
 
     archive = ctx.file.src
     unpack_script = ctx.file._unpack_script
@@ -88,7 +89,7 @@ def _whl_install(ctx):
 
     arguments = ctx.actions.args()
     arguments.add(unpack_script)
-    arguments.add_all([install_dir], expand_directories = False, before_each = "--into")
+    arguments.add_all([unpack_dir], expand_directories = False, before_each = "--into")
     arguments.add_all([archive], expand_directories = False, before_each = "--wheel")
     arguments.add("--python-version-major", py_toolchain.interpreter_version_info.major)
     arguments.add("--python-version-minor", py_toolchain.interpreter_version_info.minor)
@@ -98,20 +99,25 @@ def _whl_install(ctx):
         exec_runtime.files,
     ]
 
-    # Patch application (happens before pyc compilation).
+    preserve_paths = {path: None for path in top_levels}
+    for path in namespace_entries + namespace_dirs + regular_roots:
+        root = path.split("/")[0]
+        if not root.endswith(".dist-info") and not root.endswith(".egg-info"):
+            preserve_paths[path] = None
+    preserve_paths = sorted(preserve_paths)
+
+    # Patch application happens before filtering and pyc compilation.
     patch_files = [f for t in ctx.attr.patches for f in t[DefaultInfo].files.to_list()]
     if patch_files:
         arguments.add("--patch-strip", str(ctx.attr.patch_strip))
         arguments.add_all(patch_files, before_each = "--patch")
-        preserve_paths = {path: None for path in top_levels}
-        for path in namespace_entries + namespace_dirs + regular_roots:
-            root = path.split("/")[0]
-            if not root.endswith(".dist-info") and not root.endswith(".egg-info"):
-                preserve_paths[path] = None
         arguments.add_all(
-            sorted(preserve_paths),
+            preserve_paths,
             before_each = "--preserve-path",
         )
+        if ctx.attr.exclude_glob:
+            arguments.add_all(ctx.attr.exclude_glob, before_each = "--exclude-glob")
+            transitive_inputs.append(depset([ctx.file._exclude_glob_script]))
         transitive_inputs.append(depset(patch_files))
 
     # Optional .pyc pre-compilation (runs after patching).
@@ -125,7 +131,7 @@ def _whl_install(ctx):
         exec_runtime.interpreter_version_info,
         py_toolchain.interpreter_version_info,
     )
-    if ctx.attr.compile_pyc and exec_matches_target:
+    if ctx.attr.compile_pyc and exec_matches_target and not ctx.attr.exclude_glob:
         arguments.add("--compile-pyc")
         arguments.add("--pyc-invalidation-mode", ctx.attr.pyc_invalidation_mode)
         arguments.add("--python", exec_runtime.interpreter)
@@ -137,13 +143,42 @@ def _whl_install(ctx):
         arguments = [arguments],
         inputs = depset(transitive = transitive_inputs),
         outputs = [
-            install_dir,
+            unpack_dir,
         ],
         use_default_shell_env = bool(patch_files),
         execution_requirements = {
             "supports-path-mapping": "1",
         },
     )
+
+    if ctx.attr.exclude_glob:
+        filter_script = ctx.file._filter_script
+        filter_arguments = ctx.actions.args()
+        filter_arguments.add(filter_script)
+        filter_arguments.add_all([unpack_dir], expand_directories = False, before_each = "--from")
+        filter_arguments.add_all([install_dir], expand_directories = False, before_each = "--into")
+        filter_arguments.add("--python-version-major", py_toolchain.interpreter_version_info.major)
+        filter_arguments.add("--python-version-minor", py_toolchain.interpreter_version_info.minor)
+        filter_arguments.add_all(ctx.attr.exclude_glob, before_each = "--exclude-glob")
+        if ctx.attr.compile_pyc and exec_matches_target:
+            filter_arguments.add("--compile-pyc")
+            filter_arguments.add("--pyc-invalidation-mode", ctx.attr.pyc_invalidation_mode)
+            filter_arguments.add("--python", exec_runtime.interpreter)
+
+        ctx.actions.run(
+            mnemonic = "WhlFilter",
+            executable = exec_runtime.interpreter,
+            toolchain = EXEC_TOOLS_TOOLCHAIN,
+            arguments = [filter_arguments],
+            inputs = depset(
+                [unpack_dir, filter_script, ctx.file._exclude_glob_script, exec_runtime.interpreter],
+                transitive = [exec_runtime.files],
+            ),
+            outputs = [install_dir],
+            execution_requirements = {
+                "supports-path-mapping": "1",
+            },
+        )
 
     # Runfiles-root-relative path to the install tree's site-packages.
     # Derived from the same label components as `install_dir` above so the
@@ -222,6 +257,14 @@ lighter weight since the toolchain's files aren't inputs.
             default = "//py/tools/unpack:unpack.py",
             allow_single_file = True,
         ),
+        "_filter_script": attr.label(
+            default = "//py/tools/unpack:filter.py",
+            allow_single_file = True,
+        ),
+        "_exclude_glob_script": attr.label(
+            default = "//py/tools/unpack:exclude_glob.py",
+            allow_single_file = True,
+        ),
         "src": attr.label(
             allow_single_file = True,
             doc = "The wheel to install, or a tree artifact containing exactly one wheel at its root.",
@@ -234,6 +277,10 @@ lighter weight since the toolchain's files aren't inputs.
         "patch_strip": attr.int(
             default = 0,
             doc = "Strip count for patches (-p flag).",
+        ),
+        "exclude_glob": attr.string_list(
+            default = [],
+            doc = "Site-packages-relative glob patterns to remove after installation.",
         ),
         "compile_pyc": attr.bool(
             default = False,

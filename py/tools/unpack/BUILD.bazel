@@ -1,7 +1,23 @@
 load("//py:defs.bzl", "py_test")
 
 exports_files(
-    ["unpack.py"],
+    [
+        "exclude_glob.py",
+        "filter.py",
+        "unpack.py",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "filter_test",
+    size = "small",
+    srcs = ["filter_test.py"],
+    args = ["$(rootpath :filter.py)"],
+    data = [
+        ":exclude_glob.py",
+        ":filter.py",
+    ],
     visibility = ["//visibility:public"],
 )
 
@@ -10,7 +26,10 @@ py_test(
     size = "small",
     srcs = ["unpack_test.py"],
     args = ["$(rootpath :unpack.py)"],
-    data = [":unpack.py"],
+    data = [
+        ":exclude_glob.py",
+        ":unpack.py",
+    ],
     target_compatible_with = select({
         "@platforms//os:windows": ["@platforms//:incompatible"],
         "//conditions:default": [],

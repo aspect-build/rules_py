@@ -1,0 +1,80 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library")
+load("@aspect_rules_py//uv/private/whl_install:defs.bzl", "select_chain")
+load("@aspect_rules_py//uv/private/whl_install:rule.bzl", "source_built_wheel", "whl_install")
+
+source_built_wheel(
+    name = "source_built_wheel",
+    src = "@@aspect_rules_py++uv+sdist_build__exclusions__cowsay__6_0//:whl",
+    console_scripts = [],
+    visibility = ["//visibility:private"],
+)
+
+
+select_chain(
+   name = "whl",
+   arms = {
+       "@aspect_rules_py_pip_configurations//:py3-any-none": "@whl__cowsay__77b07c508af48aa3//file",
+       "@aspect_rules_py_pip_configurations//:py2-any-none": "@whl__cowsay__77b07c508af48aa3//file",
+   },
+   default_target = ":source_built_wheel",
+   visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "gazelle_index_whl",
+    srcs = [
+        "@whl__cowsay__77b07c508af48aa3//file",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+
+whl_install(
+    name = "actual_install",
+    src = ":whl",
+    compile_pyc = select({
+        "@aspect_rules_py//uv/private/pyc:is_precompile": True,
+        "//conditions:default": False,
+    }),
+    pyc_invalidation_mode = select({
+        "@aspect_rules_py//uv/private/pyc:is_unchecked_hash": "unchecked-hash",
+        "@aspect_rules_py//uv/private/pyc:is_timestamp": "timestamp",
+        "//conditions:default": "checked-hash",
+    }),
+    top_levels = {
+        "cowsay-6.0-py2.py3-none-any.whl": [
+            "cowsay",
+            "cowsay-6.0.dist-info",
+        ],
+    },
+    namespace_top_levels = {},
+    console_scripts = {
+        "cowsay-6.0-py2.py3-none-any.whl": [
+            "cowsay=cowsay.__main__:cli",
+        ],
+    },
+    top_level_dirs = {
+        "cowsay-6.0-py2.py3-none-any.whl": [
+            "cowsay",
+        ],
+    },
+    patches = ["@@//uv-exclusions/patches:nested_test.patch"],
+    patch_strip = 1,
+    exclude_glob = [
+        "cowsay/**/tests/**",
+        "cowsay-6.0.dist-info/LICENSE.txt",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+alias(
+    name = "install",
+    actual = ":actual_install",
+    visibility = ["//visibility:public"],
+)
+
+
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//visibility:public"],
+)

@@ -107,6 +107,111 @@ def native_roots_for_segments(segments, collision_roots = ()):
             roots.append(root)
     return roots
 
+def parse_exclude_glob(value):
+    """Return the validated segments of a site-packages-relative glob."""
+    parts = value.split("/")
+    if not value or "\\" in value or any([
+        not part or
+        part in (".", "..") or
+        any([character in part for character in (":", "?", "[", "]")]) or
+        ("**" in part and part != "**")
+        for part in parts
+    ]):
+        fail("invalid wheel exclude glob: {}".format(value))
+    return parts
+
+def _exclude_glob_chunk_matches(value, pattern):
+    parts = pattern.split("*")
+    if len(parts) == 1:
+        return value == pattern
+    if not value.startswith(parts[0]) or not value.endswith(parts[-1]):
+        return False
+    if len(parts[0]) + len(parts[-1]) > len(value):
+        return False
+    value = value[len(parts[0]):]
+    if parts[-1]:
+        value = value[:-len(parts[-1])]
+    for part in parts[1:-1]:
+        index = value.find(part)
+        if index < 0:
+            return False
+        value = value[index + len(part):]
+    return True
+
+def _exclude_glob_matches_exact(path, pattern):
+    states = {0: True}
+    for segment in path:
+        for index in range(len(pattern)):
+            if index in states and pattern[index] == "**":
+                states[index + 1] = True
+        next_states = {}
+        for index in range(len(pattern)):
+            if index not in states:
+                continue
+            if pattern[index] == "**":
+                next_states[index] = True
+            elif _exclude_glob_chunk_matches(segment, pattern[index]):
+                next_states[index + 1] = True
+        states = next_states
+    for index in range(len(pattern)):
+        if index in states and pattern[index] == "**":
+            states[index + 1] = True
+    return len(pattern) in states
+
+def exclude_glob_matches(path, pattern):
+    """Return whether a parsed glob excludes path or one of its parents."""
+    return _exclude_glob_matches_exact(path, pattern + ["**"])
+
+def record_metadata(record, data_directory, exclude_glob):
+    """Derive wheel topology from retained, translated RECORD paths."""
+    patterns = [parse_exclude_glob(pattern) for pattern in exclude_glob]
+    top_levels = {}
+    regular_top_levels = {}
+    record_segments = []
+    dirs = {}
+    init_dirs = {}
+    native_segments = []
+    for line in record.splitlines():
+        path = parse_record_path(line)
+        if not path:
+            continue
+        segments = site_packages_segments(path, data_directory)
+        if not segments or any([
+            exclude_glob_matches(segments, pattern)
+            for pattern in patterns
+        ]):
+            continue
+
+        first_segment = segments[0]
+
+        # Ignore installed scripts and malformed entries that escape
+        # site-packages; downstream symlink outputs cannot represent them.
+        if not first_segment or first_segment in (".", "..") or first_segment.startswith("/"):
+            continue
+        top_levels[first_segment] = True
+        if len(segments) == 1 or segments[1] == "__init__.py":
+            regular_top_levels[first_segment] = True
+        record_segments.append(segments)
+        if native_roots_for_segments(segments):
+            native_segments.append(segments)
+        for index in range(1, len(segments)):
+            dirs["/".join(segments[:index])] = True
+        if len(segments) >= 2 and segments[-1] == "__init__.py":
+            init_dirs["/".join(segments[:-1])] = True
+
+    namespace_entries = {}
+    for segments in record_segments:
+        if segments[0] in regular_top_levels or segments[0].endswith(".dist-info"):
+            continue
+        if len(segments) < 2:
+            continue
+        for depth in range(2, len(segments) + 1):
+            prefix = "/".join(segments[:depth])
+            if depth == len(segments) or prefix in init_dirs:
+                namespace_entries[prefix] = True
+                break
+    return top_levels, regular_top_levels, namespace_entries, dirs, init_dirs, native_segments
+
 def parse_console_script(line):
     """Parse one `[console_scripts]` entry into a canonical `name=module:func`.
 
@@ -172,7 +277,7 @@ def _whl_file_label_keys(whl_file_label):
 
     return keys
 
-def _extract_wheel_metadata(repository_ctx, whl_label):
+def _extract_wheel_metadata(repository_ctx, whl_label, exclude_glob):
     """Peek inside a wheel to discover top-level names and console scripts.
 
     Mirrors the rules_js `npm_import` pattern of doing partial archive
@@ -191,6 +296,7 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
       whl_label: A Label pointing at a wheel file (typically an http_file
                  target), passed in via the repo rule's `whl_files`
                  label_list attr so Bazel wires up repo visibility.
+      exclude_glob: Site-packages-relative paths removed after installation.
 
     Returns:
       Tuple (top_levels_set, regular_top_levels_set, console_scripts_set,
@@ -268,84 +374,11 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
     repository_ctx.delete(metadata_dir)
     data_directory = metadata_directory[:-len(".dist-info")] + ".data"
 
-    # RECORD: authoritative list of every installed file. First path segment
-    # = top-level name after translating wheel install-scheme paths.
-    top_levels_set = {}
-
-    # Tracks which top-levels contain a direct `<toplevel>/__init__.py` —
-    # i.e., are regular packages. The complement (top_levels that never
-    # appear with an `__init__.py` at depth 1) are PEP 420 namespace
-    # packages that expect to be merged across wheels.
-    regular_top_levels = {}
-
-    # Raw material for the namespace derivations below: every kept RECORD
-    # path (as segment lists) plus the full directory skeleton and the set
-    # of directories that hold a direct `__init__.py` at any depth.
-    record_segments = []
-    dirs_set = {}
-    init_dirs = {}
-    native_segments = []
-    if record:
-        for line in record.splitlines():
-            path = parse_record_path(line)
-            if not path:
-                continue
-            segments = site_packages_segments(path, data_directory)
-            if not segments:
-                continue
-
-            first_segment = segments[0]
-
-            # Filter RECORD entries that escape the install root. Some
-            # wheels (notably setuptools-family) emit lines like
-            # `../../bin/foo` for entry-point scripts. We don't want
-            # `..` / `.` / absolute paths / empty strings in top_levels
-            # because downstream `ctx.actions.declare_symlink` normalises
-            # paths and would create phantom outputs at parent dirs,
-            # producing prefix-collision errors.
-            if not first_segment:
-                continue
-            if first_segment in (".", ".."):
-                continue
-            if first_segment.startswith("/"):
-                continue
-            top_levels_set[first_segment] = True
-
-            # Single-file modules (e.g. `six.py` at top level) aren't
-            # namespace packages — treat them as regular.
-            if len(segments) == 1 or (len(segments) >= 2 and segments[1] == "__init__.py"):
-                regular_top_levels[first_segment] = True
-
-            record_segments.append(segments)
-            if native_roots_for_segments(segments):
-                native_segments.append(segments)
-
-            # Record every directory along the path, and which of them
-            # directly contain an `__init__.py`.
-            for i in range(1, len(segments)):
-                dirs_set["/".join(segments[:i])] = True
-            if len(segments) >= 2 and segments[-1] == "__init__.py":
-                init_dirs["/".join(segments[:-1])] = True
-
-    # Namespace entries: for each path under a (per-this-wheel) namespace
-    # top-level, descend until hitting the shallowest concrete prefix — a
-    # directory with a direct `__init__.py`, or the file itself when no
-    # such directory exists on the way down (plain modules like
-    # `jaraco/context.py`, or bare data files). Nested namespaces
-    # (`google/cloud/storage/…`) recurse naturally: `google/cloud` has no
-    # `__init__.py`, so the walk continues to `google/cloud/storage`.
-    # Entries for top-levels that turn out regular are filtered out here.
-    namespace_entries = {}
-    for segments in record_segments:
-        if segments[0] in regular_top_levels or segments[0].endswith(".dist-info"):
-            continue
-        if len(segments) < 2:
-            continue
-        for depth in range(2, len(segments) + 1):
-            prefix = "/".join(segments[:depth])
-            if depth == len(segments) or prefix in init_dirs:
-                namespace_entries[prefix] = True
-                break
+    top_levels_set, regular_top_levels, namespace_entries, dirs_set, init_dirs, native_segments = record_metadata(
+        record,
+        data_directory,
+        exclude_glob,
+    )
 
     # entry_points.txt: INI-style file. Only `[console_scripts]` interests
     # us — pip/uv synthesize executables under `bin/<name>` from those at
@@ -674,6 +707,7 @@ filegroup(
 
     post_install_patches = json.decode(repository_ctx.attr.post_install_patches) if repository_ctx.attr.post_install_patches else []
     post_install_patch_strip = repository_ctx.attr.post_install_patch_strip
+    exclude_glob = repository_ctx.attr.exclude_glob
 
     extra_deps = json.decode(repository_ctx.attr.extra_deps) if repository_ctx.attr.extra_deps else []
     extra_data = json.decode(repository_ctx.attr.extra_data) if repository_ctx.attr.extra_data else []
@@ -747,6 +781,7 @@ filegroup(
         whl_name, tls, regular, css, ns_entries, dirs_set, init_dirs, native_segments = _extract_wheel_metadata(
             repository_ctx,
             whl_file_label,
+            exclude_glob,
         )
         ndirs = []
         rroots = []
@@ -857,6 +892,12 @@ filegroup(
             strip = post_install_patch_strip,
         )
 
+    if exclude_glob:
+        install_attrs += """
+    exclude_glob = {exclude_glob},""".format(
+            exclude_glob = indent(pprint(exclude_glob), " " * 4).lstrip(),
+        )
+
     content.append(
         """
 whl_install(
@@ -921,6 +962,7 @@ whl_install = repository_rule(
         "sbuild_console_scripts_override": attr.bool(),
         "post_install_patches": attr.string(default = ""),
         "post_install_patch_strip": attr.int(default = 0),
+        "exclude_glob": attr.string_list(),
         "extra_deps": attr.string(default = ""),
         "extra_data": attr.string(default = ""),
     },

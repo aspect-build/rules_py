@@ -288,6 +288,7 @@ def main() -> None:
     ap.add_argument("--patch-strip", type=int, default=0)
     ap.add_argument("--patch-tool", type=Path, default=Path("patch"))
     ap.add_argument("--preserve-path", action="append", default=[])
+    ap.add_argument("--exclude-glob", action="append", default=[])
     ap.add_argument("--compile-pyc", action="store_true")
     ap.add_argument("--pyc-invalidation-mode", default="checked-hash",
                     choices=["checked-hash", "unchecked-hash", "timestamp"])
@@ -310,6 +311,24 @@ def main() -> None:
         path for path in installed
         if path.suffix == ".pyc" and site_packages in path.parents
     }
+    patterns = []
+    if args.exclude_glob:
+        from exclude_glob import excluded, parse
+
+        patterns = [parse(pattern) for pattern in args.exclude_glob]
+
+    def is_excluded(relative):
+        if not patterns:
+            return False
+        return excluded(relative.parts, patterns)
+
+    def native_descendants(directory, relative):
+        return tuple(
+            path
+            for path in _native_descendants(directory)
+            if not is_excluded(relative / path)
+        )
+
     # Analysis uses these paths for collision and merge planning. Snapshot their
     # installed shape here, where both the before and after states are available.
     observed_files: List[Path] = []
@@ -324,9 +343,12 @@ def main() -> None:
                 (
                     None
                     if relative.name.endswith((".dist-info", ".egg-info"))
-                    else (path / "__init__.py").is_file()
+                    else (
+                        (path / "__init__.py").is_file()
+                        and not is_excluded(relative / "__init__.py")
+                    )
                 ),
-                _native_descendants(path),
+                native_descendants(path, relative),
             )
         elif path.is_file():
             observed_files.append(relative)
@@ -359,17 +381,21 @@ def main() -> None:
             raise SystemExit(
                 "Post-install patch changed observed wheel file: {}".format(relative)
             )
-    for relative, (had_init, native_descendants) in observed_directories.items():
+    for relative, (had_init, observed_native_descendants) in observed_directories.items():
         directory = site_packages / relative
         if not directory.is_dir():
             raise SystemExit(
                 "Post-install patch changed observed wheel directory: {}".format(relative)
             )
-        if had_init is not None and (directory / "__init__.py").is_file() != had_init:
+        has_init = (
+            (directory / "__init__.py").is_file()
+            and not is_excluded(relative / "__init__.py")
+        )
+        if had_init is not None and has_init != had_init:
             raise SystemExit(
                 "Post-install patch changed observed package classification: {}".format(relative)
             )
-        if _native_descendants(directory) != native_descendants:
+        if native_descendants(directory, relative) != observed_native_descendants:
             raise SystemExit(
                 "Post-install patch changed observed native files: {}".format(relative)
             )

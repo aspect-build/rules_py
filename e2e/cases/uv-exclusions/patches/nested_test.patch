@@ -1,0 +1,4 @@
+--- /dev/null
++++ b/lib/python3.11/site-packages/cowsay/nested/tests/test_nested.py
+@@ -0,0 +1 @@
++raise AssertionError("nested test module should have been filtered")

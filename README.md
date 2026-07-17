@@ -200,6 +200,13 @@ uv.override_package(
     post_install_patch_strip = 1,
 )
 
+# 3c. (Optional) Remove bundled tests or other unused wheel content
+uv.override_package(
+    name = "another_package",
+    lock = "//:uv.lock",
+    exclude_glob = ["another_package/**/tests/**"],
+)
+
 use_repo(uv, "pypi")
 ```
 

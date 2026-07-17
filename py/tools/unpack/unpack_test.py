@@ -613,6 +613,74 @@ else:
             assert rejected.returncode != 0, rejected.stdout + rejected.stderr
             assert expected_error in rejected.stderr
 
+        for name, wheel, operation, changed_path, excluded, expected_error in [
+            (
+                "excluded-init",
+                good_wheel,
+                "unlink",
+                "fixture/__init__.py",
+                "fixture/__init__.py",
+                None,
+            ),
+            (
+                "excluded-native",
+                native_wheel,
+                "unlink",
+                "fixture/native_extension.so",
+                "fixture/*.so",
+                None,
+            ),
+            (
+                "excluded-added-native",
+                good_wheel,
+                "write-native",
+                "fixture/nested/new_extension.so",
+                "fixture/nested",
+                None,
+            ),
+            (
+                "retained-init",
+                good_wheel,
+                "unlink",
+                "fixture/__init__.py",
+                "fixture/*.so",
+                "changed observed package classification: fixture",
+            ),
+            (
+                "retained-native",
+                native_wheel,
+                "unlink",
+                "fixture/native_extension.so",
+                "fixture/__init__.py",
+                "changed observed native files: fixture",
+            ),
+        ]:
+            mutation = root / f"{name}.patch"
+            mutation.write_text(
+                f"{operation}\n{site_packages_relative}/{changed_path}\n"
+            )
+            patched = _run_unpack(
+                unpack,
+                wheel,
+                root / name,
+                Path(sys.executable),
+                (
+                    "--patch",
+                    str(mutation),
+                    "--patch-tool",
+                    str(mutation_tool),
+                    "--preserve-path",
+                    "fixture",
+                    "--exclude-glob",
+                    excluded,
+                ),
+            )
+            if expected_error is None:
+                assert patched.returncode == 0, patched.stdout + patched.stderr
+            else:
+                assert patched.returncode != 0, patched.stdout + patched.stderr
+                assert expected_error in patched.stderr
+
         # Wheels may retain source for older interpreters. Compatible modules
         # still compile, while the incompatible file remains diagnostic.
         legacy_wheel = root / "legacy-1.0-py3-none-any.whl"

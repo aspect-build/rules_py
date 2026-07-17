@@ -215,6 +215,11 @@ uv.override_package(
   editable workspace package because neither produces an installed wheel.
 - `pre_build_patch_strip` requires `pre_build_patches`, and
   `post_install_patch_strip` requires `post_install_patches`.
+- `exclude_glob` removes site-packages-relative paths after installation and
+  patching. `*` matches within one path segment, and `**` matches zero or more
+  path segments. Matching a directory removes its subtree. For example,
+  `numpy/**/tests/**` removes NumPy's bundled tests without retaining their
+  compiled bytecode.
 - `pre_build_patches`, `toolchains`, `env`, `monitor_memory`, and non-default
   `resource_set` values require a source distribution. An override that applies
   them to a wheel-only lock record is rejected.
@@ -232,13 +237,10 @@ uv.override_package(
 - Native builds select the configured C++ compiler, archiver, linker, and strip
   tools by default. Explicit `CC`, `CXX`, `AR`, `LD`, and `STRIP` values in
   `env` override those selections.
-- Post-install patches to prebuilt wheels must preserve every original path
-  used for collision and regular-package merge planning, including its
-  file-or-directory kind and package classification. Ordinary added paths are
-  not enumerated by this validation and may not be visible to venv consumers.
-  Source-built wheel topology is unavailable during analysis and remains
-  unvalidated.
-
-## Future work
-
-Support for `srcs_exclude_glob` and `data_exclude_glob` (to exclude files like tests and docs from installed packages) is planned but not yet implemented. This requires extending the wheel unpack tool to accept exclusion patterns.
+- Prebuilt-wheel topology used for collision and regular-package merge
+  planning reflects the retained RECORD paths after exclusions. Post-install
+  patches must preserve every retained path used for that planning, including
+  its file-or-directory kind and package classification. Ordinary added paths
+  are not enumerated by this validation and may not be visible to venv
+  consumers. Source-built wheel topology is unavailable during analysis and
+  remains unvalidated.
