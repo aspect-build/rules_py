@@ -16,15 +16,11 @@ def _write_context_file(repository_ctx):
 
     See //uv/private/sdist_configure:defs.bzl for the schema.
     """
-    available_deps = {}
-    if repository_ctx.attr.available_deps:
-        available_deps = json.decode(repository_ctx.attr.available_deps)
-
     context = {
         "src": str(repository_ctx.attr.src),
         "version": repository_ctx.attr.version,
         "deps": [str(d) for d in repository_ctx.attr.deps],
-        "available_deps": available_deps,
+        "available_deps": repository_ctx.attr.available_deps,
         "pre_build_patches": [str(p) for p in repository_ctx.attr.pre_build_patches],
         "pre_build_patch_strip": repository_ctx.attr.pre_build_patch_strip,
     }
@@ -85,9 +81,7 @@ def _resolve_extra_deps(repository_ctx, inspection):
     if not extra_dep_names:
         return []
 
-    available_deps = {}
-    if repository_ctx.attr.available_deps:
-        available_deps = json.decode(repository_ctx.attr.available_deps)
+    available_deps = repository_ctx.attr.available_deps
 
     resolved = []
     unresolvable = []
@@ -327,10 +321,9 @@ sdist_build = repository_rule(
     attrs = {
         "src": attr.label(),
         "deps": attr.label_list(),
-        "available_deps": attr.string(
-            default = "",
-            doc = "JSON-encoded dict mapping normalized package names to install " +
-                  "labels. Passed from the uv extension; used to resolve deps " +
+        "available_deps": attr.string_dict(
+            doc = "Dict mapping normalized package names to install labels. " +
+                  "Passed from the uv extension; used to resolve deps " +
                   "discovered by the configure tool.",
         ),
         "is_native": attr.string(default = "auto", values = ["auto", "true", "false"]),
