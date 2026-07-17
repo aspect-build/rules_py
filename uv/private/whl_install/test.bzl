@@ -491,7 +491,6 @@ def _metadata_selection_test_impl(ctx):
         ]
         asserts.equals(env, ctx.attr.expected_exclude_glob, exclude_glob)
         asserts.false(env, "--preserve-path" in argv, "filtering must permit intentional topology changes")
-        asserts.true(env, "--compile-pyc" in argv, "filtered wheel must compile retained sources")
 
     return analysistest.end(env)
 
@@ -830,19 +829,19 @@ def _compile_pyc_args_test_impl(ctx):
     env = analysistest.begin(ctx)
     argv = []
     for action in analysistest.target_actions(env):
-        if action.mnemonic == "WhlInstall":
+        if action.mnemonic == ctx.attr.mnemonic:
             argv = action.argv
     asserts.equals(
         env,
         ctx.attr.expect_compile_pyc,
         "--compile-pyc" in argv,
-        "WhlInstall argv: {}".format(argv),
+        "{} argv: {}".format(ctx.attr.mnemonic, argv),
     )
     return analysistest.end(env)
 
 _compile_pyc_matched_test = analysistest.make(
     _compile_pyc_args_test_impl,
-    attrs = {"expect_compile_pyc": attr.bool()},
+    attrs = {"expect_compile_pyc": attr.bool(), "mnemonic": attr.string(mandatory = True)},
     config_settings = {
         # The hub provisions 3.13, so exec and target versions agree.
         "@@//py/private/interpreter:python_version": "3.13",
@@ -851,7 +850,7 @@ _compile_pyc_matched_test = analysistest.make(
 
 _compile_pyc_mismatched_test = analysistest.make(
     _compile_pyc_args_test_impl,
-    attrs = {"expect_compile_pyc": attr.bool()},
+    attrs = {"expect_compile_pyc": attr.bool(), "mnemonic": attr.string(mandatory = True)},
     config_settings = {
         # The hub provisions no 3.9: the target runtime comes from
         # rules_python's dev toolchain while the exec fallback stays 3.13.
@@ -904,16 +903,41 @@ def compile_pyc_version_test_suite(name):
         tags = ["manual"],
     )
 
+    whl_install(
+        name = "__compile_pyc_filtered_fixture",
+        testonly = True,
+        src = _SBUILD_WHL,
+        compile_pyc = True,
+        exclude_glob = ["tests"],
+        tags = ["manual"],
+    )
+
     _compile_pyc_matched_test(
         name = name + "_matched_test",
         target_under_test = ":__compile_pyc_fixture",
         expect_compile_pyc = True,
+        mnemonic = "WhlInstall",
     )
 
     _compile_pyc_mismatched_test(
         name = name + "_mismatched_test",
         target_under_test = ":__compile_pyc_fixture",
         expect_compile_pyc = False,
+        mnemonic = "WhlInstall",
+    )
+
+    _compile_pyc_matched_test(
+        name = name + "_filtered_matched_test",
+        target_under_test = ":__compile_pyc_filtered_fixture",
+        expect_compile_pyc = True,
+        mnemonic = "WhlFilter",
+    )
+
+    _compile_pyc_mismatched_test(
+        name = name + "_filtered_mismatched_test",
+        target_under_test = ":__compile_pyc_filtered_fixture",
+        expect_compile_pyc = False,
+        mnemonic = "WhlFilter",
     )
 
 def whl_install_suite():
