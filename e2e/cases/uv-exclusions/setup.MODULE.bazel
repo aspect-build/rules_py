@@ -8,6 +8,7 @@ uv.project(
 uv.override_package(
     name = "cowsay",
     exclude_glob = [
+        "-vendor/tests",
         "cowsay/**/tests/**",
         "cowsay-6.0.dist-info/LICENSE.txt",
     ],

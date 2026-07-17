@@ -2,6 +2,7 @@
 
 import argparse
 import csv
+import stat
 import shutil
 import subprocess
 from pathlib import Path
@@ -53,6 +54,7 @@ def main():
                 for row in csv.reader(stream)
                 if not row or not excluded(tuple(row[0].split("/")), args.exclude_glob)
             ]
+        record.chmod(record.stat().st_mode | stat.S_IWRITE)
         record.unlink()
         with record.open("w", newline="", encoding="utf-8") as stream:
             csv.writer(stream).writerows(rows)

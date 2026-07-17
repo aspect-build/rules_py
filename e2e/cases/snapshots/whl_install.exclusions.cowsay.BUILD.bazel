@@ -23,8 +23,9 @@ select_chain(
 filegroup(
     name = "gazelle_index_whl",
     srcs = [
-        "@whl__cowsay__77b07c508af48aa3//file",
+        ":actual_install",
     ],
+    output_group = "install_dir",
     visibility = ["//visibility:public"],
 )
 
@@ -61,6 +62,7 @@ whl_install(
     patches = ["@@//uv-exclusions/patches:nested_test.patch"],
     patch_strip = 1,
     exclude_glob = [
+        "-vendor/tests",
         "cowsay/**/tests/**",
         "cowsay-6.0.dist-info/LICENSE.txt",
     ],

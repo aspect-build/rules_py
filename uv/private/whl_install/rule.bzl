@@ -114,7 +114,7 @@ def _whl_install(ctx):
             before_each = "--preserve-path",
         )
         if ctx.attr.exclude_glob:
-            arguments.add_all(ctx.attr.exclude_glob, before_each = "--exclude-glob")
+            arguments.add_all(ctx.attr.exclude_glob, format_each = "--exclude-glob=%s")
             transitive_inputs.append(depset([ctx.file._exclude_glob_script]))
         transitive_inputs.append(depset(patch_files))
 
@@ -157,7 +157,7 @@ def _whl_install(ctx):
         filter_arguments.add_all([install_dir], expand_directories = False, before_each = "--into")
         filter_arguments.add("--python-version-major", py_toolchain.interpreter_version_info.major)
         filter_arguments.add("--python-version-minor", py_toolchain.interpreter_version_info.minor)
-        filter_arguments.add_all(ctx.attr.exclude_glob, before_each = "--exclude-glob")
+        filter_arguments.add_all(ctx.attr.exclude_glob, format_each = "--exclude-glob=%s")
         if ctx.attr.compile_pyc and exec_matches_target:
             filter_arguments.add("--compile-pyc")
             filter_arguments.add("--pyc-invalidation-mode", ctx.attr.pyc_invalidation_mode)

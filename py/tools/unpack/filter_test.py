@@ -89,6 +89,7 @@ def main() -> None:
             "google/rpc/status_pb2.py": "VALUE = 1\n",
             "pkg/__init__.py": "VALUE = 1\n",
             "pkg/nested/native.so": "native\n",
+            "-vendor/tests/test_vendor.py": "raise AssertionError()\n",
             "demo-1.0.dist-info/METADATA": "Name: demo\nVersion: 1.0\n",
         }
         for name, content in members.items():
@@ -142,8 +143,8 @@ def main() -> None:
             "**/tests",
             "--exclude-glob",
             "google/api",
-            "--exclude-glob",
-            "pkg/*",
+            "--exclude-glob=pkg/*",
+            "--exclude-glob=-vendor/tests",
             "--compile-pyc",
             "--python",
             sys.executable,
@@ -161,12 +162,15 @@ def main() -> None:
         assert (filtered_site_packages / "google" / "rpc" / "status_pb2.py").is_file()
         assert not (filtered_site_packages / "pkg" / "nested").exists()
         assert not (filtered_site_packages / "pkg" / "__init__.py").exists()
+        assert not (filtered_site_packages / "-vendor" / "tests").exists()
         assert next((filtered_site_packages / "demo" / "__pycache__").glob("keep.*.pyc"))
         assert not list(filtered_site_packages.rglob("test_*.pyc"))
         assert (output / "bin" / "demo").stat().st_mode & 0o111
         assert (output / "bin" / "tests").is_file()
         assert not any(member.is_symlink() for member in output.rglob("*"))
         assert backing_record.read_bytes() == original_record
+        assert not backing_record.stat().st_mode & 0o222
+        assert (filtered_site_packages / "demo-1.0.dist-info" / "RECORD").stat().st_mode & 0o200
 
         distribution, = importlib.metadata.distributions(path=[str(filtered_site_packages)])
         recorded = {str(path) for path in distribution.files}
@@ -184,6 +188,7 @@ def main() -> None:
         assert "google/rpc/status_pb2.py" in recorded
         assert "pkg/__init__.py" not in recorded
         assert "pkg/nested/native.so" not in recorded
+        assert "-vendor/tests/test_vendor.py" not in recorded
 
         for invalid in [
             "",

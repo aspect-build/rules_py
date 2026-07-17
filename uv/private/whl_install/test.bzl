@@ -419,6 +419,7 @@ _PATCHED_PRESERVE_PATHS = [
 _FILTERED_EXCLUDE_GLOB = [
     "demo/**/tests/**",
     "**/*.proto",
+    "-vendor/tests",
 ]
 
 def _metadata_selection_test_impl(ctx):
@@ -476,17 +477,17 @@ def _metadata_selection_test_impl(ctx):
         install_argv = install_actions[0].argv
         asserts.false(env, "--compile-pyc" in install_argv, "filtered wheel must not compile before filtering")
         install_exclude_glob = [
-            install_argv[i + 1]
-            for i in range(len(install_argv) - 1)
-            if install_argv[i] == "--exclude-glob"
+            arg[len("--exclude-glob="):]
+            for arg in install_argv
+            if arg.startswith("--exclude-glob=")
         ]
         asserts.equals(env, ctx.attr.expected_exclude_glob, install_exclude_glob)
 
         argv = filter_actions[0].argv
         exclude_glob = [
-            argv[i + 1]
-            for i in range(len(argv) - 1)
-            if argv[i] == "--exclude-glob"
+            arg[len("--exclude-glob="):]
+            for arg in argv
+            if arg.startswith("--exclude-glob=")
         ]
         asserts.equals(env, ctx.attr.expected_exclude_glob, exclude_glob)
         asserts.false(env, "--preserve-path" in argv, "filtering must permit intentional topology changes")

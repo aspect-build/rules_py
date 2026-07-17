@@ -677,10 +677,19 @@ py_library(
 """,
         )
 
-    if prebuilds:
+    post_install_patches = json.decode(repository_ctx.attr.post_install_patches) if repository_ctx.attr.post_install_patches else []
+    post_install_patch_strip = repository_ctx.attr.post_install_patch_strip
+    exclude_glob = repository_ctx.attr.exclude_glob
+
+    if post_install_patches or exclude_glob:
+        gazelle_index_whl = ":actual_install"
+        gazelle_index_output_group = "    output_group = \"install_dir\",\n"
+    elif prebuilds:
         gazelle_index_whl = prebuilds.values()[0]  # Effectively random choice :shrug:
+        gazelle_index_output_group = ""
     elif default_target:
         gazelle_index_whl = default_target
+        gazelle_index_output_group = ""
     else:
         fail("Cannot identify a wheel or sbuild of {} to analyze for Gazelle indexing\n{}".format(repository_ctx.name, pprint(repository_ctx.attr)))
 
@@ -696,18 +705,15 @@ select_chain(
 filegroup(
     name = "gazelle_index_whl",
     srcs = {index_whl},
-    visibility = ["//visibility:public"],
+{index_output_group}    visibility = ["//visibility:public"],
 )
 """.format(
             arms = indent(pprint(select_arms), "   ").lstrip(),
             default_target = repr(default_target),
             index_whl = indent(pprint([str(gazelle_index_whl)]), " " * 4).lstrip(),
+            index_output_group = gazelle_index_output_group,
         ),
     )
-
-    post_install_patches = json.decode(repository_ctx.attr.post_install_patches) if repository_ctx.attr.post_install_patches else []
-    post_install_patch_strip = repository_ctx.attr.post_install_patch_strip
-    exclude_glob = repository_ctx.attr.exclude_glob
 
     extra_deps = json.decode(repository_ctx.attr.extra_deps) if repository_ctx.attr.extra_deps else []
     extra_data = json.decode(repository_ctx.attr.extra_data) if repository_ctx.attr.extra_data else []

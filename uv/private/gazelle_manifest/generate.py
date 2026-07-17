@@ -5,11 +5,11 @@
 # be overkill and take more work.
 #
 # The strategy is simple.
-# - Accept an args file containing paths to wheel (.whl) files or directories containing .whl files
+# - Accept an args file containing paths to wheel files, directories containing wheels, or installed wheel trees
 #
 # - For each whl file
-#   - open it with a zip reader, extract the .dist-info/METADATA` file and use that to grab the package name
-#   - enumerate `.py` and `.so` files to identify possible import modules
+#   - extract the .dist-info/METADATA` file and use that to grab the package name
+#   - enumerate Python and native-extension files to identify possible import modules
 #   - strip out `_` prefixed modules and packages
 #   - enter each module into a mapping from module name to requirement name
 #
@@ -50,37 +50,38 @@ def normalize_name(name: str) -> str:
 
 def extract_package_name(whl_path: Path) -> Optional[str]:
     """
-    Opens a .whl file, finds the METADATA file in .dist-info/, and extracts
+    Finds the METADATA file in .dist-info/ and extracts
     the 'Name' field to determine the requirement name.
 
     Args:
-        whl_path: Path to the wheel file.
+        whl_path: Path to the wheel file or installed wheel tree.
 
     Returns:
         The package name (requirement name) as a string, or None on failure.
     """
     try:
-        with ZipFile(whl_path, 'r') as zf:
-            # Find the METADATA file. It's always in <distribution>-<version>.dist-info/METADATA
-            metadata_files = [f for f in zf.namelist() if f.endswith('.dist-info/METADATA')]
-            if not metadata_files:
-                print(f"Error: METADATA file not found in {whl_path}", file=sys.stderr)
-                return None
+        if whl_path.is_dir():
+            metadata_files = list(whl_path.glob("lib/python*/site-packages/*.dist-info/METADATA"))
+            metadata_content = metadata_files[0].read_text(encoding="utf-8") if metadata_files else None
+        else:
+            with ZipFile(whl_path, 'r') as zf:
+                metadata_files = [f for f in zf.namelist() if f.endswith('.dist-info/METADATA')]
+                metadata_content = zf.read(metadata_files[0]).decode('utf-8') if metadata_files else None
 
-            # Read the content of the METADATA file
-            with zf.open(metadata_files[0]) as f:
-                metadata_content = f.read().decode('utf-8')
+        if metadata_content is None:
+            print(f"Error: METADATA file not found in {whl_path}", file=sys.stderr)
+            return None
 
-            # Use email.parser (standard library) to reliably parse RFC 822 headers
-            parser = Parser()
-            msg = parser.parse(StringIO(metadata_content))
+        # Use email.parser (standard library) to reliably parse RFC 822 headers
+        parser = Parser()
+        msg = parser.parse(StringIO(metadata_content))
 
-            package_name = msg.get('Name')
-            if not package_name:
-                print(f"Warning: 'Name' field missing from METADATA in {whl_path}", file=sys.stderr)
-                return None
+        package_name = msg.get('Name')
+        if not package_name:
+            print(f"Warning: 'Name' field missing from METADATA in {whl_path}", file=sys.stderr)
+            return None
 
-            return normalize_name(package_name.strip())
+        return normalize_name(package_name.strip())
 
     except Exception as e:
         print(f"Error reading package name from {whl_path}: {e}", file=sys.stderr)
@@ -134,11 +135,11 @@ def get_importable_module_name(filepath: str) -> Optional[str]:
 
 def identify_modules(whl_path: Path, package_name: str) -> dict[str, str]:
     """
-    Scans the wheel for importable Python (.py) and extension (.so) files,
+    Scans the wheel or installed wheel tree for importable Python and extension files,
     maps them to the package name, and applies filtering rules.
 
     Args:
-        whl_path: Path to the wheel file.
+        whl_path: Path to the wheel file or installed wheel tree.
         package_name: The name of the requirement (e.g., 'requests').
 
     Returns:
@@ -150,21 +151,29 @@ def identify_modules(whl_path: Path, package_name: str) -> dict[str, str]:
     requirement_name = package_name.lower().replace('-', '_')
 
     try:
-        with ZipFile(whl_path, 'r') as zf:
-            for member in zf.namelist():
-                # Skip files inside dist-info directories
-                if '.dist-info/' in member:
-                    continue
+        if whl_path.is_dir():
+            site_packages = list(whl_path.glob("lib/python*/site-packages"))
+            members = (
+                member.relative_to(root).as_posix()
+                for root in site_packages
+                for member in root.rglob("*")
+                if member.name.endswith(('.py', '.so', '.dylib', '.pyd')) and member.is_file()
+            )
+        else:
+            with ZipFile(whl_path, 'r') as zf:
+                members = zf.namelist()
 
-                # Check for importable file types
-                # FIXME: C-extensions are, technically, importable.
-                if member.endswith(('.py', '.so', '.dylib')):
-                    module_name = get_importable_module_name(member)
-                    if module_name:
-                        # Add to mapping
-                        if module_name not in module_mapping:
-                            module_mapping[module_name] = requirement_name
-                        # else: module already found, perhaps via a different path, skip
+        for member in members:
+            # Skip files inside dist-info directories
+            if '.dist-info/' in member:
+                continue
+
+            # Check for importable file types
+            # FIXME: C-extensions are, technically, importable.
+            if member.endswith(('.py', '.so', '.dylib', '.pyd')):
+                module_name = get_importable_module_name(member)
+                if module_name and module_name not in module_mapping:
+                    module_mapping[module_name] = requirement_name
 
     except Exception as e:
         print(f"Error identifying modules in {whl_path}: {e}", file=sys.stderr)
@@ -294,7 +303,7 @@ def main() -> None:
                     whl_paths.append(p)
                 elif p.is_dir():
                     ps = list(p.glob("*.whl"))
-                    whl_paths.extend(ps)
+                    whl_paths.extend(ps or [p])
                 else:
                     print(f"No wheels found for {p}", file=sys.stderr)
 

@@ -4,6 +4,7 @@
 
 import hashlib
 import importlib.metadata
+import sys
 from base64 import urlsafe_b64encode
 from pathlib import Path
 
@@ -16,6 +17,7 @@ package = Path(cowsay.__file__).parent
 assert not (package / "tests").exists()
 assert not (package / "nested" / "tests").exists()
 assert not list(package.rglob("test_*.pyc"))
+assert not (package.parent / "-vendor" / "tests").exists()
 assert list((package / "__pycache__").glob("main.*.pyc"))
 
 cowsay_distribution = importlib.metadata.distribution("cowsay")
@@ -44,6 +46,10 @@ assert http_pb2.DESCRIPTOR.name == "google/api/http.proto"
 distribution = importlib.metadata.distribution("googleapis-common-protos")
 assert distribution.files is not None
 assert not any(str(path).endswith(".proto") for path in distribution.files)
+
+manifest = Path(sys.argv[1]).read_text()
+assert "cowsay: cowsay" in manifest
+assert "google.api: googleapis_common_protos" in manifest
 
 for installed_distribution, installed_package in [
     (cowsay_distribution, package),

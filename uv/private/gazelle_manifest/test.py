@@ -1,6 +1,37 @@
 #!/usr/bin/env python3
 
-from generate import get_importable_module_name, find_unique_shallowest_prefixes
+from pathlib import Path
+from zipfile import ZipFile
+
+from generate import extract_package_name, find_unique_shallowest_prefixes, get_importable_module_name, identify_modules
+
+
+def test_installed_wheel_modules(tmp_path: Path):
+    wheel = tmp_path / "demo-1.0-py3-none-any.whl"
+    with ZipFile(wheel, "w") as archive:
+        archive.writestr("demo/__init__.py", "")
+        archive.writestr("demo/native.cp311-win_amd64.pyd", "")
+        archive.writestr("excluded_top_level/__init__.py", "")
+        archive.writestr("demo-1.0.dist-info/METADATA", "Name: demo\nVersion: 1.0\n")
+
+    installed = tmp_path / "demo.install" / "lib" / "python3.11" / "site-packages"
+    (installed / "demo").mkdir(parents=True)
+    (installed / "demo" / "__init__.py").write_text("")
+    (installed / "demo" / "native.cp311-win_amd64.pyd").write_text("")
+    (installed / "demo-1.0.dist-info").mkdir()
+    (installed / "demo-1.0.dist-info" / "METADATA").write_text("Name: demo\nVersion: 1.0\n")
+
+    assert extract_package_name(wheel) == "demo"
+    assert extract_package_name(installed.parents[2]) == "demo"
+    assert identify_modules(wheel, "demo") == {
+        "demo": "demo",
+        "demo.native": "demo",
+        "excluded_top_level": "demo",
+    }
+    assert identify_modules(installed.parents[2], "demo") == {
+        "demo": "demo",
+        "demo.native": "demo",
+    }
 
 def test_parse_names() -> None:
     assert get_importable_module_name("foo.py") == "foo"

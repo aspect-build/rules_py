@@ -15,3 +15,7 @@
 +++ b/lib/python3.11/site-packages/cowsay/nested/tests/test_nested.py
 @@ -0,0 +1 @@
 +raise AssertionError("nested test module should have been filtered")
+--- /dev/null
++++ b/lib/python3.11/site-packages/-vendor/tests/test_vendor.py
+@@ -0,0 +1 @@
++raise AssertionError("leading-dash test module should have been filtered")
