@@ -1,3 +1,16 @@
+--- a/lib/python3.11/site-packages/cowsay/main.py
++++ b/lib/python3.11/site-packages/cowsay/main.py
+@@ -5 +5 @@
+-__version__ = '6.0'
++__version__ = '6.1'
+--- /dev/null
++++ b/lib/python3.11/site-packages/cowsay/retained.py
+@@ -0,0 +1 @@
++PATCH_SENTINEL = "retained patched module"
+--- /dev/null
++++ b/share/cowsay/retained.txt
+@@ -0,0 +1 @@
++retained patched data
 --- /dev/null
 +++ b/lib/python3.11/site-packages/cowsay/nested/tests/test_nested.py
 @@ -0,0 +1 @@
