@@ -197,7 +197,9 @@ def _configurable_python_version_impl(ctx):
     elif aspect and (rules_python == aspect or rules_python.startswith(aspect + ".")):
         # Keep the selected interpreter's patch version when both flags agree.
         # On disagreement the rules_python patch belongs to the wrong
-        # interpreter, so keep the aspect value as-is.
+        # interpreter, so keep the aspect value as-is: markers evaluate at the
+        # precision the flags provide, so a bare minor compares as patch zero.
+        # Patch-precise markers require a full version in one of the flags.
         aspect = rules_python
 
     return [config_common.FeatureFlagInfo(value = aspect or rules_python)]

@@ -51,7 +51,7 @@ check_toolchain 3.12 312
     --platforms=//:linux_x86_64 \
     --@aspect_rules_py//py:python_version=3.12 \
     --@rules_python//python/config_settings:python_version=3.11 \
-    -- //:uv_markers_selected //:uv_dependency_selected \
+    -- //:uv_markers_selected //:uv_dependency_selected //:uv_minor_precision_selected \
     || fail "rules_py Python version did not take precedence for uv markers"
 
 "$BAZEL" build \
@@ -61,7 +61,7 @@ check_toolchain 3.12 312
     --define=interpreter_setting=312 \
     --platforms=//:linux_x86_64 \
     --@rules_python//python/config_settings:python_version=3.12 \
-    -- //:uv_markers_selected //:uv_dependency_selected \
+    -- //:uv_markers_selected //:uv_dependency_selected //:uv_minor_precision_selected \
     || fail "rules_python Python version did not remain the uv marker fallback"
 
 "$BAZEL" build \
