@@ -1,7 +1,6 @@
 "pytest example"
 
 bazel_dep(name = "aspect_rules_py")
-bazel_dep(name = "rules_python", version = "1.9.0")
 bazel_dep(name = "rules_shell", version = "0.4.1")
 
 local_path_override(
