@@ -707,7 +707,7 @@ def _uv_impl(module_ctx):
             sbuild_kwargs["configure_command"] = default_configure_command
 
         if sbuild_cfg.available_deps:
-            sbuild_kwargs["available_deps"] = json.encode(sbuild_cfg.available_deps)
+            sbuild_kwargs["available_deps"] = sbuild_cfg.available_deps
         if sbuild_cfg.pre_build_patches:
             sbuild_kwargs["pre_build_patches"] = sbuild_cfg.pre_build_patches
             sbuild_kwargs["pre_build_patch_strip"] = sbuild_cfg.pre_build_patch_strip
