@@ -273,6 +273,29 @@ def _version_ops_test_impl(ctx):
     in_range_prerelease_env["python_full_version"] = "3.14.10a1"
     asserts.true(env, evaluate("python_full_version ~= '3.14.9'", env = in_range_prerelease_env))
 
+    # Development releases order before the matching release (and before the
+    # matching alpha/beta/rc when combined), with numeric suffix ordering.
+    dev_env = dict(_LINUX_ENV)
+    dev_env["python_full_version"] = "3.15.0.dev1"
+    asserts.false(env, evaluate("python_full_version == '3.15'", env = dev_env))
+    asserts.true(env, evaluate("python_full_version != '3.15'", env = dev_env))
+    asserts.false(env, evaluate("python_full_version >= '3.15'", env = dev_env))
+    asserts.true(env, evaluate("python_full_version <= '3.15'", env = dev_env))
+    asserts.false(env, evaluate("python_full_version < '3.15'", env = dev_env))
+    asserts.false(env, evaluate("python_full_version ~= '3.15.0'", env = dev_env))
+    asserts.false(env, evaluate("python_full_version ~= '3.14.9'", env = dev_env))
+
+    in_range_prerelease_env["python_full_version"] = "3.14.10.dev1"
+    asserts.true(env, evaluate("python_full_version ~= '3.14.9'", env = in_range_prerelease_env))
+
+    dev_env["python_full_version"] = "3.15.0a1.dev2"
+    asserts.true(env, evaluate("python_full_version < '3.15.0a1'", env = dev_env))
+    asserts.true(env, evaluate("python_full_version < '3.15.0b1.dev1'", env = dev_env))
+    dev_env["python_full_version"] = "3.15.0a1.dev10"
+    asserts.true(env, evaluate("python_full_version > '3.15.0a1.dev2'", env = dev_env))
+    dev_env["python_full_version"] = "3.15.0rc1.dev2"
+    asserts.true(env, evaluate("python_full_version < '3.15.0rc1'", env = dev_env))
+
     # Alpha, beta, and release-candidate suffixes compare numerically and in
     # PEP 440 order, including the accepted long-form spellings.
     asserts.true(env, evaluate("python_full_version > '3.15.0a2'", env = prerelease_env))

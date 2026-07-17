@@ -20,6 +20,15 @@ Removed in 1.5.0, so vendored and used here with thanks.
 """
 
 def _key(version):
+    pre_release = version.pre_release
+    dev = None
+    if pre_release.startswith("dev."):
+        dev = int(pre_release[len("dev."):])
+        pre_release = ""
+    elif ".dev." in pre_release:
+        pre_release, _, dev = pre_release.partition(".dev.")
+        dev = int(dev)
+
     return (
         version.major,
         version.minor or 0,
@@ -33,7 +42,9 @@ def _key(version):
                 # digit values take precedence
                 int(i) if i.isdigit() else 0,
             )
-            for i in version.pre_release.split(".")
+            for i in pre_release.split(".")
+        ] + [
+            ("", dev) if dev != None else ("~", 0),
         ]) if version.pre_release else None,
         # And build info is just alphabetic
         version.build,
@@ -111,6 +122,17 @@ def semver(version):
 
     if suffix:
         suffix = suffix.lower().strip("-_.")
+        suffix, has_dev, dev = suffix.partition("dev")
+        suffix = suffix.strip("-_.")
+        dev = dev.strip("-_.") or "0"
+        if has_dev and not dev.isdigit():
+            has_dev = ""
+
+        matched = False
+        if has_dev and not suffix:
+            pre_release = "dev.{}".format(int(dev))
+            matched = True
+
         for spelling, normalized in [
             ("alpha", "a"),
             ("beta", "b"),
@@ -125,12 +147,16 @@ def semver(version):
                 number = suffix[len(spelling):].strip("-_.") or "0"
                 if number.isdigit():
                     pre_release = "{}.{}".format(normalized, int(number))
-                    if split_release:
-                        if patch:
-                            patch = patch[:end]
-                        else:
-                            minor = minor[:end]
+                    if has_dev:
+                        pre_release += ".dev.{}".format(int(dev))
+                    matched = True
                     break
+
+        if matched and split_release:
+            if patch:
+                patch = patch[:end]
+            else:
+                minor = minor[:end]
 
     return _new(
         major = int(major),
