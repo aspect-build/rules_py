@@ -45,16 +45,21 @@ filegroup(
     }),
 )
 
+# Exactly one of this pair fails analysis under any given configuration, so
+# they must stay out of `bazel build //...`; test.sh builds each under the
+# matching flags.
 marker_dependency_check(
     name = "uv_dependency_selected",
     dep = "@pypi_marker//six",
     present = True,
+    tags = ["manual"],
 )
 
 marker_dependency_check(
     name = "uv_dependency_not_selected",
     dep = "@pypi_marker//six",
     present = False,
+    tags = ["manual"],
 )
 
 decide_marker(

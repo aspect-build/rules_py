@@ -85,6 +85,12 @@ check_toolchain 3.12 312
     -- //:uv_patch_markers_selected \
     || fail "uv full-version markers did not preserve the fallback patch version"
 
+"$BAZEL" build \
+    --lockfile_mode=off \
+    --@aspect_rules_py//py:python_version=3.12.7 \
+    -- //:uv_markers_selected //:uv_patch_markers_selected \
+    || fail "a rules_py patch version was not honored by uv markers"
+
 failure_log="$(mktemp)"
 trap 'rm -f "$failure_log"' EXIT
 
