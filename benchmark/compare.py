@@ -227,6 +227,52 @@ def _starlark_section(main_result: dict[str, Any], pr_result: dict[str, Any]) ->
     return out
 
 
+def _full_starlark_table(main_result: dict[str, Any], pr_result: dict[str, Any]) -> str:
+    """Full per-function main-vs-PR table (ALL functions, not truncated).
+
+    Intended for the workflow run summary ($GITHUB_STEP_SUMMARY), where someone
+    wants to scan every function -- as opposed to the PR comment, which stays
+    terse (top movers/hotspots only). Sorted by PR time desc; a significant
+    regression (delta > FN_SIGMA * stderr) is marked.
+    """
+    main_sf = main_result.get("starlark_fn")
+    pr_sf = pr_result.get("starlark_fn")
+    if not isinstance(main_sf, dict) or not isinstance(pr_sf, dict):
+        return ""
+
+    main_total = main_sf.get("total", {})
+    pr_total = pr_sf.get("total", {})
+    main_fns = {r["name"]: r for r in main_sf.get("functions", [])}
+    pr_fns = {r["name"]: r for r in pr_sf.get("functions", [])}
+    main_n = max(main_total.get("runs", 1) or 1, 1)
+    pr_n = max(pr_total.get("runs", 1) or 1, 1)
+
+    rows = []
+    for name, pr_r in pr_fns.items():
+        m_r = main_fns.get(name)
+        m_ms = m_r["mean_ms"] if m_r else 0.0
+        delta = pr_r["mean_ms"] - m_ms
+        se = _combined_se(m_r.get("stddev_ms", 0.0) if m_r else 0.0, main_n,
+                          pr_r.get("stddev_ms", 0.0), pr_n)
+        file = (pr_r.get("file") or (m_r.get("file") if m_r else "") or "")
+        rows.append((name, file, m_ms, pr_r["mean_ms"], delta, se))
+    rows.sort(key=lambda x: x[3], reverse=True)
+
+    out = "## Starlark CPU \u2014 full per-function (main vs PR)\n\n"
+    out += (
+        f"_All {len(rows)} functions, sorted by PR time. "
+        f"\u26a0\ufe0f = significant regression (\u0394 > {FN_SIGMA:g}\u03c3)._\n\n"
+    )
+    out += "| Function | File | main ms | PR ms | \u0394 ms | \u00b1 stderr |\n|---|---|---|---|---|---|\n"
+    for name, file, m_ms, pr_ms, delta, se in rows:
+        flag = " \u26a0\ufe0f" if _is_significant(delta, se) else ""
+        out += (
+            f"| `{_short(name)}` | `{_relpath(file)}` | {m_ms:.1f} | {pr_ms:.1f} | "
+            f"{delta:+.1f}{flag} | \u00b1{se:.1f} |\n"
+        )
+    return out
+
+
 def run_analysis(args: argparse.Namespace) -> int:
     bcr_path, main_path, pr_path = args.bcr, args.main, args.pr
 
@@ -278,6 +324,12 @@ def run_analysis(args: argparse.Namespace) -> int:
     table += _starlark_section(main, pr)
 
     _emit(table, args.output_table)
+
+    if args.step_summary:
+        full = _full_starlark_table(main, pr)
+        if full:
+            with open(args.step_summary, "a") as f:
+                f.write(full)
 
     if is_regression(main, pr, THRESHOLD_REGRESSION_PCT):
         print(f"\n\u274c REGRESSION: PR analysis is {pr_vs_main:.1f}% slower than HEAD main "
@@ -429,7 +481,14 @@ def main() -> None:
         p.add_argument("pr", help="PR result JSON")
         p.add_argument("--output-table", help="write only the markdown table to this file")
 
-    add_common(sub.add_parser("analysis", help="analysis_ms gate + Starlark CPU diagnostic"))
+    analysis_parser = sub.add_parser("analysis", help="analysis_ms gate + Starlark CPU diagnostic")
+    add_common(analysis_parser)
+    analysis_parser.add_argument(
+        "--step-summary",
+        default=None,
+        help="append the full per-function main-vs-PR table to this file "
+        "(e.g. $GITHUB_STEP_SUMMARY for the workflow run summary)",
+    )
     add_common(sub.add_parser("startup", help="runtime gate + sys.path quality"))
     args = parser.parse_args()
 
