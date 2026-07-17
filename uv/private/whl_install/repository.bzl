@@ -210,7 +210,7 @@ def record_metadata(record, data_directory, exclude_glob):
             if depth == len(segments) or prefix in init_dirs:
                 namespace_entries[prefix] = True
                 break
-    return top_levels, regular_top_levels, namespace_entries, dirs, init_dirs, native_segments
+    return top_levels, regular_top_levels, namespace_entries, dirs, init_dirs, native_segments, ["/".join(segments) for segments in record_segments]
 
 def parse_console_script(line):
     """Parse one `[console_scripts]` entry into a canonical `name=module:func`.
@@ -301,7 +301,7 @@ def _extract_wheel_metadata(repository_ctx, whl_label, exclude_glob):
     Returns:
       Tuple (top_levels_set, regular_top_levels_set, console_scripts_set,
              namespace_entries_set, dirs_set, init_dirs_set,
-             native_segments_list):
+             native_segments_list, retained_paths_list):
         * top_levels_set: dict[name → True] — all first-path-segment
           names in RECORD (excluding `*.data/` staging entries).
         * regular_top_levels_set: subset that had an `__init__.py` at
@@ -326,6 +326,8 @@ def _extract_wheel_metadata(repository_ctx, whl_label, exclude_glob):
           RECORD files with native-library suffixes. The caller combines these
           with the wheel's namespace directories and regular roots to emit only
           collision-relevant roots.
+        * retained_paths_list: list[str] — translated, filtered RECORD paths
+          used to index the wheel for Gazelle without selecting a platform.
     """
     whl_path = _find_whl_file(repository_ctx, whl_label)
     if whl_path == None:
@@ -374,7 +376,7 @@ def _extract_wheel_metadata(repository_ctx, whl_label, exclude_glob):
     repository_ctx.delete(metadata_dir)
     data_directory = metadata_directory[:-len(".dist-info")] + ".data"
 
-    top_levels_set, regular_top_levels, namespace_entries, dirs_set, init_dirs, native_segments = record_metadata(
+    top_levels_set, regular_top_levels, namespace_entries, dirs_set, init_dirs, native_segments, retained_paths = record_metadata(
         record,
         data_directory,
         exclude_glob,
@@ -404,7 +406,7 @@ def _extract_wheel_metadata(repository_ctx, whl_label, exclude_glob):
             name, normalised = entry
             console_scripts[name] = normalised
 
-    return whl_path.basename, top_levels_set, regular_top_levels, console_scripts, namespace_entries, dirs_set, init_dirs, native_segments
+    return whl_path.basename, top_levels_set, regular_top_levels, console_scripts, namespace_entries, dirs_set, init_dirs, native_segments, retained_paths
 
 def _namespace_dirs_and_roots(dirs_set, init_dirs, namespace_top_levels_set):
     """Split a wheel's directory skeleton into the implicit-namespace dirs
@@ -681,15 +683,12 @@ py_library(
     post_install_patch_strip = repository_ctx.attr.post_install_patch_strip
     exclude_glob = repository_ctx.attr.exclude_glob
 
-    if post_install_patches or exclude_glob:
-        gazelle_index_whl = ":actual_install"
-        gazelle_index_output_group = "    output_group = \"install_dir\",\n"
+    if exclude_glob and prebuilds:
+        gazelle_index_whl = ":gazelle_index.json"
     elif prebuilds:
         gazelle_index_whl = prebuilds.values()[0]  # Effectively random choice :shrug:
-        gazelle_index_output_group = ""
     elif default_target:
         gazelle_index_whl = default_target
-        gazelle_index_output_group = ""
     else:
         fail("Cannot identify a wheel or sbuild of {} to analyze for Gazelle indexing\n{}".format(repository_ctx.name, pprint(repository_ctx.attr)))
 
@@ -705,13 +704,12 @@ select_chain(
 filegroup(
     name = "gazelle_index_whl",
     srcs = {index_whl},
-{index_output_group}    visibility = ["//visibility:public"],
+    visibility = ["//visibility:public"],
 )
 """.format(
             arms = indent(pprint(select_arms), "   ").lstrip(),
             default_target = repr(default_target),
             index_whl = indent(pprint([str(gazelle_index_whl)]), " " * 4).lstrip(),
-            index_output_group = gazelle_index_output_group,
         ),
     )
 
@@ -774,6 +772,7 @@ filegroup(
     regular_roots_by_whl = {}
     native_roots_by_whl = {}
     console_scripts_by_whl = {}
+    gazelle_paths = {}
 
     # `prebuilds.values()` can repeat a target when several lockfile wheel
     # entries resolve to the same wheel repo, so track which targets we've
@@ -784,11 +783,15 @@ filegroup(
             continue
         extracted_targets[target] = True
         whl_file_label = whl_file_labels[target]
-        whl_name, tls, regular, css, ns_entries, dirs_set, init_dirs, native_segments = _extract_wheel_metadata(
+        whl_name, tls, regular, css, ns_entries, dirs_set, init_dirs, native_segments, retained_paths = _extract_wheel_metadata(
             repository_ctx,
             whl_file_label,
             exclude_glob,
         )
+        if exclude_glob:
+            for path in retained_paths:
+                if path.endswith((".py", ".so", ".dylib", ".pyd")):
+                    gazelle_paths[path] = True
         ndirs = []
         rroots = []
         if tls:
@@ -848,6 +851,16 @@ filegroup(
             native_roots_by_whl[whl_name] = sorted(native_roots.keys())
         if css:
             console_scripts_by_whl[whl_name] = sorted(css.values())
+
+    if exclude_glob and prebuilds:
+        repository_ctx.file(
+            "gazelle_index.json",
+            content = json.encode({
+                "name": repository_ctx.attr.package_name,
+                "paths": sorted(gazelle_paths.keys()),
+            }),
+            executable = False,
+        )
 
     install_attrs = """
     src = ":whl",
@@ -953,6 +966,7 @@ exports_files(
 whl_install = repository_rule(
     implementation = _whl_install_impl,
     attrs = {
+        "package_name": attr.string(mandatory = True),
         # `<project>-<version>.dist-info`, the directory `_extract_wheel_metadata`
         # strips to when extracting RECORD/entry_points.txt out of the wheel.
         "metadata_directory": attr.string(),

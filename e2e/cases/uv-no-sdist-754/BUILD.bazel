@@ -7,6 +7,13 @@
 # select chain.
 
 load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@aspect_rules_py//uv:defs.bzl", "gazelle_python_manifest")
+
+gazelle_python_manifest(
+    name = "gazelle_manifest",
+    hub = "pypi_uv_no_sdist_754",
+    venvs = ["dummy"],
+)
 
 # Expose @pypi//pywin32's deps so the test can assert the generated
 # whl_install BUILD shape (whl_missing default, select_chain arm count).
@@ -19,7 +26,10 @@ genquery(
 py_test(
     name = "test",
     srcs = ["test_no_sdist.py"],
-    data = [":pywin32_targets"],
+    data = [
+        ":gazelle_manifest",
+        ":pywin32_targets",
+    ],
     main = "test_no_sdist.py",
     target_compatible_with = ["@platforms//os:linux"],
     deps = ["@bazel_tools//tools/python/runfiles"],

@@ -179,12 +179,13 @@ def _record_metadata_exclusions_test_impl(ctx):
             "{} against {}".format(path, pattern),
         )
 
-    top_levels, regular_top_levels, namespace_entries, dirs, init_dirs, native_segments = record_metadata(
+    top_levels, regular_top_levels, namespace_entries, dirs, init_dirs, native_segments, retained_paths = record_metadata(
         "\n".join([
             "demo/__init__.py,,",
             "demo/keep.py,,",
             '"{}/purelib/demo/data/sample,1.csv",,'.format(data),
             "{}/platlib/demo/native.so,,".format(data),
+            "{}/purelib/excluded_root/__init__.py,,".format(data),
             "pkg/__init__.py,,",
             "pkg/module.py,,",
             "{}/platlib/pkg/nested/native.so,,".format(data),
@@ -201,14 +202,22 @@ def _record_metadata_exclusions_test_impl(ctx):
             "../../../bin/demo,,",
         ]),
         data,
-        ["google/api", "google/**/*.proto", "tests", "pkg/*", "demo/*.so"],
+        ["google/api", "google/**/*.proto", "tests", "pkg/*", "demo/*.so", "excluded_root", "Legacy.Name-1.0.dist-info/**"],
     )
-    asserts.equals(env, ["Legacy.Name-1.0.dist-info", "demo", "google", "native_keep"], sorted(top_levels.keys()))
+    asserts.equals(env, ["demo", "google", "native_keep"], sorted(top_levels.keys()))
     asserts.equals(env, ["demo", "native_keep"], sorted(regular_top_levels.keys()))
     asserts.equals(env, ["google/rpc/status_pb2.py"], sorted(namespace_entries.keys()))
-    asserts.equals(env, ["Legacy.Name-1.0.dist-info", "demo", "demo/data", "google", "google/rpc", "native_keep"], sorted(dirs.keys()))
+    asserts.equals(env, ["demo", "demo/data", "google", "google/rpc", "native_keep"], sorted(dirs.keys()))
     asserts.equals(env, ["demo", "native_keep"], sorted(init_dirs.keys()))
     asserts.equals(env, [["native_keep", "native.so"]], native_segments)
+    asserts.equals(env, [
+        "demo/__init__.py",
+        "demo/data/sample,1.csv",
+        "demo/keep.py",
+        "google/rpc/status_pb2.py",
+        "native_keep/__init__.py",
+        "native_keep/native.so",
+    ], sorted(retained_paths))
     native_roots = {}
     for segments in native_segments:
         for root in native_roots_for_segments(segments):

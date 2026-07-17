@@ -5,4 +5,9 @@ uv.project(
     lock = "//uv-no-sdist-754:uv.lock",
     pyproject = "//uv-no-sdist-754:pyproject.toml",
 )
+uv.override_package(
+    name = "pywin32",
+    exclude_glob = ["pywin32-311.dist-info/**"],
+    lock = "//uv-no-sdist-754:uv.lock",
+)
 use_repo(uv, "pypi_uv_no_sdist_754")

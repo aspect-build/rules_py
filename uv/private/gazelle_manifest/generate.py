@@ -5,7 +5,7 @@
 # be overkill and take more work.
 #
 # The strategy is simple.
-# - Accept an args file containing paths to wheel files, directories containing wheels, or installed wheel trees
+# - Accept an args file containing paths to wheel files or filtered wheel indexes
 #
 # - For each whl file
 #   - extract the .dist-info/METADATA` file and use that to grab the package name
@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from zipfile import ZipFile
 from pathlib import Path
@@ -54,19 +55,18 @@ def extract_package_name(whl_path: Path) -> Optional[str]:
     the 'Name' field to determine the requirement name.
 
     Args:
-        whl_path: Path to the wheel file or installed wheel tree.
+        whl_path: Path to the wheel file or filtered wheel index.
 
     Returns:
         The package name (requirement name) as a string, or None on failure.
     """
     try:
-        if whl_path.is_dir():
-            metadata_files = list(whl_path.glob("lib/python*/site-packages/*.dist-info/METADATA"))
-            metadata_content = metadata_files[0].read_text(encoding="utf-8") if metadata_files else None
-        else:
-            with ZipFile(whl_path, 'r') as zf:
-                metadata_files = [f for f in zf.namelist() if f.endswith('.dist-info/METADATA')]
-                metadata_content = zf.read(metadata_files[0]).decode('utf-8') if metadata_files else None
+        if whl_path.name == "gazelle_index.json":
+            return normalize_name(json.loads(whl_path.read_text(encoding="utf-8"))["name"])
+
+        with ZipFile(whl_path, 'r') as zf:
+            metadata_files = [f for f in zf.namelist() if f.endswith('.dist-info/METADATA')]
+            metadata_content = zf.read(metadata_files[0]).decode('utf-8') if metadata_files else None
 
         if metadata_content is None:
             print(f"Error: METADATA file not found in {whl_path}", file=sys.stderr)
@@ -135,11 +135,11 @@ def get_importable_module_name(filepath: str) -> Optional[str]:
 
 def identify_modules(whl_path: Path, package_name: str) -> dict[str, str]:
     """
-    Scans the wheel or installed wheel tree for importable Python and extension files,
+    Scans the wheel or filtered wheel index for importable Python and extension files,
     maps them to the package name, and applies filtering rules.
 
     Args:
-        whl_path: Path to the wheel file or installed wheel tree.
+        whl_path: Path to the wheel file or filtered wheel index.
         package_name: The name of the requirement (e.g., 'requests').
 
     Returns:
@@ -151,14 +151,8 @@ def identify_modules(whl_path: Path, package_name: str) -> dict[str, str]:
     requirement_name = package_name.lower().replace('-', '_')
 
     try:
-        if whl_path.is_dir():
-            site_packages = list(whl_path.glob("lib/python*/site-packages"))
-            members = (
-                member.relative_to(root).as_posix()
-                for root in site_packages
-                for member in root.rglob("*")
-                if member.name.endswith(('.py', '.so', '.dylib', '.pyd')) and member.is_file()
-            )
+        if whl_path.name == "gazelle_index.json":
+            members = json.loads(whl_path.read_text(encoding="utf-8"))["paths"]
         else:
             with ZipFile(whl_path, 'r') as zf:
                 members = zf.namelist()
@@ -302,8 +296,7 @@ def main() -> None:
                 if p.is_file():
                     whl_paths.append(p)
                 elif p.is_dir():
-                    ps = list(p.glob("*.whl"))
-                    whl_paths.extend(ps or [p])
+                    whl_paths.extend(p.glob("*.whl"))
                 else:
                     print(f"No wheels found for {p}", file=sys.stderr)
 

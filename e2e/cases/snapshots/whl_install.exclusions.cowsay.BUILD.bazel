@@ -23,9 +23,8 @@ select_chain(
 filegroup(
     name = "gazelle_index_whl",
     srcs = [
-        ":actual_install",
+        ":gazelle_index.json",
     ],
-    output_group = "install_dir",
     visibility = ["//visibility:public"],
 )
 

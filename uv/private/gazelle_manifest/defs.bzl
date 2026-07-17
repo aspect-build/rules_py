@@ -15,11 +15,11 @@ def _modules_mapping_impl(ctx):
     whl_files = [
         it
         for it in whl_depset.to_list()
-        if it.is_directory or it.path.endswith(".whl") or it.path.endswith("/whl")
+        if it.path.endswith(".whl") or it.path.endswith("/whl") or it.path.endswith("/gazelle_index.json")
     ]
 
     args = ctx.actions.args()
-    args.add_all(whl_files, expand_directories = False)
+    args.add_all(whl_files)
     args_file = ctx.actions.declare_file(ctx.label.name + ".args")
     ctx.actions.write(
         output = args_file,
