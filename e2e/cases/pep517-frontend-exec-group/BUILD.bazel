@@ -2,10 +2,15 @@ load("@aspect_rules_py//uv/private/pep517_whl:rule.bzl", "pep517_native_whl")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load("@rules_cc//cc/toolchains:tool.bzl", "cc_tool")
+load("@rules_cc//cc/toolchains:tool_map.bzl", "cc_tool_map")
+load("@rules_cc//cc/toolchains:toolchain.bzl", "cc_toolchain")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load(":toolchain.bzl", "fake_cc_toolchain")
 
 _CC_TOOLCHAIN = "//pep517-frontend-exec-group:cc_toolchain"
+
+_CONFIGURED_CC_TOOLCHAIN = "//pep517-frontend-exec-group:configured_cc_toolchain"
 
 # Keep the host first so the default exec group selects it. The native wheel's
 # `target` exec group requires the transitioned target constraints and selects
@@ -35,6 +40,19 @@ platform(
         "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
         "--extra_execution_platforms=@platforms//host,//pep517-frontend-exec-group:linux_x86_64",
         "--extra_toolchains=" + _CC_TOOLCHAIN,
+    ],
+)
+
+platform(
+    name = "linux_configured",
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+    flags = [
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
+        "--extra_execution_platforms=@platforms//host,//pep517-frontend-exec-group:linux_configured",
+        "--extra_toolchains=" + _CONFIGURED_CC_TOOLCHAIN,
     ],
 )
 
@@ -93,6 +111,58 @@ toolchain(
 )
 
 write_file(
+    name = "unusual_c_driver",
+    out = "unusual_c_driver.sh",
+    content = [
+        "#!/usr/bin/env bash",
+        "printf '%s\\n' c-action",
+    ],
+    is_executable = True,
+)
+
+write_file(
+    name = "unusual_cxx_driver",
+    out = "unusual_cxx_driver.sh",
+    content = [
+        "#!/usr/bin/env bash",
+        "printf '%s\\n' cxx-action",
+    ],
+    is_executable = True,
+)
+
+cc_tool(
+    name = "configured_c_tool",
+    src = ":unusual_c_driver",
+)
+
+cc_tool(
+    name = "configured_cxx_tool",
+    src = ":unusual_cxx_driver",
+)
+
+cc_tool_map(
+    name = "configured_tool_map",
+    tools = {
+        "@rules_cc//cc/toolchains/actions:c_compile": ":configured_c_tool",
+        "@rules_cc//cc/toolchains/actions:cpp_compile_actions": ":configured_cxx_tool",
+        "@rules_cc//cc/toolchains/actions:link_actions": ":configured_c_tool",
+        "@rules_cc//cc/toolchains/actions:strip": ":configured_c_tool",
+        "@rules_cc//cc/toolchains/actions:ar_actions": ":configured_c_tool",
+    },
+)
+
+cc_toolchain(
+    name = "configured_cc",
+    tool_map = ":configured_tool_map",
+)
+
+toolchain(
+    name = "configured_cc_toolchain",
+    toolchain = ":configured_cc",
+    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+)
+
+write_file(
     name = "frontend_script",
     out = "frontend.sh",
     content = [
@@ -125,6 +195,29 @@ sh_binary(
 )
 
 write_file(
+    name = "configured_frontend_script",
+    out = "configured_frontend.sh",
+    content = [
+        "#!/usr/bin/env bash",
+        "set -euo pipefail",
+        "c_actual=\"$(\"${CC}\")\"",
+        "cxx_actual=\"$(\"${CXX}\")\"",
+        "if [[ \"${c_actual}\" != c-action || \"${cxx_actual}\" != cxx-action ]]; then",
+        "  echo \"configured tools reported ${c_actual} and ${cxx_actual}\" >&2",
+        "  exit 1",
+        "fi",
+        "wheel_dir=\"${!#}\"",
+        "mkdir -p \"${wheel_dir}\"",
+    ],
+    is_executable = True,
+)
+
+sh_binary(
+    name = "configured_frontend",
+    srcs = [":configured_frontend_script"],
+)
+
+write_file(
     name = "stub_sdist",
     out = "stub.tar.gz",
     content = ["unused"],
@@ -142,6 +235,14 @@ pep517_native_whl(
     version = "0.0.0",
 )
 
+pep517_native_whl(
+    name = "configured_wheel",
+    src = ":stub_sdist",
+    tags = ["manual"],
+    tool = ":configured_frontend",
+    version = "0.0.0",
+)
+
 platform_transition_filegroup(
     name = "wheel_linux_aarch64",
     srcs = [":wheel"],
@@ -154,10 +255,21 @@ platform_transition_filegroup(
     target_platform = ":linux_x86_64",
 )
 
+platform_transition_filegroup(
+    name = "wheel_linux_configured",
+    srcs = [":configured_wheel"],
+    target_platform = ":linux_configured",
+)
+
 build_test(
     name = "frontend_exec_platform_test",
     targets = [
         ":wheel_linux_aarch64",
         ":wheel_linux_x86_64",
     ],
+)
+
+build_test(
+    name = "configured_compiler_tools_test",
+    targets = [":wheel_linux_configured"],
 )

@@ -9,7 +9,6 @@ load("@bazel_lib//lib:resource_sets.bzl", "resource_set", "resource_set_attr")
 load("@rules_cc//cc:action_names.bzl", "ACTION_NAMES")
 load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
 load("//py/private/toolchain:types.bzl", "NATIVE_BUILD_TOOLCHAIN", "PY_TOOLCHAIN")
-load("//uv/private/pep517_whl:compiler.bzl", "compiler_driver_paths", "cxx_driver_fallback_path")
 
 _CC_TOOLCHAIN_TYPE = Label("@bazel_tools//tools/cpp:toolchain_type")
 _TARGET_EXEC_GROUP = "target"
@@ -93,39 +92,16 @@ def _cc_toolchain_inputs_and_tools(ctx):
     if hasattr(cc_toolchain, "cc_provider_in_toolchain") and hasattr(cc_toolchain, "cc"):
         cc_toolchain = cc_toolchain.cc
     if not cc_toolchain or not hasattr(cc_toolchain, "all_files"):
-        return None, None, None, {}
+        return None, {}
     files = cc_toolchain.all_files
-    files_list = files.to_list()
-    files_by_path = {f.path: f for f in files_list}
-    compiler_file = None
-    if hasattr(cc_toolchain, "compiler_executable"):
-        compiler_basename = cc_toolchain.compiler_executable.split("/")[-1]
-        for f in files_list:
-            if f.basename == compiler_basename:
-                compiler_file = f
-                break
-    if not compiler_file:
-        for f in files_list:
-            if compiler_driver_paths(f.path, files_by_path) != None:
-                compiler_file = f
-                break
-    if not compiler_file:
-        for f in files_list:
-            if cxx_driver_fallback_path(f.path) != None:
-                compiler_file = f
-                break
-
-    # Preserve the current same-driver behavior when the selected toolchain
-    # files do not expose a matching same-directory C++ companion, including
-    # toolchains that expose only a C++ wrapper.
-    compiler_path = compiler_file.path if compiler_file else None
-    driver_paths = compiler_driver_paths(compiler_path, files_by_path) if compiler_path else None
-    cxx_path = driver_paths.cxx if driver_paths else compiler_path
 
     # Minimal C++ ToolchainInfo implementations can still supply a compiler
     # and its files without a CcToolchainInfo feature configuration.
     if not hasattr(cc_toolchain, "ar_executable"):
-        return files, compiler_path, cxx_path, {}
+        compiler = getattr(cc_toolchain, "compiler_executable", None)
+        if not compiler:
+            return files, {}
+        return files, {"CC": compiler, "CXX": compiler}
 
     feature_configuration = cc_common.configure_features(
         ctx = ctx,
@@ -138,6 +114,14 @@ def _cc_toolchain_inputs_and_tools(ctx):
             feature_configuration = feature_configuration,
             action_name = ACTION_NAMES.cpp_link_static_library,
         ),
+        "CC": cc_common.get_tool_for_action(
+            feature_configuration = feature_configuration,
+            action_name = ACTION_NAMES.c_compile,
+        ),
+        "CXX": cc_common.get_tool_for_action(
+            feature_configuration = feature_configuration,
+            action_name = ACTION_NAMES.cpp_compile,
+        ),
         "LD": cc_common.get_tool_for_action(
             feature_configuration = feature_configuration,
             action_name = ACTION_NAMES.cpp_link_dynamic_library,
@@ -147,7 +131,7 @@ def _cc_toolchain_inputs_and_tools(ctx):
             action_name = ACTION_NAMES.strip,
         ),
     }
-    return files, compiler_path, cxx_path, tools
+    return files, tools
 
 def _pep517_whl(ctx):
     archive = ctx.file.src
@@ -190,17 +174,13 @@ def _pep517_native_whl(ctx):
         fail("A toolchain listed in `toolchains` exports the reserved `EXECROOT` make-variable.")
     known_variables["EXECROOT"] = _EXECROOT_MARKER
 
-    cc_files, cc_compiler, cxx_compiler, cc_tools = _cc_toolchain_inputs_and_tools(ctx)
+    cc_files, cc_tools = _cc_toolchain_inputs_and_tools(ctx)
     if cc_files:
         extra_inputs.append(cc_files)
 
     for k, v in ctx.attr.env.items():
         env[k] = ctx.expand_make_variables("env", v, known_variables)
 
-    if cc_compiler and "CC" not in ctx.attr.env:
-        env["CC"] = cc_compiler
-    if cxx_compiler and "CXX" not in ctx.attr.env:
-        env["CXX"] = cxx_compiler
     for key, value in cc_tools.items():
         if key not in ctx.attr.env:
             env[key] = value
