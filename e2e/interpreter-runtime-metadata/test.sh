@@ -17,11 +17,8 @@ fi
 
 if ! "$BAZEL" build \
     --lockfile_mode=off \
-    --@aspect_rules_py//py:python_version=3.15 \
-    --@rules_python//python/config_settings:python_version=3.15.0a6 \
+    --@aspect_rules_py//py:python_version=3.15.0a6 \
     --@aspect_rules_py//uv/private/constraints/dep_group:dep_group=interpreter-runtime-metadata \
-    --@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc \
-    --platforms=//:linux_x86_64 \
     -- //:prerelease_dependency_not_selected; then
     echo "FAIL: a final-release-only uv dependency was selected for Python 3.15.0a6" >&2
     exit 1
