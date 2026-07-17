@@ -331,6 +331,9 @@ def _version_ops_test_impl(ctx):
     dev_env["python_full_version"] = "3.15.0-foo.1"
     asserts.true(env, evaluate("python_full_version > '3.15.0-foo'", env = dev_env))
     asserts.true(env, evaluate("python_full_version >= '3.15.0-foo'", env = dev_env))
+    dev_env["python_full_version"] = "3.15.0-a.1.dev.foo"
+    asserts.true(env, evaluate("python_full_version < '3.15.0'", env = dev_env))
+    asserts.true(env, evaluate("python_full_version ~= '3.14.9'", env = dev_env))
     for prefix in ["a.foo", "b.foo", "rc.foo", "a.dev.foo"]:
         dev_env["python_full_version"] = "3.15.0-{}".format(prefix)
         asserts.true(env, evaluate("python_full_version < '3.15.0-{}.1'".format(prefix), env = dev_env))
