@@ -6,11 +6,14 @@ build backend the sdist declares in its `[build-system]` table.
 """
 
 load("@bazel_lib//lib:resource_sets.bzl", "resource_set", "resource_set_attr")
+load("@rules_cc//cc:action_names.bzl", "ACTION_NAMES")
+load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
 load("//py/private/toolchain:types.bzl", "NATIVE_BUILD_TOOLCHAIN", "PY_TOOLCHAIN")
 load("//uv/private/pep517_whl:compiler.bzl", "compiler_driver_paths", "cxx_driver_fallback_path")
 
 _CC_TOOLCHAIN_TYPE = Label("@bazel_tools//tools/cpp:toolchain_type")
 _TARGET_EXEC_GROUP = "target"
+_EXECROOT_MARKER = "__ASPECT_RULES_PY_EXECROOT__"
 
 _INHERITED_PYTHON_ENV = (
     "PYTHONHOME",
@@ -84,13 +87,13 @@ def _collect_toolchain_inputs_and_vars(ctx):
             known_variables.update(target[platform_common.TemplateVariableInfo].variables)
     return extra_inputs, known_variables
 
-def _cc_toolchain_inputs_and_compilers(ctx):
-    """Return the target execution group's C++ files and C/C++ drivers."""
+def _cc_toolchain_inputs_and_tools(ctx):
+    """Return the target execution group's C++ files and selected build tools."""
     cc_toolchain = ctx.exec_groups[_TARGET_EXEC_GROUP].toolchains[_CC_TOOLCHAIN_TYPE]
     if hasattr(cc_toolchain, "cc_provider_in_toolchain") and hasattr(cc_toolchain, "cc"):
         cc_toolchain = cc_toolchain.cc
     if not cc_toolchain or not hasattr(cc_toolchain, "all_files"):
-        return None, None, None
+        return None, None, None, {}
     files = cc_toolchain.all_files
     files_list = files.to_list()
     files_by_path = {f.path: f for f in files_list}
@@ -118,7 +121,33 @@ def _cc_toolchain_inputs_and_compilers(ctx):
     compiler_path = compiler_file.path if compiler_file else None
     driver_paths = compiler_driver_paths(compiler_path, files_by_path) if compiler_path else None
     cxx_path = driver_paths.cxx if driver_paths else compiler_path
-    return files, compiler_path, cxx_path
+
+    # Minimal C++ ToolchainInfo implementations can still supply a compiler
+    # and its files without a CcToolchainInfo feature configuration.
+    if not hasattr(cc_toolchain, "ar_executable"):
+        return files, compiler_path, cxx_path, {}
+
+    feature_configuration = cc_common.configure_features(
+        ctx = ctx,
+        cc_toolchain = cc_toolchain,
+        requested_features = ctx.features,
+        unsupported_features = ctx.disabled_features,
+    )
+    tools = {
+        "AR": cc_common.get_tool_for_action(
+            feature_configuration = feature_configuration,
+            action_name = ACTION_NAMES.cpp_link_static_library,
+        ),
+        "LD": cc_common.get_tool_for_action(
+            feature_configuration = feature_configuration,
+            action_name = ACTION_NAMES.cpp_link_dynamic_library,
+        ),
+        "STRIP": cc_common.get_tool_for_action(
+            feature_configuration = feature_configuration,
+            action_name = ACTION_NAMES.strip,
+        ),
+    }
+    return files, compiler_path, cxx_path, tools
 
 def _pep517_whl(ctx):
     archive = ctx.file.src
@@ -157,17 +186,24 @@ def _pep517_native_whl(ctx):
     env = _common_env(ctx)
     extra_inputs, known_variables = _collect_toolchain_inputs_and_vars(ctx)
 
-    cc_files, cc_compiler, cxx_compiler = _cc_toolchain_inputs_and_compilers(ctx)
+    if "EXECROOT" in known_variables:
+        fail("A toolchain listed in `toolchains` exports the reserved `EXECROOT` make-variable.")
+    known_variables["EXECROOT"] = _EXECROOT_MARKER
+
+    cc_files, cc_compiler, cxx_compiler, cc_tools = _cc_toolchain_inputs_and_tools(ctx)
     if cc_files:
         extra_inputs.append(cc_files)
 
     for k, v in ctx.attr.env.items():
         env[k] = ctx.expand_make_variables("env", v, known_variables)
 
-    if cc_compiler:
+    if cc_compiler and "CC" not in ctx.attr.env:
         env["CC"] = cc_compiler
-    if cxx_compiler:
+    if cxx_compiler and "CXX" not in ctx.attr.env:
         env["CXX"] = cxx_compiler
+    for key, value in cc_tools.items():
+        if key not in ctx.attr.env:
+            env[key] = value
 
     ctx.actions.run(
         mnemonic = "PySdistNativeBuild",
@@ -175,6 +211,8 @@ def _pep517_native_whl(ctx):
         executable = ctx.executable.tool,
         toolchain = None,
         arguments = ctx.attr.args + patch_args + _memory_args(ctx) + [
+            "--execroot-marker",
+            _EXECROOT_MARKER,
             archive.path,
             wheel_dir.path,
         ],
@@ -243,7 +281,7 @@ Consumes a sdist artifact and performs a build of that artifact with the
 specified Python dependencies under the configured Python toolchain to produce a
 platform-specific bdist we can subsequently install or deploy.
 
-Toolchains the build action depends on are passed via the standard `toolchains`
+Extra toolchains the build action depends on are passed via the standard `toolchains`
 attribute and each target's `DefaultInfo.files`, `ToolchainInfo.all_files`, and
 `TemplateVariableInfo.variables` are forwarded to the action. The `env`
 attribute maps environment variable names to strings that may reference
@@ -260,9 +298,13 @@ constraints of the target platform.
             doc = "Environment variables to set on the build action. Values may " +
                   "contain `$(VAR)` references to make-variables exposed by any " +
                   "target in the rule's `toolchains` attribute (via " +
-                  "`TemplateVariableInfo`).",
+                  "`TemplateVariableInfo`). Prefix an execroot-relative path with " +
+                  "`$(EXECROOT)/` so it remains valid after the backend changes into " +
+                  "the unpacked source tree. Omit CC/CXX/AR/LD/STRIP to use the " +
+                  "configured C++ action tools.",
         ),
     },
+    fragments = ["cpp"],
     exec_groups = {
         # Create an exec group which depends on a toolchain which can only be
         # resolved to exec_compatible_with constraints equal to the target. This

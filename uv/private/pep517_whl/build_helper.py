@@ -28,15 +28,10 @@ _SETUPTOOLS_BACKENDS = (
 )
 
 
-# `$(CC)` etc. from the pep517_native_whl rule expands to a Bazel
-# workspace-relative path (e.g. external/llvm+/toolchain/gcc) that
-# resolves from the action execroot but not from the build
-# subprocess's cwd inside the unpacked worktree. To keep CC reachable
-# after that cwd change, we drop a tiny wrapper into tmp_root (which
-# is absolute, so its path survives the cwd change) and point CC /
-# CXX / CPP / LDSHARED / LDCXXSHARED at the wrapper. The wrapper
-# strips `-fdebug-default-version=4` (older toolchains reject it)
-# and then `execv`s the compiler at its resolved absolute path.
+# pep517_native_whl supplies compiler execpaths relative to the action
+# execroot, which do not resolve from the backend's unpacked worktree. Point
+# CC / CXX / CPP / LDSHARED / LDCXXSHARED at absolute wrappers under tmp_root;
+# they strip `-fdebug-default-version=4` and exec the resolved compiler.
 _DEBUG_FLAG = "-fdebug-default-version=4"
 _COMPILER_WRAPPER = """#!/usr/bin/env python3
 import os
@@ -63,9 +58,8 @@ def _darwin_sysroot():
 def _absolutize_path(value):
     """Resolve a relative path to absolute, leaving absolute/empty values untouched.
 
-    Shared by _resolve_compiler_path (CC/CXX) and _absolutize_java_tool_paths
-    (JAVA_HOME/JAVA): both toolchains expand workspace-relative refs from the
-    action execroot, which break once the PEP 517 backend chdirs into the
+    Shared by _resolve_compiler_path (CC/CXX) and _absolutize_tool_paths.
+    Toolchain execroot-relative paths break once the PEP 517 backend chdirs into the
     unpacked sdist. Centralizing the policy keeps the two paths in lockstep
     and gives future toolchains (FC, RUSTC, ...) a single primitive to call.
     """
@@ -80,7 +74,10 @@ def _resolve_compiler_path(env, key, default):
     parts = shlex.split(current)
     if not parts:
         return default
-    return _absolutize_path(parts[0])
+    compiler = parts[0]
+    if path.dirname(compiler):
+        return _absolutize_path(compiler)
+    return shutil.which(compiler, path=env.get("PATH", defpath)) or compiler
 
 
 def _make_compiler_wrapper(tmpdir, name, compiler_path, sysroot=None):
@@ -106,24 +103,24 @@ def _override_tool(env, key, wrapper):
         env[key] = shlex.join(parts)
 
 
-def _absolutize_java_tool_paths(env):
-    """Resolve Bazel's Java toolchain paths while the helper still runs from
-    the action execroot.
-
-    $(JAVA)/$(JAVABASE) expand workspace-relative; the PEP 517 backend later
-    chdirs into the unpacked sdist, which would invalidate those refs. The
-    JDK inputs are declared via the rule's `toolchains` attr (see
-    _collect_toolchain_inputs_and_vars), so a missing path fails loudly in
-    the backend rather than silently shipping a broken relative env.
-    """
+def _absolutize_tool_paths(env):
+    """Resolve single-path toolchain variables before the backend changes cwd."""
     for key in ("JAVA_HOME", "JAVA"):
         value = env.get(key)
         if value:
             env[key] = _absolutize_path(value)
 
+    for key in ("AR", "LD", "STRIP"):
+        value = env.get(key)
+        if value and path.dirname(value):
+            env[key] = _absolutize_path(value)
 
-def _compiler_env(tmpdir):
+
+def _compiler_env(tmpdir, execroot_marker=None):
     env = dict(os.environ)
+    if execroot_marker:
+        execroot = os.getcwd()
+        env = {key: value.replace(execroot_marker, execroot) for key, value in env.items()}
     # The helper's launcher exports RUNFILES_DIR, RUNFILES_MANIFEST_FILE, and
     # JAVA_RUNFILES:
     # https://github.com/hermeticbuild/hermetic-launcher/blob/381814d0818af0573263323dc0dd0e4e208fc3fa/README.md#runfiles-discovery
@@ -146,10 +143,9 @@ def _compiler_env(tmpdir):
     env["TEMP"] = tmpdir
     env["TEMPDIR"] = tmpdir
 
-    # The Java toolchain expands its paths relative to the execroot. Resolve
-    # them while the helper still runs there; the PEP 517 backend later runs
-    # inside the unpacked source tree.
-    _absolutize_java_tool_paths(env)
+    # Bazel expands tool paths relative to the execroot. Resolve them while the
+    # helper still runs there; bare tool names deliberately remain on PATH.
+    _absolutize_tool_paths(env)
 
     cc_path = _resolve_compiler_path(env, "CC", "cc")
     cxx_path = _resolve_compiler_path(env, "CXX", "c++")
@@ -178,6 +174,7 @@ def _compiler_env(tmpdir):
         ("LDCXXSHARED", cxx),
     ]:
         _override_tool(env, key, wrapper)
+
     return env
 
 
@@ -234,6 +231,7 @@ PARSER.add_argument("--monitor-memory", action="store_true")
 PARSER.add_argument("--validate-anyarch", action="store_true")
 PARSER.add_argument("--patch-strip", type=int, default=0, help="Strip count for patch (-p)")
 PARSER.add_argument("--patch", action="append", default=[], dest="patches", help="Patch file to apply (repeatable)")
+PARSER.add_argument("--execroot-marker", help="Token in env values to replace with the absolute execroot")
 opts, _ = PARSER.parse_known_args()
 
 tmp_root = path.abspath(opts.outdir) + ".tmp"
@@ -278,7 +276,7 @@ outdir = path.abspath(opts.outdir)
 # and re-point CC/CXX/etc. through wrapper scripts in tmp_root so the
 # Bazel-supplied workspace-relative compiler paths survive the cwd
 # change into the worktree.
-build_env = _compiler_env(tmp_root)
+build_env = _compiler_env(tmp_root, opts.execroot_marker)
 
 if _legacy_metadata_conflicts_with_pyproject(t):
     print(

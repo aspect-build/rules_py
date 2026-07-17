@@ -1,0 +1,29 @@
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("//uv/private/pep517_whl:rule.bzl", "pep517_native_whl")
+
+pep517_native_whl(
+    name = "whl",
+    testonly = True,
+    src = "//uv/private/pep517_whl/tests/native_dep:sdist",
+    env = {
+        "AR": "ar",
+        "CC": "cc",
+        "CPPFLAGS": "-I$(EXECROOT)/$(DEP_INC)",
+        "CXX": "c++",
+        "EXPECTED_AR": "ar",
+        "EXPECTED_LD": "/usr/bin/ld",
+        "EXPECTED_STRIP": "strip",
+        "LD": "/usr/bin/ld",
+        "LDFLAGS": "$(EXECROOT)/$(DEP_LIB_A)",
+        "STRIP": "strip",
+    },
+    tags = ["manual"],
+    tool = "//uv/private/pep517_whl:__build_helper",
+    toolchains = ["//uv/private/pep517_whl/tests/native_dep:dep_makevars"],
+    version = "0.0.1",
+)
+
+build_test(
+    name = "native_dep_bare_tools_test",
+    targets = [":whl"],
+)

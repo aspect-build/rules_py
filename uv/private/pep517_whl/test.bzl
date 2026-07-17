@@ -48,9 +48,8 @@ hostile_python_env_target = rule(
     },
 )
 
-# Env vars sourced from the CC toolchain's TemplateVariableInfo. SYSROOT is
-# omitted because some toolchains legitimately have an empty sysroot and
-# it isn't exposed as a TemplateVariableInfo make variable today.
+# Env vars selected from the configured C++ action tools. SYSROOT is omitted
+# because some toolchains legitimately have an empty sysroot.
 _CC_ENV_KEYS = ["CC", "CXX", "AR", "LD", "STRIP"]
 
 # Env vars sourced from the Java runtime toolchain's TemplateVariableInfo.
@@ -85,7 +84,19 @@ def _toolchain_env_test_impl(ctx):
             "${} should resolve to a non-empty toolchain path".format(key),
         )
 
+    args = build_actions[0].argv
+    marker_index = args.index("--execroot-marker")
+    marker = args[marker_index + 1]
+    asserts.equals(env, "-I{}/relative/include".format(marker), action_env.get("CPPFLAGS"))
+    asserts.equals(env, "{}/relative/libdep.a".format(marker), action_env.get("LDFLAGS"))
+
     action_inputs = [f.path for f in build_actions[0].inputs.to_list()]
+    for key in ["AR", "LD", "STRIP"]:
+        asserts.true(
+            env,
+            action_env.get(key) in action_inputs,
+            "{} should select a declared C++ action tool".format(key),
+        )
     asserts.true(
         env,
         action_env.get("CXX") in action_inputs,
@@ -103,6 +114,21 @@ def _toolchain_env_test_impl(ctx):
     return analysistest.end(env)
 
 pep517_native_whl_toolchain_env_test = analysistest.make(_toolchain_env_test_impl)
+
+def _execroot_collision_toolchain_impl(_ctx):
+    return [platform_common.TemplateVariableInfo({"EXECROOT": "collision"})]
+
+execroot_collision_toolchain = rule(implementation = _execroot_collision_toolchain_impl)
+
+def _execroot_collision_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    asserts.expect_failure(env, "exports the reserved `EXECROOT` make-variable")
+    return analysistest.end(env)
+
+pep517_native_whl_execroot_collision_test = analysistest.make(
+    _execroot_collision_test_impl,
+    expect_failure = True,
+)
 
 def _compiler_driver_paths_test_impl(ctx):
     env = unittest.begin(ctx)

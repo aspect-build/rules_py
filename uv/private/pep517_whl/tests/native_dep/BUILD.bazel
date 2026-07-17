@@ -1,0 +1,106 @@
+load("@bazel_lib//:bzl_library.bzl", "bzl_library")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@tar.bzl//tar:mtree.bzl", "mtree_mutate", "mtree_spec")
+load("@tar.bzl//tar:tar.bzl", "tar_rule")
+load("//uv/private/pep517_whl:rule.bzl", "pep517_native_whl")
+load(":defs.bzl", "dep_makevars")
+
+# A native source build consumes an in-repo cc_library through the same
+# toolchain/env shape emitted by uv.override_package. Its paths are valid from
+# the execroot, but not after the backend changes into the unpacked sdist.
+cc_library(
+    name = "dep",
+    testonly = True,
+    srcs = ["dep.c"],
+    hdrs = ["dep.h"],
+)
+
+write_file(
+    name = "ar_override",
+    out = "ar_override.sh",
+    content = [
+        "#!/bin/sh",
+        "exec /usr/bin/ar \"$@\"",
+    ],
+    is_executable = True,
+)
+
+write_file(
+    name = "cc_override",
+    out = "cc_override.sh",
+    content = [
+        "#!/bin/sh",
+        "exec /usr/bin/cc \"$@\"",
+    ],
+    is_executable = True,
+)
+
+dep_makevars(
+    name = "dep_makevars",
+    testonly = True,
+    ar = ":ar_override",
+    cc = ":cc_override",
+    hdr = "dep.h",
+    lib = ":dep",
+    visibility = ["//uv/private/pep517_whl/tests/native_dep/tool_names:__subpackages__"],
+)
+
+_SDIST_SRCS = glob(
+    ["sdist/**"],
+    exclude = [
+        "sdist/**/__pycache__/**",
+        "sdist/**/*.pyc",
+    ],
+)
+
+mtree_spec(
+    name = "sdist_mtree_raw",
+    testonly = True,
+    srcs = _SDIST_SRCS,
+    include_runfiles = False,
+)
+
+mtree_mutate(
+    name = "sdist_mtree",
+    testonly = True,
+    mtree = ":sdist_mtree_raw",
+    strip_prefix = package_name(),
+)
+
+tar_rule(
+    name = "sdist",
+    testonly = True,
+    srcs = _SDIST_SRCS,
+    mtree = ":sdist_mtree",
+    visibility = ["//uv/private/pep517_whl/tests/native_dep/tool_names:__subpackages__"],
+)
+
+pep517_native_whl(
+    name = "whl",
+    testonly = True,
+    src = ":sdist",
+    env = {
+        "CPPFLAGS": "-I$(EXECROOT)/$(DEP_INC)",
+        "LDFLAGS": "$(EXECROOT)/$(DEP_LIB_A)",
+    },
+    tags = ["manual"],
+    tool = "//uv/private/pep517_whl:__build_helper",
+    toolchains = [
+        ":dep_makevars",
+    ],
+    version = "0.0.1",
+)
+
+build_test(
+    name = "native_dep_env_test",
+    targets = [":whl"],
+)
+
+bzl_library(
+    name = "defs",
+    srcs = ["defs.bzl"],
+    visibility = ["//uv:__subpackages__"],
+    deps = ["@rules_cc//cc/common:cc_info.bzl"],
+)

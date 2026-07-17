@@ -9,7 +9,9 @@ load(":rule.bzl", "pep517_native_whl", "pep517_whl")
 load(
     ":test.bzl",
     "compiler_driver_test_suite",
+    "execroot_collision_toolchain",
     "hostile_python_env_target",
+    "pep517_native_whl_execroot_collision_test",
     "pep517_native_whl_toolchain_env_test",
 )
 
@@ -29,6 +31,8 @@ bzl_library(
         ":compiler",
         "//py/private/toolchain:types",
         "@bazel_lib//lib:resource_sets",
+        "@rules_cc//cc:action_names_bzl",
+        "@rules_cc//cc/common",
     ],
 )
 
@@ -151,18 +155,14 @@ pep517_native_whl(
     name = "__toolchain_env_fixture",
     src = ":__stub_sdist",
     env = {
-        "CC": "$(CC)",
-        "CXX": "$(CC)",
-        "AR": "$(AR)",
-        "LD": "$(LD)",
-        "STRIP": "$(STRIP)",
         "JAVA_HOME": "$(JAVABASE)",
         "JAVA": "$(JAVA)",
+        "CPPFLAGS": "-I$(EXECROOT)/relative/include",
+        "LDFLAGS": "$(EXECROOT)/relative/libdep.a",
     },
     tags = ["manual"],
     tool = ":__stub_tool",
     toolchains = [
-        "@bazel_tools//tools/cpp:current_cc_toolchain",
         "@bazel_tools//tools/jdk:current_java_runtime",
     ],
     version = "0.0.1",
@@ -171,6 +171,22 @@ pep517_native_whl(
 pep517_native_whl_toolchain_env_test(
     name = "toolchain_env_test",
     target_under_test = ":__toolchain_env_fixture",
+)
+
+execroot_collision_toolchain(name = "__execroot_collision_toolchain")
+
+pep517_native_whl(
+    name = "__execroot_collision_fixture",
+    src = ":__stub_sdist",
+    tags = ["manual"],
+    tool = ":__stub_tool",
+    toolchains = [":__execroot_collision_toolchain"],
+    version = "0.0.1",
+)
+
+pep517_native_whl_execroot_collision_test(
+    name = "execroot_collision_test",
+    target_under_test = ":__execroot_collision_fixture",
 )
 
 bzl_library(
