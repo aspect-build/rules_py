@@ -15,16 +15,6 @@ pep517_native_whl(
     tool = ":build_tool",
     version = "6.0",
     monitor_memory = True,
-    toolchains = [
-        "@bazel_tools//tools/cpp:current_cc_toolchain",
-    ],
-    env = {
-        "AR": "$(AR)",
-        "CC": "$(CC)",
-        "CXX": "$(CC)",
-        "LD": "$(LD)",
-        "STRIP": "$(STRIP)",
-    },
     visibility = ["//visibility:public"],
 )
 

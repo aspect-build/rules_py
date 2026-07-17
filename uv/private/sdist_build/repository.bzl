@@ -258,40 +258,29 @@ def _sdist_build_impl(repository_ctx):
             strip = repository_ctx.attr.pre_build_patch_strip,
         )
 
-    # For native builds, emit a baked-in CC toolchain + CC/CXX/AR/LD/STRIP
-    # env block. Targets in `toolchains` expose `TemplateVariableInfo`;
-    # the env values below are make-variable references resolved at
-    # action analysis time.
-    #
-    # CXX starts at $(CC); pep517_native_whl replaces it with a matching
-    # same-directory clang++ / g++ from the selected toolchain when present.
-    #
-    # `extra_toolchains` and `extra_env` augment (do not replace) the
-    # defaults — set via `uv.override_package(toolchains = [...],
-    # env = {...})` to layer JDK / Rust / etc. plumbing on top.
+    # pep517_native_whl selects the C++ action tools directly; legacy CC,
+    # AR, LD, and STRIP make variables can be synthetic. Only forward explicit
+    # toolchains/env for JDK, Rust, and other package-specific overrides.
     toolchain_attrs = ""
     if is_native:
-        toolchains = [
-            "@bazel_tools//tools/cpp:current_cc_toolchain",
-        ] + list(repository_ctx.attr.extra_toolchains)
-        env = {
-            "AR": "$(AR)",
-            "CC": "$(CC)",
-            "CXX": "$(CC)",
-            "LD": "$(LD)",
-            "STRIP": "$(STRIP)",
-        }
-        env.update(repository_ctx.attr.extra_env)
-        toolchain_attrs = """
-    toolchains = [
-{toolchains}
-    ],
+        toolchains = repository_ctx.attr.extra_toolchains
+        extra_env = repository_ctx.attr.extra_env
+        env_attr = ""
+        if extra_env:
+            env_attr = """
     env = {{
 {env}
     }},""".format(
-            toolchains = "\n".join(["        \"{}\",".format(t) for t in toolchains]),
-            env = "\n".join(["        \"{}\": \"{}\",".format(k, v) for k, v in sorted(env.items())]),
-        )
+                env = "\n".join(["        \"{}\": \"{}\",".format(k, v) for k, v in sorted(extra_env.items())]),
+            )
+        if toolchains:
+            toolchain_attrs = """
+    toolchains = [
+{toolchains}
+    ],""".format(
+                toolchains = "\n".join(["        \"{}\",".format(t) for t in toolchains]),
+            )
+        toolchain_attrs += env_attr
 
     resource_set_attr = ""
     if repository_ctx.attr.resource_set != "default":
@@ -367,11 +356,11 @@ sdist_build = repository_rule(
         "pre_build_patch_strip": attr.int(default = 0),
         "extra_toolchains": attr.string_list(
             default = [],
-            doc = "Toolchain labels appended to the default CC toolchain in the generated pep517_native_whl(...) `toolchains` list. Set via `uv.override_package(toolchains = [...])`.",
+            doc = "Toolchain labels forwarded to the generated pep517_native_whl(...) `toolchains` list. Set via `uv.override_package(toolchains = [...])`.",
         ),
         "extra_env": attr.string_dict(
             default = {},
-            doc = "Environment variables merged into the default CC env dict in the generated pep517_native_whl(...) `env` dict. Values may reference $(VAR) make-variables from any toolchain. Set via `uv.override_package(env = {...})`.",
+            doc = "Environment variables forwarded to the generated pep517_native_whl(...) `env` dict. Values may reference $(VAR) make-variables from extra toolchains. Prefix an execroot-relative path with `$(EXECROOT)/` so it remains valid after the backend changes into the unpacked source tree. Set via `uv.override_package(env = {...})`.",
         ),
     },
 )

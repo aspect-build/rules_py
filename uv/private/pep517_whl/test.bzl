@@ -5,8 +5,7 @@ Inspecting the action at analysis time avoids actually running a PEP 517
 build to verify the env wiring.
 """
 
-load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts", "unittest")
-load("//uv/private/pep517_whl:compiler.bzl", "compiler_driver_paths", "cxx_driver_fallback_path")
+load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 
 _ACTION_ENV = "//command_line_option:action_env"
 _HOST_ENV = [
@@ -48,9 +47,8 @@ hostile_python_env_target = rule(
     },
 )
 
-# Env vars sourced from the CC toolchain's TemplateVariableInfo. SYSROOT is
-# omitted because some toolchains legitimately have an empty sysroot and
-# it isn't exposed as a TemplateVariableInfo make variable today.
+# Env vars selected from the configured C++ action tools. SYSROOT is omitted
+# because some toolchains legitimately have an empty sysroot.
 _CC_ENV_KEYS = ["CC", "CXX", "AR", "LD", "STRIP"]
 
 # Env vars sourced from the Java runtime toolchain's TemplateVariableInfo.
@@ -85,68 +83,35 @@ def _toolchain_env_test_impl(ctx):
             "${} should resolve to a non-empty toolchain path".format(key),
         )
 
+    args = build_actions[0].argv
+    marker_index = args.index("--execroot-marker")
+    marker = args[marker_index + 1]
+    asserts.equals(env, "-I{}/relative/include".format(marker), action_env.get("CPPFLAGS"))
+    asserts.equals(env, "{}/relative/libdep.a".format(marker), action_env.get("LDFLAGS"))
+
     action_inputs = [f.path for f in build_actions[0].inputs.to_list()]
-    asserts.true(
-        env,
-        action_env.get("CXX") in action_inputs,
-        "CXX should come from the selected toolchain inputs",
-    )
-    cc = action_env.get("CC")
-    driver_paths = compiler_driver_paths(cc, {path: True for path in action_inputs})
-    asserts.equals(
-        env,
-        driver_paths.cxx if driver_paths else cc,
-        action_env.get("CXX"),
-        "CXX should use the declared companion or selected compiler fallback",
-    )
+    for key in _CC_ENV_KEYS:
+        asserts.true(
+            env,
+            action_env.get(key) in action_inputs,
+            "{} should select a declared C++ action tool".format(key),
+        )
 
     return analysistest.end(env)
 
 pep517_native_whl_toolchain_env_test = analysistest.make(_toolchain_env_test_impl)
 
-def _compiler_driver_paths_test_impl(ctx):
-    env = unittest.begin(ctx)
-    exact = compiler_driver_paths("gcc", {"gcc": True, "g++": True})
-    asserts.equals(env, "g++", exact.cxx)
+def _execroot_collision_toolchain_impl(_ctx):
+    return [platform_common.TemplateVariableInfo({"EXECROOT": "collision"})]
 
-    versioned = compiler_driver_paths(
-        "toolchain/bin/clang-22",
-        {
-            "toolchain/bin/clang-22": True,
-            "toolchain/bin/clang++-22": True,
-        },
-    )
-    asserts.equals(env, "toolchain/bin/clang++-22", versioned.cxx)
+execroot_collision_toolchain = rule(implementation = _execroot_collision_toolchain_impl)
 
-    for near_miss in ["clang-cl", "clang-format", "gcc-ar"]:
-        asserts.equals(
-            env,
-            None,
-            compiler_driver_paths(near_miss, {near_miss: True}),
-            "{} should not be treated as a compiler driver".format(near_miss),
-        )
+def _execroot_collision_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    asserts.expect_failure(env, "exports the reserved `EXECROOT` make-variable")
+    return analysistest.end(env)
 
-    fallback = compiler_driver_paths("toolchain/bin/gcc", {"toolchain/bin/gcc": True})
-    asserts.equals(env, "toolchain/bin/gcc", fallback.cxx)
-
-    for cxx_driver in [
-        "g++",
-        "toolchain/bin/g++-12",
-        "clang++",
-        "toolchain/bin/clang++-22",
-    ]:
-        asserts.equals(env, cxx_driver, cxx_driver_fallback_path(cxx_driver))
-
-    for near_miss in ["g++-ar", "clang++-format", "clang++foo"]:
-        asserts.equals(
-            env,
-            None,
-            cxx_driver_fallback_path(near_miss),
-            "{} should not be treated as a C++ driver".format(near_miss),
-        )
-    return unittest.end(env)
-
-compiler_driver_paths_test = unittest.make(_compiler_driver_paths_test_impl)
-
-def compiler_driver_test_suite(name):
-    unittest.suite(name, compiler_driver_paths_test)
+pep517_native_whl_execroot_collision_test = analysistest.make(
+    _execroot_collision_test_impl,
+    expect_failure = True,
+)

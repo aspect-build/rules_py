@@ -1,0 +1,8 @@
+[build-system]
+requires = []
+build-backend = "backend"
+backend-path = ["."]
+
+[project]
+name = "native_dep_ext"
+version = "0.0.1"

@@ -203,6 +203,13 @@ uv.override_package(
   convey them.
 - Generated pure-Python builds reject `toolchains` and `env`; those attributes
   augment the native build toolchain and environment.
+- Native build `env` values can use `$(EXECROOT)/` to anchor paths supplied by
+  a toolchain, for example `CPPFLAGS = "-I$(EXECROOT)/$(DEP_INC)"` and
+  `LDFLAGS = "$(EXECROOT)/$(DEP_LIB_A)"`. The anchor remains valid after the
+  PEP 517 backend changes into the unpacked source tree.
+- Native builds select the configured C++ compiler, archiver, linker, and strip
+  tools by default. Explicit `CC`, `CXX`, `AR`, `LD`, and `STRIP` values in
+  `env` override those selections.
 - Post-install patches to prebuilt wheels must preserve every original path
   used for collision and regular-package merge planning, including its
   file-or-directory kind and package classification. Ordinary added paths are

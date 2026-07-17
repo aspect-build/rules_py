@@ -10,21 +10,13 @@ load("@aspect_rules_py//py:defs.bzl", "py_test")
 # this case to a different build_helper.py branch; the version
 # assertion in __test__.py guards against that.
 #
-# Failure mode without the fix: once a native sdist build is in play,
-# every path-shaped thing build_helper.py exports to its compiler
-# subprocess must survive the cwd change into the worktree. Two
-# cooperating fixes from the zbarsky-openai patch chain make this
-# work:
+# Every tool path build_helper.py exports to its compiler subprocess must
+# survive the cwd change into the unpacked worktree. Two pieces make this work:
 #
-# 1. `tmp_root = path.abspath(opts.outdir) + ".tmp"` (from
-#    `f12313870`). Was relative — `bazel-out/.../whl.tmp` — and
-#    invalid from any cwd other than the action's execroot.
-# 2. CC/CXX wrappers under `tmp_root/.aspect_rules_py_compilers/`
-#    (from `5d81044`), pointed to by `CC` / `CXX` / `CPP` /
-#    `LDSHARED` / `LDCXXSHARED` so the Bazel-relative
-#    `$(CC)`-expansion (e.g. `external/llvm+/toolchain/gcc`) gets
-#    replaced with an absolute wrapper path before setup.py invokes
-#    the compiler from inside the worktree.
+# 1. `tmp_root = path.abspath(opts.outdir) + ".tmp"` remains valid after the
+#    cwd change.
+# 2. Absolute CC/CXX wrappers under `tmp_root/.aspect_rules_py_compilers/`
+#    resolve the configured compiler execpaths before setup.py invokes them.
 #
 # Constrained to linux for the same reason as uv-sdist-native-build:
 # the host-side cc toolchain plumbing that lets a `setup.py
