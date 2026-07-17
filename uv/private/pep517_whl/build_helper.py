@@ -104,7 +104,7 @@ def _override_tool(env, key, wrapper):
 
 
 def _absolutize_tool_paths(env):
-    """Resolve single-path toolchain variables before the backend changes cwd."""
+    """Resolve toolchain paths before the backend changes cwd."""
     for key in ("JAVA_HOME", "JAVA"):
         value = env.get(key)
         if value:
@@ -112,8 +112,12 @@ def _absolutize_tool_paths(env):
 
     for key in ("AR", "LD", "STRIP"):
         value = env.get(key)
-        if value and path.dirname(value):
-            env[key] = _absolutize_path(value)
+        if not value:
+            continue
+        parts = shlex.split(value)
+        if parts and path.dirname(parts[0]):
+            parts[0] = _absolutize_path(parts[0])
+            env[key] = shlex.join(parts)
 
 
 def _compiler_env(tmpdir, execroot_marker=None):

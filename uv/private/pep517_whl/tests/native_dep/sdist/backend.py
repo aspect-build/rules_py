@@ -19,12 +19,13 @@ _EXT = "native_dep_ext.so"
 def _compile() -> None:
     for key in ("AR", "LD", "STRIP"):
         value = os.environ[key]
+        command = shlex.split(value)
         expected = os.environ.get(f"EXPECTED_{key}")
-        if expected is not None:
-            if value != expected:
-                raise RuntimeError(f"{key} must remain {expected!r}, got {value!r}")
-        elif not Path(value).is_absolute() or not Path(value).exists():
-            raise RuntimeError(f"{key} must be an absolute toolchain path, got {value!r}")
+        if expected is not None and command != shlex.split(expected):
+            raise RuntimeError(f"{key} must remain {expected!r}, got {value!r}")
+        executable = Path(command[0])
+        if executable.parent != Path(".") and (not executable.is_absolute() or not executable.exists()):
+            raise RuntimeError(f"{key} must be an absolute toolchain command, got {value!r}")
 
     cc = shlex.split(os.environ["CC"])
     cppflags = shlex.split(os.environ["CPPFLAGS"])
