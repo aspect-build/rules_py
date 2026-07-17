@@ -1,0 +1,25 @@
+module(name = "all_lock_override_duplicate")
+
+bazel_dep(name = "aspect_rules_py")
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../../../..",
+)
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "duplicate_hub")
+uv.project(
+    hub_name = "duplicate_hub",
+    lock = "//:uv.lock",
+    pyproject = "//:pyproject.toml",
+)
+uv.override_package(
+    name = "demo",
+    extra_data = ["//:pyproject.toml"],
+)
+uv.override_package(
+    name = "demo",
+    extra_data = ["//:pyproject.toml"],
+    lock = "//:uv.lock",
+)
+use_repo(uv, "duplicate_hub")

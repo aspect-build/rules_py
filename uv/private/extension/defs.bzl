@@ -195,12 +195,38 @@ def _parse_projects(module_ctx, hub_specs):
     for mod in module_ctx.modules:
         project_locks = {project.lock: True for project in mod.tags.project}
         for override in mod.tags.override_package:
-            if override.lock not in project_locks:
+            if override.lock == None and override.target != None:
+                fail("uv.override_package() for '{}': `target` requires `lock`.".format(override.name))
+            if override.lock != None and override.lock not in project_locks:
                 fail("uv.override_package() for '{}' refers to lock '{}', but module '{}' has no uv.project() for that lock.".format(
                     override.name,
                     override.lock,
                     mod.name,
                 ))
+
+            if override.pre_build_patch_strip and not override.pre_build_patches:
+                fail("uv.override_package() for '{}': `pre_build_patch_strip` requires `pre_build_patches`.".format(override.name))
+            if override.post_install_patch_strip and not override.post_install_patches:
+                fail("uv.override_package() for '{}': `post_install_patch_strip` requires `post_install_patches`.".format(override.name))
+
+            has_target = override.target != None
+            has_modifications = (
+                override.console_scripts or
+                override.pre_build_patches or
+                override.post_install_patches or
+                override.extra_deps or
+                override.extra_data or
+                override.toolchains or
+                override.env or
+                override.monitor_memory or
+                override.resource_set != "default"
+            )
+            if has_target and has_modifications:
+                fail("uv.override_package() for '{}': `target` is mutually exclusive with modification attributes. Use `target` for full replacement OR build, patch, and data attributes for modifications, not both.".format(override.name))
+            if not has_target and not has_modifications:
+                fail("uv.override_package() for '{}': must specify either `target` for full replacement or at least one modification attribute (console_scripts, pre_build_patches, post_install_patches, extra_deps, extra_data, toolchains, env, monitor_memory, resource_set).".format(override.name))
+
+        unscoped_matches = {i: 0 for i, override in enumerate(mod.tags.override_package) if override.lock == None}
 
         for project in mod.tags.project:
             project_data = toml.decode_file(module_ctx, project.pyproject)
@@ -260,16 +286,21 @@ def _parse_projects(module_ctx, hub_specs):
 
             package_overrides = {}
             package_console_scripts = {}
-            for override in mod.tags.override_package:
-                if override.lock != project.lock:
+            for i, override in enumerate(mod.tags.override_package):
+                if override.lock != None and override.lock != project.lock:
                     continue
 
                 name = normalize_name(override.name)
+                available_versions = package_versions.get(name, {})
+                if override.lock == None and not available_versions:
+                    continue
+
                 v = override.version or default_versions.get(name, (None, None, None, None))[2]
                 if not v:
                     fail("Overridden project {} neither specifies a version nor has an implied singular version in lock {}!".format(override.name, project.lock))
-                available_versions = package_versions.get(name, {})
                 if v not in available_versions:
+                    if override.lock == None:
+                        continue
                     fail("uv.override_package() for package '{}' selects version '{}', which is absent from lock '{}'; available versions: {}".format(
                         override.name,
                         v,
@@ -285,6 +316,9 @@ def _parse_projects(module_ctx, hub_specs):
                         project.lock,
                     ))
 
+                if override.lock == None:
+                    unscoped_matches[i] += 1
+
                 console_scripts = []
                 for raw_script_name, raw_entry_point in sorted(override.console_scripts.items()):
                     console_script = parse_declared_console_script(raw_script_name, raw_entry_point)
@@ -299,28 +333,6 @@ def _parse_projects(module_ctx, hub_specs):
                     console_scripts.append(console_script)
 
                 has_target = override.target != None
-                if override.pre_build_patch_strip and not override.pre_build_patches:
-                    fail("uv.override_package() for '{}': `pre_build_patch_strip` requires `pre_build_patches`.".format(override.name))
-                if override.post_install_patch_strip and not override.post_install_patches:
-                    fail("uv.override_package() for '{}': `post_install_patch_strip` requires `post_install_patches`.".format(override.name))
-                has_modifications = (
-                    override.console_scripts or
-                    override.pre_build_patches or
-                    override.post_install_patches or
-                    override.extra_deps or
-                    override.extra_data or
-                    override.toolchains or
-                    override.env or
-                    override.monitor_memory or
-                    override.resource_set != "default"
-                )
-
-                if has_target and has_modifications:
-                    fail("uv.override_package() for '{}': `target` is mutually exclusive with modification attributes. Use `target` for full replacement OR build, patch, and data attributes for modifications, not both.".format(override.name))
-
-                if not has_target and not has_modifications:
-                    fail("uv.override_package() for '{}': must specify either `target` for full replacement or at least one modification attribute (console_scripts, pre_build_patches, post_install_patches, extra_deps, extra_data, toolchains, env, monitor_memory, resource_set).".format(override.name))
-
                 package_overrides[override_key] = override
                 package_console_scripts[override_key] = console_scripts
 
@@ -615,6 +627,12 @@ def _parse_projects(module_ctx, hub_specs):
                 for cfg in cfgs.keys():
                     hub_cfg.packages.setdefault(package, {})[cfg] = "@{}//:{}".format(project_id, package)
 
+        for i, override in enumerate(mod.tags.override_package):
+            if override.lock == None and not unscoped_matches[i]:
+                if override.version:
+                    fail("uv.override_package() for '{}=={}' matches no uv.project() locks in module '{}'.".format(override.name, override.version, mod.name))
+                fail("uv.override_package() for '{}' matches no uv.project() locks in module '{}'.".format(override.name, mod.name))
+
     return struct(
         project_cfgs = project_cfgs,
         hub_cfgs = hub_cfgs,
@@ -825,7 +843,10 @@ _annotations_tag = tag_class(
 
 _override_package_tag = tag_class(
     attrs = {
-        "lock": attr.label(mandatory = True),
+        "lock": attr.label(
+            mandatory = False,
+            doc = "The `uv.lock` this override applies to. Omit it to apply modifications across every `uv.project()` declared by the same module.",
+        ),
         "name": attr.string(mandatory = True),
         "version": attr.string(mandatory = False),
         "target": attr.label(
@@ -902,8 +923,9 @@ _override_package_tag = tag_class(
     doc = """Override or modify a Python package resolved from a lockfile.
 
 Use `target` for full replacement, or use the patch/data attributes
-for surgical modifications. Specifying `target` is mutually exclusive with
-all other modification attributes.""",
+for surgical modifications. Omitting `lock` applies modifications across all
+project locks declared by the same module. Specifying `target` requires `lock`
+and is mutually exclusive with all other modification attributes.""",
 )
 
 uv = module_extension(

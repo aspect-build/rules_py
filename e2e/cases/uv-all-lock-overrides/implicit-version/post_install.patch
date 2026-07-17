@@ -1,0 +1,4 @@
+--- a/lib/python3.11/site-packages/boltons/__init__.py
++++ b/lib/python3.11/site-packages/boltons/__init__.py
+@@ -0,0 +1 @@
++IMPLICIT_VERSION_PATCHED = True

@@ -1,0 +1,9 @@
+exports_files([
+    "alpha.pyproject.toml",
+    "alpha.uv.lock",
+    "beta.pyproject.toml",
+    "beta.uv.lock",
+    "gamma.pyproject.toml",
+    "gamma.uv.lock",
+    "post_install.patch",
+])

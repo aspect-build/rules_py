@@ -1,0 +1,18 @@
+version = 1
+revision = 3
+requires-python = ">=3.11"
+
+[[package]]
+name = "implicit-version-beta"
+version = "0.0.0"
+source = { virtual = "." }
+dependencies = [{ name = "boltons" }]
+
+[package.metadata]
+requires-dist = [{ name = "boltons", specifier = "==24.0.0" }]
+
+[[package]]
+name = "boltons"
+version = "24.0.0"
+source = { registry = "https://pypi.org/simple" }
+wheels = [{ url = "https://files.pythonhosted.org/packages/46/35/e50d4a115f93e2a3fbf52438435bb2efcf14c11d4fcd6bdcd77a6fc399c9/boltons-24.0.0-py3-none-any.whl", hash = "sha256:9618695a6ec4f50412e7072e5d78910a00b4111d0b9b549e4a3d60bc321e7807", size = 191700 }]

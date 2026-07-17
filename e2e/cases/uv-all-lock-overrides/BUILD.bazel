@@ -1,0 +1,30 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+exports_files(["post_install.patch"])
+
+py_test(
+    name = "alpha_test",
+    srcs = ["patched_test.py"],
+    dep_group = "all-locks-alpha",
+    main = "patched_test.py",
+    python_version = "3.11",
+    deps = ["@pypi_all_lock_overrides//boltons"],
+)
+
+py_test(
+    name = "beta_test",
+    srcs = ["patched_test.py"],
+    dep_group = "all-locks-beta",
+    main = "patched_test.py",
+    python_version = "3.11",
+    deps = ["@pypi_all_lock_overrides//boltons"],
+)
+
+py_test(
+    name = "version_mismatch_test",
+    srcs = ["unpatched_test.py"],
+    dep_group = "all-locks-delta",
+    main = "unpatched_test.py",
+    python_version = "3.11",
+    deps = ["@pypi_all_lock_overrides//boltons"],
+)

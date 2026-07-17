@@ -1,0 +1,36 @@
+module(name = "all_lock_override_implicit_version")
+
+bazel_dep(name = "aspect_rules_py")
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../../../..",
+)
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "implicit_version_hub")
+uv.project(
+    hub_name = "implicit_version_hub",
+    lock = "//:alpha.uv.lock",
+    pyproject = "//:alpha.pyproject.toml",
+)
+uv.project(
+    hub_name = "implicit_version_hub",
+    lock = "//:beta.uv.lock",
+    pyproject = "//:beta.pyproject.toml",
+)
+uv.project(
+    hub_name = "implicit_version_hub",
+    lock = "//:gamma.uv.lock",
+    pyproject = "//:gamma.pyproject.toml",
+)
+uv.override_package(
+    name = "boltons",
+    post_install_patch_strip = 1,
+    post_install_patches = ["//:post_install.patch"],
+)
+use_repo(
+    uv,
+    "implicit_version_hub",
+    "whl_install__implicit_version_alpha__boltons__25_0_0",
+    "whl_install__implicit_version_beta__boltons__24_0_0",
+)

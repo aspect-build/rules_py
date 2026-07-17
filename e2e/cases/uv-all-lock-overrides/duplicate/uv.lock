@@ -1,0 +1,18 @@
+version = 1
+revision = 3
+requires-python = ">=3.11"
+
+[[package]]
+name = "all-locks-duplicate"
+version = "0.0.0"
+source = { virtual = "." }
+dependencies = [{ name = "demo" }]
+
+[package.metadata]
+requires-dist = [{ name = "demo", specifier = "==1.0.0" }]
+
+[[package]]
+name = "demo"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+wheels = [{ url = "https://example.invalid/demo-1.0.0-py3-none-any.whl", hash = "sha256:0000000000000000000000000000000000000000000000000000000000000000", size = 1 }]

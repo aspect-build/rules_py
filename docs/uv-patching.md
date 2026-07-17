@@ -72,6 +72,23 @@ Use a Starlark list comprehension:
 ]]
 ```
 
+### Applying a patch across all locks
+
+Omit `lock` to apply a modification wherever a package is present in the
+`uv.project()` locks declared by the same module:
+
+```starlark
+uv.override_package(
+    name = "nvidia-cublas-cu12",
+    post_install_patches = ["//patches:nvidia-strip-init.patch"],
+    post_install_patch_strip = 1,
+)
+```
+
+An explicit `version` limits the modification to locks containing that
+version. Locks without the package or selected version are skipped, but an
+override that matches no locks is an error.
+
 ### Patching source distributions before build
 
 If a package is built from source (sdist) and the build script needs fixing:
@@ -183,12 +200,16 @@ uv.override_package(
 ## Constraints
 
 - Each `(lock, name, version)` triple may only have one `override_package` declaration. Duplicates are an error.
-- `lock` must identify a `uv.project()` declared by the same module.
+- An explicit `lock` must identify a `uv.project()` declared by the same
+  module. Omitting it applies modifications across all of that module's locks.
+- An unscoped override supports modifications only; full `target` replacement
+  requires an explicit `lock`.
 - `target` is mutually exclusive with all other modification attributes. Use `target` for full replacement OR the patch/modification attributes, not both.
 - The `version` attribute is optional and defaults to whatever version the lockfile resolves.
 - `console_scripts` applies only when the lock record has a source
   distribution. Prebuilt wheels use their inspected metadata.
-- An explicit `version` must match a record for that package in the lockfile.
+- An explicit `version` on a lock-scoped override must match a record for that
+  package in the lockfile. Without `lock`, it must match at least one lock.
 - Modification attributes cannot apply to virtual packages or the project's
   editable workspace package because neither produces an installed wheel.
 - `pre_build_patch_strip` requires `pre_build_patches`, and

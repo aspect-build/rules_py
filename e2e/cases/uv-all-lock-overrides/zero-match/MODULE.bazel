@@ -1,0 +1,20 @@
+module(name = "all_lock_override_zero_match")
+
+bazel_dep(name = "aspect_rules_py")
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../../../..",
+)
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "zero_match_hub")
+uv.project(
+    hub_name = "zero_match_hub",
+    lock = "//:uv.lock",
+    pyproject = "//:pyproject.toml",
+)
+uv.override_package(
+    name = "missing",
+    extra_data = ["//:pyproject.toml"],
+)
+use_repo(uv, "zero_match_hub")
