@@ -43,6 +43,11 @@ label_flag(
     visibility = ["//visibility:public"],
 )
 
+toolchain_type(
+    name = "venv_symlink_toolchain_type",
+    visibility = ["//visibility:public"],
+)
+
 bzl_library(
     name = "current_py_toolchain",
     srcs = ["current_py_toolchain.bzl"],

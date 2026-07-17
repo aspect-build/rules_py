@@ -28,7 +28,7 @@ toolchain(
     name = "venv_symlink_{platform}_toolchain",
     exec_compatible_with = {compatible_with},
     toolchain = "@aspect_rules_py//py/private/toolchain:venv_symlink_tool",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:venv_symlink_toolchain_type",
+    toolchain_type = "@aspect_rules_py//py:venv_symlink_toolchain_type",
 )
 
 """.format(
@@ -41,7 +41,7 @@ toolchain(
 toolchain(
     name = "venv_symlink_zfallback_toolchain",
     toolchain = "@aspect_rules_py//py/private/toolchain:empty_venv_symlink_tool",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:venv_symlink_toolchain_type",
+    toolchain_type = "@aspect_rules_py//py:venv_symlink_toolchain_type",
 )
 
 """

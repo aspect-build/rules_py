@@ -74,7 +74,7 @@ venv_symlink_toolchain(
 toolchain(
     name = "_custom_symlink_toolchain",
     toolchain = ":_custom_symlink_toolchain_impl",
-    toolchain_type = "//py/private/toolchain:venv_symlink_toolchain_type",
+    toolchain_type = "//py:venv_symlink_toolchain_type",
 )
 
 venv_symlink_toolchain(name = "_no_symlink_toolchain_impl")
@@ -82,7 +82,7 @@ venv_symlink_toolchain(name = "_no_symlink_toolchain_impl")
 toolchain(
     name = "_no_symlink_toolchain",
     toolchain = ":_no_symlink_toolchain_impl",
-    toolchain_type = "//py/private/toolchain:venv_symlink_toolchain_type",
+    toolchain_type = "//py:venv_symlink_toolchain_type",
 )
 
 private_venv_symlinks_test(

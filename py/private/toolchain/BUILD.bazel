@@ -15,11 +15,6 @@ toolchain_type(
     visibility = ["//visibility:public"],
 )
 
-toolchain_type(
-    name = "venv_symlink_toolchain_type",
-    visibility = ["//visibility:public"],
-)
-
 py_binary(
     name = "venv_symlinks",
     srcs = ["//py/private/py_venv:templates/symlinks.py"],
