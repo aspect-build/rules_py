@@ -1,0 +1,60 @@
+load("//py:defs.bzl", "py_test")
+
+# Site-configuration behavior of the assembled venv. `include_system_site_packages`
+# governs how many site-packages roots resolve (venv-only vs. venv + base). User-site
+# (site.ENABLE_USER_SITE) is governed at runtime by isolation: `-I` forces it off; a
+# non-isolated launcher over a system-enabled venv leaves it on.
+
+_SRCS = ["site_config_test.py"]
+
+_MAIN = "site_config_test.py"
+
+_DEPS = ["@pypi//cowsay"]
+
+py_test(
+    name = "system_site_disabled",
+    srcs = _SRCS,
+    env = {"EXPECT_SYSTEM_SITE": "venv_only"},
+    imports = ["."],
+    include_system_site_packages = False,
+    main = _MAIN,
+    deps = _DEPS,
+)
+
+py_test(
+    name = "system_site_disabled_non_isolated",
+    srcs = _SRCS,
+    env = {"EXPECT_SYSTEM_SITE": "venv_only"},
+    imports = ["."],
+    include_system_site_packages = False,
+    isolated = False,
+    main = _MAIN,
+    deps = _DEPS,
+)
+
+# Non-isolated over a system-enabled venv: base site-packages resolve and user-site
+# stays on.
+py_test(
+    name = "site_enabled_non_isolated",
+    srcs = _SRCS,
+    env = {
+        "EXPECT_SYSTEM_SITE": "with_base",
+        "EXPECT_USER_SITE": "enabled",
+    },
+    imports = ["."],
+    include_system_site_packages = True,
+    isolated = False,
+    main = _MAIN,
+    deps = _DEPS,
+)
+
+# Same venv but isolated (`-I`): user-site is forced off regardless of the venv config.
+py_test(
+    name = "user_site_isolated_off",
+    srcs = _SRCS,
+    env = {"EXPECT_USER_SITE": "disabled"},
+    imports = ["."],
+    include_system_site_packages = True,
+    main = _MAIN,
+    deps = _DEPS,
+)
