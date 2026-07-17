@@ -365,6 +365,8 @@ def _version_expr(left, op, right):
     elif op == "~=":
         right_plus = right.upper()
         _right_plus = right_plus.key()
+        if left.pre_release and _left[:3] == _right_plus[:3]:
+            return False
         return _left >= _right and _left < _right_plus
     elif op == "===":
         # Strict matching

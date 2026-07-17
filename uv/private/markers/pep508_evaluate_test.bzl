@@ -267,6 +267,11 @@ def _version_ops_test_impl(ctx):
     asserts.true(env, evaluate("python_full_version <= '3.15'", env = prerelease_env))
     asserts.false(env, evaluate("python_full_version < '3.15'", env = prerelease_env))
     asserts.false(env, evaluate("python_full_version ~= '3.15.0'", env = prerelease_env))
+    asserts.false(env, evaluate("python_full_version ~= '3.14.9'", env = prerelease_env))
+
+    in_range_prerelease_env = dict(_LINUX_ENV)
+    in_range_prerelease_env["python_full_version"] = "3.14.10a1"
+    asserts.true(env, evaluate("python_full_version ~= '3.14.9'", env = in_range_prerelease_env))
 
     # Alpha, beta, and release-candidate suffixes compare numerically and in
     # PEP 440 order, including the accepted long-form spellings.
