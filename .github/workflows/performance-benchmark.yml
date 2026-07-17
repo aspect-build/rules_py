@@ -28,7 +28,6 @@ jobs:
             needs-main: false
     permissions:
       contents: read
-      pull-requests: write
     steps:
       - name: Checkout PR
         uses: actions/checkout@v6
@@ -93,18 +92,6 @@ jobs:
           RUNFILES_DIR="$PWD/$BIN.runfiles" hyperfine --warmup 5 --runs 50 --export-json "${GITHUB_WORKSPACE}/${{ matrix.variant }}-startup.json" "$BIN"
           RUNFILES_DIR="$PWD/$BIN.runfiles" "$BIN" "${GITHUB_WORKSPACE}/${{ matrix.variant }}-startup-syspath.json"
 
-      - name: Write raw summary
-        run: |
-          echo "## ${{ matrix.label }}" >> "$GITHUB_STEP_SUMMARY"
-          python3 -c "
-          import json
-          a = json.load(open('${GITHUB_WORKSPACE}/${{ matrix.variant }}-analysis.json'))
-          am = a['analysis_ms']
-          print(f'- **Analysis**: {am[\"mean\"]:.0f}ms ±{am[\"stddev\"]:.0f}ms' if 'analysis_ms' in a else '- Analysis: pending')
-          s = json.load(open('${GITHUB_WORKSPACE}/${{ matrix.variant }}-startup.json'))
-          print(f'- **Startup**: {s[\"results\"][0][\"mean\"]*1000:.1f}ms')
-          " >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || echo "- (partial data)" >> "$GITHUB_STEP_SUMMARY"
-
       - name: Upload results
         uses: actions/upload-artifact@v4
         with:
@@ -116,67 +103,91 @@ jobs:
             ${{ matrix.variant }}-startup-syspath.json
             profiles/
 
-      - name: Update PR comment
-        if: github.event_name == 'pull_request'
+  report:
+    needs: [bench]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v6
+        with:
+          path: rules_py_pr
+
+      - name: Download all results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: bench-*
+          merge-multiple: true
+
+      - name: Compare analysis
+        id: analysis
         continue-on-error: true
         run: |
-          set -euo pipefail
-          # Download all sibling results that have finished.
-          for v in bcr main pr; do
-            [ "$v" = "${{ matrix.variant }}" ] && continue
-            gh api repos/${{ github.repository }}/actions/artifacts \
-              --jq ".artifacts[] | select(.name == \"bench-$v\") | .name" 2>/dev/null | grep -q . \
-              && gh api repos/${{ github.repository }}/actions/artifacts \
-                --jq ".artifacts[] | select(.name == \"bench-$v\") | .archive_download_url" \
-                -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                > /dev/null 2>&1 \
-              && echo "sibling $v available" || echo "sibling $v pending"
-          done
+          python3 rules_py_pr/benchmark/compare.py analysis \
+            --output-table analysis-table.txt \
+            --step-summary "$GITHUB_STEP_SUMMARY" \
+            bcr-analysis.json main-analysis.json pr-analysis.json
 
-          # Try to download sibling artifacts (may not exist yet).
-          for v in bcr main pr; do
-            [ "$v" = "${{ matrix.variant }}" ] && continue
-            gh run download "$GITHUB_RUN_ID" -n "bench-$v" -D "/tmp/$v" 2>/dev/null \
-              && cp /tmp/$v/${v}-*.json . 2>/dev/null || true
-          done
-
-          # Render comparison tables (pending variants show ⏳).
-          python3 rules_py_pr/benchmark/compare.py analysis --partial \
-            --output-table /tmp/analysis-table.txt \
-            bcr-analysis.json main-analysis.json pr-analysis.json 2>/dev/null || true
-          python3 rules_py_pr/benchmark/compare.py startup --partial \
-            --output-table /tmp/startup-table.txt \
-            bcr-startup.json main-startup.json pr-startup.json 2>/dev/null || true
-          echo "${{ github.event.pull_request.number }}" > /tmp/pr-number.txt
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Post comment
-        if: github.event_name == 'pull_request'
+      - name: Compare startup
+        id: startup
         continue-on-error: true
+        run: |
+          python3 rules_py_pr/benchmark/compare.py startup \
+            --output-table startup-table.txt \
+            bcr-startup.json main-startup.json pr-startup.json
+          cat startup-table.txt >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Save PR number
+        if: github.event_name == 'pull_request'
+        run: echo "${{ github.event.pull_request.number }}" > pr-number.txt
+
+      - name: Upload report artifacts
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: |
+            analysis-table.txt
+            startup-table.txt
+            pr-number.txt
+            profiles/
+          if-no-files-found: warn
+
+      - name: Post PR comment
+        if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
-        env:
-          RUNNER_OS: ${{ runner.os }}
         with:
           script: |
             const fs = require('fs');
+            const startup = fs.existsSync('startup-table.txt') ? fs.readFileSync('startup-table.txt', 'utf8').trim() : '';
+            const analysis = fs.existsSync('analysis-table.txt') ? fs.readFileSync('analysis-table.txt', 'utf8').trim() : '';
             const header = '<!-- performance-benchmark -->';
-            let body = header + '\n\n';
-            try { body += fs.readFileSync('/tmp/analysis-table.txt', 'utf8').trim() + '\n\n'; } catch {}
-            try { body += fs.readFileSync('/tmp/startup-table.txt', 'utf8').trim(); + '\n'; } catch {}
+            const body = `${header}\n\n${startup}\n\n${analysis}`;
             const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner, repo: context.repo.repo,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
               issue_number: context.issue.number,
             });
             const existing = comments.find(c => c.body && c.body.includes(header));
             if (existing) {
               await github.rest.issues.updateComment({
-                owner: context.repo.owner, repo: context.repo.repo,
-                comment_id: existing.id, body: body,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: body,
               });
             } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner, repo: context.repo.repo,
-                issue_number: context.issue.number, body: body,
+              const { data: created } = await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body,
               });
             }
+
+      - name: Fail on regression
+        if: steps.analysis.outcome == 'failure' || steps.startup.outcome == 'failure'
+        run: exit 1
