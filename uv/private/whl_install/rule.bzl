@@ -99,20 +99,18 @@ def _whl_install(ctx):
         exec_runtime.files,
     ]
 
-    preserve_paths = {path: None for path in top_levels}
-    for path in namespace_entries + namespace_dirs + regular_roots:
-        root = path.split("/")[0]
-        if not root.endswith(".dist-info") and not root.endswith(".egg-info"):
-            preserve_paths[path] = None
-    preserve_paths = sorted(preserve_paths)
-
     # Patch application happens before filtering and pyc compilation.
     patch_files = [f for t in ctx.attr.patches for f in t[DefaultInfo].files.to_list()]
     if patch_files:
         arguments.add("--patch-strip", str(ctx.attr.patch_strip))
         arguments.add_all(patch_files, before_each = "--patch")
+        preserve_paths = {path: None for path in top_levels}
+        for path in namespace_entries + namespace_dirs + regular_roots:
+            root = path.split("/")[0]
+            if not root.endswith(".dist-info") and not root.endswith(".egg-info"):
+                preserve_paths[path] = None
         arguments.add_all(
-            preserve_paths,
+            sorted(preserve_paths),
             before_each = "--preserve-path",
         )
         if ctx.attr.exclude_glob:
