@@ -108,18 +108,29 @@ def semver(version):
     patch, _, pre_release = tail.partition("-")
 
     release = patch or minor
+    remainder = ""
+    if patch and not minor.isdigit():
+        release = minor
+        remainder = patch
+
     suffix = pre_release
     split_release = False
-    if not pre_release and not release.isdigit():
+    if not release.isdigit():
         end = 0
         for char in release.elems():
             if not char.isdigit():
                 break
             end += 1
 
-        suffix = release[end:].lower().strip("-_.")
+        suffix = ".".join([
+            part
+            for part in [release[end:].strip("-_."), remainder, pre_release]
+            if part
+        ])
         split_release = True
 
+    # Interpreter full versions use dev/a/b/rc suffixes; post-release forms
+    # are not emitted by PBS and intentionally retain the legacy behavior.
     if suffix:
         suffix = suffix.lower().strip("-_.")
         suffix, has_dev, dev = suffix.partition("dev")
@@ -153,10 +164,11 @@ def semver(version):
                     break
 
         if matched and split_release:
-            if patch:
+            if release == patch:
                 patch = patch[:end]
             else:
                 minor = minor[:end]
+                patch = ""
 
     return _new(
         major = int(major),

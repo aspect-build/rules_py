@@ -296,6 +296,25 @@ def _version_ops_test_impl(ctx):
     dev_env["python_full_version"] = "3.15.0rc1.dev2"
     asserts.true(env, evaluate("python_full_version < '3.15.0rc1'", env = dev_env))
 
+    # PEP 440 accepts '.', '-', '_', or no separator before dev, including
+    # two-component interpreter versions; keep the alpha/beta/rc component.
+    dev_env["python_full_version"] = "3.15.0a1-dev2"
+    asserts.true(env, evaluate("python_full_version == '3.15.0a1.dev2'", env = dev_env))
+    dev_env["python_full_version"] = "3.15.0a1_dev2"
+    asserts.true(env, evaluate("python_full_version == '3.15.0a1dev2'", env = dev_env))
+    dev_env["python_full_version"] = "3.15.0a1-dev10"
+    asserts.true(env, evaluate("python_full_version > '3.15.0a1_dev2'", env = dev_env))
+    dev_env["python_full_version"] = "3.15.0b1-dev2"
+    asserts.true(env, evaluate("python_full_version > '3.15.0a9.dev9'", env = dev_env))
+    dev_env["python_full_version"] = "3.15a1.dev2"
+    asserts.true(env, evaluate("python_full_version == '3.15.0a1-dev2'", env = dev_env))
+    dev_env["python_full_version"] = "3.15a1-dev10"
+    asserts.true(env, evaluate("python_full_version > '3.15a1.dev2'", env = dev_env))
+    dev_env["python_full_version"] = "3.15b1_dev2"
+    asserts.true(env, evaluate("python_full_version > '3.15a9dev9'", env = dev_env))
+    dev_env["python_full_version"] = "3.15rc1.dev2"
+    asserts.true(env, evaluate("python_full_version > '3.15b9-dev9'", env = dev_env))
+
     # Alpha, beta, and release-candidate suffixes compare numerically and in
     # PEP 440 order, including the accepted long-form spellings.
     asserts.true(env, evaluate("python_full_version > '3.15.0a2'", env = prerelease_env))
