@@ -1,8 +1,8 @@
 """Implementation for the py_venv_exec and py_venv_exec_test rules.
 
-Both are thin launchers that consume a sibling `py_venv` (passed via the
-internal `venv` attr) and exec its `bin/python`. The public
-`py_binary` / `py_test` macros wrap them and route all venv-shaping
+Both are thin launchers that consume a sibling ``py_venv`` (passed via
+the internal ``venv`` attr) and exec its ``bin/python``. The public
+``py_binary`` / ``py_test`` macros wrap them and route all venv-shaping
 attrs to the auto-generated sibling.
 """
 
@@ -13,39 +13,39 @@ load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private:transitions.bzl", "reset_python_flags_transition")
 load(":types.bzl", "VirtualenvInfo", "venv_root")
 
-# Identifiers the launcher always sets to the analysing rule's contextual
-# values. Excluded from `inherited_environment` so that a stray
-# `env_inherit` entry can't let an outer shell shadow the contextual
-# label at run time.
 _CONTEXTUAL_ENV_KEYS = ("BAZEL_TARGET", "BAZEL_WORKSPACE", "BAZEL_TARGET_NAME")
 
-def _py_venv_exec_impl(ctx):
-    # The launcher itself doesn't need a python toolchain — it just
-    # exec's the sibling venv's `bin/python`, whose path was already
-    # resolved when the venv was analysed. Default interpreter flags
-    # come from a shared constant.
-    #
-    # The macro layer routes srcs / deps to the sibling py_venv (always
-    # set as `venv`) and passes an explicit `main =` to the rule.
-    # `main` is the only first-party file the rule contributes;
-    # everything else flows through the sibling venv.
-    if not ctx.attr.main:
-        fail("py_binary {}: main is required.".format(ctx.label))
+def _validate_main(ctx):
+    """Return the main module ``File``, failing if absent or not ``.py``."""
     main = ctx.file.main
+    if not main:
+        fail("py_binary {}: main is required.".format(ctx.label))
     if not main.basename.endswith(".py"):
         fail("main must end in '.py', got: " + main.basename)
+    return main
 
-    venv = ctx.attr.venv
-    vinfo = venv[VirtualenvInfo]
+def _set_contextual_env(ctx, passed_env):
+    """Set Bazel contextual identifiers that always override user env."""
+    passed_env["BAZEL_TARGET"] = str(ctx.label).lstrip("@")
+    passed_env["BAZEL_WORKSPACE"] = ctx.workspace_name
+    passed_env["BAZEL_TARGET_NAME"] = ctx.attr.name
 
-    # Merge env vars: start from the venv's `env` (if any), then
-    # overlay the binary's own — binary wins on key conflicts. Same
-    # merge for inherited env-var names. Bazel-contextual identifiers
-    # (BAZEL_TARGET, etc.) overlay last and are stripped from
-    # `inherited_env` so a stray `env_inherit` entry can't let the
-    # caller's shell shadow the contextual label — per
-    # https://bazel.build/rules/lib/providers/RunEnvironmentInfo, an
-    # inherited value wins over `environment` when both are present.
+def _strip_contextual_from_inherited(inherited_env):
+    """Remove contextual keys so a stray ``env_inherit`` can't shadow them.
+
+    Per RunEnvironmentInfo semantics, an inherited value wins over
+    ``environment`` when both are present — stripping here prevents
+    the caller's shell from overriding the contextual identifiers.
+    """
+    return [n for n in inherited_env if n not in _CONTEXTUAL_ENV_KEYS]
+
+def _merge_environment(ctx, venv, vinfo):
+    """Merge env vars from the sibling venv, the binary, and contextual keys.
+
+    Precedence (last wins): venv ``RunEnvironmentInfo`` -> ``VIRTUAL_ENV``
+    -> binary ``env`` -> contextual keys.  Returns
+    ``(passed_env, inherited_env)``.
+    """
     passed_env = {}
     inherited_env = []
     if RunEnvironmentInfo in venv:
@@ -53,13 +53,9 @@ def _py_venv_exec_impl(ctx):
         passed_env = dict(venv_env.environment)
         inherited_env = list(venv_env.inherited_environment)
 
-    # Owned by the rule. The lib venv variant carries no `env` to guard,
-    # so guard here to match the executable variant's check.
     if "VIRTUAL_ENV" in ctx.attr.env:
         fail("py_binary/py_test {}: `VIRTUAL_ENV` is set by the rule and cannot be overridden via `env`.".format(ctx.label))
 
-    # Set here so it's present even for the lib venv variant, which has
-    # no RunEnvironmentInfo to carry it.
     passed_env["VIRTUAL_ENV"] = venv_root(vinfo.bin_python)
     for k, v in ctx.attr.env.items():
         passed_env[k] = expand_variables(
@@ -67,27 +63,39 @@ def _py_venv_exec_impl(ctx):
             expand_locations(ctx, v, ctx.attr.data),
             attribute_name = "env",
         )
+
+    inherited_set = {n: True for n in inherited_env}
     for name in ctx.attr.env_inherit:
-        if name not in inherited_env:
+        if name not in inherited_set:
             inherited_env.append(name)
-    passed_env["BAZEL_TARGET"] = str(ctx.label).lstrip("@")
-    passed_env["BAZEL_WORKSPACE"] = ctx.workspace_name
-    passed_env["BAZEL_TARGET_NAME"] = ctx.attr.name
-    inherited_env = [n for n in inherited_env if n not in _CONTEXTUAL_ENV_KEYS]
+            inherited_set[name] = True
 
-    # When `isolated = False`, drop Python's `-I` flag so PYTHONPATH is
-    # honored and the script directory is auto-added to sys.path.
-    flags = list(_py_semantics.interpreter_flags) + ctx.attr.interpreter_options
+    _set_contextual_env(ctx, passed_env)
+    inherited_env = _strip_contextual_from_inherited(inherited_env)
+
+    return passed_env, inherited_env
+
+def _interpreter_flags(ctx):
+    """Build the interpreter flag list.
+
+    Base flags come from ``py_semantics``.  When ``isolated = False``,
+    ``-I`` is stripped from the **base** flags so PYTHONPATH is honored.
+    User ``interpreter_options`` are always appended verbatim — a user
+    explicitly passing ``-I`` survives the isolated-stripping.
+    """
+    base = list(_py_semantics.interpreter_flags)
     if not ctx.attr.isolated:
-        flags = [f for f in flags if f != "-I"]
+        base = [f for f in base if f != "-I"]
+    return base + list(ctx.attr.interpreter_options)
 
-    # Native launcher via hermetic_launcher. Embedded argv:
-    #   [0]  venv's bin/python (runfiles-resolved)
-    #   [1+] interpreter flags (literal, e.g. -I, -X importtime)
-    #   [N]  main module path (runfiles-resolved)
-    # The launcher runtime resolves transformed-arg positions through
-    # the Bazel runfiles manifest, then `execve`s the venv python.
-    executable_launcher = ctx.actions.declare_file(ctx.attr.name)
+def _build_launcher(ctx, vinfo, flags, main):
+    """Compile the native launcher stub via ``hermetic_launcher``.
+
+    Embedded argv: venv's ``bin/python``, interpreter flags, then the
+    main module path.  The launcher runtime resolves runfiles positions
+    and ``execve``'s the venv python.
+    """
+    executable = ctx.actions.declare_file(ctx.attr.name)
     embedded_args, transformed_args = launcher.args_from_entrypoint(vinfo.bin_python)
     for flag in flags:
         embedded_args, transformed_args = launcher.append_embedded_arg(
@@ -104,43 +112,48 @@ def _py_venv_exec_impl(ctx):
         ctx = ctx,
         embedded_args = embedded_args,
         transformed_args = transformed_args,
-        output_file = executable_launcher,
+        output_file = executable,
     )
+    return executable
 
-    # Merge runfiles, supporting `py_venv_exec(main)` not being in the `py_venv` runfiles.
-    runfiles = ctx.runfiles(
+def _build_runfiles(ctx, venv, main):
+    """Merge data files, the main module, and the venv's runfiles."""
+    return ctx.runfiles(
         files = ctx.files.data + [main],
     ).merge_all(
         [target[DefaultInfo].default_runfiles for target in ctx.attr.data] +
         [venv[DefaultInfo].default_runfiles],
     )
 
-    instrumented_files_info = coverage_common.instrumented_files_info(
-        ctx,
-        source_attributes = ["main"],
-        dependency_attributes = ["data", "venv"],
-        extensions = ["py"],
-    )
+def _py_venv_exec_impl(ctx):
+    main = _validate_main(ctx)
+    venv = ctx.attr.venv
+    vinfo = venv[VirtualenvInfo]
+
+    passed_env, inherited_env = _merge_environment(ctx, venv, vinfo)
+    flags = _interpreter_flags(ctx)
+    executable = _build_launcher(ctx, vinfo, flags, main)
+    runfiles = _build_runfiles(ctx, venv, main)
 
     return [
         DefaultInfo(
-            files = depset([executable_launcher, main]),
-            executable = executable_launcher,
+            files = depset([executable, main]),
+            executable = executable,
             runfiles = runfiles,
         ),
         PyInfo(
-            # Surface the venv's imports + transitive_sources through
-            # PyInfo so downstream consumers (e.g. py_pex_binary's
-            # `--sys-path=`) see the same sys.path / source closure the
-            # launcher will run with. `srcs` / `deps` live on the
-            # sibling venv, not on this rule.
             imports = vinfo.imports,
             transitive_sources = vinfo.transitive_sources,
             has_py2_only_sources = False,
             has_py3_only_sources = True,
             uses_shared_libraries = False,
         ),
-        instrumented_files_info,
+        coverage_common.instrumented_files_info(
+            ctx,
+            source_attributes = ["main"],
+            dependency_attributes = ["data", "venv"],
+            extensions = ["py"],
+        ),
         RunEnvironmentInfo(
             environment = passed_env,
             inherited_environment = inherited_env,
@@ -158,20 +171,8 @@ _attrs = dict({
     ),
     "main": attr.label(
         allow_single_file = True,
-        doc = """
-Script to execute with the Python interpreter.
-
-Must be a label pointing to a `.py` source file.
-If such a label is provided, it will be honored.
-
-If no label is provided AND there is only one `srcs` file, that `srcs` file will be used.
-
-If there are more than one `srcs`, a file matching `{name}.py` is searched for.
-This is for historical compatibility with the Bazel native `py_binary` and `rules_python`.
-Relying on this behavior is STRONGLY discouraged, may produce warnings and may
-be deprecated in the future.
-
-""",
+        mandatory = True,
+        doc = "Python source file to execute. The macro layer resolves this from `srcs` when not set explicitly.",
     ),
     "venv": attr.label(
         providers = [[VirtualenvInfo]],
@@ -201,11 +202,6 @@ sibling venv has `include_user_site_packages = True` set. The deprecated
 `py_venv_binary` / `py_venv_test` aliases default this to False to
 match their historical permissive behaviour.""",
     ),
-    # `data` is the only py_library attr the launcher reads (env-var
-    # location expansion, runfiles merge, coverage walk). `srcs`,
-    # `deps`, `imports`, `resolutions`, and `virtual_deps` are routed
-    # to the sibling py_venv by the macro layer and have no role on
-    # the launcher rule.
     "data": attr.label_list(
         doc = """Runtime dependencies of the program.
 
@@ -219,13 +215,12 @@ that must match the terminal's Python environment in `deps`.
         allow_files = True,
         cfg = reset_python_flags_transition,
     ),
-    # Forwarded to the sibling py_venv (which is where srcs actually
-    # feed sys.path). Carried on the launcher only so Bazel's `args`
-    # location-expansion (`args = ["$(location :foo.py)"]`) can resolve
-    # the label against the same files the user wrote on
-    # `py_binary` / `py_test`.
     "srcs": attr.label_list(
-        doc = "Python source files. Forwarded to the sibling py_venv.",
+        doc = """Python source files. Forwarded to the sibling py_venv where
+they feed sys.path. Carried on the launcher so that Bazel's `args`
+location-expansion (`args = ["$(location :foo.py)"]`) can resolve the
+label. The files reach runfiles transitively through the venv's
+default_runfiles, not from this attribute directly.""",
         allow_files = [".py"],
     ),
     "_allowlist_function_transition": attr.label(
@@ -234,15 +229,15 @@ that must match the terminal's Python environment in `deps`.
 })
 
 _test_attrs = dict({
-    # Magic attribute to make coverage --combined_report flag work.
-    # There's no docs about this.
-    # See https://github.com/bazelbuild/bazel/blob/fde4b67009d377a3543a3dc8481147307bd37d36/tools/test/collect_coverage.sh#L186-L194
-    # NB: rules_python ALSO includes this attribute on the py_binary rule, but we think that's a mistake.
-    # see https://github.com/aspect-build/rules_py/pull/520#pullrequestreview-2579076197
     "_lcov_merger": attr.label(
         default = configuration_field(fragment = "coverage", name = "output_generator"),
         executable = True,
         cfg = "exec",
+        doc = """Coverage output generator for `--combined_report`.
+
+Required by Bazel's `collect_coverage.sh` (L186-194 of the script at
+https://github.com/bazelbuild/bazel/blob/fde4b67/tools/test/collect_coverage.sh).
+Only needed on the test variant, not the binary.""",
     ),
 })
 
