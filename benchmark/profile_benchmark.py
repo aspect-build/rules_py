@@ -58,6 +58,42 @@ def extract_analysis_us(profile_path: str) -> int | None:
     return None
 
 
+# Structural phase categories from the main --profile chrome trace. Durations
+# are inclusive wall time per named span (spans nest, so they are NOT additive).
+# Per-function Starlark events are excluded -- they live in the starlark_fn
+# breakdown from --starlark_cpu_profile.
+_PHASE_CATEGORIES = {
+    "general information",
+    "bazel module processing",
+    "build phase marker",
+    "Fetching repository",
+    "skyframe evaluator",
+    "package creation",
+}
+
+
+def extract_phases(profile_path: str) -> dict[str, float]:
+    """Return {event_name: inclusive_ms} for structural phase events.
+
+    Surfaces where the run's wall time goes by phase -- critically the bzlmod /
+    uv module-extension eval (``evaluate module extension: ...`` under
+    ``bazel module processing``), which is where hub/project target generation
+    actually costs and which runAnalysisPhase cannot see.
+    """
+    with gzip.open(profile_path, "rt") as f:
+        data = json.load(f)
+    phases: dict[str, float] = {}
+    for event in data.get("traceEvents", []):
+        if event.get("cat") not in _PHASE_CATEGORIES:
+            continue
+        dur = event.get("dur")
+        if not dur:
+            continue
+        name = event.get("name", "")
+        phases[name] = phases.get(name, 0.0) + dur / 1000.0
+    return phases
+
+
 def stats_ms(values_ms: list[float]) -> dict[str, float]:
     """Aggregate millisecond durations into statistics (min/mean/median/stddev)."""
     count = len(values_ms)
@@ -69,6 +105,24 @@ def stats_ms(values_ms: list[float]) -> dict[str, float]:
         "max": max(values_ms),
         "runs": count,
     }
+
+
+def aggregate_phases(phase_runs: list[dict[str, float]]) -> list[dict[str, Any]]:
+    """Aggregate per-run {phase_name: inclusive_ms} dicts, top phases by mean."""
+    names: set[str] = set()
+    for d in phase_runs:
+        names.update(d.keys())
+    rows: list[dict[str, Any]] = []
+    for name in names:
+        series = [d.get(name, 0.0) for d in phase_runs]
+        rows.append({
+            "name": name,
+            "mean_ms": statistics.mean(series),
+            "stddev_ms": statistics.stdev(series) if len(series) > 1 else 0.0,
+            "runs": len(phase_runs),
+        })
+    rows.sort(key=lambda r: r["mean_ms"], reverse=True)
+    return rows
 
 
 def aggregate_starlark(star_runs: list[dict[str, tuple[float, str]]]) -> dict[str, Any]:
@@ -138,8 +192,11 @@ def run_once(
     profile_path: str,
     star_path: str | None,
     cwd: str | None = None,
-) -> tuple[int, float, dict[str, float] | None]:
-    """Run a single measured invocation. Returns (analysis_us, wall_ms, starlark_fn|None)."""
+) -> tuple[int, float, dict[str, float] | None, dict[str, float]]:
+    """Run a single measured invocation.
+
+    Returns (analysis_us, wall_ms, starlark_fn|None, profile_phases).
+    """
     if prepare:
         subprocess.run(prepare, shell=True, check=True)
     replacements = {PROFILE_PLACEHOLDER: profile_path}
@@ -155,7 +212,8 @@ def run_once(
     if analysis_us is None:
         raise SystemExit(f"ERROR: runAnalysisPhase not found in {profile_path}")
     starlark = decode_starlark_pprof(star_path) if star_path is not None else None
-    return analysis_us, wall_ms, starlark
+    phases = extract_phases(profile_path)
+    return analysis_us, wall_ms, starlark, phases
 
 
 def _workspace_dir() -> Path:
@@ -272,11 +330,13 @@ def main() -> None:
         analysis_us: list[float] = []
         wall_ms: list[float] = []
         star_runs: list[dict[str, float]] = []
+        phase_runs: list[dict[str, float]] = []
         for i in range(args.runs):
-            a, w, star = run_once(command, args.prepare, profile_path,
-                                  star_path if star_enabled else None, cwd=run_cwd)
+            a, w, star, phases = run_once(command, args.prepare, profile_path,
+                                          star_path if star_enabled else None, cwd=run_cwd)
             analysis_us.append(a)
             wall_ms.append(w)
+            phase_runs.append(phases)
             if star:
                 star_runs.append(star)
             print(
@@ -294,6 +354,7 @@ def main() -> None:
     output: dict[str, Any] = {
         "analysis_ms": stats_ms([us / 1000.0 for us in analysis_us]),
         "wall_ms": stats_ms(wall_ms),
+        "profile_phases": aggregate_phases(phase_runs),
     }
 
     if star_runs:
@@ -308,6 +369,9 @@ def main() -> None:
         f"stddev={a['stddev']:.1f} (n={a['runs']})",
         file=sys.stderr,
     )
+    print("profile phases (inclusive, non-additive):", file=sys.stderr)
+    for p in output["profile_phases"][:8]:
+        print(f"  {p['mean_ms']:8.1f} ms  {p['name']}", file=sys.stderr)
     if args.output:
         print(f"wrote {args.output}", file=sys.stderr)
 

@@ -273,6 +273,31 @@ def _full_starlark_table(main_result: dict[str, Any], pr_result: dict[str, Any])
     return out
 
 
+def _phase_table(main_result: dict[str, Any], pr_result: dict[str, Any]) -> str:
+    """Inclusive wall time per profile phase, main vs PR (step summary).
+
+    Phase durations are inclusive (spans nest, e.g. runAnalysisPhase is inside
+    buildTargets), so they are NOT additive. Surfaces the bzlmod/uv
+    module-extension eval separately from analysis -- that is where hub/project
+    target generation costs and which runAnalysisPhase cannot see.
+    """
+    main_ph = {p["name"]: p for p in main_result.get("profile_phases", [])}
+    pr_ph = {p["name"]: p for p in pr_result.get("profile_phases", [])}
+    if not main_ph and not pr_ph:
+        return ""
+    names = sorted(set(main_ph) | set(pr_ph),
+                   key=lambda n: -(pr_ph.get(n, main_ph.get(n, {})).get("mean_ms", 0.0)))
+
+    out = "## Bazel profile phases (inclusive, non-additive)\n\n"
+    out += "_Where wall time goes by phase; module-extension eval is separate from analysis._\n\n"
+    out += "| Phase | main ms | PR ms | \u0394 ms |\n|---|---|---|---|\n"
+    for name in names[:25]:
+        m = main_ph.get(name, {}).get("mean_ms", 0.0)
+        p = pr_ph.get(name, {}).get("mean_ms", 0.0)
+        out += f"| `{_short(name, 60)}` | {m:.0f} | {p:.0f} | {p - m:+.0f} |\n"
+    return out
+
+
 def run_analysis(args: argparse.Namespace) -> int:
     bcr_path, main_path, pr_path = args.bcr, args.main, args.pr
 
@@ -330,6 +355,10 @@ def run_analysis(args: argparse.Namespace) -> int:
         if full:
             with open(args.step_summary, "a") as f:
                 f.write(full)
+        phases = _phase_table(main, pr)
+        if phases:
+            with open(args.step_summary, "a") as f:
+                f.write(phases)
 
     if is_regression(main, pr, THRESHOLD_REGRESSION_PCT):
         print(f"\n\u274c REGRESSION: PR analysis is {pr_vs_main:.1f}% slower than HEAD main "
