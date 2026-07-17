@@ -85,7 +85,11 @@ def aggregate_starlark(star_runs: list[dict[str, tuple[float, str]]]) -> dict[st
         names.update(d.keys())
     functions: list[dict[str, Any]] = []
     for name in names:
-        series = [d[name][0] for d in star_runs if name in d]
+        # A function missing from a run is a zero-time observation for that run,
+        # NOT a reason to drop the run: filtering would compute a conditional
+        # mean over only the runs where it appeared, understating variance and
+        # inflating intermittently-sampled functions.
+        series = [d[name][0] if name in d else 0.0 for d in star_runs]
         file = next((d[name][1] for d in star_runs if name in d and d[name][1]), "<unknown>")
         functions.append({
             "name": name,

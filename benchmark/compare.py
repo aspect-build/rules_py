@@ -22,7 +22,6 @@ from typing import Any
 
 THRESHOLD_REGRESSION_PCT = 10
 EM = "\u2014"  # em dash; module constant so it can appear inside f-string expressions
-TOTAL_SIGMA = 2.0
 FN_SIGMA = 3.0
 HOTSPOT_MIN_PCT = 1.0
 
@@ -50,6 +49,24 @@ def fmt(val: float) -> str:
 
 def warn(delta: float) -> str:
     return "\u26a0\ufe0f" if delta > THRESHOLD_REGRESSION_PCT else ""
+
+
+def _combined_se(m_std: float, m_n: int, p_std: float, p_n: int) -> float:
+    """Std error of (PR_mean - main_mean) for independent means with possibly
+    unequal run counts: sqrt(m_std^2/m_n + p_std^2/p_n). Per-side n matters --
+    profile_benchmark only appends non-empty decoded profiles, so main and PR can
+    have different usable Starlark run counts.
+    """
+    return math.sqrt((m_std ** 2) / max(m_n, 1) + (p_std ** 2) / max(p_n, 1))
+
+
+def _is_significant(delta: float, se: float) -> bool:
+    """A positive delta that exceeds the noise band.
+
+    stderr == 0 with delta > 0 is significant: a deterministic regression is
+    real signal, not 'unknown' (the earlier `se > 0 and ...` guard hid it).
+    """
+    return delta > 0 and (se == 0 or delta > FN_SIGMA * se)
 
 
 # --------------------------------------------------------------------------- #
@@ -129,13 +146,11 @@ def _relpath(file: str | None, limit: int = 56) -> str:
 def _starlark_section(main_result: dict[str, Any], pr_result: dict[str, Any]) -> str:
     """Diagnostic Starlark CPU diff (PR vs main). Informational, not a gate.
 
-    Two layers of noise control so the section stays quiet on a no-op PR:
-      - Total-level gate: only render the movers table when the PR's total
-        Starlark CPU is significantly above main's (TOTAL_SIGMA). The total
-        aggregates every sample, so its variance is small and the test is
-        robust without the multiple-comparisons problem.
-      - Per-function flagging: a mover is only marked significant when its delta
-        exceeds FN_SIGMA * combined stderr, surviving ~100 comparisons.
+    Movers are computed PER FUNCTION and rendered if individually significant
+    (delta > FN_SIGMA * combined stderr, with stderr==0 && delta>0 counting as
+    significant). They are NOT gated on the signed run-level total: a real
+    per-function regression must still surface when an unrelated speedup cancels
+    it at the total level (which is exactly what this section exists to explain).
     Hotspots (big, stable functions) are always shown.
     """
     main_sf = main_result.get("starlark_fn")
@@ -148,60 +163,51 @@ def _starlark_section(main_result: dict[str, Any], pr_result: dict[str, Any]) ->
     main_fns = {r["name"]: r for r in main_sf.get("functions", [])}
     pr_fns = {r["name"]: r for r in pr_sf.get("functions", [])}
 
-    runs = main_total.get("runs") or pr_total.get("runs") or 1
-    n = max(runs, 1)
+    main_n = max(main_total.get("runs", 1) or 1, 1)
+    pr_n = max(pr_total.get("runs", 1) or 1, 1)
 
-    def combined_se(m_std: float, p_std: float) -> float:
-        # Standard error of the difference of two independent means: each side
-        # contributes stddev/sqrt(n). Buggy /(n) would shrink the noise band
-        # ~sqrt(n)x and flag sampling jitter as significant.
-        sn = math.sqrt(n)
-        return math.sqrt((m_std / sn) ** 2 + (p_std / sn) ** 2)
-
-    total_se = combined_se(main_total.get("stddev_ms", 0.0), pr_total.get("stddev_ms", 0.0))
     main_total_ms = main_total.get("mean_ms", 0.0)
     pr_total_ms = pr_total.get("mean_ms", 0.0)
     delta_total = pr_total_ms - main_total_ms
     pct_total = pct(main_total_ms, pr_total_ms) if main_total_ms else 0.0
-    total_significant = total_se > 0 and delta_total > TOTAL_SIGMA * total_se
+    total_se = _combined_se(main_total.get("stddev_ms", 0.0), main_n,
+                            pr_total.get("stddev_ms", 0.0), pr_n)
+
+    movers = []
+    for name, pr_r in pr_fns.items():
+        m_r = main_fns.get(name)
+        m_ms = m_r["mean_ms"] if m_r else 0.0
+        delta = pr_r["mean_ms"] - m_ms
+        if delta <= 0:
+            continue
+        se = _combined_se(m_r.get("stddev_ms", 0.0) if m_r else 0.0, main_n,
+                          pr_r.get("stddev_ms", 0.0), pr_n)
+        if not _is_significant(delta, se):
+            continue
+        movers.append((name, m_ms, pr_r["mean_ms"], delta, se))
+    movers.sort(key=lambda x: x[3], reverse=True)
 
     out = "\n### \U0001f50d Starlark CPU \u2014 where the problem is (PR vs main)\n\n"
     out += (
         f"**Total Starlark CPU:** main {main_total_ms:.0f} ms, PR {pr_total_ms:.0f} ms "
-        f"(\u0394 {delta_total:+.0f} ms, {pct_total:+.1f}%, "
-        f"\u00b1{total_se:.0f} ms stderr over {runs} runs).\n\n"
+        f"(\u0394 {delta_total:+.0f} ms, {pct_total:+.1f}%; main {main_n} runs, PR {pr_n} runs)."
+        " Total is context only \u2014 movers below are per-function.\n\n"
     )
 
-    if not total_significant:
-        out += (
-            "\u2705 **No significant Starlark CPU change** \u2014 the total is within "
-            "run-to-run noise, so per-function deltas are hidden (they are sampling "
-            "jitter, not signal).\n"
-        )
-    else:
-        movers = []
-        for name, pr_r in pr_fns.items():
-            m_r = main_fns.get(name)
-            m_ms = m_r["mean_ms"] if m_r else 0.0
-            d = pr_r["mean_ms"] - m_ms
-            if d <= 0:
-                continue
-            se = combined_se(m_r.get("stddev_ms", 0.0) if m_r else 0.0, pr_r.get("stddev_ms", 0.0))
-            movers.append((name, m_ms, pr_r["mean_ms"], d, se))
-        movers.sort(key=lambda x: x[3], reverse=True)
-
-        out += "**Top movers (candidates, \u0394 > 3\u03c3 marked):**\n\n"
+    if movers:
+        out += "**Significant movers (\u0394 > 3\u03c3, independent of the total):**\n\n"
         out += "| Function | File | main ms | PR ms | \u0394 ms | \u00b1 stderr | \u0394 % |\n|---|---|---|---|---|---|---|\n"
         for name, m_ms, pr_ms, d, se in movers[:10]:
-            if m_ms > 0:
-                dpct = f"+{d / m_ms * 100:.0f}%"
-            else:
-                dpct = "new"
-            flag = " \u26a0\ufe0f" if (se > 0 and d > FN_SIGMA * se) else ""
+            dpct = f"+{d / m_ms * 100:.0f}%" if m_ms > 0 else "new"
             out += (
                 f"| `{_short(name)}` | `{_relpath(pr_fns[name].get('file'))}` | {m_ms:.1f} | "
-                f"{pr_ms:.1f} | +{d:.1f} | \u00b1{se:.1f} | {dpct}{flag} |\n"
+                f"{pr_ms:.1f} | +{d:.1f} | \u00b1{se:.1f} | {dpct} |\n"
             )
+    else:
+        out += (
+            "\u2705 **No significant per-function regressions** \u2014 all positive deltas are "
+            "within run-to-run noise.\n"
+        )
 
     hot = [r for r in pr_fns.values() if r.get("pct", 0.0) >= HOTSPOT_MIN_PCT][:10]
     if hot:
