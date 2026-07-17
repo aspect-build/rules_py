@@ -1,3 +1,0 @@
-# Fake system-interpreter (interpreter_path) toolchain, selected only by the
-# sentinel python_version its target_settings match.
-register_toolchains("//interpreter-local-pyvenv-home:system_python_toolchain")

@@ -13,18 +13,13 @@ def _current_py_toolchain_impl(ctx):
 
     toolchain = ctx.toolchains[PY_TOOLCHAIN]
     if toolchain.py3_runtime:
-        if toolchain.py3_runtime.interpreter:
-            # Hermetic / in-tree interpreter (File object)
-            direct.append(toolchain.py3_runtime.interpreter)
-            transitive.append(toolchain.py3_runtime.files)
-            vars["PYTHON3"] = toolchain.py3_runtime.interpreter.path
-            vars["PYTHON3_ROOTPATH"] = toolchain.py3_runtime.interpreter.short_path
-        elif toolchain.py3_runtime.interpreter_path:
-            # Local / system interpreter (absolute path string)
-            vars["PYTHON3"] = toolchain.py3_runtime.interpreter_path
-            vars["PYTHON3_ROOTPATH"] = toolchain.py3_runtime.interpreter_path
-        else:
-            fail("py3_runtime has neither interpreter nor interpreter_path")
+        if not toolchain.py3_runtime.interpreter:
+            fail("py3_runtime must provide an in-build `interpreter` file; " +
+                 "system interpreters are not supported")
+        direct.append(toolchain.py3_runtime.interpreter)
+        transitive.append(toolchain.py3_runtime.files)
+        vars["PYTHON3"] = toolchain.py3_runtime.interpreter.path
+        vars["PYTHON3_ROOTPATH"] = toolchain.py3_runtime.interpreter.short_path
 
     files = depset(direct, transitive = transitive)
     return [

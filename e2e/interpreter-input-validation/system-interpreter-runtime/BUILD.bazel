@@ -1,0 +1,28 @@
+load("@aspect_rules_py//py:defs.bzl", "current_py_toolchain", "py_venv")
+load(":defs.bzl", "system_runtime")
+
+# The resolved target toolchain provides a py3_runtime without an in-build
+# interpreter. Both targets below must fail analysis with a rules_py diagnostic:
+# `:probe` exercises current_py_toolchain, `:venv_sys` the py_semantics guard
+# used by the venv/PEX/wheel rules.
+system_runtime(
+    name = "sys_rt",
+    interpreter_path = "/usr/bin/python3",
+)
+
+toolchain(
+    name = "system_python_toolchain",
+    toolchain = ":sys_rt",
+    toolchain_type = "@bazel_tools//tools/python:toolchain_type",
+)
+
+current_py_toolchain(
+    name = "probe",
+    # Fails analysis by design; keep it out of the parent workspace's `//...`.
+    tags = ["manual"],
+)
+
+py_venv(
+    name = "venv_sys",
+    tags = ["manual"],
+)

@@ -63,7 +63,6 @@ def _uses_empty_venv_home(py_toolchain, is_windows):
     https://github.com/python/cpython/blob/3bb231a6/Modules/getpath.py#L362-L365
     """
     return (
-        py_toolchain.runfiles_interpreter and
         not is_windows and
         getattr(py_toolchain.toolchain, "implementation_name", None) == "cpython" and
         getattr(py_toolchain.toolchain, "supports_build_time_venv", False) and
@@ -74,21 +73,16 @@ def _uses_empty_venv_home(py_toolchain, is_windows):
 def _pyvenv_home(ctx, py_toolchain, is_windows, venv_root_escape):
     """Resolve the ``home =`` line for ``pyvenv.cfg``.
 
-    Three branches:
+    Two branches:
 
     - Empty for qualifying CPython 3.11/3.12 (see ``_uses_empty_venv_home``).
-    - A venv-root-relative path to the interpreter's ``bin/`` for other
-      runfiles interpreters.
-    - The absolute filesystem path for system interpreters (already
-      non-hermetic by construction).
+    - A venv-root-relative path to the interpreter's ``bin/`` otherwise.
     """
     if _uses_empty_venv_home(py_toolchain, is_windows):
         return ""
-    if py_toolchain.runfiles_interpreter:
-        interpreter_rlocation = to_rlocation_path(ctx, py_toolchain.python)
-        interpreter_bin_dir = "/".join(interpreter_rlocation.split("/")[:-1])
-        return "{}/{}".format(venv_root_escape, interpreter_bin_dir)
-    return py_toolchain.python.path.rsplit("/", 1)[0]
+    interpreter_rlocation = to_rlocation_path(ctx, py_toolchain.python)
+    interpreter_bin_dir = "/".join(interpreter_rlocation.split("/")[:-1])
+    return "{}/{}".format(venv_root_escape, interpreter_bin_dir)
 
 def _versioned_python_names(py_toolchain):
     """Symlink names under which CPython looks itself up.
@@ -117,10 +111,8 @@ def _bin_python_target_path(ctx, py_toolchain, package_depth):
 
     From ``<venv>/bin/``, ascends bin (1) + venv (1) + package (N) +
     workspace (1) = 3 + N, then descends into the interpreter's
-    rlocation path. System interpreters fall back to the absolute path.
+    rlocation path.
     """
-    if not py_toolchain.runfiles_interpreter:
-        return py_toolchain.python.path
     return "{}/{}".format(
         _relative_up(3 + package_depth),
         to_rlocation_path(ctx, py_toolchain.python),

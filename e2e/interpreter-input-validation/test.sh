@@ -30,6 +30,25 @@ expect_failure() {
     fi
 }
 
+# Like expect_failure, but the failure is a rule-analysis error (not a
+# module-extension evaluation error), so drive it with `build` on a target.
+expect_analysis_failure() {
+    local fixture="$1"
+    local target="$2"
+    local expected="$3"
+
+    if (
+        cd "$case_dir/$fixture" &&
+            "$BAZEL" build --lockfile_mode=off -- "$target"
+    ) >"$failure_log" 2>&1; then
+        fail "$fixture unexpectedly succeeded"
+    fi
+    if ! grep -Fq "$expected" "$failure_log"; then
+        cat "$failure_log" >&2
+        fail "$fixture did not report: $expected"
+    fi
+}
+
 expect_failure \
     root-invalid-python \
     "module 'root_invalid_python' requested invalid python_version '3.14.3'; expected major.minor"
@@ -44,5 +63,17 @@ expect_failure \
 expect_failure \
     dependency-invalid-release \
     "module 'dependency_invalid_release' requested invalid python_version '3.14.0a'"
+# A target Python toolchain whose runtime lacks an in-build interpreter (a
+# system interpreter) must be rejected; rules_py does not support them. Cover
+# both guards: current_py_toolchain (:probe) and py_semantics (:venv_sys, the
+# venv/PEX/wheel path).
+expect_analysis_failure \
+    system-interpreter-runtime \
+    //:probe \
+    "system interpreters are not supported"
+expect_analysis_failure \
+    system-interpreter-runtime \
+    //:venv_sys \
+    "must provide an in-build \`interpreter\` file"
 
 echo "PASS: interpreter configuration is validated at the owning module boundary"

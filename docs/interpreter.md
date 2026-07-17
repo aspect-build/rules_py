@@ -273,9 +273,11 @@ This interpreter provisioning is designed to coexist with `rules_python`:
   registration, so these interpreters work with all existing Python rules.
 - The `@rules_python//python/config_settings:python_version` flag is kept in
   sync with our own version flag via build transitions.
-- Runtimes registered with `rules_python`'s `py_runtime` / `py_runtime_pair`
-  (for example a system interpreter) remain usable by rules_py rules, which
-  read the runtime fields structurally.
+- File-based runtimes registered with `rules_python`'s `py_runtime` /
+  `py_runtime_pair` remain usable by rules_py rules, which read the runtime
+  fields structurally. System interpreters (a `py_runtime` with
+  `interpreter_path` rather than an in-build `interpreter` file) are not
+  supported; rules_py requires a registered, in-build interpreter.
 - Build actions that run an interpreter (wheel installation, site-packages
   merging) resolve `@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type`,
   registered by `interpreters.toolchain()`. The exec interpreter follows the

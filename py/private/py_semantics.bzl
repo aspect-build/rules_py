@@ -15,19 +15,14 @@ _INTERPRETER_FLAGS = [
 
 _MUST_SET_TOOLCHAIN_INTERPRETER_VERSION_INFO = """
 ERROR: The resolved Python toolchain's py3_runtime must set interpreter_version_info to \
-a dict with keys "major", "minor", and "micro". Set it on the py_runtime when registering \
-an interpreter toolchain, for example:
+a dict with keys "major", "minor", and "micro". Register an interpreter toolchain via \
+`interpreters.toolchain()` (or another rule that sets interpreter_version_info).
+"""
 
-    py_runtime(
-        name = "system_runtime",
-        interpreter_path = "/usr/bin/python",
-        interpreter_version_info = {
-            "major": "3",
-            "minor": "11",
-            "micro": "6",
-        },
-        python_version = "PY3",
-    )
+_MUST_PROVIDE_INTERPRETER_FILE = """
+ERROR: The resolved Python toolchain's py3_runtime must provide an in-build `interpreter` \
+file. rules_py requires a registered (hermetic) interpreter toolchain; system interpreters \
+(a py_runtime with `interpreter_path`) are not supported.
 """
 
 def _resolve_toolchain(ctx):
@@ -47,18 +42,11 @@ def _resolve_toolchain(ctx):
 
     py3_runtime = toolchain_info.py3_runtime
 
-    runfiles_interpreter = True
+    if py3_runtime.interpreter == None:
+        fail(_MUST_PROVIDE_INTERPRETER_FILE)
 
-    if py3_runtime.interpreter != None:
-        files = depset([py3_runtime.interpreter], transitive = [py3_runtime.files])
-        interpreter = py3_runtime.interpreter
-    else:
-        interpreter = struct(
-            path = py3_runtime.interpreter_path,
-            short_path = py3_runtime.interpreter_path,
-        )
-        files = depset([])
-        runfiles_interpreter = False
+    files = depset([py3_runtime.interpreter], transitive = [py3_runtime.files])
+    interpreter = py3_runtime.interpreter
 
     for attr in ["major", "minor", "micro"]:
         if not hasattr(py3_runtime.interpreter_version_info, attr):
@@ -78,7 +66,6 @@ def _resolve_toolchain(ctx):
         files = files,
         python = interpreter,
         interpreter_version_info = interpreter_version_info,
-        runfiles_interpreter = runfiles_interpreter,
         freethreaded = freethreaded,
     )
 
