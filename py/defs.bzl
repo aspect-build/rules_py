@@ -20,6 +20,7 @@ load("@rules_python//python:packaging.bzl", _py_wheel = "py_wheel")
 load("@rules_python//python:pip.bzl", _whl_filegroup = "whl_filegroup")
 load("@rules_python//python:py_runtime.bzl", _py_runtime = "py_runtime")
 load("@rules_python//python:py_runtime_pair.bzl", _py_runtime_pair = "py_runtime_pair")
+load("//py/private:providers.bzl", _PyWheelsInfo = "PyWheelsInfo")
 load(
     "//py/private:py_image_layer.bzl",
     _PyLayerTierInfo = "PyLayerTierInfo",
@@ -63,6 +64,7 @@ PyLayerTierInfo = _PyLayerTierInfo
 
 # The PyInfo provider used by rules_py
 PyInfo = _PyInfo
+PyWheelsInfo = _PyWheelsInfo
 
 # The runtime provider carried by rules_py-provisioned interpreter toolchains:
 # rules_python's public PyRuntimeInfo, the shared standard-toolchain contract.
