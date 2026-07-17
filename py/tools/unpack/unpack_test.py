@@ -110,6 +110,7 @@ def _build_wheel(path: Path, *, legacy_syntax: bool) -> None:
                 b"outdated bytecode\n"
             ),
             "fixture-1.0.data/data/share/supplied.pyc": b"uncompiled bytecode\n",
+            "fixture/orphan.pyc": b"wheel bytecode",
         },
     )
 
@@ -457,6 +458,7 @@ def main() -> None:
         assert {
             f"fixture/__pycache__/mod.{sys.implementation.cache_tag}.pyc",
             f"fixture/__pycache__/added.{sys.implementation.cache_tag}.pyc",
+            "fixture/orphan.pyc",
             "../../../share/supplied.pyc",
         } <= {
             relative for relative, _, _ in _record_rows(content_site_packages)
