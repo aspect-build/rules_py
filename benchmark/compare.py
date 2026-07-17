@@ -73,10 +73,12 @@ def _is_significant(delta: float, se: float) -> bool:
 # analysis subcommand
 # --------------------------------------------------------------------------- #
 
-def load_result(path: str) -> dict[str, Any]:
+def load_result(path: str, missing_ok: bool = False) -> dict[str, Any]:
     """Load a profile_benchmark JSON result and validate the analysis_ms metric."""
     p = Path(path)
     if not p.exists():
+        if missing_ok:
+            return {"_pending": True}
         _fail(f"result file not found: {path}")
     with p.open() as f:
         data = json.load(f)
@@ -143,6 +145,14 @@ def _relpath(file: str | None, limit: int = 56) -> str:
     return base if len(base) <= limit else base[: limit - 1] + "\u2026"
 
 
+def _is_rules_py(file: str | None) -> bool:
+    """True if a pprof source file belongs to the rules_py repo itself."""
+    if not file:
+        return False
+    rel = _relpath(file)
+    return rel.startswith("py/") or rel.startswith("uv/")
+
+
 def _starlark_section(main_result: dict[str, Any], pr_result: dict[str, Any]) -> str:
     """Diagnostic Starlark CPU diff (PR vs main). Informational, not a gate.
 
@@ -188,14 +198,23 @@ def _starlark_section(main_result: dict[str, Any], pr_result: dict[str, Any]) ->
     movers.sort(key=lambda x: x[3], reverse=True)
 
     out = "\n### \U0001f50d Starlark CPU \u2014 where the problem is (PR vs main)\n\n"
+
+    # Honest context: how much of the build's Starlark time is actually rules_py.
+    # This sets expectations -- rules_py is usually a minority (the rest is Bazel
+    # builtins like alias/config_setting that rules_py merely invokes, plus other
+    # deps). Measured levers (alias count, selects, decode) are all small.
+    pr_all_ms = sum(r["mean_ms"] for r in pr_fns.values())
+    rules_py_ms = sum(r["mean_ms"] for r in pr_fns.values() if _is_rules_py(r.get("file")))
+    builtins_ms = sum(r["mean_ms"] for r in pr_fns.values() if _relpath(r.get("file")) == "builtin")
+    rp_pct = (rules_py_ms / pr_all_ms * 100.0) if pr_all_ms else 0.0
     out += (
-        f"**Total Starlark CPU:** main {main_total_ms:.0f} ms, PR {pr_total_ms:.0f} ms "
-        f"(\u0394 {delta_total:+.0f} ms, {pct_total:+.1f}%; main {main_n} runs, PR {pr_n} runs)."
-        " Total is context only \u2014 movers below are per-function.\n\n"
+        f"**Total:** main {main_total_ms:.0f} ms, PR {pr_total_ms:.0f} ms "
+        f"(\u0394 {delta_total:+.0f} ms). Of PR's Starlark, **rules_py = {rules_py_ms:.0f} ms "
+        f"({rp_pct:.0f}%)**, Bazel builtins = {builtins_ms:.0f} ms, rest = other deps.\n\n"
     )
 
     if movers:
-        out += "**Significant movers (\u0394 > 3\u03c3, independent of the total):**\n\n"
+        out += "**Significant movers (\u0394 > 3\u03c3):**\n\n"
         out += "| Function | File | main ms | PR ms | \u0394 ms | \u00b1 stderr | \u0394 % |\n|---|---|---|---|---|---|---|\n"
         for name, m_ms, pr_ms, d, se in movers[:10]:
             dpct = f"+{d / m_ms * 100:.0f}%" if m_ms > 0 else "new"
@@ -204,14 +223,15 @@ def _starlark_section(main_result: dict[str, Any], pr_result: dict[str, Any]) ->
                 f"{pr_ms:.1f} | +{d:.1f} | \u00b1{se:.1f} | {dpct} |\n"
             )
     else:
-        out += (
-            "\u2705 **No significant per-function regressions** \u2014 all positive deltas are "
-            "within run-to-run noise.\n"
-        )
+        out += "\u2705 **No significant per-function regressions** (all deltas within noise).\n"
 
-    hot = [r for r in pr_fns.values() if r.get("pct", 0.0) >= HOTSPOT_MIN_PCT][:10]
+    # Hotspots: ONLY rules_py's own functions (builtins like alias/config_setting
+    # are NOT actionable -- measured: reducing them does not help). This shows
+    # where rules_py's own time goes, which IS actionable.
+    hot = [r for r in pr_fns.values() if _is_rules_py(r.get("file"))]
+    hot = [r for r in hot if r.get("pct", 0.0) >= HOTSPOT_MIN_PCT][:8]
     if hot:
-        out += "\n**Top by absolute time (PR):**\n\n"
+        out += "\n**rules_py's own top functions (where its time goes):**\n\n"
         out += "| Function | File | PR ms | % of total |\n|---|---|---|---|\n"
         for r in hot:
             out += (
@@ -219,57 +239,6 @@ def _starlark_section(main_result: dict[str, Any], pr_result: dict[str, Any]) ->
                 f"{r['mean_ms']:.1f} | {r.get('pct', 0.0):.1f}% |\n"
             )
 
-    out += (
-        "\n> Sample-based attribution (Starlark CPU across the whole `--nobuild` run: "
-        "bzlmod loading + analysis). Significance is run-to-run stderr \u00d7 sigma; "
-        "builtins are attributed to the caller.\n"
-    )
-    return out
-
-
-def _full_starlark_table(main_result: dict[str, Any], pr_result: dict[str, Any]) -> str:
-    """Full per-function main-vs-PR table (ALL functions, not truncated).
-
-    Intended for the workflow run summary ($GITHUB_STEP_SUMMARY), where someone
-    wants to scan every function -- as opposed to the PR comment, which stays
-    terse (top movers/hotspots only). Sorted by PR time desc; a significant
-    regression (delta > FN_SIGMA * stderr) is marked.
-    """
-    main_sf = main_result.get("starlark_fn")
-    pr_sf = pr_result.get("starlark_fn")
-    if not isinstance(main_sf, dict) or not isinstance(pr_sf, dict):
-        return ""
-
-    main_total = main_sf.get("total", {})
-    pr_total = pr_sf.get("total", {})
-    main_fns = {r["name"]: r for r in main_sf.get("functions", [])}
-    pr_fns = {r["name"]: r for r in pr_sf.get("functions", [])}
-    main_n = max(main_total.get("runs", 1) or 1, 1)
-    pr_n = max(pr_total.get("runs", 1) or 1, 1)
-
-    rows = []
-    for name, pr_r in pr_fns.items():
-        m_r = main_fns.get(name)
-        m_ms = m_r["mean_ms"] if m_r else 0.0
-        delta = pr_r["mean_ms"] - m_ms
-        se = _combined_se(m_r.get("stddev_ms", 0.0) if m_r else 0.0, main_n,
-                          pr_r.get("stddev_ms", 0.0), pr_n)
-        file = (pr_r.get("file") or (m_r.get("file") if m_r else "") or "")
-        rows.append((name, file, m_ms, pr_r["mean_ms"], delta, se))
-    rows.sort(key=lambda x: x[3], reverse=True)
-
-    out = "## Starlark CPU \u2014 full per-function (main vs PR)\n\n"
-    out += (
-        f"_All {len(rows)} functions, sorted by PR time. "
-        f"\u26a0\ufe0f = significant regression (\u0394 > {FN_SIGMA:g}\u03c3)._\n\n"
-    )
-    out += "| Function | File | main ms | PR ms | \u0394 ms | \u00b1 stderr |\n|---|---|---|---|---|---|\n"
-    for name, file, m_ms, pr_ms, delta, se in rows:
-        flag = " \u26a0\ufe0f" if _is_significant(delta, se) else ""
-        out += (
-            f"| `{_short(name)}` | `{_relpath(file)}` | {m_ms:.1f} | {pr_ms:.1f} | "
-            f"{delta:+.1f}{flag} | \u00b1{se:.1f} |\n"
-        )
     return out
 
 
@@ -301,17 +270,23 @@ def _phase_table(main_result: dict[str, Any], pr_result: dict[str, Any]) -> str:
 def run_analysis(args: argparse.Namespace) -> int:
     bcr_path, main_path, pr_path = args.bcr, args.main, args.pr
 
-    bcr = load_result(bcr_path)
-    main = load_result(main_path)
-    pr = load_result(pr_path)
+    mo = getattr(args, "partial", False)
+    bcr = load_result(bcr_path, missing_ok=mo)
+    main = load_result(main_path, missing_ok=mo)
+    pr = load_result(pr_path, missing_ok=mo)
 
     bcr_aux = load_auxiliary(bcr_path.replace(".json", "-aux.json"))
     main_aux = load_auxiliary(main_path.replace(".json", "-aux.json"))
     pr_aux = load_auxiliary(pr_path.replace(".json", "-aux.json"))
 
-    main_vs_bcr = pct(bcr["analysis_ms"]["mean"], main["analysis_ms"]["mean"])
-    pr_vs_bcr = pct(bcr["analysis_ms"]["mean"], pr["analysis_ms"]["mean"])
-    pr_vs_main = pct(main["analysis_ms"]["mean"], pr["analysis_ms"]["mean"])
+    _incomplete = bcr.get("_pending") or main.get("_pending") or pr.get("_pending")
+
+    def _mean(d):
+        return d["analysis_ms"]["mean"] if not d.get("_pending") else 0.0
+
+    main_vs_bcr = pct(_mean(bcr), _mean(main)) if not _incomplete else 0.0
+    pr_vs_bcr = pct(_mean(bcr), _mean(pr)) if not _incomplete else 0.0
+    pr_vs_main = pct(_mean(main), _mean(pr)) if not _incomplete else 0.0
 
     has_aux = bcr_aux is not None or main_aux is not None or pr_aux is not None
 
@@ -325,6 +300,8 @@ def run_analysis(args: argparse.Namespace) -> int:
         return f"{aux.get('packages', EM)} | {aux.get('targets', EM)}"
 
     def row(label: str, d: dict[str, Any], vs_bcr: str, vs_main: str, aux: dict[str, Any] | None) -> str:
+        if d.get("_pending"):
+            return f"| {label} | \u23f3 | \u23f3 | \u23f3 | \u23f3 | \u23f3 | \u23f3 | {aux_cell(aux)} |\n"
         a = d["analysis_ms"]
         wall = d.get("wall_ms", {}).get("mean")
         wall_str = fmt(wall) if wall is not None else EM
@@ -351,15 +328,14 @@ def run_analysis(args: argparse.Namespace) -> int:
     _emit(table, args.output_table)
 
     if args.step_summary:
-        full = _full_starlark_table(main, pr)
-        if full:
-            with open(args.step_summary, "a") as f:
-                f.write(full)
         phases = _phase_table(main, pr)
         if phases:
             with open(args.step_summary, "a") as f:
                 f.write(phases)
 
+    if _incomplete:
+        print("\n\u23f3 Partial results \u2014 gate deferred (some variants still running).")
+        return 0
     if is_regression(main, pr, THRESHOLD_REGRESSION_PCT):
         print(f"\n\u274c REGRESSION: PR analysis is {pr_vs_main:.1f}% slower than HEAD main "
               f"(threshold: {THRESHOLD_REGRESSION_PCT}%)")
@@ -372,10 +348,12 @@ def run_analysis(args: argparse.Namespace) -> int:
 # startup subcommand
 # --------------------------------------------------------------------------- #
 
-def load_runtime(path: str) -> dict[str, Any]:
+def load_runtime(path: str, missing_ok: bool = False) -> dict[str, Any]:
     """Load a single hyperfine runtime JSON result."""
     p = Path(path)
     if not p.exists():
+        if missing_ok:
+            return {"_pending": True}
         _fail(f"result file not found: {path}")
     with p.open() as f:
         data = json.load(f)
@@ -410,17 +388,20 @@ def load_syspath(path: str) -> dict[str, int] | None:
 def run_startup(args: argparse.Namespace) -> int:
     bcr_path, main_path, pr_path = args.bcr, args.main, args.pr
 
-    bcr = load_runtime(bcr_path)
-    main = load_runtime(main_path)
-    pr = load_runtime(pr_path)
+    mo = getattr(args, "partial", False)
+    bcr = load_runtime(bcr_path, missing_ok=mo)
+    main = load_runtime(main_path, missing_ok=mo)
+    pr = load_runtime(pr_path, missing_ok=mo)
 
     bcr_syspath = load_syspath(bcr_path.replace(".json", "-syspath.json"))
     main_syspath = load_syspath(main_path.replace(".json", "-syspath.json"))
     pr_syspath = load_syspath(pr_path.replace(".json", "-syspath.json"))
 
-    rt_main_vs_bcr = pct(bcr["mean_ms"], main["mean_ms"])
-    rt_pr_vs_bcr = pct(bcr["mean_ms"], pr["mean_ms"])
-    rt_pr_vs_main = pct(main["mean_ms"], pr["mean_ms"])
+    _inc = bcr.get("_pending") or main.get("_pending") or pr.get("_pending")
+    def _ms(d): return d["mean_ms"] if not d.get("_pending") else 0.0
+    rt_main_vs_bcr = pct(_ms(bcr), _ms(main)) if not _inc else 0.0
+    rt_pr_vs_bcr = pct(_ms(bcr), _ms(pr)) if not _inc else 0.0
+    rt_pr_vs_main = pct(_ms(main), _ms(pr)) if not _inc else 0.0
 
     has_syspath = bcr_syspath is not None or main_syspath is not None or pr_syspath is not None
 
@@ -429,6 +410,8 @@ def run_startup(args: argparse.Namespace) -> int:
     table += "|---------|-------------|-------------|----------|--------|---------|\n"
 
     def row(label: str, d: dict[str, Any], vs_bcr: str, vs_main: str) -> str:
+        if d.get("_pending"):
+            return f"| {label} | \u23f3 | \u23f3 | \u23f3 | \u23f3 | \u23f3 |\n"
         return (
             f"| {label} | {fmt(d['mean_ms'])} | {fmt(d['median_ms'])} | "
             f"\u00b1{fmt(d['stddev_ms'])} | {vs_bcr} | {vs_main} |\n"
@@ -474,6 +457,9 @@ def run_startup(args: argparse.Namespace) -> int:
 
     _emit(table, args.output_table)
 
+    if _inc:
+        print("\n\u23f3 Partial results \u2014 gate deferred.")
+        return 0
     if rt_pr_vs_main > THRESHOLD_REGRESSION_PCT:
         print(f"\n\u274c REGRESSION: startup {rt_pr_vs_main:.1f}% slower than HEAD main "
               f"(threshold: {THRESHOLD_REGRESSION_PCT}%)")
@@ -518,7 +504,9 @@ def main() -> None:
         help="append the full per-function main-vs-PR table to this file "
         "(e.g. $GITHUB_STEP_SUMMARY for the workflow run summary)",
     )
-    add_common(sub.add_parser("startup", help="runtime gate + sys.path quality"))
+    for p in (analysis_parser, sub.add_parser("startup", help="runtime gate + sys.path quality")):
+        p.add_argument("--partial", action="store_true",
+                       help="treat missing result JSONs as pending (show ⏳ instead of failing)")
     args = parser.parse_args()
 
     rc = run_analysis(args) if args.kind == "analysis" else run_startup(args)
