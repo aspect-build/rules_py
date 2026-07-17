@@ -34,6 +34,7 @@ Sharing model:
 
 load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/private:py_info.bzl", "PyInfo")
+load("//py/private:py_info_interop.bzl", "has_py_info")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
 
 _TAR_TOOLCHAIN = "@tar.bzl//tar/toolchain:type"
@@ -373,6 +374,10 @@ def _layer_aspect_impl(target, ctx):
     interpreter_layer = None
     interpreter_files = None
     kind = ctx.rule.kind
+
+    # The binary being layered must be a rules_py py_binary (it carries rules_py's
+    # PyInfo); rules_python's py_binary is not supported. rules_python *library*
+    # deps within the graph are still handled by the membership checks below.
     is_binary = (
         PyInfo in target and
         target[DefaultInfo].files_to_run.executable != None
@@ -394,14 +399,14 @@ def _layer_aspect_impl(target, ctx):
 
     # Skip PyInfo deps (including wheel-leaf targets, which also emit PyInfo) —
     # they self-capture via the aspect.
-    if kind not in _PY_VENV_KINDS and PyInfo in target and not is_binary:
+    if kind not in _PY_VENV_KINDS and has_py_info(target) and not is_binary:
         own_parts = [target[DefaultInfo].files]
         for attr_name in ("data", "deps"):
             attr_val = getattr(ctx.rule.attr, attr_name, None)
             if not attr_val:
                 continue
             for dep in attr_val:
-                if PyInfo in dep:
+                if has_py_info(dep):
                     continue
                 if DefaultInfo in dep:
                     own_parts.append(dep[DefaultInfo].files)

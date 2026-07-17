@@ -18,13 +18,14 @@ rules_py_py_library(
     ],
 )
 
+# Forward interop: a @rules_python py_library consumed by the rules_py
+# py_binary/py_test below. It can't depend on a rules_py py_library (`:init`) —
+# rules_py emits its own PyInfo, not @rules_python's, which rules_python's deps
+# constraint requires.
 py_library(
     name = "pi",
     srcs = [
         "pi.py",
-    ],
-    deps = [
-        ":init",
     ],
 )
 

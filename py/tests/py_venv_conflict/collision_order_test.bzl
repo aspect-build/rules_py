@@ -67,9 +67,8 @@ printf 'VALUE = "namespace"\n' > "$site/mixed_top/from_namespace.py"
         PyInfo(
             imports = depset([site_packages]),
             transitive_sources = depset([install_tree]),
-            has_py2_only_sources = False,
-            has_py3_only_sources = True,
-            uses_shared_libraries = False,
+            virtual_dependencies = depset(),
+            virtual_resolutions = depset(),
         ),
         PyWheelsInfo(wheels = depset([wheel])),
     ]
@@ -194,9 +193,8 @@ printf 'native' > "$site/collision_order/native_extension.so"
         PyInfo(
             imports = depset([site_packages]),
             transitive_sources = depset([install_tree]),
-            has_py2_only_sources = False,
-            has_py3_only_sources = True,
-            uses_shared_libraries = False,
+            virtual_dependencies = depset(),
+            virtual_resolutions = depset(),
         ),
         PyWheelsInfo(wheels = depset([wheel])),
     ]
