@@ -1,2 +1,3 @@
 #!/usr/bin/env bash
-printf '%s\n' legacy-compiler
+export PATH=/usr/bin:/bin
+exec /usr/bin/cc "$@"

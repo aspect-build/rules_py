@@ -129,10 +129,20 @@ def _cc_toolchain_inputs_and_tools(ctx):
         )
     }
 
-    # Legacy C++ toolchains can omit the static-link action config while still
-    # exposing a usable archiver through CcToolchainInfo.
-    if not tools.get("AR"):
-        tools["AR"] = cc_toolchain.ar_executable
+    missing = [key for key in action_names if not tools.get(key)]
+    if missing:
+        # Legacy C++ toolchains can omit action configs while still exposing
+        # usable tools through CcToolchainInfo. Action-only providers may
+        # fabricate these fields, so require each fallback to be an input.
+        file_paths = {file.path: True for file in files.to_list()}
+        legacy_tools = {
+            "AR": cc_toolchain.ar_executable,
+            "CC": cc_toolchain.compiler_executable,
+            "CXX": cc_toolchain.compiler_executable,
+            "LD": cc_toolchain.ld_executable,
+            "STRIP": cc_toolchain.strip_executable,
+        }
+        tools.update({key: legacy_tools[key] for key in missing if legacy_tools[key] in file_paths})
 
     return files, {key: value for key, value in tools.items() if value}
 

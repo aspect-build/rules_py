@@ -27,7 +27,7 @@ def _legacy_cc_toolchain_config_impl(ctx):
     compiler = ctx.file.compiler.basename
     return cc_common.create_cc_toolchain_config_info(
         ctx = ctx,
-        toolchain_identifier = "legacy-no-ar-action",
+        toolchain_identifier = "legacy-no-action-configs",
         host_system_name = "local",
         target_system_name = "local",
         target_cpu = "x86_64",
