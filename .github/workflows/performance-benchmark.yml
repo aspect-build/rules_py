@@ -19,15 +19,12 @@ jobs:
         include:
           - variant: bcr
             label: "BCR 2.0.0-alpha.4 (baseline)"
-            module: 'bcr --version "${{ env.BCR_VERSION }}"'
             needs-main: false
           - variant: main
             label: "HEAD main"
-            module: 'local --path "$GITHUB_WORKSPACE/rules_py_main"'
             needs-main: true
           - variant: pr
             label: "This PR"
-            module: 'local --path "$GITHUB_WORKSPACE/rules_py_pr"'
             needs-main: false
     permissions:
       contents: read
@@ -66,7 +63,11 @@ jobs:
         run: |
           set -euo pipefail
           cd rules_py_pr/benchmark/workspace
-          python3 generate_module.py ${{ matrix.module }}
+          if [ "${{ matrix.variant }}" = "bcr" ]; then
+            python3 generate_module.py bcr --version "${BCR_VERSION}"
+          else
+            python3 generate_module.py local --path "$GITHUB_WORKSPACE/rules_py_${{ matrix.variant }}"
+          fi
 
           OUT_BASE="/tmp/bazel-${{ matrix.variant }}"
           rm -rf "$OUT_BASE"
