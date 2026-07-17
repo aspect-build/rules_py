@@ -315,6 +315,15 @@ def _version_ops_test_impl(ctx):
     dev_env["python_full_version"] = "3.15rc1.dev2"
     asserts.true(env, evaluate("python_full_version > '3.15b9-dev9'", env = dev_env))
 
+    # Non-numeric SemVer dev segments remain orderable legacy prereleases;
+    # they are not PEP 440 development-release numbers.
+    dev_env["python_full_version"] = "3.15.0-dev.foo"
+    asserts.true(env, evaluate("python_full_version < '3.15.1'", env = dev_env))
+    asserts.true(env, evaluate("python_full_version < '3.15.0-dev.foo.bar'", env = dev_env))
+    dev_env["python_full_version"] = "3.15.0-alpha.dev.foo"
+    asserts.true(env, evaluate("python_full_version < '3.15.1'", env = dev_env))
+    asserts.true(env, evaluate("python_full_version < '3.15.0-alpha.dev.foo.bar'", env = dev_env))
+
     # Alpha, beta, and release-candidate suffixes compare numerically and in
     # PEP 440 order, including the accepted long-form spellings.
     asserts.true(env, evaluate("python_full_version > '3.15.0a2'", env = prerelease_env))

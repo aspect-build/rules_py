@@ -22,12 +22,21 @@ Removed in 1.5.0, so vendored and used here with thanks.
 def _key(version):
     pre_release = version.pre_release
     dev = None
+    legacy_dev = False
     if pre_release.startswith("dev."):
-        dev = int(pre_release[len("dev."):])
-        pre_release = ""
+        dev_suffix = pre_release[len("dev."):]
+        if dev_suffix.isdigit():
+            dev = int(dev_suffix)
+            pre_release = ""
+        else:
+            legacy_dev = True
     elif ".dev." in pre_release:
-        pre_release, _, dev = pre_release.partition(".dev.")
-        dev = int(dev)
+        prefix, _, dev_suffix = pre_release.partition(".dev.")
+        if dev_suffix.isdigit():
+            dev = int(dev_suffix)
+            pre_release = prefix
+        else:
+            legacy_dev = True
 
     return (
         version.major,
@@ -43,9 +52,9 @@ def _key(version):
                 int(i) if i.isdigit() else 0,
             )
             for i in pre_release.split(".")
-        ] + [
+        ] + ([] if legacy_dev else [
             ("", dev) if dev != None else ("~", 0),
-        ]) if version.pre_release else None,
+        ])) if version.pre_release else None,
         # And build info is just alphabetic
         version.build,
     )
@@ -133,11 +142,13 @@ def semver(version):
     # are not emitted by PBS and intentionally retain the legacy behavior.
     if suffix:
         suffix = suffix.lower().strip("-_.")
+        original_suffix = suffix
         suffix, has_dev, dev = suffix.partition("dev")
         suffix = suffix.strip("-_.")
         dev = dev.strip("-_.") or "0"
         if has_dev and not dev.isdigit():
             has_dev = ""
+            suffix = original_suffix
 
         matched = False
         if has_dev and not suffix:
