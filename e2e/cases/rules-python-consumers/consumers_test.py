@@ -22,11 +22,9 @@ def read(rel):
 python3 = read("python3_var.txt")
 assert "python_interpreters+python_3_13" in python3, python3
 
-# The exec-tools payload carries rules_python's expected shape: an exec
-# runtime from a rules_py-provisioned repo, and a precompiler field (None).
+# The exec-tools payload serves an exec runtime from a rules_py-provisioned repo.
 facts = read("exec_tools_facts.txt").splitlines()
 assert "python_interpreters+" in facts[0], facts
-assert facts[1] == "None", facts
 
 assert read("python_launcher.txt") == "3.11"
 

@@ -9,7 +9,9 @@ which has been registered in the `MODULE.bazel` file, e.g.:
 ```starlark
 interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
 interpreters.toolchain(python_version = "3.9")
+interpreters.toolchain(python_version = "3.12")
 use_repo(interpreters, "python_interpreters")
+
 register_toolchains("@python_interpreters//:all")
 ```
 """
@@ -31,6 +33,7 @@ load("//py/private:py_pytest_main.bzl", _py_pytest_main = "py_pytest_main", _pyt
 load("//py/private:py_unpacked_wheel.bzl", _py_unpacked_wheel = "py_unpacked_wheel")
 load("//py/private:virtual.bzl", _resolutions = "resolutions")
 load("//py/private/interpreter:current_py_toolchain.bzl", _current_py_toolchain = "current_py_toolchain")
+load("//py/private/interpreter:runtime.bzl", _PyRuntimeInfo = "PyRuntimeInfo")
 load(
     "//py/private/py_venv:defs.bzl",
     _py_binary_with_venv = "py_binary_with_venv",
@@ -60,6 +63,10 @@ PyLayerTierInfo = _PyLayerTierInfo
 
 # The PyInfo provider used by rules_py
 PyInfo = _PyInfo
+
+# The runtime provider carried by rules_py-provisioned interpreter toolchains:
+# rules_python's public PyRuntimeInfo, the shared standard-toolchain contract.
+PyRuntimeInfo = _PyRuntimeInfo
 
 resolutions = _resolutions
 

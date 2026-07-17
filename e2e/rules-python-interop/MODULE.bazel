@@ -27,3 +27,15 @@ pip.parse(
     requirements_lock = "//:requirements.txt",
 )
 use_repo(pip, "pip")
+
+# A rules_py uv hub: whl_install must find an exec-tools runtime even though
+# only rules_python provisions target interpreters here — rules_py's own
+# MODULE bundles a PBS interpreter hub whose exec-tools fallback serves it.
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "rpy_pypi")
+uv.project(
+    hub_name = "rpy_pypi",
+    lock = "//:uv.lock",
+    pyproject = "//:pyproject.toml",
+)
+use_repo(uv, "rpy_pypi")

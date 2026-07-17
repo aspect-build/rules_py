@@ -1,5 +1,7 @@
 load("@aspect_rules_py//py:defs.bzl", "py_library", "py_test", "py_wheel", "whl_filegroup")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@rules_python//python/entry_points:py_console_script_binary.bzl", "py_console_script_binary")
+load("@rules_python//python/zipapp:py_zipapp_binary.bzl", "py_zipapp_binary")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load(":exec_tools_facts.bzl", "exec_tools_facts", "with_python_version")
 load(":report_exec_version.bzl", "report_exec_version")
@@ -84,4 +86,20 @@ sh_test(
     srcs = ["console_script_test.sh"],
     args = ["$(rootpath :pycowsay)"],
     data = [":pycowsay"],
+)
+
+# rules_python's py_zipapp_binary requires and indexes rules_python's
+# PyRuntimeInfo on the wrapped binary, which forwards the runtime it resolved
+# from the rules_py-provisioned toolchain — pinning that toolchains carry
+# rules_python's provider by identity, not a structurally compatible one.
+# Only PyRuntimeInfo is under test here: the binary's dependency graph is
+# pip-hub-internal, so no PyInfo crosses the ruleset boundary.
+py_zipapp_binary(
+    name = "pycowsay_zipapp",
+    binary = ":pycowsay",
+)
+
+build_test(
+    name = "zipapp_test",
+    targets = [":pycowsay_zipapp"],
 )

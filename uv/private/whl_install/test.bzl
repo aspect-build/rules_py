@@ -4,7 +4,7 @@ load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts", "unittest")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//py/private:providers.bzl", "PyWheelsInfo")
 load(":repository.bzl", "compatible_python_tags", "native_roots_for_segments", "parse_console_script", "parse_record_path", "select_key", "site_packages_segments", "sort_select_arms", "source_specificity")
-load(":rule.bzl", "source_built_wheel", "whl_install")
+load(":rule.bzl", "pyc_compile_version_compatible", "source_built_wheel", "whl_install")
 
 def _whl_sorting_test_impl(ctx):
     env = unittest.begin(ctx)
@@ -546,7 +546,108 @@ def metadata_selection_test_suite(name):
         leaked_top_levels = [],
     )
 
+# --- compile_pyc exec/target version agreement -----------------------------
+#
+# WhlInstall lays out lib/python{target}/ from the standard toolchain but runs
+# compileall on the exec-tools runtime. A fallback exec runtime of another
+# version would emit bytecode whose magic is wrong for the target layout, so
+# the action must omit --compile-pyc unless the versions agree.
+
+def _compile_pyc_args_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    argv = []
+    for action in analysistest.target_actions(env):
+        if action.mnemonic == "WhlInstall":
+            argv = action.argv
+    asserts.equals(
+        env,
+        ctx.attr.expect_compile_pyc,
+        "--compile-pyc" in argv,
+        "WhlInstall argv: {}".format(argv),
+    )
+    return analysistest.end(env)
+
+_compile_pyc_matched_test = analysistest.make(
+    _compile_pyc_args_test_impl,
+    attrs = {"expect_compile_pyc": attr.bool()},
+    config_settings = {
+        # The hub provisions 3.13, so exec and target versions agree.
+        "@@//py/private/interpreter:python_version": "3.13",
+    },
+)
+
+_compile_pyc_mismatched_test = analysistest.make(
+    _compile_pyc_args_test_impl,
+    attrs = {"expect_compile_pyc": attr.bool()},
+    config_settings = {
+        # The hub provisions no 3.9: the target runtime comes from
+        # rules_python's dev toolchain while the exec fallback stays 3.13.
+        "@@//py/private/interpreter:python_version": "3.9",
+    },
+)
+
+def _version_info(major, minor, micro, releaselevel = "final", serial = 0):
+    return struct(
+        major = major,
+        minor = minor,
+        micro = micro,
+        releaselevel = releaselevel,
+        serial = serial,
+    )
+
+def _pyc_version_compatible_test_impl(ctx):
+    env = unittest.begin(ctx)
+
+    v3_13 = _version_info(3, 13, 5)
+    asserts.true(env, pyc_compile_version_compatible(v3_13, _version_info(3, 13, 5)))
+
+    # Differing minor, micro, or — the reported regression — same-minor
+    # prerelease serial each change the bytecode magic.
+    asserts.false(env, pyc_compile_version_compatible(v3_13, _version_info(3, 12, 5)))
+    asserts.false(env, pyc_compile_version_compatible(v3_13, _version_info(3, 13, 4)))
+    asserts.false(
+        env,
+        pyc_compile_version_compatible(
+            _version_info(3, 15, 0, "alpha", 2),
+            _version_info(3, 15, 0, "alpha", 6),
+        ),
+    )
+
+    return unittest.end(env)
+
+pyc_version_compatible_test = unittest.make(_pyc_version_compatible_test_impl)
+
+def compile_pyc_version_test_suite(name):
+    """Fixture + analysis tests for exec/target pyc version agreement.
+
+    Args:
+        name: prefix for the generated test targets.
+    """
+    whl_install(
+        name = "__compile_pyc_fixture",
+        testonly = True,
+        src = _SBUILD_WHL,
+        compile_pyc = True,
+        tags = ["manual"],
+    )
+
+    _compile_pyc_matched_test(
+        name = name + "_matched_test",
+        target_under_test = ":__compile_pyc_fixture",
+        expect_compile_pyc = True,
+    )
+
+    _compile_pyc_mismatched_test(
+        name = name + "_mismatched_test",
+        target_under_test = ":__compile_pyc_fixture",
+        expect_compile_pyc = False,
+    )
+
 def whl_install_suite():
+    unittest.suite(
+        "pyc_version_compatible_tests",
+        pyc_version_compatible_test,
+    )
     unittest.suite(
         "whl_sorting_tests",
         whl_sorting_test,

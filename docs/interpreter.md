@@ -273,8 +273,25 @@ This interpreter provisioning is designed to coexist with `rules_python`:
   registration, so these interpreters work with all existing Python rules.
 - The `@rules_python//python/config_settings:python_version` flag is kept in
   sync with our own version flag via build transitions.
-- `py_runtime` and `py_runtime_pair` from `rules_python` are used to create
-  the runtime providers.
+- Runtimes registered with `rules_python`'s `py_runtime` / `py_runtime_pair`
+  (for example a system interpreter) remain usable by rules_py rules, which
+  read the runtime fields structurally.
+- Build actions that run an interpreter (wheel installation, site-packages
+  merging) resolve `@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type`,
+  registered by `interpreters.toolchain()`. The exec interpreter follows the
+  Python version flags when the hub provisions that version; otherwise it
+  falls back to the hub's highest provisioned version — including the hub
+  rules_py itself registers, so this resolves even in modules that provision
+  interpreters only through `rules_python`'s `python.toolchain()`. rules_py
+  registers nothing under `rules_python`'s exec-tools type, leaving it —
+  including precompiling — entirely to `rules_python`.
+
+Note that runtimes provisioned by `interpreters.toolchain()` carry
+`rules_python`'s public `PyRuntimeInfo` (re-exported from
+`@aspect_rules_py//py:defs.bzl`), so `rules_python`-defined executables and
+their downstream consumers (`py_zipapp_binary`, `py_interpreter`) analyze and
+run on them. No coverage tool is bundled, so `rules_python`-rule coverage on
+these runtimes is unavailable.
 
 You can migrate incrementally: replace `python.toolchain()` calls with
 `interpreters.toolchain()` and remove the `rules_python` interpreter

@@ -201,9 +201,7 @@ cc_library(
     return """\
 load("@rules_cc//cc:cc_import.bzl", "cc_import")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("@rules_python//python:py_runtime.bzl", "py_runtime")
-load("@rules_python//python:py_runtime_pair.bzl", "py_runtime_pair")
-load("@rules_python//python:py_exec_tools_toolchain.bzl", "py_exec_tools_toolchain")
+load("@aspect_rules_py//py/private/interpreter:runtime.bzl", "py_runtime_toolchain")
 load("@rules_python//python/cc:py_cc_toolchain.bzl", "py_cc_toolchain")
 
 package(default_visibility = ["//visibility:public"])
@@ -244,8 +242,8 @@ filegroup(
     deps = {header_interface_deps},
 )
 
-py_runtime(
-    name = "py3_runtime",
+py_runtime_toolchain(
+    name = "runtime",
     abi_flags = "{abi_flags}",
     files = [":files"],
     interpreter = "{python_bin}",
@@ -256,17 +254,6 @@ py_runtime(
         "releaselevel": "{releaselevel}",
         "serial": "{serial}",
     }},
-    python_version = "PY3",
-)
-
-py_runtime_pair(
-    name = "runtime_pair",
-    py2_runtime = None,
-    py3_runtime = ":py3_runtime",
-)
-
-py_exec_tools_toolchain(
-    name = "exec_tools_toolchain",
 )
 
 py_cc_toolchain(
@@ -433,6 +420,7 @@ config_setting(
     # offers a matching pair: https://github.com/aspect-build/rules_py/issues/1095
     #
     # Second pass: emit toolchain() registrations.
+    exec_tools_fallbacks = {}  # repr(exec_compatible_with) -> (version tuple, name, repo, constraints)
     for info, platform_setting_names in toolchain_infos:
         extra_config_settings = info.get("config_settings", [])
         extra_target_compatible = info.get("target_compatible_with", [])
@@ -461,7 +449,7 @@ toolchain(
     name = "{name}",
     target_compatible_with = {target_compatible_with},
     target_settings = {target_settings},
-    toolchain = "@{repo}//:runtime_pair",
+    toolchain = "@{repo}//:runtime",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
 
@@ -483,17 +471,46 @@ toolchain(
             content.append("""# Exec tools toolchain: selected by exec platform (not target platform) so
 # that build actions using the interpreter (e.g. compileall) get a runnable
 # binary on the build host regardless of the target platform being built for.
+# Version-gated so the exec interpreter follows the version flags.
 toolchain(
     name = "{name}_exec_tools",
     exec_compatible_with = {exec_compatible_with},
-    toolchain = "@{repo}//:exec_tools_toolchain",
-    toolchain_type = "@rules_python//python:exec_tools_toolchain_type",
+    target_settings = ["{version_setting}"],
+    toolchain = "@{repo}//:runtime",
+    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 """.format(
                 name = info["name"],
                 repo = info["repo"],
                 exec_compatible_with = exec_compatible_with,
+                version_setting = version_setting,
             ))
+
+            # Track the platform's highest provisioned version for the
+            # ungated fallback entry emitted after the loop.
+            version_key = tuple([int(part) for part in info["python_version"].split(".")])
+            prior = exec_tools_fallbacks.get(repr(exec_compatible_with))
+            if prior == None or version_key > prior[0]:
+                exec_tools_fallbacks[repr(exec_compatible_with)] = (version_key, info["name"], info["repo"], exec_compatible_with)
+
+    # Ungated exec-tools fallbacks: build actions only need *a* runnable host
+    # interpreter, so configurations matching no version-gated entry (e.g. the
+    # version flags at defaults not provisioned by this hub) fall back to the
+    # platform's highest provisioned version. Registration is lexicographic by
+    # name, so the `zz_` prefix sorts these after every gated entry.
+    for _, name, repo, constraints in exec_tools_fallbacks.values():
+        content.append("""
+toolchain(
+    name = "zz_{name}_exec_tools_fallback",
+    exec_compatible_with = {exec_compatible_with},
+    toolchain = "@{repo}//:runtime",
+    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+)
+""".format(
+            name = name,
+            repo = repo,
+            exec_compatible_with = constraints,
+        ))
 
     content.append("""
 exports_files(

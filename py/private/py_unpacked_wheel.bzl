@@ -9,7 +9,7 @@ load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PY_TOOLCHAIN")
 
 def _py_unpacked_wheel_impl(ctx):
     py_toolchain = _py_semantics.resolve_toolchain(ctx)
-    exec_runtime = ctx.toolchains[EXEC_TOOLS_TOOLCHAIN].exec_tools.exec_runtime
+    exec_runtime = ctx.toolchains[EXEC_TOOLS_TOOLCHAIN].exec_runtime
     unpack_script = ctx.file._unpack_script
 
     unpack_directory = ctx.actions.declare_directory("{}".format(ctx.attr.name))
