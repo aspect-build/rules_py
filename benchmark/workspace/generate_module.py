@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate MODULE.bazel for the analysis benchmark workspace from a template."""
+"""Generate MODULE.bazel for the unified benchmark workspace from a template."""
 
 import argparse
 import sys
@@ -24,7 +24,7 @@ def generate(declaration: str) -> str:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Generate MODULE.bazel for analysis benchmark")
+    parser = argparse.ArgumentParser(description="Generate MODULE.bazel for benchmark workspace")
     parser.add_argument(
         "mode",
         choices=["bcr", "local"],
