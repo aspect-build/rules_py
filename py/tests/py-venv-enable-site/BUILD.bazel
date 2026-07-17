@@ -1,8 +1,7 @@
 load("//py:defs.bzl", "py_test")
 
-# `isolated = False` is required so Python honors the user-site flag
-# (py_test defaults to `-I` which ignores user-site regardless of the
-# pyvenv.cfg `aspect-include-user-site-packages` key).
+# `isolated = False` drops `-I` so Python loads user site-packages
+# (py_test defaults to `-I`, which ignores user-site).
 py_test(
     name = "test",
     srcs = [
@@ -12,7 +11,6 @@ py_test(
         ".",
     ],
     include_system_site_packages = True,
-    include_user_site_packages = True,
     isolated = False,
     main = "test.py",
     deps = [

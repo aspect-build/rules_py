@@ -204,6 +204,5 @@ home = ../../../../../../rules_python++python+python_3_9_x86_64-unknown-linux-gn
 implementation = CPython
 version_info = 3.9.25
 include-system-site-packages = false
-aspect-include-user-site-packages = false
 relocatable = true
 ---

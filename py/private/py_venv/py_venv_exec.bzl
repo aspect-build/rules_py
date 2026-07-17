@@ -195,10 +195,9 @@ party sources land at their usual rlocation paths.
         doc = """When True (default), the launcher invokes Python with `-I`
 (isolated mode: ignore PYTHON* env vars, skip user site-packages, don't
 auto-add the script's dir to sys.path). Set to False to drop `-I` — the
-launcher then respects `PYTHONPATH` and loads user site-packages if the
-sibling venv has `include_user_site_packages = True` set. The deprecated
-`py_venv_binary` / `py_venv_test` aliases default this to False to
-match their historical permissive behaviour.""",
+launcher then respects `PYTHONPATH` and loads user site-packages. The
+deprecated `py_venv_binary` / `py_venv_test` aliases default this to
+False to match their historical permissive behaviour.""",
     ),
     # `data` is the only py_library attr the launcher reads (env-var
     # location expansion, runfiles merge, coverage walk). `srcs`,

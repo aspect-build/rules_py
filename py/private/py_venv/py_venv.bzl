@@ -75,7 +75,6 @@ def _assemble_shared(ctx):
         ),
         package_collisions = ctx.attr.package_collisions,
         include_system_site_packages = ctx.attr.include_system_site_packages,
-        include_user_site_packages = ctx.attr.include_user_site_packages,
         default_env = default_env,
         venv_activate_tmpl = ctx.file._venv_activate_tmpl,
         virtualenv_shim_py = ctx.file._virtualenv_shim,
@@ -207,10 +206,6 @@ does not reinsert a wheel.
         default = False,
         doc = """`pyvenv.cfg` feature flag for the `include-system-site-packages` key.""",
     ),
-    "include_user_site_packages": attr.bool(
-        default = False,
-        doc = """`pyvenv.cfg` feature flag for the `aspect-include-user-site-packages` extension key.""",
-    ),
     # Required for py_version attribute
     "_allowlist_function_transition": attr.label(
         default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
@@ -339,7 +334,6 @@ _VENV_ONLY_ATTRS = [
     "virtual_deps",
     "package_collisions",
     "include_system_site_packages",
-    "include_user_site_packages",
     "python_version",
     "dep_group",
 ]
