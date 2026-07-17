@@ -9,9 +9,13 @@ the sdist build pathway end-to-end.
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import cowsay
+
+assert not (Path(cowsay.__file__).parent.parent / "cowsay-6.0.dist-info").exists()
+assert "cowsay: cowsay" in Path(sys.argv[1]).read_text()
 
 output = cowsay.get_output_string("cow", "sdist fallback works!")
 assert "sdist fallback works!" in output

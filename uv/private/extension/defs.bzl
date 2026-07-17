@@ -606,6 +606,7 @@ def _parse_projects(module_ctx, hub_specs):
 
                 install_cfgs[k] = struct(
                     package_name = normalize_name(package["name"]),
+                    package_version = normalize_version(package["version"]),
                     metadata_directory = metadata_directory or "",
                     whls = whls,
                     sbuild = "@{}//:whl".format(sbuild_id) if has_sbuild else None,
@@ -773,6 +774,7 @@ def _uv_impl(module_ctx):
     for install_id, install_cfg in cfg.install_cfgs.items():
         install_kwargs = {
             "package_name": install_cfg.package_name,
+            "package_version": install_cfg.package_version,
             "metadata_directory": install_cfg.metadata_directory,
             "name": install_id,
             "sbuild": install_cfg.sbuild,

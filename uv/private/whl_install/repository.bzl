@@ -683,12 +683,16 @@ py_library(
     post_install_patch_strip = repository_ctx.attr.post_install_patch_strip
     exclude_glob = repository_ctx.attr.exclude_glob
 
-    if exclude_glob and prebuilds:
-        gazelle_index_whl = ":gazelle_index.json"
+    if exclude_glob:
+        gazelle_index_whls = [":gazelle_index.json"]
+        if not prebuilds:
+            if not default_target:
+                fail("Cannot identify a source-built wheel of {} to analyze for Gazelle indexing".format(repository_ctx.name))
+            gazelle_index_whls.append(default_target)
     elif prebuilds:
-        gazelle_index_whl = prebuilds.values()[0]  # Effectively random choice :shrug:
+        gazelle_index_whls = [prebuilds.values()[0]]  # Effectively random choice :shrug:
     elif default_target:
-        gazelle_index_whl = default_target
+        gazelle_index_whls = [default_target]
     else:
         fail("Cannot identify a wheel or sbuild of {} to analyze for Gazelle indexing\n{}".format(repository_ctx.name, pprint(repository_ctx.attr)))
 
@@ -709,7 +713,7 @@ filegroup(
 """.format(
             arms = indent(pprint(select_arms), "   ").lstrip(),
             default_target = repr(default_target),
-            index_whl = indent(pprint([str(gazelle_index_whl)]), " " * 4).lstrip(),
+            index_whl = indent(pprint([str(target) for target in gazelle_index_whls]), " " * 4).lstrip(),
         ),
     )
 
@@ -852,13 +856,16 @@ filegroup(
         if css:
             console_scripts_by_whl[whl_name] = sorted(css.values())
 
-    if exclude_glob and prebuilds:
+    if exclude_glob:
+        gazelle_index = {"name": repository_ctx.attr.package_name}
+        if prebuilds:
+            gazelle_index["paths"] = sorted(gazelle_paths.keys())
+        else:
+            gazelle_index["version"] = repository_ctx.attr.package_version
+            gazelle_index["exclude_glob"] = exclude_glob
         repository_ctx.file(
             "gazelle_index.json",
-            content = json.encode({
-                "name": repository_ctx.attr.package_name,
-                "paths": sorted(gazelle_paths.keys()),
-            }),
+            content = json.encode(gazelle_index),
             executable = False,
         )
 
@@ -967,6 +974,7 @@ whl_install = repository_rule(
     implementation = _whl_install_impl,
     attrs = {
         "package_name": attr.string(mandatory = True),
+        "package_version": attr.string(mandatory = True),
         # `<project>-<version>.dist-info`, the directory `_extract_wheel_metadata`
         # strips to when extracting RECORD/entry_points.txt out of the wheel.
         "metadata_directory": attr.string(),

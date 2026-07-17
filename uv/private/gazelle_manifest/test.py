@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 
 import json
+import shlex
+import sys
 from pathlib import Path
 from zipfile import ZipFile
 
-from generate import extract_package_name, find_unique_shallowest_prefixes, get_importable_module_name, identify_modules
+from generate import extract_package, find_unique_shallowest_prefixes, get_importable_module_name, identify_modules, main
+from exclude_glob import parse
 
 
 def test_filtered_wheel_index(tmp_path: Path):
@@ -21,17 +24,63 @@ def test_filtered_wheel_index(tmp_path: Path):
         "paths": ["demo/__init__.py", "demo/native.cp311-win_amd64.pyd"],
     }))
 
-    assert extract_package_name(wheel) == "demo"
-    assert extract_package_name(index) == "demo"
-    assert identify_modules(wheel, "demo") == {
+    assert extract_package(wheel) == ("demo", "1_0")
+    assert extract_package(index) == ("demo", "")
+    assert identify_modules(wheel, "demo", []) == {
         "demo": "demo",
         "demo.native": "demo",
         "excluded_top_level": "demo",
     }
-    assert identify_modules(index, "demo") == {
+    assert identify_modules(index, "demo", []) == {
         "demo": "demo",
         "demo.native": "demo",
     }
+
+def test_filtered_source_wheel_modules(tmp_path: Path) -> None:
+    wheel = tmp_path / "demo-1.0-py3-none-any.whl"
+    with ZipFile(wheel, "w") as archive:
+        archive.writestr("demo/__init__.py", "")
+        archive.writestr("demo/tests/test_demo.py", "")
+        archive.writestr("demo-1.0.data/purelib/excluded_root/__init__.py", "")
+        archive.writestr("demo-1.0.dist-info/METADATA", "Name: demo\nVersion: 1.0\n")
+
+    assert identify_modules(wheel, "demo", [parse("demo/**/tests/**"), parse("excluded_root")]) == {
+        "demo": "demo",
+    }
+
+
+def test_source_exclusions_match_locked_version(tmp_path: Path, monkeypatch) -> None:
+    source = tmp_path / "demo-1.0-py3-none-any.whl"
+    with ZipFile(source, "w") as archive:
+        archive.writestr("demo_v1/__init__.py", "")
+        archive.writestr("shared/__init__.py", "")
+        archive.writestr("v1_excluded/__init__.py", "")
+        archive.writestr("demo-1.0.dist-info/METADATA", "Name: demo\nVersion: 1.0\n")
+
+    other = tmp_path / "demo-2.0-py3-none-any.whl"
+    with ZipFile(other, "w") as archive:
+        archive.writestr("demo_v2/__init__.py", "")
+        archive.writestr("shared/__init__.py", "")
+        archive.writestr("demo-2.0.dist-info/METADATA", "Name: demo\nVersion: 2.0\n")
+
+    index = tmp_path / "gazelle_index.json"
+    index.write_text(json.dumps({"name": "demo", "version": "1_0", "exclude_glob": ["shared", "v1_excluded"]}))
+    inputs = tmp_path / "inputs"
+    inputs.write_text("\n".join([
+        shlex.join(["\t".join([str(source), str(other), str(index)])]),
+        shlex.join([str(other)]),
+        "",
+    ]))
+    output = tmp_path / "manifest.yaml"
+    monkeypatch.setattr(sys, "argv", ["generate.py", "--whl_paths_file", str(inputs), "--hub_name", "pypi", "--output", str(output)])
+
+    main()
+
+    manifest = output.read_text()
+    assert "    demo_v1: demo\n" in manifest
+    assert "    demo_v2: demo\n" in manifest
+    assert "    shared: demo\n" in manifest
+    assert "    v1_excluded: demo\n" not in manifest
 
 def test_parse_names() -> None:
     assert get_importable_module_name("foo.py") == "foo"

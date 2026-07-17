@@ -5,7 +5,7 @@
 # be overkill and take more work.
 #
 # The strategy is simple.
-# - Accept an args file containing paths to wheel files or filtered wheel indexes
+# - Accept an args file containing one wheel/index group per line
 #
 # - For each whl file
 #   - extract the .dist-info/METADATA` file and use that to grab the package name
@@ -19,13 +19,16 @@ from __future__ import annotations
 
 import argparse
 import json
+import shlex
 import sys
 from zipfile import ZipFile
 from pathlib import Path
 from email.parser import Parser
 from io import StringIO
-from typing import List, Optional, Set, Tuple
+from typing import Iterable, List, Optional, Sequence, Set, Tuple
 from collections import defaultdict
+
+from exclude_glob import excluded, parse
 
 def normalize_name(name: str) -> str:
     """normalize a PyPI package name and return a valid bazel label.
@@ -49,20 +52,25 @@ def normalize_name(name: str) -> str:
     ])
 
 
-def extract_package_name(whl_path: Path) -> Optional[str]:
+def normalize_version(version: str) -> str:
+    return "".join(character if character.isalnum() or character == "-" else "_" for character in version)
+
+
+def extract_package(whl_path: Path) -> Optional[tuple[str, str]]:
     """
     Finds the METADATA file in .dist-info/ and extracts
-    the 'Name' field to determine the requirement name.
+    the 'Name' and 'Version' fields to determine the locked requirement.
 
     Args:
         whl_path: Path to the wheel file or filtered wheel index.
 
     Returns:
-        The package name (requirement name) as a string, or None on failure.
+        The normalized package name and version, or None on failure.
     """
     try:
         if whl_path.name == "gazelle_index.json":
-            return normalize_name(json.loads(whl_path.read_text(encoding="utf-8"))["name"])
+            index = json.loads(whl_path.read_text(encoding="utf-8"))
+            return normalize_name(index["name"]), index.get("version", "")
 
         with ZipFile(whl_path, 'r') as zf:
             metadata_files = [f for f in zf.namelist() if f.endswith('.dist-info/METADATA')]
@@ -77,14 +85,15 @@ def extract_package_name(whl_path: Path) -> Optional[str]:
         msg = parser.parse(StringIO(metadata_content))
 
         package_name = msg.get('Name')
-        if not package_name:
-            print(f"Warning: 'Name' field missing from METADATA in {whl_path}", file=sys.stderr)
+        package_version = msg.get('Version')
+        if not package_name or not package_version:
+            print(f"Warning: 'Name' or 'Version' field missing from METADATA in {whl_path}", file=sys.stderr)
             return None
 
-        return normalize_name(package_name.strip())
+        return normalize_name(package_name.strip()), normalize_version(package_version.strip())
 
     except Exception as e:
-        print(f"Error reading package name from {whl_path}: {e}", file=sys.stderr)
+        print(f"Error reading package metadata from {whl_path}: {e}", file=sys.stderr)
         return None
 
 def conventional_name(path_str: str) -> str:
@@ -112,13 +121,8 @@ def get_importable_module_name(filepath: str) -> Optional[str]:
     if '.' in filepath:
         filepath = conventional_name(filepath)
 
-    # 2. Split into path segments
-    segments = filepath.split('/')
-
-    # .data/platlib/ is a stripped prefix
-    # https://peps.python.org/pep-0491/#installing-a-wheel-distribution-1-0-py32-none-any-whl
-    if len(segments) >= 2 and segments[0].endswith(".data") and segments[1] in ("platlib", "purelib"):
-        segments = segments[2:]
+    # 2. Split into translated site-packages path segments
+    segments = site_packages_segments(filepath)
 
     # 4. Handle __init__ (remove the segment itself)
     if segments[-1] == '__init__':
@@ -133,7 +137,14 @@ def get_importable_module_name(filepath: str) -> Optional[str]:
     return module_name if module_name else None
 
 
-def identify_modules(whl_path: Path, package_name: str) -> dict[str, str]:
+def site_packages_segments(filepath: str) -> list[str]:
+    segments = filepath.split('/')
+    if len(segments) >= 2 and segments[0].endswith(".data") and segments[1] in ("platlib", "purelib"):
+        return segments[2:]
+    return segments
+
+
+def identify_modules(whl_path: Path, package_name: str, patterns: Sequence[tuple[str, ...]]) -> dict[str, str]:
     """
     Scans the wheel or filtered wheel index for importable Python and extension files,
     maps them to the package name, and applies filtering rules.
@@ -141,6 +152,7 @@ def identify_modules(whl_path: Path, package_name: str) -> dict[str, str]:
     Args:
         whl_path: Path to the wheel file or filtered wheel index.
         package_name: The name of the requirement (e.g., 'requests').
+        patterns: Parsed site-packages-relative exclusion globs.
 
     Returns:
         A dictionary mapping importable module names to the requirement name.
@@ -165,6 +177,8 @@ def identify_modules(whl_path: Path, package_name: str) -> dict[str, str]:
             # Check for importable file types
             # FIXME: C-extensions are, technically, importable.
             if member.endswith(('.py', '.so', '.dylib', '.pyd')):
+                if excluded(site_packages_segments(member), patterns):
+                    continue
                 module_name = get_importable_module_name(member)
                 if module_name and module_name not in module_mapping:
                     module_mapping[module_name] = requirement_name
@@ -209,12 +223,12 @@ manifest:
         print(f"Error writing manifest to {output_path}: {e}", file=sys.stderr)
 
 
-def find_unique_shallowest_prefixes(all_module_package_pairs: List[Tuple[str, str]]) -> dict[str, str]:
+def find_unique_shallowest_prefixes(all_module_package_pairs: Iterable[Tuple[str, str]]) -> dict[str, str]:
     """
     Identifies the shallowest module prefixes that map uniquely to a given Python package.
 
     Args:
-        all_module_package_pairs: A list of (module_name, package_name) tuples from all wheels.
+        all_module_package_pairs: (module_name, package_name) tuples from all wheels.
 
     Returns:
         A dictionary mapping the unique shallowest module prefixes to their corresponding package names.
@@ -268,7 +282,7 @@ def main() -> None:
         '--whl_paths_file',
         type=Path,
         required=True,
-        help="Path to a file containing a list of paths to wheel (.whl) files, one per line."
+        help="Path to a file containing tab-separated wheel/index paths, one target per line."
     )
 
     # Output path for the final Gazelle manifest
@@ -288,42 +302,71 @@ def main() -> None:
 
     # Read wheel paths
     try:
-        whl_paths = []
-        for p in args.whl_paths_file.read_text().splitlines():
-            p = p.strip()
-            if p:
+        whl_groups = []
+        for line in args.whl_paths_file.read_text().splitlines():
+            group = []
+            for p in shlex.split(line)[0].split("\t"):
+                p = p.strip()
+                if not p:
+                    continue
                 p = Path(p)
                 if p.is_file():
-                    whl_paths.append(p)
+                    group.append(p)
                 elif p.is_dir():
-                    whl_paths.extend(p.glob("*.whl"))
+                    group.extend(p.glob("*.whl"))
                 else:
                     print(f"No wheels found for {p}", file=sys.stderr)
+            if group:
+                whl_groups.append(group)
 
     except Exception as e:
         print(f"Error reading wheel paths file {args.whl_paths_file}: {e}", file=sys.stderr)
         sys.exit(1)
 
-    if not whl_paths:
+    if not whl_groups:
         print("Warning: No wheel paths found in the input file. Generating empty manifest.", file=sys.stderr)
 
     # 3. Process each wheel file
-    all_module_package_pairs = []
-    for whl_path in whl_paths:
-        if not whl_path.exists():
-            print(f"Warning: Wheel file not found: {whl_path}. Skipping.", file=sys.stderr)
-            continue
+    all_module_package_pairs = set()
+    packages_by_path = {}
+    modules_by_path_and_patterns = {}
+    for group in whl_groups:
+        source_exclusions = {}
+        for path in group:
+            if path.name != "gazelle_index.json":
+                continue
+            index = json.loads(path.read_text(encoding="utf-8"))
+            if "exclude_glob" in index:
+                source_exclusions[(normalize_name(index["name"]), index["version"])] = [
+                    parse(pattern)
+                    for pattern in index["exclude_glob"]
+                ]
 
-        # Get package name (requirement name)
-        package_name = extract_package_name(whl_path)
-        if not package_name:
-            continue
+        for whl_path in group:
+            if not whl_path.exists():
+                print(f"Warning: Wheel file not found: {whl_path}. Skipping.", file=sys.stderr)
+                continue
+            if whl_path.name == "gazelle_index.json":
+                index = json.loads(whl_path.read_text(encoding="utf-8"))
+                if "exclude_glob" in index:
+                    continue
 
-        # Identify importable modules for this package
-        modules = identify_modules(whl_path, package_name)
+            # Get package name (requirement name)
+            if whl_path not in packages_by_path:
+                packages_by_path[whl_path] = extract_package(whl_path)
+            package = packages_by_path[whl_path]
+            if not package:
+                continue
+            package_name, _ = package
 
-        for module, package in modules.items():
-            all_module_package_pairs.append((module, package))
+            # Identify importable modules for this package
+            patterns = () if whl_path.name == "gazelle_index.json" else tuple(source_exclusions.get(package, []))
+            key = (whl_path, patterns)
+            if key not in modules_by_path_and_patterns:
+                modules_by_path_and_patterns[key] = identify_modules(whl_path, package_name, patterns)
+            modules = modules_by_path_and_patterns[key]
+
+            all_module_package_pairs.update(modules.items())
 
     # Process all_module_package_pairs to find unique shallowest prefixes
     final_module_mapping = find_unique_shallowest_prefixes(all_module_package_pairs)
