@@ -19,7 +19,6 @@ uv.override_package(
 uv.override_package(
     name = "googleapis-common-protos",
     exclude_glob = ["google/**/*.proto"],
-    lock = "//uv-exclusions:uv.lock",
 )
 use_repo(
     uv,
