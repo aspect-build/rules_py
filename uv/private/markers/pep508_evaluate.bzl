@@ -347,8 +347,9 @@ def _version_expr(left, op, right):
     _right = right.key()
     pre_kind, _, pre_number = left.pre_release.partition(".")
     pre_number, has_dev, dev_number = pre_number.partition(".dev.")
-    pep440_prerelease = (pre_kind == "dev" and pre_number.isdigit()) or (
-        pre_kind in ["a", "b", "rc"] and pre_number.isdigit() and (not has_dev or dev_number.isdigit())
+    pep440_prerelease = pre_number.isdigit() and (
+        (pre_kind == "dev" and not has_dev) or
+        (pre_kind in ["a", "b", "rc"] and (not has_dev or dev_number.isdigit()))
     )
     if op in ["<", ">", "<=", ">=", "~="]:
         if right.build:
