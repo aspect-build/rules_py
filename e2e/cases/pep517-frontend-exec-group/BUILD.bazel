@@ -2,15 +2,18 @@ load("@aspect_rules_py//uv/private/pep517_whl:rule.bzl", "pep517_native_whl")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load("@rules_cc//cc/toolchains:cc_toolchain.bzl", legacy_cc_toolchain = "cc_toolchain")
 load("@rules_cc//cc/toolchains:tool.bzl", "cc_tool")
 load("@rules_cc//cc/toolchains:tool_map.bzl", "cc_tool_map")
 load("@rules_cc//cc/toolchains:toolchain.bzl", "cc_toolchain")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
-load(":toolchain.bzl", "fake_cc_toolchain")
+load(":toolchain.bzl", "fake_cc_toolchain", "legacy_cc_toolchain_config")
 
 _CC_TOOLCHAIN = "//pep517-frontend-exec-group:cc_toolchain"
 
 _CONFIGURED_CC_TOOLCHAIN = "//pep517-frontend-exec-group:configured_cc_toolchain"
+
+_LEGACY_CC_TOOLCHAIN = "//pep517-frontend-exec-group:legacy_cc_toolchain"
 
 # Keep the host first so the default exec group selects it. The native wheel's
 # `target` exec group requires the transitioned target constraints and selects
@@ -53,6 +56,19 @@ platform(
         "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
         "--extra_execution_platforms=@platforms//host,//pep517-frontend-exec-group:linux_configured",
         "--extra_toolchains=" + _CONFIGURED_CC_TOOLCHAIN,
+    ],
+)
+
+platform(
+    name = "linux_legacy",
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+    flags = [
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
+        "--extra_execution_platforms=@platforms//host,//pep517-frontend-exec-group:linux_legacy",
+        "--extra_toolchains=" + _LEGACY_CC_TOOLCHAIN,
     ],
 )
 
@@ -162,6 +178,38 @@ toolchain(
     toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
 )
 
+filegroup(
+    name = "legacy_tools",
+    srcs = [
+        "legacy_archiver.sh",
+        "legacy_compiler.sh",
+    ],
+)
+
+legacy_cc_toolchain_config(
+    name = "legacy_cc_config",
+    archiver = "legacy_archiver.sh",
+    compiler = "legacy_compiler.sh",
+)
+
+legacy_cc_toolchain(
+    name = "legacy_cc",
+    all_files = ":legacy_tools",
+    ar_files = ":legacy_tools",
+    compiler_files = ":legacy_tools",
+    dwp_files = ":legacy_tools",
+    linker_files = ":legacy_tools",
+    objcopy_files = ":legacy_tools",
+    strip_files = ":legacy_tools",
+    toolchain_config = ":legacy_cc_config",
+)
+
+toolchain(
+    name = "legacy_cc_toolchain",
+    toolchain = ":legacy_cc",
+    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+)
+
 write_file(
     name = "frontend_script",
     out = "frontend.sh",
@@ -218,6 +266,32 @@ sh_binary(
 )
 
 write_file(
+    name = "legacy_frontend_script",
+    out = "legacy_frontend.sh",
+    content = [
+        "#!/usr/bin/env bash",
+        "set -euo pipefail",
+        "ar_actual=\"$(\"${AR}\")\"",
+        "if [[ \"${ar_actual}\" != legacy-ar ]]; then",
+        "  echo \"legacy AR ${AR} reported ${ar_actual}\" >&2",
+        "  exit 1",
+        "fi",
+        "if [[ -z \"${CC-unset}\" || -z \"${CXX-unset}\" || -z \"${LD-unset}\" || -z \"${STRIP-unset}\" ]]; then",
+        "  echo 'configured tools must not be set to empty values' >&2",
+        "  exit 1",
+        "fi",
+        "wheel_dir=\"${!#}\"",
+        "mkdir -p \"${wheel_dir}\"",
+    ],
+    is_executable = True,
+)
+
+sh_binary(
+    name = "legacy_frontend",
+    srcs = [":legacy_frontend_script"],
+)
+
+write_file(
     name = "stub_sdist",
     out = "stub.tar.gz",
     content = ["unused"],
@@ -243,6 +317,14 @@ pep517_native_whl(
     version = "0.0.0",
 )
 
+pep517_native_whl(
+    name = "legacy_wheel",
+    src = ":stub_sdist",
+    tags = ["manual"],
+    tool = ":legacy_frontend",
+    version = "0.0.0",
+)
+
 platform_transition_filegroup(
     name = "wheel_linux_aarch64",
     srcs = [":wheel"],
@@ -261,6 +343,12 @@ platform_transition_filegroup(
     target_platform = ":linux_configured",
 )
 
+platform_transition_filegroup(
+    name = "wheel_linux_legacy",
+    srcs = [":legacy_wheel"],
+    target_platform = ":linux_legacy",
+)
+
 build_test(
     name = "frontend_exec_platform_test",
     targets = [
@@ -272,4 +360,9 @@ build_test(
 build_test(
     name = "configured_compiler_tools_test",
     targets = [":wheel_linux_configured"],
+)
+
+build_test(
+    name = "legacy_archiver_test",
+    targets = [":wheel_linux_legacy"],
 )

@@ -109,29 +109,32 @@ def _cc_toolchain_inputs_and_tools(ctx):
         requested_features = ctx.features,
         unsupported_features = ctx.disabled_features,
     )
-    tools = {
-        "AR": cc_common.get_tool_for_action(
-            feature_configuration = feature_configuration,
-            action_name = ACTION_NAMES.cpp_link_static_library,
-        ),
-        "CC": cc_common.get_tool_for_action(
-            feature_configuration = feature_configuration,
-            action_name = ACTION_NAMES.c_compile,
-        ),
-        "CXX": cc_common.get_tool_for_action(
-            feature_configuration = feature_configuration,
-            action_name = ACTION_NAMES.cpp_compile,
-        ),
-        "LD": cc_common.get_tool_for_action(
-            feature_configuration = feature_configuration,
-            action_name = ACTION_NAMES.cpp_link_dynamic_library,
-        ),
-        "STRIP": cc_common.get_tool_for_action(
-            feature_configuration = feature_configuration,
-            action_name = ACTION_NAMES.strip,
-        ),
+    action_names = {
+        "AR": ACTION_NAMES.cpp_link_static_library,
+        "CC": ACTION_NAMES.c_compile,
+        "CXX": ACTION_NAMES.cpp_compile,
+        "LD": ACTION_NAMES.cpp_link_dynamic_library,
+        "STRIP": ACTION_NAMES.strip,
     }
-    return files, tools
+
+    tools = {
+        key: cc_common.get_tool_for_action(
+            feature_configuration = feature_configuration,
+            action_name = action_name,
+        )
+        for key, action_name in action_names.items()
+        if cc_common.action_is_enabled(
+            feature_configuration = feature_configuration,
+            action_name = action_name,
+        )
+    }
+
+    # Legacy C++ toolchains can omit the static-link action config while still
+    # exposing a usable archiver through CcToolchainInfo.
+    if not tools.get("AR"):
+        tools["AR"] = cc_toolchain.ar_executable
+
+    return files, {key: value for key, value in tools.items() if value}
 
 def _pep517_whl(ctx):
     archive = ctx.file.src
