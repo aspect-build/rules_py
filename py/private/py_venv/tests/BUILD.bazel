@@ -81,6 +81,10 @@ py_test(
     ],
     imports = ["../templates"],
     main = "//py/private/py_venv/tests:test_symlinks.py",
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
 )
 
 virtuals_resolvers_test_suite(name = "virtuals_resolvers_tests")

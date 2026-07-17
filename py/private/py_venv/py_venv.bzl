@@ -30,7 +30,7 @@ load("@bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path"
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private:transitions.bzl", "python_transition")
-load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PY_TOOLCHAIN")
+load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PY_TOOLCHAIN", "VENV_SYMLINK_TOOLCHAIN")
 load(":py_venv_exec.bzl", _py_venv_exec = "py_venv_exec")
 load(":types.bzl", "VirtualenvInfo", "venv_root")
 load(":venv.bzl", "assemble_venv")
@@ -46,7 +46,7 @@ def _interpreter_flags(ctx):
 
     return args
 
-def _assemble_shared(ctx, venv_symlinks_script_py):
+def _assemble_shared(ctx, venv_symlink_tool):
     """Resolve the py toolchain, virtual deps, imports depset — then run
     the shared venv-assembly helper.
     """
@@ -80,7 +80,7 @@ def _assemble_shared(ctx, venv_symlinks_script_py):
         venv_activate_tmpl = ctx.file._venv_activate_tmpl,
         virtualenv_shim_py = ctx.file._virtualenv_shim,
         site_merge_script_py = ctx.file._site_merge_script,
-        venv_symlinks_script_py = venv_symlinks_script_py,
+        venv_symlink_tool = venv_symlink_tool,
         console_script_tmpl = ctx.file._console_script_tmpl,
         venv_name = ".{}".format(safe_name),
     )
@@ -248,10 +248,6 @@ does not reinsert a wheel.
         allow_single_file = True,
         default = "//py/private/py_venv:templates/console_script.tmpl.sh",
     ),
-    "_venv_symlinks_script": attr.label(
-        allow_single_file = True,
-        default = "//py/private/py_venv:templates/symlinks.py",
-    ),
 })
 
 _lib_attrs.update(**_py_library.attrs)
@@ -305,7 +301,8 @@ def _py_venv_lib_rule_impl(ctx):
     launcher and no RunEnvironmentInfo (Bazel rejects it on
     non-executable targets; py_venv_exec.bzl gates its read on
     `if RunEnvironmentInfo in venv`)."""
-    shared = _assemble_shared(ctx, ctx.file._venv_symlinks_script)
+    toolchain = ctx.toolchains[VENV_SYMLINK_TOOLCHAIN]
+    shared = _assemble_shared(ctx, toolchain.tool if toolchain else None)
     return _common_providers(ctx, shared)
 
 # Internal-only non-executable variant. Uses `_lib_attrs` — the
@@ -319,6 +316,7 @@ _py_venv_lib = rule(
         # Same optional exec-tools dependency as `_py_venv`: assemble_venv
         # needs it to run the site_merge action when a package needs a merge.
         config_common.toolchain_type(EXEC_TOOLS_TOOLCHAIN, mandatory = False),
+        config_common.toolchain_type(VENV_SYMLINK_TOOLCHAIN, mandatory = False),
     ],
     cfg = python_transition,
 )

@@ -1,5 +1,6 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
-load(":tools.bzl", "dummy_toolchain")
+load("@rules_python//python:py_binary.bzl", "py_binary")
+load(":tools.bzl", "dummy_toolchain", "venv_symlink_toolchain")
 
 # Dummy toolchain backing target — no binary, used as a sentinel.
 # Public so the generated @rules_py_tools repo can reference it for
@@ -11,6 +12,30 @@ dummy_toolchain(
 
 toolchain_type(
     name = "native_build_toolchain_type",
+    visibility = ["//visibility:public"],
+)
+
+toolchain_type(
+    name = "venv_symlink_toolchain_type",
+    visibility = ["//visibility:public"],
+)
+
+py_binary(
+    name = "venv_symlinks",
+    srcs = ["//py/private/py_venv:templates/symlinks.py"],
+    main = "//py/private/py_venv:templates/symlinks.py",
+)
+
+venv_symlink_toolchain(
+    name = "venv_symlink_tool",
+    tool = ":venv_symlinks",
+    visibility = ["//visibility:public"],
+)
+
+# Keep unsupported execution platforms eligible while falling back to native
+# symlink actions; dangling directory links cannot be created by the POSIX tool.
+venv_symlink_toolchain(
+    name = "empty_venv_symlink_tool",
     visibility = ["//visibility:public"],
 )
 

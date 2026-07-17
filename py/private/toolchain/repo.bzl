@@ -1,7 +1,7 @@
 """Create the toolchains repository for rules_py.
 
-Generates native_build toolchain entries — one per supported platform — that
-back pep517_whl's cross-compilation guard (see NATIVE_BUILD_TOOLCHAIN in types.bzl).
+Generates native-build and venv-symlink toolchain entries for supported POSIX
+platforms and a native-symlink fallback for other executors.
 """
 
 load("//py/private/toolchain:tools.bzl", "TOOLCHAIN_PLATFORMS")
@@ -24,10 +24,27 @@ toolchain(
     toolchain_type = "@aspect_rules_py//py/private/toolchain:native_build_toolchain_type",
 )
 
+toolchain(
+    name = "venv_symlink_{platform}_toolchain",
+    exec_compatible_with = {compatible_with},
+    toolchain = "@aspect_rules_py//py/private/toolchain:venv_symlink_tool",
+    toolchain_type = "@aspect_rules_py//py/private/toolchain:venv_symlink_toolchain_type",
+)
+
 """.format(
             platform = platform,
             compatible_with = meta.compatible_with,
         )
+
+    build_content += """
+# Keep the fallback last when :all is registered so supported POSIX tools win.
+toolchain(
+    name = "venv_symlink_zfallback_toolchain",
+    toolchain = "@aspect_rules_py//py/private/toolchain:empty_venv_symlink_tool",
+    toolchain_type = "@aspect_rules_py//py/private/toolchain:venv_symlink_toolchain_type",
+)
+
+"""
 
     repository_ctx.file("BUILD.bazel", build_content)
 
@@ -35,5 +52,5 @@ toolchain(
 
 toolchains_repo = repository_rule(
     _toolchains_repo_impl,
-    doc = "Creates a repository with native_build toolchain entries for all supported platforms.",
+    doc = "Creates a repository with native-build and venv-symlink toolchain entries.",
 )

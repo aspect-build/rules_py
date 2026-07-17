@@ -2,6 +2,9 @@
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 load("//py/private/toolchain:repo.bzl", "toolchains_repo")
+load("//py/private/toolchain:tools.bzl", _venv_symlink_toolchain = "venv_symlink_toolchain")
+
+venv_symlink_toolchain = _venv_symlink_toolchain
 
 DEFAULT_TOOLS_REPOSITORY = "rules_py_tools"
 
