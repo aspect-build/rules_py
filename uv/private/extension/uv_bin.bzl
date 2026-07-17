@@ -1,6 +1,5 @@
 """A Bazel module extension for downloading and registering UV binaries."""
 
-load("@bazel_features//:features.bzl", features = "bazel_features")
 load("//uv/private/toolchain:repositories.bzl", "uv_hub_repository", "uv_repository")
 load("//uv/private/toolchain:versions.bzl", "UV_VERSIONS")
 
@@ -65,8 +64,6 @@ def _uv_bin_impl(module_ctx):
             repo_prefix = repo_prefix,
         )
 
-    if not features.external_deps.extension_metadata_has_reproducible:
-        return None
     return module_ctx.extension_metadata(reproducible = True)
 
 _toolchain_tag = tag_class(

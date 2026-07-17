@@ -9,7 +9,6 @@ platform(
     constraint_values = [
         "@platforms//os:linux",
         "@platforms//cpu:x86_64",
-        "@llvm//constraints/libc:gnu.2.28",
     ],
     flags = [
         "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",

@@ -340,6 +340,16 @@ An sdist (if available) will be built into a wheel for installation if no wheels
 are available, or no wheels matching the target configuration are found. Sdist
 builds occur using the configured Python and Cc toolchains.
 
+### Marker version precision
+
+Markers evaluate `python_version` and `python_full_version` from the configured
+version flags: `--@aspect_rules_py//py:python_version` when set, otherwise the
+rules_python `python_version` flag. Comparison happens at the precision the
+flag provides — a bare `3.12` evaluates `python_full_version` as `3.12.0`,
+regardless of the patch version the provisioned interpreter ships. Patch-precise
+markers such as `python_full_version < '3.12.4'` require a full
+`major.minor.patch` flag value to evaluate correctly.
+
 ### Declaring source-built console scripts
 
 Downloaded wheels expose their console scripts while repositories are

@@ -1,0 +1,18 @@
+# Designed to FAIL extension evaluation: free-threaded build_config.
+# test.sh asserts the error message.
+module(name = "root_freethreaded_build_config")
+
+bazel_dep(name = "aspect_rules_py")
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../../..",
+)
+
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+interpreters.configure(
+    # Free-threading is selected at build time, not via build_config.
+    build_config = "freethreaded+pgo+lto-full",
+    releases = ["20260303"],
+)
+interpreters.toolchain(python_version = "3.13")
+use_repo(interpreters, "python_interpreters")

@@ -29,6 +29,10 @@ _RELOCATABLE_SHEBANG = """\
 ' '''
 """
 
+_WINDOWS_RESERVED = {"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$"} | {
+    prefix + suffix for prefix in ("COM", "LPT") for suffix in "123456789¹²³"
+}
+
 
 def _sha256(path):
     h = hashlib.sha256()
@@ -65,6 +69,24 @@ def _write_executable(path, content):
     path.chmod(0o755)
 
 
+def _relative_path(value, what):
+    """Return a safe host path for a wheel-controlled POSIX path."""
+    parts = value.split("/")
+    if (
+        not value
+        or "\\" in value
+        or any(
+            not part
+            or part.endswith((" ", "."))
+            or ":" in part
+            or part.partition(".")[0].rstrip(" ").upper() in _WINDOWS_RESERVED
+            for part in parts
+        )
+    ):
+        raise SystemExit("Invalid {}: {}".format(what, value))
+    return Path(*parts)
+
+
 def install_wheel(version_major, version_minor, into, wheel_path):
     """Install a wheel into *into*, following PEP 427 layout conventions.
 
@@ -92,6 +114,10 @@ def install_wheel(version_major, version_minor, into, wheel_path):
     with zipfile.ZipFile(wheel_path, "r") as zf:
         for info in zf.infolist():
             member = info.filename
+            member_path = _relative_path(
+                member[:-1] if member.endswith("/") else member,
+                "wheel member path",
+            )
             if member.endswith("/"):
                 continue
 
@@ -101,19 +127,20 @@ def install_wheel(version_major, version_minor, into, wheel_path):
                 category, sep, rel = rest.partition("/")
                 if not sep:
                     continue
+                rel_path = _relative_path(rel, "wheel member path")
                 if category in ("purelib", "platlib"):
-                    dest = site_packages / rel
+                    dest = site_packages / rel_path
                 elif category == "scripts":
-                    dest = bin_dir / Path(rel).name
+                    dest = bin_dir / rel_path.name
                     is_script = True
                 elif category == "headers":
-                    dest = into / "lib" / "include" / rel
+                    dest = into / "lib" / "include" / rel_path
                 elif category == "data":
-                    dest = into / rel
+                    dest = into / rel_path
                 else:
-                    dest = site_packages / rest
+                    dest = site_packages / category / rel_path
             else:
-                dest = site_packages / member
+                dest = site_packages / member_path
 
             dest.parent.mkdir(parents=True, exist_ok=True)
             data = zf.read(member)
@@ -132,7 +159,7 @@ def install_wheel(version_major, version_minor, into, wheel_path):
                 installed.append(dest)
 
     for ep_path in site_packages.glob("*.dist-info/entry_points.txt"):
-        cp = configparser.ConfigParser(strict=False)
+        cp = configparser.ConfigParser(strict=False, delimiters=("=",))
         cp.optionxform = str
         cp.read(str(ep_path), encoding="utf-8")
         for section in ("console_scripts", "gui_scripts"):
@@ -145,7 +172,10 @@ def install_wheel(version_major, version_minor, into, wheel_path):
                 module = module.strip()
                 if not name or not module or not func:
                     continue
-                script_path = bin_dir / name
+                name_path = _relative_path(name, "console script name")
+                if len(name_path.parts) != 1:
+                    raise SystemExit("Invalid console script name: {}".format(name))
+                script_path = bin_dir / name_path
                 # Entry-point object references may contain dotted attributes:
                 # https://packaging.python.org/en/latest/specifications/entry-points/#data-model
                 wrapper = (

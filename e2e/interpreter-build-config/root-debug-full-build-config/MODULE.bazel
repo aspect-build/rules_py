@@ -1,0 +1,23 @@
+# Provisions a Py_DEBUG interpreter via build_config = "debug-full".
+# test.sh runs //:check and expects it to PASS.
+module(name = "root_debug_full_build_config")
+
+bazel_dep(name = "aspect_rules_py")
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../../..",
+)
+
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+interpreters.configure(
+    build_config = "debug-full",
+    releases = ["20260303"],
+)
+interpreters.toolchain(python_version = "3.13")
+use_repo(interpreters, "python_interpreters")
+
+# Windows publishes no debug-full archive: the repo name must still exist (or
+# this use_repo would fail), but fetching it errors; test.sh asserts both.
+use_repo(interpreters, "python_3_13_x86_64_pc_windows_msvc")
+
+register_toolchains("@python_interpreters//:all")

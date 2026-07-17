@@ -9,14 +9,10 @@ platform(
     constraint_values = [
         "@platforms//os:linux",
         "@platforms//cpu:aarch64",
-        # rules_rs Rust toolchains for linux-gnu targets require gnu.2.28.
-        "@llvm//constraints/libc:gnu.2.28",
     ],
     flags = [
         "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
         "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.39",
-        "--@rules_rust//:extra_rustc_flag=-Cstrip=debuginfo",
-        "--@rules_rust//rust/settings:lto=fat",
         "--stripopt=--strip-all",
     ],
 )
@@ -26,14 +22,10 @@ platform(
     constraint_values = [
         "@platforms//os:linux",
         "@platforms//cpu:x86_64",
-        # rules_rs Rust toolchains for linux-gnu targets require gnu.2.28.
-        "@llvm//constraints/libc:gnu.2.28",
     ],
     flags = [
         "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
         "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.39",
-        "--@rules_rust//:extra_rustc_flag=-Cstrip=debuginfo",
-        "--@rules_rust//rust/settings:lto=fat",
         "--stripopt=--strip-all",
     ],
 )

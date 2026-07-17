@@ -1,6 +1,5 @@
 """Repository rules for Python interpreter toolchains."""
 
-load("@bazel_features//:features.bzl", features = "bazel_features")
 load(":exclude_feature.bzl", "INTERPRETER_FEATURES")
 
 _PYTHON_VERSION_FLAG = "@aspect_rules_py//py/private/interpreter:python_version"
@@ -56,8 +55,6 @@ def _python_interpreter_impl(rctx):
         serial = serial,
     ))
 
-    if not features.external_deps.extension_metadata_has_reproducible:
-        return None
     return rctx.repo_metadata(reproducible = True)
 
 def _feature_filegroups(major, minor, is_windows):
@@ -309,6 +306,22 @@ python_interpreter = repository_rule(
     },
 )
 
+def _python_interpreter_unavailable_impl(rctx):
+    rctx.file("BUILD.bazel", content = "fail({})\n".format(repr(rctx.attr.message)))
+    return rctx.repo_metadata(reproducible = True)
+
+# Stub for version/platform/mode combos with no usable PBS asset. The extension
+# must generate every repo name regardless of build_config so use_repo()
+# imports stay valid. The repo fetches cleanly (eager fetchers like
+# `bazel fetch --all` and `bazel vendor` must not break); referencing any
+# target in it fails at load time with the message.
+python_interpreter_unavailable = repository_rule(
+    implementation = _python_interpreter_unavailable_impl,
+    attrs = {
+        "message": attr.string(mandatory = True),
+    },
+)
+
 def _platform_setting_name(flag, value):
     """Generate a unique config_setting name for a flag/value pair."""
 
@@ -368,16 +381,21 @@ config_setting(
     flag_values = {{"{our_flag}": "{major_minor}"}},
 )
 
+# rules_python's flag is a fallback: it selects only when our own flag is
+# unset, so setting our flag always wins and rpy's default can't shadow it.
 config_setting(
-    name = "_{group}_rpy_major_minor",
-    flag_values = {{"{rpy_flag}": "{major_minor}"}},
+    name = "_{group}_rpy_fallback",
+    flag_values = {{
+        "{our_flag}": "",
+        "{rpy_flag}": "{major_minor}",
+    }},
 )
 
 selects.config_setting_group(
     name = "{group}",
     match_any = [
         ":_{group}_our_major_minor",
-        ":_{group}_rpy_major_minor",
+        ":_{group}_rpy_fallback",
     ],
 )
 """.format(
@@ -490,8 +508,6 @@ current_py_toolchain(
 
     rctx.file("BUILD.bazel", content = "\n".join(content))
 
-    if not features.external_deps.extension_metadata_has_reproducible:
-        return None
     return rctx.repo_metadata(reproducible = True)
 
 python_toolchains = repository_rule(

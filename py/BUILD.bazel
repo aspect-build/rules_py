@@ -7,6 +7,34 @@ alias(
     visibility = ["//visibility:public"],
 )
 
+# Actions that need a Python executable should not need a direct rules_python
+# dependency just to use its remote-safe interpreter launcher.
+alias(
+    name = "python",
+    actual = "@rules_python//python/bin:python",
+    visibility = ["//visibility:public"],
+)
+
+# C-extension and embedding consumers should not need a direct rules_python
+# dependency just to use the C toolchain that python_interpreters registers.
+alias(
+    name = "current_py_cc_headers",
+    actual = "@rules_python//python/cc:current_py_cc_headers",
+    visibility = ["//visibility:public"],
+)
+
+alias(
+    name = "current_py_cc_headers_abi3",
+    actual = "@rules_python//python/cc:current_py_cc_headers_abi3",
+    visibility = ["//visibility:public"],
+)
+
+alias(
+    name = "current_py_cc_libs",
+    actual = "@rules_python//python/cc:current_py_cc_libs",
+    visibility = ["//visibility:public"],
+)
+
 # Users can set --@aspect_rules_py//py:layer_tier=//path:custom_tier to switch
 # the pip-package grouping + compression plan consumed by py_image_layer.
 label_flag(
@@ -38,6 +66,10 @@ bzl_library(
         "//py/private/interpreter:current_py_toolchain",
         "//py/private/py_venv:defs",
         "@bazel_lib//lib:utils",
+        "@rules_python//python:packaging_bzl",
+        "@rules_python//python:pip_bzl",
+        "@rules_python//python:py_runtime_bzl",
+        "@rules_python//python:py_runtime_pair_bzl",
     ],
 )
 
@@ -49,7 +81,6 @@ bzl_library(
         ":toolchains",
         "//py/private/interpreter:extension",
         "@aspect_tools_telemetry_report//:defs.bzl",
-        "@bazel_features//:features",
     ],
 )
 
@@ -60,7 +91,6 @@ bzl_library(
     deps = [
         "//py/private/toolchain:repo",
         "//py/private/toolchain:tools",
-        "@bazel_features//:features",
         "@bazel_lib//lib:repositories",
         "@bazel_tools//tools/build_defs/repo:http.bzl",
     ],

@@ -184,11 +184,11 @@ The target attribute takes precedence over the build-wide flag.
 
 ## Runtime modes
 
-The extension registers one normal `install_only` PBS archive for each
-available Python version and platform. It also registers an optimized
-free-threaded archive where PBS publishes one, currently for Python 3.13 and
-newer. Normal mode is selected by default. Select free-threaded mode with the
-build setting:
+The extension registers one normal PBS archive for each available Python version
+and platform (the archive is chosen by `build_config`, see below). It also
+registers an optimized free-threaded archive where PBS publishes one, currently
+for Python 3.13 and newer. Normal mode is selected by default. Select
+free-threaded mode with the build setting:
 
 ```shell
 bazel build \
@@ -198,6 +198,48 @@ bazel build \
 
 `interpreters.toolchain()` chooses Python versions; the build setting above
 selects runtime mode.
+
+## Build configuration
+
+PBS publishes each interpreter in several build configurations. `configure()`
+selects which one backs the normal (non-free-threaded) runtime, hub-wide:
+
+```starlark
+interpreters.configure(
+    releases = ["20260303"],
+    build_config = "install_only_stripped",
+)
+```
+
+Supported values:
+
+| `build_config`          | Description                                            |
+| ----------------------- | ------------------------------------------------------ |
+| `install_only`          | Optimized, minimal redistributable (default).          |
+| `install_only_stripped` | Same as `install_only` with debug symbols removed (smallest download). |
+| `<opt>[+<opt>...]-full` | A full archive; each `<opt>` is one of `debug`, `noopt`, `pgo`, `lto`, in that order (e.g. `pgo+lto-full`, `debug-full`). |
+
+Only `install_only` and `install_only_stripped` are published for every platform
+listed below, so they are the only configurations usable as a hub-wide default.
+Each platform family publishes different `-full` flavors — glibc Linux and macOS
+get `debug-full` and `pgo+lto-full`, musl Linux gets `debug-full`, `lto-full`,
+and `noopt-full`, and Windows gets only `pgo-full` — and platforms without the
+selected archive get no normal-mode toolchain (their interpreter repos still
+exist and fetch cleanly, so `use_repo()` imports, `bazel fetch --all`, and
+`bazel vendor` keep working, but referencing anything in them fails with an
+explanation). A `build_config` that matches no platform at all for a requested
+version fails extension evaluation eagerly. `debug-full` comes closest to
+hub-wide, covering every platform except Windows. Statically linked (`+static`)
+configurations are rejected because extension modules resolve Python symbols from
+the loading interpreter. Free-threading is a separate axis selected at build time
+(see [Runtime modes](#runtime-modes)), so `build_config` must not name a
+`freethreaded` suffix.
+
+`debug-full` produces a `Py_DEBUG` interpreter (ABI flag `d`); PyPI ships no
+matching wheels, so C-extension dependencies must be built from source. The
+debug property does not carry across the free-threading axis: with a
+`debug-full` hub, selecting free-threaded mode still yields the optimized
+free-threaded archive (ABI flag `t`, not `td`).
 
 ## Platforms
 

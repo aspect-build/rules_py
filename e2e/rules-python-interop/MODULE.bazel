@@ -1,0 +1,29 @@
+"""Interop: rules_py rules share the interpreter provisioned by rules_python.
+
+This module deliberately provisions its only interpreter through rules_python's
+`python.toolchain()` — no `python_interpreters` — so rules_py and rules_python
+targets must both resolve, and run on, that single runtime.
+"""
+
+module(name = "rules_python_interop")
+
+bazel_dep(name = "aspect_rules_py")
+bazel_dep(name = "bazel_skylib", version = "1.4.2")
+bazel_dep(name = "rules_python", version = "1.9.0")
+
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../..",
+)
+
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(python_version = "3.12")
+
+# Third-party deps also come from rules_python (pip hub, not uv).
+pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
+pip.parse(
+    hub_name = "pip",
+    python_version = "3.12",
+    requirements_lock = "//:requirements.txt",
+)
+use_repo(pip, "pip")

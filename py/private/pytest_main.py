@@ -18,6 +18,20 @@ import os
 from pathlib import Path
 from typing import List
 
+# Point the temp dir at Bazel's per-test TEST_TMPDIR before pytest or the stdlib
+# `tempfile` module resolve it. Bazel's default test setup exports
+# TMPDIR=$TEST_TMPDIR so a test's temp files land in its private, writable temp
+# directory; rules_py's launcher didn't, so pytest's `tmp_path`/`tmpdir` fixtures
+# and `tempfile` fell back to the system temp dir (usually /tmp). That is
+# non-hermetic (temp files leak across parallel tests / runs) and outright breaks
+# on remote-execution workers that mount /tmp `noexec` — e.g. a test that writes an
+# executable helper into `tmp_path` and runs it gets EACCES. TMP/TEMP are set too so
+# `tempfile` resolves consistently on Windows. Must run before the first
+# `tempfile.gettempdir()` call, which caches the result process-wide.
+if "TEST_TMPDIR" in os.environ:
+    for _tmp_env in ("TMPDIR", "TMP", "TEMP"):
+        os.environ[_tmp_env] = os.environ["TEST_TMPDIR"]
+
 try:
     import pytest
 except ModuleNotFoundError as e:

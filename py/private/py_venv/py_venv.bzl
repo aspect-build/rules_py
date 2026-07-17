@@ -80,6 +80,7 @@ def _assemble_shared(ctx):
         venv_activate_tmpl = ctx.file._venv_activate_tmpl,
         virtualenv_shim_py = ctx.file._virtualenv_shim,
         site_merge_script_py = ctx.file._site_merge_script,
+        console_script_tmpl = ctx.file._console_script_tmpl,
         venv_name = ".{}".format(safe_name),
     )
 
@@ -225,11 +226,11 @@ does not reinsert a wheel.
     # Shared with py_binary via the venv-assembly helper.
     "_venv_activate_tmpl": attr.label(
         allow_single_file = True,
-        default = ":venv_activate.tmpl.sh",
+        default = "//py/private/py_venv:templates/venv_activate.tmpl.sh",
     ),
     "_virtualenv_shim": attr.label(
         allow_single_file = True,
-        default = ":_virtualenv.py",
+        default = "//py/private/py_venv:templates/_virtualenv.py",
     ),
     "_windows_constraint": attr.label(
         default = "@platforms//os:windows",
@@ -241,6 +242,10 @@ does not reinsert a wheel.
     "_site_merge_script": attr.label(
         allow_single_file = True,
         default = "//py/tools/site_merge:site_merge.py",
+    ),
+    "_console_script_tmpl": attr.label(
+        allow_single_file = True,
+        default = "//py/private/py_venv:templates/console_script.tmpl.sh",
     ),
 })
 
@@ -270,7 +275,7 @@ environment. Forwarded to the sibling py_binary/py_test consumer
     ),
     "_run_tmpl": attr.label(
         allow_single_file = True,
-        default = ":venv.tmpl.sh",
+        default = "//py/private/py_venv:templates/venv.tmpl.sh",
     ),
 })
 
@@ -476,7 +481,7 @@ def py_venv_link(name, venv, link_name = None, **kwargs):
             target's package + venv name.
         **kwargs: Forwarded to the underlying `py_binary`.
     """
-    link_script = str(Label(":link.py"))
+    link_script = str(Label("//py/private/py_venv:templates/link.py"))
     _py_venv_exec(
         name = name,
         main = link_script,

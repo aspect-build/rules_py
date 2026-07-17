@@ -7,12 +7,17 @@ The `python_version` attribute must refer to a python toolchain version
 which has been registered in the `MODULE.bazel` file, e.g.:
 
 ```starlark
-python = use_extension("@rules_python//python/extensions:python.bzl", "python")
-python.toolchain(python_version = "3.8.12", is_default = False)
-python.toolchain(python_version = "3.9", is_default = True)
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+interpreters.toolchain(python_version = "3.9")
+use_repo(interpreters, "python_interpreters")
+register_toolchains("@python_interpreters//:all")
 ```
 """
 
+load("@rules_python//python:packaging.bzl", _py_wheel = "py_wheel")
+load("@rules_python//python:pip.bzl", _whl_filegroup = "whl_filegroup")
+load("@rules_python//python:py_runtime.bzl", _py_runtime = "py_runtime")
+load("@rules_python//python:py_runtime_pair.bzl", _py_runtime_pair = "py_runtime_pair")
 load(
     "//py/private:py_image_layer.bzl",
     _PyLayerTierInfo = "PyLayerTierInfo",
@@ -36,6 +41,10 @@ load(
 )
 
 current_py_toolchain = _current_py_toolchain
+py_wheel = _py_wheel
+py_runtime = _py_runtime
+py_runtime_pair = _py_runtime_pair
+whl_filegroup = _whl_filegroup
 py_pex_binary = _py_pex_binary
 py_pytest_main = _py_pytest_main
 

@@ -9,5 +9,4 @@ exports_files(["defs.bzl"])
 bzl_library(
     name = "repository",
     srcs = ["repository.bzl"],
-    deps = ["@bazel_features//:features"],
 )

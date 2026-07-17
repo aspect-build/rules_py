@@ -107,6 +107,41 @@ def main() -> None:
         )
         assert next((site_packages / "fixture" / "__pycache__").glob("*.pyc"))
 
+        for case, member in [
+            ("roottraversal", "../../../../escaped.py"),
+            ("rootabsolute", str(root / "escaped.py")),
+            ("rootdrive", "C:/escaped.py"),
+            ("rootnesteddrive", "fixture/D:/escaped.py"),
+            ("rootunc", "//server/share/escaped.py"),
+            ("rootbackslash", "fixture\\escaped.py"),
+            ("roottrailing", "fixture/.. /escaped.py"),
+            ("rootreserved", "fixture/NuL .txt/escaped.py"),
+            ("rootconin", "fixture/cOnIn$.txt/escaped.py"),
+            ("datatraversal", "datatraversal-1.0.data/data/../escaped.py"),
+            ("dataabsolute", "dataabsolute-1.0.data/data//escaped.py"),
+            ("datadrive", "datadrive-1.0.data/data/C:/escaped.py"),
+            ("datanesteddrive", "datanesteddrive-1.0.data/data/fixture/D:/escaped.py"),
+            ("dataunc", "dataunc-1.0.data/data///server/share/escaped.py"),
+            ("databackslash", "databackslash-1.0.data/data/fixture\\escaped.py"),
+            ("datatrailing", "datatrailing-1.0.data/data/.. ./escaped.py"),
+            ("datareserved", "datareserved-1.0.data/data/fixture/lPt9.log/escaped.py"),
+            ("dataconout", "dataconout-1.0.data/data/fixture/ConOut$.log/escaped.py"),
+        ]:
+            traversal_wheel = root / f"{case}-1.0-py3-none-any.whl"
+            _write_wheel(traversal_wheel, case, {member: b"escaped\n"})
+            rejected = _run_unpack(
+                unpack,
+                traversal_wheel,
+                root / f"{case}-out",
+                Path(sys.executable),
+            )
+            assert rejected.returncode != 0, "{} was accepted\n{}{}".format(
+                case,
+                rejected.stdout,
+                rejected.stderr,
+            )
+            assert "Invalid wheel member path" in rejected.stderr
+
         site_packages_relative = (
             f"lib/python{sys.version_info.major}.{sys.version_info.minor}/site-packages"
         )
@@ -347,6 +382,9 @@ else:
                 "entry_point-1.0.dist-info/entry_points.txt": (
                     b"[console_scripts]\n"
                     b"Fixture-Cli = fixture:Commands.main [extra]\n"
+                    b"COM10 = fixture:Commands.main\n"
+                    b"LPT0 = fixture:Commands.main\n"
+                    b"NULled = fixture:Commands.main\n"
                 ),
             },
         )
@@ -360,7 +398,10 @@ else:
         )
         assert entry_point.returncode == 0, entry_point.stderr
         assert {entry.name for entry in (entry_point_out / "bin").iterdir()} == {
+            "COM10",
             "Fixture-Cli",
+            "LPT0",
+            "NULled",
         }, "console-script name was not preserved"
         script = entry_point_out / "bin" / "Fixture-Cli"
         site_packages = (
@@ -374,6 +415,44 @@ else:
             check=True,
             env={"PYTHONPATH": str(site_packages)},
         )
+
+        for case, name in [
+            ("traversal", "../../entry-point-escaped"),
+            ("absolute", "/entry-point-escaped"),
+            ("drive", "C:/entry-point-escaped"),
+            ("nested-drive", "fixture/D:entry-point-escaped"),
+            ("unc", "//server/share/entry-point-escaped"),
+            ("backslash", "fixture\\entry-point-escaped"),
+            ("nested", "fixture/entry-point-escaped"),
+            ("trailing", "entry-point-escaped. "),
+            ("reserved", "cOm¹.exe"),
+        ]:
+            distribution = "entry_point_{}".format(case)
+            entry_point_wheel = root / f"{distribution}-1.0-py3-none-any.whl"
+            _write_wheel(
+                entry_point_wheel,
+                distribution,
+                {
+                    "fixture/__init__.py": b"def main():\n    return 0\n",
+                    f"{distribution}-1.0.dist-info/entry_points.txt": (
+                        "[console_scripts]\n{} = fixture:main\n".format(name).encode()
+                    ),
+                },
+            )
+            rejected_entry_point = _run_unpack(
+                unpack,
+                entry_point_wheel,
+                root / f"entry-point-{case}-out",
+                Path(sys.executable),
+            )
+            assert rejected_entry_point.returncode != 0, (
+                "{} was accepted\n{}{}".format(
+                    case,
+                    rejected_entry_point.stdout,
+                    rejected_entry_point.stderr,
+                )
+            )
+            assert "Invalid console script name" in rejected_entry_point.stderr
 
 
 if __name__ == "__main__":

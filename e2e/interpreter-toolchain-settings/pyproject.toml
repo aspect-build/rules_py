@@ -1,0 +1,7 @@
+[project]
+name = "interpreter-toolchain-settings"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    "six==1.17.0; python_version >= '3.12'",
+]

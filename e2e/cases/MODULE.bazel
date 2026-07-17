@@ -10,7 +10,6 @@ bazel_dep(name = "rules_python", version = "1.9.0")
 bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "llvm", version = "0.8.3")
 bazel_dep(name = "rules_oci", version = "2.2.7")
-bazel_dep(name = "rules_rust", version = "0.68.1")
 bazel_dep(name = "rules_shell", version = "0.4.1")
 
 local_path_override(
@@ -51,6 +50,18 @@ interpreters.toolchain(
 use_repo(interpreters, "python_interpreters")
 
 register_toolchains("@python_interpreters//:all")
+
+# A rules_python pip hub for the rules-python-consumers case: its console
+# script machinery only accepts packages from rules_python's own hub layout.
+# 3.11 is rules_python's default version, so no python.toolchain() is needed
+# and the version flags' defaults stay untouched for every other case.
+pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
+pip.parse(
+    hub_name = "rpy_pip",
+    python_version = "3.11",
+    requirements_lock = "//rules-python-consumers:requirements.txt",
+)
+use_repo(pip, "rpy_pip")
 
 # rules_py tools — provides the native_build_toolchain entries for sdist builds.
 tools = use_extension("@aspect_rules_py//py:extensions.bzl", "py_tools")

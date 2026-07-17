@@ -1,14 +1,14 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
-load("//py:defs.bzl", "py_test")
 
 package(default_visibility = ["//py:__subpackages__"])
 
 exports_files([
-    "_virtualenv.py",
-    "link.py",
-    "venv.tmpl.sh",
-    "venv_activate.tmpl.sh",
+    "templates/_virtualenv.py",
+    "templates/console_script.tmpl.sh",
+    "templates/link.py",
+    "templates/venv.tmpl.sh",
+    "templates/venv_activate.tmpl.sh",
 ])
 
 bool_flag(
@@ -44,7 +44,17 @@ bzl_library(
 bzl_library(
     name = "venv",
     srcs = ["venv.bzl"],
-    deps = ["//py/private:py_library"],
+    deps = [
+        ":toolchains_resolver",
+        ":virtuals_resolvers",
+        "//py/private:py_library",
+    ],
+)
+
+bzl_library(
+    name = "toolchains_resolver",
+    srcs = ["toolchains_resolver.bzl"],
+    deps = ["@bazel_lib//lib:paths"],
 )
 
 bzl_library(
@@ -91,12 +101,7 @@ bzl_library(
     ],
 )
 
-py_test(
-    name = "test_link",
-    srcs = [
-        "link.py",
-        "test_link.py",
-    ],
-    imports = ["."],
-    main = "test_link.py",
+bzl_library(
+    name = "virtuals_resolvers",
+    srcs = ["virtuals_resolvers.bzl"],
 )
