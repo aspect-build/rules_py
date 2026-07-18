@@ -14,7 +14,6 @@ load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
 _CC_TOOLCHAIN_TYPE = Label("@bazel_tools//tools/cpp:toolchain_type")
 _TARGET_EXEC_GROUP = "target"
 _EXECROOT_MARKER = "__ASPECT_RULES_PY_EXECROOT__"
-_CXX_TOOLCHAIN_CONFIG_ENV = "ASPECT_RULES_PY_CXX_TOOLCHAIN_CONFIG"
 
 _INHERITED_PYTHON_ENV = (
     "PYTHONHOME",
@@ -109,8 +108,7 @@ def _cc_toolchain_inputs_and_tools(ctx):
         compiler = getattr(cc_toolchain, "compiler_executable", None)
         if not compiler:
             return files, {}
-        file_paths = {file.path: True for file in files.to_list()}
-        return files, {"CC": compiler, "CXX": _declared_cxx_driver(compiler, file_paths)}
+        return files, {"CC": compiler, "CXX": _declared_cxx_driver(compiler, files)}
 
     feature_configuration = cc_common.configure_features(
         ctx = ctx,
@@ -147,93 +145,34 @@ def _cc_toolchain_inputs_and_tools(ctx):
         legacy_tools = {
             "AR": cc_toolchain.ar_executable,
             "CC": cc_toolchain.compiler_executable,
-            "CXX": _declared_cxx_driver(cc_toolchain.compiler_executable, file_paths),
+            "CXX": cc_toolchain.compiler_executable,
             "LD": cc_toolchain.ld_executable,
             "STRIP": cc_toolchain.strip_executable,
         }
         tools.update({key: legacy_tools[key] for key in missing if legacy_tools[key] in file_paths})
 
-    compile_variables = cc_common.create_compile_variables(
-        cc_toolchain = cc_toolchain,
-        feature_configuration = feature_configuration,
-        use_pic = cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "pic") or
-                  cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "supports_pic"),
-    )
-    link_variables = cc_common.create_link_variables(
-        cc_toolchain = cc_toolchain,
-        feature_configuration = feature_configuration,
-        is_linking_dynamic_library = True,
-    )
-    exe_link_variables = cc_common.create_link_variables(
-        cc_toolchain = cc_toolchain,
-        feature_configuration = feature_configuration,
-    )
-    flag_actions = {
-        "cc_compile_flags": (ACTION_NAMES.c_compile, compile_variables),
-        "cxx_compile_flags": (ACTION_NAMES.cpp_compile, compile_variables),
-        "cxx_shared_link_flags": (ACTION_NAMES.cpp_link_dynamic_library, link_variables),
-        "cxx_exe_link_flags": (ACTION_NAMES.cpp_link_executable, exe_link_variables),
-    }
-    toolchain_config = {}
-    for key, (action_name, variables) in flag_actions.items():
-        if cc_common.action_is_enabled(feature_configuration = feature_configuration, action_name = action_name):
-            flags = cc_common.get_memory_inefficient_command_line(
-                feature_configuration = feature_configuration,
-                action_name = action_name,
-                variables = variables,
-            )
-            normalized_flags = []
-            for index, flag in enumerate(flags):
-                for prefix in ["--sysroot=", "--gcc-toolchain=", "-resource-dir=", "-fsanitize-ignorelist=", "-isystem", "-iquote", "-I", "-L", "-B", ""]:
-                    if not flag.startswith(prefix):
-                        continue
-                    value = flag[len(prefix):]
-                    is_path_operand = index and flags[index - 1] in ["--sysroot", "-isysroot", "--gcc-toolchain", "-resource-dir", "-isystem", "-iquote", "-I", "-L", "-B"]
-                    is_clang_path_operand = index >= 2 and flags[index - 1] == "-Xclang" and flags[index - 2] in ["-internal-isystem", "-internal-externc-isystem"]
-                    is_path_flag = prefix and not (prefix == "-B" and value in ["dynamic", "static"])
-                    is_execroot_path = value.startswith("external/") or value.startswith("bazel-out/") or value.startswith("../")
-                    if value and not value.startswith("/") and (is_path_flag or is_path_operand or is_clang_path_operand or is_execroot_path):
-                        flag = prefix + _EXECROOT_MARKER + "/" + value
-                        break
-                normalized_flags.append(flag)
-            toolchain_config[key] = normalized_flags
-
-    if "CC" in ctx.attr.env:
-        toolchain_config.pop("cc_compile_flags", None)
-    if "CXX" in ctx.attr.env:
-        for key in ["cxx_compile_flags", "cxx_shared_link_flags", "cxx_exe_link_flags"]:
-            toolchain_config.pop(key, None)
-    else:
-        for key, action_name in {
-            "cxx_shared_link_tool": ACTION_NAMES.cpp_link_dynamic_library,
-            "cxx_exe_link_tool": ACTION_NAMES.cpp_link_executable,
-        }.items():
-            if cc_common.action_is_enabled(feature_configuration = feature_configuration, action_name = action_name):
-                tool = cc_common.get_tool_for_action(
-                    feature_configuration = feature_configuration,
-                    action_name = action_name,
-                )
-                if tool:
-                    toolchain_config[key] = tool
-    if toolchain_config:
-        tools[_CXX_TOOLCHAIN_CONFIG_ENV] = json.encode(toolchain_config)
+    if tools.get("CXX"):
+        tools["CXX"] = _declared_cxx_driver(tools["CXX"], files)
 
     return files, {key: value for key, value in tools.items() if value}
 
-def _declared_cxx_driver(compiler, file_paths):
+def _declared_cxx_driver(compiler, files):
     basename = compiler.split("/")[-1]
-    for cc_basename, cxx_basename in [("clang", "clang++"), ("gcc", "g++")]:
-        if basename == cc_basename:
-            suffix = ""
-        elif basename.startswith(cc_basename + "-") and basename[len(cc_basename) + 1:].isdigit():
-            suffix = basename[len(cc_basename):]
-        else:
+    version_index = basename.rfind("-")
+    if version_index != -1 and basename[version_index + 1:].isdigit():
+        stem = basename[:version_index]
+        suffix = basename[version_index:]
+    else:
+        stem = basename
+        suffix = ""
+    for cc_basename, cxx_basename in [("clang", "clang++"), ("gcc", "g++"), ("cc", "c++")]:
+        if stem != cc_basename and not stem.endswith("-" + cc_basename):
             continue
         dirname_index = compiler.rfind("/")
-        companion = cxx_basename + suffix
+        companion = stem[:-len(cc_basename)] + cxx_basename + suffix
         if dirname_index != -1:
             companion = compiler[:dirname_index] + "/" + companion
-        return companion if companion in file_paths else compiler
+        return companion if companion in [file.path for file in files.to_list()] else compiler
     return compiler
 
 def _pep517_whl(ctx):
@@ -280,6 +219,7 @@ def _pep517_native_whl(ctx):
     cc_files, cc_tools = _cc_toolchain_inputs_and_tools(ctx)
     if cc_files:
         extra_inputs.append(cc_files)
+    known_variables.update({key: value for key, value in cc_tools.items() if key not in known_variables})
 
     for k, v in ctx.attr.env.items():
         env[k] = ctx.expand_make_variables("env", v, known_variables)
@@ -382,9 +322,10 @@ constraints of the target platform.
         "args": attr.string_list(),
         "env": attr.string_dict(
             doc = "Environment variables to set on the build action. Values may " +
-                  "contain `$(VAR)` references to make-variables exposed by any " +
-                  "target in the rule's `toolchains` attribute (via " +
-                  "`TemplateVariableInfo`). Prefix an execroot-relative path with " +
+                  "contain `$(VAR)` references to the configured C++ action tools " +
+                  "or make-variables exposed by any target in the rule's " +
+                  "`toolchains` attribute (via `TemplateVariableInfo`). Prefix an " +
+                  "execroot-relative path with " +
                   "`$(EXECROOT)/` so it remains valid after the backend changes into " +
                   "the unpacked source tree. Omit CC/CXX/AR/LD/STRIP to use the " +
                   "configured C++ action tools.",

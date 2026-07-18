@@ -118,21 +118,6 @@ pep517_whl_console_scripts_test = analysistest.make(
     attrs = {"expected_console_scripts": attr.string_list()},
 )
 
-def _explicit_compiler_env_test_impl(ctx):
-    env = analysistest.begin(ctx)
-    target = analysistest.target_under_test(env)
-    action = [a for a in target.actions if a.mnemonic == "PySdistNativeBuild"][0]
-    asserts.equals(env, "explicit-cc", action.env.get("CC"))
-    asserts.equals(env, "explicit-cxx", action.env.get("CXX"))
-    asserts.false(
-        env,
-        "ASPECT_RULES_PY_CXX_TOOLCHAIN_CONFIG" in action.env,
-        "configured toolchain flags must not be applied to an explicit compiler",
-    )
-    return analysistest.end(env)
-
-pep517_native_whl_explicit_compiler_env_test = analysistest.make(_explicit_compiler_env_test_impl)
-
 def _execroot_collision_toolchain_impl(_ctx):
     return [platform_common.TemplateVariableInfo({"EXECROOT": "collision"})]
 

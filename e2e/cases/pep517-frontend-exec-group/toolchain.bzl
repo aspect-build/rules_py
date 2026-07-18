@@ -9,7 +9,7 @@ def _fake_cc_toolchain_impl(ctx):
     return [
         platform_common.ToolchainInfo(
             all_files = depset([compiler] + ctx.files.tools),
-            compiler_executable = ctx.attr.compiler_path or compiler.path,
+            compiler_executable = compiler.path,
         ),
     ]
 
@@ -20,7 +20,6 @@ fake_cc_toolchain = rule(
             allow_single_file = True,
             mandatory = True,
         ),
-        "compiler_path": attr.string(),
         "tools": attr.label_list(allow_files = True),
     },
 )
