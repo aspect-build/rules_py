@@ -42,7 +42,6 @@ py_binary(
     expose_venv = True,
     imports = ["."],
     include_system_site_packages = False,
-    include_user_site_packages = False,
     interpreter_options = ["-O"],
     main = "main.py",
     package_collisions = "ignore",

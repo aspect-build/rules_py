@@ -52,7 +52,6 @@ def assemble_venv(
         is_windows,
         package_collisions,
         include_system_site_packages,
-        include_user_site_packages,
         default_env,
         venv_activate_tmpl,
         virtualenv_shim_py,
@@ -74,8 +73,6 @@ def assemble_venv(
         distribution metadata entry, or console-script name.
       include_system_site_packages: Value for pyvenv.cfg's
         `include-system-site-packages` key.
-      include_user_site_packages: Value for the Aspect extension
-        `aspect-include-user-site-packages` key.
       default_env: Dict of env-var name → value. Exported at the top of
         the generated activate script and unset in `deactivate`.
       venv_activate_tmpl: File — the activate-script template (usually
@@ -266,14 +263,12 @@ def assemble_venv(
             "implementation = CPython\n" +
             "version_info = {major}.{minor}.{micro}\n" +
             "include-system-site-packages = {include_system}\n" +
-            "aspect-include-user-site-packages = {include_user}\n" +
             "relocatable = true\n"
         ).format(
             major = py_toolchain.interpreter_version_info.major,
             minor = py_toolchain.interpreter_version_info.minor,
             micro = py_toolchain.interpreter_version_info.micro,
             include_system = str(include_system_site_packages).lower(),
-            include_user = str(include_user_site_packages).lower(),
         ),
     )
     declared.append(pyvenv_cfg)

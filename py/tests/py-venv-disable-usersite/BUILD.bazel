@@ -8,7 +8,6 @@ py_test(
     imports = [
         ".",
     ],
-    include_user_site_packages = False,
     main = "test.py",
     deps = [
         "@pypi//cowsay",
@@ -23,7 +22,6 @@ py_test(
     imports = [
         ".",
     ],
-    include_user_site_packages = False,
     isolated = False,
     main = "test.py",
     deps = [
