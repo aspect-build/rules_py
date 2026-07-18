@@ -102,6 +102,7 @@ def _cc_toolchain_inputs_and_tools(ctx):
     if not cc_toolchain or not hasattr(cc_toolchain, "all_files"):
         return None, {}
     files = cc_toolchain.all_files
+    file_paths = {file.path: True for file in files.to_list()}
 
     # Minimal C++ ToolchainInfo implementations can still supply a compiler
     # and its files without a CcToolchainInfo feature configuration.
@@ -109,7 +110,7 @@ def _cc_toolchain_inputs_and_tools(ctx):
         compiler = getattr(cc_toolchain, "compiler_executable", None)
         if not compiler:
             return files, {}
-        return files, {"CC": compiler, "CXX": compiler}
+        return files, {"CC": compiler, "CXX": cxx_driver_path(compiler, file_paths, True)}
 
     feature_configuration = cc_common.configure_features(
         ctx = ctx,
@@ -142,7 +143,6 @@ def _cc_toolchain_inputs_and_tools(ctx):
         # Legacy C++ toolchains can omit action configs while still exposing
         # usable tools through CcToolchainInfo. Action-only providers may
         # fabricate these fields, so require each fallback to be an input.
-        file_paths = {file.path: True for file in files.to_list()}
         legacy_tools = {
             "AR": cc_toolchain.ar_executable,
             "CC": cc_toolchain.compiler_executable,
@@ -153,7 +153,7 @@ def _cc_toolchain_inputs_and_tools(ctx):
         tools.update({key: legacy_tools[key] for key in missing if legacy_tools[key] in file_paths})
 
     if tools.get("CXX"):
-        tools["CXX"] = cxx_driver_path(tools["CXX"], {file.path: True for file in files.to_list()})
+        tools["CXX"] = cxx_driver_path(tools["CXX"], file_paths, tools.get("CC") == tools["CXX"])
 
     return files, {key: value for key, value in tools.items() if value}
 

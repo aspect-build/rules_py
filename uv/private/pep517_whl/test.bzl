@@ -121,15 +121,44 @@ pep517_whl_console_scripts_test = analysistest.make(
 
 def _cxx_driver_test_impl(ctx):
     env = unittest.begin(ctx)
-    asserts.equals(env, "g++", cxx_driver_path("gcc", {"g++": True}))
+    asserts.equals(env, "g++", cxx_driver_path("gcc", {"g++": True}, True))
     asserts.equals(
         env,
         "toolchain/bin/clang++-22",
-        cxx_driver_path("toolchain/bin/clang-22", {"toolchain/bin/clang++-22": True}),
+        cxx_driver_path("toolchain/bin/clang-22", {"toolchain/bin/clang++-22": True}, True),
     )
     for compiler in ["clang-cl", "clang-format", "gcc-ar", "unusual_cxx_driver.sh"]:
-        asserts.equals(env, compiler, cxx_driver_path(compiler, {}))
-    asserts.equals(env, "toolchain/bin/gcc", cxx_driver_path("toolchain/bin/gcc", {"other/bin/g++": True}))
+        asserts.equals(env, compiler, cxx_driver_path(compiler, {}, True))
+    asserts.equals(env, "toolchain/bin/gcc", cxx_driver_path("toolchain/bin/gcc", {"other/bin/g++": True}, True))
+    asserts.equals(env, "/usr/bin/g++", cxx_driver_path("/usr/bin/gcc", {}, True))
+    asserts.equals(env, "/usr/local/bin/clang++-22", cxx_driver_path("/usr/local/bin/clang-22", {}, True))
+    asserts.equals(
+        env,
+        "payload/bin/clang++",
+        cxx_driver_path("toolchain/bin/cc_wrapper.sh", {
+            "payload/bin/clang": True,
+            "payload/bin/clang++": True,
+            "payload/bin/clang-22": True,
+        }, True),
+    )
+    asserts.equals(
+        env,
+        "toolchain/bin/cc_wrapper.sh",
+        cxx_driver_path("toolchain/bin/cc_wrapper.sh", {
+            "payload/bin/clang": True,
+            "payload/bin/clang++": True,
+            "payload/bin/gcc": True,
+            "payload/bin/g++": True,
+        }, True),
+    )
+    asserts.equals(
+        env,
+        "toolchain/bin/unusual_cxx_driver.sh",
+        cxx_driver_path("toolchain/bin/unusual_cxx_driver.sh", {
+            "payload/bin/clang": True,
+            "payload/bin/clang++": True,
+        }, False),
+    )
     return unittest.end(env)
 
 cxx_driver_test = unittest.make(_cxx_driver_test_impl)
