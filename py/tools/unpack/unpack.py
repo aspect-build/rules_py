@@ -59,32 +59,65 @@ def _is_native_library(path: Path) -> bool:
     )
 
 
-def _import_roots(site_packages: Path) -> Set[str]:
-    return {
-        path.relative_to(site_packages).parts[0]
-        for path in site_packages.rglob("*")
-        if path.is_file()
+def _import_root(path: Path) -> Optional[str]:
+    if (
+        path.parts
         and (
             path.name.endswith(".py")
             or (path.name.endswith(".pyc") and path.parent.name != "__pycache__")
             or _is_native_library(path)
         )
-        and not path.relative_to(site_packages).parts[0].endswith((".dist-info", ".egg-info"))
+        and not path.parts[0].endswith((".dist-info", ".egg-info"))
+    ):
+        return path.parts[0]
+    return None
+
+
+def _import_roots(site_packages: Path) -> Set[str]:
+    return {
+        root
+        for path in site_packages.rglob("*")
+        if path.is_file()
+        for root in [_import_root(path.relative_to(site_packages))]
+        if root
     }
+
+
+def _path_excluded(
+    path: Path, patterns: Sequence[Tuple[str, ...]], is_file: bool
+) -> bool:
+    from exclude_glob import excluded
+
+    if excluded(path.parts, patterns):
+        return True
+    if not is_file or not path.name.endswith(".pyc"):
+        return False
+    if path.parent.name == "__pycache__":
+        source, separator, tag = path.stem.rpartition(".")
+        if tag.startswith("opt-"):
+            if not tag[len("opt-"):]:
+                return False
+            source, separator, tag = source.rpartition(".")
+        if not source or not separator or not tag:
+            return False
+        source_path = path.parent.parent / (source + ".py")
+    else:
+        source_path = path.with_name(path.name[:-len(".pyc")] + ".py")
+    return excluded(source_path.parts, patterns)
 
 
 def _native_descendants(
     directory: Path, site_packages: Path, patterns: Sequence[Tuple[str, ...]]
 ) -> Tuple[str, ...]:
-    if patterns:
-        from exclude_glob import excluded
-
     return tuple(sorted(
         path.relative_to(directory).as_posix()
         for path in directory.rglob("*")
         if path.is_file()
         and _is_native_library(path)
-        and (not patterns or not excluded(path.relative_to(site_packages).parts, patterns))
+        and (
+            not patterns
+            or not _path_excluded(path.relative_to(site_packages), patterns, True)
+        )
     ))
 
 
@@ -96,9 +129,15 @@ def _retained_init(
         return False
     if not patterns:
         return True
-    from exclude_glob import excluded
+    return not _path_excluded(init.relative_to(site_packages), patterns, True)
 
-    return not excluded(init.relative_to(site_packages).parts, patterns)
+
+def _installer_input(path: Path) -> bool:
+    return (
+        len(path.parts) == 2
+        and path.parts[0].endswith(".dist-info")
+        and path.name in ("entry_points.txt", "RECORD")
+    )
 
 
 def _write_executable(path: Path, content: bytes) -> None:
@@ -163,7 +202,8 @@ def install_wheel(
     version_minor: int,
     into: Path,
     wheel_path: Path,
-) -> Dict[Path, Optional[Tuple[str, str]]]:
+    exclude_patterns: Sequence[Tuple[str, ...]],
+) -> Tuple[Dict[Path, Optional[Tuple[str, str]]], Set[str]]:
     """Install a wheel into *into*, following PEP 427 layout conventions.
 
     Accepts either a direct ``.whl`` file or a directory containing exactly
@@ -186,6 +226,7 @@ def install_wheel(
     bin_dir.mkdir(parents=True, exist_ok=True)
     installed: Dict[Path, Optional[Tuple[str, str]]] = {}
     seen_members: Set[str] = set()
+    original_import_roots: Set[str] = set()
 
     with zipfile.ZipFile(wheel_path, "r") as zf:
         record_dir, record_metadata = _record_metadata(zf)
@@ -224,6 +265,21 @@ def install_wheel(
                     dest = site_packages / category / rel_path
             else:
                 dest = site_packages / member_path
+
+            try:
+                site_relative = dest.relative_to(site_packages)
+            except ValueError:
+                pass
+            else:
+                root = _import_root(site_relative)
+                if root:
+                    original_import_roots.add(root)
+                if (
+                    exclude_patterns
+                    and _path_excluded(site_relative, exclude_patterns, True)
+                    and not _installer_input(site_relative)
+                ):
+                    continue
 
             dest.parent.mkdir(parents=True, exist_ok=True)
             reusable_record = record_metadata.get(member)
@@ -307,7 +363,7 @@ def install_wheel(
         with record_path.open("w", newline="", encoding="utf-8") as fh:
             csv.writer(fh).writerows(rows)
 
-    return installed
+    return installed, original_import_roots
 
 
 def main() -> None:
@@ -331,11 +387,12 @@ def main() -> None:
 
         args.exclude_glob = [parse(pattern) for pattern in args.exclude_glob]
 
-    installed = install_wheel(
+    installed, original_import_roots = install_wheel(
         args.python_version_major,
         args.python_version_minor,
         args.into,
         args.wheel,
+        args.exclude_glob if not args.patches else (),
     )
 
     site_packages = (
@@ -347,7 +404,6 @@ def main() -> None:
         path for path in installed
         if path.suffix == ".pyc" and site_packages in path.parents
     }
-    original_import_roots = _import_roots(site_packages) if args.exclude_glob else set()
     # Analysis uses these paths for collision and merge planning. Snapshot their
     # installed shape here, where both the before and after states are available.
     observed_files: List[Path] = []
@@ -413,33 +469,18 @@ def main() -> None:
             )
 
     if args.exclude_glob:
-        from exclude_glob import excluded
-
         for path in sorted(site_packages.rglob("*"), reverse=True):
-            if not excluded(path.relative_to(site_packages).parts, args.exclude_glob):
+            if not _path_excluded(
+                path.relative_to(site_packages),
+                args.exclude_glob,
+                path.is_file(),
+            ):
                 continue
             if path.is_dir():
                 path.rmdir()
             else:
                 path.unlink()
 
-        # File-shaped source globs do not match their PEP 3147 or legacy
-        # caches. Remove shipped bytecode whose corresponding source was
-        # excluded before compiling the retained sources.
-        for bytecode in site_packages.rglob("*.pyc"):
-            if bytecode.parent.name == "__pycache__":
-                source, separator, tag = bytecode.stem.rpartition(".")
-                if tag.startswith("opt-"):
-                    if not tag[len("opt-"):]:
-                        continue
-                    source, separator, tag = source.rpartition(".")
-                if not source or not separator or not tag:
-                    continue
-                source_path = bytecode.parent.parent / (source + ".py")
-            else:
-                source_path = bytecode.with_name(bytecode.name[:-len(".pyc")] + ".py")
-            if excluded(source_path.relative_to(site_packages).parts, args.exclude_glob):
-                bytecode.unlink()
         for cache in site_packages.rglob("__pycache__"):
             if cache.is_dir() and not any(cache.iterdir()):
                 cache.rmdir()

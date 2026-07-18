@@ -97,6 +97,23 @@ def _assert_record_matches_installed_files(site_packages: Path) -> None:
         assert size == str(path.stat().st_size), relative
 
 
+def _corrupt_member(path: Path, name: str) -> None:
+    with zipfile.ZipFile(path) as archive:
+        info = archive.getinfo(name)
+    data_offset = (
+        info.header_offset
+        + 30
+        + len(info.filename.encode("utf-8"))
+        + len(info.extra)
+    )
+    with path.open("r+b") as stream:
+        stream.seek(data_offset)
+        original = stream.read(1)
+        assert original
+        stream.seek(data_offset)
+        stream.write(bytes([original[0] ^ 0xFF]))
+
+
 def _build_wheel(path: Path, *, legacy_syntax: bool) -> None:
     body = (
         b"raise RuntimeError, None, None\n"
@@ -371,6 +388,35 @@ def main() -> None:
         )
         assert no_record.returncode == 0, no_record.stdout + no_record.stderr
         assert (no_record_out / site_packages.relative_to(good_out) / "fixture" / "__init__.py").is_file()
+
+        corrupt_wheel = root / "corrupt-1.0-py3-none-any.whl"
+        corrupt_member = "corrupt-1.0.data/purelib/fixture/tests/corrupt.py"
+        _write_wheel(
+            corrupt_wheel,
+            "corrupt",
+            {
+                "fixture/__init__.py": b"VALUE = 1\n",
+                corrupt_member: b"raise AssertionError()\n",
+            },
+        )
+        _corrupt_member(corrupt_wheel, corrupt_member)
+        with zipfile.ZipFile(corrupt_wheel) as archive:
+            assert archive.testzip() == corrupt_member
+        corrupt_out = root / "corrupt"
+        skipped = _run_unpack(
+            unpack,
+            corrupt_wheel,
+            corrupt_out,
+            Path(sys.executable),
+            ("--exclude-glob=fixture/**/tests/**",),
+        )
+        assert skipped.returncode == 0, skipped.stdout + skipped.stderr
+        assert not (
+            corrupt_out
+            / site_packages.relative_to(good_out)
+            / "fixture"
+            / "tests"
+        ).exists()
         for case, member in [
             ("roottraversal", "../../../../escaped.py"),
             ("rootabsolute", str(root / "escaped.py")),
@@ -405,6 +451,24 @@ def main() -> None:
                 rejected.stderr,
             )
             assert "Invalid wheel member path" in rejected.stderr
+
+        excluded_invalid_wheel = root / "excluded_invalid-1.0-py3-none-any.whl"
+        _write_wheel(
+            excluded_invalid_wheel,
+            "excluded_invalid",
+            {"../../../../escaped.py": b"escaped\n"},
+        )
+        excluded_invalid = _run_unpack(
+            unpack,
+            excluded_invalid_wheel,
+            root / "excluded-invalid-out",
+            Path(sys.executable),
+            ("--exclude-glob=**",),
+        )
+        assert excluded_invalid.returncode != 0, (
+            excluded_invalid.stdout + excluded_invalid.stderr
+        )
+        assert "Invalid wheel member path" in excluded_invalid.stderr
 
         site_packages_relative = (
             f"lib/python{sys.version_info.major}.{sys.version_info.minor}/site-packages"
@@ -937,6 +1001,7 @@ else:
             entry_point_wheel,
             entry_point_out,
             Path(sys.executable),
+            ("--exclude-glob=entry_point-1.0.dist-info/entry_points.txt",),
         )
         assert entry_point.returncode == 0, entry_point.stderr
         assert {entry.name for entry in (entry_point_out / "bin").iterdir()} == {
@@ -952,6 +1017,9 @@ else:
             / f"python{sys.version_info.major}.{sys.version_info.minor}"
             / "site-packages"
         )
+        assert not (
+            site_packages / "entry_point-1.0.dist-info" / "entry_points.txt"
+        ).exists()
         subprocess.run(
             [sys.executable, str(script)],
             check=True,
