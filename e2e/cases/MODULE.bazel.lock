@@ -82,6 +82,8 @@
     "https://bcr.bazel.build/modules/libpfm/4.11.0/MODULE.bazel": "45061ff025b301940f1e30d2c16bea596c25b176c8b6b3087e92615adbd52902",
     "https://bcr.bazel.build/modules/llvm/0.8.3/MODULE.bazel": "dbc1bc13171f8f9980a75524883abef1c491613e8d8d805cd4ffa3767ba9708e",
     "https://bcr.bazel.build/modules/llvm/0.8.3/source.json": "4b11874c26a9de53c03a25a517ebc36dee6b458c920fe9ed65e3ca279ff19775",
+    "https://bcr.bazel.build/modules/nanobind_bazel/2.12.0/MODULE.bazel": "3a8a9e79f5e6da7e71d7a1aa33e0e3b4131d4e72cfacbc3d0215666f69557214",
+    "https://bcr.bazel.build/modules/nanobind_bazel/2.12.0/source.json": "f8684bd3683917cc18bd8c5fcdfc675915826379df5965d49017ff5189af96cb",
     "https://bcr.bazel.build/modules/package_metadata/0.0.2/MODULE.bazel": "fb8d25550742674d63d7b250063d4580ca530499f045d70748b1b142081ebb92",
     "https://bcr.bazel.build/modules/package_metadata/0.0.3/MODULE.bazel": "77890552ecea9e284b5424c9de827a58099348763a4359e975c359a83d4faa83",
     "https://bcr.bazel.build/modules/package_metadata/0.0.3/source.json": "742075a428ad12a3fa18a69014c2f57f01af910c6d9d18646c990200853e641a",
@@ -108,6 +110,8 @@
     "https://bcr.bazel.build/modules/pybind11_bazel/2.11.1/source.json": "be4789e951dd5301282729fe3d4938995dc4c1a81c2ff150afc9f1b0504c6022",
     "https://bcr.bazel.build/modules/re2/2023-09-01/MODULE.bazel": "cb3d511531b16cfc78a225a9e2136007a48cf8a677e4264baeab57fe78a80206",
     "https://bcr.bazel.build/modules/re2/2023-09-01/source.json": "e044ce89c2883cd957a2969a43e79f7752f9656f6b20050b62f90ede21ec6eb4",
+    "https://bcr.bazel.build/modules/robin-map/1.4.0/MODULE.bazel": "de8f012a488d8962bb86b3f17b1c0662ac73616f46ded211a177d5b0520732a8",
+    "https://bcr.bazel.build/modules/robin-map/1.4.0/source.json": "298dfead8b8fb9dd2b1e0949cb15568ff8022f4a275b189338d9ec031019cdde",
     "https://bcr.bazel.build/modules/rules_android/0.1.1/MODULE.bazel": "48809ab0091b07ad0182defb787c4c5328bd3a278938415c00a7b69b50c4d3a8",
     "https://bcr.bazel.build/modules/rules_android/0.1.1/source.json": "e6986b41626ee10bdc864937ffb6d6bf275bb5b9c65120e6137d56e6331f089e",
     "https://bcr.bazel.build/modules/rules_cc/0.0.1/MODULE.bazel": "cb2aa0747f84c6c3a78dad4e2049c154f08ab9d166b1273835a8174940365647",
@@ -448,6 +452,46 @@
           ],
           [
             "llvm+",
+            "bazel_tools",
+            "bazel_tools"
+          ]
+        ]
+      }
+    },
+    "@@nanobind_bazel+//:internal_configure.bzl%internal_configure_extension": {
+      "general": {
+        "bzlTransitiveDigest": "+Un0+JDoSuvprQ/0SAfIT/YckjnChTveVxfWnEO3+xQ=",
+        "usagesDigest": "G3BA/KImifIZfbT9eklFYVNIzLrjPgsHbEWQwbA2uGY=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "nanobind": {
+            "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_archive",
+            "attributes": {
+              "build_file": "@@nanobind_bazel+//:nanobind.BUILD",
+              "strip_prefix": "nanobind-2.12.0",
+              "integrity": "sha256-AfHwzQOYdDwY8z0HrjatQQvX9KHpBoO1CFBN6JfW5ik=",
+              "urls": [
+                "https://github.com/wjakob/nanobind/archive/refs/tags/v2.12.0.tar.gz"
+              ]
+            }
+          },
+          "pypi__typing_extensions": {
+            "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_archive",
+            "attributes": {
+              "build_file": "@@nanobind_bazel+//:typing_extensions.BUILD",
+              "strip_prefix": "typing_extensions-4.15.0",
+              "integrity": "sha256-DOpI0XPMEvoo7KvDuDfqPPbzjG0RNvhcuq9ZiYSGFGY=",
+              "urls": [
+                "https://files.pythonhosted.org/packages/72/94/1a15dd82efb362ac84269196e94cf00f187f7ed21c242792a923cdb1c61f/typing_extensions-4.15.0.tar.gz"
+              ]
+            }
+          }
+        },
+        "recordedRepoMappingEntries": [
+          [
+            "nanobind_bazel+",
             "bazel_tools",
             "bazel_tools"
           ]
