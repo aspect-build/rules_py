@@ -68,16 +68,9 @@ def _parse_version_local_test_impl(ctx):
 parse_version_local_test = unittest.make(_parse_version_local_test_impl)
 
 def _parse_version_leading_v_test_impl(ctx):
-    """Leading 'v' prefix should be handled (common in tags)."""
+    """The numeric fallback does not interpret a leading 'v'."""
     env = unittest.begin(ctx)
-
-    # Our parser stops at non-digit, so 'v' prefix means numeric starts after
-    # parse_version strips to numeric portion — 'v' is non-digit so numeric is empty
-    # This is a known limitation; lockfile versions won't have 'v' prefix
-    result = parse_version("v1.0")
-
-    # 'v' is at position 0, not a digit, so end=0, numeric=""
-    asserts.equals(env, [0], result)
+    asserts.equals(env, [0], parse_version("v1.0"))
     return unittest.end(env)
 
 parse_version_leading_v_test = unittest.make(_parse_version_leading_v_test_impl)

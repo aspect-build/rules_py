@@ -5,10 +5,10 @@ Provides functions to parse version strings and evaluate version specifiers
 """
 
 def parse_version(v):
-    """Parses a PEP 440 version string into a comparable list of integers.
+    """Returns the numeric release prefix for legacy and wildcard fallback.
 
-    Pre-release/post-release suffixes are stripped; we only need to match
-    against lockfile-resolved versions which are exact.
+    Epoch and suffix components are intentionally discarded; valid PEP 440
+    versions use the normalized comparison key instead.
 
     Args:
         v: A version string like "1.2.3", "21.3", "2.0.0rc1".
