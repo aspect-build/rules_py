@@ -1,4 +1,4 @@
-load(":metadata_test.bzl", "console_scripts_metadata_test")
+load(":metadata_test.bzl", "console_scripts_metadata_test", "forward_wheels")
 
 # Each target pins a REAL wheel that ships the legacy console-script extras
 # syntax in its `entry_points.txt`, and asserts `parse_console_script`
@@ -13,13 +13,18 @@ load(":metadata_test.bzl", "console_scripts_metadata_test")
 #   black  = black:patched_main         -> black=black:patched_main      (plain, unchanged)
 #   blackd = blackd:patched_main [d]    -> blackd=blackd:patched_main    ([d] extra stripped)
 # The `[d]` extra gates black's optional HTTP-daemon dependencies (aiohttp).
+forward_wheels(
+    name = "forwarded_black_wheels",
+    deps = ["@whl_install__console_script_extras__black__26_5_1//:install"],
+)
+
 console_scripts_metadata_test(
     name = "black_console_scripts_test",
     expected_console_scripts = [
         "black=black:patched_main",
         "blackd=blackd:patched_main",
     ],
-    target_under_test = "@whl_install__console_script_extras__black__26_5_1//:install",
+    target_under_test = ":forwarded_black_wheels",
 )
 
 # google-auth-oauthlib 1.4.0 — single py3-none-any wheel, one console script:
