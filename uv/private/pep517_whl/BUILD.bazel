@@ -8,7 +8,6 @@ load("//py:defs.bzl", "py_binary", "py_library", "py_test")
 load(":rule.bzl", "pep517_native_whl", "pep517_whl")
 load(
     ":test.bzl",
-    "cxx_driver_test_suite",
     "execroot_collision_toolchain",
     "hostile_python_env_target",
     "pep517_native_whl_execroot_collision_test",
@@ -29,7 +28,6 @@ bzl_library(
     name = "rule",
     srcs = ["rule.bzl"],
     deps = [
-        ":compiler",
         "//py/private/toolchain:types",
         "//uv/private:source_built_wheel",
         "@bazel_lib//lib:resource_sets",
@@ -87,14 +85,11 @@ bzl_library(
     srcs = ["test.bzl"],
     visibility = ["//uv:__subpackages__"],
     deps = [
-        ":compiler",
         ":rule",
         "//uv/private:source_built_wheel",
         "@bazel_skylib//lib:unittest",
     ],
 )
-
-cxx_driver_test_suite(name = "cxx_driver_test")
 
 # --- Analysis test fixtures ----------------------------------------------
 #
@@ -197,9 +192,4 @@ pep517_native_whl(
 pep517_native_whl_execroot_collision_test(
     name = "execroot_collision_test",
     target_under_test = ":__execroot_collision_fixture",
-)
-
-bzl_library(
-    name = "compiler",
-    srcs = ["compiler.bzl"],
 )

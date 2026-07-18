@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from argparse import ArgumentParser
 import importlib
+import json
 import os
 import platform as _platform
 import shlex
@@ -42,10 +43,25 @@ import os
 import sys
 
 filtered_args = [arg for arg in sys.argv[1:] if arg != "{debug_flag}"]
+compile_flags = {compile_flags!r}
+link_flags = {link_flags!r}
+exe_link_flags = {exe_link_flags!r}
+shared_compiler_path = {shared_compiler_path!r}
+exe_compiler_path = {exe_compiler_path!r}
+compile_only = any(arg in ("-c", "-E", "-S", "-M", "-MM", "-fsyntax-only") for arg in filtered_args)
+compiling = compile_only or any(arg.endswith((".c", ".cc", ".cpp", ".cxx", ".c++", ".C", ".m", ".mm")) for arg in filtered_args)
+if compiling:
+    filtered_args = compile_flags + filtered_args
+if not compile_only:
+    is_shared = any(arg in ("-shared", "-dynamiclib", "-bundle") or arg.endswith((".so", ".dylib", ".pyd")) for arg in filtered_args)
+    filtered_args += link_flags if is_shared else exe_link_flags
+    compiler_path = shared_compiler_path if is_shared else exe_compiler_path
+else:
+    compiler_path = {compiler_path!r}
 sysroot = {sysroot!r}
 if sysroot and "-isysroot" not in filtered_args:
     filtered_args = ["-isysroot", sysroot] + filtered_args
-os.execv("{compiler_path}", [os.path.basename("{compiler_path}")] + filtered_args)
+os.execv(compiler_path, [os.path.basename(compiler_path)] + filtered_args)
 """
 
 
@@ -70,9 +86,8 @@ def _absolutize_path(value: str) -> str:
     return path.abspath(value) if value and not path.isabs(value) else value
 
 
-def _resolve_compiler_path(env: Dict[str, str], key: str, default: str) -> str:
-    """Extract the real compiler from the environment and resolve it to an absolute path."""
-    current = env.get(key)
+def _resolve_compiler_path(env, current, default):
+    """Extract a compiler command and resolve it to an absolute path."""
     if not current:
         return default
     parts = shlex.split(current)
@@ -84,12 +99,7 @@ def _resolve_compiler_path(env: Dict[str, str], key: str, default: str) -> str:
     return shutil.which(compiler, path=env.get("PATH", defpath)) or compiler
 
 
-def _make_compiler_wrapper(
-    tmpdir: str,
-    name: str,
-    compiler_path: str,
-    sysroot: Optional[str] = None,
-) -> str:
+def _make_compiler_wrapper(tmpdir, name, compiler_path, sysroot, compile_flags, link_flags, exe_link_flags, shared_compiler_path, exe_compiler_path):
     wrapper = path.join(tmpdir, ".aspect_rules_py_compilers", name)
     makedirs(path.dirname(wrapper), exist_ok=True)
     with open(wrapper, "w") as f:
@@ -97,6 +107,11 @@ def _make_compiler_wrapper(
             debug_flag=_DEBUG_FLAG,
             compiler_path=compiler_path,
             sysroot=sysroot,
+            compile_flags=compile_flags,
+            link_flags=link_flags,
+            exe_link_flags=exe_link_flags,
+            shared_compiler_path=shared_compiler_path,
+            exe_compiler_path=exe_compiler_path,
         ))
     chmod(wrapper, 0o755)
     return wrapper
@@ -160,13 +175,23 @@ def _compiler_env(tmpdir: str, execroot_marker: Optional[str] = None) -> Dict[st
     # helper still runs there; bare tool names deliberately remain on PATH.
     _absolutize_tool_paths(env)
 
-    cc_path = _resolve_compiler_path(env, "CC", "cc")
-    cxx_path = _resolve_compiler_path(env, "CXX", "c++")
+    cc_path = _resolve_compiler_path(env, env.get("CC"), "cc")
+    cxx_path = _resolve_compiler_path(env, env.get("CXX"), "c++")
 
     sysroot = _darwin_sysroot()
 
-    cc = _make_compiler_wrapper(tmpdir, "cc", cc_path, sysroot)
-    cxx = _make_compiler_wrapper(tmpdir, "c++", cxx_path, sysroot)
+    toolchain_config = json.loads(env.pop("ASPECT_RULES_PY_CXX_TOOLCHAIN_CONFIG", "{}"))
+    cc_compile_flags = toolchain_config.get("cc_compile_flags", [])
+    cxx_compile_flags = toolchain_config.get("cxx_compile_flags", [])
+    cxx_link_flags = toolchain_config.get("cxx_shared_link_flags", [])
+    cxx_exe_link_flags = toolchain_config.get("cxx_exe_link_flags", [])
+    shared_compiler_path = _resolve_compiler_path(env, toolchain_config.get("cxx_shared_link_tool"), cxx_path)
+    exe_compiler_path = _resolve_compiler_path(env, toolchain_config.get("cxx_exe_link_tool"), cxx_path)
+
+    # C++ links receive the toolchain's dynamic/executable flags; applying
+    # C++ runtime flags to LDSHARED would unnecessarily relink C extensions.
+    cc = _make_compiler_wrapper(tmpdir, "cc", cc_path, sysroot, cc_compile_flags, [], [], cc_path, cc_path)
+    cxx = _make_compiler_wrapper(tmpdir, "c++", cxx_path, sysroot, cxx_compile_flags, cxx_link_flags, cxx_exe_link_flags, shared_compiler_path, exe_compiler_path)
 
     env.setdefault("CC", cc)
     env.setdefault("CXX", cxx)
@@ -176,7 +201,7 @@ def _compiler_env(tmpdir: str, execroot_marker: Optional[str] = None) -> Dict[st
     # a system mpicc exists, wrapped to keep the debug-flag stripping.
     mpicc_path = shutil.which("mpicc", path=env["PATH"])
     if mpicc_path:
-        env.setdefault("MPICC", _make_compiler_wrapper(tmpdir, "mpicc", mpicc_path, sysroot))
+        env.setdefault("MPICC", _make_compiler_wrapper(tmpdir, "mpicc", mpicc_path, sysroot, [], [], [], mpicc_path, mpicc_path))
     env.setdefault("AR", "ar")
 
     for key, wrapper in [

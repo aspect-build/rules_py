@@ -18,3 +18,16 @@ py_test(
         "@pypi_sdist_mpicc//setuptools",
     ],
 )
+
+py_test(
+    name = "cxx_config_test",
+    srcs = ["cxx_config_test.py"],
+    data = ["@aspect_rules_py//uv/private/pep517_whl:build_helper.py"],
+    dep_group = "uv_sdist_mpicc",
+    main = "cxx_config_test.py",
+    python_version = "3.11",
+    deps = [
+        "@pypi_sdist_mpicc//build",
+        "@pypi_sdist_mpicc//setuptools",
+    ],
+)
