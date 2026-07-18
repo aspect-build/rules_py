@@ -1,0 +1,28 @@
+module(name = "system_interpreter_runtime")
+
+bazel_dep(name = "aspect_rules_py")
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../../..",
+)
+
+# Registered first so it wins *target* Python toolchain resolution: a runtime
+# with no in-build `interpreter` file (a system interpreter). rules_py must
+# reject it at analysis, both in `current_py_toolchain` and in `py_semantics`
+# (the venv/PEX/wheel path).
+register_toolchains("//:system_python_toolchain")
+
+# A real hub supplies the exec-tools interpreter that venv assembly resolves
+# (separate toolchain type; unaffected by the fake target toolchain above).
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+interpreters.configure(releases = ["20260303"])
+interpreters.toolchain(python_version = "3.13")
+use_repo(interpreters, "python_interpreters")
+
+register_toolchains("@python_interpreters//:all")
+
+tools = use_extension("@aspect_rules_py//py:extensions.bzl", "py_tools")
+tools.rules_py_tools()
+use_repo(tools, "rules_py_tools")
+
+register_toolchains("@rules_py_tools//:all")
