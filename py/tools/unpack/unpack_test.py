@@ -1,3 +1,4 @@
+import csv
 import hashlib
 import shutil
 import subprocess
@@ -144,6 +145,25 @@ def main() -> None:
             "print('hi')\n"
         ).encode()
         assert installed_script.stat().st_mode & 0o111
+
+        # RECORD hashes/sizes are computed from the bytes the installer writes,
+        # never by re-reading the file; every listed hash must match disk.
+        record_rows = list(
+            csv.reader(
+                (site_packages / "fixture-1.0.dist-info" / "RECORD")
+                .read_text()
+                .splitlines()
+            )
+        )
+        listed = {row[0] for row in record_rows if row}
+        assert "fixture/__init__.py" in listed
+        assert "fixture-1.0.dist-info/INSTALLER" in listed
+        assert "fixture-1.0.dist-info/REQUESTED" in listed
+        for rel, digest, size in (row for row in record_rows if row and row[1]):
+            data = (site_packages / rel).read_bytes()
+            expected = urlsafe_b64encode(hashlib.sha256(data).digest()).decode().rstrip("=")
+            assert digest == f"sha256={expected}", rel
+            assert size == str(len(data)), rel
 
         for case, member in [
             ("roottraversal", "../../../../escaped.py"),

@@ -17,7 +17,6 @@ import configparser
 import csv
 import hashlib
 import os
-import shutil
 import subprocess
 import zipfile
 from base64 import urlsafe_b64encode
@@ -35,12 +34,15 @@ _WINDOWS_RESERVED = {"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$"} | {
 }
 
 
-def _sha256(path):
-    h = hashlib.sha256()
-    with path.open("rb") as f:
-        for chunk in iter(lambda: f.read(65536), b""):
-            h.update(chunk)
-    return "sha256=" + urlsafe_b64encode(h.digest()).decode().rstrip("=")
+_CHUNK_SIZE = 65536
+
+
+def _format_digest(digest):
+    return "sha256=" + urlsafe_b64encode(digest).decode().rstrip("=")
+
+
+def _digest_bytes(data):
+    return _format_digest(hashlib.sha256(data).digest())
 
 
 def _has_python_shebang(data):
@@ -68,6 +70,30 @@ def _write_executable(path, content):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(content)
     path.chmod(0o755)
+
+
+def _extract_member(zf, info, dest, is_script):
+    """Extract one wheel member to dest in a single decompress pass.
+
+    Returns the RECORD (digest, size) computed from the bytes as written, so
+    the caller never re-reads the installed file from disk to build RECORD.
+    """
+    hasher = hashlib.sha256()
+    if is_script:
+        data = zf.read(info.filename)
+        if _has_python_shebang(data):
+            _, _, body = data.partition(b"\n")
+            data = _RELOCATABLE_SHEBANG.encode() + body
+        dest.write_bytes(data)
+        hasher.update(data)
+        return _format_digest(hasher.digest()), len(data)
+    size = 0
+    with zf.open(info) as src, dest.open("wb") as fh:
+        for chunk in iter(lambda: src.read(_CHUNK_SIZE), b""):
+            hasher.update(chunk)
+            fh.write(chunk)
+            size += len(chunk)
+    return _format_digest(hasher.digest()), size
 
 
 def _relative_path(value, what):
@@ -111,6 +137,7 @@ def install_wheel(version_major, version_minor, into, wheel_path):
     bin_dir.mkdir(parents=True, exist_ok=True)
 
     installed = []
+    record_meta = {}
 
     with zipfile.ZipFile(wheel_path, "r") as zf:
         for info in zf.infolist():
@@ -144,15 +171,7 @@ def install_wheel(version_major, version_minor, into, wheel_path):
                 dest = site_packages / member_path
 
             dest.parent.mkdir(parents=True, exist_ok=True)
-            if is_script:
-                data = zf.read(member)
-                if _has_python_shebang(data):
-                    _, _, body = data.partition(b"\n")
-                    data = _RELOCATABLE_SHEBANG.encode() + body
-                dest.write_bytes(data)
-            else:
-                with zf.open(info, "r") as source, dest.open("wb") as output:
-                    shutil.copyfileobj(source, output, length=1024 * 1024)
+            digest, size = _extract_member(zf, info, dest, is_script)
 
             unix_mode = (info.external_attr >> 16) & 0xFFFF
             if unix_mode & 0o111 or is_script:
@@ -160,6 +179,7 @@ def install_wheel(version_major, version_minor, into, wheel_path):
 
             if not member.endswith("/RECORD"):
                 installed.append(dest)
+                record_meta[dest] = (digest, str(size))
 
     for ep_path in site_packages.glob("*.dist-info/entry_points.txt"):
         cp = configparser.ConfigParser(strict=False, delimiters=("=",))
@@ -191,26 +211,33 @@ def install_wheel(version_major, version_minor, into, wheel_path):
                         func,
                         module,
                     )
-                )
-                _write_executable(script_path, wrapper.encode())
+                ).encode()
+                _write_executable(script_path, wrapper)
                 installed.append(script_path)
+                record_meta[script_path] = (_digest_bytes(wrapper), str(len(wrapper)))
 
     for record_path in site_packages.glob("*.dist-info/RECORD"):
         dist_info = record_path.parent
 
         installer_path = dist_info / "INSTALLER"
-        installer_path.write_text("aspect_rules_py", encoding="utf-8")
+        installer_bytes = b"aspect_rules_py"
+        installer_path.write_bytes(installer_bytes)
 
         requested_path = dist_info / "REQUESTED"
-        requested_path.write_bytes(b"")
+        requested_bytes = b""
+        requested_path.write_bytes(requested_bytes)
 
         rows = []
         for f in installed:
             rel = os.path.relpath(str(f), str(site_packages)).replace("\\", "/")
-            rows.append((rel, _sha256(f), str(f.stat().st_size)))
-        for meta_file in (installer_path, requested_path):
+            digest, size = record_meta[f]
+            rows.append((rel, digest, size))
+        for meta_file, meta_bytes in (
+            (installer_path, installer_bytes),
+            (requested_path, requested_bytes),
+        ):
             rel = os.path.relpath(str(meta_file), str(site_packages)).replace("\\", "/")
-            rows.append((rel, _sha256(meta_file), str(meta_file.stat().st_size)))
+            rows.append((rel, _digest_bytes(meta_bytes), str(len(meta_bytes))))
         rel_record = os.path.relpath(str(record_path), str(site_packages)).replace("\\", "/")
         rows.append((rel_record, "", ""))
         with record_path.open("w", newline="", encoding="utf-8") as fh:
