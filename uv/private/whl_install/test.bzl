@@ -172,9 +172,18 @@ def _exclude_glob_test_impl(ctx):
     for path, pattern, expected in [
         ("ns/__pycache__/test_one.cpython-311.pyc", "ns/test_*.py", True),
         ("ns/__pycache__/test_one.cpython-311.opt-1.pyc", "ns/test_*.py", True),
+        ("pkg/__pycache__/test_api.v1.cpython-311.pyc", "pkg/test_*.py", True),
+        ("pkg/__pycache__/test_api.v1.cpython-311.opt-1.pyc", "pkg/test_*.py", True),
+        ("pkg/__pycache__/test_api.v1.cpython-311.opt-é.pyc", "pkg/test_*.py", True),
         ("ns/test_legacy.pyc", "ns/test_*.py", True),
+        ("pkg/.pyc", "pkg/.py", True),
+        ("pkg/.pyc", "pkg/.pyc.py", False),
         ("ns/__pycache__/keep.cpython-311.pyc", "ns/test_*.py", False),
-        ("ns/__pycache__/test_one.cpython-311.invalid.pyc", "ns/test_*.py", False),
+        ("ns/__pycache__/test_one.cpython-311.opt-!.pyc", "ns/test_*.py", True),
+        ("ns/__pycache__/test_one.cpython-311.opt-.pyc", "ns/test_*.py", False),
+        ("ns/__pycache__/test_one..pyc", "ns/test_*.py", False),
+        ("ns/__pycache__/test_one..opt-1.pyc", "ns/test_*.py", False),
+        ("ns/__pycache__/.cpython-311.pyc", "ns/*.py", False),
     ]:
         asserts.equals(
             env,

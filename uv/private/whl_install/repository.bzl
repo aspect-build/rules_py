@@ -165,9 +165,14 @@ def record_path_excluded(path, patterns):
     source = None
     if path and path[-1].endswith(".pyc"):
         if len(path) >= 2 and path[-2] == "__pycache__":
-            parts = path[-1].split(".")
-            if len(parts) == 3 or (len(parts) == 4 and parts[-2].startswith("opt-") and parts[-2][len("opt-"):].isalnum()):
-                source = path[:-2] + [parts[0] + ".py"]
+            stem, separator, tag = path[-1][:-len(".pyc")].rpartition(".")
+            if tag.startswith("opt-"):
+                if tag[len("opt-"):]:
+                    stem, separator, tag = stem.rpartition(".")
+                else:
+                    separator = ""
+            if stem and separator and tag:
+                source = path[:-2] + [stem + ".py"]
         else:
             source = path[:-1] + [path[-1][:-len(".pyc")] + ".py"]
     return any([

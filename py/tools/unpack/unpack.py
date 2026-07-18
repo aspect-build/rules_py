@@ -17,7 +17,6 @@ import configparser
 import csv
 import hashlib
 import io
-import importlib.util
 import os
 import re
 import shutil
@@ -429,12 +428,16 @@ def main() -> None:
         # excluded before compiling the retained sources.
         for bytecode in site_packages.rglob("*.pyc"):
             if bytecode.parent.name == "__pycache__":
-                try:
-                    source_path = Path(importlib.util.source_from_cache(str(bytecode)))
-                except ValueError:
+                source, separator, tag = bytecode.stem.rpartition(".")
+                if tag.startswith("opt-"):
+                    if not tag[len("opt-"):]:
+                        continue
+                    source, separator, tag = source.rpartition(".")
+                if not source or not separator or not tag:
                     continue
+                source_path = bytecode.parent.parent / (source + ".py")
             else:
-                source_path = bytecode.with_suffix(".py")
+                source_path = bytecode.with_name(bytecode.name[:-len(".pyc")] + ".py")
             if excluded(source_path.relative_to(site_packages).parts, args.exclude_glob):
                 bytecode.unlink()
         for cache in site_packages.rglob("__pycache__"):

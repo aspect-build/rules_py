@@ -613,6 +613,13 @@ else:
         compiled = root / "compiled.pyc"
         py_compile.compile(str(compiled_source), cfile=str(compiled), doraise=True)
         compiled_bytes = compiled.read_bytes()
+        dotted_source = root / "test_api.v1.py"
+        dotted_source.write_text("VALUE = 1\n")
+        dotted = root / "test_api.v1.pyc"
+        py_compile.compile(str(dotted_source), cfile=str(dotted), doraise=True)
+        dotted_bytes = dotted.read_bytes()
+        py_compile.compile(str(dotted_source), cfile=str(dotted), doraise=True, optimize=1)
+        optimized_dotted_bytes = dotted.read_bytes()
         _write_wheel(
             filter_wheel,
             "demo",
@@ -630,6 +637,12 @@ else:
                 "demo/__pycache__/keep.cpython-999.pyc": b"retained bytecode\n",
                 "demo/keep.pyc": b"retained legacy bytecode\n",
                 "demo/sdk-core/bin/tool": b"unused native payload\n",
+                "pkg/__init__.py": b"VALUE = 1\n",
+                "pkg/test_api.v1.py": b"raise AssertionError()\n",
+                "pkg/__pycache__/test_api.v1.cpython-311.pyc": dotted_bytes,
+                "pkg/__pycache__/test_api.v1.cpython-311.opt-1.pyc": optimized_dotted_bytes,
+                "pkg/__pycache__/test_api.v1.cpython-311.opt-é.pyc": optimized_dotted_bytes,
+                "pkg/.pyc": dotted_bytes,
                 "google/api/annotations.proto": b"syntax = 'proto3';\n",
                 "google/api/annotations_pb2.py": b"VALUE = 1\n",
                 "generated_backend/__init__.py": b"VALUE = 1\n",
@@ -676,6 +689,8 @@ else:
                 "--exclude-glob=demo/**/tests/**",
                 "--exclude-glob=demo/file_tests/test_*.py",
                 "--exclude-glob=demo/sdk-core",
+                "--exclude-glob=pkg/test_*.py",
+                "--exclude-glob=pkg/.py",
                 "--exclude-glob=google/**/*.proto",
                 "--exclude-glob=demo-1.0.dist-info/helper.py",
             ),
@@ -688,6 +703,11 @@ else:
         assert not list((filtered_site_packages / "demo" / "file_tests").glob("test_*"))
         assert not (filtered_site_packages / "demo" / "file_tests" / "__pycache__").exists()
         assert not (filtered_site_packages / "demo" / "sdk-core").exists()
+        assert not (filtered_site_packages / "pkg" / "test_api.v1.py").exists()
+        assert not (filtered_site_packages / "pkg" / "__pycache__" / "test_api.v1.cpython-311.pyc").exists()
+        assert not (filtered_site_packages / "pkg" / "__pycache__" / "test_api.v1.cpython-311.opt-1.pyc").exists()
+        assert not (filtered_site_packages / "pkg" / "__pycache__" / "test_api.v1.cpython-311.opt-é.pyc").exists()
+        assert not (filtered_site_packages / "pkg" / ".pyc").exists()
         assert not (filtered_site_packages / "google" / "api" / "annotations.proto").exists()
         assert (filtered_site_packages / "google" / "api" / "annotations_pb2.py").is_file()
         assert next((filtered_site_packages / "demo" / "__pycache__").glob("keep.*.pyc"))
@@ -710,6 +730,11 @@ else:
         assert "demo/nested/tests/test_nested.py" not in recorded
         assert not any(path.startswith("demo/file_tests/") for path in recorded)
         assert "demo/sdk-core/bin/tool" not in recorded
+        assert "pkg/test_api.v1.py" not in recorded
+        assert "pkg/__pycache__/test_api.v1.cpython-311.pyc" not in recorded
+        assert "pkg/__pycache__/test_api.v1.cpython-311.opt-1.pyc" not in recorded
+        assert "pkg/__pycache__/test_api.v1.cpython-311.opt-é.pyc" not in recorded
+        assert "pkg/.pyc" not in recorded
         assert "google/api/annotations.proto" not in recorded
         assert "demo-1.0.dist-info/helper.py" not in recorded
         assert "demo/__pycache__/keep.cpython-999.pyc" in recorded
