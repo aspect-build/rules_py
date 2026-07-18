@@ -53,9 +53,15 @@ compiling = compile_only or any(arg.endswith((".c", ".cc", ".cpp", ".cxx", ".c++
 if compiling:
     filtered_args = compile_flags + filtered_args
 if not compile_only:
-    is_shared = any(arg in ("-shared", "-dynamiclib", "-bundle") or arg.endswith((".so", ".dylib", ".pyd")) for arg in filtered_args)
+    is_shared = any(arg in ("-shared", "-dynamiclib", "-bundle") for arg in filtered_args) or any(
+        arg.endswith((".so", ".dylib", ".pyd")) and index and filtered_args[index - 1] == "-o"
+        for index, arg in enumerate(filtered_args)
+    )
     filtered_args += link_flags if is_shared else exe_link_flags
     compiler_path = shared_compiler_path if is_shared else exe_compiler_path
+    if compiling and compiler_path != {compiler_path!r}:
+        print("one-step CXX compile+link cannot use distinct configured compile and link tools; split the command or set CXX to an all-purpose configured driver: " + " ".join(filtered_args), file=sys.stderr)
+        sys.exit(2)
 else:
     compiler_path = {compiler_path!r}
 sysroot = {sysroot!r}

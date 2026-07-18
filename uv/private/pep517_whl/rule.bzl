@@ -102,7 +102,6 @@ def _cc_toolchain_inputs_and_tools(ctx):
     if not cc_toolchain or not hasattr(cc_toolchain, "all_files"):
         return None, {}
     files = cc_toolchain.all_files
-    file_paths = {file.path: True for file in files.to_list()}
 
     # Minimal C++ ToolchainInfo implementations can still supply a compiler
     # and its files without a CcToolchainInfo feature configuration.
@@ -110,6 +109,7 @@ def _cc_toolchain_inputs_and_tools(ctx):
         compiler = getattr(cc_toolchain, "compiler_executable", None)
         if not compiler:
             return files, {}
+        file_paths = {file.path: True for file in files.to_list()}
         return files, {"CC": compiler, "CXX": _declared_cxx_driver(compiler, file_paths)}
 
     feature_configuration = cc_common.configure_features(
@@ -143,6 +143,7 @@ def _cc_toolchain_inputs_and_tools(ctx):
         # Legacy C++ toolchains can omit action configs while still exposing
         # usable tools through CcToolchainInfo. Action-only providers may
         # fabricate these fields, so require each fallback to be an input.
+        file_paths = {file.path: True for file in files.to_list()}
         legacy_tools = {
             "AR": cc_toolchain.ar_executable,
             "CC": cc_toolchain.compiler_executable,
@@ -187,7 +188,7 @@ def _cc_toolchain_inputs_and_tools(ctx):
                     if not flag.startswith(prefix):
                         continue
                     value = flag[len(prefix):]
-                    is_path_operand = index and flags[index - 1] in ["--sysroot", "-isystem", "-iquote", "-I", "-L", "-B"]
+                    is_path_operand = index and flags[index - 1] in ["--sysroot", "-isysroot", "--gcc-toolchain", "-resource-dir", "-isystem", "-iquote", "-I", "-L", "-B"]
                     is_clang_path_operand = index >= 2 and flags[index - 1] == "-Xclang" and flags[index - 2] in ["-internal-isystem", "-internal-externc-isystem"]
                     is_path_flag = prefix and not (prefix == "-B" and value in ["dynamic", "static"])
                     is_execroot_path = value.startswith("external/") or value.startswith("bazel-out/") or value.startswith("../")

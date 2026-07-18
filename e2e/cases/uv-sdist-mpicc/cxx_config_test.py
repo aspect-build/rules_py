@@ -26,14 +26,30 @@ with open("sanity.cpp", "w") as f:
         #ifndef RULES_PY_FEATURE_CONFIG
         #error compile flags were not applied to one-step C++ probe
         #endif
-        int main() { return std::string("rules_py").empty(); }
+        extern "C" const char *dependency();
+        int main() { return std::string(dependency()) != "rules_py"; }
     ''')
+with open("dependency.c", "w") as f:
+    f.write('const char *dependency() { return "rules_py"; }')
+with open("shared.cpp", "w") as f:
+    f.write('int shared_probe() { return 0; }')
+cc = shlex.split(os.environ["CC"])
 cxx = shlex.split(os.environ["CXX"])
 for mode in ("-M", "-MM", "-fsyntax-only"):
     subprocess.run([*cxx, mode, "sanity.cpp"], check=True)
-subprocess.run([*cxx, "sanity.cpp", "-o", "sanity"], check=True)
+subprocess.run([*cc, "-fPIC", "-c", "dependency.c", "-o", "dependency.o"], check=True)
+subprocess.run([*cc, "-dynamiclib" if os.uname().sysname == "Darwin" else "-shared", "dependency.o", "-o", "libdependency.so"], check=True)
+link_args = [os.path.abspath("libdependency.so"), "-Wl,-rpath," + os.getcwd(), "-o", "sanity"]
+one_step = subprocess.run([*cxx, "sanity.cpp", *link_args], capture_output=True, text=True)
+if os.environ.get("RULES_PY_EXPECT_SPLIT"):
+    assert one_step.returncode, one_step.stdout
+    assert "one-step CXX compile+link cannot use distinct configured compile and link tools" in one_step.stderr, one_step.stderr
+    subprocess.run([*cxx, "-c", "sanity.cpp", "-o", "sanity.o"], check=True)
+    subprocess.run([*cxx, "sanity.o", *link_args], check=True)
+else:
+    assert not one_step.returncode, one_step.stderr
 subprocess.run(["./sanity"], check=True)
-subprocess.run([*cxx, "-fPIC", "-c", "sanity.cpp", "-o", "sanity.o"], check=True)
+subprocess.run([*cxx, "-fPIC", "-c", "shared.cpp", "-o", "sanity.o"], check=True)
 with open("shared.rsp", "w") as f:
     f.write("{} sanity.o".format("-bundle" if os.uname().sysname == "Darwin" else "-shared"))
 subprocess.run([*cxx, "@shared.rsp", "-o", "sanity.so"], check=True)
@@ -102,8 +118,10 @@ def _make_sdist(workdir):
     return sdist
 
 
-def _run(helper, sdist, workdir, compiler, use_wrapper):
-    run_dir = os.path.join(workdir, "wrapper" if use_wrapper else "driver")
+def _run(helper, sdist, workdir, compiler, mode):
+    use_wrapper = mode == "wrapper"
+    split_tools = mode in ("wrapper", "bare")
+    run_dir = os.path.join(workdir, mode)
     os.makedirs(run_dir)
     os.makedirs(os.path.join(run_dir, "external"))
     sysroot = subprocess.check_output(["xcrun", "--show-sdk-path"], text=True).strip() if sys.platform == "darwin" else "/"
@@ -126,7 +144,7 @@ def _run(helper, sdist, workdir, compiler, use_wrapper):
     shared_wrapper = os.path.join(run_dir, "shared_wrapper.sh")
     exe_wrapper = os.path.join(run_dir, "exe_wrapper.sh")
     with open(shared_wrapper, "w") as f:
-        f.write('#!/bin/sh\nfor arg in "$@"; do case "$arg" in -shared|-dynamiclib|-bundle|*.so|*.dylib|*.pyd) exec "{}" "$@";; esac; done\necho "shared wrapper received a non-shared link" >&2\nexit 96\n'.format(compiler))
+        f.write('#!/bin/sh\noutput=0\nfor arg in "$@"; do case "$arg" in -shared|-dynamiclib|-bundle) exec "{}" "$@";; esac; if [ "$output" = 1 ]; then case "$arg" in *.so|*.dylib|*.pyd) exec "{}" "$@";; esac; fi; [ "$arg" = -o ] && output=1 || output=0; done\necho "shared wrapper received a non-shared link" >&2\nexit 96\n'.format(compiler, compiler))
     with open(exe_wrapper, "w") as f:
         f.write('#!/bin/sh\nfor arg in "$@"; do case "$arg" in -shared|-dynamiclib|-bundle) echo "executable wrapper received a shared link" >&2; exit 95;; esac; done\nexec "{}" "$@"\n'.format(compiler))
     os.chmod(shared_wrapper, 0o755)
@@ -139,20 +157,25 @@ def _run(helper, sdist, workdir, compiler, use_wrapper):
     ]
     link_flags = ["-bundle", "-lc++"] if sys.platform == "darwin" else ["-shared", "-Wl,--as-needed", "-Bdynamic", "-lstdc++"]
     exe_link_flags = ["--driver-mode=g++"] if "clang" in os.path.basename(compiler) or sys.platform == "darwin" else ["-lstdc++"]
-    env = {
-        "ASPECT_RULES_PY_CXX_TOOLCHAIN_CONFIG": json.dumps({
-            "cc_compile_flags": [],
+    toolchain_config = {"cc_compile_flags": []}
+    if mode != "explicit":
+        toolchain_config.update({
             "cxx_compile_flags": compile_flags,
             "cxx_shared_link_flags": link_flags,
             "cxx_exe_link_flags": exe_link_flags,
-            "cxx_shared_link_tool": shared_wrapper if use_wrapper else "shared_wrapper.sh",
-            "cxx_exe_link_tool": exe_wrapper if use_wrapper else "exe_wrapper.sh",
-        }),
+            "cxx_shared_link_tool": shared_wrapper if use_wrapper else "shared_wrapper.sh" if split_tools else compiler,
+            "cxx_exe_link_tool": exe_wrapper if use_wrapper else "exe_wrapper.sh" if split_tools else compiler,
+        })
+    explicit_cxx = shutil.which("c++") or compiler
+    env = {
+        "ASPECT_RULES_PY_CXX_TOOLCHAIN_CONFIG": json.dumps(toolchain_config),
         "CC": compiler,
-        "CXX": wrapper if use_wrapper else compiler,
+        "CXX": wrapper if use_wrapper else explicit_cxx + " -DRULES_PY_FEATURE_CONFIG=1 -DRULES_PY_EXPECT_WRAPPER=0" if mode == "explicit" else compiler,
         "HOME": workdir,
         "PATH": os.pathsep.join([run_dir, os.environ.get("PATH", "/usr/bin:/bin")]),
     }
+    if split_tools:
+        env["RULES_PY_EXPECT_SPLIT"] = "1"
     outdir = os.path.join(run_dir, "out")
     result = subprocess.run(
         [sys.executable, helper, "--execroot-marker", _MARKER, sdist, outdir],
@@ -187,8 +210,8 @@ def main():
     compiler = shutil.which("cc") or "/usr/bin/cc"
     sdist = _make_sdist(workdir)
     helper = _find_build_helper()
-    _run(helper, sdist, workdir, compiler, True)
-    _run(helper, sdist, workdir, compiler, False)
+    for mode in ("wrapper", "bare", "same", "explicit"):
+        _run(helper, sdist, workdir, compiler, mode)
 
 
 if __name__ == "__main__":
