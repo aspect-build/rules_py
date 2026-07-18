@@ -336,6 +336,8 @@ def _env_expr(left, op, right):
 
 def _version_expr(left, op, right):
     """Evaluate a version comparison expression"""
+    if op == "===":
+        return left.lower() == right.lower()
     if op in ["==", "!="] and right.endswith(".*"):
         return version_satisfies(left, op + right)
 
@@ -382,9 +384,6 @@ def _version_expr(left, op, right):
         if pep440_prerelease and _left[:3] == _right_plus[:3]:
             return False
         return _left >= _right and _left < _right_plus
-    elif op == "===":
-        # Strict matching
-        return _left == _right
     elif op in _VERSION_CMP:
         fail("TODO: op unsupported: '{}'".format(op))
     else:

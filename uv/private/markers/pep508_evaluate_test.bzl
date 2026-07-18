@@ -244,13 +244,16 @@ def _version_ops_test_impl(ctx):
     # Single-segment right side: upper bound is the next major.
     asserts.true(env, evaluate("python_version ~= '3'", env = _LINUX_ENV))
 
-    # '===' strict matching compares the full version key, so a pre-release
-    # or differing patch breaks equality while '3.11' == '3.11.0' holds
-    # (missing segments normalize to 0 in the key).
+    # Arbitrary equality preserves the raw version spelling.
     asserts.true(env, evaluate("python_full_version === '3.11.0'", env = _LINUX_ENV))
-    asserts.true(env, evaluate("python_full_version === '3.11'", env = _LINUX_ENV))
+    asserts.false(env, evaluate("python_full_version === '3.11'", env = _LINUX_ENV))
     asserts.false(env, evaluate("python_full_version === '3.11.1'", env = _LINUX_ENV))
     asserts.false(env, evaluate("python_full_version === '3.11.0-rc1'", env = _LINUX_ENV))
+    asserts.false(env, evaluate("python_full_version === 'legacy-build'", env = _LINUX_ENV))
+
+    legacy_env = dict(_LINUX_ENV)
+    legacy_env["python_full_version"] = "legacy-build"
+    asserts.true(env, evaluate("python_full_version === 'LEGACY-BUILD'", env = legacy_env))
 
     # Pre-release versions order below the final release.
     asserts.true(env, evaluate("python_full_version > '3.11.0-rc1'", env = _LINUX_ENV))
@@ -258,6 +261,9 @@ def _version_ops_test_impl(ctx):
 
     prerelease_env = dict(_LINUX_ENV)
     prerelease_env["python_full_version"] = "3.15.0a6"
+    asserts.true(env, evaluate("python_full_version === '3.15.0a6'", env = prerelease_env))
+    asserts.true(env, evaluate("python_full_version === '3.15.0A6'", env = prerelease_env))
+    asserts.false(env, evaluate("python_full_version === '3.15.0-alpha6'", env = prerelease_env))
 
     # PEP 440 prereleases are distinct from the final release. Exclusive <V
     # does not admit a prerelease of V, while <=V does.
