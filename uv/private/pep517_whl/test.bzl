@@ -5,8 +5,9 @@ Inspecting the action at analysis time avoids actually running a PEP 517
 build to verify the env wiring.
 """
 
-load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
+load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts", "unittest")
 load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
+load("//uv/private/pep517_whl:compiler.bzl", "cxx_driver_path")
 
 _ACTION_ENV = "//command_line_option:action_env"
 _HOST_ENV = [
@@ -117,6 +118,24 @@ pep517_whl_console_scripts_test = analysistest.make(
     _console_scripts_test_impl,
     attrs = {"expected_console_scripts": attr.string_list()},
 )
+
+def _cxx_driver_test_impl(ctx):
+    env = unittest.begin(ctx)
+    asserts.equals(env, "g++", cxx_driver_path("gcc", {"g++": True}))
+    asserts.equals(
+        env,
+        "toolchain/bin/clang++-22",
+        cxx_driver_path("toolchain/bin/clang-22", {"toolchain/bin/clang++-22": True}),
+    )
+    for compiler in ["clang-cl", "clang-format", "gcc-ar", "unusual_cxx_driver.sh"]:
+        asserts.equals(env, compiler, cxx_driver_path(compiler, {}))
+    asserts.equals(env, "toolchain/bin/gcc", cxx_driver_path("toolchain/bin/gcc", {"other/bin/g++": True}))
+    return unittest.end(env)
+
+cxx_driver_test = unittest.make(_cxx_driver_test_impl)
+
+def cxx_driver_test_suite(name):
+    unittest.suite(name, cxx_driver_test)
 
 def _execroot_collision_toolchain_impl(_ctx):
     return [platform_common.TemplateVariableInfo({"EXECROOT": "collision"})]

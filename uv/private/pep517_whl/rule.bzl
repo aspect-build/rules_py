@@ -10,6 +10,7 @@ load("@rules_cc//cc:action_names.bzl", "ACTION_NAMES")
 load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
 load("//py/private/toolchain:types.bzl", "NATIVE_BUILD_TOOLCHAIN", "PY_TOOLCHAIN")
 load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
+load("//uv/private/pep517_whl:compiler.bzl", "cxx_driver_path")
 
 _CC_TOOLCHAIN_TYPE = Label("@bazel_tools//tools/cpp:toolchain_type")
 _TARGET_EXEC_GROUP = "target"
@@ -150,6 +151,9 @@ def _cc_toolchain_inputs_and_tools(ctx):
             "STRIP": cc_toolchain.strip_executable,
         }
         tools.update({key: legacy_tools[key] for key in missing if legacy_tools[key] in file_paths})
+
+    if tools.get("CXX"):
+        tools["CXX"] = cxx_driver_path(tools["CXX"], {file.path: True for file in files.to_list()})
 
     return files, {key: value for key, value in tools.items() if value}
 

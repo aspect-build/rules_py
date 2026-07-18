@@ -1,11 +1,25 @@
 diff --git a/src/geohash.cpp b/src/geohash.cpp
 --- a/src/geohash.cpp
 +++ b/src/geohash.cpp
-@@ -1,0 +1,7 @@
+@@ -0,0 +1,21 @@
 +#include <string>
 +
++class RulesPyBase {
++public:
++    virtual ~RulesPyBase() {}
++};
++
++class RulesPyValue : public RulesPyBase {
++public:
++    std::string value;
++
++    RulesPyValue(const char *value) : value(value) {}
++};
++
 +extern "C" const char *rules_py_cxx_runtime_probe(void) {
-+    static const std::string value = "rules_py";
-+    return value.c_str();
++    static RulesPyValue value("rules_py_cxx_runtime_probe");
++    RulesPyBase *base = &value;
++    RulesPyValue *derived = dynamic_cast<RulesPyValue *>(base);
++    return derived ? derived->value.c_str() : "dynamic_cast failed";
 +}
 +
