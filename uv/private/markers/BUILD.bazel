@@ -252,14 +252,5 @@ bzl_library(
     name = "pep508_evaluate",
     srcs = ["pep508_evaluate.bzl"],
     visibility = ["//uv:__subpackages__"],
-    deps = [
-        ":semver",
-        "//uv/private/versions",
-    ],
-)
-
-bzl_library(
-    name = "semver",
-    srcs = ["semver.bzl"],
-    visibility = ["//uv:__subpackages__"],
+    deps = ["//uv/private/versions"],
 )

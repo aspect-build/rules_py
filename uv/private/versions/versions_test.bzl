@@ -667,6 +667,34 @@ def _satisfies_boundary_precision_test_impl(ctx):
 
 satisfies_boundary_precision_test = unittest.make(_satisfies_boundary_precision_test_impl)
 
+def _satisfies_pep440_matrix_test_impl(ctx):
+    env = unittest.begin(ctx)
+    for candidate, specifier, want in [
+        ("3.15a6", "==3.15", False),
+        ("3.15a6", "<=3.15", True),
+        ("3.15a6", "<3.15", False),
+        ("3.15a6", "<3.15.post1", True),
+        ("3.15a6", "<3.15.0.1", True),
+        ("3.15a6", "==3.15.0alpha6", True),
+        ("3.15a6", "<3.15b1", True),
+        ("3.15rc1.dev2", ">3.15b9-dev9", True),
+        ("3.14.10.dev1", "~=3.14.9", True),
+        ("3.15.dev1", "~=3.14.9", False),
+        ("3.15.post2", ">3.15.post1", True),
+        ("3.15.post1", ">3.15", False),
+        ("3.15.0.post1", ">3.15", False),
+        ("3.15.0.1", ">3.15", True),
+        ("3.15+foo.01", "==3.15+FOO-1", True),
+        ("3.15+foo.01", "==3.15", True),
+        ("3.15+foo.01", ">3.15", False),
+        ("3.15.0a6", "===3.15.0A6", True),
+        ("3.15.0a6", "===3.15.0-alpha6", False),
+    ]:
+        asserts.equals(env, want, version_satisfies(candidate, specifier), "{} {}".format(candidate, specifier))
+    return unittest.end(env)
+
+satisfies_pep440_matrix_test = unittest.make(_satisfies_pep440_matrix_test_impl)
+
 # =============================================================================
 # find_matching_version tests
 # =============================================================================
@@ -829,6 +857,22 @@ def _find_matching_version_max_863_test_impl(ctx):
 
 find_matching_version_max_863_test = unittest.make(_find_matching_version_max_863_test_impl)
 
+def _find_matching_pep440_version_test_impl(ctx):
+    env = unittest.begin(ctx)
+    candidates = {
+        "3.15a6": "alpha",
+        "3.15": "final",
+        "3.15.post1": "post1",
+        "3.15.post2": "post2",
+        "3.15.0.1": "extra-release",
+    }
+    asserts.equals(env, "final", find_matching_version("<3.15.post1", candidates))
+    asserts.equals(env, "post2", find_matching_version(">=3.15.post1,<3.15.0.1", candidates))
+    asserts.equals(env, "extra-release", find_matching_version(">3.15", candidates))
+    return unittest.end(env)
+
+find_matching_pep440_version_test = unittest.make(_find_matching_pep440_version_test_impl)
+
 # =============================================================================
 # Test suite
 # =============================================================================
@@ -901,6 +945,7 @@ def versions_test_suite():
         satisfies_real_world_setuptools_tilde_test,
         # Boundary precision
         satisfies_boundary_precision_test,
+        satisfies_pep440_matrix_test,
         # find_matching_version
         find_matching_version_exact_test,
         find_matching_version_range_test,
@@ -910,4 +955,5 @@ def versions_test_suite():
         find_matching_version_empty_test,
         find_matching_version_single_test,
         find_matching_version_max_863_test,
+        find_matching_pep440_version_test,
     )

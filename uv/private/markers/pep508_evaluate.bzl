@@ -20,7 +20,6 @@ Vendored and used here with thanks.
 """
 
 load("//uv/private/versions:versions.bzl", "version_satisfies")
-load(":semver.bzl", "semver")
 
 # The expression parsing and resolution for the PEP508 is below
 #
@@ -336,60 +335,9 @@ def _env_expr(left, op, right):
 
 def _version_expr(left, op, right):
     """Evaluate a version comparison expression"""
-    if op == "===":
-        return left.lower() == right.lower()
-    if op in ["==", "!="] and right.endswith(".*"):
+    if op in _VERSION_CMP:
         return version_satisfies(left, op + right)
-
-    raw_left = left
-    raw_right = right
-    left = semver(left)
-    right = semver(right)
-    _left = left.key()
-    _right = right.key()
-    pre_kind, _, pre_number = left.pre_release.partition(".")
-    pre_number, has_dev, dev_number = pre_number.partition(".dev.")
-    pep440_prerelease = pre_number.isdigit() and (
-        (pre_kind == "dev" and not has_dev) or
-        (pre_kind in ["a", "b", "rc"] and (not has_dev or dev_number.isdigit()))
-    )
-    if op in ["<", ">", "<=", ">=", "~="]:
-        if right.build:
-            return raw_left == raw_right if op in ["<=", ">="] else False
-        _left = _left[:5]
-        _right = _right[:5]
-
-    if op == "<":
-        if pep440_prerelease and _left[:3] == _right[:3]:
-            right_release = raw_right.split(".")
-            if all([part.isdigit() for part in right_release]) and all([int(part) == 0 for part in right_release[3:]]):
-                return False
-        return _left < _right
-    elif op == ">":
-        return _left > _right
-    elif op == "<=":
-        return _left <= _right
-    elif op == ">=":
-        return _left >= _right
-    elif op in ["==", "!="]:
-        equal = _left[:5] == _right[:5]
-        if equal and right.build:
-            left_build = left.build.lower().replace("-", ".").replace("_", ".")
-            right_build = right.build.lower().replace("-", ".").replace("_", ".")
-            left_build = [int(part) if part.isdigit() else part for part in left_build.split(".")]
-            right_build = [int(part) if part.isdigit() else part for part in right_build.split(".")]
-            equal = left_build == right_build
-        return equal if op == "==" else not equal
-    elif op == "~=":
-        right_plus = right.upper()
-        _right_plus = right_plus.key()[:5]
-        if pep440_prerelease and _left[:3] == _right_plus[:3]:
-            return False
-        return _left >= _right and _left < _right_plus
-    elif op in _VERSION_CMP:
-        fail("TODO: op unsupported: '{}'".format(op))
-    else:
-        return False  # Let's just ignore the invalid ops
+    return False
 
 # Code to allowing to combine expressions with logical operators
 
