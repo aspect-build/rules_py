@@ -1,0 +1,13 @@
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_uv_mixed_exclusions")
+uv.project(
+    hub_name = "pypi_uv_mixed_exclusions",
+    lock = "//uv-mixed-exclusions:uv.lock",
+    pyproject = "//uv-mixed-exclusions:pyproject.toml",
+)
+uv.override_package(
+    name = "markupsafe",
+    exclude_glob = ["MarkupSafe-3.0.2.dist-info/**"],
+    lock = "//uv-mixed-exclusions:uv.lock",
+)
+use_repo(uv, "pypi_uv_mixed_exclusions")

@@ -4,7 +4,7 @@ load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts", "unittest")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
-load(":repository.bzl", "compatible_python_tags", "exclude_glob_matches", "native_roots_for_segments", "parse_console_script", "parse_exclude_glob", "parse_record_path", "record_metadata", "select_key", "site_packages_segments", "sort_select_arms", "source_specificity")
+load(":repository.bzl", "compatible_python_tags", "exclude_glob_matches", "has_universal_prebuild", "native_roots_for_segments", "parse_console_script", "parse_exclude_glob", "parse_record_path", "record_metadata", "select_key", "site_packages_segments", "sort_select_arms", "source_specificity")
 load(":rule.bzl", "pyc_compile_version_compatible", "source_built_wheel", "whl_install")
 
 def _whl_sorting_test_impl(ctx):
@@ -83,6 +83,17 @@ def _source_specificity_test_impl(ctx):
 source_specificity_test = unittest.make(
     _source_specificity_test_impl,
 )
+
+def _universal_prebuild_test_impl(ctx):
+    env = unittest.begin(ctx)
+    asserts.true(env, has_universal_prebuild({"demo-1.0-py3-none-any.whl": "//:py3"}))
+    asserts.true(env, has_universal_prebuild({"demo-1.0-py2.py3-none-any.whl": "//:py23"}))
+    asserts.false(env, has_universal_prebuild({"demo-1.0-py311-none-any.whl": "//:py311"}))
+    asserts.false(env, has_universal_prebuild({"demo-1.0-cp311-cp311-manylinux_2_17_x86_64.whl": "//:linux"}))
+    asserts.false(env, has_universal_prebuild({}))
+    return unittest.end(env)
+
+universal_prebuild_test = unittest.make(_universal_prebuild_test_impl)
 
 def _record_path_test_impl(ctx):
     env = unittest.begin(ctx)
@@ -965,6 +976,10 @@ def whl_install_suite():
     unittest.suite(
         "source_specificity_tests",
         source_specificity_test,
+    )
+    unittest.suite(
+        "universal_prebuild_tests",
+        universal_prebuild_test,
     )
     unittest.suite(
         "record_path_tests",

@@ -533,6 +533,14 @@ def source_specificity(python_tag):
     minor = int(python_tag[3:]) if python_tag[3:] else 0
     return (major, minor)
 
+def has_universal_prebuild(prebuilds):
+    """Whether a prebuilt covers every supported Python 3 platform."""
+    for whl in prebuilds:
+        parsed = parse_whl_name(whl)
+        if "py3" in parsed.python_tags and "none" in parsed.abi_tags and "any" in parsed.platform_tags:
+            return True
+    return False
+
 def _whl_install_impl(repository_ctx):
     """Selects a compatible wheel for the host platform and defines its installation.
 
@@ -682,13 +690,18 @@ py_library(
     post_install_patches = json.decode(repository_ctx.attr.post_install_patches) if repository_ctx.attr.post_install_patches else []
     post_install_patch_strip = repository_ctx.attr.post_install_patch_strip
     exclude_glob = repository_ctx.attr.exclude_glob
+    index_source = sbuild_target and not has_universal_prebuild(prebuilds)
 
     if exclude_glob:
         gazelle_index_whls = [":gazelle_index.json"]
-        if not prebuilds:
-            if not default_target:
-                fail("Cannot identify a source-built wheel of {} to analyze for Gazelle indexing".format(repository_ctx.name))
+        if index_source and prebuilds and not repository_ctx.attr.sbuild_patched:
+            # Avoid building an optional fallback just to index its common
+            # flat/src source layout. Backend-generated modules require sbuild.
+            gazelle_index_whls.append(str(repository_ctx.attr.sdist))
+        elif index_source:
             gazelle_index_whls.append(default_target)
+        elif not prebuilds:
+            fail("Cannot identify a source-built wheel of {} to analyze for Gazelle indexing".format(repository_ctx.name))
     elif prebuilds:
         gazelle_index_whls = [prebuilds.values()[0]]  # Effectively random choice :shrug:
     elif default_target:
@@ -794,7 +807,7 @@ filegroup(
         )
         if exclude_glob:
             for path in retained_paths:
-                if path.endswith((".py", ".so", ".dylib", ".pyd")):
+                if any([path.endswith(suffix) for suffix in (".py", ".so", ".dylib", ".pyd")]):
                     gazelle_paths[path] = True
         ndirs = []
         rroots = []
@@ -857,10 +870,11 @@ filegroup(
             console_scripts_by_whl[whl_name] = sorted(css.values())
 
     if exclude_glob:
-        gazelle_index = {"name": repository_ctx.attr.package_name}
-        if prebuilds:
-            gazelle_index["paths"] = sorted(gazelle_paths.keys())
-        else:
+        gazelle_index = {
+            "name": repository_ctx.attr.package_name,
+            "paths": sorted(gazelle_paths.keys()),
+        }
+        if index_source:
             gazelle_index["version"] = repository_ctx.attr.package_version
             gazelle_index["exclude_glob"] = exclude_glob
         repository_ctx.file(
@@ -985,7 +999,9 @@ whl_install = repository_rule(
         # resolve any one of them at repo-rule time to peek at the wheel's
         # `*.dist-info/RECORD` — see `_extract_wheel_metadata` above.
         "whl_files": attr.label_list(allow_files = [".whl"]),
+        "sdist": attr.label(),
         "sbuild": attr.label(),
+        "sbuild_patched": attr.bool(),
         "sbuild_console_scripts": attr.string_list(),
         "sbuild_console_scripts_override": attr.bool(),
         "post_install_patches": attr.string(default = ""),

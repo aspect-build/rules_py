@@ -3,6 +3,8 @@
 import json
 import shlex
 import sys
+import tarfile
+from io import BytesIO
 from pathlib import Path
 from zipfile import ZipFile
 
@@ -81,6 +83,54 @@ def test_source_exclusions_match_locked_version(tmp_path: Path, monkeypatch) -> 
     assert "    demo_v2: demo\n" in manifest
     assert "    shared: demo\n" in manifest
     assert "    v1_excluded: demo\n" not in manifest
+
+def test_filtered_prebuilt_and_source_surfaces_are_indexed(tmp_path: Path, monkeypatch) -> None:
+    members = {
+        "demo-1.0/tests/fake.egg-info/PKG-INFO": "Name: unrelated\nVersion: 2.0\n",
+        "demo-1.0/PKG-INFO": "Name: demo\nVersion: 1.0\n",
+        "demo-1.0/src/demo.egg-info/top_level.txt": "backend\nexcluded_backend\nnamespace\n",
+        "demo-1.0/src/backend.py": "",
+        "demo-1.0/src/excluded_backend/__init__.py": "",
+        "demo-1.0/src/namespace/backend.py": "",
+        "demo-1.0/tests/test_backend.py": "",
+    }
+    sources = []
+    for suffix, mode in ((".tar.gz", "w:gz"), (".tar.bz2", "w:bz2"), (".tar.xz", "w:xz"), (".tar", "w")):
+        source = tmp_path / ("demo-1.0" + suffix)
+        with tarfile.open(source, mode) as archive:
+            for path, content in members.items():
+                data = content.encode()
+                member = tarfile.TarInfo(path)
+                member.size = len(data)
+                archive.addfile(member, BytesIO(data))
+        sources.append(source)
+    source = tmp_path / "demo-1.0.zip"
+    with ZipFile(source, "w") as archive:
+        for path, content in members.items():
+            archive.writestr(path, content)
+    sources.append(source)
+
+    index = tmp_path / "gazelle_index.json"
+    index.write_text(json.dumps({
+        "name": "demo",
+        "version": "1_0",
+        "paths": ["prebuilt_backend/native.cp311-linux_x86_64.so"],
+        "exclude_glob": ["excluded_backend"],
+    }))
+    inputs = tmp_path / "inputs"
+    output = tmp_path / "manifest.yaml"
+    monkeypatch.setattr(sys, "argv", ["generate.py", "--whl_paths_file", str(inputs), "--hub_name", "pypi", "--output", str(output)])
+
+    for source in sources:
+        inputs.write_text(shlex.join(["\t".join([str(source), str(index)])]) + "\n")
+        main()
+
+        manifest = output.read_text()
+        assert "    prebuilt_backend: demo\n" in manifest
+        assert "    backend: demo\n" in manifest
+        assert "    namespace: demo\n" in manifest
+        assert "    excluded_backend: demo\n" not in manifest
+        assert "    tests: demo\n" not in manifest
 
 def test_parse_names() -> None:
     assert get_importable_module_name("foo.py") == "foo"

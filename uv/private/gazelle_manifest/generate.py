@@ -21,6 +21,7 @@ import argparse
 import json
 import shlex
 import sys
+import tarfile
 from zipfile import ZipFile
 from pathlib import Path
 from email.parser import Parser
@@ -29,6 +30,8 @@ from typing import Iterable, List, Optional, Sequence, Set, Tuple
 from collections import defaultdict
 
 from exclude_glob import excluded, parse
+
+SDIST_SUFFIXES = (".tar.gz", ".tar.bz2", ".tar.xz", ".zip", ".tar")
 
 def normalize_name(name: str) -> str:
     """normalize a PyPI package name and return a valid bazel label.
@@ -72,9 +75,18 @@ def extract_package(whl_path: Path) -> Optional[tuple[str, str]]:
             index = json.loads(whl_path.read_text(encoding="utf-8"))
             return normalize_name(index["name"]), index.get("version", "")
 
-        with ZipFile(whl_path, 'r') as zf:
-            metadata_files = [f for f in zf.namelist() if f.endswith('.dist-info/METADATA')]
-            metadata_content = zf.read(metadata_files[0]).decode('utf-8') if metadata_files else None
+        if whl_path.name.endswith(SDIST_SUFFIXES) and not whl_path.name.endswith(".zip"):
+            with tarfile.open(whl_path, "r:*") as archive:
+                metadata_files = [f for f in archive.getmembers() if f.name.endswith("/PKG-INFO") and f.isfile()]
+                root_metadata = next((f for f in metadata_files if f.name.count("/") == 1), None)
+                metadata_file = archive.extractfile(root_metadata or metadata_files[0]) if metadata_files else None
+                metadata_content = metadata_file.read().decode("utf-8") if metadata_file else None
+        else:
+            with ZipFile(whl_path, 'r') as zf:
+                metadata_suffix = "/PKG-INFO" if whl_path.name.endswith(".zip") else ".dist-info/METADATA"
+                metadata_files = [f for f in zf.namelist() if f.endswith(metadata_suffix)]
+                root_metadata = next((f for f in metadata_files if f.count("/") == 1), None)
+                metadata_content = zf.read(root_metadata or metadata_files[0]).decode('utf-8') if metadata_files else None
 
         if metadata_content is None:
             print(f"Error: METADATA file not found in {whl_path}", file=sys.stderr)
@@ -144,6 +156,41 @@ def site_packages_segments(filepath: str) -> list[str]:
     return segments
 
 
+def sdist_members(sdist_path: Path) -> list[str]:
+    if sdist_path.name.endswith(".zip"):
+        with ZipFile(sdist_path, "r") as archive:
+            members = [member for member in archive.namelist() if not member.endswith("/")]
+            top_levels = set()
+            for member in members:
+                if member.endswith(".egg-info/top_level.txt"):
+                    top_levels.update(archive.read(member).decode("utf-8").split())
+    else:
+        with tarfile.open(sdist_path, "r:*") as archive:
+            archive_members = [member for member in archive.getmembers() if member.isfile()]
+            members = [member.name for member in archive_members]
+            top_levels = set()
+            for member in archive_members:
+                if not member.name.endswith(".egg-info/top_level.txt"):
+                    continue
+                top_level_file = archive.extractfile(member)
+                if top_level_file:
+                    top_levels.update(top_level_file.read().decode("utf-8").split())
+
+    result = []
+    for member in members:
+        segments = member.split("/")[1:]
+        if segments[:1] == ["src"]:
+            segments.pop(0)
+        if not segments:
+            continue
+        if top_levels and segments[0].partition(".")[0] not in top_levels:
+            continue
+        if not top_levels and segments[0] in ("docs", "examples", "test", "tests"):
+            continue
+        result.append("/".join(segments))
+    return result
+
+
 def identify_modules(whl_path: Path, package_name: str, patterns: Sequence[tuple[str, ...]]) -> dict[str, str]:
     """
     Scans the wheel or filtered wheel index for importable Python and extension files,
@@ -165,6 +212,8 @@ def identify_modules(whl_path: Path, package_name: str, patterns: Sequence[tuple
     try:
         if whl_path.name == "gazelle_index.json":
             members = json.loads(whl_path.read_text(encoding="utf-8"))["paths"]
+        elif whl_path.name.endswith(SDIST_SUFFIXES):
+            members = sdist_members(whl_path)
         else:
             with ZipFile(whl_path, 'r') as zf:
                 members = zf.namelist()
@@ -348,7 +397,7 @@ def main() -> None:
                 continue
             if whl_path.name == "gazelle_index.json":
                 index = json.loads(whl_path.read_text(encoding="utf-8"))
-                if "exclude_glob" in index:
+                if not index.get("paths"):
                     continue
 
             # Get package name (requirement name)

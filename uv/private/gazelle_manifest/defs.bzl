@@ -10,7 +10,7 @@ def _modules_mapping_impl(ctx):
         target_files = [
             it
             for it in target[DefaultInfo].files.to_list()
-            if it.path.endswith(".whl") or it.path.endswith("/whl") or it.path.endswith("/gazelle_index.json")
+            if any([it.path.endswith(suffix) for suffix in (".whl", "/whl", ".tar.gz", ".tar.bz2", ".tar.xz", ".zip", ".tar", "/gazelle_index.json")])
         ]
         whl_files.extend(target_files)
         args.add_joined(target_files, join_with = "\t", expand_directories = False)
