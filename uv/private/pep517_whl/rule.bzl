@@ -158,6 +158,9 @@ def _cc_toolchain_inputs_and_tools(ctx):
 
 def _declared_cxx_driver(compiler, files):
     basename = compiler.split("/")[-1]
+    executable_suffix = ".exe" if basename.endswith(".exe") else ""
+    if executable_suffix:
+        basename = basename[:-len(executable_suffix)]
     version_index = basename.rfind("-")
     if version_index != -1 and basename[version_index + 1:].isdigit():
         stem = basename[:version_index]
@@ -169,7 +172,7 @@ def _declared_cxx_driver(compiler, files):
         if stem != cc_basename and not stem.endswith("-" + cc_basename):
             continue
         dirname_index = compiler.rfind("/")
-        companion = stem[:-len(cc_basename)] + cxx_basename + suffix
+        companion = stem[:-len(cc_basename)] + cxx_basename + suffix + executable_suffix
         if dirname_index != -1:
             companion = compiler[:dirname_index] + "/" + companion
         return companion if companion in [file.path for file in files.to_list()] else compiler

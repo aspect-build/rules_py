@@ -21,6 +21,9 @@ if expect == "runtime":
     with open("probe.cpp", "w") as f:
         f.write('''
             #include <string>
+            #ifndef RULES_PY_CXX_ARG_PRESERVED
+            #error CXX arguments were not preserved
+            #endif
             struct Base { virtual ~Base() {} };
             struct Value : Base { std::string value; Value() : value("rules_py") {} };
             extern "C" const char *probe() {
@@ -93,12 +96,21 @@ def main():
     workdir = tempfile.mkdtemp(dir=os.environ["TEST_TMPDIR"])
     sdist = _make_sdist(workdir)
     helper = _find_build_helper()
-    _run(helper, sdist, workdir, "/usr/bin/gcc", "runtime")
+    _run(helper, sdist, workdir, "/usr/bin/gcc -DRULES_PY_CXX_ARG_PRESERVED=1", "runtime")
 
     missing = os.path.join(workdir, "missing")
     os.makedirs(missing)
     _write_driver(os.path.join(missing, "gcc"), "MISSING-PEER-C-DRIVER")
     _run(helper, sdist, workdir, os.path.join(missing, "gcc"), "MISSING-PEER-C-DRIVER")
+
+    mingw = os.path.join(workdir, "mingw")
+    os.makedirs(mingw)
+    _write_driver(os.path.join(mingw, "x86_64-w64-mingw32-gcc-13.exe"), "MINGW-C-DRIVER")
+    _write_driver(os.path.join(mingw, "x86_64-w64-mingw32-g++-13.exe"), "MINGW-CXX-DRIVER")
+    _run(helper, sdist, workdir, os.path.join(mingw, "x86_64-w64-mingw32-gcc-13.exe"), "MINGW-CXX-DRIVER")
+    _write_driver(os.path.join(mingw, "aarch64-w64-mingw32-clang.exe"), "MINGW-CLANG-C-DRIVER")
+    _write_driver(os.path.join(mingw, "aarch64-w64-mingw32-clang++.exe"), "MINGW-CLANG-CXX-DRIVER")
+    _run(helper, sdist, workdir, os.path.join(mingw, "aarch64-w64-mingw32-clang.exe"), "MINGW-CLANG-CXX-DRIVER")
 
     relative = os.path.join(workdir, "relative")
     os.makedirs(relative)

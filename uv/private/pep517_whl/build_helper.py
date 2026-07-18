@@ -91,6 +91,9 @@ def _local_cxx_companion(current: Optional[str], compiler_path: str) -> str:
         return compiler_path
 
     basename = path.basename(compiler_path)
+    executable_suffix = ".exe" if basename.endswith(".exe") else ""
+    if executable_suffix:
+        basename = basename[:-len(executable_suffix)]
     stem, separator, suffix = basename.rpartition("-")
     if not separator or not suffix.isdigit():
         stem, suffix = basename, ""
@@ -99,7 +102,7 @@ def _local_cxx_companion(current: Optional[str], compiler_path: str) -> str:
     for cc_basename, cxx_basename in (("clang", "clang++"), ("gcc", "g++"), ("cc", "c++")):
         if stem != cc_basename and not stem.endswith("-" + cc_basename):
             continue
-        companion = path.join(path.dirname(compiler_path), stem[:-len(cc_basename)] + cxx_basename + suffix)
+        companion = path.join(path.dirname(compiler_path), stem[:-len(cc_basename)] + cxx_basename + suffix + executable_suffix)
         if path.isfile(companion) and os.access(companion, os.X_OK):
             return companion
         break

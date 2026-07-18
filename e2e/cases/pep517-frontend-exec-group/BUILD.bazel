@@ -255,7 +255,7 @@ toolchain(
 
 write_file(
     name = "direct_c_driver",
-    out = "direct/x86_64-linux-gnu-gcc-13",
+    out = "direct/x86_64-w64-mingw32-gcc-13.exe",
     content = [
         "#!/usr/bin/env bash",
         "exec /usr/bin/cc \"$@\"",
@@ -265,7 +265,7 @@ write_file(
 
 write_file(
     name = "direct_cxx_driver",
-    out = "direct/x86_64-linux-gnu-g++-13",
+    out = "direct/x86_64-w64-mingw32-g++-13.exe",
     content = [
         "#!/usr/bin/env bash",
         "exec /usr/bin/c++ \"$@\"",
@@ -623,8 +623,8 @@ pep517_native_whl(
     name = "direct_cxx_wheel",
     src = ":stub_sdist",
     args = [
-        "*/direct/x86_64-linux-gnu-gcc-13",
-        "*/direct/x86_64-linux-gnu-g++-13",
+        "*/direct/x86_64-w64-mingw32-gcc-13.exe",
+        "*/direct/x86_64-w64-mingw32-g++-13.exe",
         "1",
     ],
     tags = ["manual"],
