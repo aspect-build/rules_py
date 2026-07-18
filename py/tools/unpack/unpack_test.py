@@ -110,7 +110,6 @@ def _build_wheel(path: Path, *, legacy_syntax: bool) -> None:
                 b"outdated bytecode\n"
             ),
             "fixture-1.0.data/data/share/supplied.pyc": b"uncompiled bytecode\n",
-            "fixture/orphan.pyc": b"wheel bytecode",
         },
     )
 
@@ -458,7 +457,6 @@ def main() -> None:
         assert {
             f"fixture/__pycache__/mod.{sys.implementation.cache_tag}.pyc",
             f"fixture/__pycache__/added.{sys.implementation.cache_tag}.pyc",
-            "fixture/orphan.pyc",
             "../../../share/supplied.pyc",
         } <= {
             relative for relative, _, _ in _record_rows(content_site_packages)
@@ -536,6 +534,26 @@ else:
                 "fixture/native_extension.so": b"native",
             },
         )
+        excluded_native = root / "excluded_native.patch"
+        excluded_native.write_text(
+            f"write-native\n{site_packages_relative}/fixture/tests/native_extension.so\n"
+        )
+        accepted = _run_unpack(
+            unpack,
+            good_wheel,
+            root / "excluded-native",
+            Path(sys.executable),
+            (
+                "--patch",
+                str(excluded_native),
+                "--patch-tool",
+                str(mutation_tool),
+                "--preserve-path",
+                "fixture",
+                "--exclude-glob=fixture/**/tests/**",
+            ),
+        )
+        assert accepted.returncode == 0, accepted.stdout + accepted.stderr
         for name, wheel, operation, changed_path, preserved_path, expected_error in [
             (
                 "removed-file",
@@ -614,74 +632,6 @@ else:
             )
             assert rejected.returncode != 0, rejected.stdout + rejected.stderr
             assert expected_error in rejected.stderr
-
-        for name, wheel, operation, changed_path, excluded, expected_error in [
-            (
-                "excluded-init",
-                good_wheel,
-                "unlink",
-                "fixture/__init__.py",
-                "fixture/__init__.py",
-                None,
-            ),
-            (
-                "excluded-native",
-                native_wheel,
-                "unlink",
-                "fixture/native_extension.so",
-                "fixture/*.so",
-                None,
-            ),
-            (
-                "excluded-added-native",
-                good_wheel,
-                "write-native",
-                "fixture/nested/new_extension.so",
-                "fixture/nested",
-                None,
-            ),
-            (
-                "retained-init",
-                good_wheel,
-                "unlink",
-                "fixture/__init__.py",
-                "fixture/*.so",
-                "changed observed package classification: fixture",
-            ),
-            (
-                "retained-native",
-                native_wheel,
-                "unlink",
-                "fixture/native_extension.so",
-                "fixture/__init__.py",
-                "changed observed native files: fixture",
-            ),
-        ]:
-            mutation = root / f"{name}.patch"
-            mutation.write_text(
-                f"{operation}\n{site_packages_relative}/{changed_path}\n"
-            )
-            patched = _run_unpack(
-                unpack,
-                wheel,
-                root / name,
-                Path(sys.executable),
-                (
-                    "--patch",
-                    str(mutation),
-                    "--patch-tool",
-                    str(mutation_tool),
-                    "--preserve-path",
-                    "fixture",
-                    "--exclude-glob",
-                    excluded,
-                ),
-            )
-            if expected_error is None:
-                assert patched.returncode == 0, patched.stdout + patched.stderr
-            else:
-                assert patched.returncode != 0, patched.stdout + patched.stderr
-                assert expected_error in patched.stderr
 
         # Wheels may retain source for older interpreters. Compatible modules
         # still compile, while the incompatible file remains diagnostic.

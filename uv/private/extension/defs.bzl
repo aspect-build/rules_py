@@ -605,13 +605,9 @@ def _parse_projects(module_ctx, hub_specs):
                         metadata_directory = candidate
 
                 install_cfgs[k] = struct(
-                    package_name = normalize_name(package["name"]),
-                    package_version = normalize_version(package["version"]),
                     metadata_directory = metadata_directory or "",
                     whls = whls,
-                    sdist = sdist,
                     sbuild = "@{}//:whl".format(sbuild_id) if has_sbuild else None,
-                    sbuild_patched = bool(pkg_override and pkg_override.pre_build_patches),
                     sbuild_console_scripts = sbuild_console_scripts,
                     post_install_patches = post_install_patches,
                     post_install_patch_strip = post_install_patch_strip,
@@ -775,13 +771,9 @@ def _uv_impl(module_ctx):
 
     for install_id, install_cfg in cfg.install_cfgs.items():
         install_kwargs = {
-            "package_name": install_cfg.package_name,
-            "package_version": install_cfg.package_version,
             "metadata_directory": install_cfg.metadata_directory,
             "name": install_id,
-            "sdist": install_cfg.sdist,
             "sbuild": install_cfg.sbuild,
-            "sbuild_patched": install_cfg.sbuild_patched,
             "sbuild_console_scripts": install_cfg.sbuild_console_scripts or [],
             "whls": json.encode(install_cfg.whls),
             # Parallel list of the same wheel labels as a real label_list,

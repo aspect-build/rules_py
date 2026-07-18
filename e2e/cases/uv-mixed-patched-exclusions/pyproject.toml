@@ -1,9 +1,0 @@
-[project]
-name = "mixed-patched-exclusions"
-version = "0.0.0"
-requires-python = ">=3.11"
-dependencies = [
-    "build",
-    "markupsafe==3.0.2",
-    "setuptools",
-]

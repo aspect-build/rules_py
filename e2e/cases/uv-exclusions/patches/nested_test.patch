@@ -16,6 +16,18 @@
 @@ -0,0 +1 @@
 +raise AssertionError("nested test module should have been filtered")
 --- /dev/null
-+++ b/lib/python3.11/site-packages/-vendor/tests/test_vendor.py
++++ b/lib/python3.11/site-packages/cowsay/nested/tests/native_extension.so
 @@ -0,0 +1 @@
-+raise AssertionError("leading-dash test module should have been filtered")
++unused native extension
+--- /dev/null
++++ b/lib/python3.11/site-packages/cowsay/sdk-core/bin/tool
+@@ -0,0 +1 @@
++unused native payload
+--- /dev/null
++++ b/lib/python3.11/site-packages/cowsay/sdk-core/native_bridge.so
+@@ -0,0 +1 @@
++unused native bridge
+--- /dev/null
++++ b/lib/python3.11/site-packages/-vendor/tests/payload.txt
+@@ -0,0 +1 @@
++unused leading-dash payload

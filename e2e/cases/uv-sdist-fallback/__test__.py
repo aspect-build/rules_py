@@ -7,15 +7,29 @@ the sdist build pathway end-to-end.
 """
 
 import os
+import importlib.metadata
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 import cowsay
 
-assert not (Path(cowsay.__file__).parent.parent / "cowsay-6.0.dist-info").exists()
-assert "cowsay: cowsay" in Path(sys.argv[1]).read_text()
+package = Path(cowsay.__file__).parent
+assert not (package / "tests").exists()
+assert not list(package.rglob("test_*.pyc"))
+distribution = importlib.metadata.distribution("cowsay")
+assert not (package.parent / "cowsay-6.0.dist-info" / "licenses").exists()
+assert distribution.files is not None
+recorded = {str(path) for path in distribution.files}
+assert "cowsay/main.py" in recorded
+assert not any(path.endswith("LICENSE.txt") or "/tests/" in path or path.endswith(".pyc") for path in recorded)
+for path in distribution.files:
+    installed = package.parent / path
+    assert installed.is_file(), path
+    if str(path).endswith(".dist-info/RECORD"):
+        assert path.hash is None and path.size is None, path
+        continue
+    assert path.hash is not None and path.size == installed.stat().st_size, path
 
 output = cowsay.get_output_string("cow", "sdist fallback works!")
 assert "sdist fallback works!" in output

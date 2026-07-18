@@ -217,9 +217,10 @@ uv.override_package(
   `post_install_patch_strip` requires `post_install_patches`.
 - `exclude_glob` removes site-packages-relative paths after installation and
   patching. `*` matches within one path segment, and `**` matches zero or more
-  path segments. Matching a directory removes its subtree. For example,
-  `numpy/**/tests/**` removes NumPy's bundled tests without retaining their
-  compiled bytecode.
+  path segments. Matching a directory removes its subtree. Exclusions must
+  preserve every top-level import root; for example, `numpy/**/tests/**`
+  removes NumPy's bundled tests without retaining their compiled bytecode.
+  Removing the complete `.dist-info` directory or its `RECORD` is unsupported.
 - `pre_build_patches`, `toolchains`, `env`, `monitor_memory`, and non-default
   `resource_set` values require a source distribution. An override that applies
   them to a wheel-only lock record is rejected.
@@ -237,10 +238,9 @@ uv.override_package(
 - Native builds select the configured C++ compiler, archiver, linker, and strip
   tools by default. Explicit `CC`, `CXX`, `AR`, `LD`, and `STRIP` values in
   `env` override those selections.
-- Prebuilt-wheel topology used for collision and regular-package merge
-  planning reflects the retained RECORD paths after exclusions. Post-install
-  patches must preserve every retained path used for that planning, including
-  its file-or-directory kind and package classification. Ordinary added paths
-  are not enumerated by this validation and may not be visible to venv
-  consumers. Source-built wheel topology is unavailable during analysis and
-  remains unvalidated.
+- Post-install patches to prebuilt wheels must preserve every original path
+  used for collision and regular-package merge planning, including its
+  file-or-directory kind and package classification. Ordinary added paths are
+  not enumerated by this validation and may not be visible to venv consumers.
+  Source-built wheel topology is unavailable during analysis and remains
+  unvalidated.

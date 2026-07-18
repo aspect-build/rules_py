@@ -99,7 +99,7 @@ def _whl_install(ctx):
         exec_runtime.files,
     ]
 
-    # Patch application happens before filtering and pyc compilation.
+    # Patch application (happens before pyc compilation).
     patch_files = [f for t in ctx.attr.patches for f in t[DefaultInfo].files.to_list()]
     if patch_files:
         arguments.add("--patch-strip", str(ctx.attr.patch_strip))
@@ -162,7 +162,6 @@ def _whl_install(ctx):
             filter_arguments.add("--compile-pyc")
             filter_arguments.add("--pyc-invalidation-mode", ctx.attr.pyc_invalidation_mode)
             filter_arguments.add("--python", exec_runtime.interpreter)
-
         ctx.actions.run(
             mnemonic = "WhlFilter",
             executable = exec_runtime.interpreter,

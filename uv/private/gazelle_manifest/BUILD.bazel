@@ -9,7 +9,6 @@ py_binary(
         "generate.py",
     ],
     main = "generate.py",
-    deps = ["//py/tools/unpack:exclude_glob"],
 )
 
 py_test(
@@ -23,7 +22,6 @@ py_test(
     data = ["test.py"],
     main = "__test__.py",
     deps = [
-        "//py/tools/unpack:exclude_glob",
         "@pypi//pytest",
     ],
 )

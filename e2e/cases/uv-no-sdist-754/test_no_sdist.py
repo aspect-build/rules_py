@@ -10,9 +10,6 @@ class WhlInstallShapeTest(unittest.TestCase):
         path = r.Rlocation("_main/uv-no-sdist-754/pywin32_targets")
         with open(path) as f:
             cls.targets = {line.strip() for line in f if line.strip()}
-        manifest = r.Rlocation("_main/uv-no-sdist-754/gazelle_manifest.yaml")
-        with open(manifest) as f:
-            cls.manifest = f.read()
 
     def _has_suffix(self, suffix: str) -> bool:
         return any(t.endswith(suffix) for t in self.targets)
@@ -36,10 +33,6 @@ class WhlInstallShapeTest(unittest.TestCase):
     def test_windows_wheel_targets_present(self) -> None:
         self.assertTrue(self._has_substring("win_amd64"))
         self.assertTrue(self._has_substring("win32.whl"))
-
-    def test_gazelle_indexes_windows_modules_without_metadata(self):
-        self.assertIn("    win32: pywin32\n", self.manifest)
-        self.assertIn("    win32com: pywin32\n", self.manifest)
 
 
 if __name__ == "__main__":

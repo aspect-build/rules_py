@@ -4,7 +4,7 @@ load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts", "unittest")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
-load(":repository.bzl", "compatible_python_tags", "exclude_glob_matches", "has_universal_prebuild", "native_roots_for_segments", "parse_console_script", "parse_exclude_glob", "parse_record_path", "record_metadata", "select_key", "site_packages_segments", "sort_select_arms", "source_specificity")
+load(":repository.bzl", "compatible_python_tags", "exclude_glob_matches", "native_roots_for_segments", "parse_console_script", "parse_exclude_glob", "parse_record_path", "select_key", "site_packages_segments", "sort_select_arms", "source_specificity")
 load(":rule.bzl", "pyc_compile_version_compatible", "source_built_wheel", "whl_install")
 
 def _whl_sorting_test_impl(ctx):
@@ -84,17 +84,6 @@ source_specificity_test = unittest.make(
     _source_specificity_test_impl,
 )
 
-def _universal_prebuild_test_impl(ctx):
-    env = unittest.begin(ctx)
-    asserts.true(env, has_universal_prebuild({"demo-1.0-py3-none-any.whl": "//:py3"}))
-    asserts.true(env, has_universal_prebuild({"demo-1.0-py2.py3-none-any.whl": "//:py23"}))
-    asserts.false(env, has_universal_prebuild({"demo-1.0-py311-none-any.whl": "//:py311"}))
-    asserts.false(env, has_universal_prebuild({"demo-1.0-cp311-cp311-manylinux_2_17_x86_64.whl": "//:linux"}))
-    asserts.false(env, has_universal_prebuild({}))
-    return unittest.end(env)
-
-universal_prebuild_test = unittest.make(_universal_prebuild_test_impl)
-
 def _record_path_test_impl(ctx):
     env = unittest.begin(ctx)
 
@@ -159,30 +148,17 @@ def _site_packages_segments_test_impl(ctx):
 
 site_packages_segments_test = unittest.make(_site_packages_segments_test_impl)
 
-def _record_metadata_exclusions_test_impl(ctx):
+def _exclude_glob_test_impl(ctx):
     env = unittest.begin(ctx)
-    data = "Legacy.Name-1.0.data"
-    cases = [
+    for path, pattern, expected in [
         ("demo/tests/test_root.py", "demo/**/tests/**", True),
         ("demo/nested/tests/test_nested.py", "demo/**/tests/**", True),
         ("demo/nested/not_tests/test_nested.py", "demo/**/tests/**", False),
         ("google/api/annotations.proto", "google/**/*.proto", True),
-        ("google/annotations.proto", "google/**/*.proto", True),
         ("google/api/annotations_pb2.py", "google/**/*.proto", False),
+        ("demo/sdk-core/bin/tool", "demo/sdk-core", True),
         ("demo/data/sample,1.csv", "demo/data/sample,*.csv", True),
-        ("demo/data/abc.txt", "demo/data/a*b*c.txt", True),
-        ("demo/data/acb.txt", "demo/data/a*b*c.txt", False),
-        ("tests/test_demo.py", "tests/**", True),
-        ("demo/native.so", "demo/*.so", True),
-        ("tests/test_demo.py", "tests", True),
-        ("other/tests/test_demo.py", "tests", False),
-        ("google/api/nested/value.proto", "google/api", True),
-        ("google/rpc/status_pb2.py", "google/api", False),
-        ("pkg/nested/native.so", "pkg/*", True),
-        ("pkg/module.py", "pkg/*", True),
-        ("other/pkg/module.py", "pkg/*", False),
-    ]
-    for path, pattern, expected in cases:
+    ]:
         asserts.equals(
             env,
             expected,
@@ -190,53 +166,9 @@ def _record_metadata_exclusions_test_impl(ctx):
             "{} against {}".format(path, pattern),
         )
 
-    top_levels, regular_top_levels, namespace_entries, dirs, init_dirs, native_segments, retained_paths = record_metadata(
-        "\n".join([
-            "demo/__init__.py,,",
-            "demo/keep.py,,",
-            '"{}/purelib/demo/data/sample,1.csv",,'.format(data),
-            "{}/platlib/demo/native.so,,".format(data),
-            "{}/purelib/excluded_root/__init__.py,,".format(data),
-            "pkg/__init__.py,,",
-            "pkg/module.py,,",
-            "{}/platlib/pkg/nested/native.so,,".format(data),
-            "native_keep/__init__.py,,",
-            "{}/platlib/native_keep/native.so,,".format(data),
-            "google/api/annotations.proto,,",
-            "google/api/annotations_pb2.py,,",
-            "{}/platlib/google/api/nested/native.so,,".format(data),
-            "{}/purelib/google/rpc/status.proto,,".format(data),
-            "google/rpc/status_pb2.py,,",
-            "tests/__init__.py,,",
-            "tests/test_demo.py,,",
-            "Legacy.Name-1.0.dist-info/METADATA,,",
-            "../../../bin/demo,,",
-        ]),
-        data,
-        ["google/api", "google/**/*.proto", "tests", "pkg/*", "demo/*.so", "excluded_root", "Legacy.Name-1.0.dist-info/**"],
-    )
-    asserts.equals(env, ["demo", "google", "native_keep"], sorted(top_levels.keys()))
-    asserts.equals(env, ["demo", "native_keep"], sorted(regular_top_levels.keys()))
-    asserts.equals(env, ["google/rpc/status_pb2.py"], sorted(namespace_entries.keys()))
-    asserts.equals(env, ["demo", "demo/data", "google", "google/rpc", "native_keep"], sorted(dirs.keys()))
-    asserts.equals(env, ["demo", "native_keep"], sorted(init_dirs.keys()))
-    asserts.equals(env, [["native_keep", "native.so"]], native_segments)
-    asserts.equals(env, [
-        "demo/__init__.py",
-        "demo/data/sample,1.csv",
-        "demo/keep.py",
-        "google/rpc/status_pb2.py",
-        "native_keep/__init__.py",
-        "native_keep/native.so",
-    ], sorted(retained_paths))
-    native_roots = {}
-    for segments in native_segments:
-        for root in native_roots_for_segments(segments):
-            native_roots[root] = True
-    asserts.equals(env, ["native_keep"], sorted(native_roots.keys()))
     return unittest.end(env)
 
-record_metadata_exclusions_test = unittest.make(_record_metadata_exclusions_test_impl)
+exclude_glob_test = unittest.make(_exclude_glob_test_impl)
 
 def _native_roots_test_impl(ctx):
     env = unittest.begin(ctx)
@@ -436,12 +368,6 @@ _PATCHED_PRESERVE_PATHS = [
     "demo_ns/plain.py",
 ]
 
-_FILTERED_EXCLUDE_GLOB = [
-    "demo/**/tests/**",
-    "**/*.proto",
-    "-vendor/tests",
-]
-
 def _metadata_selection_test_impl(ctx):
     env = analysistest.begin(ctx)
     target = analysistest.target_under_test(env)
@@ -489,29 +415,6 @@ def _metadata_selection_test_impl(ctx):
         ]
         asserts.equals(env, ctx.attr.expected_preserve_paths, preserve_paths)
 
-    if ctx.attr.expected_exclude_glob:
-        install_actions = [a for a in target.actions if a.mnemonic == "WhlInstall"]
-        filter_actions = [a for a in target.actions if a.mnemonic == "WhlFilter"]
-        asserts.equals(env, 1, len(install_actions), "expected exactly one WhlInstall action")
-        asserts.equals(env, 1, len(filter_actions), "expected exactly one WhlFilter action")
-        install_argv = install_actions[0].argv
-        asserts.false(env, "--compile-pyc" in install_argv, "filtered wheel must not compile before filtering")
-        install_exclude_glob = [
-            arg[len("--exclude-glob="):]
-            for arg in install_argv
-            if arg.startswith("--exclude-glob=")
-        ]
-        asserts.equals(env, ctx.attr.expected_exclude_glob, install_exclude_glob)
-
-        argv = filter_actions[0].argv
-        exclude_glob = [
-            arg[len("--exclude-glob="):]
-            for arg in argv
-            if arg.startswith("--exclude-glob=")
-        ]
-        asserts.equals(env, ctx.attr.expected_exclude_glob, exclude_glob)
-        asserts.false(env, "--preserve-path" in argv, "filtering must permit intentional topology changes")
-
     return analysistest.end(env)
 
 _metadata_selection_test = analysistest.make(
@@ -526,7 +429,6 @@ _metadata_selection_test = analysistest.make(
         "leaked_native_roots": attr.string_list(),
         "leaked_console_scripts": attr.string_list(),
         "expected_preserve_paths": attr.string_list(),
-        "expected_exclude_glob": attr.string_list(),
     },
 )
 
@@ -622,24 +524,6 @@ def metadata_selection_test_suite(name):
         regular_roots = _REGULAR_ROOTS,
         tags = ["manual"],
         top_levels = _PATCHED_TOP_LEVELS,
-    )
-
-    whl_install(
-        name = "__metadata_filtered_fixture",
-        testonly = True,
-        src = _MACOS_WHL,
-        compile_pyc = True,
-        console_scripts = _CONSOLE_SCRIPTS,
-        exclude_glob = _FILTERED_EXCLUDE_GLOB,
-        namespace_dirs = _NAMESPACE_DIRS,
-        namespace_entries = _NAMESPACE_ENTRIES,
-        namespace_top_levels = _NAMESPACE_TOP_LEVELS,
-        native_roots = _NATIVE_ROOTS,
-        patches = [":__metadata_noop_patch"],
-        regular_roots = _REGULAR_ROOTS,
-        tags = ["manual"],
-        top_level_dirs = _TOP_LEVEL_DIRS,
-        top_levels = _TOP_LEVELS,
     )
 
     for fixture_name, src in [
@@ -815,29 +699,6 @@ def metadata_selection_test_suite(name):
         leaked_top_levels = [],
     )
 
-    _metadata_selection_test(
-        name = name + "_filtered_test",
-        target_under_test = ":__metadata_filtered_fixture",
-        expected_console_scripts = _CONSOLE_SCRIPTS[_MACOS_WHL],
-        expected_exclude_glob = _FILTERED_EXCLUDE_GLOB,
-        expected_preserve_paths = [
-            "_demo_backend.cpython-311-darwin.so",
-            "demo",
-            "demo-1.0.0.dist-info",
-            "demo_ns",
-            "demo_ns/nested",
-            "demo_ns/part",
-            "demo_ns/plain.py",
-        ],
-        expected_namespace_top_levels = _NAMESPACE_TOP_LEVELS[_MACOS_WHL],
-        expected_native_roots = _NATIVE_ROOTS[_MACOS_WHL],
-        expected_top_levels = _TOP_LEVELS[_MACOS_WHL],
-        expected_top_level_dirs = _TOP_LEVEL_DIRS[_MACOS_WHL],
-        leaked_console_scripts = [],
-        leaked_native_roots = [],
-        leaked_top_levels = [],
-    )
-
 # --- compile_pyc exec/target version agreement -----------------------------
 #
 # WhlInstall lays out lib/python{target}/ from the standard toolchain but runs
@@ -849,19 +710,19 @@ def _compile_pyc_args_test_impl(ctx):
     env = analysistest.begin(ctx)
     argv = []
     for action in analysistest.target_actions(env):
-        if action.mnemonic == ctx.attr.mnemonic:
+        if action.mnemonic == "WhlInstall":
             argv = action.argv
     asserts.equals(
         env,
         ctx.attr.expect_compile_pyc,
         "--compile-pyc" in argv,
-        "{} argv: {}".format(ctx.attr.mnemonic, argv),
+        "WhlInstall argv: {}".format(argv),
     )
     return analysistest.end(env)
 
 _compile_pyc_matched_test = analysistest.make(
     _compile_pyc_args_test_impl,
-    attrs = {"expect_compile_pyc": attr.bool(), "mnemonic": attr.string(mandatory = True)},
+    attrs = {"expect_compile_pyc": attr.bool()},
     config_settings = {
         # The hub provisions 3.13, so exec and target versions agree.
         "@@//py/private/interpreter:python_version": "3.13",
@@ -870,7 +731,7 @@ _compile_pyc_matched_test = analysistest.make(
 
 _compile_pyc_mismatched_test = analysistest.make(
     _compile_pyc_args_test_impl,
-    attrs = {"expect_compile_pyc": attr.bool(), "mnemonic": attr.string(mandatory = True)},
+    attrs = {"expect_compile_pyc": attr.bool()},
     config_settings = {
         # The hub provisions no 3.9: the target runtime comes from
         # rules_python's dev toolchain while the exec fallback stays 3.13.
@@ -923,41 +784,16 @@ def compile_pyc_version_test_suite(name):
         tags = ["manual"],
     )
 
-    whl_install(
-        name = "__compile_pyc_filtered_fixture",
-        testonly = True,
-        src = _SBUILD_WHL,
-        compile_pyc = True,
-        exclude_glob = ["tests"],
-        tags = ["manual"],
-    )
-
     _compile_pyc_matched_test(
         name = name + "_matched_test",
         target_under_test = ":__compile_pyc_fixture",
         expect_compile_pyc = True,
-        mnemonic = "WhlInstall",
     )
 
     _compile_pyc_mismatched_test(
         name = name + "_mismatched_test",
         target_under_test = ":__compile_pyc_fixture",
         expect_compile_pyc = False,
-        mnemonic = "WhlInstall",
-    )
-
-    _compile_pyc_matched_test(
-        name = name + "_filtered_matched_test",
-        target_under_test = ":__compile_pyc_filtered_fixture",
-        expect_compile_pyc = True,
-        mnemonic = "WhlFilter",
-    )
-
-    _compile_pyc_mismatched_test(
-        name = name + "_filtered_mismatched_test",
-        target_under_test = ":__compile_pyc_filtered_fixture",
-        expect_compile_pyc = False,
-        mnemonic = "WhlFilter",
     )
 
 def whl_install_suite():
@@ -978,10 +814,6 @@ def whl_install_suite():
         source_specificity_test,
     )
     unittest.suite(
-        "universal_prebuild_tests",
-        universal_prebuild_test,
-    )
-    unittest.suite(
         "record_path_tests",
         record_path_test,
     )
@@ -990,8 +822,8 @@ def whl_install_suite():
         site_packages_segments_test,
     )
     unittest.suite(
-        "record_metadata_exclusions_tests",
-        record_metadata_exclusions_test,
+        "exclude_glob_tests",
+        exclude_glob_test,
     )
     unittest.suite(
         "native_roots_tests",

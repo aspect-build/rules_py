@@ -10,6 +10,7 @@ uv.override_package(
     exclude_glob = [
         "-vendor/tests",
         "cowsay/**/tests/**",
+        "cowsay/sdk-core",
         "cowsay-6.0.dist-info/LICENSE.txt",
     ],
     lock = "//uv-exclusions:uv.lock",

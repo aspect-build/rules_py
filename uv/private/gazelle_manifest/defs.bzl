@@ -4,16 +4,22 @@ load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 def _modules_mapping_impl(ctx):
     out = ctx.actions.declare_file(ctx.label.name + ".yaml")
 
-    args = ctx.actions.args()
-    whl_files = []
+    whl_file_deps = []
     for target in ctx.attr.wheels:
-        target_files = [
-            it
-            for it in target[DefaultInfo].files.to_list()
-            if any([it.path.endswith(suffix) for suffix in (".whl", "/whl", ".tar.gz", ".tar.bz2", ".tar.xz", ".zip", ".tar", "/gazelle_index.json")])
-        ]
-        whl_files.extend(target_files)
-        args.add_joined(target_files, join_with = "\t", expand_directories = False)
+        files_depset = target[DefaultInfo].files
+        whl_file_deps.append(files_depset)
+
+    whl_depset = depset(
+        transitive = whl_file_deps,
+    )
+    whl_files = [
+        it
+        for it in whl_depset.to_list()
+        if it.path.endswith(".whl") or it.path.endswith("/whl")
+    ]
+
+    args = ctx.actions.args()
+    args.add_all(whl_files)
     args_file = ctx.actions.declare_file(ctx.label.name + ".args")
     ctx.actions.write(
         output = args_file,
@@ -32,7 +38,9 @@ def _modules_mapping_impl(ctx):
             "--output",
             out.path,
         ],
-        inputs = depset([args_file] + whl_files),
+        inputs = [
+            args_file,
+        ] + whl_files,
         outputs = [
             out,
         ],

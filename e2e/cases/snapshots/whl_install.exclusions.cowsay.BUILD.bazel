@@ -23,7 +23,7 @@ select_chain(
 filegroup(
     name = "gazelle_index_whl",
     srcs = [
-        ":gazelle_index.json",
+        "@whl__cowsay__77b07c508af48aa3//file",
     ],
     visibility = ["//visibility:public"],
 )
@@ -63,6 +63,7 @@ whl_install(
     exclude_glob = [
         "-vendor/tests",
         "cowsay/**/tests/**",
+        "cowsay/sdk-core",
         "cowsay-6.0.dist-info/LICENSE.txt",
     ],
     visibility = ["//visibility:private"],

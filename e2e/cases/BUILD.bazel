@@ -169,9 +169,7 @@ write_source_files(
         "snapshots/pbs_symlink_prefix_1048.python311.pyvenv.cfg": "//pbs-symlink-prefix-1048:action_probe_311.venv.cfg",
         "snapshots/pbs_symlink_prefix_1048.python313.pyvenv.cfg": "//pbs-symlink-prefix-1048:action_probe_313.venv.cfg",
 
-        # whl_install for cowsay with a post-install patch and exclude_glob.
-        # Pins that filtering reaches the generated install rule after the
-        # patch, while preserving the selected wheel's package metadata.
+        # Pins the post-install filter and the retained RECORD-derived topology.
         "snapshots/whl_install.exclusions.cowsay.BUILD.bazel": "@whl_install__exclusions__cowsay__6_0//:BUILD.bazel",
     },
 )
