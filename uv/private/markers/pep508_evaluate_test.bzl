@@ -275,6 +275,16 @@ def _version_ops_test_impl(ctx):
     asserts.false(env, evaluate("python_full_version ~= '3.15.0'", env = prerelease_env))
     asserts.false(env, evaluate("python_full_version ~= '3.14.9'", env = prerelease_env))
 
+    # Post releases and nonzero extra release components are later than the
+    # corresponding final release, so they admit its prereleases.
+    for value in ["3.15a6", "3.15.0.dev1", "3.15.0rc1"]:
+        prerelease_env["python_full_version"] = value
+        asserts.false(env, evaluate("python_full_version < '3.15.0.0'", env = prerelease_env))
+        for bound in ["3.15.post", "3.15.post0", "3.15.post1", "3.15.0.post1", "3.15.0.1"]:
+            asserts.true(env, evaluate("python_full_version < '{}'".format(bound), env = prerelease_env))
+
+    prerelease_env["python_full_version"] = "3.15.0a6"
+
     in_range_prerelease_env = dict(_LINUX_ENV)
     in_range_prerelease_env["python_full_version"] = "3.14.10a1"
     asserts.true(env, evaluate("python_full_version ~= '3.14.9'", env = in_range_prerelease_env))

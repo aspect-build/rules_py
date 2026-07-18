@@ -360,8 +360,10 @@ def _version_expr(left, op, right):
         _right = _right[:5]
 
     if op == "<":
-        if pep440_prerelease and not right.pre_release and _left[:3] == _right[:3]:
-            return False
+        if pep440_prerelease and _left[:3] == _right[:3]:
+            right_release = raw_right.split(".")
+            if all([part.isdigit() for part in right_release]) and all([int(part) == 0 for part in right_release[3:]]):
+                return False
         return _left < _right
     elif op == ">":
         return _left > _right
