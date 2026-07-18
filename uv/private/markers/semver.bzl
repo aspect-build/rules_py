@@ -123,8 +123,8 @@ def semver(version):
 
     suffix = pre_release
     split_release = False
+    end = 0
     if not release.isdigit():
-        end = 0
         for char in release.elems():
             if not char.isdigit():
                 break
