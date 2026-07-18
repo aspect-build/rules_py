@@ -263,6 +263,10 @@ def _version_ops_test_impl(ctx):
         ("3.15.0a6", "< '3.15.0preview2'", True),
         ("3.15.0a1-dev10", "> '3.15.0a1_dev2'", True),
         ("3.15rc1.dev2", "> '3.15b9-dev9'", True),
+        ("1.0b1.post1", "> '1.0a1'", True),
+        ("1.0a2.post1", "> '1.0a1'", True),
+        ("1.0a1.post1", "> '1.0a1'", False),
+        ("1.0a1.post1", "> '1.0a1.dev1'", True),
         ("3.15.0.dev1", "< '3.15'", False),
         ("3.14.10.dev1", "~= '3.14.9'", True),
         # Post releases and nonzero extra release components admit the
@@ -285,6 +289,10 @@ def _version_ops_test_impl(ctx):
         ("3.15.0+bar", ">= '3.15.0'", True),
         ("3.15.0", "<= '3.15.0+bar'", False),
         ("3.15.0+bar", "<= '3.15.0+bar'", True),
+        ("2!1.0", "== '1!1.*'", False),
+        ("2!1.0", "!= '1!1.*'", True),
+        ("1!1.0", "== '1!1.*'", True),
+        ("1!1.0", "!= '1!1.*'", False),
         # Demonstrated non-PEP 440 interpreter values retain legacy ordering.
         ("3.15.0-dev.foo", "< '3.15.0-dev.foo.bar'", True),
         ("3.15.0-foo.1", "> '3.15.0-foo'", True),

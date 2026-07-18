@@ -678,6 +678,10 @@ def _satisfies_pep440_matrix_test_impl(ctx):
         ("3.15a6", "==3.15.0alpha6", True),
         ("3.15a6", "<3.15b1", True),
         ("3.15rc1.dev2", ">3.15b9-dev9", True),
+        ("1.0b1.post1", ">1.0a1", True),
+        ("1.0a2.post1", ">1.0a1", True),
+        ("1.0a1.post1", ">1.0a1", False),
+        ("1.0a1.post1", ">1.0a1.dev1", True),
         ("3.14.10.dev1", "~=3.14.9", True),
         ("3.15.dev1", "~=3.14.9", False),
         ("3.15.post2", ">3.15.post1", True),
@@ -689,6 +693,10 @@ def _satisfies_pep440_matrix_test_impl(ctx):
         ("3.15+foo.01", ">3.15", False),
         ("3.15.0a6", "===3.15.0A6", True),
         ("3.15.0a6", "===3.15.0-alpha6", False),
+        ("2!1.0", "==1!1.*", False),
+        ("2!1.0", "!=1!1.*", True),
+        ("1!1.0", "==1!1.*", True),
+        ("1!1.0", "!=1!1.*", False),
     ]:
         asserts.equals(env, want, version_satisfies(candidate, specifier), "{} {}".format(candidate, specifier))
     return unittest.end(env)

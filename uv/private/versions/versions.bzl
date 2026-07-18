@@ -177,10 +177,12 @@ def _legacy(version):
     return (_trim(parse_version(release)), not bool(pre), pre_key, build)
 
 def _check_wildcard(version_str, version, op, prefix_str):
-    prefix = parse_version(prefix_str)
-    length = len(prefix)
-    release, prefix = _pad(version.release if version else parse_version(version_str), prefix)
-    matches = release[:length] == prefix[:length]
+    prefix = _pep440(prefix_str)
+    length = len(prefix.release if prefix else parse_version(prefix_str))
+    release, prefix_release = _pad(version.release if version else parse_version(version_str), prefix.release if prefix else parse_version(prefix_str))
+    matches = release[:length] == prefix_release[:length]
+    if version != None and prefix != None:
+        matches = matches and version.public[0] == prefix.public[0]
     return matches if op == "==" else not matches
 
 def _check_single(version_str, spec):
@@ -222,7 +224,10 @@ def _check_single(version_str, spec):
     if op == "<=":
         return left <= right
     if op == ">":
-        if version != None and target != None and version.public[1] == target.public[1] and target.public[4] == -1 and version.public[4] != -1:
+        # Exclusive lower bounds reject only a post-release of that exact
+        # bound, not every post-release sharing its numeric release.
+        # https://packaging.python.org/en/latest/specifications/version-specifiers/#exclusive-ordered-comparison
+        if version != None and target != None and version.public[4] != -1 and version.public[:4] + (-1, (1, 0)) == target.public:
             return False
         return left > right
     if op == "<":
