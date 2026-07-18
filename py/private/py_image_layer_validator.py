@@ -2,8 +2,8 @@
 """py_image_layer_validator — validate pip layer sizing for a py_image_layer target.
 
 Invoked as a Bazel validation action. Fails (exit 1) with actionable `py_layer_tier` snippets
-when the squashed pip layer exceeds a size threshold, when the OCI 127-layer hard limit is
-breached, or when any individual pip package is unusually large.
+when the squashed pip layer exceeds a size threshold or when the OCI 127-layer hard limit is
+breached. Emits a warning (exit 0) when an individual pip package is unusually large.
 
 Usage:
   py_image_layer_validator --threshold_mb N --output FILE [label=path ...]

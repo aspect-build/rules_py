@@ -247,7 +247,7 @@ def collate_versions_by_name(activated_extras):
 
     Args:
         activated_extras: The map of activated extras, as returned by
-            `_collect_activated_extras`.
+            `collect_activated_extras`.
 
     Returns:
         A dictionary mapping package names to configurations, versions, and

@@ -126,8 +126,6 @@ def _decide_marker_impl(ctx):
         },
     )
 
-    # print(ctx.label, ctx.attr.marker, "->", res)
-
     return [
         config_common.FeatureFlagInfo(value = "true" if res else "false"),
     ]
