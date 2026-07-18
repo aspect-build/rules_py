@@ -160,6 +160,22 @@ def exclude_glob_matches(path, pattern):
             states[index + 1] = True
     return len(pattern) in states
 
+def record_path_excluded(path, patterns):
+    """Return whether installation removes a RECORD path or its source."""
+    source = None
+    if path and path[-1].endswith(".pyc"):
+        if len(path) >= 2 and path[-2] == "__pycache__":
+            parts = path[-1].split(".")
+            if len(parts) == 3 or (len(parts) == 4 and parts[-2].startswith("opt-") and parts[-2][len("opt-"):].isalnum()):
+                source = path[:-2] + [parts[0] + ".py"]
+        else:
+            source = path[:-1] + [path[-1][:-len(".pyc")] + ".py"]
+    return any([
+        exclude_glob_matches(path, pattern) or
+        (source != None and exclude_glob_matches(source, pattern))
+        for pattern in patterns
+    ])
+
 def parse_console_script(line):
     """Parse one `[console_scripts]` entry into a canonical `name=module:func`.
 
@@ -345,10 +361,7 @@ def _extract_wheel_metadata(repository_ctx, whl_label, exclude_glob):
             if not path:
                 continue
             segments = site_packages_segments(path, data_directory)
-            if not segments or any([
-                exclude_glob_matches(segments, pattern)
-                for pattern in patterns
-            ]):
+            if not segments or record_path_excluded(segments, patterns):
                 continue
 
             first_segment = segments[0]

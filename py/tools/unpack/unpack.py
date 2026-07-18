@@ -17,6 +17,7 @@ import configparser
 import csv
 import hashlib
 import io
+import importlib.util
 import os
 import re
 import shutil
@@ -24,7 +25,7 @@ import subprocess
 import zipfile
 from base64 import urlsafe_b64encode
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Sequence, Set, Tuple
 from urllib.parse import unquote
 
 _RELOCATABLE_SHEBANG = """\
@@ -59,7 +60,23 @@ def _is_native_library(path: Path) -> bool:
     )
 
 
-def _native_descendants(directory: Path, site_packages: Path, patterns: list) -> Tuple[str, ...]:
+def _import_roots(site_packages: Path) -> Set[str]:
+    return {
+        path.relative_to(site_packages).parts[0]
+        for path in site_packages.rglob("*")
+        if path.is_file()
+        and (
+            path.name.endswith(".py")
+            or (path.name.endswith(".pyc") and path.parent.name != "__pycache__")
+            or _is_native_library(path)
+        )
+        and not path.relative_to(site_packages).parts[0].endswith((".dist-info", ".egg-info"))
+    }
+
+
+def _native_descendants(
+    directory: Path, site_packages: Path, patterns: Sequence[Tuple[str, ...]]
+) -> Tuple[str, ...]:
     if patterns:
         from exclude_glob import excluded
 
@@ -70,6 +87,19 @@ def _native_descendants(directory: Path, site_packages: Path, patterns: list) ->
         and _is_native_library(path)
         and (not patterns or not excluded(path.relative_to(site_packages).parts, patterns))
     ))
+
+
+def _retained_init(
+    directory: Path, site_packages: Path, patterns: Sequence[Tuple[str, ...]]
+) -> bool:
+    init = directory / "__init__.py"
+    if not init.is_file():
+        return False
+    if not patterns:
+        return True
+    from exclude_glob import excluded
+
+    return not excluded(init.relative_to(site_packages).parts, patterns)
 
 
 def _write_executable(path: Path, content: bytes) -> None:
@@ -155,7 +185,6 @@ def install_wheel(
     bin_dir = into / "bin"
     site_packages.mkdir(parents=True, exist_ok=True)
     bin_dir.mkdir(parents=True, exist_ok=True)
-
     installed: Dict[Path, Optional[Tuple[str, str]]] = {}
     seen_members: Set[str] = set()
 
@@ -221,7 +250,6 @@ def install_wheel(
                 if reusable_record is not None and reusable_record[1] != str(info.file_size):
                     reusable_record = None
                 installed[dest] = reusable_record
-
     for ep_path in site_packages.glob("*.dist-info/entry_points.txt"):
         cp = configparser.ConfigParser(strict=False, delimiters=("=",))
         setattr(cp, "optionxform", str)
@@ -320,6 +348,7 @@ def main() -> None:
         path for path in installed
         if path.suffix == ".pyc" and site_packages in path.parents
     }
+    original_import_roots = _import_roots(site_packages) if args.exclude_glob else set()
     # Analysis uses these paths for collision and merge planning. Snapshot their
     # installed shape here, where both the before and after states are available.
     observed_files: List[Path] = []
@@ -334,7 +363,7 @@ def main() -> None:
                 (
                     None
                     if relative.name.endswith((".dist-info", ".egg-info"))
-                    else (path / "__init__.py").is_file()
+                    else _retained_init(path, site_packages, args.exclude_glob)
                 ),
                 _native_descendants(path, site_packages, args.exclude_glob),
             )
@@ -375,7 +404,7 @@ def main() -> None:
             raise SystemExit(
                 "Post-install patch changed observed wheel directory: {}".format(relative)
             )
-        if had_init is not None and (directory / "__init__.py").is_file() != had_init:
+        if had_init is not None and _retained_init(directory, site_packages, args.exclude_glob) != had_init:
             raise SystemExit(
                 "Post-install patch changed observed package classification: {}".format(relative)
             )
@@ -384,27 +413,56 @@ def main() -> None:
                 "Post-install patch changed observed native files: {}".format(relative)
             )
 
-    if args.patches:
-        # Patches may add, delete, or rewrite files, so the RECORD written from
-        # wheel metadata during install is now stale. Regenerate before
-        # compileall and refresh the supplied-cache set from the patched tree.
-        record_paths = set(site_packages.glob("*.dist-info/RECORD"))
-        supplied_pyc = set()
+    if args.exclude_glob:
+        from exclude_glob import excluded
+
+        for path in sorted(site_packages.rglob("*"), reverse=True):
+            if not excluded(path.relative_to(site_packages).parts, args.exclude_glob):
+                continue
+            if path.is_dir():
+                path.rmdir()
+            else:
+                path.unlink()
+
+        # File-shaped source globs do not match their PEP 3147 or legacy
+        # caches. Remove shipped bytecode whose corresponding source was
+        # excluded before compiling the retained sources.
+        for bytecode in site_packages.rglob("*.pyc"):
+            if bytecode.parent.name == "__pycache__":
+                try:
+                    source_path = Path(importlib.util.source_from_cache(str(bytecode)))
+                except ValueError:
+                    continue
+            else:
+                source_path = bytecode.with_suffix(".py")
+            if excluded(source_path.relative_to(site_packages).parts, args.exclude_glob):
+                bytecode.unlink()
+        for cache in site_packages.rglob("__pycache__"):
+            if cache.is_dir() and not any(cache.iterdir()):
+                cache.rmdir()
+
+        removed_roots = original_import_roots - _import_roots(site_packages)
+        if removed_roots:
+            raise SystemExit(
+                "wheel exclusions removed top-level import roots: {}".format(
+                    ", ".join(sorted(removed_roots))
+                )
+            )
+
+    records = list(site_packages.glob("*.dist-info/RECORD"))
+    if len(records) > 1 or (args.exclude_glob and not records):
+        raise SystemExit("expected exactly one installed RECORD, found {}".format(len(records)))
+    if records:
+        record = records[0]
         rows = []
         for path in sorted(args.into.rglob("*")):
-            if not path.is_file() or path in record_paths:
+            if not path.is_file() or path == record:
                 continue
-            rel = os.path.relpath(str(path), str(site_packages)).replace("\\", "/")
-            if path.suffix == ".pyc" and site_packages in path.parents:
-                supplied_pyc.add(path)
-                if args.compile_pyc:
-                    rows.append((rel, "", ""))
-                    continue
-            rows.append((rel, _sha256(path), str(path.stat().st_size)))
-        for record_path in record_paths:
-            rel_record = os.path.relpath(str(record_path), str(site_packages)).replace("\\", "/")
-            with record_path.open("w", newline="", encoding="utf-8") as fh:
-                csv.writer(fh).writerows([*rows, (rel_record, "", "")])
+            relative = os.path.relpath(str(path), str(site_packages)).replace("\\", "/")
+            rows.append((relative, _sha256(path), str(path.stat().st_size)))
+        rows.append((record.relative_to(site_packages).as_posix(), "", ""))
+        with record.open("w", newline="", encoding="utf-8") as stream:
+            csv.writer(stream).writerows(rows)
 
     if args.compile_pyc:
         if not args.python:

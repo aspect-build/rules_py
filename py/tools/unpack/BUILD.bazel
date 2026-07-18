@@ -3,20 +3,7 @@ load("//py:defs.bzl", "py_test")
 exports_files(
     [
         "exclude_glob.py",
-        "filter.py",
         "unpack.py",
-    ],
-    visibility = ["//visibility:public"],
-)
-
-py_test(
-    name = "filter_test",
-    size = "small",
-    srcs = ["filter_test.py"],
-    args = ["$(rootpath :filter.py)"],
-    data = [
-        ":exclude_glob.py",
-        ":filter.py",
     ],
     visibility = ["//visibility:public"],
 )

@@ -6,10 +6,11 @@ package can be built from source. Importing and exercising cowsay verifies
 the sdist build pathway end-to-end.
 """
 
-import os
 import importlib.metadata
+import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import cowsay
@@ -22,6 +23,7 @@ assert not (package.parent / "cowsay-6.0.dist-info" / "licenses").exists()
 assert distribution.files is not None
 recorded = {str(path) for path in distribution.files}
 assert "cowsay/main.py" in recorded
+assert "cowsay: cowsay" in Path(sys.argv[1]).read_text()
 assert not any(path.endswith("LICENSE.txt") or "/tests/" in path or path.endswith(".pyc") for path in recorded)
 for path in distribution.files:
     installed = package.parent / path

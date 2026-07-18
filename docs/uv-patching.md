@@ -50,9 +50,9 @@ Where `patches/nvidia-strip-init.patch` might look like:
 ```
 
 The file remains in place, so `nvidia` stays a regular package. Post-install
-patches may not remove package roots or change a package between regular and
-namespace forms; use full replacement when the installed topology itself must
-change.
+patches may not remove retained package roots or change retained packages
+between regular and namespace forms; exclude the affected paths or use full
+replacement when the installed topology itself must change.
 
 ### Applying the same patch to multiple packages
 
@@ -238,9 +238,12 @@ uv.override_package(
 - Native builds select the configured C++ compiler, archiver, linker, and strip
   tools by default. Explicit `CC`, `CXX`, `AR`, `LD`, and `STRIP` values in
   `env` override those selections.
-- Post-install patches to prebuilt wheels must preserve every original path
-  used for collision and regular-package merge planning, including its
+- Post-install patches to prebuilt wheels must preserve every retained original
+  path used for collision and regular-package merge planning, including its
   file-or-directory kind and package classification. Ordinary added paths are
   not enumerated by this validation and may not be visible to venv consumers.
   Source-built wheel topology is unavailable during analysis and remains
   unvalidated.
+- Gazelle indexes the raw wheel as an unfiltered superset. Preserving top-level
+  import roots keeps ordinary mappings valid, but precise mappings for shared
+  namespaces or excluded submodules can remain in the generated manifest.
