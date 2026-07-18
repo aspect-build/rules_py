@@ -362,7 +362,7 @@ cc_args(
         "@rules_cc//cc/toolchains/actions:cpp_link_executable",
     ],
     args = [
-        "--driver-mode=g++",
+        "-Wl,-rpath,/aspect_rules_py_toolchain",
     ],
 )
 
@@ -476,9 +476,9 @@ write_file(
         "wheel_dir=\"${!#}\"",
         "mkdir -p \"${wheel_dir}\"",
         "compile_flags=()",
-        "while IFS= read -r flag; do compile_flags+=(\"${flag}\"); done < <(/usr/bin/python3 -c 'import json, os; config = json.loads(os.environ.get(\"ASPECT_RULES_PY_CXX_TOOLCHAIN_CONFIG\", \"{}\")); flags = config.get(\"cxx_compile_flags\", []); marker = \"__ASPECT_RULES_PY_EXECROOT__/\"; expected = [\"--sysroot=\" + marker + \"toolchain/sysroot\", \"--gcc-toolchain=\" + marker + \"toolchain/gcc\", \"-resource-dir=\" + marker + \"toolchain/resource\", marker + \"third_party/include\", marker + \"third_party/include-internal\"]; assert os.environ[\"expected_config\"] == \"0\" or all(flag in flags for flag in expected), flags; print(*[flag for flag in flags if flag.startswith(\"-D\")], sep=\"\\n\")')",
+        "while IFS= read -r flag; do [[ -z \"${flag}\" ]] || compile_flags+=(\"${flag}\"); done < <(/usr/bin/python3 -c 'import json, os; config = json.loads(os.environ.get(\"ASPECT_RULES_PY_CXX_TOOLCHAIN_CONFIG\", \"{}\")); flags = config.get(\"cxx_compile_flags\", []); marker = \"__ASPECT_RULES_PY_EXECROOT__/\"; expected = [\"--sysroot=\" + marker + \"toolchain/sysroot\", \"--gcc-toolchain=\" + marker + \"toolchain/gcc\", \"-resource-dir=\" + marker + \"toolchain/resource\", marker + \"third_party/include\", marker + \"third_party/include-internal\"]; assert os.environ[\"expected_config\"] == \"0\" or all(flag in flags for flag in expected), flags; print(*[flag for flag in flags if flag.startswith(\"-D\")], sep=\"\\n\")')",
         "link_flags=()",
-        "while IFS= read -r flag; do link_flags+=(\"${flag}\"); done < <(/usr/bin/python3 -c 'import json, os; config = json.loads(os.environ.get(\"ASPECT_RULES_PY_CXX_TOOLCHAIN_CONFIG\", \"{}\")); print(*config.get(\"cxx_exe_link_flags\", []), sep=\"\\n\")')",
+        "while IFS= read -r flag; do [[ -z \"${flag}\" ]] || link_flags+=(\"${flag}\"); done < <(/usr/bin/python3 -c 'import json, os; config = json.loads(os.environ.get(\"ASPECT_RULES_PY_CXX_TOOLCHAIN_CONFIG\", \"{}\")); print(*config.get(\"cxx_exe_link_flags\", []), sep=\"\\n\")')",
         "printf '%s\\n' '#include <string>' '#ifndef RULES_PY_WRAPPER_CONFIG' '#define RULES_PY_WRAPPER_CONFIG 0' '#endif' '#ifndef RULES_PY_FEATURE_CONFIG' '#define RULES_PY_FEATURE_CONFIG 0' '#endif' '#if RULES_PY_WRAPPER_CONFIG != RULES_PY_EXPECT_CONFIG || RULES_PY_FEATURE_CONFIG != RULES_PY_EXPECT_CONFIG' '#error toolchain configuration was not preserved' '#endif' 'struct Base { virtual ~Base() {} };' 'struct Value : Base { std::string value; Value() : value(\"rules_py\") {} };' 'int main() { Value value; Base *base = &value; Value *result = dynamic_cast<Value *>(base); return result && result->value == \"rules_py\" ? 0 : 1; }' > \"${wheel_dir}/probe.cc\"",
         "\"${CXX}\" \"${compile_flags[@]}\" -DRULES_PY_EXPECT_CONFIG=\"${expected_config}\" -std=c++11 -c \"${wheel_dir}/probe.cc\" -o \"${wheel_dir}/probe.o\"",
         "link_tool=\"$(/usr/bin/python3 -c 'import json, os; config = json.loads(os.environ.get(\"ASPECT_RULES_PY_CXX_TOOLCHAIN_CONFIG\", \"{}\")); print(config.get(\"cxx_exe_link_tool\", os.environ[\"CXX\"]))')\"",
