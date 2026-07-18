@@ -1,5 +1,5 @@
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load(":versions.bzl", "find_matching_version", "parse_version", "version_cmp", "version_satisfies")
+load(":versions.bzl", "find_matching_version", "parse_version", "version_satisfies")
 
 # =============================================================================
 # parse_version tests
@@ -90,54 +90,6 @@ def _parse_version_leading_zeros_test_impl(ctx):
     return unittest.end(env)
 
 parse_version_leading_zeros_test = unittest.make(_parse_version_leading_zeros_test_impl)
-
-# =============================================================================
-# version_cmp tests
-# =============================================================================
-
-def _version_cmp_basic_test_impl(ctx):
-    env = unittest.begin(ctx)
-    asserts.equals(env, 0, version_cmp([1, 0], [1, 0]), "1.0 == 1.0")
-    asserts.equals(env, -1, version_cmp([1, 0], [2, 0]), "1.0 < 2.0")
-    asserts.equals(env, 1, version_cmp([2, 0], [1, 0]), "2.0 > 1.0")
-    asserts.equals(env, -1, version_cmp([1, 2], [1, 3]), "1.2 < 1.3")
-    asserts.equals(env, 1, version_cmp([21, 3], [21, 0]), "21.3 > 21.0")
-    return unittest.end(env)
-
-version_cmp_basic_test = unittest.make(_version_cmp_basic_test_impl)
-
-def _version_cmp_padding_test_impl(ctx):
-    """Trailing zeros should not affect comparison (1.0 == 1.0.0 == 1.0.0.0)."""
-    env = unittest.begin(ctx)
-    asserts.equals(env, 0, version_cmp([1, 0], [1, 0, 0]), "1.0 == 1.0.0")
-    asserts.equals(env, 0, version_cmp([1, 0, 0], [1, 0]), "1.0.0 == 1.0")
-    asserts.equals(env, 0, version_cmp([1], [1, 0, 0, 0]), "1 == 1.0.0.0")
-    asserts.equals(env, 0, version_cmp([0], [0, 0, 0]), "0 == 0.0.0")
-    asserts.equals(env, -1, version_cmp([1], [1, 0, 1]), "1 < 1.0.1")
-    asserts.equals(env, 1, version_cmp([1, 0, 1], [1]), "1.0.1 > 1")
-    return unittest.end(env)
-
-version_cmp_padding_test = unittest.make(_version_cmp_padding_test_impl)
-
-def _version_cmp_long_test_impl(ctx):
-    """Many-segment versions."""
-    env = unittest.begin(ctx)
-    asserts.equals(env, 0, version_cmp([1, 2, 3, 4, 5], [1, 2, 3, 4, 5]))
-    asserts.equals(env, -1, version_cmp([1, 2, 3, 4, 5], [1, 2, 3, 4, 6]))
-    asserts.equals(env, 1, version_cmp([1, 2, 3, 5, 0], [1, 2, 3, 4, 99]))
-    return unittest.end(env)
-
-version_cmp_long_test = unittest.make(_version_cmp_long_test_impl)
-
-def _version_cmp_large_numbers_test_impl(ctx):
-    """Calendar versioning and large segment numbers."""
-    env = unittest.begin(ctx)
-    asserts.equals(env, -1, version_cmp([2023, 1], [2024, 1]))
-    asserts.equals(env, 1, version_cmp([2024, 12], [2024, 1]))
-    asserts.equals(env, 0, version_cmp([20240101, 0], [20240101, 0]))
-    return unittest.end(env)
-
-version_cmp_large_numbers_test = unittest.make(_version_cmp_large_numbers_test_impl)
 
 # =============================================================================
 # version_satisfies — == (Version Matching)
@@ -674,6 +626,16 @@ def _satisfies_pep440_matrix_test_impl(ctx):
         ("3.15a6", "<=3.15", True),
         ("3.15a6", "<3.15", False),
         ("3.15a6", "<3.15.post1", True),
+        ("1.0.post1.dev1", "<1.0.post1", False),
+        ("1.0.post1.dev1+local.1", "<1.0.post1", False),
+        ("2!1.0.post1.dev1+local.1", "<2!1.0.post1", False),
+        ("1.0.post1.dev1", "<1.0.post2", True),
+        ("1-6", "==1.post6", True),
+        ("1.0-6.dev1", "==1.post6.dev1", True),
+        ("1-6.dev1", "<1.post6", False),
+        ("1-6.dev1", "<1.post7", True),
+        ("2!1.0-6.dev1+LOCAL-01", "==2!1.post6.dev1+local.1", True),
+        ("2!1.0-6.dev1+LOCAL-01", "<2!1.post6", False),
         ("3.15a6", "<3.15.0.1", True),
         ("3.15a6", "==3.15.0alpha6", True),
         ("3.15a6", "<3.15b1", True),
@@ -896,11 +858,6 @@ def versions_test_suite():
         parse_version_local_test,
         parse_version_leading_v_test,
         parse_version_leading_zeros_test,
-        # version_cmp
-        version_cmp_basic_test,
-        version_cmp_padding_test,
-        version_cmp_long_test,
-        version_cmp_large_numbers_test,
         # == operator
         satisfies_eq_test,
         # != operator

@@ -54,24 +54,6 @@ def _pad(a, b):
         b = b + [0] * (la - lb)
     return a, b
 
-def version_cmp(a, b):
-    """Compares two parsed version lists.
-
-    Args:
-        a: First parsed version (list of ints).
-        b: Second parsed version (list of ints).
-
-    Returns:
-        -1 if a < b, 0 if a == b, 1 if a > b.
-    """
-    a, b = _pad(a, b)
-    for i in range(len(a)):
-        if a[i] < b[i]:
-            return -1
-        if a[i] > b[i]:
-            return 1
-    return 0
-
 def _number(value):
     end = 0
     for char in value.elems():
@@ -81,10 +63,10 @@ def _number(value):
     return (int(value[:end]) if end else 0, value[end:], end > 0)
 
 def _suffix(value, spellings):
-    value = value.lstrip("._-")
+    normalized = value.lstrip("._-")
     for spelling in spellings:
-        if value.startswith(spelling):
-            number, tail, _ = _number(value[len(spelling):].lstrip("._-"))
+        if normalized.startswith(spelling):
+            number, tail, _ = _number(normalized[len(spelling):].lstrip("._-"))
             return number, tail, spelling
     return 0, value, ""
 
@@ -130,10 +112,9 @@ def _pep440(version):
     else:
         pre = 3
 
-    implicit_post = suffix.startswith("-") and suffix[1:].isdigit()
+    implicit_post = suffix.startswith("-") and suffix[1:2].isdigit()
     if implicit_post:
-        post = int(suffix[1:])
-        suffix = ""
+        post, suffix, _ = _number(suffix[1:])
     else:
         post, suffix, post_spelling = _suffix(suffix, ["post", "rev", "r"])
         if not post_spelling:
@@ -177,6 +158,8 @@ def _legacy(version):
     return (_trim(parse_version(release)), not bool(pre), pre_key, build)
 
 def _check_wildcard(version_str, version, op, prefix_str):
+    # Prefix matching compares the epoch and zero-padded release segments.
+    # https://packaging.python.org/en/latest/specifications/version-specifiers/#version-matching
     prefix = _pep440(prefix_str)
     length = len(prefix.release if prefix else parse_version(prefix_str))
     release, prefix_release = _pad(version.release if version else parse_version(version_str), prefix.release if prefix else parse_version(prefix_str))
@@ -231,11 +214,13 @@ def _check_single(version_str, spec):
             return False
         return left > right
     if op == "<":
-        if version != None and target != None and target.public[2] == 3 and target.public[4] == -1:
-            # Exclusive final-release bounds use the corresponding dev0 key,
-            # which excludes prereleases of the bound but admits post bounds.
+        if version != None and target != None and target.public[2] == 3 and target.public[5] == (1, 0):
+            # Exclusive non-prerelease bounds use the corresponding dev0
+            # key, preserving any post segment while excluding prereleases
+            # of that exact bound.
             # https://packaging.python.org/en/latest/specifications/version-specifiers/#exclusive-ordered-comparison
-            right = target.public[:2] + (-1, 0, -1, (0, 0))
+            post = target.public[4]
+            right = target.public[:2] + (-1 if post == -1 else 3, 0, post, (0, 0))
         return left < right
     if op == "~=":
         if left < right:
@@ -246,6 +231,10 @@ def _check_single(version_str, spec):
         else:
             release = release[:-1]
             release[-1] += 1
+
+        # Compatible releases use an exclusive upper bound at the next
+        # prefix, so its dev0 key excludes prereleases of that boundary.
+        # https://packaging.python.org/en/latest/specifications/version-specifiers/#compatible-release
         if version != None and target != None:
             upper = (target.public[0], _trim(release), -1, 0, -1, (0, 0))
             return version.public < upper
