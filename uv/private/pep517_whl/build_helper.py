@@ -21,9 +21,9 @@ from tempfile import TemporaryFile
 from typing import Dict, Optional
 
 try:
-    _tomllib = importlib.import_module("tomllib")
+    tomllib = importlib.import_module("tomllib")
 except ModuleNotFoundError:
-    _tomllib = importlib.import_module("tomli")
+    tomllib = importlib.import_module("tomli")
 
 _SETUPTOOLS_BACKENDS = (
     None,
@@ -206,8 +206,8 @@ def _load_pyproject_data(worktree: str) -> Optional[Dict[str, object]]:
 
     try:
         with open(pyproject, "rb") as f:
-            return _tomllib.load(f)
-    except (OSError, _tomllib.TOMLDecodeError):
+            return tomllib.load(f)
+    except (OSError, tomllib.TOMLDecodeError):
         return None
 
 
