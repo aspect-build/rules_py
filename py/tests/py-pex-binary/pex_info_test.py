@@ -59,4 +59,32 @@ assert info["inherit_path"] == "fallback", info
 _, info = read_pex("inherit_false_pex")
 assert info.get("inherit_path", "false") == "false", info
 
+
+# print_modules_pex has real deps (a venv + wheels), so it exercises the
+# structural exclusions: the sibling venv's `.pth`/`pyvenv.cfg` plumbing and the
+# interpreter must be filtered out, while first-party `data` files are kept.
+def pex_names(name):
+    path = r.Rlocation("{}/{}.pex".format(PKG, name))
+    with zipfile.ZipFile(path) as zf:
+        return zf.namelist()
+
+
+names = pex_names("print_modules_pex")
+
+venv_plumbing = [
+    n
+    for n in names
+    if n.endswith("pyvenv.cfg") or n.endswith(".pth") or ".venv/" in n
+]
+assert not venv_plumbing, venv_plumbing
+
+interpreter = [n for n in names if "python_interpreters" in n]
+assert not interpreter, interpreter[:10]
+
+# The wheels arrive as `--dependency` under `.deps/`, not as loose sources.
+assert any("cowsay" in n for n in names), "cowsay missing from pex"
+
+# Plain data files travel with the sources (transitive_sources is .py-only).
+assert any(n.endswith("/data.txt") for n in names), "data.txt missing from pex"
+
 print("PASS")

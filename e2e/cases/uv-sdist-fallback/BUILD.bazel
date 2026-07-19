@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_test")
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_pex_binary", "py_test")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 
 # Regression coverage for the sdist-fallback behavior preserved by the
@@ -33,6 +33,23 @@ py_image_layer(
     name = "image_layers",
     testonly = True,
     binary = ":image_bin",
+)
+
+# py_pex_binary must discover the source-built cowsay's install tree through
+# PyWheelsInfo (its analysis-time metadata is empty), the same path image
+# layering exercises above.
+py_pex_binary(
+    name = "sdist_pex",
+    testonly = True,
+    binary = ":image_bin",
+    python_interpreter_constraints = [],
+)
+
+py_test(
+    name = "sdist_pex_test",
+    srcs = ["sdist_pex_test.py"],
+    data = [":sdist_pex"],
+    main = "sdist_pex_test.py",
 )
 
 filegroup(
