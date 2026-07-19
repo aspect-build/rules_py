@@ -99,6 +99,17 @@ def wheel_variant_suffix(whl_target):
     """Return the stable hash suffix from a generated wheel repository label."""
     return whl_target.split("__")[-1].split("//")[0]
 
+def shared_whl_variant_key(install_cfg, variant_whls):
+    """Return an order-sensitive identity for an unpatched wheel variant."""
+    if install_cfg.post_install_patches:
+        return None
+    return json.encode([
+        install_cfg.metadata_directory,
+        # Wheel selection keeps the first entry when specificity ties.
+        variant_whls.items(),
+        getattr(install_cfg, "exclude_glob", []),
+    ])
+
 def parse_declared_console_script(name, entry_point):
     """Canonicalize one override_package console-script declaration.
 
@@ -751,12 +762,17 @@ def _uv_impl(module_ctx):
             sbuild_kwargs["resource_set"] = sbuild_cfg.resource_set
         sdist_build(**sbuild_kwargs)
 
+    shared_variant_installs = {}
     for install_id, install_cfg in cfg.install_cfgs.items():
         # Metadata extraction belongs in one repository per fetched wheel.
         # The public install repository can then select one of these variants
         # without fetching metadata for every inactive platform.
         variant_installs = {}
         for whl_target, variant_whls in group_whls_by_target(install_cfg.whls).items():
+            shared_key = shared_whl_variant_key(install_cfg, variant_whls)
+            if shared_key in shared_variant_installs:
+                variant_installs[whl_target] = shared_variant_installs[shared_key]
+                continue
             variant_name = "{}__variant_{}".format(
                 install_id,
                 wheel_variant_suffix(whl_target),
@@ -777,6 +793,8 @@ def _uv_impl(module_ctx):
                 variant_kwargs["exclude_glob"] = exclude_glob
             whl_install(**variant_kwargs)
             variant_installs[whl_target] = "@{}//:install".format(variant_name)
+            if shared_key:
+                shared_variant_installs[shared_key] = variant_installs[whl_target]
         install_kwargs = {
             "metadata_directory": install_cfg.metadata_directory,
             "name": install_id,

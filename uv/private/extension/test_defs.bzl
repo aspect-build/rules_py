@@ -1,7 +1,7 @@
 """Unit tests for helpers in defs.bzl"""
 
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load(":defs.bzl", "parse_declared_console_script")
+load(":defs.bzl", "parse_declared_console_script", "shared_whl_variant_key")
 load(":lockfile.bzl", "url_basename")
 
 def _url_basename_test_impl(ctx):
@@ -72,6 +72,49 @@ def _declared_console_script_test_impl(ctx):
 
 declared_console_script_test = unittest.make(_declared_console_script_test_impl)
 
+def _shared_whl_variant_key_test_impl(ctx):
+    env = unittest.begin(ctx)
+    whl_target = "@whl__demo__abcdef//file"
+    ordered = {
+        "demo-1.0-1-py3-none-any.whl": whl_target,
+        "demo-1.0-2-py3-none-any.whl": whl_target,
+    }
+    reversed_order = {
+        "demo-1.0-2-py3-none-any.whl": whl_target,
+        "demo-1.0-1-py3-none-any.whl": whl_target,
+    }
+    config = struct(
+        exclude_glob = [],
+        metadata_directory = "demo-1.0.dist-info",
+        post_install_patches = [],
+    )
+
+    key = shared_whl_variant_key(config, ordered)
+    asserts.equals(env, key, shared_whl_variant_key(config, ordered))
+    asserts.equals(env, False, key == shared_whl_variant_key(config, reversed_order))
+    asserts.equals(
+        env,
+        False,
+        key == shared_whl_variant_key(struct(
+            exclude_glob = ["**/*.pyi"],
+            metadata_directory = "demo-1.0.dist-info",
+            post_install_patches = [],
+        ), ordered),
+    )
+    asserts.equals(
+        env,
+        None,
+        shared_whl_variant_key(struct(
+            exclude_glob = [],
+            metadata_directory = "demo-1.0.dist-info",
+            post_install_patches = ["//:demo.patch"],
+        ), ordered),
+    )
+
+    return unittest.end(env)
+
+shared_whl_variant_key_test = unittest.make(_shared_whl_variant_key_test_impl)
+
 def defs_test_suite():
     unittest.suite(
         "url_basename_tests",
@@ -80,4 +123,8 @@ def defs_test_suite():
     unittest.suite(
         "declared_console_script_tests",
         declared_console_script_test,
+    )
+    unittest.suite(
+        "shared_whl_variant_key_tests",
+        shared_whl_variant_key_test,
     )
