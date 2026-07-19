@@ -1,0 +1,3 @@
+Materializes chdir_data/ in the test runfiles so chdir_test can chdir into it.
+It contains no test files, so autodiscovery from here would collect nothing —
+which is exactly what the chdir regression test guards against.

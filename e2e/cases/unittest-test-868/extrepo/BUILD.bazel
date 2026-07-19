@@ -1,0 +1,12 @@
+# Test sources consumed by py_pytest_test / py_unittest_test in a *different*
+# repo, so their runfiles short_path begins `../test_driver_extrepo/...`.
+# Regression: both drivers must collect such external-repo sources instead of
+# silently dropping them (which left pytest recursing the whole runfiles tree
+# and unittest reporting "no tests found").
+exports_files(
+    [
+        "ext_pytest_test.py",
+        "ext_unittest_test.py",
+    ],
+    visibility = ["//visibility:public"],
+)

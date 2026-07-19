@@ -1,5 +1,11 @@
 # A pytest entrypoint for Bazel's py_test
 
+> [!NOTE]
+> For most pytest suites, prefer `py_pytest_test`, which always drives pytest and
+> wires up discovery for you. The `py_pytest_main` flow below is the low-level
+> escape hatch — use it for hand-written or wrapped entrypoints. See
+> [docs/test-drivers.md](../../docs/test-drivers.md).
+
 With Bazel `py_test`, it requires a single file as the entry point. This repository contains a
 template that gets rendered for a particular package and will discover tests automatically in the
 same way the `pytest` command-line does.

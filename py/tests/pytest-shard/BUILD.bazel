@@ -1,9 +1,8 @@
-load("//py:defs.bzl", "py_test")
+load("//py:defs.bzl", "py_pytest_test")
 
-py_test(
+py_pytest_test(
     name = "pytest_shard_test",
     srcs = ["pytest_shard_test.py"],
-    pytest_main = True,
     deps = [
         "//py/private/pytest_shard",
         "@pypi//pytest",

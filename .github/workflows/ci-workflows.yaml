@@ -50,6 +50,7 @@ jobs:
                   py/private/py_venv/templates/link.py
                   py/private/pytest_main.py
                   py/private/pytest_shard/pytest_shard.py
+                  py/private/unittest_main.py
                   py/tools/pex/main.py
                   py/tools/site_merge/site_merge.py
                   py/tools/unpack/unpack.py

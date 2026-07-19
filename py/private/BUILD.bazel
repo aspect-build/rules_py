@@ -8,6 +8,8 @@ package(default_visibility = ["//py:__subpackages__"])
 exports_files(
     [
         "pytest_main.py",
+        # Template read by the py_unittest_test rule.
+        "unittest_main.py",
         "modify_mtree.awk",
     ],
     visibility = ["//visibility:public"],
@@ -91,6 +93,26 @@ bzl_library(
     deps = [
         ":py_library",
         "@rules_python//python:defs_bzl",
+    ],
+)
+
+# keep
+bzl_library(
+    name = "py_pytest_test",
+    srcs = ["py_pytest_test.bzl"],
+    deps = [
+        ":py_pytest_main",
+        "//py/private/py_venv:defs",
+    ],
+)
+
+# keep
+bzl_library(
+    name = "py_unittest_test",
+    srcs = ["py_unittest_test.bzl"],
+    deps = [
+        ":py_library",
+        "//py/private/py_venv:defs",
     ],
 )
 

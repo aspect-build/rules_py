@@ -1,4 +1,4 @@
-"""Cross-repo pytest_main=True regression test."""
+"""Cross-repo pytest regression test."""
 
 uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_pytest_main_867")

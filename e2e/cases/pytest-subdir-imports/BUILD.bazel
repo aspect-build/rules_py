@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_library", "py_test")
+load("@aspect_rules_py//py:defs.bzl", "py_library", "py_pytest_test")
 
 py_library(
     name = "lib",
@@ -6,11 +6,10 @@ py_library(
     imports = ["."],
 )
 
-py_test(
+py_pytest_test(
     name = "test_subdir_import",
     srcs = ["tests/test_subdir.py"],
     dep_group = "pytest-subdir-imports",
-    pytest_main = True,
     deps = [
         ":lib",
         "@pypi_pytest_subdir_imports//pytest",

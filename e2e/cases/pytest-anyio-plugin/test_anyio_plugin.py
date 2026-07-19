@@ -7,9 +7,8 @@ async frameworks or when async tests are not intended to run under anyio).
 
 To disable it, pass the opt-out flag through the Bazel args attribute:
 
-    py_test(
+    py_pytest_test(
         name = "my_test",
-        pytest_main = True,
         args = ["-p", "no:anyio"],
         deps = ["@pypi//anyio", "@pypi//pytest"],
         ...

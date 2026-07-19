@@ -1,0 +1,9 @@
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+
+# An external repo providing test sources for the external-src regression:
+# both py_unittest_test and py_pytest_test must collect sources whose runfiles
+# short_path begins `../test_driver_extrepo/...`.
+local_repository(
+    name = "test_driver_extrepo",
+    path = "./unittest-test-868/extrepo",
+)

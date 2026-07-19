@@ -127,7 +127,7 @@ Built-in rules for creating optimized container images:
 
 ### Native Pytest Integration
 
-- First-class pytest support with `py_pytest_main`
+- First-class pytest support with `py_pytest_test`
 - Automatic test discovery with proper import handling
 - Compatible with `pytest-mock`, `pytest-xdist`, and other plugins
 
@@ -436,8 +436,11 @@ bazel run //:gazelle
 ```
 
 > [!NOTE]
->  When using `pytest_main=True`, you can create a [small wrapper macro](https://github.com/aspect-build/aspect-workflows-template/blob/main/%7B%7B%20.ProjectSnake%20%7D%7D/tools/pytest/defs.bzl) for `py_test` that presets `pytest_main=True` and automatically adds `pytest` as dep.
-> Then you need to update ` gazelle:map_kind py_test py_test` to point to your wrapper rule.
+>  For pytest suites, use `py_pytest_test` (always drives pytest) instead of the generic `py_test`.
+> Because Gazelle can't infer the `pytest` dependency for assert-only tests, map `py_test` to a
+> thin wrapper that injects it rather than mapping directly — see
+> [docs/test-drivers.md](docs/test-drivers.md#gazelle). `py_pytest_test`/`py_unittest_test` require
+> a release that includes them (later than the `1.11.2` pinned above).
 
 ## Migration from `rules_python`
 
