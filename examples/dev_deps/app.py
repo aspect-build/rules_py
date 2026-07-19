@@ -8,11 +8,11 @@ app = Flask(__name__)
 
 
 @app.route("/")
-def hello():
+def hello() -> str:
     return "Hello from the dev_deps example!"
 
 
-def main():
+def main() -> None:
     debug = os.environ.get("FLASK_DEBUG", "0") == "1"
 
     if debug:

@@ -16,7 +16,7 @@
 import sys
 import os
 from pathlib import Path
-from typing import List
+from typing import Any, Dict, List, Optional
 
 # Point the temp dir at Bazel's per-test TEST_TMPDIR before pytest or the stdlib
 # `tempfile` module resolve it. Bazel's default test setup exports
@@ -39,9 +39,9 @@ except ModuleNotFoundError as e:
     raise e
 
 # None means coverage wasn't enabled
-cov = None
+cov: Optional[Any] = None
 # For workaround of https://github.com/nedbat/coveragepy/issues/963
-coveragepy_absfile_mapping = {}
+coveragepy_absfile_mapping: Dict[str, str] = {}
 
 # Since our py_test had InstrumentedFilesInfo, we know Bazel will hand us this environment variable.
 # https://bazel.build/rules/lib/providers/InstrumentedFilesInfo
@@ -49,7 +49,9 @@ if "COVERAGE_MANIFEST" in os.environ:
     try:
         import coverage
         # The lines are files that matched the --instrumentation_filter flag
-        with open(os.getenv("COVERAGE_MANIFEST"), "r") as mf:
+        coverage_manifest = os.getenv("COVERAGE_MANIFEST")
+        assert coverage_manifest is not None
+        with open(coverage_manifest, "r") as mf:
             manifest_entries = mf.read().splitlines()
             cov = coverage.Coverage(include = manifest_entries)
             # coveragepy incorrectly converts our entries by following symlinks
@@ -62,14 +64,14 @@ if "COVERAGE_MANIFEST" in os.environ:
 
 from pytest_shard import ShardPlugin
 
-def main():
+def main() -> int:
     # This statement will be replaced if the user provides a chdir path
     _ = 0  # no-op
 
     os.environ["ENV"] = "testing"
 
-    plugins = []
-    args = [
+    plugins: List[Any] = []
+    args: List[str] = [
         "--verbose",
         # Avoid loading of the plugin "cacheprovider".
         "-p",
@@ -93,7 +95,9 @@ def main():
     test_total_shards = os.environ.get("TEST_TOTAL_SHARDS")
     test_shard_status_file = os.environ.get("TEST_SHARD_STATUS_FILE")
     if (
-        all([test_shard_index, test_total_shards, test_shard_status_file])
+        test_shard_index is not None
+        and test_total_shards is not None
+        and test_shard_status_file is not None
         and int(test_total_shards) > 1
     ):
         args.extend([
@@ -144,6 +148,7 @@ def main():
         cov.stop()
         # https://bazel.build/configure/coverage
         coverage_output_file = os.getenv("COVERAGE_OUTPUT_FILE")
+        assert coverage_output_file is not None
 
         unfixed_dat = coverage_output_file + ".tmp"
         cov.lcov_report(outfile = unfixed_dat)

@@ -1,7 +1,7 @@
 import importlib
 
 
-def _assert_absent(module):
+def _assert_absent(module: str) -> None:
     try:
         importlib.import_module(module)
     except ImportError:
@@ -12,11 +12,11 @@ def _assert_absent(module):
     )
 
 
-def _assert_present(module):
+def _assert_present(module: str) -> None:
     importlib.import_module(module)
 
 
-def main():
+def main() -> None:
     _assert_absent("iniconfig")
     _assert_absent("six")
     _assert_present("tqdm")

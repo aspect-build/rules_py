@@ -6,11 +6,12 @@ import sys
 import tarfile
 import tempfile
 import zipfile
+from collections.abc import Mapping
 
 from uv.private.sdist_configure.detect_native import detect
 
 
-def _make_tar_gz(members):
+def _make_tar_gz(members: Mapping[str, str | None]) -> str:
     """Create a .tar.gz archive in a temp file from a dict of {name: content}.
 
     Content may be a string (file) or None (directory).
@@ -30,7 +31,7 @@ def _make_tar_gz(members):
     return path
 
 
-def _make_zip(members):
+def _make_zip(members: Mapping[str, str | None]) -> str:
     """Create a .zip archive in a temp file from a dict of {name: content}.
 
     Returns the path to the archive.
@@ -46,7 +47,7 @@ def _make_zip(members):
 # --- Pure Python ---
 
 
-def test_pure_python():
+def test_pure_python() -> None:
     archive = _make_tar_gz({
         "pkg-1.0/": None,
         "pkg-1.0/setup.py": "from setuptools import setup; setup()",
@@ -62,7 +63,7 @@ def test_pure_python():
 # --- C extension ---
 
 
-def test_c_extension():
+def test_c_extension() -> None:
     archive = _make_tar_gz({
         "pkg-1.0/": None,
         "pkg-1.0/pkg/__init__.py": "",
@@ -76,7 +77,7 @@ def test_c_extension():
     assert result["inferred_build_requires"] == []
 
 
-def test_headers_only_not_native():
+def test_headers_only_not_native() -> None:
     """Packages with only .h/.hpp files are not considered native."""
     archive = _make_tar_gz({
         "pkg-1.0/": None,
@@ -92,7 +93,7 @@ def test_headers_only_not_native():
 # --- Cython ---
 
 
-def test_cython():
+def test_cython() -> None:
     archive = _make_tar_gz({
         "pkg-1.0/": None,
         "pkg-1.0/pkg/__init__.py": "",
@@ -107,7 +108,7 @@ def test_cython():
 # --- Rust ---
 
 
-def test_rust():
+def test_rust() -> None:
     archive = _make_tar_gz({
         "pkg-1.0/": None,
         "pkg-1.0/src/lib.rs": "fn main() {}",
@@ -121,7 +122,7 @@ def test_rust():
 # --- pyproject.toml parsing ---
 
 
-def test_pyproject_build_requires():
+def test_pyproject_build_requires() -> None:
     pyproject = """\
 [build-system]
 requires = ["setuptools>=68", "wheel", "cython>=3.0"]
@@ -138,7 +139,7 @@ build-backend = "setuptools.build_meta"
     assert "cython" in result["build_requires"]
 
 
-def test_pyproject_degrades_without_tomllib():
+def test_pyproject_degrades_without_tomllib() -> None:
     """On a pre-3.11 interpreter, pyproject parsing is skipped with a warning
     while the rest of the tool (native detection etc.) keeps working."""
     from uv.private.sdist_configure import detect_native
@@ -160,7 +161,7 @@ def test_pyproject_degrades_without_tomllib():
 # --- setup.cfg parsing ---
 
 
-def test_setup_cfg_build_requires():
+def test_setup_cfg_build_requires() -> None:
     setup_cfg = """\
 [options]
 setup_requires =
@@ -180,7 +181,7 @@ setup_requires =
 # --- legacy setup.py fallback ---
 
 
-def test_legacy_setup_py_infers_setuptools():
+def test_legacy_setup_py_infers_setuptools() -> None:
     """A setup.py-only package (no pyproject.toml) gets setuptools+wheel inferred."""
     archive = _make_tar_gz({
         "pkg-1.0/": None,
@@ -192,7 +193,7 @@ def test_legacy_setup_py_infers_setuptools():
     assert "wheel" in result["build_requires"]
 
 
-def test_pyproject_does_not_infer_setuptools():
+def test_pyproject_does_not_infer_setuptools() -> None:
     """A package with pyproject.toml should NOT get implicit setuptools."""
     archive = _make_tar_gz({
         "pkg-1.0/": None,
@@ -211,7 +212,7 @@ def test_pyproject_does_not_infer_setuptools():
 # --- extra_deps resolution ---
 
 
-def test_extra_deps_resolved_from_available():
+def test_extra_deps_resolved_from_available() -> None:
     """Declared build deps that exist in available_deps become extra_deps."""
     pyproject = """\
 [build-system]
@@ -235,7 +236,7 @@ build-backend = "setuptools.build_meta"
     assert "cython" in result["extra_deps"]
 
 
-def test_extra_deps_excludes_already_provided():
+def test_extra_deps_excludes_already_provided() -> None:
     """Deps already in the explicit deps list are not reported as extra."""
     pyproject = """\
 [build-system]
@@ -260,7 +261,7 @@ build-backend = "setuptools.build_meta"
     assert "cython" in result["extra_deps"]
 
 
-def test_extra_deps_unresolvable_not_included():
+def test_extra_deps_unresolvable_not_included() -> None:
     """Deps not in available_deps are silently omitted from extra_deps."""
     pyproject = """\
 [build-system]
@@ -286,7 +287,7 @@ build-backend = "setuptools.build_meta"
 # --- Inferred deps merged into extra_deps ---
 
 
-def test_inferred_deps_in_extra_deps():
+def test_inferred_deps_in_extra_deps() -> None:
     """Extension-inferred deps (e.g. .pyx -> cython) show up in extra_deps."""
     archive = _make_tar_gz({
         "pkg-1.0/": None,
@@ -307,7 +308,7 @@ def test_inferred_deps_in_extra_deps():
 # --- Zip archive support ---
 
 
-def test_zip_archive():
+def test_zip_archive() -> None:
     archive = _make_zip({
         "pkg-1.0/pkg/__init__.py": "",
         "pkg-1.0/pkg/ext.c": "/* C */",
@@ -317,7 +318,7 @@ def test_zip_archive():
     assert "pkg-1.0/pkg/ext.c" in result["native_files"]
 
 
-def test_zip_archive_with_pyproject():
+def test_zip_archive_with_pyproject() -> None:
     archive = _make_zip({
         "pkg-1.0/pkg/__init__.py": "",
         "pkg-1.0/pkg/ext.c": "/* C */",
@@ -334,7 +335,7 @@ def test_zip_archive_with_pyproject():
 # --- Config files at root (no top-level directory) ---
 
 
-def test_flat_archive():
+def test_flat_archive() -> None:
     """Some archives don't have a top-level directory prefix."""
     archive = _make_tar_gz({
         "pyproject.toml": '[build-system]\nrequires = ["flit_core"]\nbuild-backend = "flit_core.buildapi"\n',
@@ -347,7 +348,7 @@ def test_flat_archive():
 # --- setup.py partial evaluator ---
 
 
-def test_setup_py_literal_setup_requires():
+def test_setup_py_literal_setup_requires() -> None:
     """setup_requires as a literal list in setup()."""
     archive = _make_tar_gz({
         "pkg-1.0/": None,
@@ -369,7 +370,7 @@ def test_setup_py_literal_setup_requires():
     assert "requests" in result["setup_py_install_requires"]
 
 
-def test_setup_py_variable_reference():
+def test_setup_py_variable_reference() -> None:
     """setup_requires referencing a variable defined earlier."""
     archive = _make_tar_gz({
         "pkg-1.0/": None,
@@ -388,7 +389,7 @@ def test_setup_py_variable_reference():
     assert "numpy" in result["build_requires"]
 
 
-def test_setup_py_list_concatenation():
+def test_setup_py_list_concatenation() -> None:
     """setup_requires built from list concatenation."""
     archive = _make_tar_gz({
         "pkg-1.0/": None,
@@ -408,7 +409,7 @@ def test_setup_py_list_concatenation():
     assert "cython" in result["build_requires"]
 
 
-def test_setup_py_setuptools_dot_setup():
+def test_setup_py_setuptools_dot_setup() -> None:
     """setuptools.setup() call syntax."""
     archive = _make_tar_gz({
         "pkg-1.0/": None,
@@ -425,7 +426,7 @@ def test_setup_py_setuptools_dot_setup():
     assert "cython" in result["build_requires"]
 
 
-def test_setup_py_dynamic_deps():
+def test_setup_py_dynamic_deps() -> None:
     """Dynamic deps computed at runtime are captured by exec."""
     archive = _make_tar_gz({
         "pkg-1.0/": None,
@@ -446,7 +447,7 @@ def test_setup_py_dynamic_deps():
     assert "scipy" in result["setup_py_install_requires"]
 
 
-def test_setup_py_imports_own_package():
+def test_setup_py_imports_own_package() -> None:
     """setup.py that imports the package (e.g. for __version__) doesn't crash."""
     archive = _make_tar_gz({
         "pkg-1.0/": None,
@@ -465,7 +466,7 @@ def test_setup_py_imports_own_package():
     assert "cython" in result["build_requires"]
 
 
-def test_setup_py_distutils_setup():
+def test_setup_py_distutils_setup() -> None:
     """distutils.core.setup() call syntax."""
     archive = _make_tar_gz({
         "pkg-1.0/": None,
@@ -482,7 +483,7 @@ def test_setup_py_distutils_setup():
     assert "requests" in result["setup_py_install_requires"]
 
 
-def test_setup_py_syntax_error_graceful():
+def test_setup_py_syntax_error_graceful() -> None:
     """A setup.py with syntax errors should not crash detection."""
     archive = _make_tar_gz({
         "pkg-1.0/": None,
@@ -494,7 +495,7 @@ def test_setup_py_syntax_error_graceful():
     assert result["setup_py_install_requires"] == []
 
 
-def test_setup_py_exception_graceful():
+def test_setup_py_exception_graceful() -> None:
     """A setup.py that raises during exec should not crash detection."""
     archive = _make_tar_gz({
         "pkg-1.0/": None,
@@ -508,7 +509,7 @@ def test_setup_py_exception_graceful():
     assert result["setup_py_install_requires"] == []
 
 
-def test_setup_py_setup_requires_in_extra_deps():
+def test_setup_py_setup_requires_in_extra_deps() -> None:
     """setup.py setup_requires should feed into extra_deps resolution."""
     archive = _make_tar_gz({
         "pkg-1.0/": None,
@@ -534,7 +535,7 @@ def test_setup_py_setup_requires_in_extra_deps():
     assert "numpy" in result["extra_deps"]
 
 
-def test_setup_py_main_guard():
+def test_setup_py_main_guard() -> None:
     """setup.py with if __name__ == '__main__' guard."""
     archive = _make_tar_gz({
         "pkg-1.0/": None,
@@ -554,7 +555,7 @@ def test_setup_py_main_guard():
     assert "numpy" in result["setup_py_install_requires"]
 
 
-def test_setup_py_distutils_qualified_call():
+def test_setup_py_distutils_qualified_call() -> None:
     """distutils.core.setup() via qualified attribute access (not from-import)."""
     archive = _make_tar_gz({
         "pkg-1.0/": None,
@@ -571,7 +572,7 @@ def test_setup_py_distutils_qualified_call():
     assert "requests" in result["setup_py_install_requires"]
 
 
-def test_setup_py_file_io_failure_graceful():
+def test_setup_py_file_io_failure_graceful() -> None:
     """setup.py that reads a nonexistent file before calling setup()."""
     archive = _make_tar_gz({
         "pkg-1.0/": None,
@@ -593,7 +594,7 @@ def test_setup_py_file_io_failure_graceful():
     assert result["setup_py_install_requires"] == []
 
 
-def test_setup_py_never_calls_setup():
+def test_setup_py_never_calls_setup() -> None:
     """setup.py that imports setuptools but never calls setup()."""
     archive = _make_tar_gz({
         "pkg-1.0/": None,
@@ -608,7 +609,7 @@ def test_setup_py_never_calls_setup():
     assert result["setup_py_install_requires"] == []
 
 
-def test_setup_py_sys_exit_graceful():
+def test_setup_py_sys_exit_graceful() -> None:
     """setup.py that calls sys.exit() should not crash detection."""
     archive = _make_tar_gz({
         "pkg-1.0/": None,
@@ -623,7 +624,7 @@ def test_setup_py_sys_exit_graceful():
     assert result["setup_py_install_requires"] == []
 
 
-def test_setup_py_platform_conditional():
+def test_setup_py_platform_conditional() -> None:
     """setup.py using platform.system() for conditional deps."""
     archive = _make_tar_gz({
         "pkg-1.0/": None,
@@ -646,7 +647,7 @@ def test_setup_py_platform_conditional():
     # but the point is it doesn't crash
 
 
-def test_setup_py_pkg_resources_import():
+def test_setup_py_pkg_resources_import() -> None:
     """setup.py importing pkg_resources — handled by mock import system."""
     archive = _make_tar_gz({
         "pkg-1.0/": None,
@@ -664,7 +665,7 @@ def test_setup_py_pkg_resources_import():
     assert "requests" in result["setup_py_install_requires"]
 
 
-def test_setup_py_chdir_restored():
+def test_setup_py_chdir_restored() -> None:
     """setup.py that calls os.chdir() — cwd should be restored."""
     original_cwd = os.getcwd()
     archive = _make_tar_gz({
@@ -682,7 +683,7 @@ def test_setup_py_chdir_restored():
     assert "requests" in result["setup_py_install_requires"]
 
 
-def test_setup_py_sys_path_restored():
+def test_setup_py_sys_path_restored() -> None:
     """setup.py that mutates sys.path — should be restored."""
     original_path = sys.path[:]
     archive = _make_tar_gz({
@@ -700,7 +701,7 @@ def test_setup_py_sys_path_restored():
     assert "requests" in result["setup_py_install_requires"]
 
 
-def test_setup_py_extension_with_install_requires():
+def test_setup_py_extension_with_install_requires() -> None:
     """setup.py with Extension() objects and install_requires."""
     archive = _make_tar_gz({
         "pkg-1.0/": None,
@@ -722,7 +723,7 @@ def test_setup_py_extension_with_install_requires():
     assert "cython" in result["build_requires"]
 
 
-def test_setup_cfg_and_setup_py_merged():
+def test_setup_cfg_and_setup_py_merged() -> None:
     """Both setup.cfg and setup.py providing different deps — should merge."""
     archive = _make_tar_gz({
         "pkg-1.0/": None,

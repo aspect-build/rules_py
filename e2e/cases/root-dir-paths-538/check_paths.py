@@ -7,7 +7,7 @@ import os
 import sys
 
 
-def test_no_double_slashes():
+def test_no_double_slashes() -> None:
     assert "//" not in __file__, f"__file__ contains '//': {__file__}"
     assert "//" not in sys.executable, f"sys.executable contains '//': {sys.executable}"
     venv = os.environ.get("VIRTUAL_ENV", "")

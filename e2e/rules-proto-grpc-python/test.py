@@ -13,7 +13,7 @@ re-exported provider seam.
 import greeting_pb2
 
 
-def test_roundtrip():
+def test_roundtrip() -> None:
     original = greeting_pb2.Greeting(name="rules_py", message="hello, world")
 
     wire = original.SerializeToString()

@@ -24,6 +24,7 @@ import subprocess
 import zipfile
 from base64 import urlsafe_b64encode
 from pathlib import Path
+from typing import Dict, List, Optional, Tuple
 from urllib.parse import unquote
 
 _RELOCATABLE_SHEBANG = """\
@@ -37,7 +38,7 @@ _WINDOWS_RESERVED = {"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$"} | {
 }
 
 
-def _sha256(path):
+def _sha256(path: Path) -> str:
     h = hashlib.sha256()
     with path.open("rb") as f:
         for chunk in iter(lambda: f.read(65536), b""):
@@ -45,20 +46,20 @@ def _sha256(path):
     return "sha256=" + urlsafe_b64encode(h.digest()).decode().rstrip("=")
 
 
-def _has_python_shebang(data):
+def _has_python_shebang(data: bytes) -> bool:
     return data.startswith(b"#!") and b"python" in data.split(b"\n", 1)[0]
 
 
-def _is_native_library(path):
+def _is_native_library(path: Path) -> bool:
     name = path.name
     _, so_separator, so_version = name.partition(".so.")
     return (
         name.endswith((".so", ".pyd", ".dylib", ".dll"))
-        or (so_separator and so_version and so_version[0].isdigit())
+        or bool(so_separator and so_version and so_version[0].isdigit())
     )
 
 
-def _native_descendants(directory):
+def _native_descendants(directory: Path) -> Tuple[str, ...]:
     return tuple(sorted(
         path.relative_to(directory).as_posix()
         for path in directory.rglob("*")
@@ -66,7 +67,7 @@ def _native_descendants(directory):
     ))
 
 
-def _write_executable(path, content):
+def _write_executable(path: Path, content: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(content)
     path.chmod(0o755)
@@ -103,7 +104,7 @@ def _record_metadata(zf):
     }
 
 
-def _relative_path(value, what):
+def _relative_path(value: str, what: str) -> Path:
     """Return a safe host path for a wheel-controlled POSIX path."""
     parts = value.split("/")
     if (
@@ -121,7 +122,7 @@ def _relative_path(value, what):
     return Path(*parts)
 
 
-def install_wheel(version_major, version_minor, into, wheel_path):
+def install_wheel(version_major: int, version_minor: int, into: Path, wheel_path: Path) -> None:
     """Install a wheel into *into*, following PEP 427 layout conventions.
 
     Accepts either a direct ``.whl`` file or a directory containing exactly
@@ -143,7 +144,7 @@ def install_wheel(version_major, version_minor, into, wheel_path):
     site_packages.mkdir(parents=True, exist_ok=True)
     bin_dir.mkdir(parents=True, exist_ok=True)
 
-    installed = []
+    installed: List[Path] = []
 
     with zipfile.ZipFile(wheel_path, "r") as zf:
         record_dir, record_metadata = _record_metadata(zf)
@@ -207,7 +208,7 @@ def install_wheel(version_major, version_minor, into, wheel_path):
 
     for ep_path in site_packages.glob("*.dist-info/entry_points.txt"):
         cp = configparser.ConfigParser(strict=False, delimiters=("=",))
-        cp.optionxform = str
+        cp.optionxform = str  # type: ignore[method-assign, assignment]
         cp.read(str(ep_path), encoding="utf-8")
         for section in ("console_scripts", "gui_scripts"):
             if section not in cp:
@@ -268,7 +269,7 @@ def install_wheel(version_major, version_minor, into, wheel_path):
             csv.writer(fh).writerows(rows)
 
 
-def main():
+def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--into", required=True, type=Path)
     ap.add_argument("--wheel", required=True, type=Path)
@@ -298,8 +299,8 @@ def main():
     )
     # Analysis uses these paths for collision and merge planning. Snapshot their
     # installed shape here, where both the before and after states are available.
-    observed_files = []
-    observed_directories = {}
+    observed_files: List[Path] = []
+    observed_directories: Dict[Path, Tuple[Optional[bool], Tuple[str, ...]]] = {}
     for relative_string in args.preserve_path:
         relative = Path(relative_string)
         if relative.is_absolute() or ".." in relative.parts:

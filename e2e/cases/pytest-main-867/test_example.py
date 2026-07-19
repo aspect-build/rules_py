@@ -8,7 +8,7 @@ Test discovery uses the .pytest_paths args file rather than autodiscovery.
 import os
 
 
-def test_paths_file_exists():
+def test_paths_file_exists() -> None:
     """The pytest_paths args file should be present in runfiles."""
     target = os.environ.get("BAZEL_TARGET", "")
     target_name = os.environ.get("BAZEL_TARGET_NAME", "")

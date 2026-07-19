@@ -2,13 +2,14 @@
 
 print("---")
 import _virtualenv
+from typing import Union
 
 output_base = _virtualenv.__file__.split("/execroot/")[0]
 execroot = f"{output_base}/execroot"
 external = f"{output_base}/external"
 runfiles = _virtualenv.__file__.split(".runfiles/")[0] + ".runfiles"
 
-def _simplify(s):
+def _simplify(s: Union[str, list[str]]) -> Union[str, list[str]]:
     if isinstance(s, str):
         return s \
             .replace(runfiles, "${RUNFILES}") \

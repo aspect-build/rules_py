@@ -1,3 +1,3 @@
 
-def foo_func():
+def foo_func() -> str:
     return "foo"

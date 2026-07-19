@@ -18,7 +18,7 @@ import sys
 import sysconfig
 
 
-def test_both_contributors_import():
+def test_both_contributors_import() -> None:
     import jaraco.classes
     import jaraco.functools
 
@@ -36,7 +36,7 @@ def test_both_contributors_import():
     )
 
 
-def test_entried_contributor_is_concrete():
+def test_entried_contributor_is_concrete() -> None:
     """The uv (entried) wheel's subpackage must be reachable by plain
     directory traversal of site-packages — the way mypy/pyright see it —
     even though it shares the namespace with an entryless wheel."""

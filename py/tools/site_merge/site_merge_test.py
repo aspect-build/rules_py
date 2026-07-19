@@ -4,11 +4,12 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Optional
 
 from site_merge import merge
 
 
-def _write(path, content, mode=None):
+def _write(path: Path, content: str, mode: Optional[int] = None) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content)
     if mode is not None:
@@ -16,7 +17,7 @@ def _write(path, content, mode=None):
 
 
 class SiteMergeTest(unittest.TestCase):
-    def test_later_source_overlays_earlier_source(self):
+    def test_later_source_overlays_earlier_source(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             first = root / "first"
@@ -79,7 +80,7 @@ class SiteMergeTest(unittest.TestCase):
             )
             self.assertEqual(stat.S_IMODE((first / "distinct").stat().st_mode), 0o444)
 
-    def test_collision_policy_controls_reporting_and_status(self):
+    def test_collision_policy_controls_reporting_and_status(self) -> None:
         for policy in ("warning", "ignore", "error"):
             with (
                 self.subTest(policy=policy),

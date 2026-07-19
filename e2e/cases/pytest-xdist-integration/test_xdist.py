@@ -29,29 +29,29 @@ PID_LOG = os.path.join(
 )
 
 
-def _record_pid():
+def _record_pid() -> None:
     # Append so concurrent writers from different workers don't clobber.
     with open(PID_LOG, "a") as f:
         f.write(f"{os.getpid()}\n")
 
 
-def test_one():
+def test_one() -> None:
     _record_pid()
 
 
-def test_two():
+def test_two() -> None:
     _record_pid()
 
 
-def test_three():
+def test_three() -> None:
     _record_pid()
 
 
-def test_four():
+def test_four() -> None:
     _record_pid()
 
 
-def test_zzz_sentinel_verify_parallel_execution():
+def test_zzz_sentinel_verify_parallel_execution() -> None:
     # Name starts with `zzz` so pytest collection orders it last.
     # Assumption: pytest collection order correlates with test start
     # order within a single worker; across workers xdist's default

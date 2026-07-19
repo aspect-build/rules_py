@@ -33,7 +33,7 @@ files:
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_multi_bin.venv/bin/python3.11 -> python
   - -rwxr-xr-x  0 0      0         105 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_multi_bin.venv/lib/python3.11/site-packages/_my_app_multi_bin.venv.pth
   - -rwxr-xr-x  0 0      0          19 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_multi_bin.venv/lib/python3.11/site-packages/_virtualenv.pth
-  - -rwxr-xr-x  0 0      0        4133 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_multi_bin.venv/lib/python3.11/site-packages/_virtualenv.py
+  - -rwxr-xr-x  0 0      0        4911 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_multi_bin.venv/lib/python3.11/site-packages/_virtualenv.py
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_multi_bin.venv/lib/python3.11/site-packages/colorama -> ../../../../../../../aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_multi_bin.venv/lib/python3.11/site-packages/colorama-0.4.6.dist-info -> ../../../../../../../aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama-0.4.6.dist-info
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_multi_bin.venv/lib/python3.11/site-packages/pyproject_hooks -> ../../../../../../../aspect_rules_py++uv+whl_install__images__pyproject_hooks__1_2_0/actual_install.install/lib/python3.11/site-packages/pyproject_hooks

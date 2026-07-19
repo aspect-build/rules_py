@@ -2,7 +2,7 @@ import os
 import sysconfig
 
 
-def test_runtime_imports():
+def test_runtime_imports() -> None:
     import azure.core
     import azure.identity
     import azure.core.tracing.ext.opentelemetry_span
@@ -11,7 +11,7 @@ def test_runtime_imports():
     assert azure.identity.__file__ is not None
 
 
-def test_sibling_entry_is_concrete_in_site_packages():
+def test_sibling_entry_is_concrete_in_site_packages() -> None:
     site_packages = sysconfig.get_paths()["purelib"]
 
     azure_dir = os.path.join(site_packages, "azure")
@@ -34,7 +34,7 @@ def test_sibling_entry_is_concrete_in_site_packages():
     )
 
 
-def test_conflicted_root_is_physically_merged():
+def test_conflicted_root_is_physically_merged() -> None:
     site_packages = sysconfig.get_paths()["purelib"]
     core_dir = os.path.join(site_packages, "azure", "core")
     assert os.path.isdir(core_dir), (

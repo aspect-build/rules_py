@@ -16,7 +16,7 @@ import subprocess
 import sys
 
 
-def test_python_dash_I():
+def test_python_dash_I() -> None:
     """Invoke the venv interpreter with -I and verify it can still start."""
     python = sys.executable
     assert python, "sys.executable is not set"
@@ -37,7 +37,7 @@ def test_python_dash_I():
     print(f"python -I: executable = {result.stdout.strip()}")
 
 
-def test_python_dash_E():
+def test_python_dash_E() -> None:
     """Invoke the venv interpreter with -E (ignore environment)."""
     python = sys.executable
     result = subprocess.run(
@@ -55,7 +55,7 @@ def test_python_dash_E():
     print(f"python -E: prefix = {result.stdout.strip()}")
 
 
-def test_python_dash_I_can_import():
+def test_python_dash_I_can_import() -> None:
     """Verify that -I doesn't break stdlib imports."""
     python = sys.executable
     result = subprocess.run(

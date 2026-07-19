@@ -10,10 +10,12 @@ import os
 import shlex
 import subprocess
 from pathlib import Path
+from typing import Dict, List, Mapping, Optional, Union
 from zipfile import ZIP_DEFLATED, ZipFile
 
 _DIST_INFO = "native_dep_ext-0.0.1.dist-info"
 _EXT = "native_dep_ext.so"
+ConfigSettings = Optional[Mapping[str, Union[str, List[str]]]]
 
 
 def _compile() -> None:
@@ -37,16 +39,22 @@ def _compile() -> None:
     subprocess.run([*cc, "-shared", "mod.o", *ldflags, "-o", _EXT], check=True)
 
 
-def get_requires_for_build_wheel(config_settings=None):
+def get_requires_for_build_wheel(
+    config_settings: ConfigSettings = None,
+) -> List[str]:
     del config_settings
     return []
 
 
-def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
+def build_wheel(
+    wheel_directory: str,
+    config_settings: ConfigSettings = None,
+    metadata_directory: Optional[str] = None,
+) -> str:
     del config_settings, metadata_directory
     _compile()
 
-    files = {
+    files: Dict[str, bytes] = {
         _EXT: Path(_EXT).read_bytes(),
         f"{_DIST_INFO}/METADATA": (
             "Metadata-Version: 2.1\nName: native-dep-ext\nVersion: 0.0.1\n"
@@ -59,7 +67,7 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
         ).encode(),
     }
 
-    rows = []
+    rows: List[List[str]] = []
     for name, content in files.items():
         digest = base64.urlsafe_b64encode(hashlib.sha256(content).digest()).rstrip(b"=")
         rows.append([name, "sha256=" + digest.decode(), str(len(content))])

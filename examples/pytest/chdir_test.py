@@ -14,14 +14,14 @@ import json
 import os
 
 
-def test_cwd_is_fixtures_dir():
+def test_cwd_is_fixtures_dir() -> None:
     cwd = os.getcwd()
     assert cwd.endswith("/fixtures"), (
         f"expected chdir into fixtures, got {cwd!r}"
     )
 
 
-def test_relative_open_resolves_against_chdir():
+def test_relative_open_resolves_against_chdir() -> None:
     # No path prefix — if chdir didn't happen, this open() would raise.
     with open("hello.json") as f:
         data = json.load(f)

@@ -15,16 +15,18 @@
 #
 # - Write a YAML format manifest file {manifest: {modules_mapping: <mapping>, pip_repository: <hub name>}}
 
+from __future__ import annotations
+
 import argparse
 import sys
 from zipfile import ZipFile
 from pathlib import Path
 from email.parser import Parser
 from io import StringIO
-from typing import Optional, Set, List, Tuple
+from typing import List, Optional, Set, Tuple
 from collections import defaultdict
 
-def normalize_name(name):
+def normalize_name(name: str) -> str:
     """normalize a PyPI package name and return a valid bazel label.
 
     Args:
@@ -250,7 +252,7 @@ def find_unique_shallowest_prefixes(all_module_package_pairs: List[Tuple[str, st
     return final_module_mapping
 
 
-def main():
+def main() -> None:
     """
     Parses arguments, processes wheel files, and generates the final manifest.
     """

@@ -5,7 +5,7 @@ import sys
 import os
 
 
-def main():
+def main() -> None:
     test_file = os.path.join(os.path.dirname(__file__), "test_mock.py")
     rc = subprocess.run(
         [sys.executable, "-m", "pytest", test_file, "-v"],

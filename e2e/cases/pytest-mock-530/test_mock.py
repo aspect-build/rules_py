@@ -4,18 +4,20 @@ Exercises the ``mocker`` fixture provided by the pytest-mock plugin, which
 requires pytest plugin discovery to function correctly.
 """
 
+from pytest_mock import MockerFixture
 
-def _real_function():
+
+def _real_function() -> int:
     return 42
 
 
-def test_mocker_patch(mocker):
+def test_mocker_patch(mocker: MockerFixture) -> None:
     """The mocker fixture should be available and functional."""
     mocker.patch(f"{__name__}._real_function", return_value=99)
     assert _real_function() == 99
 
 
-def test_mocker_spy(mocker):
+def test_mocker_spy(mocker: MockerFixture) -> None:
     """mocker.spy should wrap a real function and track calls."""
     spy = mocker.spy(__import__("os.path", fromlist=["exists"]), "exists")
     import os.path
@@ -23,7 +25,7 @@ def test_mocker_spy(mocker):
     spy.assert_called_once_with("/")
 
 
-def test_mocker_mock_object(mocker):
+def test_mocker_mock_object(mocker: MockerFixture) -> None:
     """mocker.MagicMock should create mock objects."""
     mock = mocker.MagicMock()
     mock.some_method.return_value = "hello"

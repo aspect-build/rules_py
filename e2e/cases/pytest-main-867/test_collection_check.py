@@ -9,7 +9,7 @@ import sys
 import os
 
 
-def test_no_spurious_collection():
+def test_no_spurious_collection() -> None:
     """Run pytest --collect-only on ourselves and verify the collected count."""
     # We need to collect from the same directory the real test would use.
     # The .pytest_paths file tells us where to look.

@@ -20,3 +20,73 @@ dependencies = [
    "bazel-runfiles",
    "maturin",
 ]
+
+[tool.ruff]
+target-version = "py39"
+extend-exclude = [
+   "**/third_party/**",
+   "examples/virtual_deps/cowsnake/cowsay.py",
+   "e2e/cases/cross-repo-610/subrepo_a",
+   "e2e/cases/cross-repo-610/subrepo_b",
+   "e2e/cases/hermetic-launcher-1116/hello.py",
+   "e2e/cases/oci/py_image_layer/branding",
+   "e2e/cases/oci/py_image_layer/server.py",
+   "e2e/cases/oci/validator-exec-config/app.py",
+   "e2e/cases/pex-interpreter-exclusion/app.py",
+   "e2e/cases/pth-install-tree-fallback/a",
+   "e2e/cases/pth-install-tree-fallback/b",
+   "e2e/cases/py-library-defaultinfo-891/leaf.py",
+   "e2e/cases/py-library-defaultinfo-891/mid.py",
+   "e2e/cases/pytest-subdir-imports/lib.py",
+   "e2e/cases/repository-rule-deps-299/direct",
+   "e2e/cases/repository-rule-deps-299/imported",
+   "e2e/cases/repository-rule-deps-299/toplevel",
+   "e2e/cases/uv-workspace-789/packages",
+   "e2e/cases/venv-conflict-608/app.py",
+   "py/private/py_venv/tests/main.py",
+   "py/tests/console-scripts/dotted_entry",
+   "py/tests/external-deps/custom-macro",
+   "py/tests/external-deps/lib.py",
+   "py/tests/internal-deps/adder",
+   "py/tests/internal-deps/pi.py",
+   "py/tests/internal-deps/sub.py",
+   "py/tests/main.py",
+   "py/tests/py-pex-binary/noop.py",
+   "py/tests/py-venv-multi-exec/shared_lib.py",
+   "py/tests/py-venv-standalone-interpreter/ex.py",
+   "py/tests/py_venv_conflict/a",
+   "py/tests/py_venv_conflict/b",
+   "py/tests/py_venv_conflict/lib.py",
+   "py/tests/repo_relative_imports/lib",
+   "py/tests/reset-data-edges/main.py",
+   "py/tests/virtual/django/proj",
+   "py/tests/wheel-root-pth-double/a",
+   "py/tests/wheel-root-pth-double/b",
+]
+
+[tool.ruff.lint]
+select = [
+   "ANN001",
+   "ANN002",
+   "ANN003",
+   "ANN201",
+   "ANN202",
+   "ANN204",
+   "ANN205",
+   "ANN206",
+]
+
+[tool.mypy]
+namespace_packages = true
+explicit_package_bases = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+disallow_any_generics = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = ["coverage", "pex", "pex.*", "pytest_shard"]
+ignore_missing_imports = true

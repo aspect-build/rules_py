@@ -2,6 +2,17 @@
 
 import os
 import sys
+from importlib.machinery import ModuleSpec
+from types import ModuleType
+from typing import TYPE_CHECKING, Callable, List, MutableMapping, Optional, Protocol, Sequence, Tuple
+
+if TYPE_CHECKING:
+    import threading
+
+
+class _Distribution(Protocol):
+    def get_option_dict(self, command: str) -> MutableMapping[str, Tuple[str, str]]: ...
+
 
 # Make wheel-declared console scripts reachable via `subprocess.run("name", ...)`.
 # Use dirname(sys.executable) so this works on Windows too, where the scripts
@@ -14,7 +25,7 @@ del _venv_bin
 VIRTUALENV_PATCH_FILE = os.path.join(__file__)
 
 
-def patch_dist(dist):
+def patch_dist(dist: ModuleType) -> None:
     """
     Distutils allows user to configure some arguments via a configuration file:
     https://docs.python.org/3.11/install/index.html#distutils-configuration-files.
@@ -24,7 +35,7 @@ def patch_dist(dist):
     # we cannot allow some install config as that would get packages installed outside of the virtual environment
     old_parse_config_files = dist.Distribution.parse_config_files
 
-    def parse_config_files(self, *args, **kwargs):
+    def parse_config_files(self: _Distribution, *args: object, **kwargs: object) -> object:
         result = old_parse_config_files(self, *args, **kwargs)
         install = self.get_option_dict("install")
 
@@ -48,14 +59,19 @@ _DISTUTILS_PATCH = "distutils.dist", "setuptools.dist"
 class _Finder:
     """A meta path finder that allows patching the imported distutils modules."""
 
-    fullname = None
+    fullname: Optional[str] = None
 
     # lock[0] is threading.Lock(), but initialized lazily to avoid importing threading very early at startup,
     # because there are gevent-based applications that need to be first to import threading by themselves.
     # See https://github.com/pypa/virtualenv/issues/1895 for details.
-    lock = []  # noqa: RUF012
+    lock: "List[threading.Lock]" = []  # noqa: RUF012
 
-    def find_spec(self, fullname, path, target=None):  # noqa: ARG002
+    def find_spec(
+        self,
+        fullname: str,
+        path: Optional[Sequence[str]],
+        target: Optional[ModuleType] = None,
+    ) -> Optional[ModuleSpec]:  # noqa: ARG002
         if fullname in _DISTUTILS_PATCH and self.fullname is None:
             # initialize lock[0] lazily
             if len(self.lock) == 0:
@@ -75,19 +91,22 @@ class _Finder:
             with self.lock[0]:
                 self.fullname = fullname
                 try:
-                    spec = find_spec(fullname, path)
+                    spec = find_spec(fullname, path)  # type: ignore[arg-type]
                     if spec is not None:
                         # https://www.python.org/dev/peps/pep-0451/#how-loading-will-work
+                        assert spec.loader is not None
                         old = spec.loader.exec_module
                         if old is not self.exec_module:
-                            spec.loader.exec_module = partial(self.exec_module, old)
+                            spec.loader.exec_module = partial(  # type: ignore[method-assign]
+                                self.exec_module, old
+                            )
                         return spec
                 finally:
                     self.fullname = None
         return None
 
     @staticmethod
-    def exec_module(old, module):
+    def exec_module(old: Callable[[ModuleType], None], module: ModuleType) -> None:
         old(module)
         if module.__name__ in _DISTUTILS_PATCH:
             patch_dist(module)

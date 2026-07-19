@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 
 
-def munge_venv_name(target_package, virtualenv_name):
+def munge_venv_name(target_package: str, virtualenv_name: str) -> str:
     acc = (target_package or "").replace("/", "+")
     if acc:
         acc += "+"

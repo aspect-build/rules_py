@@ -15,7 +15,7 @@ import unittest
 
 
 class ConsoleScriptsTest(unittest.TestCase):
-    def test_wrapper_is_on_path(self):
+    def test_wrapper_is_on_path(self) -> None:
         path = shutil.which("cowsay")
         self.assertIsNotNone(
             path,
@@ -26,7 +26,7 @@ class ConsoleScriptsTest(unittest.TestCase):
             "expected wrapper under a bin/ directory, got: {!r}".format(path),
         )
 
-    def test_wrapper_invokes_entry_point(self):
+    def test_wrapper_invokes_entry_point(self) -> None:
         # cowsay 6.1 CLI requires -t <text>; asserts entry-point import and
         # call happens inside the wrapper's Python invocation.
         result = subprocess.run(
@@ -44,7 +44,7 @@ class ConsoleScriptsTest(unittest.TestCase):
         )
         self.assertIn("subprocess-invocation-worked", result.stdout)
 
-    def test_wrapper_needs_only_venv_bin_on_path(self):
+    def test_wrapper_needs_only_venv_bin_on_path(self) -> None:
         wrapper = shutil.which("cowsay")
         self.assertIsNotNone(wrapper)
         result = subprocess.run(
@@ -57,7 +57,7 @@ class ConsoleScriptsTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("restricted-path-worked", result.stdout)
 
-    def test_wrapper_invokes_dotted_entry_point(self):
+    def test_wrapper_invokes_dotted_entry_point(self) -> None:
         result = subprocess.run(
             ["Dotted-Entry"],
             capture_output=True,

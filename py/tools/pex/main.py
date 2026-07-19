@@ -3,6 +3,7 @@
 # pex cli does the same here;
 # https://github.com/pex-tool/pex/blob/252459bdd879fc1e3446a6221571875d46fad1bd/pex/commands/command.py#L362-L382
 import os
+from typing import Any, Optional, Sequence, Union
 from pex.common import safe_mkdtemp, safe_rmtree
 TMP_PEX_ROOT=safe_mkdtemp()
 os.environ["PEX_ROOT"] = TMP_PEX_ROOT
@@ -13,10 +14,17 @@ from pex.inherit_path import InheritPath
 from pex.interpreter_constraints import InterpreterConstraint
 from pex.layout import Layout
 from pex.dist_metadata import Distribution
-from argparse import Action, ArgumentError, ArgumentParser
+from argparse import Action, ArgumentError, ArgumentParser, Namespace
 
 class InjectEnvAction(Action):
-    def __call__(self, parser, namespace, value, option_str=None):
+    def __call__(
+        self,
+        parser: ArgumentParser,
+        namespace: Namespace,
+        value: Union[str, Sequence[Any], None],
+        option_str: Optional[str] = None,
+    ) -> None:
+        assert isinstance(value, str)
         components = value.split("=", 1)
         if len(components) != 2:
             raise ArgumentError(
@@ -28,7 +36,14 @@ class InjectEnvAction(Action):
 
 
 class InheritPathAction(Action):
-    def __call__(self, parser, namespace, value, option_str=None):
+    def __call__(
+        self,
+        parser: ArgumentParser,
+        namespace: Namespace,
+        value: Union[str, Sequence[Any], None],
+        option_str: Optional[str] = None,
+    ) -> None:
+        assert isinstance(value, str)
         value = InheritPath.for_value(value)
         setattr(namespace, self.dest, value)
 

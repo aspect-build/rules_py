@@ -18,7 +18,7 @@ import sys
 EXPECTED = "hello from data file"
 
 
-def read(path):
+def read(path: str) -> str:
     with open(path) as f:
         return f.read().strip()
 

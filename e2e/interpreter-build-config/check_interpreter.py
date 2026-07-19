@@ -3,7 +3,7 @@
 import sys
 
 
-def main():
+def main() -> None:
     assert sys.version_info[:2] == (3, 13), sys.version
     # A stripped install_only build is a regular build: the debug-only
     # sys.gettotalrefcount must be absent and the ABI must carry no flags.

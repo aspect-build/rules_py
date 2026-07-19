@@ -8,13 +8,14 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from typing import Dict, List, Optional
 from unittest import mock
 
 from uv.private.pep517_whl import memory_monitor
 
 
 class MemoryMonitorTest(unittest.TestCase):
-    def test_sums_descendants_spawned_by_any_task(self):
+    def test_sums_descendants_spawned_by_any_task(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             proc_root = Path(directory)
             self._write_process(proc_root, 10, 2, {10: [20], 11: [30]})
@@ -26,7 +27,7 @@ class MemoryMonitorTest(unittest.TestCase):
                 memory_monitor._process_tree_rss_bytes(10, 4096, str(proc_root)),
             )
 
-    def test_walks_children_when_parent_rss_disappears(self):
+    def test_walks_children_when_parent_rss_disappears(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             proc_root = Path(directory)
             self._write_process(proc_root, 10, None, {10: [20]})
@@ -37,7 +38,7 @@ class MemoryMonitorTest(unittest.TestCase):
                 memory_monitor._process_tree_rss_bytes(10, 4096, str(proc_root)),
             )
 
-    def test_preserves_peak_after_sampling_failure(self):
+    def test_preserves_peak_after_sampling_failure(self) -> None:
         stderr = io.StringIO()
         with (
             tempfile.TemporaryFile() as stdout,
@@ -68,7 +69,7 @@ class MemoryMonitorTest(unittest.TestCase):
         sys.platform.startswith("linux") and os.path.isdir("/proc"),
         "requires Linux procfs",
     )
-    def test_failure_reports_peak_and_raises_child_returncode(self):
+    def test_failure_reports_peak_and_raises_child_returncode(self) -> None:
         stderr = io.StringIO()
         with (
             tempfile.TemporaryFile() as stdout,
@@ -95,7 +96,7 @@ class MemoryMonitorTest(unittest.TestCase):
         self.assertRegex(stderr.getvalue(), r"peak=[1-9][0-9.]* MiB, return code=7")
 
     @unittest.skipUnless(hasattr(signal, "SIGKILL"), "requires SIGKILL")
-    def test_sigkill_is_reported_as_a_possible_oom(self):
+    def test_sigkill_is_reported_as_a_possible_oom(self) -> None:
         stderr = io.StringIO()
         with (
             tempfile.TemporaryFile() as stdout,
@@ -121,7 +122,7 @@ class MemoryMonitorTest(unittest.TestCase):
         self.assertIn("SIGKILL; possible OOM", stderr.getvalue())
 
     @unittest.skipUnless(hasattr(os, "getpgrp"), "requires POSIX process groups")
-    def test_child_stays_in_callers_process_group(self):
+    def test_child_stays_in_callers_process_group(self) -> None:
         with (
             tempfile.TemporaryFile(mode="w+") as stdout,
             contextlib.redirect_stderr(io.StringIO()),
@@ -139,7 +140,12 @@ class MemoryMonitorTest(unittest.TestCase):
         self.assertEqual(os.getpgrp(), child_process_group)
 
     @staticmethod
-    def _write_process(proc_root, pid, rss_pages, task_children):
+    def _write_process(
+        proc_root: Path,
+        pid: int,
+        rss_pages: Optional[int],
+        task_children: Dict[int, List[int]],
+    ) -> None:
         process_dir = proc_root / str(pid)
         process_dir.mkdir()
         if rss_pages is not None:

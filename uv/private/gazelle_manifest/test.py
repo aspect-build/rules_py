@@ -2,7 +2,7 @@
 
 from generate import get_importable_module_name, find_unique_shallowest_prefixes
 
-def test_parse_names():
+def test_parse_names() -> None:
     assert get_importable_module_name("foo.py") == "foo"
     assert get_importable_module_name("foo/__init__.py") == "foo"
     assert get_importable_module_name("foo.cpython-311-x86_64-linux-gnu.so") == "foo"
@@ -11,7 +11,7 @@ def test_parse_names():
     assert not get_importable_module_name("_pytest/_io/pprint.py")
     
 # name 1 -- bunch of basic examples
-def test_basic():
+def test_basic() -> None:
     assert find_unique_shallowest_prefixes([
     ("foo", "foo"),
     ("bar", "bar"),

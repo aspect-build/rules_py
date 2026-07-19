@@ -4,6 +4,8 @@
 Search installed packages for entrypoints and expand the entrypoint template.
 """
 
+from __future__ import annotations
+
 import argparse
 import configparser
 from pathlib import Path
@@ -11,7 +13,8 @@ import sys
 
 
 class CaseSensitiveConfigParser(configparser.ConfigParser):
-    optionxform = staticmethod(str)
+    def optionxform(self, optionstr: str) -> str:
+        return optionstr
 
 # Quick and dirty re-implementation of the setuptools search.
 

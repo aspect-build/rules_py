@@ -11,7 +11,7 @@ import subprocess
 import sys
 
 
-def main():
+def main() -> None:
     venv = os.path.join(
         os.environ["TEST_SRCDIR"], os.environ["TEST_WORKSPACE"], ".venv"
     )

@@ -1,7 +1,7 @@
 import os
 
 
-def test_env(env, expected):
+def test_env(env: str, expected: str) -> None:
     assert env in os.environ, f"Expected environ to have key '{env}'"
 
     _actual = os.environ.get(env)

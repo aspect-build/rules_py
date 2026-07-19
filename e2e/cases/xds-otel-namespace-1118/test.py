@@ -8,13 +8,13 @@ import os
 import sysconfig
 
 
-def test_sdk_importable():
+def test_sdk_importable() -> None:
     from opentelemetry.sdk.resources import Resource
 
     assert callable(Resource)
 
 
-def test_merged_layout():
+def test_merged_layout() -> None:
     site_packages = sysconfig.get_paths()["purelib"]
     otel_dir = os.path.join(site_packages, "opentelemetry")
 
