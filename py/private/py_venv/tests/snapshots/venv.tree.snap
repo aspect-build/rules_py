@@ -95,18 +95,22 @@ FILE lib/python3.9/site-packages/_virtualenv.py
 ---
 """Patches that are applied at runtime to the virtual environment."""
 
+from __future__ import annotations
+
 import os
 import sys
-from importlib.machinery import ModuleSpec
-from types import ModuleType
-from typing import TYPE_CHECKING, Callable, List, MutableMapping, Optional, Protocol, Sequence, Tuple
 
+# Mypy recognizes this guard; defining it locally avoids importing typing at startup.
+TYPE_CHECKING = False
 if TYPE_CHECKING:
+    from importlib.machinery import ModuleSpec
+    from types import ModuleType
     import threading
+    from typing import Callable, List, MutableMapping, Optional, Protocol, Sequence, Tuple
 
 
-class _Distribution(Protocol):
-    def get_option_dict(self, command: str) -> MutableMapping[str, Tuple[str, str]]: ...
+    class _Distribution(Protocol):
+        def get_option_dict(self, command: str) -> MutableMapping[str, Tuple[str, str]]: ...
 
 
 # Make wheel-declared console scripts reachable via `subprocess.run("name", ...)`.
