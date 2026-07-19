@@ -140,6 +140,26 @@ def _installer_input(path: Path) -> bool:
     )
 
 
+def _remove_excluded(
+    site_packages: Path, patterns: Sequence[Tuple[str, ...]]
+) -> None:
+    for path in sorted(site_packages.rglob("*"), reverse=True):
+        if not _path_excluded(
+            path.relative_to(site_packages),
+            patterns,
+            path.is_file(),
+        ):
+            continue
+        if path.is_dir():
+            path.rmdir()
+        else:
+            path.unlink()
+
+    for cache in site_packages.rglob("__pycache__"):
+        if cache.is_dir() and not any(cache.iterdir()):
+            cache.rmdir()
+
+
 def _write_executable(path: Path, content: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(content)
@@ -469,21 +489,7 @@ def main() -> None:
             )
 
     if args.exclude_glob:
-        for path in sorted(site_packages.rglob("*"), reverse=True):
-            if not _path_excluded(
-                path.relative_to(site_packages),
-                args.exclude_glob,
-                path.is_file(),
-            ):
-                continue
-            if path.is_dir():
-                path.rmdir()
-            else:
-                path.unlink()
-
-        for cache in site_packages.rglob("__pycache__"):
-            if cache.is_dir() and not any(cache.iterdir()):
-                cache.rmdir()
+        _remove_excluded(site_packages, args.exclude_glob)
 
         removed_roots = original_import_roots - _import_roots(site_packages)
         if removed_roots:
@@ -528,6 +534,8 @@ def main() -> None:
             ],
             check=True,
         )
+        if args.exclude_glob:
+            _remove_excluded(site_packages, args.exclude_glob)
 
         if supplied_pyc:
             # compileall can replace bytecode that was already listed in RECORD.

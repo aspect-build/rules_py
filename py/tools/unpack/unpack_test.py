@@ -375,6 +375,25 @@ def main() -> None:
         ).encode()
         assert installed_script.stat().st_mode & 0o111
 
+        filtered_bytecode_out = root / "filtered-bytecode"
+        filtered_bytecode = _run_unpack(
+            unpack,
+            good_wheel,
+            filtered_bytecode_out,
+            Path(sys.executable),
+            ("--exclude-glob=fixture/__pycache__/mod.*.pyc",),
+        )
+        assert filtered_bytecode.returncode == 0, (
+            filtered_bytecode.stdout + filtered_bytecode.stderr
+        )
+        filtered_bytecode_cache = (
+            filtered_bytecode_out
+            / site_packages.relative_to(good_out)
+            / "fixture"
+            / "__pycache__"
+        )
+        assert next(filtered_bytecode_cache.glob("__init__.*.pyc"))
+        assert not list(filtered_bytecode_cache.glob("mod.*.pyc"))
         no_record_wheel = root / "no_record-1.0-py3-none-any.whl"
         with zipfile.ZipFile(no_record_wheel, "w") as archive:
             _write_member(archive, "fixture/__init__.py", b"VALUE = 1\n")
