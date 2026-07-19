@@ -469,6 +469,17 @@ def metadata_selection_test_suite(name):
         testonly = True,
         src = ":__metadata_detected_sbuild_source",
         console_scripts = _DECLARED_SBUILD_CONSOLE_SCRIPTS,
+        console_scripts_override = True,
+        tags = ["manual"],
+    )
+
+    # A pre-build patch can remove every entry point after inspection. An
+    # explicitly empty override must suppress the stale detected metadata.
+    source_built_wheel(
+        name = "__metadata_cleared_sbuild_wheel",
+        testonly = True,
+        src = ":__metadata_detected_sbuild_source",
+        console_scripts_override = True,
         tags = ["manual"],
     )
 
@@ -526,6 +537,18 @@ def metadata_selection_test_suite(name):
         name = "__metadata_detected_sbuild_fixture",
         testonly = True,
         src = ":__metadata_detected_sbuild_wheel",
+        top_levels = _TOP_LEVELS,
+        top_level_dirs = _TOP_LEVEL_DIRS,
+        namespace_top_levels = _NAMESPACE_TOP_LEVELS,
+        native_roots = _NATIVE_ROOTS,
+        console_scripts = _CONSOLE_SCRIPTS,
+        tags = ["manual"],
+    )
+
+    whl_install(
+        name = "__metadata_cleared_sbuild_fixture",
+        testonly = True,
+        src = ":__metadata_cleared_sbuild_wheel",
         top_levels = _TOP_LEVELS,
         top_level_dirs = _TOP_LEVEL_DIRS,
         namespace_top_levels = _NAMESPACE_TOP_LEVELS,
@@ -612,6 +635,19 @@ def metadata_selection_test_suite(name):
         leaked_top_levels = _TOP_LEVELS[_LINUX_WHL],
         leaked_native_roots = _NATIVE_ROOTS[_LINUX_WHL],
         leaked_console_scripts = _CONSOLE_SCRIPTS[_LINUX_WHL],
+    )
+
+    _metadata_selection_test(
+        name = name + "_cleared_sbuild_test",
+        target_under_test = ":__metadata_cleared_sbuild_fixture",
+        expected_top_levels = [],
+        expected_top_level_dirs = [],
+        expected_namespace_top_levels = [],
+        expected_native_roots = [],
+        expected_console_scripts = [],
+        leaked_top_levels = _TOP_LEVELS[_LINUX_WHL],
+        leaked_native_roots = _NATIVE_ROOTS[_LINUX_WHL],
+        leaked_console_scripts = _DETECTED_SBUILD_CONSOLE_SCRIPTS + _CONSOLE_SCRIPTS[_LINUX_WHL],
     )
 
     _metadata_selection_test(

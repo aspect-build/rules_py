@@ -385,6 +385,19 @@ def test_console_scripts_from_flat_zip_archive() -> None:
     assert result["console_scripts"] == ["percent=pkg.cli:run_%s"]
 
 
+def test_console_scripts_preserve_prefixed_archive_member_names() -> None:
+    members = {
+        "./pkg-1.0/pkg/__init__.py": "",
+        "./pkg-1.0/pkg.egg-info/entry_points.txt": (
+            "[console_scripts]\nprefixed = pkg.cli:main\n"
+        ),
+    }
+    for make_archive in (_make_tar_gz, _make_zip):
+        assert detect(make_archive(members), {})["console_scripts"] == [
+            "prefixed=pkg.cli:main",
+        ]
+
+
 def test_console_scripts_ignore_nested_and_ambiguous_egg_info() -> None:
     nested = _make_tar_gz({
         "pkg-1.0/pkg/__init__.py": "",

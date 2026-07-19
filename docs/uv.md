@@ -356,7 +356,7 @@ Downloaded wheels expose their console scripts while repositories are
 generated. For source-built wheels, the default configure tool reads a
 top-level `*.egg-info/entry_points.txt` in the sdist and forwards its console
 scripts to venv assembly. If an sdist has no usable entry-point metadata,
-declare the complete, nonempty script map on that package's override:
+declare the complete script map on that package's override:
 
 ```starlark
 uv.override_package(
@@ -375,6 +375,9 @@ source-build select arm. If a prebuilt
 wheel is selected instead, its inspected metadata remains authoritative. The
 package layout remains unknown at analysis time, so the complete source-built
 wheel still participates in the normal `.pth` fallback.
+
+An explicit `console_scripts = {}` suppresses all detected scripts, which is
+useful when a pre-build patch removes stale entry-point metadata.
 
 ## Best practices
 

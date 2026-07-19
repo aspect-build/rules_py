@@ -497,10 +497,10 @@ def detect(archive_path: str, context: ConfigureContext) -> DetectionResult:
 
         # Only a top-level egg-info directory belongs to this sdist. Nested
         # entry-point metadata may be vendored and must not create wrappers.
-        member_paths = [PurePosixPath(name) for name in members]
-        rooted = len({path.parts[0] for path in member_paths}) == 1
+        member_paths = [(name, PurePosixPath(name)) for name in members]
+        rooted = len({path.parts[0] for _, path in member_paths}) == 1
         entry_points_paths = [
-            str(path) for path in member_paths
+            name for name, path in member_paths
             if len(path.parts) == (3 if rooted else 2)
             and path.parts[-2].endswith(".egg-info")
             and path.name == "entry_points.txt"

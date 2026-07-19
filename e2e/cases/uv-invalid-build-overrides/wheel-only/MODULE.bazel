@@ -15,7 +15,7 @@ uv.project(
 )
 uv.override_package(
     name = "demo",
-    console_scripts = {"demo": "demo:main"},
+    console_scripts = {},
     env = {"DEMO": "1"},
     lock = "//:uv.lock",
     monitor_memory = True,

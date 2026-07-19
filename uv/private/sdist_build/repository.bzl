@@ -172,7 +172,7 @@ def _sdist_build_impl(repository_ctx):
             # If the tool provided complete build file content, use it directly.
             if build_file_content:
                 validate_build_attrs(
-                    console_scripts = [],
+                    console_scripts = None,
                     resource_set = repository_ctx.attr.resource_set,
                     env = repository_ctx.attr.extra_env,
                     error = "sdist_build for '{}': the configure tool returned complete `build_file_content`, which bypasses the generated `pep517_*whl(...)` call, so these attributes cannot be applied: {{}}. Drop them from the override, or have the configure tool set them in its own `build_file_content`.".format(repository_ctx.name),
@@ -209,7 +209,7 @@ def _sdist_build_impl(repository_ctx):
 
     if not is_native:
         validate_build_attrs(
-            console_scripts = [],
+            console_scripts = None,
             resource_set = repository_ctx.attr.resource_set,
             env = repository_ctx.attr.extra_env,
             error = "sdist_build for '{}': the generated pure-Python `pep517_whl(...)` call cannot apply these native-build attributes: {{}}. Remove them, or configure this source distribution as native.".format(repository_ctx.name),
