@@ -82,7 +82,12 @@ interpreter = [n for n in names if "python_interpreters" in n]
 assert not interpreter, interpreter[:10]
 
 # The wheels arrive as `--dependency` under `.deps/`, not as loose sources.
-assert any("cowsay" in n for n in names), "cowsay missing from pex"
+assert any(n.startswith(".deps/") and "cowsay" in n for n in names), "cowsay missing from .deps/"
+
+# A wheel's install-tree must be packaged only once (as a `--dependency` under
+# `.deps/`); a duplicate `--source` would reappear under its `whl_install` path.
+install_tree_dupes = [n for n in names if "whl_install" in n]
+assert not install_tree_dupes, install_tree_dupes[:10]
 
 # Plain data files travel with the sources (transitive_sources is .py-only).
 assert any(n.endswith("/data.txt") for n in names), "data.txt missing from pex"
