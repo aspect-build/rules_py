@@ -16,7 +16,10 @@
 import sys
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
+
+if TYPE_CHECKING:
+    from coverage import Coverage
 
 # Point the temp dir at Bazel's per-test TEST_TMPDIR before pytest or the stdlib
 # `tempfile` module resolve it. Bazel's default test setup exports
@@ -39,7 +42,7 @@ except ModuleNotFoundError as e:
     raise e
 
 # None means coverage wasn't enabled
-cov: Optional[Any] = None
+cov: Optional["Coverage"] = None
 # For workaround of https://github.com/nedbat/coveragepy/issues/963
 coveragepy_absfile_mapping: Dict[str, str] = {}
 
@@ -71,7 +74,7 @@ def main() -> int:
 
     os.environ["ENV"] = "testing"
 
-    plugins: List[Any] = []
+    plugins: List[ShardPlugin] = []
     args: List[str] = [
         "--verbose",
         # Avoid loading of the plugin "cacheprovider".

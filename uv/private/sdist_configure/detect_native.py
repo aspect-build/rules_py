@@ -27,7 +27,7 @@ import tarfile
 import tempfile
 import types
 import zipfile
-from typing import Any, Callable, Dict, Iterator, List, Mapping, NoReturn, Optional, Sequence, Tuple
+from typing import Callable, Dict, Iterator, List, NoReturn, Optional, Sequence, Tuple, TypedDict
 
 try:
     tomllib: Optional[types.ModuleType] = importlib.import_module("tomllib")
@@ -61,6 +61,33 @@ EXTENSION_TO_BUILD_DEP = {
 }
 
 _REQ_NAME_RE = re.compile(r"^([A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?)")
+
+
+class ConfigureContext(TypedDict, total=False):
+    src: str
+    version: str
+    deps: List[str]
+    available_deps: Dict[str, str]
+    pre_build_patches: List[str]
+    pre_build_patch_strip: int
+
+
+class _OptionalDetectionResult(TypedDict, total=False):
+    backend_path: List[str]
+
+
+class DetectionResult(_OptionalDetectionResult):
+    is_native: bool
+    native_files: List[str]
+    build_requires: List[str]
+    inferred_build_requires: List[str]
+    extra_deps: List[str]
+    build_backend: Optional[str]
+    has_pyproject: bool
+    has_setup_py: bool
+    has_setup_cfg: bool
+    setup_py_setup_requires: List[str]
+    setup_py_install_requires: List[str]
 
 
 def _normalize_name(name: str) -> str:
@@ -385,7 +412,7 @@ def _find_config_file(members: Sequence[str], filename: str) -> Optional[str]:
     return None
 
 
-def detect(archive_path: str, context: Mapping[str, Any]) -> Dict[str, Any]:
+def detect(archive_path: str, context: ConfigureContext) -> DetectionResult:
     """Run detection on an sdist archive.
 
     Args:
@@ -474,7 +501,7 @@ def detect(archive_path: str, context: Mapping[str, Any]) -> Dict[str, Any]:
         and available_deps[name] not in provided_labels
     )
 
-    result = {
+    result: DetectionResult = {
         "is_native": bool(native_files),
         "native_files": native_files,
         "build_requires": declared_dedup,
@@ -501,7 +528,7 @@ def main() -> None:
         sys.exit(1)
 
     archive_path = sys.argv[1]
-    context = {}
+    context: ConfigureContext = {}
     if len(sys.argv) == 3:
         with open(sys.argv[2]) as f:
             context = json.load(f)

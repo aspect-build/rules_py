@@ -18,7 +18,7 @@ import sys
 from os import chmod, defpath, listdir, makedirs, path, pathsep
 from subprocess import CalledProcessError, check_call, check_output, STDOUT, run
 from tempfile import TemporaryFile
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
 try:
     _tomllib = importlib.import_module("tomllib")
@@ -199,7 +199,7 @@ def _load_text(maybe_file: str) -> str:
         return f.read()
 
 
-def _load_pyproject_data(worktree: str) -> Optional[Dict[str, Any]]:
+def _load_pyproject_data(worktree: str) -> Optional[Dict[str, object]]:
     pyproject = path.join(worktree, "pyproject.toml")
     if not path.exists(pyproject):
         return None
@@ -217,15 +217,21 @@ def _legacy_metadata_conflicts_with_pyproject(worktree: str) -> bool:
     if not (pyproject_data and path.exists(setup_py)):
         return False
 
-    build_backend = pyproject_data.get("build-system", {}).get("build-backend")
+    build_system = pyproject_data.get("build-system", {})
+    if not isinstance(build_system, dict):
+        return False
+    build_backend = build_system.get("build-backend")
     if build_backend not in _SETUPTOOLS_BACKENDS:
         return False
 
     project = pyproject_data.get("project")
-    if not project:
+    if not isinstance(project, dict) or not project:
         return False
 
-    dynamic = set(project.get("dynamic", []))
+    dynamic_value = project.get("dynamic", [])
+    if not isinstance(dynamic_value, list):
+        return False
+    dynamic = {value for value in dynamic_value if isinstance(value, str)}
     legacy_metadata = _load_text(setup_py) + "\n" + _load_text(path.join(worktree, "setup.cfg"))
 
     return (

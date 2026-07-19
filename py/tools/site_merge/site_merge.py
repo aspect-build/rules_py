@@ -31,14 +31,17 @@ import shutil
 import stat
 import sys
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from types import TracebackType
+from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 
 def _remove(path: Path) -> None:
     """Remove an output copied from a potentially read-only input."""
 
     def retry_readonly(
-        function: Callable[[Path], None], candidate: str, exc_info: Tuple[Any, BaseException, Any]
+        function: Callable[..., object],
+        candidate: str,
+        exc_info: Tuple[type[BaseException], BaseException, TracebackType],
     ) -> None:
         error = exc_info[1]
         if not isinstance(error, PermissionError):
