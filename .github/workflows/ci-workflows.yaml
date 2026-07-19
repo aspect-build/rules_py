@@ -40,6 +40,8 @@ jobs:
             - uses: aspect-build/setup-aspect@c22a8f64fb38f82f59ce809cd7eb9f8ae096da44 # v2026.23.2
               with:
                 aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
+            - name: Check Node runtime
+              run: node --version
             - name: Ruff annotations
               run: bazel run @uv -- run --locked --group dev -- ruff check .
             - name: Typecheck maintained Python

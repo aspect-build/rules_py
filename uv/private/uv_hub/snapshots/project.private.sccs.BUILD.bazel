@@ -1218,26 +1218,6 @@ py_library(
 )
 
 
-# scc: nodejs_wheel_binaries__24_16_0
-# members:
-# {
-#     "@whl_install__aspect_rules_py__nodejs_wheel_binaries__24_16_0//:install": {
-#         "": 1,
-#     },
-# }
-# deps:
-# {}
-
-
-py_library(
-    name = "nodejs_wheel_binaries__24_16_0",
-    deps = [
-        "@whl_install__aspect_rules_py__nodejs_wheel_binaries__24_16_0//:install",
-    ],
-    visibility = ["//:__subpackages__"],
-)
-
-
 # scc: numpy__1_26_4
 # members:
 # {

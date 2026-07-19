@@ -3545,7 +3545,6 @@ filegroup(
         "@whl_install__aspect_rules_py__msgpack__1_0_8//:gazelle_index_whl",
         "@whl_install__aspect_rules_py__neptune__1_10_2//:gazelle_index_whl",
         "@whl_install__aspect_rules_py__nodeenv__1_10_0//:gazelle_index_whl",
-        "@whl_install__aspect_rules_py__nodejs_wheel_binaries__24_16_0//:gazelle_index_whl",
         "@whl_install__aspect_rules_py__numpy__1_26_4//:gazelle_index_whl",
         "@whl_install__aspect_rules_py__oauthlib__3_2_2//:gazelle_index_whl",
         "@whl_install__aspect_rules_py__packaging__24_0//:gazelle_index_whl",
