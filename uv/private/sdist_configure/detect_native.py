@@ -495,16 +495,40 @@ def detect(archive_path: str, context: ConfigureContext) -> DetectionResult:
             if content:
                 declared.extend(_parse_setup_cfg_build_requires(content))
 
-        # Only a top-level egg-info directory belongs to this sdist. Nested
-        # entry-point metadata may be vendored and must not create wrappers.
+        # Match the root distribution name rather than path depth: setuptools
+        # src-layout projects place their own egg-info below src/ or another
+        # package directory, while differently named metadata may be vendored.
         member_paths = [(name, PurePosixPath(name)) for name in members]
         rooted = len({path.parts[0] for _, path in member_paths}) == 1
-        entry_points_paths = [
+        pkg_info_paths = [
             name for name, path in member_paths
-            if len(path.parts) == (3 if rooted else 2)
-            and path.parts[-2].endswith(".egg-info")
-            and path.name == "entry_points.txt"
+            if len(path.parts) == (2 if rooted else 1)
+            and path.name == "PKG-INFO"
         ]
+        package_name = None
+        if len(pkg_info_paths) == 1:
+            content = read_fn(pkg_info_paths[0])
+            if content:
+                package_name = email.parser.Parser().parsestr(content, headersonly=True).get("Name")
+                if package_name:
+                    package_name = _normalize_name(package_name)
+        if package_name:
+            entry_points_paths = [
+                name for name, path in member_paths
+                if len(path.parts) >= 2
+                and path.parts[-2].endswith(".egg-info")
+                and _normalize_name(path.parts[-2][:-len(".egg-info")]) == package_name
+                and path.name == "entry_points.txt"
+            ]
+        else:
+            # Git archives may not carry root PKG-INFO. Preserve the direct
+            # egg-info fallback without admitting nested vendored metadata.
+            entry_points_paths = [
+                name for name, path in member_paths
+                if len(path.parts) == (3 if rooted else 2)
+                and path.parts[-2].endswith(".egg-info")
+                and path.name == "entry_points.txt"
+            ]
         console_scripts = []
         if len(entry_points_paths) == 1:
             content = read_fn(entry_points_paths[0])

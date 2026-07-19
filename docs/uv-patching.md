@@ -13,7 +13,7 @@ There are three kinds of overrides:
 Additionally, `extra_deps` and `extra_data` allow adding dependencies or data
 files to the generated `py_library` target for a package.
 `console_scripts` overrides the complete script map for a wheel built from an
-sdist when its top-level egg-info metadata is absent or unsuitable. An explicit
+sdist when its egg-info metadata is absent or unsuitable. An explicit
 empty map suppresses all detected scripts.
 
 ## Prerequisites

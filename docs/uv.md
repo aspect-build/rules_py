@@ -353,10 +353,10 @@ markers such as `python_full_version < '3.12.4'` require a full
 ### Declaring source-built console scripts
 
 Downloaded wheels expose their console scripts while repositories are
-generated. For source-built wheels, the default configure tool reads a
-top-level `*.egg-info/entry_points.txt` in the sdist and forwards its console
-scripts to venv assembly. If an sdist has no usable entry-point metadata,
-declare the complete script map on that package's override:
+generated. For source-built wheels, the default configure tool reads the
+distribution-owned `*.egg-info/entry_points.txt` in the sdist and forwards its
+console scripts to venv assembly. If an sdist has no usable entry-point
+metadata, declare the complete script map on that package's override:
 
 ```starlark
 uv.override_package(
@@ -371,10 +371,10 @@ uv.override_package(
 The optional `version` on `override_package` follows the existing override
 rules: omit it when the lock resolves one version of the package. The
 declaration takes precedence over detected scripts and is attached only to the
-source-build select arm. If a prebuilt
-wheel is selected instead, its inspected metadata remains authoritative. The
-package layout remains unknown at analysis time, so the complete source-built
-wheel still participates in the normal `.pth` fallback.
+source-build select arm. If a prebuilt wheel is selected instead, its inspected
+metadata remains authoritative. The package layout remains unknown at analysis
+time, so the complete source-built wheel still participates in the normal
+`.pth` fallback.
 
 An explicit `console_scripts = {}` suppresses all detected scripts, which is
 useful when a pre-build patch removes stale entry-point metadata.
@@ -504,9 +504,9 @@ Set `native = true|false` on a package annotation to override automatic sdist
 native detection and select the native or pure-Python wheel build path.
 
 **Why aren't entrypoints automatically created?** Downloaded-wheel entrypoints
-and top-level sdist egg-info entrypoints are discovered while repositories are
-generated. For sdists without entry-point metadata, declare console scripts
-with `uv.override_package(console_scripts = {...})`.
+and distribution-owned sdist egg-info entrypoints are discovered while
+repositories are generated. For sdists without entry-point metadata, declare
+console scripts with `uv.override_package(console_scripts = {...})`.
 
 If you need a given entrypoint as a Bazel target, it needs to be manually
 declared. In most cases of normal entrypoints this is quite easy. Tools like

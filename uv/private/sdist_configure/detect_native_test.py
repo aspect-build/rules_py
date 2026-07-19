@@ -409,6 +409,7 @@ def test_console_scripts_ignore_nested_and_ambiguous_egg_info() -> None:
 
     flat_nested = _make_tar_gz({
         "pkg/__init__.py": "",
+        "vendor/PKG-INFO": "Metadata-Version: 2.1\nName: dependency\nVersion: 1.0\n",
         "vendor/dependency.egg-info/entry_points.txt": (
             "[console_scripts]\nvendor = dependency:main\n"
         ),
@@ -416,15 +417,60 @@ def test_console_scripts_ignore_nested_and_ambiguous_egg_info() -> None:
     assert detect(flat_nested, {})["console_scripts"] == []
 
     ambiguous = _make_tar_gz({
+        "pkg-1.0/PKG-INFO": "Metadata-Version: 2.1\nName: pkg\nVersion: 1.0\n",
         "pkg-1.0/pkg/__init__.py": "",
-        "pkg-1.0/first.egg-info/entry_points.txt": (
+        "pkg-1.0/src/pkg.egg-info/entry_points.txt": (
             "[console_scripts]\nfirst = pkg:first\n"
         ),
-        "pkg-1.0/second.egg-info/entry_points.txt": (
+        "pkg-1.0/lib/pkg.egg-info/entry_points.txt": (
             "[console_scripts]\nsecond = pkg:second\n"
         ),
     })
     assert detect(ambiguous, {})["console_scripts"] == []
+
+
+def test_console_scripts_from_distribution_owned_nested_egg_info() -> None:
+    rooted = _make_tar_gz({
+        "pkg-1.0/PKG-INFO": "Metadata-Version: 2.1\nName: pkg-name\nVersion: 1.0\n",
+        "pkg-1.0/src/pkg/__init__.py": "",
+        "pkg-1.0/src/Pkg_Name.egg-info/entry_points.txt": (
+            "[console_scripts]\nrooted = pkg.cli:main\n"
+        ),
+        "pkg-1.0/vendor/other.egg-info/entry_points.txt": (
+            "[console_scripts]\nvendor = other:main\n"
+        ),
+    })
+    assert detect(rooted, {})["console_scripts"] == [
+        "rooted=pkg.cli:main",
+    ]
+
+    prefixed_zip = _make_zip({
+        "./pkg-1.0/PKG-INFO": "Metadata-Version: 2.1\nName: pkg_name\nVersion: 1.0\n",
+        "./pkg-1.0/lib/pkg/__init__.py": "",
+        "./pkg-1.0/lib/pkg-name.egg-info/entry_points.txt": (
+            "[console_scripts]\nlib = pkg.cli:main\n"
+        ),
+        "./pkg-1.0/vendor/other.egg-info/entry_points.txt": (
+            "[console_scripts]\nvendor = other:main\n"
+        ),
+    })
+    assert detect(prefixed_zip, {})["console_scripts"] == [
+        "lib=pkg.cli:main",
+    ]
+
+    flat = _make_tar_gz({
+        "./PKG-INFO": "Metadata-Version: 2.1\nName: pkg\nVersion: 1.0\n",
+        "./src/pkg/__init__.py": "",
+        "./src/pkg.egg-info/entry_points.txt": (
+            "[console_scripts]\nflat = pkg.cli:main\n"
+        ),
+        "./vendor/other.egg-info/entry_points.txt": (
+            "[console_scripts]\nvendor = other:main\n"
+        ),
+    })
+    assert detect(flat, {})["console_scripts"] == [
+        "flat=pkg.cli:main",
+    ]
 
 
 # --- setup.py partial evaluator ---
