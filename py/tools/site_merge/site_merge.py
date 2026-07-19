@@ -24,6 +24,8 @@ that don't exist are skipped (platform wheels for other architectures
 may not ship the directory).
 """
 
+from __future__ import annotations
+
 import argparse
 import filecmp
 import os
