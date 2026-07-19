@@ -208,7 +208,7 @@ def install_wheel(version_major: int, version_minor: int, into: Path, wheel_path
 
     for ep_path in site_packages.glob("*.dist-info/entry_points.txt"):
         cp = configparser.ConfigParser(strict=False, delimiters=("=",))
-        cp.optionxform = str  # type: ignore[method-assign, assignment]
+        setattr(cp, "optionxform", str)
         cp.read(str(ep_path), encoding="utf-8")
         for section in ("console_scripts", "gui_scripts"):
             if section not in cp:

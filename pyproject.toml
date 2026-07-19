@@ -21,6 +21,14 @@ dependencies = [
    "maturin",
 ]
 
+[tool.uv]
+dev-dependencies = [
+   "pex==2.3.1",
+   "pyright[nodejs]==1.1.411",
+   "ruff==0.15.22",
+   "ty==0.0.61",
+]
+
 [tool.ruff]
 target-version = "py39"
 extend-exclude = [
@@ -76,17 +84,13 @@ select = [
    "ANN206",
 ]
 
-[tool.mypy]
-namespace_packages = true
-explicit_package_bases = true
-disallow_untyped_defs = true
-check_untyped_defs = true
-disallow_any_generics = true
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-show_error_codes = true
+[tool.pyright]
+typeCheckingMode = "standard"
+extraPaths = ["py/private/pytest_shard"]
 
-[[tool.mypy.overrides]]
-module = ["coverage", "pex", "pex.*", "pytest_shard"]
-ignore_missing_imports = true
+[tool.ty.environment]
+extra-paths = ["py/private/pytest_shard"]
+
+[tool.ty.rules]
+missing-type-argument = "error"
+possibly-unresolved-reference = "warn"

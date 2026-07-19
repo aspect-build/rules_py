@@ -6,7 +6,7 @@ import os
 import subprocess
 import sys
 import time
-from typing import IO, Mapping, Optional, Sequence
+from typing import IO, Mapping, Optional, Sequence, Union
 
 _MIB = 1024 * 1024
 _REPORT_STEP_BYTES = 256 * _MIB
@@ -91,9 +91,9 @@ def _report_memory(
 def run_with_memory_monitor(
     cmd: Sequence[str],
     *,
-    cwd: str,
+    cwd: Optional[str],
     env: Mapping[str, str],
-    stdout: IO[str],
+    stdout: Union[IO[str], IO[bytes]],
     wheel: str,
 ) -> None:
     """Run cmd while reporting best-effort process-tree RSS."""

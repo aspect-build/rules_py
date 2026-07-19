@@ -892,6 +892,160 @@ selects.config_setting_group(
 
 
 selects.config_setting_group(
+    name = "py2-macosx_13_0_arm64-none",
+    match_all = [
+    "@aspect_rules_py//uv/private/constraints/platform:macosx_13_0_arm64",
+    "@aspect_rules_py//uv/private/constraints/abi:none",
+    "@aspect_rules_py//uv/private/constraints/python:py2",
+],
+    visibility = ["//visibility:public"],
+)
+
+
+selects.config_setting_group(
+    name = "py3-macosx_13_0_arm64-none",
+    match_all = [
+    "@aspect_rules_py//uv/private/constraints/platform:macosx_13_0_arm64",
+    "@aspect_rules_py//uv/private/constraints/abi:none",
+    "@aspect_rules_py//uv/private/constraints/python:py3",
+],
+    visibility = ["//visibility:public"],
+)
+
+
+selects.config_setting_group(
+    name = "py2-macosx_13_0_x86_64-none",
+    match_all = [
+    "@aspect_rules_py//uv/private/constraints/platform:macosx_13_0_x86_64",
+    "@aspect_rules_py//uv/private/constraints/abi:none",
+    "@aspect_rules_py//uv/private/constraints/python:py2",
+],
+    visibility = ["//visibility:public"],
+)
+
+
+selects.config_setting_group(
+    name = "py3-macosx_13_0_x86_64-none",
+    match_all = [
+    "@aspect_rules_py//uv/private/constraints/platform:macosx_13_0_x86_64",
+    "@aspect_rules_py//uv/private/constraints/abi:none",
+    "@aspect_rules_py//uv/private/constraints/python:py3",
+],
+    visibility = ["//visibility:public"],
+)
+
+
+selects.config_setting_group(
+    name = "py2-manylinux_2_28_aarch64-none",
+    match_all = [
+    "@aspect_rules_py//uv/private/constraints/platform:manylinux_2_28_aarch64",
+    "@aspect_rules_py//uv/private/constraints/abi:none",
+    "@aspect_rules_py//uv/private/constraints/python:py2",
+],
+    visibility = ["//visibility:public"],
+)
+
+
+selects.config_setting_group(
+    name = "py3-manylinux_2_28_aarch64-none",
+    match_all = [
+    "@aspect_rules_py//uv/private/constraints/platform:manylinux_2_28_aarch64",
+    "@aspect_rules_py//uv/private/constraints/abi:none",
+    "@aspect_rules_py//uv/private/constraints/python:py3",
+],
+    visibility = ["//visibility:public"],
+)
+
+
+selects.config_setting_group(
+    name = "py2-manylinux_2_28_x86_64-none",
+    match_all = [
+    "@aspect_rules_py//uv/private/constraints/platform:manylinux_2_28_x86_64",
+    "@aspect_rules_py//uv/private/constraints/abi:none",
+    "@aspect_rules_py//uv/private/constraints/python:py2",
+],
+    visibility = ["//visibility:public"],
+)
+
+
+selects.config_setting_group(
+    name = "py3-manylinux_2_28_x86_64-none",
+    match_all = [
+    "@aspect_rules_py//uv/private/constraints/platform:manylinux_2_28_x86_64",
+    "@aspect_rules_py//uv/private/constraints/abi:none",
+    "@aspect_rules_py//uv/private/constraints/python:py3",
+],
+    visibility = ["//visibility:public"],
+)
+
+
+selects.config_setting_group(
+    name = "py2-musllinux_1_2_aarch64-none",
+    match_all = [
+    "@aspect_rules_py//uv/private/constraints/platform:musllinux_1_2_aarch64",
+    "@aspect_rules_py//uv/private/constraints/abi:none",
+    "@aspect_rules_py//uv/private/constraints/python:py2",
+],
+    visibility = ["//visibility:public"],
+)
+
+
+selects.config_setting_group(
+    name = "py3-musllinux_1_2_aarch64-none",
+    match_all = [
+    "@aspect_rules_py//uv/private/constraints/platform:musllinux_1_2_aarch64",
+    "@aspect_rules_py//uv/private/constraints/abi:none",
+    "@aspect_rules_py//uv/private/constraints/python:py3",
+],
+    visibility = ["//visibility:public"],
+)
+
+
+selects.config_setting_group(
+    name = "py2-musllinux_1_2_x86_64-none",
+    match_all = [
+    "@aspect_rules_py//uv/private/constraints/platform:musllinux_1_2_x86_64",
+    "@aspect_rules_py//uv/private/constraints/abi:none",
+    "@aspect_rules_py//uv/private/constraints/python:py2",
+],
+    visibility = ["//visibility:public"],
+)
+
+
+selects.config_setting_group(
+    name = "py3-musllinux_1_2_x86_64-none",
+    match_all = [
+    "@aspect_rules_py//uv/private/constraints/platform:musllinux_1_2_x86_64",
+    "@aspect_rules_py//uv/private/constraints/abi:none",
+    "@aspect_rules_py//uv/private/constraints/python:py3",
+],
+    visibility = ["//visibility:public"],
+)
+
+
+selects.config_setting_group(
+    name = "py2-win_amd64-none",
+    match_all = [
+    "@aspect_rules_py//uv/private/constraints/platform:win_amd64",
+    "@aspect_rules_py//uv/private/constraints/abi:none",
+    "@aspect_rules_py//uv/private/constraints/python:py2",
+],
+    visibility = ["//visibility:public"],
+)
+
+
+selects.config_setting_group(
+    name = "py2-win_arm64-none",
+    match_all = [
+    "@aspect_rules_py//uv/private/constraints/platform:win_arm64",
+    "@aspect_rules_py//uv/private/constraints/abi:none",
+    "@aspect_rules_py//uv/private/constraints/python:py2",
+],
+    visibility = ["//visibility:public"],
+)
+
+
+selects.config_setting_group(
     name = "cp310-macosx_10_10_x86_64-cp310",
     match_all = [
     "@aspect_rules_py//uv/private/constraints/platform:macosx_10_10_x86_64",
@@ -2426,6 +2580,50 @@ selects.config_setting_group(
     "@aspect_rules_py//uv/private/constraints/platform:win_amd64",
     "@aspect_rules_py//uv/private/constraints/abi:none",
     "@aspect_rules_py//uv/private/constraints/python:cp39",
+],
+    visibility = ["//visibility:public"],
+)
+
+
+selects.config_setting_group(
+    name = "py3-manylinux_2_17_i686-none",
+    match_all = [
+    "@aspect_rules_py//uv/private/constraints/platform:manylinux_2_17_i686",
+    "@aspect_rules_py//uv/private/constraints/abi:none",
+    "@aspect_rules_py//uv/private/constraints/python:py3",
+],
+    visibility = ["//visibility:public"],
+)
+
+
+selects.config_setting_group(
+    name = "py3-manylinux_2_17_x86_64-none",
+    match_all = [
+    "@aspect_rules_py//uv/private/constraints/platform:manylinux_2_17_x86_64",
+    "@aspect_rules_py//uv/private/constraints/abi:none",
+    "@aspect_rules_py//uv/private/constraints/python:py3",
+],
+    visibility = ["//visibility:public"],
+)
+
+
+selects.config_setting_group(
+    name = "py3-musllinux_1_2_armv7l-none",
+    match_all = [
+    "@aspect_rules_py//uv/private/constraints/platform:musllinux_1_2_armv7l",
+    "@aspect_rules_py//uv/private/constraints/abi:none",
+    "@aspect_rules_py//uv/private/constraints/python:py3",
+],
+    visibility = ["//visibility:public"],
+)
+
+
+selects.config_setting_group(
+    name = "py3-musllinux_1_2_i686-none",
+    match_all = [
+    "@aspect_rules_py//uv/private/constraints/platform:musllinux_1_2_i686",
+    "@aspect_rules_py//uv/private/constraints/abi:none",
+    "@aspect_rules_py//uv/private/constraints/python:py3",
 ],
     visibility = ["//visibility:public"],
 )

@@ -100,7 +100,7 @@ from __future__ import annotations
 import os
 import sys
 
-# Mypy recognizes this guard; defining it locally avoids importing typing at startup.
+# Defining this locally avoids importing typing at startup.
 TYPE_CHECKING = False
 if TYPE_CHECKING:
     from importlib.machinery import ModuleSpec
@@ -190,15 +190,13 @@ class _Finder:
             with self.lock[0]:
                 self.fullname = fullname
                 try:
-                    spec = find_spec(fullname, path)  # type: ignore[arg-type]
+                    spec = find_spec(fullname)
                     if spec is not None:
                         # https://www.python.org/dev/peps/pep-0451/#how-loading-will-work
                         assert spec.loader is not None
-                        old = spec.loader.exec_module
+                        old = getattr(spec.loader, "exec_module")
                         if old is not self.exec_module:
-                            spec.loader.exec_module = partial(  # type: ignore[method-assign]
-                                self.exec_module, old
-                            )
+                            setattr(spec.loader, "exec_module", partial(self.exec_module, old))
                         return spec
                 finally:
                     self.fullname = None

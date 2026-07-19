@@ -48,6 +48,7 @@ coveragepy_absfile_mapping: Dict[str, str] = {}
 if "COVERAGE_MANIFEST" in os.environ:
     try:
         import coverage
+        import coverage.files
         # The lines are files that matched the --instrumentation_filter flag
         coverage_manifest = os.getenv("COVERAGE_MANIFEST")
         assert coverage_manifest is not None
@@ -95,9 +96,9 @@ def main() -> int:
     test_total_shards = os.environ.get("TEST_TOTAL_SHARDS")
     test_shard_status_file = os.environ.get("TEST_SHARD_STATUS_FILE")
     if (
-        test_shard_index is not None
-        and test_total_shards is not None
-        and test_shard_status_file is not None
+        test_shard_index
+        and test_total_shards
+        and test_shard_status_file
         and int(test_total_shards) > 1
     ):
         args.extend([

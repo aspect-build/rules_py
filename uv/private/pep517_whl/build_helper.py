@@ -330,7 +330,7 @@ elif path.exists(path.join(t, "pyproject.toml")) or path.exists(path.join(t, "se
     ]
 else:
     print("Error: Unable to detect build command! Neither pyproject.toml nor setup.py found!", file=sys.stderr)
-    exit(1)
+    raise SystemExit(1)
 
 with TemporaryFile(mode="w+") as build_log:
     try:

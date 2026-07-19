@@ -41,24 +41,27 @@ jobs:
               with:
                 aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
             - name: Ruff annotations
-              run: bazel run @uv -- tool run 'ruff@0.15.22' check .
-            - name: Mypy Python 3.9 runtime
+              run: bazel run @uv -- run --locked --group dev -- ruff check .
+            - name: Typecheck maintained Python
               run: |
-                bazel run @uv -- run --locked --with 'mypy==1.18.2' --with 'pex==2.3.1' -- mypy --python-version 3.9 \
-                  py/private/py_image_layer_validator.py \
-                  py/private/py_venv/templates/_virtualenv.py \
-                  py/private/py_venv/templates/link.py \
-                  py/private/pytest_main.py \
-                  py/private/pytest_shard/pytest_shard.py \
-                  py/tools/pex/main.py \
-                  py/tools/site_merge/site_merge.py \
-                  py/tools/unpack/unpack.py \
-                  uv/private/gazelle_manifest/generate.py \
-                  uv/private/pep517_whl/build_helper.py \
-                  uv/private/pep517_whl/memory_monitor.py \
+                runtime39=(
+                  py/private/py_image_layer_validator.py
+                  py/private/py_venv/templates/_virtualenv.py
+                  py/private/py_venv/templates/link.py
+                  py/private/pytest_main.py
+                  py/private/pytest_shard/pytest_shard.py
+                  py/tools/pex/main.py
+                  py/tools/site_merge/site_merge.py
+                  py/tools/unpack/unpack.py
+                  uv/private/gazelle_manifest/generate.py
+                  uv/private/pep517_whl/build_helper.py
+                  uv/private/pep517_whl/memory_monitor.py
                   uv/private/py_entrypoint_binary/search.py
-            - name: Mypy Python 3.11 runtime
-              run: bazel run @uv -- run --locked --with 'mypy==1.18.2' --with 'pex==2.3.1' -- mypy --python-version 3.11 uv/private/sdist_configure/detect_native.py
+                )
+                bazel run @uv -- run --locked --group dev -- pyright --pythonversion 3.9 --warnings "${runtime39[@]}"
+                bazel run @uv -- run --locked --group dev -- pyright --pythonversion 3.11 --warnings uv/private/sdist_configure/detect_native.py
+                bazel run @uv -- run --locked --group dev -- ty check --python-version 3.9 --error-on-warning --output-format github "${runtime39[@]}"
+                bazel run @uv -- run --locked --group dev -- ty check --python-version 3.11 --error-on-warning --output-format github uv/private/sdist_configure/detect_native.py
     test:
         name: test (${{ matrix.workspace.path }}, ${{ matrix.bazel.id }})
         runs-on: ${{ matrix.workspace.runner }}

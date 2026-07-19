@@ -1,6 +1,8 @@
-from typing import List, Protocol, Sequence
+from typing import List, Protocol, Sequence, TypeVar, Union
 
 from _pytest import nodes  # for type checking only
+
+_Item = TypeVar("_Item")
 
 
 class _OptionGroup(Protocol):
@@ -21,7 +23,7 @@ class _Config(Protocol):
     def getoption(self, name: str) -> int: ...
 
 
-def positive_int(x: str) -> int:
+def positive_int(x: Union[str, int]) -> int:
     value = int(x)
     if value < 0:
         raise ValueError(f"Argument {value} must be positive")
@@ -29,8 +31,8 @@ def positive_int(x: str) -> int:
 
 
 def filter_items_by_shard(
-    items: Sequence[nodes.Node], shard_id: int, num_shards: int
-) -> List[nodes.Node]:
+    items: Sequence[_Item], shard_id: int, num_shards: int
+) -> List[_Item]:
     """Computes `items` that should be tested in `shard_id` out of `num_shards` total shards."""
     shards = [i % num_shards for i in range(len(items))]
 
