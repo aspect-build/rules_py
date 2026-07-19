@@ -11,9 +11,28 @@ py_pex_binary(
     python_interpreter_constraints = [],
 )
 
+# The interpreter is excluded from the PEX by the binary's *own* toolchain, not
+# the pex rule's. 3.13 differs from this workspace's default (3.11), so a leak
+# here would mean the exclusion tracked the wrong version.
+py_binary(
+    name = "app_mismatch",
+    srcs = ["app.py"],
+    main = "app.py",
+    python_version = "3.13",
+)
+
+py_pex_binary(
+    name = "app_mismatch_pex",
+    binary = ":app_mismatch",
+    python_interpreter_constraints = [],
+)
+
 py_test(
     name = "test_pex_excludes_interpreter",
     srcs = ["test_pex_excludes_interpreter.py"],
-    data = [":app_pex"],
+    data = [
+        ":app_mismatch_pex",
+        ":app_pex",
+    ],
     main = "test_pex_excludes_interpreter.py",
 )

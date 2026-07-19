@@ -78,6 +78,7 @@ py_test(
         ":defaults_pex",
         ":inherit_fallback_pex",
         ":inherit_false_pex",
+        ":print_modules_pex",
     ],
     main = "pex_info_test.py",
     deps = ["@pypi//bazel_runfiles"],
