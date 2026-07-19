@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import sys
 
-# Defining this locally avoids importing typing at startup.
+# Avoid importing typing at startup; remove if TYPE_CHECKING becomes built-in (PEP 781).
 TYPE_CHECKING = False
 if TYPE_CHECKING:
     from importlib.machinery import ModuleSpec
