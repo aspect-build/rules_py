@@ -585,9 +585,18 @@ def _apply_strip_prefix(sp, strip_prefix, root):
         return "." + root + sp[len(prefix):]
     return "./app.runfiles/_main/" + sp
 
-def _file_to_mtree_entry(f, mode = "0644", strip_prefix = "", root = "/", maybe_symlink = False):
+def _file_to_mtree_entry(
+        f,
+        mode = "0644",
+        strip_prefix = "",
+        root = "/",
+        maybe_symlink = False,
+        executable_short_path = "",
+        executable_dst = ""):
     sp = f.short_path
-    if sp == "_repo_mapping":
+    if executable_dst and sp == executable_short_path:
+        dst = executable_dst
+    elif sp == "_repo_mapping":
         # Bazel synthesizes a top-level `_repo_mapping` runfile (no `_main/`
         # prefix); replicate that placement so runfiles.bash can find it.
         dst = "./app.runfiles/_repo_mapping"
@@ -615,15 +624,75 @@ def _file_to_mtree_entry(f, mode = "0644", strip_prefix = "", root = "/", maybe_
         f.path.replace(" ", "\\040"),
     )
 
-def _source_file_to_mtree(f, dir_expander, strip_prefix, root, maybe_symlink):
+def _source_file_to_mtree(
+        f,
+        dir_expander,
+        strip_prefix,
+        root,
+        maybe_symlink,
+        executable_short_path = "",
+        executable_dst = ""):
     # 0755 throughout: keeps launcher/interpreter/venv shims executable; Bazel
     # doesn't expose per-input source mode for us to propagate.
     if f.is_directory:
         return [
-            _file_to_mtree_entry(child, "0755", strip_prefix, root, maybe_symlink)
+            _file_to_mtree_entry(
+                child,
+                "0755",
+                strip_prefix,
+                root,
+                maybe_symlink,
+                executable_short_path,
+                executable_dst,
+            )
             for child in dir_expander.expand(f)
         ]
-    return _file_to_mtree_entry(f, "0755", strip_prefix, root, maybe_symlink)
+    return _file_to_mtree_entry(
+        f,
+        "0755",
+        strip_prefix,
+        root,
+        maybe_symlink,
+        executable_short_path,
+        executable_dst,
+    )
+
+def _make_source_map(
+        binary_short_path,
+        strip_prefix,
+        root,
+        maybe_symlink,
+        executable_dst = ""):
+    effective_strip_prefix = strip_prefix or binary_short_path
+
+    def _source_map(f, d):
+        return _source_file_to_mtree(
+            f,
+            d,
+            effective_strip_prefix,
+            root,
+            maybe_symlink,
+            binary_short_path,
+            executable_dst,
+        )
+
+    return _source_map
+
+def _dependency_plan_signature(info):
+    pip = []
+    for pkg in info.pip_packages.to_list():
+        layer_groups = sorted(["{}".format(layer.group) for layer in pkg.layers])
+        pip.append("{}|{}|{}".format(pkg.label, pkg.merge_group, ",".join(layer_groups)))
+
+    first_party = []
+    for entry in info.first_party_layers.to_list():
+        first_party.append("{}|{}".format(entry.label, entry.group))
+
+    interpreter_group = ""
+    if info.interpreter_layer != None:
+        interpreter_group = info.interpreter_layer.group
+
+    return (sorted(pip), sorted(first_party), interpreter_group)
 
 def _user_file_to_mtree(f, dir_expander):
     if f.is_directory:
@@ -804,6 +873,7 @@ def _declare_group_tar(ctx, bsdtar, bsdtar_files, out_name, group_name, files, m
 def _py_image_layer_impl(ctx):
     info = ctx.attr.binary[_LayerInfo]
     merged = ctx.attr.binary[_MergedLayerInfo]
+    binaries = [ctx.attr.binary] + ctx.attr.additional_binaries
     bsdtar, bsdtar_files = _tar_toolchain(ctx)
 
     pkg_by_label = {}
@@ -817,6 +887,23 @@ def _py_image_layer_impl(ctx):
     plan = ctx.attr._layer_tier[PyLayerTierInfo]
     root = plan.root
     strip_prefix = plan.strip_prefix
+    launcher_dir = ctx.attr.launcher_dir
+    if ctx.attr.additional_binaries and not launcher_dir:
+        fail("py_image_layer.additional_binaries requires launcher_dir")
+    if launcher_dir:
+        if not launcher_dir.startswith("/"):
+            fail("py_image_layer.launcher_dir must be an absolute image path")
+        if launcher_dir.endswith("/"):
+            launcher_dir = launcher_dir[:-1]
+
+    primary_signature = _dependency_plan_signature(info)
+    for binary in ctx.attr.additional_binaries:
+        if _dependency_plan_signature(binary[_LayerInfo]) != primary_signature:
+            fail(
+                ("py_image_layer.additional_binaries requires the same pip, first-party, " +
+                 "and interpreter dependency-layer plan as binary; %s differs from %s") %
+                (binary.label, ctx.attr.binary.label),
+            )
 
     # 3p pip layers are action-shared across the graph and hard-code their
     # destination under `./app.runfiles/<repo>/...`, so the consumer's source
@@ -825,8 +912,6 @@ def _py_image_layer_impl(ctx):
     # natural runfile layout maps onto `./app.runfiles/_main/...` without each
     # caller wiring it up.
     binary_short_path = ctx.attr.binary[DefaultInfo].files_to_run.executable.short_path
-    if not strip_prefix:
-        strip_prefix = binary_short_path
 
     all_tars = []
 
@@ -835,8 +920,12 @@ def _py_image_layer_impl(ctx):
     # and need awk's readlink scan to be preserved.
     source_maybe_symlink = info.interpreter_layer == None
 
-    def _source_map(f, d):
-        return _source_file_to_mtree(f, d, strip_prefix, root, source_maybe_symlink)
+    source_map = _make_source_map(
+        binary_short_path,
+        strip_prefix,
+        root,
+        source_maybe_symlink,
+    )
 
     rule_group_names = {gname: True for gname in ctx.attr.groups.values()}
     for dep, group_name in ctx.attr.groups.items():
@@ -889,7 +978,7 @@ def _py_image_layer_impl(ctx):
                 "{}_{}.tar.gz".format(ctx.attr.name, group_name),
                 group_name,
                 depset(transitive = fp_by_group[group_name]),
-                _source_map,
+                source_map,
                 "Creating first-party layer %s[%s]" % (ctx.label, group_name),
             )
         all_tars.append(tar_out)
@@ -919,17 +1008,41 @@ def _py_image_layer_impl(ctx):
     # snapshot here to avoid double-bookkeeping during construction.
     dep_tars = list(all_tars)
 
-    source_tar = _declare_group_tar(
-        ctx,
-        bsdtar,
-        bsdtar_files,
-        "{}_default.tar.gz".format(ctx.attr.name),
-        "default",
-        info.source_files,
-        _source_map,
-        "Creating source layer for %s" % ctx.label,
-    )
-    all_tars.append(source_tar)
+    source_tars = []
+    launcher_names = {}
+    for binary in binaries:
+        binary_info = binary[_LayerInfo]
+        binary_short_path = binary[DefaultInfo].files_to_run.executable.short_path
+        executable_dst = ""
+        if launcher_dir:
+            launcher_name = binary.label.name
+            if launcher_name in launcher_names:
+                fail("duplicate py_image_layer launcher name: {}".format(launcher_name))
+            launcher_names[launcher_name] = True
+            executable_dst = "." + launcher_dir + "/" + launcher_name
+
+        binary_source_map = _make_source_map(
+            binary_short_path,
+            strip_prefix,
+            root,
+            binary_info.interpreter_layer == None,
+            executable_dst,
+        )
+        source_tar_name = "{}_default.tar.gz".format(ctx.attr.name)
+        if len(binaries) > 1:
+            source_tar_name = "{}_{}_default.tar.gz".format(ctx.attr.name, binary.label.name)
+        source_tar = _declare_group_tar(
+            ctx,
+            bsdtar,
+            bsdtar_files,
+            source_tar_name,
+            "default",
+            binary_info.source_files,
+            binary_source_map,
+            "Creating source layer for %s[%s]" % (ctx.label, binary.label),
+        )
+        all_tars.append(source_tar)
+        source_tars.append(source_tar)
 
     validation = ctx.actions.declare_file(ctx.attr.name + "_validation.log")
     validation_args = ctx.actions.args()
@@ -952,7 +1065,7 @@ def _py_image_layer_impl(ctx):
         DefaultInfo(files = depset(all_tars)),
         OutputGroupInfo(
             deps = depset(dep_tars),
-            sources = depset([source_tar]),
+            sources = depset(source_tars),
             _validation = depset([validation]),
         ),
     ]
@@ -963,6 +1076,15 @@ _py_image_layer = rule(
         "binary": attr.label(
             mandatory = True,
             aspects = [_layer_aspect, _merge_aspect],
+        ),
+        "additional_binaries": attr.label_list(
+            aspects = [_layer_aspect, _merge_aspect],
+        ),
+        "launcher_dir": attr.string(
+            default = "",
+            doc = ("Absolute image directory for launchers when additional_binaries is set. " +
+                   "Runfiles still live under /app.runfiles, so consumers should set " +
+                   "RUNFILES_DIR=/app.runfiles."),
         ),
         "groups": attr.label_keyed_string_dict(default = {}),
         "group_execution_requirements": attr.string_list_dict(default = {}),
@@ -998,6 +1120,8 @@ _py_image_layer = rule(
 def py_image_layer(
         name,
         binary,
+        additional_binaries = [],
+        launcher_dir = "",
         groups = {},
         group_execution_requirements = {},
         group_compress_levels = {},
@@ -1028,6 +1152,12 @@ def py_image_layer(
     Args:
         name: Name of the generated target.
         binary: A py_venv or py_binary target.
+        additional_binaries: Optional py_venv or py_binary targets with the same
+            dependency-layer plan as binary. Their source layers are emitted alongside
+            binary's while shared dependency layers are emitted once.
+        launcher_dir: Absolute image directory for the binary launchers when
+            additional_binaries is set. Each launcher uses its target name as the
+            filename. The image should set RUNFILES_DIR=/app.runfiles.
         groups: Maps a NON-PIP dep label to a group name. Each gets its own rule-created
             tar. All pip-package grouping (whole-package, subpath, multi-member) belongs
             in py_layer_tier — subpath glob keys passed here fail loudly.
@@ -1056,6 +1186,8 @@ def py_image_layer(
     _py_image_layer(
         name = name,
         binary = binary,
+        additional_binaries = additional_binaries,
+        launcher_dir = launcher_dir,
         groups = groups,
         group_execution_requirements = group_execution_requirements,
         group_compress_levels = group_compress_levels,
