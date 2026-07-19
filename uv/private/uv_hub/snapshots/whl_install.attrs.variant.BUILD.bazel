@@ -2,10 +2,10 @@ load("@aspect_rules_py//py:defs.bzl", "py_library")
 load("@aspect_rules_py//uv/private/whl_install:defs.bzl", "select_chain")
 load("@aspect_rules_py//uv/private/whl_install:rule.bzl", "source_built_wheel", "whl_install")
 
-source_built_wheel(
-    name = "source_built_wheel",
-    src = "@@aspect_rules_py++uv+sdist_build__azure_core_tracing_import__azure_core__1_38_0//:whl",
-    console_scripts = [],
+py_library(
+    name = "whl_missing",
+    srcs = [],
+    target_compatible_with = ["@platforms//:incompatible"],
     visibility = ["//visibility:private"],
 )
 
@@ -13,16 +13,16 @@ source_built_wheel(
 select_chain(
    name = "whl",
    arms = {
-       "@aspect_rules_py_pip_configurations//:py3-any-none": "@whl__azure_core__ab0c9b2cd71fecb1//file",
+       "@aspect_rules_py_pip_configurations//:py3-any-none": "@whl__attrs__99b87a485a5820b2//file",
    },
-   default_target = ":source_built_wheel",
+   default_target = ":whl_missing",
    visibility = ["//visibility:public"],
 )
 
 filegroup(
     name = "gazelle_index_whl",
     srcs = [
-        "@whl__azure_core__ab0c9b2cd71fecb1//file",
+        "@whl__attrs__99b87a485a5820b2//file",
     ],
     visibility = ["//visibility:public"],
 )
@@ -30,7 +30,7 @@ filegroup(
 
 whl_install(
     name = "actual_install",
-    src = ":source_built_wheel",
+    src = ":whl",
     compile_pyc = select({
         "@aspect_rules_py//uv/private/pyc:is_precompile": True,
         "//conditions:default": False,
@@ -40,22 +40,27 @@ whl_install(
         "@aspect_rules_py//uv/private/pyc:is_timestamp": "timestamp",
         "//conditions:default": "checked-hash",
     }),
+    top_levels = {
+        "attrs-23.2.0-py3-none-any.whl": [
+            "attr",
+            "attrs",
+            "attrs-23.2.0.dist-info",
+        ],
+    },
+    namespace_top_levels = {},
+    console_scripts = {},
+    top_level_dirs = {
+        "attrs-23.2.0-py3-none-any.whl": [
+            "attr",
+            "attrs",
+        ],
+    },
     visibility = ["//visibility:private"],
 )
 
-select_chain(
-   name = "selected_install",
-   arms = {
-       "@aspect_rules_py_pip_configurations//:py3-any-none": "@whl_install__azure_core_tracing_import__azure_core__1_38_0__variant_ab0c9b2cd71fecb1//:install",
-   },
-   default_target = ":actual_install",
-   visibility = ["//visibility:private"],
-)
-
-
 alias(
     name = "install",
-    actual = ":selected_install",
+    actual = ":actual_install",
     visibility = ["//visibility:public"],
 )
 

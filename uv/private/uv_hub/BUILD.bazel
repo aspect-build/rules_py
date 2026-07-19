@@ -65,9 +65,13 @@ write_source_files(
         # toolchains for every PBS platform plus supported exec toolchains.
         "snapshots/python_interpreters.BUILD.bazel": "@python_interpreters//:BUILD.bazel",
         # whl_install: per-wheel install BUILD. attrs is a stable
-        # pure-Python wheel — pins the select_chain + gazelle_index_whl
-        # filegroup layout shared by every whl_install repo.
+        # pure-Python wheel — pins the public selector's select_chain +
+        # gazelle_index_whl layout shared by every whl_install repo.
         "snapshots/whl_install.attrs.BUILD.bazel": "@whl_install__aspect_rules_py__attrs__23_2_0//:BUILD.bazel",
+        # The per-wheel variant repo the public selector delegates to; pins
+        # the metadata-extraction (top_levels/console_scripts/…) layout that
+        # moved out of the public repo.
+        "snapshots/whl_install.attrs.variant.BUILD.bazel": "@whl_install__aspect_rules_py__attrs__23_2_0__variant_99b87a485a5820b2//:BUILD.bazel",
         # numpy is a stable multi-platform native wheel — pins the
         # multi-arm select_chain + per-wheel native top_levels layout that
         # attrs (single pure-Python wheel) can't exercise.

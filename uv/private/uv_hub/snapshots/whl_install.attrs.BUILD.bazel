@@ -30,7 +30,7 @@ filegroup(
 
 whl_install(
     name = "actual_install",
-    src = ":whl",
+    src = ":source_built_wheel",
     compile_pyc = select({
         "@aspect_rules_py//uv/private/pyc:is_precompile": True,
         "//conditions:default": False,
@@ -40,27 +40,22 @@ whl_install(
         "@aspect_rules_py//uv/private/pyc:is_timestamp": "timestamp",
         "//conditions:default": "checked-hash",
     }),
-    top_levels = {
-        "attrs-23.2.0-py3-none-any.whl": [
-            "attr",
-            "attrs",
-            "attrs-23.2.0.dist-info",
-        ],
-    },
-    namespace_top_levels = {},
-    console_scripts = {},
-    top_level_dirs = {
-        "attrs-23.2.0-py3-none-any.whl": [
-            "attr",
-            "attrs",
-        ],
-    },
     visibility = ["//visibility:private"],
 )
 
+select_chain(
+   name = "selected_install",
+   arms = {
+       "@aspect_rules_py_pip_configurations//:py3-any-none": "@whl_install__aspect_rules_py__attrs__23_2_0__variant_99b87a485a5820b2//:install",
+   },
+   default_target = ":actual_install",
+   visibility = ["//visibility:private"],
+)
+
+
 alias(
     name = "install",
-    actual = ":actual_install",
+    actual = ":selected_install",
     visibility = ["//visibility:public"],
 )
 

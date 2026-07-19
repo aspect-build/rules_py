@@ -211,7 +211,7 @@ filegroup(
 
 whl_install(
     name = "actual_install",
-    src = ":whl",
+    src = ":source_built_wheel",
     compile_pyc = select({
         "@aspect_rules_py//uv/private/pyc:is_precompile": True,
         "//conditions:default": False,
@@ -221,339 +221,203 @@ whl_install(
         "@aspect_rules_py//uv/private/pyc:is_timestamp": "timestamp",
         "//conditions:default": "checked-hash",
     }),
-    top_levels = {
-        "cryptography-46.0.5-cp311-abi3-macosx_10_9_universal2.whl": [
-            "cryptography",
-            "cryptography-46.0.5.dist-info",
-        ],
-        "cryptography-46.0.5-cp311-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.whl": [
-            "cryptography",
-            "cryptography-46.0.5.dist-info",
-        ],
-        "cryptography-46.0.5-cp311-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl": [
-            "cryptography",
-            "cryptography-46.0.5.dist-info",
-        ],
-        "cryptography-46.0.5-cp311-abi3-manylinux_2_28_aarch64.whl": [
-            "cryptography",
-            "cryptography-46.0.5.dist-info",
-        ],
-        "cryptography-46.0.5-cp311-abi3-manylinux_2_28_ppc64le.whl": [
-            "cryptography",
-            "cryptography-46.0.5.dist-info",
-        ],
-        "cryptography-46.0.5-cp311-abi3-manylinux_2_28_x86_64.whl": [
-            "cryptography",
-            "cryptography-46.0.5.dist-info",
-        ],
-        "cryptography-46.0.5-cp311-abi3-manylinux_2_31_armv7l.whl": [
-            "cryptography",
-            "cryptography-46.0.5.dist-info",
-        ],
-        "cryptography-46.0.5-cp311-abi3-manylinux_2_34_aarch64.whl": [
-            "cryptography",
-            "cryptography-46.0.5.dist-info",
-        ],
-        "cryptography-46.0.5-cp311-abi3-manylinux_2_34_ppc64le.whl": [
-            "cryptography",
-            "cryptography-46.0.5.dist-info",
-        ],
-        "cryptography-46.0.5-cp311-abi3-manylinux_2_34_x86_64.whl": [
-            "cryptography",
-            "cryptography-46.0.5.dist-info",
-        ],
-        "cryptography-46.0.5-cp311-abi3-musllinux_1_2_aarch64.whl": [
-            "cryptography",
-            "cryptography-46.0.5.dist-info",
-            "cryptography.libs",
-        ],
-        "cryptography-46.0.5-cp311-abi3-musllinux_1_2_x86_64.whl": [
-            "cryptography",
-            "cryptography-46.0.5.dist-info",
-            "cryptography.libs",
-        ],
-        "cryptography-46.0.5-cp311-abi3-win32.whl": [
-            "cryptography",
-            "cryptography-46.0.5.dist-info",
-        ],
-        "cryptography-46.0.5-cp311-abi3-win_amd64.whl": [
-            "cryptography",
-            "cryptography-46.0.5.dist-info",
-        ],
-        "cryptography-46.0.5-cp38-abi3-macosx_10_9_universal2.whl": [
-            "cryptography",
-            "cryptography-46.0.5.dist-info",
-        ],
-        "cryptography-46.0.5-cp38-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.whl": [
-            "cryptography",
-            "cryptography-46.0.5.dist-info",
-        ],
-        "cryptography-46.0.5-cp38-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl": [
-            "cryptography",
-            "cryptography-46.0.5.dist-info",
-        ],
-        "cryptography-46.0.5-cp38-abi3-manylinux_2_28_aarch64.whl": [
-            "cryptography",
-            "cryptography-46.0.5.dist-info",
-        ],
-        "cryptography-46.0.5-cp38-abi3-manylinux_2_28_ppc64le.whl": [
-            "cryptography",
-            "cryptography-46.0.5.dist-info",
-        ],
-        "cryptography-46.0.5-cp38-abi3-manylinux_2_28_x86_64.whl": [
-            "cryptography",
-            "cryptography-46.0.5.dist-info",
-        ],
-        "cryptography-46.0.5-cp38-abi3-manylinux_2_31_armv7l.whl": [
-            "cryptography",
-            "cryptography-46.0.5.dist-info",
-        ],
-        "cryptography-46.0.5-cp38-abi3-manylinux_2_34_aarch64.whl": [
-            "cryptography",
-            "cryptography-46.0.5.dist-info",
-        ],
-        "cryptography-46.0.5-cp38-abi3-manylinux_2_34_ppc64le.whl": [
-            "cryptography",
-            "cryptography-46.0.5.dist-info",
-        ],
-        "cryptography-46.0.5-cp38-abi3-manylinux_2_34_x86_64.whl": [
-            "cryptography",
-            "cryptography-46.0.5.dist-info",
-        ],
-        "cryptography-46.0.5-cp38-abi3-musllinux_1_2_aarch64.whl": [
-            "cryptography",
-            "cryptography-46.0.5.dist-info",
-            "cryptography.libs",
-        ],
-        "cryptography-46.0.5-cp38-abi3-musllinux_1_2_x86_64.whl": [
-            "cryptography",
-            "cryptography-46.0.5.dist-info",
-            "cryptography.libs",
-        ],
-        "cryptography-46.0.5-cp38-abi3-win32.whl": [
-            "cryptography",
-            "cryptography-46.0.5.dist-info",
-        ],
-        "cryptography-46.0.5-cp38-abi3-win_amd64.whl": [
-            "cryptography",
-            "cryptography-46.0.5.dist-info",
-        ],
-    },
-    namespace_top_levels = {
-        "cryptography-46.0.5-cp311-abi3-musllinux_1_2_aarch64.whl": [
-            "cryptography.libs",
-        ],
-        "cryptography-46.0.5-cp311-abi3-musllinux_1_2_x86_64.whl": [
-            "cryptography.libs",
-        ],
-        "cryptography-46.0.5-cp38-abi3-musllinux_1_2_aarch64.whl": [
-            "cryptography.libs",
-        ],
-        "cryptography-46.0.5-cp38-abi3-musllinux_1_2_x86_64.whl": [
-            "cryptography.libs",
-        ],
-    },
-    console_scripts = {},
-    top_level_dirs = {
-        "cryptography-46.0.5-cp311-abi3-macosx_10_9_universal2.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp311-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp311-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp311-abi3-manylinux_2_28_aarch64.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp311-abi3-manylinux_2_28_ppc64le.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp311-abi3-manylinux_2_28_x86_64.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp311-abi3-manylinux_2_31_armv7l.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp311-abi3-manylinux_2_34_aarch64.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp311-abi3-manylinux_2_34_ppc64le.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp311-abi3-manylinux_2_34_x86_64.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp311-abi3-musllinux_1_2_aarch64.whl": [
-            "cryptography",
-            "cryptography.libs",
-        ],
-        "cryptography-46.0.5-cp311-abi3-musllinux_1_2_x86_64.whl": [
-            "cryptography",
-            "cryptography.libs",
-        ],
-        "cryptography-46.0.5-cp311-abi3-win32.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp311-abi3-win_amd64.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp38-abi3-macosx_10_9_universal2.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp38-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp38-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp38-abi3-manylinux_2_28_aarch64.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp38-abi3-manylinux_2_28_ppc64le.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp38-abi3-manylinux_2_28_x86_64.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp38-abi3-manylinux_2_31_armv7l.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp38-abi3-manylinux_2_34_aarch64.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp38-abi3-manylinux_2_34_ppc64le.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp38-abi3-manylinux_2_34_x86_64.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp38-abi3-musllinux_1_2_aarch64.whl": [
-            "cryptography",
-            "cryptography.libs",
-        ],
-        "cryptography-46.0.5-cp38-abi3-musllinux_1_2_x86_64.whl": [
-            "cryptography",
-            "cryptography.libs",
-        ],
-        "cryptography-46.0.5-cp38-abi3-win32.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp38-abi3-win_amd64.whl": [
-            "cryptography",
-        ],
-    },
-    namespace_entries = {
-        "cryptography-46.0.5-cp311-abi3-musllinux_1_2_aarch64.whl": [
-            "cryptography.libs/libgcc_s-2d945d6c.so.1",
-        ],
-        "cryptography-46.0.5-cp311-abi3-musllinux_1_2_x86_64.whl": [
-            "cryptography.libs/libgcc_s-0cd532bd.so.1",
-        ],
-        "cryptography-46.0.5-cp38-abi3-musllinux_1_2_aarch64.whl": [
-            "cryptography.libs/libgcc_s-2d945d6c.so.1",
-        ],
-        "cryptography-46.0.5-cp38-abi3-musllinux_1_2_x86_64.whl": [
-            "cryptography.libs/libgcc_s-0cd532bd.so.1",
-        ],
-    },
-    native_roots = {
-        "cryptography-46.0.5-cp311-abi3-macosx_10_9_universal2.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp311-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp311-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp311-abi3-manylinux_2_28_aarch64.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp311-abi3-manylinux_2_28_ppc64le.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp311-abi3-manylinux_2_28_x86_64.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp311-abi3-manylinux_2_31_armv7l.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp311-abi3-manylinux_2_34_aarch64.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp311-abi3-manylinux_2_34_ppc64le.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp311-abi3-manylinux_2_34_x86_64.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp311-abi3-musllinux_1_2_aarch64.whl": [
-            "cryptography",
-            "cryptography.libs",
-        ],
-        "cryptography-46.0.5-cp311-abi3-musllinux_1_2_x86_64.whl": [
-            "cryptography",
-            "cryptography.libs",
-        ],
-        "cryptography-46.0.5-cp311-abi3-win32.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp311-abi3-win_amd64.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp38-abi3-macosx_10_9_universal2.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp38-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp38-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp38-abi3-manylinux_2_28_aarch64.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp38-abi3-manylinux_2_28_ppc64le.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp38-abi3-manylinux_2_28_x86_64.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp38-abi3-manylinux_2_31_armv7l.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp38-abi3-manylinux_2_34_aarch64.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp38-abi3-manylinux_2_34_ppc64le.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp38-abi3-manylinux_2_34_x86_64.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp38-abi3-musllinux_1_2_aarch64.whl": [
-            "cryptography",
-            "cryptography.libs",
-        ],
-        "cryptography-46.0.5-cp38-abi3-musllinux_1_2_x86_64.whl": [
-            "cryptography",
-            "cryptography.libs",
-        ],
-        "cryptography-46.0.5-cp38-abi3-win32.whl": [
-            "cryptography",
-        ],
-        "cryptography-46.0.5-cp38-abi3-win_amd64.whl": [
-            "cryptography",
-        ],
-    },
     visibility = ["//visibility:private"],
 )
 
+select_chain(
+   name = "selected_install",
+   arms = {
+       "@aspect_rules_py_pip_configurations//:cp320-macosx_10_9_universal2-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_351695ada9ea9618//:install",
+       "@aspect_rules_py_pip_configurations//:cp320-manylinux_2_34_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_e9251e3be159d102//:install",
+       "@aspect_rules_py_pip_configurations//:cp320-manylinux_2_34_ppc64le-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_47fb8a66058b80e5//:install",
+       "@aspect_rules_py_pip_configurations//:cp320-manylinux_2_34_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_4c3341037c136030//:install",
+       "@aspect_rules_py_pip_configurations//:cp320-manylinux_2_31_armv7l-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_f145bba11b878005//:install",
+       "@aspect_rules_py_pip_configurations//:cp320-manylinux_2_28_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_50bfb6925eff619c//:install",
+       "@aspect_rules_py_pip_configurations//:cp320-manylinux_2_28_ppc64le-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_803812e111e75d1a//:install",
+       "@aspect_rules_py_pip_configurations//:cp320-manylinux_2_28_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_3ee190460e2fbe44//:install",
+       "@aspect_rules_py_pip_configurations//:cp320-manylinux_2_17_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_c18ff11e86df2e28//:install",
+       "@aspect_rules_py_pip_configurations//:cp320-manylinux_2_17_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_4d7e3d356b8cd4ea//:install",
+       "@aspect_rules_py_pip_configurations//:cp320-musllinux_1_2_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_890bcb4abd5a2d3f//:install",
+       "@aspect_rules_py_pip_configurations//:cp320-musllinux_1_2_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_80a8d7bfdf38f87c//:install",
+       "@aspect_rules_py_pip_configurations//:cp320-win32-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_60ee7e19e95104d4//:install",
+       "@aspect_rules_py_pip_configurations//:cp320-win_amd64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_38946c54b16c885c//:install",
+       "@aspect_rules_py_pip_configurations//:cp319-macosx_10_9_universal2-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_351695ada9ea9618//:install",
+       "@aspect_rules_py_pip_configurations//:cp319-manylinux_2_34_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_e9251e3be159d102//:install",
+       "@aspect_rules_py_pip_configurations//:cp319-manylinux_2_34_ppc64le-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_47fb8a66058b80e5//:install",
+       "@aspect_rules_py_pip_configurations//:cp319-manylinux_2_34_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_4c3341037c136030//:install",
+       "@aspect_rules_py_pip_configurations//:cp319-manylinux_2_31_armv7l-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_f145bba11b878005//:install",
+       "@aspect_rules_py_pip_configurations//:cp319-manylinux_2_28_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_50bfb6925eff619c//:install",
+       "@aspect_rules_py_pip_configurations//:cp319-manylinux_2_28_ppc64le-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_803812e111e75d1a//:install",
+       "@aspect_rules_py_pip_configurations//:cp319-manylinux_2_28_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_3ee190460e2fbe44//:install",
+       "@aspect_rules_py_pip_configurations//:cp319-manylinux_2_17_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_c18ff11e86df2e28//:install",
+       "@aspect_rules_py_pip_configurations//:cp319-manylinux_2_17_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_4d7e3d356b8cd4ea//:install",
+       "@aspect_rules_py_pip_configurations//:cp319-musllinux_1_2_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_890bcb4abd5a2d3f//:install",
+       "@aspect_rules_py_pip_configurations//:cp319-musllinux_1_2_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_80a8d7bfdf38f87c//:install",
+       "@aspect_rules_py_pip_configurations//:cp319-win32-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_60ee7e19e95104d4//:install",
+       "@aspect_rules_py_pip_configurations//:cp319-win_amd64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_38946c54b16c885c//:install",
+       "@aspect_rules_py_pip_configurations//:cp318-macosx_10_9_universal2-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_351695ada9ea9618//:install",
+       "@aspect_rules_py_pip_configurations//:cp318-manylinux_2_34_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_e9251e3be159d102//:install",
+       "@aspect_rules_py_pip_configurations//:cp318-manylinux_2_34_ppc64le-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_47fb8a66058b80e5//:install",
+       "@aspect_rules_py_pip_configurations//:cp318-manylinux_2_34_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_4c3341037c136030//:install",
+       "@aspect_rules_py_pip_configurations//:cp318-manylinux_2_31_armv7l-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_f145bba11b878005//:install",
+       "@aspect_rules_py_pip_configurations//:cp318-manylinux_2_28_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_50bfb6925eff619c//:install",
+       "@aspect_rules_py_pip_configurations//:cp318-manylinux_2_28_ppc64le-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_803812e111e75d1a//:install",
+       "@aspect_rules_py_pip_configurations//:cp318-manylinux_2_28_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_3ee190460e2fbe44//:install",
+       "@aspect_rules_py_pip_configurations//:cp318-manylinux_2_17_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_c18ff11e86df2e28//:install",
+       "@aspect_rules_py_pip_configurations//:cp318-manylinux_2_17_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_4d7e3d356b8cd4ea//:install",
+       "@aspect_rules_py_pip_configurations//:cp318-musllinux_1_2_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_890bcb4abd5a2d3f//:install",
+       "@aspect_rules_py_pip_configurations//:cp318-musllinux_1_2_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_80a8d7bfdf38f87c//:install",
+       "@aspect_rules_py_pip_configurations//:cp318-win32-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_60ee7e19e95104d4//:install",
+       "@aspect_rules_py_pip_configurations//:cp318-win_amd64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_38946c54b16c885c//:install",
+       "@aspect_rules_py_pip_configurations//:cp317-macosx_10_9_universal2-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_351695ada9ea9618//:install",
+       "@aspect_rules_py_pip_configurations//:cp317-manylinux_2_34_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_e9251e3be159d102//:install",
+       "@aspect_rules_py_pip_configurations//:cp317-manylinux_2_34_ppc64le-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_47fb8a66058b80e5//:install",
+       "@aspect_rules_py_pip_configurations//:cp317-manylinux_2_34_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_4c3341037c136030//:install",
+       "@aspect_rules_py_pip_configurations//:cp317-manylinux_2_31_armv7l-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_f145bba11b878005//:install",
+       "@aspect_rules_py_pip_configurations//:cp317-manylinux_2_28_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_50bfb6925eff619c//:install",
+       "@aspect_rules_py_pip_configurations//:cp317-manylinux_2_28_ppc64le-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_803812e111e75d1a//:install",
+       "@aspect_rules_py_pip_configurations//:cp317-manylinux_2_28_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_3ee190460e2fbe44//:install",
+       "@aspect_rules_py_pip_configurations//:cp317-manylinux_2_17_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_c18ff11e86df2e28//:install",
+       "@aspect_rules_py_pip_configurations//:cp317-manylinux_2_17_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_4d7e3d356b8cd4ea//:install",
+       "@aspect_rules_py_pip_configurations//:cp317-musllinux_1_2_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_890bcb4abd5a2d3f//:install",
+       "@aspect_rules_py_pip_configurations//:cp317-musllinux_1_2_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_80a8d7bfdf38f87c//:install",
+       "@aspect_rules_py_pip_configurations//:cp317-win32-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_60ee7e19e95104d4//:install",
+       "@aspect_rules_py_pip_configurations//:cp317-win_amd64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_38946c54b16c885c//:install",
+       "@aspect_rules_py_pip_configurations//:cp316-macosx_10_9_universal2-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_351695ada9ea9618//:install",
+       "@aspect_rules_py_pip_configurations//:cp316-manylinux_2_34_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_e9251e3be159d102//:install",
+       "@aspect_rules_py_pip_configurations//:cp316-manylinux_2_34_ppc64le-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_47fb8a66058b80e5//:install",
+       "@aspect_rules_py_pip_configurations//:cp316-manylinux_2_34_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_4c3341037c136030//:install",
+       "@aspect_rules_py_pip_configurations//:cp316-manylinux_2_31_armv7l-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_f145bba11b878005//:install",
+       "@aspect_rules_py_pip_configurations//:cp316-manylinux_2_28_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_50bfb6925eff619c//:install",
+       "@aspect_rules_py_pip_configurations//:cp316-manylinux_2_28_ppc64le-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_803812e111e75d1a//:install",
+       "@aspect_rules_py_pip_configurations//:cp316-manylinux_2_28_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_3ee190460e2fbe44//:install",
+       "@aspect_rules_py_pip_configurations//:cp316-manylinux_2_17_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_c18ff11e86df2e28//:install",
+       "@aspect_rules_py_pip_configurations//:cp316-manylinux_2_17_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_4d7e3d356b8cd4ea//:install",
+       "@aspect_rules_py_pip_configurations//:cp316-musllinux_1_2_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_890bcb4abd5a2d3f//:install",
+       "@aspect_rules_py_pip_configurations//:cp316-musllinux_1_2_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_80a8d7bfdf38f87c//:install",
+       "@aspect_rules_py_pip_configurations//:cp316-win32-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_60ee7e19e95104d4//:install",
+       "@aspect_rules_py_pip_configurations//:cp316-win_amd64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_38946c54b16c885c//:install",
+       "@aspect_rules_py_pip_configurations//:cp315-macosx_10_9_universal2-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_351695ada9ea9618//:install",
+       "@aspect_rules_py_pip_configurations//:cp315-manylinux_2_34_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_e9251e3be159d102//:install",
+       "@aspect_rules_py_pip_configurations//:cp315-manylinux_2_34_ppc64le-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_47fb8a66058b80e5//:install",
+       "@aspect_rules_py_pip_configurations//:cp315-manylinux_2_34_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_4c3341037c136030//:install",
+       "@aspect_rules_py_pip_configurations//:cp315-manylinux_2_31_armv7l-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_f145bba11b878005//:install",
+       "@aspect_rules_py_pip_configurations//:cp315-manylinux_2_28_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_50bfb6925eff619c//:install",
+       "@aspect_rules_py_pip_configurations//:cp315-manylinux_2_28_ppc64le-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_803812e111e75d1a//:install",
+       "@aspect_rules_py_pip_configurations//:cp315-manylinux_2_28_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_3ee190460e2fbe44//:install",
+       "@aspect_rules_py_pip_configurations//:cp315-manylinux_2_17_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_c18ff11e86df2e28//:install",
+       "@aspect_rules_py_pip_configurations//:cp315-manylinux_2_17_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_4d7e3d356b8cd4ea//:install",
+       "@aspect_rules_py_pip_configurations//:cp315-musllinux_1_2_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_890bcb4abd5a2d3f//:install",
+       "@aspect_rules_py_pip_configurations//:cp315-musllinux_1_2_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_80a8d7bfdf38f87c//:install",
+       "@aspect_rules_py_pip_configurations//:cp315-win32-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_60ee7e19e95104d4//:install",
+       "@aspect_rules_py_pip_configurations//:cp315-win_amd64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_38946c54b16c885c//:install",
+       "@aspect_rules_py_pip_configurations//:cp314-macosx_10_9_universal2-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_351695ada9ea9618//:install",
+       "@aspect_rules_py_pip_configurations//:cp314-manylinux_2_34_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_e9251e3be159d102//:install",
+       "@aspect_rules_py_pip_configurations//:cp314-manylinux_2_34_ppc64le-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_47fb8a66058b80e5//:install",
+       "@aspect_rules_py_pip_configurations//:cp314-manylinux_2_34_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_4c3341037c136030//:install",
+       "@aspect_rules_py_pip_configurations//:cp314-manylinux_2_31_armv7l-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_f145bba11b878005//:install",
+       "@aspect_rules_py_pip_configurations//:cp314-manylinux_2_28_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_50bfb6925eff619c//:install",
+       "@aspect_rules_py_pip_configurations//:cp314-manylinux_2_28_ppc64le-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_803812e111e75d1a//:install",
+       "@aspect_rules_py_pip_configurations//:cp314-manylinux_2_28_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_3ee190460e2fbe44//:install",
+       "@aspect_rules_py_pip_configurations//:cp314-manylinux_2_17_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_c18ff11e86df2e28//:install",
+       "@aspect_rules_py_pip_configurations//:cp314-manylinux_2_17_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_4d7e3d356b8cd4ea//:install",
+       "@aspect_rules_py_pip_configurations//:cp314-musllinux_1_2_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_890bcb4abd5a2d3f//:install",
+       "@aspect_rules_py_pip_configurations//:cp314-musllinux_1_2_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_80a8d7bfdf38f87c//:install",
+       "@aspect_rules_py_pip_configurations//:cp314-win32-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_60ee7e19e95104d4//:install",
+       "@aspect_rules_py_pip_configurations//:cp314-win_amd64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_38946c54b16c885c//:install",
+       "@aspect_rules_py_pip_configurations//:cp313-macosx_10_9_universal2-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_351695ada9ea9618//:install",
+       "@aspect_rules_py_pip_configurations//:cp313-manylinux_2_34_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_e9251e3be159d102//:install",
+       "@aspect_rules_py_pip_configurations//:cp313-manylinux_2_34_ppc64le-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_47fb8a66058b80e5//:install",
+       "@aspect_rules_py_pip_configurations//:cp313-manylinux_2_34_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_4c3341037c136030//:install",
+       "@aspect_rules_py_pip_configurations//:cp313-manylinux_2_31_armv7l-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_f145bba11b878005//:install",
+       "@aspect_rules_py_pip_configurations//:cp313-manylinux_2_28_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_50bfb6925eff619c//:install",
+       "@aspect_rules_py_pip_configurations//:cp313-manylinux_2_28_ppc64le-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_803812e111e75d1a//:install",
+       "@aspect_rules_py_pip_configurations//:cp313-manylinux_2_28_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_3ee190460e2fbe44//:install",
+       "@aspect_rules_py_pip_configurations//:cp313-manylinux_2_17_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_c18ff11e86df2e28//:install",
+       "@aspect_rules_py_pip_configurations//:cp313-manylinux_2_17_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_4d7e3d356b8cd4ea//:install",
+       "@aspect_rules_py_pip_configurations//:cp313-musllinux_1_2_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_890bcb4abd5a2d3f//:install",
+       "@aspect_rules_py_pip_configurations//:cp313-musllinux_1_2_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_80a8d7bfdf38f87c//:install",
+       "@aspect_rules_py_pip_configurations//:cp313-win32-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_60ee7e19e95104d4//:install",
+       "@aspect_rules_py_pip_configurations//:cp313-win_amd64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_38946c54b16c885c//:install",
+       "@aspect_rules_py_pip_configurations//:cp312-macosx_10_9_universal2-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_351695ada9ea9618//:install",
+       "@aspect_rules_py_pip_configurations//:cp312-manylinux_2_34_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_e9251e3be159d102//:install",
+       "@aspect_rules_py_pip_configurations//:cp312-manylinux_2_34_ppc64le-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_47fb8a66058b80e5//:install",
+       "@aspect_rules_py_pip_configurations//:cp312-manylinux_2_34_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_4c3341037c136030//:install",
+       "@aspect_rules_py_pip_configurations//:cp312-manylinux_2_31_armv7l-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_f145bba11b878005//:install",
+       "@aspect_rules_py_pip_configurations//:cp312-manylinux_2_28_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_50bfb6925eff619c//:install",
+       "@aspect_rules_py_pip_configurations//:cp312-manylinux_2_28_ppc64le-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_803812e111e75d1a//:install",
+       "@aspect_rules_py_pip_configurations//:cp312-manylinux_2_28_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_3ee190460e2fbe44//:install",
+       "@aspect_rules_py_pip_configurations//:cp312-manylinux_2_17_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_c18ff11e86df2e28//:install",
+       "@aspect_rules_py_pip_configurations//:cp312-manylinux_2_17_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_4d7e3d356b8cd4ea//:install",
+       "@aspect_rules_py_pip_configurations//:cp312-musllinux_1_2_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_890bcb4abd5a2d3f//:install",
+       "@aspect_rules_py_pip_configurations//:cp312-musllinux_1_2_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_80a8d7bfdf38f87c//:install",
+       "@aspect_rules_py_pip_configurations//:cp312-win32-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_60ee7e19e95104d4//:install",
+       "@aspect_rules_py_pip_configurations//:cp312-win_amd64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_38946c54b16c885c//:install",
+       "@aspect_rules_py_pip_configurations//:cp311-macosx_10_9_universal2-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_351695ada9ea9618//:install",
+       "@aspect_rules_py_pip_configurations//:cp311-manylinux_2_34_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_e9251e3be159d102//:install",
+       "@aspect_rules_py_pip_configurations//:cp311-manylinux_2_34_ppc64le-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_47fb8a66058b80e5//:install",
+       "@aspect_rules_py_pip_configurations//:cp311-manylinux_2_34_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_4c3341037c136030//:install",
+       "@aspect_rules_py_pip_configurations//:cp311-manylinux_2_31_armv7l-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_f145bba11b878005//:install",
+       "@aspect_rules_py_pip_configurations//:cp311-manylinux_2_28_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_50bfb6925eff619c//:install",
+       "@aspect_rules_py_pip_configurations//:cp311-manylinux_2_28_ppc64le-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_803812e111e75d1a//:install",
+       "@aspect_rules_py_pip_configurations//:cp311-manylinux_2_28_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_3ee190460e2fbe44//:install",
+       "@aspect_rules_py_pip_configurations//:cp311-manylinux_2_17_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_c18ff11e86df2e28//:install",
+       "@aspect_rules_py_pip_configurations//:cp311-manylinux_2_17_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_4d7e3d356b8cd4ea//:install",
+       "@aspect_rules_py_pip_configurations//:cp311-musllinux_1_2_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_890bcb4abd5a2d3f//:install",
+       "@aspect_rules_py_pip_configurations//:cp311-musllinux_1_2_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_80a8d7bfdf38f87c//:install",
+       "@aspect_rules_py_pip_configurations//:cp311-win32-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_60ee7e19e95104d4//:install",
+       "@aspect_rules_py_pip_configurations//:cp311-win_amd64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_38946c54b16c885c//:install",
+       "@aspect_rules_py_pip_configurations//:cp310-macosx_10_9_universal2-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_4108d4c09fbbf278//:install",
+       "@aspect_rules_py_pip_configurations//:cp310-manylinux_2_34_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_582f5fcd2afa3162//:install",
+       "@aspect_rules_py_pip_configurations//:cp310-manylinux_2_34_ppc64le-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_bfd56bb4b37ed4f3//:install",
+       "@aspect_rules_py_pip_configurations//:cp310-manylinux_2_34_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_a3d507bb6a513ca9//:install",
+       "@aspect_rules_py_pip_configurations//:cp310-manylinux_2_31_armv7l-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_420d0e909050490d//:install",
+       "@aspect_rules_py_pip_configurations//:cp310-manylinux_2_28_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_ba2a27ff02f48193//:install",
+       "@aspect_rules_py_pip_configurations//:cp310-manylinux_2_28_ppc64le-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_61aa400dce22cb00//:install",
+       "@aspect_rules_py_pip_configurations//:cp310-manylinux_2_28_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_3ce58ba46e1bc2aa//:install",
+       "@aspect_rules_py_pip_configurations//:cp310-manylinux_2_17_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_7d1f30a86d275719//:install",
+       "@aspect_rules_py_pip_configurations//:cp310-manylinux_2_17_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_039917b0dc418bb9//:install",
+       "@aspect_rules_py_pip_configurations//:cp310-musllinux_1_2_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_9f16fbdf4da055ef//:install",
+       "@aspect_rules_py_pip_configurations//:cp310-musllinux_1_2_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_ced80795227d7054//:install",
+       "@aspect_rules_py_pip_configurations//:cp310-win32-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_02f547fce831f509//:install",
+       "@aspect_rules_py_pip_configurations//:cp310-win_amd64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_556e106ee01aa134//:install",
+       "@aspect_rules_py_pip_configurations//:cp39-macosx_10_9_universal2-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_4108d4c09fbbf278//:install",
+       "@aspect_rules_py_pip_configurations//:cp39-manylinux_2_34_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_582f5fcd2afa3162//:install",
+       "@aspect_rules_py_pip_configurations//:cp39-manylinux_2_34_ppc64le-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_bfd56bb4b37ed4f3//:install",
+       "@aspect_rules_py_pip_configurations//:cp39-manylinux_2_34_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_a3d507bb6a513ca9//:install",
+       "@aspect_rules_py_pip_configurations//:cp39-manylinux_2_31_armv7l-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_420d0e909050490d//:install",
+       "@aspect_rules_py_pip_configurations//:cp39-manylinux_2_28_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_ba2a27ff02f48193//:install",
+       "@aspect_rules_py_pip_configurations//:cp39-manylinux_2_28_ppc64le-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_61aa400dce22cb00//:install",
+       "@aspect_rules_py_pip_configurations//:cp39-manylinux_2_28_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_3ce58ba46e1bc2aa//:install",
+       "@aspect_rules_py_pip_configurations//:cp39-manylinux_2_17_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_7d1f30a86d275719//:install",
+       "@aspect_rules_py_pip_configurations//:cp39-manylinux_2_17_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_039917b0dc418bb9//:install",
+       "@aspect_rules_py_pip_configurations//:cp39-musllinux_1_2_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_9f16fbdf4da055ef//:install",
+       "@aspect_rules_py_pip_configurations//:cp39-musllinux_1_2_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_ced80795227d7054//:install",
+       "@aspect_rules_py_pip_configurations//:cp39-win32-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_02f547fce831f509//:install",
+       "@aspect_rules_py_pip_configurations//:cp39-win_amd64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_556e106ee01aa134//:install",
+       "@aspect_rules_py_pip_configurations//:cp38-macosx_10_9_universal2-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_4108d4c09fbbf278//:install",
+       "@aspect_rules_py_pip_configurations//:cp38-manylinux_2_34_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_582f5fcd2afa3162//:install",
+       "@aspect_rules_py_pip_configurations//:cp38-manylinux_2_34_ppc64le-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_bfd56bb4b37ed4f3//:install",
+       "@aspect_rules_py_pip_configurations//:cp38-manylinux_2_34_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_a3d507bb6a513ca9//:install",
+       "@aspect_rules_py_pip_configurations//:cp38-manylinux_2_31_armv7l-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_420d0e909050490d//:install",
+       "@aspect_rules_py_pip_configurations//:cp38-manylinux_2_28_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_ba2a27ff02f48193//:install",
+       "@aspect_rules_py_pip_configurations//:cp38-manylinux_2_28_ppc64le-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_61aa400dce22cb00//:install",
+       "@aspect_rules_py_pip_configurations//:cp38-manylinux_2_28_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_3ce58ba46e1bc2aa//:install",
+       "@aspect_rules_py_pip_configurations//:cp38-manylinux_2_17_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_7d1f30a86d275719//:install",
+       "@aspect_rules_py_pip_configurations//:cp38-manylinux_2_17_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_039917b0dc418bb9//:install",
+       "@aspect_rules_py_pip_configurations//:cp38-musllinux_1_2_aarch64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_9f16fbdf4da055ef//:install",
+       "@aspect_rules_py_pip_configurations//:cp38-musllinux_1_2_x86_64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_ced80795227d7054//:install",
+       "@aspect_rules_py_pip_configurations//:cp38-win32-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_02f547fce831f509//:install",
+       "@aspect_rules_py_pip_configurations//:cp38-win_amd64-abi3": "@whl_install__abi3_compat__cryptography__46_0_5__variant_556e106ee01aa134//:install",
+   },
+   default_target = ":actual_install",
+   visibility = ["//visibility:private"],
+)
+
+
 alias(
     name = "install",
-    actual = ":actual_install",
+    actual = ":selected_install",
     visibility = ["//visibility:public"],
 )
 
