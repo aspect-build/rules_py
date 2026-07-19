@@ -1198,26 +1198,6 @@ py_library(
 )
 
 
-# scc: nodeenv__1_10_0
-# members:
-# {
-#     "@whl_install__aspect_rules_py__nodeenv__1_10_0//:install": {
-#         "": 1,
-#     },
-# }
-# deps:
-# {}
-
-
-py_library(
-    name = "nodeenv__1_10_0",
-    deps = [
-        "@whl_install__aspect_rules_py__nodeenv__1_10_0//:install",
-    ],
-    visibility = ["//:__subpackages__"],
-)
-
-
 # scc: numpy__1_26_4
 # members:
 # {
@@ -1310,26 +1290,6 @@ py_library(
         "//:python_dateutil",
         "//:pytz",
         "//:tzdata",
-    ],
-    visibility = ["//:__subpackages__"],
-)
-
-
-# scc: pex__2_3_1
-# members:
-# {
-#     "@whl_install__aspect_rules_py__pex__2_3_1//:install": {
-#         "": 1,
-#     },
-# }
-# deps:
-# {}
-
-
-py_library(
-    name = "pex__2_3_1",
-    deps = [
-        "@whl_install__aspect_rules_py__pex__2_3_1//:install",
     ],
     visibility = ["//:__subpackages__"],
 )
@@ -1450,35 +1410,6 @@ py_library(
     name = "pyproject_hooks__1_2_0",
     deps = [
         "@whl_install__aspect_rules_py__pyproject_hooks__1_2_0//:install",
-    ],
-    visibility = ["//:__subpackages__"],
-)
-
-
-# scc: pyright__1_1_411
-# members:
-# {
-#     "@whl_install__aspect_rules_py__pyright__1_1_411//:install": {
-#         "": 1,
-#     },
-# }
-# deps:
-# {
-#     "nodeenv": {
-#         "": 1,
-#     },
-#     "typing_extensions": {
-#         "": 1,
-#     },
-# }
-
-
-py_library(
-    name = "pyright__1_1_411",
-    deps = [
-        "@whl_install__aspect_rules_py__pyright__1_1_411//:install",
-        "//:nodeenv",
-        "//:typing_extensions",
     ],
     visibility = ["//:__subpackages__"],
 )
@@ -1784,26 +1715,6 @@ py_library(
 )
 
 
-# scc: ruff__0_15_22
-# members:
-# {
-#     "@whl_install__aspect_rules_py__ruff__0_15_22//:install": {
-#         "": 1,
-#     },
-# }
-# deps:
-# {}
-
-
-py_library(
-    name = "ruff__0_15_22",
-    deps = [
-        "@whl_install__aspect_rules_py__ruff__0_15_22//:install",
-    ],
-    visibility = ["//:__subpackages__"],
-)
-
-
 # scc: s3transfer__0_10_1
 # members:
 # {
@@ -1997,26 +1908,6 @@ py_library(
     name = "tomli__2_4_0",
     deps = [
         "@whl_install__aspect_rules_py__tomli__2_4_0//:install",
-    ],
-    visibility = ["//:__subpackages__"],
-)
-
-
-# scc: ty__0_0_61
-# members:
-# {
-#     "@whl_install__aspect_rules_py__ty__0_0_61//:install": {
-#         "": 1,
-#     },
-# }
-# deps:
-# {}
-
-
-py_library(
-    name = "ty__0_0_61",
-    deps = [
-        "@whl_install__aspect_rules_py__ty__0_0_61//:install",
     ],
     visibility = ["//:__subpackages__"],
 )
