@@ -6,6 +6,7 @@ build to verify the env wiring.
 """
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
+load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
 
 _ACTION_ENV = "//command_line_option:action_env"
 _HOST_ENV = [
@@ -100,6 +101,22 @@ def _toolchain_env_test_impl(ctx):
     return analysistest.end(env)
 
 pep517_native_whl_toolchain_env_test = analysistest.make(_toolchain_env_test_impl)
+
+def _console_scripts_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    target = analysistest.target_under_test(env)
+    asserts.true(env, SourceBuiltWheelInfo in target, "source-built wheel metadata is absent")
+    asserts.equals(
+        env,
+        tuple(ctx.attr.expected_console_scripts),
+        target[SourceBuiltWheelInfo].console_scripts,
+    )
+    return analysistest.end(env)
+
+pep517_whl_console_scripts_test = analysistest.make(
+    _console_scripts_test_impl,
+    attrs = {"expected_console_scripts": attr.string_list()},
+)
 
 def _execroot_collision_toolchain_impl(_ctx):
     return [platform_common.TemplateVariableInfo({"EXECROOT": "collision"})]

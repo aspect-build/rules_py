@@ -345,6 +345,75 @@ def test_flat_archive() -> None:
     assert "flit_core" in result["build_requires"]
 
 
+# --- sdist console scripts ---
+
+
+def test_console_scripts_from_egg_info() -> None:
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/pkg/__init__.py": "",
+        "pkg-1.0/pkg.egg-info/entry_points.txt": (
+            "[console_scripts]\n"
+            "Upper-Case = pkg.cli:main [speedups] # legacy extra\n"
+            "plain=pkg:run\n"
+            "../escape = pkg.cli:main\n"
+            "bad name = pkg.cli:main\n"
+            "missing-target = pkg.cli\n"
+            "extra-colon = pkg.cli:main:other\n"
+            "stray-close = pkg.cli:main]\n"
+            "stray-open = pkg.cli:main[extra\n"
+            "[gui_scripts]\n"
+            "ignored = pkg.gui:main\n"
+        ),
+    })
+    result = detect(archive, {})
+    assert result["console_scripts"] == [
+        "Upper-Case=pkg.cli:main",
+        "plain=pkg:run",
+    ]
+
+
+def test_console_scripts_from_flat_zip_archive() -> None:
+    archive = _make_zip({
+        "pkg/__init__.py": "",
+        "pkg.egg-info/entry_points.txt": (
+            "[console_scripts]\n"
+            "percent = pkg.cli:run_%s\n"
+        ),
+    })
+    result = detect(archive, {})
+    assert result["console_scripts"] == ["percent=pkg.cli:run_%s"]
+
+
+def test_console_scripts_ignore_nested_and_ambiguous_egg_info() -> None:
+    nested = _make_tar_gz({
+        "pkg-1.0/pkg/__init__.py": "",
+        "pkg-1.0/vendor/dependency.egg-info/entry_points.txt": (
+            "[console_scripts]\nvendor = dependency:main\n"
+        ),
+    })
+    assert detect(nested, {})["console_scripts"] == []
+
+    flat_nested = _make_tar_gz({
+        "pkg/__init__.py": "",
+        "vendor/dependency.egg-info/entry_points.txt": (
+            "[console_scripts]\nvendor = dependency:main\n"
+        ),
+    })
+    assert detect(flat_nested, {})["console_scripts"] == []
+
+    ambiguous = _make_tar_gz({
+        "pkg-1.0/pkg/__init__.py": "",
+        "pkg-1.0/first.egg-info/entry_points.txt": (
+            "[console_scripts]\nfirst = pkg:first\n"
+        ),
+        "pkg-1.0/second.egg-info/entry_points.txt": (
+            "[console_scripts]\nsecond = pkg:second\n"
+        ),
+    })
+    assert detect(ambiguous, {})["console_scripts"] == []
+
+
 # --- setup.py partial evaluator ---
 
 

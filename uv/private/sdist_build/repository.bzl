@@ -280,6 +280,10 @@ def _sdist_build_impl(repository_ctx):
     if repository_ctx.attr.resource_set != "default":
         resource_set_attr = "\n    resource_set = \"{}\",".format(repository_ctx.attr.resource_set)
 
+    console_scripts_attr = ""
+    if inspection and inspection.get("console_scripts"):
+        console_scripts_attr = "\n    console_scripts = {},".format(repr(inspection["console_scripts"]))
+
     # Leave args unset: the pure rule validates anyarch wheels by default,
     # while the native rule defaults to no validation.
     repository_ctx.file("BUILD.bazel", content = """
@@ -297,7 +301,7 @@ py_binary(
     name = "whl",
     src = "{src}",
     tool = ":build_tool",
-    version = "{version}",{monitor_memory_attr}{resource_set_attr}{patch_attrs}{toolchain_attrs}
+    version = "{version}",{console_scripts_attr}{monitor_memory_attr}{resource_set_attr}{patch_attrs}{toolchain_attrs}
     visibility = ["//visibility:public"],
 )
 
@@ -308,6 +312,7 @@ exports_files(
 """.format(
         src = repository_ctx.attr.src,
         deps = repr(all_deps),
+        console_scripts_attr = console_scripts_attr,
         monitor_memory_attr = monitor_memory_attr,
         rule = "pep517_native_whl" if is_native else "pep517_whl",
         version = repository_ctx.attr.version,

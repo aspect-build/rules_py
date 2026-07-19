@@ -353,9 +353,10 @@ markers such as `python_full_version < '3.12.4'` require a full
 ### Declaring source-built console scripts
 
 Downloaded wheels expose their console scripts while repositories are
-generated. A wheel built from an sdist does not exist until execution, after
-analysis has already assembled console-script wrappers. Declare the complete,
-nonempty script map on that package's override:
+generated. For source-built wheels, the default configure tool reads a
+top-level `*.egg-info/entry_points.txt` in the sdist and forwards its console
+scripts to venv assembly. If an sdist has no usable entry-point metadata,
+declare the complete, nonempty script map on that package's override:
 
 ```starlark
 uv.override_package(
@@ -369,7 +370,8 @@ uv.override_package(
 
 The optional `version` on `override_package` follows the existing override
 rules: omit it when the lock resolves one version of the package. The
-declaration is attached only to the source-build select arm. If a prebuilt
+declaration takes precedence over detected scripts and is attached only to the
+source-build select arm. If a prebuilt
 wheel is selected instead, its inspected metadata remains authoritative. The
 package layout remains unknown at analysis time, so the complete source-built
 wheel still participates in the normal `.pth` fallback.
@@ -499,9 +501,9 @@ Set `native = true|false` on a package annotation to override automatic sdist
 native detection and select the native or pure-Python wheel build path.
 
 **Why aren't entrypoints automatically created?** Downloaded-wheel entrypoints
-are discovered while repositories are generated. Source-built wheels do not
-exist until execution, so declare their console scripts with
-`uv.override_package(console_scripts = {...})`.
+and top-level sdist egg-info entrypoints are discovered while repositories are
+generated. For sdists without entry-point metadata, declare console scripts
+with `uv.override_package(console_scripts = {...})`.
 
 If you need a given entrypoint as a Bazel target, it needs to be manually
 declared. In most cases of normal entrypoints this is quite easy. Tools like

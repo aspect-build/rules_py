@@ -12,8 +12,8 @@ There are three kinds of overrides:
 
 Additionally, `extra_deps` and `extra_data` allow adding dependencies or data
 files to the generated `py_library` target for a package.
-`console_scripts` declares the complete script map for a wheel built from an
-sdist so venv assembly can create wrappers during analysis.
+`console_scripts` overrides the complete script map for a wheel built from an
+sdist when its top-level egg-info metadata is absent or unsuitable.
 
 ## Prerequisites
 

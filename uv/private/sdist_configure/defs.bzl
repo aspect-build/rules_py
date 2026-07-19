@@ -92,6 +92,15 @@ The JSON object MAY contain any of the following fields:
         Normalized package names inferred from file extensions. Informational;
         used for logging.
 
+    "console_scripts": [<string>, ...]
+
+        Complete console-script entry points discovered from the source
+        distribution, encoded as `name=module:object`. These are forwarded to
+        the generated wheel target so venv assembly can create wrappers.
+        When `build_file_content` is present, the custom BUILD content owns
+        attaching this metadata; an explicit console-script override remains
+        available for source producers that cannot expose it.
+
 ## Default implementation
 
 The bundled `detect_native.py` implements this contract. It requires

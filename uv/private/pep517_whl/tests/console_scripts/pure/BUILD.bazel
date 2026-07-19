@@ -1,0 +1,44 @@
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("//uv/private/pep517_whl:rule.bzl", "pep517_whl")
+load("//uv/private/pep517_whl:test.bzl", "pep517_whl_console_scripts_test")
+
+write_file(
+    name = "__stub_sdist",
+    out = "stub.tar.gz",
+    content = [""],
+    tags = ["manual"],
+)
+
+write_file(
+    name = "__stub_tool_sh",
+    out = "stub_tool.sh",
+    content = [
+        "#!/bin/sh",
+        "exit 0",
+    ],
+    is_executable = True,
+    tags = ["manual"],
+)
+
+sh_binary(
+    name = "__stub_tool",
+    srcs = [":__stub_tool_sh"],
+    tags = ["manual"],
+)
+
+pep517_whl(
+    name = "__console_scripts_fixture",
+    testonly = True,
+    src = ":__stub_sdist",
+    console_scripts = ["detected-pure=demo.cli:pure"],
+    tags = ["manual"],
+    tool = ":__stub_tool",
+    version = "0.0.1",
+)
+
+pep517_whl_console_scripts_test(
+    name = "console_scripts_test",
+    expected_console_scripts = ["detected-pure=demo.cli:pure"],
+    target_under_test = ":__console_scripts_fixture",
+)
