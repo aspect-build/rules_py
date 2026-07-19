@@ -87,6 +87,18 @@ def _deduplicate_whl_files(whls):
         whl_files.append(whl)
     return whl_files
 
+def group_whls_by_target(whls):
+    """Group every wheel filename that resolves to the same fetched label."""
+    grouped = {}
+    for whl_name, whl_target in whls.items():
+        if whl_target:
+            grouped.setdefault(whl_target, {})[whl_name] = whl_target
+    return grouped
+
+def wheel_variant_suffix(whl_target):
+    """Return the stable hash suffix from a generated wheel repository label."""
+    return whl_target.split("__")[-1].split("//")[0]
+
 def parse_declared_console_script(name, entry_point):
     """Canonicalize one override_package console-script declaration.
 
@@ -740,15 +752,40 @@ def _uv_impl(module_ctx):
         sdist_build(**sbuild_kwargs)
 
     for install_id, install_cfg in cfg.install_cfgs.items():
+        # Metadata extraction belongs in one repository per fetched wheel.
+        # The public install repository can then select one of these variants
+        # without fetching metadata for every inactive platform.
+        variant_installs = {}
+        for whl_target, variant_whls in group_whls_by_target(install_cfg.whls).items():
+            variant_name = "{}__variant_{}".format(
+                install_id,
+                wheel_variant_suffix(whl_target),
+            )
+            variant_kwargs = {
+                "metadata_directory": install_cfg.metadata_directory,
+                "name": variant_name,
+                "sbuild": None,
+                "sbuild_console_scripts": [],
+                "whls": json.encode(variant_whls),
+                "whl_files": [whl_target],
+            }
+            if install_cfg.post_install_patches:
+                variant_kwargs["post_install_patches"] = json.encode(install_cfg.post_install_patches)
+                variant_kwargs["post_install_patch_strip"] = install_cfg.post_install_patch_strip
+            exclude_glob = getattr(install_cfg, "exclude_glob", [])
+            if exclude_glob:
+                variant_kwargs["exclude_glob"] = exclude_glob
+            whl_install(**variant_kwargs)
+            variant_installs[whl_target] = "@{}//:install".format(variant_name)
         install_kwargs = {
             "metadata_directory": install_cfg.metadata_directory,
             "name": install_id,
             "sbuild": install_cfg.sbuild,
+            "variant_installs": json.encode(variant_installs),
             "sbuild_console_scripts": install_cfg.sbuild_console_scripts,
             "whls": json.encode(install_cfg.whls),
-            # Parallel list of the same wheel labels as a real label_list,
-            # so the whl_install repo rule can `rctx.path()` them to peek
-            # at `*.dist-info/RECORD` for top-level metadata.
+            # Keep this for callers that instantiate whl_install directly
+            # without variant repos.
             "whl_files": _deduplicate_whl_files(install_cfg.whls.values()),
         }
         if install_cfg.post_install_patches:
