@@ -73,7 +73,9 @@ def _write_executable(path: Path, content: bytes) -> None:
     path.chmod(0o755)
 
 
-def _record_metadata(zf):
+def _record_metadata(
+    zf: zipfile.ZipFile,
+) -> Tuple[Optional[str], Dict[str, Tuple[str, str]]]:
     """Return reusable sha256/size metadata from one well-formed RECORD."""
     record_members = [
         info.filename
@@ -144,7 +146,7 @@ def install_wheel(version_major: int, version_minor: int, into: Path, wheel_path
     site_packages.mkdir(parents=True, exist_ok=True)
     bin_dir.mkdir(parents=True, exist_ok=True)
 
-    installed: List[Path] = []
+    installed: List[Tuple[Path, Optional[Tuple[str, str]]]] = []
 
     with zipfile.ZipFile(wheel_path, "r") as zf:
         record_dir, record_metadata = _record_metadata(zf)
@@ -249,7 +251,7 @@ def install_wheel(version_major: int, version_minor: int, into: Path, wheel_path
         requested_path = dist_info / "REQUESTED"
         requested_path.write_bytes(b"")
 
-        destination_counts = {}
+        destination_counts: Dict[Path, int] = {}
         for f, _ in installed:
             destination_counts[f] = destination_counts.get(f, 0) + 1
 

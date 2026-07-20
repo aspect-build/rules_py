@@ -8,6 +8,7 @@ import tempfile
 import zipfile
 from base64 import urlsafe_b64encode
 from pathlib import Path
+from types import ModuleType
 from typing import Optional
 
 
@@ -54,7 +55,7 @@ def _write_wheel(
             _write_member(archive, name, data)
 
 
-def _load_unpack(path: Path):
+def _load_unpack(path: Path) -> ModuleType:
     spec = importlib.util.spec_from_file_location("rules_py_unpack_test_module", path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
