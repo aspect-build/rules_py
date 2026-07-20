@@ -62,6 +62,36 @@ fi
 
 echo "PASS: scalar strip-prefix destinations validate correctly"
 
+echo "== a default scalar strip prefix must retain executable descendants =="
+if ! "$BAZEL" build -- "${PKG}:_scalar_default_sources_listing" >"$output_log" 2>&1; then
+    cat "$output_log" >&2
+    fail "expected the scalar source layer to build"
+fi
+listing="bazel-bin/oci/py_image_layer/_scalar_default_sources.listing"
+if test "$(grep -Fxc './app/config.json' "$listing")" -ne 2; then
+    cat "$listing" >&2
+    fail "expected both scalar executable descendants at ./app/config.json"
+fi
+if grep -Fq './app.runfiles/_main/oci/py_image_layer/my_app_peer_bin/config.json' "$listing"; then
+    cat "$listing" >&2
+    fail "scalar executable descendant leaked into the shared runfiles layout"
+fi
+
+echo "PASS: default scalar strip-prefix descendants are preserved"
+
+echo "== a custom scalar root must not overwrite runfile data =="
+if "$BAZEL" build --output_groups=_validation -- \
+    "${PKG}:_scalar_root_collision_layers" >"$output_log" 2>&1; then
+    cat "$output_log" >&2
+    fail "expected the custom scalar-root destination to fail validation"
+fi
+if ! grep -Fq "py_image_layer runfile collision at ./app.runfiles/_main/oci/py_image_layer/server.py:" "$output_log"; then
+    cat "$output_log" >&2
+    fail "expected the custom scalar-root collision diagnostic"
+fi
+
+echo "PASS: custom scalar-root destinations validate correctly"
+
 if [[ "${USE_BAZEL_VERSION:-}" != 9* ]]; then
     echo "== nested launcher prefixes must share the same runfiles layout in either input order =="
     if ! "$BAZEL" build -- "${PKG}:_nested_prefix_sources_listing" >"$output_log" 2>&1; then

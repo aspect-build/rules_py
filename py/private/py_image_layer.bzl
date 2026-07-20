@@ -595,8 +595,10 @@ def _source_destination(sp, strip_prefix, root, executable_dsts):
         return "./app.runfiles/" + sp[3:]
     runfiles_prefix = None
     for executable_short_path in executable_dsts:
-        if sp.startswith(executable_short_path + ".runfiles/") and (runfiles_prefix == None or len(executable_short_path) > len(runfiles_prefix)):
-            runfiles_prefix = executable_short_path
+        if (sp.startswith(executable_short_path + ".runfiles/") or
+            (not strip_prefix and not executable_dsts[executable_short_path] and sp.startswith(executable_short_path + "/"))):
+            if runfiles_prefix == None or len(executable_short_path) > len(runfiles_prefix):
+                runfiles_prefix = executable_short_path
     if runfiles_prefix != None:
         return _apply_strip_prefix(sp, runfiles_prefix, root)
     prefix = _normalize_strip_prefix(strip_prefix)
@@ -1008,7 +1010,7 @@ def _py_image_layer_impl(ctx):
 
     validation_inputs = [pkg.files for pkg in ungrouped_pkgs]
     validation_arguments = [validation_args]
-    if len(binaries) > 1 or launcher_dir or _normalize_strip_prefix(strip_prefix):
+    if len(binaries) > 1 or launcher_dir or _normalize_strip_prefix(strip_prefix) or root != "/app":
         # Validate expanded rows whenever source destinations can be shared or remapped.
         # TreeArtifact roots can contain disjoint versioned children, so only
         # the production mappers' expanded destinations are authoritative.

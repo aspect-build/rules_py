@@ -139,6 +139,45 @@ def image_layer_analysis_test_suite():
         layer_tier = ":_scalar_strip_collision_tier",
     )
 
+    py_layer_tier(
+        name = "_scalar_default_tier",
+        interpreter_group = "interpreter",
+    )
+    py_image_layer(
+        name = "_scalar_default_layers",
+        binary = ":my_app_peer_bin",
+        layer_tier = ":_scalar_default_tier",
+    )
+    py_image_layer(
+        name = "_scalar_default_binaries_layers",
+        binaries = [":my_app_peer_bin"],
+        layer_tier = ":_scalar_default_tier",
+    )
+    native.genrule(
+        name = "_scalar_default_sources_listing",
+        srcs = [
+            ":_scalar_default_binaries_layers_only_src",
+            ":_scalar_default_layers_only_src",
+        ],
+        outs = ["_scalar_default_sources.listing"],
+        cmd = "for f in $(SRCS); do $(BSDTAR_BIN) -tf $$f; done > $@",
+        toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
+    )
+
+    py_binary(
+        name = "_scalar_root_collision",
+        srcs = ["server.py"],
+    )
+    py_layer_tier(
+        name = "_scalar_root_collision_tier",
+        root = "/app.runfiles/_main/oci/py_image_layer/server.py",
+    )
+    py_image_layer(
+        name = "_scalar_root_collision_layers",
+        binary = ":_scalar_root_collision",
+        layer_tier = ":_scalar_root_collision_tier",
+    )
+
     # Bazel 8 permits nested runfiles outputs. Bazel 9 rejects this topology
     # before analysis, so keep the real longest-prefix regression Bazel-8-only.
     if not bazel_features.rules.merkle_cache_v2:
