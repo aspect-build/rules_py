@@ -21,6 +21,12 @@ _INHERITED_PYTHON_ENV = (
     "PYTHONPLATLIBDIR",
 )
 
+def _wheel_providers(wheel_dir, console_scripts):
+    return [
+        DefaultInfo(files = depset([wheel_dir])),
+        SourceBuiltWheelInfo(console_scripts = tuple(console_scripts)),
+    ]
+
 def _common_env(ctx):
     # pyproject_hooks copies the build process environment and launches its
     # Python executable without -I:
@@ -174,10 +180,7 @@ def _pep517_whl(ctx):
         resource_set = resource_set(ctx.attr),
     )
 
-    return [
-        DefaultInfo(files = depset([wheel_dir])),
-        SourceBuiltWheelInfo(console_scripts = tuple(ctx.attr.console_scripts)),
-    ]
+    return _wheel_providers(wheel_dir, ctx.attr.console_scripts)
 
 def _pep517_native_whl(ctx):
     archive = ctx.file.src
@@ -224,10 +227,7 @@ def _pep517_native_whl(ctx):
         resource_set = resource_set(ctx.attr),
     )
 
-    return [
-        DefaultInfo(files = depset([wheel_dir])),
-        SourceBuiltWheelInfo(console_scripts = tuple(ctx.attr.console_scripts)),
-    ]
+    return _wheel_providers(wheel_dir, ctx.attr.console_scripts)
 
 _PATCH_ATTRS = {
     "pre_build_patches": attr.label_list(

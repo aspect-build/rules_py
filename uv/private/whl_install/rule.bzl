@@ -9,7 +9,7 @@ load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
 def _source_built_wheel_impl(ctx):
     source = ctx.attr.src[DefaultInfo]
     console_scripts = ctx.attr.console_scripts
-    if not ctx.attr.console_scripts_override and not console_scripts and SourceBuiltWheelInfo in ctx.attr.src:
+    if not ctx.attr.console_scripts_override and SourceBuiltWheelInfo in ctx.attr.src:
         console_scripts = ctx.attr.src[SourceBuiltWheelInfo].console_scripts
     return [
         # whl_install consumes this target as a single file. Reconstruct

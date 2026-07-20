@@ -512,22 +512,24 @@ def detect(archive_path: str, context: ConfigureContext) -> DetectionResult:
                 package_name = email.parser.Parser().parsestr(content, headersonly=True).get("Name")
                 if package_name:
                     package_name = _normalize_name(package_name)
+        egg_info = [
+            (name, path) for name, path in member_paths
+            if len(path.parts) >= 2
+            and path.parts[-2].endswith(".egg-info")
+            and path.name == "entry_points.txt"
+        ]
         if package_name:
             entry_points_paths = [
-                name for name, path in member_paths
-                if len(path.parts) >= 2
-                and path.parts[-2].endswith(".egg-info")
-                and _normalize_name(path.parts[-2][:-len(".egg-info")]) == package_name
-                and path.name == "entry_points.txt"
+                name for name, path in egg_info
+                if _normalize_name(path.parts[-2][:-len(".egg-info")]) == package_name
             ]
         else:
             # Git archives may not carry root PKG-INFO. Preserve the direct
             # egg-info fallback without admitting nested vendored metadata.
+            depth = 3 if rooted else 2
             entry_points_paths = [
-                name for name, path in member_paths
-                if len(path.parts) == (3 if rooted else 2)
-                and path.parts[-2].endswith(".egg-info")
-                and path.name == "entry_points.txt"
+                name for name, path in egg_info
+                if len(path.parts) == depth
             ]
         console_scripts = []
         if len(entry_points_paths) == 1:
