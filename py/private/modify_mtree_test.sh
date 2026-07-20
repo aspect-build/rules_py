@@ -44,6 +44,7 @@ run_case parent_alias fail $'#mtree\n./generated_tree/nested/../support.py type=
 run_case ancestor_first fail $'#mtree\n./generated_tree/support.py type=file contents=first\n./generated_tree/support.py/data type=file contents=second' 'py_image_layer runfile collision at ./generated_tree/support.py/data:'
 run_case descendant_first fail $'#mtree\n./generated_tree/support.py/data type=file contents=first\n./generated_tree/support.py type=file contents=second' 'py_image_layer runfile collision at ./generated_tree/support.py/data:'
 run_case above_root fail $'#mtree\n../generated_tree/support.py type=file contents=first' 'py_image_layer image destination escapes its root:'
+run_case missing_source fail $'#mtree\n./generated_tree/support.py type=file mode=0644' 'invalid py_image_layer mtree row (missing source):'
 
 if "$gawk" -v "outfile=$TEST_TMPDIR/validate_only.out" -v validate_only=1 -f "$awk_script" \
     <<< $'#mtree\n./generated_tree/support.py type=file contents=first\n./generated_tree/support.py type=file contents=second' \
@@ -52,6 +53,19 @@ if "$gawk" -v "outfile=$TEST_TMPDIR/validate_only.out" -v validate_only=1 -f "$a
     exit 1
 fi
 grep -Fq 'py_image_layer runfile collision at ./generated_tree/support.py:' "$TEST_TMPDIR/validate_only.err"
+
+if "$gawk" -v "outfile=$TEST_TMPDIR/validate_destination_decoy.out" -v validate_only=1 -f "$awk_script" \
+    <<< $'#mtree\n./generated_tree/content=decoy/contents=also/link=x type=file mode=0755 contents=bazel-out/first/bin/file\n./generated_tree/content=decoy/contents=also/link=x type=file mode=0644 content=bazel-out/second/bin/file' \
+    2>"$TEST_TMPDIR/validate_destination_decoy.err"; then
+    echo 'validate_destination_decoy: expected collision failure' >&2
+    exit 1
+fi
+grep -Fq 'py_image_layer runfile collision at ./generated_tree/content=decoy/contents=also/link=x:' "$TEST_TMPDIR/validate_destination_decoy.err"
+
+ln -s target.py "$TEST_TMPDIR/destination_decoy_link"
+"$gawk" -v "outfile=$TEST_TMPDIR/destination_decoy_link.out" -f "$awk_script" \
+    <<< "#mtree"$'\n'"./generated_tree/content=decoy/contents=also/link=x type=link mode=0755 link=$TEST_TMPDIR/destination_decoy_link"
+grep -Fxq './generated_tree/content=decoy/contents=also/link=x type=link mode=0755 link=target.py' "$TEST_TMPDIR/destination_decoy_link.out"
 
 "$gawk" -v "outfile=$TEST_TMPDIR/validate_same_source.out" -v validate_only=1 -f "$awk_script" \
     <<< $'#mtree\n./generated_tree/support.py type=file mode=0755 content=same\n./generated_tree/support.py type=file mode=0644 contents=same'

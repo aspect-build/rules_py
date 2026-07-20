@@ -84,13 +84,30 @@ function normalize_destination(path, count, i, n, part, parts, normalized) {
     return path
 }
 
+function replace_metadata_field(row, pattern, replacement) {
+    if (!match(row, pattern)) {
+        return row
+    }
+    return substr(row, 1, RSTART) replacement substr(row, RSTART + RLENGTH)
+}
+
 {
     if ($0 !~ /^#/) {
         original_path = $1
         destination = normalize_destination($1)
         $0 = destination substr($0, length(original_path) + 1)
-        match($0, /(contents|content|link)=[^ ]+/)
-        current_source = substr($0, RSTART, RLENGTH)
+        current_source = ""
+        for (field = 2; field <= NF; field++) {
+            if ($field ~ /^(contents|content|link)=[^ ]+$/) {
+                current_source = $field
+                break
+            }
+        }
+        if (current_source == "") {
+            print "invalid py_image_layer mtree row (missing source): " $0 > "/dev/stderr"
+            failed = 1
+            exit 1
+        }
         current_source_path = substr(current_source, index(current_source, "=") + 1)
 
         count = split(destination, destination_parts, "/")
@@ -142,17 +159,10 @@ function normalize_destination(path, count, i, n, part, parts, normalized) {
     #     might be symlinks Bazel didn't flag (repo-rule-staged ones like
     #     rules_python's `bin/python -> python3.11`). Empty `readlink` means
     #     it's a regular file and the row passes through unchanged.
-    is_hot_path = ($0 ~ /type=link/) && ($0 ~ /link=/)
-    is_slow_path = ($0 ~ /type=file/) && ($0 ~ /content=/)
+    is_hot_path = ($0 ~ /[[:space:]]type=link([[:space:]]|$)/) && (current_source ~ /^link=/)
+    is_slow_path = ($0 ~ /[[:space:]]type=file([[:space:]]|$)/) && (current_source ~ /^content=/)
     if (is_hot_path || is_slow_path) {
-        if (is_hot_path) {
-            match($0, /link=[^ ]+/)
-        } else {
-            match($0, /content=[^ ]+/)
-        }
-        content_field = substr($0, RSTART, RLENGTH)
-        split(content_field, parts, "=")
-        path = parts[2]
+        path = current_source_path
         symlink_map[path] = $1
 
         # Plain `readlink` first: keep its result if relative
@@ -261,9 +271,11 @@ END {
                 # Already a relative path
                 linked_to = resolved_path
             }
-            sub(/type=[^ ]+/, "type=link", original_line)
-            if (!sub(/content=[^ ]+/, "link=" linked_to, original_line)) {
-                sub(/link=[^ ]+/, "link=" linked_to, original_line)
+            original_line = replace_metadata_field(original_line, "[[:space:]]type=[^ ]+", "type=link")
+            if (original_line ~ /[[:space:]]content=[^ ]+/) {
+                original_line = replace_metadata_field(original_line, "[[:space:]]content=[^ ]+", "link=" linked_to)
+            } else {
+                original_line = replace_metadata_field(original_line, "[[:space:]]link=[^ ]+", "link=" linked_to)
             }
             out_lines[++n] = original_line
         } else {
