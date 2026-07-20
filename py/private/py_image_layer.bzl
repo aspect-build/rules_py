@@ -535,7 +535,7 @@ def _source_destination(sp, strip_prefix, root, executable_dsts):
     if strip_prefix:
         return _normalize_destination(_apply_strip_prefix(sp, strip_prefix, root))
     for executable_short_path in executable_dsts:
-        if sp == executable_short_path or sp.startswith(executable_short_path + ".runfiles/") or sp.startswith(executable_short_path + "/"):
+        if sp == executable_short_path or sp.startswith(executable_short_path + ".runfiles/"):
             return _normalize_destination(_apply_strip_prefix(sp, executable_short_path, root))
     return _normalize_destination("./app.runfiles/_main/" + sp)
 
@@ -740,7 +740,7 @@ def _run_tar_action(ctx, bsdtar, bsdtar_files, tar_out, files_depset, map_each, 
         use_default_shell_env = False,
     )
 
-def _validate_source_mtree(ctx, source_files, source_map, rule_group_files):
+def _validate_source_mtree(ctx, source_files, source_map, rule_group_files, wheel_files):
     mtree_args = ctx.actions.args()
     mtree_args.set_param_file_format("multiline")
     mtree_args.use_param_file("%s", use_always = True)
@@ -748,6 +748,8 @@ def _validate_source_mtree(ctx, source_files, source_map, rule_group_files):
     mtree_args.add_all(source_files, map_each = source_map, expand_directories = False, allow_closure = True)
     for files in rule_group_files:
         mtree_args.add_all(files, map_each = _user_file_to_mtree, expand_directories = False)
+    for files in wheel_files:
+        mtree_args.add_all(files, map_each = _pkg_file_to_mtree, expand_directories = False)
 
     output = ctx.actions.declare_file(ctx.attr.name + "_source_validation.mtree")
     gawk_args = ctx.actions.args()
@@ -756,7 +758,7 @@ def _validate_source_mtree(ctx, source_files, source_map, rule_group_files):
     gawk_args.add("-f", ctx.file._awk_script)
     ctx.actions.run(
         executable = ctx.executable._awk,
-        inputs = depset(direct = [ctx.file._awk_script], transitive = [source_files] + rule_group_files),
+        inputs = depset(direct = [ctx.file._awk_script], transitive = [source_files] + rule_group_files + wheel_files),
         outputs = [output],
         arguments = [gawk_args, mtree_args],
         env = {"LC_ALL": "C"},
@@ -785,7 +787,9 @@ def _declare_group_tar(ctx, bsdtar, bsdtar_files, out_name, group_name, files, m
     return tar_out
 
 def _py_image_layer_impl(ctx):
-    binaries = ctx.attr.binaries
+    binaries = ([ctx.attr.binary] if ctx.attr.binary != None else []) + ctx.attr.binaries
+    if not binaries:
+        fail("py_image_layer requires at least one binary")
     infos = [binary[_LayerInfo] for binary in binaries]
     bsdtar, bsdtar_files = _tar_toolchain(ctx)
 
@@ -968,6 +972,7 @@ def _py_image_layer_impl(ctx):
         depset(transitive = [info.source_files for info in infos] + [entry.files for info in infos for entry in info.first_party_layers.to_list()]),
         _make_source_map(strip_prefix, root, any([info.interpreter_layer == None for info in infos]), executable_dsts),
         rule_group_files,
+        [pkg.files for pkg in all_pkgs],
     )
 
     validation = ctx.actions.declare_file(ctx.attr.name + "_validation.log")
@@ -999,9 +1004,10 @@ def _py_image_layer_impl(ctx):
 _py_image_layer = rule(
     implementation = _py_image_layer_impl,
     attrs = {
+        "binary": attr.label(
+            aspects = [_layer_aspect],
+        ),
         "binaries": attr.label_list(
-            mandatory = True,
-            allow_empty = False,
             aspects = [_layer_aspect],
         ),
         "launcher_dir": attr.string(
@@ -1041,7 +1047,7 @@ _py_image_layer = rule(
 
 def py_image_layer(
         name,
-        binary,
+        binary = None,
         groups = {},
         group_execution_requirements = {},
         group_compress_levels = {},
@@ -1051,6 +1057,7 @@ def py_image_layer(
         layer_tier = None,
         additional_binaries = [],
         launcher_dir = "",
+        binaries = None,
         **kwargs):
     """Create OCI-compatible tars from one or more py_binary targets.
 
@@ -1092,9 +1099,19 @@ def py_image_layer(
             source layers are included in the image.
         launcher_dir: Absolute image directory for the binary launchers. Required
             with additional_binaries. Set RUNFILES_DIR=/app.runfiles in the image.
+        binaries: Alternative to binary/additional_binaries. A nonempty list of
+            py_binary targets to include in the image.
         **kwargs: Forwarded to inner rule.
     """
     tags = kwargs.pop("tags", []) + ["manual"]
+
+    if binaries != None:
+        if binary != None or additional_binaries:
+            fail("py_image_layer accepts either binaries or binary/additional_binaries, not both")
+    else:
+        if binary == None:
+            fail("py_image_layer requires binary or binaries")
+        binaries = additional_binaries
 
     for key in groups:
         if _split_glob_key(key)[1] != None:
@@ -1105,7 +1122,8 @@ def py_image_layer(
 
     _py_image_layer(
         name = name,
-        binaries = [binary] + additional_binaries,
+        binary = binary,
+        binaries = binaries,
         launcher_dir = launcher_dir,
         groups = groups,
         group_execution_requirements = group_execution_requirements,

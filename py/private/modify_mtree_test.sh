@@ -36,6 +36,8 @@ run_case identical pass $'#mtree\n./generated_tree/support.py type=file contents
 run_case conflicting fail $'#mtree\n./generated_tree/support.py type=file contents=first\n./generated_tree/support.py type=file contents=second'
 run_case dot_alias fail $'#mtree\n./generated_tree/./support.py type=file contents=first\n./generated_tree/support.py type=file contents=second'
 run_case parent_alias fail $'#mtree\n./generated_tree/nested/../support.py type=file contents=first\n./generated_tree/support.py type=file contents=second'
+run_case ancestor_first fail $'#mtree\n./generated_tree/support.py type=file contents=first\n./generated_tree/support.py/data type=file contents=second' 'py_image_layer runfile collision at ./generated_tree/support.py/data:'
+run_case descendant_first fail $'#mtree\n./generated_tree/support.py/data type=file contents=first\n./generated_tree/support.py type=file contents=second' 'py_image_layer runfile collision at ./generated_tree/support.py/data:'
 run_case above_root fail $'#mtree\n../generated_tree/support.py type=file contents=first' 'py_image_layer image destination escapes its root:'
 
 if "$gawk" -v "outfile=$TEST_TMPDIR/validate_only.out" -v validate_only=1 -f "$awk_script" \

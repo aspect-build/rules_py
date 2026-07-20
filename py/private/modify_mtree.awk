@@ -91,6 +91,22 @@ function normalize_destination(path, count, i, n, part, parts, normalized) {
         match($0, /(contents|content|link)=[^ ]+/)
         current_source = substr($0, RSTART, RLENGTH)
         current_source_path = substr(current_source, index(current_source, "=") + 1)
+
+        count = split(destination, destination_parts, "/")
+        parent = destination_parts[1]
+        for (j = 2; j < count; j++) {
+            parent = parent "/" destination_parts[j]
+            if (parent in destination_rows) {
+                print "py_image_layer runfile collision at " destination ": " destination_sources[parent] " and " current_source > "/dev/stderr"
+                failed = 1
+                exit 1
+            }
+        }
+        if (destination in destination_descendants) {
+            print "py_image_layer runfile collision at " destination_descendants[destination] ": " destination_descendant_sources[destination] " and " current_source > "/dev/stderr"
+            failed = 1
+            exit 1
+        }
         if (destination in destination_rows) {
             if (destination_rows[destination] == $0 || (validate_only && destination_source_paths[destination] == current_source_path)) {
                 next
@@ -102,6 +118,14 @@ function normalize_destination(path, count, i, n, part, parts, normalized) {
         destination_rows[destination] = $0
         destination_sources[destination] = current_source
         destination_source_paths[destination] = current_source_path
+        parent = destination_parts[1]
+        for (j = 2; j < count; j++) {
+            parent = parent "/" destination_parts[j]
+            if (!(parent in destination_descendants)) {
+                destination_descendants[parent] = destination
+                destination_descendant_sources[parent] = current_source
+            }
+        }
     }
 
     if (validate_only) {

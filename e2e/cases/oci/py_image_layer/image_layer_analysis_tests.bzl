@@ -198,3 +198,31 @@ def image_layer_analysis_test_suite():
         binary = ":_same_group_source_bin",
         groups = {":_generated_support": "generated_support"},
     )
+
+    # Manual action-failure fixture for unversioned wheel script/data paths
+    # shared by separately configured whl_install trees.
+    py_binary(
+        name = "_wheel_scripts_311",
+        srcs = ["server.py"],
+        dep_group = "images",
+        python_version = "3.11",
+        deps = ["@pypi_oci_py_image_layer//build"],
+    )
+    py_binary(
+        name = "_wheel_scripts_312",
+        srcs = ["server.py"],
+        dep_group = "images",
+        python_version = "3.12",
+        deps = ["@pypi_oci_py_image_layer//build"],
+    )
+    py_layer_tier(
+        name = "_wheel_scripts_tier",
+        groups = {"@pip//build": "wheel_scripts"},
+    )
+    py_image_layer(
+        name = "_configured_wheel_collision_layers",
+        binary = ":_wheel_scripts_311",
+        additional_binaries = [":_wheel_scripts_312"],
+        launcher_dir = "/app/bin",
+        layer_tier = ":_wheel_scripts_tier",
+    )
