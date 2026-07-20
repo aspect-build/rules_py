@@ -593,9 +593,12 @@ def _source_destination(sp, strip_prefix, root, executable_dsts):
         return "./app.runfiles/_repo_mapping"
     if sp.startswith("../"):
         return "./app.runfiles/" + sp[3:]
+    runfiles_prefix = None
     for executable_short_path in executable_dsts:
-        if sp.startswith(executable_short_path + ".runfiles/"):
-            return _apply_strip_prefix(sp, executable_short_path, root)
+        if sp.startswith(executable_short_path + ".runfiles/") and (runfiles_prefix == None or len(executable_short_path) > len(runfiles_prefix)):
+            runfiles_prefix = executable_short_path
+    if runfiles_prefix != None:
+        return _apply_strip_prefix(sp, runfiles_prefix, root)
     prefix = _normalize_strip_prefix(strip_prefix)
     if prefix and (sp == prefix or sp.startswith(prefix + ".runfiles/") or sp.startswith(prefix + "/")):
         return _apply_strip_prefix(sp, prefix, root)
@@ -632,9 +635,6 @@ def _source_file_to_mtree(f, dir_expander, strip_prefix, root, maybe_symlink, ex
             for child in dir_expander.expand(f)
         ]
     return _file_to_mtree_entry(f, "0755", strip_prefix, root, maybe_symlink, executable_dsts)
-
-def _make_source_map(strip_prefix, root, maybe_symlink, executable_dsts):
-    return lambda f, d: _source_file_to_mtree(f, d, strip_prefix, root, maybe_symlink, executable_dsts)
 
 def _user_file_to_mtree(f, dir_expander):
     if f.is_directory:
@@ -819,22 +819,15 @@ def _py_image_layer_impl(ctx):
     infos = [binary[_LayerInfo] for binary in binaries]
     bsdtar, bsdtar_files = _tar_toolchain(ctx)
 
-    if ctx.attr.binary != None:
-        pkg_by_label = {}
-        for pkg in infos[0].pip_packages.to_list():
-            if pkg.label not in pkg_by_label:
-                pkg_by_label[pkg.label] = pkg
-        all_pkgs = pkg_by_label.values()
-    else:
-        # Labels are normalized for tier lookup and can collide across lock
-        # universes. Concrete paths identify each configured wheel artifact.
-        pkg_by_files = {}
-        for info in infos:
-            for pkg in info.pip_packages.to_list():
-                key = tuple(sorted([f.path for f in pkg.files.to_list()]))
-                if key not in pkg_by_files:
-                    pkg_by_files[key] = pkg
-        all_pkgs = pkg_by_files.values()
+    # For multiple binaries, normalized labels can collide across lock
+    # universes. Concrete paths identify each configured wheel artifact.
+    pkg_by_key = {}
+    for info in infos:
+        for pkg in info.pip_packages.to_list():
+            key = pkg.label if ctx.attr.binary != None else tuple(sorted([f.path for f in pkg.files.to_list()]))
+            if key not in pkg_by_key:
+                pkg_by_key[key] = pkg
+    all_pkgs = pkg_by_key.values()
     pip_labels = {pkg.label: True for pkg in all_pkgs}
 
     # `_platform_cfg` rewrites the `//py:layer_tier` flag from `attr.layer_tier`,
@@ -868,12 +861,8 @@ def _py_image_layer_impl(ctx):
     # layer has to land under the same `/app.runfiles/` tree for each launcher
     # to find them. Map every launcher's `.runfiles/` tree into that shared root.
     all_tars = []
-    source_map = _make_source_map(
-        strip_prefix,
-        root,
-        any([info.interpreter_layer == None for info in infos]),
-        executable_dsts,
-    )
+    source_maybe_symlink = any([info.interpreter_layer == None for info in infos])
+    source_map = lambda f, d: _source_file_to_mtree(f, d, strip_prefix, root, source_maybe_symlink, executable_dsts)
 
     rule_group_names = {gname: True for gname in ctx.attr.groups.values()}
     for dep, group_name in ctx.attr.groups.items():

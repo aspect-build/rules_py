@@ -1,6 +1,7 @@
 """Analysis and validation fixtures for multi-launcher image layers."""
 
 load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_layer_tier")
+load("@bazel_features//:features.bzl", "bazel_features")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 
 def _expected_failure_impl(ctx):
@@ -137,6 +138,58 @@ def image_layer_analysis_test_suite():
         binary = ":_scalar_strip_collision",
         layer_tier = ":_scalar_strip_collision_tier",
     )
+
+    # Bazel 8 permits nested runfiles outputs. Bazel 9 rejects this topology
+    # before analysis, so keep the real longest-prefix regression Bazel-8-only.
+    if not bazel_features.rules.merkle_cache_v2:
+        py_binary(
+            name = "_nested_prefix/foo",
+            srcs = ["server.py"],
+            python_version = "3.11",
+        )
+        native.genrule(
+            name = "_nested_prefix_runfile",
+            outs = ["_nested_prefix/foo.runfiles/worker.runfiles/_main/nested/data.txt"],
+            cmd = "echo data > $@",
+        )
+        py_binary(
+            name = "_nested_prefix/foo.runfiles/worker",
+            srcs = ["server.py"],
+            data = ["_nested_prefix/foo.runfiles/worker.runfiles/_main/nested/data.txt"],
+            python_version = "3.12",
+        )
+        py_layer_tier(
+            name = "_nested_prefix_tier",
+            interpreter_group = "interpreter",
+        )
+        py_image_layer(
+            name = "_nested_prefix_layers",
+            binaries = [
+                ":_nested_prefix/foo",
+                ":_nested_prefix/foo.runfiles/worker",
+            ],
+            launcher_dir = "/app/bin",
+            layer_tier = ":_nested_prefix_tier",
+        )
+        py_image_layer(
+            name = "_nested_prefix_reversed_layers",
+            binaries = [
+                ":_nested_prefix/foo.runfiles/worker",
+                ":_nested_prefix/foo",
+            ],
+            launcher_dir = "/app/bin",
+            layer_tier = ":_nested_prefix_tier",
+        )
+        native.genrule(
+            name = "_nested_prefix_sources_listing",
+            srcs = [
+                ":_nested_prefix_layers_only_src",
+                ":_nested_prefix_reversed_layers_only_src",
+            ],
+            outs = ["_nested_prefix_sources.listing"],
+            cmd = "for f in $(SRCS); do $(BSDTAR_BIN) -tf $$f; done > $@",
+            toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
+        )
 
     py_image_layer(
         name = "_interpreter_group_collision_layers",

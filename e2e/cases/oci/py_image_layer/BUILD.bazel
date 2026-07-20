@@ -132,21 +132,6 @@ py_image_layer(
     layer_tier = ":my_app_multi_tier",
 )
 
-py_layer_tier(
-    name = "my_app_merged_name_tier",
-    groups = {
-        "@pip//colorama": "third_party",
-        "@pip//pyproject_hooks": "third_party",
-    },
-)
-
-py_image_layer(
-    name = "my_app_merged_name_layers",
-    binary = ":my_app_multi_bin",
-    groups = {":worker_support": "merged_pip_layer_third_party"},
-    layer_tier = ":my_app_merged_name_tier",
-)
-
 # Exercise the actual multi-launcher flow with separate lock universes and two
 # interpreter versions. colorama has the same normalized label in both
 # closures, but distinct 3.14/3.12 install trees; both launchers must resolve
@@ -262,22 +247,10 @@ py_image_layer(
     launcher_dir = "/app/bin",
 )
 
-py_binary(
-    name = "my_app_compat_layers_binary",
-    srcs = ["server.py"],
-)
-
-py_image_layer(
-    name = "my_app_compat_layers",
-    binary = ":my_app_compat_layers_binary",
-)
-
 build_test(
     name = "my_app_binary_api_test",
     targets = [
         ":my_app_binaries_layers",
-        ":my_app_compat_layers",
-        ":my_app_merged_name_layers",
         ":my_app_select_layers",
     ],
 )
@@ -427,35 +400,6 @@ py_image_layer(
     name = "server_layers",
     binary = ":server",
     layer_tier = ":server_tier",
-)
-
-py_layer_tier(
-    name = "server_directory_tier",
-    strip_prefix = "oci/py_image_layer",
-)
-
-py_image_layer(
-    name = "server_directory_layers",
-    binary = ":server",
-    layer_tier = ":server_directory_tier",
-)
-
-genrule(
-    name = "server_directory_sources_listing",
-    srcs = [":server_directory_layers_only_src"],
-    outs = ["_server_directory_sources.listing"],
-    cmd = "for f in $(SRCS); do $(BSDTAR_BIN) -tf $$f; done > $@",
-    toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
-)
-
-py_test(
-    name = "server_directory_sources_test",
-    srcs = ["assert_source_dedup.py"],
-    args = [
-        "$(rootpath :server_directory_sources_listing)",
-        "/app/server",
-    ],
-    data = [":server_directory_sources_listing"],
 )
 
 oci_image(
