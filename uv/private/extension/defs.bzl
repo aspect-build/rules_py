@@ -591,18 +591,18 @@ def _parse_projects(module_ctx, hub_specs):
                         ]
 
                     build_deps = sets.to_list(sets.make(build_deps + lock_build_deps))
-                    conditional_build_deps = {
-                        marker: sets.to_list(sets.make([
-                            dep
-                            for dep in deps
-                            if dep not in build_deps
-                        ]))
-                        for marker, deps in conditional_build_deps.items()
-                    }
+                    # A base requirement and its extras resolve through the same
+                    # project package label, so deduplicate after rendering labels.
+                    sbuild_deps = sets.to_list(sets.make([
+                        "@{0}//:{1}".format(*dep)
+                        for dep in build_deps
+                    ]))
                     sbuild_conditional_deps = {}
                     for marker, deps in conditional_build_deps.items():
                         for dep in deps:
                             label = "@{0}//:{1}".format(*dep)
+                            if label in sbuild_deps:
+                                continue
                             previous = sbuild_conditional_deps.get(label)
                             if previous:
                                 sbuild_conditional_deps[label] = "({}) or ({})".format(previous, marker)
@@ -630,12 +630,7 @@ def _parse_projects(module_ctx, hub_specs):
 
                     sbuild_specs[sbuild_id] = struct(
                         src = sdist,
-                        # A base requirement and its extras resolve through the same
-                        # project package label, so deduplicate after rendering labels.
-                        deps = sets.to_list(sets.make([
-                            "@{0}//:{1}".format(*it)
-                            for it in build_deps
-                        ])),
+                        deps = sbuild_deps,
                         conditional_deps = sbuild_conditional_deps,
                         is_native = is_native,
                         version = package["version"],
