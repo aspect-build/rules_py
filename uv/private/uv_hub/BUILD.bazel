@@ -47,12 +47,11 @@ write_source_files(
         # dep_group surface (the `dep_group` alias plus one config_setting
         # per uv.project() call).
         "snapshots/pypi.dep_group.BUILD.bazel": "@pypi//dep_group:BUILD.bazel",
-        # uv_project: package-name → SCC alias map. Pins how surface
-        # packages are wired into the SCC-partitioned graph for one project.
+        # uv_project: package-name → SCC alias map and Gazelle indexes. Pins
+        # that inactive dev-only packages stay out of the project surface.
         "snapshots/project.BUILD.bazel": "@project__aspect_rules_py//:BUILD.bazel",
         # uv_project: py_library SCC definitions with wheel installs and
-        # cross-SCC deps. Pins the resolved dep graph at 78-package scale —
-        # the most precise check on the partitioning algorithm.
+        # cross-SCC deps. Pins that inactive dev-only SCCs are not emitted.
         "snapshots/project.private.sccs.BUILD.bazel": "@project__aspect_rules_py//private/sccs:BUILD.bazel",
         # uv_project: decide_marker rules keyed by SHA1 of the marker
         # expression. Pins marker emission and the hashing scheme.
