@@ -40,8 +40,6 @@ jobs:
             - uses: aspect-build/setup-aspect@c22a8f64fb38f82f59ce809cd7eb9f8ae096da44 # v2026.23.2
               with:
                 aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
-            - name: Check Node runtime
-              run: node --version
             - name: Ruff annotations
               run: bazel run @uv -- run --locked --group dev -- ruff check .
             - name: Typecheck maintained Python
@@ -60,10 +58,13 @@ jobs:
                   uv/private/pep517_whl/memory_monitor.py
                   uv/private/py_entrypoint_binary/search.py
                 )
+                runtime311=(
+                  uv/private/sdist_configure/detect_native.py
+                )
                 bazel run @uv -- run --locked --group dev -- pyright --pythonversion 3.9 --warnings "${runtime39[@]}"
-                bazel run @uv -- run --locked --group dev -- pyright --pythonversion 3.11 --warnings uv/private/sdist_configure/detect_native.py
+                bazel run @uv -- run --locked --group dev -- pyright --pythonversion 3.11 --warnings "${runtime311[@]}"
                 bazel run @uv -- run --locked --group dev -- ty check --python-version 3.9 --error-on-warning --output-format github "${runtime39[@]}"
-                bazel run @uv -- run --locked --group dev -- ty check --python-version 3.11 --error-on-warning --output-format github uv/private/sdist_configure/detect_native.py
+                bazel run @uv -- run --locked --group dev -- ty check --python-version 3.11 --error-on-warning --output-format github "${runtime311[@]}"
     test:
         name: test (${{ matrix.workspace.path }}, ${{ matrix.bazel.id }})
         runs-on: ${{ matrix.workspace.runner }}
