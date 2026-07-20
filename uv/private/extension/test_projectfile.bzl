@@ -96,6 +96,16 @@ def _extract_requirement_marker_pairs_direct_reference_test_impl(ctx):
     asserts.equals(env, (("proj", "build", "1.3.0", "__base__"), 'python_version >= "3.9"'), result[0])
     asserts.equals(env, (("proj", "build", "1.3.0", "extra"), 'python_version >= "3.9"'), result[1])
 
+    hashed = extract_requirement_marker_pairs(
+        "//:pyproject.toml",
+        "proj",
+        "build @ https://example.invalid/build-1.3.0-py3-none-any.whl#sha256=4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274",
+        {},
+        versions,
+        locked_urls = locked_urls,
+    )
+    asserts.equals(env, [(("proj", "build", "1.3.0", "__base__"), "")], hashed)
+
     missing = extract_requirement_marker_pairs(
         "//:pyproject.toml",
         "proj",
