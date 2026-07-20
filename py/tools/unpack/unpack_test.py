@@ -125,6 +125,7 @@ def _run_unpack(
     output: Path,
     python: Path,
     extra_args: tuple[str, ...] = (),
+    compile_pyc: bool = True,
 ) -> subprocess.CompletedProcess:
     command = [
         sys.executable,
@@ -137,9 +138,7 @@ def _run_unpack(
         str(sys.version_info.major),
         "--python-version-minor",
         str(sys.version_info.minor),
-        "--compile-pyc",
-        "--python",
-        str(python),
+        *(("--compile-pyc", "--python", str(python)) if compile_pyc else ()),
         *extra_args,
     ]
     return subprocess.run(
@@ -212,6 +211,19 @@ def main() -> None:
         )
         _assert_record_matches_installed_files(record_site_packages)
 
+        streamed_out = root / "record-streamed"
+        streamed = _run_unpack(
+            unpack,
+            record_wheel,
+            streamed_out,
+            Path(sys.executable),
+            compile_pyc=False,
+        )
+        assert streamed.returncode == 0, streamed.stderr
+        streamed_site_packages = _site_packages(streamed_out)
+        assert (streamed_site_packages / "fixture" / "collision.py").read_bytes() == b"VALUE = 2\n"
+        _assert_record_matches_installed_files(streamed_site_packages)
+
         # A wheel that compiles cleanly installs successfully (exit 0) and
         # produces bytecode.
         good_wheel = root / "fixture-1.0-py3-none-any.whl"
@@ -253,6 +265,21 @@ def main() -> None:
         assert installed_large.read_bytes() == large_payload
         _assert_record_matches_installed_files(_site_packages(large_out))
 
+        large_streamed_out = root / "large-streamed"
+        large_streamed = _run_unpack(
+            unpack,
+            large_wheel,
+            large_streamed_out,
+            Path(sys.executable),
+            compile_pyc=False,
+        )
+        assert large_streamed.returncode == 0, large_streamed.stderr
+        large_streamed_site_packages = _site_packages(large_streamed_out)
+        assert (large_streamed_site_packages / "fixture" / "big.bin").read_bytes() == (
+            large_payload
+        )
+        _assert_record_matches_installed_files(large_streamed_site_packages)
+
         # A .data/scripts member with a Python shebang is rewritten to the
         # relocatable launcher and marked executable.
         script_wheel = root / "script_fixture-1.0-py3-none-any.whl"
@@ -272,6 +299,7 @@ def main() -> None:
             "print('hi')\n"
         ).encode()
         assert installed_script.stat().st_mode & 0o111
+        _assert_record_matches_installed_files(_site_packages(script_out))
 
         for case, member in [
             ("roottraversal", "../../../../escaped.py"),
