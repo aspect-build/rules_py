@@ -51,8 +51,7 @@ _configured_runtime = rule(
 def image_layer_analysis_test_suite():
     py_image_layer(
         name = "_missing_launcher_dir_layers",
-        binary = ":my_app_bin",
-        additional_binaries = [":my_app_worker_bin"],
+        binaries = [":my_app_bin", ":my_app_worker_bin"],
     )
     _expected_failure_test(
         name = "missing_launcher_dir_test",
@@ -62,8 +61,7 @@ def image_layer_analysis_test_suite():
 
     py_image_layer(
         name = "_relative_launcher_dir_layers",
-        binary = ":my_app_bin",
-        additional_binaries = [":my_app_worker_bin"],
+        binaries = [":my_app_bin", ":my_app_worker_bin"],
         launcher_dir = "app/bin",
     )
     _expected_failure_test(
@@ -78,8 +76,7 @@ def image_layer_analysis_test_suite():
     )
     py_image_layer(
         name = "_duplicate_launcher_layers",
-        binary = ":my_app_bin",
-        additional_binaries = [":_my_app_bin_alias"],
+        binaries = [":my_app_bin", ":_my_app_bin_alias"],
         launcher_dir = "////",
     )
     _expected_failure_test(
@@ -130,8 +127,7 @@ def image_layer_analysis_test_suite():
 
     py_image_layer(
         name = "_configured_group_collision_layers",
-        binary = ":_configured_group_311",
-        additional_binaries = [":_configured_group_312"],
+        binaries = [":_configured_group_311", ":_configured_group_312"],
         launcher_dir = "/app/bin",
         layer_tier = ":_generated_support_tier",
     )
@@ -143,8 +139,7 @@ def image_layer_analysis_test_suite():
 
     py_image_layer(
         name = "_configured_group_source_collision_layers",
-        binary = ":_configured_group_311",
-        additional_binaries = [":_configured_source_312"],
+        binaries = [":_configured_group_311", ":_configured_source_312"],
         launcher_dir = "/app/bin",
         layer_tier = ":_generated_support_tier",
     )
@@ -190,8 +185,7 @@ def image_layer_analysis_test_suite():
     )
     py_image_layer(
         name = "_expanded_tree_collision_layers",
-        binary = ":_configured_tree_311",
-        additional_binaries = [":_configured_file_312"],
+        binaries = [":_configured_tree_311", ":_configured_file_312"],
         launcher_dir = "/app/bin",
         layer_tier = ":_configured_tree_tier",
     )
@@ -237,8 +231,7 @@ def image_layer_analysis_test_suite():
     )
     py_image_layer(
         name = "_configured_wheel_collision_layers",
-        binary = ":_wheel_scripts_311",
-        additional_binaries = [":_wheel_scripts_312"],
+        binaries = [":_wheel_scripts_311", ":_wheel_scripts_312"],
         launcher_dir = "/app/bin",
         layer_tier = ":_wheel_scripts_tier",
     )
@@ -279,15 +272,13 @@ def image_layer_analysis_test_suite():
     )
     py_image_layer(
         name = "_configured_interpreter_collision_layers",
-        binary = ":_configured_interpreter_311",
-        additional_binaries = [":_configured_interpreter_312"],
+        binaries = [":_configured_interpreter_311", ":_configured_interpreter_312"],
         launcher_dir = "/app/bin",
         layer_tier = ":_configured_interpreter_tier",
     )
     py_image_layer(
         name = "_configured_interpreter_shared_layers",
-        binary = ":_configured_interpreter_311",
-        additional_binaries = [":_configured_interpreter_peer_311"],
+        binaries = [":_configured_interpreter_311", ":_configured_interpreter_peer_311"],
         launcher_dir = "/app/bin",
         layer_tier = ":_configured_interpreter_tier",
     )

@@ -571,10 +571,7 @@ def _source_file_to_mtree(f, dir_expander, strip_prefix, root, maybe_symlink, ex
     return _file_to_mtree_entry(f, "0755", strip_prefix, root, maybe_symlink, executable_dsts)
 
 def _make_source_map(strip_prefix, root, maybe_symlink, executable_dsts):
-    def _source_map(f, d):
-        return _source_file_to_mtree(f, d, strip_prefix, root, maybe_symlink, executable_dsts)
-
-    return _source_map
+    return lambda f, d: _source_file_to_mtree(f, d, strip_prefix, root, maybe_symlink, executable_dsts)
 
 def _check_runfile_collision(f, dst, runfile_paths):
     if f.is_directory:
@@ -1059,7 +1056,6 @@ def py_image_layer(
         warn_layer_count = 90,
         platform = None,
         layer_tier = None,
-        additional_binaries = [],
         launcher_dir = "",
         binaries = None,
         **kwargs):
@@ -1099,23 +1095,21 @@ def py_image_layer(
         layer_tier: Optional py_layer_tier target pinned for this rule. Sets the
             `@aspect_rules_py//py:layer_tier` label_flag via the rule transition,
             overriding any command-line value for this rule's subgraph.
-        additional_binaries: Additional py_binary targets whose dependency and
-            source layers are included in the image.
         launcher_dir: Absolute image directory for the binary launchers. Required
-            with additional_binaries. Set RUNFILES_DIR=/app.runfiles in the image.
-        binaries: Alternative to binary/additional_binaries. A nonempty list of
-            py_binary targets to include in the image.
+            with multiple binaries. Set RUNFILES_DIR=/app.runfiles in the image.
+        binaries: Alternative to binary. A nonempty list of py_binary targets to
+            include in the image.
         **kwargs: Forwarded to inner rule.
     """
     tags = kwargs.pop("tags", []) + ["manual"]
 
     if binaries != None:
-        if binary != None or additional_binaries:
-            fail("py_image_layer accepts either binaries or binary/additional_binaries, not both")
+        if binary != None:
+            fail("py_image_layer accepts either binary or binaries, not both")
     else:
         if binary == None:
             fail("py_image_layer requires binary or binaries")
-        binaries = additional_binaries
+        binaries = []
 
     for key in groups:
         if _split_glob_key(key)[1] != None:

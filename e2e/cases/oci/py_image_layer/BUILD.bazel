@@ -186,8 +186,10 @@ py_layer_tier(
 
 py_image_layer(
     name = "my_app_launchers_layers",
-    additional_binaries = [":my_app_worker_alias"],
-    binary = ":my_app_bin",
+    binaries = [
+        ":my_app_bin",
+        ":my_app_worker_alias",
+    ],
     launcher_dir = "/app/bin",
     layer_tier = ":my_app_launchers_tier",
 )
@@ -205,8 +207,10 @@ py_binary(
 
 py_image_layer(
     name = "my_app_shared_layers",
-    additional_binaries = [":my_app_peer_bin"],
-    binary = ":my_app_bin",
+    binaries = [
+        ":my_app_bin",
+        ":my_app_peer_bin",
+    ],
     launcher_dir = "/app/bin",
 )
 
