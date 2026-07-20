@@ -86,8 +86,9 @@ function normalize_destination(path, count, i, n, part, parts, normalized) {
 
 {
     if ($0 !~ /^#/) {
+        original_path = $1
         destination = normalize_destination($1)
-        sub(/^[^ ]+/, destination)
+        $0 = destination substr($0, length(original_path) + 1)
         match($0, /(contents|content|link)=[^ ]+/)
         current_source = substr($0, RSTART, RLENGTH)
         current_source_path = substr(current_source, index(current_source, "=") + 1)

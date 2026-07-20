@@ -31,6 +31,8 @@ run_case() {
 }
 
 run_case disjoint pass $'#mtree\n./generated_tree/first.py type=file contents=first\n./generated_tree/second.py type=file contents=second'
+run_case ampersand_destination pass $'#mtree\n./assets/nested/../a&b.txt  type=file mode=0644 contents=asset'
+grep -Fxq './assets/a&b.txt  type=file mode=0644 contents=asset' "$TEST_TMPDIR/ampersand_destination.out"
 run_case identical pass $'#mtree\n./generated_tree/support.py type=file contents=same\n./generated_tree/support.py type=file contents=same'
 [[ $(grep -Fc './generated_tree/support.py ' "$TEST_TMPDIR/identical.out") == 1 ]]
 run_case conflicting fail $'#mtree\n./generated_tree/support.py type=file contents=first\n./generated_tree/support.py type=file contents=second'
