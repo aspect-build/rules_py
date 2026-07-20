@@ -435,7 +435,7 @@ def _parse_projects(module_ctx, hub_specs):
                             continue
                         build_extra_roots.setdefault((dep_project, dep_name, dep_version, extra), {}).update({marker: 1})
 
-            configuration_names, activated_extras = collect_activated_extras(project.lock, project_id, project_data, lock_data, default_versions, marker_graph, package_versions, build_extra_roots)
+            configuration_names, activated_extras = collect_activated_extras(project.lock, project_id, project_data, lock_data, default_versions, marker_graph, package_versions, build_extra_roots, locked_urls = locked_urls)
             version_activations = collate_versions_by_name(activated_extras)
 
             # SCC graph shapes:

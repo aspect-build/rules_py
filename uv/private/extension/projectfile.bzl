@@ -165,7 +165,7 @@ def _extract_lockfile_group_versions(lock_id, lock_data):
                     result.setdefault(group_name, {})[pkg_name] = (lock_id, pkg_name, dep["version"], "__base__")
     return result
 
-def collect_activated_extras(projectfile, lock_id, project_data, lock_data, default_versions, graph, package_versions = {}, extra_roots = {}):
+def collect_activated_extras(projectfile, lock_id, project_data, lock_data, default_versions, graph, package_versions = {}, extra_roots = {}, locked_urls = {}):
     """Collects the set of transitively activated extras for each configuration.
 
     This function determines the full set of extras that are activated for each
@@ -180,6 +180,8 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
         graph: The dependency graph, as returned by `build_marker_graph`.
         extra_roots: Additional resolved dependencies and their markers to
             activate in every dependency group, such as build-requirement extras.
+        locked_urls: A dictionary mapping direct-reference URLs to locked
+            dependencies.
 
     Returns:
         A tuple containing:
@@ -213,13 +215,13 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
         group_preferences = dict(lockfile_group_versions.get(group_name, {}))
 
         for spec in resolved_specs:
-            for dep, _marker in extract_requirement_marker_pairs(projectfile, lock_id, spec, default_versions, package_versions, group_preferences):
+            for dep, _marker in extract_requirement_marker_pairs(projectfile, lock_id, spec, default_versions, package_versions, group_preferences, locked_urls = locked_urls):
                 group_preferences[dep[1]] = (dep[0], dep[1], dep[2], "__base__")
 
         all_group_preferences[group_name] = group_preferences
 
         for spec in resolved_specs:
-            for dep, marker in extract_requirement_marker_pairs(projectfile, lock_id, spec, default_versions, package_versions, group_preferences):
+            for dep, marker in extract_requirement_marker_pairs(projectfile, lock_id, spec, default_versions, package_versions, group_preferences, locked_urls = locked_urls):
                 normalized_dep_groups.setdefault(group_name, []).append(dep)
 
                 # Note that this is the base case for the reach set walk below
