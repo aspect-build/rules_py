@@ -206,6 +206,7 @@ def main() -> None:
             sys.version_info.minor,
             record_out,
             record_wheel,
+            (),
         )
         assert not {"__init__.py", "collision.py", "pure.py", "plain"} & hashed_names
         assert {"python-script", "fixture-cli", "INSTALLER", "REQUESTED"} <= hashed_names
@@ -241,6 +242,7 @@ def main() -> None:
                 sys.version_info.minor,
                 fallback_out,
                 fallback_wheel,
+                (),
             )
             fallback_site_packages = _site_packages(fallback_out)
             assert "__init__.py" in hashed_names, name
@@ -262,6 +264,7 @@ def main() -> None:
             sys.version_info.minor,
             duplicate_out,
             duplicate_wheel,
+            (),
         )
         duplicate_site_packages = _site_packages(duplicate_out)
         assert "__init__.py" in hashed_names

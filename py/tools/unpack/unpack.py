@@ -502,7 +502,7 @@ def main() -> None:
     records = list(site_packages.glob("*.dist-info/RECORD"))
     if len(records) > 1 or (args.exclude_glob and not records):
         raise SystemExit("expected exactly one installed RECORD, found {}".format(len(records)))
-    if records:
+    if records and (args.patches or args.exclude_glob):
         record = records[0]
         rows = []
         for path in sorted(args.into.rglob("*")):
