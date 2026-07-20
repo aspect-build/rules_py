@@ -1,2 +1,2 @@
-def support():
+def support() -> str:
     return "grouped"

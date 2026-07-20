@@ -3,7 +3,7 @@
 import sys
 
 
-def main(argv):
+def main(argv: list[str]) -> None:
     listing, sentinels = argv[1], argv[2:]
     with open(listing, encoding="utf-8") as f:
         entries = f.read().splitlines()
