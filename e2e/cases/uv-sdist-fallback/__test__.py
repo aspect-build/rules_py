@@ -11,11 +11,13 @@ import subprocess
 from pathlib import Path
 
 import cowsay
+import socks
 import tqdm
 
 output = cowsay.get_output_string("cow", "sdist fallback works!")
 assert "sdist fallback works!" in output
 assert list(tqdm.tqdm(range(2), disable=True)) == [0, 1]
+assert hasattr(socks, "socksocket"), "urllib3[socks] build extra was not activated"
 marker = "declared console script works"
 wrapper = shutil.which("cowsay")
 assert wrapper is not None, "cowsay wrapper is absent from PATH"

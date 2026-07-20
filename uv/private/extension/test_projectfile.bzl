@@ -153,6 +153,39 @@ extract_requirement_marker_pairs_preferred_overrides_multi_version_test = unitte
     _extract_requirement_marker_pairs_preferred_overrides_multi_version_test_impl,
 )
 
+def _collect_activated_extras_build_extra_test_impl(ctx):
+    env = unittest.begin(ctx)
+    urllib3 = ("lock", "urllib3", "2.6.3", "__base__")
+    urllib3_brotli = ("lock", "urllib3", "2.6.3", "brotli")
+    brotli = ("lock", "brotli", "1.2.0", "__base__")
+    graph = {
+        urllib3: {},
+        urllib3_brotli: {brotli: {"platform_python_implementation == 'CPython'": 1}},
+        brotli: {},
+    }
+
+    _cfg_names, activated_extras = collect_activated_extras(
+        "//:pyproject.toml",
+        "lock",
+        {
+            "project": {"name": "test_project"},
+            "dependency-groups": {"runtime": ["urllib3"]},
+        },
+        {},
+        {"urllib3": urllib3, "brotli": brotli},
+        graph,
+        {"urllib3": {"2.6.3": 1}, "brotli": {"1.2.0": 1}},
+        {urllib3_brotli: {"sys_platform != 'win32'": 1}},
+    )
+
+    asserts.equals(env, {"sys_platform != 'win32'": 1}, activated_extras[urllib3]["runtime"][urllib3_brotli])
+    asserts.equals(env, {"platform_python_implementation == 'CPython'": 1}, activated_extras[brotli]["runtime"][brotli])
+    return unittest.end(env)
+
+collect_activated_extras_build_extra_test = unittest.make(
+    _collect_activated_extras_build_extra_test_impl,
+)
+
 def _collect_activated_extras_transitive_remap_test_impl(ctx):
     env = unittest.begin(ctx)
     project_data = {
@@ -244,5 +277,6 @@ def projectfile_test_suite():
         extract_requirement_marker_pairs_direct_reference_test,
         extract_requirement_marker_pairs_preferred_overrides_version_map_test,
         extract_requirement_marker_pairs_preferred_overrides_multi_version_test,
+        collect_activated_extras_build_extra_test,
         collect_activated_extras_transitive_remap_test,
     )

@@ -415,7 +415,22 @@ def _parse_projects(module_ctx, hub_specs):
 
             whl_configurations.update(collect_configurations(lock_data))
 
-            configuration_names, activated_extras = collect_activated_extras(project.lock, project_id, project_data, lock_data, default_versions, marker_graph, package_versions)
+            # Activate extras requested by build requirements in every dependency
+            # group so their transitive dependencies reach source-build tools.
+            build_extra_roots = {}
+            for deps in lock_build_dep_anns.values():
+                for dep_project, dep_name, dep_version, extra in deps:
+                    if extra == "__base__":
+                        continue
+                    build_extra_roots.setdefault((dep_project, dep_name, dep_version, extra), {}).update({"": 1})
+            for conditional_deps in lock_conditional_build_dep_anns.values():
+                for marker, deps in conditional_deps.items():
+                    for dep_project, dep_name, dep_version, extra in deps:
+                        if extra == "__base__":
+                            continue
+                        build_extra_roots.setdefault((dep_project, dep_name, dep_version, extra), {}).update({marker: 1})
+
+            configuration_names, activated_extras = collect_activated_extras(project.lock, project_id, project_data, lock_data, default_versions, marker_graph, package_versions, build_extra_roots)
             version_activations = collate_versions_by_name(activated_extras)
 
             # SCC graph shapes:

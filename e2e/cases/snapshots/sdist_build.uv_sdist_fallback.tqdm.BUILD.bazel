@@ -12,7 +12,7 @@ py_binary(
     name = "build_tool",
     main = "@aspect_rules_py//uv/private/pep517_whl:build_helper.py",
     srcs = ["@aspect_rules_py//uv/private/pep517_whl:build_helper.py"],
-    deps = ["@@aspect_rules_py++uv+project__uv_sdist_fallback//:setuptools", "@@aspect_rules_py++uv+project__uv_sdist_fallback//:six", "@@aspect_rules_py++uv+project__uv_sdist_fallback//:build", "@whl_install__uv_sdist_fallback__setuptools__80_10_2//:install"] + select({
+    deps = ["@@aspect_rules_py++uv+project__uv_sdist_fallback//:urllib3", "@@aspect_rules_py++uv+project__uv_sdist_fallback//:six", "@@aspect_rules_py++uv+project__uv_sdist_fallback//:build", "@@aspect_rules_py++uv+project__uv_sdist_fallback//:setuptools", "@whl_install__uv_sdist_fallback__setuptools__80_10_2//:install"] + select({
         ":_build_dep_marker_0": ["@@aspect_rules_py++uv+project__uv_sdist_fallback//:packaging"],
         "//conditions:default": [],
     }),

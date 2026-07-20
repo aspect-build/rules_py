@@ -11,9 +11,16 @@ dependencies = [
     "setuptools",
     "cowsay==6.0",
     "tqdm==4.52.0",
+    # Keep the urllib3 requirement plain; its non-empty extra is build-only.
+    "urllib3==2.6.3",
     # Keep a dedicated locked package for the direct-reference build-dep case.
     "six==1.17.0",
 ]
+
+[project.optional-dependencies]
+# Ensure the lock contains the extra's transitive dependencies while the
+# default runtime requirement remains plain.
+build-extra-lock = ["urllib3[socks]==2.6.3"]
 
 # cowsay and tqdm both ship an sdist and a `py3-none-any.whl`. Forcing them to
 # build from source exercises both annotation styles end-to-end.
@@ -31,9 +38,9 @@ cowsay = [
     "pyproject-hooks; sys_platform != 'emscripten'",
 ]
 tqdm = [
-    # `ssl` is an empty setuptools extra that exercises extra-qualified
-    # requirements without expanding this fixture's lockfile.
-    "setuptools[ssl]==80.10.2",
+    # `socks` is non-empty and must reach the source-build environment even
+    # though the runtime dependency is plain urllib3.
+    "urllib3[socks]==2.6.3",
     "packaging; sys_platform != 'win32'",
     "packaging; sys_platform != 'imaginary'",
     { requirement = "six @ https://files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl", match-runtime = true },
