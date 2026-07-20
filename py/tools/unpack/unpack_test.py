@@ -1,5 +1,6 @@
 import csv
 import hashlib
+import importlib.util
 import os
 import shutil
 import subprocess
@@ -82,10 +83,14 @@ def _assert_record_matches_installed_files(site_packages: Path) -> None:
         ).decode().rstrip("=")
         assert digest == f"sha256={expected_digest}", relative
         assert size == str(path.stat().st_size), relative
+    generated_pyc = {
+        Path(importlib.util.cache_from_source(str(path)))
+        for path in site_packages.parents[2].rglob("*.py")
+    }
     installed = {
         os.path.relpath(str(path), str(site_packages)).replace("\\", "/")
         for path in site_packages.parents[2].rglob("*")
-        if path.is_file() and path.suffix != ".pyc"
+        if path.is_file() and path not in generated_pyc
     }
     assert seen == installed
 
@@ -102,6 +107,7 @@ def _build_wheel(path: Path, *, legacy_syntax: bool) -> None:
         {
             "fixture/__init__.py": b"VALUE = 1\n",
             "fixture/mod.py": body,
+            "fixture/orphan.pyc": b"supplied bytecode\n",
         },
     )
 
@@ -337,6 +343,16 @@ def main() -> None:
         assert (
             content_site_packages / "fixture-1.0.dist-info" / "__init__.py"
         ).is_file()
+        orphan_content = b"supplied bytecode\n"
+        orphan_digest = urlsafe_b64encode(
+            hashlib.sha256(orphan_content).digest()
+        ).decode().rstrip("=")
+        assert any(
+            relative == "fixture/orphan.pyc"
+            and digest == f"sha256={orphan_digest}"
+            and size == str(len(orphan_content))
+            for relative, digest, size in _record_rows(content_site_packages)
+        )
         _assert_record_matches_installed_files(content_site_packages)
 
         namespace_wheel = root / "namespace_fixture-1.0-py3-none-any.whl"
