@@ -53,8 +53,8 @@ expect_failure \
 expect_failure \
     missing-extra-build-dep \
     '@missing_extra_build_dep//:*' \
-    'Unable to resolve extra build dependency "cython" for package "cchardet" in @@//:pyproject.toml.' \
-    '`uv lock` does not include packages referenced only by `tool.uv.extra-build-dependencies`' \
+    'Unable to resolve extra build dependency `"cython"` for package "cchardet" in @@//:pyproject.toml.' \
+    '`uv.lock` does not include packages referenced only by `tool.uv.extra-build-dependencies`' \
     'Add the dependency as a dependency and regenerate the lock.'
 
 expect_failure \
