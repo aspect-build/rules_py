@@ -70,7 +70,10 @@ def _site_packages(output: Path) -> Path:
     )
 
 
-def _assert_record_matches_installed_files(site_packages: Path) -> None:
+def _assert_record_matches_installed_files(
+    site_packages: Path,
+    supplied_pyc: tuple[str, ...] = (),
+) -> None:
     seen = set()
     for relative, digest, size in _record_rows(site_packages):
         assert relative not in seen, relative
@@ -87,6 +90,7 @@ def _assert_record_matches_installed_files(site_packages: Path) -> None:
         Path(importlib.util.cache_from_source(str(path)))
         for path in site_packages.parents[2].rglob("*.py")
     }
+    generated_pyc.difference_update(site_packages / path for path in supplied_pyc)
     installed = {
         os.path.relpath(str(path), str(site_packages)).replace("\\", "/")
         for path in site_packages.parents[2].rglob("*")
@@ -211,6 +215,7 @@ def main() -> None:
         # A wheel that compiles cleanly installs successfully (exit 0) and
         # produces bytecode.
         good_wheel = root / "fixture-1.0-py3-none-any.whl"
+        supplied_cache = f"fixture/__pycache__/mod.{sys.implementation.cache_tag}.pyc"
         _build_wheel(good_wheel, legacy_syntax=False)
         good_out = root / "good"
         ok = _run_unpack(unpack, good_wheel, good_out, Path(sys.executable))
@@ -222,7 +227,7 @@ def main() -> None:
             / "site-packages"
         )
         assert next((site_packages / "fixture" / "__pycache__").glob("*.pyc"))
-        _assert_record_matches_installed_files(site_packages)
+        _assert_record_matches_installed_files(site_packages, (supplied_cache,))
 
         # A deflated member larger than the streaming copy buffer round-trips.
         large_payload = b"rules_py" * (256 * 1024 + 1)
@@ -363,11 +368,17 @@ def main() -> None:
             )
         )
         assert matching_cache.read_bytes() != b"outdated bytecode\n"
-        assert not any(
+        matching_content = matching_cache.read_bytes()
+        matching_digest = urlsafe_b64encode(
+            hashlib.sha256(matching_content).digest()
+        ).decode().rstrip("=")
+        assert any(
             relative == matching_cache.relative_to(content_site_packages).as_posix()
-            for relative, _, _ in _record_rows(content_site_packages)
+            and digest == f"sha256={matching_digest}"
+            and size == str(len(matching_content))
+            for relative, digest, size in _record_rows(content_site_packages)
         )
-        _assert_record_matches_installed_files(content_site_packages)
+        _assert_record_matches_installed_files(content_site_packages, (supplied_cache,))
 
         namespace_wheel = root / "namespace_fixture-1.0-py3-none-any.whl"
         _write_wheel(
@@ -454,7 +465,7 @@ else:
         assert deleted.returncode == 0, deleted.stdout + deleted.stderr
         deletion_site_packages = deletion_out / site_packages_relative
         assert not (deletion_site_packages / "fixture" / "mod.py").exists()
-        _assert_record_matches_installed_files(deletion_site_packages)
+        _assert_record_matches_installed_files(deletion_site_packages, (supplied_cache,))
 
         native_wheel = root / "native_fixture-1.0-py3-none-any.whl"
         _write_wheel(
@@ -566,6 +577,18 @@ else:
             (legacy_site_packages / "fixture" / "__pycache__").glob("__init__*.pyc")
         )
         assert "SyntaxError" in legacy.stdout + legacy.stderr
+        legacy_cache = legacy_site_packages / supplied_cache
+        assert legacy_cache.read_bytes() == b"outdated bytecode\n"
+        legacy_digest = urlsafe_b64encode(
+            hashlib.sha256(b"outdated bytecode\n").digest()
+        ).decode().rstrip("=")
+        assert any(
+            relative == supplied_cache
+            and digest == f"sha256={legacy_digest}"
+            and size == str(len(b"outdated bytecode\n"))
+            for relative, digest, size in _record_rows(legacy_site_packages)
+        )
+        _assert_record_matches_installed_files(legacy_site_packages, (supplied_cache,))
 
         false = shutil.which("false")
         assert false is not None, "test host has no false executable"
