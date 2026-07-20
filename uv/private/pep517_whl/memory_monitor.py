@@ -1,16 +1,23 @@
 """Report approximate Linux RSS while a wheel build runs."""
 
+from __future__ import annotations
+
 import os
 import subprocess
 import sys
 import time
+from typing import IO, Mapping, Optional, Sequence, Union
 
 _MIB = 1024 * 1024
 _REPORT_STEP_BYTES = 256 * _MIB
 _SAMPLE_INTERVAL_SECONDS = 0.25
 
 
-def _process_tree_rss_bytes(root_pid, page_size, proc_root="/proc"):
+def _process_tree_rss_bytes(
+    root_pid: int,
+    page_size: int,
+    proc_root: str = "/proc",
+) -> Optional[int]:
     """Return the sampled RSS sum for root_pid and its descendants."""
     # statm reports resident memory in pages:
     # https://man7.org/linux/man-pages/man5/proc_pid_statm.5.html
@@ -50,7 +57,13 @@ def _process_tree_rss_bytes(root_pid, page_size, proc_root="/proc"):
     return total if sampled else None
 
 
-def _report_memory(wheel, state, peak, current=None, returncode=None):
+def _report_memory(
+    wheel: str,
+    state: str,
+    peak: Optional[int],
+    current: Optional[int] = None,
+    returncode: Optional[int] = None,
+) -> None:
     if peak is None:
         details = "unavailable"
     elif current is None:
@@ -75,7 +88,14 @@ def _report_memory(wheel, state, peak, current=None, returncode=None):
     )
 
 
-def run_with_memory_monitor(cmd, *, cwd, env, stdout, wheel):
+def run_with_memory_monitor(
+    cmd: Sequence[str],
+    *,
+    cwd: Optional[str],
+    env: Mapping[str, str],
+    stdout: Union[IO[str], IO[bytes]],
+    wheel: str,
+) -> None:
     """Run cmd while reporting best-effort process-tree RSS."""
     try:
         can_sample = sys.platform.startswith("linux") and os.path.isdir("/proc")
@@ -96,6 +116,7 @@ def run_with_memory_monitor(cmd, *, cwd, env, stdout, wheel):
 
     while True:
         if can_sample:
+            assert page_size is not None
             try:
                 current = _process_tree_rss_bytes(process.pid, page_size)
             except (OSError, ValueError):

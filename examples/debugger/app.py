@@ -6,11 +6,11 @@ app = Flask(__name__)
 
 
 @app.route("/")
-def hello():
+def hello() -> str:
     return "Hello from the debugger example!"
 
 
-def main():
+def main() -> None:
     app.run(debug=False, port=5000)
 
 

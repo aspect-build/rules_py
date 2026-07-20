@@ -19,8 +19,10 @@ rules_py forwards Bazel's args to pytest via sys.argv, so this is equivalent
 to running `pytest -p no:anyio` on the command line.
 """
 
+import pytest
 
-def test_anyio_plugin_is_disabled(pytestconfig):
+
+def test_anyio_plugin_is_disabled(pytestconfig: pytest.Config) -> None:
     """Verify anyio plugin is not active when opted out via args = ["-p", "no:anyio"].
 
     Without the opt-out, get_plugin("anyio") returns the anyio.pytest_plugin

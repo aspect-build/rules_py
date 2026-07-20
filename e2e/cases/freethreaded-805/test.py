@@ -8,23 +8,23 @@ import unittest
 
 
 class FreethreadedTest(unittest.TestCase):
-    def test_interpreter_is_freethreaded(self):
+    def test_interpreter_is_freethreaded(self) -> None:
         """The interpreter must be a free-threaded build (no GIL)."""
         gil_disabled = sysconfig.get_config_var("Py_GIL_DISABLED")
         self.assertEqual(gil_disabled, 1, "Expected Py_GIL_DISABLED=1 for a freethreaded build")
 
-    def test_interpreter_is_optimized(self):
+    def test_interpreter_is_optimized(self) -> None:
         """The interpreter must not be a debug build."""
         py_debug = sysconfig.get_config_var("Py_DEBUG")
         self.assertEqual(py_debug, 0, "Expected Py_DEBUG=0 for an optimized build")
 
-    def test_abi_tag_contains_t(self):
+    def test_abi_tag_contains_t(self) -> None:
         """The SOABI should contain 't' indicating the freethreaded ABI."""
         soabi = sysconfig.get_config_var("SOABI") or ""
         # Freethreaded SOABI looks like "cpython-313t-x86_64-linux-gnu"
         self.assertRegex(soabi, r"cpython-\d+t", f"Expected freethreaded SOABI, got: {soabi!r}")
 
-    def test_regex_import_and_use(self):
+    def test_regex_import_and_use(self) -> None:
         """regex must be importable and functional."""
         import regex
 
@@ -33,7 +33,7 @@ class FreethreadedTest(unittest.TestCase):
         self.assertEqual(m.group(1), "Hello")
         self.assertEqual(m.group(2), "World")
 
-    def test_venv_site_packages_uses_t_suffix(self):
+    def test_venv_site_packages_uses_t_suffix(self) -> None:
         """The venv must place site-packages under lib/python3.<m>t, the only
         location a freethreaded interpreter searches."""
         self.assertTrue(sys.prefix.endswith(".venv"), sys.prefix)
@@ -46,7 +46,7 @@ class FreethreadedTest(unittest.TestCase):
         purelib = sysconfig.get_path("purelib")
         self.assertEqual(os.path.realpath(purelib), os.path.realpath(t_dir))
 
-    def test_venv_bin_has_t_symlink(self):
+    def test_venv_bin_has_t_symlink(self) -> None:
         """bin/python3.<m>t is the name the interpreter looks itself up under."""
         minor = sys.version_info.minor
         t_python = os.path.join(sys.prefix, "bin", f"python3.{minor}t")
@@ -58,7 +58,7 @@ class FreethreadedTest(unittest.TestCase):
         )
         self.assertEqual(out.stdout.strip(), "1", out.stderr)
 
-    def test_regex_native_extension_is_freethreaded(self):
+    def test_regex_native_extension_is_freethreaded(self) -> None:
         """The regex C extension .so must be the freethreaded variant."""
         import regex
         # Find the _regex native extension within regex's package directory

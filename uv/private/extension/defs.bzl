@@ -388,6 +388,25 @@ def _parse_projects(module_ctx, hub_specs):
                     for version, markers in versions.items():
                         marked_package_cfg_sccs.setdefault(package, {}).setdefault(cfg, {}).setdefault(package_cfg_sccs[version][cfg], {}).update(markers)
 
+            # The lock may contain inactive dev-only packages. Keep the SCCs
+            # reachable from emitted aliases so they cannot leak into Gazelle.
+            reachable_sccs = {
+                scc_id: True
+                for cfgs in marked_package_cfg_sccs.values()
+                for sccs in cfgs.values()
+                for scc_id in sccs
+            }
+            missing_sccs = [scc_id for scc_id in reachable_sccs if scc_id not in scc_graph]
+            if missing_sccs:
+                fail("Surface package aliases reference missing SCCs: {}".format(missing_sccs))
+
+            scc_graph = {scc_id: members for scc_id, members in scc_graph.items() if scc_id in reachable_sccs}
+            scc_deps = {scc_id: deps for scc_id, deps in scc_deps.items() if scc_id in reachable_sccs}
+            for scc_id, deps in scc_deps.items():
+                for dep in deps:
+                    if dep[1] not in marked_package_cfg_sccs:
+                        fail("SCC {} depends on package {} without a surface alias".format(scc_id, dep[1]))
+
             # Pre-build the per-project available_deps mapping from the
             # lockfile. This gives each sdist configure tool visibility
             # into the packages within this project's dependency perimeter.

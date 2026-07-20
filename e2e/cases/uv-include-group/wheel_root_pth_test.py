@@ -22,7 +22,7 @@ the side-effect of the .pth having executed at site-init.
 import sys
 
 
-def main():
+def main() -> None:
     leaked = sorted(
         m for m in sys.modules if "distutils" in m or "setuptools" in m
     )

@@ -19,7 +19,7 @@ the full story. This test stays as ongoing coverage for the namespace
 import sys
 
 
-def test_firebase_admin_imports():
+def test_firebase_admin_imports() -> None:
     import firebase_admin
 
     # Reaching here means firebase_admin.__init__ ran to completion,
@@ -30,14 +30,14 @@ def test_firebase_admin_imports():
     )
 
 
-def test_google_auth_resolves():
+def test_google_auth_resolves() -> None:
     """Directly verify the namespace-package import path firebase uses."""
     import google.auth
 
     assert google.auth is not None
 
 
-def test_google_is_namespace_package():
+def test_google_is_namespace_package() -> None:
     """The `google` top-level must be a PEP 420 namespace package.
 
     If our venv-assembly accidentally put a `google/__init__.py` at the

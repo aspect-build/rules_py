@@ -8,7 +8,7 @@ so this exercises flag inheritance rather than the per-target attr.
 import sys
 
 
-def main():
+def main() -> None:
     expected = sys.argv[1]
     major, minor = (int(part) for part in expected.split("."))
     actual = sys.version_info[:2]

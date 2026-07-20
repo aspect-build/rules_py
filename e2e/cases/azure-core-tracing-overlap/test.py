@@ -23,7 +23,7 @@ exact Azure package pair.
 import sys
 
 
-def test_azure_core_tracing_ext_import():
+def test_azure_core_tracing_ext_import() -> None:
     # The failing import from the report: requires `ext/` (from
     # azure-core-tracing-opentelemetry) to be visible inside the
     # `azure.core.tracing` regular package (from azure-core).
@@ -32,7 +32,7 @@ def test_azure_core_tracing_ext_import():
     assert OpenTelemetrySpan is not None
 
 
-def test_azure_core_still_intact():
+def test_azure_core_still_intact() -> None:
     # The merge must not break azure-core's own modules next to the
     # grafted `ext/` directory.
     from azure.core.settings import settings
@@ -42,7 +42,7 @@ def test_azure_core_still_intact():
     assert SpanKind is not None
 
 
-def test_azure_core_tracing_is_regular_package():
+def test_azure_core_tracing_is_regular_package() -> None:
     """Guard the premise of this test case.
 
     If a future azure-core converts `azure.core.tracing` into a

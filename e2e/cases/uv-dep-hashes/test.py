@@ -1,7 +1,7 @@
 import colorama
 
 
-def test_imported():
+def test_imported() -> None:
     assert hasattr(colorama, "Fore")
 
 

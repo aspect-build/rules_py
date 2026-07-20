@@ -3,14 +3,23 @@
 # without sharing root's dep graph, so e2e can pin both the single-project
 # and multi-project (`@pypi_multi`, see //multi-project-hub) shapes.
 load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@aspect_rules_py//uv:defs.bzl", "gazelle_python_manifest")
 
 py_test(
     name = "single_project_hub",
     srcs = ["__test__.py"],
+    args = ["$(rootpath :gazelle_python_manifest)"],
+    data = [":gazelle_python_manifest"],
     dep_group = "single_project_hub",
     main = "__test__.py",
     python_version = "3.11",
     deps = [
         "@pypi_single//cowsay",
     ],
+)
+
+gazelle_python_manifest(
+    name = "gazelle_python_manifest",
+    hub = "pypi_single",
+    venvs = ["single_project_hub"],
 )

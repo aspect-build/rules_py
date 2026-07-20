@@ -57,9 +57,10 @@ import glob
 import importlib
 import os
 import sys
+from typing import Iterable, Optional
 
 
-def verify_interpreter_symlinks():
+def verify_interpreter_symlinks() -> None:
     bin_dir = os.path.dirname(os.path.realpath(sys.executable))
     candidates = []
     for name in ("python", "python3"):
@@ -86,7 +87,7 @@ def verify_interpreter_symlinks():
         )
 
 
-def verify_no_dangling_symlinks(root=None):
+def verify_no_dangling_symlinks(root: Optional[str] = None) -> None:
     if root is None:
         root = sys.prefix
     dangling = []
@@ -102,13 +103,13 @@ def verify_no_dangling_symlinks(root=None):
     )
 
 
-def verify_in_venv():
+def verify_in_venv() -> None:
     assert sys.base_prefix != sys.prefix, (
         f"not running in a venv: sys.base_prefix == sys.prefix == {sys.prefix}"
     )
 
 
-def verify_base_prefix():
+def verify_base_prefix() -> None:
     """sys.base_prefix must not be the PBS compile-time /install sentinel."""
     assert sys.base_prefix != "/install", (
         f"sys.base_prefix is '/install' (the PBS compile-time prefix) instead of "
@@ -128,7 +129,7 @@ def verify_base_prefix():
     )
 
 
-def verify_sys_path():
+def verify_sys_path() -> None:
     missing = []
     for p in sys.path:
         if not p:
@@ -145,7 +146,7 @@ def verify_sys_path():
     )
 
 
-def verify_imports(packages):
+def verify_imports(packages: Iterable[str]) -> None:
     for name in packages:
         mod = importlib.import_module(name)
         path = getattr(mod, "__file__", None)
@@ -155,7 +156,7 @@ def verify_imports(packages):
         )
 
 
-def verify_all(imports=()):
+def verify_all(imports: Iterable[str] = ()) -> None:
     verify_interpreter_symlinks()
     verify_no_dangling_symlinks()
     verify_in_venv()

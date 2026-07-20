@@ -8,6 +8,7 @@ for k, v in os.environ.items():
 print("---")
 
 from pathlib import Path
+from typing import Generator
 
 # prefix components:
 space =  '    '
@@ -17,7 +18,7 @@ tee =    '+-- '
 last =   '+-- '
 
 
-def tree(dir_path: Path, prefix: str=''):
+def tree(dir_path: Path, prefix: str='') -> Generator[str, None, None]:
     """A recursive generator, given a directory Path object
     will yield a visual tree structure line by line
     with each line prefixed by the same characters

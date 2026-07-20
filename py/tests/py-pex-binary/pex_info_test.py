@@ -18,7 +18,7 @@ r = runfiles.Create()
 PKG = "_main/py/tests/py-pex-binary"
 
 
-def read_pex(name):
+def read_pex(name: str) -> tuple[str, dict[str, object]]:
     path = r.Rlocation("{}/{}.pex".format(PKG, name))
     with open(path, "rb") as f:
         shebang = f.readline().rstrip(b"\r\n").decode()
@@ -63,7 +63,7 @@ assert info.get("inherit_path", "false") == "false", info
 # print_modules_pex has real deps (a venv + wheels), so it exercises the
 # structural exclusions: the sibling venv's `.pth`/`pyvenv.cfg` plumbing and the
 # interpreter must be filtered out, while first-party `data` files are kept.
-def pex_names(name):
+def pex_names(name: str) -> list[str]:
     path = r.Rlocation("{}/{}.pex".format(PKG, name))
     with zipfile.ZipFile(path) as zf:
         return zf.namelist()

@@ -6,7 +6,7 @@ the generated interpreter repos.
 import os
 
 
-def read(rel):
+def read(rel: str) -> str:
     path = os.path.join(
         os.environ["TEST_SRCDIR"],
         os.environ["TEST_WORKSPACE"],

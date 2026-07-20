@@ -3,6 +3,7 @@
 # pex cli does the same here;
 # https://github.com/pex-tool/pex/blob/252459bdd879fc1e3446a6221571875d46fad1bd/pex/commands/command.py#L362-L382
 import os
+from typing import Optional
 from pex.common import safe_mkdtemp, safe_rmtree
 TMP_PEX_ROOT=safe_mkdtemp()
 os.environ["PEX_ROOT"] = TMP_PEX_ROOT
@@ -10,27 +11,40 @@ os.environ["PEX_ROOT"] = TMP_PEX_ROOT
 import sys
 from pex.pex_builder import Check,PEXBuilder
 from pex.inherit_path import InheritPath
-from pex.interpreter_constraints import InterpreterConstraint
+from pex.interpreter_constraints import InterpreterConstraints
 from pex.layout import Layout
 from pex.dist_metadata import Distribution
-from argparse import Action, ArgumentError, ArgumentParser
+from argparse import Action, ArgumentError, ArgumentParser, Namespace
 
 class InjectEnvAction(Action):
-    def __call__(self, parser, namespace, value, option_str=None):
-        components = value.split("=", 1)
+    def __call__(
+        self,
+        parser: ArgumentParser,
+        namespace: Namespace,
+        values: object,
+        option_string: Optional[str] = None,
+    ) -> None:
+        assert isinstance(values, str)
+        components = values.split("=", 1)
         if len(components) != 2:
             raise ArgumentError(
                 self,
                 "Environment variable values must be of the form `name=value`. "
-                "Given: {value}".format(value=value),
+                "Given: {value}".format(value=values),
             )
         self.default.append(tuple(components))
 
 
 class InheritPathAction(Action):
-    def __call__(self, parser, namespace, value, option_str=None):
-        value = InheritPath.for_value(value)
-        setattr(namespace, self.dest, value)
+    def __call__(
+        self,
+        parser: ArgumentParser,
+        namespace: Namespace,
+        values: object,
+        option_string: Optional[str] = None,
+    ) -> None:
+        assert isinstance(values, str)
+        setattr(namespace, self.dest, InheritPath.for_value(values))
 
 
 parser = ArgumentParser(fromfile_prefix_chars='@')
@@ -120,7 +134,7 @@ import_idx =  BE.index("from pex.pex_bootstrapper import bootstrap_pex")
 # script was not checked again to see if we are still injecting values in the right place.
 assert import_idx == 3703, "Check bootstrap template monkey patching."
 
-pex.pex_builder.BOOTSTRAP_ENVIRONMENT = BE[:import_idx] + "\n".join(INJECT_TEMPLATE) + "\n" + BE[import_idx:]
+setattr(pex.pex_builder, "BOOTSTRAP_ENVIRONMENT", BE[:import_idx] + "\n".join(INJECT_TEMPLATE) + "\n" + BE[import_idx:])
 
 
 pex_builder = PEXBuilder(
@@ -139,10 +153,7 @@ pex_builder.set_shebang(options.python_shebang)
 
 pex_info = pex_builder.info
 pex_info.inject_env = options.inject_env
-pex_info.interpreter_constraints = [
-    InterpreterConstraint.parse(constraint) 
-    for constraint in options.constraints
-]
+pex_info.interpreter_constraints = InterpreterConstraints.parse(*options.constraints)
 if options.inherit_path is not None:
     pex_info.inherit_path = options.inherit_path
 

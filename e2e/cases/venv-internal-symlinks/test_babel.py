@@ -2,14 +2,14 @@ import os
 import sys
 
 
-def test_babel_import():
+def test_babel_import() -> None:
     import babel
     import babel.messages
     assert babel.__file__ is not None, "babel should be a real module with __file__"
     assert os.path.exists(babel.__file__), f"babel.__file__ should exist: {babel.__file__}"
 
 
-def test_babel_locale_data():
+def test_babel_locale_data() -> None:
     from babel import localedata
     available = localedata.locale_identifiers()
     assert len(available) > 0, "babel should have available locales"
@@ -19,7 +19,7 @@ def test_babel_locale_data():
     assert locale.territory == "US", "locale territory should be 'US'"
 
 
-def test_no_dangling_symlinks():
+def test_no_dangling_symlinks() -> None:
     import babel
 
     babel_dir = os.path.dirname(babel.__file__)

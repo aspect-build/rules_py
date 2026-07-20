@@ -36,7 +36,7 @@ SENTINEL_A = "rules_py_pth_sentinel_a"
 SENTINEL_B = "rules_py_pth_sentinel_b"
 
 
-def main():
+def main() -> None:
     count_a = sys.path.count(SENTINEL_A)
     count_b = sys.path.count(SENTINEL_B)
     print(f"{SENTINEL_A}: {count_a} time(s) on sys.path")

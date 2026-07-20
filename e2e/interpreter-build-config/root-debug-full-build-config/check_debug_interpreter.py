@@ -3,7 +3,7 @@
 import sys
 
 
-def main():
+def main() -> None:
     assert sys.version_info[:2] == (3, 13), sys.version
     assert sys.abiflags == "d", "expected abiflags 'd', got %r" % sys.abiflags
     # sys.gettotalrefcount only exists in Py_DEBUG builds.

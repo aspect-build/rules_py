@@ -13,7 +13,10 @@ Requires Python >= 3.11 (tomllib) to parse pyproject.toml; on older
 interpreters [build-system] metadata is skipped with a warning.
 """
 
+from __future__ import annotations
+
 import configparser
+import importlib
 import os
 import importlib.abc
 import importlib.machinery
@@ -24,9 +27,10 @@ import tarfile
 import tempfile
 import types
 import zipfile
+from typing import Callable, Dict, Iterator, List, NoReturn, Optional, Sequence, Tuple, TypedDict
 
 try:
-    import tomllib
+    tomllib: Optional[types.ModuleType] = importlib.import_module("tomllib")
 except ModuleNotFoundError:
     tomllib = None
 from pathlib import PurePosixPath
@@ -59,12 +63,39 @@ EXTENSION_TO_BUILD_DEP = {
 _REQ_NAME_RE = re.compile(r"^([A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?)")
 
 
-def _normalize_name(name):
+class ConfigureContext(TypedDict, total=False):
+    src: str
+    version: str
+    deps: List[str]
+    available_deps: Dict[str, str]
+    pre_build_patches: List[str]
+    pre_build_patch_strip: int
+
+
+class _OptionalDetectionResult(TypedDict, total=False):
+    backend_path: List[str]
+
+
+class DetectionResult(_OptionalDetectionResult):
+    is_native: bool
+    native_files: List[str]
+    build_requires: List[str]
+    inferred_build_requires: List[str]
+    extra_deps: List[str]
+    build_backend: Optional[str]
+    has_pyproject: bool
+    has_setup_py: bool
+    has_setup_cfg: bool
+    setup_py_setup_requires: List[str]
+    setup_py_install_requires: List[str]
+
+
+def _normalize_name(name: str) -> str:
     """Normalize a Python package name (PEP 503)."""
     return re.sub(r"[-_.]+", "_", name).lower()
 
 
-def _extract_name(requirement_str):
+def _extract_name(requirement_str: str) -> Optional[str]:
     """Extract the normalized package name from a PEP 508 requirement string."""
     m = _REQ_NAME_RE.match(requirement_str.strip())
     if m:
@@ -74,7 +105,7 @@ def _extract_name(requirement_str):
 
 # --- Archive helpers ---
 
-def _read_tar_member(tf, member_name):
+def _read_tar_member(tf: tarfile.TarFile, member_name: str) -> Optional[str]:
     try:
         f = tf.extractfile(tf.getmember(member_name))
         return f.read().decode("utf-8", errors="replace") if f else None
@@ -82,14 +113,16 @@ def _read_tar_member(tf, member_name):
         return None
 
 
-def _read_zip_member(zf, member_name):
+def _read_zip_member(zf: zipfile.ZipFile, member_name: str) -> Optional[str]:
     try:
         return zf.read(member_name).decode("utf-8", errors="replace")
     except KeyError:
         return None
 
 
-def _open_archive(path):
+def _open_archive(
+    path: str,
+) -> Tuple[List[str], Callable[[str], Optional[str]], Callable[[], None]]:
     """Open an archive. Returns (members, reader_fn, closer)."""
     if zipfile.is_zipfile(path):
         zf = zipfile.ZipFile(path, "r")
@@ -103,7 +136,9 @@ def _open_archive(path):
 
 # --- Config file parsers ---
 
-def _parse_pyproject_build_system(content):
+def _parse_pyproject_build_system(
+    content: str,
+) -> Tuple[List[str], Optional[str], Optional[List[str]]]:
     """Extract [build-system] metadata from pyproject.toml content.
 
     Returns (requires, build_backend, backend_path) where:
@@ -122,16 +157,16 @@ def _parse_pyproject_build_system(content):
     data = tomllib.loads(content)
     build_system = data.get("build-system", {})
     requires = [
-        _extract_name(r)
-        for r in build_system.get("requires", [])
-        if _extract_name(r)
+        name
+        for requirement in build_system.get("requires", [])
+        if (name := _extract_name(requirement))
     ]
     build_backend = build_system.get("build-backend")
     backend_path = build_system.get("backend-path")
     return requires, build_backend, backend_path
 
 
-def _parse_setup_cfg_build_requires(content):
+def _parse_setup_cfg_build_requires(content: str) -> List[str]:
     """Extract [options] setup_requires from setup.cfg content."""
     parser = configparser.ConfigParser()
     parser.read_string(content)
@@ -139,9 +174,9 @@ def _parse_setup_cfg_build_requires(content):
     if not raw:
         return []
     return [
-        _extract_name(line.strip())
+        name
         for line in raw.strip().splitlines()
-        if _extract_name(line.strip())
+        if (name := _extract_name(line.strip()))
     ]
 
 
@@ -169,12 +204,12 @@ class _MockModule(types.ModuleType):
     analysis environment (which is most of them).
     """
 
-    def __init__(self, name):
+    def __init__(self, name: str) -> None:
         super().__init__(name)
         self.__path__ = []
         self.__file__ = f"<mock:{name}>"
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str) -> object:
         if name in ("__path__", "__file__", "__name__", "__loader__", "__spec__"):
             return super().__getattribute__(name)
         # Return a new mock module for sub-attribute access
@@ -182,29 +217,29 @@ class _MockModule(types.ModuleType):
         setattr(self, name, child)
         return child
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args: object, **kwargs: object) -> "_MockModule":
         return _MockModule(f"{self.__name__}()")
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[object]:
         return iter([])
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         return False
 
-    def __str__(self):
+    def __str__(self) -> str:
         return ""
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<mock:{self.__name__}>"
 
 
 class _MockImportLoader(importlib.abc.Loader):
     """Loader that creates mock modules."""
 
-    def create_module(self, spec):
+    def create_module(self, spec: importlib.machinery.ModuleSpec) -> _MockModule:
         return _MockModule(spec.name)
 
-    def exec_module(self, module):
+    def exec_module(self, module: types.ModuleType) -> None:
         pass  # MockModule handles everything via __getattr__
 
 
@@ -227,7 +262,12 @@ class _MockImportFinder(importlib.abc.MetaPathFinder):
         "configparser", "json",
     })
 
-    def find_spec(self, fullname, path, target=None):
+    def find_spec(
+        self,
+        fullname: str,
+        path: Optional[Sequence[str]],
+        target: Optional[types.ModuleType] = None,
+    ) -> Optional[importlib.machinery.ModuleSpec]:
         # Let stdlib and already-loaded modules through
         if fullname in self._PASSTHROUGH or fullname in sys.modules:
             return None
@@ -240,7 +280,7 @@ class _MockImportFinder(importlib.abc.MetaPathFinder):
         )
 
 
-def _parse_setup_py_requires(content):
+def _parse_setup_py_requires(content: str) -> Tuple[List[str], List[str]]:
     """Extract setup_requires and install_requires from setup.py via exec.
 
     Executes the setup.py with a fake setup() that captures its keyword
@@ -253,23 +293,23 @@ def _parse_setup_py_requires(content):
         (setup_requires, install_requires) where each is a list of
         normalized package names. Returns empty lists on failure.
     """
-    captured = {}
+    captured: Dict[str, object] = {}
 
-    def _fake_setup(*args, **kwargs):
+    def _fake_setup(*args: object, **kwargs: object) -> NoReturn:
         captured.update(kwargs)
         raise _SetupCapture()
 
     # Build fake setuptools/distutils modules with our capturing setup()
     fake_setuptools = _MockModule("setuptools")
-    fake_setuptools.setup = _fake_setup
-    fake_setuptools.find_packages = lambda *a, **kw: []
-    fake_setuptools.find_namespace_packages = lambda *a, **kw: []
-    fake_setuptools.Extension = lambda *a, **kw: None
+    setattr(fake_setuptools, "setup", _fake_setup)
+    setattr(fake_setuptools, "find_packages", lambda *a, **kw: [])
+    setattr(fake_setuptools, "find_namespace_packages", lambda *a, **kw: [])
+    setattr(fake_setuptools, "Extension", lambda *a, **kw: None)
 
     fake_distutils = _MockModule("distutils")
     fake_distutils_core = _MockModule("distutils.core")
-    fake_distutils_core.setup = _fake_setup
-    fake_distutils.core = fake_distutils_core
+    setattr(fake_distutils_core, "setup", _fake_setup)
+    setattr(fake_distutils, "core", fake_distutils_core)
 
     # Snapshot state we're about to mutate
     old_meta_path = sys.meta_path[:]
@@ -344,14 +384,14 @@ def _parse_setup_py_requires(content):
     if failed:
         return [], []
 
-    def _extract_names(key):
+    def _extract_names(key: str) -> List[str]:
         value = captured.get(key)
         if not isinstance(value, (list, tuple)):
             return []
         return [
-            _extract_name(item)
+            name
             for item in value
-            if isinstance(item, str) and _extract_name(item)
+            if isinstance(item, str) and (name := _extract_name(item))
         ]
 
     setup_requires = _extract_names("setup_requires")
@@ -361,7 +401,7 @@ def _parse_setup_py_requires(content):
 
 # --- Detection ---
 
-def _find_config_file(members, filename):
+def _find_config_file(members: Sequence[str], filename: str) -> Optional[str]:
     """Find a config file, accounting for the typical top-level sdist directory."""
     if filename in members:
         return filename
@@ -372,7 +412,7 @@ def _find_config_file(members, filename):
     return None
 
 
-def detect(archive_path, context):
+def detect(archive_path: str, context: ConfigureContext) -> DetectionResult:
     """Run detection on an sdist archive.
 
     Args:
@@ -421,8 +461,8 @@ def detect(archive_path, context):
         # Parse setup.py for setup_requires / install_requires
         setup_py_path = _find_config_file(members, "setup.py")
         has_setup_py = setup_py_path is not None
-        setup_py_setup_requires = []
-        setup_py_install_requires = []
+        setup_py_setup_requires: List[str] = []
+        setup_py_install_requires: List[str] = []
         if setup_py_path:
             setup_py_content = read_fn(setup_py_path)
             if setup_py_content:
@@ -461,7 +501,7 @@ def detect(archive_path, context):
         and available_deps[name] not in provided_labels
     )
 
-    result = {
+    result: DetectionResult = {
         "is_native": bool(native_files),
         "native_files": native_files,
         "build_requires": declared_dedup,
@@ -479,7 +519,7 @@ def detect(archive_path, context):
     return result
 
 
-def main():
+def main() -> None:
     if len(sys.argv) not in (2, 3):
         print(
             "Usage: detect_native.py <archive-path> [<context-json-path>]",
@@ -488,7 +528,7 @@ def main():
         sys.exit(1)
 
     archive_path = sys.argv[1]
-    context = {}
+    context: ConfigureContext = {}
     if len(sys.argv) == 3:
         with open(sys.argv[2]) as f:
             context = json.load(f)

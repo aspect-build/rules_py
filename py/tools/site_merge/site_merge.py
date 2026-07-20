@@ -24,6 +24,8 @@ that don't exist are skipped (platform wheels for other architectures
 may not ship the directory).
 """
 
+from __future__ import annotations
+
 import argparse
 import filecmp
 import os
@@ -31,18 +33,24 @@ import shutil
 import stat
 import sys
 from pathlib import Path
+from types import TracebackType
+from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 
-def _remove(path):
+def _remove(path: Path) -> None:
     """Remove an output copied from a potentially read-only input."""
 
-    def retry_readonly(function, candidate, exc_info):
+    def retry_readonly(
+        function: Callable[..., object],
+        candidate: str,
+        exc_info: Tuple[type[BaseException], BaseException, TracebackType],
+    ) -> None:
         error = exc_info[1]
         if not isinstance(error, PermissionError):
             raise error
-        candidate = Path(candidate)
-        candidate.chmod(candidate.stat().st_mode | stat.S_IWRITE)
-        function(candidate)
+        candidate_path = Path(candidate)
+        candidate_path.chmod(candidate_path.stat().st_mode | stat.S_IWRITE)
+        function(candidate_path)
 
     if path.is_dir():
         shutil.rmtree(path, onerror=retry_readonly)
@@ -54,10 +62,10 @@ def _remove(path):
         path.unlink()
 
 
-def merge(into, sources):
+def merge(into: Path, sources: Sequence[Path]) -> List[Tuple[Path, Optional[Path], Path]]:
     into.mkdir(parents=True, exist_ok=True)
-    owners = {}
-    conflicts = []
+    owners: Dict[Path, Path] = {}
+    conflicts: List[Tuple[Path, Optional[Path], Path]] = []
 
     for src in sources:
         if not src.is_dir():
@@ -102,7 +110,7 @@ def merge(into, sources):
     return conflicts
 
 
-def main():
+def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--into", required=True, type=Path)
     ap.add_argument("--src", dest="sources", action="append", default=[], type=Path)

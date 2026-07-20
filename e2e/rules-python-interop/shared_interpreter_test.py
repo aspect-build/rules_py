@@ -7,7 +7,7 @@ both rule families share the same underlying interpreter binary.
 import sys
 
 
-def main():
+def main() -> None:
     assert sys.version_info[:2] == (3, 12), sys.version
 
     # Unresolved on purpose: realpath may chase Bazel's content-addressed

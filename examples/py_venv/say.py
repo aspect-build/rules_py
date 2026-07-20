@@ -8,7 +8,7 @@ execroot = f"{output_base}/execroot"
 external = f"{output_base}/external"
 runfiles = _virtualenv.__file__.split(".runfiles/")[0] + ".runfiles"
 
-def _simplify(s):
+def _simplify(s: str | list[str]) -> str | list[str]:
     if isinstance(s, str):
         return s \
             .replace(runfiles, "${RUNFILES}") \

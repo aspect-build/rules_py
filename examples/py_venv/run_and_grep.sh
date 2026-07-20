@@ -9,7 +9,7 @@ BIN="${TEST_SRCDIR}/_main/$1"
 
 out="$("$BIN")"
 echo "$out"
-echo "$out" | grep -q "hello py_venv!" || {
+[[ "$out" == *"hello py_venv!"* ]] || {
     echo "ERROR: expected 'hello py_venv!' in binary output"
     exit 1
 }

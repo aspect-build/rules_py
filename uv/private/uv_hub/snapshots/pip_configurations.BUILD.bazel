@@ -2431,6 +2431,72 @@ selects.config_setting_group(
 )
 
 
+selects.config_setting_group(
+    name = "py3-manylinux_2_17_i686-none",
+    match_all = [
+    "@aspect_rules_py//uv/private/constraints/platform:manylinux_2_17_i686",
+    "@aspect_rules_py//uv/private/constraints/abi:none",
+    "@aspect_rules_py//uv/private/constraints/python:py3",
+],
+    visibility = ["//visibility:public"],
+)
+
+
+selects.config_setting_group(
+    name = "py3-manylinux_2_17_x86_64-none",
+    match_all = [
+    "@aspect_rules_py//uv/private/constraints/platform:manylinux_2_17_x86_64",
+    "@aspect_rules_py//uv/private/constraints/abi:none",
+    "@aspect_rules_py//uv/private/constraints/python:py3",
+],
+    visibility = ["//visibility:public"],
+)
+
+
+selects.config_setting_group(
+    name = "py3-musllinux_1_2_aarch64-none",
+    match_all = [
+    "@aspect_rules_py//uv/private/constraints/platform:musllinux_1_2_aarch64",
+    "@aspect_rules_py//uv/private/constraints/abi:none",
+    "@aspect_rules_py//uv/private/constraints/python:py3",
+],
+    visibility = ["//visibility:public"],
+)
+
+
+selects.config_setting_group(
+    name = "py3-musllinux_1_2_armv7l-none",
+    match_all = [
+    "@aspect_rules_py//uv/private/constraints/platform:musllinux_1_2_armv7l",
+    "@aspect_rules_py//uv/private/constraints/abi:none",
+    "@aspect_rules_py//uv/private/constraints/python:py3",
+],
+    visibility = ["//visibility:public"],
+)
+
+
+selects.config_setting_group(
+    name = "py3-musllinux_1_2_i686-none",
+    match_all = [
+    "@aspect_rules_py//uv/private/constraints/platform:musllinux_1_2_i686",
+    "@aspect_rules_py//uv/private/constraints/abi:none",
+    "@aspect_rules_py//uv/private/constraints/python:py3",
+],
+    visibility = ["//visibility:public"],
+)
+
+
+selects.config_setting_group(
+    name = "py3-musllinux_1_2_x86_64-none",
+    match_all = [
+    "@aspect_rules_py//uv/private/constraints/platform:musllinux_1_2_x86_64",
+    "@aspect_rules_py//uv/private/constraints/abi:none",
+    "@aspect_rules_py//uv/private/constraints/python:py3",
+],
+    visibility = ["//visibility:public"],
+)
+
+
 exports_files(
     ["BUILD.bazel"],
     visibility = ["//visibility:public"],

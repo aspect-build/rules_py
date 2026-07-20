@@ -56,7 +56,7 @@ FAKE_MPICC = textwrap.dedent(
 )
 
 
-def find_build_helper():
+def find_build_helper() -> str:
     srcdir = os.environ["TEST_SRCDIR"]
     for root, _, files in os.walk(srcdir, followlinks=True):
         if "build_helper.py" in files and root.endswith(os.path.join("uv", "private", "pep517_whl")):
@@ -64,7 +64,7 @@ def find_build_helper():
     raise AssertionError("build_helper.py not found under TEST_SRCDIR")
 
 
-def make_sdist(workdir):
+def make_sdist(workdir: str) -> str:
     pkgdir = os.path.join(workdir, "mpitest-1.0")
     os.makedirs(pkgdir)
     with open(os.path.join(pkgdir, "setup.py"), "w") as f:
@@ -75,7 +75,13 @@ def make_sdist(workdir):
     return sdist
 
 
-def run_helper(helper, sdist, outdir, path_entries, expect):
+def run_helper(
+    helper: str,
+    sdist: str,
+    outdir: str,
+    path_entries: list[str],
+    expect: str,
+) -> None:
     env = {
         "MPICC_TEST_EXPECT": expect,
         "PATH": os.pathsep.join(path_entries),
@@ -100,7 +106,7 @@ def run_helper(helper, sdist, outdir, path_entries, expect):
     assert wheels, "no wheel produced for expect={}".format(expect)
 
 
-def main():
+def main() -> None:
     helper = find_build_helper()
     tmp = tempfile.mkdtemp(dir=os.environ.get("TEST_TMPDIR"))
     sdist = make_sdist(tmp)

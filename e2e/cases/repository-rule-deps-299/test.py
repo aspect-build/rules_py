@@ -2,7 +2,7 @@ import importlib
 import sys
 
 
-def main():
+def main() -> None:
     print("sys.path entries:")
     for p in sys.path:
         print(p)

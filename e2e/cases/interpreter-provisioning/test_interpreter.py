@@ -6,7 +6,7 @@ import sys
 from verify_venv import verify_all
 
 
-def test_not_rules_python():
+def test_not_rules_python() -> None:
     # In a py_venv_test, sys.executable points to the venv bin/python symlink.
     # Resolve it to find the actual interpreter binary.
     real_exe = os.path.realpath(sys.executable)
@@ -15,7 +15,7 @@ def test_not_rules_python():
     )
 
 
-def test_venv_layout():
+def test_venv_layout() -> None:
     verify_all()
 
 

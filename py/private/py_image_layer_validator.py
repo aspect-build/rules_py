@@ -19,6 +19,7 @@ import csv
 import glob
 import os
 import sys
+from typing import Dict, List, Optional, Sequence, Tuple
 
 _OCI_LAYER_HARD_LIMIT = 127
 _BINARY_GLOBS = {"*.so", "*.so.*", "*.pyd", "*.dylib", "*.dll"}
@@ -35,7 +36,7 @@ _LAYER_COUNT_SUGGESTION_COMMENT = [
 ]
 
 
-def _pkg_name_from_label(label):
+def _pkg_name_from_label(label: str) -> str:
     """@@pip//torch:torch → torch (suitable as a Bazel target / group name).
 
     For first-party labels like @@//my/deep/pkg:lib, returns the target name
@@ -47,7 +48,7 @@ def _pkg_name_from_label(label):
     return name.strip("@").replace("-", "_")
 
 
-def _record_size(pkg_path):
+def _record_size(pkg_path: str) -> Optional[int]:
     """Return the total installed size in bytes from dist-info/RECORD, or None if unavailable."""
     pattern = os.path.join(pkg_path, "*.dist-info", "RECORD")
     matches = glob.glob(pattern)
@@ -65,7 +66,7 @@ def _record_size(pkg_path):
     return total
 
 
-def _dir_size(path):
+def _dir_size(path: str) -> int:
     total = 0
     for dirpath, _dirnames, filenames in os.walk(path):
         for fname in filenames:
@@ -74,7 +75,7 @@ def _dir_size(path):
     return total
 
 
-def _pkg_size(paths):
+def _pkg_size(paths: Sequence[str]) -> int:
     """Return total installed size for a package, using RECORD when available."""
     total = 0
     for path in paths:
@@ -87,7 +88,7 @@ def _pkg_size(paths):
     return total
 
 
-def _pkg_is_binary(paths):
+def _pkg_is_binary(paths: Sequence[str]) -> bool:
     """Return True if any install dir has Root-Is-Purelib: false in dist-info/WHEEL."""
     for path in paths:
         if not os.path.isdir(path):
@@ -102,9 +103,9 @@ def _pkg_is_binary(paths):
     return False
 
 
-def _find_large_files(paths, min_bytes):
+def _find_large_files(paths: Sequence[str], min_bytes: int) -> List[Tuple[str, int]]:
     """Return (basename, size) for files at or above min_bytes, largest first."""
-    results = []
+    results: List[Tuple[str, int]] = []
     for path in paths:
         if os.path.isdir(path):
             for dirpath, _, filenames in os.walk(path):
@@ -122,7 +123,7 @@ def _find_large_files(paths, min_bytes):
     return sorted(results, key=lambda x: -x[1])
 
 
-def _glob_for_file(basename):
+def _glob_for_file(basename: str) -> str:
     """Return a glob pattern that matches basename (no path separators).
 
     Shared libraries are split into two patterns to avoid an overly broad glob:
@@ -146,18 +147,20 @@ def _glob_for_file(basename):
     return basename
 
 
-def _suggest_subpath_groups(label, paths, min_file_bytes):
+def _suggest_subpath_groups(
+    label: str, paths: Sequence[str], min_file_bytes: int
+) -> List[Tuple[str, str, str, bool]]:
     """Return (groups_key, group_name, display_line, is_binary) tuples for large files."""
     large_files = _find_large_files(paths, min_file_bytes)
     if not large_files:
         return []
 
-    pattern_files = {}
+    pattern_files: Dict[str, List[Tuple[str, int]]] = {}
     for basename, size in large_files:
         pattern_files.setdefault(_glob_for_file(basename), []).append((basename, size))
 
     pkg_name = _pkg_name_from_label(label)
-    results = []
+    results: List[Tuple[str, str, str, bool]] = []
     for pat, files in sorted(pattern_files.items(), key=lambda kv: -sum(s for _, s in kv[1])):
         total_mb = sum(s for _, s in files) // (1024 * 1024)
         examples = ", ".join("{} ({}MB)".format(name, size // (1024 * 1024)) for name, size in files[:3])
@@ -179,11 +182,11 @@ class _Suggestions:
     for that same label is dropped — subpath wins.
     """
 
-    def __init__(self):
-        self.group_lines = {}
-        self.compression = {}
+    def __init__(self) -> None:
+        self.group_lines: Dict[str, str] = {}
+        self.compression: Dict[str, str] = {}
 
-    def add_group(self, groups_key, display_line):
+    def add_group(self, groups_key: str, display_line: str) -> None:
         if ":" in groups_key.split("//")[-1]:
             whole_key = groups_key.rsplit(":", 1)[0]
             self.group_lines.pop(whole_key, None)
@@ -193,11 +196,13 @@ class _Suggestions:
                     return
         self.group_lines.setdefault(groups_key, display_line)
 
-    def add_compression(self, label, level):
+    def add_compression(self, label: str, level: str) -> None:
         self.compression.setdefault(label, level)
 
 
-def _add_whole_promotion(suggestions, label, size_mb, is_binary, annotation):
+def _add_whole_promotion(
+    suggestions: _Suggestions, label: str, size_mb: int, is_binary: bool, annotation: str
+) -> None:
     """Emit a whole-package promotion suggestion (with optional compression override)."""
     pkg_name = _pkg_name_from_label(label)
     suggestions.add_group(label, '        "{}": "{}",  # {} ({}MB)'.format(label, pkg_name, annotation, size_mb))
@@ -205,7 +210,14 @@ def _add_whole_promotion(suggestions, label, size_mb, is_binary, annotation):
         suggestions.add_compression(label, "1")
 
 
-def _add_subpath_or_whole(suggestions, label, paths, size_mb, is_binary, per_file_threshold):
+def _add_subpath_or_whole(
+    suggestions: _Suggestions,
+    label: str,
+    paths: Sequence[str],
+    size_mb: int,
+    is_binary: bool,
+    per_file_threshold: int,
+) -> None:
     """Emit subpath suggestions if the package has natural glob splits; otherwise whole-package."""
     subpath_suggestions = _suggest_subpath_groups(label, paths, per_file_threshold)
     if subpath_suggestions:
@@ -217,7 +229,7 @@ def _add_subpath_or_whole(suggestions, label, paths, size_mb, is_binary, per_fil
         _add_whole_promotion(suggestions, label, size_mb, is_binary, annotation="whole package")
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--threshold_mb", type=int, default=200)
     parser.add_argument("--layer_count", type=int, default=0)
@@ -229,7 +241,7 @@ def main():
     threshold_bytes = args.threshold_mb * 1024 * 1024
     per_file_threshold_bytes = max(threshold_bytes // 4, 10 * 1024 * 1024)
 
-    pkg_path_map = {}
+    pkg_path_map: Dict[str, List[str]] = {}
     for entry in args.pkg_paths:
         label, _, path = entry.partition("=")
         if not path:
@@ -239,10 +251,10 @@ def main():
     pkg_sizes = {label: _pkg_size(paths) for label, paths in pkg_path_map.items()}
     pkg_binary = {label: _pkg_is_binary(paths) for label, paths in pkg_path_map.items()}
 
-    messages = []
+    messages: List[str] = []
     suggestions = _Suggestions()
 
-    layer_count_comment_lines = []
+    layer_count_comment_lines: List[str] = []
     if args.layer_count > _OCI_LAYER_HARD_LIMIT:
         messages.append(
             "ERROR: image has {} layers (OCI limit {}).".format(args.layer_count, _OCI_LAYER_HARD_LIMIT)
@@ -270,7 +282,7 @@ def main():
                 break
             _add_whole_promotion(suggestions, label, mb, pkg_binary.get(label, False), annotation="")
 
-    binary_below_threshold = []
+    binary_below_threshold: List[str] = []
     for label, size in sorted(pkg_sizes.items()):
         if size <= threshold_bytes:
             if pkg_binary.get(label):

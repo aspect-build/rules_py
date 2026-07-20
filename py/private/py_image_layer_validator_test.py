@@ -7,6 +7,7 @@ import io
 import os
 import sys
 import tempfile
+from collections.abc import Iterator
 
 from py.private.py_image_layer_validator import (
     _Suggestions,
@@ -25,32 +26,32 @@ from py.private.py_image_layer_validator import (
 # ---------------------------------------------------------------------------
 
 
-def test_pkg_name_pip_with_target():
+def test_pkg_name_pip_with_target() -> None:
     assert _pkg_name_from_label("@@pip//torch:torch") == "torch"
 
 
-def test_pkg_name_pip_no_target():
+def test_pkg_name_pip_no_target() -> None:
     assert _pkg_name_from_label("@pip//numpy") == "numpy"
 
 
-def test_pkg_name_canonical_pip():
+def test_pkg_name_canonical_pip() -> None:
     assert _pkg_name_from_label("@@aspect_rules_py++pip+whl_install__images__colorama__0_4_6//colorama") == "colorama"
 
 
-def test_pkg_name_first_party_deep_path():
+def test_pkg_name_first_party_deep_path() -> None:
     # Should return the target name, not the full path
     assert _pkg_name_from_label("@@//my/deep/pkg:lib") == "lib"
 
 
-def test_pkg_name_first_party_simple():
+def test_pkg_name_first_party_simple() -> None:
     assert _pkg_name_from_label("//my/pkg:mylib") == "mylib"
 
 
-def test_pkg_name_hyphen_normalized():
+def test_pkg_name_hyphen_normalized() -> None:
     assert _pkg_name_from_label("@pip//my-package") == "my_package"
 
 
-def test_pkg_name_at_prefix_stripped():
+def test_pkg_name_at_prefix_stripped() -> None:
     assert _pkg_name_from_label("@pip//somelib:somelib") == "somelib"
 
 
@@ -59,19 +60,19 @@ def test_pkg_name_at_prefix_stripped():
 # ---------------------------------------------------------------------------
 
 
-def test_glob_so_unversioned():
+def test_glob_so_unversioned() -> None:
     assert _glob_for_file("libfoo.so") == "*.so"
 
 
-def test_glob_so_versioned():
+def test_glob_so_versioned() -> None:
     assert _glob_for_file("libfoo.so.1.2.3") == "*.so.*"
 
 
-def test_glob_so_versioned_single():
+def test_glob_so_versioned_single() -> None:
     assert _glob_for_file("libfoo.so.1") == "*.so.*"
 
 
-def test_glob_so_does_not_match_readme_so_txt():
+def test_glob_so_does_not_match_readme_so_txt() -> None:
     # "README.so.txt" ends in .txt, not .so or .so.*, so glob_for_file
     # must NOT return a *.so* pattern for it.
     result = _glob_for_file("README.so.txt")
@@ -80,23 +81,23 @@ def test_glob_so_does_not_match_readme_so_txt():
     )
 
 
-def test_glob_pyd():
+def test_glob_pyd() -> None:
     assert _glob_for_file("_accel.pyd") == "*.pyd"
 
 
-def test_glob_dylib():
+def test_glob_dylib() -> None:
     assert _glob_for_file("libbar.dylib") == "*.dylib"
 
 
-def test_glob_dll():
+def test_glob_dll() -> None:
     assert _glob_for_file("libbar.dll") == "*.dll"
 
 
-def test_glob_py():
+def test_glob_py() -> None:
     assert _glob_for_file("module.py") == "*.py"
 
 
-def test_glob_no_extension():
+def test_glob_no_extension() -> None:
     assert _glob_for_file("binaryfile") == "binaryfile"
 
 
@@ -105,7 +106,7 @@ def test_glob_no_extension():
 # ---------------------------------------------------------------------------
 
 
-def _make_tmp_pkg(files):
+def _make_tmp_pkg(files: dict[str, bytes]) -> str:
     """Create a temp dir with given {relpath: content_bytes} and return its path."""
     d = tempfile.mkdtemp()
     for relpath, data in files.items():
@@ -116,22 +117,22 @@ def _make_tmp_pkg(files):
     return d
 
 
-def test_pkg_size_single_file():
+def test_pkg_size_single_file() -> None:
     d = _make_tmp_pkg({"a.py": b"x" * 1000})
     assert _pkg_size([d]) == 1000
 
 
-def test_pkg_size_multiple_files():
+def test_pkg_size_multiple_files() -> None:
     d = _make_tmp_pkg({"a.py": b"x" * 500, "b.py": b"y" * 300})
     assert _pkg_size([d]) == 800
 
 
-def test_pkg_size_empty_dir():
+def test_pkg_size_empty_dir() -> None:
     d = tempfile.mkdtemp()
     assert _pkg_size([d]) == 0
 
 
-def test_find_large_files_above_threshold():
+def test_find_large_files_above_threshold() -> None:
     d = _make_tmp_pkg({"big.so": b"x" * 2000, "small.py": b"y" * 100})
     results = _find_large_files([d], min_bytes=1000)
     names = [r[0] for r in results]
@@ -139,7 +140,7 @@ def test_find_large_files_above_threshold():
     assert "small.py" not in names
 
 
-def test_find_large_files_sorted_by_size_desc():
+def test_find_large_files_sorted_by_size_desc() -> None:
     d = _make_tmp_pkg({
         "medium.so": b"x" * 2000,
         "large.so": b"x" * 5000,
@@ -155,21 +156,21 @@ def test_find_large_files_sorted_by_size_desc():
 # ---------------------------------------------------------------------------
 
 
-def test_pkg_is_binary_true():
+def test_pkg_is_binary_true() -> None:
     d = _make_tmp_pkg({
         "foo-1.0.dist-info/WHEEL": b"Wheel-Version: 1.0\nRoot-Is-Purelib: false\n",
     })
     assert _pkg_is_binary([d]) is True
 
 
-def test_pkg_is_binary_false_for_pure():
+def test_pkg_is_binary_false_for_pure() -> None:
     d = _make_tmp_pkg({
         "foo-1.0.dist-info/WHEEL": b"Wheel-Version: 1.0\nRoot-Is-Purelib: true\n",
     })
     assert _pkg_is_binary([d]) is False
 
 
-def test_pkg_is_binary_false_no_wheel_file():
+def test_pkg_is_binary_false_no_wheel_file() -> None:
     d = _make_tmp_pkg({"foo/__init__.py": b""})
     assert _pkg_is_binary([d]) is False
 
@@ -179,20 +180,20 @@ def test_pkg_is_binary_false_no_wheel_file():
 # ---------------------------------------------------------------------------
 
 
-def test_suggest_subpath_groups_large_so():
+def test_suggest_subpath_groups_large_so() -> None:
     d = _make_tmp_pkg({"libfoo.so": b"x" * (30 * 1024 * 1024)})
     results = _suggest_subpath_groups("@pip//mylib", [d], min_file_bytes=10 * 1024 * 1024)
     keys = [r[0] for r in results]
     assert any("*.so" in k for k in keys)
 
 
-def test_suggest_subpath_groups_no_large_files():
+def test_suggest_subpath_groups_no_large_files() -> None:
     d = _make_tmp_pkg({"small.py": b"x" * 100})
     results = _suggest_subpath_groups("@pip//mylib", [d], min_file_bytes=10 * 1024 * 1024)
     assert results == []
 
 
-def test_suggest_subpath_groups_key_format():
+def test_suggest_subpath_groups_key_format() -> None:
     d = _make_tmp_pkg({"libfoo.so": b"x" * (30 * 1024 * 1024)})
     results = _suggest_subpath_groups("@pip//mylib", [d], min_file_bytes=1 * 1024 * 1024)
     assert len(results) > 0
@@ -208,7 +209,7 @@ def test_suggest_subpath_groups_key_format():
 # ---------------------------------------------------------------------------
 
 
-def test_suggestions_whole_then_subpath_wins():
+def test_suggestions_whole_then_subpath_wins() -> None:
     s = _Suggestions()
     s.add_group("@pip//torch", '        "@pip//torch": "torch",')
     s.add_group("@pip//torch:*.so", '        "@pip//torch:*.so": "torch_so",')
@@ -216,7 +217,7 @@ def test_suggestions_whole_then_subpath_wins():
     assert "@pip//torch:*.so" in s.group_lines
 
 
-def test_suggestions_subpath_blocks_whole():
+def test_suggestions_subpath_blocks_whole() -> None:
     s = _Suggestions()
     s.add_group("@pip//torch:*.so", '        "@pip//torch:*.so": "torch_so",')
     s.add_group("@pip//torch", '        "@pip//torch": "torch",')
@@ -225,7 +226,7 @@ def test_suggestions_subpath_blocks_whole():
     assert "@pip//torch:*.so" in s.group_lines
 
 
-def test_suggestions_compression_deduped():
+def test_suggestions_compression_deduped() -> None:
     s = _Suggestions()
     s.add_compression("@pip//torch", "1")
     s.add_compression("@pip//torch", "9")
@@ -238,7 +239,7 @@ def test_suggestions_compression_deduped():
 
 
 @contextlib.contextmanager
-def _capture_stderr():
+def _capture_stderr() -> Iterator[io.StringIO]:
     buf = io.StringIO()
     old = sys.stderr
     sys.stderr = buf
@@ -248,7 +249,7 @@ def _capture_stderr():
         sys.stderr = old
 
 
-def test_main_ok_below_threshold():
+def test_main_ok_below_threshold() -> None:
     with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as f:
         out_path = f.name
     sys.argv = ["validator", "--threshold_mb", "500", "--output", out_path]
@@ -263,7 +264,7 @@ def test_main_ok_below_threshold():
         os.unlink(out_path)
 
 
-def test_main_layer_count_error():
+def test_main_layer_count_error() -> None:
     with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as f:
         out_path = f.name
     sys.argv = [
@@ -286,7 +287,7 @@ def test_main_layer_count_error():
     os.unlink(out_path)
 
 
-def test_main_layer_count_warning():
+def test_main_layer_count_warning() -> None:
     with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as f:
         out_path = f.name
     sys.argv = [
@@ -309,7 +310,7 @@ def test_main_layer_count_warning():
     os.unlink(out_path)
 
 
-def test_main_squashed_layer_error():
+def test_main_squashed_layer_error() -> None:
     big_dir = _make_tmp_pkg({"big.py": b"x" * (300 * 1024 * 1024)})
     with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as f:
         out_path = f.name

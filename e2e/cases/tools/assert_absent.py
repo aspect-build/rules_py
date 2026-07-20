@@ -19,7 +19,7 @@ Usage (from the macro): assert_absent.py <listing-file> <forbidden>...
 import sys
 
 
-def main(argv):
+def main(argv: list[str]) -> None:
     if len(argv) < 3:
         sys.exit("usage: assert_absent.py <listing-file> <forbidden>...")
     listing_path = argv[1]

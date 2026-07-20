@@ -6,7 +6,10 @@ A minimal python3 -m build wrapper
 Mostly exists to allow debugging.
 """
 
+from __future__ import annotations
+
 from argparse import ArgumentParser
+import importlib
 import os
 import platform as _platform
 import shlex
@@ -15,11 +18,12 @@ import sys
 from os import chmod, defpath, listdir, makedirs, path, pathsep
 from subprocess import CalledProcessError, check_call, check_output, STDOUT, run
 from tempfile import TemporaryFile
+from typing import Dict, Optional
 
 try:
-    import tomllib
+    tomllib = importlib.import_module("tomllib")
 except ModuleNotFoundError:
-    import tomli as tomllib
+    tomllib = importlib.import_module("tomli")
 
 _SETUPTOOLS_BACKENDS = (
     None,
@@ -45,7 +49,7 @@ os.execv("{compiler_path}", [os.path.basename("{compiler_path}")] + filtered_arg
 """
 
 
-def _darwin_sysroot():
+def _darwin_sysroot() -> Optional[str]:
     """Return the macOS SDK path, or None if unavailable."""
     if _platform.system() != "Darwin":
         return None
@@ -55,7 +59,7 @@ def _darwin_sysroot():
         return None
 
 
-def _absolutize_path(value):
+def _absolutize_path(value: str) -> str:
     """Resolve a relative path to absolute, leaving absolute/empty values untouched.
 
     Shared by _resolve_compiler_path (CC/CXX) and _absolutize_tool_paths.
@@ -66,7 +70,7 @@ def _absolutize_path(value):
     return path.abspath(value) if value and not path.isabs(value) else value
 
 
-def _resolve_compiler_path(env, key, default):
+def _resolve_compiler_path(env: Dict[str, str], key: str, default: str) -> str:
     """Extract the real compiler from the environment and resolve it to an absolute path."""
     current = env.get(key)
     if not current:
@@ -80,7 +84,12 @@ def _resolve_compiler_path(env, key, default):
     return shutil.which(compiler, path=env.get("PATH", defpath)) or compiler
 
 
-def _make_compiler_wrapper(tmpdir, name, compiler_path, sysroot=None):
+def _make_compiler_wrapper(
+    tmpdir: str,
+    name: str,
+    compiler_path: str,
+    sysroot: Optional[str] = None,
+) -> str:
     wrapper = path.join(tmpdir, ".aspect_rules_py_compilers", name)
     makedirs(path.dirname(wrapper), exist_ok=True)
     with open(wrapper, "w") as f:
@@ -93,7 +102,7 @@ def _make_compiler_wrapper(tmpdir, name, compiler_path, sysroot=None):
     return wrapper
 
 
-def _override_tool(env, key, wrapper):
+def _override_tool(env: Dict[str, str], key: str, wrapper: str) -> None:
     current = env.get(key)
     if not current:
         return
@@ -103,7 +112,7 @@ def _override_tool(env, key, wrapper):
         env[key] = shlex.join(parts)
 
 
-def _absolutize_tool_paths(env):
+def _absolutize_tool_paths(env: Dict[str, str]) -> None:
     """Resolve toolchain paths before the backend changes cwd."""
     for key in ("JAVA_HOME", "JAVA"):
         value = env.get(key)
@@ -120,7 +129,7 @@ def _absolutize_tool_paths(env):
             env[key] = shlex.join(parts)
 
 
-def _compiler_env(tmpdir, execroot_marker=None):
+def _compiler_env(tmpdir: str, execroot_marker: Optional[str] = None) -> Dict[str, str]:
     env = dict(os.environ)
     if execroot_marker:
         execroot = os.getcwd()
@@ -182,7 +191,7 @@ def _compiler_env(tmpdir, execroot_marker=None):
     return env
 
 
-def _load_text(maybe_file):
+def _load_text(maybe_file: str) -> str:
     if not path.exists(maybe_file):
         return ""
 
@@ -190,7 +199,7 @@ def _load_text(maybe_file):
         return f.read()
 
 
-def _load_pyproject_data(worktree):
+def _load_pyproject_data(worktree: str) -> Optional[Dict[str, object]]:
     pyproject = path.join(worktree, "pyproject.toml")
     if not path.exists(pyproject):
         return None
@@ -202,21 +211,27 @@ def _load_pyproject_data(worktree):
         return None
 
 
-def _legacy_metadata_conflicts_with_pyproject(worktree):
+def _legacy_metadata_conflicts_with_pyproject(worktree: str) -> bool:
     setup_py = path.join(worktree, "setup.py")
     pyproject_data = _load_pyproject_data(worktree)
     if not (pyproject_data and path.exists(setup_py)):
         return False
 
-    build_backend = pyproject_data.get("build-system", {}).get("build-backend")
+    build_system = pyproject_data.get("build-system", {})
+    if not isinstance(build_system, dict):
+        return False
+    build_backend = build_system.get("build-backend")
     if build_backend not in _SETUPTOOLS_BACKENDS:
         return False
 
     project = pyproject_data.get("project")
-    if not project:
+    if not isinstance(project, dict) or not project:
         return False
 
-    dynamic = set(project.get("dynamic", []))
+    dynamic_value = project.get("dynamic", [])
+    if not isinstance(dynamic_value, list):
+        return False
+    dynamic = {value for value in dynamic_value if isinstance(value, str)}
     legacy_metadata = _load_text(setup_py) + "\n" + _load_text(path.join(worktree, "setup.cfg"))
 
     return (
@@ -321,7 +336,7 @@ elif path.exists(path.join(t, "pyproject.toml")) or path.exists(path.join(t, "se
     ]
 else:
     print("Error: Unable to detect build command! Neither pyproject.toml nor setup.py found!", file=sys.stderr)
-    exit(1)
+    raise SystemExit(1)
 
 with TemporaryFile(mode="w+") as build_log:
     try:

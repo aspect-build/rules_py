@@ -10,7 +10,7 @@ import unittest
 
 
 class WhlInstallOutputGroupTest(unittest.TestCase):
-    def test_install_dir_accessible_via_output_group(self):
+    def test_install_dir_accessible_via_output_group(self) -> None:
         srcdir = os.environ["TEST_SRCDIR"]
         # Find any .py file under the iniconfig install directory. The tree
         # artifact is placed somewhere under TEST_SRCDIR by Bazel's runfiles.

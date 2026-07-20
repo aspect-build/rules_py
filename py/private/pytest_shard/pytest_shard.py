@@ -1,18 +1,38 @@
-from typing import Iterable, List, Sequence
+from typing import List, Protocol, Sequence, TypeVar, Union
 
 from _pytest import nodes  # for type checking only
 
+_Item = TypeVar("_Item")
 
-def positive_int(x) -> int:
-    x = int(x)
-    if x < 0:
-        raise ValueError(f"Argument {x} must be positive")
-    return x
+
+class _OptionGroup(Protocol):
+    def addoption(self, *args: str, **kwargs: object) -> None: ...
+
+
+class _Parser(Protocol):
+    def getgroup(self, name: str) -> _OptionGroup: ...
+
+
+class _Options(Protocol):
+    verbose: int
+
+
+class _Config(Protocol):
+    option: _Options
+
+    def getoption(self, name: str) -> int: ...
+
+
+def positive_int(x: Union[str, int]) -> int:
+    value = int(x)
+    if value < 0:
+        raise ValueError(f"Argument {value} must be positive")
+    return value
 
 
 def filter_items_by_shard(
-    items: Iterable[nodes.Node], shard_id: int, num_shards: int
-) -> Sequence[nodes.Node]:
+    items: Sequence[_Item], shard_id: int, num_shards: int
+) -> List[_Item]:
     """Computes `items` that should be tested in `shard_id` out of `num_shards` total shards."""
     shards = [i % num_shards for i in range(len(items))]
 
@@ -25,7 +45,7 @@ def filter_items_by_shard(
 
 class ShardPlugin:
     @staticmethod
-    def pytest_addoption(parser):
+    def pytest_addoption(parser: _Parser) -> None:
         """Add pytest-shard specific configuration parameters."""
         group = parser.getgroup("shard")
         group.addoption(
@@ -44,7 +64,7 @@ class ShardPlugin:
         )
 
     @staticmethod
-    def pytest_report_collectionfinish(config, items: Sequence[nodes.Node]) -> str:
+    def pytest_report_collectionfinish(config: _Config, items: Sequence[nodes.Node]) -> str:
         """Log how many and, if verbose, which items are tested in this shard."""
         msg = f"Running {len(items)} items in this shard"
         if config.option.verbose > 0 and config.getoption("num_shards") > 1:
@@ -52,7 +72,7 @@ class ShardPlugin:
         return msg
 
     @staticmethod
-    def pytest_collection_modifyitems(config, items: List[nodes.Node]):
+    def pytest_collection_modifyitems(config: _Config, items: List[nodes.Node]) -> None:
         """Mutate the collection to consist of just items to be tested in this shard."""
         shard_id = config.getoption("shard_id")
         shard_total = config.getoption("num_shards")

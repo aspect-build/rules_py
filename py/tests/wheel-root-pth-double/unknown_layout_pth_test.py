@@ -3,7 +3,7 @@
 import sys
 
 
-def main():
+def main() -> None:
     if "rules_py_pth_sentinel_a" not in sys.path:
         raise SystemExit("unknown-layout wheel root .pth did not execute")
 

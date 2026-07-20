@@ -17,7 +17,7 @@ import sys
 import sysconfig
 
 
-def test_namespace_imports():
+def test_namespace_imports() -> None:
     """Both jaraco sub-packages must be importable."""
     import jaraco.functools
     import jaraco.classes
@@ -31,7 +31,7 @@ def test_namespace_imports():
     )
 
 
-def test_jaraco_is_namespace_package():
+def test_jaraco_is_namespace_package() -> None:
     """The jaraco package must be a namespace package, not a regular one."""
     import jaraco
 
@@ -44,7 +44,7 @@ def test_jaraco_is_namespace_package():
     )
 
 
-def test_concrete_namespace_entries_in_site_packages():
+def test_concrete_namespace_entries_in_site_packages() -> None:
     """The merged namespace must exist concretely in site-packages.
 
     Mimics how mypy/pyright discover packages: plain directory traversal

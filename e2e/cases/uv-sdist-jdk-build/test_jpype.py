@@ -8,7 +8,7 @@ setup.py can't find <jni.h>, and this test never gets a chance to run.
 import jpype
 
 
-def test_import():
+def test_import() -> None:
     assert jpype.__version__, "jpype.__version__ should be a non-empty string"
 
 
