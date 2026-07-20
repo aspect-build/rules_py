@@ -19,8 +19,8 @@ Layer tier (groups + compression) is carried by the `py_layer_tier` rule which p
 Sharing model:
   - Solo whole-group + subpath-split pip tars: action-shared across every rule using
     that package (declared at the pip target's namespace).
-  - Multi-member merged tars: per-rule action, but deterministic content (canonical
-    mtree, fixed bsdtar options) → remote CAS / OCI registry dedupe by digest.
+  - Multi-member merged tars: action-shared for scalar binaries; one unioned per-rule
+    action for binary lists, with deterministic content for CAS / registry dedupe.
   - First-party grouped tars: per-rule action, one tar per group, collected from
     matched py_library targets in the binaries' dep closures.
   - Ungrouped pip packages: squashed by the rule into one per-rule tar.
@@ -501,6 +501,76 @@ _layer_aspect = aspect(
     provides = [_LayerInfo],
 )
 
+_MergedLayerInfo = provider(
+    doc = "Private: closure-filtered merged tars for multi-member groups, produced by _merge_aspect.",
+    fields = {
+        "merged_tars": "dict[group_name, File] — one merged tar per multi-member group.",
+    },
+)
+
+def _merge_aspect_impl(target, ctx):
+    info = target[_LayerInfo]
+
+    bucket = {}
+    seen = {}
+    for pkg in info.pip_packages.to_list():
+        if pkg.label in seen:
+            continue
+        seen[pkg.label] = True
+        if pkg.merge_group != None:
+            bucket.setdefault(pkg.merge_group, []).append(pkg.files)
+
+    if not bucket:
+        return [_MergedLayerInfo(merged_tars = {})]
+
+    bsdtar, bsdtar_files = _tar_toolchain(ctx)
+    plan = ctx.attr._layer_tier[PyLayerTierInfo]
+
+    merged_tars = {}
+    for group_name in sorted(bucket):
+        install_dirs = bucket[group_name]
+        algorithm, level, ext = _compression_for(plan, group_name)
+        tar_out = ctx.actions.declare_file("_merged_pip_layer_{}{}".format(group_name, ext))
+        _run_tar_action(
+            ctx,
+            bsdtar,
+            bsdtar_files,
+            tar_out,
+            depset(transitive = install_dirs),
+            _pkg_file_to_mtree,
+            algorithm,
+            level,
+            {},
+            "PyImageMergedLayer",
+            "Merging %d pip packages into %s[%s]" % (len(install_dirs), target.label, group_name),
+        )
+        merged_tars[group_name] = tar_out
+
+    return [_MergedLayerInfo(merged_tars = merged_tars)]
+
+_merge_aspect = aspect(
+    implementation = _merge_aspect_impl,
+    attr_aspects = [],
+    attrs = {
+        "_layer_tier": attr.label(
+            default = "//py:layer_tier",
+            providers = [PyLayerTierInfo],
+        ),
+        "_awk_script": attr.label(
+            default = "//py/private:modify_mtree.awk",
+            allow_single_file = True,
+        ),
+        "_awk": attr.label(
+            default = "@gawk",
+            cfg = "exec",
+            executable = True,
+        ),
+    },
+    toolchains = [_TAR_TOOLCHAIN],
+    required_aspect_providers = [[_LayerInfo]],
+    provides = [_MergedLayerInfo],
+)
+
 def _apply_strip_prefix(sp, strip_prefix, root):
     prefix = strip_prefix.replace("\\/", "/")
     if sp == prefix:
@@ -521,7 +591,7 @@ def _source_destination(sp, strip_prefix, root, executable_dsts):
     if sp.startswith("../"):
         return "./app.runfiles/" + sp[3:]
     for executable_short_path in executable_dsts:
-        if sp.startswith(executable_short_path + ".runfiles/"):
+        if sp == executable_short_path or sp.startswith(executable_short_path + ".runfiles/"):
             return _apply_strip_prefix(sp, executable_short_path, root)
     if strip_prefix:
         return _apply_strip_prefix(sp, strip_prefix, root)
@@ -559,6 +629,46 @@ def _source_file_to_mtree(f, dir_expander, strip_prefix, root, maybe_symlink, ex
 
 def _make_source_map(strip_prefix, root, maybe_symlink, executable_dsts):
     return lambda f, d: _source_file_to_mtree(f, d, strip_prefix, root, maybe_symlink, executable_dsts)
+
+def _normalize_destination(path):
+    parts = []
+    for part in path.split("/"):
+        if not part or part == ".":
+            continue
+        if part == "..":
+            if not parts:
+                fail("py_image_layer image destination escapes its root: {}".format(path))
+            parts.pop()
+        else:
+            parts.append(part)
+    return "./" + "/".join(parts)
+
+def _register_image_destination(f, destination, paths, tree_roots, descendants):
+    destination = _normalize_destination(destination)
+    previous = paths.get(destination, None)
+    if previous != None:
+        if previous != f.path:
+            fail("py_image_layer runfile collision at {}: {} and {}".format(destination, previous, f.path))
+        return
+
+    parts = destination.split("/")
+    for end in range(len(parts) - 1, 0, -1):
+        parent = "/".join(parts[:end])
+        tree = tree_roots.get(parent, None)
+        if tree != None and tree != f.path:
+            fail("py_image_layer runfile collision at {}: {} and {}".format(destination, tree, f.path))
+
+    if f.is_directory and destination in descendants:
+        descendant, source = descendants[destination]
+        fail("py_image_layer runfile collision at {}: {} and {}".format(descendant, source, f.path))
+
+    paths[destination] = f.path
+    if f.is_directory:
+        tree_roots[destination] = f.path
+    for end in range(len(parts) - 1, 0, -1):
+        parent = "/".join(parts[:end])
+        if parent not in descendants:
+            descendants[parent] = (destination, f.path)
 
 def _user_file_to_mtree(f, dir_expander):
     if f.is_directory:
@@ -792,6 +902,29 @@ def _py_image_layer_impl(ctx):
         executable_dsts,
     )
 
+    # Multiple configured closures share one runfiles tree. Compare their
+    # top-level artifacts at analysis time; TreeArtifact children cannot be
+    # inspected here, so reject any artifact placed below a tree root.
+    if len(binaries) > 1:
+        paths = {}
+        tree_roots = {}
+        descendants = {}
+        for info in infos:
+            for entry in info.first_party_layers.to_list():
+                for f in entry.files.to_list():
+                    _register_image_destination(f, _source_destination(f.short_path, strip_prefix, root, executable_dsts), paths, tree_roots, descendants)
+            for f in info.source_files.to_list():
+                _register_image_destination(f, _source_destination(f.short_path, strip_prefix, root, executable_dsts), paths, tree_roots, descendants)
+            if info.interpreter_files != None:
+                for f in info.interpreter_files.to_list():
+                    _register_image_destination(f, _source_destination(f.short_path, "", "/", {}), paths, tree_roots, descendants)
+        for pkg in all_pkgs:
+            for f in pkg.files.to_list():
+                _register_image_destination(f, _source_destination(f.short_path, "", "/", {}), paths, tree_roots, descendants)
+        for dep in ctx.attr.groups:
+            for f in dep[DefaultInfo].files.to_list():
+                _register_image_destination(f, _source_destination(f.short_path, "", "/", {}), paths, tree_roots, descendants)
+
     rule_group_names = {gname: True for gname in ctx.attr.groups.values()}
     for dep, group_name in ctx.attr.groups.items():
         dep_label = normalize_label(str(dep.label))
@@ -854,23 +987,26 @@ def _py_image_layer_impl(ctx):
 
     all_tars.extend(pip_tars.values())
 
-    for group_name in sorted(merged):
-        algorithm, level, ext = _compression_for(plan, group_name)
-        tar_out = ctx.actions.declare_file("{}/merged_pip_layers/{}{}".format(ctx.attr.name, group_name, ext))
-        _run_tar_action(
-            ctx,
-            bsdtar,
-            bsdtar_files,
-            tar_out,
-            depset(transitive = merged[group_name]),
-            _pkg_file_to_mtree,
-            algorithm,
-            level,
-            {},
-            "PyImageMergedLayer",
-            "Merging %d pip packages into %s[%s]" % (len(merged[group_name]), ctx.label, group_name),
-        )
-        all_tars.append(tar_out)
+    if ctx.attr.binary != None:
+        all_tars.extend([tar for _group_name, tar in sorted(ctx.attr.binary[_MergedLayerInfo].merged_tars.items())])
+    else:
+        for group_name in sorted(merged):
+            algorithm, level, ext = _compression_for(plan, group_name)
+            tar_out = ctx.actions.declare_file("{}/merged_pip_layers/{}{}".format(ctx.attr.name, group_name, ext))
+            _run_tar_action(
+                ctx,
+                bsdtar,
+                bsdtar_files,
+                tar_out,
+                depset(transitive = merged[group_name]),
+                _pkg_file_to_mtree,
+                algorithm,
+                level,
+                {},
+                "PyImageMergedLayer",
+                "Merging %d pip packages into %s[%s]" % (len(merged[group_name]), ctx.label, group_name),
+            )
+            all_tars.append(tar_out)
 
     ungrouped_pkgs = [p for p in all_pkgs if len(p.layers) == 0 and p.merge_group == None]
     if ungrouped_pkgs:
@@ -934,7 +1070,7 @@ _py_image_layer = rule(
     implementation = _py_image_layer_impl,
     attrs = {
         "binary": attr.label(
-            aspects = [_layer_aspect],
+            aspects = [_layer_aspect, _merge_aspect],
         ),
         "binaries": attr.label_list(
             aspects = [_layer_aspect],

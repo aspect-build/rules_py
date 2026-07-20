@@ -1,6 +1,6 @@
 """Analysis coverage for invalid multi-launcher image-layer configurations."""
 
-load("@aspect_rules_py//py:defs.bzl", "py_image_layer")
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_layer_tier")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 
 def _expected_failure_impl(ctx):
@@ -54,4 +54,34 @@ def image_layer_analysis_test_suite():
     native.config_setting(
         name = "_python_3_11",
         flag_values = {"@aspect_rules_py//py/private/interpreter:python_version": "3.11"},
+    )
+
+    py_binary(
+        name = "_wheel_scripts_311",
+        srcs = ["server.py"],
+        dep_group = "images",
+        python_version = "3.11",
+        deps = ["@pypi_oci_py_image_layer//build"],
+    )
+    py_binary(
+        name = "_wheel_scripts_312",
+        srcs = ["server.py"],
+        dep_group = "images",
+        python_version = "3.12",
+        deps = ["@pypi_oci_py_image_layer//build"],
+    )
+    py_layer_tier(
+        name = "_wheel_scripts_tier",
+        groups = {"@pip//build": "wheel_scripts"},
+    )
+    py_image_layer(
+        name = "_configured_wheel_collision_layers",
+        binaries = [":_wheel_scripts_311", ":_wheel_scripts_312"],
+        launcher_dir = "/app/bin",
+        layer_tier = ":_wheel_scripts_tier",
+    )
+    _expected_failure_test(
+        name = "configured_wheel_collision_test",
+        expected_error = "actual_install.install:",
+        target_under_test = ":_configured_wheel_collision_layers",
     )
