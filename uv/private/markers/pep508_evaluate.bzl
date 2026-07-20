@@ -20,7 +20,6 @@ Vendored and used here with thanks.
 """
 
 load("//uv/private/versions:versions.bzl", "version_satisfies")
-load(":semver.bzl", "semver")
 
 # The expression parsing and resolution for the PEP508 is below
 #
@@ -336,37 +335,9 @@ def _env_expr(left, op, right):
 
 def _version_expr(left, op, right):
     """Evaluate a version comparison expression"""
-    if op in ["==", "!="] and right.endswith(".*"):
+    if op in _VERSION_CMP:
         return version_satisfies(left, op + right)
-
-    left = semver(left)
-    right = semver(right)
-    _left = left.key()
-    _right = right.key()
-    if op == "<":
-        return _left < _right
-    elif op == ">":
-        return _left > _right
-    elif op == "<=":
-        return _left <= _right
-    elif op == ">=":
-        return _left >= _right
-    elif op == "!=":
-        return _left != _right
-    elif op == "==":
-        # Matching of major, minor, patch only
-        return _left[:3] == _right[:3]
-    elif op == "~=":
-        right_plus = right.upper()
-        _right_plus = right_plus.key()
-        return _left >= _right and _left < _right_plus
-    elif op == "===":
-        # Strict matching
-        return _left == _right
-    elif op in _VERSION_CMP:
-        fail("TODO: op unsupported: '{}'".format(op))
-    else:
-        return False  # Let's just ignore the invalid ops
+    return False
 
 # Code to allowing to combine expressions with logical operators
 

@@ -244,17 +244,82 @@ def _version_ops_test_impl(ctx):
     # Single-segment right side: upper bound is the next major.
     asserts.true(env, evaluate("python_version ~= '3'", env = _LINUX_ENV))
 
-    # '===' strict matching compares the full version key, so a pre-release
-    # or differing patch breaks equality while '3.11' == '3.11.0' holds
-    # (missing segments normalize to 0 in the key).
-    asserts.true(env, evaluate("python_full_version === '3.11.0'", env = _LINUX_ENV))
-    asserts.true(env, evaluate("python_full_version === '3.11'", env = _LINUX_ENV))
-    asserts.false(env, evaluate("python_full_version === '3.11.1'", env = _LINUX_ENV))
-    asserts.false(env, evaluate("python_full_version === '3.11.0-rc1'", env = _LINUX_ENV))
+    version_env = dict(_LINUX_ENV)
+    for candidate, spec, want in [
+        # Arbitrary equality is case-insensitive but does not normalize.
+        ("3.11.0", "=== '3.11.0'", True),
+        ("3.11.0", "=== '3.11'", False),
+        ("3.15.0a6", "=== '3.15.0A6'", True),
+        ("3.15.0a6", "=== '3.15.0-alpha6'", False),
+        ("legacy-build", "=== 'LEGACY-BUILD'", True),
+        # Prereleases and their aliases use PEP 440 ordering.
+        ("3.15.0a6", "== '3.15'", False),
+        ("3.15.0a6", "!= '3.15'", True),
+        ("3.15.0a6", ">= '3.15'", False),
+        ("3.15.0a6", "<= '3.15'", True),
+        ("3.15.0a6", "< '3.15'", False),
+        ("3.15.0a6", "== '3.15.0alpha6'", True),
+        ("3.15.0a6", "< '3.15.0beta1'", True),
+        ("3.15.0a6", "< '3.15.0preview2'", True),
+        ("3.15.0a1-dev10", "> '3.15.0a1_dev2'", True),
+        ("3.15rc1.dev2", "> '3.15b9-dev9'", True),
+        ("1.0b1.post1", "> '1.0a1'", True),
+        ("1.0a2.post1", "> '1.0a1'", True),
+        ("1.0a1.post1", "> '1.0a1'", False),
+        ("1.0a1.post1", "> '1.0a1.dev1'", True),
+        ("3.15.0.dev1", "< '3.15'", False),
+        ("3.14.10.dev1", "~= '3.14.9'", True),
+        # Post releases and nonzero extra release components admit the
+        # prerelease below them; zero-padded finals do not.
+        ("3.15a6", "< '3.15.0.0'", False),
+        ("3.15.0.dev1", "< '3.15.0.0'", False),
+        ("3.15.0rc1", "< '3.15.0.0'", False),
+        ("3.15a6", "< '3.15.post0'", True),
+        ("3.15.0.dev1", "< '3.15.post1'", True),
+        ("1.0.post1.dev1", "< '1.0.post1'", False),
+        ("1.0.post1.dev1+local.1", "< '1.0.post1'", False),
+        ("2!1.0.post1.dev1+local.1", "< '2!1.0.post1'", False),
+        ("1.0.post1.dev1", "< '1.0.post2'", True),
+        ("1-6", "== '1.post6'", True),
+        ("1.0-6.dev1", "== '1.post6.dev1'", True),
+        ("1-6.dev1", "< '1.post6'", False),
+        ("1-6.dev1", "< '1.post7'", True),
+        ("2!1.0-6.dev1+LOCAL-01", "== '2!1.post6.dev1+local.1'", True),
+        ("2!1.0-6.dev1+LOCAL-01", "< '2!1.post6'", False),
+        ("3.15.0rc1", "< '3.15.0.post1'", True),
+        ("3.15a6", "< '3.15.0.1'", True),
+        ("3.15.post2", "> '3.15.post1'", True),
+        ("3.15.post1", "> '3.15'", False),
+        ("3.15.0.post1", "> '3.15'", False),
+        # Local labels participate only when the equality bound has one.
+        ("3.15.0+foo.01", "== '3.15.0+FOO-1'", True),
+        ("3.15.0+foo.01", "!= '3.15.0+FOO-1'", False),
+        ("3.15.0+bar", "== '3.15.0'", True),
+        ("3.15.0+bar", "> '3.15.0'", False),
+        ("3.15.0+bar", ">= '3.15.0'", True),
+        ("3.15.0", "<= '3.15.0+bar'", False),
+        ("3.15.0+bar", "<= '3.15.0+bar'", True),
+        ("2!1.0", "== '1!1.*'", False),
+        ("2!1.0", "!= '1!1.*'", True),
+        ("1!1.0", "== '1!1.*'", True),
+        ("1!1.0", "!= '1!1.*'", False),
+        # Demonstrated non-PEP 440 interpreter values retain legacy ordering.
+        ("3.15.0-dev.foo", "< '3.15.0-dev.foo.bar'", True),
+        ("3.15.0-foo.1", "> '3.15.0-foo'", True),
+        ("3.15.0-a.foo.10", "< '3.15.0-a.foo.dev.2'", True),
+        ("3.15.0-a.1.dev.foo", "~= '3.14.9'", True),
+    ]:
+        version_env["python_full_version"] = candidate
+        got = evaluate("python_full_version {}".format(spec), env = version_env)
+        asserts.equals(env, want, got, "{} {}".format(candidate, spec))
 
-    # Pre-release versions order below the final release.
-    asserts.true(env, evaluate("python_full_version > '3.11.0-rc1'", env = _LINUX_ENV))
-    asserts.false(env, evaluate("python_full_version < '3.11.0-rc1'", env = _LINUX_ENV))
+    # Preserve reversed-operand dispatch, including invalid ordered-local
+    # bounds whose raw spelling matches exactly.
+    version_env["python_full_version"] = "3.15.0+bar"
+    asserts.true(env, evaluate("'3.15.0+bar' <= python_full_version", env = version_env))
+    asserts.true(env, evaluate("'3.15.0+bar' >= python_full_version", env = version_env))
+    asserts.false(env, evaluate("'3.15.0' <= python_full_version", env = version_env))
+    asserts.false(env, evaluate("'3.15.0' >= python_full_version", env = version_env))
 
     # A variable that is neither a known string var nor *_version evaluates
     # to False rather than failing, even when the values would match.

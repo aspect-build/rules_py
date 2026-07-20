@@ -15,4 +15,13 @@ if ! "$BAZEL" test --lockfile_mode=off -- \
     exit 1
 fi
 
+if ! "$BAZEL" build \
+    --lockfile_mode=off \
+    --@aspect_rules_py//py:python_version=3.15.0a6 \
+    --@aspect_rules_py//uv/private/constraints/dep_group:dep_group=interpreter-runtime-metadata \
+    -- //:prerelease_dependency_not_selected; then
+    echo "FAIL: a final-release-only uv dependency was selected for Python 3.15.0a6" >&2
+    exit 1
+fi
+
 echo "PASS: PBS runtime metadata matches the selected interpreter"

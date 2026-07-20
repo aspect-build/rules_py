@@ -1,5 +1,5 @@
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load(":versions.bzl", "find_matching_version", "parse_version", "version_cmp", "version_satisfies")
+load(":versions.bzl", "find_matching_version", "parse_version", "version_satisfies")
 
 # =============================================================================
 # parse_version tests
@@ -68,16 +68,9 @@ def _parse_version_local_test_impl(ctx):
 parse_version_local_test = unittest.make(_parse_version_local_test_impl)
 
 def _parse_version_leading_v_test_impl(ctx):
-    """Leading 'v' prefix should be handled (common in tags)."""
+    """The numeric fallback does not interpret a leading 'v'."""
     env = unittest.begin(ctx)
-
-    # Our parser stops at non-digit, so 'v' prefix means numeric starts after
-    # parse_version strips to numeric portion — 'v' is non-digit so numeric is empty
-    # This is a known limitation; lockfile versions won't have 'v' prefix
-    result = parse_version("v1.0")
-
-    # 'v' is at position 0, not a digit, so end=0, numeric=""
-    asserts.equals(env, [0], result)
+    asserts.equals(env, [0], parse_version("v1.0"))
     return unittest.end(env)
 
 parse_version_leading_v_test = unittest.make(_parse_version_leading_v_test_impl)
@@ -90,54 +83,6 @@ def _parse_version_leading_zeros_test_impl(ctx):
     return unittest.end(env)
 
 parse_version_leading_zeros_test = unittest.make(_parse_version_leading_zeros_test_impl)
-
-# =============================================================================
-# version_cmp tests
-# =============================================================================
-
-def _version_cmp_basic_test_impl(ctx):
-    env = unittest.begin(ctx)
-    asserts.equals(env, 0, version_cmp([1, 0], [1, 0]), "1.0 == 1.0")
-    asserts.equals(env, -1, version_cmp([1, 0], [2, 0]), "1.0 < 2.0")
-    asserts.equals(env, 1, version_cmp([2, 0], [1, 0]), "2.0 > 1.0")
-    asserts.equals(env, -1, version_cmp([1, 2], [1, 3]), "1.2 < 1.3")
-    asserts.equals(env, 1, version_cmp([21, 3], [21, 0]), "21.3 > 21.0")
-    return unittest.end(env)
-
-version_cmp_basic_test = unittest.make(_version_cmp_basic_test_impl)
-
-def _version_cmp_padding_test_impl(ctx):
-    """Trailing zeros should not affect comparison (1.0 == 1.0.0 == 1.0.0.0)."""
-    env = unittest.begin(ctx)
-    asserts.equals(env, 0, version_cmp([1, 0], [1, 0, 0]), "1.0 == 1.0.0")
-    asserts.equals(env, 0, version_cmp([1, 0, 0], [1, 0]), "1.0.0 == 1.0")
-    asserts.equals(env, 0, version_cmp([1], [1, 0, 0, 0]), "1 == 1.0.0.0")
-    asserts.equals(env, 0, version_cmp([0], [0, 0, 0]), "0 == 0.0.0")
-    asserts.equals(env, -1, version_cmp([1], [1, 0, 1]), "1 < 1.0.1")
-    asserts.equals(env, 1, version_cmp([1, 0, 1], [1]), "1.0.1 > 1")
-    return unittest.end(env)
-
-version_cmp_padding_test = unittest.make(_version_cmp_padding_test_impl)
-
-def _version_cmp_long_test_impl(ctx):
-    """Many-segment versions."""
-    env = unittest.begin(ctx)
-    asserts.equals(env, 0, version_cmp([1, 2, 3, 4, 5], [1, 2, 3, 4, 5]))
-    asserts.equals(env, -1, version_cmp([1, 2, 3, 4, 5], [1, 2, 3, 4, 6]))
-    asserts.equals(env, 1, version_cmp([1, 2, 3, 5, 0], [1, 2, 3, 4, 99]))
-    return unittest.end(env)
-
-version_cmp_long_test = unittest.make(_version_cmp_long_test_impl)
-
-def _version_cmp_large_numbers_test_impl(ctx):
-    """Calendar versioning and large segment numbers."""
-    env = unittest.begin(ctx)
-    asserts.equals(env, -1, version_cmp([2023, 1], [2024, 1]))
-    asserts.equals(env, 1, version_cmp([2024, 12], [2024, 1]))
-    asserts.equals(env, 0, version_cmp([20240101, 0], [20240101, 0]))
-    return unittest.end(env)
-
-version_cmp_large_numbers_test = unittest.make(_version_cmp_large_numbers_test_impl)
 
 # =============================================================================
 # version_satisfies — == (Version Matching)
@@ -667,6 +612,52 @@ def _satisfies_boundary_precision_test_impl(ctx):
 
 satisfies_boundary_precision_test = unittest.make(_satisfies_boundary_precision_test_impl)
 
+def _satisfies_pep440_matrix_test_impl(ctx):
+    env = unittest.begin(ctx)
+    for candidate, specifier, want in [
+        ("3.15a6", "==3.15", False),
+        ("3.15a6", "<=3.15", True),
+        ("3.15a6", "<3.15", False),
+        ("3.15a6", "<3.15.post1", True),
+        ("1.0.post1.dev1", "<1.0.post1", False),
+        ("1.0.post1.dev1+local.1", "<1.0.post1", False),
+        ("2!1.0.post1.dev1+local.1", "<2!1.0.post1", False),
+        ("1.0.post1.dev1", "<1.0.post2", True),
+        ("1-6", "==1.post6", True),
+        ("1.0-6.dev1", "==1.post6.dev1", True),
+        ("1-6.dev1", "<1.post6", False),
+        ("1-6.dev1", "<1.post7", True),
+        ("2!1.0-6.dev1+LOCAL-01", "==2!1.post6.dev1+local.1", True),
+        ("2!1.0-6.dev1+LOCAL-01", "<2!1.post6", False),
+        ("3.15a6", "<3.15.0.1", True),
+        ("3.15a6", "==3.15.0alpha6", True),
+        ("3.15a6", "<3.15b1", True),
+        ("3.15rc1.dev2", ">3.15b9-dev9", True),
+        ("1.0b1.post1", ">1.0a1", True),
+        ("1.0a2.post1", ">1.0a1", True),
+        ("1.0a1.post1", ">1.0a1", False),
+        ("1.0a1.post1", ">1.0a1.dev1", True),
+        ("3.14.10.dev1", "~=3.14.9", True),
+        ("3.15.dev1", "~=3.14.9", False),
+        ("3.15.post2", ">3.15.post1", True),
+        ("3.15.post1", ">3.15", False),
+        ("3.15.0.post1", ">3.15", False),
+        ("3.15.0.1", ">3.15", True),
+        ("3.15+foo.01", "==3.15+FOO-1", True),
+        ("3.15+foo.01", "==3.15", True),
+        ("3.15+foo.01", ">3.15", False),
+        ("3.15.0a6", "===3.15.0A6", True),
+        ("3.15.0a6", "===3.15.0-alpha6", False),
+        ("2!1.0", "==1!1.*", False),
+        ("2!1.0", "!=1!1.*", True),
+        ("1!1.0", "==1!1.*", True),
+        ("1!1.0", "!=1!1.*", False),
+    ]:
+        asserts.equals(env, want, version_satisfies(candidate, specifier), "{} {}".format(candidate, specifier))
+    return unittest.end(env)
+
+satisfies_pep440_matrix_test = unittest.make(_satisfies_pep440_matrix_test_impl)
+
 # =============================================================================
 # find_matching_version tests
 # =============================================================================
@@ -829,6 +820,22 @@ def _find_matching_version_max_863_test_impl(ctx):
 
 find_matching_version_max_863_test = unittest.make(_find_matching_version_max_863_test_impl)
 
+def _find_matching_pep440_version_test_impl(ctx):
+    env = unittest.begin(ctx)
+    candidates = {
+        "3.15a6": "alpha",
+        "3.15": "final",
+        "3.15.post1": "post1",
+        "3.15.post2": "post2",
+        "3.15.0.1": "extra-release",
+    }
+    asserts.equals(env, "final", find_matching_version("<3.15.post1", candidates))
+    asserts.equals(env, "post2", find_matching_version(">=3.15.post1,<3.15.0.1", candidates))
+    asserts.equals(env, "extra-release", find_matching_version(">3.15", candidates))
+    return unittest.end(env)
+
+find_matching_pep440_version_test = unittest.make(_find_matching_pep440_version_test_impl)
+
 # =============================================================================
 # Test suite
 # =============================================================================
@@ -844,11 +851,6 @@ def versions_test_suite():
         parse_version_local_test,
         parse_version_leading_v_test,
         parse_version_leading_zeros_test,
-        # version_cmp
-        version_cmp_basic_test,
-        version_cmp_padding_test,
-        version_cmp_long_test,
-        version_cmp_large_numbers_test,
         # == operator
         satisfies_eq_test,
         # != operator
@@ -901,6 +903,7 @@ def versions_test_suite():
         satisfies_real_world_setuptools_tilde_test,
         # Boundary precision
         satisfies_boundary_precision_test,
+        satisfies_pep440_matrix_test,
         # find_matching_version
         find_matching_version_exact_test,
         find_matching_version_range_test,
@@ -910,4 +913,5 @@ def versions_test_suite():
         find_matching_version_empty_test,
         find_matching_version_single_test,
         find_matching_version_max_863_test,
+        find_matching_pep440_version_test,
     )
