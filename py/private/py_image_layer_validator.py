@@ -9,7 +9,7 @@ Usage:
   py_image_layer_validator --threshold_mb N --output FILE [label=path ...]
     label=path  — one entry per ungrouped pip package; `label` is the canonical pip label
                   (e.g. @pip//numpy), `path` is its install directory / file.
-    --mtree FILE  — expanded mtree rows for relocated or shared launchers.
+    --mtree FILE  — expanded mtree rows for shared or remapped source destinations.
 """
 
 from __future__ import annotations

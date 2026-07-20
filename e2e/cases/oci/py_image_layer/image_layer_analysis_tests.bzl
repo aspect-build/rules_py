@@ -122,6 +122,22 @@ def image_layer_analysis_test_suite():
         layer_tier = ":_scalar_launcher_collision_tier",
     )
 
+    py_binary(
+        name = "_scalar_strip_collision",
+        srcs = ["server.py"],
+        data = ["_scalar_strip_collision/data.txt"],
+    )
+    py_layer_tier(
+        name = "_scalar_strip_collision_tier",
+        root = "/app.runfiles/_main/oci/py_image_layer",
+        strip_prefix = "oci/py_image_layer",
+    )
+    py_image_layer(
+        name = "_scalar_strip_collision_layers",
+        binary = ":_scalar_strip_collision",
+        layer_tier = ":_scalar_strip_collision_tier",
+    )
+
     py_image_layer(
         name = "_interpreter_group_collision_layers",
         binary = ":my_app_bin",

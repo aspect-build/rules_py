@@ -596,10 +596,9 @@ def _source_destination(sp, strip_prefix, root, executable_dsts):
     for executable_short_path in executable_dsts:
         if sp.startswith(executable_short_path + ".runfiles/"):
             return _apply_strip_prefix(sp, executable_short_path, root)
-    if strip_prefix:
-        destination = _apply_strip_prefix(sp, strip_prefix, root)
-        if destination != "./app.runfiles/_main/" + sp:
-            return destination
+    prefix = _normalize_strip_prefix(strip_prefix)
+    if prefix and (sp == prefix or sp.startswith(prefix + ".runfiles/") or sp.startswith(prefix + "/")):
+        return _apply_strip_prefix(sp, prefix, root)
     if sp in executable_dsts:
         return _apply_strip_prefix(sp, sp, root)
     return "./app.runfiles/_main/" + sp
@@ -1020,11 +1019,16 @@ def _py_image_layer_impl(ctx):
 
     validation_inputs = [pkg.files for pkg in ungrouped_pkgs]
     validation_arguments = [validation_args]
-    if len(binaries) > 1 or launcher_dir:
-        # Validate expanded rows whenever launchers are relocated or shared.
+    if len(binaries) > 1 or launcher_dir or _normalize_strip_prefix(strip_prefix):
+        # Validate expanded rows whenever source destinations can be shared or remapped.
         # TreeArtifact roots can contain disjoint versioned children, so only
         # the production mappers' expanded destinations are authoritative.
-        source_files = depset(transitive = [info.source_files for info in infos] + [entry.files for info in infos for entry in info.first_party_layers.to_list()])
+        source_files = depset(transitive = [info.source_files for info in infos] + [
+            files
+            for group_name, file_sets in fp_by_group.items()
+            if group_name not in prebuilt_group_tars
+            for files in file_sets
+        ])
         rule_group_files = [dep[DefaultInfo].files for dep in ctx.attr.groups if normalize_label(str(dep.label)) not in pip_labels]
         wheel_files = [pkg.files for pkg in all_pkgs]
         interpreter_files = [info.interpreter_files for info in infos if info.interpreter_files != None]

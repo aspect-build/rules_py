@@ -48,3 +48,16 @@ if ! grep -Fq "py_image_layer runfile collision at ./app/bin/_scalar_launcher_co
 fi
 
 echo "PASS: relocated scalar launcher destinations validate correctly"
+
+echo "== a scalar strip prefix must not turn its launcher into a file-prefix conflict =="
+if "$BAZEL" build --output_groups=_validation -- \
+    "${PKG}:_scalar_strip_collision_layers" >"$output_log" 2>&1; then
+    cat "$output_log" >&2
+    fail "expected the scalar strip-prefix destination to fail validation"
+fi
+if ! grep -Fq "py_image_layer runfile collision at ./app.runfiles/_main/oci/py_image_layer/_scalar_strip_collision/data.txt:" "$output_log"; then
+    cat "$output_log" >&2
+    fail "expected the scalar strip-prefix collision diagnostic"
+fi
+
+echo "PASS: scalar strip-prefix destinations validate correctly"
