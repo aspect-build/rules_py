@@ -34,6 +34,9 @@ run_case disjoint pass $'#mtree\n./generated_tree/first.py type=file contents=fi
 run_case identical pass $'#mtree\n./generated_tree/support.py type=file contents=same\n./generated_tree/support.py type=file contents=same'
 [[ $(grep -Fc './generated_tree/support.py ' "$TEST_TMPDIR/identical.out") == 1 ]]
 run_case conflicting fail $'#mtree\n./generated_tree/support.py type=file contents=first\n./generated_tree/support.py type=file contents=second'
+run_case interpreter_identical pass $'#mtree\n./app.runfiles/_main/shared_runtime/bin/python type=file mode=0755 content=bazel-out/cfg/bin/shared_runtime/bin/python\n./app.runfiles/_main/shared_runtime/bin/python type=file mode=0755 content=bazel-out/cfg/bin/shared_runtime/bin/python' 'py_image_layer runfile collision at ./app.runfiles/_main/shared_runtime/bin/python:'
+[[ $(grep -Fc './app.runfiles/_main/shared_runtime/bin/python ' "$TEST_TMPDIR/interpreter_identical.out") == 1 ]]
+run_case interpreter_conflicting fail $'#mtree\n./app.runfiles/_main/shared_runtime/bin/python type=file mode=0755 content=bazel-out/first/bin/shared_runtime/bin/python\n./app.runfiles/_main/shared_runtime/bin/python type=file mode=0755 content=bazel-out/second/bin/shared_runtime/bin/python' 'py_image_layer runfile collision at ./app.runfiles/_main/shared_runtime/bin/python:'
 run_case dot_alias fail $'#mtree\n./generated_tree/./support.py type=file contents=first\n./generated_tree/support.py type=file contents=second'
 run_case parent_alias fail $'#mtree\n./generated_tree/nested/../support.py type=file contents=first\n./generated_tree/support.py type=file contents=second'
 run_case ancestor_first fail $'#mtree\n./generated_tree/support.py type=file contents=first\n./generated_tree/support.py/data type=file contents=second' 'py_image_layer runfile collision at ./generated_tree/support.py/data:'

@@ -32,6 +32,22 @@ _configured_tree_or_file = rule(
     attrs = {"tree": attr.bool()},
 )
 
+def _configured_runtime_impl(ctx):
+    interpreter = ctx.actions.declare_file("shared_runtime/bin/python")
+    ctx.actions.write(interpreter, "#!/bin/sh\nexec /usr/bin/python3 \"$@\"\n", is_executable = True)
+    runtime = struct(
+        interpreter = interpreter,
+        interpreter_path = None,
+        interpreter_version_info = struct(major = 3, minor = ctx.attr.minor, micro = 0),
+        files = depset([interpreter]),
+    )
+    return [platform_common.ToolchainInfo(py2_runtime = None, py3_runtime = runtime)]
+
+_configured_runtime = rule(
+    implementation = _configured_runtime_impl,
+    attrs = {"minor": attr.int(mandatory = True)},
+)
+
 def image_layer_analysis_test_suite():
     py_image_layer(
         name = "_missing_launcher_dir_layers",
@@ -225,4 +241,53 @@ def image_layer_analysis_test_suite():
         additional_binaries = [":_wheel_scripts_312"],
         launcher_dir = "/app/bin",
         layer_tier = ":_wheel_scripts_tier",
+    )
+
+    # Manual action-failure fixture: one custom toolchain resolves under both
+    # Python configurations and emits distinct artifacts at the same runtime
+    # short_path. The interpreter mapper must participate in global validation.
+    _configured_runtime(
+        name = "_configured_runtime",
+        minor = select({
+            ":_python_3_11": 11,
+            "//conditions:default": 12,
+        }),
+    )
+    native.toolchain(
+        name = "_configured_python_toolchain",
+        toolchain = ":_configured_runtime",
+        toolchain_type = "@bazel_tools//tools/python:toolchain_type",
+    )
+    py_binary(
+        name = "_configured_interpreter_311",
+        srcs = ["server.py"],
+        python_version = "3.11",
+    )
+    py_binary(
+        name = "_configured_interpreter_312",
+        srcs = ["server.py"],
+        python_version = "3.12",
+    )
+    py_binary(
+        name = "_configured_interpreter_peer_311",
+        srcs = ["server.py"],
+        python_version = "3.11",
+    )
+    py_layer_tier(
+        name = "_configured_interpreter_tier",
+        interpreter_group = "interpreter",
+    )
+    py_image_layer(
+        name = "_configured_interpreter_collision_layers",
+        binary = ":_configured_interpreter_311",
+        additional_binaries = [":_configured_interpreter_312"],
+        launcher_dir = "/app/bin",
+        layer_tier = ":_configured_interpreter_tier",
+    )
+    py_image_layer(
+        name = "_configured_interpreter_shared_layers",
+        binary = ":_configured_interpreter_311",
+        additional_binaries = [":_configured_interpreter_peer_311"],
+        launcher_dir = "/app/bin",
+        layer_tier = ":_configured_interpreter_tier",
     )

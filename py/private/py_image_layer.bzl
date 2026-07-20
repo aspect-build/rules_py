@@ -740,7 +740,7 @@ def _run_tar_action(ctx, bsdtar, bsdtar_files, tar_out, files_depset, map_each, 
         use_default_shell_env = False,
     )
 
-def _validate_source_mtree(ctx, source_files, source_map, rule_group_files, wheel_files):
+def _validate_source_mtree(ctx, source_files, source_map, rule_group_files, wheel_files, interpreter_files):
     mtree_args = ctx.actions.args()
     mtree_args.set_param_file_format("multiline")
     mtree_args.use_param_file("%s", use_always = True)
@@ -750,6 +750,8 @@ def _validate_source_mtree(ctx, source_files, source_map, rule_group_files, whee
         mtree_args.add_all(files, map_each = _user_file_to_mtree, expand_directories = False)
     for files in wheel_files:
         mtree_args.add_all(files, map_each = _pkg_file_to_mtree, expand_directories = False)
+    for files in interpreter_files:
+        mtree_args.add_all(files, map_each = _interpreter_file_to_mtree, expand_directories = False)
 
     output = ctx.actions.declare_file(ctx.attr.name + "_source_validation.mtree")
     gawk_args = ctx.actions.args()
@@ -758,7 +760,7 @@ def _validate_source_mtree(ctx, source_files, source_map, rule_group_files, whee
     gawk_args.add("-f", ctx.file._awk_script)
     ctx.actions.run(
         executable = ctx.executable._awk,
-        inputs = depset(direct = [ctx.file._awk_script], transitive = [source_files] + rule_group_files + wheel_files),
+        inputs = depset(direct = [ctx.file._awk_script], transitive = [source_files] + rule_group_files + wheel_files + interpreter_files),
         outputs = [output],
         arguments = [gawk_args, mtree_args],
         env = {"LC_ALL": "C"},
@@ -876,11 +878,11 @@ def _py_image_layer_impl(ctx):
 
     # Interpreter tars are declared at the configured toolchain, so identical
     # runtimes action-share while distinct interpreter artifacts are retained.
-    interpreter_tars = {}
+    interpreter_layers = {}
     for info in infos:
         if info.interpreter_layer != None:
-            tar = info.interpreter_layer.tar
-            interpreter_tars[tar.path] = tar
+            layer = info.interpreter_layer
+            interpreter_layers[layer.tar.path] = layer
 
     for group_name in sorted(fp_by_group):
         if group_name in rule_group_names:
@@ -902,7 +904,7 @@ def _py_image_layer_impl(ctx):
         )
         all_tars.append(tar_out)
 
-    all_tars.extend(interpreter_tars.values())
+    all_tars.extend([layer.tar for layer in interpreter_layers.values()])
 
     pip_tars = {}
     merged = {}
@@ -973,6 +975,7 @@ def _py_image_layer_impl(ctx):
         _make_source_map(strip_prefix, root, any([info.interpreter_layer == None for info in infos]), executable_dsts),
         rule_group_files,
         [pkg.files for pkg in all_pkgs],
+        [layer.interpreter_files for layer in interpreter_layers.values()],
     )
 
     validation = ctx.actions.declare_file(ctx.attr.name + "_validation.log")
