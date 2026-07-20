@@ -21,6 +21,13 @@ no-binary-package = ["cowsay", "tqdm"]
 [tool.uv.extra-build-dependencies]
 # `packaging` is intentionally absent from `default_build_dependencies`, so
 # the tqdm snapshot catches a broken uv-native annotation path.
+cowsay = [
+    # Keep two conditional dependencies under distinct markers so composing
+    # cowsay's legacy annotation does not accidentally discard a marker branch.
+    "colorama; sys_platform != 'win32'",
+    "colorama; sys_platform != 'imaginary'",
+    "pyproject-hooks; sys_platform != 'emscripten'",
+]
 tqdm = [
     # `ssl` is an empty setuptools extra that exercises extra-qualified
     # requirements without expanding this fixture's lockfile.

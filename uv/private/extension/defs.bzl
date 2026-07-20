@@ -326,8 +326,9 @@ def _parse_projects(module_ctx, hub_specs):
                                     break
                                 deps.append(resolved)
                             if not skip:
-                                lock_build_dep_anns[target] = deps
-                                lock_conditional_build_dep_anns.pop(target, None)
+                                # Legacy and uv-native annotations compose, including
+                                # any marker-qualified uv-native dependencies.
+                                lock_build_dep_anns[target] = lock_build_dep_anns.get(target, []) + deps
 
             package_overrides = {}
             package_console_scripts = {}
