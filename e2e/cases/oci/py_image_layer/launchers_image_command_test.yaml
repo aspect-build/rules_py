@@ -6,7 +6,7 @@ commandTests:
     command: /app/bin/my_app_bin
     expectedOutput: ["Hello rules_py - 3.14"]
 
-  - name: additional launcher uses its own interpreter and pip closure
+  - name: secondary launcher uses its own interpreter and pip closure
     exitCode: 0
     command: /app/bin/my_app_worker_bin
     expectedOutput: ["worker ok 12 0.4.6 1.2.0 grouped"]

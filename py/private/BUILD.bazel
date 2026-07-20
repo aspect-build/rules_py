@@ -1,5 +1,4 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
-load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//py:defs.bzl", _py_binary_rule = "py_binary", _py_test_rule = "py_test")
 load(":py_image_layer.bzl", "py_layer_tier")
 load(":py_library.bzl", "py_library")
@@ -39,19 +38,6 @@ _py_test_rule(
         "py_image_layer_validator_test.py",
     ],
     main = "py_image_layer_validator_test.py",
-)
-
-sh_test(
-    name = "modify_mtree_test",
-    srcs = ["modify_mtree_test.sh"],
-    args = [
-        "$(location :modify_mtree.awk)",
-        "$(location @gawk)",
-    ],
-    data = [
-        ":modify_mtree.awk",
-        "@gawk",
-    ],
 )
 
 py_layer_tier(

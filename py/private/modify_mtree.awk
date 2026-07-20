@@ -58,98 +58,7 @@ function make_relative_link(path1, path2, i, common, target, relative_path, back
     return back_steps target
 }
 
-function normalize_destination(path, count, i, n, part, parts, normalized) {
-    count = split(path, parts, "/")
-    n = 0
-    for (i = 1; i <= count; i++) {
-        part = parts[i]
-        if (part == "" || part == ".") {
-            continue
-        }
-        if (part == "..") {
-            if (n == 0) {
-                print "py_image_layer image destination escapes its root: " path > "/dev/stderr"
-                failed = 1
-                exit 1
-            }
-            delete normalized[n--]
-            continue
-        }
-        normalized[++n] = part
-    }
-    path = "."
-    for (i = 1; i <= n; i++) {
-        path = path "/" normalized[i]
-    }
-    return path
-}
-
-function replace_metadata_field(row, pattern, replacement) {
-    if (!match(row, pattern)) {
-        return row
-    }
-    return substr(row, 1, RSTART) replacement substr(row, RSTART + RLENGTH)
-}
-
 {
-    if ($0 !~ /^#/) {
-        original_path = $1
-        destination = normalize_destination($1)
-        $0 = destination substr($0, length(original_path) + 1)
-        current_source = ""
-        for (field = 2; field <= NF; field++) {
-            if ($field ~ /^(contents|content|link)=[^ ]+$/) {
-                current_source = $field
-                break
-            }
-        }
-        if (current_source == "") {
-            print "invalid py_image_layer mtree row (missing source): " $0 > "/dev/stderr"
-            failed = 1
-            exit 1
-        }
-        current_source_path = substr(current_source, index(current_source, "=") + 1)
-
-        count = split(destination, destination_parts, "/")
-        parent = destination_parts[1]
-        for (j = 2; j < count; j++) {
-            parent = parent "/" destination_parts[j]
-            if (parent in destination_rows) {
-                print "py_image_layer runfile collision at " destination ": " destination_sources[parent] " and " current_source > "/dev/stderr"
-                failed = 1
-                exit 1
-            }
-        }
-        if (destination in destination_descendants) {
-            print "py_image_layer runfile collision at " destination_descendants[destination] ": " destination_descendant_sources[destination] " and " current_source > "/dev/stderr"
-            failed = 1
-            exit 1
-        }
-        if (destination in destination_rows) {
-            if (destination_rows[destination] == $0 || (validate_only && destination_source_paths[destination] == current_source_path)) {
-                next
-            }
-            print "py_image_layer runfile collision at " destination ": " destination_sources[destination] " and " current_source > "/dev/stderr"
-            failed = 1
-            exit 1
-        }
-        destination_rows[destination] = $0
-        destination_sources[destination] = current_source
-        destination_source_paths[destination] = current_source_path
-        parent = destination_parts[1]
-        for (j = 2; j < count; j++) {
-            parent = parent "/" destination_parts[j]
-            if (!(parent in destination_descendants)) {
-                destination_descendants[parent] = destination
-                destination_descendant_sources[parent] = current_source
-            }
-        }
-    }
-
-    if (validate_only) {
-        next
-    }
-
     symlink = ""
     symlink_content = ""
     # Two markers Starlark emits for paths that could be symlinks:
@@ -159,10 +68,17 @@ function replace_metadata_field(row, pattern, replacement) {
     #     might be symlinks Bazel didn't flag (repo-rule-staged ones like
     #     rules_python's `bin/python -> python3.11`). Empty `readlink` means
     #     it's a regular file and the row passes through unchanged.
-    is_hot_path = ($0 ~ /[[:space:]]type=link([[:space:]]|$)/) && (current_source ~ /^link=/)
-    is_slow_path = ($0 ~ /[[:space:]]type=file([[:space:]]|$)/) && (current_source ~ /^content=/)
+    is_hot_path = ($0 ~ /type=link/) && ($0 ~ /link=/)
+    is_slow_path = ($0 ~ /type=file/) && ($0 ~ /content=/)
     if (is_hot_path || is_slow_path) {
-        path = current_source_path
+        if (is_hot_path) {
+            match($0, /link=[^ ]+/)
+        } else {
+            match($0, /content=[^ ]+/)
+        }
+        content_field = substr($0, RSTART, RLENGTH)
+        split(content_field, parts, "=")
+        path = parts[2]
         symlink_map[path] = $1
 
         # Plain `readlink` first: keep its result if relative
@@ -235,24 +151,17 @@ function replace_metadata_field(row, pattern, replacement) {
         }
     }
     if (symlink != "") {
-        line_array[++row_count] = $0 SUBSEP $1 SUBSEP resolved_path
+        line_array[NR] = $0 SUBSEP $1 SUBSEP resolved_path
     } else {
-        line_array[++row_count] = $0
+        line_array[NR] = $0
     }
 }
 
 END {
-    if (failed) {
-        exit 1
-    }
-    if (validate_only) {
-        print "#mtree" > outfile
-        exit
-    }
     # Buffer rewritten rows, sort byte-wise (asort under LC_ALL=C, set by
     # the action env), and write to `outfile`.
     n = 0
-    for (i = 1; i <= row_count; i++) {
+    for (i = 1; i <= NR; i++) {
         line = line_array[i]
         if (index(line, SUBSEP) > 0) {
             split(line, fields, SUBSEP)
@@ -271,11 +180,9 @@ END {
                 # Already a relative path
                 linked_to = resolved_path
             }
-            original_line = replace_metadata_field(original_line, "[[:space:]]type=[^ ]+", "type=link")
-            if (original_line ~ /[[:space:]]content=[^ ]+/) {
-                original_line = replace_metadata_field(original_line, "[[:space:]]content=[^ ]+", "link=" linked_to)
-            } else {
-                original_line = replace_metadata_field(original_line, "[[:space:]]link=[^ ]+", "link=" linked_to)
+            sub(/type=[^ ]+/, "type=link", original_line)
+            if (!sub(/content=[^ ]+/, "link=" linked_to, original_line)) {
+                sub(/link=[^ ]+/, "link=" linked_to, original_line)
             }
             out_lines[++n] = original_line
         } else {

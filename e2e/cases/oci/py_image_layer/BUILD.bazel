@@ -149,7 +149,7 @@ py_image_layer(
 
 # Exercise the actual multi-launcher flow with separate lock universes and two
 # interpreter versions. colorama has the same normalized label in both
-# closures, but distinct 3.11/3.12 install trees; both launchers must resolve
+# closures, but distinct 3.14/3.12 install trees; both launchers must resolve
 # their own venv and the unioned dependency layers from the shared runfiles tree.
 py_library(
     name = "worker_support",
@@ -182,6 +182,7 @@ py_layer_tier(
         "@pip//pyproject_hooks": "third_party",
     },
     interpreter_group = "interpreter",
+    strip_prefix = "oci/py_image_layer/my_app_bin",
 )
 
 py_image_layer(
