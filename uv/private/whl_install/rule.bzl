@@ -4,7 +4,87 @@
 load("//py/private:providers.bzl", "PyWheelsInfo", "make_wheel_record")
 load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PY_TOOLCHAIN")
+
+# SourceBuiltWheelInfo carries console scripts the pep517 builder detected in
+# the built wheel; source_built_wheel consumes it below (unless overridden).
 load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
+
+# exclude_glob: whl_dist extraction is exclude-agnostic, so when a package
+# declares exclusions the selected wheel's retained RECORD paths are filtered
+# and the layout is RE-DERIVED here at analysis time (matching pre-derivation
+# semantics — an excluded initializer reclassifies namespace/regular).
+load(":metadata.bzl", "derive_layout", "parse_exclude_glob", "record_path_excluded")
+
+PyWheelMetadataInfo = provider(
+    doc = """Analysis-time site-packages layout of a single wheel.
+
+    Extracted from the wheel's `*.dist-info/RECORD` and `entry_points.txt` by
+    the `whl_dist` repo rule (or declared, empty except `console_scripts`, for
+    a source-built wheel of unknown layout). `whl_install` reads it off the
+    wheel `select`ed for the active configuration, so only the selected wheel's
+    surface reaches `PyWheelsInfo` — a sibling platform wheel's surface can
+    never leak in because its metadata lives in its own repo and is never
+    consulted here.
+
+    Field semantics mirror the like-named `PyWheelsInfo` / `make_wheel_record`
+    fields; all are `tuple[str]`.
+    """,
+    fields = {
+        "top_levels": "All immediate site-packages entry names the wheel installs. Empty means unknown layout.",
+        "top_level_dirs": "Subset of non-metadata top_levels that are directories.",
+        "namespace_top_levels": "Subset of top_levels that are PEP 420 namespace packages.",
+        "namespace_entries": "Concrete `/`-joined entries beneath the namespace top-levels.",
+        "namespace_dirs": "Implicit-namespace directory skeleton under the namespace top-levels.",
+        "regular_roots": "Minimal `__init__.py`-carrying directories under the namespace top-levels.",
+        "native_roots": "Collision roots containing native-library RECORD entries.",
+        "console_scripts": "`[console_scripts]` entry points encoded as name=module:object.",
+        "record_paths": "Retained site-packages RECORD paths, for re-deriving the layout after exclude_glob. Empty unless a consuming package declares exclusions.",
+    },
+)
+
+def _whl_dist_impl(ctx):
+    return [
+        DefaultInfo(files = depset([ctx.file.src])),
+        PyWheelMetadataInfo(
+            top_levels = tuple(ctx.attr.top_levels),
+            top_level_dirs = tuple(ctx.attr.top_level_dirs),
+            namespace_top_levels = tuple(ctx.attr.namespace_top_levels),
+            namespace_entries = tuple(ctx.attr.namespace_entries),
+            namespace_dirs = tuple(ctx.attr.namespace_dirs),
+            regular_roots = tuple(ctx.attr.regular_roots),
+            native_roots = tuple(ctx.attr.native_roots),
+            console_scripts = tuple(ctx.attr.console_scripts),
+            record_paths = tuple(ctx.attr.record_paths),
+        ),
+    ]
+
+whl_dist = rule(
+    implementation = _whl_dist_impl,
+    doc = """A downloaded platform wheel plus its RECORD-derived site-packages layout.
+
+Instantiated by the `whl_dist` repo rule in each per-wheel repo. Forwards the
+`.whl` as its single default output and carries the extracted layout as
+`PyWheelMetadataInfo`, so `whl_install` gets both the file and its metadata from
+whichever wheel the `select` chain resolves to — without any sibling wheel repo
+being fetched.
+""",
+    attrs = {
+        "src": attr.label(
+            allow_single_file = [".whl"],
+            mandatory = True,
+        ),
+        "top_levels": attr.string_list(),
+        "top_level_dirs": attr.string_list(),
+        "namespace_top_levels": attr.string_list(),
+        "namespace_entries": attr.string_list(),
+        "namespace_dirs": attr.string_list(),
+        "regular_roots": attr.string_list(),
+        "native_roots": attr.string_list(),
+        "console_scripts": attr.string_list(),
+        "record_paths": attr.string_list(),
+    },
+    provides = [PyWheelMetadataInfo],
+)
 
 def _source_built_wheel_impl(ctx):
     source = ctx.attr.src[DefaultInfo]
@@ -16,8 +96,20 @@ def _source_built_wheel_impl(ctx):
         # DefaultInfo instead of forwarding the source target's executable,
         # which Bazel requires to be created by the rule that advertises it.
         DefaultInfo(files = source.files),
-        SourceBuiltWheelInfo(
+        # Contents are unknowable until build time, so the layout is empty
+        # (unknown → .pth-based resolution); only console scripts are known —
+        # either declared (override) or detected by the pep517 builder and
+        # forwarded here via SourceBuiltWheelInfo.
+        PyWheelMetadataInfo(
+            top_levels = (),
+            top_level_dirs = (),
+            namespace_top_levels = (),
+            namespace_entries = (),
+            namespace_dirs = (),
+            regular_roots = (),
+            native_roots = (),
             console_scripts = tuple(console_scripts),
+            record_paths = (),
         ),
     ]
 
@@ -32,7 +124,7 @@ source_built_wheel = rule(
         "console_scripts": attr.string_list(),
         "console_scripts_override": attr.bool(),
     },
-    provides = [SourceBuiltWheelInfo],
+    provides = [PyWheelMetadataInfo],
 )
 
 def pyc_compile_version_compatible(exec_info, target_info):
@@ -61,30 +153,45 @@ def _whl_install(ctx):
     archive = ctx.file.src
     unpack_script = ctx.file._unpack_script
 
-    # Source-built wheels cannot be inspected during repository evaluation.
-    # Check provenance before the basename: a custom source producer may reuse
-    # a locked bdist filename, but its topology is still unknown.
-    # Prebuilt wheel metadata is keyed by basename and selected for the active
-    # configuration; metadata from inactive platform wheels must not leak in.
-    if SourceBuiltWheelInfo in ctx.attr.src:
-        top_levels = []
-        top_level_dirs = []
-        namespace_top_levels = []
-        namespace_entries = []
-        namespace_dirs = []
-        regular_roots = []
-        native_roots = []
-        console_scripts = ctx.attr.src[SourceBuiltWheelInfo].console_scripts
+    # The layout of whichever wheel the `select` chain resolved to for the
+    # active configuration — its own repo's RECORD-derived metadata (or empty,
+    # for a source-built wheel). A sibling platform wheel's surface can't leak
+    # in: it lives in a different repo that is never fetched or consulted here.
+    meta = ctx.attr.src[PyWheelMetadataInfo]
+
+    # exclude_glob removes files from the install tree (via --exclude-glob on
+    # the action below). To keep the advertised layout consistent with that
+    # tree, filter the selected wheel's retained RECORD paths and RE-DERIVE the
+    # topology — matching the pre-derivation semantics: removing an initializer
+    # reclassifies a package regular→namespace, and removing the last file under
+    # a top-level drops it, so venv assembly never projects a dangling symlink
+    # or mis-merges. console_scripts live under bin/, so exclusions never touch
+    # them. record_paths is carried only for wheels of excluding packages; a
+    # source-built wheel has none, and its layout is already empty.
+    if ctx.attr.exclude_glob and meta.record_paths:
+        patterns = [parse_exclude_glob(pattern) for pattern in ctx.attr.exclude_glob]
+        retained = [
+            path.split("/")
+            for path in meta.record_paths
+            if not record_path_excluded(path.split("/"), patterns)
+        ]
+        layout = derive_layout(retained)
+        top_levels = layout.top_levels
+        top_level_dirs = layout.top_level_dirs
+        namespace_top_levels = layout.namespace_top_levels
+        namespace_entries = layout.namespace_entries
+        namespace_dirs = layout.namespace_dirs
+        regular_roots = layout.regular_roots
+        native_roots = layout.native_roots
     else:
-        whl_basename = archive.basename
-        top_levels = ctx.attr.top_levels.get(whl_basename, [])
-        top_level_dirs = ctx.attr.top_level_dirs.get(whl_basename, [])
-        namespace_top_levels = ctx.attr.namespace_top_levels.get(whl_basename, [])
-        namespace_entries = ctx.attr.namespace_entries.get(whl_basename, [])
-        namespace_dirs = ctx.attr.namespace_dirs.get(whl_basename, [])
-        regular_roots = ctx.attr.regular_roots.get(whl_basename, [])
-        native_roots = ctx.attr.native_roots.get(whl_basename, [])
-        console_scripts = ctx.attr.console_scripts.get(whl_basename, [])
+        top_levels = meta.top_levels
+        top_level_dirs = meta.top_level_dirs
+        namespace_top_levels = meta.namespace_top_levels
+        namespace_entries = meta.namespace_entries
+        namespace_dirs = meta.namespace_dirs
+        regular_roots = meta.regular_roots
+        native_roots = meta.native_roots
+    console_scripts = meta.console_scripts
 
     arguments = ctx.actions.args()
     arguments.add(unpack_script)
@@ -231,7 +338,7 @@ lighter weight since the toolchain's files aren't inputs.
         ),
         "src": attr.label(
             allow_single_file = True,
-            doc = "The wheel to install, or a tree artifact containing exactly one wheel at its root.",
+            doc = "The wheel to install. Must provide PyWheelMetadataInfo (a `whl_dist` or `source_built_wheel` target); its metadata drives the installed layout.",
         ),
         "patches": attr.label_list(
             default = [],
@@ -254,107 +361,6 @@ lighter weight since the toolchain's files aren't inputs.
             default = "checked-hash",
             values = ["checked-hash", "unchecked-hash", "timestamp"],
             doc = "PEP 552 invalidation mode for pre-compiled .pyc files.",
-        ),
-        "top_levels": attr.string_list_dict(
-            doc = """Per-wheel top-level names, keyed by wheel file basename.
-
-Each value lists the top-level packages / modules / *.dist-info directories
-that wheel installs into its site-packages. At analysis time the entry whose
-key matches the basename of the wheel `src` resolved to (the selected wheel
-for the active configuration) is used; entries for other platform wheels are
-ignored so their package surface cannot leak into this configuration.
-
-When the lookup hits, the selected wheel's `PyWheelsInfo` record carries this
-layout and downstream rules can assemble a merged `site-packages/` tree via
-`ctx.actions.symlink`. A miss leaves the layout unknown and preserves
-`.pth`-based import behavior; the record still identifies the install tree for
-consumers such as image layering.
-
-Typically populated automatically by the `whl_install` repo rule from each
-wheel's `*.dist-info/RECORD` at repo-fetch time.
-""",
-            default = {},
-        ),
-        "console_scripts": attr.string_list_dict(
-            doc = """Per-wheel console-script entry points (`"name=module:func"`), keyed by wheel file basename.
-
-Populated from each wheel's `*.dist-info/entry_points.txt`
-`[console_scripts]` section by the `whl_install` repo rule at repo-fetch
-time. Only the entry matching the selected wheel (see `top_levels`) is used.
-`py_binary` consumes these via `PyWheelsInfo` to generate executable wrappers
-under `<venv>/bin/<name>` so `subprocess.run(["<name>", ...])` works.
-""",
-            default = {},
-        ),
-        "top_level_dirs": attr.string_list_dict(
-            doc = """Per-wheel subset of non-metadata top_levels that are directories, keyed by wheel file basename.
-
-The wheel RECORD must contain an entry below the top-level directory.
-Single-file modules are not included. venv assembly uses this distinction to
-physically merge only colliding directories while preserving ordinary
-file-collision precedence.
-""",
-            default = {},
-        ),
-        "namespace_top_levels": attr.string_list_dict(
-            doc = """Per-wheel subset of `top_levels` that are PEP 420 namespace packages, keyed by wheel file basename.
-
-A top-level is a namespace if the wheel's RECORD shows no
-`<toplevel>/__init__.py`. When multiple wheels contribute to the same
-namespace (e.g. `jaraco-classes` and `jaraco-functools` both claim
-`jaraco`), `py_binary`'s collision detector treats the overlap as
-benign and falls back to `.pth`-based resolution so Python's namespace
-machinery merges the contributions at runtime.
-""",
-            default = {},
-        ),
-        "namespace_entries": attr.string_list_dict(
-            doc = """Per-wheel concrete entries beneath the wheel's `namespace_top_levels`, keyed by wheel file basename.
-
-Each entry is a `/`-joined site-packages-relative path to the shallowest
-non-namespace member: a package directory holding a direct `__init__.py`
-(`jaraco/functools`, `google/cloud/storage` — nested namespaces are
-recursed through), or a plain module / data file (`jaraco/context.py`).
-venv assembly symlinks each entry individually, materialising a merged
-namespace directory in `site-packages/` so tools that inspect it directly
-(mypy, pyright) see every contribution — and its `py.typed` markers —
-without executing `.pth` files. Only the entry matching the selected wheel
-(see `top_levels`) is used.
-""",
-            default = {},
-        ),
-        "namespace_dirs": attr.string_list_dict(
-            doc = """Per-wheel implicit-namespace directory skeleton under the wheel's namespace top-levels, keyed by wheel file basename.
-
-Every directory (as a `/`-joined path relative to site-packages) the wheel
-installs files under without an `__init__.py` anywhere on the path. E.g.
-azure-core-tracing-opentelemetry: `["azure/core", "azure/core/tracing",
-"azure/core/tracing/ext"]`. venv assembly cross-references this with other
-wheels' `regular_roots` to find regular packages that span wheels.
-""",
-            default = {},
-        ),
-        "regular_roots": attr.string_list_dict(
-            doc = """Per-wheel minimal regular-package directories under the wheel's namespace top-levels, keyed by wheel file basename.
-
-The shallowest directories (as `/`-joined paths relative to site-packages)
-carrying an `__init__.py`. E.g. azure-core: `["azure/core"]`. When such a
-root shows up in another wheel's `namespace_dirs`, that other wheel grafts
-content inside this regular package — venv assembly must physically merge
-the subtree since Python locks a regular package's `__path__` to one
-directory.
-""",
-            default = {},
-        ),
-        "native_roots": attr.string_list_dict(
-            doc = """Per-wheel collision roots containing native-library RECORD entries, keyed by wheel file basename.
-
-Each value is a top-level directory, namespace directory, or regular-package
-root containing a file ending in `.so`, versioned `.so.*`, `.pyd`, `.dylib`,
-or `.dll`. venv assembly avoids physically merging a colliding root listed
-here because relocation can break the library's origin-relative sibling lookup.
-""",
-            default = {},
         ),
     },
     toolchains = [

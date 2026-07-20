@@ -57,7 +57,6 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 load("//py/private/interpreter:resolve.bzl", "resolve_host_interpreter_label")
 load("//uv/private:normalize_name.bzl", "normalize_name")
 load("//uv/private:normalize_version.bzl", "normalize_version")
-load("//uv/private:parse_whl_name.bzl", "parse_whl_name")
 load("//uv/private/constraints:repository.bzl", "configurations_hub")
 load("//uv/private/git_archive:repository.bzl", "git_archive")
 load("//uv/private/sdist_build:attrs.bzl", "validate_build_attrs")
@@ -66,7 +65,9 @@ load("//uv/private/sdist_configure:defs.bzl", "DEFAULT_CONFIGURE_SCRIPT")
 load("//uv/private/tomltool:toml.bzl", "toml")
 load("//uv/private/uv_hub:repository.bzl", "uv_hub")
 load("//uv/private/uv_project:repository.bzl", "uv_project")
-load("//uv/private/whl_install:repository.bzl", "parse_console_script", "whl_install")
+load("//uv/private/whl_install:dist_repository.bzl", "whl_dist")
+load("//uv/private/whl_install:metadata.bzl", "parse_console_script")
+load("//uv/private/whl_install:repository.bzl", "whl_install")
 load(":graph_utils.bzl", "activate_extras", "collect_sccs")
 load(":lockfile.bzl", "build_marker_graph", "collect_bdists", "collect_configurations", "collect_sdists", "normalize_deps", "url_basename")
 load(":projectfile.bzl", "collate_versions_by_name", "collect_activated_extras", "extract_requirement_marker_pairs")
@@ -80,17 +81,6 @@ def _dist_sha256(dist):
     """The distribution's sha256 for http_file, or None for other hash algorithms."""
     hash = dist.get("hash", "")
     return hash[len("sha256:"):] if hash.startswith("sha256:") else None
-
-def _deduplicate_whl_files(whls):
-    """Returns unique non-empty wheel labels while preserving order."""
-    whl_files = []
-    seen = {}
-    for whl in whls:
-        if not whl or whl in seen:
-            continue
-        seen[whl] = True
-        whl_files.append(whl)
-    return whl_files
 
 def parse_declared_console_script(name, entry_point):
     """Canonicalize one override_package console-script declaration.
@@ -570,41 +560,15 @@ def _parse_projects(module_ctx, hub_specs):
                 # for the same install instead of overwriting (and thus
                 # dropping) it.
                 whls = {}
-                metadata_directory = None
                 if not is_no_binary:
                     prev_cfg = install_cfgs.get(k)
                     if prev_cfg:
                         whls.update(prev_cfg.whls)
-                        metadata_directory = prev_cfg.metadata_directory
                     for whl in package.get("wheels", []):
                         basename = url_basename(whl["url"])
                         whls[basename] = bdist_table.get(whl["url"])
 
-                        # Every wheel of a package/version installs the same
-                        # `<project>-<version>.dist-info` directory, so the
-                        # repo rule only needs one name to `extract` the
-                        # metadata regardless of which platform wheel is
-                        # selected. A divergence means our derivation is wrong.
-                        #
-                        # Derive both halves from the wheel filename: it and
-                        # the dist-info dir share the build backend's escaping,
-                        # and URL-encoded `+` is literal in the archive member.
-                        # The build tag (absent from dist-info) is dropped.
-                        whl_name = parse_whl_name(basename)
-                        candidate = "{}-{}.dist-info".format(
-                            whl_name.project,
-                            whl_name.version.replace("%2B", "+").replace("%2b", "+"),
-                        )
-                        if metadata_directory != None and candidate != metadata_directory:
-                            fail("wheel metadata directory mismatch for {}: {} vs {}".format(
-                                k,
-                                metadata_directory,
-                                candidate,
-                            ))
-                        metadata_directory = candidate
-
                 install_cfgs[k] = struct(
-                    metadata_directory = metadata_directory or "",
                     whls = whls,
                     sbuild = "@{}//:whl".format(sbuild_id) if has_sbuild else None,
                     sbuild_console_scripts = sbuild_console_scripts,
@@ -721,12 +685,25 @@ def _uv_impl(module_ctx):
         else:
             fail("Unsupported archive! {}".format(repr(sdist_cfg)))
 
+    # Wheel repos whose consuming package applies exclude_glob must carry their
+    # RECORD paths so whl_install can re-derive the layout after exclusion. All
+    # other wheels stay lean. Labels look like `@whl__pkg__hash//:whl`.
+    bdists_with_exclusions = {}
+    for install_cfg in cfg.install_cfgs.values():
+        if install_cfg.exclude_glob:
+            for whl_label in install_cfg.whls.values():
+                if whl_label:
+                    bdists_with_exclusions[whl_label.split("//", 1)[0].lstrip("@")] = True
+
     for bdist_name, bdist_cfg in cfg.bdist_cfgs.items():
-        http_file(
+        # A per-wheel repo that downloads the wheel AND peeks its RECORD for the
+        # install layout, so only the wheel a config selects is ever fetched.
+        whl_dist(
             name = bdist_name,
             url = bdist_cfg["url"],
-            sha256 = _dist_sha256(bdist_cfg),
+            sha256 = _dist_sha256(bdist_cfg) or "",
             downloaded_file_path = url_basename(bdist_cfg["url"]),
+            carry_record_paths = bdist_name in bdists_with_exclusions,
         )
 
     # Resolve the sdist configure tool. The default is our bundled
@@ -768,15 +745,10 @@ def _uv_impl(module_ctx):
 
     for install_id, install_cfg in cfg.install_cfgs.items():
         install_kwargs = {
-            "metadata_directory": install_cfg.metadata_directory,
             "name": install_id,
             "sbuild": install_cfg.sbuild,
             "sbuild_console_scripts": install_cfg.sbuild_console_scripts or [],
             "whls": json.encode(install_cfg.whls),
-            # Parallel list of the same wheel labels as a real label_list,
-            # so the whl_install repo rule can `rctx.path()` them to peek
-            # at `*.dist-info/RECORD` for top-level metadata.
-            "whl_files": _deduplicate_whl_files(install_cfg.whls.values()),
         }
         if install_cfg.sbuild_console_scripts != None:
             install_kwargs["sbuild_console_scripts_override"] = True

@@ -233,7 +233,7 @@ def collect_bdists(lock_data):
         for bdist in package.get("wheels", []):
             bdist_repo_name = "whl__{}__{}".format(package["name"], _dist_identifier(bdist))
             bdist_specs[bdist_repo_name] = bdist
-            bdist_table[bdist["url"]] = "@{}//file".format(bdist_repo_name)
+            bdist_table[bdist["url"]] = "@{}//:whl".format(bdist_repo_name)
 
     return bdist_specs, bdist_table
 

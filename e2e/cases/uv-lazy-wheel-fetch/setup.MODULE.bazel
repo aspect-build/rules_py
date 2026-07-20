@@ -1,0 +1,23 @@
+"""Guards lazy per-wheel fetching.
+
+charset-normalizer's win_amd64 wheel has a deliberately unreachable URL; the
+build succeeds only because inactive-platform wheels are fetched lazily (one
+`whl_dist` repo per selected wheel). The host wheels are hashless, so this also
+exercises whl_dist's discovered-checksum path.
+"""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi-lazy-wheel-fetch")
+uv.project(
+    hub_name = "pypi-lazy-wheel-fetch",
+    lock = "//uv-lazy-wheel-fetch:uv.lock",
+    pyproject = "//uv-lazy-wheel-fetch:pyproject.toml",
+)
+use_repo(
+    uv,
+    "pypi-lazy-wheel-fetch",
+    # Exposed so BUILD.bazel can build the per-package Gazelle index directly
+    # and prove it resolves the platform-selected wheel, not the unreachable
+    # win_amd64 sentinel that sorts first in the lock.
+    "whl_install__uv_lazy_wheel_fetch__charset_normalizer__3_4_7",
+)

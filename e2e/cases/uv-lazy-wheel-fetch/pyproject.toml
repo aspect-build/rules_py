@@ -1,0 +1,6 @@
+[project]
+name = "uv-lazy-wheel-fetch"
+version = "0.1.0"
+description = "Guards lazy per-wheel fetching: an unreachable inactive-platform wheel must never be fetched."
+requires-python = "==3.11.*"
+dependencies = ["charset-normalizer"]

@@ -20,4 +20,8 @@ use_repo(
     # across platform configurations — see e2e/BUILD.bazel snapshots.
     "whl_install__abi3_compat__cffi__2_0_0",
     "whl_install__abi3_compat__cryptography__46_0_5",
+    # One concrete per-wheel repo, snapshotted to pin the RECORD-derived
+    # topology (top_levels, namespace `cryptography.libs`, native_roots) that
+    # whl_dist now carries — the layout that moved off the whl_install BUILD.
+    "whl__cryptography__80a8d7bfdf38f87c",
 )

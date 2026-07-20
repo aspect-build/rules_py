@@ -5,8 +5,9 @@ load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/tools/unpack:exclude_glob_test_vectors.bzl", "EXCLUDE_GLOB_VECTORS", "RECORD_PATH_EXCLUDE_VECTORS")
 load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
-load(":repository.bzl", "compatible_python_tags", "exclude_glob_matches", "native_roots_for_segments", "parse_console_script", "parse_exclude_glob", "parse_record_path", "record_path_excluded", "select_key", "site_packages_segments", "sort_select_arms", "source_specificity")
-load(":rule.bzl", "pyc_compile_version_compatible", "source_built_wheel", "whl_install")
+load(":metadata.bzl", "exclude_glob_matches", "native_roots_for_segments", "parse_console_script", "parse_exclude_glob", "parse_record_path", "record_path_excluded", "site_packages_segments")
+load(":repository.bzl", "compatible_python_tags", "select_key", "sort_select_arms", "source_specificity")
+load(":rule.bzl", "pyc_compile_version_compatible", "source_built_wheel", "whl_dist", "whl_install")
 
 def _whl_sorting_test_impl(ctx):
     env = unittest.begin(ctx)
@@ -265,12 +266,12 @@ console_script_test = unittest.make(_console_script_test_impl)
 #
 # Regression: the package surface advertised via PyWheelsInfo (top-levels,
 # console scripts) must be limited to the wheel selected for the active
-# configuration. The metadata attrs carry entries for EVERY platform wheel,
-# keyed by wheel file basename; the rule must use only the entry matching
-# the wheel `src` resolved to. Historically the repo rule unioned the
-# metadata across all platform wheels, leaking e.g. the macOS C-extension
-# suffix (a dangling site-packages symlink) and macOS-only console scripts
-# into Linux builds.
+# configuration. Each platform wheel carries its own layout as
+# PyWheelMetadataInfo (on its `whl_dist` target); `whl_install` reads it off
+# whichever wheel `src` resolved to. A sibling platform wheel's surface can't
+# leak in — its metadata lives on a different target that is never consulted.
+# The leak assertions below guard that whl_install surfaces exactly the
+# selected wheel's metadata and nothing unioned across platforms.
 
 _LINUX_WHL = "demo-1.0.0-cp311-cp311-manylinux_2_17_x86_64.whl"
 _MACOS_WHL = "demo-1.0.0-cp311-cp311-macosx_11_0_arm64.whl"
@@ -372,6 +373,17 @@ _PATCHED_PRESERVE_PATHS = [
     "demo_ns/plain.py",
 ]
 
+# A regular package (`demo` has a depth-1 __init__.py). Excluding that
+# initializer must reclassify `demo` as a namespace when the layout is
+# re-derived after exclusion — the case that filtering already-derived lists
+# gets wrong.
+_EXCLUDED_RECORD_PATHS = [
+    "demo/__init__.py",
+    "demo/core.py",
+    "demo-1.0.0.dist-info/RECORD",
+]
+_EXCLUDED_GLOB = ["demo/__init__.py"]
+
 def _metadata_selection_test_impl(ctx):
     env = analysistest.begin(ctx)
     target = analysistest.target_under_test(env)
@@ -445,13 +457,41 @@ def metadata_selection_test_suite(name):
 
     for basename in [_LINUX_WHL, _MACOS_WHL, _SBUILD_WHL]:
         # The wheel is never unpacked at analysis time; an empty stub file
-        # with the right basename is enough to drive the metadata lookup.
+        # with the right basename is enough to stand in as each fixture's src.
         write_file(
             name = "__stub_" + basename,
             out = basename,
             content = [""],
             tags = ["manual"],
         )
+
+    # Each platform wheel is a whl_dist carrying ONLY its own layout — the
+    # per-wheel shape the whl_dist repo rule emits. whl_install reads the
+    # layout off whichever one `src` points at.
+    whl_dist(
+        name = "__metadata_linux_whl",
+        testonly = True,
+        src = _LINUX_WHL,
+        top_levels = _TOP_LEVELS[_LINUX_WHL],
+        top_level_dirs = _TOP_LEVEL_DIRS[_LINUX_WHL],
+        native_roots = _NATIVE_ROOTS[_LINUX_WHL],
+        console_scripts = _CONSOLE_SCRIPTS[_LINUX_WHL],
+        tags = ["manual"],
+    )
+    whl_dist(
+        name = "__metadata_macos_whl",
+        testonly = True,
+        src = _MACOS_WHL,
+        top_levels = _TOP_LEVELS[_MACOS_WHL],
+        top_level_dirs = _TOP_LEVEL_DIRS[_MACOS_WHL],
+        namespace_top_levels = _NAMESPACE_TOP_LEVELS[_MACOS_WHL],
+        namespace_entries = _NAMESPACE_ENTRIES[_MACOS_WHL],
+        namespace_dirs = _NAMESPACE_DIRS[_MACOS_WHL],
+        regular_roots = _REGULAR_ROOTS[_MACOS_WHL],
+        native_roots = _NATIVE_ROOTS[_MACOS_WHL],
+        console_scripts = _CONSOLE_SCRIPTS[_MACOS_WHL],
+        tags = ["manual"],
+    )
 
     source_built_wheel(
         name = "__metadata_sbuild_wheel",
@@ -470,7 +510,9 @@ def metadata_selection_test_suite(name):
         name = "__metadata_prebuilt_or_sbuild",
         actual = select({
             ":__metadata_select_sbuild": ":__metadata_detected_sbuild_wheel",
-            "//conditions:default": _LINUX_WHL,
+            # The prebuilt arm is a whl_dist (carries PyWheelMetadataInfo), as
+            # the real select chain resolves to.
+            "//conditions:default": ":__metadata_linux_whl",
         }),
         tags = ["manual"],
     )
@@ -515,85 +557,66 @@ def metadata_selection_test_suite(name):
         content = [""],
         tags = ["manual"],
     )
+    whl_dist(
+        name = "__metadata_patched_whl",
+        testonly = True,
+        src = _MACOS_WHL,
+        top_levels = _PATCHED_TOP_LEVELS[_MACOS_WHL],
+        top_level_dirs = _TOP_LEVEL_DIRS[_MACOS_WHL],
+        namespace_top_levels = _NAMESPACE_TOP_LEVELS[_MACOS_WHL],
+        namespace_entries = _PATCHED_NAMESPACE_ENTRIES[_MACOS_WHL],
+        namespace_dirs = _NAMESPACE_DIRS[_MACOS_WHL],
+        regular_roots = _REGULAR_ROOTS[_MACOS_WHL],
+        native_roots = _NATIVE_ROOTS[_MACOS_WHL],
+        console_scripts = _CONSOLE_SCRIPTS[_MACOS_WHL],
+        tags = ["manual"],
+    )
     whl_install(
         name = "__metadata_patched_fixture",
-        src = _MACOS_WHL,
-        console_scripts = _CONSOLE_SCRIPTS,
-        namespace_dirs = _NAMESPACE_DIRS,
-        namespace_entries = _PATCHED_NAMESPACE_ENTRIES,
-        namespace_top_levels = _NAMESPACE_TOP_LEVELS,
-        native_roots = _NATIVE_ROOTS,
+        testonly = True,
+        src = ":__metadata_patched_whl",
         patches = [":__metadata_noop_patch"],
-        top_level_dirs = _TOP_LEVEL_DIRS,
-        regular_roots = _REGULAR_ROOTS,
         tags = ["manual"],
-        top_levels = _PATCHED_TOP_LEVELS,
     )
 
+    # exclude_glob is applied by RE-DERIVING the layout from the selected
+    # wheel's retained RECORD paths (whl_dist extraction stays exclude-agnostic
+    # and carries record_paths). Patched so preserve_paths exposes the
+    # re-derived namespace_entries / regular_roots.
+    whl_dist(
+        name = "__metadata_excluded_whl",
+        testonly = True,
+        src = _SBUILD_WHL,
+        record_paths = _EXCLUDED_RECORD_PATHS,
+        tags = ["manual"],
+    )
+    whl_install(
+        name = "__metadata_excluded_fixture",
+        testonly = True,
+        src = ":__metadata_excluded_whl",
+        exclude_glob = _EXCLUDED_GLOB,
+        patches = [":__metadata_noop_patch"],
+        tags = ["manual"],
+    )
+
+    # Each fixture points whl_install at a provider-bearing wheel (whl_dist or
+    # source_built_wheel); the layout it surfaces comes entirely from that
+    # target's PyWheelMetadataInfo.
     for fixture_name, src in [
-        ("__metadata_linux_fixture", _LINUX_WHL),
-        ("__metadata_macos_fixture", _MACOS_WHL),
+        ("__metadata_linux_fixture", ":__metadata_linux_whl"),
+        ("__metadata_macos_fixture", ":__metadata_macos_whl"),
         ("__metadata_sbuild_fixture", ":__metadata_sbuild_wheel"),
+        ("__metadata_declared_sbuild_fixture", ":__metadata_declared_sbuild_wheel"),
+        ("__metadata_active_prebuilt_fixture", ":__metadata_prebuilt_or_sbuild"),
+        ("__metadata_detected_sbuild_fixture", ":__metadata_detected_sbuild_wheel"),
+        ("__metadata_cleared_sbuild_fixture", ":__metadata_cleared_sbuild_wheel"),
     ]:
         whl_install(
             name = fixture_name,
             testonly = True,
             src = src,
-            top_levels = _TOP_LEVELS,
-            top_level_dirs = _TOP_LEVEL_DIRS,
-            namespace_top_levels = _NAMESPACE_TOP_LEVELS,
-            native_roots = _NATIVE_ROOTS,
-            console_scripts = _CONSOLE_SCRIPTS,
             tags = ["manual"],
         )
-
-    whl_install(
-        name = "__metadata_active_prebuilt_fixture",
-        testonly = True,
-        src = ":__metadata_prebuilt_or_sbuild",
-        top_levels = _TOP_LEVELS,
-        top_level_dirs = _TOP_LEVEL_DIRS,
-        namespace_top_levels = _NAMESPACE_TOP_LEVELS,
-        native_roots = _NATIVE_ROOTS,
-        console_scripts = _CONSOLE_SCRIPTS,
-        tags = ["manual"],
-    )
-
-    whl_install(
-        name = "__metadata_detected_sbuild_fixture",
-        testonly = True,
-        src = ":__metadata_detected_sbuild_wheel",
-        top_levels = _TOP_LEVELS,
-        top_level_dirs = _TOP_LEVEL_DIRS,
-        namespace_top_levels = _NAMESPACE_TOP_LEVELS,
-        native_roots = _NATIVE_ROOTS,
-        console_scripts = _CONSOLE_SCRIPTS,
-        tags = ["manual"],
-    )
-
-    whl_install(
-        name = "__metadata_cleared_sbuild_fixture",
-        testonly = True,
-        src = ":__metadata_cleared_sbuild_wheel",
-        top_levels = _TOP_LEVELS,
-        top_level_dirs = _TOP_LEVEL_DIRS,
-        namespace_top_levels = _NAMESPACE_TOP_LEVELS,
-        native_roots = _NATIVE_ROOTS,
-        console_scripts = _CONSOLE_SCRIPTS,
-        tags = ["manual"],
-    )
-
-    whl_install(
-        name = "__metadata_declared_sbuild_fixture",
-        testonly = True,
-        src = ":__metadata_declared_sbuild_wheel",
-        top_levels = _TOP_LEVELS,
-        top_level_dirs = _TOP_LEVEL_DIRS,
-        namespace_top_levels = _NAMESPACE_TOP_LEVELS,
-        native_roots = _NATIVE_ROOTS,
-        console_scripts = _CONSOLE_SCRIPTS,
-        tags = ["manual"],
-    )
 
     _metadata_selection_test(
         name = name + "_linux_test",
@@ -703,6 +726,30 @@ def metadata_selection_test_suite(name):
         leaked_top_levels = [],
     )
 
+    # exclude_glob re-derives the layout after removing the excluded RECORD
+    # paths. Excluding demo/__init__.py leaves demo/core.py, so `demo`
+    # reclassifies from a regular package to a PEP 420 namespace — which
+    # filtering the already-derived lists could not do.
+    _metadata_selection_test(
+        name = name + "_excluded_test",
+        target_under_test = ":__metadata_excluded_fixture",
+        expected_top_levels = ["demo", "demo-1.0.0.dist-info"],
+        expected_top_level_dirs = ["demo"],
+        expected_namespace_top_levels = ["demo"],
+        expected_native_roots = [],
+        expected_console_scripts = [],
+        # preserve_paths = re-derived top_levels + namespace_entries (the
+        # initializer is gone, so demo/core.py is the concrete entry).
+        expected_preserve_paths = [
+            "demo",
+            "demo-1.0.0.dist-info",
+            "demo/core.py",
+        ],
+        leaked_top_levels = [],
+        leaked_native_roots = [],
+        leaked_console_scripts = [],
+    )
+
 # --- compile_pyc exec/target version agreement -----------------------------
 #
 # WhlInstall lays out lib/python{target}/ from the standard toolchain but runs
@@ -780,10 +827,17 @@ def compile_pyc_version_test_suite(name):
     Args:
         name: prefix for the generated test targets.
     """
+    source_built_wheel(
+        name = "__compile_pyc_wheel",
+        testonly = True,
+        src = _SBUILD_WHL,
+        console_scripts = [],
+        tags = ["manual"],
+    )
     whl_install(
         name = "__compile_pyc_fixture",
         testonly = True,
-        src = _SBUILD_WHL,
+        src = ":__compile_pyc_wheel",
         compile_pyc = True,
         tags = ["manual"],
     )
@@ -791,7 +845,7 @@ def compile_pyc_version_test_suite(name):
     whl_install(
         name = "__compile_pyc_filtered_fixture",
         testonly = True,
-        src = _SBUILD_WHL,
+        src = ":__compile_pyc_wheel",
         compile_pyc = True,
         exclude_glob = ["tests"],
         tags = ["manual"],
