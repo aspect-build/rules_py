@@ -322,6 +322,7 @@ def _parse_projects(module_ctx, hub_specs):
                     lock_build_dep_anns[target] = deps
                     lock_conditional_build_dep_anns[target] = conditional_deps
 
+            uv_build_dep_anns = dict(lock_build_dep_anns)
             for ann in mod.tags.unstable_annotate_packages:
                 if ann.lock == project.lock:
                     annotations = toml.decode_file(module_ctx, ann.src)
@@ -346,7 +347,7 @@ def _parse_projects(module_ctx, hub_specs):
                             if not skip:
                                 # Legacy and uv-native annotations compose, including
                                 # any marker-qualified uv-native dependencies.
-                                lock_build_dep_anns[target] = lock_build_dep_anns.get(target, []) + deps
+                                lock_build_dep_anns[target] = uv_build_dep_anns.get(target, []) + deps
 
             package_overrides = {}
             package_console_scripts = {}
