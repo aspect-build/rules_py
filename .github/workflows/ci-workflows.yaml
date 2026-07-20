@@ -65,6 +65,8 @@ jobs:
                 bazel run @uv -- run --locked --group dev -- pyright --pythonversion 3.11 --warnings "${runtime311[@]}"
                 bazel run @uv -- run --locked --group dev -- ty check --python-version 3.9 --error-on-warning --output-format github "${runtime39[@]}"
                 bazel run @uv -- run --locked --group dev -- ty check --python-version 3.11 --error-on-warning --output-format github "${runtime311[@]}"
+            - name: Check generated project SCCs
+              run: bazel build -- @project__aspect_rules_py//private/sccs:all
     test:
         name: test (${{ matrix.workspace.path }}, ${{ matrix.bazel.id }})
         runs-on: ${{ matrix.workspace.runner }}
