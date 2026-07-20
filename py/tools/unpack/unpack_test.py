@@ -107,6 +107,44 @@ def main() -> None:
         )
         assert next((site_packages / "fixture" / "__pycache__").glob("*.pyc"))
 
+        # Members larger than the streaming copy buffer round-trip byte-for-byte.
+        large_payload = b"rules_py" * (256 * 1024 + 1)
+        assert len(large_payload) > 1024 * 1024
+        large_wheel = root / "large_fixture-1.0-py3-none-any.whl"
+        _write_wheel(large_wheel, "large_fixture", {"fixture/big.bin": large_payload})
+        large_out = root / "large"
+        large = _run_unpack(unpack, large_wheel, large_out, Path(sys.executable))
+        assert large.returncode == 0, large.stderr
+        installed_large = (
+            large_out
+            / "lib"
+            / f"python{sys.version_info.major}.{sys.version_info.minor}"
+            / "site-packages"
+            / "fixture"
+            / "big.bin"
+        )
+        assert installed_large.read_bytes() == large_payload
+
+        # A .data/scripts member with a Python shebang is rewritten to the
+        # relocatable launcher and marked executable.
+        script_wheel = root / "script_fixture-1.0-py3-none-any.whl"
+        _write_wheel(
+            script_wheel,
+            "script_fixture",
+            {"script_fixture-1.0.data/scripts/tool": b"#!/usr/bin/python\nprint('hi')\n"},
+        )
+        script_out = root / "script"
+        script = _run_unpack(unpack, script_wheel, script_out, Path(sys.executable))
+        assert script.returncode == 0, script.stderr
+        installed_script = script_out / "bin" / "tool"
+        assert installed_script.read_bytes() == (
+            "#!/bin/sh\n"
+            "'''exec' \"$(dirname -- \"$(realpath -- \"$0\")\")\"/'python3' \"$0\" \"$@\"\n"
+            "' '''\n"
+            "print('hi')\n"
+        ).encode()
+        assert installed_script.stat().st_mode & 0o111
+
         for case, member in [
             ("roottraversal", "../../../../escaped.py"),
             ("rootabsolute", str(root / "escaped.py")),

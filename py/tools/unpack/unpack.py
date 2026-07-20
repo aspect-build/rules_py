@@ -17,6 +17,7 @@ import configparser
 import csv
 import hashlib
 import os
+import shutil
 import subprocess
 import zipfile
 from base64 import urlsafe_b64encode
@@ -143,13 +144,15 @@ def install_wheel(version_major, version_minor, into, wheel_path):
                 dest = site_packages / member_path
 
             dest.parent.mkdir(parents=True, exist_ok=True)
-            data = zf.read(member)
-
-            if is_script and _has_python_shebang(data):
-                _, _, body = data.partition(b"\n")
-                data = _RELOCATABLE_SHEBANG.encode() + body
-
-            dest.write_bytes(data)
+            if is_script:
+                data = zf.read(member)
+                if _has_python_shebang(data):
+                    _, _, body = data.partition(b"\n")
+                    data = _RELOCATABLE_SHEBANG.encode() + body
+                dest.write_bytes(data)
+            else:
+                with zf.open(info, "r") as source, dest.open("wb") as output:
+                    shutil.copyfileobj(source, output, length=1024 * 1024)
 
             unix_mode = (info.external_attr >> 16) & 0xFFFF
             if unix_mode & 0o111 or is_script:
