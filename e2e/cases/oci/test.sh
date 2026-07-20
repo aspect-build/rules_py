@@ -33,10 +33,12 @@ if "$BAZEL" build --keep_going --output_groups=_validation -- \
     cat "$output_log" >&2
     fail "expected cross-layer collision fixtures to fail validation"
 fi
-expect_diagnostic "generated_tree/support.py:"
-expect_diagnostic "generated_support.py:"
-expect_diagnostic "py_image_layer runfile collision at ./app.runfiles/"
-expect_diagnostic "/bin/pyproject-build:"
+expect_diagnostic "py_image_layer runfile collision at ./app.runfiles/_main/oci/py_image_layer/generated_tree/support.py:"
+expect_diagnostic "py_image_layer runfile collision at ./app.runfiles/_main/oci/py_image_layer/generated_support.py:"
+if ! grep -F "py_image_layer runfile collision at ./app.runfiles/" "$output_log" | grep -Fq "/bin/pyproject-build:"; then
+    cat "$output_log" >&2
+    fail "expected wheel-script collision validation diagnostic"
+fi
 
 echo "== distinct interpreters at the same runfile path must fail validation =="
 if "$BAZEL" build \
@@ -46,15 +48,16 @@ if "$BAZEL" build \
     cat "$output_log" >&2
     fail "expected interpreter collision fixture to fail validation"
 fi
-expect_diagnostic "shared_runtime/bin/python:"
+expect_diagnostic "py_image_layer runfile collision at ./app.runfiles/_main/oci/py_image_layer/shared_runtime/bin/python:"
 
-echo "== identical interpreters at the same runfile path must pass validation =="
+echo "== identical runfile artifacts must pass validation =="
 if ! "$BAZEL" build \
     --extra_toolchains="${PKG}:_configured_python_toolchain" \
     --output_groups=_validation -- \
-    "${PKG}:_configured_interpreter_shared_layers" >"$output_log" 2>&1; then
+    "${PKG}:_configured_interpreter_shared_layers" \
+    "${PKG}:_same_rule_group_source_layers" >"$output_log" 2>&1; then
     cat "$output_log" >&2
-    fail "expected shared interpreter fixture to pass validation"
+    fail "expected shared-artifact fixtures to pass validation"
 fi
 
 echo "PASS: py_image_layer validates cross-layer and interpreter collisions"
