@@ -290,8 +290,8 @@ def _parse_projects(module_ctx, hub_specs):
                     )
                     if not resolved_deps:
                         fail((
-                            "Unable to resolve extra build dependency {} for package {} in {}. " +
-                            "`uv lock` does not include packages referenced only by " +
+                            "Unable to resolve extra build dependency `{}` for package {} in {}. " +
+                            "`uv.lock` does not include packages referenced only by " +
                             "`tool.uv.extra-build-dependencies`. Add the dependency as a dependency " +
                             "and regenerate the lock."
                         ).format(repr(dep), repr(package), project.pyproject))
