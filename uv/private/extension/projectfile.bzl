@@ -6,7 +6,16 @@ load("//uv/private:normalize_name.bzl", "normalize_name")
 load("//uv/private/versions:versions.bzl", "find_matching_version")
 load(":dep_groups.bzl", "resolve_dependency_group_specs")
 
-def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_map, package_versions = {}, preferred_versions = {}, fail_if_missing = True):
+def extract_requirement_marker_pairs(
+    projectfile,
+    lock_id,
+    req_string,
+    version_map,
+    package_versions = {},
+    preferred_versions = {},
+    locked_urls = {},
+    fail_if_missing = True
+):
     """Parses a requirement string into a list of dependency-marker pairs.
 
     This function parses a PEP 508 requirement string (e.g.,
@@ -23,6 +32,8 @@ def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_m
             list — useful for advisory requirements like the project-level
             `default_build_dependencies`, which may legitimately be absent
             from lockfiles that ship no sdists needing the build tooling.
+        locked_urls: A dictionary mapping `(package_name, artifact_url)` to a
+            locked dependency tuple, used to resolve direct references.
 
     Returns:
         A list of tuples, where each tuple is `(Dependency, Marker)`.
@@ -55,6 +66,7 @@ def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_m
         "<": 1,
         "!": 1,
         "~": 1,
+        "@": 1,
         " ": 1,
     }
 
@@ -85,21 +97,26 @@ def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_m
             remainder = remainder[close_idx + 1:]
 
     # 4. Look up version
-    v = preferred_versions.get(pkg_name)
-    if v == None:
-        v = version_map.get(pkg_name)
-    if v == None:
-        # For multi-version packages (e.g. conflicts), match the version
-        # specifier against all known versions of this package in the lockfile.
-        specifier = remainder.strip()
-        pkg_vers = package_versions.get(pkg_name, {})
-        if pkg_vers:
-            match_spec = specifier if specifier else ">=0"
-            candidates = {
-                ver: (lock_id, pkg_name, ver, "__base__")
-                for ver in pkg_vers.keys()
-            }
-            v = find_matching_version(match_spec, candidates)
+    specifier = remainder.strip()
+    if specifier.startswith("@"):
+        # Direct references identify a locked artifact, not a version
+        # constraint. Never fall back to a different locked version or URL.
+        v = locked_urls.get((pkg_name, specifier[1:].strip()))
+    else:
+        v = preferred_versions.get(pkg_name)
+        if v == None:
+            v = version_map.get(pkg_name)
+        if v == None:
+            # For multi-version packages (e.g. conflicts), match the version
+            # specifier against all known versions in the lockfile.
+            pkg_vers = package_versions.get(pkg_name, {})
+            if pkg_vers:
+                match_spec = specifier if specifier else ">=0"
+                candidates = {
+                    ver: (lock_id, pkg_name, ver, "__base__")
+                    for ver in pkg_vers.keys()
+                }
+                v = find_matching_version(match_spec, candidates)
     if v == None:
         if not fail_if_missing:
             return []

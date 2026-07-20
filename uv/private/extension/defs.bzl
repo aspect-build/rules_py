@@ -251,6 +251,18 @@ def _parse_projects(module_ctx, hub_specs):
 
             default_versions, package_versions, lock_data = normalize_deps(project_id, lock_data)
 
+            locked_urls = {}
+            for locked_package in lock_data.get("package", []):
+                dependency = (project_id, locked_package["name"], locked_package["version"], "__base__")
+                artifacts = locked_package.get("wheels", []) + [
+                    locked_package.get("sdist", {}),
+                    locked_package.get("source", {}),
+                ]
+                for artifact in artifacts:
+                    url = artifact.get("url")
+                    if url:
+                        locked_urls[(locked_package["name"], url)] = dependency
+
             def _resolve(name, version):
                 name = normalize_name(name)
                 if version:
@@ -286,6 +298,7 @@ def _parse_projects(module_ctx, hub_specs):
                         dep,
                         {},
                         package_versions,
+                        locked_urls = locked_urls,
                         fail_if_missing = False,
                     )
                     if not resolved_deps:
@@ -551,7 +564,15 @@ def _parse_projects(module_ctx, hub_specs):
                         lock_build_deps = [
                             it[0]
                             for req in project.default_build_dependencies
-                            for it in extract_requirement_marker_pairs(project.lock, project_id, req, default_versions, package_versions, fail_if_missing = sbuild_required)
+                            for it in extract_requirement_marker_pairs(
+                                project.lock,
+                                project_id,
+                                req,
+                                default_versions,
+                                package_versions,
+                                locked_urls,
+                                fail_if_missing = sbuild_required,
+                            )
                         ]
 
                     build_deps = sets.to_list(sets.make(build_deps + lock_build_deps))
