@@ -260,6 +260,7 @@ def _parse_projects(module_ctx, hub_specs):
                 return None
 
             lock_build_dep_anns = {}
+            lock_conditional_build_dep_anns = {}
             lock_native_anns = {}
             extra_build_dependencies = tool_uv.get("extra-build-dependencies", {})
             for package, extra_deps in extra_build_dependencies.items():
@@ -268,24 +269,28 @@ def _parse_projects(module_ctx, hub_specs):
                     # Allow a shared annotation file to include entries for other locks.
                     continue
                 deps = []
+                conditional_deps = {}
                 skip = False
                 for dep in extra_deps:
                     resolved_deps = extract_requirement_marker_pairs(
                         project.lock,
                         project_id,
                         dep,
-                        default_versions,
+                        {},
                         package_versions,
-                        fail_if_missing = False
+                        fail_if_missing = False,
                     )
-                    if resolved_deps == None:
+                    if not resolved_deps:
                         skip = True
                         break
-                    # TODO(konsti): Consider the marker too - we shouldn't inject build deps on platforms where they are
-                    # declared.
-                    deps.extend([resolved for resolved, _marker in resolved_deps])
+                    for resolved, marker in resolved_deps:
+                        if marker:
+                            conditional_deps.setdefault(marker, []).append(resolved)
+                        else:
+                            deps.append(resolved)
                 if not skip:
                     lock_build_dep_anns[target] = deps
+                    lock_conditional_build_dep_anns[target] = conditional_deps
 
             for ann in mod.tags.unstable_annotate_packages:
                 if ann.lock == project.lock:
@@ -310,6 +315,7 @@ def _parse_projects(module_ctx, hub_specs):
                                 deps.append(resolved)
                             if not skip:
                                 lock_build_dep_anns[target] = deps
+                                lock_conditional_build_dep_anns.pop(target, None)
 
             package_overrides = {}
             package_console_scripts = {}
@@ -513,6 +519,7 @@ def _parse_projects(module_ctx, hub_specs):
                     # could do pyproject.toml introspection.
                     ann_key = (project_id, normalize_name(package["name"]), package["version"], "__base__")
                     build_deps = lock_build_dep_anns.get(ann_key) or []
+                    conditional_build_deps = lock_conditional_build_dep_anns.get(ann_key) or {}
                     is_native = "auto"
                     if ann_key in lock_native_anns:
                         is_native = "true" if lock_native_anns[ann_key] else "false"
@@ -535,6 +542,23 @@ def _parse_projects(module_ctx, hub_specs):
                         ]
 
                     build_deps = sets.to_list(sets.make(build_deps + lock_build_deps))
+                    conditional_build_deps = {
+                        marker: sets.to_list(sets.make([
+                            dep
+                            for dep in deps
+                            if dep not in build_deps
+                        ]))
+                        for marker, deps in conditional_build_deps.items()
+                    }
+                    sbuild_conditional_deps = {}
+                    for marker, deps in conditional_build_deps.items():
+                        for dep in deps:
+                            label = "@{0}//:{1}".format(*dep)
+                            previous = sbuild_conditional_deps.get(label)
+                            if previous:
+                                sbuild_conditional_deps[label] = "({}) or ({})".format(previous, marker)
+                            else:
+                                sbuild_conditional_deps[label] = marker
 
                     pre_build_patches = []
                     pre_build_patch_strip = 0
@@ -558,6 +582,7 @@ def _parse_projects(module_ctx, hub_specs):
                     sbuild_specs[sbuild_id] = struct(
                         src = sdist,
                         deps = ["@{0}//:{1}".format(*it) for it in build_deps],
+                        conditional_deps = sbuild_conditional_deps,
                         is_native = is_native,
                         version = package["version"],
                         pre_build_patches = pre_build_patches,
@@ -772,6 +797,8 @@ def _uv_impl(module_ctx):
 
         if sbuild_cfg.available_deps:
             sbuild_kwargs["available_deps"] = sbuild_cfg.available_deps
+        if sbuild_cfg.conditional_deps:
+            sbuild_kwargs["conditional_deps"] = sbuild_cfg.conditional_deps
         if sbuild_cfg.pre_build_patches:
             sbuild_kwargs["pre_build_patches"] = sbuild_cfg.pre_build_patches
             sbuild_kwargs["pre_build_patch_strip"] = sbuild_cfg.pre_build_patch_strip

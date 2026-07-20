@@ -1,12 +1,21 @@
 
 load("@aspect_rules_py//uv/private/pep517_whl:rule.bzl", "pep517_whl")
 load("@aspect_rules_py//py:defs.bzl", "py_binary")
+load("@aspect_rules_py//uv/private/markers:defs.bzl", "decide_marker")
+
+decide_marker(
+    name = "_build_dep_marker_0",
+    marker = "(sys_platform != 'win32') or (sys_platform != 'imaginary')",
+)
 
 py_binary(
     name = "build_tool",
     main = "@aspect_rules_py//uv/private/pep517_whl:build_helper.py",
     srcs = ["@aspect_rules_py//uv/private/pep517_whl:build_helper.py"],
-    deps = ["@@aspect_rules_py++uv+project__uv_sdist_fallback//:setuptools", "@@aspect_rules_py++uv+project__uv_sdist_fallback//:packaging", "@@aspect_rules_py++uv+project__uv_sdist_fallback//:build", "@whl_install__uv_sdist_fallback__setuptools__80_10_2//:install"],
+    deps = ["@@aspect_rules_py++uv+project__uv_sdist_fallback//:setuptools", "@@aspect_rules_py++uv+project__uv_sdist_fallback//:build", "@whl_install__uv_sdist_fallback__setuptools__80_10_2//:install"] + select({
+        ":_build_dep_marker_0": ["@@aspect_rules_py++uv+project__uv_sdist_fallback//:packaging"],
+        "//conditions:default": [],
+    }),
 )
 
 pep517_whl(

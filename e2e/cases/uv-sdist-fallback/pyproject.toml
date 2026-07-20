@@ -23,5 +23,6 @@ no-binary-package = ["cowsay", "tqdm"]
 # the tqdm snapshot catches a broken uv-native annotation path.
 tqdm = [
     "setuptools==80.10.2",
-    "packaging",
+    "packaging; sys_platform != 'win32'",
+    "packaging; sys_platform != 'imaginary'",
 ]
