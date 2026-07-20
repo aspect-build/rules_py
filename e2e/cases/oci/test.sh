@@ -61,3 +61,20 @@ if ! grep -Fq "py_image_layer runfile collision at ./app.runfiles/_main/oci/py_i
 fi
 
 echo "PASS: scalar strip-prefix destinations validate correctly"
+
+echo "== nested launcher prefixes must share the same runfiles layout in either input order =="
+if ! "$BAZEL" build -- "${PKG}:_nested_prefix_sources_listing" >"$output_log" 2>&1; then
+    cat "$output_log" >&2
+    fail "expected the nested launcher source layers to build"
+fi
+listing="bazel-bin/oci/py_image_layer/_nested_prefix_sources.listing"
+if test "$(grep -Fxc './app.runfiles/_main/nested/data.txt' "$listing")" -ne 2; then
+    cat "$listing" >&2
+    fail "expected the nested runfile in the shared layout for both launcher orders"
+fi
+if grep -Fq './app.runfiles/worker.runfiles/' "$listing"; then
+    cat "$listing" >&2
+    fail "nested launcher prefix leaked into the shared runfiles layout"
+fi
+
+echo "PASS: nested launcher prefixes share the same runfiles layout"
