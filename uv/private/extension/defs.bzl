@@ -585,7 +585,7 @@ def _parse_projects(module_ctx, hub_specs):
                                 req,
                                 default_versions,
                                 package_versions,
-                                locked_urls,
+                                locked_urls = locked_urls,
                                 fail_if_missing = sbuild_required,
                             )
                         ]
