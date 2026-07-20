@@ -167,6 +167,7 @@ use_repo(
     "sdist_build__aspect_rules_py__bravado__11_0_3",
     "sdist_build__aspect_rules_py__bravado_core__6_1_1",
     "whl_install__aspect_rules_py__attrs__23_2_0",
+    "whl_install__aspect_rules_py__numpy__1_26_4",
 )
 
 http_file(

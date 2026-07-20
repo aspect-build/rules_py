@@ -1,0 +1,566 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library")
+load("@aspect_rules_py//uv/private/whl_install:defs.bzl", "select_chain")
+load("@aspect_rules_py//uv/private/whl_install:rule.bzl", "source_built_wheel", "whl_install")
+
+source_built_wheel(
+    name = "source_built_wheel",
+    src = "@@+uv+sdist_build__aspect_rules_py__numpy__1_26_4//:whl",
+    console_scripts = [],
+    visibility = ["//visibility:private"],
+)
+
+
+select_chain(
+   name = "whl",
+   arms = {
+       "@aspect_rules_py_pip_configurations//:cp311-macosx_11_0_arm64-cp311": "@whl__numpy__edd8b5fe47dab091//file",
+       "@aspect_rules_py_pip_configurations//:cp311-macosx_10_9_x86_64-cp311": "@whl__numpy__4c66707fabe11443//file",
+       "@aspect_rules_py_pip_configurations//:cp311-manylinux_2_17_aarch64-cp311": "@whl__numpy__7ab55401287bfec9//file",
+       "@aspect_rules_py_pip_configurations//:cp311-manylinux_2_17_x86_64-cp311": "@whl__numpy__666dbfb6ec68962c//file",
+       "@aspect_rules_py_pip_configurations//:cp311-musllinux_1_1_aarch64-cp311": "@whl__numpy__96ff0b2ad353d8f9//file",
+       "@aspect_rules_py_pip_configurations//:cp311-musllinux_1_1_x86_64-cp311": "@whl__numpy__60dedbb91afcbfdc//file",
+       "@aspect_rules_py_pip_configurations//:cp311-win32-cp311": "@whl__numpy__1af303d6b2210eb8//file",
+       "@aspect_rules_py_pip_configurations//:cp311-win_amd64-cp311": "@whl__numpy__cd25bcecc4974d09//file",
+       "@aspect_rules_py_pip_configurations//:cp310-macosx_11_0_arm64-cp310": "@whl__numpy__2e4ee3380d6de9c9//file",
+       "@aspect_rules_py_pip_configurations//:cp310-macosx_10_9_x86_64-cp310": "@whl__numpy__9ff0f4f29c51e280//file",
+       "@aspect_rules_py_pip_configurations//:cp310-manylinux_2_17_aarch64-cp310": "@whl__numpy__d209d8969599b27a//file",
+       "@aspect_rules_py_pip_configurations//:cp310-manylinux_2_17_x86_64-cp310": "@whl__numpy__ffa75af20b44f8db//file",
+       "@aspect_rules_py_pip_configurations//:cp310-musllinux_1_1_aarch64-cp310": "@whl__numpy__62b8e4b1e28009ef//file",
+       "@aspect_rules_py_pip_configurations//:cp310-musllinux_1_1_x86_64-cp310": "@whl__numpy__a4abb4f9001ad285//file",
+       "@aspect_rules_py_pip_configurations//:cp310-win32-cp310": "@whl__numpy__bfe25acf8b437eb2//file",
+       "@aspect_rules_py_pip_configurations//:cp310-win_amd64-cp310": "@whl__numpy__b97fe8060236edf3//file",
+       "@aspect_rules_py_pip_configurations//:cp39-macosx_11_0_arm64-cp39": "@whl__numpy__52b8b60467cd7dd1//file",
+       "@aspect_rules_py_pip_configurations//:cp39-macosx_10_9_x86_64-cp39": "@whl__numpy__7349ab0fa0c429c8//file",
+       "@aspect_rules_py_pip_configurations//:cp39-manylinux_2_17_aarch64-cp39": "@whl__numpy__d5241e0a80d808d7//file",
+       "@aspect_rules_py_pip_configurations//:cp39-manylinux_2_17_x86_64-cp39": "@whl__numpy__f870204a840a60da//file",
+       "@aspect_rules_py_pip_configurations//:cp39-musllinux_1_1_aarch64-cp39": "@whl__numpy__679b0076f67ecc01//file",
+       "@aspect_rules_py_pip_configurations//:cp39-musllinux_1_1_x86_64-cp39": "@whl__numpy__47711010ad855551//file",
+       "@aspect_rules_py_pip_configurations//:cp39-win32-cp39": "@whl__numpy__a354325ee0338867//file",
+       "@aspect_rules_py_pip_configurations//:cp39-win_amd64-cp39": "@whl__numpy__3373d5d70a5fe74a//file",
+   },
+   default_target = ":source_built_wheel",
+   visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "gazelle_index_whl",
+    srcs = [
+        "@whl__numpy__9ff0f4f29c51e280//file",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+
+whl_install(
+    name = "actual_install",
+    src = ":whl",
+    compile_pyc = select({
+        "@aspect_rules_py//uv/private/pyc:is_precompile": True,
+        "//conditions:default": False,
+    }),
+    pyc_invalidation_mode = select({
+        "@aspect_rules_py//uv/private/pyc:is_unchecked_hash": "unchecked-hash",
+        "@aspect_rules_py//uv/private/pyc:is_timestamp": "timestamp",
+        "//conditions:default": "checked-hash",
+    }),
+    top_levels = {
+        "numpy-1.26.4-cp310-cp310-macosx_10_9_x86_64.whl": [
+            "numpy",
+            "numpy-1.26.4.dist-info",
+        ],
+        "numpy-1.26.4-cp310-cp310-macosx_11_0_arm64.whl": [
+            "numpy",
+            "numpy-1.26.4.dist-info",
+        ],
+        "numpy-1.26.4-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl": [
+            "numpy",
+            "numpy-1.26.4.dist-info",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl": [
+            "numpy",
+            "numpy-1.26.4.dist-info",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp310-cp310-musllinux_1_1_aarch64.whl": [
+            "numpy",
+            "numpy-1.26.4.dist-info",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp310-cp310-musllinux_1_1_x86_64.whl": [
+            "numpy",
+            "numpy-1.26.4.dist-info",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp310-cp310-win32.whl": [
+            "numpy",
+            "numpy-1.26.4.dist-info",
+        ],
+        "numpy-1.26.4-cp310-cp310-win_amd64.whl": [
+            "numpy",
+            "numpy-1.26.4-cp310-cp310-win_amd64.whl",
+            "numpy-1.26.4.dist-info",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp311-cp311-macosx_10_9_x86_64.whl": [
+            "numpy",
+            "numpy-1.26.4.dist-info",
+        ],
+        "numpy-1.26.4-cp311-cp311-macosx_11_0_arm64.whl": [
+            "numpy",
+            "numpy-1.26.4.dist-info",
+        ],
+        "numpy-1.26.4-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl": [
+            "numpy",
+            "numpy-1.26.4.dist-info",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl": [
+            "numpy",
+            "numpy-1.26.4.dist-info",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp311-cp311-musllinux_1_1_aarch64.whl": [
+            "numpy",
+            "numpy-1.26.4.dist-info",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp311-cp311-musllinux_1_1_x86_64.whl": [
+            "numpy",
+            "numpy-1.26.4.dist-info",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp311-cp311-win32.whl": [
+            "numpy",
+            "numpy-1.26.4.dist-info",
+        ],
+        "numpy-1.26.4-cp311-cp311-win_amd64.whl": [
+            "numpy",
+            "numpy-1.26.4-cp311-cp311-win_amd64.whl",
+            "numpy-1.26.4.dist-info",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp39-cp39-macosx_10_9_x86_64.whl": [
+            "numpy",
+            "numpy-1.26.4.dist-info",
+        ],
+        "numpy-1.26.4-cp39-cp39-macosx_11_0_arm64.whl": [
+            "numpy",
+            "numpy-1.26.4.dist-info",
+        ],
+        "numpy-1.26.4-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl": [
+            "numpy",
+            "numpy-1.26.4.dist-info",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl": [
+            "numpy",
+            "numpy-1.26.4.dist-info",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp39-cp39-musllinux_1_1_aarch64.whl": [
+            "numpy",
+            "numpy-1.26.4.dist-info",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp39-cp39-musllinux_1_1_x86_64.whl": [
+            "numpy",
+            "numpy-1.26.4.dist-info",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp39-cp39-win32.whl": [
+            "numpy",
+            "numpy-1.26.4.dist-info",
+        ],
+        "numpy-1.26.4-cp39-cp39-win_amd64.whl": [
+            "numpy",
+            "numpy-1.26.4-cp39-cp39-win_amd64.whl",
+            "numpy-1.26.4.dist-info",
+            "numpy.libs",
+        ],
+    },
+    namespace_top_levels = {
+        "numpy-1.26.4-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl": [
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl": [
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp310-cp310-musllinux_1_1_aarch64.whl": [
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp310-cp310-musllinux_1_1_x86_64.whl": [
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp310-cp310-win_amd64.whl": [
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl": [
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl": [
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp311-cp311-musllinux_1_1_aarch64.whl": [
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp311-cp311-musllinux_1_1_x86_64.whl": [
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp311-cp311-win_amd64.whl": [
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl": [
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl": [
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp39-cp39-musllinux_1_1_aarch64.whl": [
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp39-cp39-musllinux_1_1_x86_64.whl": [
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp39-cp39-win_amd64.whl": [
+            "numpy.libs",
+        ],
+    },
+    console_scripts = {
+        "numpy-1.26.4-cp310-cp310-macosx_10_9_x86_64.whl": [
+            "f2py=numpy.f2py.f2py2e:main",
+        ],
+        "numpy-1.26.4-cp310-cp310-macosx_11_0_arm64.whl": [
+            "f2py=numpy.f2py.f2py2e:main",
+        ],
+        "numpy-1.26.4-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl": [
+            "f2py=numpy.f2py.f2py2e:main",
+        ],
+        "numpy-1.26.4-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl": [
+            "f2py=numpy.f2py.f2py2e:main",
+        ],
+        "numpy-1.26.4-cp310-cp310-musllinux_1_1_aarch64.whl": [
+            "f2py=numpy.f2py.f2py2e:main",
+        ],
+        "numpy-1.26.4-cp310-cp310-musllinux_1_1_x86_64.whl": [
+            "f2py=numpy.f2py.f2py2e:main",
+        ],
+        "numpy-1.26.4-cp310-cp310-win32.whl": [
+            "f2py=numpy.f2py.f2py2e:main",
+        ],
+        "numpy-1.26.4-cp310-cp310-win_amd64.whl": [
+            "f2py=numpy.f2py.f2py2e:main",
+        ],
+        "numpy-1.26.4-cp311-cp311-macosx_10_9_x86_64.whl": [
+            "f2py=numpy.f2py.f2py2e:main",
+        ],
+        "numpy-1.26.4-cp311-cp311-macosx_11_0_arm64.whl": [
+            "f2py=numpy.f2py.f2py2e:main",
+        ],
+        "numpy-1.26.4-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl": [
+            "f2py=numpy.f2py.f2py2e:main",
+        ],
+        "numpy-1.26.4-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl": [
+            "f2py=numpy.f2py.f2py2e:main",
+        ],
+        "numpy-1.26.4-cp311-cp311-musllinux_1_1_aarch64.whl": [
+            "f2py=numpy.f2py.f2py2e:main",
+        ],
+        "numpy-1.26.4-cp311-cp311-musllinux_1_1_x86_64.whl": [
+            "f2py=numpy.f2py.f2py2e:main",
+        ],
+        "numpy-1.26.4-cp311-cp311-win32.whl": [
+            "f2py=numpy.f2py.f2py2e:main",
+        ],
+        "numpy-1.26.4-cp311-cp311-win_amd64.whl": [
+            "f2py=numpy.f2py.f2py2e:main",
+        ],
+        "numpy-1.26.4-cp39-cp39-macosx_10_9_x86_64.whl": [
+            "f2py=numpy.f2py.f2py2e:main",
+        ],
+        "numpy-1.26.4-cp39-cp39-macosx_11_0_arm64.whl": [
+            "f2py=numpy.f2py.f2py2e:main",
+        ],
+        "numpy-1.26.4-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl": [
+            "f2py=numpy.f2py.f2py2e:main",
+        ],
+        "numpy-1.26.4-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl": [
+            "f2py=numpy.f2py.f2py2e:main",
+        ],
+        "numpy-1.26.4-cp39-cp39-musllinux_1_1_aarch64.whl": [
+            "f2py=numpy.f2py.f2py2e:main",
+        ],
+        "numpy-1.26.4-cp39-cp39-musllinux_1_1_x86_64.whl": [
+            "f2py=numpy.f2py.f2py2e:main",
+        ],
+        "numpy-1.26.4-cp39-cp39-win32.whl": [
+            "f2py=numpy.f2py.f2py2e:main",
+        ],
+        "numpy-1.26.4-cp39-cp39-win_amd64.whl": [
+            "f2py=numpy.f2py.f2py2e:main",
+        ],
+    },
+    top_level_dirs = {
+        "numpy-1.26.4-cp310-cp310-macosx_10_9_x86_64.whl": [
+            "numpy",
+        ],
+        "numpy-1.26.4-cp310-cp310-macosx_11_0_arm64.whl": [
+            "numpy",
+        ],
+        "numpy-1.26.4-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl": [
+            "numpy",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl": [
+            "numpy",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp310-cp310-musllinux_1_1_aarch64.whl": [
+            "numpy",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp310-cp310-musllinux_1_1_x86_64.whl": [
+            "numpy",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp310-cp310-win32.whl": [
+            "numpy",
+        ],
+        "numpy-1.26.4-cp310-cp310-win_amd64.whl": [
+            "numpy",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp311-cp311-macosx_10_9_x86_64.whl": [
+            "numpy",
+        ],
+        "numpy-1.26.4-cp311-cp311-macosx_11_0_arm64.whl": [
+            "numpy",
+        ],
+        "numpy-1.26.4-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl": [
+            "numpy",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl": [
+            "numpy",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp311-cp311-musllinux_1_1_aarch64.whl": [
+            "numpy",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp311-cp311-musllinux_1_1_x86_64.whl": [
+            "numpy",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp311-cp311-win32.whl": [
+            "numpy",
+        ],
+        "numpy-1.26.4-cp311-cp311-win_amd64.whl": [
+            "numpy",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp39-cp39-macosx_10_9_x86_64.whl": [
+            "numpy",
+        ],
+        "numpy-1.26.4-cp39-cp39-macosx_11_0_arm64.whl": [
+            "numpy",
+        ],
+        "numpy-1.26.4-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl": [
+            "numpy",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl": [
+            "numpy",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp39-cp39-musllinux_1_1_aarch64.whl": [
+            "numpy",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp39-cp39-musllinux_1_1_x86_64.whl": [
+            "numpy",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp39-cp39-win32.whl": [
+            "numpy",
+        ],
+        "numpy-1.26.4-cp39-cp39-win_amd64.whl": [
+            "numpy",
+            "numpy.libs",
+        ],
+    },
+    namespace_entries = {
+        "numpy-1.26.4-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl": [
+            "numpy.libs/libgfortran-daac5196.so.5.0.0",
+            "numpy.libs/libopenblas64_p-r0-17488984.3.23.dev.so",
+        ],
+        "numpy-1.26.4-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl": [
+            "numpy.libs/libgfortran-040039e1.so.5.0.0",
+            "numpy.libs/libopenblas64_p-r0-0cf96a72.3.23.dev.so",
+            "numpy.libs/libquadmath-96973f99.so.0.0.0",
+        ],
+        "numpy-1.26.4-cp310-cp310-musllinux_1_1_aarch64.whl": [
+            "numpy.libs/libgcc_s-4e37474d.so.1",
+            "numpy.libs/libgfortran-42fd343e.so.5.0.0",
+            "numpy.libs/libopenblas64_p-r0-544c3ef2.3.23.dev.so",
+        ],
+        "numpy-1.26.4-cp310-cp310-musllinux_1_1_x86_64.whl": [
+            "numpy.libs/libgcc_s-a04fdf82.so.1",
+            "numpy.libs/libgfortran-c4ef5775.so.5.0.0",
+            "numpy.libs/libopenblas64_p-r0-43026fc9.3.23.dev.so",
+            "numpy.libs/libquadmath-1b17c16b.so.0.0.0",
+        ],
+        "numpy-1.26.4-cp310-cp310-win_amd64.whl": [
+            "numpy.libs/libopenblas64__v0.3.23-293-gc2f4bdbb-gcc_10_3_0-2bde3a66a51006b2b53eb373ff767a3f.dll",
+        ],
+        "numpy-1.26.4-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl": [
+            "numpy.libs/libgfortran-daac5196.so.5.0.0",
+            "numpy.libs/libopenblas64_p-r0-17488984.3.23.dev.so",
+        ],
+        "numpy-1.26.4-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl": [
+            "numpy.libs/libgfortran-040039e1.so.5.0.0",
+            "numpy.libs/libopenblas64_p-r0-0cf96a72.3.23.dev.so",
+            "numpy.libs/libquadmath-96973f99.so.0.0.0",
+        ],
+        "numpy-1.26.4-cp311-cp311-musllinux_1_1_aarch64.whl": [
+            "numpy.libs/libgcc_s-4e37474d.so.1",
+            "numpy.libs/libgfortran-42fd343e.so.5.0.0",
+            "numpy.libs/libopenblas64_p-r0-544c3ef2.3.23.dev.so",
+        ],
+        "numpy-1.26.4-cp311-cp311-musllinux_1_1_x86_64.whl": [
+            "numpy.libs/libgcc_s-a04fdf82.so.1",
+            "numpy.libs/libgfortran-c4ef5775.so.5.0.0",
+            "numpy.libs/libopenblas64_p-r0-43026fc9.3.23.dev.so",
+            "numpy.libs/libquadmath-1b17c16b.so.0.0.0",
+        ],
+        "numpy-1.26.4-cp311-cp311-win_amd64.whl": [
+            "numpy.libs/libopenblas64__v0.3.23-293-gc2f4bdbb-gcc_10_3_0-2bde3a66a51006b2b53eb373ff767a3f.dll",
+        ],
+        "numpy-1.26.4-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl": [
+            "numpy.libs/libgfortran-daac5196.so.5.0.0",
+            "numpy.libs/libopenblas64_p-r0-17488984.3.23.dev.so",
+        ],
+        "numpy-1.26.4-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl": [
+            "numpy.libs/libgfortran-040039e1.so.5.0.0",
+            "numpy.libs/libopenblas64_p-r0-0cf96a72.3.23.dev.so",
+            "numpy.libs/libquadmath-96973f99.so.0.0.0",
+        ],
+        "numpy-1.26.4-cp39-cp39-musllinux_1_1_aarch64.whl": [
+            "numpy.libs/libgcc_s-4e37474d.so.1",
+            "numpy.libs/libgfortran-42fd343e.so.5.0.0",
+            "numpy.libs/libopenblas64_p-r0-544c3ef2.3.23.dev.so",
+        ],
+        "numpy-1.26.4-cp39-cp39-musllinux_1_1_x86_64.whl": [
+            "numpy.libs/libgcc_s-a04fdf82.so.1",
+            "numpy.libs/libgfortran-c4ef5775.so.5.0.0",
+            "numpy.libs/libopenblas64_p-r0-43026fc9.3.23.dev.so",
+            "numpy.libs/libquadmath-1b17c16b.so.0.0.0",
+        ],
+        "numpy-1.26.4-cp39-cp39-win_amd64.whl": [
+            "numpy.libs/.load-order-numpy-1.26.4",
+            "numpy.libs/libopenblas64__v0.3.23-293-gc2f4bdbb-gcc_10_3_0-2bde3a66a51006b2b53eb373ff767a3f.dll",
+        ],
+    },
+    native_roots = {
+        "numpy-1.26.4-cp310-cp310-macosx_10_9_x86_64.whl": [
+            "numpy",
+        ],
+        "numpy-1.26.4-cp310-cp310-macosx_11_0_arm64.whl": [
+            "numpy",
+        ],
+        "numpy-1.26.4-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl": [
+            "numpy",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl": [
+            "numpy",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp310-cp310-musllinux_1_1_aarch64.whl": [
+            "numpy",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp310-cp310-musllinux_1_1_x86_64.whl": [
+            "numpy",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp310-cp310-win32.whl": [
+            "numpy",
+        ],
+        "numpy-1.26.4-cp310-cp310-win_amd64.whl": [
+            "numpy",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp311-cp311-macosx_10_9_x86_64.whl": [
+            "numpy",
+        ],
+        "numpy-1.26.4-cp311-cp311-macosx_11_0_arm64.whl": [
+            "numpy",
+        ],
+        "numpy-1.26.4-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl": [
+            "numpy",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl": [
+            "numpy",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp311-cp311-musllinux_1_1_aarch64.whl": [
+            "numpy",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp311-cp311-musllinux_1_1_x86_64.whl": [
+            "numpy",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp311-cp311-win32.whl": [
+            "numpy",
+        ],
+        "numpy-1.26.4-cp311-cp311-win_amd64.whl": [
+            "numpy",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp39-cp39-macosx_10_9_x86_64.whl": [
+            "numpy",
+        ],
+        "numpy-1.26.4-cp39-cp39-macosx_11_0_arm64.whl": [
+            "numpy",
+        ],
+        "numpy-1.26.4-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl": [
+            "numpy",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl": [
+            "numpy",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp39-cp39-musllinux_1_1_aarch64.whl": [
+            "numpy",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp39-cp39-musllinux_1_1_x86_64.whl": [
+            "numpy",
+            "numpy.libs",
+        ],
+        "numpy-1.26.4-cp39-cp39-win32.whl": [
+            "numpy",
+        ],
+        "numpy-1.26.4-cp39-cp39-win_amd64.whl": [
+            "numpy",
+            "numpy.libs",
+        ],
+    },
+    visibility = ["//visibility:private"],
+)
+
+alias(
+    name = "install",
+    actual = ":actual_install",
+    visibility = ["//visibility:public"],
+)
+
+
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//visibility:public"],
+)
