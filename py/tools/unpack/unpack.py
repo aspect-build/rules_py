@@ -16,12 +16,15 @@ import argparse
 import configparser
 import csv
 import hashlib
+import io
 import os
+import re
+import shutil
 import subprocess
 import zipfile
 from base64 import urlsafe_b64encode
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 from urllib.parse import unquote
 
 _RELOCATABLE_SHEBANG = """\
@@ -35,28 +38,12 @@ _WINDOWS_RESERVED = {"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$"} | {
 }
 
 
-def _sha256(digest: bytes) -> str:
-    return "sha256=" + urlsafe_b64encode(digest).decode().rstrip("=")
-
-
-def _hash_file(path: Path) -> Tuple[str, str]:
-    digest = hashlib.sha256()
-    size = 0
-    with path.open("rb") as source:
-        for chunk in iter(lambda: source.read(1024 * 1024), b""):
-            digest.update(chunk)
-            size += len(chunk)
-    return _sha256(digest.digest()), str(size)
-
-
-def _write_record(
-    record_path: Path,
-    rows: Iterable[Tuple[str, str, str]],
-    site_packages: Path,
-) -> None:
-    relative = os.path.relpath(str(record_path), str(site_packages)).replace("\\", "/")
-    with record_path.open("w", newline="", encoding="utf-8") as record:
-        csv.writer(record).writerows([*rows, (relative, "", "")])
+def _sha256(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return "sha256=" + urlsafe_b64encode(h.digest()).decode().rstrip("=")
 
 
 def _has_python_shebang(data: bytes) -> bool:
@@ -86,6 +73,39 @@ def _write_executable(path: Path, content: bytes) -> None:
     path.chmod(0o755)
 
 
+def _record_metadata(
+    zf: zipfile.ZipFile,
+) -> Tuple[Optional[str], Dict[str, Tuple[str, str]]]:
+    """Return reusable sha256/size metadata from one well-formed RECORD."""
+    record_members = [
+        info.filename
+        for info in zf.infolist()
+        if info.filename.endswith("/RECORD")
+    ]
+    if len(record_members) != 1:
+        return None, {}
+
+    record_member = record_members[0]
+    record_dir = record_member.rsplit("/", 1)[0]
+    rows = {}
+    try:
+        with zf.open(record_member) as raw:
+            with io.TextIOWrapper(raw, encoding="utf-8", newline="") as text:
+                for path, digest, size in csv.reader(text):
+                    if path in rows:
+                        return record_dir, {}
+                    rows[path] = (digest, size)
+    except (ValueError, csv.Error, UnicodeDecodeError):
+        return record_dir, {}
+    return record_dir, {
+        path: values
+        for path, values in rows.items()
+        # The final unpadded base64 character carries only four digest bits.
+        if re.fullmatch(r"sha256=[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]", values[0])
+        and values[1].isdecimal()
+    }
+
+
 def _relative_path(value: str, what: str) -> Path:
     """Return a safe host path for a wheel-controlled POSIX path."""
     parts = value.split("/")
@@ -104,13 +124,7 @@ def _relative_path(value: str, what: str) -> Path:
     return Path(*parts)
 
 
-def install_wheel(
-    version_major: int,
-    version_minor: int,
-    into: Path,
-    wheel_path: Path,
-    write_record: bool,
-) -> None:
+def install_wheel(version_major: int, version_minor: int, into: Path, wheel_path: Path) -> None:
     """Install a wheel into *into*, following PEP 427 layout conventions.
 
     Accepts either a direct ``.whl`` file or a directory containing exactly
@@ -132,9 +146,16 @@ def install_wheel(
     site_packages.mkdir(parents=True, exist_ok=True)
     bin_dir.mkdir(parents=True, exist_ok=True)
 
-    installed: Dict[Path, Tuple[str, str]] = {}
+    installed: Dict[Path, Optional[Tuple[str, str]]] = {}
 
     with zipfile.ZipFile(wheel_path, "r") as zf:
+        record_dir, record_metadata = _record_metadata(zf)
+        regenerated_markers = ()
+        if record_dir:
+            regenerated_markers = (
+                f"{record_dir}/INSTALLER",
+                f"{record_dir}/REQUESTED",
+            )
         for info in zf.infolist():
             member = info.filename
             member_path = _relative_path(
@@ -166,29 +187,26 @@ def install_wheel(
                 dest = site_packages / member_path
 
             dest.parent.mkdir(parents=True, exist_ok=True)
-            digest = hashlib.sha256()
-            size = 0
+            reusable_record = record_metadata.get(member)
             if is_script:
                 data = zf.read(member)
                 if _has_python_shebang(data):
                     _, _, body = data.partition(b"\n")
                     data = _RELOCATABLE_SHEBANG.encode() + body
+                    reusable_record = None
                 dest.write_bytes(data)
-                digest.update(data)
-                size = len(data)
             else:
                 with zf.open(info, "r") as source, dest.open("wb") as output:
-                    for chunk in iter(lambda: source.read(1024 * 1024), b""):
-                        output.write(chunk)
-                        digest.update(chunk)
-                        size += len(chunk)
+                    shutil.copyfileobj(source, output, length=1024 * 1024)
 
             unix_mode = (info.external_attr >> 16) & 0xFFFF
             if unix_mode & 0o111 or is_script:
                 dest.chmod(dest.stat().st_mode | 0o111)
 
-            if not member.endswith("/RECORD"):
-                installed[dest] = (_sha256(digest.digest()), str(size))
+            if not member.endswith("/RECORD") and member not in regenerated_markers:
+                if reusable_record is not None and reusable_record[1] != str(info.file_size):
+                    reusable_record = None
+                installed[dest] = reusable_record
 
     for ep_path in site_packages.glob("*.dist-info/entry_points.txt"):
         cp = configparser.ConfigParser(strict=False, delimiters=("=",))
@@ -221,39 +239,32 @@ def install_wheel(
                         module,
                     )
                 )
-                content = wrapper.encode()
-                _write_executable(script_path, content)
-                installed[script_path] = (
-                    _sha256(hashlib.sha256(content).digest()),
-                    str(len(content)),
-                )
+                _write_executable(script_path, wrapper.encode())
+                installed[script_path] = None
 
     for record_path in site_packages.glob("*.dist-info/RECORD"):
         dist_info = record_path.parent
 
         installer_path = dist_info / "INSTALLER"
-        installer_content = b"aspect_rules_py"
-        installer_path.write_bytes(installer_content)
+        installer_path.write_text("aspect_rules_py", encoding="utf-8")
 
         requested_path = dist_info / "REQUESTED"
-        requested_content = b""
-        requested_path.write_bytes(requested_content)
+        requested_path.write_bytes(b"")
 
-        installed[installer_path] = (
-            _sha256(hashlib.sha256(installer_content).digest()),
-            str(len(installer_content)),
-        )
-        installed[requested_path] = (
-            _sha256(hashlib.sha256(requested_content).digest()),
-            str(len(requested_content)),
-        )
-
-        if write_record:
-            rows = []
-            for path, (digest, size) in installed.items():
-                rel = os.path.relpath(str(path), str(site_packages)).replace("\\", "/")
-                rows.append((rel, digest, size))
-            _write_record(record_path, rows, site_packages)
+        rows = []
+        for f, reusable_record in installed.items():
+            rel = os.path.relpath(str(f), str(site_packages)).replace("\\", "/")
+            if reusable_record is not None:
+                rows.append((rel, reusable_record[0], reusable_record[1]))
+            else:
+                rows.append((rel, _sha256(f), str(f.stat().st_size)))
+        for meta_file in (installer_path, requested_path):
+            rel = os.path.relpath(str(meta_file), str(site_packages)).replace("\\", "/")
+            rows.append((rel, _sha256(meta_file), str(meta_file.stat().st_size)))
+        rel_record = os.path.relpath(str(record_path), str(site_packages)).replace("\\", "/")
+        rows.append((rel_record, "", ""))
+        with record_path.open("w", newline="", encoding="utf-8") as fh:
+            csv.writer(fh).writerows(rows)
 
 
 def main() -> None:
@@ -277,7 +288,6 @@ def main() -> None:
         args.python_version_minor,
         args.into,
         args.wheel,
-        write_record=not args.patches,
     )
 
     site_packages = (
@@ -349,12 +359,26 @@ def main() -> None:
                 "Post-install patch changed observed native files: {}".format(relative)
             )
 
-    supplied_pyc = (
-        set(site_packages.rglob("*.pyc")) if args.patches or args.compile_pyc else set()
-    )
+    if args.patches:
+        # Patches may add, delete, or rewrite files, so the RECORD written from
+        # wheel metadata during install is now stale. Regenerate before
+        # compileall so RECORD intentionally excludes .pyc.
+        record_paths = set(site_packages.glob("*.dist-info/RECORD"))
+        rows = []
+        for path in sorted(args.into.rglob("*")):
+            if not path.is_file() or path in record_paths:
+                continue
+            rel = os.path.relpath(str(path), str(site_packages)).replace("\\", "/")
+            rows.append((rel, _sha256(path), str(path.stat().st_size)))
+        for record_path in record_paths:
+            rel_record = os.path.relpath(str(record_path), str(site_packages)).replace("\\", "/")
+            with record_path.open("w", newline="", encoding="utf-8") as fh:
+                csv.writer(fh).writerows([*rows, (rel_record, "", "")])
+
     if args.compile_pyc:
         if not args.python:
             raise SystemExit("--python is required when --compile-pyc is set")
+        supplied_pyc = set(site_packages.rglob("*.pyc"))
         # Wheels may retain source for older Python versions. Match pip by
         # retaining compileall's diagnostics while ignoring its aggregate
         # false result; check=True still rejects abnormal interpreter exits.
@@ -373,30 +397,18 @@ def main() -> None:
             check=True,
         )
 
-    if args.patches:
-        # Hash final installed bytes while excluding only newly generated caches.
-        record_paths = set(site_packages.glob("*.dist-info/RECORD"))
-        generated_pyc = set(site_packages.rglob("*.pyc")) - supplied_pyc
-        rows = []
-        for path in sorted(args.into.rglob("*")):
-            if not path.is_file() or path in record_paths or path in generated_pyc:
-                continue
-            relative = os.path.relpath(str(path), str(site_packages)).replace("\\", "/")
-            rows.append((relative, *_hash_file(path)))
-        for record_path in record_paths:
-            _write_record(record_path, rows, site_packages)
-    elif args.compile_pyc and supplied_pyc:
-        for record_path in site_packages.glob("*.dist-info/RECORD"):
-            rows = []
-            with record_path.open(newline="", encoding="utf-8") as record:
-                for relative, digest, size in csv.reader(record):
-                    path = site_packages / relative
-                    if path == record_path:
-                        continue
-                    if path in supplied_pyc:
-                        digest, size = _hash_file(path)
-                    rows.append((relative, digest, size))
-            _write_record(record_path, rows, site_packages)
+        if supplied_pyc:
+            # compileall can replace bytecode that was already listed in RECORD.
+            for record_path in site_packages.glob("*.dist-info/RECORD"):
+                rows = []
+                with record_path.open(newline="", encoding="utf-8") as record:
+                    for relative, digest, size in csv.reader(record):
+                        path = site_packages / relative
+                        if path in supplied_pyc:
+                            digest, size = _sha256(path), str(path.stat().st_size)
+                        rows.append((relative, digest, size))
+                with record_path.open("w", newline="", encoding="utf-8") as record:
+                    csv.writer(record).writerows(rows)
 
 
 if __name__ == "__main__":

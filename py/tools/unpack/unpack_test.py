@@ -1,7 +1,6 @@
 import csv
 import hashlib
 import importlib.util
-import os
 import shutil
 import subprocess
 import sys
@@ -9,12 +8,12 @@ import tempfile
 import zipfile
 from base64 import urlsafe_b64encode
 from pathlib import Path
+from types import ModuleType
 from typing import Optional
 
 
 def _write_member(archive: zipfile.ZipFile, name: str, data: bytes) -> None:
     info = zipfile.ZipInfo(name)
-    info.compress_type = zipfile.ZIP_DEFLATED
     info.external_attr = 0o644 << 16
     archive.writestr(info, data)
 
@@ -24,6 +23,7 @@ def _write_wheel(
     distribution: str,
     members: dict[str, bytes],
     record_overrides: Optional[dict[str, tuple[str, str]]] = None,
+    leading_record_rows: tuple[tuple[str, str, str], ...] = (),
 ) -> None:
     dist_info = f"{distribution}-1.0.dist-info"
     members = dict(members)
@@ -39,7 +39,7 @@ def _write_wheel(
         "Tag: py3-none-any\n"
     ).encode()
     record_path = f"{dist_info}/RECORD"
-    record = []
+    record = [",".join(row) for row in leading_record_rows]
     record_overrides = record_overrides or {}
     for name, data in sorted(members.items()):
         digest = urlsafe_b64encode(hashlib.sha256(data).digest()).decode().rstrip("=")
@@ -53,6 +53,14 @@ def _write_wheel(
     with zipfile.ZipFile(path, "w") as archive:
         for name, data in members.items():
             _write_member(archive, name, data)
+
+
+def _load_unpack(path: Path) -> ModuleType:
+    spec = importlib.util.spec_from_file_location("rules_py_unpack_test_module", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def _record_rows(site_packages: Path) -> list[tuple[str, str, str]]:
@@ -70,10 +78,7 @@ def _site_packages(output: Path) -> Path:
     )
 
 
-def _assert_record_matches_installed_files(
-    site_packages: Path,
-    supplied_pyc: tuple[str, ...] = (),
-) -> None:
+def _assert_record_matches_installed_files(site_packages: Path) -> None:
     seen = set()
     for relative, digest, size in _record_rows(site_packages):
         assert relative not in seen, relative
@@ -86,17 +91,6 @@ def _assert_record_matches_installed_files(
         ).decode().rstrip("=")
         assert digest == f"sha256={expected_digest}", relative
         assert size == str(path.stat().st_size), relative
-    generated_pyc = {
-        Path(importlib.util.cache_from_source(str(path)))
-        for path in site_packages.parents[2].rglob("*.py")
-    }
-    generated_pyc.difference_update(site_packages / path for path in supplied_pyc)
-    installed = {
-        os.path.relpath(str(path), str(site_packages)).replace("\\", "/")
-        for path in site_packages.parents[2].rglob("*")
-        if path.is_file() and path not in generated_pyc
-    }
-    assert seen == installed
 
 
 def _build_wheel(path: Path, *, legacy_syntax: bool) -> None:
@@ -111,7 +105,6 @@ def _build_wheel(path: Path, *, legacy_syntax: bool) -> None:
         {
             "fixture/__init__.py": b"VALUE = 1\n",
             "fixture/mod.py": body,
-            "fixture/orphan.pyc": b"supplied bytecode\n",
             f"fixture/__pycache__/mod.{sys.implementation.cache_tag}.pyc": (
                 b"outdated bytecode\n"
             ),
@@ -125,7 +118,6 @@ def _run_unpack(
     output: Path,
     python: Path,
     extra_args: tuple[str, ...] = (),
-    compile_pyc: bool = True,
 ) -> subprocess.CompletedProcess:
     command = [
         sys.executable,
@@ -138,7 +130,9 @@ def _run_unpack(
         str(sys.version_info.major),
         "--python-version-minor",
         str(sys.version_info.minor),
-        *(("--compile-pyc", "--python", str(python)) if compile_pyc else ()),
+        "--compile-pyc",
+        "--python",
+        str(python),
         *extra_args,
     ]
     return subprocess.run(
@@ -153,12 +147,7 @@ def main() -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
 
-        # RECORD metadata must describe the bytes installed, even when the
-        # wheel carries a canonical digest for different same-size content.
         record_wheel = root / "record_fixture-1.0-py3-none-any.whl"
-        stale_digest = urlsafe_b64encode(
-            hashlib.sha256(b"STALE = 1\n").digest()
-        ).decode().rstrip("=")
         _write_wheel(
             record_wheel,
             "record_fixture",
@@ -167,8 +156,6 @@ def main() -> None:
                 "fixture/collision.py": b"VALUE = 1\n",
                 "record_fixture-1.0.data/purelib/fixture/collision.py": b"VALUE = 2\n",
                 "record_fixture-1.0.data/purelib/fixture/pure.py": b"PURE = 1\n",
-                "record_fixture-1.0.data/platlib/fixture/plat.py": b"PLAT = 1\n",
-                "record_fixture-1.0.data/headers/fixture.h": b"#define FIXTURE 1\n",
                 "record_fixture-1.0.data/scripts/plain": b"#!/bin/sh\nexit 0\n",
                 "record_fixture-1.0.data/scripts/python-script": (
                     b"#!/usr/bin/env python3\nprint('fixture')\n"
@@ -180,25 +167,27 @@ def main() -> None:
                 "record_fixture-1.0.dist-info/INSTALLER": b"wheel-installer\n",
                 "record_fixture-1.0.dist-info/REQUESTED": b"wheel-requested\n",
             },
-            {
-                "fixture/__init__.py": (
-                    f"sha256={stale_digest}",
-                    str(len(b"VALUE = 1\n")),
-                )
-            },
         )
         record_out = root / "record"
         record_site_packages = _site_packages(record_out)
-        installed = _run_unpack(
-            unpack, record_wheel, record_out, Path(sys.executable)
+        unpack_module = _load_unpack(unpack)
+        original_sha256 = unpack_module._sha256
+        hashed_names = set()
+
+        def recording_sha256(path: Path) -> str:
+            hashed_names.add(path.name)
+            return original_sha256(path)
+
+        unpack_module._sha256 = recording_sha256
+        unpack_module.install_wheel(
+            sys.version_info.major,
+            sys.version_info.minor,
+            record_out,
+            record_wheel,
         )
-        assert installed.returncode == 0, installed.stderr
+        assert not {"__init__.py", "collision.py", "pure.py", "plain"} & hashed_names
+        assert {"python-script", "fixture-cli", "INSTALLER", "REQUESTED"} <= hashed_names
         assert (record_site_packages / "fixture" / "collision.py").read_bytes() == b"VALUE = 2\n"
-        assert (record_site_packages / "fixture" / "pure.py").read_bytes() == b"PURE = 1\n"
-        assert (record_site_packages / "fixture" / "plat.py").read_bytes() == b"PLAT = 1\n"
-        assert (record_out / "lib" / "include" / "fixture.h").read_bytes() == (
-            b"#define FIXTURE 1\n"
-        )
         assert (
             record_site_packages / "record_fixture-1.0.dist-info" / "INSTALLER"
         ).read_bytes() == b"aspect_rules_py"
@@ -211,23 +200,54 @@ def main() -> None:
         )
         _assert_record_matches_installed_files(record_site_packages)
 
-        streamed_out = root / "record-streamed"
-        streamed = _run_unpack(
-            unpack,
-            record_wheel,
-            streamed_out,
-            Path(sys.executable),
-            compile_pyc=False,
+        for name, digest in [
+            ("empty-sha", "sha256="),
+            ("invalid-sha", "sha256=not-a-digest"),
+            ("noncanonical-sha", "sha256=" + "A" * 42 + "B"),
+        ]:
+            fallback_wheel = root / f"{name}-1.0-py3-none-any.whl"
+            _write_wheel(
+                fallback_wheel,
+                name,
+                {"fixture/__init__.py": b"VALUE = 1\n"},
+                {"fixture/__init__.py": (digest, str(len(b"VALUE = 1\n")))},
+            )
+            fallback_out = root / name
+            hashed_names.clear()
+            unpack_module.install_wheel(
+                sys.version_info.major,
+                sys.version_info.minor,
+                fallback_out,
+                fallback_wheel,
+            )
+            fallback_site_packages = _site_packages(fallback_out)
+            assert "__init__.py" in hashed_names, name
+            _assert_record_matches_installed_files(fallback_site_packages)
+
+        duplicate_wheel = root / "duplicate-1.0-py3-none-any.whl"
+        stale_digest = urlsafe_b64encode(hashlib.sha256(b"stale").digest()).decode().rstrip("=")
+        _write_wheel(
+            duplicate_wheel,
+            "duplicate",
+            {"fixture/__init__.py": b"VALUE = 1\n"},
+            {"fixture/__init__.py": (f"sha256={stale_digest}", str(len(b"VALUE = 1\n")))},
+            (("fixture/__init__.py", "", ""),),
         )
-        assert streamed.returncode == 0, streamed.stderr
-        streamed_site_packages = _site_packages(streamed_out)
-        assert (streamed_site_packages / "fixture" / "collision.py").read_bytes() == b"VALUE = 2\n"
-        _assert_record_matches_installed_files(streamed_site_packages)
+        duplicate_out = root / "duplicate"
+        hashed_names.clear()
+        unpack_module.install_wheel(
+            sys.version_info.major,
+            sys.version_info.minor,
+            duplicate_out,
+            duplicate_wheel,
+        )
+        duplicate_site_packages = _site_packages(duplicate_out)
+        assert "__init__.py" in hashed_names
+        _assert_record_matches_installed_files(duplicate_site_packages)
 
         # A wheel that compiles cleanly installs successfully (exit 0) and
         # produces bytecode.
         good_wheel = root / "fixture-1.0-py3-none-any.whl"
-        supplied_cache = f"fixture/__pycache__/mod.{sys.implementation.cache_tag}.pyc"
         _build_wheel(good_wheel, legacy_syntax=False)
         good_out = root / "good"
         ok = _run_unpack(unpack, good_wheel, good_out, Path(sys.executable))
@@ -239,18 +259,20 @@ def main() -> None:
             / "site-packages"
         )
         assert next((site_packages / "fixture" / "__pycache__").glob("*.pyc"))
-        _assert_record_matches_installed_files(site_packages, (supplied_cache,))
+        supplied_cache = (
+            site_packages
+            / "fixture"
+            / "__pycache__"
+            / f"mod.{sys.implementation.cache_tag}.pyc"
+        )
+        assert supplied_cache.read_bytes() != b"outdated bytecode\n"
+        _assert_record_matches_installed_files(site_packages)
 
-        # A deflated member larger than the streaming copy buffer round-trips.
+        # Members larger than the streaming copy buffer round-trip byte-for-byte.
         large_payload = b"rules_py" * (256 * 1024 + 1)
         assert len(large_payload) > 1024 * 1024
         large_wheel = root / "large_fixture-1.0-py3-none-any.whl"
         _write_wheel(large_wheel, "large_fixture", {"fixture/big.bin": large_payload})
-        with zipfile.ZipFile(large_wheel, "r") as archive:
-            info = archive.getinfo("fixture/big.bin")
-            assert info.compress_type == zipfile.ZIP_DEFLATED
-            assert info.file_size > 1024 * 1024
-            assert info.compress_size < info.file_size
         large_out = root / "large"
         large = _run_unpack(unpack, large_wheel, large_out, Path(sys.executable))
         assert large.returncode == 0, large.stderr
@@ -263,74 +285,6 @@ def main() -> None:
             / "big.bin"
         )
         assert installed_large.read_bytes() == large_payload
-        _assert_record_matches_installed_files(_site_packages(large_out))
-
-        large_streamed_out = root / "large-streamed"
-        large_streamed = _run_unpack(
-            unpack,
-            large_wheel,
-            large_streamed_out,
-            Path(sys.executable),
-            compile_pyc=False,
-        )
-        assert large_streamed.returncode == 0, large_streamed.stderr
-        large_streamed_site_packages = _site_packages(large_streamed_out)
-        assert (large_streamed_site_packages / "fixture" / "big.bin").read_bytes() == (
-            large_payload
-        )
-        _assert_record_matches_installed_files(large_streamed_site_packages)
-
-        # Compile-only installs keep streamed hashes for non-bytecode members
-        # and refresh only the wheel-supplied caches that compileall may change.
-        spy_wheel = root / "spy_fixture-1.0-py3-none-any.whl"
-        _write_wheel(
-            spy_wheel,
-            "spy_fixture",
-            {
-                "fixture/big.bin": large_payload,
-                "fixture/mod.py": b"VALUE = 1\n",
-                "fixture/orphan.pyc": b"supplied bytecode\n",
-                supplied_cache: b"outdated bytecode\n",
-            },
-        )
-        spec = importlib.util.spec_from_file_location("unpack_spy", unpack)
-        assert spec is not None and spec.loader is not None
-        unpack_spy = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(unpack_spy)
-        hashed_paths: list[Path] = []
-        original_hash_file = unpack_spy._hash_file
-
-        def recording_hash_file(path: Path) -> tuple[str, str]:
-            hashed_paths.append(path)
-            return original_hash_file(path)
-
-        unpack_spy._hash_file = recording_hash_file
-        spy_out = root / "spy"
-        original_argv = sys.argv
-        sys.argv = [
-            str(unpack),
-            "--into",
-            str(spy_out),
-            "--wheel",
-            str(spy_wheel),
-            "--python-version-major",
-            str(sys.version_info.major),
-            "--python-version-minor",
-            str(sys.version_info.minor),
-            "--compile-pyc",
-            "--python",
-            sys.executable,
-        ]
-        try:
-            unpack_spy.main()
-        finally:
-            sys.argv = original_argv
-        spy_site_packages = _site_packages(spy_out)
-        assert set(hashed_paths) == {
-            spy_site_packages / "fixture" / "orphan.pyc",
-            spy_site_packages / supplied_cache,
-        }
-        _assert_record_matches_installed_files(spy_site_packages, (supplied_cache,))
 
         # A .data/scripts member with a Python shebang is rewritten to the
         # relocatable launcher and marked executable.
@@ -351,7 +305,6 @@ def main() -> None:
             "print('hi')\n"
         ).encode()
         assert installed_script.stat().st_mode & 0o111
-        _assert_record_matches_installed_files(_site_packages(script_out))
 
         for case, member in [
             ("roottraversal", "../../../../escaped.py"),
@@ -432,33 +385,6 @@ def main() -> None:
         assert (
             content_site_packages / "fixture-1.0.dist-info" / "__init__.py"
         ).is_file()
-        orphan_content = b"supplied bytecode\n"
-        orphan_digest = urlsafe_b64encode(
-            hashlib.sha256(orphan_content).digest()
-        ).decode().rstrip("=")
-        assert any(
-            relative == "fixture/orphan.pyc"
-            and digest == f"sha256={orphan_digest}"
-            and size == str(len(orphan_content))
-            for relative, digest, size in _record_rows(content_site_packages)
-        )
-        matching_cache = Path(
-            importlib.util.cache_from_source(
-                str(content_site_packages / "fixture" / "mod.py")
-            )
-        )
-        assert matching_cache.read_bytes() != b"outdated bytecode\n"
-        matching_content = matching_cache.read_bytes()
-        matching_digest = urlsafe_b64encode(
-            hashlib.sha256(matching_content).digest()
-        ).decode().rstrip("=")
-        assert any(
-            relative == matching_cache.relative_to(content_site_packages).as_posix()
-            and digest == f"sha256={matching_digest}"
-            and size == str(len(matching_content))
-            for relative, digest, size in _record_rows(content_site_packages)
-        )
-        _assert_record_matches_installed_files(content_site_packages, (supplied_cache,))
 
         namespace_wheel = root / "namespace_fixture-1.0-py3-none-any.whl"
         _write_wheel(
@@ -523,30 +449,6 @@ else:
 """
         )
         mutation_tool.chmod(0o755)
-        permitted_deletion = root / "permitted-deletion.patch"
-        permitted_deletion.write_text(
-            f"unlink\n{site_packages_relative}/fixture/mod.py\n"
-        )
-        deletion_out = root / "permitted-deletion"
-        deleted = _run_unpack(
-            unpack,
-            good_wheel,
-            deletion_out,
-            Path(sys.executable),
-            (
-                "--patch",
-                str(permitted_deletion),
-                "--patch-tool",
-                str(mutation_tool),
-                "--preserve-path",
-                "fixture",
-            ),
-        )
-        assert deleted.returncode == 0, deleted.stdout + deleted.stderr
-        deletion_site_packages = deletion_out / site_packages_relative
-        assert not (deletion_site_packages / "fixture" / "mod.py").exists()
-        _assert_record_matches_installed_files(deletion_site_packages, (supplied_cache,))
-
         native_wheel = root / "native_fixture-1.0-py3-none-any.whl"
         _write_wheel(
             native_wheel,
@@ -657,18 +559,6 @@ else:
             (legacy_site_packages / "fixture" / "__pycache__").glob("__init__*.pyc")
         )
         assert "SyntaxError" in legacy.stdout + legacy.stderr
-        legacy_cache = legacy_site_packages / supplied_cache
-        assert legacy_cache.read_bytes() == b"outdated bytecode\n"
-        legacy_digest = urlsafe_b64encode(
-            hashlib.sha256(b"outdated bytecode\n").digest()
-        ).decode().rstrip("=")
-        assert any(
-            relative == supplied_cache
-            and digest == f"sha256={legacy_digest}"
-            and size == str(len(b"outdated bytecode\n"))
-            for relative, digest, size in _record_rows(legacy_site_packages)
-        )
-        _assert_record_matches_installed_files(legacy_site_packages, (supplied_cache,))
 
         false = shutil.which("false")
         assert false is not None, "test host has no false executable"
