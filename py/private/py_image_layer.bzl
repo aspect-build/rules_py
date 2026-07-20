@@ -1,21 +1,15 @@
 """py_image_layer — analysis-time grouped OCI layers with globally shared pip tars.
 
-Two rule-propagated aspects wire onto `py_image_layer.binary`:
+One rule-propagated aspect wires onto `py_image_layer.binaries`:
 
-  1. `_layer_aspect` — propagates through `deps`/`data`/`actual`. For pip packages it
-     creates aspect-owned per-package tars at the pip target's namespace (globally
-     shared across every rule using that package) for solo whole-groups and subpath
-     splits. Members of multi-member whole groups get NO per-package tar — intermediate
-     elided; they just flag `merge_group` on their _LayerInfo struct. First-party
-     PyInfo targets matched by `py_layer_tier.groups` are captured as `first_party_layers`
-     entries (label, files, group) to be tarred per-group at the binary. Produces
-     `_LayerInfo`.
-
-  2. `_merge_aspect` — runs only on the binary (`attr_aspects = []`), after `_layer_aspect`
-     via `required_aspect_providers`. Reads `_LayerInfo.pip_packages` (full closure),
-     buckets install_dirs by `merge_group`, and emits one bsdtar action per group from
-     raw install_dirs — single pass, no intermediates, content exactly matches closure
-     (no dep leak). Produces `_MergedLayerInfo` declared at the binary's output namespace.
+`_layer_aspect` propagates through `deps`/`data`/`actual`. For pip packages it
+creates aspect-owned per-package tars at the pip target's namespace (globally
+shared across every rule using that package) for solo whole-groups and subpath
+splits. Members of multi-member whole groups get NO per-package tar — intermediate
+elided; they just flag `merge_group` on their _LayerInfo struct. First-party
+PyInfo targets matched by `py_layer_tier.groups` are captured as `first_party_layers`
+entries (label, files, group) to be tarred per-group at the binary. Produces
+`_LayerInfo`.
 
 Layer tier (groups + compression) is carried by the `py_layer_tier` rule which produces
 `PyLayerTierInfo`. Aspects read it via a private `_layer_tier` attr whose default is
@@ -25,10 +19,10 @@ Layer tier (groups + compression) is carried by the `py_layer_tier` rule which p
 Sharing model:
   - Solo whole-group + subpath-split pip tars: action-shared across every rule using
     that package (declared at the pip target's namespace).
-  - Multi-member merged tars: per-binary action, but deterministic content (canonical
+  - Multi-member merged tars: per-rule action, but deterministic content (canonical
     mtree, fixed bsdtar options) → remote CAS / OCI registry dedupe by digest.
-  - First-party grouped tars: per-binary action, one tar per group, collected from
-    matched py_library targets in the binary's dep closure.
+  - First-party grouped tars: per-rule action, one tar per group, collected from
+    matched py_library targets in the binaries' dep closures.
   - Ungrouped pip packages: squashed by the rule into one per-rule tar.
 """
 
@@ -224,7 +218,7 @@ def _build_pip_layers(ctx, plan, label, install_dir):
 
     Returns (layers, merge_group): layers is a tuple of struct(tar, group)
     entries for this package; merge_group is set (and layers is empty) iff
-    the package is deferred to `_merge_aspect`.
+    the package is deferred to the image-layer rule.
     """
     subpath_for_this = plan.subpath_groups.get(label, {})
     whole_group = plan.whole_groups.get(label, None)
@@ -506,76 +500,6 @@ _layer_aspect = aspect(
     provides = [_LayerInfo],
 )
 
-_MergedLayerInfo = provider(
-    doc = "Private: closure-filtered merged tars for multi-member groups, produced by _merge_aspect.",
-    fields = {
-        "merged_tars": "dict[group_name, File] — one merged tar per multi-member group.",
-    },
-)
-
-def _merge_aspect_impl(target, ctx):
-    info = target[_LayerInfo]
-
-    bucket = {}
-    seen = {}
-    for pkg in info.pip_packages.to_list():
-        if pkg.label in seen:
-            continue
-        seen[pkg.label] = True
-        if pkg.merge_group != None:
-            bucket.setdefault(pkg.merge_group, []).append(pkg.files)
-
-    if not bucket:
-        return [_MergedLayerInfo(merged_tars = {})]
-
-    bsdtar, bsdtar_files = _tar_toolchain(ctx)
-    plan = ctx.attr._layer_tier[PyLayerTierInfo]
-
-    merged_tars = {}
-    for group_name in sorted(bucket):
-        install_dirs = bucket[group_name]
-        algorithm, level, ext = _compression_for(plan, group_name)
-        tar_out = ctx.actions.declare_file("_merged_pip_layer_{}{}".format(group_name, ext))
-        _run_tar_action(
-            ctx,
-            bsdtar,
-            bsdtar_files,
-            tar_out,
-            depset(transitive = install_dirs),
-            _pkg_file_to_mtree,
-            algorithm,
-            level,
-            {},
-            "PyImageMergedLayer",
-            "Merging %d pip packages into %s[%s]" % (len(install_dirs), target.label, group_name),
-        )
-        merged_tars[group_name] = tar_out
-
-    return [_MergedLayerInfo(merged_tars = merged_tars)]
-
-_merge_aspect = aspect(
-    implementation = _merge_aspect_impl,
-    attr_aspects = [],
-    attrs = {
-        "_layer_tier": attr.label(
-            default = "//py:layer_tier",
-            providers = [PyLayerTierInfo],
-        ),
-        "_awk_script": attr.label(
-            default = "//py/private:modify_mtree.awk",
-            allow_single_file = True,
-        ),
-        "_awk": attr.label(
-            default = "@gawk",
-            cfg = "exec",
-            executable = True,
-        ),
-    },
-    toolchains = [_TAR_TOOLCHAIN],
-    required_aspect_providers = [[_LayerInfo]],
-    provides = [_MergedLayerInfo],
-)
-
 def _apply_strip_prefix(sp, strip_prefix, root):
     prefix = strip_prefix.replace("\\/", "/")
     if sp == prefix:
@@ -585,9 +509,11 @@ def _apply_strip_prefix(sp, strip_prefix, root):
         return "." + root + sp[len(prefix):]
     return "./app.runfiles/_main/" + sp
 
-def _file_to_mtree_entry(f, mode = "0644", strip_prefix = "", root = "/", maybe_symlink = False):
+def _file_to_mtree_entry(f, mode = "0644", strip_prefix = "", root = "/", maybe_symlink = False, executable_short_path = "", executable_dst = ""):
     sp = f.short_path
-    if sp == "_repo_mapping":
+    if executable_dst and sp == executable_short_path:
+        dst = executable_dst
+    elif sp == "_repo_mapping":
         # Bazel synthesizes a top-level `_repo_mapping` runfile (no `_main/`
         # prefix); replicate that placement so runfiles.bash can find it.
         dst = "./app.runfiles/_repo_mapping"
@@ -615,15 +541,23 @@ def _file_to_mtree_entry(f, mode = "0644", strip_prefix = "", root = "/", maybe_
         f.path.replace(" ", "\\040"),
     )
 
-def _source_file_to_mtree(f, dir_expander, strip_prefix, root, maybe_symlink):
+def _source_file_to_mtree(f, dir_expander, strip_prefix, root, maybe_symlink, executable_short_path = "", executable_dst = ""):
     # 0755 throughout: keeps launcher/interpreter/venv shims executable; Bazel
     # doesn't expose per-input source mode for us to propagate.
     if f.is_directory:
         return [
-            _file_to_mtree_entry(child, "0755", strip_prefix, root, maybe_symlink)
+            _file_to_mtree_entry(child, "0755", strip_prefix, root, maybe_symlink, executable_short_path, executable_dst)
             for child in dir_expander.expand(f)
         ]
-    return _file_to_mtree_entry(f, "0755", strip_prefix, root, maybe_symlink)
+    return _file_to_mtree_entry(f, "0755", strip_prefix, root, maybe_symlink, executable_short_path, executable_dst)
+
+def _make_source_map(binary_short_path, strip_prefix, root, maybe_symlink, executable_dst = ""):
+    effective_strip_prefix = strip_prefix or binary_short_path
+
+    def _source_map(f, d):
+        return _source_file_to_mtree(f, d, effective_strip_prefix, root, maybe_symlink, binary_short_path, executable_dst)
+
+    return _source_map
 
 def _user_file_to_mtree(f, dir_expander):
     if f.is_directory:
@@ -802,21 +736,33 @@ def _declare_group_tar(ctx, bsdtar, bsdtar_files, out_name, group_name, files, m
     return tar_out
 
 def _py_image_layer_impl(ctx):
-    info = ctx.attr.binary[_LayerInfo]
-    merged = ctx.attr.binary[_MergedLayerInfo]
+    binaries = ctx.attr.binaries
+    infos = [binary[_LayerInfo] for binary in binaries]
     bsdtar, bsdtar_files = _tar_toolchain(ctx)
 
-    pkg_by_label = {}
-    for pkg in info.pip_packages.to_list():
-        if pkg.label not in pkg_by_label:
-            pkg_by_label[pkg.label] = pkg
-    all_pkgs = pkg_by_label.values()
+    # Labels are normalized for tier lookup and can collide across lock universes.
+    # Concrete install-tree paths identify the configured wheel artifacts.
+    pkg_by_files = {}
+    for info in infos:
+        for pkg in info.pip_packages.to_list():
+            key = tuple(sorted([f.path for f in pkg.files.to_list()]))
+            if key not in pkg_by_files:
+                pkg_by_files[key] = pkg
+    all_pkgs = pkg_by_files.values()
+    pip_labels = {pkg.label: True for pkg in all_pkgs}
 
     # `_platform_cfg` rewrites the `//py:layer_tier` flag from `attr.layer_tier`,
     # so `_layer_tier` always resolves to the effective tier.
     plan = ctx.attr._layer_tier[PyLayerTierInfo]
     root = plan.root
     strip_prefix = plan.strip_prefix
+    launcher_dir = ctx.attr.launcher_dir
+    if len(binaries) > 1 and not launcher_dir:
+        fail("py_image_layer with multiple binaries requires launcher_dir")
+    if launcher_dir and not launcher_dir.startswith("/"):
+        fail("py_image_layer.launcher_dir must be an absolute image path")
+    if launcher_dir != "/":
+        launcher_dir = launcher_dir.rstrip("/")
 
     # 3p pip layers are action-shared across the graph and hard-code their
     # destination under `./app.runfiles/<repo>/...`, so the consumer's source
@@ -824,24 +770,12 @@ def _py_image_layer_impl(ctx):
     # to find them. Default the binary's `short_path` to `strip_prefix` so the
     # natural runfile layout maps onto `./app.runfiles/_main/...` without each
     # caller wiring it up.
-    binary_short_path = ctx.attr.binary[DefaultInfo].files_to_run.executable.short_path
-    if not strip_prefix:
-        strip_prefix = binary_short_path
-
     all_tars = []
-
-    # Without a dedicated interpreter tar, repo-rule-staged symlinks like
-    # rules_python's `bin/python -> python3.11` end up in the source layer
-    # and need awk's readlink scan to be preserved.
-    source_maybe_symlink = info.interpreter_layer == None
-
-    def _source_map(f, d):
-        return _source_file_to_mtree(f, d, strip_prefix, root, source_maybe_symlink)
 
     rule_group_names = {gname: True for gname in ctx.attr.groups.values()}
     for dep, group_name in ctx.attr.groups.items():
         dep_label = normalize_label(str(dep.label))
-        if dep_label in pkg_by_label:
+        if dep_label in pip_labels:
             continue
         tar_out = _declare_group_tar(
             ctx,
@@ -856,20 +790,17 @@ def _py_image_layer_impl(ctx):
         all_tars.append(tar_out)
 
     fp_by_group = {}
-    seen_fp_labels = {}
-    for entry in info.first_party_layers.to_list():
-        if entry.label in seen_fp_labels:
-            continue
-        seen_fp_labels[entry.label] = True
-        fp_by_group.setdefault(entry.group, []).append(entry.files)
+    for info in infos:
+        for entry in info.first_party_layers.to_list():
+            fp_by_group.setdefault(entry.group, []).append(entry.files)
 
-    # Slot the pre-built, action-shared interpreter tar into the fp ordering
-    # under its group name so users see a stable per-group sort regardless of
-    # where the tar was declared.
-    prebuilt_group_tars = {}
-    if info.interpreter_layer != None:
-        prebuilt_group_tars[info.interpreter_layer.group] = info.interpreter_layer.tar
-        fp_by_group.setdefault(info.interpreter_layer.group, [])
+    # Interpreter tars are declared at the configured toolchain, so identical
+    # runtimes action-share while distinct interpreter artifacts are retained.
+    interpreter_tars = {}
+    for info in infos:
+        if info.interpreter_layer != None:
+            tar = info.interpreter_layer.tar
+            interpreter_tars[tar.path] = tar
 
     for group_name in sorted(fp_by_group):
         if group_name in rule_group_names:
@@ -879,27 +810,47 @@ def _py_image_layer_impl(ctx):
                  "deps with a different file layout than first-party sources, so they " +
                  "cannot share a tar.") % group_name,
             )
-        if group_name in prebuilt_group_tars:
-            tar_out = prebuilt_group_tars[group_name]
-        else:
-            tar_out = _declare_group_tar(
-                ctx,
-                bsdtar,
-                bsdtar_files,
-                "{}_{}.tar.gz".format(ctx.attr.name, group_name),
-                group_name,
-                depset(transitive = fp_by_group[group_name]),
-                _source_map,
-                "Creating first-party layer %s[%s]" % (ctx.label, group_name),
-            )
+        tar_out = _declare_group_tar(
+            ctx,
+            bsdtar,
+            bsdtar_files,
+            "{}_{}.tar.gz".format(ctx.attr.name, group_name),
+            group_name,
+            depset(transitive = fp_by_group[group_name]),
+            _make_source_map(binaries[0][DefaultInfo].files_to_run.executable.short_path, strip_prefix, root, any([info.interpreter_layer == None for info in infos])),
+            "Creating first-party layer %s[%s]" % (ctx.label, group_name),
+        )
         all_tars.append(tar_out)
 
+    all_tars.extend(interpreter_tars.values())
+
+    pip_tars = {}
+    merged = {}
     for pkg in all_pkgs:
         for layer in pkg.layers:
-            all_tars.append(layer.tar)
+            pip_tars[layer.tar.path] = layer.tar
+        if pkg.merge_group != None:
+            merged.setdefault(pkg.merge_group, []).append(pkg.files)
 
-    for _group_name, merged_tar in sorted(merged.merged_tars.items()):
-        all_tars.append(merged_tar)
+    all_tars.extend(pip_tars.values())
+
+    for group_name in sorted(merged):
+        algorithm, level, ext = _compression_for(plan, group_name)
+        tar_out = ctx.actions.declare_file("{}_merged_pip_layer_{}{}".format(ctx.attr.name, group_name, ext))
+        _run_tar_action(
+            ctx,
+            bsdtar,
+            bsdtar_files,
+            tar_out,
+            depset(transitive = merged[group_name]),
+            _pkg_file_to_mtree,
+            algorithm,
+            level,
+            {},
+            "PyImageMergedLayer",
+            "Merging %d pip packages into %s[%s]" % (len(merged[group_name]), ctx.label, group_name),
+        )
+        all_tars.append(tar_out)
 
     ungrouped_pkgs = [p for p in all_pkgs if len(p.layers) == 0 and p.merge_group == None]
     if ungrouped_pkgs:
@@ -919,17 +870,41 @@ def _py_image_layer_impl(ctx):
     # snapshot here to avoid double-bookkeeping during construction.
     dep_tars = list(all_tars)
 
-    source_tar = _declare_group_tar(
-        ctx,
-        bsdtar,
-        bsdtar_files,
-        "{}_default.tar.gz".format(ctx.attr.name),
-        "default",
-        info.source_files,
-        _source_map,
-        "Creating source layer for %s" % ctx.label,
-    )
-    all_tars.append(source_tar)
+    source_tars = []
+    launcher_names = {}
+    runfile_paths = {}
+    for binary, info in zip(binaries, infos):
+        executable = binary[DefaultInfo].files_to_run.executable
+        launcher_name = executable.basename
+        if launcher_dir:
+            if launcher_name in launcher_names:
+                fail("duplicate py_image_layer launcher basename: {}".format(launcher_name))
+            launcher_names[launcher_name] = True
+
+        # Source tars share one runfiles root. Two different artifacts mapped to
+        # the same runfile (especially `_repo_mapping`) would be order-dependent.
+        for f in info.source_files.to_list():
+            previous = runfile_paths.get(f.short_path, None)
+            if previous != None and previous != f.path:
+                fail("py_image_layer runfile collision at {}: {} and {}".format(f.short_path, previous, f.path))
+            runfile_paths[f.short_path] = f.path
+
+        executable_dst = "." + launcher_dir.rstrip("/") + "/" + launcher_name if launcher_dir else ""
+        source_name = "{}_default.tar.gz".format(ctx.attr.name)
+        if len(binaries) > 1:
+            source_name = "{}_{}_default.tar.gz".format(ctx.attr.name, launcher_name)
+        source_tar = _declare_group_tar(
+            ctx,
+            bsdtar,
+            bsdtar_files,
+            source_name,
+            "default",
+            info.source_files,
+            _make_source_map(executable.short_path, strip_prefix, root, info.interpreter_layer == None, executable_dst),
+            "Creating source layer for %s[%s]" % (ctx.label, binary.label),
+        )
+        all_tars.append(source_tar)
+        source_tars.append(source_tar)
 
     validation = ctx.actions.declare_file(ctx.attr.name + "_validation.log")
     validation_args = ctx.actions.args()
@@ -952,7 +927,7 @@ def _py_image_layer_impl(ctx):
         DefaultInfo(files = depset(all_tars)),
         OutputGroupInfo(
             deps = depset(dep_tars),
-            sources = depset([source_tar]),
+            sources = depset(source_tars),
             _validation = depset([validation]),
         ),
     ]
@@ -960,9 +935,14 @@ def _py_image_layer_impl(ctx):
 _py_image_layer = rule(
     implementation = _py_image_layer_impl,
     attrs = {
-        "binary": attr.label(
+        "binaries": attr.label_list(
             mandatory = True,
-            aspects = [_layer_aspect, _merge_aspect],
+            allow_empty = False,
+            aspects = [_layer_aspect],
+        ),
+        "launcher_dir": attr.string(
+            default = "",
+            doc = "Absolute image directory for binary launchers. Required with multiple binaries.",
         ),
         "groups": attr.label_keyed_string_dict(default = {}),
         "group_execution_requirements": attr.string_list_dict(default = {}),
@@ -1005,8 +985,10 @@ def py_image_layer(
         warn_layer_count = 90,
         platform = None,
         layer_tier = None,
+        additional_binaries = [],
+        launcher_dir = "",
         **kwargs):
-    """Create OCI-compatible tars from a py_binary or py_venv target.
+    """Create OCI-compatible tars from one or more py_binary targets.
 
     Pip-package grouping + compression is resolved from the `//py:layer_tier`
     label_flag. Override globally with `--//py:layer_tier=//path:custom_tier`,
@@ -1020,14 +1002,14 @@ def py_image_layer(
          binary's dep closure).
       3. Solo-group and subpath-split pip tars — built by `_layer_aspect` at each pip
          target's own namespace; globally shared across every rule using that package.
-      4. Multi-member merged tars — one per group, built by `_merge_aspect` at the
-         binary's namespace from the closure-filtered union of member install_dirs.
+      4. Multi-member merged tars — one per group from the closure-filtered union
+         of member install_dirs across all binaries.
       5. Ungrouped pip packages → one squashed rule-created tar.
       6. Remaining first-party Python source files → the "default" layer.
 
     Args:
         name: Name of the generated target.
-        binary: A py_venv or py_binary target.
+        binary: A py_binary target.
         groups: Maps a NON-PIP dep label to a group name. Each gets its own rule-created
             tar. All pip-package grouping (whole-package, subpath, multi-member) belongs
             in py_layer_tier — subpath glob keys passed here fail loudly.
@@ -1042,6 +1024,10 @@ def py_image_layer(
         layer_tier: Optional py_layer_tier target pinned for this rule. Sets the
             `@aspect_rules_py//py:layer_tier` label_flag via the rule transition,
             overriding any command-line value for this rule's subgraph.
+        additional_binaries: Additional py_binary targets whose dependency and
+            source layers are included in the image.
+        launcher_dir: Absolute image directory for the binary launchers. Required
+            with additional_binaries. Set RUNFILES_DIR=/app.runfiles in the image.
         **kwargs: Forwarded to inner rule.
     """
     tags = kwargs.pop("tags", []) + ["manual"]
@@ -1055,7 +1041,8 @@ def py_image_layer(
 
     _py_image_layer(
         name = name,
-        binary = binary,
+        binaries = [binary] + additional_binaries,
+        launcher_dir = launcher_dir,
         groups = groups,
         group_execution_requirements = group_execution_requirements,
         group_compress_levels = group_compress_levels,

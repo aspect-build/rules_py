@@ -1,9 +1,10 @@
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_layer_tier", "py_test")
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_layer_tier", "py_library", "py_test")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@container_structure_test//:defs.bzl", "container_structure_test")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load")
 load("//tools:asserts.bzl", "assert_tar_listing")
+load(":image_layer_analysis_tests.bzl", "image_layer_analysis_test_suite")
 
 platform(
     name = "aarch64_linux",
@@ -98,9 +99,9 @@ py_image_layer(
 )
 
 # Multi-member group coverage: two pip packages mapped to the same group name
-# go through the _merge_aspect path (no per-package tars; single merged tar
-# from both install_dirs). Binary also adds pyproject_hooks to make the
-# closure non-trivial. Zstd-compressed to exercise _compression_ext.
+# produce a single merged tar from both install_dirs. Binary also adds
+# pyproject_hooks to make the closure non-trivial. Zstd-compressed to exercise
+# _compression_ext.
 py_binary(
     name = "my_app_multi_bin",
     srcs = ["__main__.py"],
@@ -130,6 +131,70 @@ py_image_layer(
     binary = ":my_app_multi_bin",
     layer_tier = ":my_app_multi_tier",
 )
+
+# Exercise the actual multi-launcher flow with separate lock universes and two
+# interpreter versions. colorama has the same normalized label in both
+# closures, but distinct 3.11/3.12 install trees; both launchers must resolve
+# their own venv and the unioned dependency layers from the shared runfiles tree.
+py_library(
+    name = "worker_support",
+    srcs = ["worker_support.py"],
+    imports = ["."],
+)
+
+py_binary(
+    name = "my_app_worker_bin",
+    srcs = ["worker.py"],
+    dep_group = "venv_images",
+    python_version = "3.12",
+    deps = [
+        ":worker_support",
+        "@pypi_oci_py_venv_image_layer//colorama",
+        "@pypi_oci_py_venv_image_layer//pyproject_hooks",
+    ],
+)
+
+py_layer_tier(
+    name = "my_app_launchers_tier",
+    groups = {
+        "//oci/py_image_layer:worker_support": "worker_support",
+        "@pip//colorama": "third_party",
+        "@pip//pyproject_hooks": "third_party",
+    },
+    interpreter_group = "interpreter",
+)
+
+py_image_layer(
+    name = "my_app_launchers_layers",
+    additional_binaries = [":my_app_worker_bin"],
+    binary = ":my_app_bin",
+    launcher_dir = "/app/bin",
+    layer_tier = ":my_app_launchers_tier",
+)
+
+oci_image(
+    name = "launchers_image",
+    base = "@ubuntu",
+    env = {"RUNFILES_DIR": "/app.runfiles"},
+    tars = [":my_app_launchers_layers"],
+)
+
+platform_transition_filegroup(
+    name = "amd64_launchers_image",
+    srcs = [":launchers_image"],
+    target_platform = ":x86_64_linux",
+)
+
+container_structure_test(
+    name = "launchers_image_command_test",
+    args = ["--verbosity=debug"],
+    configs = ["launchers_image_command_test.yaml"],
+    image = ":amd64_launchers_image",
+    platform = "linux/amd64",
+    tags = ["requires-docker"],
+)
+
+image_layer_analysis_test_suite()
 
 platform_transition_filegroup(
     name = "platform_layers",

@@ -1,0 +1,2 @@
+def support():
+    return "grouped"
