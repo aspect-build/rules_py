@@ -4,7 +4,8 @@ load("@aspect_rules_py//py:defs.bzl", "py_test")
 # `source = { git = "https://github.com/benjaminp/six?tag=1.17.0#<commit>" }`,
 # exercising parse_git_url on a real uv-generated URL, the GitHub
 # git-to-http_archive conversion in collect_sdists, and the source build of
-# the resulting archive.
+# the resulting archive. cowsay is forced to build from source using that
+# locked git dependency as an extra build requirement.
 py_test(
     name = "test",
     srcs = ["__test__.py"],
@@ -12,6 +13,7 @@ py_test(
     main = "__test__.py",
     python_version = "3.11",
     deps = [
+        "@pypi_git_source//cowsay",
         "@pypi_git_source//six",
     ],
 )
