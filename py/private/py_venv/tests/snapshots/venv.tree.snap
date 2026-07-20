@@ -113,14 +113,6 @@ if TYPE_CHECKING:
         def get_option_dict(self, command: str) -> MutableMapping[str, Tuple[str, str]]: ...
 
 
-# Make wheel-declared console scripts reachable via `subprocess.run("name", ...)`.
-# Use dirname(sys.executable) so this works on Windows too, where the scripts
-# dir is `Scripts/` rather than `bin/`.
-_venv_bin = os.path.dirname(sys.executable)
-if _venv_bin not in os.environ.get("PATH", "").split(os.pathsep):
-    os.environ["PATH"] = _venv_bin + os.pathsep + os.environ.get("PATH", "")
-del _venv_bin
-
 VIRTUALENV_PATCH_FILE = os.path.join(__file__)
 
 
@@ -216,6 +208,7 @@ LINK lib/python3.9/site-packages/cowsay-6.1.dist-info -> ../../../../../../../..
 FILE lib/python3.9/site-packages/venv.pth
 ---
 ../../../../../../../../..
+import os, sys; _venv_bin = os.path.dirname(sys.executable); _path = os.environ.get("PATH", ""); os.environ["PATH"] = _path if _venv_bin in _path.split(os.pathsep) else _venv_bin + os.pathsep + _path; del _venv_bin, _path
 ../../../../../../../../../_main
 ../../../../../../../../../+uv+project__aspect_rules_py
 ---
