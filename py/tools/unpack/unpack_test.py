@@ -152,6 +152,8 @@ def main() -> None:
             "record_fixture",
             {
                 "fixture/__init__.py": b"VALUE = 1\n",
+                "fixture/collision.py": b"VALUE = 1\n",
+                "record_fixture-1.0.data/purelib/fixture/collision.py": b"VALUE = 2\n",
                 "record_fixture-1.0.data/purelib/fixture/pure.py": b"PURE = 1\n",
                 "record_fixture-1.0.data/platlib/fixture/plat.py": b"PLAT = 1\n",
                 "record_fixture-1.0.data/headers/fixture.h": b"#define FIXTURE 1\n",
@@ -179,6 +181,7 @@ def main() -> None:
             unpack, record_wheel, record_out, Path(sys.executable)
         )
         assert installed.returncode == 0, installed.stderr
+        assert (record_site_packages / "fixture" / "collision.py").read_bytes() == b"VALUE = 2\n"
         assert (record_site_packages / "fixture" / "pure.py").read_bytes() == b"PURE = 1\n"
         assert (record_site_packages / "fixture" / "plat.py").read_bytes() == b"PLAT = 1\n"
         assert (record_out / "lib" / "include" / "fixture.h").read_bytes() == (

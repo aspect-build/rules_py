@@ -21,7 +21,7 @@ import subprocess
 import zipfile
 from base64 import urlsafe_b64encode
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 from urllib.parse import unquote
 
 _RELOCATABLE_SHEBANG = """\
@@ -37,6 +37,26 @@ _WINDOWS_RESERVED = {"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$"} | {
 
 def _sha256(digest: bytes) -> str:
     return "sha256=" + urlsafe_b64encode(digest).decode().rstrip("=")
+
+
+def _hash_file(path: Path) -> Tuple[str, str]:
+    digest = hashlib.sha256()
+    size = 0
+    with path.open("rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(chunk)
+            size += len(chunk)
+    return _sha256(digest.digest()), str(size)
+
+
+def _write_record(
+    record_path: Path,
+    rows: Iterable[Tuple[str, str, str]],
+    site_packages: Path,
+) -> None:
+    relative = os.path.relpath(str(record_path), str(site_packages)).replace("\\", "/")
+    with record_path.open("w", newline="", encoding="utf-8") as record:
+        csv.writer(record).writerows([*rows, (relative, "", "")])
 
 
 def _has_python_shebang(data: bytes) -> bool:
@@ -84,7 +104,13 @@ def _relative_path(value: str, what: str) -> Path:
     return Path(*parts)
 
 
-def install_wheel(version_major: int, version_minor: int, into: Path, wheel_path: Path) -> None:
+def install_wheel(
+    version_major: int,
+    version_minor: int,
+    into: Path,
+    wheel_path: Path,
+    write_record: bool,
+) -> None:
     """Install a wheel into *into*, following PEP 427 layout conventions.
 
     Accepts either a direct ``.whl`` file or a directory containing exactly
@@ -222,14 +248,12 @@ def install_wheel(version_major: int, version_minor: int, into: Path, wheel_path
             str(len(requested_content)),
         )
 
-        rows = []
-        for path, (digest, size) in installed.items():
-            rel = os.path.relpath(str(path), str(site_packages)).replace("\\", "/")
-            rows.append((rel, digest, size))
-        rel_record = os.path.relpath(str(record_path), str(site_packages)).replace("\\", "/")
-        rows.append((rel_record, "", ""))
-        with record_path.open("w", newline="", encoding="utf-8") as fh:
-            csv.writer(fh).writerows(rows)
+        if write_record:
+            rows = []
+            for path, (digest, size) in installed.items():
+                rel = os.path.relpath(str(path), str(site_packages)).replace("\\", "/")
+                rows.append((rel, digest, size))
+            _write_record(record_path, rows, site_packages)
 
 
 def main() -> None:
@@ -253,6 +277,7 @@ def main() -> None:
         args.python_version_minor,
         args.into,
         args.wheel,
+        write_record=not args.patches,
     )
 
     site_packages = (
@@ -332,18 +357,10 @@ def main() -> None:
         for path in sorted(args.into.rglob("*")):
             if not path.is_file() or path in record_paths:
                 continue
-            digest = hashlib.sha256()
-            size = 0
-            with path.open("rb") as source:
-                for chunk in iter(lambda: source.read(1024 * 1024), b""):
-                    digest.update(chunk)
-                    size += len(chunk)
             relative = os.path.relpath(str(path), str(site_packages)).replace("\\", "/")
-            rows.append((relative, _sha256(digest.digest()), str(size)))
+            rows.append((relative, *_hash_file(path)))
         for record_path in record_paths:
-            relative = os.path.relpath(str(record_path), str(site_packages)).replace("\\", "/")
-            with record_path.open("w", newline="", encoding="utf-8") as record:
-                csv.writer(record).writerows([*rows, (relative, "", "")])
+            _write_record(record_path, rows, site_packages)
 
     if args.compile_pyc:
         if not args.python:
