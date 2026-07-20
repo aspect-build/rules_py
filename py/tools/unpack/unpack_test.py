@@ -108,6 +108,9 @@ def _build_wheel(path: Path, *, legacy_syntax: bool) -> None:
             "fixture/__init__.py": b"VALUE = 1\n",
             "fixture/mod.py": body,
             "fixture/orphan.pyc": b"supplied bytecode\n",
+            f"fixture/__pycache__/mod.{sys.implementation.cache_tag}.pyc": (
+                b"outdated bytecode\n"
+            ),
         },
     )
 
@@ -219,6 +222,7 @@ def main() -> None:
             / "site-packages"
         )
         assert next((site_packages / "fixture" / "__pycache__").glob("*.pyc"))
+        _assert_record_matches_installed_files(site_packages)
 
         # A deflated member larger than the streaming copy buffer round-trips.
         large_payload = b"rules_py" * (256 * 1024 + 1)
@@ -352,6 +356,16 @@ def main() -> None:
             and digest == f"sha256={orphan_digest}"
             and size == str(len(orphan_content))
             for relative, digest, size in _record_rows(content_site_packages)
+        )
+        matching_cache = Path(
+            importlib.util.cache_from_source(
+                str(content_site_packages / "fixture" / "mod.py")
+            )
+        )
+        assert matching_cache.read_bytes() != b"outdated bytecode\n"
+        assert not any(
+            relative == matching_cache.relative_to(content_site_packages).as_posix()
+            for relative, _, _ in _record_rows(content_site_packages)
         )
         _assert_record_matches_installed_files(content_site_packages)
 
