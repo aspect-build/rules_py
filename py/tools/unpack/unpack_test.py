@@ -166,6 +166,7 @@ def _run_unpack(
 
 def main() -> None:
     unpack = Path(sys.argv[1])
+    sys.path.insert(0, str(unpack.parent.resolve()))
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
 
@@ -678,20 +679,17 @@ else:
         assert accepted.returncode == 0, accepted.stdout + accepted.stderr
 
         functions = runpy.run_path(str(unpack.with_name("exclude_glob.py")))
+        vectors = runpy.run_path(str(unpack.with_name("exclude_glob_test_vectors.bzl")))
         parse = functions["parse"]
         excluded = functions["excluded"]
-        for path, glob, expected in [
-            ("demo/tests/test_root.py", "demo/**/tests/**", True),
-            ("demo/nested/tests/test_nested.py", "demo/**/tests/**", True),
-            ("demo/nested/not_tests/test_nested.py", "demo/**/tests/**", False),
-            ("google/api/annotations.proto", "google/**/*.proto", True),
-            ("google/api/annotations_pb2.py", "google/**/*.proto", False),
-            ("demo/data/sample,1.csv", "demo/data/sample,*.csv", True),
-            ("demo/data/acb.txt", "demo/data/a*b*c.txt", False),
-            ("demo/sdk-core/bin/tool", "demo/sdk-core", True),
-            ("../../../bin/demo", "**", False),
-        ]:
+        for path, glob, expected in vectors["EXCLUDE_GLOB_VECTORS"]:
             assert excluded(tuple(path.split("/")), [parse(glob)]) == expected, (path, glob)
+        assert not excluded(("..", "..", "..", "bin", "demo"), [parse("**")])
+        for path, glob, expected in vectors["RECORD_PATH_EXCLUDE_VECTORS"]:
+            assert unpack_module._path_excluded(Path(path), [parse(glob)], True) == expected, (
+                path,
+                glob,
+            )
 
         filter_wheel = root / "demo-1.0-py3-none-any.whl"
         compiled_source = root / "compiled_source.py"
@@ -884,6 +882,16 @@ else:
             )
             assert rejected.returncode != 0, glob
             assert "expected exactly one installed RECORD, found 0" in rejected.stderr
+
+        removed_metadata = _run_unpack(
+            unpack,
+            filter_wheel,
+            root / "removed-metadata",
+            Path(sys.executable),
+            ("--exclude-glob=demo-1.0.dist-info/METADATA",),
+        )
+        assert removed_metadata.returncode != 0, removed_metadata.stderr
+        assert "wheel exclusions removed installed METADATA" in removed_metadata.stderr
 
         for name, wheel, operation, changed_path, preserved_path, expected_error in [
             (

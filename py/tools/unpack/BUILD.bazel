@@ -1,8 +1,10 @@
+load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load("//py:defs.bzl", "py_test")
 
 exports_files(
     [
         "exclude_glob.py",
+        "exclude_glob_test_vectors.bzl",
         "unpack.py",
     ],
     visibility = ["//visibility:public"],
@@ -15,11 +17,18 @@ py_test(
     args = ["$(rootpath :unpack.py)"],
     data = [
         ":exclude_glob.py",
+        ":exclude_glob_test_vectors.bzl",
         ":unpack.py",
     ],
     target_compatible_with = select({
         "@platforms//os:windows": ["@platforms//:incompatible"],
         "//conditions:default": [],
     }),
+    visibility = ["//visibility:public"],
+)
+
+bzl_library(
+    name = "exclude_glob_test_vectors",
+    srcs = ["exclude_glob_test_vectors.bzl"],
     visibility = ["//visibility:public"],
 )

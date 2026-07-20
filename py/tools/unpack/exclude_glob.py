@@ -3,6 +3,8 @@
 import argparse
 
 
+# Keep the parser and matcher in sync with uv/private/whl_install/repository.bzl;
+# exclude_glob_test_vectors.bzl exercises their shared valid inputs.
 def parse(value):
     parts = value.split("/")
     if (
@@ -63,6 +65,8 @@ def _matches(path, pattern):
 
 
 def excluded(path, patterns):
+    # Repository topology later drops escaping RECORD paths; the disk sweep only
+    # visits site-packages, but keep this guard for direct callers.
     return bool(path) and path[0] not in ("", ".", "..") and any(
         _matches(path, pattern + ("**",)) for pattern in patterns
     )

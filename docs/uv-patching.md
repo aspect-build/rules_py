@@ -220,7 +220,8 @@ uv.override_package(
   path segments. Matching a directory removes its subtree. Exclusions must
   preserve every top-level import root; for example, `numpy/**/tests/**`
   removes NumPy's bundled tests without retaining their compiled bytecode.
-  Removing the complete `.dist-info` directory or its `RECORD` is unsupported.
+  Removing the complete `.dist-info` directory, `METADATA`, or `RECORD` is
+  unsupported.
 - `pre_build_patches`, `toolchains`, `env`, `monitor_memory`, and non-default
   `resource_set` values require a source distribution. An override that applies
   them to a wheel-only lock record is rejected.

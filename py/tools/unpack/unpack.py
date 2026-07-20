@@ -88,6 +88,8 @@ def _path_excluded(
 ) -> bool:
     from exclude_glob import excluded
 
+    # Keep cache-to-source matching in sync with record_path_excluded in
+    # uv/private/whl_install/repository.bzl and the shared test vectors.
     if excluded(path.parts, patterns):
         return True
     if not is_file or not path.name.endswith(".pyc"):
@@ -502,6 +504,8 @@ def main() -> None:
     records = list(site_packages.glob("*.dist-info/RECORD"))
     if len(records) > 1 or (args.exclude_glob and not records):
         raise SystemExit("expected exactly one installed RECORD, found {}".format(len(records)))
+    if args.exclude_glob and not (records[0].parent / "METADATA").is_file():
+        raise SystemExit("wheel exclusions removed installed METADATA")
     if records and (args.patches or args.exclude_glob):
         record = records[0]
         rows = []

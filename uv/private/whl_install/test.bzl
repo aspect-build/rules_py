@@ -3,6 +3,7 @@
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts", "unittest")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//py/private:providers.bzl", "PyWheelsInfo")
+load("//py/tools/unpack:exclude_glob_test_vectors.bzl", "EXCLUDE_GLOB_VECTORS", "RECORD_PATH_EXCLUDE_VECTORS")
 load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
 load(":repository.bzl", "compatible_python_tags", "exclude_glob_matches", "native_roots_for_segments", "parse_console_script", "parse_exclude_glob", "parse_record_path", "record_path_excluded", "select_key", "site_packages_segments", "sort_select_arms", "source_specificity")
 load(":rule.bzl", "pyc_compile_version_compatible", "source_built_wheel", "whl_install")
@@ -150,15 +151,7 @@ site_packages_segments_test = unittest.make(_site_packages_segments_test_impl)
 
 def _exclude_glob_test_impl(ctx):
     env = unittest.begin(ctx)
-    for path, pattern, expected in [
-        ("demo/tests/test_root.py", "demo/**/tests/**", True),
-        ("demo/nested/tests/test_nested.py", "demo/**/tests/**", True),
-        ("demo/nested/not_tests/test_nested.py", "demo/**/tests/**", False),
-        ("google/api/annotations.proto", "google/**/*.proto", True),
-        ("google/api/annotations_pb2.py", "google/**/*.proto", False),
-        ("demo/sdk-core/bin/tool", "demo/sdk-core", True),
-        ("demo/data/sample,1.csv", "demo/data/sample,*.csv", True),
-    ]:
+    for path, pattern, expected in EXCLUDE_GLOB_VECTORS:
         asserts.equals(
             env,
             expected,
@@ -169,22 +162,7 @@ def _exclude_glob_test_impl(ctx):
     # Namespace entries are projected from every retained RECORD path. A
     # source-file exclusion must also remove its shipped caches from that
     # topology, matching the install tree and avoiding dangling symlinks.
-    for path, pattern, expected in [
-        ("ns/__pycache__/test_one.cpython-311.pyc", "ns/test_*.py", True),
-        ("ns/__pycache__/test_one.cpython-311.opt-1.pyc", "ns/test_*.py", True),
-        ("pkg/__pycache__/test_api.v1.cpython-311.pyc", "pkg/test_*.py", True),
-        ("pkg/__pycache__/test_api.v1.cpython-311.opt-1.pyc", "pkg/test_*.py", True),
-        ("pkg/__pycache__/test_api.v1.cpython-311.opt-é.pyc", "pkg/test_*.py", True),
-        ("ns/test_legacy.pyc", "ns/test_*.py", True),
-        ("pkg/.pyc", "pkg/.py", True),
-        ("pkg/.pyc", "pkg/.pyc.py", False),
-        ("ns/__pycache__/keep.cpython-311.pyc", "ns/test_*.py", False),
-        ("ns/__pycache__/test_one.cpython-311.opt-!.pyc", "ns/test_*.py", True),
-        ("ns/__pycache__/test_one.cpython-311.opt-.pyc", "ns/test_*.py", False),
-        ("ns/__pycache__/test_one..pyc", "ns/test_*.py", False),
-        ("ns/__pycache__/test_one..opt-1.pyc", "ns/test_*.py", False),
-        ("ns/__pycache__/.cpython-311.pyc", "ns/*.py", False),
-    ]:
+    for path, pattern, expected in RECORD_PATH_EXCLUDE_VECTORS:
         asserts.equals(
             env,
             expected,

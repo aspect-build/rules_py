@@ -107,6 +107,8 @@ def native_roots_for_segments(segments, collision_roots = ()):
             roots.append(root)
     return roots
 
+# Keep parsing, matching, and cache-to-source matching in sync with
+# py/tools/unpack/{exclude_glob.py,unpack.py} and their shared test vectors.
 def parse_exclude_glob(value):
     """Return the validated segments of a site-packages-relative glob."""
     parts = value.split("/")
