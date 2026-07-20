@@ -360,6 +360,22 @@ def main():
                 "Post-install patch changed observed native files: {}".format(relative)
             )
 
+    if args.patches:
+        # Patches may add, delete, or rewrite files, so the RECORD written from
+        # wheel metadata during install is now stale. Regenerate before
+        # compileall so RECORD intentionally excludes .pyc.
+        record_paths = set(site_packages.glob("*.dist-info/RECORD"))
+        rows = []
+        for path in sorted(args.into.rglob("*")):
+            if not path.is_file() or path in record_paths:
+                continue
+            rel = os.path.relpath(str(path), str(site_packages)).replace("\\", "/")
+            rows.append((rel, _sha256(path), str(path.stat().st_size)))
+        for record_path in record_paths:
+            rel_record = os.path.relpath(str(record_path), str(site_packages)).replace("\\", "/")
+            with record_path.open("w", newline="", encoding="utf-8") as fh:
+                csv.writer(fh).writerows([*rows, (rel_record, "", "")])
+
     if args.compile_pyc:
         if not args.python:
             raise SystemExit("--python is required when --compile-pyc is set")
