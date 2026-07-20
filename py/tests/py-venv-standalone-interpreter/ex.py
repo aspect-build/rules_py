@@ -1,4 +1,4 @@
 #!/usr/bin/env python3
 
-def hello():
+def hello() -> str:
     return "Hello, world!"

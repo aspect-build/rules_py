@@ -1,4 +1,4 @@
 class Commands:
     @staticmethod
-    def main():
+    def main() -> None:
         print("dotted-entry-worked")

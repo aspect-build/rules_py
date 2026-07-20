@@ -32,23 +32,11 @@ dev-dependencies = [
 [tool.ruff]
 target-version = "py39"
 extend-exclude = [
+   # OCI layer snapshots pin the byte sizes of these fixtures.
+   "e2e/cases/oci/py_image_layer/branding/**",
+   "py/tests/internal-deps/adder/**",
+   # Vendored fixtures intentionally preserve their upstream source.
    "**/third_party/**",
-   "examples/virtual_deps/cowsnake/cowsay.py",
-   "e2e/cases/cross-repo-610/subrepo_a",
-   "e2e/cases/cross-repo-610/subrepo_b",
-   "e2e/cases/oci/py_image_layer/branding",
-   "e2e/cases/uv-workspace-789/packages",
-   "py/tests/console-scripts/dotted_entry",
-   "py/tests/external-deps/custom-macro",
-   "py/tests/external-deps/lib.py",
-   "py/tests/internal-deps/adder",
-   "py/tests/internal-deps/pi.py",
-   "py/tests/internal-deps/sub.py",
-   "py/tests/py-venv-standalone-interpreter/ex.py",
-   "py/tests/py_venv_conflict/lib.py",
-   "py/tests/repo_relative_imports/lib",
-   "py/tests/virtual/django/proj",
-   "py/tests/wheel-root-pth-double/a",
 ]
 
 [tool.ruff.lint]

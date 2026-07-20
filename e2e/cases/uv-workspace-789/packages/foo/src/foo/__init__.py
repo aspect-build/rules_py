@@ -2,5 +2,5 @@
 
 from pi import pi
 
-def sixteen():
+def sixteen() -> str:
     return pi()[:16]
