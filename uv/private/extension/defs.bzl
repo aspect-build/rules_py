@@ -270,7 +270,6 @@ def _parse_projects(module_ctx, hub_specs):
                     continue
                 deps = []
                 conditional_deps = {}
-                skip = False
                 for dep in extra_deps:
                     # TODO(konsti): We currently ignore match-runtime. Since we're already
                     # using locked dependencies for building, this works as long as there is
@@ -286,16 +285,19 @@ def _parse_projects(module_ctx, hub_specs):
                         fail_if_missing = False,
                     )
                     if not resolved_deps:
-                        skip = True
-                        break
+                        fail((
+                            "Unable to resolve extra build dependency {} for package {} in {}. " +
+                            "`uv lock` does not include packages referenced only by " +
+                            "`tool.uv.extra-build-dependencies`. Add the dependency as a dependency " +
+                            "and regenerate the lock."
+                        ).format(repr(dep), repr(package), project.pyproject))
                     for resolved, marker in resolved_deps:
                         if marker:
                             conditional_deps.setdefault(marker, []).append(resolved)
                         else:
                             deps.append(resolved)
-                if not skip:
-                    lock_build_dep_anns[target] = deps
-                    lock_conditional_build_dep_anns[target] = conditional_deps
+                lock_build_dep_anns[target] = deps
+                lock_conditional_build_dep_anns[target] = conditional_deps
 
             for ann in mod.tags.unstable_annotate_packages:
                 if ann.lock == project.lock:

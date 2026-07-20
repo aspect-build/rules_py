@@ -16,7 +16,8 @@ fail() {
 expect_failure() {
     local fixture="$1"
     local target="$2"
-    local expected="$3"
+    local expected
+    shift 2
 
     if (
         cd "$case_dir/$fixture" &&
@@ -24,16 +25,19 @@ expect_failure() {
     ) >"$output_log" 2>&1; then
         fail "$fixture $target unexpectedly succeeded"
     fi
-    if ! grep -Fq "$expected" "$output_log"; then
-        cat "$output_log" >&2
-        fail "$fixture $target did not report: $expected"
-    fi
+    for expected in "$@"; do
+        if ! grep -Fq "$expected" "$output_log"; then
+            cat "$output_log" >&2
+            fail "$fixture $target did not report: $expected"
+        fi
+    done
 }
 
 expect_failure \
     wheel-only \
     '@invalid_overrides//:*' \
-    'build-only attributes require a source distribution, but the lock record has only wheels: console_scripts, resource_set, env, monitor_memory, pre_build_patches, pre_build_patch_strip, toolchains'
+    'build-only attributes require a source distribution, but the lock record has only wheels:' \
+    'console_scripts, resource_set, env, monitor_memory, pre_build_patches, pre_build_patch_strip, toolchains'
 expect_failure \
     editable-self \
     '@invalid_editable_overrides//:*' \
@@ -46,11 +50,18 @@ expect_failure \
     unmatched-lock \
     '@unmatched_lock_override//:*' \
     'has no uv.project() for that lock'
+expect_failure \
+    missing-extra-build-dep \
+    '@missing_extra_build_dep//:*' \
+    'Unable to resolve extra build dependency "cython" for package "cchardet" in @@//:pyproject.toml.' \
+    '`uv lock` does not include packages referenced only by `tool.uv.extra-build-dependencies`' \
+    'Add the dependency as a dependency and regenerate the lock.'
 
 expect_failure \
     custom-complete \
     '@sdist_build__uv_invalid_build_overrides_custom__cowsay__6_0//:*' \
-    'complete `build_file_content`, which bypasses the generated `pep517_*whl(...)` call, so these attributes cannot be applied: resource_set, env, monitor_memory, toolchains'
+    'complete `build_file_content`, which bypasses the generated `pep517_*whl(...)` call,' \
+    'so these attributes cannot be applied: resource_set, env, monitor_memory, toolchains'
 expect_failure \
     custom-pure \
     '@sdist_build__uv_invalid_build_overrides_custom__cowsay__6_0//:*' \

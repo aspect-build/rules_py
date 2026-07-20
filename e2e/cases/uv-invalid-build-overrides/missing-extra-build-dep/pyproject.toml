@@ -1,0 +1,8 @@
+[project]
+name = "missing-extra-build-dep"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = ["cchardet==2.1.7"]
+
+[tool.uv.extra-build-dependencies]
+cchardet = ["cython"]
