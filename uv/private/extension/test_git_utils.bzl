@@ -1,5 +1,5 @@
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load(":git_utils.bzl", "ensure_ref", "parse_git_url", "try_git_to_http_archive")
+load(":git_utils.bzl", "ensure_ref", "locked_git_requirement_urls", "parse_git_url", "try_git_to_http_archive")
 
 def _ensure_ref_test_impl(ctx):
     env = unittest.begin(ctx)
@@ -65,6 +65,25 @@ def _parse_git_url_bare_remote_test_impl(ctx):
     return unittest.end(env)
 
 parse_git_url_bare_remote_test = unittest.make(_parse_git_url_bare_remote_test_impl)
+
+def _locked_git_requirement_urls_test_impl(ctx):
+    env = unittest.begin(ctx)
+    result = locked_git_requirement_urls("https://github.com/benjaminp/six?tag=1.17.0#ebd9b3af90247b8858d415a05e96e9ee61e48d07")
+    asserts.equals(env, [
+        "git+https://github.com/benjaminp/six",
+        "git+https://github.com/benjaminp/six@ebd9b3af90247b8858d415a05e96e9ee61e48d07",
+        "git+https://github.com/benjaminp/six@1.17.0",
+    ], result)
+
+    result = locked_git_requirement_urls("git+https://github.com/example/project?branch=release%2F1.x&subdirectory=python%2Fpkg#abc123")
+    asserts.equals(env, [
+        "git+https://github.com/example/project#subdirectory=python/pkg",
+        "git+https://github.com/example/project@abc123#subdirectory=python/pkg",
+        "git+https://github.com/example/project@release/1.x#subdirectory=python/pkg",
+    ], result)
+    return unittest.end(env)
+
+locked_git_requirement_urls_test = unittest.make(_locked_git_requirement_urls_test_impl)
 
 def _git_to_http_archive_commit_test_impl(ctx):
     env = unittest.begin(ctx)
@@ -133,6 +152,7 @@ def git_utils_test_suite():
         parse_git_url_query_ref_test,
         parse_git_url_fragment_wins_over_query_test,
         parse_git_url_bare_remote_test,
+        locked_git_requirement_urls_test,
         git_to_http_archive_commit_test,
         git_to_http_archive_ref_test,
         git_to_http_archive_parsed_ref_url_test,

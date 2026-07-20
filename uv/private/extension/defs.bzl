@@ -68,6 +68,7 @@ load("//uv/private/uv_hub:repository.bzl", "uv_hub")
 load("//uv/private/uv_project:repository.bzl", "uv_project")
 load("//uv/private/whl_install:repository.bzl", "parse_console_script", "whl_install")
 load(":graph_utils.bzl", "activate_extras", "collect_sccs")
+load(":git_utils.bzl", "locked_git_requirement_urls")
 load(":lockfile.bzl", "build_marker_graph", "collect_bdists", "collect_configurations", "collect_sdists", "normalize_deps", "url_basename")
 load(":projectfile.bzl", "collate_versions_by_name", "collect_activated_extras", "extract_requirement_marker_pairs")
 
@@ -261,6 +262,10 @@ def _parse_projects(module_ctx, hub_specs):
                 for artifact in artifacts:
                     url = artifact.get("url")
                     if url:
+                        locked_urls[(locked_package["name"], url)] = dependency
+                git = locked_package.get("source", {}).get("git")
+                if git:
+                    for url in locked_git_requirement_urls(git):
                         locked_urls[(locked_package["name"], url)] = dependency
 
             def _resolve(name, version):

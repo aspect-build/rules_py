@@ -74,6 +74,30 @@ def parse_git_url(url):
 
     return kwargs
 
+def locked_git_requirement_urls(url):
+    """Returns direct-reference URLs that can identify a locked git source."""
+    remote_and_query, _hash_sep, commit = url.partition("#")
+    remote, _query_sep, query = remote_and_query.partition("?")
+    remote = remote if remote.startswith("git+") else "git+" + remote
+
+    refs = []
+    subdirectory = ""
+    for param in query.split("&") if query else []:
+        key, _eq, value = param.partition("=")
+        value = value.replace("%2F", "/").replace("%2f", "/")
+        if key in ["tag", "branch", "rev", "ref"] and value:
+            refs.append(value)
+        elif key == "subdirectory":
+            subdirectory = value
+
+    suffix = "#subdirectory=" + subdirectory if subdirectory else ""
+    result = {remote + suffix: True}
+    if commit:
+        result[remote + "@" + commit + suffix] = True
+    for ref in refs:
+        result[remote + "@" + ref + suffix] = True
+    return result.keys()
+
 def try_git_to_http_archive(git_cfg):
     """Tries to convert a `git_repository` configuration to an `http_archive`.
 
