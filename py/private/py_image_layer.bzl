@@ -593,12 +593,9 @@ def _source_destination(sp, strip_prefix, root, executable_dsts):
         return "./app.runfiles/_repo_mapping"
     if sp.startswith("../"):
         return "./app.runfiles/" + sp[3:]
-    runfiles_prefix = None
     for executable_short_path in executable_dsts:
-        if sp.startswith(executable_short_path + ".runfiles/") and (runfiles_prefix == None or len(executable_short_path) > len(runfiles_prefix)):
-            runfiles_prefix = executable_short_path
-    if runfiles_prefix != None:
-        return _apply_strip_prefix(sp, runfiles_prefix, root)
+        if sp.startswith(executable_short_path + ".runfiles/"):
+            return _apply_strip_prefix(sp, executable_short_path, root)
     prefix = _normalize_strip_prefix(strip_prefix)
     if prefix and (sp == prefix or sp.startswith(prefix + ".runfiles/") or sp.startswith(prefix + "/")):
         return _apply_strip_prefix(sp, prefix, root)
