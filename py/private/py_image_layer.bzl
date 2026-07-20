@@ -509,20 +509,38 @@ def _apply_strip_prefix(sp, strip_prefix, root):
         return "." + root + sp[len(prefix):]
     return "./app.runfiles/_main/" + sp
 
-def _file_to_mtree_entry(f, mode = "0644", strip_prefix = "", root = "/", maybe_symlink = False, executable_short_path = "", executable_dst = ""):
-    sp = f.short_path
-    if executable_dst and sp == executable_short_path:
-        dst = executable_dst
-    elif sp == "_repo_mapping":
+def _normalize_destination(path):
+    parts = []
+    for part in path.split("/"):
+        if not part or part == ".":
+            continue
+        if part == "..":
+            if not parts:
+                fail("py_image_layer image destination escapes its root: {}".format(path))
+            parts.pop()
+            continue
+        parts.append(part)
+    return "./" + "/".join(parts)
+
+def _source_destination(sp, strip_prefix, root, executable_dsts):
+    executable_dst = executable_dsts.get(sp, None)
+    if executable_dst:
+        return _normalize_destination(executable_dst)
+    if sp == "_repo_mapping":
         # Bazel synthesizes a top-level `_repo_mapping` runfile (no `_main/`
         # prefix); replicate that placement so runfiles.bash can find it.
-        dst = "./app.runfiles/_repo_mapping"
-    elif sp.startswith("../"):
-        dst = "./app.runfiles/" + sp[3:]
-    elif strip_prefix:
-        dst = _apply_strip_prefix(sp, strip_prefix, root)
-    else:
-        dst = "./app.runfiles/_main/" + sp
+        return "./app.runfiles/_repo_mapping"
+    if sp.startswith("../"):
+        return _normalize_destination("./app.runfiles/" + sp[3:])
+    if strip_prefix:
+        return _normalize_destination(_apply_strip_prefix(sp, strip_prefix, root))
+    for executable_short_path in executable_dsts:
+        if sp == executable_short_path or sp.startswith(executable_short_path + ".runfiles/") or sp.startswith(executable_short_path + "/"):
+            return _normalize_destination(_apply_strip_prefix(sp, executable_short_path, root))
+    return _normalize_destination("./app.runfiles/_main/" + sp)
+
+def _file_to_mtree_entry(f, mode = "0644", strip_prefix = "", root = "/", maybe_symlink = False, executable_dsts = {}):
+    dst = _source_destination(f.short_path, strip_prefix, root, executable_dsts)
 
     # `f.is_symlink` emits `type=link` (awk readlinks once); `maybe_symlink=True`
     # emits `type=file content=` (awk readlinks to detect repo-rule-staged
@@ -541,23 +559,29 @@ def _file_to_mtree_entry(f, mode = "0644", strip_prefix = "", root = "/", maybe_
         f.path.replace(" ", "\\040"),
     )
 
-def _source_file_to_mtree(f, dir_expander, strip_prefix, root, maybe_symlink, executable_short_path = "", executable_dst = ""):
+def _source_file_to_mtree(f, dir_expander, strip_prefix, root, maybe_symlink, executable_dsts):
     # 0755 throughout: keeps launcher/interpreter/venv shims executable; Bazel
     # doesn't expose per-input source mode for us to propagate.
     if f.is_directory:
         return [
-            _file_to_mtree_entry(child, "0755", strip_prefix, root, maybe_symlink, executable_short_path, executable_dst)
+            _file_to_mtree_entry(child, "0755", strip_prefix, root, maybe_symlink, executable_dsts)
             for child in dir_expander.expand(f)
         ]
-    return _file_to_mtree_entry(f, "0755", strip_prefix, root, maybe_symlink, executable_short_path, executable_dst)
+    return _file_to_mtree_entry(f, "0755", strip_prefix, root, maybe_symlink, executable_dsts)
 
-def _make_source_map(binary_short_path, strip_prefix, root, maybe_symlink, executable_dst = ""):
-    effective_strip_prefix = strip_prefix or binary_short_path
-
+def _make_source_map(strip_prefix, root, maybe_symlink, executable_dsts):
     def _source_map(f, d):
-        return _source_file_to_mtree(f, d, effective_strip_prefix, root, maybe_symlink, binary_short_path, executable_dst)
+        return _source_file_to_mtree(f, d, strip_prefix, root, maybe_symlink, executable_dsts)
 
     return _source_map
+
+def _check_runfile_collision(f, dst, runfile_paths):
+    if f.is_directory:
+        return
+    previous = runfile_paths.get(dst, None)
+    if previous != None and previous != f.path:
+        fail("py_image_layer runfile collision at {}: {} and {}".format(dst, previous, f.path))
+    runfile_paths[dst] = f.path
 
 def _user_file_to_mtree(f, dir_expander):
     if f.is_directory:
@@ -716,6 +740,31 @@ def _run_tar_action(ctx, bsdtar, bsdtar_files, tar_out, files_depset, map_each, 
         use_default_shell_env = False,
     )
 
+def _validate_source_mtree(ctx, source_files, source_map, rule_group_files):
+    mtree_args = ctx.actions.args()
+    mtree_args.set_param_file_format("multiline")
+    mtree_args.use_param_file("%s", use_always = True)
+    mtree_args.add("#mtree")
+    mtree_args.add_all(source_files, map_each = source_map, expand_directories = False, allow_closure = True)
+    for files in rule_group_files:
+        mtree_args.add_all(files, map_each = _user_file_to_mtree, expand_directories = False)
+
+    output = ctx.actions.declare_file(ctx.attr.name + "_source_validation.mtree")
+    gawk_args = ctx.actions.args()
+    gawk_args.add("-v", output, format = "outfile=%s")
+    gawk_args.add("-v", "validate_only=1")
+    gawk_args.add("-f", ctx.file._awk_script)
+    ctx.actions.run(
+        executable = ctx.executable._awk,
+        inputs = depset(direct = [ctx.file._awk_script], transitive = [source_files] + rule_group_files),
+        outputs = [output],
+        arguments = [gawk_args, mtree_args],
+        env = {"LC_ALL": "C"},
+        mnemonic = "PyImageLayerValidateMtree",
+        progress_message = "Validating source runfiles for %{output}",
+    )
+    return output
+
 def _declare_group_tar(ctx, bsdtar, bsdtar_files, out_name, group_name, files, map_each, progress):
     tar_out = ctx.actions.declare_file(out_name)
     level = ctx.attr.group_compress_levels.get(group_name, "6")
@@ -757,12 +806,37 @@ def _py_image_layer_impl(ctx):
     root = plan.root
     strip_prefix = plan.strip_prefix
     launcher_dir = ctx.attr.launcher_dir
+    if launcher_dir:
+        launcher_dir = launcher_dir.rstrip("/") or "/"
     if len(binaries) > 1 and not launcher_dir:
         fail("py_image_layer with multiple binaries requires launcher_dir")
     if launcher_dir and not launcher_dir.startswith("/"):
         fail("py_image_layer.launcher_dir must be an absolute image path")
-    if launcher_dir != "/":
-        launcher_dir = launcher_dir.rstrip("/")
+
+    launcher_names = {}
+    executable_dsts = {}
+    for binary in binaries:
+        executable = binary[DefaultInfo].files_to_run.executable
+        launcher_name = executable.basename
+        if launcher_dir:
+            if launcher_name in launcher_names:
+                fail("duplicate py_image_layer launcher basename: {}".format(launcher_name))
+            launcher_names[launcher_name] = True
+            executable_dsts[executable.short_path] = "." + launcher_dir.rstrip("/") + "/" + launcher_name
+        else:
+            executable_dsts[executable.short_path] = ""
+
+    # Grouped and ungrouped sources share one runfiles tree. Reject different
+    # configured artifacts that map to the same actual image destination.
+    runfile_paths = {}
+    for info in infos:
+        for entry in info.first_party_layers.to_list():
+            for f in entry.files.to_list():
+                dst = _source_destination(f.short_path, strip_prefix, root, executable_dsts)
+                _check_runfile_collision(f, dst, runfile_paths)
+        for f in info.source_files.to_list():
+            dst = _source_destination(f.short_path, strip_prefix, root, executable_dsts)
+            _check_runfile_collision(f, dst, runfile_paths)
 
     # 3p pip layers are action-shared across the graph and hard-code their
     # destination under `./app.runfiles/<repo>/...`, so the consumer's source
@@ -771,12 +845,14 @@ def _py_image_layer_impl(ctx):
     # natural runfile layout maps onto `./app.runfiles/_main/...` without each
     # caller wiring it up.
     all_tars = []
+    rule_group_files = []
 
     rule_group_names = {gname: True for gname in ctx.attr.groups.values()}
     for dep, group_name in ctx.attr.groups.items():
         dep_label = normalize_label(str(dep.label))
         if dep_label in pip_labels:
             continue
+        rule_group_files.append(dep[DefaultInfo].files)
         tar_out = _declare_group_tar(
             ctx,
             bsdtar,
@@ -817,7 +893,7 @@ def _py_image_layer_impl(ctx):
             "{}_{}.tar.gz".format(ctx.attr.name, group_name),
             group_name,
             depset(transitive = fp_by_group[group_name]),
-            _make_source_map(binaries[0][DefaultInfo].files_to_run.executable.short_path, strip_prefix, root, any([info.interpreter_layer == None for info in infos])),
+            _make_source_map(strip_prefix, root, any([info.interpreter_layer == None for info in infos]), executable_dsts),
             "Creating first-party layer %s[%s]" % (ctx.label, group_name),
         )
         all_tars.append(tar_out)
@@ -870,41 +946,29 @@ def _py_image_layer_impl(ctx):
     # snapshot here to avoid double-bookkeeping during construction.
     dep_tars = list(all_tars)
 
-    source_tars = []
-    launcher_names = {}
-    runfile_paths = {}
-    for binary, info in zip(binaries, infos):
-        executable = binary[DefaultInfo].files_to_run.executable
-        launcher_name = executable.basename
-        if launcher_dir:
-            if launcher_name in launcher_names:
-                fail("duplicate py_image_layer launcher basename: {}".format(launcher_name))
-            launcher_names[launcher_name] = True
+    # Keep the complete source closure in one tar. `modify_mtree.awk` can only
+    # rewrite a Bazel-tree symlink when its target row is in the same mtree.
+    source_tar = _declare_group_tar(
+        ctx,
+        bsdtar,
+        bsdtar_files,
+        "{}_default.tar.gz".format(ctx.attr.name),
+        "default",
+        depset(transitive = [info.source_files for info in infos]),
+        _make_source_map(strip_prefix, root, any([info.interpreter_layer == None for info in infos]), executable_dsts),
+        "Creating source layer for %s" % ctx.label,
+    )
+    all_tars.append(source_tar)
 
-        # Source tars share one runfiles root. Two different artifacts mapped to
-        # the same runfile (especially `_repo_mapping`) would be order-dependent.
-        for f in info.source_files.to_list():
-            previous = runfile_paths.get(f.short_path, None)
-            if previous != None and previous != f.path:
-                fail("py_image_layer runfile collision at {}: {} and {}".format(f.short_path, previous, f.path))
-            runfile_paths[f.short_path] = f.path
-
-        executable_dst = "." + launcher_dir.rstrip("/") + "/" + launcher_name if launcher_dir else ""
-        source_name = "{}_default.tar.gz".format(ctx.attr.name)
-        if len(binaries) > 1:
-            source_name = "{}_{}_default.tar.gz".format(ctx.attr.name, launcher_name)
-        source_tar = _declare_group_tar(
-            ctx,
-            bsdtar,
-            bsdtar_files,
-            source_name,
-            "default",
-            info.source_files,
-            _make_source_map(executable.short_path, strip_prefix, root, info.interpreter_layer == None, executable_dst),
-            "Creating source layer for %s[%s]" % (ctx.label, binary.label),
-        )
-        all_tars.append(source_tar)
-        source_tars.append(source_tar)
+    # Validate one expanded mtree spanning grouped and default sources. Each
+    # tar sees only its own rows, so this catches TreeArtifact child collisions
+    # that would otherwise land in different OCI layers.
+    source_validation = _validate_source_mtree(
+        ctx,
+        depset(transitive = [info.source_files for info in infos] + [entry.files for info in infos for entry in info.first_party_layers.to_list()]),
+        _make_source_map(strip_prefix, root, any([info.interpreter_layer == None for info in infos]), executable_dsts),
+        rule_group_files,
+    )
 
     validation = ctx.actions.declare_file(ctx.attr.name + "_validation.log")
     validation_args = ctx.actions.args()
@@ -927,8 +991,8 @@ def _py_image_layer_impl(ctx):
         DefaultInfo(files = depset(all_tars)),
         OutputGroupInfo(
             deps = depset(dep_tars),
-            sources = depset(source_tars),
-            _validation = depset([validation]),
+            sources = depset([source_tar]),
+            _validation = depset([validation, source_validation]),
         ),
     ]
 

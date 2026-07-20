@@ -172,6 +172,45 @@ py_image_layer(
     layer_tier = ":my_app_launchers_tier",
 )
 
+# Default-tier source closures share the interpreter, branding source, and
+# data. The listing test proves the unioned source tar ships each byte once.
+py_binary(
+    name = "my_app_peer_bin",
+    srcs = ["server.py"],
+    dep_group = "images",
+    python_version = "3.11",
+    deps = ["//oci/py_image_layer/branding"],
+)
+
+py_image_layer(
+    name = "my_app_shared_layers",
+    additional_binaries = [":my_app_peer_bin"],
+    binary = ":my_app_bin",
+    launcher_dir = "/app/bin",
+)
+
+genrule(
+    name = "my_app_shared_sources_listing",
+    srcs = [":my_app_shared_layers_only_src"],
+    outs = ["_my_app_shared_sources.listing"],
+    cmd = "for f in $(SRCS); do $(BSDTAR_BIN) -tf $$f; done > $@",
+    toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
+)
+
+py_test(
+    name = "my_app_shared_sources_test",
+    srcs = ["assert_source_dedup.py"],
+    args = [
+        "$(rootpath :my_app_shared_sources_listing)",
+        "/branding/__init__.py",
+        "/branding/palette.txt",
+        "/lib/python3.11/os.py",
+        "/app/bin/my_app_bin",
+        "/app/bin/my_app_peer_bin",
+    ],
+    data = [":my_app_shared_sources_listing"],
+)
+
 oci_image(
     name = "launchers_image",
     base = "@ubuntu",

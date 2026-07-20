@@ -58,7 +58,56 @@ function make_relative_link(path1, path2, i, common, target, relative_path, back
     return back_steps target
 }
 
+function normalize_destination(path, count, i, n, part, parts, normalized) {
+    count = split(path, parts, "/")
+    n = 0
+    for (i = 1; i <= count; i++) {
+        part = parts[i]
+        if (part == "" || part == ".") {
+            continue
+        }
+        if (part == "..") {
+            if (n == 0) {
+                print "py_image_layer image destination escapes its root: " path > "/dev/stderr"
+                failed = 1
+                exit 1
+            }
+            delete normalized[n--]
+            continue
+        }
+        normalized[++n] = part
+    }
+    path = "."
+    for (i = 1; i <= n; i++) {
+        path = path "/" normalized[i]
+    }
+    return path
+}
+
 {
+    if ($0 !~ /^#/) {
+        destination = normalize_destination($1)
+        sub(/^[^ ]+/, destination)
+        match($0, /(contents|content|link)=[^ ]+/)
+        current_source = substr($0, RSTART, RLENGTH)
+        current_source_path = substr(current_source, index(current_source, "=") + 1)
+        if (destination in destination_rows) {
+            if (destination_rows[destination] == $0 || (validate_only && destination_source_paths[destination] == current_source_path)) {
+                next
+            }
+            print "py_image_layer runfile collision at " destination ": " destination_sources[destination] " and " current_source > "/dev/stderr"
+            failed = 1
+            exit 1
+        }
+        destination_rows[destination] = $0
+        destination_sources[destination] = current_source
+        destination_source_paths[destination] = current_source_path
+    }
+
+    if (validate_only) {
+        next
+    }
+
     symlink = ""
     symlink_content = ""
     # Two markers Starlark emits for paths that could be symlinks:
@@ -151,17 +200,24 @@ function make_relative_link(path1, path2, i, common, target, relative_path, back
         }
     }
     if (symlink != "") {
-        line_array[NR] = $0 SUBSEP $1 SUBSEP resolved_path
+        line_array[++row_count] = $0 SUBSEP $1 SUBSEP resolved_path
     } else {
-        line_array[NR] = $0
+        line_array[++row_count] = $0
     }
 }
 
 END {
+    if (failed) {
+        exit 1
+    }
+    if (validate_only) {
+        print "#mtree" > outfile
+        exit
+    }
     # Buffer rewritten rows, sort byte-wise (asort under LC_ALL=C, set by
     # the action env), and write to `outfile`.
     n = 0
-    for (i = 1; i <= NR; i++) {
+    for (i = 1; i <= row_count; i++) {
         line = line_array[i]
         if (index(line, SUBSEP) > 0) {
             split(line, fields, SUBSEP)
