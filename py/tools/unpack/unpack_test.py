@@ -280,6 +280,58 @@ def main() -> None:
         )
         _assert_record_matches_installed_files(large_streamed_site_packages)
 
+        # Compile-only installs keep streamed hashes for non-bytecode members
+        # and refresh only the wheel-supplied caches that compileall may change.
+        spy_wheel = root / "spy_fixture-1.0-py3-none-any.whl"
+        _write_wheel(
+            spy_wheel,
+            "spy_fixture",
+            {
+                "fixture/big.bin": large_payload,
+                "fixture/mod.py": b"VALUE = 1\n",
+                "fixture/orphan.pyc": b"supplied bytecode\n",
+                supplied_cache: b"outdated bytecode\n",
+            },
+        )
+        spec = importlib.util.spec_from_file_location("unpack_spy", unpack)
+        assert spec is not None and spec.loader is not None
+        unpack_spy = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(unpack_spy)
+        hashed_paths: list[Path] = []
+        original_hash_file = unpack_spy._hash_file
+
+        def recording_hash_file(path: Path) -> tuple[str, str]:
+            hashed_paths.append(path)
+            return original_hash_file(path)
+
+        unpack_spy._hash_file = recording_hash_file
+        spy_out = root / "spy"
+        original_argv = sys.argv
+        sys.argv = [
+            str(unpack),
+            "--into",
+            str(spy_out),
+            "--wheel",
+            str(spy_wheel),
+            "--python-version-major",
+            str(sys.version_info.major),
+            "--python-version-minor",
+            str(sys.version_info.minor),
+            "--compile-pyc",
+            "--python",
+            sys.executable,
+        ]
+        try:
+            unpack_spy.main()
+        finally:
+            sys.argv = original_argv
+        spy_site_packages = _site_packages(spy_out)
+        assert set(hashed_paths) == {
+            spy_site_packages / "fixture" / "orphan.pyc",
+            spy_site_packages / supplied_cache,
+        }
+        _assert_record_matches_installed_files(spy_site_packages, (supplied_cache,))
+
         # A .data/scripts member with a Python shebang is rewritten to the
         # relocatable launcher and marked executable.
         script_wheel = root / "script_fixture-1.0-py3-none-any.whl"

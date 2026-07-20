@@ -277,7 +277,7 @@ def main() -> None:
         args.python_version_minor,
         args.into,
         args.wheel,
-        write_record=not args.patches and not args.compile_pyc,
+        write_record=not args.patches,
     )
 
     site_packages = (
@@ -373,7 +373,7 @@ def main() -> None:
             check=True,
         )
 
-    if args.patches or args.compile_pyc:
+    if args.patches:
         # Hash final installed bytes while excluding only newly generated caches.
         record_paths = set(site_packages.glob("*.dist-info/RECORD"))
         generated_pyc = set(site_packages.rglob("*.pyc")) - supplied_pyc
@@ -384,6 +384,18 @@ def main() -> None:
             relative = os.path.relpath(str(path), str(site_packages)).replace("\\", "/")
             rows.append((relative, *_hash_file(path)))
         for record_path in record_paths:
+            _write_record(record_path, rows, site_packages)
+    elif args.compile_pyc and supplied_pyc:
+        for record_path in site_packages.glob("*.dist-info/RECORD"):
+            rows = []
+            with record_path.open(newline="", encoding="utf-8") as record:
+                for relative, digest, size in csv.reader(record):
+                    path = site_packages / relative
+                    if path == record_path:
+                        continue
+                    if path in supplied_pyc:
+                        digest, size = _hash_file(path)
+                    rows.append((relative, digest, size))
             _write_record(record_path, rows, site_packages)
 
 
