@@ -50,3 +50,32 @@ py_test(
         "@pypi_multi//cowsay",
     ],
 )
+
+# Project-qualified labels: each project exposes its packages under
+# @hub//project/<stamp>:<pkg>, scoping the select to that project only.
+py_test(
+    name = "alpha_qualified",
+    srcs = ["__test__.py"],
+    dep_group = "dev",
+    main = "__test__.py",
+    python_version = "3.11",
+    deps = ["@pypi_multi//project/alpha:cowsay"],
+)
+
+py_test(
+    name = "beta_qualified",
+    srcs = ["__test__.py"],
+    dep_group = "beta",
+    main = "__test__.py",
+    python_version = "3.11",
+    deps = ["@pypi_multi//project/beta:cowsay"],
+)
+
+py_test(
+    name = "gamma_qualified",
+    srcs = ["__test__.py"],
+    dep_group = "gamma",
+    main = "__test__.py",
+    python_version = "3.11",
+    deps = ["@pypi_multi//project/gamma:cowsay"],
+)

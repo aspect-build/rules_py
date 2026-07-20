@@ -307,9 +307,10 @@ py_library(
 ## A mental model
 
 ```
-@pypi                                     # Your UV built hub repository
-@pypi//requests:requests                  # The library for a requirement
-@pypi//jinja2-cli/entrypoints:jinja2-cli  # A requirement's declared entrypoint
+@pypi                                        # Your UV built hub repository
+@pypi//requests:requests                     # The library for a requirement
+@pypi//jinja2-cli/entrypoints:jinja2-cli     # A requirement's declared entrypoint
+@pypi//project/my_project:requests           # Project-qualified label (see below)
 ```
 
 This central hub wraps "spoke" internal dependency group repos. For instance if you have two
@@ -318,6 +319,24 @@ over the dependency group targets in which that requirement is defined.
 
 Hub requirement targets are _incompatible_ with dependency group configurations in which the
 requirement in question is not defined.
+
+### Project-qualified labels
+
+In a multi-project hub where two projects both provide the same package, the unqualified label
+can produce a Bazel "multiple keys match" error when the active dep_group name is shared across
+projects. The project-qualified form scopes the `select()` to a single project, eliminating
+the ambiguity:
+
+```python
+# Unqualified — works unless two projects have the same package + same dep_group name
+deps = ["@pypi//requests"]
+
+# Project-qualified — always routes to exactly one project's resolution
+deps = ["@pypi//project/my_project:requests"]
+```
+
+The `<stamp>` in `//project/<stamp>` is the [PEP 503-normalised](https://peps.python.org/pep-0503/#normalized-names)
+form of the `[project].name` declared in that project's `pyproject.toml`.
 
 ### Conditional dependencies and the empty target
 
