@@ -1,6 +1,7 @@
 """py_image_layer — analysis-time grouped OCI layers with globally shared pip tars.
 
-One rule-propagated aspect wires onto the `py_image_layer` binary inputs:
+`_layer_aspect` wires onto both `py_image_layer` binary inputs. Scalar binaries
+also receive `_merge_aspect` so their merged pip layers remain action-shared.
 
 `_layer_aspect` propagates through `deps`/`data`/`actual`. For pip packages it
 creates aspect-owned per-package tars at the pip target's namespace (globally
@@ -641,9 +642,9 @@ def _normalize_destination(path):
             parts.pop()
         else:
             parts.append(part)
-    return "./" + "/".join(parts)
+    return "./" + "/".join(parts) if parts else "."
 
-def _register_image_destination(f, destination, paths, tree_roots, descendants):
+def _register_image_destination(f, destination, paths, descendants):
     destination = _normalize_destination(destination)
     previous = paths.get(destination, None)
     if previous != None:
@@ -654,21 +655,33 @@ def _register_image_destination(f, destination, paths, tree_roots, descendants):
     parts = destination.split("/")
     for end in range(len(parts) - 1, 0, -1):
         parent = "/".join(parts[:end])
-        tree = tree_roots.get(parent, None)
-        if tree != None and tree != f.path:
-            fail("py_image_layer runfile collision at {}: {} and {}".format(destination, tree, f.path))
+        ancestor = paths.get(parent, None)
+        if ancestor != None:
+            fail("py_image_layer runfile collision at {}: {} and {}".format(destination, ancestor, f.path))
 
-    if f.is_directory and destination in descendants:
+    if destination in descendants:
         descendant, source = descendants[destination]
         fail("py_image_layer runfile collision at {}: {} and {}".format(descendant, source, f.path))
 
     paths[destination] = f.path
-    if f.is_directory:
-        tree_roots[destination] = f.path
     for end in range(len(parts) - 1, 0, -1):
         parent = "/".join(parts[:end])
         if parent not in descendants:
             descendants[parent] = (destination, f.path)
+
+def _check_source_tree(f, strip_prefix, executable_dsts):
+    if not f.is_directory:
+        return
+    tree = f.short_path.rstrip("/")
+    prefix = strip_prefix.replace("\\/", "/")
+    if prefix and prefix.startswith(tree + "/"):
+        fail("py_image_layer cannot map TreeArtifact across strip_prefix: {} contains {}".format(tree, prefix))
+    for executable_short_path in executable_dsts:
+        if executable_short_path.startswith(tree + "/"):
+            fail("py_image_layer cannot map TreeArtifact across launcher: {} contains {}".format(tree, executable_short_path))
+        runfiles = executable_short_path + ".runfiles"
+        if runfiles == tree or runfiles.startswith(tree + "/"):
+            fail("py_image_layer cannot map TreeArtifact across launcher runfiles: {} contains {}".format(tree, runfiles))
 
 def _user_file_to_mtree(f, dir_expander):
     if f.is_directory:
@@ -853,15 +866,22 @@ def _py_image_layer_impl(ctx):
     infos = [binary[_LayerInfo] for binary in binaries]
     bsdtar, bsdtar_files = _tar_toolchain(ctx)
 
-    # Labels are normalized for tier lookup and can collide across lock universes.
-    # Concrete install-tree paths identify the configured wheel artifacts.
-    pkg_by_files = {}
-    for info in infos:
-        for pkg in info.pip_packages.to_list():
-            key = tuple(sorted([f.path for f in pkg.files.to_list()]))
-            if key not in pkg_by_files:
-                pkg_by_files[key] = pkg
-    all_pkgs = pkg_by_files.values()
+    if ctx.attr.binary != None:
+        pkg_by_label = {}
+        for pkg in infos[0].pip_packages.to_list():
+            if pkg.label not in pkg_by_label:
+                pkg_by_label[pkg.label] = pkg
+        all_pkgs = pkg_by_label.values()
+    else:
+        # Labels are normalized for tier lookup and can collide across lock
+        # universes. Concrete paths identify each configured wheel artifact.
+        pkg_by_files = {}
+        for info in infos:
+            for pkg in info.pip_packages.to_list():
+                key = tuple(sorted([f.path for f in pkg.files.to_list()]))
+                if key not in pkg_by_files:
+                    pkg_by_files[key] = pkg
+        all_pkgs = pkg_by_files.values()
     pip_labels = {pkg.label: True for pkg in all_pkgs}
 
     # `_platform_cfg` rewrites the `//py:layer_tier` flag from `attr.layer_tier`,
@@ -904,26 +924,29 @@ def _py_image_layer_impl(ctx):
 
     # Multiple configured closures share one runfiles tree. Compare their
     # top-level artifacts at analysis time; TreeArtifact children cannot be
-    # inspected here, so reject any artifact placed below a tree root.
+    # inspected here, so reject trees crossing a piecewise-mapped prefix.
     if len(binaries) > 1:
         paths = {}
-        tree_roots = {}
         descendants = {}
         for info in infos:
             for entry in info.first_party_layers.to_list():
                 for f in entry.files.to_list():
-                    _register_image_destination(f, _source_destination(f.short_path, strip_prefix, root, executable_dsts), paths, tree_roots, descendants)
+                    _check_source_tree(f, strip_prefix, executable_dsts)
+                    _register_image_destination(f, _source_destination(f.short_path, strip_prefix, root, executable_dsts), paths, descendants)
             for f in info.source_files.to_list():
-                _register_image_destination(f, _source_destination(f.short_path, strip_prefix, root, executable_dsts), paths, tree_roots, descendants)
+                _check_source_tree(f, strip_prefix, executable_dsts)
+                _register_image_destination(f, _source_destination(f.short_path, strip_prefix, root, executable_dsts), paths, descendants)
             if info.interpreter_files != None:
                 for f in info.interpreter_files.to_list():
-                    _register_image_destination(f, _source_destination(f.short_path, "", "/", {}), paths, tree_roots, descendants)
+                    _register_image_destination(f, _source_destination(f.short_path, "", "/", {}), paths, descendants)
         for pkg in all_pkgs:
             for f in pkg.files.to_list():
-                _register_image_destination(f, _source_destination(f.short_path, "", "/", {}), paths, tree_roots, descendants)
+                _register_image_destination(f, _source_destination(f.short_path, "", "/", {}), paths, descendants)
         for dep in ctx.attr.groups:
+            if normalize_label(str(dep.label)) in pip_labels:
+                continue
             for f in dep[DefaultInfo].files.to_list():
-                _register_image_destination(f, _source_destination(f.short_path, "", "/", {}), paths, tree_roots, descendants)
+                _register_image_destination(f, _source_destination(f.short_path, "", "/", {}), paths, descendants)
 
     rule_group_names = {gname: True for gname in ctx.attr.groups.values()}
     for dep, group_name in ctx.attr.groups.items():
@@ -943,8 +966,13 @@ def _py_image_layer_impl(ctx):
         all_tars.append(tar_out)
 
     fp_by_group = {}
+    seen_fp_labels = {}
     for info in infos:
         for entry in info.first_party_layers.to_list():
+            if ctx.attr.binary != None:
+                if entry.label in seen_fp_labels:
+                    continue
+                seen_fp_labels[entry.label] = True
             fp_by_group.setdefault(entry.group, []).append(entry.files)
 
     # Interpreter tars are declared at the configured toolchain, so identical
@@ -955,7 +983,9 @@ def _py_image_layer_impl(ctx):
             layer = info.interpreter_layer
             interpreter_layers[layer.tar.path] = layer
 
-    for group_name in sorted(fp_by_group):
+    layer_group_names = {group_name: True for group_name in fp_by_group}
+    layer_group_names.update({layer.group: True for layer in interpreter_layers.values()})
+    for group_name in layer_group_names:
         if group_name in rule_group_names:
             fail(
                 ("Group %r is declared in both py_image_layer.groups and the active " +
@@ -963,6 +993,7 @@ def _py_image_layer_impl(ctx):
                  "deps with a different file layout than first-party sources, so they " +
                  "cannot share a tar.") % group_name,
             )
+    for group_name in sorted(fp_by_group):
         tar_out = _declare_group_tar(
             ctx,
             bsdtar,
@@ -982,7 +1013,7 @@ def _py_image_layer_impl(ctx):
     for pkg in all_pkgs:
         for layer in pkg.layers:
             pip_tars[layer.tar.path] = layer.tar
-        if pkg.merge_group != None:
+        if ctx.attr.binary == None and pkg.merge_group != None:
             merged.setdefault(pkg.merge_group, []).append(pkg.files)
 
     all_tars.extend(pip_tars.values())
@@ -1137,8 +1168,8 @@ def py_image_layer(
          binary's dep closure).
       3. Solo-group and subpath-split pip tars — built by `_layer_aspect` at each pip
          target's own namespace; globally shared across every rule using that package.
-      4. Multi-member merged tars — one per group from the closure-filtered union
-         of member install_dirs across all binaries.
+      4. Multi-member merged tars — action-shared at a scalar binary or one per
+         group from the closure-filtered union across a binary list.
       5. Ungrouped pip packages → one squashed rule-created tar.
       6. Remaining first-party Python source files → the "default" layer.
 

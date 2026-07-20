@@ -418,9 +418,15 @@ py_binary(
     srcs = ["server.py"],
 )
 
+py_layer_tier(
+    name = "server_tier",
+    strip_prefix = "oci/py_image_layer/server",
+)
+
 py_image_layer(
     name = "server_layers",
     binary = ":server",
+    layer_tier = ":server_tier",
 )
 
 oci_image(

@@ -5,14 +5,26 @@ load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 
 def _expected_failure_impl(ctx):
     env = analysistest.begin(ctx)
-    asserts.expect_failure(env, ctx.attr.expected_error)
+    for expected_error in ctx.attr.expected_errors:
+        asserts.expect_failure(env, expected_error)
     return analysistest.end(env)
 
 _expected_failure_test = analysistest.make(
     _expected_failure_impl,
-    attrs = {"expected_error": attr.string(mandatory = True)},
+    attrs = {"expected_errors": attr.string_list(mandatory = True)},
     expect_failure = True,
 )
+
+def _source_tree_impl(ctx):
+    out = ctx.actions.declare_directory("piecewise_tree")
+    ctx.actions.run_shell(
+        outputs = [out],
+        command = "mkdir -p \"$1/nested\" && echo tree > \"$1/nested/support.py\"",
+        arguments = [out.path],
+    )
+    return [DefaultInfo(files = depset([out]), runfiles = ctx.runfiles(files = [out]))]
+
+_source_tree = rule(implementation = _source_tree_impl)
 
 def image_layer_analysis_test_suite():
     py_image_layer(
@@ -21,7 +33,7 @@ def image_layer_analysis_test_suite():
     )
     _expected_failure_test(
         name = "missing_launcher_dir_test",
-        expected_error = "py_image_layer with multiple binaries requires launcher_dir",
+        expected_errors = ["py_image_layer with multiple binaries requires launcher_dir"],
         target_under_test = ":_missing_launcher_dir_layers",
     )
 
@@ -32,7 +44,7 @@ def image_layer_analysis_test_suite():
     )
     _expected_failure_test(
         name = "relative_launcher_dir_test",
-        expected_error = "py_image_layer.launcher_dir must be an absolute image path",
+        expected_errors = ["py_image_layer.launcher_dir must be an absolute image path"],
         target_under_test = ":_relative_launcher_dir_layers",
     )
 
@@ -47,7 +59,7 @@ def image_layer_analysis_test_suite():
     )
     _expected_failure_test(
         name = "duplicate_launcher_basename_test",
-        expected_error = "duplicate py_image_layer launcher basename: my_app_bin",
+        expected_errors = ["duplicate py_image_layer launcher basename: my_app_bin"],
         target_under_test = ":_duplicate_launcher_layers",
     )
 
@@ -82,6 +94,43 @@ def image_layer_analysis_test_suite():
     )
     _expected_failure_test(
         name = "configured_wheel_collision_test",
-        expected_error = "actual_install.install:",
+        expected_errors = [
+            "py_image_layer runfile collision at",
+            "actual_install.install:",
+        ],
         target_under_test = ":_configured_wheel_collision_layers",
+    )
+
+    _source_tree(name = "_piecewise_tree")
+    py_binary(
+        name = "_piecewise_tree_bin",
+        srcs = ["server.py"],
+        data = [":_piecewise_tree"],
+    )
+    py_layer_tier(
+        name = "_piecewise_tree_tier",
+        strip_prefix = "oci/py_image_layer/piecewise_tree/nested",
+    )
+    py_image_layer(
+        name = "_piecewise_tree_layers",
+        binaries = [":_piecewise_tree_bin", ":my_app_bin"],
+        launcher_dir = "/app/bin",
+        layer_tier = ":_piecewise_tree_tier",
+    )
+    _expected_failure_test(
+        name = "piecewise_tree_test",
+        expected_errors = ["py_image_layer cannot map TreeArtifact across strip_prefix"],
+        target_under_test = ":_piecewise_tree_layers",
+    )
+
+    py_image_layer(
+        name = "_interpreter_group_collision_layers",
+        binary = ":my_app_bin",
+        groups = {":worker_support": "interpreter"},
+        layer_tier = ":my_app_launchers_tier",
+    )
+    _expected_failure_test(
+        name = "interpreter_group_collision_test",
+        expected_errors = ["Group \"interpreter\" is declared in both py_image_layer.groups and the active py_layer_tier"],
+        target_under_test = ":_interpreter_group_collision_layers",
     )
