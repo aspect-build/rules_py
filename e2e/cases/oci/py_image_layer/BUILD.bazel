@@ -420,13 +420,42 @@ py_binary(
 
 py_layer_tier(
     name = "server_tier",
-    strip_prefix = "oci/py_image_layer/server",
+    strip_prefix = "does/not/match",
 )
 
 py_image_layer(
     name = "server_layers",
     binary = ":server",
     layer_tier = ":server_tier",
+)
+
+py_layer_tier(
+    name = "server_directory_tier",
+    strip_prefix = "oci/py_image_layer",
+)
+
+py_image_layer(
+    name = "server_directory_layers",
+    binary = ":server",
+    layer_tier = ":server_directory_tier",
+)
+
+genrule(
+    name = "server_directory_sources_listing",
+    srcs = [":server_directory_layers_only_src"],
+    outs = ["_server_directory_sources.listing"],
+    cmd = "for f in $(SRCS); do $(BSDTAR_BIN) -tf $$f; done > $@",
+    toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
+)
+
+py_test(
+    name = "server_directory_sources_test",
+    srcs = ["assert_source_dedup.py"],
+    args = [
+        "$(rootpath :server_directory_sources_listing)",
+        "/app/server",
+    ],
+    data = [":server_directory_sources_listing"],
 )
 
 oci_image(

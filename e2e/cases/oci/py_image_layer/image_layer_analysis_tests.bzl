@@ -1,6 +1,6 @@
 """Analysis coverage for invalid multi-launcher image-layer configurations."""
 
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_layer_tier")
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_layer_tier", "py_library")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 
 def _expected_failure_impl(ctx):
@@ -25,6 +25,16 @@ def _source_tree_impl(ctx):
     return [DefaultInfo(files = depset([out]), runfiles = ctx.runfiles(files = [out]))]
 
 _source_tree = rule(implementation = _source_tree_impl)
+
+def _regular_path_impl(ctx):
+    out = ctx.actions.declare_file("regular_collision" if ctx.attr.ancestor else "regular_collision/child.py")
+    ctx.actions.write(out, "regular\n")
+    return [DefaultInfo(files = depset([out]), runfiles = ctx.runfiles(files = [out]))]
+
+_regular_path = rule(
+    implementation = _regular_path_impl,
+    attrs = {"ancestor": attr.bool()},
+)
 
 def image_layer_analysis_test_suite():
     py_image_layer(
@@ -133,4 +143,42 @@ def image_layer_analysis_test_suite():
         name = "interpreter_group_collision_test",
         expected_errors = ["Group \"interpreter\" is declared in both py_image_layer.groups and the active py_layer_tier"],
         target_under_test = ":_interpreter_group_collision_layers",
+    )
+
+    _regular_path(
+        name = "_regular_path",
+        ancestor = select({
+            ":_python_3_11": True,
+            "//conditions:default": False,
+        }),
+    )
+    py_library(
+        name = "_regular_path_lib",
+        srcs = [":_regular_path"],
+        imports = ["."],
+    )
+    py_binary(
+        name = "_regular_path_311",
+        srcs = ["server.py"],
+        python_version = "3.11",
+        deps = [":_regular_path_lib"],
+    )
+    py_binary(
+        name = "_regular_path_312",
+        srcs = ["server.py"],
+        python_version = "3.12",
+        deps = [":_regular_path_lib"],
+    )
+    py_image_layer(
+        name = "_regular_path_collision_layers",
+        binaries = [":_regular_path_311", ":_regular_path_312"],
+        launcher_dir = "/app/bin",
+    )
+    _expected_failure_test(
+        name = "regular_path_collision_test",
+        expected_errors = [
+            "py_image_layer runfile collision at",
+            "regular_collision/child.py",
+        ],
+        target_under_test = ":_regular_path_collision_layers",
     )
