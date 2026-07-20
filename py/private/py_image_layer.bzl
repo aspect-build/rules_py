@@ -1,6 +1,6 @@
 """py_image_layer — analysis-time grouped OCI layers with globally shared pip tars.
 
-One rule-propagated aspect wires onto `py_image_layer.binaries`:
+One rule-propagated aspect wires onto the `py_image_layer` binary inputs:
 
 `_layer_aspect` propagates through `deps`/`data`/`actual`. For pip packages it
 creates aspect-owned per-package tars at the pip target's namespace (globally
