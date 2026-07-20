@@ -383,12 +383,13 @@ def _layer_aspect_impl(target, ctx):
     # it is already captured upstream as a pip package via the wheel-leaf
     # branch. Just propagate transitively for these targets.
     if kind == "alias":
+        interp = transitive_interp[0] if transitive_interp else None
         return [_LayerInfo(
             source_files = depset(transitive = transitive_source),
             pip_packages = depset(transitive = transitive_pkgs),
             first_party_layers = depset(transitive = transitive_fp),
-            interpreter_files = depset(),
-            interpreter_layer = None,
+            interpreter_files = interp.interpreter_files if interp != None else depset(),
+            interpreter_layer = interp,
         )]
 
     # Skip PyInfo deps (including wheel-leaf targets, which also emit PyInfo) —
@@ -789,9 +790,7 @@ def _declare_group_tar(ctx, bsdtar, bsdtar_files, out_name, group_name, files, m
     return tar_out
 
 def _py_image_layer_impl(ctx):
-    binaries = ([ctx.attr.binary] if ctx.attr.binary != None else []) + ctx.attr.binaries
-    if not binaries:
-        fail("py_image_layer requires at least one binary")
+    binaries = ctx.attr.binaries
     infos = [binary[_LayerInfo] for binary in binaries]
     bsdtar, bsdtar_files = _tar_toolchain(ctx)
 
@@ -1007,11 +1006,9 @@ def _py_image_layer_impl(ctx):
 _py_image_layer = rule(
     implementation = _py_image_layer_impl,
     attrs = {
-        "binary": attr.label(
-            aspects = [_layer_aspect],
-        ),
         "binaries": attr.label_list(
             aspects = [_layer_aspect],
+            allow_empty = False,
         ),
         "launcher_dir": attr.string(
             default = "",
@@ -1114,7 +1111,13 @@ def py_image_layer(
     else:
         if binary == None:
             fail("py_image_layer requires binary or binaries")
-        binaries = additional_binaries
+        native.alias(
+            name = name + "_binary",
+            actual = binary,
+            tags = tags,
+            testonly = kwargs.get("testonly", False),
+        )
+        binaries = [":" + name + "_binary"] + additional_binaries
 
     for key in groups:
         if _split_glob_key(key)[1] != None:
@@ -1125,7 +1128,6 @@ def py_image_layer(
 
     _py_image_layer(
         name = name,
-        binary = binary,
         binaries = binaries,
         launcher_dir = launcher_dir,
         groups = groups,
