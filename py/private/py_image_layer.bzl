@@ -917,7 +917,7 @@ def _py_image_layer_impl(ctx):
 
     for group_name in sorted(merged):
         algorithm, level, ext = _compression_for(plan, group_name)
-        tar_out = ctx.actions.declare_file("{}_merged_pip_layer_{}{}".format(ctx.attr.name, group_name, ext))
+        tar_out = ctx.actions.declare_file("{}/merged_pip_layers/{}{}".format(ctx.attr.name, group_name, ext))
         _run_tar_action(
             ctx,
             bsdtar,
