@@ -45,14 +45,14 @@ setup(name="cxxprobe", version="1.0", py_modules=[])
 """
 
 
-def _find_build_helper():
+def _find_build_helper() -> str:
     for root, _, files in os.walk(os.environ["TEST_SRCDIR"], followlinks=True):
         if "build_helper.py" in files and root.endswith(os.path.join("uv", "private", "pep517_whl")):
             return os.path.join(root, "build_helper.py")
     raise AssertionError("build_helper.py not found under TEST_SRCDIR")
 
 
-def _make_sdist(workdir):
+def _make_sdist(workdir: str) -> str:
     pkgdir = os.path.join(workdir, "cxxprobe-1.0")
     os.makedirs(pkgdir)
     with open(os.path.join(pkgdir, "setup.py"), "w") as f:
@@ -63,7 +63,7 @@ def _make_sdist(workdir):
     return sdist
 
 
-def _write_driver(filename, message):
+def _write_driver(filename: str, message: str) -> None:
     with open(filename, "w") as f:
         f.write(textwrap.dedent("""\
             #!/bin/sh
@@ -73,7 +73,7 @@ def _write_driver(filename, message):
     os.chmod(filename, 0o755)
 
 
-def _run(helper, sdist, workdir, cxx, expect):
+def _run(helper: str, sdist: str, workdir: str, cxx: str, expect: str) -> None:
     outdir = os.path.join(workdir, "out-" + expect)
     result = subprocess.run(
         [sys.executable, helper, sdist, outdir],
@@ -92,7 +92,7 @@ def _run(helper, sdist, workdir, cxx, expect):
         raise AssertionError("build_helper failed for {}:\n{}\n{}".format(expect, result.stdout, result.stderr))
 
 
-def main():
+def main() -> None:
     workdir = tempfile.mkdtemp(dir=os.environ["TEST_TMPDIR"])
     sdist = _make_sdist(workdir)
     helper = _find_build_helper()
