@@ -356,7 +356,16 @@ def _parse_projects(module_ctx, hub_specs):
 
             whl_configurations.update(collect_configurations(lock_data))
 
-            configuration_names, activated_extras = collect_activated_extras(project.lock, project_id, project_data, lock_data, default_versions, marker_graph, package_versions)
+            configuration_names, activated_extras = collect_activated_extras(
+                project.lock,
+                project_id,
+                project_data,
+                lock_data,
+                default_versions,
+                marker_graph,
+                package_versions,
+                include_project_dependencies = project.include_project_dependencies,
+            )
             version_activations = collate_versions_by_name(activated_extras)
 
             # SCC graph shapes:
@@ -814,6 +823,12 @@ _project_tag = tag_class(
             doc = "Requirement names resolved from the lock and injected as build tools " +
                   "for sdists that build a wheel. Only demanded when an sbuild is " +
                   "guaranteed to be selected (forced builds or sdist-only packages).",
+        ),
+        "include_project_dependencies": attr.bool(
+            default = True,
+            doc = "Whether `project.dependencies` remain available in every explicit " +
+                  "dependency group. Set to false to make selected groups expose only " +
+                  "their own requirements.",
         ),
         "unstable_configure_command": attr.string_list(
             mandatory = False,

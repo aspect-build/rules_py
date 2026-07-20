@@ -30,8 +30,9 @@ dev  = [
 ```
 
 The `dev` group composes `prod` (the runtime deps) with dev-only tools using
-PEP 735's `include-group` syntax. `uv lock` resolves all groups into a
-single lockfile.
+PEP 735's `include-group` syntax. The project's default `build` and
+`setuptools` dependencies remain available in both groups. `uv lock` resolves
+all groups into a single lockfile.
 
 ### 2. Venv selection via `.bazelrc`
 
@@ -46,8 +47,9 @@ common:release --stamp
 ```
 
 The `--@pypi//dep_group=` flag controls which dependency group the hub makes
-available. The default is `dev` (everything importable). `--config=release`
-switches to `prod` (runtime deps only).
+available in addition to the project's default dependencies. The default is
+`dev` (everything importable); `--config=release` switches to `prod` (the
+runtime group, without dev-only tools).
 
 ### 3. A `string_flag` to control dep inclusion
 
@@ -112,8 +114,8 @@ The venv flag and the mode flag work together:
 
 | `.bazelrc` config  | `--@pypi//dep_group=` | `--//:mode=` | Effect                                                       |
 | ------------------ | ---------------- | ------------ | ------------------------------------------------------------ |
-| _(default)_        | `dev`            | `dev`        | Hub exposes all packages; `select()` includes dev_deps       |
-| `--config=release` | `prod`           | `prod`       | Hub exposes only prod packages; `select()` excludes dev_deps |
+| _(default)_        | `dev`            | `dev`        | Default + prod + dev; `select()` includes dev_deps                |
+| `--config=release` | `prod`           | `prod`       | Default + prod; `select()` excludes dev_deps                      |
 
 The venv flag controls which packages the hub _makes available_ (which wheels
 are fetched and linked). The mode flag controls which packages the target

@@ -200,6 +200,74 @@ collect_activated_extras_transitive_remap_test = unittest.make(
     _collect_activated_extras_transitive_remap_test_impl,
 )
 
+def _collect_activated_extras_keeps_project_dependencies_in_groups_test_impl(ctx):
+    """Dependency groups don't replace project dependencies through their existence."""
+    env = unittest.begin(ctx)
+    project_data = {
+        "project": {
+            "name": "test_project",
+            "dependencies": ["base"],
+        },
+        "dependency-groups": {
+            "prod": ["runtime"],
+            "dev": [
+                {"include-group": "prod"},
+                "devtool",
+            ],
+        },
+    }
+    default_versions = {
+        name: ("lock", name, "1.0.0", "__base__")
+        for name in ["base", "runtime", "devtool"]
+    }
+    graph = {
+        ("lock", name, "1.0.0", "__base__"): {}
+        for name in ["base", "runtime", "devtool"]
+    }
+
+    configuration_names, activated_extras = collect_activated_extras(
+        "//:pyproject.toml",
+        "lock",
+        project_data,
+        {"package": []},
+        default_versions,
+        graph,
+    )
+
+    base = ("lock", "base", "1.0.0", "__base__")
+    runtime = ("lock", "runtime", "1.0.0", "__base__")
+    devtool = ("lock", "devtool", "1.0.0", "__base__")
+
+    asserts.equals(env, {"prod": 1, "dev": 1}, configuration_names)
+    asserts.true(env, "prod" in activated_extras[base])
+    asserts.true(env, "dev" in activated_extras[base])
+    asserts.true(env, "prod" in activated_extras[runtime])
+    asserts.true(env, "dev" in activated_extras[runtime])
+    asserts.false(env, "prod" in activated_extras[devtool])
+    asserts.true(env, "dev" in activated_extras[devtool])
+
+    _configuration_names, group_only_extras = collect_activated_extras(
+        "//:pyproject.toml",
+        "lock",
+        project_data,
+        {"package": []},
+        default_versions,
+        graph,
+        include_project_dependencies = False,
+    )
+
+    asserts.false(env, base in group_only_extras)
+    asserts.true(env, "prod" in group_only_extras[runtime])
+    asserts.true(env, "dev" in group_only_extras[runtime])
+    asserts.false(env, "prod" in group_only_extras[devtool])
+    asserts.true(env, "dev" in group_only_extras[devtool])
+
+    return unittest.end(env)
+
+collect_activated_extras_keeps_project_dependencies_in_groups_test = unittest.make(
+    _collect_activated_extras_keeps_project_dependencies_in_groups_test_impl,
+)
+
 def projectfile_test_suite():
     unittest.suite(
         "extract_requirement_marker_pairs_tests",
@@ -210,4 +278,5 @@ def projectfile_test_suite():
         extract_requirement_marker_pairs_preferred_overrides_version_map_test,
         extract_requirement_marker_pairs_preferred_overrides_multi_version_test,
         collect_activated_extras_transitive_remap_test,
+        collect_activated_extras_keeps_project_dependencies_in_groups_test,
     )
