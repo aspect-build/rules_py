@@ -790,7 +790,9 @@ def _declare_group_tar(ctx, bsdtar, bsdtar_files, out_name, group_name, files, m
     return tar_out
 
 def _py_image_layer_impl(ctx):
-    binaries = ctx.attr.binaries
+    binaries = ([ctx.attr.binary] if ctx.attr.binary != None else []) + ctx.attr.binaries
+    if not binaries:
+        fail("py_image_layer requires at least one binary")
     infos = [binary[_LayerInfo] for binary in binaries]
     bsdtar, bsdtar_files = _tar_toolchain(ctx)
 
@@ -1006,9 +1008,11 @@ def _py_image_layer_impl(ctx):
 _py_image_layer = rule(
     implementation = _py_image_layer_impl,
     attrs = {
+        "binary": attr.label(
+            aspects = [_layer_aspect],
+        ),
         "binaries": attr.label_list(
             aspects = [_layer_aspect],
-            allow_empty = False,
         ),
         "launcher_dir": attr.string(
             default = "",
@@ -1111,13 +1115,7 @@ def py_image_layer(
     else:
         if binary == None:
             fail("py_image_layer requires binary or binaries")
-        native.alias(
-            name = name + "_binary",
-            actual = binary,
-            tags = tags,
-            testonly = kwargs.get("testonly", False),
-        )
-        binaries = [":" + name + "_binary"] + additional_binaries
+        binaries = additional_binaries
 
     for key in groups:
         if _split_glob_key(key)[1] != None:
@@ -1128,6 +1126,7 @@ def py_image_layer(
 
     _py_image_layer(
         name = name,
+        binary = binary,
         binaries = binaries,
         launcher_dir = launcher_dir,
         groups = groups,
