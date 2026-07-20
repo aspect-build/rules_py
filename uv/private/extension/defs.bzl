@@ -272,6 +272,11 @@ def _parse_projects(module_ctx, hub_specs):
                 conditional_deps = {}
                 skip = False
                 for dep in extra_deps:
+                    # TODO(konsti): We currently ignore match-runtime. Since we're already
+                    # using locked dependencies for building, this works as long as there is
+                    # only a single version of the package.
+                    if type(dep) == "dict":
+                        dep = dep["requirement"]
                     resolved_deps = extract_requirement_marker_pairs(
                         project.lock,
                         project_id,
@@ -581,7 +586,12 @@ def _parse_projects(module_ctx, hub_specs):
 
                     sbuild_specs[sbuild_id] = struct(
                         src = sdist,
-                        deps = ["@{0}//:{1}".format(*it) for it in build_deps],
+                        # A base requirement and its extras resolve through the same
+                        # project package label, so deduplicate after rendering labels.
+                        deps = sets.to_list(sets.make([
+                            "@{0}//:{1}".format(*it)
+                            for it in build_deps
+                        ])),
                         conditional_deps = sbuild_conditional_deps,
                         is_native = is_native,
                         version = package["version"],

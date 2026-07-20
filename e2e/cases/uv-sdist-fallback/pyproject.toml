@@ -22,7 +22,10 @@ no-binary-package = ["cowsay", "tqdm"]
 # `packaging` is intentionally absent from `default_build_dependencies`, so
 # the tqdm snapshot catches a broken uv-native annotation path.
 tqdm = [
-    "setuptools==80.10.2",
+    # `ssl` is an empty setuptools extra that exercises extra-qualified
+    # requirements without expanding this fixture's lockfile.
+    "setuptools[ssl]==80.10.2",
     "packaging; sys_platform != 'win32'",
     "packaging; sys_platform != 'imaginary'",
+    { requirement = "pyproject-hooks", match-runtime = true },
 ]
