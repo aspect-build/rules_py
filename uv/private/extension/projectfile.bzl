@@ -101,6 +101,7 @@ def extract_requirement_marker_pairs(
         # Direct references identify a locked artifact, not a version
         # constraint. Never fall back to a different locked version or URL.
         url = specifier[1:].strip()
+
         # Git uses semantically relevant fragments such as `#subdirectory=`.
         if not url.startswith("git+"):
             # uv stores hashes separately from URLs.
@@ -184,7 +185,8 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
             version dependency tuples.
         graph: The dependency graph, as returned by `build_marker_graph`.
         extra_roots: Additional resolved dependencies and their markers to
-            activate in every dependency group, such as build-requirement extras.
+            activate in every dependency group, remapped to each group's
+            selected package versions, such as build-requirement extras.
         locked_urls: A dictionary mapping direct-reference URLs to locked
             dependencies.
 
@@ -234,10 +236,15 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
                 base = (dep[0], dep[1], dep[2], "__base__")
                 activated_extras.setdefault(base, {}).setdefault(group_name, {}).setdefault(dep, {}).update({marker: 1})
 
-        for dep, markers in extra_roots.items():
-            normalized_dep_groups.setdefault(group_name, []).append(dep)
-            base = (dep[0], dep[1], dep[2], "__base__")
-            activated_extras.setdefault(base, {}).setdefault(group_name, {}).setdefault(dep, {}).update(markers)
+        for (dep_project, dep_name, dep_version, extra), markers in extra_roots.items():
+            pref = group_preferences.get(dep_name)
+            if pref:
+                _pref_project, _pref_name, dep_version, _pref_extra = pref
+
+            target_dep = (dep_project, dep_name, dep_version, extra)
+            normalized_dep_groups.setdefault(group_name, []).append(target_dep)
+            base = (dep_project, dep_name, dep_version, "__base__")
+            activated_extras.setdefault(base, {}).setdefault(group_name, {}).setdefault(target_dep, {}).update(markers)
 
     for group_name, deps in normalized_dep_groups.items():
         worklist = list(deps)

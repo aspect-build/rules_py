@@ -67,8 +67,8 @@ load("//uv/private/tomltool:toml.bzl", "toml")
 load("//uv/private/uv_hub:repository.bzl", "uv_hub")
 load("//uv/private/uv_project:repository.bzl", "uv_project")
 load("//uv/private/whl_install:repository.bzl", "parse_console_script", "whl_install")
-load(":graph_utils.bzl", "activate_extras", "collect_sccs")
 load(":git_utils.bzl", "locked_git_requirement_urls")
+load(":graph_utils.bzl", "activate_extras", "collect_sccs")
 load(":lockfile.bzl", "build_marker_graph", "collect_bdists", "collect_configurations", "collect_sdists", "normalize_deps", "url_basename")
 load(":projectfile.bzl", "collate_versions_by_name", "collect_activated_extras", "extract_requirement_marker_pairs")
 
@@ -421,8 +421,9 @@ def _parse_projects(module_ctx, hub_specs):
 
             whl_configurations.update(collect_configurations(lock_data))
 
-            # Activate extras requested by build requirements in every dependency
-            # group so their transitive dependencies reach source-build tools.
+            # Activate extras requested by build requirements using each
+            # dependency group's selected versions so their transitive
+            # dependencies reach source-build tools.
             build_extra_roots = {}
             for deps in lock_build_dep_anns.values():
                 for dep_project, dep_name, dep_version, extra in deps:
@@ -597,6 +598,7 @@ def _parse_projects(module_ctx, hub_specs):
                         ]
 
                     build_deps = sets.to_list(sets.make(build_deps + lock_build_deps))
+
                     # A base requirement and its extras resolve through the same
                     # project package label, so deduplicate after rendering labels.
                     sbuild_deps = sets.to_list(sets.make([

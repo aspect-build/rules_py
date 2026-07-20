@@ -196,6 +196,63 @@ collect_activated_extras_build_extra_test = unittest.make(
     _collect_activated_extras_build_extra_test_impl,
 )
 
+def _collect_activated_extras_build_extra_conflicting_versions_test_impl(ctx):
+    env = unittest.begin(ctx)
+    requests_228 = ("lock", "requests", "2.28.2", "__base__")
+    requests_228_socks = ("lock", "requests", "2.28.2", "socks")
+    requests_232 = ("lock", "requests", "2.32.5", "__base__")
+    requests_232_socks = ("lock", "requests", "2.32.5", "socks")
+    pysocks = ("lock", "pysocks", "1.7.1", "__base__")
+    graph = {
+        requests_228: {},
+        requests_228_socks: {pysocks: {"": 1}},
+        requests_232: {},
+        requests_232_socks: {pysocks: {"": 1}},
+        pysocks: {},
+    }
+
+    _cfg_names, activated_extras = collect_activated_extras(
+        "//:pyproject.toml",
+        "lock",
+        {
+            "project": {"name": "test_project"},
+            "dependency-groups": {
+                "old": ["requests==2.28.2"],
+                "new": ["requests==2.32.5"],
+            },
+        },
+        {
+            "package": [{
+                "name": "test_project",
+                "version": "0.0.0",
+                "source": {"virtual": "."},
+                "dev-dependencies": {
+                    "old": [{"name": "requests", "version": "2.28.2"}],
+                    "new": [{"name": "requests", "version": "2.32.5"}],
+                },
+            }],
+        },
+        {"pysocks": pysocks},
+        graph,
+        {
+            "requests": {"2.28.2": 1, "2.32.5": 1},
+            "pysocks": {"1.7.1": 1},
+        },
+        {requests_232_socks: {"": 1}},
+    )
+
+    asserts.equals(env, {requests_228: {"": 1}, requests_228_socks: {"": 1}}, activated_extras[requests_228]["old"])
+    asserts.false(env, "old" in activated_extras.get(requests_232, {}))
+    asserts.equals(env, {requests_232: {"": 1}, requests_232_socks: {"": 1}}, activated_extras[requests_232]["new"])
+    asserts.false(env, "new" in activated_extras.get(requests_228, {}))
+    asserts.equals(env, {pysocks: {"": 1}}, activated_extras[pysocks]["old"])
+    asserts.equals(env, {pysocks: {"": 1}}, activated_extras[pysocks]["new"])
+    return unittest.end(env)
+
+collect_activated_extras_build_extra_conflicting_versions_test = unittest.make(
+    _collect_activated_extras_build_extra_conflicting_versions_test_impl,
+)
+
 def _collect_activated_extras_transitive_remap_test_impl(ctx):
     env = unittest.begin(ctx)
     project_data = {
@@ -288,5 +345,6 @@ def projectfile_test_suite():
         extract_requirement_marker_pairs_preferred_overrides_version_map_test,
         extract_requirement_marker_pairs_preferred_overrides_multi_version_test,
         collect_activated_extras_build_extra_test,
+        collect_activated_extras_build_extra_conflicting_versions_test,
         collect_activated_extras_transitive_remap_test,
     )
