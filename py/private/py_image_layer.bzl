@@ -637,65 +637,6 @@ def _source_file_to_mtree(f, dir_expander, strip_prefix, root, maybe_symlink, ex
 def _make_source_map(strip_prefix, root, maybe_symlink, executable_dsts):
     return lambda f, d: _source_file_to_mtree(f, d, strip_prefix, root, maybe_symlink, executable_dsts)
 
-def _normalize_destination(path):
-    parts = []
-    for part in path.split("/"):
-        if not part or part == ".":
-            continue
-        if part == "..":
-            if not parts:
-                fail("py_image_layer image destination escapes its root: {}".format(path))
-            parts.pop()
-        else:
-            parts.append(part)
-    return "./" + "/".join(parts) if parts else "."
-
-def _register_image_destination(f, destination, paths, descendants):
-    destination = _normalize_destination(destination)
-    previous = paths.get(destination, None)
-    if previous != None:
-        if previous != f.path:
-            fail("py_image_layer runfile collision at {}: {} and {}".format(destination, previous, f.path))
-        return
-
-    parts = destination.split("/")
-    for end in range(len(parts) - 1, 0, -1):
-        parent = "/".join(parts[:end])
-        ancestor = paths.get(parent, None)
-        if ancestor != None:
-            fail("py_image_layer runfile collision at {}: {} and {}".format(destination, ancestor, f.path))
-
-    if destination in descendants:
-        descendant, source = descendants[destination]
-        fail("py_image_layer runfile collision at {}: {} and {}".format(descendant, source, f.path))
-
-    paths[destination] = f.path
-    for end in range(len(parts) - 1, 0, -1):
-        parent = "/".join(parts[:end])
-        if parent not in descendants:
-            descendants[parent] = (destination, f.path)
-
-def _check_source_tree(f, strip_prefix, executable_dsts):
-    if not f.is_directory:
-        return
-    tree = f.short_path.rstrip("/")
-    if tree == "_repo_mapping":
-        fail("py_image_layer cannot map TreeArtifact at _repo_mapping")
-    for executable_short_path, executable_dst in executable_dsts.items():
-        if tree == executable_short_path:
-            fail("py_image_layer executable cannot be a TreeArtifact: {}".format(tree))
-        if executable_dst and executable_short_path.startswith(tree + "/"):
-            fail("py_image_layer cannot map TreeArtifact across launcher: {} contains {}".format(tree, executable_short_path))
-    if tree.startswith("../"):
-        return
-    prefix = _normalize_strip_prefix(strip_prefix)
-    if prefix and prefix.startswith(tree + "/"):
-        fail("py_image_layer cannot map TreeArtifact across strip_prefix: {} contains {}".format(tree, prefix))
-    for executable_short_path in executable_dsts:
-        runfiles = executable_short_path + ".runfiles"
-        if runfiles == tree or runfiles.startswith(tree + "/"):
-            fail("py_image_layer cannot map TreeArtifact across launcher runfiles: {} contains {}".format(tree, runfiles))
-
 def _user_file_to_mtree(f, dir_expander):
     if f.is_directory:
         return [_file_to_mtree_entry(child, "0755") for child in dir_expander.expand(f)]
@@ -935,33 +876,6 @@ def _py_image_layer_impl(ctx):
         executable_dsts,
     )
 
-    # Multiple configured closures share one runfiles tree. Compare their
-    # top-level artifacts at analysis time; TreeArtifact children cannot be
-    # inspected here, so reject trees crossing a piecewise-mapped prefix.
-    if len(binaries) > 1:
-        paths = {}
-        descendants = {}
-        for info in infos:
-            for entry in info.first_party_layers.to_list():
-                for f in entry.files.to_list():
-                    _check_source_tree(f, strip_prefix, executable_dsts)
-                    _register_image_destination(f, _source_destination(f.short_path, strip_prefix, root, executable_dsts), paths, descendants)
-            for f in info.source_files.to_list():
-                _check_source_tree(f, strip_prefix, executable_dsts)
-                _register_image_destination(f, _source_destination(f.short_path, strip_prefix, root, executable_dsts), paths, descendants)
-            if info.interpreter_files != None:
-                for f in info.interpreter_files.to_list():
-                    _register_image_destination(f, _source_destination(f.short_path, "", "/", {}), paths, descendants)
-        for pkg in all_pkgs:
-            for f in pkg.files.to_list():
-                _register_image_destination(f, _source_destination(f.short_path, "", "/", {}), paths, descendants)
-        for dep in ctx.attr.groups:
-            if normalize_label(str(dep.label)) in pip_labels:
-                continue
-            for f in dep[DefaultInfo].files.to_list():
-                _check_source_tree(f, "", {})
-                _register_image_destination(f, _source_destination(f.short_path, "", "/", {}), paths, descendants)
-
     rule_group_names = {gname: True for gname in ctx.attr.groups.values()}
     for dep, group_name in ctx.attr.groups.items():
         dep_label = normalize_label(str(dep.label))
@@ -1104,11 +1018,37 @@ def _py_image_layer_impl(ctx):
     for pkg in ungrouped_pkgs:
         validation_args.add_all(pkg.files, format_each = pkg.label + "=%s", expand_directories = False)
 
+    validation_inputs = [pkg.files for pkg in ungrouped_pkgs]
+    validation_arguments = [validation_args]
+    if len(binaries) > 1 or launcher_dir:
+        # Validate expanded rows whenever launchers are relocated or shared.
+        # TreeArtifact roots can contain disjoint versioned children, so only
+        # the production mappers' expanded destinations are authoritative.
+        source_files = depset(transitive = [info.source_files for info in infos] + [entry.files for info in infos for entry in info.first_party_layers.to_list()])
+        rule_group_files = [dep[DefaultInfo].files for dep in ctx.attr.groups if normalize_label(str(dep.label)) not in pip_labels]
+        wheel_files = [pkg.files for pkg in all_pkgs]
+        interpreter_files = [info.interpreter_files for info in infos if info.interpreter_files != None]
+
+        mtree_args = ctx.actions.args()
+        mtree_args.set_param_file_format("multiline")
+        mtree_args.use_param_file("%s", use_always = True)
+        mtree_args.add("#mtree")
+        mtree_args.add_all(source_files, map_each = source_map, expand_directories = False, allow_closure = True)
+        for files in rule_group_files:
+            mtree_args.add_all(files, map_each = _user_file_to_mtree, expand_directories = False)
+        for files in wheel_files:
+            mtree_args.add_all(files, map_each = _pkg_file_to_mtree, expand_directories = False)
+        for files in interpreter_files:
+            mtree_args.add_all(files, map_each = _interpreter_file_to_mtree, expand_directories = False)
+        validation_args.add("--mtree")
+        validation_arguments.append(mtree_args)
+        validation_inputs.extend([source_files] + rule_group_files + wheel_files + interpreter_files)
+
     ctx.actions.run(
         executable = ctx.executable._validator,
-        inputs = depset(transitive = [pkg.files for pkg in ungrouped_pkgs]),
+        inputs = depset(transitive = validation_inputs),
         outputs = [validation],
-        arguments = [validation_args],
+        arguments = validation_arguments,
         mnemonic = "PyImageLayerValidate",
     )
 

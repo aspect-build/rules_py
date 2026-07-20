@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""py_image_layer_validator — validate pip layer sizing for a py_image_layer target.
+"""py_image_layer_validator — validate sizing and shared destinations for an image layer.
 
 Invoked as a Bazel validation action. Fails (exit 1) with actionable `py_layer_tier` snippets
 when the squashed pip layer exceeds a size threshold or when the OCI 127-layer hard limit is
@@ -9,17 +9,17 @@ Usage:
   py_image_layer_validator --threshold_mb N --output FILE [label=path ...]
     label=path  — one entry per ungrouped pip package; `label` is the canonical pip label
                   (e.g. @pip//numpy), `path` is its install directory / file.
+    --mtree FILE  — expanded mtree rows for relocated or shared launchers.
 """
 
 from __future__ import annotations
 
 import argparse
-import contextlib
 import csv
 import glob
 import os
 import sys
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 _OCI_LAYER_HARD_LIMIT = 127
 _BINARY_GLOBS = {"*.so", "*.so.*", "*.pyd", "*.dylib", "*.dll"}
@@ -229,12 +229,62 @@ def _add_subpath_or_whole(
         _add_whole_promotion(suggestions, label, size_mb, is_binary, annotation="whole package")
 
 
+def _mtree_collision(rows: Iterable[str]) -> Optional[str]:
+    """Return the first conflicting expanded mtree destination, or None."""
+    paths: Dict[str, str] = {}
+    descendants: Dict[str, Tuple[str, str]] = {}
+    for row in rows:
+        if not row or row.startswith("#"):
+            continue
+        fields = row.split()
+        destination_parts: List[str] = []
+        for part in fields[0].split("/"):
+            if not part or part == ".":
+                continue
+            if part == "..":
+                if not destination_parts:
+                    return "py_image_layer image destination escapes its root: {}".format(fields[0])
+                destination_parts.pop()
+            else:
+                destination_parts.append(part)
+        destination = "./" + "/".join(destination_parts) if destination_parts else "."
+        source = next(
+            (field.partition("=")[2] for field in fields[1:] if field.startswith(("contents=", "content=", "link="))),
+            None,
+        )
+        if source is None:
+            return "invalid py_image_layer mtree row (missing source): {}".format(row)
+
+        previous = paths.get(destination)
+        if previous is not None:
+            if previous != source:
+                return "py_image_layer runfile collision at {}: {} and {}".format(destination, previous, source)
+            continue
+
+        parts = destination.split("/")
+        for end in range(len(parts) - 1, 0, -1):
+            parent = "/".join(parts[:end])
+            if parent in paths:
+                return "py_image_layer runfile collision at {}: {} and {}".format(destination, paths[parent], source)
+        if destination in descendants:
+            descendant, previous = descendants[destination]
+            return "py_image_layer runfile collision at {}: {} and {}".format(descendant, previous, source)
+
+        paths[destination] = source
+        for end in range(len(parts) - 1, 0, -1):
+            parent = "/".join(parts[:end])
+            descendants.setdefault(parent, (destination, source))
+
+    return None
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--threshold_mb", type=int, default=200)
     parser.add_argument("--layer_count", type=int, default=0)
     parser.add_argument("--warn_layer_count", type=int, default=90)
     parser.add_argument("--output", required=True)
+    parser.add_argument("--mtree")
     parser.add_argument("pkg_paths", nargs="*", metavar="label=path")
     args = parser.parse_args()
 
@@ -252,6 +302,11 @@ def main() -> None:
     pkg_binary = {label: _pkg_is_binary(paths) for label, paths in pkg_path_map.items()}
 
     messages: List[str] = []
+    if args.mtree:
+        with open(args.mtree) as mtree:
+            collision = _mtree_collision(mtree)
+        if collision:
+            messages.append("ERROR: " + collision)
     suggestions = _Suggestions()
 
     layer_count_comment_lines: List[str] = []

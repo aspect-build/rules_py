@@ -13,12 +13,65 @@ from py.private.py_image_layer_validator import (
     _Suggestions,
     _find_large_files,
     _glob_for_file,
+    _mtree_collision,
     _pkg_is_binary,
     _pkg_name_from_label,
     _pkg_size,
     _suggest_subpath_groups,
     main,
 )
+
+
+def _mtree_row(destination: str, source: str) -> str:
+    return "{} type=file mode=0755 contents={}".format(destination, source)
+
+
+def test_mtree_identical_source_coalesces() -> None:
+    row = _mtree_row("./app.runfiles/pkg/module.py", "same/module.py")
+    assert _mtree_collision(["#mtree", row, row]) is None
+
+
+def test_mtree_conflicting_source_fails() -> None:
+    collision = _mtree_collision([
+        _mtree_row("./app.runfiles/pkg/module.py", "first/module.py"),
+        _mtree_row("./app.runfiles/pkg/module.py", "second/module.py"),
+    ])
+    assert collision is not None
+    assert "py_image_layer runfile collision at ./app.runfiles/pkg/module.py:" in collision
+
+
+def test_mtree_ancestor_then_descendant_fails() -> None:
+    collision = _mtree_collision([
+        _mtree_row("./app.runfiles/pkg/module.py", "first/module.py"),
+        _mtree_row("./app.runfiles/pkg/module.py/data", "second/data"),
+    ])
+    assert collision is not None
+    assert "py_image_layer runfile collision at ./app.runfiles/pkg/module.py/data:" in collision
+
+
+def test_mtree_descendant_then_ancestor_fails() -> None:
+    collision = _mtree_collision([
+        _mtree_row("./app.runfiles/pkg/module.py/data", "second/data"),
+        _mtree_row("./app.runfiles/pkg/module.py", "first/module.py"),
+    ])
+    assert collision is not None
+    assert "py_image_layer runfile collision at ./app.runfiles/pkg/module.py/data:" in collision
+
+
+def test_mtree_normalized_alias_fails() -> None:
+    collision = _mtree_collision([
+        _mtree_row("./app.runfiles/pkg/nested/../module.py", "first/module.py"),
+        _mtree_row("./app.runfiles/pkg/./module.py", "second/module.py"),
+    ])
+    assert collision is not None
+    assert "py_image_layer runfile collision at ./app.runfiles/pkg/module.py:" in collision
+
+
+def test_mtree_disjoint_children_succeed() -> None:
+    assert _mtree_collision([
+        _mtree_row("./app.runfiles/pkg/python3.11/module.py", "first/module.py"),
+        _mtree_row("./app.runfiles/pkg/python3.12/module.py", "second/module.py"),
+    ]) is None
 
 
 # ---------------------------------------------------------------------------
@@ -262,6 +315,28 @@ def test_main_ok_below_threshold() -> None:
             content = fh.read()
         assert "OK" in content
         os.unlink(out_path)
+
+
+def test_main_mtree_collision_error() -> None:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".params", delete=False) as params:
+        params.write("#mtree\n")
+        params.write(_mtree_row("./app.runfiles/pkg/module.py", "first/module.py") + "\n")
+        params.write(_mtree_row("./app.runfiles/pkg/module.py", "second/module.py") + "\n")
+        params_path = params.name
+    with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as output:
+        out_path = output.name
+    sys.argv = ["validator", "--threshold_mb", "999", "--output", out_path, "--mtree", params_path]
+    with _capture_stderr():
+        try:
+            main()
+            exit_code = 0
+        except SystemExit as e:
+            exit_code = e.code
+    assert exit_code == 1
+    with open(out_path) as fh:
+        assert "py_image_layer runfile collision at ./app.runfiles/pkg/module.py:" in fh.read()
+    os.unlink(params_path)
+    os.unlink(out_path)
 
 
 def test_main_layer_count_error() -> None:
