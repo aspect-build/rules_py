@@ -4,11 +4,12 @@
 # and multi-project (`@pypi_multi`, see //multi-project-hub) shapes.
 load("@aspect_rules_py//py:defs.bzl", "py_test")
 load("@aspect_rules_py//uv:defs.bzl", "gazelle_python_manifest")
-load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 py_test(
     name = "single_project_hub",
     srcs = ["__test__.py"],
+    args = ["$(rootpath :gazelle_python_manifest)"],
+    data = [":gazelle_python_manifest"],
     dep_group = "single_project_hub",
     main = "__test__.py",
     python_version = "3.11",
@@ -21,10 +22,4 @@ gazelle_python_manifest(
     name = "gazelle_python_manifest",
     hub = "pypi_single",
     venvs = ["single_project_hub"],
-)
-
-sh_test(
-    name = "gazelle_manifest_test",
-    srcs = ["gazelle_manifest_test.sh"],
-    data = [":gazelle_python_manifest"],
 )
