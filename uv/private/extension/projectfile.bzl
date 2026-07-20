@@ -100,7 +100,12 @@ def extract_requirement_marker_pairs(
     if specifier.startswith("@"):
         # Direct references identify a locked artifact, not a version
         # constraint. Never fall back to a different locked version or URL.
-        v = locked_urls.get((pkg_name, specifier[1:].strip()))
+        url = specifier[1:].strip()
+        # Git uses semantically relevant fragments such as `#subdirectory=`.
+        if not url.startswith("git+"):
+            # uv stores hashes separately from URLs.
+            url = url.split("#", 1)[0]
+        v = locked_urls.get((pkg_name, url))
     else:
         v = preferred_versions.get(pkg_name)
         if v == None:
