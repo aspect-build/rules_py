@@ -162,7 +162,7 @@ def py_binary(name, srcs = [], main = None, **kwargs):
     )
 
 def py_test(name, srcs = [], main = None, pytest_main = False, **kwargs):
-    """Identical to [py_binary](./py_binary.md), but produces a target that can be used with `bazel test`.
+    """Identical to [py_binary](#function-py_binary), but produces a target that can be used with `bazel test`.
 
     Args:
         name: Name of the rule.
