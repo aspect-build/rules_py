@@ -1,5 +1,8 @@
 load("//py:defs.bzl", "py_test")
 
+# Shared test vectors are data, not a public Starlark library.
+# gazelle:exclude exclude_glob_test_vectors.bzl
+
 exports_files(
     [
         "exclude_glob.py",
