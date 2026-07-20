@@ -16,11 +16,11 @@ uv.project(
     lock = "//uv-sdist-fallback:uv.lock",
     pyproject = "//uv-sdist-fallback:pyproject.toml",
 )
-uv.unstable_annotate_packages(
+uv.annotate_packages(
     src = "//uv-sdist-fallback:annotations.toml",
     lock = "//uv-sdist-fallback:uv.lock",
 )
-uv.unstable_annotate_packages(
+uv.annotate_packages(
     src = "//uv-sdist-fallback:native_annotations.toml",
     lock = "//uv-sdist-fallback:uv.lock",
 )

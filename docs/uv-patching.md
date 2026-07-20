@@ -181,11 +181,6 @@ both an sdist and a compatible wheel produces no report when the wheel is
 selected; use `[tool.uv] no-binary-package` to force the monitored source build.
 A package with no sdist rejects the override.
 
-A custom sdist configure tool that returns complete `build_file_content` owns
-the wheel action itself. Such content must add its own monitoring; combining
-that replacement with `monitor_memory` is rejected rather than silently
-dropping the diagnostic.
-
 ### Full replacement
 
 To replace a package entirely with a custom target (existing functionality):
@@ -225,11 +220,6 @@ uv.override_package(
 - `pre_build_patches`, `toolchains`, `env`, `monitor_memory`, and non-default
   `resource_set` values require a source distribution. An override that applies
   them to a wheel-only lock record is rejected.
-- A configure tool that returns complete `build_file_content` receives
-  `pre_build_patches` and `pre_build_patch_strip` in its context and owns
-  applying them. `toolchains`, `env`, `monitor_memory`, and non-default
-  `resource_set` values are rejected because the configure context cannot
-  convey them.
 - Generated pure-Python builds reject `toolchains` and `env`; those attributes
   augment the native build toolchain and environment.
 - Native build `env` values can use `$(EXECROOT)/` to anchor paths supplied by

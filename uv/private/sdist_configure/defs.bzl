@@ -24,8 +24,8 @@ the tool's stderr and fall back to generating a default pure-Python build.
 
 ## Context input
 
-The context JSON file contains information the tool may need to generate
-build file content:
+The context JSON file contains information the tool may use when inspecting
+the archive:
 
     {
         "src": <string>,          # Label string for the sdist source archive
@@ -34,9 +34,7 @@ build file content:
         "available_deps": {       # Mapping of normalized package names to labels
             <name>: <label>,      #   for all packages in the lockfile
             ...
-        },
-        "pre_build_patches": [<string>, ...],  # Patch file labels
-        "pre_build_patch_strip": <int>         # Patch strip level
+        }
     }
 
     `available_deps` allows the tool to resolve additional build dependencies
@@ -53,20 +51,10 @@ The JSON object MUST contain:
 
     is_native: True if the archive contains source files that require a
     platform-specific build (C, C++, Cython, Rust, assembly, etc.).
-    When True and no `build_file_content` is provided, the repository rule
-    generates a `pep517_native_whl` target instead of `pep517_whl`.
+    When True, the repository rule generates a `pep517_native_whl` target
+    instead of `pep517_whl`.
 
 The JSON object MAY contain any of the following fields:
-
-    "build_file_content": <string>
-
-        Complete BUILD.bazel content. When present, the repository rule uses
-        this verbatim instead of generating its own build file. This allows
-        sophisticated configure tools to emit targets using arbitrary rule
-        sets (rules_cc, rules_rs, etc.).
-
-        The content MUST define a target named `whl` with
-        visibility = ["//visibility:public"] that produces a wheel file.
 
     "extra_deps": [<string>, ...]
 

@@ -21,8 +21,6 @@ def _write_context_file(repository_ctx):
         "version": repository_ctx.attr.version,
         "deps": [str(d) for d in repository_ctx.attr.deps],
         "available_deps": repository_ctx.attr.available_deps,
-        "pre_build_patches": [str(p) for p in repository_ctx.attr.pre_build_patches],
-        "pre_build_patch_strip": repository_ctx.attr.pre_build_patch_strip,
     }
 
     context_path = repository_ctx.path("_configure_context.json")
@@ -97,7 +95,7 @@ def _resolve_extra_deps(repository_ctx, inspection):
         fail(
             ("sdist configure tool for {} reported build deps that are not in " +
              "the lockfile: {}. Add these packages to your lockfile or provide " +
-             "them via uv.unstable_annotate_packages().").format(
+             "them via uv.annotate_packages().").format(
                 repository_ctx.name,
                 ", ".join(unresolvable),
             ),
@@ -144,14 +142,10 @@ def _resolve_archive_path(repository_ctx):
 def _sdist_build_impl(repository_ctx):
     """Prepares a repository for building a wheel from a source distribution (sdist).
 
-    A configure tool may inspect the sdist archive and return:
-    - `build_file_content`: used verbatim as the BUILD.bazel
-    - `is_native` + `extra_deps`: used to generate a standard build file
-      with the appropriate rule and resolved dependencies
-
-    An explicit `is_native` selects the generated rule while preserving
-    configure-discovered deps. It conflicts with complete `build_file_content`,
-    which is otherwise used verbatim.
+    A configure tool inspects the sdist archive and returns `is_native` +
+    `extra_deps`, used to generate the build file with the appropriate rule
+    and resolved dependencies. An explicit `is_native` annotation overrides
+    the tool's detection.
 
     See //uv/private/sdist_configure:defs.bzl for the tool contract.
 
@@ -162,32 +156,9 @@ def _sdist_build_impl(repository_ctx):
     is_native_override = repository_ctx.attr.is_native
     archive_path = _resolve_archive_path(repository_ctx)
     inspection = _run_configure_tool(repository_ctx, archive_path) if archive_path else None
-    build_file_content = inspection.get("build_file_content") if inspection else None
-
-    if build_file_content and is_native_override != "auto":
-        fail("sdist_build for '{}': explicit `is_native = \"{}\"` requests a generated `pep517_*whl(...)` call, but the configure tool returned complete `build_file_content`; remove the native annotation, or have the configure tool select the build rule.".format(repository_ctx.name, is_native_override))
 
     if is_native_override == "auto":
         if inspection != None:
-            # If the tool provided complete build file content, use it directly.
-            if build_file_content:
-                validate_build_attrs(
-                    console_scripts = None,
-                    resource_set = repository_ctx.attr.resource_set,
-                    env = repository_ctx.attr.extra_env,
-                    error = "sdist_build for '{}': the configure tool returned complete `build_file_content`, which bypasses the generated `pep517_*whl(...)` call, so these attributes cannot be applied: {{}}. Drop them from the override, or have the configure tool set them in its own `build_file_content`.".format(repository_ctx.name),
-                    monitor_memory = repository_ctx.attr.monitor_memory,
-                    pre_build_patches = repository_ctx.attr.pre_build_patches,
-                    pre_build_patch_strip = repository_ctx.attr.pre_build_patch_strip,
-                    supported = [
-                        "pre_build_patches",
-                        "pre_build_patch_strip",
-                    ],
-                    toolchains = repository_ctx.attr.extra_toolchains,
-                )
-                repository_ctx.file("BUILD.bazel", content = build_file_content)
-                return
-
             is_native = inspection["is_native"]
             if is_native and repository_ctx.getenv("RULES_PY_UV_VERBOSE", ""):
                 # buildifier: disable=print

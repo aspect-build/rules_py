@@ -5,7 +5,7 @@ uv.project(
     lock = "//uv-include-group:uv.lock",
     pyproject = "//uv-include-group:pyproject.toml",
 )
-uv.unstable_annotate_packages(
+uv.annotate_packages(
     src = "//uv-legacy-deps-750:annotations.toml",
     lock = "//uv-include-group:uv.lock",
 )

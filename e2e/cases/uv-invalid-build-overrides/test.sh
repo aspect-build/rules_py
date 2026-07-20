@@ -48,10 +48,6 @@ expect_failure \
     'has no uv.project() for that lock'
 
 expect_failure \
-    custom-complete \
-    '@sdist_build__uv_invalid_build_overrides_custom__cowsay__6_0//:*' \
-    'complete `build_file_content`, which bypasses the generated `pep517_*whl(...)` call, so these attributes cannot be applied: resource_set, env, monitor_memory, toolchains'
-expect_failure \
     custom-pure \
     '@sdist_build__uv_invalid_build_overrides_custom__cowsay__6_0//:*' \
     'generated pure-Python `pep517_whl(...)` call cannot apply these native-build attributes: env, toolchains'

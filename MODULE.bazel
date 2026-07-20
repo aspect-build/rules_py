@@ -155,7 +155,7 @@ uv.project(
     lock = "//:uv.lock",
     pyproject = "//:pyproject.toml",
 )
-uv.unstable_annotate_packages(
+uv.annotate_packages(
     src = "//:annotations.toml",
     lock = "//:uv.lock",
 )

@@ -18,7 +18,7 @@ uv.project(
     lock = "//uv-sdist-jdk-build:uv.lock",
     pyproject = "//uv-sdist-jdk-build:pyproject.toml",
 )
-uv.unstable_annotate_packages(
+uv.annotate_packages(
     src = "//uv-sdist-jdk-build:annotations.toml",
     lock = "//uv-sdist-jdk-build:uv.lock",
 )
