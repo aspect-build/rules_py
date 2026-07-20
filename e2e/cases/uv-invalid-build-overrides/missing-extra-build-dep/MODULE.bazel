@@ -1,0 +1,17 @@
+module(name = "missing_extra_build_dep_fixture")
+
+bazel_dep(name = "aspect_rules_py")
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../../../..",
+)
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "missing_extra_build_dep")
+uv.project(
+    default_build_dependencies = [],
+    hub_name = "missing_extra_build_dep",
+    lock = "//:uv.lock",
+    pyproject = "//:pyproject.toml",
+)
+use_repo(uv, "missing_extra_build_dep")

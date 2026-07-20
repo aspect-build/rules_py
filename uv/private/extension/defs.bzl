@@ -314,7 +314,6 @@ def _parse_projects(module_ctx, hub_specs):
                     # Allow a shared annotation file to include entries for other locks.
                     continue
                 deps = []
-                skip = False
                 for dep in extra_deps:
                     resolved_deps = extract_requirement_marker_pairs(
                         project.lock,
@@ -324,14 +323,17 @@ def _parse_projects(module_ctx, hub_specs):
                         package_versions,
                         fail_if_missing = False
                     )
-                    if resolved_deps == None:
-                        skip = True
-                        break
+                    if not resolved_deps:
+                        fail((
+                            "Unable to resolve extra build dependency {} for package {} in {}. " +
+                            "`uv lock` does not include packages referenced only by " +
+                            "`tool.uv.extra-build-dependencies`. Add the dependency as a dependency " +
+                            "and regenerate the lock."
+                        ).format(repr(dep), repr(package), project.pyproject))
                     # TODO(konsti): Consider the marker too - we shouldn't inject build deps on platforms where they are
                     # declared.
                     deps.extend([resolved for resolved, _marker in resolved_deps])
-                if not skip:
-                    lock_build_dep_anns[target] = deps
+                lock_build_dep_anns[target] = deps
 
             for ann in mod.tags.annotate_packages:
                 if ann.lock == project.lock:

@@ -1,0 +1,20 @@
+version = 1
+revision = 3
+requires-python = ">=3.11"
+
+[[package]]
+name = "cchardet"
+version = "2.1.7"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a8/5d/090c9f0312b7988a9433246c9cf0b566b1ae1374368cfb8ac897218a4f65/cchardet-2.1.7.tar.gz", hash = "sha256:c428b6336545053c2589f6caf24ea32276c6664cb86db817e03a94c60afa0eaf", size = 653617, upload-time = "2020-10-27T08:36:15.999Z" }
+
+[[package]]
+name = "missing-extra-build-dep"
+version = "0.0.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "cchardet" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "cchardet", specifier = "==2.1.7" }]
