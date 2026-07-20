@@ -78,6 +78,40 @@ extract_requirement_marker_pairs_with_extras_test = unittest.make(
     _extract_requirement_marker_pairs_with_extras_test_impl,
 )
 
+def _extract_requirement_marker_pairs_direct_reference_test_impl(ctx):
+    env = unittest.begin(ctx)
+    versions = {"build": {"1.3.0": 1, "2.0.0": 1}}
+    locked_urls = {
+        ("build", "https://example.invalid/build-1.3.0-py3-none-any.whl"): ("proj", "build", "1.3.0", "__base__"),
+    }
+    result = extract_requirement_marker_pairs(
+        "//:pyproject.toml",
+        "proj",
+        'build[extra] @ https://example.invalid/build-1.3.0-py3-none-any.whl ; python_version >= "3.9"',
+        {},
+        versions,
+        locked_urls = locked_urls,
+    )
+    asserts.equals(env, 2, len(result))
+    asserts.equals(env, (("proj", "build", "1.3.0", "__base__"), 'python_version >= "3.9"'), result[0])
+    asserts.equals(env, (("proj", "build", "1.3.0", "extra"), 'python_version >= "3.9"'), result[1])
+
+    missing = extract_requirement_marker_pairs(
+        "//:pyproject.toml",
+        "proj",
+        "build@https://example.invalid/build-2.0.0-py3-none-any.whl",
+        {},
+        versions,
+        fail_if_missing = False,
+        locked_urls = locked_urls,
+    )
+    asserts.equals(env, [], missing)
+    return unittest.end(env)
+
+extract_requirement_marker_pairs_direct_reference_test = unittest.make(
+    _extract_requirement_marker_pairs_direct_reference_test_impl,
+)
+
 def _extract_requirement_marker_pairs_preferred_overrides_version_map_test_impl(ctx):
     env = unittest.begin(ctx)
     version_map = {"build": ("proj", "build", "1.2.0", "__base__")}
@@ -207,6 +241,7 @@ def projectfile_test_suite():
         extract_requirement_marker_pairs_multi_version_with_specifier_test,
         extract_requirement_marker_pairs_single_version_via_map_test,
         extract_requirement_marker_pairs_with_extras_test,
+        extract_requirement_marker_pairs_direct_reference_test,
         extract_requirement_marker_pairs_preferred_overrides_version_map_test,
         extract_requirement_marker_pairs_preferred_overrides_multi_version_test,
         collect_activated_extras_transitive_remap_test,
