@@ -132,6 +132,19 @@ write_source_files(
         # annotations.toml entry.
         "snapshots/sdist_build.uv_sdist_fallback.tqdm.BUILD.bazel": "@sdist_build__uv_sdist_fallback__tqdm__4_52_0//:BUILD.bazel",
 
+        # @sdist_build for both conflicting versions of packaging
+        # ---------------------------------------------------------
+        # Pins that a package-name keyed uv-native annotation applies to every
+        # locked version, not only packages with a single default version.
+        "snapshots/sdist_build.uv_conflict_817.packaging_21_3.BUILD.bazel": (
+            "@sdist_build__ambig__packaging__21_3" +
+            "//:BUILD.bazel"
+        ),
+        "snapshots/sdist_build.uv_conflict_817.packaging_24_0.BUILD.bazel": (
+            "@sdist_build__ambig__packaging__24_0" +
+            "//:BUILD.bazel"
+        ),
+
         # @sdist_build for python-geohash with uv.override_package(resource_set)
         # ----------------------------------------------------------------------
         # Covers the override_package -> repo-rule -> BUILD-template plumbing

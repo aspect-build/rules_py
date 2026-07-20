@@ -264,8 +264,12 @@ def _parse_projects(module_ctx, hub_specs):
             lock_native_anns = {}
             extra_build_dependencies = tool_uv.get("extra-build-dependencies", {})
             for package, extra_deps in extra_build_dependencies.items():
-                target = _resolve(package, None)
-                if target == None:
+                package_name = normalize_name(package)
+                targets = [
+                    (project_id, package_name, version, "__base__")
+                    for version in package_versions.get(package_name, {})
+                ]
+                if not targets:
                     # Allow a shared annotation file to include entries for other locks.
                     continue
                 deps = []
@@ -296,8 +300,9 @@ def _parse_projects(module_ctx, hub_specs):
                             conditional_deps.setdefault(marker, []).append(resolved)
                         else:
                             deps.append(resolved)
-                lock_build_dep_anns[target] = deps
-                lock_conditional_build_dep_anns[target] = conditional_deps
+                for target in targets:
+                    lock_build_dep_anns[target] = deps
+                    lock_conditional_build_dep_anns[target] = conditional_deps
 
             for ann in mod.tags.unstable_annotate_packages:
                 if ann.lock == project.lock:
