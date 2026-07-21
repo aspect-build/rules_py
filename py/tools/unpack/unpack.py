@@ -24,7 +24,7 @@ import subprocess
 import zipfile
 from base64 import urlsafe_b64encode
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 from urllib.parse import unquote
 
 _RELOCATABLE_SHEBANG = """\
@@ -147,6 +147,7 @@ def install_wheel(version_major: int, version_minor: int, into: Path, wheel_path
     bin_dir.mkdir(parents=True, exist_ok=True)
 
     installed: Dict[Path, Optional[Tuple[str, str]]] = {}
+    seen_members: Set[str] = set()
 
     with zipfile.ZipFile(wheel_path, "r") as zf:
         record_dir, record_metadata = _record_metadata(zf)
@@ -188,6 +189,9 @@ def install_wheel(version_major: int, version_minor: int, into: Path, wheel_path
 
             dest.parent.mkdir(parents=True, exist_ok=True)
             reusable_record = record_metadata.get(member)
+            if member in seen_members:
+                reusable_record = None
+            seen_members.add(member)
             if is_script:
                 data = zf.read(member)
                 if _has_python_shebang(data):

@@ -245,6 +245,29 @@ def main() -> None:
         assert "__init__.py" in hashed_names
         _assert_record_matches_installed_files(duplicate_site_packages)
 
+        duplicate_member_wheel = root / "duplicate_member-1.0-py3-none-any.whl"
+        _write_wheel(
+            duplicate_member_wheel,
+            "duplicate_member",
+            {"fixture/member.py": b"VALUE = 1\n"},
+        )
+        with zipfile.ZipFile(duplicate_member_wheel, "a") as archive:
+            _write_member(archive, "fixture/member.py", b"VALUE = 2\n")
+        duplicate_member_out = root / "duplicate_member"
+        hashed_names.clear()
+        unpack_module.install_wheel(
+            sys.version_info.major,
+            sys.version_info.minor,
+            duplicate_member_out,
+            duplicate_member_wheel,
+        )
+        duplicate_member_site_packages = _site_packages(duplicate_member_out)
+        assert (duplicate_member_site_packages / "fixture" / "member.py").read_bytes() == (
+            b"VALUE = 2\n"
+        )
+        assert "member.py" in hashed_names
+        _assert_record_matches_installed_files(duplicate_member_site_packages)
+
         # A wheel that compiles cleanly installs successfully (exit 0) and
         # produces bytecode.
         good_wheel = root / "fixture-1.0-py3-none-any.whl"
