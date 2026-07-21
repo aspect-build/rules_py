@@ -26,4 +26,5 @@ RECORD_PATH_EXCLUDE_VECTORS = [
     ("ns/__pycache__/test_one..pyc", "ns/test_*.py", False),
     ("ns/__pycache__/test_one..opt-1.pyc", "ns/test_*.py", False),
     ("ns/__pycache__/.cpython-311.pyc", "ns/*.py", False),
+    ("pkg/__pycache__/..pyc", "pkg/..py", False),
 ]

@@ -722,11 +722,12 @@ else:
                 "demo/__pycache__/keep.cpython-999.pyc": b"retained bytecode\n",
                 "demo/keep.pyc": b"retained legacy bytecode\n",
                 "demo/sdk-core/bin/tool": b"unused native payload\n",
-                "pkg/__init__.py": b"VALUE = 1\n",
+                "pkg/retained.py": b"VALUE = 1\n",
                 "pkg/test_api.v1.py": b"raise AssertionError()\n",
                 "pkg/__pycache__/test_api.v1.cpython-311.pyc": dotted_bytes,
                 "pkg/__pycache__/test_api.v1.cpython-311.opt-1.pyc": optimized_dotted_bytes,
                 "pkg/__pycache__/test_api.v1.cpython-311.opt-é.pyc": optimized_dotted_bytes,
+                "pkg/__pycache__/..pyc": dotted_bytes,
                 "pkg/.pyc": dotted_bytes,
                 "google/api/annotations.proto": b"syntax = 'proto3';\n",
                 "google/api/annotations_pb2.py": b"VALUE = 1\n",
@@ -778,6 +779,7 @@ else:
                 "--exclude-glob=demo/sdk-core",
                 "--exclude-glob=pkg/test_*.py",
                 "--exclude-glob=pkg/.py",
+                "--exclude-glob=pkg/..py",
                 "--exclude-glob=google/**/*.proto",
                 "--exclude-glob=demo-1.0.dist-info/helper.py",
             ),
@@ -795,6 +797,7 @@ else:
         assert not (filtered_site_packages / "pkg" / "__pycache__" / "test_api.v1.cpython-311.opt-1.pyc").exists()
         assert not (filtered_site_packages / "pkg" / "__pycache__" / "test_api.v1.cpython-311.opt-é.pyc").exists()
         assert not (filtered_site_packages / "pkg" / ".pyc").exists()
+        assert (filtered_site_packages / "pkg" / "__pycache__" / "..pyc").is_file()
         assert not (filtered_site_packages / "google" / "api" / "annotations.proto").exists()
         assert (filtered_site_packages / "google" / "api" / "annotations_pb2.py").is_file()
         assert next((filtered_site_packages / "demo" / "__pycache__").glob("keep.*.pyc"))
@@ -817,11 +820,13 @@ else:
         assert "demo/nested/tests/test_nested.py" not in recorded
         assert not any(path.startswith("demo/file_tests/") for path in recorded)
         assert "demo/sdk-core/bin/tool" not in recorded
+        assert "pkg/retained.py" in recorded
         assert "pkg/test_api.v1.py" not in recorded
         assert "pkg/__pycache__/test_api.v1.cpython-311.pyc" not in recorded
         assert "pkg/__pycache__/test_api.v1.cpython-311.opt-1.pyc" not in recorded
         assert "pkg/__pycache__/test_api.v1.cpython-311.opt-é.pyc" not in recorded
         assert "pkg/.pyc" not in recorded
+        assert "pkg/__pycache__/..pyc" in recorded
         assert "google/api/annotations.proto" not in recorded
         assert "demo-1.0.dist-info/helper.py" not in recorded
         assert "demo/__pycache__/keep.cpython-999.pyc" in recorded
@@ -831,6 +836,7 @@ else:
             and path not in (
                 "demo/__pycache__/keep.cpython-999.pyc",
                 "demo/keep.pyc",
+                "pkg/__pycache__/..pyc",
                 "compiled_only.pyc",
                 "compiled_package/__init__.pyc",
             )

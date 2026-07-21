@@ -99,7 +99,7 @@ def _path_excluded(
     if not is_file or not path.name.endswith(".pyc"):
         return False
     if path.parent.name == "__pycache__":
-        source, separator, tag = path.stem.rpartition(".")
+        source, separator, tag = path.name[:-len(".pyc")].rpartition(".")
         if tag.startswith("opt-"):
             if not tag[len("opt-"):]:
                 return False
