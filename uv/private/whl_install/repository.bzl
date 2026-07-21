@@ -685,6 +685,95 @@ filegroup(
         "//conditions:default": "checked-hash",
     })"""
 
+    # Keep the public package repository as a cheap selector, while moving
+    # metadata extraction into one repository per concrete fetched wheel.
+    # This lets Bazel fetch only the selected variant's repository.
+    variant_installs = json.decode(repository_ctx.attr.variant_installs) if repository_ctx.attr.variant_installs else {}
+    if variant_installs:
+        install_arms = {
+            condition: variant_installs[target]
+            for condition, target in select_arms.items()
+        }
+        default_install = ":whl_missing" if prebuilds else None
+        if sbuild_target:
+            fallback_install_attrs = """
+    src = ":source_built_wheel",
+    compile_pyc = {compile_pyc},
+    pyc_invalidation_mode = {pyc_invalidation_mode},""".format(
+                compile_pyc = compile_pyc_select,
+                pyc_invalidation_mode = pyc_invalidation_mode_select,
+            )
+            if post_install_patches:
+                fallback_install_attrs += """
+    patches = {patches},
+    patch_strip = {strip},""".format(
+                    patches = repr(post_install_patches),
+                    strip = post_install_patch_strip,
+                )
+            exclude_glob = getattr(repository_ctx.attr, "exclude_glob", [])
+            if exclude_glob:
+                fallback_install_attrs += """
+    exclude_glob = {exclude_glob},""".format(
+                    exclude_glob = indent(pprint(exclude_glob), " " * 4).lstrip(),
+                )
+            content.append(
+                """
+whl_install(
+    name = "actual_install",{attrs}
+    visibility = ["//visibility:private"],
+)""".format(attrs = fallback_install_attrs),
+            )
+            default_install = ":actual_install"
+
+        content.append(
+            """
+select_chain(
+   name = "selected_install",
+   arms = {arms},
+   default_target = {default_target},
+   visibility = ["//visibility:private"],
+)
+""".format(
+                arms = indent(pprint(install_arms), "   ").lstrip(),
+                default_target = repr(default_install),
+            ),
+        )
+
+        if extra_deps or extra_data:
+            content.append(
+                """
+py_library(
+    name = "install",
+    srcs = [],
+    deps = [":selected_install"] + {extra_deps},
+    data = {extra_data},
+    visibility = ["//visibility:public"],
+)
+""".format(
+                    extra_deps = repr(extra_deps),
+                    extra_data = repr(extra_data),
+                ),
+            )
+        else:
+            content.append(
+                """
+alias(
+    name = "install",
+    actual = ":selected_install",
+    visibility = ["//visibility:public"],
+)
+""",
+            )
+
+        content.append("""
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//visibility:public"],
+)
+""")
+        repository_ctx.file("BUILD.bazel", content = "\n".join(content))
+        return repository_ctx.repo_metadata(reproducible = True)
+
     # Peek into each selectable wheel to extract the top-level names it
     # installs AND its `[console_scripts]` entry points, keyed by the
     # wheel's file basename. This powers PyWheelsInfo, which py_binary
@@ -905,6 +994,7 @@ whl_install = repository_rule(
         # `<project>-<version>.dist-info`, the directory `_extract_wheel_metadata`
         # strips to when extracting RECORD/entry_points.txt out of the wheel.
         "metadata_directory": attr.string(),
+        "variant_installs": attr.string(default = ""),
         "whls": attr.string(),
         # Mirror of the http_file labels from `whls`, declared as a real
         # label_list so Bazel adds those repos to this repo's visibility
