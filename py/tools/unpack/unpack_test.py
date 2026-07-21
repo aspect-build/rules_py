@@ -286,6 +286,7 @@ def main() -> None:
             sys.version_info.minor,
             duplicate_member_out,
             duplicate_member_wheel,
+            (),
         )
         duplicate_member_site_packages = _site_packages(duplicate_member_out)
         assert (duplicate_member_site_packages / "fixture" / "member.py").read_bytes() == (
@@ -733,6 +734,8 @@ else:
                 "native_backend/backend.so.1": b"native\n",
                 "compiled_only.pyc": compiled_bytes,
                 "compiled_package/__init__.pyc": compiled_bytes,
+                "data_namespace/config.json": b"{}\n",
+                "stub_only.pyi": b"VALUE: int\n",
                 "demo-1.0.dist-info/helper.py": b"metadata helper\n",
                 "demo-1.0.data/data/share/demo/retained.txt": b"installed data\n",
             },
@@ -861,6 +864,8 @@ else:
             ("google/**", "google"),
             ("compiled_only.pyc", "compiled_only.pyc"),
             ("compiled_package/**", "compiled_package"),
+            ("data_namespace/**", "data_namespace"),
+            ("stub_only.pyi", "stub_only.pyi"),
         ]:
             rejected = _run_unpack(
                 unpack,

@@ -62,12 +62,13 @@ def _is_native_library(path: Path) -> bool:
 def _import_root(path: Path) -> Optional[str]:
     if (
         path.parts
+        and not path.parts[0].endswith((".dist-info", ".egg-info"))
         and (
-            path.name.endswith(".py")
+            len(path.parts) > 1
+            or path.name.endswith((".py", ".pyi"))
             or (path.name.endswith(".pyc") and path.parent.name != "__pycache__")
             or _is_native_library(path)
         )
-        and not path.parts[0].endswith((".dist-info", ".egg-info"))
     ):
         return path.parts[0]
     return None
@@ -502,21 +503,28 @@ def main() -> None:
             )
 
     records = list(site_packages.glob("*.dist-info/RECORD"))
-    if len(records) > 1 or (args.exclude_glob and not records):
+    if args.exclude_glob and len(records) != 1:
         raise SystemExit("expected exactly one installed RECORD, found {}".format(len(records)))
     if args.exclude_glob and not (records[0].parent / "METADATA").is_file():
         raise SystemExit("wheel exclusions removed installed METADATA")
     if records and (args.patches or args.exclude_glob):
-        record = records[0]
+        if args.patches:
+            supplied_pyc = set()
+        record_paths = set(records)
         rows = []
         for path in sorted(args.into.rglob("*")):
-            if not path.is_file() or path == record:
+            if not path.is_file() or path in record_paths:
                 continue
+            if path.suffix == ".pyc" and site_packages in path.parents:
+                supplied_pyc.add(path)
             relative = os.path.relpath(str(path), str(site_packages)).replace("\\", "/")
             rows.append((relative, _sha256(path), str(path.stat().st_size)))
-        rows.append((record.relative_to(site_packages).as_posix(), "", ""))
-        with record.open("w", newline="", encoding="utf-8") as stream:
-            csv.writer(stream).writerows(rows)
+        for record in records:
+            with record.open("w", newline="", encoding="utf-8") as stream:
+                csv.writer(stream).writerows([
+                    *rows,
+                    (record.relative_to(site_packages).as_posix(), "", ""),
+                ])
 
     if args.compile_pyc:
         if not args.python:
