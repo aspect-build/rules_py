@@ -20,3 +20,6 @@ conflicts = [
       { group = "ambig-b" },
     ],
 ]
+
+[tool.uv.extra-build-dependencies]
+packaging = ["pyparsing"]

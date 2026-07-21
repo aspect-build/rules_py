@@ -10,11 +10,40 @@ dependencies = [
     "build",
     "setuptools",
     "cowsay==6.0",
+    "tqdm==4.52.0",
+    # Keep the urllib3 requirement plain; its non-empty extra is build-only.
+    "urllib3==2.6.3",
+    # Keep a dedicated locked package for the direct-reference build-dep case.
+    "six==1.17.0",
 ]
 
-# cowsay 6.0 ships both an sdist and a `py3-none-any.whl`. Forcing it to
-# build from source via `no-binary-package` exercises the source-build
-# pathway end-to-end for a package whose lockfile entry has a matching
-# anyarch wheel.
+[project.optional-dependencies]
+# Ensure the lock contains the extra's transitive dependencies while the
+# default runtime requirement remains plain.
+build-extra-lock = ["urllib3[socks]==2.6.3"]
+
+# cowsay and tqdm both ship an sdist and a `py3-none-any.whl`. Forcing them to
+# build from source exercises both annotation styles end-to-end.
 [tool.uv]
-no-binary-package = ["cowsay"]
+no-binary-package = ["cowsay", "tqdm"]
+
+[tool.uv.extra-build-dependencies]
+# `packaging` is intentionally absent from `default_build_dependencies`, so
+# the tqdm snapshot catches a broken uv-native annotation path.
+cowsay = [
+    # Keep two conditional dependencies under distinct markers so composing
+    # cowsay's legacy annotation does not accidentally discard a marker branch.
+    "colorama; sys_platform != 'win32'",
+    "colorama; sys_platform != 'imaginary'",
+    "pyproject-hooks; sys_platform != 'emscripten'",
+]
+tqdm = [
+    # `socks` is non-empty and must reach the source-build environment even
+    # though the runtime dependency is plain urllib3. Keep the base
+    # unconditional and the extra conditional to catch duplicate labels.
+    "urllib3==2.6.3",
+    "urllib3[socks]==2.6.3; sys_platform != 'win32'",
+    "packaging; sys_platform != 'win32'",
+    "packaging; sys_platform != 'imaginary'",
+    { requirement = "six @ https://files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl#sha256=4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274", match-runtime = true },
+]

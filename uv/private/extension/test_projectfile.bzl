@@ -78,6 +78,50 @@ extract_requirement_marker_pairs_with_extras_test = unittest.make(
     _extract_requirement_marker_pairs_with_extras_test_impl,
 )
 
+def _extract_requirement_marker_pairs_direct_reference_test_impl(ctx):
+    env = unittest.begin(ctx)
+    versions = {"build": {"1.3.0": 1, "2.0.0": 1}}
+    locked_urls = {
+        ("build", "https://example.invalid/build-1.3.0-py3-none-any.whl"): ("proj", "build", "1.3.0", "__base__"),
+    }
+    result = extract_requirement_marker_pairs(
+        "//:pyproject.toml",
+        "proj",
+        'build[extra] @ https://example.invalid/build-1.3.0-py3-none-any.whl ; python_version >= "3.9"',
+        {},
+        versions,
+        locked_urls = locked_urls,
+    )
+    asserts.equals(env, 2, len(result))
+    asserts.equals(env, (("proj", "build", "1.3.0", "__base__"), 'python_version >= "3.9"'), result[0])
+    asserts.equals(env, (("proj", "build", "1.3.0", "extra"), 'python_version >= "3.9"'), result[1])
+
+    hashed = extract_requirement_marker_pairs(
+        "//:pyproject.toml",
+        "proj",
+        "build @ https://example.invalid/build-1.3.0-py3-none-any.whl#sha256=4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274",
+        {},
+        versions,
+        locked_urls = locked_urls,
+    )
+    asserts.equals(env, [(("proj", "build", "1.3.0", "__base__"), "")], hashed)
+
+    missing = extract_requirement_marker_pairs(
+        "//:pyproject.toml",
+        "proj",
+        "build@https://example.invalid/build-2.0.0-py3-none-any.whl",
+        {},
+        versions,
+        fail_if_missing = False,
+        locked_urls = locked_urls,
+    )
+    asserts.equals(env, [], missing)
+    return unittest.end(env)
+
+extract_requirement_marker_pairs_direct_reference_test = unittest.make(
+    _extract_requirement_marker_pairs_direct_reference_test_impl,
+)
+
 def _extract_requirement_marker_pairs_preferred_overrides_version_map_test_impl(ctx):
     env = unittest.begin(ctx)
     version_map = {"build": ("proj", "build", "1.2.0", "__base__")}
@@ -117,6 +161,96 @@ def _extract_requirement_marker_pairs_preferred_overrides_multi_version_test_imp
 
 extract_requirement_marker_pairs_preferred_overrides_multi_version_test = unittest.make(
     _extract_requirement_marker_pairs_preferred_overrides_multi_version_test_impl,
+)
+
+def _collect_activated_extras_build_extra_test_impl(ctx):
+    env = unittest.begin(ctx)
+    urllib3 = ("lock", "urllib3", "2.6.3", "__base__")
+    urllib3_brotli = ("lock", "urllib3", "2.6.3", "brotli")
+    brotli = ("lock", "brotli", "1.2.0", "__base__")
+    graph = {
+        urllib3: {},
+        urllib3_brotli: {brotli: {"platform_python_implementation == 'CPython'": 1}},
+        brotli: {},
+    }
+
+    _cfg_names, activated_extras = collect_activated_extras(
+        "//:pyproject.toml",
+        "lock",
+        {
+            "project": {"name": "test_project"},
+            "dependency-groups": {"runtime": ["urllib3"]},
+        },
+        {},
+        {"urllib3": urllib3, "brotli": brotli},
+        graph,
+        {"urllib3": {"2.6.3": 1}, "brotli": {"1.2.0": 1}},
+        {urllib3_brotli: {"sys_platform != 'win32'": 1}},
+    )
+
+    asserts.equals(env, {"sys_platform != 'win32'": 1}, activated_extras[urllib3]["runtime"][urllib3_brotli])
+    asserts.equals(env, {"platform_python_implementation == 'CPython'": 1}, activated_extras[brotli]["runtime"][brotli])
+    return unittest.end(env)
+
+collect_activated_extras_build_extra_test = unittest.make(
+    _collect_activated_extras_build_extra_test_impl,
+)
+
+def _collect_activated_extras_build_extra_conflicting_versions_test_impl(ctx):
+    env = unittest.begin(ctx)
+    requests_228 = ("lock", "requests", "2.28.2", "__base__")
+    requests_228_socks = ("lock", "requests", "2.28.2", "socks")
+    requests_232 = ("lock", "requests", "2.32.5", "__base__")
+    requests_232_socks = ("lock", "requests", "2.32.5", "socks")
+    pysocks = ("lock", "pysocks", "1.7.1", "__base__")
+    graph = {
+        requests_228: {},
+        requests_228_socks: {pysocks: {"": 1}},
+        requests_232: {},
+        requests_232_socks: {pysocks: {"": 1}},
+        pysocks: {},
+    }
+
+    _cfg_names, activated_extras = collect_activated_extras(
+        "//:pyproject.toml",
+        "lock",
+        {
+            "project": {"name": "test_project"},
+            "dependency-groups": {
+                "old": ["requests==2.28.2"],
+                "new": ["requests==2.32.5"],
+            },
+        },
+        {
+            "package": [{
+                "name": "test_project",
+                "version": "0.0.0",
+                "source": {"virtual": "."},
+                "dev-dependencies": {
+                    "old": [{"name": "requests", "version": "2.28.2"}],
+                    "new": [{"name": "requests", "version": "2.32.5"}],
+                },
+            }],
+        },
+        {"pysocks": pysocks},
+        graph,
+        {
+            "requests": {"2.28.2": 1, "2.32.5": 1},
+            "pysocks": {"1.7.1": 1},
+        },
+        {requests_232_socks: {"": 1}},
+    )
+
+    asserts.equals(env, {requests_228: {"": 1}, requests_228_socks: {"": 1}}, activated_extras[requests_228]["old"])
+    asserts.false(env, "old" in activated_extras.get(requests_232, {}))
+    asserts.equals(env, {requests_232: {"": 1}, requests_232_socks: {"": 1}}, activated_extras[requests_232]["new"])
+    asserts.false(env, "new" in activated_extras.get(requests_228, {}))
+    asserts.equals(env, {pysocks: {"": 1}}, activated_extras[pysocks]["old"])
+    asserts.equals(env, {pysocks: {"": 1}}, activated_extras[pysocks]["new"])
+    return unittest.end(env)
+
+collect_activated_extras_build_extra_conflicting_versions_test = unittest.make(
+    _collect_activated_extras_build_extra_conflicting_versions_test_impl,
 )
 
 def _collect_activated_extras_transitive_remap_test_impl(ctx):
@@ -207,7 +341,10 @@ def projectfile_test_suite():
         extract_requirement_marker_pairs_multi_version_with_specifier_test,
         extract_requirement_marker_pairs_single_version_via_map_test,
         extract_requirement_marker_pairs_with_extras_test,
+        extract_requirement_marker_pairs_direct_reference_test,
         extract_requirement_marker_pairs_preferred_overrides_version_map_test,
         extract_requirement_marker_pairs_preferred_overrides_multi_version_test,
+        collect_activated_extras_build_extra_test,
+        collect_activated_extras_build_extra_conflicting_versions_test,
         collect_activated_extras_transitive_remap_test,
     )

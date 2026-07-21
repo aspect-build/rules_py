@@ -67,6 +67,7 @@ load("//uv/private/tomltool:toml.bzl", "toml")
 load("//uv/private/uv_hub:repository.bzl", "uv_hub")
 load("//uv/private/uv_project:repository.bzl", "uv_project")
 load("//uv/private/whl_install:repository.bzl", "parse_console_script", "whl_install")
+load(":git_utils.bzl", "locked_git_requirement_urls")
 load(":graph_utils.bzl", "activate_extras", "collect_sccs")
 load(":lockfile.bzl", "build_marker_graph", "collect_bdists", "collect_configurations", "collect_sdists", "normalize_deps", "url_basename")
 load(":projectfile.bzl", "collate_versions_by_name", "collect_activated_extras", "extract_requirement_marker_pairs")
@@ -230,6 +231,7 @@ def _parse_projects(module_ctx, hub_specs):
 
         for project in mod.tags.project:
             project_data = toml.decode_file(module_ctx, project.pyproject)
+            tool_uv = project_data.get("tool", {}).get("uv", {})
             lock_data = toml.decode_file(module_ctx, project.lock)
 
             # The stamp derives from the project name: stable across reloads and
@@ -245,44 +247,107 @@ def _parse_projects(module_ctx, hub_specs):
 
             no_binary_packages = {
                 normalize_name(p): True
-                for p in project_data.get("tool", {}).get("uv", {}).get("no-binary-package", [])
+                for p in tool_uv.get("no-binary-package", [])
             }
 
             default_versions, package_versions, lock_data = normalize_deps(project_id, lock_data)
 
-            def _resolve(package):
-                name = normalize_name(package["name"])
-                if "version" in package:
-                    return (project_id, name, package["version"], "__base__")
+            locked_urls = {}
+            for locked_package in lock_data.get("package", []):
+                dependency = (project_id, locked_package["name"], locked_package["version"], "__base__")
+                artifacts = locked_package.get("wheels", []) + [
+                    locked_package.get("sdist", {}),
+                    locked_package.get("source", {}),
+                ]
+                for artifact in artifacts:
+                    url = artifact.get("url")
+                    if url:
+                        locked_urls[(locked_package["name"], url)] = dependency
+                git = locked_package.get("source", {}).get("git")
+                if git:
+                    for url in locked_git_requirement_urls(git):
+                        locked_urls[(locked_package["name"], url)] = dependency
+
+            def _resolve(name, version):
+                name = normalize_name(name)
+                if version:
+                    return (project_id, name, version, "__base__")
                 elif name in default_versions:
                     return default_versions[name]
                 return None
 
             lock_build_dep_anns = {}
+            lock_conditional_build_dep_anns = {}
             lock_native_anns = {}
+            extra_build_dependencies = tool_uv.get("extra-build-dependencies", {})
+            for package, extra_deps in extra_build_dependencies.items():
+                package_name = normalize_name(package)
+                targets = [
+                    (project_id, package_name, version, "__base__")
+                    for version in package_versions.get(package_name, {})
+                ]
+                if not targets:
+                    # Allow a shared annotation file to include entries for other locks.
+                    continue
+                deps = []
+                conditional_deps = {}
+                for dep in extra_deps:
+                    # TODO(konsti): We currently ignore match-runtime. Since we're already
+                    # using locked dependencies for building, this works as long as there is
+                    # only a single version of the package.
+                    if type(dep) == "dict":
+                        dep = dep["requirement"]
+                    resolved_deps = extract_requirement_marker_pairs(
+                        project.lock,
+                        project_id,
+                        dep,
+                        {},
+                        package_versions,
+                        locked_urls = locked_urls,
+                        fail_if_missing = False,
+                    )
+                    if not resolved_deps:
+                        fail((
+                            "Unable to resolve extra build dependency `{}` for package {} in {}. " +
+                            "`uv.lock` does not include packages referenced only by " +
+                            "`tool.uv.extra-build-dependencies`. Add the dependency as a dependency " +
+                            "and regenerate the lock."
+                        ).format(repr(dep), repr(package), project.pyproject))
+                    for resolved, marker in resolved_deps:
+                        if marker:
+                            conditional_deps.setdefault(marker, []).append(resolved)
+                        else:
+                            deps.append(resolved)
+                for target in targets:
+                    lock_build_dep_anns[target] = deps
+                    lock_conditional_build_dep_anns[target] = conditional_deps
+
+            uv_build_dep_anns = dict(lock_build_dep_anns)
             for ann in mod.tags.unstable_annotate_packages:
                 if ann.lock == project.lock:
                     annotations = toml.decode_file(module_ctx, ann.src)
                     for package in annotations.get("package", []):
-                        k = _resolve(package)
-                        if k == None:
+                        target = _resolve(package["name"], package.get("version"))
+                        if target == None:
                             # Allow a shared annotation file to include entries for other locks.
                             continue
                         if "native" in package:
                             if type(package["native"]) != "bool":
                                 fail("Annotation `native` for package {} in {} must be a boolean, got {}".format(package["name"], ann.src, repr(package["native"])))
-                            lock_native_anns[k] = package["native"]
+                            lock_native_anns[target] = package["native"]
                         if "build-dependencies" in package:
                             deps = []
                             skip = False
                             for dep in package["build-dependencies"]:
-                                resolved = _resolve(dep)
+                                resolved = _resolve(dep["name"], dep.get("version"))
                                 if resolved == None:
                                     skip = True
                                     break
                                 deps.append(resolved)
                             if not skip:
-                                lock_build_dep_anns[k] = deps
+                                # Legacy and uv-native annotations compose, including
+                                # any marker-qualified uv-native dependencies.
+                                lock_build_dep_anns[target] = uv_build_dep_anns.get(target, []) + deps
 
             package_overrides = {}
             package_console_scripts = {}
@@ -356,7 +421,23 @@ def _parse_projects(module_ctx, hub_specs):
 
             whl_configurations.update(collect_configurations(lock_data))
 
-            configuration_names, activated_extras = collect_activated_extras(project.lock, project_id, project_data, lock_data, default_versions, marker_graph, package_versions)
+            # Activate extras requested by build requirements using each
+            # dependency group's selected versions so their transitive
+            # dependencies reach source-build tools.
+            build_extra_roots = {}
+            for deps in lock_build_dep_anns.values():
+                for dep_project, dep_name, dep_version, extra in deps:
+                    if extra == "__base__":
+                        continue
+                    build_extra_roots.setdefault((dep_project, dep_name, dep_version, extra), {}).update({"": 1})
+            for conditional_deps in lock_conditional_build_dep_anns.values():
+                for marker, deps in conditional_deps.items():
+                    for dep_project, dep_name, dep_version, extra in deps:
+                        if extra == "__base__":
+                            continue
+                        build_extra_roots.setdefault((dep_project, dep_name, dep_version, extra), {}).update({marker: 1})
+
+            configuration_names, activated_extras = collect_activated_extras(project.lock, project_id, project_data, lock_data, default_versions, marker_graph, package_versions, build_extra_roots, locked_urls = locked_urls)
             version_activations = collate_versions_by_name(activated_extras)
 
             # SCC graph shapes:
@@ -486,6 +567,7 @@ def _parse_projects(module_ctx, hub_specs):
                     # could do pyproject.toml introspection.
                     ann_key = (project_id, normalize_name(package["name"]), package["version"], "__base__")
                     build_deps = lock_build_dep_anns.get(ann_key) or []
+                    conditional_build_deps = lock_conditional_build_dep_anns.get(ann_key) or {}
                     is_native = "auto"
                     if ann_key in lock_native_anns:
                         is_native = "true" if lock_native_anns[ann_key] else "false"
@@ -504,10 +586,36 @@ def _parse_projects(module_ctx, hub_specs):
                         lock_build_deps = [
                             it[0]
                             for req in project.default_build_dependencies
-                            for it in extract_requirement_marker_pairs(project.lock, project_id, req, default_versions, package_versions, fail_if_missing = sbuild_required)
+                            for it in extract_requirement_marker_pairs(
+                                project.lock,
+                                project_id,
+                                req,
+                                default_versions,
+                                package_versions,
+                                locked_urls = locked_urls,
+                                fail_if_missing = sbuild_required,
+                            )
                         ]
 
                     build_deps = sets.to_list(sets.make(build_deps + lock_build_deps))
+
+                    # A base requirement and its extras resolve through the same
+                    # project package label, so deduplicate after rendering labels.
+                    sbuild_deps = sets.to_list(sets.make([
+                        "@{0}//:{1}".format(*dep)
+                        for dep in build_deps
+                    ]))
+                    sbuild_conditional_deps = {}
+                    for marker, deps in conditional_build_deps.items():
+                        for dep in deps:
+                            label = "@{0}//:{1}".format(*dep)
+                            if label in sbuild_deps:
+                                continue
+                            previous = sbuild_conditional_deps.get(label)
+                            if previous:
+                                sbuild_conditional_deps[label] = "({}) or ({})".format(previous, marker)
+                            else:
+                                sbuild_conditional_deps[label] = marker
 
                     pre_build_patches = []
                     pre_build_patch_strip = 0
@@ -530,7 +638,8 @@ def _parse_projects(module_ctx, hub_specs):
 
                     sbuild_specs[sbuild_id] = struct(
                         src = sdist,
-                        deps = ["@{0}//:{1}".format(*it) for it in build_deps],
+                        deps = sbuild_deps,
+                        conditional_deps = sbuild_conditional_deps,
                         is_native = is_native,
                         version = package["version"],
                         pre_build_patches = pre_build_patches,
@@ -745,6 +854,8 @@ def _uv_impl(module_ctx):
 
         if sbuild_cfg.available_deps:
             sbuild_kwargs["available_deps"] = sbuild_cfg.available_deps
+        if sbuild_cfg.conditional_deps:
+            sbuild_kwargs["conditional_deps"] = sbuild_cfg.conditional_deps
         if sbuild_cfg.pre_build_patches:
             sbuild_kwargs["pre_build_patches"] = sbuild_cfg.pre_build_patches
             sbuild_kwargs["pre_build_patch_strip"] = sbuild_cfg.pre_build_patch_strip

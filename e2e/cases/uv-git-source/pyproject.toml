@@ -8,6 +8,7 @@ dependencies = [
     "build",
     "setuptools",
     "six",
+    "cowsay==6.0",
 ]
 
 # six is resolved from git rather than a registry, exercising the
@@ -16,3 +17,9 @@ dependencies = [
 # git-to-http_archive conversion for GitHub remotes.
 [tool.uv.sources]
 six = { git = "https://github.com/benjaminp/six", tag = "1.17.0" }
+
+[tool.uv]
+no-binary-package = ["cowsay"]
+
+[tool.uv.extra-build-dependencies]
+cowsay = ["six @ git+https://github.com/benjaminp/six@1.17.0"]

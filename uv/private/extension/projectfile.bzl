@@ -6,7 +6,15 @@ load("//uv/private:normalize_name.bzl", "normalize_name")
 load("//uv/private/versions:versions.bzl", "find_matching_version")
 load(":dep_groups.bzl", "resolve_dependency_group_specs")
 
-def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_map, package_versions = {}, preferred_versions = {}, fail_if_missing = True):
+def extract_requirement_marker_pairs(
+        projectfile,
+        lock_id,
+        req_string,
+        version_map,
+        package_versions = {},
+        preferred_versions = {},
+        locked_urls = {},
+        fail_if_missing = True):
     """Parses a requirement string into a list of dependency-marker pairs.
 
     This function parses a PEP 508 requirement string (e.g.,
@@ -23,6 +31,8 @@ def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_m
             list — useful for advisory requirements like the project-level
             `default_build_dependencies`, which may legitimately be absent
             from lockfiles that ship no sdists needing the build tooling.
+        locked_urls: A dictionary mapping `(package_name, artifact_url)` to a
+            locked dependency tuple, used to resolve direct references.
 
     Returns:
         A list of tuples, where each tuple is `(Dependency, Marker)`.
@@ -55,6 +65,7 @@ def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_m
         "<": 1,
         "!": 1,
         "~": 1,
+        "@": 1,
         " ": 1,
     }
 
@@ -85,21 +96,32 @@ def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_m
             remainder = remainder[close_idx + 1:]
 
     # 4. Look up version
-    v = preferred_versions.get(pkg_name)
-    if v == None:
-        v = version_map.get(pkg_name)
-    if v == None:
-        # For multi-version packages (e.g. conflicts), match the version
-        # specifier against all known versions of this package in the lockfile.
-        specifier = remainder.strip()
-        pkg_vers = package_versions.get(pkg_name, {})
-        if pkg_vers:
-            match_spec = specifier if specifier else ">=0"
-            candidates = {
-                ver: (lock_id, pkg_name, ver, "__base__")
-                for ver in pkg_vers.keys()
-            }
-            v = find_matching_version(match_spec, candidates)
+    specifier = remainder.strip()
+    if specifier.startswith("@"):
+        # Direct references identify a locked artifact, not a version
+        # constraint. Never fall back to a different locked version or URL.
+        url = specifier[1:].strip()
+
+        # Git uses semantically relevant fragments such as `#subdirectory=`.
+        if not url.startswith("git+"):
+            # uv stores hashes separately from URLs.
+            url = url.split("#", 1)[0]
+        v = locked_urls.get((pkg_name, url))
+    else:
+        v = preferred_versions.get(pkg_name)
+        if v == None:
+            v = version_map.get(pkg_name)
+        if v == None:
+            # For multi-version packages (e.g. conflicts), match the version
+            # specifier against all known versions in the lockfile.
+            pkg_vers = package_versions.get(pkg_name, {})
+            if pkg_vers:
+                match_spec = specifier if specifier else ">=0"
+                candidates = {
+                    ver: (lock_id, pkg_name, ver, "__base__")
+                    for ver in pkg_vers.keys()
+                }
+                v = find_matching_version(match_spec, candidates)
     if v == None:
         if not fail_if_missing:
             return []
@@ -149,7 +171,7 @@ def _extract_lockfile_group_versions(lock_id, lock_data):
                     result.setdefault(group_name, {})[pkg_name] = (lock_id, pkg_name, dep["version"], "__base__")
     return result
 
-def collect_activated_extras(projectfile, lock_id, project_data, lock_data, default_versions, graph, package_versions = {}):
+def collect_activated_extras(projectfile, lock_id, project_data, lock_data, default_versions, graph, package_versions = {}, extra_roots = {}, locked_urls = {}):
     """Collects the set of transitively activated extras for each configuration.
 
     This function determines the full set of extras that are activated for each
@@ -162,6 +184,11 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
         default_versions: A dictionary mapping package names to their default
             version dependency tuples.
         graph: The dependency graph, as returned by `build_marker_graph`.
+        extra_roots: Additional resolved dependencies and their markers to
+            activate in every dependency group, remapped to each group's
+            selected package versions, such as build-requirement extras.
+        locked_urls: A dictionary mapping direct-reference URLs to locked
+            dependencies.
 
     Returns:
         A tuple containing:
@@ -195,19 +222,29 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
         group_preferences = dict(lockfile_group_versions.get(group_name, {}))
 
         for spec in resolved_specs:
-            for dep, _marker in extract_requirement_marker_pairs(projectfile, lock_id, spec, default_versions, package_versions, group_preferences):
+            for dep, _marker in extract_requirement_marker_pairs(projectfile, lock_id, spec, default_versions, package_versions, group_preferences, locked_urls = locked_urls):
                 group_preferences[dep[1]] = (dep[0], dep[1], dep[2], "__base__")
 
         all_group_preferences[group_name] = group_preferences
 
         for spec in resolved_specs:
-            for dep, marker in extract_requirement_marker_pairs(projectfile, lock_id, spec, default_versions, package_versions, group_preferences):
+            for dep, marker in extract_requirement_marker_pairs(projectfile, lock_id, spec, default_versions, package_versions, group_preferences, locked_urls = locked_urls):
                 normalized_dep_groups.setdefault(group_name, []).append(dep)
 
                 # Note that this is the base case for the reach set walk below
                 # We do this here so it's easy to handle marker expressions
                 base = (dep[0], dep[1], dep[2], "__base__")
                 activated_extras.setdefault(base, {}).setdefault(group_name, {}).setdefault(dep, {}).update({marker: 1})
+
+        for (dep_project, dep_name, dep_version, extra), markers in extra_roots.items():
+            pref = group_preferences.get(dep_name)
+            if pref:
+                _pref_project, _pref_name, dep_version, _pref_extra = pref
+
+            target_dep = (dep_project, dep_name, dep_version, extra)
+            normalized_dep_groups.setdefault(group_name, []).append(target_dep)
+            base = (dep_project, dep_name, dep_version, "__base__")
+            activated_extras.setdefault(base, {}).setdefault(group_name, {}).setdefault(target_dep, {}).update(markers)
 
     for group_name, deps in normalized_dep_groups.items():
         worklist = list(deps)

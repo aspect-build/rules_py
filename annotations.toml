@@ -1,12 +1,13 @@
 ## Annotations.toml
 #
 # This is an aspect_rules_py//uv specific configuration file which allows
-# packages to be annotated with their build time dependencies. This fills a gap in
-# both the pylock and uv lockfile formats, neither of which allow for build
-# requirements to be specified.
+# packages to be annotated extra information such as entrypoint.
 #
-# For instance if a package requires cython be available, this is how you can
-# configure it to be delivered.
+# This file allows specifying additional build time dependencies, however
+# <https://docs.astral.sh/uv/reference/settings/#extra-build-dependencies>
+# should be preferred, which is loaded by `uv.project`. For instance if a
+# package requires setuptools be available, this is how you can configure#
+# it to be delivered.
 #
 # Takes the place of giant MODULE.bazel annotation tables.
 #
@@ -17,15 +18,15 @@
 # We version lockfiles and support semver semantics here
 version = "0.0.0"
 
-# Bravado doesn't have bdists, need to build it. Mark explicitly that we need
-# wheel setuptools and build in order to do so; build being the standard build
-# tool driver.
-[[package]]
-name = "bravado-core"
-build-dependencies = [
-   { name = "build" },
-   { name = "setuptools" },
-]
+# This format is supported, but
+# <https://docs.astral.sh/uv/reference/settings/#extra-build-dependencies>
+# is now recommended.
+#[[package]]
+#name = "bravado-core"
+#build-dependencies = [
+#   { name = "build" },
+#   { name = "setuptools" },
+#]
 
 # We can also annotate packages as providing console scripts we care about.
 # Declared console scripts will have Bazel targets generated for them.

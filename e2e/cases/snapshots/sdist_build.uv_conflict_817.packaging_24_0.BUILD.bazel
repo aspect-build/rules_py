@@ -1,0 +1,23 @@
+
+load("@aspect_rules_py//uv/private/pep517_whl:rule.bzl", "pep517_whl")
+load("@aspect_rules_py//py:defs.bzl", "py_binary")
+
+py_binary(
+    name = "build_tool",
+    main = "@aspect_rules_py//uv/private/pep517_whl:build_helper.py",
+    srcs = ["@aspect_rules_py//uv/private/pep517_whl:build_helper.py"],
+    deps = ["@@aspect_rules_py++uv+project__ambig//:pyparsing"],
+)
+
+pep517_whl(
+    name = "whl",
+    src = "@@aspect_rules_py++uv+sdist__packaging__eb82c5e3e5620907//file:file",
+    tool = ":build_tool",
+    version = "24.0",
+    visibility = ["//visibility:public"],
+)
+
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//visibility:public"],
+)
