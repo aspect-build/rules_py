@@ -1,8 +1,11 @@
 [project]
 name = "uv-data-purelib"
 version = "0.0.0"
-requires-python = ">=3.11"
+# Keep this fixture on the CPython 3.11 wheel that ships matching bytecode.
+requires-python = ">=3.11, <3.12"
 dependencies = [
+    # NumPy 1.26.4 ships bytecode that WhlInstall recompiles.
+    "numpy==1.26.4",
     # tritonclient imports protobuf but does not declare it.
     "protobuf",
     "tritonclient[grpc]==2.41.0",
