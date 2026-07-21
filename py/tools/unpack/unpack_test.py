@@ -84,6 +84,7 @@ def _assert_record_matches_installed_files(site_packages: Path) -> None:
         assert relative not in seen, relative
         seen.add(relative)
         if not digest and not size:
+            assert relative.endswith(".dist-info/RECORD"), relative
             continue
         path = site_packages / relative
         expected_digest = urlsafe_b64encode(
@@ -108,6 +109,7 @@ def _build_wheel(path: Path, *, legacy_syntax: bool) -> None:
             f"fixture/__pycache__/mod.{sys.implementation.cache_tag}.pyc": (
                 b"outdated bytecode\n"
             ),
+            "fixture-1.0.data/data/share/supplied.pyc": b"uncompiled bytecode\n",
         },
     )
 
@@ -273,8 +275,26 @@ def main() -> None:
         good_wheel = root / "fixture-1.0-py3-none-any.whl"
         _build_wheel(good_wheel, legacy_syntax=False)
         good_out = root / "good"
-        ok = _run_unpack(unpack, good_wheel, good_out, Path(sys.executable))
-        assert ok.returncode == 0, ok.stderr
+        hashed_names.clear()
+        original_argv = sys.argv
+        sys.argv = [
+            str(unpack),
+            "--into",
+            str(good_out),
+            "--wheel",
+            str(good_wheel),
+            "--python-version-major",
+            str(sys.version_info.major),
+            "--python-version-minor",
+            str(sys.version_info.minor),
+            "--compile-pyc",
+            "--python",
+            sys.executable,
+        ]
+        try:
+            unpack_module.main()
+        finally:
+            sys.argv = original_argv
         site_packages = (
             good_out
             / "lib"
@@ -289,7 +309,13 @@ def main() -> None:
             / f"mod.{sys.implementation.cache_tag}.pyc"
         )
         assert supplied_cache.read_bytes() != b"outdated bytecode\n"
+        assert hashed_names == {"INSTALLER", "REQUESTED", supplied_cache.name}
         _assert_record_matches_installed_files(site_packages)
+        recorded = {relative for relative, _, _ in _record_rows(site_packages)}
+        assert supplied_cache.relative_to(site_packages).as_posix() in recorded
+        assert Path(
+            importlib.util.cache_from_source(str(site_packages / "fixture" / "__init__.py"))
+        ).relative_to(site_packages).as_posix() not in recorded
 
         # Members larger than the streaming copy buffer round-trip byte-for-byte.
         large_payload = b"rules_py" * (256 * 1024 + 1)
@@ -379,6 +405,14 @@ def main() -> None:
 +++ b/{site_packages_relative}/fixture-1.0.dist-info/__init__.py
 @@ -0,0 +1 @@
 +# Metadata directories are not import packages.
+--- /dev/null
++++ b/{site_packages_relative}/fixture/added.py
+@@ -0,0 +1 @@
++VALUE = 3
+--- /dev/null
++++ b/{site_packages_relative}/fixture/__pycache__/added.{sys.implementation.cache_tag}.pyc
+@@ -0,0 +1 @@
++outdated bytecode
 """
         )
         content_out = root / "content-edit"
@@ -408,6 +442,25 @@ def main() -> None:
         assert (
             content_site_packages / "fixture-1.0.dist-info" / "__init__.py"
         ).is_file()
+        for cache in (
+            content_site_packages
+            / "fixture"
+            / "__pycache__"
+            / f"mod.{sys.implementation.cache_tag}.pyc",
+            content_site_packages
+            / "fixture"
+            / "__pycache__"
+            / f"added.{sys.implementation.cache_tag}.pyc",
+        ):
+            assert cache.read_bytes() != b"outdated bytecode\n"
+        _assert_record_matches_installed_files(content_site_packages)
+        assert {
+            f"fixture/__pycache__/mod.{sys.implementation.cache_tag}.pyc",
+            f"fixture/__pycache__/added.{sys.implementation.cache_tag}.pyc",
+            "../../../share/supplied.pyc",
+        } <= {
+            relative for relative, _, _ in _record_rows(content_site_packages)
+        }
 
         namespace_wheel = root / "namespace_fixture-1.0-py3-none-any.whl"
         _write_wheel(
