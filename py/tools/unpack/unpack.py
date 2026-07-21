@@ -60,17 +60,20 @@ def _is_native_library(path: Path) -> bool:
 
 
 def _import_root(path: Path) -> Optional[str]:
+    parts = path.parts
+    if not parts:
+        return None
+    root = parts[0]
     if (
-        path.parts
-        and not path.parts[0].endswith((".dist-info", ".egg-info"))
+        not root.endswith((".dist-info", ".egg-info"))
         and (
-            len(path.parts) > 1
+            len(parts) > 1
             or path.name.endswith((".py", ".pyi"))
             or (path.name.endswith(".pyc") and path.parent.name != "__pycache__")
             or _is_native_library(path)
         )
     ):
-        return path.parts[0]
+        return root
     return None
 
 
