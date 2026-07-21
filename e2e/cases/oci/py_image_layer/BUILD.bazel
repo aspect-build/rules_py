@@ -208,21 +208,6 @@ genrule(
     toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
 )
 
-py_test(
-    name = "my_app_shared_sources_test",
-    srcs = ["assert_source_dedup.py"],
-    args = [
-        "$(rootpath :my_app_shared_sources_listing)",
-        "/branding/__init__.py",
-        "/branding/palette.txt",
-        "/lib/python3.11/os.py",
-        "/app/bin/my_app_bin",
-        "/app/bin/my_app_peer_bin",
-        "/oci/py_image_layer/my_app_peer_bin/config.json",
-    ],
-    data = [":my_app_shared_sources_listing"],
-)
-
 py_image_layer(
     name = "my_app_select_layers",
     binary = select({

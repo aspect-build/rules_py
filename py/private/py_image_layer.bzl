@@ -171,7 +171,6 @@ _LayerInfo = provider(
         "source_files": "depset[File] — ungrouped first-party Python source files.",
         "pip_packages": "depset[struct] — fully transitive pip packages with per-package layers.",
         "first_party_layers": "depset[struct(label, files, group)] — first-party PyInfo targets matched by py_layer_tier.groups.",
-        "interpreter_files": "depset[File] — interpreter runfiles, populated only on the py toolchain pass for the binary-branch skip filter.",
         "interpreter_layer": "struct(tar, group, interpreter_files) | None — prebuilt interpreter layer tar + its group name + the files used to build it, declared at the toolchain target's namespace so the tar action-shares across every py_image_layer using that toolchain config.",
     },
 )
@@ -331,7 +330,6 @@ def _layer_aspect_impl(target, ctx):
             source_files = depset(),
             pip_packages = depset(),
             first_party_layers = depset(),
-            interpreter_files = interp_depset,
             interpreter_layer = interp_layer,
         )]
 
@@ -359,14 +357,12 @@ def _layer_aspect_impl(target, ctx):
                 transitive = transitive_pkgs,
             ),
             first_party_layers = depset(transitive = transitive_fp),
-            interpreter_files = depset(),
             interpreter_layer = None,
         )]
 
     own_source = []
     own_fp = []
     interpreter_layer = None
-    interpreter_files = None
     kind = ctx.rule.kind
 
     # The binary being layered must be a rules_py py_binary (it carries rules_py's
@@ -388,7 +384,6 @@ def _layer_aspect_impl(target, ctx):
             source_files = depset(transitive = transitive_source),
             pip_packages = depset(transitive = transitive_pkgs),
             first_party_layers = depset(transitive = transitive_fp),
-            interpreter_files = interp.interpreter_files if interp != None else depset(),
             interpreter_layer = interp,
         )]
 
@@ -423,10 +418,7 @@ def _layer_aspect_impl(target, ctx):
         if PY_TOOLCHAIN in ctx.rule.toolchains:
             py_tc = ctx.rule.toolchains[PY_TOOLCHAIN]
             if _LayerInfo in py_tc:
-                tc_info = py_tc[_LayerInfo]
-                if tc_info.interpreter_layer != None:
-                    interpreter_layer = tc_info.interpreter_layer
-                    interpreter_files = tc_info.interpreter_files
+                interpreter_layer = py_tc[_LayerInfo].interpreter_layer
 
     # Binaries walk their runfiles for the source layer, filtering out bytes already
     # shipping in their own pip / fp-group / interpreter layers.
@@ -447,12 +439,10 @@ def _layer_aspect_impl(target, ctx):
         # that built the venv rather than relying on its own toolchain resolution.
         interp_paths = {}
         for interp_layer in transitive_interp:
-            if interp_layer.interpreter_files != None:
-                for f in interp_layer.interpreter_files.to_list():
-                    interp_paths[f.path] = True
+            for f in interp_layer.interpreter_files.to_list():
+                interp_paths[f.path] = True
         if transitive_interp:
             interpreter_layer = transitive_interp[0]
-            interpreter_files = transitive_interp[0].interpreter_files
 
         runfiles_files = target[DefaultInfo].default_runfiles.files.to_list()
         filtered = [f for f in runfiles_files if f.path not in skip_paths and f.path not in interp_paths]
@@ -474,7 +464,6 @@ def _layer_aspect_impl(target, ctx):
         source_files = depset(transitive = transitive_source + own_source),
         pip_packages = depset(transitive = transitive_pkgs),
         first_party_layers = depset(direct = own_fp, transitive = transitive_fp),
-        interpreter_files = interpreter_files,
         interpreter_layer = interpreter_layer,
     )]
 
@@ -571,11 +560,8 @@ _merge_aspect = aspect(
     provides = [_MergedLayerInfo],
 )
 
-def _normalize_strip_prefix(strip_prefix):
-    return "/".join([part for part in strip_prefix.replace("\\/", "/").split("/") if part])
-
 def _apply_strip_prefix(sp, strip_prefix, root):
-    prefix = _normalize_strip_prefix(strip_prefix)
+    prefix = strip_prefix.replace("\\/", "/")
     if sp == prefix:
         return "." + root
 
@@ -601,9 +587,10 @@ def _source_destination(sp, strip_prefix, root, executable_dsts):
                 runfiles_prefix = executable_short_path
     if runfiles_prefix != None:
         return _apply_strip_prefix(sp, runfiles_prefix, root)
-    prefix = _normalize_strip_prefix(strip_prefix)
-    if prefix and (sp == prefix or sp.startswith(prefix + ".runfiles/") or sp.startswith(prefix + "/")):
-        return _apply_strip_prefix(sp, prefix, root)
+    if strip_prefix:
+        destination = _apply_strip_prefix(sp, strip_prefix, root)
+        if destination != "./app.runfiles/_main/" + sp:
+            return destination
     if sp in executable_dsts:
         return _apply_strip_prefix(sp, sp, root)
     return "./app.runfiles/_main/" + sp
@@ -1010,7 +997,7 @@ def _py_image_layer_impl(ctx):
 
     validation_inputs = [pkg.files for pkg in ungrouped_pkgs]
     validation_arguments = [validation_args]
-    if len(binaries) > 1 or launcher_dir or _normalize_strip_prefix(strip_prefix) or root != "/app":
+    if len(binaries) > 1 or launcher_dir or strip_prefix or root != "/app":
         # Validate expanded rows whenever source destinations can be shared or remapped.
         # TreeArtifact roots can contain disjoint versioned children, so only
         # the production mappers' expanded destinations are authoritative.
@@ -1022,7 +1009,7 @@ def _py_image_layer_impl(ctx):
         ])
         rule_group_files = [dep[DefaultInfo].files for dep in ctx.attr.groups if normalize_label(str(dep.label)) not in pip_labels]
         wheel_files = [pkg.files for pkg in all_pkgs]
-        interpreter_files = [info.interpreter_files for info in infos if info.interpreter_files != None]
+        interpreter_files = [layer.interpreter_files for layer in interpreter_layers.values()]
 
         mtree_args = ctx.actions.args()
         mtree_args.set_param_file_format("multiline")
