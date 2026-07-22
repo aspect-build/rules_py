@@ -10,6 +10,7 @@ load("//uv/private/constraints/platform:defs.bzl", "supported_platform")
 load("//uv/private/constraints/python:defs.bzl", "supported_python")
 load("//uv/private/whl_install:repository.bzl", "compatible_python_tags")
 load(":git_utils.bzl", "parse_git_url", "try_git_to_http_archive")
+load(":marker_simplify.bzl", "simplify_extra_marker")
 
 def url_basename(url):
     """Returns the trailing file name of a distribution URL.
@@ -136,6 +137,10 @@ def build_marker_graph(lock_id, lock_data):
 
             graph.setdefault(ek, {})
             for dep in optional_deps:
+                marker = simplify_extra_marker(dep.get("marker", ""), extra_name)
+                if marker == None:
+                    continue
+
                 extras = dep.get("extra", ["__base__"])
                 if "__base__" not in extras:
                     extras = ["__base__"] + extras
@@ -143,7 +148,7 @@ def build_marker_graph(lock_id, lock_data):
                 for e in extras:
                     eek = (lock_id, dep["name"], dep["version"], e)
                     graph[ek].setdefault(eek, {})
-                    graph[ek][eek][dep.get("marker", "")] = 1
+                    graph[ek][eek][marker] = 1
 
     return graph
 

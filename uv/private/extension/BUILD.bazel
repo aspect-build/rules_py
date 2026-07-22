@@ -3,6 +3,7 @@ load(":test_defs.bzl", "defs_test_suite")
 load(":test_dep_groups.bzl", "dep_groups_test_suite")
 load(":test_git_utils.bzl", "git_utils_test_suite")
 load(":test_graph_utils.bzl", "graph_utils_test_suite")
+load(":test_marker_simplify.bzl", "marker_simplify_test_suite")
 load(":test_projectfile.bzl", "projectfile_test_suite")
 
 defs_test_suite()
@@ -12,6 +13,8 @@ dep_groups_test_suite()
 git_utils_test_suite()
 
 graph_utils_test_suite()
+
+marker_simplify_test_suite()
 
 projectfile_test_suite()
 
@@ -57,6 +60,7 @@ bzl_library(
     visibility = ["//uv:__subpackages__"],
     deps = [
         ":git_utils",
+        ":marker_simplify",
         "//uv/private:normalize_name",
         "//uv/private:normalize_version",
         "//uv/private:parse_whl_name",
@@ -65,6 +69,13 @@ bzl_library(
         "//uv/private/constraints/python:defs",
         "//uv/private/whl_install:repository",
     ],
+)
+
+bzl_library(
+    name = "marker_simplify",
+    srcs = ["marker_simplify.bzl"],
+    visibility = ["//uv:__subpackages__"],
+    deps = ["//uv/private/markers:pep508_evaluate"],
 )
 
 bzl_library(
@@ -115,6 +126,16 @@ bzl_library(
     visibility = ["//uv:__subpackages__"],
     deps = [
         ":graph_utils",
+        "@bazel_skylib//lib:unittest",
+    ],
+)
+
+bzl_library(
+    name = "test_marker_simplify",
+    srcs = ["test_marker_simplify.bzl"],
+    visibility = ["//uv:__subpackages__"],
+    deps = [
+        ":marker_simplify",
         "@bazel_skylib//lib:unittest",
     ],
 )
