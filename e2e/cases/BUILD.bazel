@@ -123,7 +123,8 @@ write_source_files(
         # snapshot also pins that a native-only annotation preserves explicit
         # and configure-discovered build deps. This retains the monitor-only
         # source-build coverage. The runtime //uv-sdist-fallback:test
-        # proves that the forced-native build produces a working wheel.
+        # proves that the forced-native build and its detected console script
+        # produce a working wheel and wrapper.
         "snapshots/sdist_build.uv_sdist_fallback.cowsay.BUILD.bazel": "@sdist_build__uv_sdist_fallback__cowsay__6_0//:BUILD.bazel",
 
         # @sdist_build for python-geohash with uv.override_package(resource_set)

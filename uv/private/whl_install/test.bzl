@@ -3,6 +3,7 @@
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts", "unittest")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//py/private:providers.bzl", "PyWheelsInfo")
+load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
 load(":repository.bzl", "compatible_python_tags", "native_roots_for_segments", "parse_console_script", "parse_record_path", "select_key", "site_packages_segments", "sort_select_arms", "source_specificity")
 load(":rule.bzl", "pyc_compile_version_compatible", "source_built_wheel", "whl_install")
 
@@ -252,6 +253,21 @@ _MACOS_WHL = "demo-1.0.0-cp311-cp311-macosx_11_0_arm64.whl"
 # no metadata entry exists for it.
 _SBUILD_WHL = "demo-1.0.0-py3-none-any.whl"
 _DECLARED_SBUILD_CONSOLE_SCRIPTS = ["declared=demo.cli:main"]
+_DETECTED_SBUILD_CONSOLE_SCRIPTS = ["detected=demo.cli:main"]
+
+def _detected_source_built_wheel_impl(ctx):
+    return [
+        DefaultInfo(files = ctx.attr.src[DefaultInfo].files),
+        SourceBuiltWheelInfo(console_scripts = tuple(ctx.attr.console_scripts)),
+    ]
+
+_detected_source_built_wheel = rule(
+    implementation = _detected_source_built_wheel_impl,
+    attrs = {
+        "src": attr.label(allow_single_file = True, mandatory = True),
+        "console_scripts": attr.string_list(),
+    },
+)
 
 _TOP_LEVELS = {
     _LINUX_WHL: [
@@ -419,11 +435,51 @@ def metadata_selection_test_suite(name):
         tags = ["manual"],
     )
 
+    native.config_setting(
+        name = "__metadata_select_sbuild",
+        define_values = {"metadata_select_sbuild": "true"},
+    )
+
+    native.alias(
+        name = "__metadata_prebuilt_or_sbuild",
+        actual = select({
+            ":__metadata_select_sbuild": ":__metadata_detected_sbuild_wheel",
+            "//conditions:default": _LINUX_WHL,
+        }),
+        tags = ["manual"],
+    )
+
+    _detected_source_built_wheel(
+        name = "__metadata_detected_sbuild_source",
+        testonly = True,
+        src = _LINUX_WHL,
+        console_scripts = _DETECTED_SBUILD_CONSOLE_SCRIPTS,
+        tags = ["manual"],
+    )
+
+    source_built_wheel(
+        name = "__metadata_detected_sbuild_wheel",
+        testonly = True,
+        src = ":__metadata_detected_sbuild_source",
+        tags = ["manual"],
+    )
+
     source_built_wheel(
         name = "__metadata_declared_sbuild_wheel",
         testonly = True,
-        src = _LINUX_WHL,
+        src = ":__metadata_detected_sbuild_source",
         console_scripts = _DECLARED_SBUILD_CONSOLE_SCRIPTS,
+        console_scripts_override = True,
+        tags = ["manual"],
+    )
+
+    # A pre-build patch can remove every entry point after inspection. An
+    # explicitly empty override must suppress the stale detected metadata.
+    source_built_wheel(
+        name = "__metadata_cleared_sbuild_wheel",
+        testonly = True,
+        src = ":__metadata_detected_sbuild_source",
+        console_scripts_override = True,
         tags = ["manual"],
     )
 
@@ -464,6 +520,42 @@ def metadata_selection_test_suite(name):
             console_scripts = _CONSOLE_SCRIPTS,
             tags = ["manual"],
         )
+
+    whl_install(
+        name = "__metadata_active_prebuilt_fixture",
+        testonly = True,
+        src = ":__metadata_prebuilt_or_sbuild",
+        top_levels = _TOP_LEVELS,
+        top_level_dirs = _TOP_LEVEL_DIRS,
+        namespace_top_levels = _NAMESPACE_TOP_LEVELS,
+        native_roots = _NATIVE_ROOTS,
+        console_scripts = _CONSOLE_SCRIPTS,
+        tags = ["manual"],
+    )
+
+    whl_install(
+        name = "__metadata_detected_sbuild_fixture",
+        testonly = True,
+        src = ":__metadata_detected_sbuild_wheel",
+        top_levels = _TOP_LEVELS,
+        top_level_dirs = _TOP_LEVEL_DIRS,
+        namespace_top_levels = _NAMESPACE_TOP_LEVELS,
+        native_roots = _NATIVE_ROOTS,
+        console_scripts = _CONSOLE_SCRIPTS,
+        tags = ["manual"],
+    )
+
+    whl_install(
+        name = "__metadata_cleared_sbuild_fixture",
+        testonly = True,
+        src = ":__metadata_cleared_sbuild_wheel",
+        top_levels = _TOP_LEVELS,
+        top_level_dirs = _TOP_LEVEL_DIRS,
+        namespace_top_levels = _NAMESPACE_TOP_LEVELS,
+        native_roots = _NATIVE_ROOTS,
+        console_scripts = _CONSOLE_SCRIPTS,
+        tags = ["manual"],
+    )
 
     whl_install(
         name = "__metadata_declared_sbuild_fixture",
@@ -517,6 +609,45 @@ def metadata_selection_test_suite(name):
         leaked_top_levels = [],
         leaked_native_roots = [],
         leaked_console_scripts = [],
+    )
+
+    _metadata_selection_test(
+        name = name + "_active_prebuilt_test",
+        target_under_test = ":__metadata_active_prebuilt_fixture",
+        expected_top_levels = _TOP_LEVELS[_LINUX_WHL],
+        expected_top_level_dirs = _TOP_LEVEL_DIRS[_LINUX_WHL],
+        expected_namespace_top_levels = [],
+        expected_native_roots = _NATIVE_ROOTS[_LINUX_WHL],
+        expected_console_scripts = _CONSOLE_SCRIPTS[_LINUX_WHL],
+        leaked_top_levels = [],
+        leaked_native_roots = [],
+        leaked_console_scripts = _DETECTED_SBUILD_CONSOLE_SCRIPTS,
+    )
+
+    _metadata_selection_test(
+        name = name + "_detected_sbuild_test",
+        target_under_test = ":__metadata_detected_sbuild_fixture",
+        expected_top_levels = [],
+        expected_top_level_dirs = [],
+        expected_namespace_top_levels = [],
+        expected_native_roots = [],
+        expected_console_scripts = _DETECTED_SBUILD_CONSOLE_SCRIPTS,
+        leaked_top_levels = _TOP_LEVELS[_LINUX_WHL],
+        leaked_native_roots = _NATIVE_ROOTS[_LINUX_WHL],
+        leaked_console_scripts = _CONSOLE_SCRIPTS[_LINUX_WHL],
+    )
+
+    _metadata_selection_test(
+        name = name + "_cleared_sbuild_test",
+        target_under_test = ":__metadata_cleared_sbuild_fixture",
+        expected_top_levels = [],
+        expected_top_level_dirs = [],
+        expected_namespace_top_levels = [],
+        expected_native_roots = [],
+        expected_console_scripts = [],
+        leaked_top_levels = _TOP_LEVELS[_LINUX_WHL],
+        leaked_native_roots = _NATIVE_ROOTS[_LINUX_WHL],
+        leaked_console_scripts = _DETECTED_SBUILD_CONSOLE_SCRIPTS + _CONSOLE_SCRIPTS[_LINUX_WHL],
     )
 
     _metadata_selection_test(

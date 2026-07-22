@@ -9,6 +9,7 @@ load("@bazel_lib//lib:resource_sets.bzl", "resource_set", "resource_set_attr")
 load("@rules_cc//cc:action_names.bzl", "ACTION_NAMES")
 load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
 load("//py/private/toolchain:types.bzl", "NATIVE_BUILD_TOOLCHAIN", "PY_TOOLCHAIN")
+load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
 
 _CC_TOOLCHAIN_TYPE = Label("@bazel_tools//tools/cpp:toolchain_type")
 _TARGET_EXEC_GROUP = "target"
@@ -19,6 +20,12 @@ _INHERITED_PYTHON_ENV = (
     "PYTHONPATH",
     "PYTHONPLATLIBDIR",
 )
+
+def _wheel_providers(wheel_dir, console_scripts):
+    return [
+        DefaultInfo(files = depset([wheel_dir])),
+        SourceBuiltWheelInfo(console_scripts = tuple(console_scripts)),
+    ]
 
 def _common_env(ctx):
     # pyproject_hooks copies the build process environment and launches its
@@ -173,7 +180,7 @@ def _pep517_whl(ctx):
         resource_set = resource_set(ctx.attr),
     )
 
-    return [DefaultInfo(files = depset([wheel_dir]))]
+    return _wheel_providers(wheel_dir, ctx.attr.console_scripts)
 
 def _pep517_native_whl(ctx):
     archive = ctx.file.src
@@ -220,7 +227,7 @@ def _pep517_native_whl(ctx):
         resource_set = resource_set(ctx.attr),
     )
 
-    return [DefaultInfo(files = depset([wheel_dir]))]
+    return _wheel_providers(wheel_dir, ctx.attr.console_scripts)
 
 _PATCH_ATTRS = {
     "pre_build_patches": attr.label_list(
@@ -241,6 +248,9 @@ _pep517_whl_attrs = {
     # https://bazel.build/extending/exec-groups#defining-exec-groups
     "tool": attr.label(executable = True, cfg = config.exec(_TARGET_EXEC_GROUP)),
     "version": attr.string(),
+    "console_scripts": attr.string_list(
+        doc = "Console scripts discovered from the source distribution's entry-point metadata.",
+    ),
     "args": attr.string_list(default = ["--validate-anyarch"]),
     "monitor_memory": attr.bool(
         default = False,

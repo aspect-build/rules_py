@@ -172,7 +172,7 @@ def _sdist_build_impl(repository_ctx):
             # If the tool provided complete build file content, use it directly.
             if build_file_content:
                 validate_build_attrs(
-                    console_scripts = [],
+                    console_scripts = None,
                     resource_set = repository_ctx.attr.resource_set,
                     env = repository_ctx.attr.extra_env,
                     error = "sdist_build for '{}': the configure tool returned complete `build_file_content`, which bypasses the generated `pep517_*whl(...)` call, so these attributes cannot be applied: {{}}. Drop them from the override, or have the configure tool set them in its own `build_file_content`.".format(repository_ctx.name),
@@ -209,7 +209,7 @@ def _sdist_build_impl(repository_ctx):
 
     if not is_native:
         validate_build_attrs(
-            console_scripts = [],
+            console_scripts = None,
             resource_set = repository_ctx.attr.resource_set,
             env = repository_ctx.attr.extra_env,
             error = "sdist_build for '{}': the generated pure-Python `pep517_whl(...)` call cannot apply these native-build attributes: {{}}. Remove them, or configure this source distribution as native.".format(repository_ctx.name),
@@ -280,6 +280,10 @@ def _sdist_build_impl(repository_ctx):
     if repository_ctx.attr.resource_set != "default":
         resource_set_attr = "\n    resource_set = \"{}\",".format(repository_ctx.attr.resource_set)
 
+    console_scripts_attr = ""
+    if inspection and inspection.get("console_scripts"):
+        console_scripts_attr = "\n    console_scripts = {},".format(repr(inspection["console_scripts"]))
+
     # Leave args unset: the pure rule validates anyarch wheels by default,
     # while the native rule defaults to no validation.
     repository_ctx.file("BUILD.bazel", content = """
@@ -297,7 +301,7 @@ py_binary(
     name = "whl",
     src = "{src}",
     tool = ":build_tool",
-    version = "{version}",{monitor_memory_attr}{resource_set_attr}{patch_attrs}{toolchain_attrs}
+    version = "{version}",{console_scripts_attr}{monitor_memory_attr}{resource_set_attr}{patch_attrs}{toolchain_attrs}
     visibility = ["//visibility:public"],
 )
 
@@ -308,6 +312,7 @@ exports_files(
 """.format(
         src = repository_ctx.attr.src,
         deps = repr(all_deps),
+        console_scripts_attr = console_scripts_attr,
         monitor_memory_attr = monitor_memory_attr,
         rule = "pep517_native_whl" if is_native else "pep517_whl",
         version = repository_ctx.attr.version,

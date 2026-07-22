@@ -4,23 +4,20 @@
 load("//py/private:providers.bzl", "PyWheelsInfo", "make_wheel_record")
 load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PY_TOOLCHAIN")
-
-SourceBuiltWheelInfo = provider(
-    doc = "Analysis-time metadata declared for a source-built wheel.",
-    fields = {
-        "console_scripts": "Complete tuple[str] encoded as name=module:object.",
-    },
-)
+load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
 
 def _source_built_wheel_impl(ctx):
     source = ctx.attr.src[DefaultInfo]
+    console_scripts = ctx.attr.console_scripts
+    if not ctx.attr.console_scripts_override and SourceBuiltWheelInfo in ctx.attr.src:
+        console_scripts = ctx.attr.src[SourceBuiltWheelInfo].console_scripts
     return [
         # whl_install consumes this target as a single file. Reconstruct
         # DefaultInfo instead of forwarding the source target's executable,
         # which Bazel requires to be created by the rule that advertises it.
         DefaultInfo(files = source.files),
         SourceBuiltWheelInfo(
-            console_scripts = tuple(ctx.attr.console_scripts),
+            console_scripts = tuple(console_scripts),
         ),
     ]
 
@@ -33,6 +30,7 @@ source_built_wheel = rule(
             mandatory = True,
         ),
         "console_scripts": attr.string_list(),
+        "console_scripts_override": attr.bool(),
     },
     provides = [SourceBuiltWheelInfo],
 )

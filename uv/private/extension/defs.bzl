@@ -71,6 +71,11 @@ load(":graph_utils.bzl", "activate_extras", "collect_sccs")
 load(":lockfile.bzl", "build_marker_graph", "collect_bdists", "collect_configurations", "collect_sdists", "normalize_deps", "url_basename")
 load(":projectfile.bzl", "collate_versions_by_name", "collect_activated_extras", "extract_requirement_marker_pairs")
 
+# attr.string_dict cannot distinguish omission from an explicitly empty map.
+# The empty script name is invalid, so this sentinel cannot collide with a
+# valid console-script declaration.
+_CONSOLE_SCRIPTS_UNSET = {"": ""}
+
 def _dist_sha256(dist):
     """The distribution's sha256 for http_file, or None for other hash algorithms."""
     hash = dist.get("hash", "")
@@ -211,7 +216,7 @@ def _parse_projects(module_ctx, hub_specs):
 
             has_target = override.target != None
             has_modifications = (
-                override.console_scripts or
+                override.console_scripts != _CONSOLE_SCRIPTS_UNSET or
                 override.pre_build_patches or
                 override.post_install_patches or
                 override.extra_deps or
@@ -319,18 +324,20 @@ def _parse_projects(module_ctx, hub_specs):
                 if override.lock == None:
                     unscoped_matches[i] += 1
 
-                console_scripts = []
-                for raw_script_name, raw_entry_point in sorted(override.console_scripts.items()):
-                    console_script = parse_declared_console_script(raw_script_name, raw_entry_point)
-                    if console_script == None:
-                        fail("uv.override_package() for '{}=={}' in lock '{}': `console_scripts` must map valid script names to `module:object` entry points; got {} = {}".format(
-                            override.name,
-                            v,
-                            project.lock,
-                            repr(raw_script_name),
-                            repr(raw_entry_point),
-                        ))
-                    console_scripts.append(console_script)
+                console_scripts = None
+                if override.console_scripts != _CONSOLE_SCRIPTS_UNSET:
+                    console_scripts = []
+                    for raw_script_name, raw_entry_point in sorted(override.console_scripts.items()):
+                        console_script = parse_declared_console_script(raw_script_name, raw_entry_point)
+                        if console_script == None:
+                            fail("uv.override_package() for '{}=={}' in lock '{}': `console_scripts` must map valid script names to `module:object` entry points; got {} = {}".format(
+                                override.name,
+                                v,
+                                project.lock,
+                                repr(raw_script_name),
+                                repr(raw_entry_point),
+                            ))
+                        console_scripts.append(console_script)
 
                 has_target = override.target != None
                 package_overrides[override_key] = override
@@ -449,7 +456,7 @@ def _parse_projects(module_ctx, hub_specs):
                 sdist = sdist_table.get(sbuild_id)
                 override_key = (normalize_name(package["name"]), package["version"])
                 pkg_override = package_overrides.get(override_key)
-                sbuild_console_scripts = package_console_scripts.get(override_key, [])
+                sbuild_console_scripts = package_console_scripts.get(override_key)
 
                 # WARNING: Loop invariant; this flag needs to be False by
                 # default and set if we do a build.
@@ -763,13 +770,15 @@ def _uv_impl(module_ctx):
             "metadata_directory": install_cfg.metadata_directory,
             "name": install_id,
             "sbuild": install_cfg.sbuild,
-            "sbuild_console_scripts": install_cfg.sbuild_console_scripts,
+            "sbuild_console_scripts": install_cfg.sbuild_console_scripts or [],
             "whls": json.encode(install_cfg.whls),
             # Parallel list of the same wheel labels as a real label_list,
             # so the whl_install repo rule can `rctx.path()` them to peek
             # at `*.dist-info/RECORD` for top-level metadata.
             "whl_files": _deduplicate_whl_files(install_cfg.whls.values()),
         }
+        if install_cfg.sbuild_console_scripts != None:
+            install_kwargs["sbuild_console_scripts_override"] = True
         if install_cfg.post_install_patches:
             install_kwargs["post_install_patches"] = json.encode(install_cfg.post_install_patches)
             install_kwargs["post_install_patch_strip"] = install_cfg.post_install_patch_strip
@@ -874,7 +883,8 @@ _override_package_tag = tag_class(
                   "Mutually exclusive with all patch/data modification attributes.",
         ),
         "console_scripts": attr.string_dict(
-            doc = "Complete console scripts for a source-built wheel, mapping script names to module:object entry points.",
+            default = _CONSOLE_SCRIPTS_UNSET,
+            doc = "Complete console scripts for a source-built wheel, mapping script names to module:object entry points. An explicit empty map suppresses all detected scripts.",
         ),
         "monitor_memory": attr.bool(
             default = False,

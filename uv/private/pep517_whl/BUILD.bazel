@@ -12,6 +12,7 @@ load(
     "hostile_python_env_target",
     "pep517_native_whl_execroot_collision_test",
     "pep517_native_whl_toolchain_env_test",
+    "pep517_whl_console_scripts_test",
 )
 
 package(default_visibility = [
@@ -28,6 +29,7 @@ bzl_library(
     srcs = ["rule.bzl"],
     deps = [
         "//py/private/toolchain:types",
+        "//uv/private:source_built_wheel",
         "@bazel_lib//lib:resource_sets",
         "@rules_cc//cc:action_names_bzl",
         "@rules_cc//cc/common",
@@ -84,6 +86,7 @@ bzl_library(
     visibility = ["//uv:__subpackages__"],
     deps = [
         ":rule",
+        "//uv/private:source_built_wheel",
         "@bazel_skylib//lib:unittest",
     ],
 )
@@ -149,6 +152,7 @@ build_test(
 pep517_native_whl(
     name = "__toolchain_env_fixture",
     src = ":__stub_sdist",
+    console_scripts = ["detected-native=demo.cli:native"],
     env = {
         "JAVA_HOME": "$(JAVABASE)",
         "JAVA": "$(JAVA)",
@@ -165,6 +169,12 @@ pep517_native_whl(
 
 pep517_native_whl_toolchain_env_test(
     name = "toolchain_env_test",
+    target_under_test = ":__toolchain_env_fixture",
+)
+
+pep517_whl_console_scripts_test(
+    name = "console_scripts_native_test",
+    expected_console_scripts = ["detected-native=demo.cli:native"],
     target_under_test = ":__toolchain_env_fixture",
 )
 

@@ -13,7 +13,7 @@ def validate_build_attrs(
     """Fails when a configured source-build attribute is unsupported.
 
     Args:
-        console_scripts: Additional entry points generated for a source build.
+        console_scripts: Complete source-build entry points, or None when unset.
         resource_set: Resource set name, where "default" means unset.
         env: Environment variables for the wheel-build action.
         monitor_memory: Whether to monitor the wheel-build action's memory.
@@ -24,7 +24,7 @@ def validate_build_attrs(
         error: Failure message with one `{}` slot for unsupported names.
     """
     active = []
-    if console_scripts:
+    if console_scripts != None:
         active.append("console_scripts")
     if resource_set != "default":
         active.append("resource_set")

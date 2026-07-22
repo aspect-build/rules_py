@@ -33,3 +33,8 @@ bzl_library(
     name = "normalize_version",
     srcs = ["normalize_version.bzl"],
 )
+
+bzl_library(
+    name = "source_built_wheel",
+    srcs = ["source_built_wheel.bzl"],
+)

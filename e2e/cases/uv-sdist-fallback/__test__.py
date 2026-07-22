@@ -15,7 +15,7 @@ import cowsay
 
 output = cowsay.get_output_string("cow", "sdist fallback works!")
 assert "sdist fallback works!" in output
-marker = "declared console script works"
+marker = "detected console script works"
 wrapper = shutil.which("cowsay")
 assert wrapper is not None, "cowsay wrapper is absent from PATH"
 expected_wrapper = Path(os.environ["VIRTUAL_ENV"]) / "bin" / "cowsay"

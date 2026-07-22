@@ -16,6 +16,7 @@ interpreters [build-system] metadata is skipped with a warning.
 from __future__ import annotations
 
 import configparser
+import email.parser
 import importlib
 import os
 import importlib.abc
@@ -88,6 +89,7 @@ class DetectionResult(_OptionalDetectionResult):
     has_setup_cfg: bool
     setup_py_setup_requires: List[str]
     setup_py_install_requires: List[str]
+    console_scripts: List[str]
 
 
 def _normalize_name(name: str) -> str:
@@ -412,6 +414,41 @@ def _find_config_file(members: Sequence[str], filename: str) -> Optional[str]:
     return None
 
 
+def _parse_console_scripts(content: str) -> List[str]:
+    """Return normalized console scripts from an egg-info entry_points.txt."""
+    scripts: Dict[str, str] = {}
+    in_console_scripts = False
+    for raw_line in content.splitlines():
+        line = raw_line.split(";", 1)[0].split("#", 1)[0].strip()
+        if not line:
+            continue
+        if line.startswith("[") and line.endswith("]"):
+            in_console_scripts = line[1:-1].strip() == "console_scripts"
+            continue
+        if not in_console_scripts:
+            continue
+
+        name, separator, target = line.partition("=")
+        name = name.strip()
+        module, colon, function = target.partition(":")
+        module = module.strip()
+        function, extra, extras = function.partition("[")
+        function = function.strip()
+        if (
+            not separator
+            or not colon
+            or name in ("", ".", "..")
+            or any(char in name for char in ("/", "\\", "=", " ", "\t", "\n", "\r"))
+            or not module
+            or not function
+            or (extra and (not extras.endswith("]") or "[" in extras or "]" in extras[:-1]))
+            or any(char in module or char in function for char in ("=", ":", "[", "]", " ", "\t", "\n", "\r"))
+        ):
+            continue
+        scripts[name] = f"{name}={module}:{function}"
+    return sorted(scripts.values())
+
+
 def detect(archive_path: str, context: ConfigureContext) -> DetectionResult:
     """Run detection on an sdist archive.
 
@@ -457,6 +494,48 @@ def detect(archive_path: str, context: ConfigureContext) -> DetectionResult:
             content = read_fn(setup_cfg_path)
             if content:
                 declared.extend(_parse_setup_cfg_build_requires(content))
+
+        # Match the root distribution name rather than path depth: setuptools
+        # src-layout projects place their own egg-info below src/ or another
+        # package directory, while differently named metadata may be vendored.
+        member_paths = [(name, PurePosixPath(name)) for name in members]
+        rooted = len({path.parts[0] for _, path in member_paths}) == 1
+        pkg_info_paths = [
+            name for name, path in member_paths
+            if len(path.parts) == (2 if rooted else 1)
+            and path.name == "PKG-INFO"
+        ]
+        package_name = None
+        if len(pkg_info_paths) == 1:
+            content = read_fn(pkg_info_paths[0])
+            if content:
+                package_name = email.parser.Parser().parsestr(content, headersonly=True).get("Name")
+                if package_name:
+                    package_name = _normalize_name(package_name)
+        egg_info = [
+            (name, path) for name, path in member_paths
+            if len(path.parts) >= 2
+            and path.parts[-2].endswith(".egg-info")
+            and path.name == "entry_points.txt"
+        ]
+        if package_name:
+            entry_points_paths = [
+                name for name, path in egg_info
+                if _normalize_name(path.parts[-2][:-len(".egg-info")]) == package_name
+            ]
+        else:
+            # Git archives may not carry root PKG-INFO. Preserve the direct
+            # egg-info fallback without admitting nested vendored metadata.
+            depth = 3 if rooted else 2
+            entry_points_paths = [
+                name for name, path in egg_info
+                if len(path.parts) == depth
+            ]
+        console_scripts = []
+        if len(entry_points_paths) == 1:
+            content = read_fn(entry_points_paths[0])
+            if content:
+                console_scripts = _parse_console_scripts(content)
 
         # Parse setup.py for setup_requires / install_requires
         setup_py_path = _find_config_file(members, "setup.py")
@@ -513,6 +592,7 @@ def detect(archive_path: str, context: ConfigureContext) -> DetectionResult:
         "has_setup_cfg": setup_cfg_path is not None,
         "setup_py_setup_requires": setup_py_setup_requires,
         "setup_py_install_requires": setup_py_install_requires,
+        "console_scripts": console_scripts,
     }
     if backend_path is not None:
         result["backend_path"] = backend_path

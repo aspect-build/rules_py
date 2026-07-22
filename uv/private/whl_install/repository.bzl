@@ -612,17 +612,21 @@ def _whl_install_impl(repository_ctx):
     sbuild_target = str(repository_ctx.attr.sbuild) if repository_ctx.attr.sbuild else None
     default_target = ":source_built_wheel" if sbuild_target else None
     if sbuild_target:
+        console_scripts_override_attr = ""
+        if repository_ctx.attr.sbuild_console_scripts_override:
+            console_scripts_override_attr = "\n    console_scripts_override = True,"
         content.append(
             """
 source_built_wheel(
     name = "source_built_wheel",
     src = {src},
-    console_scripts = {console_scripts},
+    console_scripts = {console_scripts},{console_scripts_override_attr}
     visibility = ["//visibility:private"],
 )
 """.format(
                 src = repr(sbuild_target),
                 console_scripts = repr(repository_ctx.attr.sbuild_console_scripts),
+                console_scripts_override_attr = console_scripts_override_attr,
             ),
         )
 
@@ -914,6 +918,7 @@ whl_install = repository_rule(
         "whl_files": attr.label_list(allow_files = [".whl"]),
         "sbuild": attr.label(),
         "sbuild_console_scripts": attr.string_list(),
+        "sbuild_console_scripts_override": attr.bool(),
         "post_install_patches": attr.string(default = ""),
         "post_install_patch_strip": attr.int(default = 0),
         "extra_deps": attr.string(default = ""),
