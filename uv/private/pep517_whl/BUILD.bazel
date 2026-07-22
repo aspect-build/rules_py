@@ -49,6 +49,17 @@ py_test(
     deps = [":memory_monitor"],
 )
 
+py_test(
+    name = "local_cxx_companion_test",
+    srcs = ["local_cxx_companion_test.py"],
+    data = ["build_helper.py"],
+    main = "local_cxx_companion_test.py",
+    deps = [
+        "@pypi//build",
+        "@pypi//setuptools",
+    ],
+)
+
 py_binary(
     name = "__build_helper",
     testonly = True,
