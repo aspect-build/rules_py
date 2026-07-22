@@ -91,10 +91,14 @@ def _toolchain_env_test_impl(ctx):
     asserts.equals(env, "{}/relative/libdep.a".format(marker), action_env.get("LDFLAGS"))
 
     action_inputs = [f.path for f in build_actions[0].inputs.to_list()]
+    cxx_driver_mode = " --driver-mode=g++"
     for key in _CC_ENV_KEYS:
+        tool = action_env.get(key)
+        if key == "CXX" and tool.endswith(cxx_driver_mode):
+            tool = tool[:-len(cxx_driver_mode)]
         asserts.true(
             env,
-            action_env.get(key) in action_inputs,
+            tool in action_inputs,
             "{} should select a declared C++ action tool".format(key),
         )
 

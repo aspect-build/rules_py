@@ -15,6 +15,8 @@ _CONFIGURED_CC_TOOLCHAIN = "//pep517-frontend-exec-group:configured_cc_toolchain
 
 _CLANG_CC_TOOLCHAIN = "//pep517-frontend-exec-group:clang_cc_toolchain"
 
+_MINIMAL_CLANG_CC_TOOLCHAIN = "//pep517-frontend-exec-group:minimal_clang_cc_toolchain"
+
 _LEGACY_CC_TOOLCHAIN = "//pep517-frontend-exec-group:legacy_cc_toolchain"
 
 _DIRECT_CXX_TOOLCHAIN = "//pep517-frontend-exec-group:direct_cxx_toolchain"
@@ -159,6 +161,19 @@ platform(
         "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
         "--extra_execution_platforms=@platforms//host,//pep517-frontend-exec-group:linux_wrapped_cxx",
         "--extra_toolchains=" + _WRAPPED_CXX_TOOLCHAIN,
+    ],
+)
+
+platform(
+    name = "linux_minimal_clang",
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+    flags = [
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
+        "--extra_execution_platforms=@platforms//host,//pep517-frontend-exec-group:linux_minimal_clang",
+        "--extra_toolchains=" + _MINIMAL_CLANG_CC_TOOLCHAIN,
     ],
 )
 
@@ -498,6 +513,18 @@ toolchain(
     toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
 )
 
+fake_cc_toolchain(
+    name = "minimal_clang_cc",
+    compiler = ":clang_wrapper_script",
+    compiler_kind = "clang",
+)
+
+toolchain(
+    name = "minimal_clang_cc_toolchain",
+    toolchain = ":minimal_clang_cc",
+    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+)
+
 filegroup(
     name = "legacy_tools",
     srcs = [
@@ -803,6 +830,12 @@ platform_transition_filegroup(
     target_platform = ":linux_wrapped_cxx",
 )
 
+platform_transition_filegroup(
+    name = "wheel_linux_minimal_clang",
+    srcs = [":clang_wheel"],
+    target_platform = ":linux_minimal_clang",
+)
+
 build_test(
     name = "frontend_exec_platform_test",
     targets = [
@@ -835,4 +868,9 @@ build_test(
         ":wheel_linux_plain_cxx",
         ":wheel_linux_wrapped_cxx",
     ],
+)
+
+build_test(
+    name = "minimal_clang_cxx_driver_test",
+    targets = [":wheel_linux_minimal_clang"],
 )

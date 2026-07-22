@@ -109,6 +109,8 @@ def _cc_toolchain_inputs_and_tools(ctx):
         compiler = getattr(cc_toolchain, "compiler_executable", None)
         if not compiler:
             return files, {}, False
+        if getattr(cc_toolchain, "compiler", None) == "clang":
+            return files, {"CC": compiler, "CXX": compiler + " --driver-mode=g++"}, False
         return files, {"CC": compiler, "CXX": compiler}, True
 
     feature_configuration = cc_common.configure_features(
@@ -158,6 +160,7 @@ def _cc_toolchain_inputs_and_tools(ctx):
     # https://github.com/llvm/llvm-project/blob/llvmorg-22.1.2/clang/lib/Driver/ToolChains/Gnu.cpp#L452-L471
     if tools.get("CXX") and tools["CXX"] == tools.get("CC") and getattr(cc_toolchain, "compiler", None) == "clang":
         tools["CXX"] += " --driver-mode=g++"
+        infer_cxx = False
 
     infer_cxx = infer_cxx or tools.get("CXX") == tools.get("CC")
     return files, {key: value for key, value in tools.items() if value}, infer_cxx
