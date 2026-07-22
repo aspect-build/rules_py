@@ -35,25 +35,15 @@ py_library(
 # deps:
 # {
 #     "colorama": {
-#         "extra == 'build'": 1,
+#         "": 1,
 #     },
 # }
-
-
-alias(
-    name = "_maybe__extra_marker__0_0_0__colorama",
-    actual = select({
-        "//private/markers:marker_0": "//:colorama",
-        "//conditions:default": ":empty",
-    }),
-    visibility = ["//:__subpackages__"],
-)
 
 
 py_library(
     name = "extra_marker__0_0_0",
     deps = [
-        ":_maybe__extra_marker__0_0_0__colorama",
+        "//:colorama",
     ],
     visibility = ["//:__subpackages__"],
 )
