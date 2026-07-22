@@ -91,13 +91,13 @@ def parse_whl_name(file):
 
     Returns:
         A struct with the following attributes:
-            distribution: the distribution name
+            project: the distribution name
             version: the version of the distribution
-            build_tag: the build tag for the wheel. None if there was no
-              build_tag in the given string.
-            python_tag: the python tag for the wheel
-            abi_tag: the ABI tag for the wheel
-            platform_tag: the platform tag
+            build: the build tag for the wheel. None if there was no
+              build tag in the given string.
+            python_tags: the sorted python tags for the wheel
+            abi_tags: the sorted, normalized ABI tags for the wheel
+            platform_tags: the sorted, normalized platform tags
     """
     if not file.endswith(".whl"):
         fail("not a valid wheel: {}".format(file))

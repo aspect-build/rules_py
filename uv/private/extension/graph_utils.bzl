@@ -27,7 +27,7 @@ def collect_sccs(marker_graph, id_state = None):
     are groups of packages that have cyclic dependencies on each other.
 
     Args:
-        marker_graph: The dependency marker_graph, as returned by `_build_marker_graph`.
+        marker_graph: The dependency marker_graph, as returned by `build_marker_graph`.
         {pkg: {dep: {marker: 1}}}
         id_state: dict carrying SCC id intern state. Pass the same dict for
         every configuration of one project: identical SCC content reuses one

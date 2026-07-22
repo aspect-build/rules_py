@@ -160,7 +160,6 @@ if options.inherit_path is not None:
 for dep in options.dependencies:
     dist = Distribution.load(dep)
 
-    # TODO: explain which level of inferno is this!
     key = "%s-%s" % (dist.key, dist.version)
     dist_hash = pex_builder._add_dist(
         path= dist.location,
