@@ -45,13 +45,6 @@ setup(name="cxxprobe", version="1.0", py_modules=[])
 """
 
 
-def _find_build_helper() -> str:
-    for root, _, files in os.walk(os.environ["TEST_SRCDIR"], followlinks=True):
-        if "build_helper.py" in files and root.endswith(os.path.join("uv", "private", "pep517_whl")):
-            return os.path.join(root, "build_helper.py")
-    raise AssertionError("build_helper.py not found under TEST_SRCDIR")
-
-
 def _make_sdist(workdir: str) -> str:
     pkgdir = os.path.join(workdir, "cxxprobe-1.0")
     os.makedirs(pkgdir)
@@ -97,7 +90,7 @@ def _run(helper: str, sdist: str, workdir: str, cxx: str, expect: str, infer_com
 def main() -> None:
     workdir = tempfile.mkdtemp(dir=os.environ["TEST_TMPDIR"])
     sdist = _make_sdist(workdir)
-    helper = _find_build_helper()
+    helper = os.path.join(os.path.dirname(__file__), "build_helper.py")
     _run(helper, sdist, workdir, "/usr/bin/gcc -DRULES_PY_CXX_ARG_PRESERVED=1", "runtime", True)
 
     missing = os.path.join(workdir, "missing")
