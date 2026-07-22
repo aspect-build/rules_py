@@ -15,6 +15,16 @@ _CONFIGURED_CC_TOOLCHAIN = "//pep517-frontend-exec-group:configured_cc_toolchain
 
 _LEGACY_CC_TOOLCHAIN = "//pep517-frontend-exec-group:legacy_cc_toolchain"
 
+_DIRECT_CXX_TOOLCHAIN = "//pep517-frontend-exec-group:direct_cxx_toolchain"
+
+_MINIMAL_CXX_TOOLCHAIN = "//pep517-frontend-exec-group:minimal_cxx_toolchain"
+
+_PLAIN_CXX_TOOLCHAIN = "//pep517-frontend-exec-group:plain_cxx_toolchain"
+
+_MISSING_CXX_TOOLCHAIN = "//pep517-frontend-exec-group:missing_cxx_toolchain"
+
+_WRAPPED_CXX_TOOLCHAIN = "//pep517-frontend-exec-group:wrapped_cxx_toolchain"
+
 # Keep the host first so the default exec group selects it. The native wheel's
 # `target` exec group requires the transitioned target constraints and selects
 # the second platform instead. Platform flags are applied in the configuration
@@ -69,6 +79,71 @@ platform(
         "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
         "--extra_execution_platforms=@platforms//host,//pep517-frontend-exec-group:linux_legacy",
         "--extra_toolchains=" + _LEGACY_CC_TOOLCHAIN,
+    ],
+)
+
+platform(
+    name = "linux_direct_cxx",
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+    flags = [
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
+        "--extra_execution_platforms=@platforms//host,//pep517-frontend-exec-group:linux_direct_cxx",
+        "--extra_toolchains=" + _DIRECT_CXX_TOOLCHAIN,
+    ],
+)
+
+platform(
+    name = "linux_minimal_cxx",
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+    flags = [
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
+        "--extra_execution_platforms=@platforms//host,//pep517-frontend-exec-group:linux_minimal_cxx",
+        "--extra_toolchains=" + _MINIMAL_CXX_TOOLCHAIN,
+    ],
+)
+
+platform(
+    name = "linux_missing_cxx",
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+    flags = [
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
+        "--extra_execution_platforms=@platforms//host,//pep517-frontend-exec-group:linux_missing_cxx",
+        "--extra_toolchains=" + _MISSING_CXX_TOOLCHAIN,
+    ],
+)
+
+platform(
+    name = "linux_plain_cxx",
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+    flags = [
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
+        "--extra_execution_platforms=@platforms//host,//pep517-frontend-exec-group:linux_plain_cxx",
+        "--extra_toolchains=" + _PLAIN_CXX_TOOLCHAIN,
+    ],
+)
+
+platform(
+    name = "linux_wrapped_cxx",
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+    flags = [
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
+        "--extra_execution_platforms=@platforms//host,//pep517-frontend-exec-group:linux_wrapped_cxx",
+        "--extra_toolchains=" + _WRAPPED_CXX_TOOLCHAIN,
     ],
 )
 
@@ -138,10 +213,21 @@ write_file(
 
 write_file(
     name = "unusual_cxx_driver",
-    out = "unusual_cxx_driver.sh",
+    out = "configured/clang",
     content = [
         "#!/usr/bin/env bash",
         "printf '%s\\n' cxx-action",
+    ],
+    is_executable = True,
+)
+
+write_file(
+    name = "configured_poison_cxx_peer",
+    out = "configured/clang++",
+    content = [
+        "#!/usr/bin/env bash",
+        "echo 'configured C++ action wrapper was bypassed' >&2",
+        "exit 97",
     ],
     is_executable = True,
 )
@@ -154,6 +240,7 @@ cc_tool(
 cc_tool(
     name = "configured_cxx_tool",
     src = ":unusual_cxx_driver",
+    data = [":configured_poison_cxx_peer"],
 )
 
 cc_tool_map(
@@ -175,6 +262,182 @@ cc_toolchain(
 toolchain(
     name = "configured_cc_toolchain",
     toolchain = ":configured_cc",
+    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+)
+
+write_file(
+    name = "direct_c_driver",
+    out = "direct/x86_64-w64-mingw32-gcc-13.exe",
+    content = [
+        "#!/usr/bin/env bash",
+        "exec /usr/bin/cc \"$@\"",
+    ],
+    is_executable = True,
+)
+
+write_file(
+    name = "direct_cxx_driver",
+    out = "direct/x86_64-w64-mingw32-g++-13.exe",
+    content = [
+        "#!/usr/bin/env bash",
+        "exec /usr/bin/c++ \"$@\"",
+    ],
+    is_executable = True,
+)
+
+cc_tool(
+    name = "direct_c_tool",
+    src = ":direct_c_driver",
+    data = [":direct_cxx_driver"],
+)
+
+cc_tool_map(
+    name = "direct_tool_map",
+    tools = {
+        "@rules_cc//cc/toolchains/actions:c_compile": ":direct_c_tool",
+        "@rules_cc//cc/toolchains/actions:cpp_compile_actions": ":direct_c_tool",
+        "@rules_cc//cc/toolchains/actions:link_actions": ":direct_c_tool",
+        "@rules_cc//cc/toolchains/actions:strip": ":direct_c_tool",
+        "@rules_cc//cc/toolchains/actions:ar_actions": ":direct_c_tool",
+    },
+)
+
+cc_toolchain(
+    name = "direct_cxx",
+    tool_map = ":direct_tool_map",
+)
+
+toolchain(
+    name = "direct_cxx_toolchain",
+    toolchain = ":direct_cxx",
+    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+)
+
+write_file(
+    name = "minimal_c_driver",
+    out = "minimal/clang-22",
+    content = [
+        "#!/usr/bin/env bash",
+        "exec /usr/bin/cc \"$@\"",
+    ],
+    is_executable = True,
+)
+
+write_file(
+    name = "minimal_cxx_driver",
+    out = "minimal/clang++-22",
+    content = [
+        "#!/usr/bin/env bash",
+        "exec /usr/bin/c++ \"$@\"",
+    ],
+    is_executable = True,
+)
+
+fake_cc_toolchain(
+    name = "minimal_cxx",
+    compiler = ":minimal_c_driver",
+    tools = [":minimal_cxx_driver"],
+)
+
+toolchain(
+    name = "minimal_cxx_toolchain",
+    toolchain = ":minimal_cxx",
+    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+)
+
+fake_cc_toolchain(
+    name = "missing_cxx",
+    compiler = ":minimal_c_driver",
+)
+
+toolchain(
+    name = "missing_cxx_toolchain",
+    toolchain = ":missing_cxx",
+    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+)
+
+write_file(
+    name = "plain_c_driver",
+    out = "plain/cc",
+    content = [
+        "#!/usr/bin/env bash",
+        "exec /usr/bin/cc \"$@\"",
+    ],
+    is_executable = True,
+)
+
+write_file(
+    name = "plain_cxx_driver",
+    out = "plain/c++",
+    content = [
+        "#!/usr/bin/env bash",
+        "exec /usr/bin/c++ \"$@\"",
+    ],
+    is_executable = True,
+)
+
+fake_cc_toolchain(
+    name = "plain_cxx",
+    compiler = ":plain_c_driver",
+    tools = [":plain_cxx_driver"],
+)
+
+toolchain(
+    name = "plain_cxx_toolchain",
+    toolchain = ":plain_cxx",
+    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+)
+
+write_file(
+    name = "cxx_wrapper",
+    out = "wrapped/cc_wrapper.sh",
+    content = [
+        "#!/usr/bin/env bash",
+        "args=()",
+        "mode=0",
+        "for arg in \"$@\"; do if [[ \"${arg}\" == --driver-mode=g++ ]]; then mode=1; else args+=(\"${arg}\"); fi; done",
+        "if [[ \"${mode}\" != 1 ]]; then echo 'configured CXX wrapper did not receive its driver mode' >&2; exit 96; fi",
+        "exec /usr/bin/c++ \"${args[@]}\"",
+    ],
+    is_executable = True,
+)
+
+write_file(
+    name = "poison_cxx_peer",
+    out = "wrapped/clang++",
+    content = [
+        "#!/usr/bin/env bash",
+        "echo 'configured CXX wrapper was bypassed' >&2",
+        "exit 97",
+    ],
+    is_executable = True,
+)
+
+cc_tool(
+    name = "wrapped_cxx_tool",
+    src = ":cxx_wrapper",
+    data = [":poison_cxx_peer"],
+)
+
+cc_tool_map(
+    name = "wrapped_tool_map",
+    tools = {
+        "@rules_cc//cc/toolchains/actions:c_compile": ":wrapped_cxx_tool",
+        "@rules_cc//cc/toolchains/actions:cpp_compile_actions": ":wrapped_cxx_tool",
+        "@rules_cc//cc/toolchains/actions:link_actions": ":wrapped_cxx_tool",
+        "@rules_cc//cc/toolchains/actions:strip": ":wrapped_cxx_tool",
+        "@rules_cc//cc/toolchains/actions:ar_actions": ":wrapped_cxx_tool",
+    },
+)
+
+cc_toolchain(
+    name = "wrapped_cxx",
+    tool_map = ":wrapped_tool_map",
+)
+
+toolchain(
+    name = "wrapped_cxx_toolchain",
+    toolchain = ":wrapped_cxx",
     toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
 )
 
@@ -265,6 +528,11 @@ sh_binary(
     srcs = [":configured_frontend_script"],
 )
 
+sh_binary(
+    name = "cxx_frontend",
+    srcs = ["cxx_frontend.sh"],
+)
+
 write_file(
     name = "legacy_frontend_script",
     out = "legacy_frontend.sh",
@@ -336,6 +604,75 @@ pep517_native_whl(
     version = "0.0.0",
 )
 
+pep517_native_whl(
+    name = "direct_cxx_wheel",
+    src = ":stub_sdist",
+    args = [
+        "*/direct/x86_64-w64-mingw32-gcc-13.exe",
+        "*/direct/x86_64-w64-mingw32-gcc-13.exe",
+        "0",
+    ],
+    tags = ["manual"],
+    tool = ":cxx_frontend",
+    version = "0.0.0",
+)
+
+pep517_native_whl(
+    name = "minimal_cxx_wheel",
+    src = ":stub_sdist",
+    args = [
+        "*/minimal/clang-22",
+        "*/minimal/clang-22",
+        "0",
+    ],
+    tags = ["manual"],
+    tool = ":cxx_frontend",
+    version = "0.0.0",
+)
+
+pep517_native_whl(
+    name = "missing_cxx_wheel",
+    src = ":stub_sdist",
+    args = [
+        "*/minimal/clang-22",
+        "*/minimal/clang-22",
+        "0",
+    ],
+    tags = ["manual"],
+    tool = ":cxx_frontend",
+    version = "0.0.0",
+)
+
+pep517_native_whl(
+    name = "plain_cxx_wheel",
+    src = ":stub_sdist",
+    args = [
+        "*/plain/cc",
+        "*/plain/cc",
+        "0",
+    ],
+    tags = ["manual"],
+    tool = ":cxx_frontend",
+    version = "0.0.0",
+)
+
+pep517_native_whl(
+    name = "wrapped_cxx_wheel",
+    src = ":stub_sdist",
+    args = [
+        "*/wrapped/cc_wrapper.sh",
+        "*/wrapped/cc_wrapper.sh --driver-mode=g++",
+        "1",
+    ],
+    env = {
+        "CC": "$(CC)",
+        "CXX": "$(CXX) --driver-mode=g++",
+    },
+    tags = ["manual"],
+    tool = ":cxx_frontend",
+    version = "0.0.0",
+)
+
 platform_transition_filegroup(
     name = "wheel_linux_aarch64",
     srcs = [":wheel"],
@@ -360,6 +697,36 @@ platform_transition_filegroup(
     target_platform = ":linux_legacy",
 )
 
+platform_transition_filegroup(
+    name = "wheel_linux_direct_cxx",
+    srcs = [":direct_cxx_wheel"],
+    target_platform = ":linux_direct_cxx",
+)
+
+platform_transition_filegroup(
+    name = "wheel_linux_minimal_cxx",
+    srcs = [":minimal_cxx_wheel"],
+    target_platform = ":linux_minimal_cxx",
+)
+
+platform_transition_filegroup(
+    name = "wheel_linux_missing_cxx",
+    srcs = [":missing_cxx_wheel"],
+    target_platform = ":linux_missing_cxx",
+)
+
+platform_transition_filegroup(
+    name = "wheel_linux_plain_cxx",
+    srcs = [":plain_cxx_wheel"],
+    target_platform = ":linux_plain_cxx",
+)
+
+platform_transition_filegroup(
+    name = "wheel_linux_wrapped_cxx",
+    srcs = [":wrapped_cxx_wheel"],
+    target_platform = ":linux_wrapped_cxx",
+)
+
 build_test(
     name = "frontend_exec_platform_test",
     targets = [
@@ -376,4 +743,15 @@ build_test(
 build_test(
     name = "legacy_toolchain_test",
     targets = [":wheel_linux_legacy"],
+)
+
+build_test(
+    name = "cxx_driver_test",
+    targets = [
+        ":wheel_linux_direct_cxx",
+        ":wheel_linux_minimal_cxx",
+        ":wheel_linux_missing_cxx",
+        ":wheel_linux_plain_cxx",
+        ":wheel_linux_wrapped_cxx",
+    ],
 )

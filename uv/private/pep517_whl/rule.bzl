@@ -14,6 +14,7 @@ load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
 _CC_TOOLCHAIN_TYPE = Label("@bazel_tools//tools/cpp:toolchain_type")
 _TARGET_EXEC_GROUP = "target"
 _EXECROOT_MARKER = "__ASPECT_RULES_PY_EXECROOT__"
+_INFER_CXX_COMPANION = "ASPECT_RULES_PY_INFER_CXX_COMPANION"
 
 _INHERITED_PYTHON_ENV = (
     "PYTHONHOME",
@@ -99,7 +100,7 @@ def _cc_toolchain_inputs_and_tools(ctx):
     if hasattr(cc_toolchain, "cc_provider_in_toolchain") and hasattr(cc_toolchain, "cc"):
         cc_toolchain = cc_toolchain.cc
     if not cc_toolchain or not hasattr(cc_toolchain, "all_files"):
-        return None, {}
+        return None, {}, False
     files = cc_toolchain.all_files
 
     # Minimal C++ ToolchainInfo implementations can still supply a compiler
@@ -107,8 +108,8 @@ def _cc_toolchain_inputs_and_tools(ctx):
     if not hasattr(cc_toolchain, "ar_executable"):
         compiler = getattr(cc_toolchain, "compiler_executable", None)
         if not compiler:
-            return files, {}
-        return files, {"CC": compiler, "CXX": compiler}
+            return files, {}, False
+        return files, {"CC": compiler, "CXX": compiler}, True
 
     feature_configuration = cc_common.configure_features(
         ctx = ctx,
@@ -137,6 +138,7 @@ def _cc_toolchain_inputs_and_tools(ctx):
     }
 
     missing = [key for key in action_names if not tools.get(key)]
+    infer_cxx = "CXX" in missing
     if missing:
         # Legacy C++ toolchains can omit action configs while still exposing
         # usable tools through CcToolchainInfo. Action-only providers may
@@ -151,7 +153,8 @@ def _cc_toolchain_inputs_and_tools(ctx):
         }
         tools.update({key: legacy_tools[key] for key in missing if legacy_tools[key] in file_paths})
 
-    return files, {key: value for key, value in tools.items() if value}
+    infer_cxx = infer_cxx or tools.get("CXX") == tools.get("CC")
+    return files, {key: value for key, value in tools.items() if value}, infer_cxx
 
 def _pep517_whl(ctx):
     archive = ctx.file.src
@@ -194,9 +197,10 @@ def _pep517_native_whl(ctx):
         fail("A toolchain listed in `toolchains` exports the reserved `EXECROOT` make-variable.")
     known_variables["EXECROOT"] = _EXECROOT_MARKER
 
-    cc_files, cc_tools = _cc_toolchain_inputs_and_tools(ctx)
+    cc_files, cc_tools, infer_cxx = _cc_toolchain_inputs_and_tools(ctx)
     if cc_files:
         extra_inputs.append(cc_files)
+    known_variables.update({key: value for key, value in cc_tools.items() if key not in known_variables})
 
     for k, v in ctx.attr.env.items():
         env[k] = ctx.expand_make_variables("env", v, known_variables)
@@ -204,6 +208,10 @@ def _pep517_native_whl(ctx):
     for key, value in cc_tools.items():
         if key not in ctx.attr.env:
             env[key] = value
+
+    env.pop(_INFER_CXX_COMPANION, None)
+    if "CXX" not in ctx.attr.env and cc_tools.get("CXX") and infer_cxx:
+        env[_INFER_CXX_COMPANION] = "1"
 
     ctx.actions.run(
         mnemonic = "PySdistNativeBuild",
@@ -299,9 +307,10 @@ constraints of the target platform.
         "args": attr.string_list(),
         "env": attr.string_dict(
             doc = "Environment variables to set on the build action. Values may " +
-                  "contain `$(VAR)` references to make-variables exposed by any " +
-                  "target in the rule's `toolchains` attribute (via " +
-                  "`TemplateVariableInfo`). Prefix an execroot-relative path with " +
+                  "contain `$(VAR)` references to the configured C++ action tools " +
+                  "or make-variables exposed by any target in the rule's " +
+                  "`toolchains` attribute (via `TemplateVariableInfo`). Prefix an " +
+                  "execroot-relative path with " +
                   "`$(EXECROOT)/` so it remains valid after the backend changes into " +
                   "the unpacked source tree. Omit CC/CXX/AR/LD/STRIP to use the " +
                   "configured C++ action tools.",

@@ -84,6 +84,31 @@ def _resolve_compiler_path(env: Dict[str, str], key: str, default: str) -> str:
     return shutil.which(compiler, path=env.get("PATH", defpath)) or compiler
 
 
+def _local_cxx_companion(current: Optional[str], compiler_path: str) -> str:
+    """Select an executable same-directory C++ peer for a direct local C driver."""
+    parts = shlex.split(current or "")
+    if not parts or not path.isabs(parts[0]):
+        return compiler_path
+
+    basename = path.basename(compiler_path)
+    executable_suffix = ".exe" if basename.endswith(".exe") else ""
+    if executable_suffix:
+        basename = basename[:-len(executable_suffix)]
+    stem, separator, suffix = basename.rpartition("-")
+    if not separator or not suffix.isdigit():
+        stem, suffix = basename, ""
+    else:
+        suffix = "-" + suffix
+    for cc_basename, cxx_basename in (("clang", "clang++"), ("gcc", "g++"), ("cc", "c++")):
+        if stem != cc_basename and not stem.endswith("-" + cc_basename):
+            continue
+        companion = path.join(path.dirname(compiler_path), stem[:-len(cc_basename)] + cxx_basename + suffix + executable_suffix)
+        if path.isfile(companion) and os.access(companion, os.X_OK):
+            return companion
+        break
+    return compiler_path
+
+
 def _make_compiler_wrapper(
     tmpdir: str,
     name: str,
@@ -162,6 +187,8 @@ def _compiler_env(tmpdir: str, execroot_marker: Optional[str] = None) -> Dict[st
 
     cc_path = _resolve_compiler_path(env, "CC", "cc")
     cxx_path = _resolve_compiler_path(env, "CXX", "c++")
+    if env.pop("ASPECT_RULES_PY_INFER_CXX_COMPANION", None) == "1":
+        cxx_path = _local_cxx_companion(env.get("CXX"), cxx_path)
 
     sysroot = _darwin_sysroot()
 
