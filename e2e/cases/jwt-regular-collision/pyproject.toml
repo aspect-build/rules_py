@@ -9,3 +9,9 @@ dependencies = [
     "PyJWT==2.13.0",
     "jwt==1.4.0",
 ]
+
+[tool.uv]
+# jwt 1.4.0 pulls cryptography transitively. cryptography 49.0.0 dropped the
+# Intel-macOS wheel (arm64-only), forcing a Rust sdist build on darwin_x86_64
+# that the sandbox can't do. Cap below 49 so a universal2 wheel is always used.
+constraint-dependencies = ["cryptography<49"]
