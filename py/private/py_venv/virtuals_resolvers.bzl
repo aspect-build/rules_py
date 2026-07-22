@@ -8,10 +8,6 @@ Pure Starlark — no external loads, operates solely on wheel struct
 fields and ``ctx.label``.
 """
 
-def _is_within(path, root):
-    """True when *path* equals *root* or is a direct descendant."""
-    return path == root or path.startswith(root + "/")
-
 def _within_any(path, roots):
     """True when *path* sits at or below any entry in *roots*."""
     for root in roots:
@@ -550,40 +546,6 @@ def resolve_wheel_collisions(ctx, wheels):
         console_scripts_map,
         state.merge_groups,
         collisions,
-    )
-
-def _build_wheel_lookups(wheels):
-    """Build ``install_tree`` and known-layout lookups in a single pass."""
-    tree_by_sp = {}
-    known_layout = {}
-    for w in wheels:
-        sp = w.site_packages_rfpath
-        tree_by_sp[sp] = w.install_tree
-        if w.top_levels:
-            known_layout[sp] = True
-    return tree_by_sp, known_layout
-
-def compute_wheel_plan(ctx, wheels):
-    """Compute the full collision resolution + lookup tables for a wheel set.
-
-    Returns a struct with all fields needed by ``PyWheelPlanInfo``:
-    ``wheel_fingerprints``, ``top_level_to_site_pkgs``, ``fully_covered``,
-    ``console_scripts_map``, ``merge_groups``, ``tree_by_sp``,
-    ``known_layout``, ``collisions``.
-    """
-    top_level, fully_covered, cs_map, merge_groups, collisions = \
-        resolve_wheel_collisions(ctx, wheels)
-    tree_by_sp, known_layout = _build_wheel_lookups(wheels)
-    fingerprints = tuple(sorted([w.site_packages_rfpath for w in wheels]))
-    return struct(
-        wheel_fingerprints = fingerprints,
-        top_level_to_site_pkgs = top_level,
-        fully_covered = fully_covered,
-        console_scripts_map = cs_map,
-        merge_groups = merge_groups,
-        tree_by_sp = tree_by_sp,
-        known_layout = known_layout,
-        collisions = collisions,
     )
 
 def enforce_collision_policy(collisions, package_collisions):
