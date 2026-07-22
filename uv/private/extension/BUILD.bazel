@@ -37,6 +37,8 @@ bzl_library(
         "//uv/private/tomltool:toml",
         "//uv/private/uv_hub:repository",
         "//uv/private/uv_project:repository",
+        "//uv/private/whl_install:dist_repository",
+        "//uv/private/whl_install:metadata",
         "//uv/private/whl_install:repository",
         "@bazel_lib//lib:resource_sets",
         "@bazel_skylib//lib:sets",

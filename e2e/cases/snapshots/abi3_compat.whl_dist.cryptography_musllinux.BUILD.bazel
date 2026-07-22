@@ -1,0 +1,31 @@
+load("@aspect_rules_py//uv/private/whl_install:rule.bzl", "whl_dist")
+
+whl_dist(
+    name = "whl",
+    src = "cryptography-46.0.5-cp311-abi3-musllinux_1_2_x86_64.whl",
+    top_levels = [
+        "cryptography",
+        "cryptography-46.0.5.dist-info",
+        "cryptography.libs",
+    ],
+    top_level_dirs = [
+        "cryptography",
+        "cryptography.libs",
+    ],
+    namespace_top_levels = [
+        "cryptography.libs",
+    ],
+    namespace_entries = [
+        "cryptography.libs/libgcc_s-0cd532bd.so.1",
+    ],
+    native_roots = [
+        "cryptography",
+        "cryptography.libs",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//visibility:public"],
+)

@@ -13,7 +13,7 @@ source_built_wheel(
 select_chain(
    name = "whl",
    arms = {
-       "@aspect_rules_py_pip_configurations//:py3-any-none": "@whl__azure_core_tracing_opentelemetry__016cefcaff2900fb//file",
+       "@aspect_rules_py_pip_configurations//:py3-any-none": "@whl__azure_core_tracing_opentelemetry__016cefcaff2900fb//:whl",
    },
    default_target = ":source_built_wheel",
    visibility = ["//visibility:public"],
@@ -22,7 +22,7 @@ select_chain(
 filegroup(
     name = "gazelle_index_whl",
     srcs = [
-        "@whl__azure_core_tracing_opentelemetry__016cefcaff2900fb//file",
+        ":whl",
     ],
     visibility = ["//visibility:public"],
 )
@@ -40,40 +40,6 @@ whl_install(
         "@aspect_rules_py//uv/private/pyc:is_timestamp": "timestamp",
         "//conditions:default": "checked-hash",
     }),
-    top_levels = {
-        "azure_core_tracing_opentelemetry-1.0.0b11-py3-none-any.whl": [
-            "azure",
-            "azure_core_tracing_opentelemetry-1.0.0b11.dist-info",
-        ],
-    },
-    namespace_top_levels = {
-        "azure_core_tracing_opentelemetry-1.0.0b11-py3-none-any.whl": [
-            "azure",
-        ],
-    },
-    console_scripts = {},
-    top_level_dirs = {
-        "azure_core_tracing_opentelemetry-1.0.0b11-py3-none-any.whl": [
-            "azure",
-        ],
-    },
-    namespace_entries = {
-        "azure_core_tracing_opentelemetry-1.0.0b11-py3-none-any.whl": [
-            "azure/core/tracing/ext/opentelemetry_span",
-        ],
-    },
-    namespace_dirs = {
-        "azure_core_tracing_opentelemetry-1.0.0b11-py3-none-any.whl": [
-            "azure/core",
-            "azure/core/tracing",
-            "azure/core/tracing/ext",
-        ],
-    },
-    regular_roots = {
-        "azure_core_tracing_opentelemetry-1.0.0b11-py3-none-any.whl": [
-            "azure/core/tracing/ext/opentelemetry_span",
-        ],
-    },
     visibility = ["//visibility:private"],
 )
 

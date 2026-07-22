@@ -5,6 +5,7 @@ import importlib.metadata
 from base64 import urlsafe_b64encode
 from pathlib import Path
 
+import charset_normalizer
 import cowsay
 from cowsay import main
 from cowsay.retained import PATCH_SENTINEL
@@ -41,9 +42,22 @@ distribution = importlib.metadata.distribution("googleapis-common-protos")
 assert distribution.files is not None
 assert not any(str(path).endswith(".proto") for path in distribution.files)
 
+# charset-normalizer is a NATIVE, multi-platform wheel. Excluding its `cli`
+# subpackage exercises exclusion on the platform-selected wheel: the sibling
+# native root (charset_normalizer/{cd,md}.*.so) must survive and the package
+# must still import and detect encodings.
+assert charset_normalizer.from_bytes(b"exclusions work!").best() is not None
+charset_package = Path(charset_normalizer.__file__).parent
+assert not (charset_package / "cli").exists()
+charset_distribution = importlib.metadata.distribution("charset-normalizer")
+assert charset_distribution.files is not None
+assert not any("/cli/" in str(path) for path in charset_distribution.files)
+assert any(str(path).endswith((".so", ".pyd")) for path in charset_distribution.files)
+
 for installed_distribution, installed_package in [
     (cowsay_distribution, package),
     (distribution, google),
+    (charset_distribution, charset_package),
 ]:
     for path in installed_distribution.files:
         installed = installed_package.resolve().parent / path

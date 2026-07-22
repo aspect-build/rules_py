@@ -106,6 +106,14 @@ write_source_files(
         # disambiguation flips ~150 arms to the cp38 wheel in the diff.
         "snapshots/abi3_compat.whl_install.cryptography.BUILD.bazel": "@whl_install__abi3_compat__cryptography__46_0_5//:BUILD.bazel",
 
+        # whl_dist for one concrete cryptography wheel (cp311-abi3
+        # musllinux_1_2_x86_64). Pins the RECORD-derived layout the wheel's
+        # own repo now carries — top_levels, the implicit-namespace
+        # `cryptography.libs`, and its native_roots. This is the topology that
+        # used to live in the whl_install BUILD; proves the moved extractor
+        # still produces it per wheel.
+        "snapshots/abi3_compat.whl_dist.cryptography_musllinux.BUILD.bazel": "@whl__cryptography__80a8d7bfdf38f87c//:BUILD.bazel",
+
         # whl_install for cffi 2.0.0, whose platform wheels each install a
         # DIFFERENT C-extension top-level (`_cffi_backend.cpython-312-
         # darwin.so` vs `...-x86_64-linux-gnu.so` vs win `.pyd`). Pins that

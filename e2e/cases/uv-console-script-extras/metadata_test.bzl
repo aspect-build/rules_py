@@ -1,7 +1,7 @@
 """Analysis test asserting `parse_console_script` strips entry-point extras.
 
 `PyWheelsInfo.console_scripts` is produced by `parse_console_script`
-(//uv/private/whl_install:repository.bzl) at repo-fetch time. This test pins the
+(//uv/private/whl_install:metadata.bzl) at repo-fetch time. This test pins the
 expected, normalised `name=module:func` values for real wheels that ship the
 legacy `name = module:func [extra]` syntax, so a regression that lets the
 `[extra]` suffix leak back into the value fails here.

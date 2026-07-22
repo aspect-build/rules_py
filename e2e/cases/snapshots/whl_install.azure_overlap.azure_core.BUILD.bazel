@@ -13,7 +13,7 @@ source_built_wheel(
 select_chain(
    name = "whl",
    arms = {
-       "@aspect_rules_py_pip_configurations//:py3-any-none": "@whl__azure_core__ab0c9b2cd71fecb1//file",
+       "@aspect_rules_py_pip_configurations//:py3-any-none": "@whl__azure_core__ab0c9b2cd71fecb1//:whl",
    },
    default_target = ":source_built_wheel",
    visibility = ["//visibility:public"],
@@ -22,7 +22,7 @@ select_chain(
 filegroup(
     name = "gazelle_index_whl",
     srcs = [
-        "@whl__azure_core__ab0c9b2cd71fecb1//file",
+        ":whl",
     ],
     visibility = ["//visibility:public"],
 )
@@ -40,34 +40,6 @@ whl_install(
         "@aspect_rules_py//uv/private/pyc:is_timestamp": "timestamp",
         "//conditions:default": "checked-hash",
     }),
-    top_levels = {
-        "azure_core-1.38.0-py3-none-any.whl": [
-            "azure",
-            "azure_core-1.38.0.dist-info",
-        ],
-    },
-    namespace_top_levels = {
-        "azure_core-1.38.0-py3-none-any.whl": [
-            "azure",
-        ],
-    },
-    console_scripts = {},
-    top_level_dirs = {
-        "azure_core-1.38.0-py3-none-any.whl": [
-            "azure",
-        ],
-    },
-    namespace_entries = {
-        "azure_core-1.38.0-py3-none-any.whl": [
-            "azure/core",
-        ],
-    },
-    namespace_dirs = {},
-    regular_roots = {
-        "azure_core-1.38.0-py3-none-any.whl": [
-            "azure/core",
-        ],
-    },
     visibility = ["//visibility:private"],
 )
 

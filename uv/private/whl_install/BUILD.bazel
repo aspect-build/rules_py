@@ -22,6 +22,25 @@ bzl_library(
 )
 
 bzl_library(
+    name = "metadata",
+    srcs = ["metadata.bzl"],
+    deps = [],
+)
+
+bzl_library(
+    name = "dist_repository",
+    srcs = ["dist_repository.bzl"],
+    deps = [
+        ":metadata",
+        ":rule",
+        "//uv/private:parse_whl_name",
+        "//uv/private/pprint:defs",
+        "@bazel_tools//tools/build_defs/repo:cache.bzl",
+        "@bazel_tools//tools/build_defs/repo:utils.bzl",
+    ],
+)
+
+bzl_library(
     name = "repository",
     srcs = ["repository.bzl"],
     deps = [
@@ -42,6 +61,7 @@ bzl_library(
     name = "test",
     srcs = ["test.bzl"],
     deps = [
+        ":metadata",
         ":repository",
         ":rule",
         "//uv/private:source_built_wheel",

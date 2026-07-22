@@ -7,6 +7,7 @@ py_test(
     main = "__test__.py",
     python_version = "3.11",
     deps = [
+        "@pypi_uv_exclusions//charset_normalizer",
         "@pypi_uv_exclusions//cowsay",
         "@pypi_uv_exclusions//googleapis_common_protos",
     ],
@@ -21,6 +22,7 @@ py_test(
     main = "__test__.py",
     python_version = "3.11",
     deps = [
+        "@pypi_uv_exclusions//charset_normalizer",
         "@pypi_uv_exclusions//cowsay",
         "@pypi_uv_exclusions//googleapis_common_protos",
     ],

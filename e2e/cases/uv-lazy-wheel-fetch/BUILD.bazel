@@ -1,0 +1,31 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+# Lazy per-wheel fetching regression.
+#
+# The lock ships charset-normalizer with reachable HASHLESS wheels for the
+# common host platforms and a win_amd64 wheel pointing at an unreachable URL.
+# On any non-Windows host only the selected platform's `whl_dist` repo is
+# fetched, so this test builds; if sibling wheels were fetched eagerly (the
+# pre-whl_dist behavior) the dead win_amd64 URL would break every build.
+# Importing the native package additionally proves the moved RECORD extractor
+# produced a working layout, and the hashless host wheels exercise whl_dist's
+# discovered-checksum path.
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+
+# Gazelle indexes each package's wheel via gazelle_index_whl. It must resolve
+# the platform-SELECTED wheel, never the unreachable win_amd64 sentinel that
+# sorts first in the lock — so this builds on a non-Windows host only because
+# Gazelle no longer picks an arbitrary wheel.
+build_test(
+    name = "gazelle_index_build_test",
+    targets = ["@whl_install__uv_lazy_wheel_fetch__charset_normalizer__3_4_7//:gazelle_index_whl"],
+)
+
+py_test(
+    name = "test_import",
+    srcs = ["test_import.py"],
+    dep_group = "uv-lazy-wheel-fetch",
+    main = "test_import.py",
+    python_version = "3.11",
+    deps = ["@pypi-lazy-wheel-fetch//charset_normalizer"],
+)

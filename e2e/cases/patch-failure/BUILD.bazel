@@ -4,7 +4,7 @@
 #
 # gazelle:ignore
 
-load("@aspect_rules_py//uv/private/whl_install:rule.bzl", "whl_install")
+load("@aspect_rules_py//uv/private/whl_install:rule.bzl", "source_built_wheel", "whl_install")
 
 # A minimal wheel. The patch targets a `.data/data/` file, which installs to the
 # install-tree root (`<into>/marker.txt`) — no python-version path component, so
@@ -29,12 +29,22 @@ genrule(
     tags = ["manual"],
 )
 
+# whl_install reads its layout from the selected wheel's PyWheelMetadataInfo, so
+# wrap the fake wheel. Its layout is intentionally unknown here (the test
+# exercises patch application, not the site-packages merge), which is exactly
+# what source_built_wheel represents — no RECORD extraction implied.
+source_built_wheel(
+    name = "fake_wheel_dist",
+    src = ":fake_wheel",
+    tags = ["manual"],
+)
+
 # A patch whose hunk applies with a large offset (its header claims line 20 but
 # the context lives at line 1). GNU patch's default would drop a `.orig` backup
 # here; the fix passes --no-backup-if-mismatch so it must not.
 whl_install(
     name = "offset_patch",
-    src = ":fake_wheel",
+    src = ":fake_wheel_dist",
     patch_strip = 1,
     patches = ["offset.patch"],
     tags = ["manual"],
@@ -45,7 +55,7 @@ whl_install(
 # context-only mismatch would be silently absorbed by GNU patch's default fuzz).
 whl_install(
     name = "broken_patch",
-    src = ":fake_wheel",
+    src = ":fake_wheel_dist",
     patch_strip = 1,
     patches = ["broken.patch"],
     tags = ["manual"],

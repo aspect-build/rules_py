@@ -21,6 +21,15 @@ uv.override_package(
     name = "googleapis-common-protos",
     exclude_glob = ["google/**/*.proto"],
 )
+
+# charset-normalizer is a native, multi-platform wheel: excluding a sibling
+# subpackage exercises exclusion on the platform-SELECTED wheel while its
+# native root (charset_normalizer/{cd,md}.*.so) must survive.
+uv.override_package(
+    name = "charset-normalizer",
+    exclude_glob = ["charset_normalizer/cli"],
+    lock = "//uv-exclusions:uv.lock",
+)
 use_repo(
     uv,
     "pypi_uv_exclusions",
