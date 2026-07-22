@@ -1,0 +1,51 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library", "py_pytest_test", "py_unittest_test")
+
+# `bazel coverage` end-to-end regression for both test drivers. Each test
+# exercises the shared library so the emitted LCOV has a real SF:/DA: record for
+# foo.py to assert on. Driven by test.sh, which runs `bazel coverage` (it can't
+# be an sh_test under //... — see cases/README.md).
+
+py_library(
+    name = "lib",
+    srcs = ["foo.py"],
+    imports = ["."],
+)
+
+py_pytest_test(
+    name = "coverage_pytest_test",
+    srcs = ["cov_add_test.py"],
+    dep_group = "coverage-drivers",
+    imports = ["."],
+    deps = [
+        ":lib",
+        "@pypi_coverage_drivers//coverage",
+        "@pypi_coverage_drivers//pytest",
+    ],
+)
+
+py_unittest_test(
+    name = "coverage_unittest_test",
+    srcs = ["cov_add_unittest_test.py"],
+    dep_group = "coverage-drivers",
+    imports = ["."],
+    deps = [
+        ":lib",
+        "@pypi_coverage_drivers//coverage",
+    ],
+)
+
+# Baked pytest_args route py_pytest_test through its codegen branch, which
+# renders a per-test copy of pytest_main.py (via py_pytest_main) instead of the
+# shared main. Confirms the coverage teardown survives that template rendering.
+py_pytest_test(
+    name = "coverage_pytest_codegen_test",
+    srcs = ["cov_add_test.py"],
+    dep_group = "coverage-drivers",
+    imports = ["."],
+    pytest_args = ["-q"],
+    deps = [
+        ":lib",
+        "@pypi_coverage_drivers//coverage",
+        "@pypi_coverage_drivers//pytest",
+    ],
+)

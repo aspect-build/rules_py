@@ -11,8 +11,8 @@ import os
 
 def test_no_spurious_collection() -> None:
     """Run pytest --collect-only on ourselves and verify the collected count."""
-    # We need to collect from the same directory the real test would use.
-    # The .pytest_paths file tells us where to look.
+    # Collect exactly the files the real test would. The .pytest_paths file
+    # lists this target's declared test sources.
     target = os.environ.get("BAZEL_TARGET", "")
     target_name = os.environ.get("BAZEL_TARGET_NAME", "")
     package = target.split(":")[0].lstrip("/")
@@ -24,7 +24,7 @@ def test_no_spurious_collection() -> None:
         with open(paths_file) as f:
             for line in f:
                 d = line.strip()
-                if d and os.path.isdir(d):
+                if d and os.path.exists(d):
                     args.append(d)
 
     result = subprocess.run(args, capture_output=True, text=True)

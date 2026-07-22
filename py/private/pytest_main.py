@@ -69,6 +69,25 @@ if "COVERAGE_MANIFEST" in os.environ:
 from pytest_shard import ShardPlugin
 
 def main() -> int:
+    # Resolve the explicit test files from the .pytest_paths file written by the
+    # pytest_paths rule before any chdir: the file and the paths it lists are
+    # relative to the runfiles root, which is CWD at startup. Passing the files
+    # (not their directory) scopes collection to this target's own srcs — a
+    # workspace-root source would otherwise leave pytest to recurse the whole
+    # runfiles tree.
+    test_paths: List[str] = []
+    target_name = os.environ.get("BAZEL_TARGET_NAME", "")
+    target = os.environ.get("BAZEL_TARGET", "")
+    if target:
+        package = target.split(":")[0].lstrip("/")
+        paths_file = os.path.join(package, target_name + ".pytest_paths")
+        if os.path.isfile(paths_file):
+            with open(paths_file) as f:
+                for line in f:
+                    p = line.strip()
+                    if p and os.path.exists(p):
+                        test_paths.append(os.path.abspath(p))
+
     # This statement will be replaced if the user provides a chdir path
     _ = 0  # no-op
 
@@ -124,24 +143,10 @@ def main() -> int:
     if len(cli_args) > 0:
         args.extend(cli_args)
 
-    # Read the pytest paths args file written by the pytest_paths rule.
-    # Contains directories (one per line) where pytest should search for tests,
-    # relative to the workspace root (which is CWD at test time).  When present,
-    # these are passed as positional args so pytest collects only from those
-    # directories instead of autodiscovering from CWD.
-    target_name = os.environ.get("BAZEL_TARGET_NAME", "")
-    target = os.environ.get("BAZEL_TARGET", "")
-    if target:
-        package = target.split(":")[0].lstrip("/")
-        paths_file = os.path.join(package, target_name + ".pytest_paths")
-        if os.path.isfile(paths_file):
-            with open(paths_file) as f:
-                for line in f:
-                    d = line.strip()
-                    if not d:
-                        continue
-                    if os.path.isdir(d):
-                        args.append(d)
+    # Pass the test files as positional args so pytest collects only this
+    # target's own srcs instead of autodiscovering from CWD. Absolute so they
+    # stay valid even if the user baked in a chdir.
+    args.extend(test_paths)
 
     exit_code = pytest.main(args, plugins=plugins)
 

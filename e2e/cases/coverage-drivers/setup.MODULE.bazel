@@ -1,0 +1,10 @@
+"""`bazel coverage` end-to-end regression for both test drivers (see test.sh)."""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_coverage_drivers")
+uv.project(
+    hub_name = "pypi_coverage_drivers",
+    lock = "//coverage-drivers:uv.lock",
+    pyproject = "//coverage-drivers:pyproject.toml",
+)
+use_repo(uv, "pypi_coverage_drivers")

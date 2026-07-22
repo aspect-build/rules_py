@@ -1,5 +1,23 @@
-load("@aspect_rules_py//py:defs.bzl", "py_library", "py_pytest_main", "py_test")
+load("@aspect_rules_py//py:defs.bzl", "py_library", "py_pytest_main", "py_pytest_test", "py_test", "py_unittest_test")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+# Stdlib unittest driver.
+py_unittest_test(
+    name = "unittest_example_test",
+    srcs = ["unittest_example_test.py"],
+    imports = ["."],
+)
+
+# Regression: a workspace-root py_pytest_test must scope pytest collection to
+# its declared srcs, not recurse the runfiles tree. zzz_unrelated_fail_test.py
+# is a failing test provided only as data; if collection recursed, pytest would
+# run it and fail this target.
+py_pytest_test(
+    name = "root_scoped_test",
+    srcs = ["root_scoped_test.py"],
+    data = ["zzz_unrelated_fail_test.py"],
+    deps = ["@pypi//pytest"],
+)
 
 py_library(
     name = "lib",
@@ -7,7 +25,7 @@ py_library(
     imports = ["."],
 )
 
-py_test(
+py_pytest_test(
     name = "pytest_test",
     srcs = ["foo_test.py"],
     data = glob([
@@ -19,7 +37,6 @@ py_test(
     },
     imports = ["."],
     package_collisions = "warning",
-    pytest_main = True,
     deps = [
         ":lib",
         "@pypi//coverage",
@@ -29,13 +46,12 @@ py_test(
     ],
 )
 
-py_test(
+py_pytest_test(
     # NB: name contains a slash as regression test for #483
     name = "sharded/test",
     srcs = ["sharding_test.py"],
     imports = ["."],
     package_collisions = "warning",
-    pytest_main = True,
     shard_count = 2,
     deps = ["@pypi//pytest"],
 )
@@ -134,7 +150,7 @@ genrule(
     cmd = "echo 'foo.py' > $@",
 )
 
-py_test(
+py_pytest_test(
     name = "coverage_setup_test",
     srcs = ["foo_test.py"],
     data = glob([
@@ -149,7 +165,6 @@ py_test(
     },
     imports = ["."],
     package_collisions = "warning",
-    pytest_main = True,
     # Mark manual so `bazel test //...` doesn't double-run this; the
     # sh_test below drives it and reads its LCOV output.
     tags = ["manual"],

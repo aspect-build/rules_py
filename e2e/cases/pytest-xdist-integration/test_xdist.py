@@ -1,4 +1,4 @@
-"""Regression test for pytest-xdist parallelism through py_test(pytest_main=True).
+"""Regression test for pytest-xdist parallelism through py_pytest_test.
 
 pytest-xdist is loaded as a pytest plugin when its dist-info is on
 `sys.path`. When the test is invoked with `-n 2` (two workers), xdist

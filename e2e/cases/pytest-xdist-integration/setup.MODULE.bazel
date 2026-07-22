@@ -1,5 +1,5 @@
 """Regression: pytest-xdist plugin discovery + actual parallel-worker
-execution through py_test(pytest_main = True).
+execution through py_pytest_test.
 """
 
 uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")

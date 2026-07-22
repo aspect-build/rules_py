@@ -1,0 +1,144 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_unittest_test")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+# Regression coverage for py_unittest_test.
+#
+# setup.MODULE.bazel declares @test_driver_extrepo (an external repo whose
+# sources exercise the external-src regression below); see cases/README.md.
+
+# Basic discovery + run. Under `bazel test`, Bazel sets XML_OUTPUT_FILE, so
+# this also exercises the built-in JUnit writer on the real path.
+py_unittest_test(
+    name = "basic_test",
+    srcs = ["basic_test.py"],
+)
+
+# Bazel sharding: TEST_SHARD_* env selects a stable subset of discovered tests.
+py_unittest_test(
+    name = "shard_test",
+    srcs = ["shard_test.py"],
+    shard_count = 2,
+)
+
+# Assert the JUnit XML shape (testsuite/testcase/skipped) the writer produces.
+sh_test(
+    name = "junit_xml_shape_test",
+    srcs = ["check_junit_xml.sh"],
+    data = [":basic_test"],
+)
+
+# Failing subtest: exercises the addSubTest -> JUnit XML path. Manual because it
+# fails by design; check_subtest_xml.sh drives it with a synthesized
+# XML_OUTPUT_FILE and asserts the failure is recorded.
+py_unittest_test(
+    name = "subtest_fail",
+    srcs = ["subtest_fail_test.py"],
+    tags = ["manual"],
+)
+
+sh_test(
+    name = "subtest_xml_test",
+    srcs = ["check_subtest_xml.sh"],
+    data = [":subtest_fail"],
+)
+
+# Runtime args: `-k` filtering (single, repeated/OR, wildcard), empty-filter
+# typo guard (also covers --test_filter), and rejection of unknown args.
+sh_test(
+    name = "args_test",
+    srcs = ["check_args.sh"],
+    data = [":basic_test"],
+)
+
+# Discovery: each declared file loads exactly once (no double-run of nested
+# roots) under a unique module identity (no same-basename ImportError).
+py_unittest_test(
+    name = "discovery_test",
+    srcs = [
+        "discovery/a/same_test.py",
+        "discovery/b/same_test.py",
+        "discovery/child/inner_test.py",
+        "discovery/outer_test.py",
+    ],
+)
+
+sh_test(
+    name = "discovery_count_test",
+    srcs = ["check_discovery.sh"],
+    data = [":discovery_test"],
+)
+
+# Fail-fast honors --failfast and Bazel's TESTBRIDGE_TEST_RUNNER_FAIL_FAST.
+# Manual because it fails by design; check_failfast.sh drives it.
+py_unittest_test(
+    name = "twofail",
+    srcs = ["twofail_test.py"],
+    tags = ["manual"],
+)
+
+sh_test(
+    name = "failfast_test",
+    srcs = ["check_failfast.sh"],
+    data = [":twofail"],
+)
+
+# JUnit XML must sanitize XML-forbidden control chars and write UTF-8. Manual
+# (fails by design); check_ctlchars_xml.sh drives it and parses the output.
+py_unittest_test(
+    name = "ctlchars_fail",
+    srcs = ["ctlchars_fail_test.py"],
+    tags = ["manual"],
+)
+
+py_binary(
+    name = "assert_wellformed",
+    srcs = ["assert_wellformed.py"],
+    main = "assert_wellformed.py",
+)
+
+sh_test(
+    name = "ctlchars_xml_test",
+    srcs = ["check_ctlchars_xml.sh"],
+    data = [
+        ":assert_wellformed",
+        ":ctlchars_fail",
+    ],
+)
+
+# Sharding is advertised before an early (no-match) return.
+sh_test(
+    name = "shard_advertise_test",
+    srcs = ["check_shard_advertise.sh"],
+    data = [":basic_test"],
+)
+
+# The driver collects each module exactly once: stateful_load_test.load_tests
+# returns its suite only on the first call, so a double-collect would run zero
+# tests. Manual (driven by the shell test).
+py_unittest_test(
+    name = "stateful_load",
+    srcs = ["stateful_load_test.py"],
+    tags = ["manual"],
+)
+
+sh_test(
+    name = "stateful_load_test",
+    srcs = ["check_stateful_load.sh"],
+    data = [":stateful_load"],
+)
+
+# External-repo source: short_path begins ../test_driver_extrepo/... . Dropping
+# it (the previous behavior) left this target with no sources and "no tests
+# found"; the driver must resolve it to its runfiles path and run it.
+py_unittest_test(
+    name = "external_src_test",
+    srcs = ["@test_driver_extrepo//:ext_unittest_test.py"],
+)
+
+# The external source's ../ prefix must be stripped when deriving the module
+# name, so its JUnit classname has no leading dots.
+sh_test(
+    name = "external_classname_test",
+    srcs = ["check_external_classname.sh"],
+    data = [":external_src_test"],
+)
