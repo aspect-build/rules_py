@@ -14,6 +14,7 @@ load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
 _CC_TOOLCHAIN_TYPE = Label("@bazel_tools//tools/cpp:toolchain_type")
 _TARGET_EXEC_GROUP = "target"
 _EXECROOT_MARKER = "__ASPECT_RULES_PY_EXECROOT__"
+_INFER_CXX_COMPANION = "ASPECT_RULES_PY_INFER_CXX_COMPANION"
 
 _INHERITED_PYTHON_ENV = (
     "PYTHONHOME",
@@ -99,7 +100,7 @@ def _cc_toolchain_inputs_and_tools(ctx):
     if hasattr(cc_toolchain, "cc_provider_in_toolchain") and hasattr(cc_toolchain, "cc"):
         cc_toolchain = cc_toolchain.cc
     if not cc_toolchain or not hasattr(cc_toolchain, "all_files"):
-        return None, {}
+        return None, {}, False
     files = cc_toolchain.all_files
 
     # Minimal C++ ToolchainInfo implementations can still supply a compiler
@@ -107,8 +108,8 @@ def _cc_toolchain_inputs_and_tools(ctx):
     if not hasattr(cc_toolchain, "ar_executable"):
         compiler = getattr(cc_toolchain, "compiler_executable", None)
         if not compiler:
-            return files, {}
-        return files, {"CC": compiler, "CXX": _declared_cxx_driver(compiler, files)}
+            return files, {}, False
+        return files, {"CC": compiler, "CXX": compiler}, True
 
     feature_configuration = cc_common.configure_features(
         ctx = ctx,
@@ -137,6 +138,7 @@ def _cc_toolchain_inputs_and_tools(ctx):
     }
 
     missing = [key for key in action_names if not tools.get(key)]
+    infer_cxx = "CXX" in missing
     if missing:
         # Legacy C++ toolchains can omit action configs while still exposing
         # usable tools through CcToolchainInfo. Action-only providers may
@@ -151,32 +153,8 @@ def _cc_toolchain_inputs_and_tools(ctx):
         }
         tools.update({key: legacy_tools[key] for key in missing if legacy_tools[key] in file_paths})
 
-    if tools.get("CXX"):
-        tools["CXX"] = _declared_cxx_driver(tools["CXX"], files)
-
-    return files, {key: value for key, value in tools.items() if value}
-
-def _declared_cxx_driver(compiler, files):
-    basename = compiler.split("/")[-1]
-    executable_suffix = ".exe" if basename.endswith(".exe") else ""
-    if executable_suffix:
-        basename = basename[:-len(executable_suffix)]
-    version_index = basename.rfind("-")
-    if version_index != -1 and basename[version_index + 1:].isdigit():
-        stem = basename[:version_index]
-        suffix = basename[version_index:]
-    else:
-        stem = basename
-        suffix = ""
-    for cc_basename, cxx_basename in [("clang", "clang++"), ("gcc", "g++"), ("cc", "c++")]:
-        if stem != cc_basename and not stem.endswith("-" + cc_basename):
-            continue
-        dirname_index = compiler.rfind("/")
-        companion = stem[:-len(cc_basename)] + cxx_basename + suffix + executable_suffix
-        if dirname_index != -1:
-            companion = compiler[:dirname_index] + "/" + companion
-        return companion if companion in [file.path for file in files.to_list()] else compiler
-    return compiler
+    infer_cxx = infer_cxx or tools.get("CXX") == tools.get("CC")
+    return files, {key: value for key, value in tools.items() if value}, infer_cxx
 
 def _pep517_whl(ctx):
     archive = ctx.file.src
@@ -219,7 +197,7 @@ def _pep517_native_whl(ctx):
         fail("A toolchain listed in `toolchains` exports the reserved `EXECROOT` make-variable.")
     known_variables["EXECROOT"] = _EXECROOT_MARKER
 
-    cc_files, cc_tools = _cc_toolchain_inputs_and_tools(ctx)
+    cc_files, cc_tools, infer_cxx = _cc_toolchain_inputs_and_tools(ctx)
     if cc_files:
         extra_inputs.append(cc_files)
     known_variables.update({key: value for key, value in cc_tools.items() if key not in known_variables})
@@ -230,6 +208,10 @@ def _pep517_native_whl(ctx):
     for key, value in cc_tools.items():
         if key not in ctx.attr.env:
             env[key] = value
+
+    env.pop(_INFER_CXX_COMPANION, None)
+    if "CXX" not in ctx.attr.env and cc_tools.get("CXX") and infer_cxx:
+        env[_INFER_CXX_COMPANION] = "1"
 
     ctx.actions.run(
         mnemonic = "PySdistNativeBuild",

@@ -84,10 +84,9 @@ def _resolve_compiler_path(env: Dict[str, str], key: str, default: str) -> str:
     return shutil.which(compiler, path=env.get("PATH", defpath)) or compiler
 
 
-def _local_cxx_companion(current: Optional[str], compiler_path: str) -> str:
+def _local_cxx_companion(compiler_path: str) -> str:
     """Select an executable same-directory C++ peer for a direct local C driver."""
-    parts = shlex.split(current or "")
-    if not parts or not path.isabs(parts[0]):
+    if not path.isabs(compiler_path):
         return compiler_path
 
     basename = path.basename(compiler_path)
@@ -187,7 +186,8 @@ def _compiler_env(tmpdir: str, execroot_marker: Optional[str] = None) -> Dict[st
 
     cc_path = _resolve_compiler_path(env, "CC", "cc")
     cxx_path = _resolve_compiler_path(env, "CXX", "c++")
-    cxx_path = _local_cxx_companion(env.get("CXX"), cxx_path)
+    if env.pop("ASPECT_RULES_PY_INFER_CXX_COMPANION", None) == "1":
+        cxx_path = _local_cxx_companion(cxx_path)
 
     sysroot = _darwin_sysroot()
 

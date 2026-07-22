@@ -68,12 +68,13 @@ def _write_driver(filename: str, message: str) -> None:
         f.write(textwrap.dedent("""\
             #!/bin/sh
             for arg in "$@"; do if [ "$arg" = "--version" ]; then echo "{}"; exit 0; fi; done
-            exec /usr/bin/gcc "$@"
+            echo "unexpected fake-driver invocation" >&2
+            exit 1
         """).format(message))
     os.chmod(filename, 0o755)
 
 
-def _run(helper: str, sdist: str, workdir: str, cxx: str, expect: str) -> None:
+def _run(helper: str, sdist: str, workdir: str, cxx: str, expect: str, infer_companion: bool) -> None:
     outdir = os.path.join(workdir, "out-" + expect)
     result = subprocess.run(
         [sys.executable, helper, sdist, outdir],
@@ -85,6 +86,7 @@ def _run(helper: str, sdist: str, workdir: str, cxx: str, expect: str) -> None:
             "CXX_TEST_EXPECT": expect,
             "HOME": workdir,
             "PATH": "/usr/bin:/bin",
+            "ASPECT_RULES_PY_INFER_CXX_COMPANION": "1" if infer_companion else "0",
         },
         text=True,
     )
@@ -96,27 +98,33 @@ def main() -> None:
     workdir = tempfile.mkdtemp(dir=os.environ["TEST_TMPDIR"])
     sdist = _make_sdist(workdir)
     helper = _find_build_helper()
-    _run(helper, sdist, workdir, "/usr/bin/gcc -DRULES_PY_CXX_ARG_PRESERVED=1", "runtime")
+    _run(helper, sdist, workdir, "/usr/bin/gcc -DRULES_PY_CXX_ARG_PRESERVED=1", "runtime", True)
 
     missing = os.path.join(workdir, "missing")
     os.makedirs(missing)
     _write_driver(os.path.join(missing, "gcc"), "MISSING-PEER-C-DRIVER")
-    _run(helper, sdist, workdir, os.path.join(missing, "gcc"), "MISSING-PEER-C-DRIVER")
+    _run(helper, sdist, workdir, os.path.join(missing, "gcc"), "MISSING-PEER-C-DRIVER", True)
 
     mingw = os.path.join(workdir, "mingw")
     os.makedirs(mingw)
     _write_driver(os.path.join(mingw, "x86_64-w64-mingw32-gcc-13.exe"), "MINGW-C-DRIVER")
     _write_driver(os.path.join(mingw, "x86_64-w64-mingw32-g++-13.exe"), "MINGW-CXX-DRIVER")
-    _run(helper, sdist, workdir, os.path.join(mingw, "x86_64-w64-mingw32-gcc-13.exe"), "MINGW-CXX-DRIVER")
+    _run(helper, sdist, workdir, os.path.join(mingw, "x86_64-w64-mingw32-gcc-13.exe"), "MINGW-CXX-DRIVER", True)
     _write_driver(os.path.join(mingw, "aarch64-w64-mingw32-clang.exe"), "MINGW-CLANG-C-DRIVER")
     _write_driver(os.path.join(mingw, "aarch64-w64-mingw32-clang++.exe"), "MINGW-CLANG-CXX-DRIVER")
-    _run(helper, sdist, workdir, os.path.join(mingw, "aarch64-w64-mingw32-clang.exe"), "MINGW-CLANG-CXX-DRIVER")
+    _run(helper, sdist, workdir, os.path.join(mingw, "aarch64-w64-mingw32-clang.exe"), "MINGW-CLANG-CXX-DRIVER", True)
 
     relative = os.path.join(workdir, "relative")
     os.makedirs(relative)
     _write_driver(os.path.join(relative, "gcc"), "RELATIVE-C-DRIVER")
-    _write_driver(os.path.join(relative, "g++"), "POISON-RELATIVE-CXX-PEER")
-    _run(helper, sdist, workdir, "relative/gcc", "RELATIVE-C-DRIVER")
+    _write_driver(os.path.join(relative, "g++"), "RELATIVE-CXX-DRIVER")
+    _run(helper, sdist, workdir, "relative/gcc", "RELATIVE-CXX-DRIVER", True)
+
+    explicit = os.path.join(workdir, "explicit")
+    os.makedirs(explicit)
+    _write_driver(os.path.join(explicit, "gcc"), "EXPLICIT-CXX-WRAPPER")
+    _write_driver(os.path.join(explicit, "g++"), "POISON-EXPLICIT-CXX-PEER")
+    _run(helper, sdist, workdir, os.path.join(explicit, "gcc"), "EXPLICIT-CXX-WRAPPER", False)
 
 
 if __name__ == "__main__":

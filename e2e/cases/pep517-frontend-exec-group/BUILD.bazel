@@ -213,10 +213,21 @@ write_file(
 
 write_file(
     name = "unusual_cxx_driver",
-    out = "unusual_cxx_driver.sh",
+    out = "configured/clang",
     content = [
         "#!/usr/bin/env bash",
         "printf '%s\\n' cxx-action",
+    ],
+    is_executable = True,
+)
+
+write_file(
+    name = "configured_poison_cxx_peer",
+    out = "configured/clang++",
+    content = [
+        "#!/usr/bin/env bash",
+        "echo 'configured C++ action wrapper was bypassed' >&2",
+        "exit 97",
     ],
     is_executable = True,
 )
@@ -229,6 +240,7 @@ cc_tool(
 cc_tool(
     name = "configured_cxx_tool",
     src = ":unusual_cxx_driver",
+    data = [":configured_poison_cxx_peer"],
 )
 
 cc_tool_map(
@@ -597,8 +609,8 @@ pep517_native_whl(
     src = ":stub_sdist",
     args = [
         "*/direct/x86_64-w64-mingw32-gcc-13.exe",
-        "*/direct/x86_64-w64-mingw32-g++-13.exe",
-        "1",
+        "*/direct/x86_64-w64-mingw32-gcc-13.exe",
+        "0",
     ],
     tags = ["manual"],
     tool = ":cxx_frontend",
@@ -610,8 +622,8 @@ pep517_native_whl(
     src = ":stub_sdist",
     args = [
         "*/minimal/clang-22",
-        "*/minimal/clang++-22",
-        "1",
+        "*/minimal/clang-22",
+        "0",
     ],
     tags = ["manual"],
     tool = ":cxx_frontend",
@@ -636,8 +648,8 @@ pep517_native_whl(
     src = ":stub_sdist",
     args = [
         "*/plain/cc",
-        "*/plain/c++",
-        "1",
+        "*/plain/cc",
+        "0",
     ],
     tags = ["manual"],
     tool = ":cxx_frontend",

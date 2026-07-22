@@ -8,6 +8,14 @@ if [[ "${CC-unset}" != ${expected_cc} || "${CXX-unset}" != ${expected_cxx} ]]; t
     echo "C++ tools were not selected: CC=${CC-unset} CXX=${CXX-unset}" >&2
     exit 1
 fi
+if [[ "${CC-unset}" == "${CXX-unset}" && "${ASPECT_RULES_PY_INFER_CXX_COMPANION-0}" != 1 ]]; then
+    echo "same-driver CXX was not marked for companion inference" >&2
+    exit 1
+fi
+if [[ "${CC-unset}" != "${CXX-unset}" && "${ASPECT_RULES_PY_INFER_CXX_COMPANION-0}" != 0 ]]; then
+    echo "configured CXX was incorrectly marked for companion inference" >&2
+    exit 1
+fi
 
 wheel_dir="${!#}"
 mkdir -p "${wheel_dir}"
