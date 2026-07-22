@@ -331,6 +331,7 @@ def install_wheel(
                 if reusable_record is not None and reusable_record[1] != str(info.file_size):
                     reusable_record = None
                 installed[dest] = reusable_record
+
     for ep_path in site_packages.glob("*.dist-info/entry_points.txt"):
         cp = configparser.ConfigParser(strict=False, delimiters=("=",))
         setattr(cp, "optionxform", str)
