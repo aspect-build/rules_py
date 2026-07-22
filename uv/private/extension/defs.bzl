@@ -219,6 +219,7 @@ def _parse_projects(module_ctx, hub_specs):
                 override.console_scripts != _CONSOLE_SCRIPTS_UNSET or
                 override.pre_build_patches or
                 override.post_install_patches or
+                override.exclude_glob or
                 override.extra_deps or
                 override.extra_data or
                 override.toolchains or
@@ -229,7 +230,7 @@ def _parse_projects(module_ctx, hub_specs):
             if has_target and has_modifications:
                 fail("uv.override_package() for '{}': `target` is mutually exclusive with modification attributes. Use `target` for full replacement OR build, patch, and data attributes for modifications, not both.".format(override.name))
             if not has_target and not has_modifications:
-                fail("uv.override_package() for '{}': must specify either `target` for full replacement or at least one modification attribute (console_scripts, pre_build_patches, post_install_patches, extra_deps, extra_data, toolchains, env, monitor_memory, resource_set).".format(override.name))
+                fail("uv.override_package() for '{}': must specify either `target` for full replacement or at least one modification attribute (console_scripts, pre_build_patches, post_install_patches, exclude_glob, extra_deps, extra_data, toolchains, env, monitor_memory, resource_set).".format(override.name))
 
         unscoped_matches = {i: 0 for i, override in enumerate(mod.tags.override_package) if override.lock == None}
 
@@ -554,11 +555,13 @@ def _parse_projects(module_ctx, hub_specs):
 
                 post_install_patches = []
                 post_install_patch_strip = 0
+                exclude_glob = []
                 extra_deps = []
                 extra_data = []
                 if pkg_override and not pkg_override.target:
                     post_install_patches = [str(p) for p in pkg_override.post_install_patches]
                     post_install_patch_strip = pkg_override.post_install_patch_strip
+                    exclude_glob = pkg_override.exclude_glob
                     extra_deps = [str(d) for d in pkg_override.extra_deps]
                     extra_data = [str(d) for d in pkg_override.extra_data]
 
@@ -608,6 +611,7 @@ def _parse_projects(module_ctx, hub_specs):
                     sbuild_console_scripts = sbuild_console_scripts,
                     post_install_patches = post_install_patches,
                     post_install_patch_strip = post_install_patch_strip,
+                    exclude_glob = exclude_glob,
                     extra_deps = extra_deps,
                     extra_data = extra_data,
                 )
@@ -782,6 +786,8 @@ def _uv_impl(module_ctx):
         if install_cfg.post_install_patches:
             install_kwargs["post_install_patches"] = json.encode(install_cfg.post_install_patches)
             install_kwargs["post_install_patch_strip"] = install_cfg.post_install_patch_strip
+        if install_cfg.exclude_glob:
+            install_kwargs["exclude_glob"] = install_cfg.exclude_glob
         if install_cfg.extra_deps:
             install_kwargs["extra_deps"] = json.encode(install_cfg.extra_deps)
         if install_cfg.extra_data:
@@ -924,22 +930,10 @@ _override_package_tag = tag_class(
             default = 0,
             doc = "Strip count for post-install patches (-p flag to the patch tool).",
         ),
-
-        # FIXME: srcs_exclude_glob and data_exclude_glob are not yet implemented.
-        # Implementing them requires either extending the Rust unpack tool to
-        # accept exclusion patterns at install time, or adding a post-install
-        # tree-filtering action that can selectively remove files from a tree
-        # artifact. The attrs are commented out to avoid exposing a non-functional
-        # API surface.
-        #
-        # "srcs_exclude_glob": attr.string_list(
-        #     default = [],
-        #     doc = "Glob patterns to exclude from the package's srcs (e.g. '**/tests/**').",
-        # ),
-        # "data_exclude_glob": attr.string_list(
-        #     default = [],
-        #     doc = "Glob patterns to exclude from the package's data.",
-        # ),
+        "exclude_glob": attr.string_list(
+            default = [],
+            doc = "Site-packages-relative glob patterns to remove after wheel installation (e.g. 'numpy/**/tests/**').",
+        ),
         "extra_deps": attr.label_list(
             default = [],
             doc = "Additional deps to add to the package's py_library target.",

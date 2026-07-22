@@ -26,6 +26,10 @@ uv.unstable_annotate_packages(
 )
 uv.override_package(
     name = "cowsay",
+    exclude_glob = [
+        "cowsay/**/tests/**",
+        "cowsay-6.0.dist-info/licenses/**",
+    ],
     lock = "//uv-sdist-fallback:uv.lock",
     monitor_memory = True,
 )

@@ -107,6 +107,82 @@ def native_roots_for_segments(segments, collision_roots = ()):
             roots.append(root)
     return roots
 
+# Keep parsing, matching, and cache-to-source matching in sync with
+# py/tools/unpack/{exclude_glob.py,unpack.py} and their shared test vectors.
+def parse_exclude_glob(value):
+    """Return the validated segments of a site-packages-relative glob."""
+    parts = value.split("/")
+    if not value or "\\" in value or any([
+        not part or
+        part in (".", "..") or
+        any([character in part for character in (":", "?", "[", "]")]) or
+        ("**" in part and part != "**")
+        for part in parts
+    ]):
+        fail("invalid wheel exclude glob: {}".format(value))
+    return parts
+
+def _exclude_glob_chunk_matches(value, pattern):
+    parts = pattern.split("*")
+    if len(parts) == 1:
+        return value == pattern
+    if not value.startswith(parts[0]) or not value.endswith(parts[-1]):
+        return False
+    if len(parts[0]) + len(parts[-1]) > len(value):
+        return False
+    value = value[len(parts[0]):]
+    if parts[-1]:
+        value = value[:-len(parts[-1])]
+    for part in parts[1:-1]:
+        index = value.find(part)
+        if index < 0:
+            return False
+        value = value[index + len(part):]
+    return True
+
+def exclude_glob_matches(path, pattern):
+    """Return whether a parsed glob excludes path or one of its parents."""
+    pattern = pattern + ["**"]
+    states = {0: True}
+    for segment in path:
+        for index in range(len(pattern)):
+            if index in states and pattern[index] == "**":
+                states[index + 1] = True
+        next_states = {}
+        for index in range(len(pattern)):
+            if index not in states:
+                continue
+            if pattern[index] == "**":
+                next_states[index] = True
+            elif _exclude_glob_chunk_matches(segment, pattern[index]):
+                next_states[index + 1] = True
+        states = next_states
+    for index in range(len(pattern)):
+        if index in states and pattern[index] == "**":
+            states[index + 1] = True
+    return len(pattern) in states
+
+def record_path_excluded(path, patterns):
+    """Return whether installation removes a RECORD path or its source."""
+    source = None
+    if path and path[-1].endswith(".pyc"):
+        if len(path) >= 2 and path[-2] == "__pycache__":
+            stem, separator, tag = path[-1][:-len(".pyc")].rpartition(".")
+            if tag.startswith("opt-"):
+                if tag[len("opt-"):]:
+                    stem, separator, tag = stem.rpartition(".")
+                else:
+                    separator = ""
+            if stem and separator and tag:
+                source = path[:-2] + [stem + ".py"]
+        else:
+            source = path[:-1] + [path[-1][:-len(".pyc")] + ".py"]
+    return any([
+        exclude_glob_matches(path, pattern) or
+        (source != None and exclude_glob_matches(source, pattern))
+        for pattern in patterns
+    ])
+
 def parse_console_script(line):
     """Parse one `[console_scripts]` entry into a canonical `name=module:func`.
 
@@ -172,7 +248,7 @@ def _whl_file_label_keys(whl_file_label):
 
     return keys
 
-def _extract_wheel_metadata(repository_ctx, whl_label):
+def _extract_wheel_metadata(repository_ctx, whl_label, exclude_glob):
     """Peek inside a wheel to discover top-level names and console scripts.
 
     Mirrors the rules_js `npm_import` pattern of doing partial archive
@@ -281,6 +357,7 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
     # Raw material for the namespace derivations below: every kept RECORD
     # path (as segment lists) plus the full directory skeleton and the set
     # of directories that hold a direct `__init__.py` at any depth.
+    patterns = [parse_exclude_glob(pattern) for pattern in exclude_glob]
     record_segments = []
     dirs_set = {}
     init_dirs = {}
@@ -291,7 +368,7 @@ def _extract_wheel_metadata(repository_ctx, whl_label):
             if not path:
                 continue
             segments = site_packages_segments(path, data_directory)
-            if not segments:
+            if not segments or record_path_excluded(segments, patterns):
                 continue
 
             first_segment = segments[0]
@@ -747,6 +824,7 @@ filegroup(
         whl_name, tls, regular, css, ns_entries, dirs_set, init_dirs, native_segments = _extract_wheel_metadata(
             repository_ctx,
             whl_file_label,
+            repository_ctx.attr.exclude_glob,
         )
         ndirs = []
         rroots = []
@@ -857,6 +935,12 @@ filegroup(
             strip = post_install_patch_strip,
         )
 
+    if repository_ctx.attr.exclude_glob:
+        install_attrs += """
+    exclude_glob = {exclude_glob},""".format(
+            exclude_glob = indent(pprint(repository_ctx.attr.exclude_glob), " " * 4).lstrip(),
+        )
+
     content.append(
         """
 whl_install(
@@ -921,6 +1005,7 @@ whl_install = repository_rule(
         "sbuild_console_scripts_override": attr.bool(),
         "post_install_patches": attr.string(default = ""),
         "post_install_patch_strip": attr.int(default = 0),
+        "exclude_glob": attr.string_list(),
         "extra_deps": attr.string(default = ""),
         "extra_data": attr.string(default = ""),
     },

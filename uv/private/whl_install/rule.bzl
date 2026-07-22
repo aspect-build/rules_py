@@ -97,6 +97,9 @@ def _whl_install(ctx):
         depset([archive, unpack_script, exec_runtime.interpreter]),
         exec_runtime.files,
     ]
+    if ctx.attr.exclude_glob:
+        arguments.add_all(ctx.attr.exclude_glob, format_each = "--exclude-glob=%s")
+        transitive_inputs.append(depset([ctx.file._exclude_glob_script]))
 
     # Patch application (happens before pyc compilation).
     patch_files = [f for t in ctx.attr.patches for f in t[DefaultInfo].files.to_list()]
@@ -222,6 +225,10 @@ lighter weight since the toolchain's files aren't inputs.
             default = "//py/tools/unpack:unpack.py",
             allow_single_file = True,
         ),
+        "_exclude_glob_script": attr.label(
+            default = "//py/tools/unpack:exclude_glob.py",
+            allow_single_file = True,
+        ),
         "src": attr.label(
             allow_single_file = True,
             doc = "The wheel to install, or a tree artifact containing exactly one wheel at its root.",
@@ -234,6 +241,10 @@ lighter weight since the toolchain's files aren't inputs.
         "patch_strip": attr.int(
             default = 0,
             doc = "Strip count for patches (-p flag).",
+        ),
+        "exclude_glob": attr.string_list(
+            default = [],
+            doc = "Site-packages-relative glob patterns to remove after installation.",
         ),
         "compile_pyc": attr.bool(
             default = False,

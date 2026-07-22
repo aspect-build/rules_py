@@ -1,5 +1,12 @@
 load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_pex_binary", "py_test")
+load("@aspect_rules_py//uv:defs.bzl", "gazelle_python_manifest")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
+
+gazelle_python_manifest(
+    name = "gazelle_manifest",
+    hub = "pypi_sdist_fallback",
+    venvs = ["uv_sdist_fallback"],
+)
 
 # Regression coverage for the sdist-fallback behavior preserved by the
 # "always keep sdist fallbacks when sources exist" fix. cowsay 6.0 has both
@@ -9,6 +16,8 @@ load("@bazel_skylib//rules:build_test.bzl", "build_test")
 py_test(
     name = "test",
     srcs = ["__test__.py"],
+    args = ["$(location :gazelle_manifest)"],
+    data = [":gazelle_manifest"],
     dep_group = "uv_sdist_fallback",
     main = "__test__.py",
     python_version = "3.11",

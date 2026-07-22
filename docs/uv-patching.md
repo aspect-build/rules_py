@@ -50,9 +50,9 @@ Where `patches/nvidia-strip-init.patch` might look like:
 ```
 
 The file remains in place, so `nvidia` stays a regular package. Post-install
-patches may not remove package roots or change a package between regular and
-namespace forms; use full replacement when the installed topology itself must
-change.
+patches may not remove retained package roots or change retained packages
+between regular and namespace forms; exclude the affected paths or use full
+replacement when the installed topology itself must change.
 
 ### Applying the same patch to multiple packages
 
@@ -215,6 +215,13 @@ uv.override_package(
   editable workspace package because neither produces an installed wheel.
 - `pre_build_patch_strip` requires `pre_build_patches`, and
   `post_install_patch_strip` requires `post_install_patches`.
+- `exclude_glob` removes site-packages-relative paths after installation and
+  patching. `*` matches within one path segment, and `**` matches zero or more
+  path segments. Matching a directory removes its subtree. Exclusions must
+  preserve every top-level import root; for example, `numpy/**/tests/**`
+  removes NumPy's bundled tests without retaining their compiled bytecode.
+  Removing the complete `.dist-info` directory, `METADATA`, or `RECORD` is
+  unsupported.
 - `pre_build_patches`, `toolchains`, `env`, `monitor_memory`, and non-default
   `resource_set` values require a source distribution. An override that applies
   them to a wheel-only lock record is rejected.
@@ -232,13 +239,12 @@ uv.override_package(
 - Native builds select the configured C++ compiler, archiver, linker, and strip
   tools by default. Explicit `CC`, `CXX`, `AR`, `LD`, and `STRIP` values in
   `env` override those selections.
-- Post-install patches to prebuilt wheels must preserve every original path
-  used for collision and regular-package merge planning, including its
+- Post-install patches to prebuilt wheels must preserve every retained original
+  path used for collision and regular-package merge planning, including its
   file-or-directory kind and package classification. Ordinary added paths are
   not enumerated by this validation and may not be visible to venv consumers.
   Source-built wheel topology is unavailable during analysis and remains
   unvalidated.
-
-## Future work
-
-Support for `srcs_exclude_glob` and `data_exclude_glob` (to exclude files like tests and docs from installed packages) is planned but not yet implemented. This requires extending the wheel unpack tool to accept exclusion patterns.
+- Gazelle indexes the raw wheel as an unfiltered superset. Preserving top-level
+  import roots keeps ordinary mappings valid, but precise mappings for shared
+  namespaces or excluded submodules can remain in the generated manifest.

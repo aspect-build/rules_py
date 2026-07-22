@@ -24,7 +24,7 @@ import subprocess
 import zipfile
 from base64 import urlsafe_b64encode
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Sequence, Set, Tuple
 from urllib.parse import unquote
 
 _RELOCATABLE_SHEBANG = """\
@@ -59,12 +59,111 @@ def _is_native_library(path: Path) -> bool:
     )
 
 
-def _native_descendants(directory: Path) -> Tuple[str, ...]:
+def _import_root(path: Path) -> Optional[str]:
+    parts = path.parts
+    if not parts:
+        return None
+    root = parts[0]
+    if (
+        not root.endswith((".dist-info", ".egg-info"))
+        and (
+            len(parts) > 1
+            or path.name.endswith((".py", ".pyi"))
+            or (path.name.endswith(".pyc") and path.parent.name != "__pycache__")
+            or _is_native_library(path)
+        )
+    ):
+        return root
+    return None
+
+
+def _import_roots(site_packages: Path) -> Set[str]:
+    return {
+        root
+        for path in site_packages.rglob("*")
+        if path.is_file()
+        for root in [_import_root(path.relative_to(site_packages))]
+        if root
+    }
+
+
+def _path_excluded(
+    path: Path, patterns: Sequence[Tuple[str, ...]], is_file: bool
+) -> bool:
+    from exclude_glob import excluded
+
+    # Keep cache-to-source matching in sync with record_path_excluded in
+    # uv/private/whl_install/repository.bzl and the shared test vectors.
+    if excluded(path.parts, patterns):
+        return True
+    if not is_file or not path.name.endswith(".pyc"):
+        return False
+    if path.parent.name == "__pycache__":
+        source, separator, tag = path.name[:-len(".pyc")].rpartition(".")
+        if tag.startswith("opt-"):
+            if not tag[len("opt-"):]:
+                return False
+            source, separator, tag = source.rpartition(".")
+        if not source or not separator or not tag:
+            return False
+        source_path = path.parent.parent / (source + ".py")
+    else:
+        source_path = path.with_name(path.name[:-len(".pyc")] + ".py")
+    return excluded(source_path.parts, patterns)
+
+
+def _native_descendants(
+    directory: Path, site_packages: Path, patterns: Sequence[Tuple[str, ...]]
+) -> Tuple[str, ...]:
     return tuple(sorted(
         path.relative_to(directory).as_posix()
         for path in directory.rglob("*")
-        if path.is_file() and _is_native_library(path)
+        if path.is_file()
+        and _is_native_library(path)
+        and (
+            not patterns
+            or not _path_excluded(path.relative_to(site_packages), patterns, True)
+        )
     ))
+
+
+def _retained_init(
+    directory: Path, site_packages: Path, patterns: Sequence[Tuple[str, ...]]
+) -> bool:
+    init = directory / "__init__.py"
+    if not init.is_file():
+        return False
+    if not patterns:
+        return True
+    return not _path_excluded(init.relative_to(site_packages), patterns, True)
+
+
+def _installer_input(path: Path) -> bool:
+    return (
+        len(path.parts) == 2
+        and path.parts[0].endswith(".dist-info")
+        and path.name in ("entry_points.txt", "RECORD")
+    )
+
+
+def _remove_excluded(
+    site_packages: Path, patterns: Sequence[Tuple[str, ...]]
+) -> None:
+    for path in sorted(site_packages.rglob("*"), reverse=True):
+        if not _path_excluded(
+            path.relative_to(site_packages),
+            patterns,
+            path.is_file(),
+        ):
+            continue
+        if path.is_dir():
+            path.rmdir()
+        else:
+            path.unlink()
+
+    for cache in site_packages.rglob("__pycache__"):
+        if cache.is_dir() and not any(cache.iterdir()):
+            cache.rmdir()
 
 
 def _write_executable(path: Path, content: bytes) -> None:
@@ -129,7 +228,8 @@ def install_wheel(
     version_minor: int,
     into: Path,
     wheel_path: Path,
-) -> Dict[Path, Optional[Tuple[str, str]]]:
+    exclude_patterns: Sequence[Tuple[str, ...]],
+) -> Tuple[Dict[Path, Optional[Tuple[str, str]]], Set[str]]:
     """Install a wheel into *into*, following PEP 427 layout conventions.
 
     Accepts either a direct ``.whl`` file or a directory containing exactly
@@ -150,9 +250,9 @@ def install_wheel(
     bin_dir = into / "bin"
     site_packages.mkdir(parents=True, exist_ok=True)
     bin_dir.mkdir(parents=True, exist_ok=True)
-
     installed: Dict[Path, Optional[Tuple[str, str]]] = {}
     seen_members: Set[str] = set()
+    original_import_roots: Set[str] = set()
 
     with zipfile.ZipFile(wheel_path, "r") as zf:
         record_dir, record_metadata = _record_metadata(zf)
@@ -191,6 +291,21 @@ def install_wheel(
                     dest = site_packages / category / rel_path
             else:
                 dest = site_packages / member_path
+
+            try:
+                site_relative = dest.relative_to(site_packages)
+            except ValueError:
+                pass
+            else:
+                root = _import_root(site_relative)
+                if root:
+                    original_import_roots.add(root)
+                if (
+                    exclude_patterns
+                    and _path_excluded(site_relative, exclude_patterns, True)
+                    and not _installer_input(site_relative)
+                ):
+                    continue
 
             dest.parent.mkdir(parents=True, exist_ok=True)
             reusable_record = record_metadata.get(member)
@@ -275,7 +390,7 @@ def install_wheel(
         with record_path.open("w", newline="", encoding="utf-8") as fh:
             csv.writer(fh).writerows(rows)
 
-    return installed
+    return installed, original_import_roots
 
 
 def main() -> None:
@@ -288,17 +403,23 @@ def main() -> None:
     ap.add_argument("--patch-strip", type=int, default=0)
     ap.add_argument("--patch-tool", type=Path, default=Path("patch"))
     ap.add_argument("--preserve-path", action="append", default=[])
+    ap.add_argument("--exclude-glob", action="append", default=[])
     ap.add_argument("--compile-pyc", action="store_true")
     ap.add_argument("--pyc-invalidation-mode", default="checked-hash",
                     choices=["checked-hash", "unchecked-hash", "timestamp"])
     ap.add_argument("--python", type=Path)
     args = ap.parse_args()
+    if args.exclude_glob:
+        from exclude_glob import parse
 
-    installed = install_wheel(
+        args.exclude_glob = [parse(pattern) for pattern in args.exclude_glob]
+
+    installed, original_import_roots = install_wheel(
         args.python_version_major,
         args.python_version_minor,
         args.into,
         args.wheel,
+        args.exclude_glob if not args.patches else (),
     )
 
     site_packages = (
@@ -324,9 +445,9 @@ def main() -> None:
                 (
                     None
                     if relative.name.endswith((".dist-info", ".egg-info"))
-                    else (path / "__init__.py").is_file()
+                    else _retained_init(path, site_packages, args.exclude_glob)
                 ),
-                _native_descendants(path),
+                _native_descendants(path, site_packages, args.exclude_glob),
             )
         elif path.is_file():
             observed_files.append(relative)
@@ -365,36 +486,49 @@ def main() -> None:
             raise SystemExit(
                 "Post-install patch changed observed wheel directory: {}".format(relative)
             )
-        if had_init is not None and (directory / "__init__.py").is_file() != had_init:
+        if had_init is not None and _retained_init(directory, site_packages, args.exclude_glob) != had_init:
             raise SystemExit(
                 "Post-install patch changed observed package classification: {}".format(relative)
             )
-        if _native_descendants(directory) != native_descendants:
+        if _native_descendants(directory, site_packages, args.exclude_glob) != native_descendants:
             raise SystemExit(
                 "Post-install patch changed observed native files: {}".format(relative)
             )
 
-    if args.patches:
-        # Patches may add, delete, or rewrite files, so the RECORD written from
-        # wheel metadata during install is now stale. Regenerate before
-        # compileall and refresh the supplied-cache set from the patched tree.
-        record_paths = set(site_packages.glob("*.dist-info/RECORD"))
-        supplied_pyc = set()
+    if args.exclude_glob:
+        _remove_excluded(site_packages, args.exclude_glob)
+
+        removed_roots = original_import_roots - _import_roots(site_packages)
+        if removed_roots:
+            raise SystemExit(
+                "wheel exclusions removed top-level import roots: {}".format(
+                    ", ".join(sorted(removed_roots))
+                )
+            )
+
+    records = list(site_packages.glob("*.dist-info/RECORD"))
+    if args.exclude_glob and len(records) != 1:
+        raise SystemExit("expected exactly one installed RECORD, found {}".format(len(records)))
+    if args.exclude_glob and not (records[0].parent / "METADATA").is_file():
+        raise SystemExit("wheel exclusions removed installed METADATA")
+    if records and (args.patches or args.exclude_glob):
+        if args.patches:
+            supplied_pyc = set()
+        record_paths = set(records)
         rows = []
         for path in sorted(args.into.rglob("*")):
             if not path.is_file() or path in record_paths:
                 continue
-            rel = os.path.relpath(str(path), str(site_packages)).replace("\\", "/")
             if path.suffix == ".pyc" and site_packages in path.parents:
                 supplied_pyc.add(path)
-                if args.compile_pyc:
-                    rows.append((rel, "", ""))
-                    continue
-            rows.append((rel, _sha256(path), str(path.stat().st_size)))
-        for record_path in record_paths:
-            rel_record = os.path.relpath(str(record_path), str(site_packages)).replace("\\", "/")
-            with record_path.open("w", newline="", encoding="utf-8") as fh:
-                csv.writer(fh).writerows([*rows, (rel_record, "", "")])
+            relative = os.path.relpath(str(path), str(site_packages)).replace("\\", "/")
+            rows.append((relative, _sha256(path), str(path.stat().st_size)))
+        for record in records:
+            with record.open("w", newline="", encoding="utf-8") as stream:
+                csv.writer(stream).writerows([
+                    *rows,
+                    (record.relative_to(site_packages).as_posix(), "", ""),
+                ])
 
     if args.compile_pyc:
         if not args.python:
@@ -416,6 +550,8 @@ def main() -> None:
             ],
             check=True,
         )
+        if args.exclude_glob:
+            _remove_excluded(site_packages, args.exclude_glob)
 
         if supplied_pyc:
             # compileall can replace bytecode that was already listed in RECORD.

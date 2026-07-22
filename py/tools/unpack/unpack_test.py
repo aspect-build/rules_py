@@ -1,6 +1,9 @@
 import csv
 import hashlib
 import importlib.util
+import importlib.metadata
+import py_compile
+import runpy
 import shutil
 import subprocess
 import sys
@@ -94,6 +97,23 @@ def _assert_record_matches_installed_files(site_packages: Path) -> None:
         assert size == str(path.stat().st_size), relative
 
 
+def _corrupt_member(path: Path, name: str) -> None:
+    with zipfile.ZipFile(path) as archive:
+        info = archive.getinfo(name)
+    data_offset = (
+        info.header_offset
+        + 30
+        + len(info.filename.encode("utf-8"))
+        + len(info.extra)
+    )
+    with path.open("r+b") as stream:
+        stream.seek(data_offset)
+        original = stream.read(1)
+        assert original
+        stream.seek(data_offset)
+        stream.write(bytes([original[0] ^ 0xFF]))
+
+
 def _build_wheel(path: Path, *, legacy_syntax: bool) -> None:
     body = (
         b"raise RuntimeError, None, None\n"
@@ -146,6 +166,7 @@ def _run_unpack(
 
 def main() -> None:
     unpack = Path(sys.argv[1])
+    sys.path.insert(0, str(unpack.parent.resolve()))
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
 
@@ -186,6 +207,7 @@ def main() -> None:
             sys.version_info.minor,
             record_out,
             record_wheel,
+            (),
         )
         assert not {"__init__.py", "collision.py", "pure.py", "plain"} & hashed_names
         assert {"python-script", "fixture-cli", "INSTALLER", "REQUESTED"} <= hashed_names
@@ -221,6 +243,7 @@ def main() -> None:
                 sys.version_info.minor,
                 fallback_out,
                 fallback_wheel,
+                (),
             )
             fallback_site_packages = _site_packages(fallback_out)
             assert "__init__.py" in hashed_names, name
@@ -242,6 +265,7 @@ def main() -> None:
             sys.version_info.minor,
             duplicate_out,
             duplicate_wheel,
+            (),
         )
         duplicate_site_packages = _site_packages(duplicate_out)
         assert "__init__.py" in hashed_names
@@ -262,6 +286,7 @@ def main() -> None:
             sys.version_info.minor,
             duplicate_member_out,
             duplicate_member_wheel,
+            (),
         )
         duplicate_member_site_packages = _site_packages(duplicate_member_out)
         assert (duplicate_member_site_packages / "fixture" / "member.py").read_bytes() == (
@@ -355,6 +380,67 @@ def main() -> None:
         ).encode()
         assert installed_script.stat().st_mode & 0o111
 
+        filtered_bytecode_out = root / "filtered-bytecode"
+        filtered_bytecode = _run_unpack(
+            unpack,
+            good_wheel,
+            filtered_bytecode_out,
+            Path(sys.executable),
+            ("--exclude-glob=fixture/__pycache__/mod.*.pyc",),
+        )
+        assert filtered_bytecode.returncode == 0, (
+            filtered_bytecode.stdout + filtered_bytecode.stderr
+        )
+        filtered_bytecode_cache = (
+            filtered_bytecode_out
+            / site_packages.relative_to(good_out)
+            / "fixture"
+            / "__pycache__"
+        )
+        assert next(filtered_bytecode_cache.glob("__init__.*.pyc"))
+        assert not list(filtered_bytecode_cache.glob("mod.*.pyc"))
+        no_record_wheel = root / "no_record-1.0-py3-none-any.whl"
+        with zipfile.ZipFile(no_record_wheel, "w") as archive:
+            _write_member(archive, "fixture/__init__.py", b"VALUE = 1\n")
+            _write_member(archive, "no_record-1.0.dist-info/METADATA", b"Name: no-record\n")
+        no_record_out = root / "no-record"
+        no_record = _run_unpack(
+            unpack,
+            no_record_wheel,
+            no_record_out,
+            Path(sys.executable),
+        )
+        assert no_record.returncode == 0, no_record.stdout + no_record.stderr
+        assert (no_record_out / site_packages.relative_to(good_out) / "fixture" / "__init__.py").is_file()
+
+        corrupt_wheel = root / "corrupt-1.0-py3-none-any.whl"
+        corrupt_member = "corrupt-1.0.data/purelib/fixture/tests/corrupt.py"
+        _write_wheel(
+            corrupt_wheel,
+            "corrupt",
+            {
+                "fixture/__init__.py": b"VALUE = 1\n",
+                corrupt_member: b"raise AssertionError()\n",
+            },
+        )
+        _corrupt_member(corrupt_wheel, corrupt_member)
+        with zipfile.ZipFile(corrupt_wheel) as archive:
+            assert archive.testzip() == corrupt_member
+        corrupt_out = root / "corrupt"
+        skipped = _run_unpack(
+            unpack,
+            corrupt_wheel,
+            corrupt_out,
+            Path(sys.executable),
+            ("--exclude-glob=fixture/**/tests/**",),
+        )
+        assert skipped.returncode == 0, skipped.stdout + skipped.stderr
+        assert not (
+            corrupt_out
+            / site_packages.relative_to(good_out)
+            / "fixture"
+            / "tests"
+        ).exists()
         for case, member in [
             ("roottraversal", "../../../../escaped.py"),
             ("rootabsolute", str(root / "escaped.py")),
@@ -389,6 +475,24 @@ def main() -> None:
                 rejected.stderr,
             )
             assert "Invalid wheel member path" in rejected.stderr
+
+        excluded_invalid_wheel = root / "excluded_invalid-1.0-py3-none-any.whl"
+        _write_wheel(
+            excluded_invalid_wheel,
+            "excluded_invalid",
+            {"../../../../escaped.py": b"escaped\n"},
+        )
+        excluded_invalid = _run_unpack(
+            unpack,
+            excluded_invalid_wheel,
+            root / "excluded-invalid-out",
+            Path(sys.executable),
+            ("--exclude-glob=**",),
+        )
+        assert excluded_invalid.returncode != 0, (
+            excluded_invalid.stdout + excluded_invalid.stderr
+        )
+        assert "Invalid wheel member path" in excluded_invalid.stderr
 
         site_packages_relative = (
             f"lib/python{sys.version_info.major}.{sys.version_info.minor}/site-packages"
@@ -534,6 +638,272 @@ else:
                 "fixture/native_extension.so": b"native",
             },
         )
+        excluded_native = root / "excluded_native.patch"
+        excluded_native.write_text(
+            f"write-native\n{site_packages_relative}/fixture/tests/native_extension.so\n"
+        )
+        accepted = _run_unpack(
+            unpack,
+            good_wheel,
+            root / "excluded-native",
+            Path(sys.executable),
+            (
+                "--patch",
+                str(excluded_native),
+                "--patch-tool",
+                str(mutation_tool),
+                "--preserve-path",
+                "fixture",
+                "--exclude-glob=fixture/**/tests/**",
+            ),
+        )
+        assert accepted.returncode == 0, accepted.stdout + accepted.stderr
+        excluded_init = root / "excluded_init.patch"
+        excluded_init.write_text(
+            f"unlink\n{site_packages_relative}/fixture/__init__.py\n"
+        )
+        accepted = _run_unpack(
+            unpack,
+            good_wheel,
+            root / "excluded-init",
+            Path(sys.executable),
+            (
+                "--patch",
+                str(excluded_init),
+                "--patch-tool",
+                str(mutation_tool),
+                "--preserve-path",
+                "fixture",
+                "--exclude-glob=fixture/__init__.py",
+            ),
+        )
+        assert accepted.returncode == 0, accepted.stdout + accepted.stderr
+
+        functions = runpy.run_path(str(unpack.with_name("exclude_glob.py")))
+        vectors = runpy.run_path(str(unpack.with_name("exclude_glob_test_vectors.bzl")))
+        parse = functions["parse"]
+        excluded = functions["excluded"]
+        for path, glob, expected in vectors["EXCLUDE_GLOB_VECTORS"]:
+            assert excluded(tuple(path.split("/")), [parse(glob)]) == expected, (path, glob)
+        assert not excluded(("..", "..", "..", "bin", "demo"), [parse("**")])
+        for path, glob, expected in vectors["RECORD_PATH_EXCLUDE_VECTORS"]:
+            assert unpack_module._path_excluded(Path(path), [parse(glob)], True) == expected, (
+                path,
+                glob,
+            )
+
+        filter_wheel = root / "demo-1.0-py3-none-any.whl"
+        compiled_source = root / "compiled_source.py"
+        compiled_source.write_text("VALUE = 1\n")
+        compiled = root / "compiled.pyc"
+        py_compile.compile(str(compiled_source), cfile=str(compiled), doraise=True)
+        compiled_bytes = compiled.read_bytes()
+        dotted_source = root / "test_api.v1.py"
+        dotted_source.write_text("VALUE = 1\n")
+        dotted = root / "test_api.v1.pyc"
+        py_compile.compile(str(dotted_source), cfile=str(dotted), doraise=True)
+        dotted_bytes = dotted.read_bytes()
+        py_compile.compile(str(dotted_source), cfile=str(dotted), doraise=True, optimize=1)
+        optimized_dotted_bytes = dotted.read_bytes()
+        _write_wheel(
+            filter_wheel,
+            "demo",
+            {
+                "demo/__init__.py": b"VALUE = 1\n",
+                "demo/keep.py": b"VALUE = 2\n",
+                "demo/tests/test_root.py": b"raise AssertionError()\n",
+                "demo/nested/tests/test_nested.py": b"raise AssertionError()\n",
+                "demo/file_tests/test_one.py": b"raise AssertionError()\n",
+                "demo/file_tests/test_legacy.py": b"raise AssertionError()\n",
+                "demo/file_tests/__pycache__/test_one.cpython-311.pyc": b"shipped bytecode\n",
+                "demo/file_tests/__pycache__/test_one.cpython-311.opt-1.pyc": b"optimized bytecode\n",
+                "demo/file_tests/__pycache__/test_orphan.cpython-311.pyc": b"orphan bytecode\n",
+                "demo/file_tests/test_legacy.pyc": b"legacy bytecode\n",
+                "demo/__pycache__/keep.cpython-999.pyc": b"retained bytecode\n",
+                "demo/keep.pyc": b"retained legacy bytecode\n",
+                "demo/sdk-core/bin/tool": b"unused native payload\n",
+                "pkg/retained.py": b"VALUE = 1\n",
+                "pkg/test_api.v1.py": b"raise AssertionError()\n",
+                "pkg/__pycache__/test_api.v1.cpython-311.pyc": dotted_bytes,
+                "pkg/__pycache__/test_api.v1.cpython-311.opt-1.pyc": optimized_dotted_bytes,
+                "pkg/__pycache__/test_api.v1.cpython-311.opt-é.pyc": optimized_dotted_bytes,
+                "pkg/__pycache__/..pyc": dotted_bytes,
+                "pkg/.pyc": dotted_bytes,
+                "google/api/annotations.proto": b"syntax = 'proto3';\n",
+                "google/api/annotations_pb2.py": b"VALUE = 1\n",
+                "generated_backend/__init__.py": b"VALUE = 1\n",
+                "native_backend/backend.so.1": b"native\n",
+                "compiled_only.pyc": compiled_bytes,
+                "compiled_package/__init__.pyc": compiled_bytes,
+                "data_namespace/config.json": b"{}\n",
+                "stub_only.pyi": b"VALUE: int\n",
+                "demo-1.0.dist-info/helper.py": b"metadata helper\n",
+                "demo-1.0.data/data/share/demo/retained.txt": b"installed data\n",
+            },
+        )
+        filter_patch = root / "filter.patch"
+        filter_patch.write_text(
+            f"""\
+--- a/{site_packages_relative}/demo/keep.py
++++ b/{site_packages_relative}/demo/keep.py
+@@ -1 +1 @@
+-VALUE = 2
++VALUE = 3
+--- /dev/null
++++ b/{site_packages_relative}/demo/tests/from_patch.py
+@@ -0,0 +1 @@
++raise AssertionError()
+--- /dev/null
++++ b/share/demo/from_patch.txt
+@@ -0,0 +1 @@
++patched data
+"""
+        )
+        filtered_out = root / "filtered"
+        filtered = _run_unpack(
+            unpack,
+            filter_wheel,
+            filtered_out,
+            Path(sys.executable),
+            (
+                "--patch",
+                str(filter_patch),
+                "--patch-strip",
+                "1",
+                "--preserve-path",
+                "demo",
+                "--preserve-path",
+                "demo-1.0.dist-info",
+                "--exclude-glob=demo/**/tests/**",
+                "--exclude-glob=demo/file_tests/test_*.py",
+                "--exclude-glob=demo/sdk-core",
+                "--exclude-glob=pkg/test_*.py",
+                "--exclude-glob=pkg/.py",
+                "--exclude-glob=pkg/..py",
+                "--exclude-glob=google/**/*.proto",
+                "--exclude-glob=demo-1.0.dist-info/helper.py",
+            ),
+        )
+        assert filtered.returncode == 0, filtered.stdout + filtered.stderr
+        filtered_site_packages = filtered_out / site_packages_relative
+        assert (filtered_site_packages / "demo" / "keep.py").read_text() == "VALUE = 3\n"
+        assert not (filtered_site_packages / "demo" / "tests").exists()
+        assert not (filtered_site_packages / "demo" / "nested" / "tests").exists()
+        assert not list((filtered_site_packages / "demo" / "file_tests").glob("test_*"))
+        assert not (filtered_site_packages / "demo" / "file_tests" / "__pycache__").exists()
+        assert not (filtered_site_packages / "demo" / "sdk-core").exists()
+        assert not (filtered_site_packages / "pkg" / "test_api.v1.py").exists()
+        assert not (filtered_site_packages / "pkg" / "__pycache__" / "test_api.v1.cpython-311.pyc").exists()
+        assert not (filtered_site_packages / "pkg" / "__pycache__" / "test_api.v1.cpython-311.opt-1.pyc").exists()
+        assert not (filtered_site_packages / "pkg" / "__pycache__" / "test_api.v1.cpython-311.opt-é.pyc").exists()
+        assert not (filtered_site_packages / "pkg" / ".pyc").exists()
+        assert (filtered_site_packages / "pkg" / "__pycache__" / "..pyc").is_file()
+        assert not (filtered_site_packages / "google" / "api" / "annotations.proto").exists()
+        assert (filtered_site_packages / "google" / "api" / "annotations_pb2.py").is_file()
+        assert next((filtered_site_packages / "demo" / "__pycache__").glob("keep.*.pyc"))
+        assert (filtered_site_packages / "demo" / "__pycache__" / "keep.cpython-999.pyc").is_file()
+        assert (filtered_site_packages / "demo" / "keep.pyc").is_file()
+        assert not list(filtered_site_packages.rglob("test_*.pyc"))
+        subprocess.run(
+            [sys.executable, "-c", "import compiled_only, compiled_package"],
+            check=True,
+            env={"PYTHONPATH": str(filtered_site_packages)},
+        )
+
+        distribution, = importlib.metadata.distributions(path=[str(filtered_site_packages)])
+        recorded = {str(path): path for path in distribution.files}
+        assert "demo/keep.py" in recorded
+        assert "../../../share/demo/retained.txt" in recorded
+        assert "../../../share/demo/from_patch.txt" in recorded
+        assert "demo/tests/test_root.py" not in recorded
+        assert "demo/tests/from_patch.py" not in recorded
+        assert "demo/nested/tests/test_nested.py" not in recorded
+        assert not any(path.startswith("demo/file_tests/") for path in recorded)
+        assert "demo/sdk-core/bin/tool" not in recorded
+        assert "pkg/retained.py" in recorded
+        assert "pkg/test_api.v1.py" not in recorded
+        assert "pkg/__pycache__/test_api.v1.cpython-311.pyc" not in recorded
+        assert "pkg/__pycache__/test_api.v1.cpython-311.opt-1.pyc" not in recorded
+        assert "pkg/__pycache__/test_api.v1.cpython-311.opt-é.pyc" not in recorded
+        assert "pkg/.pyc" not in recorded
+        assert "pkg/__pycache__/..pyc" in recorded
+        assert "google/api/annotations.proto" not in recorded
+        assert "demo-1.0.dist-info/helper.py" not in recorded
+        assert "demo/__pycache__/keep.cpython-999.pyc" in recorded
+        assert "demo/keep.pyc" in recorded
+        assert not any(
+            path.endswith(".pyc")
+            and path not in (
+                "demo/__pycache__/keep.cpython-999.pyc",
+                "demo/keep.pyc",
+                "pkg/__pycache__/..pyc",
+                "compiled_only.pyc",
+                "compiled_package/__init__.pyc",
+            )
+            for path in recorded
+        )
+        for name, path in recorded.items():
+            installed = filtered_site_packages / name
+            assert installed.is_file(), name
+            if name.endswith(".dist-info/RECORD"):
+                assert path.hash is None and path.size is None
+                continue
+            assert path.size == installed.stat().st_size
+            assert path.hash.mode == "sha256"
+            digest = urlsafe_b64encode(hashlib.sha256(installed.read_bytes()).digest())
+            assert path.hash.value == digest.decode().rstrip("=")
+
+        for invalid in ["", "/demo", "demo/", "demo//tests", "../demo", "demo\\tests", "demo/**x", "demo/?.py"]:
+            rejected = _run_unpack(
+                unpack,
+                filter_wheel,
+                root / "invalid",
+                Path(sys.executable),
+                ("--exclude-glob", invalid),
+            )
+            assert rejected.returncode != 0, invalid
+            assert "invalid wheel exclude glob" in rejected.stderr
+        for glob, removed in [
+            ("demo/**", "demo"),
+            ("generated_backend/**", "generated_backend"),
+            ("native_backend/**", "native_backend"),
+            ("google/**", "google"),
+            ("compiled_only.pyc", "compiled_only.pyc"),
+            ("compiled_package/**", "compiled_package"),
+            ("data_namespace/**", "data_namespace"),
+            ("stub_only.pyi", "stub_only.pyi"),
+        ]:
+            rejected = _run_unpack(
+                unpack,
+                filter_wheel,
+                root / removed,
+                Path(sys.executable),
+                ("--exclude-glob", glob),
+            )
+            assert rejected.returncode != 0, glob
+            assert f"wheel exclusions removed top-level import roots: {removed}" in rejected.stderr
+
+        for glob in ["demo-1.0.dist-info/RECORD", "demo-1.0.dist-info/**"]:
+            rejected = _run_unpack(
+                unpack,
+                filter_wheel,
+                root / "removed-record",
+                Path(sys.executable),
+                ("--exclude-glob", glob),
+            )
+            assert rejected.returncode != 0, glob
+            assert "expected exactly one installed RECORD, found 0" in rejected.stderr
+
+        removed_metadata = _run_unpack(
+            unpack,
+            filter_wheel,
+            root / "removed-metadata",
+            Path(sys.executable),
+            ("--exclude-glob=demo-1.0.dist-info/METADATA",),
+        )
+        assert removed_metadata.returncode != 0, removed_metadata.stderr
+        assert "wheel exclusions removed installed METADATA" in removed_metadata.stderr
+
         for name, wheel, operation, changed_path, preserved_path, expected_error in [
             (
                 "removed-file",
@@ -672,6 +1042,7 @@ else:
             entry_point_wheel,
             entry_point_out,
             Path(sys.executable),
+            ("--exclude-glob=entry_point-1.0.dist-info/entry_points.txt",),
         )
         assert entry_point.returncode == 0, entry_point.stderr
         assert {entry.name for entry in (entry_point_out / "bin").iterdir()} == {
@@ -687,6 +1058,9 @@ else:
             / f"python{sys.version_info.major}.{sys.version_info.minor}"
             / "site-packages"
         )
+        assert not (
+            site_packages / "entry_point-1.0.dist-info" / "entry_points.txt"
+        ).exists()
         subprocess.run(
             [sys.executable, str(script)],
             check=True,

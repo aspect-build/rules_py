@@ -3,8 +3,9 @@
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts", "unittest")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//py/private:providers.bzl", "PyWheelsInfo")
+load("//py/tools/unpack:exclude_glob_test_vectors.bzl", "EXCLUDE_GLOB_VECTORS", "RECORD_PATH_EXCLUDE_VECTORS")
 load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
-load(":repository.bzl", "compatible_python_tags", "native_roots_for_segments", "parse_console_script", "parse_record_path", "select_key", "site_packages_segments", "sort_select_arms", "source_specificity")
+load(":repository.bzl", "compatible_python_tags", "exclude_glob_matches", "native_roots_for_segments", "parse_console_script", "parse_exclude_glob", "parse_record_path", "record_path_excluded", "select_key", "site_packages_segments", "sort_select_arms", "source_specificity")
 load(":rule.bzl", "pyc_compile_version_compatible", "source_built_wheel", "whl_install")
 
 def _whl_sorting_test_impl(ctx):
@@ -147,6 +148,31 @@ def _site_packages_segments_test_impl(ctx):
     return unittest.end(env)
 
 site_packages_segments_test = unittest.make(_site_packages_segments_test_impl)
+
+def _exclude_glob_test_impl(ctx):
+    env = unittest.begin(ctx)
+    for path, pattern, expected in EXCLUDE_GLOB_VECTORS:
+        asserts.equals(
+            env,
+            expected,
+            exclude_glob_matches(path.split("/"), parse_exclude_glob(pattern)),
+            "{} against {}".format(path, pattern),
+        )
+
+    # Namespace entries are projected from every retained RECORD path. A
+    # source-file exclusion must also remove its shipped caches from that
+    # topology, matching the install tree and avoiding dangling symlinks.
+    for path, pattern, expected in RECORD_PATH_EXCLUDE_VECTORS:
+        asserts.equals(
+            env,
+            expected,
+            record_path_excluded(path.split("/"), [parse_exclude_glob(pattern)]),
+            "{} against {}".format(path, pattern),
+        )
+
+    return unittest.end(env)
+
+exclude_glob_test = unittest.make(_exclude_glob_test_impl)
 
 def _native_roots_test_impl(ctx):
     env = unittest.begin(ctx)
@@ -686,10 +712,10 @@ def metadata_selection_test_suite(name):
 
 def _compile_pyc_args_test_impl(ctx):
     env = analysistest.begin(ctx)
-    argv = []
-    for action in analysistest.target_actions(env):
-        if action.mnemonic == "WhlInstall":
-            argv = action.argv
+    actions = analysistest.target_actions(env)
+    asserts.equals(env, 1, len(actions), "expected exactly one WhlInstall action")
+    asserts.equals(env, "WhlInstall", actions[0].mnemonic)
+    argv = actions[0].argv
     asserts.equals(
         env,
         ctx.attr.expect_compile_pyc,
@@ -762,6 +788,15 @@ def compile_pyc_version_test_suite(name):
         tags = ["manual"],
     )
 
+    whl_install(
+        name = "__compile_pyc_filtered_fixture",
+        testonly = True,
+        src = _SBUILD_WHL,
+        compile_pyc = True,
+        exclude_glob = ["tests"],
+        tags = ["manual"],
+    )
+
     _compile_pyc_matched_test(
         name = name + "_matched_test",
         target_under_test = ":__compile_pyc_fixture",
@@ -771,6 +806,18 @@ def compile_pyc_version_test_suite(name):
     _compile_pyc_mismatched_test(
         name = name + "_mismatched_test",
         target_under_test = ":__compile_pyc_fixture",
+        expect_compile_pyc = False,
+    )
+
+    _compile_pyc_matched_test(
+        name = name + "_filtered_matched_test",
+        target_under_test = ":__compile_pyc_filtered_fixture",
+        expect_compile_pyc = True,
+    )
+
+    _compile_pyc_mismatched_test(
+        name = name + "_filtered_mismatched_test",
+        target_under_test = ":__compile_pyc_filtered_fixture",
         expect_compile_pyc = False,
     )
 
@@ -798,6 +845,10 @@ def whl_install_suite():
     unittest.suite(
         "site_packages_segments_tests",
         site_packages_segments_test,
+    )
+    unittest.suite(
+        "exclude_glob_tests",
+        exclude_glob_test,
     )
     unittest.suite(
         "native_roots_tests",
