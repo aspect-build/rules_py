@@ -117,8 +117,8 @@ def main() -> None:
     relative = os.path.join(workdir, "relative")
     os.makedirs(relative)
     _write_driver(os.path.join(relative, "gcc"), "RELATIVE-C-DRIVER")
-    _write_driver(os.path.join(relative, "g++"), "RELATIVE-CXX-DRIVER")
-    _run(helper, sdist, workdir, "relative/gcc", "RELATIVE-CXX-DRIVER", True)
+    _write_driver(os.path.join(relative, "g++"), "POISON-RELATIVE-CXX-PEER")
+    _run(helper, sdist, workdir, "relative/gcc", "RELATIVE-C-DRIVER", True)
 
     explicit = os.path.join(workdir, "explicit")
     os.makedirs(explicit)
