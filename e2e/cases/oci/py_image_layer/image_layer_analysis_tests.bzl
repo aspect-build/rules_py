@@ -26,11 +26,6 @@ def _image_layer_failure(name, expected_error, **kwargs):
 
 def image_layer_analysis_test_suite():
     _image_layer_failure(
-        name = "missing_launcher_dir",
-        expected_error = "py_image_layer with multiple binaries requires launcher_dir",
-        binaries = [":my_app_bin", ":my_app_worker_bin"],
-    )
-    _image_layer_failure(
         name = "relative_launcher_dir",
         expected_error = "py_image_layer.launcher_dir must be an absolute image path",
         binaries = [":my_app_bin", ":my_app_worker_bin"],

@@ -176,7 +176,6 @@ py_image_layer(
         ":my_app_bin",
         ":my_app_worker_alias",
     ],
-    launcher_dir = "/app/bin",
     layer_tier = ":my_app_launchers_tier",
 )
 
@@ -197,7 +196,7 @@ py_image_layer(
         ":my_app_bin",
         ":my_app_peer_bin",
     ],
-    launcher_dir = "/app/bin",
+    launcher_dir = "/custom/bin",
 )
 
 genrule(
@@ -384,13 +383,15 @@ py_layer_tier(
 py_image_layer(
     name = "server_layers",
     binary = ":server",
+    launcher_dir = "/custom/bin",
     layer_tier = ":server_tier",
 )
 
 oci_image(
     name = "server_image",
     base = "@ubuntu",
-    entrypoint = ["/app"],
+    entrypoint = ["/custom/bin/server"],
+    env = {"RUNFILES_DIR": "/app.runfiles"},
     tars = [":server_layers"],
 )
 

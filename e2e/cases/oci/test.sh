@@ -66,6 +66,7 @@ if ! "$BAZEL" build -- \
     fail "expected source-layer listings to build"
 fi
 listing="bazel-bin/oci/py_image_layer/_scalar_default_sources.listing"
+expect_listing_count "$listing" "/app" 2
 expect_listing_count "$listing" "/app/config.json" 2
 if grep -Fq './app.runfiles/_main/oci/py_image_layer/my_app_peer_bin/config.json' "$listing"; then
     cat "$listing" >&2
@@ -76,8 +77,8 @@ for suffix in \
     /branding/__init__.py \
     /branding/palette.txt \
     /lib/python3.11/os.py \
-    /app/bin/my_app_bin \
-    /app/bin/my_app_peer_bin \
+    /custom/bin/my_app_bin \
+    /custom/bin/my_app_peer_bin \
     /oci/py_image_layer/my_app_peer_bin/config.json; do
     expect_listing_count "$listing" "$suffix" 1
 done

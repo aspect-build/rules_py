@@ -825,10 +825,10 @@ def _py_image_layer_impl(ctx):
     root = plan.root
     strip_prefix = plan.strip_prefix
     launcher_dir = ctx.attr.launcher_dir
+    if len(binaries) > 1 and not launcher_dir:
+        launcher_dir = "/app/bin"
     if launcher_dir:
         launcher_dir = launcher_dir.rstrip("/") or "/"
-    if len(binaries) > 1 and not launcher_dir:
-        fail("py_image_layer with multiple binaries requires launcher_dir")
     if launcher_dir and not launcher_dir.startswith("/"):
         fail("py_image_layer.launcher_dir must be an absolute image path")
 
@@ -1054,7 +1054,7 @@ _py_image_layer = rule(
         ),
         "launcher_dir": attr.string(
             default = "",
-            doc = "Absolute image directory for binary launchers. Required with multiple binaries.",
+            doc = "Absolute image directory for binary launchers. Defaults to /app/bin with multiple binaries.",
         ),
         "groups": attr.label_keyed_string_dict(default = {}),
         "group_execution_requirements": attr.string_list_dict(default = {}),
@@ -1136,8 +1136,9 @@ def py_image_layer(
         layer_tier: Optional py_layer_tier target pinned for this rule. Sets the
             `@aspect_rules_py//py:layer_tier` label_flag via the rule transition,
             overriding any command-line value for this rule's subgraph.
-        launcher_dir: Absolute image directory for the binary launchers. Required
-            with multiple binaries. Set RUNFILES_DIR=/app.runfiles in the image.
+        launcher_dir: Absolute image directory for the binary launchers. Defaults
+            to /app/bin with multiple binaries. Set RUNFILES_DIR=/app.runfiles in
+            the image.
         binaries: Alternative to binary. A nonempty list of py_binary targets to
             include in the image.
         **kwargs: Forwarded to inner rule.
