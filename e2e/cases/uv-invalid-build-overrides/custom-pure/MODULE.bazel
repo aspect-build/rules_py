@@ -13,9 +13,10 @@ uv.project(
     hub_name = "custom_pure_invalid_overrides",
     lock = "//:uv.lock",
     pyproject = "//:pyproject.toml",
-    # sdist_build reparses command strings from its generated repository.
-    # buildifier: disable=canonical-repository
-    unstable_configure_command = ["$(location @@//:configure.sh)"],
+)
+uv.annotate_packages(
+    src = "//:annotations.toml",
+    lock = "//:uv.lock",
 )
 uv.override_package(
     name = "cowsay",

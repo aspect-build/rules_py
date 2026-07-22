@@ -266,7 +266,7 @@ def _parse_projects(module_ctx, hub_specs):
 
             lock_build_dep_anns = {}
             lock_native_anns = {}
-            for ann in mod.tags.unstable_annotate_packages:
+            for ann in mod.tags.annotate_packages:
                 if ann.lock == project.lock:
                     annotations = toml.decode_file(module_ctx, ann.src)
                     for package in annotations.get("package", []):
@@ -544,7 +544,6 @@ def _parse_projects(module_ctx, hub_specs):
                         pre_build_patches = pre_build_patches,
                         pre_build_patch_strip = pre_build_patch_strip,
                         available_deps = project_available_deps,
-                        configure_command = project.unstable_configure_command,
                         extra_toolchains = extra_toolchains,
                         extra_env = extra_env,
                         monitor_memory = monitor_memory,
@@ -749,9 +748,7 @@ def _uv_impl(module_ctx):
             "version": sbuild_cfg.version,
         }
 
-        if sbuild_cfg.configure_command:
-            sbuild_kwargs["configure_command"] = sbuild_cfg.configure_command
-        elif default_configure_command:
+        if default_configure_command:
             sbuild_kwargs["configure_command"] = default_configure_command
 
         if sbuild_cfg.available_deps:
@@ -848,14 +845,6 @@ _project_tag = tag_class(
             doc = "Requirement names resolved from the lock and injected as build tools " +
                   "for sdists that build a wheel. Only demanded when an sbuild is " +
                   "guaranteed to be selected (forced builds or sdist-only packages).",
-        ),
-        "unstable_configure_command": attr.string_list(
-            mandatory = False,
-            doc = "Command to run as the sdist configure tool. Each element is either " +
-                  "a literal string argument or a $(location <label>) expansion. " +
-                  "The archive path and context file are appended as the final two " +
-                  "arguments. When set, replaces the default native-detection tool. " +
-                  "See //uv/private/sdist_configure:defs.bzl for the contract.",
         ),
     },
     doc = """Register a `pyproject.toml` + `uv.lock` pair into a hub, resolving the project's locked dependency graph.""",
@@ -956,7 +945,7 @@ uv = module_extension(
     tag_classes = {
         "declare_hub": _hub_tag,
         "project": _project_tag,
-        "unstable_annotate_packages": _annotations_tag,
+        "annotate_packages": _annotations_tag,
         "override_package": _override_package_tag,
     },
 )

@@ -69,8 +69,6 @@ class ConfigureContext(TypedDict, total=False):
     version: str
     deps: List[str]
     available_deps: Dict[str, str]
-    pre_build_patches: List[str]
-    pre_build_patch_strip: int
 
 
 class _OptionalDetectionResult(TypedDict, total=False):
