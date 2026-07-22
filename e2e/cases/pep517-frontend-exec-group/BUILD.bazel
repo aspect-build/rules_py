@@ -13,6 +13,8 @@ _CC_TOOLCHAIN = "//pep517-frontend-exec-group:cc_toolchain"
 
 _CONFIGURED_CC_TOOLCHAIN = "//pep517-frontend-exec-group:configured_cc_toolchain"
 
+_CLANG_CC_TOOLCHAIN = "//pep517-frontend-exec-group:clang_cc_toolchain"
+
 _LEGACY_CC_TOOLCHAIN = "//pep517-frontend-exec-group:legacy_cc_toolchain"
 
 _DIRECT_CXX_TOOLCHAIN = "//pep517-frontend-exec-group:direct_cxx_toolchain"
@@ -66,6 +68,19 @@ platform(
         "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
         "--extra_execution_platforms=@platforms//host,//pep517-frontend-exec-group:linux_configured",
         "--extra_toolchains=" + _CONFIGURED_CC_TOOLCHAIN,
+    ],
+)
+
+platform(
+    name = "linux_clang",
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+    flags = [
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
+        "--extra_execution_platforms=@platforms//host,//pep517-frontend-exec-group:linux_clang",
+        "--extra_toolchains=" + _CLANG_CC_TOOLCHAIN,
     ],
 )
 
@@ -441,6 +456,48 @@ toolchain(
     toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
 )
 
+write_file(
+    name = "clang_wrapper_script",
+    out = "clang_wrapper.sh",
+    content = [
+        "#!/usr/bin/env bash",
+        "if [[ \"${1-}\" == --driver-mode=g++ ]]; then",
+        "  shift",
+        "  exec /usr/bin/c++ \"$@\"",
+        "fi",
+        "exec /usr/bin/cc \"$@\"",
+    ],
+    is_executable = True,
+)
+
+cc_tool(
+    name = "clang_wrapper_tool",
+    src = ":clang_wrapper_script",
+)
+
+cc_tool_map(
+    name = "clang_tool_map",
+    tools = {
+        "@rules_cc//cc/toolchains/actions:c_compile": ":clang_wrapper_tool",
+        "@rules_cc//cc/toolchains/actions:cpp_compile_actions": ":clang_wrapper_tool",
+        "@rules_cc//cc/toolchains/actions:link_actions": ":clang_wrapper_tool",
+        "@rules_cc//cc/toolchains/actions:strip": ":clang_wrapper_tool",
+        "@rules_cc//cc/toolchains/actions:ar_actions": ":clang_wrapper_tool",
+    },
+)
+
+cc_toolchain(
+    name = "clang_cc",
+    compiler = "clang",
+    tool_map = ":clang_tool_map",
+)
+
+toolchain(
+    name = "clang_cc_toolchain",
+    toolchain = ":clang_cc",
+    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+)
+
 filegroup(
     name = "legacy_tools",
     srcs = [
@@ -597,6 +654,19 @@ pep517_native_whl(
 )
 
 pep517_native_whl(
+    name = "clang_wheel",
+    src = ":stub_sdist",
+    args = [
+        "*/clang_wrapper.sh",
+        "*/clang_wrapper.sh --driver-mode=g++",
+        "1",
+    ],
+    tags = ["manual"],
+    tool = ":cxx_frontend",
+    version = "0.0.0",
+)
+
+pep517_native_whl(
     name = "legacy_wheel",
     src = ":stub_sdist",
     tags = ["manual"],
@@ -692,6 +762,12 @@ platform_transition_filegroup(
 )
 
 platform_transition_filegroup(
+    name = "wheel_linux_clang",
+    srcs = [":clang_wheel"],
+    target_platform = ":linux_clang",
+)
+
+platform_transition_filegroup(
     name = "wheel_linux_legacy",
     srcs = [":legacy_wheel"],
     target_platform = ":linux_legacy",
@@ -738,6 +814,11 @@ build_test(
 build_test(
     name = "configured_compiler_tools_test",
     targets = [":wheel_linux_configured"],
+)
+
+build_test(
+    name = "clang_cxx_driver_test",
+    targets = [":wheel_linux_clang"],
 )
 
 build_test(

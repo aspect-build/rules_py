@@ -153,6 +153,12 @@ def _cc_toolchain_inputs_and_tools(ctx):
         }
         tools.update({key: legacy_tools[key] for key in missing if legacy_tools[key] in file_paths})
 
+    # A shared clang wrapper needs C++ driver mode so its runtime libraries
+    # follow object files instead of being dropped by --as-needed:
+    # https://github.com/llvm/llvm-project/blob/llvmorg-22.1.2/clang/lib/Driver/ToolChains/Gnu.cpp#L452-L471
+    if tools.get("CXX") and tools["CXX"] == tools.get("CC") and getattr(cc_toolchain, "compiler", None) == "clang":
+        tools["CXX"] += " --driver-mode=g++"
+
     infer_cxx = infer_cxx or tools.get("CXX") == tools.get("CC")
     return files, {key: value for key, value in tools.items() if value}, infer_cxx
 

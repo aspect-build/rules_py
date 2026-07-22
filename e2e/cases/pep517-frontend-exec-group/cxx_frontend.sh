@@ -38,6 +38,8 @@ EOF
     read -r -a cxx <<<"${CXX}"
     "${cxx[@]}" -std=c++11 "${wheel_dir}/probe.cc" -o "${wheel_dir}/probe"
     "${wheel_dir}/probe"
-    "${cxx[@]}" -std=c++11 -shared -fPIC "${wheel_dir}/probe.cc" -o "${wheel_dir}/probe.so"
+    link_flags=(-std=c++11 -shared -fPIC)
+    if [[ $(uname -s) == Linux ]]; then link_flags+=(-Wl,--as-needed); fi
+    "${cxx[@]}" "${link_flags[@]}" "${wheel_dir}/probe.cc" -o "${wheel_dir}/probe.so"
     /usr/bin/python3 -c 'import ctypes, sys; probe = ctypes.CDLL(sys.argv[1]).probe; probe.restype = ctypes.c_char_p; assert probe() == b"rules_py"' "${wheel_dir}/probe.so"
 fi
