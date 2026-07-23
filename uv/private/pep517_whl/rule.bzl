@@ -11,6 +11,7 @@ load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
 load("//py/private/toolchain:types.bzl", "NATIVE_BUILD_TOOLCHAIN", "PY_TOOLCHAIN")
 load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
 load(":cc_layer.bzl", "CC_LAYER_ATTRS", "extract_cc_layer")
+load(":exec_transition.bzl", "exec_transition")
 
 _CC_TOOLCHAIN_TYPE = Label("@bazel_tools//tools/cpp:toolchain_type")
 _TARGET_EXEC_GROUP = "target"
@@ -28,6 +29,12 @@ def _wheel_providers(wheel_dir, console_scripts):
         DefaultInfo(files = depset([wheel_dir])),
         SourceBuiltWheelInfo(console_scripts = tuple(console_scripts)),
     ]
+
+def _tool_files_to_run(ctx):
+    tool = ctx.attr.tool
+    if type(tool) == "list":
+        tool = tool[0]
+    return tool[DefaultInfo].files_to_run
 
 def _common_env(ctx):
     # pyproject_hooks copies the build process environment and launches its
@@ -198,17 +205,18 @@ def _pep517_whl(ctx):
     # the action sandbox, which means the venv shim can find the interpreter
     # via the standard runfiles mechanism regardless of whether the interpreter
     # comes from an external repo or the main workspace.
+    tool_files_to_run = _tool_files_to_run(ctx)
     ctx.actions.run(
         mnemonic = "PySdistBuild",
         progress_message = "Source compiling {} to a whl".format(archive.basename),
-        executable = ctx.executable.tool,
+        executable = tool_files_to_run,
         toolchain = None,
         arguments = ctx.attr.args + patch_args + _memory_args(ctx) + [
             archive.path,
             wheel_dir.path,
         ],
         inputs = [archive] + patch_inputs,
-        tools = [ctx.attr.tool[DefaultInfo].files_to_run],
+        tools = [tool_files_to_run],
         outputs = [wheel_dir],
         env = _common_env(ctx),
         exec_group = _TARGET_EXEC_GROUP,
@@ -310,7 +318,7 @@ def _pep517_native_whl(ctx):
     else:
         cross_args = []
 
-    _tool = ctx.attr.tool
+    _tool = _tool_files_to_run(ctx)
 
     ctx.actions.run(
         mnemonic = "PySdistCrossBuild" if cross else "PySdistNativeBuild",
@@ -318,7 +326,7 @@ def _pep517_native_whl(ctx):
             "Cross" if cross else "Native",
             archive.basename,
         ),
-        executable = ctx.executable.tool,
+        executable = _tool,
         toolchain = None,
         arguments = ctx.attr.args + patch_args + _memory_args(ctx) + cross_args + [
             "--execroot-marker",
@@ -330,7 +338,7 @@ def _pep517_native_whl(ctx):
             [archive] + patch_inputs,
             transitive = extra_inputs,
         ),
-        tools = [_tool[DefaultInfo].files_to_run],
+        tools = [_tool],
         outputs = [wheel_dir],
         env = env,
         exec_group = _TARGET_EXEC_GROUP,
@@ -353,10 +361,16 @@ _PATCH_ATTRS = {
 
 _pep517_whl_attrs = {
     "src": attr.label(allow_single_file = True),
-    # The wheel action uses the named group below, so its frontend must use the
-    # same execution platform:
-    # https://bazel.build/extending/exec-groups#defining-exec-groups
-    "tool": attr.label(executable = True, cfg = config.exec(_TARGET_EXEC_GROUP)),
+    # The wheel action runs in the "target" exec group; its frontend must run
+    # on the exec (host) platform but resolve its Python build dependencies
+    # for the *target* Python version. exec_transition pins --platforms to the
+    # host and resets the platform_libc/platform_version flags to host values
+    # (Starlark flags otherwise leak from the target configuration and break
+    # wheel selection for build deps). See exec_transition.bzl.
+    "tool": attr.label(executable = True, cfg = exec_transition),
+    "_allowlist_function_transition": attr.label(
+        default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+    ),
     "version": attr.string(),
     "console_scripts": attr.string_list(
         doc = "Console scripts discovered from the source distribution's entry-point metadata.",
@@ -420,7 +434,7 @@ analysis fails with a diagnostic naming the required toolchain type.
                   "the unpacked source tree. Omit CC/CXX/AR/LD/STRIP to use the " +
                   "configured C++ action tools.",
         ),
-        "tool": attr.label(executable = True, cfg = config.exec(_TARGET_EXEC_GROUP)),
+        "tool": attr.label(executable = True, cfg = exec_transition),
     } | CC_LAYER_ATTRS,
     fragments = ["cpp"],
     toolchains = [
