@@ -20,6 +20,7 @@ import csv
 import filecmp
 import glob
 import os
+import stat
 import sys
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
@@ -231,6 +232,39 @@ def _add_subpath_or_whole(
         _add_whole_promotion(suggestions, label, size_mb, is_binary, annotation="whole package")
 
 
+def _decode_mtree_path(path: str) -> str:
+    return path.replace("\\040", " ")
+
+
+def _comparable_file(source_kind: str, encoded_source: str) -> Optional[str]:
+    source = _decode_mtree_path(encoded_source)
+    if source_kind == "contents":
+        return source if os.path.isfile(source) else None
+    if source_kind != "content":
+        return None
+
+    try:
+        mode = os.lstat(source).st_mode
+        if stat.S_ISREG(mode):
+            return source
+        if not stat.S_ISLNK(mode):
+            return None
+
+        # Bazel sandboxes expose action inputs through an absolute symlink whose
+        # suffix repeats the exec path. Peel only that synthetic hop: another
+        # symlink at the target is the logical artifact that modify_mtree.awk
+        # preserves and therefore is not comparable as a regular file.
+        sandbox_target = os.readlink(source)
+        suffix = os.sep + source
+        if not os.path.isabs(sandbox_target) or not sandbox_target.endswith(suffix):
+            return None
+        if stat.S_ISLNK(os.lstat(sandbox_target).st_mode):
+            return None
+        return sandbox_target if stat.S_ISREG(os.lstat(sandbox_target).st_mode) else None
+    except OSError:
+        return None
+
+
 def _mtree_collision(rows: Iterable[str]) -> Optional[str]:
     """Return the first conflicting expanded mtree destination, or None."""
     paths: Dict[str, Tuple[str, str, str, Tuple[str, ...]]] = {}
@@ -271,12 +305,14 @@ def _mtree_collision(rows: Iterable[str]) -> Optional[str]:
             previous_type, previous_kind, previous_source, previous_metadata = previous
             if (
                 entry_type == previous_type == "file"
-                and source_kind == previous_kind == "contents"
                 and metadata == previous_metadata
             ):
-                with contextlib.suppress(OSError):
-                    if filecmp.cmp(previous_source, source, shallow=False):
-                        continue
+                previous_file = _comparable_file(previous_kind, previous_source)
+                source_file = _comparable_file(source_kind, source)
+                if previous_file is not None and source_file is not None:
+                    with contextlib.suppress(OSError):
+                        if filecmp.cmp(previous_file, source_file, shallow=False):
+                            continue
             return "py_image_layer runfile collision at {}: {} and {}".format(
                 destination, previous_source, source
             )

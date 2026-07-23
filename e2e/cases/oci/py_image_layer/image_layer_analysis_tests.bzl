@@ -15,6 +15,16 @@ _expected_failure_test = analysistest.make(
     expect_failure = True,
 )
 
+def _target_file_symlink_impl(ctx):
+    output = ctx.actions.declare_file(ctx.label.name)
+    ctx.actions.symlink(output = output, target_file = ctx.file.target)
+    return [DefaultInfo(files = depset([output]))]
+
+_target_file_symlink = rule(
+    implementation = _target_file_symlink_impl,
+    attrs = {"target": attr.label(allow_single_file = True, mandatory = True)},
+)
+
 def _image_layer_failure(name, expected_error, **kwargs):
     target = "_{}_layers".format(name)
     py_image_layer(name = target, **kwargs)
@@ -74,29 +84,71 @@ def image_layer_analysis_test_suite():
         launcher_dir = "/app/bin",
     )
 
+    native.genrule(
+        name = "_grouped_tool",
+        outs = ["grouped/tool.sh"],
+        cmd = "printf '#!/bin/sh\\nprintf grouped-ok\\n' > $@",
+        executable = True,
+    )
+    native.genrule(
+        name = "_grouped_payload",
+        outs = ["grouped/payload.txt"],
+        cmd = "printf grouped-payload > $@",
+    )
+    native.genrule(
+        name = "_group_only_file",
+        outs = ["grouped/ordinary.txt"],
+        cmd = "printf ordinary > $@",
+    )
+    _target_file_symlink(
+        name = "_grouped_payload_link",
+        target = ":_grouped_payload",
+    )
     native.filegroup(
-        name = "_rule_group_assets",
-        srcs = ["my_app_peer_bin/config.json"],
+        name = "_grouped_assets",
+        srcs = [
+            ":_group_only_file",
+            ":_grouped_payload",
+            ":_grouped_tool",
+        ],
     )
     py_binary(
-        name = "_rule_group_source_bin",
+        name = "_grouped_source_bin",
         srcs = ["server.py"],
-        data = [":_rule_group_assets"],
+        data = [
+            ":_grouped_payload",
+            ":_grouped_payload_link",
+            ":_grouped_tool",
+        ],
     )
     py_image_layer(
-        name = "_rule_group_source_layers",
+        name = "_grouped_source_layers",
         binaries = [
-            ":_rule_group_source_bin",
+            ":_grouped_source_bin",
             ":my_app_bin",
         ],
-        groups = {":_rule_group_assets": "assets"},
+        groups = {":_grouped_assets": "assets"},
         launcher_dir = "/app/bin",
     )
     native.genrule(
-        name = "_rule_group_sources_listing",
-        srcs = [":_rule_group_source_layers"],
-        outs = ["_rule_group_sources.listing"],
-        cmd = "for f in $(SRCS); do $(BSDTAR_BIN) -tf $$f; done > $@",
+        name = "_grouped_source_runtime_test",
+        srcs = [":_grouped_source_layers"],
+        outs = ["_grouped_source_runtime_test.ok"],
+        cmd = """
+set -eu
+root="$(@D)/_grouped_source_runtime_test.root"
+mkdir -p "$$root"
+for archive in $(SRCS); do
+  $(BSDTAR_BIN) -xf "$$archive" -C "$$root"
+done
+prefix="$$root/app.runfiles/_main/oci/py_image_layer"
+test "$$("$$prefix/grouped/tool.sh")" = grouped-ok
+test ! -x "$$prefix/grouped/ordinary.txt"
+test "$$(cat "$$prefix/_grouped_payload_link")" = grouped-payload
+count="$$(for archive in $(SRCS); do $(BSDTAR_BIN) -tf "$$archive"; done | awk '/\\/grouped\\/payload.txt$$/ { n++ } END { print n + 0 }')"
+test "$$count" -eq 1
+touch $@
+""",
         toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
     )
 

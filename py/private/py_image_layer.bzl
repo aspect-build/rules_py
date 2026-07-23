@@ -636,10 +636,11 @@ def _source_file_to_mtree(f, dir_expander, strip_prefix, root, maybe_symlink, ex
         ),
     ]
 
-def _user_file_to_mtree(f, dir_expander):
+def _user_file_to_mtree(f, dir_expander, source_owned_paths):
     if f.is_directory:
         return [_file_to_mtree_entry(child, "0755") for child in dir_expander.expand(f)]
-    return _file_to_mtree_entry(f, "0644")
+    mode = "0755" if f.path in source_owned_paths else "0644"
+    return _file_to_mtree_entry(f, mode)
 
 def _should_skip_pkg_path(p):
     return (
@@ -742,7 +743,7 @@ _platform_cfg = transition(
     outputs = ["//command_line_option:platforms", "@aspect_rules_py//py:layer_tier"],
 )
 
-def _run_tar_action(ctx, bsdtar, bsdtar_files, tar_out, files_depset, map_each, compress, level, reqs, mnemonic, progress_msg):
+def _run_tar_action(ctx, bsdtar, bsdtar_files, tar_out, files_depset, map_each, compress, level, reqs, mnemonic, progress_msg, symlink_mappings = None):
     # mtree (param file) → gawk (readlinks `type=link`/`type=file content=`
     # rows; `contents=` rows pass through; END buffers, asort-sorts, and
     # writes the sorted mtree to a file) → bsdtar consumes the file.
@@ -759,12 +760,29 @@ def _run_tar_action(ctx, bsdtar, bsdtar_files, tar_out, files_depset, map_each, 
 
     gawk_args = ctx.actions.args()
     gawk_args.add("-v", sorted_mtree, format = "outfile=%s")
+    gawk_args.add("-v", "1", format = "source_argind=%s")
     gawk_args.add("-f", awk_script)
+    gawk_arguments = [gawk_args, mtree_args]
+    gawk_inputs = [files_depset]
+    if symlink_mappings != None:
+        mapping_args = ctx.actions.args()
+        mapping_args.set_param_file_format("multiline")
+        mapping_args.use_param_file("%s", use_always = True)
+        mapping_args.add("#mtree")
+        mapping_args.add_all(
+            symlink_mappings.files,
+            map_each = symlink_mappings.map_each,
+            expand_directories = False,
+            allow_closure = True,
+        )
+        gawk_arguments.append(mapping_args)
+        if symlink_mappings.tree_files:
+            gawk_inputs.append(depset(direct = symlink_mappings.tree_files))
     ctx.actions.run(
         executable = awk,
-        inputs = depset(direct = [awk_script], transitive = [files_depset]),
+        inputs = depset(direct = [awk_script], transitive = gawk_inputs),
         outputs = [sorted_mtree],
-        arguments = [gawk_args, mtree_args],
+        arguments = gawk_arguments,
         # LC_ALL=C makes gawk's asort byte-stable.
         env = {"LC_ALL": "C"},
         mnemonic = mnemonic + "Mtree",
@@ -793,7 +811,7 @@ def _run_tar_action(ctx, bsdtar, bsdtar_files, tar_out, files_depset, map_each, 
         use_default_shell_env = False,
     )
 
-def _declare_group_tar(ctx, bsdtar, bsdtar_files, out_name, group_name, files, map_each, progress):
+def _declare_group_tar(ctx, bsdtar, bsdtar_files, out_name, group_name, files, map_each, progress, symlink_mappings = None):
     tar_out = ctx.actions.declare_file(out_name)
     level = ctx.attr.group_compress_levels.get(group_name, "6")
     reqs = _parse_exec_requirements(ctx.attr.group_execution_requirements.get(group_name, []))
@@ -809,6 +827,7 @@ def _declare_group_tar(ctx, bsdtar, bsdtar_files, out_name, group_name, files, m
         reqs,
         "PyImageLayer",
         progress,
+        symlink_mappings,
     )
     return tar_out
 
@@ -889,6 +908,8 @@ def _py_image_layer_impl(ctx):
     rule_group_names = {gname: True for gname in ctx.attr.groups.values()}
     rule_group_files = []
     rule_group_paths = {}
+    rule_group_tree_files = []
+    rule_groups = []
     for dep, group_name in ctx.attr.groups.items():
         dep_label = normalize_label(str(dep.label))
         if dep_label in pip_labels:
@@ -897,6 +918,25 @@ def _py_image_layer_impl(ctx):
         rule_group_files.append(files)
         for f in files.to_list():
             rule_group_paths[f.path] = True
+            if f.is_directory:
+                rule_group_tree_files.append(f)
+        rule_groups.append((group_name, files))
+
+    source_files = depset(transitive = [info.source_files for info in infos])
+    source_owned_group_paths = {}
+    if rule_group_paths:
+        # The aspect cannot see rule-level groups, so decide ownership from the
+        # source closure once, then remove grouped bytes from the source tar.
+        ungrouped_source_files = []
+        for f in source_files.to_list():
+            if f.path in rule_group_paths:
+                source_owned_group_paths[f.path] = True
+            else:
+                ungrouped_source_files.append(f)
+        source_files = depset(direct = ungrouped_source_files)
+
+    rule_group_map = lambda f, d: _user_file_to_mtree(f, d, source_owned_group_paths)
+    for group_name, files in rule_groups:
         tar_out = _declare_group_tar(
             ctx,
             bsdtar,
@@ -904,7 +944,7 @@ def _py_image_layer_impl(ctx):
             "{}_{}.tar.gz".format(ctx.attr.name, group_name),
             group_name,
             files,
-            _user_file_to_mtree,
+            rule_group_map,
             "Creating image layer %s[%s]" % (ctx.label, group_name),
         )
         all_tars.append(tar_out)
@@ -1011,19 +1051,13 @@ def _py_image_layer_impl(ctx):
     # snapshot here to avoid double-bookkeeping during construction.
     dep_tars = list(all_tars)
 
-    source_files = depset(transitive = [info.source_files for info in infos])
-    if rule_group_paths:
-        # Rule groups are unavailable to the binary aspect, so its source
-        # closure still contains these files. Subtract them here, where the
-        # group tars are declared, and keep action inputs aligned with contents.
-        source_files = depset(direct = [
-            f
-            for f in source_files.to_list()
-            if f.path not in rule_group_paths
-        ])
-
-    # Keep the complete source closure in one tar. `modify_mtree.awk` can only
-    # rewrite a Bazel-tree symlink when its target row is in the same mtree.
+    symlink_mappings = None
+    if rule_group_files:
+        symlink_mappings = struct(
+            files = depset(transitive = rule_group_files),
+            map_each = rule_group_map,
+            tree_files = rule_group_tree_files,
+        )
     source_tar = _declare_group_tar(
         ctx,
         bsdtar,
@@ -1033,6 +1067,7 @@ def _py_image_layer_impl(ctx):
         source_files,
         source_map,
         "Creating source layer for %s" % ctx.label,
+        symlink_mappings,
     )
     all_tars.append(source_tar)
 
@@ -1066,7 +1101,7 @@ def _py_image_layer_impl(ctx):
         mtree_args.add("#mtree")
         mtree_args.add_all(source_files, map_each = source_map, expand_directories = False, allow_closure = True)
         for files in rule_group_files:
-            mtree_args.add_all(files, map_each = _user_file_to_mtree, expand_directories = False)
+            mtree_args.add_all(files, map_each = rule_group_map, expand_directories = False, allow_closure = True)
         for files in wheel_files:
             mtree_args.add_all(files, map_each = _pkg_file_to_mtree, expand_directories = False)
         for files in interpreter_files:
