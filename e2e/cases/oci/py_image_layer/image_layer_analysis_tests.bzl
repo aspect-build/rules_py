@@ -229,11 +229,15 @@ touch $@
         name = "_grouped_content=payload_link",
         target = ":_grouped_payload",
     )
+    _target_file_symlink(
+        name = "_grouped_content=asset_link",
+        target = ":_group_only_file",
+    )
     native.filegroup(
         name = "_grouped_assets",
         srcs = [
             ":_group_only_file",
-            ":_grouped_payload",
+            ":_grouped_content=payload_link",
             ":_grouped_tool",
         ],
     )
@@ -241,8 +245,8 @@ touch $@
         name = "_grouped_source_bin",
         srcs = ["server.py"],
         data = [
+            ":_grouped_content=asset_link",
             ":_grouped_payload",
-            ":_grouped_content=payload_link",
             ":_grouped_tool",
         ],
     )
@@ -282,12 +286,16 @@ test "$$("$$prefix/grouped/tool.sh")" = grouped-ok
 test ! -x "$$prefix/grouped/ordinary.txt"
 test -L "$$prefix/_grouped_content=payload_link"
 test "$$(cat "$$prefix/_grouped_content=payload_link")" = grouped-payload
+test -L "$$prefix/_grouped_content=asset_link"
+test "$$(cat "$$prefix/_grouped_content=asset_link")" = ordinary
 RUNFILES_DIR="$$root/app.runfiles" "$$root/app/bin/_grouped_source_bin" > "$$root/launcher.out"
 test "$$(cat "$$root/launcher.out")" = "server ok"
 RUNFILES_DIR="$$scalar_root/app.runfiles" "$$scalar_root/app/bin/_scalar_launcher_collision" > "$$scalar_root/launcher.out"
 test "$$(cat "$$scalar_root/launcher.out")" = "server ok"
 test "$$(cat "$$scalar_root/app.runfiles/_main/oci/py_image_layer/bin/_scalar_launcher_collision")" = data
 count="$$(for archive in $(locations :_grouped_source_layers_no_src) $(locations :_grouped_source_layers_only_src); do $(BSDTAR_BIN) -tf "$$archive"; done | awk '/\\/grouped\\/content=payload.txt$$/ { n++ } END { print n + 0 }')"
+test "$$count" -eq 1
+count="$$(for archive in $(locations :_grouped_source_layers_no_src) $(locations :_grouped_source_layers_only_src); do $(BSDTAR_BIN) -tf "$$archive"; done | awk '/\\/grouped\\/ordinary.txt$$/ { n++ } END { print n + 0 }')"
 test "$$count" -eq 1
 count="$$(for archive in $(locations :_grouped_source_layers_no_src); do $(BSDTAR_BIN) -tf "$$archive"; done | awk '/\\/app\\/bin\\/_grouped_source_bin$$/ { n++ } END { print n + 0 }')"
 test "$$count" -eq 1

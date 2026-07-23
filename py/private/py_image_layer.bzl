@@ -653,10 +653,12 @@ def _source_file_to_mtree(
     ]
 
 def _user_file_to_mtree(f, dir_expander, source_owned_paths):
+    # Rule-level groups may contain declared symlinks that File.is_symlink
+    # doesn't expose, so every grouped file needs the readlink fallback.
     if f.is_directory:
-        return [_file_to_mtree_entry(child, "0755") for child in dir_expander.expand(f)]
+        return [_file_to_mtree_entry(child, "0755", maybe_symlink = True) for child in dir_expander.expand(f)]
     mode = "0755" if f.path in source_owned_paths else "0644"
-    return _file_to_mtree_entry(f, mode)
+    return _file_to_mtree_entry(f, mode, maybe_symlink = True)
 
 def _should_skip_pkg_path(p):
     return (
@@ -955,7 +957,6 @@ def _py_image_layer_impl(ctx):
     rule_group_names = {gname: True for gname in ctx.attr.groups.values()}
     rule_group_files = []
     rule_group_paths = {}
-    rule_group_tree_files = []
     rule_groups = []
     for dep, group_name in ctx.attr.groups.items():
         dep_label = normalize_label(str(dep.label))
@@ -965,8 +966,6 @@ def _py_image_layer_impl(ctx):
         rule_group_files.append(files)
         for f in files.to_list():
             rule_group_paths[f.path] = True
-            if f.is_directory:
-                rule_group_tree_files.append(f)
         rule_groups.append((group_name, files))
 
     source_files = depset(transitive = [info.source_files for info in infos])
@@ -987,6 +986,30 @@ def _py_image_layer_impl(ctx):
     rule_group_map = lambda f, d: (
         source_map(f, d) if f.short_path in executable_dsts else _user_file_to_mtree(f, d, source_owned_group_paths)
     )
+
+    first_party_reference_files = []
+    for info in infos:
+        for entry in info.first_party_layers.to_list():
+            first_party_reference_files.append(entry.files)
+
+    # Each source-owned tier may contain a symlink whose target is emitted by
+    # another tier. Share destination-only rows so every tar can rewrite those
+    # links without copying the target bytes into that tar.
+    symlink_mappings = None
+    if rule_group_files or first_party_reference_files:
+        reference_files = [source_files] + rule_group_files + first_party_reference_files
+        reference_tree_files = {}
+        for files in reference_files:
+            for f in files.to_list():
+                if f.is_directory:
+                    reference_tree_files[f.path] = f
+        reference_map = lambda f, d: rule_group_map(f, d) if f.path in rule_group_paths else source_map(f, d)
+        symlink_mappings = struct(
+            files = depset(transitive = reference_files),
+            map_each = reference_map,
+            tree_files = reference_tree_files.values(),
+        )
+
     for group_name, files in rule_groups:
         tar_out = _declare_group_tar(
             ctx,
@@ -997,6 +1020,7 @@ def _py_image_layer_impl(ctx):
             files,
             rule_group_map,
             "Creating image layer %s[%s]" % (ctx.label, group_name),
+            symlink_mappings,
         )
         all_tars.append(tar_out)
 
@@ -1047,6 +1071,7 @@ def _py_image_layer_impl(ctx):
                 depset(transitive = fp_by_group[group_name]),
                 source_map,
                 "Creating first-party layer %s[%s]" % (ctx.label, group_name),
+                symlink_mappings,
             )
         all_tars.append(tar_out)
 
@@ -1102,13 +1127,6 @@ def _py_image_layer_impl(ctx):
     # snapshot here to avoid double-bookkeeping during construction.
     dep_tars = list(all_tars)
 
-    symlink_mappings = None
-    if rule_group_files:
-        symlink_mappings = struct(
-            files = depset(transitive = rule_group_files),
-            map_each = rule_group_map,
-            tree_files = rule_group_tree_files,
-        )
     source_tar = _declare_group_tar(
         ctx,
         bsdtar,
