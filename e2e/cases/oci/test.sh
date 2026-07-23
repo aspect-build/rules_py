@@ -71,6 +71,14 @@ fi
 
 echo "PASS: explicitly grouped sources preserve modes and symlink targets without duplicate bytes"
 
+echo "== multi-binary repository mappings must be merged =="
+if ! "$BAZEL" build -- "${PKG}:_repo_mapping_runtime_test" >"$output_log" 2>&1; then
+    cat "$output_log" >&2
+    fail "expected repository mappings from both binaries to survive extraction"
+fi
+
+echo "PASS: multi-binary repository mappings are merged"
+
 echo "== source closures must preserve scalar and shared layouts =="
 if ! "$BAZEL" build -- \
     "${PKG}:_scalar_default_sources_listing" \

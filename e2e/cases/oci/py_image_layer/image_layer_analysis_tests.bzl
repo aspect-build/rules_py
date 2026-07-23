@@ -25,6 +25,16 @@ _target_file_symlink = rule(
     attrs = {"target": attr.label(allow_single_file = True, mandatory = True)},
 )
 
+def _relative_symlink_impl(ctx):
+    output = ctx.actions.declare_symlink(ctx.label.name)
+    ctx.actions.symlink(output = output, target_path = ctx.attr.target_path)
+    return [DefaultInfo(files = depset([output]))]
+
+_relative_symlink = rule(
+    implementation = _relative_symlink_impl,
+    attrs = {"target_path": attr.string(mandatory = True)},
+)
+
 def _image_layer_failure(name, expected_error, **kwargs):
     target = "_{}_layers".format(name)
     py_image_layer(name = target, **kwargs)
@@ -85,6 +95,80 @@ def image_layer_analysis_test_suite():
     )
 
     native.genrule(
+        name = "_repo_mapping_shared_target",
+        outs = ["repo_mapping/shared.txt"],
+        cmd = "printf shared-link-ok > $@",
+    )
+    _relative_symlink(
+        name = "_repo_mapping_shared_link",
+        target_path = "repo_mapping/shared.txt",
+    )
+    py_binary(
+        name = "_repo_mapping_images_bin",
+        srcs = ["server.py"],
+        data = [
+            ":_repo_mapping_shared_link",
+            ":_repo_mapping_shared_target",
+        ],
+        dep_group = "images",
+        python_version = "3.11",
+        deps = ["@pypi_oci_py_image_layer//colorama"],
+    )
+    py_binary(
+        name = "_repo_mapping_venv_bin",
+        srcs = ["server.py"],
+        data = [
+            ":_repo_mapping_shared_link",
+            ":_repo_mapping_shared_target",
+        ],
+        dep_group = "venv_images",
+        python_version = "3.12",
+        deps = ["@pypi_oci_py_venv_image_layer//colorama"],
+    )
+    py_layer_tier(
+        name = "_repo_mapping_tier",
+        root = "/srv",
+    )
+    py_image_layer(
+        name = "_repo_mapping_layers",
+        binaries = [
+            ":_repo_mapping_images_bin",
+            ":_repo_mapping_venv_bin",
+            "@aspect_rules_py//py/tests/internal-deps/adder:external_launcher",
+        ],
+        launcher_dir = "/app/bin",
+        layer_tier = ":_repo_mapping_tier",
+    )
+    native.genrule(
+        name = "_repo_mapping_runtime_test",
+        srcs = [":_repo_mapping_layers"],
+        outs = ["_repo_mapping_runtime_test.ok"],
+        cmd = """
+set -eu
+root="$(@D)/_repo_mapping_runtime_test.root"
+mkdir -p "$$root"
+for archive in $(SRCS); do
+  $(BSDTAR_BIN) -xf "$$archive" -C "$$root"
+done
+mapping="$$root/app.runfiles/_repo_mapping"
+count="$$(for archive in $(SRCS); do $(BSDTAR_BIN) -tf "$$archive"; done | awk '/\\/app.runfiles\\/_repo_mapping$$/ { n++ } END { print n + 0 }')"
+test "$$count" -eq 1
+grep -Fq ',whl_install__images__colorama__0_4_6,' "$$mapping"
+grep -Fq ',whl_install__venv_images__colorama__0_4_6,' "$$mapping"
+RUNFILES_DIR="$$root/app.runfiles" "$$root/app/bin/_repo_mapping_images_bin" > "$$root/images.out"
+RUNFILES_DIR="$$root/app.runfiles" "$$root/app/bin/_repo_mapping_venv_bin" > "$$root/venv.out"
+RUNFILES_DIR="$$root/app.runfiles" "$$root/app/bin/external_launcher" > "$$root/external.out"
+test "$$(cat "$$root/images.out")" = "server ok"
+test "$$(cat "$$root/venv.out")" = "server ok"
+test "$$(cat "$$root/external.out")" = "external 5"
+test -L "$$root/app.runfiles/_main/oci/py_image_layer/_repo_mapping_shared_link"
+test "$$(cat "$$root/app.runfiles/_main/oci/py_image_layer/_repo_mapping_shared_link")" = "shared-link-ok"
+touch $@
+""",
+        toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
+    )
+
+    native.genrule(
         name = "_grouped_tool",
         outs = ["grouped/tool.sh"],
         cmd = "printf '#!/bin/sh\\nprintf grouped-ok\\n' > $@",
@@ -127,12 +211,18 @@ def image_layer_analysis_test_suite():
             ":_grouped_source_bin",
             ":my_app_bin",
         ],
-        groups = {":_grouped_assets": "assets"},
+        groups = {
+            ":_grouped_assets": "assets",
+            ":_grouped_source_bin": "launcher",
+        },
         launcher_dir = "/app/bin",
     )
     native.genrule(
         name = "_grouped_source_runtime_test",
-        srcs = [":_grouped_source_layers"],
+        srcs = [
+            ":_grouped_source_layers_no_src",
+            ":_grouped_source_layers_only_src",
+        ],
         outs = ["_grouped_source_runtime_test.ok"],
         cmd = """
 set -eu
@@ -145,8 +235,15 @@ prefix="$$root/app.runfiles/_main/oci/py_image_layer"
 test "$$("$$prefix/grouped/tool.sh")" = grouped-ok
 test ! -x "$$prefix/grouped/ordinary.txt"
 test "$$(cat "$$prefix/_grouped_payload_link")" = grouped-payload
+RUNFILES_DIR="$$root/app.runfiles" "$$root/app/bin/_grouped_source_bin" > "$$root/launcher.out"
+test "$$(cat "$$root/launcher.out")" = "server ok"
 count="$$(for archive in $(SRCS); do $(BSDTAR_BIN) -tf "$$archive"; done | awk '/\\/grouped\\/payload.txt$$/ { n++ } END { print n + 0 }')"
 test "$$count" -eq 1
+count="$$(for archive in $(locations :_grouped_source_layers_no_src); do $(BSDTAR_BIN) -tf "$$archive"; done | awk '/\\/app\\/bin\\/_grouped_source_bin$$/ { n++ } END { print n + 0 }')"
+test "$$count" -eq 1
+if for archive in $(locations :_grouped_source_layers_only_src); do $(BSDTAR_BIN) -tf "$$archive"; done | grep -q '/app/bin/_grouped_source_bin$$'; then
+  exit 1
+fi
 touch $@
 """,
         toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],

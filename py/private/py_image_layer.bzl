@@ -450,17 +450,6 @@ def _layer_aspect_impl(target, ctx):
         if filtered:
             own_source.append(depset(direct = filtered))
 
-        # bzlmod-canonical → apparent repo-name translation manifest.
-        # `runfiles.bash`/`rlocation` need this at `<binary>.runfiles/_repo_mapping`
-        # to resolve apparent labels (e.g. `aspect_rules_py/...`) to the canonical
-        # repo names (`aspect_rules_py+/...`) under which files are actually staged.
-        # Without it the launcher fails with "runfiles.bash initializer cannot find
-        # bazel_tools/tools/bash/runfiles/runfiles.bash" the moment any rlocation
-        # call is evaluated.
-        repo_mapping = getattr(target[DefaultInfo].default_runfiles, "repo_mapping_manifest", None)
-        if repo_mapping != None:
-            own_source.append(depset(direct = [repo_mapping]))
-
     return [_LayerInfo(
         source_files = depset(transitive = transitive_source + own_source),
         pip_packages = depset(transitive = transitive_pkgs),
@@ -578,8 +567,6 @@ def _source_destination(sp, strip_prefix, root, executable_dsts):
         # Bazel synthesizes a top-level `_repo_mapping` runfile (no `_main/`
         # prefix); replicate that placement so runfiles.bash can find it.
         return "./app.runfiles/_repo_mapping"
-    if sp.startswith("../"):
-        return "./app.runfiles/" + sp[3:]
     runfiles_prefix = None
     for executable_short_path in executable_dsts:
         if (sp.startswith(executable_short_path + ".runfiles/") or
@@ -587,7 +574,10 @@ def _source_destination(sp, strip_prefix, root, executable_dsts):
             if runfiles_prefix == None or len(executable_short_path) > len(runfiles_prefix):
                 runfiles_prefix = executable_short_path
     if runfiles_prefix != None:
-        return _apply_strip_prefix(sp, runfiles_prefix, root)
+        runfiles_root = "/app" if executable_dsts[runfiles_prefix] else root
+        return _apply_strip_prefix(sp, runfiles_prefix, runfiles_root)
+    if sp.startswith("../"):
+        return "./app.runfiles/" + sp[3:]
     if strip_prefix:
         destination = _apply_strip_prefix(sp, strip_prefix, root)
         if destination != "./app.runfiles/_main/" + sp:
@@ -616,7 +606,23 @@ def _file_to_mtree_entry(f, mode = "0644", strip_prefix = "", root = "/", maybe_
         f.path.replace(" ", "\\040"),
     )
 
-def _source_file_to_mtree(f, dir_expander, strip_prefix, root, maybe_symlink, executable_dsts, runfile_executable_paths):
+def _source_file_to_mtree(
+        f,
+        dir_expander,
+        strip_prefix,
+        root,
+        maybe_symlink,
+        executable_dsts,
+        runfile_executable_paths,
+        repo_mapping_path):
+    if f.path == repo_mapping_path:
+        return _file_to_mtree_entry(
+            f,
+            "0755",
+            f.short_path,
+            "/app.runfiles/_repo_mapping",
+        )
+
     # 0755 throughout: keeps launcher/interpreter/venv shims executable; Bazel
     # doesn't expose per-input source mode for us to propagate.
     if f.is_directory:
@@ -865,9 +871,14 @@ def _py_image_layer_impl(ctx):
     launcher_names = {}
     executable_dsts = {}
     executable_owner_by_path = {}
+    repo_mappings_by_path = {}
     for index, binary in enumerate(binaries):
-        executable = binary[DefaultInfo].files_to_run.executable
+        files_to_run = binary[DefaultInfo].files_to_run
+        executable = files_to_run.executable
         executable_owner_by_path[executable.path] = index
+        repo_mapping = files_to_run.repo_mapping_manifest
+        if repo_mapping != None:
+            repo_mappings_by_path[repo_mapping.path] = repo_mapping
         launcher_name = executable.basename
         if launcher_dir:
             if launcher_name in launcher_names:
@@ -889,6 +900,31 @@ def _py_image_layer_impl(ctx):
                 if owner != None and owner != index:
                     runfile_executable_paths[f.path] = True
 
+    # Each manifest describes one launcher's runfiles closure. The image shares
+    # one runfiles root, so its manifest must resolve apparent names from all of
+    # the explicitly listed launchers.
+    repo_mappings = repo_mappings_by_path.values()
+    repo_mapping = None
+    if len(repo_mappings) == 1:
+        repo_mapping = repo_mappings[0]
+    elif len(repo_mappings) > 1:
+        repo_mapping = ctx.actions.declare_file(ctx.attr.name + "/_repo_mapping")
+        args = ctx.actions.args()
+        args.add("-v")
+        args.add("output=" + repo_mapping.path)
+        args.add("-f")
+        args.add(ctx.file._repo_mapping_merger)
+        args.add_all(repo_mappings)
+        ctx.actions.run(
+            executable = ctx.executable._awk,
+            inputs = depset(direct = [ctx.file._repo_mapping_merger] + repo_mappings),
+            outputs = [repo_mapping],
+            arguments = [args],
+            env = {"LC_ALL": "C"},
+            mnemonic = "PyImageRepoMapping",
+            progress_message = "Merging repository mappings for %s" % ctx.label,
+        )
+
     # 3p pip layers are action-shared across the graph and hard-code their
     # destination under `./app.runfiles/<repo>/...`, so the consumer's source
     # layer has to land under the same `/app.runfiles/` tree for each launcher
@@ -903,6 +939,7 @@ def _py_image_layer_impl(ctx):
         source_maybe_symlink,
         executable_dsts,
         runfile_executable_paths,
+        repo_mapping.path if repo_mapping != None else "",
     )
 
     rule_group_names = {gname: True for gname in ctx.attr.groups.values()}
@@ -923,6 +960,8 @@ def _py_image_layer_impl(ctx):
         rule_groups.append((group_name, files))
 
     source_files = depset(transitive = [info.source_files for info in infos])
+    if repo_mapping != None:
+        source_files = depset(direct = [repo_mapping], transitive = [source_files])
     source_owned_group_paths = {}
     if rule_group_paths:
         # The aspect cannot see rule-level groups, so decide ownership from the
@@ -935,7 +974,9 @@ def _py_image_layer_impl(ctx):
                 ungrouped_source_files.append(f)
         source_files = depset(direct = ungrouped_source_files)
 
-    rule_group_map = lambda f, d: _user_file_to_mtree(f, d, source_owned_group_paths)
+    rule_group_map = lambda f, d: (
+        source_map(f, d) if f.short_path in executable_dsts else _user_file_to_mtree(f, d, source_owned_group_paths)
+    )
     for group_name, files in rule_groups:
         tar_out = _declare_group_tar(
             ctx,
@@ -1156,6 +1197,10 @@ _py_image_layer = rule(
             executable = True,
             cfg = "exec",
             allow_files = True,
+        ),
+        "_repo_mapping_merger": attr.label(
+            default = "//py/private:merge_repo_mappings.awk",
+            allow_single_file = True,
         ),
         "_awk_script": attr.label(
             default = "//py/private:modify_mtree.awk",

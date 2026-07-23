@@ -10,6 +10,7 @@ exports_files(
         "pytest_main.py",
         # Template read by the py_unittest_test rule.
         "unittest_main.py",
+        "merge_repo_mappings.awk",
         "modify_mtree.awk",
     ],
     visibility = ["//visibility:public"],

@@ -26,9 +26,74 @@ def _mtree_row(destination: str, source: str, marker: str = "contents") -> str:
     return "{} type=file mode=0755 {}={}".format(destination, marker, source.replace(" ", "\\040"))
 
 
+def _mtree_link_row(destination: str, source: str, mode: str = "0755") -> str:
+    return "{} type=link mode={} link={}".format(destination, mode, source.replace(" ", "\\040"))
+
+
 def test_mtree_identical_link_source_coalesces() -> None:
     row = "./app.runfiles/pkg/module.py type=link mode=0755 link=same/module.py"
     assert _mtree_collision(["#mtree", row, row]) is None
+
+
+def test_mtree_identical_relative_link_targets_coalesce() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        first = os.path.join(directory, "first")
+        second = os.path.join(directory, "second")
+        os.symlink("../target", first)
+        os.symlink("../target", second)
+
+        assert _mtree_collision([
+            _mtree_link_row("./app.runfiles/pkg/module.py", first),
+            _mtree_link_row("./app.runfiles/pkg/module.py", second),
+        ]) is None
+
+
+def test_mtree_different_relative_link_targets_fail() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        first = os.path.join(directory, "first")
+        second = os.path.join(directory, "second")
+        os.symlink("../first", first)
+        os.symlink("../second", second)
+
+        assert _mtree_collision([
+            _mtree_link_row("./app.runfiles/pkg/module.py", first),
+            _mtree_link_row("./app.runfiles/pkg/module.py", second),
+        ]) is not None
+
+
+def test_mtree_identical_relative_link_targets_with_different_modes_fail() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        first = os.path.join(directory, "first")
+        second = os.path.join(directory, "second")
+        os.symlink("../target", first)
+        os.symlink("../target", second)
+
+        assert _mtree_collision([
+            _mtree_link_row("./app.runfiles/pkg/module.py", first),
+            _mtree_link_row("./app.runfiles/pkg/module.py", second, "0644"),
+        ]) is not None
+
+
+def test_mtree_sandbox_wrapped_logical_symlinks_coalesce() -> None:
+    with (
+        tempfile.TemporaryDirectory(dir=".") as wrapper_directory,
+        tempfile.TemporaryDirectory() as target_root,
+    ):
+        wrapper_directory = os.path.relpath(wrapper_directory)
+        sources = [
+            os.path.join(wrapper_directory, "first"),
+            os.path.join(wrapper_directory, "second"),
+        ]
+        for source in sources:
+            sandbox_target = os.path.join(target_root, source)
+            os.makedirs(os.path.dirname(sandbox_target), exist_ok=True)
+            os.symlink("../target", sandbox_target)
+            os.symlink(sandbox_target, source)
+
+        assert _mtree_collision([
+            _mtree_row("./app.runfiles/pkg/module.py", source, "content")
+            for source in sources
+        ]) is None
 
 
 def test_mtree_conflicting_source_fails() -> None:

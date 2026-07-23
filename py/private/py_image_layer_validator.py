@@ -236,6 +236,18 @@ def _decode_mtree_path(path: str) -> str:
     return path.replace("\\040", " ")
 
 
+def _peel_sandbox_symlink(source: str) -> str:
+    # Bazel's absolute action-input symlink repeats the exec path as a suffix.
+    # Peel only that transport hop; a relative target is the logical artifact.
+    if not stat.S_ISLNK(os.lstat(source).st_mode):
+        return source
+    target = os.readlink(source)
+    suffix = os.sep + source
+    if os.path.isabs(target) and target.endswith(suffix):
+        return target
+    return source
+
+
 def _comparable_file(source_kind: str, encoded_source: str) -> Optional[str]:
     source = _decode_mtree_path(encoded_source)
     if source_kind == "contents":
@@ -244,23 +256,25 @@ def _comparable_file(source_kind: str, encoded_source: str) -> Optional[str]:
         return None
 
     try:
+        source = _peel_sandbox_symlink(source)
         mode = os.lstat(source).st_mode
         if stat.S_ISREG(mode):
             return source
-        if not stat.S_ISLNK(mode):
-            return None
+        return None
+    except OSError:
+        return None
 
-        # Bazel sandboxes expose action inputs through an absolute symlink whose
-        # suffix repeats the exec path. Peel only that synthetic hop: another
-        # symlink at the target is the logical artifact that modify_mtree.awk
-        # preserves and therefore is not comparable as a regular file.
-        sandbox_target = os.readlink(source)
-        suffix = os.sep + source
-        if not os.path.isabs(sandbox_target) or not sandbox_target.endswith(suffix):
+
+def _comparable_symlink_target(source_kind: str, encoded_source: str) -> Optional[str]:
+    if source_kind not in ("content", "link"):
+        return None
+    source = _decode_mtree_path(encoded_source)
+    try:
+        source = _peel_sandbox_symlink(source)
+        if not stat.S_ISLNK(os.lstat(source).st_mode):
             return None
-        if stat.S_ISLNK(os.lstat(sandbox_target).st_mode):
-            return None
-        return sandbox_target if stat.S_ISREG(os.lstat(sandbox_target).st_mode) else None
+        target = os.readlink(source)
+        return target if target and not os.path.isabs(target) else None
     except OSError:
         return None
 
@@ -303,16 +317,18 @@ def _mtree_collision(rows: Iterable[str]) -> Optional[str]:
             if previous == entry:
                 continue
             previous_type, previous_kind, previous_source, previous_metadata = previous
-            if (
-                entry_type == previous_type == "file"
-                and metadata == previous_metadata
-            ):
-                previous_file = _comparable_file(previous_kind, previous_source)
-                source_file = _comparable_file(source_kind, source)
-                if previous_file is not None and source_file is not None:
-                    with contextlib.suppress(OSError):
-                        if filecmp.cmp(previous_file, source_file, shallow=False):
-                            continue
+            if metadata == previous_metadata:
+                if entry_type == previous_type == "file":
+                    previous_file = _comparable_file(previous_kind, previous_source)
+                    source_file = _comparable_file(source_kind, source)
+                    if previous_file is not None and source_file is not None:
+                        with contextlib.suppress(OSError):
+                            if filecmp.cmp(previous_file, source_file, shallow=False):
+                                continue
+                previous_target = _comparable_symlink_target(previous_kind, previous_source)
+                source_target = _comparable_symlink_target(source_kind, source)
+                if previous_target is not None and previous_target == source_target:
+                    continue
             return "py_image_layer runfile collision at {}: {} and {}".format(
                 destination, previous_source, source
             )
