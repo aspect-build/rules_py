@@ -1,9 +1,10 @@
-"""Deliberate e2e fixture: a py_library from the @aspect_rules_py module consumed by the
-OCI e2e cases (//cases/oci/py_image_layer) to verify that py_image_layer correctly
-includes cross-module first-party deps. Do not inline into the e2e folder — the point
-is to exercise the external-module runfiles path (aspect_rules_py+/...)."""
+"""Cross-module first-party fixtures for OCI image-layer tests.
 
-load("//py:defs.bzl", "py_library")
+The library covers external source dependencies; the launcher covers external
+runfiles paths. Keep both in the @aspect_rules_py module.
+"""
+
+load("//py:defs.bzl", "py_binary", "py_library")
 
 py_library(
     name = "adder",
@@ -13,4 +14,14 @@ py_library(
     ],
     imports = [".."],
     visibility = ["//visibility:public"],
+)
+
+py_binary(
+    name = "external_launcher",
+    srcs = ["external_launcher.py"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":adder",
+        "@rules_python//python/runfiles",
+    ],
 )

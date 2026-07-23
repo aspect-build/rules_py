@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""py_image_layer_validator — validate pip layer sizing for a py_image_layer target.
+"""py_image_layer_validator — validate sizing and shared destinations for an image layer.
 
 Invoked as a Bazel validation action. Fails (exit 1) with actionable `py_layer_tier` snippets
 when the squashed pip layer exceeds a size threshold or when the OCI 127-layer hard limit is
@@ -9,6 +9,7 @@ Usage:
   py_image_layer_validator --threshold_mb N --output FILE [label=path ...]
     label=path  — one entry per ungrouped pip package; `label` is the canonical pip label
                   (e.g. @pip//numpy), `path` is its install directory / file.
+    --mtree FILE  — expanded mtree rows for shared or remapped source destinations.
 """
 
 from __future__ import annotations
@@ -16,10 +17,12 @@ from __future__ import annotations
 import argparse
 import contextlib
 import csv
+import filecmp
 import glob
 import os
+import stat
 import sys
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 _OCI_LAYER_HARD_LIMIT = 127
 _BINARY_GLOBS = {"*.so", "*.so.*", "*.pyd", "*.dylib", "*.dll"}
@@ -229,12 +232,133 @@ def _add_subpath_or_whole(
         _add_whole_promotion(suggestions, label, size_mb, is_binary, annotation="whole package")
 
 
+def _decode_mtree_path(path: str) -> str:
+    return path.replace("\\040", " ")
+
+
+def _peel_sandbox_symlink(source: str) -> str:
+    # Bazel's absolute action-input symlink repeats the exec path as a suffix.
+    # Peel only that transport hop; a relative target is the logical artifact.
+    if not stat.S_ISLNK(os.lstat(source).st_mode):
+        return source
+    target = os.readlink(source)
+    suffix = os.sep + source
+    if os.path.isabs(target) and target.endswith(suffix):
+        return target
+    return source
+
+
+def _comparable_file(source_kind: str, encoded_source: str) -> Optional[str]:
+    source = _decode_mtree_path(encoded_source)
+    if source_kind == "contents":
+        return source if os.path.isfile(source) else None
+    if source_kind != "content":
+        return None
+
+    try:
+        source = _peel_sandbox_symlink(source)
+        mode = os.lstat(source).st_mode
+        if stat.S_ISREG(mode):
+            return source
+        return None
+    except OSError:
+        return None
+
+
+def _comparable_symlink_target(source_kind: str, encoded_source: str) -> Optional[str]:
+    if source_kind not in ("content", "link"):
+        return None
+    source = _decode_mtree_path(encoded_source)
+    try:
+        source = _peel_sandbox_symlink(source)
+        if not stat.S_ISLNK(os.lstat(source).st_mode):
+            return None
+        target = os.readlink(source)
+        return target if target and not os.path.isabs(target) else None
+    except OSError:
+        return None
+
+
+def _mtree_collision(rows: Iterable[str]) -> Optional[str]:
+    """Return the first conflicting expanded mtree destination, or None."""
+    paths: Dict[str, Tuple[str, str, str, Tuple[str, ...]]] = {}
+    descendants: Dict[str, Tuple[str, str]] = {}
+    for row in rows:
+        if not row or row.startswith("#"):
+            continue
+        fields = row.split()
+        destination_parts: List[str] = []
+        for part in fields[0].split("/"):
+            if not part or part == ".":
+                continue
+            if part == "..":
+                if not destination_parts:
+                    return "py_image_layer image destination escapes its root: {}".format(fields[0])
+                destination_parts.pop()
+            else:
+                destination_parts.append(part)
+        destination = "./" + "/".join(destination_parts) if destination_parts else "."
+        entry_type = next(
+            (field.partition("=")[2] for field in fields[1:] if field.startswith("type=")),
+            None,
+        )
+        source_field = next(
+            (field for field in fields[1:] if field.startswith(("contents=", "content=", "link="))),
+            None,
+        )
+        if entry_type is None or source_field is None:
+            return "invalid py_image_layer mtree row (missing source): {}".format(row)
+        source_kind, _, source = source_field.partition("=")
+        metadata = tuple(sorted(field for field in fields[1:] if field != source_field))
+        entry = (entry_type, source_kind, source, metadata)
+
+        previous = paths.get(destination)
+        if previous is not None:
+            if previous == entry:
+                continue
+            previous_type, previous_kind, previous_source, previous_metadata = previous
+            if metadata == previous_metadata:
+                if entry_type == previous_type == "file":
+                    previous_file = _comparable_file(previous_kind, previous_source)
+                    source_file = _comparable_file(source_kind, source)
+                    if previous_file is not None and source_file is not None:
+                        with contextlib.suppress(OSError):
+                            if filecmp.cmp(previous_file, source_file, shallow=False):
+                                continue
+                previous_target = _comparable_symlink_target(previous_kind, previous_source)
+                source_target = _comparable_symlink_target(source_kind, source)
+                if previous_target is not None and previous_target == source_target:
+                    continue
+            return "py_image_layer runfile collision at {}: {} and {}".format(
+                destination, previous_source, source
+            )
+
+        parts = destination.split("/")
+        for end in range(len(parts) - 1, 0, -1):
+            parent = "/".join(parts[:end])
+            if parent in paths:
+                return "py_image_layer runfile collision at {}: {} and {}".format(
+                    destination, paths[parent][2], source
+                )
+        if destination in descendants:
+            descendant, previous = descendants[destination]
+            return "py_image_layer runfile collision at {}: {} and {}".format(descendant, previous, source)
+
+        paths[destination] = entry
+        for end in range(len(parts) - 1, 0, -1):
+            parent = "/".join(parts[:end])
+            descendants.setdefault(parent, (destination, source))
+
+    return None
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--threshold_mb", type=int, default=200)
     parser.add_argument("--layer_count", type=int, default=0)
     parser.add_argument("--warn_layer_count", type=int, default=90)
     parser.add_argument("--output", required=True)
+    parser.add_argument("--mtree")
     parser.add_argument("pkg_paths", nargs="*", metavar="label=path")
     args = parser.parse_args()
 
@@ -252,6 +376,11 @@ def main() -> None:
     pkg_binary = {label: _pkg_is_binary(paths) for label, paths in pkg_path_map.items()}
 
     messages: List[str] = []
+    if args.mtree:
+        with open(args.mtree) as mtree:
+            collision = _mtree_collision(mtree)
+        if collision:
+            messages.append("ERROR: " + collision)
     suggestions = _Suggestions()
 
     layer_count_comment_lines: List[str] = []

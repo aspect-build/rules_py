@@ -13,12 +13,267 @@ from py.private.py_image_layer_validator import (
     _Suggestions,
     _find_large_files,
     _glob_for_file,
+    _mtree_collision,
     _pkg_is_binary,
     _pkg_name_from_label,
     _pkg_size,
     _suggest_subpath_groups,
     main,
 )
+
+
+def _mtree_row(destination: str, source: str, marker: str = "contents") -> str:
+    return "{} type=file mode=0755 {}={}".format(destination, marker, source.replace(" ", "\\040"))
+
+
+def _mtree_link_row(destination: str, source: str, mode: str = "0755") -> str:
+    return "{} type=link mode={} link={}".format(destination, mode, source.replace(" ", "\\040"))
+
+
+def test_mtree_identical_link_source_coalesces() -> None:
+    row = "./app.runfiles/pkg/module.py type=link mode=0755 link=same/module.py"
+    assert _mtree_collision(["#mtree", row, row]) is None
+
+
+def test_mtree_identical_relative_link_targets_coalesce() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        first = os.path.join(directory, "first")
+        second = os.path.join(directory, "second")
+        os.symlink("../target", first)
+        os.symlink("../target", second)
+
+        assert _mtree_collision([
+            _mtree_link_row("./app.runfiles/pkg/module.py", first),
+            _mtree_link_row("./app.runfiles/pkg/module.py", second),
+        ]) is None
+
+
+def test_mtree_different_relative_link_targets_fail() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        first = os.path.join(directory, "first")
+        second = os.path.join(directory, "second")
+        os.symlink("../first", first)
+        os.symlink("../second", second)
+
+        assert _mtree_collision([
+            _mtree_link_row("./app.runfiles/pkg/module.py", first),
+            _mtree_link_row("./app.runfiles/pkg/module.py", second),
+        ]) is not None
+
+
+def test_mtree_identical_relative_link_targets_with_different_modes_fail() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        first = os.path.join(directory, "first")
+        second = os.path.join(directory, "second")
+        os.symlink("../target", first)
+        os.symlink("../target", second)
+
+        assert _mtree_collision([
+            _mtree_link_row("./app.runfiles/pkg/module.py", first),
+            _mtree_link_row("./app.runfiles/pkg/module.py", second, "0644"),
+        ]) is not None
+
+
+def test_mtree_sandbox_wrapped_logical_symlinks_coalesce() -> None:
+    with (
+        tempfile.TemporaryDirectory(dir=".") as wrapper_directory,
+        tempfile.TemporaryDirectory() as target_root,
+    ):
+        wrapper_directory = os.path.relpath(wrapper_directory)
+        sources = [
+            os.path.join(wrapper_directory, "first"),
+            os.path.join(wrapper_directory, "second"),
+        ]
+        for source in sources:
+            sandbox_target = os.path.join(target_root, source)
+            os.makedirs(os.path.dirname(sandbox_target), exist_ok=True)
+            os.symlink("../target", sandbox_target)
+            os.symlink(sandbox_target, source)
+
+        assert _mtree_collision([
+            _mtree_row("./app.runfiles/pkg/module.py", source, "content")
+            for source in sources
+        ]) is None
+
+
+def test_mtree_conflicting_source_fails() -> None:
+    collision = _mtree_collision([
+        _mtree_row("./app.runfiles/pkg/module.py", "first/module.py"),
+        _mtree_row("./app.runfiles/pkg/module.py", "second/module.py"),
+    ])
+    assert collision is not None
+    assert "py_image_layer runfile collision at ./app.runfiles/pkg/module.py:" in collision
+
+
+def test_mtree_identical_regular_files_coalesce_across_markers() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        first = os.path.join(directory, "first")
+        second = os.path.join(directory, "second")
+        for path in (first, second):
+            with open(path, "w") as file:
+                file.write("identical")
+
+        for first_marker, second_marker in [
+            ("contents", "contents"),
+            ("content", "content"),
+            ("content", "contents"),
+        ]:
+            assert _mtree_collision([
+                _mtree_row("./app.runfiles/pkg/module.py", first, first_marker),
+                _mtree_row("./app.runfiles/pkg/module.py", second, second_marker),
+            ]) is None, (first_marker, second_marker)
+
+
+def test_mtree_identical_file_contents_with_spaces_coalesce() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        first = os.path.join(directory, "first file")
+        second = os.path.join(directory, "second file")
+        for path in (first, second):
+            with open(path, "w") as file:
+                file.write("identical")
+
+        assert _mtree_collision([
+            _mtree_row("./app.runfiles/pkg/module.py", first),
+            _mtree_row("./app.runfiles/pkg/module.py", second),
+        ]) is None
+
+
+def test_mtree_sandbox_wrapped_regular_content_coalesces() -> None:
+    with (
+        tempfile.TemporaryDirectory(dir=".") as wrapper_directory,
+        tempfile.TemporaryDirectory() as target_root,
+    ):
+        wrapper_directory = os.path.relpath(wrapper_directory)
+        source = os.path.join(wrapper_directory, "wrapped")
+        sandbox_target = os.path.join(target_root, source)
+        os.makedirs(os.path.dirname(sandbox_target), exist_ok=True)
+        with open(sandbox_target, "w") as file:
+            file.write("identical")
+
+        os.symlink(sandbox_target, source)
+        direct = os.path.join(wrapper_directory, "direct")
+        with open(direct, "w") as file:
+            file.write("identical")
+
+        assert _mtree_collision([
+            _mtree_row("./app.runfiles/pkg/module.py", source, "content"),
+            _mtree_row("./app.runfiles/pkg/module.py", direct),
+        ]) is None
+
+
+def test_mtree_sandbox_wrapped_logical_symlink_fails() -> None:
+    with (
+        tempfile.TemporaryDirectory(dir=".") as wrapper_directory,
+        tempfile.TemporaryDirectory() as target_root,
+    ):
+        wrapper_directory = os.path.relpath(wrapper_directory)
+        source = os.path.join(wrapper_directory, "wrapped")
+        sandbox_target = os.path.join(target_root, source)
+        os.makedirs(os.path.dirname(sandbox_target), exist_ok=True)
+        actual = os.path.join(os.path.dirname(sandbox_target), "actual")
+        with open(actual, "w") as file:
+            file.write("identical")
+        os.symlink("actual", sandbox_target)
+        os.symlink(sandbox_target, source)
+        direct = os.path.join(wrapper_directory, "direct")
+        with open(direct, "w") as file:
+            file.write("identical")
+
+        collision = _mtree_collision([
+            _mtree_row("./app.runfiles/pkg/module.py", source, "content"),
+            _mtree_row("./app.runfiles/pkg/module.py", direct),
+        ])
+        assert collision is not None
+
+
+def test_mtree_logical_content_symlink_fails() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        target = os.path.join(directory, "target")
+        link = os.path.join(directory, "link")
+        direct = os.path.join(directory, "direct")
+        for path in (target, direct):
+            with open(path, "w") as file:
+                file.write("identical")
+        os.symlink("target", link)
+
+        collision = _mtree_collision([
+            _mtree_row("./app.runfiles/pkg/module.py", link, "content"),
+            _mtree_row("./app.runfiles/pkg/module.py", direct),
+        ])
+        assert collision is not None
+
+
+def test_mtree_different_file_contents_fail() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        first = os.path.join(directory, "first")
+        second = os.path.join(directory, "second")
+        with open(first, "w") as file:
+            file.write("first")
+        with open(second, "w") as file:
+            file.write("second")
+
+        collision = _mtree_collision([
+            _mtree_row("./app.runfiles/pkg/module.py", first),
+            _mtree_row("./app.runfiles/pkg/module.py", second),
+        ])
+        assert collision is not None
+        assert "py_image_layer runfile collision at ./app.runfiles/pkg/module.py:" in collision
+
+
+def test_mtree_file_and_symlink_types_fail() -> None:
+    destination = "./app.runfiles/pkg/module.py"
+    source = "same/module.py"
+    collision = _mtree_collision([
+        _mtree_row(destination, source),
+        "{} type=link mode=0755 link={}".format(destination, source),
+    ])
+    assert collision is not None
+    assert "py_image_layer runfile collision at ./app.runfiles/pkg/module.py:" in collision
+
+
+def test_mtree_different_modes_fail() -> None:
+    destination = "./app.runfiles/pkg/module.py"
+    source = "same/module.py"
+    collision = _mtree_collision([
+        _mtree_row(destination, source),
+        _mtree_row(destination, source).replace("mode=0755", "mode=0644"),
+    ])
+    assert collision is not None
+    assert "py_image_layer runfile collision at ./app.runfiles/pkg/module.py:" in collision
+
+
+def test_mtree_ancestor_then_descendant_fails() -> None:
+    collision = _mtree_collision([
+        _mtree_row("./app.runfiles/pkg/module.py", "first/module.py"),
+        _mtree_row("./app.runfiles/pkg/module.py/data", "second/data"),
+    ])
+    assert collision is not None
+    assert "py_image_layer runfile collision at ./app.runfiles/pkg/module.py/data:" in collision
+
+
+def test_mtree_descendant_then_ancestor_fails() -> None:
+    collision = _mtree_collision([
+        _mtree_row("./app.runfiles/pkg/module.py/data", "second/data"),
+        _mtree_row("./app.runfiles/pkg/module.py", "first/module.py"),
+    ])
+    assert collision is not None
+    assert "py_image_layer runfile collision at ./app.runfiles/pkg/module.py/data:" in collision
+
+
+def test_mtree_normalized_alias_fails() -> None:
+    collision = _mtree_collision([
+        _mtree_row("./app.runfiles/pkg/nested/../module.py", "first/module.py"),
+        _mtree_row("./app.runfiles/pkg/./module.py", "second/module.py"),
+    ])
+    assert collision is not None
+    assert "py_image_layer runfile collision at ./app.runfiles/pkg/module.py:" in collision
+
+
+def test_mtree_disjoint_children_succeed() -> None:
+    assert _mtree_collision([
+        _mtree_row("./app.runfiles/pkg/python3.11/module.py", "first/module.py"),
+        _mtree_row("./app.runfiles/pkg/python3.12/module.py", "second/module.py"),
+    ]) is None
 
 
 # ---------------------------------------------------------------------------
@@ -262,6 +517,28 @@ def test_main_ok_below_threshold() -> None:
             content = fh.read()
         assert "OK" in content
         os.unlink(out_path)
+
+
+def test_main_mtree_collision_error() -> None:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".params", delete=False) as params:
+        params.write("#mtree\n")
+        params.write(_mtree_row("./app.runfiles/pkg/module.py", "first/module.py") + "\n")
+        params.write(_mtree_row("./app.runfiles/pkg/module.py", "second/module.py") + "\n")
+        params_path = params.name
+    with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as output:
+        out_path = output.name
+    sys.argv = ["validator", "--threshold_mb", "999", "--output", out_path, "--mtree", params_path]
+    with _capture_stderr():
+        try:
+            main()
+            exit_code = 0
+        except SystemExit as e:
+            exit_code = e.code
+    assert exit_code == 1
+    with open(out_path) as fh:
+        assert "py_image_layer runfile collision at ./app.runfiles/pkg/module.py:" in fh.read()
+    os.unlink(params_path)
+    os.unlink(out_path)
 
 
 def test_main_layer_count_error() -> None:
