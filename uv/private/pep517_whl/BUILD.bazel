@@ -30,6 +30,7 @@ bzl_library(
     deps = [
         ":cc_layer",
         ":exec_transition",
+        "//py/private/interpreter:versions",
         "//py/private/toolchain:types",
         "//uv/private:source_built_wheel",
         "@bazel_lib//lib:resource_sets",

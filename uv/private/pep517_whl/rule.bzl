@@ -8,7 +8,8 @@ build backend the sdist declares in its `[build-system]` table.
 load("@bazel_lib//lib:resource_sets.bzl", "resource_set", "resource_set_attr")
 load("@rules_cc//cc:action_names.bzl", "ACTION_NAMES")
 load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
-load("//py/private/toolchain:types.bzl", "NATIVE_BUILD_TOOLCHAIN", "PY_TOOLCHAIN")
+load("//py/private/interpreter:versions.bzl", "PLATFORMS")
+load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "NATIVE_BUILD_TOOLCHAIN", "PY_TOOLCHAIN")
 load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
 load(":cc_layer.bzl", "CC_LAYER_ATTRS", "extract_cc_layer")
 load(":exec_transition.bzl", "exec_transition")
@@ -225,13 +226,51 @@ def _pep517_whl(ctx):
 
     return _wheel_providers(wheel_dir, ctx.attr.console_scripts)
 
+def _interpreter_platform_triple(runtime):
+    """Best-effort platform triple of the repo a PyRuntimeInfo comes from.
+
+    Interpreter repositories encode the PBS platform triple in their name
+    (`python_3_12_aarch64-apple-darwin`, sanitized variants with underscores,
+    and rules_python's hyphenated `python_3_11_aarch64-apple-darwin`).
+    Returns the matching PLATFORMS key, or None when the interpreter's origin
+    is not recognizable (custom or non-hermetic toolchains).
+    """
+    if runtime == None or runtime.interpreter == None:
+        return None
+    short_path = runtime.interpreter.short_path
+    repo = short_path.split("/")[1] if short_path.startswith("../") else short_path.split("/")[0]
+    for triple in PLATFORMS:
+        if triple in repo or triple.replace("-", "_") in repo:
+            return triple
+    return None
+
+def _cross_compile(ctx, eg_toolchains):
+    """Decide cross mode from exec/target interpreter platform identities.
+
+    The exec interpreter (EXEC_TOOLS_TOOLCHAIN, selected by exec platform)
+    and the target interpreter (PY_TOOLCHAIN, selected by target platform)
+    carry their origin repo's platform triple. Identical triples prove
+    exec == target, so a native build stays native even when the optional
+    NATIVE_BUILD_TOOLCHAIN sentinel is not registered for the platform.
+
+    When either identity is unrecognizable (custom interpreters), fall back
+    to the sentinel's absence as the cross signal — the previous behavior.
+    """
+    exec_tc = eg_toolchains[EXEC_TOOLS_TOOLCHAIN]
+    py_tc = ctx.toolchains[PY_TOOLCHAIN]
+    exec_triple = _interpreter_platform_triple(getattr(exec_tc, "exec_runtime", None) if exec_tc != None else None)
+    target_triple = _interpreter_platform_triple(getattr(py_tc, "py3_runtime", None) if py_tc != None else None)
+    if exec_triple and target_triple:
+        return exec_triple != target_triple
+    return eg_toolchains[NATIVE_BUILD_TOOLCHAIN] == None
+
 def _pep517_native_whl(ctx):
     archive = ctx.file.src
     wheel_dir = ctx.actions.declare_directory("whl")
     patch_args, patch_inputs = _patch_args_and_inputs(ctx)
 
     eg_toolchains = ctx.exec_groups[_TARGET_EXEC_GROUP].toolchains
-    cross = eg_toolchains[NATIVE_BUILD_TOOLCHAIN] == None
+    cross = _cross_compile(ctx, eg_toolchains)
     cc_toolchain_raw = eg_toolchains[_CC_TOOLCHAIN_TYPE]
 
     if cc_toolchain_raw == None:
@@ -416,10 +455,14 @@ attribute maps environment variable names to strings that may reference
 pattern used by `rules_rust`'s `cargo_build_script`.
 
 In native mode (exec platform == target platform) the build uses the host
-CC toolchain. When the target platform differs, the build enters cross mode:
-the CC toolchain of the "target" exec group resolves against a user-registered
-cross CC toolchain (e.g., toolchains_llvm). If no cross CC toolchain is found,
-analysis fails with a diagnostic naming the required toolchain type.
+CC toolchain. Cross mode is decided by comparing the platform triples of the
+exec interpreter (exec-tools toolchain) and the target interpreter (Python
+toolchain): differing triples enter cross mode, where the CC toolchain of
+the "target" exec group resolves against a user-registered cross CC toolchain
+(e.g., toolchains_llvm). If no cross CC toolchain is found, analysis fails
+with a diagnostic naming the required toolchain type. When the interpreter
+origins are unrecognizable, the optional NATIVE_BUILD_TOOLCHAIN sentinel's
+absence is used as the cross signal.
 
 """,
     attrs = _pep517_whl_attrs | {
@@ -444,6 +487,7 @@ analysis fails with a diagnostic naming the required toolchain type.
         _TARGET_EXEC_GROUP: exec_group(
             toolchains = [
                 PY_TOOLCHAIN,
+                config_common.toolchain_type(EXEC_TOOLS_TOOLCHAIN, mandatory = False),
                 config_common.toolchain_type(NATIVE_BUILD_TOOLCHAIN, mandatory = False),
                 config_common.toolchain_type(_CC_TOOLCHAIN_TYPE, mandatory = False),
             ],
