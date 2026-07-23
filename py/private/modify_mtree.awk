@@ -60,14 +60,28 @@ function decode_mtree_path(path) {
     return path
 }
 
+function replace_metadata_field(row, pattern, replacement) {
+    if (!match(row, pattern)) {
+        return row
+    }
+    return substr(row, 1, RSTART) replacement substr(row, RSTART + RLENGTH)
+}
+
 {
+    source_field = ""
+    source_type = ""
+    for (field = 2; field <= NF; field++) {
+        if ($field ~ /^(contents|content|link)=[^ ]+$/) {
+            source_field = $field
+        } else if ($field ~ /^type=[^ ]+$/) {
+            source_type = substr($field, index($field, "=") + 1)
+        }
+    }
+
     if (ARGIND != source_argind) {
-        for (field = 2; field <= NF; field++) {
-            if ($field ~ /^(contents|content|link)=[^ ]+$/) {
-                source_path = substr($field, index($field, "=") + 1)
-                symlink_map[decode_mtree_path(source_path)] = $1
-                break
-            }
+        if (source_field != "") {
+            source_path = substr(source_field, index(source_field, "=") + 1)
+            symlink_map[decode_mtree_path(source_path)] = $1
         }
         next
     }
@@ -81,17 +95,11 @@ function decode_mtree_path(path) {
     #     might be symlinks Bazel didn't flag (repo-rule-staged ones like
     #     rules_python's `bin/python -> python3.11`). Empty `readlink` means
     #     it's a regular file and the row passes through unchanged.
-    is_hot_path = ($0 ~ /type=link/) && ($0 ~ /link=/)
-    is_slow_path = ($0 ~ /type=file/) && ($0 ~ /content=/)
+    is_hot_path = source_type == "link" && source_field ~ /^link=/
+    is_slow_path = source_type == "file" && source_field ~ /^content=/
     if (is_hot_path || is_slow_path) {
-        if (is_hot_path) {
-            match($0, /link=[^ ]+/)
-        } else {
-            match($0, /content=[^ ]+/)
-        }
-        content_field = substr($0, RSTART, RLENGTH)
-        split(content_field, parts, "=")
-        path = decode_mtree_path(parts[2])
+        source_path = substr(source_field, index(source_field, "=") + 1)
+        path = decode_mtree_path(source_path)
         symlink_map[path] = $1
 
         # Plain `readlink` first: keep its result if relative
@@ -193,9 +201,11 @@ END {
                 # Already a relative path
                 linked_to = resolved_path
             }
-            sub(/type=[^ ]+/, "type=link", original_line)
-            if (!sub(/content=[^ ]+/, "link=" linked_to, original_line)) {
-                sub(/link=[^ ]+/, "link=" linked_to, original_line)
+            original_line = replace_metadata_field(original_line, "[[:space:]]type=[^ ]+", "type=link")
+            if (original_line ~ /[[:space:]]content=[^ ]+/) {
+                original_line = replace_metadata_field(original_line, "[[:space:]]content=[^ ]+", "link=" linked_to)
+            } else {
+                original_line = replace_metadata_field(original_line, "[[:space:]]link=[^ ]+", "link=" linked_to)
             }
             out_lines[++n] = original_line
         } else {

@@ -126,7 +126,10 @@ if [[ "${USE_BAZEL_VERSION:-}" != 9* ]]; then
         fail "expected the nested launcher source layers to build"
     fi
     listing="bazel-bin/oci/py_image_layer/_nested_prefix_sources.listing"
-    expect_listing_count "$listing" "/app.runfiles/_main/nested/data.txt" 2
+    expect_listing_count "$listing" "/app" 1
+    expect_listing_count "$listing" "/app.runfiles/_main/nested/data.txt" 3
+    expect_listing_count "$listing" "/app/foo.runfiles/worker" 1
+    expect_listing_count "$listing" "/app/foo.runfiles/worker.runfiles/_main/nested/data.txt" 1
     if grep -Fq './app.runfiles/worker.runfiles/' "$listing"; then
         cat "$listing" >&2
         fail "nested launcher prefix leaked into the shared runfiles layout"

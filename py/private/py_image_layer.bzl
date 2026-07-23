@@ -574,6 +574,10 @@ def _source_destination(sp, strip_prefix, root, executable_dsts):
             if runfiles_prefix == None or len(executable_short_path) > len(runfiles_prefix):
                 runfiles_prefix = executable_short_path
     if runfiles_prefix != None:
+        if strip_prefix and not runfiles_prefix.startswith("../") and not executable_dsts[runfiles_prefix]:
+            destination = _apply_strip_prefix(sp, strip_prefix, root)
+            if destination != "./app.runfiles/_main/" + sp:
+                return destination
         runfiles_root = "/app" if executable_dsts[runfiles_prefix] else root
         return _apply_strip_prefix(sp, runfiles_prefix, runfiles_root)
     if sp.startswith("../"):

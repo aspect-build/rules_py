@@ -100,14 +100,14 @@ def image_layer_analysis_test_suite():
         cmd = "printf shared-link-ok > $@",
     )
     _relative_symlink(
-        name = "_repo_mapping_shared_link",
+        name = "_repo_mapping_link=shared",
         target_path = "repo_mapping/shared.txt",
     )
     py_binary(
         name = "_repo_mapping_images_bin",
         srcs = ["server.py"],
         data = [
-            ":_repo_mapping_shared_link",
+            ":_repo_mapping_link=shared",
             ":_repo_mapping_shared_target",
         ],
         dep_group = "images",
@@ -118,7 +118,7 @@ def image_layer_analysis_test_suite():
         name = "_repo_mapping_venv_bin",
         srcs = ["server.py"],
         data = [
-            ":_repo_mapping_shared_link",
+            ":_repo_mapping_link=shared",
             ":_repo_mapping_shared_target",
         ],
         dep_group = "venv_images",
@@ -202,8 +202,8 @@ RUNFILES_DIR="$$root/app.runfiles" "$$root/app/bin/external_launcher" > "$$root/
 test "$$(cat "$$root/images.out")" = "server ok"
 test "$$(cat "$$root/venv.out")" = "server ok"
 test "$$(cat "$$root/external.out")" = "external 5"
-test -L "$$root/app.runfiles/_main/oci/py_image_layer/_repo_mapping_shared_link"
-test "$$(cat "$$root/app.runfiles/_main/oci/py_image_layer/_repo_mapping_shared_link")" = "shared-link-ok"
+test -L "$$root/app.runfiles/_main/oci/py_image_layer/_repo_mapping_link=shared"
+test "$$(cat "$$root/app.runfiles/_main/oci/py_image_layer/_repo_mapping_link=shared")" = "shared-link-ok"
 touch $@
 """,
         toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
@@ -226,7 +226,7 @@ touch $@
         cmd = "printf ordinary > $@",
     )
     _target_file_symlink(
-        name = "_grouped_payload_link",
+        name = "_grouped_content=payload_link",
         target = ":_grouped_payload",
     )
     native.filegroup(
@@ -242,7 +242,7 @@ touch $@
         srcs = ["server.py"],
         data = [
             ":_grouped_payload",
-            ":_grouped_payload_link",
+            ":_grouped_content=payload_link",
             ":_grouped_tool",
         ],
     )
@@ -280,8 +280,8 @@ done
 prefix="$$root/app.runfiles/_main/oci/py_image_layer"
 test "$$("$$prefix/grouped/tool.sh")" = grouped-ok
 test ! -x "$$prefix/grouped/ordinary.txt"
-test -L "$$prefix/_grouped_payload_link"
-test "$$(cat "$$prefix/_grouped_payload_link")" = grouped-payload
+test -L "$$prefix/_grouped_content=payload_link"
+test "$$(cat "$$prefix/_grouped_content=payload_link")" = grouped-payload
 RUNFILES_DIR="$$root/app.runfiles" "$$root/app/bin/_grouped_source_bin" > "$$root/launcher.out"
 test "$$(cat "$$root/launcher.out")" = "server ok"
 RUNFILES_DIR="$$scalar_root/app.runfiles" "$$scalar_root/app/bin/_scalar_launcher_collision" > "$$scalar_root/launcher.out"
@@ -397,6 +397,12 @@ touch $@
         py_layer_tier(
             name = "_nested_prefix_tier",
             interpreter_group = "interpreter",
+            strip_prefix = "oci/py_image_layer/_nested_prefix",
+        )
+        py_layer_tier(
+            name = "_nested_prefix_nonmatching_tier",
+            interpreter_group = "interpreter",
+            strip_prefix = "does/not/match",
         )
         py_image_layer(
             name = "_nested_prefix_layers",
@@ -416,11 +422,23 @@ touch $@
             launcher_dir = "/app/bin",
             layer_tier = ":_nested_prefix_tier",
         )
+        py_image_layer(
+            name = "_nested_prefix_scalar_layers",
+            binary = ":_nested_prefix/foo.runfiles/worker",
+            layer_tier = ":_nested_prefix_tier",
+        )
+        py_image_layer(
+            name = "_nested_prefix_nonmatching_scalar_layers",
+            binary = ":_nested_prefix/foo.runfiles/worker",
+            layer_tier = ":_nested_prefix_nonmatching_tier",
+        )
         native.genrule(
             name = "_nested_prefix_sources_listing",
             srcs = [
                 ":_nested_prefix_layers_only_src",
+                ":_nested_prefix_nonmatching_scalar_layers_only_src",
                 ":_nested_prefix_reversed_layers_only_src",
+                ":_nested_prefix_scalar_layers_only_src",
             ],
             outs = ["_nested_prefix_sources.listing"],
             cmd = "for f in $(SRCS); do $(BSDTAR_BIN) -tf $$f; done > $@",
