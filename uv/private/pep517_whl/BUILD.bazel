@@ -29,6 +29,7 @@ bzl_library(
     srcs = ["rule.bzl"],
     deps = [
         ":cc_layer",
+        ":exec_transition",
         "//py/private/toolchain:types",
         "//uv/private:source_built_wheel",
         "@bazel_lib//lib:resource_sets",
@@ -45,6 +46,12 @@ bzl_library(
         "@rules_cc//cc:action_names_bzl",
         "@rules_cc//cc/common",
     ],
+)
+
+bzl_library(
+    name = "exec_transition",
+    srcs = ["exec_transition.bzl"],
+    visibility = ["//uv/private:__subpackages__"],
 )
 
 py_library(
