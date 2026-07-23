@@ -411,7 +411,13 @@ touch $@
             ":_scalar_default_layers_only_src",
         ],
         outs = ["_scalar_default_sources.listing"],
-        cmd = "for f in $(SRCS); do $(BSDTAR_BIN) -tf $$f; done > $@",
+        cmd = """
+set -eu
+scalar="$$( $(BSDTAR_BIN) -tf $(location :_scalar_default_layers_only_src))"
+singleton="$$( $(BSDTAR_BIN) -tf $(location :_scalar_default_binaries_layers_only_src))"
+test "$$scalar" = "$$singleton"
+printf '%s\\n' "$$scalar" > "$@"
+""",
         toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
     )
 

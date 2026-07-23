@@ -1,7 +1,7 @@
 """py_image_layer — analysis-time grouped OCI layers with globally shared pip tars.
 
-`_layer_aspect` wires onto both `py_image_layer` binary inputs. Scalar binaries
-also receive `_merge_aspect` so their merged pip layers remain action-shared.
+`_layer_aspect` and `_merge_aspect` wire onto each `py_image_layer` binary.
+Single-binary images reuse action-shared merged pip layers.
 
 `_layer_aspect` propagates through `deps`/`data`/`actual`. For pip packages it
 creates aspect-owned per-package tars at the pip target's namespace (globally
@@ -19,8 +19,8 @@ Layer tier (groups + compression) is carried by the `py_layer_tier` rule which p
 Sharing model:
   - Solo whole-group + subpath-split pip tars: action-shared across every rule using
     that package (declared at the pip target's namespace).
-  - Multi-member merged tars: action-shared for scalar binaries; one unioned per-rule
-    action for binary lists, with deterministic content for CAS / registry dedupe.
+  - Multi-member merged tars: action-shared for a single binary; one unioned
+    per-rule action for multiple binaries, with deterministic content.
   - First-party grouped tars: per-rule action, one tar per group, collected from
     matched py_library targets in the binaries' dep closures.
   - Ungrouped pip packages: squashed by the rule into one per-rule tar.
@@ -850,9 +850,10 @@ def _declare_group_tar(ctx, bsdtar, bsdtar_files, out_name, group_name, files, m
     return tar_out
 
 def _py_image_layer_impl(ctx):
-    binaries = ([ctx.attr.binary] if ctx.attr.binary != None else []) + ctx.attr.binaries
+    binaries = ctx.attr.binaries
     if not binaries:
         fail("py_image_layer requires at least one binary")
+    single_binary = len(binaries) == 1
     infos = [binary[_LayerInfo] for binary in binaries]
     bsdtar, bsdtar_files = _tar_toolchain(ctx)
 
@@ -861,7 +862,7 @@ def _py_image_layer_impl(ctx):
     pkg_by_key = {}
     for info in infos:
         for pkg in info.pip_packages.to_list():
-            key = pkg.label if ctx.attr.binary != None else tuple(sorted([f.path for f in pkg.files.to_list()]))
+            key = tuple(sorted([f.path for f in pkg.files.to_list()]))
             if key not in pkg_by_key:
                 pkg_by_key[key] = pkg
     all_pkgs = pkg_by_key.values()
@@ -1045,14 +1046,14 @@ def _py_image_layer_impl(ctx):
     seen_fp_labels = {}
     for info in infos:
         for entry in info.first_party_layers.to_list():
-            if ctx.attr.binary != None:
+            if single_binary:
                 if entry.label in seen_fp_labels:
                     continue
                 seen_fp_labels[entry.label] = True
             fp_by_group.setdefault(entry.group, []).append(entry.files)
 
     prebuilt_group_tars = {}
-    if ctx.attr.binary != None:
+    if single_binary:
         for layer in interpreter_layers.values():
             prebuilt_group_tars[layer.group] = layer.tar
             fp_by_group.setdefault(layer.group, [])
@@ -1084,7 +1085,7 @@ def _py_image_layer_impl(ctx):
             )
         all_tars.append(tar_out)
 
-    if ctx.attr.binary == None:
+    if not single_binary:
         all_tars.extend([layer.tar for layer in interpreter_layers.values()])
 
     pip_tars = {}
@@ -1092,13 +1093,13 @@ def _py_image_layer_impl(ctx):
     for pkg in all_pkgs:
         for layer in pkg.layers:
             pip_tars[layer.tar.path] = layer.tar
-        if ctx.attr.binary == None and pkg.merge_group != None:
+        if not single_binary and pkg.merge_group != None:
             merged.setdefault(pkg.merge_group, []).append(pkg.files)
 
     all_tars.extend(pip_tars.values())
 
-    if ctx.attr.binary != None:
-        all_tars.extend([tar for _group_name, tar in sorted(ctx.attr.binary[_MergedLayerInfo].merged_tars.items())])
+    if single_binary:
+        all_tars.extend([tar for _group_name, tar in sorted(binaries[0][_MergedLayerInfo].merged_tars.items())])
     else:
         for group_name in sorted(merged):
             algorithm, level, ext = _compression_for(plan, group_name)
@@ -1208,11 +1209,10 @@ def _py_image_layer_impl(ctx):
 _py_image_layer = rule(
     implementation = _py_image_layer_impl,
     attrs = {
-        "binary": attr.label(
-            aspects = [_layer_aspect, _merge_aspect],
-        ),
         "binaries": attr.label_list(
-            aspects = [_layer_aspect],
+            allow_empty = False,
+            aspects = [_layer_aspect, _merge_aspect],
+            mandatory = True,
         ),
         "launcher_dir": attr.string(
             default = "",
@@ -1280,8 +1280,8 @@ def py_image_layer(
          binary inputs' dep closures).
       3. Solo-group and subpath-split pip tars — built by `_layer_aspect` at each pip
          target's own namespace; globally shared across every rule using that package.
-      4. Multi-member merged tars — action-shared at a scalar binary or one per
-         group from the closure-filtered union across a binary list.
+      4. Multi-member merged tars — action-shared for a single binary or one per
+         group from the closure-filtered union across multiple binaries.
       5. Ungrouped pip packages → one squashed rule-created tar.
       6. Remaining first-party Python source files → the "default" layer.
 
@@ -1317,7 +1317,7 @@ def py_image_layer(
     else:
         if binary == None:
             fail("py_image_layer requires binary or binaries")
-        binaries = []
+        binaries = [binary]
 
     for key in groups:
         if _split_glob_key(key)[1] != None:
@@ -1328,7 +1328,6 @@ def py_image_layer(
 
     _py_image_layer(
         name = name,
-        binary = binary,
         binaries = binaries,
         launcher_dir = launcher_dir,
         groups = groups,

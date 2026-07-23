@@ -231,15 +231,6 @@ genrule(
 )
 
 py_image_layer(
-    name = "my_app_select_layers",
-    binary = select({
-        ":_python_3_11": ":my_app_bin",
-        "//conditions:default": ":my_app_peer_bin",
-    }),
-    layer_tier = ":my_app_tier",
-)
-
-py_image_layer(
     name = "my_app_binaries_layers",
     binaries = select({
         ":_python_3_11": [
@@ -260,7 +251,7 @@ build_test(
         ":_configured_wheel_collision_layers",
         ":my_app_binaries_layers",
         ":my_app_launchers_layers",
-        ":my_app_select_layers",
+        ":_scalar_default_sources_listing",
     ],
 )
 
