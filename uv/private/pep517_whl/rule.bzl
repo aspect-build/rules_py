@@ -190,6 +190,28 @@ def _pep517_native_whl(ctx):
     wheel_dir = ctx.actions.declare_directory("whl")
     patch_args, patch_inputs = _patch_args_and_inputs(ctx)
 
+    eg_toolchains = ctx.exec_groups[_TARGET_EXEC_GROUP].toolchains
+    cross = eg_toolchains[NATIVE_BUILD_TOOLCHAIN] == None
+    cc_toolchain = eg_toolchains[_CC_TOOLCHAIN_TYPE]
+
+    if cc_toolchain == None:
+        if cross:
+            fail(
+                "Cross-compilation of sdist '{}' requires a CC toolchain " +
+                "registered for the target platform. No toolchain of type {} " +
+                "resolved against the current exec/target platform combination.\n" +
+                "Register a cross CC toolchain (e.g., toolchains_llvm with " +
+                "matching target_compatible_with) via register_toolchains.".format(
+                    ctx.attr.src.label,
+                    _CC_TOOLCHAIN_TYPE,
+                ),
+            )
+        fail(
+            "sdist '{}' requires a CC toolchain but none resolved. " +
+            "Register a CC toolchain (e.g., rules_cc, toolchains_llvm) " +
+            "via register_toolchains.".format(ctx.attr.src.label),
+        )
+
     env = _common_env(ctx)
     extra_inputs, known_variables = _collect_toolchain_inputs_and_vars(ctx)
 
@@ -213,12 +235,20 @@ def _pep517_native_whl(ctx):
     if "CXX" not in ctx.attr.env and cc_tools.get("CXX") and infer_cxx:
         env[_INFER_CXX_COMPANION] = "1"
 
+    if cross:
+        env["RULES_PY_CROSS_COMPILE"] = "1"
+
     ctx.actions.run(
-        mnemonic = "PySdistNativeBuild",
-        progress_message = "Native source compiling {} to a whl".format(archive.basename),
+        mnemonic = "PySdistCrossBuild" if cross else "PySdistNativeBuild",
+        progress_message = "{} source compiling {} to a whl".format(
+            "Cross" if cross else "Native",
+            archive.basename,
+        ),
         executable = ctx.executable.tool,
         toolchain = None,
-        arguments = ctx.attr.args + patch_args + _memory_args(ctx) + [
+        arguments = ctx.attr.args + patch_args + _memory_args(ctx) + (
+            ["--cross"] if cross else []
+        ) + [
             "--execroot-marker",
             _EXECROOT_MARKER,
             archive.path,
@@ -299,8 +329,11 @@ attribute maps environment variable names to strings that may reference
 `$(VAR)` make-variables sourced from those toolchains. This mirrors the
 pattern used by `rules_rust`'s `cargo_build_script`.
 
-The build is guaranteed to occur on an execution platform matching the
-constraints of the target platform.
+In native mode (exec platform == target platform) the build uses the host
+CC toolchain. When the target platform differs, the build enters cross mode:
+the CC toolchain of the "target" exec group resolves against a user-registered
+cross CC toolchain (e.g., toolchains_llvm). If no cross CC toolchain is found,
+analysis fails with a diagnostic naming the required toolchain type.
 
 """,
     attrs = _pep517_whl_attrs | {
@@ -318,24 +351,11 @@ constraints of the target platform.
     },
     fragments = ["cpp"],
     exec_groups = {
-        # Create an exec group which depends on a toolchain which can only be
-        # resolved to exec_compatible_with constraints equal to the target. This
-        # allows us to discover what those constraints need to be.
-        #
-        # NATIVE_BUILD_TOOLCHAIN has matching exec_compatible_with and
-        # target_compatible_with, so this exec group only resolves when the exec
-        # and target platforms match. Cross-compilation of sdists is intentionally
-        # unsupported: PEP 517 build backends (setuptools, meson-python, etc.)
-        # have no standard mechanism for cross-compilation, Python headers for
-        # the target platform are not readily available, and output wheel tags
-        # would need to encode the target platform with no upstream tooling
-        # support. Packages that need cross-compiled native extensions should
-        # publish pre-built wheels for their target platforms instead.
         _TARGET_EXEC_GROUP: exec_group(
             toolchains = [
                 PY_TOOLCHAIN,
-                NATIVE_BUILD_TOOLCHAIN,
-                _CC_TOOLCHAIN_TYPE,
+                config_common.toolchain_type(NATIVE_BUILD_TOOLCHAIN, mandatory = False),
+                config_common.toolchain_type(_CC_TOOLCHAIN_TYPE, mandatory = False),
             ],
         ),
     },
