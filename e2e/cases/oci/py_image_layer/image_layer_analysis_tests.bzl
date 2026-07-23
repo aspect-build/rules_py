@@ -197,7 +197,7 @@ touch $@
     )
     native.genrule(
         name = "_grouped_payload",
-        outs = ["grouped/payload.txt"],
+        outs = ["grouped/content=payload.txt"],
         cmd = "printf grouped-payload > $@",
     )
     native.genrule(
@@ -255,10 +255,11 @@ done
 prefix="$$root/app.runfiles/_main/oci/py_image_layer"
 test "$$("$$prefix/grouped/tool.sh")" = grouped-ok
 test ! -x "$$prefix/grouped/ordinary.txt"
+test -L "$$prefix/_grouped_payload_link"
 test "$$(cat "$$prefix/_grouped_payload_link")" = grouped-payload
 RUNFILES_DIR="$$root/app.runfiles" "$$root/app/bin/_grouped_source_bin" > "$$root/launcher.out"
 test "$$(cat "$$root/launcher.out")" = "server ok"
-count="$$(for archive in $(SRCS); do $(BSDTAR_BIN) -tf "$$archive"; done | awk '/\\/grouped\\/payload.txt$$/ { n++ } END { print n + 0 }')"
+count="$$(for archive in $(SRCS); do $(BSDTAR_BIN) -tf "$$archive"; done | awk '/\\/grouped\\/content=payload.txt$$/ { n++ } END { print n + 0 }')"
 test "$$count" -eq 1
 count="$$(for archive in $(locations :_grouped_source_layers_no_src); do $(BSDTAR_BIN) -tf "$$archive"; done | awk '/\\/app\\/bin\\/_grouped_source_bin$$/ { n++ } END { print n + 0 }')"
 test "$$count" -eq 1

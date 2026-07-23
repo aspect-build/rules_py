@@ -62,11 +62,12 @@ function decode_mtree_path(path) {
 
 {
     if (ARGIND != source_argind) {
-        match($0, /(contents|content|link)=[^ ]+/)
-        if (RSTART != 0) {
-            content_field = substr($0, RSTART, RLENGTH)
-            split(content_field, parts, "=")
-            symlink_map[decode_mtree_path(parts[2])] = $1
+        for (field = 2; field <= NF; field++) {
+            if ($field ~ /^(contents|content|link)=[^ ]+$/) {
+                source_path = substr($field, index($field, "=") + 1)
+                symlink_map[decode_mtree_path(source_path)] = $1
+                break
+            }
         }
         next
     }
