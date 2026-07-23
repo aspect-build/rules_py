@@ -15,6 +15,7 @@ bzl_library(
     srcs = ["rule.bzl"],
     deps = [
         ":cc_layer",
+        ":exec_transition",
         "//py/private/toolchain:types",
         "//uv/private:source_built_wheel",
         "@bazel_lib//lib:resource_sets",
@@ -37,4 +38,10 @@ py_library(
     name = "memory_monitor",
     srcs = ["memory_monitor.py"],
     visibility = ["//visibility:public"],
+)
+
+bzl_library(
+    name = "exec_transition",
+    srcs = ["exec_transition.bzl"],
+    deps = ["@aspect_rules_py_uv_host//:defs"],
 )
