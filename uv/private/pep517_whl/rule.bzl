@@ -11,6 +11,7 @@ load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
 load("//py/private/toolchain:types.bzl", "NATIVE_BUILD_TOOLCHAIN", "PY_TOOLCHAIN")
 load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
 load(":cc_layer.bzl", "CC_LAYER_ATTRS", "extract_cc_layer")
+load(":exec_transition.bzl", "exec_transition")
 
 _CC_TOOLCHAIN_TYPE = Label("@bazel_tools//tools/cpp:toolchain_type")
 _TARGET_EXEC_GROUP = "target"
@@ -310,6 +311,10 @@ def _pep517_native_whl(ctx):
     else:
         cross_args = []
 
+    _tool = ctx.attr.tool
+    if type(_tool) == "list":
+        _tool = _tool[0]
+
     ctx.actions.run(
         mnemonic = "PySdistCrossBuild" if cross else "PySdistNativeBuild",
         progress_message = "{} source compiling {} to a whl".format(
@@ -328,7 +333,7 @@ def _pep517_native_whl(ctx):
             [archive] + patch_inputs,
             transitive = extra_inputs,
         ),
-        tools = [ctx.attr.tool[DefaultInfo].files_to_run],
+        tools = [_tool[DefaultInfo].files_to_run],
         outputs = [wheel_dir],
         env = env,
         exec_group = _TARGET_EXEC_GROUP,
@@ -417,6 +422,10 @@ analysis fails with a diagnostic naming the required toolchain type.
                   "`$(EXECROOT)/` so it remains valid after the backend changes into " +
                   "the unpacked source tree. Omit CC/CXX/AR/LD/STRIP to use the " +
                   "configured C++ action tools.",
+        ),
+        "tool": attr.label(executable = True, cfg = exec_transition),
+        "_allowlist_function_transition": attr.label(
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
         ),
     } | CC_LAYER_ATTRS,
     fragments = ["cpp"],
