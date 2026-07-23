@@ -167,6 +167,7 @@ manifest:
     text_unidecode: text_unidecode
     tools: cron_descriptor
     typer: typer
+    types_requests: types_requests
     typing_extensions: typing_extensions
     typing_inspection: typing_inspection
     tzdata: tzdata

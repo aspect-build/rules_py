@@ -1,6 +1,18 @@
 #!/usr/bin/env python3
 
-from generate import get_importable_module_name, find_unique_shallowest_prefixes
+from generate import find_unique_shallowest_prefixes, get_importable_module_name, is_stub_package
+
+
+def test_stub_package_names() -> None:
+    # Given: normalized distribution names covering supported stub conventions.
+    package_names = ["asyncpg_stubs", "types_requests", "foo_types", "stubs_foo", "requests"]
+
+    # When: each name is classified.
+    classifications = [is_stub_package(name) for name in package_names]
+
+    # Then: conventional stub names are recognized without matching runtime packages.
+    assert classifications == [True, True, True, True, False]
+
 
 def test_parse_names() -> None:
     assert get_importable_module_name("foo.py") == "foo"

@@ -410,6 +410,7 @@ load("@aspect_rules_py//uv:defs.bzl", "gazelle_python_manifest")
 gazelle_python_manifest(
     name = "gazelle_python_manifest",
     hub = "pypi",
+    include_stub_packages = True,
     venvs = ["default"],
 )
 ```
@@ -417,6 +418,9 @@ gazelle_python_manifest(
 **Parameters:**
 
 - `hub` — The name of your uv hub (must match `uv.declare_hub(hub_name = ...)`).
+- `include_stub_packages` — Whether to index conventional stub distributions such as
+  `types-requests` and `asyncpg-stubs`. The Gazelle Python extension then adds matching
+  stub dependencies automatically. Defaults to `False`.
 - `venvs` — List of dependency group names whose wheels should be indexed. Module mappings
   from all listed dependency groups are merged into a single manifest.
 
