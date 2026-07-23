@@ -48,6 +48,14 @@ def normalize_name(name: str) -> str:
     ])
 
 
+def is_stub_package(name: str) -> bool:
+    """Return whether a normalized distribution name follows a stub-package convention."""
+    return (
+        name.endswith(("_stubs", "_types"))
+        or name.startswith(("types_", "stubs_"))
+    )
+
+
 def extract_package_name(whl_path: Path) -> Optional[str]:
     """
     Opens a .whl file, finds the METADATA file in .dist-info/, and extracts
@@ -281,6 +289,12 @@ def main() -> None:
         '--hub_name',
     )
 
+    parser.add_argument(
+        '--include_stub_packages',
+        action='store_true',
+        help="Include conventional stub distributions for Gazelle's automatic stub dependency resolution.",
+    )
+
     args = parser.parse_args()
 
     # Read wheel paths
@@ -316,6 +330,11 @@ def main() -> None:
         package_name = extract_package_name(whl_path)
         if not package_name:
             continue
+
+        # The Gazelle Python resolver looks up these synthetic module names
+        # after resolving the corresponding runtime distribution.
+        if args.include_stub_packages and is_stub_package(package_name):
+            all_module_package_pairs.append((package_name, package_name))
 
         # Identify importable modules for this package
         modules = identify_modules(whl_path, package_name)
