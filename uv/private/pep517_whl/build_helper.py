@@ -194,7 +194,7 @@ def _make_compiler_wrapper(
     return wrapper
 
 
-def _get_wrapper_flags(cflags: str) -> list:
+def _get_wrapper_flags(cflags: str) -> list[str]:
     """Extract identity flags (-target, --sysroot, -isysroot, ...) from CFLAGS.
 
     The PEP 517 backend (setuptools, meson-python) may strip these when
@@ -232,7 +232,7 @@ def _make_cross_compiler_wrapper(
     tmpdir: str,
     name: str,
     compiler_path: str,
-    wrapper_flags: list,
+    wrapper_flags: list[str],
     lld_path: Optional[str] = None,
 ) -> str:
     wrapper = path.join(tmpdir, ".aspect_rules_py_compilers", name)
