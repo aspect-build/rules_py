@@ -48,6 +48,73 @@ if sysroot and "-isysroot" not in filtered_args:
 os.execv("{compiler_path}", [os.path.basename("{compiler_path}")] + filtered_args)
 """
 
+_IDENTITY_FLAG_PREFIXES = (
+    "-target",
+    "--target",
+    "--sysroot",
+    "-isysroot",
+    "-mmacosx-version-min",
+)
+
+_DROP_LINKER_FLAGS = frozenset({
+    "-Wl,--start-group",
+    "-Wl,--end-group",
+    "-Wl,--as-needed",
+    "-Wl,--allow-shlib-undefined",
+    "-Wl,-O1",
+    "-Wl,-start_group",
+    "-Wl,-end_group",
+    "-bundle",
+})
+
+_DROP_LINKER_PAIRS = frozenset({
+    "-arch",
+    "-undefined",
+    "-current_version",
+    "-compatibility_version",
+    "-install_name",
+})
+
+_DROP_LINKER_PREFIXES = (
+    "-mmacosx-version-min",
+)
+
+_CROSS_COMPILER_WRAPPER = """#!/usr/bin/env python3
+import os
+import sys
+
+args = sys.argv[1:]
+wrapper_flags = {wrapper_flags!r}
+drop_exact = {drop_exact!r}
+drop_pairs = {drop_pairs!r}
+drop_prefixes = {drop_prefixes!r}
+lld_path = {lld_path!r}
+debug_flag = {debug_flag!r}
+
+is_link = "-c" not in args
+filtered = []
+i = 0
+while i < len(args):
+    a = args[i]
+    if a == debug_flag or a in drop_exact or any(a.startswith(p) for p in drop_prefixes):
+        i += 1
+        continue
+    if a in drop_pairs and i + 1 < len(args):
+        i += 2
+        continue
+    filtered.append(a)
+    i += 1
+
+if is_link and lld_path:
+    os.environ.setdefault("PATH", "")
+    os.environ["PATH"] = os.path.dirname(lld_path) + os.pathsep + os.environ["PATH"]
+    if "-fuse-ld=lld" not in filtered:
+        filtered.insert(0, "-fuse-ld=lld")
+
+real = {compiler_path!r}
+os.execv(real, [os.path.basename(real)] + wrapper_flags + filtered)
+"""
+
 
 def _darwin_sysroot() -> Optional[str]:
     """Return the macOS SDK path, or None if unavailable."""
@@ -127,6 +194,63 @@ def _make_compiler_wrapper(
     return wrapper
 
 
+def _get_wrapper_flags(cflags: str) -> list[str]:
+    """Extract identity flags (-target, --sysroot, -isysroot, ...) from CFLAGS.
+
+    The PEP 517 backend (setuptools, meson-python) may strip these when
+    constructing its own compile commands. The cross wrapper re-injects
+    them on every invocation to guarantee the real compiler targets the
+    correct platform.
+    """
+    parts = shlex.split(cflags)
+    result = []
+    i = 0
+    while i < len(parts):
+        p = parts[i]
+        if any(p == prefix or p.startswith(prefix + "=") for prefix in _IDENTITY_FLAG_PREFIXES):
+            result.append(p)
+            if "=" not in p and i + 1 < len(parts) and not parts[i + 1].startswith("-"):
+                result.append(parts[i + 1])
+                i += 1
+        i += 1
+    return result
+
+
+def _find_lld(compiler_path: str) -> Optional[str]:
+    """Locate ld.lld or ld64.lld next to the compiler, if present."""
+    d = path.dirname(compiler_path)
+    if not d:
+        return None
+    for name in ("ld.lld", "ld64.lld", "lld"):
+        candidate = path.join(d, name)
+        if path.isfile(candidate) and os.access(candidate, os.X_OK):
+            return candidate
+    return None
+
+
+def _make_cross_compiler_wrapper(
+    tmpdir: str,
+    name: str,
+    compiler_path: str,
+    wrapper_flags: list[str],
+    lld_path: Optional[str] = None,
+) -> str:
+    wrapper = path.join(tmpdir, ".aspect_rules_py_compilers", name)
+    makedirs(path.dirname(wrapper), exist_ok=True)
+    with open(wrapper, "w") as f:
+        f.write(_CROSS_COMPILER_WRAPPER.format(
+            compiler_path=compiler_path,
+            wrapper_flags=wrapper_flags,
+            drop_exact=sorted(_DROP_LINKER_FLAGS),
+            drop_pairs=sorted(_DROP_LINKER_PAIRS),
+            drop_prefixes=list(_DROP_LINKER_PREFIXES),
+            lld_path=lld_path,
+            debug_flag=_DEBUG_FLAG,
+        ))
+    chmod(wrapper, 0o755)
+    return wrapper
+
+
 def _override_tool(env: Dict[str, str], key: str, wrapper: str) -> None:
     current = env.get(key)
     if not current:
@@ -154,7 +278,11 @@ def _absolutize_tool_paths(env: Dict[str, str]) -> None:
             env[key] = shlex.join(parts)
 
 
-def _compiler_env(tmpdir: str, execroot_marker: Optional[str] = None) -> Dict[str, str]:
+def _compiler_env(
+    tmpdir: str,
+    execroot_marker: Optional[str] = None,
+    cross: bool = False,
+) -> Dict[str, str]:
     env = dict(os.environ)
     if execroot_marker:
         execroot = os.getcwd()
@@ -192,11 +320,31 @@ def _compiler_env(tmpdir: str, execroot_marker: Optional[str] = None) -> Dict[st
 
     sysroot = _darwin_sysroot()
 
-    cc = _make_compiler_wrapper(tmpdir, "cc", cc_path, sysroot)
-    cxx = _make_compiler_wrapper(tmpdir, "c++", cxx_path, sysroot)
+    if cross:
+        wrapper_flags = _get_wrapper_flags(env.get("CFLAGS", ""))
+        lld_path = _find_lld(cc_path)
+        cc = _make_cross_compiler_wrapper(tmpdir, "cc", cc_path, wrapper_flags, lld_path)
+        cxx = _make_cross_compiler_wrapper(tmpdir, "c++", cxx_path, wrapper_flags, lld_path)
+    else:
+        cc = _make_compiler_wrapper(tmpdir, "cc", cc_path, sysroot)
+        cxx = _make_compiler_wrapper(tmpdir, "c++", cxx_path, sysroot)
 
     env.setdefault("CC", cc)
     env.setdefault("CXX", cxx)
+
+    if cross:
+        ldshared_flags = env.get("LDSHAREDFLAGS", "")
+        env["LDSHARED"] = cc + (" " + ldshared_flags if ldshared_flags else "")
+        env["LDCXXSHARED"] = cxx + (" " + ldshared_flags if ldshared_flags else "")
+
+        target_sysconfig = env.get("RULES_PY_TARGET_SYSCONFIGDATA")
+        if target_sysconfig and path.exists(target_sysconfig):
+            sysconfig_dir = path.join(tmpdir, ".target_sysconfig")
+            makedirs(sysconfig_dir, exist_ok=True)
+            shutil.copy(target_sysconfig, sysconfig_dir)
+            module_name = path.basename(target_sysconfig)[:-3]
+            env["_PYTHON_SYSCONFIGDATA_NAME"] = module_name
+            env["PYTHONPATH"] = sysconfig_dir + pathsep + env.get("PYTHONPATH", "")
 
     # MPI builds (e.g. mpi4py) consult $MPICC before searching PATH, so a
     # plain C compiler here would shadow the real mpicc. Only set it when
@@ -270,6 +418,58 @@ def _legacy_metadata_conflicts_with_pyproject(worktree: str) -> bool:
         )
     )
 
+_WHEEL_OS_MAP = {"linux": "linux", "darwin": "macosx", "windows": "win"}
+
+
+def _expected_cpu_in_tag(target_os: str, target_cpu: str) -> str:
+    if target_os == "darwin":
+        return {"aarch64": "arm64", "x86_64": "x86_64"}.get(target_cpu, target_cpu)
+    return {"x86_64": "x86_64", "aarch64": "aarch64", "x86": "i686", "arm": "armv7l"}.get(target_cpu, target_cpu)
+
+
+def _validate_wheel_platform(wheel_filename: str) -> None:
+    target_os = os.environ.get("RULES_PY_TARGET_OS", "")
+    target_cpu = os.environ.get("RULES_PY_TARGET_CPU", "")
+    if not target_os or not target_cpu:
+        return
+
+    platform_tag = wheel_filename.rsplit("-", 1)[-1].rsplit(".", 1)[0].lower()
+
+    expected_os = _WHEEL_OS_MAP.get(target_os, target_os)
+    expected_cpu = _expected_cpu_in_tag(target_os, target_cpu)
+
+    host_os = _platform.system().lower()
+    host_wheel_os = _WHEEL_OS_MAP.get(host_os, host_os)
+
+    if target_os != host_os and host_wheel_os in platform_tag:
+        print(
+            "Error: wheel platform tag '{}' contains exec host OS '{}' instead of "
+            "target OS '{}'. The target sysconfig override may have failed.".format(
+                platform_tag, host_wheel_os, expected_os,
+            ),
+            file=sys.stderr,
+        )
+        exit(1)
+
+    if expected_os not in platform_tag:
+        print(
+            "Error: wheel platform tag '{}' does not contain target OS '{}'.".format(
+                platform_tag, expected_os,
+            ),
+            file=sys.stderr,
+        )
+        exit(1)
+
+    if expected_cpu not in platform_tag:
+        print(
+            "Error: wheel platform tag '{}' does not contain target CPU '{}'.".format(
+                platform_tag, expected_cpu,
+            ),
+            file=sys.stderr,
+        )
+        exit(1)
+
+
 PARSER = ArgumentParser()
 PARSER.add_argument("srcarchive")
 PARSER.add_argument("outdir")
@@ -278,6 +478,9 @@ PARSER.add_argument("--validate-anyarch", action="store_true")
 PARSER.add_argument("--patch-strip", type=int, default=0, help="Strip count for patch (-p)")
 PARSER.add_argument("--patch", action="append", default=[], dest="patches", help="Patch file to apply (repeatable)")
 PARSER.add_argument("--execroot-marker", help="Token in env values to replace with the absolute execroot")
+PARSER.add_argument("--cross", action="store_true", help="Cross-compilation mode: target platform != exec platform")
+PARSER.add_argument("--target-os", default="", help="Target platform OS (linux, darwin, windows)")
+PARSER.add_argument("--target-cpu", default="", help="Target platform CPU (x86_64, aarch64, ...)")
 opts, _ = PARSER.parse_known_args()
 
 tmp_root = path.abspath(opts.outdir) + ".tmp"
@@ -322,7 +525,7 @@ outdir = path.abspath(opts.outdir)
 # and re-point CC/CXX/etc. through wrapper scripts in tmp_root so the
 # Bazel-supplied workspace-relative compiler paths survive the cwd
 # change into the worktree.
-build_env = _compiler_env(tmp_root, opts.execroot_marker)
+build_env = _compiler_env(tmp_root, opts.execroot_marker, cross=opts.cross)
 
 if _legacy_metadata_conflicts_with_pyproject(t):
     print(
@@ -400,3 +603,6 @@ if len(inventory) > 1:
 if opts.validate_anyarch and not inventory[0].endswith("-none-any.whl"):
     print("Error: Target was anyarch but built a none-any wheel!\nSee {} for the sandbox".format(t), file=sys.stderr)
     exit(1)
+
+if opts.cross and not inventory[0].endswith("-none-any.whl"):
+    _validate_wheel_platform(inventory[0])

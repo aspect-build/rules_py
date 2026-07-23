@@ -28,9 +28,22 @@ bzl_library(
     name = "rule",
     srcs = ["rule.bzl"],
     deps = [
+        ":cc_layer",
+        ":exec_transition",
+        "//py/private/interpreter:versions",
         "//py/private/toolchain:types",
         "//uv/private:source_built_wheel",
         "@bazel_lib//lib:resource_sets",
+        "@rules_cc//cc:action_names_bzl",
+        "@rules_cc//cc/common",
+    ],
+)
+
+bzl_library(
+    name = "cc_layer",
+    srcs = ["cc_layer.bzl"],
+    visibility = ["//uv/private:__subpackages__"],
+    deps = [
         "@rules_cc//cc:action_names_bzl",
         "@rules_cc//cc/common",
     ],
@@ -204,4 +217,10 @@ pep517_native_whl(
 pep517_native_whl_execroot_collision_test(
     name = "execroot_collision_test",
     target_under_test = ":__execroot_collision_fixture",
+)
+
+bzl_library(
+    name = "exec_transition",
+    srcs = ["exec_transition.bzl"],
+    deps = ["@aspect_rules_py_uv_host//:defs"],
 )

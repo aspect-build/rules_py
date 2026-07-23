@@ -6,6 +6,8 @@ load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//tools:asserts.bzl", "assert_tar_listing")
 load(":toolchain_test.bzl", "exec_python_path")
 
+exports_files(["require_cxx_driver.patch"])
+
 platform(
     name = "arm64_linux",
     constraint_values = [
@@ -158,5 +160,119 @@ build_test(
     targets = [
         ":amd64_layers",
         ":arm64_layers",
+        ":geohash_amd64_layers",
+        ":geohash_arm64_layers",
     ],
+)
+
+py_binary(
+    name = "geohash_bin",
+    srcs = ["geohash_main.py"],
+    dep_group = "crossbuild",
+    main = "geohash_main.py",
+    python_version = "3.12",
+    deps = [
+        "@pypi_uv_deps_650//python_geohash",
+    ],
+)
+
+platform_transition_filegroup(
+    name = "geohash_amd64_linux",
+    srcs = [":geohash_bin"],
+    target_platform = ":amd64_linux",
+)
+
+platform_transition_filegroup(
+    name = "geohash_arm64_linux",
+    srcs = [":geohash_bin"],
+    target_platform = ":arm64_linux",
+)
+
+# ── Verify .so architecture ──
+
+py_image_layer(
+    name = "geohash_layers",
+    binary = ":geohash_bin",
+)
+
+platform_transition_filegroup(
+    name = "geohash_amd64_layers",
+    srcs = [":geohash_layers"],
+    target_platform = ":amd64_linux",
+)
+
+platform_transition_filegroup(
+    name = "geohash_arm64_layers",
+    srcs = [":geohash_layers"],
+    target_platform = ":arm64_linux",
+)
+
+genrule(
+    name = "_geohash_amd64_so_arch_check",
+    srcs = [":geohash_amd64_layers"],
+    outs = ["_geohash_amd64_so_arch.ok"],
+    cmd = """
+tar_file=$$(echo $(SRCS) | tr ' ' '\\n' | grep 'geohash_layers.*\\.tar' | head -1)
+$(location check_so_arch.sh) $$tar_file 3e00
+touch $@
+""",
+    tools = [":check_so_arch.sh"],
+)
+
+genrule(
+    name = "_geohash_arm64_so_arch_check",
+    srcs = [":geohash_arm64_layers"],
+    outs = ["_geohash_arm64_so_arch.ok"],
+    cmd = """
+tar_file=$$(echo $(SRCS) | tr ' ' '\\n' | grep 'geohash_layers.*\\.tar' | head -1)
+$(location check_so_arch.sh) $$tar_file b700
+touch $@
+""",
+    tools = [":check_so_arch.sh"],
+)
+
+build_test(
+    name = "geohash_so_arch_amd64_test",
+    targets = [":_geohash_amd64_so_arch_check"],
+)
+
+build_test(
+    name = "geohash_so_arch_arm64_test",
+    targets = [":_geohash_arm64_so_arch_check"],
+)
+
+# ── Verify .so filename suffix (EXT_SUFFIX / SOABI) ──
+
+genrule(
+    name = "_geohash_amd64_so_suffix_check",
+    srcs = [":geohash_amd64_layers"],
+    outs = ["_geohash_amd64_so_suffix.ok"],
+    cmd = """
+tar_file=$$(echo $(SRCS) | tr ' ' '\\n' | grep 'geohash_layers.*\\.tar' | head -1)
+$(location check_so_suffix.sh) $$tar_file cpython-312-x86_64-linux-gnu
+touch $@
+""",
+    tools = [":check_so_suffix.sh"],
+)
+
+genrule(
+    name = "_geohash_arm64_so_suffix_check",
+    srcs = [":geohash_arm64_layers"],
+    outs = ["_geohash_arm64_so_suffix.ok"],
+    cmd = """
+tar_file=$$(echo $(SRCS) | tr ' ' '\\n' | grep 'geohash_layers.*\\.tar' | head -1)
+$(location check_so_suffix.sh) $$tar_file cpython-312-aarch64-linux-gnu
+touch $@
+""",
+    tools = [":check_so_suffix.sh"],
+)
+
+build_test(
+    name = "geohash_so_suffix_amd64_test",
+    targets = [":_geohash_amd64_so_suffix_check"],
+)
+
+build_test(
+    name = "geohash_so_suffix_arm64_test",
+    targets = [":_geohash_arm64_so_suffix_check"],
 )
