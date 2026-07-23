@@ -1,5 +1,10 @@
 """quasi-public types."""
 
+# py_venv rule kinds that carry PY_TOOLCHAIN. Reading
+# `ctx.rule.toolchains[PY_TOOLCHAIN]` at these nodes yields the interpreter
+# resolved under the consumer's Python version transition.
+PY_VENV_KINDS = ("py_venv", "_py_venv", "_py_venv_lib")
+
 def venv_root(bin_python):
     """The venv root's runfiles-relative rootpath, derived from the
     `bin/python` symlink's short_path (drop the trailing `bin/python`).

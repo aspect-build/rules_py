@@ -50,8 +50,11 @@ bzl_library(
     name = "py_image_layer",
     srcs = ["py_image_layer.bzl"],
     deps = [
+        ":providers",
         ":py_info",
         ":py_info_interop",
+        "//py/private/py_venv:types",
+        "//py/private/toolchain:types",
         "@bazel_lib//lib:transitions",
         "@tar.bzl//tar:mtree",
         "@tar.bzl//tar:tar",
@@ -143,8 +146,9 @@ bzl_library(
     name = "py_pex_binary",
     srcs = ["py_pex_binary.bzl"],
     deps = [
+        ":providers",
         ":py_info",
-        ":py_semantics",
+        "//py/private/py_venv:types",
         "//py/private/toolchain:types",
     ],
 )

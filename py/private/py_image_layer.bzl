@@ -29,7 +29,8 @@ Sharing model:
 load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private:py_info_interop.bzl", "has_py_info")
-load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
+load("//py/private/py_venv:types.bzl", "PY_VENV_KINDS")
+load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "interpreter_files_and_version")
 
 _TAR_TOOLCHAIN = "@tar.bzl//tar/toolchain:type"
 
@@ -175,8 +176,6 @@ _LayerInfo = provider(
     },
 )
 
-_PY_VENV_KINDS = ("py_venv", "_py_venv", "_py_venv_lib")
-
 def _collect_from_deps(ctx, provider):
     """Walk deps/data/actual/venv and return a list of provider values from each matching dep."""
     results = []
@@ -300,11 +299,9 @@ def _layer_aspect_impl(target, ctx):
     # (NOT ctx.toolchains) is how the binary reads it back, which correctly
     # follows the binary's target-platform transition.
     if platform_common.ToolchainInfo in target:
-        py3 = getattr(target[platform_common.ToolchainInfo], "py3_runtime", None)
-        if py3 == None or py3.files == None:
+        interp_depset, _ = interpreter_files_and_version(target)
+        if interp_depset == None:
             return []
-        direct = [py3.interpreter] if getattr(py3, "interpreter", None) != None else []
-        interp_depset = depset(direct = direct, transitive = [py3.files])
         plan = ctx.attr._layer_tier[PyLayerTierInfo]
         interp_group = plan.interpreter_group
         interp_layer = None
@@ -389,7 +386,7 @@ def _layer_aspect_impl(target, ctx):
 
     # Skip PyInfo deps (including wheel-leaf targets, which also emit PyInfo) —
     # they self-capture via the aspect.
-    if kind not in _PY_VENV_KINDS and has_py_info(target) and not is_binary:
+    if kind not in PY_VENV_KINDS and has_py_info(target) and not is_binary:
         own_parts = [target[DefaultInfo].files]
         for attr_name in ("data", "deps"):
             attr_val = getattr(ctx.rule.attr, attr_name, None)
@@ -414,7 +411,7 @@ def _layer_aspect_impl(target, ctx):
         else:
             own_source.append(own_depset)
 
-    if kind in _PY_VENV_KINDS:
+    if kind in PY_VENV_KINDS:
         if PY_TOOLCHAIN in ctx.rule.toolchains:
             py_tc = ctx.rule.toolchains[PY_TOOLCHAIN]
             if _LayerInfo in py_tc:
