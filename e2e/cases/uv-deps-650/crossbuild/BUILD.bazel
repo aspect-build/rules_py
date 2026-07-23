@@ -160,6 +160,8 @@ build_test(
     targets = [
         ":amd64_layers",
         ":arm64_layers",
+        ":geohash_amd64_layers",
+        ":geohash_arm64_layers",
     ],
 )
 
