@@ -157,6 +157,37 @@ def _cc_toolchain_inputs_and_tools(ctx):
     infer_cxx = infer_cxx or tools.get("CXX") == tools.get("CC")
     return files, {key: value for key, value in tools.items() if value}, infer_cxx
 
+_PYTHON_CPU_MAP = {
+    "x86_64": "x86_64",
+    "aarch64": "aarch64",
+    "x86": "i686",
+    "arm": "arm",
+}
+
+def _find_sysconfigdata(runtime):
+    """Locate _sysconfigdata*.py inside the target interpreter's file tree."""
+    if not runtime or not hasattr(runtime, "interpreter_version_info"):
+        return None
+    info = runtime.interpreter_version_info
+    prefix = "lib/python{}.{}".format(info.major, info.minor)
+    for f in runtime.files.to_list():
+        if f.basename.startswith("_sysconfigdata") and f.basename.endswith(".py") and prefix in f.path:
+            return f
+    return None
+
+def _derive_python_host_platform(target_os, target_cpu):
+    """Derive _PYTHON_HOST_PLATFORM from target platform constraints.
+
+    Linux: libc does not affect the platform string — always linux-{cpu}.
+    macOS: uses arm64 (not aarch64) and requires a version component.
+    """
+    if target_os == "linux":
+        return "linux-" + _PYTHON_CPU_MAP.get(target_cpu, target_cpu)
+    if target_os == "darwin":
+        cpu = "arm64" if target_cpu == "aarch64" else target_cpu
+        return "macosx-11.0-" + cpu
+    return None
+
 def _pep517_whl(ctx):
     archive = ctx.file.src
     wheel_dir = ctx.actions.declare_directory("whl")
@@ -263,6 +294,19 @@ def _pep517_native_whl(ctx):
             "--target-cpu",
             cc_layer.target_cpu or "",
         ]
+
+        py_toolchain = ctx.toolchains[PY_TOOLCHAIN]
+        if py_toolchain != None:
+            runtime = getattr(py_toolchain, "py3_runtime", None)
+            if runtime:
+                sysconfig_file = _find_sysconfigdata(runtime)
+                if sysconfig_file:
+                    extra_inputs.append(depset([sysconfig_file]))
+                    env["RULES_PY_TARGET_SYSCONFIGDATA"] = sysconfig_file.path
+
+        host_platform = _derive_python_host_platform(cc_layer.target_os, cc_layer.target_cpu)
+        if host_platform:
+            env["_PYTHON_HOST_PLATFORM"] = host_platform
     else:
         cross_args = []
 
@@ -376,6 +420,9 @@ analysis fails with a diagnostic naming the required toolchain type.
         ),
     } | CC_LAYER_ATTRS,
     fragments = ["cpp"],
+    toolchains = [
+        config_common.toolchain_type(PY_TOOLCHAIN, mandatory = False),
+    ],
     exec_groups = {
         _TARGET_EXEC_GROUP: exec_group(
             toolchains = [

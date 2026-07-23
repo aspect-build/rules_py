@@ -318,13 +318,14 @@ def _compiler_env(
     if env.pop("ASPECT_RULES_PY_INFER_CXX_COMPANION", None) == "1":
         cxx_path = _local_cxx_companion(env.get("CXX"), cxx_path)
 
+    sysroot = _darwin_sysroot()
+
     if cross:
         wrapper_flags = _get_wrapper_flags(env.get("CFLAGS", ""))
         lld_path = _find_lld(cc_path)
         cc = _make_cross_compiler_wrapper(tmpdir, "cc", cc_path, wrapper_flags, lld_path)
         cxx = _make_cross_compiler_wrapper(tmpdir, "c++", cxx_path, wrapper_flags, lld_path)
     else:
-        sysroot = _darwin_sysroot()
         cc = _make_compiler_wrapper(tmpdir, "cc", cc_path, sysroot)
         cxx = _make_compiler_wrapper(tmpdir, "c++", cxx_path, sysroot)
 
@@ -335,6 +336,15 @@ def _compiler_env(
         ldshared_flags = env.get("LDSHAREDFLAGS", "")
         env["LDSHARED"] = cc + (" " + ldshared_flags if ldshared_flags else "")
         env["LDCXXSHARED"] = cxx + (" " + ldshared_flags if ldshared_flags else "")
+
+        target_sysconfig = env.get("RULES_PY_TARGET_SYSCONFIGDATA")
+        if target_sysconfig and path.exists(target_sysconfig):
+            sysconfig_dir = path.join(tmpdir, ".target_sysconfig")
+            makedirs(sysconfig_dir, exist_ok=True)
+            shutil.copy(target_sysconfig, sysconfig_dir)
+            module_name = path.basename(target_sysconfig)[:-3]
+            env["_PYTHON_SYSCONFIGDATA_NAME"] = module_name
+            env["PYTHONPATH"] = sysconfig_dir + pathsep + env.get("PYTHONPATH", "")
 
     # MPI builds (e.g. mpi4py) consult $MPICC before searching PATH, so a
     # plain C compiler here would shadow the real mpicc. Only set it when
