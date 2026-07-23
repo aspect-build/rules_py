@@ -1,9 +1,11 @@
 [project]
 name = "crossbuild"
 version = "0.0.0"
+requires-python = ">=3.11"
 authors = []
 dependencies = [
     "psycopg2-binary",
+    "python-geohash==0.8.5",
     "setuptools",
     "build",
 ]

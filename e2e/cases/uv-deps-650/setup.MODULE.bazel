@@ -17,9 +17,20 @@ uv.project(
     pyproject = "//uv-deps-650/airflow:pyproject.toml",
 )
 uv.project(
+    default_build_dependencies = [
+        "build",
+        "setuptools",
+    ],
     hub_name = "pypi_uv_deps_650",
     lock = "//uv-deps-650/crossbuild:uv.lock",
     pyproject = "//uv-deps-650/crossbuild:pyproject.toml",
+)
+uv.override_package(
+    name = "python-geohash",
+    lock = "//uv-deps-650/crossbuild:uv.lock",
+    pre_build_patch_strip = 1,
+    pre_build_patches = ["//uv-deps-650/crossbuild:require_cxx_driver.patch"],
+    resource_set = "mem_4g",
 )
 uv.project(
     hub_name = "pypi_uv_deps_650",

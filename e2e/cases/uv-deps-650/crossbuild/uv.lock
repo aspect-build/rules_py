@@ -32,6 +32,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "build" },
     { name = "psycopg2-binary" },
+    { name = "python-geohash" },
     { name = "setuptools" },
 ]
 
@@ -39,6 +40,7 @@ dependencies = [
 requires-dist = [
     { name = "build" },
     { name = "psycopg2-binary" },
+    { name = "python-geohash", specifier = "==0.8.5" },
     { name = "setuptools" },
 ]
 
@@ -111,6 +113,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/e7/82/28175b2414effca1c
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bd/24/12818598c362d7f300f18e74db45963dbcb85150324092410c8b49405e42/pyproject_hooks-1.2.0-py3-none-any.whl", hash = "sha256:9e5c6bfa8dcc30091c74b0cf803c81fdd29d94f01992a7707bc97babb1141913", size = 10216, upload-time = "2024-09-29T09:24:11.978Z" },
 ]
+
+[[package]]
+name = "python-geohash"
+version = "0.8.5"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/9c/e2/1a3507af7c8f91f8a4975d651d4aeb6a846dfdf74713954186ade4205850/python-geohash-0.8.5.tar.gz", hash = "sha256:05a21fcf4eda1a5eddbd291890ade23fc5ddaa6bb98f2ee23d2d384ed14f086d", size = 17636, upload-time = "2014-08-13T07:09:57.318Z" }
 
 [[package]]
 name = "setuptools"

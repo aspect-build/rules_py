@@ -6,6 +6,8 @@ load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//tools:asserts.bzl", "assert_tar_listing")
 load(":toolchain_test.bzl", "exec_python_path")
 
+exports_files(["require_cxx_driver.patch"])
+
 platform(
     name = "arm64_linux",
     constraint_values = [
@@ -159,4 +161,27 @@ build_test(
         ":amd64_layers",
         ":arm64_layers",
     ],
+)
+
+py_binary(
+    name = "geohash_bin",
+    srcs = ["geohash_main.py"],
+    dep_group = "crossbuild",
+    main = "geohash_main.py",
+    python_version = "3.12",
+    deps = [
+        "@pypi_uv_deps_650//python_geohash",
+    ],
+)
+
+platform_transition_filegroup(
+    name = "geohash_amd64_linux",
+    srcs = [":geohash_bin"],
+    target_platform = ":amd64_linux",
+)
+
+platform_transition_filegroup(
+    name = "geohash_arm64_linux",
+    srcs = [":geohash_bin"],
+    target_platform = ":arm64_linux",
 )
