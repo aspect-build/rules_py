@@ -95,8 +95,8 @@ if ! "$BAZEL" build -- \
     fail "expected source-layer listings to build"
 fi
 listing="bazel-bin/oci/py_image_layer/_scalar_default_sources.listing"
-expect_listing_count "$listing" "/app" 2
-expect_listing_count "$listing" "/app/config.json" 2
+expect_listing_count "$listing" "/app" 1
+expect_listing_count "$listing" "/app/config.json" 1
 if grep -Fq './app.runfiles/_main/oci/py_image_layer/my_app_peer_bin/config.json' "$listing"; then
     cat "$listing" >&2
     fail "scalar executable descendant leaked into the shared runfiles layout"
