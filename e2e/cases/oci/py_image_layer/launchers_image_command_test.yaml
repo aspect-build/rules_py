@@ -3,10 +3,10 @@ schemaVersion: 2.0.0
 commandTests:
   - name: primary launcher runs from launcher_dir
     exitCode: 0
-    command: /app/bin/my_app_bin
-    expectedOutput: ["Hello rules_py - 3.14"]
+    command: /app/bin/my_app_launcher_bin
+    expectedOutput: ["launcher ok 11 1.4.0 0.4.6"]
 
   - name: secondary launcher uses its own interpreter and pip closure
     exitCode: 0
     command: /app/bin/my_app_worker_bin
-    expectedOutput: ["worker ok 12 0.4.6 1.2.0 grouped"]
+    expectedOutput: ["worker ok 12 1.4.0 0.4.6 1.2.0 grouped"]

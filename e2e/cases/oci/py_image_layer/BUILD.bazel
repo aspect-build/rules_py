@@ -143,12 +143,24 @@ py_library(
 )
 
 py_binary(
+    name = "my_app_launcher_bin",
+    srcs = ["launcher.py"],
+    dep_group = "images",
+    python_version = "3.11",
+    deps = [
+        "@pypi_oci_py_image_layer//build",
+        "@pypi_oci_py_image_layer//colorama",
+    ],
+)
+
+py_binary(
     name = "my_app_worker_bin",
     srcs = ["worker.py"],
     dep_group = "venv_images",
     python_version = "3.12",
     deps = [
         ":worker_support",
+        "@pypi_oci_py_venv_image_layer//build",
         "@pypi_oci_py_venv_image_layer//colorama",
         "@pypi_oci_py_venv_image_layer//pyproject_hooks",
     ],
@@ -163,6 +175,7 @@ py_layer_tier(
     name = "my_app_launchers_tier",
     groups = {
         "//oci/py_image_layer:worker_support": "worker_support",
+        "@pip//build": "third_party",
         "@pip//colorama": "third_party",
         "@pip//pyproject_hooks": "third_party",
     },
@@ -173,7 +186,7 @@ py_layer_tier(
 py_image_layer(
     name = "my_app_launchers_layers",
     binaries = [
-        ":my_app_bin",
+        ":my_app_launcher_bin",
         ":my_app_worker_alias",
     ],
     layer_tier = ":my_app_launchers_tier",
@@ -234,7 +247,9 @@ py_image_layer(
 build_test(
     name = "my_app_binary_api_test",
     targets = [
+        ":_configured_wheel_collision_layers",
         ":my_app_binaries_layers",
+        ":my_app_launchers_layers",
         ":my_app_select_layers",
     ],
 )
@@ -375,23 +390,15 @@ py_binary(
     srcs = ["server.py"],
 )
 
-py_layer_tier(
-    name = "server_tier",
-    strip_prefix = "does/not/match",
-)
-
 py_image_layer(
     name = "server_layers",
     binary = ":server",
-    launcher_dir = "/custom/bin",
-    layer_tier = ":server_tier",
 )
 
 oci_image(
     name = "server_image",
     base = "@ubuntu",
-    entrypoint = ["/custom/bin/server"],
-    env = {"RUNFILES_DIR": "/app.runfiles"},
+    entrypoint = ["/app"],
     tars = [":server_layers"],
 )
 
@@ -406,6 +413,45 @@ container_structure_test(
     args = ["--verbosity=debug"],
     configs = ["server_image_command_test.yaml"],
     image = ":amd64_server_image",
+    platform = "linux/amd64",
+    tags = [
+        "requires-docker",
+    ],
+)
+
+# Exercise scalar launcher relocation independently from the default `/app`
+# regression above.
+py_layer_tier(
+    name = "server_custom_tier",
+    strip_prefix = "does/not/match",
+)
+
+py_image_layer(
+    name = "server_custom_layers",
+    binary = ":server",
+    launcher_dir = "/custom/bin",
+    layer_tier = ":server_custom_tier",
+)
+
+oci_image(
+    name = "server_custom_image",
+    base = "@ubuntu",
+    entrypoint = ["/custom/bin/server"],
+    env = {"RUNFILES_DIR": "/app.runfiles"},
+    tars = [":server_custom_layers"],
+)
+
+platform_transition_filegroup(
+    name = "amd64_server_custom_image",
+    srcs = [":server_custom_image"],
+    target_platform = ":x86_64_linux",
+)
+
+container_structure_test(
+    name = "server_custom_image_command_test",
+    args = ["--verbosity=debug"],
+    configs = ["server_custom_image_command_test.yaml"],
+    image = ":amd64_server_custom_image",
     platform = "linux/amd64",
     tags = [
         "requires-docker",

@@ -40,6 +40,59 @@ def test_mtree_conflicting_source_fails() -> None:
     assert "py_image_layer runfile collision at ./app.runfiles/pkg/module.py:" in collision
 
 
+def test_mtree_identical_file_contents_coalesce() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        first = os.path.join(directory, "first")
+        second = os.path.join(directory, "second")
+        for path in (first, second):
+            with open(path, "w") as file:
+                file.write("identical")
+
+        assert _mtree_collision([
+            _mtree_row("./app.runfiles/pkg/module.py", first),
+            _mtree_row("./app.runfiles/pkg/module.py", second),
+        ]) is None
+
+
+def test_mtree_different_file_contents_fail() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        first = os.path.join(directory, "first")
+        second = os.path.join(directory, "second")
+        with open(first, "w") as file:
+            file.write("first")
+        with open(second, "w") as file:
+            file.write("second")
+
+        collision = _mtree_collision([
+            _mtree_row("./app.runfiles/pkg/module.py", first),
+            _mtree_row("./app.runfiles/pkg/module.py", second),
+        ])
+        assert collision is not None
+        assert "py_image_layer runfile collision at ./app.runfiles/pkg/module.py:" in collision
+
+
+def test_mtree_file_and_symlink_types_fail() -> None:
+    destination = "./app.runfiles/pkg/module.py"
+    source = "same/module.py"
+    collision = _mtree_collision([
+        _mtree_row(destination, source),
+        "{} type=link mode=0755 link={}".format(destination, source),
+    ])
+    assert collision is not None
+    assert "py_image_layer runfile collision at ./app.runfiles/pkg/module.py:" in collision
+
+
+def test_mtree_different_modes_fail() -> None:
+    destination = "./app.runfiles/pkg/module.py"
+    source = "same/module.py"
+    collision = _mtree_collision([
+        _mtree_row(destination, source),
+        _mtree_row(destination, source).replace("mode=0755", "mode=0644"),
+    ])
+    assert collision is not None
+    assert "py_image_layer runfile collision at ./app.runfiles/pkg/module.py:" in collision
+
+
 def test_mtree_ancestor_then_descendant_fails() -> None:
     collision = _mtree_collision([
         _mtree_row("./app.runfiles/pkg/module.py", "first/module.py"),

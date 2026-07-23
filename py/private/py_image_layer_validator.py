@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import csv
+import filecmp
 import glob
 import os
 import sys
@@ -232,7 +233,7 @@ def _add_subpath_or_whole(
 
 def _mtree_collision(rows: Iterable[str]) -> Optional[str]:
     """Return the first conflicting expanded mtree destination, or None."""
-    paths: Dict[str, str] = {}
+    paths: Dict[str, Tuple[str, str, str, Tuple[str, ...]]] = {}
     descendants: Dict[str, Tuple[str, str]] = {}
     for row in rows:
         if not row or row.startswith("#"):
@@ -249,29 +250,49 @@ def _mtree_collision(rows: Iterable[str]) -> Optional[str]:
             else:
                 destination_parts.append(part)
         destination = "./" + "/".join(destination_parts) if destination_parts else "."
-        source = next(
-            (field.partition("=")[2] for field in fields[1:] if field.startswith(("contents=", "content=", "link="))),
+        entry_type = next(
+            (field.partition("=")[2] for field in fields[1:] if field.startswith("type=")),
             None,
         )
-        if source is None:
+        source_field = next(
+            (field for field in fields[1:] if field.startswith(("contents=", "content=", "link="))),
+            None,
+        )
+        if entry_type is None or source_field is None:
             return "invalid py_image_layer mtree row (missing source): {}".format(row)
+        source_kind, _, source = source_field.partition("=")
+        metadata = tuple(sorted(field for field in fields[1:] if field != source_field))
+        entry = (entry_type, source_kind, source, metadata)
 
         previous = paths.get(destination)
         if previous is not None:
-            if previous != source:
-                return "py_image_layer runfile collision at {}: {} and {}".format(destination, previous, source)
-            continue
+            if previous == entry:
+                continue
+            previous_type, previous_kind, previous_source, previous_metadata = previous
+            if (
+                entry_type == previous_type == "file"
+                and source_kind == previous_kind == "contents"
+                and metadata == previous_metadata
+            ):
+                with contextlib.suppress(OSError):
+                    if filecmp.cmp(previous_source, source, shallow=False):
+                        continue
+            return "py_image_layer runfile collision at {}: {} and {}".format(
+                destination, previous_source, source
+            )
 
         parts = destination.split("/")
         for end in range(len(parts) - 1, 0, -1):
             parent = "/".join(parts[:end])
             if parent in paths:
-                return "py_image_layer runfile collision at {}: {} and {}".format(destination, paths[parent], source)
+                return "py_image_layer runfile collision at {}: {} and {}".format(
+                    destination, paths[parent][2], source
+                )
         if destination in descendants:
             descendant, previous = descendants[destination]
             return "py_image_layer runfile collision at {}: {} and {}".format(descendant, previous, source)
 
-        paths[destination] = source
+        paths[destination] = entry
         for end in range(len(parts) - 1, 0, -1):
             parent = "/".join(parts[:end])
             descendants.setdefault(parent, (destination, source))

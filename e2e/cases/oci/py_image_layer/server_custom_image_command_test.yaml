@@ -1,0 +1,7 @@
+schemaVersion: 2.0.0
+
+commandTests:
+  - name: server binary runs from a custom launcher directory
+    exitCode: 0
+    command: /custom/bin/server
+    expectedOutput: ["server ok"]
