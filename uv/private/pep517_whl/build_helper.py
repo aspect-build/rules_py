@@ -278,6 +278,7 @@ PARSER.add_argument("--validate-anyarch", action="store_true")
 PARSER.add_argument("--patch-strip", type=int, default=0, help="Strip count for patch (-p)")
 PARSER.add_argument("--patch", action="append", default=[], dest="patches", help="Patch file to apply (repeatable)")
 PARSER.add_argument("--execroot-marker", help="Token in env values to replace with the absolute execroot")
+PARSER.add_argument("--cross", action="store_true", help="Cross-compilation mode: target platform != exec platform")
 opts, _ = PARSER.parse_known_args()
 
 tmp_root = path.abspath(opts.outdir) + ".tmp"
