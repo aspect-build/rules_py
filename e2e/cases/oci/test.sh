@@ -79,6 +79,14 @@ fi
 
 echo "PASS: multi-binary repository mappings are merged"
 
+echo "== scalar external launchers must resolve apparent repository names =="
+if ! "$BAZEL" build -- "${PKG}:_external_scalar_runtime_test" >"$output_log" 2>&1; then
+    cat "$output_log" >&2
+    fail "expected the scalar external launcher to resolve its runfiles"
+fi
+
+echo "PASS: scalar external launcher resolves its runfiles"
+
 echo "== source closures must preserve scalar and shared layouts =="
 if ! "$BAZEL" build -- \
     "${PKG}:_scalar_default_sources_listing" \

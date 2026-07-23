@@ -130,6 +130,27 @@ def image_layer_analysis_test_suite():
         root = "/srv",
     )
     py_image_layer(
+        name = "_external_scalar_layers",
+        binary = "@aspect_rules_py//py/tests/internal-deps/adder:external_launcher",
+    )
+    native.genrule(
+        name = "_external_scalar_runtime_test",
+        srcs = [":_external_scalar_layers"],
+        outs = ["_external_scalar_runtime_test.ok"],
+        cmd = """
+set -eu
+root="$(@D)/_external_scalar_runtime_test.root"
+mkdir -p "$$root"
+for archive in $(SRCS); do
+  $(BSDTAR_BIN) -xf "$$archive" -C "$$root"
+done
+RUNFILES_DIR="$$root/app.runfiles" "$$root/app" > "$$root/external.out"
+test "$$(cat "$$root/external.out")" = "external 5"
+touch $@
+""",
+        toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
+    )
+    py_image_layer(
         name = "_repo_mapping_layers",
         binaries = [
             ":_repo_mapping_images_bin",

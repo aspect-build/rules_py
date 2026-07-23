@@ -577,6 +577,8 @@ def _source_destination(sp, strip_prefix, root, executable_dsts):
         runfiles_root = "/app" if executable_dsts[runfiles_prefix] else root
         return _apply_strip_prefix(sp, runfiles_prefix, runfiles_root)
     if sp.startswith("../"):
+        if sp == strip_prefix or sp in executable_dsts:
+            return _apply_strip_prefix(sp, sp, root)
         return "./app.runfiles/" + sp[3:]
     if strip_prefix:
         destination = _apply_strip_prefix(sp, strip_prefix, root)

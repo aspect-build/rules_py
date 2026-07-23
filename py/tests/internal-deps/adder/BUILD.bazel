@@ -20,5 +20,8 @@ py_binary(
     name = "external_launcher",
     srcs = ["external_launcher.py"],
     visibility = ["//visibility:public"],
-    deps = [":adder"],
+    deps = [
+        ":adder",
+        "@rules_python//python/runfiles",
+    ],
 )
