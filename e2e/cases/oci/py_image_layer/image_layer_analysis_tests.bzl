@@ -129,23 +129,42 @@ def image_layer_analysis_test_suite():
         name = "_repo_mapping_tier",
         root = "/srv",
     )
+    external_launcher = Label("@aspect_rules_py//py/tests/internal-deps/adder:external_launcher")
+    py_layer_tier(
+        name = "_external_scalar_tier",
+        strip_prefix = "../{}/{}".format(external_launcher.workspace_name, external_launcher.package),
+    )
     py_image_layer(
         name = "_external_scalar_layers",
-        binary = "@aspect_rules_py//py/tests/internal-deps/adder:external_launcher",
+        binary = external_launcher,
+    )
+    py_image_layer(
+        name = "_external_scalar_stripped_layers",
+        binary = external_launcher,
+        layer_tier = ":_external_scalar_tier",
     )
     native.genrule(
         name = "_external_scalar_runtime_test",
-        srcs = [":_external_scalar_layers"],
+        srcs = [
+            ":_external_scalar_layers",
+            ":_external_scalar_stripped_layers",
+        ],
         outs = ["_external_scalar_runtime_test.ok"],
         cmd = """
 set -eu
-root="$(@D)/_external_scalar_runtime_test.root"
-mkdir -p "$$root"
-for archive in $(SRCS); do
-  $(BSDTAR_BIN) -xf "$$archive" -C "$$root"
+default_root="$(@D)/_external_scalar_runtime_test.default"
+stripped_root="$(@D)/_external_scalar_runtime_test.stripped"
+mkdir -p "$$default_root" "$$stripped_root"
+for archive in $(locations :_external_scalar_layers); do
+  $(BSDTAR_BIN) -xf "$$archive" -C "$$default_root"
 done
-RUNFILES_DIR="$$root/app.runfiles" "$$root/app" > "$$root/external.out"
-test "$$(cat "$$root/external.out")" = "external 5"
+for archive in $(locations :_external_scalar_stripped_layers); do
+  $(BSDTAR_BIN) -xf "$$archive" -C "$$stripped_root"
+done
+RUNFILES_DIR="$$default_root/app.runfiles" "$$default_root/app" > "$$default_root/external.out"
+RUNFILES_DIR="$$stripped_root/app.runfiles" "$$stripped_root/app/external_launcher" > "$$stripped_root/external.out"
+test "$$(cat "$$default_root/external.out")" = "external 5"
+test "$$(cat "$$stripped_root/external.out")" = "external 5"
 touch $@
 """,
         toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
