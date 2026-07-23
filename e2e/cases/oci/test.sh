@@ -57,6 +57,21 @@ expect_diagnostic "py_image_layer runfile collision at ./app.runfiles/_main/oci/
 
 echo "PASS: expanded and remapped destinations validate correctly"
 
+echo "== rule-group files must be excluded from the default source layer =="
+if ! "$BAZEL" build --output_groups=_validation -- \
+    "${PKG}:_rule_group_source_layers" >"$output_log" 2>&1; then
+    cat "$output_log" >&2
+    fail "expected the explicitly grouped source to validate"
+fi
+if ! "$BAZEL" build -- "${PKG}:_rule_group_sources_listing" >"$output_log" 2>&1; then
+    cat "$output_log" >&2
+    fail "expected the explicitly grouped source listing to build"
+fi
+listing="bazel-bin/oci/py_image_layer/_rule_group_sources.listing"
+expect_listing_count "$listing" "/my_app_peer_bin/config.json" 1
+
+echo "PASS: explicitly grouped sources are emitted once"
+
 echo "== source closures must preserve scalar and shared layouts =="
 if ! "$BAZEL" build -- \
     "${PKG}:_scalar_default_sources_listing" \

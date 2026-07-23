@@ -854,17 +854,23 @@ def _py_image_layer_impl(ctx):
     source_map = lambda f, d: _source_file_to_mtree(f, d, strip_prefix, root, source_maybe_symlink, executable_dsts)
 
     rule_group_names = {gname: True for gname in ctx.attr.groups.values()}
+    rule_group_files = []
+    rule_group_paths = {}
     for dep, group_name in ctx.attr.groups.items():
         dep_label = normalize_label(str(dep.label))
         if dep_label in pip_labels:
             continue
+        files = dep[DefaultInfo].files
+        rule_group_files.append(files)
+        for f in files.to_list():
+            rule_group_paths[f.path] = True
         tar_out = _declare_group_tar(
             ctx,
             bsdtar,
             bsdtar_files,
             "{}_{}.tar.gz".format(ctx.attr.name, group_name),
             group_name,
-            dep[DefaultInfo].files,
+            files,
             _user_file_to_mtree,
             "Creating image layer %s[%s]" % (ctx.label, group_name),
         )
@@ -972,6 +978,17 @@ def _py_image_layer_impl(ctx):
     # snapshot here to avoid double-bookkeeping during construction.
     dep_tars = list(all_tars)
 
+    source_files = depset(transitive = [info.source_files for info in infos])
+    if rule_group_paths:
+        # Rule groups are unavailable to the binary aspect, so its source
+        # closure still contains these files. Subtract them here, where the
+        # group tars are declared, and keep action inputs aligned with contents.
+        source_files = depset(direct = [
+            f
+            for f in source_files.to_list()
+            if f.path not in rule_group_paths
+        ])
+
     # Keep the complete source closure in one tar. `modify_mtree.awk` can only
     # rewrite a Bazel-tree symlink when its target row is in the same mtree.
     source_tar = _declare_group_tar(
@@ -980,7 +997,7 @@ def _py_image_layer_impl(ctx):
         bsdtar_files,
         "{}_default.tar.gz".format(ctx.attr.name),
         "default",
-        depset(transitive = [info.source_files for info in infos]),
+        source_files,
         source_map,
         "Creating source layer for %s" % ctx.label,
     )
@@ -1001,13 +1018,12 @@ def _py_image_layer_impl(ctx):
         # Validate expanded rows whenever source destinations can be shared or remapped.
         # TreeArtifact roots can contain disjoint versioned children, so only
         # the production mappers' expanded destinations are authoritative.
-        source_files = depset(transitive = [info.source_files for info in infos] + [
+        source_files = depset(transitive = [source_files] + [
             files
             for group_name, file_sets in fp_by_group.items()
             if group_name not in prebuilt_group_tars
             for files in file_sets
         ])
-        rule_group_files = [dep[DefaultInfo].files for dep in ctx.attr.groups if normalize_label(str(dep.label)) not in pip_labels]
         wheel_files = [pkg.files for pkg in all_pkgs]
         interpreter_files = [layer.interpreter_files for layer in interpreter_layers.values()]
 

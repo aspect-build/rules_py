@@ -74,6 +74,32 @@ def image_layer_analysis_test_suite():
         launcher_dir = "/app/bin",
     )
 
+    native.filegroup(
+        name = "_rule_group_assets",
+        srcs = ["my_app_peer_bin/config.json"],
+    )
+    py_binary(
+        name = "_rule_group_source_bin",
+        srcs = ["server.py"],
+        data = [":_rule_group_assets"],
+    )
+    py_image_layer(
+        name = "_rule_group_source_layers",
+        binaries = [
+            ":_rule_group_source_bin",
+            ":my_app_bin",
+        ],
+        groups = {":_rule_group_assets": "assets"},
+        launcher_dir = "/app/bin",
+    )
+    native.genrule(
+        name = "_rule_group_sources_listing",
+        srcs = [":_rule_group_source_layers"],
+        outs = ["_rule_group_sources.listing"],
+        cmd = "for f in $(SRCS); do $(BSDTAR_BIN) -tf $$f; done > $@",
+        toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
+    )
+
     native.genrule(
         name = "_scalar_launcher_collision_data",
         outs = ["bin/_scalar_launcher_collision"],
