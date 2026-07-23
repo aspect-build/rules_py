@@ -418,6 +418,58 @@ def _legacy_metadata_conflicts_with_pyproject(worktree: str) -> bool:
         )
     )
 
+_WHEEL_OS_MAP = {"linux": "linux", "darwin": "macosx", "windows": "win"}
+
+
+def _expected_cpu_in_tag(target_os: str, target_cpu: str) -> str:
+    if target_os == "darwin":
+        return {"aarch64": "arm64", "x86_64": "x86_64"}.get(target_cpu, target_cpu)
+    return {"x86_64": "x86_64", "aarch64": "aarch64", "x86": "i686", "arm": "armv7l"}.get(target_cpu, target_cpu)
+
+
+def _validate_wheel_platform(wheel_filename: str) -> None:
+    target_os = os.environ.get("RULES_PY_TARGET_OS", "")
+    target_cpu = os.environ.get("RULES_PY_TARGET_CPU", "")
+    if not target_os or not target_cpu:
+        return
+
+    platform_tag = wheel_filename.rsplit("-", 1)[-1].rsplit(".", 1)[0].lower()
+
+    expected_os = _WHEEL_OS_MAP.get(target_os, target_os)
+    expected_cpu = _expected_cpu_in_tag(target_os, target_cpu)
+
+    host_os = _platform.system().lower()
+    host_wheel_os = _WHEEL_OS_MAP.get(host_os, host_os)
+
+    if target_os != host_os and host_wheel_os in platform_tag:
+        print(
+            "Error: wheel platform tag '{}' contains exec host OS '{}' instead of "
+            "target OS '{}'. The target sysconfig override may have failed.".format(
+                platform_tag, host_wheel_os, expected_os,
+            ),
+            file=sys.stderr,
+        )
+        exit(1)
+
+    if expected_os not in platform_tag:
+        print(
+            "Error: wheel platform tag '{}' does not contain target OS '{}'.".format(
+                platform_tag, expected_os,
+            ),
+            file=sys.stderr,
+        )
+        exit(1)
+
+    if expected_cpu not in platform_tag:
+        print(
+            "Error: wheel platform tag '{}' does not contain target CPU '{}'.".format(
+                platform_tag, expected_cpu,
+            ),
+            file=sys.stderr,
+        )
+        exit(1)
+
+
 PARSER = ArgumentParser()
 PARSER.add_argument("srcarchive")
 PARSER.add_argument("outdir")
@@ -551,3 +603,6 @@ if len(inventory) > 1:
 if opts.validate_anyarch and not inventory[0].endswith("-none-any.whl"):
     print("Error: Target was anyarch but built a none-any wheel!\nSee {} for the sandbox".format(t), file=sys.stderr)
     exit(1)
+
+if opts.cross and not inventory[0].endswith("-none-any.whl"):
+    _validate_wheel_platform(inventory[0])
