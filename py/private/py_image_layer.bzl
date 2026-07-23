@@ -992,18 +992,35 @@ def _py_image_layer_impl(ctx):
         for entry in info.first_party_layers.to_list():
             first_party_reference_files.append(entry.files)
 
+    # Interpreter tars are declared at the configured toolchain, so identical
+    # runtimes action-share while distinct interpreter artifacts are retained.
+    interpreter_layers = {}
+    for info in infos:
+        if info.interpreter_layer != None:
+            layer = info.interpreter_layer
+            interpreter_layers[layer.tar.path] = layer
+
     # Each source-owned tier may contain a symlink whose target is emitted by
     # another tier. Share destination-only rows so every tar can rewrite those
     # links without copying the target bytes into that tar.
     symlink_mappings = None
     if rule_group_files or first_party_reference_files:
-        reference_files = [source_files] + rule_group_files + first_party_reference_files
+        interpreter_reference_files = []
+        interpreter_reference_paths = {}
+        for layer in interpreter_layers.values():
+            files = layer.interpreter_files
+            interpreter_reference_files.append(files)
+            for f in files.to_list():
+                interpreter_reference_paths[f.path] = True
+        reference_files = [source_files] + rule_group_files + first_party_reference_files + interpreter_reference_files
         reference_tree_files = {}
         for files in reference_files:
             for f in files.to_list():
                 if f.is_directory:
                     reference_tree_files[f.path] = f
-        reference_map = lambda f, d: rule_group_map(f, d) if f.path in rule_group_paths else source_map(f, d)
+        reference_map = lambda f, d: (
+            rule_group_map(f, d) if f.path in rule_group_paths else _interpreter_file_to_mtree(f, d) if f.path in interpreter_reference_paths else source_map(f, d)
+        )
         symlink_mappings = struct(
             files = depset(transitive = reference_files),
             map_each = reference_map,
@@ -1033,14 +1050,6 @@ def _py_image_layer_impl(ctx):
                     continue
                 seen_fp_labels[entry.label] = True
             fp_by_group.setdefault(entry.group, []).append(entry.files)
-
-    # Interpreter tars are declared at the configured toolchain, so identical
-    # runtimes action-share while distinct interpreter artifacts are retained.
-    interpreter_layers = {}
-    for info in infos:
-        if info.interpreter_layer != None:
-            layer = info.interpreter_layer
-            interpreter_layers[layer.tar.path] = layer
 
     prebuilt_group_tars = {}
     if ctx.attr.binary != None:

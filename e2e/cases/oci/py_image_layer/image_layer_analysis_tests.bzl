@@ -4,6 +4,8 @@ load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_layer_t
 load("@bazel_features//:features.bzl", "bazel_features")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 
+_PY_TOOLCHAIN = "@bazel_tools//tools/python:toolchain_type"
+
 def _expected_failure_impl(ctx):
     env = analysistest.begin(ctx)
     asserts.expect_failure(env, ctx.attr.expected_error)
@@ -23,6 +25,19 @@ def _target_file_symlink_impl(ctx):
 _target_file_symlink = rule(
     implementation = _target_file_symlink_impl,
     attrs = {"target": attr.label(allow_single_file = True, mandatory = True)},
+)
+
+def _interpreter_symlink_impl(ctx):
+    output = ctx.actions.declare_file(ctx.label.name)
+    ctx.actions.symlink(
+        output = output,
+        target_file = ctx.toolchains[_PY_TOOLCHAIN].py3_runtime.interpreter,
+    )
+    return [DefaultInfo(files = depset([output]))]
+
+_interpreter_symlink = rule(
+    implementation = _interpreter_symlink_impl,
+    toolchains = [_PY_TOOLCHAIN],
 )
 
 def _relative_symlink_impl(ctx):
@@ -262,21 +277,44 @@ touch $@
         },
         launcher_dir = "/app/bin",
     )
+    _interpreter_symlink(
+        name = "_grouped_interpreter_link",
+    )
+    py_binary(
+        name = "_grouped_interpreter_bin",
+        srcs = ["server.py"],
+        data = [":_grouped_interpreter_link"],
+    )
+    py_layer_tier(
+        name = "_grouped_interpreter_tier",
+        interpreter_group = "interpreter",
+    )
+    py_image_layer(
+        name = "_grouped_interpreter_layers",
+        binary = ":_grouped_interpreter_bin",
+        groups = {":_grouped_interpreter_link": "interpreter_alias"},
+        layer_tier = ":_grouped_interpreter_tier",
+    )
     native.genrule(
         name = "_grouped_source_runtime_test",
         srcs = [
             ":_grouped_source_layers_no_src",
             ":_grouped_source_layers_only_src",
+            ":_grouped_interpreter_layers",
             ":_scalar_launcher_collision_layers",
         ],
         outs = ["_grouped_source_runtime_test.ok"],
         cmd = """
 set -eu
 root="$(@D)/_grouped_source_runtime_test.root"
+interpreter_root="$(@D)/_grouped_source_runtime_test.interpreter"
 scalar_root="$(@D)/_grouped_source_runtime_test.scalar"
-mkdir -p "$$root" "$$scalar_root"
+mkdir -p "$$root" "$$interpreter_root" "$$scalar_root"
 for archive in $(locations :_grouped_source_layers_no_src) $(locations :_grouped_source_layers_only_src); do
   $(BSDTAR_BIN) -xf "$$archive" -C "$$root"
+done
+for archive in $(locations :_grouped_interpreter_layers); do
+  $(BSDTAR_BIN) -xf "$$archive" -C "$$interpreter_root"
 done
 for archive in $(locations :_scalar_launcher_collision_layers); do
   $(BSDTAR_BIN) -xf "$$archive" -C "$$scalar_root"
@@ -288,6 +326,10 @@ test -L "$$prefix/_grouped_content=payload_link"
 test "$$(cat "$$prefix/_grouped_content=payload_link")" = grouped-payload
 test -L "$$prefix/_grouped_content=asset_link"
 test "$$(cat "$$prefix/_grouped_content=asset_link")" = ordinary
+interpreter_link="$$interpreter_root/app.runfiles/_main/oci/py_image_layer/_grouped_interpreter_link"
+test -L "$$interpreter_link"
+test -s "$$interpreter_link"
+test "$$("$$interpreter_link" -c 'print("interpreter-link-ok")')" = interpreter-link-ok
 RUNFILES_DIR="$$root/app.runfiles" "$$root/app/bin/_grouped_source_bin" > "$$root/launcher.out"
 test "$$(cat "$$root/launcher.out")" = "server ok"
 RUNFILES_DIR="$$scalar_root/app.runfiles" "$$scalar_root/app/bin/_scalar_launcher_collision" > "$$scalar_root/launcher.out"
@@ -296,6 +338,10 @@ test "$$(cat "$$scalar_root/app.runfiles/_main/oci/py_image_layer/bin/_scalar_la
 count="$$(for archive in $(locations :_grouped_source_layers_no_src) $(locations :_grouped_source_layers_only_src); do $(BSDTAR_BIN) -tf "$$archive"; done | awk '/\\/grouped\\/content=payload.txt$$/ { n++ } END { print n + 0 }')"
 test "$$count" -eq 1
 count="$$(for archive in $(locations :_grouped_source_layers_no_src) $(locations :_grouped_source_layers_only_src); do $(BSDTAR_BIN) -tf "$$archive"; done | awk '/\\/grouped\\/ordinary.txt$$/ { n++ } END { print n + 0 }')"
+test "$$count" -eq 1
+count="$$(for archive in $(locations :_grouped_interpreter_layers); do $(BSDTAR_BIN) -tvf "$$archive"; done | awk '$$1 ~ /^-/ && $$NF ~ /\\/bin\\/python3\\.[0-9]+$$/ { n++ } END { print n + 0 }')"
+test "$$count" -eq 1
+count="$$(for archive in $(locations :_grouped_interpreter_layers); do $(BSDTAR_BIN) -tf "$$archive"; done | awk '/\\/_grouped_interpreter_link$$/ { n++ } END { print n + 0 }')"
 test "$$count" -eq 1
 count="$$(for archive in $(locations :_grouped_source_layers_no_src); do $(BSDTAR_BIN) -tf "$$archive"; done | awk '/\\/app\\/bin\\/_grouped_source_bin$$/ { n++ } END { print n + 0 }')"
 test "$$count" -eq 1
