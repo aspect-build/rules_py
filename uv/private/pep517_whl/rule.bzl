@@ -10,6 +10,7 @@ load("@rules_cc//cc:action_names.bzl", "ACTION_NAMES")
 load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
 load("//py/private/toolchain:types.bzl", "NATIVE_BUILD_TOOLCHAIN", "PY_TOOLCHAIN")
 load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
+load(":cc_layer.bzl", "CC_LAYER_ATTRS", "extract_cc_layer")
 
 _CC_TOOLCHAIN_TYPE = Label("@bazel_tools//tools/cpp:toolchain_type")
 _TARGET_EXEC_GROUP = "target"
@@ -192,9 +193,9 @@ def _pep517_native_whl(ctx):
 
     eg_toolchains = ctx.exec_groups[_TARGET_EXEC_GROUP].toolchains
     cross = eg_toolchains[NATIVE_BUILD_TOOLCHAIN] == None
-    cc_toolchain = eg_toolchains[_CC_TOOLCHAIN_TYPE]
+    cc_toolchain_raw = eg_toolchains[_CC_TOOLCHAIN_TYPE]
 
-    if cc_toolchain == None:
+    if cc_toolchain_raw == None:
         if cross:
             fail(
                 "Cross-compilation of sdist '{}' requires a CC toolchain " +
@@ -211,6 +212,10 @@ def _pep517_native_whl(ctx):
             "Register a CC toolchain (e.g., rules_cc, toolchains_llvm) " +
             "via register_toolchains.".format(ctx.attr.src.label),
         )
+
+    cc_toolchain = cc_toolchain_raw
+    if hasattr(cc_toolchain, "cc_provider_in_toolchain") and hasattr(cc_toolchain, "cc"):
+        cc_toolchain = cc_toolchain.cc
 
     env = _common_env(ctx)
     extra_inputs, known_variables = _collect_toolchain_inputs_and_vars(ctx)
@@ -236,7 +241,30 @@ def _pep517_native_whl(ctx):
         env[_INFER_CXX_COMPANION] = "1"
 
     if cross:
+        cc_layer = extract_cc_layer(ctx, cc_toolchain)
         env["RULES_PY_CROSS_COMPILE"] = "1"
+        env["RULES_PY_TARGET_OS"] = cc_layer.target_os or ""
+        env["RULES_PY_TARGET_CPU"] = cc_layer.target_cpu or ""
+        if cc_layer.cflags:
+            env["CFLAGS"] = cc_layer.cflags
+        if cc_layer.cxxflags:
+            env["CXXFLAGS"] = cc_layer.cxxflags
+        if cc_layer.ldflags:
+            env["LDFLAGS"] = cc_layer.ldflags
+        if cc_layer.ldshared_flags:
+            env["LDSHAREDFLAGS"] = cc_layer.ldshared_flags
+        if cc_layer.ccshared:
+            env["CFLAGS"] = (env.get("CFLAGS", "") + " " + cc_layer.ccshared).strip()
+            env["CXXFLAGS"] = (env.get("CXXFLAGS", "") + " " + cc_layer.ccshared).strip()
+        cross_args = [
+            "--cross",
+            "--target-os",
+            cc_layer.target_os or "",
+            "--target-cpu",
+            cc_layer.target_cpu or "",
+        ]
+    else:
+        cross_args = []
 
     ctx.actions.run(
         mnemonic = "PySdistCrossBuild" if cross else "PySdistNativeBuild",
@@ -246,9 +274,7 @@ def _pep517_native_whl(ctx):
         ),
         executable = ctx.executable.tool,
         toolchain = None,
-        arguments = ctx.attr.args + patch_args + _memory_args(ctx) + (
-            ["--cross"] if cross else []
-        ) + [
+        arguments = ctx.attr.args + patch_args + _memory_args(ctx) + cross_args + [
             "--execroot-marker",
             _EXECROOT_MARKER,
             archive.path,
@@ -348,7 +374,7 @@ analysis fails with a diagnostic naming the required toolchain type.
                   "the unpacked source tree. Omit CC/CXX/AR/LD/STRIP to use the " +
                   "configured C++ action tools.",
         ),
-    },
+    } | CC_LAYER_ATTRS,
     fragments = ["cpp"],
     exec_groups = {
         _TARGET_EXEC_GROUP: exec_group(

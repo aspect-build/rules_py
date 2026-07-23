@@ -28,9 +28,20 @@ bzl_library(
     name = "rule",
     srcs = ["rule.bzl"],
     deps = [
+        ":cc_layer",
         "//py/private/toolchain:types",
         "//uv/private:source_built_wheel",
         "@bazel_lib//lib:resource_sets",
+        "@rules_cc//cc:action_names_bzl",
+        "@rules_cc//cc/common",
+    ],
+)
+
+bzl_library(
+    name = "cc_layer",
+    srcs = ["cc_layer.bzl"],
+    visibility = ["//uv/private:__subpackages__"],
+    deps = [
         "@rules_cc//cc:action_names_bzl",
         "@rules_cc//cc/common",
     ],
