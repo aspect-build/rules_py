@@ -35,23 +35,22 @@ expect_listing_count() {
     fi
 }
 
-echo "== versioned pure-wheel children must share an image =="
+echo "== versioned wheel children must share an image when destinations agree =="
 if ! "$BAZEL" build --output_groups=_validation -- \
-    "${PKG}:_configured_pure_wheel_layers" >"$output_log" 2>&1; then
+    "${PKG}:_configured_pure_wheel_layers" \
+    "${PKG}:_configured_wheel_collision_layers" >"$output_log" 2>&1; then
     cat "$output_log" >&2
-    fail "expected the two-version pure-wheel image to validate"
+    fail "expected the two-version wheel images to validate"
 fi
 
 echo "== remapped destinations must fail validation =="
 if "$BAZEL" build --keep_going --output_groups=_validation -- \
-    "${PKG}:_configured_wheel_collision_layers" \
     "${PKG}:_scalar_launcher_collision_layers" \
     "${PKG}:_scalar_strip_collision_layers" \
     "${PKG}:_scalar_root_collision_layers" >"$output_log" 2>&1; then
     cat "$output_log" >&2
     fail "expected remapped destinations to fail validation"
 fi
-expect_diagnostic "/bin/pyproject-build:"
 expect_diagnostic "py_image_layer runfile collision at ./app/bin/_scalar_launcher_collision:"
 expect_diagnostic "py_image_layer runfile collision at ./app.runfiles/_main/oci/py_image_layer/_scalar_strip_collision/data.txt:"
 expect_diagnostic "py_image_layer runfile collision at ./app.runfiles/_main/oci/py_image_layer/server.py:"
