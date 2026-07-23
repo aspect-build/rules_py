@@ -441,8 +441,9 @@ def _layer_aspect_impl(target, ctx):
         for interp_layer in transitive_interp:
             for f in interp_layer.interpreter_files.to_list():
                 interp_paths[f.path] = True
-        if transitive_interp:
-            interpreter_layer = transitive_interp[0]
+        venv = getattr(ctx.rule.attr, "venv", None)
+        if venv != None and _LayerInfo in venv:
+            interpreter_layer = venv[_LayerInfo].interpreter_layer
 
         runfiles_files = target[DefaultInfo].default_runfiles.files.to_list()
         filtered = [f for f in runfiles_files if f.path not in skip_paths and f.path not in interp_paths]
@@ -615,7 +616,7 @@ def _file_to_mtree_entry(f, mode = "0644", strip_prefix = "", root = "/", maybe_
         f.path.replace(" ", "\\040"),
     )
 
-def _source_file_to_mtree(f, dir_expander, strip_prefix, root, maybe_symlink, executable_dsts):
+def _source_file_to_mtree(f, dir_expander, strip_prefix, root, maybe_symlink, executable_dsts, runfile_executable_paths):
     # 0755 throughout: keeps launcher/interpreter/venv shims executable; Bazel
     # doesn't expose per-input source mode for us to propagate.
     if f.is_directory:
@@ -623,7 +624,17 @@ def _source_file_to_mtree(f, dir_expander, strip_prefix, root, maybe_symlink, ex
             _file_to_mtree_entry(child, "0755", strip_prefix, root, maybe_symlink, executable_dsts)
             for child in dir_expander.expand(f)
         ]
-    return _file_to_mtree_entry(f, "0755", strip_prefix, root, maybe_symlink, executable_dsts)
+    entry = _file_to_mtree_entry(f, "0755", strip_prefix, root, maybe_symlink, executable_dsts)
+    if f.path not in runfile_executable_paths:
+        return entry
+    return [
+        entry,
+        _file_to_mtree_entry(
+            f,
+            "0755",
+            maybe_symlink = maybe_symlink,
+        ),
+    ]
 
 def _user_file_to_mtree(f, dir_expander):
     if f.is_directory:
@@ -834,8 +845,10 @@ def _py_image_layer_impl(ctx):
 
     launcher_names = {}
     executable_dsts = {}
-    for binary in binaries:
+    executable_owner_by_path = {}
+    for index, binary in enumerate(binaries):
         executable = binary[DefaultInfo].files_to_run.executable
+        executable_owner_by_path[executable.path] = index
         launcher_name = executable.basename
         if launcher_dir:
             if launcher_name in launcher_names:
@@ -845,13 +858,33 @@ def _py_image_layer_impl(ctx):
         else:
             executable_dsts[executable.short_path] = ""
 
+    runfile_executable_paths = {}
+    if launcher_dir and len(binaries) > 1:
+        for index, binary in enumerate(binaries):
+            for f in binary[DefaultInfo].default_runfiles.files.to_list():
+                owner = executable_owner_by_path.get(f.path, None)
+
+                # A launcher consumed through another binary's runfiles needs
+                # both its relocated entrypoint and the logical key resolved
+                # by that consumer.
+                if owner != None and owner != index:
+                    runfile_executable_paths[f.path] = True
+
     # 3p pip layers are action-shared across the graph and hard-code their
     # destination under `./app.runfiles/<repo>/...`, so the consumer's source
     # layer has to land under the same `/app.runfiles/` tree for each launcher
     # to find them. Map every launcher's `.runfiles/` tree into that shared root.
     all_tars = []
     source_maybe_symlink = any([info.interpreter_layer == None for info in infos])
-    source_map = lambda f, d: _source_file_to_mtree(f, d, strip_prefix, root, source_maybe_symlink, executable_dsts)
+    source_map = lambda f, d: _source_file_to_mtree(
+        f,
+        d,
+        strip_prefix,
+        root,
+        source_maybe_symlink,
+        executable_dsts,
+        runfile_executable_paths,
+    )
 
     rule_group_names = {gname: True for gname in ctx.attr.groups.values()}
     rule_group_files = []

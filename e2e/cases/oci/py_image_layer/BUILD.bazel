@@ -145,9 +145,11 @@ py_library(
 py_binary(
     name = "my_app_launcher_bin",
     srcs = ["launcher.py"],
+    data = [":my_app_worker_bin"],
     dep_group = "images",
     python_version = "3.11",
     deps = [
+        "@bazel_tools//tools/python/runfiles",
         "@pypi_oci_py_image_layer//build",
         "@pypi_oci_py_image_layer//colorama",
     ],
@@ -190,6 +192,14 @@ py_image_layer(
         ":my_app_worker_alias",
     ],
     layer_tier = ":my_app_launchers_tier",
+)
+
+genrule(
+    name = "my_app_launchers_sources_listing",
+    srcs = [":my_app_launchers_layers_only_src"],
+    outs = ["_my_app_launchers_sources.listing"],
+    cmd = "for f in $(SRCS); do $(BSDTAR_BIN) -tf $$f; done > $@",
+    toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
 )
 
 # Default-tier source closures share the interpreter, branding source, and

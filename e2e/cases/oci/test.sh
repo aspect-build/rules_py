@@ -75,6 +75,7 @@ echo "PASS: explicitly grouped sources are emitted once"
 echo "== source closures must preserve scalar and shared layouts =="
 if ! "$BAZEL" build -- \
     "${PKG}:_scalar_default_sources_listing" \
+    "${PKG}:my_app_launchers_sources_listing" \
     "${PKG}:my_app_shared_sources_listing" >"$output_log" 2>&1; then
     cat "$output_log" >&2
     fail "expected source-layer listings to build"
@@ -86,6 +87,11 @@ if grep -Fq './app.runfiles/_main/oci/py_image_layer/my_app_peer_bin/config.json
     cat "$listing" >&2
     fail "scalar executable descendant leaked into the shared runfiles layout"
 fi
+listing="bazel-bin/oci/py_image_layer/_my_app_launchers_sources.listing"
+expect_listing_count "$listing" "/app/bin/my_app_launcher_bin" 1
+expect_listing_count "$listing" "/app/bin/my_app_worker_bin" 1
+expect_listing_count "$listing" "/app.runfiles/_main/oci/py_image_layer/my_app_worker_bin" 1
+expect_listing_count "$listing" "/app.runfiles/_main/oci/py_image_layer/my_app_launcher_bin" 0
 listing="bazel-bin/oci/py_image_layer/_my_app_shared_sources.listing"
 for suffix in \
     /branding/__init__.py \
