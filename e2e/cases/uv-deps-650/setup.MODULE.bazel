@@ -19,7 +19,6 @@ uv.project(
 uv.project(
     default_build_dependencies = [
         "build",
-        "cffi",
         "setuptools",
     ],
     hub_name = "pypi_uv_deps_650",
