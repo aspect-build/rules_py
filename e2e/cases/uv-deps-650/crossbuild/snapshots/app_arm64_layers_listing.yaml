@@ -38,9 +38,7 @@ files:
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/uv-deps-650/crossbuild/._app_bin.venv/bin/python -> ../../../../../aspect_rules_py++python_interpreters+python_3_12_aarch64_unknown_linux_gnu/bin/python3
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/uv-deps-650/crossbuild/._app_bin.venv/bin/python3 -> python
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/uv-deps-650/crossbuild/._app_bin.venv/bin/python3.12 -> python
-  - -rwxr-xr-x  0 0      0         109 Jan  1  2023 ./app.runfiles/_main/uv-deps-650/crossbuild/._app_bin.venv/lib/python3.12/site-packages/_app_bin.venv.pth
-  - -rwxr-xr-x  0 0      0          19 Jan  1  2023 ./app.runfiles/_main/uv-deps-650/crossbuild/._app_bin.venv/lib/python3.12/site-packages/_virtualenv.pth
-  - -rwxr-xr-x  0 0      0        4932 Jan  1  2023 ./app.runfiles/_main/uv-deps-650/crossbuild/._app_bin.venv/lib/python3.12/site-packages/_virtualenv.py
+  - -rwxr-xr-x  0 0      0         331 Jan  1  2023 ./app.runfiles/_main/uv-deps-650/crossbuild/._app_bin.venv/lib/python3.12/site-packages/_app_bin.venv.pth
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/uv-deps-650/crossbuild/._app_bin.venv/lib/python3.12/site-packages/psycopg2 -> ../../../../../../../aspect_rules_py++uv+whl_install__crossbuild__psycopg2_binary__2_9_11/actual_install.install/lib/python3.12/site-packages/psycopg2
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/uv-deps-650/crossbuild/._app_bin.venv/lib/python3.12/site-packages/psycopg2_binary-2.9.11.dist-info -> ../../../../../../../aspect_rules_py++uv+whl_install__crossbuild__psycopg2_binary__2_9_11/actual_install.install/lib/python3.12/site-packages/psycopg2_binary-2.9.11.dist-info
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/uv-deps-650/crossbuild/._app_bin.venv/lib/python3.12/site-packages/psycopg2_binary.libs -> ../../../../../../../aspect_rules_py++uv+whl_install__crossbuild__psycopg2_binary__2_9_11/actual_install.install/lib/python3.12/site-packages/psycopg2_binary.libs

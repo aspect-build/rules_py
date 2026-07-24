@@ -20,8 +20,8 @@ distutils, etc.) treat it as a real venv:
         <console_script>                        one per wheel-declared entry point
       lib/python<MAJ>.<MIN>/site-packages/
         <name>.pth                              first-party + fallback .pth
-        _virtualenv.py                          distutils-compat shim
-        _virtualenv.pth                         loads the shim at site init
+        _virtualenv.py                          distutils-compat shim (Python <3.10)
+        _virtualenv.pth                         loads the shim at site init (Python <3.10)
         <top_level>                             symlink to a wheel's subdir
         <ns_pkg>/<entry>                        merged PEP 420 namespace: real
                                                 <ns_pkg>/ dir, per-entry symlinks
@@ -241,6 +241,15 @@ def assemble_venv(
     pth_lines.set_param_file_format("multiline")
     pth_lines.add(escape)
 
+    # Make wheel-declared console scripts reachable via `subprocess.run("name", ...)`
+    # without loading the distutils shim on every interpreter startup.
+    pth_lines.add(
+        "import os, sys; _venv_bin = os.path.dirname(sys.executable); " +
+        "_path = os.environ.get(\"PATH\", \"\"); " +
+        "os.environ[\"PATH\"] = _path if _venv_bin in _path.split(os.pathsep) " +
+        "else _venv_bin + os.pathsep + _path; del _venv_bin, _path",
+    )
+
     # allow_closure lets _format_imp capture fully_covered_site_pkgs /
     # known_layout_site_pkgs so we don't have to materialise imports_depset
     # via .to_list().
@@ -314,27 +323,28 @@ def assemble_venv(
     )
     declared.append(bin_activate)
 
-    # _virtualenv.py + _virtualenv.pth — distutils shim for pip interop.
-    # Materialised as a real file, not a symlink into the rules_py source
-    # tree, so tar/OCI/rsync etc. consumers of the venv can resolve the file.
-    virtualenv_shim_py_out = ctx.actions.declare_file(
-        "{}/_virtualenv.py".format(site_packages_rel),
-    )
-    ctx.actions.expand_template(
-        template = virtualenv_shim_py,
-        output = virtualenv_shim_py_out,
-        substitutions = {},
-    )
-    declared.append(virtualenv_shim_py_out)
+    # Python 3.10+ ignores the distutils install config keys this shim guards.
+    # Keep it for Python 3.9, whose last compatible pip still needs it.
+    version = py_toolchain.interpreter_version_info
+    if version.major == 3 and version.minor < 10:
+        virtualenv_shim_py_out = ctx.actions.declare_file(
+            "{}/_virtualenv.py".format(site_packages_rel),
+        )
+        ctx.actions.expand_template(
+            template = virtualenv_shim_py,
+            output = virtualenv_shim_py_out,
+            substitutions = {},
+        )
+        declared.append(virtualenv_shim_py_out)
 
-    virtualenv_shim_pth = ctx.actions.declare_file(
-        "{}/_virtualenv.pth".format(site_packages_rel),
-    )
-    ctx.actions.write(
-        output = virtualenv_shim_pth,
-        content = "import _virtualenv\n",
-    )
-    declared.append(virtualenv_shim_pth)
+        virtualenv_shim_pth = ctx.actions.declare_file(
+            "{}/_virtualenv.pth".format(site_packages_rel),
+        )
+        ctx.actions.write(
+            output = virtualenv_shim_pth,
+            content = "import _virtualenv\n",
+        )
+        declared.append(virtualenv_shim_pth)
 
     # Console-script wrappers under <venv>/bin/<name>.
     for name, target in console_scripts_map.items():
