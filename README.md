@@ -376,7 +376,10 @@ the link target on a subset of binaries.
 
 > **Migrating from v1.x?** `py_binary` no longer auto-emits a `.venv` sibling.
 > Add `expose_venv_link = True` for the equivalent IDE-symlink behavior,
-> or use the explicit two-target form when you want fine-grained control.
+> or use the explicit two-target form when you want fine-grained control. The
+> workspace link now points to the complete runfiles tree, so update IDE,
+> shell, direnv, and automation paths such as `.venv/bin` to use the nested
+> virtualenv path printed by `bazel run :<name>.venv_link`.
 
 ### Debugger Support (VSCode/PyCharm)
 
