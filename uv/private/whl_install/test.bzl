@@ -5,7 +5,7 @@ load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/tools/unpack:exclude_glob_test_vectors.bzl", "EXCLUDE_GLOB_VECTORS", "RECORD_PATH_EXCLUDE_VECTORS")
 load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
-load(":metadata.bzl", "exclude_glob_matches", "native_roots_for_segments", "parse_console_script", "parse_exclude_glob", "parse_record_path", "record_path_excluded", "site_packages_segments")
+load(":metadata.bzl", "data_scheme_segments", "data_segments_contained", "exclude_glob_matches", "native_roots_for_segments", "parse_console_script", "parse_exclude_glob", "parse_record_path", "record_path_excluded", "site_packages_segments")
 load(":repository.bzl", "compatible_python_tags", "select_key", "sort_select_arms", "source_specificity")
 load(":rule.bzl", "pyc_compile_version_compatible", "source_built_wheel", "whl_dist", "whl_install")
 
@@ -149,6 +149,44 @@ def _site_packages_segments_test_impl(ctx):
     return unittest.end(env)
 
 site_packages_segments_test = unittest.make(_site_packages_segments_test_impl)
+
+def _data_scheme_segments_test_impl(ctx):
+    env = unittest.begin(ctx)
+    data = "Legacy.Name-1.0.data"
+
+    # `.data/data/` files map to their prefix-relative segments.
+    asserts.equals(env, ["share", "jupyter", "x.js"], data_scheme_segments(
+        data + "/data/share/jupyter/x.js",
+        data,
+    ))
+
+    # Other `.data/` categories and plain site-packages paths are not data files.
+    asserts.equals(env, None, data_scheme_segments(data + "/purelib/pkg/mod.py", data))
+    asserts.equals(env, None, data_scheme_segments(data + "/scripts/tool", data))
+    asserts.equals(env, None, data_scheme_segments("pkg/module.py", data))
+
+    # A `.data/data` entry with no file beneath the category is not a file.
+    asserts.equals(env, None, data_scheme_segments(data + "/data", data))
+    return unittest.end(env)
+
+data_scheme_segments_test = unittest.make(_data_scheme_segments_test_impl)
+
+def _data_segments_contained_test_impl(ctx):
+    env = unittest.begin(ctx)
+
+    asserts.true(env, data_segments_contained(["share", "jupyter", "x.js"]))
+    asserts.true(env, data_segments_contained(["toplevel.txt"]))
+
+    # Components that would place the declared symlink outside the venv prefix,
+    # or synthesize a phantom parent output.
+    asserts.false(env, data_segments_contained(["..", "escape.txt"]))
+    asserts.false(env, data_segments_contained(["share", "..", "..", "x"]))
+    asserts.false(env, data_segments_contained([".", "x"]))
+    asserts.false(env, data_segments_contained(["share", "", "x"]))
+    asserts.false(env, data_segments_contained(["/abs", "x"]))
+    return unittest.end(env)
+
+data_segments_contained_test = unittest.make(_data_segments_contained_test_impl)
 
 def _exclude_glob_test_impl(ctx):
     env = unittest.begin(ctx)
@@ -899,6 +937,14 @@ def whl_install_suite():
     unittest.suite(
         "site_packages_segments_tests",
         site_packages_segments_test,
+    )
+    unittest.suite(
+        "data_scheme_segments_tests",
+        data_scheme_segments_test,
+    )
+    unittest.suite(
+        "data_segments_contained_tests",
+        data_segments_contained_test,
     )
     unittest.suite(
         "exclude_glob_tests",

@@ -136,6 +136,21 @@ write_source_files(
         # shows up as the per-wheel dicts collapsing into one merged list.
         "snapshots/abi3_compat.whl_install.cffi.BUILD.bazel": "@whl_install__abi3_compat__cffi__2_0_0//:BUILD.bazel",
 
+        # whl_dist for the two wheels in //venv-data-files-1366, which ship
+        # PEP 427 `.data/data/` files under share/jupyter (and etc/jupyter).
+        # Pins the `data_files` list the extractor derives from RECORD's
+        # `.data/data/` entries — the metadata venv assembly projects into the
+        # prefix. The two wheels collide under share/jupyter/, so together they
+        # pin both sides of the data-file merge the venv performs.
+        "snapshots/venv_data_files_1366.whl_dist.widgetsnbextension.BUILD.bazel": "@whl__widgetsnbextension__8156704e4346a571//:BUILD.bazel",
+        "snapshots/venv_data_files_1366.whl_dist.jupyterlab_widgets.BUILD.bazel": "@whl__jupyterlab_widgets__45fa36d9c6422cf2//:BUILD.bazel",
+
+        # Venv top-level tree for //venv-data-files-1366. Pins that the venv
+        # materialises the prefix data roots (`share/`, `etc/`) alongside the
+        # stock `bin/`, `lib/`, `pyvenv.cfg` as it projects the two wheels'
+        # `.data/data/` files.
+        "snapshots/venv_data_files_1366.test.venv.tree": "//venv-data-files-1366:test.venv.tree",
+
         # @sdist_build for jpype1 with uv.override_package toolchains/env
         # ----------------------------------------------------------------
         # Covers the override_package -> repo-rule -> BUILD-template

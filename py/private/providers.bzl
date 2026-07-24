@@ -42,6 +42,9 @@ Duplicate dependency edges do not create another precedence position. Fields:
     into a merge tree without changing the library's physical origin.
   * `site_packages_rfpath`: str — runfiles-root-relative path to the wheel's site-packages.
   * `console_scripts`: tuple[str] — entry points encoded as `"name=module:func"`.
+  * `data_files`: tuple[str] — PEP 427 `.data/data/` prefix-relative install
+    paths (e.g. `share/jupyter/...`), projected into the venv prefix. May be
+    absent on structs from older producers; consumers use `getattr` with `()`.
   * `install_tree`: File — complete installed wheel tree.
   * `tl_claims`, `metadata_top_levels`, `cs_claims`: derived fields
     precomputed by `make_wheel_record` so venv assembly's collision
@@ -66,7 +69,8 @@ def make_wheel_record(
         namespace_dirs = (),
         regular_roots = (),
         native_roots = (),
-        console_scripts = ()):
+        console_scripts = (),
+        data_files = ()):
     """Build one PyWheelsInfo wheel record.
 
     Precomputes the collision-resolution claim structs that venv assembly
@@ -84,6 +88,7 @@ def make_wheel_record(
         regular_roots: minimal `__init__.py`-carrying directories under the top-levels.
         native_roots: collision-relevant roots containing native-library entries.
         console_scripts: entry points encoded as `"name=module:func"`.
+        data_files: PEP 427 `.data/data/` prefix-relative install paths.
 
     Returns:
         A struct for PyWheelsInfo.wheels.
@@ -139,6 +144,7 @@ def make_wheel_record(
         native_roots = tuple(native_roots),
         site_packages_rfpath = site_packages_rfpath,
         console_scripts = tuple(console_scripts),
+        data_files = tuple(data_files),
         install_tree = install_tree,
         tl_claims = tuple(tl_claims),
         metadata_top_levels = tuple(metadata_top_levels),

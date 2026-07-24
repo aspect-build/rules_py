@@ -403,6 +403,11 @@ def main() -> None:
     ap.add_argument("--patch-strip", type=int, default=0)
     ap.add_argument("--patch-tool", type=Path, default=Path("patch"))
     ap.add_argument("--preserve-path", action="append", default=[])
+    ap.add_argument("--verify-data-files", action="store_true",
+                    help="After patching, require the `.data/data/` prefix files to "
+                         "exactly match --expected-data-file (venv assembly projects "
+                         "that pre-patch set).")
+    ap.add_argument("--expected-data-file", action="append", default=[])
     ap.add_argument("--exclude-glob", action="append", default=[])
     ap.add_argument("--compile-pyc", action="store_true")
     ap.add_argument("--pyc-invalidation-mode", default="checked-hash",
@@ -493,6 +498,32 @@ def main() -> None:
         if _native_descendants(directory, site_packages, args.exclude_glob) != native_descendants:
             raise SystemExit(
                 "Post-install patch changed observed native files: {}".format(relative)
+            )
+
+    # Venv assembly projects the `.data/data/` prefix files (share/, etc/) from
+    # metadata derived pre-patch. Unlike the site-packages topology they are not
+    # covered by the preserve-path checks above and are projected per-file, so a
+    # patch that alters the set cannot be reflected: an added file would be
+    # missing from sys.prefix, a removed/renamed one would dangle. When the caller
+    # forwards the expected set (whl_install does whenever it patches), require
+    # the post-patch prefix tree to match it exactly. Content edits are fine — the
+    # symlink resolves through — only the path set is guarded.
+    if args.verify_data_files:
+        excluded_roots = (site_packages, args.into / "bin", args.into / "lib" / "include")
+        actual = {
+            os.path.relpath(str(path), str(args.into)).replace("\\", "/")
+            for path in args.into.rglob("*")
+            if path.is_file() and not any(root in path.parents for root in excluded_roots)
+        }
+        expected = set(args.expected_data_file)
+        removed = sorted(expected - actual)
+        added = sorted(actual - expected)
+        if removed or added:
+            raise SystemExit(
+                "Post-install patch altered the wheel's `.data/data/` prefix files; "
+                "venv assembly projects the pre-patch set, so added files are missing "
+                "from sys.prefix and removed/renamed files dangle "
+                "(removed={}, added={}).".format(removed, added)
             )
 
     if args.exclude_glob:

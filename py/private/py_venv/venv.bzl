@@ -98,7 +98,7 @@ def assemble_venv(
 
     wheels_depset = _py_library.make_wheels_depset(ctx)
     wheels = wheels_depset.to_list()
-    top_level_to_site_pkgs, fully_covered_site_pkgs, console_scripts_map, merge_groups, collisions = resolve_wheel_collisions(ctx, wheels)
+    top_level_to_site_pkgs, fully_covered_site_pkgs, console_scripts_map, merge_groups, data_file_to_site_pkgs, collisions = resolve_wheel_collisions(ctx, wheels)
     enforce_collision_policy(collisions, package_collisions)
 
     # All toolchain-derived path/flag math (runfiles escape arithmetic,
@@ -149,6 +149,31 @@ def assemble_venv(
         target_path = target_prefix + tl
         if "/" in tl:
             target_path = "../" * tl.count("/") + target_path
+        ctx.actions.symlink(
+            output = out,
+            target_path = target_path,
+        )
+        declared.append(out)
+
+    # Wheel data files (PEP 427 `.data/data/`): each file the wheel installs
+    # into the prefix (e.g. `share/jupyter/...`, `etc/...`) is symlinked at
+    # `<venv>/<path>` back into the owning wheel's install tree, so tools that
+    # discover resources via `sys.prefix/share` find them. Per-file (not
+    # per-dir) so wheels contributing to a shared prefix directory union
+    # instead of one shadowing the other. The install-tree root is the wheel's
+    # site-packages rfpath minus its fixed `lib/<pyver>/site-packages` suffix.
+    sp_suffix = "/lib/{}/site-packages".format(wheel_py_ver)
+    install_root_by_sp = {}
+    for datapath, wheel_site_pkgs in data_file_to_site_pkgs.items():
+        out = ctx.actions.declare_symlink(venv_name + "/" + datapath)
+        install_root = install_root_by_sp.get(wheel_site_pkgs)
+        if install_root == None:
+            install_root = wheel_site_pkgs[:-len(sp_suffix)]
+            install_root_by_sp[wheel_site_pkgs] = install_root
+        target_path = (
+            "../" * datapath.count("/") +
+            venv_to_runfiles_escape + "/" + install_root + "/" + datapath
+        )
         ctx.actions.symlink(
             output = out,
             target_path = target_path,

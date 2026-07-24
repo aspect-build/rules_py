@@ -445,6 +445,25 @@ def _resolve_console_scripts(cs_claimants, complain):
         console_scripts_map[name] = struct(module = winner.module, func = winner.func)
     return console_scripts_map
 
+def _resolve_data_files(wheels, complain):
+    """Resolve wheel data-file (PEP 427 `.data/data/`) prefix paths.
+
+    Each file is projected individually, so wheels contributing to a shared
+    prefix directory (e.g. `share/jupyter/`) union rather than clobber. Only an
+    identical prefix path claimed by more than one distinct wheel is a
+    collision; last distinct wheel wins, matching pip's overwrite semantics.
+    """
+    claimants = {}
+    for w in wheels:
+        for path in getattr(w, "data_files", ()):
+            claimants.setdefault(path, []).append(w.site_packages_rfpath)
+    data_file_to_site_pkgs = {}
+    for path, sps in claimants.items():
+        distinct = _distinct_ordered(sps)
+        _complain_chain(complain, "data file", path, distinct)
+        data_file_to_site_pkgs[path] = distinct[-1]
+    return data_file_to_site_pkgs
+
 def _compute_fully_covered(wheels, state):
     """Determine which wheels have every top-level projected or merged.
 
@@ -504,7 +523,7 @@ def resolve_wheel_collisions(ctx, wheels):
 
     Returns:
       (top_level_to_site_pkgs, fully_covered, console_scripts_map,
-       merge_groups, collisions)
+       merge_groups, data_file_to_site_pkgs, collisions)
     """
     collisions = []
     complain = _make_collision_recorder(ctx, collisions)
@@ -542,6 +561,7 @@ def resolve_wheel_collisions(ctx, wheels):
 
     _fold_merge_groups(wheels, wheel_by_sp, state)
     console_scripts_map = _resolve_console_scripts(cs_claimants, complain)
+    data_file_to_site_pkgs = _resolve_data_files(wheels, complain)
     fully_covered = _compute_fully_covered(wheels, state)
     _resolve_metadata_collisions(metadata_claimants, state, fully_covered, complain, ctx)
 
@@ -550,6 +570,7 @@ def resolve_wheel_collisions(ctx, wheels):
         fully_covered,
         console_scripts_map,
         state.merge_groups,
+        data_file_to_site_pkgs,
         collisions,
     )
 

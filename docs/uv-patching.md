@@ -235,6 +235,12 @@ uv.override_package(
   not enumerated by this validation and may not be visible to venv consumers.
   Source-built wheel topology is unavailable during analysis and remains
   unvalidated.
+- Post-install patches to prebuilt wheels must not change the set of PEP 427
+  `.data/data/` files a wheel installs into the venv prefix (`share/`, `etc/`,
+  ...). Venv assembly projects that set per-file from pre-patch metadata, so an
+  added file would be missing from `sys.prefix` and a removed or renamed one
+  would leave a dangling symlink; either is rejected. Editing the contents of an
+  existing data file is supported.
 - Gazelle indexes the raw wheel as an unfiltered superset. Preserving top-level
   import roots keeps ordinary mappings valid, but precise mappings for shared
   namespaces or excluded submodules can remain in the generated manifest.

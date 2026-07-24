@@ -77,6 +77,29 @@ def site_packages_segments(path, data_directory):
         return []
     return segments[2:]
 
+def data_scheme_segments(path, data_directory):
+    """Map a RECORD path under `.data/data/` to its prefix-relative segments.
+
+    PEP 427's `data` category installs into `sys.prefix` (e.g. `share/`,
+    `etc/`), the tree venv assembly projects for issue #1366. Returns `None`
+    for anything that isn't a `.data/data/` file.
+    """
+    segments = path.split("/")
+    if len(segments) < 3 or segments[0] != data_directory or segments[1] != "data":
+        return None
+    return segments[2:]
+
+def data_segments_contained(segments):
+    """True when every prefix-relative segment stays inside the venv prefix.
+
+    Data paths become `ctx.actions.declare_symlink` outputs under the prefix, so
+    an empty, `.`, `..`, or absolute component must not be projected.
+    """
+    return all([
+        seg and seg not in (".", "..") and not seg.startswith("/")
+        for seg in segments
+    ])
+
 def native_roots_for_segments(segments, collision_roots = ()):
     """Return collision roots whose relocation can break a native file.
 
@@ -403,7 +426,7 @@ def extract_install_metadata(rctx, whl_path, metadata_directory):
       A struct of sorted `list[str]` fields ready to pass straight through as
       the `whl_dist` build rule's attrs: `top_levels`, `top_level_dirs`,
       `namespace_top_levels`, `namespace_entries`, `namespace_dirs`,
-      `regular_roots`, `native_roots`, `console_scripts`.
+      `regular_roots`, `native_roots`, `console_scripts`, `data_files`.
     """
     record, entry_points = _read_dist_info(rctx, whl_path, metadata_directory)
     data_directory = metadata_directory[:-len(".dist-info")] + ".data"
@@ -414,10 +437,16 @@ def extract_install_metadata(rctx, whl_path, metadata_directory):
     # absolute/empty first segments would make ctx.actions.declare_symlink
     # synthesize phantom parent outputs and collide.
     record_segments = []
+    data_file_segments = []
     if record:
         for line in record.splitlines():
             path = parse_record_path(line)
             if not path:
+                continue
+            data_segments = data_scheme_segments(path, data_directory)
+            if data_segments != None:
+                if data_segments_contained(data_segments):
+                    data_file_segments.append(data_segments)
                 continue
             segments = site_packages_segments(path, data_directory)
             if not segments:
@@ -468,4 +497,5 @@ def extract_install_metadata(rctx, whl_path, metadata_directory):
         native_roots = layout.native_roots,
         console_scripts = sorted(console_scripts.values()),
         record_paths = ["/".join(segments) for segments in record_segments],
+        data_files = sorted(["/".join(segments) for segments in data_file_segments]),
     )

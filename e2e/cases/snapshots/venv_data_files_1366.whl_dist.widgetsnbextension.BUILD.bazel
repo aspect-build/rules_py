@@ -1,0 +1,25 @@
+load("@aspect_rules_py//uv/private/whl_install:rule.bzl", "whl_dist")
+
+whl_dist(
+    name = "whl",
+    src = "widgetsnbextension-4.0.15-py3-none-any.whl",
+    top_levels = [
+        "widgetsnbextension",
+        "widgetsnbextension-4.0.15.dist-info",
+    ],
+    top_level_dirs = [
+        "widgetsnbextension",
+    ],
+    data_files = [
+        "etc/jupyter/nbconfig/notebook.d/widgetsnbextension.json",
+        "share/jupyter/nbextensions/jupyter-js-widgets/extension.js",
+        "share/jupyter/nbextensions/jupyter-js-widgets/extension.js.LICENSE.txt",
+        "share/jupyter/nbextensions/jupyter-js-widgets/extension.js.map",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//visibility:public"],
+)

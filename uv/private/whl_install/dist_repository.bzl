@@ -58,7 +58,7 @@ def _whl_dist_impl(rctx):
 
 whl_dist(
     name = "whl",
-    src = {src},{top_levels}{top_level_dirs}{namespace_top_levels}{namespace_entries}{namespace_dirs}{regular_roots}{native_roots}{console_scripts}{record_paths}
+    src = {src},{top_levels}{top_level_dirs}{namespace_top_levels}{namespace_entries}{namespace_dirs}{regular_roots}{native_roots}{console_scripts}{data_files}{record_paths}
     visibility = ["//visibility:public"],
 )
 
@@ -76,6 +76,10 @@ exports_files(
         regular_roots = _attr("regular_roots", meta.regular_roots),
         native_roots = _attr("native_roots", meta.native_roots),
         console_scripts = _attr("console_scripts", meta.console_scripts),
+        # PEP 427 `.data/data/` files, projected into the venv prefix. Carried
+        # for every wheel (unlike record_paths): exclude_glob only removes
+        # site-packages files, so the prefix data tree is never re-derived.
+        data_files = _attr("data_files", meta.data_files),
         # Only carried when a consuming package applies exclude_glob: whl_install
         # re-derives the layout from these after exclusion. Kept off every other
         # wheel so the common case doesn't pay for a full RECORD path list.

@@ -85,6 +85,7 @@ def _py_unpacked_wheel_impl(ctx):
             namespace_entries = ctx.attr.namespace_entries,
             site_packages_rfpath = site_packages_rfpath,
             console_scripts = ctx.attr.console_scripts,
+            data_files = ctx.attr.data_files,
             # See whl_install rule for the rationale.
             install_tree = unpack_directory,
         )]),
@@ -123,6 +124,16 @@ venv assembly.
 `py_binary` consumes these via `PyWheelsInfo` to generate executable
 wrappers under `<venv>/bin/<name>`. Typically populated from the wheel's
 `*.dist-info/entry_points.txt` `[console_scripts]` section.
+""",
+        default = [],
+    ),
+    "data_files": attr.string_list(
+        doc = """PEP 427 `.data/data/` prefix-relative install paths (e.g. `share/foo/bar.txt`).
+
+Venv assembly projects each into the venv prefix via `ctx.actions.symlink`.
+Typically populated by the `uv` wheel-install repo rule; hand-written
+`py_unpacked_wheel` targets may set it to expose data files shipped under
+the wheel's `<name>-<version>.data/data/` tree.
 """,
         default = [],
     ),

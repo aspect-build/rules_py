@@ -21,6 +21,7 @@ def _make_wheel(
         native_roots = [],
         ns_entries = [],
         top_levels = [],
+        data_files = [],
         install_tree = None):
     return struct(
         site_packages_rfpath = site_packages_rfpath,
@@ -32,6 +33,7 @@ def _make_wheel(
         native_roots = native_roots,
         ns_entries = ns_entries,
         top_levels = top_levels,
+        data_files = data_files,
         install_tree = install_tree,
     )
 
@@ -63,7 +65,7 @@ def _single_wheel_test_impl(ctx):
             top_levels = ["foo"],
         ),
     ]
-    top_level, fully_covered, cs_map, merge_groups, _collisions = resolve_wheel_collisions(
+    top_level, fully_covered, cs_map, merge_groups, _data_files, _collisions = resolve_wheel_collisions(
         mock_ctx,
         wheels,
     )
@@ -99,7 +101,7 @@ def _namespace_merge_test_impl(ctx):
             top_levels = ["ns"],
         ),
     ]
-    top_level, fully_covered, cs_map, merge_groups, _collisions = resolve_wheel_collisions(
+    top_level, fully_covered, cs_map, merge_groups, _data_files, _collisions = resolve_wheel_collisions(
         mock_ctx,
         wheels,
     )
@@ -129,7 +131,7 @@ def _console_script_collision_test_impl(ctx):
             top_levels = [],
         ),
     ]
-    _, _, cs_map, _, _ = resolve_wheel_collisions(
+    _, _, cs_map, _, _, _ = resolve_wheel_collisions(
         mock_ctx,
         wheels,
     )
@@ -166,7 +168,7 @@ def _regular_collision_keeps_fallback_test_impl(ctx):
             top_levels = ["mod.py"],
         ),
     ]
-    top_level, fully_covered, _, _, _ = resolve_wheel_collisions(mock_ctx, wheels)
+    top_level, fully_covered, _, _, _, _ = resolve_wheel_collisions(mock_ctx, wheels)
 
     # Last distinct claimant wins the contested name.
     asserts.equals(env, sp_b, top_level["mod.py"])
@@ -205,10 +207,42 @@ def _entryless_namespace_keeps_fallback_test_impl(ctx):
             top_levels = ["ns"],
         ),
     ]
-    _, fully_covered, _, _, _ = resolve_wheel_collisions(mock_ctx, wheels)
+    _, fully_covered, _, _, _, _ = resolve_wheel_collisions(mock_ctx, wheels)
 
     asserts.false(env, sp_a in fully_covered, "entryless namespace must keep its fallback")
     asserts.false(env, sp_b in fully_covered, "entryless namespace must keep its fallback")
+    return unittest.end(env)
+
+def _data_file_collision_test_impl(ctx):
+    env = unittest.begin(ctx)
+    mock_ctx = _mock_ctx(ctx.label)
+    sp_a = "external/pypi_a/site-packages"
+    sp_b = "external/pypi_b/site-packages"
+    wheels = [
+        _make_wheel(
+            site_packages_rfpath = sp_a,
+            data_files = ["share/common.txt", "share/only_a.txt"],
+            top_levels = ["pkg_a"],
+        ),
+        _make_wheel(
+            site_packages_rfpath = sp_b,
+            data_files = ["share/common.txt", "share/only_b.txt"],
+            top_levels = ["pkg_b"],
+        ),
+    ]
+    _, _, _, _, data_files, _collisions = resolve_wheel_collisions(
+        mock_ctx,
+        wheels,
+    )
+
+    # Disjoint files map to their own wheel; the shared path resolves to the
+    # last distinct claimant; the shared path collides exactly once.
+    asserts.equals(env, sp_a, data_files["share/only_a.txt"])
+    asserts.equals(env, sp_b, data_files["share/only_b.txt"])
+    asserts.equals(env, sp_b, data_files["share/common.txt"])
+    asserts.equals(env, 1, len(_collisions))
+    asserts.equals(env, "data file", _collisions[0].what)
+    asserts.equals(env, "share/common.txt", _collisions[0].name)
     return unittest.end(env)
 
 _single_wheel_test = unittest.make(_single_wheel_test_impl)
@@ -216,6 +250,7 @@ _namespace_merge_test = unittest.make(_namespace_merge_test_impl)
 _console_script_collision_test = unittest.make(_console_script_collision_test_impl)
 _regular_collision_keeps_fallback_test = unittest.make(_regular_collision_keeps_fallback_test_impl)
 _entryless_namespace_keeps_fallback_test = unittest.make(_entryless_namespace_keeps_fallback_test_impl)
+_data_file_collision_test = unittest.make(_data_file_collision_test_impl)
 
 def virtuals_resolvers_test_suite(name):
     unittest.suite(
@@ -225,4 +260,5 @@ def virtuals_resolvers_test_suite(name):
         _console_script_collision_test,
         _regular_collision_keeps_fallback_test,
         _entryless_namespace_keeps_fallback_test,
+        _data_file_collision_test,
     )

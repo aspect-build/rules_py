@@ -1,0 +1,18 @@
+[project]
+name = "venv-data-files-1366"
+version = "0.0.0"
+requires-python = ">=3.11, <3.12"
+dependencies = [
+    # Two real wheels that install data files under the PEP 427 `.data/data/`
+    # scheme into `share/jupyter/...`. Both are pure-Python `py3-none-any`
+    # wheels with zero transitive deps, so the fixture stays hermetic.
+    #
+    #   jupyterlab-widgets -> share/jupyter/labextensions/@jupyter-widgets/...
+    #   widgetsnbextension -> share/jupyter/nbextensions/jupyter-js-widgets/...
+    #
+    # They collide under the shared prefix directory `share/jupyter/`, so the
+    # venv cannot symlink `share/jupyter` to a single wheel — it must merge the
+    # two contributions, exercising the data-file collision/merge path.
+    "jupyterlab-widgets==3.0.16",
+    "widgetsnbextension==4.0.15",
+]

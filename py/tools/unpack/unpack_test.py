@@ -624,6 +624,8 @@ elif operation == "directory-to-file":
 elif operation == "write-native":
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(b"native")
+elif operation == "rewrite":
+    target.write_bytes(b"patched contents\\n")
 else:
     raise SystemExit(f"unknown operation: {{operation}}")
 """
@@ -678,6 +680,124 @@ else:
             ),
         )
         assert accepted.returncode == 0, accepted.stdout + accepted.stderr
+
+        # --verify-data-files requires the post-patch `.data/data/` prefix tree to
+        # match the forwarded (pre-patch) set exactly, since venv assembly projects
+        # that set per-file (issue #1366). good_wheel ships share/supplied.pyc as
+        # its only data file. A patch that REMOVES it is rejected: its projected
+        # symlink would dangle.
+        remove_data_patch = root / "remove_data.patch"
+        remove_data_patch.write_text("unlink\nshare/supplied.pyc\n")
+        removed_data = _run_unpack(
+            unpack,
+            good_wheel,
+            root / "removed-data",
+            Path(sys.executable),
+            (
+                "--patch",
+                str(remove_data_patch),
+                "--patch-tool",
+                str(mutation_tool),
+                "--verify-data-files",
+                "--expected-data-file",
+                "share/supplied.pyc",
+            ),
+        )
+        assert removed_data.returncode != 0, removed_data.stdout + removed_data.stderr
+        assert "prefix files" in removed_data.stderr
+        assert "removed=['share/supplied.pyc']" in removed_data.stderr
+
+        # A patch that ADDS a data file is likewise rejected: venv assembly
+        # projects only the pre-patch set, so the new file would be missing from
+        # sys.prefix. Fail loudly rather than silently omit it.
+        add_data_patch = root / "add_data.patch"
+        add_data_patch.write_text("write-native\nshare/added.bin\n")
+        added_data = _run_unpack(
+            unpack,
+            good_wheel,
+            root / "added-data",
+            Path(sys.executable),
+            (
+                "--patch",
+                str(add_data_patch),
+                "--patch-tool",
+                str(mutation_tool),
+                "--verify-data-files",
+                "--expected-data-file",
+                "share/supplied.pyc",
+            ),
+        )
+        assert added_data.returncode != 0, added_data.stdout + added_data.stderr
+        assert "prefix files" in added_data.stderr
+        assert "added=['share/added.bin']" in added_data.stderr
+
+        # A patch that RENAMES a data file (unlink old + write new, two patch
+        # files) is rejected on both halves: the old path dangles and the new one
+        # is unprojected.
+        rename_unlink_patch = root / "rename_unlink.patch"
+        rename_unlink_patch.write_text("unlink\nshare/supplied.pyc\n")
+        rename_write_patch = root / "rename_write.patch"
+        rename_write_patch.write_text("write-native\nshare/renamed.pyc\n")
+        renamed_data = _run_unpack(
+            unpack,
+            good_wheel,
+            root / "renamed-data",
+            Path(sys.executable),
+            (
+                "--patch",
+                str(rename_unlink_patch),
+                "--patch",
+                str(rename_write_patch),
+                "--patch-tool",
+                str(mutation_tool),
+                "--verify-data-files",
+                "--expected-data-file",
+                "share/supplied.pyc",
+            ),
+        )
+        assert renamed_data.returncode != 0, renamed_data.stdout + renamed_data.stderr
+        assert "removed=['share/supplied.pyc']" in renamed_data.stderr
+        assert "added=['share/renamed.pyc']" in renamed_data.stderr
+
+        # Editing an existing data file's CONTENTS is accepted: the projected
+        # symlink resolves through to the patched bytes, so only the path set is
+        # guarded.
+        edit_data_patch = root / "edit_data.patch"
+        edit_data_patch.write_text("rewrite\nshare/supplied.pyc\n")
+        edited_data_dir = root / "edited-data"
+        edited_data = _run_unpack(
+            unpack,
+            good_wheel,
+            edited_data_dir,
+            Path(sys.executable),
+            (
+                "--patch",
+                str(edit_data_patch),
+                "--patch-tool",
+                str(mutation_tool),
+                "--verify-data-files",
+                "--expected-data-file",
+                "share/supplied.pyc",
+            ),
+        )
+        assert edited_data.returncode == 0, edited_data.stdout + edited_data.stderr
+        assert (
+            edited_data_dir / "share" / "supplied.pyc"
+        ).read_bytes() == b"patched contents\n"
+
+        # exclude_glob prunes site-packages only, so the `.data/data/` prefix
+        # tree survives exclusions that would otherwise match it. venv assembly
+        # projects the unfiltered data set, so this must stay true.
+        excluded_data_dir = root / "excluded-data"
+        excluded_data = _run_unpack(
+            unpack,
+            good_wheel,
+            excluded_data_dir,
+            Path(sys.executable),
+            ("--exclude-glob=**/*.pyc",),
+        )
+        assert excluded_data.returncode == 0, excluded_data.stdout + excluded_data.stderr
+        assert (excluded_data_dir / "share" / "supplied.pyc").is_file()
 
         functions = runpy.run_path(str(unpack.with_name("exclude_glob.py")))
         vectors = runpy.run_path(str(unpack.with_name("exclude_glob_test_vectors.bzl")))

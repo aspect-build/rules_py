@@ -39,6 +39,7 @@ PyWheelMetadataInfo = provider(
         "native_roots": "Collision roots containing native-library RECORD entries.",
         "console_scripts": "`[console_scripts]` entry points encoded as name=module:object.",
         "record_paths": "Retained site-packages RECORD paths, for re-deriving the layout after exclude_glob. Empty unless a consuming package declares exclusions.",
+        "data_files": "PEP 427 `.data/data/` prefix-relative install paths (e.g. `share/...`), projected into the venv prefix.",
     },
 )
 
@@ -55,6 +56,7 @@ def _whl_dist_impl(ctx):
             native_roots = tuple(ctx.attr.native_roots),
             console_scripts = tuple(ctx.attr.console_scripts),
             record_paths = tuple(ctx.attr.record_paths),
+            data_files = tuple(ctx.attr.data_files),
         ),
     ]
 
@@ -82,6 +84,7 @@ being fetched.
         "native_roots": attr.string_list(),
         "console_scripts": attr.string_list(),
         "record_paths": attr.string_list(),
+        "data_files": attr.string_list(),
     },
     provides = [PyWheelMetadataInfo],
 )
@@ -110,6 +113,7 @@ def _source_built_wheel_impl(ctx):
             native_roots = (),
             console_scripts = tuple(console_scripts),
             record_paths = (),
+            data_files = (),
         ),
     ]
 
@@ -193,6 +197,10 @@ def _whl_install(ctx):
         native_roots = meta.native_roots
     console_scripts = meta.console_scripts
 
+    # Prefix data files (`.data/data/`) are unaffected by exclude_glob (it only
+    # removes site-packages files); the patch guard below keeps them consistent.
+    data_files = meta.data_files
+
     arguments = ctx.actions.args()
     arguments.add(unpack_script)
     arguments.add_all([install_dir], expand_directories = False, before_each = "--into")
@@ -222,6 +230,18 @@ def _whl_install(ctx):
             sorted(preserve_paths),
             before_each = "--preserve-path",
         )
+
+        # `data_files` is forwarded to venv assembly pre-patch and isn't covered
+        # by --preserve-path; reject any patch that alters the installed data set.
+        # Only when RECORD enumerated it: a source-built wheel's empty tuple means
+        # unknown, and an empty expectation reads every shipped data file as added.
+        # Nothing is projected for those wheels, so there is nothing to keep
+        # consistent. `meta.top_levels` is the metadata's known/unknown flag —
+        # RECORD always lists the `.dist-info` directory, so it is empty only for
+        # a source-built wheel.
+        if meta.top_levels:
+            arguments.add("--verify-data-files")
+            arguments.add_all(data_files, before_each = "--expected-data-file")
         transitive_inputs.append(depset(patch_files))
 
     # Optional .pyc pre-compilation (runs after patching).
@@ -309,6 +329,9 @@ def _whl_install(ctx):
             native_roots = native_roots,
             site_packages_rfpath = site_packages_rfpath,
             console_scripts = console_scripts,
+            # unpack.py's --verify-data-files guard (above) fails the build if a
+            # patch alters the data set, so this list always matches the tree.
+            data_files = data_files,
             install_tree = install_dir,
         )]),
     ))
