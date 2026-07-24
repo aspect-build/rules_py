@@ -1,0 +1,16 @@
+[project]
+name = "shared-install-canonical"
+version = "0.0.0"
+authors = []
+requires-python = ">=3.11"
+dependencies = [
+    "cachetools",
+    "decorator",
+    "distlib",
+    "inflection",
+    "mccabe",
+    "pycodestyle",
+    "pyflakes",
+    "sortedcontainers",
+    "toml",
+]

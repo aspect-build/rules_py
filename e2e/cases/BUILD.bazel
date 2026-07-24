@@ -77,6 +77,19 @@ write_source_files(
         # decide_marker emitted — is already pinned by project_single above.)
         "snapshots/extra_marker.private.sccs.BUILD.bazel": "@project__extra_marker//private/sccs:BUILD.bazel",
 
+        # @pypi_dedup (dedup-installs: three lock universes over a shared set of
+        # pure-bdist packages, with varying deps and exclude_glob overrides).
+        # Removal proof: this genquery lists every wheel-install repo reachable
+        # from all three projects' targets. Without dedup it names 26 repos
+        # (canonical 9 + duplicate 9 + triplicate 8); the pinned file has 12 —
+        # the identities that survive after matching (wheels, exclude_glob)
+        # installs collapse. The repo names encode which projects shared: e.g.
+        # both a `_canonical_ pyflakes` (excluded) and a `_duplicate_ pyflakes`
+        # (unexcluded, shared with triplicate) survive, while pycodestyle and
+        # toml each collapse their two same-exclusion copies into one and leave
+        # the odd-one-out separate. See dedup-installs/setup.MODULE.bazel.
+        "snapshots/dedup_installs.shared_install_repos.query": "//dedup-installs:shared_install_repos",
+
         # @whl_install for grpcio with bare linux_* wheels
         # ----------------------------------------------------------------
         # grpcio 1.80.0 ships bare linux_armv7l wheels alongside manylinux/

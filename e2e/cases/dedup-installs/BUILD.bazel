@@ -1,0 +1,66 @@
+# Three lock universes (`canonical`, `duplicate`, `triplicate`) over a shared
+# set of pure-bdist packages, with slightly varying deps and exclude_glob
+# overrides (see setup.MODULE.bazel). Each test builds+runs against the shared
+# deduplicated install repos, proving the reference rewrite leaves no dangling
+# label. The //snapshots dedup-installs entry pins the dedup signature.
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+# The seven packages every project shares. canonical/duplicate add mccabe.
+_COMMON_PACKAGES = [
+    "@pypi_dedup//cachetools",
+    "@pypi_dedup//decorator",
+    "@pypi_dedup//distlib",
+    "@pypi_dedup//inflection",
+    "@pypi_dedup//pycodestyle",
+    "@pypi_dedup//pyflakes",
+    "@pypi_dedup//sortedcontainers",
+    "@pypi_dedup//toml",
+]
+
+# The dedup proof: enumerate every wheel-install repo reachable from all three
+# lock universes. The query is unconfigured, so it walks every select() arm of
+# all three projects. Without the dedup this lists 26 repos (canonical 9 +
+# duplicate 9 + triplicate 8); the pinned snapshot has 12 — the surviving
+# identities after collapsing matching (wheels, exclude_glob) installs.
+genquery(
+    name = "shared_install_repos",
+    expression = "filter(\"whl_install__shared_install_.*//:install$\", deps(//dedup-installs:canonical) + deps(//dedup-installs:duplicate) + deps(//dedup-installs:triplicate))",
+    scope = [
+        "//dedup-installs:canonical",
+        "//dedup-installs:duplicate",
+        "//dedup-installs:triplicate",
+    ],
+    visibility = ["//:__pkg__"],
+)
+
+# Each test resolves its packages through its own project's dep_group config,
+# so the three lock universes are exercised independently while landing on the
+# shared install repos. The smoke test imports only the common packages so it
+# runs unchanged against triplicate (which omits mccabe); pyflakes and
+# pycodestyle are imported to prove the exclude_glob installs still work.
+py_test(
+    name = "canonical",
+    srcs = ["__test__.py"],
+    dep_group = "shared-install-canonical",
+    main = "__test__.py",
+    python_version = "3.11",
+    deps = _COMMON_PACKAGES + ["@pypi_dedup//mccabe"],
+)
+
+py_test(
+    name = "duplicate",
+    srcs = ["__test__.py"],
+    dep_group = "shared-install-duplicate",
+    main = "__test__.py",
+    python_version = "3.11",
+    deps = _COMMON_PACKAGES + ["@pypi_dedup//mccabe"],
+)
+
+py_test(
+    name = "triplicate",
+    srcs = ["__test__.py"],
+    dep_group = "shared-install-triplicate",
+    main = "__test__.py",
+    python_version = "3.11",
+    deps = _COMMON_PACKAGES,
+)

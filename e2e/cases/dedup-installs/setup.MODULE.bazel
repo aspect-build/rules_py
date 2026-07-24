@@ -1,0 +1,82 @@
+"""Three `uv.project()` lock universes over a shared set of pure-bdist packages,
+arranged so the //snapshots dedup entry exercises every branch of the
+`shared_install_key` identity:
+
+  * cachetools, decorator, distlib, inflection, sortedcontainers — depended on
+    by all three projects with no override, so each collapses 3 -> 1.
+  * mccabe — depended on by canonical and duplicate only (triplicate's deps
+    vary), so it collapses 2 -> 1 and triplicate contributes nothing.
+  * pyflakes — canonical applies an exclude_glob, the other two don't. The
+    differing exclusion splits canonical's install off; duplicate and
+    triplicate (identical, no exclusion) still share. So pyflakes -> 2 repos.
+  * pycodestyle — canonical AND duplicate apply the SAME exclude_glob;
+    triplicate has none. The matching exclusions dedup canonical+duplicate
+    together, leaving triplicate separate. So pycodestyle -> 2 repos.
+  * toml — depended on by all three, and ALL THREE exclude, but only canonical
+    and duplicate use the same glob. Dedup keys on the exclusion value, not its
+    mere presence, so canonical+duplicate collapse and triplicate's different
+    glob stays separate. So toml -> 2 repos.
+
+12 install repos survive where canonical 9 + duplicate 9 + triplicate 8
+(triplicate drops mccabe) = 26 would exist without the dedup. The packages are used by no other case, so the
+canonical repo of each identity is deterministic across the shared extension.
+"""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_dedup")
+uv.project(
+    hub_name = "pypi_dedup",
+    lock = "//dedup-installs/canonical:uv.lock",
+    pyproject = "//dedup-installs/canonical:pyproject.toml",
+)
+uv.project(
+    hub_name = "pypi_dedup",
+    lock = "//dedup-installs/duplicate:uv.lock",
+    pyproject = "//dedup-installs/duplicate:pyproject.toml",
+)
+uv.project(
+    hub_name = "pypi_dedup",
+    lock = "//dedup-installs/triplicate:uv.lock",
+    pyproject = "//dedup-installs/triplicate:pyproject.toml",
+)
+
+# Exclusion on ONE project only — its pyflakes install cannot share with the
+# unexcluded copies in duplicate/triplicate.
+uv.override_package(
+    name = "pyflakes",
+    exclude_glob = ["**/*.pyi"],
+    lock = "//dedup-installs/canonical:uv.lock",
+)
+
+# The SAME exclusion on TWO projects — canonical and duplicate keep matching
+# pycodestyle identities and dedup together; triplicate (no exclusion) does not.
+uv.override_package(
+    name = "pycodestyle",
+    exclude_glob = ["**/py.typed"],
+    lock = "//dedup-installs/canonical:uv.lock",
+)
+uv.override_package(
+    name = "pycodestyle",
+    exclude_glob = ["**/py.typed"],
+    lock = "//dedup-installs/duplicate:uv.lock",
+)
+
+# toml is depended on by all three, and all three exclude — but only canonical
+# and duplicate share the SAME glob. Dedup keys on the exclusion value, so
+# those two collapse while triplicate's different glob keeps it separate.
+uv.override_package(
+    name = "toml",
+    exclude_glob = ["**/*.md"],
+    lock = "//dedup-installs/canonical:uv.lock",
+)
+uv.override_package(
+    name = "toml",
+    exclude_glob = ["**/*.md"],
+    lock = "//dedup-installs/duplicate:uv.lock",
+)
+uv.override_package(
+    name = "toml",
+    exclude_glob = ["**/*.rst"],
+    lock = "//dedup-installs/triplicate:uv.lock",
+)
+use_repo(uv, "pypi_dedup")

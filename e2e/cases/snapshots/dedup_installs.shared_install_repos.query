@@ -1,0 +1,12 @@
+@@aspect_rules_py++uv+whl_install__shared_install_canonical__cachetools__5_5_2//:install
+@@aspect_rules_py++uv+whl_install__shared_install_canonical__decorator__5_1_1//:install
+@@aspect_rules_py++uv+whl_install__shared_install_canonical__distlib__0_3_9//:install
+@@aspect_rules_py++uv+whl_install__shared_install_canonical__inflection__0_5_1//:install
+@@aspect_rules_py++uv+whl_install__shared_install_canonical__mccabe__0_7_0//:install
+@@aspect_rules_py++uv+whl_install__shared_install_canonical__pycodestyle__2_12_1//:install
+@@aspect_rules_py++uv+whl_install__shared_install_canonical__pyflakes__3_2_0//:install
+@@aspect_rules_py++uv+whl_install__shared_install_canonical__sortedcontainers__2_4_0//:install
+@@aspect_rules_py++uv+whl_install__shared_install_canonical__toml__0_10_2//:install
+@@aspect_rules_py++uv+whl_install__shared_install_duplicate__pyflakes__3_2_0//:install
+@@aspect_rules_py++uv+whl_install__shared_install_triplicate__pycodestyle__2_12_1//:install
+@@aspect_rules_py++uv+whl_install__shared_install_triplicate__toml__0_10_2//:install
