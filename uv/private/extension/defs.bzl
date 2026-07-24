@@ -53,6 +53,7 @@ resolved dependencies available in the `@uv` repository.
 
 load("@bazel_lib//lib:resource_sets.bzl", "resource_set_values")
 load("@bazel_skylib//lib:sets.bzl", "sets")
+load("@bazel_skylib//lib:structs.bzl", "structs")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 load("//py/private/interpreter:resolve.bzl", "resolve_host_interpreter_label")
 load("//uv/private:normalize_name.bzl", "normalize_name")
@@ -81,6 +82,55 @@ def _dist_sha256(dist):
     """The distribution's sha256 for http_file, or None for other hash algorithms."""
     hash = dist.get("hash", "")
     return hash[len("sha256:"):] if hash.startswith("sha256:") else None
+
+def shared_install_key(install_cfg):
+    """Order-sensitive identity for a wheel install shareable across lock universes.
+
+    Two lockfiles that pin the same package version resolve to the same
+    content-addressed `whl_dist` labels, so their `whl_install` selector repos
+    generate byte-identical BUILD files and can collapse to one. Returns None
+    for project-local installs (source builds, patches, extra deps/data), whose
+    inputs are keyed per-lockfile and never interchangeable.
+    """
+    if install_cfg.sbuild or install_cfg.post_install_patches or install_cfg.extra_deps or install_cfg.extra_data:
+        return None
+    return json.encode([
+        # Wheel selection keeps the first candidate on a specificity tie, so
+        # ordering is significant and the pairs stay as an ordered list.
+        install_cfg.whls.items(),
+        install_cfg.exclude_glob,
+    ])
+
+def dedupe_shared_installs(install_cfgs):
+    """Drop duplicate shareable installs, returning `{dropped_id: canonical_id}`.
+
+    Mutates `install_cfgs` in place, keeping the first install of each identity
+    as the canonical repo. Callers rewrite references to dropped ids through the
+    returned remap so no dangling `@dropped//:install` label survives.
+    """
+    seen = {}
+    id_remap = {}
+    for install_id in install_cfgs.keys():
+        key = shared_install_key(install_cfgs[install_id])
+        if key == None:
+            continue
+        canonical = seen.get(key)
+        if canonical == None:
+            seen[key] = install_id
+        else:
+            id_remap[install_id] = canonical
+    for dropped in id_remap:
+        install_cfgs.pop(dropped)
+    return id_remap
+
+def _rewrite_available_deps(sbuild_cfg, target_remap):
+    """Rebuild an sbuild spec with its available_deps routed through the remap."""
+    fields = structs.to_dict(sbuild_cfg)
+    fields["available_deps"] = {
+        pkg: target_remap.get(target, target)
+        for pkg, target in sbuild_cfg.available_deps.items()
+    }
+    return struct(**fields)
 
 def parse_declared_console_script(name, entry_point):
     """Canonicalize one override_package console-script declaration.
@@ -625,6 +675,35 @@ def _parse_projects(module_ctx, hub_specs):
                 if override.version:
                     fail("uv.override_package() for '{}=={}' matches no uv.project() locks in module '{}'.".format(override.name, override.version, mod.name))
                 fail("uv.override_package() for '{}' matches no uv.project() locks in module '{}'.".format(override.name, mod.name))
+
+    # Collapse installs that resolve identically across lock universes into one
+    # repo, then rewrite the two carriers of `@id//:install` labels — SCC graph
+    # keys and each sbuild's available_deps — so dropped ids leave no dangling
+    # reference.
+    id_remap = dedupe_shared_installs(install_cfgs)
+    if id_remap:
+        target_remap = {
+            "@{}//:install".format(dropped): "@{}//:install".format(canonical)
+            for dropped, canonical in id_remap.items()
+        }
+        project_cfgs = {
+            project_id: struct(
+                dep_to_scc = pc.dep_to_scc,
+                scc_deps = pc.scc_deps,
+                scc_graph = {
+                    scc_id: {
+                        target_remap.get(target, target): markers
+                        for target, markers in members.items()
+                    }
+                    for scc_id, members in pc.scc_graph.items()
+                },
+            )
+            for project_id, pc in project_cfgs.items()
+        }
+        sbuild_specs = {
+            sbuild_id: _rewrite_available_deps(sc, target_remap)
+            for sbuild_id, sc in sbuild_specs.items()
+        }
 
     return struct(
         project_cfgs = project_cfgs,

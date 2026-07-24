@@ -12,7 +12,7 @@ py_library(
 # scc: cowsay__6_1
 # members:
 # {
-#     "@whl_install__single_project_hub__cowsay__6_1//:install": {
+#     "@whl_install__arch_alias_marker__cowsay__6_1//:install": {
 #         "": 1,
 #     },
 # }
@@ -23,7 +23,7 @@ py_library(
 py_library(
     name = "cowsay__6_1",
     deps = [
-        "@whl_install__single_project_hub__cowsay__6_1//:install",
+        "@whl_install__arch_alias_marker__cowsay__6_1//:install",
     ],
     visibility = ["//:__subpackages__"],
 )

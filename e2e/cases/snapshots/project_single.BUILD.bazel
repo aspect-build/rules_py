@@ -30,7 +30,7 @@ alias(
 alias(
     name = "_package_cowsay_single_project_hub_whl",
     actual = select({
-        "//conditions:default": "@whl_install__single_project_hub__cowsay__6_1//:whl",
+        "//conditions:default": "@whl_install__arch_alias_marker__cowsay__6_1//:whl",
     }),
     visibility = ["//visibility:private"],
 )
@@ -113,7 +113,7 @@ filegroup(
 filegroup(
     name = "gazelle_index_whls",
     srcs = [
-        "@whl_install__single_project_hub__cowsay__6_1//:gazelle_index_whl",
+        "@whl_install__arch_alias_marker__cowsay__6_1//:gazelle_index_whl",
     ],
     visibility = ["//visibility:public"],
 )
