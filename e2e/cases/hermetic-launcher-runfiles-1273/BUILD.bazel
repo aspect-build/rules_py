@@ -1,0 +1,24 @@
+# Fixture for the hermetic-launcher runfiles-source-selection regression
+# (driven by ./test.sh).
+#
+# Regression for the 0.0.11 -> 0.0.13 launcher upgrade (rules_py #1273 /
+# hermetic-launcher #59): when Bazel provides BOTH `RUNFILES_DIR` and
+# `RUNFILES_MANIFEST_FILE`, the launcher must prefer the directory. The 0.0.11
+# launcher preferred the manifest, so paths resolved into physical bazel-out
+# outputs (`sys.prefix` off the runfiles tree) and the manifest — not the
+# directory — was exported to the child, breaking layouts that rely on the
+# venv's relative symlinks. Fixed in hermetic-launcher 0.0.13.
+#
+# The mixed-source condition is set up by ./test.sh (it points both env vars at
+# the built binary's own tree + manifest), so this is a `manual` fixture, not
+# part of `//...`.
+#
+# gazelle:ignore
+
+load("@aspect_rules_py//py:defs.bzl", "py_binary")
+
+py_binary(
+    name = "check_runfiles_source",
+    srcs = ["check_runfiles_source.py"],
+    tags = ["manual"],
+)

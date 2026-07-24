@@ -26,8 +26,8 @@ bazel test //...
 A few cases ship a `cases/<case>/test.sh` because they can't be an `sh_test` under
 `//...` — they assert a build **failure** or need a real top-level `bazel run`
 (or `bazel coverage`): `coverage-drivers`, `hermetic-launcher-1116`,
-`patch-failure`, `pbs-cc-toolchain`, `uv-invalid-build-overrides`,
-`uv-patched-topology-change`. They still resolve against
+`hermetic-launcher-runfiles-1273`, `patch-failure`, `pbs-cc-toolchain`,
+`uv-invalid-build-overrides`, `uv-patched-topology-change`. They still resolve against
 *this* workspace. `cases/test.sh` is the aggregator that runs every `cases/*/test.sh`;
 CI runs it on the `e2e/cases` matrix job alongside `bazel test //...` (see
 `.github/workflows/ci-workflows.yaml`).
