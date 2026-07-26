@@ -7,10 +7,9 @@ worker reports its PID via the `worker_id` / `worker_input_info`
 fixtures.
 
 We dispatch four lightweight tests below and record each one's PID to
-a shared on-disk log. The sentinel test at the bottom then reads the
-log and asserts that at least two distinct PIDs served the four tests
-— proving xdist actually ran in parallel rather than silently falling
-back to a single process.
+a shared on-disk log. The sentinel test at the bottom then waits for
+the log to show at least two distinct PIDs — proving xdist actually
+ran in parallel rather than silently falling back to a single process.
 
 If xdist wiring regresses (plugin not discovered, `-n` swallowed,
 worker subprocesses can't see pypi deps), the sentinel sees one PID
@@ -19,6 +18,7 @@ and the test fails.
 
 import os
 import tempfile
+import time
 
 # A shared file that every test writes its PID to. Living in a
 # /tmp-based location keeps it outside the Bazel sandbox's per-test
@@ -27,6 +27,10 @@ PID_LOG = os.path.join(
     tempfile.gettempdir(),
     f"pytest_xdist_regression_{os.environ.get('TEST_TARGET', 'local').replace('/', '_').replace(':', '_')}.log",
 )
+
+
+# Generous: only reached when xdist genuinely failed to parallelize.
+_SENTINEL_TIMEOUT_S = 30
 
 
 def _record_pid() -> None:
@@ -52,18 +56,26 @@ def test_four() -> None:
 
 
 def test_zzz_sentinel_verify_parallel_execution() -> None:
-    # Name starts with `zzz` so pytest collection orders it last.
-    # Assumption: pytest collection order correlates with test start
-    # order within a single worker; across workers xdist's default
-    # `load` scheduler spreads tests round-robin, so by the time the
-    # sentinel starts the other four have at least been dispatched.
-    with open(PID_LOG) as f:
-        pids = {line.strip() for line in f if line.strip()}
+    # Collection order says nothing about when other workers write, so poll
+    # until a second worker checks in rather than reading the log once.
+    # A single-process fallback never produces a second PID and times out.
+    deadline = time.monotonic() + _SENTINEL_TIMEOUT_S
+    pids = set()
+    while True:
+        try:
+            with open(PID_LOG) as f:
+                pids = {line.strip() for line in f if line.strip()}
+        except FileNotFoundError:
+            pids = set()
 
-    # Own PID is in there (the sentinel itself runs a test); at least
-    # one other worker's PID should appear if xdist parallelized.
-    assert len(pids) >= 2, (
+        if len(pids) >= 2:
+            return
+        if time.monotonic() >= deadline:
+            break
+        time.sleep(0.05)
+
+    raise AssertionError(
         f"expected >= 2 distinct PIDs from pytest-xdist parallel workers, "
-        f"got {len(pids)}: {pids!r}. If this is 1, xdist either didn't "
-        f"load or didn't parallelize."
+        f"got {len(pids)}: {pids!r} after waiting {_SENTINEL_TIMEOUT_S}s. "
+        f"If this is 1, xdist either didn't load or didn't parallelize."
     )
