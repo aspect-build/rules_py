@@ -1,0 +1,22 @@
+# Ported from rules_pycross tests/e2e/patches_and_hooks.
+#
+# `PATCHED` comes from the pre-build patch (applied to the sdist source tree
+# before the PEP 517 backend runs), `POST_PATCHED` from the post-install patch
+# (applied to the unpacked wheel). The post-install hunk's context includes the
+# pre-build hunk's line, so the two must apply in that order.
+
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+exports_files([
+    "patches/setproctitle-prebuild.patch",
+    "patches/setproctitle-postinstall.patch",
+])
+
+py_test(
+    name = "test_setproctitle_patched",
+    srcs = ["test_setproctitle_patched.py"],
+    dep_group = "pycross_patches",
+    main = "test_setproctitle_patched.py",
+    python_version = "3.12",
+    deps = ["@pypi_pycross_patches//setproctitle"],
+)

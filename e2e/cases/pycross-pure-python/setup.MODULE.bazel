@@ -1,0 +1,39 @@
+"""Port of rules_pycross's `tests/e2e/build_pure_python` workspace.
+
+Three pure-Python packages are forced to build from their sdists so the
+`pep517_whl` (anyarch) path runs against two different PEP 517 backends —
+hatchling (filelock) and flit-core (tomli, pyproject-metadata). Each package
+still has to import from site-packages afterwards.
+
+The `sdist_build` repos are exposed so BUILD.bazel can rebuild the same wheels
+under non-host target platforms: an anyarch build carries no CC toolchain, so
+what that matrix exercises is `pep517_whl`'s exec transition — build tooling
+(`build`, the backend) must resolve for the exec platform even when the
+configuration targets another one.
+"""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_pycross_pure_python")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "setuptools",
+        # The backends have to come through the project repo, not through the
+        # configure tool's `[build-system] requires` resolution: that path
+        # yields bare `whl_install` targets, and hatchling needs its own
+        # transitive closure (pathspec, pluggy, trove-classifiers, …).
+        "flit-core",
+        "hatch-vcs",
+        "hatchling",
+    ],
+    hub_name = "pypi_pycross_pure_python",
+    lock = "//pycross-pure-python:uv.lock",
+    pyproject = "//pycross-pure-python:pyproject.toml",
+)
+use_repo(
+    uv,
+    "pypi_pycross_pure_python",
+    "sdist_build__pycross_pure_python__filelock__3_17_0",
+    "sdist_build__pycross_pure_python__pyproject_metadata__0_8_1",
+    "sdist_build__pycross_pure_python__tomli__2_2_1",
+)

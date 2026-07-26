@@ -1,0 +1,58 @@
+"""Port of rules_pycross's `tests/e2e/build_setuptools` workspace.
+
+Three setuptools-backed C-extension packages are forced to build from their
+sdists: PyYAML (Cython-generated extension), setproctitle (plain C) and
+zstandard (vendored libzstd). Together they cover the `pep517_native_whl`
+path for a Cython pipeline, a trivial extension and a large vendored-C build.
+
+`env` on PyYAML ports rules_pycross's per-package `build_env` override
+(`setuptools.override(name = "pyyaml", build_env = ...)`), and is observable
+at runtime: with `PYYAML_FORCE_LIBYAML=0` the built wheel must not carry the
+libyaml-backed `CLoader`.
+
+Not ported: rules_pycross builds psycopg2 with a `pg_config` tool dep and
+zstandard against a Bazel-built system libzstd. Both need `rules_foreign_cc`
+plus PostgreSQL/OpenSSL/zlib/zstd source builds in this workspace; the JDK
+equivalent of that plumbing is already covered by `uv-sdist-jdk-build`.
+"""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_pycross_setuptools")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "setuptools",
+        "wheel",
+        # zstandard's cffi backend imports pycparser through cffi. Naming cffi
+        # here routes it through the project repo's py_library, which carries
+        # that transitive closure; the configure tool's `[build-system]
+        # requires` resolution yields a bare `whl_install` target instead.
+        "cffi",
+    ],
+    hub_name = "pypi_pycross_setuptools",
+    lock = "//pycross-setuptools:uv.lock",
+    pyproject = "//pycross-setuptools:pyproject.toml",
+)
+uv.override_package(
+    name = "pyyaml",
+    env = {"PYYAML_FORCE_LIBYAML": "0"},
+    lock = "//pycross-setuptools:uv.lock",
+)
+uv.override_package(
+    name = "setproctitle",
+    lock = "//pycross-setuptools:uv.lock",
+    pre_build_patch_strip = 1,
+    pre_build_patches = ["//pycross-setuptools:require_extension.patch"],
+)
+uv.override_package(
+    name = "zstandard",
+    lock = "//pycross-setuptools:uv.lock",
+    resource_set = "mem_4g",
+)
+use_repo(
+    uv,
+    "pypi_pycross_setuptools",
+    "sdist_build__pycross_setuptools__pyyaml__6_0_1",
+    "sdist_build__pycross_setuptools__setproctitle__1_3_2",
+    "sdist_build__pycross_setuptools__zstandard__0_22_0",
+)

@@ -1,0 +1,39 @@
+"""Port of rules_pycross's `tests/e2e/patches_and_hooks` workspace.
+
+setproctitle is forced to build from its sdist with both patch phases applied:
+a pre-build patch that lands in the source tree before the PEP 517 backend
+runs, and a post-install patch that rewrites the already-unpacked wheel. The
+two patches stack — the post-install one applies against the pre-build
+patch's output — so an ordering regression fails the runtime test.
+
+Uses its own hub: the patched setproctitle must not be shared with
+`pycross-setuptools`, which builds the same version unpatched.
+
+Not ported: rules_pycross's `pre_build_hooks` / `post_build_hooks` /
+`path_tools` / `site_hooks` and its `repair_wheel` hook have no rules_py
+equivalent. `uv.override_package(toolchains = ..., env = ...)` covers the
+"inject something into the build environment" case those hooks serve; see
+`uv-sdist-jdk-build`.
+"""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_pycross_patches")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "setuptools",
+        "wheel",
+    ],
+    hub_name = "pypi_pycross_patches",
+    lock = "//pycross-patches:uv.lock",
+    pyproject = "//pycross-patches:pyproject.toml",
+)
+uv.override_package(
+    name = "setproctitle",
+    lock = "//pycross-patches:uv.lock",
+    post_install_patch_strip = 1,
+    post_install_patches = ["//pycross-patches:patches/setproctitle-postinstall.patch"],
+    pre_build_patch_strip = 1,
+    pre_build_patches = ["//pycross-patches:patches/setproctitle-prebuild.patch"],
+)
+use_repo(uv, "pypi_pycross_patches")
