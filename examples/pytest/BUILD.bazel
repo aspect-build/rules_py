@@ -170,3 +170,12 @@ sh_test(
         ":coverage_setup_test",
     ],
 )
+
+sh_test(
+    name = "coverage_dir_test",
+    srcs = ["run_coverage_dir_and_check.sh"],
+    data = [
+        ":coverage_manifest",
+        ":coverage_setup_test",
+    ],
+)
