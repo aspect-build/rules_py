@@ -21,7 +21,7 @@ check_toolchain() {
         --lockfile_mode=off \
         "--@aspect_rules_py//py:python_version=${version}" \
         "--@aspect_rules_py//py/private/interpreter:freethreaded=${freethreaded}" \
-        "${platform_flags[@]}" \
+        ${platform_flags[@]+"${platform_flags[@]}"} \
         "--platforms=//pbs-cc-toolchain:${platform}" \
         -- "$@"
 }
@@ -60,5 +60,5 @@ fi
     --lockfile_mode=off \
     --@aspect_rules_py//py:python_version=3.13 \
     --@aspect_rules_py//py/private/interpreter:freethreaded=true \
-    "${host_flags[@]}" \
+    ${host_flags[@]+"${host_flags[@]}"} \
     -- @aspect_rules_py//py/tests/cc-deps:test_smoke
