@@ -67,4 +67,8 @@ uv.override_package(
     lock = "//pycross-setuptools:uv.lock",
     resource_set = "mem_4g",
 )
-use_repo(uv, "pypi_pycross_setuptools")
+use_repo(
+    uv,
+    "pypi_pycross_setuptools",
+    "sdist_build__pycross_setuptools__zstandard__0_22_0",
+)
