@@ -48,11 +48,21 @@ if opts.patches:
 # Get a path to the outdir which will be valid after we cd
 outdir = path.abspath(opts.outdir)
 
-# Resolve CC/CXX to absolute paths so they remain valid after cwd changes
-# into the extracted source tree (Bazel sets these as exec-root-relative).
-for _cc_var in ("CC", "CXX"):
+# Resolve compiler variables to absolute paths so they remain valid after cwd
+# changes into the extracted source tree (Bazel sets these as
+# exec-root-relative).
+for _cc_var in ("CC", "CXX", "SYSROOT"):
     if _cc_var in os.environ and not path.isabs(os.environ[_cc_var]):
         os.environ[_cc_var] = path.abspath(os.environ[_cc_var])
+
+if "SYSROOT" in os.environ:
+    _sysroot = os.environ["SYSROOT"]
+    _sysroot_cflag = f'--sysroot="{_sysroot}"'
+    if "CFLAGS" in os.environ:
+        _cflags = os.environ["CFLAGS"]
+        os.environ["CFLAGS"] = f"{_cflags} {_sysroot_cflag}"
+    else:
+        os.environ["CFLAGS"] = _sysroot_cflag
 
 # Preserve PATH so native sdist builds can find compilers (clang, gcc).
 build_env = dict(os.environ)
