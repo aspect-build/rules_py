@@ -45,6 +45,9 @@ if opts.patches:
         )
 
 
+from uv.private.pep517_whl.build_backend import ensure_build_backend
+ensure_build_backend(t)
+
 # Get a path to the outdir which will be valid after we cd
 outdir = path.abspath(opts.outdir)
 
