@@ -4,7 +4,7 @@ import tomli
 
 
 class TestTomli(unittest.TestCase):
-    def test_parse(self) -> None:
+    def test_parse(self):
         d = tomli.loads("a = 1")
         self.assertEqual(d["a"], 1)
 

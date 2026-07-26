@@ -4,7 +4,7 @@ import pyproject_metadata
 
 
 class TestPyprojectMetadata(unittest.TestCase):
-    def test_import(self) -> None:
+    def test_import(self):
         self.assertIsNotNone(pyproject_metadata.__version__)
 
 

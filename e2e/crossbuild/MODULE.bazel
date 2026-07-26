@@ -226,6 +226,13 @@ uv.override_package(
 )
 use_repo(uv, "pypi_crossbuild_geohash")
 
+# rules_pycross e2e ports: per-suite hubs, each self-described by its own
+# setup.MODULE.bazel (same include() layout as e2e/cases).
+include("//pycross-distutils-probe:setup.MODULE.bazel")
+include("//pycross-patches:setup.MODULE.bazel")
+include("//pycross-pure-python:setup.MODULE.bazel")
+include("//pycross-setuptools:setup.MODULE.bazel")
+
 # Plain setuptools/meson-python/scikit-build-core hubs: no rust/jdk toolchain
 # wiring, so each is fully described by (hub dir, its build deps).
 _SIMPLE_CROSSBUILD_PACKAGES = [

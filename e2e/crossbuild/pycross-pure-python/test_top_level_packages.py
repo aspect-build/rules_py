@@ -1,10 +1,11 @@
-"""Assert that source-built wheels land their top-level packages in site-packages.
+"""Verify that installed wheels have their top-level packages in site-packages.
 
-Ported from rules_pycross's shared top-level-packages check. The packages to
-verify come from the comma-separated `PYCROSS_TEST_PACKAGES` env var, set by
-the consuming py_test. Three invariants per package: it imports, its module
-spec resolves inside site-packages rather than a leaked source tree or
-`PYTHONPATH` entry, and no dist-info directory ends up on `sys.path`.
+This test works in two modes:
+1. If PYCROSS_TEST_PACKAGES env var is set, it tests those packages (comma-separated).
+2. Otherwise, it tests hardcoded packages (regex, IPython) for
+   the requirements e2e workspace.
+
+Packages are tested for importability and correct site-packages placement.
 """
 
 import importlib
@@ -15,16 +16,20 @@ import unittest
 
 
 class TopLevelPackagesTest(unittest.TestCase):
-    def _get_packages(self) -> list[str]:
-        return [p.strip() for p in os.environ["PYCROSS_TEST_PACKAGES"].split(",") if p.strip()]
+    """Check that top_level_paths from wheel inspection actually show up."""
 
-    def test_packages_importable(self) -> None:
+    def _get_packages(self):
+        return [p.strip() for p in os.environ.get("PYCROSS_TEST_PACKAGES", "regex,IPython").split(",") if p.strip()]
+
+    def test_packages_importable(self):
+        """All expected packages should be importable."""
         for pkg in self._get_packages():
             with self.subTest(package=pkg):
                 mod = importlib.import_module(pkg)
                 self.assertIsNotNone(mod, f"{pkg} imported as None")
 
-    def test_packages_resolve_to_site_packages(self) -> None:
+    def test_packages_resolve_to_site_packages(self):
+        """All expected packages should resolve to files within site-packages."""
         for pkg in self._get_packages():
             with self.subTest(package=pkg):
                 spec = importlib.util.find_spec(pkg)
@@ -36,7 +41,8 @@ class TopLevelPackagesTest(unittest.TestCase):
                     f"{pkg} origin not in site-packages: {spec.origin}",
                 )
 
-    def test_no_dist_info_on_sys_path(self) -> None:
+    def test_no_dist_info_on_sys_path(self):
+        """dist-info directories should not be added as sys.path entries."""
         for path in sys.path:
             basename = os.path.basename(path)
             self.assertFalse(

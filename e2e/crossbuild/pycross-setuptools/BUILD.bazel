@@ -1,15 +1,47 @@
 # Ported from rules_pycross tests/e2e/build_setuptools.
 #
-# Three setuptools C-extension sdists built by `pep517_native_whl` and
-# imported at runtime for the host.
+# Three setuptools C-extension sdists built by `pep517_native_whl`, imported at
+# runtime for the host, then rebuilt through rules_pycross's `collect_wheels`
+# matrix for two non-host Linux platforms — the cross path this branch adds.
 
 load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("//tools:collect_wheels.bzl", "collect_wheels")
 
 exports_files(["require_extension.patch"])
 
 _PY = "3.12"
 
 _DEP_GROUP = "pycross_setuptools"
+
+# The libc/version flags are what the wheel resolver keys platform-specific
+# wheel selection off; a bare constraint_values platform would leave build
+# dependencies unresolvable. Same shape as //uv-deps-650/crossbuild. The
+# dep_group flag rides along because the wheel targets under `collect_wheels`
+# are reached through a platform transition, not through a py_venv.
+_PLATFORM_FLAGS = [
+    "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
+    "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.39",
+    "--@aspect_rules_py//uv/private/constraints/dep_group:dep_group=" + _DEP_GROUP,
+    "--@aspect_rules_py//py/private/interpreter:python_version=" + _PY,
+]
+
+platform(
+    name = "amd64_linux",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    flags = _PLATFORM_FLAGS,
+)
+
+platform(
+    name = "arm64_linux",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:aarch64",
+    ],
+    flags = _PLATFORM_FLAGS,
+)
 
 py_test(
     name = "test_setproctitle",
@@ -36,4 +68,42 @@ py_test(
     main = "test_pyyaml.py",
     python_version = _PY,
     deps = ["@pypi_pycross_setuptools//pyyaml"],
+)
+
+# rules_pycross's cross matrix, restricted to zstandard.
+#
+# pyyaml is excluded because `PYYAML_FORCE_LIBYAML=0` makes it anyarch — there
+# is nothing platform-specific left to assert.
+#
+# setproctitle is excluded because it cannot cross-build here at all: its
+# setup.py picks sources and macros off `sys.platform`, which reports the
+# *exec* interpreter's platform. Cross mode overrides `_PYTHON_HOST_PLATFORM`
+# and `_PYTHON_SYSCONFIGDATA_NAME`, neither of which moves `sys.platform`, so a
+# darwin exec host compiles `src/darwin_set_process_name.c` with
+# `-D__darwin__=1` against a linux target and fails on
+# `CoreFoundation/CoreFoundation.h`. rules_pycross handles this with a real
+# crossenv (`pycross/private/build/tools/crossenv/`) that patches `sys.platform`
+# in the build interpreter. `require_extension.patch` keeps that failure loud
+# rather than letting setproctitle fall back to an anyarch wheel.
+collect_wheels(
+    name = "native_wheels",
+    expected_tags = [
+        "linux_x86_64",
+        "linux_aarch64",
+    ],
+    platforms = [
+        ":amd64_linux",
+        ":arm64_linux",
+    ],
+    wheels = ["@sdist_build__pycross_setuptools__zstandard__0_22_0//:whl"],
+)
+
+py_test(
+    name = "native_wheels_elf_test",
+    srcs = ["//tools:check_wheel_native.py"],
+    args = ["$(rootpath :native_wheels)"],
+    data = [":native_wheels"],
+    dep_group = _DEP_GROUP,
+    main = "//tools:check_wheel_native.py",
+    python_version = _PY,
 )

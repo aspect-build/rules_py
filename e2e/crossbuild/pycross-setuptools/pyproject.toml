@@ -6,7 +6,9 @@ dependencies = [
     "build",
     "setuptools",
     "wheel",
+    # zstandard's setup.py builds a cffi backend when cffi is importable.
     "cffi",
+    # PyYAML 6.0.x cannot be cythonized by Cython 3.
     "cython<3.0",
     "pyyaml==6.0.1",
     "setproctitle==1.3.2",

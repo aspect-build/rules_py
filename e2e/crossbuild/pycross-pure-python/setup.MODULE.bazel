@@ -1,21 +1,14 @@
 """Port of rules_pycross's `tests/e2e/build_pure_python` workspace.
 
-filelock, tomli and pyproject-metadata are pinned as `no-binary-package`, so
-the anyarch `pep517_whl` path builds each sdist with a PEP 517 backend other
-than setuptools — hatchling for filelock, flit-core for tomli and
-pyproject-metadata — and every resulting wheel must import from
-site-packages at runtime.
+Three pure-Python packages are forced to build from their sdists so the
+`pep517_whl` (anyarch) path runs against two different PEP 517 backends —
+hatchling (filelock) and flit-core (tomli, pyproject-metadata). Each package
+still has to import from site-packages afterwards.
 
-The backends are named in `default_build_dependencies` so they resolve
-through the project repo's `py_library` targets, which carry their transitive
-closure (hatchling alone needs pathspec, pluggy, trove-classifiers, …); the
-configure tool's `[build-system] requires` resolution would yield bare
-`whl_install` targets instead.
-
-The `sdist_build` repos are exposed so BUILD.bazel can rebuild the same
-wheels under non-host target platforms. An anyarch build uses no CC
-toolchain, so that matrix isolates a single property: the build tooling
-(frontend and backend) must resolve for the exec platform even when the
+The `sdist_build` repos are exposed so BUILD.bazel can rebuild the same wheels
+under non-host target platforms: an anyarch build carries no CC toolchain, so
+what that matrix exercises is `pep517_whl`'s exec transition — build tooling
+(`build`, the backend) must resolve for the exec platform even when the
 configuration targets another one.
 """
 
@@ -25,6 +18,10 @@ uv.project(
     default_build_dependencies = [
         "build",
         "setuptools",
+        # The backends have to come through the project repo, not through the
+        # configure tool's `[build-system] requires` resolution: that path
+        # yields bare `whl_install` targets, and hatchling needs its own
+        # transitive closure (pathspec, pluggy, trove-classifiers, …).
         "flit-core",
         "hatch-vcs",
         "hatchling",

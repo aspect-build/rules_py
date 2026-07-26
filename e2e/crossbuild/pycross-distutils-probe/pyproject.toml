@@ -3,6 +3,8 @@ name = "pycross_distutils_probe"
 version = "0.0.0"
 requires-python = ">=3.11"
 dependencies = [
+    # The test drives build_helper.py directly, which shells out to
+    # `python -m build` with setuptools as the backend.
     "build",
     "setuptools",
     "wheel",

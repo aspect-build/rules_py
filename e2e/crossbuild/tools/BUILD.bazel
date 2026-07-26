@@ -1,5 +1,6 @@
 # Shared helpers consumed via load("//tools:...").
 
+load("@aspect_rules_py//py:defs.bzl", "py_binary")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load(":ant_layer.bzl", "ant_home")
@@ -10,7 +11,16 @@ exports_files([
     "assert_absent.py",
     "check_so_arch.sh",
     "check_so_suffix.sh",
+    "check_wheel_native.py",
+    "check_wheel_tags.py",
 ])
+
+py_binary(
+    name = "collect_wheels_tool",
+    srcs = ["collect_wheels.py"],
+    main = "collect_wheels.py",
+    visibility = ["//visibility:public"],
+)
 
 # The host-targeting rust_toolchain's sysroot, re-resolved under the exec
 # transition so it stays correct even when the rest of the build is

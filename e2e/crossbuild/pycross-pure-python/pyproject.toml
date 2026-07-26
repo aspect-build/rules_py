@@ -5,6 +5,9 @@ requires-python = ">=3.11"
 dependencies = [
     "build",
     "setuptools",
+    # Build backends the three sdists below declare in [build-system].
+    # The configure tool resolves them out of this lock, so they have to be
+    # reachable from the project's dependency graph.
     "flit-core",
     "hatchling",
     "hatch-vcs",
@@ -13,6 +16,9 @@ dependencies = [
     "tomli==2.2.1",
 ]
 
+# All three ship `-none-any` wheels; forcing the source build exercises
+# pep517_whl's `--validate-anyarch` path for three different PEP 517
+# backends (hatchling, flit-core).
 [tool.uv]
 no-binary-package = [
     "filelock",

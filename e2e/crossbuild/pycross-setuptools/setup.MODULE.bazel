@@ -1,36 +1,14 @@
 """Port of rules_pycross's `tests/e2e/build_setuptools` workspace.
 
 Three setuptools-backed C-extension packages are forced to build from their
-sdists (`[tool.uv] no-binary-package` in pyproject.toml), covering the
-`pep517_native_whl` path for three distinct build shapes:
+sdists: PyYAML (Cython-generated extension), setproctitle (plain C) and
+zstandard (vendored libzstd). Together they cover the `pep517_native_whl`
+path for a Cython pipeline, a trivial extension and a large vendored-C build.
 
-- PyYAML 6.0.1: Cython-generated extension (sdist → cythonize → C → .so).
-  The lock pins `cython<3.0` because PyYAML 6.0.x cannot be cythonized by
-  Cython 3.
-- setproctitle 1.3.2: a plain C extension, the minimal native case.
-- zstandard 0.22.0: a large vendored-libzstd build, plus an optional cffi
-  backend its setup.py compiles whenever cffi is importable at build time.
-
-Each override exercises a different `uv.override_package` feature:
-
-- `env` on PyYAML ports rules_pycross's per-package `build_env` override
-  (`setuptools.override(name = "pyyaml", build_env = ...)`) and is observable
-  at runtime: with `PYYAML_FORCE_LIBYAML=0` the built wheel must not carry
-  the libyaml-backed `CLoader` (asserted by test_pyyaml.py).
-- `pre_build_patches` on setproctitle removes its silent fallback to a pure
-  `py3-none-any` wheel when the extension fails to compile; see
-  require_extension.patch for why the fallback would mask a broken build.
-- `resource_set` on zstandard declares the vendored-C compile's real memory
-  footprint so Bazel does not over-parallelize it.
-
-`default_build_dependencies` names cffi explicitly: zstandard's cffi backend
-imports pycparser through cffi, and only the project repo's py_library carries
-that transitive closure — the configure tool's `[build-system] requires`
-resolution would yield a bare `whl_install` target without it.
-
-No cross-platform `collect_wheels` matrix here (unlike pycross-pure-python):
-rebuilding these wheels for non-host targets would require a cross CC
-toolchain this workspace does not set up.
+`env` on PyYAML ports rules_pycross's per-package `build_env` override
+(`setuptools.override(name = "pyyaml", build_env = ...)`), and is observable
+at runtime: with `PYYAML_FORCE_LIBYAML=0` the built wheel must not carry the
+libyaml-backed `CLoader`.
 
 Not ported: rules_pycross builds psycopg2 with a `pg_config` tool dep and
 zstandard against a Bazel-built system libzstd. Both need `rules_foreign_cc`
@@ -45,6 +23,10 @@ uv.project(
         "build",
         "setuptools",
         "wheel",
+        # zstandard's cffi backend imports pycparser through cffi. Naming cffi
+        # here routes it through the project repo's py_library, which carries
+        # that transitive closure; the configure tool's `[build-system]
+        # requires` resolution yields a bare `whl_install` target instead.
         "cffi",
     ],
     hub_name = "pypi_pycross_setuptools",
@@ -67,4 +49,10 @@ uv.override_package(
     lock = "//pycross-setuptools:uv.lock",
     resource_set = "mem_4g",
 )
-use_repo(uv, "pypi_pycross_setuptools")
+use_repo(
+    uv,
+    "pypi_pycross_setuptools",
+    "sdist_build__pycross_setuptools__pyyaml__6_0_1",
+    "sdist_build__pycross_setuptools__setproctitle__1_3_2",
+    "sdist_build__pycross_setuptools__zstandard__0_22_0",
+)
