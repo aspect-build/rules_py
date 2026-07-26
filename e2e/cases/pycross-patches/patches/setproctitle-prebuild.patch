@@ -1,0 +1,7 @@
+--- a/pkg/setproctitle/__init__.py	2026-06-04 13:22:25.044466888 +0000
++++ b/pkg/setproctitle/__init__.py	2026-06-04 13:23:03.082422796 +0000
+@@ -55,3 +55,4 @@
+ # by fork() on macOS (see #113).
+ if sys.platform == "darwin":
+     getproctitle()
++PATCHED = True

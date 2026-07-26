@@ -1,0 +1,18 @@
+setproctitle's setup.py swallows any extension build failure and re-runs the
+build without the C extension, producing a `py3-none-any` wheel. That fallback
+makes a broken native build indistinguishable from a successful one — and
+`pep517_native_whl`'s cross-mode wheel-tag validation skips `-none-any` wheels,
+so nothing downstream notices either. Removing the fallback makes the extension
+mandatory, the same way `//uv-sdist-native-build:require_cxx_driver.patch`
+forces python-geohash to exercise the C++ driver.
+--- a/setup.py
++++ b/setup.py
+@@ -129,7 +129,4 @@
+     )
+
+
+-try:
+-    do_build(with_extension=True)
+-except BuildError:
+-    do_build(with_extension=False)
++do_build(with_extension=True)
