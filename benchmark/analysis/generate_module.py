@@ -32,8 +32,8 @@ def main() -> None:
     )
     parser.add_argument(
         "--version",
-        default="2.0.0-alpha.4",
-        help="BCR version to pin when mode=bcr (default: 2.0.0-alpha.4)",
+        default="2.0.0-alpha.5",
+        help="BCR version to pin when mode=bcr (default: 2.0.0-alpha.5)",
     )
     parser.add_argument(
         "--path",
