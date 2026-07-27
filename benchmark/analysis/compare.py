@@ -149,7 +149,7 @@ def main() -> None:
         return line
 
     table += row(
-        "BCR 2.0.0-alpha.4 (baseline)", bcr, "—", "—", bcr_aux
+        "BCR 2.0.0-alpha.5 (baseline)", bcr, "—", "—", bcr_aux
     )
     table += row(
         "HEAD main",
@@ -191,7 +191,7 @@ def main() -> None:
                 return f"| {label} | — | — |\n"
             return f"| {label} | {aux.get('packages', '—')} | {aux.get('targets', '—')} |\n"
 
-        table += aux_row("BCR 2.0.0-alpha.4 (baseline)", bcr_aux)
+        table += aux_row("BCR 2.0.0-alpha.5 (baseline)", bcr_aux)
         table += aux_row("HEAD main", main_aux)
         table += aux_row("This PR", pr_aux)
 
