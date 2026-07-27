@@ -97,7 +97,6 @@ bzl_library(
     srcs = ["test.bzl"],
     visibility = ["//uv:__subpackages__"],
     deps = [
-        ":rule",
         "//uv/private:source_built_wheel",
         "@bazel_skylib//lib:unittest",
     ],
