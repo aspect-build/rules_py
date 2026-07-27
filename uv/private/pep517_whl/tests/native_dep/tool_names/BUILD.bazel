@@ -1,9 +1,10 @@
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("//uv/private/pep517_whl:rule.bzl", "pep517_native_whl")
 
+package(default_testonly = True)
+
 pep517_native_whl(
     name = "whl",
-    testonly = True,
     src = "//uv/private/pep517_whl/tests/native_dep:sdist",
     env = {
         "AR": "$(EXECROOT)/$(DEP_AR)",

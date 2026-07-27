@@ -121,7 +121,7 @@ def py_pytest_main(name, py_library = default_py_library, deps = [], data = [], 
     # module (#723), preserving any directory prefix for slash names (#483).
     test_main = wrapped_main_filename(name)
     tags = kwargs.pop("tags", [])
-    visibility = kwargs.pop("visibility", [])
+    visibility = kwargs.pop("visibility", None)
 
     _py_pytest_main(
         name = "%s_template" % name,

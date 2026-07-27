@@ -1,6 +1,8 @@
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("//py:defs.bzl", "py_test")
 
+package(default_testonly = True)
+
 _WINDOWS_INCOMPATIBLE = select({
     "@platforms//os:windows": ["@platforms//:incompatible"],
     "//conditions:default": [],
@@ -13,7 +15,6 @@ _EXTENSION_LINKOPTS = select({
 
 cc_binary(
     name = "example_library.so",
-    testonly = True,
     srcs = ["example_library.cpp"],
     linkopts = _EXTENSION_LINKOPTS,
     linkshared = True,
@@ -23,7 +24,6 @@ cc_binary(
 
 cc_binary(
     name = "limited_api_library.so",
-    testonly = True,
     srcs = ["limited_api_library.cpp"],
     linkopts = _EXTENSION_LINKOPTS,
     linkshared = True,

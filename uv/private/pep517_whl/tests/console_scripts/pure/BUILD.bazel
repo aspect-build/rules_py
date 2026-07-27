@@ -3,6 +3,8 @@ load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("//uv/private/pep517_whl:rule.bzl", "pep517_whl")
 load("//uv/private/pep517_whl:test.bzl", "pep517_whl_console_scripts_test")
 
+package(default_testonly = True)
+
 write_file(
     name = "__stub_sdist",
     out = "stub.tar.gz",
@@ -29,7 +31,6 @@ sh_binary(
 
 pep517_whl(
     name = "__console_scripts_fixture",
-    testonly = True,
     src = ":__stub_sdist",
     console_scripts = ["detected-pure=demo.cli:pure"],
     tags = ["manual"],

@@ -1,6 +1,8 @@
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//py:defs.bzl", "py_binary", "py_test")
 
+package(default_testonly = True)
+
 # Regression: `data` on py_binary / py_test must reach the generated
 # launcher rule, not only the sibling py_venv. The launcher needs it for
 # `$(location :data_file)` expansion in `args` (analysis fails without

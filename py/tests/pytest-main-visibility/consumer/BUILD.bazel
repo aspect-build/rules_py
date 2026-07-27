@@ -1,0 +1,13 @@
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+
+package(default_testonly = True)
+
+# Both the generated py_library and the template rule that renders its
+# source live in a package whose default_visibility names this one.
+build_test(
+    name = "pytest_main_visibility_build_test",
+    targets = [
+        "//py/tests/pytest-main-visibility:shared_main",
+        "//py/tests/pytest-main-visibility:shared_main_template",
+    ],
+)

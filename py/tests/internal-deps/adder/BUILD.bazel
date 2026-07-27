@@ -6,6 +6,9 @@ runfiles paths. Keep both in the @aspect_rules_py module.
 
 load("//py:defs.bzl", "py_binary", "py_library")
 
+# No `default_testonly`: e2e/cases/oci consumes these fixtures from
+# non-testonly targets in another module.
+
 py_library(
     name = "adder",
     srcs = [

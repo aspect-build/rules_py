@@ -1,6 +1,8 @@
 load("//py:defs.bzl", "py_binary", "py_library", "py_venv")
 load(":tests.bzl", "probe", "reset_data_edges_test_suite", "root", "terminal")
 
+package(default_testonly = True)
+
 probe(name = "probe")
 
 # The launcher's data edge is reached through each parent venv's deps edge.

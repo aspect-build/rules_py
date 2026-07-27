@@ -7,12 +7,13 @@ load("@tar.bzl//tar:tar.bzl", "tar_rule")
 load("//uv/private/pep517_whl:rule.bzl", "pep517_native_whl")
 load(":defs.bzl", "dep_makevars")
 
+package(default_testonly = True)
+
 # A native source build consumes an in-repo cc_library through the same
 # toolchain/env shape emitted by uv.override_package. Its paths are valid from
 # the execroot, but not after the backend changes into the unpacked sdist.
 cc_library(
     name = "dep",
-    testonly = True,
     srcs = ["dep.c"],
     hdrs = ["dep.h"],
 )
@@ -39,7 +40,6 @@ write_file(
 
 dep_makevars(
     name = "dep_makevars",
-    testonly = True,
     ar = ":ar_override",
     cc = ":cc_override",
     hdr = "dep.h",
@@ -57,21 +57,18 @@ _SDIST_SRCS = glob(
 
 mtree_spec(
     name = "sdist_mtree_raw",
-    testonly = True,
     srcs = _SDIST_SRCS,
     include_runfiles = False,
 )
 
 mtree_mutate(
     name = "sdist_mtree",
-    testonly = True,
     mtree = ":sdist_mtree_raw",
     strip_prefix = package_name(),
 )
 
 tar_rule(
     name = "sdist",
-    testonly = True,
     srcs = _SDIST_SRCS,
     mtree = ":sdist_mtree",
     visibility = ["//uv/private/pep517_whl/tests/native_dep/tool_names:__subpackages__"],
@@ -79,7 +76,6 @@ tar_rule(
 
 pep517_native_whl(
     name = "whl",
-    testonly = True,
     src = ":sdist",
     env = {
         "CPPFLAGS": "-I$(EXECROOT)/$(DEP_INC)",

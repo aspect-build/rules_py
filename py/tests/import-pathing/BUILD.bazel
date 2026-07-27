@@ -2,6 +2,8 @@ load("@rules_python//python:defs.bzl", rules_python_py_library = "py_library")
 load("//py:defs.bzl", "py_library")
 load(":tests.bzl", "py_library_import_pathing_test_suite")
 
+package(default_testonly = True)
+
 # Used by the import-pathing tests to verify a dep's `imports` merge
 # transitively through rules_py's own PyInfo.
 py_library(

@@ -1,5 +1,7 @@
 load("//py:defs.bzl", "py_test", "py_unpacked_wheel")
 
+package(default_testonly = True)
+
 genrule(
     name = "dotted_entry_wheel",
     srcs = [

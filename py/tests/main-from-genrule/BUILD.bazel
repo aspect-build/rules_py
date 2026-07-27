@@ -1,5 +1,7 @@
 load("//py:defs.bzl", "py_binary", "py_test")
 
+package(default_testonly = True)
+
 # Regression: a `main = :label` whose label name doesn't end in `.py` must still
 # work when the label resolves to a `.py` file (e.g. a genrule output).
 genrule(

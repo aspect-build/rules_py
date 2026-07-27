@@ -1,5 +1,7 @@
 load("//py:defs.bzl", "py_library")
 
+package(default_testonly = True)
+
 py_library(
     name = "a",
     srcs = [

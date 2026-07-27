@@ -1,5 +1,7 @@
 load("//py:defs.bzl", "py_test")
 
+package(default_testonly = True)
+
 # Two variants of the same test: `test` uses `py_test` defaults
 # (`isolated = True`); `test_non_isolated` flips `isolated = False`.
 # Both should satisfy the structural assertions in test.py (they're

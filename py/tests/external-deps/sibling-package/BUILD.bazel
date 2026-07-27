@@ -1,6 +1,8 @@
 load("@bazel_lib//lib:write_source_files.bzl", "write_source_files")
 load("//py/tests/external-deps/custom-macro:macro.bzl", "click_cli_binary")
 
+package(default_testonly = True)
+
 click_cli_binary(
     name = "click_sibling_binary",
 )
