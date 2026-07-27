@@ -136,9 +136,84 @@ def _console_script_collision_test_impl(ctx):
     asserts.equals(env, "pkg_b.cli", cs_map["tool"].module)
     return unittest.end(env)
 
+def _regular_collision_covers_loser_test_impl(ctx):
+    """A non-namespace collision loser needs no whole-wheel fallback.
+
+    Both wheels claim the file top-level `mod.py`. The winner's entry is
+    projected into the venv site-packages, which precedes every `.pth` entry
+    on sys.path, so the loser's copy is unreachable regardless. Leaving the
+    loser on the fallback would only lengthen sys.path and expose a second
+    `.dist-info` to `importlib.metadata`.
+    """
+    env = unittest.begin(ctx)
+    mock_ctx = _mock_ctx(ctx.label)
+    sp_a = "external/pypi_a/site-packages"
+    sp_b = "external/pypi_b/site-packages"
+    wheels = [
+        _make_wheel(
+            site_packages_rfpath = sp_a,
+            tl_claims = [
+                ("mod.py", _claim(sp_a)),
+                ("only_a", _claim(sp_a, is_dir = True)),
+            ],
+            top_levels = ["mod.py", "only_a"],
+        ),
+        _make_wheel(
+            site_packages_rfpath = sp_b,
+            tl_claims = [("mod.py", _claim(sp_b))],
+            top_levels = ["mod.py"],
+        ),
+    ]
+    top_level, fully_covered, _, _, _ = resolve_wheel_collisions(mock_ctx, wheels)
+
+    # Last distinct claimant wins the contested name.
+    asserts.equals(env, sp_b, top_level["mod.py"])
+
+    # The loser keeps its uncontested top-level projected...
+    asserts.equals(env, sp_a, top_level["only_a"])
+
+    # ...and both wheels drop off the `.pth` fallback entirely.
+    asserts.true(env, sp_a in fully_covered, "collision loser must not need a fallback")
+    asserts.true(env, sp_b in fully_covered)
+    return unittest.end(env)
+
+def _entryless_namespace_keeps_fallback_test_impl(ctx):
+    """An entryless PEP 420 namespace still needs both wheels on `.pth`.
+
+    Neither claimant declares `ns_entries`, so there is nothing to project
+    per-entry and the namespace can only union by having both wheel roots on
+    sys.path. This is the case the regular-collision suppression must not
+    swallow.
+    """
+    env = unittest.begin(ctx)
+    mock_ctx = _mock_ctx(ctx.label)
+    sp_a = "external/pypi_a/site-packages"
+    sp_b = "external/pypi_b/site-packages"
+    wheels = [
+        _make_wheel(
+            site_packages_rfpath = sp_a,
+            tl_claims = [("ns", _claim(sp_a, is_ns = True, is_dir = True))],
+            namespace_dirs = ["ns"],
+            top_levels = ["ns"],
+        ),
+        _make_wheel(
+            site_packages_rfpath = sp_b,
+            tl_claims = [("ns", _claim(sp_b, is_ns = True, is_dir = True))],
+            namespace_dirs = ["ns"],
+            top_levels = ["ns"],
+        ),
+    ]
+    _, fully_covered, _, _, _ = resolve_wheel_collisions(mock_ctx, wheels)
+
+    asserts.false(env, sp_a in fully_covered, "entryless namespace must keep its fallback")
+    asserts.false(env, sp_b in fully_covered, "entryless namespace must keep its fallback")
+    return unittest.end(env)
+
 _single_wheel_test = unittest.make(_single_wheel_test_impl)
 _namespace_merge_test = unittest.make(_namespace_merge_test_impl)
 _console_script_collision_test = unittest.make(_console_script_collision_test_impl)
+_regular_collision_covers_loser_test = unittest.make(_regular_collision_covers_loser_test_impl)
+_entryless_namespace_keeps_fallback_test = unittest.make(_entryless_namespace_keeps_fallback_test_impl)
 
 def virtuals_resolvers_test_suite(name):
     unittest.suite(
@@ -146,4 +221,6 @@ def virtuals_resolvers_test_suite(name):
         _single_wheel_test,
         _namespace_merge_test,
         _console_script_collision_test,
+        _regular_collision_covers_loser_test,
+        _entryless_namespace_keeps_fallback_test,
     )

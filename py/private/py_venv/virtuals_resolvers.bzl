@@ -329,8 +329,13 @@ def _resolve_directory_collision(
         winner = [c for c in distinct_claimants if not c.is_ns][-1]
         state.top_level_to_site_pkgs[tl] = winner.site_packages
         for c in distinct_claimants:
+            # With no namespace claimant the winner's projected directory is a
+            # regular package, so Python binds `<tl>.__path__` to it alone and
+            # a loser on the fallback contributes nothing. Only a namespace
+            # unions across sys.path entries and needs the fallback kept.
             if (c.site_packages == winner.site_packages or
-                c.site_packages in duplicate_metadata_loser_sps):
+                c.site_packages in duplicate_metadata_loser_sps or
+                not any_namespace):
                 _cover(state, c.site_packages, tl)
             else:
                 _skip(state, c.site_packages, tl)
@@ -401,10 +406,17 @@ def _resolve_top_level(
         )
         return
 
+    # Reached only when `all_directories` is False, which implies
+    # `any_namespace` is False. `tl` is therefore projected into the venv
+    # site-packages as the winner's entry, and that directory precedes every
+    # `.pth` entry on sys.path — so a loser's copy is unreachable whether or
+    # not its wheel root stays on the fallback. Cover it: a fallback that
+    # cannot be reached only lengthens sys.path and exposes a second
+    # `.dist-info` to `importlib.metadata` scans.
     winner = distinct_claimants[-1]
     for c in distinct_claimants:
         if c.site_packages != winner.site_packages:
-            _skip(state, c.site_packages, tl)
+            _cover(state, c.site_packages, tl)
     state.top_level_to_site_pkgs[tl] = winner.site_packages
 
 def _fold_merge_groups(wheels, wheel_by_sp, state):
