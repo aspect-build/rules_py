@@ -177,7 +177,9 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
     This function determines the full set of extras that are activated for each
     dependency group defined in the `pyproject.toml`. It performs a transitive
     traversal of the dependency graph to find all extras that are pulled in by
-    the initial set of requirements.
+    the initial set of requirements, preserving the graph's existing
+    dependency-edge markers. Isolated build extras are collected separately and
+    never added to the runtime graph.
 
     Args:
         project_data: The parsed content of the `pyproject.toml` file.
@@ -216,6 +218,8 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
     for group_name in dep_groups.keys():
         resolved_specs = resolve_dependency_group_specs(dep_groups, group_name)
 
+        # Collect every selected version before resolving group requirements so
+        # included groups and extras consistently follow this group's solution.
         group_preferences = dict(lockfile_group_versions.get(group_name, {}))
 
         for spec in resolved_specs:

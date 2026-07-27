@@ -454,6 +454,8 @@ def _parse_projects(module_ctx, hub_specs):
 
             whl_configurations.update(collect_configurations(lock_data))
 
+            # Build environments have their own exact-version closure. Keep
+            # their extras out of the application's dependency-group graph.
             configuration_names, activated_extras = collect_activated_extras(project.lock, project_id, project_data, lock_data, default_versions, marker_graph, package_versions, locked_urls = locked_urls)
             version_activations = collate_versions_by_name(activated_extras)
 
