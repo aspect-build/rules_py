@@ -69,10 +69,10 @@ load("//uv/private/uv_project:repository.bzl", "uv_project")
 load("//uv/private/whl_install:dist_repository.bzl", "whl_dist")
 load("//uv/private/whl_install:metadata.bzl", "parse_console_script")
 load("//uv/private/whl_install:repository.bzl", "whl_install")
-load(":graph_utils.bzl", "activate_extras", "collect_sccs")
 load(":git_utils.bzl", "locked_git_requirement_urls")
+load(":graph_utils.bzl", "activate_extras", "collect_sccs")
 load(":lockfile.bzl", "build_marker_graph", "collect_bdists", "collect_configurations", "collect_sdists", "normalize_deps", "url_basename")
-load(":projectfile.bzl", "collate_versions_by_name", "collect_activated_extras", "extract_requirement_marker_pairs")
+load(":projectfile.bzl", "collate_versions_by_name", "collect_activated_extras", "collect_build_dependency_markers", "extract_requirement_marker_pairs", "marker_can_apply")
 
 # attr.string_dict cannot distinguish omission from an explicitly empty map.
 # The empty script name is invalid, so this sentinel cannot collide with a
@@ -125,8 +125,18 @@ def dedupe_shared_installs(install_cfgs):
     return id_remap
 
 def _rewrite_available_deps(sbuild_cfg, target_remap):
-    """Rebuild an sbuild spec with its available_deps routed through the remap."""
+    """Route every source-build install label through shared-install deduping."""
     fields = structs.to_dict(sbuild_cfg)
+    fields["deps"] = [
+        target_remap.get(target, target)
+        for target in sbuild_cfg.deps
+    ]
+    conditional_deps = {}
+    for target, marker in sbuild_cfg.conditional_deps.items():
+        target = target_remap.get(target, target)
+        previous = conditional_deps.get(target)
+        conditional_deps[target] = "({}) or ({})".format(previous, marker) if previous else marker
+    fields["conditional_deps"] = conditional_deps
     fields["available_deps"] = {
         pkg: target_remap.get(target, target)
         for pkg, target in sbuild_cfg.available_deps.items()
@@ -323,20 +333,36 @@ def _parse_projects(module_ctx, hub_specs):
                 return None
 
             lock_build_dep_anns = {}
+            lock_conditional_build_dep_anns = {}
             lock_native_anns = {}
             extra_build_dependencies = tool_uv.get("extra-build-dependencies", {})
             for package, extra_deps in extra_build_dependencies.items():
-                target = _resolve(package, None)
-                if target == None:
+                package_name = normalize_name(package)
+                targets = [
+                    (project_id, package_name, version, "__base__")
+                    for version in package_versions.get(package_name, {})
+                ]
+                if not targets:
                     # Allow a shared annotation file to include entries for other locks.
                     continue
                 deps = []
+                conditional_deps = {}
                 for dep in extra_deps:
+                    # TODO(konsti): `match-runtime` is intentionally ignored;
+                    # conflicting runtime versions require separate builds.
+                    if type(dep) == "dict":
+                        dep = dep["requirement"]
+                    marker = dep.partition(";")[2].strip()
+                    if marker and not marker_can_apply(
+                        marker,
+                        lock_data.get("requires-python", project_data["project"].get("requires-python", "")),
+                    ):
+                        continue
                     resolved_deps = extract_requirement_marker_pairs(
                         project.lock,
                         project_id,
                         dep,
-                        default_versions,
+                        {},
                         package_versions,
                         locked_urls = locked_urls,
                         fail_if_missing = False,
@@ -348,10 +374,14 @@ def _parse_projects(module_ctx, hub_specs):
                             "`tool.uv.extra-build-dependencies`. Add the dependency as a dependency " +
                             "and regenerate the lock."
                         ).format(repr(dep), repr(package), project.pyproject))
-                    # TODO(konsti): Consider the marker too - we shouldn't inject build deps on platforms where they are
-                    # declared.
-                    deps.extend([resolved for resolved, _marker in resolved_deps])
-                lock_build_dep_anns[target] = deps
+                    for resolved, marker in resolved_deps:
+                        if marker:
+                            conditional_deps.setdefault(marker, []).append(resolved)
+                        else:
+                            deps.append(resolved)
+                for target in targets:
+                    lock_build_dep_anns[target] = deps
+                    lock_conditional_build_dep_anns[target] = conditional_deps
 
             uv_build_dep_anns = dict(lock_build_dep_anns)
             for ann in mod.tags.annotate_packages:
@@ -510,6 +540,8 @@ def _parse_projects(module_ctx, hub_specs):
             # Pre-build the per-project available_deps mapping from the
             # lockfile. This gives each sdist configure tool visibility
             # into the packages within this project's dependency perimeter.
+            # TODO: The preexisting configure protocol reports package names,
+            # so it cannot disambiguate multiple locked versions.
             project_available_deps = {}
             for package in lock_data.get("package", []):
                 if "editable" in package.get("source", {}) or "virtual" in package.get("source", {}):
@@ -586,6 +618,7 @@ def _parse_projects(module_ctx, hub_specs):
                     # could do pyproject.toml introspection.
                     ann_key = (project_id, normalize_name(package["name"]), package["version"], "__base__")
                     build_deps = lock_build_dep_anns.get(ann_key) or []
+                    conditional_build_deps = lock_conditional_build_dep_anns.get(ann_key) or {}
                     is_native = "auto"
                     if ann_key in lock_native_anns:
                         is_native = "true" if lock_native_anns[ann_key] else "false"
@@ -601,6 +634,9 @@ def _parse_projects(module_ctx, hub_specs):
                         # platform-mismatch cases can't be detected here
                         # because we don't know the target build platform.
                         sbuild_required = is_no_binary or not package.get("wheels", [])
+
+                        # TODO: Preserve preexisting default-build behavior;
+                        # this path does not yet retain requirement markers.
                         lock_build_deps = [
                             it[0]
                             for req in project.default_build_dependencies
@@ -616,6 +652,42 @@ def _parse_projects(module_ctx, hub_specs):
                         ]
 
                     build_deps = sets.to_list(sets.make(build_deps + lock_build_deps))
+                    build_requirements = [
+                        (dep, "")
+                        for dep in build_deps
+                    ] + [
+                        (dep, marker)
+                        for marker, deps in conditional_build_deps.items()
+                        for dep in deps
+                    ]
+                    build_dependency_markers = collect_build_dependency_markers(
+                        marker_graph,
+                        build_requirements,
+                    )
+                    build_install_labels = {
+                        dep: install_table.get(dep, "@whl_install__{}__{}__{}//:install".format(
+                            project_stamp,
+                            dep[1],
+                            normalize_version(dep[2]),
+                        ))
+                        for dep in build_dependency_markers
+                    }
+                    sbuild_deps = sets.to_list(sets.make([
+                        build_install_labels[dep]
+                        for dep, markers in build_dependency_markers.items()
+                        if "" in markers
+                    ]))
+                    sbuild_conditional_deps = {}
+                    for dep, markers in build_dependency_markers.items():
+                        label = build_install_labels[dep]
+                        if label in sbuild_deps:
+                            continue
+                        for marker in markers:
+                            previous = sbuild_conditional_deps.get(label)
+                            if previous:
+                                sbuild_conditional_deps[label] = "({}) or ({})".format(previous, marker)
+                            else:
+                                sbuild_conditional_deps[label] = marker
 
                     pre_build_patches = []
                     pre_build_patch_strip = 0
@@ -638,7 +710,8 @@ def _parse_projects(module_ctx, hub_specs):
 
                     sbuild_specs[sbuild_id] = struct(
                         src = sdist,
-                        deps = ["@{0}//:{1}".format(*it) for it in build_deps],
+                        deps = sbuild_deps,
+                        conditional_deps = sbuild_conditional_deps,
                         is_native = is_native,
                         version = package["version"],
                         pre_build_patches = pre_build_patches,
@@ -869,6 +942,8 @@ def _uv_impl(module_ctx):
 
         if sbuild_cfg.available_deps:
             sbuild_kwargs["available_deps"] = sbuild_cfg.available_deps
+        if sbuild_cfg.conditional_deps:
+            sbuild_kwargs["conditional_deps"] = sbuild_cfg.conditional_deps
         if sbuild_cfg.pre_build_patches:
             sbuild_kwargs["pre_build_patches"] = sbuild_cfg.pre_build_patches
             sbuild_kwargs["pre_build_patch_strip"] = sbuild_cfg.pre_build_patch_strip

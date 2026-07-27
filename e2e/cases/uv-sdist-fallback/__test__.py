@@ -6,6 +6,7 @@ cowsay 6.0 and tqdm 4.52.0 both ship an sdist and a `-none-any.whl`. With
 """
 
 import importlib.metadata
+import importlib.util
 import os
 import shutil
 import subprocess
@@ -24,7 +25,10 @@ assert distribution.files is not None
 recorded = {str(path) for path in distribution.files}
 assert "cowsay/main.py" in recorded
 assert "cowsay: cowsay" in Path(sys.argv[1]).read_text()
-assert not any(path.endswith("LICENSE.txt") or "/tests/" in path or path.endswith(".pyc") for path in recorded)
+assert not any(
+    path.endswith("LICENSE.txt") or "/tests/" in path or path.endswith(".pyc")
+    for path in recorded
+)
 for path in distribution.files:
     installed = package.parent / path
     assert installed.is_file(), path
@@ -36,6 +40,9 @@ for path in distribution.files:
 output = cowsay.get_output_string("cow", "sdist fallback works!")
 assert "sdist fallback works!" in output
 assert list(tqdm.tqdm(range(2), disable=True)) == [0, 1]
+assert importlib.util.find_spec("socks") is None, (
+    "urllib3[socks] build dependencies leaked into the application runtime"
+)
 marker = "detected console script works"
 wrapper = shutil.which("cowsay")
 assert wrapper is not None, "cowsay wrapper is absent from PATH"

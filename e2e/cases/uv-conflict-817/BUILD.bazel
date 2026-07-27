@@ -1,4 +1,5 @@
 load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
 
 py_test(
     name = "test_a",
@@ -42,4 +43,19 @@ py_test(
     deps = [
         "@pypi_uv_conflict_817//packaging",
     ],
+)
+
+build_test(
+    name = "source_build_21_3_test",
+    targets = ["@sdist_build__ambig__packaging__21_3//:whl"],
+)
+
+build_test(
+    name = "source_build_24_0_test",
+    targets = ["@sdist_build__ambig__packaging__24_0//:whl"],
+)
+
+build_test(
+    name = "version_constrained_source_build_test",
+    targets = ["@sdist_build__ambig__cowsay__6_0//:whl"],
 )

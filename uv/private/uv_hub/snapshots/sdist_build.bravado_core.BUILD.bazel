@@ -1,12 +1,45 @@
 
 load("@aspect_rules_py//uv/private/pep517_whl:rule.bzl", "pep517_whl")
 load("@aspect_rules_py//py:defs.bzl", "py_binary")
+load("@aspect_rules_py//uv/private/markers:defs.bzl", "decide_marker")
+
+decide_marker(
+    name = "_build_dep_marker_0",
+    marker = "os_name == 'nt'",
+)
+
+decide_marker(
+    name = "_build_dep_marker_1",
+    marker = "python_full_version < '3.10.2'",
+)
+
+decide_marker(
+    name = "_build_dep_marker_2",
+    marker = "python_full_version < '3.11'",
+)
+
+decide_marker(
+    name = "_build_dep_marker_3",
+    marker = "(python_full_version < '3.10.2') and (python_full_version < '3.11')",
+)
 
 py_binary(
     name = "build_tool",
     main = "@aspect_rules_py//uv/private/pep517_whl:build_helper.py",
     srcs = ["@aspect_rules_py//uv/private/pep517_whl:build_helper.py"],
-    deps = ["@@+uv+project__aspect_rules_py//:build", "@@+uv+project__aspect_rules_py//:setuptools", "@@+uv+project__aspect_rules_py//:maturin", "@whl_install__aspect_rules_py__setuptools__80_9_0//:install"],
+    deps = ["@@+uv+whl_install__aspect_rules_py__build__1_3_0//:install", "@@+uv+whl_install__aspect_rules_py__setuptools__80_9_0//:install", "@@+uv+whl_install__aspect_rules_py__maturin__1_11_5//:install", "@@+uv+whl_install__aspect_rules_py__packaging__24_0//:install", "@@+uv+whl_install__aspect_rules_py__pyproject_hooks__1_2_0//:install"] + select({
+        ":_build_dep_marker_0": ["@@+uv+whl_install__aspect_rules_py__colorama__0_4_6//:install"],
+        "//conditions:default": [],
+    }) + select({
+        ":_build_dep_marker_1": ["@@+uv+whl_install__aspect_rules_py__importlib_metadata__8_7_1//:install"],
+        "//conditions:default": [],
+    }) + select({
+        ":_build_dep_marker_2": ["@@+uv+whl_install__aspect_rules_py__tomli__2_4_0//:install"],
+        "//conditions:default": [],
+    }) + select({
+        ":_build_dep_marker_3": ["@@+uv+whl_install__aspect_rules_py__zipp__3_23_0//:install"],
+        "//conditions:default": [],
+    }),
 )
 
 pep517_whl(

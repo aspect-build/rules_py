@@ -203,8 +203,23 @@ def _sdist_build_impl(repository_ctx):
     # conservatively add setuptools + wheel as fallback build deps. For now
     # we rely on the configure tool succeeding.
 
-    # Merge explicit deps with auto-discovered deps
-    all_deps = [str(d) for d in repository_ctx.attr.deps] + extra_dep_labels
+    # Label-valued attrs render canonical repository names, while configure
+    # results use their apparent names. Deduplicate their shared install repo.
+    all_deps_by_repo = {}
+    for dep in list(repository_ctx.attr.deps) + extra_dep_labels:
+        label = str(dep)
+        repo, _separator, target = label.partition("//")
+        repo_key = repo.rsplit("+", 1)[-1].lstrip("@")
+        all_deps_by_repo.setdefault((repo_key, target), label)
+    all_deps = all_deps_by_repo.values()
+
+    conditional_deps = {}
+    for dep, marker in repository_ctx.attr.conditional_deps.items():
+        dep = str(dep)
+        repo, _separator, target = dep.partition("//")
+        repo_key = repo.rsplit("+", 1)[-1].lstrip("@")
+        if (repo_key, target) not in all_deps_by_repo:
+            conditional_deps.setdefault(marker, []).append(dep)
 
     monitor_memory_attr = ""
     if repository_ctx.attr.monitor_memory:
@@ -255,12 +270,35 @@ def _sdist_build_impl(repository_ctx):
     if inspection and inspection.get("console_scripts"):
         console_scripts_attr = "\n    console_scripts = {},".format(repr(inspection["console_scripts"]))
 
+    rule = "pep517_native_whl" if is_native else "pep517_whl"
+    loads = [
+        'load("@aspect_rules_py//uv/private/pep517_whl:rule.bzl", "{}")'.format(rule),
+        'load("@aspect_rules_py//py:defs.bzl", "py_binary")',
+    ]
+    if conditional_deps:
+        loads.append('load("@aspect_rules_py//uv/private/markers:defs.bzl", "decide_marker")')
+    marker_rules = ""
+    deps_expr = repr(all_deps)
+    for idx, (marker, deps) in enumerate(conditional_deps.items()):
+        if not deps:
+            continue
+        marker_name = "_build_dep_marker_{}".format(idx)
+        marker_rules += """
+decide_marker(
+    name = "{name}",
+    marker = {marker},
+)
+""".format(name = marker_name, marker = repr(marker))
+        deps_expr += """ + select({{
+        ":{marker}": {deps},
+        "//conditions:default": [],
+    }})""".format(marker = marker_name, deps = repr(deps))
+
     # Leave args unset: the pure rule validates anyarch wheels by default,
     # while the native rule defaults to no validation.
     repository_ctx.file("BUILD.bazel", content = """
-load("@aspect_rules_py//uv/private/pep517_whl:rule.bzl", "{rule}")
-load("@aspect_rules_py//py:defs.bzl", "py_binary")
-
+{loads}
+{marker_rules}
 py_binary(
     name = "build_tool",
     main = "@aspect_rules_py//uv/private/pep517_whl:build_helper.py",
@@ -282,10 +320,12 @@ exports_files(
 )
 """.format(
         src = repository_ctx.attr.src,
-        deps = repr(all_deps),
         console_scripts_attr = console_scripts_attr,
+        deps = deps_expr,
+        loads = "\n".join(loads),
+        marker_rules = marker_rules,
         monitor_memory_attr = monitor_memory_attr,
-        rule = "pep517_native_whl" if is_native else "pep517_whl",
+        rule = rule,
         version = repository_ctx.attr.version,
         resource_set_attr = resource_set_attr,
         patch_attrs = patch_attrs,
@@ -297,6 +337,12 @@ sdist_build = repository_rule(
     attrs = {
         "src": attr.label(),
         "deps": attr.label_list(),
+        "conditional_deps": attr.label_keyed_string_dict(
+            default = {},
+            doc = "Dict mapping build dependency labels to PEP 508 marker " +
+                  "expressions. The generated build tool adds " +
+                  "these dependencies only when their markers match.",
+        ),
         "available_deps": attr.string_dict(
             doc = "Dict mapping normalized package names to install labels. " +
                   "Passed from the uv extension; used to resolve deps " +

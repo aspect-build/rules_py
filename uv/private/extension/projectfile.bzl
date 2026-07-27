@@ -3,19 +3,21 @@ Machinery specific to interacting with a pyproject.toml
 """
 
 load("//uv/private:normalize_name.bzl", "normalize_name")
-load("//uv/private/versions:versions.bzl", "find_matching_version")
+load("//uv/private/markers:pep508_evaluate.bzl", "evaluate", "tokenize")
+load("//uv/private/versions:versions.bzl", "find_matching_version", "version_satisfies")
 load(":dep_groups.bzl", "resolve_dependency_group_specs")
+load(":graph_utils.bzl", "combine_markers")
+load(":marker_simplify.bzl", "simplify_extra_marker")
 
 def extract_requirement_marker_pairs(
-    projectfile,
-    lock_id,
-    req_string,
-    version_map,
-    package_versions = {},
-    preferred_versions = {},
-    locked_urls = {},
-    fail_if_missing = True
-):
+        projectfile,
+        lock_id,
+        req_string,
+        version_map,
+        package_versions = {},
+        preferred_versions = {},
+        locked_urls = {},
+        fail_if_missing = True):
     """Parses a requirement string into a list of dependency-marker pairs.
 
     This function parses a PEP 508 requirement string (e.g.,
@@ -93,7 +95,7 @@ def extract_requirement_marker_pairs(
             for project_data in parts:
                 clean_p = project_data.strip()
                 if clean_p:
-                    extras.append(clean_p)
+                    extras.append(normalize_name(clean_p).replace("_", "-"))
             remainder = remainder[close_idx + 1:]
 
     # 4. Look up version
@@ -102,6 +104,7 @@ def extract_requirement_marker_pairs(
         # Direct references identify a locked artifact, not a version
         # constraint. Never fall back to a different locked version or URL.
         url = specifier[1:].strip()
+
         # Git uses semantically relevant fragments such as `#subdirectory=`.
         if not url.startswith("git+"):
             # uv stores hashes separately from URLs.
@@ -143,6 +146,112 @@ def extract_requirement_marker_pairs(
         results.append((dep, marker or ""))
 
     return results
+
+def marker_can_apply(marker, requires_python):
+    """Return whether a marker can apply to the project's Python versions."""
+    if not marker:
+        return True
+
+    candidates = {
+        "0.0.0": True,
+        "2.7.0": True,
+        "3.0.0": True,
+        "3.11.0": True,
+        "4.0.0": True,
+    }
+
+    # Python markers change truth only at a version boundary. Probe each
+    # boundary and its neighbors, while leaving platform markers unresolved.
+    for literal in tokenize(marker) + requires_python.split(","):
+        literal = literal.strip("\"' ").lstrip("<>=!~ ").rstrip(".*")
+        parts = literal.split(".")
+        if not parts or not all([part.isdigit() for part in parts]):
+            continue
+
+        version = [int(part) for part in parts[:3]]
+        version += [0] * (3 - len(version))
+        for component in range(3):
+            for offset in [-1, 0, 1]:
+                adjacent = list(version)
+                adjacent[component] += offset
+                if adjacent[component] >= 0:
+                    candidates["{}.{}.{}".format(*adjacent)] = True
+
+    has_supported_candidate = False
+    for candidate in candidates:
+        if not version_satisfies(candidate, requires_python):
+            continue
+
+        has_supported_candidate = True
+        major, minor, _patch = candidate.split(".")
+        result = evaluate(
+            marker,
+            env = {
+                "python_full_version": candidate,
+                "python_version": "{}.{}".format(major, minor),
+            },
+            strict = False,
+        )
+        if result != False:
+            return True
+
+    # An unusual Python constraint must not silently discard a dependency when
+    # none of the marker boundary candidates can represent its environment.
+    return not has_supported_candidate
+
+def _build_environment_marker(marker):
+    """Resolve runtime-only extras outside an isolated build environment."""
+    if "extra" not in tokenize(marker):
+        return marker
+    return simplify_extra_marker(marker, "")
+
+def collect_build_dependency_markers(graph, requirements):
+    """Collect the exact-version, marker-qualified isolated build closure."""
+    marked_deps = {}
+    worklist = []
+
+    # Keep ancestors per path so cycles terminate without dropping another
+    # marker-qualified route to the same locked package.
+    for dep, marker in requirements:
+        marker = _build_environment_marker(marker)
+        if marker != None:
+            worklist.append((dep, marker, {dep: True}))
+    visited = {}
+    idx = 0
+
+    for _ in range(1000000):
+        if idx == len(worklist):
+            break
+
+        dep, marker, path = worklist[idx]
+        idx += 1
+        state = (dep, marker)
+        if state in visited:
+            continue
+        visited[state] = True
+
+        base = (dep[0], dep[1], dep[2], "__base__")
+        marked_deps.setdefault(base, {})[marker] = 1
+
+        # Optional-dependency graph nodes do not link to the base package.
+        if dep != base and base not in path:
+            base_path = dict(path)
+            base_path[base] = True
+            worklist.append((base, marker, base_path))
+
+        for next_dep, next_markers in graph.get(dep, {}).items():
+            if next_dep in path:
+                continue
+            for edge_marker in next_markers:
+                edge_marker = _build_environment_marker(edge_marker)
+                if edge_marker == None:
+                    continue
+                for next_marker in combine_markers({marker: 1}, {edge_marker: 1}):
+                    next_path = dict(path)
+                    next_path[next_dep] = True
+                    worklist.append((next_dep, next_marker, next_path))
+
+    return marked_deps
 
 def _extract_lockfile_group_versions(lock_id, lock_data):
     """Extracts resolved package versions per dependency group from the lockfile.
@@ -257,7 +366,6 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
                     target_dep = (next_dep[0], next_dep[1], pref[2], next_dep[3])
 
                 base = (target_dep[0], target_dep[1], target_dep[2], "__base__")
-
                 activated_extras.setdefault(base, {}).setdefault(group_name, {}).setdefault(target_dep, {}).update(markers)
                 if target_dep not in visited:
                     visited[target_dep] = 1

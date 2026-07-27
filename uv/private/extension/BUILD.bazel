@@ -86,7 +86,10 @@ bzl_library(
     visibility = ["//uv:__subpackages__"],
     deps = [
         ":dep_groups",
+        ":graph_utils",
+        ":marker_simplify",
         "//uv/private:normalize_name",
+        "//uv/private/markers:pep508_evaluate",
         "//uv/private/versions",
     ],
 )
@@ -148,6 +151,7 @@ bzl_library(
     visibility = ["//uv:__subpackages__"],
     deps = [
         ":projectfile",
+        "//uv/private/markers:pep508_evaluate",
         "@bazel_skylib//lib:unittest",
     ],
 )

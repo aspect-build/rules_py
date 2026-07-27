@@ -1,12 +1,21 @@
 
 load("@aspect_rules_py//uv/private/pep517_whl:rule.bzl", "pep517_native_whl")
 load("@aspect_rules_py//py:defs.bzl", "py_binary")
+load("@aspect_rules_py//uv/private/markers:defs.bzl", "decide_marker")
+
+decide_marker(
+    name = "_build_dep_marker_0",
+    marker = "os_name == 'nt'",
+)
 
 py_binary(
     name = "build_tool",
     main = "@aspect_rules_py//uv/private/pep517_whl:build_helper.py",
     srcs = ["@aspect_rules_py//uv/private/pep517_whl:build_helper.py"],
-    deps = ["@@aspect_rules_py++uv+project__uv_sdist_jdk_build//:scikit_build_core", "@@aspect_rules_py++uv+project__uv_sdist_jdk_build//:setuptools", "@@aspect_rules_py++uv+project__uv_sdist_jdk_build//:wheel", "@@aspect_rules_py++uv+project__uv_sdist_jdk_build//:build", "@whl_install__uv_sdist_jdk_build__scikit_build_core__0_12_2//:install"],
+    deps = ["@@aspect_rules_py++uv+whl_install__uv_sdist_jdk_build__scikit_build_core__0_12_2//:install", "@@aspect_rules_py++uv+whl_install__uv_sdist_jdk_build__setuptools__82_0_1//:install", "@@aspect_rules_py++uv+whl_install__uv_sdist_jdk_build__wheel__0_47_0//:install", "@@aspect_rules_py++uv+whl_install__uv_sdist_jdk_build__build__1_5_0//:install", "@@aspect_rules_py++uv+whl_install__uv_sdist_jdk_build__packaging__26_2//:install", "@@aspect_rules_py++uv+whl_install__uv_sdist_jdk_build__pathspec__1_1_1//:install", "@@aspect_rules_py++uv+whl_install__uv_sdist_jdk_build__pyproject_hooks__1_2_0//:install"] + select({
+        ":_build_dep_marker_0": ["@@aspect_rules_py++uv+whl_install__uv_sdist_jdk_build__colorama__0_4_6//:install"],
+        "//conditions:default": [],
+    }),
 )
 
 pep517_native_whl(

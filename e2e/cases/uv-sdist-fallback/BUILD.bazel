@@ -24,6 +24,7 @@ py_test(
     deps = [
         "@pypi_sdist_fallback//cowsay",
         "@pypi_sdist_fallback//tqdm",
+        "@pypi_sdist_fallback//urllib3",
     ],
 )
 
@@ -39,6 +40,7 @@ py_binary(
     deps = [
         "@pypi_sdist_fallback//cowsay",
         "@pypi_sdist_fallback//tqdm",
+        "@pypi_sdist_fallback//urllib3",
     ],
 )
 
