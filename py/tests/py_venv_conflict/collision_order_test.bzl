@@ -491,6 +491,41 @@ def collision_order_test_suite():
         ],
     )
 
+    # Legacy pkgutil namespace: both claimants are REGULAR (they ship
+    # `__init__.py`), so `any_namespace` is false and the collision resolves
+    # through the native branch. The winner's `__init__.py` nonetheless calls
+    # `pkgutil.extend_path`, which grafts same-named directories off sys.path
+    # onto `__path__` — so the loser must keep its fallback. Nothing in wheel
+    # metadata distinguishes an extend_path package from a plain one, which is
+    # why the native branch cannot suppress non-namespace losers.
+    _wheel(
+        name = "_extend_path_native_first",
+        metadata_only = True,
+        native_root = True,
+        regular = True,
+        value = "efirst",
+        tags = ["manual"],
+    )
+    _wheel(
+        name = "_extend_path_native_second",
+        extend_path = True,
+        metadata_only = True,
+        native_root = True,
+        regular = True,
+        value = "esecond",
+        tags = ["manual"],
+    )
+    py_test(
+        name = "extend_path_regular_collision_test",
+        srcs = ["test_extend_path_regular.py"],
+        main = "test_extend_path_regular.py",
+        package_collisions = "ignore",
+        deps = [
+            ":_extend_path_native_first",
+            ":_extend_path_native_second",
+        ],
+    )
+
     _wheel(
         name = "_native_duplicate_graft_first",
         metadata_name = "collision_native_graft-1.0.dist-info",
