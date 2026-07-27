@@ -264,13 +264,14 @@ def _parse_projects(module_ctx, hub_specs):
                 override.extra_data or
                 override.toolchains or
                 override.env or
+                override.cc_deps or
                 override.monitor_memory or
                 override.resource_set != "default"
             )
             if has_target and has_modifications:
                 fail("uv.override_package() for '{}': `target` is mutually exclusive with modification attributes. Use `target` for full replacement OR build, patch, and data attributes for modifications, not both.".format(override.name))
             if not has_target and not has_modifications:
-                fail("uv.override_package() for '{}': must specify either `target` for full replacement or at least one modification attribute (console_scripts, pre_build_patches, post_install_patches, exclude_glob, extra_deps, extra_data, toolchains, env, monitor_memory, resource_set).".format(override.name))
+                fail("uv.override_package() for '{}': must specify either `target` for full replacement or at least one modification attribute (console_scripts, pre_build_patches, post_install_patches, exclude_glob, extra_deps, extra_data, toolchains, env, cc_deps, monitor_memory, resource_set).".format(override.name))
 
         unscoped_matches = {i: 0 for i, override in enumerate(mod.tags.override_package) if override.lock == None}
 
@@ -522,6 +523,7 @@ def _parse_projects(module_ctx, hub_specs):
                         pre_build_patch_strip = pkg_override.pre_build_patch_strip,
                         supported = [],
                         toolchains = pkg_override.toolchains,
+                        cc_deps = pkg_override.cc_deps,
                     )
                 if sdist:
                     # HACK: Note that we resolve these LAZILY so that
@@ -563,16 +565,19 @@ def _parse_projects(module_ctx, hub_specs):
                         pre_build_patches = [str(p) for p in pkg_override.pre_build_patches]
                         pre_build_patch_strip = pkg_override.pre_build_patch_strip
 
-                    # `toolchains` / `env` on `uv.override_package` augment
-                    # the defaults baked into sdist_build's BUILD template —
-                    # they don't replace them. Empty == no augmentation.
+                    # `toolchains` / `env` / `cc_deps` on `uv.override_package`
+                    # augment the defaults baked into sdist_build's BUILD
+                    # template; they don't replace them. Empty == no
+                    # augmentation.
                     extra_toolchains = []
                     extra_env = {}
+                    extra_cc_deps = []
                     monitor_memory = False
                     resource_set = "default"
                     if pkg_override:
                         extra_toolchains = [str(t) for t in pkg_override.toolchains]
                         extra_env = pkg_override.env
+                        extra_cc_deps = [str(d) for d in pkg_override.cc_deps]
                         monitor_memory = pkg_override.monitor_memory
                         resource_set = pkg_override.resource_set
 
@@ -586,6 +591,7 @@ def _parse_projects(module_ctx, hub_specs):
                         available_deps = project_available_deps,
                         extra_toolchains = extra_toolchains,
                         extra_env = extra_env,
+                        extra_cc_deps = extra_cc_deps,
                         monitor_memory = monitor_memory,
                         resource_set = resource_set,
                     )
@@ -816,6 +822,8 @@ def _uv_impl(module_ctx):
             sbuild_kwargs["extra_toolchains"] = sbuild_cfg.extra_toolchains
         if sbuild_cfg.extra_env:
             sbuild_kwargs["extra_env"] = sbuild_cfg.extra_env
+        if sbuild_cfg.extra_cc_deps:
+            sbuild_kwargs["extra_cc_deps"] = sbuild_cfg.extra_cc_deps
         if sbuild_cfg.monitor_memory:
             sbuild_kwargs["monitor_memory"] = True
         if sbuild_cfg.resource_set != "default":
@@ -951,6 +959,10 @@ _override_package_tag = tag_class(
         "env": attr.string_dict(
             default = {},
             doc = "Extra environment variables merged into the build action's `env` dict. Values may reference $(VAR) make-variables sourced from extra `toolchains` listed above. Prefix an execroot-relative path with `$(EXECROOT)/` so it remains valid after the backend changes into the unpacked source tree. Omit CC/CXX/AR/LD/STRIP to use the configured C++ action tools.",
+        ),
+        "cc_deps": attr.label_list(
+            default = [],
+            doc = "CcInfo targets whose transitive headers, defines, include paths, and static archives are wired into the native sdist build (compile via CPPFLAGS, archives into the link post-object). Setuptools-backend sdists only. Each label is referenced from the generated external build repository, so the target must be visible to it (e.g. `//visibility:public`).",
         ),
         "pre_build_patches": attr.label_list(
             default = [],

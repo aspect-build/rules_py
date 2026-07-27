@@ -1,0 +1,37 @@
+"""Regression for the per-package `cc_deps` plumbing on
+`uv.override_package`. Reuses python-geohash's locked sdist (already
+fetched by the uv-sdist-native-build case) under a distinct project
+name/hub, so the generated sdist_build repo is independent and the three
+existing sdist_build snapshots stay byte-stable.
+
+The override attaches an in-repo cc_library via `cc_deps`; the snapshot
+pins that the label threads onto the generated pep517_native_whl(...)
+`cc_deps` list. Snapshot-only: the wheel is not built here; the
+executable cc_deps regression lives in-repo under
+//uv/private/pep517_whl/tests/cc_deps.
+"""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_uv_sdist_cc_deps")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "setuptools",
+    ],
+    hub_name = "pypi_uv_sdist_cc_deps",
+    lock = "//uv-sdist-cc-deps:uv.lock",
+    pyproject = "//uv-sdist-cc-deps:pyproject.toml",
+)
+
+# Attach an in-repo CcInfo target via `cc_deps`. This is additive on top of
+# whatever sdist_build's BUILD template emits by default.
+uv.override_package(
+    name = "python-geohash",
+    cc_deps = ["//uv-sdist-cc-deps:probe"],
+    lock = "//uv-sdist-cc-deps:uv.lock",
+)
+
+# Exposed so e2e/BUILD.bazel can snapshot the generated pep517_native_whl
+# call: pins that `cc_deps` threads onto the build rule. The hub repo is
+# deliberately not imported; no target here consumes it.
+use_repo(uv, "sdist_build__uv_sdist_cc_deps__python_geohash__0_8_5")

@@ -194,6 +194,7 @@ def _sdist_build_impl(repository_ctx):
                 "resource_set",
             ],
             toolchains = repository_ctx.attr.extra_toolchains,
+            cc_deps = repository_ctx.attr.extra_cc_deps,
         )
 
     # Resolve additional deps discovered by the configure tool
@@ -227,9 +228,11 @@ def _sdist_build_impl(repository_ctx):
     # AR, LD, and STRIP make variables can be synthetic. Only forward explicit
     # toolchains/env for JDK, Rust, and other package-specific overrides.
     toolchain_attrs = ""
+    cc_deps_attr = ""
     if is_native:
         toolchains = repository_ctx.attr.extra_toolchains
         extra_env = repository_ctx.attr.extra_env
+        cc_deps = repository_ctx.attr.extra_cc_deps
         env_attr = ""
         if extra_env:
             env_attr = """
@@ -246,6 +249,13 @@ def _sdist_build_impl(repository_ctx):
                 toolchains = "\n".join(["        \"{}\",".format(t) for t in toolchains]),
             )
         toolchain_attrs += env_attr
+        if cc_deps:
+            cc_deps_attr = """
+    cc_deps = [
+{cc_deps}
+    ],""".format(
+                cc_deps = "\n".join(["        \"{}\",".format(d) for d in cc_deps]),
+            )
 
     resource_set_attr = ""
     if repository_ctx.attr.resource_set != "default":
@@ -272,7 +282,7 @@ py_binary(
     name = "whl",
     src = "{src}",
     tool = ":build_tool",
-    version = "{version}",{console_scripts_attr}{monitor_memory_attr}{resource_set_attr}{patch_attrs}{toolchain_attrs}
+    version = "{version}",{console_scripts_attr}{monitor_memory_attr}{resource_set_attr}{patch_attrs}{toolchain_attrs}{cc_deps_attr}
     visibility = ["//visibility:public"],
 )
 
@@ -290,6 +300,7 @@ exports_files(
         resource_set_attr = resource_set_attr,
         patch_attrs = patch_attrs,
         toolchain_attrs = toolchain_attrs,
+        cc_deps_attr = cc_deps_attr,
     ))
 
 sdist_build = repository_rule(
@@ -330,6 +341,10 @@ sdist_build = repository_rule(
         "extra_env": attr.string_dict(
             default = {},
             doc = "Environment variables forwarded to the generated pep517_native_whl(...) `env` dict. Values may reference $(VAR) make-variables from extra toolchains. Prefix an execroot-relative path with `$(EXECROOT)/` so it remains valid after the backend changes into the unpacked source tree. Set via `uv.override_package(env = {...})`.",
+        ),
+        "extra_cc_deps": attr.string_list(
+            default = [],
+            doc = "CcInfo target labels forwarded to the generated pep517_native_whl(...) `cc_deps` list, wiring their transitive headers and static archives into the native sdist build. Set via `uv.override_package(cc_deps = [...])`.",
         ),
     },
 )

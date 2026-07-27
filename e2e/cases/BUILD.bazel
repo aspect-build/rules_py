@@ -168,6 +168,17 @@ write_source_files(
         # pep517_native_whl(...) call so the reservation reaches the action.
         "snapshots/sdist_build.uv_sdist_native_build.python_geohash.BUILD.bazel": "@sdist_build__uv_sdist_native_build__python_geohash__0_8_5//:BUILD.bazel",
 
+        # @sdist_build for python-geohash with uv.override_package(cc_deps)
+        # ----------------------------------------------------------------------
+        # Covers the override_package -> repo-rule -> BUILD-template plumbing
+        # for `cc_deps`. Reuses python-geohash's locked sdist under a distinct
+        # project/hub (//uv-sdist-cc-deps) so the three sibling sdist_build
+        # snapshots stay byte-stable. Pins that the CcInfo label threads onto
+        # the generated pep517_native_whl(...) `cc_deps` list. The executable
+        # end-to-end regression lives in-repo at
+        # //uv/private/pep517_whl/tests/cc_deps.
+        "snapshots/sdist_build.uv_sdist_cc_deps.python_geohash.BUILD.bazel": "@sdist_build__uv_sdist_cc_deps__python_geohash__0_8_5//:BUILD.bazel",
+
         # Venv site-packages .pth files. Pin the line shapes that
         # assemble_venv emits, so any change to `.pth` emission
         # surfaces here. Wheel site-packages dirs are referenced by
