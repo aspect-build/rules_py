@@ -1,10 +1,18 @@
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
+# The uv_custom and uv_bazel_fork hubs pin sha256s per platform, and the fork
+# release publishes no Windows archive at all, so none of this resolves there.
+NOT_WINDOWS = select({
+    "@platforms//os:windows": ["@platforms//:incompatible"],
+    "//conditions:default": [],
+})
+
 [
     genrule(
         name = "{}_version".format(hub),
         outs = ["{}_version.txt".format(hub)],
         cmd = "$(execpath @{}//:uv) --version > $@".format(hub),
+        target_compatible_with = NOT_WINDOWS,
         tools = ["@{}//:uv".format(hub)],
     )
     for hub in [
@@ -26,4 +34,5 @@ sh_test(
         ":uv_mirror_version.txt",
         ":uv_version.txt",
     ],
+    target_compatible_with = NOT_WINDOWS,
 )

@@ -56,7 +56,10 @@ def _platform(rctx):
         else:
             fail("Unknown libc from ldd --version %r" % res.stdout)
 
-    # TODO: Windows
+    elif os == "windows":
+        # Windows wheel tags encode no runtime version, so only the libc slot is meaningful.
+        return "msvc", "0.0"
+
     # TODO: Other
 
     fail("Unsupported platform {}".format(os))

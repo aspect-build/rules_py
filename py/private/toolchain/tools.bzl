@@ -25,6 +25,18 @@ TOOLCHAIN_PLATFORMS = {
             "@platforms//cpu:aarch64",
         ],
     ),
+    "windows_amd64": struct(
+        compatible_with = [
+            "@platforms//os:windows",
+            "@platforms//cpu:x86_64",
+        ],
+    ),
+    "windows_arm64": struct(
+        compatible_with = [
+            "@platforms//os:windows",
+            "@platforms//cpu:aarch64",
+        ],
+    ),
 }
 
 def _dummy_toolchain_impl(ctx):
