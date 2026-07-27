@@ -9,6 +9,20 @@ load(":dep_groups.bzl", "resolve_dependency_group_specs")
 load(":graph_utils.bzl", "combine_markers")
 load(":marker_simplify.bzl", "simplify_extra_marker")
 
+def split_requirement_marker(req_string):
+    """Split PEP 508 markers without treating URL path semicolons as markers."""
+    direct_reference_idx = req_string.find("@")
+    for i in range(len(req_string)):
+        if req_string[i] != ";":
+            continue
+        if direct_reference_idx != -1 and direct_reference_idx < i:
+            preceded_by_space = i > 0 and req_string[i - 1] in " \t\r\n"
+            followed_by_space = i + 1 < len(req_string) and req_string[i + 1] in " \t\r\n"
+            if not (preceded_by_space or followed_by_space):
+                continue
+        return req_string[:i].strip(), req_string[i + 1:].strip()
+    return req_string.strip(), ""
+
 def extract_requirement_marker_pairs(
         projectfile,
         lock_id,
@@ -41,21 +55,9 @@ def extract_requirement_marker_pairs(
         A list of tuples, where each tuple is `(Dependency, Marker)`.
     """
 
-    # 1. Split Requirement and Marker
-    # Starlark split() often doesn't support maxsplit, so we use find() + slicing
-    semicolon_idx = req_string.find(";")
-
-    marker = ""
-    if semicolon_idx != -1:
-        # Extract and clean the marker
-        marker_text = req_string[semicolon_idx + 1:].strip()
-        if marker_text:
-            marker = marker_text
-
-        # The requirement part is everything before the semicolon
-        req_part = req_string[:semicolon_idx].strip()
-    else:
-        req_part = req_string.strip()
+    # uv-pep508's parse_url treats a semicolon inside a URL as a path
+    # character; a direct-reference marker must have adjacent whitespace.
+    req_part, marker = split_requirement_marker(req_string)
 
     if not req_part:
         return []

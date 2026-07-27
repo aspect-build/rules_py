@@ -70,6 +70,8 @@ bzl_library(
         "//uv/private/constraints/platform:defs",
         "//uv/private/constraints/python:defs",
         "//uv/private/whl_install:repository",
+        "@bazel_lib//lib:strings",
+        "@bazel_skylib//lib:paths",
     ],
 )
 
@@ -150,6 +152,7 @@ bzl_library(
     srcs = ["test_projectfile.bzl"],
     visibility = ["//uv:__subpackages__"],
     deps = [
+        ":lockfile",
         ":projectfile",
         "//uv/private/markers:pep508_evaluate",
         "@bazel_skylib//lib:unittest",

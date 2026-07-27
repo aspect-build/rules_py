@@ -69,10 +69,9 @@ load("//uv/private/uv_project:repository.bzl", "uv_project")
 load("//uv/private/whl_install:dist_repository.bzl", "whl_dist")
 load("//uv/private/whl_install:metadata.bzl", "parse_console_script")
 load("//uv/private/whl_install:repository.bzl", "whl_install")
-load(":git_utils.bzl", "locked_git_requirement_urls")
 load(":graph_utils.bzl", "activate_extras", "collect_sccs")
-load(":lockfile.bzl", "build_marker_graph", "collect_bdists", "collect_configurations", "collect_sdists", "normalize_deps", "url_basename")
-load(":projectfile.bzl", "collate_versions_by_name", "collect_activated_extras", "collect_build_dependency_markers", "extract_requirement_marker_pairs", "marker_can_apply")
+load(":lockfile.bzl", "build_marker_graph", "collect_bdists", "collect_configurations", "collect_locked_requirement_urls", "collect_sdists", "normalize_deps", "url_basename")
+load(":projectfile.bzl", "collate_versions_by_name", "collect_activated_extras", "collect_build_dependency_markers", "extract_requirement_marker_pairs", "marker_can_apply", "split_requirement_marker")
 
 # attr.string_dict cannot distinguish omission from an explicitly empty map.
 # The empty script name is invalid, so this sentinel cannot collide with a
@@ -306,23 +305,18 @@ def _parse_projects(module_ctx, hub_specs):
                 for p in tool_uv.get("no-binary-package", [])
             }
 
-            default_versions, package_versions, lock_data = normalize_deps(project_id, lock_data)
+            lockfile_directory = str(module_ctx.path(project.lock).dirname)
+            default_versions, package_versions, lock_data = normalize_deps(
+                project_id,
+                lock_data,
+                lockfile_directory,
+            )
 
-            locked_urls = {}
-            for locked_package in lock_data.get("package", []):
-                dependency = (project_id, locked_package["name"], locked_package["version"], "__base__")
-                artifacts = locked_package.get("wheels", []) + [
-                    locked_package.get("sdist", {}),
-                    locked_package.get("source", {}),
-                ]
-                for artifact in artifacts:
-                    url = artifact.get("url")
-                    if url:
-                        locked_urls[(locked_package["name"], url)] = dependency
-                git = locked_package.get("source", {}).get("git")
-                if git:
-                    for url in locked_git_requirement_urls(git):
-                        locked_urls[(locked_package["name"], url)] = dependency
+            locked_urls = collect_locked_requirement_urls(
+                project_id,
+                lock_data,
+                lockfile_directory,
+            )
 
             def _resolve(name, version):
                 name = normalize_name(name)
@@ -352,7 +346,7 @@ def _parse_projects(module_ctx, hub_specs):
                     # conflicting runtime versions require separate builds.
                     if type(dep) == "dict":
                         dep = dep["requirement"]
-                    marker = dep.partition(";")[2].strip()
+                    _, marker = split_requirement_marker(dep)
                     if marker and not marker_can_apply(
                         marker,
                         lock_data.get("requires-python", project_data["project"].get("requires-python", "")),

@@ -1,0 +1,21 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
+
+py_test(
+    name = "test",
+    srcs = ["__test__.py"],
+    dep_group = "uv_local_sources",
+    main = "__test__.py",
+    python_version = "3.11",
+    deps = [
+        "@pypi_local_sources//local_directory",
+        "@pypi_local_sources//local_sdist",
+        "@pypi_local_sources//local_wheel",
+    ],
+)
+
+diff_test(
+    name = "source_build_snapshot_test",
+    file1 = "expected_sdist.BUILD.bazel",
+    file2 = "@sdist_build__uv_local_sources__local_sdist__1_0_0//:BUILD.bazel",
+)

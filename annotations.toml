@@ -1,12 +1,12 @@
 ## Annotations.toml
 #
 # This is an aspect_rules_py//uv specific configuration file which allows
-# packages to be annotated extra information such as entrypoint.
+# packages to be annotated with extra information such as entrypoints.
 #
 # This file allows specifying additional build time dependencies, however
 # <https://docs.astral.sh/uv/reference/settings/#extra-build-dependencies>
 # should be preferred, which is loaded by `uv.project`. For instance if a
-# package requires setuptools be available, this is how you can configure#
+# package requires setuptools to be available, this is how you can configure
 # it to be delivered.
 #
 # Takes the place of giant MODULE.bazel annotation tables.

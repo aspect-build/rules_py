@@ -2,7 +2,7 @@
 
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
 load(":defs.bzl", "dedupe_shared_installs", "parse_declared_console_script", "shared_install_key")
-load(":lockfile.bzl", "url_basename")
+load(":lockfile.bzl", "collect_bdists", "collect_sdists", "normalize_deps", "url_basename")
 
 def _url_basename_test_impl(ctx):
     env = unittest.begin(ctx)
@@ -52,6 +52,69 @@ def _url_basename_test_impl(ctx):
     return unittest.end(env)
 
 url_basename_test = unittest.make(_url_basename_test_impl)
+
+def _normalize_local_source_artifacts_test_impl(ctx):
+    env = unittest.begin(ctx)
+    wheel_hash = "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    sdist_hash = "sha256:fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210"
+    lock_data = {
+        "package": [
+            {
+                "name": "local-wheel",
+                "version": "1.0.0",
+                "source": {"path": "artifacts/local_wheel-1.0.0-py3-none-any.whl"},
+                "wheels": [{
+                    "filename": "local_wheel-1.0.0-py3-none-any.whl",
+                    "hash": wheel_hash,
+                }],
+            },
+            {
+                "name": "local-sdist",
+                "version": "2.0.0",
+                "source": {"path": "artifacts/local_sdist-2.0.0.tar.gz"},
+                "sdist": {"hash": sdist_hash},
+            },
+            {
+                "name": "local-directory",
+                "version": "3.0.0",
+                "source": {"directory": "packages/local;directory"},
+            },
+        ],
+    }
+
+    _, _, normalized = normalize_deps("proj", lock_data, "/workspace/project")
+    wheel_url = "file:///workspace/project/artifacts/local_wheel-1.0.0-py3-none-any.whl"
+    sdist_url = "file:///workspace/project/artifacts/local_sdist-2.0.0.tar.gz"
+    asserts.equals(env, wheel_url, normalized["package"][0]["wheels"][0]["url"])
+    asserts.equals(env, sdist_url, normalized["package"][1]["sdist"]["url"])
+
+    bdist_specs, bdist_table = collect_bdists(normalized)
+    asserts.equals(env, {
+        "whl__local_wheel__0123456789abcdef": {
+            "filename": "local_wheel-1.0.0-py3-none-any.whl",
+            "hash": wheel_hash,
+            "url": wheel_url,
+        },
+    }, bdist_specs)
+    asserts.equals(env, {
+        wheel_url: "@whl__local_wheel__0123456789abcdef//:whl",
+    }, bdist_table)
+
+    sdist_specs, sdist_table = collect_sdists("proj", normalized)
+    asserts.equals(env, {
+        "sdist__local_sdist__fedcba9876543210": {"file": {
+            "hash": sdist_hash,
+            "url": sdist_url,
+        }},
+    }, sdist_specs)
+    asserts.equals(env, {
+        "sdist_build__proj__local_sdist__2_0_0": "@sdist__local_sdist__fedcba9876543210//file",
+    }, sdist_table)
+    return unittest.end(env)
+
+normalize_local_source_artifacts_test = unittest.make(
+    _normalize_local_source_artifacts_test_impl,
+)
 
 def _declared_console_script_test_impl(ctx):
     env = unittest.begin(ctx)
@@ -165,6 +228,10 @@ def defs_test_suite():
     unittest.suite(
         "declared_console_script_tests",
         declared_console_script_test,
+    )
+    unittest.suite(
+        "normalize_local_source_artifacts_tests",
+        normalize_local_source_artifacts_test,
     )
     unittest.suite(
         "shared_install_key_tests",

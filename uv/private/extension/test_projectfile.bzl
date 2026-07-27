@@ -1,5 +1,6 @@
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
 load("//uv/private/markers:pep508_evaluate.bzl", "evaluate")
+load(":lockfile.bzl", "collect_locked_requirement_urls")
 load(":projectfile.bzl", "collect_activated_extras", "collect_build_dependency_markers", "extract_requirement_marker_pairs", "marker_can_apply")
 
 def _extract_requirement_marker_pairs_multi_version_no_specifier_test_impl(ctx):
@@ -205,6 +206,192 @@ def _extract_requirement_marker_pairs_direct_reference_test_impl(ctx):
 
 extract_requirement_marker_pairs_direct_reference_test = unittest.make(
     _extract_requirement_marker_pairs_direct_reference_test_impl,
+)
+
+def _collect_locked_requirement_urls_local_sources_test_impl(ctx):
+    env = unittest.begin(ctx)
+    cases = [
+        (
+            "archive-build",
+            "path",
+            "../artifacts/archive-build-1.0.0.whl",
+            "file:///workspace/artifacts/archive-build-1.0.0.whl",
+        ),
+        (
+            "directory-build",
+            "directory",
+            "packages/../packages/directory-build",
+            "file:///workspace/project/packages/directory-build",
+        ),
+        (
+            "editable-build",
+            "editable",
+            "packages/editable-build",
+            "file:///workspace/project/packages/editable-build",
+        ),
+        (
+            "absolute-build",
+            "path",
+            "/opt/build/absolute-build-4.0.0.whl",
+            "file:///opt/build/absolute-build-4.0.0.whl",
+        ),
+        (
+            "double-slash-build",
+            "path",
+            "//opt/build/double-slash-build.whl",
+            "file:///opt/build/double-slash-build.whl",
+        ),
+        (
+            "file-build",
+            "path",
+            "file:///opt/build/file-build-5.0.0.whl",
+            "file:///opt/build/file-build-5.0.0.whl",
+        ),
+        (
+            "spaced-build",
+            "directory",
+            "packages/local build",
+            "file:///workspace/project/packages/local%20build",
+        ),
+        (
+            "reserved-build",
+            "directory",
+            "packages/uv #?%\"<>`{}\\path",
+            "file:///workspace/project/packages/uv%20%23%3F%25%22%3C%3E%60%7B%7D%5Cpath",
+        ),
+        (
+            "safe-build",
+            "directory",
+            "packages/[keep]@name;version:",
+            "file:///workspace/project/packages/[keep]@name;version:",
+        ),
+        (
+            "unicode-build",
+            "directory",
+            "packages/ümlaut/雪😀",
+            "file:///workspace/project/packages/%C3%BCmlaut/%E9%9B%AA%F0%9F%98%80",
+        ),
+        (
+            "control-build",
+            "directory",
+            "packages/line\nbreak\tend",
+            "file:///workspace/project/packages/line%0Abreak%09end",
+        ),
+        (
+            "windows-build",
+            "path",
+            "C:\\build tools\\windows-build-11.0.0.whl",
+            "file:///C:/build%20tools/windows-build-11.0.0.whl",
+        ),
+        (
+            "unc-build",
+            "directory",
+            "\\\\fileserver\\build tools\\unc#build",
+            "file://fileserver/build%20tools/unc%23build",
+        ),
+    ]
+    packages = []
+    expected_urls = {}
+    for i, (name, source_kind, local_path, expected_url) in enumerate(cases):
+        version = "{}.0.0".format(i + 1)
+        normalized_name = name.replace("-", "_")
+        packages.append({
+            "name": name,
+            "version": version,
+            "source": {source_kind: local_path},
+        })
+        expected_urls[(normalized_name, expected_url)] = (
+            "proj",
+            normalized_name,
+            version,
+            "__base__",
+        )
+
+    asserts.equals(
+        env,
+        expected_urls,
+        collect_locked_requirement_urls("proj", {"package": packages}, "/workspace/project"),
+    )
+    return unittest.end(env)
+
+collect_locked_requirement_urls_local_sources_test = unittest.make(
+    _collect_locked_requirement_urls_local_sources_test_impl,
+)
+
+def _extract_requirement_marker_pairs_local_reference_test_impl(ctx):
+    env = unittest.begin(ctx)
+    locked_urls = collect_locked_requirement_urls(
+        "proj",
+        {
+            "package": [
+                {
+                    "name": "directory-build",
+                    "version": "2.0.0",
+                    "source": {"directory": "packages/directory-build"},
+                },
+                {
+                    "name": "safe-build",
+                    "version": "8.0.0",
+                    "source": {"directory": "packages/[keep]@name;version:"},
+                },
+            ],
+        },
+        "/workspace/project",
+    )
+
+    result = extract_requirement_marker_pairs(
+        "//:pyproject.toml",
+        "proj",
+        "directory-build[feature] @ file:///workspace/project/packages/directory-build; sys_platform == 'linux'",
+        {},
+        {"directory_build": {"2.0.0": 1}},
+        locked_urls = locked_urls,
+    )
+    asserts.equals(env, [
+        (("proj", "directory_build", "2.0.0", "__base__"), "sys_platform == 'linux'"),
+        (("proj", "directory_build", "2.0.0", "feature"), "sys_platform == 'linux'"),
+    ], result)
+
+    safe_url = "file:///workspace/project/packages/[keep]@name;version:"
+    safe = extract_requirement_marker_pairs(
+        "//:pyproject.toml",
+        "proj",
+        "safe-build @ " + safe_url,
+        {},
+        {"safe_build": {"8.0.0": 1}},
+        locked_urls = locked_urls,
+    )
+    asserts.equals(env, [
+        (("proj", "safe_build", "8.0.0", "__base__"), ""),
+    ], safe)
+
+    marked_safe = extract_requirement_marker_pairs(
+        "//:pyproject.toml",
+        "proj",
+        "safe-build[feature] @ " + safe_url + " ; sys_platform == 'linux'",
+        {},
+        {"safe_build": {"8.0.0": 1}},
+        locked_urls = locked_urls,
+    )
+    asserts.equals(env, [
+        (("proj", "safe_build", "8.0.0", "__base__"), "sys_platform == 'linux'"),
+        (("proj", "safe_build", "8.0.0", "feature"), "sys_platform == 'linux'"),
+    ], marked_safe)
+
+    missing = extract_requirement_marker_pairs(
+        "//:pyproject.toml",
+        "proj",
+        "directory-build @ file:///workspace/project/packages/other-build",
+        {},
+        {"directory_build": {"2.0.0": 1}},
+        fail_if_missing = False,
+        locked_urls = locked_urls,
+    )
+    asserts.equals(env, [], missing)
+    return unittest.end(env)
+
+extract_requirement_marker_pairs_local_reference_test = unittest.make(
+    _extract_requirement_marker_pairs_local_reference_test_impl,
 )
 
 def _extract_requirement_marker_pairs_preferred_overrides_version_map_test_impl(ctx):
@@ -509,6 +696,8 @@ def projectfile_test_suite():
         collect_build_dependency_markers_cycle_test,
         collect_build_dependency_markers_conflict_extras_test,
         extract_requirement_marker_pairs_direct_reference_test,
+        collect_locked_requirement_urls_local_sources_test,
+        extract_requirement_marker_pairs_local_reference_test,
         extract_requirement_marker_pairs_preferred_overrides_version_map_test,
         extract_requirement_marker_pairs_preferred_overrides_multi_version_test,
         collect_activated_extras_transitive_remap_test,

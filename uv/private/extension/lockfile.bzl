@@ -2,6 +2,8 @@
 Machinery specific to interacting with a uv.lock
 """
 
+load("@bazel_lib//lib:strings.bzl", "ord")
+load("@bazel_skylib//lib:paths.bzl", "paths")
 load("//uv/private:normalize_name.bzl", "normalize_name")
 load("//uv/private:normalize_version.bzl", "normalize_version")
 load("//uv/private:parse_whl_name.bzl", "parse_whl_name")
@@ -9,8 +11,86 @@ load("//uv/private:sha1.bzl", "sha1")
 load("//uv/private/constraints/platform:defs.bzl", "supported_platform")
 load("//uv/private/constraints/python:defs.bzl", "supported_python")
 load("//uv/private/whl_install:repository.bzl", "compatible_python_tags")
-load(":git_utils.bzl", "parse_git_url", "try_git_to_http_archive")
+load(":git_utils.bzl", "locked_git_requirement_urls", "parse_git_url", "try_git_to_http_archive")
 load(":marker_simplify.bzl", "simplify_extra_marker")
+
+def _local_file_url(local_path, lockfile_directory):
+    """Convert a uv lockfile-relative source path into uv's canonical file URL.
+
+    Mirrors `VerbatimUrl::from_path -> DisplaySafeUrl::from_file_path ->
+    Url::from_file_path` in uv-pep508 and rust-url. Encode Starlark's UTF-8
+    bytes with rust-url's WHATWG `SPECIAL_PATH_SEGMENT` and `PATH_SEGMENT`
+    rules while retaining path separators and Windows drive or UNC prefixes.
+    Existing `file://` URLs are already canonical and remain unchanged.
+
+    Args:
+        local_path: A local source path or existing `file://` URL.
+        lockfile_directory: The absolute directory containing the uv lockfile.
+
+    Returns:
+        The absolute, percent-encoded `file://` URL used by uv.
+    """
+    if local_path.startswith("file://"):
+        return local_path
+
+    windows_path = (
+        local_path.startswith("\\\\") or
+        (len(local_path) > 2 and local_path[1] == ":") or
+        lockfile_directory.startswith("\\\\") or
+        (len(lockfile_directory) > 2 and lockfile_directory[1] == ":")
+    )
+    if windows_path:
+        local_path = local_path.replace("\\", "/")
+        lockfile_directory = lockfile_directory.replace("\\", "/")
+
+    if not paths.is_absolute(local_path):
+        local_path = paths.join(lockfile_directory, local_path)
+
+    normalized_path = paths.normalize(local_path)
+    if not windows_path and normalized_path.startswith("//"):
+        normalized_path = "/" + normalized_path.lstrip("/")
+
+    hex_digits = "0123456789ABCDEF"
+    encoded_path = []
+    for char in normalized_path.elems():
+        byte = ord(char)
+        if byte < 0x20 or byte >= 0x7F or char in " \"#%<>?`{}\\":
+            encoded_path.append("%" + hex_digits[byte // 16] + hex_digits[byte % 16])
+        else:
+            encoded_path.append(char)
+
+    if normalized_path.startswith("//"):
+        return "file:" + "".join(encoded_path)
+    if len(normalized_path) > 2 and normalized_path[1] == ":":
+        return "file:///" + "".join(encoded_path)
+    return "file://" + "".join(encoded_path)
+
+def collect_locked_requirement_urls(lock_id, lock_data, lockfile_directory):
+    """Index locked artifact, Git, and local-source direct references."""
+    locked_urls = {}
+
+    for package in lock_data.get("package", []):
+        package_name = normalize_name(package["name"])
+        dependency = (lock_id, package_name, package["version"], "__base__")
+        source = package.get("source", {})
+
+        for artifact in package.get("wheels", []) + [package.get("sdist", {}), source]:
+            url = artifact.get("url")
+            if url:
+                locked_urls[(package_name, url)] = dependency
+
+        git = source.get("git")
+        if git:
+            for url in locked_git_requirement_urls(git):
+                locked_urls[(package_name, url)] = dependency
+
+        for source_kind in ("path", "directory", "editable"):
+            local_path = source.get(source_kind)
+            if local_path:
+                url = _local_file_url(local_path, lockfile_directory)
+                locked_urls[(package_name, url)] = dependency
+
+    return locked_urls
 
 def url_basename(url):
     """Returns the trailing file name of a distribution URL.
@@ -41,7 +121,7 @@ def _dist_identifier(dist):
         return dist["hash"].split(":")[1][:16]
     return sha1(dist["url"])[:16]
 
-def normalize_deps(lock_id, lock_data):
+def normalize_deps(lock_id, lock_data, lockfile_directory):
     """Normalizes dependency specifications in a lockfile.
 
     This function performs two main normalization steps:
@@ -54,6 +134,7 @@ def normalize_deps(lock_id, lock_data):
     Args:
         lock_id: A unique identifier for the lockfile.
         lock_data: The parsed content of the `uv.lock` file.
+        lockfile_directory: Absolute directory containing the lockfile.
 
     Returns:
         A tuple containing:
@@ -84,9 +165,22 @@ def normalize_deps(lock_id, lock_data):
             dep["version"] = default_versions.get(dep["name"])[2]
 
     for spec in lock_data.get("package", []):
-        # Backfill the sdist URL if the source is a URL file
+        # uv omits the artifact URL for local wheels and source archives:
+        # their filename/hash records refer to source.path instead.
+        source = spec.get("source", {})
+        source_url = source.get("url")
+        local_path = source.get("path")
+        if local_path:
+            source_url = _local_file_url(local_path, lockfile_directory)
+
         if "sdist" in spec and not "url" in spec["sdist"]:
-            spec["sdist"]["url"] = spec["source"]["url"]
+            if source_url == None:
+                fail("Source distribution for {} has neither a URL nor a local path".format(spec["name"]))
+            spec["sdist"]["url"] = source_url
+
+        for wheel in spec.get("wheels", []):
+            if "url" not in wheel and source_url:
+                wheel["url"] = source_url
 
         for dep in spec.get("dependencies", []):
             _fix_version(dep)
