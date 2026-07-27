@@ -111,3 +111,24 @@ py_test(
     main = "unknown_layout_pth_test.py",
     deps = [":pthtest_unknown_layout"],
 )
+
+# A second unknown-layout wheel, so the venv emits more than one
+# `site.addsitedir` line and the `known_paths` set those lines share is
+# actually exercised (see shared_known_paths_test.py). Distinct console-script
+# name so the two targets don't collide in bin/.
+py_unpacked_wheel(
+    name = "pthtest_unknown_layout_b",
+    src = ":pthtest_b-1.0-py3-none-any.whl",
+    console_scripts = ["pthtestb=bpkg:main"],
+)
+
+py_test(
+    name = "shared_known_paths_test",
+    srcs = ["shared_known_paths_test.py"],
+    isolated = False,
+    main = "shared_known_paths_test.py",
+    deps = [
+        ":pthtest_unknown_layout",
+        ":pthtest_unknown_layout_b",
+    ],
+)

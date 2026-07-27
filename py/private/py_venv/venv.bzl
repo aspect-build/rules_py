@@ -40,6 +40,26 @@ load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN")
 load(":toolchains_resolver.bzl", "resolve_venv_toolchain")
 load(":virtuals_resolvers.bzl", "enforce_collision_policy", "resolve_wheel_collisions")
 
+# `site.addsitedir(dir)` called without `known_paths` builds that set from
+# scratch via `site._init_pathinfo()`, which stats every entry already on
+# `sys.path` — so N such lines cost O(N^2) stats and dominate interpreter
+# startup once N reaches the hundreds. `site.addpackage` runs each line with
+# `exec(line)` under the `site` module's globals, so stashing the set on the
+# module carries it across lines: one `_init_pathinfo()` for the whole file,
+# and `addsitedir` keeps the set current as it appends.
+#
+# Deliberately per-line rather than one combined loop: the lines stay
+# interleaved with the plain path entries in `imports_depset` order, so
+# `sys.path` precedence is byte-for-byte what it was.
+_ADDSITEDIR_LINE = (
+    "import os, sys, site; " +
+    "_kp = getattr(site, \"_aspect_rules_py_known_paths\", None) or " +
+    "getattr(site, \"_init_pathinfo\", lambda: None)(); " +
+    "site._aspect_rules_py_known_paths = _kp; " +
+    "site.addsitedir(os.path.normpath(os.path.join(" +
+    "sys.prefix, \"{venv_escape}\", \"{imp}\")), _kp)"
+)
+
 def _dict_to_exports(env):
     return ["export %s=\"%s\"" % (k, v) for (k, v) in env.items()]
 
@@ -228,9 +248,7 @@ def assemble_venv(
         if imp in fully_covered_site_pkgs:
             return None
         if imp.endswith("site-packages") and imp not in known_layout_site_pkgs:
-            return ("import os, sys, site; " +
-                    "site.addsitedir(os.path.normpath(os.path.join(" +
-                    "sys.prefix, \"{venv_escape}\", \"{imp}\")))").format(
+            return _ADDSITEDIR_LINE.format(
                 venv_escape = venv_to_runfiles_escape,
                 imp = imp,
             )
