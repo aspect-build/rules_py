@@ -186,14 +186,20 @@ write_source_files(
         #   pins the `site.addsitedir(...)` shape so wheel-root `.pth`
         #   shims keep running.
         # * pth_install_tree_fallback — two install_tree wheels colliding
-        #   on a top-level; the collision loser reaches `_format_imp`'s
-        #   site-packages branch and must emit a PLAIN escape path (not
-        #   `site.addsitedir`, which would re-run its already-projected
-        #   root `.pth`). Reverting that branch changes this snapshot.
+        #   on a REGULAR top-level; the collision loser stays on the
+        #   fallback (an extend_path winner can still graft from it).
+        # * pth_install_tree_fallback_namespace — two install_tree wheels
+        #   colliding on an entryless PEP 420 namespace, so both wheels
+        #   stay on the fallback for the namespace to union.
+        #   Both snapshots' lines reach `_format_imp`'s site-packages
+        #   branch and must emit a PLAIN escape path (not `site.addsitedir`,
+        #   which would re-run an already-projected root `.pth`).
+        #   Reverting that branch changes these snapshots.
         "snapshots/pth_namespace_547.test.venv.pth": "//pth-namespace-547:test.venv.pth",
         "snapshots/firebase_admin.test_tool.venv.pth": "//firebase-admin-import:test_tool.venv.pth",
         "snapshots/wheel_root_pth.venv.pth": "//uv-include-group:wheel_root_pth_test.venv.pth",
         "snapshots/pth_install_tree_fallback.venv.pth": "//pth-install-tree-fallback:test.venv.pth",
+        "snapshots/pth_install_tree_fallback_namespace.venv.pth": "//pth-install-tree-fallback:namespace_test.venv.pth",
 
         # PBS pyvenv.cfg home handling (cases/pbs-symlink-prefix-1048).
         # 3.11 is inside the narrow empty-home gate; 3.13 proves the normal

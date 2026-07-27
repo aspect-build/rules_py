@@ -1,19 +1,29 @@
 load("@aspect_rules_py//py:defs.bzl", "py_test", "py_unpacked_wheel")
 load("//tools:pth_snapshot.bzl", "extract_venv_pth")
 
-# Snapshot fixture for assemble_venv's `_format_imp` install_tree branch.
+# Snapshot fixtures for assemble_venv's `_format_imp` install_tree branch.
+# Two independent pairs, covering the two ways a claim reaches the fallback.
 #
-# Two hand-built wheels, each carrying PyWheelsInfo (they set `top_levels`,
-# so each gets an `install_tree`) and each shipping a distinct root `.pth`.
-# Both claim the top-level `shared`, so the collision loser is NOT fully
-# covered and surfaces as a site-packages line in the venv `.pth`.
+# itfa / itfb — REGULAR collision. Each carries PyWheelsInfo (they set
+# `top_levels`, so each gets an `install_tree`) and ships a distinct root
+# `.pth`; both claim the top-level `shared`, so the collision loser is NOT
+# fully covered and surfaces as a site-packages line in the venv `.pth`.
+# The loser stays reachable because a winner whose `__init__.py` calls
+# `pkgutil.extend_path` grafts from sys.path, and no metadata distinguishes
+# such a package from a plain one (see
+# @aspect_rules_py//py/tests/py_venv_conflict:extend_path_regular_collision_test).
 #
-# That line is exactly the one `_format_imp` must emit as a PLAIN escape
+# itfc / itfd — NAMESPACE collision. Both claim the PEP 420 namespace
+# `nspkg` and declare no `namespace_entries`, so venv assembly cannot
+# materialise per-entry symlinks and both wheels must stay reachable through
+# `.pth` for the namespace to union at runtime.
+#
+# Every one of those lines is what `_format_imp` must emit as a PLAIN escape
 # path, not `site.addsitedir(...)`: the loser's root `.pth` was already
 # projected into the venv site-packages by the per-top-level symlinks, so
 # `addsitedir` would re-run it (see the runtime guard at
-# @aspect_rules_py//py/tests/wheel-root-pth-double). The pinned snapshot
-# makes that line shape visible — reverting to `addsitedir` changes it.
+# @aspect_rules_py//py/tests/wheel-root-pth-double). The pinned snapshots
+# make that line shape visible — reverting to `addsitedir` changes them.
 
 # A wheel is just a zip; build minimal ones with the prebuilt zipper so the
 # fixture needs no pip / uv environment. Internal layout mirrors what the
@@ -102,4 +112,82 @@ py_test(
 extract_venv_pth(
     name = "test.venv.pth",
     venv = ":test.venv",
+)
+
+# The namespace pair. `nspkg` carries no `__init__.py` on either side, and
+# neither wheel declares `namespace_entries`, so there is nothing to project
+# per-entry and both wheels must reach sys.path for `nspkg` to union.
+genrule(
+    name = "wheel_c",
+    srcs = [
+        "c/cpkg/__init__.py",
+        "c/nspkg/mod_c.py",
+        "c/METADATA",
+    ],
+    outs = ["itfc-1.0-py3-none-any.whl"],
+    cmd = " ".join([
+        "$(execpath @bazel_tools//tools/zip:zipper) c $@",
+        "cpkg/__init__.py=$(execpath c/cpkg/__init__.py)",
+        "nspkg/mod_c.py=$(execpath c/nspkg/mod_c.py)",
+        "itfc-1.0.dist-info/METADATA=$(execpath c/METADATA)",
+    ]),
+    tools = ["@bazel_tools//tools/zip:zipper"],
+)
+
+genrule(
+    name = "wheel_d",
+    srcs = [
+        "d/dpkg/__init__.py",
+        "d/nspkg/mod_d.py",
+        "d/METADATA",
+    ],
+    outs = ["itfd-1.0-py3-none-any.whl"],
+    cmd = " ".join([
+        "$(execpath @bazel_tools//tools/zip:zipper) c $@",
+        "dpkg/__init__.py=$(execpath d/dpkg/__init__.py)",
+        "nspkg/mod_d.py=$(execpath d/nspkg/mod_d.py)",
+        "itfd-1.0.dist-info/METADATA=$(execpath d/METADATA)",
+    ]),
+    tools = ["@bazel_tools//tools/zip:zipper"],
+)
+
+py_unpacked_wheel(
+    name = "itfc",
+    src = ":itfc-1.0-py3-none-any.whl",
+    namespace_top_levels = ["nspkg"],
+    top_levels = [
+        "cpkg",
+        "itfc-1.0.dist-info",
+        "nspkg",
+    ],
+)
+
+py_unpacked_wheel(
+    name = "itfd",
+    src = ":itfd-1.0-py3-none-any.whl",
+    namespace_top_levels = ["nspkg"],
+    top_levels = [
+        "dpkg",
+        "itfd-1.0.dist-info",
+        "nspkg",
+    ],
+)
+
+py_test(
+    name = "namespace_test",
+    srcs = ["namespace_test.py"],
+    expose_venv = True,
+    isolated = False,
+    main = "namespace_test.py",
+    # Pin the interpreter so the snapshot's `lib/pythonX.Y` path is stable.
+    python_version = "3.11",
+    deps = [
+        ":itfc",
+        ":itfd",
+    ],
+)
+
+extract_venv_pth(
+    name = "namespace_test.venv.pth",
+    venv = ":namespace_test.venv",
 )

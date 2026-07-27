@@ -1,0 +1,87 @@
+load("//py:defs.bzl", "py_test", "py_unpacked_wheel")
+
+# Two ordinary wheels forming a legacy `pkgutil.extend_path` namespace: both
+# ship a REGULAR `graftpkg` package (it has `__init__.py`), and each
+# `__init__.py` extends `__path__` across sys.path — the pre-PEP 420 pattern
+# still used by zope.*, paste.*, and friends.
+#
+# Only one `graftpkg` symlink can exist in the venv site-packages, so the
+# collision loser's copy is reachable ONLY through its whole-wheel `.pth`
+# fallback. Suppressing that fallback on the grounds that the winner shadows
+# the loser breaks the graft: `from_loser` stops importing.
+#
+# Nothing in wheel metadata marks these as a namespace — `namespace_top_levels`
+# is deliberately unset — which is the whole point. rules_py cannot distinguish
+# an extend_path package from a plain one, so it must keep the fallback for
+# every regular collision loser.
+
+# A wheel is just a zip; build minimal ones with the prebuilt zipper so the
+# test needs no pip / uv environment.
+genrule(
+    name = "winner_whl",
+    srcs = [
+        "winner/graftpkg/__init__.py",
+        "winner/graftpkg/from_winner.py",
+        "winner/METADATA",
+    ],
+    outs = ["graftwinner-1.0-py3-none-any.whl"],
+    cmd = " ".join([
+        "$(execpath @bazel_tools//tools/zip:zipper) c $@",
+        "graftpkg/__init__.py=$(execpath winner/graftpkg/__init__.py)",
+        "graftpkg/from_winner.py=$(execpath winner/graftpkg/from_winner.py)",
+        "graftwinner-1.0.dist-info/METADATA=$(execpath winner/METADATA)",
+    ]),
+    tools = ["@bazel_tools//tools/zip:zipper"],
+)
+
+genrule(
+    name = "loser_whl",
+    srcs = [
+        "loser/graftpkg/__init__.py",
+        "loser/graftpkg/from_loser.py",
+        "loser/METADATA",
+    ],
+    outs = ["graftloser-1.0-py3-none-any.whl"],
+    cmd = " ".join([
+        "$(execpath @bazel_tools//tools/zip:zipper) c $@",
+        "graftpkg/__init__.py=$(execpath loser/graftpkg/__init__.py)",
+        "graftpkg/from_loser.py=$(execpath loser/graftpkg/from_loser.py)",
+        "graftloser-1.0.dist-info/METADATA=$(execpath loser/METADATA)",
+    ]),
+    tools = ["@bazel_tools//tools/zip:zipper"],
+)
+
+py_unpacked_wheel(
+    name = "graftloser",
+    src = ":graftloser-1.0-py3-none-any.whl",
+    top_levels = [
+        "graftpkg",
+        "graftloser-1.0.dist-info",
+    ],
+)
+
+py_unpacked_wheel(
+    name = "graftwinner",
+    src = ":graftwinner-1.0-py3-none-any.whl",
+    top_levels = [
+        "graftpkg",
+        "graftwinner-1.0.dist-info",
+    ],
+)
+
+py_test(
+    name = "extend_path_graft_test",
+    srcs = ["extend_path_graft_test.py"],
+    # The `.pth` entry the loser reaches sys.path through is only processed
+    # when the venv site-packages is treated as a site dir, which the isolated
+    # launcher suppresses.
+    isolated = False,
+    main = "extend_path_graft_test.py",
+    # Both wheels claim `graftpkg`; downgrade so the venv still assembles.
+    package_collisions = "warning",
+    # Last dep wins the collision, so the winner goes last.
+    deps = [
+        ":graftloser",
+        ":graftwinner",
+    ],
+)

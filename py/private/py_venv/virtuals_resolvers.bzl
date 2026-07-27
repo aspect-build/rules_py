@@ -401,6 +401,11 @@ def _resolve_top_level(
         )
         return
 
+    # A loser stays on the `.pth` fallback even though the winner's entry is
+    # projected ahead of it: if the winner is a package whose `__init__.py`
+    # calls `pkgutil.extend_path`, it grafts same-named directories off
+    # sys.path onto `__path__`, and no wheel metadata distinguishes such a
+    # package from a plain one. See extend_path_regular_collision_test.
     winner = distinct_claimants[-1]
     for c in distinct_claimants:
         if c.site_packages != winner.site_packages:
