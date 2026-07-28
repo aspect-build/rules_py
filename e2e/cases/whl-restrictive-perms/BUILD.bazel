@@ -1,0 +1,14 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+# Regression: augmax-0.4.1 has dist-info/RECORD with mode 0o100230 (-w--wx---).
+# Without the metadata.bzl fix, `bazel fetch` aborts when _read_dist_info tries
+# to read the RECORD after extraction — Bazel's Java ZipInputStream preserves
+# the write-only permission, causing "Permission denied". Issue #1376.
+
+py_test(
+    name = "test",
+    srcs = ["test.py"],
+    dep_group = "whl-restrictive-perms",
+    main = "test.py",
+    deps = ["@pypi_whl_restrictive_perms//augmax"],
+)

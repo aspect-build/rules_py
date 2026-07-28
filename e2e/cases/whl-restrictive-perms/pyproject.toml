@@ -1,0 +1,5 @@
+[project]
+name = "whl-restrictive-perms"
+version = "0.0.0"
+requires-python = ">=3.9"
+dependencies = ["augmax==0.4.1"]

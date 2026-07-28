@@ -1,0 +1,17 @@
+"""Regression: wheel with write-only dist-info/RECORD causes Permission denied.
+
+augmax-0.4.1 stores its dist-info/RECORD with Unix mode 0o100230 (-w--wx---):
+write-only, no read bit. Bazel's Java ZipInputStream preserves these permissions
+on extraction, so rctx.read(RECORD) raises "Permission denied" in _read_dist_info
+(introduced by #1356). The fix: chmod -R u+r the extracted metadata dir before
+any read. Issue #1376.
+"""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_whl_restrictive_perms")
+uv.project(
+    hub_name = "pypi_whl_restrictive_perms",
+    lock = "//whl-restrictive-perms:uv.lock",
+    pyproject = "//whl-restrictive-perms:pyproject.toml",
+)
+use_repo(uv, "pypi_whl_restrictive_perms")
