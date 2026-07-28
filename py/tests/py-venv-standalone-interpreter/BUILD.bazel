@@ -1,6 +1,8 @@
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//py:defs.bzl", "py_binary")
 
+package(default_testonly = True)
+
 # Regression test: `py_binary(expose_venv_link = True, isolated = False)` —
 # the opt-in split shape — produces a runnable venv whose interpreter
 # honors `-I`-less semantics (PYTHONPATH, script-dir-on-sys.path,

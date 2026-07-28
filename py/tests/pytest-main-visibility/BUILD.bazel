@@ -1,0 +1,15 @@
+load("//py:defs.bzl", "py_pytest_main")
+
+# Regression: py_pytest_main must leave `visibility` unset when the caller
+# passes none, so this package default applies to both generated targets.
+# Popping the kwarg with a `[]` default counted as explicitly set, making
+# them private and any out-of-package dep an analysis error. The consumer
+# package asserts both are reachable.
+package(
+    default_testonly = True,
+    default_visibility = ["//py/tests/pytest-main-visibility/consumer:__pkg__"],
+)
+
+py_pytest_main(
+    name = "shared_main",
+)

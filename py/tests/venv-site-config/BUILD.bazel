@@ -1,5 +1,7 @@
 load("//py:defs.bzl", "py_test")
 
+package(default_testonly = True)
+
 # Site-configuration behavior of the assembled venv. `include_system_site_packages`
 # governs how many site-packages roots resolve (venv-only vs. venv + base). User-site
 # (site.ENABLE_USER_SITE) is governed at runtime by isolation: `-I` forces it off; a

@@ -78,6 +78,19 @@ def image_layer_analysis_test_suite():
         launcher_dir = "////",
     )
 
+    # A testonly tier used to fail deep in the aspect, on unrelated third-party
+    # targets in the binary's closure.
+    py_layer_tier(
+        name = "_testonly_tier",
+        testonly = True,
+        tags = ["manual"],
+    )
+    _expected_failure_test(
+        name = "testonly_tier_test",
+        expected_error = "py_layer_tier targets cannot be testonly",
+        target_under_test = ":_testonly_tier",
+    )
+
     native.config_setting(
         name = "_python_3_11",
         flag_values = {"@aspect_rules_py//py/private/interpreter:python_version": "3.11"},

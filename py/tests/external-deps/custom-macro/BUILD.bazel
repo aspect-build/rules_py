@@ -1,1 +1,3 @@
+package(default_testonly = True)
+
 exports_files(["__main__.py"])

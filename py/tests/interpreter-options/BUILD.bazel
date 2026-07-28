@@ -1,6 +1,8 @@
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//py:defs.bzl", "py_binary", "py_test")
 
+package(default_testonly = True)
+
 # Verify `interpreter_options = ["-O"]` reaches every place the user
 # might run the python interpreter:
 #

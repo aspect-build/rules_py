@@ -1,9 +1,10 @@
 load("//uv/private/pep517_whl:rule.bzl", "pep517_native_whl")
 load("//uv/private/pep517_whl:test.bzl", "hostile_python_env_target")
 
+package(default_testonly = True)
+
 pep517_native_whl(
     name = "fixture",
-    testonly = True,
     src = "//uv/private/pep517_whl:__python_env_sdist",
     env = {
         "EXPECTED_PYTHONPATH": "/explicit/path",
@@ -21,7 +22,6 @@ pep517_native_whl(
 
 hostile_python_env_target(
     name = "under_hostile_config",
-    testonly = True,
     target = ":fixture",
     visibility = ["//uv/private/pep517_whl:__pkg__"],
 )

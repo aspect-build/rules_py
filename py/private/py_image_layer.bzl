@@ -16,6 +16,10 @@ Layer tier (groups + compression) is carried by the `py_layer_tier` rule which p
 `//py:layer_tier` (a label_flag). Users switch tiers globally via
 `--//py:layer_tier=//path:custom_tier`.
 
+That private attr is why a tier can never be testonly: the aspect attaches it to every
+target it visits, including non-testonly ones outside the image (interpreter toolchain,
+third-party installs). `_py_layer_tier_impl` rejects it up front.
+
 Sharing model:
   - Solo whole-group + subpath-split pip tars: action-shared across every rule using
     that package (declared at the pip target's namespace).
@@ -105,6 +109,12 @@ def _split_glob_key(key):
     return None, None
 
 def _py_layer_tier_impl(ctx):
+    if ctx.attr.testonly:
+        fail("py_layer_tier targets cannot be testonly: py_image_layer transitions " +
+             "//py:layer_tier to this target, and the layer aspect reads it from " +
+             "non-testonly targets in the binary's closure. Set testonly = False " +
+             "(explicitly, under package(default_testonly = True)).")
+
     whole_groups = {}
     subpath_groups = {}
     for key, group_name in ctx.attr.groups.items():
@@ -131,6 +141,12 @@ def _py_layer_tier_impl(ctx):
 
 py_layer_tier = rule(
     implementation = _py_layer_tier_impl,
+    doc = ("Grouping and compression plan for `py_image_layer`.\n\n" +
+           "Must not be testonly. `py_image_layer` transitions the `//py:layer_tier` " +
+           "flag to the tier, and the layer aspect reads that flag from every target it " +
+           "visits — including non-testonly ones outside the image, such as the interpreter " +
+           "toolchain and third-party installs. In a `package(default_testonly = True)`, " +
+           "set `testonly = False` on the tier."),
     attrs = {
         "groups": attr.string_dict(
             default = {},

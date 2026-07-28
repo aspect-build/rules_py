@@ -1,5 +1,7 @@
 load("//py:defs.bzl", "py_pytest_test")
 
+package(default_testonly = True)
+
 py_pytest_test(
     name = "pytest_shard_test",
     srcs = ["pytest_shard_test.py"],

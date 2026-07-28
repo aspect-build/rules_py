@@ -1,5 +1,7 @@
 load("//py:defs.bzl", "py_test", "py_unpacked_wheel")
 
+package(default_testonly = True)
+
 # Regression gate for assemble_venv's `_format_imp` fallback (see
 # double_pth_test.py). Two hand-built wheels, each emitting PyWheelsInfo
 # (they set `top_levels`) and each shipping a distinct root `.pth` that

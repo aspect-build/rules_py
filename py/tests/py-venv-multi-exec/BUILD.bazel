@@ -2,6 +2,8 @@ load("//py:defs.bzl", "py_venv")
 load("//py/private/py_venv:defs.bzl", "py_venv_exec_test")
 load(":env_inherit_test.bzl", "contextual_keys_not_inherited_test", "env_inherit_test")
 
+package(default_testonly = True)
+
 # A single py_venv exec'd through multiple py_venv_exec consumers,
 # each differing in `main`, `env`, `args`, `data`, or other launcher-
 # level config. Demonstrates that the venv-shaping attrs (srcs, deps,
@@ -14,7 +16,6 @@ load(":env_inherit_test.bzl", "contextual_keys_not_inherited_test", "env_inherit
 
 py_venv(
     name = "shared_venv",
-    testonly = True,
     srcs = [
         "entry_a.py",
         "entry_args.py",
@@ -321,7 +322,6 @@ py_venv_exec_test(
 # entrypoints stamped at build time.
 genrule(
     name = "gen_main",
-    testonly = True,
     outs = ["gen_main.py"],
     cmd = """cat > $@ <<'EOF'
 import shared_lib

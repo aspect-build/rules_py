@@ -1,5 +1,7 @@
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
+package(default_testonly = True)
+
 sh_test(
     name = "test_interpreter_regex",
     srcs = ["test_interpreter_regex.sh"],
