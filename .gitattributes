@@ -1,3 +1,12 @@
+# Windows runners default to core.autocrlf=true. CRLF breaks shell script
+# templates and makes text comparisons against checked-in expectations fail.
+* text=auto eol=lf
+
+# Windows-native scripts are the exception: batch label/goto handling needs CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
 # Configuration for 'git archive'
 # see https://git-scm.com/docs/git-archive/2.40.0#ATTRIBUTES
 # Don't include examples in the distribution artifact, just to reduce size
