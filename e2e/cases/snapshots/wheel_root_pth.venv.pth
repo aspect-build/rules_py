@@ -1,3 +1,4 @@
 ../../../../../..
-import os, sys, site; _kp = getattr(site, "_aspect_rules_py_known_paths", None) or getattr(site, "_init_pathinfo", lambda: None)(); site._aspect_rules_py_known_paths = _kp; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "../../..", "_main/uv-include-group/setuptools_no_top_levels/lib/python3.11/site-packages")), _kp)
+import site; site._aspect_rules_py_known_paths = getattr(site, "_aspect_rules_py_known_paths", None) or getattr(site, "_init_pathinfo", lambda: None)()
+import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "../../..", "_main/uv-include-group/setuptools_no_top_levels/lib/python3.11/site-packages")), getattr(site, "_aspect_rules_py_known_paths", None))
 ../../../../../../_main

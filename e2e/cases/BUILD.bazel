@@ -185,6 +185,15 @@ write_source_files(
         # * wheel_root_pth — `py_unpacked_wheel` without `top_levels`;
         #   pins the `site.addsitedir(...)` shape so wheel-root `.pth`
         #   shims keep running.
+        # * multi_addsitedir — the same branch at N=4. Every `addsitedir`
+        #   line shares one `known_paths` set, declared once by the prologue
+        #   line ahead of them, so the file stays O(N) in emitted bytes and
+        #   `site` does one `_init_pathinfo()` for the whole file instead of
+        #   one per line. The interleaved plain `_main` entry pins that
+        #   sharing did not reorder `sys.path`. Read against
+        #   `wheel_root_pth` above: the prologue line is identical in both
+        #   while the per-wheel lines multiply, so inlining it back into
+        #   each line shows up as a diff that grows with N.
         # * pth_install_tree_fallback — two install_tree wheels colliding
         #   on a REGULAR top-level; the collision loser stays on the
         #   fallback (an extend_path winner can still graft from it).
@@ -198,6 +207,7 @@ write_source_files(
         "snapshots/pth_namespace_547.test.venv.pth": "//pth-namespace-547:test.venv.pth",
         "snapshots/firebase_admin.test_tool.venv.pth": "//firebase-admin-import:test_tool.venv.pth",
         "snapshots/wheel_root_pth.venv.pth": "//uv-include-group:wheel_root_pth_test.venv.pth",
+        "snapshots/multi_addsitedir.venv.pth": "//uv-include-group:multi_addsitedir_test.venv.pth",
         "snapshots/pth_install_tree_fallback.venv.pth": "//pth-install-tree-fallback:test.venv.pth",
         "snapshots/pth_install_tree_fallback_namespace.venv.pth": "//pth-install-tree-fallback:namespace_test.venv.pth",
 
