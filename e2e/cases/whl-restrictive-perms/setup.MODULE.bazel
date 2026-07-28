@@ -1,10 +1,13 @@
-"""Regression: wheel with write-only dist-info/RECORD causes Permission denied.
+"""Regression: wheels with a write-only dist-info/RECORD cause Permission denied.
 
-augmax-0.4.1 stores its dist-info/RECORD with Unix mode 0o100230 (-w--wx---):
-write-only, no read bit. Bazel's Java ZipInputStream preserves these permissions
-on extraction, so rctx.read(RECORD) raises "Permission denied" in _read_dist_info
-(introduced by #1356). The fix: chmod -R u+r the extracted metadata dir before
-any read. Issue #1376.
+Every package here archives `dist-info/RECORD` with Unix mode 0o230 (-w--wx---).
+`rctx.extract` forces the owner read bit on since bazelbuild/bazel#28531 (8.6.0
+and 9.0.1); on an older Bazel the fetch-time `rctx.read` of RECORD dies with
+"Permission denied", which is what pins the minimum in MODULE.bazel. Issue #1376.
+
+Their dependency trees are cut in pyproject.toml (`tool.uv.dependency-metadata`):
+only the metadata read is under test, and torch/mlx/opencv/jax would otherwise be
+locked and declared for it.
 """
 
 uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
@@ -14,4 +17,21 @@ uv.project(
     lock = "//whl-restrictive-perms:uv.lock",
     pyproject = "//whl-restrictive-perms:pyproject.toml",
 )
-use_repo(uv, "pypi_whl_restrictive_perms")
+
+# aadt ships example sources under templates/ that are not valid Python 3.13;
+# dropping them keeps the pyc precompile step from logging syntax errors.
+uv.override_package(
+    name = "aadt",
+    exclude_glob = ["aadt/templates/**"],
+    lock = "//whl-restrictive-perms:uv.lock",
+)
+use_repo(
+    uv,
+    "pypi_whl_restrictive_perms",
+    "whl_install__whl_restrictive_perms__3lc_ultralytics__0_3_4",
+    "whl_install__whl_restrictive_perms__aadt__1_7_0",
+    "whl_install__whl_restrictive_perms__abatcher__0_2_0",
+    "whl_install__whl_restrictive_perms__abstractvision_mflux__0_17_5_post1",
+    "whl_install__whl_restrictive_perms__acdh_xml_validator__1_1_0",
+    "whl_install__whl_restrictive_perms__augmax__0_4_1",
+)

@@ -1,14 +1,20 @@
 load("@aspect_rules_py//py:defs.bzl", "py_test")
 
-# Regression: augmax-0.4.1 has dist-info/RECORD with mode 0o100230 (-w--wx---).
-# Without the metadata.bzl fix, `bazel fetch` aborts when _read_dist_info tries
-# to read the RECORD after extraction — Bazel's Java ZipInputStream preserves
-# the write-only permission, causing "Permission denied". Issue #1376.
-
+# Depends on the install repos rather than hub aliases: the point is that each
+# wheel's dist-info could be read at fetch time, and an alias would only add
+# graph, not coverage.
 py_test(
     name = "test",
     srcs = ["test.py"],
-    dep_group = "whl-restrictive-perms",
     main = "test.py",
-    deps = ["@pypi_whl_restrictive_perms//augmax"],
+    # aadt requires >=3.13; 3lc-ultralytics requires <3.14.
+    python_version = "3.13",
+    deps = [
+        "@whl_install__whl_restrictive_perms__3lc_ultralytics__0_3_4//:install",
+        "@whl_install__whl_restrictive_perms__aadt__1_7_0//:install",
+        "@whl_install__whl_restrictive_perms__abatcher__0_2_0//:install",
+        "@whl_install__whl_restrictive_perms__abstractvision_mflux__0_17_5_post1//:install",
+        "@whl_install__whl_restrictive_perms__acdh_xml_validator__1_1_0//:install",
+        "@whl_install__whl_restrictive_perms__augmax__0_4_1//:install",
+    ],
 )
