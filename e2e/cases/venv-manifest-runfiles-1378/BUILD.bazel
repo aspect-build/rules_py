@@ -1,0 +1,46 @@
+# Regression test for the manifest-based-runfiles import bug (rules_py #1378).
+#
+# A v2 py_binary exec'd as a subprocess whose only runfiles source is
+# `RUNFILES_MANIFEST_FILE` never enters its venv: the manifest records the
+# venv's `bin/python` as the *relative symlink target* of the real interpreter,
+# so the launcher execs the interpreter directly and Python's venv detection
+# (pyvenv.cfg relative to sys.executable) never fires. No site-packages, no
+# `.pth` — every dep is unimportable. The issue reports the first-party half.
+#
+# #1273 fixed the tie when both sources are exported (the directory wins); the
+# manifest-only path is what remains.
+#
+# gazelle:ignore
+
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+py_library(
+    name = "firstparty",
+    srcs = [
+        "firstparty/__init__.py",
+        "firstparty/greet.py",
+    ],
+    imports = ["."],
+)
+
+py_binary(
+    name = "check_manifest_imports",
+    srcs = ["check_manifest_imports.py"],
+    dep_group = "single_project_hub",
+    python_version = "3.11",
+    deps = [
+        ":firstparty",
+        "@pypi_single//cowsay",
+    ],
+)
+
+sh_test(
+    name = "test",
+    srcs = ["wrapper.sh"],
+    data = [":check_manifest_imports"],
+    # The tree's MANIFEST symlink — the merged manifest this test hands to the
+    # child — is only materialized in an unsandboxed runfiles tree.
+    local = True,
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
