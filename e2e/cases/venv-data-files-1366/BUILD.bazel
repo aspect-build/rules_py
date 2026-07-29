@@ -1,5 +1,5 @@
 load("@aspect_rules_py//py:defs.bzl", "py_test")
-load("//tools:pth_snapshot.bzl", "extract_venv_tree")
+load("//tools:pth_snapshot.bzl", "extract_venv_data_tree")
 
 # Regression for https://github.com/aspect-build/rules_py/issues/1366.
 #
@@ -25,10 +25,11 @@ py_test(
     ],
 )
 
-# Snapshot the venv's top-level entries: the stock `bin/ lib/ pyvenv.cfg` plus
-# the prefix data roots (`share/`, `etc/`) the two wheels' `.data/data/` files
-# project into. Gates the venv-projection side of the data-file fix.
-extract_venv_tree(
-    name = "test.venv.tree",
+# Snapshot the prefix data projection: which roots the two wheels' `.data/data/`
+# files materialise under `sys.prefix`, and the shape below them. The two wheels
+# share `share/jupyter/`, so the venv descends through it and binds each wheel's
+# subtree as one symlink instead of one per installed file.
+extract_venv_data_tree(
+    name = "test.venv.data",
     venv = ":test.venv",
 )

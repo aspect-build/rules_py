@@ -43,8 +43,12 @@ Duplicate dependency edges do not create another precedence position. Fields:
   * `site_packages_rfpath`: str — runfiles-root-relative path to the wheel's site-packages.
   * `console_scripts`: tuple[str] — entry points encoded as `"name=module:func"`.
   * `data_files`: tuple[str] — PEP 427 `.data/data/` prefix-relative install
-    paths (e.g. `share/jupyter/...`), projected into the venv prefix. May be
-    absent on structs from older producers; consumers use `getattr` with `()`.
+    paths (e.g. `share/jupyter/...`), projected into the venv prefix. Must
+    enumerate the wheel's prefix tree completely: venv assembly binds a whole
+    directory when one wheel owns everything resolved beneath it, so an
+    undeclared sibling file in that directory is still exposed under
+    `sys.prefix`. Validated by `make_wheel_record`. May be absent on structs
+    from older producers; consumers use `getattr` with `()`.
   * `install_tree`: File — complete installed wheel tree.
   * `tl_claims`, `metadata_top_levels`, `cs_claims`: derived fields
     precomputed by `make_wheel_record` so venv assembly's collision
@@ -57,6 +61,32 @@ present and consistent with the raw ones.
 """,
     },
 )
+
+def _validate_data_files(data_files, site_packages_rfpath, install_tree):
+    """Reject data paths venv assembly could not turn into a prefix output.
+
+    Runs once per wheel here rather than once per consuming venv: every path
+    becomes a `ctx.actions.declare_symlink` under the prefix, so an empty, `.`,
+    or `..` component would escape it or synthesise a phantom parent output. An
+    absolute path is caught by the same test — it splits to a leading empty
+    segment.
+
+    Not routed through `package_collisions`: a path like this is a malformed
+    record, not a contested name, and `"ignore"` must not let it through.
+    """
+    if not data_files:
+        return
+    if install_tree == None:
+        fail(("wheel {} declares data files but no `install_tree`; the prefix " +
+              "projection resolves each data path inside that tree, and " +
+              "`py_pex_binary` packages it from there.").format(site_packages_rfpath))
+    for path in data_files:
+        for seg in path.split("/"):
+            if seg and seg not in (".", ".."):
+                continue
+            fail(("wheel {} declares the data file `{}`, which escapes the virtual " +
+                  "environment prefix. PEP 427 `.data/data/` paths must be relative " +
+                  "and free of `.`/`..` components.").format(site_packages_rfpath, path))
 
 def make_wheel_record(
         *,
@@ -88,11 +118,14 @@ def make_wheel_record(
         regular_roots: minimal `__init__.py`-carrying directories under the top-levels.
         native_roots: collision-relevant roots containing native-library entries.
         console_scripts: entry points encoded as `"name=module:func"`.
-        data_files: PEP 427 `.data/data/` prefix-relative install paths.
+        data_files: PEP 427 `.data/data/` prefix-relative install paths. Must be
+            the wheel's complete prefix tree (see the PyWheelsInfo field docs).
 
     Returns:
         A struct for PyWheelsInfo.wheels.
     """
+    _validate_data_files(data_files, site_packages_rfpath, install_tree)
+
     ns_set = {tl: True for tl in namespace_top_levels}
     top_level_dir_set = {tl: True for tl in top_level_dirs}
     native_root_set = {root: True for root in native_roots}

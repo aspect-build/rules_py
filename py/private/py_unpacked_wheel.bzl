@@ -130,10 +130,16 @@ wrappers under `<venv>/bin/<name>`. Typically populated from the wheel's
     "data_files": attr.string_list(
         doc = """PEP 427 `.data/data/` prefix-relative install paths (e.g. `share/foo/bar.txt`).
 
-Venv assembly projects each into the venv prefix via `ctx.actions.symlink`.
+Venv assembly projects these into the venv prefix via `ctx.actions.symlink`.
 Typically populated by the `uv` wheel-install repo rule; hand-written
 `py_unpacked_wheel` targets may set it to expose data files shipped under
 the wheel's `<name>-<version>.data/data/` tree.
+
+Must list the wheel's prefix tree **completely**. Assembly binds a whole
+directory with a single symlink when one wheel owns everything resolved
+beneath it, so an undeclared file sitting next to a declared one is still
+reachable under `sys.prefix` — an under-declared list changes which
+collisions are reported, not what the venv exposes.
 """,
         default = [],
     ),

@@ -245,12 +245,134 @@ def _data_file_collision_test_impl(ctx):
     asserts.equals(env, "share/common.txt", _collisions[0].name)
     return unittest.end(env)
 
+def _data_file_reserved_path_test_impl(ctx):
+    env = unittest.begin(ctx)
+    mock_ctx = _mock_ctx(ctx.label)
+    sp = "external/pypi_a/site-packages"
+    sp_b = "external/pypi_b/site-packages"
+    wheels = [
+        _make_wheel(
+            site_packages_rfpath = sp,
+            cs_claims = [("acli", _cs_claim(sp, "a.cli", "main"))],
+            data_files = [
+                "bin/python",
+                "bin/python3",
+                "bin/activate",
+                "pyvenv.cfg",
+                "bin/acli",
+                "lib/python3.12/site-packages/pkg_a/asset.txt",
+                "lib/libextra.so",
+                "bin",
+                "bin/python/nested.txt",
+                "share/keep.txt",
+            ],
+            top_levels = ["pkg_a"],
+        ),
+        _make_wheel(
+            site_packages_rfpath = sp_b,
+            data_files = ["bin/acli"],
+            top_levels = ["pkg_b"],
+        ),
+    ]
+    _, _, _, _, data_files, collisions = resolve_wheel_collisions(mock_ctx, wheels)
+
+    # Every venv-owned root is dropped whether it matches a declared output
+    # exactly, nests under one, or contains one; each drop is reported so
+    # `package_collisions` governs whether it is fatal. The lone survivor is
+    # this wheel's alone, so it projects as the whole `share` directory.
+    asserts.equals(env, {"share": sp}, data_files)
+    asserts.equals(env, 9, len(collisions))
+
+    # A drop reads as a drop, not as "provided by both X and the virtual
+    # environment" — the venv declares no output at `bin/acli`, it owns `bin`
+    # outright. Both claimants are named: there is no winner to single out.
+    asserts.equals(
+        env,
+        ("data file `bin/acli` from {}, {} is not projected: the virtual " +
+         "environment owns `bin` in the prefix.").format(sp, sp_b),
+        [c.message for c in collisions if c.name == "bin/acli"][0],
+    )
+    return unittest.end(env)
+
+def _data_file_nesting_test_impl(ctx):
+    env = unittest.begin(ctx)
+    mock_ctx = _mock_ctx(ctx.label)
+    sp_a = "external/pypi_a/site-packages"
+    sp_b = "external/pypi_b/site-packages"
+    wheels = [
+        _make_wheel(site_packages_rfpath = sp_a, data_files = ["share/thing"], top_levels = ["pkg_a"]),
+        _make_wheel(
+            site_packages_rfpath = sp_b,
+            data_files = ["share/thing/nested.txt", "share/other.txt"],
+            top_levels = ["pkg_b"],
+        ),
+    ]
+    _, _, _, _, data_files, collisions = resolve_wheel_collisions(mock_ctx, wheels)
+
+    # One wheel's file is another's directory: keep the shallower claim, the
+    # deeper one would nest an output inside a declared symlink.
+    asserts.equals(env, sp_a, data_files["share/thing"])
+    asserts.equals(env, sp_b, data_files["share/other.txt"])
+    asserts.false(env, "share/thing/nested.txt" in data_files)
+    asserts.equals(env, 1, len(collisions))
+    asserts.equals(env, "share/thing/nested.txt", collisions[0].name)
+    asserts.equals(
+        env,
+        ("data file `share/thing/nested.txt` from {} is not projected: it nests under " +
+         "data file `share/thing` from {}, which the prefix binds first.").format(sp_b, sp_a),
+        collisions[0].message,
+    )
+    return unittest.end(env)
+
+def _data_file_collapse_test_impl(ctx):
+    env = unittest.begin(ctx)
+    mock_ctx = _mock_ctx(ctx.label)
+    sp_a = "external/pypi_a/site-packages"
+    sp_b = "external/pypi_b/site-packages"
+    wheels = [
+        _make_wheel(
+            site_packages_rfpath = sp_a,
+            data_files = [
+                "share/jupyter/labext/a.js",
+                "share/jupyter/labext/b.js",
+                "share/jupyter/labext/static/c.js",
+                "etc/cfg/x.json",
+                "toplevel.txt",
+            ],
+            top_levels = ["pkg_a"],
+        ),
+        _make_wheel(
+            site_packages_rfpath = sp_b,
+            data_files = ["share/jupyter/nbext/d.js"],
+            top_levels = ["pkg_b"],
+        ),
+    ]
+    _, _, _, _, data_files, collisions = resolve_wheel_collisions(mock_ctx, wheels)
+
+    # Six files become four projections. `share/` and `share/jupyter/` are
+    # shared, so resolution descends through them; below that each directory has
+    # a single owner and binds whole. `etc` collapses from its root, not from
+    # `etc/cfg`. A file at the prefix root has no directory to collapse into.
+    asserts.equals(env, {
+        "toplevel.txt": sp_a,
+        "etc": sp_a,
+        "share/jupyter/labext": sp_a,
+        "share/jupyter/nbext": sp_b,
+    }, data_files)
+
+    # Collapsing is a projection change only — nothing here is contested.
+    asserts.equals(env, [], collisions)
+    return unittest.end(env)
+
 _single_wheel_test = unittest.make(_single_wheel_test_impl)
 _namespace_merge_test = unittest.make(_namespace_merge_test_impl)
 _console_script_collision_test = unittest.make(_console_script_collision_test_impl)
 _regular_collision_keeps_fallback_test = unittest.make(_regular_collision_keeps_fallback_test_impl)
 _entryless_namespace_keeps_fallback_test = unittest.make(_entryless_namespace_keeps_fallback_test_impl)
 _data_file_collision_test = unittest.make(_data_file_collision_test_impl)
+_data_file_reserved_path_test = unittest.make(_data_file_reserved_path_test_impl)
+_data_file_nesting_test = unittest.make(_data_file_nesting_test_impl)
+_data_file_collapse_test = unittest.make(_data_file_collapse_test_impl)
 
 def virtuals_resolvers_test_suite(name):
     unittest.suite(
@@ -261,4 +383,7 @@ def virtuals_resolvers_test_suite(name):
         _regular_collision_keeps_fallback_test,
         _entryless_namespace_keeps_fallback_test,
         _data_file_collision_test,
+        _data_file_reserved_path_test,
+        _data_file_nesting_test,
+        _data_file_collapse_test,
     )

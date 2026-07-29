@@ -14,8 +14,7 @@ use_repo(
     "pypi_venv_data_files_1366",
     # Concrete per-wheel dist repos, snapshotted so the `data_files` the
     # whl_dist extractor derives from RECORD's `.data/data/` entries is pinned
-    # (see e2e/cases/BUILD.bazel snapshots). Today these carry only top_levels;
-    # the #1366 fix adds the share/... data-file list.
+    # (see e2e/cases/BUILD.bazel snapshots).
     "whl__jupyterlab_widgets__45fa36d9c6422cf2",
     "whl__widgetsnbextension__8156704e4346a571",
 )

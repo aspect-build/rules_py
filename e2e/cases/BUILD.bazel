@@ -145,11 +145,14 @@ write_source_files(
         "snapshots/venv_data_files_1366.whl_dist.widgetsnbextension.BUILD.bazel": "@whl__widgetsnbextension__8156704e4346a571//:BUILD.bazel",
         "snapshots/venv_data_files_1366.whl_dist.jupyterlab_widgets.BUILD.bazel": "@whl__jupyterlab_widgets__45fa36d9c6422cf2//:BUILD.bazel",
 
-        # Venv top-level tree for //venv-data-files-1366. Pins that the venv
-        # materialises the prefix data roots (`share/`, `etc/`) alongside the
-        # stock `bin/`, `lib/`, `pyvenv.cfg` as it projects the two wheels'
-        # `.data/data/` files.
-        "snapshots/venv_data_files_1366.test.venv.tree": "//venv-data-files-1366:test.venv.tree",
+        # Prefix data projection for //venv-data-files-1366: which roots the two
+        # wheels' `.data/data/` files materialise under `sys.prefix`, and the
+        # shape below them. `path/` is a real directory (the wheels share it, so
+        # assembly descended), `path -> target` is a whole subtree bound by its
+        # sole owning wheel. Pins that data files collapse to the shallowest
+        # single-owner directory rather than one symlink per installed file, and
+        # pins the escape depth of each target.
+        "snapshots/venv_data_files_1366.test.venv.data": "//venv-data-files-1366:test.venv.data",
 
         # @sdist_build for jpype1 with uv.override_package toolchains/env
         # ----------------------------------------------------------------

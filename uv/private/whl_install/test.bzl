@@ -5,7 +5,7 @@ load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/tools/unpack:exclude_glob_test_vectors.bzl", "EXCLUDE_GLOB_VECTORS", "RECORD_PATH_EXCLUDE_VECTORS")
 load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
-load(":metadata.bzl", "data_scheme_segments", "data_segments_contained", "exclude_glob_matches", "native_roots_for_segments", "parse_console_script", "parse_exclude_glob", "parse_record_path", "record_path_excluded", "site_packages_segments")
+load(":metadata.bzl", "data_scheme_segments", "data_segments_contained", "exclude_glob_matches", "native_roots_for_segments", "parse_console_script", "parse_exclude_glob", "parse_record", "parse_record_path", "record_path_excluded", "site_packages_segments")
 load(":repository.bzl", "compatible_python_tags", "select_key", "sort_select_arms", "source_specificity")
 load(":rule.bzl", "pyc_compile_version_compatible", "source_built_wheel", "whl_dist", "whl_install")
 
@@ -183,10 +183,61 @@ def _data_segments_contained_test_impl(ctx):
     asserts.false(env, data_segments_contained(["share", "..", "..", "x"]))
     asserts.false(env, data_segments_contained([".", "x"]))
     asserts.false(env, data_segments_contained(["share", "", "x"]))
-    asserts.false(env, data_segments_contained(["/abs", "x"]))
+
+    # Segments always come from splitting on `/`, so an absolute RECORD path
+    # arrives as a leading empty segment, never as a `/`-prefixed one.
+    asserts.false(env, data_segments_contained(["", "abs", "x"]))
+
+    # Venv-owned roots are contained, so they are reported here and dropped by
+    # `_resolve_data_files` — the single owner of the collision policy. Filtering
+    # them here would hide the collision from `package_collisions`.
+    asserts.true(env, data_segments_contained(["bin", "python"]))
+    asserts.true(env, data_segments_contained(["pyvenv.cfg"]))
+    asserts.true(env, data_segments_contained(["lib", "python3.12", "site-packages", "x.py"]))
     return unittest.end(env)
 
 data_segments_contained_test = unittest.make(_data_segments_contained_test_impl)
+
+def _parse_record_test_impl(ctx):
+    env = unittest.begin(ctx)
+    data = "reserveddata-1.0.data"
+    record = "\n".join([
+        "respkg/__init__.py,sha256=aaa,10",
+        # Site-packages entries that escape the install root are dropped from
+        # `record_segments` while the sibling data pass is unaffected.
+        "../../bin/legacy_script,sha256=hhh,5",
+        data + "/data/share/reserveddata/kept.txt,sha256=bbb,5",
+        # Reserved prefix paths a wheel may legally declare. They must survive
+        # extraction so `_resolve_data_files` can report them under
+        # `package_collisions`; filtering here would make the uv install path
+        # silently diverge from a `py_unpacked_wheel` declaring the same list.
+        data + "/data/bin/python,sha256=ccc,5",
+        data + "/data/pyvenv.cfg,sha256=ddd,5",
+        data + "/data/lib/python3.12/site-packages/injected.py,sha256=eee,5",
+        # Other `.data/` categories and escaping paths are not data files.
+        data + "/scripts/tool,sha256=fff,5",
+        data + "/data/../escape.txt,sha256=ggg,5",
+    ])
+
+    parsed = parse_record(record, data)
+    asserts.equals(
+        env,
+        [
+            "bin/python",
+            "lib/python3.12/site-packages/injected.py",
+            "pyvenv.cfg",
+            "share/reserveddata/kept.txt",
+        ],
+        parsed.data_files,
+    )
+
+    # The same pass keeps the site-packages side disjoint: only the importable
+    # entry survives — no `.data/` member of any category, and not the escaping
+    # `../../bin/` script.
+    asserts.equals(env, [["respkg", "__init__.py"]], parsed.record_segments)
+    return unittest.end(env)
+
+parse_record_test = unittest.make(_parse_record_test_impl)
 
 def _exclude_glob_test_impl(ctx):
     env = unittest.begin(ctx)
@@ -390,6 +441,22 @@ _NATIVE_ROOTS = {
     ],
 }
 
+# PEP 427 `.data/data/` prefix paths, as `parse_record` derives them from a
+# RECORD. The linux arm deliberately carries venv-owned roots: extraction
+# validates containment only and forwards them, so `_resolve_data_files` is the
+# single owner of the reserved-path and collision policy. Filtering them here
+# instead would make a prebuilt wheel shipping `.data/data/bin/python` bypass
+# `package_collisions` entirely, which is what these assertions guard.
+_DATA_FILES = {
+    _LINUX_WHL: [
+        "bin/python",
+        "lib/python3.11/site-packages/injected.py",
+        "pyvenv.cfg",
+        "share/demo/linux.txt",
+    ],
+    _MACOS_WHL: ["share/demo/mac.txt"],
+}
+
 _PATCHED_TOP_LEVELS = {
     _MACOS_WHL: _TOP_LEVELS[_MACOS_WHL] + ["demo.egg-info"],
 }
@@ -437,6 +504,10 @@ def _metadata_selection_test_impl(ctx):
     asserts.equals(env, tuple(ctx.attr.expected_native_roots), wheel.native_roots)
     asserts.equals(env, tuple(ctx.attr.expected_console_scripts), wheel.console_scripts)
 
+    # The prefix data set reaches venv assembly through PyWheelsInfo unfiltered,
+    # venv-owned roots included.
+    asserts.equals(env, tuple(ctx.attr.expected_data_files), wheel.data_files)
+
     # Explicit leak checks: surface belonging to the OTHER (inactive)
     # platform wheel must not appear for this configuration's wheel.
     for leaked in ctx.attr.leaked_top_levels:
@@ -457,17 +528,58 @@ def _metadata_selection_test_impl(ctx):
             leaked in wheel.native_roots,
             "native root '{}' from an inactive platform wheel leaked into the selected wheel's surface".format(leaked),
         )
+    for leaked in ctx.attr.leaked_data_files:
+        asserts.false(
+            env,
+            leaked in wheel.data_files,
+            "data file '{}' from an inactive platform wheel leaked into the selected wheel's surface".format(leaked),
+        )
 
-    if ctx.attr.expected_preserve_paths:
+    # Shared by the preserve-path and data-file guard assertions below; both are
+    # opt-in per fixture, so the lookup happens once when either is requested.
+    argv = []
+    install_inputs = []
+    if ctx.attr.expected_preserve_paths or ctx.attr.expected_verified_data_files:
         build_actions = [a for a in target.actions if a.mnemonic == "WhlInstall"]
         asserts.equals(env, 1, len(build_actions), "expected exactly one WhlInstall action")
         argv = build_actions[0].argv
+        install_inputs = build_actions[0].inputs.to_list()
+
+    if ctx.attr.expected_preserve_paths:
         preserve_paths = [
             argv[i + 1]
             for i in range(len(argv) - 1)
             if argv[i] == "--preserve-path"
         ]
         asserts.equals(env, ctx.attr.expected_preserve_paths, preserve_paths)
+
+    # The patch guard forwards the pre-patch data set to the unpacker, which
+    # rejects a patch that adds or removes one. The set travels as a manifest
+    # file, not argv, and passing it is what arms the guard — so assert on the
+    # written content and on the install action actually consuming it.
+    if ctx.attr.expected_verified_data_files:
+        manifests = [
+            a
+            for a in target.actions
+            if a.mnemonic == "FileWrite" and a.outputs.to_list()[0].basename.endswith(".data_files.txt")
+        ]
+        asserts.equals(env, 1, len(manifests), "expected exactly one data-file manifest")
+        asserts.equals(
+            env,
+            "".join([path + "\n" for path in ctx.attr.expected_verified_data_files]),
+            manifests[0].content,
+        )
+        manifest = manifests[0].outputs.to_list()[0]
+        asserts.true(
+            env,
+            manifest.path in argv,
+            "expected the install action to read the data-file manifest",
+        )
+        asserts.true(
+            env,
+            manifest in install_inputs,
+            "expected the data-file manifest to be an input of the install action",
+        )
 
     return analysistest.end(env)
 
@@ -479,10 +591,13 @@ _metadata_selection_test = analysistest.make(
         "expected_namespace_top_levels": attr.string_list(),
         "expected_native_roots": attr.string_list(),
         "expected_console_scripts": attr.string_list(),
+        "expected_data_files": attr.string_list(),
         "leaked_top_levels": attr.string_list(),
         "leaked_native_roots": attr.string_list(),
         "leaked_console_scripts": attr.string_list(),
+        "leaked_data_files": attr.string_list(),
         "expected_preserve_paths": attr.string_list(),
+        "expected_verified_data_files": attr.string_list(),
     },
 )
 
@@ -514,6 +629,7 @@ def metadata_selection_test_suite(name):
         top_level_dirs = _TOP_LEVEL_DIRS[_LINUX_WHL],
         native_roots = _NATIVE_ROOTS[_LINUX_WHL],
         console_scripts = _CONSOLE_SCRIPTS[_LINUX_WHL],
+        data_files = _DATA_FILES[_LINUX_WHL],
         tags = ["manual"],
     )
     whl_dist(
@@ -528,6 +644,7 @@ def metadata_selection_test_suite(name):
         regular_roots = _REGULAR_ROOTS[_MACOS_WHL],
         native_roots = _NATIVE_ROOTS[_MACOS_WHL],
         console_scripts = _CONSOLE_SCRIPTS[_MACOS_WHL],
+        data_files = _DATA_FILES[_MACOS_WHL],
         tags = ["manual"],
     )
 
@@ -607,6 +724,7 @@ def metadata_selection_test_suite(name):
         regular_roots = _REGULAR_ROOTS[_MACOS_WHL],
         native_roots = _NATIVE_ROOTS[_MACOS_WHL],
         console_scripts = _CONSOLE_SCRIPTS[_MACOS_WHL],
+        data_files = _DATA_FILES[_MACOS_WHL],
         tags = ["manual"],
     )
     whl_install(
@@ -664,12 +782,14 @@ def metadata_selection_test_suite(name):
         expected_namespace_top_levels = [],
         expected_native_roots = _NATIVE_ROOTS[_LINUX_WHL],
         expected_console_scripts = _CONSOLE_SCRIPTS[_LINUX_WHL],
+        expected_data_files = _DATA_FILES[_LINUX_WHL],
         leaked_top_levels = [
             "_demo_backend.cpython-311-darwin.so",
             "demo_ns",
         ],
         leaked_native_roots = ["demo_ns/nested"],
         leaked_console_scripts = ["demo-mac=demo.cli:mac_main"],
+        leaked_data_files = _DATA_FILES[_MACOS_WHL],
     )
 
     _metadata_selection_test(
@@ -680,9 +800,11 @@ def metadata_selection_test_suite(name):
         expected_namespace_top_levels = _NAMESPACE_TOP_LEVELS[_MACOS_WHL],
         expected_native_roots = _NATIVE_ROOTS[_MACOS_WHL],
         expected_console_scripts = _CONSOLE_SCRIPTS[_MACOS_WHL],
+        expected_data_files = _DATA_FILES[_MACOS_WHL],
         leaked_top_levels = ["_demo_backend.cpython-311-x86_64-linux-gnu.so"],
         leaked_native_roots = ["demo"],
         leaked_console_scripts = [],
+        leaked_data_files = _DATA_FILES[_LINUX_WHL],
     )
 
     _metadata_selection_test(
@@ -693,6 +815,9 @@ def metadata_selection_test_suite(name):
         expected_namespace_top_levels = [],
         expected_native_roots = [],
         expected_console_scripts = [],
+        # A source-built wheel's contents are unknowable at analysis time, so it
+        # publishes no data files and none are projected into the prefix.
+        expected_data_files = [],
         leaked_top_levels = [],
         leaked_native_roots = [],
         leaked_console_scripts = [],
@@ -706,6 +831,7 @@ def metadata_selection_test_suite(name):
         expected_namespace_top_levels = [],
         expected_native_roots = _NATIVE_ROOTS[_LINUX_WHL],
         expected_console_scripts = _CONSOLE_SCRIPTS[_LINUX_WHL],
+        expected_data_files = _DATA_FILES[_LINUX_WHL],
         leaked_top_levels = [],
         leaked_native_roots = [],
         leaked_console_scripts = _DETECTED_SBUILD_CONSOLE_SCRIPTS,
@@ -719,9 +845,11 @@ def metadata_selection_test_suite(name):
         expected_namespace_top_levels = [],
         expected_native_roots = [],
         expected_console_scripts = _DETECTED_SBUILD_CONSOLE_SCRIPTS,
+        expected_data_files = [],
         leaked_top_levels = _TOP_LEVELS[_LINUX_WHL],
         leaked_native_roots = _NATIVE_ROOTS[_LINUX_WHL],
         leaked_console_scripts = _CONSOLE_SCRIPTS[_LINUX_WHL],
+        leaked_data_files = _DATA_FILES[_LINUX_WHL],
     )
 
     _metadata_selection_test(
@@ -732,9 +860,11 @@ def metadata_selection_test_suite(name):
         expected_namespace_top_levels = [],
         expected_native_roots = [],
         expected_console_scripts = [],
+        expected_data_files = [],
         leaked_top_levels = _TOP_LEVELS[_LINUX_WHL],
         leaked_native_roots = _NATIVE_ROOTS[_LINUX_WHL],
         leaked_console_scripts = _DETECTED_SBUILD_CONSOLE_SCRIPTS + _CONSOLE_SCRIPTS[_LINUX_WHL],
+        leaked_data_files = _DATA_FILES[_LINUX_WHL],
     )
 
     _metadata_selection_test(
@@ -745,18 +875,22 @@ def metadata_selection_test_suite(name):
         expected_namespace_top_levels = [],
         expected_native_roots = [],
         expected_console_scripts = _DECLARED_SBUILD_CONSOLE_SCRIPTS,
+        expected_data_files = [],
         leaked_top_levels = _TOP_LEVELS[_LINUX_WHL],
         leaked_native_roots = _NATIVE_ROOTS[_LINUX_WHL],
         leaked_console_scripts = _CONSOLE_SCRIPTS[_LINUX_WHL],
+        leaked_data_files = _DATA_FILES[_LINUX_WHL],
     )
 
     _metadata_selection_test(
         name = name + "_patched_test",
         target_under_test = ":__metadata_patched_fixture",
         expected_console_scripts = _CONSOLE_SCRIPTS[_MACOS_WHL],
+        expected_data_files = _DATA_FILES[_MACOS_WHL],
         expected_namespace_top_levels = _NAMESPACE_TOP_LEVELS[_MACOS_WHL],
         expected_native_roots = _NATIVE_ROOTS[_MACOS_WHL],
         expected_preserve_paths = _PATCHED_PRESERVE_PATHS,
+        expected_verified_data_files = _DATA_FILES[_MACOS_WHL],
         expected_top_levels = _PATCHED_TOP_LEVELS[_MACOS_WHL],
         expected_top_level_dirs = _TOP_LEVEL_DIRS[_MACOS_WHL],
         leaked_console_scripts = [],
@@ -945,6 +1079,10 @@ def whl_install_suite():
     unittest.suite(
         "data_segments_contained_tests",
         data_segments_contained_test,
+    )
+    unittest.suite(
+        "parse_record_tests",
+        parse_record_test,
     )
     unittest.suite(
         "exclude_glob_tests",

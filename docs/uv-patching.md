@@ -237,10 +237,11 @@ uv.override_package(
   unvalidated.
 - Post-install patches to prebuilt wheels must not change the set of PEP 427
   `.data/data/` files a wheel installs into the venv prefix (`share/`, `etc/`,
-  ...). Venv assembly projects that set per-file from pre-patch metadata, so an
-  added file would be missing from `sys.prefix` and a removed or renamed one
-  would leave a dangling symlink; either is rejected. Editing the contents of an
-  existing data file is supported.
+  ...). Venv assembly settles that set during analysis from the wheel's
+  `RECORD`, and nothing re-reads the tree afterwards, so an added file would be
+  missing from `sys.prefix` and a removed or renamed one would leave a dangling
+  symlink; either is rejected. Editing the contents of an existing data file is
+  supported.
 - Gazelle indexes the raw wheel as an unfiltered superset. Preserving top-level
   import roots keeps ordinary mappings valid, but precise mappings for shared
   namespaces or excluded submodules can remain in the generated manifest.

@@ -103,6 +103,11 @@ def _source_built_wheel_impl(ctx):
         # (unknown → .pth-based resolution); only console scripts are known —
         # either declared (override) or detected by the pep517 builder and
         # forwarded here via SourceBuiltWheelInfo.
+        #
+        # `data_files` has no such recovery: entry points are readable from the
+        # sdist metadata, prefix data paths are not, and `sys.prefix` has no
+        # `.pth` analogue. Source-built data files stay in the install tree and
+        # are never projected into the prefix.
         PyWheelMetadataInfo(
             top_levels = (),
             top_level_dirs = (),
@@ -236,12 +241,20 @@ def _whl_install(ctx):
         # Only when RECORD enumerated it: a source-built wheel's empty tuple means
         # unknown, and an empty expectation reads every shipped data file as added.
         # Nothing is projected for those wheels, so there is nothing to keep
-        # consistent. `meta.top_levels` is the metadata's known/unknown flag —
-        # RECORD always lists the `.dist-info` directory, so it is empty only for
-        # a source-built wheel.
-        if meta.top_levels:
-            arguments.add("--verify-data-files")
-            arguments.add_all(data_files, before_each = "--expected-data-file")
+        # consistent. `meta.top_levels or meta.record_paths` is the metadata's
+        # known/unknown flag — RECORD always lists the `.dist-info` directory, so
+        # `top_levels` is empty only for a source-built wheel or when exclusions
+        # removed every top level, and the latter still carries `record_paths`.
+        if meta.top_levels or meta.record_paths:
+            # Through a manifest file, not repeated argv flags: a wheel like
+            # jupyterlab ships thousands of prefix paths, enough to hit ARG_MAX.
+            data_files_manifest = ctx.actions.declare_file(ctx.label.name + ".data_files.txt")
+            ctx.actions.write(
+                output = data_files_manifest,
+                content = "".join([path + "\n" for path in data_files]),
+            )
+            arguments.add("--expected-data-files-manifest", data_files_manifest)
+            transitive_inputs.append(depset([data_files_manifest]))
         transitive_inputs.append(depset(patch_files))
 
     # Optional .pyc pre-compilation (runs after patching).
@@ -329,7 +342,7 @@ def _whl_install(ctx):
             native_roots = native_roots,
             site_packages_rfpath = site_packages_rfpath,
             console_scripts = console_scripts,
-            # unpack.py's --verify-data-files guard (above) fails the build if a
+            # unpack.py's data-file manifest guard (above) fails the build if a
             # patch alters the data set, so this list always matches the tree.
             data_files = data_files,
             install_tree = install_dir,

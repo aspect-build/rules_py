@@ -93,12 +93,64 @@ def data_segments_contained(segments):
     """True when every prefix-relative segment stays inside the venv prefix.
 
     Data paths become `ctx.actions.declare_symlink` outputs under the prefix, so
-    an empty, `.`, `..`, or absolute component must not be projected.
+    an empty, `.`, or `..` component must not be projected. An absolute path is
+    caught by the same test: it splits to a leading empty segment.
+
+    Containment only: a contained path that lands on a venv-owned prefix root is
+    still reported here, so `_resolve_data_files` stays the single place that
+    applies the `package_collisions` policy to it.
     """
     return all([
-        seg and seg not in (".", "..") and not seg.startswith("/")
+        seg and seg not in (".", "..")
         for seg in segments
     ])
+
+def parse_record(record, data_directory):
+    """Route every RECORD entry to site-packages segments or a prefix data path.
+
+    One pass: each line is parsed once and dispatched on its PEP 427 category,
+    which are mutually exclusive. Split out of `extract_install_metadata` so the
+    RECORD-to-metadata mapping is testable without a repo context.
+
+    Site-packages entries that escape the install root are dropped — some wheels
+    (setuptools-family) emit `../../bin/foo` for scripts, and `..`/`.`/absolute/
+    empty first segments would make `ctx.actions.declare_symlink` synthesize
+    phantom parent outputs and collide.
+
+    Reserved prefix paths (`bin/python`, `pyvenv.cfg`, site-packages) stay in
+    `data_files` like any other: `_resolve_data_files` owns the collision policy
+    for them.
+
+    Args:
+      record: RECORD's contents, or `None` when the wheel ships none.
+      data_directory: The `<project>-<version>.data` directory name.
+
+    Returns:
+      A struct of `record_segments` (list of segment lists, RECORD order) and
+      `data_files` (sorted prefix-relative paths).
+    """
+    record_segments = []
+    data_files = []
+    for line in record.splitlines() if record else []:
+        path = parse_record_path(line)
+        if not path:
+            continue
+        data_segments = data_scheme_segments(path, data_directory)
+        if data_segments != None:
+            if data_segments_contained(data_segments):
+                data_files.append("/".join(data_segments))
+        else:
+            segments = site_packages_segments(path, data_directory)
+            if not segments:
+                continue
+            first_segment = segments[0]
+            if not first_segment or first_segment in (".", "..") or first_segment.startswith("/"):
+                continue
+            record_segments.append(segments)
+    return struct(
+        record_segments = record_segments,
+        data_files = sorted(data_files),
+    )
 
 def native_roots_for_segments(segments, collision_roots = ()):
     """Return collision roots whose relocation can break a native file.
@@ -431,30 +483,11 @@ def extract_install_metadata(rctx, whl_path, metadata_directory):
     record, entry_points = _read_dist_info(rctx, whl_path, metadata_directory)
     data_directory = metadata_directory[:-len(".dist-info")] + ".data"
 
-    # RECORD: authoritative list of every installed file, mapped to
-    # site-packages segments. Drop entries that escape the install root — some
-    # wheels (setuptools-family) emit `../../bin/foo` for scripts; `..`/`.`/
-    # absolute/empty first segments would make ctx.actions.declare_symlink
-    # synthesize phantom parent outputs and collide.
-    record_segments = []
-    data_file_segments = []
-    if record:
-        for line in record.splitlines():
-            path = parse_record_path(line)
-            if not path:
-                continue
-            data_segments = data_scheme_segments(path, data_directory)
-            if data_segments != None:
-                if data_segments_contained(data_segments):
-                    data_file_segments.append(data_segments)
-                continue
-            segments = site_packages_segments(path, data_directory)
-            if not segments:
-                continue
-            first_segment = segments[0]
-            if not first_segment or first_segment in (".", "..") or first_segment.startswith("/"):
-                continue
-            record_segments.append(segments)
+    # RECORD: authoritative list of every installed file, split in one pass into
+    # the site-packages segments the layout derives from and the prefix data
+    # paths venv assembly projects.
+    parsed = parse_record(record, data_directory)
+    record_segments = parsed.record_segments
 
     # entry_points.txt: INI-style file. Only `[console_scripts]` interests
     # us — pip/uv synthesize executables under `bin/<name>` from those at
@@ -497,5 +530,5 @@ def extract_install_metadata(rctx, whl_path, metadata_directory):
         native_roots = layout.native_roots,
         console_scripts = sorted(console_scripts.values()),
         record_paths = ["/".join(segments) for segments in record_segments],
-        data_files = sorted(["/".join(segments) for segments in data_file_segments]),
+        data_files = parsed.data_files,
     )

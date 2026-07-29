@@ -1,0 +1,5 @@
+etc -> ../../../aspect_rules_py++uv+whl_install__venv_data_files_1366__widgetsnbextension__4_0_15/actual_install.install/etc
+share/
+share/jupyter/
+share/jupyter/labextensions -> ../../../../../aspect_rules_py++uv+whl_install__venv_data_files_1366__jupyterlab_widgets__3_0_16/actual_install.install/share/jupyter/labextensions
+share/jupyter/nbextensions -> ../../../../../aspect_rules_py++uv+whl_install__venv_data_files_1366__widgetsnbextension__4_0_15/actual_install.install/share/jupyter/nbextensions

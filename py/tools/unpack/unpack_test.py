@@ -134,6 +134,19 @@ def _build_wheel(path: Path, *, legacy_syntax: bool) -> None:
     )
 
 
+def _verify_data_files(root: Path, name: str, paths: tuple[str, ...]) -> tuple[str, ...]:
+    """Args enabling the data-file patch guard against *paths*.
+
+    The expected set travels as a manifest file rather than repeated flags, so a
+    wheel with thousands of prefix paths cannot overflow the install action's
+    argv, and an empty expectation stays expressible — which is why passing the
+    manifest is itself the switch.
+    """
+    manifest = root / name
+    manifest.write_text("".join(path + "\n" for path in paths), encoding="utf-8")
+    return ("--expected-data-files-manifest", str(manifest))
+
+
 def _run_unpack(
     unpack: Path,
     wheel: Path,
@@ -681,7 +694,7 @@ else:
         )
         assert accepted.returncode == 0, accepted.stdout + accepted.stderr
 
-        # --verify-data-files requires the post-patch `.data/data/` prefix tree to
+        # A forwarded manifest requires the post-patch `.data/data/` prefix tree to
         # match the forwarded (pre-patch) set exactly, since venv assembly projects
         # that set per-file (issue #1366). good_wheel ships share/supplied.pyc as
         # its only data file. A patch that REMOVES it is rejected: its projected
@@ -698,9 +711,7 @@ else:
                 str(remove_data_patch),
                 "--patch-tool",
                 str(mutation_tool),
-                "--verify-data-files",
-                "--expected-data-file",
-                "share/supplied.pyc",
+                *_verify_data_files(root, "removed.manifest", ("share/supplied.pyc",)),
             ),
         )
         assert removed_data.returncode != 0, removed_data.stdout + removed_data.stderr
@@ -722,9 +733,7 @@ else:
                 str(add_data_patch),
                 "--patch-tool",
                 str(mutation_tool),
-                "--verify-data-files",
-                "--expected-data-file",
-                "share/supplied.pyc",
+                *_verify_data_files(root, "added.manifest", ("share/supplied.pyc",)),
             ),
         )
         assert added_data.returncode != 0, added_data.stdout + added_data.stderr
@@ -750,9 +759,7 @@ else:
                 str(rename_write_patch),
                 "--patch-tool",
                 str(mutation_tool),
-                "--verify-data-files",
-                "--expected-data-file",
-                "share/supplied.pyc",
+                *_verify_data_files(root, "renamed.manifest", ("share/supplied.pyc",)),
             ),
         )
         assert renamed_data.returncode != 0, renamed_data.stdout + renamed_data.stderr
@@ -775,15 +782,92 @@ else:
                 str(edit_data_patch),
                 "--patch-tool",
                 str(mutation_tool),
-                "--verify-data-files",
-                "--expected-data-file",
-                "share/supplied.pyc",
+                *_verify_data_files(root, "edited.manifest", ("share/supplied.pyc",)),
             ),
         )
         assert edited_data.returncode == 0, edited_data.stdout + edited_data.stderr
         assert (
             edited_data_dir / "share" / "supplied.pyc"
         ).read_bytes() == b"patched contents\n"
+
+        # The manifest is compared against the tree the install produced, not
+        # trusted: a manifest that does not describe the patched tree fails.
+        stale_manifest = _run_unpack(
+            unpack,
+            good_wheel,
+            root / "stale-manifest",
+            Path(sys.executable),
+            (
+                "--patch",
+                str(rename_unlink_patch),
+                "--patch",
+                str(rename_write_patch),
+                "--patch-tool",
+                str(mutation_tool),
+                *_verify_data_files(root, "stale.manifest", ("share/wrong.pyc",)),
+            ),
+        )
+        assert stale_manifest.returncode != 0, (
+            stale_manifest.stdout + stale_manifest.stderr
+        )
+        assert "removed=['share/wrong.pyc']" in stale_manifest.stderr
+        assert "added=['share/renamed.pyc']" in stale_manifest.stderr
+
+        # Metadata extraction forwards venv-owned roots so the collision planner
+        # can report them, but `bin/` and `lib/` also hold `.data/scripts/`,
+        # `.data/headers/` and site-packages, which the on-disk scan cannot tell
+        # apart. Both sides drop those roots, so neither the forwarded
+        # `bin/tool` nor the installed `.data/scripts/script` trips the guard.
+        owned_wheel = root / "owned-1.0-py3-none-any.whl"
+        _write_wheel(
+            owned_wheel,
+            "owned",
+            {
+                "owned/__init__.py": b"VALUE = 1\n",
+                "owned-1.0.data/data/bin/tool": b"#!/bin/sh\n",
+                "owned-1.0.data/data/lib/libextra.so": b"native\n",
+                "owned-1.0.data/data/pyvenv.cfg": b"home = /hijack\n",
+                "owned-1.0.data/scripts/script": b"#!/bin/sh\n",
+                "owned-1.0.data/headers/owned.h": b"/* header */\n",
+                "owned-1.0.data/data/share/kept.txt": b"kept\n",
+            },
+        )
+        owned = _run_unpack(
+            unpack,
+            owned_wheel,
+            root / "owned",
+            Path(sys.executable),
+            _verify_data_files(
+                root,
+                "owned.manifest",
+                ("share/kept.txt", "bin/tool", "lib/libextra.so", "pyvenv.cfg"),
+            ),
+        )
+        assert owned.returncode == 0, owned.stdout + owned.stderr
+
+        # `pyvenv.cfg` is unambiguous on disk, so it stays in the comparison and
+        # a patch removing it is still rejected.
+        remove_cfg_patch = root / "remove_cfg.patch"
+        remove_cfg_patch.write_text("unlink\npyvenv.cfg\n")
+        removed_cfg = _run_unpack(
+            unpack,
+            owned_wheel,
+            root / "owned-removed-cfg",
+            Path(sys.executable),
+            (
+                "--patch",
+                str(remove_cfg_patch),
+                "--patch-tool",
+                str(mutation_tool),
+                *_verify_data_files(
+                    root,
+                    "owned-removed-cfg.manifest",
+                    ("share/kept.txt", "pyvenv.cfg"),
+                ),
+            ),
+        )
+        assert removed_cfg.returncode != 0, removed_cfg.stdout + removed_cfg.stderr
+        assert "removed=['pyvenv.cfg']" in removed_cfg.stderr
 
         # exclude_glob prunes site-packages only, so the `.data/data/` prefix
         # tree survives exclusions that would otherwise match it. venv assembly
