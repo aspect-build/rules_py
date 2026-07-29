@@ -186,14 +186,12 @@ write_source_files(
         #   pins the `site.addsitedir(...)` shape so wheel-root `.pth`
         #   shims keep running.
         # * multi_addsitedir — the same branch at N=4. Every `addsitedir`
-        #   line shares one `known_paths` set, declared once by the prologue
-        #   line ahead of them, so the file stays O(N) in emitted bytes and
-        #   `site` does one `_init_pathinfo()` for the whole file instead of
-        #   one per line. The interleaved plain `_main` entry pins that
-        #   sharing did not reorder `sys.path`. Read against
-        #   `wheel_root_pth` above: the prologue line is identical in both
-        #   while the per-wheel lines multiply, so inlining it back into
-        #   each line shows up as a diff that grows with N.
+        #   line reuses the `known_paths` set owned by the enclosing
+        #   `site.addpackage`, so the file costs one `_init_pathinfo()` in
+        #   total rather than one per line. The plain `_main` entry sits
+        #   between two of those lines, pinning both that the reuse did not
+        #   reorder `sys.path` and that a plain entry landing mid-file is
+        #   one the later lines can see.
         # * pth_install_tree_fallback — two install_tree wheels colliding
         #   on a REGULAR top-level; the collision loser stays on the
         #   fallback (an extend_path winner can still graft from it).

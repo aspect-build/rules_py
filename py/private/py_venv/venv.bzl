@@ -43,31 +43,28 @@ load(":virtuals_resolvers.bzl", "enforce_collision_policy", "resolve_wheel_colli
 # `site.addsitedir(dir)` called without `known_paths` builds that set from
 # scratch via `site._init_pathinfo()`, which stats every entry already on
 # `sys.path` — so N such lines cost O(N^2) stats and dominate interpreter
-# startup once N reaches the hundreds. `site.addpackage` runs each line with
-# `exec(line)` under the `site` module's globals, and a `.pth` line's own
-# locals do not survive to the next line, so the set is stashed on the `site`
-# module: one `_init_pathinfo()` for the whole file, kept current by
-# `addsitedir` as it appends. Emitted once, ahead of the first line that reads
-# it, so its ~150 bytes aren't repeated N times.
-_KNOWN_PATHS_PROLOGUE = (
-    "import site; site._aspect_rules_py_known_paths = " +
-    "getattr(site, \"_aspect_rules_py_known_paths\", None) or " +
-    "getattr(site, \"_init_pathinfo\", lambda: None)()"
-)
-
+# startup once N reaches the hundreds.
+#
+# The set to reuse is the one `site.addpackage` is already holding: threaded
+# down from `site.main()`, and updated in place as it appends this file's own
+# plain path entries. `exec(line)` hands each line `addpackage`'s locals as
+# its own, so `vars()` reaches that set directly. A set of our own would go
+# stale against those plain entries and re-append a directory a wheel-root
+# `.pth` also names.
+#
 # Deliberately per-line rather than one combined loop: the lines stay
 # interleaved with the plain path entries in `imports_depset` order, so
 # `sys.path` precedence is byte-for-byte what it was.
 #
-# `getattr(..., None)` keeps every line total — no prologue, or a `site`
-# without `_init_pathinfo`, yields `None` and `addsitedir` rebuilds the set
-# itself: slower, never wrong. Totality is load-bearing, since `addpackage`
-# abandons the remainder of the file on the first line that raises.
+# `.get` keeps every line total — anything but `addpackage` as the caller
+# yields `None`, and `addsitedir` rebuilds the set itself: slower, never
+# wrong. Totality is load-bearing, since `addpackage` abandons the remainder
+# of the file on the first line that raises.
 _ADDSITEDIR_LINE = (
     "import os, sys, site; " +
     "site.addsitedir(os.path.normpath(os.path.join(" +
     "sys.prefix, \"{venv_escape}\", \"{imp}\")), " +
-    "getattr(site, \"_aspect_rules_py_known_paths\", None))"
+    "vars().get(\"known_paths\"))"
 )
 
 def _dict_to_exports(env):
@@ -157,16 +154,6 @@ def assemble_venv(
     # scripts) leave `top_levels` empty: nothing is projected for them, so their
     # `.pth` line must use `site.addsitedir` (see `_format_imp`).
     known_layout_site_pkgs = {w.site_packages_rfpath: True for w in wheels if w.top_levels}
-
-    # Whether any wheel will take the `site.addsitedir` fallback in
-    # `_format_imp`, and so needs `_KNOWN_PATHS_PROLOGUE`. A site-packages
-    # import reaching `imports_depset` from outside `wheels` would miss the
-    # prologue and fall back to a per-line `_init_pathinfo()` — correct, just
-    # not the fast path.
-    any_addsitedir = any([
-        not w.top_levels and w.site_packages_rfpath not in fully_covered_site_pkgs
-        for w in wheels
-    ])
 
     declared = []  # accumulator for all outputs
 
@@ -278,12 +265,6 @@ def assemble_venv(
     pth_lines.use_param_file("%s", use_always = True)
     pth_lines.set_param_file_format("multiline")
     pth_lines.add(escape)
-
-    # Import lines touch nothing in `sys.path`, so only the prologue's position
-    # relative to the first `addsitedir` line matters, not its position among
-    # the plain path entries.
-    if any_addsitedir:
-        pth_lines.add(_KNOWN_PATHS_PROLOGUE)
 
     # allow_closure lets _format_imp capture fully_covered_site_pkgs /
     # known_layout_site_pkgs so we don't have to materialise imports_depset

@@ -1,7 +1,6 @@
 ../../../../../..
-import site; site._aspect_rules_py_known_paths = getattr(site, "_aspect_rules_py_known_paths", None) or getattr(site, "_init_pathinfo", lambda: None)()
-import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "../../..", "_main/uv-include-group/iniconfig_no_top_levels/lib/python3.11/site-packages")), getattr(site, "_aspect_rules_py_known_paths", None))
+import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "../../..", "_main/uv-include-group/iniconfig_no_top_levels/lib/python3.11/site-packages")), vars().get("known_paths"))
 ../../../../../../_main
-import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "../../..", "_main/uv-include-group/packaging_no_top_levels/lib/python3.11/site-packages")), getattr(site, "_aspect_rules_py_known_paths", None))
-import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "../../..", "_main/uv-include-group/pluggy_no_top_levels/lib/python3.11/site-packages")), getattr(site, "_aspect_rules_py_known_paths", None))
-import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "../../..", "_main/uv-include-group/pygments_no_top_levels/lib/python3.11/site-packages")), getattr(site, "_aspect_rules_py_known_paths", None))
+import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "../../..", "_main/uv-include-group/packaging_no_top_levels/lib/python3.11/site-packages")), vars().get("known_paths"))
+import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "../../..", "_main/uv-include-group/pluggy_no_top_levels/lib/python3.11/site-packages")), vars().get("known_paths"))
+import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "../../..", "_main/uv-include-group/pygments_no_top_levels/lib/python3.11/site-packages")), vars().get("known_paths"))

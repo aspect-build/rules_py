@@ -1,28 +1,35 @@
 """Two unknown-layout wheels must each reach sys.path exactly once.
 
 `_format_imp` emits one `site.addsitedir(...)` line per unknown-layout wheel,
-and those lines share a single `known_paths` set stashed on the `site` module
-by `_KNOWN_PATHS_PROLOGUE`, so N of them cost O(N) rather than O(N^2). Sharing
-that set is what could go wrong: a stale set would let a directory be appended
-twice, and an over-eager one would make the second `addsitedir` believe a
-directory was already present and silently skip it.
+and each passes the `known_paths` set that the enclosing `site.addpackage` is
+already maintaining, so N of them cost O(N) rather than O(N^2). Reusing a set
+is what could go wrong: a stale one lets a directory be appended twice, and an
+over-eager one makes a later `addsitedir` believe a directory was already
+present and silently skip it.
 
 The launcher processes the venv site-packages as a site dir twice (see
 double_pth_test.py), so the whole `.pth` — every `addsitedir` line in it — runs
 twice. Deduplication across those two passes is precisely what `known_paths`
-is for, which makes this the case a shared set has to get right.
+is for, which makes this the case a reused set has to get right.
 
-The tail of the test pins the emitted file's shape rather than its effect: one
-prologue, ahead of the lines that read it, and an `addsitedir` line that still
-behaves when the stash is missing.
+The tail of the test pins the emitted file's shape rather than its effect,
+plus the two ways the reused set could be wrong: staleness against the plain
+path entries interleaved with these lines, and the set not being in scope at
+all.
 """
 
 import os
+import shutil
+import site
 import sys
+import tempfile
 
 WHEELS = ("pthtest_unknown_layout", "pthtest_unknown_layout_b")
 
-STASH = "_aspect_rules_py_known_paths"
+# What every emitted `addsitedir` line must pass as `known_paths`: the live set
+# owned by the enclosing `addpackage`, not one of our own. `exec` hands a .pth
+# line that frame's locals as its own, so `vars()` reaches it.
+KNOWN_PATHS_EXPR = 'vars().get("known_paths")'
 
 
 def find_venv_pth() -> str:
@@ -34,9 +41,9 @@ def find_venv_pth() -> str:
                 continue
             path = os.path.join(root, name)
             with open(path) as fh:
-                if STASH in fh.read():
+                if "site.addsitedir(" in fh.read():
                     return path
-    raise SystemExit("no venv .pth referencing {} under {}".format(STASH, sys.prefix))
+    raise SystemExit("no venv .pth calling site.addsitedir under {}".format(sys.prefix))
 
 
 def check_sys_path() -> None:
@@ -62,7 +69,7 @@ def check_sys_path() -> None:
         raise SystemExit("a wheel root .pth did not execute: {}".format(counts))
     if counts[0] != counts[1]:
         raise SystemExit(
-            "wheel-root .pth executions are asymmetric {} — the shared "
+            "wheel-root .pth executions are asymmetric {} — the reused "
             "known_paths set made one addsitedir re-scan or skip".format(counts)
         )
 
@@ -74,57 +81,86 @@ def check_sys_path() -> None:
 
 
 def check_pth_shape(lines: list[str]) -> list[str]:
-    """One prologue for the whole file, ahead of every line that reads it."""
-    prologues = [i for i, ln in enumerate(lines) if ln.startswith("import site;")]
-    add_lines = [i for i, ln in enumerate(lines) if "site.addsitedir(" in ln]
+    """Every addsitedir line reuses the caller's set.
 
-    if len(prologues) != 1:
-        raise SystemExit(
-            "expected exactly one known_paths prologue, got {}".format(len(prologues))
-        )
+    Dropping the reuse costs only startup time and is invisible from sys.path,
+    so pin the expression rather than an effect.
+    """
+    add_lines = [i for i, ln in enumerate(lines) if "site.addsitedir(" in ln]
     if len(add_lines) < 2:
         raise SystemExit(
             "expected at least two addsitedir lines, got {}".format(len(add_lines))
         )
-    if prologues[0] > add_lines[0]:
-        raise SystemExit(
-            "prologue on line {} follows an addsitedir line on {}".format(
-                prologues[0] + 1, add_lines[0] + 1
-            )
-        )
 
-    # Losing the shared set costs only startup time, so nothing observable
-    # from sys.path catches it. Pin the reference instead.
-    unshared = [i + 1 for i in add_lines if STASH not in lines[i]]
+    unshared = [i + 1 for i in add_lines if KNOWN_PATHS_EXPR not in lines[i]]
     if unshared:
         raise SystemExit(
-            "addsitedir lines {} do not read {} — back to a per-line "
-            "_init_pathinfo()".format(unshared, STASH)
+            "addsitedir lines {} do not pass `{}` — back to a per-line "
+            "_init_pathinfo()".format(unshared, KNOWN_PATHS_EXPR)
         )
     return [lines[i] for i in add_lines]
 
 
-def check_missing_stash_degrades(add_line: str) -> None:
+def check_stale_set_regression() -> None:
+    """A plain path entry landing between the addsitedir lines must be visible
+    to them.
+
+    `addpackage` adds plain lines to the set it owns. A set of our own would
+    not see them, so a wheel-root `.pth` naming that same directory would
+    append it a second time. Built here rather than assembled by the venv
+    rules, because no fixture wheel ships a root `.pth` pointing back out at a
+    venv import root.
+    """
+    root = tempfile.mkdtemp(prefix="rules-py-stale-")
+    try:
+        shared_dir = os.path.join(root, "shared_dir")
+        wheel_sp = os.path.join(root, "wheel", "site-packages")
+        os.makedirs(shared_dir)
+        os.makedirs(wheel_sp)
+        with open(os.path.join(wheel_sp, "w.pth"), "w") as fh:
+            fh.write(os.path.relpath(shared_dir, wheel_sp) + "\n")
+
+        sitedir = os.path.join(root, "sitedir")
+        os.makedirs(sitedir)
+        with open(os.path.join(sitedir, "venv.pth"), "w") as fh:
+            fh.write(shared_dir + "\n")
+            fh.write(
+                "import os, sys, site; site.addsitedir({!r}, {})\n".format(
+                    wheel_sp, KNOWN_PATHS_EXPR
+                )
+            )
+
+        saved = list(sys.path)
+        try:
+            site.addpackage(sitedir, "venv.pth", None)
+            hits = [p for p in sys.path if os.path.realpath(p) == os.path.realpath(shared_dir)]
+        finally:
+            sys.path[:] = saved
+    finally:
+        shutil.rmtree(root)
+
+    if len(hits) != 1:
+        raise SystemExit(
+            "plain path entry landed on sys.path {} times — the addsitedir "
+            "line is reusing a set that is stale against it".format(len(hits))
+        )
+
+
+def check_foreign_caller_degrades(add_line: str) -> None:
     """`addpackage` abandons the rest of the file on the first line that
-    raises, so an `addsitedir` line must be total with no stash present. It
-    falls back to rebuilding `known_paths`, which still finds the directory
-    already on sys.path and appends nothing."""
-    site = sys.modules["site"]
-    saved = site.__dict__.pop(STASH, None)
+    raises, so an `addsitedir` line must be total when it runs anywhere else —
+    no `known_paths` in scope, `.get` yields None, and `addsitedir` rebuilds
+    the set itself, still finding the directory on sys.path and appending
+    nothing. A bare `known_paths` reference would raise here instead."""
     before = len(sys.path)
     try:
         exec(add_line, {})
     except Exception as exc:
-        raise SystemExit(
-            "addsitedir line raised without the {} stash: {!r}".format(STASH, exc)
-        )
-    finally:
-        if saved is not None:
-            setattr(site, STASH, saved)
+        raise SystemExit("addsitedir line raised outside addpackage: {!r}".format(exc))
 
     readded = [p for p in sys.path[before:] if p.endswith("site-packages")]
     if readded:
-        raise SystemExit("addsitedir re-appended {} after losing the stash".format(readded))
+        raise SystemExit("addsitedir re-appended {} outside addpackage".format(readded))
 
 
 def main() -> None:
@@ -134,8 +170,9 @@ def main() -> None:
         lines = [ln for ln in fh.read().splitlines() if ln.strip()]
 
     add_lines = check_pth_shape(lines)
+    check_stale_set_regression()
     # Last: re-running an addsitedir line re-fires that wheel's root `.pth`.
-    check_missing_stash_degrades(add_lines[0])
+    check_foreign_caller_degrades(add_lines[0])
 
 
 if __name__ == "__main__":

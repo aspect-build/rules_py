@@ -77,9 +77,8 @@ extract_venv_pth(
 )
 
 # Four unknown-layout wheels, so the venv emits four `site.addsitedir` lines
-# against the one above. That contrast is what makes the shared `known_paths`
-# set legible: the prologue is emitted once no matter the wheel count, and
-# each `addsitedir` line carries only a `getattr` reference to it.
+# against the one above — enough for the snapshot to show the reused
+# `known_paths` set, and for a plain path entry to land between two of them.
 MULTI_ADDSITEDIR_PKGS = [
     "iniconfig",
     "packaging",
