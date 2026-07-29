@@ -1,0 +1,10 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library")
+
+py_library(
+    name = "launcher_env",
+    # Prefixed module name: `imports` puts this on sys.path as a top-level
+    # module, where a plain name could be shadowed by a user dep.
+    srcs = ["aspect_rules_py_launcher_env.py"],
+    imports = ["."],
+    visibility = ["//visibility:public"],
+)

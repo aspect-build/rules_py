@@ -13,10 +13,11 @@ import time
 import traceback
 import unittest
 from dataclasses import dataclass
-from pathlib import Path
 from types import ModuleType
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Literal, Optional
+from typing import Any, Dict, Iterator, List, Literal, Optional
 from xml.sax.saxutils import escape, quoteattr
+
+import aspect_rules_py_launcher_env as launcher_env
 
 # The closed set of JUnit outcomes the writer understands.
 _Status = Literal["passed", "failure", "error", "skipped"]
@@ -31,34 +32,8 @@ class _Record:
     message: str
     detail: str
 
-if TYPE_CHECKING:
-    from coverage import Coverage
-
-# Point temp dirs at Bazel's per-test TEST_TMPDIR before anything resolves it
-# (see the long rationale in pytest_main.py). Must run before the first
-# tempfile.gettempdir(), which caches process-wide.
-if "TEST_TMPDIR" in os.environ:
-    for _tmp_env in ("TMPDIR", "TMP", "TEMP"):
-        os.environ[_tmp_env] = os.environ["TEST_TMPDIR"]
-
-# Coverage: Bazel hands us COVERAGE_MANIFEST when the target has
-# InstrumentedFilesInfo. Same coveragepy symlink workaround as pytest_main.py.
-cov: Optional["Coverage"] = None
-coveragepy_absfile_mapping: Dict[str, str] = {}
-if "COVERAGE_MANIFEST" in os.environ:
-    try:
-        import coverage
-        import coverage.files
-
-        with open(os.environ["COVERAGE_MANIFEST"]) as mf:
-            manifest_entries = mf.read().splitlines()
-            cov = coverage.Coverage(include=manifest_entries)
-            coveragepy_absfile_mapping = {
-                coverage.files.abs_file(mfe): mfe for mfe in manifest_entries
-            }
-        cov.start()
-    except ModuleNotFoundError as e:
-        print("WARNING: coverage requested but the 'coverage' package is not a dep", e)
+launcher_env.set_test_tmpdir()
+cov = launcher_env.start_coverage()
 
 
 def _import_test_modules(test_files: List[str]) -> List[ModuleType]:
@@ -118,24 +93,12 @@ def _filter_by_substring(suite: unittest.TestSuite, needle: str) -> unittest.Tes
     return matched
 
 
-def _advertise_sharding() -> None:
-    """Touch TEST_SHARD_STATUS_FILE up front so Bazel sees sharding support
-    even if the run later exits early (empty discovery / no filter match).
-    Otherwise Bazel masks the real error with 'the test runner did not
-    advertise support for test sharding'."""
-    status = os.environ.get("TEST_SHARD_STATUS_FILE")
-    total = os.environ.get("TEST_TOTAL_SHARDS")
-    if status and total and int(total) > 1:
-        Path(status).touch()
-
-
 def _shard(suite: unittest.TestSuite) -> unittest.TestSuite:
     """Keep every Nth test by stable-sorted id for Bazel sharding."""
-    idx = os.environ.get("TEST_SHARD_INDEX")
-    total = os.environ.get("TEST_TOTAL_SHARDS")
-    if not (idx and total and int(total) > 1):
+    shard = launcher_env.shard_info()
+    if shard is None:
         return suite
-    i, n = int(idx), int(total)
+    i, n = shard
     sharded = unittest.TestSuite()
     for pos, test in enumerate(sorted(_iter_tests(suite), key=lambda t: t.id())):
         if pos % n == i:
@@ -274,37 +237,6 @@ def _write_junit_xml(path: str, records: List[_Record], suite_name: str) -> None
         f.write("\n".join(lines) + "\n")
 
 
-def _finalize_coverage() -> None:
-    """Write Bazel's lcov output, applying the same SF:/FN: fixups as
-    pytest_main.py (coveragepy #963, bazel #25118)."""
-    assert cov is not None
-    cov.stop()
-    cov.save()
-
-    out = os.environ.get("COVERAGE_OUTPUT_FILE")
-    if not out:
-        return
-
-    unfixed = out + ".tmp"
-    cov.lcov_report(outfile=unfixed)
-    with open(unfixed) as src, open(out, "w") as dst:
-        for line in src:
-            # Undo coveragepy's symlink-following of source paths.
-            if line.startswith("SF:"):
-                sourcefile = line[3:].rstrip()
-                if sourcefile in coveragepy_absfile_mapping:
-                    dst.write("SF:%s\n" % coveragepy_absfile_mapping[sourcefile])
-                    continue
-            # Drop the 'end line number' from FN: records that Bazel rejects.
-            if line.startswith("FN:"):
-                parts = line[3:].split(",")
-                if len(parts) == 3:
-                    dst.write("FN:%s,%s" % (parts[0], parts[2]))
-                    continue
-            dst.write(line)
-    os.unlink(unfixed)
-
-
 def _parse_args(argv: List[str]) -> argparse.Namespace:
     """Parse the runtime args forwarded from the `args` attribute / command
     line. Errors (exit 2) on anything unrecognized rather than dropping it, so
@@ -334,8 +266,7 @@ def main() -> int:
 
     opts = _parse_args(sys.argv[1:])
 
-    # Advertise sharding before any early return (see _advertise_sharding).
-    _advertise_sharding()
+    launcher_env.advertise_sharding()
 
     # The next assignment is rewritten at analysis time by py_unittest_test with
     # the target's own-repo source files. Keep it on its own line exactly as
@@ -406,7 +337,7 @@ def main() -> int:
         _write_junit_xml(xml_out, result.records, os.environ.get("BAZEL_TARGET", "unittest"))
 
     if cov is not None and exit_code == 0:
-        _finalize_coverage()
+        launcher_env.write_lcov(cov)
 
     return exit_code
 

@@ -15,25 +15,11 @@
 
 import sys
 import os
-from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import List
 
-if TYPE_CHECKING:
-    from coverage import Coverage
+import aspect_rules_py_launcher_env as launcher_env
 
-# Point the temp dir at Bazel's per-test TEST_TMPDIR before pytest or the stdlib
-# `tempfile` module resolve it. Bazel's default test setup exports
-# TMPDIR=$TEST_TMPDIR so a test's temp files land in its private, writable temp
-# directory; rules_py's launcher didn't, so pytest's `tmp_path`/`tmpdir` fixtures
-# and `tempfile` fell back to the system temp dir (usually /tmp). That is
-# non-hermetic (temp files leak across parallel tests / runs) and outright breaks
-# on remote-execution workers that mount /tmp `noexec` — e.g. a test that writes an
-# executable helper into `tmp_path` and runs it gets EACCES. TMP/TEMP are set too so
-# `tempfile` resolves consistently on Windows. Must run before the first
-# `tempfile.gettempdir()` call, which caches the result process-wide.
-if "TEST_TMPDIR" in os.environ:
-    for _tmp_env in ("TMPDIR", "TMP", "TEMP"):
-        os.environ[_tmp_env] = os.environ["TEST_TMPDIR"]
+launcher_env.set_test_tmpdir()
 
 try:
     import pytest
@@ -41,30 +27,7 @@ except ModuleNotFoundError as e:
     print("ERROR: pytest must be included in the deps of the py_pytest_main or py_test target")
     raise e
 
-# None means coverage wasn't enabled
-cov: Optional["Coverage"] = None
-# For workaround of https://github.com/nedbat/coveragepy/issues/963
-coveragepy_absfile_mapping: Dict[str, str] = {}
-
-# Since our py_test had InstrumentedFilesInfo, we know Bazel will hand us this environment variable.
-# https://bazel.build/rules/lib/providers/InstrumentedFilesInfo
-if "COVERAGE_MANIFEST" in os.environ:
-    try:
-        import coverage
-        import coverage.files
-        # The lines are files that matched the --instrumentation_filter flag
-        coverage_manifest = os.getenv("COVERAGE_MANIFEST")
-        assert coverage_manifest is not None
-        with open(coverage_manifest, "r") as mf:
-            manifest_entries = mf.read().splitlines()
-            cov = coverage.Coverage(include = manifest_entries)
-            # coveragepy incorrectly converts our entries by following symlinks
-            # record a mapping of their conversion so we can undo it later in reporting the coverage
-            coveragepy_absfile_mapping = {coverage.files.abs_file(mfe): mfe for mfe in manifest_entries}
-        cov.start()
-    except ModuleNotFoundError as e:
-        print("WARNING: python coverage setup failed. Do you need to include the 'coverage' package as a dependency of py_pytest_main?", e)
-        pass
+cov = launcher_env.start_coverage()
 
 from pytest_shard import ShardPlugin
 
@@ -114,20 +77,14 @@ def main() -> int:
         if suite_name:
             args.extend(["-o", f"junit_suite_name={suite_name}"])
 
-    test_shard_index = os.environ.get("TEST_SHARD_INDEX")
-    test_total_shards = os.environ.get("TEST_TOTAL_SHARDS")
-    test_shard_status_file = os.environ.get("TEST_SHARD_STATUS_FILE")
-    if (
-        test_shard_index
-        and test_total_shards
-        and test_shard_status_file
-        and int(test_total_shards) > 1
-    ):
+    shard = launcher_env.shard_info()
+    if shard is not None:
+        shard_index, total_shards = shard
         args.extend([
-            f"--shard-id={test_shard_index}",
-            f"--num-shards={test_total_shards}",
+            f"--shard-id={shard_index}",
+            f"--num-shards={total_shards}",
         ])
-        Path(test_shard_status_file).touch()
+        launcher_env.advertise_sharding()
         plugins.append(ShardPlugin())
 
     test_filter = os.environ.get("TESTBRIDGE_TEST_ONLY")
@@ -154,34 +111,7 @@ def main() -> int:
         print("Pytest exit code: " + str(exit_code), file=sys.stderr)
         print("Ran pytest.main with " + str(args), file=sys.stderr)
     elif cov:
-        cov.stop()
-        # https://bazel.build/configure/coverage
-        coverage_output_file = os.getenv("COVERAGE_OUTPUT_FILE")
-        assert coverage_output_file is not None
-
-        unfixed_dat = coverage_output_file + ".tmp"
-        cov.lcov_report(outfile = unfixed_dat)
-        cov.save()
-        
-        with open(unfixed_dat, "r") as unfixed:
-          with open(coverage_output_file, "w") as output_file:
-            for line in unfixed:
-              # Workaround https://github.com/nedbat/coveragepy/issues/963
-              # by mapping SF: records to un-do the symlink-following
-              if line.startswith('SF:'):
-                sourcefile = line[3:].rstrip()
-                if sourcefile in coveragepy_absfile_mapping:
-                    output_file.write(f"SF:{coveragepy_absfile_mapping[sourcefile]}\n")
-                    continue
-              # Workaround https://github.com/bazelbuild/bazel/issues/25118
-              # by removing 'end line number' from FN: records
-              if line.startswith('FN:'):
-                parts = line[3:].split(",")  # Remove 'FN:' and split by commas
-                if len(parts) == 3:
-                  output_file.write(f"FN:{parts[0]},{parts[2]}")
-                  continue
-              output_file.write(line)
-        os.unlink(unfixed_dat)
+        launcher_env.write_lcov(cov)
 
     return exit_code
 

@@ -53,10 +53,10 @@ select = [
 
 [tool.pyright]
 typeCheckingMode = "standard"
-extraPaths = ["py/private/pytest_shard"]
+extraPaths = ["py/private/launcher_env", "py/private/pytest_shard"]
 
 [tool.ty.environment]
-extra-paths = ["py/private/pytest_shard"]
+extra-paths = ["py/private/launcher_env", "py/private/pytest_shard"]
 
 [tool.ty.rules]
 missing-type-argument = "error"

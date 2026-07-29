@@ -22,7 +22,10 @@ py_library(
     srcs = ["pytest_main.py"],
     imports = ["."],
     visibility = ["//visibility:public"],
-    deps = ["//py/private/pytest_shard"],
+    deps = [
+        "//py/private/launcher_env",
+        "//py/private/pytest_shard",
+    ],
 )
 
 _py_binary_rule(
