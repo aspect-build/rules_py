@@ -93,6 +93,7 @@ def py_unittest_test(
         imports = ["."],
         testonly = True,
         tags = tags,
+        deps = [Label("//py/private/launcher_env")],
     )
 
     py_binary_with_venv(
