@@ -512,6 +512,53 @@ If you need a given entrypoint as a Bazel target, it needs to be manually
 declared. In most cases of normal entrypoints this is quite easy. Tools like
 `ruff` which distribute binaries as "wheels" are tricky and not yet supported.
 
+**Which wheel data files reach `sys.prefix`?** A wheel may ship files under the
+PEP 427 `<name>-<version>.data/data/` scheme, which pip installs into the
+environment prefix — this is how Jupyter extensions land in
+`sys.prefix/share/jupyter`, for example. `py_venv` resolves ownership of these
+per file, so several wheels contributing to one directory (`share/jupyter/`)
+union rather than shadow each other. When two wheels claim the identical path,
+the last one wins, matching pip's overwrite behaviour, and the conflict is
+reported under the target's `package_collisions` policy (`warning` by default).
+
+What the venv materialises is the coarsest set of symlinks preserving that
+resolution: a directory one wheel owns outright is bound whole, and assembly
+descends only where wheels share one. `share/jupyter/labextensions` becomes a
+single symlink; `share/jupyter/` itself stays a real directory with one entry
+per contributor. Binding a directory exposes everything the owning wheel
+installed beneath it, so the wheel's path set must be complete — for uv-managed
+wheels `RECORD` is that set, and the install action verifies the tree matches
+it.
+
+Data files under `bin/`, `lib/`, and `pyvenv.cfg` are **not** projected, and are
+likewise reported under `package_collisions`. Those prefix roots hold artifacts
+the venv generates itself — the interpreter symlinks, `activate`,
+console-script wrappers, `site-packages` and its merged package trees — and a
+wheel-owned file landing on one of those names is a Bazel action conflict,
+which fails analysis before any `package_collisions` policy can apply. The whole
+root is reserved rather than just the generated names: which names exist depends
+on the venv's interpreter version and console-script resolution, so a per-name
+rule would make the same wheel project or drop depending on which binary
+consumed it. This is stricter than pip, which would install e.g.
+`.data/data/lib/pkgconfig/foo.pc` or `.data/data/bin/helper`. The files still
+exist in the wheel's install tree; reach them with a
+`filegroup(output_group = "install_dir")` on the wheel target if you need them.
+
+The PEP 427 `scripts` and `headers` categories are not projected into the venv
+at all.
+
+**Source-built wheels project no data files.** When a package resolves to an
+sdist — no compatible wheel exists, or `no-binary-package` forces a source build
+— its contents are unknowable while repositories are generated, so no layout
+metadata is published for it. Imports still work through the `.pth` fallback and
+console scripts are recovered from the sdist's entry-point metadata, but a data
+file has neither: `sys.prefix` has no `addsitedir` analogue, and a wheel's data
+paths cannot be known without building it. The files are unpacked into the
+wheel's install tree and reachable through
+`filegroup(output_group = "install_dir")`, but nothing appears under
+`sys.prefix`. Prefer a prebuilt wheel for packages whose resources are
+discovered that way.
+
 ## Acknowledgements
 
 - Jeremy Volkman's `rules_pycross` is in a direct precursor and inspiration for

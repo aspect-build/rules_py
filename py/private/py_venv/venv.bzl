@@ -98,7 +98,7 @@ def assemble_venv(
 
     wheels_depset = _py_library.make_wheels_depset(ctx)
     wheels = wheels_depset.to_list()
-    top_level_to_site_pkgs, fully_covered_site_pkgs, console_scripts_map, merge_groups, collisions = resolve_wheel_collisions(ctx, wheels)
+    top_level_to_site_pkgs, fully_covered_site_pkgs, console_scripts_map, merge_groups, data_file_to_site_pkgs, collisions = resolve_wheel_collisions(ctx, wheels)
     enforce_collision_policy(collisions, package_collisions)
 
     # All toolchain-derived path/flag math (runfiles escape arithmetic,
@@ -149,6 +149,39 @@ def assemble_venv(
         target_path = target_prefix + tl
         if "/" in tl:
             target_path = "../" * tl.count("/") + target_path
+        ctx.actions.symlink(
+            output = out,
+            target_path = target_path,
+        )
+        declared.append(out)
+
+    # Wheel data files (PEP 427 `.data/data/`): what a wheel installs into the
+    # prefix (e.g. `share/jupyter/...`, `etc/...`) is symlinked at
+    # `<venv>/<path>` back into the owning wheel's install tree, so tools that
+    # discover resources via `sys.prefix/share` find them. Each entry is a
+    # whole directory where one wheel owns it and a single file where wheels
+    # share the directory, so contributors to a shared prefix directory union
+    # instead of one shadowing the other (see `_collapse_data_projection`).
+    # The install-tree root is the wheel's site-packages rfpath minus its fixed
+    # `lib/<pyver>/site-packages` suffix.
+    #
+    # Gap: PEP 427's sibling `scripts` category is not projected. Those files
+    # land in the install tree's `bin/`, which venv assembly owns.
+    install_root_by_sp = {}
+    for datapath, wheel_site_pkgs in data_file_to_site_pkgs.items():
+        out = ctx.actions.declare_symlink(venv_name + "/" + datapath)
+        install_root = install_root_by_sp.get(wheel_site_pkgs)
+        if install_root == None:
+            # Strip the three suffix segments rather than a `wheel_py_ver`-formatted
+            # string: a record's producer need not share this venv's interpreter
+            # minor, and `python3.9` vs `python3.10` differ in length, so a
+            # length-based slice would silently mis-cut into the repo path.
+            install_root = "/".join(wheel_site_pkgs.split("/")[:-3])
+            install_root_by_sp[wheel_site_pkgs] = install_root
+        target_path = (
+            "../" * datapath.count("/") +
+            venv_to_runfiles_escape + "/" + install_root + "/" + datapath
+        )
         ctx.actions.symlink(
             output = out,
             target_path = target_path,

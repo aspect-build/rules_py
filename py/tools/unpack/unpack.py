@@ -77,6 +77,35 @@ def _import_root(path: Path) -> Optional[str]:
     return None
 
 
+# Prefix roots whose on-disk contents cannot be attributed to a PEP 427
+# category: `bin/` holds `.data/scripts/` and generated console scripts, `lib/`
+# holds site-packages and `.data/headers/`, either alongside a `.data/data/`
+# file routed there. Both sides of the data-file comparison drop them — venv
+# assembly never projects a data file into them either (`VENV_OWNED_ROOTS` in
+# virtuals_resolvers.bzl), so a patch touching one is inconsequential.
+_AMBIGUOUS_PREFIX_ROOTS = ("bin", "lib")
+
+
+def _prefix_data_files(into: Path) -> Set[str]:
+    """Prefix-relative paths of the installed `.data/data/` tree.
+
+    Descends only the roots that hold data files, so the walk is bounded by the
+    prefix tree rather than by site-packages, which for a large wheel is orders
+    of magnitude bigger and entirely excluded anyway.
+    """
+    found: Set[str] = set()
+    for entry in into.iterdir():
+        if entry.name in _AMBIGUOUS_PREFIX_ROOTS:
+            continue
+        if entry.is_file():
+            found.add(entry.name)
+            continue
+        for path in entry.rglob("*"):
+            if path.is_file():
+                found.add(path.relative_to(into).as_posix())
+    return found
+
+
 def _import_roots(site_packages: Path) -> Set[str]:
     return {
         root
@@ -403,6 +432,14 @@ def main() -> None:
     ap.add_argument("--patch-strip", type=int, default=0)
     ap.add_argument("--patch-tool", type=Path, default=Path("patch"))
     ap.add_argument("--preserve-path", action="append", default=[])
+    # Passing this enables the post-patch data-file check; an empty manifest is a
+    # meaningful expectation (any shipped data file reads as added), so presence
+    # alone is the switch. A file rather than repeated flags: a wheel like
+    # jupyterlab ships thousands of prefix paths, enough to risk ARG_MAX.
+    ap.add_argument("--expected-data-files-manifest", type=Path,
+                    help="Newline-separated prefix-relative `.data/data/` paths. When "
+                         "given, require the post-patch prefix files to match them "
+                         "exactly (venv assembly projects that pre-patch set).")
     ap.add_argument("--exclude-glob", action="append", default=[])
     ap.add_argument("--compile-pyc", action="store_true")
     ap.add_argument("--pyc-invalidation-mode", default="checked-hash",
@@ -493,6 +530,34 @@ def main() -> None:
         if _native_descendants(directory, site_packages, args.exclude_glob) != native_descendants:
             raise SystemExit(
                 "Post-install patch changed observed native files: {}".format(relative)
+            )
+
+    # Venv assembly projects the `.data/data/` prefix files (share/, etc/) from
+    # metadata settled during analysis. Unlike the site-packages topology they
+    # are not covered by the preserve-path checks above, so a patch that alters
+    # the set cannot be reflected: an added file would be missing from
+    # sys.prefix, a removed/renamed one would dangle. A forwarded manifest means
+    # the resulting prefix tree must match it exactly. Content edits are fine —
+    # the symlink resolves through — only the path set is guarded.
+    if args.expected_data_files_manifest:
+        expected = {
+            path
+            for path in args.expected_data_files_manifest.read_text(
+                encoding="utf-8",
+            ).splitlines()
+            if path and path.split("/")[0] not in _AMBIGUOUS_PREFIX_ROOTS
+        }
+        actual = _prefix_data_files(args.into)
+        removed = sorted(expected - actual)
+        added = sorted(actual - expected)
+        if removed or added:
+            raise SystemExit(
+                "Post-install patch altered the wheel's `.data/data/` prefix files "
+                "(removed={}, added={}). Venv assembly projects the set settled "
+                "during analysis, so an added file is missing from sys.prefix and a "
+                "removed or renamed one leaves a dangling symlink. Keep the patch "
+                "out of the prefix tree; editing an existing data file's contents "
+                "is supported.".format(removed, added)
             )
 
     if args.exclude_glob:

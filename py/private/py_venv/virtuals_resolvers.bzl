@@ -94,16 +94,21 @@ def _cover_all_clean(claimants, state, tl):
         _cover_if_clean(state, c.site_packages, tl)
 
 def _make_collision_recorder(ctx, collisions):
-    """Build a closure that records collisions into *collisions* for later
-    policy enforcement by ``enforce_collision_policy``."""
+    """Build a closure recording collisions for ``enforce_collision_policy``.
 
-    def _complain(what, name, a, b):
+    ``message`` overrides the default "provided by both A and B" rendering for
+    resolutions that are not a takeover — a drop, where nothing else claims the
+    name.
+    """
+
+    def _complain(what, name, a, b, message = None):
         collisions.append(struct(
             label = str(ctx.label),
             what = what,
             name = name,
             a = a,
             b = b,
+            message = message,
         ))
 
     return _complain
@@ -445,6 +450,155 @@ def _resolve_console_scripts(cs_claimants, complain):
         console_scripts_map[name] = struct(module = winner.module, func = winner.func)
     return console_scripts_map
 
+def _ancestors(path):
+    """Proper ancestor directories of *path*, shallowest first."""
+    segments = path.split("/")
+    return ["/".join(segments[:i]) for i in range(1, len(segments))]
+
+# Prefix roots venv assembly reserves for itself. It declares concrete outputs
+# at `pyvenv.cfg`, at `bin/{python,<versioned python>,activate,<console
+# script>}`, and under `lib/<pyver>/site-packages/`; a data path landing on one
+# of those exact names is an action conflict, which fails analysis before any
+# `package_collisions` policy can apply.
+#
+# The whole root is reserved rather than just those names: which names exist
+# depends on the venv's toolchain (interpreter version, freethreaded suffix) and
+# on its console-script resolution, none of which this pass can see, and a
+# per-name rule would make the same wheel project or drop depending on which
+# binary consumed it. Reserving the roots keeps the decision a property of the
+# wheel. This is stricter than pip, which would install `.data/data/bin/helper`.
+VENV_OWNED_ROOTS = {"pyvenv.cfg": True, "bin": True, "lib": True}
+
+def _resolve_data_files(wheels, complain):
+    """Resolve wheel data-file (PEP 427 `.data/data/`) prefix paths.
+
+    Ownership is resolved per file, so wheels contributing to a shared prefix
+    directory (e.g. `share/jupyter/`) union rather than clobber. Only an
+    identical prefix path claimed by more than one distinct wheel is a
+    collision; last distinct wheel wins, matching pip's overwrite semantics.
+    `_collapse_data_projection` then rewrites the result to the coarsest
+    equivalent set of symlinks.
+
+    A data path is dropped rather than projected when it falls in a venv-owned
+    root (`VENV_OWNED_ROOTS`) or nests under another projected data file.
+    Declaring those would be an action conflict, which fails analysis before
+    `package_collisions` can apply any policy.
+
+    Sole owner of the collision policy for data paths, so a hand-written
+    `py_unpacked_wheel` and a uv-derived record are held to the same rules.
+    Per-path containment is validated once per wheel by `make_wheel_record`
+    rather than again here for every consuming venv.
+    """
+    claimants = {}
+    for w in wheels:
+        for path in getattr(w, "data_files", ()):
+            claimants.setdefault(path, []).append(w.site_packages_rfpath)
+    if not claimants:
+        return {}
+
+    data_file_to_site_pkgs = {}
+    for path, sps in claimants.items():
+        distinct = _distinct_ordered(sps)
+        if path.split("/")[0] in VENV_OWNED_ROOTS:
+            # A drop, not a takeover: the venv declares no output at this path,
+            # it owns the whole prefix root. Name every claimant — unlike a
+            # takeover chain there is no winner to single out.
+            complain(
+                "data file",
+                path,
+                ", ".join(distinct),
+                "the virtual environment",
+                message = ("data file `{}` from {} is not projected: the virtual " +
+                           "environment owns `{}` in the prefix.").format(
+                    path,
+                    ", ".join(distinct),
+                    path.split("/")[0],
+                ),
+            )
+            continue
+        _complain_chain(complain, "data file", path, distinct)
+        data_file_to_site_pkgs[path] = distinct[-1]
+
+    # Computed once and shared with `_collapse_data_projection`: both passes walk
+    # every surviving path's ancestor chain, and a wheel like jupyterlab brings
+    # thousands of paths into every consuming venv's analysis.
+    ancestors_by_path = {path: _ancestors(path) for path in data_file_to_site_pkgs}
+
+    # Sorted order puts an ancestor before every path nested below it, so one
+    # left-to-right pass keeps the shallowest claim of each conflicting chain.
+    kept = {}
+    dropped = {}
+    for path in sorted(data_file_to_site_pkgs.keys()):
+        shadower = None
+        for d in ancestors_by_path[path]:
+            if d in kept:
+                shadower = d
+                break
+        if shadower == None:
+            kept[path] = True
+        else:
+            dropped[path] = True
+            complain(
+                "data file",
+                path,
+                data_file_to_site_pkgs[path],
+                "data file `{}` from {}".format(shadower, data_file_to_site_pkgs[shadower]),
+                message = ("data file `{}` from {} is not projected: it nests under data " +
+                           "file `{}` from {}, which the prefix binds first.").format(
+                    path,
+                    data_file_to_site_pkgs[path],
+                    shadower,
+                    data_file_to_site_pkgs[shadower],
+                ),
+            )
+    return _collapse_data_projection(
+        {
+            path: sp
+            for path, sp in data_file_to_site_pkgs.items()
+            if path not in dropped
+        },
+        ancestors_by_path,
+    )
+
+def _collapse_data_projection(kept, ancestors_by_path):
+    """Reduce resolved data paths to the coarsest projection that preserves them.
+
+    A wheel like `jupyterlab` ships thousands of prefix files, and every
+    projected entry costs a declared output plus a symlink action in *each*
+    consuming venv. Follow `_resolve_top_level`: bind the whole directory when
+    one wheel owns it, and descend only where wheels genuinely share one.
+
+    A directory qualifies when every kept path beneath it resolved to the same
+    wheel — then a single symlink exposes that wheel's subtree. `_shallowest`
+    reduces the qualifying directories to a minimal cover. Paths under a shared
+    directory, and files at the prefix root with no directory to collapse into,
+    stay per-file.
+
+    Binding a directory exposes everything the owning wheel installed beneath
+    it, which is why `data_files` must enumerate the wheel's prefix tree
+    completely (`make_wheel_record`): an undeclared sibling file in a collapsed
+    directory is still reachable under `sys.prefix`. For uv-derived records
+    RECORD is that enumeration and the install action's manifest guard keeps the
+    tree matching it; a hand-written `py_unpacked_wheel` must not under-declare.
+
+    Purely a projection change: every drop and `package_collisions` report has
+    already been decided against the per-file set by the caller.
+    """
+    owners = {}
+    for path, sp in kept.items():
+        for d in ancestors_by_path[path]:
+            owners.setdefault(d, {})[sp] = True
+
+    roots = _shallowest([d for d in owners if len(owners[d]) == 1])
+    projection = {
+        path: sp
+        for path, sp in kept.items()
+        if not _within_any(path, roots)
+    }
+    for d in roots:
+        projection[d] = owners[d].keys()[0]
+    return projection
+
 def _compute_fully_covered(wheels, state):
     """Determine which wheels have every top-level projected or merged.
 
@@ -504,7 +658,7 @@ def resolve_wheel_collisions(ctx, wheels):
 
     Returns:
       (top_level_to_site_pkgs, fully_covered, console_scripts_map,
-       merge_groups, collisions)
+       merge_groups, data_file_to_site_pkgs, collisions)
     """
     collisions = []
     complain = _make_collision_recorder(ctx, collisions)
@@ -542,6 +696,7 @@ def resolve_wheel_collisions(ctx, wheels):
 
     _fold_merge_groups(wheels, wheel_by_sp, state)
     console_scripts_map = _resolve_console_scripts(cs_claimants, complain)
+    data_file_to_site_pkgs = _resolve_data_files(wheels, complain)
     fully_covered = _compute_fully_covered(wheels, state)
     _resolve_metadata_collisions(metadata_claimants, state, fully_covered, complain, ctx)
 
@@ -550,19 +705,20 @@ def resolve_wheel_collisions(ctx, wheels):
         fully_covered,
         console_scripts_map,
         state.merge_groups,
+        data_file_to_site_pkgs,
         collisions,
     )
 
 def enforce_collision_policy(collisions, package_collisions):
     """Apply error/warning/ignore to a list of recorded collisions."""
     for c in collisions:
-        msg = "Package collision in {label}: {what} `{name}` is provided by both {a} and {b}.".format(
-            label = c.label,
+        detail = c.message or "{what} `{name}` is provided by both {a} and {b}.".format(
             what = c.what,
             name = c.name,
             a = c.a,
             b = c.b,
         )
+        msg = "Package collision in {label}: {detail}".format(label = c.label, detail = detail)
         if package_collisions == "error":
             fail(msg + "\nSet `package_collisions = \"warning\"` or \"ignore\" to downgrade.")
         elif package_collisions == "warning":

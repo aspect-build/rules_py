@@ -22,6 +22,7 @@ load("@bazel_lib//lib:paths.bzl", "to_rlocation_path")
 load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private/py_venv:types.bzl", "PY_VENV_KINDS", "VirtualenvInfo", "venv_root")
+load("//py/private/py_venv:virtuals_resolvers.bzl", "VENV_OWNED_ROOTS")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "interpreter_files_and_version")
 
 def _runfiles_path(file, workspace):
@@ -191,6 +192,24 @@ def _py_python_pex_impl(ctx):
     interpreter_prefixes = closure.interpreter_roots.to_list()
     venv_prefixes = [r + "/" for r in closure.venv_roots.to_list()]
 
+    # PEP 427 `.data/data/` files sit outside the site-packages that
+    # `--dependency` packages, so the wheel-tree exclusion below would drop them.
+    # Keep them as sources at the runfiles path they occupy outside the PEX, so
+    # a runfiles-relative lookup resolves the same either way. The venv's
+    # `sys.prefix` projection has no PEX analogue: a zipapp runs under the
+    # ambient interpreter, whose prefix is not the PEX.
+    #
+    # Venv-owned prefix roots are excluded on the same terms as venv assembly
+    # (see `VENV_OWNED_ROOTS`): a wheel's `bin/`, `lib/`, or `pyvenv.cfg` data
+    # file is not projected into a venv, so shipping it here would make the PEX
+    # carry a file its venv counterpart deliberately drops.
+    data_file_paths = {
+        w.install_tree.path + "/" + path: True
+        for w in wheels_list
+        for path in getattr(w, "data_files", ())
+        if path.split("/")[0] not in VENV_OWNED_ROOTS
+    }
+
     output = ctx.actions.declare_file(ctx.attr.name + ".pex")
 
     args = ctx.actions.args()
@@ -220,9 +239,10 @@ def _py_python_pex_impl(ctx):
             if sp.startswith(prefix):
                 return []
         p = f.path
-        for prefix in wheel_tree_prefixes:
-            if p.startswith(prefix):
-                return []
+        if p not in data_file_paths:
+            for prefix in wheel_tree_prefixes:
+                if p.startswith(prefix):
+                    return []
         return ["--source={}={}".format(p, _runfiles_path(f, workspace_name))]
 
     args.add_all(

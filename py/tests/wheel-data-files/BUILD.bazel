@@ -1,0 +1,254 @@
+load("@bazel_lib//lib:testing.bzl", "assert_contains")
+load("//py:defs.bzl", "py_binary", "py_pex_binary", "py_test", "py_unpacked_wheel")
+
+# Regression gate for https://github.com/aspect-build/rules_py/issues/1366:
+# wheel data files shipped under the PEP 427 `.data/data/` scheme must land
+# at `sys.prefix/share/...` in the assembled venv, matching pip/rules_python.
+#
+# A wheel is just a zip; build a minimal one with the prebuilt zipper so the
+# test needs no pip / uv environment. Internal layout mirrors what the
+# unpacker expects: an importable top-level package, a `*.dist-info/`
+# directory, and a `<name>-<version>.data/data/` tree that PEP 427 routes to
+# the install prefix.
+genrule(
+    name = "wheel",
+    srcs = [
+        "datapkg/__init__.py",
+        "METADATA",
+        "data/share/sharedata/hello.txt",
+        "data/etc/sharedata/config.json",
+        "data/toplevel.txt",
+    ],
+    outs = ["sharedata-1.0-py3-none-any.whl"],
+    cmd = " ".join([
+        "$(execpath @bazel_tools//tools/zip:zipper) c $@",
+        "datapkg/__init__.py=$(execpath datapkg/__init__.py)",
+        "sharedata-1.0.dist-info/METADATA=$(execpath METADATA)",
+        "sharedata-1.0.data/data/share/sharedata/hello.txt=$(execpath data/share/sharedata/hello.txt)",
+        # `etc/` is a second prefix root; `toplevel.txt` sits directly at the
+        # prefix, the zero-separator case for the symlink escape arithmetic.
+        "sharedata-1.0.data/data/etc/sharedata/config.json=$(execpath data/etc/sharedata/config.json)",
+        "sharedata-1.0.data/data/toplevel.txt=$(execpath data/toplevel.txt)",
+    ]),
+    tools = ["@bazel_tools//tools/zip:zipper"],
+)
+
+py_unpacked_wheel(
+    name = "sharedata",
+    src = ":sharedata-1.0-py3-none-any.whl",
+    # The wheel's `.data/data/` tree; venv assembly projects these into the
+    # prefix. uv's whl_install derives this from RECORD; a hand-built
+    # py_unpacked_wheel declares it.
+    data_files = [
+        "share/sharedata/hello.txt",
+        "etc/sharedata/config.json",
+        "toplevel.txt",
+    ],
+    top_levels = [
+        "datapkg",
+        "sharedata-1.0.dist-info",
+    ],
+)
+
+py_test(
+    name = "share_data_test",
+    srcs = ["share_data_test.py"],
+    main = "share_data_test.py",
+    deps = [":sharedata"],
+)
+
+# The same wheel through py_pex_binary. pex packages a wheel install tree as a
+# `--dependency`, which covers only its site-packages, so the data files have to
+# ship as sources or they are dropped from the PEX entirely.
+py_binary(
+    name = "pex_data_bin",
+    testonly = True,
+    srcs = ["pex_data_test.py"],
+    main = "pex_data_test.py",
+    deps = [
+        ":sharedata",
+        "@pypi//bazel_runfiles",
+    ],
+)
+
+py_pex_binary(
+    name = "pex_data",
+    testonly = True,
+    binary = ":pex_data_bin",
+    python_interpreter_constraints = [],
+)
+
+# PEX_ROOT is set to avoid warning on default user PEX_ROOT not being writable
+genrule(
+    name = "run_pex_data",
+    testonly = True,
+    outs = ["pex_data.out"],
+    cmd = "PEX_ROOT=.pex $(execpath pex_data) >$@",
+    tools = ["pex_data"],
+)
+
+assert_contains(
+    name = "pex_data_test",
+    actual = "pex_data.out",
+    expected = "PEX_DATA_FILES=template-data,etc-config,prefix-root",
+)
+
+# Collision fixture: two wheels each ship a distinct data file plus one file
+# at the SAME prefix path (`share/collide/common.txt`). Per-file projection
+# must union the disjoint files and resolve the shared path to a single wheel.
+[
+    genrule(
+        name = "collidewheel_" + arm,
+        srcs = [
+            "collide/{}/pkg_{}/__init__.py".format(arm, arm),
+            "collide/{}/METADATA".format(arm),
+            "collide/{}/common.txt".format(arm),
+            "collide/{}/only_{}.txt".format(arm, arm),
+        ],
+        outs = ["collidedata_{}-1.0-py3-none-any.whl".format(arm)],
+        cmd = " ".join([
+            "$(execpath @bazel_tools//tools/zip:zipper) c $@",
+            "pkg_{a}/__init__.py=$(execpath collide/{a}/pkg_{a}/__init__.py)".format(a = arm),
+            "collidedata_{a}-1.0.dist-info/METADATA=$(execpath collide/{a}/METADATA)".format(a = arm),
+            "collidedata_{a}-1.0.data/data/share/collide/common.txt=$(execpath collide/{a}/common.txt)".format(a = arm),
+            "collidedata_{a}-1.0.data/data/share/{a}/only_{a}.txt=$(execpath collide/{a}/only_{a}.txt)".format(a = arm),
+        ]),
+        tools = ["@bazel_tools//tools/zip:zipper"],
+    )
+    for arm in [
+        "a",
+        "b",
+    ]
+]
+
+[
+    py_unpacked_wheel(
+        name = "collidedata_" + arm,
+        src = ":collidedata_{}-1.0-py3-none-any.whl".format(arm),
+        data_files = [
+            "share/collide/common.txt",
+            "share/{a}/only_{a}.txt".format(a = arm),
+        ],
+        top_levels = [
+            "pkg_" + arm,
+            "collidedata_{}-1.0.dist-info".format(arm),
+        ],
+    )
+    for arm in [
+        "a",
+        "b",
+    ]
+]
+
+py_test(
+    name = "data_collision_test",
+    srcs = ["data_collision_test.py"],
+    main = "data_collision_test.py",
+    # Both wheels claim `share/collide/common.txt`; downgrade so assembly
+    # resolves it (last distinct wins) instead of failing.
+    package_collisions = "warning",
+    deps = [
+        ":collidedata_a",
+        ":collidedata_b",
+    ],
+)
+
+# Reserved-path fixture: PEP 427 allows a data file anywhere under the
+# prefix, including paths venv assembly declares itself. Each of these is a
+# second declaration of an existing output — an action conflict that no
+# `package_collisions` policy can downgrade — so they must be resolved during
+# collision planning instead.
+genrule(
+    name = "reservedwheel",
+    srcs = [
+        "reserved/respkg/__init__.py",
+        "reserved/METADATA",
+        "reserved/hijack.txt",
+        "reserved/kept.txt",
+    ],
+    outs = ["reserveddata-1.0-py3-none-any.whl"],
+    cmd = " ".join([
+        "$(execpath @bazel_tools//tools/zip:zipper) c $@",
+        "respkg/__init__.py=$(execpath reserved/respkg/__init__.py)",
+        "reserveddata-1.0.dist-info/METADATA=$(execpath reserved/METADATA)",
+        "reserveddata-1.0.data/data/bin/python=$(execpath reserved/hijack.txt)",
+        "reserveddata-1.0.data/data/pyvenv.cfg=$(execpath reserved/hijack.txt)",
+        # `bin/reserved-cli` is this wheel's own console script: a cross-kind
+        # claim on the same path.
+        "reserveddata-1.0.data/data/bin/reserved-cli=$(execpath reserved/hijack.txt)",
+        # Anything under the venv's site-packages is owned by wheel projection.
+        "reserveddata-1.0.data/data/lib/python3.12/site-packages/injected.py=$(execpath reserved/hijack.txt)",
+        # `lib/` is venv-owned wholesale: PEP 427 routes shared libraries to
+        # `platlib` and headers to `.data/headers/`.
+        "reserveddata-1.0.data/data/lib/libextra.so=$(execpath reserved/hijack.txt)",
+        "reserveddata-1.0.data/data/share/reserveddata/kept.txt=$(execpath reserved/kept.txt)",
+    ]),
+    tools = ["@bazel_tools//tools/zip:zipper"],
+)
+
+py_unpacked_wheel(
+    name = "reserveddata",
+    src = ":reserveddata-1.0-py3-none-any.whl",
+    console_scripts = ["reserved-cli=respkg:main"],
+    data_files = [
+        "bin/python",
+        "pyvenv.cfg",
+        "bin/reserved-cli",
+        "lib/python3.12/site-packages/injected.py",
+        "lib/libextra.so",
+        "share/reserveddata/kept.txt",
+    ],
+    top_levels = [
+        "respkg",
+        "reserveddata-1.0.dist-info",
+    ],
+)
+
+py_test(
+    name = "reserved_paths_test",
+    srcs = ["reserved_paths_test.py"],
+    main = "reserved_paths_test.py",
+    # Every reserved claim is reported as a collision; downgrade so assembly
+    # drops them instead of failing.
+    package_collisions = "warning",
+    # Pins the site-packages dir name the fixture's data path targets.
+    python_version = "3.12",
+    deps = [":reserveddata"],
+)
+
+# The reserved-path fixture through py_pex_binary. Data files are forwarded as
+# pex `--source` entries to escape the wheel-tree exclusion, which must not
+# readmit the prefix roots venv assembly reserves.
+py_binary(
+    name = "pex_reserved_bin",
+    testonly = True,
+    srcs = ["pex_reserved_test.py"],
+    main = "pex_reserved_test.py",
+    package_collisions = "warning",
+    deps = [
+        ":reserveddata",
+        "@pypi//bazel_runfiles",
+    ],
+)
+
+py_pex_binary(
+    name = "pex_reserved",
+    testonly = True,
+    binary = ":pex_reserved_bin",
+    python_interpreter_constraints = [],
+)
+
+# PEX_ROOT is set to avoid warning on default user PEX_ROOT not being writable
+genrule(
+    name = "run_pex_reserved",
+    testonly = True,
+    outs = ["pex_reserved.out"],
+    cmd = "PEX_ROOT=.pex $(execpath pex_reserved) >$@",
+    tools = ["pex_reserved"],
+)
+
+assert_contains(
+    name = "pex_reserved_test",
+    actual = "pex_reserved.out",
+    expected = "PEX_RESERVED=dropped-5,kept-1",
+)

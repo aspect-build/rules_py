@@ -26,7 +26,6 @@ assert cowsay_distribution.files is not None
 recorded = {str(path) for path in cowsay_distribution.files}
 assert "cowsay/main.py" in recorded
 assert "cowsay/retained.py" in recorded
-assert "../../../share/cowsay/retained.txt" in recorded
 assert not any(path.endswith(".pyc") for path in recorded)
 assert not any(path.endswith("LICENSE.txt") or "/tests/" in path or "/sdk-core/" in path for path in recorded)
 

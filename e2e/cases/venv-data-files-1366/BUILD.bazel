@@ -1,0 +1,35 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("//tools:pth_snapshot.bzl", "extract_venv_data_tree")
+
+# Regression for https://github.com/aspect-build/rules_py/issues/1366.
+#
+# jupyterlab-widgets and widgetsnbextension both ship data files under the
+# PEP 427 `.data/data/` scheme into `share/jupyter/...`. Those must land at
+# `sys.prefix/share/...`, where jupyter_core (and thus nbconvert, Jupyter,
+# ...) discovers them, matching pip / rules_python.
+#
+# The two wheels collide under the shared prefix directory `share/jupyter/`:
+# the venv must merge both contributions rather than bind `share/jupyter` to a
+# single wheel, so the case also exercises the data-file collision/merge path.
+py_test(
+    name = "test",
+    srcs = ["test.py"],
+    dep_group = "venv-data-files-1366",
+    # Expose the venv as a sibling target so its tree can be snapshotted.
+    expose_venv = True,
+    main = "test.py",
+    python_version = "3.11",
+    deps = [
+        "@pypi_venv_data_files_1366//jupyterlab_widgets",
+        "@pypi_venv_data_files_1366//widgetsnbextension",
+    ],
+)
+
+# Snapshot the prefix data projection: which roots the two wheels' `.data/data/`
+# files materialise under `sys.prefix`, and the shape below them. The two wheels
+# share `share/jupyter/`, so the venv descends through it and binds each wheel's
+# subtree as one symlink instead of one per installed file.
+extract_venv_data_tree(
+    name = "test.venv.data",
+    venv = ":test.venv",
+)

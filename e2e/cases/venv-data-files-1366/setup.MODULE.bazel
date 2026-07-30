@@ -1,0 +1,20 @@
+"""Regression for https://github.com/aspect-build/rules_py/issues/1366:
+wheel `.data/data/share/...` files must be discoverable via sys.prefix.
+"""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_venv_data_files_1366")
+uv.project(
+    hub_name = "pypi_venv_data_files_1366",
+    lock = "//venv-data-files-1366:uv.lock",
+    pyproject = "//venv-data-files-1366:pyproject.toml",
+)
+use_repo(
+    uv,
+    "pypi_venv_data_files_1366",
+    # Concrete per-wheel dist repos, snapshotted so the `data_files` the
+    # whl_dist extractor derives from RECORD's `.data/data/` entries is pinned
+    # (see e2e/cases/BUILD.bazel snapshots).
+    "whl__jupyterlab_widgets__45fa36d9c6422cf2",
+    "whl__widgetsnbextension__8156704e4346a571",
+)

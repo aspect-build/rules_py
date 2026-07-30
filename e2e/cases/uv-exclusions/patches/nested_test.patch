@@ -8,10 +8,6 @@
 @@ -0,0 +1 @@
 +PATCH_SENTINEL = "retained patched module"
 --- /dev/null
-+++ b/share/cowsay/retained.txt
-@@ -0,0 +1 @@
-+retained patched data
---- /dev/null
 +++ b/lib/python3.11/site-packages/cowsay/nested/tests/test_nested.py
 @@ -0,0 +1 @@
 +raise AssertionError("nested test module should have been filtered")
