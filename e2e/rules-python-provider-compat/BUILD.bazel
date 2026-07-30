@@ -1,0 +1,52 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library", rules_py_test = "py_test")
+load("@rules_python//python:py_test.bzl", rules_python_test = "py_test")
+
+# One converted library, two consumers: the @rules_python test stands in
+# for a package the migration hasn't reached yet, the rules_py test for one it
+# has. Under the compatibility layer the library carries both rulesets'
+# providers, so neither consumer has to move before the other.
+
+py_library(
+    name = "lib",
+    testonly = True,
+    srcs = ["lib.py"],
+    imports = ["."],
+)
+
+rules_python_test(
+    name = "rules_python_consumer_test",
+    srcs = ["consumer_test.py"],
+    main = "consumer_test.py",
+    deps = [":lib"],
+)
+
+rules_py_test(
+    name = "rules_py_consumer_test",
+    srcs = ["consumer_test.py"],
+    main = "consumer_test.py",
+    deps = [":lib"],
+)
+
+# A transitive edge: the @rules_python consumer sees sources and imports from a
+# rules_py library it depends on only indirectly.
+py_library(
+    name = "leaf",
+    testonly = True,
+    srcs = ["leaf.py"],
+    imports = ["."],
+)
+
+py_library(
+    name = "middle",
+    testonly = True,
+    srcs = ["middle.py"],
+    imports = ["."],
+    deps = [":leaf"],
+)
+
+rules_python_test(
+    name = "rules_python_transitive_consumer_test",
+    srcs = ["transitive_consumer_test.py"],
+    main = "transitive_consumer_test.py",
+    deps = [":middle"],
+)

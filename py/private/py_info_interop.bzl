@@ -9,8 +9,15 @@ and `imports`, which is everything rules_py reads from a foreign dep.
 This module is the single place that knows about both providers. Rule code
 calls these accessors at the API edge instead of loading `@rules_python`'s
 provider directly, so a field read added for one provider cannot silently miss
-the other. rules_py never *emits* `@rules_python`'s provider — the reverse
-direction (a `@rules_python` rule consuming a rules_py target) is not supported.
+the other.
+
+The reverse direction (a `@rules_python` rule consuming a rules_py target) is
+not part of the steady-state design. It exists only as a migration
+compatibility layer: under
+`--@aspect_rules_py//py:emit_rules_python_providers`, `py_library`
+additionally emits the `@rules_python` providers a `py_*` target from that
+ruleset demands, so a half-converted tree keeps building. A fully migrated tree leaves
+the flag off. See py_library.bzl.
 """
 
 load("@rules_python//python:defs.bzl", _RulesPythonPyInfo = "PyInfo")

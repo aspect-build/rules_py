@@ -29,6 +29,22 @@ bazel run //path/to/package:target.venv_link
 See [IDE Integration](/README.md#ide-integration) for target declarations and
 editor configuration.
 
+## rules_python provider compatibility layer
+
+Mid-migration, a `@rules_python` target depending on an already-converted
+rules_py library fails analysis with `does not have mandatory providers:
+'PyInfo'`. To keep it building:
+
+```
+# .bazelrc
+common --@aspect_rules_py//py:emit_rules_python_providers
+```
+
+`py_library` then also emits the rules_python providers. Temporary scaffolding:
+only `py_library` participates, [virtual deps](/docs/virtual_deps.md) are not
+expressible in those providers (resolve them concretely in `deps`), and the
+flag belongs in `.bazelrc` only until the last rules_python target is gone.
+
 ## Remaining notes
 
 Users are encouraged to send a Pull Request to add more documentation as they uncover issues during migrations.

@@ -81,6 +81,7 @@ jobs:
                 - { path: "e2e/interpreter-input-validation", slug: "e2e-interpreter-input-validation", runner: "ubuntu-latest" }
                 - { path: "e2e/interpreter-build-config", slug: "e2e-interpreter-build-config", runner: "ubuntu-latest" }
                 - { path: "e2e/rules-python-interop", slug: "e2e-rules-python-interop", runner: "ubuntu-latest" }
+                - { path: "e2e/rules-python-provider-compat", slug: "e2e-rules-python-provider-compat", runner: "ubuntu-latest" }
                 - { path: "e2e/rules-proto-grpc-python", slug: "e2e-rules-proto-grpc-python", runner: "ubuntu-22.04-32core" }
                 - { path: "examples/debugger", slug: "examples-debugger", runner: "ubuntu-latest" }
                 - { path: "examples/dev_deps", slug: "examples-dev_deps", runner: "ubuntu-latest" }

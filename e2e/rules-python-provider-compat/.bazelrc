@@ -1,0 +1,6 @@
+# The whole point of this workspace: a half-migrated tree turns on the
+# rules_python provider compatibility layer so its not-yet-converted
+# rules_python py_* targets can still depend on already-converted rules_py
+# libraries.
+# test.sh asserts the same build fails without it.
+common --@aspect_rules_py//py:emit_rules_python_providers

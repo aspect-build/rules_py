@@ -1,9 +1,16 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 load("//py:defs.bzl", _py_binary_rule = "py_binary", _py_test_rule = "py_test")
 load(":py_image_layer.bzl", "py_layer_tier")
 load(":py_library.bzl", "py_library")
 
 package(default_visibility = ["//py:__subpackages__"])
+
+# Set through the //py:emit_rules_python_providers alias; see py_library.bzl.
+bool_flag(
+    name = "emit_rules_python_providers",
+    build_setting_default = False,
+)
 
 exports_files(
     [
@@ -86,6 +93,7 @@ bzl_library(
         ":transitions",
         "@bazel_skylib//lib:new_sets",
         "@bazel_skylib//lib:types",
+        "@bazel_skylib//rules:common_settings",
     ],
 )
 
