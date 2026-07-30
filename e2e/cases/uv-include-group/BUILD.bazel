@@ -75,3 +75,40 @@ extract_venv_pth(
     name = "wheel_root_pth_test.venv.pth",
     venv = ":wheel_root_pth_test.venv",
 )
+
+# Four unknown-layout wheels, so the venv emits four `site.addsitedir` lines
+# against the one above — enough for the snapshot to show the reused
+# `known_paths` set, and for a plain path entry to land between two of them.
+MULTI_ADDSITEDIR_PKGS = [
+    "iniconfig",
+    "packaging",
+    "pluggy",
+    "pygments",
+]
+
+[
+    py_unpacked_wheel(
+        name = "{}_no_top_levels".format(pkg),
+        src = "@pypi_uv_include_group//{}:whl".format(pkg),
+    )
+    for pkg in MULTI_ADDSITEDIR_PKGS
+]
+
+py_test(
+    name = "multi_addsitedir_test",
+    srcs = ["multi_addsitedir_test.py"],
+    # These four are pytest's transitive deps, so they resolve in the `test`
+    # group; `dep_group` gates which hub wheels are compatible at all.
+    dep_group = "test",
+    expose_venv = True,
+    isolated = False,
+    main = "multi_addsitedir_test.py",
+    # Pin the interpreter so the snapshot's `lib/pythonX.Y` paths are stable.
+    python_version = "3.11",
+    deps = ["{}_no_top_levels".format(pkg) for pkg in MULTI_ADDSITEDIR_PKGS],
+)
+
+extract_venv_pth(
+    name = "multi_addsitedir_test.venv.pth",
+    venv = ":multi_addsitedir_test.venv",
+)
