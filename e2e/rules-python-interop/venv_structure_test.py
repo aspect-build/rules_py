@@ -27,7 +27,7 @@ def main() -> None:
     # the binary, so home stays empty even for a foreign runtime.
     assert cfg["home"] == "", cfg
     assert cfg["relocatable"] == "true", cfg
-    assert cfg["version_info"].startswith("3.12."), cfg
+    assert cfg["version_info"].startswith("3.11."), cfg
 
     # The interpreter link must be relative (runfiles-relocatable) and land
     # in the rules_python-provisioned repo.
@@ -37,7 +37,7 @@ def main() -> None:
     link = os.readlink(python)
     assert not os.path.isabs(link), link
     resolved = os.path.normpath(os.path.join(os.path.dirname(python), link))
-    assert "rules_python++python+python_3_12" in resolved, resolved
+    assert "rules_python++python+python_3_11" in resolved, resolved
     assert os.path.exists(resolved), resolved
 
     # The symlinked interpreter must boot with the venv as its prefix.
@@ -49,7 +49,7 @@ def main() -> None:
     )
     prefix, version = probe.stdout.splitlines()
     assert prefix.endswith(".venv"), probe.stdout
-    assert version == "(3, 12)", probe.stdout
+    assert version == "(3, 11)", probe.stdout
 
     print("OK")
 

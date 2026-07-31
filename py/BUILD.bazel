@@ -35,6 +35,14 @@ alias(
     visibility = ["//visibility:public"],
 )
 
+# Rules that resolve the C toolchain themselves, rather than depending on the
+# current_py_cc_* aliases above.
+alias(
+    name = "py_cc_toolchain_type",
+    actual = "@rules_python//python/cc:toolchain_type",
+    visibility = ["//visibility:public"],
+)
+
 # Users can set --@aspect_rules_py//py:layer_tier=//path:custom_tier to switch
 # the pip-package grouping + compression plan consumed by py_image_layer.
 label_flag(

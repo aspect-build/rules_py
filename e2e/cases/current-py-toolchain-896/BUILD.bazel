@@ -1,5 +1,5 @@
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
-load(":report_version.bzl", "report_version")
+load(":report_version.bzl", "report_exec_version", "report_version")
 
 # Verify that $(PYTHON3) Make variable is provided by
 # @python_interpreters//:current_py_toolchain.
@@ -10,9 +10,11 @@ genrule(
     toolchains = ["@python_interpreters//:current_py_toolchain"],
 )
 
-# Prints the resolved runtime toolchain version; driven by test.sh under each
-# version flag.
+# Print the resolved runtime / exec-tools toolchain version; driven by test.sh
+# under each version.
 report_version(name = "report_version")
+
+report_exec_version(name = "report_exec_version")
 
 sh_test(
     name = "test",

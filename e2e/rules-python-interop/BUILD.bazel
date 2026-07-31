@@ -1,30 +1,40 @@
-load("@aspect_rules_py//py:defs.bzl", "current_py_toolchain", "py_venv", rules_py_test = "py_test")
+load("@aspect_rules_py//py:defs.bzl", "current_py_toolchain", "py_binary", "py_library", "py_venv", "py_wheel", "whl_filegroup", rules_py_test = "py_test")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
 load("@rules_python//python:py_test.bzl", rules_python_test = "py_test")
+load("@rules_python//python/entry_points:py_console_script_binary.bzl", "py_console_script_binary")
+load("@rules_python//python/zipapp:py_zipapp_binary.bzl", "py_zipapp_binary")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load(":exec_tools_facts.bzl", "exec_tools_facts", "with_python_version")
+load(":report_toolchain_version.bzl", "report_exec_version", "report_version")
 
-# The only interpreter in this module comes from rules_python (see
-# MODULE.bazel); each test asserts the resolved binary's repo path.
+# Both rulesets provision interpreters here, split by version so neither
+# shadows the other (see MODULE.bazel): 3.11 is rules_python's, everything else
+# including the unpinned default is rules_py's. Each test asserts the resolved
+# binary's repo path.
 
-# Default toolchain resolution: no python_version set.
+# Default toolchain resolution: no python_version set, so this lands on
+# rules_py's 3.12 even though 3.12 is rules_python's default version.
 rules_py_test(
     name = "rules_py_default_test",
-    srcs = ["shared_interpreter_test.py"],
-    main = "shared_interpreter_test.py",
+    srcs = ["default_interpreter_test.py"],
+    main = "default_interpreter_test.py",
 )
 
 # Versioned resolution: the python_version transition also sets the
-# rules_python version flag, selecting rules_python's 3.12 toolchain.
+# rules_python version flag, selecting rules_python's 3.11 toolchain.
 rules_py_test(
     name = "rules_py_versioned_test",
     srcs = ["shared_interpreter_test.py"],
     main = "shared_interpreter_test.py",
-    python_version = "3.12",
+    python_version = "3.11",
 )
 
 rules_python_test(
     name = "rules_python_test",
     srcs = ["shared_interpreter_test.py"],
     main = "shared_interpreter_test.py",
+    python_version = "3.11",
 )
 
 # Build-time identity check: each ruleset's current_py_toolchain expands
@@ -55,12 +65,34 @@ diff_test(
     file2 = ":rules_python_interpreter_path",
 )
 
+# The same check in rules_python's lane, where the shared artifact is the
+# foreign runtime.
+[
+    with_python_version(
+        name = name + "_311",
+        python_version = "3.11",
+        deps = [":" + name],
+    )
+    for name in [
+        "rules_py_interpreter_path",
+        "rules_python_interpreter_path",
+    ]
+]
+
+diff_test(
+    name = "same_interpreter_location_311_test",
+    file1 = ":rules_py_interpreter_path_311",
+    file2 = ":rules_python_interpreter_path_311",
+)
+
 # A standalone venv laid out over the foreign runtime. Consumed as data so
 # the assertions pin the built tree's shape, not just launcher behavior.
+# Pinned here rather than on the test because data edges reset the flags.
 py_venv(
     name = "venv",
     testonly = True,
     srcs = ["shared_interpreter_test.py"],
+    python_version = "3.11",
 )
 
 rules_py_test(
@@ -77,17 +109,132 @@ rules_py_test(
     name = "pip_deps_test",
     srcs = ["pip_deps_test.py"],
     main = "pip_deps_test.py",
+    python_version = "3.11",
     deps = ["@pip//six"],
 )
 
-# Deps from a rules_py uv hub: whl_install's exec-tools requirement must be
-# satisfiable with only rules_python-provisioned target interpreters, via
-# the exec-tools fallback of the PBS hub bundled in rules_py's own MODULE.
+# Deps from a rules_py uv hub on the foreign runtime: whl_install's exec-tools
+# requirement must be satisfiable when no hub toolchain matches the target
+# version at all, via the hub's version-agnostic exec-tools fallback.
 rules_py_test(
     name = "uv_deps_test",
     srcs = ["uv_deps_test.py"],
     dep_group = "py-binary-example",
     main = "uv_deps_test.py",
-    python_version = "3.12",
+    python_version = "3.11",
     deps = ["@rpy_pypi//cowsay"],
+)
+
+################################################################################
+# rules_python's consumer rules on rules_py-provisioned interpreters.
+#
+# rules_python reaches those interpreters only through toolchain types, never
+# through labels inside the generated repos — so the repos' internal target
+# names are private wiring. Pin that by running rules_python's own consumer
+# code against rules_py-backed toolchains.
+################################################################################
+
+# rules_python's current_py_toolchain field-reads the resolved standard
+# toolchain payload to expand $(PYTHON3). Pinned to 3.13 via the wrapper below
+# (data edges reset the flags), it resolves the rules_py-provisioned interpreter.
+genrule(
+    name = "python3_var",
+    outs = ["python3_var.txt"],
+    cmd = "echo '$(PYTHON3)' > $@",
+    toolchains = ["@rules_python//python:current_py_toolchain"],
+)
+
+with_python_version(
+    name = "python3_var_313",
+    python_version = "3.13",
+    deps = [":python3_var"],
+)
+
+exec_tools_facts(
+    name = "exec_tools_facts",
+)
+
+# Print the resolved exec-tools / runtime toolchain's version and provisioning
+# repo. Neither resolves through a py_* version transition, so what they report
+# reflects the version flag only if that flag is authoritative in the hub;
+# test.sh drives them under both flags.
+report_exec_version(name = "report_exec_version")
+
+report_version(name = "report_version")
+
+# Deliberately no python_version attr: the version is inherited from whichever
+# version flag the caller sets, all the way through to a running interpreter.
+py_binary(
+    name = "version_check",
+    srcs = ["version_check.py"],
+    main = "version_check.py",
+)
+
+genrule(
+    name = "python_launcher",
+    outs = ["python_launcher.txt"],
+    cmd = "$(location @aspect_rules_py//py:python) -c 'import sys; print(\"{}.{}\".format(*sys.version_info))' > $@",
+    tools = ["@aspect_rules_py//py:python"],
+)
+
+py_library(
+    name = "wheel_lib",
+    srcs = ["consumers_test.py"],
+)
+
+py_wheel(
+    name = "compat_wheel",
+    distribution = "compat_wheel",
+    python_tag = "py3",
+    version = "0.0.1",
+    deps = [":wheel_lib"],
+)
+
+whl_filegroup(
+    name = "compat_wheel_files",
+    runfiles = True,
+    whl = ":compat_wheel",
+)
+
+rules_py_test(
+    name = "consumers_test",
+    srcs = ["consumers_test.py"],
+    data = [
+        ":compat_wheel_files",
+        ":exec_tools_facts",
+        ":python3_var_313",
+        ":python_launcher",
+    ],
+)
+
+# rules_python's console-script machinery reads the pip hub's dist-info to
+# generate a py_binary; unpinned, that binary lands on a rules_py-provisioned
+# toolchain. Its hub is parsed for 3.12 alone, so which wheel backs the script
+# is fixed by construction rather than by the version flag.
+py_console_script_binary(
+    name = "pycowsay",
+    pkg = "@console_script_pip//pycowsay",
+)
+
+sh_test(
+    name = "console_script_test",
+    srcs = ["console_script_test.sh"],
+    args = ["$(rootpath :pycowsay)"],
+    data = [":pycowsay"],
+)
+
+# rules_python's py_zipapp_binary requires and indexes rules_python's
+# PyRuntimeInfo on the wrapped binary, which forwards the runtime it resolved
+# from the rules_py-provisioned toolchain — pinning that toolchains carry
+# rules_python's provider by identity, not a structurally compatible one.
+# Only PyRuntimeInfo is under test here: the binary's dependency graph is
+# pip-hub-internal, so no PyInfo crosses the ruleset boundary.
+py_zipapp_binary(
+    name = "pycowsay_zipapp",
+    binary = ":pycowsay",
+)
+
+build_test(
+    name = "zipapp_test",
+    targets = [":pycowsay_zipapp"],
 )

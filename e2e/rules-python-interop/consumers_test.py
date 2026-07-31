@@ -10,7 +10,6 @@ def read(rel: str) -> str:
     path = os.path.join(
         os.environ["TEST_SRCDIR"],
         os.environ["TEST_WORKSPACE"],
-        "rules-python-consumers",
         rel,
     )
     with open(path) as f:
@@ -26,12 +25,11 @@ assert "python_interpreters+python_3_13" in python3, python3
 facts = read("exec_tools_facts.txt").splitlines()
 assert "python_interpreters+" in facts[0], facts
 
-assert read("python_launcher.txt") == "3.11"
+assert read("python_launcher.txt") == "3.12"
 
 wheel_root = os.path.join(
     os.environ["TEST_SRCDIR"],
     os.environ["TEST_WORKSPACE"],
-    "rules-python-consumers",
     "compat_wheel_files",
 )
 assert any(

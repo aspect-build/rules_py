@@ -26,7 +26,10 @@ check_toolchain() {
         -- "$@"
 }
 
-check_toolchain 3.13 false linux_x86_64 //pbs-cc-toolchain:regular_313
+check_toolchain 3.13 false linux_x86_64 \
+    //pbs-cc-toolchain:regular_313 \
+    //pbs-cc-toolchain:embed_python \
+    //pbs-cc-toolchain:embed_python_abi3
 check_toolchain 3.13 true linux_x86_64 //pbs-cc-toolchain:freethreaded_313
 check_toolchain 3.13 false windows_x86_64 //pbs-cc-toolchain:windows_regular_313
 check_toolchain 3.13 true windows_x86_64 //pbs-cc-toolchain:windows_freethreaded_313

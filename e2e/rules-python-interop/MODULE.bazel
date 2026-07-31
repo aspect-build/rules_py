@@ -1,8 +1,9 @@
-"""Interop: rules_py rules share the interpreter provisioned by rules_python.
+"""Interop: rules_py and rules_python rules share one interpreter, either way round.
 
-This module deliberately provisions its only interpreter through rules_python's
-`python.toolchain()` — no `python_interpreters` — so rules_py and rules_python
-targets must both resolve, and run on, that single runtime.
+Both rulesets provision interpreters, split by version so neither shadows the
+other: 3.11 is rules_python's lane (no `python_interpreters` toolchain declares
+it), and every other version — including the unpinned default — is rules_py's,
+whose hub this root module registers ahead of rules_python's own.
 """
 
 module(name = "rules_python_interop")
@@ -10,6 +11,7 @@ module(name = "rules_python_interop")
 bazel_dep(name = "aspect_rules_py")
 bazel_dep(name = "bazel_skylib", version = "1.4.2")
 bazel_dep(name = "rules_python", version = "1.9.0")
+bazel_dep(name = "rules_shell", version = "0.4.1")
 
 local_path_override(
     module_name = "aspect_rules_py",
@@ -17,20 +19,60 @@ local_path_override(
 )
 
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
-python.toolchain(python_version = "3.12")
+python.toolchain(
+    is_default = True,
+    python_version = "3.12",
+)
+python.toolchain(python_version = "3.11")
 
-# Third-party deps also come from rules_python (pip hub, not uv).
+# Third-party deps also come from rules_python (pip hub, not uv). A hub's
+# package aliases select on rules_python's version flag, so each hub is parsed
+# for the single lane its consumers are analyzed in.
 pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
 pip.parse(
     hub_name = "pip",
-    python_version = "3.12",
+    python_version = "3.11",
     requirements_lock = "//:requirements.txt",
 )
-use_repo(pip, "pip")
+pip.parse(
+    hub_name = "console_script_pip",
+    python_version = "3.12",
+    requirements_lock = "//:console_script_requirements.txt",
+)
+use_repo(pip, "console_script_pip", "pip")
 
-# A rules_py uv hub: whl_install must find an exec-tools runtime even though
-# only rules_python provisions target interpreters here — rules_py's own
-# MODULE bundles a PBS interpreter hub whose exec-tools fallback serves it.
+# rules_py's own interpreters, spanning every version outside rules_python's
+# lane. The 3.9-3.13 span (minus 3.11) backs the exec-tools sweep in test.sh.
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+interpreters.configure(
+    releases = [
+        "20260303",
+        "20251031",
+        "20241002",
+    ],
+)
+interpreters.toolchain(
+    python_version = "3.9",
+)
+interpreters.toolchain(
+    python_version = "3.10",
+)
+interpreters.toolchain(
+    python_version = "3.12",
+)
+interpreters.toolchain(
+    python_version = "3.13",
+)
+use_repo(interpreters, "python_interpreters")
+
+# Resolution takes the first registered match and the root module's
+# registrations come before any dependency's, so at 3.12 — the one version both
+# rulesets declare — rules_py's toolchain wins over rules_python's.
+register_toolchains("@python_interpreters//:all")
+
+# A rules_py uv hub: whl_install must find an exec-tools runtime even when the
+# target interpreter is rules_python's (3.11, outside every hub version) — the
+# hub's version-agnostic exec-tools fallback serves it.
 uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "rpy_pypi")
 uv.project(
