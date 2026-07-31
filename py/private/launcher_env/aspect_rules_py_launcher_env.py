@@ -5,7 +5,10 @@ Both pytest_main.py and unittest_main.py import this before anything else
 resolves the environment they set up, so the two drivers cannot drift apart.
 """
 
+import atexit
+import hashlib
 import os
+import stat
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
@@ -15,6 +18,70 @@ if TYPE_CHECKING:
 # coveragepy resolves manifest entries through symlinks; Bazel wants the
 # original spelling back in the LCOV (coveragepy#963).
 _absfile_mapping: Dict[str, str] = {}
+
+
+def _alias_dir() -> Optional[str]:
+    """A short directory to hold temp dir aliases, or None if this host won't
+    give us one only we can write to.
+
+    Traversable by others (0711) so a test that drops privileges can still
+    reach its own TMPDIR; planting an alias needs write, which they lack.
+    """
+    path = "/tmp/rpy-%d" % os.getuid()
+    try:
+        os.mkdir(path, 0o711)
+        return path
+    except FileExistsError:
+        pass
+    except OSError:
+        return None
+    # Only reuse an existing entry nobody else can write to; otherwise the
+    # aliases inside it are attacker-controlled.
+    try:
+        st = os.lstat(path)
+    except OSError:
+        return None
+    if not stat.S_ISDIR(st.st_mode) or st.st_uid != os.getuid():
+        return None
+    return path if not stat.S_IMODE(st.st_mode) & 0o022 else None
+
+
+def _unlink_alias(path: str, owner_pid: int) -> None:
+    # A fork inherits atexit callbacks, so a child exiting normally would take
+    # away the TMPDIR its parent is still using.
+    if os.getpid() != owner_pid:
+        return
+    try:
+        os.unlink(path)
+    except OSError:
+        pass
+
+
+def _short_tmpdir(real: str) -> str:
+    """A short alias for `real`, or `real` itself if none can be made."""
+    if os.name != "posix":
+        return real
+    directory = _alias_dir()
+    if directory is None:
+        return real
+    # Named for the target, not the invocation: a run killed before its exit
+    # hook leaves one entry, which its next run reuses instead of adding another.
+    # fsencode, not encode: a path holding non-UTF-8 bytes reaches us as
+    # surrogate escapes, which UTF-8 refuses to encode.
+    link = os.path.join(directory, hashlib.sha256(os.fsencode(real)).hexdigest()[:16])
+    try:
+        os.symlink(real, link)
+    except FileExistsError:
+        # Left by another run of this target; reuse without taking ownership.
+        # A still-live creator exiting first takes the alias with it.
+        try:
+            return link if os.readlink(link) == real else real
+        except OSError:
+            return real
+    except OSError:
+        return real
+    atexit.register(_unlink_alias, link, os.getpid())
+    return link
 
 
 def set_test_tmpdir() -> None:
@@ -29,11 +96,19 @@ def set_test_tmpdir() -> None:
     `noexec` — a test that writes an executable helper into pytest's `tmp_path`
     and runs it gets EACCES. TMP/TEMP are set too so `tempfile` resolves
     consistently on Windows.
+
+    TEST_TMPDIR is itself too deep to hold an AF_UNIX socket, whose address is
+    capped at 104 bytes of sun_path (issues/1387) — `multiprocessing`'s spawn
+    Manager binds one and dies with "AF_UNIX path too long". bind() measures the
+    string it is handed, not the resolved path, so TMPDIR gets a short symlink
+    and the files still land in TEST_TMPDIR.
     """
     if "TEST_TMPDIR" not in os.environ:
         return
+
+    tmpdir = _short_tmpdir(os.path.abspath(os.environ["TEST_TMPDIR"]))
     for var in ("TMPDIR", "TMP", "TEMP"):
-        os.environ[var] = os.environ["TEST_TMPDIR"]
+        os.environ[var] = tmpdir
 
 
 def shard_info() -> Optional[Tuple[int, int]]:

@@ -1,0 +1,32 @@
+load("//py:defs.bzl", "py_library", "py_pytest_test", "py_test", "py_unittest_test")
+
+package(default_testonly = True)
+
+py_library(
+    name = "af_unix_probe",
+    srcs = ["af_unix_probe.py"],
+    imports = ["."],
+    deps = ["//py/private/launcher_env"],
+)
+
+py_pytest_test(
+    name = "pytest_af_unix_test",
+    srcs = ["pytest_af_unix_test.py"],
+    deps = [
+        ":af_unix_probe",
+        "@pypi//pytest",
+    ],
+)
+
+py_unittest_test(
+    name = "unittest_af_unix_test",
+    srcs = ["unittest_af_unix_test.py"],
+    deps = [":af_unix_probe"],
+)
+
+py_test(
+    name = "raw_af_unix_test",
+    srcs = ["raw_af_unix_test.py"],
+    main = "raw_af_unix_test.py",
+    deps = [":af_unix_probe"],
+)
