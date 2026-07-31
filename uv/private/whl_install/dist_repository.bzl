@@ -13,23 +13,8 @@ on a macOS host never fetches the Linux/Windows/musl wheels of a package.
 
 load("@bazel_tools//tools/build_defs/repo:cache.bzl", "DEFAULT_CANONICAL_ID_ENV", "get_default_canonical_id")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "get_auth")
-load("//uv/private:parse_whl_name.bzl", "parse_whl_name")
 load("//uv/private/pprint:defs.bzl", "indent", "pprint")
 load(":metadata.bzl", "extract_install_metadata")
-
-def _metadata_directory(basename):
-    """The `<project>-<version>.dist-info` dir name, derived from the filename.
-
-    Every wheel encodes its project and version in the filename with the same
-    build-backend escaping the `.dist-info` dir uses, so no download is needed
-    to know which member to strip. URL-encoded `+` is literal in the archive
-    member; the build tag (absent from dist-info) is dropped by parse_whl_name.
-    """
-    whl_name = parse_whl_name(basename)
-    return "{}-{}.dist-info".format(
-        whl_name.project,
-        whl_name.version.replace("%2B", "+").replace("%2b", "+"),
-    )
 
 def _attr(name, values):
     """Render one `whl_dist` string_list attr, or nothing when empty."""
@@ -52,7 +37,7 @@ def _whl_dist_impl(rctx):
         auth = get_auth(rctx, urls),
     )
 
-    meta = extract_install_metadata(rctx, rctx.path(basename), _metadata_directory(basename))
+    meta = extract_install_metadata(rctx, rctx.path(basename), basename)
 
     rctx.file("BUILD.bazel", content = """load("@aspect_rules_py//uv/private/whl_install:rule.bzl", "whl_dist")
 

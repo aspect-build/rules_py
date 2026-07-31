@@ -1,0 +1,19 @@
+[project]
+name = "uv-dist-info-1394-no-binary"
+version = "0.1.0"
+description = "A mismatched wheel that is never fetched because the package builds from its sdist."
+requires-python = ">=3.11"
+dependencies = [
+    "inquirerpy==0.3.4",
+    # `build` drives PEP 517; poetry-core is the backend InquirerPy's sdist
+    # declares. Both are direct deps so they surface in the project repo as
+    # deps of the build_tool that compiles the sdist.
+    "build",
+    "poetry-core",
+]
+
+# The lock still records `InquirerPy-0.3.4-py3-none-any.whl`, but no-binary
+# drops the wheel list for the package, so `whl_dist` never reads its
+# `.dist-info` and the filename escaping never matters.
+[tool.uv]
+no-binary-package = ["inquirerpy"]

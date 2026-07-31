@@ -5,7 +5,7 @@ load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/tools/unpack:exclude_glob_test_vectors.bzl", "EXCLUDE_GLOB_VECTORS", "RECORD_PATH_EXCLUDE_VECTORS")
 load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
-load(":metadata.bzl", "data_scheme_segments", "data_segments_contained", "exclude_glob_matches", "native_roots_for_segments", "parse_console_script", "parse_exclude_glob", "parse_record", "parse_record_path", "record_path_excluded", "site_packages_segments")
+load(":metadata.bzl", "canonical_version", "data_directory_for", "data_scheme_segments", "data_segments_contained", "exclude_glob_matches", "metadata_directory_hint", "native_roots_for_segments", "parse_console_script", "parse_exclude_glob", "parse_record", "parse_record_path", "record_path_excluded", "site_packages_segments")
 load(":repository.bzl", "compatible_python_tags", "select_key", "sort_select_arms", "source_specificity")
 load(":rule.bzl", "pyc_compile_version_compatible", "source_built_wheel", "whl_dist", "whl_install")
 
@@ -350,6 +350,106 @@ def _console_script_test_impl(ctx):
     return unittest.end(env)
 
 console_script_test = unittest.make(_console_script_test_impl)
+
+def _metadata_directory_test_impl(ctx):
+    env = unittest.begin(ctx)
+
+    # An escaped filename pins the archive member, so it is stripped directly.
+    hint = metadata_directory_hint("charset_normalizer-3.4.7-py3-none-any.whl")
+    asserts.equals(env, "charset_normalizer-3.4.7.dist-info", hint.directory)
+    asserts.true(env, hint.authoritative)
+
+    # A `+` local version is URL-encoded in the filename but literal in the
+    # member, and the build tag never appears in the dist-info name.
+    hint = metadata_directory_hint("jaxlib-0.4.25%2Bcuda11.cudnn86-1-cp312-cp312-manylinux2014_x86_64.whl")
+    asserts.equals(env, "jaxlib-0.4.25+cuda11.cudnn86.dist-info", hint.directory)
+    asserts.true(env, hint.authoritative)
+
+    # #1394: an unescaped project name may or may not be mirrored by the
+    # `.dist-info` dir (InquirerPy ships `inquirerpy-0.3.4.dist-info`), so the
+    # filename is only a hint and the archive has the last word.
+    hint = metadata_directory_hint("InquirerPy-0.3.4-py3-none-any.whl")
+    asserts.equals(env, "InquirerPy-0.3.4.dist-info", hint.directory)
+    asserts.false(env, hint.authoritative)
+
+    # A dotted or repeated separator is likewise unescaped.
+    asserts.false(env, metadata_directory_hint("zope.interface-5.4.0-py3-none-any.whl").authoritative)
+    asserts.false(env, metadata_directory_hint("foo__bar-1.0-py3-none-any.whl").authoritative)
+
+    # A version the backend would rewrite leaves the member spelling in doubt
+    # too, whatever its case: only the PEP 440 canonical form survives into the
+    # `.dist-info` name.
+    asserts.false(env, metadata_directory_hint("demo-1.0.0RC1-py3-none-any.whl").authoritative)
+    asserts.false(env, metadata_directory_hint("demo-v1.0-py3-none-any.whl").authoritative)
+    asserts.false(env, metadata_directory_hint("demo-1.0c1-py3-none-any.whl").authoritative)
+    asserts.false(env, metadata_directory_hint("demo-1.0_rc1-py3-none-any.whl").authoritative)
+    asserts.false(env, metadata_directory_hint("demo-1.00-py3-none-any.whl").authoritative)
+
+    # Canonical spellings across the grammar stay on the fast path.
+    for version in ("1", "1.0.0", "2.0.0rc1", "1.0a1", "1.0b2", "1.0.post1", "1.0.dev0", "1.0rc1.post2.dev3", "2026.7.1"):
+        asserts.true(
+            env,
+            metadata_directory_hint("demo-{}-py3-none-any.whl".format(version)).authoritative,
+            version,
+        )
+
+    # Only `+` is decoded, in either case. An epoch's URL-encoded `!` survives,
+    # so the member spelling is unknown and the archive must be consulted.
+    hint = metadata_directory_hint("demo-1.0%2blocal-py3-none-any.whl")
+    asserts.equals(env, "demo-1.0+local.dist-info", hint.directory)
+    asserts.true(env, hint.authoritative)
+    asserts.false(env, metadata_directory_hint("demo-1%212.0-py3-none-any.whl").authoritative)
+
+    # A zero epoch is dropped rather than spelled out, so even a literal `!`
+    # would leave `0!1.0` naming a `1.0` directory.
+    asserts.false(env, canonical_version("0!1.0"))
+    asserts.true(env, canonical_version("1!1.0"))
+
+    # A local segment is rewritten too. An all-digit one compares numerically,
+    # so `+01` normalizes to `+1`; one that merely starts with a digit does not.
+    asserts.false(env, metadata_directory_hint("demo-1.0%2B01-py3-none-any.whl").authoritative)
+    asserts.false(env, metadata_directory_hint("demo-1.0%2Bubuntu.04-py3-none-any.whl").authoritative)
+    asserts.false(env, metadata_directory_hint("demo-1.0%2B00-py3-none-any.whl").authoritative)
+    for local in ("0", "1", "01abc", "cuda11", "ubuntu.4"):
+        asserts.true(
+            env,
+            metadata_directory_hint("demo-1.0%2B{}-py3-none-any.whl".format(local)).authoritative,
+            local,
+        )
+
+    return unittest.end(env)
+
+metadata_directory_test = unittest.make(_metadata_directory_test_impl)
+
+# A wheel whose filename says `InquirerPy` but whose archive says `inquirerpy`:
+# RECORD spells both the `.data` and `.dist-info` members the archive's way.
+_MISMATCHED_RECORD = """InquirerPy/__init__.py,sha256=deadbeef,10
+inquirerpy-0.3.4.data/data/share/inquirerpy/theme.json,sha256=deadbeef,10
+inquirerpy-0.3.4.dist-info/RECORD,,
+"""
+
+def _data_directory_test_impl(ctx):
+    env = unittest.begin(ctx)
+
+    asserts.equals(env, "inquirerpy-0.3.4.data", data_directory_for("inquirerpy-0.3.4.dist-info"))
+    asserts.equals(env, "zope.interface-5.4.0.data", data_directory_for("zope.interface-5.4.0.dist-info"))
+
+    # #1394: the stem the archive shipped routes the `.data` members; the stem
+    # the filename implied matches nothing, silently dropping every prefix file.
+    asserts.equals(
+        env,
+        ["share/inquirerpy/theme.json"],
+        parse_record(_MISMATCHED_RECORD, data_directory_for("inquirerpy-0.3.4.dist-info")).data_files,
+    )
+    asserts.equals(
+        env,
+        [],
+        parse_record(_MISMATCHED_RECORD, data_directory_for("InquirerPy-0.3.4.dist-info")).data_files,
+    )
+
+    return unittest.end(env)
+
+data_directory_test = unittest.make(_data_directory_test_impl)
 
 # --- whl_install metadata selection ---------------------------------------
 #
@@ -1095,4 +1195,12 @@ def whl_install_suite():
     unittest.suite(
         "console_script_tests",
         console_script_test,
+    )
+    unittest.suite(
+        "metadata_directory_tests",
+        metadata_directory_test,
+    )
+    unittest.suite(
+        "data_directory_tests",
+        data_directory_test,
     )

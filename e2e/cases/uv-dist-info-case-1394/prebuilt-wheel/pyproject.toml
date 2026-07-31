@@ -1,0 +1,14 @@
+[project]
+name = "uv-dist-info-case-1394"
+version = "0.1.0"
+description = "Wheels whose .dist-info dir is escaped differently from their filename must still install."
+requires-python = ">=3.11"
+dependencies = [
+    # `.dist-info` case differs from the filename's (#1394).
+    "inquirerpy==0.3.4",
+    # Unescaped filename plus a `.data/scripts/` member, so the discovered
+    # metadata directory has to name the `.data` sibling too.
+    "xlsxwriter==3.1.9",
+    # A dotted filename, the other spelling the archive need not mirror.
+    "jaraco-classes==3.4.0",
+]

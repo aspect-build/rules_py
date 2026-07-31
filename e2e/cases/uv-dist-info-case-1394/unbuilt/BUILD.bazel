@@ -1,0 +1,21 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+# The lock is shared with //uv-dist-info-case-1394:lock_fixtures_test,
+# which guards that it still pins the mismatched wheel.
+exports_files(["uv.lock"])
+
+# #1394 via demand. The lock records the mismatched
+# `InquirerPy-0.3.4-py3-none-any.whl`, but this target depends on cowsay alone,
+# so nothing resolves the package and its install repo is never created.
+# Depending on `@pypi_dist_info_1394_unbuilt//inquirerpy` here is what would
+# make the wheel reachable, so the dep list is the fixture.
+py_test(
+    name = "test_unbuilt",
+    srcs = ["test_unbuilt.py"],
+    dep_group = "uv-dist-info-1394-unbuilt",
+    main = "test_unbuilt.py",
+    python_version = "3.11",
+    deps = [
+        "@pypi_dist_info_1394_unbuilt//cowsay",
+    ],
+)
