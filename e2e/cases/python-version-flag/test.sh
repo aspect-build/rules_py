@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 #
-# The interpreter version must be selectable via EITHER version flag, with no
-# python_version attr on the target:
-#   - rules_py's native flag   (modern consumers)
-#   - @rules_python's flag     (legacy consumers, inherited as a fallback)
+# The interpreter version must be selectable via rules_py's native version
+# flag, with no python_version attr on the target. (@rules_python's flag is the
+# legacy fallback entry point; it's swept in e2e/rules-python-interop, the
+# workspace that can name it.)
 # version_test asserts sys.version_info matches its argument, so a flag that
 # failed to select would run the default version and fail. `bazel run` passes
 # the expected version positionally, letting one target cover every
@@ -22,17 +22,8 @@ BAZEL="${BAZEL:-bazel}"
     -- //python-version-flag:version_check 3.11
 
 for version in 3.9 3.10 3.11 3.12 3.13; do
-    # Modern: only rules_py's native flag is set.
     "$BAZEL" run \
         --lockfile_mode=off \
         "--@aspect_rules_py//py:python_version=${version}" \
-        -- //python-version-flag:version_check "${version}"
-
-    # Legacy: only @rules_python's flag is set. The py_* transition
-    # normalizes both flags, so this converges to the same target config
-    # as the run above — what it adds is the flag-inheritance entry point.
-    "$BAZEL" run \
-        --lockfile_mode=off \
-        "--@rules_python//python/config_settings:python_version=${version}" \
         -- //python-version-flag:version_check "${version}"
 done

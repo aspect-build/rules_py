@@ -1,6 +1,6 @@
 """Asserts a uv-hub wheel imports inside a venv assembled over the
 rules_python-provisioned runtime — exercising whl_install's exec-tools
-resolution in a module with no rules_py interpreters.
+resolution at a version no rules_py interpreter hub covers.
 """
 
 import cowsay

@@ -24,6 +24,12 @@ resolving against a *different* module graph on purpose, driven by its own `test
 config-flag / failure-assertion / nested-module checks that `bazel test //...` can't
 express; `interpreter-runtime-metadata` also has ordinary `//...` tests.
 
+`rules-python-interop` carries both directions of rules_py ↔ rules_python interop in
+one module, split by Python version so neither side's toolchains shadow the other's
+(see its `MODULE.bazel`): rules_py rules on a rules_python-provisioned 3.11, and
+rules_python's consumer rules (`current_py_toolchain`, `py_console_script_binary`,
+`py_zipapp_binary`, a pip hub) on rules_py-provisioned interpreters everywhere else.
+
 Each isolated workspace points back at repo-root rules_py with
 `local_path_override(path = "../..")`.
 
@@ -35,6 +41,8 @@ Each job runs `aspect test //...` first, then its `test.sh` (if it has one):
 - `e2e/cases` — `//...` (every shared case) then `cases/test.sh` (aggregates the
   shared-workspace script cases: assert-a-build-fails / need-a-real-`bazel run`).
 - `interpreter-runtime-metadata` — `//...` then `test.sh`.
+- `rules-python-interop` — `//...` then `test.sh` (the exec-tools version sweep needs a
+  top-level `bazel run` under each version flag).
 - `interpreter-toolchain-settings`, `interpreter-input-validation` — `//...` runs a
   dumb `build_test` smoke target, then `test.sh` does the real work (config-flag /
   failure-assertion / nested-module checks that can't be `sh_test`s under `//...`).
