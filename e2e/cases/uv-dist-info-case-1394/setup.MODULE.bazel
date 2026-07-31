@@ -1,0 +1,15 @@
+"""Wheels whose `.dist-info` name doesn't match the wheel filename (#1394).
+
+`InquirerPy-0.3.4-py3-none-any.whl` ships `inquirerpy-0.3.4.dist-info` and a
+top-level `InquirerPy/` package, so the metadata directory can't be derived
+from the filename's project name alone.
+"""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_dist_info_case_1394")
+uv.project(
+    hub_name = "pypi_dist_info_case_1394",
+    lock = "//uv-dist-info-case-1394:uv.lock",
+    pyproject = "//uv-dist-info-case-1394:pyproject.toml",
+)
+use_repo(uv, "pypi_dist_info_case_1394")

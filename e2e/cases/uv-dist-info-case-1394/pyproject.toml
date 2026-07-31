@@ -1,0 +1,6 @@
+[project]
+name = "uv-dist-info-case-1394"
+version = "0.1.0"
+description = "A wheel whose .dist-info dir case differs from its filename must still install."
+requires-python = ">=3.11"
+dependencies = ["inquirerpy==0.3.4"]

@@ -1,0 +1,16 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+# Wheel filename case vs `.dist-info` case mismatch (#1394).
+#
+# `InquirerPy-0.3.4-py3-none-any.whl` contains `inquirerpy-0.3.4.dist-info`,
+# so deriving the metadata directory from the filename fails to find it in the
+# archive. Fetching the wheel at all exercises the discovery path; importing
+# `InquirerPy` proves the RECORD-derived layout installed the package.
+py_test(
+    name = "test_import",
+    srcs = ["test_import.py"],
+    dep_group = "uv-dist-info-case-1394",
+    main = "test_import.py",
+    python_version = "3.11",
+    deps = ["@pypi_dist_info_case_1394//inquirerpy"],
+)

@@ -5,7 +5,7 @@ load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/tools/unpack:exclude_glob_test_vectors.bzl", "EXCLUDE_GLOB_VECTORS", "RECORD_PATH_EXCLUDE_VECTORS")
 load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
-load(":metadata.bzl", "data_scheme_segments", "data_segments_contained", "exclude_glob_matches", "native_roots_for_segments", "parse_console_script", "parse_exclude_glob", "parse_record", "parse_record_path", "record_path_excluded", "site_packages_segments")
+load(":metadata.bzl", "data_directory_for", "data_scheme_segments", "data_segments_contained", "exclude_glob_matches", "metadata_directory_hint", "native_roots_for_segments", "parse_console_script", "parse_exclude_glob", "parse_record", "parse_record_path", "record_path_excluded", "select_metadata_directory", "site_packages_segments")
 load(":repository.bzl", "compatible_python_tags", "select_key", "sort_select_arms", "source_specificity")
 load(":rule.bzl", "pyc_compile_version_compatible", "source_built_wheel", "whl_dist", "whl_install")
 
@@ -350,6 +350,98 @@ def _console_script_test_impl(ctx):
     return unittest.end(env)
 
 console_script_test = unittest.make(_console_script_test_impl)
+
+def _metadata_directory_test_impl(ctx):
+    env = unittest.begin(ctx)
+
+    # An escaped filename pins the archive member, so it is stripped directly.
+    hint = metadata_directory_hint("charset_normalizer-3.4.7-py3-none-any.whl")
+    asserts.equals(env, "charset_normalizer-3.4.7.dist-info", hint.directory)
+    asserts.true(env, hint.authoritative)
+
+    # A `+` local version is URL-encoded in the filename but literal in the
+    # member, and the build tag never appears in the dist-info name.
+    hint = metadata_directory_hint("jaxlib-0.4.25%2Bcuda11.cudnn86-1-cp312-cp312-manylinux2014_x86_64.whl")
+    asserts.equals(env, "jaxlib-0.4.25+cuda11.cudnn86.dist-info", hint.directory)
+    asserts.true(env, hint.authoritative)
+
+    # #1394: an unescaped project name may or may not be mirrored by the
+    # `.dist-info` dir (InquirerPy ships `inquirerpy-0.3.4.dist-info`), so the
+    # filename is only a hint and the archive has the last word.
+    hint = metadata_directory_hint("InquirerPy-0.3.4-py3-none-any.whl")
+    asserts.equals(env, "InquirerPy-0.3.4.dist-info", hint.directory)
+    asserts.false(env, hint.authoritative)
+
+    # A dotted or repeated separator is likewise unescaped.
+    asserts.false(env, metadata_directory_hint("zope.interface-5.4.0-py3-none-any.whl").authoritative)
+
+    # An uppercase version leaves the version spelling in doubt too.
+    asserts.false(env, metadata_directory_hint("demo-1.0.0RC1-py3-none-any.whl").authoritative)
+
+    return unittest.end(env)
+
+metadata_directory_test = unittest.make(_metadata_directory_test_impl)
+
+def _select_metadata_directory_test_impl(ctx):
+    env = unittest.begin(ctx)
+
+    # The archive names its own metadata directory: the lone candidate wins,
+    # whatever the filename implied (#1394's case difference included).
+    asserts.equals(
+        env,
+        "inquirerpy-0.3.4.dist-info",
+        select_metadata_directory(["inquirerpy-0.3.4.dist-info"]),
+    )
+
+    # Ambiguous or absent metadata is reported as no selection, which the
+    # caller turns into a fail() naming the candidates.
+    asserts.equals(env, "", select_metadata_directory([]))
+    asserts.equals(env, "", select_metadata_directory(["a-1.0.dist-info", "b-1.0.dist-info"]))
+
+    return unittest.end(env)
+
+select_metadata_directory_test = unittest.make(_select_metadata_directory_test_impl)
+
+# A wheel whose filename says `InquirerPy` but whose archive says `inquirerpy`:
+# RECORD spells both the `.data` and `.dist-info` members the archive's way.
+_MISMATCHED_RECORD = """InquirerPy/__init__.py,sha256=deadbeef,10
+inquirerpy-0.3.4.data/data/share/inquirerpy/theme.json,sha256=deadbeef,10
+inquirerpy-0.3.4.data/purelib/InquirerPy/generated.py,sha256=deadbeef,10
+inquirerpy-0.3.4.dist-info/RECORD,,
+"""
+
+def _data_directory_test_impl(ctx):
+    env = unittest.begin(ctx)
+
+    asserts.equals(env, "inquirerpy-0.3.4.data", data_directory_for("inquirerpy-0.3.4.dist-info"))
+    asserts.equals(env, "zope.interface-5.4.0.data", data_directory_for("zope.interface-5.4.0.dist-info"))
+
+    # The `.data` sibling is derived from the directory the archive shipped, so
+    # its schemes route: `data/` to the venv prefix, `purelib/` to
+    # site-packages, and the `.dist-info` member itself stays a regular entry.
+    archive = parse_record(_MISMATCHED_RECORD, data_directory_for("inquirerpy-0.3.4.dist-info"))
+    asserts.equals(env, ["share/inquirerpy/theme.json"], archive.data_files)
+    asserts.equals(env, [
+        ["InquirerPy", "__init__.py"],
+        ["InquirerPy", "generated.py"],
+        ["inquirerpy-0.3.4.dist-info", "RECORD"],
+    ], archive.record_segments)
+
+    # Deriving it from the filename instead misses every `.data` path: the
+    # prefix file is dropped from data_files and the purelib file installs
+    # under a literal `inquirerpy-0.3.4.data/` top-level.
+    filename = parse_record(_MISMATCHED_RECORD, data_directory_for("InquirerPy-0.3.4.dist-info"))
+    asserts.equals(env, [], filename.data_files)
+    asserts.equals(env, [
+        ["InquirerPy", "__init__.py"],
+        ["inquirerpy-0.3.4.data", "data", "share", "inquirerpy", "theme.json"],
+        ["inquirerpy-0.3.4.data", "purelib", "InquirerPy", "generated.py"],
+        ["inquirerpy-0.3.4.dist-info", "RECORD"],
+    ], filename.record_segments)
+
+    return unittest.end(env)
+
+data_directory_test = unittest.make(_data_directory_test_impl)
 
 # --- whl_install metadata selection ---------------------------------------
 #
@@ -1095,4 +1187,16 @@ def whl_install_suite():
     unittest.suite(
         "console_script_tests",
         console_script_test,
+    )
+    unittest.suite(
+        "metadata_directory_tests",
+        metadata_directory_test,
+    )
+    unittest.suite(
+        "select_metadata_directory_tests",
+        select_metadata_directory_test,
+    )
+    unittest.suite(
+        "data_directory_tests",
+        data_directory_test,
     )
