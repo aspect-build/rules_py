@@ -824,7 +824,15 @@ def _run_tar_action(ctx, bsdtar, bsdtar_files, tar_out, files_depset, map_each, 
     tar_args = ctx.actions.args()
     tar_args.add("--create")
     tar_args.add("--" + compress)
-    tar_args.add("--options", "{}:compression-level={}".format(compress, level))
+    options = "{}:compression-level={}".format(compress, level)
+    if compress == "gzip":
+        # libarchive's gzip filter stores the current wall-clock time in the gzip
+        # header's MTIME field, so two executions of this action over byte-identical
+        # inputs emit different bytes — and therefore a different layer digest, which
+        # propagates into the oci_image manifest. `!timestamp` zeroes that field.
+        # zstd has no equivalent field, so this is gzip-only.
+        options += ",gzip:!timestamp"
+    tar_args.add("--options", options)
     tar_args.add("--file", tar_out)
 
     # `@<file>` tells bsdtar to read the named file as an mtree archive
