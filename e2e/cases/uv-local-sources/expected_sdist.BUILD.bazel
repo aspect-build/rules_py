@@ -1,0 +1,32 @@
+
+load("@aspect_rules_py//uv/private/pep517_whl:rule.bzl", "pep517_whl")
+load("@aspect_rules_py//py:defs.bzl", "py_binary")
+load("@aspect_rules_py//uv/private/markers:defs.bzl", "decide_marker")
+
+decide_marker(
+    name = "_build_dep_marker_0",
+    marker = "os_name == 'nt'",
+)
+
+py_binary(
+    name = "build_tool",
+    main = "@aspect_rules_py//uv/private/pep517_whl:build_helper.py",
+    srcs = ["@aspect_rules_py//uv/private/pep517_whl:build_helper.py"],
+    deps = ["@@//packages/local;directory:local_directory", "@@aspect_rules_py++uv+whl_install__uv_local_sources__build__1_4_0//:install", "@@aspect_rules_py++uv+whl_install__uv_local_sources__setuptools__80_10_2//:install", "@@aspect_rules_py++uv+whl_install__uv_local_sources__packaging__25_0//:install", "@@aspect_rules_py++uv+whl_install__uv_local_sources__pyproject_hooks__1_2_0//:install"] + select({
+        ":_build_dep_marker_0": ["@@aspect_rules_py++uv+whl_install__uv_local_sources__colorama__0_4_6//:install"],
+        "//conditions:default": [],
+    }),
+)
+
+pep517_whl(
+    name = "whl",
+    src = "@@aspect_rules_py++uv+sdist__local_sdist__f96ed9ecf12c4d7d//file:file",
+    tool = ":build_tool",
+    version = "1.0.0",
+    visibility = ["//visibility:public"],
+)
+
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//visibility:public"],
+)

@@ -1,0 +1,22 @@
+[project]
+name = "uv_local_sources"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    "build==1.4.0",
+    "setuptools==80.10.2",
+    "local-wheel",
+    "local-sdist",
+    "local-directory",
+]
+
+[tool.uv]
+constraint-dependencies = ["packaging==25.0"]
+
+[tool.uv.sources]
+local-wheel = { path = "artifacts/local_wheel-1.0.0-py3-none-any.whl" }
+local-sdist = { path = "artifacts/local_sdist-1.0.0.tar.gz" }
+local-directory = { path = "packages/local;directory" }
+
+[tool.uv.extra-build-dependencies]
+local-sdist = ["local-directory"]
