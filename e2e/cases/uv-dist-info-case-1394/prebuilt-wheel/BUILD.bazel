@@ -1,0 +1,27 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+# The lock is shared with //uv-dist-info-case-1394:lock_fixtures_test,
+# which guards that it still pins the mismatched wheel.
+exports_files(["uv.lock"])
+
+# Wheel filenames that aren't PEP 625-normalized (#1394).
+#
+# `InquirerPy-0.3.4-py3-none-any.whl` contains `inquirerpy-0.3.4.dist-info`, so
+# deriving the metadata directory from the filename fails to find it in the
+# archive. `XlsxWriter` and `jaraco.classes` agree with their `.dist-info` but
+# are unescaped too, so they take the same discovery path; XlsxWriter adds a
+# `.data/scripts/` member, whose routing needs the discovered stem. Fetching the
+# wheels at all exercises discovery; importing them proves the RECORD-derived
+# layout installed each package.
+py_test(
+    name = "test_import",
+    srcs = ["test_import.py"],
+    dep_group = "uv-dist-info-case-1394",
+    main = "test_import.py",
+    python_version = "3.11",
+    deps = [
+        "@pypi_dist_info_case_1394//inquirerpy",
+        "@pypi_dist_info_case_1394//jaraco_classes",
+        "@pypi_dist_info_case_1394//xlsxwriter",
+    ],
+)

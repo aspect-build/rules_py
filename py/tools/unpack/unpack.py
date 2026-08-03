@@ -234,6 +234,19 @@ def _record_metadata(
     }
 
 
+def _data_prefix(basename: str, record_dir: Optional[str]) -> str:
+    """Return the wheel's PEP 427 ``.data/`` prefix.
+
+    ``.data`` and ``.dist-info`` share a stem, and RECORD spells its ``.data``
+    paths with the stem the archive shipped -- which a build backend may escape
+    differently from the filename (#1394). Prefer the stem carried by the
+    archive; the filename is the fallback for a wheel with no usable RECORD.
+    """
+    if record_dir and record_dir.endswith(".dist-info") and "/" not in record_dir:
+        return record_dir[: -len(".dist-info")] + ".data/"
+    return "-".join(unquote(basename).split("-")[:2]) + ".data/"
+
+
 def _relative_path(value: str, what: str) -> Path:
     """Return a safe host path for a wheel-controlled POSIX path."""
     parts = value.split("/")
@@ -272,9 +285,6 @@ def install_wheel(
             )
         wheel_path = whls[0]
 
-    wheel_name = unquote(wheel_path.name)
-    data_prefix = "-".join(wheel_name.split("-")[:2]) + ".data/"
-
     site_packages = into / "lib" / "python{}.{}".format(version_major, version_minor) / "site-packages"
     bin_dir = into / "bin"
     site_packages.mkdir(parents=True, exist_ok=True)
@@ -285,6 +295,7 @@ def install_wheel(
 
     with zipfile.ZipFile(wheel_path, "r") as zf:
         record_dir, record_metadata = _record_metadata(zf)
+        data_prefix = _data_prefix(wheel_path.name, record_dir)
         regenerated_markers = ()
         if record_dir:
             regenerated_markers = (

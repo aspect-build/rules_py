@@ -1,0 +1,6 @@
+[project]
+name = "uv-dist-info-1394-override"
+version = "0.1.0"
+description = "A mismatched wheel that is never fetched because the package is replaced wholesale."
+requires-python = ">=3.11"
+dependencies = ["inquirerpy==0.3.4"]

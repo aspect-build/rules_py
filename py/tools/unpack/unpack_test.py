@@ -393,6 +393,42 @@ def main() -> None:
         ).encode()
         assert installed_script.stat().st_mode & 0o111
 
+        # #1394: a backend may escape the `.dist-info` name differently from the
+        # filename. `.data` carries the stem the ARCHIVE shipped, so routing it
+        # off the filename would leave every `.data` member unrouted — the
+        # prefix file missing and the purelib file installed under a literal
+        # `<stem>.data/` top-level.
+        mismatch_wheel = root / "MixedCase-1.0-py3-none-any.whl"
+        _write_wheel(
+            mismatch_wheel,
+            "mixedcase",
+            {
+                "MixedCase/__init__.py": b"VALUE = 1\n",
+                "mixedcase-1.0.data/purelib/MixedCase/pure.py": b"PURE = 1\n",
+                "mixedcase-1.0.data/scripts/tool": b"#!/bin/sh\nexit 0\n",
+                "mixedcase-1.0.data/data/share/asset.txt": b"asset\n",
+            },
+        )
+        mismatch_out = root / "mismatch"
+        mismatch = _run_unpack(
+            unpack,
+            mismatch_wheel,
+            mismatch_out,
+            Path(sys.executable),
+            _verify_data_files(root, "mismatch-data", ("share/asset.txt",)),
+        )
+        assert mismatch.returncode == 0, mismatch.stdout + mismatch.stderr
+        mismatch_site_packages = _site_packages(mismatch_out)
+        assert (mismatch_site_packages / "MixedCase" / "__init__.py").is_file()
+        assert (mismatch_site_packages / "MixedCase" / "pure.py").read_bytes() == b"PURE = 1\n"
+        assert (mismatch_out / "bin" / "tool").is_file()
+        assert (mismatch_out / "share" / "asset.txt").read_bytes() == b"asset\n"
+        # No `.data` member survives as a site-packages top-level.
+        assert not list(mismatch_site_packages.glob("*.data")), sorted(
+            p.name for p in mismatch_site_packages.iterdir()
+        )
+        _assert_record_matches_installed_files(mismatch_site_packages)
+
         filtered_bytecode_out = root / "filtered-bytecode"
         filtered_bytecode = _run_unpack(
             unpack,

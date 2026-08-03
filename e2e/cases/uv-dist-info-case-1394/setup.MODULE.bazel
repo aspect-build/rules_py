@@ -1,0 +1,61 @@
+"""Wheels whose `.dist-info` name doesn't match the wheel filename (#1394).
+
+`InquirerPy-0.3.4-py3-none-any.whl` ships `inquirerpy-0.3.4.dist-info` and a
+top-level `InquirerPy/` package, so the metadata directory can't be derived
+from the filename's project name alone.
+
+The subdirectories lock the same package through the routes that never read a
+prebuilt wheel's `.dist-info`, and so never reach the discovery path at all.
+Each takes its own hub: `no-binary` is a per-project setting, and sharing a hub
+would let one project's install configuration decide another's.
+"""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_dist_info_case_1394")
+uv.project(
+    hub_name = "pypi_dist_info_case_1394",
+    lock = "//uv-dist-info-case-1394/prebuilt-wheel:uv.lock",
+    pyproject = "//uv-dist-info-case-1394/prebuilt-wheel:pyproject.toml",
+)
+
+# `[tool.uv] no-binary-package` drops the wheel list, so the package builds from
+# its sdist and the mismatched wheel is never downloaded.
+uv.declare_hub(hub_name = "pypi_dist_info_1394_no_binary")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "poetry-core",
+    ],
+    hub_name = "pypi_dist_info_1394_no_binary",
+    lock = "//uv-dist-info-case-1394/no-binary:uv.lock",
+    pyproject = "//uv-dist-info-case-1394/no-binary:pyproject.toml",
+)
+
+# `target` replaces the package wholesale, so the lock's wheel is inert.
+uv.declare_hub(hub_name = "pypi_dist_info_1394_override")
+uv.project(
+    hub_name = "pypi_dist_info_1394_override",
+    lock = "//uv-dist-info-case-1394/override-target:uv.lock",
+    pyproject = "//uv-dist-info-case-1394/override-target:pyproject.toml",
+)
+uv.override_package(
+    name = "inquirerpy",
+    lock = "//uv-dist-info-case-1394/override-target:uv.lock",
+    target = "//uv-dist-info-case-1394/override-target/third_party/inquirerpy",
+)
+
+# The wheel is in the lock but no built target resolves it, so this hub never
+# gets an install repo for the package.
+uv.declare_hub(hub_name = "pypi_dist_info_1394_unbuilt")
+uv.project(
+    hub_name = "pypi_dist_info_1394_unbuilt",
+    lock = "//uv-dist-info-case-1394/unbuilt:uv.lock",
+    pyproject = "//uv-dist-info-case-1394/unbuilt:pyproject.toml",
+)
+use_repo(
+    uv,
+    "pypi_dist_info_1394_no_binary",
+    "pypi_dist_info_1394_override",
+    "pypi_dist_info_1394_unbuilt",
+    "pypi_dist_info_case_1394",
+)
