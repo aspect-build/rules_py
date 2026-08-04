@@ -30,6 +30,11 @@ one module, split by Python version so neither side's toolchains shadow the othe
 rules_python's consumer rules (`current_py_toolchain`, `py_console_script_binary`,
 `py_zipapp_binary`, a pip hub) on rules_py-provisioned interpreters everywhere else.
 
+`rules-python-provider-compat` is separate because it needs a module-wide flag the
+workspace above must not carry: its `.bazelrc` turns on the rules_python provider
+compatibility layer, so rules_python `py_*` targets can depend on a rules_py `py_library`.
+Its `test.sh` asserts the same dependency is rejected with the flag off.
+
 Each isolated workspace points back at repo-root rules_py with
 `local_path_override(path = "../..")`.
 

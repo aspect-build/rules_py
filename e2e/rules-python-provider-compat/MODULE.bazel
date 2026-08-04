@@ -1,0 +1,22 @@
+"""@rules_python targets depending on a rules_py library.
+
+`rules-python-interop` covers interop that works out of the box. This module is
+separate because the dependency edge here works only through the migration
+compatibility layer: `--@aspect_rules_py//py:emit_rules_python_providers` (set
+in .bazelrc, so it applies module-wide) makes rules_py's py_library
+additionally emit the rules_python providers a py_* target from that ruleset
+requires.
+"""
+
+module(name = "rules_python_provider_compat")
+
+bazel_dep(name = "aspect_rules_py")
+bazel_dep(name = "rules_python", version = "1.9.0")
+
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../..",
+)
+
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(python_version = "3.12")

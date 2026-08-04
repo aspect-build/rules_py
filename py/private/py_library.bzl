@@ -5,6 +5,7 @@ without binding them to a particular version of that package.
 """
 
 load("@bazel_skylib//lib:new_sets.bzl", "sets")
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/private:pth.bzl", "make_imports_depset")
@@ -159,7 +160,7 @@ def _py_library_impl(ctx):
     instrumented_files_info = _make_instrumented_files_info(ctx)
     wheels = _make_wheels_depset(ctx)
 
-    return [
+    providers = [
         DefaultInfo(
             files = depset(direct = ctx.files.srcs),
             default_runfiles = runfiles,
@@ -176,6 +177,18 @@ def _py_library_impl(ctx):
         instrumented_files_info,
     ]
 
+    if getattr(ctx.attr, "_emit_rules_python_providers", None) and ctx.attr._emit_rules_python_providers[BuildSettingInfo].value:
+        # Compatibility shim for trees mid-migration: keeps not-yet-converted
+        # @rules_python py_* targets able to depend on this library.
+        # Only the two fields rules_py models are populated; virtual deps are
+        # unrepresentable, so a @rules_python consumer never sees them.
+        providers.append(RulesPythonPyInfo(
+            imports = imports,
+            transitive_sources = transitive_srcs,
+        ))
+
+    return providers
+
 _attrs = dict({
     "srcs": attr.label_list(
         doc = "Python source files.",
@@ -187,7 +200,8 @@ _attrs = dict({
         # public surface that supports rules_python interop: a dep may carry
         # rules_py's PyInfo, or native @rules_python's PyInfo (e.g. a
         # py_proto_library). Reads go through py_info_interop.bzl's accessors;
-        # rules_py never emits RulesPythonPyInfo.
+        # rules_py emits @rules_python providers only under the
+        # migration-only //py:emit_rules_python_providers flag.
         providers = [[PyInfo], [RulesPythonPyInfo], [CcInfo]],
     ),
     "data": attr.label_list(
@@ -234,6 +248,7 @@ py_library = rule(
     implementation = py_library_utils.implementation,
     attrs = dict({
         "virtual_deps": attr.string_list(allow_empty = True, default = []),
+        "_emit_rules_python_providers": attr.label(default = "//py/private:emit_rules_python_providers"),
     }, **py_library_utils.attrs),
     provides = py_library_utils.py_library_providers,
 )

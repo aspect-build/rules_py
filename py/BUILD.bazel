@@ -43,6 +43,17 @@ alias(
     visibility = ["//visibility:public"],
 )
 
+# Compatibility layer for half-migrated trees: with
+# --@aspect_rules_py//py:emit_rules_python_providers, py_library also emits the
+# @rules_python providers so not-yet-migrated rules_python py_* targets keep
+# building. Turn it off once the tree is on rules_py.
+# See docs/migrating.md.
+alias(
+    name = "emit_rules_python_providers",
+    actual = "//py/private:emit_rules_python_providers",
+    visibility = ["//visibility:public"],
+)
+
 # Users can set --@aspect_rules_py//py:layer_tier=//path:custom_tier to switch
 # the pip-package grouping + compression plan consumed by py_image_layer.
 label_flag(
