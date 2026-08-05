@@ -1,6 +1,7 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load("@rules_cc//cc:defs.bzl", "cc_binary")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("@tar.bzl//tar:mtree.bzl", "mtree_mutate", "mtree_spec")
 load("@tar.bzl//tar:tar.bzl", "tar_rule")
@@ -54,6 +55,27 @@ py_test(
     srcs = ["local_cxx_companion_test.py"],
     data = ["build_helper.py"],
     main = "local_cxx_companion_test.py",
+    target_compatible_with = ["@platforms//os:linux"],
+    deps = [
+        "@pypi//build",
+        "@pypi//setuptools",
+    ],
+)
+
+cc_binary(
+    name = "wrapper_argv0_fake_driver",
+    testonly = True,
+    srcs = ["wrapper_argv0_fake_driver.c"],
+)
+
+py_test(
+    name = "wrapper_argv0_test",
+    srcs = ["wrapper_argv0_test.py"],
+    data = [
+        "build_helper.py",
+        ":wrapper_argv0_fake_driver",
+    ],
+    main = "wrapper_argv0_test.py",
     target_compatible_with = ["@platforms//os:linux"],
     deps = [
         "@pypi//build",
