@@ -1,0 +1,17 @@
+# jpype1 ships official prebuilt wheels for linux/amd64 and linux/arm64, but
+# [tool.uv] no-binary-package forces it to build from sdist here. Its
+# scikit-build-core/CMake build additionally needs a JDK (javac/JNI headers)
+# and Apache Ant (to build a Java-side JAR) — both always exec-platform
+# tools regardless of what CPU _jpype.so targets, since jpype1's compiled
+# extension only links against libdl, never against libjvm/libjawt (see
+# CMakeLists.txt's target_link_libraries), and the JAR Ant produces is
+# portable JVM bytecode.
+
+load("//tools:cross_case.bzl", "pep517_cross_case")
+
+pep517_cross_case(
+    name = "jpype1",
+    check_so_suffix = False,
+    deps = ["@pypi_crossbuild_jpype1//jpype1"],
+    so_pattern = "whl_install__crossbuild_jpype1.*_jpype.*\\.so$$",
+)

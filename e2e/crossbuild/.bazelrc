@@ -1,0 +1,3 @@
+# Without this, sdist build actions run with no PATH and clang can't find
+# `ld` (not bundled with the hermetic LLVM toolchain).
+common --incompatible_strict_action_env

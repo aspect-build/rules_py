@@ -479,14 +479,6 @@ write_file(
     content = [
         "#!/usr/bin/env bash",
         "set -euo pipefail",
-        # The build tool is configured for the HOST platform (see
-        # uv/private/pep517_whl/exec_transition.bzl) so that its Python build
-        # dependencies resolve against host-compatible wheels. Its own
-        # platform identity therefore varies with the host (on a darwin host
-        # the select above would take its default branch; on a linux x86_64
-        # host it takes :linux_x86_64_config), so there is no stable value to
-        # assert here. What remains meaningful — and host-independent — is
-        # that the CC toolchain comes from the "target" exec group:
         "expected=\"$1\"",
         "compiler_actual=\"$(\"${CC}\")\"",
         "if [[ \"${compiler_actual}\" != \"${expected}\" ]]; then",

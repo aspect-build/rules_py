@@ -1,0 +1,16 @@
+# numpy ships official prebuilt wheels for linux/amd64 and linux/arm64, but
+# [tool.uv] no-binary-package forces it to build from sdist here. The only
+# other real-world meson-python package besides //contourpy, at far greater
+# scale (numpy itself vendors its own meson via
+# vendored-meson/meson/meson.py, and needs Cython plus -Dblas=none
+# -Dlapack=none since this sandbox has no system BLAS/LAPACK — see
+# MODULE.bazel's RULES_PY_MESON_SETUP_ARGS override), so this backend isn't
+# validated by one lucky (and comparatively simple) package alone.
+
+load("//tools:cross_case.bzl", "pep517_cross_case")
+
+pep517_cross_case(
+    name = "numpy",
+    deps = ["@pypi_crossbuild_numpy//numpy"],
+    so_pattern = "whl_install__crossbuild_numpy.*_multiarray_umath.*\\.so$$",
+)

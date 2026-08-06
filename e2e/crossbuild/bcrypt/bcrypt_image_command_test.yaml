@@ -1,0 +1,9 @@
+schemaVersion: 2.0.0
+
+# bcrypt_main.py asserts the hashpw/checkpw round-trip itself and only
+# prints "OK" on success.
+commandTests:
+  - name: bcrypt hashpw/checkpw round-trips correctly
+    exitCode: 0
+    command: /app
+    expectedOutput: ["OK"]
