@@ -1,0 +1,11 @@
+[project]
+name = "uv-dist-info-1394-archive-prefix"
+version = "0.1.0"
+description = "A normalized wheel filename whose archive still ships an unescaped .dist-info."
+requires-python = ">=3.11"
+dependencies = [
+    # `actioneer-0.0.1-py3-none-any.whl` is spelled exactly as PEP 625 escaping
+    # would spell it, yet the archive ships `Actioneer-0.0.1.dist-info`. The
+    # implied prefix is therefore not a member of the archive.
+    "actioneer==0.0.1",
+]
