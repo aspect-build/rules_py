@@ -451,25 +451,18 @@ def _read_dist_info(rctx, whl_path, basename):
     hint = metadata_directory_hint(basename)
     metadata_directory = hint.directory
 
-    # `extract` infers archive type from the extension, so symlink the
-    # wheel to a `.zip` name to extract it as the ZIP it is. Drop this once
-    # the min Bazel includes .whl detection (bazelbuild/bazel@d9634ca1c143136ef3b02b5ad8876a62368762b5).
     metadata_dir = "_wheel_metadata"
-    metadata_archive = "_wheel_metadata.zip"
     rctx.delete(metadata_dir)
-    rctx.delete(metadata_archive)
-    rctx.symlink(whl_path, metadata_archive)
 
     # An authoritative name is stripped directly, leaving only the `.dist-info`
     # on disk. A guess can't be: `strip_prefix` hard-fails on a miss, so the
     # whole wheel inflates instead (a 53MB SimpleITK wheel writes 278MB) and
     # `_discover_metadata_directory` reads the real name off the result.
     rctx.extract(
-        archive = metadata_archive,
+        archive = whl_path,
         output = metadata_dir,
         strip_prefix = metadata_directory if hint.authoritative else "",
     )
-    rctx.delete(metadata_archive)
     metadata_path = rctx.path(metadata_dir)
     if not hint.authoritative:
         metadata_directory = _discover_metadata_directory(rctx, metadata_path, whl_path, metadata_directory)
