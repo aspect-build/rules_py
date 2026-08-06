@@ -103,8 +103,8 @@ def py_pytest_test(
         pytest_args: Extra arguments baked into the pytest invocation. Setting
             this renders a private per-test entrypoint instead of reusing the
             shared main.
-        chdir: Optional directory to change into before pytest runs. Also
-            forces a private per-test entrypoint.
+        chdir: Optional directory to change into before pytest runs, relative
+            to the runfiles root. Also forces a private per-test entrypoint.
         resolutions: virtual-dep resolutions, `"string" -> label` (reversed to
             the rule's label-keyed-dict form here).
         **kwargs: forwarded to the underlying test rule and sibling py_venv.
