@@ -11,6 +11,9 @@ uv.project(
 )
 use_repo(uv, "pypi_oci_py_image_layer")
 
+nested_external = use_extension("//oci/py_image_layer:nested_external_repo.bzl", "nested_external")
+use_repo(nested_external, "oci_nested_external")
+
 uv.declare_hub(hub_name = "pypi_oci_py_venv_image_layer")
 uv.project(
     hub_name = "pypi_oci_py_venv_image_layer",

@@ -392,6 +392,41 @@ assert_tar_listing(
     expected = "my_app_layers_multi_listing.yaml",
 )
 
+# Regression test for https://github.com/aspect-build/rules_py/issues/1398.
+# Both payloads sit under a directory literally named `external`: one in a
+# fetched repo (canonical path carries two `/external/` segments, the sympy
+# shape) and one in the main workspace. Neither is a symlink, so the listing
+# must show regular files rather than links resolved against the wrong
+# `/external/` segment.
+py_binary(
+    name = "nested_external_bin",
+    srcs = ["server.py"],
+    data = [
+        "_external_dir_collision/external/payload.txt",
+        "@oci_nested_external//:external/payload.txt",
+    ],
+)
+
+py_image_layer(
+    name = "nested_external_layers",
+    binary = ":nested_external_bin",
+)
+
+platform_transition_filegroup(
+    name = "platform_nested_external_layers",
+    srcs = [":nested_external_layers_only_src"],
+    target_platform = ":x86_64_linux",
+)
+
+assert_tar_listing(
+    name = "nested_external_layers_test",
+    actual = [":platform_nested_external_layers"],
+    # The interpreter tree is beside the point here; keep the snapshot to the
+    # venv and the payloads.
+    exclude = ["aspect_rules_py++python_interpreters+"],
+    expected = "nested_external_layers_listing.yaml",
+)
+
 oci_image(
     name = "image",
     # This is defined by an oci.pull() call in /MODULE.bazel
