@@ -55,6 +55,31 @@ function make_relative_link(path1, path2, i, common, target, relative_path, back
     return back_steps target
 }
 
+# Map an absolute Bazel-tree path to the execroot-relative form `symlink_map`
+# is keyed by. Neither end of the path can be trusted to be unique: a wheel
+# ships its own `external/` directory (sympy), and the output user root may
+# itself sit under one (`--output_user_root=/tmp/external/cache`). So walk
+# every `/bazel-out/` and `/external/` boundary left to right — longest
+# candidate first — and take the one the mtree actually contains. Longest
+# also settles `bazel-out/<cfg>/bin/external/<repo>/...`, where a generated
+# wheel file matches both markers.
+function execroot_relative(abs, candidate, rest, longest) {
+    rest = abs
+    longest = ""
+    while (match(rest, /\/(bazel-out|external)\//)) {
+        rest = substr(rest, RSTART + 1)
+        if (rest in symlink_map) {
+            return rest
+        }
+        if (longest == "") {
+            longest = rest
+        }
+    }
+    # Nothing matched. Fall back to the longest candidate so a genuine
+    # misconfiguration still surfaces as a dangling link below.
+    return longest
+}
+
 function decode_mtree_path(path) {
     gsub(/\\040/, " ", path)
     return path
@@ -151,20 +176,13 @@ function replace_metadata_field(row, pattern, replacement) {
                 symlink_content = path
             } else if (resolved_path ~ /\/bazel-out\/[^\/]+\/bin\// || \
                        resolved_path ~ /\/external\//) {
-                # Absolute path under the Bazel tree. Normalise to the
-                # execroot-relative form `symlink_map` is keyed by.
-                #
-                # Order matters: a generated wheel file lives at
-                # `bazel-out/<cfg>/bin/external/<repo>/...` so both
-                # regexes match — strip the longer `bazel-out/<cfg>/bin/`
-                # prefix exclusively, otherwise we'd over-strip down to
-                # `external/<repo>/...` and miss the lookup.
-                if (resolved_path ~ /\/bazel-out\/[^\/]+\/bin\//) {
-                    sub(/^.*\/bazel-out\//, "bazel-out/", resolved_path)
-                } else {
-                    sub(/^.*\/external\//, "external/", resolved_path)
-                }
-                if (path != resolved_path) {
+                # Absolute path under the Bazel tree. Keep it absolute here;
+                # END maps it to the execroot-relative form once `symlink_map`
+                # holds every row. A row whose target is its own exec path is
+                # a plain file `readlink -f` echoed back, not a symlink.
+                suffix = "/" path
+                suffix_start = length(resolved_path) - length(suffix) + 1
+                if (suffix_start <= 0 || substr(resolved_path, suffix_start) != suffix) {
                     symlink = resolved_path
                     symlink_content = path
                 }
@@ -172,7 +190,7 @@ function replace_metadata_field(row, pattern, replacement) {
         }
     }
     if (symlink != "") {
-        line_array[++source_line_count] = $0 SUBSEP $1 SUBSEP resolved_path
+        line_array[++source_line_count] = $0 SUBSEP $1 SUBSEP resolved_path SUBSEP (is_slow_path ? "file" : "link")
     } else {
         line_array[++source_line_count] = $0
     }
@@ -189,10 +207,22 @@ END {
             original_line = fields[1]
             field0 = fields[2]
             resolved_path = fields[3]
+            source_kind = fields[4]
+            if (resolved_path ~ /^\//) {
+                resolved_path = execroot_relative(resolved_path)
+            }
             if (resolved_path in symlink_map) {
                 mapped_link = symlink_map[resolved_path]
                 linked_to = make_relative_link(mapped_link, field0)
             } else if (resolved_path ~ /^bazel-out\// || resolved_path ~ /^external\//) {
+                if (source_kind == "file") {
+                    # A regular file that only *looked* like a Bazel-tree
+                    # target: `readlink -f` resolved it somewhere unmapped,
+                    # e.g. a workspace reached through a symlinked path.
+                    # Inlining its bytes is always correct.
+                    out_lines[++n] = original_line
+                    continue
+                }
                 # Classified to a Bazel-tree path but the target row
                 # isn't in this layer's mtree — a config bug. Emit a
                 # dangling `type=link link=...` to surface it visibly.

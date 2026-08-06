@@ -217,6 +217,22 @@
   },
   "selectedYankedVersions": {},
   "moduleExtensions": {
+    "//oci/py_image_layer:nested_external_repo.bzl%nested_external": {
+      "general": {
+        "bzlTransitiveDigest": "Pk1bq58WjcrJrtVupQC4OQBJgyIHh2kc0HxgVPvbyX0=",
+        "usagesDigest": "r1kk/efoyd5zfQf39m7JfHvbiH+60s2LJLfA6WW16pk=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "oci_nested_external": {
+            "repoRuleId": "@@//oci/py_image_layer:nested_external_repo.bzl%_nested_external_repo",
+            "attributes": {}
+          }
+        },
+        "recordedRepoMappingEntries": []
+      }
+    },
     "//repository-rule-deps-299/rules:import.bzl%importer": {
       "general": {
         "bzlTransitiveDigest": "VatGB804caEL0nKbc0ngOHLtBkg8bk/fIFTyVqay+j8=",
