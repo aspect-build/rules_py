@@ -98,6 +98,8 @@ PyLayerTierInfo = provider(
         "interpreter_group": "str — group name for the Python interpreter layer; '' disables.",
         "root": "str — root path in the image (e.g. '/app').",
         "strip_prefix": "str — prefix stripped from source file paths; empty means use binary short_path.",
+        "owner": "str — numeric uid owning files in the layer.",
+        "group": "str — numeric gid owning files in the layer.",
     },
 )
 
@@ -107,6 +109,12 @@ def _split_glob_key(key):
     if colon_idx > 0 and ("*" in key[colon_idx:] or "?" in key[colon_idx:]):
         return key[:colon_idx], key[colon_idx + 1:]
     return None, None
+
+def _validate_numeric_id(value, attr_name):
+    # mtree's uid=/gid= fields only accept numbers; a name would produce an
+    # unparseable archive at tar time rather than an analysis error.
+    if not value.isdigit():
+        fail("py_layer_tier.%s must be a numeric id, got %r" % (attr_name, value))
 
 def _py_layer_tier_impl(ctx):
     if ctx.attr.testonly:
@@ -129,6 +137,9 @@ def _py_layer_tier_impl(ctx):
         group_counts[group_name] = group_counts.get(group_name, 0) + 1
     multi_member_groups = {name: True for name, count in group_counts.items() if count >= 2}
 
+    _validate_numeric_id(ctx.attr.owner, "owner")
+    _validate_numeric_id(ctx.attr.group, "group")
+
     return [PyLayerTierInfo(
         whole_groups = whole_groups,
         subpath_groups = subpath_groups,
@@ -137,6 +148,8 @@ def _py_layer_tier_impl(ctx):
         interpreter_group = ctx.attr.interpreter_group,
         root = ctx.attr.root,
         strip_prefix = ctx.attr.strip_prefix,
+        owner = ctx.attr.owner,
+        group = ctx.attr.group,
     )]
 
 py_layer_tier = rule(
@@ -177,6 +190,14 @@ py_layer_tier = rule(
         "strip_prefix": attr.string(
             default = "",
             doc = "Prefix stripped from source file paths. Empty means use the binary's short_path.",
+        ),
+        "owner": attr.string(
+            default = "0",
+            doc = "Numeric uid owning every file in every layer this tier produces. Default: '0' (root).",
+        ),
+        "group": attr.string(
+            default = "0",
+            doc = "Numeric gid owning every file in every layer this tier produces. Default: '0' (root).",
         ),
     },
     provides = [PyLayerTierInfo],
@@ -251,6 +272,7 @@ def _build_pip_layers(ctx, plan, label, install_dir):
 
     bsdtar, bsdtar_files = _tar_toolchain(ctx)
     layers = []
+    pkg_map = lambda f, d: _pkg_file_to_mtree(f, d, plan.owner, plan.group)
 
     if subpath_for_this:
         all_patterns = [p for pats in subpath_for_this.values() for p in pats]
@@ -263,7 +285,7 @@ def _build_pip_layers(ctx, plan, label, install_dir):
                 bsdtar_files,
                 tar_out,
                 install_dir,
-                _make_glob_map_each(patterns),
+                _make_glob_map_each(patterns, plan.owner, plan.group),
                 algorithm,
                 level,
                 {},
@@ -280,7 +302,7 @@ def _build_pip_layers(ctx, plan, label, install_dir):
             bsdtar_files,
             rest_tar,
             install_dir,
-            _make_glob_map_each(all_patterns, invert = True),
+            _make_glob_map_each(all_patterns, plan.owner, plan.group, invert = True),
             algorithm,
             level,
             {},
@@ -297,7 +319,7 @@ def _build_pip_layers(ctx, plan, label, install_dir):
             bsdtar_files,
             tar_out,
             install_dir,
-            _pkg_file_to_mtree,
+            pkg_map,
             algorithm,
             level,
             {},
@@ -331,7 +353,7 @@ def _layer_aspect_impl(target, ctx):
                 bsdtar_files,
                 interp_tar,
                 interp_depset,
-                _interpreter_file_to_mtree,
+                lambda f, d: _interpreter_file_to_mtree(f, d, plan.owner, plan.group),
                 algorithm,
                 level,
                 {},
@@ -529,7 +551,7 @@ def _merge_aspect_impl(target, ctx):
             bsdtar_files,
             tar_out,
             depset(transitive = install_dirs),
-            _pkg_file_to_mtree,
+            lambda f, d: _pkg_file_to_mtree(f, d, plan.owner, plan.group),
             algorithm,
             level,
             {},
@@ -609,22 +631,34 @@ def _source_destination(sp, strip_prefix, root, executable_dsts):
         return _apply_strip_prefix(sp, sp, root)
     return "./app.runfiles/_main/" + sp
 
-def _file_to_mtree_entry(f, mode = "0644", strip_prefix = "", root = "/", maybe_symlink = False, executable_dsts = {}):
+def _file_to_mtree_entry(
+        f,
+        mode = "0644",
+        strip_prefix = "",
+        root = "/",
+        maybe_symlink = False,
+        executable_dsts = {},
+        owner = "0",
+        group = "0"):
     dst = _source_destination(f.short_path, strip_prefix, root, executable_dsts)
 
     # `f.is_symlink` emits `type=link` (awk readlinks once); `maybe_symlink=True`
     # emits `type=file content=` (awk readlinks to detect repo-rule-staged
     # symlinks); default emits `type=file contents=` which skips awk entirely.
     if f.is_symlink:
-        return "{} type=link mode={} uid=0 gid=0 time=1672560000 link={}".format(
+        return "{} type=link mode={} uid={} gid={} time=1672560000 link={}".format(
             dst.replace(" ", "\\040"),
             mode,
+            owner,
+            group,
             f.path.replace(" ", "\\040"),
         )
     marker = "content" if maybe_symlink else "contents"
-    return "{} type=file mode={} uid=0 gid=0 time=1672560000 {}={}".format(
+    return "{} type=file mode={} uid={} gid={} time=1672560000 {}={}".format(
         dst.replace(" ", "\\040"),
         mode,
+        owner,
+        group,
         marker,
         f.path.replace(" ", "\\040"),
     )
@@ -637,23 +671,27 @@ def _source_file_to_mtree(
         maybe_symlink,
         executable_dsts,
         runfile_executable_paths,
-        repo_mapping_path):
+        repo_mapping_path,
+        owner = "0",
+        group = "0"):
     if f.path == repo_mapping_path:
         return _file_to_mtree_entry(
             f,
             "0755",
             f.short_path,
             "/app.runfiles/_repo_mapping",
+            owner = owner,
+            group = group,
         )
 
     # 0755 throughout: keeps launcher/interpreter/venv shims executable; Bazel
     # doesn't expose per-input source mode for us to propagate.
     if f.is_directory:
         return [
-            _file_to_mtree_entry(child, "0755", strip_prefix, root, maybe_symlink, executable_dsts)
+            _file_to_mtree_entry(child, "0755", strip_prefix, root, maybe_symlink, executable_dsts, owner, group)
             for child in dir_expander.expand(f)
         ]
-    entry = _file_to_mtree_entry(f, "0755", strip_prefix, root, maybe_symlink, executable_dsts)
+    entry = _file_to_mtree_entry(f, "0755", strip_prefix, root, maybe_symlink, executable_dsts, owner, group)
     if f.path not in runfile_executable_paths:
         return entry
     return [
@@ -662,16 +700,21 @@ def _source_file_to_mtree(
             f,
             "0755",
             maybe_symlink = maybe_symlink,
+            owner = owner,
+            group = group,
         ),
     ]
 
-def _user_file_to_mtree(f, dir_expander, source_owned_paths):
+def _user_file_to_mtree(f, dir_expander, source_owned_paths, owner = "0", group = "0"):
     # Rule-level groups may contain declared symlinks that File.is_symlink
     # doesn't expose, so every grouped file needs the readlink fallback.
     if f.is_directory:
-        return [_file_to_mtree_entry(child, "0755", maybe_symlink = True) for child in dir_expander.expand(f)]
+        return [
+            _file_to_mtree_entry(child, "0755", maybe_symlink = True, owner = owner, group = group)
+            for child in dir_expander.expand(f)
+        ]
     mode = "0755" if f.path in source_owned_paths else "0644"
-    return _file_to_mtree_entry(f, mode, maybe_symlink = True)
+    return _file_to_mtree_entry(f, mode, maybe_symlink = True, owner = owner, group = group)
 
 def _should_skip_pkg_path(p):
     return (
@@ -680,18 +723,18 @@ def _should_skip_pkg_path(p):
         "/__pycache__/" in p or p.endswith(".whl")
     )
 
-def _pkg_file_to_mtree(f, dir_expander):
+def _pkg_file_to_mtree(f, dir_expander, owner = "0", group = "0"):
     if f.is_directory:
         lines = []
         for child in dir_expander.expand(f):
             p = child.path
             if _should_skip_pkg_path(p):
                 continue
-            lines.append(_file_to_mtree_entry(child, "0755"))
+            lines.append(_file_to_mtree_entry(child, "0755", owner = owner, group = group))
         return lines
-    return [_file_to_mtree_entry(f, "0755")]
+    return [_file_to_mtree_entry(f, "0755", owner = owner, group = group)]
 
-def _interpreter_file_to_mtree(f, dir_expander):
+def _interpreter_file_to_mtree(f, dir_expander, owner = "0", group = "0"):
     # Interpreter repo stages `bin/python -> python3.11` symlinks `f.is_symlink`
     # doesn't catch, so opt into awk's readlink scan.
     if f.is_directory:
@@ -700,9 +743,9 @@ def _interpreter_file_to_mtree(f, dir_expander):
             p = child.path
             if _should_skip_pkg_path(p):
                 continue
-            lines.append(_file_to_mtree_entry(child, "0755", maybe_symlink = True))
+            lines.append(_file_to_mtree_entry(child, "0755", maybe_symlink = True, owner = owner, group = group))
         return lines
-    return [_file_to_mtree_entry(f, "0755", maybe_symlink = True)]
+    return [_file_to_mtree_entry(f, "0755", maybe_symlink = True, owner = owner, group = group)]
 
 def _glob_match_chunk(name, chunk):
     if chunk == "*":
@@ -733,7 +776,7 @@ def _glob_match(path, pattern):
             return False
     return True
 
-def _make_glob_map_each(patterns, invert = False):
+def _make_glob_map_each(patterns, owner, group, invert = False):
     def _matches(p):
         hit = any([_glob_match(p, pat) for pat in patterns])
         return hit != invert
@@ -746,10 +789,10 @@ def _make_glob_map_each(patterns, invert = False):
                 if _should_skip_pkg_path(p):
                     continue
                 if _matches(p):
-                    lines.append(_file_to_mtree_entry(child, "0755"))
+                    lines.append(_file_to_mtree_entry(child, "0755", owner = owner, group = group))
             return lines
         if _matches(f.path):
-            return [_file_to_mtree_entry(f, "0755")]
+            return [_file_to_mtree_entry(f, "0755", owner = owner, group = group)]
         return []
 
     return _fn
@@ -894,6 +937,8 @@ def _py_image_layer_impl(ctx):
     plan = ctx.attr._layer_tier[PyLayerTierInfo]
     root = plan.root
     strip_prefix = plan.strip_prefix
+    owner = plan.owner
+    group = plan.group
     launcher_dir = ctx.attr.launcher_dir
     if len(binaries) > 1 and not launcher_dir:
         launcher_dir = "/app/bin"
@@ -926,12 +971,14 @@ def _py_image_layer_impl(ctx):
     if launcher_dir and len(binaries) > 1:
         for index, binary in enumerate(binaries):
             for f in binary[DefaultInfo].default_runfiles.files.to_list():
-                owner = executable_owner_by_path.get(f.path, None)
+                # Distinct from the tier's `owner` (the uid) — this is which
+                # binary declares `f` as its executable.
+                owning_binary = executable_owner_by_path.get(f.path, None)
 
                 # A launcher consumed through another binary's runfiles needs
                 # both its relocated entrypoint and the logical key resolved
                 # by that consumer.
-                if owner != None and owner != index:
+                if owning_binary != None and owning_binary != index:
                     runfile_executable_paths[f.path] = True
 
     # Each manifest describes one launcher's runfiles closure. The image shares
@@ -974,7 +1021,11 @@ def _py_image_layer_impl(ctx):
         executable_dsts,
         runfile_executable_paths,
         repo_mapping.path if repo_mapping != None else "",
+        owner,
+        group,
     )
+    pkg_map = lambda f, d: _pkg_file_to_mtree(f, d, owner, group)
+    interpreter_map = lambda f, d: _interpreter_file_to_mtree(f, d, owner, group)
 
     rule_group_names = {gname: True for gname in ctx.attr.groups.values()}
     rule_group_files = []
@@ -1006,7 +1057,7 @@ def _py_image_layer_impl(ctx):
         source_files = depset(direct = ungrouped_source_files)
 
     rule_group_map = lambda f, d: (
-        source_map(f, d) if f.short_path in executable_dsts else _user_file_to_mtree(f, d, source_owned_group_paths)
+        source_map(f, d) if f.short_path in executable_dsts else _user_file_to_mtree(f, d, source_owned_group_paths, owner, group)
     )
 
     first_party_reference_files = []
@@ -1041,7 +1092,7 @@ def _py_image_layer_impl(ctx):
                 if f.is_directory:
                     reference_tree_files[f.path] = f
         reference_map = lambda f, d: (
-            rule_group_map(f, d) if f.path in rule_group_paths else _interpreter_file_to_mtree(f, d) if f.path in interpreter_reference_paths else source_map(f, d)
+            rule_group_map(f, d) if f.path in rule_group_paths else interpreter_map(f, d) if f.path in interpreter_reference_paths else source_map(f, d)
         )
         symlink_mappings = struct(
             files = depset(transitive = reference_files),
@@ -1131,7 +1182,7 @@ def _py_image_layer_impl(ctx):
                 bsdtar_files,
                 tar_out,
                 depset(transitive = merged[group_name]),
-                _pkg_file_to_mtree,
+                pkg_map,
                 algorithm,
                 level,
                 {},
@@ -1149,7 +1200,7 @@ def _py_image_layer_impl(ctx):
             "{}_squashed.tar.gz".format(ctx.attr.name),
             "packages",
             depset(transitive = [p.files for p in ungrouped_pkgs]),
-            _pkg_file_to_mtree,
+            pkg_map,
             "Creating squashed pip layer (%d ungrouped packages) for %s" % (len(ungrouped_pkgs), ctx.label),
         )
         all_tars.append(squashed_tar)
@@ -1203,9 +1254,9 @@ def _py_image_layer_impl(ctx):
         for files in rule_group_files:
             mtree_args.add_all(files, map_each = rule_group_map, expand_directories = False, allow_closure = True)
         for files in wheel_files:
-            mtree_args.add_all(files, map_each = _pkg_file_to_mtree, expand_directories = False)
+            mtree_args.add_all(files, map_each = pkg_map, expand_directories = False, allow_closure = True)
         for files in interpreter_files:
-            mtree_args.add_all(files, map_each = _interpreter_file_to_mtree, expand_directories = False)
+            mtree_args.add_all(files, map_each = interpreter_map, expand_directories = False, allow_closure = True)
         validation_args.add("--mtree")
         validation_arguments.append(mtree_args)
         validation_inputs.extend([source_files] + rule_group_files + wheel_files + interpreter_files)
