@@ -1,13 +1,14 @@
 load("@aspect_rules_py//py:defs.bzl", "py_test")
 
-# Wheel filenames that aren't PEP 625-normalized (#1394). Each subpackage locks
-# `inquirerpy` through a different route and asserts what that route installs;
-# `dep_group` binds a target to one project, so they cannot share a target.
-# This package holds only the premise they have in common.
+# Wheel filenames that disagree with the archive's `.dist-info` (#1394). Each
+# subpackage locks such a wheel through a different route and asserts what that
+# route installs; `dep_group` binds a target to one project, so they cannot
+# share a target. This package holds only the premise they have in common.
 py_test(
     name = "lock_fixtures_test",
     srcs = ["lock_fixtures_test.py"],
     data = [
+        "//uv-dist-info-case-1394/archive-prefix:uv.lock",
         "//uv-dist-info-case-1394/no-binary:uv.lock",
         "//uv-dist-info-case-1394/override-target:uv.lock",
         "//uv-dist-info-case-1394/prebuilt-wheel:uv.lock",

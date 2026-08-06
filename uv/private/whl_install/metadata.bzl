@@ -3,9 +3,8 @@
 Peeks inside a wheel to discover the top-level names it installs AND its
 `[console_scripts]` entry points, then derives the namespace / regular-root /
 native-root layout `PyWheelsInfo` needs. Mirrors the rules_js `npm_import`
-pattern of doing partial archive extraction at repo-rule time, rather than
-deferring to a build-time action (which would leave the info invisible to
-analysis).
+pattern of doing archive extraction at repo-rule time, rather than deferring to
+a build-time action (which would leave the info invisible to analysis).
 
 Runs in the per-wheel `whl_dist` repo, so only the wheel actually selected for
 a configuration is ever fetched and inspected — sibling platform wheels are
@@ -332,88 +331,25 @@ def _namespace_dirs_and_roots(dirs_set, init_dirs, namespace_top_levels_set):
             regular_roots.append(d)
     return namespace_dirs, regular_roots
 
-def _canonical_number(text):
-    """A PEP 440 numeric component: digits, no leading zeros."""
-    return text.isdigit() and (text == "0" or not text.startswith("0"))
-
-def _canonical_pre_release(pre):
-    """A PEP 440 pre-release segment: `a`, `b` or `rc` joined to its number."""
-    for tag in ("a", "b", "rc"):
-        if pre.startswith(tag):
-            return _canonical_number(pre[len(tag):])
-    return False
-
-def canonical_version(version):
-    """True when `version` is already spelled in PEP 440 canonical form.
-
-    Only a canonical version reaches the `.dist-info` name unchanged. Every
-    other spelling -- `v1.0`, `1.0c1`, `1.0_rc1`, `1.0RC1`, `1.00` -- is
-    rewritten by the backend, so the directory name has to come from the
-    archive. An epoch's `!` is URL-encoded in a wheel filename and so never
-    canonical here.
-    """
-    public, plus, local = version.partition("+")
-    if plus:
-        for segment in local.split("."):
-            if not segment or not segment.isalnum() or segment != segment.lower():
-                return False
-
-            # An all-digit local segment compares numerically, so a leading zero
-            # is dropped: `+01` and `+ubuntu.04` become `+1` and `+ubuntu.4`.
-            if segment.isdigit() and not _canonical_number(segment):
-                return False
-
-    epoch, bang, rest = public.partition("!")
-    if bang:
-        # A zero epoch is dropped entirely: `0!1.0` normalizes to `1.0`.
-        if epoch == "0" or not _canonical_number(epoch):
-            return False
-    else:
-        rest = epoch
-
-    rest, dot_dev, dev = rest.partition(".dev")
-    if dot_dev and not _canonical_number(dev):
-        return False
-    rest, dot_post, post = rest.partition(".post")
-    if dot_post and not _canonical_number(post):
-        return False
-
-    # The release segment is digits and dots, so the first other character
-    # opens the pre-release tag.
-    for index in range(len(rest)):
-        if not (rest[index].isdigit() or rest[index] == "."):
-            if not _canonical_pre_release(rest[index:]):
-                return False
-            rest = rest[:index]
-            break
-
-    if not rest:
-        return False
-    return all([_canonical_number(segment) for segment in rest.split(".")])
-
 def metadata_directory_hint(basename):
     """The `<project>-<version>.dist-info` a wheel filename implies.
+
+    Only ever a guess: a backend escapes the directory name independently of
+    the filename, in either direction (#1394). Used to report what was expected
+    when the archive carries something else, never to locate the member.
 
     Args:
       basename: The wheel's file name.
 
     Returns:
-      A struct of the implied `directory` and whether it is `authoritative`:
-      an already-normalized filename pins the archive member, anything else is
-      a guess a differently-escaping backend can contradict (#1394).
+      The implied directory name.
     """
     whl_name = parse_whl_name(basename)
 
     # `+` is URL-encoded in the filename but literal in the member; the build
     # tag never appears in dist-info and parse_whl_name already dropped it.
     version = whl_name.version.replace("%2B", "+").replace("%2b", "+")
-    return struct(
-        directory = "{}-{}.dist-info".format(whl_name.project, version),
-        authoritative = (
-            whl_name.project == normalize_name(whl_name.project) and
-            canonical_version(version)
-        ),
-    )
+    return "{}-{}.dist-info".format(whl_name.project, version)
 
 def data_directory_for(metadata_directory):
     """The `.data` sibling of a wheel's `.dist-info` directory.
@@ -423,8 +359,9 @@ def data_directory_for(metadata_directory):
     """
     return metadata_directory[:-len(".dist-info")] + ".data"
 
-def _discover_metadata_directory(rctx, root, whl_path, expected):
+def _discover_metadata_directory(rctx, root, whl_path, basename):
     """Pick the `.dist-info` directory out of a fully extracted wheel."""
+    expected = metadata_directory_hint(basename)
     candidates = sorted([
         entry.basename
         for entry in root.readdir()
@@ -438,6 +375,18 @@ def _discover_metadata_directory(rctx, root, whl_path, expected):
             ", ".join(candidates) if candidates else "none",
             expected,
         ))
+
+    # The escaping may differ from the filename's, but the project must not:
+    # a `.dist-info` naming some other distribution means the archive isn't the
+    # wheel the lock resolved. Matches uv's check in `find_archive_dist_info`.
+    project = normalize_name(parse_whl_name(basename).project)
+    if not normalize_name(candidates[0][:-len(".dist-info")]).startswith(project):
+        fail("{}: wheel {} carries {}, which does not belong to {}".format(
+            rctx.name,
+            whl_path,
+            candidates[0],
+            project,
+        ))
     return candidates[0]
 
 def _read_dist_info(rctx, whl_path, basename):
@@ -448,25 +397,25 @@ def _read_dist_info(rctx, whl_path, basename):
     one the filename implies. entry_points_text is empty when the wheel ships
     no `entry_points.txt` (normal for libraries without scripts).
     """
-    hint = metadata_directory_hint(basename)
-    metadata_directory = hint.directory
-
     metadata_dir = "_wheel_metadata"
     rctx.delete(metadata_dir)
 
-    # An authoritative name is stripped directly, leaving only the `.dist-info`
-    # on disk. A guess can't be: `strip_prefix` hard-fails on a miss, so the
-    # whole wheel inflates instead (a 53MB SimpleITK wheel writes 278MB) and
-    # `_discover_metadata_directory` reads the real name off the result.
+    # The whole wheel inflates (a 30MB SimpleITK wheel writes 141MB) so that
+    # `_discover_metadata_directory` can read the real name off the result.
+    # Stripping the name the filename implies would be ~200x cheaper, but the
+    # filename is only ever a guess -- `actioneer-0.0.1-py3-none-any.whl` is
+    # spelled exactly as escaping would spell it and still ships
+    # `Actioneer-0.0.1.dist-info` (#1394) -- and `strip_prefix` hard-fails on a
+    # miss, which Starlark cannot recover from. Reading the central directory
+    # instead would cost neither, but needs a zip API repo rules don't have.
     rctx.extract(
         archive = whl_path,
         output = metadata_dir,
-        strip_prefix = metadata_directory if hint.authoritative else "",
+        strip_prefix = "",
     )
-    metadata_path = rctx.path(metadata_dir)
-    if not hint.authoritative:
-        metadata_directory = _discover_metadata_directory(rctx, metadata_path, whl_path, metadata_directory)
-        metadata_path = metadata_path.get_child(metadata_directory)
+    root = rctx.path(metadata_dir)
+    metadata_directory = _discover_metadata_directory(rctx, root, whl_path, basename)
+    metadata_path = root.get_child(metadata_directory)
     record_path = metadata_path.get_child("RECORD")
     if not record_path.exists:
         fail("{}: wheel {} has no {}/RECORD".format(rctx.name, whl_path, metadata_directory))
