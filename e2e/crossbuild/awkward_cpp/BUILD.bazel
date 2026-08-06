@@ -1,0 +1,15 @@
+# awkward-cpp ships official prebuilt wheels for linux/amd64 and
+# linux/arm64, but [tool.uv] no-binary-package forces it to build from
+# sdist here. scikit-build-core (CMake) backend — pep517_native_whl doesn't
+# support it yet. Its compiled libraries (libawkward*.so) are loaded via
+# ctypes at runtime, not imported as CPython extension modules, so unlike
+# //contourpy there's no EXT_SUFFIX/SOABI to check — only ELF arch.
+
+load("//tools:cross_case.bzl", "pep517_cross_case")
+
+pep517_cross_case(
+    name = "awkward_cpp",
+    check_so_suffix = False,
+    deps = ["@pypi_crossbuild_awkward_cpp//awkward_cpp"],
+    so_pattern = "whl_install__crossbuild_awkward_cpp.*awkward_cpp/lib/libawkward-cpu-kernels\\.so$$",
+)

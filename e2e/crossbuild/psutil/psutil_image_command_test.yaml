@@ -1,0 +1,9 @@
+schemaVersion: 2.0.0
+
+# psutil_main.py asserts real cpu/memory info from its compiled Linux
+# backend itself and only prints "OK" on success.
+commandTests:
+  - name: psutil reads real cpu/memory info through its compiled backend
+    exitCode: 0
+    command: /app
+    expectedOutput: ["OK"]

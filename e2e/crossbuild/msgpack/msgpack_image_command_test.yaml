@@ -1,0 +1,9 @@
+schemaVersion: 2.0.0
+
+# msgpack_main.py asserts a real pack/unpack round-trip through the compiled
+# _cmsgpack extension itself and only prints "OK" on success.
+commandTests:
+  - name: msgpack round-trips a nested structure correctly
+    exitCode: 0
+    command: /app
+    expectedOutput: ["OK"]

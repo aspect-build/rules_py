@@ -1,0 +1,10 @@
+schemaVersion: 2.0.0
+
+# tiktoken_main.py asserts a real encode/decode round-trip through the
+# compiled Rust core (_tiktoken.CoreBPE) itself and only prints "OK" on
+# success.
+commandTests:
+  - name: tiktoken encodes and decodes through its compiled Rust core
+    exitCode: 0
+    command: /app
+    expectedOutput: ["OK"]

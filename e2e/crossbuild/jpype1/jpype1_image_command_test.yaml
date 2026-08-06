@@ -1,0 +1,9 @@
+schemaVersion: 2.0.0
+
+# jpype1_main.py asserts jpype.__version__ itself and only prints "OK" on
+# success.
+commandTests:
+  - name: jpype1 imports successfully after an Ant + JNI cross build
+    exitCode: 0
+    command: /app
+    expectedOutput: ["OK"]

@@ -1,0 +1,14 @@
+[project]
+name = "crossbuild_tiktoken"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    "build",
+    "setuptools",
+    "setuptools-rust",
+    "tiktoken==0.13.0",
+    "wheel",
+]
+
+[tool.uv]
+no-binary-package = ["tiktoken"]
