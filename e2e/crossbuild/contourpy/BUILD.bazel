@@ -9,6 +9,6 @@ load("//tools:cross_case.bzl", "pep517_cross_case")
 
 pep517_cross_case(
     name = "contourpy",
-    deps = ["@pypi_crossbuild_contourpy//contourpy"],
     so_pattern = "whl_install__crossbuild_contourpy.*_contourpy.*\\.so$$",
+    deps = ["@pypi_crossbuild_contourpy//contourpy"],
 )
