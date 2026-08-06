@@ -3,7 +3,7 @@ load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@container_structure_test//:defs.bzl", "container_structure_test")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load")
-load("//tools:asserts.bzl", "assert_tar_listing")
+load("//tools:asserts.bzl", "assert_tar_listing", "assert_tar_ownership")
 load(":image_layer_analysis_tests.bzl", "image_layer_analysis_test_suite")
 
 platform(
@@ -96,6 +96,72 @@ py_image_layer(
     name = "my_app_layers_fp",
     binary = ":my_app_bin",
     layer_tier = ":my_app_tier",
+)
+
+# Ownership coverage. Every layer kind has its own mtree emitter, so the binary
+# and tier below are shaped to produce one of each: pip whole-group (colorama
+# rest), pip subpath split (colorama_code), first-party group (branding),
+# interpreter, squashed ungrouped pip (pyproject_hooks), rule-level group
+# (assets), and the default source layer.
+py_binary(
+    name = "my_app_owner_bin",
+    srcs = ["__main__.py"],
+    dep_group = "images",
+    deps = [
+        "//oci/py_image_layer/branding",
+        "//tools/verify_venv",
+        "@aspect_rules_py//py/tests/internal-deps/adder",
+        "@pypi_oci_py_image_layer//colorama",
+        "@pypi_oci_py_image_layer//pyproject_hooks",
+    ],
+)
+
+filegroup(
+    name = "my_app_owner_assets",
+    srcs = ["my_app_peer_bin/config.json"],
+)
+
+py_layer_tier(
+    name = "my_app_owner_tier",
+    group = "2000",
+    groups = {
+        "//oci/py_image_layer/branding": "branding",
+        "@pip//colorama": "colorama",
+        "@pip//colorama:**/*.py": "colorama_code",
+    },
+    interpreter_group = "interpreter",
+    owner = "1000",
+)
+
+py_image_layer(
+    name = "my_app_owner_layers",
+    binary = ":my_app_owner_bin",
+    groups = {":my_app_owner_assets": "assets"},
+    layer_tier = ":my_app_owner_tier",
+)
+
+platform_transition_filegroup(
+    name = "platform_owner_layers",
+    srcs = [":my_app_owner_layers"],
+    target_platform = ":x86_64_linux",
+)
+
+# The interpreter tree is 2317 of the 2361 rows and shows nothing the other
+# layers don't, so it is excluded to keep the snapshot reviewable.
+assert_tar_listing(
+    name = "my_app_owner_layers_snapshot",
+    actual = [":platform_owner_layers"],
+    exclude = ["python_interpreters"],
+    expected = "my_app_owner_listing.yaml",
+)
+
+# Invariant guard over the same layers: the snapshot only holds if regenerated
+# correctly, this holds regardless.
+assert_tar_ownership(
+    name = "my_app_owner_layers_test",
+    actual = [":platform_owner_layers"],
+    group = "2000",
+    owner = "1000",
 )
 
 # Multi-member group coverage: two pip packages mapped to the same group name
@@ -192,6 +258,15 @@ py_image_layer(
         ":my_app_worker_alias",
     ],
     layer_tier = ":my_app_launchers_tier",
+)
+
+# Multi-binary images run the launcher-ownership loop, whose locals must not
+# collide with the tier's uid/gid. Default tier, so every row stays 0:0.
+assert_tar_ownership(
+    name = "my_app_launchers_layers_ownership_test",
+    actual = [":my_app_launchers_layers"],
+    group = "0",
+    owner = "0",
 )
 
 genrule(
