@@ -1,0 +1,46 @@
+[project]
+name = "whl-restrictive-perms"
+version = "0.0.0"
+# 3lc-ultralytics caps at <3.14; aadt floors at >=3.13.
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "3lc-ultralytics==0.3.4",
+    "aadt==1.7.0",
+    "abatcher==0.2.0",
+    "abstractvision-mflux==0.17.5.post1",
+    "acdh-xml-validator==1.1.0",
+    "augmax==0.4.1",
+]
+
+# Only the fetch-time metadata read is under test, so resolve every package as a
+# leaf: their real dependency trees (torch, mlx, opencv, jax) would be locked and
+# declared for nothing.
+[[tool.uv.dependency-metadata]]
+name = "3lc-ultralytics"
+version = "0.3.4"
+requires-dist = []
+
+[[tool.uv.dependency-metadata]]
+name = "aadt"
+version = "1.7.0"
+requires-dist = []
+
+[[tool.uv.dependency-metadata]]
+name = "abatcher"
+version = "0.2.0"
+requires-dist = []
+
+[[tool.uv.dependency-metadata]]
+name = "abstractvision-mflux"
+version = "0.17.5.post1"
+requires-dist = []
+
+[[tool.uv.dependency-metadata]]
+name = "acdh-xml-validator"
+version = "1.1.0"
+requires-dist = []
+
+[[tool.uv.dependency-metadata]]
+name = "augmax"
+version = "0.4.1"
+requires-dist = []

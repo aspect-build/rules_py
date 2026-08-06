@@ -1,0 +1,106 @@
+version = 1
+revision = 3
+requires-python = "==3.13.*"
+
+[manifest]
+
+[[manifest.dependency-metadata]]
+name = "3lc-ultralytics"
+version = "0.3.4"
+
+[[manifest.dependency-metadata]]
+name = "aadt"
+version = "1.7.0"
+
+[[manifest.dependency-metadata]]
+name = "abatcher"
+version = "0.2.0"
+
+[[manifest.dependency-metadata]]
+name = "abstractvision-mflux"
+version = "0.17.5.post1"
+
+[[manifest.dependency-metadata]]
+name = "acdh-xml-validator"
+version = "1.1.0"
+
+[[manifest.dependency-metadata]]
+name = "augmax"
+version = "0.4.1"
+
+[[package]]
+name = "3lc-ultralytics"
+version = "0.3.4"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a5/83/39def585884b5b3a8904570d02a9e2436fbd91c7279c1e1d273245b3199d/3lc_ultralytics-0.3.4.tar.gz", hash = "sha256:33802ffc6ca3b30db3886fe0eb1f3c2fd2aeb36eb1c604b6eef34cc98aa33e77", size = 1493373, upload-time = "2026-07-01T11:33:33.05Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7f/4e/0c84b7262ab204b9a58a3a6188064ea3baaee2544c2065e55bd4c20f0aca/3lc_ultralytics-0.3.4-py3-none-any.whl", hash = "sha256:62c7e70b1d99e3165132383b16c576e0d10a96896d424345586c8e927ec87336", size = 1512869, upload-time = "2026-07-01T11:33:31.545Z" },
+]
+
+[[package]]
+name = "aadt"
+version = "1.7.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/f5/2b/f5a234f0ed0766b39871be87f14c7a7e731188be217bc0c71a95025bc826/aadt-1.7.0.tar.gz", hash = "sha256:6d0c9a125b2804e435fed9cc134aa932f7c065e9a5a20ef1f14e46630aa477d0", size = 77131, upload-time = "2025-07-24T14:56:25.682Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/25/d3/955d1361e7d8ce2548e46f4a5462e8a5c737f23da9bd98c21ee07e3a90c6/aadt-1.7.0-py3-none-any.whl", hash = "sha256:3397993eabf585b89a0994fe117c7482f7265d00804b2ab49e1212f93b026a6f", size = 96326, upload-time = "2025-07-24T14:56:24.111Z" },
+]
+
+[[package]]
+name = "abatcher"
+version = "0.2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/e8/b4/03907ecb4e323f83aad93f0212e8a340ff4cc0f5ede94635807c5387a8d0/abatcher-0.2.0.tar.gz", hash = "sha256:7f39c72d99cd8c028f0fc800b4c741e8be6ff7ea1cce0d95c2fb1a426b937280", size = 5362, upload-time = "2025-05-06T10:09:31.477Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bd/e1/9a458296de657fa8bbf9b0a4ed6cc7edf418d6f2661491a1a4c9bbec78fb/abatcher-0.2.0-py3-none-any.whl", hash = "sha256:ac243c664afacc8e62c819fff7b8db702d18e45fa948945f3cb35ccf8a6a9d80", size = 6321, upload-time = "2025-05-06T10:09:29.291Z" },
+]
+
+[[package]]
+name = "abstractvision-mflux"
+version = "0.17.5.post1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d8/e2/2fccf639fca733cab693a505ba20abffb13aea81696456743ea352feff94/abstractvision_mflux-0.17.5.post1.tar.gz", hash = "sha256:c8f7eeadbb1aa976eacbed5e4a2962916976537a3ee0ded8adcb19889c441fd8", size = 784894, upload-time = "2026-05-24T19:32:33.311Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/96/9c/3e7ca03014e3a417fb2aceeb214a8fc648742d9a2eb6d615c64dafe0f067/abstractvision_mflux-0.17.5.post1-py3-none-any.whl", hash = "sha256:7ae75d0967ca27edb4b77ff6d99096730a8cebb8adc0c29d0821eea624613db0", size = 1039370, upload-time = "2026-05-24T19:32:31.287Z" },
+]
+
+[[package]]
+name = "acdh-xml-validator"
+version = "1.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/31/18/b5177de7f8b4b2d21ff9b408c40fd4bfefab16de25b44361187559831a35/acdh_xml_validator-1.1.0.tar.gz", hash = "sha256:b4b901ff51d2975492142b0276d3145e58764baf536005bcd2857ea19bbdab8b", size = 4067, upload-time = "2025-07-21T11:52:15.425Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4f/07/2c83e008bfce0ba4871274a71c258a3b013950f2f0d0884df9f7ae6680e0/acdh_xml_validator-1.1.0-py3-none-any.whl", hash = "sha256:290b8f1a0226ec8433f408b25e6ae28513507e65e2234d2e5b985a921b92d1e7", size = 5871, upload-time = "2025-07-21T11:52:14.37Z" },
+]
+
+[[package]]
+name = "augmax"
+version = "0.4.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/45/f0/0ab2080eb132cf9bb70ee96e80ff57be323b09aed563825058760404e383/augmax-0.4.1.tar.gz", hash = "sha256:d8e645203f535e243a3b16fb3634b10d4f168d1b9cfde4cda3892ab22bf31e8d", size = 11497, upload-time = "2025-05-16T11:25:10.354Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f3/3e/1cc3a97f3adbca740310de33ff41fd141f7cd9b2b5baafdfbc3dd6526255/augmax-0.4.1-py3-none-any.whl", hash = "sha256:60f9711a4ffc08f27d1ff0783f7c51c01e6f78e20d4581d075ebf2d904ab2d14", size = 17299, upload-time = "2025-05-16T11:25:09.044Z" },
+]
+
+[[package]]
+name = "whl-restrictive-perms"
+version = "0.0.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "3lc-ultralytics" },
+    { name = "aadt" },
+    { name = "abatcher" },
+    { name = "abstractvision-mflux" },
+    { name = "acdh-xml-validator" },
+    { name = "augmax" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "3lc-ultralytics", specifier = "==0.3.4" },
+    { name = "aadt", specifier = "==1.7.0" },
+    { name = "abatcher", specifier = "==0.2.0" },
+    { name = "abstractvision-mflux", specifier = "==0.17.5.post1" },
+    { name = "acdh-xml-validator", specifier = "==1.1.0" },
+    { name = "augmax", specifier = "==0.4.1" },
+]

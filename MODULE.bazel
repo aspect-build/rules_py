@@ -2,7 +2,13 @@
 
 module(
     name = "aspect_rules_py",
-    bazel_compatibility = [">=8.5.0"],
+    # Require:
+    #    >=8.5 for Facts API
+    #    >=8.6 and >=9.0.1 for https://github.com/bazelbuild/bazel/pull/28551 and https://github.com/bazelbuild/bazel/pull/28649
+    bazel_compatibility = [
+        ">=8.6.0",
+        "-9.0.0",
+    ],
     compatibility_level = 1,
 )
 
