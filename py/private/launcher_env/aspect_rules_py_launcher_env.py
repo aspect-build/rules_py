@@ -9,6 +9,7 @@ import atexit
 import hashlib
 import os
 import stat
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
@@ -149,8 +150,11 @@ def start_coverage() -> Optional["Coverage"]:
 
     with open(os.environ["COVERAGE_MANIFEST"], "r") as mf:
         manifest_entries = mf.read().splitlines()
-    cov = coverage.Coverage(include=manifest_entries)
     _absfile_mapping = {coverage.files.abs_file(mfe): mfe for mfe in manifest_entries}
+
+    # Include patterns must be absolute: coveragepy matches relative patterns
+    # against the CWD, so a test with `chdir` set would match nothing.
+    cov = coverage.Coverage(include=list(_absfile_mapping.keys()))
     cov.start()
     return cov
 
@@ -160,12 +164,20 @@ def write_lcov(cov: "Coverage") -> None:
 
     https://bazel.build/configure/coverage
     """
+    import coverage.exceptions
+
     cov.stop()
     output_file = os.getenv("COVERAGE_OUTPUT_FILE")
     assert output_file is not None
 
     unfixed = output_file + ".tmp"
-    cov.lcov_report(outfile=unfixed)
+    try:
+        cov.lcov_report(outfile=unfixed)
+    except coverage.exceptions.NoDataError as e:
+        # An empty report must not fail an otherwise passing test.
+        print("WARNING: no python coverage data collected:", e, file=sys.stderr)
+        open(output_file, "w").close()
+        return
     cov.save()
 
     with open(unfixed, "r") as src, open(output_file, "w") as dst:

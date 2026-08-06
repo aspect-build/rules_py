@@ -59,6 +59,7 @@ check_coverage() {
 
 check_coverage //coverage-drivers:coverage_pytest_test bazel-testlogs/coverage-drivers/coverage_pytest_test/coverage.dat
 check_coverage //coverage-drivers:coverage_pytest_codegen_test bazel-testlogs/coverage-drivers/coverage_pytest_codegen_test/coverage.dat
+check_coverage //coverage-drivers:coverage_pytest_chdir_test bazel-testlogs/coverage-drivers/coverage_pytest_chdir_test/coverage.dat
 check_coverage //coverage-drivers:coverage_unittest_test bazel-testlogs/coverage-drivers/coverage_unittest_test/coverage.dat
 
 echo "All coverage driver checks passed."
