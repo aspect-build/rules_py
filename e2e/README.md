@@ -35,15 +35,34 @@ workspace above must not carry: its `.bazelrc` turns on the rules_python provide
 compatibility layer, so rules_python `py_*` targets can depend on a rules_py `py_library`.
 Its `test.sh` asserts the same dependency is rejected with the flag off.
 
-`crossbuild` hosts the rules_pycross ports (`pycross-*`): suites that force
-packages to build from their sdists — pure-Python backends, setuptools C
-extensions, pre/post-install patch phases, the distutils probe — and assert
-properties of the resulting wheels, including rebuilding them under non-host
-target platforms via `collect_wheels`. They live apart from `cases/` because
-this workspace is where the cross-compilation test matrix grows, and their
-sdist hubs carry package-specific overrides (`default_build_dependencies`,
-patches, `resource_set`) that shouldn't leak onto unrelated cases sharing a
-module — see its `MODULE.bazel` docstring.
+`crossbuild` covers `pep517_native_whl`'s cross-compilation path across five
+PEP 517 backends, each with more than one real, popular package so no
+backend's cross support rests on a single lucky case: two plain
+setuptools/distutils C extensions (`geohash`, `psutil`), `contourpy`
+(meson-python), two scikit-build-core/CMake packages (`awkward_cpp`,
+`jpype1` — the latter also needing a real Eclipse Temurin JDK and a
+hermetically vendored Apache Ant, both fetched directly rather than relying
+on rules_java's default remotejdk, which is actually Azul Zulu, or a system
+`ant`), two maturin/PyO3 Rust packages (`rpds_py`, `pydantic_core`), and
+`bcrypt` (setuptools-rust — a different real-world Rust-in-Python
+integration than maturin, with no build-backend value of its own to detect
+it by). Every case is built and packaged for linux/amd64 and linux/arm64
+from the same amd64 exec host and actually executed — QEMU for the Linux
+targets — not just inspected. The same workspace hosts the rules_pycross
+ports (`pycross-*`), which force packages to build from their sdists and
+assert properties of the resulting wheels, including rebuilding them under
+non-host target platforms via `collect_wheels`. One more package
+(`zstandard`) also ships official prebuilt wheels; its case diffs our
+cross-compiled output against theirs byte-for-byte instead of checking
+against a hardcoded expected value. These suites are isolated rather than
+packages under `e2e/cases` because their pip hubs need package-specific
+configuration (`default_build_dependencies`, pre-build patches, a larger
+`resource_set`) that would otherwise leak onto unrelated packages sharing
+the hub — see the module docstring in its `MODULE.bazel`. On a macOS runner
+(the `smoke` job, see below) it additionally builds and runs for
+arm64/amd64 macOS via the Xcode SDK, executing the amd64 one under
+Rosetta 2 — see its `test.sh` for why that half can't just be more
+`platform_transition_filegroup` targets under `//...`.
 
 Each isolated workspace points back at repo-root rules_py with
 `local_path_override(path = "../..")`.
