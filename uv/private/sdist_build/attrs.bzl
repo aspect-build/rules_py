@@ -9,6 +9,7 @@ def validate_build_attrs(
         pre_build_patch_strip,
         supported,
         toolchains,
+        cc_deps,
         error):
     """Fails when a configured source-build attribute is unsupported.
 
@@ -21,6 +22,7 @@ def validate_build_attrs(
         pre_build_patch_strip: Strip count for pre-build patches.
         supported: Names of attributes consumed by the selected build path.
         toolchains: Toolchains used by the wheel-build action.
+        cc_deps: CcInfo targets whose headers and archives feed the native build.
         error: Failure message with one `{}` slot for unsupported names.
     """
     active = []
@@ -38,6 +40,8 @@ def validate_build_attrs(
         active.append("pre_build_patch_strip")
     if toolchains:
         active.append("toolchains")
+    if cc_deps:
+        active.append("cc_deps")
     unsupported = [name for name in active if name not in supported]
     if unsupported:
         fail(error.format(", ".join(unsupported)))

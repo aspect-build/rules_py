@@ -1,0 +1,422 @@
+load("@bazel_lib//:bzl_library.bzl", "bzl_library")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load("@rules_cc//cc:defs.bzl", "cc_import", "cc_library")
+load("//uv/private/pep517_whl:rule.bzl", "pep517_native_whl")
+load(
+    ":test.bzl",
+    "assert_allowlist_matches_golden",
+    "cc_framework_shim",
+    "pep517_native_whl_cc_deps_content_test",
+    "pep517_native_whl_cc_deps_failure_test",
+    "pep517_native_whl_cc_deps_test",
+)
+
+# Fails the package at load time if rule.bzl's allowed link-flag shapes or -z
+# keywords drift from the golden copies in test.bzl, so an entry removed
+# upstream cannot quietly drop the acceptance coverage below.
+assert_allowlist_matches_golden()
+
+bzl_library(
+    name = "test",
+    testonly = True,
+    srcs = ["test.bzl"],
+    visibility = ["//uv:__subpackages__"],
+    deps = [
+        "//uv/private/pep517_whl:rule",
+        "@bazel_skylib//lib:unittest",
+        "@rules_cc//cc/common",
+    ],
+)
+
+# cc_deps analysis fixtures live in their own package because each successful
+# pep517_native_whl target declares a `whl` output directory; two successful
+# fixtures in one package would collide (see native_dep for the same pattern).
+# The archives/headers here are never compiled or linked; the tests inspect
+# the PySdistNativeBuild action at analysis time only.
+
+write_file(
+    name = "cc_dep_hdr",
+    out = "cc_dep.h",
+    content = ["int cc_dep_value(void);"],
+    tags = ["manual"],
+)
+
+write_file(
+    name = "cc_dep_src",
+    out = "cc_dep.c",
+    content = [
+        "#include \"cc_dep.h\"",
+        "int cc_dep_value(void) { return 42; }",
+    ],
+    tags = ["manual"],
+)
+
+cc_library(
+    name = "cc_dep",
+    testonly = True,
+    srcs = ["cc_dep.c"],
+    hdrs = ["cc_dep.h"],
+    includes = ["."],
+    tags = ["manual"],
+)
+
+# A two-level chain (chain_dep -> chain_dep2) whose direct library carries
+# user_link_flags: a `-l<name>`, and a verbatim flag referencing a file
+# declared via additional_linker_inputs. Together with :cc_dep it exercises
+# merge coverage, topological archive order, the -l partition, and the
+# marker-anchoring of declared paths inside link flags.
+write_file(
+    name = "chain_dep2_hdr",
+    out = "chain_dep2.h",
+    content = ["int chain_dep2_value(void);"],
+    tags = ["manual"],
+)
+
+write_file(
+    name = "chain_dep2_src",
+    out = "chain_dep2.c",
+    content = [
+        "#include \"chain_dep2.h\"",
+        "int chain_dep2_value(void) { return 7; }",
+    ],
+    tags = ["manual"],
+)
+
+# A define on the transitive leaf proves -D propagation reaches the merged
+# compilation context (and lands in compile_flags as a bare -D, marker-free).
+cc_library(
+    name = "chain_dep2",
+    testonly = True,
+    srcs = ["chain_dep2.c"],
+    hdrs = ["chain_dep2.h"],
+    defines = ["CHAIN_BONUS=3"],
+    tags = ["manual"],
+)
+
+write_file(
+    name = "chain_dep_hdr",
+    out = "chain_dep.h",
+    content = ["int chain_dep_value(void);"],
+    tags = ["manual"],
+)
+
+write_file(
+    name = "chain_dep_src",
+    out = "chain_dep.c",
+    content = [
+        "#include \"chain_dep.h\"",
+        "#include \"chain_dep2.h\"",
+        "int chain_dep_value(void) { return chain_dep2_value(); }",
+    ],
+    tags = ["manual"],
+)
+
+write_file(
+    name = "version_script",
+    out = "vs.lds",
+    content = ["{ global: *; local: *; };"],
+    tags = ["manual"],
+)
+
+# The linkopts carry one exemplar per allowed link-flag shape, directive form,
+# and reviewed -z keyword (the content test asserts each reaches link_flags
+# verbatim and in order): a `-l<name>` for the libraries slot, a declared-path
+# version script in its comma and = spellings, an -L search path, the rpath
+# directives in comma and = spellings plus -rpath-link, each reviewed -z
+# keyword, the benign multi-directive compound -z,relro,-z,now,
+# --enable-new-dtags comma-joined after an $ORIGIN rpath ($$ escapes the
+# literal $), and -pthread. The -L/rpath dummy paths are fixture-relative and
+# never linked (analysis-only fixture).
+cc_library(
+    name = "chain_dep",
+    testonly = True,
+    srcs = ["chain_dep.c"],
+    hdrs = ["chain_dep.h"],
+    additional_linker_inputs = [":version_script"],
+    linkopts = [
+        "-lchainfoo",
+        "-Wl,--version-script,$(location :version_script)",
+        "-Wl,--version-script=$(location :version_script)",
+        "-Lvendor/dummy",
+        "-Wl,-rpath,vendor/rpath",
+        "-Wl,-rpath=vendor/rpath_eq",
+        "-Wl,-rpath-link,vendor/rpath_link",
+        "-Wl,-z,now",
+        "-Wl,-z,relro,-z,now",
+        "-Wl,-z,noexecstack",
+        "-Wl,-z,origin",
+        "-Wl,-rpath,$$ORIGIN,--enable-new-dtags",
+        "-pthread",
+    ],
+    tags = ["manual"],
+    deps = [":chain_dep2"],
+)
+
+# Synthesizes a CcInfo carrying only an Apple `-F` framework search path. A plain
+# cc_library cannot populate framework_includes on Linux, so the content test
+# relies on this to pin the -F emission and marker-anchoring. It contributes no
+# headers or archives, so it does not perturb the header/archive assertions.
+cc_framework_shim(
+    name = "cc_framework_dep",
+    testonly = True,
+    framework_includes = ["vendor/Frameworks"],
+    tags = ["manual"],
+)
+
+pep517_native_whl(
+    name = "cc_deps_fixture",
+    testonly = True,
+    src = "//uv/private/pep517_whl:__stub_sdist",
+    cc_deps = [
+        ":cc_dep",
+        ":cc_framework_dep",
+        ":chain_dep",
+    ],
+    tags = ["manual"],
+    tool = "//uv/private/pep517_whl:__stub_tool",
+    version = "0.0.1",
+)
+
+pep517_native_whl_cc_deps_test(
+    name = "cc_deps_test",
+    target_under_test = ":cc_deps_fixture",
+)
+
+pep517_native_whl_cc_deps_content_test(
+    name = "cc_deps_content_test",
+    target_under_test = ":cc_deps_fixture",
+)
+
+# A shared-library-only dep must fail at analysis: static archives only.
+write_file(
+    name = "dynamic_only_so",
+    out = "libcc_dynamic_only.so",
+    content = [""],
+    tags = ["manual"],
+)
+
+cc_import(
+    name = "cc_dynamic_only_dep",
+    testonly = True,
+    shared_library = "libcc_dynamic_only.so",
+    tags = ["manual"],
+)
+
+pep517_native_whl(
+    name = "cc_deps_dynamic_only_fixture",
+    testonly = True,
+    src = "//uv/private/pep517_whl:__stub_sdist",
+    cc_deps = [":cc_dynamic_only_dep"],
+    tags = ["manual"],
+    tool = "//uv/private/pep517_whl:__stub_tool",
+    version = "0.0.1",
+)
+
+pep517_native_whl_cc_deps_failure_test(
+    name = "cc_deps_dynamic_only_test",
+    expected_message = "provides no static archive",
+    target_under_test = ":cc_deps_dynamic_only_fixture",
+)
+
+# An alwayslink (whole-archive) dep must fail at analysis: v1 cut.
+cc_library(
+    name = "cc_alwayslink_dep",
+    testonly = True,
+    srcs = ["cc_dep.c"],
+    hdrs = ["cc_dep.h"],
+    tags = ["manual"],
+    alwayslink = True,
+)
+
+pep517_native_whl(
+    name = "cc_deps_alwayslink_fixture",
+    testonly = True,
+    src = "//uv/private/pep517_whl:__stub_sdist",
+    cc_deps = [":cc_alwayslink_dep"],
+    tags = ["manual"],
+    tool = "//uv/private/pep517_whl:__stub_tool",
+    version = "0.0.1",
+)
+
+pep517_native_whl_cc_deps_failure_test(
+    name = "cc_deps_alwayslink_test",
+    expected_message = "whole-archive linking is not supported",
+    target_under_test = ":cc_deps_alwayslink_fixture",
+)
+
+# A link flag outside the allowlist must fail at analysis rather than get
+# silently reordered. Six cases cover the contract: (a) a flag the predecessor
+# denylist named explicitly, proving those are still rejected; (b) an arbitrary
+# flag no list ever enumerated, proving rejection is default-deny rather than
+# list-membership; (c) a bare unwrapped token, pinning that a flag with no -Wl,
+# wrapper is handled the same way; (d) a comma-joined -Wl, token whose leading
+# directive is allowed but which smuggles a rejected directive behind it,
+# proving the per-directive walk; (e) -framework, a library input the two-slot
+# split cannot hold; (f) a -z keyword outside the reviewed set, proving -z is
+# not an open class. Each test pins the exact offending flag (and directive) as
+# the rule prints it. Failure fixtures may share the package: analysis fails
+# before the whl output directory gets a generating action.
+cc_library(
+    name = "cc_reject_group_dep",
+    testonly = True,
+    srcs = ["cc_dep.c"],
+    hdrs = ["cc_dep.h"],
+    linkopts = ["-Wl,--start-group"],
+    tags = ["manual"],
+)
+
+pep517_native_whl(
+    name = "cc_deps_reject_group_fixture",
+    testonly = True,
+    src = "//uv/private/pep517_whl:__stub_sdist",
+    cc_deps = [":cc_reject_group_dep"],
+    tags = ["manual"],
+    tool = "//uv/private/pep517_whl:__stub_tool",
+    version = "0.0.1",
+)
+
+pep517_native_whl_cc_deps_failure_test(
+    name = "cc_deps_reject_group_test",
+    expected_message = "passes the link flag -Wl,--start-group; its directive --start-group is not",
+    target_under_test = ":cc_deps_reject_group_fixture",
+)
+
+cc_library(
+    name = "cc_reject_unknown_dep",
+    testonly = True,
+    srcs = ["cc_dep.c"],
+    hdrs = ["cc_dep.h"],
+    linkopts = ["-Wl,--definitely-not-a-real-flag"],
+    tags = ["manual"],
+)
+
+pep517_native_whl(
+    name = "cc_deps_reject_unknown_fixture",
+    testonly = True,
+    src = "//uv/private/pep517_whl:__stub_sdist",
+    cc_deps = [":cc_reject_unknown_dep"],
+    tags = ["manual"],
+    tool = "//uv/private/pep517_whl:__stub_tool",
+    version = "0.0.1",
+)
+
+pep517_native_whl_cc_deps_failure_test(
+    name = "cc_deps_reject_unknown_test",
+    expected_message = "passes the link flag -Wl,--definitely-not-a-real-flag; its directive --definitely-not-a-real-flag is not",
+    target_under_test = ":cc_deps_reject_unknown_fixture",
+)
+
+# A bare token with no -Wl, wrapper. The compiler driver forwards such flags to
+# the linker unwrapped, so this is the realistic bare form.
+cc_library(
+    name = "cc_reject_bare_dep",
+    testonly = True,
+    srcs = ["cc_dep.c"],
+    hdrs = ["cc_dep.h"],
+    linkopts = ["--whole-archive"],
+    tags = ["manual"],
+)
+
+pep517_native_whl(
+    name = "cc_deps_reject_bare_fixture",
+    testonly = True,
+    src = "//uv/private/pep517_whl:__stub_sdist",
+    cc_deps = [":cc_reject_bare_dep"],
+    tags = ["manual"],
+    tool = "//uv/private/pep517_whl:__stub_tool",
+    version = "0.0.1",
+)
+
+pep517_native_whl_cc_deps_failure_test(
+    name = "cc_deps_reject_bare_test",
+    expected_message = "passes the link flag --whole-archive, which is not",
+    target_under_test = ":cc_deps_reject_bare_fixture",
+)
+
+# An allowed leading directive (-rpath) must not smuggle a rejected directive
+# behind it in the same comma-joined token; the walk validates every directive
+# and the message names the offender.
+cc_library(
+    name = "cc_reject_smuggle_dep",
+    testonly = True,
+    srcs = ["cc_dep.c"],
+    hdrs = ["cc_dep.h"],
+    linkopts = ["-Wl,-rpath,/x,--as-needed"],
+    tags = ["manual"],
+)
+
+pep517_native_whl(
+    name = "cc_deps_reject_smuggle_fixture",
+    testonly = True,
+    src = "//uv/private/pep517_whl:__stub_sdist",
+    cc_deps = [":cc_reject_smuggle_dep"],
+    tags = ["manual"],
+    tool = "//uv/private/pep517_whl:__stub_tool",
+    version = "0.0.1",
+)
+
+pep517_native_whl_cc_deps_failure_test(
+    name = "cc_deps_reject_smuggle_test",
+    expected_message = "passes the link flag -Wl,-rpath,/x,--as-needed; its directive --as-needed is not",
+    target_under_test = ":cc_deps_reject_smuggle_fixture",
+)
+
+# -framework is a library input: ld64 resolves frameworks in command-line order
+# alongside -l entries, so relocating the -l entries to the post-object slot
+# while -framework rides pre-object LDFLAGS would reorder library resolution.
+# Rejected; the head token is named before its name token is ever read.
+cc_library(
+    name = "cc_reject_framework_dep",
+    testonly = True,
+    srcs = ["cc_dep.c"],
+    hdrs = ["cc_dep.h"],
+    linkopts = [
+        "-framework",
+        "CoreFoundation",
+    ],
+    tags = ["manual"],
+)
+
+pep517_native_whl(
+    name = "cc_deps_reject_framework_fixture",
+    testonly = True,
+    src = "//uv/private/pep517_whl:__stub_sdist",
+    cc_deps = [":cc_reject_framework_dep"],
+    tags = ["manual"],
+    tool = "//uv/private/pep517_whl:__stub_tool",
+    version = "0.0.1",
+)
+
+pep517_native_whl_cc_deps_failure_test(
+    name = "cc_deps_reject_framework_test",
+    expected_message = "passes the link flag -framework, which is not",
+    target_under_test = ":cc_deps_reject_framework_fixture",
+)
+
+# A -z keyword outside the reviewed set must be rejected: the -z namespace is
+# open and contains position-sensitive keywords (Solaris -z allextract toggles
+# whole-archive extraction for the archives that follow it).
+cc_library(
+    name = "cc_reject_z_keyword_dep",
+    testonly = True,
+    srcs = ["cc_dep.c"],
+    hdrs = ["cc_dep.h"],
+    linkopts = ["-Wl,-z,allextract"],
+    tags = ["manual"],
+)
+
+pep517_native_whl(
+    name = "cc_deps_reject_z_keyword_fixture",
+    testonly = True,
+    src = "//uv/private/pep517_whl:__stub_sdist",
+    cc_deps = [":cc_reject_z_keyword_dep"],
+    tags = ["manual"],
+    tool = "//uv/private/pep517_whl:__stub_tool",
+    version = "0.0.1",
+)
+
+pep517_native_whl_cc_deps_failure_test(
+    name = "cc_deps_reject_z_keyword_test",
+    expected_message = "passes the link flag -Wl,-z,allextract; its directive -z allextract is not",
+    target_under_test = ":cc_deps_reject_z_keyword_fixture",
+)

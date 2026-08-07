@@ -69,6 +69,21 @@ py_binary(
     deps = ["@pypi//build"],
 )
 
+# Same helper source, but with setuptools in the build venv. The production
+# tool above deliberately ships only @pypi//build; the executable cc_deps
+# regression under tests/cc_deps/executable needs a real setuptools.build_meta
+# backend to run under --no-isolation, so it uses this variant.
+py_binary(
+    name = "__build_helper_setuptools",
+    testonly = True,
+    srcs = ["build_helper.py"],
+    main = "build_helper.py",
+    deps = [
+        "@pypi//build",
+        "@pypi//setuptools",
+    ],
+)
+
 _PYTHON_ENV_BACKEND_SRCS = glob(["tests/python_env_backend/*"])
 
 mtree_spec(
@@ -97,7 +112,6 @@ bzl_library(
     srcs = ["test.bzl"],
     visibility = ["//uv:__subpackages__"],
     deps = [
-        ":rule",
         "//uv/private:source_built_wheel",
         "@bazel_skylib//lib:unittest",
     ],

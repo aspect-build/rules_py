@@ -18,7 +18,7 @@ import sys
 from os import chmod, defpath, listdir, makedirs, path, pathsep
 from subprocess import CalledProcessError, check_call, check_output, STDOUT, run
 from tempfile import TemporaryFile
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 try:
     tomllib = importlib.import_module("tomllib")
@@ -270,6 +270,311 @@ def _legacy_metadata_conflicts_with_pyproject(worktree: str) -> bool:
         )
     )
 
+
+def _load_cc_deps_info(info_path: str, execroot_marker: Optional[str]) -> Dict[str, List[str]]:
+    """Load the cc_deps params file, re-anchoring its execroot-relative paths.
+
+    The rule emits every path prefixed with `execroot_marker` because only
+    execroot-relative paths exist at analysis time. build_helper still runs at
+    the execroot here (the backend chdir happens in the child process), so
+    `os.getcwd()` is the execroot the marker must expand to.
+    """
+    import json
+
+    if not execroot_marker:
+        # Defensive: the rule always pairs the two flags; without the marker the
+        # paths below cannot be anchored.
+        print(
+            "Error: --cc-deps-info requires --execroot-marker to anchor its paths.",
+            file=sys.stderr,
+        )
+        exit(1)
+
+    with open(info_path, encoding="utf-8") as f:
+        raw = json.load(f)
+
+    execroot = os.getcwd()
+    info: Dict[str, List[str]] = {}
+    for key in ("compile_flags", "link_objects", "link_libraries", "link_flags"):
+        values: List[str] = []
+        for value in raw.get(key, []):
+            resolved = value.replace(execroot_marker, execroot)
+            if execroot_marker in resolved:
+                print(
+                    "Error: execroot marker survived substitution in cc_deps "
+                    "{}: {!r}".format(key, resolved),
+                    file=sys.stderr,
+                )
+                exit(1)
+            values.append(resolved)
+        info[key] = values
+    return info
+
+
+def _effective_build_backend(worktree: str) -> Optional[str]:
+    """Return the declared PEP 517 backend, or None for the setuptools default.
+
+    A missing pyproject.toml, `[build-system]` table, or `build-backend` key all
+    mean the legacy setuptools path (None is in `_SETUPTOOLS_BACKENDS`), which
+    still honors DIST_EXTRA_CONFIG.
+    """
+    pyproject_data = _load_pyproject_data(worktree)
+    if not pyproject_data:
+        return None
+    build_system = pyproject_data.get("build-system", {})
+    if not isinstance(build_system, dict):
+        return None
+    backend = build_system.get("build-backend")
+    return backend if isinstance(backend, str) else None
+
+
+def _require_setuptools_floor() -> None:
+    """Fail unless the build venv's setuptools understands DIST_EXTRA_CONFIG."""
+    from importlib.metadata import PackageNotFoundError, version
+
+    # DIST_EXTRA_CONFIG landed in setuptools 65.4.0; older setuptools silently
+    # ignores the [build_ext] config we hand it, dropping the linked archives.
+    try:
+        found = version("setuptools")
+    except PackageNotFoundError:
+        print(
+            "Error: cc_deps requires setuptools >= 65.4.0 in the build "
+            "environment, but setuptools is not installed. Add setuptools to your "
+            "uv.lock / default_build_dependencies.",
+            file=sys.stderr,
+        )
+        exit(1)
+
+    parts = found.split(".")
+    try:
+        version_tuple = (int(parts[0]), int(parts[1]) if len(parts) > 1 else 0)
+    except (IndexError, ValueError):
+        print(
+            "Error: cc_deps requires setuptools >= 65.4.0, but could not parse the "
+            "installed setuptools version {!r}.".format(found),
+            file=sys.stderr,
+        )
+        exit(1)
+
+    if version_tuple < (65, 4):
+        print(
+            "Error: cc_deps requires setuptools >= 65.4.0 (for DIST_EXTRA_CONFIG), "
+            "but the build environment has {}. Update setuptools in your uv.lock / "
+            "default_build_dependencies.".format(found),
+            file=sys.stderr,
+        )
+        exit(1)
+
+
+def _has_whitespace(value: str) -> bool:
+    return any(character.isspace() for character in value)
+
+
+def _cc_deps_include_path(flag: str) -> Optional[str]:
+    """Return the directory carried by an -I/-iquote/-isystem/-F flag, else None."""
+    for prefix in ("-iquote", "-isystem", "-I", "-F"):
+        if flag.startswith(prefix):
+            return flag[len(prefix):]
+    return None
+
+
+def _reject_unsplittable_cc_deps(info: Dict[str, List[str]]) -> None:
+    """Reject values setuptools/CPPFLAGS/LDFLAGS would split, naming the offender.
+
+    setuptools splits `[build_ext] link_objects` and `libraries` on whitespace
+    or comma, and CPPFLAGS/LDFLAGS are word-split downstream, so a path
+    containing either survives neither. The execroot itself can carry a space
+    (a user home directory), so this is exactly the case the guard catches.
+    """
+    # os.pathsep does not appear in setuptools' link_objects split rule
+    # (whitespace/comma only), but the guard keeps it as an over-conservative
+    # fail-safe: a colon-bearing archive path has no legitimate source here.
+    for link_object in info["link_objects"]:
+        if _has_whitespace(link_object) or "," in link_object or pathsep in link_object:
+            print(
+                "Error: cc_deps link object path {!r} contains whitespace, a "
+                "comma, or {!r}; setuptools splits [build_ext] link_objects on "
+                "whitespace/comma and would mangle it. This usually means the "
+                "Bazel output base (execroot) contains a space; choose an "
+                "--output_base without spaces.".format(link_object, pathsep),
+                file=sys.stderr,
+            )
+            exit(1)
+    for library in info["link_libraries"]:
+        if _has_whitespace(library) or "," in library:
+            print(
+                "Error: cc_deps library name {!r} contains whitespace or a "
+                "comma; setuptools splits [build_ext] libraries on those and "
+                "would mangle it.".format(library),
+                file=sys.stderr,
+            )
+            exit(1)
+    # -D defines are deliberately unguarded (binding decision): they carry
+    # symbols, not paths, and CPPFLAGS is the only channel that can express K=V.
+    for flag in info["compile_flags"]:
+        include = _cc_deps_include_path(flag)
+        if include is not None and _has_whitespace(include):
+            print(
+                "Error: cc_deps compile search path {!r} contains whitespace; "
+                "CPPFLAGS is word-split downstream and would mangle it. This "
+                "usually means the Bazel output base (execroot) contains a space; "
+                "choose an --output_base without spaces.".format(include),
+                file=sys.stderr,
+            )
+            exit(1)
+    # LDFLAGS is word-split downstream, so a whitespace-bearing token is
+    # unrepresentable, whether it's an execroot-anchored path
+    # (e.g. -Wl,--version-script,<execroot>/.../vs.lds) or a user linkopt that
+    # happens to carry a space. Guard every link flag, not just the
+    # execroot-anchored ones.
+    for flag in info["link_flags"]:
+        if _has_whitespace(flag):
+            print(
+                "Error: cc_deps link flag {!r} contains whitespace; it is "
+                "appended to LDFLAGS, which is word-split downstream, so no "
+                "single flag can carry a space. This usually means the Bazel "
+                "output base (execroot) contains a space; choose an "
+                "--output_base without spaces.".format(flag),
+                file=sys.stderr,
+            )
+            exit(1)
+
+
+def _package_build_ext_option(worktree: str, option: str) -> Optional[str]:
+    """Return a `[build_ext]` option value from the package's setup.cfg, if any.
+
+    DIST_EXTRA_CONFIG REPLACES (never merges) same-named options, so the
+    package's own value has to be folded back in explicitly. Tolerant of a
+    missing setup.cfg; warns but continues if an existing one will not parse.
+    """
+    import configparser
+
+    setup_cfg = path.join(worktree, "setup.cfg")
+    if not path.exists(setup_cfg):
+        return None
+
+    parser = configparser.ConfigParser(interpolation=None)
+    try:
+        parser.read(setup_cfg, encoding="utf-8")
+    except configparser.Error:
+        print(
+            "Warning: ignoring [build_ext] settings in {} (could not parse it).".format(setup_cfg),
+            file=sys.stderr,
+        )
+        return None
+
+    if parser.has_option("build_ext", option):
+        return parser.get("build_ext", option)
+    return None
+
+
+def _merged_build_ext_value(worktree: str, option: str, values: List[str]) -> str:
+    """Join our `values` for a [build_ext] option behind the package's own value."""
+    ours = " ".join(values)
+    package_value = _package_build_ext_option(worktree, option)
+    if not package_value:
+        return ours
+    # configparser may return a multi-line value; collapse it to one physical
+    # line so our generated cfg stays well-formed. The option is whitespace/comma
+    # split downstream, so token semantics are preserved, and the package's
+    # entries stay worktree-relative (they resolve because the backend's cwd is
+    # the worktree).
+    package_value = " ".join(package_value.split())
+    return "{} {}".format(package_value, ours) if ours else package_value
+
+
+def _build_extra_config_text(info: Dict[str, List[str]], worktree: str) -> str:
+    """Render the DIST_EXTRA_CONFIG `[build_ext]` file for the link inputs.
+
+    include_dirs and defines are deliberately omitted: they ride CPPFLAGS
+    instead (a cfg `define` cannot express K=V macros, and CPPFLAGS reaches
+    custom build commands too).
+    """
+    lines = ["[build_ext]"]
+    if info["link_objects"]:
+        lines.append("link_objects = {}".format(
+            _merged_build_ext_value(worktree, "link_objects", info["link_objects"]),
+        ))
+    if info["link_libraries"]:
+        lines.append("libraries = {}".format(
+            _merged_build_ext_value(worktree, "libraries", info["link_libraries"]),
+        ))
+    return "\n".join(lines) + "\n"
+
+
+def _append_cc_deps_env(env: Dict[str, str], key: str, additions: List[str]) -> None:
+    """Append flags to an env var, preserving any user value as the prefix."""
+    if not additions:
+        return
+    addition = " ".join(additions)
+    existing = env.get(key)
+    env[key] = "{} {}".format(existing, addition) if existing else addition
+
+
+def _apply_cc_deps(
+    env: Dict[str, str],
+    info_path: str,
+    execroot_marker: Optional[str],
+    worktree: str,
+    tmp_root: str,
+) -> None:
+    """Route cc_deps compile/link inputs into the setuptools build.
+
+    Mutates `env` in place: appends compile flags to CPPFLAGS and exotic link
+    flags to LDFLAGS, and points DIST_EXTRA_CONFIG at a `[build_ext]` file (in
+    tmp_root, never the worktree) carrying the static archives and `-l`
+    libraries. Only runs when `--cc-deps-info` was passed, so the no-cc_deps
+    path is unchanged.
+    """
+    info = _load_cc_deps_info(info_path, execroot_marker)
+
+    # cc_deps is a setuptools-only feature in v1; refuse other backends loudly
+    # rather than silently dropping the inputs.
+    backend = _effective_build_backend(worktree)
+    if backend not in _SETUPTOOLS_BACKENDS:
+        print(
+            "Error: cc_deps is only supported with the setuptools build backend, "
+            "but this package declares build-backend {!r}. cc_deps injects "
+            "setuptools [build_ext] settings, which other backends ignore.".format(backend),
+            file=sys.stderr,
+        )
+        exit(1)
+
+    _require_setuptools_floor()
+
+    # Never merge with a user-provided DIST_EXTRA_CONFIG (v1 owns it).
+    if "DIST_EXTRA_CONFIG" in env:
+        print(
+            "Error: cc_deps needs DIST_EXTRA_CONFIG, but it is already set in the "
+            "build environment. Remove it from `env` to use cc_deps.",
+            file=sys.stderr,
+        )
+        exit(1)
+
+    # DIST_EXTRA_CONFIG lives only in setuptools' local distutils.
+    if env.get("SETUPTOOLS_USE_DISTUTILS") == "stdlib":
+        print(
+            "Error: cc_deps requires setuptools' local distutils, but "
+            "SETUPTOOLS_USE_DISTUTILS=stdlib is set. Unset it (or set it to "
+            "\"local\") to use cc_deps.",
+            file=sys.stderr,
+        )
+        exit(1)
+    env.setdefault("SETUPTOOLS_USE_DISTUTILS", "local")
+
+    _reject_unsplittable_cc_deps(info)
+
+    # The config file lives in tmp_root, never the worktree.
+    config_path = path.join(tmp_root, "cc_deps_extra.cfg")
+    with open(config_path, "w", encoding="utf-8") as f:
+        f.write(_build_extra_config_text(info, worktree))
+    env["DIST_EXTRA_CONFIG"] = config_path
+
+    # Compose additively; any user CPPFLAGS/LDFLAGS stay in front.
+    _append_cc_deps_env(env, "CPPFLAGS", info["compile_flags"])
+    _append_cc_deps_env(env, "LDFLAGS", info["link_flags"])
+
+
 PARSER = ArgumentParser()
 PARSER.add_argument("srcarchive")
 PARSER.add_argument("outdir")
@@ -278,6 +583,7 @@ PARSER.add_argument("--validate-anyarch", action="store_true")
 PARSER.add_argument("--patch-strip", type=int, default=0, help="Strip count for patch (-p)")
 PARSER.add_argument("--patch", action="append", default=[], dest="patches", help="Patch file to apply (repeatable)")
 PARSER.add_argument("--execroot-marker", help="Token in env values to replace with the absolute execroot")
+PARSER.add_argument("--cc-deps-info", help="Path to the cc_deps compile/link params file to inject")
 opts, _ = PARSER.parse_known_args()
 
 tmp_root = path.abspath(opts.outdir) + ".tmp"
@@ -323,6 +629,11 @@ outdir = path.abspath(opts.outdir)
 # Bazel-supplied workspace-relative compiler paths survive the cwd
 # change into the worktree.
 build_env = _compiler_env(tmp_root, opts.execroot_marker)
+
+# cc_deps rides the same execroot cwd as _compiler_env: substitute the marker
+# and inject the setuptools [build_ext] config before the backend chdirs.
+if opts.cc_deps_info:
+    _apply_cc_deps(build_env, opts.cc_deps_info, opts.execroot_marker, t, tmp_root)
 
 if _legacy_metadata_conflicts_with_pyproject(t):
     print(
