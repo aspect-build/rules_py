@@ -27,12 +27,15 @@ _VOLATILE_SIZE_PATHS = [
 # @bazel_tools, Bazel 9 routes it through @rules_shell at a different
 # runfiles path — neither this rule nor the user-facing image cares which,
 # so filter the row out so one snapshot works on both.
+#
+# Callers pass `exclude` to drop more, for snapshots that only need to
+# demonstrate one property of the rows they keep.
 _FILTERED_PATHS = [
     "/bazel_tools/tools/bash/runfiles/runfiles.bash",
 ]
 
 # buildifier: disable=function-docstring
-def assert_tar_listing(name, actual, expected, **kwargs):
+def assert_tar_listing(name, actual, expected, exclude = [], **kwargs):
     actual_listing = "{}_listing".format(name)
     native.genrule(
         name = actual_listing,
@@ -80,7 +83,7 @@ for f in $(SRCS); do
 done > $@
 """.format(
             volatile = "|".join(_VOLATILE_SIZE_PATHS),
-            filtered = "|".join(_FILTERED_PATHS),
+            filtered = "|".join(_FILTERED_PATHS + exclude),
         ),
         toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
     )
@@ -104,4 +107,34 @@ done > $@
         args = ["$(rootpath :{})".format(actual_listing)] + _FORBIDDEN_LAYER_PATHS,
         data = [":{}".format(actual_listing)],
         testonly = True,
+    )
+
+# buildifier: disable=function-docstring
+def assert_tar_ownership(name, actual, owner, group, **kwargs):
+    actual_listing = "{}_listing".format(name)
+    native.genrule(
+        name = actual_listing,
+        srcs = actual,
+        testonly = True,
+        outs = ["_{}.listing".format(name)],
+        cmd = """\
+for f in $(SRCS); do
+  TZ="UTC" LC_ALL="en_US.UTF-8" $(BSDTAR_BIN) -tvf $$f | sed "s/^/  - /g"
+done > $@
+""",
+        toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
+    )
+
+    py_test(
+        name = name,
+        srcs = ["//tools:assert_ownership.py"],
+        main = "//tools:assert_ownership.py",
+        args = [
+            "$(rootpath :{})".format(actual_listing),
+            owner,
+            group,
+        ],
+        data = [":{}".format(actual_listing)],
+        testonly = True,
+        **kwargs
     )

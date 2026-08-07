@@ -518,6 +518,17 @@ printf '%s\\n' "$$scalar" > "$@"
             toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
         )
 
+    py_layer_tier(
+        name = "_named_owner_tier",
+        owner = "nobody",
+        tags = ["manual"],
+    )
+    _expected_failure_test(
+        name = "named_owner_test",
+        expected_error = "py_layer_tier.owner must be a numeric id, got \"nobody\"",
+        target_under_test = ":_named_owner_tier",
+    )
+
     _image_layer_failure(
         name = "interpreter_group_collision",
         expected_error = "Group \"interpreter\" is declared in both py_image_layer.groups and the active py_layer_tier",

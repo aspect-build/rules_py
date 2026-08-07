@@ -37,7 +37,7 @@ def _modules_mapping_impl(ctx):
             args_file.path,
             "--output",
             out.path,
-        ],
+        ] + (["--include_stub_packages"] if ctx.attr.include_stub_packages else []),
         inputs = [
             args_file,
         ] + whl_files,
@@ -59,6 +59,7 @@ _modules_mapping = rule(
     attrs = {
         "wheels": attr.label_list(providers = [[DefaultInfo]]),
         "hub": attr.string(),
+        "include_stub_packages": attr.bool(),
         "_generator": attr.label(
             default = Label(":generator"),
             executable = True,
@@ -69,7 +70,16 @@ _modules_mapping = rule(
 
 update = Label(":update.sh")
 
-def gazelle_python_manifest(name, hub, venvs = []):
+def gazelle_python_manifest(name, hub, venvs = [], include_stub_packages = False):
+    """Generates a Gazelle Python manifest from uv-managed wheels.
+
+    Args:
+        name: Name of the generated manifest target.
+        hub: Name of the uv hub containing the wheels.
+        venvs: Dependency groups whose wheels should be indexed.
+        include_stub_packages: Whether conventional stub distributions should be
+            indexed for Gazelle's automatic stub dependency resolution.
+    """
     file = "gazelle_python.yaml"
     hub = hub.lstrip("@")
 
@@ -98,6 +108,7 @@ def gazelle_python_manifest(name, hub, venvs = []):
         name = name,
         wheels = whls,
         hub = hub,
+        include_stub_packages = include_stub_packages,
     )
 
     dest = native.package_name()

@@ -86,7 +86,7 @@ _py_pytest_main = rule(
             doc = "Additional arguments to pass to pytest.",
         ),
         "chdir": attr.string(
-            doc = "A path to a directory to chdir when the test starts.",
+            doc = "A path to a directory to chdir when the test starts, relative to the runfiles root.",
             mandatory = False,
         ),
         "out": attr.output(

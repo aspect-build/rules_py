@@ -4,9 +4,9 @@ load("@aspect_rules_py//py:defs.bzl", "py_binary")
 
 # Consumed cross-package by the `assert_tar_listing` macro (//tools:asserts.bzl),
 # which declares a py_test with this script as `main` in the caller's package.
-# `check_wheel_tags.py` is used the same way by //tools:collect_wheels.bzl.
 exports_files([
     "assert_absent.py",
+    "assert_ownership.py",
     "check_wheel_native.py",
     "check_wheel_tags.py",
 ])

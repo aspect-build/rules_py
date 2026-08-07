@@ -10,6 +10,7 @@ load("@aspect_rules_py//uv:defs.bzl", "gazelle_python_manifest")
 gazelle_python_manifest(
     name = "gazelle_python_manifest",
     hub = "pypi_uv_deps_650",
+    include_stub_packages = True,
     # Note that we _merge_ the package mappings from several configurations.
     venvs = [
         "airflow",
