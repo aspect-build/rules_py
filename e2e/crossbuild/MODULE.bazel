@@ -1,0 +1,473 @@
+"""Cross-compiled sdist e2e coverage — isolated from `e2e/cases`.
+
+`python-geohash` (a real C++ extension) is built for linux/amd64 and
+linux/arm64 from the same amd64 exec host, exercising `pep517_native_whl`'s
+cross path end to end. Isolated from `e2e/cases` because
+`default_build_dependencies`, the pre-build patch, and
+`resource_set = "mem_4g"` are specific to `python-geohash` and would
+otherwise leak onto unrelated packages sharing the hub.
+
+The Linux cross toolchain is `gcc_toolchain` (real GCC, hermetic sysroots),
+not LLVM: clang is a native cross-compiler and papers over missing
+sysroot/flag propagation in ways a stricter GCC cross toolchain won't — for
+instance gcc_toolchain does not auto-link libstdc++, so a C++ build here
+only succeeds if `cc_layer.bzl` actually forwards the link flags it should.
+
+On a macOS host, BUILD.bazel's geohash_macos_* targets also build for
+arm64/amd64 macOS via the Xcode SDK; see test.sh for why those are `manual`
+rather than plain `platform_transition_filegroup` targets. gcc_toolchain is
+Linux-only, so geohash_macos_amd64_cross_test has no registered toolchain
+for its target/exec combination and will fail analysis with a clear
+diagnostic if ever run — this path was already unverified (no CI runs it),
+so failing loudly here is a wash, not a regression.
+
+`//zstandard` cross-compiles a package that also ships official prebuilt
+wheels, and diffs our build's compressed output against theirs — a stronger
+check than `//geohash`'s fixed expected value, since it validates against an
+independent reference build rather than a hardcoded string.
+
+`//contourpy` (meson-python) and `//awkward_cpp` (scikit-build-core/CMake)
+exercise cross support for those two backends, on top of `//geohash` and
+`//zstandard`'s setuptools/distutils coverage — `build_helper.py` generates a
+meson cross file / CMake toolchain file per build, since neither backend's
+own cross auto-detection covers a plain Linux-arch cross build (both only
+special-case macOS ARCHFLAGS, plus Android/iOS for meson-python).
+
+`//rpds_py` (maturin/PyO3, real Rust) needs its own Cargo toolchain: `rust`
+registers x86_64 (exec) and arm64 (target) rust_toolchains, and
+build_helper.py sets CARGO_BUILD_TARGET / CARGO_TARGET_<TRIPLE>_LINKER since
+Cargo has no cross auto-detection at all — every build needs an explicit
+--target and a linker for it, or it silently falls back to $CC (the host
+driver) and fails at the link step. The arm64-*targeting* rust_toolchain's
+sysroot only bundles LLVM's own runtime libs for the exec platform, not its
+rust-std (needed to compile build scripts/proc-macros, always host
+artifacts) — `//tools:rust_host_sysroot` pins the plain x86_64 toolchain by
+label (bypassing toolchain resolution, which under this cross transition
+would otherwise hand back the arm64-targeting one again) so
+build_helper.py can merge the two sysroots into one Cargo can actually use.
+
+`//pydantic_core` (maturin/PyO3, ~100 transitive crates vs. //rpds_py's ~20)
+and `//bcrypt` (setuptools-rust — a build-backend of plain
+"setuptools.build_meta" with "setuptools-rust" only visible in
+build-system.requires, and no --target flag of its own either — it shells
+out to a bare `cargo rustc` and relies on the same $CARGO_BUILD_TARGET) each
+add a second, widely-used real-world package per Rust code path, so neither
+is validated by one lucky package alone. setuptools-rust also needed
+PYO3_CROSS_PYTHON_VERSION: maturin auto-generates a PYO3_CONFIG_FILE for
+pyo3-ffi's build script, but setuptools-rust gives it no cross help at all.
+`//psutil` is a second, far more widely-used plain setuptools/distutils
+C-extension package alongside `//geohash` and `//zstandard`, for the same
+"one lucky package" reason.
+
+`//jpype1` (scikit-build-core/CMake, same backend as `//awkward_cpp`) needs
+a JDK and Apache Ant on top of that — but both are always exec-platform
+tools regardless of what CPU `_jpype.so` targets: it only links against
+libdl (see its CMakeLists.txt), never libjvm/libjawt, and the JAR Ant
+produces is portable JVM bytecode, so unlike Rust's rust-std there's no
+host/target split to solve here. `@bazel_tools//tools/jdk:current_java_runtime`
+(used by e.g. `e2e/cases/uv-sdist-jdk-build`) resolves to rules_java's
+default remotejdk, which is actually Azul Zulu, not genuine Eclipse
+Temurin — `@temurin11_linux_x86_64` fetches a real Temurin 11 build instead
+(see its `http_archive` for the exact Adoptium release metadata). Ant ships
+no Bazel toolchain at all upstream, hermetic or otherwise, so
+`@apache_ant` + `//tools:ant_home` vendor and expose it the same way.
+
+`//msgpack` is a third setuptools/distutils C-extension package, distinct
+from `//geohash` (hand-written C++) and `//psutil`/`//zstandard` (hand-written
+C/CFFI): its extension is Cython-generated, committed as pre-Cythonized .c
+in the sdist, exercising that code-generation path's symbol/link pattern
+rather than a fourth hand-written one.
+
+`//tiktoken` is a second setuptools-rust package alongside `//bcrypt` (same
+build-backend shape, same $CARGO_BUILD_TARGET-driven cross path) — not a
+maturin package despite superficially resembling `//rpds_py`/
+`//pydantic_core`; verified against its real sdist pyproject.toml before
+wiring it in. Its own encodings download BPE vocab files over the network on
+first use, which a sandboxed cross build/QEMU container can't do, so
+tiktoken_main.py builds a minimal `tiktoken.Encoding` directly instead —
+still a real round-trip through the compiled Rust core, just without the
+network dependency.
+
+`//numpy` is the only other widely-used meson-python package besides
+`//contourpy` — its build has no cross auto-detection for a missing system
+BLAS/LAPACK either (meson-python only special-cases the macOS ARCHFLAGS/
+Android/iOS cases build_helper.py already works around), so it needs its
+own `-Dblas=none -Dlapack=none` (numpy's own documented no-BLAS recipe, see
+its emscripten cibuildwheel config) passed via a new, backend-generic
+RULES_PY_MESON_SETUP_ARGS env var — needed for the *native* build here too,
+since this sandbox has no system BLAS/LAPACK either, not just the cross one.
+"""
+
+bazel_dep(name = "aspect_rules_py")
+bazel_dep(name = "bazel_features", version = "1.38.0")
+bazel_dep(name = "bazel_skylib", version = "1.4.2")
+bazel_dep(name = "bazel_lib", version = "3.0.0")
+bazel_dep(name = "rules_cc", version = "0.2.16")
+bazel_dep(name = "tar.bzl", version = "0.10.1")
+bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "gcc_toolchain", version = "0.11.0")
+bazel_dep(name = "rules_oci", version = "2.2.7")
+bazel_dep(name = "rules_shell", version = "0.4.1")
+bazel_dep(name = "container_structure_test", version = "1.22.1")
+bazel_dep(name = "rules_rust", version = "0.68.0")
+bazel_dep(name = "rules_java", version = "8.14.0")
+
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../..",
+)
+
+# Ensure any transitive "aspect_bazel_lib" is latest to be forward compatible with bazel_lib 3+
+single_version_override(
+    module_name = "aspect_bazel_lib",
+    version = "2.22.5",
+)
+
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+interpreters.configure(
+    releases = [
+        "20260303",
+        "20251031",
+        "20241002",
+    ],
+)
+interpreters.toolchain(
+    python_version = "3.12",
+)
+use_repo(interpreters, "python_interpreters")
+
+register_toolchains("@python_interpreters//:all")
+
+tools = use_extension("@aspect_rules_py//py:extensions.bzl", "py_tools")
+tools.rules_py_tools()
+use_repo(tools, "rules_py_tools")
+
+register_toolchains("@rules_py_tools//:all")
+
+gcc_toolchains = use_extension("@gcc_toolchain//toolchain:module_extensions.bzl", "gcc_toolchains")
+gcc_toolchains.toolchain(
+    name = "gcc_toolchain_x86_64",
+    target_arch = "x86_64",
+)
+gcc_toolchains.toolchain(
+    name = "gcc_toolchain_aarch64",
+    target_arch = "aarch64",
+)
+use_repo(gcc_toolchains, "gcc_toolchain_aarch64", "gcc_toolchain_x86_64")
+
+register_toolchains(
+    "@gcc_toolchain_x86_64//:cc_toolchain",
+    "@gcc_toolchain_aarch64//:cc_toolchain",
+)
+
+rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
+rust.toolchain(
+    edition = "2021",
+    extra_target_triples = ["aarch64-unknown-linux-gnu"],
+    versions = ["1.90.0"],
+)
+use_repo(rust, "rust_toolchains")
+
+register_toolchains("@rust_toolchains//:all")
+
+oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
+oci.pull(
+    name = "ubuntu",
+    digest = "sha256:c35e29c9450151419d9448b0fd75374fec4fff364a27f176fb458d472dfc9e54",
+    image = "public.ecr.aws/docker/library/ubuntu",
+    platforms = [
+        "linux/arm64/v8",
+        "linux/amd64",
+    ],
+    tag = "latest",
+)
+use_repo(oci, "ubuntu", "ubuntu_linux_amd64", "ubuntu_linux_arm64_v8")
+
+# Used by assert_tar_listing (tools/asserts.bzl).
+bazel_lib_toolchains = use_extension("@tar.bzl//tar:extensions.bzl", "toolchains", dev_dependency = True)
+use_repo(bazel_lib_toolchains, "bsd_tar_toolchains")
+
+uv_bin = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv_bin")
+uv_bin.toolchain(version = "0.11.6")
+use_repo(uv_bin, "uv")
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_crossbuild")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "cffi",
+        "setuptools",
+    ],
+    hub_name = "pypi_crossbuild",
+    lock = "//:uv.lock",
+    pyproject = "//:pyproject.toml",
+)
+uv.override_package(
+    name = "python-geohash",
+    lock = "//:uv.lock",
+    pre_build_patch_strip = 1,
+    pre_build_patches = ["//geohash:require_cxx_driver.patch"],
+    resource_set = "mem_4g",
+)
+use_repo(uv, "pypi_crossbuild")
+
+# Plain setuptools/meson-python/scikit-build-core hubs: no rust/jdk toolchain
+# wiring, so each is fully described by (hub dir, its build deps).
+_SIMPLE_CROSSBUILD_PACKAGES = [
+    {
+        "deps": [
+            "build",
+            "cffi",
+            "setuptools",
+            "wheel",
+        ],
+        "hub": "zstandard",
+    },
+    {
+        "deps": [
+            "build",
+            "meson",
+            "meson-python",
+            "ninja",
+            "pybind11",
+        ],
+        "hub": "contourpy",
+    },
+    {
+        "deps": [
+            "build",
+            "cmake",
+            "ninja",
+            "pybind11",
+            "scikit-build-core",
+        ],
+        "hub": "awkward_cpp",
+    },
+    {
+        "deps": [
+            "build",
+            "setuptools",
+            "wheel",
+        ],
+        "hub": "psutil",
+    },
+    {
+        "deps": [
+            "build",
+            "setuptools",
+        ],
+        "hub": "msgpack",
+    },
+]
+
+[uv.declare_hub(hub_name = "pypi_crossbuild_" + pkg["hub"]) for pkg in _SIMPLE_CROSSBUILD_PACKAGES]
+
+[
+    uv.project(
+        default_build_dependencies = pkg["deps"],
+        hub_name = "pypi_crossbuild_" + pkg["hub"],
+        lock = "//{}:uv.lock".format(pkg["hub"]),
+        pyproject = "//{}:pyproject.toml".format(pkg["hub"]),
+    )
+    for pkg in _SIMPLE_CROSSBUILD_PACKAGES
+]
+
+[use_repo(uv, "pypi_crossbuild_" + pkg["hub"]) for pkg in _SIMPLE_CROSSBUILD_PACKAGES]
+
+# maturin/PyO3 + setuptools-rust hubs: all three need the identical Cargo
+# cross env/toolchains wiring (see //tools:rust_host_sysroot); a shared block
+# also makes that identical-ness visually obvious instead of relying on the
+# reader to diff three near-copies. "pypi_name" differs from "hub" for
+# rpds_py/pydantic_core since PyPI hyphenates what the hub dir underscores.
+_RUST_CROSSBUILD_PACKAGES = [
+    {
+        "deps": [
+            "build",
+            "maturin",
+        ],
+        "hub": "rpds_py",
+        "pypi_name": "rpds-py",
+    },
+    {
+        "deps": [
+            "build",
+            "setuptools",
+            "setuptools-rust",
+            "wheel",
+        ],
+        "hub": "bcrypt",
+        "pypi_name": "bcrypt",
+    },
+    {
+        "deps": [
+            "build",
+            "maturin",
+        ],
+        "hub": "pydantic_core",
+        "pypi_name": "pydantic-core",
+    },
+    {
+        "deps": [
+            "build",
+            "setuptools",
+            "setuptools-rust",
+            "wheel",
+        ],
+        "hub": "tiktoken",
+        "pypi_name": "tiktoken",
+    },
+]
+
+[uv.declare_hub(hub_name = "pypi_crossbuild_" + pkg["hub"]) for pkg in _RUST_CROSSBUILD_PACKAGES]
+
+[
+    uv.project(
+        default_build_dependencies = pkg["deps"],
+        hub_name = "pypi_crossbuild_" + pkg["hub"],
+        lock = "//{}:uv.lock".format(pkg["hub"]),
+        pyproject = "//{}:pyproject.toml".format(pkg["hub"]),
+    )
+    for pkg in _RUST_CROSSBUILD_PACKAGES
+]
+
+[
+    uv.override_package(
+        name = pkg["pypi_name"],
+        env = {
+            "CARGO": "$(CARGO)",
+            "RUSTC": "$(RUSTC)",
+            "RULES_PY_RUST_HOST_SYSROOT": "$(RUST_HOST_SYSROOT)",
+        },
+        lock = "//{}:uv.lock".format(pkg["hub"]),
+        toolchains = [
+            "@rules_rust//rust/toolchain:current_rust_toolchain",
+            "//tools:rust_host_sysroot",
+        ],
+    )
+    for pkg in _RUST_CROSSBUILD_PACKAGES
+]
+
+[use_repo(uv, "pypi_crossbuild_" + pkg["hub"]) for pkg in _RUST_CROSSBUILD_PACKAGES]
+
+uv.declare_hub(hub_name = "pypi_crossbuild_numpy")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "cython",
+        "meson-python",
+        "ninja",
+    ],
+    hub_name = "pypi_crossbuild_numpy",
+    lock = "//numpy:uv.lock",
+    pyproject = "//numpy:pyproject.toml",
+)
+uv.override_package(
+    # numpy has no system BLAS/LAPACK in this sandbox (native build) or in
+    # the cross toolchain (cross build) — no toolchain needed, just a
+    # literal extra meson setup-args value, same as numpy's own documented
+    # no-BLAS cross recipe (see its emscripten cibuildwheel config).
+    name = "numpy",
+    env = {
+        "RULES_PY_MESON_SETUP_ARGS": "-Dblas=none -Dlapack=none",
+    },
+    lock = "//numpy:uv.lock",
+)
+use_repo(uv, "pypi_crossbuild_numpy")
+
+uv.declare_hub(hub_name = "pypi_crossbuild_jpype1")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "scikit-build-core",
+        "setuptools",
+        "wheel",
+    ],
+    hub_name = "pypi_crossbuild_jpype1",
+    lock = "//jpype1:uv.lock",
+    pyproject = "//jpype1:pyproject.toml",
+)
+uv.override_package(
+    name = "jpype1",
+    env = {
+        "JAVA": "$(JAVA)",
+        "JAVA_HOME": "$(JAVABASE)",
+        "RULES_PY_ANT_BIN_DIR": "$(ANT_BIN_DIR)",
+    },
+    lock = "//jpype1:uv.lock",
+    toolchains = [
+        "@temurin11_linux_x86_64//:jdk",
+        "//tools:ant_home",
+    ],
+)
+use_repo(uv, "pypi_crossbuild_jpype1")
+
+# Official prebuilt wheels to diff our cross-compiled build against.
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "official_zstandard_amd64_linux",
+    build_file_content = """filegroup(name = "backend_c", srcs = ["zstandard/backend_c.cpython-312-x86_64-linux-gnu.so"], visibility = ["//visibility:public"])""",
+    sha256 = "466e6ad8caefb589ed281c076deb6f0cd330e8bc13c5035854ffb9c2014b118c",
+    type = "zip",
+    url = "https://files.pythonhosted.org/packages/e5/01/080939755ca12ebbb7fc38b6f4ddecd5e8c416d571d4927ece1360baba2c/zstandard-0.22.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+)
+
+http_archive(
+    name = "official_zstandard_arm64_linux",
+    build_file_content = """filegroup(name = "backend_c", srcs = ["zstandard/backend_c.cpython-312-aarch64-linux-gnu.so"], visibility = ["//visibility:public"])""",
+    sha256 = "a88b7df61a292603e7cd662d92565d915796b094ffb3d206579aaebac6b85d5f",
+    type = "zip",
+    url = "https://files.pythonhosted.org/packages/47/44/be2d67304ba9bf4694ffcaa99d146814d70c4cb0bfc00e0e86fdfae66a31/zstandard-0.22.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl",
+)
+
+# jpype1 only ever runs Ant/javac at build time to produce a JAR (portable
+# Java bytecode) — always a host-executed step regardless of what CPU the
+# compiled _jpype.so targets, so a single exec-platform (x86_64) JDK and a
+# single (architecture-independent) Ant install cover both the native and
+# cross builds. Genuine Eclipse Temurin, not rules_java's default remotejdk
+# (which resolves to Azul Zulu builds) — see fetched release metadata at
+# https://api.adoptium.net/v3/assets/latest/11/hotspot?image_type=jdk&os=linux&architecture=x64.
+http_archive(
+    name = "temurin11_linux_x86_64",
+    build_file_content = """load("@rules_java//java/toolchains:java_runtime.bzl", "java_runtime")
+
+package(default_visibility = ["//visibility:public"])
+
+filegroup(name = "jdk-bin", srcs = glob(["bin/**"]))
+
+filegroup(name = "jdk-conf", srcs = glob(["conf/**"], allow_empty = True))
+
+filegroup(name = "jdk-include", srcs = glob(["include/**"], allow_empty = True))
+
+filegroup(name = "jdk-lib", srcs = glob(["lib/**", "release"], allow_empty = True))
+
+java_runtime(
+    name = "jdk",
+    srcs = [":jdk-bin", ":jdk-conf", ":jdk-include", ":jdk-lib"],
+    java = "bin/java",
+    version = 11,
+)
+""",
+    sha256 = "5906e0339e9322a688b2375eaf40666e00a16e008b0067b0a9f9e4b6c5033720",
+    strip_prefix = "jdk-11.0.32+9",
+    url = "https://github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.32%2B9/OpenJDK11U-jdk_x64_linux_hotspot_11.0.32_9.tar.gz",
+)
+
+# Apache Ant: plain Java bytecode plus shell/bat launchers — no architecture
+# variants needed.
+http_archive(
+    name = "apache_ant",
+    build_file_content = """package(default_visibility = ["//visibility:public"])
+
+exports_files(["bin/ant"])
+
+filegroup(
+    name = "all_files",
+    srcs = glob(["**"], allow_empty = True),
+)
+""",
+    sha256 = "71334d7e5d98cfe53d6c429a648a5021137a967378667306c5f613dff5180506",
+    strip_prefix = "apache-ant-1.10.15",
+    url = "https://archive.apache.org/dist/ant/binaries/apache-ant-1.10.15-bin.tar.gz",
+)

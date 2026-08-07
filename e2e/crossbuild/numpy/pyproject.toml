@@ -1,0 +1,14 @@
+[project]
+name = "crossbuild_numpy"
+version = "0.0.0"
+requires-python = ">=3.12"
+dependencies = [
+    "build",
+    "cython>=3.0.6",
+    "meson-python>=0.18.0",
+    "ninja",
+    "numpy==2.5.1",
+]
+
+[tool.uv]
+no-binary-package = ["numpy"]

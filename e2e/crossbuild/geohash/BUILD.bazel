@@ -1,0 +1,158 @@
+# python-geohash has no prebuilt wheel — this package covers the actual
+# cross-compilation of its C++ extension for linux/amd64, linux/arm64, and
+# (from a macOS host) arm64/amd64 macOS. See //psycopg2 for the
+# platform-transition-only packaging coverage.
+
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer")
+load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@container_structure_test//:defs.bzl", "container_structure_test")
+load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("//tools:checks.bzl", "assert_so_arch", "assert_so_suffix")
+
+# assert_so_arch/assert_so_suffix thread this into a genrule cmd, so a
+# trailing "$" (the regex end-anchor) must be doubled for Bazel's Make-variable
+# expansion, same as $$(...) elsewhere in a cmd string.
+_SO_PATTERN = "site-packages/_geohash.*\\.so$$"
+
+exports_files(["require_cxx_driver.patch"])
+
+py_binary(
+    name = "geohash_bin",
+    srcs = ["geohash_main.py"],
+    dep_group = "crossbuild",
+    main = "geohash_main.py",
+    python_version = "3.12",
+    deps = [
+        "@pypi_crossbuild//python_geohash",
+    ],
+)
+
+py_image_layer(
+    name = "geohash_layers",
+    binary = ":geohash_bin",
+)
+
+platform_transition_filegroup(
+    name = "geohash_amd64_layers",
+    srcs = [":geohash_layers"],
+    target_platform = "//:amd64_linux",
+)
+
+platform_transition_filegroup(
+    name = "geohash_arm64_layers",
+    srcs = [":geohash_layers"],
+    target_platform = "//:arm64_linux",
+)
+
+# Bazel-9-safe version of the ELF/suffix checks below.
+build_test(
+    name = "geohash_build_test",
+    targets = [
+        ":geohash_amd64_layers",
+        ":geohash_arm64_layers",
+    ],
+)
+
+# ELF machine byte and EXT_SUFFIX/SOABI of the built .so — catches a cross
+# build that silently fell back to the host compiler despite claiming the
+# right wheel tag.
+assert_so_arch(
+    name = "geohash_so_arch_amd64_test",
+    actual = ":geohash_amd64_layers",
+    expected_machine_hex = "3e00",
+    so_pattern = _SO_PATTERN,
+)
+
+assert_so_arch(
+    name = "geohash_so_arch_arm64_test",
+    actual = ":geohash_arm64_layers",
+    expected_machine_hex = "b700",
+    so_pattern = _SO_PATTERN,
+)
+
+assert_so_suffix(
+    name = "geohash_so_suffix_amd64_test",
+    actual = ":geohash_amd64_layers",
+    expected_suffix = "cpython-312-x86_64-linux-gnu",
+    so_pattern = _SO_PATTERN,
+)
+
+assert_so_suffix(
+    name = "geohash_so_suffix_arm64_test",
+    actual = ":geohash_arm64_layers",
+    expected_suffix = "cpython-312-aarch64-linux-gnu",
+    so_pattern = _SO_PATTERN,
+)
+
+oci_image(
+    name = "geohash_image",
+    base = "@ubuntu",
+    entrypoint = ["/app"],
+    tars = [":geohash_layers"],
+)
+
+platform_transition_filegroup(
+    name = "geohash_amd64_image",
+    srcs = [":geohash_image"],
+    target_platform = "//:amd64_linux",
+)
+
+platform_transition_filegroup(
+    name = "geohash_arm64_image",
+    srcs = [":geohash_image"],
+    target_platform = "//:arm64_linux",
+)
+
+container_structure_test(
+    name = "geohash_amd64_image_command_test",
+    configs = ["geohash_image_command_test.yaml"],
+    image = ":geohash_amd64_image",
+    platform = "linux/amd64",
+    tags = ["requires-docker"],
+)
+
+# Runs the arm64 build under QEMU (binfmt_misc) instead of just checking its
+# ELF/suffix — proves the extension computes the right answer, not just that
+# it looks cross-compiled. Local repro: sudo apt-get install qemu-user-static
+# binfmt-support.
+container_structure_test(
+    name = "geohash_arm64_image_command_test",
+    configs = ["geohash_image_command_test.yaml"],
+    image = ":geohash_arm64_image",
+    platform = "linux/aarch64",
+    tags = [
+        "requires-docker",
+        "requires-qemu",
+    ],
+)
+
+# geohash_bin with no platform override already targets the ambient host,
+# so no transition is needed to exercise native macOS.
+sh_test(
+    name = "geohash_macos_native_test",
+    srcs = ["check_geohash_output.sh"],
+    args = ["$(rootpath :geohash_bin)"],
+    data = [":geohash_bin"],
+    target_compatible_with = ["@platforms//os:macos"],
+)
+
+# manual, not target_compatible_with: the transition below always resolves
+# to os:macos regardless of the real host, so target_compatible_with can't
+# tell Linux apart from macOS here. test.sh invokes both by label after
+# checking uname.
+platform_transition_filegroup(
+    name = "geohash_amd64_macos_bin",
+    srcs = [":geohash_bin"],
+    tags = ["manual"],
+    target_platform = "//:amd64_macos",
+)
+
+sh_test(
+    name = "geohash_macos_amd64_cross_test",
+    srcs = ["check_geohash_output.sh"],
+    args = ["$(rootpath :geohash_amd64_macos_bin)"],
+    data = [":geohash_amd64_macos_bin"],
+    tags = ["manual"],
+)

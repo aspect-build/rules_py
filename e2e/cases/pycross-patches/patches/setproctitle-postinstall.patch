@@ -1,0 +1,13 @@
+Ported from rules_pycross tests/e2e/patches_and_hooks. Retargeted at the
+installed venv layout: rules_py applies post-install patches with `patch -d`
+rooted at the install tree, so paths are `lib/python<X.Y>/site-packages/...`
+rather than the wheel-relative paths rules_pycross uses. The `PATCHED = True`
+context line comes from the pre-build patch, so this hunk only applies when
+the two phases ran in order.
+--- a/lib/python3.12/site-packages/setproctitle/__init__.py
++++ b/lib/python3.12/site-packages/setproctitle/__init__.py
+@@ -56,3 +56,4 @@
+ if sys.platform == "darwin":
+     getproctitle()
+ PATCHED = True
++POST_PATCHED = True

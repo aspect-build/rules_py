@@ -1,0 +1,62 @@
+# Shared helpers consumed via load("//tools:...").
+
+load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load(":ant_layer.bzl", "ant_home")
+load(":rust_layer.bzl", "rust_pinned_sysroot")
+load(":toolchain_test.bzl", "exec_python_path")
+
+exports_files([
+    "assert_absent.py",
+    "check_so_arch.sh",
+    "check_so_suffix.sh",
+])
+
+# The exec-platform (x86_64) rust_toolchain's sysroot, pinned by label so it's
+# available even when the rest of the build is transitioned to arm64 — see
+# rust_layer.bzl for why current_rust_toolchain alone isn't enough.
+rust_pinned_sysroot(
+    name = "rust_host_sysroot",
+    # rust_linux_x86_64__x86_64-unknown-linux-gnu__stable (in @rust_toolchains)
+    # is the toolchain() *resolution* wrapper; the actual rust_toolchain rule
+    # instance (the one with ToolchainInfo/TemplateVariableInfo) is this repo.
+    actual = "@@rules_rust++rust+rust_linux_x86_64__x86_64-unknown-linux-gnu__stable_tools//:rust_toolchain",
+    visibility = ["//visibility:public"],
+)
+
+# Ant is architecture-independent (bytecode + launcher scripts), so unlike
+# the Rust sysroot there's no cross/native split — one $(ANT_HOME) covers
+# both.
+ant_home(
+    name = "ant_home",
+    all_files = "@apache_ant//:all_files",
+    ant_bin = "@apache_ant//:bin/ant",
+    visibility = ["//visibility:public"],
+)
+
+# EXEC_TOOLS_TOOLCHAIN must resolve the exec-platform Python interpreter even
+# when the target is arm64 — unpack.py runs on the exec side. Doesn't depend
+# on any case's binary; the mechanism it checks is shared by all of them.
+exec_python_path(
+    name = "unpack_path",
+)
+
+exec_python_path(
+    name = "unpack_path_for_arm64",
+)
+
+platform_transition_filegroup(
+    name = "unpack_path_for_arm64_transition",
+    srcs = [":unpack_path_for_arm64"],
+    target_platform = "//:arm64_linux",
+)
+
+sh_test(
+    name = "exec_toolchain_resolution_test",
+    srcs = ["test_exec_toolchain.sh"],
+    data = [
+        ":unpack_path",
+        ":unpack_path_for_arm64_transition",
+    ],
+    target_compatible_with = ["@platforms//os:linux"],
+)

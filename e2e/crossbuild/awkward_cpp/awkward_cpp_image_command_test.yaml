@@ -1,0 +1,9 @@
+schemaVersion: 2.0.0
+
+# awkward_cpp_main.py asserts the exact null count itself and only prints
+# "OK" on success.
+commandTests:
+  - name: awkward_IndexedArray_numnull counts correctly
+    exitCode: 0
+    command: /app
+    expectedOutput: ["OK"]

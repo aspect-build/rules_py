@@ -1,0 +1,16 @@
+# bcrypt ships official prebuilt wheels for linux/amd64 and linux/arm64, but
+# [tool.uv] no-binary-package forces it to build from sdist here. Unlike
+# //rpds_py (maturin), this is setuptools + setuptools-rust — a build-backend
+# value of plain "setuptools.build_meta" with setuptools-rust only visible in
+# build-system.requires, exercising the OTHER real-world Rust-in-Python
+# integration path (also used by cryptography, pydantic-core's sibling
+# ecosystem) rather than a second maturin package.
+
+load("//tools:cross_case.bzl", "pep517_cross_case")
+
+pep517_cross_case(
+    name = "bcrypt",
+    check_so_suffix = False,
+    deps = ["@pypi_crossbuild_bcrypt//bcrypt"],
+    so_pattern = "whl_install__crossbuild_bcrypt.*_bcrypt.*\\.so$$",
+)

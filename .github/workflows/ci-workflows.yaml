@@ -76,6 +76,7 @@ jobs:
                 workspace:
                 - { path: ".", slug: "root", runner: "ubuntu-latest" }
                 - { path: "e2e/cases", slug: "e2e", runner: "ubuntu-22.04-32core" }
+                - { path: "e2e/crossbuild", slug: "e2e-crossbuild", runner: "ubuntu-22.04-32core" }
                 - { path: "e2e/interpreter-runtime-metadata", slug: "e2e-interpreter-runtime-metadata", runner: "ubuntu-latest" }
                 - { path: "e2e/interpreter-toolchain-settings", slug: "e2e-interpreter-toolchain-settings", runner: "ubuntu-latest" }
                 - { path: "e2e/interpreter-input-validation", slug: "e2e-interpreter-input-validation", runner: "ubuntu-latest" }
@@ -106,6 +107,11 @@ jobs:
             - uses: aspect-build/setup-aspect@c22a8f64fb38f82f59ce809cd7eb9f8ae096da44 # v2026.23.2
               with:
                 aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
+            # e2e/crossbuild runs an arm64 container from this amd64 runner
+            - if: matrix.workspace.slug == 'e2e-crossbuild'
+              uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+              with:
+                platforms: arm64
             # Run `test //...`, then the workspace's test.sh if it has one
             - name: Test
               working-directory: ${{ matrix.workspace.path }}
@@ -129,6 +135,7 @@ jobs:
                 workspace:
                 - { path: ".", slug: "root" }
                 - { path: "e2e/cases", slug: "e2e" }
+                - { path: "e2e/crossbuild", slug: "e2e-crossbuild" }
         defaults:
             run:
                 working-directory: ${{ matrix.workspace.path }}

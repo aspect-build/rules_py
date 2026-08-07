@@ -1,0 +1,117 @@
+# zstandard ships official prebuilt wheels for linux/amd64 and linux/arm64,
+# but [tool.uv] no-binary-package forces it to build from sdist here — same
+# pep517_native_whl cross path as //geohash, on a package with a known-good
+# binary to diff against instead of a hardcoded expected value.
+
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer")
+load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
+load("@container_structure_test//:defs.bzl", "container_structure_test")
+load("@rules_oci//oci:defs.bzl", "oci_image")
+load("//tools:checks.bzl", "assert_so_arch", "assert_so_suffix")
+
+# Matches only our own build's backend_c.so (installed under a
+# whl_install__crossbuild_zstandard path), not the two official reference
+# .so's bundled as compare_bin's data.
+_SO_PATTERN = "whl_install__crossbuild_zstandard.*backend_c.*\\.so$$"
+
+py_binary(
+    name = "compare_bin",
+    srcs = ["compare_backend.py"],
+    data = [
+        "@official_zstandard_amd64_linux//:backend_c",
+        "@official_zstandard_arm64_linux//:backend_c",
+    ],
+    dep_group = "crossbuild_zstandard",
+    main = "compare_backend.py",
+    python_version = "3.12",
+    deps = [
+        "@bazel_tools//tools/python/runfiles",
+        "@pypi_crossbuild_zstandard//zstandard",
+    ],
+)
+
+py_image_layer(
+    name = "layers",
+    binary = ":compare_bin",
+)
+
+platform_transition_filegroup(
+    name = "amd64_layers",
+    srcs = [":layers"],
+    target_platform = "//:amd64_linux",
+)
+
+platform_transition_filegroup(
+    name = "arm64_layers",
+    srcs = [":layers"],
+    target_platform = "//:arm64_linux",
+)
+
+# ELF machine byte and EXT_SUFFIX/SOABI of our cross-compiled .so. Cheaper
+# and faster to fail than amd64_diff_test/arm64_diff_test below, though
+# those already imply this — a wrong-arch .so wouldn't load there either.
+assert_so_arch(
+    name = "zstandard_so_arch_amd64_test",
+    actual = ":amd64_layers",
+    expected_machine_hex = "3e00",
+    so_pattern = _SO_PATTERN,
+)
+
+assert_so_arch(
+    name = "zstandard_so_arch_arm64_test",
+    actual = ":arm64_layers",
+    expected_machine_hex = "b700",
+    so_pattern = _SO_PATTERN,
+)
+
+assert_so_suffix(
+    name = "zstandard_so_suffix_amd64_test",
+    actual = ":amd64_layers",
+    expected_suffix = "cpython-312-x86_64-linux-gnu",
+    so_pattern = _SO_PATTERN,
+)
+
+assert_so_suffix(
+    name = "zstandard_so_suffix_arm64_test",
+    actual = ":arm64_layers",
+    expected_suffix = "cpython-312-aarch64-linux-gnu",
+    so_pattern = _SO_PATTERN,
+)
+
+oci_image(
+    name = "image",
+    base = "@ubuntu",
+    entrypoint = ["/app"],
+    tars = [":layers"],
+)
+
+platform_transition_filegroup(
+    name = "amd64_image",
+    srcs = [":image"],
+    target_platform = "//:amd64_linux",
+)
+
+platform_transition_filegroup(
+    name = "arm64_image",
+    srcs = [":image"],
+    target_platform = "//:arm64_linux",
+)
+
+container_structure_test(
+    name = "amd64_diff_test",
+    configs = ["zstandard_diff_test.yaml"],
+    image = ":amd64_image",
+    platform = "linux/amd64",
+    tags = ["requires-docker"],
+)
+
+container_structure_test(
+    name = "arm64_diff_test",
+    configs = ["zstandard_diff_test.yaml"],
+    image = ":arm64_image",
+    platform = "linux/aarch64",
+    tags = [
+        "requires-docker",
+        "requires-qemu",
+    ],
+)
