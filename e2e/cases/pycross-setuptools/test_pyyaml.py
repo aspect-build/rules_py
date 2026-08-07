@@ -6,7 +6,7 @@
 import yaml
 
 
-def test_pyyaml_import():
+def test_pyyaml_import() -> None:
     try:
         from yaml import CLoader as Loader
     except ImportError:

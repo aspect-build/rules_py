@@ -4,7 +4,7 @@ import setproctitle
 
 
 class TestSetproctitle(unittest.TestCase):
-    def test_import(self):
+    def test_import(self) -> None:
         title = setproctitle.getproctitle()
         self.assertIsNotNone(title)
 

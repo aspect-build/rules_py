@@ -18,17 +18,17 @@ import unittest
 class TopLevelPackagesTest(unittest.TestCase):
     """Check that top_level_paths from wheel inspection actually show up."""
 
-    def _get_packages(self):
+    def _get_packages(self) -> list[str]:
         return [p.strip() for p in os.environ.get("PYCROSS_TEST_PACKAGES", "regex,IPython").split(",") if p.strip()]
 
-    def test_packages_importable(self):
+    def test_packages_importable(self) -> None:
         """All expected packages should be importable."""
         for pkg in self._get_packages():
             with self.subTest(package=pkg):
                 mod = importlib.import_module(pkg)
                 self.assertIsNotNone(mod, f"{pkg} imported as None")
 
-    def test_packages_resolve_to_site_packages(self):
+    def test_packages_resolve_to_site_packages(self) -> None:
         """All expected packages should resolve to files within site-packages."""
         for pkg in self._get_packages():
             with self.subTest(package=pkg):
@@ -41,7 +41,7 @@ class TopLevelPackagesTest(unittest.TestCase):
                     f"{pkg} origin not in site-packages: {spec.origin}",
                 )
 
-    def test_no_dist_info_on_sys_path(self):
+    def test_no_dist_info_on_sys_path(self) -> None:
         """dist-info directories should not be added as sys.path entries."""
         for path in sys.path:
             basename = os.path.basename(path)

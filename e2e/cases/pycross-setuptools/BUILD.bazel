@@ -15,7 +15,7 @@ _DEP_GROUP = "pycross_setuptools"
 
 # The libc/version flags are what the wheel resolver keys platform-specific
 # wheel selection off; a bare constraint_values platform would leave build
-# dependencies unresolvable. Same shape as //uv-deps-650/crossbuild. The
+# dependencies unresolvable. Same shape as the e2e/crossbuild workspace. The
 # dep_group flag rides along because the wheel targets under `collect_wheels`
 # are reached through a platform transition, not through a py_venv.
 _PLATFORM_FLAGS = [

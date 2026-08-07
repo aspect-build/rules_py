@@ -28,7 +28,7 @@ Namespaces are one honking great idea -- let's do more of those!
 
 
 class TestZstandard(unittest.TestCase):
-    def test_roundtrip(self):
+    def test_roundtrip(self) -> None:
         cctx = zstandard.ZstdCompressor()
         compressed = cctx.compress(ZEN)
 
