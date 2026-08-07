@@ -35,6 +35,32 @@ workspace above must not carry: its `.bazelrc` turns on the rules_python provide
 compatibility layer, so rules_python `py_*` targets can depend on a rules_py `py_library`.
 Its `test.sh` asserts the same dependency is rejected with the flag off.
 
+`crossbuild` covers `pep517_native_whl`'s cross-compilation path across five
+PEP 517 backends, each with more than one real, popular package so no
+backend's cross support rests on a single lucky case: two plain
+setuptools/distutils C extensions (`geohash`, `psutil`), `contourpy`
+(meson-python), two scikit-build-core/CMake packages (`awkward_cpp`,
+`jpype1` — the latter also needing a real Eclipse Temurin JDK and a
+hermetically vendored Apache Ant, both fetched directly rather than relying
+on rules_java's default remotejdk, which is actually Azul Zulu, or a system
+`ant`), two maturin/PyO3 Rust packages (`rpds_py`, `pydantic_core`), and
+`bcrypt` (setuptools-rust — a different real-world Rust-in-Python
+integration than maturin, with no build-backend value of its own to detect
+it by). Every case is built and packaged for linux/amd64 and linux/arm64
+from the same amd64 exec host and actually executed — QEMU for the Linux
+targets — not just inspected. One more package (`zstandard`) also ships
+official prebuilt wheels; its case
+diffs our cross-compiled output against theirs byte-for-byte instead of
+checking against a hardcoded expected value. It's isolated
+rather than a package under `e2e/cases` because its pip hub needs
+package-specific configuration (`default_build_dependencies`, a pre-build
+patch, a larger `resource_set`) that would otherwise leak onto unrelated
+packages sharing the hub — see the module docstring in its `MODULE.bazel`.
+On a macOS runner (the `smoke` job, see below) it additionally builds and
+runs for arm64/amd64 macOS via the Xcode SDK, executing the amd64 one under
+Rosetta 2 — see its `test.sh` for why that half can't just be more
+`platform_transition_filegroup` targets under `//...`.
+
 Each isolated workspace points back at repo-root rules_py with
 `local_path_override(path = "../..")`.
 
