@@ -394,7 +394,7 @@ lighter weight since the toolchain's files aren't inputs.
             doc = "Pre-compile .pyc bytecode after unpacking and patching.",
         ),
         "pyc_invalidation_mode": attr.string(
-            default = "checked-hash",
+            default = "unchecked-hash",
             values = ["checked-hash", "unchecked-hash", "timestamp"],
             doc = "PEP 552 invalidation mode for pre-compiled .pyc files.",
         ),

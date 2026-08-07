@@ -453,7 +453,7 @@ def main() -> None:
                          "exactly (venv assembly projects that pre-patch set).")
     ap.add_argument("--exclude-glob", action="append", default=[])
     ap.add_argument("--compile-pyc", action="store_true")
-    ap.add_argument("--pyc-invalidation-mode", default="checked-hash",
+    ap.add_argument("--pyc-invalidation-mode", default="unchecked-hash",
                     choices=["checked-hash", "unchecked-hash", "timestamp"])
     ap.add_argument("--python", type=Path)
     args = ap.parse_args()
