@@ -1,0 +1,32 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+# nvidia-cuda-cccl and nvidia-cuda-runtime both install under the PEP 420
+# namespace `nvidia` and ship no `__init__.py`, so namespace-entry resolution
+# reaches every one of their 2118 installed files. Projecting those per file
+# costs a declared output and a symlink action per file in every consuming
+# venv, which is what made large CUDA dependency sets slow to analyse.
+#
+# The test runs inside a venv holding both wheels, so its own site-packages is
+# the projection it inspects.
+#
+# The wheels are linux/windows-only. To check the projection from another host,
+# build the venv for linux without running it:
+#
+#   bazel build //venv-namespace-collapse:test.venv \
+#     --platforms=//tools:linux_x86_64 \
+#     --@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc \
+#     --@aspect_rules_py//uv/private/constraints/platform:platform_version=2.17
+py_test(
+    name = "test",
+    srcs = ["test.py"],
+    dep_group = "venv-namespace-collapse",
+    # Only so the venv can be built on its own by the command above.
+    expose_venv = True,
+    main = "test.py",
+    python_version = "3.11",
+    target_compatible_with = ["@platforms//os:linux"],
+    deps = [
+        "@pypi_venv_namespace_collapse//nvidia_cuda_cccl",
+        "@pypi_venv_namespace_collapse//nvidia_cuda_runtime",
+    ],
+)
