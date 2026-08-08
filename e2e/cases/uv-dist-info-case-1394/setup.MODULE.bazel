@@ -48,12 +48,19 @@ uv.override_package(
 )
 
 # A normalized filename implies a `.dist-info` that reads as authoritative, so
-# it is stripped as a path prefix rather than discovered from the archive.
+# without the quirk it is stripped as an archive path prefix and matches no
+# member. Nothing in the filename distinguishes this wheel from a well-formed
+# one, so the defect has to be declared.
 uv.declare_hub(hub_name = "pypi_dist_info_1394_archive_prefix")
 uv.project(
     hub_name = "pypi_dist_info_1394_archive_prefix",
     lock = "//uv-dist-info-case-1394/archive-prefix:uv.lock",
     pyproject = "//uv-dist-info-case-1394/archive-prefix:pyproject.toml",
+)
+uv.package_quirks(
+    name = "actioneer",
+    dist_info_name_differs = True,
+    version = "0.0.1",
 )
 
 # The wheel is in the lock but no built target resolves it, so this hub never

@@ -339,25 +339,94 @@ def _namespace_dirs_and_roots(dirs_set, init_dirs, namespace_top_levels_set):
             regular_roots.append(d)
     return namespace_dirs, regular_roots
 
+def _canonical_number(text):
+    """A PEP 440 numeric component: digits, no leading zeros."""
+    return text.isdigit() and (text == "0" or not text.startswith("0"))
+
+def _canonical_pre_release(pre):
+    """A PEP 440 pre-release segment: `a`, `b` or `rc` joined to its number."""
+    for tag in ("a", "b", "rc"):
+        if pre.startswith(tag):
+            return _canonical_number(pre[len(tag):])
+    return False
+
+def canonical_version(version):
+    """True when `version` is already spelled in PEP 440 canonical form.
+
+    Only a canonical version reaches the `.dist-info` name unchanged. Every
+    other spelling -- `v1.0`, `1.0c1`, `1.0_rc1`, `1.0RC1`, `1.00` -- is
+    rewritten by the backend, so the directory name has to come from the
+    archive. An epoch's `!` is URL-encoded in a wheel filename and so never
+    canonical here.
+    """
+    public, plus, local = version.partition("+")
+    if plus:
+        for segment in local.split("."):
+            if not segment or not segment.isalnum() or segment != segment.lower():
+                return False
+
+            # An all-digit local segment compares numerically, so a leading zero
+            # is dropped: `+01` and `+ubuntu.04` become `+1` and `+ubuntu.4`.
+            if segment.isdigit() and not _canonical_number(segment):
+                return False
+
+    epoch, bang, rest = public.partition("!")
+    if bang:
+        # A zero epoch is dropped entirely: `0!1.0` normalizes to `1.0`.
+        if epoch == "0" or not _canonical_number(epoch):
+            return False
+    else:
+        rest = epoch
+
+    rest, dot_dev, dev = rest.partition(".dev")
+    if dot_dev and not _canonical_number(dev):
+        return False
+    rest, dot_post, post = rest.partition(".post")
+    if dot_post and not _canonical_number(post):
+        return False
+
+    # The release segment is digits and dots, so the first other character
+    # opens the pre-release tag.
+    for index in range(len(rest)):
+        if not (rest[index].isdigit() or rest[index] == "."):
+            if not _canonical_pre_release(rest[index:]):
+                return False
+            rest = rest[:index]
+            break
+
+    if not rest:
+        return False
+    return all([_canonical_number(segment) for segment in rest.split(".")])
+
 def metadata_directory_hint(basename):
     """The `<project>-<version>.dist-info` a wheel filename implies.
-
-    Only ever a guess: a backend escapes the directory name independently of
-    the filename, in either direction (#1394). Used to report what was expected
-    when the archive carries something else, never to locate the member.
 
     Args:
       basename: The wheel's file name.
 
     Returns:
-      The implied directory name.
+      A struct of the implied `directory` and whether it is `authoritative`:
+      an already-normalized filename pins the archive member, anything else is
+      a guess a differently-escaping backend can contradict (#1394).
+
+      `authoritative` reads the filename alone, so it cannot see the inverse
+      defect: a normalized filename over an archive that isn't (actioneer
+      ships `Actioneer-0.0.1.dist-info`). Nothing distinguishes those wheels
+      from well-formed ones without opening them, so they are declared with
+      `uv.package_quirks(dist_info_name_differs = True)`.
     """
     whl_name = parse_whl_name(basename)
 
     # `+` is URL-encoded in the filename but literal in the member; the build
     # tag never appears in dist-info and parse_whl_name already dropped it.
     version = whl_name.version.replace("%2B", "+").replace("%2b", "+")
-    return "{}-{}.dist-info".format(whl_name.project, version)
+    return struct(
+        directory = "{}-{}.dist-info".format(whl_name.project, version),
+        authoritative = (
+            whl_name.project == normalize_name(whl_name.project) and
+            canonical_version(version)
+        ),
+    )
 
 def data_directory_for(metadata_directory):
     """The `.data` sibling of a wheel's `.dist-info` directory.
@@ -369,7 +438,7 @@ def data_directory_for(metadata_directory):
 
 def _discover_metadata_directory(rctx, root, whl_path, basename):
     """Pick the `.dist-info` directory out of a fully extracted wheel."""
-    expected = metadata_directory_hint(basename)
+    expected = metadata_directory_hint(basename).directory
     candidates = sorted([
         entry.basename
         for entry in root.readdir()
@@ -397,7 +466,7 @@ def _discover_metadata_directory(rctx, root, whl_path, basename):
         ))
     return candidates[0]
 
-def _read_dist_info(rctx, whl_path, basename):
+def _read_dist_info(rctx, whl_path, basename, dist_info_name_differs):
     """Read RECORD and entry_points.txt out of the wheel's `.dist-info`.
 
     Returns (record_text, entry_points_text, metadata_directory). The returned
@@ -405,25 +474,28 @@ def _read_dist_info(rctx, whl_path, basename):
     one the filename implies. entry_points_text is empty when the wheel ships
     no `entry_points.txt` (normal for libraries without scripts).
     """
+    hint = metadata_directory_hint(basename)
+    strip_directly = hint.authoritative and not dist_info_name_differs
+
     metadata_dir = "_wheel_metadata"
     rctx.delete(metadata_dir)
 
-    # The whole wheel inflates (a 30MB SimpleITK wheel writes 141MB) so that
-    # `_discover_metadata_directory` can read the real name off the result.
-    # Stripping the name the filename implies would be ~200x cheaper, but the
-    # filename is only ever a guess -- `actioneer-0.0.1-py3-none-any.whl` is
-    # spelled exactly as escaping would spell it and still ships
-    # `Actioneer-0.0.1.dist-info` (#1394) -- and `strip_prefix` hard-fails on a
-    # miss, which Starlark cannot recover from. Reading the central directory
-    # instead would cost neither, but needs a zip API repo rules don't have.
+    # Stripping the implied name leaves only the `.dist-info` on disk, ~200x
+    # cheaper than the alternative: `strip_prefix` hard-fails on a miss, which
+    # Starlark cannot recover from, so a name that might not be there means
+    # inflating the whole wheel (a 30MB SimpleITK wheel writes 141MB) and
+    # reading the real one off the result.
     rctx.extract(
         archive = whl_path,
         output = metadata_dir,
-        strip_prefix = "",
+        strip_prefix = hint.directory if strip_directly else "",
     )
     root = rctx.path(metadata_dir)
-    metadata_directory = _discover_metadata_directory(rctx, root, whl_path, basename)
-    metadata_path = root.get_child(metadata_directory)
+    metadata_directory = hint.directory
+    metadata_path = root
+    if not strip_directly:
+        metadata_directory = _discover_metadata_directory(rctx, root, whl_path, basename)
+        metadata_path = root.get_child(metadata_directory)
     record_path = metadata_path.get_child("RECORD")
     if not record_path.exists:
         fail("{}: wheel {} has no {}/RECORD".format(rctx.name, whl_path, metadata_directory))
@@ -522,7 +594,7 @@ def derive_layout(record_segments):
         native_roots = sorted(native_roots.keys()),
     )
 
-def extract_install_metadata(rctx, whl_path, basename):
+def extract_install_metadata(rctx, whl_path, basename, dist_info_name_differs = False):
     """Peek inside a wheel and derive the layout `PyWheelsInfo` consumes.
 
     Reads:
@@ -537,6 +609,9 @@ def extract_install_metadata(rctx, whl_path, basename):
       whl_path: A resolved `rctx.path` to the wheel on disk.
       basename: The wheel's file name, which implies the `.dist-info` directory
         holding RECORD/entry_points.txt.
+      dist_info_name_differs: Declared via `uv.package_quirks` for a wheel whose
+        archive spells its `.dist-info` differently from its filename, which no
+        inspection of the filename can detect.
 
     Returns:
       A struct of sorted `list[str]` fields ready to pass straight through as
@@ -544,7 +619,7 @@ def extract_install_metadata(rctx, whl_path, basename):
       `namespace_top_levels`, `namespace_entries`, `namespace_dirs`,
       `regular_roots`, `native_roots`, `console_scripts`, `data_files`.
     """
-    record, entry_points, metadata_directory = _read_dist_info(rctx, whl_path, basename)
+    record, entry_points, metadata_directory = _read_dist_info(rctx, whl_path, basename, dist_info_name_differs)
     data_directory = data_directory_for(metadata_directory)
 
     # RECORD: authoritative list of every installed file, split in one pass into
