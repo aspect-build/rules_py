@@ -1245,6 +1245,86 @@ else:
             (legacy_site_packages / "fixture" / "__pycache__").glob("__init__*.pyc")
         )
         assert "SyntaxError" in legacy.stdout + legacy.stderr
+        # compileall writes nothing for the file it rejected, so the wheel's own
+        # bytecode for it must not survive to shadow the installed source.
+        legacy_cache = (
+            legacy_site_packages
+            / "fixture"
+            / "__pycache__"
+            / f"mod.{sys.implementation.cache_tag}.pyc"
+        )
+        assert not legacy_cache.exists()
+        assert legacy_cache.relative_to(legacy_site_packages).as_posix() not in {
+            relative for relative, _, _ in _record_rows(legacy_site_packages)
+        }
+        _assert_record_matches_installed_files(legacy_site_packages)
+
+        # Only caches this interpreter recompiles are dropped: a foreign tag is
+        # never loaded from this tree, and a sourceless cache is the only copy
+        # of its module.
+        retained_wheel = root / "retained-1.0-py3-none-any.whl"
+        _write_wheel(
+            retained_wheel,
+            "retained",
+            {
+                "fixture/mod.py": b"VALUE = 1\n",
+                f"fixture/__pycache__/mod.{sys.implementation.cache_tag}.pyc": (
+                    b"outdated bytecode\n"
+                ),
+                "fixture/__pycache__/mod.cpython-000.pyc": b"foreign bytecode\n",
+                f"fixture/__pycache__/orphan.{sys.implementation.cache_tag}.pyc": (
+                    b"sourceless bytecode\n"
+                ),
+            },
+        )
+        retained_out = root / "retained"
+        retained = _run_unpack(
+            unpack, retained_wheel, retained_out, Path(sys.executable)
+        )
+        assert retained.returncode == 0, retained.stderr
+        retained_caches = _site_packages(retained_out) / "fixture" / "__pycache__"
+        assert (retained_caches / "mod.cpython-000.pyc").read_bytes() == (
+            b"foreign bytecode\n"
+        )
+        assert (
+            retained_caches / f"orphan.{sys.implementation.cache_tag}.pyc"
+        ).read_bytes() == b"sourceless bytecode\n"
+        assert (
+            retained_caches / f"mod.{sys.implementation.cache_tag}.pyc"
+        ).read_bytes() != b"outdated bytecode\n"
+        _assert_record_matches_installed_files(_site_packages(retained_out))
+
+        # An optimized cache is dropped like any other, so the compile step has
+        # to cover its level as well as the interpreter's own.
+        optimized_wheel = root / "optimized-1.0-py3-none-any.whl"
+        _write_wheel(
+            optimized_wheel,
+            "optimized",
+            {
+                "fixture/mod.py": b"assert True\nVALUE = 1\n",
+                f"fixture/__pycache__/mod.{sys.implementation.cache_tag}.opt-1.pyc": (
+                    b"outdated bytecode\n"
+                ),
+            },
+        )
+        optimized_out = root / "optimized"
+        optimized = _run_unpack(
+            unpack, optimized_wheel, optimized_out, Path(sys.executable)
+        )
+        assert optimized.returncode == 0, optimized.stderr
+        optimized_site_packages = _site_packages(optimized_out)
+        optimized_caches = optimized_site_packages / "fixture" / "__pycache__"
+        optimized_cache = (
+            optimized_caches / f"mod.{sys.implementation.cache_tag}.opt-1.pyc"
+        )
+        assert optimized_cache.read_bytes() != b"outdated bytecode\n"
+        assert (optimized_caches / f"mod.{sys.implementation.cache_tag}.pyc").is_file()
+        assert optimized_cache.relative_to(
+            optimized_site_packages
+        ).as_posix() in {
+            relative for relative, _, _ in _record_rows(optimized_site_packages)
+        }
+        _assert_record_matches_installed_files(optimized_site_packages)
 
         false = shutil.which("false")
         assert false is not None, "test host has no false executable"

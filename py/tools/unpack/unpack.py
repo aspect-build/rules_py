@@ -21,6 +21,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import zipfile
 from base64 import urlsafe_b64encode
 from pathlib import Path
@@ -116,6 +117,26 @@ def _import_roots(site_packages: Path) -> Set[str]:
     }
 
 
+def _parse_cache_name(name: str) -> Optional[Tuple[str, str, str]]:
+    """Split a PEP 3147 cache name into source name, cache tag, and opt level.
+
+    Tags are stripped right-to-left so a dotted source such as `mod.v1.py`
+    resolves from `mod.v1.cpython-311.pyc`. The level is "" for the default
+    level. None means the name does not follow the convention and cannot be
+    tied to a source.
+    """
+    level = ""
+    source, separator, tag = name[:-len(".pyc")].rpartition(".")
+    if tag.startswith("opt-"):
+        level = tag[len("opt-"):]
+        if not level:
+            return None
+        source, separator, tag = source.rpartition(".")
+    if not source or not separator or not tag:
+        return None
+    return source + ".py", tag, level
+
+
 def _path_excluded(
     path: Path, patterns: Sequence[Tuple[str, ...]], is_file: bool
 ) -> bool:
@@ -128,14 +149,10 @@ def _path_excluded(
     if not is_file or not path.name.endswith(".pyc"):
         return False
     if path.parent.name == "__pycache__":
-        source, separator, tag = path.name[:-len(".pyc")].rpartition(".")
-        if tag.startswith("opt-"):
-            if not tag[len("opt-"):]:
-                return False
-            source, separator, tag = source.rpartition(".")
-        if not source or not separator or not tag:
+        parsed = _parse_cache_name(path.name)
+        if parsed is None:
             return False
-        source_path = path.parent.parent / (source + ".py")
+        source_path = path.parent.parent / parsed[0]
     else:
         source_path = path.with_name(path.name[:-len(".pyc")] + ".py")
     return excluded(source_path.parts, patterns)
@@ -193,6 +210,33 @@ def _remove_excluded(
     for cache in site_packages.rglob("__pycache__"):
         if cache.is_dir() and not any(cache.iterdir()):
             cache.rmdir()
+
+
+def _drop_supplied_pyc(supplied_pyc: Set[Path]) -> Set[int]:
+    """Remove wheel-supplied caches for sources this interpreter compiles.
+
+    Bytecode reachable from the install tree must be built from the installed
+    source. Other tags are unreachable here and a sourceless cache is the only
+    copy of its module, so both are kept. Returns the optimization levels
+    removed, which are the levels the compile step has to cover.
+    """
+    levels = set()
+    for path in supplied_pyc:
+        if path.parent.name != "__pycache__":
+            continue
+        parsed = _parse_cache_name(path.name)
+        if parsed is None:
+            continue
+        source_name, tag, level = parsed
+        if tag != sys.implementation.cache_tag:
+            continue
+        # A level that isn't a number cannot be handed back to compileall.
+        if level and not level.isdecimal():
+            continue
+        if (path.parent.parent / source_name).is_file():
+            path.unlink()
+            levels.add(int(level) if level else 0)
+    return levels
 
 
 def _write_executable(path: Path, content: bytes) -> None:
@@ -609,6 +653,13 @@ def main() -> None:
     if args.compile_pyc:
         if not args.python:
             raise SystemExit("--python is required when --compile-pyc is set")
+        dropped_levels = _drop_supplied_pyc(supplied_pyc)
+        # Without -o only the interpreter's own level is written, which would
+        # leave an `-O` consumer's dropped cache unreplaced.
+        optimization_args: List[str] = []
+        if dropped_levels - {0}:
+            for level in sorted(dropped_levels | {0}):
+                optimization_args += ["-o", str(level)]
         # Wheels may retain source for older Python versions. Match pip by
         # retaining compileall's diagnostics while ignoring its aggregate
         # false result; check=True still rejects abnormal interpreter exits.
@@ -621,6 +672,7 @@ def main() -> None:
                 "-q",
                 "--invalidation-mode",
                 args.pyc_invalidation_mode,
+                *optimization_args,
                 "--",
                 str(site_packages),
             ],
@@ -630,13 +682,16 @@ def main() -> None:
             _remove_excluded(site_packages, args.exclude_glob)
 
         if supplied_pyc:
-            # compileall can replace bytecode that was already listed in RECORD.
+            # RECORD-listed bytecode may have been rebuilt.
             for record_path in site_packages.glob("*.dist-info/RECORD"):
                 rows = []
                 with record_path.open(newline="", encoding="utf-8") as record:
                     for relative, digest, size in csv.reader(record):
                         path = site_packages / relative
                         if path in supplied_pyc:
+                            # Gone means its source no longer compiles.
+                            if not path.is_file():
+                                continue
                             digest, size = _sha256(path), str(path.stat().st_size)
                         rows.append((relative, digest, size))
                 with record_path.open("w", newline="", encoding="utf-8") as record:
