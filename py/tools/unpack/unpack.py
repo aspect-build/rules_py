@@ -281,7 +281,8 @@ def install_wheel(
     into: Path,
     wheel_path: Path,
     exclude_patterns: Sequence[Tuple[str, ...]],
-) -> Tuple[Dict[Path, Optional[Tuple[str, str]]], Set[str]]:
+    drop_pycache: bool = False,
+) -> Set[str]:
     """Install a wheel into *into*, following PEP 427 layout conventions.
 
     Accepts either a direct ``.whl`` file or a directory containing exactly
@@ -354,6 +355,12 @@ def install_wheel(
                     exclude_patterns
                     and _path_excluded(site_relative, exclude_patterns, True)
                     and not _installer_input(site_relative)
+                ):
+                    continue
+                if (
+                    drop_pycache
+                    and dest.suffix == ".pyc"
+                    and dest.parent.name == "__pycache__"
                 ):
                     continue
 
@@ -440,7 +447,7 @@ def install_wheel(
         with record_path.open("w", newline="", encoding="utf-8") as fh:
             csv.writer(fh).writerows(rows)
 
-    return installed, original_import_roots
+    return original_import_roots
 
 
 def main() -> None:
@@ -472,12 +479,14 @@ def main() -> None:
 
         args.exclude_glob = [parse(pattern) for pattern in args.exclude_glob]
 
-    installed, original_import_roots = install_wheel(
+    original_import_roots = install_wheel(
         args.python_version_major,
         args.python_version_minor,
         args.into,
         args.wheel,
         args.exclude_glob if not args.patches else (),
+        # Supplied bytecode outlives the source it was built from.
+        args.compile_pyc or bool(args.patches),
     )
 
     site_packages = (
@@ -485,10 +494,6 @@ def main() -> None:
         / "python{}.{}".format(args.python_version_major, args.python_version_minor)
         / "site-packages"
     )
-    supplied_pyc = {
-        path for path in installed
-        if path.suffix == ".pyc" and site_packages in path.parents
-    }
     # Analysis uses these paths for collision and merge planning. Snapshot their
     # installed shape here, where both the before and after states are available.
     observed_files: List[Path] = []
@@ -598,15 +603,20 @@ def main() -> None:
     if args.exclude_glob and not (records[0].parent / "METADATA").is_file():
         raise SystemExit("wheel exclusions removed installed METADATA")
     if records and (args.patches or args.exclude_glob):
-        if args.patches:
-            supplied_pyc = set()
         record_paths = set(records)
         rows = []
         for path in sorted(args.into.rglob("*")):
             if not path.is_file() or path in record_paths:
                 continue
-            if path.suffix == ".pyc" and site_packages in path.parents:
-                supplied_pyc.add(path)
+            # A patch can invalidate pre-compiled pyc
+            if (
+                args.patches
+                and path.suffix == ".pyc"
+                and path.parent.name == "__pycache__"
+                and site_packages in path.parents
+            ):
+                path.unlink()
+                continue
             relative = os.path.relpath(str(path), str(site_packages)).replace("\\", "/")
             rows.append((relative, _sha256(path), str(path.stat().st_size)))
         for record in records:
@@ -639,18 +649,8 @@ def main() -> None:
         if args.exclude_glob:
             _remove_excluded(site_packages, args.exclude_glob)
 
-        if supplied_pyc:
-            # compileall can replace bytecode that was already listed in RECORD.
-            for record_path in site_packages.glob("*.dist-info/RECORD"):
-                rows = []
-                with record_path.open(newline="", encoding="utf-8") as record:
-                    for relative, digest, size in csv.reader(record):
-                        path = site_packages / relative
-                        if path in supplied_pyc:
-                            digest, size = _sha256(path), str(path.stat().st_size)
-                        rows.append((relative, digest, size))
-                with record_path.open("w", newline="", encoding="utf-8") as record:
-                    csv.writer(record).writerows(rows)
+        # Unlike pip, compiled bytecode stays out of RECORD: nothing uninstalls
+        # from an immutable tree, so the rows are not worth a hash of each file.
 
 
 if __name__ == "__main__":
