@@ -75,9 +75,9 @@ whl_install(
         "//conditions:default": False,
     }),
     pyc_invalidation_mode = select({
-        "@aspect_rules_py//uv/private/pyc:is_unchecked_hash": "unchecked-hash",
+        "@aspect_rules_py//uv/private/pyc:is_checked_hash": "checked-hash",
         "@aspect_rules_py//uv/private/pyc:is_timestamp": "timestamp",
-        "//conditions:default": "checked-hash",
+        "//conditions:default": "unchecked-hash",
     }),
     visibility = ["//visibility:private"],
 )

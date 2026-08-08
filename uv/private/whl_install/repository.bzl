@@ -283,9 +283,9 @@ filegroup(
     })"""
 
     pyc_invalidation_mode_select = """select({
-        "@aspect_rules_py//uv/private/pyc:is_unchecked_hash": "unchecked-hash",
+        "@aspect_rules_py//uv/private/pyc:is_checked_hash": "checked-hash",
         "@aspect_rules_py//uv/private/pyc:is_timestamp": "timestamp",
-        "//conditions:default": "checked-hash",
+        "//conditions:default": "unchecked-hash",
     })"""
 
     # The selected wheel is a `whl_dist` (or the source-built fallback) that

@@ -107,7 +107,42 @@ def merge(into: Path, sources: Sequence[Path]) -> List[Tuple[Path, Optional[Path
                 shutil.copy(str(src_file), str(dest))
                 owners[rel] = src
 
+    _drop_orphaned_bytecode(into, owners)
+
     return conflicts
+
+
+def _cache_source_name(name: str) -> Optional[str]:
+    """Map a PEP 3147 cache file name back to its source name.
+
+    Tags are stripped right-to-left, so a dotted source such as `mod.v1.py`
+    resolves from `mod.v1.cpython-311.pyc`. Kept in sync with
+    _path_excluded in py/tools/unpack/unpack.py.
+    """
+    stem, separator, tag = name[: -len(".pyc")].rpartition(".")
+    if tag.startswith("opt-"):
+        if not tag[len("opt-"):]:
+            return None
+        stem, separator, tag = stem.rpartition(".")
+    if not stem or not separator or not tag:
+        return None
+    return stem + ".py"
+
+
+def _drop_orphaned_bytecode(into: Path, owners: Dict[Path, Path]) -> None:
+    """Remove `.pyc` files whose sibling source came from a different wheel.
+
+    A later wheel can overlay `mod.py` without supplying its `mod.*.pyc`, which
+    leaves the earlier wheel's bytecode shadowing the winning source.
+    """
+    for pyc in into.rglob("__pycache__/*.pyc"):
+        name = _cache_source_name(pyc.name)
+        if name is None:
+            continue
+        rel = pyc.relative_to(into)
+        source = rel.parent.parent / name
+        if source in owners and owners[source] != owners.get(rel):
+            _remove(pyc)
 
 
 def main() -> None:
