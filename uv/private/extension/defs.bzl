@@ -193,6 +193,53 @@ def _parse_hubs(module_ctx):
 
     return hub_specs
 
+def quirked_bdists(quirks, bdist_packages):
+    """Map each wheel repo to the quirks declared for the package that published it.
+
+    A quirk describes a released artifact, not a project, so every module's tags
+    apply to every lock. Two modules declaring the same quirk agree by
+    construction; one declaring a quirk for a package this build never resolves
+    selects no wheel, which is what lets a shared module record what it knows
+    without dictating its consumers' dependencies.
+
+    Args:
+        quirks: The `uv.package_quirks` tags from every module.
+        bdist_packages: `{wheel repo name -> (package name, version)}`.
+
+    Returns:
+        A struct of `wheels` (`{wheel repo name -> struct(dist_info_name_differs)}`,
+        holding only the wheels some quirk selected) and `unmatched` (the
+        `(name, version)` of every quirk that selected nothing).
+    """
+    declared = {}
+    for quirk in quirks:
+        # An unset `version` is the empty string; key it as None so it reads as
+        # "every release" rather than as a release literally named "".
+        declared[(normalize_name(quirk.name), quirk.version or None)] = quirk
+
+    wheels = {}
+    matched = {}
+    for repo_name, name_version in bdist_packages.items():
+        name, version = name_version
+        keys = [(normalize_name(name), version), (normalize_name(name), None)]
+        selected = [declared[key] for key in keys if key in declared]
+        if selected:
+            wheels[repo_name] = struct(
+                dist_info_name_differs = any([q.dist_info_name_differs for q in selected]),
+            )
+            for key in keys:
+                if key in declared:
+                    matched[key] = True
+
+    return struct(
+        wheels = wheels,
+        # `None` sorts against no string, so order on the empty-string spelling.
+        unmatched = sorted(
+            [key for key in declared if key not in matched],
+            key = lambda key: (key[0], key[1] or ""),
+        ),
+    )
+
 def _parse_projects(module_ctx, hub_specs):
     """Resolve every `uv.project()` declaration into repository-rule inputs.
 
@@ -230,6 +277,7 @@ def _parse_projects(module_ctx, hub_specs):
 
     bdist_specs = {}
     bdist_table = {}
+    bdist_packages = {}
 
     sbuild_specs = {}
 
@@ -394,9 +442,10 @@ def _parse_projects(module_ctx, hub_specs):
 
             marker_graph = build_marker_graph(project_id, lock_data)
 
-            bd, bt = collect_bdists(lock_data)
+            bd, bt, bp = collect_bdists(lock_data)
             bdist_specs.update(bd)
             bdist_table.update(bt)
+            bdist_packages.update(bp)
 
             sd, st = collect_sdists(project_stamp, lock_data)
             sdist_specs.update(sd)
@@ -705,6 +754,21 @@ def _parse_projects(module_ctx, hub_specs):
             for sbuild_id, sc in sbuild_specs.items()
         }
 
+    # A quirk that selects nothing is inert by design, so it can only be
+    # reported, never failed on -- a typo is indistinguishable from a
+    # deliberate declaration about a package this build doesn't depend on.
+    quirks = quirked_bdists(
+        [quirk for mod in module_ctx.modules for quirk in mod.tags.package_quirks],
+        bdist_packages,
+    )
+    if quirks.unmatched and module_ctx.getenv("RULES_PY_UV_VERBOSE", ""):
+        for name, version in quirks.unmatched:
+            # buildifier: disable=print
+            print("WARNING: uv.package_quirks() for '{}'{} matches no wheel in any lock".format(
+                name,
+                " version '{}'".format(version) if version else "",
+            ))
+
     return struct(
         project_cfgs = project_cfgs,
         hub_cfgs = hub_cfgs,
@@ -713,6 +777,7 @@ def _parse_projects(module_ctx, hub_specs):
         whl_cfgs = whl_configurations,
         sdist_cfgs = sdist_specs,
         bdist_cfgs = bdist_specs,
+        quirked_bdists = quirks.wheels,
     )
 
 def _uv_impl(module_ctx):
@@ -775,6 +840,8 @@ def _uv_impl(module_ctx):
                     bdists_with_exclusions[whl_label.split("//", 1)[0].lstrip("@")] = True
 
     for bdist_name, bdist_cfg in cfg.bdist_cfgs.items():
+        quirks = cfg.quirked_bdists.get(bdist_name)
+
         # A per-wheel repo that downloads the wheel AND peeks its RECORD for the
         # install layout, so only the wheel a config selects is ever fetched.
         whl_dist(
@@ -783,6 +850,7 @@ def _uv_impl(module_ctx):
             sha256 = _dist_sha256(bdist_cfg) or "",
             downloaded_file_path = url_basename(bdist_cfg["url"]),
             carry_record_paths = bdist_name in bdists_with_exclusions,
+            dist_info_name_differs = quirks.dist_info_name_differs if quirks else False,
         )
 
     # Resolve the sdist configure tool. The default is our bundled
@@ -991,6 +1059,32 @@ project locks declared by the same module. Specifying `target` requires `lock`
 and is mutually exclusive with all other modification attributes.""",
 )
 
+_package_quirks_tag = tag_class(
+    attrs = {
+        "name": attr.string(mandatory = True),
+        "version": attr.string(
+            mandatory = False,
+            doc = "The release the quirk applies to. Omit it to apply to every locked version.",
+        ),
+        "dist_info_name_differs": attr.bool(
+            default = False,
+            doc = "The wheel's `.dist-info` directory is spelled differently from " +
+                  "its filename, so the name has to be read out of the archive. " +
+                  "`actioneer-0.0.1-py3-none-any.whl` ships `Actioneer-0.0.1.dist-info`. " +
+                  "Without this, fetching the wheel fails with `Prefix \"...\" was " +
+                  "given, but not found in the archive`. Costs a full extraction " +
+                  "of this package's wheels at fetch time.",
+        ),
+    },
+    doc = """Record how a published package deviates from packaging standards.
+
+Unlike `uv.override_package`, a quirk describes the released artifact rather
+than what a project does with it, so it takes no `lock` and applies to every
+lock in the build. Declaring one for a package the build never resolves is a
+no-op, which lets a shared module record what it knows about the ecosystem
+without dictating what its consumers depend on.""",
+)
+
 uv = module_extension(
     implementation = _uv_impl,
     tag_classes = {
@@ -998,5 +1092,6 @@ uv = module_extension(
         "project": _project_tag,
         "annotate_packages": _annotations_tag,
         "override_package": _override_package_tag,
+        "package_quirks": _package_quirks_tag,
     },
 )

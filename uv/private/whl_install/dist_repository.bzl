@@ -37,7 +37,12 @@ def _whl_dist_impl(rctx):
         auth = get_auth(rctx, urls),
     )
 
-    meta = extract_install_metadata(rctx, rctx.path(basename), basename)
+    meta = extract_install_metadata(
+        rctx,
+        rctx.path(basename),
+        basename,
+        dist_info_name_differs = rctx.attr.dist_info_name_differs,
+    )
 
     rctx.file("BUILD.bazel", content = """load("@aspect_rules_py//uv/private/whl_install:rule.bzl", "whl_dist")
 
@@ -94,6 +99,11 @@ whl_dist = repository_rule(
             doc = "Emit the retained RECORD paths so whl_install can re-derive " +
                   "the layout after exclude_glob. Set only for wheels of packages " +
                   "that declare exclude_glob.",
+        ),
+        "dist_info_name_differs": attr.bool(
+            doc = "Read the `.dist-info` name out of the archive rather than the " +
+                  "filename, for a wheel that spells the two differently. Set from " +
+                  "`uv.package_quirks(dist_info_name_differs = True)`.",
         ),
     },
     # Match http_file: the URL-derived canonical_id depends on this env var, so
