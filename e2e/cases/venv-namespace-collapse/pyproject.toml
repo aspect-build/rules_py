@@ -1,0 +1,20 @@
+[project]
+name = "venv-namespace-collapse"
+version = "0.0.0"
+requires-python = ">=3.11, <3.12"
+dependencies = [
+    # Two real wheels that share the PEP 420 namespace `nvidia` and ship no
+    # `__init__.py` at all: everything below `nvidia/cu13/` is headers, static
+    # libs and CMake metadata. A namespace entry descends to the first
+    # directory carrying an `__init__.py`, so every one of their 2118 installed
+    # files resolves to its own entry.
+    #
+    #   nvidia-cuda-cccl    -> nvidia/cu13/include/cccl/**, include/nv/**, cccl/**
+    #   nvidia-cuda-runtime -> nvidia/cu13/include/*.h, include/cooperative_groups/**, lib/**
+    #
+    # They share `nvidia/cu13/include/`, so assembly must descend through it
+    # and bind each wheel's subtree below -- the case that turns thousands of
+    # per-file symlink actions into a handful of directory symlinks.
+    "nvidia-cuda-cccl==13.3.3.4.1",
+    "nvidia-cuda-runtime==13.3.29",
+]
