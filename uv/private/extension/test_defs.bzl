@@ -1,7 +1,7 @@
 """Unit tests for helpers in defs.bzl"""
 
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load(":defs.bzl", "dedupe_shared_installs", "parse_declared_console_script", "shared_install_key")
+load(":defs.bzl", "dedupe_shared_installs", "parse_declared_console_script", "quirked_bdists", "shared_install_key")
 load(":lockfile.bzl", "url_basename")
 
 def _url_basename_test_impl(ctx):
@@ -157,6 +157,79 @@ def _dedupe_shared_installs_test_impl(ctx):
 
 dedupe_shared_installs_test = unittest.make(_dedupe_shared_installs_test_impl)
 
+def _quirk(name, version = "", dist_info_name_differs = False):
+    """One `uv.package_quirks` tag. An unset `version` is the empty string."""
+    return struct(
+        name = name,
+        version = version,
+        dist_info_name_differs = dist_info_name_differs,
+    )
+
+_QUIRK_BDISTS = {
+    "whl__actioneer__aaa": ("actioneer", "0.0.1"),
+    "whl__actioneer__bbb": ("actioneer", "0.0.2"),
+    "whl__cowsay__ccc": ("cowsay", "6.0"),
+}
+
+def _quirked_bdists_test_impl(ctx):
+    env = unittest.begin(ctx)
+
+    # A versioned quirk selects that release's wheels and no others, so a later
+    # release built by conforming tooling stops paying for it.
+    quirks = quirked_bdists(
+        [_quirk("actioneer", version = "0.0.1", dist_info_name_differs = True)],
+        _QUIRK_BDISTS,
+    )
+    asserts.equals(env, ["whl__actioneer__aaa"], sorted(quirks.wheels.keys()))
+    asserts.true(env, quirks.wheels["whl__actioneer__aaa"].dist_info_name_differs)
+    asserts.equals(env, [], quirks.unmatched)
+
+    # An omitted version applies to every release.
+    quirks = quirked_bdists(
+        [_quirk("actioneer", dist_info_name_differs = True)],
+        _QUIRK_BDISTS,
+    )
+    asserts.equals(
+        env,
+        ["whl__actioneer__aaa", "whl__actioneer__bbb"],
+        sorted(quirks.wheels.keys()),
+    )
+
+    # The tag spells the package however the user does; the lock is normalized.
+    quirks = quirked_bdists([_quirk("Actioneer", dist_info_name_differs = True)], _QUIRK_BDISTS)
+    asserts.equals(env, 2, len(quirks.wheels))
+
+    # Declaring a quirk for a package no lock resolves is inert rather than an
+    # error, so a shared module can record what it knows about the ecosystem.
+    quirks = quirked_bdists(
+        [
+            _quirk("nonesuch", dist_info_name_differs = True),
+            _quirk("actioneer", version = "9.9.9", dist_info_name_differs = True),
+        ],
+        _QUIRK_BDISTS,
+    )
+    asserts.equals(env, {}, quirks.wheels)
+    asserts.equals(env, [("actioneer", "9.9.9"), ("nonesuch", None)], quirks.unmatched)
+
+    # A quirk left at its default selects the wheel but asserts nothing about it.
+    quirks = quirked_bdists([_quirk("cowsay")], _QUIRK_BDISTS)
+    asserts.false(env, quirks.wheels["whl__cowsay__ccc"].dist_info_name_differs)
+
+    # Two modules declaring the same package agree by union, so a build that
+    # pulls in both an internal registry and a public one cannot deadlock on it.
+    quirks = quirked_bdists(
+        [
+            _quirk("actioneer", version = "0.0.1"),
+            _quirk("actioneer", version = "0.0.1", dist_info_name_differs = True),
+        ],
+        _QUIRK_BDISTS,
+    )
+    asserts.true(env, quirks.wheels["whl__actioneer__aaa"].dist_info_name_differs)
+
+    return unittest.end(env)
+
+quirked_bdists_test = unittest.make(_quirked_bdists_test_impl)
+
 def defs_test_suite():
     unittest.suite(
         "url_basename_tests",
@@ -173,4 +246,8 @@ def defs_test_suite():
     unittest.suite(
         "dedupe_shared_installs_tests",
         dedupe_shared_installs_test,
+    )
+    unittest.suite(
+        "quirked_bdists_tests",
+        quirked_bdists_test,
     )

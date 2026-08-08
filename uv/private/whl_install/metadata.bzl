@@ -3,9 +3,8 @@
 Peeks inside a wheel to discover the top-level names it installs AND its
 `[console_scripts]` entry points, then derives the namespace / regular-root /
 native-root layout `PyWheelsInfo` needs. Mirrors the rules_js `npm_import`
-pattern of doing partial archive extraction at repo-rule time, rather than
-deferring to a build-time action (which would leave the info invisible to
-analysis).
+pattern of doing archive extraction at repo-rule time, rather than deferring to
+a build-time action (which would leave the info invisible to analysis).
 
 Runs in the per-wheel `whl_dist` repo, so only the wheel actually selected for
 a configuration is ever fetched and inspected — sibling platform wheels are
@@ -401,6 +400,12 @@ def metadata_directory_hint(basename):
       A struct of the implied `directory` and whether it is `authoritative`:
       an already-normalized filename pins the archive member, anything else is
       a guess a differently-escaping backend can contradict (#1394).
+
+      `authoritative` reads the filename alone, so it cannot see the inverse
+      defect: a normalized filename over an archive that isn't (actioneer
+      ships `Actioneer-0.0.1.dist-info`). Nothing distinguishes those wheels
+      from well-formed ones without opening them, so they are declared with
+      `uv.package_quirks(dist_info_name_differs = True)`.
     """
     whl_name = parse_whl_name(basename)
 
@@ -423,8 +428,9 @@ def data_directory_for(metadata_directory):
     """
     return metadata_directory[:-len(".dist-info")] + ".data"
 
-def _discover_metadata_directory(rctx, root, whl_path, expected):
+def _discover_metadata_directory(rctx, root, whl_path, basename):
     """Pick the `.dist-info` directory out of a fully extracted wheel."""
+    expected = metadata_directory_hint(basename).directory
     candidates = sorted([
         entry.basename
         for entry in root.readdir()
@@ -438,9 +444,21 @@ def _discover_metadata_directory(rctx, root, whl_path, expected):
             ", ".join(candidates) if candidates else "none",
             expected,
         ))
+
+    # The escaping may differ from the filename's, but the project must not:
+    # a `.dist-info` naming some other distribution means the archive isn't the
+    # wheel the lock resolved. Matches uv's check in `find_archive_dist_info`.
+    project = normalize_name(parse_whl_name(basename).project)
+    if not normalize_name(candidates[0][:-len(".dist-info")]).startswith(project):
+        fail("{}: wheel {} carries {}, which does not belong to {}".format(
+            rctx.name,
+            whl_path,
+            candidates[0],
+            project,
+        ))
     return candidates[0]
 
-def _read_dist_info(rctx, whl_path, basename):
+def _read_dist_info(rctx, whl_path, basename, dist_info_name_differs):
     """Read RECORD and entry_points.txt out of the wheel's `.dist-info`.
 
     Returns (record_text, entry_points_text, metadata_directory). The returned
@@ -449,24 +467,27 @@ def _read_dist_info(rctx, whl_path, basename):
     no `entry_points.txt` (normal for libraries without scripts).
     """
     hint = metadata_directory_hint(basename)
-    metadata_directory = hint.directory
+    strip_directly = hint.authoritative and not dist_info_name_differs
 
     metadata_dir = "_wheel_metadata"
     rctx.delete(metadata_dir)
 
-    # An authoritative name is stripped directly, leaving only the `.dist-info`
-    # on disk. A guess can't be: `strip_prefix` hard-fails on a miss, so the
-    # whole wheel inflates instead (a 53MB SimpleITK wheel writes 278MB) and
-    # `_discover_metadata_directory` reads the real name off the result.
+    # Stripping the implied name leaves only the `.dist-info` on disk, ~200x
+    # cheaper than the alternative: `strip_prefix` hard-fails on a miss, which
+    # Starlark cannot recover from, so a name that might not be there means
+    # inflating the whole wheel (a 30MB SimpleITK wheel writes 141MB) and
+    # reading the real one off the result.
     rctx.extract(
         archive = whl_path,
         output = metadata_dir,
-        strip_prefix = metadata_directory if hint.authoritative else "",
+        strip_prefix = hint.directory if strip_directly else "",
     )
-    metadata_path = rctx.path(metadata_dir)
-    if not hint.authoritative:
-        metadata_directory = _discover_metadata_directory(rctx, metadata_path, whl_path, metadata_directory)
-        metadata_path = metadata_path.get_child(metadata_directory)
+    root = rctx.path(metadata_dir)
+    metadata_directory = hint.directory
+    metadata_path = root
+    if not strip_directly:
+        metadata_directory = _discover_metadata_directory(rctx, root, whl_path, basename)
+        metadata_path = root.get_child(metadata_directory)
     record_path = metadata_path.get_child("RECORD")
     if not record_path.exists:
         fail("{}: wheel {} has no {}/RECORD".format(rctx.name, whl_path, metadata_directory))
@@ -565,7 +586,7 @@ def derive_layout(record_segments):
         native_roots = sorted(native_roots.keys()),
     )
 
-def extract_install_metadata(rctx, whl_path, basename):
+def extract_install_metadata(rctx, whl_path, basename, dist_info_name_differs = False):
     """Peek inside a wheel and derive the layout `PyWheelsInfo` consumes.
 
     Reads:
@@ -580,6 +601,9 @@ def extract_install_metadata(rctx, whl_path, basename):
       whl_path: A resolved `rctx.path` to the wheel on disk.
       basename: The wheel's file name, which implies the `.dist-info` directory
         holding RECORD/entry_points.txt.
+      dist_info_name_differs: Declared via `uv.package_quirks` for a wheel whose
+        archive spells its `.dist-info` differently from its filename, which no
+        inspection of the filename can detect.
 
     Returns:
       A struct of sorted `list[str]` fields ready to pass straight through as
@@ -587,7 +611,7 @@ def extract_install_metadata(rctx, whl_path, basename):
       `namespace_top_levels`, `namespace_entries`, `namespace_dirs`,
       `regular_roots`, `native_roots`, `console_scripts`, `data_files`.
     """
-    record, entry_points, metadata_directory = _read_dist_info(rctx, whl_path, basename)
+    record, entry_points, metadata_directory = _read_dist_info(rctx, whl_path, basename, dist_info_name_differs)
     data_directory = data_directory_for(metadata_directory)
 
     # RECORD: authoritative list of every installed file, split in one pass into
