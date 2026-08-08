@@ -54,7 +54,7 @@ Duplicate dependency edges do not create another precedence position. Fields:
     precomputed by `make_wheel_record` so venv assembly's collision
     resolution does per-wheel parsing once instead of per consuming binary.
     Each `tl_claims` entry carries the top-level's namespace, directory,
-    native-root, and namespace-entry facts.
+    native-root, namespace-entry, and namespace-directory facts.
 
 Records must be built with `make_wheel_record` so the derived fields are
 present and consistent with the raw ones.
@@ -132,6 +132,9 @@ def make_wheel_record(
     ns_entries_by_tl = {}
     for entry in namespace_entries:
         ns_entries_by_tl.setdefault(entry.split("/")[0], []).append(entry)
+    ns_dirs_by_tl = {}
+    for directory in namespace_dirs:
+        ns_dirs_by_tl.setdefault(directory.split("/")[0], []).append(directory)
 
     tl_claims = []
     metadata_top_levels = []
@@ -145,6 +148,7 @@ def make_wheel_record(
             is_dir = tl in top_level_dir_set,
             is_native = tl in native_root_set,
             ns_entries = tuple(ns_entries_by_tl.get(tl, [])),
+            ns_dirs = tuple(ns_dirs_by_tl.get(tl, [])),
         )))
 
     cs_claims = []

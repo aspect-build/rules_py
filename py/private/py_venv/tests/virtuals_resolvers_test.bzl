@@ -37,13 +37,20 @@ def _make_wheel(
         install_tree = install_tree,
     )
 
-def _claim(site_packages, is_ns = False, is_dir = False, is_native = False, ns_entries = []):
+def _claim(
+        site_packages,
+        is_ns = False,
+        is_dir = False,
+        is_native = False,
+        ns_entries = [],
+        ns_dirs = []):
     return struct(
         site_packages = site_packages,
         is_ns = is_ns,
         is_dir = is_dir,
         is_native = is_native,
         ns_entries = ns_entries,
+        ns_dirs = ns_dirs,
     )
 
 def _cs_claim(site_packages, module, func):
@@ -364,6 +371,135 @@ def _data_file_collapse_test_impl(ctx):
     asserts.equals(env, [], collisions)
     return unittest.end(env)
 
+def _namespace_entry_collapse_test_impl(ctx):
+    env = unittest.begin(ctx)
+    mock_ctx = _mock_ctx(ctx.label)
+    sp_a = "external/pypi_cccl/site-packages"
+    sp_b = "external/pypi_runtime/site-packages"
+
+    # An `__init__.py`-free header tree resolves every file to its own
+    # namespace entry (see `derive_layout`), which is what makes the
+    # collapse load-bearing rather than cosmetic.
+    entries_a = [
+        "nvidia/cu13/include/cccl/cuda/std/atomic",
+        "nvidia/cu13/include/cccl/cuda/std/version",
+        "nvidia/cu13/include/cccl/nv/target",
+        "nvidia/cu13/lib/libcccl.so",
+    ]
+    entries_b = [
+        "nvidia/cu13/include/cuda_runtime.h",
+        "nvidia/cu13/bin/nvcc",
+    ]
+    wheels = [
+        _make_wheel(
+            site_packages_rfpath = sp_a,
+            tl_claims = [(
+                "nvidia",
+                _claim(
+                    sp_a,
+                    is_ns = True,
+                    is_dir = True,
+                    ns_entries = entries_a,
+                    ns_dirs = ["nvidia/cu13/include/cccl", "nvidia/cu13/lib"],
+                ),
+            )],
+            ns_entries = entries_a,
+            namespace_dirs = ["nvidia/cu13", "nvidia/cu13/include"],
+            top_levels = ["nvidia"],
+        ),
+        _make_wheel(
+            site_packages_rfpath = sp_b,
+            tl_claims = [(
+                "nvidia",
+                _claim(
+                    sp_b,
+                    is_ns = True,
+                    is_dir = True,
+                    ns_entries = entries_b,
+                    ns_dirs = ["nvidia/cu13/bin"],
+                ),
+            )],
+            ns_entries = entries_b,
+            namespace_dirs = ["nvidia/cu13", "nvidia/cu13/include"],
+            top_levels = ["nvidia"],
+        ),
+    ]
+    top_level, _, _, merge_groups, _, collisions = resolve_wheel_collisions(mock_ctx, wheels)
+
+    # Six per-file symlinks become four directory symlinks. `nvidia/cu13` and
+    # `nvidia/cu13/include` are shared, so resolution descends through them;
+    # below that each directory has a single owner and binds whole. A file
+    # directly under a shared directory has nothing to collapse into.
+    asserts.equals(env, {
+        "nvidia/cu13/include/cccl": sp_a,
+        "nvidia/cu13/lib": sp_a,
+        "nvidia/cu13/include/cuda_runtime.h": sp_b,
+        "nvidia/cu13/bin": sp_b,
+    }, top_level)
+
+    # Collapsing is a projection change only -- nothing here is contested.
+    asserts.equals(env, [], collisions)
+    asserts.equals(env, 0, len(merge_groups))
+    return unittest.end(env)
+
+def _namespace_entry_collapse_respects_losers_test_impl(ctx):
+    """A `.pth`-routed loser still blocks collapse above its files.
+
+    Both wheels ship `ns/pkg/mod.py`, so the earlier claimant loses that entry
+    and falls back to `.pth`. Binding `ns/pkg` to the winner would hide the
+    loser's sibling file from the PEP 420 `__path__` union, so the shared
+    directory must stay per-entry.
+    """
+    env = unittest.begin(ctx)
+    mock_ctx = _mock_ctx(ctx.label)
+    sp_a = "external/pypi_a/site-packages"
+    sp_b = "external/pypi_b/site-packages"
+    entries_a = ["ns/pkg/mod.py", "ns/pkg/only_a.py"]
+    entries_b = ["ns/pkg/mod.py"]
+    wheels = [
+        _make_wheel(
+            site_packages_rfpath = sp_a,
+            tl_claims = [(
+                "ns",
+                _claim(
+                    sp_a,
+                    is_ns = True,
+                    is_dir = True,
+                    ns_entries = entries_a,
+                    ns_dirs = ["ns/pkg"],
+                ),
+            )],
+            ns_entries = entries_a,
+            namespace_dirs = ["ns/pkg"],
+            top_levels = ["ns"],
+        ),
+        _make_wheel(
+            site_packages_rfpath = sp_b,
+            tl_claims = [(
+                "ns",
+                _claim(
+                    sp_b,
+                    is_ns = True,
+                    is_dir = True,
+                    ns_entries = entries_b,
+                    ns_dirs = ["ns/pkg"],
+                ),
+            )],
+            ns_entries = entries_b,
+            namespace_dirs = ["ns/pkg"],
+            top_levels = ["ns"],
+        ),
+    ]
+    top_level, _, _, _, _, collisions = resolve_wheel_collisions(mock_ctx, wheels)
+
+    asserts.equals(env, {
+        "ns/pkg/mod.py": sp_b,
+        "ns/pkg/only_a.py": sp_a,
+    }, top_level)
+    asserts.equals(env, 1, len(collisions))
+    asserts.equals(env, "ns/pkg/mod.py", collisions[0].name)
+    return unittest.end(env)
+
 _single_wheel_test = unittest.make(_single_wheel_test_impl)
 _namespace_merge_test = unittest.make(_namespace_merge_test_impl)
 _console_script_collision_test = unittest.make(_console_script_collision_test_impl)
@@ -373,6 +509,10 @@ _data_file_collision_test = unittest.make(_data_file_collision_test_impl)
 _data_file_reserved_path_test = unittest.make(_data_file_reserved_path_test_impl)
 _data_file_nesting_test = unittest.make(_data_file_nesting_test_impl)
 _data_file_collapse_test = unittest.make(_data_file_collapse_test_impl)
+_namespace_entry_collapse_test = unittest.make(_namespace_entry_collapse_test_impl)
+_namespace_entry_collapse_respects_losers_test = unittest.make(
+    _namespace_entry_collapse_respects_losers_test_impl,
+)
 
 def virtuals_resolvers_test_suite(name):
     unittest.suite(
@@ -386,4 +526,6 @@ def virtuals_resolvers_test_suite(name):
         _data_file_reserved_path_test,
         _data_file_nesting_test,
         _data_file_collapse_test,
+        _namespace_entry_collapse_test,
+        _namespace_entry_collapse_respects_losers_test,
     )
