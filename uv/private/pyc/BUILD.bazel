@@ -12,18 +12,19 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
-# Controls the PEP 552 invalidation mode for pre-compiled .pyc files.
+# Controls the PEP 552 invalidation mode for `whl_install`-compiled `.pyc`
+# files.
 #
 # Supported values:
-#   "checked-hash"   (default) — Python validates the .pyc hash against the
-#                     source at import time. Safe when sources may be modified
-#                     after compilation (e.g. the runfiles __init__.py shim).
-#   "unchecked-hash" — Python trusts the .pyc unconditionally. Faster imports
-#                     but stale .pyc files will silently shadow source changes.
+#   "unchecked-hash" (default) — Python trusts the .pyc unconditionally. Wheel
+#                     sources are immutable build outputs, so there is nothing
+#                     to re-validate; skips a source hash per import.
+#   "checked-hash"   — Python validates the .pyc hash against the source at
+#                     import time.
 #   "timestamp"      — Classic mtime-based invalidation.
 string_flag(
-    name = "invalidation_mode",
-    build_setting_default = "checked-hash",
+    name = "whl_install_pyc_invalidation_mode",
+    build_setting_default = "unchecked-hash",
     values = [
         "checked-hash",
         "unchecked-hash",
@@ -33,13 +34,13 @@ string_flag(
 )
 
 config_setting(
-    name = "is_unchecked_hash",
-    flag_values = {":invalidation_mode": "unchecked-hash"},
+    name = "is_whl_install_checked_hash",
+    flag_values = {":whl_install_pyc_invalidation_mode": "checked-hash"},
     visibility = ["//visibility:public"],
 )
 
 config_setting(
-    name = "is_timestamp",
-    flag_values = {":invalidation_mode": "timestamp"},
+    name = "is_whl_install_timestamp",
+    flag_values = {":whl_install_pyc_invalidation_mode": "timestamp"},
     visibility = ["//visibility:public"],
 )

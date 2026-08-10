@@ -37,9 +37,9 @@ whl_install(
         "//conditions:default": False,
     }),
     pyc_invalidation_mode = select({
-        "@aspect_rules_py//uv/private/pyc:is_unchecked_hash": "unchecked-hash",
-        "@aspect_rules_py//uv/private/pyc:is_timestamp": "timestamp",
-        "//conditions:default": "checked-hash",
+        "@aspect_rules_py//uv/private/pyc:is_whl_install_checked_hash": "checked-hash",
+        "@aspect_rules_py//uv/private/pyc:is_whl_install_timestamp": "timestamp",
+        "//conditions:default": "unchecked-hash",
     }),
     patches = ["@@//uv-exclusions/patches:nested_test.patch"],
     patch_strip = 1,
