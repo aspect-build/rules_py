@@ -190,9 +190,12 @@ jobs:
             --export-json "${GITHUB_WORKSPACE}/bcr.json" \
             'bazel --output_base=/tmp/bazel-bcr-analysis --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= --nobuild //workspace/...'
 
-          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc query //workspace/... --output=package > /tmp/bcr-packages.txt
-          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc query //workspace/... > /tmp/bcr-targets.txt
-          echo "{\"packages\": $(wc -l < /tmp/bcr-packages.txt | tr -d ' '), \"targets\": $(wc -l < /tmp/bcr-targets.txt | tr -d ' ')}" > "${GITHUB_WORKSPACE}/bcr-aux.json"
+          targets=$(bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc \
+            query //workspace/... | wc -l | tr -d ' ')
+          actions=$(bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc \
+            aquery --output=summary //workspace/... | awk '/^[0-9]+ total actions\.$/ { print $1 }')
+          test -n "$targets" && test -n "$actions"
+          echo "{\"targets\": $targets, \"actions\": $actions}" > "${GITHUB_WORKSPACE}/bcr-aux.json"
 
       # ── HEAD main ───────────────────────────────────────────────────────────
       - name: Benchmark HEAD main
@@ -211,9 +214,12 @@ jobs:
             --export-json "${GITHUB_WORKSPACE}/main.json" \
             'bazel --output_base=/tmp/bazel-main-analysis --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= --nobuild //workspace/...'
 
-          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc query //workspace/... --output=package > /tmp/main-packages.txt
-          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc query //workspace/... > /tmp/main-targets.txt
-          echo "{\"packages\": $(wc -l < /tmp/main-packages.txt | tr -d ' '), \"targets\": $(wc -l < /tmp/main-targets.txt | tr -d ' ')}" > "${GITHUB_WORKSPACE}/main-aux.json"
+          targets=$(bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc \
+            query //workspace/... | wc -l | tr -d ' ')
+          actions=$(bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc \
+            aquery --output=summary //workspace/... | awk '/^[0-9]+ total actions\.$/ { print $1 }')
+          test -n "$targets" && test -n "$actions"
+          echo "{\"targets\": $targets, \"actions\": $actions}" > "${GITHUB_WORKSPACE}/main-aux.json"
 
       # ── Current commit (PR) ─────────────────────────────────────────────────
       - name: Benchmark current PR
@@ -232,9 +238,12 @@ jobs:
             --export-json "${GITHUB_WORKSPACE}/pr.json" \
             'bazel --output_base=/tmp/bazel-pr-analysis --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= --nobuild //workspace/...'
 
-          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc query //workspace/... --output=package > /tmp/pr-packages.txt
-          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc query //workspace/... > /tmp/pr-targets.txt
-          echo "{\"packages\": $(wc -l < /tmp/pr-packages.txt | tr -d ' '), \"targets\": $(wc -l < /tmp/pr-targets.txt | tr -d ' ')}" > "${GITHUB_WORKSPACE}/pr-aux.json"
+          targets=$(bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc \
+            query //workspace/... | wc -l | tr -d ' ')
+          actions=$(bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc \
+            aquery --output=summary //workspace/... | awk '/^[0-9]+ total actions\.$/ { print $1 }')
+          test -n "$targets" && test -n "$actions"
+          echo "{\"targets\": $targets, \"actions\": $actions}" > "${GITHUB_WORKSPACE}/pr-aux.json"
 
       # ── Compare ─────────────────────────────────────────────────────────────
       - name: Compare analysis results

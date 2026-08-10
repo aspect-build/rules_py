@@ -119,8 +119,8 @@ def main() -> None:
 
     table = "## Bazel analysis benchmark\n\n"
     if has_aux:
-        table += "| Version | Mean (ms) | Median (ms) | ± stddev | vs BCR | vs main | Packages | Targets |\n"
-        table += "|---------|-----------|-------------|----------|--------|---------|----------|----------|\n"
+        table += "| Version | Mean (ms) | Median (ms) | ± stddev | vs BCR | vs main | Targets | Actions |\n"
+        table += "|---------|-----------|-------------|----------|--------|---------|---------|---------|\n"
     else:
         table += "| Version | Mean (ms) | Median (ms) | ± stddev | vs BCR | vs main |\n"
         table += "|---------|-----------|-------------|----------|--------|---------|\n"
@@ -128,9 +128,7 @@ def main() -> None:
     def aux_cell(aux: dict[str, Any] | None) -> str:
         if aux is None:
             return "— | —"
-        packages = aux.get("packages", "—")
-        targets = aux.get("targets", "—")
-        return f"{packages} | {targets}"
+        return f"{aux.get('targets', '—')} | {aux.get('actions', '—')}"
 
     def row(
         label: str,
@@ -178,22 +176,6 @@ def main() -> None:
         "> **Command**: cold `bazel build --nobuild //workspace/...` with isolated output base, "
         "no disk cache.\n"
     )
-
-    if has_aux:
-        table += (
-            "\n### Auxiliary metrics\n\n"
-            "| Version | Loaded packages | Configured targets |\n"
-            "|---------|-----------------|---------------------|\n"
-        )
-
-        def aux_row(label: str, aux: dict[str, Any] | None) -> str:
-            if aux is None:
-                return f"| {label} | — | — |\n"
-            return f"| {label} | {aux.get('packages', '—')} | {aux.get('targets', '—')} |\n"
-
-        table += aux_row("BCR 2.0.0-alpha.5 (baseline)", bcr_aux)
-        table += aux_row("HEAD main", main_aux)
-        table += aux_row("This PR", pr_aux)
 
     write_gh_output(table)
 
