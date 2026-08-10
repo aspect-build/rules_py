@@ -15,14 +15,14 @@ module name; that bounds the expected name to the portion under test.
 import sys
 
 
-def test_name_includes_the_namespace_package():
+def test_name_includes_the_namespace_package() -> None:
     assert __name__.endswith("namespace_pkg.sub.module_name_test"), (
         f"module imported as {__name__!r}; naming truncated at the first "
         "directory without an __init__.py"
     )
 
 
-def test_inner_package_is_not_bound_as_top_level():
+def test_inner_package_is_not_bound_as_top_level() -> None:
     bound = sys.modules.get("sub")
     assert bound is None or bound.__name__ != "sub", (
         "the inner package was bound as top-level `sub`, which would shadow an "
