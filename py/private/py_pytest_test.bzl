@@ -9,6 +9,8 @@
 #     `pytest_args`/`chdir` are requested,
 #   * pytest-dependency validation.
 
+"""Pytest-driving test macro and the driver wiring it shares with py_test."""
+
 load("//py/private:py_pytest_main.bzl", "py_pytest_main", "pytest_paths", "wrapped_main_filename")
 load(
     "//py/private/py_venv:defs.bzl",
@@ -83,6 +85,7 @@ def py_pytest_test(
         pytest_args = [],
         chdir = None,
         resolutions = None,
+        consider_namespace_packages = False,
         **kwargs):
     """A `py_test` that always runs under pytest.
 
@@ -107,12 +110,34 @@ def py_pytest_test(
             to the runfiles root. Also forces a private per-test entrypoint.
         resolutions: virtual-dep resolutions, `"string" -> label` (reversed to
             the rule's label-keyed-dict form here).
+        consider_namespace_packages: name test modules by their full path
+            instead of truncating at the first directory without an
+            `__init__.py`. Bazel packages usually have none, so by default a
+            test in `mypkg/azure/` is imported as `azure.foo_test`, binding
+            `sys.modules["azure"]` to the first-party package; an installed
+            distribution of that name is then shadowed for the code under test
+            (#479, #368). Off by default because the resulting name is derived
+            from the directory path, and a Bazel package name may contain
+            characters a Python identifier may not — a test under
+            `my-pkg/` becomes `my-pkg.foo_test`, which collection tolerates but
+            `pkgutil.resolve_name` (and so `pytest-mock`'s `mocker.patch`)
+            rejects. Enable it for packages whose directories are valid Python
+            identifiers.
         **kwargs: forwarded to the underlying test rule and sibling py_venv.
     """
     if "main" in kwargs:
         fail("py_pytest_test provides its own entrypoint; `main` is not supported. Use py_pytest_main + py_test for a custom main.")
 
     kwargs["testonly"] = True
+
+    if consider_namespace_packages:
+        # Through PYTEST_ADDOPTS rather than pytest_args: the latter renders a
+        # private per-test entrypoint, and this needs no codegen. Any
+        # PYTEST_ADDOPTS the caller set is preserved.
+        env = dict(kwargs.pop("env", {}))
+        pytest_opt = "-o consider_namespace_packages=true"
+        env["PYTEST_ADDOPTS"] = (env["PYTEST_ADDOPTS"] + " " + pytest_opt) if "PYTEST_ADDOPTS" in env else pytest_opt
+        kwargs["env"] = env
 
     if resolutions:
         resolutions = resolutions.to_label_keyed_dict()
