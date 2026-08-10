@@ -35,7 +35,25 @@ def _shallowest(roots):
     return out
 
 def _coarsest_cover(kept, candidate_dirs, owners):
-    """Bind each minimal-cover root of *candidate_dirs* in place of the paths below it."""
+    """Rewrite a projection so each minimal-cover root replaces the paths below it.
+
+    ``kept`` is the resolved projection: each path venv assembly would
+    otherwise declare, mapped to the ``site_packages`` root it symlinks
+    into. ``candidate_dirs`` are directories the caller has proven safe
+    to bind whole -- exactly one wheel ships content beneath each. How
+    that is established differs per caller: `_collapse_data_projection`
+    counts owners over the kept paths themselves, while
+    `_collapse_entry_projection` counts raw ``ns_dirs`` so excluded and
+    ``.pth``-routed claimants still block a bind. ``owners`` maps each
+    directory to the ``site_packages`` claiming it and supplies the bind
+    target, so it must cover every candidate; a candidate must hold a
+    single owner.
+
+    Returns:
+      ``kept`` unchanged when no candidate qualifies; otherwise a new
+      dict where every path under a `_shallowest` cover root is dropped
+      in favour of one entry binding that root to its sole owner.
+    """
     roots = _shallowest(candidate_dirs)
     if not roots:
         return kept
