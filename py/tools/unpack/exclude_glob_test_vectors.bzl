@@ -28,3 +28,21 @@ RECORD_PATH_EXCLUDE_VECTORS = [
     ("ns/__pycache__/.cpython-311.pyc", "ns/*.py", False),
     ("pkg/__pycache__/..pyc", "pkg/..py", False),
 ]
+
+# Cache-to-source mapping shared by every implementation of cache_source_path.
+# A None source means nothing imports the cache, so it stands on its own.
+CACHE_SOURCE_VECTORS = [
+    ("ns/__pycache__/mod.cpython-311.pyc", "ns/mod.py"),
+    ("ns/__pycache__/mod.cpython-311.opt-1.pyc", "ns/mod.py"),
+    ("ns/__pycache__/mod.cpython-311.opt-é.pyc", "ns/mod.py"),
+    ("pkg/__pycache__/api.v1.cpython-311.pyc", "pkg/api.v1.py"),
+    ("pkg/__pycache__/api.v1.cpython-311.opt-2.pyc", "pkg/api.v1.py"),
+    ("ns/legacy.pyc", "ns/legacy.py"),
+    ("ns/.pyc", "ns/.py"),
+    ("ns/__pycache__/mod.cpython-311.opt-.pyc", None),
+    ("ns/__pycache__/mod..pyc", None),
+    ("ns/__pycache__/mod..opt-1.pyc", None),
+    ("ns/__pycache__/.cpython-311.pyc", None),
+    ("ns/__pycache__/..pyc", None),
+    ("ns/mod.py", None),
+]

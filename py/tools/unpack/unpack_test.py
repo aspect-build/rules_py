@@ -931,6 +931,9 @@ else:
                 path,
                 glob,
             )
+        for path, expected in vectors["CACHE_SOURCE_VECTORS"]:
+            source = unpack_module.cache_source_path(Path(path))
+            assert source == (expected and Path(expected)), (path, source)
 
         filter_wheel = root / "demo-1.0-py3-none-any.whl"
         compiled_source = root / "compiled_source.py"

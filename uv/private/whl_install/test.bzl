@@ -3,9 +3,9 @@
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts", "unittest")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//py/private:providers.bzl", "PyWheelsInfo")
-load("//py/tools/unpack:exclude_glob_test_vectors.bzl", "EXCLUDE_GLOB_VECTORS", "RECORD_PATH_EXCLUDE_VECTORS")
+load("//py/tools/unpack:exclude_glob_test_vectors.bzl", "CACHE_SOURCE_VECTORS", "EXCLUDE_GLOB_VECTORS", "RECORD_PATH_EXCLUDE_VECTORS")
 load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
-load(":metadata.bzl", "canonical_version", "data_directory_for", "data_scheme_segments", "data_segments_contained", "exclude_glob_matches", "metadata_directory_hint", "native_roots_for_segments", "parse_console_script", "parse_exclude_glob", "parse_record", "parse_record_path", "record_path_excluded", "site_packages_segments")
+load(":metadata.bzl", "cache_source_path", "canonical_version", "data_directory_for", "data_scheme_segments", "data_segments_contained", "exclude_glob_matches", "metadata_directory_hint", "native_roots_for_segments", "parse_console_script", "parse_exclude_glob", "parse_record", "parse_record_path", "record_path_excluded", "site_packages_segments")
 load(":repository.bzl", "compatible_python_tags", "select_key", "sort_select_arms", "source_specificity")
 load(":rule.bzl", "pyc_compile_version_compatible", "source_built_wheel", "whl_dist", "whl_install")
 
@@ -258,6 +258,14 @@ def _exclude_glob_test_impl(ctx):
             expected,
             record_path_excluded(path.split("/"), [parse_exclude_glob(pattern)]),
             "{} against {}".format(path, pattern),
+        )
+
+    for path, expected in CACHE_SOURCE_VECTORS:
+        asserts.equals(
+            env,
+            expected and expected.split("/"),
+            cache_source_path(path.split("/")),
+            path,
         )
 
     return unittest.end(env)
