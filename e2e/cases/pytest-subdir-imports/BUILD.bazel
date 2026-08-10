@@ -15,3 +15,18 @@ py_pytest_test(
         "@pypi_pytest_subdir_imports//pytest",
     ],
 )
+
+# Regression for #479 / #368: `namespace_pkg/` has no `__init__.py`, so without
+# consider_namespace_packages pytest names this module `sub.module_name_test`
+# and binds `sub` as a top-level module -- shadowing any installed distribution
+# of that name for the code under test.
+py_pytest_test(
+    name = "test_namespace_package_module_naming",
+    srcs = [
+        "namespace_pkg/sub/__init__.py",
+        "namespace_pkg/sub/module_name_test.py",
+    ],
+    consider_namespace_packages = True,
+    dep_group = "pytest-subdir-imports",
+    deps = ["@pypi_pytest_subdir_imports//pytest"],
+)
