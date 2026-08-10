@@ -34,6 +34,38 @@ def _shallowest(roots):
             out.append(root)
     return out
 
+def _coarsest_cover(kept, candidate_dirs, owners):
+    """Rewrite a projection so each minimal-cover root replaces the paths below it.
+
+    ``kept`` is the resolved projection: each path venv assembly would
+    otherwise declare, mapped to the ``site_packages`` root it symlinks
+    into. ``candidate_dirs`` are directories the caller has proven safe
+    to bind whole -- exactly one wheel ships content beneath each. How
+    that is established differs per caller: `_collapse_data_projection`
+    counts owners over the kept paths themselves, while
+    `_collapse_entry_projection` counts raw ``ns_dirs`` so excluded and
+    ``.pth``-routed claimants still block a bind. ``owners`` maps each
+    directory to the ``site_packages`` claiming it and supplies the bind
+    target, so it must cover every candidate; a candidate must hold a
+    single owner.
+
+    Returns:
+      ``kept`` unchanged when no candidate qualifies; otherwise a new
+      dict where every path under a `_shallowest` cover root is dropped
+      in favour of one entry binding that root to its sole owner.
+    """
+    roots = _shallowest(candidate_dirs)
+    if not roots:
+        return kept
+    projection = {
+        path: sp
+        for path, sp in kept.items()
+        if not _within_any(path, roots)
+    }
+    for d in roots:
+        projection[d] = owners[d].keys()[0]
+    return projection
+
 def _distinct_ordered(keys):
     """Dedup *keys* preserving first-seen order.
 
@@ -166,6 +198,53 @@ def _dedupe_prefix_conflicts(entry_owner, tl, state, complain):
                 _skip(state, loser.site_packages, tl)
             break
 
+def _collapse_entry_projection(entry_owner, claimants, exclude_roots):
+    """Collapse per-entry projection to whole directories a single wheel ships.
+
+    An ``__init__.py``-free tree resolves every file to its own entry, one
+    declared output each in every consuming venv.
+
+    Ownership counts raw ``ns_dirs``, not the resolved winners: a claimant on
+    ``.pth`` still reaches the venv, so binding over it would drop its PEP 420
+    ``__path__`` contribution. A directory containing an *exclude_roots* entry
+    never binds -- a native projection or merge declares its own output there.
+
+    Candidacy is the inverse restriction: a directory binds only when it is a
+    strict ancestor of a surviving entry. A single-owner directory whose every
+    entry was excluded or lost projects nothing under the per-entry set, so
+    binding it would declare an output the resolution decided against -- under
+    an *exclude_roots* merge or native projection that output nests inside
+    another action's, failing analysis.
+
+    Returns:
+      dict of projection path -> owning ``site_packages``.
+    """
+    owner_sps = {entry: c.site_packages for entry, c in entry_owner.items()}
+    if not owner_sps:
+        return owner_sps
+
+    kept_ancestors = {}
+    for entry in owner_sps:
+        for d in _ancestors(entry):
+            kept_ancestors[d] = True
+
+    owners = {}
+    for c in claimants:
+        for d in c.ns_dirs:
+            owners.setdefault(d, {})[c.site_packages] = True
+
+    return _coarsest_cover(
+        owner_sps,
+        [
+            d
+            for d in owners
+            if len(owners[d]) == 1 and
+               d in kept_ancestors and
+               not _contains_any(d, exclude_roots)
+        ],
+        owners,
+    )
+
 def _build_wheel_lookup_sets(wheel_by_sp, sps):
     """Pre-compute O(1) membership dicts for per-wheel root tuples.
 
@@ -289,8 +368,13 @@ def _resolve_native_span(
     with_entries = _skip_entryless_and_split(unique_claimants, state, tl)
     if with_entries:
         entry_owner = _resolve_entry_owners(with_entries, tl, tl_conflicted_roots, state, complain)
-        for entry, c in entry_owner.items():
-            state.top_level_to_site_pkgs[entry] = c.site_packages
+        projection = _collapse_entry_projection(
+            entry_owner,
+            with_entries,
+            tl_conflicted_roots,
+        )
+        for entry, sp in projection.items():
+            state.top_level_to_site_pkgs[entry] = sp
         _cover_all_clean(with_entries, state, tl)
 
 def _resolve_pure_namespace(unique_claimants, tl, state, complain):
@@ -306,8 +390,9 @@ def _resolve_pure_namespace(unique_claimants, tl, state, complain):
         return
     entry_owner = _resolve_entry_owners(with_entries, tl, [], state, complain)
     _dedupe_prefix_conflicts(entry_owner, tl, state, complain)
-    for entry, c in entry_owner.items():
-        state.top_level_to_site_pkgs[entry] = c.site_packages
+    projection = _collapse_entry_projection(entry_owner, with_entries, [])
+    for entry, sp in projection.items():
+        state.top_level_to_site_pkgs[entry] = sp
     _cover_all_clean(with_entries, state, tl)
 
 def _resolve_directory_collision(
@@ -569,10 +654,11 @@ def _collapse_data_projection(kept, ancestors_by_path):
     one wheel owns it, and descend only where wheels genuinely share one.
 
     A directory qualifies when every kept path beneath it resolved to the same
-    wheel — then a single symlink exposes that wheel's subtree. `_shallowest`
-    reduces the qualifying directories to a minimal cover. Paths under a shared
-    directory, and files at the prefix root with no directory to collapse into,
-    stay per-file.
+    wheel — then a single symlink exposes that wheel's subtree, and
+    `_coarsest_cover` binds it. Owners are counted over the kept paths alone: a
+    losing claimant's file is dropped, not routed elsewhere as in
+    `_collapse_entry_projection`. Paths under a shared directory, and files at
+    the prefix root with no directory to collapse into, stay per-file.
 
     Binding a directory exposes everything the owning wheel installed beneath
     it, which is why `data_files` must enumerate the wheel's prefix tree
@@ -589,15 +675,11 @@ def _collapse_data_projection(kept, ancestors_by_path):
         for d in ancestors_by_path[path]:
             owners.setdefault(d, {})[sp] = True
 
-    roots = _shallowest([d for d in owners if len(owners[d]) == 1])
-    projection = {
-        path: sp
-        for path, sp in kept.items()
-        if not _within_any(path, roots)
-    }
-    for d in roots:
-        projection[d] = owners[d].keys()[0]
-    return projection
+    return _coarsest_cover(
+        kept,
+        [d for d in owners if len(owners[d]) == 1],
+        owners,
+    )
 
 def _compute_fully_covered(wheels, state):
     """Determine which wheels have every top-level projected or merged.
