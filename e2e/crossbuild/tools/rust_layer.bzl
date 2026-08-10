@@ -1,17 +1,23 @@
-"""Exposes a specific (non-ambient-resolved) rust_toolchain's sysroot.
+"""Exposes the host-targeting rust_toolchain's sysroot.
 
 `@rules_rust//rust/toolchain:current_rust_toolchain` resolves against the
 build's ambient --platforms, so under a cross (arm64) transition it returns
 the arm64-*targeting* toolchain — whose sysroot only carries LLVM's shared
-libs for x86_64, not the x86_64 rust-std a build script/proc-macro (always
-compiled for the exec platform) needs. This rule instead pins to a specific
-`rust_toolchain` target by label, bypassing toolchain resolution entirely,
-so a package can also pull in the plain x86_64-targeting toolchain's sysroot
-regardless of which platform the rest of the build is transitioned to.
+libs for the exec platform, not the exec platform's rust-std a build
+script/proc-macro (always compiled for the exec platform) needs. This rule
+re-resolves it under rules_py's exec_transition (--platforms := the host
+platform), which hands back the host-*targeting* toolchain on any host —
+x86_64-linux on the CI runner, aarch64-darwin on a macOS workstation —
+without hardcoding either repository's label.
 """
 
-def _rust_pinned_sysroot_impl(ctx):
-    toolchain = ctx.attr.actual[platform_common.ToolchainInfo]
+load("@aspect_rules_py//uv/private/pep517_whl:exec_transition.bzl", "exec_transition")
+
+def _rust_host_sysroot_impl(ctx):
+    actual = ctx.attr.actual
+    if type(actual) == "list":
+        actual = actual[0]
+    toolchain = actual[platform_common.ToolchainInfo]
     return [
         DefaultInfo(files = toolchain.all_files),
         platform_common.TemplateVariableInfo({
@@ -19,13 +25,17 @@ def _rust_pinned_sysroot_impl(ctx):
         }),
     ]
 
-rust_pinned_sysroot = rule(
-    implementation = _rust_pinned_sysroot_impl,
+rust_host_sysroot = rule(
+    implementation = _rust_host_sysroot_impl,
     attrs = {
         "actual": attr.label(
-            doc = "A rust_toolchain target (not a toolchain_type alias) to pin to.",
+            cfg = exec_transition,
+            doc = "current_rust_toolchain, re-resolved with --platforms set to the host.",
             mandatory = True,
         ),
+        "_allowlist_function_transition": attr.label(
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+        ),
     },
-    doc = "Exposes `actual`'s sysroot as $(RUST_HOST_SYSROOT), bypassing toolchain resolution.",
+    doc = "Exposes the host-targeting rust_toolchain's sysroot as $(RUST_HOST_SYSROOT).",
 )

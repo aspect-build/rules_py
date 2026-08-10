@@ -106,6 +106,7 @@ bazel_dep(name = "rules_cc", version = "0.2.16")
 bazel_dep(name = "tar.bzl", version = "0.10.1")
 bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "gcc_toolchain", version = "0.11.0")
+bazel_dep(name = "llvm", version = "0.8.3")
 bazel_dep(name = "rules_oci", version = "2.2.7")
 bazel_dep(name = "rules_shell", version = "0.4.1")
 bazel_dep(name = "container_structure_test", version = "1.22.1")
@@ -160,10 +161,23 @@ register_toolchains(
     "@gcc_toolchain_aarch64//:cc_toolchain",
 )
 
+# Registered AFTER gcc_toolchain on purpose: on the Linux CI runner both can
+# satisfy exec=linux → target=linux and registration order makes strict GCC
+# win, preserving the sysroot/flag-propagation guarantees documented above.
+# llvm only ever resolves for the edge gcc_toolchain cannot fill — a macOS
+# host cross-building the linux cases locally (exec=darwin → target=linux).
+register_toolchains("@llvm//toolchain:all")
+
 rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
 rust.toolchain(
     edition = "2021",
-    extra_target_triples = ["aarch64-unknown-linux-gnu"],
+    # Both linux triples: on the linux/amd64 CI runner x86_64 is the host
+    # triple (redundant there), but a darwin host needs it as an explicit
+    # cross target for the amd64 cases.
+    extra_target_triples = [
+        "aarch64-unknown-linux-gnu",
+        "x86_64-unknown-linux-gnu",
+    ],
     versions = ["1.90.0"],
 )
 use_repo(rust, "rust_toolchains")

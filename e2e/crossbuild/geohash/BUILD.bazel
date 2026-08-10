@@ -4,7 +4,7 @@
 # platform-transition-only packaging coverage.
 
 load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer")
-load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
+load("@bazel_lib//lib:transitions.bzl", "platform_transition_binary", "platform_transition_filegroup")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@container_structure_test//:defs.bzl", "container_structure_test")
 load("@rules_oci//oci:defs.bzl", "oci_image")
@@ -142,9 +142,9 @@ sh_test(
 # to os:macos regardless of the real host, so target_compatible_with can't
 # tell Linux apart from macOS here. test.sh invokes both by label after
 # checking uname.
-platform_transition_filegroup(
+platform_transition_binary(
     name = "geohash_amd64_macos_bin",
-    srcs = [":geohash_bin"],
+    binary = ":geohash_bin",
     tags = ["manual"],
     target_platform = "//:amd64_macos",
 )

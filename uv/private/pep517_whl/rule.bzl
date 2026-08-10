@@ -276,19 +276,19 @@ def _pep517_native_whl(ctx):
     if cc_toolchain_raw == None:
         if cross:
             fail(
-                "Cross-compilation of sdist '{}' requires a CC toolchain " +
-                "registered for the target platform. No toolchain of type {} " +
-                "resolved against the current exec/target platform combination.\n" +
-                "Register a cross CC toolchain (e.g., toolchains_llvm with " +
-                "matching target_compatible_with) via register_toolchains.".format(
+                ("Cross-compilation of sdist '{}' requires a CC toolchain " +
+                 "registered for the target platform. No toolchain of type {} " +
+                 "resolved against the current exec/target platform combination.\n" +
+                 "Register a cross CC toolchain (e.g., toolchains_llvm with " +
+                 "matching target_compatible_with) via register_toolchains.").format(
                     ctx.attr.src.label,
                     _CC_TOOLCHAIN_TYPE,
                 ),
             )
         fail(
-            "sdist '{}' requires a CC toolchain but none resolved. " +
-            "Register a CC toolchain (e.g., rules_cc, toolchains_llvm) " +
-            "via register_toolchains.".format(ctx.attr.src.label),
+            ("sdist '{}' requires a CC toolchain but none resolved. " +
+             "Register a CC toolchain (e.g., rules_cc, toolchains_llvm) " +
+             "via register_toolchains.").format(ctx.attr.src.label),
         )
 
     cc_toolchain = cc_toolchain_raw

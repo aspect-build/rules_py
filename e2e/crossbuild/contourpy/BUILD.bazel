@@ -1,7 +1,9 @@
 # contourpy ships official prebuilt wheels for linux/amd64 and linux/arm64,
 # but [tool.uv] no-binary-package forces it to build from sdist here. Unlike
 # //geohash (setuptools) and //zstandard (setuptools+CFFI), this is a
-# meson-python backend — pep517_native_whl doesn't support it yet.
+# meson-python backend: cross mode must generate a meson cross file and
+# exe_wrapper for it, since meson-python only auto-synthesizes cross files
+# on macOS (see build_helper.py's _generate_meson_cross_file).
 
 load("//tools:cross_case.bzl", "pep517_cross_case")
 

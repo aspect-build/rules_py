@@ -92,6 +92,7 @@ _DROP_LINKER_FLAGS = frozenset({
     "-Wl,-start_group",
     "-Wl,-end_group",
     "-bundle",
+    "STRIP_DEBUG_SYMBOLS",
 })
 
 _DROP_LINKER_PAIRS = frozenset({
@@ -120,6 +121,7 @@ debug_flag = {debug_flag!r}
 is_cxx = {is_cxx!r}
 is_darwin = {is_darwin!r}
 static_libstdcxx_flags = {static_libstdcxx_flags!r}
+exe_link_flags = {exe_link_flags!r}
 
 is_link = "-c" not in args
 filtered = []
@@ -153,10 +155,35 @@ while i < len(args):
 # bug — and full static linking already covers libstdc++ too, making that
 # partial trick redundant for a binary that's never shipped anyway.
 is_shared = "-shared" in filtered
-if is_link and not is_shared and not is_darwin:
+if is_link and exe_link_flags:
+    # LLVM-style toolchain (nonempty exe_link_flags, see the "-nostdlib++"
+    # detection in build_helper): clang only reaches its crt objects and
+    # glibc/libc++ archives through the link action's -B/-L/--sysroot flags
+    # (no self-contained GCC-like prefix layout), and not every caller
+    # threads $LDSHARED through — rustc invokes this wrapper as "-C linker"
+    # with its own args, meson links its probe executables bare. Bake the
+    # flags into every link; duplicates from the $LDSHARED path are
+    # harmless to clang. No "-static" for probe executables here: the QEMU
+    # ld.so bug that motivates it is only reachable via gcc_toolchain on
+    # the Linux CI runner.
+    # rustc hardcodes "-lgcc_s" for its unwinder on *-linux-gnu targets;
+    # this toolchain ships no libgcc at all — statically fold in its
+    # libunwind instead (cargo-zigbuild's trick, same ABI surface).
+    filtered = ["-lunwind" if a == "-lgcc_s" else a for a in filtered]
+    filtered.extend(exe_link_flags)
+    if is_cxx:
+        # No implicit C++ stdlib under -nostdlib++; statically embed
+        # libc++ so the produced .so has no host-libstdc++ dependency
+        # (only static archives exist on the toolchain's search path).
+        filtered.extend(["-lc++", "-lc++abi"])
+elif is_link and not is_shared and not is_darwin:
     filtered.append("-static")
 elif is_cxx and is_link and not is_darwin:
     filtered.extend(static_libstdcxx_flags)
+elif is_darwin and is_link and is_shared:
+    # Extension modules leave _Py* unresolved until dlopen; ld64 errors on
+    # them by default (ELF linkers don't), so mirror CPython's own LDSHARED.
+    filtered.append("-Wl,-undefined,dynamic_lookup")
 
 if is_link and lld_path:
     os.environ.setdefault("PATH", "")
@@ -175,6 +202,14 @@ def _darwin_sysroot() -> Optional[str]:
         return None
     try:
         return check_output(["xcrun", "--show-sdk-path"], text=True).strip()
+    except Exception:
+        return None
+
+
+def _xcode_developer_dir() -> Optional[str]:
+    """Return the active Xcode Developer directory, or None if unavailable."""
+    try:
+        return check_output(["xcode-select", "-p"], text=True).strip()
     except Exception:
         return None
 
@@ -304,21 +339,34 @@ def _make_cross_compiler_wrapper(
     lld_path: Optional[str] = None,
     is_cxx: bool = False,
     is_darwin: bool = False,
+    exe_link_flags: Optional[list[str]] = None,
 ) -> str:
     wrapper = path.join(tmpdir, ".aspect_rules_py_compilers", name)
+
+    # "-bundle" and "-undefined dynamic_lookup" leak from a macOS *host*
+    # sysconfig and break ELF linkers, but when the *target* is darwin they
+    # are exactly how extension modules must link (unresolved _Py* symbols
+    # bind at dlopen time) — keep them there.
+    drop_exact = set(_DROP_LINKER_FLAGS)
+    drop_pairs = set(_DROP_LINKER_PAIRS)
+    if is_darwin:
+        drop_exact.discard("-bundle")
+        drop_pairs.discard("-undefined")
+
     return _write_generated_file(
         wrapper,
         _CROSS_COMPILER_WRAPPER.format(
             compiler_path=compiler_path,
             wrapper_flags=wrapper_flags,
-            drop_exact=sorted(_DROP_LINKER_FLAGS),
-            drop_pairs=sorted(_DROP_LINKER_PAIRS),
+            drop_exact=sorted(drop_exact),
+            drop_pairs=sorted(drop_pairs),
             drop_prefixes=list(_DROP_LINKER_PREFIXES),
             lld_path=lld_path,
             debug_flag=_DEBUG_FLAG,
             is_cxx=is_cxx,
             is_darwin=is_darwin,
             static_libstdcxx_flags=list(_STATIC_LIBSTDCXX_FLAGS),
+            exe_link_flags=list(exe_link_flags or []),
         ),
         executable=True,
     )
@@ -433,8 +481,19 @@ def _compiler_env(
     if cross:
         wrapper_flags = _get_wrapper_flags(env.get("CFLAGS", ""))
         lld_path = _find_lld(cc_path)
-        cc = _make_cross_compiler_wrapper(tmpdir, "cc", cc_path, wrapper_flags, lld_path, is_darwin=is_darwin)
-        cxx = _make_cross_compiler_wrapper(tmpdir, "c++", cxx_path, wrapper_flags, lld_path, is_cxx=True, is_darwin=is_darwin)
+
+        # An LLVM-style toolchain (BCR `llvm` module) reaches its crt objects
+        # and runtime archives only through the link action's flags; detect it
+        # by its "-nostdlib++" marker and bake those flags (sans "-shared")
+        # into the wrappers for probe-executable links. gcc_toolchain's driver
+        # is self-contained — it gets an empty list and keeps its "-static".
+        ldshared_flag_list = env.get("LDSHAREDFLAGS", "").split()
+        exe_link_flags = (
+            [f for f in ldshared_flag_list if f != "-shared"] if "-nostdlib++" in ldshared_flag_list else []
+        )
+
+        cc = _make_cross_compiler_wrapper(tmpdir, "cc", cc_path, wrapper_flags, lld_path, is_darwin=is_darwin, exe_link_flags=exe_link_flags)
+        cxx = _make_cross_compiler_wrapper(tmpdir, "c++", cxx_path, wrapper_flags, lld_path, is_cxx=True, is_darwin=is_darwin, exe_link_flags=exe_link_flags)
 
         # gcc_toolchain's own layout (<root>/xbin/gcc, <root>/sysroot/...):
         # a target-arch binary linked by this compiler needs ITS glibc/loader
@@ -444,6 +503,29 @@ def _compiler_env(
         target_gcc_sysroot = path.join(path.dirname(path.dirname(cc_path)), "sysroot")
         if not is_darwin and path.isdir(target_gcc_sysroot):
             env["RULES_PY_TARGET_GCC_SYSROOT"] = target_gcc_sysroot
+
+        # The llvm toolchain on a darwin exec host reports llvm-libtool-darwin
+        # as its static archiver — a Mach-O-only tool that meson then invokes
+        # with ar-style args ("csr ...") for the target's static libs. For ELF
+        # targets swap in the sibling llvm-ar, which is what those args and
+        # the target format actually require.
+        ar_path = env.get("AR", "")
+        if not is_darwin and path.basename(ar_path) == "llvm-libtool-darwin":
+            llvm_ar = path.join(path.dirname(ar_path), "llvm-ar")
+            if path.exists(llvm_ar):
+                env["AR"] = llvm_ar
+
+        # apple_support's wrapped_clang substitutes __BAZEL_XCODE_DEVELOPER_DIR__
+        # and __BAZEL_XCODE_SDKROOT__ in its arguments from these variables and
+        # hard-fails without DEVELOPER_DIR. Bazel injects them only into actions
+        # with Xcode execution requirements, which this PEP 517 action is not.
+        if is_darwin and _platform.system() == "Darwin":
+            if "DEVELOPER_DIR" not in env:
+                developer_dir = _xcode_developer_dir()
+                if developer_dir:
+                    env["DEVELOPER_DIR"] = developer_dir
+            if sysroot and "SDKROOT" not in env:
+                env["SDKROOT"] = sysroot
     else:
         cc = _make_compiler_wrapper(tmpdir, "cc", cc_path, sysroot, is_darwin=is_darwin)
         cxx = _make_compiler_wrapper(tmpdir, "c++", cxx_path, sysroot, is_cxx=True, is_darwin=is_darwin)
@@ -533,6 +615,7 @@ def _load_pyproject_data(worktree: str) -> Optional[Dict[str, object]]:
 # spelling: CMAKE_SYSTEM_NAME and the faked platform.system()/os.uname()
 # sysname both use it.
 _TITLECASE_OS = {"linux": "Linux", "darwin": "Darwin", "windows": "Windows"}
+_SYS_PLATFORM = {"linux": "linux", "darwin": "darwin", "windows": "win32"}
 
 
 def _generate_cmake_toolchain_file(
@@ -613,11 +696,21 @@ def _generate_meson_cross_file(
     different failure mode than the earlier "not runnable" one, but the
     same root cause of not telling qemu-user which glibc actually matches.
     """
-    exe_wrapper = _write_generated_file(
-        path.join(tmpdir, "meson_exe_wrapper.py"),
-        _MESON_EXE_WRAPPER.format(qemu_ld_prefix=build_env.get("RULES_PY_TARGET_GCC_SYSROOT", "")),
-        executable=True,
-    )
+    # The passthrough wrapper relies on the exec host transparently running
+    # target-arch ELFs (binfmt_misc + qemu-user) — a Linux-host capability.
+    # A darwin host cannot execute ELF at all, and an exe_wrapper that fails
+    # makes meson's sanity check fail outright; with needs_exe_wrapper=true
+    # and NO exe_wrapper, meson skips running its own checks instead, and
+    # projects calling cc.run() get meson's own explicit "can not run test
+    # applications" error — an honest host limitation, not a masked one.
+    exe_wrapper_line = ""
+    if _platform.system() == "Linux":
+        exe_wrapper = _write_generated_file(
+            path.join(tmpdir, "meson_exe_wrapper.py"),
+            _MESON_EXE_WRAPPER.format(qemu_ld_prefix=build_env.get("RULES_PY_TARGET_GCC_SYSROOT", "")),
+            executable=True,
+        )
+        exe_wrapper_line = "exe_wrapper = ['{}']\n".format(exe_wrapper)
     return _write_generated_file(
         path.join(tmpdir, "cross_file.ini"),
         textwrap.dedent("""\
@@ -626,8 +719,7 @@ def _generate_meson_cross_file(
             cpp = '{cxx}'
             ar = '{ar}'
             strip = '{strip}'
-            exe_wrapper = ['{exe_wrapper}']
-
+            {exe_wrapper_line}
             [host_machine]
             system = '{system}'
             cpu_family = '{cpu_family}'
@@ -639,7 +731,7 @@ def _generate_meson_cross_file(
             """).format(
             cc=build_env["CC"],
             cxx=build_env["CXX"],
-            exe_wrapper=exe_wrapper,
+            exe_wrapper_line=exe_wrapper_line,
             ar=build_env.get("AR", "ar"),
             strip=build_env.get("STRIP", "strip"),
             system=target_os,
@@ -744,12 +836,27 @@ def _configure_cargo_cross_env(build_env: Dict[str, str], tmpdir: str, target_os
 _SITECUSTOMIZE_TEMPLATE = """\
 import os
 import platform
+import sys
 import collections
+
+# ctypes parses os.uname().release at import time when the *host* is Darwin.
+# Import it while uname and sys.platform are still real so the target's
+# faked values never reach that parse.
+try:
+    import ctypes
+except ImportError:
+    pass
 
 _machine = {machine!r}
 _sysname = {sysname!r}
+_release = {release!r}
 
-os.uname = lambda: os.uname_result((_sysname, "build", "", "", _machine))
+# setup.py scripts routinely branch on sys.platform to decide which sources
+# to even compile (psutil picks _psutil_osx.c vs _psutil_linux.c this way),
+# and distutils keys its host-specific compiler customization on it too.
+sys.platform = {sys_platform!r}
+
+os.uname = lambda: os.uname_result((_sysname, "build", _release, "", _machine))
 
 # CS_GLIBC_LIB_VERSION otherwise leaks the *host's* glibc version, which
 # feeds manylinux-tag determination in pip/packaging/subprocess.
@@ -767,7 +874,7 @@ if hasattr(os, "confstr"):
 # back to the real host on this field, so build our own namedtuple instead
 # of the real type (mirrors crossenv's platform-patch.py).
 _PlatformUname = collections.namedtuple("uname_result", "system node release version machine processor")
-_platform_uname = _PlatformUname(_sysname, "build", "", "", _machine, _machine)
+_platform_uname = _PlatformUname(_sysname, "build", _release, "", _machine, _machine)
 
 platform.uname = lambda: _platform_uname
 platform.system = lambda: _sysname
@@ -809,9 +916,20 @@ def _generate_cross_site(tmpdir: str, target_os: str, target_cpu: str) -> str:
     need (dual venvs, distutils.sysconfig, importlib.machinery interception).
     """
     site_dir = path.join(tmpdir, ".cross_site")
+
+    # ctypes' own import does int(os.uname().release.split(".")[0]) on Darwin,
+    # so the faked release must parse as a Darwin kernel version there. 20.0.0
+    # is Darwin 20 = macOS 11.0, matching _derive_python_host_platform's
+    # macosx-11.0 baseline. Linux keeps "": nothing on that path parses it.
+    release = "20.0.0" if target_os == "darwin" else ""
     _write_generated_file(
         path.join(site_dir, "sitecustomize.py"),
-        _SITECUSTOMIZE_TEMPLATE.format(machine=target_cpu, sysname=_TITLECASE_OS.get(target_os, target_os)),
+        _SITECUSTOMIZE_TEMPLATE.format(
+            machine=target_cpu,
+            sysname=_TITLECASE_OS.get(target_os, target_os),
+            release=release,
+            sys_platform=_SYS_PLATFORM.get(target_os, target_os),
+        ),
     )
     _write_generated_file(path.join(site_dir, "_manylinux.py"), _MANYLINUX_HOOK)
     return site_dir
@@ -923,8 +1041,12 @@ PARSER.add_argument("--target-cpu", default="", help="Target platform CPU (x86_6
 opts, _ = PARSER.parse_known_args()
 
 tmp_root = path.abspath(opts.outdir) + ".tmp"
-# Sandboxed/remote actions get a fresh root each run, so we don't expect a stale tmp_root to exist.
-makedirs(tmp_root, exist_ok=False)
+# Sandboxed/remote actions get a fresh root each run, but a failed run under
+# --spawn_strategy=standalone leaves tmp_root behind and would mask the real
+# error with FileExistsError on retry — reclaim our own scratch dir instead.
+if path.isdir(tmp_root):
+    shutil.rmtree(tmp_root)
+makedirs(tmp_root)
 
 t = path.join(tmp_root, "worktree")
 

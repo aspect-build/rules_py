@@ -295,7 +295,12 @@ Under cross mode the build action:
 1. Extracts the C++ toolchain selected for the target platform (compiler,
    compile/link flags, sysroot) and re-materializes it as compiler wrapper
    scripts, so flags such as `-target` / `--sysroot` survive the PEP 517
-   backend's own command construction.
+   backend's own command construction. Per backend it also generates the
+   cross artifact the backend requires: a meson cross file plus exe_wrapper
+   (meson-python only auto-synthesizes cross files on macOS), a CMake
+   toolchain file (scikit-build-core's cross detection likewise only covers
+   macOS), and a `rustc --sysroot` wrapper plus sandboxed `CARGO_HOME` for
+   cargo-based backends (maturin, setuptools-rust).
 2. Overrides the target interpreter's sysconfig for the build
    (`_PYTHON_SYSCONFIGDATA_NAME` pointing at the target runtime's
    `_sysconfigdata_*.py`, `_PYTHON_HOST_PLATFORM`, and the target's
@@ -308,16 +313,22 @@ Under cross mode the build action:
 4. Validates the produced wheel's platform tag against the target OS/CPU and
    fails the action if the backend leaked the exec platform into the tag.
 
-A working end-to-end example (Darwin → Linux arm64/amd64, `python-geohash`
-built from sdist, with architecture and `EXT_SUFFIX` assertions) lives in
-`e2e/cases/uv-deps-650/crossbuild/`.
+A working end-to-end suite lives in `e2e/crossbuild/`: real packages forced
+to build from sdist (`[tool.uv] no-binary-package`) and cross-compiled for
+linux/amd64 and linux/arm64, covering setuptools (`python-geohash`,
+`msgpack`, `psutil`), setuptools+CFFI (`zstandard`), setuptools-rust
+(`tiktoken`, `bcrypt`), maturin/PyO3 (`pydantic_core`, `rpds_py`),
+meson-python (`contourpy`, `numpy`), and scikit-build-core/CMake
+(`awkward_cpp`, `jpype1`). Each case asserts the ELF architecture of the
+produced `.so` (and its `EXT_SUFFIX`, where the filename carries one) and
+then actually runs the resulting container image (QEMU for arm64). `//geohash` additionally covers a
+macOS arm64 → macOS amd64 cross target when run from a macOS host (see
+`e2e/crossbuild/test.sh`).
 
 Current limitations:
 
-- Only setuptools-style PEP 517 backends are exercised in cross mode. meson /
-  meson-python, cmake, and maturin/PyO3 packages may build but are not yet
-  covered; CPU-feature detection that runs compiled binaries cannot work in
-  cross mode and needs per-package baselines.
+- CPU-feature detection that runs compiled binaries cannot work in cross
+  mode and needs per-package baselines.
 - No shared-library "repair" (auditwheel/delocate style bundling) is performed
   yet; wheels linking against Bazel-provided native libraries need care.
 - Windows targets and MSVC are not supported.
