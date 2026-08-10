@@ -116,29 +116,39 @@ def _import_roots(site_packages: Path) -> Set[str]:
     }
 
 
+def cache_source_path(path: Path) -> Optional[Path]:
+    """Return the source a `.pyc` is reached through, or None if unreachable.
+
+    Cache tags are stripped right to left, so a dotted source such as
+    `mod.v1.py` resolves from `mod.v1.cpython-311.pyc`. Keep in sync with
+    cache_source_path in uv/private/whl_install/metadata.bzl and the shared
+    test vectors.
+    """
+    if not path.name.endswith(".pyc"):
+        return None
+    if path.parent.name != "__pycache__":
+        return path.with_name(path.name[:-len(".pyc")] + ".py")
+    source, separator, tag = path.name[:-len(".pyc")].rpartition(".")
+    if tag.startswith("opt-"):
+        if not tag[len("opt-"):]:
+            return None
+        source, separator, tag = source.rpartition(".")
+    if not source or not separator or not tag:
+        return None
+    return path.parent.parent / (source + ".py")
+
+
 def _path_excluded(
     path: Path, patterns: Sequence[Tuple[str, ...]], is_file: bool
 ) -> bool:
     from exclude_glob import excluded
 
-    # Keep cache-to-source matching in sync with record_path_excluded in
-    # uv/private/whl_install/repository.bzl and the shared test vectors.
     if excluded(path.parts, patterns):
         return True
-    if not is_file or not path.name.endswith(".pyc"):
+    if not is_file:
         return False
-    if path.parent.name == "__pycache__":
-        source, separator, tag = path.name[:-len(".pyc")].rpartition(".")
-        if tag.startswith("opt-"):
-            if not tag[len("opt-"):]:
-                return False
-            source, separator, tag = source.rpartition(".")
-        if not source or not separator or not tag:
-            return False
-        source_path = path.parent.parent / (source + ".py")
-    else:
-        source_path = path.with_name(path.name[:-len(".pyc")] + ".py")
-    return excluded(source_path.parts, patterns)
+    source_path = cache_source_path(path)
+    return source_path is not None and excluded(source_path.parts, patterns)
 
 
 def _native_descendants(

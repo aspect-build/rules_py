@@ -243,21 +243,29 @@ def exclude_glob_matches(path, pattern):
             states[index + 1] = True
     return len(pattern) in states
 
+def cache_source_path(path):
+    """Return the source segments a `.pyc` is reached through, or None.
+
+    Cache tags are stripped right to left, so a dotted source such as
+    `mod.v1.py` resolves from `mod.v1.cpython-311.pyc`. Keep in sync with
+    cache_source_path in py/tools/unpack/unpack.py and the shared test vectors.
+    """
+    if not path or not path[-1].endswith(".pyc"):
+        return None
+    if len(path) < 2 or path[-2] != "__pycache__":
+        return path[:-1] + [path[-1][:-len(".pyc")] + ".py"]
+    stem, separator, tag = path[-1][:-len(".pyc")].rpartition(".")
+    if tag.startswith("opt-"):
+        if not tag[len("opt-"):]:
+            return None
+        stem, separator, tag = stem.rpartition(".")
+    if not stem or not separator or not tag:
+        return None
+    return path[:-2] + [stem + ".py"]
+
 def record_path_excluded(path, patterns):
     """Return whether installation removes a RECORD path or its source."""
-    source = None
-    if path and path[-1].endswith(".pyc"):
-        if len(path) >= 2 and path[-2] == "__pycache__":
-            stem, separator, tag = path[-1][:-len(".pyc")].rpartition(".")
-            if tag.startswith("opt-"):
-                if tag[len("opt-"):]:
-                    stem, separator, tag = stem.rpartition(".")
-                else:
-                    separator = ""
-            if stem and separator and tag:
-                source = path[:-2] + [stem + ".py"]
-        else:
-            source = path[:-1] + [path[-1][:-len(".pyc")] + ".py"]
+    source = cache_source_path(path)
     return any([
         exclude_glob_matches(path, pattern) or
         (source != None and exclude_glob_matches(source, pattern))
