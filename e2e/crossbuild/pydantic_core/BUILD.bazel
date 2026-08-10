@@ -9,6 +9,6 @@ load("//tools:cross_case.bzl", "pep517_cross_case")
 
 pep517_cross_case(
     name = "pydantic_core",
-    deps = ["@pypi_crossbuild_pydantic_core//pydantic_core"],
     so_pattern = "whl_install__crossbuild_pydantic_core.*_pydantic_core.*\\.so$$",
+    deps = ["@pypi_crossbuild_pydantic_core//pydantic_core"],
 )

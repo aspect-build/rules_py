@@ -11,6 +11,6 @@ load("//tools:cross_case.bzl", "pep517_cross_case")
 pep517_cross_case(
     name = "msgpack",
     check_so_suffix = False,
-    deps = ["@pypi_crossbuild_msgpack//msgpack"],
     so_pattern = "whl_install__crossbuild_msgpack.*_cmsgpack.*\\.so$$",
+    deps = ["@pypi_crossbuild_msgpack//msgpack"],
 )

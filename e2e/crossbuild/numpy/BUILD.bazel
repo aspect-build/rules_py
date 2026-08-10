@@ -11,6 +11,6 @@ load("//tools:cross_case.bzl", "pep517_cross_case")
 
 pep517_cross_case(
     name = "numpy",
-    deps = ["@pypi_crossbuild_numpy//numpy"],
     so_pattern = "whl_install__crossbuild_numpy.*_multiarray_umath.*\\.so$$",
+    deps = ["@pypi_crossbuild_numpy//numpy"],
 )
