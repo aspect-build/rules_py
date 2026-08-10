@@ -1,3 +1,4 @@
+import runpy
 import stat
 import subprocess
 import sys
@@ -6,6 +7,7 @@ import unittest
 from pathlib import Path
 from typing import Optional
 
+import site_merge
 from site_merge import merge
 
 
@@ -79,6 +81,117 @@ class SiteMergeTest(unittest.TestCase):
                 (first / "directory_to_file/child.py").read_text(), "first"
             )
             self.assertEqual(stat.S_IMODE((first / "distinct").stat().st_mode), 0o444)
+
+    def test_cache_source_path_matches_the_shared_vectors(self) -> None:
+        vectors = runpy.run_path(
+            str(Path(site_merge.__file__).parents[1] / "unpack" / "exclude_glob_test_vectors.bzl")
+        )
+        for path, expected in vectors["CACHE_SOURCE_VECTORS"]:
+            source = site_merge.cache_source_path(Path(path))
+            self.assertEqual(source, expected and Path(expected), path)
+
+    def test_bytecode_orphaned_by_an_overlay_is_dropped(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            first = root / "first"
+            second = root / "second"
+            output = root / "output"
+
+            _write(first / "pkg/overlaid.py", "first")
+            _write(first / "pkg/__pycache__/overlaid.cpython-311.pyc", "first bytecode")
+            _write(first / "pkg/kept.py", "first")
+            _write(first / "pkg/__pycache__/kept.cpython-311.pyc", "kept bytecode")
+            _write(first / "pkg/__pycache__/sourceless.cpython-311.pyc", "no source")
+            _write(first / "pkg/dotted.v1.py", "first")
+            _write(
+                first / "pkg/__pycache__/dotted.v1.cpython-311.pyc", "dotted bytecode"
+            )
+            _write(first / "pkg/optimized.py", "first")
+            _write(
+                first / "pkg/__pycache__/optimized.cpython-311.opt-2.pyc",
+                "optimized bytecode",
+            )
+
+            _write(second / "pkg/overlaid.py", "second")
+            _write(second / "pkg/dotted.v1.py", "second")
+            _write(second / "pkg/optimized.py", "second")
+            _write(second / "pkg/recompiled.py", "second")
+            _write(
+                second / "pkg/__pycache__/recompiled.cpython-311.pyc",
+                "second bytecode",
+            )
+
+            merge(output, [first, second])
+
+            self.assertFalse(
+                (output / "pkg/__pycache__/overlaid.cpython-311.pyc").exists()
+            )
+            self.assertFalse(
+                (output / "pkg/__pycache__/dotted.v1.cpython-311.pyc").exists()
+            )
+            self.assertFalse(
+                (output / "pkg/__pycache__/optimized.cpython-311.opt-2.pyc").exists()
+            )
+            self.assertEqual(
+                (output / "pkg/__pycache__/kept.cpython-311.pyc").read_text(),
+                "kept bytecode",
+            )
+            self.assertEqual(
+                (output / "pkg/__pycache__/sourceless.cpython-311.pyc").read_text(),
+                "no source",
+            )
+            self.assertEqual(
+                (output / "pkg/__pycache__/recompiled.cpython-311.pyc").read_text(),
+                "second bytecode",
+            )
+
+    def test_bytecode_survives_an_identical_source_from_another_wheel(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            first = root / "first"
+            second = root / "second"
+            output = root / "output"
+
+            _write(first / "pkg/shared.py", "same")
+            _write(first / "pkg/__pycache__/shared.cpython-311.pyc", "first bytecode")
+            _write(second / "pkg/shared.py", "same")
+
+            merge(output, [first, second])
+
+            self.assertEqual(
+                (output / "pkg/__pycache__/shared.cpython-311.pyc").read_text(),
+                "first bytecode",
+            )
+
+    def test_bytecode_from_a_later_wheel_survives_an_earlier_source(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            first = root / "first"
+            second = root / "second"
+            output = root / "output"
+
+            _write(first / "pkg/source_only.py", "first")
+            _write(first / "pkg/replaced.py", "first")
+            _write(first / "pkg/__pycache__/replaced.cpython-311.pyc", "first bytecode")
+
+            _write(
+                second / "pkg/__pycache__/source_only.cpython-311.pyc",
+                "second bytecode",
+            )
+            _write(
+                second / "pkg/__pycache__/replaced.cpython-311.pyc", "second bytecode"
+            )
+
+            merge(output, [first, second])
+
+            self.assertEqual(
+                (output / "pkg/__pycache__/source_only.cpython-311.pyc").read_text(),
+                "second bytecode",
+            )
+            self.assertEqual(
+                (output / "pkg/__pycache__/replaced.cpython-311.pyc").read_text(),
+                "second bytecode",
+            )
 
     def test_collision_policy_controls_reporting_and_status(self) -> None:
         for policy in ("warning", "ignore", "error"):
