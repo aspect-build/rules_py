@@ -153,6 +153,7 @@ def _run_unpack(
     output: Path,
     python: Path,
     extra_args: tuple[str, ...] = (),
+    compile_pyc: bool = True,
 ) -> subprocess.CompletedProcess:
     command = [
         sys.executable,
@@ -165,7 +166,7 @@ def _run_unpack(
         str(sys.version_info.major),
         "--python-version-minor",
         str(sys.version_info.minor),
-        "--compile-pyc",
+        *(("--compile-pyc",) if compile_pyc else ()),
         "--python",
         str(python),
         *extra_args,
@@ -347,10 +348,10 @@ def main() -> None:
             / f"mod.{sys.implementation.cache_tag}.pyc"
         )
         assert supplied_cache.read_bytes() != b"outdated bytecode\n"
-        assert hashed_names == {"INSTALLER", "REQUESTED", supplied_cache.name}
+        assert hashed_names == {"INSTALLER", "REQUESTED"}
         _assert_record_matches_installed_files(site_packages)
         recorded = {relative for relative, _, _ in _record_rows(site_packages)}
-        assert supplied_cache.relative_to(site_packages).as_posix() in recorded
+        assert supplied_cache.relative_to(site_packages).as_posix() not in recorded
         assert Path(
             importlib.util.cache_from_source(str(site_packages / "fixture" / "__init__.py"))
         ).relative_to(site_packages).as_posix() not in recorded
@@ -607,13 +608,15 @@ def main() -> None:
         ):
             assert cache.read_bytes() != b"outdated bytecode\n"
         _assert_record_matches_installed_files(content_site_packages)
-        assert {
-            f"fixture/__pycache__/mod.{sys.implementation.cache_tag}.pyc",
-            f"fixture/__pycache__/added.{sys.implementation.cache_tag}.pyc",
-            "../../../share/supplied.pyc",
-        } <= {
+        content_recorded = {
             relative for relative, _, _ in _record_rows(content_site_packages)
         }
+        assert "../../../share/supplied.pyc" in content_recorded
+        # Bytecode a patch adds is dropped with the wheel's own.
+        assert not any(
+            relative.startswith("fixture/__pycache__/")
+            for relative in content_recorded
+        )
 
         namespace_wheel = root / "namespace_fixture-1.0-py3-none-any.whl"
         _write_wheel(
@@ -1040,11 +1043,12 @@ else:
         assert not (filtered_site_packages / "pkg" / "__pycache__" / "test_api.v1.cpython-311.opt-1.pyc").exists()
         assert not (filtered_site_packages / "pkg" / "__pycache__" / "test_api.v1.cpython-311.opt-é.pyc").exists()
         assert not (filtered_site_packages / "pkg" / ".pyc").exists()
-        assert (filtered_site_packages / "pkg" / "__pycache__" / "..pyc").is_file()
+        # Kept by the exclusions, dropped as supplied bytecode.
+        assert not (filtered_site_packages / "pkg" / "__pycache__" / "..pyc").exists()
         assert not (filtered_site_packages / "google" / "api" / "annotations.proto").exists()
         assert (filtered_site_packages / "google" / "api" / "annotations_pb2.py").is_file()
         assert next((filtered_site_packages / "demo" / "__pycache__").glob("keep.*.pyc"))
-        assert (filtered_site_packages / "demo" / "__pycache__" / "keep.cpython-999.pyc").is_file()
+        assert not (filtered_site_packages / "demo" / "__pycache__" / "keep.cpython-999.pyc").exists()
         assert (filtered_site_packages / "demo" / "keep.pyc").is_file()
         assert not list(filtered_site_packages.rglob("test_*.pyc"))
         subprocess.run(
@@ -1069,17 +1073,15 @@ else:
         assert "pkg/__pycache__/test_api.v1.cpython-311.opt-1.pyc" not in recorded
         assert "pkg/__pycache__/test_api.v1.cpython-311.opt-é.pyc" not in recorded
         assert "pkg/.pyc" not in recorded
-        assert "pkg/__pycache__/..pyc" in recorded
+        assert "pkg/__pycache__/..pyc" not in recorded
         assert "google/api/annotations.proto" not in recorded
         assert "demo-1.0.dist-info/helper.py" not in recorded
-        assert "demo/__pycache__/keep.cpython-999.pyc" in recorded
+        assert "demo/__pycache__/keep.cpython-999.pyc" not in recorded
         assert "demo/keep.pyc" in recorded
         assert not any(
             path.endswith(".pyc")
             and path not in (
-                "demo/__pycache__/keep.cpython-999.pyc",
                 "demo/keep.pyc",
-                "pkg/__pycache__/..pyc",
                 "compiled_only.pyc",
                 "compiled_package/__init__.pyc",
             )
@@ -1248,6 +1250,86 @@ else:
             (legacy_site_packages / "fixture" / "__pycache__").glob("__init__*.pyc")
         )
         assert "SyntaxError" in legacy.stdout + legacy.stderr
+        # Nothing rebuilds the rejected file, so its bytecode stays gone.
+        legacy_cache = (
+            legacy_site_packages
+            / "fixture"
+            / "__pycache__"
+            / f"mod.{sys.implementation.cache_tag}.pyc"
+        )
+        assert not legacy_cache.exists()
+        assert legacy_cache.relative_to(legacy_site_packages).as_posix() not in {
+            relative for relative, _, _ in _record_rows(legacy_site_packages)
+        }
+        _assert_record_matches_installed_files(legacy_site_packages)
+
+        # Every supplied cache goes, whatever its tag or optimization level.
+        supplied_wheel = root / "supplied-1.0-py3-none-any.whl"
+        _write_wheel(
+            supplied_wheel,
+            "supplied",
+            {
+                "fixture/mod.py": b"VALUE = 1\n",
+                f"fixture/__pycache__/mod.{sys.implementation.cache_tag}.pyc": (
+                    b"outdated bytecode\n"
+                ),
+                f"fixture/__pycache__/mod.{sys.implementation.cache_tag}.opt-1.pyc": (
+                    b"optimized bytecode\n"
+                ),
+                "fixture/__pycache__/mod.cpython-000.pyc": b"foreign bytecode\n",
+                "fixture/sourceless.pyc": b"sourceless bytecode\n",
+                # Neither is bytecode compileall can put back.
+                "fixture/__pycache__/notes.txt": b"not bytecode\n",
+                "supplied-1.0.data/data/share/app/__pycache__/index.json": b"{}\n",
+            },
+        )
+        supplied_out = root / "supplied"
+        supplied = _run_unpack(
+            unpack, supplied_wheel, supplied_out, Path(sys.executable)
+        )
+        assert supplied.returncode == 0, supplied.stderr
+        supplied_site_packages = _site_packages(supplied_out)
+        supplied_caches = supplied_site_packages / "fixture" / "__pycache__"
+        assert (supplied_site_packages / "fixture" / "sourceless.pyc").read_bytes() == (
+            b"sourceless bytecode\n"
+        )
+        assert {path.name for path in supplied_caches.iterdir()} == {
+            f"mod.{sys.implementation.cache_tag}.pyc",
+            "notes.txt",
+        }
+        assert (
+            supplied_out / "share" / "app" / "__pycache__" / "index.json"
+        ).read_bytes() == b"{}\n"
+        assert (
+            supplied_caches / f"mod.{sys.implementation.cache_tag}.pyc"
+        ).read_bytes() != b"outdated bytecode\n"
+        _assert_record_matches_installed_files(supplied_site_packages)
+
+        # An unpatched, uncompiled install keeps the wheel intact.
+        untouched_out = root / "untouched"
+        untouched = _run_unpack(
+            unpack,
+            supplied_wheel,
+            untouched_out,
+            Path(sys.executable),
+            compile_pyc=False,
+        )
+        assert untouched.returncode == 0, untouched.stderr
+        untouched_site_packages = _site_packages(untouched_out)
+        untouched_caches = untouched_site_packages / "fixture" / "__pycache__"
+        assert {path.name for path in untouched_caches.iterdir()} == {
+            f"mod.{sys.implementation.cache_tag}.pyc",
+            f"mod.{sys.implementation.cache_tag}.opt-1.pyc",
+            "mod.cpython-000.pyc",
+            "notes.txt",
+        }
+        assert (
+            untouched_caches / f"mod.{sys.implementation.cache_tag}.pyc"
+        ).read_bytes() == b"outdated bytecode\n"
+        _assert_record_matches_installed_files(untouched_site_packages)
+        assert f"fixture/__pycache__/mod.{sys.implementation.cache_tag}.pyc" in {
+            relative for relative, _, _ in _record_rows(untouched_site_packages)
+        }
 
         false = shutil.which("false")
         assert false is not None, "test host has no false executable"
