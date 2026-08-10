@@ -11,6 +11,11 @@ exports_files(
     visibility = ["//visibility:public"],
 )
 
+exports_files(
+    ["exclude_glob_test_vectors.bzl"],
+    visibility = ["//py/tools/site_merge:__pkg__"],
+)
+
 py_test(
     name = "unpack_test",
     size = "small",

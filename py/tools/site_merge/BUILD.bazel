@@ -11,6 +11,7 @@ py_test(
         "site_merge.py",
         "site_merge_test.py",
     ],
+    data = ["//py/tools/unpack:exclude_glob_test_vectors.bzl"],
     imports = ["."],
     main = "site_merge_test.py",
 )
