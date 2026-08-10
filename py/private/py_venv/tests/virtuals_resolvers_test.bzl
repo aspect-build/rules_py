@@ -500,6 +500,81 @@ def _namespace_entry_collapse_respects_losers_test_impl(ctx):
     asserts.equals(env, "ns/pkg/mod.py", collisions[0].name)
     return unittest.end(env)
 
+def _namespace_entry_collapse_skips_entryless_dirs_test_impl(ctx):
+    """A single-owner directory with no surviving entry beneath never binds.
+
+    The azure-namespace-sibling shape: azure-core's regular root `azure/core`
+    spans azure-core-tracing's namespace skeleton, so `azure/core` becomes a
+    physical merge and every entry beneath it is excluded from per-entry
+    resolution. azure-identity's sibling entry survives, so collapse still
+    runs -- binding the tracing wheel's single-owner `azure/core/tracing`
+    would declare an output nested inside the merge's, failing analysis.
+    """
+    env = unittest.begin(ctx)
+    mock_ctx = _mock_ctx(ctx.label)
+    sp_core = "external/pypi_azure_core/site-packages"
+    sp_tracing = "external/pypi_azure_tracing/site-packages"
+    sp_identity = "external/pypi_azure_identity/site-packages"
+    wheels = [
+        _make_wheel(
+            site_packages_rfpath = sp_core,
+            tl_claims = [(
+                "azure",
+                _claim(
+                    sp_core,
+                    is_ns = True,
+                    is_dir = True,
+                    ns_entries = ["azure/core"],
+                ),
+            )],
+            ns_entries = ["azure/core"],
+            regular_roots = ["azure/core"],
+            top_levels = ["azure"],
+        ),
+        _make_wheel(
+            site_packages_rfpath = sp_tracing,
+            tl_claims = [(
+                "azure",
+                _claim(
+                    sp_tracing,
+                    is_ns = True,
+                    is_dir = True,
+                    ns_entries = ["azure/core/tracing/ext"],
+                    ns_dirs = ["azure/core", "azure/core/tracing"],
+                ),
+            )],
+            ns_entries = ["azure/core/tracing/ext"],
+            namespace_dirs = ["azure/core", "azure/core/tracing"],
+            regular_roots = ["azure/core/tracing/ext"],
+            top_levels = ["azure"],
+        ),
+        _make_wheel(
+            site_packages_rfpath = sp_identity,
+            tl_claims = [(
+                "azure",
+                _claim(
+                    sp_identity,
+                    is_ns = True,
+                    is_dir = True,
+                    ns_entries = ["azure/identity"],
+                ),
+            )],
+            ns_entries = ["azure/identity"],
+            regular_roots = ["azure/identity"],
+            top_levels = ["azure"],
+        ),
+    ]
+    top_level, _, _, merge_groups, _, collisions = resolve_wheel_collisions(mock_ctx, wheels)
+
+    # The sibling entry projects; nothing may be declared at or below the
+    # merge root, `azure/core/tracing` included.
+    asserts.equals(env, {"azure/identity": sp_identity}, top_level)
+    asserts.equals(env, 1, len(merge_groups))
+    asserts.equals(env, "azure/core", merge_groups[0].root)
+    asserts.equals(env, [sp_core, sp_tracing], merge_groups[0].site_packages_list)
+    asserts.equals(env, [], collisions)
+    return unittest.end(env)
+
 _single_wheel_test = unittest.make(_single_wheel_test_impl)
 _namespace_merge_test = unittest.make(_namespace_merge_test_impl)
 _console_script_collision_test = unittest.make(_console_script_collision_test_impl)
@@ -512,6 +587,9 @@ _data_file_collapse_test = unittest.make(_data_file_collapse_test_impl)
 _namespace_entry_collapse_test = unittest.make(_namespace_entry_collapse_test_impl)
 _namespace_entry_collapse_respects_losers_test = unittest.make(
     _namespace_entry_collapse_respects_losers_test_impl,
+)
+_namespace_entry_collapse_skips_entryless_dirs_test = unittest.make(
+    _namespace_entry_collapse_skips_entryless_dirs_test_impl,
 )
 
 def virtuals_resolvers_test_suite(name):
@@ -528,4 +606,5 @@ def virtuals_resolvers_test_suite(name):
         _data_file_collapse_test,
         _namespace_entry_collapse_test,
         _namespace_entry_collapse_respects_losers_test,
+        _namespace_entry_collapse_skips_entryless_dirs_test,
     )

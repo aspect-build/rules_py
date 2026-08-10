@@ -191,12 +191,24 @@ def _collapse_entry_projection(entry_owner, claimants, exclude_roots):
     ``__path__`` contribution. A directory containing an *exclude_roots* entry
     never binds -- a native projection or merge declares its own output there.
 
+    Candidacy is the inverse restriction: a directory binds only when it is a
+    strict ancestor of a surviving entry. A single-owner directory whose every
+    entry was excluded or lost projects nothing under the per-entry set, so
+    binding it would declare an output the resolution decided against -- under
+    an *exclude_roots* merge or native projection that output nests inside
+    another action's, failing analysis.
+
     Returns:
       dict of projection path -> owning ``site_packages``.
     """
     owner_sps = {entry: c.site_packages for entry, c in entry_owner.items()}
     if not owner_sps:
         return owner_sps
+
+    kept_ancestors = {}
+    for entry in owner_sps:
+        for d in _ancestors(entry):
+            kept_ancestors[d] = True
 
     owners = {}
     for c in claimants:
@@ -205,7 +217,13 @@ def _collapse_entry_projection(entry_owner, claimants, exclude_roots):
 
     return _coarsest_cover(
         owner_sps,
-        [d for d in owners if len(owners[d]) == 1 and not _contains_any(d, exclude_roots)],
+        [
+            d
+            for d in owners
+            if len(owners[d]) == 1 and
+               d in kept_ancestors and
+               not _contains_any(d, exclude_roots)
+        ],
         owners,
     )
 
