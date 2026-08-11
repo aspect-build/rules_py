@@ -1,0 +1,39 @@
+# Ported from rules_pycross tests/e2e/build_setuptools.
+#
+# Three setuptools C-extension sdists built by `pep517_native_whl` and
+# imported at runtime for the host.
+
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+exports_files(["require_extension.patch"])
+
+_PY = "3.12"
+
+_DEP_GROUP = "pycross_setuptools"
+
+py_test(
+    name = "test_setproctitle",
+    srcs = ["test_setproctitle.py"],
+    dep_group = _DEP_GROUP,
+    main = "test_setproctitle.py",
+    python_version = _PY,
+    deps = ["@pypi_pycross_setuptools//setproctitle"],
+)
+
+py_test(
+    name = "test_zstandard",
+    srcs = ["test_zstandard.py"],
+    dep_group = _DEP_GROUP,
+    main = "test_zstandard.py",
+    python_version = _PY,
+    deps = ["@pypi_pycross_setuptools//zstandard"],
+)
+
+py_test(
+    name = "test_pyyaml",
+    srcs = ["test_pyyaml.py"],
+    dep_group = _DEP_GROUP,
+    main = "test_pyyaml.py",
+    python_version = _PY,
+    deps = ["@pypi_pycross_setuptools//pyyaml"],
+)

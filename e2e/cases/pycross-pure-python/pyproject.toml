@@ -1,0 +1,21 @@
+[project]
+name = "pycross_pure_python"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    "build",
+    "setuptools",
+    "flit-core",
+    "hatchling",
+    "hatch-vcs",
+    "filelock==3.17.0",
+    "pyproject-metadata==0.8.1",
+    "tomli==2.2.1",
+]
+
+[tool.uv]
+no-binary-package = [
+    "filelock",
+    "pyproject-metadata",
+    "tomli",
+]

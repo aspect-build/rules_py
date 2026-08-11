@@ -1,0 +1,22 @@
+"""Port of rules_pycross's `tests/e2e/build_setuptools` distutils probe.
+
+rules_pycross ships a synthetic sdist whose `build_py` command shells out to a
+fresh interpreter and imports `distutils.util`, guarding against a build
+environment that leaves the backend's child processes unable to find distutils
+(`SETUPTOOLS_USE_DISTUTILS`, a stale `PYTHONPATH`, or a stripped `PATH`).
+rule.bzl filters `PYTHONHOME`/`PYTHONPATH`/`PYTHONPLATLIBDIR` out of the
+action env for exactly this reason, so the probe is worth keeping.
+
+Driven the same way as `uv-sdist-mpicc`: the test invokes build_helper.py
+directly against a sdist it builds in-process, so no lockfile entry or
+network fetch is involved.
+"""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_pycross_distutils_probe")
+uv.project(
+    hub_name = "pypi_pycross_distutils_probe",
+    lock = "//pycross-distutils-probe:uv.lock",
+    pyproject = "//pycross-distutils-probe:pyproject.toml",
+)
+use_repo(uv, "pypi_pycross_distutils_probe")

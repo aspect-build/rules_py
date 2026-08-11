@@ -1,0 +1,104 @@
+# Ported from rules_pycross tests/e2e/build_pure_python.
+#
+# Three anyarch sdists built by `pep517_whl`, each importing at runtime, plus
+# rules_pycross's `collect_wheels` matrix rebuilding the same wheels for two
+# non-host target platforms.
+
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("//tools:collect_wheels.bzl", "collect_wheels")
+
+_PY = "3.12"
+
+_DEP_GROUP = "pycross_pure_python"
+
+# The wheel targets under `collect_wheels` are reached through a platform
+# transition rather than a py_venv, so nothing sets the dep_group flag for
+# them — the platform carries it alongside the libc/version flags the wheel
+# resolver needs.
+_PLATFORM_FLAGS = [
+    "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
+    "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.39",
+    "--@aspect_rules_py//uv/private/constraints/dep_group:dep_group=" + _DEP_GROUP,
+    "--@aspect_rules_py//py/private/interpreter:python_version=" + _PY,
+]
+
+platform(
+    name = "amd64_linux",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    flags = _PLATFORM_FLAGS,
+)
+
+platform(
+    name = "arm64_linux",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:aarch64",
+    ],
+    flags = _PLATFORM_FLAGS,
+)
+
+py_test(
+    name = "test_tomli",
+    srcs = ["test_tomli.py"],
+    dep_group = _DEP_GROUP,
+    main = "test_tomli.py",
+    python_version = _PY,
+    deps = ["@pypi_pycross_pure_python//tomli"],
+)
+
+py_test(
+    name = "test_filelock",
+    srcs = ["test_filelock.py"],
+    dep_group = _DEP_GROUP,
+    main = "test_filelock.py",
+    python_version = _PY,
+    deps = ["@pypi_pycross_pure_python//filelock"],
+)
+
+py_test(
+    name = "test_pyproject_metadata",
+    srcs = ["test_pyproject_metadata.py"],
+    dep_group = _DEP_GROUP,
+    main = "test_pyproject_metadata.py",
+    python_version = _PY,
+    deps = ["@pypi_pycross_pure_python//pyproject_metadata"],
+)
+
+# rules_pycross's shared top-level-packages check: a source-built wheel must
+# land its top-level package in site-packages, and no dist-info directory may
+# end up on sys.path.
+py_test(
+    name = "test_top_level_packages",
+    srcs = ["test_top_level_packages.py"],
+    dep_group = _DEP_GROUP,
+    env = {"PYCROSS_TEST_PACKAGES": "tomli,filelock,pyproject_metadata"},
+    main = "test_top_level_packages.py",
+    python_version = _PY,
+    deps = [
+        "@pypi_pycross_pure_python//filelock",
+        "@pypi_pycross_pure_python//pyproject_metadata",
+        "@pypi_pycross_pure_python//tomli",
+    ],
+)
+
+# An anyarch build uses no CC toolchain, so what differs per platform here is
+# the configuration the build *tool* is resolved in: the PEP 517 frontend and
+# its wheels must resolve for the exec platform. If the target configuration
+# leaked into them, these builds would try to run a non-host interpreter on
+# the exec host.
+collect_wheels(
+    name = "pure_python_wheels",
+    expected_tags = ["-none-any.whl"],
+    platforms = [
+        ":amd64_linux",
+        ":arm64_linux",
+    ],
+    wheels = [
+        "@sdist_build__pycross_pure_python__filelock__3_17_0//:whl",
+        "@sdist_build__pycross_pure_python__pyproject_metadata__0_8_1//:whl",
+        "@sdist_build__pycross_pure_python__tomli__2_2_1//:whl",
+    ],
+)
