@@ -1,5 +1,5 @@
 load("//py:defs.bzl", "py_binary", "py_library", "py_venv")
-load(":tests.bzl", "probe", "reset_data_edges_test_suite", "root", "terminal")
+load(":tests.bzl", "probe", "reset_data_edges_test_suite", "root", "seeded_root", "terminal")
 
 probe(name = "probe")
 
@@ -51,6 +51,12 @@ terminal(
     tags = ["manual"],
 )
 
+terminal(
+    name = "unversioned_terminal",
+    tags = ["manual"],
+    deps = [":probe"],
+)
+
 py_venv(
     name = "second",
     srcs = ["main.py"],
@@ -72,6 +78,14 @@ root(
         ":parent_terminal",
         ":probe",
         ":second",
+    ],
+)
+
+seeded_root(
+    name = "seeded_root",
+    deps = [
+        ":probe",
+        ":unversioned_terminal",
     ],
 )
 
