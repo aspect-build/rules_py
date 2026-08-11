@@ -32,10 +32,10 @@ _SETUPTOOLS_BACKENDS = (
 )
 
 
-# pep517_native_whl supplies compiler execpaths relative to the action
-# execroot, which do not resolve from the backend's unpacked worktree. Point
-# CC / CXX / CPP / LDSHARED / LDCXXSHARED at absolute wrappers under tmp_root;
-# they strip `-fdebug-default-version=4` and exec the resolved compiler.
+# Compiler commands must remain valid across working-directory changes.
+# argv[0] must name the resolved driver because compilers may use its directory
+# to locate sibling tools and resources. Clang does so under -no-canonical-prefixes:
+# https://github.com/llvm/llvm-project/blob/llvmorg-22.1.4/clang/tools/driver/driver.cpp#L63-L78
 _DEBUG_FLAG = "-fdebug-default-version=4"
 _COMPILER_WRAPPER = """#!/usr/bin/env python3
 import os
@@ -45,7 +45,7 @@ filtered_args = [arg for arg in sys.argv[1:] if arg != "{debug_flag}"]
 sysroot = {sysroot!r}
 if sysroot and "-isysroot" not in filtered_args:
     filtered_args = ["-isysroot", sysroot] + filtered_args
-os.execv("{compiler_path}", [os.path.basename("{compiler_path}")] + filtered_args)
+os.execv("{compiler_path}", ["{compiler_path}"] + filtered_args)
 """
 
 

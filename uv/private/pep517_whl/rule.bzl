@@ -140,9 +140,9 @@ def _cc_toolchain_inputs_and_tools(ctx):
     missing = [key for key in action_names if not tools.get(key)]
     infer_cxx = "CXX" in missing
     if missing:
-        # Legacy C++ toolchains can omit action configs while still exposing
-        # usable tools through CcToolchainInfo. Action-only providers may
-        # fabricate these fields, so require each fallback to be an input.
+        # Legacy toolchains may omit action configs, while action-only providers may
+        # fabricate legacy executable fields; fallbacks must therefore appear in
+        # all_files. tool_paths shims may still lack driver-relative sibling tools.
         file_paths = {file.path: True for file in files.to_list()}
         legacy_tools = {
             "AR": cc_toolchain.ar_executable,
