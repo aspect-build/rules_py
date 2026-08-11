@@ -1,4 +1,5 @@
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -12,11 +13,16 @@ import subprocess
 
 from setuptools import setup
 
-cc = shlex.split(os.environ["CC"])
-result = subprocess.run([*cc, "--version"], capture_output=True, text=True, check=True)
-argv0 = result.stdout.strip()
-expected = os.environ["CC_TEST_EXPECT_ARGV0"]
-assert argv0 == expected, "driver saw argv[0] {!r}, expected {!r}".format(argv0, expected)
+def check_compiler(name):
+    compiler = shlex.split(os.environ[name])
+    result = subprocess.run([*compiler, "--version"], capture_output=True, text=True, check=True)
+    argv0 = result.stdout.strip()
+    expected = os.environ["CC_TEST_EXPECT_{}_ARGV0".format(name)]
+    assert argv0 == expected, "{} driver saw argv[0] {!r}, expected {!r}".format(name, argv0, expected)
+
+
+check_compiler("CC")
+check_compiler("CXX")
 
 setup(name="argvprobe", version="1.0", py_modules=[])
 """
@@ -42,9 +48,13 @@ def main() -> None:
     # The driver directory must remain absent from PATH to expose basename argv[0].
     drivers = os.path.join(workdir, "drivers")
     os.makedirs(drivers)
-    driver = os.path.join(drivers, "fakecc")
-    shutil.copy(os.path.join(here, "wrapper_argv0_fake_driver"), driver)
-    os.chmod(driver, 0o755)
+    cc_driver = os.path.join(drivers, "fakecc")
+    cxx_driver = os.path.join(drivers, "fakecxx")
+    for driver in (cc_driver, cxx_driver):
+        shutil.copy(os.path.join(here, "wrapper_argv0_fake_driver"), driver)
+        os.chmod(driver, 0o755)
+
+    preserved_flag = "--wrapper-argv0-test-flag"
 
     outdir = os.path.join(workdir, "out")
     result = subprocess.run(
@@ -52,8 +62,11 @@ def main() -> None:
         capture_output=True,
         cwd=workdir,
         env={
-            "CC": driver,
-            "CC_TEST_EXPECT_ARGV0": driver,
+            "CC": shlex.join([cc_driver, preserved_flag]),
+            "CC_TEST_EXPECT_CC_ARGV0": cc_driver,
+            "CC_TEST_EXPECT_CXX_ARGV0": cxx_driver,
+            "CC_TEST_EXPECT_FLAG": preserved_flag,
+            "CXX": shlex.join([cxx_driver, preserved_flag]),
             "HOME": workdir,
             "PATH": "/usr/bin:/bin",
         },
