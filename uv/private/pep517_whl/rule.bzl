@@ -187,7 +187,11 @@ def _derive_python_host_platform(target_os, target_cpu):
     """Derive _PYTHON_HOST_PLATFORM from target platform constraints.
 
     Linux: libc does not affect the platform string — always linux-{cpu}.
-    macOS: uses arm64 (not aarch64) and requires a version component.
+    macOS: uses arm64 (not aarch64) and requires a version component. The
+    version here is only an analysis-time fallback: the deployment target is
+    a property of the target interpreter, which analysis can't read, so
+    build_helper re-derives it at build time from the target sysconfigdata's
+    MACOSX_DEPLOYMENT_TARGET whenever that file is available.
     """
     if target_os == "linux":
         return "linux-" + _PYTHON_CPU_MAP.get(target_cpu, target_cpu)

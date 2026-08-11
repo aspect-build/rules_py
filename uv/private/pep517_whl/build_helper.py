@@ -214,6 +214,46 @@ def _xcode_developer_dir() -> Optional[str]:
         return None
 
 
+_MACOSX_DEPLOYMENT_TARGET_RE = re.compile(
+    r"[\"']MACOSX_DEPLOYMENT_TARGET[\"']\s*:\s*[\"']?([0-9][0-9.]*)"
+)
+
+
+def _macosx_deployment_target(sysconfigdata_path: str) -> Optional[str]:
+    """The target interpreter's deployment target, from its sysconfigdata.
+
+    The deployment version in wheel/platform tags is a property of the target
+    interpreter's build, not a constant — regex the build_time_vars literal
+    rather than importing it, since the file belongs to a foreign-platform
+    interpreter this process must not execute code from.
+    """
+    try:
+        with open(sysconfigdata_path, encoding="utf-8") as f:
+            match = _MACOSX_DEPLOYMENT_TARGET_RE.search(f.read())
+    except OSError:
+        return None
+    return match.group(1) if match else None
+
+
+def _darwin_kernel_release(macos_deployment_target: Optional[str]) -> str:
+    """Fake os.uname() release consistent with the macOS deployment target.
+
+    Darwin kernel majors track macOS marketing versions as 11→20 … 15→24;
+    from the year-based scheme (26 = Darwin 25) it's major−1. Only consumers
+    parsing a plausible kernel version matter here (ctypes' import does),
+    so unknown/missing values fall back to the macOS 11 baseline.
+    """
+    try:
+        major = int((macos_deployment_target or "").split(".")[0])
+    except ValueError:
+        major = 0
+    if 11 <= major <= 15:
+        return "{}.0.0".format(major + 9)
+    if major >= 26:
+        return "{}.0.0".format(major - 1)
+    return "20.0.0"
+
+
 def _absolutize_path(value: str) -> str:
     """Resolve a relative path to absolute, leaving absolute/empty values untouched.
 
@@ -297,6 +337,36 @@ def _make_compiler_wrapper(
     )
 
 
+_SYSROOT_FLAG_PREFIXES = ("--sysroot", "-isysroot")
+
+
+def _absolutize_sysroot_flags(flags: str) -> str:
+    """Absolutize sysroot values inside a flag string (CFLAGS, LDSHAREDFLAGS).
+
+    Must run while the process is still in the execroot; the backend splices
+    these env strings into commands it runs from inside the unpacked sdist,
+    where an execroot-relative sysroot no longer resolves. A later relative
+    "--sysroot" would also silently override the wrapper's absolute one —
+    the clang driver honors the last occurrence.
+    """
+    parts = shlex.split(flags)
+    result = []
+    i = 0
+    while i < len(parts):
+        p = parts[i]
+        flag, sep, value = p.partition("=")
+        if sep and flag in _SYSROOT_FLAG_PREFIXES:
+            p = "{}={}".format(flag, _absolutize_path(value))
+        elif p in _SYSROOT_FLAG_PREFIXES and i + 1 < len(parts):
+            result.append(p)
+            result.append(_absolutize_path(parts[i + 1]))
+            i += 2
+            continue
+        result.append(p)
+        i += 1
+    return shlex.join(result)
+
+
 def _get_wrapper_flags(cflags: str) -> list[str]:
     """Extract identity flags (-target, --sysroot, -isysroot, ...) from CFLAGS.
 
@@ -304,6 +374,12 @@ def _get_wrapper_flags(cflags: str) -> list[str]:
     constructing its own compile commands. The cross wrapper re-injects
     them on every invocation to guarantee the real compiler targets the
     correct platform.
+
+    Sysroot values are absolutized while this still runs from the execroot:
+    toolchains hand out execroot-relative paths (e.g. the llvm module's
+    external/…/macos_sdk/sysroot), which stop resolving once the backend
+    chdirs into the unpacked sdist — the compiler then silently falls back
+    to default header search paths and the linker finds no libraries at all.
     """
     parts = shlex.split(cflags)
     result = []
@@ -311,9 +387,16 @@ def _get_wrapper_flags(cflags: str) -> list[str]:
     while i < len(parts):
         p = parts[i]
         if any(p == prefix or p.startswith(prefix + "=") for prefix in _IDENTITY_FLAG_PREFIXES):
+            if "=" in p:
+                flag, _, value = p.partition("=")
+                if flag in _SYSROOT_FLAG_PREFIXES:
+                    p = "{}={}".format(flag, _absolutize_path(value))
             result.append(p)
             if "=" not in p and i + 1 < len(parts) and not parts[i + 1].startswith("-"):
-                result.append(parts[i + 1])
+                value = parts[i + 1]
+                if p in _SYSROOT_FLAG_PREFIXES:
+                    value = _absolutize_path(value)
+                result.append(value)
                 i += 1
         i += 1
     return result
@@ -479,6 +562,10 @@ def _compiler_env(
     is_darwin = target_os == "darwin" if cross else _platform.system() == "Darwin"
 
     if cross:
+        for key in ("CFLAGS", "CXXFLAGS", "CPPFLAGS", "LDSHAREDFLAGS"):
+            if env.get(key):
+                env[key] = _absolutize_sysroot_flags(env[key])
+
         wrapper_flags = _get_wrapper_flags(env.get("CFLAGS", ""))
         lld_path = _find_lld(cc_path)
 
@@ -538,6 +625,7 @@ def _compiler_env(
         env["LDSHARED"] = cc + (" " + ldshared_flags if ldshared_flags else "")
         env["LDCXXSHARED"] = cxx + (" " + ldshared_flags if ldshared_flags else "")
 
+        deployment_target = None
         target_sysconfig = env.get("RULES_PY_TARGET_SYSCONFIGDATA")
         if target_sysconfig and path.exists(target_sysconfig):
             sysconfig_dir = path.join(tmpdir, ".target_sysconfig")
@@ -547,8 +635,19 @@ def _compiler_env(
             env["_PYTHON_SYSCONFIGDATA_NAME"] = module_name
             env["PYTHONPATH"] = sysconfig_dir + pathsep + env.get("PYTHONPATH", "")
 
+            # The analysis-time _PYTHON_HOST_PLATFORM (rule.bzl) can only
+            # guess macosx-11.0; the target interpreter's sysconfig knows the
+            # real deployment version its wheel tags must carry. distutils'
+            # get_platform() also honors $MACOSX_DEPLOYMENT_TARGET directly.
+            if target_os == "darwin":
+                deployment_target = _macosx_deployment_target(target_sysconfig)
+                if deployment_target:
+                    env.setdefault("MACOSX_DEPLOYMENT_TARGET", deployment_target)
+                    cpu = "arm64" if target_cpu == "aarch64" else target_cpu
+                    env["_PYTHON_HOST_PLATFORM"] = "macosx-{}-{}".format(deployment_target, cpu)
+
         if target_os and target_cpu:
-            site_dir = _generate_cross_site(tmpdir, target_os, target_cpu)
+            site_dir = _generate_cross_site(tmpdir, target_os, target_cpu, deployment_target)
             env["PYTHONPATH"] = site_dir + pathsep + env.get("PYTHONPATH", "")
 
     # MPI builds (e.g. mpi4py) consult $MPICC before searching PATH, so a
@@ -901,7 +1000,12 @@ manylinux2014_compatible = False
 """
 
 
-def _generate_cross_site(tmpdir: str, target_os: str, target_cpu: str) -> str:
+def _generate_cross_site(
+    tmpdir: str,
+    target_os: str,
+    target_cpu: str,
+    macos_deployment_target: Optional[str] = None,
+) -> str:
     """sitecustomize + _manylinux hook faking the target's runtime identity.
 
     sysconfig.get_platform()/_get_sysconfigdata_name() are already faked via
@@ -918,10 +1022,10 @@ def _generate_cross_site(tmpdir: str, target_os: str, target_cpu: str) -> str:
     site_dir = path.join(tmpdir, ".cross_site")
 
     # ctypes' own import does int(os.uname().release.split(".")[0]) on Darwin,
-    # so the faked release must parse as a Darwin kernel version there. 20.0.0
-    # is Darwin 20 = macOS 11.0, matching _derive_python_host_platform's
-    # macosx-11.0 baseline. Linux keeps "": nothing on that path parses it.
-    release = "20.0.0" if target_os == "darwin" else ""
+    # so the faked release must parse as a Darwin kernel version there —
+    # derived from the target's deployment target so both stay consistent.
+    # Linux keeps "": nothing on that path parses it.
+    release = _darwin_kernel_release(macos_deployment_target) if target_os == "darwin" else ""
     _write_generated_file(
         path.join(site_dir, "sitecustomize.py"),
         _SITECUSTOMIZE_TEMPLATE.format(
