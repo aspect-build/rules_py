@@ -11,7 +11,7 @@ load("@aspect_rules_py//py:defs.bzl", "py_test")
 load("@bazel_lib//lib:run_binary.bzl", "run_binary")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 
-def collect_wheels(name, wheels, platforms, expected_tags = None, **kwargs):
+def collect_wheels(name, wheels, platforms, expected_tags):
     """Builds `wheels` once per entry in `platforms` and collects them.
 
     Args:
@@ -19,8 +19,7 @@ def collect_wheels(name, wheels, platforms, expected_tags = None, **kwargs):
         wheels: Wheel labels, e.g. `["@sdist_build__x__y__1_0//:whl"]`.
         platforms: Platform labels to build each wheel for.
         expected_tags: Substrings that must each appear in at least one
-            collected wheel filename. When set, declares `<name>_tags_test`.
-        **kwargs: Forwarded to the collecting `run_binary`.
+            collected wheel filename, asserted by `<name>_tags_test`.
 
     The inner `<name>_wheels` filegroup is tagged manual: it is only reachable
     through the platform transitions declared here, which are what supply the
@@ -58,14 +57,12 @@ def collect_wheels(name, wheels, platforms, expected_tags = None, **kwargs):
         ],
         out_dirs = [name],
         tool = "//tools:collect_wheels_tool",
-        **kwargs
     )
 
-    if expected_tags:
-        py_test(
-            name = name + "_tags_test",
-            srcs = ["//tools:check_wheel_tags.py"],
-            main = "//tools:check_wheel_tags.py",
-            args = ["$(rootpath :{})".format(name)] + expected_tags,
-            data = [name],
-        )
+    py_test(
+        name = name + "_tags_test",
+        srcs = ["//tools:check_wheel_tags.py"],
+        main = "//tools:check_wheel_tags.py",
+        args = ["$(rootpath :{})".format(name)] + expected_tags,
+        data = [name],
+    )
