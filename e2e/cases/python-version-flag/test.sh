@@ -36,3 +36,10 @@ for version in 3.9 3.10 3.11 3.12 3.13; do
         "--@rules_python//python/config_settings:python_version=${version}" \
         -- //python-version-flag:version_check "${version}"
 done
+
+# The native flag takes precedence over the legacy fallback when both are set.
+"$BAZEL" run \
+    --lockfile_mode=off \
+    --@aspect_rules_py//py:python_version=3.12 \
+    --@rules_python//python/config_settings:python_version=3.11 \
+    -- //python-version-flag:version_check 3.12
