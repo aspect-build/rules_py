@@ -1,3 +1,10 @@
+"""Round-trip compress/decompress through zstandard built from its sdist.
+
+Ported from rules_pycross tests/e2e/build_setuptools/tests/test_zstandard.py.
+A successful round trip proves the extension compiled against the vendored
+libzstd actually works, not merely that the module imports.
+"""
+
 import unittest
 
 import zstandard
@@ -28,17 +35,13 @@ Namespaces are one honking great idea -- let's do more of those!
 
 
 class TestZstandard(unittest.TestCase):
-    def test_roundtrip(self):
+    def test_roundtrip(self) -> None:
         cctx = zstandard.ZstdCompressor()
         compressed = cctx.compress(ZEN)
-
-        # Make sure we actually compressed
         assert len(compressed) < len(ZEN)
 
         dctx = zstandard.ZstdDecompressor()
         decompressed = dctx.decompress(compressed)
-
-        # Check the round trip
         assert decompressed == ZEN
 
 

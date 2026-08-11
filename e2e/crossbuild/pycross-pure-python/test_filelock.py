@@ -4,7 +4,7 @@ import filelock
 
 
 class TestFileLock(unittest.TestCase):
-    def test_import(self):
+    def test_import(self) -> None:
         lock = filelock.FileLock("dummy.lock")
         self.assertIsNotNone(lock)
 

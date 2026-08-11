@@ -4,7 +4,7 @@ rules_pycross ships a synthetic sdist whose `build_py` command shells out to a
 fresh interpreter and imports `distutils.util`, guarding against a build
 environment that leaves the backend's child processes unable to find distutils
 (`SETUPTOOLS_USE_DISTUTILS`, a stale `PYTHONPATH`, or a stripped `PATH`).
-build_helper.py filters `PYTHONHOME`/`PYTHONPATH`/`PYTHONPLATLIBDIR` out of the
+rule.bzl filters `PYTHONHOME`/`PYTHONPATH`/`PYTHONPLATLIBDIR` out of the
 action env for exactly this reason, so the probe is worth keeping.
 
 Driven the same way as `uv-sdist-mpicc`: the test invokes build_helper.py
