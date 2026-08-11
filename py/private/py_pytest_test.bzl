@@ -122,9 +122,9 @@ def py_pytest_test(
             `my-pkg/` becomes `my-pkg.foo_test`, which collection tolerates but
             `pkgutil.resolve_name` (and so `pytest-mock`'s `mocker.patch`)
             rejects. Enable it for packages whose directories are valid Python
-            identifiers. Requires pytest 8.1, which added the ini option; on an
-            older pytest the driver leaves module naming alone and warns rather
-            than passing an unknown `-o` key.
+            identifiers. Requires pytest 8.1, which added the ini option; an
+            older pytest reports it as an unknown config option -- a warning, or a
+            failed run under `--strict-config`.
         **kwargs: forwarded to the underlying test rule and sibling py_venv.
     """
     if "main" in kwargs:
@@ -133,12 +133,12 @@ def py_pytest_test(
     kwargs["testonly"] = True
 
     if consider_namespace_packages:
-        # An env var the shared driver reads, rather than a baked pytest arg: only
-        # the driver can gate it on the pytest this target resolved (see
-        # pytest_main.py), and `pytest_args` would render a private per-test
-        # entrypoint where none is needed.
+        # Through PYTEST_ADDOPTS rather than pytest_args: the latter renders a
+        # private per-test entrypoint, and this needs no codegen. Any
+        # PYTEST_ADDOPTS the caller set is preserved.
         env = dict(kwargs.pop("env", {}))
-        env["RULES_PY_CONSIDER_NAMESPACE_PACKAGES"] = "1"
+        pytest_opt = "-o consider_namespace_packages=true"
+        env["PYTEST_ADDOPTS"] = (env["PYTEST_ADDOPTS"] + " " + pytest_opt) if "PYTEST_ADDOPTS" in env else pytest_opt
         kwargs["env"] = env
 
     if resolutions:

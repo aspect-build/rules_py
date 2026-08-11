@@ -91,26 +91,6 @@ def main() -> int:
     if test_filter is not None:
         args.append(f"-k={test_filter}")
 
-    # Opt-in from py_pytest_test(consider_namespace_packages = True). Gated here
-    # rather than baked into the args by the macro, because only the driver can see
-    # the pytest a target actually resolved: the ini option arrived in pytest 8.1,
-    # and older pytest treats an unknown -o key as a warning -- or an error under
-    # --strict-config -- which would leave an opted-in target silently keeping the
-    # truncated module names it opted out of.
-    if os.environ.get("RULES_PY_CONSIDER_NAMESPACE_PACKAGES") == "1":
-        version = getattr(pytest, "version_tuple", (0, 0))
-        major = int(version[0]) if len(version) > 0 else 0
-        minor = int(version[1]) if len(version) > 1 else 0
-        if major > 8 or (major == 8 and minor >= 1):
-            args.extend(["-o", "consider_namespace_packages=true"])
-        else:
-            print(
-                "WARNING: consider_namespace_packages requires pytest >= 8.1; this target "
-                f"resolved pytest {getattr(pytest, '__version__', 'unknown')}. Test modules "
-                "keep their truncated names.",
-                file=sys.stderr,
-            )
-
     # This list will be replaced if the user provides args to bake in
     user_args: List[str] = []
     if len(user_args) > 0:
