@@ -7,12 +7,25 @@ on:
   workflow_dispatch:
 
 env:
-  BCR_VERSION: "1.11.7"
-  ANALYSIS_BCR_VERSION: "2.0.0-alpha.4"
+  BCR_VERSION: "2.0.0-alpha.4"
+  PACKAGES: "50"
 
 jobs:
-  startup:
+  bench:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: bcr
+            label: "BCR 2.0.0-alpha.4 (baseline)"
+            needs-main: false
+          - variant: main
+            label: "HEAD main"
+            needs-main: true
+          - variant: pr
+            label: "This PR"
+            needs-main: false
     permissions:
       contents: read
     steps:
@@ -23,6 +36,7 @@ jobs:
           path: rules_py_pr
 
       - name: Checkout HEAD main
+        if: matrix.needs-main
         uses: actions/checkout@v6
         with:
           ref: main
@@ -37,270 +51,128 @@ jobs:
           wget -qO "$DEB" "$URL"
           sudo dpkg -i "$DEB"
           rm -f "$DEB"
-          hyperfine --version
 
-      # ── BCR baseline ────────────────────────────────────────────────────────
-      - name: Benchmark BCR ${{ env.BCR_VERSION }}
+      - name: Generate workspace
         run: |
           set -euo pipefail
-          cd rules_py_pr/benchmark/startup
-          python3 generate_module.py bcr --version "${BCR_VERSION}"
+          cd rules_py_pr/benchmark/workspace
+          python3 generate_workspace.py --root . --packages "${PACKAGES}"
 
-          OUT_BASE="/tmp/bazel-bcr"
-          rm -rf "$OUT_BASE"
-
-          START=$(date +%s%N)
-          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= //:bench //:bench_syspath
-          END=$(date +%s%N)
-          BUILD_MS=$(( (END - START) / 1000000 ))
-          echo "{\"build_ms\": $BUILD_MS}" > "${GITHUB_WORKSPACE}/bcr-build.json"
-
-          BIN=$(bazel --output_base="$OUT_BASE" cquery //:bench --disk_cache= --output=starlark --starlark:expr='target.files_to_run.executable.path' | tail -n1)
-          test -x "$BIN" || { echo "ERROR: benchmark binary not executable: $BIN"; exit 1; }
-          RUNFILES_DIR="$PWD/$BIN.runfiles" hyperfine --warmup 5 --runs 50 --export-json "${GITHUB_WORKSPACE}/bcr.json" "$BIN"
-
-          BIN_SP=$(bazel --output_base="$OUT_BASE" cquery //:bench_syspath --disk_cache= --output=starlark --starlark:expr='target.files_to_run.executable.path' | tail -n1)
-          test -x "$BIN_SP" || { echo "ERROR: bench_syspath binary not executable: $BIN_SP"; exit 1; }
-          RUNFILES_DIR="$PWD/$BIN_SP.runfiles" "$BIN_SP" "$GITHUB_WORKSPACE/bcr-syspath.json"
-
-      # ── HEAD main ───────────────────────────────────────────────────────────
-      - name: Benchmark HEAD main
+      - name: Benchmark ${{ matrix.variant }}
         run: |
           set -euo pipefail
-          cd rules_py_pr/benchmark/startup
-          python3 generate_module.py local --path "$GITHUB_WORKSPACE/rules_py_main"
+          cd rules_py_pr/benchmark/workspace
+          if [ "${{ matrix.variant }}" = "bcr" ]; then
+            python3 generate_module.py bcr --version "${BCR_VERSION}"
+          else
+            python3 generate_module.py local --path "$GITHUB_WORKSPACE/rules_py_${{ matrix.variant }}"
+          fi
 
-          OUT_BASE="/tmp/bazel-main"
+          OUT_BASE="/tmp/bazel-${{ matrix.variant }}"
           rm -rf "$OUT_BASE"
 
-          START=$(date +%s%N)
-          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= //:bench //:bench_syspath
-          END=$(date +%s%N)
-          BUILD_MS=$(( (END - START) / 1000000 ))
-          echo "{\"build_ms\": $BUILD_MS}" > "${GITHUB_WORKSPACE}/main-build.json"
+          # --- analysis ---
+          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc fetch //...
+          python3 ../profile_benchmark.py \
+            --runs 10 --warmup 1 \
+            --prepare "rm -rf /tmp/bazel-${{ matrix.variant }}-analysis" \
+            --output "${GITHUB_WORKSPACE}/${{ matrix.variant }}-analysis.json" \
+            --save-profile "${GITHUB_WORKSPACE}/profiles/${{ matrix.variant }}-profile.gz" \
+            --save-starlark "${GITHUB_WORKSPACE}/profiles/${{ matrix.variant }}-starlark.pprof.gz" \
+            -- bazel --output_base=/tmp/bazel-${{ matrix.variant }}-analysis --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= --nobuild --profile={PROFILE} --starlark_cpu_profile={STARPROFILE} //...
 
+          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc query //... --output=package > /tmp/${{ matrix.variant }}-packages.txt
+          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc query //... > /tmp/${{ matrix.variant }}-targets.txt
+          actions=$(bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc \
+            aquery --output=summary //... | awk '/^[0-9]+ total actions\.$/ { print $1 }')
+          test -n "$actions"
+          echo "{\"packages\": $(wc -l < /tmp/${{ matrix.variant }}-packages.txt | tr -d ' '), \"targets\": $(wc -l < /tmp/${{ matrix.variant }}-targets.txt | tr -d ' '), \"actions\": $actions}" > "${GITHUB_WORKSPACE}/${{ matrix.variant }}-analysis-aux.json"
+
+          # --- startup ---
+          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= //:bench
           BIN=$(bazel --output_base="$OUT_BASE" cquery //:bench --disk_cache= --output=starlark --starlark:expr='target.files_to_run.executable.path' | tail -n1)
-          test -x "$BIN" || { echo "ERROR: benchmark binary not executable: $BIN"; exit 1; }
-          RUNFILES_DIR="$PWD/$BIN.runfiles" hyperfine --warmup 5 --runs 50 --export-json "${GITHUB_WORKSPACE}/main.json" "$BIN"
+          test -x "$BIN" || { echo "ERROR: bench binary not executable: $BIN"; exit 1; }
+          RUNFILES_DIR="$PWD/$BIN.runfiles" hyperfine --warmup 5 --runs 50 --export-json "${GITHUB_WORKSPACE}/${{ matrix.variant }}-startup.json" "$BIN"
+          RUNFILES_DIR="$PWD/$BIN.runfiles" "$BIN" "${GITHUB_WORKSPACE}/${{ matrix.variant }}-startup-syspath.json"
 
-          BIN_SP=$(bazel --output_base="$OUT_BASE" cquery //:bench_syspath --disk_cache= --output=starlark --starlark:expr='target.files_to_run.executable.path' | tail -n1)
-          test -x "$BIN_SP" || { echo "ERROR: bench_syspath binary not executable: $BIN_SP"; exit 1; }
-          RUNFILES_DIR="$PWD/$BIN_SP.runfiles" "$BIN_SP" "$GITHUB_WORKSPACE/main-syspath.json"
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-${{ matrix.variant }}
+          path: |
+            ${{ matrix.variant }}-analysis.json
+            ${{ matrix.variant }}-analysis-aux.json
+            ${{ matrix.variant }}-startup.json
+            ${{ matrix.variant }}-startup-syspath.json
+            profiles/
 
-      # ── Current commit (PR) ─────────────────────────────────────────────────
-      - name: Benchmark current PR
-        run: |
-          set -euo pipefail
-          cd rules_py_pr/benchmark/startup
-          python3 generate_module.py local --path "$GITHUB_WORKSPACE/rules_py_pr"
+  report:
+    needs: [bench]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v6
+        with:
+          path: rules_py_pr
 
-          OUT_BASE="/tmp/bazel-pr"
-          rm -rf "$OUT_BASE"
+      - name: Download all results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: bench-*
+          merge-multiple: true
 
-          START=$(date +%s%N)
-          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= //:bench //:bench_syspath
-          END=$(date +%s%N)
-          BUILD_MS=$(( (END - START) / 1000000 ))
-          echo "{\"build_ms\": $BUILD_MS}" > "${GITHUB_WORKSPACE}/pr-build.json"
-
-          BIN=$(bazel --output_base="$OUT_BASE" cquery //:bench --disk_cache= --output=starlark --starlark:expr='target.files_to_run.executable.path' | tail -n1)
-          test -x "$BIN" || { echo "ERROR: benchmark binary not executable: $BIN"; exit 1; }
-          RUNFILES_DIR="$PWD/$BIN.runfiles" hyperfine --warmup 5 --runs 50 --export-json "${GITHUB_WORKSPACE}/pr.json" "$BIN"
-
-          BIN_SP=$(bazel --output_base="$OUT_BASE" cquery //:bench_syspath --disk_cache= --output=starlark --starlark:expr='target.files_to_run.executable.path' | tail -n1)
-          test -x "$BIN_SP" || { echo "ERROR: bench_syspath binary not executable: $BIN_SP"; exit 1; }
-          RUNFILES_DIR="$PWD/$BIN_SP.runfiles" "$BIN_SP" "$GITHUB_WORKSPACE/pr-syspath.json"
-
-      # ── Compare ─────────────────────────────────────────────────────────────
-      - name: Compare startup results
-        id: compare
+      - name: Compare analysis
+        id: analysis
         continue-on-error: true
         run: |
-          set -euo pipefail
-          python3 rules_py_pr/benchmark/startup/compare.py \
+          python3 rules_py_pr/benchmark/compare.py analysis \
+            --output-table analysis-table.txt \
+            --step-summary "$GITHUB_STEP_SUMMARY" \
+            bcr-analysis.json main-analysis.json pr-analysis.json
+
+      - name: Compare startup
+        id: startup
+        continue-on-error: true
+        run: |
+          python3 rules_py_pr/benchmark/compare.py startup \
             --output-table startup-table.txt \
-            bcr.json main.json pr.json
+            bcr-startup.json main-startup.json pr-startup.json
+          cat startup-table.txt >> "$GITHUB_STEP_SUMMARY"
 
       - name: Save PR number
         if: github.event_name == 'pull_request'
         run: echo "${{ github.event.pull_request.number }}" > pr-number.txt
 
-      - name: Upload startup artifacts
+      - name: Upload report artifacts
         if: github.event_name == 'pull_request'
         uses: actions/upload-artifact@v4
         with:
-          name: startup-benchmark-results
-          path: |
-            startup-table.txt
-            pr-number.txt
-          if-no-files-found: warn
-
-      - name: Fail on regression
-        if: steps.compare.outcome == 'failure'
-        run: exit 1
-
-  analysis:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout PR
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-          path: rules_py_pr
-
-      - name: Checkout HEAD main
-        uses: actions/checkout@v6
-        with:
-          ref: main
-          path: rules_py_main
-
-      - name: Install hyperfine
-        run: |
-          set -euo pipefail
-          HYPERFINE_VERSION="1.18.0"
-          DEB="hyperfine_${HYPERFINE_VERSION}_amd64.deb"
-          URL="https://github.com/sharkdp/hyperfine/releases/download/v${HYPERFINE_VERSION}/${DEB}"
-          wget -qO "$DEB" "$URL"
-          sudo dpkg -i "$DEB"
-          rm -f "$DEB"
-          hyperfine --version
-
-      - name: Generate workspace
-        run: |
-          set -euo pipefail
-          cd rules_py_pr/benchmark/analysis
-          python3 workspace/generate_workspace.py --root workspace --packages 50
-
-      # ── BCR baseline ────────────────────────────────────────────────────────
-      - name: Benchmark BCR ${{ env.ANALYSIS_BCR_VERSION }}
-        run: |
-          set -euo pipefail
-          cd rules_py_pr/benchmark/analysis
-          python3 generate_module.py bcr --version "${ANALYSIS_BCR_VERSION}"
-
-          OUT_BASE="/tmp/bazel-bcr"
-          rm -rf "$OUT_BASE"
-
-          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc fetch //workspace/...
-
-          hyperfine --warmup 1 --runs 10 \
-            --prepare 'rm -rf /tmp/bazel-bcr-analysis' \
-            --export-json "${GITHUB_WORKSPACE}/bcr.json" \
-            'bazel --output_base=/tmp/bazel-bcr-analysis --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= --nobuild //workspace/...'
-
-          targets=$(bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc \
-            query //workspace/... | wc -l | tr -d ' ')
-          actions=$(bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc \
-            aquery --output=summary //workspace/... | awk '/^[0-9]+ total actions\.$/ { print $1 }')
-          test -n "$targets" && test -n "$actions"
-          echo "{\"targets\": $targets, \"actions\": $actions}" > "${GITHUB_WORKSPACE}/bcr-aux.json"
-
-      # ── HEAD main ───────────────────────────────────────────────────────────
-      - name: Benchmark HEAD main
-        run: |
-          set -euo pipefail
-          cd rules_py_pr/benchmark/analysis
-          python3 generate_module.py local --path "$GITHUB_WORKSPACE/rules_py_main"
-
-          OUT_BASE="/tmp/bazel-main"
-          rm -rf "$OUT_BASE"
-
-          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc fetch //workspace/...
-
-          hyperfine --warmup 1 --runs 10 \
-            --prepare 'rm -rf /tmp/bazel-main-analysis' \
-            --export-json "${GITHUB_WORKSPACE}/main.json" \
-            'bazel --output_base=/tmp/bazel-main-analysis --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= --nobuild //workspace/...'
-
-          targets=$(bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc \
-            query //workspace/... | wc -l | tr -d ' ')
-          actions=$(bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc \
-            aquery --output=summary //workspace/... | awk '/^[0-9]+ total actions\.$/ { print $1 }')
-          test -n "$targets" && test -n "$actions"
-          echo "{\"targets\": $targets, \"actions\": $actions}" > "${GITHUB_WORKSPACE}/main-aux.json"
-
-      # ── Current commit (PR) ─────────────────────────────────────────────────
-      - name: Benchmark current PR
-        run: |
-          set -euo pipefail
-          cd rules_py_pr/benchmark/analysis
-          python3 generate_module.py local --path "$GITHUB_WORKSPACE/rules_py_pr"
-
-          OUT_BASE="/tmp/bazel-pr"
-          rm -rf "$OUT_BASE"
-
-          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc fetch //workspace/...
-
-          hyperfine --warmup 1 --runs 10 \
-            --prepare 'rm -rf /tmp/bazel-pr-analysis' \
-            --export-json "${GITHUB_WORKSPACE}/pr.json" \
-            'bazel --output_base=/tmp/bazel-pr-analysis --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= --nobuild //workspace/...'
-
-          targets=$(bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc \
-            query //workspace/... | wc -l | tr -d ' ')
-          actions=$(bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc \
-            aquery --output=summary //workspace/... | awk '/^[0-9]+ total actions\.$/ { print $1 }')
-          test -n "$targets" && test -n "$actions"
-          echo "{\"targets\": $targets, \"actions\": $actions}" > "${GITHUB_WORKSPACE}/pr-aux.json"
-
-      # ── Compare ─────────────────────────────────────────────────────────────
-      - name: Compare analysis results
-        id: compare
-        continue-on-error: true
-        run: |
-          set -euo pipefail
-          python3 rules_py_pr/benchmark/analysis/compare.py \
-            --output-table analysis-table.txt \
-            bcr.json main.json pr.json
-
-      - name: Upload analysis artifacts
-        if: github.event_name == 'pull_request'
-        uses: actions/upload-artifact@v4
-        with:
-          name: analysis-benchmark-results
+          name: benchmark-results
           path: |
             analysis-table.txt
+            startup-table.txt
+            pr-number.txt
+            profiles/
           if-no-files-found: warn
 
-      - name: Fail on regression
-        if: steps.compare.outcome == 'failure'
-        run: exit 1
-
-  comment:
-    runs-on: ubuntu-latest
-    needs: [startup, analysis]
-    if: always() && github.event_name == 'pull_request' && (needs.startup.result == 'success' || needs.startup.result == 'failure') && (needs.analysis.result == 'success' || needs.analysis.result == 'failure')
-    permissions:
-      pull-requests: write
-    steps:
-      - name: Download startup artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: startup-benchmark-results
-
-      - name: Download analysis artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: analysis-benchmark-results
-
-      - name: Post combined benchmark comment
-        # Fork PRs get a read-only GITHUB_TOKEN; posting the comment 403s.
-        if: github.event.pull_request.head.repo.full_name == github.repository
+      - name: Post PR comment
+        if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            const startup = fs.readFileSync('startup-table.txt', 'utf8').trim();
-            const analysis = fs.readFileSync('analysis-table.txt', 'utf8').trim();
-            const prNumber = parseInt(fs.readFileSync('pr-number.txt', 'utf8').trim());
+            const startup = fs.existsSync('startup-table.txt') ? fs.readFileSync('startup-table.txt', 'utf8').trim() : '';
+            const analysis = fs.existsSync('analysis-table.txt') ? fs.readFileSync('analysis-table.txt', 'utf8').trim() : '';
             const header = '<!-- performance-benchmark -->';
             const body = `${header}\n\n${startup}\n\n${analysis}`;
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: prNumber,
+              issue_number: context.issue.number,
             });
             const existing = comments.find(c => c.body && c.body.includes(header));
             if (existing) {
@@ -310,17 +182,15 @@ jobs:
                 comment_id: existing.id,
                 body: body,
               });
-              console.log(`Updated comment ${existing.id}`);
             } else {
               const { data: created } = await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                issue_number: prNumber,
+                issue_number: context.issue.number,
                 body: body,
               });
-              console.log(`Created comment ${created.id}`);
             }
 
-      - name: Fail if any benchmark regressed
-        if: needs.startup.result == 'failure' || needs.analysis.result == 'failure'
+      - name: Fail on regression
+        if: steps.analysis.outcome == 'failure' || steps.startup.outcome == 'failure'
         run: exit 1

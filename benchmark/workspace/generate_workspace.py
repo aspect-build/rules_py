@@ -70,7 +70,7 @@ py_test(
     name = "{name}_test",
     srcs = ["test.py"],
     main = "test.py",
-    deps = ["//workspace/src/{name}:{name}"],
+    deps = ["//src/{name}:{name}"],
 )
 '''
 
@@ -117,6 +117,42 @@ from {name}.lib import compute
 def test_compute():
     assert compute(0) == {offset}
     assert compute(1) == {multiplier} + {offset}
+'''
+
+BENCH_MAIN_TEMPLATE = '''#!/usr/bin/env python3
+"""Fan-in benchmark binary main: stdlib-only sys.path probe.
+
+Deliberately imports none of the local libraries or third-party deps, so the
+runtime metric reflects rules_py venv assembly/activation (which scales with the
+fan-in dep count), not Python import cost.
+"""
+import json
+import os
+import sys
+from pathlib import Path
+
+
+def main() -> None:
+    entries = [p for p in sys.path if p]
+    sp_roots = {p for p in entries if "site-packages" in p}
+    realpaths = [os.path.realpath(p) for p in entries]
+    dupe_realpaths = len(realpaths) - len(set(realpaths))
+
+    metrics = {
+        "total_entries": len(entries),
+        "distinct_sp_roots": len(sp_roots),
+        "dupe_realpaths": dupe_realpaths,
+    }
+
+    out = sys.argv[1] if len(sys.argv) > 1 else None
+    if out:
+        Path(out).write_text(json.dumps(metrics))
+    else:
+        print(json.dumps(metrics))
+
+
+if __name__ == "__main__":
+    main()
 '''
 
 
@@ -172,14 +208,43 @@ def generate_package(pkg_dir: Path, name: str, deps: list[str], seed: int) -> No
 
 
 def generate_root_build(root: Path, package_count: int) -> None:
-    """Generate a root BUILD that groups all binaries."""
-    lines = ['load("@bazel_skylib//rules:build_test.bzl", "build_test")\n\n']
-    lines.append('build_test(\n')
-    lines.append('    name = "all_bins",\n')
-    targets = [f"//workspace/src/pkg_{i}:pkg_{i}_bin" for i in range(package_count)]
-    lines.append(f"    targets = {targets},\n")
-    lines.append(')\n')
+    """Generate root BUILD: build_test grouping all binaries + fan-in //:bench.
+
+    //:bench depends on every local py_library so its venv scales with
+    package_count; bench_main.py is import-free (see BENCH_MAIN_TEMPLATE).
+
+    //:all_group_deps closes the benchmark's hub-coverage gap: it depends on the
+    whole active dep_group via group_deps(), which forces Bazel to load and
+    analyze every @pypi hub alias + the project repo graph -- the path real
+    py_venv consumers hit. Without it, //:bench's direct @pypi//<dep> labels only
+    load the reachable subset and hub/project over-generation stays inert.
+    """
+    pkg_libs = [f"//src/pkg_{i}:pkg_{i}" for i in range(package_count)]
+    pkg_bins = [f"//src/pkg_{i}:pkg_{i}_bin" for i in range(package_count)]
+    lines = [
+        'load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library")\n',
+        'load("@bazel_skylib//rules:build_test.bzl", "build_test")\n',
+        'load("@pypi//:defs.bzl", "group_deps")\n\n',
+        'build_test(\n',
+        '    name = "all_bins",\n',
+        f'    targets = {pkg_bins},\n',
+        ')\n\n',
+        'py_binary(\n',
+        '    name = "bench",\n',
+        '    srcs = ["bench_main.py"],\n',
+        '    main = "bench_main.py",\n',
+        f'    deps = {pkg_libs},\n',
+        ')\n\n',
+        '# Forces analysis of the full @pypi hub + project graph for the active\n',
+        '# dep_group (the realistic py_venv consumer path).\n',
+        'py_library(\n',
+        '    name = "all_group_deps",\n',
+        '    deps = group_deps(),\n',
+        '    visibility = ["//visibility:public"],\n',
+        ')\n',
+    ]
     (root / "BUILD.bazel").write_text("".join(lines))
+    (root / "bench_main.py").write_text(BENCH_MAIN_TEMPLATE)
 
 
 def clean_generated(root: Path) -> None:
@@ -228,7 +293,7 @@ def main() -> int:
         if i > 0:
             local_count = rng.randint(1, min(3, i))
             local_deps = [
-                f"//workspace/src/pkg_{j}:pkg_{j}"
+                f"//src/pkg_{j}:pkg_{j}"
                 for j in sorted(rng.sample(range(i), local_count))
             ]
 

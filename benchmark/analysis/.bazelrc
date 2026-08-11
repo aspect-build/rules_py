@@ -1,2 +1,0 @@
-# Default dependency group for the analysis benchmark workload.
-common --@pypi//dep_group=default
