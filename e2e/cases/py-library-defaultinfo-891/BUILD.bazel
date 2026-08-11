@@ -1,3 +1,34 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library", "py_test")
 load(":tests.bzl", "py_library_defaultinfo_test_suite")
 
 py_library_defaultinfo_test_suite()
+
+# Runtime mirror of the reported repro: a py_library listed in another
+# py_library's srcs contributes its DefaultInfo.files to any srcs
+# expansion (aspects reading ctx.rule.files.srcs, genrule $(SRCS), ...).
+# With the regression that expansion included mid's transitive closure,
+# leaking leaf.py — which broke e.g. rules_mypy when a leaked file
+# shadowed a library module.
+py_library(
+    name = "top",
+    srcs = [
+        "app.py",
+        ":__mid_lib",
+    ],
+    tags = ["manual"],
+)
+
+genrule(
+    name = "top_srcs_manifest",
+    srcs = [":top"],
+    outs = ["top_srcs_manifest.txt"],
+    cmd = "echo $(SRCS) > $@",
+)
+
+py_test(
+    name = "srcs_leak_test",
+    srcs = ["srcs_leak_test.py"],
+    args = ["$(location :top_srcs_manifest)"],
+    data = [":top_srcs_manifest"],
+    main = "srcs_leak_test.py",
+)
