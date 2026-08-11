@@ -7,7 +7,6 @@ load("@aspect_rules_py//py:defs.bzl", "py_binary")
 exports_files([
     "assert_absent.py",
     "assert_ownership.py",
-    "check_wheel_native.py",
     "check_wheel_tags.py",
 ])
 

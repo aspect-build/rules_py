@@ -3,8 +3,15 @@
 setproctitle is forced to build from its sdist with both patch phases applied:
 a pre-build patch that lands in the source tree before the PEP 517 backend
 runs, and a post-install patch that rewrites the already-unpacked wheel. The
-two patches stack — the post-install one applies against the pre-build
-patch's output — so an ordering regression fails the runtime test.
+two patches stack — the post-install hunk carries the pre-build patch's
+`PATCHED = True` line as context, so it only applies when the phases ran in
+order and an ordering regression fails the build itself, not just the
+runtime test.
+
+The post-install patch is written against the installed venv layout
+(`lib/python<X.Y>/site-packages/...`): rules_py applies post-install patches
+with `patch -d` rooted at the install tree, unlike rules_pycross's
+wheel-relative paths.
 
 Uses its own hub: the patched setproctitle must not be shared with
 `pycross-setuptools`, which builds the same version unpatched.

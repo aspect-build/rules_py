@@ -4,13 +4,16 @@ Ported from rules_pycross tests/e2e/build_setuptools (`distutils_probe/`,
 `build_distutils_probe_sdist.py`, `test_distutils_probe.py`). The sdist's
 `build_py` command shells out to a *fresh* interpreter and imports
 `distutils.util`; on Python 3.12+ that only resolves when setuptools'
-`_distutils_hack` is reachable from the child. A build action that exported a
-stale `PYTHONPATH`/`PYTHONHOME` — the case build_helper.py's
-`_INHERITED_PYTHON_ENV` filter exists for — breaks the child, not the parent,
-so the failure is invisible to a plain "does it build" check.
+`_distutils_hack` is reachable from the child. A build action that leaks a
+stale `PYTHONPATH`/`PYTHONHOME` — exactly what rule.bzl's
+`_INHERITED_PYTHON_ENV` filter strips — poisons the child while the parent
+backend keeps working, so the failure is invisible to a plain "does it
+build" check.
 
 Structured like `uv-sdist-mpicc`: the sdist is assembled in-process and
-build_helper.py is invoked directly, so nothing is fetched from the network.
+build_helper.py runs as a subprocess with a minimal env (bare PATH, no
+PYTHON* variables), so nothing is fetched from the network and nothing
+leaks in from the test's own environment.
 """
 
 import os

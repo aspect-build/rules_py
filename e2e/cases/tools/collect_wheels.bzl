@@ -21,10 +21,12 @@ def collect_wheels(name, wheels, platforms, expected_tags = None, **kwargs):
         expected_tags: Substrings that must each appear in at least one
             collected wheel filename. When set, declares `<name>_tags_test`.
         **kwargs: Forwarded to the collecting `run_binary`.
+
+    The inner `<name>_wheels` filegroup is tagged manual: it is only reachable
+    through the platform transitions declared here, which are what supply the
+    dep_group and libc flags the wheel targets select on.
     """
 
-    # Manual: only reachable through the platform transitions below, which are
-    # what supply the dep_group and libc flags the wheel targets select on.
     native.filegroup(
         name = name + "_wheels",
         srcs = wheels,

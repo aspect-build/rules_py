@@ -85,10 +85,10 @@ py_test(
 )
 
 # An anyarch build uses no CC toolchain, so what differs per platform here is
-# the configuration the build *tool* is resolved in: `pep517_whl`'s
-# `exec_transition` has to pin the frontend and its wheels to the exec
-# platform. If it leaked the target configuration, these builds would try to
-# run a Linux interpreter on the exec host.
+# the configuration the build *tool* is resolved in: the PEP 517 frontend and
+# its wheels must resolve for the exec platform. If the target configuration
+# leaked into them, these builds would try to run a non-host interpreter on
+# the exec host.
 collect_wheels(
     name = "pure_python_wheels",
     expected_tags = ["-none-any.whl"],
