@@ -74,7 +74,7 @@ _toolchain_tag = tag_class(
         ),
         "version": attr.string(
             default = LATEST_UV_VERSION,
-            doc = "UV version to download (e.g. '0.11.6'). Defaults to the latest version known to aspect_rules_py.",
+            doc = "UV version to download (e.g. '0.11.21'). Defaults to the latest version known to aspect_rules_py.",
         ),
         "urls": attr.string_list(
             doc = "Download URL templates. Each entry is a format string with " +

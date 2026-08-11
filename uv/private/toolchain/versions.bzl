@@ -12,14 +12,6 @@ UV_VERSIONS = {
         "x86_64-pc-windows-msvc": "4c1d55501869b3330d4aabf45ad6024ce2367e0f3af83344395702d272c22e88",
         "x86_64-unknown-linux-musl": "adccf40b5d1939a5e0093081ec2307ea24235adf7c2d96b122c561fa37711c46",
     },
-    "0.11.6": {
-        "aarch64-apple-darwin": "4b69a4e366ec38cd5f305707de95e12951181c448679a00dce2a78868dfc9f5b",
-        "aarch64-pc-windows-msvc": "bee7b25a7a999f17291810242b47565c3ef2b9205651a0fd02a086f261a7e167",
-        "aarch64-unknown-linux-musl": "d14ebd6f200047264152daaf97b8bd36c7885a5033e9e8bba8366cb0049c0d00",
-        "x86_64-apple-darwin": "8e0ed5035eaa28c7c8cd2a46b5b9a05bfff1ef01dbdc090a010eb8fdf193a457",
-        "x86_64-pc-windows-msvc": "99aa60edd017a256dbf378f372d1cff3292dbc6696e0ea01716d9158d773ab77",
-        "x86_64-unknown-linux-musl": "aa342a53abe42364093506d7704214d2cdca30b916843e520bc67759a5d20132",
-    },
     "0.11.21": {
         "aarch64-apple-darwin": "1f921d491ba5ffeea774eb04d6681ecee379101341cbb1500394993b541bf3f4",
         "aarch64-pc-windows-msvc": "74e443f8004022dde57a1bd0d10c097830f9ea8feb4ec927db52cd5d805c2f48",

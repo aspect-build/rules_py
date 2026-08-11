@@ -82,7 +82,7 @@ use_repo(bazel_lib_toolchains, "bsd_tar_toolchains")
 
 # Default uv toolchain used by every uv-based case.
 uv_bin = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv_bin")
-uv_bin.toolchain(version = "0.11.6")
+uv_bin.toolchain(version = "0.11.21")
 use_repo(uv_bin, "uv")
 
 uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
