@@ -65,6 +65,7 @@ py_test(
 # fully covered by the concrete per-entry namespace merge, so the
 # snapshot pins that NEITHER appears in the .pth fallback.
 extract_venv_pth(
-    name = "test.venv.pth",
+    name = "test_venv_pth_snapshot",
+    out = "test.venv.pth",
     venv = ":test.venv",
 )

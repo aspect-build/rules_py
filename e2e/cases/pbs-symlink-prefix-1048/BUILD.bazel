@@ -33,12 +33,14 @@ pbs_action_probe(
 # unchanged retained-home shape. The extractor normalizes platform-dependent
 # PBS interpreter repository names without hiding a retained line.
 pbs_pyvenv_cfg_snapshot(
-    name = "action_probe_311.venv.cfg",
+    name = "action_probe_311_venv_cfg_snapshot",
+    out = "action_probe_311.venv.cfg",
     venv = ":action_probe_311.venv",
 )
 
 pbs_pyvenv_cfg_snapshot(
-    name = "action_probe_313.venv.cfg",
+    name = "action_probe_313_venv_cfg_snapshot",
+    out = "action_probe_313.venv.cfg",
     venv = ":action_probe_313.venv",
 )
 

@@ -72,7 +72,8 @@ sh_test(
 # plain path entry, this diff surfaces alongside the runtime test
 # failure.
 extract_venv_pth(
-    name = "wheel_root_pth_test.venv.pth",
+    name = "wheel_root_pth_test_venv_pth_snapshot",
+    out = "wheel_root_pth_test.venv.pth",
     venv = ":wheel_root_pth_test.venv",
 )
 
@@ -109,6 +110,7 @@ py_test(
 )
 
 extract_venv_pth(
-    name = "multi_addsitedir_test.venv.pth",
+    name = "multi_addsitedir_test_venv_pth_snapshot",
+    out = "multi_addsitedir_test.venv.pth",
     venv = ":multi_addsitedir_test.venv",
 )

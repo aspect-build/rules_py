@@ -110,7 +110,8 @@ py_test(
 )
 
 extract_venv_pth(
-    name = "test.venv.pth",
+    name = "test_venv_pth_snapshot",
+    out = "test.venv.pth",
     venv = ":test.venv",
 )
 
@@ -188,6 +189,7 @@ py_test(
 )
 
 extract_venv_pth(
-    name = "namespace_test.venv.pth",
+    name = "namespace_test_venv_pth_snapshot",
+    out = "namespace_test.venv.pth",
     venv = ":namespace_test.venv",
 )

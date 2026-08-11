@@ -98,6 +98,7 @@ build_test(
 # emission shape across many wheels and surfaces any ordering /
 # scale-only regression.
 extract_venv_pth(
-    name = "test_tool.venv.pth",
+    name = "test_tool_venv_pth_snapshot",
+    out = "test_tool.venv.pth",
     venv = ":test_tool.venv",
 )
