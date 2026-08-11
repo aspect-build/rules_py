@@ -37,7 +37,7 @@ def main() -> None:
     workdir = tempfile.mkdtemp(dir=os.environ["TEST_TMPDIR"])
     sdist = _make_sdist(workdir)
     here = os.path.dirname(__file__)
-    helper = os.path.join(here, "build_helper.py")
+    helper = os.path.join(here, "..", "build_helper.py")
 
     # The driver directory must remain absent from PATH to expose basename argv[0].
     drivers = os.path.join(workdir, "drivers")

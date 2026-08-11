@@ -1,0 +1,24 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+load("//py:defs.bzl", "py_test")
+
+package(default_testonly = True)
+
+cc_binary(
+    name = "wrapper_argv0_fake_driver",
+    srcs = ["wrapper_argv0_fake_driver.c"],
+)
+
+py_test(
+    name = "wrapper_argv0_test",
+    srcs = ["wrapper_argv0_test.py"],
+    data = [
+        ":wrapper_argv0_fake_driver",
+        "//uv/private/pep517_whl:build_helper.py",
+    ],
+    main = "wrapper_argv0_test.py",
+    target_compatible_with = ["@platforms//os:linux"],
+    deps = [
+        "@pypi//build",
+        "@pypi//setuptools",
+    ],
+)
