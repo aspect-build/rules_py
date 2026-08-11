@@ -124,7 +124,7 @@ wheels = [
 ]
 
 [[package]]
-name = "crossbuild"
+name = "crossbuild-geohash"
 version = "0.0.0"
 source = { virtual = "." }
 dependencies = [

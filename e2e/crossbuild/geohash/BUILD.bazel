@@ -21,11 +21,11 @@ exports_files(["require_cxx_driver.patch"])
 py_binary(
     name = "geohash_bin",
     srcs = ["geohash_main.py"],
-    dep_group = "crossbuild",
+    dep_group = "crossbuild_geohash",
     main = "geohash_main.py",
     python_version = "3.12",
     deps = [
-        "@pypi_crossbuild//python_geohash",
+        "@pypi_crossbuild_geohash//python_geohash",
     ],
 )
 
