@@ -1,0 +1,1 @@
+VALUE = "foreign direct source"

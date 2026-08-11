@@ -52,6 +52,19 @@ py_pex_binary(
     binary = ":noop_bin",
 )
 
+py_binary(
+    name = "pyc_only_noop_bin",
+    srcs = ["noop.py"],
+    pyc = "pyc_only",
+    tags = ["manual"],
+)
+
+py_pex_binary(
+    name = "pyc_only_noop_pex",
+    binary = ":pyc_only_noop_bin",
+    tags = ["manual"],
+)
+
 py_pex_binary(
     name = "custom_pex",
     binary = ":noop_bin",

@@ -21,9 +21,11 @@ py_pex_binary(
 load("@bazel_lib//lib:paths.bzl", "to_rlocation_path")
 load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/private:py_info.bzl", "PyInfo")
+load("//py/private:pyc.bzl", "FirstPartyPycModeInfo")
 load("//py/private/py_venv:types.bzl", "PY_VENV_KINDS", "VirtualenvInfo", "venv_root")
 load("//py/private/py_venv:virtuals_resolvers.bzl", "VENV_OWNED_ROOTS")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "interpreter_files_and_version")
+load("//py/private:transitions.bzl", "reset_pyc_transition")
 
 def _runfiles_path(file, workspace):
     if file.short_path.startswith("../"):
@@ -67,6 +69,11 @@ def _label_targets(attr_val):
         return [attr_val]
     return []
 
+def _single_target(value):
+    if type(value) == "list":
+        return value[0] if len(value) == 1 else None
+    return value
+
 def _closure_aspect_impl(target, ctx):
     # Toolchain node, reached via toolchains_aspects: surface the interpreter's
     # repo roots and version for the venv node below to read under its config.
@@ -108,9 +115,11 @@ def _closure_aspect_impl(target, ctx):
         if PyWheelsInfo in dep:
             wheels.append(dep[PyWheelsInfo].wheels)
 
-    # py_venv_exec (what the py_binary macro expands to) routes srcs/deps onto a
-    # sibling py_venv reached via `venv`; that venv also carries VirtualenvInfo.
-    venv = getattr(ctx.rule.attr, "venv", None)
+    # py_venv_exec routes srcs/deps onto a sibling py_venv. Bytecode-enabled
+    # launchers use the aspect-bearing `pyc_venv` edge instead of `venv`.
+    venv = _single_target(getattr(ctx.rule.attr, "pyc_venv", None))
+    if venv == None:
+        venv = _single_target(getattr(ctx.rule.attr, "venv", None))
     if venv != None:
         if _PexClosureInfo in venv:
             wheels.append(venv[_PexClosureInfo].wheels)
@@ -151,7 +160,7 @@ def _closure_aspect_impl(target, ctx):
 
 _closure_aspect = aspect(
     implementation = _closure_aspect_impl,
-    attr_aspects = ["deps", "data", "actual", "venv"],
+    attr_aspects = ["deps", "data", "actual", "venv", "pyc_venv"],
     # Lets the aspect read `ctx.rule.toolchains[PY_TOOLCHAIN]` at py_venv nodes.
     toolchains_aspects = [PY_TOOLCHAIN],
     provides = [_PexClosureInfo],
@@ -165,7 +174,9 @@ def _dep_arg(wheel):
     return "--dependency={}/{}".format(wheel.install_tree.path, suffix)
 
 def _py_python_pex_impl(ctx):
-    binary = ctx.attr.binary
+    binary = _single_target(ctx.attr.binary)
+    if FirstPartyPycModeInfo in binary and binary[FirstPartyPycModeInfo].mode != "source":
+        fail("py_pex_binary {} requires binary {} to use pyc=source".format(ctx.label, binary.label))
     binary_default = binary[DefaultInfo]
 
     # py_venv_exec emits depset([launcher, main]) — the non-executable file is
@@ -286,7 +297,7 @@ def _py_python_pex_impl(ctx):
 _attrs = dict({
     "binary": attr.label(
         executable = True,
-        cfg = "target",
+        cfg = reset_pyc_transition,
         mandatory = True,
         doc = "The py_binary target to package.",
         aspects = [_closure_aspect],
@@ -314,6 +325,9 @@ the `binary`'s own interpreter, the one the PEX is built for.
 """,
     ),
     "_pex": attr.label(executable = True, cfg = "exec", default = "//py/tools/pex"),
+    "_allowlist_function_transition": attr.label(
+        default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+    ),
 })
 
 py_pex_binary = rule(

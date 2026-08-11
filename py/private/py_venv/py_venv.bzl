@@ -35,6 +35,9 @@ load(":py_venv_exec.bzl", _py_venv_exec = "py_venv_exec")
 load(":types.bzl", "VirtualenvInfo", "venv_root")
 load(":venv.bzl", "assemble_venv")
 
+_PYC_SOURCE_CONFIG = str(Label("//py:_pyc_source"))
+_PYC_ONLY_CONFIG = str(Label("//py:_pyc_only"))
+
 def _interpreter_flags(ctx):
     args = _py_semantics.interpreter_flags + ctx.attr.interpreter_options
 
@@ -104,6 +107,7 @@ def _assemble_venv_target(ctx):
         info = VirtualenvInfo(
             bin_python = assembled.bin_python,
             imports = imports_depset,
+            runtime_runfiles = runfiles,
             transitive_sources = srcs_depset,
             runtime_files = runtime_files,
         ),
@@ -433,6 +437,36 @@ def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = [], im
             visibility = visibility,
         )
 
+    pyc = kwargs.pop("pyc", "")
+    if type(pyc) != "string":
+        fail("pyc must be a literal string; configurable select() values are not supported")
+    if pyc not in ("", "source", "pyc", "pyc_only"):
+        fail("pyc must be one of source, pyc, or pyc_only; got {}".format(repr(pyc)))
+    launcher_kwargs = {
+        "venv": ":" + venv_label,
+        "pyc_only": False,
+    }
+    if pyc in ("pyc", "pyc_only"):
+        launcher_kwargs = {
+            "pyc_venv": ":" + venv_label,
+            "pyc_only": pyc == "pyc_only",
+        }
+    elif pyc == "":
+        launcher_kwargs = {
+            "venv": select({
+                _PYC_SOURCE_CONFIG: ":" + venv_label,
+                "//conditions:default": None,
+            }),
+            "pyc_venv": select({
+                _PYC_SOURCE_CONFIG: None,
+                "//conditions:default": ":" + venv_label,
+            }),
+            "pyc_only": select({
+                _PYC_ONLY_CONFIG: True,
+                "//conditions:default": False,
+            }),
+        }
+
     py_rule(
         name = name,
         main = main,
@@ -446,8 +480,10 @@ def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = [], im
         tags = tags,
         testonly = testonly,
         visibility = visibility,
-        venv = ":" + venv_label,
         isolated = isolated,
+        venv = launcher_kwargs.get("venv"),
+        pyc_venv = launcher_kwargs.get("pyc_venv"),
+        pyc_only = launcher_kwargs.get("pyc_only"),
         **kwargs
     )
 
