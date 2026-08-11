@@ -1,0 +1,13 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary")
+
+cc_library(
+    name = "native_dep",
+    srcs = ["native_dep.cc"],
+)
+
+py_binary(
+    name = "unversioned",
+    srcs = ["main.py"],
+    main = "main.py",
+    deps = [":native_dep"],
+)
