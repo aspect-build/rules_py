@@ -1,4 +1,5 @@
 load("@aspect_rules_py//py:defs.bzl", "py_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 cc_library(
     name = "native_dep",
