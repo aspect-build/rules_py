@@ -1,6 +1,8 @@
-load("//py:defs.bzl", "py_venv")
+load("//py:defs.bzl", "py_library", "py_venv")
 load("//py/private/py_venv:defs.bzl", "py_venv_exec_test")
 load(":env_inherit_test.bzl", "contextual_keys_not_inherited_test", "env_inherit_test")
+load(":pyc_runfiles_test.bzl", "pyc_failure_test", "pyc_runfiles_test")
+load(":runfiles_mapping.bzl", "runfiles_mapping")
 
 package(default_testonly = True)
 
@@ -44,11 +46,96 @@ py_venv(
     ],
 )
 
+# A Python source explicitly carried as a library's runtime data must remain a
+# source in pyc_only mode. It is not an import, but its owning Python target
+# is only reached through the venv's deps closure.
+py_library(
+    name = "runtime_data_library",
+    srcs = ["runtime_data_owner.py"],
+    data = ["runtime_data.py"],
+)
+
+py_venv(
+    name = "runtime_data_venv",
+    srcs = ["entry_runtime_data.py"],
+    imports = ["."],
+    deps = [":runtime_data_library"],
+)
+
+py_venv_exec_test(
+    name = "test_pyc_only_transitive_python_data",
+    main = "entry_runtime_data.py",
+    pyc = "pyc_only",
+    venv = ":runtime_data_venv",
+)
+
+pyc_runfiles_test(
+    name = "test_pyc_only_transitive_python_data_runfiles",
+    expect_legacy = False,
+    mode = "pyc_only",
+    module = "runtime_data",
+    protect_source = True,
+    target_under_test = ":test_pyc_only_transitive_python_data",
+)
+
+py_venv(
+    name = "foreign_source_venv",
+    srcs = [
+        "entry_foreign.py",
+        "//py/tests/py-venv-multi-exec/cross-pkg:foreign_source.py",
+    ],
+    imports = ["."],
+)
+
+py_venv_exec_test(
+    name = "test_foreign_source_pyc",
+    main = "entry_foreign.py",
+    pyc = "pyc",
+    venv = ":foreign_source_venv",
+)
+
+pyc_runfiles_test(
+    name = "test_foreign_source_pyc_runfiles",
+    expect_pyc = False,
+    mode = "pyc",
+    module = "foreign_source",
+    target_under_test = ":test_foreign_source_pyc",
+)
+
+py_venv_exec_test(
+    name = "_test_foreign_source_pyc_only",
+    main = "entry_foreign.py",
+    pyc = "pyc_only",
+    tags = ["manual"],
+    venv = ":foreign_source_venv",
+)
+
+pyc_failure_test(
+    name = "test_foreign_source_pyc_only_failure",
+    expected_error = "pyc_only could not compile all first-party sources",
+    target_under_test = ":_test_foreign_source_pyc_only",
+)
+
 # Same shared venv, two different `main` entry points. Both reach
 # `shared_lib` via the venv's sys.path.
 py_venv_exec_test(
     name = "test_entry_a",
     main = "entry_a.py",
+    pyc = "pyc",
+    venv = ":shared_venv",
+)
+
+# A `.py` file used strictly as data must not be traversed or compiled.
+filegroup(
+    name = "broken_python_data",
+    srcs = ["broken_data.py"],
+)
+
+py_venv_exec_test(
+    name = "test_pyc_only_broken_python_data",
+    data = [":broken_python_data"],
+    main = "entry_a.py",
+    pyc = "pyc_only",
     venv = ":shared_venv",
 )
 
@@ -56,6 +143,179 @@ py_venv_exec_test(
     name = "test_entry_b",
     main = "entry_b.py",
     venv = ":shared_venv",
+)
+
+# All three launchers consume the same configured :shared_venv. The runtime
+# tests prove each launcher executes; the paired analysis tests below inspect
+# their individual runfiles closures without merging their conflicting layouts.
+py_venv_exec_test(
+    name = "test_pyc_source",
+    main = "entry_a.py",
+    venv = ":shared_venv",
+)
+
+py_venv_exec_test(
+    name = "test_pyc_cache",
+    main = "entry_a.py",
+    pyc = "pyc",
+    venv = ":shared_venv",
+)
+
+py_venv_exec_test(
+    name = "test_pyc_only",
+    data = [":entry_a_mapping"],
+    main = "entry_a.py",
+    pyc = "pyc_only",
+    venv = ":shared_venv",
+)
+
+runfiles_mapping(
+    name = "entry_a_mapping",
+    src = "entry_a.py",
+)
+
+pyc_runfiles_test(
+    name = "test_pyc_source_runfiles",
+    mode = "source",
+    target_under_test = ":test_pyc_source",
+)
+
+pyc_runfiles_test(
+    name = "test_pyc_cache_runfiles",
+    forbid_entry_substring = "site-packages",
+    mode = "pyc",
+    target_under_test = ":test_pyc_cache",
+)
+
+pyc_runfiles_test(
+    name = "test_pyc_only_runfiles",
+    check_mappings = True,
+    mode = "pyc_only",
+    target_under_test = ":test_pyc_only",
+)
+
+py_venv_exec_test(
+    name = "test_pyc_data",
+    data = ["data_alpha.txt"],
+    env = {"DATA_PATH": "$(rootpath :data_alpha.txt)"},
+    main = "entry_data.py",
+    pyc = "pyc",
+    venv = ":shared_venv",
+)
+
+py_venv_exec_test(
+    name = "test_pyc_only_data",
+    data = ["data_beta.txt"],
+    env = {"DATA_PATH": "$(rootpath :data_beta.txt)"},
+    main = "entry_data.py",
+    pyc = "pyc_only",
+    venv = ":shared_venv",
+)
+
+# One py_venv label, resolved in two consumer configurations. A materialized
+# venv cannot be shared across interpreter versions, but Bazel configures this
+# label independently for each launcher so their bytecode uses the matching
+# interpreter cache tag.
+py_venv(
+    name = "shared_versioned_venv",
+    srcs = ["entry_versioned.py"],
+    imports = ["."],
+)
+
+py_venv_exec_test(
+    name = "test_pyc_python_310",
+    main = "entry_versioned.py",
+    pyc = "pyc",
+    python_version = "3.10",
+    venv = ":shared_versioned_venv",
+)
+
+py_venv_exec_test(
+    name = "test_pyc_python_312",
+    main = "entry_versioned.py",
+    pyc = "pyc",
+    python_version = "3.12",
+    venv = ":shared_versioned_venv",
+)
+
+# Full {source, pyc, pyc_only} x {3.10, 3.12} matrix over the same venv label.
+# The e2e pyc suite asserts these six launchers yield exactly one configured
+# venv and one PyCompile action set per python version.
+py_venv_exec_test(
+    name = "test_pyc_source_python_310",
+    main = "entry_versioned.py",
+    pyc = "source",
+    python_version = "3.10",
+    venv = ":shared_versioned_venv",
+)
+
+py_venv_exec_test(
+    name = "test_pyc_source_python_312",
+    main = "entry_versioned.py",
+    pyc = "source",
+    python_version = "3.12",
+    venv = ":shared_versioned_venv",
+)
+
+py_venv_exec_test(
+    name = "test_pyc_only_python_310",
+    main = "entry_versioned.py",
+    pyc = "pyc_only",
+    python_version = "3.10",
+    venv = ":shared_versioned_venv",
+)
+
+py_venv_exec_test(
+    name = "test_pyc_only_python_312",
+    main = "entry_versioned.py",
+    pyc = "pyc_only",
+    python_version = "3.12",
+    venv = ":shared_versioned_venv",
+)
+
+pyc_runfiles_test(
+    name = "test_pyc_python_310_runfiles",
+    mode = "pyc",
+    module = "entry_versioned",
+    pyc_tag = "cpython-310",
+    target_under_test = ":test_pyc_python_310",
+)
+
+pyc_runfiles_test(
+    name = "test_pyc_python_312_runfiles",
+    mode = "pyc",
+    module = "entry_versioned",
+    pyc_tag = "cpython-312",
+    target_under_test = ":test_pyc_python_312",
+)
+
+# `pyc` may be a select(): the aspect-bearing pyc_venv edge is populated in
+# every branch and the resolved attr picks the mode — including "source",
+# where compile actions are analyzed but never executed.
+py_venv_exec_test(
+    name = "test_pyc_select",
+    main = "entry_a.py",
+    pyc = select({"//conditions:default": "pyc"}),
+    venv = ":shared_venv",
+)
+
+pyc_runfiles_test(
+    name = "test_pyc_select_runfiles",
+    mode = "pyc",
+    target_under_test = ":test_pyc_select",
+)
+
+py_venv_exec_test(
+    name = "test_pyc_select_source",
+    main = "entry_a.py",
+    pyc = select({"//conditions:default": "source"}),
+    venv = ":shared_venv",
+)
+
+pyc_runfiles_test(
+    name = "test_pyc_select_source_runfiles",
+    mode = "source",
+    target_under_test = ":test_pyc_select_source",
 )
 
 # Same main, different consumer-level `env`: each sets MODE to its own

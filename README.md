@@ -164,6 +164,39 @@ py_test(
 )
 ```
 
+### First-party bytecode
+
+`py_binary` and `py_test` accept `pyc = "source" | "pyc" | "pyc_only"`
+(a `select()` value is also accepted). The default is `source`, and may be
+changed for inheriting targets with
+`--@aspect_rules_py//py:pyc=source|pyc|pyc_only`. A `select()`-valued
+`pyc` analyzes the bytecode compile actions in every branch — including
+`"source"` branches, where they simply never execute.
+
+- `source` packages first-party `.py` sources.
+- `pyc` packages sources and PEP 3147 `__pycache__` bytecode.
+- `pyc_only` packages colocated first-party `.pyc` files without their source.
+  Tracebacks then carry no source lines, and every first-party source must be
+  directly owned by a rules_py `py_*` target.
+
+Bytecode is compiled by an exec-platform interpreter of the exact target
+Python version when one is provisioned (the default with the rules_py
+interpreter hub), so cross-platform builds work out of the box. With
+toolchains not provisioned by rules_py (e.g. rules_python runtimes) the
+target interpreter itself must be runnable on the build host, unless the
+toolchain supplies a custom `pyc_compile_tool`.
+
+`bazel coverage` always runs `pyc_only` targets from sources so coverage.py
+can instrument them.
+
+`py_unittest_test` supports `pyc_only`; `py_pytest_test` does not — pytest
+collects `.py` source files and cannot run sourceless bytecode.
+
+`py_image_layer` accepts the same `pyc` attribute; unset, it inherits the
+`--@aspect_rules_py//py:pyc` flag. Binaries with an unset `pyc` attribute
+follow the image's mode automatically; a binary whose explicit `pyc`
+attribute disagrees with the image fails analysis.
+
 ## Dependency Resolution with `uv`
 
 `aspect_rules_py//uv` is our alternative to `rules_python`'s `pip.parse`:

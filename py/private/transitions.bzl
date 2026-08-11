@@ -2,6 +2,7 @@
 
 DEP_GROUP_FLAG = "@aspect_rules_py//uv/private/constraints/dep_group:dep_group"
 _DEP_GROUP_BASELINE_FLAG = "@aspect_rules_py//uv/private/constraints/dep_group:baseline"
+PYC_FLAG = "@aspect_rules_py//py:pyc"
 
 # Our own python_version flag, replacing the rules_python one.
 PYTHON_VERSION_FLAG = "@aspect_rules_py//py/private/interpreter:python_version"
@@ -42,6 +43,11 @@ def _python_transition_impl(settings, attr):
     acc[PYTHON_VERSION_FLAG] = version
     acc[_RPY_VERSION_FLAG] = version
 
+    # `pyc` selects the launcher-to-venv edge in the macro. Nothing below
+    # that edge reads it, so clearing it here lets source, pyc, and pyc_only
+    # consumers share one configured venv and its compile actions.
+    acc[PYC_FLAG] = "source"
+
     # Set the dep_group transition. The attr is only present on `py_venv`
     # (rules without it propagate the inherited setting; `py_venv_exec`
     # is config-agnostic — its runfiles inherit the venv's wheels at
@@ -77,6 +83,7 @@ python_transition = transition(
         _RPY_VERSION_BASELINE_FLAG,
         DEP_GROUP_FLAG,
         _DEP_GROUP_BASELINE_FLAG,
+        PYC_FLAG,
     ],
 )
 
@@ -124,4 +131,13 @@ reset_python_flags_transition = transition(
         DEP_GROUP_FLAG,
         _DEP_GROUP_BASELINE_FLAG,
     ],
+)
+
+def _reset_pyc_transition_impl(settings, _attr):
+    return {PYC_FLAG: "source"}
+
+reset_pyc_transition = transition(
+    implementation = _reset_pyc_transition_impl,
+    inputs = [],
+    outputs = [PYC_FLAG],
 )

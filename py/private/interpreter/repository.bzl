@@ -478,10 +478,13 @@ toolchain(
         ))
 
         if info["register_exec_tools"]:
+            # Also gated on the freethreaded flag so bytecode compilation can
+            # find an ABI-matching exec interpreter; consumers that only need
+            # *a* runnable interpreter are caught by the ungated zz_ fallback.
             content.append("""toolchain(
     name = "{name}_exec_tools",
     exec_compatible_with = {exec_compatible_with},
-    target_settings = ["{version_setting}"],
+    target_settings = ["{version_setting}", "{freethreaded_setting}"],
     toolchain = "@{repo}//:runtime",
     toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
@@ -490,6 +493,7 @@ toolchain(
                 repo = info["repo"],
                 exec_compatible_with = exec_compatible_with,
                 version_setting = version_setting,
+                freethreaded_setting = freethreaded_setting,
             ))
 
             # Track the platform's highest provisioned version for the

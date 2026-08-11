@@ -104,6 +104,7 @@ def _assemble_venv_target(ctx):
         info = VirtualenvInfo(
             bin_python = assembled.bin_python,
             imports = imports_depset,
+            runtime_runfiles = runfiles,
             transitive_sources = srcs_depset,
             runtime_files = runtime_files,
         ),
@@ -433,6 +434,10 @@ def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = [], im
             visibility = visibility,
         )
 
+    # `py_rule` is the py_venv_exec / py_venv_exec_test macro: it maps the
+    # (venv, pyc) pair — literal or select() — onto its internal edge attrs.
+    pyc = kwargs.pop("pyc", "")
+
     py_rule(
         name = name,
         main = main,
@@ -446,8 +451,9 @@ def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = [], im
         tags = tags,
         testonly = testonly,
         visibility = visibility,
-        venv = ":" + venv_label,
         isolated = isolated,
+        venv = ":" + venv_label,
+        pyc = pyc,
         **kwargs
     )
 
@@ -481,5 +487,8 @@ def py_venv_link(name, venv, link_name = None, **kwargs):
         args = [] + (["--name=" + link_name] if link_name else []),
         venv = venv,
         isolated = False,
+        # The link tool runs rules_py's own script; a flag-inherited bytecode
+        # mode would try (and under pyc_only fail) to compile it.
+        pyc = "source",
         **kwargs
     )
