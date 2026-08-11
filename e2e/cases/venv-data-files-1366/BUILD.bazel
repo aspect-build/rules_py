@@ -30,6 +30,7 @@ py_test(
 # share `share/jupyter/`, so the venv descends through it and binds each wheel's
 # subtree as one symlink instead of one per installed file.
 extract_venv_data_tree(
-    name = "test.venv.data",
+    name = "test_venv_data_snapshot",
+    out = "test.venv.data",
     venv = ":test.venv",
 )

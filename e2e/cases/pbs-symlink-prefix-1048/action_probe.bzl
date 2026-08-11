@@ -39,12 +39,12 @@ def pbs_action_probe(name, python_version):
         ],
     )
 
-def pbs_pyvenv_cfg_snapshot(name, venv):
+def pbs_pyvenv_cfg_snapshot(name, out, venv):
     """Copy a PBS-backed py_venv's generated pyvenv.cfg from its runfiles."""
     native.genrule(
         name = name,
         testonly = True,
-        outs = [name],
+        outs = [out],
         cmd = """
             launcher=$(execpath {venv})
             runfiles="$$launcher".runfiles

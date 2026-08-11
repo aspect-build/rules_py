@@ -1,6 +1,6 @@
 """Snapshot helpers: extract venv artifacts from a `py_venv` launcher."""
 
-def extract_venv_data_tree(name, venv):
+def extract_venv_data_tree(name, out, venv):
     """Snapshot the shape of a venv's PEP 427 prefix data projection.
 
     Emits one line per entry outside the venv-owned roots: `path/` for a real
@@ -19,7 +19,7 @@ def extract_venv_data_tree(name, venv):
     native.genrule(
         name = name,
         testonly = True,
-        outs = [name],
+        outs = [out],
         # Only the prologue is `.format`ed: the loop below contains shell `${}`
         # expansions, which `.format` would read as replacement fields.
         cmd = """
@@ -49,20 +49,21 @@ def extract_venv_data_tree(name, venv):
         visibility = ["//:__pkg__"],
     )
 
-def extract_venv_pth(name, venv):
+def extract_venv_pth(name, out, venv):
     """Copy the site-packages `.pth` out of a `py_venv` launcher's runfiles tree.
 
     The launcher binary is exposed via DefaultInfo; the venv tree (where the
     .pth lives) is only reachable through the launcher's runfiles. Using
     `tools = [venv]` makes Bazel materialise that runfiles tree in the sandbox.
 
-    `name` doubles as the output filename — pick something that reads naturally
-    as the snapshot source (e.g. `test_tool.venv.pth`).
+    Keep `name` distinct from `out`: Bazel warns when a rule and its generated
+    file share a target name. `out` should be the snapshot filename (for
+    example, `test_tool.venv.pth`).
     """
     native.genrule(
         name = name,
         testonly = True,
-        outs = [name],
+        outs = [out],
         cmd = """
             launcher=$(execpath {venv})
             runfiles="$$launcher".runfiles
