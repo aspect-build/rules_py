@@ -79,7 +79,7 @@ to swap a locked requirement (`cowsay`) for a local one.
 bazel_dep(name = "aspect_rules_py", version = "1.6.7") # Or later
 
 uv_bin = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv_bin")
-uv_bin.toolchain(version = "0.11.6")
+uv_bin.toolchain(version = "0.11.21")
 use_repo(uv_bin, "uv")
 
 uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")

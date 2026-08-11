@@ -15,8 +15,8 @@ check() {
     echo "PASS: @${hub} — ${out}"
 }
 
-check uv             "uv 0.11.6"
+check uv             "uv 0.11.21"
 check uv_legacy      "uv 0.10.12"
 check uv_custom      "uv 0.11.5"
-check uv_mirror      "uv 0.11.6"
+check uv_mirror      "uv 0.11.21"
 check uv_bazel_fork  "d9e73e850"
