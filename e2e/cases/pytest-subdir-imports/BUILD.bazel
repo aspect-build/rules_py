@@ -16,17 +16,29 @@ py_pytest_test(
     ],
 )
 
-# Regression for #479 / #368: `namespace_pkg/` has no `__init__.py`, so without
-# consider_namespace_packages pytest names this module `sub.module_name_test`
-# and binds `sub` as a top-level module -- shadowing any installed distribution
-# of that name for the code under test.
+# Regression and worked example for #479 / #368.
+#
+# `namespace_pkg/` has no `__init__.py`, which is the shape of an ordinary Bazel
+# package. pytest names a test module by walking up only through directories that
+# have one, so it stops there and imports this file as `sub.module_name_test` --
+# binding `sub` as a top-level module. A package whose directory name matches an
+# installed distribution then shadows that distribution for the code under test,
+# and `from <dist> import ...` fails under Bazel while the same code is correct
+# under pip.
+#
+# No new rule attribute is needed: `consider_namespace_packages` (pytest 8.1+)
+# makes pytest name the module by its full path, and `env` reaches it through
+# PYTEST_ADDOPTS. `pytest_args` would work too, at the cost of a private per-test
+# entrypoint. Directory names must be valid Python identifiers for this -- a test
+# under `my-pkg/` becomes `my-pkg.foo_test`, which collection tolerates but
+# `pkgutil.resolve_name` (and so pytest-mock's `mocker.patch`) rejects.
 py_pytest_test(
     name = "test_namespace_package_module_naming",
     srcs = [
         "namespace_pkg/sub/__init__.py",
         "namespace_pkg/sub/module_name_test.py",
     ],
-    consider_namespace_packages = True,
     dep_group = "pytest-subdir-imports",
+    env = {"PYTEST_ADDOPTS": "-o consider_namespace_packages=true"},
     deps = ["@pypi_pytest_subdir_imports//pytest"],
 )
