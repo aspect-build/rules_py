@@ -42,3 +42,20 @@ py_pytest_test(
     env = {"PYTEST_ADDOPTS": "-o consider_namespace_packages=true"},
     deps = ["@pypi_pytest_subdir_imports//pytest"],
 )
+
+# Same case through `pytest_args` instead of `env`, proving both routes reach
+# pytest. This one bakes a private per-test entrypoint via py_pytest_main, where
+# the `env` target above stays on the shared prebuilt main.
+py_pytest_test(
+    name = "test_namespace_package_module_naming_via_args",
+    srcs = [
+        "namespace_pkg/sub/__init__.py",
+        "namespace_pkg/sub/module_name_test.py",
+    ],
+    dep_group = "pytest-subdir-imports",
+    pytest_args = [
+        "-o",
+        "consider_namespace_packages=true",
+    ],
+    deps = ["@pypi_pytest_subdir_imports//pytest"],
+)
