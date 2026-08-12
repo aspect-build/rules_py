@@ -402,6 +402,10 @@ touch $@
         binary = ":_scalar_strip_collision",
         layer_tier = ":_scalar_strip_collision_tier",
     )
+    py_image_layer(
+        name = "_scalar_data_layers",
+        binary = ":_scalar_strip_collision",
+    )
 
     py_layer_tier(
         name = "_scalar_default_tier",
