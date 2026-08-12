@@ -315,12 +315,9 @@ def install_wheel(
             )
         for info in zf.infolist():
             member = info.filename
-            member_path = _relative_path(
-                member[:-1] if member.endswith("/") else member,
-                "wheel member path",
-            )
             if member.endswith("/"):
                 continue
+            member_path = _relative_path(member, "wheel member path")
 
             is_script = False
             if member.startswith(data_prefix):
