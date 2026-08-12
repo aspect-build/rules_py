@@ -1,0 +1,140 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@tar.bzl//tar:mtree.bzl", "mtree_mutate", "mtree_spec")
+load("@tar.bzl//tar:tar.bzl", "tar_rule")
+load("//py:defs.bzl", "py_test")
+load("//uv/private/pep517_whl:rule.bzl", "pep517_native_whl")
+
+# The executable cc_deps regression lives in its own package: each successful
+# pep517_native_whl target declares a `whl` output directory, so it cannot share
+# a package with the analysis-only fixtures in the parent cc_deps package (they
+# own one already). Unlike those fixtures, these libraries are really compiled
+# and linked into a wheel that is imported and called through.
+
+# A two-level chain: dep -> dep2. dep_value(x) returns dep2_value() plus
+# extra_value(x) (compiled by the sdist's own build_clib into libextra.a), and
+# mod.c adds MOD_BONUS. The sdist also builds libgroup_a.a / libgroup_b.a with a
+# deliberate one-pass archive cycle; the -lgroup_a, -lgroup_b, -lgroup_a stream
+# below (the documented repeat-the-library workaround for cycles) is required to
+# resolve it, and proves -l order is preserved through the libraries slot.
+cc_library(
+    name = "dep2",
+    testonly = True,
+    srcs = ["dep2.c"],
+    hdrs = ["dep2.h"],
+    includes = ["."],
+)
+
+cc_library(
+    name = "dep",
+    testonly = True,
+    srcs = ["dep.c"],
+    hdrs = ["dep.h"],
+    # defines propagate transitively to the backend's compile of mod.c through
+    # cc_deps' CPPFLAGS routing (the -D path). The libraries resolve against
+    # archives the sdist's build_clib compiles hermetically in-build; setup.py
+    # suppresses distutils' automatic linking, so this exact linkopts stream is
+    # solely responsible for naming them. libgroup_a.a and libgroup_b.a form a
+    # cycle: group_a_entry.o -> group_b.o -> group_a_tail.o, so under single-pass
+    # GNU ld the linker must rescan libgroup_a.a after libgroup_b.a. Order-
+    # sensitive --start-group/--end-group cannot survive cc_deps' two-slot
+    # flattening (rejected at analysis), so the cycle is resolved with the
+    # documented workaround instead: repeat -lgroup_a after -lgroup_b. This also
+    # proves -l order is preserved through the [build_ext] libraries slot.
+    defines = ["MOD_BONUS=2"],
+    includes = ["."],
+    linkopts = [
+        "-lextra",
+        "-lgroup_a",
+        "-lgroup_b",
+        "-lgroup_a",
+    ],
+    deps = [":dep2"],
+)
+
+# A real setuptools sdist. dep.h is intentionally NOT part of the sources: the
+# extension resolves it only through the cc_deps include path, proving the
+# header injection rather than an accidental in-tree copy.
+_SDIST_SRCS = glob(
+    ["sdist/**"],
+    exclude = [
+        "sdist/**/__pycache__/**",
+        "sdist/**/*.pyc",
+    ],
+)
+
+mtree_spec(
+    name = "sdist_mtree_raw",
+    testonly = True,
+    srcs = _SDIST_SRCS,
+    include_runfiles = False,
+)
+
+mtree_mutate(
+    name = "sdist_mtree",
+    testonly = True,
+    mtree = ":sdist_mtree_raw",
+    strip_prefix = package_name(),
+)
+
+tar_rule(
+    name = "sdist",
+    testonly = True,
+    srcs = _SDIST_SRCS,
+    mtree = ":sdist_mtree",
+)
+
+# Build the wheel with the setuptools-equipped helper (the production
+# __build_helper ships only @pypi//build; a real setuptools.build_meta backend
+# under --no-isolation needs setuptools importable).
+pep517_native_whl(
+    name = "whl",
+    testonly = True,
+    src = ":sdist",
+    cc_deps = [":dep"],
+    tags = ["manual"],
+    tool = "//uv/private/pep517_whl:__build_helper_setuptools",
+    version = "0.0.1",
+)
+
+py_test(
+    name = "import_test",
+    srcs = ["import_test.py"],
+    data = [":whl"],
+    main = "import_test.py",
+    # The wheel's extension .so is ABI-tagged for the build interpreter; both the
+    # build and this test resolve the same rules_py Python toolchain. Static
+    # archives are linked into a shared object, so gate on Linux like the geohash
+    # native-import regression.
+    target_compatible_with = ["@platforms//os:linux"],
+    deps = ["@pypi//bazel_runfiles"],
+)
+
+# build_helper.py prefers stdlib tomllib and only falls back to tomli below
+# Python 3.11; the tomli dep is dead on a >=3.11 toolchain and lives only for the
+# cp39 rules_py default toolchain these helper subprocesses run under.
+_HELPER_SUBPROCESS_DEPS = [
+    "@pypi//bazel_runfiles",
+    "@pypi//tomli",
+]
+
+# Negative: build_helper.py must reject cc_deps against a non-setuptools backend
+# rather than silently drop the inputs. Runs the helper as a subprocess; the
+# sdist tar and cc-deps params file are synthesized in the test.
+py_test(
+    name = "backend_gate_test",
+    srcs = ["backend_gate_test.py"],
+    data = ["//uv/private/pep517_whl:build_helper.py"],
+    main = "backend_gate_test.py",
+    deps = _HELPER_SUBPROCESS_DEPS,
+)
+
+# The rest of the runtime gate matrix + the setup.cfg [build_ext] REPLACE-merge,
+# all driven by running build_helper.py as a subprocess against synthetic sdists
+# (same technique as backend_gate_test). No compiler needed, so ungated.
+py_test(
+    name = "gates_test",
+    srcs = ["gates_test.py"],
+    data = ["//uv/private/pep517_whl:build_helper.py"],
+    main = "gates_test.py",
+    deps = _HELPER_SUBPROCESS_DEPS,
+)

@@ -1,0 +1,25 @@
+# Snapshot regression for `uv.override_package(cc_deps = [...])`.
+#
+# Reuses python-geohash's locked sdist (already fetched by the
+# uv-sdist-native-build case) under a distinct project name/hub so the
+# generated sdist_build repo is independent. The override attaches `:probe`
+# via `cc_deps`; the snapshot in //:snapshots pins that the label threads
+# onto the generated pep517_native_whl(...) `cc_deps` list.
+#
+# Snapshot-only: the wheel is not built here. The executable cc_deps
+# regression (real setuptools extension linking a cc_library) lives in-repo
+# at //uv/private/pep517_whl/tests/cc_deps.
+
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+cc_library(
+    name = "probe",
+    srcs = ["probe.cc"],
+    hdrs = ["probe.h"],
+    includes = ["."],
+    # The generated @sdist_build__uv_sdist_cc_deps__python_geohash__0_8_5
+    # repo references this label from its pep517_native_whl(cc_deps = [...])
+    # call, so it must be visible outside this package. Public matches how
+    # sibling cases expose files to generated repos (exports_files default).
+    visibility = ["//visibility:public"],
+)

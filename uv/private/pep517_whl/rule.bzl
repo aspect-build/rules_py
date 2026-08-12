@@ -8,6 +8,7 @@ build backend the sdist declares in its `[build-system]` table.
 load("@bazel_lib//lib:resource_sets.bzl", "resource_set", "resource_set_attr")
 load("@rules_cc//cc:action_names.bzl", "ACTION_NAMES")
 load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
+load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 load("//py/private/toolchain:types.bzl", "NATIVE_BUILD_TOOLCHAIN", "PY_TOOLCHAIN")
 load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
 
@@ -156,6 +157,264 @@ def _cc_toolchain_inputs_and_tools(ctx):
     infer_cxx = infer_cxx or tools.get("CXX") == tools.get("CC")
     return files, {key: value for key, value in tools.items() if value}, infer_cxx
 
+def _library_display_name(lib):
+    for artifact in (lib.static_library, lib.pic_static_library, lib.dynamic_library, lib.interface_library):
+        if artifact:
+            return artifact.basename
+    return "<unknown>"
+
+# cc_deps flattens a dependency's link inputs into setuptools' two slots: static
+# archives and `-l<name>` entries go to the post-object [build_ext] slots, and
+# every other link flag rides along in pre-object LDFLAGS. That split cannot
+# preserve the relative order between an -l entry and a neighboring flag, so only
+# flags whose effect does not depend on that order are safe to pass through.
+#
+# This is an allowlist of flag SHAPES, not a denylist of known-bad flags. A
+# denylist against the open set of linker flags fails open: any order-sensitive
+# flag we did not think to enumerate would be reordered silently into a stream
+# that no longer links what the user wrote. The denylist this replaced had to
+# grow twice under review for exactly that reason. An allowlist fails closed: an
+# unrecognized flag is rejected at analysis, and the set can be widened later
+# without breaking anyone, whereas a denylist can never be tightened.
+#
+# Each entry is (kind, token):
+#   "exact"      the whole flag must equal token (e.g. -pthread)
+#   "prefix"     the flag must start with token and carry a glued argument
+#                (e.g. -Ldir)
+#   "wl_arg"     a -Wl, directive that takes an argument, either as the next
+#                comma segment (-Wl,-rpath,<path>) or glued with =
+#                (-Wl,-rpath=<path>)
+#   "wl_keyword" a -Wl, directive whose argument (next comma segment) must be
+#                one of the reviewed keywords in ALLOWED_Z_KEYWORDS
+#                (-Wl,-z,relro)
+#   "wl_exact"   a -Wl, directive that stands alone (-Wl,--enable-new-dtags)
+#
+# -Wl, hands the linker a comma-joined list of directives, so a token whose
+# leading directive is allowed could otherwise smuggle an order-sensitive
+# directive behind it (-Wl,-rpath,/x,--as-needed). -Wl, tokens are therefore
+# walked directive by directive and every directive must be allowed, which also
+# keeps benign compounds like -Wl,-z,relro,-z,now working.
+#
+# -framework is deliberately absent: ld64 resolves frameworks in command-line
+# order alongside -l entries (a framework is a library input, not a flag), so
+# neither setuptools slot can hold one without reordering library resolution.
+#
+# Exported so the cc_deps test package pins it against a golden copy; a shape
+# dropped here would otherwise drop its acceptance coverage silently.
+ALLOWED_LINK_FLAG_SHAPES = (
+    ("exact", "-pthread"),
+    ("prefix", "-L"),
+    ("wl_arg", "-rpath"),
+    ("wl_arg", "-rpath-link"),
+    ("wl_arg", "--version-script"),
+    ("wl_keyword", "-z"),
+    # --enable-new-dtags selects the global ELF dtags mode (DT_RUNPATH over
+    # DT_RPATH); it is position-insensitive and commonly comma-joined after an
+    # $ORIGIN rpath.
+    ("wl_exact", "--enable-new-dtags"),
+)
+
+# Accepted -z keywords, each a global link mode. The -z namespace is open and
+# contains position-sensitive keywords on some linkers (Solaris -z allextract
+# toggles whole-archive extraction for the archives that follow it), so
+# accepting the whole class would reintroduce the fail-open shape this
+# allowlist exists to close. Keywords are reviewed individually; the set can
+# be extended upstream on request. Golden-pinned by the cc_deps test package
+# alongside the shapes.
+ALLOWED_Z_KEYWORDS = (
+    "relro",
+    "now",
+    "noexecstack",
+    "origin",
+)
+
+_WL_ARG_DIRECTIVES = {token: True for kind, token in ALLOWED_LINK_FLAG_SHAPES if kind == "wl_arg"}
+_WL_KEYWORD_DIRECTIVES = {token: True for kind, token in ALLOWED_LINK_FLAG_SHAPES if kind == "wl_keyword"}
+_WL_EXACT_DIRECTIVES = {token: True for kind, token in ALLOWED_LINK_FLAG_SHAPES if kind == "wl_exact"}
+_ALLOWED_Z_KEYWORDS = {keyword: True for keyword in ALLOWED_Z_KEYWORDS}
+
+def _link_flag_allowed(flag):
+    """Whether a bare (non-`-l`, non-`-Wl,`) flag matches an allowed shape."""
+    for kind, token in ALLOWED_LINK_FLAG_SHAPES:
+        if kind == "exact" and flag == token:
+            return True
+        if kind == "prefix" and flag.startswith(token) and len(flag) > len(token):
+            return True
+    return False
+
+def _check_wl_link_flag(owner, flag):
+    """Validate every directive in a comma-joined `-Wl,` token, or fail.
+
+    Walks the comma segments as directive/argument pairs: an allowed argument
+    directive consumes the next segment (or embeds its argument after `=`), a
+    keyword directive consumes the next segment and checks it against the
+    reviewed keyword set, and every directive in the token must be allowed.
+    Validating only the leading directive would let it smuggle an
+    order-sensitive directive behind it.
+    """
+    segments = flag.split(",")[1:]
+    expect_arg = False
+    keyword_directive = None
+    last_directive = None
+    for segment in segments:
+        if expect_arg:
+            expect_arg = False
+            if keyword_directive != None and segment not in _ALLOWED_Z_KEYWORDS:
+                _reject_link_flag(owner, flag, "{} {}".format(keyword_directive, segment))
+            keyword_directive = None
+            continue
+        last_directive = segment
+        if segment in _WL_EXACT_DIRECTIVES:
+            continue
+        if segment in _WL_KEYWORD_DIRECTIVES:
+            expect_arg = True
+            keyword_directive = segment
+            continue
+        if segment in _WL_ARG_DIRECTIVES:
+            expect_arg = True
+            continue
+        eq = segment.find("=")
+        if eq > 0 and eq < len(segment) - 1 and segment[:eq] in _WL_ARG_DIRECTIVES:
+            continue
+        _reject_link_flag(owner, flag, segment)
+    if expect_arg:
+        # A trailing argument directive with nothing to consume is malformed.
+        _reject_link_flag(owner, flag, last_directive)
+
+def _reject_link_flag(owner, flag, directive = None):
+    if directive == None:
+        offense = "passes the link flag {}, which is not one of the link-flag shapes cc_deps accepts".format(flag)
+    else:
+        offense = "passes the link flag {}; its directive {} is not one of the link-flag shapes cc_deps accepts".format(flag, directive)
+    fail(("cc_deps dependency {} {}. cc_deps splits a dependency's link " +
+          "inputs into pre-object LDFLAGS and the post-object [build_ext] libraries " +
+          "slot, so only position-insensitive flags can ride along. For an archive " +
+          "cycle, repeat the library name instead (e.g. -la -lb -la); order among " +
+          "-l entries is preserved. For a global toggle such as --as-needed, set it " +
+          "in the override's env LDFLAGS. For anything else, apply it with " +
+          "pre_build_patches on the sdist. The accepted shapes can be extended " +
+          "upstream on request.").format(owner, offense))
+
+def _anchor_declared_paths(flag, declared_paths):
+    """Marker-anchor any declared additional_input path appearing in `flag`.
+
+    Substitution goes through per-path placeholders, longest path first, so a
+    declared path that contains another declared path is never anchored twice.
+    """
+    for index, path in enumerate(declared_paths):
+        flag = flag.replace(path, "\v{}\v".format(index))
+    for index, path in enumerate(declared_paths):
+        flag = flag.replace("\v{}\v".format(index), "{}/{}".format(_EXECROOT_MARKER, path))
+    return flag
+
+def _cc_deps_args_and_inputs(ctx):
+    """Flatten `cc_deps` CcInfo into a compile/link params file for the backend.
+
+    Returns `(args, direct_inputs, transitive_inputs)`. When `cc_deps` is empty
+    all three are empty, so the action stays byte-identical to the no-cc_deps
+    path. Every emitted path is prefixed with `_EXECROOT_MARKER`: only
+    execroot-relative paths exist at analysis time, and build_helper substitutes
+    the real execroot before the backend changes into the unpacked source tree.
+    Slot information (post-object archives vs `-l` libraries vs order-insensitive
+    flags) is kept distinct in the JSON schema because flattening it into `env`
+    would lose it.
+    """
+    if not ctx.attr.cc_deps:
+        return [], [], []
+
+    cc_info = cc_common.merge_cc_infos(
+        cc_infos = [dep[CcInfo] for dep in ctx.attr.cc_deps],
+    )
+    compilation_context = cc_info.compilation_context
+
+    compile_flags = []
+    for include in compilation_context.includes.to_list():
+        compile_flags.append("-I{}/{}".format(_EXECROOT_MARKER, include))
+    for include in compilation_context.quote_includes.to_list():
+        compile_flags.append("-iquote{}/{}".format(_EXECROOT_MARKER, include))
+    for include in compilation_context.system_includes.to_list():
+        compile_flags.append("-isystem{}/{}".format(_EXECROOT_MARKER, include))
+
+    # external_includes carries `-isystem` semantics; older Bazel lacks the field.
+    external_includes = getattr(compilation_context, "external_includes", None)
+    if external_includes:
+        for include in external_includes.to_list():
+            compile_flags.append("-isystem{}/{}".format(_EXECROOT_MARKER, include))
+
+    # framework_includes carries Apple `-F` search paths; older Bazel lacks the field.
+    framework_includes = getattr(compilation_context, "framework_includes", None)
+    if framework_includes:
+        for framework in framework_includes.to_list():
+            compile_flags.append("-F{}/{}".format(_EXECROOT_MARKER, framework))
+    for define in compilation_context.defines.to_list():
+        compile_flags.append("-D{}".format(define))
+
+    link_objects = []
+    link_libraries = []
+    link_flags = []
+    archives = []
+    additional_inputs = []
+    for linker_input in cc_info.linking_context.linker_inputs.to_list():
+        for lib in linker_input.libraries:
+            if lib.alwayslink:
+                fail(("cc_deps dependency {} contains alwayslink library {}; " +
+                      "whole-archive linking is not supported.").format(
+                    linker_input.owner,
+                    _library_display_name(lib),
+                ))
+            archive = lib.pic_static_library or lib.static_library
+            if not archive:
+                fail(("cc_deps dependency {} provides no static archive (only a " +
+                      "shared/dynamic library); the PEP 517 native build links " +
+                      "static archives only. Provide a static or PIC-static " +
+                      "library.").format(linker_input.owner))
+            link_objects.append("{}/{}".format(_EXECROOT_MARKER, archive.path))
+            archives.append(archive)
+
+        # `-l<name>` from the dep's own linkopts routes to setuptools' libraries
+        # slot; every other link flag must match an allowed shape (see
+        # ALLOWED_LINK_FLAG_SHAPES) or the build is rejected at analysis. Paths of
+        # files this linker_input declares via additional_inputs (e.g.
+        # `-Wl,--version-script,$(location ...)`) are marker-anchored so they
+        # survive the backend chdir.
+        declared_paths = sorted(
+            [f.path for f in linker_input.additional_inputs],
+            key = len,
+            reverse = True,
+        )
+        for flag in linker_input.user_link_flags:
+            # The name carries no declared path, so -l routing precedes anchoring.
+            if flag.startswith("-l") and len(flag) > 2:
+                link_libraries.append(flag[len("-l"):])
+                continue
+
+            # -Wl, tokens are validated per directive so an allowed leading
+            # directive cannot smuggle an order-sensitive one behind it.
+            if flag.startswith("-Wl,"):
+                _check_wl_link_flag(linker_input.owner, flag)
+            elif not _link_flag_allowed(flag):
+                _reject_link_flag(linker_input.owner, flag)
+
+            link_flags.append(_anchor_declared_paths(flag, declared_paths))
+        additional_inputs.extend(linker_input.additional_inputs)
+
+    params = ctx.actions.declare_file("cc_deps_info.json")
+    ctx.actions.write(
+        output = params,
+        content = json.encode({
+            "compile_flags": compile_flags,
+            "link_objects": link_objects,
+            "link_libraries": link_libraries,
+            "link_flags": link_flags,
+        }),
+    )
+
+    return (
+        ["--cc-deps-info", params.path],
+        [params] + additional_inputs,
+        [compilation_context.headers, depset(archives)],
+    )
+
 def _pep517_whl(ctx):
     archive = ctx.file.src
     wheel_dir = ctx.actions.declare_directory("whl")
@@ -213,20 +472,22 @@ def _pep517_native_whl(ctx):
     if "CXX" not in ctx.attr.env and cc_tools.get("CXX") and infer_cxx:
         env[_INFER_CXX_COMPANION] = "1"
 
+    cc_deps_args, cc_deps_direct, cc_deps_transitive = _cc_deps_args_and_inputs(ctx)
+
     ctx.actions.run(
         mnemonic = "PySdistNativeBuild",
         progress_message = "Native source compiling {} to a whl".format(archive.basename),
         executable = ctx.executable.tool,
         toolchain = None,
-        arguments = ctx.attr.args + patch_args + _memory_args(ctx) + [
+        arguments = ctx.attr.args + patch_args + _memory_args(ctx) + cc_deps_args + [
             "--execroot-marker",
             _EXECROOT_MARKER,
             archive.path,
             wheel_dir.path,
         ],
         inputs = depset(
-            [archive] + patch_inputs,
-            transitive = extra_inputs,
+            [archive] + patch_inputs + cc_deps_direct,
+            transitive = extra_inputs + cc_deps_transitive,
         ),
         tools = [ctx.attr.tool[DefaultInfo].files_to_run],
         outputs = [wheel_dir],
@@ -305,6 +566,25 @@ constraints of the target platform.
 """,
     attrs = _pep517_whl_attrs | {
         "args": attr.string_list(),
+        "cc_deps": attr.label_list(
+            providers = [[CcInfo]],
+            doc = "C++ libraries whose headers and static archives are made " +
+                  "available to the build backend. Each target's `CcInfo` " +
+                  "compilation context (include paths and defines) and linking " +
+                  "context (static archives and link flags) are flattened into a " +
+                  "params file consumed by the backend; execroot-relative paths " +
+                  "are anchored with an internal execroot marker so they survive " +
+                  "the backend changing into the unpacked source tree. Link flags " +
+                  "referencing files a dependency declares via " +
+                  "`additional_linker_inputs` are anchored the same way; a " +
+                  "relative path not declared there passes through verbatim and " +
+                  "will not resolve after the backend changes directory. Composes " +
+                  "additively with `env`. Only static (or PIC-static) archives " +
+                  "are supported; shared/dynamic and alwayslink libraries fail at " +
+                  "analysis time. Only the setuptools build backend is supported; " +
+                  "an sdist declaring any other build-backend is rejected when the " +
+                  "wheel is built.",
+        ),
         "env": attr.string_dict(
             doc = "Environment variables to set on the build action. Values may " +
                   "contain `$(VAR)` references to the configured C++ action tools " +
