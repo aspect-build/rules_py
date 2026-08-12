@@ -9,6 +9,39 @@
 #     `pytest_args`/`chdir` are requested,
 #   * pytest-dependency validation.
 
+"""Pytest-driving test macro and the driver wiring it shares with py_test.
+
+## Test module naming under Bazel packages
+
+pytest names a test module by walking up from the file while each directory has
+an `__init__.py`. Bazel packages routinely have none, so the walk stops early and
+the module is imported -- and registered in `sys.modules` -- under a truncated
+name: a test in `mypkg/azure/` becomes `azure.foo_test`, binding
+`sys.modules["azure"]` to the first-party package.
+
+When a package directory shares its name with an installed distribution, that
+distribution is then shadowed for the code under test, and `from azure.storage
+import ...` raises `ModuleNotFoundError` under Bazel while the same code is
+correct under pip. The symptom points nowhere near module naming, so it is worth
+knowing before you meet it.
+
+pytest 8.1's `consider_namespace_packages` makes it name the module by its full
+path instead. Set it per target, either way round:
+
+```starlark
+py_pytest_test(
+    name = "my_test",
+    srcs = ["my_test.py"],
+    env = {"PYTEST_ADDOPTS": "-o consider_namespace_packages=true"},
+)
+```
+
+Directory names have to be valid Python identifiers for this: a test under
+`my-pkg/` becomes `my-pkg.foo_test`, which collection tolerates but
+`pkgutil.resolve_name` -- and so pytest-mock's `mocker.patch` -- rejects. That is
+why it is opt-in per target rather than on by default.
+"""
+
 load("//py/private:py_pytest_main.bzl", "py_pytest_main", "pytest_paths", "wrapped_main_filename")
 load(
     "//py/private/py_venv:defs.bzl",
@@ -94,6 +127,11 @@ def py_pytest_test(
     target, not the whole runfiles tree). Put importable support code in `deps`
     and pytest's `conftest.py` in `data`; to select tests by name pattern, use
     Bazel's `glob()` in the `srcs` list.
+
+    If a package directory here shares its name with a distribution in `deps`,
+    see the module docs above: pytest may name test modules by a truncated path
+    and shadow that distribution for the code under test. `consider_namespace_packages`
+    (pytest 8.1+), via `env` or `pytest_args`, is the fix.
 
     Args:
         name: Name of the rule.
