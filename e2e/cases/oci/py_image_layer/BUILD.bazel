@@ -359,9 +359,15 @@ image_layer_analysis_test_suite()
 # layer root.
 assert_tar_listing(
     name = "scalar_data_layers_snapshot",
-    actual = [":_scalar_data_layers"],
+    actual = [":platform_scalar_data_layers"],
     exclude = ["python_interpreters"],
     expected = "scalar_data_layers_listing.yaml",
+)
+
+platform_transition_filegroup(
+    name = "platform_scalar_data_layers",
+    srcs = [":_scalar_data_layers"],
+    target_platform = ":x86_64_linux",
 )
 
 platform_transition_filegroup(
