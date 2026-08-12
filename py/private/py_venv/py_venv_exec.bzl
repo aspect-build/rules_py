@@ -9,6 +9,7 @@ attrs to the auto-generated sibling.
 load("@bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
 load("@hermetic_launcher//launcher:lib.bzl", "launcher")
 load("//py/private:py_info.bzl", "PyInfo")
+load("//py/private:py_info_interop.bzl", "get_py_info", "has_py_info")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private:transitions.bzl", "reset_python_flags_transition")
 load(":types.bzl", "VirtualenvInfo", "venv_root")
@@ -108,8 +109,16 @@ def _py_venv_exec_impl(ctx):
     )
 
     # Merge runfiles, supporting `py_venv_exec(main)` not being in the `py_venv` runfiles.
+    data_sources = [
+        get_py_info(target).transitive_sources
+        for target in ctx.attr.data
+        if has_py_info(target)
+    ]
     runfiles = ctx.runfiles(
         files = ctx.files.data + [main],
+        transitive_files = depset(
+            transitive = [vinfo.transitive_sources] + data_sources,
+        ),
     ).merge_all(
         [target[DefaultInfo].default_runfiles for target in ctx.attr.data] +
         [venv[DefaultInfo].default_runfiles],
@@ -173,8 +182,9 @@ user-facing attribute — direct settings on the rule are blocked at
 the macro layer in `//py:defs.bzl`.
 
 The binary's launcher exec's the referenced venv's `bin/python`; its
-runfiles inherit the venv's default_runfiles so all wheels and first-
-party sources land at their usual rlocation paths.
+runfiles inherit the venv's default_runfiles for wheels and runtime data,
+and add first-party sources from `VirtualenvInfo.transitive_sources` at
+their usual rlocation paths.
 """,
     ),
     "interpreter_options": attr.string_list(

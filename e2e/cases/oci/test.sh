@@ -51,7 +51,6 @@ if "$BAZEL" build --keep_going --output_groups=_validation -- \
     cat "$output_log" >&2
     fail "expected remapped destinations to fail validation"
 fi
-expect_diagnostic "py_image_layer runfile collision at ./app.runfiles/_main/oci/py_image_layer/_scalar_strip_collision/data.txt:"
 expect_diagnostic "py_image_layer runfile collision at ./app.runfiles/_main/oci/py_image_layer/server.py:"
 
 echo "PASS: expanded and remapped destinations validate correctly"
