@@ -83,13 +83,15 @@ def _assemble_shared(ctx):
         venv_name = ".{}".format(safe_name),
     )
 
-    srcs_depset = _py_library.make_srcs_depset(ctx)
+    srcs_depset = _py_library.make_srcs_depset(
+        ctx,
+        extra_depsets = virtual_resolution.srcs,
+    )
     runfiles = _py_library.make_merged_runfiles(
         ctx,
         extra_depsets = [
             py_toolchain.files,
-            srcs_depset,
-        ] + virtual_resolution.srcs + virtual_resolution.runfiles,
+        ] + virtual_resolution.runfiles,
         extra_runfiles = venv.all_files,
         extra_runfiles_depsets = [
             ctx.attr._runfiles_lib[DefaultInfo].default_runfiles,
@@ -104,13 +106,16 @@ def _assemble_shared(ctx):
         srcs_depset = srcs_depset,
     )
 
-def _common_providers(ctx, shared, executable = None):
+def _common_providers(ctx, shared, executable = None, include_sources = False):
     """Providers emitted by both the executable and lib variants."""
+    runfiles = shared.runfiles
+    if include_sources:
+        runfiles = runfiles.merge(ctx.runfiles(transitive_files = shared.srcs_depset))
     return [
         DefaultInfo(
             files = depset([executable]) if executable != None else None,
             executable = executable,
-            runfiles = shared.runfiles,
+            runfiles = runfiles,
         ),
         # Deliberately no PyInfo: a venv is a terminal artifact, not a source of imports.
         VirtualenvInfo(
@@ -160,7 +165,7 @@ def _py_venv_rule_impl(ctx):
     # overrides with its own absolute value when invoked directly.
     passed_env["VIRTUAL_ENV"] = venv_root(shared.venv.bin_python)
 
-    return _common_providers(ctx, shared, executable = ctx.outputs.executable) + [
+    return _common_providers(ctx, shared, executable = ctx.outputs.executable, include_sources = True) + [
         # Read by the sibling `expose_venv = True` py_binary/py_test;
         # the binary's own `env` wins on key conflicts (py_venv_exec.bzl).
         RunEnvironmentInfo(

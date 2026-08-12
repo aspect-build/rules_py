@@ -1,0 +1,60 @@
+load("//py:defs.bzl", "py_library", "py_test", "py_venv")
+load(":runfiles_test.bzl", "py_library_runfiles_test", "py_venv_runfiles_test")
+
+package(default_testonly = True)
+
+py_library(
+    name = "library",
+    srcs = ["library.py"],
+    data = ["runtime_data.py"],
+    imports = ["."],
+)
+
+py_library_runfiles_test(
+    name = "library_runfiles_test",
+    target_under_test = ":library",
+)
+
+py_venv(
+    name = "public_venv",
+    srcs = ["main.py"],
+    imports = ["."],
+    deps = [":library"],
+)
+
+py_venv_runfiles_test(
+    name = "public_venv_sources_test",
+    expected_sources = [
+        "main.py",
+        "library.py",
+    ],
+    target_under_test = ":public_venv",
+)
+
+py_test(
+    name = "library_runtime_test",
+    srcs = ["main.py"],
+    main = "main.py",
+    deps = [":library"],
+)
+
+py_library(
+    name = "data_helper",
+    srcs = ["data_helper.py"],
+    imports = ["."],
+)
+
+py_library(
+    name = "data_plugin",
+    srcs = ["data_plugin.py"],
+    imports = ["."],
+    deps = [":data_helper"],
+)
+
+py_test(
+    name = "data_python_dependency_runtime_test",
+    srcs = ["data_main.py"],
+    data = [":data_plugin"],
+    imports = ["."],
+    main = "data_main.py",
+)

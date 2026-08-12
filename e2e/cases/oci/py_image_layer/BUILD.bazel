@@ -354,6 +354,22 @@ container_structure_test(
 
 image_layer_analysis_test_suite()
 
+# Snapshot the same binary's ordinary image layer to prove explicitly declared
+# runtime data remains packaged even when the collision fixture uses a custom
+# layer root.
+assert_tar_listing(
+    name = "scalar_data_layers_snapshot",
+    actual = [":platform_scalar_data_layers"],
+    exclude = ["python_interpreters"],
+    expected = "scalar_data_layers_listing.yaml",
+)
+
+platform_transition_filegroup(
+    name = "platform_scalar_data_layers",
+    srcs = [":_scalar_data_layers"],
+    target_platform = ":x86_64_linux",
+)
+
 platform_transition_filegroup(
     name = "platform_layers",
     srcs = [":my_app_layers"],

@@ -21,7 +21,7 @@ def _make_instrumented_files_info(ctx):
         extensions = ["py"],
     )
 
-def _make_srcs_depset(ctx):
+def _make_srcs_depset(ctx, extra_depsets = []):
     # `deps` may carry rules_py's PyInfo or native @rules_python's; both expose
     # `transitive_sources`. See py_info_interop.bzl.
     return depset(
@@ -31,7 +31,7 @@ def _make_srcs_depset(ctx):
             get_py_info(target).transitive_sources
             for target in ctx.attr.deps
             if has_py_info(target)
-        ],
+        ] + extra_depsets,
     )
 
 def _make_virtual_depset(ctx):
@@ -156,7 +156,7 @@ def _py_library_impl(ctx):
     imports = _make_imports_depset(ctx)
     virtuals = _make_virtual_depset(ctx)
     resolutions = _make_virtual_resolutions_depset(ctx)
-    runfiles = _make_merged_runfiles(ctx, extra_runfiles = ctx.files.srcs)
+    runfiles = _make_merged_runfiles(ctx)
     instrumented_files_info = _make_instrumented_files_info(ctx)
     wheels = _make_wheels_depset(ctx)
 

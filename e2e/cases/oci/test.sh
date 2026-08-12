@@ -45,14 +45,14 @@ if ! "$BAZEL" build --output_groups=_validation -- \
 fi
 
 echo "== remapped destinations must fail validation =="
-if "$BAZEL" build --keep_going --output_groups=_validation -- \
-    "${PKG}:_scalar_strip_collision_layers" \
-    "${PKG}:_scalar_root_collision_layers" >"$output_log" 2>&1; then
-    cat "$output_log" >&2
-    fail "expected remapped destinations to fail validation"
-fi
-expect_diagnostic "py_image_layer runfile collision at ./app.runfiles/_main/oci/py_image_layer/_scalar_strip_collision/data.txt:"
-expect_diagnostic "py_image_layer runfile collision at ./app.runfiles/_main/oci/py_image_layer/server.py:"
+for target in _scalar_strip_collision_layers _scalar_root_collision_layers; do
+    if "$BAZEL" build --output_groups=_validation -- \
+        "${PKG}:$target" >"$output_log" 2>&1; then
+        cat "$output_log" >&2
+        fail "expected ${target} to fail validation"
+    fi
+    expect_diagnostic "py_image_layer runfile collision at ./app.runfiles/_main/oci/py_image_layer/server.py:"
+done
 
 echo "PASS: expanded and remapped destinations validate correctly"
 
