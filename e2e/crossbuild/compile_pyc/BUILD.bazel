@@ -1,0 +1,61 @@
+# Regression guard for cross-arch whl_install pyc precompilation.
+#
+# Ported from uv-deps-650/crossbuild's test_crossbuild_pyc.sh, strengthened:
+# building the arm64 binary on an amd64 host runs whl_install's compileall
+# for a non-host wheel, which must use the exec-platform interpreter (the
+# original regression was "Exec format error" from selecting the arm64 one).
+# Two silent-decay modes the original "it builds" check missed are covered:
+#
+#   - the //uv/private/pyc:precompile default flipping to False would drain
+#     this coverage from every other case in the workspace without a failure,
+#     so the platform pins the flag True regardless of the default;
+#   - whl_install skips compileall without failing when exec_matches_target
+#     misdetects (see uv/private/whl_install/rule.bzl), so the assertion is
+#     ".pyc files exist in the install tree", not "the build succeeded".
+#
+# The assertion walks the binary's runfiles rather than an image layer:
+# py_image_layer deliberately drops __pycache__ from layer mtrees (see
+# _should_skip_pkg_path in py/private/py_image_layer.bzl), so layers can
+# never witness this.
+#
+# filelock rides along from the pycross-pure-python hub: anyarch, built from
+# sdist, no CC toolchain — the cheapest wheel in the workspace.
+
+load("@aspect_rules_py//py:defs.bzl", "py_binary")
+load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+platform(
+    name = "arm64_linux_precompile",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:aarch64",
+    ],
+    flags = [
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.39",
+        "--@aspect_rules_py//uv/private/pyc:precompile=True",
+    ],
+)
+
+py_binary(
+    name = "pyc_probe_bin",
+    srcs = ["compile_pyc_main.py"],
+    dep_group = "pycross_pure_python",
+    main = "compile_pyc_main.py",
+    python_version = "3.12",
+    deps = ["@pypi_pycross_pure_python//filelock"],
+)
+
+platform_transition_filegroup(
+    name = "arm64_pyc_probe",
+    srcs = [":pyc_probe_bin"],
+    target_platform = ":arm64_linux_precompile",
+)
+
+sh_test(
+    name = "compile_pyc_arm64_test",
+    srcs = ["test_compile_pyc.sh"],
+    data = [":arm64_pyc_probe"],
+    target_compatible_with = ["@platforms//os:linux"],
+)
