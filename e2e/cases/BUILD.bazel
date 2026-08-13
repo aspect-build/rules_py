@@ -235,5 +235,11 @@ write_source_files(
 
         # Pins post-install exclusions and the retained RECORD-derived topology.
         "snapshots/whl_install.exclusions.cowsay.BUILD.bazel": "@whl_install__exclusions__cowsay__6_0//:BUILD.bazel",
+
+        # Gazelle manifest built by //uv-gazelle-778: multi-venv merge over
+        # the @pypi_uv_deps_650 hub plus include_stub_packages. Pins the full
+        # modules_mapping so generator drift (module additions, stub
+        # synthesis, merge ordering) surfaces as a diff.
+        "snapshots/uv_gazelle_778.gazelle_python.yaml": "//uv-gazelle-778:gazelle_python_manifest",
     },
 )
