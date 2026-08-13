@@ -49,7 +49,7 @@ terminal(
     name = "nested_terminal",
     data = [":probe"],
     dep_group = "nested",
-    python_version = "3.9",
+    python_version = "3.13",
     tags = ["manual"],
 )
 
