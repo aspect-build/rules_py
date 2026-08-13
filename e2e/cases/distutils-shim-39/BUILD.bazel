@@ -1,0 +1,12 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+# Python <3.10 venvs keep the virtualenv distutils shim: pip releases
+# compatible with 3.9 still honor legacy [install] config keys, so the
+# shim must load at startup and strip them. 3.10+ coverage of the
+# inverse (no shim) lives in cross-repo-610.
+py_test(
+    name = "test",
+    srcs = ["test.py"],
+    main = "test.py",
+    python_version = "3.9",
+)
