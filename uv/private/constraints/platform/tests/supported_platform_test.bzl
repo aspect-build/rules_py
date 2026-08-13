@@ -1,5 +1,5 @@
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load(":defs.bzl", "GENERIC_LINUX_ARCHES", "LINUX_ARCHES", "MACOS_ARCHES", "MACOS_ARCH_GROUPS", "WINDOWS_PLATFORMS", "supported_platform")
+load("//uv/private/constraints/platform:defs.bzl", "GENERIC_LINUX_ARCHES", "LINUX_ARCHES", "MACOS_ARCHES", "MACOS_ARCH_GROUPS", "WINDOWS_PLATFORMS", "supported_platform")
 
 # -- supported_platform: accepted tags -----------------------------------------
 

@@ -1,0 +1,5 @@
+load(":supported_platform_test.bzl", "platform_suite")
+
+package(default_testonly = True)
+
+platform_suite()

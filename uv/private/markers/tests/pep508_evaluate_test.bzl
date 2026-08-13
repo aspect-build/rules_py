@@ -1,8 +1,8 @@
 """Tests for pep508_evaluate.bzl."""
 
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load(":defs.bzl", "MARKER_ENV_ALIASES")
-load(":pep508_evaluate.bzl", "evaluate", "tokenize")
+load("//uv/private/markers:defs.bzl", "MARKER_ENV_ALIASES")
+load("//uv/private/markers:pep508_evaluate.bzl", "evaluate", "tokenize")
 
 _LINUX_ENV = {
     "implementation_name": "cpython",

@@ -1,12 +1,9 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
-load(":test.bzl", "py_entrypoint_binary_test_suite")
 
 exports_files([
     "entrypoint.tmpl",
     "search.py",
 ])
-
-py_entrypoint_binary_test_suite()
 
 bzl_library(
     name = "defs",
@@ -15,15 +12,5 @@ bzl_library(
     deps = [
         "//py:defs",
         "@bazel_lib//lib:expand_template",
-    ],
-)
-
-bzl_library(
-    name = "test",
-    srcs = ["test.bzl"],
-    visibility = ["//uv:__subpackages__"],
-    deps = [
-        ":defs",
-        "@bazel_skylib//lib:unittest",
     ],
 )

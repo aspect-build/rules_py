@@ -1,8 +1,6 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
-load("//py:defs.bzl", "py_test")
-load(":defs.bzl", "configurable_python_version", "configurable_string", "decide_marker")
-load(":pep508_evaluate_test.bzl", "pep508_evaluate_test_suite")
+load(":defs.bzl", "configurable_python_version", "configurable_string")
 
 # 'python_version'
 #   {major}.{minor}
@@ -124,119 +122,6 @@ alias(
     actual = ":python_full_version",
     visibility = ["//visibility:public"],
 )
-
-pep508_evaluate_test_suite()
-
-# End-to-end regression for the architecture alias normalization in
-# decide_marker. The marker uses only Python-style spellings (arm64/amd64);
-# Bazel's platform_machine flag emits aarch64/x86_64. Pre-fix the select()
-# falls through on every host; post-fix one of the alternatives matches.
-decide_marker(
-    name = "_arch_alias_marker",
-    marker = "platform_machine == 'arm64' or platform_machine == 'amd64'",
-)
-
-py_test(
-    name = "marker_arch_alias_test",
-    srcs = ["marker_arch_alias_test.py"],
-    args = select({
-        ":_arch_alias_marker": ["matched"],
-        "//conditions:default": ["did_not_match"],
-    }),
-    main = "marker_arch_alias_test.py",
-)
-
-### Test markers
-# TODO: Figure out a way to make these actual tests...
-
-# { name = "jinxed", marker = "sys_platform == 'win32'" },
-decide_marker(
-    name = "test_jinxed",
-    marker = "sys_platform == 'win32'",
-)
-
-# { name = "tomli", marker = "python_full_version <= '3.11'" },
-decide_marker(
-    name = "test_tomli",
-    marker = "python_full_version <= '3.11'",
-)
-
-# { name = "cffi", marker = "platform_python_implementation != 'PyPy'" },
-decide_marker(
-    name = "test_cffi",
-    marker = "platform_python_implementation != 'PyPy'",
-)
-
-# { name = "hf-xet", marker = "platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64'" },
-decide_marker(
-    name = "test_hf_xet",
-    marker = "platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64'",
-)
-
-# { name = "appnope", marker = "sys_platform == 'darwin'" },
-decide_marker(
-    name = "test_appnope",
-    marker = "sys_platform == 'darwin'",
-)
-
-# { name = "pexpect", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
-decide_marker(
-    name = "test_pexpect",
-    marker = "sys_platform != 'emscripten' and sys_platform != 'win32'",
-)
-
-# { name = "pywin32", marker = "platform_python_implementation != 'PyPy' and sys_platform == 'win32'" },
-
-# { name = "pywinpty", marker = "os_name == 'nt' and sys_platform != 'darwin' and sys_platform != 'linux'" },
-
-# { name = "psutil", marker = "sys_platform != 'cygwin'" },
-
-# { name = "gpustat", marker = "extra == 'dev'" },
-
-# { name = "ipython", marker = "extra == 'dev'" },
-
-# { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.2.2" },
-# { name = "tzdata", marker = "sys_platform == 'win32'" },
-# { name = "psycopg-binary", marker = "implementation_name != 'pypy'" },
-# { name = "evdev", marker = "'linux' in sys_platform" },
-decide_marker(
-    name = "test_evdev",
-    marker = "'linux' in sys_platform",
-)
-
-# { name = "pyobjc-framework-applicationservices", marker = "sys_platform == 'darwin'" },
-# { name = "pyobjc-framework-quartz", marker = "sys_platform == 'darwin'" },
-# { name = "python-xlib", marker = "'linux' in sys_platform" },
-# { name = "pyobjc-core", marker = "sys_platform == 'darwin'" },
-# { name = "pyobjc-framework-cocoa", marker = "sys_platform == 'darwin'" },
-# { name = "pyobjc-framework-coretext", marker = "sys_platform == 'darwin'" },
-# { name = "pyobjc-framework-quartz", marker = "sys_platform == 'darwin'" },
-# { name = "pyobjc-core", marker = "sys_platform == 'darwin'" },
-# { name = "pyobjc-core", marker = "sys_platform == 'darwin'" },
-# { name = "pyobjc-framework-cocoa", marker = "sys_platform == 'darwin'" },
-# { name = "pyobjc-framework-quartz", marker = "sys_platform == 'darwin'" },
-# { name = "pyobjc-core", marker = "sys_platform == 'darwin'" },
-# { name = "pyobjc-framework-cocoa", marker = "sys_platform == 'darwin'" },
-# { name = "colorama", marker = "sys_platform == 'win32'" },
-# { name = "cffi", marker = "implementation_name == 'pypy'" },
-# { name = "async-timeout", marker = "python_full_version < '3.11.3'" },
-# { name = "ruamel-yaml-clib", marker = "platform_python_implementation == 'CPython'" },
-# { name = "greenlet", marker = "platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64'" },
-decide_marker(
-    name = "test_greenlet",
-    marker = "platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64'",
-)
-
-# { name = "watchdog", marker = "sys_platform != 'darwin'" },
-# { name = "array-record", marker = "sys_platform == 'linux'" },
-# { name = "ptyprocess", marker = "os_name != 'nt'" },
-# { name = "pywinpty", marker = "os_name == 'nt' and sys_platform != 'darwin' and sys_platform != 'linux'" },
-# { name = "colorama", marker = "sys_platform == 'win32'" },
-# { name = "embreex", marker = "platform_machine == 'x86_64'" },
-# { name = "colorama", marker = "sys_platform == 'win32'" },
-# { name = "tzdata", marker = "sys_platform == 'win32'" },
-# { name = "fasteners", marker = "sys_platform != 'emscripten'" },
-# { name = "cffi", marker = "platform_python_implementation == 'PyPy'" },
 
 bzl_library(
     name = "defs",

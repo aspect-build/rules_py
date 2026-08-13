@@ -1,5 +1,5 @@
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load(":defs.bzl", "console_script_name")
+load("//uv/private/py_entrypoint_binary:defs.bzl", "console_script_name")
 
 def _uses_explicit_script_name_test_impl(ctx):
     env = unittest.begin(ctx)
