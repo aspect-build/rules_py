@@ -188,6 +188,11 @@ bzl_library(
 )
 
 bzl_library(
+    name = "py_source_tool",
+    srcs = ["py_source_tool.bzl"],
+)
+
+bzl_library(
     name = "transitions",
     srcs = ["transitions.bzl"],
 )

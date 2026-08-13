@@ -9,13 +9,12 @@ load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PY_TOOLCHAIN")
 
 def _py_unpacked_wheel_impl(ctx):
     py_toolchain = _py_semantics.resolve_toolchain(ctx)
-    exec_runtime = ctx.toolchains[EXEC_TOOLS_TOOLCHAIN].exec_runtime
-    unpack_script = ctx.file._unpack_script
+    unpack_tool = ctx.toolchains[EXEC_TOOLS_TOOLCHAIN].unpack_tool
 
     unpack_directory = ctx.actions.declare_directory("{}".format(ctx.attr.name))
 
     args = ctx.actions.args()
-    args.add(unpack_script)
+    args.add_all(unpack_tool.arguments)
     args.add_all([unpack_directory], expand_directories = False, before_each = "--into")
     args.add("--wheel", ctx.file.src)
     args.add("--python-version-major", py_toolchain.interpreter_version_info.major)
@@ -24,10 +23,10 @@ def _py_unpacked_wheel_impl(ctx):
     ctx.actions.run(
         outputs = [unpack_directory],
         inputs = depset(
-            [ctx.file.src, unpack_script, exec_runtime.interpreter],
-            transitive = [py_toolchain.files, exec_runtime.files],
+            [ctx.file.src],
+            transitive = [py_toolchain.files, unpack_tool.inputs],
         ),
-        executable = exec_runtime.interpreter,
+        executable = unpack_tool.executable,
         arguments = [args],
         execution_requirements = {"supports-path-mapping": "1"},
         mnemonic = "PyUnpackedWheel",
@@ -94,10 +93,6 @@ def _py_unpacked_wheel_impl(ctx):
     return providers
 
 _attrs = {
-    "_unpack_script": attr.label(
-        default = "//py/tools/unpack:unpack.py",
-        allow_single_file = True,
-    ),
     "src": attr.label(
         doc = "The Wheel file, as defined by https://packaging.python.org/en/latest/specifications/binary-distribution-format/#binary-distribution-format",
         allow_single_file = [".whl"],
