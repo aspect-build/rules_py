@@ -1,0 +1,17 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+# Regression #1420: pyarrow 14-17 Linux wheels contain an empty zip
+# directory entry named `pyarrow./` (trailing dot). whl_install must skip
+# directory entries before path validation, or the install action fails
+# with `Invalid wheel member path: pyarrow.`. Only the Linux wheels carry
+# the entry, so macOS and Windows hosts pass regardless of the fix.
+py_test(
+    name = "test",
+    srcs = ["test.py"],
+    dep_group = "pyarrow-dot-dir-1420",
+    main = "test.py",
+    python_version = "3.11",
+    deps = [
+        "@pypi_pyarrow_dot_dir//pyarrow",
+    ],
+)
