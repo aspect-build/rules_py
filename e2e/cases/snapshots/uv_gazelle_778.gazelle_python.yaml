@@ -4,6 +4,7 @@ manifest:
     aiosmtplib: aiosmtplib
     aiosqlite: aiosqlite
     airflow.api: apache_airflow_core
+    airflow.api_fastapi: apache_airflow_core
     airflow.assets: apache_airflow_core
     airflow.callbacks: apache_airflow_core
     airflow.cli: apache_airflow_core
@@ -21,6 +22,7 @@ manifest:
     airflow.lineage: apache_airflow_core
     airflow.listeners: apache_airflow_core
     airflow.logging: apache_airflow_core
+    airflow.logging_config: apache_airflow_core
     airflow.macros: apache_airflow_core
     airflow.metrics: apache_airflow_core
     airflow.migrations: apache_airflow_core
@@ -58,7 +60,9 @@ manifest:
     argcomplete: argcomplete
     asgiref: asgiref
     attr: attrs
+    attrs: attrs
     brotli: brotli
+    brotlicffi: brotlicffi
     build: build
     cadwyn: cadwyn
     certifi: certifi
@@ -78,6 +82,7 @@ manifest:
     dotenv: python_dotenv
     email_validator: email_validator
     fastapi: fastapi
+    fastapi_cli: fastapi_cli
     fsspec: fsspec
     google.api: googleapis_common_protos
     google.cloud: googleapis_common_protos
@@ -99,6 +104,7 @@ manifest:
     itsdangerous: itsdangerous
     jinja2: jinja2
     jsonschema: jsonschema
+    jsonschema_specifications: jsonschema_specifications
     jwt: pyjwt
     lazy_object_proxy: lazy_object_proxy
     libcst: libcst
@@ -140,6 +146,7 @@ manifest:
     psycopg2: psycopg2_binary
     pycparser: pycparser
     pydantic: pydantic
+    pydantic_core: pydantic_core
     pygments: pygments
     pygtrie: pygtrie
     pyproject_hooks: pyproject_hooks
@@ -149,6 +156,8 @@ manifest:
     requests: requests
     retryhttp: retryhttp
     rich: rich
+    rich_argparse: rich_argparse
+    rich_toolkit: rich_toolkit
     rpds: rpds_py
     setproctitle: setproctitle
     setuptools: setuptools
@@ -157,6 +166,8 @@ manifest:
     slugify: python_slugify
     sniffio: sniffio
     sqlalchemy: sqlalchemy
+    sqlalchemy_jsonfield: sqlalchemy_jsonfield
+    sqlalchemy_utils: sqlalchemy_utils
     sqlparse: sqlparse
     starlette: starlette
     structlog: structlog
@@ -182,6 +193,7 @@ manifest:
     wirerope: wirerope
     wrapt: wrapt
     yaml: pyyaml
+    yaml_ft: pyyaml_ft
     zipp: zipp
   pip_repository:
-    name: pypi
+    name: pypi_uv_deps_650
