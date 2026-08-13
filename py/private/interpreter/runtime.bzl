@@ -13,6 +13,7 @@ resolved runtime provider onto built binaries, where downstream consumers
 """
 
 load("@rules_python//python:py_runtime_info.bzl", _PyRuntimeInfo = "PyRuntimeInfo")
+load("//py/private:py_source_tool.bzl", "PySourceToolInfo")
 
 PyRuntimeInfo = _PyRuntimeInfo
 
@@ -41,6 +42,30 @@ def _py_runtime_toolchain_impl(ctx):
         zip_main_template = ctx.file._zip_main_template,
     )
 
+    # The wheel-unpack tool, as an opaque executable + argument prefix +
+    # inputs. Consumers (`whl_install`, `py_unpacked_wheel`) append their own
+    # flags and never see how the tool is implemented. `unpack_tool` swaps in
+    # a self-contained executable (e.g. a prebuilt binary); the default runs
+    # the unpack script under this runtime's interpreter — composed here
+    # rather than via a wrapper binary, which would need PY_TOOLCHAIN
+    # resolution and cycle back into this toolchain.
+    if ctx.attr.unpack_tool:
+        unpack_tool = struct(
+            executable = ctx.attr.unpack_tool[DefaultInfo].files_to_run,
+            arguments = [],
+            inputs = depset(),
+        )
+    else:
+        default_tool = ctx.attr._unpack[PySourceToolInfo]
+        unpack_tool = struct(
+            executable = ctx.file.interpreter,
+            arguments = ["-S", "-E", "-s", "-B", default_tool.main],
+            inputs = depset(
+                [ctx.file.interpreter],
+                transitive = [default_tool.files, runtime.files],
+            ),
+        )
+
     return [
         runtime,
         platform_common.ToolchainInfo(
@@ -50,6 +75,7 @@ def _py_runtime_toolchain_impl(ctx):
             py3_runtime = runtime,
             # The //py/private/toolchain:exec_tools_toolchain_type contract.
             exec_runtime = runtime,
+            unpack_tool = unpack_tool,
         ),
         DefaultInfo(files = depset([ctx.file.interpreter], transitive = [runtime.files])),
     ]
@@ -78,6 +104,21 @@ build host regardless of the target platform being built for).""",
         ),
         "abi_flags": attr.string(
             doc = "CPython ABI flag suffix, e.g. \"t\" for freethreaded.",
+        ),
+        "unpack_tool": attr.label(
+            doc = """Self-contained executable replacing the default wheel-unpack
+scripts, e.g. a prebuilt binary. Must implement the unpack CLI contract —
+see "Custom wheel-unpack tool" in docs/interpreter.md; unpack.py is the
+reference implementation. Must not resolve a Python toolchain: this
+toolchain's own resolution would cycle through it.""",
+            executable = True,
+            cfg = "target",
+        ),
+        # The default unpack tool, run under this runtime's interpreter.
+        # Unused when `unpack_tool` is set.
+        "_unpack": attr.label(
+            default = "//py/tools/unpack",
+            providers = [PySourceToolInfo],
         ),
         "_bootstrap_template": attr.label(
             allow_single_file = True,
