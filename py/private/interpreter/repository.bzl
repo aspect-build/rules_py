@@ -360,6 +360,11 @@ def _python_toolchains_impl(rctx):
 
     # Emit hub-local version config_settings so toolchain resolution doesn't
     # need to fetch individual interpreter repos.
+    content.append("""
+# Each python_version_is_* group matches on our own version flag, with
+# rules_python's flag as a fallback: the fallback selects only when our own
+# flag is unset, so setting our flag always wins and rpy's default can't
+# shadow it.""")
     for major_minor in seen_versions.keys():
         group_name = _version_setting_name(major_minor)
         content.append("""
@@ -368,8 +373,6 @@ config_setting(
     flag_values = {{"{our_flag}": "{major_minor}"}},
 )
 
-# rules_python's flag is a fallback: it selects only when our own flag is
-# unset, so setting our flag always wins and rpy's default can't shadow it.
 config_setting(
     name = "_{group}_rpy_fallback",
     flag_values = {{
@@ -420,6 +423,20 @@ config_setting(
     # offers a matching pair: https://github.com/aspect-build/rules_py/issues/1095
     #
     # Second pass: emit toolchain() registrations.
+    content.append("""
+# The Python interpreter toolchains have no exec_compatible_with: the
+# interpreter runs on the TARGET platform (inside the virtualenv), not on the
+# exec host. Setting exec_compatible_with = platform_constraints would prevent
+# a toolchain from being selected during cross-compilation (e.g. building an
+# arm64 image on an amd64 host), because the exec platform (amd64) would not
+# satisfy the arm64 exec constraint. The target_compatible_with constraint is
+# sufficient to pick the right interpreter for the target.
+#
+# The *_exec_tools toolchains are instead selected by exec platform (not
+# target platform) so that build actions using the interpreter (e.g.
+# compileall) get a runnable binary on the build host regardless of the target
+# platform being built for. Version-gated so the exec interpreter follows the
+# version flags.""")
     exec_tools_fallbacks = {}  # repr(exec_compatible_with) -> (version tuple, name, repo, constraints)
     for info, platform_setting_names in toolchain_infos:
         extra_config_settings = info.get("config_settings", [])
@@ -438,13 +455,6 @@ config_setting(
         exec_compatible_with = info["compatible_with"] + extra_exec_compatible
 
         content.append("""
-# The Python interpreter toolchain has no exec_compatible_with: the interpreter
-# runs on the TARGET platform (inside the virtualenv), not on the exec host.
-# Setting exec_compatible_with = platform_constraints would prevent this
-# toolchain from being selected during cross-compilation (e.g. building an
-# arm64 image on an amd64 host), because the exec platform (amd64) would not
-# satisfy the arm64 exec constraint.  The target_compatible_with constraint is
-# sufficient to pick the right interpreter for the target.
 toolchain(
     name = "{name}",
     target_compatible_with = {target_compatible_with},
@@ -468,11 +478,7 @@ toolchain(
         ))
 
         if info["register_exec_tools"]:
-            content.append("""# Exec tools toolchain: selected by exec platform (not target platform) so
-# that build actions using the interpreter (e.g. compileall) get a runnable
-# binary on the build host regardless of the target platform being built for.
-# Version-gated so the exec interpreter follows the version flags.
-toolchain(
+            content.append("""toolchain(
     name = "{name}_exec_tools",
     exec_compatible_with = {exec_compatible_with},
     target_settings = ["{version_setting}"],
