@@ -76,6 +76,7 @@ jobs:
                 workspace:
                 - { path: ".", slug: "root", runner: "ubuntu-latest" }
                 - { path: "e2e/cases", slug: "e2e", runner: "ubuntu-22.04-32core" }
+                - { path: "e2e/crossbuild", slug: "e2e-crossbuild", runner: "ubuntu-22.04-32core" }
                 - { path: "e2e/interpreter-runtime-metadata", slug: "e2e-interpreter-runtime-metadata", runner: "ubuntu-latest" }
                 - { path: "e2e/interpreter-toolchain-settings", slug: "e2e-interpreter-toolchain-settings", runner: "ubuntu-latest" }
                 - { path: "e2e/interpreter-input-validation", slug: "e2e-interpreter-input-validation", runner: "ubuntu-latest" }
@@ -129,6 +130,7 @@ jobs:
                 workspace:
                 - { path: ".", slug: "root" }
                 - { path: "e2e/cases", slug: "e2e" }
+                - { path: "e2e/crossbuild", slug: "e2e-crossbuild" }
         defaults:
             run:
                 working-directory: ${{ matrix.workspace.path }}

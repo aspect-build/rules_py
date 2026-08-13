@@ -1,0 +1,16 @@
+# Shared helpers consumed by //... via load("//tools:...").
+
+load("@aspect_rules_py//py:defs.bzl", "py_binary")
+
+# Consumed cross-package by the `collect_wheels` macro (//tools:collect_wheels.bzl),
+# which declares a py_test with this script as `main` in the caller's package.
+exports_files([
+    "check_wheel_tags.py",
+])
+
+py_binary(
+    name = "collect_wheels_tool",
+    srcs = ["collect_wheels.py"],
+    main = "collect_wheels.py",
+    visibility = ["//visibility:public"],
+)
