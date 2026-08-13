@@ -44,6 +44,9 @@ platform(
         "@platforms//os:linux",
         "@platforms//cpu:x86_64",
     ],
+    # The libc flag defaults to the host's; pin it so the PBS linux-gnu
+    # toolchain matches regardless of host.
+    flags = ["--//uv/private/constraints/platform:platform_libc=glibc"],
 )
 
 venv_tree(

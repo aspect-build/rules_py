@@ -84,14 +84,14 @@ case $0 in
 esac
 exec "${script_dir}/python" -c 'import sys; from importlib import import_module; from operator import attrgetter; sys.argv[0] = "cowsay"; sys.exit(attrgetter("cli")(import_module("cowsay.__main__"))())' "$@"
 ---
-LINK bin/python -> ../../../../../../../rules_python++python+python_3_9_x86_64-unknown-linux-gnu/bin/python3
+LINK bin/python -> ../../../../../../../+python_interpreters+python_3_13_x86_64_unknown_linux_gnu/bin/python3
 LINK bin/python3 -> python
-LINK bin/python3.9 -> python
-FILE lib/python3.9/site-packages/_virtualenv.pth
+LINK bin/python3.13 -> python
+FILE lib/python3.13/site-packages/_virtualenv.pth
 ---
 import _virtualenv
 ---
-FILE lib/python3.9/site-packages/_virtualenv.py
+FILE lib/python3.13/site-packages/_virtualenv.py
 ---
 """Patches that are applied at runtime to the virtual environment."""
 
@@ -211,9 +211,9 @@ class _Finder:
 
 sys.meta_path.insert(0, _Finder())
 ---
-LINK lib/python3.9/site-packages/cowsay -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__cowsay__6_1/actual_install.install/lib/python3.9/site-packages/cowsay
-LINK lib/python3.9/site-packages/cowsay-6.1.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__cowsay__6_1/actual_install.install/lib/python3.9/site-packages/cowsay-6.1.dist-info
-FILE lib/python3.9/site-packages/venv.pth
+LINK lib/python3.13/site-packages/cowsay -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__cowsay__6_1/actual_install.install/lib/python3.13/site-packages/cowsay
+LINK lib/python3.13/site-packages/cowsay-6.1.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__cowsay__6_1/actual_install.install/lib/python3.13/site-packages/cowsay-6.1.dist-info
+FILE lib/python3.13/site-packages/venv.pth
 ---
 ../../../../../../../../..
 ../../../../../../../../../_main
@@ -221,9 +221,9 @@ FILE lib/python3.9/site-packages/venv.pth
 ---
 FILE pyvenv.cfg
 ---
-home = ../../../../../../rules_python++python+python_3_9_x86_64-unknown-linux-gnu/bin
+home = ../../../../../../+python_interpreters+python_3_13_x86_64_unknown_linux_gnu/bin
 implementation = CPython
-version_info = 3.9.25
+version_info = 3.13.12
 include-system-site-packages = false
 relocatable = true
 ---
