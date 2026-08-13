@@ -241,14 +241,13 @@ py_library(
 """,
         )
 
-    # Index the platform-SELECTED wheel (the select chain's `:whl`), not an
-    # arbitrary one: an arbitrary choice can pick a non-host wheel, forcing
-    # Gazelle to fetch it — defeating lazy fetching and failing outright if
-    # that wheel is unreachable/incompatible while the host's is valid.
-    if prebuilds or default_target:
-        gazelle_index_whl = ":whl"
-    else:
-        fail("Cannot identify a wheel or sbuild of {} to analyze for Gazelle indexing\n{}".format(repository_ctx.name, pprint(repository_ctx.attr)))
+    # Gazelle indexing consumes the platform-SELECTED wheel (the select chain's
+    # `:whl`), not an arbitrary one: an arbitrary choice can pick a non-host
+    # wheel, forcing Gazelle to fetch it — defeating lazy fetching and failing
+    # outright if that wheel is unreachable/incompatible while the host's is
+    # valid.
+    if not prebuilds and not default_target:
+        fail("Cannot identify a wheel or sbuild of {} to analyze\n{}".format(repository_ctx.name, pprint(repository_ctx.attr)))
 
     content.append(
         """
@@ -258,16 +257,9 @@ select_chain(
    default_target = {default_target},
    visibility = ["//visibility:public"],
 )
-
-filegroup(
-    name = "gazelle_index_whl",
-    srcs = {index_whl},
-    visibility = ["//visibility:public"],
-)
 """.format(
             arms = indent(pprint(select_arms), "   ").lstrip(),
             default_target = repr(default_target),
-            index_whl = indent(pprint([str(gazelle_index_whl)]), " " * 4).lstrip(),
         ),
     )
 

@@ -42,14 +42,6 @@ select_chain(
    visibility = ["//visibility:public"],
 )
 
-filegroup(
-    name = "gazelle_index_whl",
-    srcs = [
-        ":whl",
-    ],
-    visibility = ["//visibility:public"],
-)
-
 
 whl_install(
     name = "actual_install",

@@ -1,13 +1,6 @@
 load("//:defs.bzl", "compatible_with")
 
 
-# This target is for a "hard" dependency.
-# Dependencies on this target will cause build failures if it's unavailable.
-alias(
-    name = "lib",
-    actual = "cowsay",
-    visibility = ["//visibility:public"],
-)
 alias(
     name = "pkg",
     actual = "cowsay",
@@ -22,11 +15,6 @@ alias(
           "//dep_group:unit-tests": "@project__alpha//:cowsay_whl",
       }),
     target_compatible_with = select(compatible_with(["beta", "dev", "gamma", "unit-tests"])),
-    visibility = ["//visibility:public"],
-)
-filegroup(
-    name = "dist_info",
-    srcs = [":cowsay"],
     visibility = ["//visibility:public"],
 )
 alias(

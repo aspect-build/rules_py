@@ -1,13 +1,6 @@
 load("//:defs.bzl", "compatible_with")
 
 
-# This target is for a "hard" dependency.
-# Dependencies on this target will cause build failures if it's unavailable.
-alias(
-    name = "lib",
-    actual = "cowsay",
-    visibility = ["//visibility:public"],
-)
 alias(
     name = "pkg",
     actual = "cowsay",
@@ -19,11 +12,6 @@ alias(
           "//dep_group:aspect_rules_py": "@project__aspect_rules_py//:cowsay_whl",
       }),
     target_compatible_with = select(compatible_with(["aspect_rules_py"])),
-    visibility = ["//visibility:public"],
-)
-filegroup(
-    name = "dist_info",
-    srcs = [":cowsay"],
     visibility = ["//visibility:public"],
 )
 alias(

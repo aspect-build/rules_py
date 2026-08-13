@@ -101,19 +101,9 @@ alias(
 
 
 filegroup(
-    name = "all_requirements",
-    srcs = select({
-        "//private/dep_group:single_project_hub": [
-            "//:cowsay",
-            "//:single_project_hub",
-        ],
-    }),
-    visibility = ["//visibility:public"],
-)
-filegroup(
     name = "gazelle_index_whls",
     srcs = [
-        "@whl_install__arch_alias_marker__cowsay__6_1//:gazelle_index_whl",
+        "@whl_install__arch_alias_marker__cowsay__6_1//:whl",
     ],
     visibility = ["//visibility:public"],
 )
