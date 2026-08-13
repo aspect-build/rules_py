@@ -1,12 +1,21 @@
 
 load("@aspect_rules_py//uv/private/pep517_whl:rule.bzl", "pep517_native_whl")
 load("@aspect_rules_py//py:defs.bzl", "py_binary")
+load("@aspect_rules_py//uv/private/markers:defs.bzl", "decide_marker")
+
+decide_marker(
+    name = "_build_dep_marker_0",
+    marker = "((sys_platform != 'win32') or (sys_platform != 'imaginary')) or (os_name == 'nt')",
+)
 
 py_binary(
     name = "build_tool",
     main = "@aspect_rules_py//uv/private/pep517_whl:build_helper.py",
     srcs = ["@aspect_rules_py//uv/private/pep517_whl:build_helper.py"],
-    deps = ["@aspect_rules_py//uv/private/pep517_whl:memory_monitor", "@@aspect_rules_py++uv+project__uv_sdist_fallback//:packaging", "@@aspect_rules_py++uv+project__uv_sdist_fallback//:build", "@@aspect_rules_py++uv+project__uv_sdist_fallback//:setuptools", "@whl_install__uv_sdist_fallback__setuptools__80_10_2//:install"],
+    deps = ["@aspect_rules_py//uv/private/pep517_whl:memory_monitor", "@@aspect_rules_py++uv+whl_install__uv_sdist_fallback__packaging__25_0//:install", "@@aspect_rules_py++uv+whl_install__uv_sdist_fallback__build__1_4_0//:install", "@@aspect_rules_py++uv+whl_install__uv_sdist_fallback__setuptools__80_10_2//:install", "@@aspect_rules_py++uv+whl_install__uv_sdist_fallback__pyproject_hooks__1_2_0//:install"] + select({
+        ":_build_dep_marker_0": ["@@aspect_rules_py++uv+whl_install__uv_sdist_fallback__colorama__0_4_6//:install"],
+        "//conditions:default": [],
+    }),
 )
 
 pep517_native_whl(

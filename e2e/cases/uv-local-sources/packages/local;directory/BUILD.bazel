@@ -1,0 +1,8 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library")
+
+py_library(
+    name = "local_directory",
+    srcs = glob(["src/**/*.py"]),
+    imports = ["src"],
+    visibility = ["//visibility:public"],
+)

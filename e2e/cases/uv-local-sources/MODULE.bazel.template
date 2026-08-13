@@ -1,0 +1,48 @@
+module(name = "uv_local_sources_fixture")
+
+bazel_dep(name = "aspect_rules_py")
+bazel_dep(name = "bazel_skylib", version = "1.9.0")
+
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = __ASPECT_RULES_PY_ROOT__,
+)
+
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+interpreters.configure(releases = ["20260303"])
+interpreters.toolchain(python_version = "3.11")
+use_repo(interpreters, "python_interpreters")
+
+register_toolchains("@python_interpreters//:all")
+
+tools = use_extension("@aspect_rules_py//py:extensions.bzl", "py_tools")
+tools.rules_py_tools()
+use_repo(tools, "rules_py_tools")
+
+register_toolchains("@rules_py_tools//:all")
+
+uv_bin = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv_bin")
+uv_bin.toolchain(version = "0.11.6")
+use_repo(uv_bin, "uv")
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_local_sources")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "setuptools",
+    ],
+    hub_name = "pypi_local_sources",
+    lock = "//:uv.lock",
+    pyproject = "//:pyproject.toml",
+)
+uv.override_package(
+    name = "local-directory",
+    lock = "//:uv.lock",
+    target = "//packages/local;directory:local_directory",
+)
+use_repo(
+    uv,
+    "pypi_local_sources",
+    "sdist_build__uv_local_sources__local_sdist__1_0_0",
+)

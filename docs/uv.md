@@ -504,6 +504,14 @@ support this.
 some key information. Such as what requirements apply when performing sdist
 builds. Annotations are the current workaround for how to associate such
 required but nonstandardized and missing dependency data with requirements.
+
+`uv.project` resolves `[tool.uv.extra-build-dependencies]` against `uv.lock`
+before it knows whether a package will use a prebuilt wheel or require an sdist
+build. As a result, an extra build dependency missing from `uv.lock` fails
+project evaluation even when the annotated package has a usable wheel. Add the
+dependency to the project's locked requirements and regenerate `uv.lock`, or
+remove the annotation if the package does not need to be built from source.
+
 Set `native = true|false` on a package annotation to override automatic sdist
 native detection and select the native or pure-Python wheel build path.
 
