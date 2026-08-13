@@ -21,6 +21,12 @@ toolchain_type(
     visibility = ["//visibility:public"],
 )
 
+# Optional; overrides the default wheel-unpack tool. See py_unpack_toolchain.
+toolchain_type(
+    name = "unpack_toolchain_type",
+    visibility = ["//visibility:public"],
+)
+
 bzl_library(
     name = "repo",
     srcs = ["repo.bzl"],

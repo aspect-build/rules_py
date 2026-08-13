@@ -1,13 +1,15 @@
 load("//py:defs.bzl", "py_test")
+load("//py/private:py_source_tool.bzl", "py_source_tool")
 
 # Shared test vectors are data, not a public Starlark library.
 # gazelle:exclude exclude_glob_test_vectors.bzl
 
-exports_files(
-    [
-        "exclude_glob.py",
-        "unpack.py",
-    ],
+# The default wheel-unpack tool; the exec-tools toolchain runs `main` under
+# its own interpreter (see py_runtime_toolchain).
+py_source_tool(
+    name = "unpack",
+    srcs = ["exclude_glob.py"],
+    main = "unpack.py",
     visibility = ["//visibility:public"],
 )
 
