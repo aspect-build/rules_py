@@ -150,7 +150,8 @@ def pyc_compile_version_compatible(exec_info, target_info):
 
 def _whl_install(ctx):
     py_toolchain = ctx.toolchains[PY_TOOLCHAIN].py3_runtime
-    exec_runtime = ctx.toolchains[EXEC_TOOLS_TOOLCHAIN].exec_runtime
+    exec_toolchain = ctx.toolchains[EXEC_TOOLS_TOOLCHAIN]
+    exec_runtime = exec_toolchain.exec_runtime
 
     # Name the install tree after the target rather than a fixed "install"
     # so several whl_install targets can coexist in one package without
@@ -160,7 +161,7 @@ def _whl_install(ctx):
     )
 
     archive = ctx.file.src
-    unpack_script = ctx.file._unpack_script
+    unpack_tool = exec_toolchain.unpack_tool
 
     # The layout of whichever wheel the `select` chain resolved to for the
     # active configuration — its own repo's RECORD-derived metadata (or empty,
@@ -207,8 +208,7 @@ def _whl_install(ctx):
     data_files = meta.data_files
 
     arguments = ctx.actions.args()
-    arguments.add_all(["-S", "-E", "-s", "-B"])
-    arguments.add(unpack_script)
+    arguments.add_all(unpack_tool.arguments)
     arguments.add_all([install_dir], expand_directories = False, before_each = "--into")
     arguments.add("--wheel", archive)
     arguments.add("--python-version", "{}.{}".format(
@@ -217,12 +217,11 @@ def _whl_install(ctx):
     ))
 
     transitive_inputs = [
-        depset([archive, unpack_script, exec_runtime.interpreter]),
-        exec_runtime.files,
+        depset([archive]),
+        unpack_tool.inputs,
     ]
     if ctx.attr.exclude_glob:
         arguments.add_all(ctx.attr.exclude_glob, before_each = "--exclude-glob")
-        transitive_inputs.append(depset([ctx.file._exclude_glob_script]))
 
     # Patch application (happens before pyc compilation).
     patch_files = [target[DefaultInfo].files for target in ctx.attr.patches]
@@ -276,9 +275,16 @@ def _whl_install(ctx):
         arguments.add("--compile-pyc", exec_runtime.interpreter)
         arguments.add("--pyc-invalidation-mode", ctx.attr.pyc_invalidation_mode)
 
+        # The unpack tool need not be Python-based; the interpreter fed to
+        # --compile-pyc is an input in its own right.
+        transitive_inputs.append(depset(
+            [exec_runtime.interpreter],
+            transitive = [exec_runtime.files],
+        ))
+
     ctx.actions.run(
         mnemonic = "WhlInstall",
-        executable = exec_runtime.interpreter,
+        executable = unpack_tool.executable,
         toolchain = EXEC_TOOLS_TOOLCHAIN,
         arguments = [arguments],
         inputs = depset(transitive = transitive_inputs),
@@ -367,14 +373,6 @@ to bypass some of the platform checks that UV does to enable crossbuilds, and is
 lighter weight since the toolchain's files aren't inputs.
 """,
     attrs = {
-        "_unpack_script": attr.label(
-            default = "//py/tools/unpack:unpack.py",
-            allow_single_file = True,
-        ),
-        "_exclude_glob_script": attr.label(
-            default = "//py/tools/unpack:exclude_glob.py",
-            allow_single_file = True,
-        ),
         "src": attr.label(
             allow_single_file = [".whl"],
             doc = "The wheel to install. Must provide PyWheelMetadataInfo (a `whl_dist` or `source_built_wheel` target); its metadata drives the installed layout.",
