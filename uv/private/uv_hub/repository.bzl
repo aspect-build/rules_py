@@ -112,26 +112,13 @@ alias(
 """.format(name = package_name)
 
         # FIXME: Add support for entrypoints?
-        # FIXME: Create a narrower dist-info rule
         content.append(
             """
-# This target is for a "hard" dependency.
-# Dependencies on this target will cause build failures if it's unavailable.
-alias(
-    name = "lib",
-    actual = "{name}",
-    visibility = ["//visibility:public"],
-)
 {pkg_alias}\
 alias(
     name = "whl",
     actual = select({whl_select}),
     target_compatible_with = select(compatible_with({compat})),
-    visibility = ["//visibility:public"],
-)
-filegroup(
-    name = "dist_info",
-    srcs = [":{name}"],
     visibility = ["//visibility:public"],
 )
 alias(

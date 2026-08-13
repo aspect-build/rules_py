@@ -179,17 +179,7 @@ alias(
             arms = indent(pprint(whl_main_arms), " " * 4).lstrip(),
         ))
 
-    all_requirements = {}
-    for package, cfgs in dep_to_scc.items():
-        for cfg in cfgs.keys():
-            all_requirements.setdefault("//private/dep_group:" + cfg, []).append("//:" + package)
-
     content.append("""
-filegroup(
-    name = "all_requirements",
-    srcs = select({arms}),
-    visibility = ["//visibility:public"],
-)
 filegroup(
     name = "gazelle_index_whls",
     srcs = {gazelle_whls},
@@ -201,8 +191,7 @@ exports_files(
     visibility = ["//visibility:public"],
 )
 """.format(
-        arms = indent(pprint(all_requirements), " " * 4).lstrip(),
-        gazelle_whls = indent(pprint([it.replace("//:install", "//:gazelle_index_whl") for it in installs]), " " * 4).lstrip(),
+        gazelle_whls = indent(pprint([it.replace("//:install", "//:whl") for it in installs]), " " * 4).lstrip(),
     ))
 
     repository_ctx.file("BUILD.bazel", "\n".join(content))
