@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
 print("---")
-import _virtualenv
+import sys
 
-output_base = _virtualenv.__file__.split("/execroot/")[0]
+output_base = sys.prefix.split("/execroot/")[0]
 execroot = f"{output_base}/execroot"
 external = f"{output_base}/external"
-runfiles = _virtualenv.__file__.split(".runfiles/")[0] + ".runfiles"
+runfiles = sys.prefix.split(".runfiles/")[0] + ".runfiles"
 
 def _simplify(s: str | list[str]) -> str | list[str]:
     if isinstance(s, str):
@@ -19,8 +19,6 @@ def _simplify(s: str | list[str]) -> str | list[str]:
     elif isinstance(s, list):
         return [_simplify(it) for it in s]
 
-print("virtualenv:", _simplify(_virtualenv.__file__))
-import sys
 print("sys.prefix:", _simplify(sys.prefix))
 print("sys.path:")
 for it in _simplify(sys.path):

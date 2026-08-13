@@ -12,8 +12,8 @@ print("site.PREFIXES:")
 for p in site.PREFIXES:
     print(" -", p)
 
-# The virtualenv module should have already been loaded at interpreter startup
-assert "_virtualenv" in sys.modules
+# Python 3.10+ does not need the distutils startup shim.
+assert "_virtualenv" not in sys.modules
 
 # Note that we can't assume that a `.runfiles` tree has been created as CI may
 # use a different layout.

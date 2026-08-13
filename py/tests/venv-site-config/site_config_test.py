@@ -8,8 +8,8 @@ print("site.PREFIXES:", site.PREFIXES)
 print("site.getsitepackages():", site.getsitepackages())
 print("site.ENABLE_USER_SITE:", site.ENABLE_USER_SITE)
 
-# The virtualenv module must have loaded at interpreter startup.
-assert "_virtualenv" in sys.modules
+# Sanity check that site initialization saw the venv.
+assert sys.prefix != sys.base_prefix
 
 # System-site controls the number of site-packages roots: the venv's own (1)
 # vs. the venv plus the base interpreter's (>=2).
