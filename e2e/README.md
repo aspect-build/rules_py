@@ -35,6 +35,16 @@ workspace above must not carry: its `.bazelrc` turns on the rules_python provide
 compatibility layer, so rules_python `py_*` targets can depend on a rules_py `py_library`.
 Its `test.sh` asserts the same dependency is rejected with the flag off.
 
+`crossbuild` hosts the rules_pycross ports (`pycross-*`): suites that force
+packages to build from their sdists — pure-Python backends, setuptools C
+extensions, pre/post-install patch phases, the distutils probe — and assert
+properties of the resulting wheels, including rebuilding them under non-host
+target platforms via `collect_wheels`. They live apart from `cases/` because
+this workspace is where the cross-compilation test matrix grows, and their
+sdist hubs carry package-specific overrides (`default_build_dependencies`,
+patches, `resource_set`) that shouldn't leak onto unrelated cases sharing a
+module — see its `MODULE.bazel` docstring.
+
 Each isolated workspace points back at repo-root rules_py with
 `local_path_override(path = "../..")`.
 
