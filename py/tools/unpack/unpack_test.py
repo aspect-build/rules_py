@@ -499,6 +499,7 @@ def main() -> None:
             ("rootunc", "//server/share/escaped.py"),
             ("rootbackslash", "fixture\\escaped.py"),
             ("roottrailing", "fixture/.. /escaped.py"),
+            ("rootdotdir", "dotdir./escaped.py"),
             ("rootreserved", "fixture/NuL .txt/escaped.py"),
             ("rootconin", "fixture/cOnIn$.txt/escaped.py"),
             ("datatraversal", "datatraversal-1.0.data/data/../escaped.py"),
@@ -525,6 +526,28 @@ def main() -> None:
                 rejected.stderr,
             )
             assert "Invalid wheel member path" in rejected.stderr
+
+        # #1420: pyarrow 14-17 wheels ship a directory entry named `pyarrow./`.
+        # Directory entries are never extracted, so names that would be invalid
+        # as file paths are skipped rather than rejected.
+        dot_dir_wheel = root / "dot_dir-1.0-py3-none-any.whl"
+        _write_wheel(
+            dot_dir_wheel,
+            "dot_dir",
+            {"fixture/__init__.py": b"VALUE = 1\n"},
+        )
+        with zipfile.ZipFile(dot_dir_wheel, "a") as archive:
+            for name in ("dotdir./", "../escaped_dir/"):
+                info = zipfile.ZipInfo(name)
+                info.external_attr = (0o755 << 16) | 0x10
+                archive.writestr(info, b"")
+        dot_dir_out = root / "dot-dir"
+        dot_dir = _run_unpack(unpack, dot_dir_wheel, dot_dir_out, Path(sys.executable))
+        assert dot_dir.returncode == 0, dot_dir.stdout + dot_dir.stderr
+        dot_dir_site_packages = _site_packages(dot_dir_out)
+        assert (dot_dir_site_packages / "fixture" / "__init__.py").is_file()
+        assert not (dot_dir_site_packages / "dotdir.").exists()
+        assert not (root / "escaped_dir").exists()
 
         excluded_invalid_wheel = root / "excluded_invalid-1.0-py3-none-any.whl"
         _write_wheel(

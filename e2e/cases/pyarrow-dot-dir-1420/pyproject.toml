@@ -1,0 +1,16 @@
+[project]
+name = "pyarrow-dot-dir-1420"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    # pyarrow 14-17 Linux wheels ship an empty directory entry named
+    # `pyarrow./` (trailing dot). Keep the version pinned so the wheel
+    # shape remains the test's source of truth. The macOS and Windows
+    # wheels do not carry the entry, so only Linux exercises the repro.
+    "pyarrow==14.0.1",
+]
+
+[tool.uv]
+# pyarrow 14 is compiled against the numpy 1.x C ABI and fails to import
+# under numpy 2.
+constraint-dependencies = ["numpy<2"]
