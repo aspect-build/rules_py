@@ -39,7 +39,15 @@ pip.parse(
     python_version = "3.12",
     requirements_lock = "//:console_script_requirements.txt",
 )
-use_repo(pip, "console_script_pip", "pip")
+
+# Virtual-deps machinery resolves against a rules_python pip hub, parsed in the
+# default 3.12 lane its consumers analyze in.
+pip.parse(
+    hub_name = "django",
+    python_version = "3.12",
+    requirements_lock = "//virtual-deps/django:requirements.txt",
+)
+use_repo(pip, "console_script_pip", "django", "pip")
 
 # rules_py's own interpreters, spanning every version outside rules_python's
 # lane. The 3.9-3.13 span (minus 3.11) backs the exec-tools sweep in test.sh.
@@ -73,6 +81,19 @@ register_toolchains("@python_interpreters//:all")
 # A rules_py uv hub: whl_install must find an exec-tools runtime even when the
 # target interpreter is rules_python's (3.11, outside every hub version) — the
 # hub's version-agnostic exec-tools fallback serves it.
+http_file = use_repo_rule(
+    "@bazel_tools//tools/build_defs/repo:http.bzl",
+    "http_file",
+)
+
+# Wheel fetched outside any hub, for the virtual-deps override resolution case.
+http_file(
+    name = "django_4_2_4",
+    downloaded_file_path = "Django-4.2.4-py3-none-any.whl",
+    sha256 = "860ae6a138a238fc4f22c99b52f3ead982bb4b1aad8c0122bcd8c8a3a02e409d",
+    urls = ["https://files.pythonhosted.org/packages/7f/9e/fc6bab255ae10bc57fa2f65646eace3d5405fbb7f5678b90140052d1db0f/Django-4.2.4-py3-none-any.whl"],
+)
+
 uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "rpy_pypi")
 uv.project(

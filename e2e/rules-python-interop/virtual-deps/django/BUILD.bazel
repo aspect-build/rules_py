@@ -1,6 +1,6 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library", "py_test", "py_unpacked_wheel", "resolutions")
 load("@django//:requirements.bzl", "all_whl_requirements_by_package", "requirement")
 load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirements")
-load("//py:defs.bzl", "py_binary", "py_library", "py_test", "py_unpacked_wheel", "resolutions")
 
 package(default_testonly = True)
 
@@ -45,7 +45,7 @@ py_unpacked_wheel(
     src = "@django_4_2_4//file",
 )
 
-# bazel run //py/tests/virtual-deps/django:manage.override_django -- --version
+# bazel run //virtual-deps/django:manage.override_django -- --version
 # Django Version: 4.2.4
 py_binary(
     name = "manage.override_django",
@@ -66,7 +66,7 @@ filegroup(
     name = "empty",
 )
 
-# bazel run //py/tests/virtual-deps/django:manage.remove_django -- --version
+# bazel run //virtual-deps/django:manage.remove_django -- --version
 # ImportError: Couldn't import Django.
 # Are you sure it's installed and available on your PYTHONPATH environment variable?
 # Did you forget to activate a virtual environment?
