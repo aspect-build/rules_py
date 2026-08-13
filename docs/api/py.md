@@ -203,6 +203,31 @@ Build a pex executable from a py_binary
 | <a id="py_pex_binary-python_shebang"></a>python_shebang |  -   | String | optional |  `"#!/usr/bin/env python3"`  |
 
 
+<a id="py_unpack_toolchain"></a>
+
+## py_unpack_toolchain
+
+<pre>
+load("@aspect_rules_py//py:defs.bzl", "py_unpack_toolchain")
+
+py_unpack_toolchain(<a href="#py_unpack_toolchain-name">name</a>, <a href="#py_unpack_toolchain-tool">tool</a>)
+</pre>
+
+Replaces the default wheel-unpack tool.
+
+Register it under `@aspect_rules_py//py:unpack_toolchain_type`. The tool must
+implement the unpack CLI contract; see "Custom wheel-unpack tool" in
+docs/interpreter.md.
+
+**ATTRIBUTES**
+
+
+| Name  | Description | Type | Mandatory | Default |
+| :------------- | :------------- | :------------- | :------------- | :------------- |
+| <a id="py_unpack_toolchain-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
+| <a id="py_unpack_toolchain-tool"></a>tool |  Executable implementing the unpack CLI contract.   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
+
+
 <a id="py_unpacked_wheel"></a>
 
 ## py_unpacked_wheel
