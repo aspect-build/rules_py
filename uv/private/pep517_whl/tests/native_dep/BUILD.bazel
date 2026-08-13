@@ -82,7 +82,7 @@ pep517_native_whl(
         "LDFLAGS": "$(EXECROOT)/$(DEP_LIB_A)",
     },
     tags = ["manual"],
-    tool = "//uv/private/pep517_whl:__build_helper",
+    tool = "//uv/private/pep517_whl/tests:__build_helper",
     toolchains = [
         ":dep_makevars",
     ],

@@ -17,7 +17,7 @@ pep517_native_whl(
         "STRIP": "$(EXECROOT)/$(DEP_CC) '--strip-flag=two words'",
     },
     tags = ["manual"],
-    tool = "//uv/private/pep517_whl:__build_helper",
+    tool = "//uv/private/pep517_whl/tests:__build_helper",
     toolchains = ["//uv/private/pep517_whl/tests/native_dep:dep_makevars"],
     version = "0.0.1",
 )

@@ -2,10 +2,11 @@ load("@bazel_skylib//rules:build_test.bzl", "build_test")
 
 # Gazelle manages the bzl_library graph for the public //py/... and //uv/...
 # packages so release_prep.sh's starlark_doc_extract query has fresh deps.
-# Other dirs (bazel/, examples/) hold internal/example code with no doc consumers.
-# gazelle:exclude bazel
-# gazelle:exclude examples
 # gazelle:exclude py/tests
+
+# Test-only Starlark (unittest suites, analysis tests) has no doc consumers,
+# so keep it out of the bzl_library graph.
+# gazelle:exclude **/*_test.bzl
 
 # Snapshot directories hold copies of generated repo-rule output checked
 # in for diff_test regression coverage; they aren't real Starlark sources.

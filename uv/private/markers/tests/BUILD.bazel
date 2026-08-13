@@ -1,0 +1,77 @@
+load("//py:defs.bzl", "py_test")
+load("//uv/private/markers:defs.bzl", "decide_marker")
+load(":pep508_evaluate_test.bzl", "pep508_evaluate_test_suite")
+
+package(default_testonly = True)
+
+pep508_evaluate_test_suite()
+
+# End-to-end regression for the architecture alias normalization in
+# decide_marker. The marker uses only Python-style spellings (arm64/amd64);
+# Bazel's platform_machine flag emits aarch64/x86_64. Pre-fix the select()
+# falls through on every host; post-fix one of the alternatives matches.
+decide_marker(
+    name = "_arch_alias_marker",
+    marker = "platform_machine == 'arm64' or platform_machine == 'amd64'",
+)
+
+py_test(
+    name = "marker_arch_alias_test",
+    srcs = ["marker_arch_alias_test.py"],
+    args = select({
+        ":_arch_alias_marker": ["matched"],
+        "//conditions:default": ["did_not_match"],
+    }),
+    main = "marker_arch_alias_test.py",
+)
+
+### Test markers
+# TODO: Figure out a way to make these actual tests...
+
+# { name = "jinxed", marker = "sys_platform == 'win32'" },
+decide_marker(
+    name = "test_jinxed",
+    marker = "sys_platform == 'win32'",
+)
+
+# { name = "tomli", marker = "python_full_version <= '3.11'" },
+decide_marker(
+    name = "test_tomli",
+    marker = "python_full_version <= '3.11'",
+)
+
+# { name = "cffi", marker = "platform_python_implementation != 'PyPy'" },
+decide_marker(
+    name = "test_cffi",
+    marker = "platform_python_implementation != 'PyPy'",
+)
+
+# { name = "hf-xet", marker = "platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64'" },
+decide_marker(
+    name = "test_hf_xet",
+    marker = "platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64'",
+)
+
+# { name = "appnope", marker = "sys_platform == 'darwin'" },
+decide_marker(
+    name = "test_appnope",
+    marker = "sys_platform == 'darwin'",
+)
+
+# { name = "pexpect", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
+decide_marker(
+    name = "test_pexpect",
+    marker = "sys_platform != 'emscripten' and sys_platform != 'win32'",
+)
+
+# { name = "evdev", marker = "'linux' in sys_platform" },
+decide_marker(
+    name = "test_evdev",
+    marker = "'linux' in sys_platform",
+)
+
+# { name = "greenlet", marker = "platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64'" },
+decide_marker(
+    name = "test_greenlet",
+    marker = "platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64'",
+)

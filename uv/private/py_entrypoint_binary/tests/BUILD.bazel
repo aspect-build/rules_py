@@ -1,0 +1,5 @@
+load(":console_script_name_test.bzl", "py_entrypoint_binary_test_suite")
+
+package(default_testonly = True)
+
+py_entrypoint_binary_test_suite()
