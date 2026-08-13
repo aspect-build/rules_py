@@ -15,7 +15,8 @@ DEFAULT_RELEASE_BASE_URL = "https://github.com/astral-sh/python-build-standalone
 
 # Default PBS release dates, ordered newest-first. These are used when the user
 # does not specify any release dates via interpreters.release(). Together they
-# cover Python 3.8 through 3.15.
+# cover Python 3.9 through 3.15. Older versions remain reachable by adding an
+# older release date via interpreters.configure(releases = ...).
 #
 # To find available releases:
 #   gh api 'repos/astral-sh/python-build-standalone/releases?per_page=20' --jq '.[].tag_name'
@@ -24,7 +25,6 @@ DEFAULT_RELEASE_BASE_URL = "https://github.com/astral-sh/python-build-standalone
 DEFAULT_RELEASE_DATES = [
     "20260303",  # 3.10-3.15
     "20251031",  # 3.9-3.15
-    "20241002",  # 3.8-3.13
 ]
 
 # `PLATFORM_LIBC_FLAG` is only applied to linux toolchains below: on
