@@ -12,13 +12,8 @@ print("site.PREFIXES:")
 for p in site.PREFIXES:
     print(" -", p)
 
-# The virtualenv module should have already been loaded at interpreter startup
-assert "_virtualenv" in sys.modules
-
-# The shim must be a real file inside the venv, not a symlink resolving into
-# the rules_py source tree — symlinked copies dangle outside Bazel (tar/OCI).
-_shim = os.path.realpath(sys.modules["_virtualenv"].__file__)
-assert _shim.endswith("site-packages/_virtualenv.py"), _shim
+# Python 3.10+ venvs do not include the distutils startup shim.
+assert "_virtualenv" not in sys.modules
 
 # Note that we can't assume that a `.runfiles` tree has been created as CI may
 # use a different layout.
