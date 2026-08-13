@@ -322,6 +322,9 @@ This interpreter provisioning is designed to coexist with `rules_python`:
   interpreters only through `rules_python`'s `python.toolchain()`. rules_py
   registers nothing under `rules_python`'s exec-tools type, leaving it —
   including precompiling — entirely to `rules_python`.
+- Wheel-installing build actions run the default unpack tool under the
+  exec-tools interpreter unless a
+  [custom wheel-unpack tool](#custom-wheel-unpack-tool) is registered.
 
 Note that runtimes provisioned by `interpreters.toolchain()` carry
 `rules_python`'s public `PyRuntimeInfo` (re-exported from
@@ -333,3 +336,61 @@ these runtimes is unavailable.
 You can migrate incrementally: replace `python.toolchain()` calls with
 `interpreters.toolchain()` and remove the `rules_python` interpreter
 configuration while keeping everything else.
+
+## Custom wheel-unpack tool
+
+The `WhlInstall` action (uv-generated `whl_install` targets; full flag set)
+and the `PyUnpackedWheel` action (hand-written `py_unpacked_wheel` targets;
+always-passed flags only) install each wheel by running an unpack tool with
+the flags below. By default that is `@aspect_rules_py//py/tools/unpack` under
+the exec-tools interpreter. Registering a `py_unpack_toolchain` (e.g. wrapping
+a prebuilt binary) replaces it; the tool is built for, and selected by, the
+execution platform:
+
+```starlark
+load("@aspect_rules_py//py:defs.bzl", "py_unpack_toolchain")
+
+py_unpack_toolchain(
+    name = "fast_unpack",
+    tool = ":fast_unpack_bin",
+)
+
+toolchain(
+    name = "fast_unpack_toolchain",
+    toolchain = ":fast_unpack",
+    toolchain_type = "@aspect_rules_py//py:unpack_toolchain_type",
+)
+```
+
+`@aspect_rules_py//py/tools/unpack` is the reference implementation — match
+its observable behavior, including the failure guards on patching and
+exclusion.
+
+| Flag | Repeated | Passed | Purpose |
+|---|---|---|---|
+| `--into <dir>` | | always | output tree artifact; install the wheel here |
+| `--wheel <file>` | | always | the `.whl` to install |
+| `--python-version <M.m>` | | always | target interpreter major.minor version |
+| `--exclude-glob <pattern>` | yes | on feature | remove matching site-packages files post-install |
+| `--patch <file>` | yes | on feature | patch the installed tree, in order, cwd `<into>` |
+| `--patch-strip <N>` | | with `--patch` | `-p<N>` strip count |
+| `--preserve-path <path>` | yes | with `--patch` | fail if patching changes these paths' layout |
+| `--compile-pyc <interpreter>` | | on feature | pre-compile `.pyc` bytecode with this exec-config interpreter (a declared input) |
+| `--pyc-invalidation-mode <mode>` | | with `--compile-pyc` | PEP 552 mode |
+
+Requirements:
+
+- Install into `<into>/lib/python<M>.<m>/site-packages/` per the wheel spec's
+  install operation: PEP 427 `.data/` routing, entry-point launchers under
+  `bin/` and rewritten `#!python` shebangs (both relocatable, resolving the
+  venv-sibling `python3`), executable bits, regenerated `RECORD` plus
+  `INSTALLER`/`REQUESTED`.
+- `<M>.<m>` is the *target* version and only names that directory — never run
+  target Python; under cross-compilation it may not run on the build host.
+- Order: unpack, patch, exclude, compile. Exit non-zero on any failure.
+- When patching, preserve the layout of every `--preserve-path` and reject
+  additions or removals outside site-packages; analysis-time wheel metadata
+  cannot reflect either change.
+- Deterministic, path-mapping-safe output (`supports-path-mapping`): no
+  absolute or configuration-dependent paths in installed files; the action is
+  sandboxed to its declared inputs.
