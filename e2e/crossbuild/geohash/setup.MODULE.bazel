@@ -1,0 +1,27 @@
+"""python-geohash: setuptools sdist with both C and C++ extensions.
+
+The pre-build patch injects a C++ probe (require_cxx_driver.patch) so the
+build fails outright if the cross toolchain can only drive C — geohash's own
+setup.py would otherwise fall back silently.
+"""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_crossbuild_geohash")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "cffi",
+        "setuptools",
+    ],
+    hub_name = "pypi_crossbuild_geohash",
+    lock = "//geohash:uv.lock",
+    pyproject = "//geohash:pyproject.toml",
+)
+uv.override_package(
+    name = "python-geohash",
+    lock = "//geohash:uv.lock",
+    pre_build_patch_strip = 1,
+    pre_build_patches = ["//geohash:require_cxx_driver.patch"],
+    resource_set = "mem_4g",
+)
+use_repo(uv, "pypi_crossbuild_geohash")

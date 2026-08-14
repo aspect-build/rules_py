@@ -1,0 +1,17 @@
+"""contourpy: meson-python + pybind11 C++ extension sdist build."""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_crossbuild_contourpy")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "meson",
+        "meson-python",
+        "ninja",
+        "pybind11",
+    ],
+    hub_name = "pypi_crossbuild_contourpy",
+    lock = "//contourpy:uv.lock",
+    pyproject = "//contourpy:pyproject.toml",
+)
+use_repo(uv, "pypi_crossbuild_contourpy")
