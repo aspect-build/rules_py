@@ -23,7 +23,7 @@ def _unittest_main_impl(ctx):
         # template's explanatory comments can change without silently defeating
         # the substitution.
         substitutions = {
-            "test_files: List[str] = []": "test_files: List[str] = " + repr(sorted(test_files)),
+            "test_files: list[str] = []": "test_files: list[str] = " + repr(sorted(test_files)),
         },
     )
 

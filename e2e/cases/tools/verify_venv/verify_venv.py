@@ -57,7 +57,7 @@ import glob
 import importlib
 import os
 import sys
-from typing import Iterable, Optional
+from collections.abc import Iterable
 
 
 def verify_interpreter_symlinks() -> None:
@@ -87,7 +87,7 @@ def verify_interpreter_symlinks() -> None:
         )
 
 
-def verify_no_dangling_symlinks(root: Optional[str] = None) -> None:
+def verify_no_dangling_symlinks(root: str | None = None) -> None:
     if root is None:
         root = sys.prefix
     dangling = []
