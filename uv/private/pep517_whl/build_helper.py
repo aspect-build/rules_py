@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 
-"""
-A minimal python3 -m build wrapper
+"""Drive a PEP 517 sdist-to-wheel build inside a Bazel action.
 
-Mostly exists to allow debugging.
+Unpacks the sdist, assembles a build environment that survives the backend's
+chdir (compiler wrappers, absolutized toolchain paths) and — in cross mode —
+fakes the target platform's identity for the backend, then runs the
+pypa/build frontend. Deliberately a single self-contained script: it is the
+`main` of the py_binary each sdist_build repo generates.
 """
 
 from __future__ import annotations
@@ -20,7 +23,7 @@ import textwrap
 from os import chmod, defpath, listdir, makedirs, path, pathsep
 from subprocess import CalledProcessError, check_call, check_output, STDOUT, run
 from tempfile import TemporaryFile
-from typing import Dict, Optional
+from typing import Dict, NoReturn, Optional
 
 try:
     tomllib = importlib.import_module("tomllib")
@@ -34,24 +37,22 @@ _SETUPTOOLS_BACKENDS = (
 )
 
 
-# Compiler commands must remain valid across working-directory changes.
-# argv[0] must name the resolved driver because compilers may use its directory
-# to locate sibling tools and resources. Clang does so under -no-canonical-prefixes:
-# https://github.com/llvm/llvm-project/blob/llvmorg-22.1.4/clang/tools/driver/driver.cpp#L63-L78
+def _die(message: str) -> NoReturn:
+    print(message, file=sys.stderr)
+    sys.exit(1)
+
+
+# Clang-only DWARF flag some Bazel toolchains inject; stripped by the
+# wrappers because non-clang drivers reject it.
 _DEBUG_FLAG = "-fdebug-default-version=4"
 
-# gcc_toolchain's tool_path for the cpp_compile/cpp_link_dynamic_library
-# actions is plain "gcc", not "g++": Bazel toolchains dispatch C vs C++ by
-# file extension/-x, not by driver name, and gcc_toolchain's link flags carry
-# no -lstdc++. `-static-libstdc++` alone is a no-op there — that flag only
-# modifies an *implicit* libstdc++ link that only the "g++" argv[0] spec adds
-# in the first place. `-Wl,-Bstatic -lstdc++ -Wl,-Bdynamic` forces the static
-# archive regardless of driver name, making a C++ extension self-contained
-# instead of depending on the target's libstdc++.so.6 matching ours — and
-# without it, cross-arch (and even native) C++ extensions can build and even
-# import (borrowing symbols another already-loaded .so happened to pull in)
-# yet fail once nothing else in the process provides them. GNU-ld-only
-# syntax: skipped on Darwin, where clang++ already links libc++ implicitly.
+# Forces the static libstdc++ archive regardless of driver name. Plain
+# `-static-libstdc++` is a no-op under gcc_toolchain, whose tool_path is
+# "gcc" (not "g++"): that flag only modifies the implicit libstdc++ link the
+# "g++" argv[0] spec adds. Without this, C++ extensions can build and even
+# import (borrowing symbols another loaded .so pulled in) yet fail at
+# runtime. GNU-ld-only syntax: skipped on Darwin, where clang++ links libc++
+# implicitly.
 _STATIC_LIBSTDCXX_FLAGS = ("-Wl,-Bstatic", "-lstdc++", "-Wl,-Bdynamic")
 
 _COMPILER_WRAPPER = """#!/usr/bin/env python3
@@ -137,38 +138,26 @@ while i < len(args):
     filtered.append(a)
     i += 1
 
-# Standalone (non-"-shared") executables built by this cross toolchain are
-# never the actual wheel deliverable — always some build tool's own
-# throwaway sanity-check/feature-probe binary (e.g. meson's own compiler
-# check, or a project's cc.run() call) that an exe_wrapper immediately
-# executes under QEMU. Dynamically-linked target-arch PIE binaries hit a
-# real qemu-user/glibc bug there ("Inconsistency detected by ld.so:
-# ... DT_VERSYM ... Assertion failed") on process startup's own relocation
-# path, verified independent of any toolchain mismatch (a single-toolchain
-# hello-world binary reproduces it); statically linking sidesteps it
-# entirely, since it never touches ld.so's dynamic-executable-startup path.
-# The actual .so deliverables this wrapper also builds are unaffected —
-# they always pass "-shared" and load via dlopen()'s own, unrelated path.
-# Mutually exclusive with the static-libstdc++-only trick below: a trailing
-# "-Wl,-Bdynamic" there would undo a preceding bare "-static" for whatever
-# the driver appends after our args (libc included), reintroducing the same
-# bug — and full static linking already covers libstdc++ too, making that
-# partial trick redundant for a binary that's never shipped anyway.
+# Standalone (non-"-shared") executables built here are never the wheel
+# deliverable — only throwaway feature probes (meson sanity checks,
+# cc.run()) executed under QEMU, where dynamically-linked target-arch PIE
+# binaries hit a real qemu-user/glibc startup bug ("Inconsistency detected
+# by ld.so: ... DT_VERSYM"), reproducible with a single-toolchain
+# hello-world. "-static" sidesteps ld.so entirely; the .so deliverables
+# always pass "-shared" and load via dlopen's unrelated path. Mutually
+# exclusive with the static-libstdc++ trick: its trailing "-Wl,-Bdynamic"
+# would undo a bare "-static" for driver-appended libs (libc included).
 is_shared = "-shared" in filtered
 if is_link and exe_link_flags:
-    # LLVM-style toolchain (nonempty exe_link_flags, see the "-nostdlib++"
-    # detection in build_helper): clang only reaches its crt objects and
-    # glibc/libc++ archives through the link action's -B/-L/--sysroot flags
-    # (no self-contained GCC-like prefix layout), and not every caller
-    # threads $LDSHARED through — rustc invokes this wrapper as "-C linker"
-    # with its own args, meson links its probe executables bare. Bake the
-    # flags into every link; duplicates from the $LDSHARED path are
-    # harmless to clang. No "-static" for probe executables here: the QEMU
-    # ld.so bug that motivates it is only reachable via gcc_toolchain on
-    # the Linux CI runner.
-    # rustc hardcodes "-lgcc_s" for its unwinder on *-linux-gnu targets;
-    # this toolchain ships no libgcc at all — statically fold in its
-    # libunwind instead (cargo-zigbuild's trick, same ABI surface).
+    # LLVM-style toolchain (see the "-nostdlib++" detection in
+    # build_helper): clang only reaches its crt objects and glibc/libc++
+    # archives through the link action's -B/-L/--sysroot flags, and not
+    # every caller threads $LDSHARED through (rustc invokes this wrapper as
+    # "-C linker", meson links probes bare) — bake the flags into every
+    # link; duplicates are harmless to clang.
+    # rustc hardcodes "-lgcc_s" on *-linux-gnu but this toolchain ships no
+    # libgcc — fold in its static libunwind instead (cargo-zigbuild's
+    # trick, same ABI surface).
     filtered = ["-lunwind" if a == "-lgcc_s" else a for a in filtered]
     filtered.extend(exe_link_flags)
     if is_cxx:
@@ -255,13 +244,8 @@ def _darwin_kernel_release(macos_deployment_target: Optional[str]) -> str:
 
 
 def _absolutize_path(value: str) -> str:
-    """Resolve a relative path to absolute, leaving absolute/empty values untouched.
-
-    Shared by _resolve_compiler_path (CC/CXX) and _absolutize_tool_paths.
-    Toolchain execroot-relative paths break once the PEP 517 backend chdirs into the
-    unpacked sdist. Centralizing the policy keeps the two paths in lockstep
-    and gives future toolchains (FC, RUSTC, ...) a single primitive to call.
-    """
+    """Make a relative path absolute: execroot-relative toolchain paths stop
+    resolving once the PEP 517 backend chdirs into the unpacked sdist."""
     return path.abspath(value) if value and not path.isabs(value) else value
 
 
@@ -371,32 +355,20 @@ def _get_wrapper_flags(cflags: str) -> list[str]:
     """Extract identity flags (-target, --sysroot, -isysroot, ...) from CFLAGS.
 
     The PEP 517 backend (setuptools, meson-python) may strip these when
-    constructing its own compile commands. The cross wrapper re-injects
-    them on every invocation to guarantee the real compiler targets the
-    correct platform.
-
-    Sysroot values are absolutized while this still runs from the execroot:
-    toolchains hand out execroot-relative paths (e.g. the llvm module's
-    external/…/macos_sdk/sysroot), which stop resolving once the backend
-    chdirs into the unpacked sdist — the compiler then silently falls back
-    to default header search paths and the linker finds no libraries at all.
+    constructing its own compile commands; the cross wrapper re-injects them
+    on every invocation so the real compiler always targets the right
+    platform. Sysroot values are absolutized first (see
+    _absolutize_sysroot_flags for why that must happen in the execroot).
     """
-    parts = shlex.split(cflags)
+    parts = shlex.split(_absolutize_sysroot_flags(cflags))
     result = []
     i = 0
     while i < len(parts):
         p = parts[i]
         if any(p == prefix or p.startswith(prefix + "=") for prefix in _IDENTITY_FLAG_PREFIXES):
-            if "=" in p:
-                flag, _, value = p.partition("=")
-                if flag in _SYSROOT_FLAG_PREFIXES:
-                    p = "{}={}".format(flag, _absolutize_path(value))
             result.append(p)
             if "=" not in p and i + 1 < len(parts) and not parts[i + 1].startswith("-"):
-                value = parts[i + 1]
-                if p in _SYSROOT_FLAG_PREFIXES:
-                    value = _absolutize_path(value)
-                result.append(value)
+                result.append(parts[i + 1])
                 i += 1
         i += 1
     return result
@@ -493,13 +465,9 @@ def _compiler_env(
     if execroot_marker:
         execroot = os.getcwd()
         env = {key: value.replace(execroot_marker, execroot) for key, value in env.items()}
-    # The helper's launcher exports RUNFILES_DIR, RUNFILES_MANIFEST_FILE, and
-    # JAVA_RUNFILES:
-    # https://github.com/hermeticbuild/hermetic-launcher/blob/381814d0818af0573263323dc0dd0e4e208fc3fa/README.md#runfiles-discovery
-    # Bazel adds RUNFILES_MANIFEST_ONLY when runfiles trees are disabled:
-    # https://github.com/bazelbuild/bazel/blob/9.1.1/src/main/java/com/google/devtools/build/lib/bazel/rules/BazelRuleClassProvider.java#L192-L201
-    # Nested Bazel executables check that inherited state before adjacent
-    # runfiles, so remove the parent's identity before package code runs.
+    # The helper's own launcher exported this runfiles identity; nested Bazel
+    # executables launched by package code would trust it over their adjacent
+    # runfiles, so strip it before any package code runs.
     for key in (
         "JAVA_RUNFILES",
         "RUNFILES_DIR",
@@ -507,15 +475,11 @@ def _compiler_env(
         "RUNFILES_MANIFEST_ONLY",
     ):
         env.pop(key, None)
-    # A build dependency's console-script wrappers resolve their own bundled
-    # binary via Python import machinery (ninja, meson), so they never need
-    # PATH. Some (maturin) instead ship a plain wheel-data script under
-    # <whl_install output>/bin — rules_py's venv assembly only merges each
-    # dep's lib/site-packages into the shared venv, not its bin/, so that
-    # script never lands on sys.path or PATH by itself. Its files are still
-    # real runfiles under the runfiles root, just not indexed anywhere else,
-    # so find it the same way Bazel's own runfiles resolution would: walk
-    # the runfiles tree for a whl_install output's bin/ directory.
+    # Some build deps (maturin) ship plain wheel-data scripts under
+    # <whl_install output>/bin, which venv assembly never merges (it only
+    # merges lib/site-packages) — so they land on neither sys.path nor PATH.
+    # They are still real runfiles; walk the runfiles roots for whl_install
+    # bin/ dirs and put those on PATH.
     bin_dirs = []
     for runfiles_root in sys.path:
         if not path.isdir(runfiles_root) or "runfiles" not in runfiles_root:
@@ -534,16 +498,11 @@ def _compiler_env(
     env["TEMP"] = tmpdir
     env["TEMPDIR"] = tmpdir
 
-    # python-build-standalone interpreters (our python_interpreters toolchain)
-    # bake their *original build-time* prefix into sysconfig's LIBDIR
-    # (observed: "/install/lib", nonexistent once relocated into a Bazel
-    # toolchain) — harmless for pure-Python builds, but anything that needs
-    # to actually link against libpythonX.Y (meson's own Cython compiler
-    # sanity check does, to link its transpiled-and-compiled test program)
-    # fails with "cannot find -lpythonX.Y". The toolchain's own pkg-config
-    # file resolves paths relative to itself instead (${pcfiledir}/../..),
-    # so pointing PKG_CONFIG_PATH at it sidesteps the broken sysconfig value
-    # entirely for any tool that tries pkg-config before falling back to it.
+    # PBS interpreters bake their original build-time prefix into sysconfig's
+    # LIBDIR ("/install/lib", nonexistent after relocation), so anything that
+    # links libpythonX.Y (meson's Cython sanity check) fails. The
+    # interpreter's own pkg-config file resolves relative to itself
+    # (${pcfiledir}/../..) — point PKG_CONFIG_PATH at it instead.
     interpreter_root = path.dirname(path.dirname(path.realpath(sys.executable)))
     pkgconfig_dir = path.join(interpreter_root, "lib", "pkgconfig")
     if path.isdir(pkgconfig_dir):
@@ -582,30 +541,25 @@ def _compiler_env(
         cc = _make_cross_compiler_wrapper(tmpdir, "cc", cc_path, wrapper_flags, lld_path, is_darwin=is_darwin, exe_link_flags=exe_link_flags)
         cxx = _make_cross_compiler_wrapper(tmpdir, "c++", cxx_path, wrapper_flags, lld_path, is_cxx=True, is_darwin=is_darwin, exe_link_flags=exe_link_flags)
 
-        # gcc_toolchain's own layout (<root>/xbin/gcc, <root>/sysroot/...):
-        # a target-arch binary linked by this compiler needs ITS glibc/loader
-        # to run, not whatever the exec host or an unrelated toolchain (e.g.
-        # our python_interpreters build) happens to provide. Only meson's
-        # exe_wrapper (see _generate_meson_cross_file) uses this today.
+        # gcc_toolchain layout (<root>/xbin/gcc, <root>/sysroot/...): a
+        # target-arch binary needs THIS toolchain's glibc/loader to run.
+        # Consumed only by meson's exe_wrapper (_generate_meson_cross_file).
         target_gcc_sysroot = path.join(path.dirname(path.dirname(cc_path)), "sysroot")
         if not is_darwin and path.isdir(target_gcc_sysroot):
             env["RULES_PY_TARGET_GCC_SYSROOT"] = target_gcc_sysroot
 
         # The llvm toolchain on a darwin exec host reports llvm-libtool-darwin
-        # as its static archiver — a Mach-O-only tool that meson then invokes
-        # with ar-style args ("csr ...") for the target's static libs. For ELF
-        # targets swap in the sibling llvm-ar, which is what those args and
-        # the target format actually require.
+        # (Mach-O-only) as archiver; for ELF targets swap in the sibling
+        # llvm-ar, which the ar-style args and target format require.
         ar_path = env.get("AR", "")
         if not is_darwin and path.basename(ar_path) == "llvm-libtool-darwin":
             llvm_ar = path.join(path.dirname(ar_path), "llvm-ar")
             if path.exists(llvm_ar):
                 env["AR"] = llvm_ar
 
-        # apple_support's wrapped_clang substitutes __BAZEL_XCODE_DEVELOPER_DIR__
-        # and __BAZEL_XCODE_SDKROOT__ in its arguments from these variables and
-        # hard-fails without DEVELOPER_DIR. Bazel injects them only into actions
-        # with Xcode execution requirements, which this PEP 517 action is not.
+        # apple_support's wrapped_clang hard-fails without DEVELOPER_DIR /
+        # SDKROOT; Bazel injects them only into actions with Xcode execution
+        # requirements, which this PEP 517 action is not.
         if is_darwin and _platform.system() == "Darwin":
             if "DEVELOPER_DIR" not in env:
                 developer_dir = _xcode_developer_dir()
@@ -650,9 +604,8 @@ def _compiler_env(
             site_dir = _generate_cross_site(tmpdir, target_os, target_cpu, deployment_target)
             env["PYTHONPATH"] = site_dir + pathsep + env.get("PYTHONPATH", "")
 
-    # MPI builds (e.g. mpi4py) consult $MPICC before searching PATH, so a
-    # plain C compiler here would shadow the real mpicc. Only set it when
-    # a system mpicc exists, wrapped to keep the debug-flag stripping.
+    # MPI builds (mpi4py) consult $MPICC before PATH; only set it when a real
+    # mpicc exists, wrapped to keep the debug-flag stripping.
     mpicc_path = shutil.which("mpicc", path=env["PATH"])
     if mpicc_path:
         env.setdefault("MPICC", _make_compiler_wrapper(tmpdir, "mpicc", mpicc_path, sysroot))
@@ -667,17 +620,13 @@ def _compiler_env(
     ]:
         _override_tool(env, key, wrapper)
 
-    # maturin's PEP 517 wrapper (and setuptools-rust) locate cargo via
-    # shutil.which("cargo"), not just $CARGO — otherwise they fall back to
-    # auto-installing a Rust toolchain via the puccinialin package, which
-    # isn't one of our declared build deps.
+    # maturin and setuptools-rust locate cargo via shutil.which, not $CARGO —
+    # without it on PATH they auto-install a Rust toolchain (puccinialin).
     cargo_path = env.get("CARGO")
     if cargo_path:
         env["PATH"] = pathsep.join([path.dirname(cargo_path), env.get("PATH", defpath)])
 
-        # Cargo defaults its registry cache to $CARGO_HOME (~/.cargo), which
-        # in the sandbox is a read-only path outside the action's writable
-        # tree — give it a real, writable home instead.
+        # Cargo's default $CARGO_HOME (~/.cargo) is unwritable in the sandbox.
         cargo_home = path.join(tmpdir, ".cargo_home")
         makedirs(cargo_home, exist_ok=True)
         env.setdefault("CARGO_HOME", cargo_home)
@@ -725,14 +674,11 @@ def _generate_cmake_toolchain_file(
 ) -> str:
     """Cross toolchain file for scikit-build-core/CMake.
 
-    scikit-build-core's cross-compile detection only covers macOS
-    ARCHFLAGS/CMAKE_OSX_ARCHITECTURES (see its builder.py); a generic
-    Linux-arch cross build gets none of that, so CMake configures as a
-    native build. It still compiles/links fine off $CC/$CXX, but
-    CMAKE_STRIP falls back to `find_program`'s host `strip` rather than
-    ours, which then rejects the foreign-arch .so ("Unable to recognise
-    the format of the input file"). Setting CMAKE_SYSTEM_NAME also puts
-    CMake into real CMAKE_CROSSCOMPILING mode.
+    scikit-build-core only auto-detects macOS ARCHFLAGS cross builds; a
+    Linux-arch cross build configures as native — it compiles fine off
+    $CC/$CXX but find_program picks the host `strip`, which rejects the
+    foreign-arch .so. CMAKE_SYSTEM_NAME also enables real
+    CMAKE_CROSSCOMPILING mode.
     """
     return _write_generated_file(
         path.join(tmpdir, "cross_toolchain.cmake"),
@@ -773,35 +719,20 @@ def _generate_meson_cross_file(
 ) -> str:
     """Cross file for meson-python.
 
-    meson-python only auto-synthesizes a cross file for macOS ARCHFLAGS,
-    cibuildwheel/Android, and iOS (see its __init__.py); a generic
-    Linux-arch cross build gets none of that and configures as a native
-    build, so meson tries to run its compiler sanity-check binary and
-    fails with "not runnable". `needs_exe_wrapper` alone only covers
-    meson's OWN compiler sanity checks (which just skip running anything
-    when it's set) — some projects' meson.build also call `cc.run()`
-    directly (numpy does, for a runtime feature check), which instead
-    hard-errors ("Can not run test applications in this cross
-    environment") unless an actual `exe_wrapper` program is configured.
-    binfmt_misc on this host already runs target-arch ELFs transparently
-    (verified: qemu-aarch64 is registered), so the wrapper mostly just
-    needs to exec straight through — it's meson's contract that needs a
-    program here, not anything the emulation itself is missing. The one
-    thing it does add is QEMU_LD_PREFIX, pointed at the gcc cross
-    toolchain's own sysroot: meson's *compiler* sanity check links a tiny
-    test binary against that sysroot's glibc, and without QEMU_LD_PREFIX
-    qemu-user falls back to searching the exec host's own filesystem for
-    ld-linux-aarch64.so.1 (an amd64 Linux box has none) — an entirely
-    different failure mode than the earlier "not runnable" one, but the
-    same root cause of not telling qemu-user which glibc actually matches.
+    meson-python only auto-synthesizes a cross file for macOS
+    ARCHFLAGS/cibuildwheel/iOS; a Linux-arch cross build configures as
+    native and meson fails running its compiler sanity-check binary.
+    `needs_exe_wrapper` alone only covers meson's own checks — projects
+    calling `cc.run()` directly (numpy) hard-error unless a real
+    `exe_wrapper` program exists. binfmt_misc+qemu-user already runs
+    target-arch ELFs transparently, so the wrapper just execs through; what
+    it adds is QEMU_LD_PREFIX pointed at the cross toolchain's sysroot,
+    without which qemu-user searches the exec host for the target's
+    ld-linux/glibc and finds none.
     """
-    # The passthrough wrapper relies on the exec host transparently running
-    # target-arch ELFs (binfmt_misc + qemu-user) — a Linux-host capability.
-    # A darwin host cannot execute ELF at all, and an exe_wrapper that fails
-    # makes meson's sanity check fail outright; with needs_exe_wrapper=true
-    # and NO exe_wrapper, meson skips running its own checks instead, and
-    # projects calling cc.run() get meson's own explicit "can not run test
-    # applications" error — an honest host limitation, not a masked one.
+    # A darwin host cannot execute ELF at all; with needs_exe_wrapper=true
+    # and NO exe_wrapper, meson skips its own checks and cc.run() callers get
+    # meson's explicit cross-environment error — an honest host limitation.
     exe_wrapper_line = ""
     if _platform.system() == "Linux":
         exe_wrapper = _write_generated_file(
@@ -853,13 +784,11 @@ os.execv({rustc!r}, [{rustc!r}, "--sysroot", {sysroot!r}] + sys.argv[1:])
 def _merge_rust_sysroot(tmpdir: str, target_rustc: str, host_sysroot: str) -> str:
     """Symlink-merge the target toolchain's sysroot with the host's rust-std.
 
-    A rules_rust cross rust_toolchain's sysroot only bundles the exec
-    platform's LLVM shared libs (needed to *run* rustc), not its rust-std —
-    cargo still needs a real exec-platform rust-std to compile build
-    scripts/proc-macros, which are always host artifacts regardless of
-    --target. rustup-based cross setups don't hit this because one rustc
-    install holds every added target's std side by side; recreate that here
-    by merging the two Bazel-fetched, single-target sysroots into one.
+    A cross rust_toolchain's sysroot has no exec-platform rust-std, but
+    cargo needs one to compile build scripts/proc-macros (always host
+    artifacts regardless of --target). rustup holds every target's std side
+    by side in one install; recreate that by merging the two Bazel-fetched
+    single-target sysroots.
     """
     target_sysroot = path.dirname(path.dirname(target_rustc))
     merged = path.join(tmpdir, ".rust_sysroot")
@@ -891,11 +820,9 @@ def _merge_rust_sysroot(tmpdir: str, target_rustc: str, host_sysroot: str) -> st
 def _configure_cargo_cross_env(build_env: Dict[str, str], tmpdir: str, target_os: str, target_cpu: str) -> None:
     """Cross env vars for maturin/setuptools-rust (Cargo-driven PyO3 builds).
 
-    Cargo has no cross auto-detection to piggyback on the way meson-python's
-    macOS ARCHFLAGS case does — a cross build always needs an explicit
-    --target, and cargo has no idea which linker can actually produce a
-    binary for that target unless told via CARGO_TARGET_<TRIPLE>_LINKER, so
-    it falls back to $CC (the *host* driver) and fails at the link step.
+    Cargo has no cross auto-detection: it needs an explicit target triple,
+    and without CARGO_TARGET_<TRIPLE>_LINKER it links with the host driver
+    and fails.
     """
     os_suffix = _RUST_TARGET_OS.get(target_os, target_os)
     triple = "{}-{}".format(target_cpu, os_suffix)
@@ -903,11 +830,9 @@ def _configure_cargo_cross_env(build_env: Dict[str, str], tmpdir: str, target_os
     linker_var = "CARGO_TARGET_{}_LINKER".format(triple.upper().replace("-", "_"))
     build_env[linker_var] = build_env["CC"]
 
-    # PyO3's build script (pyo3-ffi) refuses to cross-compile without either
-    # an abi3-py3* feature or an explicit target Python version — maturin
-    # works around this itself (PYO3_CONFIG_FILE), but setuptools-rust just
-    # shells out to plain `cargo rustc` with no PyO3-specific help at all.
-    # Harmless to set even for non-PyO3 crates (simply unused).
+    # pyo3-ffi refuses to cross-compile without an explicit target Python
+    # version; maturin works around it itself, setuptools-rust does not.
+    # Unused (harmless) for non-PyO3 crates.
     build_env["PYO3_CROSS_PYTHON_VERSION"] = "{}.{}".format(sys.version_info.major, sys.version_info.minor)
 
     host_sysroot = build_env.get("RULES_PY_RUST_HOST_SYSROOT")
@@ -919,13 +844,10 @@ def _configure_cargo_cross_env(build_env: Dict[str, str], tmpdir: str, target_os
             executable=True,
         )
 
-    # maturin's PEP 517 wrapper passes -i <sys.executable> by default so it
-    # can inspect the target interpreter's ABI. In cross mode it refuses to
-    # actually execute that path (it may not be host-runnable) and instead
-    # name-parses it for a "pythonX.Y"-shaped basename — but our venv's
-    # sys.executable is the generic "python" symlink, which fails that
-    # parse. Point it at the versioned sibling instead, which the venv's
-    # bin dir (already on $PATH) also provides.
+    # In cross mode maturin name-parses its -i interpreter argument for a
+    # "pythonX.Y"-shaped basename instead of executing it; our venv's
+    # sys.executable is the generic "python" symlink, which fails that parse
+    # — point it at the versioned sibling the venv also provides.
     build_env["MATURIN_PEP517_ARGS"] = "--interpreter python{}.{}".format(
         sys.version_info.major,
         sys.version_info.minor,
@@ -950,9 +872,8 @@ _machine = {machine!r}
 _sysname = {sysname!r}
 _release = {release!r}
 
-# setup.py scripts routinely branch on sys.platform to decide which sources
-# to even compile (psutil picks _psutil_osx.c vs _psutil_linux.c this way),
-# and distutils keys its host-specific compiler customization on it too.
+# setup.py scripts branch on sys.platform to decide which sources to compile
+# (psutil picks _psutil_osx.c vs _psutil_linux.c this way).
 sys.platform = {sys_platform!r}
 
 os.uname = lambda: os.uname_result((_sysname, "build", _release, "", _machine))
@@ -980,10 +901,9 @@ platform.system = lambda: _sysname
 platform.machine = lambda: _machine
 platform.libc_ver = lambda *a, **k: ("", "")
 
-# packaging.tags._linux_platforms derives its arch from sysconfig.get_platform()
-# (already correctly faked via $_PYTHON_HOST_PLATFORM), not from platform.machine()
-# — no patch needed there. Only the manylinux-compatibility gate below is ours to
-# set, via the top-level _manylinux hook packaging._manylinux itself looks for.
+# packaging.tags derives its arch from sysconfig.get_platform() (already
+# faked via $_PYTHON_HOST_PLATFORM); only the manylinux gate needs the
+# top-level _manylinux hook packaging itself looks for.
 """
 
 _MANYLINUX_HOOK = """\
@@ -1008,16 +928,12 @@ def _generate_cross_site(
 ) -> str:
     """sitecustomize + _manylinux hook faking the target's runtime identity.
 
-    sysconfig.get_platform()/_get_sysconfigdata_name() are already faked via
-    env vars that CPython itself reads (_PYTHON_HOST_PLATFORM,
-    _PYTHON_SYSCONFIGDATA_NAME) — no patching needed there. But some build
-    backends and package setup.py scripts branch on os.uname()/
-    platform.machine() directly (e.g. to pick vectorized/arch-specific code
-    paths), which env vars can't reach. sitecustomize.py runs automatically
-    on interpreter startup — before any backend code executes — and patches
-    the already-imported os/platform modules in place. Modeled on crossenv's
-    os-patch.py/platform-patch.py/_manylinux.py, minus what rules_py doesn't
-    need (dual venvs, distutils.sysconfig, importlib.machinery interception).
+    sysconfig is already faked via env vars CPython itself reads
+    (_PYTHON_HOST_PLATFORM, _PYTHON_SYSCONFIGDATA_NAME), but setup.py
+    scripts also branch on os.uname()/platform.machine() directly, which
+    env vars can't reach. sitecustomize.py runs on interpreter startup —
+    before any backend code — and patches os/platform in place. Modeled on
+    crossenv, minus what rules_py doesn't need.
     """
     site_dir = path.join(tmpdir, ".cross_site")
 
@@ -1083,9 +999,9 @@ _WHEEL_OS_MAP = {"linux": "linux", "darwin": "macosx", "windows": "win"}
 
 
 def _expected_cpu_in_tag(target_os: str, target_cpu: str) -> str:
-    if target_os == "darwin":
-        return {"aarch64": "arm64", "x86_64": "x86_64"}.get(target_cpu, target_cpu)
-    return {"x86_64": "x86_64", "aarch64": "aarch64", "x86": "i686", "arm": "armv7l"}.get(target_cpu, target_cpu)
+    if target_os == "darwin" and target_cpu == "aarch64":
+        return "arm64"
+    return {"x86": "i686", "arm": "armv7l"}.get(target_cpu, target_cpu)
 
 
 def _validate_wheel_platform(wheel_filename: str) -> None:
@@ -1103,32 +1019,16 @@ def _validate_wheel_platform(wheel_filename: str) -> None:
     host_wheel_os = _WHEEL_OS_MAP.get(host_os, host_os)
 
     if target_os != host_os and host_wheel_os in platform_tag:
-        print(
+        _die(
             "Error: wheel platform tag '{}' contains exec host OS '{}' instead of "
             "target OS '{}'. The target sysconfig override may have failed.".format(
                 platform_tag, host_wheel_os, expected_os,
-            ),
-            file=sys.stderr,
+            )
         )
-        exit(1)
-
     if expected_os not in platform_tag:
-        print(
-            "Error: wheel platform tag '{}' does not contain target OS '{}'.".format(
-                platform_tag, expected_os,
-            ),
-            file=sys.stderr,
-        )
-        exit(1)
-
+        _die("Error: wheel platform tag '{}' does not contain target OS '{}'.".format(platform_tag, expected_os))
     if expected_cpu not in platform_tag:
-        print(
-            "Error: wheel platform tag '{}' does not contain target CPU '{}'.".format(
-                platform_tag, expected_cpu,
-            ),
-            file=sys.stderr,
-        )
-        exit(1)
+        _die("Error: wheel platform tag '{}' does not contain target CPU '{}'.".format(platform_tag, expected_cpu))
 
 
 PARSER = ArgumentParser()
@@ -1156,8 +1056,7 @@ t = path.join(tmp_root, "worktree")
 
 shutil.unpack_archive(opts.srcarchive, t)
 
-# Annoyingly, unpack_archive creates a subdir in the target. Update t
-# accordingly. Not worth the eng effort to prevent creating this dir.
+# unpack_archive nests the sdist's own top-level directory; follow it.
 t = path.join(t, listdir(t)[0])
 
 if opts.patches:
@@ -1175,21 +1074,11 @@ if opts.patches:
         try:
             check_call(patch_cmd, cwd=t)
         except CalledProcessError as exc:
-            # Fail with a concise reason on stderr instead of a Python traceback.
-            print(
-                "Error: failed to apply patch {} (patch exited {}).".format(abs_patch, exc.returncode),
-                file=sys.stderr,
-            )
-            exit(1)
+            _die("Error: failed to apply patch {} (patch exited {}).".format(abs_patch, exc.returncode))
 
 
-# Get a path to the outdir which will be valid after we cd
 outdir = path.abspath(opts.outdir)
 
-# Preserve PATH so native sdist builds can find compilers (clang, gcc),
-# and re-point CC/CXX/etc. through wrapper scripts in tmp_root so the
-# Bazel-supplied workspace-relative compiler paths survive the cwd
-# change into the worktree.
 build_env = _compiler_env(
     tmp_root,
     opts.execroot_marker,
@@ -1214,21 +1103,13 @@ if _legacy_metadata_conflicts_with_pyproject(t, pyproject_data):
         outdir,
     ]
 elif path.exists(path.join(t, "pyproject.toml")) or path.exists(path.join(t, "setup.py")):
-    # Always use `python -m build` (PEP 517 frontend). For setup.py-only
-    # packages without a pyproject.toml, build creates a minimal PEP 517
-    # shim automatically. --no-isolation ensures it uses the deps we've
-    # already provided in the build venv rather than trying to pip-install.
-    # Routing legacy setup_requires=… packages (e.g. googlemaps 4.10.0)
-    # through setup.py directly triggers setuptools' deprecated
-    # fetch_build_eggs path, which crashes on modern packaging.
-    #
-    # --skip-dependency-check disables `build`'s validation of
-    # `[build-system].requires` against the active venv. The
-    # validation is redundant under --no-isolation (we already
-    # commit to managing the venv) and rejects packages that pile
-    # unrelated dev tooling into `requires` — cdifflib 1.2.9 lists
-    # pytest/ruff/twine there, none of which are actually needed
-    # to compile its C extension.
+    # Always `python -m build`, even for setup.py-only packages (it creates
+    # the PEP 517 shim; invoking setup.py directly triggers setuptools'
+    # deprecated fetch_build_eggs path, which crashes on modern packaging).
+    # --no-isolation: use the deps already in the build venv, never pip.
+    # --skip-dependency-check: redundant under --no-isolation, and it
+    # rejects packages that pile dev tooling into [build-system].requires
+    # (cdifflib lists pytest/ruff/twine there).
     cmd = [
         sys.executable,
         "-m", "build",
@@ -1240,14 +1121,10 @@ elif path.exists(path.join(t, "pyproject.toml")) or path.exists(path.join(t, "se
     build_system = (pyproject_data or {}).get("build-system", {})
     build_backend = build_system.get("build-backend") if isinstance(build_system, dict) else None
 
-    # meson-python has no auto-detection for a missing system BLAS/LAPACK
-    # the way it does for a missing cross-file (see below) — a package that
-    # needs one (numpy) has to pass its own -Dblas=none/-Dlapack=none (or
-    # similar) setup-args, and needs them for a native build here too, since
-    # our build venv never has a system BLAS/LAPACK either. meson-python's
-    # "setup-args" config-setting is list-typed, and `build`'s -C flag
-    # accumulates repeated keys into a list, so this can't collide with the
-    # --cross-file argument the cross branch below adds separately.
+    # Packages needing -D setup-args (numpy's -Dblas=none — the hermetic
+    # venv has no system BLAS in native mode either) pass them via this env
+    # var. `build`'s -C accumulates repeated keys, so it can't collide with
+    # the --cross-file the cross branch adds separately.
     if build_backend == "mesonpy":
         for arg in shlex.split(build_env.get("RULES_PY_MESON_SETUP_ARGS", "")):
             cmd += ["-C", "setup-args=" + arg]
@@ -1256,10 +1133,9 @@ elif path.exists(path.join(t, "pyproject.toml")) or path.exists(path.join(t, "se
         build_requires = build_system.get("requires", []) if isinstance(build_system, dict) else []
         if not isinstance(build_requires, list):
             build_requires = []
-        # setuptools-rust has no build-backend value of its own — it's just
-        # setuptools.build_meta with an extra requirement — and no --target
-        # flag of its own either: it shells out to plain `cargo rustc` and
-        # relies on $CARGO_BUILD_TARGET, same as maturin does once we set it.
+        # setuptools-rust has no build-backend value of its own (it's
+        # setuptools.build_meta plus a requirement) and relies on
+        # $CARGO_BUILD_TARGET, same as maturin.
         uses_setuptools_rust = build_backend in _SETUPTOOLS_BACKENDS and any(
             isinstance(req, str) and _requirement_name(req) == "setuptools-rust" for req in build_requires
         )
@@ -1272,14 +1148,14 @@ elif path.exists(path.join(t, "pyproject.toml")) or path.exists(path.join(t, "se
         elif (build_backend == "maturin" or uses_setuptools_rust) and build_env.get("CARGO"):
             _configure_cargo_cross_env(build_env, tmp_root, opts.target_os, opts.target_cpu)
 else:
-    print("Error: Unable to detect build command! Neither pyproject.toml nor setup.py found!", file=sys.stderr)
-    raise SystemExit(1)
+    # raise, not _die(): ty doesn't narrow NoReturn in module-level flow and
+    # would flag `cmd` below as possibly unbound.
+    raise SystemExit("Error: Unable to detect build command! Neither pyproject.toml nor setup.py found!")
 
 with TemporaryFile(mode="w+") as build_log:
     try:
         if opts.monitor_memory:
-            # Generated build tools include this dependency only when the
-            # corresponding wheel opts into monitoring.
+            # Lazy: the dependency exists only when the wheel opts in.
             from uv.private.pep517_whl.memory_monitor import run_with_memory_monitor
 
             run_with_memory_monitor(
@@ -1298,18 +1174,15 @@ with TemporaryFile(mode="w+") as build_log:
             sys.stderr.write(output)
             if not output.endswith("\n"):
                 sys.stderr.write("\n")
-        print("Error: Build failed!\nSee {} for the sandbox".format(t), file=sys.stderr)
-        exit(1)
+        _die("Error: Build failed!\nSee {} for the sandbox".format(t))
 
 inventory = listdir(outdir)
 
 if len(inventory) > 1:
-    print("Error: Built more than one wheel!\nSee {} for the sandbox".format(t), file=sys.stderr)
-    exit(1)
+    _die("Error: Built more than one wheel!\nSee {} for the sandbox".format(t))
 
 if opts.validate_anyarch and not inventory[0].endswith("-none-any.whl"):
-    print("Error: Target was anyarch but built a none-any wheel!\nSee {} for the sandbox".format(t), file=sys.stderr)
-    exit(1)
+    _die("Error: Target was anyarch but built a none-any wheel!\nSee {} for the sandbox".format(t))
 
 if opts.cross and not inventory[0].endswith("-none-any.whl"):
     _validate_wheel_platform(inventory[0])
