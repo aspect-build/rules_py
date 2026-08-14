@@ -16,10 +16,10 @@ py_test(
     isolated = False,
     main = "test.py",
     package_collisions = "warning",
-    # Protobuf publishes native CPython 3.9 wheels for glibc Linux, macOS,
+    # Protobuf publishes native CPython wheels for glibc Linux, macOS,
     # and Windows. It has no musllinux wheel, so do not let this native-root
     # regression silently select protobuf's pure-Python fallback there.
-    python_version = "3.9",
+    python_version = "3.10",
     target_compatible_with = select({
         "@aspect_rules_py//uv/private/constraints/platform:is_musl": ["@platforms//:incompatible"],
         "//conditions:default": [],

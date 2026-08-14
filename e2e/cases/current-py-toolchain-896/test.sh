@@ -24,7 +24,7 @@ check_runtime_version() {
     fi
 }
 
-for version in 3.9 3.10 3.11 3.12 3.13; do
+for version in 3.10 3.11 3.12 3.13 3.14; do
     check_runtime_version //current-py-toolchain-896:report_version "${version}"
     check_runtime_version //current-py-toolchain-896:report_exec_version "${version}"
 done

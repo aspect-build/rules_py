@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_library", rules_py_test = "py_test")
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library", rules_py_test = "py_test")
 load("@rules_python//python:py_test.bzl", rules_python_test = "py_test")
 
 # One converted library, two consumers: the @rules_python test stands in
@@ -49,4 +49,22 @@ rules_python_test(
     srcs = ["transitive_consumer_test.py"],
     main = "transitive_consumer_test.py",
     deps = [":middle"],
+)
+
+# A converted binary as a dependency: the launcher rule (not just
+# py_library) must carry rules_python's PyInfo, surfacing the sibling
+# venv's imports and sources to an @rules_python consumer.
+py_binary(
+    name = "tool",
+    testonly = True,
+    srcs = ["tool.py"],
+    imports = ["."],
+    deps = [":lib"],
+)
+
+rules_python_test(
+    name = "rules_python_binary_consumer_test",
+    srcs = ["binary_consumer_test.py"],
+    main = "binary_consumer_test.py",
+    deps = [":tool"],
 )

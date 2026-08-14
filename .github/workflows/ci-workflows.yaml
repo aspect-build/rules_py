@@ -44,10 +44,9 @@ jobs:
               run: bazel run @uv -- run --locked --group dev -- ruff check .
             - name: Typecheck maintained Python
               run: |
-                runtime39=(
+                runtime310=(
                   py/private/launcher_env/aspect_rules_py_launcher_env.py
                   py/private/py_image_layer_validator.py
-                  py/private/py_venv/templates/_virtualenv.py
                   py/private/py_venv/templates/link.py
                   py/private/pytest_main.py
                   py/private/pytest_shard/pytest_shard.py
@@ -63,9 +62,9 @@ jobs:
                 runtime311=(
                   uv/private/sdist_configure/detect_native.py
                 )
-                bazel run @uv -- run --locked --group dev -- pyright --pythonversion 3.9 --warnings "${runtime39[@]}"
+                bazel run @uv -- run --locked --group dev -- pyright --pythonversion 3.10 --warnings "${runtime310[@]}"
                 bazel run @uv -- run --locked --group dev -- pyright --pythonversion 3.11 --warnings "${runtime311[@]}"
-                bazel run @uv -- run --locked --group dev -- ty check --python-version 3.9 --error-on-warning --output-format github "${runtime39[@]}"
+                bazel run @uv -- run --locked --group dev -- ty check --python-version 3.10 --error-on-warning --output-format github "${runtime310[@]}"
                 bazel run @uv -- run --locked --group dev -- ty check --python-version 3.11 --error-on-warning --output-format github "${runtime311[@]}"
     test:
         name: test (${{ matrix.workspace.path }}, ${{ matrix.bazel.id }})

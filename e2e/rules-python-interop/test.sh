@@ -33,7 +33,7 @@ check_resolved_runtime() {
 # own interpreter against the expected version passed as argv[1]. The py_*
 # transition normalizes both flags, so either entry point reaches every
 # version — including 3.11, which only rules_python provisions.
-for version in 3.9 3.10 3.11 3.12 3.13; do
+for version in 3.10 3.11 3.12 3.13 3.14; do
     "$BAZEL" run \
         --lockfile_mode=off \
         "--@aspect_rules_py//py:python_version=${version}" \
@@ -50,7 +50,7 @@ done
 # both flags inside rules_py's lane: rules_python's 3.11 toolchain is gated on
 # rules_python's own flag, and the exec-tools toolchain type has no
 # rules_python provider at all.
-for version in 3.9 3.10 3.12 3.13; do
+for version in 3.10 3.12 3.13 3.14; do
     check_resolved_runtime @aspect_rules_py//py:python_version //:report_version "${version}" python_interpreters
     check_resolved_runtime @aspect_rules_py//py:python_version //:report_exec_version "${version}" python_interpreters
 

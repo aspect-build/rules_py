@@ -632,28 +632,17 @@ py_library(
 # deps:
 # {
 #     "typing_extensions": {
-#         "(python_full_version < '3.11') and (python_full_version < '3.11')": 1,
+#         "": 1,
 #         "python_full_version < '3.11'": 1,
 #     },
 # }
-
-
-alias(
-    name = "_maybe__exceptiongroup__1_3_1__typing_extensions",
-    actual = select({
-        "//private/markers:marker_4": "//:typing_extensions",
-        "//private/markers:marker_0": "//:typing_extensions",
-        "//conditions:default": ":empty",
-    }),
-    visibility = ["//:__subpackages__"],
-)
 
 
 py_library(
     name = "exceptiongroup__1_3_1",
     deps = [
         "@whl_install__aspect_rules_py__exceptiongroup__1_3_1//:install",
-        ":_maybe__exceptiongroup__1_3_1__typing_extensions",
+        "//:typing_extensions",
     ],
     visibility = ["//:__subpackages__"],
 )
@@ -804,28 +793,17 @@ py_library(
 # deps:
 # {
 #     "zipp": {
-#         "(python_full_version < '3.10.2') and (python_full_version < '3.11')": 1,
-#         "python_full_version < '3.11'": 1,
+#         "": 1,
+#         "python_full_version < '3.10.2'": 1,
 #     },
 # }
-
-
-alias(
-    name = "_maybe__importlib_metadata__8_7_1__zipp",
-    actual = select({
-        "//private/markers:marker_5": "//:zipp",
-        "//private/markers:marker_0": "//:zipp",
-        "//conditions:default": ":empty",
-    }),
-    visibility = ["//:__subpackages__"],
-)
 
 
 py_library(
     name = "importlib_metadata__8_7_1",
     deps = [
         "@whl_install__aspect_rules_py__importlib_metadata__8_7_1//:install",
-        ":_maybe__importlib_metadata__8_7_1__zipp",
+        "//:zipp",
     ],
     visibility = ["//:__subpackages__"],
 )

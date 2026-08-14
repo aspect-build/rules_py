@@ -2,4 +2,4 @@ import sys
 
 def test_specific_py_version() -> None:
     assert sys.version_info.major == 3, "sys.version_info.major == 3"
-    assert sys.version_info.minor == 9, "sys.version_info.minor == 9"
+    assert sys.version_info.minor == 10, "sys.version_info.minor == 10"

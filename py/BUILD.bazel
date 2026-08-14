@@ -44,9 +44,10 @@ alias(
 )
 
 # Compatibility layer for half-migrated trees: with
-# --@aspect_rules_py//py:emit_rules_python_providers, py_library also emits the
-# @rules_python providers so not-yet-migrated rules_python py_* targets keep
-# building. Turn it off once the tree is on rules_py.
+# --@aspect_rules_py//py:emit_rules_python_providers, py_library, py_binary,
+# and py_test also emit the @rules_python providers so not-yet-migrated
+# rules_python py_* targets keep building. Turn it off once the tree is on
+# rules_py.
 # See docs/migrating.md.
 alias(
     name = "emit_rules_python_providers",

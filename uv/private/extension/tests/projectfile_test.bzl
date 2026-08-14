@@ -64,14 +64,14 @@ def _extract_requirement_marker_pairs_with_extras_test_impl(ctx):
     result = extract_requirement_marker_pairs(
         "//:pyproject.toml",
         "proj",
-        'build[extra1,extra2] >= 1.0; python_version >= "3.9"',
+        'build[extra1,extra2] >= 1.0; python_version >= "3.10"',
         {},
         {"build": {"1.0.0": 1, "1.1.0": 1}},
     )
     asserts.equals(env, 3, len(result))
-    asserts.equals(env, (("proj", "build", "1.1.0", "__base__"), 'python_version >= "3.9"'), result[0])
-    asserts.equals(env, (("proj", "build", "1.1.0", "extra1"), 'python_version >= "3.9"'), result[1])
-    asserts.equals(env, (("proj", "build", "1.1.0", "extra2"), 'python_version >= "3.9"'), result[2])
+    asserts.equals(env, (("proj", "build", "1.1.0", "__base__"), 'python_version >= "3.10"'), result[0])
+    asserts.equals(env, (("proj", "build", "1.1.0", "extra1"), 'python_version >= "3.10"'), result[1])
+    asserts.equals(env, (("proj", "build", "1.1.0", "extra2"), 'python_version >= "3.10"'), result[2])
     return unittest.end(env)
 
 extract_requirement_marker_pairs_with_extras_test = unittest.make(

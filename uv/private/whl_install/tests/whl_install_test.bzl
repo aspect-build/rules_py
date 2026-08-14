@@ -1064,9 +1064,9 @@ _compile_pyc_mismatched_test = analysistest.make(
     _compile_pyc_args_test_impl,
     attrs = {"expect_compile_pyc": attr.bool()},
     config_settings = {
-        # The hub provisions no 3.9: the target runtime comes from
+        # The hub provisions no 3.10: the target runtime comes from
         # rules_python's dev toolchain while the exec fallback stays 3.13.
-        "@@//py/private/interpreter:python_version": "3.9",
+        "@@//py/private/interpreter:python_version": "3.10",
     },
 )
 
