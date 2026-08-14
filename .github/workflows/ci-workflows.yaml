@@ -279,7 +279,7 @@ jobs:
     test-all:
         name: test-all
         runs-on: ubuntu-latest
-        needs: [buildifier, gazelle, test, typecheck, crossbuild-amd64, crossbuild-arm64, crossbuild-darwin]
+        needs: [buildifier, gazelle, test, typecheck, crossbuild-run-amd64-built, crossbuild-run-arm64-built, crossbuild-run-darwin-built]
         if: always()
         steps:
             - name: All required jobs succeeded
