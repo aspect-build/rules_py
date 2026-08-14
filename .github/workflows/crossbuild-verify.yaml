@@ -1,0 +1,104 @@
+name: crossbuild-verify
+
+# One build→run verification pipeline for e2e/crossbuild, reused per builder
+# platform by ci-workflows.yaml. Builds OCI tarballs for the requested target
+# arches on the given builder, uploads them, and executes each on NATIVE
+# hardware — no QEMU in the execution loop (build-time meson probes may still
+# need binfmt, hence qemu-platforms).
+on:
+    workflow_call:
+        inputs:
+            builder-runner:
+                required: true
+                type: string
+            setup:
+                description: "'aspect' (Aspect CLI + remote cache) or 'bazel' (setup-bazel, for macOS)"
+                type: string
+                default: aspect
+            qemu-platforms:
+                description: binfmt platforms the builder needs for build-time probes
+                type: string
+                default: ""
+            cases:
+                description: space-separated case dirs; empty = every case exposing tarball targets
+                type: string
+                default: ""
+            archs:
+                description: space-separated target arches to build tarballs for
+                required: true
+                type: string
+            artifact:
+                required: true
+                type: string
+            run-matrix:
+                description: 'JSON include list of {runner, arch} native executors'
+                required: true
+                type: string
+
+jobs:
+    images:
+        runs-on: ${{ inputs.builder-runner }}
+        steps:
+            - uses: actions/checkout@v6
+            - if: inputs.setup == 'aspect'
+              uses: aspect-build/setup-aspect@c22a8f64fb38f82f59ce809cd7eb9f8ae096da44 # v2026.23.2
+              with:
+                aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
+            - if: inputs.setup == 'bazel'
+              uses: bazel-contrib/setup-bazel@c5acdfb288317d0b5c0bbd7a396a3dc868bb0f86 # 0.19.0
+              with:
+                  bazelisk-cache: true
+                  disk-cache: ${{ inputs.artifact }}
+                  repository-cache: true
+            - if: inputs.qemu-platforms != ''
+              uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+              with:
+                platforms: ${{ inputs.qemu-platforms }}
+            - name: Build image tarballs
+              working-directory: e2e/crossbuild
+              shell: bash
+              run: |
+                mkdir -p "${RUNNER_TEMP}/images"
+                for arch in ${{ inputs.archs }}; do
+                    cases="${{ inputs.cases }}"
+                    if [ -z "${cases}" ]; then
+                        cases=$(bazel query "filter(\".*:${arch}_tarball\$\", //...)" | sed -e 's|^//||' -e "s|:${arch}_tarball||")
+                    fi
+                    for case in ${cases}; do
+                        # toplevel: build-without-the-bytes must still
+                        # materialize the tarball this job exists to upload.
+                        bazel build --config=ci \
+                            --remote_download_outputs=toplevel \
+                            --action_env=MESON_FORCE_BACKTRACE=1 \
+                            "//${case}:${arch}_tarball"
+                        cp "bazel-bin/${case}/${arch}_load/tarball.tar" "${RUNNER_TEMP}/images/${case}-${arch}.tar"
+                    done
+                done
+            - uses: actions/upload-artifact@v4
+              with:
+                name: ${{ inputs.artifact }}
+                path: ${{ runner.temp }}/images/*.tar
+                retention-days: 1
+    run:
+        name: run (native ${{ matrix.arch }})
+        needs: images
+        strategy:
+            fail-fast: false
+            matrix:
+                include: ${{ fromJSON(inputs.run-matrix) }}
+        runs-on: ${{ matrix.runner }}
+        steps:
+            - uses: actions/download-artifact@v4
+              with:
+                name: ${{ inputs.artifact }}
+                path: images
+            - name: Run images on native ${{ matrix.arch }}
+              run: |
+                status=0
+                for tar in images/*-${{ matrix.arch }}.tar; do
+                    tag=$(docker load -i "${tar}" | sed -n 's/^Loaded image: //p')
+                    echo "::group::${tag}"
+                    docker run --rm "${tag}" || status=1
+                    echo "::endgroup::"
+                done
+                exit "${status}"
