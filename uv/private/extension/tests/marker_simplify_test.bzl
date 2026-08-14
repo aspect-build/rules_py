@@ -1,7 +1,7 @@
 """Tests for marker_simplify.bzl."""
 
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load(":marker_simplify.bzl", "simplify_extra_marker")
+load("//uv/private/extension:marker_simplify.bzl", "simplify_extra_marker")
 
 def _simplify_extra_marker_test_impl(ctx):
     env = unittest.begin(ctx)

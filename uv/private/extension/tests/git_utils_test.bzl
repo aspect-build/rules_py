@@ -1,5 +1,5 @@
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load(":git_utils.bzl", "ensure_ref", "parse_git_url", "try_git_to_http_archive")
+load("//uv/private/extension:git_utils.bzl", "ensure_ref", "parse_git_url", "try_git_to_http_archive")
 
 def _ensure_ref_test_impl(ctx):
     env = unittest.begin(ctx)

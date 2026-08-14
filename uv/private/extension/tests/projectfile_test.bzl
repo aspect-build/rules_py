@@ -1,5 +1,5 @@
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load(":projectfile.bzl", "collect_activated_extras", "extract_requirement_marker_pairs")
+load("//uv/private/extension:projectfile.bzl", "collect_activated_extras", "extract_requirement_marker_pairs")
 
 def _extract_requirement_marker_pairs_multi_version_no_specifier_test_impl(ctx):
     env = unittest.begin(ctx)

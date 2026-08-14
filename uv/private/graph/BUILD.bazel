@@ -1,7 +1,4 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
-load(":sccs_test.bzl", "sccs_test_suite")
-
-sccs_test_suite()
 
 bzl_library(
     name = "sccs",

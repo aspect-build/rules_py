@@ -1,7 +1,4 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
-load(":versions_test.bzl", "versions_test_suite")
-
-versions_test_suite()
 
 bzl_library(
     name = "versions",

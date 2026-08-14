@@ -1,5 +1,5 @@
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load(":defs.bzl", "pprint")
+load("//uv/private/pprint:defs.bzl", "pprint")
 
 def _test_pprint_dict(ctx):
     env = unittest.begin(ctx)

@@ -1,0 +1,20 @@
+load(":defs_test.bzl", "defs_test_suite")
+load(":dep_groups_test.bzl", "dep_groups_test_suite")
+load(":git_utils_test.bzl", "git_utils_test_suite")
+load(":graph_utils_test.bzl", "graph_utils_test_suite")
+load(":marker_simplify_test.bzl", "marker_simplify_test_suite")
+load(":projectfile_test.bzl", "projectfile_test_suite")
+
+package(default_testonly = True)
+
+defs_test_suite()
+
+dep_groups_test_suite()
+
+git_utils_test_suite()
+
+graph_utils_test_suite()
+
+marker_simplify_test_suite()
+
+projectfile_test_suite()

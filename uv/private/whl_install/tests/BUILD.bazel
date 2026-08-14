@@ -1,0 +1,9 @@
+load(":whl_install_test.bzl", "compile_pyc_version_test_suite", "metadata_selection_test_suite", "whl_install_suite")
+
+package(default_testonly = True)
+
+whl_install_suite()
+
+metadata_selection_test_suite(name = "metadata_selection")
+
+compile_pyc_version_test_suite(name = "compile_pyc_version")

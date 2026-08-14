@@ -1,22 +1,4 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
-load(":test_defs.bzl", "defs_test_suite")
-load(":test_dep_groups.bzl", "dep_groups_test_suite")
-load(":test_git_utils.bzl", "git_utils_test_suite")
-load(":test_graph_utils.bzl", "graph_utils_test_suite")
-load(":test_marker_simplify.bzl", "marker_simplify_test_suite")
-load(":test_projectfile.bzl", "projectfile_test_suite")
-
-defs_test_suite()
-
-dep_groups_test_suite()
-
-git_utils_test_suite()
-
-graph_utils_test_suite()
-
-marker_simplify_test_suite()
-
-projectfile_test_suite()
 
 bzl_library(
     name = "defs",
@@ -88,67 +70,6 @@ bzl_library(
         ":dep_groups",
         "//uv/private:normalize_name",
         "//uv/private/versions",
-    ],
-)
-
-bzl_library(
-    name = "test_defs",
-    srcs = ["test_defs.bzl"],
-    visibility = ["//uv:__subpackages__"],
-    deps = [
-        ":defs",
-        ":lockfile",
-        "@bazel_skylib//lib:unittest",
-    ],
-)
-
-bzl_library(
-    name = "test_dep_groups",
-    srcs = ["test_dep_groups.bzl"],
-    visibility = ["//uv:__subpackages__"],
-    deps = [
-        ":dep_groups",
-        "@bazel_skylib//lib:unittest",
-    ],
-)
-
-bzl_library(
-    name = "test_git_utils",
-    srcs = ["test_git_utils.bzl"],
-    visibility = ["//uv:__subpackages__"],
-    deps = [
-        ":git_utils",
-        "@bazel_skylib//lib:unittest",
-    ],
-)
-
-bzl_library(
-    name = "test_graph_utils",
-    srcs = ["test_graph_utils.bzl"],
-    visibility = ["//uv:__subpackages__"],
-    deps = [
-        ":graph_utils",
-        "@bazel_skylib//lib:unittest",
-    ],
-)
-
-bzl_library(
-    name = "test_marker_simplify",
-    srcs = ["test_marker_simplify.bzl"],
-    visibility = ["//uv:__subpackages__"],
-    deps = [
-        ":marker_simplify",
-        "@bazel_skylib//lib:unittest",
-    ],
-)
-
-bzl_library(
-    name = "test_projectfile",
-    srcs = ["test_projectfile.bzl"],
-    visibility = ["//uv:__subpackages__"],
-    deps = [
-        ":projectfile",
-        "@bazel_skylib//lib:unittest",
     ],
 )
 
