@@ -1,0 +1,14 @@
+# pydantic-core ships official prebuilt wheels for linux/amd64 and
+# linux/arm64, but [tool.uv] no-binary-package forces it to build from sdist
+# here. A second, much more widely-depended-on maturin/PyO3 package next to
+# //rpds_py — pydantic-core underpins Pydantic v2 and, transitively, most of
+# the modern Python web/data ecosystem (FastAPI included) — so this backend
+# isn't validated by one lucky package alone.
+
+load("//tools:cross_case.bzl", "pep517_cross_case")
+
+pep517_cross_case(
+    name = "pydantic_core",
+    so_pattern = "whl_install__crossbuild_pydantic_core.*_pydantic_core.*\\.so$$",
+    deps = ["@pypi_crossbuild_pydantic_core//pydantic_core"],
+)

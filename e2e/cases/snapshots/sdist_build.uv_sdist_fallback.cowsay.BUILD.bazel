@@ -1,12 +1,12 @@
 
-load("@aspect_rules_py//uv/private/pep517_whl:rule.bzl", "pep517_native_whl")
+load("@aspect_rules_py//uv/private/pep517_whl:defs.bzl", "pep517_native_whl")
 load("@aspect_rules_py//py:defs.bzl", "py_binary")
 
 py_binary(
     name = "build_tool",
-    main = "@aspect_rules_py//uv/private/pep517_whl:build_helper.py",
-    srcs = ["@aspect_rules_py//uv/private/pep517_whl:build_helper.py"],
-    deps = ["@aspect_rules_py//uv/private/pep517_whl:memory_monitor", "@@aspect_rules_py++uv+project__uv_sdist_fallback//:packaging", "@@aspect_rules_py++uv+project__uv_sdist_fallback//:build", "@@aspect_rules_py++uv+project__uv_sdist_fallback//:setuptools", "@whl_install__uv_sdist_fallback__setuptools__80_10_2//:install"],
+    main = "@aspect_rules_py//uv/private/pep517_whl/tools:build_helper.py",
+    srcs = ["@aspect_rules_py//uv/private/pep517_whl/tools:build_helper.py"],
+    deps = ["@aspect_rules_py//uv/private/pep517_whl/tools:memory_monitor", "@@aspect_rules_py++uv+project__uv_sdist_fallback//:packaging", "@@aspect_rules_py++uv+project__uv_sdist_fallback//:build", "@@aspect_rules_py++uv+project__uv_sdist_fallback//:setuptools", "@whl_install__uv_sdist_fallback__setuptools__80_10_2//:install"],
 )
 
 pep517_native_whl(

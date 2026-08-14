@@ -13,7 +13,7 @@ py_test(
     srcs = ["wrapper_argv0_test.py"],
     data = [
         ":wrapper_argv0_fake_driver",
-        "//uv/private/pep517_whl:build_helper.py",
+        "//uv/private/pep517_whl/tools:build_helper.py",
     ],
     main = "wrapper_argv0_test.py",
     target_compatible_with = ["@platforms//os:linux"],

@@ -4,7 +4,7 @@ load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@rules_cc//cc:defs.bzl", "cc_library")
 load("@tar.bzl//tar:mtree.bzl", "mtree_mutate", "mtree_spec")
 load("@tar.bzl//tar:tar.bzl", "tar_rule")
-load("//uv/private/pep517_whl:rule.bzl", "pep517_native_whl")
+load("//uv/private/pep517_whl:defs.bzl", "pep517_native_whl")
 load(":defs.bzl", "dep_makevars")
 
 package(default_testonly = True)

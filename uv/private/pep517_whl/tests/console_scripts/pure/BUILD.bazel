@@ -1,6 +1,6 @@
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
-load("//uv/private/pep517_whl:rule.bzl", "pep517_whl")
+load("//uv/private/pep517_whl:defs.bzl", "pep517_whl")
 load("//uv/private/pep517_whl/tests:pep517_whl_test.bzl", "pep517_whl_console_scripts_test")
 
 package(default_testonly = True)

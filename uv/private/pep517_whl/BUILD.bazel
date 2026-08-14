@@ -1,29 +1,65 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
-load("//py:defs.bzl", "py_library")
 
 package(default_visibility = [
     "//uv/private:__subpackages__",
 ])
 
-exports_files(
-    ["build_helper.py"],
-    visibility = ["//visibility:public"],
+bzl_library(
+    name = "defs",
+    srcs = ["defs.bzl"],
+    deps = [
+        ":pep517_native_whl",
+        ":pep517_whl",
+    ],
 )
 
 bzl_library(
-    name = "rule",
-    srcs = ["rule.bzl"],
+    name = "pep517_whl",
+    srcs = ["pep517_whl.bzl"],
     deps = [
+        ":common",
         "//py/private/toolchain:types",
-        "//uv/private:source_built_wheel",
+        "@bazel_lib//lib:resource_sets",
+    ],
+)
+
+bzl_library(
+    name = "pep517_native_whl",
+    srcs = ["pep517_native_whl.bzl"],
+    deps = [
+        ":cc_layer",
+        ":common",
+        ":exec_transition",
+        "//py/private/interpreter:versions",
+        "//py/private/toolchain:types",
         "@bazel_lib//lib:resource_sets",
         "@rules_cc//cc:action_names_bzl",
         "@rules_cc//cc/common",
     ],
 )
 
-py_library(
-    name = "memory_monitor",
-    srcs = ["memory_monitor.py"],
-    visibility = ["//visibility:public"],
+bzl_library(
+    name = "common",
+    srcs = ["common.bzl"],
+    deps = [
+        ":exec_transition",
+        "//uv/private:source_built_wheel",
+        "@bazel_lib//lib:resource_sets",
+    ],
+)
+
+bzl_library(
+    name = "cc_layer",
+    srcs = ["cc_layer.bzl"],
+    visibility = ["//uv/private:__subpackages__"],
+    deps = [
+        "@rules_cc//cc:action_names_bzl",
+        "@rules_cc//cc/common",
+    ],
+)
+
+bzl_library(
+    name = "exec_transition",
+    srcs = ["exec_transition.bzl"],
+    deps = ["@aspect_rules_py_uv_host//:defs"],
 )

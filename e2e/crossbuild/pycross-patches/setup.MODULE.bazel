@@ -37,6 +37,10 @@ uv.project(
 )
 uv.override_package(
     name = "setproctitle",
+    # gcc_toolchain's GCC defaults to C23, where `bool` is a keyword;
+    # setproctitle 1.3.2's src/c.h still does `typedef char bool`. distutils
+    # appends $CFLAGS after its own flags, so the -std override wins.
+    env = {"CFLAGS": "-std=gnu17"},
     lock = "//pycross-patches:uv.lock",
     post_install_patch_strip = 1,
     post_install_patches = ["//pycross-patches:patches/setproctitle-postinstall.patch"],

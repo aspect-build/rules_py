@@ -1,10 +1,17 @@
-# Shared helpers consumed by //... via load("//tools:...").
+# Shared helpers consumed via load("//tools:...").
 
 load("@aspect_rules_py//py:defs.bzl", "py_binary")
+load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load(":ant_layer.bzl", "ant_home")
+load(":rust_layer.bzl", "rust_host_sysroot")
+load(":toolchain_test.bzl", "exec_python_path")
 
-# Consumed cross-package by the `collect_wheels` macro (//tools:collect_wheels.bzl),
-# which declares a py_test with this script as `main` in the caller's package.
 exports_files([
+    "assert_absent.py",
+    "check_so_arch.sh",
+    "check_so_suffix.sh",
+    "check_wheel_native.py",
     "check_wheel_tags.py",
 ])
 
@@ -13,4 +20,51 @@ py_binary(
     srcs = ["collect_wheels.py"],
     main = "collect_wheels.py",
     visibility = ["//visibility:public"],
+)
+
+# The host-targeting rust_toolchain's sysroot, re-resolved under the exec
+# transition so it stays correct even when the rest of the build is
+# transitioned to another platform — see rust_layer.bzl for why plain
+# current_rust_toolchain alone isn't enough.
+rust_host_sysroot(
+    name = "rust_host_sysroot",
+    actual = "@rules_rust//rust/toolchain:current_rust_toolchain",
+    visibility = ["//visibility:public"],
+)
+
+# Ant is architecture-independent (bytecode + launcher scripts), so unlike
+# the Rust sysroot there's no cross/native split — one $(ANT_HOME) covers
+# both.
+ant_home(
+    name = "ant_home",
+    all_files = "@apache_ant//:all_files",
+    ant_bin = "@apache_ant//:bin/ant",
+    visibility = ["//visibility:public"],
+)
+
+# EXEC_TOOLS_TOOLCHAIN must resolve the exec-platform Python interpreter even
+# when the target is arm64 — unpack.py runs on the exec side. Doesn't depend
+# on any case's binary; the mechanism it checks is shared by all of them.
+exec_python_path(
+    name = "unpack_path",
+)
+
+exec_python_path(
+    name = "unpack_path_for_arm64",
+)
+
+platform_transition_filegroup(
+    name = "unpack_path_for_arm64_transition",
+    srcs = [":unpack_path_for_arm64"],
+    target_platform = "//:arm64_linux",
+)
+
+sh_test(
+    name = "exec_toolchain_resolution_test",
+    srcs = ["test_exec_toolchain.sh"],
+    data = [
+        ":unpack_path",
+        ":unpack_path_for_arm64_transition",
+    ],
+    target_compatible_with = ["@platforms//os:linux"],
 )

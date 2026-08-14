@@ -1,22 +1,25 @@
-"""Isolated workspace for cross-platform source-build (crossbuild) suites.
-
-Hosts the rules_pycross ports: every case here forces packages to build from
-their sdists and asserts properties of the resulting wheels across target
-platforms. They live apart from `e2e/cases` because this workspace is where
-the cross-compilation test matrix grows; keeping the sdist-build hubs out of
-the shared `cases/` module also keeps their package-specific overrides
-(`default_build_dependencies`, patches, `resource_set`) from leaking onto
-unrelated cases sharing that workspace.
-"""
-
 bazel_dep(name = "aspect_rules_py")
+bazel_dep(name = "bazel_features", version = "1.38.0")
+bazel_dep(name = "bazel_skylib", version = "1.4.2")
 bazel_dep(name = "bazel_lib", version = "3.0.0")
+bazel_dep(name = "rules_cc", version = "0.2.16")
+bazel_dep(name = "tar.bzl", version = "0.10.1")
 bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "gcc_toolchain", version = "0.11.0")
 bazel_dep(name = "llvm", version = "0.8.3")
+bazel_dep(name = "rules_oci", version = "2.2.7")
+bazel_dep(name = "rules_shell", version = "0.4.1")
+bazel_dep(name = "rules_rust", version = "0.68.0")
+bazel_dep(name = "rules_java", version = "8.14.0")
 
 local_path_override(
     module_name = "aspect_rules_py",
     path = "../..",
+)
+
+single_version_override(
+    module_name = "aspect_bazel_lib",
+    version = "2.22.5",
 )
 
 interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
@@ -24,13 +27,11 @@ interpreters.configure(
     releases = [
         "20260303",
         "20251031",
+        "20241002",
     ],
 )
 interpreters.toolchain(
     python_version = "3.12",
-)
-interpreters.toolchain(
-    python_version = "3.13",
 )
 use_repo(interpreters, "python_interpreters")
 
@@ -42,13 +43,346 @@ use_repo(tools, "rules_py_tools")
 
 register_toolchains("@rules_py_tools//:all")
 
+gcc_toolchains = use_extension("@gcc_toolchain//toolchain:module_extensions.bzl", "gcc_toolchains")
+gcc_toolchains.toolchain(
+    name = "gcc_toolchain_x86_64",
+    target_arch = "x86_64",
+)
+gcc_toolchains.toolchain(
+    name = "gcc_toolchain_aarch64",
+    target_arch = "aarch64",
+)
+use_repo(gcc_toolchains, "gcc_toolchain_aarch64", "gcc_toolchain_x86_64")
+
+register_toolchains(
+    "@gcc_toolchain_x86_64//:cc_toolchain",
+    "@gcc_toolchain_aarch64//:cc_toolchain",
+)
+
+# Registered AFTER gcc_toolchain on purpose: on the Linux CI runner both can
+# satisfy exec=linux → target=linux and registration order makes strict GCC
+# win, preserving the sysroot/flag-propagation guarantees documented above.
+# llvm only ever resolves for the edge gcc_toolchain cannot fill — a macOS
+# host cross-building the linux cases locally (exec=darwin → target=linux).
 register_toolchains("@llvm//toolchain:all")
+
+rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
+rust.toolchain(
+    edition = "2021",
+    extra_target_triples = [
+        "aarch64-unknown-linux-gnu",
+        "x86_64-unknown-linux-gnu",
+    ],
+    versions = ["1.90.0"],
+)
+use_repo(rust, "rust_toolchains")
+
+register_toolchains("@rust_toolchains//:all")
+
+oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
+oci.pull(
+    name = "ubuntu",
+    digest = "sha256:c35e29c9450151419d9448b0fd75374fec4fff364a27f176fb458d472dfc9e54",
+    image = "public.ecr.aws/docker/library/ubuntu",
+    platforms = [
+        "linux/arm64/v8",
+        "linux/amd64",
+    ],
+    tag = "latest",
+)
+use_repo(oci, "ubuntu", "ubuntu_linux_amd64", "ubuntu_linux_arm64_v8")
+
+bazel_lib_toolchains = use_extension("@tar.bzl//tar:extensions.bzl", "toolchains", dev_dependency = True)
+use_repo(bazel_lib_toolchains, "bsd_tar_toolchains")
 
 uv_bin = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv_bin")
 uv_bin.toolchain(version = "0.11.21")
 use_repo(uv_bin, "uv")
 
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_crossbuild_geohash")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "cffi",
+        "setuptools",
+    ],
+    hub_name = "pypi_crossbuild_geohash",
+    lock = "//geohash:uv.lock",
+    pyproject = "//geohash:pyproject.toml",
+)
+uv.override_package(
+    name = "python-geohash",
+    lock = "//geohash:uv.lock",
+    pre_build_patch_strip = 1,
+    pre_build_patches = ["//geohash:require_cxx_driver.patch"],
+    resource_set = "mem_4g",
+)
+use_repo(uv, "pypi_crossbuild_geohash")
+
+# rules_pycross e2e ports: per-suite hubs, each self-described by its own
+# setup.MODULE.bazel (same include() layout as e2e/cases).
 include("//pycross-distutils-probe:setup.MODULE.bazel")
 include("//pycross-patches:setup.MODULE.bazel")
 include("//pycross-pure-python:setup.MODULE.bazel")
 include("//pycross-setuptools:setup.MODULE.bazel")
+
+# Plain setuptools/meson-python/scikit-build-core hubs: no rust/jdk toolchain
+# wiring, so each is fully described by (hub dir, its build deps).
+_SIMPLE_CROSSBUILD_PACKAGES = [
+    {
+        "deps": [
+            "build",
+            "cffi",
+            "setuptools",
+            "wheel",
+        ],
+        "hub": "zstandard",
+    },
+    {
+        "deps": [
+            "build",
+            "meson",
+            "meson-python",
+            "ninja",
+            "pybind11",
+        ],
+        "hub": "contourpy",
+    },
+    {
+        "deps": [
+            "build",
+            "cmake",
+            "ninja",
+            "pybind11",
+            "scikit-build-core",
+        ],
+        "hub": "awkward_cpp",
+    },
+    {
+        "deps": [
+            "build",
+            "setuptools",
+            "wheel",
+        ],
+        "hub": "psutil",
+    },
+    {
+        "deps": [
+            "build",
+            "setuptools",
+        ],
+        "hub": "msgpack",
+    },
+]
+
+[uv.declare_hub(hub_name = "pypi_crossbuild_" + pkg["hub"]) for pkg in _SIMPLE_CROSSBUILD_PACKAGES]
+
+[
+    uv.project(
+        default_build_dependencies = pkg["deps"],
+        hub_name = "pypi_crossbuild_" + pkg["hub"],
+        lock = "//{}:uv.lock".format(pkg["hub"]),
+        pyproject = "//{}:pyproject.toml".format(pkg["hub"]),
+    )
+    for pkg in _SIMPLE_CROSSBUILD_PACKAGES
+]
+
+[use_repo(uv, "pypi_crossbuild_" + pkg["hub"]) for pkg in _SIMPLE_CROSSBUILD_PACKAGES]
+
+# maturin/PyO3 + setuptools-rust hubs: all three need the identical Cargo
+# cross env/toolchains wiring (see //tools:rust_host_sysroot); a shared block
+# also makes that identical-ness visually obvious instead of relying on the
+# reader to diff three near-copies. "pypi_name" differs from "hub" for
+# rpds_py/pydantic_core since PyPI hyphenates what the hub dir underscores.
+_RUST_CROSSBUILD_PACKAGES = [
+    {
+        "deps": [
+            "build",
+            "maturin",
+        ],
+        "hub": "rpds_py",
+        "pypi_name": "rpds-py",
+    },
+    {
+        "deps": [
+            "build",
+            "setuptools",
+            "setuptools-rust",
+            "wheel",
+        ],
+        "hub": "bcrypt",
+        "pypi_name": "bcrypt",
+    },
+    {
+        "deps": [
+            "build",
+            "maturin",
+        ],
+        "hub": "pydantic_core",
+        "pypi_name": "pydantic-core",
+    },
+    {
+        "deps": [
+            "build",
+            "setuptools",
+            "setuptools-rust",
+            "wheel",
+        ],
+        "hub": "tiktoken",
+        "pypi_name": "tiktoken",
+    },
+]
+
+[uv.declare_hub(hub_name = "pypi_crossbuild_" + pkg["hub"]) for pkg in _RUST_CROSSBUILD_PACKAGES]
+
+[
+    uv.project(
+        default_build_dependencies = pkg["deps"],
+        hub_name = "pypi_crossbuild_" + pkg["hub"],
+        lock = "//{}:uv.lock".format(pkg["hub"]),
+        pyproject = "//{}:pyproject.toml".format(pkg["hub"]),
+    )
+    for pkg in _RUST_CROSSBUILD_PACKAGES
+]
+
+[
+    uv.override_package(
+        name = pkg["pypi_name"],
+        env = {
+            "CARGO": "$(CARGO)",
+            "RUSTC": "$(RUSTC)",
+            "RULES_PY_RUST_HOST_SYSROOT": "$(RUST_HOST_SYSROOT)",
+        },
+        lock = "//{}:uv.lock".format(pkg["hub"]),
+        toolchains = [
+            "@rules_rust//rust/toolchain:current_rust_toolchain",
+            "//tools:rust_host_sysroot",
+        ],
+    )
+    for pkg in _RUST_CROSSBUILD_PACKAGES
+]
+
+[use_repo(uv, "pypi_crossbuild_" + pkg["hub"]) for pkg in _RUST_CROSSBUILD_PACKAGES]
+
+uv.declare_hub(hub_name = "pypi_crossbuild_numpy")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "cython",
+        "meson-python",
+        "ninja",
+    ],
+    hub_name = "pypi_crossbuild_numpy",
+    lock = "//numpy:uv.lock",
+    pyproject = "//numpy:pyproject.toml",
+)
+uv.override_package(
+    # numpy has no system BLAS/LAPACK in this sandbox (native build) or in
+    # the cross toolchain (cross build) — no toolchain needed, just a
+    # literal extra meson setup-args value, same as numpy's own documented
+    # no-BLAS cross recipe (see its emscripten cibuildwheel config).
+    name = "numpy",
+    env = {
+        "RULES_PY_MESON_SETUP_ARGS": "-Dblas=none -Dlapack=none",
+    },
+    lock = "//numpy:uv.lock",
+)
+use_repo(uv, "pypi_crossbuild_numpy")
+
+uv.declare_hub(hub_name = "pypi_crossbuild_jpype1")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "scikit-build-core",
+        "setuptools",
+        "wheel",
+    ],
+    hub_name = "pypi_crossbuild_jpype1",
+    lock = "//jpype1:uv.lock",
+    pyproject = "//jpype1:pyproject.toml",
+)
+uv.override_package(
+    name = "jpype1",
+    env = {
+        "JAVA": "$(JAVA)",
+        "JAVA_HOME": "$(JAVABASE)",
+        "RULES_PY_ANT_BIN_DIR": "$(ANT_BIN_DIR)",
+    },
+    lock = "//jpype1:uv.lock",
+    toolchains = [
+        "@temurin11_linux_x86_64//:jdk",
+        "//tools:ant_home",
+    ],
+)
+use_repo(uv, "pypi_crossbuild_jpype1")
+
+# Official prebuilt wheels to diff our cross-compiled build against.
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "official_zstandard_amd64_linux",
+    build_file_content = """filegroup(name = "backend_c", srcs = ["zstandard/backend_c.cpython-312-x86_64-linux-gnu.so"], visibility = ["//visibility:public"])""",
+    sha256 = "466e6ad8caefb589ed281c076deb6f0cd330e8bc13c5035854ffb9c2014b118c",
+    type = "zip",
+    url = "https://files.pythonhosted.org/packages/e5/01/080939755ca12ebbb7fc38b6f4ddecd5e8c416d571d4927ece1360baba2c/zstandard-0.22.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+)
+
+http_archive(
+    name = "official_zstandard_arm64_linux",
+    build_file_content = """filegroup(name = "backend_c", srcs = ["zstandard/backend_c.cpython-312-aarch64-linux-gnu.so"], visibility = ["//visibility:public"])""",
+    sha256 = "a88b7df61a292603e7cd662d92565d915796b094ffb3d206579aaebac6b85d5f",
+    type = "zip",
+    url = "https://files.pythonhosted.org/packages/47/44/be2d67304ba9bf4694ffcaa99d146814d70c4cb0bfc00e0e86fdfae66a31/zstandard-0.22.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl",
+)
+
+# jpype1 only ever runs Ant/javac at build time to produce a JAR (portable
+# Java bytecode) — always a host-executed step regardless of what CPU the
+# compiled _jpype.so targets, so a single exec-platform (x86_64) JDK and a
+# single (architecture-independent) Ant install cover both the native and
+# cross builds. Genuine Eclipse Temurin, not rules_java's default remotejdk
+# (which resolves to Azul Zulu builds) — see fetched release metadata at
+# https://api.adoptium.net/v3/assets/latest/11/hotspot?image_type=jdk&os=linux&architecture=x64.
+http_archive(
+    name = "temurin11_linux_x86_64",
+    build_file_content = """load("@rules_java//java/toolchains:java_runtime.bzl", "java_runtime")
+
+package(default_visibility = ["//visibility:public"])
+
+filegroup(name = "jdk-bin", srcs = glob(["bin/**"]))
+
+filegroup(name = "jdk-conf", srcs = glob(["conf/**"], allow_empty = True))
+
+filegroup(name = "jdk-include", srcs = glob(["include/**"], allow_empty = True))
+
+filegroup(name = "jdk-lib", srcs = glob(["lib/**", "release"], allow_empty = True))
+
+java_runtime(
+    name = "jdk",
+    srcs = [":jdk-bin", ":jdk-conf", ":jdk-include", ":jdk-lib"],
+    java = "bin/java",
+    version = 11,
+)
+""",
+    sha256 = "5906e0339e9322a688b2375eaf40666e00a16e008b0067b0a9f9e4b6c5033720",
+    strip_prefix = "jdk-11.0.32+9",
+    url = "https://github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.32%2B9/OpenJDK11U-jdk_x64_linux_hotspot_11.0.32_9.tar.gz",
+)
+
+# Apache Ant: plain Java bytecode plus shell/bat launchers — no architecture
+# variants needed.
+http_archive(
+    name = "apache_ant",
+    build_file_content = """package(default_visibility = ["//visibility:public"])
+
+exports_files(["bin/ant"])
+
+filegroup(
+    name = "all_files",
+    srcs = glob(["**"], allow_empty = True),
+)
+""",
+    sha256 = "71334d7e5d98cfe53d6c429a648a5021137a967378667306c5f613dff5180506",
+    strip_prefix = "apache-ant-1.10.15",
+    url = "https://archive.apache.org/dist/ant/binaries/apache-ant-1.10.15-bin.tar.gz",
+)

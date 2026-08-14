@@ -1,15 +1,16 @@
 # Regression test for the JDK toolchain wiring in pep517_native_whl,
 # layered with the `uv.override_package(toolchains = [...], env = {...})`
-# plumbing (see setup.MODULE.bazel). The test target is tagged `manual` —
-# jpype1's scikit-build-core / cmake / ninja chain doesn't actually
-# compile inside the Bazel sandbox today, so the regression coverage
-# lives in:
-#
-#   - //uv/private/pep517_whl:toolchain_env_test  (analysis-level)
-#   - //:snapshots_*_test                          (BUILD-template output)
-#
-# This target stays in the repo as the entry point for any future work
-# to make the full sdist compile succeed end-to-end.
+# plumbing (see setup.MODULE.bazel). The test target is tagged `manual` here
+# specifically because this hub's JAVA_HOME points at rules_java's default
+# remotejdk (Azul Zulu), which gets jpype1's CMake configure past Java/JNI
+# detection but then fails needing `ant` on PATH — this hub has no Ant
+# vendored. The full, working end-to-end version (real Eclipse Temurin JDK,
+# hermetically vendored Apache Ant, actual cross-compile + QEMU execution)
+# lives in `//e2e/crossbuild/jpype1`; that's the real regression coverage
+# for this toolchain combination now. This target and its analysis-level
+# siblings (//uv/private/pep517_whl:toolchain_env_test, //:snapshots_*_test)
+# stay for the narrower "does the env/toolchain plumbing reach the action"
+# check, which doesn't need Ant to answer.
 
 load("@aspect_rules_py//py:defs.bzl", "py_test")
 

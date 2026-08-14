@@ -1,0 +1,11 @@
+[project]
+name = "crossbuild_geohash"
+version = "0.0.0"
+requires-python = ">=3.11"
+authors = []
+dependencies = [
+    "cffi",
+    "python-geohash==0.8.5",
+    "setuptools",
+    "build",
+]
