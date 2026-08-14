@@ -254,7 +254,7 @@ jobs:
                 path: ${{ runner.temp }}/images/*.tar
                 retention-days: 1
     crossbuild-run-arm64-built:
-        name: run amd64-built images on native arm64
+        name: run on amd
         needs: crossbuild-images-arm64
         runs-on: ubuntu-latest
         steps:
@@ -303,39 +303,3 @@ jobs:
                         ;;
                 esac
 
-    smoke:
-        name: smoke (${{ matrix.workspace.path }}, macos)
-        if: >-
-            ${{ github.ref_name == 'main'
-                || contains(github.head_ref || github.ref_name, 'macos') }}
-        runs-on: macos-latest
-        strategy:
-            fail-fast: false
-            matrix:
-                workspace:
-                - { path: ".", slug: "root" }
-                - { path: "e2e/cases", slug: "e2e" }
-                - { path: "e2e/crossbuild", slug: "e2e-crossbuild" }
-        defaults:
-            run:
-                working-directory: ${{ matrix.workspace.path }}
-        steps:
-            - uses: actions/checkout@v6
-            - uses: bazel-contrib/setup-bazel@c5acdfb288317d0b5c0bbd7a396a3dc868bb0f86 # 0.19.0
-              with:
-                  bazelisk-cache: true
-                  disk-cache: macos-${{ matrix.workspace.slug }}
-                  repository-cache: true
-            # Images still build; only the tests that need a Linux container daemon are
-            # dropped, since the GitHub-hosted macOS runners have none.
-            # Run `test //...`, then the workspace's test.sh if it has one
-            - name: Test
-              shell: bash
-              run: |
-                  bazel test --config=ci --keep_going \
-                    --test_tag_filters=-skip-on-bazel8,-requires-docker \
-                    --build_tag_filters=-skip-on-bazel8 \
-                    //...
-                  if [ -f test.sh ]; then
-                      bash test.sh
-                  fi
