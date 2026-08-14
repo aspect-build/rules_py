@@ -189,45 +189,54 @@ jobs:
             - uses: aspect-build/setup-aspect@c22a8f64fb38f82f59ce809cd7eb9f8ae096da44 # v2026.23.2
               with:
                 aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
+            # arm64 binfmt for meson's build-time probes only; execution is
+            # native on the runner jobs below.
             - uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
               with:
                 platforms: arm64
-            - name: Build arm64 image tarballs
+            - name: Build amd64+arm64 image tarballs
               working-directory: e2e/crossbuild
               run: |
-                targets=$(bazel query 'filter(".*:arm64_tarball$", //...)')
-                bazel build ${targets}
                 mkdir -p "${RUNNER_TEMP}/images"
-                for target in ${targets}; do
-                    case="${target#//}"
-                    case="${case%:arm64_tarball}"
-                    cp "bazel-bin/${case}/arm64_load/tarball.tar" "${RUNNER_TEMP}/images/${case}-arm64.tar"
+                for arch in amd64 arm64; do
+                    targets=$(bazel query "filter(\".*:${arch}_tarball\$\", //...)")
+                    bazel build --remote_download_outputs=toplevel ${targets}
+                    for target in ${targets}; do
+                        case="${target#//}"
+                        case="${case%:${arch}_tarball}"
+                        cp "bazel-bin/${case}/${arch}_load/tarball.tar" "${RUNNER_TEMP}/images/${case}-${arch}.tar"
+                    done
                 done
             - uses: actions/upload-artifact@v4
               with:
-                name: crossbuild-images-arm64
+                name: crossbuild-images-amd64-built
                 path: ${{ runner.temp }}/images/*.tar
                 retention-days: 1
     crossbuild-run-amd64-built:
-        name: crossbuild-run (native arm64)
+        name: crossbuild-run (amd64-built, native ${{ matrix.arch }})
         needs: crossbuild-images-amd64
-        runs-on: ubuntu-24.04-arm
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                - { runner: "ubuntu-latest", arch: "amd64" }
+                - { runner: "ubuntu-24.04-arm", arch: "arm64" }
+        runs-on: ${{ matrix.runner }}
         steps:
             - uses: actions/download-artifact@v4
               with:
-                name: crossbuild-images-arm64
+                name: crossbuild-images-amd64-built
                 path: images
-            - name: Run every image on native arm64
+            - name: Run amd64-built images on native ${{ matrix.arch }}
               run: |
                 status=0
-                for tar in images/*-arm64.tar; do
+                for tar in images/*-${{ matrix.arch }}.tar; do
                     tag=$(docker load -i "${tar}" | sed -n 's/^Loaded image: //p')
                     echo "::group::${tag}"
                     docker run --rm "${tag}" || status=1
                     echo "::endgroup::"
                 done
                 exit "${status}"
-                
 
     crossbuild-images-arm64:
         name: crossbuild-images (arm64 builder)
@@ -289,19 +298,19 @@ jobs:
                     "typecheck=${{ needs.typecheck.result }}" \
                     "buildifier=${{ needs.buildifier.result }}" \
                     "gazelle=${{ needs.gazelle.result }}" \
-                    "crossbuild-amd64=${{ needs['crossbuild-amd64'].result }}" \
-                    "crossbuild-arm64=${{ needs['crossbuild-arm64'].result }}"; do
+                    "crossbuild-run-amd64-built=${{ needs['crossbuild-run-amd64-built'].result }}" \
+                    "crossbuild-run-arm64-built=${{ needs['crossbuild-run-arm64-built'].result }}"; do
                     if [ "${result#*=}" != "success" ]; then
                         echo "Required job did not succeed: ${result}"
                         exit 1
                     fi
                 done
-                # crossbuild-darwin is gated to main and '*macos*' branches:
+                # The darwin pipeline is gated to main and '*macos*' branches:
                 # skipped is expected elsewhere; anything that ran must pass.
-                case "${{ needs['crossbuild-darwin'].result }}" in
+                case "${{ needs['crossbuild-run-darwin-built'].result }}" in
                     success|skipped) ;;
                     *)
-                        echo "crossbuild-darwin did not succeed: ${{ needs['crossbuild-darwin'].result }}"
+                        echo "crossbuild-run-darwin-built did not succeed: ${{ needs['crossbuild-run-darwin-built'].result }}"
                         exit 1
                         ;;
                 esac
