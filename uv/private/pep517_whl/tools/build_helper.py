@@ -772,11 +772,16 @@ def _generate_meson_cross_file(
     without which qemu-user searches the exec host for the target's
     ld-linux/glibc and finds none.
     """
-    # A darwin host cannot execute ELF at all; with needs_exe_wrapper=true
-    # and NO exe_wrapper, meson skips its own checks and cc.run() callers get
-    # meson's explicit cross-environment error — an honest host limitation.
+    # The wrapper is only offered when the emulated binary can actually
+    # resolve its dynamic interpreter: binfmt+qemu need QEMU_LD_PREFIX to
+    # locate the target's ld.so/glibc, and only the gcc_toolchain layout
+    # hands us that sysroot. Everywhere else (darwin hosts can't execute
+    # ELF at all; the llvm toolchain's empty-sysroot layout gives qemu no
+    # loader prefix) meson gets needs_exe_wrapper=true with NO exe_wrapper:
+    # it skips its own sanity runs and cc.run() callers get meson's
+    # explicit cross-environment error — an honest limitation.
     exe_wrapper_line = ""
-    if _platform.system() == "Linux":
+    if _platform.system() == "Linux" and build_env.get("RULES_PY_TARGET_GCC_SYSROOT"):
         exe_wrapper = _write_generated_file(
             path.join(tmpdir, "meson_exe_wrapper.py"),
             _MESON_EXE_WRAPPER.format(qemu_ld_prefix=build_env.get("RULES_PY_TARGET_GCC_SYSROOT", "")),
