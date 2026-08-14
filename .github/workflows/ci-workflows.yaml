@@ -159,6 +159,125 @@ jobs:
                   if [ -f test.sh ]; then
                       bash test.sh
                   fi
+    # Artifact-based cross verification: build the e2e/crossbuild images on
+    # one host, then execute them on NATIVE hardware for each target arch —
+    # no QEMU in the execution loop, so emulation can neither mask nor
+    # introduce failures (qemu-user has real ld.so quirks; see the cross
+    # wrapper in uv/private/pep517_whl/tools/build_helper.py).
+    #
+    # Two builders:
+    # - crossbuild-images (linux/amd64): arm64 tarballs only. Native amd64
+    #   execution is already covered by the e2e-crossbuild test job's
+    #   container_structure_tests on that same runner arch.
+    # - crossbuild-images-darwin (macOS, gated like `smoke`, 10x-billed):
+    #   both arches for one case per backend family. The macOS smoke job
+    #   cross-builds darwin→linux but filters -requires-docker (no daemon
+    #   there), so these artifacts are the ONLY execution coverage the
+    #   darwin→linux path has.
+    #
+    # Missing direction (deliberate): an arm64 builder. Blocked on
+    # amd64-exec-host assumptions in e2e/crossbuild/MODULE.bazel —
+    # gcc_toolchain registers exec=x86_64 only, and //tools:rust_host_sysroot
+    # pins the x86_64 rust toolchain by label.
+    crossbuild-images:
+        name: crossbuild-images (linux builder)
+        runs-on: ubuntu-22.04-32core
+        steps:
+            - uses: actions/checkout@v6
+            - uses: aspect-build/setup-aspect@c22a8f64fb38f82f59ce809cd7eb9f8ae096da44 # v2026.23.2
+              with:
+                aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
+            - name: Build arm64 image tarballs
+              working-directory: e2e/crossbuild
+              run: |
+                targets=$(bazel query 'filter(".*:arm64_tarball$", //...)')
+                bazel build ${targets}
+                mkdir -p "${RUNNER_TEMP}/images"
+                for target in ${targets}; do
+                    case="${target#//}"
+                    case="${case%:arm64_tarball}"
+                    cp "bazel-bin/${case}/arm64_load/tarball.tar" "${RUNNER_TEMP}/images/${case}-arm64.tar"
+                done
+            - uses: actions/upload-artifact@v4
+              with:
+                name: crossbuild-images-arm64
+                path: ${{ runner.temp }}/images/*.tar
+                retention-days: 1
+    crossbuild-run-arm64:
+        name: crossbuild-run (native arm64)
+        needs: crossbuild-images
+        runs-on: ubuntu-24.04-arm
+        steps:
+            - uses: actions/download-artifact@v4
+              with:
+                name: crossbuild-images-arm64
+                path: images
+            - name: Run every image on native arm64
+              run: |
+                status=0
+                for tar in images/*-arm64.tar; do
+                    tag=$(docker load -i "${tar}" | sed -n 's/^Loaded image: //p')
+                    echo "::group::${tag}"
+                    docker run --rm "${tag}" || status=1
+                    echo "::endgroup::"
+                done
+                exit "${status}"
+    crossbuild-images-darwin:
+        name: crossbuild-images (darwin builder)
+        if: >-
+            ${{ github.ref_name == 'main'
+                || contains(github.head_ref || github.ref_name, 'macos') }}
+        runs-on: macos-latest
+        steps:
+            - uses: actions/checkout@v6
+            - uses: bazel-contrib/setup-bazel@c5acdfb288317d0b5c0bbd7a396a3dc868bb0f86 # 0.19.0
+              with:
+                  bazelisk-cache: true
+                  disk-cache: macos-crossbuild-images
+                  repository-cache: true
+            # One case per backend family: psutil (setuptools/distutils),
+            # contourpy (meson-python), rpds_py (maturin/PyO3).
+            - name: Cross-build linux image tarballs from macOS
+              working-directory: e2e/crossbuild
+              shell: bash
+              run: |
+                mkdir -p "${RUNNER_TEMP}/images"
+                for case in psutil contourpy rpds_py; do
+                    for arch in amd64 arm64; do
+                        bazel build --config=ci "//${case}:${arch}_tarball"
+                        cp "bazel-bin/${case}/${arch}_load/tarball.tar" "${RUNNER_TEMP}/images/${case}-${arch}.tar"
+                    done
+                done
+            - uses: actions/upload-artifact@v4
+              with:
+                name: crossbuild-images-darwin
+                path: ${{ runner.temp }}/images/*.tar
+                retention-days: 1
+    crossbuild-run-darwin-built:
+        name: crossbuild-run (darwin-built, native ${{ matrix.arch }})
+        needs: crossbuild-images-darwin
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                - { runner: "ubuntu-latest", arch: "amd64" }
+                - { runner: "ubuntu-24.04-arm", arch: "arm64" }
+        runs-on: ${{ matrix.runner }}
+        steps:
+            - uses: actions/download-artifact@v4
+              with:
+                name: crossbuild-images-darwin
+                path: images
+            - name: Run darwin-built images on native ${{ matrix.arch }}
+              run: |
+                status=0
+                for tar in images/*-${{ matrix.arch }}.tar; do
+                    tag=$(docker load -i "${tar}" | sed -n 's/^Loaded image: //p')
+                    echo "::group::${tag}"
+                    docker run --rm "${tag}" || status=1
+                    echo "::endgroup::"
+                done
+                exit "${status}"
     test-all:
         name: test-all
         runs-on: ubuntu-latest

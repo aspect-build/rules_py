@@ -15,7 +15,7 @@ that reason.
 load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@container_structure_test//:defs.bzl", "container_structure_test")
-load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load")
 load(":checks.bzl", "assert_so_arch", "assert_so_suffix")
 
 def pep517_cross_case(name, deps, so_pattern, check_so_suffix = True, main = None, dep_group = None, image_command_test_config = None):
@@ -122,6 +122,27 @@ def pep517_cross_case(name, deps, so_pattern, check_so_suffix = True, main = Non
         srcs = [":image"],
         target_platform = "//:arm64_linux",
     )
+
+    # Docker-loadable tarballs for the artifact-based CI jobs: a builder job
+    # `bazel build`s these, uploads them, and native amd64/arm64 runner jobs
+    # `docker load` + `docker run` them on real hardware (no QEMU). Tagged
+    # manual: under plain `//...` they would only repackage what the
+    # container_structure_tests already cover on this host. The repo_tag is
+    # what the runner job executes, so it must stay `crossbuild/<name>:<arch>`.
+    for arch in ("amd64", "arm64"):
+        oci_load(
+            name = arch + "_load",
+            image = ":" + arch + "_image",
+            repo_tags = ["crossbuild/" + name + ":" + arch],
+            tags = ["manual"],
+        )
+
+        native.filegroup(
+            name = arch + "_tarball",
+            srcs = [":" + arch + "_load"],
+            output_group = "tarball",
+            tags = ["manual"],
+        )
 
     container_structure_test(
         name = "amd64_command_test",
