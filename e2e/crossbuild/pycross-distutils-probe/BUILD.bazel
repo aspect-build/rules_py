@@ -6,7 +6,7 @@ load("@aspect_rules_py//py:defs.bzl", "py_test")
 py_test(
     name = "test",
     srcs = ["__test__.py"],
-    data = ["@aspect_rules_py//uv/private/pep517_whl:build_helper.py"],
+    data = ["@aspect_rules_py//uv/private/pep517_whl/tools:build_helper.py"],
     dep_group = "pycross_distutils_probe",
     main = "__test__.py",
     python_version = "3.12",

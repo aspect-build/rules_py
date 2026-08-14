@@ -1,0 +1,15 @@
+load("//py:defs.bzl", "py_library")
+
+exports_files(
+    ["build_helper.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "tools",
+    srcs = [
+        "build_helper.py",
+        "memory_monitor.py",
+    ],
+    visibility = ["//visibility:public"],
+)

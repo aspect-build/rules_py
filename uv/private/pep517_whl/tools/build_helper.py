@@ -369,7 +369,7 @@ with TemporaryFile(mode="w+") as build_log:
         if opts.monitor_memory:
             # Generated build tools include this dependency only when the
             # corresponding wheel opts into monitoring.
-            from uv.private.pep517_whl.memory_monitor import run_with_memory_monitor
+            from uv.private.pep517_whl.tools.memory_monitor import run_with_memory_monitor
 
             run_with_memory_monitor(
                 cmd,
