@@ -9,7 +9,7 @@ Optionally applies patch files and pre-compiles ``.pyc`` bytecode.
 
 Invoked by Bazel as::
 
-    <exec_python> unpack.py --into <dir> --wheel <file> --python-version-major N --python-version-minor M [...]
+    <exec_python> unpack.py --into <dir> --wheel <file> --python-version M.m [...]
 """
 
 from __future__ import annotations
@@ -280,8 +280,7 @@ def _relative_path(value: str, what: str) -> Path:
 
 
 def install_wheel(
-    version_major: int,
-    version_minor: int,
+    python_version: str,
     into: Path,
     wheel_path: Path,
     exclude_patterns: Sequence[tuple[str, ...]],
@@ -300,7 +299,7 @@ def install_wheel(
             )
         wheel_path = whls[0]
 
-    site_packages = into / "lib" / "python{}.{}".format(version_major, version_minor) / "site-packages"
+    site_packages = into / "lib" / ("python" + python_version) / "site-packages"
     bin_dir = into / "bin"
     site_packages.mkdir(parents=True, exist_ok=True)
     bin_dir.mkdir(parents=True, exist_ok=True)
@@ -456,8 +455,7 @@ def install_wheel(
 class _Args:
     into: Path
     wheel: Path
-    python_version_major: int
-    python_version_minor: int
+    python_version: str
 
     def __init__(self) -> None:
         self.patches: list[Path] = []
@@ -465,11 +463,10 @@ class _Args:
         self.patch_tool = Path("patch")
         self.preserve_path: list[str] = []
         self.expected_data_files_manifest: Path | None = None
-        # Raw glob strings from argv, replaced by parsed patterns in main().
-        self.exclude_glob: list = []
-        self.compile_pyc = False
+        self.exclude_glob: list[tuple[str, ...]] = []
+        # Interpreter that compiles the bytecode; presence enables compilation.
+        self.compile_pyc: Path | None = None
         self.pyc_invalidation_mode = "unchecked-hash"
-        self.python: Path | None = None
 
 
 def _parse_args(argv: Sequence[str]) -> _Args:
@@ -478,9 +475,6 @@ def _parse_args(argv: Sequence[str]) -> _Args:
     args = _Args()
     flags = iter(argv)
     for flag in flags:
-        if flag == "--compile-pyc":
-            args.compile_pyc = True
-            continue
         flag, equals, value = flag.partition("=")
         if not equals:
             value = next(flags, None)
@@ -490,10 +484,8 @@ def _parse_args(argv: Sequence[str]) -> _Args:
             args.into = Path(value)
         elif flag == "--wheel":
             args.wheel = Path(value)
-        elif flag == "--python-version-major":
-            args.python_version_major = int(value)
-        elif flag == "--python-version-minor":
-            args.python_version_minor = int(value)
+        elif flag == "--python-version":
+            args.python_version = value
         elif flag == "--patch":
             args.patches.append(Path(value))
         elif flag == "--patch-strip":
@@ -510,16 +502,18 @@ def _parse_args(argv: Sequence[str]) -> _Args:
             # risk ARG_MAX.
             args.expected_data_files_manifest = Path(value)
         elif flag == "--exclude-glob":
-            args.exclude_glob.append(value)
+            from exclude_glob import parse
+
+            args.exclude_glob.append(parse(value))
+        elif flag == "--compile-pyc":
+            args.compile_pyc = Path(value)
         elif flag == "--pyc-invalidation-mode":
             if value not in ("checked-hash", "unchecked-hash", "timestamp"):
                 raise SystemExit("Invalid --pyc-invalidation-mode: {}".format(value))
             args.pyc_invalidation_mode = value
-        elif flag == "--python":
-            args.python = Path(value)
         else:
             raise SystemExit("Unknown flag: {}".format(flag))
-    for required in ("into", "wheel", "python_version_major", "python_version_minor"):
+    for required in ("into", "wheel", "python_version"):
         if not hasattr(args, required):
             raise SystemExit(
                 "Missing required flag: --{}".format(required.replace("_", "-"))
@@ -529,25 +523,18 @@ def _parse_args(argv: Sequence[str]) -> _Args:
 
 def main() -> None:
     args = _parse_args(sys.argv[1:])
-    if args.exclude_glob:
-        from exclude_glob import parse
-
-        args.exclude_glob = [parse(pattern) for pattern in args.exclude_glob]
 
     original_import_roots = install_wheel(
-        args.python_version_major,
-        args.python_version_minor,
+        args.python_version,
         args.into,
         args.wheel,
         args.exclude_glob if not args.patches else (),
         # Supplied bytecode outlives the source it was built from.
-        args.compile_pyc or bool(args.patches),
+        bool(args.compile_pyc or args.patches),
     )
 
     site_packages = (
-        args.into / "lib"
-        / "python{}.{}".format(args.python_version_major, args.python_version_minor)
-        / "site-packages"
+        args.into / "lib" / ("python" + args.python_version) / "site-packages"
     )
     # Analysis uses these paths for collision and merge planning. Snapshot their
     # installed shape here, where both the before and after states are available.
@@ -684,8 +671,6 @@ def main() -> None:
                 ])
 
     if args.compile_pyc:
-        if not args.python:
-            raise SystemExit("--python is required when --compile-pyc is set")
         import subprocess
 
         # Wheels may retain source for older Python versions. Match pip by
@@ -694,7 +679,7 @@ def main() -> None:
         # https://github.com/pypa/pip/blob/c8651d86d2d080c1936974873ab162f9c2507666/src/pip/_internal/operations/install/wheel.py#L623-L639
         subprocess.run(
             [
-                str(args.python),
+                str(args.compile_pyc),
                 "-c",
                 "import compileall; compileall.main()",
                 "-q",

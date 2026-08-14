@@ -161,13 +161,9 @@ def _run_unpack(
         str(output),
         "--wheel",
         str(wheel),
-        "--python-version-major",
-        str(sys.version_info.major),
-        "--python-version-minor",
-        str(sys.version_info.minor),
-        *(("--compile-pyc",) if compile_pyc else ()),
-        "--python",
-        str(python),
+        "--python-version",
+        f"{sys.version_info.major}.{sys.version_info.minor}",
+        *(("--compile-pyc", str(python)) if compile_pyc else ()),
         *extra_args,
     ]
     return subprocess.run(
@@ -216,8 +212,7 @@ def main() -> None:
 
         unpack_module._sha256 = recording_sha256
         unpack_module.install_wheel(
-            sys.version_info.major,
-            sys.version_info.minor,
+            f"{sys.version_info.major}.{sys.version_info.minor}",
             record_out,
             record_wheel,
             (),
@@ -252,8 +247,7 @@ def main() -> None:
             fallback_out = root / name
             hashed_names.clear()
             unpack_module.install_wheel(
-                sys.version_info.major,
-                sys.version_info.minor,
+                f"{sys.version_info.major}.{sys.version_info.minor}",
                 fallback_out,
                 fallback_wheel,
                 (),
@@ -274,8 +268,7 @@ def main() -> None:
         duplicate_out = root / "duplicate"
         hashed_names.clear()
         unpack_module.install_wheel(
-            sys.version_info.major,
-            sys.version_info.minor,
+            f"{sys.version_info.major}.{sys.version_info.minor}",
             duplicate_out,
             duplicate_wheel,
             (),
@@ -295,8 +288,7 @@ def main() -> None:
         duplicate_member_out = root / "duplicate_member"
         hashed_names.clear()
         unpack_module.install_wheel(
-            sys.version_info.major,
-            sys.version_info.minor,
+            f"{sys.version_info.major}.{sys.version_info.minor}",
             duplicate_member_out,
             duplicate_member_wheel,
             (),
@@ -321,12 +313,9 @@ def main() -> None:
             str(good_out),
             "--wheel",
             str(good_wheel),
-            "--python-version-major",
-            str(sys.version_info.major),
-            "--python-version-minor",
-            str(sys.version_info.minor),
+            "--python-version",
+            f"{sys.version_info.major}.{sys.version_info.minor}",
             "--compile-pyc",
-            "--python",
             sys.executable,
         ]
         try:
