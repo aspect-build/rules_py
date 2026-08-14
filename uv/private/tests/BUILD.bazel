@@ -1,0 +1,8 @@
+load(":normalize_version_test.bzl", "normalize_version_test_suite")
+load(":parse_whl_name_test.bzl", "parse_whl_name_test_suite")
+
+package(default_testonly = True)
+
+normalize_version_test_suite()
+
+parse_whl_name_test_suite()

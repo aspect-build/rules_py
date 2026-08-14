@@ -1,8 +1,8 @@
 """Unit tests for helpers in defs.bzl"""
 
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load(":defs.bzl", "dedupe_shared_installs", "parse_declared_console_script", "shared_install_key")
-load(":lockfile.bzl", "url_basename")
+load("//uv/private/extension:defs.bzl", "dedupe_shared_installs", "parse_declared_console_script", "shared_install_key")
+load("//uv/private/extension:lockfile.bzl", "url_basename")
 
 def _url_basename_test_impl(ctx):
     env = unittest.begin(ctx)

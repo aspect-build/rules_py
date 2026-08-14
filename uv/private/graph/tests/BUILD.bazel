@@ -1,0 +1,5 @@
+load(":sccs_test.bzl", "sccs_test_suite")
+
+package(default_testonly = True)
+
+sccs_test_suite()

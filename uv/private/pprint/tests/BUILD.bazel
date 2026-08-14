@@ -1,0 +1,5 @@
+load(":pprint_test.bzl", "pprint_test_suite")
+
+package(default_testonly = True)
+
+pprint_test_suite()

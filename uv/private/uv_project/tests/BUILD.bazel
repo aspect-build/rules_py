@@ -1,0 +1,5 @@
+load(":select_gen_test.bzl", "select_gen_test_suite")
+
+package(default_testonly = True)
+
+select_gen_test_suite()

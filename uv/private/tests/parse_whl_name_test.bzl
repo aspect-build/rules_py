@@ -1,7 +1,7 @@
 """Tests for parse_whl_name.bzl."""
 
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load(":parse_whl_name.bzl", "normalize_abi_tag", "normalize_platform_tag", "parse_whl_name")
+load("//uv/private:parse_whl_name.bzl", "normalize_abi_tag", "normalize_platform_tag", "parse_whl_name")
 
 def _normalize_platform_tag_test_impl(ctx):
     env = unittest.begin(ctx)

@@ -1,5 +1,5 @@
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load(":graph_utils.bzl", "activate_extras", "collect_sccs")
+load("//uv/private/extension:graph_utils.bzl", "activate_extras", "collect_sccs")
 
 def _extras_test_impl(ctx):
     env = unittest.begin(ctx)

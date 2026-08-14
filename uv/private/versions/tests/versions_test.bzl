@@ -1,5 +1,5 @@
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load(":versions.bzl", "find_matching_version", "parse_version", "version_satisfies")
+load("//uv/private/versions:versions.bzl", "find_matching_version", "parse_version", "version_satisfies")
 
 # =============================================================================
 # parse_version tests

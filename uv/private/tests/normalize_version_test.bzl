@@ -1,7 +1,7 @@
 """Tests for normalize_version.bzl."""
 
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load(":normalize_version.bzl", "normalize_version")
+load("//uv/private:normalize_version.bzl", "normalize_version")
 
 # Bazel repo-name components may only contain these characters.
 _VALID_REPO_NAME_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_."

@@ -1,0 +1,5 @@
+load(":versions_test.bzl", "versions_test_suite")
+
+package(default_testonly = True)
+
+versions_test_suite()
