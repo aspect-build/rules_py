@@ -12,20 +12,22 @@ Invoked by Bazel as::
     <exec_python> unpack.py --into <dir> --wheel <file> --python-version-major N --python-version-minor M [...]
 """
 
-import argparse
-import configparser
+from __future__ import annotations
+
+# Module-level imports are the bulk of this tool's per-action startup cost;
+# anything conditional (subprocess, configparser, urllib.parse, exclude_glob)
+# is imported where it's needed instead.
 import csv
 import hashlib
 import io
 import os
 import re
 import shutil
-import subprocess
+import sys
 import zipfile
 from base64 import urlsafe_b64encode
-from pathlib import Path
 from collections.abc import Sequence
-from urllib.parse import unquote
+from pathlib import Path
 
 _RELOCATABLE_SHEBANG = """\
 #!/bin/sh
@@ -254,6 +256,8 @@ def _data_prefix(basename: str, record_dir: str | None) -> str:
     """
     if record_dir and record_dir.endswith(".dist-info") and "/" not in record_dir:
         return record_dir[: -len(".dist-info")] + ".data/"
+    from urllib.parse import unquote
+
     return "-".join(unquote(basename).split("-")[:2]) + ".data/"
 
 
@@ -387,6 +391,8 @@ def install_wheel(
                 installed[dest] = reusable_record
 
     for ep_path in site_packages.glob("*.dist-info/entry_points.txt"):
+        import configparser
+
         cp = configparser.ConfigParser(strict=False, delimiters=("=",))
         setattr(cp, "optionxform", str)
         cp.read(str(ep_path), encoding="utf-8")
@@ -447,30 +453,82 @@ def install_wheel(
     return original_import_roots
 
 
+class _Args:
+    into: Path
+    wheel: Path
+    python_version_major: int
+    python_version_minor: int
+
+    def __init__(self) -> None:
+        self.patches: list[Path] = []
+        self.patch_strip = 0
+        self.patch_tool = Path("patch")
+        self.preserve_path: list[str] = []
+        self.expected_data_files_manifest: Path | None = None
+        # Raw glob strings from argv, replaced by parsed patterns in main().
+        self.exclude_glob: list = []
+        self.compile_pyc = False
+        self.pyc_invalidation_mode = "unchecked-hash"
+        self.python: Path | None = None
+
+
+def _parse_args(argv: Sequence[str]) -> _Args:
+    """Parse the Bazel-generated argv by hand; argparse's import chain would
+    dominate this tool's startup time."""
+    args = _Args()
+    flags = iter(argv)
+    for flag in flags:
+        if flag == "--compile-pyc":
+            args.compile_pyc = True
+            continue
+        flag, equals, value = flag.partition("=")
+        if not equals:
+            value = next(flags, None)
+            if value is None:
+                raise SystemExit("Missing value for flag: {}".format(flag))
+        if flag == "--into":
+            args.into = Path(value)
+        elif flag == "--wheel":
+            args.wheel = Path(value)
+        elif flag == "--python-version-major":
+            args.python_version_major = int(value)
+        elif flag == "--python-version-minor":
+            args.python_version_minor = int(value)
+        elif flag == "--patch":
+            args.patches.append(Path(value))
+        elif flag == "--patch-strip":
+            args.patch_strip = int(value)
+        elif flag == "--patch-tool":
+            args.patch_tool = Path(value)
+        elif flag == "--preserve-path":
+            args.preserve_path.append(value)
+        elif flag == "--expected-data-files-manifest":
+            # Newline-separated prefix-relative `.data/data/` paths; presence
+            # enables the post-patch data-file check (an empty manifest is a
+            # meaningful expectation). A file rather than repeated flags: a
+            # wheel like jupyterlab ships thousands of prefix paths, enough to
+            # risk ARG_MAX.
+            args.expected_data_files_manifest = Path(value)
+        elif flag == "--exclude-glob":
+            args.exclude_glob.append(value)
+        elif flag == "--pyc-invalidation-mode":
+            if value not in ("checked-hash", "unchecked-hash", "timestamp"):
+                raise SystemExit("Invalid --pyc-invalidation-mode: {}".format(value))
+            args.pyc_invalidation_mode = value
+        elif flag == "--python":
+            args.python = Path(value)
+        else:
+            raise SystemExit("Unknown flag: {}".format(flag))
+    for required in ("into", "wheel", "python_version_major", "python_version_minor"):
+        if not hasattr(args, required):
+            raise SystemExit(
+                "Missing required flag: --{}".format(required.replace("_", "-"))
+            )
+    return args
+
+
 def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--into", required=True, type=Path)
-    ap.add_argument("--wheel", required=True, type=Path)
-    ap.add_argument("--python-version-major", required=True, type=int)
-    ap.add_argument("--python-version-minor", required=True, type=int)
-    ap.add_argument("--patch", dest="patches", action="append", default=[], type=Path)
-    ap.add_argument("--patch-strip", type=int, default=0)
-    ap.add_argument("--patch-tool", type=Path, default=Path("patch"))
-    ap.add_argument("--preserve-path", action="append", default=[])
-    # Passing this enables the post-patch data-file check; an empty manifest is a
-    # meaningful expectation (any shipped data file reads as added), so presence
-    # alone is the switch. A file rather than repeated flags: a wheel like
-    # jupyterlab ships thousands of prefix paths, enough to risk ARG_MAX.
-    ap.add_argument("--expected-data-files-manifest", type=Path,
-                    help="Newline-separated prefix-relative `.data/data/` paths. When "
-                         "given, require the post-patch prefix files to match them "
-                         "exactly (venv assembly projects that pre-patch set).")
-    ap.add_argument("--exclude-glob", action="append", default=[])
-    ap.add_argument("--compile-pyc", action="store_true")
-    ap.add_argument("--pyc-invalidation-mode", default="unchecked-hash",
-                    choices=["checked-hash", "unchecked-hash", "timestamp"])
-    ap.add_argument("--python", type=Path)
-    args = ap.parse_args()
+    args = _parse_args(sys.argv[1:])
     if args.exclude_glob:
         from exclude_glob import parse
 
@@ -515,6 +573,8 @@ def main() -> None:
             raise SystemExit("Preserved wheel path does not exist: {}".format(relative))
 
     for patch_file in args.patches:
+        import subprocess
+
         # --no-backup-if-mismatch: a fuzz/offset apply otherwise drops a
         # `<file>.orig` into the install tree, leaking into every consuming venv.
         with patch_file.open("rb") as patch_stream:
@@ -626,6 +686,8 @@ def main() -> None:
     if args.compile_pyc:
         if not args.python:
             raise SystemExit("--python is required when --compile-pyc is set")
+        import subprocess
+
         # Wheels may retain source for older Python versions. Match pip by
         # retaining compileall's diagnostics while ignoring its aggregate
         # false result; check=True still rejects abnormal interpreter exits.
