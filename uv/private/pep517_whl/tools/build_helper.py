@@ -62,7 +62,13 @@ import sys
 filtered_args = [arg for arg in sys.argv[1:] if arg != "{debug_flag}"]
 is_cxx = {is_cxx!r}
 is_darwin = {is_darwin!r}
-is_link = "-c" not in filtered_args
+# Same non-link detection as the cross wrapper: compiles, preprocessing,
+# and compiler-introspection probes must not receive link-only flags.
+is_link = True
+for _arg in filtered_args:
+    if _arg in ("-c", "-E", "-S", "-fsyntax-only", "--version", "-dumpmachine", "-dumpversion", "-###") or _arg.startswith("-print-"):
+        is_link = False
+        break
 if is_cxx and is_link and not is_darwin:
     filtered_args = filtered_args + {static_libstdcxx_flags!r}
 sysroot = {sysroot!r}
@@ -125,7 +131,17 @@ static_libstdcxx_flags = {static_libstdcxx_flags!r}
 exe_link_flags = {exe_link_flags!r}
 static_runtime_archives = {static_runtime_archives!r}
 
-is_link = "-c" not in args
+# Not a link if compiling/preprocessing (-c/-E/-S/-fsyntax-only) or if this
+# is a compiler-introspection probe (meson runs "-E -v -", "-print-*",
+# "--version" through us): appending link inputs there is at best noise and
+# at worst catastrophic — "-E" *preprocesses* positional inputs, so an
+# appended static archive becomes megabytes of binary on stdout that
+# meson then strictly utf-8 decodes.
+is_link = True
+for a in args:
+    if a in ("-c", "-E", "-S", "-fsyntax-only", "--version", "-dumpmachine", "-dumpversion", "-###") or a.startswith("-print-"):
+        is_link = False
+        break
 filtered = []
 i = 0
 while i < len(args):
