@@ -59,7 +59,7 @@ def _py_runtime_toolchain_impl(ctx):
         default_tool = ctx.attr._unpack[PySourceToolInfo]
         unpack_tool = struct(
             executable = ctx.file.interpreter,
-            arguments = [default_tool.main],
+            arguments = ["-S", "-E", "-s", "-B", default_tool.main],
             inputs = depset(
                 [ctx.file.interpreter],
                 transitive = [default_tool.files, runtime.files],
