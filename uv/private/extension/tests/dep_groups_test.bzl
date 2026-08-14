@@ -1,5 +1,5 @@
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load(":dep_groups.bzl", "resolve_dependency_group_specs")
+load("//uv/private/extension:dep_groups.bzl", "resolve_dependency_group_specs")
 
 def _flat_group_test_impl(ctx):
     env = unittest.begin(ctx)

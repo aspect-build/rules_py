@@ -1,9 +1,6 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
-load(":pprint_test.bzl", "pprint_test_suite")
 
 exports_files(["defs.bzl"])
-
-pprint_test_suite()
 
 bzl_library(
     name = "defs",

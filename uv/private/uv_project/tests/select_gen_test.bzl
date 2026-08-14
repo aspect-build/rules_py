@@ -1,5 +1,5 @@
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load(":select_gen.bzl", "build_package_select_arms")
+load("//uv/private/uv_project:select_gen.bzl", "build_package_select_arms")
 
 def _ml(expr):
     return "//private/markers:" + expr

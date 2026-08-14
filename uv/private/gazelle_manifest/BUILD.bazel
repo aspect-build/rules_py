@@ -1,7 +1,12 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
-load("//py:defs.bzl", "py_binary", "py_test")
+load("//py:defs.bzl", "py_binary")
 
 exports_files(["update.sh"])
+
+exports_files(
+    ["generate.py"],
+    visibility = ["//uv/private/gazelle_manifest/tests:__pkg__"],
+)
 
 py_binary(
     name = "generator",
@@ -9,21 +14,6 @@ py_binary(
         "generate.py",
     ],
     main = "generate.py",
-)
-
-py_test(
-    name = "test",
-    srcs = [
-        "__test__.py",
-        "generate.py",
-        "test.py",
-    ],
-    args = ["$(location :test.py)"],
-    data = ["test.py"],
-    main = "__test__.py",
-    deps = [
-        "@pypi//pytest",
-    ],
 )
 
 bzl_library(
