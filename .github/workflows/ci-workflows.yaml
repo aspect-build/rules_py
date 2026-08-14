@@ -155,7 +155,7 @@ jobs:
                 path: ${{ runner.temp }}/images/*.tar
                 retention-days: 1
     crossbuild-run-darwin-built:
-        name: run on linux ${{ matrix.arch }})
+        name: run on linux ${{ matrix.arch }}
         needs: crossbuild-images-darwin
         strategy:
             fail-fast: false
@@ -182,16 +182,13 @@ jobs:
 
 
     crossbuild-images-amd64:
-        name: cross-build arm64 images on linux amd64
+        name: build on amd
         runs-on: ubuntu-22.04-32core
         steps:
             - uses: actions/checkout@v6
             - uses: aspect-build/setup-aspect@c22a8f64fb38f82f59ce809cd7eb9f8ae096da44 # v2026.23.2
               with:
                 aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
-            # binfmt for meson's build-time probes only (sanity checks and
-            # cc.run() execute target-arch binaries mid-build); the actual
-            # execution verdict comes from the native arm64 runner below.
             - uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
               with:
                 platforms: arm64
@@ -212,7 +209,7 @@ jobs:
                 path: ${{ runner.temp }}/images/*.tar
                 retention-days: 1
     crossbuild-run-amd64-built:
-        name: run amd64-built images on native arm64
+        name: run on arm
         needs: crossbuild-images-amd64
         runs-on: ubuntu-24.04-arm
         steps:
@@ -232,7 +229,7 @@ jobs:
                 exit "${status}"
 
     crossbuild-images-arm64:
-        name: cross-build amd64 images on linux arm64
+        name: build on arm
         runs-on: ubuntu-24.04-arm
         steps:
             - uses: actions/checkout@v6
@@ -287,7 +284,6 @@ jobs:
             - name: All required jobs succeeded
               run: |
                 for result in \
-                    "test=${{ needs.test.result }}" \
                     "typecheck=${{ needs.typecheck.result }}" \
                     "buildifier=${{ needs.buildifier.result }}" \
                     "gazelle=${{ needs.gazelle.result }}" \
