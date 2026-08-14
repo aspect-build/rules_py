@@ -250,7 +250,9 @@ jobs:
               run: |
                 mkdir -p "${RUNNER_TEMP}/images"
                 for case in psutil contourpy rpds_py; do
-                    bazel build --config=ci "//${case}:amd64_tarball"
+                    # toplevel: build-without-the-bytes must still materialize
+                    # the tarball this job exists to upload.
+                    bazel build --config=ci --remote_download_outputs=toplevel "//${case}:amd64_tarball"
                     cp "bazel-bin/${case}/amd64_load/tarball.tar" "${RUNNER_TEMP}/images/${case}-amd64.tar"
                 done
             - uses: actions/upload-artifact@v4
