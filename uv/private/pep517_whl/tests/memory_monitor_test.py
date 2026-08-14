@@ -10,7 +10,7 @@ import tempfile
 import unittest
 from unittest import mock
 
-from uv.private.pep517_whl import memory_monitor
+from uv.private.pep517_whl.tools import memory_monitor
 
 
 class MemoryMonitorTest(unittest.TestCase):

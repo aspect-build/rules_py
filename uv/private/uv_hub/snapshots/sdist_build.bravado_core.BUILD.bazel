@@ -4,8 +4,8 @@ load("@aspect_rules_py//py:defs.bzl", "py_binary")
 
 py_binary(
     name = "build_tool",
-    main = "@aspect_rules_py//uv/private/pep517_whl:build_helper.py",
-    srcs = ["@aspect_rules_py//uv/private/pep517_whl:build_helper.py"],
+    main = "@aspect_rules_py//uv/private/pep517_whl/tools:build_helper.py",
+    srcs = ["@aspect_rules_py//uv/private/pep517_whl/tools:build_helper.py"],
     deps = ["@@+uv+project__aspect_rules_py//:build", "@@+uv+project__aspect_rules_py//:setuptools", "@@+uv+project__aspect_rules_py//:maturin", "@whl_install__aspect_rules_py__setuptools__80_9_0//:install"],
 )
 

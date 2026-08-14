@@ -59,7 +59,7 @@ SETUP_PY = textwrap.dedent(
 def find_build_helper() -> str:
     srcdir = os.environ["TEST_SRCDIR"]
     for root, _, files in os.walk(srcdir, followlinks=True):
-        if "build_helper.py" in files and root.endswith(os.path.join("uv", "private", "pep517_whl")):
+        if "build_helper.py" in files and root.endswith(os.path.join("uv", "private", "pep517_whl", "tools")):
             return os.path.join(root, "build_helper.py")
     raise AssertionError("build_helper.py not found under TEST_SRCDIR")
 

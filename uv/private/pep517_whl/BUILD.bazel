@@ -5,11 +5,6 @@ package(default_visibility = [
     "//uv/private:__subpackages__",
 ])
 
-exports_files(
-    ["build_helper.py"],
-    visibility = ["//visibility:public"],
-)
-
 bzl_library(
     name = "rule",
     srcs = ["rule.bzl"],
@@ -20,10 +15,4 @@ bzl_library(
         "@rules_cc//cc:action_names_bzl",
         "@rules_cc//cc/common",
     ],
-)
-
-py_library(
-    name = "memory_monitor",
-    srcs = ["memory_monitor.py"],
-    visibility = ["//visibility:public"],
 )
