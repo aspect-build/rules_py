@@ -175,10 +175,10 @@ jobs:
     #   there), so these artifacts are the ONLY execution coverage the
     #   darwin→linux path has.
     #
-    # Missing direction (deliberate): an arm64 builder. Blocked on
-    # amd64-exec-host assumptions in e2e/crossbuild/MODULE.bazel —
-    # gcc_toolchain registers exec=x86_64 only, and //tools:rust_host_sysroot
-    # pins the x86_64 rust toolchain by label.
+    # - crossbuild-images-arm (linux/arm64): the reverse direction, closing
+    #   the linux↔linux cycle. gcc_toolchain has no arm64-exec variant, so
+    #   these builds exercise the llvm toolchain fallback — the same path a
+    #   darwin host takes — on a Linux arm64 host.
     crossbuild-images:
         name: crossbuild-images (linux builder)
         runs-on: ubuntu-22.04-32core
@@ -223,6 +223,54 @@ jobs:
               run: |
                 status=0
                 for tar in images/*-arm64.tar; do
+                    tag=$(docker load -i "${tar}" | sed -n 's/^Loaded image: //p')
+                    echo "::group::${tag}"
+                    docker run --rm "${tag}" || status=1
+                    echo "::endgroup::"
+                done
+                exit "${status}"
+    crossbuild-images-arm:
+        name: crossbuild-images (arm64 builder)
+        runs-on: ubuntu-24.04-arm
+        steps:
+            - uses: actions/checkout@v6
+            - uses: aspect-build/setup-aspect@c22a8f64fb38f82f59ce809cd7eb9f8ae096da44 # v2026.23.2
+              with:
+                aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
+            # amd64 binfmt for meson's build-time probes (mirror image of the
+            # arm64 registration on the amd64 builder).
+            - uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+              with:
+                platforms: amd64
+            # Same one-case-per-backend subset as the darwin builder: the
+            # free arm64 runners are 4-core, and the llvm-fallback coverage
+            # per backend is what this direction is for.
+            - name: Cross-build amd64 image tarballs from arm64
+              working-directory: e2e/crossbuild
+              run: |
+                mkdir -p "${RUNNER_TEMP}/images"
+                for case in psutil contourpy rpds_py; do
+                    bazel build --config=ci "//${case}:amd64_tarball"
+                    cp "bazel-bin/${case}/amd64_load/tarball.tar" "${RUNNER_TEMP}/images/${case}-amd64.tar"
+                done
+            - uses: actions/upload-artifact@v4
+              with:
+                name: crossbuild-images-arm-built
+                path: ${{ runner.temp }}/images/*.tar
+                retention-days: 1
+    crossbuild-run-arm-built:
+        name: crossbuild-run (arm-built, native amd64)
+        needs: crossbuild-images-arm
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/download-artifact@v4
+              with:
+                name: crossbuild-images-arm-built
+                path: images
+            - name: Run arm-built images on native amd64
+              run: |
+                status=0
+                for tar in images/*-amd64.tar; do
                     tag=$(docker load -i "${tar}" | sed -n 's/^Loaded image: //p')
                     echo "::group::${tag}"
                     docker run --rm "${tag}" || status=1
