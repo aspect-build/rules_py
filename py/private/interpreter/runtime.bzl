@@ -9,7 +9,7 @@ The runtime is an instance of rules_python's public PyRuntimeInfo (re-exported
 here and from //py:defs.bzl): `@bazel_tools//tools/python:toolchain_type` is
 the shared target-runtime contract, and rules_python's py_binary forwards the
 resolved runtime provider onto built binaries, where downstream consumers
-(py_zipapp_binary, py_interpreter) index it by that provider symbol.
+(e.g. rules_python's py_zipapp_binary) index it by that provider symbol.
 """
 
 load("@rules_python//python:py_runtime_info.bzl", _PyRuntimeInfo = "PyRuntimeInfo")
