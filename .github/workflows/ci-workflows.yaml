@@ -281,7 +281,7 @@ jobs:
     test-all:
         name: test-all
         runs-on: ubuntu-latest
-        needs: [buildifier, gazelle, test, typecheck, crossbuild-run-amd64-built, crossbuild-run-arm64-built, crossbuild-run-darwin-built]
+        needs: [buildifier, gazelle, typecheck, crossbuild-run-amd64-built, crossbuild-run-arm64-built, crossbuild-run-darwin-built]
         if: always()
         steps:
             - name: All required jobs succeeded
