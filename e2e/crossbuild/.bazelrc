@@ -1,3 +1,7 @@
 # Without this, sdist build actions run with no PATH and clang can't find
 # `ld` (not bundled with the hermetic LLVM toolchain).
 common --incompatible_strict_action_env
+
+# Build without the bytes
+common:ci --remote_download_outputs=minimal
+common:ci --nobuild_runfile_links
