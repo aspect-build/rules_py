@@ -120,165 +120,11 @@ jobs:
                 if [ -f test.sh ]; then
                     bash test.sh
                 fi
+
     # macOS minutes are billed at 10X, so it only covers the root and e2e consumer
     # workspaces, on main plus branches whose name contains 'macos'.
     # https://docs.github.com/en/billing/managing-billing-for-github-actions/about-billing-for-github-actions#included-storage-and-minutes
-    smoke:
-        name: smoke (${{ matrix.workspace.path }}, macos)
-        if: >-
-            ${{ github.ref_name == 'main'
-                || contains(github.head_ref || github.ref_name, 'macos') }}
-        runs-on: macos-latest
-        strategy:
-            fail-fast: false
-            matrix:
-                workspace:
-                - { path: ".", slug: "root" }
-                - { path: "e2e/cases", slug: "e2e" }
-                - { path: "e2e/crossbuild", slug: "e2e-crossbuild" }
-        defaults:
-            run:
-                working-directory: ${{ matrix.workspace.path }}
-        steps:
-            - uses: actions/checkout@v6
-            - uses: bazel-contrib/setup-bazel@c5acdfb288317d0b5c0bbd7a396a3dc868bb0f86 # 0.19.0
-              with:
-                  bazelisk-cache: true
-                  disk-cache: macos-${{ matrix.workspace.slug }}
-                  repository-cache: true
-            # Images still build; only the tests that need a Linux container daemon are
-            # dropped, since the GitHub-hosted macOS runners have none.
-            # Run `test //...`, then the workspace's test.sh if it has one
-            - name: Test
-              shell: bash
-              run: |
-                  bazel test --config=ci --keep_going \
-                    --test_tag_filters=-skip-on-bazel8,-requires-docker \
-                    --build_tag_filters=-skip-on-bazel8 \
-                    //...
-                  if [ -f test.sh ]; then
-                      bash test.sh
-                  fi
-    # Artifact-based cross verification: build the e2e/crossbuild images on
-    # one host, then execute them on NATIVE hardware for each target arch —
-    # no QEMU in the execution loop, so emulation can neither mask nor
-    # introduce failures (qemu-user has real ld.so quirks; see the cross
-    # wrapper in uv/private/pep517_whl/tools/build_helper.py).
-    #
-    # Two builders:
-    # - crossbuild-images-amd64: arm64 tarballs only. Native amd64
-    #   execution is already covered by the e2e-crossbuild test job's
-    #   container_structure_tests on that same runner arch.
-    # - crossbuild-images-darwin (macOS, gated like `smoke`, 10x-billed):
-    #   both arches for one case per backend family. The macOS smoke job
-    #   cross-builds darwin→linux but filters -requires-docker (no daemon
-    #   there), so these artifacts are the ONLY execution coverage the
-    #   darwin→linux path has.
-    #
-    # - crossbuild-images-arm (linux/arm64): the reverse direction, closing
-    #   the linux↔linux cycle. gcc_toolchain has no arm64-exec variant, so
-    #   these builds exercise the llvm toolchain fallback — the same path a
-    #   darwin host takes — on a Linux arm64 host.
-    crossbuild-images-amd64:
-        name: crossbuild-images (amd64 builder)
-        runs-on: ubuntu-22.04-32core
-        steps:
-            - uses: actions/checkout@v6
-            - uses: aspect-build/setup-aspect@c22a8f64fb38f82f59ce809cd7eb9f8ae096da44 # v2026.23.2
-              with:
-                aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
-            # QEMU leaves the *execution* loop (that's the point of the native
-            # runner jobs) but not the *build* loop: meson's compiler sanity
-            # check and cc.run() probes execute target-arch binaries through
-            # the exe_wrapper during the build itself.
-            - uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
-              with:
-                platforms: arm64
-            - name: Build arm64 image tarballs
-              working-directory: e2e/crossbuild
-              run: |
-                targets=$(bazel query 'filter(".*:arm64_tarball$", //...)')
-                bazel build ${targets}
-                mkdir -p "${RUNNER_TEMP}/images"
-                for target in ${targets}; do
-                    case="${target#//}"
-                    case="${case%:arm64_tarball}"
-                    cp "bazel-bin/${case}/arm64_load/tarball.tar" "${RUNNER_TEMP}/images/${case}-arm64.tar"
-                done
-            - uses: actions/upload-artifact@v4
-              with:
-                name: crossbuild-images-arm64
-                path: ${{ runner.temp }}/images/*.tar
-                retention-days: 1
-    crossbuild-run-arm64:
-        name: crossbuild-run (native arm64)
-        needs: crossbuild-images-amd64
-        runs-on: ubuntu-24.04-arm
-        steps:
-            - uses: actions/download-artifact@v4
-              with:
-                name: crossbuild-images-arm64
-                path: images
-            - name: Run every image on native arm64
-              run: |
-                status=0
-                for tar in images/*-arm64.tar; do
-                    tag=$(docker load -i "${tar}" | sed -n 's/^Loaded image: //p')
-                    echo "::group::${tag}"
-                    docker run --rm "${tag}" || status=1
-                    echo "::endgroup::"
-                done
-                exit "${status}"
-    crossbuild-images-arm:
-        name: crossbuild-images (arm64 builder)
-        runs-on: ubuntu-24.04-arm
-        steps:
-            - uses: actions/checkout@v6
-            - uses: aspect-build/setup-aspect@c22a8f64fb38f82f59ce809cd7eb9f8ae096da44 # v2026.23.2
-              with:
-                aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
-            # amd64 binfmt for meson's build-time probes (mirror image of the
-            # arm64 registration on the amd64 builder).
-            - uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
-              with:
-                platforms: amd64
-            # Same one-case-per-backend subset as the darwin builder: the
-            # free arm64 runners are 4-core, and the llvm-fallback coverage
-            # per backend is what this direction is for.
-            - name: Cross-build amd64 image tarballs from arm64
-              working-directory: e2e/crossbuild
-              run: |
-                mkdir -p "${RUNNER_TEMP}/images"
-                for case in psutil contourpy rpds_py; do
-                    # toplevel: build-without-the-bytes must still materialize
-                    # the tarball this job exists to upload.
-                    bazel build --config=ci --remote_download_outputs=toplevel "//${case}:amd64_tarball"
-                    cp "bazel-bin/${case}/amd64_load/tarball.tar" "${RUNNER_TEMP}/images/${case}-amd64.tar"
-                done
-            - uses: actions/upload-artifact@v4
-              with:
-                name: crossbuild-images-arm-built
-                path: ${{ runner.temp }}/images/*.tar
-                retention-days: 1
-    crossbuild-run-arm-built:
-        name: crossbuild-run (arm-built, native amd64)
-        needs: crossbuild-images-arm
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/download-artifact@v4
-              with:
-                name: crossbuild-images-arm-built
-                path: images
-            - name: Run arm-built images on native amd64
-              run: |
-                status=0
-                for tar in images/*-amd64.tar; do
-                    tag=$(docker load -i "${tar}" | sed -n 's/^Loaded image: //p')
-                    echo "::group::${tag}"
-                    docker run --rm "${tag}" || status=1
-                    echo "::endgroup::"
-                done
-                exit "${status}"
+
     crossbuild-images-darwin:
         name: crossbuild-images (darwin builder)
         if: >-
@@ -292,8 +138,6 @@ jobs:
                   bazelisk-cache: true
                   disk-cache: macos-crossbuild-images
                   repository-cache: true
-            # One case per backend family: psutil (setuptools/distutils),
-            # contourpy (meson-python), rpds_py (maturin/PyO3).
             - name: Cross-build linux image tarballs from macOS
               working-directory: e2e/crossbuild
               shell: bash
@@ -335,10 +179,116 @@ jobs:
                     echo "::endgroup::"
                 done
                 exit "${status}"
+
+
+    crossbuild-images-amd64:
+        name: crossbuild-images (amd64 builder)
+        runs-on: ubuntu-22.04-32core
+        steps:
+            - uses: actions/checkout@v6
+            - uses: aspect-build/setup-aspect@c22a8f64fb38f82f59ce809cd7eb9f8ae096da44 # v2026.23.2
+              with:
+                aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
+            - uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+              with:
+                platforms: arm64
+            - name: Build arm64 image tarballs
+              working-directory: e2e/crossbuild
+              run: |
+                targets=$(bazel query 'filter(".*:arm64_tarball$", //...)')
+                bazel build ${targets}
+                mkdir -p "${RUNNER_TEMP}/images"
+                for target in ${targets}; do
+                    case="${target#//}"
+                    case="${case%:arm64_tarball}"
+                    cp "bazel-bin/${case}/arm64_load/tarball.tar" "${RUNNER_TEMP}/images/${case}-arm64.tar"
+                done
+            - uses: actions/upload-artifact@v4
+              with:
+                name: crossbuild-images-arm64
+                path: ${{ runner.temp }}/images/*.tar
+                retention-days: 1
+    crossbuild-run-amd64-built:
+        name: crossbuild-run (native arm64)
+        needs: crossbuild-images-amd64
+        runs-on: ubuntu-24.04-arm
+        steps:
+            - uses: actions/download-artifact@v4
+              with:
+                name: crossbuild-images-arm64
+                path: images
+            - name: Run every image on native arm64
+              run: |
+                status=0
+                for tar in images/*-arm64.tar; do
+                    tag=$(docker load -i "${tar}" | sed -n 's/^Loaded image: //p')
+                    echo "::group::${tag}"
+                    docker run --rm "${tag}" || status=1
+                    echo "::endgroup::"
+                done
+                exit "${status}"
+                
+
+
+    crossbuild-images-arm64:
+        name: crossbuild-images (arm64 builder)
+        runs-on: ubuntu-24.04-arm
+        steps:
+            - uses: actions/checkout@v6
+            - uses: aspect-build/setup-aspect@c22a8f64fb38f82f59ce809cd7eb9f8ae096da44 # v2026.23.2
+              with:
+                aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
+            - uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+              with:
+                platforms: amd64
+            - name: Cross-build amd64 image tarballs from arm64
+              working-directory: e2e/crossbuild
+              run: |
+                mkdir -p "${RUNNER_TEMP}/images"
+                for case in psutil contourpy rpds_py; do
+                    # toplevel: build-without-the-bytes must still materialize
+                    # the tarball this job exists to upload.
+                    bazel build --config=ci --remote_download_outputs=toplevel "//${case}:amd64_tarball"
+                    cp "bazel-bin/${case}/amd64_load/tarball.tar" "${RUNNER_TEMP}/images/${case}-amd64.tar"
+                done
+            - uses: actions/upload-artifact@v4
+              with:
+                name: crossbuild-images-arm-built
+                path: ${{ runner.temp }}/images/*.tar
+                retention-days: 1
+    crossbuild-run-arm64-built:
+        name: crossbuild-run (arm-built, native amd64)
+        needs: crossbuild-images-arm64
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/download-artifact@v4
+              with:
+                name: crossbuild-images-arm-built
+                path: images
+            - name: Run arm-built images on native amd64
+              run: |
+                status=0
+                for tar in images/*-amd64.tar; do
+                    tag=$(docker load -i "${tar}" | sed -n 's/^Loaded image: //p')
+                    echo "::group::${tag}"
+                    docker run --rm "${tag}" || status=1
+                    echo "::endgroup::"
+                done
+                exit "${status}"
+                
+                
+
+
+
+
+
+
+
+
     test-all:
         name: test-all
         runs-on: ubuntu-latest
-        needs: [test, typecheck]
+        needs: [buildifier, gazelle, test, typecheck, crossbuild-run-arm64-built, crossbuild-run-arm64-built]
         if: always()
         steps:
             - name: All required jobs succeeded
@@ -351,3 +301,42 @@ jobs:
                     echo "Typecheck did not succeed: ${{ needs.typecheck.result }}"
                     exit 1
                 fi
+
+    
+
+    smoke:
+        name: smoke (${{ matrix.workspace.path }}, macos)
+        if: >-
+            ${{ github.ref_name == 'main'
+                || contains(github.head_ref || github.ref_name, 'macos') }}
+        runs-on: macos-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                workspace:
+                - { path: ".", slug: "root" }
+                - { path: "e2e/cases", slug: "e2e" }
+                - { path: "e2e/crossbuild", slug: "e2e-crossbuild" }
+        defaults:
+            run:
+                working-directory: ${{ matrix.workspace.path }}
+        steps:
+            - uses: actions/checkout@v6
+            - uses: bazel-contrib/setup-bazel@c5acdfb288317d0b5c0bbd7a396a3dc868bb0f86 # 0.19.0
+              with:
+                  bazelisk-cache: true
+                  disk-cache: macos-${{ matrix.workspace.slug }}
+                  repository-cache: true
+            # Images still build; only the tests that need a Linux container daemon are
+            # dropped, since the GitHub-hosted macOS runners have none.
+            # Run `test //...`, then the workspace's test.sh if it has one
+            - name: Test
+              shell: bash
+              run: |
+                  bazel test --config=ci --keep_going \
+                    --test_tag_filters=-skip-on-bazel8,-requires-docker \
+                    --build_tag_filters=-skip-on-bazel8 \
+                    //...
+                  if [ -f test.sh ]; then
+                      bash test.sh
+                  fi
