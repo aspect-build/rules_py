@@ -7,9 +7,10 @@ attrs to the auto-generated sibling.
 """
 
 load("@bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@hermetic_launcher//launcher:lib.bzl", "launcher")
 load("//py/private:py_info.bzl", "PyInfo")
-load("//py/private:py_info_interop.bzl", "get_py_info", "has_py_info")
+load("//py/private:py_info_interop.bzl", "RulesPythonPyInfo", "get_py_info", "has_py_info")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private:transitions.bzl", "reset_python_flags_transition")
 load(":types.bzl", "VirtualenvInfo", "venv_root")
@@ -131,7 +132,7 @@ def _py_venv_exec_impl(ctx):
         extensions = ["py"],
     )
 
-    return [
+    providers = [
         DefaultInfo(
             files = depset([executable_launcher, main]),
             executable = executable_launcher,
@@ -154,6 +155,14 @@ def _py_venv_exec_impl(ctx):
             inherited_environment = inherited_env,
         ),
     ]
+
+    if ctx.attr._emit_rules_python_providers[BuildSettingInfo].value:
+        providers.append(RulesPythonPyInfo(
+            imports = vinfo.imports,
+            transitive_sources = vinfo.transitive_sources,
+        ))
+
+    return providers
 
 _attrs = dict({
     "env": attr.string_dict(
@@ -229,6 +238,9 @@ that must match the terminal's Python environment in `deps`.
     ),
     "_allowlist_function_transition": attr.label(
         default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+    ),
+    "_emit_rules_python_providers": attr.label(
+        default = "//py/private:emit_rules_python_providers",
     ),
 })
 
