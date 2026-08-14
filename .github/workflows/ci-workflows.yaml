@@ -166,7 +166,7 @@ jobs:
     # wrapper in uv/private/pep517_whl/tools/build_helper.py).
     #
     # Two builders:
-    # - crossbuild-images (linux/amd64): arm64 tarballs only. Native amd64
+    # - crossbuild-images-amd64: arm64 tarballs only. Native amd64
     #   execution is already covered by the e2e-crossbuild test job's
     #   container_structure_tests on that same runner arch.
     # - crossbuild-images-darwin (macOS, gated like `smoke`, 10x-billed):
@@ -179,8 +179,8 @@ jobs:
     #   the linux↔linux cycle. gcc_toolchain has no arm64-exec variant, so
     #   these builds exercise the llvm toolchain fallback — the same path a
     #   darwin host takes — on a Linux arm64 host.
-    crossbuild-images:
-        name: crossbuild-images (linux builder)
+    crossbuild-images-amd64:
+        name: crossbuild-images (amd64 builder)
         runs-on: ubuntu-22.04-32core
         steps:
             - uses: actions/checkout@v6
@@ -212,7 +212,7 @@ jobs:
                 retention-days: 1
     crossbuild-run-arm64:
         name: crossbuild-run (native arm64)
-        needs: crossbuild-images
+        needs: crossbuild-images-amd64
         runs-on: ubuntu-24.04-arm
         steps:
             - uses: actions/download-artifact@v4
