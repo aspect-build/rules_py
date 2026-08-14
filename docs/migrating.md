@@ -40,8 +40,8 @@ rules_py library fails analysis with `does not have mandatory providers:
 common --@aspect_rules_py//py:emit_rules_python_providers
 ```
 
-`py_library` then also emits the rules_python providers. Temporary scaffolding:
-only `py_library` participates, [virtual deps](/docs/virtual_deps.md) are not
+`py_library`, `py_binary`, and `py_test` then also emit the rules_python
+providers. Temporary scaffolding: [virtual deps](/docs/virtual_deps.md) are not
 expressible in those providers (resolve them concretely in `deps`), and the
 flag belongs in `.bazelrc` only until the last rules_python target is gone.
 
