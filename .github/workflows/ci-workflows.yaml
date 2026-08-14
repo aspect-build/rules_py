@@ -125,49 +125,157 @@ jobs:
     # workspaces, on main plus branches whose name contains 'macos'.
     # https://docs.github.com/en/billing/managing-billing-for-github-actions/about-billing-for-github-actions#included-storage-and-minutes
 
-    # Artifact-based cross verification: each crossbuild-* node below is one
-    # build->run pipeline from .github/workflows/crossbuild-verify.yaml —
-    # build OCI tarballs on one host, execute them on NATIVE runners per
-    # target arch. Directions:
-    # - amd64 builder (gcc_toolchain) -> native arm64 execution. Native amd64
-    #   execution is already covered by the e2e-crossbuild test job.
-    # - arm64 builder (llvm fallback; gcc_toolchain has no arm64-exec
-    #   variant) -> native amd64 execution. Closes the linux<->linux cycle.
-    # - darwin builder (llvm; 10x-billed, gated like smoke) -> native amd64 +
-    #   arm64. The macOS smoke job filters -requires-docker, so these are the
-    #   only execution coverage the darwin->linux path has.
-    crossbuild-amd64:
-        uses: ./.github/workflows/crossbuild-verify.yaml
-        secrets: inherit
-        with:
-            builder-runner: ubuntu-22.04-32core
-            qemu-platforms: arm64
-            archs: arm64
-            artifact: crossbuild-images-amd64-built
-            run-matrix: '[{"runner": "ubuntu-24.04-arm", "arch": "arm64"}]'
-    crossbuild-arm64:
-        uses: ./.github/workflows/crossbuild-verify.yaml
-        secrets: inherit
-        with:
-            builder-runner: ubuntu-24.04-arm
-            qemu-platforms: amd64
-            cases: psutil contourpy rpds_py
-            archs: amd64
-            artifact: crossbuild-images-arm64-built
-            run-matrix: '[{"runner": "ubuntu-latest", "arch": "amd64"}]'
-    crossbuild-darwin:
+    crossbuild-images-darwin:
+        name: crossbuild-images (darwin builder)
         if: >-
             ${{ github.ref_name == 'main'
                 || contains(github.head_ref || github.ref_name, 'macos') }}
-        uses: ./.github/workflows/crossbuild-verify.yaml
-        secrets: inherit
-        with:
-            builder-runner: macos-latest
-            setup: bazel
-            cases: psutil contourpy rpds_py
-            archs: amd64 arm64
-            artifact: crossbuild-images-darwin-built
-            run-matrix: '[{"runner": "ubuntu-latest", "arch": "amd64"}, {"runner": "ubuntu-24.04-arm", "arch": "arm64"}]'
+        runs-on: macos-latest
+        steps:
+            - uses: actions/checkout@v6
+            - uses: bazel-contrib/setup-bazel@c5acdfb288317d0b5c0bbd7a396a3dc868bb0f86 # 0.19.0
+              with:
+                  bazelisk-cache: true
+                  disk-cache: macos-crossbuild-images
+                  repository-cache: true
+            - name: Cross-build linux image tarballs from macOS
+              working-directory: e2e/crossbuild
+              shell: bash
+              run: |
+                mkdir -p "${RUNNER_TEMP}/images"
+                for case in psutil contourpy rpds_py; do
+                    for arch in amd64 arm64; do
+                        bazel build --config=ci --action_env=MESON_FORCE_BACKTRACE=1 "//${case}:${arch}_tarball"
+                        cp "bazel-bin/${case}/${arch}_load/tarball.tar" "${RUNNER_TEMP}/images/${case}-${arch}.tar"
+                    done
+                done
+            - uses: actions/upload-artifact@v4
+              with:
+                name: crossbuild-images-darwin
+                path: ${{ runner.temp }}/images/*.tar
+                retention-days: 1
+    crossbuild-run-darwin-built:
+        name: crossbuild-run (darwin-built, native ${{ matrix.arch }})
+        needs: crossbuild-images-darwin
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                - { runner: "ubuntu-latest", arch: "amd64" }
+                - { runner: "ubuntu-24.04-arm", arch: "arm64" }
+        runs-on: ${{ matrix.runner }}
+        steps:
+            - uses: actions/download-artifact@v4
+              with:
+                name: crossbuild-images-darwin
+                path: images
+            - name: Run darwin-built images on native ${{ matrix.arch }}
+              run: |
+                status=0
+                for tar in images/*-${{ matrix.arch }}.tar; do
+                    tag=$(docker load -i "${tar}" | sed -n 's/^Loaded image: //p')
+                    echo "::group::${tag}"
+                    docker run --rm "${tag}" || status=1
+                    echo "::endgroup::"
+                done
+                exit "${status}"
+
+
+    crossbuild-images-amd64:
+        name: crossbuild-images (amd64 builder)
+        runs-on: ubuntu-22.04-32core
+        steps:
+            - uses: actions/checkout@v6
+            - uses: aspect-build/setup-aspect@c22a8f64fb38f82f59ce809cd7eb9f8ae096da44 # v2026.23.2
+              with:
+                aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
+            - uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+              with:
+                platforms: arm64
+            - name: Build arm64 image tarballs
+              working-directory: e2e/crossbuild
+              run: |
+                targets=$(bazel query 'filter(".*:arm64_tarball$", //...)')
+                bazel build ${targets}
+                mkdir -p "${RUNNER_TEMP}/images"
+                for target in ${targets}; do
+                    case="${target#//}"
+                    case="${case%:arm64_tarball}"
+                    cp "bazel-bin/${case}/arm64_load/tarball.tar" "${RUNNER_TEMP}/images/${case}-arm64.tar"
+                done
+            - uses: actions/upload-artifact@v4
+              with:
+                name: crossbuild-images-arm64
+                path: ${{ runner.temp }}/images/*.tar
+                retention-days: 1
+    crossbuild-run-amd64-built:
+        name: crossbuild-run (native arm64)
+        needs: crossbuild-images-amd64
+        runs-on: ubuntu-24.04-arm
+        steps:
+            - uses: actions/download-artifact@v4
+              with:
+                name: crossbuild-images-arm64
+                path: images
+            - name: Run every image on native arm64
+              run: |
+                status=0
+                for tar in images/*-arm64.tar; do
+                    tag=$(docker load -i "${tar}" | sed -n 's/^Loaded image: //p')
+                    echo "::group::${tag}"
+                    docker run --rm "${tag}" || status=1
+                    echo "::endgroup::"
+                done
+                exit "${status}"
+                
+
+    crossbuild-images-arm64:
+        name: crossbuild-images (arm64 builder)
+        runs-on: ubuntu-24.04-arm
+        steps:
+            - uses: actions/checkout@v6
+            - uses: aspect-build/setup-aspect@c22a8f64fb38f82f59ce809cd7eb9f8ae096da44 # v2026.23.2
+              with:
+                aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
+            - uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+              with:
+                platforms: amd64
+            - name: Cross-build amd64 image tarballs from arm64
+              working-directory: e2e/crossbuild
+              run: |
+                mkdir -p "${RUNNER_TEMP}/images"
+                for case in psutil contourpy rpds_py; do
+                    # toplevel: build-without-the-bytes must still materialize
+                    # the tarball this job exists to upload.
+                    bazel build --config=ci --remote_download_outputs=toplevel "//${case}:amd64_tarball"
+                    cp "bazel-bin/${case}/amd64_load/tarball.tar" "${RUNNER_TEMP}/images/${case}-amd64.tar"
+                done
+            - uses: actions/upload-artifact@v4
+              with:
+                name: crossbuild-images-arm-built
+                path: ${{ runner.temp }}/images/*.tar
+                retention-days: 1
+    crossbuild-run-arm64-built:
+        name: crossbuild-run (arm-built, native amd64)
+        needs: crossbuild-images-arm64
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/download-artifact@v4
+              with:
+                name: crossbuild-images-arm-built
+                path: images
+            - name: Run arm-built images on native amd64
+              run: |
+                status=0
+                for tar in images/*-amd64.tar; do
+                    tag=$(docker load -i "${tar}" | sed -n 's/^Loaded image: //p')
+                    echo "::group::${tag}"
+                    docker run --rm "${tag}" || status=1
+                    echo "::endgroup::"
+                done
+                exit "${status}"
+
+
     test-all:
         name: test-all
         runs-on: ubuntu-latest

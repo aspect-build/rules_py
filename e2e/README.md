@@ -46,9 +46,11 @@ on rules_java's default remotejdk, which is actually Azul Zulu, or a system
 `ant`), two maturin/PyO3 Rust packages (`rpds_py`, `pydantic_core`), and
 `bcrypt` (setuptools-rust — a different real-world Rust-in-Python
 integration than maturin, with no build-backend value of its own to detect
-it by). Every case is built and packaged for linux/amd64 and linux/arm64
-from the same amd64 exec host and actually executed — QEMU for the Linux
-targets — not just inspected. The same workspace hosts the rules_pycross
+it by). Every case is built and packaged for linux/amd64 and linux/arm64.
+In-suite verification is structural (ELF arch, ABI tags, byte-diffs);
+execution happens in CI's crossbuild-verify pipelines, which upload each
+case's OCI tarball and `docker run` it on NATIVE amd64 and arm64 runners —
+no emulation in the verdict. The same workspace hosts the rules_pycross
 ports (`pycross-*`), which force packages to build from their sdists and
 assert properties of the resulting wheels, including rebuilding them under
 non-host target platforms via `collect_wheels`. One more package

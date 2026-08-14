@@ -1,9 +1,0 @@
-schemaVersion: 2.0.0
-
-# numpy_main.py asserts real elementwise arithmetic and a no-BLAS matmul
-# fallback through the compiled core itself and only prints "OK" on success.
-commandTests:
-  - name: numpy computes elementwise arithmetic and a no-BLAS matmul correctly
-    exitCode: 0
-    command: /app
-    expectedOutput: ["OK"]

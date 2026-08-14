@@ -1,30 +1,27 @@
-"""Shared scaffolding for a "build one real package for amd64+arm64, then
-actually run it" e2e/crossbuild case.
+"""Shared scaffolding for a "build one real package for amd64+arm64" case.
 
-Every case here cross-compiles a package from the same amd64 exec host for
-linux/amd64 and linux/arm64, then runs both — QEMU for arm64 — via
-container_structure_test, plus a per-arch structural check (ELF machine,
-and, where the .so's own filename carries one, its cpython ABI tag). This
-macro is the ~90 lines every case shared verbatim; anything genuinely
-case-specific (extra data deps, a diff-against-a-reference-wheel test
-instead of a command test, macOS coverage) stays hand-written — see
-//geohash and //zstandard, which aren't built from this macro for exactly
-that reason.
+Every case cross-compiles a package for linux/amd64 and linux/arm64 and
+asserts structure in-suite (ELF machine, and, where the .so's filename
+carries one, its cpython ABI tag). Execution is deliberately NOT part of
+`bazel test //...`: the docker-loadable tarballs declared here are built by
+CI's crossbuild-verify pipelines, uploaded, and run on NATIVE hardware per
+target arch — no same-host docker+QEMU sandwich. This macro is the lines
+every case shared verbatim; anything genuinely case-specific stays
+hand-written — see //geohash and //zstandard.
 """
 
 load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
-load("@container_structure_test//:defs.bzl", "container_structure_test")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load")
 load(":checks.bzl", "assert_so_arch", "assert_so_suffix")
 
-def pep517_cross_case(name, deps, so_pattern, check_so_suffix = True, main = None, dep_group = None, image_command_test_config = None):
+def pep517_cross_case(name, deps, so_pattern, check_so_suffix = True, main = None, dep_group = None):
     """Declares the amd64/arm64 build+run scaffolding for one e2e/crossbuild package.
 
     Produces (all unprefixed, matching the package's own BUILD.bazel):
     "<name>_bin", "layers", "{amd64,arm64}_layers", "<name>_so_arch_{amd64,arm64}_test",
     "<name>_so_suffix_{amd64,arm64}_test" (if check_so_suffix), "image",
-    "{amd64,arm64}_image", "{amd64,arm64}_command_test".
+    "{amd64,arm64}_image", "{amd64,arm64}_load", "{amd64,arm64}_tarball".
 
     Args:
         name: the package's own directory/case name, e.g. "bcrypt". Only
@@ -42,12 +39,9 @@ def pep517_cross_case(name, deps, so_pattern, check_so_suffix = True, main = Non
             (jpype1's _jpype.so).
         main: py_binary's main/srcs file; defaults to "<name>_main.py".
         dep_group: py_binary's dep_group; defaults to "crossbuild_<name>".
-        image_command_test_config: the container_structure_test YAML;
-            defaults to "<name>_image_command_test.yaml".
     """
     main = main or (name + "_main.py")
     dep_group = dep_group or ("crossbuild_" + name)
-    image_command_test_config = image_command_test_config or (name + "_image_command_test.yaml")
 
     py_binary(
         name = name + "_bin",
@@ -123,12 +117,12 @@ def pep517_cross_case(name, deps, so_pattern, check_so_suffix = True, main = Non
         target_platform = "//:arm64_linux",
     )
 
-    # Docker-loadable tarballs for the artifact-based CI jobs: a builder job
-    # `bazel build`s these, uploads them, and native amd64/arm64 runner jobs
-    # `docker load` + `docker run` them on real hardware (no QEMU). Tagged
-    # manual: under plain `//...` they would only repackage what the
-    # container_structure_tests already cover on this host. The repo_tag is
-    # what the runner job executes, so it must stay `crossbuild/<name>:<arch>`.
+    # Docker-loadable tarballs consumed by CI's crossbuild-verify pipelines:
+    # a builder job `bazel build`s these, uploads them, and native
+    # amd64/arm64 runner jobs `docker load` + `docker run` them on real
+    # hardware. This is the ONLY execution verification for these cases.
+    # Tagged manual: repackaging is dead weight under plain `//...`. The
+    # repo_tag is what the runner executes: `crossbuild/<name>:<arch>`.
     for arch in ("amd64", "arm64"):
         oci_load(
             name = arch + "_load",
@@ -143,22 +137,3 @@ def pep517_cross_case(name, deps, so_pattern, check_so_suffix = True, main = Non
             output_group = "tarball",
             tags = ["manual"],
         )
-
-    container_structure_test(
-        name = "amd64_command_test",
-        configs = [image_command_test_config],
-        image = ":amd64_image",
-        platform = "linux/amd64",
-        tags = ["requires-docker"],
-    )
-
-    container_structure_test(
-        name = "arm64_command_test",
-        configs = [image_command_test_config],
-        image = ":arm64_image",
-        platform = "linux/aarch64",
-        tags = [
-            "requires-docker",
-            "requires-qemu",
-        ],
-    )

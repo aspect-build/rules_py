@@ -1,9 +1,0 @@
-schemaVersion: 2.0.0
-
-# pydantic_core_main.py asserts the coerced int value itself and only
-# prints "OK" on success.
-commandTests:
-  - name: pydantic-core validates and coerces a string to int
-    exitCode: 0
-    command: /app
-    expectedOutput: ["OK"]

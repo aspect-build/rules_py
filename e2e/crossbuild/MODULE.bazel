@@ -9,7 +9,6 @@ bazel_dep(name = "gcc_toolchain", version = "0.11.0")
 bazel_dep(name = "llvm", version = "0.8.3")
 bazel_dep(name = "rules_oci", version = "2.2.7")
 bazel_dep(name = "rules_shell", version = "0.4.1")
-bazel_dep(name = "container_structure_test", version = "1.22.1")
 bazel_dep(name = "rules_rust", version = "0.68.0")
 bazel_dep(name = "rules_java", version = "8.14.0")
 
@@ -97,7 +96,7 @@ bazel_lib_toolchains = use_extension("@tar.bzl//tar:extensions.bzl", "toolchains
 use_repo(bazel_lib_toolchains, "bsd_tar_toolchains")
 
 uv_bin = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv_bin")
-uv_bin.toolchain(version = "0.11.6")
+uv_bin.toolchain(version = "0.11.21")
 use_repo(uv_bin, "uv")
 
 uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")

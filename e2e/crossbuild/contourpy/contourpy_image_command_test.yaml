@@ -1,9 +1,0 @@
-schemaVersion: 2.0.0
-
-# contourpy_main.py asserts the exact 1.5-contour of z=x+y itself and only
-# prints "OK" on success.
-commandTests:
-  - name: contourpy computes the 1.5 contour of z=x+y correctly
-    exitCode: 0
-    command: /app
-    expectedOutput: ["OK"]

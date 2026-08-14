@@ -1,7 +1,0 @@
-schemaVersion: 2.0.0
-
-commandTests:
-  - name: cross-compiled zstandard matches the official wheel
-    exitCode: 0
-    command: /app
-    expectedOutput: ["PASS: identical compressed output, cross-decompression OK"]

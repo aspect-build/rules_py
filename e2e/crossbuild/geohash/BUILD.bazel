@@ -6,8 +6,7 @@
 load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_binary", "platform_transition_filegroup")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
-load("@container_structure_test//:defs.bzl", "container_structure_test")
-load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//tools:checks.bzl", "assert_so_arch", "assert_so_suffix")
 
@@ -105,27 +104,35 @@ platform_transition_filegroup(
     target_platform = "//:arm64_linux",
 )
 
-container_structure_test(
-    name = "geohash_amd64_image_command_test",
-    configs = ["geohash_image_command_test.yaml"],
+# Execution happens in CI's crossbuild-verify pipelines on NATIVE runners
+# (amd64 and arm64) — geohash_main.py asserts the exact encoded value and
+# exits nonzero on mismatch, so `docker run` exit status is the verdict.
+oci_load(
+    name = "amd64_load",
     image = ":geohash_amd64_image",
-    platform = "linux/amd64",
-    tags = ["requires-docker"],
+    repo_tags = ["crossbuild/geohash:amd64"],
+    tags = ["manual"],
 )
 
-# Runs the arm64 build under QEMU (binfmt_misc) instead of just checking its
-# ELF/suffix — proves the extension computes the right answer, not just that
-# it looks cross-compiled. Local repro: sudo apt-get install qemu-user-static
-# binfmt-support.
-container_structure_test(
-    name = "geohash_arm64_image_command_test",
-    configs = ["geohash_image_command_test.yaml"],
+filegroup(
+    name = "amd64_tarball",
+    srcs = [":amd64_load"],
+    output_group = "tarball",
+    tags = ["manual"],
+)
+
+oci_load(
+    name = "arm64_load",
     image = ":geohash_arm64_image",
-    platform = "linux/aarch64",
-    tags = [
-        "requires-docker",
-        "requires-qemu",
-    ],
+    repo_tags = ["crossbuild/geohash:arm64"],
+    tags = ["manual"],
+)
+
+filegroup(
+    name = "arm64_tarball",
+    srcs = [":arm64_load"],
+    output_group = "tarball",
+    tags = ["manual"],
 )
 
 # geohash_bin with no platform override already targets the ambient host,

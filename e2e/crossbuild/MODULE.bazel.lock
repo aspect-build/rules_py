@@ -60,8 +60,6 @@
     "https://bcr.bazel.build/modules/bazel_skylib/1.9.0/source.json": "7ad77c1e8c1b84222d9b3f3cae016a76639435744c19330b0b37c0a3c9da7dc0",
     "https://bcr.bazel.build/modules/buildozer/7.1.2/MODULE.bazel": "2e8dd40ede9c454042645fd8d8d0cd1527966aa5c919de86661e62953cd73d84",
     "https://bcr.bazel.build/modules/buildozer/7.1.2/source.json": "c9028a501d2db85793a6996205c8de120944f50a0d570438fcae0457a5f9d1f8",
-    "https://bcr.bazel.build/modules/container_structure_test/1.22.1/MODULE.bazel": "da58a98f9f6d47e702532fdfec0431bd60e417d3f004471f409a4543cae0e61e",
-    "https://bcr.bazel.build/modules/container_structure_test/1.22.1/source.json": "75873f230014ff7a6f30e9f81b9e31ee4593c71353ffa8d5f8fe4ad4aba21160",
     "https://bcr.bazel.build/modules/gawk/5.3.2.bcr.1/MODULE.bazel": "cdf8cbe5ee750db04b78878c9633cc76e80dcf4416cbe982ac3a9222f80713c8",
     "https://bcr.bazel.build/modules/gawk/5.3.2.bcr.3/MODULE.bazel": "f1b7bb2dd53e8f2ef984b39485ec8a44e9076dda5c4b8efd2fb4c6a6e856a31d",
     "https://bcr.bazel.build/modules/gawk/5.3.2.bcr.7/MODULE.bazel": "1e5e03c383fa64ebbe0942a225c32168fd6ef6b270351bbec481d47d19d1b96d",
@@ -238,117 +236,6 @@
             "aspect_tools_telemetry+",
             "bazel_skylib",
             "bazel_skylib+"
-          ]
-        ]
-      }
-    },
-    "@@container_structure_test+//:repositories.bzl%extension": {
-      "general": {
-        "bzlTransitiveDigest": "Yi2XrRCMXgBjN02PBU8hDqf505D+o2Tr5jihM3CNIE4=",
-        "usagesDigest": "uXk1ym4ketE3OMAHoR5fUuuv8pOmi0aSyCe28koTwfA=",
-        "recordedFileInputs": {},
-        "recordedDirentsInputs": {},
-        "envVariables": {},
-        "generatedRepoSpecs": {
-          "jq_darwin_amd64": {
-            "repoRuleId": "@@aspect_bazel_lib+//lib/private:jq_toolchain.bzl%jq_platform_repo",
-            "attributes": {
-              "platform": "darwin_amd64",
-              "version": "1.7"
-            }
-          },
-          "jq_darwin_arm64": {
-            "repoRuleId": "@@aspect_bazel_lib+//lib/private:jq_toolchain.bzl%jq_platform_repo",
-            "attributes": {
-              "platform": "darwin_arm64",
-              "version": "1.7"
-            }
-          },
-          "jq_linux_amd64": {
-            "repoRuleId": "@@aspect_bazel_lib+//lib/private:jq_toolchain.bzl%jq_platform_repo",
-            "attributes": {
-              "platform": "linux_amd64",
-              "version": "1.7"
-            }
-          },
-          "jq_linux_arm64": {
-            "repoRuleId": "@@aspect_bazel_lib+//lib/private:jq_toolchain.bzl%jq_platform_repo",
-            "attributes": {
-              "platform": "linux_arm64",
-              "version": "1.7"
-            }
-          },
-          "jq_windows_amd64": {
-            "repoRuleId": "@@aspect_bazel_lib+//lib/private:jq_toolchain.bzl%jq_platform_repo",
-            "attributes": {
-              "platform": "windows_amd64",
-              "version": "1.7"
-            }
-          },
-          "jq": {
-            "repoRuleId": "@@aspect_bazel_lib+//lib/private:jq_toolchain.bzl%jq_host_alias_repo",
-            "attributes": {}
-          },
-          "jq_toolchains": {
-            "repoRuleId": "@@aspect_bazel_lib+//lib/private:jq_toolchain.bzl%jq_toolchains_repo",
-            "attributes": {
-              "user_repository_name": "jq"
-            }
-          },
-          "structure_test_st_darwin_amd64": {
-            "repoRuleId": "@@container_structure_test+//:repositories.bzl%structure_test_repositories",
-            "attributes": {
-              "platform": "darwin_amd64"
-            }
-          },
-          "structure_test_st_darwin_arm64": {
-            "repoRuleId": "@@container_structure_test+//:repositories.bzl%structure_test_repositories",
-            "attributes": {
-              "platform": "darwin_arm64"
-            }
-          },
-          "structure_test_st_linux_arm64": {
-            "repoRuleId": "@@container_structure_test+//:repositories.bzl%structure_test_repositories",
-            "attributes": {
-              "platform": "linux_arm64"
-            }
-          },
-          "structure_test_st_linux_s390x": {
-            "repoRuleId": "@@container_structure_test+//:repositories.bzl%structure_test_repositories",
-            "attributes": {
-              "platform": "linux_s390x"
-            }
-          },
-          "structure_test_st_linux_amd64": {
-            "repoRuleId": "@@container_structure_test+//:repositories.bzl%structure_test_repositories",
-            "attributes": {
-              "platform": "linux_amd64"
-            }
-          },
-          "structure_test_st_windows_amd64": {
-            "repoRuleId": "@@container_structure_test+//:repositories.bzl%structure_test_repositories",
-            "attributes": {
-              "platform": "windows_amd64"
-            }
-          },
-          "structure_test_toolchains": {
-            "repoRuleId": "@@container_structure_test+//bazel:toolchains_repo.bzl%toolchains_repo",
-            "attributes": {
-              "toolchain_type": "@container_structure_test//bazel:structure_test_toolchain_type",
-              "toolchain": "@structure_test_st_{platform}//:structure_test_toolchain"
-            }
-          }
-        },
-        "recordedRepoMappingEntries": [
-          [
-            "aspect_bazel_lib+",
-            "bazel_tools",
-            "bazel_tools"
-          ],
-          [
-            "container_structure_test+",
-            "aspect_bazel_lib",
-            "aspect_bazel_lib+"
           ]
         ]
       }

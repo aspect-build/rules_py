@@ -1,9 +1,0 @@
-schemaVersion: 2.0.0
-
-# geohash.encode(37.7749, -122.4194) is deterministic across architectures;
-# geohash_main.py asserts the exact value and only prints "OK" on success.
-commandTests:
-  - name: geohash encodes correctly
-    exitCode: 0
-    command: /app
-    expectedOutput: ["OK"]

@@ -5,8 +5,7 @@
 
 load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
-load("@container_structure_test//:defs.bzl", "container_structure_test")
-load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load")
 load("//tools:checks.bzl", "assert_so_arch", "assert_so_suffix")
 
 # Matches only our own build's backend_c.so (installed under a
@@ -97,21 +96,33 @@ platform_transition_filegroup(
     target_platform = "//:arm64_linux",
 )
 
-container_structure_test(
-    name = "amd64_diff_test",
-    configs = ["zstandard_diff_test.yaml"],
+# Execution happens in CI's crossbuild-verify pipelines on native runners:
+# the entrypoint diffs our cross-compiled backend against the official
+# wheels byte-for-byte and exits nonzero on any mismatch.
+oci_load(
+    name = "amd64_load",
     image = ":amd64_image",
-    platform = "linux/amd64",
-    tags = ["requires-docker"],
+    repo_tags = ["crossbuild/zstandard:amd64"],
+    tags = ["manual"],
 )
 
-container_structure_test(
-    name = "arm64_diff_test",
-    configs = ["zstandard_diff_test.yaml"],
+filegroup(
+    name = "amd64_tarball",
+    srcs = [":amd64_load"],
+    output_group = "tarball",
+    tags = ["manual"],
+)
+
+oci_load(
+    name = "arm64_load",
     image = ":arm64_image",
-    platform = "linux/aarch64",
-    tags = [
-        "requires-docker",
-        "requires-qemu",
-    ],
+    repo_tags = ["crossbuild/zstandard:arm64"],
+    tags = ["manual"],
+)
+
+filegroup(
+    name = "arm64_tarball",
+    srcs = [":arm64_load"],
+    output_group = "tarball",
+    tags = ["manual"],
 )

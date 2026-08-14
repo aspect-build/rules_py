@@ -1,9 +1,0 @@
-schemaVersion: 2.0.0
-
-# rpds_py_main.py asserts rpds.List([1,2,3]).push_front(0)'s exact iteration
-# order itself and only prints "OK" on success.
-commandTests:
-  - name: rpds-py List.push_front computes the correct order
-    exitCode: 0
-    command: /app
-    expectedOutput: ["OK"]
