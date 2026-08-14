@@ -9,6 +9,8 @@ uv.declare_hub(hub_name = "pypi_crossbuild_jpype1")
 uv.project(
     default_build_dependencies = [
         "build",
+        "cmake",
+        "ninja",
         "scikit-build-core",
         "setuptools",
         "wheel",
