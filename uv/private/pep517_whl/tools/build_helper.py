@@ -123,6 +123,7 @@ is_cxx = {is_cxx!r}
 is_darwin = {is_darwin!r}
 static_libstdcxx_flags = {static_libstdcxx_flags!r}
 exe_link_flags = {exe_link_flags!r}
+static_runtime_archives = {static_runtime_archives!r}
 
 is_link = "-c" not in args
 filtered = []
@@ -156,11 +157,22 @@ if is_link and exe_link_flags:
     # "-C linker", meson links probes bare) — bake the flags into every
     # link; duplicates are harmless to clang.
     # rustc hardcodes "-lgcc_s" on *-linux-gnu but this toolchain ships no
-    # libgcc — fold in its static libunwind instead (cargo-zigbuild's
+    # libgcc; its unwinder comes from the static runtime archives below
+    # (or, without them, from folding in "-lunwind" — cargo-zigbuild's
     # trick, same ABI surface).
-    filtered = ["-lunwind" if a == "-lgcc_s" else a for a in filtered]
+    if static_runtime_archives and not is_darwin:
+        filtered = [a for a in filtered if a != "-lgcc_s"]
+    else:
+        filtered = ["-lunwind" if a == "-lgcc_s" else a for a in filtered]
     filtered.extend(exe_link_flags)
-    if is_cxx:
+    if static_runtime_archives and not is_darwin:
+        # The toolchain's C++/unwind runtime (libc++.a, libc++abi.a,
+        # libunwind.a) travels as toolchain inputs, never as link flags —
+        # link the archives explicitly, in dependency order, after every
+        # object. Archive semantics make this safe on pure-C links: unused
+        # members are simply not pulled.
+        filtered.extend(static_runtime_archives)
+    elif is_cxx:
         # No implicit C++ stdlib under -nostdlib++; statically embed
         # libc++ so the produced .so has no host-libstdc++ dependency
         # (only static archives exist on the toolchain's search path).
@@ -395,6 +407,7 @@ def _make_cross_compiler_wrapper(
     is_cxx: bool = False,
     is_darwin: bool = False,
     exe_link_flags: Optional[list[str]] = None,
+    static_runtime_archives: Optional[list[str]] = None,
 ) -> str:
     wrapper = path.join(tmpdir, ".aspect_rules_py_compilers", name)
 
@@ -422,6 +435,7 @@ def _make_cross_compiler_wrapper(
             is_darwin=is_darwin,
             static_libstdcxx_flags=list(_STATIC_LIBSTDCXX_FLAGS),
             exe_link_flags=list(exe_link_flags or []),
+            static_runtime_archives=list(static_runtime_archives or []),
         ),
         executable=True,
     )
@@ -528,6 +542,18 @@ def _compiler_env(
         wrapper_flags = _get_wrapper_flags(env.get("CFLAGS", ""))
         lld_path = _find_lld(cc_path)
 
+        # The -nostdlib++ toolchain's C++/unwind runtime archives, extracted
+        # by cc_layer.bzl from static_runtime_lib (they never appear in the
+        # link-action flags). Ordered for single-pass archive resolution:
+        # libc++ pulls from libc++abi, which pulls from libunwind.
+        static_runtime = [
+            _absolutize_path(p)
+            for p in env.pop("RULES_PY_CXX_STATIC_RUNTIME", "").split(":")
+            if p
+        ]
+        runtime_rank = {"libc++.a": 0, "libc++abi.a": 1, "libunwind.a": 2}
+        static_runtime.sort(key=lambda p: runtime_rank.get(path.basename(p), 3))
+
         # An LLVM-style toolchain (BCR `llvm` module) reaches its crt objects
         # and runtime archives only through the link action's flags; detect it
         # by its "-nostdlib++" marker and bake those flags (sans "-shared")
@@ -538,8 +564,8 @@ def _compiler_env(
             [f for f in ldshared_flag_list if f != "-shared"] if "-nostdlib++" in ldshared_flag_list else []
         )
 
-        cc = _make_cross_compiler_wrapper(tmpdir, "cc", cc_path, wrapper_flags, lld_path, is_darwin=is_darwin, exe_link_flags=exe_link_flags)
-        cxx = _make_cross_compiler_wrapper(tmpdir, "c++", cxx_path, wrapper_flags, lld_path, is_cxx=True, is_darwin=is_darwin, exe_link_flags=exe_link_flags)
+        cc = _make_cross_compiler_wrapper(tmpdir, "cc", cc_path, wrapper_flags, lld_path, is_darwin=is_darwin, exe_link_flags=exe_link_flags, static_runtime_archives=static_runtime)
+        cxx = _make_cross_compiler_wrapper(tmpdir, "c++", cxx_path, wrapper_flags, lld_path, is_cxx=True, is_darwin=is_darwin, exe_link_flags=exe_link_flags, static_runtime_archives=static_runtime)
 
         # gcc_toolchain layout (<root>/xbin/gcc, <root>/sysroot/...): a
         # target-arch binary needs THIS toolchain's glibc/loader to run.

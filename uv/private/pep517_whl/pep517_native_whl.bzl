@@ -248,6 +248,10 @@ def _pep517_native_whl(ctx):
         env["RULES_PY_CROSS_COMPILE"] = "1"
         env["RULES_PY_TARGET_OS"] = cc_layer.target_os or ""
         env["RULES_PY_TARGET_CPU"] = cc_layer.target_cpu or ""
+        if cc_layer.static_runtime_files:
+            extra_inputs.append(cc_layer.static_runtime_files)
+        if cc_layer.static_runtime_paths:
+            env["RULES_PY_CXX_STATIC_RUNTIME"] = ":".join(cc_layer.static_runtime_paths)
         if cc_layer.cflags:
             env["CFLAGS"] = cc_layer.cflags
         if cc_layer.cxxflags:
