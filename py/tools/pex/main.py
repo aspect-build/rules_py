@@ -3,7 +3,6 @@
 # pex cli does the same here;
 # https://github.com/pex-tool/pex/blob/252459bdd879fc1e3446a6221571875d46fad1bd/pex/commands/command.py#L362-L382
 import os
-from typing import Optional
 from pex.common import safe_mkdtemp, safe_rmtree
 TMP_PEX_ROOT=safe_mkdtemp()
 os.environ["PEX_ROOT"] = TMP_PEX_ROOT
@@ -22,7 +21,7 @@ class InjectEnvAction(Action):
         parser: ArgumentParser,
         namespace: Namespace,
         values: object,
-        option_string: Optional[str] = None,
+        option_string: str | None = None,
     ) -> None:
         assert isinstance(values, str)
         components = values.split("=", 1)
@@ -41,7 +40,7 @@ class InheritPathAction(Action):
         parser: ArgumentParser,
         namespace: Namespace,
         values: object,
-        option_string: Optional[str] = None,
+        option_string: str | None = None,
     ) -> None:
         assert isinstance(values, str)
         setattr(namespace, self.dest, InheritPath.for_value(values))

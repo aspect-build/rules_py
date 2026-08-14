@@ -12,7 +12,6 @@ import zipfile
 from base64 import urlsafe_b64encode
 from pathlib import Path
 from types import ModuleType
-from typing import Optional
 
 
 def _write_member(archive: zipfile.ZipFile, name: str, data: bytes) -> None:
@@ -25,7 +24,7 @@ def _write_wheel(
     path: Path,
     distribution: str,
     members: dict[str, bytes],
-    record_overrides: Optional[dict[str, tuple[str, str]]] = None,
+    record_overrides: dict[str, tuple[str, str]] | None = None,
     leading_record_rows: tuple[tuple[str, str, str], ...] = (),
 ) -> None:
     dist_info = f"{distribution}-1.0.dist-info"

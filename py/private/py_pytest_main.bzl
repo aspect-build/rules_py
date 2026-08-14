@@ -66,7 +66,7 @@ def wrapped_main_filename(name):
 
 def _py_pytest_main_impl(ctx):
     substitutions = {
-        "user_args: List[str] = []": "user_args: List[str] = " + repr([f for f in ctx.attr.args]),
+        "user_args: list[str] = []": "user_args: list[str] = " + repr([f for f in ctx.attr.args]),
         # repr() renders a valid Python string literal, so paths containing
         # quotes/backslashes (e.g. "pkg/it's-data") don't break the chdir call.
         "_ = 0  # no-op": "os.chdir({})".format(repr(ctx.attr.chdir)) if ctx.attr.chdir else "_ = 0  # no-op",

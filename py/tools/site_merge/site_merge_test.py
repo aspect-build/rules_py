@@ -5,13 +5,12 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from typing import Optional
 
 import site_merge
 from site_merge import merge
 
 
-def _write(path: Path, content: str, mode: Optional[int] = None) -> None:
+def _write(path: Path, content: str, mode: int | None = None) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content)
     if mode is not None:

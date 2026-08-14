@@ -1,5 +1,4 @@
 import unittest
-from typing import Optional
 
 # Counts load_tests invocations across the process. The driver must collect the
 # suite exactly once; a second loadTestsFromModule pass (the old double-collect
@@ -16,7 +15,7 @@ class StatefulLoadTest(unittest.TestCase):
 def load_tests(
     loader: unittest.TestLoader,
     tests: unittest.TestSuite,
-    pattern: Optional[str],
+    pattern: str | None,
 ) -> unittest.TestSuite:
     _calls.append(1)
     if len(_calls) > 1:

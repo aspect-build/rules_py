@@ -11,17 +11,17 @@ import os
 import stat
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Optional, Tuple
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from coverage import Coverage
 
 # coveragepy resolves manifest entries through symlinks; Bazel wants the
 # original spelling back in the LCOV (coveragepy#963).
-_absfile_mapping: Dict[str, str] = {}
+_absfile_mapping: dict[str, str] = {}
 
 
-def _alias_dir() -> Optional[str]:
+def _alias_dir() -> str | None:
     """A short directory to hold temp dir aliases, or None if this host won't
     give us one only we can write to.
 
@@ -112,7 +112,7 @@ def set_test_tmpdir() -> None:
         os.environ[var] = tmpdir
 
 
-def shard_info() -> Optional[Tuple[int, int]]:
+def shard_info() -> tuple[int, int] | None:
     """https://bazel.build/reference/test-encyclopedia#initial-conditions"""
     index = os.environ.get("TEST_SHARD_INDEX")
     total = os.environ.get("TEST_TOTAL_SHARDS")
@@ -129,7 +129,7 @@ def advertise_sharding() -> None:
         Path(status).touch()
 
 
-def start_coverage() -> Optional["Coverage"]:
+def start_coverage() -> "Coverage | None":
     """Start a coverage session over the files Bazel asked to instrument.
 
     Bazel sets COVERAGE_MANIFEST for a target carrying InstrumentedFilesInfo
