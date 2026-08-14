@@ -145,7 +145,7 @@ jobs:
                 mkdir -p "${RUNNER_TEMP}/images"
                 for case in psutil contourpy rpds_py; do
                     for arch in amd64 arm64; do
-                        bazel build --config=ci --action_env=MESON_FORCE_BACKTRACE=1 "//${case}:${arch}_tarball"
+                        bazel build --config=ci --remote_download_outputs=toplevel --action_env=MESON_FORCE_BACKTRACE=1 "//${case}:${arch}_tarball"
                         cp "bazel-bin/${case}/${arch}_load/tarball.tar" "${RUNNER_TEMP}/images/${case}-${arch}.tar"
                     done
                 done
