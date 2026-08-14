@@ -508,8 +508,6 @@ def _parse_args(argv: Sequence[str]) -> _Args:
         elif flag == "--compile-pyc":
             args.compile_pyc = Path(value)
         elif flag == "--pyc-invalidation-mode":
-            if value not in ("checked-hash", "unchecked-hash", "timestamp"):
-                raise SystemExit("Invalid --pyc-invalidation-mode: {}".format(value))
             args.pyc_invalidation_mode = value
         else:
             raise SystemExit("Unknown flag: {}".format(flag))
