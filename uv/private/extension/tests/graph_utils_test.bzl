@@ -108,10 +108,10 @@ def _collect_sccs_test_impl(ctx):
     # Test case: A simple marker_graph
     marker_graph = {
         ("pkg", "1.0", "dep1", "__base__"): {
-            ("pkg", "1.0", "dep2", "__base__"): {"python_version=='3.8'": 1},
+            ("pkg", "1.0", "dep2", "__base__"): {"python_version=='3.10'": 1},
         },
         ("pkg", "1.0", "dep2", "__base__"): {
-            ("pkg", "1.0", "dep1", "__base__"): {"python_version=='3.9'": 1},
+            ("pkg", "1.0", "dep1", "__base__"): {"python_version=='3.11'": 1},
         },
         ("pkg", "1.0", "dep3", "__base__"): {
             ("pkg", "1.0", "dep1", "__base__"): {"": 1},
@@ -140,10 +140,10 @@ def _collect_sccs_test_impl(ctx):
 
     # Check intra-scc markers for scc1
     # dep1 -> dep2
-    asserts.true(env, "python_version=='3.8'" in scc_graph[scc1_id][("pkg", "1.0", "dep2", "__base__")])
+    asserts.true(env, "python_version=='3.10'" in scc_graph[scc1_id][("pkg", "1.0", "dep2", "__base__")])
 
     # dep2 -> dep1
-    asserts.true(env, "python_version=='3.9'" in scc_graph[scc1_id][("pkg", "1.0", "dep1", "__base__")])
+    asserts.true(env, "python_version=='3.11'" in scc_graph[scc1_id][("pkg", "1.0", "dep1", "__base__")])
 
     # Find the SCC containing dep3
     scc3_id = dep_to_scc[("pkg", "1.0", "dep3", "__base__")]

@@ -12,7 +12,7 @@ print("site.PREFIXES:")
 for p in site.PREFIXES:
     print(" -", p)
 
-# Python 3.10+ does not need the distutils startup shim.
+# rules_py venvs never include a distutils startup shim.
 assert "_virtualenv" not in sys.modules
 
 # Note that we can't assume that a `.runfiles` tree has been created as CI may

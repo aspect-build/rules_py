@@ -5,7 +5,7 @@ version = "0.0.0"
 # ships a namespace-only google/ tree containing _upb/_message native code.
 # Keep google first in BUILD.bazel so the test exercises regular-first
 # collision precedence.
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     # build + setuptools match the hub's default_build_dependencies declared
     # in //MODULE.bazel. The uv extension expects every project lockfile to

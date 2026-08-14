@@ -8,7 +8,7 @@ which has been registered in the `MODULE.bazel` file, e.g.:
 
 ```starlark
 interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
-interpreters.toolchain(python_version = "3.9")
+interpreters.toolchain(python_version = "3.10")
 interpreters.toolchain(python_version = "3.12")
 use_repo(interpreters, "python_interpreters")
 
