@@ -1,4 +1,5 @@
-from typing import List, Protocol, Sequence, TypeVar, Union
+from typing import Protocol, TypeVar
+from collections.abc import Sequence
 
 from _pytest import nodes  # for type checking only
 
@@ -23,7 +24,7 @@ class _Config(Protocol):
     def getoption(self, name: str) -> int: ...
 
 
-def positive_int(x: Union[str, int]) -> int:
+def positive_int(x: str | int) -> int:
     value = int(x)
     if value < 0:
         raise ValueError(f"Argument {value} must be positive")
@@ -32,7 +33,7 @@ def positive_int(x: Union[str, int]) -> int:
 
 def filter_items_by_shard(
     items: Sequence[_Item], shard_id: int, num_shards: int
-) -> List[_Item]:
+) -> list[_Item]:
     """Computes `items` that should be tested in `shard_id` out of `num_shards` total shards."""
     shards = [i % num_shards for i in range(len(items))]
 
@@ -72,7 +73,7 @@ class ShardPlugin:
         return msg
 
     @staticmethod
-    def pytest_collection_modifyitems(config: _Config, items: List[nodes.Node]) -> None:
+    def pytest_collection_modifyitems(config: _Config, items: list[nodes.Node]) -> None:
         """Mutate the collection to consist of just items to be tested in this shard."""
         shard_id = config.getoption("shard_id")
         shard_total = config.getoption("num_shards")

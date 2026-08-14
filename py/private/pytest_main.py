@@ -15,7 +15,6 @@
 
 import sys
 import os
-from typing import List
 
 import aspect_rules_py_launcher_env as launcher_env
 
@@ -38,7 +37,7 @@ def main() -> int:
     # (not their directory) scopes collection to this target's own srcs — a
     # workspace-root source would otherwise leave pytest to recurse the whole
     # runfiles tree.
-    test_paths: List[str] = []
+    test_paths: list[str] = []
     target_name = os.environ.get("BAZEL_TARGET_NAME", "")
     target = os.environ.get("BAZEL_TARGET", "")
     if target:
@@ -56,8 +55,8 @@ def main() -> int:
 
     os.environ["ENV"] = "testing"
 
-    plugins: List[ShardPlugin] = []
-    args: List[str] = [
+    plugins: list[ShardPlugin] = []
+    args: list[str] = [
         "--verbose",
         # Avoid loading of the plugin "cacheprovider".
         "-p",
@@ -92,7 +91,7 @@ def main() -> int:
         args.append(f"-k={test_filter}")
 
     # This list will be replaced if the user provides args to bake in
-    user_args: List[str] = []
+    user_args: list[str] = []
     if len(user_args) > 0:
         args.extend(user_args)
 

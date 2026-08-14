@@ -22,7 +22,7 @@ import glob
 import os
 import stat
 import sys
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from collections.abc import Iterable, Sequence
 
 _OCI_LAYER_HARD_LIMIT = 127
 _BINARY_GLOBS = {"*.so", "*.so.*", "*.pyd", "*.dylib", "*.dll"}
@@ -51,7 +51,7 @@ def _pkg_name_from_label(label: str) -> str:
     return name.strip("@").replace("-", "_")
 
 
-def _record_size(pkg_path: str) -> Optional[int]:
+def _record_size(pkg_path: str) -> int | None:
     """Return the total installed size in bytes from dist-info/RECORD, or None if unavailable."""
     pattern = os.path.join(pkg_path, "*.dist-info", "RECORD")
     matches = glob.glob(pattern)
@@ -106,9 +106,9 @@ def _pkg_is_binary(paths: Sequence[str]) -> bool:
     return False
 
 
-def _find_large_files(paths: Sequence[str], min_bytes: int) -> List[Tuple[str, int]]:
+def _find_large_files(paths: Sequence[str], min_bytes: int) -> list[tuple[str, int]]:
     """Return (basename, size) for files at or above min_bytes, largest first."""
-    results: List[Tuple[str, int]] = []
+    results: list[tuple[str, int]] = []
     for path in paths:
         if os.path.isdir(path):
             for dirpath, _, filenames in os.walk(path):
@@ -152,18 +152,18 @@ def _glob_for_file(basename: str) -> str:
 
 def _suggest_subpath_groups(
     label: str, paths: Sequence[str], min_file_bytes: int
-) -> List[Tuple[str, str, str, bool]]:
+) -> list[tuple[str, str, str, bool]]:
     """Return (groups_key, group_name, display_line, is_binary) tuples for large files."""
     large_files = _find_large_files(paths, min_file_bytes)
     if not large_files:
         return []
 
-    pattern_files: Dict[str, List[Tuple[str, int]]] = {}
+    pattern_files: dict[str, list[tuple[str, int]]] = {}
     for basename, size in large_files:
         pattern_files.setdefault(_glob_for_file(basename), []).append((basename, size))
 
     pkg_name = _pkg_name_from_label(label)
-    results: List[Tuple[str, str, str, bool]] = []
+    results: list[tuple[str, str, str, bool]] = []
     for pat, files in sorted(pattern_files.items(), key=lambda kv: -sum(s for _, s in kv[1])):
         total_mb = sum(s for _, s in files) // (1024 * 1024)
         examples = ", ".join("{} ({}MB)".format(name, size // (1024 * 1024)) for name, size in files[:3])
@@ -186,8 +186,8 @@ class _Suggestions:
     """
 
     def __init__(self) -> None:
-        self.group_lines: Dict[str, str] = {}
-        self.compression: Dict[str, str] = {}
+        self.group_lines: dict[str, str] = {}
+        self.compression: dict[str, str] = {}
 
     def add_group(self, groups_key: str, display_line: str) -> None:
         if ":" in groups_key.split("//")[-1]:
@@ -248,7 +248,7 @@ def _peel_sandbox_symlink(source: str) -> str:
     return source
 
 
-def _comparable_file(source_kind: str, encoded_source: str) -> Optional[str]:
+def _comparable_file(source_kind: str, encoded_source: str) -> str | None:
     source = _decode_mtree_path(encoded_source)
     if source_kind == "contents":
         return source if os.path.isfile(source) else None
@@ -265,7 +265,7 @@ def _comparable_file(source_kind: str, encoded_source: str) -> Optional[str]:
         return None
 
 
-def _comparable_symlink_target(source_kind: str, encoded_source: str) -> Optional[str]:
+def _comparable_symlink_target(source_kind: str, encoded_source: str) -> str | None:
     if source_kind not in ("content", "link"):
         return None
     source = _decode_mtree_path(encoded_source)
@@ -279,15 +279,15 @@ def _comparable_symlink_target(source_kind: str, encoded_source: str) -> Optiona
         return None
 
 
-def _mtree_collision(rows: Iterable[str]) -> Optional[str]:
+def _mtree_collision(rows: Iterable[str]) -> str | None:
     """Return the first conflicting expanded mtree destination, or None."""
-    paths: Dict[str, Tuple[str, str, str, Tuple[str, ...]]] = {}
-    descendants: Dict[str, Tuple[str, str]] = {}
+    paths: dict[str, tuple[str, str, str, tuple[str, ...]]] = {}
+    descendants: dict[str, tuple[str, str]] = {}
     for row in rows:
         if not row or row.startswith("#"):
             continue
         fields = row.split()
-        destination_parts: List[str] = []
+        destination_parts: list[str] = []
         for part in fields[0].split("/"):
             if not part or part == ".":
                 continue
@@ -365,7 +365,7 @@ def main() -> None:
     threshold_bytes = args.threshold_mb * 1024 * 1024
     per_file_threshold_bytes = max(threshold_bytes // 4, 10 * 1024 * 1024)
 
-    pkg_path_map: Dict[str, List[str]] = {}
+    pkg_path_map: dict[str, list[str]] = {}
     for entry in args.pkg_paths:
         label, _, path = entry.partition("=")
         if not path:
@@ -375,7 +375,7 @@ def main() -> None:
     pkg_sizes = {label: _pkg_size(paths) for label, paths in pkg_path_map.items()}
     pkg_binary = {label: _pkg_is_binary(paths) for label, paths in pkg_path_map.items()}
 
-    messages: List[str] = []
+    messages: list[str] = []
     if args.mtree:
         with open(args.mtree) as mtree:
             collision = _mtree_collision(mtree)
@@ -383,7 +383,7 @@ def main() -> None:
             messages.append("ERROR: " + collision)
     suggestions = _Suggestions()
 
-    layer_count_comment_lines: List[str] = []
+    layer_count_comment_lines: list[str] = []
     if args.layer_count > _OCI_LAYER_HARD_LIMIT:
         messages.append(
             "ERROR: image has {} layers (OCI limit {}).".format(args.layer_count, _OCI_LAYER_HARD_LIMIT)
@@ -411,7 +411,7 @@ def main() -> None:
                 break
             _add_whole_promotion(suggestions, label, mb, pkg_binary.get(label, False), annotation="")
 
-    binary_below_threshold: List[str] = []
+    binary_below_threshold: list[str] = []
     for label, size in sorted(pkg_sizes.items()):
         if size <= threshold_bytes:
             if pkg_binary.get(label):

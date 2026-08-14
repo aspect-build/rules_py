@@ -34,7 +34,7 @@ import stat
 import sys
 from pathlib import Path
 from types import TracebackType
-from typing import Callable, Dict, List, Optional, Sequence, Tuple
+from collections.abc import Callable, Sequence
 
 
 def _remove(path: Path) -> None:
@@ -43,7 +43,7 @@ def _remove(path: Path) -> None:
     def retry_readonly(
         function: Callable[..., object],
         candidate: str,
-        exc_info: Tuple[type[BaseException], BaseException, TracebackType],
+        exc_info: tuple[type[BaseException], BaseException, TracebackType],
     ) -> None:
         error = exc_info[1]
         if not isinstance(error, PermissionError):
@@ -62,11 +62,11 @@ def _remove(path: Path) -> None:
         path.unlink()
 
 
-def merge(into: Path, sources: Sequence[Path]) -> List[Tuple[Path, Optional[Path], Path]]:
+def merge(into: Path, sources: Sequence[Path]) -> list[tuple[Path, Path | None, Path]]:
     into.mkdir(parents=True, exist_ok=True)
-    owners: Dict[Path, Path] = {}
-    caches: Dict[Path, List[Path]] = {}
-    conflicts: List[Tuple[Path, Optional[Path], Path]] = []
+    owners: dict[Path, Path] = {}
+    caches: dict[Path, list[Path]] = {}
+    conflicts: list[tuple[Path, Path | None, Path]] = []
 
     for src in sources:
         if not src.is_dir():
@@ -119,7 +119,7 @@ def merge(into: Path, sources: Sequence[Path]) -> List[Tuple[Path, Optional[Path
     return conflicts
 
 
-def cache_source_path(path: Path) -> Optional[Path]:
+def cache_source_path(path: Path) -> Path | None:
     """Return the source a `.pyc` is reached through, or None if unreachable.
 
     Cache tags are stripped right to left, so a dotted source such as

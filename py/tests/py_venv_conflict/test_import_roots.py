@@ -8,7 +8,7 @@ for k, v in os.environ.items():
 print("---")
 
 from pathlib import Path
-from typing import Generator
+from collections.abc import Generator
 
 # prefix components:
 space =  '    '

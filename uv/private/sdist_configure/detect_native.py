@@ -28,10 +28,11 @@ import tarfile
 import tempfile
 import types
 import zipfile
-from typing import Callable, Dict, Iterator, List, NoReturn, Optional, Sequence, Tuple, TypedDict
+from typing import NoReturn, TypedDict
+from collections.abc import Callable, Iterator, Sequence
 
 try:
-    tomllib: Optional[types.ModuleType] = importlib.import_module("tomllib")
+    tomllib: types.ModuleType | None = importlib.import_module("tomllib")
 except ModuleNotFoundError:
     tomllib = None
 from pathlib import PurePosixPath
@@ -67,27 +68,27 @@ _REQ_NAME_RE = re.compile(r"^([A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?)")
 class ConfigureContext(TypedDict, total=False):
     src: str
     version: str
-    deps: List[str]
-    available_deps: Dict[str, str]
+    deps: list[str]
+    available_deps: dict[str, str]
 
 
 class _OptionalDetectionResult(TypedDict, total=False):
-    backend_path: List[str]
+    backend_path: list[str]
 
 
 class DetectionResult(_OptionalDetectionResult):
     is_native: bool
-    native_files: List[str]
-    build_requires: List[str]
-    inferred_build_requires: List[str]
-    extra_deps: List[str]
-    build_backend: Optional[str]
+    native_files: list[str]
+    build_requires: list[str]
+    inferred_build_requires: list[str]
+    extra_deps: list[str]
+    build_backend: str | None
     has_pyproject: bool
     has_setup_py: bool
     has_setup_cfg: bool
-    setup_py_setup_requires: List[str]
-    setup_py_install_requires: List[str]
-    console_scripts: List[str]
+    setup_py_setup_requires: list[str]
+    setup_py_install_requires: list[str]
+    console_scripts: list[str]
 
 
 def _normalize_name(name: str) -> str:
@@ -95,7 +96,7 @@ def _normalize_name(name: str) -> str:
     return re.sub(r"[-_.]+", "_", name).lower()
 
 
-def _extract_name(requirement_str: str) -> Optional[str]:
+def _extract_name(requirement_str: str) -> str | None:
     """Extract the normalized package name from a PEP 508 requirement string."""
     m = _REQ_NAME_RE.match(requirement_str.strip())
     if m:
@@ -105,7 +106,7 @@ def _extract_name(requirement_str: str) -> Optional[str]:
 
 # --- Archive helpers ---
 
-def _read_tar_member(tf: tarfile.TarFile, member_name: str) -> Optional[str]:
+def _read_tar_member(tf: tarfile.TarFile, member_name: str) -> str | None:
     try:
         f = tf.extractfile(tf.getmember(member_name))
         return f.read().decode("utf-8", errors="replace") if f else None
@@ -113,7 +114,7 @@ def _read_tar_member(tf: tarfile.TarFile, member_name: str) -> Optional[str]:
         return None
 
 
-def _read_zip_member(zf: zipfile.ZipFile, member_name: str) -> Optional[str]:
+def _read_zip_member(zf: zipfile.ZipFile, member_name: str) -> str | None:
     try:
         return zf.read(member_name).decode("utf-8", errors="replace")
     except KeyError:
@@ -122,7 +123,7 @@ def _read_zip_member(zf: zipfile.ZipFile, member_name: str) -> Optional[str]:
 
 def _open_archive(
     path: str,
-) -> Tuple[List[str], Callable[[str], Optional[str]], Callable[[], None]]:
+) -> tuple[list[str], Callable[[str], str | None], Callable[[], None]]:
     """Open an archive. Returns (members, reader_fn, closer)."""
     if zipfile.is_zipfile(path):
         zf = zipfile.ZipFile(path, "r")
@@ -138,7 +139,7 @@ def _open_archive(
 
 def _parse_pyproject_build_system(
     content: str,
-) -> Tuple[List[str], Optional[str], Optional[List[str]]]:
+) -> tuple[list[str], str | None, list[str] | None]:
     """Extract [build-system] metadata from pyproject.toml content.
 
     Returns (requires, build_backend, backend_path) where:
@@ -166,7 +167,7 @@ def _parse_pyproject_build_system(
     return requires, build_backend, backend_path
 
 
-def _parse_setup_cfg_build_requires(content: str) -> List[str]:
+def _parse_setup_cfg_build_requires(content: str) -> list[str]:
     """Extract [options] setup_requires from setup.cfg content."""
     parser = configparser.ConfigParser()
     parser.read_string(content)
@@ -217,7 +218,7 @@ class _MockModule(types.ModuleType):
         setattr(self, name, child)
         return child
 
-    def __call__(self, *args: object, **kwargs: object) -> "_MockModule":
+    def __call__(self, *args: object, **kwargs: object) -> _MockModule:
         return _MockModule(f"{self.__name__}()")
 
     def __iter__(self) -> Iterator[object]:
@@ -265,9 +266,9 @@ class _MockImportFinder(importlib.abc.MetaPathFinder):
     def find_spec(
         self,
         fullname: str,
-        path: Optional[Sequence[str]],
-        target: Optional[types.ModuleType] = None,
-    ) -> Optional[importlib.machinery.ModuleSpec]:
+        path: Sequence[str] | None,
+        target: types.ModuleType | None = None,
+    ) -> importlib.machinery.ModuleSpec | None:
         # Let stdlib and already-loaded modules through
         if fullname in self._PASSTHROUGH or fullname in sys.modules:
             return None
@@ -280,7 +281,7 @@ class _MockImportFinder(importlib.abc.MetaPathFinder):
         )
 
 
-def _parse_setup_py_requires(content: str) -> Tuple[List[str], List[str]]:
+def _parse_setup_py_requires(content: str) -> tuple[list[str], list[str]]:
     """Extract setup_requires and install_requires from setup.py via exec.
 
     Executes the setup.py with a fake setup() that captures its keyword
@@ -293,7 +294,7 @@ def _parse_setup_py_requires(content: str) -> Tuple[List[str], List[str]]:
         (setup_requires, install_requires) where each is a list of
         normalized package names. Returns empty lists on failure.
     """
-    captured: Dict[str, object] = {}
+    captured: dict[str, object] = {}
 
     def _fake_setup(*args: object, **kwargs: object) -> NoReturn:
         captured.update(kwargs)
@@ -384,7 +385,7 @@ def _parse_setup_py_requires(content: str) -> Tuple[List[str], List[str]]:
     if failed:
         return [], []
 
-    def _extract_names(key: str) -> List[str]:
+    def _extract_names(key: str) -> list[str]:
         value = captured.get(key)
         if not isinstance(value, (list, tuple)):
             return []
@@ -401,7 +402,7 @@ def _parse_setup_py_requires(content: str) -> Tuple[List[str], List[str]]:
 
 # --- Detection ---
 
-def _find_config_file(members: Sequence[str], filename: str) -> Optional[str]:
+def _find_config_file(members: Sequence[str], filename: str) -> str | None:
     """Find a config file, accounting for the typical top-level sdist directory."""
     if filename in members:
         return filename
@@ -412,9 +413,9 @@ def _find_config_file(members: Sequence[str], filename: str) -> Optional[str]:
     return None
 
 
-def _parse_console_scripts(content: str) -> List[str]:
+def _parse_console_scripts(content: str) -> list[str]:
     """Return normalized console scripts from an egg-info entry_points.txt."""
-    scripts: Dict[str, str] = {}
+    scripts: dict[str, str] = {}
     in_console_scripts = False
     for raw_line in content.splitlines():
         line = raw_line.split(";", 1)[0].split("#", 1)[0].strip()
@@ -538,8 +539,8 @@ def detect(archive_path: str, context: ConfigureContext) -> DetectionResult:
         # Parse setup.py for setup_requires / install_requires
         setup_py_path = _find_config_file(members, "setup.py")
         has_setup_py = setup_py_path is not None
-        setup_py_setup_requires: List[str] = []
-        setup_py_install_requires: List[str] = []
+        setup_py_setup_requires: list[str] = []
+        setup_py_install_requires: list[str] = []
         if setup_py_path:
             setup_py_content = read_fn(setup_py_path)
             if setup_py_content:

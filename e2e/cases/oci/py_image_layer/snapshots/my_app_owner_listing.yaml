@@ -55,7 +55,7 @@ files:
   - lrwxr-xr-x  0 1000   2000        0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_owner_bin.venv/lib/python3.11/site-packages/pyproject_hooks-1.2.0.dist-info -> ../../../../../../../aspect_rules_py++uv+whl_install__images__pyproject_hooks__1_2_0/actual_install.install/lib/python3.11/site-packages/pyproject_hooks-1.2.0.dist-info
   - -rwxr-xr-x  0 1000   2000      111 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_owner_bin.venv/pyvenv.cfg
   - -rwxr-xr-x  0 1000   2000      276 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/__main__.py
-  - -rwxr-xr-x  0 1000   2000     6713 Jan  1  2023 ./app.runfiles/_main/tools/verify_venv/verify_venv.py
+  - -rwxr-xr-x  0 1000   2000     6709 Jan  1  2023 ./app.runfiles/_main/tools/verify_venv/verify_venv.py
   - -rwxr-xr-x  0 1000   2000 * Jan  1  2023 ./app.runfiles/_repo_mapping
   - -rwxr-xr-x  0 1000   2000        0 Jan  1  2023 ./app.runfiles/aspect_rules_py+/py/tests/internal-deps/adder/__init__.py
   - -rwxr-xr-x  0 1000   2000       32 Jan  1  2023 ./app.runfiles/aspect_rules_py+/py/tests/internal-deps/adder/add.py

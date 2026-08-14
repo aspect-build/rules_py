@@ -24,7 +24,7 @@ import subprocess
 import zipfile
 from base64 import urlsafe_b64encode
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Set, Tuple
+from collections.abc import Sequence
 from urllib.parse import unquote
 
 _RELOCATABLE_SHEBANG = """\
@@ -59,7 +59,7 @@ def _is_native_library(path: Path) -> bool:
     )
 
 
-def _import_root(path: Path) -> Optional[str]:
+def _import_root(path: Path) -> str | None:
     parts = path.parts
     if not parts:
         return None
@@ -86,14 +86,14 @@ def _import_root(path: Path) -> Optional[str]:
 _AMBIGUOUS_PREFIX_ROOTS = ("bin", "lib")
 
 
-def _prefix_data_files(into: Path) -> Set[str]:
+def _prefix_data_files(into: Path) -> set[str]:
     """Prefix-relative paths of the installed `.data/data/` tree.
 
     Descends only the roots that hold data files, so the walk is bounded by the
     prefix tree rather than by site-packages, which for a large wheel is orders
     of magnitude bigger and entirely excluded anyway.
     """
-    found: Set[str] = set()
+    found: set[str] = set()
     for entry in into.iterdir():
         if entry.name in _AMBIGUOUS_PREFIX_ROOTS:
             continue
@@ -106,7 +106,7 @@ def _prefix_data_files(into: Path) -> Set[str]:
     return found
 
 
-def _import_roots(site_packages: Path) -> Set[str]:
+def _import_roots(site_packages: Path) -> set[str]:
     return {
         root
         for path in site_packages.rglob("*")
@@ -116,7 +116,7 @@ def _import_roots(site_packages: Path) -> Set[str]:
     }
 
 
-def cache_source_path(path: Path) -> Optional[Path]:
+def cache_source_path(path: Path) -> Path | None:
     """Return the source a `.pyc` is reached through, or None if unreachable.
 
     Cache tags are stripped right to left, so a dotted source such as
@@ -139,7 +139,7 @@ def cache_source_path(path: Path) -> Optional[Path]:
 
 
 def _path_excluded(
-    path: Path, patterns: Sequence[Tuple[str, ...]], is_file: bool
+    path: Path, patterns: Sequence[tuple[str, ...]], is_file: bool
 ) -> bool:
     from exclude_glob import excluded
 
@@ -152,8 +152,8 @@ def _path_excluded(
 
 
 def _native_descendants(
-    directory: Path, site_packages: Path, patterns: Sequence[Tuple[str, ...]]
-) -> Tuple[str, ...]:
+    directory: Path, site_packages: Path, patterns: Sequence[tuple[str, ...]]
+) -> tuple[str, ...]:
     return tuple(sorted(
         path.relative_to(directory).as_posix()
         for path in directory.rglob("*")
@@ -167,7 +167,7 @@ def _native_descendants(
 
 
 def _retained_init(
-    directory: Path, site_packages: Path, patterns: Sequence[Tuple[str, ...]]
+    directory: Path, site_packages: Path, patterns: Sequence[tuple[str, ...]]
 ) -> bool:
     init = directory / "__init__.py"
     if not init.is_file():
@@ -186,7 +186,7 @@ def _installer_input(path: Path) -> bool:
 
 
 def _remove_excluded(
-    site_packages: Path, patterns: Sequence[Tuple[str, ...]]
+    site_packages: Path, patterns: Sequence[tuple[str, ...]]
 ) -> None:
     for path in sorted(site_packages.rglob("*"), reverse=True):
         if not _path_excluded(
@@ -213,7 +213,7 @@ def _write_executable(path: Path, content: bytes) -> None:
 
 def _record_metadata(
     zf: zipfile.ZipFile,
-) -> Tuple[Optional[str], Dict[str, Tuple[str, str]]]:
+) -> tuple[str | None, dict[str, tuple[str, str]]]:
     """Return reusable sha256/size metadata from one well-formed RECORD."""
     record_members = [
         info.filename
@@ -244,7 +244,7 @@ def _record_metadata(
     }
 
 
-def _data_prefix(basename: str, record_dir: Optional[str]) -> str:
+def _data_prefix(basename: str, record_dir: str | None) -> str:
     """Return the wheel's PEP 427 ``.data/`` prefix.
 
     ``.data`` and ``.dist-info`` share a stem, and RECORD spells its ``.data``
@@ -280,9 +280,9 @@ def install_wheel(
     version_minor: int,
     into: Path,
     wheel_path: Path,
-    exclude_patterns: Sequence[Tuple[str, ...]],
+    exclude_patterns: Sequence[tuple[str, ...]],
     drop_pycache: bool = False,
-) -> Set[str]:
+) -> set[str]:
     """Install a wheel into *into*, following PEP 427 layout conventions.
 
     Accepts either a direct ``.whl`` file or a directory containing exactly
@@ -300,9 +300,9 @@ def install_wheel(
     bin_dir = into / "bin"
     site_packages.mkdir(parents=True, exist_ok=True)
     bin_dir.mkdir(parents=True, exist_ok=True)
-    installed: Dict[Path, Optional[Tuple[str, str]]] = {}
-    seen_members: Set[str] = set()
-    original_import_roots: Set[str] = set()
+    installed: dict[Path, tuple[str, str] | None] = {}
+    seen_members: set[str] = set()
+    original_import_roots: set[str] = set()
 
     with zipfile.ZipFile(wheel_path, "r") as zf:
         record_dir, record_metadata = _record_metadata(zf)
@@ -493,8 +493,8 @@ def main() -> None:
     )
     # Analysis uses these paths for collision and merge planning. Snapshot their
     # installed shape here, where both the before and after states are available.
-    observed_files: List[Path] = []
-    observed_directories: Dict[Path, Tuple[Optional[bool], Tuple[str, ...]]] = {}
+    observed_files: list[Path] = []
+    observed_directories: dict[Path, tuple[bool | None, tuple[str, ...]]] = {}
     for relative_string in args.preserve_path:
         relative = Path(relative_string)
         if relative.is_absolute() or ".." in relative.parts:

@@ -6,7 +6,8 @@ import os
 import subprocess
 import sys
 import time
-from typing import IO, Mapping, Optional, Sequence, Union
+from typing import IO
+from collections.abc import Mapping, Sequence
 
 _MIB = 1024 * 1024
 _REPORT_STEP_BYTES = 256 * _MIB
@@ -17,7 +18,7 @@ def _process_tree_rss_bytes(
     root_pid: int,
     page_size: int,
     proc_root: str = "/proc",
-) -> Optional[int]:
+) -> int | None:
     """Return the sampled RSS sum for root_pid and its descendants."""
     # statm reports resident memory in pages:
     # https://man7.org/linux/man-pages/man5/proc_pid_statm.5.html
@@ -60,9 +61,9 @@ def _process_tree_rss_bytes(
 def _report_memory(
     wheel: str,
     state: str,
-    peak: Optional[int],
-    current: Optional[int] = None,
-    returncode: Optional[int] = None,
+    peak: int | None,
+    current: int | None = None,
+    returncode: int | None = None,
 ) -> None:
     if peak is None:
         details = "unavailable"
@@ -91,9 +92,9 @@ def _report_memory(
 def run_with_memory_monitor(
     cmd: Sequence[str],
     *,
-    cwd: Optional[str],
+    cwd: str | None,
     env: Mapping[str, str],
-    stdout: Union[IO[str], IO[bytes]],
+    stdout: IO[str] | IO[bytes],
     wheel: str,
 ) -> None:
     """Run cmd while reporting best-effort process-tree RSS."""

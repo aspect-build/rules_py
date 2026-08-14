@@ -18,7 +18,6 @@ import sys
 from os import chmod, defpath, listdir, makedirs, path, pathsep
 from subprocess import CalledProcessError, check_call, check_output, STDOUT, run
 from tempfile import TemporaryFile
-from typing import Dict, Optional
 
 try:
     tomllib = importlib.import_module("tomllib")
@@ -49,7 +48,7 @@ os.execv("{compiler_path}", ["{compiler_path}"] + filtered_args)
 """
 
 
-def _darwin_sysroot() -> Optional[str]:
+def _darwin_sysroot() -> str | None:
     """Return the macOS SDK path, or None if unavailable."""
     if _platform.system() != "Darwin":
         return None
@@ -70,7 +69,7 @@ def _absolutize_path(value: str) -> str:
     return path.abspath(value) if value and not path.isabs(value) else value
 
 
-def _resolve_compiler_path(env: Dict[str, str], key: str, default: str) -> str:
+def _resolve_compiler_path(env: dict[str, str], key: str, default: str) -> str:
     """Extract the real compiler from the environment and resolve it to an absolute path."""
     current = env.get(key)
     if not current:
@@ -84,7 +83,7 @@ def _resolve_compiler_path(env: Dict[str, str], key: str, default: str) -> str:
     return shutil.which(compiler, path=env.get("PATH", defpath)) or compiler
 
 
-def _local_cxx_companion(current: Optional[str], compiler_path: str) -> str:
+def _local_cxx_companion(current: str | None, compiler_path: str) -> str:
     """Select an executable same-directory C++ peer for a direct local C driver."""
     parts = shlex.split(current or "")
     if not parts or not path.isabs(parts[0]):
@@ -113,7 +112,7 @@ def _make_compiler_wrapper(
     tmpdir: str,
     name: str,
     compiler_path: str,
-    sysroot: Optional[str] = None,
+    sysroot: str | None = None,
 ) -> str:
     wrapper = path.join(tmpdir, ".aspect_rules_py_compilers", name)
     makedirs(path.dirname(wrapper), exist_ok=True)
@@ -127,7 +126,7 @@ def _make_compiler_wrapper(
     return wrapper
 
 
-def _override_tool(env: Dict[str, str], key: str, wrapper: str) -> None:
+def _override_tool(env: dict[str, str], key: str, wrapper: str) -> None:
     current = env.get(key)
     if not current:
         return
@@ -137,7 +136,7 @@ def _override_tool(env: Dict[str, str], key: str, wrapper: str) -> None:
         env[key] = shlex.join(parts)
 
 
-def _absolutize_tool_paths(env: Dict[str, str]) -> None:
+def _absolutize_tool_paths(env: dict[str, str]) -> None:
     """Resolve toolchain paths before the backend changes cwd."""
     for key in ("JAVA_HOME", "JAVA"):
         value = env.get(key)
@@ -154,7 +153,7 @@ def _absolutize_tool_paths(env: Dict[str, str]) -> None:
             env[key] = shlex.join(parts)
 
 
-def _compiler_env(tmpdir: str, execroot_marker: Optional[str] = None) -> Dict[str, str]:
+def _compiler_env(tmpdir: str, execroot_marker: str | None = None) -> dict[str, str]:
     env = dict(os.environ)
     if execroot_marker:
         execroot = os.getcwd()
@@ -226,7 +225,7 @@ def _load_text(maybe_file: str) -> str:
         return f.read()
 
 
-def _load_pyproject_data(worktree: str) -> Optional[Dict[str, object]]:
+def _load_pyproject_data(worktree: str) -> dict[str, object] | None:
     pyproject = path.join(worktree, "pyproject.toml")
     if not path.exists(pyproject):
         return None

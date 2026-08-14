@@ -14,7 +14,8 @@ import traceback
 import unittest
 from dataclasses import dataclass
 from types import ModuleType
-from typing import Any, Dict, Iterator, List, Literal, Optional
+from typing import Any, Literal
+from collections.abc import Iterator
 from xml.sax.saxutils import escape, quoteattr
 
 import aspect_rules_py_launcher_env as launcher_env
@@ -36,7 +37,7 @@ launcher_env.set_test_tmpdir()
 cov = launcher_env.start_coverage()
 
 
-def _import_test_modules(test_files: List[str]) -> List[ModuleType]:
+def _import_test_modules(test_files: list[str]) -> list[ModuleType]:
     """Import each declared source file exactly once, under a module name
     derived from its full path.
 
@@ -46,7 +47,7 @@ def _import_test_modules(test_files: List[str]) -> List[ModuleType]:
     (`discover()` imports by basename and raises ImportError). The dotted,
     path-derived module name keeps identities unique.
     """
-    modules: List[ModuleType] = []
+    modules: list[ModuleType] = []
     for path in test_files:
         if not path.endswith(".py"):
             continue
@@ -67,7 +68,7 @@ def _import_test_modules(test_files: List[str]) -> List[ModuleType]:
     return modules
 
 
-def _suite_from(loader: unittest.TestLoader, modules: List[ModuleType]) -> unittest.TestSuite:
+def _suite_from(loader: unittest.TestLoader, modules: list[ModuleType]) -> unittest.TestSuite:
     suite = unittest.TestSuite()
     for module in modules:
         suite.addTests(loader.loadTestsFromModule(module))
@@ -123,8 +124,8 @@ class _JUnitResult(unittest.TextTestResult):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self.records: List[_Record] = []
-        self._start: Dict[unittest.TestCase, float] = {}
+        self.records: list[_Record] = []
+        self._start: dict[unittest.TestCase, float] = {}
 
     def startTest(self, test: unittest.TestCase) -> None:
         self._start[test] = time.time()
@@ -138,8 +139,8 @@ class _JUnitResult(unittest.TextTestResult):
         test: unittest.TestCase,
         status: _Status,
         err: Any = None,
-        message: Optional[str] = None,
-        name: Optional[str] = None,
+        message: str | None = None,
+        name: str | None = None,
     ) -> None:
         detail = ""
         if err is not None:
@@ -196,7 +197,7 @@ class _JUnitResult(unittest.TextTestResult):
         self._record(test, "failure", message="unexpected success")
 
 
-def _write_junit_xml(path: str, records: List[_Record], suite_name: str) -> None:
+def _write_junit_xml(path: str, records: list[_Record], suite_name: str) -> None:
     failures = sum(1 for r in records if r.status == "failure")
     errors = sum(1 for r in records if r.status == "error")
     skipped = sum(1 for r in records if r.status == "skipped")
@@ -237,7 +238,7 @@ def _write_junit_xml(path: str, records: List[_Record], suite_name: str) -> None
         f.write("\n".join(lines) + "\n")
 
 
-def _parse_args(argv: List[str]) -> argparse.Namespace:
+def _parse_args(argv: list[str]) -> argparse.Namespace:
     """Parse the runtime args forwarded from the `args` attribute / command
     line. Errors (exit 2) on anything unrecognized rather than dropping it, so
     a typo'd flag is never silently ignored."""
@@ -272,7 +273,7 @@ def main() -> int:
     # the target's own-repo source files. Keep it on its own line exactly as
     # written — the rule keys on the bare assignment text, so editing this
     # comment is safe but editing the code is not.
-    test_files: List[str] = []
+    test_files: list[str] = []
 
     modules = _import_test_modules(test_files)
 

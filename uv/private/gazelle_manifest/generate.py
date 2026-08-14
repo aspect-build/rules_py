@@ -23,7 +23,6 @@ from zipfile import ZipFile
 from pathlib import Path
 from email.parser import Parser
 from io import StringIO
-from typing import List, Optional, Set, Tuple
 from collections import defaultdict
 
 def normalize_name(name: str) -> str:
@@ -56,7 +55,7 @@ def is_stub_package(name: str) -> bool:
     )
 
 
-def extract_package_name(whl_path: Path) -> Optional[str]:
+def extract_package_name(whl_path: Path) -> str | None:
     """
     Opens a .whl file, finds the METADATA file in .dist-info/, and extracts
     the 'Name' field to determine the requirement name.
@@ -107,7 +106,7 @@ def conventional_name(path_str: str) -> str:
     # Otherwise, join the parent path with the base name
     return str(p.parent / base_name)
 
-def get_importable_module_name(filepath: str) -> Optional[str]:
+def get_importable_module_name(filepath: str) -> str | None:
     """
     Converts a file path inside the wheel (e.g., 'requests/utils.py') into
     an importable module name (e.g., 'requests.utils').
@@ -214,7 +213,7 @@ manifest:
         print(f"Error writing manifest to {output_path}: {e}", file=sys.stderr)
 
 
-def find_unique_shallowest_prefixes(all_module_package_pairs: List[Tuple[str, str]]) -> dict[str, str]:
+def find_unique_shallowest_prefixes(all_module_package_pairs: list[tuple[str, str]]) -> dict[str, str]:
     """
     Identifies the shallowest module prefixes that map uniquely to a given Python package.
 
@@ -224,7 +223,7 @@ def find_unique_shallowest_prefixes(all_module_package_pairs: List[Tuple[str, st
     Returns:
         A dictionary mapping the unique shallowest module prefixes to their corresponding package names.
     """
-    prefix_to_packages: defaultdict[str, Set[str]] = defaultdict(set)
+    prefix_to_packages: defaultdict[str, set[str]] = defaultdict(set)
 
     # 1. Populate prefix_to_packages: map each prefix to the set of packages it belongs to.
     for module_name, package_name in all_module_package_pairs:

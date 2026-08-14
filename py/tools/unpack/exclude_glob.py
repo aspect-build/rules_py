@@ -1,12 +1,12 @@
 """Match site-packages-relative wheel exclusion globs."""
 
 import argparse
-from typing import Sequence, Tuple
+from collections.abc import Sequence
 
 
 # Keep the parser and matcher in sync with uv/private/whl_install/repository.bzl;
 # exclude_glob_test_vectors.bzl exercises their shared valid inputs.
-def parse(value: str) -> Tuple[str, ...]:
+def parse(value: str) -> tuple[str, ...]:
     parts = value.split("/")
     if (
         not value
@@ -65,7 +65,7 @@ def _matches(path: Sequence[str], pattern: Sequence[str]) -> bool:
     return False
 
 
-def excluded(path: Sequence[str], patterns: Sequence[Tuple[str, ...]]) -> bool:
+def excluded(path: Sequence[str], patterns: Sequence[tuple[str, ...]]) -> bool:
     # Repository topology later drops escaping RECORD paths; the disk sweep only
     # visits site-packages, but keep this guard for direct callers.
     return bool(path) and path[0] not in ("", ".", "..") and any(
