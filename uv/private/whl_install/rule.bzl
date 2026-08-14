@@ -207,6 +207,7 @@ def _whl_install(ctx):
     data_files = meta.data_files
 
     arguments = ctx.actions.args()
+    arguments.add_all(["-S", "-E", "-s", "-B"])
     arguments.add(unpack_script)
     arguments.add_all([install_dir], expand_directories = False, before_each = "--into")
     arguments.add_all([archive], expand_directories = False, before_each = "--wheel")
