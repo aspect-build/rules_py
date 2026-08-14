@@ -66,7 +66,7 @@ def _run(helper: str, sdist: str, workdir: str, label: str, env: dict, args: lis
 def main() -> None:
     workdir = tempfile.mkdtemp(dir=os.environ["TEST_TMPDIR"])
     sdist = _make_sdist(workdir)
-    helper = os.path.join(os.path.dirname(os.path.dirname(__file__)), "build_helper.py")
+    helper = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tools", "build_helper.py")
 
     real_machine = os.uname().machine
     fake_machine = "aarch64" if real_machine != "aarch64" else "x86_64"

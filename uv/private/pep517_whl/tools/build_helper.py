@@ -1156,7 +1156,7 @@ with TemporaryFile(mode="w+") as build_log:
     try:
         if opts.monitor_memory:
             # Lazy: the dependency exists only when the wheel opts in.
-            from uv.private.pep517_whl.memory_monitor import run_with_memory_monitor
+            from uv.private.pep517_whl.tools.memory_monitor import run_with_memory_monitor
 
             run_with_memory_monitor(
                 cmd,

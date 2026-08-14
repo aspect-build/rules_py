@@ -4,7 +4,7 @@ load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("@tar.bzl//tar:mtree.bzl", "mtree_mutate", "mtree_spec")
 load("@tar.bzl//tar:tar.bzl", "tar_rule")
 load("//py:defs.bzl", "py_binary", "py_test")
-load("//uv/private/pep517_whl:rule.bzl", "pep517_native_whl", "pep517_whl")
+load("//uv/private/pep517_whl:defs.bzl", "pep517_native_whl", "pep517_whl")
 load(
     ":pep517_whl_test.bzl",
     "execroot_collision_toolchain",
@@ -23,13 +23,13 @@ py_test(
     name = "memory_monitor_test",
     srcs = ["memory_monitor_test.py"],
     main = "memory_monitor_test.py",
-    deps = ["//uv/private/pep517_whl:memory_monitor"],
+    deps = ["//uv/private/pep517_whl/tools:memory_monitor"],
 )
 
 py_test(
     name = "build_helper_cross_test",
     srcs = ["build_helper_cross_test.py"],
-    data = ["//uv/private/pep517_whl:build_helper.py"],
+    data = ["//uv/private/pep517_whl/tools:build_helper.py"],
     main = "build_helper_cross_test.py",
     target_compatible_with = ["@platforms//os:linux"],
     deps = [
@@ -41,7 +41,7 @@ py_test(
 py_test(
     name = "local_cxx_companion_test",
     srcs = ["local_cxx_companion_test.py"],
-    data = ["//uv/private/pep517_whl:build_helper.py"],
+    data = ["//uv/private/pep517_whl/tools:build_helper.py"],
     main = "local_cxx_companion_test.py",
     target_compatible_with = ["@platforms//os:linux"],
     deps = [
@@ -52,8 +52,8 @@ py_test(
 
 py_binary(
     name = "__build_helper",
-    srcs = ["//uv/private/pep517_whl:build_helper.py"],
-    main = "//uv/private/pep517_whl:build_helper.py",
+    srcs = ["//uv/private/pep517_whl/tools:build_helper.py"],
+    main = "//uv/private/pep517_whl/tools:build_helper.py",
     deps = ["@pypi//build"],
 )
 

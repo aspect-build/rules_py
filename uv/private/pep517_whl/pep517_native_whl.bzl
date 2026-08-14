@@ -1,75 +1,26 @@
-"""
-PEP 517 sdist-to-wheel build rules.
+"""PEP 517 sdist to platform-specific whl build rule."""
 
-Uses `python -m build` (the pypa/build frontend) which delegates to whatever
-build backend the sdist declares in its `[build-system]` table.
-"""
-
-load("@bazel_lib//lib:resource_sets.bzl", "resource_set", "resource_set_attr")
+load("@bazel_lib//lib:resource_sets.bzl", "resource_set")
 load("@rules_cc//cc:action_names.bzl", "ACTION_NAMES")
 load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
 load("//py/private/interpreter:versions.bzl", "PLATFORMS")
 load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "NATIVE_BUILD_TOOLCHAIN", "PY_TOOLCHAIN")
-load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
 load(":cc_layer.bzl", "CC_LAYER_ATTRS", "extract_cc_layer")
+load(
+    ":common.bzl",
+    "PEP517_WHL_ATTRS",
+    "TARGET_EXEC_GROUP",
+    "common_env",
+    "memory_args",
+    "patch_args_and_inputs",
+    "tool_files_to_run",
+    "wheel_providers",
+)
 load(":exec_transition.bzl", "exec_transition")
 
 _CC_TOOLCHAIN_TYPE = Label("@bazel_tools//tools/cpp:toolchain_type")
-_TARGET_EXEC_GROUP = "target"
 _EXECROOT_MARKER = "__ASPECT_RULES_PY_EXECROOT__"
 _INFER_CXX_COMPANION = "ASPECT_RULES_PY_INFER_CXX_COMPANION"
-
-_INHERITED_PYTHON_ENV = (
-    "PYTHONHOME",
-    "PYTHONPATH",
-    "PYTHONPLATLIBDIR",
-)
-
-def _wheel_providers(wheel_dir, console_scripts):
-    return [
-        DefaultInfo(files = depset([wheel_dir])),
-        SourceBuiltWheelInfo(console_scripts = tuple(console_scripts)),
-    ]
-
-def _tool_files_to_run(ctx):
-    tool = ctx.attr.tool
-    if type(tool) == "list":
-        tool = tool[0]
-    return tool[DefaultInfo].files_to_run
-
-def _common_env(ctx):
-    # pyproject_hooks copies the build process environment and launches its
-    # Python executable without -I:
-    # https://github.com/pypa/pyproject-hooks/blob/4b7c6d113fb89b755d762a88712c8a6873cddd47/src/pyproject_hooks/_impl.py#L70-L83
-    # https://github.com/pypa/pyproject-hooks/blob/4b7c6d113fb89b755d762a88712c8a6873cddd47/src/pyproject_hooks/_impl.py#L378-L396
-    # Host settings therefore must not replace that child's venv or stdlib.
-    # https://docs.python.org/3/using/cmdline.html#environment-variables
-    default_shell_env = {
-        key: value
-        for key, value in ctx.configuration.default_shell_env.items()
-        if key.upper() not in _INHERITED_PYTHON_ENV
-    }
-    return {
-        "SETUPTOOLS_SCM_PRETEND_VERSION": ctx.attr.version,
-        # Determinism: fix hash seed so dict/set iteration order is stable
-        "PYTHONHASHSEED": "0",
-        # Determinism: reproducible timestamps in archives
-        "SOURCE_DATE_EPOCH": "0",
-    } | default_shell_env
-
-def _patch_args_and_inputs(ctx):
-    patch_args = []
-    patch_inputs = []
-    if ctx.attr.pre_build_patches:
-        patch_args.extend(["--patch-strip", str(ctx.attr.pre_build_patch_strip)])
-        for target in ctx.attr.pre_build_patches:
-            for f in target[DefaultInfo].files.to_list():
-                patch_args.extend(["--patch", f.path])
-                patch_inputs.append(f)
-    return patch_args, patch_inputs
-
-def _memory_args(ctx):
-    return ["--monitor-memory"] if ctx.attr.monitor_memory else []
 
 def _collect_toolchain_inputs_and_vars(ctx):
     """Gather files + Make-variable substitutions from `ctx.attr.toolchains`.
@@ -105,7 +56,7 @@ def _collect_toolchain_inputs_and_vars(ctx):
 
 def _cc_toolchain_inputs_and_tools(ctx):
     """Return the target execution group's C++ files and selected build tools."""
-    cc_toolchain = ctx.exec_groups[_TARGET_EXEC_GROUP].toolchains[_CC_TOOLCHAIN_TYPE]
+    cc_toolchain = ctx.exec_groups[TARGET_EXEC_GROUP].toolchains[_CC_TOOLCHAIN_TYPE]
     if hasattr(cc_toolchain, "cc_provider_in_toolchain") and hasattr(cc_toolchain, "cc"):
         cc_toolchain = cc_toolchain.cc
     if not cc_toolchain or not hasattr(cc_toolchain, "all_files"):
@@ -200,36 +151,6 @@ def _derive_python_host_platform(target_os, target_cpu):
         return "macosx-11.0-" + cpu
     return None
 
-def _pep517_whl(ctx):
-    archive = ctx.file.src
-    wheel_dir = ctx.actions.declare_directory("whl")
-    patch_args, patch_inputs = _patch_args_and_inputs(ctx)
-
-    # The build tool is a py_binary wrapping build_helper.py. Using it as
-    # a tool (not just an input) causes Bazel to materialize its runfiles in
-    # the action sandbox, which means the venv shim can find the interpreter
-    # via the standard runfiles mechanism regardless of whether the interpreter
-    # comes from an external repo or the main workspace.
-    tool_files_to_run = _tool_files_to_run(ctx)
-    ctx.actions.run(
-        mnemonic = "PySdistBuild",
-        progress_message = "Source compiling {} to a whl".format(archive.basename),
-        executable = tool_files_to_run,
-        toolchain = None,
-        arguments = ctx.attr.args + patch_args + _memory_args(ctx) + [
-            archive.path,
-            wheel_dir.path,
-        ],
-        inputs = [archive] + patch_inputs,
-        tools = [tool_files_to_run],
-        outputs = [wheel_dir],
-        env = _common_env(ctx),
-        exec_group = _TARGET_EXEC_GROUP,
-        resource_set = resource_set(ctx.attr),
-    )
-
-    return _wheel_providers(wheel_dir, ctx.attr.console_scripts)
-
 def _interpreter_platform_triple(runtime):
     """Best-effort platform triple of the repo a PyRuntimeInfo comes from.
 
@@ -271,9 +192,9 @@ def _cross_compile(ctx, eg_toolchains):
 def _pep517_native_whl(ctx):
     archive = ctx.file.src
     wheel_dir = ctx.actions.declare_directory("whl")
-    patch_args, patch_inputs = _patch_args_and_inputs(ctx)
+    patch_args, patch_inputs = patch_args_and_inputs(ctx)
 
-    eg_toolchains = ctx.exec_groups[_TARGET_EXEC_GROUP].toolchains
+    eg_toolchains = ctx.exec_groups[TARGET_EXEC_GROUP].toolchains
     cross = _cross_compile(ctx, eg_toolchains)
     cc_toolchain_raw = eg_toolchains[_CC_TOOLCHAIN_TYPE]
 
@@ -299,7 +220,7 @@ def _pep517_native_whl(ctx):
     if hasattr(cc_toolchain, "cc_provider_in_toolchain") and hasattr(cc_toolchain, "cc"):
         cc_toolchain = cc_toolchain.cc
 
-    env = _common_env(ctx)
+    env = common_env(ctx)
     extra_inputs, known_variables = _collect_toolchain_inputs_and_vars(ctx)
 
     if "EXECROOT" in known_variables:
@@ -361,7 +282,7 @@ def _pep517_native_whl(ctx):
     else:
         cross_args = []
 
-    _tool = _tool_files_to_run(ctx)
+    tool = tool_files_to_run(ctx)
 
     ctx.actions.run(
         mnemonic = "PySdistCrossBuild" if cross else "PySdistNativeBuild",
@@ -369,9 +290,9 @@ def _pep517_native_whl(ctx):
             "Cross" if cross else "Native",
             archive.basename,
         ),
-        executable = _tool,
+        executable = tool,
         toolchain = None,
-        arguments = ctx.attr.args + patch_args + _memory_args(ctx) + cross_args + [
+        arguments = ctx.attr.args + patch_args + memory_args(ctx) + cross_args + [
             "--execroot-marker",
             _EXECROOT_MARKER,
             archive.path,
@@ -381,67 +302,14 @@ def _pep517_native_whl(ctx):
             [archive] + patch_inputs,
             transitive = extra_inputs,
         ),
-        tools = [_tool],
+        tools = [tool],
         outputs = [wheel_dir],
         env = env,
-        exec_group = _TARGET_EXEC_GROUP,
+        exec_group = TARGET_EXEC_GROUP,
         resource_set = resource_set(ctx.attr),
     )
 
-    return _wheel_providers(wheel_dir, ctx.attr.console_scripts)
-
-_PATCH_ATTRS = {
-    "pre_build_patches": attr.label_list(
-        default = [],
-        allow_files = [".patch", ".diff"],
-        doc = "Patch files to apply to the extracted source before building.",
-    ),
-    "pre_build_patch_strip": attr.int(
-        default = 0,
-        doc = "Strip count for pre-build patches (-p flag to patch).",
-    ),
-}
-
-_pep517_whl_attrs = {
-    "src": attr.label(allow_single_file = True),
-    # The wheel action runs in the "target" exec group; its frontend must run
-    # on the exec (host) platform but resolve its Python build dependencies
-    # for the *target* Python version. exec_transition pins --platforms to the
-    # host and resets the platform_libc/platform_version flags to host values
-    # (Starlark flags otherwise leak from the target configuration and break
-    # wheel selection for build deps). See exec_transition.bzl.
-    "tool": attr.label(executable = True, cfg = exec_transition),
-    "_allowlist_function_transition": attr.label(
-        default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
-    ),
-    "version": attr.string(),
-    "console_scripts": attr.string_list(
-        doc = "Console scripts discovered from the source distribution's entry-point metadata.",
-    ),
-    "args": attr.string_list(default = ["--validate-anyarch"]),
-    "monitor_memory": attr.bool(
-        default = False,
-        doc = "Report approximate Linux process-tree RSS while building the wheel.",
-    ),
-} | _PATCH_ATTRS | resource_set_attr
-
-pep517_whl = rule(
-    implementation = _pep517_whl,
-    doc = """PEP 517 sdist to anyarch whl build rule.
-
-Consumes a sdist artifact and performs a build of that artifact with the
-specified Python dependencies under the configured Python toolchain.
-
-""",
-    attrs = _pep517_whl_attrs,
-    exec_groups = {
-        _TARGET_EXEC_GROUP: exec_group(
-            toolchains = [
-                PY_TOOLCHAIN,
-            ],
-        ),
-    },
-)
+    return wheel_providers(wheel_dir, ctx.attr.console_scripts)
 
 pep517_native_whl = rule(
     implementation = _pep517_native_whl,
@@ -469,7 +337,7 @@ origins are unrecognizable, the optional NATIVE_BUILD_TOOLCHAIN sentinel's
 absence is used as the cross signal.
 
 """,
-    attrs = _pep517_whl_attrs | {
+    attrs = PEP517_WHL_ATTRS | {
         "args": attr.string_list(),
         "env": attr.string_dict(
             doc = "Environment variables to set on the build action. Values may " +
@@ -488,7 +356,7 @@ absence is used as the cross signal.
         config_common.toolchain_type(PY_TOOLCHAIN, mandatory = False),
     ],
     exec_groups = {
-        _TARGET_EXEC_GROUP: exec_group(
+        TARGET_EXEC_GROUP: exec_group(
             toolchains = [
                 PY_TOOLCHAIN,
                 config_common.toolchain_type(EXEC_TOOLS_TOOLCHAIN, mandatory = False),

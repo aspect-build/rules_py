@@ -209,7 +209,7 @@ def _sdist_build_impl(repository_ctx):
     monitor_memory_attr = ""
     if repository_ctx.attr.monitor_memory:
         all_deps = [
-            "@aspect_rules_py//uv/private/pep517_whl:memory_monitor",
+            "@aspect_rules_py//uv/private/pep517_whl/tools:memory_monitor",
         ] + all_deps
         monitor_memory_attr = "\n    monitor_memory = True,"
 
@@ -258,13 +258,13 @@ def _sdist_build_impl(repository_ctx):
     # Leave args unset: the pure rule validates anyarch wheels by default,
     # while the native rule defaults to no validation.
     repository_ctx.file("BUILD.bazel", content = """
-load("@aspect_rules_py//uv/private/pep517_whl:rule.bzl", "{rule}")
+load("@aspect_rules_py//uv/private/pep517_whl:defs.bzl", "{rule}")
 load("@aspect_rules_py//py:defs.bzl", "py_binary")
 
 py_binary(
     name = "build_tool",
-    main = "@aspect_rules_py//uv/private/pep517_whl:build_helper.py",
-    srcs = ["@aspect_rules_py//uv/private/pep517_whl:build_helper.py"],
+    main = "@aspect_rules_py//uv/private/pep517_whl/tools:build_helper.py",
+    srcs = ["@aspect_rules_py//uv/private/pep517_whl/tools:build_helper.py"],
     deps = {deps},
 )
 

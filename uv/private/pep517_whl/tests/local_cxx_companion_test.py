@@ -90,7 +90,7 @@ def _run(helper: str, sdist: str, workdir: str, cxx: str, expect: str, infer_com
 def main() -> None:
     workdir = tempfile.mkdtemp(dir=os.environ["TEST_TMPDIR"])
     sdist = _make_sdist(workdir)
-    helper = os.path.join(os.path.dirname(os.path.dirname(__file__)), "build_helper.py")
+    helper = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tools", "build_helper.py")
     _run(helper, sdist, workdir, "/usr/bin/gcc -DRULES_PY_CXX_ARG_PRESERVED=1", "runtime", True)
 
     missing = os.path.join(workdir, "missing")
