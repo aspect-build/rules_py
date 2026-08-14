@@ -4,11 +4,6 @@ load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load(":action_probe.bzl", "pbs_action_probe", "pbs_pyvenv_cfg_snapshot")
 
 pbs_action_probe(
-    name = "action_probe_39",
-    python_version = "3.9",
-)
-
-pbs_action_probe(
     name = "action_probe_310",
     python_version = "3.10",
 )
@@ -26,6 +21,11 @@ pbs_action_probe(
 pbs_action_probe(
     name = "action_probe_313",
     python_version = "3.13",
+)
+
+pbs_action_probe(
+    name = "action_probe_314",
+    python_version = "3.14",
 )
 
 # Snapshot one runtime on each side of the CPython 3.11/3.12 gate so a
@@ -47,10 +47,10 @@ pbs_pyvenv_cfg_snapshot(
 build_test(
     name = "action_test",
     targets = [
-        ":action_probe_39_output",
         ":action_probe_310_output",
         ":action_probe_311_output",
         ":action_probe_312_output",
         ":action_probe_313_output",
+        ":action_probe_314_output",
     ],
 )

@@ -15,16 +15,13 @@ DEFAULT_RELEASE_BASE_URL = "https://github.com/astral-sh/python-build-standalone
 
 # Default PBS release dates, ordered newest-first. These are used when the user
 # does not specify any release dates via interpreters.release(). Together they
-# cover Python 3.9 through 3.15. Older versions remain reachable by adding an
+# cover Python 3.10 through 3.15. Older versions remain reachable by adding an
 # older release date via interpreters.configure(releases = ...).
 #
 # To find available releases:
 #   gh api 'repos/astral-sh/python-build-standalone/releases?per_page=20' --jq '.[].tag_name'
-#
-# buildifier: disable=unsorted-dict-items
 DEFAULT_RELEASE_DATES = [
     "20260303",  # 3.10-3.15
-    "20251031",  # 3.9-3.15
 ]
 
 # `PLATFORM_LIBC_FLAG` is only applied to linux toolchains below: on
@@ -38,7 +35,6 @@ DEFAULT_RELEASE_DATES = [
 # Optimized free-threaded archives use different suffixes on macOS/GNU Linux,
 # musl Linux, and Windows. These exact mappings are visible in PBS manifests:
 # https://github.com/astral-sh/python-build-standalone/releases/download/20260303/SHA256SUMS
-# https://github.com/astral-sh/python-build-standalone/releases/download/20251031/SHA256SUMS
 #
 # - freethreaded_suffix: exact PBS filename suffix for the free-threaded archive
 #   (the non-free-threaded archive's suffix is chosen by the hub-level

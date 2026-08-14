@@ -1,7 +1,7 @@
 # Django application with rules_py
 
-This is a minimal example of using Django with rules_py. It relies on the hermetic Python 3.9 interpreter
-from rules_python and uses `pip_parse` to fetch PyPi dependencies.
+This is a minimal example of using Django with rules_py. It relies on a hermetic Python 3.11 interpreter
+provisioned by rules_py's `python_interpreters` extension and uses the `uv` extension to fetch PyPi dependencies.
 
 This demo shows the interaction of external wheels, as well as the ability to create a simple Python virtual environment
 for running locally from the command line or from with an IDE.

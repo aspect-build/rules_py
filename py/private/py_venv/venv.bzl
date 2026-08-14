@@ -20,8 +20,6 @@ distutils, etc.) treat it as a real venv:
         <console_script>                        one per wheel-declared entry point
       lib/python<MAJ>.<MIN>/site-packages/
         <name>.pth                              first-party + fallback .pth
-        _virtualenv.py                          distutils-compat shim (Python <3.10)
-        _virtualenv.pth                         loads the shim at site init (Python <3.10)
         <top_level>                             symlink to a wheel's subdir
         <ns_pkg>/<entry>                        merged PEP 420 namespace: real
                                                 <ns_pkg>/ dir, per-entry symlinks
@@ -81,7 +79,6 @@ def assemble_venv(
         include_system_site_packages,
         default_env,
         venv_activate_tmpl,
-        virtualenv_shim_py,
         site_merge_script_py,
         console_script_tmpl,
         venv_name):
@@ -104,8 +101,6 @@ def assemble_venv(
         the generated activate script and unset in `deactivate`.
       venv_activate_tmpl: File — the activate-script template (usually
         `ctx.file._venv_activate_tmpl`).
-      virtualenv_shim_py: File — the `_virtualenv.py` distutils shim
-        source (usually `ctx.file._virtualenv_shim`).
       site_merge_script_py: File — the site_merge.py tool source
         (usually `ctx.file._site_merge_script`). Only needed when the
         wheel graph contains a regular package needing a physical merge; the
@@ -380,29 +375,6 @@ def assemble_venv(
         is_executable = True,
     )
     declared.append(bin_activate)
-
-    # Python 3.10+ ignores the distutils install config keys this shim guards.
-    # Keep it for Python 3.9, whose last compatible pip still needs it.
-    version = py_toolchain.interpreter_version_info
-    if version.major == 3 and version.minor < 10:
-        virtualenv_shim_py_out = ctx.actions.declare_file(
-            "{}/_virtualenv.py".format(site_packages_rel),
-        )
-        ctx.actions.expand_template(
-            template = virtualenv_shim_py,
-            output = virtualenv_shim_py_out,
-            substitutions = {},
-        )
-        declared.append(virtualenv_shim_py_out)
-
-        virtualenv_shim_pth = ctx.actions.declare_file(
-            "{}/_virtualenv.pth".format(site_packages_rel),
-        )
-        ctx.actions.write(
-            output = virtualenv_shim_pth,
-            content = "import _virtualenv\n",
-        )
-        declared.append(virtualenv_shim_pth)
 
     # Console-script wrappers under <venv>/bin/<name>.
     for name, target in console_scripts_map.items():

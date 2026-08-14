@@ -69,7 +69,7 @@ def _baseline_transition_impl(_settings, _attr):
     return {
         _DEP_GROUP_FLAG: "baseline",
         _PYTHON_VERSION_FLAG: "",
-        _RPY_VERSION_FLAG: "3.9",
+        _RPY_VERSION_FLAG: "3.10",
     }
 
 _baseline_transition = transition(

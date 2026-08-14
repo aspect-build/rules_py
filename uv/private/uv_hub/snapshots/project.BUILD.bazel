@@ -3380,7 +3380,7 @@ alias(
 # {
 #     "aspect_rules_py": {
 #         "zipp__3_23_0": {
-#             "python_full_version < '3.11'": 1,
+#             "": 1,
 #         },
 #     },
 # }
@@ -3389,8 +3389,7 @@ alias(
 alias(
     name = "_package_zipp_aspect_rules_py",
     actual = select({
-        "//private/markers:marker_0": "//private/sccs:zipp__3_23_0",
-        "//conditions:default": "//private/sccs:empty",
+        "//conditions:default": "//private/sccs:zipp__3_23_0",
     }),
     visibility = ["//visibility:private"],
 )
@@ -3399,8 +3398,7 @@ alias(
 alias(
     name = "_package_zipp_aspect_rules_py_whl",
     actual = select({
-        "//private/markers:marker_0": "@whl_install__aspect_rules_py__zipp__3_23_0//:whl",
-        "//conditions:default": ":empty_whl",
+        "//conditions:default": "@whl_install__aspect_rules_py__zipp__3_23_0//:whl",
     }),
     visibility = ["//visibility:private"],
 )

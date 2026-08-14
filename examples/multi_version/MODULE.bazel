@@ -13,7 +13,7 @@ python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 # Default toolchain (targets without an explicit python_version resolve here).
 python.toolchain(
     is_default = True,
-    python_version = "3.9",
+    python_version = "3.10",
 )
 
 # A second registered version, selectable via `python_version = "3.12"`.

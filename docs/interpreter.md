@@ -49,7 +49,7 @@ common --@aspect_rules_py//py:python_version=3.12
 ```
 
 That's all you need. The extension uses a set of default PBS release dates that
-cover Python 3.9 through 3.15. The newest available build for each requested
+cover Python 3.10 through 3.15. The newest available build for each requested
 version is selected automatically.
 
 ## Configuring releases

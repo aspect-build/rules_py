@@ -34,13 +34,13 @@ assert_no_match() {
 # --- Should match: rules_python style (hyphens in triplet) ---
 
 assert_matches "rules_python bzlmod (x86_64)" \
-    "./app.runfiles/rules_python++python+python_3_9_x86_64-unknown-linux-gnu/bin/python3"
+    "./app.runfiles/rules_python++python+python_3_10_x86_64-unknown-linux-gnu/bin/python3"
 
 assert_matches "rules_python bzlmod (aarch64)" \
     "./app.runfiles/rules_python++python+python_3_13_6_aarch64-unknown-linux-gnu/lib/libpython3.so"
 
 assert_matches "rules_python WORKSPACE (aarch64)" \
-    "./app.runfiles/rules_python~0.21.0~python~python3_9_aarch64-unknown-linux-gnu/bin/python3"
+    "./app.runfiles/rules_python~0.21.0~python~python3_10_aarch64-unknown-linux-gnu/bin/python3"
 
 assert_matches "rules_python macOS (x86_64)" \
     "./app.runfiles/rules_python++python+python_3_11_x86_64-apple-darwin/bin/python3"

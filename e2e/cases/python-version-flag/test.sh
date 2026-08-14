@@ -21,7 +21,7 @@ BAZEL="${BAZEL:-bazel}"
     --lockfile_mode=off \
     -- //python-version-flag:version_check 3.11
 
-for version in 3.9 3.10 3.11 3.12 3.13; do
+for version in 3.10 3.11 3.12 3.13 3.14; do
     "$BAZEL" run \
         --lockfile_mode=off \
         "--@aspect_rules_py//py:python_version=${version}" \

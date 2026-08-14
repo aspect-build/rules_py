@@ -23,7 +23,6 @@ interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_inte
 interpreters.configure(
     releases = [
         "20260303",
-        "20251031",
     ],
 )
 interpreters.toolchain(
