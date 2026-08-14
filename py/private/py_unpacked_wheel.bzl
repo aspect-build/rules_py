@@ -15,6 +15,7 @@ def _py_unpacked_wheel_impl(ctx):
     unpack_directory = ctx.actions.declare_directory("{}".format(ctx.attr.name))
 
     args = ctx.actions.args()
+    args.add_all(["-S", "-E", "-s", "-B"])
     args.add(unpack_script)
     args.add_all([unpack_directory], expand_directories = False, before_each = "--into")
     args.add("--wheel", ctx.file.src)
