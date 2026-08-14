@@ -475,11 +475,9 @@ def _parse_args(argv: Sequence[str]) -> _Args:
     args = _Args()
     flags = iter(argv)
     for flag in flags:
-        flag, equals, value = flag.partition("=")
-        if not equals:
-            value = next(flags, None)
-            if value is None:
-                raise SystemExit("Missing value for flag: {}".format(flag))
+        value = next(flags, None)
+        if value is None:
+            raise SystemExit("Missing value for flag: {}".format(flag))
         if flag == "--into":
             args.into = Path(value)
         elif flag == "--wheel":

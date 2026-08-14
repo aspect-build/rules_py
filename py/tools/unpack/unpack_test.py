@@ -424,7 +424,7 @@ def main() -> None:
             good_wheel,
             filtered_bytecode_out,
             Path(sys.executable),
-            ("--exclude-glob=fixture/__pycache__/mod.*.pyc",),
+            ("--exclude-glob", "fixture/__pycache__/mod.*.pyc",),
         )
         assert filtered_bytecode.returncode == 0, (
             filtered_bytecode.stdout + filtered_bytecode.stderr
@@ -470,7 +470,7 @@ def main() -> None:
             corrupt_wheel,
             corrupt_out,
             Path(sys.executable),
-            ("--exclude-glob=fixture/**/tests/**",),
+            ("--exclude-glob", "fixture/**/tests/**",),
         )
         assert skipped.returncode == 0, skipped.stdout + skipped.stderr
         assert not (
@@ -548,7 +548,7 @@ def main() -> None:
             excluded_invalid_wheel,
             root / "excluded-invalid-out",
             Path(sys.executable),
-            ("--exclude-glob=**",),
+            ("--exclude-glob", "**",),
         )
         assert excluded_invalid.returncode != 0, (
             excluded_invalid.stdout + excluded_invalid.stderr
@@ -719,7 +719,7 @@ else:
                 str(mutation_tool),
                 "--preserve-path",
                 "fixture",
-                "--exclude-glob=fixture/**/tests/**",
+                "--exclude-glob", "fixture/**/tests/**",
             ),
         )
         assert accepted.returncode == 0, accepted.stdout + accepted.stderr
@@ -739,7 +739,7 @@ else:
                 str(mutation_tool),
                 "--preserve-path",
                 "fixture",
-                "--exclude-glob=fixture/__init__.py",
+                "--exclude-glob", "fixture/__init__.py",
             ),
         )
         assert accepted.returncode == 0, accepted.stdout + accepted.stderr
@@ -928,7 +928,7 @@ else:
             good_wheel,
             excluded_data_dir,
             Path(sys.executable),
-            ("--exclude-glob=**/*.pyc",),
+            ("--exclude-glob", "**/*.pyc",),
         )
         assert excluded_data.returncode == 0, excluded_data.stdout + excluded_data.stderr
         assert (excluded_data_dir / "share" / "supplied.pyc").is_file()
@@ -1031,14 +1031,14 @@ else:
                 "demo",
                 "--preserve-path",
                 "demo-1.0.dist-info",
-                "--exclude-glob=demo/**/tests/**",
-                "--exclude-glob=demo/file_tests/test_*.py",
-                "--exclude-glob=demo/sdk-core",
-                "--exclude-glob=pkg/test_*.py",
-                "--exclude-glob=pkg/.py",
-                "--exclude-glob=pkg/..py",
-                "--exclude-glob=google/**/*.proto",
-                "--exclude-glob=demo-1.0.dist-info/helper.py",
+                "--exclude-glob", "demo/**/tests/**",
+                "--exclude-glob", "demo/file_tests/test_*.py",
+                "--exclude-glob", "demo/sdk-core",
+                "--exclude-glob", "pkg/test_*.py",
+                "--exclude-glob", "pkg/.py",
+                "--exclude-glob", "pkg/..py",
+                "--exclude-glob", "google/**/*.proto",
+                "--exclude-glob", "demo-1.0.dist-info/helper.py",
             ),
         )
         assert filtered.returncode == 0, filtered.stdout + filtered.stderr
@@ -1155,7 +1155,7 @@ else:
             filter_wheel,
             root / "removed-metadata",
             Path(sys.executable),
-            ("--exclude-glob=demo-1.0.dist-info/METADATA",),
+            ("--exclude-glob", "demo-1.0.dist-info/METADATA",),
         )
         assert removed_metadata.returncode != 0, removed_metadata.stderr
         assert "wheel exclusions removed installed METADATA" in removed_metadata.stderr
@@ -1378,7 +1378,7 @@ else:
             entry_point_wheel,
             entry_point_out,
             Path(sys.executable),
-            ("--exclude-glob=entry_point-1.0.dist-info/entry_points.txt",),
+            ("--exclude-glob", "entry_point-1.0.dist-info/entry_points.txt",),
         )
         assert entry_point.returncode == 0, entry_point.stderr
         assert {entry.name for entry in (entry_point_out / "bin").iterdir()} == {

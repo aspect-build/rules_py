@@ -221,7 +221,7 @@ def _whl_install(ctx):
         exec_runtime.files,
     ]
     if ctx.attr.exclude_glob:
-        arguments.add_all(ctx.attr.exclude_glob, format_each = "--exclude-glob=%s")
+        arguments.add_all(ctx.attr.exclude_glob, before_each = "--exclude-glob")
         transitive_inputs.append(depset([ctx.file._exclude_glob_script]))
 
     # Patch application (happens before pyc compilation).
