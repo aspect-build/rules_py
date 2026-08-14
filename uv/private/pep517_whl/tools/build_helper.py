@@ -590,15 +590,6 @@ def _compiler_env(
         if not is_darwin and path.isdir(target_gcc_sysroot):
             env["RULES_PY_TARGET_GCC_SYSROOT"] = target_gcc_sysroot
 
-        # The llvm toolchain on a darwin exec host reports llvm-libtool-darwin
-        # (Mach-O-only) as archiver; for ELF targets swap in the sibling
-        # llvm-ar, which the ar-style args and target format require.
-        ar_path = env.get("AR", "")
-        if not is_darwin and path.basename(ar_path) == "llvm-libtool-darwin":
-            llvm_ar = path.join(path.dirname(ar_path), "llvm-ar")
-            if path.exists(llvm_ar):
-                env["AR"] = llvm_ar
-
         # apple_support's wrapped_clang hard-fails without DEVELOPER_DIR /
         # SDKROOT; Bazel injects them only into actions with Xcode execution
         # requirements, which this PEP 517 action is not.
@@ -651,6 +642,17 @@ def _compiler_env(
     mpicc_path = shutil.which("mpicc", path=env["PATH"])
     if mpicc_path:
         env.setdefault("MPICC", _make_compiler_wrapper(tmpdir, "mpicc", mpicc_path, sysroot))
+
+    # $AR consumers (meson, distutils, CMake) all invoke it with ar-style
+    # args, but the llvm toolchain's cpp_link_static_library tool on a darwin
+    # exec host is llvm-libtool-darwin, which only accepts libtool-style
+    # `-static -o`. Swap in the sibling llvm-ar for every target: its
+    # symbol-table'd archives satisfy ld64 and ELF linkers alike.
+    ar_path = env.get("AR", "")
+    if path.basename(ar_path) == "llvm-libtool-darwin":
+        llvm_ar = path.join(path.dirname(ar_path), "llvm-ar")
+        if path.exists(llvm_ar):
+            env["AR"] = llvm_ar
     env.setdefault("AR", "ar")
 
     for key, wrapper in [
@@ -753,6 +755,17 @@ os.execv(sys.argv[1], sys.argv[1:])
 """
 
 
+# numpy's longdouble probe outputs (numpy/_core/meson.build), keyed by the
+# target ABI: x86 keeps the 80-bit x87 format padded to 16 bytes, aarch64
+# glibc uses IEEE binary128, and Apple aarch64 aliases long double to double.
+_MESON_LONGDOUBLE_FORMAT = {
+    ("darwin", "aarch64"): "IEEE_DOUBLE_LE",
+    ("darwin", "x86_64"): "INTEL_EXTENDED_16_BYTES_LE",
+    ("linux", "aarch64"): "IEEE_QUAD_LE",
+    ("linux", "x86_64"): "INTEL_EXTENDED_16_BYTES_LE",
+}
+
+
 def _generate_meson_cross_file(
     tmpdir: str,
     build_env: Dict[str, str],
@@ -788,6 +801,16 @@ def _generate_meson_cross_file(
             executable=True,
         )
         exe_wrapper_line = "exe_wrapper = ['{}']\n".format(exe_wrapper)
+
+    # numpy's documented cross recipe: its meson.build reads this external
+    # property and only falls back to a cc.run() probe when it is absent —
+    # which hard-errors wherever no exe_wrapper exists (any darwin→linux
+    # cross). The value is an ABI constant of (os, cpu, libc), so bake it in
+    # rather than making every consumer rediscover numpy gh-23972.
+    longdouble_line = ""
+    longdouble_format = _MESON_LONGDOUBLE_FORMAT.get((target_os, target_cpu))
+    if longdouble_format:
+        longdouble_line = "longdouble_format = '{}'\n".format(longdouble_format)
     return _write_generated_file(
         path.join(tmpdir, "cross_file.ini"),
         textwrap.dedent("""\
@@ -805,10 +828,11 @@ def _generate_meson_cross_file(
 
             [properties]
             needs_exe_wrapper = true
-            """).format(
+            {longdouble_line}""").format(
             cc=build_env["CC"],
             cxx=build_env["CXX"],
             exe_wrapper_line=exe_wrapper_line,
+            longdouble_line=longdouble_line,
             ar=build_env.get("AR", "ar"),
             strip=build_env.get("STRIP", "strip"),
             system=target_os,

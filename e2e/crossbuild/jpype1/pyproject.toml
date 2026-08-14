@@ -4,7 +4,9 @@ version = "0.0.0"
 requires-python = ">=3.11"
 dependencies = [
     "build",
+    "cmake",
     "jpype1==1.7.1",
+    "ninja",
     "scikit-build-core",
     "setuptools",
     "wheel",

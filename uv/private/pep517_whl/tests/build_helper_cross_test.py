@@ -33,8 +33,24 @@ if expected is not None:
         if _manylinux.manylinux_compatible(2, 17, expected):
             sys.exit("MANYLINUX_NOT_DISABLED")
 
+expected_ar = os.environ.get("EXPECTED_AR_BASENAME")
+if expected_ar is not None:
+    seen_ar = os.path.basename(os.environ.get("AR", ""))
+    if seen_ar != expected_ar:
+        sys.exit("WRONG_AR: saw {!r}, expected {!r}".format(seen_ar, expected_ar))
+
 setup(name="cross_site_probe", version="1.0", py_modules=[])
 """
+
+
+def _make_fake_llvm_bindir(workdir: str) -> str:
+    bindir = os.path.join(workdir, "llvm-bin")
+    os.makedirs(bindir)
+    for tool in ("llvm-libtool-darwin", "llvm-ar"):
+        with open(os.path.join(bindir, tool), "w") as f:
+            f.write("#!/bin/sh\nexit 0\n")
+        os.chmod(os.path.join(bindir, tool), 0o755)
+    return bindir
 
 
 def _make_sdist(workdir: str) -> str:
@@ -84,6 +100,28 @@ def main() -> None:
 
     # Native build: no faking involved — setup.py must see the real host arch.
     _run(helper, sdist, workdir, "native", {"EXPECTED_MACHINE": real_machine}, [])
+
+    # llvm-libtool-darwin (the llvm toolchain's static-library tool on darwin
+    # exec hosts) only takes libtool-style args, but every $AR consumer
+    # invokes ar-style — the helper must swap in the sibling llvm-ar for
+    # native and cross builds alike.
+    fake_ar = os.path.join(_make_fake_llvm_bindir(workdir), "llvm-libtool-darwin")
+    _run(
+        helper,
+        sdist,
+        workdir,
+        "ar-swap-native",
+        {"AR": fake_ar, "EXPECTED_AR_BASENAME": "llvm-ar"},
+        [],
+    )
+    _run(
+        helper,
+        sdist,
+        workdir,
+        "ar-swap-cross",
+        {"AR": fake_ar, "EXPECTED_AR_BASENAME": "llvm-ar"},
+        ["--cross", "--target-os", "linux", "--target-cpu", fake_machine],
+    )
 
     print("OK")
 
