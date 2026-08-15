@@ -1,0 +1,8 @@
+# Generated synthetic workload + generated module; do not edit manually.
+src/
+tests/
+BUILD.bazel
+bench_main.py
+MODULE.bazel
+MODULE.bazel.lock
+__pycache__/
